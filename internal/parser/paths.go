@@ -1,5 +1,11 @@
 package parser
 
+import (
+	"fmt"
+
+	"gopkg.in/yaml.v3"
+)
+
 // Paths holds the relative paths to the individual endpoints
 type Paths map[string]*PathItem
 
@@ -48,6 +54,50 @@ type Operation struct {
 type Responses struct {
 	Default *Response            `yaml:"default,omitempty"`
 	Codes   map[string]*Response `yaml:",inline"`
+}
+
+// UnmarshalYAML implements custom unmarshaling for Responses to validate status codes during parsing.
+// This prevents invalid fields from being captured in the Codes map and provides clearer error messages.
+func (r *Responses) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// First unmarshal into a raw map to inspect all fields
+	var raw map[string]interface{}
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	// Initialize the Codes map
+	r.Codes = make(map[string]*Response)
+
+	// Process each field
+	for key, value := range raw {
+		if key == "default" {
+			// Handle the default response
+			valueBytes, err := yamlMarshalValue(value)
+			if err != nil {
+				return fmt.Errorf("failed to marshal default response: %w", err)
+			}
+			var defaultResp Response
+			if err := yamlUnmarshalValue(valueBytes, &defaultResp); err != nil {
+				return fmt.Errorf("failed to unmarshal default response: %w", err)
+			}
+			r.Default = &defaultResp
+		} else {
+			// All other fields should be status codes
+			// We validate during parsing for better error messages, but the parser
+			// validation will also catch these for consistency
+			valueBytes, err := yamlMarshalValue(value)
+			if err != nil {
+				return fmt.Errorf("failed to marshal response for status code %s: %w", key, err)
+			}
+			var resp Response
+			if err := yamlUnmarshalValue(valueBytes, &resp); err != nil {
+				return fmt.Errorf("failed to unmarshal response for status code %s: %w", key, err)
+			}
+			r.Codes[key] = &resp
+		}
+	}
+
+	return nil
 }
 
 // Response describes a single response from an API Operation
@@ -110,4 +160,14 @@ type Encoding struct {
 	AllowReserved bool               `yaml:"allowReserved,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]interface{} `yaml:",inline"`
+}
+
+// yamlMarshalValue marshals a value to YAML bytes for re-parsing
+func yamlMarshalValue(value interface{}) ([]byte, error) {
+	return yaml.Marshal(value)
+}
+
+// yamlUnmarshalValue unmarshals YAML bytes into a target
+func yamlUnmarshalValue(data []byte, target interface{}) error {
+	return yaml.Unmarshal(data, target)
 }

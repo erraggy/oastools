@@ -824,23 +824,29 @@ paths:
 	}
 }
 
-// TestRCVersionsExcluded tests that release candidate versions are handled
-// These are not official releases but may appear in the wild
-func TestRCVersionsExcluded(t *testing.T) {
-	rcVersions := []string{
-		"3.0.0-rc0",
-		"3.0.0-rc1",
-		"3.0.0-rc2",
-		"3.1.0-rc0",
-		"3.1.0-rc1",
+// TestRCVersionsAccepted tests that release candidate versions are handled
+// by mapping them to the closest known version without exceeding the base version
+func TestRCVersionsAccepted(t *testing.T) {
+	tests := []struct {
+		rcVersion      string
+		expectedOASVer OASVersion
+		expectedVerStr string
+	}{
+		{"3.0.0-rc0", OASVersion300, "3.0.0"},
+		{"3.0.0-rc1", OASVersion300, "3.0.0"},
+		{"3.0.0-rc2", OASVersion300, "3.0.0"},
+		{"3.1.0-rc0", OASVersion310, "3.1.0"},
+		{"3.1.0-rc1", OASVersion310, "3.1.0"},
+		{"3.0.5-rc0", OASVersion304, "3.0.4"}, // Maps to closest without exceeding
+		{"3.1.3-rc0", OASVersion312, "3.1.2"}, // Maps to closest without exceeding
 	}
 
-	for _, rcVersion := range rcVersions {
-		t.Run("RC_"+rcVersion, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run("RC_"+tt.rcVersion, func(t *testing.T) {
 			parser := New()
 
 			data := []byte(`
-openapi: "` + rcVersion + `"
+openapi: "` + tt.rcVersion + `"
 info:
   title: Test API
   version: 1.0.0
@@ -853,8 +859,17 @@ paths:
 `)
 
 			result, err := parser.ParseBytes(data)
-			assert.ErrorContains(t, err, "invalid OAS semver: "+rcVersion)
-			assert.Nil(t, result)
+			assert.NoError(t, err)
+			assert.NotNil(t, result)
+
+			// Verify it mapped to the correct OAS version
+			assert.Equal(t, tt.expectedOASVer, result.OASVersion)
+			assert.Equal(t, tt.rcVersion, result.Version) // Original version preserved
+
+			// Verify document parsed correctly
+			doc, ok := result.Document.(*OAS3Document)
+			assert.True(t, ok, "Expected OAS3Document")
+			assert.Equal(t, tt.rcVersion, doc.OpenAPI)
 		})
 	}
 }

@@ -464,8 +464,13 @@ func (p *Parser) validateOAS3(doc *OAS3Document) []error {
 	}
 
 	// Validate webhooks if present (OAS 3.1+)
-	if len(doc.Webhooks) > 0 && versionInRangeExclusive(doc.OpenAPI, "0.0.0", "3.1.0") {
-		errors = append(errors, fmt.Errorf("oas %s: 'webhooks' field is only supported in OAS 3.1.0 and later, not in version %s", version, doc.OpenAPI))
+	if len(doc.Webhooks) > 0 {
+		if versionInRangeExclusive(doc.OpenAPI, "0.0.0", "3.1.0") {
+			errors = append(errors, fmt.Errorf("oas %s: 'webhooks' field is only supported in OAS 3.1.0 and later, not in version %s", version, doc.OpenAPI))
+		} else {
+			// Validate webhook structure (webhooks are PathItems like paths)
+			errors = append(errors, p.validateOAS3Webhooks(doc.Webhooks, version)...)
+		}
 	}
 
 	return errors
@@ -615,6 +620,26 @@ func (p *Parser) validateOAS3Parameter(param *Parameter, opPath string, index in
 	// Path parameters must be required
 	if param.In == ParamInPath && !param.Required {
 		errors = append(errors, fmt.Errorf("oas %s: invalid parameter '%s': path parameters must have 'required: true' per spec", version, paramPath))
+	}
+
+	return errors
+}
+
+// validateOAS3Webhooks validates webhooks structure (OAS 3.1+)
+// Webhooks are similar to paths - they map webhook names to PathItems
+func (p *Parser) validateOAS3Webhooks(webhooks map[string]*PathItem, version string) []error {
+	errors := make([]error, 0)
+	operationIDs := make(map[string]string)
+
+	for webhookName, pathItem := range webhooks {
+		if pathItem == nil {
+			continue
+		}
+
+		// Validate each webhook's operations
+		// Note: webhook names don't have the same path pattern requirements as paths
+		// (they don't need to start with '/')
+		errors = append(errors, p.validateOAS3PathItem(pathItem, "webhooks."+webhookName, operationIDs, version)...)
 	}
 
 	return errors
