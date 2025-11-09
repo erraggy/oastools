@@ -11,7 +11,7 @@ func New() *Joiner {
 }
 
 // Join joins multiple OpenAPI specifications into a single document
-func (m *Joiner) Join(specPaths []string, outputPath string) error {
+func (j *Joiner) Join(specPaths []string, outputPath string) error {
 	// TODO: Implement join logic
 	return nil
 }
