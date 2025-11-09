@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -93,7 +94,14 @@ func (r *RefResolver) ResolveExternal(ref string) (interface{}, error) {
 
 	// Resolve the file path relative to baseDir
 	if !filepath.IsAbs(filePath) {
-		filePath = filepath.Join(r.baseDir, filePath)
+		filePath = filepath.Clean(filepath.Join(r.baseDir, filePath))
+	}
+
+	// Ensure the resolved path is within allowed directory
+	absBase, _ := filepath.Abs(r.baseDir)
+	absPath, _ := filepath.Abs(filePath)
+	if !strings.HasPrefix(absPath, absBase) {
+		return nil, fmt.Errorf("path traversal detected: %s", ref)
 	}
 
 	// Check if document is already loaded
@@ -155,12 +163,16 @@ func (r *RefResolver) ResolveAllRefs(doc map[string]interface{}) error {
 
 // resolveRefsRecursive recursively walks through the document structure and resolves $ref
 func (r *RefResolver) resolveRefsRecursive(root, current interface{}) error {
+	rootMap, ok := root.(map[string]interface{})
+	if !ok {
+		return errors.New("root is not a map")
+	}
 	switch v := current.(type) {
 	case map[string]interface{}:
 		// Check if this object has a $ref field
 		if ref, ok := v["$ref"].(string); ok {
 			// Resolve the reference
-			resolved, err := r.Resolve(root.(map[string]interface{}), ref)
+			resolved, err := r.Resolve(rootMap, ref)
 			if err != nil {
 				return fmt.Errorf("failed to resolve $ref %s: %w", ref, err)
 			}

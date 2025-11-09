@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hashicorp/go-version"
+	semver "github.com/hashicorp/go-version"
 	"gopkg.in/yaml.v3"
 )
 
@@ -28,16 +28,17 @@ func New() *Parser {
 
 // ParseResult contains the parsed OpenAPI specification and metadata
 type ParseResult struct {
-	// Version is the detected OAS version (e.g., "2.0", "3.0.3", "3.1.0")
+	// Version is the detected OAS semver (e.g., "2.0", "3.0.3", "3.1.0")
 	Version string
 	// Data contains the raw parsed data as a map
 	Data map[string]interface{}
-	// Document contains the parsed document (type depends on version)
+	// Document contains the parsed document (type depends on semver)
 	Document interface{}
 	// Errors contains any parsing or validation errors
 	Errors []error
 	// Warnings contains non-fatal issues
-	Warnings []string
+	Warnings   []string
+	OASVersion OASVersion
 }
 
 // Parse parses an OpenAPI specification file
@@ -73,13 +74,13 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 		Warnings: make([]string, 0),
 	}
 
-	// First pass: parse to generic map to detect version
+	// First pass: parse to generic map to detect semver
 	var rawData map[string]interface{}
 	if err := yaml.Unmarshal(data, &rawData); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML/JSON: %w", err)
 	}
 
-	// Resolve references if enabled (before version-specific parsing)
+	// Resolve references if enabled (before semver-specific parsing)
 	if p.ResolveRefs {
 		resolver := NewRefResolver(baseDir)
 		if err := resolver.ResolveAllRefs(rawData); err != nil {
@@ -89,26 +90,26 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 
 	result.Data = rawData
 
-	// Detect version
+	// Detect semver
 	version, err := p.detectVersion(rawData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to detect OAS version: %w", err)
+		return nil, fmt.Errorf("failed to detect OAS semver: %w", err)
 	}
 	result.Version = version
 
-	// Re-marshal the data (potentially with resolved refs) for version-specific parsing
+	// Re-marshal the data (potentially with resolved refs) for semver-specific parsing
 	resolvedData, err := yaml.Marshal(rawData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to re-marshal data: %w", err)
 	}
 
-	// Parse to version-specific structure
-	doc, err := p.parseVersionSpecific(resolvedData, version)
+	// Parse to semver-specific structure
+	doc, oasVersion, err := p.parseVersionSpecific(resolvedData, version)
 	if err != nil {
-		result.Errors = append(result.Errors, err)
-	} else {
-		result.Document = doc
+		return nil, err
 	}
+	result.Document = doc
+	result.OASVersion = oasVersion
 
 	// Validate structure if enabled
 	if p.ValidateStructure {
@@ -119,7 +120,7 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 	return result, nil
 }
 
-// detectVersion determines the OAS version from the raw data
+// detectVersion determines the OAS semver from the raw data
 func (p *Parser) detectVersion(data map[string]interface{}) (string, error) {
 	// Check for OAS 2.0 (Swagger)
 	if swagger, ok := data["swagger"].(string); ok {
@@ -132,23 +133,23 @@ func (p *Parser) detectVersion(data map[string]interface{}) (string, error) {
 	}
 
 	// Neither field was found - provide helpful error message
-	return "", fmt.Errorf("[Version Detection] unable to detect OpenAPI version: document must contain either 'swagger: \"2.0\"' (for OAS 2.0) or 'openapi: \"3.x.x\"' (for OAS 3.x) at the root level")
+	return "", fmt.Errorf("[Version Detection] unable to detect OpenAPI semver: document must contain either 'swagger: \"2.0\"' (for OAS 2.0) or 'openapi: \"3.x.x\"' (for OAS 3.x) at the root level")
 }
 
-// parseVersion parses a version string into a semantic version
-func parseVersion(v string) (*version.Version, error) {
-	return version.NewVersion(v)
+// parseSemVer parses a semver string into a semantic semver
+func parseSemVer(v string) (*semver.Version, error) {
+	return semver.NewVersion(v)
 }
 
-// versionInRangeExclusive checks if a version string is within the specified range: minVersion <= v < maxVersion
+// versionInRangeExclusive checks if a semver string is within the specified range: minVersion <= v < maxVersion
 // If maxVersion is empty string, no upper bound is enforced (v >= minVersion)
 func versionInRangeExclusive(v, minVersion, maxVersion string) bool {
-	ver, err := parseVersion(v)
+	ver, err := parseSemVer(v)
 	if err != nil {
 		return false
 	}
 
-	min, err := parseVersion(minVersion)
+	min, err := parseSemVer(minVersion)
 	if err != nil {
 		return false
 	}
@@ -163,32 +164,38 @@ func versionInRangeExclusive(v, minVersion, maxVersion string) bool {
 		return true
 	}
 
-	max, err := parseVersion(maxVersion)
+	max, err := parseSemVer(maxVersion)
 	if err != nil {
 		return false
 	}
 	return ver.LessThan(max)
 }
 
-// parseVersionSpecific parses the data into a version-specific structure
-func (p *Parser) parseVersionSpecific(data []byte, version string) (interface{}, error) {
-	switch {
-	case version == "2.0":
+// parseVersionSpecific parses the data into a semver-specific structure
+func (p *Parser) parseVersionSpecific(data []byte, version string) (interface{}, OASVersion, error) {
+	v, ok := ParseVersion(version)
+	if !ok {
+		return nil, 0, fmt.Errorf("invalid OAS semver: %s", version)
+	}
+	switch v {
+	case OASVersion20:
 		var doc OAS2Document
 		if err := yaml.Unmarshal(data, &doc); err != nil {
-			return nil, fmt.Errorf("[OAS 2.0 Parser] failed to parse document structure: %w", err)
+			return nil, 0, fmt.Errorf("[OAS 2.0 Parser] failed to parse document structure: %w", err)
 		}
-		return &doc, nil
+		doc.OASVersion = v
+		return &doc, v, nil
 
-	case versionInRangeExclusive(version, "3.0.0", "4.0.0"):
+	case OASVersion300, OASVersion301, OASVersion302, OASVersion303, OASVersion304, OASVersion310, OASVersion311, OASVersion312, OASVersion320:
 		var doc OAS3Document
 		if err := yaml.Unmarshal(data, &doc); err != nil {
-			return nil, fmt.Errorf("[OAS %s Parser] failed to parse document structure: %w", version, err)
+			return nil, 0, fmt.Errorf("[OAS %s Parser] failed to parse document structure: %w", version, err)
 		}
-		return &doc, nil
+		doc.OASVersion = v
+		return &doc, v, nil
 
 	default:
-		return nil, fmt.Errorf("[Parser Error] unsupported OpenAPI version: %s (only 2.0 and 3.x versions are supported)", version)
+		return nil, 0, fmt.Errorf("[Parser Error] unsupported OpenAPI semver: %s (only 2.0 and 3.x versions are supported)", version)
 	}
 }
 
@@ -196,9 +203,9 @@ func (p *Parser) parseVersionSpecific(data []byte, version string) (interface{},
 func (p *Parser) validateStructure(result *ParseResult) []error {
 	errors := make([]error, 0)
 
-	// Validate required fields based on version
+	// Validate required fields based on semver
 	switch {
-	case result.Version == "2.0":
+	case result.OASVersion == OASVersion20:
 		doc, ok := result.Document.(*OAS2Document)
 		if !ok {
 			errors = append(errors, fmt.Errorf("[Parser Error] internal error: document type mismatch for OAS 2.0 (expected *OAS2Document, got %T)", result.Document))
@@ -206,7 +213,7 @@ func (p *Parser) validateStructure(result *ParseResult) []error {
 		}
 		errors = append(errors, p.validateOAS2(doc)...)
 
-	case versionInRangeExclusive(result.Version, "3.0.0", "4.0.0"):
+	case result.OASVersion.IsValid():
 		doc, ok := result.Document.(*OAS3Document)
 		if !ok {
 			errors = append(errors, fmt.Errorf("[Parser Error] internal error: document type mismatch for OAS 3.x (expected *OAS3Document, got %T)", result.Document))
@@ -215,7 +222,7 @@ func (p *Parser) validateStructure(result *ParseResult) []error {
 		errors = append(errors, p.validateOAS3(doc)...)
 
 	default:
-		errors = append(errors, fmt.Errorf("[Parser Error] unsupported OpenAPI version: %s (only versions 2.0 and 3.x are supported)", result.Version))
+		errors = append(errors, fmt.Errorf("[Parser Error] unsupported OpenAPI semver: %s (only versions 2.0 and 3.x are supported)", result.Version))
 	}
 
 	return errors
@@ -225,7 +232,7 @@ func (p *Parser) validateStructure(result *ParseResult) []error {
 func (p *Parser) validateOAS2(doc *OAS2Document) []error {
 	errors := make([]error, 0)
 
-	// Validate swagger version field
+	// Validate swagger semver field
 	if doc.Swagger == "" {
 		errors = append(errors, fmt.Errorf("[OAS 2.0] missing required root field 'swagger': must be set to \"2.0\""))
 	} else if doc.Swagger != "2.0" {
@@ -240,7 +247,7 @@ func (p *Parser) validateOAS2(doc *OAS2Document) []error {
 			errors = append(errors, fmt.Errorf("[OAS 2.0] missing required field 'info.title': Info object must have a title per spec"))
 		}
 		if doc.Info.Version == "" {
-			errors = append(errors, fmt.Errorf("[OAS 2.0] missing required field 'info.version': Info object must have a version string per spec"))
+			errors = append(errors, fmt.Errorf("[OAS 2.0] missing required field 'info.semver': Info object must have a semver string per spec"))
 		}
 	}
 
@@ -323,11 +330,11 @@ func (p *Parser) validateOAS3(doc *OAS3Document) []error {
 	errors := make([]error, 0)
 	version := doc.OpenAPI
 
-	// Validate openapi version field
+	// Validate openapi semver field
 	if doc.OpenAPI == "" {
-		errors = append(errors, fmt.Errorf("[OAS 3.x] missing required root field 'openapi': must be set to a valid 3.x version (e.g., \"3.0.3\", \"3.1.0\")"))
+		errors = append(errors, fmt.Errorf("[OAS 3.x] missing required root field 'openapi': must be set to a valid 3.x semver (e.g., \"3.0.3\", \"3.1.0\")"))
 	} else if !versionInRangeExclusive(doc.OpenAPI, "3.0.0", "4.0.0") {
-		errors = append(errors, fmt.Errorf("[OAS %s] invalid 'openapi' field value: \"%s\" is not a valid 3.x version", version, doc.OpenAPI))
+		errors = append(errors, fmt.Errorf("[OAS %s] invalid 'openapi' field value: \"%s\" is not a valid 3.x semver", version, doc.OpenAPI))
 	}
 
 	// Validate info object
@@ -343,7 +350,7 @@ func (p *Parser) validateOAS3(doc *OAS3Document) []error {
 
 	// Validate webhooks if present (OAS 3.1+)
 	if len(doc.Webhooks) > 0 && versionInRangeExclusive(doc.OpenAPI, "0.0.0", "3.1.0") {
-		errors = append(errors, fmt.Errorf("[OAS %s] 'webhooks' field is only supported in OAS 3.1.0 and later, not in version %s", version, doc.OpenAPI))
+		errors = append(errors, fmt.Errorf("[OAS %s] 'webhooks' field is only supported in OAS 3.1.0 and later, not in semver %s", version, doc.OpenAPI))
 	}
 
 	return errors
@@ -358,7 +365,7 @@ func (p *Parser) validateOAS3Info(info *Info, version string) []error {
 			errors = append(errors, fmt.Errorf("[OAS %s] missing required field 'info.title': Info object must have a title per spec", version))
 		}
 		if info.Version == "" {
-			errors = append(errors, fmt.Errorf("[OAS %s] missing required field 'info.version': Info object must have a version string per spec", version))
+			errors = append(errors, fmt.Errorf("[OAS %s] missing required field 'info.semver': Info object must have a semver string per spec", version))
 		}
 	}
 	return errors

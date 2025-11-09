@@ -1,0 +1,57 @@
+package parser
+
+type OASVersion int
+
+const (
+	unknown OASVersion = iota
+	OASVersion20
+	OASVersion300
+	OASVersion301
+	OASVersion302
+	OASVersion303
+	OASVersion304
+	OASVersion310
+	OASVersion311
+	OASVersion312
+	OASVersion320
+)
+
+var (
+	versionToString = map[OASVersion]string{
+		OASVersion20:  "2.0",
+		OASVersion300: "3.0.0",
+		OASVersion301: "3.0.1",
+		OASVersion302: "3.0.2",
+		OASVersion303: "3.0.3",
+		OASVersion304: "3.0.4",
+		OASVersion310: "3.1.0",
+		OASVersion311: "3.1.1",
+		OASVersion312: "3.1.2",
+		OASVersion320: "3.2.0",
+	}
+
+	stringToVersion = func() map[string]OASVersion {
+		m := make(map[string]OASVersion, 10)
+		for k, v := range versionToString {
+			m[v] = k
+		}
+		return m
+	}()
+)
+
+func (v OASVersion) String() string {
+	if s, ok := versionToString[v]; ok {
+		return s
+	}
+	return "unknown"
+}
+
+func (v OASVersion) IsValid() bool {
+	_, ok := versionToString[v]
+	return ok
+}
+
+func ParseVersion(s string) (OASVersion, bool) {
+	v, ok := stringToVersion[s]
+	return v, ok
+}

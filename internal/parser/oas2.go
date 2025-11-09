@@ -19,4 +19,5 @@ type OAS2Document struct {
 	Tags                []*Tag                     `yaml:"tags,omitempty"`
 	ExternalDocs        *ExternalDocs              `yaml:"externalDocs,omitempty"`
 	Extra               map[string]interface{}     `yaml:",inline"`
+	OASVersion          OASVersion                 `yaml:"-"`
 }

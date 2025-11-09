@@ -16,6 +16,7 @@ type OAS3Document struct {
 	Security     []SecurityRequirement `yaml:"security,omitempty"`
 	Tags         []*Tag                `yaml:"tags,omitempty"`
 	ExternalDocs *ExternalDocs         `yaml:"externalDocs,omitempty"`
+	OASVersion   OASVersion            `yaml:"-"`
 
 	// OAS 3.1+ additions
 	JSONSchemaDialect string `yaml:"jsonSchemaDialect,omitempty"` // OAS 3.1+

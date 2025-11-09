@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParseOAS2(t *testing.T) {
@@ -514,42 +516,6 @@ func TestVersionInRange(t *testing.T) {
 	}
 }
 
-// TestParseOAS310EdgeCase tests parsing OAS 3.10.0 which would fail with string comparison
-func TestParseOAS310EdgeCase(t *testing.T) {
-	parser := New()
-	data := []byte(`
-openapi: "3.10.0"
-info:
-  title: Test API
-  version: 1.0.0
-paths:
-  /test:
-    get:
-      responses:
-        '200':
-          description: Success
-`)
-	result, err := parser.ParseBytes(data)
-	if err != nil {
-		t.Fatalf("Failed to parse OAS 3.10.0: %v", err)
-	}
-
-	if result.Version != "3.10.0" {
-		t.Errorf("Expected version 3.10.0, got %s", result.Version)
-	}
-
-	// Should be parsed as OAS3Document since 3.10.0 is >= 3.0.0 and < 4.0.0
-	_, ok := result.Document.(*OAS3Document)
-	if !ok {
-		t.Fatalf("Expected OAS3Document for version 3.10.0, got %T", result.Document)
-	}
-
-	// Should have no validation errors
-	if len(result.Errors) > 0 {
-		t.Errorf("Unexpected validation errors for OAS 3.10.0: %v", result.Errors)
-	}
-}
-
 // TestWebhooksVersionValidation tests that webhooks are properly validated based on version
 func TestWebhooksVersionValidation(t *testing.T) {
 	tests := []struct {
@@ -567,8 +533,8 @@ func TestWebhooksVersionValidation(t *testing.T) {
 			errorContains:   "webhooks",
 		},
 		{
-			name:            "Webhooks in OAS 3.0.9 should error",
-			version:         "3.0.9",
+			name:            "Webhooks in OAS 3.0.1 should error",
+			version:         "3.0.1",
 			includeWebhooks: true,
 			expectError:     true,
 			errorContains:   "webhooks",
@@ -582,12 +548,6 @@ func TestWebhooksVersionValidation(t *testing.T) {
 		{
 			name:            "Webhooks in OAS 3.2.0 should be valid",
 			version:         "3.2.0",
-			includeWebhooks: true,
-			expectError:     false,
-		},
-		{
-			name:            "Webhooks in OAS 3.10.0 should be valid - edge case",
-			version:         "3.10.0",
 			includeWebhooks: true,
 			expectError:     false,
 		},
@@ -677,8 +637,8 @@ func TestPathsRequirementVersionValidation(t *testing.T) {
 			errorContains:   "paths",
 		},
 		{
-			name:            "OAS 3.0.9 requires paths",
-			version:         "3.0.9",
+			name:            "OAS 3.0.2 requires paths",
+			version:         "3.0.2",
 			includePaths:    false,
 			includeWebhooks: false,
 			expectError:     true,
@@ -702,13 +662,6 @@ func TestPathsRequirementVersionValidation(t *testing.T) {
 		{
 			name:            "OAS 3.2.0 with webhooks is valid",
 			version:         "3.2.0",
-			includePaths:    false,
-			includeWebhooks: true,
-			expectError:     false,
-		},
-		{
-			name:            "OAS 3.10.0 with only webhooks is valid - edge case",
-			version:         "3.10.0",
 			includePaths:    false,
 			includeWebhooks: true,
 			expectError:     false,
@@ -900,18 +853,8 @@ paths:
 `)
 
 			result, err := parser.ParseBytes(data)
-			if err != nil {
-				t.Fatalf("Failed to parse: %v", err)
-			}
-
-			// RC versions should be detected as-is
-			if result.Version != rcVersion {
-				t.Errorf("Version detection failed: expected %s, got %s", rcVersion, result.Version)
-			}
-
-			// RC versions may or may not parse successfully depending on implementation
-			// At minimum, they should be detected and not cause a crash
-			t.Logf("RC version %s parsed with %d errors", rcVersion, len(result.Errors))
+			assert.ErrorContains(t, err, "invalid OAS semver: "+rcVersion)
+			assert.Nil(t, result)
 		})
 	}
 }
@@ -928,19 +871,19 @@ func TestInvalidVersionValidation(t *testing.T) {
 			name:          "Version 4.0.0 should be rejected",
 			version:       "4.0.0",
 			expectError:   true,
-			errorContains: "unsupported OpenAPI version",
+			errorContains: "invalid OAS semver",
 		},
 		{
 			name:          "Version 2.5.0 should be rejected",
 			version:       "2.5.0",
 			expectError:   true,
-			errorContains: "unsupported OpenAPI version",
+			errorContains: "invalid OAS semver",
 		},
 		{
 			name:          "Version 5.0.0 should be rejected",
 			version:       "5.0.0",
 			expectError:   true,
-			errorContains: "unsupported OpenAPI version",
+			errorContains: "invalid OAS semver",
 		},
 	}
 
@@ -961,21 +904,12 @@ paths:
 `)
 
 			result, err := parser.ParseBytes(data)
-			if err != nil {
-				t.Fatalf("Failed to parse: %v", err)
-			}
-
-			hasExpectedError := false
-			for _, e := range result.Errors {
-				if strings.Contains(e.Error(), tt.errorContains) {
-					hasExpectedError = true
-					break
-				}
-			}
-
-			if tt.expectError && !hasExpectedError {
-				t.Errorf("Expected error containing '%s' for version %s, but got errors: %v",
-					tt.errorContains, tt.version, result.Errors)
+			if tt.expectError {
+				assert.Nil(t, result)
+				assert.ErrorContains(t, err, tt.errorContains)
+			} else {
+				assert.Nil(t, err)
+				assert.NotNil(t, result)
 			}
 		})
 	}
