@@ -350,3 +350,633 @@ func TestParseRelativePaths(t *testing.T) {
 		t.Errorf("Expected version 3.0.3, got %s", result.Version)
 	}
 }
+
+// TestVersionInRange tests the semantic version range checking
+// This test would have caught the bug where string comparison was used
+func TestVersionInRange(t *testing.T) {
+	tests := []struct {
+		name       string
+		version    string
+		minVersion string
+		maxVersion string
+		expected   bool
+	}{
+		// Exclusive upper bound tests [min, max)
+		{
+			name:       "3.0.0 in range [3.0.0, 4.0.0) exclusive",
+			version:    "3.0.0",
+			minVersion: "3.0.0",
+			maxVersion: "4.0.0",
+			expected:   true,
+		},
+		{
+			name:       "3.1.0 in range [3.0.0, 4.0.0) exclusive",
+			version:    "3.1.0",
+			minVersion: "3.0.0",
+			maxVersion: "4.0.0",
+			expected:   true,
+		},
+		{
+			name:       "3.10.0 in range [3.0.0, 4.0.0) exclusive - would fail with string comparison",
+			version:    "3.10.0",
+			minVersion: "3.0.0",
+			maxVersion: "4.0.0",
+			expected:   true,
+		},
+		{
+			name:       "3.2.0 in range [3.0.0, 4.0.0) exclusive",
+			version:    "3.2.0",
+			minVersion: "3.0.0",
+			maxVersion: "4.0.0",
+			expected:   true,
+		},
+		{
+			name:       "3.99.99 in range [3.0.0, 4.0.0) exclusive",
+			version:    "3.99.99",
+			minVersion: "3.0.0",
+			maxVersion: "4.0.0",
+			expected:   true,
+		},
+		{
+			name:       "4.0.0 not in range [3.0.0, 4.0.0) - exclusive upper bound",
+			version:    "4.0.0",
+			minVersion: "3.0.0",
+			maxVersion: "4.0.0",
+			expected:   false,
+		},
+		{
+			name:       "2.0 not in range [3.0.0, 4.0.0) exclusive",
+			version:    "2.0",
+			minVersion: "3.0.0",
+			maxVersion: "4.0.0",
+			expected:   false,
+		},
+		{
+			name:       "3.0.0 in range [3.0.0, 3.1.0) exclusive",
+			version:    "3.0.0",
+			minVersion: "3.0.0",
+			maxVersion: "3.1.0",
+			expected:   true,
+		},
+		{
+			name:       "3.0.9 in range [3.0.0, 3.1.0) exclusive",
+			version:    "3.0.9",
+			minVersion: "3.0.0",
+			maxVersion: "3.1.0",
+			expected:   true,
+		},
+		{
+			name:       "3.1.0 not in range [3.0.0, 3.1.0) - exclusive upper bound",
+			version:    "3.1.0",
+			minVersion: "3.0.0",
+			maxVersion: "3.1.0",
+			expected:   false,
+		},
+
+		// No upper bound tests (empty maxVersion) - equivalent to v >= minVersion
+		{
+			name:       "3.1.0 >= 3.1.0 (no upper bound)",
+			version:    "3.1.0",
+			minVersion: "3.1.0",
+			maxVersion: "",
+			expected:   true,
+		},
+		{
+			name:       "3.2.0 >= 3.1.0 (no upper bound)",
+			version:    "3.2.0",
+			minVersion: "3.1.0",
+			maxVersion: "",
+			expected:   true,
+		},
+		{
+			name:       "3.10.0 >= 3.1.0 (no upper bound) - would fail with string comparison",
+			version:    "3.10.0",
+			minVersion: "3.1.0",
+			maxVersion: "",
+			expected:   true,
+		},
+		{
+			name:       "3.0.9 not >= 3.1.0 (no upper bound)",
+			version:    "3.0.9",
+			minVersion: "3.1.0",
+			maxVersion: "",
+			expected:   false,
+		},
+
+		// Less than tests (min="0.0.0", exclusive max) - equivalent to v < maxVersion
+		{
+			name:       "3.0.0 < 3.1.0 (lower bound 0.0.0)",
+			version:    "3.0.0",
+			minVersion: "0.0.0",
+			maxVersion: "3.1.0",
+			expected:   true,
+		},
+		{
+			name:       "3.1.0 not < 3.1.0 (lower bound 0.0.0)",
+			version:    "3.1.0",
+			minVersion: "0.0.0",
+			maxVersion: "3.1.0",
+			expected:   false,
+		},
+		{
+			name:       "3.2.0 < 3.10.0 (lower bound 0.0.0) - would be wrong with string comparison",
+			version:    "3.2.0",
+			minVersion: "0.0.0",
+			maxVersion: "3.10.0",
+			expected:   true,
+		},
+		{
+			name:       "3.10.0 not < 3.2.0 (lower bound 0.0.0) - would be wrong with string comparison",
+			version:    "3.10.0",
+			minVersion: "0.0.0",
+			maxVersion: "3.2.0",
+			expected:   false,
+		},
+
+		// Invalid version string
+		{
+			name:       "invalid version string",
+			version:    "invalid",
+			minVersion: "3.0.0",
+			maxVersion: "4.0.0",
+			expected:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := versionInRangeExclusive(tt.version, tt.minVersion, tt.maxVersion)
+			if result != tt.expected {
+				t.Errorf("versionInRangeExclusive(%s, %s, %s) = %v, want %v",
+					tt.version, tt.minVersion, tt.maxVersion, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestParseOAS310EdgeCase tests parsing OAS 3.10.0 which would fail with string comparison
+func TestParseOAS310EdgeCase(t *testing.T) {
+	parser := New()
+	data := []byte(`
+openapi: "3.10.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+`)
+	result, err := parser.ParseBytes(data)
+	if err != nil {
+		t.Fatalf("Failed to parse OAS 3.10.0: %v", err)
+	}
+
+	if result.Version != "3.10.0" {
+		t.Errorf("Expected version 3.10.0, got %s", result.Version)
+	}
+
+	// Should be parsed as OAS3Document since 3.10.0 is >= 3.0.0 and < 4.0.0
+	_, ok := result.Document.(*OAS3Document)
+	if !ok {
+		t.Fatalf("Expected OAS3Document for version 3.10.0, got %T", result.Document)
+	}
+
+	// Should have no validation errors
+	if len(result.Errors) > 0 {
+		t.Errorf("Unexpected validation errors for OAS 3.10.0: %v", result.Errors)
+	}
+}
+
+// TestWebhooksVersionValidation tests that webhooks are properly validated based on version
+func TestWebhooksVersionValidation(t *testing.T) {
+	tests := []struct {
+		name            string
+		version         string
+		includeWebhooks bool
+		expectError     bool
+		errorContains   string
+	}{
+		{
+			name:            "Webhooks in OAS 3.0.0 should error",
+			version:         "3.0.0",
+			includeWebhooks: true,
+			expectError:     true,
+			errorContains:   "webhooks",
+		},
+		{
+			name:            "Webhooks in OAS 3.0.9 should error",
+			version:         "3.0.9",
+			includeWebhooks: true,
+			expectError:     true,
+			errorContains:   "webhooks",
+		},
+		{
+			name:            "Webhooks in OAS 3.1.0 should be valid",
+			version:         "3.1.0",
+			includeWebhooks: true,
+			expectError:     false,
+		},
+		{
+			name:            "Webhooks in OAS 3.2.0 should be valid",
+			version:         "3.2.0",
+			includeWebhooks: true,
+			expectError:     false,
+		},
+		{
+			name:            "Webhooks in OAS 3.10.0 should be valid - edge case",
+			version:         "3.10.0",
+			includeWebhooks: true,
+			expectError:     false,
+		},
+		{
+			name:            "No webhooks in OAS 3.0.0 should be valid",
+			version:         "3.0.0",
+			includeWebhooks: false,
+			expectError:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := New()
+
+			webhooksSection := ""
+			if tt.includeWebhooks {
+				webhooksSection = `
+webhooks:
+  newPet:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Success
+`
+			}
+
+			data := []byte(`openapi: "` + tt.version + `"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+` + webhooksSection)
+
+			result, err := parser.ParseBytes(data)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			hasWebhookError := false
+			for _, e := range result.Errors {
+				if strings.Contains(e.Error(), tt.errorContains) {
+					hasWebhookError = true
+					break
+				}
+			}
+
+			if tt.expectError && !hasWebhookError {
+				t.Errorf("Expected error containing '%s' for version %s with webhooks, but got errors: %v",
+					tt.errorContains, tt.version, result.Errors)
+			}
+
+			if !tt.expectError && hasWebhookError {
+				t.Errorf("Did not expect webhook error for version %s, but got: %v",
+					tt.version, result.Errors)
+			}
+		})
+	}
+}
+
+// TestPathsRequirementVersionValidation tests that paths requirement is properly validated based on version
+func TestPathsRequirementVersionValidation(t *testing.T) {
+	tests := []struct {
+		name            string
+		version         string
+		includePaths    bool
+		includeWebhooks bool
+		expectError     bool
+		errorContains   string
+	}{
+		{
+			name:            "OAS 3.0.0 requires paths",
+			version:         "3.0.0",
+			includePaths:    false,
+			includeWebhooks: false,
+			expectError:     true,
+			errorContains:   "paths",
+		},
+		{
+			name:            "OAS 3.0.9 requires paths",
+			version:         "3.0.9",
+			includePaths:    false,
+			includeWebhooks: false,
+			expectError:     true,
+			errorContains:   "paths",
+		},
+		{
+			name:            "OAS 3.1.0 requires paths or webhooks",
+			version:         "3.1.0",
+			includePaths:    false,
+			includeWebhooks: false,
+			expectError:     true,
+			errorContains:   "paths",
+		},
+		{
+			name:            "OAS 3.1.0 with webhooks is valid",
+			version:         "3.1.0",
+			includePaths:    false,
+			includeWebhooks: true,
+			expectError:     false,
+		},
+		{
+			name:            "OAS 3.2.0 with webhooks is valid",
+			version:         "3.2.0",
+			includePaths:    false,
+			includeWebhooks: true,
+			expectError:     false,
+		},
+		{
+			name:            "OAS 3.10.0 with only webhooks is valid - edge case",
+			version:         "3.10.0",
+			includePaths:    false,
+			includeWebhooks: true,
+			expectError:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := New()
+
+			pathsSection := ""
+			if tt.includePaths {
+				pathsSection = `paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+`
+			}
+
+			webhooksSection := ""
+			if tt.includeWebhooks {
+				webhooksSection = `webhooks:
+  newPet:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Success
+`
+			}
+
+			data := []byte(`openapi: "` + tt.version + `"
+info:
+  title: Test API
+  version: 1.0.0
+` + pathsSection + webhooksSection)
+
+			result, err := parser.ParseBytes(data)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			hasExpectedError := false
+			for _, e := range result.Errors {
+				if strings.Contains(e.Error(), tt.errorContains) {
+					hasExpectedError = true
+					break
+				}
+			}
+
+			if tt.expectError && !hasExpectedError {
+				t.Errorf("Expected error containing '%s' for version %s, but got errors: %v",
+					tt.errorContains, tt.version, result.Errors)
+			}
+
+			if !tt.expectError && len(result.Errors) > 0 {
+				t.Errorf("Did not expect errors for version %s, but got: %v",
+					tt.version, result.Errors)
+			}
+		})
+	}
+}
+
+// TestAllOfficialOASVersions tests that all official OpenAPI Specification versions are properly handled
+// This test validates against the complete set of released versions from https://github.com/OAI/OpenAPI-Specification/releases
+func TestAllOfficialOASVersions(t *testing.T) {
+	// All official OAS versions (excluding release candidates with -rc suffixes)
+	// Source: https://github.com/OAI/OpenAPI-Specification/releases
+	officialVersions := []struct {
+		version       string
+		expectedType  string // "OAS2Document" or "OAS3Document"
+		shouldSucceed bool
+	}{
+		// OAS 2.x series
+		{"2.0", "OAS2Document", true},
+
+		// OAS 3.0.x series
+		{"3.0.0", "OAS3Document", true},
+		{"3.0.1", "OAS3Document", true},
+		{"3.0.2", "OAS3Document", true},
+		{"3.0.3", "OAS3Document", true},
+		{"3.0.4", "OAS3Document", true},
+
+		// OAS 3.1.x series
+		{"3.1.0", "OAS3Document", true},
+		{"3.1.1", "OAS3Document", true},
+		{"3.1.2", "OAS3Document", true},
+
+		// OAS 3.2.x series
+		{"3.2.0", "OAS3Document", true},
+	}
+
+	for _, tt := range officialVersions {
+		t.Run("OAS_"+tt.version, func(t *testing.T) {
+			parser := New()
+
+			// Build a minimal valid spec for this version
+			var data []byte
+			if tt.version == "2.0" {
+				data = []byte(`
+swagger: "` + tt.version + `"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+`)
+			} else {
+				data = []byte(`
+openapi: "` + tt.version + `"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+`)
+			}
+
+			result, err := parser.ParseBytes(data)
+			if err != nil {
+				t.Fatalf("Failed to parse OAS %s: %v", tt.version, err)
+			}
+
+			// Verify version detection
+			if result.Version != tt.version {
+				t.Errorf("Version detection failed: expected %s, got %s", tt.version, result.Version)
+			}
+
+			// Verify correct document type
+			switch tt.expectedType {
+			case "OAS2Document":
+				if _, ok := result.Document.(*OAS2Document); !ok {
+					t.Errorf("Expected *OAS2Document for version %s, got %T", tt.version, result.Document)
+				}
+			case "OAS3Document":
+				if _, ok := result.Document.(*OAS3Document); !ok {
+					t.Errorf("Expected *OAS3Document for version %s, got %T", tt.version, result.Document)
+				}
+			}
+
+			// Should have no validation errors for valid minimal spec
+			if len(result.Errors) > 0 {
+				t.Errorf("Unexpected validation errors for OAS %s: %v", tt.version, result.Errors)
+			}
+		})
+	}
+}
+
+// TestRCVersionsExcluded tests that release candidate versions are handled
+// These are not official releases but may appear in the wild
+func TestRCVersionsExcluded(t *testing.T) {
+	rcVersions := []string{
+		"3.0.0-rc0",
+		"3.0.0-rc1",
+		"3.0.0-rc2",
+		"3.1.0-rc0",
+		"3.1.0-rc1",
+	}
+
+	for _, rcVersion := range rcVersions {
+		t.Run("RC_"+rcVersion, func(t *testing.T) {
+			parser := New()
+
+			data := []byte(`
+openapi: "` + rcVersion + `"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+`)
+
+			result, err := parser.ParseBytes(data)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			// RC versions should be detected as-is
+			if result.Version != rcVersion {
+				t.Errorf("Version detection failed: expected %s, got %s", rcVersion, result.Version)
+			}
+
+			// RC versions may or may not parse successfully depending on implementation
+			// At minimum, they should be detected and not cause a crash
+			t.Logf("RC version %s parsed with %d errors", rcVersion, len(result.Errors))
+		})
+	}
+}
+
+// TestInvalidVersionValidation tests that invalid version strings are properly rejected
+func TestInvalidVersionValidation(t *testing.T) {
+	tests := []struct {
+		name          string
+		version       string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:          "Version 4.0.0 should be rejected",
+			version:       "4.0.0",
+			expectError:   true,
+			errorContains: "unsupported OpenAPI version",
+		},
+		{
+			name:          "Version 2.5.0 should be rejected",
+			version:       "2.5.0",
+			expectError:   true,
+			errorContains: "unsupported OpenAPI version",
+		},
+		{
+			name:          "Version 5.0.0 should be rejected",
+			version:       "5.0.0",
+			expectError:   true,
+			errorContains: "unsupported OpenAPI version",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := New()
+
+			data := []byte(`openapi: "` + tt.version + `"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+`)
+
+			result, err := parser.ParseBytes(data)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			hasExpectedError := false
+			for _, e := range result.Errors {
+				if strings.Contains(e.Error(), tt.errorContains) {
+					hasExpectedError = true
+					break
+				}
+			}
+
+			if tt.expectError && !hasExpectedError {
+				t.Errorf("Expected error containing '%s' for version %s, but got errors: %v",
+					tt.errorContains, tt.version, result.Errors)
+			}
+		})
+	}
+}

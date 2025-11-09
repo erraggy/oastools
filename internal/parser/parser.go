@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/hashicorp/go-version"
 	"gopkg.in/yaml.v3"
 )
 
@@ -134,6 +135,41 @@ func (p *Parser) detectVersion(data map[string]interface{}) (string, error) {
 	return "", fmt.Errorf("[Version Detection] unable to detect OpenAPI version: document must contain either 'swagger: \"2.0\"' (for OAS 2.0) or 'openapi: \"3.x.x\"' (for OAS 3.x) at the root level")
 }
 
+// parseVersion parses a version string into a semantic version
+func parseVersion(v string) (*version.Version, error) {
+	return version.NewVersion(v)
+}
+
+// versionInRangeExclusive checks if a version string is within the specified range: minVersion <= v < maxVersion
+// If maxVersion is empty string, no upper bound is enforced (v >= minVersion)
+func versionInRangeExclusive(v, minVersion, maxVersion string) bool {
+	ver, err := parseVersion(v)
+	if err != nil {
+		return false
+	}
+
+	min, err := parseVersion(minVersion)
+	if err != nil {
+		return false
+	}
+
+	// Check lower bound
+	if !ver.GreaterThanOrEqual(min) {
+		return false
+	}
+
+	// If maxVersion is empty, no upper bound
+	if maxVersion == "" {
+		return true
+	}
+
+	max, err := parseVersion(maxVersion)
+	if err != nil {
+		return false
+	}
+	return ver.LessThan(max)
+}
+
 // parseVersionSpecific parses the data into a version-specific structure
 func (p *Parser) parseVersionSpecific(data []byte, version string) (interface{}, error) {
 	switch {
@@ -144,7 +180,7 @@ func (p *Parser) parseVersionSpecific(data []byte, version string) (interface{},
 		}
 		return &doc, nil
 
-	case version >= "3.0.0" && version < "4.0.0":
+	case versionInRangeExclusive(version, "3.0.0", "4.0.0"):
 		var doc OAS3Document
 		if err := yaml.Unmarshal(data, &doc); err != nil {
 			return nil, fmt.Errorf("[OAS %s Parser] failed to parse document structure: %w", version, err)
@@ -170,7 +206,7 @@ func (p *Parser) validateStructure(result *ParseResult) []error {
 		}
 		errors = append(errors, p.validateOAS2(doc)...)
 
-	case result.Version >= "3.0.0" && result.Version < "4.0.0":
+	case versionInRangeExclusive(result.Version, "3.0.0", "4.0.0"):
 		doc, ok := result.Document.(*OAS3Document)
 		if !ok {
 			errors = append(errors, fmt.Errorf("[Parser Error] internal error: document type mismatch for OAS 3.x (expected *OAS3Document, got %T)", result.Document))
@@ -290,7 +326,7 @@ func (p *Parser) validateOAS3(doc *OAS3Document) []error {
 	// Validate openapi version field
 	if doc.OpenAPI == "" {
 		errors = append(errors, fmt.Errorf("[OAS 3.x] missing required root field 'openapi': must be set to a valid 3.x version (e.g., \"3.0.3\", \"3.1.0\")"))
-	} else if doc.OpenAPI < "3.0.0" || doc.OpenAPI >= "4.0.0" {
+	} else if !versionInRangeExclusive(doc.OpenAPI, "3.0.0", "4.0.0") {
 		errors = append(errors, fmt.Errorf("[OAS %s] invalid 'openapi' field value: \"%s\" is not a valid 3.x version", version, doc.OpenAPI))
 	}
 
@@ -306,7 +342,7 @@ func (p *Parser) validateOAS3(doc *OAS3Document) []error {
 	}
 
 	// Validate webhooks if present (OAS 3.1+)
-	if len(doc.Webhooks) > 0 && doc.OpenAPI < "3.1.0" {
+	if len(doc.Webhooks) > 0 && versionInRangeExclusive(doc.OpenAPI, "0.0.0", "3.1.0") {
 		errors = append(errors, fmt.Errorf("[OAS %s] 'webhooks' field is only supported in OAS 3.1.0 and later, not in version %s", version, doc.OpenAPI))
 	}
 
@@ -330,11 +366,11 @@ func (p *Parser) validateOAS3Info(info *Info, version string) []error {
 
 func (p *Parser) validateOAS3PathsRequirement(doc *OAS3Document, version string) []error {
 	errors := make([]error, 0)
-	if doc.OpenAPI >= "3.0.0" && doc.OpenAPI < "3.1.0" {
+	if versionInRangeExclusive(doc.OpenAPI, "3.0.0", "3.1.0") {
 		if doc.Paths == nil {
 			errors = append(errors, fmt.Errorf("[OAS %s] missing required root field 'paths': Paths object is required in OAS 3.0.x (https://spec.openapis.org/oas/v3.0.0.html#paths-object)", version))
 		}
-	} else if doc.OpenAPI >= "3.1.0" {
+	} else if versionInRangeExclusive(doc.OpenAPI, "3.1.0", "") {
 		// In OAS 3.1+, either paths or webhooks must be present
 		if doc.Paths == nil && len(doc.Webhooks) == 0 {
 			errors = append(errors, fmt.Errorf("[OAS %s] document must have either 'paths' or 'webhooks': at least one is required in OAS 3.1+", version))

@@ -8,6 +8,25 @@ OpenAPI Specification (OAS) tools for validation, parsing, and merging.
 - **Parse** - Parse and analyze OpenAPI specifications
 - **Merge** - Merge multiple OpenAPI Specification documents (planned)
 
+## Supported OpenAPI Specification Versions
+
+This tool supports all official OpenAPI Specification releases (excluding release candidates):
+
+| Version | Specification |
+|---------|---------------|
+| **2.0** | [OAS 2.0 Specification](https://spec.openapis.org/oas/v2.0.html) |
+| **3.0.0** | [OAS 3.0.0 Specification](https://spec.openapis.org/oas/v3.0.0.html) |
+| **3.0.1** | [OAS 3.0.1 Specification](https://spec.openapis.org/oas/v3.0.1.html) |
+| **3.0.2** | [OAS 3.0.2 Specification](https://spec.openapis.org/oas/v3.0.2.html) |
+| **3.0.3** | [OAS 3.0.3 Specification](https://spec.openapis.org/oas/v3.0.3.html) |
+| **3.0.4** | [OAS 3.0.4 Specification](https://spec.openapis.org/oas/v3.0.4.html) |
+| **3.1.0** | [OAS 3.1.0 Specification](https://spec.openapis.org/oas/v3.1.0.html) |
+| **3.1.1** | [OAS 3.1.1 Specification](https://spec.openapis.org/oas/v3.1.1.html) |
+| **3.1.2** | [OAS 3.1.2 Specification](https://spec.openapis.org/oas/v3.1.2.html) |
+| **3.2.0** | [OAS 3.2.0 Specification](https://spec.openapis.org/oas/v3.2.0.html) |
+
+> **Note:** Release candidate versions (e.g., `3.0.0-rc0`, `3.1.0-rc1`) are detected but not officially supported.
+
 ## Installation
 
 ### From Source
