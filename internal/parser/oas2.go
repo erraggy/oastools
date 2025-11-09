@@ -18,6 +18,7 @@ type OAS2Document struct {
 	Security            []SecurityRequirement      `yaml:"security,omitempty"`
 	Tags                []*Tag                     `yaml:"tags,omitempty"`
 	ExternalDocs        *ExternalDocs              `yaml:"externalDocs,omitempty"`
-	Extra               map[string]interface{}     `yaml:",inline"`
-	OASVersion          OASVersion                 `yaml:"-"`
+	// Extra captures specification extensions (fields starting with "x-")
+	Extra      map[string]interface{} `yaml:",inline"`
+	OASVersion OASVersion             `yaml:"-"`
 }

@@ -30,6 +30,7 @@ type SecurityScheme struct {
 	// Type: openIdConnect (OAS 3.0+)
 	OpenIDConnectURL string `yaml:"openIdConnectUrl,omitempty"`
 
+	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]interface{} `yaml:",inline"`
 }
 

@@ -21,6 +21,7 @@ type OAS3Document struct {
 	// OAS 3.1+ additions
 	JSONSchemaDialect string `yaml:"jsonSchemaDialect,omitempty"` // OAS 3.1+
 
+	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]interface{} `yaml:",inline"`
 }
 
@@ -39,5 +40,6 @@ type Components struct {
 	// OAS 3.1+ additions
 	PathItems map[string]*PathItem `yaml:"pathItems,omitempty"` // OAS 3.1+
 
+	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]interface{} `yaml:",inline"`
 }

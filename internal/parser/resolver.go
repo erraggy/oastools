@@ -10,6 +10,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	// MaxRefDepth is the maximum depth allowed for nested $ref resolution
+	// This prevents stack overflow from deeply nested (but non-circular) references
+	MaxRefDepth = 100
+
+	// MaxCachedDocuments is the maximum number of external documents to cache
+	// This prevents memory exhaustion from documents with many external references
+	MaxCachedDocuments = 100
+)
+
 // RefResolver handles $ref resolution in OpenAPI documents
 type RefResolver struct {
 	// visited tracks visited refs to prevent circular reference loops
@@ -117,6 +127,11 @@ func (r *RefResolver) ResolveExternal(ref string) (interface{}, error) {
 	// Check if document is already loaded
 	doc, ok := r.documents[filePath]
 	if !ok {
+		// Enforce cache size limit to prevent memory exhaustion
+		if len(r.documents) >= MaxCachedDocuments {
+			return nil, fmt.Errorf("exceeded maximum cached documents limit (%d): too many external references", MaxCachedDocuments)
+		}
+
 		// Load the external document
 		data, err := os.ReadFile(filePath)
 		if err != nil {
@@ -168,11 +183,15 @@ func unescapeJSONPointer(token string) string {
 
 // ResolveAllRefs walks through the entire document and resolves all $ref references
 func (r *RefResolver) ResolveAllRefs(doc map[string]interface{}) error {
-	return r.resolveRefsRecursive(doc, doc)
+	return r.resolveRefsRecursive(doc, doc, 0)
 }
 
 // resolveRefsRecursive recursively walks through the document structure and resolves $ref
-func (r *RefResolver) resolveRefsRecursive(root, current interface{}) error {
+func (r *RefResolver) resolveRefsRecursive(root, current interface{}, depth int) error {
+	// Prevent stack overflow from deeply nested structures
+	if depth > MaxRefDepth {
+		return fmt.Errorf("exceeded maximum reference depth (%d): structure too deeply nested", MaxRefDepth)
+	}
 	rootMap, ok := root.(map[string]interface{})
 	if !ok {
 		return errors.New("root is not a map")
@@ -204,12 +223,12 @@ func (r *RefResolver) resolveRefsRecursive(root, current interface{}) error {
 			delete(v, "$ref")
 
 			// Continue resolving in the newly resolved content
-			return r.resolveRefsRecursive(root, v)
+			return r.resolveRefsRecursive(root, v, depth+1)
 		}
 
 		// Recursively process all values in the map
 		for _, val := range v {
-			if err := r.resolveRefsRecursive(root, val); err != nil {
+			if err := r.resolveRefsRecursive(root, val, depth+1); err != nil {
 				return err
 			}
 		}
@@ -217,7 +236,7 @@ func (r *RefResolver) resolveRefsRecursive(root, current interface{}) error {
 	case []interface{}:
 		// Recursively process all items in the array
 		for _, item := range v {
-			if err := r.resolveRefsRecursive(root, item); err != nil {
+			if err := r.resolveRefsRecursive(root, item, depth+1); err != nil {
 				return err
 			}
 		}

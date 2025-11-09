@@ -89,6 +89,7 @@ type Schema struct {
 	Defs          map[string]*Schema `yaml:"$defs,omitempty"`
 
 	// Extension fields
+	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]interface{} `yaml:",inline"`
 }
 

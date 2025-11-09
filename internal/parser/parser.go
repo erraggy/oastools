@@ -234,10 +234,15 @@ func (p *Parser) validateStructure(result *ParseResult) []error {
 }
 
 // isValidStatusCode checks if a status code string is valid per OAS spec
-// Valid formats: "200", "404", "2XX", "4XX", "5XX", etc.
+// Valid formats: "200", "404", "2XX", "4XX", "5XX", "default", etc.
 func isValidStatusCode(code string) bool {
 	if code == "" {
 		return false
+	}
+
+	// Check if it's the "default" response
+	if code == ResponseDefault {
+		return true
 	}
 
 	// Check if it's a wildcard pattern (e.g., "2XX", "4XX")
@@ -357,7 +362,13 @@ func (p *Parser) validateOAS2(doc *OAS2Document) []error {
 					if param.In == "" {
 						errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.in': Parameter must specify location (query, header, path, formData, body)", paramPath))
 					} else {
-						validLocations := map[string]bool{"query": true, "header": true, "path": true, "formData": true, "body": true}
+						validLocations := map[string]bool{
+							ParamInQuery:    true,
+							ParamInHeader:   true,
+							ParamInPath:     true,
+							ParamInFormData: true,
+							ParamInBody:     true,
+						}
 						if !validLocations[param.In] {
 							errors = append(errors, fmt.Errorf("oas 2.0: invalid value for '%s.in': \"%s\" is not a valid parameter location (must be query, header, path, formData, or body)", paramPath, param.In))
 						}
@@ -453,11 +464,6 @@ func (p *Parser) validateOAS3Paths(paths map[string]*PathItem, version string) [
 }
 
 func (p *Parser) validateOAS3PathItem(pathItem *PathItem, pathPattern string, operationIDs map[string]string, version string) []error {
-	// Defensive nil check
-	if pathItem == nil {
-		return nil
-	}
-
 	errors := make([]error, 0)
 	operations := map[string]*Operation{
 		"get":     pathItem.Get,
@@ -536,14 +542,19 @@ func (p *Parser) validateOAS3Parameter(param *Parameter, opPath string, index in
 	if param.In == "" {
 		errors = append(errors, fmt.Errorf("oas %s: missing required field '%s.in': Parameter must specify location (query, header, path, cookie)", version, paramPath))
 	} else {
-		validLocations := map[string]bool{"query": true, "header": true, "path": true, "cookie": true}
+		validLocations := map[string]bool{
+			ParamInQuery:  true,
+			ParamInHeader: true,
+			ParamInPath:   true,
+			ParamInCookie: true,
+		}
 		if !validLocations[param.In] {
 			errors = append(errors, fmt.Errorf("oas %s: invalid value for '%s.in': \"%s\" is not a valid parameter location (must be query, header, path, or cookie)", version, paramPath, param.In))
 		}
 	}
 
 	// Path parameters must be required
-	if param.In == "path" && !param.Required {
+	if param.In == ParamInPath && !param.Required {
 		errors = append(errors, fmt.Errorf("oas %s: invalid parameter '%s': path parameters must have 'required: true' per spec", version, paramPath))
 	}
 

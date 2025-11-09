@@ -38,6 +38,7 @@ type Parameter struct {
 	Enum             []interface{} `yaml:"enum,omitempty"`             // OAS 2.0
 	MultipleOf       *float64      `yaml:"multipleOf,omitempty"`       // OAS 2.0
 
+	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]interface{} `yaml:",inline"`
 }
 
@@ -106,5 +107,6 @@ type Header struct {
 	Enum             []interface{} `yaml:"enum,omitempty"`             // OAS 2.0
 	MultipleOf       *float64      `yaml:"multipleOf,omitempty"`       // OAS 2.0
 
+	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]interface{} `yaml:",inline"`
 }
