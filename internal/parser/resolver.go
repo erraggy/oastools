@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -210,7 +209,7 @@ func (r *RefResolver) resolveRefsRecursive(root, current interface{}, depth int)
 	}
 	rootMap, ok := root.(map[string]interface{})
 	if !ok {
-		return errors.New("root is not a map")
+		return fmt.Errorf("invalid root type: expected map[string]interface{}, got %T", root)
 	}
 	switch v := current.(type) {
 	case map[string]interface{}:
