@@ -453,13 +453,12 @@ func (p *Parser) validateOAS3Paths(paths map[string]*PathItem, version string) [
 }
 
 func (p *Parser) validateOAS3PathItem(pathItem *PathItem, pathPattern string, operationIDs map[string]string, version string) []error {
-	errors := make([]error, 0)
-
 	// Defensive nil check
 	if pathItem == nil {
-		return errors
+		return nil
 	}
 
+	errors := make([]error, 0)
 	operations := map[string]*Operation{
 		"get":     pathItem.Get,
 		"put":     pathItem.Put,
