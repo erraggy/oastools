@@ -79,7 +79,7 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 		Warnings: make([]string, 0),
 	}
 
-	// First pass: parse to generic map to detect semver
+	// First pass: parse to generic map to detect OAS version
 	var rawData map[string]interface{}
 	if err := yaml.Unmarshal(data, &rawData); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML/JSON: %w", err)
