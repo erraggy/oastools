@@ -26,18 +26,23 @@ func New() *Parser {
 	}
 }
 
-// ParseResult contains the parsed OpenAPI specification and metadata
+// ParseResult contains the parsed OpenAPI specification and metadata.
+// This structure provides both the raw parsed data and version-specific
+// typed representations of the OpenAPI document.
 type ParseResult struct {
-	// Version is the detected OAS semver (e.g., "2.0", "3.0.3", "3.1.0")
+	// Version is the detected OAS version string (e.g., "2.0", "3.0.3", "3.1.0")
 	Version string
-	// Data contains the raw parsed data as a map
+	// Data contains the raw parsed data as a map, potentially with resolved $refs
 	Data map[string]interface{}
-	// Document contains the parsed document (type depends on semver)
+	// Document contains the version-specific parsed document:
+	// - *OAS2Document for OpenAPI 2.0
+	// - *OAS3Document for OpenAPI 3.x
 	Document interface{}
-	// Errors contains any parsing or validation errors
+	// Errors contains any parsing or validation errors encountered
 	Errors []error
-	// Warnings contains non-fatal issues
-	Warnings   []string
+	// Warnings contains non-fatal issues such as ref resolution failures
+	Warnings []string
+	// OASVersion is the enumerated version of the OpenAPI specification
 	OASVersion OASVersion
 }
 
@@ -133,7 +138,7 @@ func (p *Parser) detectVersion(data map[string]interface{}) (string, error) {
 	}
 
 	// Neither field was found - provide helpful error message
-	return "", fmt.Errorf("[Version Detection] unable to detect OpenAPI semver: document must contain either 'swagger: \"2.0\"' (for OAS 2.0) or 'openapi: \"3.x.x\"' (for OAS 3.x) at the root level")
+	return "", fmt.Errorf("version detection: unable to detect OpenAPI version: document must contain either 'swagger: \"2.0\"' (for OAS 2.0) or 'openapi: \"3.x.x\"' (for OAS 3.x) at the root level")
 }
 
 // parseSemVer parses a semver string into a semantic semver
@@ -181,7 +186,7 @@ func (p *Parser) parseVersionSpecific(data []byte, version string) (interface{},
 	case OASVersion20:
 		var doc OAS2Document
 		if err := yaml.Unmarshal(data, &doc); err != nil {
-			return nil, 0, fmt.Errorf("[OAS 2.0 Parser] failed to parse document structure: %w", err)
+			return nil, 0, fmt.Errorf("oas 2.0 parser: failed to parse document structure: %w", err)
 		}
 		doc.OASVersion = v
 		return &doc, v, nil
@@ -189,13 +194,13 @@ func (p *Parser) parseVersionSpecific(data []byte, version string) (interface{},
 	case OASVersion300, OASVersion301, OASVersion302, OASVersion303, OASVersion304, OASVersion310, OASVersion311, OASVersion312, OASVersion320:
 		var doc OAS3Document
 		if err := yaml.Unmarshal(data, &doc); err != nil {
-			return nil, 0, fmt.Errorf("[OAS %s Parser] failed to parse document structure: %w", version, err)
+			return nil, 0, fmt.Errorf("oas %s parser: failed to parse document structure: %w", version, err)
 		}
 		doc.OASVersion = v
 		return &doc, v, nil
 
 	default:
-		return nil, 0, fmt.Errorf("[Parser Error] unsupported OpenAPI semver: %s (only 2.0 and 3.x versions are supported)", version)
+		return nil, 0, fmt.Errorf("parser: unsupported OpenAPI version: %s (only 2.0 and 3.x versions are supported)", version)
 	}
 }
 
@@ -208,7 +213,7 @@ func (p *Parser) validateStructure(result *ParseResult) []error {
 	case result.OASVersion == OASVersion20:
 		doc, ok := result.Document.(*OAS2Document)
 		if !ok {
-			errors = append(errors, fmt.Errorf("[Parser Error] internal error: document type mismatch for OAS 2.0 (expected *OAS2Document, got %T)", result.Document))
+			errors = append(errors, fmt.Errorf("parser: internal error: document type mismatch for OAS 2.0 (expected *OAS2Document, got %T)", result.Document))
 			return errors
 		}
 		errors = append(errors, p.validateOAS2(doc)...)
@@ -216,44 +221,77 @@ func (p *Parser) validateStructure(result *ParseResult) []error {
 	case result.OASVersion.IsValid():
 		doc, ok := result.Document.(*OAS3Document)
 		if !ok {
-			errors = append(errors, fmt.Errorf("[Parser Error] internal error: document type mismatch for OAS 3.x (expected *OAS3Document, got %T)", result.Document))
+			errors = append(errors, fmt.Errorf("parser: internal error: document type mismatch for OAS 3.x (expected *OAS3Document, got %T)", result.Document))
 			return errors
 		}
 		errors = append(errors, p.validateOAS3(doc)...)
 
 	default:
-		errors = append(errors, fmt.Errorf("[Parser Error] unsupported OpenAPI semver: %s (only versions 2.0 and 3.x are supported)", result.Version))
+		errors = append(errors, fmt.Errorf("parser: unsupported OpenAPI version: %s (only versions 2.0 and 3.x are supported)", result.Version))
 	}
 
 	return errors
+}
+
+// isValidStatusCode checks if a status code string is valid per OAS spec
+// Valid formats: "200", "404", "2XX", "4XX", "5XX", etc.
+func isValidStatusCode(code string) bool {
+	if code == "" {
+		return false
+	}
+
+	// Check if it's a wildcard pattern (e.g., "2XX", "4XX")
+	if len(code) == 3 && code[1] == 'X' && code[2] == 'X' {
+		// First character should be a digit 1-5
+		if code[0] >= '1' && code[0] <= '5' {
+			return true
+		}
+		return false
+	}
+
+	// Check if it's a valid HTTP status code (100-599)
+	if len(code) != 3 {
+		return false
+	}
+	for _, c := range code {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	// Convert to int and validate range
+	statusCode := 0
+	for _, c := range code {
+		statusCode = statusCode*10 + int(c-'0')
+	}
+	return statusCode >= 100 && statusCode <= 599
 }
 
 // validateOAS2 validates an OAS 2.0 document
 func (p *Parser) validateOAS2(doc *OAS2Document) []error {
 	errors := make([]error, 0)
 
-	// Validate swagger semver field
+	// Validate swagger version field
 	if doc.Swagger == "" {
-		errors = append(errors, fmt.Errorf("[OAS 2.0] missing required root field 'swagger': must be set to \"2.0\""))
+		errors = append(errors, fmt.Errorf("oas 2.0: missing required root field 'swagger': must be set to \"2.0\""))
 	} else if doc.Swagger != "2.0" {
-		errors = append(errors, fmt.Errorf("[OAS 2.0] invalid 'swagger' field value: expected \"2.0\", got \"%s\"", doc.Swagger))
+		errors = append(errors, fmt.Errorf("oas 2.0: invalid 'swagger' field value: expected \"2.0\", got \"%s\"", doc.Swagger))
 	}
 
 	// Validate info object
 	if doc.Info == nil {
-		errors = append(errors, fmt.Errorf("[OAS 2.0] missing required root field 'info': Info object is required per spec (https://spec.openapis.org/oas/v2.0.html#infoObject)"))
+		errors = append(errors, fmt.Errorf("oas 2.0: missing required root field 'info': Info object is required per spec (https://spec.openapis.org/oas/v2.0.html#infoObject)"))
 	} else {
 		if doc.Info.Title == "" {
-			errors = append(errors, fmt.Errorf("[OAS 2.0] missing required field 'info.title': Info object must have a title per spec"))
+			errors = append(errors, fmt.Errorf("oas 2.0: missing required field 'info.title': Info object must have a title per spec"))
 		}
 		if doc.Info.Version == "" {
-			errors = append(errors, fmt.Errorf("[OAS 2.0] missing required field 'info.semver': Info object must have a semver string per spec"))
+			errors = append(errors, fmt.Errorf("oas 2.0: missing required field 'info.version': Info object must have a version string per spec"))
 		}
 	}
 
 	// Validate paths object
 	if doc.Paths == nil {
-		errors = append(errors, fmt.Errorf("[OAS 2.0] missing required root field 'paths': Paths object is required per spec (https://spec.openapis.org/oas/v2.0.html#pathsObject)"))
+		errors = append(errors, fmt.Errorf("oas 2.0: missing required root field 'paths': Paths object is required per spec (https://spec.openapis.org/oas/v2.0.html#pathsObject)"))
 	} else {
 		// Validate individual paths and operations
 		operationIDs := make(map[string]string)
@@ -264,7 +302,7 @@ func (p *Parser) validateOAS2(doc *OAS2Document) []error {
 
 			// Validate path pattern
 			if pathPattern != "" && pathPattern[0] != '/' {
-				errors = append(errors, fmt.Errorf("[OAS 2.0] invalid path pattern 'paths.%s': path must begin with '/'", pathPattern))
+				errors = append(errors, fmt.Errorf("oas 2.0: invalid path pattern 'paths.%s': path must begin with '/'", pathPattern))
 			}
 
 			// Check all operations in this path
@@ -288,7 +326,7 @@ func (p *Parser) validateOAS2(doc *OAS2Document) []error {
 				// Validate operationId uniqueness
 				if op.OperationID != "" {
 					if existingPath, exists := operationIDs[op.OperationID]; exists {
-						errors = append(errors, fmt.Errorf("[OAS 2.0] duplicate operationId '%s' at '%s': previously defined at '%s'",
+						errors = append(errors, fmt.Errorf("oas 2.0: duplicate operationId '%s' at '%s': previously defined at '%s'",
 							op.OperationID, opPath, existingPath))
 					} else {
 						operationIDs[op.OperationID] = opPath
@@ -297,7 +335,14 @@ func (p *Parser) validateOAS2(doc *OAS2Document) []error {
 
 				// Validate responses object exists
 				if op.Responses == nil {
-					errors = append(errors, fmt.Errorf("[OAS 2.0] missing required field '%s.responses': Operation must have a responses object", opPath))
+					errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.responses': Operation must have a responses object", opPath))
+				} else {
+					// Validate status codes in responses
+					for code := range op.Responses.Codes {
+						if !isValidStatusCode(code) {
+							errors = append(errors, fmt.Errorf("oas 2.0: invalid status code '%s' in '%s.responses': must be a valid HTTP status code (e.g., \"200\", \"404\") or wildcard pattern (e.g., \"2XX\")", code, opPath))
+						}
+					}
 				}
 
 				// Validate parameters
@@ -307,14 +352,14 @@ func (p *Parser) validateOAS2(doc *OAS2Document) []error {
 					}
 					paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, i)
 					if param.Name == "" {
-						errors = append(errors, fmt.Errorf("[OAS 2.0] missing required field '%s.name': Parameter must have a name", paramPath))
+						errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.name': Parameter must have a name", paramPath))
 					}
 					if param.In == "" {
-						errors = append(errors, fmt.Errorf("[OAS 2.0] missing required field '%s.in': Parameter must specify location (query, header, path, formData, body)", paramPath))
+						errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.in': Parameter must specify location (query, header, path, formData, body)", paramPath))
 					} else {
 						validLocations := map[string]bool{"query": true, "header": true, "path": true, "formData": true, "body": true}
 						if !validLocations[param.In] {
-							errors = append(errors, fmt.Errorf("[OAS 2.0] invalid value for '%s.in': \"%s\" is not a valid parameter location (must be query, header, path, formData, or body)", paramPath, param.In))
+							errors = append(errors, fmt.Errorf("oas 2.0: invalid value for '%s.in': \"%s\" is not a valid parameter location (must be query, header, path, formData, or body)", paramPath, param.In))
 						}
 					}
 				}
@@ -330,11 +375,11 @@ func (p *Parser) validateOAS3(doc *OAS3Document) []error {
 	errors := make([]error, 0)
 	version := doc.OpenAPI
 
-	// Validate openapi semver field
+	// Validate openapi version field
 	if doc.OpenAPI == "" {
-		errors = append(errors, fmt.Errorf("[OAS 3.x] missing required root field 'openapi': must be set to a valid 3.x semver (e.g., \"3.0.3\", \"3.1.0\")"))
+		errors = append(errors, fmt.Errorf("oas 3.x: missing required root field 'openapi': must be set to a valid 3.x version (e.g., \"3.0.3\", \"3.1.0\")"))
 	} else if !versionInRangeExclusive(doc.OpenAPI, "3.0.0", "4.0.0") {
-		errors = append(errors, fmt.Errorf("[OAS %s] invalid 'openapi' field value: \"%s\" is not a valid 3.x semver", version, doc.OpenAPI))
+		errors = append(errors, fmt.Errorf("oas %s: invalid 'openapi' field value: \"%s\" is not a valid 3.x version", version, doc.OpenAPI))
 	}
 
 	// Validate info object
@@ -350,7 +395,7 @@ func (p *Parser) validateOAS3(doc *OAS3Document) []error {
 
 	// Validate webhooks if present (OAS 3.1+)
 	if len(doc.Webhooks) > 0 && versionInRangeExclusive(doc.OpenAPI, "0.0.0", "3.1.0") {
-		errors = append(errors, fmt.Errorf("[OAS %s] 'webhooks' field is only supported in OAS 3.1.0 and later, not in semver %s", version, doc.OpenAPI))
+		errors = append(errors, fmt.Errorf("oas %s: 'webhooks' field is only supported in OAS 3.1.0 and later, not in version %s", version, doc.OpenAPI))
 	}
 
 	return errors
@@ -359,13 +404,13 @@ func (p *Parser) validateOAS3(doc *OAS3Document) []error {
 func (p *Parser) validateOAS3Info(info *Info, version string) []error {
 	errors := make([]error, 0)
 	if info == nil {
-		errors = append(errors, fmt.Errorf("[OAS %s] missing required root field 'info': Info object is required per spec (https://spec.openapis.org/oas/v3.0.0.html#info-object)", version))
+		errors = append(errors, fmt.Errorf("oas %s: missing required root field 'info': Info object is required per spec (https://spec.openapis.org/oas/v3.0.0.html#info-object)", version))
 	} else {
 		if info.Title == "" {
-			errors = append(errors, fmt.Errorf("[OAS %s] missing required field 'info.title': Info object must have a title per spec", version))
+			errors = append(errors, fmt.Errorf("oas %s: missing required field 'info.title': Info object must have a title per spec", version))
 		}
 		if info.Version == "" {
-			errors = append(errors, fmt.Errorf("[OAS %s] missing required field 'info.semver': Info object must have a semver string per spec", version))
+			errors = append(errors, fmt.Errorf("oas %s: missing required field 'info.version': Info object must have a version string per spec", version))
 		}
 	}
 	return errors
@@ -375,12 +420,12 @@ func (p *Parser) validateOAS3PathsRequirement(doc *OAS3Document, version string)
 	errors := make([]error, 0)
 	if versionInRangeExclusive(doc.OpenAPI, "3.0.0", "3.1.0") {
 		if doc.Paths == nil {
-			errors = append(errors, fmt.Errorf("[OAS %s] missing required root field 'paths': Paths object is required in OAS 3.0.x (https://spec.openapis.org/oas/v3.0.0.html#paths-object)", version))
+			errors = append(errors, fmt.Errorf("oas %s: missing required root field 'paths': Paths object is required in OAS 3.0.x (https://spec.openapis.org/oas/v3.0.0.html#paths-object)", version))
 		}
 	} else if versionInRangeExclusive(doc.OpenAPI, "3.1.0", "") {
 		// In OAS 3.1+, either paths or webhooks must be present
 		if doc.Paths == nil && len(doc.Webhooks) == 0 {
-			errors = append(errors, fmt.Errorf("[OAS %s] document must have either 'paths' or 'webhooks': at least one is required in OAS 3.1+", version))
+			errors = append(errors, fmt.Errorf("oas %s: document must have either 'paths' or 'webhooks': at least one is required in OAS 3.1+", version))
 		}
 	}
 	return errors
@@ -397,7 +442,7 @@ func (p *Parser) validateOAS3Paths(paths map[string]*PathItem, version string) [
 
 		// Validate path pattern
 		if pathPattern != "" && pathPattern[0] != '/' {
-			errors = append(errors, fmt.Errorf("[OAS %s] invalid path pattern 'paths.%s': path must begin with '/'", version, pathPattern))
+			errors = append(errors, fmt.Errorf("oas %s: invalid path pattern 'paths.%s': path must begin with '/'", version, pathPattern))
 		}
 
 		// Check all operations in this path
@@ -409,6 +454,11 @@ func (p *Parser) validateOAS3Paths(paths map[string]*PathItem, version string) [
 
 func (p *Parser) validateOAS3PathItem(pathItem *PathItem, pathPattern string, operationIDs map[string]string, version string) []error {
 	errors := make([]error, 0)
+
+	// Defensive nil check
+	if pathItem == nil {
+		return errors
+	}
 
 	operations := map[string]*Operation{
 		"get":     pathItem.Get,
@@ -439,7 +489,7 @@ func (p *Parser) validateOAS3Operation(op *Operation, opPath string, operationID
 	// Validate operationId uniqueness
 	if op.OperationID != "" {
 		if existingPath, exists := operationIDs[op.OperationID]; exists {
-			errors = append(errors, fmt.Errorf("[OAS %s] duplicate operationId '%s' at '%s': previously defined at '%s' (operationIds must be unique across all operations)",
+			errors = append(errors, fmt.Errorf("oas %s: duplicate operationId '%s' at '%s': previously defined at '%s' (operationIds must be unique across all operations)",
 				version, op.OperationID, opPath, existingPath))
 		} else {
 			operationIDs[op.OperationID] = opPath
@@ -448,7 +498,14 @@ func (p *Parser) validateOAS3Operation(op *Operation, opPath string, operationID
 
 	// Validate responses object exists
 	if op.Responses == nil {
-		errors = append(errors, fmt.Errorf("[OAS %s] missing required field '%s.responses': Operation must have a responses object", version, opPath))
+		errors = append(errors, fmt.Errorf("oas %s: missing required field '%s.responses': Operation must have a responses object", version, opPath))
+	} else {
+		// Validate status codes in responses
+		for code := range op.Responses.Codes {
+			if !isValidStatusCode(code) {
+				errors = append(errors, fmt.Errorf("oas %s: invalid status code '%s' in '%s.responses': must be a valid HTTP status code (e.g., \"200\", \"404\") or wildcard pattern (e.g., \"2XX\")", version, code, opPath))
+			}
+		}
 	}
 
 	// Validate parameters
@@ -463,7 +520,7 @@ func (p *Parser) validateOAS3Operation(op *Operation, opPath string, operationID
 	if op.RequestBody != nil {
 		rbPath := fmt.Sprintf("%s.requestBody", opPath)
 		if len(op.RequestBody.Content) == 0 {
-			errors = append(errors, fmt.Errorf("[OAS %s] missing required field '%s.content': RequestBody must have at least one media type", version, rbPath))
+			errors = append(errors, fmt.Errorf("oas %s: missing required field '%s.content': RequestBody must have at least one media type", version, rbPath))
 		}
 	}
 
@@ -475,20 +532,20 @@ func (p *Parser) validateOAS3Parameter(param *Parameter, opPath string, index in
 	paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, index)
 
 	if param.Name == "" {
-		errors = append(errors, fmt.Errorf("[OAS %s] missing required field '%s.name': Parameter must have a name", version, paramPath))
+		errors = append(errors, fmt.Errorf("oas %s: missing required field '%s.name': Parameter must have a name", version, paramPath))
 	}
 	if param.In == "" {
-		errors = append(errors, fmt.Errorf("[OAS %s] missing required field '%s.in': Parameter must specify location (query, header, path, cookie)", version, paramPath))
+		errors = append(errors, fmt.Errorf("oas %s: missing required field '%s.in': Parameter must specify location (query, header, path, cookie)", version, paramPath))
 	} else {
 		validLocations := map[string]bool{"query": true, "header": true, "path": true, "cookie": true}
 		if !validLocations[param.In] {
-			errors = append(errors, fmt.Errorf("[OAS %s] invalid value for '%s.in': \"%s\" is not a valid parameter location (must be query, header, path, or cookie)", version, paramPath, param.In))
+			errors = append(errors, fmt.Errorf("oas %s: invalid value for '%s.in': \"%s\" is not a valid parameter location (must be query, header, path, or cookie)", version, paramPath, param.In))
 		}
 	}
 
 	// Path parameters must be required
 	if param.In == "path" && !param.Required {
-		errors = append(errors, fmt.Errorf("[OAS %s] invalid parameter '%s': path parameters must have 'required: true' per spec", version, paramPath))
+		errors = append(errors, fmt.Errorf("oas %s: invalid parameter '%s': path parameters must have 'required: true' per spec", version, paramPath))
 	}
 
 	return errors

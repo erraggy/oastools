@@ -5,7 +5,8 @@ package parser
 type OASVersion int
 
 const (
-	unknown OASVersion = iota
+	// Unknown represents an unknown or invalid OAS version
+	Unknown OASVersion = iota
 	// OASVersion20 OpenAPI Specification Version 2.0 (Swagger)
 	OASVersion20
 	// OASVersion300 OpenAPI Specification Version 3.0.0
@@ -58,7 +59,7 @@ func (v OASVersion) String() string {
 	return "unknown"
 }
 
-// IsValid returns true is this is a valid version
+// IsValid returns true if this is a valid version
 func (v OASVersion) IsValid() bool {
 	_, ok := versionToString[v]
 	return ok

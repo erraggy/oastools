@@ -98,9 +98,19 @@ func (r *RefResolver) ResolveExternal(ref string) (interface{}, error) {
 	}
 
 	// Ensure the resolved path is within allowed directory
-	absBase, _ := filepath.Abs(r.baseDir)
-	absPath, _ := filepath.Abs(filePath)
-	if !strings.HasPrefix(absPath, absBase) {
+	absBase, err := filepath.Abs(r.baseDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve base directory: %w", err)
+	}
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve file path: %w", err)
+	}
+
+	// Use filepath.Rel to properly detect path traversal attempts
+	// This correctly handles edge cases like C:\base vs C:\base2 on Windows
+	relPath, err := filepath.Rel(absBase, absPath)
+	if err != nil || strings.HasPrefix(relPath, "..") {
 		return nil, fmt.Errorf("path traversal detected: %s", ref)
 	}
 
@@ -184,10 +194,12 @@ func (r *RefResolver) resolveRefsRecursive(root, current interface{}) error {
 					delete(v, k)
 				}
 			}
-			if resolvedMap, ok := resolved.(map[string]interface{}); ok {
-				for k, val := range resolvedMap {
-					v[k] = val
-				}
+			resolvedMap, ok := resolved.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("resolved $ref %s is not an object (got %T)", ref, resolved)
+			}
+			for k, val := range resolvedMap {
+				v[k] = val
 			}
 			delete(v, "$ref")
 

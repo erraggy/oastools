@@ -914,3 +914,153 @@ paths:
 		})
 	}
 }
+
+func TestPathTraversalSecurity(t *testing.T) {
+	// Create a temporary directory structure for testing
+	tmpDir := t.TempDir()
+
+	// Create a safe directory with an allowed file
+	safeDir := filepath.Join(tmpDir, "safe")
+	err := os.MkdirAll(safeDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create safe directory: %v", err)
+	}
+
+	// Create an allowed file in the safe directory
+	allowedFile := filepath.Join(safeDir, "allowed.yaml")
+	allowedContent := `
+openapi: "3.0.0"
+info:
+  title: Allowed Component
+  version: 1.0.0
+paths: {}
+`
+	err = os.WriteFile(allowedFile, []byte(allowedContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write allowed file: %v", err)
+	}
+
+	// Create a restricted directory with a forbidden file (outside safe dir)
+	restrictedFile := filepath.Join(tmpDir, "forbidden.yaml")
+	restrictedContent := `
+openapi: "3.0.0"
+info:
+  title: Forbidden Component
+  version: 1.0.0
+paths: {}
+`
+	err = os.WriteFile(restrictedFile, []byte(restrictedContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write restricted file: %v", err)
+	}
+
+	tests := []struct {
+		name          string
+		ref           string
+		shouldSucceed bool
+		errorContains string
+	}{
+		{
+			name:          "Valid reference within baseDir",
+			ref:           "./allowed.yaml",
+			shouldSucceed: true,
+		},
+		{
+			name:          "Path traversal with ../",
+			ref:           "../forbidden.yaml",
+			shouldSucceed: false,
+			errorContains: "path traversal detected",
+		},
+		{
+			name:          "Path traversal with ../../",
+			ref:           "../../forbidden.yaml",
+			shouldSucceed: false,
+			errorContains: "path traversal detected",
+		},
+		{
+			name:          "Path traversal with ../../../",
+			ref:           "../../../etc/passwd",
+			shouldSucceed: false,
+			errorContains: "path traversal detected",
+		},
+		{
+			name:          "Absolute path outside baseDir",
+			ref:           restrictedFile,
+			shouldSucceed: false,
+			errorContains: "path traversal detected",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver := NewRefResolver(safeDir)
+			result, err := resolver.ResolveExternal(tt.ref)
+
+			if tt.shouldSucceed {
+				if err != nil {
+					t.Errorf("Expected success but got error: %v", err)
+				}
+				if result == nil {
+					t.Error("Expected non-nil result for successful resolution")
+				}
+			} else {
+				if err == nil {
+					t.Error("Expected error but got nil")
+				} else if !strings.Contains(err.Error(), tt.errorContains) {
+					t.Errorf("Expected error containing '%s', got: %v", tt.errorContains, err)
+				}
+			}
+		})
+	}
+}
+
+func TestPathTraversalWindows(t *testing.T) {
+	// Test the Windows edge case mentioned in the code review
+	// where "C:\base" and "C:\base2" would pass a simple prefix check
+
+	tmpDir := t.TempDir()
+
+	// Create two directories: "base" and "base2"
+	baseDir := filepath.Join(tmpDir, "base")
+	base2Dir := filepath.Join(tmpDir, "base2")
+
+	err := os.MkdirAll(baseDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create base directory: %v", err)
+	}
+
+	err = os.MkdirAll(base2Dir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create base2 directory: %v", err)
+	}
+
+	// Create a file in base2
+	forbiddenFile := filepath.Join(base2Dir, "forbidden.yaml")
+	err = os.WriteFile(forbiddenFile, []byte("openapi: 3.0.0\ninfo:\n  title: Test\n  version: 1.0.0\npaths: {}"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write forbidden file: %v", err)
+	}
+
+	// Try to access the file in base2 from a resolver with baseDir set to base
+	resolver := NewRefResolver(baseDir)
+
+	// Try various ways to escape to base2
+	refs := []string{
+		"../base2/forbidden.yaml",
+		filepath.Join("..", "base2", "forbidden.yaml"),
+		forbiddenFile, // absolute path
+	}
+
+	for _, ref := range refs {
+		t.Run("ref="+ref, func(t *testing.T) {
+			result, err := resolver.ResolveExternal(ref)
+
+			// All these should fail with path traversal error
+			if err == nil {
+				t.Errorf("Expected path traversal error for ref '%s', but got nil error. Result: %v", ref, result)
+			} else if !strings.Contains(err.Error(), "path traversal detected") {
+				t.Errorf("Expected 'path traversal detected' error for ref '%s', got: %v", ref, err)
+			}
+		})
+	}
+}
