@@ -114,6 +114,12 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 
 	// Prepare data for version-specific parsing
 	// Only re-marshal if we resolved refs (to avoid unnecessary overhead)
+	//
+	// Performance trade-off: When ResolveRefs is enabled, we must re-marshal the
+	// rawData map after reference resolution to ensure the resolved content is
+	// available to the version-specific parsers. This adds overhead (especially
+	// for large documents), but is necessary for correct reference resolution.
+	// When ResolveRefs is disabled, we skip this step and use the original data.
 	var parseData []byte
 	if p.ResolveRefs {
 		// Re-marshal the data with resolved refs

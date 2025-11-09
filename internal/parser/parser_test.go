@@ -1064,3 +1064,330 @@ func TestPathTraversalWindows(t *testing.T) {
 		})
 	}
 }
+
+func TestInvalidStatusCodes(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode string
+		oasVersion string
+		expectErr  bool
+	}{
+		{"Valid 200", "200", "2.0", false},
+		{"Valid 404", "404", "3.0.0", false},
+		{"Valid 2XX wildcard", "2XX", "3.0.0", false},
+		{"Valid 5XX wildcard", "5XX", "2.0", false},
+		{"Valid default", "default", "3.0.0", false},
+		{"Invalid 99 - too low", "99", "3.0.0", true},
+		{"Invalid 600 - too high", "600", "2.0", true},
+		{"Invalid 6XX - out of range wildcard", "6XX", "3.0.0", true},
+		{"Invalid XXX - all wildcards", "XXX", "3.0.0", true},
+		{"Invalid 2X3 - mixed wildcard", "2X3", "2.0", true},
+		{"Invalid empty string", "", "3.0.0", true},
+		{"Invalid two chars", "20", "3.0.0", true},
+		{"Invalid four chars", "2000", "2.0", true},
+		{"Invalid non-numeric", "abc", "3.0.0", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var spec string
+			if tt.oasVersion == "2.0" {
+				spec = `swagger: "2.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '` + tt.statusCode + `':
+          description: Test response
+`
+			} else {
+				spec = `openapi: "` + tt.oasVersion + `"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '` + tt.statusCode + `':
+          description: Test response
+`
+			}
+
+			parser := New()
+			result, err := parser.ParseBytes([]byte(spec))
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			hasStatusCodeError := false
+			for _, e := range result.Errors {
+				if strings.Contains(e.Error(), "invalid status code") {
+					hasStatusCodeError = true
+					break
+				}
+			}
+
+			if tt.expectErr && !hasStatusCodeError {
+				t.Errorf("Expected invalid status code error for '%s', but got no such error. Errors: %v",
+					tt.statusCode, result.Errors)
+			}
+
+			if !tt.expectErr && hasStatusCodeError {
+				t.Errorf("Did not expect invalid status code error for '%s', but got one. Errors: %v",
+					tt.statusCode, result.Errors)
+			}
+		})
+	}
+}
+
+func TestDuplicateOperationIds(t *testing.T) {
+	tests := []struct {
+		name      string
+		spec      string
+		expectErr bool
+		errorMsg  string
+	}{
+		{
+			name: "OAS 2.0 - Duplicate operationId",
+			spec: `swagger: "2.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+  /accounts:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+`,
+			expectErr: true,
+			errorMsg:  "duplicate operationId",
+		},
+		{
+			name: "OAS 3.0 - Duplicate operationId",
+			spec: `openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+  /accounts:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+`,
+			expectErr: true,
+			errorMsg:  "duplicate operationId",
+		},
+		{
+			name: "OAS 3.1 - Unique operationIds",
+			spec: `openapi: "3.1.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+  /accounts:
+    get:
+      operationId: getAccount
+      responses:
+        '200':
+          description: Success
+`,
+			expectErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := New()
+			result, err := parser.ParseBytes([]byte(tt.spec))
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			hasDuplicateError := false
+			for _, e := range result.Errors {
+				if strings.Contains(e.Error(), tt.errorMsg) {
+					hasDuplicateError = true
+					break
+				}
+			}
+
+			if tt.expectErr && !hasDuplicateError {
+				t.Errorf("Expected duplicate operationId error, but got none. Errors: %v", result.Errors)
+			}
+
+			if !tt.expectErr && hasDuplicateError {
+				t.Errorf("Did not expect duplicate operationId error, but got one. Errors: %v", result.Errors)
+			}
+		})
+	}
+}
+
+func TestMalformedExternalRefs(t *testing.T) {
+	// Create a temporary directory for test files
+	tmpDir := t.TempDir()
+
+	// Create a valid external file
+	validExternal := filepath.Join(tmpDir, "valid.yaml")
+	validContent := []byte(`
+type: object
+properties:
+  id:
+    type: integer
+`)
+	if err := os.WriteFile(validExternal, validContent, 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Create a malformed external file
+	malformedExternal := filepath.Join(tmpDir, "malformed.yaml")
+	malformedContent := []byte(`{{{invalid yaml`)
+	if err := os.WriteFile(malformedExternal, malformedContent, 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		spec      string
+		expectErr bool
+		errorMsg  string
+	}{
+		{
+			name: "Valid external ref",
+			spec: `openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: './valid.yaml'
+`,
+			expectErr: false,
+		},
+		{
+			name: "Malformed external ref - invalid YAML",
+			spec: `openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: './malformed.yaml'
+`,
+			expectErr: true,
+			errorMsg:  "ref resolution warning",
+		},
+		{
+			name: "Non-existent external ref",
+			spec: `openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: './nonexistent.yaml'
+`,
+			expectErr: true,
+			errorMsg:  "ref resolution warning",
+		},
+		{
+			name: "HTTP(S) reference not supported",
+			spec: `openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: 'https://example.com/schema.yaml'
+`,
+			expectErr: true,
+			errorMsg:  "ref resolution warning",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Write spec to temp file
+			specFile := filepath.Join(tmpDir, "spec.yaml")
+			if err := os.WriteFile(specFile, []byte(tt.spec), 0644); err != nil {
+				t.Fatalf("Failed to create spec file: %v", err)
+			}
+
+			parser := New()
+			parser.ResolveRefs = true
+			result, err := parser.Parse(specFile)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			hasExpectedWarning := false
+			for _, w := range result.Warnings {
+				if strings.Contains(w, tt.errorMsg) {
+					hasExpectedWarning = true
+					break
+				}
+			}
+
+			if tt.expectErr && !hasExpectedWarning {
+				t.Errorf("Expected warning containing '%s', but got none. Warnings: %v", tt.errorMsg, result.Warnings)
+			}
+
+			if !tt.expectErr && hasExpectedWarning {
+				t.Errorf("Did not expect warning, but got one. Warnings: %v", result.Warnings)
+			}
+		})
+	}
+}

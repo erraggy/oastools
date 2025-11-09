@@ -122,15 +122,9 @@ func (r *RefResolver) ResolveExternal(ref string) (interface{}, error) {
 		return nil, fmt.Errorf("failed to resolve file path: %w", err)
 	}
 
-	// On Windows, ensure both paths are on the same volume/drive
-	// filepath.VolumeName returns the volume name (e.g., "C:")
-	if filepath.VolumeName(absBase) != filepath.VolumeName(absPath) {
-		return nil, fmt.Errorf("path traversal detected: volume mismatch (base: %s, target: %s)",
-			filepath.VolumeName(absBase), filepath.VolumeName(absPath))
-	}
-
-	// Use filepath.Rel to properly detect path traversal attempts
-	// This correctly handles edge cases like C:\base vs C:\base2 on Windows
+	// Use filepath.Rel to detect path traversal attempts
+	// This properly handles all cases including different volumes on Windows
+	// (filepath.Rel returns an error when paths are on different drives)
 	relPath, err := filepath.Rel(absBase, absPath)
 	if err != nil || strings.HasPrefix(relPath, "..") {
 		return nil, fmt.Errorf("path traversal detected: %s", ref)

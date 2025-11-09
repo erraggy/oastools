@@ -59,6 +59,13 @@ oastools parse openapi.yaml
 oastools merge base.yaml extensions.yaml
 ```
 
+## Limitations
+
+### External References
+
+- **HTTP(S) References Not Supported**: The parser currently only supports local file references for external `$ref` values. References starting with `http://` or `https://` are not yet supported.
+- **Security**: External file references are restricted to the base directory and its subdirectories to prevent path traversal attacks.
+
 ## Development
 
 ### Prerequisites
