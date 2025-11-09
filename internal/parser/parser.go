@@ -10,6 +10,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	// HTTP status code validation constants
+	statusCodeLength     = 3   // Standard length of HTTP status codes (e.g., "200", "404")
+	minStatusCode        = 100 // Minimum valid HTTP status code
+	maxStatusCode        = 599 // Maximum valid HTTP status code
+	wildcardChar         = 'X' // Wildcard character used in status code patterns (e.g., "2XX")
+	minWildcardFirstChar = '1' // Minimum first digit for wildcard patterns
+	maxWildcardFirstChar = '5' // Maximum first digit for wildcard patterns
+)
+
 // Parser handles OpenAPI specification parsing
 type Parser struct {
 	// ResolveRefs determines whether to resolve $ref references
@@ -102,14 +112,22 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 	}
 	result.Version = version
 
-	// Re-marshal the data (potentially with resolved refs) for semver-specific parsing
-	resolvedData, err := yaml.Marshal(rawData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to re-marshal data: %w", err)
+	// Prepare data for version-specific parsing
+	// Only re-marshal if we resolved refs (to avoid unnecessary overhead)
+	var parseData []byte
+	if p.ResolveRefs {
+		// Re-marshal the data with resolved refs
+		parseData, err = yaml.Marshal(rawData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to re-marshal data: %w", err)
+		}
+	} else {
+		// Use original data directly
+		parseData = data
 	}
 
 	// Parse to semver-specific structure
-	doc, oasVersion, err := p.parseVersionSpecific(resolvedData, version)
+	doc, oasVersion, err := p.parseVersionSpecific(parseData, version)
 	if err != nil {
 		return nil, err
 	}
@@ -246,16 +264,16 @@ func isValidStatusCode(code string) bool {
 	}
 
 	// Check if it's a wildcard pattern (e.g., "2XX", "4XX")
-	if len(code) == 3 && code[1] == 'X' && code[2] == 'X' {
+	if len(code) == statusCodeLength && code[1] == wildcardChar && code[2] == wildcardChar {
 		// First character should be a digit 1-5
-		if code[0] >= '1' && code[0] <= '5' {
+		if code[0] >= minWildcardFirstChar && code[0] <= maxWildcardFirstChar {
 			return true
 		}
 		return false
 	}
 
 	// Check if it's a valid HTTP status code (100-599)
-	if len(code) != 3 {
+	if len(code) != statusCodeLength {
 		return false
 	}
 	for _, c := range code {
@@ -268,7 +286,7 @@ func isValidStatusCode(code string) bool {
 	for _, c := range code {
 		statusCode = statusCode*10 + int(c-'0')
 	}
-	return statusCode >= 100 && statusCode <= 599
+	return statusCode >= minStatusCode && statusCode <= maxStatusCode
 }
 
 // validateOAS2 validates an OAS 2.0 document
@@ -283,98 +301,133 @@ func (p *Parser) validateOAS2(doc *OAS2Document) []error {
 	}
 
 	// Validate info object
-	if doc.Info == nil {
-		errors = append(errors, fmt.Errorf("oas 2.0: missing required root field 'info': Info object is required per spec (https://spec.openapis.org/oas/v2.0.html#infoObject)"))
-	} else {
-		if doc.Info.Title == "" {
-			errors = append(errors, fmt.Errorf("oas 2.0: missing required field 'info.title': Info object must have a title per spec"))
-		}
-		if doc.Info.Version == "" {
-			errors = append(errors, fmt.Errorf("oas 2.0: missing required field 'info.version': Info object must have a version string per spec"))
-		}
-	}
+	errors = append(errors, p.validateOAS2Info(doc.Info)...)
 
 	// Validate paths object
 	if doc.Paths == nil {
 		errors = append(errors, fmt.Errorf("oas 2.0: missing required root field 'paths': Paths object is required per spec (https://spec.openapis.org/oas/v2.0.html#pathsObject)"))
 	} else {
-		// Validate individual paths and operations
-		operationIDs := make(map[string]string)
-		for pathPattern, pathItem := range doc.Paths {
-			if pathItem == nil {
-				continue
+		errors = append(errors, p.validateOAS2Paths(doc.Paths)...)
+	}
+
+	return errors
+}
+
+func (p *Parser) validateOAS2Info(info *Info) []error {
+	errors := make([]error, 0)
+	if info == nil {
+		errors = append(errors, fmt.Errorf("oas 2.0: missing required root field 'info': Info object is required per spec (https://spec.openapis.org/oas/v2.0.html#infoObject)"))
+	} else {
+		if info.Title == "" {
+			errors = append(errors, fmt.Errorf("oas 2.0: missing required field 'info.title': Info object must have a title per spec"))
+		}
+		if info.Version == "" {
+			errors = append(errors, fmt.Errorf("oas 2.0: missing required field 'info.version': Info object must have a version string per spec"))
+		}
+	}
+	return errors
+}
+
+func (p *Parser) validateOAS2Paths(paths map[string]*PathItem) []error {
+	errors := make([]error, 0)
+	operationIDs := make(map[string]string)
+
+	for pathPattern, pathItem := range paths {
+		if pathItem == nil {
+			continue
+		}
+
+		// Validate path pattern
+		if pathPattern != "" && pathPattern[0] != '/' {
+			errors = append(errors, fmt.Errorf("oas 2.0: invalid path pattern 'paths.%s': path must begin with '/'", pathPattern))
+		}
+
+		// Check all operations in this path
+		errors = append(errors, p.validateOAS2PathItem(pathItem, pathPattern, operationIDs)...)
+	}
+
+	return errors
+}
+
+func (p *Parser) validateOAS2PathItem(pathItem *PathItem, pathPattern string, operationIDs map[string]string) []error {
+	errors := make([]error, 0)
+	operations := map[string]*Operation{
+		"get":     pathItem.Get,
+		"put":     pathItem.Put,
+		"post":    pathItem.Post,
+		"delete":  pathItem.Delete,
+		"options": pathItem.Options,
+		"head":    pathItem.Head,
+		"patch":   pathItem.Patch,
+	}
+
+	for method, op := range operations {
+		if op == nil {
+			continue
+		}
+
+		opPath := fmt.Sprintf("paths.%s.%s", pathPattern, method)
+		errors = append(errors, p.validateOAS2Operation(op, opPath, operationIDs)...)
+	}
+
+	return errors
+}
+
+func (p *Parser) validateOAS2Operation(op *Operation, opPath string, operationIDs map[string]string) []error {
+	errors := make([]error, 0)
+
+	// Validate operationId uniqueness
+	if op.OperationID != "" {
+		if existingPath, exists := operationIDs[op.OperationID]; exists {
+			errors = append(errors, fmt.Errorf("oas 2.0: duplicate operationId '%s' at '%s': previously defined at '%s'",
+				op.OperationID, opPath, existingPath))
+		} else {
+			operationIDs[op.OperationID] = opPath
+		}
+	}
+
+	// Validate responses object exists
+	if op.Responses == nil {
+		errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.responses': Operation must have a responses object", opPath))
+	} else {
+		// Validate status codes in responses
+		for code := range op.Responses.Codes {
+			if !isValidStatusCode(code) {
+				errors = append(errors, fmt.Errorf("oas 2.0: invalid status code '%s' in '%s.responses': must be a valid HTTP status code (e.g., \"200\", \"404\") or wildcard pattern (e.g., \"2XX\")", code, opPath))
 			}
+		}
+	}
 
-			// Validate path pattern
-			if pathPattern != "" && pathPattern[0] != '/' {
-				errors = append(errors, fmt.Errorf("oas 2.0: invalid path pattern 'paths.%s': path must begin with '/'", pathPattern))
-			}
+	// Validate parameters
+	for i, param := range op.Parameters {
+		if param == nil {
+			continue
+		}
+		errors = append(errors, p.validateOAS2Parameter(param, opPath, i)...)
+	}
 
-			// Check all operations in this path
-			operations := map[string]*Operation{
-				"get":     pathItem.Get,
-				"put":     pathItem.Put,
-				"post":    pathItem.Post,
-				"delete":  pathItem.Delete,
-				"options": pathItem.Options,
-				"head":    pathItem.Head,
-				"patch":   pathItem.Patch,
-			}
+	return errors
+}
 
-			for method, op := range operations {
-				if op == nil {
-					continue
-				}
+func (p *Parser) validateOAS2Parameter(param *Parameter, opPath string, index int) []error {
+	errors := make([]error, 0)
+	paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, index)
 
-				opPath := fmt.Sprintf("paths.%s.%s", pathPattern, method)
-
-				// Validate operationId uniqueness
-				if op.OperationID != "" {
-					if existingPath, exists := operationIDs[op.OperationID]; exists {
-						errors = append(errors, fmt.Errorf("oas 2.0: duplicate operationId '%s' at '%s': previously defined at '%s'",
-							op.OperationID, opPath, existingPath))
-					} else {
-						operationIDs[op.OperationID] = opPath
-					}
-				}
-
-				// Validate responses object exists
-				if op.Responses == nil {
-					errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.responses': Operation must have a responses object", opPath))
-				} else {
-					// Validate status codes in responses
-					for code := range op.Responses.Codes {
-						if !isValidStatusCode(code) {
-							errors = append(errors, fmt.Errorf("oas 2.0: invalid status code '%s' in '%s.responses': must be a valid HTTP status code (e.g., \"200\", \"404\") or wildcard pattern (e.g., \"2XX\")", code, opPath))
-						}
-					}
-				}
-
-				// Validate parameters
-				for i, param := range op.Parameters {
-					if param == nil {
-						continue
-					}
-					paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, i)
-					if param.Name == "" {
-						errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.name': Parameter must have a name", paramPath))
-					}
-					if param.In == "" {
-						errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.in': Parameter must specify location (query, header, path, formData, body)", paramPath))
-					} else {
-						validLocations := map[string]bool{
-							ParamInQuery:    true,
-							ParamInHeader:   true,
-							ParamInPath:     true,
-							ParamInFormData: true,
-							ParamInBody:     true,
-						}
-						if !validLocations[param.In] {
-							errors = append(errors, fmt.Errorf("oas 2.0: invalid value for '%s.in': \"%s\" is not a valid parameter location (must be query, header, path, formData, or body)", paramPath, param.In))
-						}
-					}
-				}
-			}
+	if param.Name == "" {
+		errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.name': Parameter must have a name", paramPath))
+	}
+	if param.In == "" {
+		errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.in': Parameter must specify location (query, header, path, formData, body)", paramPath))
+	} else {
+		validLocations := map[string]bool{
+			ParamInQuery:    true,
+			ParamInHeader:   true,
+			ParamInPath:     true,
+			ParamInFormData: true,
+			ParamInBody:     true,
+		}
+		if !validLocations[param.In] {
+			errors = append(errors, fmt.Errorf("oas 2.0: invalid value for '%s.in': \"%s\" is not a valid parameter location (must be query, header, path, formData, or body)", paramPath, param.In))
 		}
 	}
 

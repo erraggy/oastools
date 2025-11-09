@@ -18,6 +18,11 @@ const (
 	// MaxCachedDocuments is the maximum number of external documents to cache
 	// This prevents memory exhaustion from documents with many external references
 	MaxCachedDocuments = 100
+
+	// MaxFileSize is the maximum size (in bytes) allowed for external reference files
+	// This prevents resource exhaustion from loading arbitrarily large files
+	// Set to 10MB which should be sufficient for most OpenAPI documents
+	MaxFileSize = 10 * 1024 * 1024 // 10MB
 )
 
 // RefResolver handles $ref resolution in OpenAPI documents
@@ -117,6 +122,13 @@ func (r *RefResolver) ResolveExternal(ref string) (interface{}, error) {
 		return nil, fmt.Errorf("failed to resolve file path: %w", err)
 	}
 
+	// On Windows, ensure both paths are on the same volume/drive
+	// filepath.VolumeName returns the volume name (e.g., "C:")
+	if filepath.VolumeName(absBase) != filepath.VolumeName(absPath) {
+		return nil, fmt.Errorf("path traversal detected: volume mismatch (base: %s, target: %s)",
+			filepath.VolumeName(absBase), filepath.VolumeName(absPath))
+	}
+
 	// Use filepath.Rel to properly detect path traversal attempts
 	// This correctly handles edge cases like C:\base vs C:\base2 on Windows
 	relPath, err := filepath.Rel(absBase, absPath)
@@ -130,6 +142,16 @@ func (r *RefResolver) ResolveExternal(ref string) (interface{}, error) {
 		// Enforce cache size limit to prevent memory exhaustion
 		if len(r.documents) >= MaxCachedDocuments {
 			return nil, fmt.Errorf("exceeded maximum cached documents limit (%d): too many external references", MaxCachedDocuments)
+		}
+
+		// Check file size to prevent resource exhaustion
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat external file %s: %w", filePath, err)
+		}
+		if fileInfo.Size() > MaxFileSize {
+			return nil, fmt.Errorf("external file %s exceeds maximum size limit (%d bytes): file is %d bytes",
+				filePath, MaxFileSize, fileInfo.Size())
 		}
 
 		// Load the external document
