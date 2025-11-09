@@ -15,7 +15,13 @@ This tool supports the following OpenAPI Specification versions:
 
 - **OAS 2.0** (Swagger): https://spec.openapis.org/oas/v2.0.html
 - **OAS 3.0.0**: https://spec.openapis.org/oas/v3.0.0.html
+- **OAS 3.0.1**: https://spec.openapis.org/oas/v3.0.1.html
+- **OAS 3.0.2**: https://spec.openapis.org/oas/v3.0.2.html
+- **OAS 3.0.3**: https://spec.openapis.org/oas/v3.0.3.html
+- **OAS 3.0.4**: https://spec.openapis.org/oas/v3.0.4.html
 - **OAS 3.1.0**: https://spec.openapis.org/oas/v3.1.0.html
+- **OAS 3.1.1**: https://spec.openapis.org/oas/v3.1.1.html
+- **OAS 3.1.2**: https://spec.openapis.org/oas/v3.1.2.html
 - **OAS 3.2.0**: https://spec.openapis.org/oas/v3.2.0.html
 
 All OAS versions utilize the **JSON Schema Specification Draft 2020-12** for schema definitions:
