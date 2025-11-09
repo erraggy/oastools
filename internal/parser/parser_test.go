@@ -1092,6 +1092,9 @@ func TestInvalidStatusCodes(t *testing.T) {
 		{"Valid 2XX wildcard", "2XX", "3.0.0", false},
 		{"Valid 5XX wildcard", "5XX", "2.0", false},
 		{"Valid default", "default", "3.0.0", false},
+		{"Valid extension field x-custom", "x-custom", "3.0.0", false},
+		{"Valid extension field x-rate-limit", "x-rate-limit", "2.0", false},
+		{"Valid extension field x-", "x-", "3.0.0", false},
 		{"Invalid 99 - too low", "99", "3.0.0", true},
 		{"Invalid 600 - too high", "600", "2.0", true},
 		{"Invalid 6XX - out of range wildcard", "6XX", "3.0.0", true},
@@ -1101,6 +1104,8 @@ func TestInvalidStatusCodes(t *testing.T) {
 		{"Invalid two chars", "20", "3.0.0", true},
 		{"Invalid four chars", "2000", "2.0", true},
 		{"Invalid non-numeric", "abc", "3.0.0", true},
+		{"Invalid x without dash", "x", "3.0.0", true},
+		{"Invalid xCustom without dash", "xCustom", "2.0", true},
 	}
 
 	for _, tt := range tests {
@@ -1134,26 +1139,35 @@ paths:
 
 			parser := New()
 			result, err := parser.ParseBytes([]byte(spec))
-			if err != nil {
-				t.Fatalf("Failed to parse: %v", err)
-			}
 
-			hasStatusCodeError := false
-			for _, e := range result.Errors {
-				if strings.Contains(e.Error(), "invalid status code") {
-					hasStatusCodeError = true
-					break
+			// Check for invalid status code error in either parse error or validation errors
+			// Parse error check (fail-fast during unmarshaling)
+			hasStatusCodeError := err != nil && strings.Contains(err.Error(), "invalid status code")
+
+			// Check validation errors (caught during validation phase)
+			if !hasStatusCodeError && result != nil {
+				for _, e := range result.Errors {
+					if strings.Contains(e.Error(), "invalid status code") {
+						hasStatusCodeError = true
+						break
+					}
 				}
 			}
 
 			if tt.expectErr && !hasStatusCodeError {
-				t.Errorf("Expected invalid status code error for '%s', but got no such error. Errors: %v",
-					tt.statusCode, result.Errors)
+				t.Errorf("Expected invalid status code error for '%s', but got no such error. Parse error: %v, Validation errors: %v",
+					tt.statusCode, err, result.Errors)
 			}
 
 			if !tt.expectErr && hasStatusCodeError {
-				t.Errorf("Did not expect invalid status code error for '%s', but got one. Errors: %v",
-					tt.statusCode, result.Errors)
+				t.Errorf("Did not expect invalid status code error for '%s', but got one. Parse error: %v, Validation errors: %v",
+					tt.statusCode, err, result.Errors)
+			}
+
+			// For valid status codes, ensure parsing succeeded
+			if !tt.expectErr && err != nil {
+				t.Errorf("Expected successful parse for valid status code '%s', but got parse error: %v",
+					tt.statusCode, err)
 			}
 		})
 	}

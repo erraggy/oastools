@@ -82,9 +82,10 @@ func (r *Responses) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			}
 			r.Default = &defaultResp
 		} else {
-			// All other fields should be status codes
-			// We validate during parsing for better error messages, but the parser
-			// validation will also catch these for consistency
+			// All other fields should be valid status codes or extension fields
+			if !isValidStatusCode(key) {
+				return fmt.Errorf("invalid status code '%s' in responses: must be a valid HTTP status code (e.g., \"200\", \"404\"), wildcard pattern (e.g., \"2XX\"), or extension field (e.g., \"x-custom\")", key)
+			}
 			valueBytes, err := yamlMarshalValue(value)
 			if err != nil {
 				return fmt.Errorf("failed to marshal response for status code %s: %w", key, err)

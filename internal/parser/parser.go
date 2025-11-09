@@ -258,7 +258,7 @@ func (p *Parser) validateStructure(result *ParseResult) []error {
 }
 
 // isValidStatusCode checks if a status code string is valid per OAS spec
-// Valid formats: "200", "404", "2XX", "4XX", "5XX", "default", etc.
+// Valid formats: "200", "404", "2XX", "4XX", "5XX", "default", "x-*" (extension fields), etc.
 func isValidStatusCode(code string) bool {
 	if code == "" {
 		return false
@@ -266,6 +266,11 @@ func isValidStatusCode(code string) bool {
 
 	// Check if it's the "default" response
 	if code == ResponseDefault {
+		return true
+	}
+
+	// Check if it's an extension field (starts with "x-")
+	if len(code) >= 2 && code[0] == 'x' && code[1] == '-' {
 		return true
 	}
 
