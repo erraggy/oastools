@@ -295,18 +295,41 @@ func (p *Parser) validateOAS3(doc *OAS3Document) []error {
 	}
 
 	// Validate info object
-	if doc.Info == nil {
+	errors = append(errors, p.validateOAS3Info(doc.Info, version)...)
+
+	// Validate paths object - required in 3.0.x, optional in 3.1+
+	errors = append(errors, p.validateOAS3PathsRequirement(doc, version)...)
+
+	// Validate paths if present
+	if doc.Paths != nil {
+		errors = append(errors, p.validateOAS3Paths(doc.Paths, version)...)
+	}
+
+	// Validate webhooks if present (OAS 3.1+)
+	if len(doc.Webhooks) > 0 && doc.OpenAPI < "3.1.0" {
+		errors = append(errors, fmt.Errorf("[OAS %s] 'webhooks' field is only supported in OAS 3.1.0 and later, not in version %s", version, doc.OpenAPI))
+	}
+
+	return errors
+}
+
+func (p *Parser) validateOAS3Info(info *Info, version string) []error {
+	errors := make([]error, 0)
+	if info == nil {
 		errors = append(errors, fmt.Errorf("[OAS %s] missing required root field 'info': Info object is required per spec (https://spec.openapis.org/oas/v3.0.0.html#info-object)", version))
 	} else {
-		if doc.Info.Title == "" {
+		if info.Title == "" {
 			errors = append(errors, fmt.Errorf("[OAS %s] missing required field 'info.title': Info object must have a title per spec", version))
 		}
-		if doc.Info.Version == "" {
+		if info.Version == "" {
 			errors = append(errors, fmt.Errorf("[OAS %s] missing required field 'info.version': Info object must have a version string per spec", version))
 		}
 	}
+	return errors
+}
 
-	// Validate paths object - required in 3.0.x, optional in 3.1+
+func (p *Parser) validateOAS3PathsRequirement(doc *OAS3Document, version string) []error {
+	errors := make([]error, 0)
 	if doc.OpenAPI >= "3.0.0" && doc.OpenAPI < "3.1.0" {
 		if doc.Paths == nil {
 			errors = append(errors, fmt.Errorf("[OAS %s] missing required root field 'paths': Paths object is required in OAS 3.0.x (https://spec.openapis.org/oas/v3.0.0.html#paths-object)", version))
@@ -317,92 +340,112 @@ func (p *Parser) validateOAS3(doc *OAS3Document) []error {
 			errors = append(errors, fmt.Errorf("[OAS %s] document must have either 'paths' or 'webhooks': at least one is required in OAS 3.1+", version))
 		}
 	}
+	return errors
+}
 
-	// Validate paths if present
-	if doc.Paths != nil {
-		operationIDs := make(map[string]string)
-		for pathPattern, pathItem := range doc.Paths {
-			if pathItem == nil {
-				continue
-			}
+func (p *Parser) validateOAS3Paths(paths map[string]*PathItem, version string) []error {
+	errors := make([]error, 0)
+	operationIDs := make(map[string]string)
 
-			// Validate path pattern
-			if pathPattern != "" && pathPattern[0] != '/' {
-				errors = append(errors, fmt.Errorf("[OAS %s] invalid path pattern 'paths.%s': path must begin with '/'", version, pathPattern))
-			}
+	for pathPattern, pathItem := range paths {
+		if pathItem == nil {
+			continue
+		}
 
-			// Check all operations in this path
-			operations := map[string]*Operation{
-				"get":     pathItem.Get,
-				"put":     pathItem.Put,
-				"post":    pathItem.Post,
-				"delete":  pathItem.Delete,
-				"options": pathItem.Options,
-				"head":    pathItem.Head,
-				"patch":   pathItem.Patch,
-				"trace":   pathItem.Trace,
-			}
+		// Validate path pattern
+		if pathPattern != "" && pathPattern[0] != '/' {
+			errors = append(errors, fmt.Errorf("[OAS %s] invalid path pattern 'paths.%s': path must begin with '/'", version, pathPattern))
+		}
 
-			for method, op := range operations {
-				if op == nil {
-					continue
-				}
+		// Check all operations in this path
+		errors = append(errors, p.validateOAS3PathItem(pathItem, pathPattern, operationIDs, version)...)
+	}
 
-				opPath := fmt.Sprintf("paths.%s.%s", pathPattern, method)
+	return errors
+}
 
-				// Validate operationId uniqueness
-				if op.OperationID != "" {
-					if existingPath, exists := operationIDs[op.OperationID]; exists {
-						errors = append(errors, fmt.Errorf("[OAS %s] duplicate operationId '%s' at '%s': previously defined at '%s' (operationIds must be unique across all operations)",
-							version, op.OperationID, opPath, existingPath))
-					} else {
-						operationIDs[op.OperationID] = opPath
-					}
-				}
+func (p *Parser) validateOAS3PathItem(pathItem *PathItem, pathPattern string, operationIDs map[string]string, version string) []error {
+	errors := make([]error, 0)
 
-				// Validate responses object exists
-				if op.Responses == nil {
-					errors = append(errors, fmt.Errorf("[OAS %s] missing required field '%s.responses': Operation must have a responses object", version, opPath))
-				}
+	operations := map[string]*Operation{
+		"get":     pathItem.Get,
+		"put":     pathItem.Put,
+		"post":    pathItem.Post,
+		"delete":  pathItem.Delete,
+		"options": pathItem.Options,
+		"head":    pathItem.Head,
+		"patch":   pathItem.Patch,
+		"trace":   pathItem.Trace,
+	}
 
-				// Validate parameters
-				for i, param := range op.Parameters {
-					if param == nil {
-						continue
-					}
-					paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, i)
-					if param.Name == "" {
-						errors = append(errors, fmt.Errorf("[OAS %s] missing required field '%s.name': Parameter must have a name", version, paramPath))
-					}
-					if param.In == "" {
-						errors = append(errors, fmt.Errorf("[OAS %s] missing required field '%s.in': Parameter must specify location (query, header, path, cookie)", version, paramPath))
-					} else {
-						validLocations := map[string]bool{"query": true, "header": true, "path": true, "cookie": true}
-						if !validLocations[param.In] {
-							errors = append(errors, fmt.Errorf("[OAS %s] invalid value for '%s.in': \"%s\" is not a valid parameter location (must be query, header, path, or cookie)", version, paramPath, param.In))
-						}
-					}
+	for method, op := range operations {
+		if op == nil {
+			continue
+		}
 
-					// Path parameters must be required
-					if param.In == "path" && !param.Required {
-						errors = append(errors, fmt.Errorf("[OAS %s] invalid parameter '%s': path parameters must have 'required: true' per spec", version, paramPath))
-					}
-				}
+		opPath := fmt.Sprintf("paths.%s.%s", pathPattern, method)
+		errors = append(errors, p.validateOAS3Operation(op, opPath, operationIDs, version)...)
+	}
 
-				// Validate requestBody if present
-				if op.RequestBody != nil {
-					rbPath := fmt.Sprintf("%s.requestBody", opPath)
-					if op.RequestBody.Content == nil || len(op.RequestBody.Content) == 0 {
-						errors = append(errors, fmt.Errorf("[OAS %s] missing required field '%s.content': RequestBody must have at least one media type", version, rbPath))
-					}
-				}
-			}
+	return errors
+}
+
+func (p *Parser) validateOAS3Operation(op *Operation, opPath string, operationIDs map[string]string, version string) []error {
+	errors := make([]error, 0)
+
+	// Validate operationId uniqueness
+	if op.OperationID != "" {
+		if existingPath, exists := operationIDs[op.OperationID]; exists {
+			errors = append(errors, fmt.Errorf("[OAS %s] duplicate operationId '%s' at '%s': previously defined at '%s' (operationIds must be unique across all operations)",
+				version, op.OperationID, opPath, existingPath))
+		} else {
+			operationIDs[op.OperationID] = opPath
 		}
 	}
 
-	// Validate webhooks if present (OAS 3.1+)
-	if len(doc.Webhooks) > 0 && doc.OpenAPI < "3.1.0" {
-		errors = append(errors, fmt.Errorf("[OAS %s] 'webhooks' field is only supported in OAS 3.1.0 and later, not in version %s", version, doc.OpenAPI))
+	// Validate responses object exists
+	if op.Responses == nil {
+		errors = append(errors, fmt.Errorf("[OAS %s] missing required field '%s.responses': Operation must have a responses object", version, opPath))
+	}
+
+	// Validate parameters
+	for i, param := range op.Parameters {
+		if param == nil {
+			continue
+		}
+		errors = append(errors, p.validateOAS3Parameter(param, opPath, i, version)...)
+	}
+
+	// Validate requestBody if present
+	if op.RequestBody != nil {
+		rbPath := fmt.Sprintf("%s.requestBody", opPath)
+		if len(op.RequestBody.Content) == 0 {
+			errors = append(errors, fmt.Errorf("[OAS %s] missing required field '%s.content': RequestBody must have at least one media type", version, rbPath))
+		}
+	}
+
+	return errors
+}
+
+func (p *Parser) validateOAS3Parameter(param *Parameter, opPath string, index int, version string) []error {
+	errors := make([]error, 0)
+	paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, index)
+
+	if param.Name == "" {
+		errors = append(errors, fmt.Errorf("[OAS %s] missing required field '%s.name': Parameter must have a name", version, paramPath))
+	}
+	if param.In == "" {
+		errors = append(errors, fmt.Errorf("[OAS %s] missing required field '%s.in': Parameter must specify location (query, header, path, cookie)", version, paramPath))
+	} else {
+		validLocations := map[string]bool{"query": true, "header": true, "path": true, "cookie": true}
+		if !validLocations[param.In] {
+			errors = append(errors, fmt.Errorf("[OAS %s] invalid value for '%s.in': \"%s\" is not a valid parameter location (must be query, header, path, or cookie)", version, paramPath, param.In))
+		}
+	}
+
+	// Path parameters must be required
+	if param.In == "path" && !param.Required {
+		errors = append(errors, fmt.Errorf("[OAS %s] invalid parameter '%s': path parameters must have 'required: true' per spec", version, paramPath))
 	}
 
 	return errors
