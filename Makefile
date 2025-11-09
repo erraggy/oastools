@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install help
+.PHONY: build test lint clean install tidy check help
 
 # Build variables
 BINARY_NAME=oastools
@@ -61,6 +61,16 @@ deps:
 	@echo "Downloading dependencies..."
 	go mod download
 	go mod tidy
+
+## tidy: Tidy go modules
+tidy:
+	@echo "Tidying go modules..."
+	go mod tidy
+
+## check: Run tidy, fmt, lint, test, and git status
+check: tidy fmt lint test
+	@echo "Running git status..."
+	@git status
 
 ## help: Show this help message
 help:
