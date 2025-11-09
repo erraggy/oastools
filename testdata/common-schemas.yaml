@@ -1,0 +1,24 @@
+components:
+  schemas:
+    CommonError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        details:
+          type: string
+
+    PaginationInfo:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer

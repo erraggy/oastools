@@ -1,0 +1,24 @@
+swagger: "2.0"
+info:
+  title: Test API
+  # Missing required 'version' field
+paths:
+  pets:  # Invalid - should start with /
+    get:
+      summary: Get pets
+      # Missing required 'responses' field
+      parameters:
+        - name: limit
+          # Missing required 'in' field
+          type: integer
+    post:
+      operationId: createPet
+      responses:
+        "201":
+          description: Created
+  /users:
+    get:
+      operationId: createPet  # Duplicate operationId
+      responses:
+        "200":
+          description: OK

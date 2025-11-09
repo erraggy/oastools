@@ -23,6 +23,14 @@ All OAS versions utilize the **JSON Schema Specification Draft 2020-12** for sch
 
 ## Development Commands
 
+### Recommended Workflow
+
+After making changes to Go source files, run:
+```bash
+make check
+```
+This will run all quality checks (tidy, fmt, lint, test) and show git status to address all issues at once.
+
 ### Building and Running
 ```bash
 # Build the binary (output: bin/oastools)
