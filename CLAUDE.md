@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `oastools` is a Go-based command-line tool for working with OpenAPI Specification (OAS) files. The primary goals are:
 - Validating OpenAPI specification files
 - Parsing and analyzing OAS documents
-- Merging multiple OpenAPI specification documents
+- Joining multiple OpenAPI specification documents
 
 ## Specification References
 
@@ -86,7 +86,7 @@ make clean
 - **internal/** - Private application code not importable by other projects
   - `validator/` - Logic for validating OpenAPI specifications against the spec schema
   - `parser/` - Logic for parsing YAML/JSON OAS files into Go structures
-  - `merger/` - Logic for merging multiple OpenAPI specification files
+  - `joiner/` - Logic for joining multiple OpenAPI specification files
 
 - **pkg/** - Public library code that could be imported by external projects
   - Currently unused, but reserved for any public APIs
@@ -112,7 +112,7 @@ When adding new commands:
 - Unit tests live alongside implementation files (e.g., `validator.go` → `validator_test.go`)
 - Integration tests should use fixtures from `testdata/`
 - Run tests with race detection enabled to catch concurrency issues
-- Aim for high test coverage, especially for validation, parsing, and merging logic
+- Aim for high test coverage, especially for validation, parsing, and joining logic
 
 ## Go Module
 
