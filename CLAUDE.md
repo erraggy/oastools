@@ -7,7 +7,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `oastools` is a Go-based command-line tool for working with OpenAPI Specification (OAS) files. The primary goals are:
 - Validating OpenAPI specification files
 - Parsing and analyzing OAS documents
-- Generating code from OpenAPI specifications
+- Merging multiple OpenAPI specification documents
+
+## Specification References
+
+This tool supports the following OpenAPI Specification versions:
+
+- **OAS 2.0** (Swagger): https://spec.openapis.org/oas/v2.0.html
+- **OAS 3.0.0**: https://spec.openapis.org/oas/v3.0.0.html
+- **OAS 3.1.0**: https://spec.openapis.org/oas/v3.1.0.html
+- **OAS 3.2.0**: https://spec.openapis.org/oas/v3.2.0.html
+
+All OAS versions utilize the **JSON Schema Specification Draft 2020-12** for schema definitions:
+- https://www.ietf.org/archive/id/draft-bhutton-json-schema-01.html
 
 ## Development Commands
 
@@ -66,7 +78,7 @@ make clean
 - **internal/** - Private application code not importable by other projects
   - `validator/` - Logic for validating OpenAPI specifications against the spec schema
   - `parser/` - Logic for parsing YAML/JSON OAS files into Go structures
-  - `generator/` - Logic for generating code (clients, servers, models) from OAS files
+  - `merger/` - Logic for merging multiple OpenAPI specification files
 
 - **pkg/** - Public library code that could be imported by external projects
   - Currently unused, but reserved for any public APIs
@@ -92,9 +104,9 @@ When adding new commands:
 - Unit tests live alongside implementation files (e.g., `validator.go` → `validator_test.go`)
 - Integration tests should use fixtures from `testdata/`
 - Run tests with race detection enabled to catch concurrency issues
-- Aim for high test coverage, especially for validation and parsing logic
+- Aim for high test coverage, especially for validation, parsing, and merging logic
 
 ## Go Module
 
 - Module path: `github.com/erraggy/oastools`
-- Minimum Go version: 1.21
+- Minimum Go version: 1.24

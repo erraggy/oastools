@@ -1,12 +1,12 @@
 # oastools
 
-OpenAPI Specification (OAS) tools for validation, parsing, and code generation.
+OpenAPI Specification (OAS) tools for validation, parsing, and merging.
 
 ## Features
 
 - **Validate** - Validate OpenAPI specification files for correctness
 - **Parse** - Parse and analyze OpenAPI specifications
-- **Generate** - Generate code from OpenAPI specifications (planned)
+- **Merge** - Merge multiple OpenAPI Specification documents (planned)
 
 ## Installation
 
@@ -36,15 +36,15 @@ oastools validate openapi.yaml
 # Parse an OpenAPI spec
 oastools parse openapi.yaml
 
-# Generate code from a spec
-oastools generate --lang go openapi.yaml
+# Merge multiple OpenAPI specs
+oastools merge base.yaml extensions.yaml
 ```
 
 ## Development
 
 ### Prerequisites
 
-- Go 1.21 or higher
+- Go 1.24 or higher
 - make (optional, but recommended)
 
 ### Building
@@ -71,7 +71,7 @@ make fmt
 ├── internal/           # Private application code
 │   ├── validator/      # OpenAPI validation logic
 │   ├── parser/         # OpenAPI parsing logic
-│   └── generator/      # Code generation logic
+│   └── merger/         # OpenAPI merging logic
 ├── pkg/                # Public library code
 └── testdata/           # Test fixtures and sample specs
 ```
