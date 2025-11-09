@@ -1,0 +1,203 @@
+package parser
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+)
+
+// RefResolver handles $ref resolution in OpenAPI documents
+type RefResolver struct {
+	// visited tracks visited refs to prevent circular reference loops
+	visited map[string]bool
+	// documents caches loaded external documents
+	documents map[string]map[string]interface{}
+	// baseDir is the base directory for resolving relative file paths
+	baseDir string
+}
+
+// NewRefResolver creates a new reference resolver
+func NewRefResolver(baseDir string) *RefResolver {
+	return &RefResolver{
+		visited:   make(map[string]bool),
+		documents: make(map[string]map[string]interface{}),
+		baseDir:   baseDir,
+	}
+}
+
+// ResolveLocal resolves local references within a document
+// Local refs are in the format: #/path/to/component
+func (r *RefResolver) ResolveLocal(doc map[string]interface{}, ref string) (interface{}, error) {
+	// Check for circular references
+	if r.visited[ref] {
+		return nil, fmt.Errorf("circular reference detected: %s", ref)
+	}
+	r.visited[ref] = true
+	defer func() { r.visited[ref] = false }()
+
+	// Remove the leading # if present
+	ref = strings.TrimPrefix(ref, "#")
+	if ref == "" || ref == "/" {
+		return doc, nil
+	}
+
+	// Split the reference path
+	parts := strings.Split(strings.TrimPrefix(ref, "/"), "/")
+
+	// Traverse the document
+	current := interface{}(doc)
+	for i, part := range parts {
+		// Unescape JSON Pointer tokens
+		part = unescapeJSONPointer(part)
+
+		switch v := current.(type) {
+		case map[string]interface{}:
+			next, ok := v[part]
+			if !ok {
+				return nil, fmt.Errorf("reference not found: #/%s (missing key: %s)", strings.Join(parts[:i+1], "/"), part)
+			}
+			current = next
+
+		case []interface{}:
+			// Handle array indexing (not common in OAS but valid JSON Pointer)
+			return nil, fmt.Errorf("array indexing not supported in reference: #/%s", strings.Join(parts, "/"))
+
+		default:
+			return nil, fmt.Errorf("cannot traverse into type %T at #/%s", v, strings.Join(parts[:i], "/"))
+		}
+	}
+
+	return current, nil
+}
+
+// ResolveExternal resolves external file references
+// External refs are in the format: ./file.yaml#/path/to/component or file.yaml#/path/to/component
+func (r *RefResolver) ResolveExternal(ref string) (interface{}, error) {
+	// Check for circular references
+	if r.visited[ref] {
+		return nil, fmt.Errorf("circular reference detected: %s", ref)
+	}
+	r.visited[ref] = true
+	defer func() { r.visited[ref] = false }()
+
+	// Split the reference into file path and internal path
+	parts := strings.SplitN(ref, "#", 2)
+	filePath := parts[0]
+	internalPath := ""
+	if len(parts) > 1 {
+		internalPath = parts[1]
+	}
+
+	// Resolve the file path relative to baseDir
+	if !filepath.IsAbs(filePath) {
+		filePath = filepath.Join(r.baseDir, filePath)
+	}
+
+	// Check if document is already loaded
+	doc, ok := r.documents[filePath]
+	if !ok {
+		// Load the external document
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read external file %s: %w", filePath, err)
+		}
+
+		// Parse the external document
+		var extDoc map[string]interface{}
+		if err := yaml.Unmarshal(data, &extDoc); err != nil {
+			return nil, fmt.Errorf("failed to parse external file %s: %w", filePath, err)
+		}
+
+		r.documents[filePath] = extDoc
+		doc = extDoc
+	}
+
+	// If there's no internal path, return the whole document
+	if internalPath == "" {
+		return doc, nil
+	}
+
+	// Resolve the internal reference
+	return r.ResolveLocal(doc, "#"+internalPath)
+}
+
+// Resolve resolves a $ref reference (local or external)
+func (r *RefResolver) Resolve(doc map[string]interface{}, ref string) (interface{}, error) {
+	// Check if it's a local reference (starts with #)
+	if strings.HasPrefix(ref, "#") {
+		return r.ResolveLocal(doc, ref)
+	}
+
+	// Check if it's an HTTP(S) URL
+	if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
+		return nil, fmt.Errorf("HTTP(S) references not yet supported: %s", ref)
+	}
+
+	// Otherwise, treat it as an external file reference
+	return r.ResolveExternal(ref)
+}
+
+// unescapeJSONPointer unescapes JSON Pointer tokens
+// Per RFC 6901, ~1 represents / and ~0 represents ~
+func unescapeJSONPointer(token string) string {
+	token = strings.ReplaceAll(token, "~1", "/")
+	token = strings.ReplaceAll(token, "~0", "~")
+	return token
+}
+
+// ResolveAllRefs walks through the entire document and resolves all $ref references
+func (r *RefResolver) ResolveAllRefs(doc map[string]interface{}) error {
+	return r.resolveRefsRecursive(doc, doc)
+}
+
+// resolveRefsRecursive recursively walks through the document structure and resolves $ref
+func (r *RefResolver) resolveRefsRecursive(root, current interface{}) error {
+	switch v := current.(type) {
+	case map[string]interface{}:
+		// Check if this object has a $ref field
+		if ref, ok := v["$ref"].(string); ok {
+			// Resolve the reference
+			resolved, err := r.Resolve(root.(map[string]interface{}), ref)
+			if err != nil {
+				return fmt.Errorf("failed to resolve $ref %s: %w", ref, err)
+			}
+
+			// Replace the current object with the resolved content
+			// Note: This modifies the map in place
+			for k := range v {
+				if k != "$ref" {
+					delete(v, k)
+				}
+			}
+			if resolvedMap, ok := resolved.(map[string]interface{}); ok {
+				for k, val := range resolvedMap {
+					v[k] = val
+				}
+			}
+			delete(v, "$ref")
+
+			// Continue resolving in the newly resolved content
+			return r.resolveRefsRecursive(root, v)
+		}
+
+		// Recursively process all values in the map
+		for _, val := range v {
+			if err := r.resolveRefsRecursive(root, val); err != nil {
+				return err
+			}
+		}
+
+	case []interface{}:
+		// Recursively process all items in the array
+		for _, item := range v {
+			if err := r.resolveRefsRecursive(root, item); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}

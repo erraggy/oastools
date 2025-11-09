@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  # Missing required 'version' field
+paths:
+  items:  # Invalid - should start with /
+    get:
+      summary: Get items
+      # Missing required 'responses' field
+      parameters:
+        - name: id
+          in: path
+          # Path parameter missing 'required: true'
+          schema:
+            type: string
+        - name: limit
+          # Missing required 'in' field
+          schema:
+            type: integer
+    post:
+      operationId: createItem
+      requestBody:
+        required: true
+        # Missing required 'content' field
+      responses:
+        "201":
+          description: Created
+  /users:
+    get:
+      operationId: createItem  # Duplicate operationId
+      responses:
+        "200":
+          description: OK
