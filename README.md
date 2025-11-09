@@ -1,12 +1,12 @@
 # oastools
 
-OpenAPI Specification (OAS) tools for validation, parsing, and merging.
+OpenAPI Specification (OAS) tools for validation, parsing, and joining.
 
 ## Features
 
 - **Validate** - Validate OpenAPI specification files for correctness
 - **Parse** - Parse and analyze OpenAPI specifications
-- **Merge** - Merge multiple OpenAPI Specification documents (planned)
+- **Join** - Join multiple OpenAPI Specification documents (planned)
 
 ## Supported OpenAPI Specification Versions
 
@@ -55,8 +55,8 @@ oastools validate openapi.yaml
 # Parse an OpenAPI spec
 oastools parse openapi.yaml
 
-# Merge multiple OpenAPI specs
-oastools merge base.yaml extensions.yaml
+# Join multiple OpenAPI specs
+oastools join base.yaml extensions.yaml
 ```
 
 ## Limitations
@@ -97,7 +97,7 @@ make fmt
 ├── internal/           # Private application code
 │   ├── validator/      # OpenAPI validation logic
 │   ├── parser/         # OpenAPI parsing logic
-│   └── merger/         # OpenAPI merging logic
+│   └── joiner/         # OpenAPI joining logic
 ├── pkg/                # Public library code
 └── testdata/           # Test fixtures and sample specs
 ```
