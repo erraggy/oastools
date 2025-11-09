@@ -12,7 +12,7 @@ OpenAPI Specification (OAS) tools for validation, parsing, and joining.
 
 ## Supported OpenAPI Specification Versions
 
-This tool supports all official OpenAPI Specification releases (excluding release candidates):
+This tool supports all official OpenAPI Specification releases:
 
 | Version | Specification |
 |---------|---------------|
@@ -27,7 +27,7 @@ This tool supports all official OpenAPI Specification releases (excluding releas
 | **3.1.2** | [OAS 3.1.2 Specification](https://spec.openapis.org/oas/v3.1.2.html) |
 | **3.2.0** | [OAS 3.2.0 Specification](https://spec.openapis.org/oas/v3.2.0.html) |
 
-> **Note:** Release candidate versions (e.g., `3.0.0-rc0`, `3.1.0-rc1`) are detected but not officially supported.
+> **Note:** Release candidate versions (e.g., `3.0.0-rc0`, `3.1.0-rc1`) are detected but not _officially_ supported.
 
 ## Installation
 
