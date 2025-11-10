@@ -2,6 +2,7 @@ package validator
 
 import (
 	"fmt"
+	"mime"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,6 +25,21 @@ const (
 	defaultErrorCapacity = 10
 	// defaultWarningCapacity is the initial capacity for warning slices
 	defaultWarningCapacity = 10
+
+	// HTTP status code validation constants
+	httpStatusCodeLength   = 3
+	minHTTPStatusCode      = 100
+	maxHTTPStatusCode      = 599
+	minInformationalStatus = 100
+	maxInformationalStatus = 199
+	minSuccessStatus       = 200
+	maxSuccessStatus       = 299
+	minRedirectionStatus   = 300
+	maxRedirectionStatus   = 399
+	minClientErrorStatus   = 400
+	maxClientErrorStatus   = 499
+	minServerErrorStatus   = 500
+	maxServerErrorStatus   = 599
 )
 
 func (s Severity) String() string {
@@ -232,6 +248,44 @@ func (v *Validator) validateOAS2Info(doc *parser.OAS2Document, result *Validatio
 			Field:    "version",
 		})
 	}
+
+	// Validate contact information if present
+	if doc.Info.Contact != nil {
+		if doc.Info.Contact.URL != "" && !isValidURL(doc.Info.Contact.URL) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     "info.contact.url",
+				Message:  fmt.Sprintf("Invalid URL format: %s", doc.Info.Contact.URL),
+				SpecRef:  fmt.Sprintf("%s#contactObject", baseURL),
+				Severity: SeverityError,
+				Field:    "url",
+				Value:    doc.Info.Contact.URL,
+			})
+		}
+		if doc.Info.Contact.Email != "" && !isValidEmail(doc.Info.Contact.Email) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     "info.contact.email",
+				Message:  fmt.Sprintf("Invalid email format: %s", doc.Info.Contact.Email),
+				SpecRef:  fmt.Sprintf("%s#contactObject", baseURL),
+				Severity: SeverityError,
+				Field:    "email",
+				Value:    doc.Info.Contact.Email,
+			})
+		}
+	}
+
+	// Validate license information if present
+	if doc.Info.License != nil {
+		if doc.Info.License.URL != "" && !isValidURL(doc.Info.License.URL) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     "info.license.url",
+				Message:  fmt.Sprintf("Invalid URL format: %s", doc.Info.License.URL),
+				SpecRef:  fmt.Sprintf("%s#licenseObject", baseURL),
+				Severity: SeverityError,
+				Field:    "url",
+				Value:    doc.Info.License.URL,
+			})
+		}
+	}
 }
 
 // validateOAS2OperationIds validates that operationIds are unique across the document
@@ -269,6 +323,17 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 			result.Errors = append(result.Errors, ValidationError{
 				Path:     fmt.Sprintf("paths.%s", pathPattern),
 				Message:  "Path must start with '/'",
+				SpecRef:  fmt.Sprintf("%s#pathsObject", baseURL),
+				Severity: SeverityError,
+				Value:    pathPattern,
+			})
+		}
+
+		// Validate path template is well-formed
+		if err := validatePathTemplate(pathPattern); err != nil {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     fmt.Sprintf("paths.%s", pathPattern),
+				Message:  fmt.Sprintf("Invalid path template: %s", err),
 				SpecRef:  fmt.Sprintf("%s#pathsObject", baseURL),
 				Severity: SeverityError,
 				Value:    pathPattern,
@@ -323,6 +388,15 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 					Message:  fmt.Sprintf("Invalid HTTP status code: %s", code),
 					SpecRef:  fmt.Sprintf("%s#responsesObject", baseURL),
 					Severity: SeverityError,
+					Value:    code,
+				})
+			} else if v.StrictMode && !isStandardHTTPStatusCode(code) {
+				// In strict mode, warn about non-standard status codes
+				result.Warnings = append(result.Warnings, ValidationError{
+					Path:     fmt.Sprintf("%s.responses.%s", path, code),
+					Message:  fmt.Sprintf("Non-standard HTTP status code: %s (not defined in HTTP RFCs)", code),
+					SpecRef:  fmt.Sprintf("%s#responsesObject", baseURL),
+					Severity: SeverityWarning,
 					Value:    code,
 				})
 			}
@@ -503,6 +577,15 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 						Severity: SeverityError,
 						Field:    "authorizationUrl",
 					})
+				} else if !isValidURL(secDef.AuthorizationURL) {
+					result.Errors = append(result.Errors, ValidationError{
+						Path:     path,
+						Message:  fmt.Sprintf("Invalid URL format for authorizationUrl: %s", secDef.AuthorizationURL),
+						SpecRef:  fmt.Sprintf("%s#securitySchemeObject", baseURL),
+						Severity: SeverityError,
+						Field:    "authorizationUrl",
+						Value:    secDef.AuthorizationURL,
+					})
 				}
 			}
 			if secDef.Flow == "password" || secDef.Flow == "application" || secDef.Flow == "accessCode" {
@@ -513,6 +596,15 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 						SpecRef:  fmt.Sprintf("%s#securitySchemeObject", baseURL),
 						Severity: SeverityError,
 						Field:    "tokenUrl",
+					})
+				} else if !isValidURL(secDef.TokenURL) {
+					result.Errors = append(result.Errors, ValidationError{
+						Path:     path,
+						Message:  fmt.Sprintf("Invalid URL format for tokenUrl: %s", secDef.TokenURL),
+						SpecRef:  fmt.Sprintf("%s#securitySchemeObject", baseURL),
+						Severity: SeverityError,
+						Field:    "tokenUrl",
+						Value:    secDef.TokenURL,
 					})
 				}
 			}
@@ -678,6 +770,55 @@ func (v *Validator) validateOAS3Info(doc *parser.OAS3Document, result *Validatio
 			Field:    "version",
 		})
 	}
+
+	// Validate contact information if present
+	if doc.Info.Contact != nil {
+		if doc.Info.Contact.URL != "" && !isValidURL(doc.Info.Contact.URL) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     "info.contact.url",
+				Message:  fmt.Sprintf("Invalid URL format: %s", doc.Info.Contact.URL),
+				SpecRef:  fmt.Sprintf("%s#contact-object", baseURL),
+				Severity: SeverityError,
+				Field:    "url",
+				Value:    doc.Info.Contact.URL,
+			})
+		}
+		if doc.Info.Contact.Email != "" && !isValidEmail(doc.Info.Contact.Email) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     "info.contact.email",
+				Message:  fmt.Sprintf("Invalid email format: %s", doc.Info.Contact.Email),
+				SpecRef:  fmt.Sprintf("%s#contact-object", baseURL),
+				Severity: SeverityError,
+				Field:    "email",
+				Value:    doc.Info.Contact.Email,
+			})
+		}
+	}
+
+	// Validate license information if present
+	if doc.Info.License != nil {
+		if doc.Info.License.URL != "" && !isValidURL(doc.Info.License.URL) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     "info.license.url",
+				Message:  fmt.Sprintf("Invalid URL format: %s", doc.Info.License.URL),
+				SpecRef:  fmt.Sprintf("%s#license-object", baseURL),
+				Severity: SeverityError,
+				Field:    "url",
+				Value:    doc.Info.License.URL,
+			})
+		}
+		// SPDX license identifier validation (OAS 3.1+)
+		if doc.Info.License.Identifier != "" && !validateSPDXLicense(doc.Info.License.Identifier) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     "info.license.identifier",
+				Message:  fmt.Sprintf("Invalid SPDX license identifier format: %s", doc.Info.License.Identifier),
+				SpecRef:  fmt.Sprintf("%s#license-object", baseURL),
+				Severity: SeverityError,
+				Field:    "identifier",
+				Value:    doc.Info.License.Identifier,
+			})
+		}
+	}
 }
 
 // validateOAS3OperationIds validates that operationIds are unique across the document
@@ -802,6 +943,17 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 			})
 		}
 
+		// Validate path template is well-formed
+		if err := validatePathTemplate(pathPattern); err != nil {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     fmt.Sprintf("paths.%s", pathPattern),
+				Message:  fmt.Sprintf("Invalid path template: %s", err),
+				SpecRef:  fmt.Sprintf("%s#paths-object", baseURL),
+				Severity: SeverityError,
+				Value:    pathPattern,
+			})
+		}
+
 		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
 
 		// Validate each operation
@@ -840,6 +992,11 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 
 // validateOAS3Operation validates an operation in OAS 3.x
 func (v *Validator) validateOAS3Operation(op *parser.Operation, path string, result *ValidationResult, baseURL string) {
+	// Validate request body if present
+	if op.RequestBody != nil {
+		v.validateOAS3RequestBody(op.RequestBody, fmt.Sprintf("%s.requestBody", path), result, baseURL)
+	}
+
 	// Validate that at least one successful response exists
 	if op.Responses != nil && op.Responses.Codes != nil {
 		hasSuccess := false
@@ -851,6 +1008,15 @@ func (v *Validator) validateOAS3Operation(op *parser.Operation, path string, res
 					Message:  fmt.Sprintf("Invalid HTTP status code: %s", code),
 					SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
 					Severity: SeverityError,
+					Value:    code,
+				})
+			} else if v.StrictMode && !isStandardHTTPStatusCode(code) {
+				// In strict mode, warn about non-standard status codes
+				result.Warnings = append(result.Warnings, ValidationError{
+					Path:     fmt.Sprintf("%s.responses.%s", path, code),
+					Message:  fmt.Sprintf("Non-standard HTTP status code: %s (not defined in HTTP RFCs)", code),
+					SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
+					Severity: SeverityWarning,
 					Value:    code,
 				})
 			}
@@ -866,6 +1032,52 @@ func (v *Validator) validateOAS3Operation(op *parser.Operation, path string, res
 				SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
 				Severity: SeverityWarning,
 			})
+		}
+	}
+}
+
+// validateOAS3RequestBody validates a request body in OAS 3.x
+func (v *Validator) validateOAS3RequestBody(requestBody *parser.RequestBody, path string, result *ValidationResult, baseURL string) {
+	if requestBody == nil {
+		return
+	}
+
+	// Skip validation if this is a $ref
+	if requestBody.Ref != "" {
+		return
+	}
+
+	// RequestBody must have content
+	if len(requestBody.Content) == 0 {
+		result.Errors = append(result.Errors, ValidationError{
+			Path:     path,
+			Message:  "RequestBody must have a content object with at least one media type",
+			SpecRef:  fmt.Sprintf("%s#request-body-object", baseURL),
+			Severity: SeverityError,
+			Field:    "content",
+		})
+		return
+	}
+
+	// Validate each media type
+	for mediaType, mediaTypeObj := range requestBody.Content {
+		mediaTypePath := fmt.Sprintf("%s.content.%s", path, mediaType)
+
+		// Validate media type format
+		if !isValidMediaType(mediaType) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     mediaTypePath,
+				Message:  fmt.Sprintf("Invalid media type: %s", mediaType),
+				SpecRef:  fmt.Sprintf("%s#request-body-object", baseURL),
+				Severity: SeverityError,
+				Value:    mediaType,
+			})
+		}
+
+		// Validate that media type has a schema
+		if mediaTypeObj != nil && mediaTypeObj.Schema != nil {
+			schemaPath := fmt.Sprintf("%s.schema", mediaTypePath)
+			v.validateSchema(mediaTypeObj.Schema, schemaPath, result)
 		}
 	}
 }
@@ -901,6 +1113,15 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 				Field:    "description",
 			})
 		}
+	}
+
+	// Validate request bodies
+	for name, requestBody := range doc.Components.RequestBodies {
+		if requestBody == nil {
+			continue
+		}
+		path := fmt.Sprintf("components.requestBodies.%s", name)
+		v.validateOAS3RequestBody(requestBody, path, result, baseURL)
 	}
 
 	// Validate parameters
@@ -1035,6 +1256,15 @@ func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, r
 				Severity: SeverityError,
 				Field:    "authorizationUrl",
 			})
+		} else if !isValidURL(flows.Implicit.AuthorizationURL) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     flowPath,
+				Message:  fmt.Sprintf("Invalid URL format for authorizationUrl: %s", flows.Implicit.AuthorizationURL),
+				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
+				Severity: SeverityError,
+				Field:    "authorizationUrl",
+				Value:    flows.Implicit.AuthorizationURL,
+			})
 		}
 	}
 
@@ -1048,6 +1278,15 @@ func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, r
 				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
 				Severity: SeverityError,
 				Field:    "tokenUrl",
+			})
+		} else if !isValidURL(flows.Password.TokenURL) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     flowPath,
+				Message:  fmt.Sprintf("Invalid URL format for tokenUrl: %s", flows.Password.TokenURL),
+				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
+				Severity: SeverityError,
+				Field:    "tokenUrl",
+				Value:    flows.Password.TokenURL,
 			})
 		}
 	}
@@ -1063,6 +1302,15 @@ func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, r
 				Severity: SeverityError,
 				Field:    "tokenUrl",
 			})
+		} else if !isValidURL(flows.ClientCredentials.TokenURL) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     flowPath,
+				Message:  fmt.Sprintf("Invalid URL format for tokenUrl: %s", flows.ClientCredentials.TokenURL),
+				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
+				Severity: SeverityError,
+				Field:    "tokenUrl",
+				Value:    flows.ClientCredentials.TokenURL,
+			})
 		}
 	}
 
@@ -1077,6 +1325,15 @@ func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, r
 				Severity: SeverityError,
 				Field:    "authorizationUrl",
 			})
+		} else if !isValidURL(flows.AuthorizationCode.AuthorizationURL) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     flowPath,
+				Message:  fmt.Sprintf("Invalid URL format for authorizationUrl: %s", flows.AuthorizationCode.AuthorizationURL),
+				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
+				Severity: SeverityError,
+				Field:    "authorizationUrl",
+				Value:    flows.AuthorizationCode.AuthorizationURL,
+			})
 		}
 		if flows.AuthorizationCode.TokenURL == "" {
 			result.Errors = append(result.Errors, ValidationError{
@@ -1085,6 +1342,15 @@ func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, r
 				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
 				Severity: SeverityError,
 				Field:    "tokenUrl",
+			})
+		} else if !isValidURL(flows.AuthorizationCode.TokenURL) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     flowPath,
+				Message:  fmt.Sprintf("Invalid URL format for tokenUrl: %s", flows.AuthorizationCode.TokenURL),
+				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
+				Severity: SeverityError,
+				Field:    "tokenUrl",
+				Value:    flows.AuthorizationCode.TokenURL,
 			})
 		}
 	}
@@ -1293,47 +1559,164 @@ func (v *Validator) validateOAS3SecurityRequirements(doc *parser.OAS3Document, r
 
 // validateSchema performs basic schema validation
 func (v *Validator) validateSchema(schema *parser.Schema, path string, result *ValidationResult) {
+	v.validateSchemaWithVisited(schema, path, result, make(map[*parser.Schema]bool))
+}
+
+// validateSchemaWithVisited performs basic schema validation with cycle detection
+func (v *Validator) validateSchemaWithVisited(schema *parser.Schema, path string, result *ValidationResult, visited map[*parser.Schema]bool) {
 	if schema == nil {
 		return
 	}
 
+	// Check for circular references
+	if visited[schema] {
+		return
+	}
+	visited[schema] = true
+
+	// Validate enum values match the schema type
+	if len(schema.Enum) > 0 && schema.Type != "" {
+		v.validateEnumValues(schema, path, result)
+	}
+
 	// Validate type-specific constraints
-	if schema.Type != "" {
+	v.validateSchemaTypeConstraints(schema, path, result)
+
+	// Validate required fields
+	v.validateRequiredFields(schema, path, result)
+
+	// Validate nested schemas
+	v.validateNestedSchemas(schema, path, result, visited)
+}
+
+// Helper functions
+
+// validateEnumValues validates that enum values match the schema type
+func (v *Validator) validateEnumValues(schema *parser.Schema, path string, result *ValidationResult) {
+	for i, enumVal := range schema.Enum {
+		enumPath := fmt.Sprintf("%s.enum[%d]", path, i)
+
 		switch schema.Type {
-		case "array":
-			if schema.Items == nil {
-				result.Errors = append(result.Errors, ValidationError{
-					Path:     path,
-					Message:  "Array schema must have 'items' defined",
-					SpecRef:  getJSONSchemaRef(),
-					Severity: SeverityError,
-					Field:    "items",
-				})
-			}
 		case "string":
-			// Validate min/max length
-			if schema.MinLength != nil && schema.MaxLength != nil && *schema.MinLength > *schema.MaxLength {
+			if _, ok := enumVal.(string); !ok {
 				result.Errors = append(result.Errors, ValidationError{
-					Path:     path,
-					Message:  fmt.Sprintf("minLength (%d) cannot be greater than maxLength (%d)", *schema.MinLength, *schema.MaxLength),
+					Path:     enumPath,
+					Message:  fmt.Sprintf("Enum value must be a string (found %T)", enumVal),
 					SpecRef:  getJSONSchemaRef(),
 					Severity: SeverityError,
+					Field:    "enum",
+					Value:    enumVal,
 				})
 			}
-		case "number", "integer":
-			// Validate minimum/maximum
-			if schema.Minimum != nil && schema.Maximum != nil && *schema.Minimum > *schema.Maximum {
+		case "integer":
+			// Check if it's an integer (can be int, int32, int64, or float64 with no decimal part)
+			switch v := enumVal.(type) {
+			case int, int32, int64:
+				// Valid integer
+			case float64:
+				if v != float64(int64(v)) {
+					result.Errors = append(result.Errors, ValidationError{
+						Path:     enumPath,
+						Message:  fmt.Sprintf("Enum value must be an integer (found %v)", enumVal),
+						SpecRef:  getJSONSchemaRef(),
+						Severity: SeverityError,
+						Field:    "enum",
+						Value:    enumVal,
+					})
+				}
+			default:
 				result.Errors = append(result.Errors, ValidationError{
-					Path:     path,
-					Message:  fmt.Sprintf("minimum (%v) cannot be greater than maximum (%v)", *schema.Minimum, *schema.Maximum),
+					Path:     enumPath,
+					Message:  fmt.Sprintf("Enum value must be an integer (found %T)", enumVal),
 					SpecRef:  getJSONSchemaRef(),
 					Severity: SeverityError,
+					Field:    "enum",
+					Value:    enumVal,
+				})
+			}
+		case "number":
+			// Check if it's a number (int or float)
+			switch enumVal.(type) {
+			case int, int32, int64, float32, float64:
+				// Valid number
+			default:
+				result.Errors = append(result.Errors, ValidationError{
+					Path:     enumPath,
+					Message:  fmt.Sprintf("Enum value must be a number (found %T)", enumVal),
+					SpecRef:  getJSONSchemaRef(),
+					Severity: SeverityError,
+					Field:    "enum",
+					Value:    enumVal,
+				})
+			}
+		case "boolean":
+			if _, ok := enumVal.(bool); !ok {
+				result.Errors = append(result.Errors, ValidationError{
+					Path:     enumPath,
+					Message:  fmt.Sprintf("Enum value must be a boolean (found %T)", enumVal),
+					SpecRef:  getJSONSchemaRef(),
+					Severity: SeverityError,
+					Field:    "enum",
+					Value:    enumVal,
+				})
+			}
+		case "null":
+			if enumVal != nil {
+				result.Errors = append(result.Errors, ValidationError{
+					Path:     enumPath,
+					Message:  "Enum value must be null",
+					SpecRef:  getJSONSchemaRef(),
+					Severity: SeverityError,
+					Field:    "enum",
+					Value:    enumVal,
 				})
 			}
 		}
 	}
+}
 
-	// Validate that required fields exist in properties
+// validateSchemaTypeConstraints validates type-specific constraints for a schema
+func (v *Validator) validateSchemaTypeConstraints(schema *parser.Schema, path string, result *ValidationResult) {
+	if schema.Type == "" {
+		return
+	}
+
+	switch schema.Type {
+	case "array":
+		if schema.Items == nil {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     path,
+				Message:  "Array schema must have 'items' defined",
+				SpecRef:  getJSONSchemaRef(),
+				Severity: SeverityError,
+				Field:    "items",
+			})
+		}
+	case "string":
+		// Validate min/max length
+		if schema.MinLength != nil && schema.MaxLength != nil && *schema.MinLength > *schema.MaxLength {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     path,
+				Message:  fmt.Sprintf("minLength (%d) cannot be greater than maxLength (%d)", *schema.MinLength, *schema.MaxLength),
+				SpecRef:  getJSONSchemaRef(),
+				Severity: SeverityError,
+			})
+		}
+	case "number", "integer":
+		// Validate minimum/maximum
+		if schema.Minimum != nil && schema.Maximum != nil && *schema.Minimum > *schema.Maximum {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     path,
+				Message:  fmt.Sprintf("minimum (%v) cannot be greater than maximum (%v)", *schema.Minimum, *schema.Maximum),
+				SpecRef:  getJSONSchemaRef(),
+				Severity: SeverityError,
+			})
+		}
+	}
+}
+
+// validateRequiredFields validates that required fields exist in properties
+func (v *Validator) validateRequiredFields(schema *parser.Schema, path string, result *ValidationResult) {
 	for _, reqField := range schema.Required {
 		if _, exists := schema.Properties[reqField]; !exists {
 			result.Errors = append(result.Errors, ValidationError{
@@ -1346,21 +1729,24 @@ func (v *Validator) validateSchema(schema *parser.Schema, path string, result *V
 			})
 		}
 	}
+}
 
+// validateNestedSchemas validates all nested schemas (properties, items, allOf, oneOf, anyOf, not)
+func (v *Validator) validateNestedSchemas(schema *parser.Schema, path string, result *ValidationResult, visited map[*parser.Schema]bool) {
 	// Validate properties
 	for propName, propSchema := range schema.Properties {
 		if propSchema == nil {
 			continue
 		}
 		propPath := fmt.Sprintf("%s.properties.%s", path, propName)
-		v.validateSchema(propSchema, propPath, result)
+		v.validateSchemaWithVisited(propSchema, propPath, result, visited)
 	}
 
 	// Validate additionalProperties (can be *Schema or bool)
 	if schema.AdditionalProperties != nil {
 		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
 			addPropsPath := fmt.Sprintf("%s.additionalProperties", path)
-			v.validateSchema(addProps, addPropsPath, result)
+			v.validateSchemaWithVisited(addProps, addPropsPath, result, visited)
 		}
 	}
 
@@ -1368,7 +1754,7 @@ func (v *Validator) validateSchema(schema *parser.Schema, path string, result *V
 	if schema.Items != nil {
 		if items, ok := schema.Items.(*parser.Schema); ok {
 			itemsPath := fmt.Sprintf("%s.items", path)
-			v.validateSchema(items, itemsPath, result)
+			v.validateSchemaWithVisited(items, itemsPath, result, visited)
 		}
 	}
 
@@ -1378,7 +1764,7 @@ func (v *Validator) validateSchema(schema *parser.Schema, path string, result *V
 			continue
 		}
 		subPath := fmt.Sprintf("%s.allOf[%d]", path, i)
-		v.validateSchema(subSchema, subPath, result)
+		v.validateSchemaWithVisited(subSchema, subPath, result, visited)
 	}
 
 	// Validate oneOf
@@ -1387,7 +1773,7 @@ func (v *Validator) validateSchema(schema *parser.Schema, path string, result *V
 			continue
 		}
 		subPath := fmt.Sprintf("%s.oneOf[%d]", path, i)
-		v.validateSchema(subSchema, subPath, result)
+		v.validateSchemaWithVisited(subSchema, subPath, result, visited)
 	}
 
 	// Validate anyOf
@@ -1396,17 +1782,15 @@ func (v *Validator) validateSchema(schema *parser.Schema, path string, result *V
 			continue
 		}
 		subPath := fmt.Sprintf("%s.anyOf[%d]", path, i)
-		v.validateSchema(subSchema, subPath, result)
+		v.validateSchemaWithVisited(subSchema, subPath, result, visited)
 	}
 
 	// Validate not
 	if schema.Not != nil {
 		notPath := fmt.Sprintf("%s.not", path)
-		v.validateSchema(schema.Not, notPath, result)
+		v.validateSchemaWithVisited(schema.Not, notPath, result, visited)
 	}
 }
-
-// Helper functions
 
 // Compile regex once at package level for performance
 var pathParamRegex = regexp.MustCompile(`\{([^}]+)\}`)
@@ -1449,6 +1833,52 @@ func (v *Validator) checkDuplicateOperationIds(
 	}
 }
 
+// validatePathTemplate validates that a path template is well-formed
+// Returns an error if the template is malformed (unclosed braces, empty parameters, etc.)
+func validatePathTemplate(pathPattern string) error {
+	// Check for empty braces explicitly (regex won't catch {})
+	if strings.Contains(pathPattern, "{}") {
+		return fmt.Errorf("empty parameter name in path template")
+	}
+
+	// Check for unclosed or unopened braces
+	openCount := 0
+	for i, ch := range pathPattern {
+		switch ch {
+		case '{':
+			openCount++
+			if openCount > 1 {
+				return fmt.Errorf("nested braces are not allowed at position %d", i)
+			}
+		case '}':
+			openCount--
+			if openCount < 0 {
+				return fmt.Errorf("unexpected closing brace at position %d", i)
+			}
+		}
+	}
+	if openCount != 0 {
+		return fmt.Errorf("unclosed brace in path template")
+	}
+
+	// Check for empty or invalid parameters
+	matches := pathParamRegex.FindAllStringSubmatch(pathPattern, -1)
+	for _, match := range matches {
+		if len(match) > 1 {
+			paramName := match[1]
+			if strings.TrimSpace(paramName) == "" {
+				return fmt.Errorf("empty parameter name in path template")
+			}
+			// Check for invalid characters in parameter name
+			if strings.Contains(paramName, "{") || strings.Contains(paramName, "}") {
+				return fmt.Errorf("invalid parameter name '%s' contains braces", paramName)
+			}
+		}
+	}
+
+	return nil
+}
+
 // extractPathParameters extracts parameter names from a path template
 // e.g., "/pets/{petId}/owners/{ownerId}" -> {"petId": true, "ownerId": true}
 func extractPathParameters(pathPattern string) map[string]bool {
@@ -1462,33 +1892,33 @@ func extractPathParameters(pathPattern string) map[string]bool {
 	return params
 }
 
-// isValidMediaType checks if a media type string is valid
-// This validation is intentionally permissive - it only checks basic structure
-// (type/subtype format) rather than validating against IANA media type registry.
+// isValidMediaType checks if a media type string is valid using RFC-compliant parsing
+// This uses the standard library's mime.ParseMediaType which validates according to RFC 2045 and RFC 2046.
 // This allows custom and vendor-specific media types (e.g., application/vnd.custom+json).
 func isValidMediaType(mediaType string) bool {
 	if mediaType == "" {
 		return false
 	}
 
-	// Basic validation - should contain a slash
-	parts := strings.Split(mediaType, "/")
-	if len(parts) != 2 {
-		return false
-	}
-
-	// Check for wildcard patterns
+	// Check for wildcard patterns first (mime.ParseMediaType doesn't handle these)
 	// Valid: */* (both wildcards) or type/* (subtype wildcard)
 	// Invalid: */subtype (type wildcard with specific subtype)
-	if parts[0] == "*" {
-		return parts[1] == "*" // */subtype is invalid
-	}
-	if parts[1] == "*" {
-		return parts[0] != "" // type/* is valid if type is not empty
+	if strings.Contains(mediaType, "*") {
+		parts := strings.Split(strings.Split(mediaType, ";")[0], "/") // Remove parameters before checking
+		if len(parts) != 2 {
+			return false
+		}
+		if parts[0] == "*" {
+			return parts[1] == "*" // */subtype is invalid
+		}
+		if parts[1] == "*" {
+			return parts[0] != "" // type/* is valid if type is not empty
+		}
 	}
 
-	// Both parts should be non-empty
-	return parts[0] != "" && parts[1] != ""
+	// Use standard library for RFC-compliant validation
+	_, _, err := mime.ParseMediaType(mediaType)
+	return err == nil
 }
 
 // getJSONSchemaRef returns the JSON Schema specification reference URL
@@ -1531,6 +1961,22 @@ func validateSPDXLicense(identifier string) bool {
 	return !strings.Contains(identifier, " ")
 }
 
+// Common HTTP status codes that are well-defined in RFC 9110 and other RFCs
+var standardHTTPStatusCodes = map[int]bool{
+	// 1xx Informational
+	100: true, 101: true, 102: true, 103: true,
+	// 2xx Success
+	200: true, 201: true, 202: true, 203: true, 204: true, 205: true, 206: true, 207: true, 208: true, 226: true,
+	// 3xx Redirection
+	300: true, 301: true, 302: true, 303: true, 304: true, 305: true, 307: true, 308: true,
+	// 4xx Client Error
+	400: true, 401: true, 402: true, 403: true, 404: true, 405: true, 406: true, 407: true, 408: true, 409: true,
+	410: true, 411: true, 412: true, 413: true, 414: true, 415: true, 416: true, 417: true, 418: true, 421: true,
+	422: true, 423: true, 424: true, 425: true, 426: true, 428: true, 429: true, 431: true, 451: true,
+	// 5xx Server Error
+	500: true, 501: true, 502: true, 503: true, 504: true, 505: true, 506: true, 507: true, 508: true, 510: true, 511: true,
+}
+
 // validateHTTPStatusCode validates HTTP status code format
 func validateHTTPStatusCode(code string) bool {
 	if code == "default" {
@@ -1538,7 +1984,7 @@ func validateHTTPStatusCode(code string) bool {
 	}
 
 	// Check wildcard patterns (e.g., "2XX", "4XX")
-	if len(code) == 3 && code[1] == 'X' && code[2] == 'X' {
+	if len(code) == httpStatusCodeLength && code[1] == 'X' && code[2] == 'X' {
 		if code[0] >= '1' && code[0] <= '5' {
 			return true
 		}
@@ -1546,7 +1992,7 @@ func validateHTTPStatusCode(code string) bool {
 	}
 
 	// Check numeric status codes
-	if len(code) != 3 {
+	if len(code) != httpStatusCodeLength {
 		return false
 	}
 
@@ -1555,5 +2001,24 @@ func validateHTTPStatusCode(code string) bool {
 		return false
 	}
 
-	return statusCode >= 100 && statusCode <= 599
+	return statusCode >= minHTTPStatusCode && statusCode <= maxHTTPStatusCode
+}
+
+// isStandardHTTPStatusCode checks if a numeric status code is a well-defined standard code
+func isStandardHTTPStatusCode(code string) bool {
+	if code == "default" {
+		return true
+	}
+
+	// Wildcard patterns are considered standard
+	if len(code) == httpStatusCodeLength && code[1] == 'X' && code[2] == 'X' {
+		return code[0] >= '1' && code[0] <= '5'
+	}
+
+	statusCode, err := strconv.Atoi(code)
+	if err != nil {
+		return false
+	}
+
+	return standardHTTPStatusCodes[statusCode]
 }
