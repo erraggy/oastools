@@ -42,7 +42,7 @@ make install
 ### Using Go
 
 ```bash
-go install github.com/erraggy/oastools/cmd/oastools@latest
+go install github.com/erraggy/oastools/cmd/oastools
 ```
 
 ## Usage
@@ -59,6 +59,47 @@ oastools parse openapi.yaml
 
 # Join multiple OpenAPI specs
 oastools join base.yaml extensions.yaml
+```
+
+### Example Usage
+
+```bash
+go run github.com/erraggy/oastools/cmd/oastools validate testdata/invalid-oas3.yaml
+OpenAPI Specification Validator
+================================
+
+File: testdata/invalid-oas3.yaml
+Version: 3.0.3
+
+Errors (12):
+  ✗ document: oas 3.0.3: missing required field 'info.version': Info object must have a version string per spec
+  ✗ document: oas 3.0.3: invalid path pattern 'paths.items': path must begin with '/'
+  ✗ document: oas 3.0.3: missing required field 'paths.items.get.responses': Operation must have a responses object
+  ✗ document: oas 3.0.3: invalid parameter 'paths.items.get.parameters[0]': path parameters must have 'required: true' per spec
+  ✗ document: oas 3.0.3: missing required field 'paths.items.get.parameters[1].in': Parameter must specify location (query, header, path, cookie)
+  ✗ document: oas 3.0.3: missing required field 'paths.items.post.requestBody.content': RequestBody must have at least one media type
+  ✗ document: oas 3.0.3: duplicate operationId 'createItem' at 'paths./users.get': previously defined at 'paths.items.post' (operationIds must be unique across all operations)
+  ✗ info.version: Info object must have a version
+    Spec: https://spec.openapis.org/oas/v3.0.3.html#info-object
+  ✗ paths.items: Path must start with '/'
+    Spec: https://spec.openapis.org/oas/v3.0.3.html#paths-object
+  ✗ paths.items.post.requestBody: RequestBody must have a content object with at least one media type
+    Spec: https://spec.openapis.org/oas/v3.0.3.html#request-body-object
+  ✗ paths.items.get.parameters[0]: Path parameters must have required: true
+    Spec: https://spec.openapis.org/oas/v3.0.3.html#parameter-object
+  ✗ paths.items.post: Duplicate operationId 'createItem' (first seen at paths./users.get)
+    Spec: https://spec.openapis.org/oas/v3.0.3.html#operation-object
+
+Warnings (3):
+  ⚠ paths.items.post: Operation should have a description or summary for better documentation
+    Spec: https://spec.openapis.org/oas/v3.0.3.html#operation-object
+  ⚠ paths./users.get: Operation should have a description or summary for better documentation
+    Spec: https://spec.openapis.org/oas/v3.0.3.html#operation-object
+  ⚠ paths.items.get: Parameter 'id' is declared as path parameter but not used in path template
+    Spec: https://spec.openapis.org/oas/v3.0.3.html#path-item-object
+
+✗ Validation failed: 12 error(s), 3 warning(s)
+exit status 1
 ```
 
 ## Limitations
