@@ -1,0 +1,40 @@
+swagger: "2.0"
+info:
+  title: Base API
+  description: Base API for testing joins
+  version: 1.0.0
+host: api.example.com
+basePath: /v1
+schemes:
+  - https
+paths:
+  /users:
+    get:
+      summary: List users
+      operationId: listUsers
+      tags:
+        - users
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: A list of users
+          schema:
+            $ref: '#/definitions/UserList'
+definitions:
+  User:
+    type: object
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      email:
+        type: string
+  UserList:
+    type: object
+    properties:
+      users:
+        type: array
+        items:
+          $ref: '#/definitions/User'

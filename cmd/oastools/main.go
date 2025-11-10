@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/erraggy/oastools/internal/joiner"
 	"github.com/erraggy/oastools/internal/parser"
 	"github.com/erraggy/oastools/internal/validator"
 )
@@ -28,6 +29,8 @@ func main() {
 		handleValidate(os.Args[2:])
 	case "parse":
 		handleParse(os.Args[2:])
+	case "join":
+		handleJoin(os.Args[2:])
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", command)
 		printUsage()
@@ -222,6 +225,163 @@ Examples:
   oastools validate --no-warnings openapi.json`)
 }
 
+func handleJoin(args []string) {
+	var outputPath string
+	var pathStrategy string
+	var schemaStrategy string
+	var componentStrategy string
+	var noMergeArrays bool
+	var noDedupTags bool
+	var filePaths []string
+
+	// Parse flags
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "-o", "--output":
+			if i+1 >= len(args) {
+				fmt.Fprintf(os.Stderr, "Error: %s requires an argument\n", arg)
+				os.Exit(1)
+			}
+			outputPath = args[i+1]
+			i++
+		case "--path-strategy":
+			if i+1 >= len(args) {
+				fmt.Fprintf(os.Stderr, "Error: %s requires an argument\n", arg)
+				os.Exit(1)
+			}
+			pathStrategy = args[i+1]
+			i++
+		case "--schema-strategy":
+			if i+1 >= len(args) {
+				fmt.Fprintf(os.Stderr, "Error: %s requires an argument\n", arg)
+				os.Exit(1)
+			}
+			schemaStrategy = args[i+1]
+			i++
+		case "--component-strategy":
+			if i+1 >= len(args) {
+				fmt.Fprintf(os.Stderr, "Error: %s requires an argument\n", arg)
+				os.Exit(1)
+			}
+			componentStrategy = args[i+1]
+			i++
+		case "--no-merge-arrays":
+			noMergeArrays = true
+		case "--no-dedup-tags":
+			noDedupTags = true
+		case "-h", "--help":
+			printJoinUsage()
+			return
+		default:
+			filePaths = append(filePaths, arg)
+		}
+	}
+
+	if len(filePaths) < 2 {
+		fmt.Fprintf(os.Stderr, "Error: join command requires at least 2 input files\n\n")
+		printJoinUsage()
+		os.Exit(1)
+	}
+
+	if outputPath == "" {
+		fmt.Fprintf(os.Stderr, "Error: output file is required (use -o or --output)\n\n")
+		printJoinUsage()
+		os.Exit(1)
+	}
+
+	// Build configuration
+	config := joiner.DefaultConfig()
+	config.MergeArrays = !noMergeArrays
+	config.DeduplicateTags = !noDedupTags
+
+	// Parse strategy flags
+	if pathStrategy != "" {
+		config.PathStrategy = joiner.CollisionStrategy(pathStrategy)
+	}
+	if schemaStrategy != "" {
+		config.SchemaStrategy = joiner.CollisionStrategy(schemaStrategy)
+	}
+	if componentStrategy != "" {
+		config.ComponentStrategy = joiner.CollisionStrategy(componentStrategy)
+	}
+
+	// Create joiner and execute
+	j := joiner.New(config)
+	err := j.JoinToFile(filePaths, outputPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error joining specifications: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get result for reporting
+	result, err := j.Join(filePaths)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error joining specifications: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Print success message
+	fmt.Printf("OpenAPI Specification Joiner\n")
+	fmt.Printf("============================\n\n")
+	fmt.Printf("Successfully joined %d specification files\n", len(filePaths))
+	fmt.Printf("Output: %s\n", outputPath)
+	fmt.Printf("Version: %s\n\n", result.Version)
+
+	if result.CollisionCount > 0 {
+		fmt.Printf("Collisions resolved: %d\n\n", result.CollisionCount)
+	}
+
+	if len(result.Warnings) > 0 {
+		fmt.Printf("Warnings (%d):\n", len(result.Warnings))
+		for _, warning := range result.Warnings {
+			fmt.Printf("  - %s\n", warning)
+		}
+		fmt.Println()
+	}
+
+	fmt.Printf("✓ Join completed successfully!\n")
+}
+
+func printJoinUsage() {
+	fmt.Println(`Usage: oastools join [options] <file1> <file2> [file3...]
+
+Join multiple OpenAPI specification files into a single document.
+
+Required Options:
+  -o, --output <file>              Output file path
+
+Strategy Options:
+  --path-strategy <strategy>       Collision strategy for paths
+                                   (accept-left, accept-right, fail, fail-on-paths)
+                                   Default: fail
+  --schema-strategy <strategy>     Collision strategy for schemas/definitions
+                                   Default: accept-left
+  --component-strategy <strategy>  Collision strategy for other components
+                                   Default: accept-left
+
+Other Options:
+  --no-merge-arrays               Don't merge arrays (servers, security, etc.)
+  --no-dedup-tags                 Don't deduplicate tags by name
+  -h, --help                      Show this help message
+
+Collision Strategies:
+  accept-left      Keep the first value when collisions occur
+  accept-right     Keep the last value when collisions occur (overwrite)
+  fail             Fail with an error on any collision
+  fail-on-paths    Fail only on path collisions, allow schema collisions
+
+Examples:
+  oastools join -o merged.yaml base.yaml extensions.yaml
+  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml
+  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml
+
+Notes:
+  - All input files must be the same major OAS version (2.0 or 3.x)
+  - The output will use the version of the first input file
+  - Info section is taken from the first document by default`)
+}
+
 func printUsage() {
 	fmt.Println(`oastools - OpenAPI Specification Tools
 
@@ -237,7 +397,8 @@ Commands:
 
 Examples:
   oastools validate openapi.yaml
-  oastools join base.yaml extensions.yaml
+  oastools join -o merged.yaml base.yaml extensions.yaml
+  oastools parse openapi.yaml
 
 Run 'oastools <command> --help' for more information on a command.`)
 }
