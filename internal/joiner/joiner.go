@@ -22,6 +22,26 @@ const (
 	StrategyFailOnPaths CollisionStrategy = "fail-on-paths"
 )
 
+// ValidStrategies returns all valid collision strategy strings
+func ValidStrategies() []string {
+	return []string{
+		string(StrategyAcceptLeft),
+		string(StrategyAcceptRight),
+		string(StrategyFailOnCollision),
+		string(StrategyFailOnPaths),
+	}
+}
+
+// IsValidStrategy checks if a strategy string is valid
+func IsValidStrategy(strategy string) bool {
+	switch CollisionStrategy(strategy) {
+	case StrategyAcceptLeft, StrategyAcceptRight, StrategyFailOnCollision, StrategyFailOnPaths:
+		return true
+	default:
+		return false
+	}
+}
+
 // JoinerConfig configures how documents are joined
 type JoinerConfig struct {
 	// DefaultStrategy is the global strategy for all collisions
@@ -81,6 +101,8 @@ type JoinResult struct {
 	Warnings []string
 	// CollisionCount tracks the number of collisions resolved
 	CollisionCount int
+	// firstFilePath stores the path of the first document for error reporting
+	firstFilePath string
 }
 
 // documentContext tracks the source file and document for error reporting
@@ -135,25 +157,31 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 	}
 }
 
-// JoinToFile joins multiple specifications and writes the result to a file
-func (j *Joiner) JoinToFile(specPaths []string, outputPath string) error {
-	result, err := j.Join(specPaths)
-	if err != nil {
-		return err
-	}
-
+// WriteResult writes a join result to a file
+func (j *Joiner) WriteResult(result *JoinResult, outputPath string) error {
 	// Marshal to YAML
 	data, err := yaml.Marshal(result.Document)
 	if err != nil {
 		return fmt.Errorf("joiner: failed to marshal joined document: %w", err)
 	}
 
-	// Write to file
-	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+	// Write to file with restrictive permissions for potentially sensitive API specs
+	if err := os.WriteFile(outputPath, data, 0600); err != nil {
 		return fmt.Errorf("joiner: failed to write output file: %w", err)
 	}
 
 	return nil
+}
+
+// JoinToFile joins multiple specifications and writes the result to a file
+// Deprecated: Use Join() followed by WriteResult() for better performance and control
+func (j *Joiner) JoinToFile(specPaths []string, outputPath string) error {
+	result, err := j.Join(specPaths)
+	if err != nil {
+		return err
+	}
+
+	return j.WriteResult(result, outputPath)
 }
 
 // versionsCompatible checks if two OAS versions can be joined
@@ -214,11 +242,7 @@ func getSectionStrategyFlag(section string) string {
 func (j *Joiner) handleCollision(name, section string, strategy CollisionStrategy, firstFile, secondFile string) error {
 	firstPath := section
 	if name != "" {
-		if section == "paths" || section == "webhooks" {
-			firstPath = fmt.Sprintf("%s.%s", section, name)
-		} else {
-			firstPath = fmt.Sprintf("%s.%s", section, name)
-		}
+		firstPath = fmt.Sprintf("%s.%s", section, name)
 	}
 	secondPath := firstPath
 

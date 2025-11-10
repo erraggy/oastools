@@ -12,9 +12,10 @@ func (j *Joiner) joinOAS3Documents(docs []*parser.ParseResult, contexts []docume
 	baseDoc := docs[0].Document.(*parser.OAS3Document)
 
 	result := &JoinResult{
-		Version:    docs[0].Version,
-		OASVersion: docs[0].OASVersion,
-		Warnings:   make([]string, 0),
+		Version:       docs[0].Version,
+		OASVersion:    docs[0].OASVersion,
+		Warnings:      make([]string, 0),
+		firstFilePath: contexts[0].filePath,
 	}
 
 	// Create the joined document starting with the base
@@ -170,12 +171,7 @@ func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx docu
 func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
 	for name, schema := range source {
 		if _, exists := target[name]; exists {
-			// Assume first schema is from contexts[0]
-			firstFile := "first document"
-			if len(result.Warnings) > 0 || result.CollisionCount > 0 {
-				firstFile = "earlier document"
-			}
-			if err := j.handleCollision(name, "components.schemas", strategy, firstFile, ctx.filePath); err != nil {
+			if err := j.handleCollision(name, "components.schemas", strategy, result.firstFilePath, ctx.filePath); err != nil {
 				return err
 			}
 			result.CollisionCount++
@@ -233,11 +229,7 @@ func (j *Joiner) mergePathItems(target, source map[string]*parser.PathItem, stra
 func mergeMap[T any](j *Joiner, target, source map[string]T, section string, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
 	for name, item := range source {
 		if _, exists := target[name]; exists {
-			firstFile := "first document"
-			if result.CollisionCount > 0 {
-				firstFile = "earlier document"
-			}
-			if err := j.handleCollision(name, section, strategy, firstFile, ctx.filePath); err != nil {
+			if err := j.handleCollision(name, section, strategy, result.firstFilePath, ctx.filePath); err != nil {
 				return err
 			}
 			result.CollisionCount++

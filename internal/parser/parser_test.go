@@ -886,19 +886,19 @@ func TestInvalidVersionValidation(t *testing.T) {
 			name:          "Version 4.0.0 should be rejected",
 			version:       "4.0.0",
 			expectError:   true,
-			errorContains: "invalid OAS semver",
+			errorContains: "invalid OAS version",
 		},
 		{
 			name:          "Version 2.5.0 should be rejected",
 			version:       "2.5.0",
 			expectError:   true,
-			errorContains: "invalid OAS semver",
+			errorContains: "invalid OAS version",
 		},
 		{
 			name:          "Version 5.0.0 should be rejected",
 			version:       "5.0.0",
 			expectError:   true,
-			errorContains: "invalid OAS semver",
+			errorContains: "invalid OAS version",
 		},
 	}
 

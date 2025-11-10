@@ -12,9 +12,10 @@ func (j *Joiner) joinOAS2Documents(docs []*parser.ParseResult, contexts []docume
 	baseDoc := docs[0].Document.(*parser.OAS2Document)
 
 	result := &JoinResult{
-		Version:    docs[0].Version,
-		OASVersion: docs[0].OASVersion,
-		Warnings:   make([]string, 0),
+		Version:       docs[0].Version,
+		OASVersion:    docs[0].OASVersion,
+		Warnings:      make([]string, 0),
+		firstFilePath: contexts[0].filePath,
 	}
 
 	// Create the joined document starting with the base
@@ -77,10 +78,9 @@ func (j *Joiner) mergeOAS2Document(joined *parser.OAS2Document, oas2Doc *parser.
 // mergeOAS2Paths merges paths from source document
 func (j *Joiner) mergeOAS2Paths(joined, source *parser.OAS2Document, ctx documentContext, result *JoinResult) error {
 	pathStrategy := j.getEffectiveStrategy(j.config.PathStrategy)
-	firstFile := "first document"
 	for path, pathItem := range source.Paths {
 		if _, exists := joined.Paths[path]; exists {
-			if err := j.handleCollision(path, "paths", pathStrategy, firstFile, ctx.filePath); err != nil {
+			if err := j.handleCollision(path, "paths", pathStrategy, result.firstFilePath, ctx.filePath); err != nil {
 				return err
 			}
 			result.CollisionCount++
@@ -100,10 +100,9 @@ func (j *Joiner) mergeOAS2Paths(joined, source *parser.OAS2Document, ctx documen
 // mergeOAS2Definitions merges definitions (schemas) from source document
 func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx documentContext, result *JoinResult) error {
 	schemaStrategy := j.getEffectiveStrategy(j.config.SchemaStrategy)
-	firstFile := "first document"
 	for name, schema := range source.Definitions {
 		if _, exists := joined.Definitions[name]; exists {
-			if err := j.handleCollision(name, "definitions", schemaStrategy, firstFile, ctx.filePath); err != nil {
+			if err := j.handleCollision(name, "definitions", schemaStrategy, result.firstFilePath, ctx.filePath); err != nil {
 				return err
 			}
 			result.CollisionCount++

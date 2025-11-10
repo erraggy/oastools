@@ -225,7 +225,9 @@ Examples:
   oastools validate --no-warnings openapi.json`)
 }
 
-func handleJoin(args []string) {
+// parseJoinFlags parses command-line arguments for the join command
+// Returns config, filePaths, outputPath, showHelp flag, and error
+func parseJoinFlags(args []string) (joiner.JoinerConfig, []string, string, bool, error) {
 	var outputPath string
 	var pathStrategy string
 	var schemaStrategy string
@@ -240,29 +242,25 @@ func handleJoin(args []string) {
 		switch arg {
 		case "-o", "--output":
 			if i+1 >= len(args) {
-				fmt.Fprintf(os.Stderr, "Error: %s requires an argument\n", arg)
-				os.Exit(1)
+				return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("%s requires an argument", arg)
 			}
 			outputPath = args[i+1]
 			i++
 		case "--path-strategy":
 			if i+1 >= len(args) {
-				fmt.Fprintf(os.Stderr, "Error: %s requires an argument\n", arg)
-				os.Exit(1)
+				return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("%s requires an argument", arg)
 			}
 			pathStrategy = args[i+1]
 			i++
 		case "--schema-strategy":
 			if i+1 >= len(args) {
-				fmt.Fprintf(os.Stderr, "Error: %s requires an argument\n", arg)
-				os.Exit(1)
+				return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("%s requires an argument", arg)
 			}
 			schemaStrategy = args[i+1]
 			i++
 		case "--component-strategy":
 			if i+1 >= len(args) {
-				fmt.Fprintf(os.Stderr, "Error: %s requires an argument\n", arg)
-				os.Exit(1)
+				return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("%s requires an argument", arg)
 			}
 			componentStrategy = args[i+1]
 			i++
@@ -271,23 +269,18 @@ func handleJoin(args []string) {
 		case "--no-dedup-tags":
 			noDedupTags = true
 		case "-h", "--help":
-			printJoinUsage()
-			return
+			return joiner.JoinerConfig{}, nil, "", true, nil
 		default:
 			filePaths = append(filePaths, arg)
 		}
 	}
 
 	if len(filePaths) < 2 {
-		fmt.Fprintf(os.Stderr, "Error: join command requires at least 2 input files\n\n")
-		printJoinUsage()
-		os.Exit(1)
+		return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("join command requires at least 2 input files")
 	}
 
 	if outputPath == "" {
-		fmt.Fprintf(os.Stderr, "Error: output file is required (use -o or --output)\n\n")
-		printJoinUsage()
-		os.Exit(1)
+		return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("output file is required (use -o or --output)")
 	}
 
 	// Build configuration
@@ -295,29 +288,53 @@ func handleJoin(args []string) {
 	config.MergeArrays = !noMergeArrays
 	config.DeduplicateTags = !noDedupTags
 
-	// Parse strategy flags
+	// Validate and parse strategy flags
 	if pathStrategy != "" {
+		if !joiner.IsValidStrategy(pathStrategy) {
+			return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("invalid path-strategy '%s'. Valid strategies: %v", pathStrategy, joiner.ValidStrategies())
+		}
 		config.PathStrategy = joiner.CollisionStrategy(pathStrategy)
 	}
 	if schemaStrategy != "" {
+		if !joiner.IsValidStrategy(schemaStrategy) {
+			return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("invalid schema-strategy '%s'. Valid strategies: %v", schemaStrategy, joiner.ValidStrategies())
+		}
 		config.SchemaStrategy = joiner.CollisionStrategy(schemaStrategy)
 	}
 	if componentStrategy != "" {
+		if !joiner.IsValidStrategy(componentStrategy) {
+			return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("invalid component-strategy '%s'. Valid strategies: %v", componentStrategy, joiner.ValidStrategies())
+		}
 		config.ComponentStrategy = joiner.CollisionStrategy(componentStrategy)
+	}
+
+	return config, filePaths, outputPath, false, nil
+}
+
+func handleJoin(args []string) {
+	config, filePaths, outputPath, showHelp, err := parseJoinFlags(args)
+	if showHelp {
+		printJoinUsage()
+		return
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n\n", err)
+		printJoinUsage()
+		os.Exit(1)
 	}
 
 	// Create joiner and execute
 	j := joiner.New(config)
-	err := j.JoinToFile(filePaths, outputPath)
+	result, err := j.Join(filePaths)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error joining specifications: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Get result for reporting
-	result, err := j.Join(filePaths)
+	// Write result to file
+	err = j.WriteResult(result, outputPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error joining specifications: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error writing output file: %v\n", err)
 		os.Exit(1)
 	}
 
