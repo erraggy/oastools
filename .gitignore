@@ -22,7 +22,6 @@ go.work
 # Build output
 /bin/
 /dist/
-oastools
 
 # IDE
 .idea/
