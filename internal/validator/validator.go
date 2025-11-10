@@ -134,15 +134,17 @@ func (v *Validator) Validate(specPath string) (*ValidationResult, error) {
 	switch parseResult.OASVersion {
 	case parser.OASVersion20:
 		doc, ok := parseResult.Document.(*parser.OAS2Document)
-		if ok {
-			v.validateOAS2(doc, result)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast document to OAS2Document")
 		}
+		v.validateOAS2(doc, result)
 	case parser.OASVersion300, parser.OASVersion301, parser.OASVersion302, parser.OASVersion303, parser.OASVersion304,
 		parser.OASVersion310, parser.OASVersion311, parser.OASVersion312, parser.OASVersion320:
 		doc, ok := parseResult.Document.(*parser.OAS3Document)
-		if ok {
-			v.validateOAS3(doc, result)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast document to OAS3Document")
 		}
+		v.validateOAS3(doc, result)
 	default:
 		// in reality this should never happen, since the parser's `Parse` would have errored as well
 		return nil, fmt.Errorf("unsupported OAS Version: %s", parseResult.OASVersion)
@@ -166,6 +168,9 @@ func (v *Validator) Validate(specPath string) (*ValidationResult, error) {
 func (v *Validator) validateOAS2(doc *parser.OAS2Document, result *ValidationResult) {
 	baseURL := "https://spec.openapis.org/oas/v2.0.html"
 
+	// Validate required fields in info object
+	v.validateOAS2Info(doc, result, baseURL)
+
 	// Validate paths and operations
 	v.validateOAS2Paths(doc, result, baseURL)
 
@@ -183,6 +188,85 @@ func (v *Validator) validateOAS2(doc *parser.OAS2Document, result *ValidationRes
 
 	// Validate path parameters match path templates
 	v.validateOAS2PathParameterConsistency(doc, result, baseURL)
+
+	// Validate duplicate operationIds
+	v.validateOAS2OperationIds(doc, result, baseURL)
+}
+
+// validateOAS2Info validates the info object in OAS 2.0
+func (v *Validator) validateOAS2Info(doc *parser.OAS2Document, result *ValidationResult, baseURL string) {
+	if doc.Info == nil {
+		result.Errors = append(result.Errors, ValidationError{
+			Path:     "info",
+			Message:  "Info object is required",
+			SpecRef:  fmt.Sprintf("%s#infoObject", baseURL),
+			Severity: SeverityError,
+			Field:    "info",
+		})
+		return
+	}
+
+	if doc.Info.Title == "" {
+		result.Errors = append(result.Errors, ValidationError{
+			Path:     "info.title",
+			Message:  "Info object must have a title",
+			SpecRef:  fmt.Sprintf("%s#infoObject", baseURL),
+			Severity: SeverityError,
+			Field:    "title",
+		})
+	}
+
+	if doc.Info.Version == "" {
+		result.Errors = append(result.Errors, ValidationError{
+			Path:     "info.version",
+			Message:  "Info object must have a version",
+			SpecRef:  fmt.Sprintf("%s#infoObject", baseURL),
+			Severity: SeverityError,
+			Field:    "version",
+		})
+	}
+}
+
+// validateOAS2OperationIds validates that operationIds are unique across the document
+func (v *Validator) validateOAS2OperationIds(doc *parser.OAS2Document, result *ValidationResult, baseURL string) {
+	operationIds := make(map[string]string) // map of operationId -> path where first seen
+
+	for pathPattern, pathItem := range doc.Paths {
+		if pathItem == nil {
+			continue
+		}
+
+		operations := map[string]*parser.Operation{
+			"get":     pathItem.Get,
+			"put":     pathItem.Put,
+			"post":    pathItem.Post,
+			"delete":  pathItem.Delete,
+			"options": pathItem.Options,
+			"head":    pathItem.Head,
+			"patch":   pathItem.Patch,
+		}
+
+		for method, op := range operations {
+			if op == nil || op.OperationID == "" {
+				continue
+			}
+
+			opPath := fmt.Sprintf("paths.%s.%s", pathPattern, method)
+
+			if firstSeenAt, exists := operationIds[op.OperationID]; exists {
+				result.Errors = append(result.Errors, ValidationError{
+					Path:     opPath,
+					Message:  fmt.Sprintf("Duplicate operationId '%s' (first seen at %s)", op.OperationID, firstSeenAt),
+					SpecRef:  fmt.Sprintf("%s#operationObject", baseURL),
+					Severity: SeverityError,
+					Field:    "operationId",
+					Value:    op.OperationID,
+				})
+			} else {
+				operationIds[op.OperationID] = opPath
+			}
+		}
+	}
 }
 
 // validateOAS2Paths validates paths in OAS 2.0
@@ -190,6 +274,17 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 	for pathPattern, pathItem := range doc.Paths {
 		if pathItem == nil {
 			continue
+		}
+
+		// Validate path pattern starts with "/"
+		if !strings.HasPrefix(pathPattern, "/") {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     fmt.Sprintf("paths.%s", pathPattern),
+				Message:  "Path must start with '/'",
+				SpecRef:  fmt.Sprintf("%s#pathsObject", baseURL),
+				Severity: SeverityError,
+				Value:    pathPattern,
+			})
 		}
 
 		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
@@ -233,9 +328,19 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 	if op.Responses != nil && op.Responses.Codes != nil {
 		hasSuccess := false
 		for code := range op.Responses.Codes {
+			// Validate HTTP status code format
+			if !validateHTTPStatusCode(code) {
+				result.Errors = append(result.Errors, ValidationError{
+					Path:     fmt.Sprintf("%s.responses.%s", path, code),
+					Message:  fmt.Sprintf("Invalid HTTP status code: %s", code),
+					SpecRef:  fmt.Sprintf("%s#responsesObject", baseURL),
+					Severity: SeverityError,
+					Value:    code,
+				})
+			}
+
 			if strings.HasPrefix(code, "2") || code == "default" {
 				hasSuccess = true
-				break
 			}
 		}
 		if !hasSuccess && v.StrictMode {
@@ -528,6 +633,9 @@ func (v *Validator) validateOAS3(doc *parser.OAS3Document, result *ValidationRes
 		baseURL = fmt.Sprintf("https://spec.openapis.org/oas/v%s.html", version)
 	}
 
+	// Validate required fields in info object
+	v.validateOAS3Info(doc, result, baseURL)
+
 	// Validate servers
 	v.validateOAS3Servers(doc, result, baseURL)
 
@@ -545,6 +653,128 @@ func (v *Validator) validateOAS3(doc *parser.OAS3Document, result *ValidationRes
 
 	// Validate security requirements reference existing schemes
 	v.validateOAS3SecurityRequirements(doc, result, baseURL)
+
+	// Validate duplicate operationIds
+	v.validateOAS3OperationIds(doc, result, baseURL)
+}
+
+// validateOAS3Info validates the info object in OAS 3.x
+func (v *Validator) validateOAS3Info(doc *parser.OAS3Document, result *ValidationResult, baseURL string) {
+	if doc.Info == nil {
+		result.Errors = append(result.Errors, ValidationError{
+			Path:     "info",
+			Message:  "Info object is required",
+			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
+			Severity: SeverityError,
+			Field:    "info",
+		})
+		return
+	}
+
+	if doc.Info.Title == "" {
+		result.Errors = append(result.Errors, ValidationError{
+			Path:     "info.title",
+			Message:  "Info object must have a title",
+			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
+			Severity: SeverityError,
+			Field:    "title",
+		})
+	}
+
+	if doc.Info.Version == "" {
+		result.Errors = append(result.Errors, ValidationError{
+			Path:     "info.version",
+			Message:  "Info object must have a version",
+			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
+			Severity: SeverityError,
+			Field:    "version",
+		})
+	}
+}
+
+// validateOAS3OperationIds validates that operationIds are unique across the document
+func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *ValidationResult, baseURL string) {
+	operationIds := make(map[string]string) // map of operationId -> path where first seen
+
+	// Check paths
+	if doc.Paths != nil {
+		for pathPattern, pathItem := range doc.Paths {
+			if pathItem == nil {
+				continue
+			}
+
+			operations := map[string]*parser.Operation{
+				"get":     pathItem.Get,
+				"put":     pathItem.Put,
+				"post":    pathItem.Post,
+				"delete":  pathItem.Delete,
+				"options": pathItem.Options,
+				"head":    pathItem.Head,
+				"patch":   pathItem.Patch,
+				"trace":   pathItem.Trace,
+			}
+
+			for method, op := range operations {
+				if op == nil || op.OperationID == "" {
+					continue
+				}
+
+				opPath := fmt.Sprintf("paths.%s.%s", pathPattern, method)
+
+				if firstSeenAt, exists := operationIds[op.OperationID]; exists {
+					result.Errors = append(result.Errors, ValidationError{
+						Path:     opPath,
+						Message:  fmt.Sprintf("Duplicate operationId '%s' (first seen at %s)", op.OperationID, firstSeenAt),
+						SpecRef:  fmt.Sprintf("%s#operation-object", baseURL),
+						Severity: SeverityError,
+						Field:    "operationId",
+						Value:    op.OperationID,
+					})
+				} else {
+					operationIds[op.OperationID] = opPath
+				}
+			}
+		}
+	}
+
+	// Check webhooks (OAS 3.1+)
+	for webhookName, pathItem := range doc.Webhooks {
+		if pathItem == nil {
+			continue
+		}
+
+		operations := map[string]*parser.Operation{
+			"get":     pathItem.Get,
+			"put":     pathItem.Put,
+			"post":    pathItem.Post,
+			"delete":  pathItem.Delete,
+			"options": pathItem.Options,
+			"head":    pathItem.Head,
+			"patch":   pathItem.Patch,
+			"trace":   pathItem.Trace,
+		}
+
+		for method, op := range operations {
+			if op == nil || op.OperationID == "" {
+				continue
+			}
+
+			opPath := fmt.Sprintf("webhooks.%s.%s", webhookName, method)
+
+			if firstSeenAt, exists := operationIds[op.OperationID]; exists {
+				result.Errors = append(result.Errors, ValidationError{
+					Path:     opPath,
+					Message:  fmt.Sprintf("Duplicate operationId '%s' (first seen at %s)", op.OperationID, firstSeenAt),
+					SpecRef:  fmt.Sprintf("%s#operation-object", baseURL),
+					Severity: SeverityError,
+					Field:    "operationId",
+					Value:    op.OperationID,
+				})
+			} else {
+				operationIds[op.OperationID] = opPath
+			}
+		}
+	}
 }
 
 // validateOAS3Servers validates server objects in OAS 3.x
@@ -611,6 +841,17 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 			continue
 		}
 
+		// Validate path pattern starts with "/"
+		if !strings.HasPrefix(pathPattern, "/") {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     fmt.Sprintf("paths.%s", pathPattern),
+				Message:  "Path must start with '/'",
+				SpecRef:  fmt.Sprintf("%s#paths-object", baseURL),
+				Severity: SeverityError,
+				Value:    pathPattern,
+			})
+		}
+
 		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
 
 		// Validate each operation
@@ -653,9 +894,19 @@ func (v *Validator) validateOAS3Operation(op *parser.Operation, path string, res
 	if op.Responses != nil && op.Responses.Codes != nil {
 		hasSuccess := false
 		for code := range op.Responses.Codes {
+			// Validate HTTP status code format
+			if !validateHTTPStatusCode(code) {
+				result.Errors = append(result.Errors, ValidationError{
+					Path:     fmt.Sprintf("%s.responses.%s", path, code),
+					Message:  fmt.Sprintf("Invalid HTTP status code: %s", code),
+					SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
+					Severity: SeverityError,
+					Value:    code,
+				})
+			}
+
 			if strings.HasPrefix(code, "2") || code == "default" {
 				hasSuccess = true
-				break
 			}
 		}
 		if !hasSuccess && v.StrictMode {
