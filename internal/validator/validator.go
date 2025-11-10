@@ -19,6 +19,13 @@ const (
 	SeverityWarning
 )
 
+const (
+	// defaultErrorCapacity is the initial capacity for error slices
+	defaultErrorCapacity = 10
+	// defaultWarningCapacity is the initial capacity for warning slices
+	defaultWarningCapacity = 10
+)
+
 func (s Severity) String() string {
 	switch s {
 	case SeverityError:
@@ -108,8 +115,8 @@ func (v *Validator) Validate(specPath string) (*ValidationResult, error) {
 	result := &ValidationResult{
 		Version:    parseResult.Version,
 		OASVersion: parseResult.OASVersion,
-		Errors:     make([]ValidationError, 0, 10), // Pre-allocate for performance
-		Warnings:   make([]ValidationError, 0, 10), // Pre-allocate for performance
+		Errors:     make([]ValidationError, 0, defaultErrorCapacity),
+		Warnings:   make([]ValidationError, 0, defaultWarningCapacity),
 	}
 
 	// Add parser errors to validation result
@@ -198,7 +205,7 @@ func (v *Validator) validateOAS2Info(doc *parser.OAS2Document, result *Validatio
 	if doc.Info == nil {
 		result.Errors = append(result.Errors, ValidationError{
 			Path:     "info",
-			Message:  "Info object is required",
+			Message:  "Document must have an info object",
 			SpecRef:  fmt.Sprintf("%s#infoObject", baseURL),
 			Severity: SeverityError,
 			Field:    "info",
@@ -644,7 +651,7 @@ func (v *Validator) validateOAS3Info(doc *parser.OAS3Document, result *Validatio
 	if doc.Info == nil {
 		result.Errors = append(result.Errors, ValidationError{
 			Path:     "info",
-			Message:  "Info object is required",
+			Message:  "Document must have an info object",
 			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
 			Severity: SeverityError,
 			Field:    "info",
@@ -924,6 +931,17 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 				Severity: SeverityError,
 			})
 		}
+
+		// Path parameters must have required: true
+		if param.In == "path" && !param.Required {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     path,
+				Message:  "Path parameters must have required: true",
+				SpecRef:  fmt.Sprintf("%s#parameter-object", baseURL),
+				Severity: SeverityError,
+				Field:    "required",
+			})
+		}
 	}
 
 	// Validate security schemes
@@ -1143,16 +1161,38 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 			declaredParams := make(map[string]bool)
 
 			// Check path-level parameters
-			for _, param := range pathItem.Parameters {
+			for i, param := range pathItem.Parameters {
 				if param != nil && param.In == "path" {
 					declaredParams[param.Name] = true
+
+					// Path parameters must have required: true
+					if !param.Required {
+						result.Errors = append(result.Errors, ValidationError{
+							Path:     fmt.Sprintf("paths.%s.parameters[%d]", pathPattern, i),
+							Message:  "Path parameters must have required: true",
+							SpecRef:  fmt.Sprintf("%s#parameter-object", baseURL),
+							Severity: SeverityError,
+							Field:    "required",
+						})
+					}
 				}
 			}
 
 			// Check operation-level parameters
-			for _, param := range op.Parameters {
+			for i, param := range op.Parameters {
 				if param != nil && param.In == "path" {
 					declaredParams[param.Name] = true
+
+					// Path parameters must have required: true
+					if !param.Required {
+						result.Errors = append(result.Errors, ValidationError{
+							Path:     fmt.Sprintf("paths.%s.%s.parameters[%d]", pathPattern, method, i),
+							Message:  "Path parameters must have required: true",
+							SpecRef:  fmt.Sprintf("%s#parameter-object", baseURL),
+							Severity: SeverityError,
+							Field:    "required",
+						})
+					}
 				}
 			}
 
@@ -1438,8 +1478,13 @@ func isValidMediaType(mediaType string) bool {
 	}
 
 	// Check for wildcard patterns
-	if parts[0] == "*" || parts[1] == "*" {
-		return true
+	// Valid: */* (both wildcards) or type/* (subtype wildcard)
+	// Invalid: */subtype (type wildcard with specific subtype)
+	if parts[0] == "*" {
+		return parts[1] == "*" // */subtype is invalid
+	}
+	if parts[1] == "*" {
+		return parts[0] != "" // type/* is valid if type is not empty
 	}
 
 	// Both parts should be non-empty
