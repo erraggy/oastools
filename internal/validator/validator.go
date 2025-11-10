@@ -226,7 +226,7 @@ func (v *Validator) validateOAS2Info(doc *parser.OAS2Document, result *Validatio
 		result.Errors = append(result.Errors, ValidationError{
 			Path:     "info",
 			Message:  "Document must have an info object",
-			SpecRef:  fmt.Sprintf("%s#infoObject", baseURL),
+			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
 			Severity: SeverityError,
 			Field:    "info",
 		})
@@ -237,7 +237,7 @@ func (v *Validator) validateOAS2Info(doc *parser.OAS2Document, result *Validatio
 		result.Errors = append(result.Errors, ValidationError{
 			Path:     "info.title",
 			Message:  "Info object must have a title",
-			SpecRef:  fmt.Sprintf("%s#infoObject", baseURL),
+			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
 			Severity: SeverityError,
 			Field:    "title",
 		})
@@ -247,7 +247,7 @@ func (v *Validator) validateOAS2Info(doc *parser.OAS2Document, result *Validatio
 		result.Errors = append(result.Errors, ValidationError{
 			Path:     "info.version",
 			Message:  "Info object must have a version",
-			SpecRef:  fmt.Sprintf("%s#infoObject", baseURL),
+			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
 			Severity: SeverityError,
 			Field:    "version",
 		})
@@ -259,7 +259,7 @@ func (v *Validator) validateOAS2Info(doc *parser.OAS2Document, result *Validatio
 			result.Errors = append(result.Errors, ValidationError{
 				Path:     "info.contact.url",
 				Message:  fmt.Sprintf("Invalid URL format: %s", doc.Info.Contact.URL),
-				SpecRef:  fmt.Sprintf("%s#contactObject", baseURL),
+				SpecRef:  fmt.Sprintf("%s#contact-object", baseURL),
 				Severity: SeverityError,
 				Field:    "url",
 				Value:    doc.Info.Contact.URL,
@@ -269,7 +269,7 @@ func (v *Validator) validateOAS2Info(doc *parser.OAS2Document, result *Validatio
 			result.Errors = append(result.Errors, ValidationError{
 				Path:     "info.contact.email",
 				Message:  fmt.Sprintf("Invalid email format: %s", doc.Info.Contact.Email),
-				SpecRef:  fmt.Sprintf("%s#contactObject", baseURL),
+				SpecRef:  fmt.Sprintf("%s#contact-object", baseURL),
 				Severity: SeverityError,
 				Field:    "email",
 				Value:    doc.Info.Contact.Email,
@@ -283,7 +283,7 @@ func (v *Validator) validateOAS2Info(doc *parser.OAS2Document, result *Validatio
 			result.Errors = append(result.Errors, ValidationError{
 				Path:     "info.license.url",
 				Message:  fmt.Sprintf("Invalid URL format: %s", doc.Info.License.URL),
-				SpecRef:  fmt.Sprintf("%s#licenseObject", baseURL),
+				SpecRef:  fmt.Sprintf("%s#license-object", baseURL),
 				Severity: SeverityError,
 				Field:    "url",
 				Value:    doc.Info.License.URL,
@@ -327,7 +327,7 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 			result.Errors = append(result.Errors, ValidationError{
 				Path:     fmt.Sprintf("paths.%s", pathPattern),
 				Message:  "Path must start with '/'",
-				SpecRef:  fmt.Sprintf("%s#pathsObject", baseURL),
+				SpecRef:  fmt.Sprintf("%s#paths-object", baseURL),
 				Severity: SeverityError,
 				Value:    pathPattern,
 			})
@@ -338,7 +338,7 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 			result.Errors = append(result.Errors, ValidationError{
 				Path:     fmt.Sprintf("paths.%s", pathPattern),
 				Message:  fmt.Sprintf("Invalid path template: %s", err),
-				SpecRef:  fmt.Sprintf("%s#pathsObject", baseURL),
+				SpecRef:  fmt.Sprintf("%s#paths-object", baseURL),
 				Severity: SeverityError,
 				Value:    pathPattern,
 			})
@@ -370,7 +370,7 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 				result.Warnings = append(result.Warnings, ValidationError{
 					Path:     opPath,
 					Message:  "Operation should have a description or summary for better documentation",
-					SpecRef:  fmt.Sprintf("%s#operationObject", baseURL),
+					SpecRef:  fmt.Sprintf("%s#operation-object", baseURL),
 					Severity: SeverityWarning,
 					Field:    "description",
 				})
@@ -390,7 +390,7 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 				result.Errors = append(result.Errors, ValidationError{
 					Path:     fmt.Sprintf("%s.responses.%s", path, code),
 					Message:  fmt.Sprintf("Invalid HTTP status code: %s", code),
-					SpecRef:  fmt.Sprintf("%s#responsesObject", baseURL),
+					SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
 					Severity: SeverityError,
 					Value:    code,
 				})
@@ -399,7 +399,7 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 				result.Warnings = append(result.Warnings, ValidationError{
 					Path:     fmt.Sprintf("%s.responses.%s", path, code),
 					Message:  fmt.Sprintf("Non-standard HTTP status code: %s (not defined in HTTP RFCs)", code),
-					SpecRef:  fmt.Sprintf("%s#responsesObject", baseURL),
+					SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
 					Severity: SeverityWarning,
 					Value:    code,
 				})
@@ -413,7 +413,7 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 			result.Warnings = append(result.Warnings, ValidationError{
 				Path:     fmt.Sprintf("%s.responses", path),
 				Message:  "Operation should define at least one successful response (2XX or default)",
-				SpecRef:  fmt.Sprintf("%s#responsesObject", baseURL),
+				SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
 				Severity: SeverityWarning,
 			})
 		}
@@ -425,7 +425,7 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 			result.Errors = append(result.Errors, ValidationError{
 				Path:     fmt.Sprintf("%s.consumes[%d]", path, i),
 				Message:  fmt.Sprintf("Invalid media type: %s", mediaType),
-				SpecRef:  fmt.Sprintf("%s#operationObject", baseURL),
+				SpecRef:  fmt.Sprintf("%s#operation-object", baseURL),
 				Severity: SeverityError,
 				Value:    mediaType,
 			})
@@ -437,7 +437,7 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 			result.Errors = append(result.Errors, ValidationError{
 				Path:     fmt.Sprintf("%s.produces[%d]", path, i),
 				Message:  fmt.Sprintf("Invalid media type: %s", mediaType),
-				SpecRef:  fmt.Sprintf("%s#operationObject", baseURL),
+				SpecRef:  fmt.Sprintf("%s#operation-object", baseURL),
 				Severity: SeverityError,
 				Value:    mediaType,
 			})
@@ -469,7 +469,7 @@ func (v *Validator) validateOAS2Parameters(doc *parser.OAS2Document, result *Val
 			result.Errors = append(result.Errors, ValidationError{
 				Path:     path,
 				Message:  "Body parameter must have a schema",
-				SpecRef:  fmt.Sprintf("%s#parameterObject", baseURL),
+				SpecRef:  fmt.Sprintf("%s#parameter-object", baseURL),
 				Severity: SeverityError,
 				Field:    "schema",
 			})
@@ -480,7 +480,7 @@ func (v *Validator) validateOAS2Parameters(doc *parser.OAS2Document, result *Val
 			result.Errors = append(result.Errors, ValidationError{
 				Path:     path,
 				Message:  "Non-body parameter must have a type",
-				SpecRef:  fmt.Sprintf("%s#parameterObject", baseURL),
+				SpecRef:  fmt.Sprintf("%s#parameter-object", baseURL),
 				Severity: SeverityError,
 				Field:    "type",
 			})
@@ -500,7 +500,7 @@ func (v *Validator) validateOAS2Responses(doc *parser.OAS2Document, result *Vali
 			result.Errors = append(result.Errors, ValidationError{
 				Path:     path,
 				Message:  "Response must have a description",
-				SpecRef:  fmt.Sprintf("%s#responseObject", baseURL),
+				SpecRef:  fmt.Sprintf("%s#response-object", baseURL),
 				Severity: SeverityError,
 				Field:    "description",
 			})
@@ -517,7 +517,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 				result.Errors = append(result.Errors, ValidationError{
 					Path:     fmt.Sprintf("security[%d].%s", i, schemeName),
 					Message:  fmt.Sprintf("Security requirement references undefined security scheme: %s", schemeName),
-					SpecRef:  fmt.Sprintf("%s#securityRequirementObject", baseURL),
+					SpecRef:  fmt.Sprintf("%s#security-requirement-object", baseURL),
 					Severity: SeverityError,
 					Value:    schemeName,
 				})
@@ -533,7 +533,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 			result.Errors = append(result.Errors, ValidationError{
 				Path:     path,
 				Message:  "Security scheme must have a type",
-				SpecRef:  fmt.Sprintf("%s#securitySchemeObject", baseURL),
+				SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
 				Severity: SeverityError,
 				Field:    "type",
 			})
@@ -546,7 +546,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 				result.Errors = append(result.Errors, ValidationError{
 					Path:     path,
 					Message:  "API key security scheme must have a name",
-					SpecRef:  fmt.Sprintf("%s#securitySchemeObject", baseURL),
+					SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
 					Severity: SeverityError,
 					Field:    "name",
 				})
@@ -555,7 +555,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 				result.Errors = append(result.Errors, ValidationError{
 					Path:     path,
 					Message:  "API key security scheme must specify 'in' (query or header)",
-					SpecRef:  fmt.Sprintf("%s#securitySchemeObject", baseURL),
+					SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
 					Severity: SeverityError,
 					Field:    "in",
 				})
@@ -565,7 +565,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 				result.Errors = append(result.Errors, ValidationError{
 					Path:     path,
 					Message:  "OAuth2 security scheme must have a flow",
-					SpecRef:  fmt.Sprintf("%s#securitySchemeObject", baseURL),
+					SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
 					Severity: SeverityError,
 					Field:    "flow",
 				})
@@ -577,7 +577,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 					result.Errors = append(result.Errors, ValidationError{
 						Path:     path,
 						Message:  fmt.Sprintf("OAuth2 flow '%s' requires authorizationUrl", secDef.Flow),
-						SpecRef:  fmt.Sprintf("%s#securitySchemeObject", baseURL),
+						SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
 						Severity: SeverityError,
 						Field:    "authorizationUrl",
 					})
@@ -585,7 +585,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 					result.Errors = append(result.Errors, ValidationError{
 						Path:     path,
 						Message:  fmt.Sprintf("Invalid URL format for authorizationUrl: %s", secDef.AuthorizationURL),
-						SpecRef:  fmt.Sprintf("%s#securitySchemeObject", baseURL),
+						SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
 						Severity: SeverityError,
 						Field:    "authorizationUrl",
 						Value:    secDef.AuthorizationURL,
@@ -597,7 +597,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 					result.Errors = append(result.Errors, ValidationError{
 						Path:     path,
 						Message:  fmt.Sprintf("OAuth2 flow '%s' requires tokenUrl", secDef.Flow),
-						SpecRef:  fmt.Sprintf("%s#securitySchemeObject", baseURL),
+						SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
 						Severity: SeverityError,
 						Field:    "tokenUrl",
 					})
@@ -605,7 +605,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 					result.Errors = append(result.Errors, ValidationError{
 						Path:     path,
 						Message:  fmt.Sprintf("Invalid URL format for tokenUrl: %s", secDef.TokenURL),
-						SpecRef:  fmt.Sprintf("%s#securitySchemeObject", baseURL),
+						SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
 						Severity: SeverityError,
 						Field:    "tokenUrl",
 						Value:    secDef.TokenURL,
@@ -665,7 +665,7 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 					result.Errors = append(result.Errors, ValidationError{
 						Path:     fmt.Sprintf("paths.%s.%s", pathPattern, method),
 						Message:  fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
-						SpecRef:  fmt.Sprintf("%s#pathItemObject", baseURL),
+						SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
 						Severity: SeverityError,
 						Value:    paramName,
 					})
@@ -678,7 +678,7 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 					result.Warnings = append(result.Warnings, ValidationError{
 						Path:     fmt.Sprintf("paths.%s.%s", pathPattern, method),
 						Message:  fmt.Sprintf("Parameter '%s' is declared as path parameter but not used in path template", paramName),
-						SpecRef:  fmt.Sprintf("%s#pathItemObject", baseURL),
+						SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
 						Severity: SeverityWarning,
 						Value:    paramName,
 					})
@@ -1833,7 +1833,7 @@ func (v *Validator) checkDuplicateOperationIds(
 
 		if firstSeenAt, exists := operationIds[op.OperationID]; exists {
 			// Determine the correct spec reference based on path type
-			specRef := fmt.Sprintf("%s#operationObject", baseURL)
+			specRef := fmt.Sprintf("%s#operation-object", baseURL)
 			if pathType == "webhooks" || strings.Contains(baseURL, "v3") {
 				specRef = fmt.Sprintf("%s#operation-object", baseURL)
 			}
