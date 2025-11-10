@@ -108,8 +108,8 @@ func (v *Validator) Validate(specPath string) (*ValidationResult, error) {
 	result := &ValidationResult{
 		Version:    parseResult.Version,
 		OASVersion: parseResult.OASVersion,
-		Errors:     make([]ValidationError, 0),
-		Warnings:   make([]ValidationError, 0),
+		Errors:     make([]ValidationError, 0, 10), // Pre-allocate for performance
+		Warnings:   make([]ValidationError, 0, 10), // Pre-allocate for performance
 	}
 
 	// Add parser errors to validation result
@@ -246,26 +246,7 @@ func (v *Validator) validateOAS2OperationIds(doc *parser.OAS2Document, result *V
 			"patch":   pathItem.Patch,
 		}
 
-		for method, op := range operations {
-			if op == nil || op.OperationID == "" {
-				continue
-			}
-
-			opPath := fmt.Sprintf("paths.%s.%s", pathPattern, method)
-
-			if firstSeenAt, exists := operationIds[op.OperationID]; exists {
-				result.Errors = append(result.Errors, ValidationError{
-					Path:     opPath,
-					Message:  fmt.Sprintf("Duplicate operationId '%s' (first seen at %s)", op.OperationID, firstSeenAt),
-					SpecRef:  fmt.Sprintf("%s#operationObject", baseURL),
-					Severity: SeverityError,
-					Field:    "operationId",
-					Value:    op.OperationID,
-				})
-			} else {
-				operationIds[op.OperationID] = opPath
-			}
-		}
+		v.checkDuplicateOperationIds(operations, "paths", pathPattern, operationIds, result, baseURL)
 	}
 }
 
@@ -714,26 +695,7 @@ func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *V
 				"trace":   pathItem.Trace,
 			}
 
-			for method, op := range operations {
-				if op == nil || op.OperationID == "" {
-					continue
-				}
-
-				opPath := fmt.Sprintf("paths.%s.%s", pathPattern, method)
-
-				if firstSeenAt, exists := operationIds[op.OperationID]; exists {
-					result.Errors = append(result.Errors, ValidationError{
-						Path:     opPath,
-						Message:  fmt.Sprintf("Duplicate operationId '%s' (first seen at %s)", op.OperationID, firstSeenAt),
-						SpecRef:  fmt.Sprintf("%s#operation-object", baseURL),
-						Severity: SeverityError,
-						Field:    "operationId",
-						Value:    op.OperationID,
-					})
-				} else {
-					operationIds[op.OperationID] = opPath
-				}
-			}
+			v.checkDuplicateOperationIds(operations, "paths", pathPattern, operationIds, result, baseURL)
 		}
 	}
 
@@ -754,26 +716,7 @@ func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *V
 			"trace":   pathItem.Trace,
 		}
 
-		for method, op := range operations {
-			if op == nil || op.OperationID == "" {
-				continue
-			}
-
-			opPath := fmt.Sprintf("webhooks.%s.%s", webhookName, method)
-
-			if firstSeenAt, exists := operationIds[op.OperationID]; exists {
-				result.Errors = append(result.Errors, ValidationError{
-					Path:     opPath,
-					Message:  fmt.Sprintf("Duplicate operationId '%s' (first seen at %s)", op.OperationID, firstSeenAt),
-					SpecRef:  fmt.Sprintf("%s#operation-object", baseURL),
-					Severity: SeverityError,
-					Field:    "operationId",
-					Value:    op.OperationID,
-				})
-			} else {
-				operationIds[op.OperationID] = opPath
-			}
-		}
+		v.checkDuplicateOperationIds(operations, "webhooks", webhookName, operationIds, result, baseURL)
 	}
 }
 
@@ -1350,6 +1293,20 @@ func (v *Validator) validateSchema(schema *parser.Schema, path string, result *V
 		}
 	}
 
+	// Validate that required fields exist in properties
+	for _, reqField := range schema.Required {
+		if _, exists := schema.Properties[reqField]; !exists {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     path,
+				Message:  fmt.Sprintf("Required field '%s' not found in properties", reqField),
+				SpecRef:  getJSONSchemaRef(),
+				Severity: SeverityError,
+				Field:    "required",
+				Value:    reqField,
+			})
+		}
+	}
+
 	// Validate properties
 	for propName, propSchema := range schema.Properties {
 		if propSchema == nil {
@@ -1411,12 +1368,52 @@ func (v *Validator) validateSchema(schema *parser.Schema, path string, result *V
 
 // Helper functions
 
+// Compile regex once at package level for performance
+var pathParamRegex = regexp.MustCompile(`\{([^}]+)\}`)
+
+// checkDuplicateOperationIds checks for duplicate operationIds in a set of operations
+// and reports errors when found. Updates the operationIds map as it processes operations.
+func (v *Validator) checkDuplicateOperationIds(
+	operations map[string]*parser.Operation,
+	pathType string,
+	pathPattern string,
+	operationIds map[string]string,
+	result *ValidationResult,
+	baseURL string,
+) {
+	for method, op := range operations {
+		if op == nil || op.OperationID == "" {
+			continue
+		}
+
+		opPath := fmt.Sprintf("%s.%s.%s", pathType, pathPattern, method)
+
+		if firstSeenAt, exists := operationIds[op.OperationID]; exists {
+			// Determine the correct spec reference based on path type
+			specRef := fmt.Sprintf("%s#operationObject", baseURL)
+			if pathType == "webhooks" || strings.Contains(baseURL, "v3") {
+				specRef = fmt.Sprintf("%s#operation-object", baseURL)
+			}
+
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     opPath,
+				Message:  fmt.Sprintf("Duplicate operationId '%s' (first seen at %s)", op.OperationID, firstSeenAt),
+				SpecRef:  specRef,
+				Severity: SeverityError,
+				Field:    "operationId",
+				Value:    op.OperationID,
+			})
+		} else {
+			operationIds[op.OperationID] = opPath
+		}
+	}
+}
+
 // extractPathParameters extracts parameter names from a path template
 // e.g., "/pets/{petId}/owners/{ownerId}" -> {"petId": true, "ownerId": true}
 func extractPathParameters(pathPattern string) map[string]bool {
 	params := make(map[string]bool)
-	re := regexp.MustCompile(`\{([^}]+)\}`)
-	matches := re.FindAllStringSubmatch(pathPattern, -1)
+	matches := pathParamRegex.FindAllStringSubmatch(pathPattern, -1)
 	for _, match := range matches {
 		if len(match) > 1 {
 			params[match[1]] = true
@@ -1426,6 +1423,9 @@ func extractPathParameters(pathPattern string) map[string]bool {
 }
 
 // isValidMediaType checks if a media type string is valid
+// This validation is intentionally permissive - it only checks basic structure
+// (type/subtype format) rather than validating against IANA media type registry.
+// This allows custom and vendor-specific media types (e.g., application/vnd.custom+json).
 func isValidMediaType(mediaType string) bool {
 	if mediaType == "" {
 		return false
@@ -1452,6 +1452,7 @@ func getJSONSchemaRef() string {
 }
 
 // isValidURL performs basic URL validation
+// TODO: Use this to validate contact.url, externalDocs.url, license.url, and OAuth URLs
 func isValidURL(s string) bool {
 	if s == "" {
 		return false
@@ -1461,6 +1462,7 @@ func isValidURL(s string) bool {
 }
 
 // isValidEmail performs basic email validation
+// TODO: Use this to validate contact.email in the info object
 func isValidEmail(s string) bool {
 	if s == "" {
 		return true // Empty is valid (optional field)
@@ -1474,6 +1476,7 @@ func isValidEmail(s string) bool {
 }
 
 // validateSPDXLicense validates SPDX license identifier (basic validation)
+// TODO: Use this to validate license.identifier in the info object
 func validateSPDXLicense(identifier string) bool {
 	if identifier == "" {
 		return true
