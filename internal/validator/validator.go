@@ -3,6 +3,7 @@ package validator
 import (
 	"fmt"
 	"mime"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -40,6 +41,9 @@ const (
 	maxClientErrorStatus   = 499
 	minServerErrorStatus   = 500
 	maxServerErrorStatus   = 599
+
+	// Resource exhaustion protection
+	maxSchemaNestingDepth = 100 // Maximum depth for nested schemas to prevent stack overflow
 )
 
 func (s Severity) String() string {
@@ -1574,6 +1578,18 @@ func (v *Validator) validateSchemaWithVisited(schema *parser.Schema, path string
 	}
 	visited[schema] = true
 
+	// Check for excessive nesting depth to prevent resource exhaustion
+	depth := strings.Count(path, ".")
+	if depth > maxSchemaNestingDepth {
+		result.Errors = append(result.Errors, ValidationError{
+			Path:     path,
+			Message:  fmt.Sprintf("Schema nesting depth (%d) exceeds maximum allowed (%d)", depth, maxSchemaNestingDepth),
+			SpecRef:  getJSONSchemaRef(),
+			Severity: SeverityError,
+		})
+		return
+	}
+
 	// Validate enum values match the schema type
 	if len(schema.Enum) > 0 && schema.Type != "" {
 		v.validateEnumValues(schema, path, result)
@@ -1793,7 +1809,10 @@ func (v *Validator) validateNestedSchemas(schema *parser.Schema, path string, re
 }
 
 // Compile regex once at package level for performance
-var pathParamRegex = regexp.MustCompile(`\{([^}]+)\}`)
+var (
+	pathParamRegex = regexp.MustCompile(`\{([^}]+)\}`)
+	emailRegex     = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+)
 
 // checkDuplicateOperationIds checks for duplicate operationIds in a set of operations
 // and reports errors when found. Updates the operationIds map as it processes operations.
@@ -1841,6 +1860,28 @@ func validatePathTemplate(pathPattern string) error {
 		return fmt.Errorf("empty parameter name in path template")
 	}
 
+	// Check for consecutive slashes
+	if strings.Contains(pathPattern, "//") {
+		return fmt.Errorf("path contains consecutive slashes")
+	}
+
+	// Check for reserved characters (fragment identifier and query string)
+	if strings.Contains(pathPattern, "#") {
+		return fmt.Errorf("path contains reserved character '#'")
+	}
+	if strings.Contains(pathPattern, "?") {
+		return fmt.Errorf("path contains reserved character '?'")
+	}
+
+	// Check for empty path segments
+	segments := strings.Split(pathPattern, "/")
+	for i, segment := range segments {
+		// First segment can be empty (leading slash), but others cannot
+		if i > 0 && segment == "" {
+			return fmt.Errorf("path contains empty segment")
+		}
+	}
+
 	// Check for unclosed or unopened braces
 	openCount := 0
 	for i, ch := range pathPattern {
@@ -1861,7 +1902,8 @@ func validatePathTemplate(pathPattern string) error {
 		return fmt.Errorf("unclosed brace in path template")
 	}
 
-	// Check for empty or invalid parameters
+	// Check for empty or invalid parameters, and track duplicates
+	paramNames := make(map[string]bool)
 	matches := pathParamRegex.FindAllStringSubmatch(pathPattern, -1)
 	for _, match := range matches {
 		if len(match) > 1 {
@@ -1873,6 +1915,11 @@ func validatePathTemplate(pathPattern string) error {
 			if strings.Contains(paramName, "{") || strings.Contains(paramName, "}") {
 				return fmt.Errorf("invalid parameter name '%s' contains braces", paramName)
 			}
+			// Check for duplicate parameter names
+			if paramNames[paramName] {
+				return fmt.Errorf("duplicate parameter name '%s' in path template", paramName)
+			}
+			paramNames[paramName] = true
 		}
 	}
 
@@ -1926,32 +1973,40 @@ func getJSONSchemaRef() string {
 	return "https://www.ietf.org/archive/id/draft-bhutton-json-schema-01.html"
 }
 
-// isValidURL performs basic URL validation
-// TODO: Use this to validate contact.url, externalDocs.url, license.url, and OAuth URLs
+// isValidURL performs URL validation using standard library's url.Parse
+// Validates contact.url, externalDocs.url, license.url, and OAuth URLs
 func isValidURL(s string) bool {
 	if s == "" {
 		return false
 	}
-	// Basic check - should start with http:// or https:// or be a relative URL
-	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") || strings.HasPrefix(s, "/")
+
+	u, err := url.Parse(s)
+	if err != nil {
+		return false
+	}
+
+	// Accept http/https schemes, or relative URLs starting with /
+	// Reject bare strings without proper URL structure
+	if u.Scheme == "http" || u.Scheme == "https" {
+		return true
+	}
+	if u.Scheme == "" && strings.HasPrefix(s, "/") {
+		return true
+	}
+	return false
 }
 
-// isValidEmail performs basic email validation
-// TODO: Use this to validate contact.email in the info object
+// isValidEmail performs email validation using regex
+// Validates contact.email in the info object
 func isValidEmail(s string) bool {
 	if s == "" {
 		return true // Empty is valid (optional field)
 	}
-	// Basic check - should contain @ and domain
-	parts := strings.Split(s, "@")
-	if len(parts) != 2 {
-		return false
-	}
-	return parts[0] != "" && parts[1] != "" && strings.Contains(parts[1], ".")
+	return emailRegex.MatchString(s)
 }
 
 // validateSPDXLicense validates SPDX license identifier (basic validation)
-// TODO: Use this to validate license.identifier in the info object
+// Used to validate license.identifier in the info object (OAS 3.1+)
 func validateSPDXLicense(identifier string) bool {
 	if identifier == "" {
 		return true
