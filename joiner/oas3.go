@@ -3,7 +3,7 @@ package joiner
 import (
 	"fmt"
 
-	"github.com/erraggy/oastools/internal/parser"
+	"github.com/erraggy/oastools/parser"
 )
 
 // joinOAS3Documents joins multiple OAS 3.x documents

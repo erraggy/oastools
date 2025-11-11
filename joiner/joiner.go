@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/erraggy/oastools/internal/parser"
+	"github.com/erraggy/oastools/parser"
 	"gopkg.in/yaml.v3"
 )
 

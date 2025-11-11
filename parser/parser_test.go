@@ -11,7 +11,7 @@ import (
 
 func TestParseOAS2(t *testing.T) {
 	parser := New()
-	result, err := parser.Parse("../../testdata/petstore-2.0.yaml")
+	result, err := parser.Parse("../testdata/petstore-2.0.yaml")
 	if err != nil {
 		t.Fatalf("Failed to parse OAS 2.0 file: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestParseOAS2(t *testing.T) {
 
 func TestParseOAS30(t *testing.T) {
 	parser := New()
-	result, err := parser.Parse("../../testdata/petstore-3.0.yaml")
+	result, err := parser.Parse("../testdata/petstore-3.0.yaml")
 	if err != nil {
 		t.Fatalf("Failed to parse OAS 3.0 file: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestParseOAS30(t *testing.T) {
 
 func TestParseOAS31(t *testing.T) {
 	parser := New()
-	result, err := parser.Parse("../../testdata/petstore-3.1.yaml")
+	result, err := parser.Parse("../testdata/petstore-3.1.yaml")
 	if err != nil {
 		t.Fatalf("Failed to parse OAS 3.1 file: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestParseOAS31(t *testing.T) {
 
 func TestParseOAS32(t *testing.T) {
 	parser := New()
-	result, err := parser.Parse("../../testdata/petstore-3.2.yaml")
+	result, err := parser.Parse("../testdata/petstore-3.2.yaml")
 	if err != nil {
 		t.Fatalf("Failed to parse OAS 3.2 file: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestResolveLocalRefs(t *testing.T) {
 	parser := New()
 	parser.ResolveRefs = true
 
-	result, err := parser.Parse("../../testdata/petstore-3.0.yaml")
+	result, err := parser.Parse("../testdata/petstore-3.0.yaml")
 	if err != nil {
 		t.Fatalf("Failed to parse: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestResolveExternalRefs(t *testing.T) {
 	parser := New()
 	parser.ResolveRefs = true
 
-	result, err := parser.Parse("../../testdata/with-external-refs.yaml")
+	result, err := parser.Parse("../testdata/with-external-refs.yaml")
 	if err != nil {
 		t.Fatalf("Failed to parse: %v", err)
 	}
@@ -341,7 +341,7 @@ func TestParseRelativePaths(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testFile := filepath.Join(cwd, "../../testdata/petstore-3.0.yaml")
+	testFile := filepath.Join(cwd, "../testdata/petstore-3.0.yaml")
 	parser := New()
 	result, err := parser.Parse(testFile)
 	if err != nil {

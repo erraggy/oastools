@@ -89,29 +89,47 @@ make clean
 - **cmd/oastools/** - CLI entry point with command routing and user interface
   - `main.go` contains the command dispatcher and usage information
 
-- **internal/** - Private application code not importable by other projects
-  - `validator/` - Logic for validating OpenAPI specifications against the spec schema
-  - `parser/` - Logic for parsing YAML/JSON OAS files into Go structures
-  - `joiner/` - Logic for joining multiple OpenAPI specification files
+- **parser/** - Public parsing library for OpenAPI specifications
+  - Logic for parsing YAML/JSON OAS files into Go structures
+  - External reference resolution and version detection
+  - Package documentation in `doc.go` and examples in `example_test.go`
 
-- **pkg/** - Public library code that could be imported by external projects
-  - Currently unused, but reserved for any public APIs
+- **validator/** - Public validation library for OpenAPI specifications
+  - Logic for validating OpenAPI specifications against the spec schema
+  - Structural, format, and semantic validation
+  - Package documentation in `doc.go` and examples in `example_test.go`
+
+- **joiner/** - Public joining library for OpenAPI specifications
+  - Logic for joining multiple OpenAPI specification files
+  - Flexible collision resolution strategies
+  - Package documentation in `doc.go` and examples in `example_test.go`
 
 - **testdata/** - Test fixtures including sample OpenAPI specification files
 
+- **doc.go** - Root package documentation for the oastools library
+
 ### Design Patterns
 
-- **Internal packages**: All core logic is in `internal/` to maintain encapsulation and prevent external dependencies on unstable APIs
+- **Public API**: All core packages (parser, validator, joiner) are public and can be imported by external projects
 - **Separation of concerns**: Each package has a single, well-defined responsibility
-- **CLI structure**: Simple command dispatcher in main.go that delegates to internal packages
+- **CLI structure**: Simple command dispatcher in main.go that delegates to library packages
+- **Comprehensive documentation**: Each package includes doc.go for package-level documentation and example_test.go for godoc examples
 
 ### Extension Points
 
 When adding new commands:
 1. Add the command case to the switch statement in `cmd/oastools/main.go`
-2. Create corresponding logic in the appropriate `internal/` package
+2. Create corresponding logic in the appropriate public package (parser, validator, or joiner)
 3. Update the `printUsage()` function to document the new command
 4. Add test files in the same package as the implementation
+5. Update package documentation in `doc.go` if adding new public APIs
+6. Add examples to `example_test.go` for new functionality
+
+When adding new public APIs:
+1. Ensure all exported types and functions have godoc comments
+2. Update the package-level `doc.go` with usage examples
+3. Add runnable examples to `example_test.go`
+4. Update the root `doc.go` if the change affects the overall library usage
 
 ### Testing Strategy
 
@@ -124,3 +142,16 @@ When adding new commands:
 
 - Module path: `github.com/erraggy/oastools`
 - Minimum Go version: 1.24
+
+## Public API Structure
+
+As of v1.3.0, all core packages are public and can be imported:
+
+- `github.com/erraggy/oastools/parser` - Parse OpenAPI specifications
+- `github.com/erraggy/oastools/validator` - Validate OpenAPI specifications
+- `github.com/erraggy/oastools/joiner` - Join multiple OpenAPI specifications
+
+Each package includes:
+- `doc.go` - Comprehensive package-level documentation
+- `example_test.go` - Runnable examples for godoc
+- Full godoc comments on all exported types and functions

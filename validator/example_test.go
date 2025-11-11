@@ -5,7 +5,7 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/erraggy/oastools/internal/validator"
+	"github.com/erraggy/oastools/validator"
 )
 
 // ExampleValidator_Validate demonstrates basic validation of an OpenAPI specification

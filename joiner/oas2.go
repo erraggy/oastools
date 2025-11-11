@@ -3,7 +3,7 @@ package joiner
 import (
 	"fmt"
 
-	"github.com/erraggy/oastools/internal/parser"
+	"github.com/erraggy/oastools/parser"
 )
 
 // joinOAS2Documents joins multiple OAS 2.0 (Swagger) documents
