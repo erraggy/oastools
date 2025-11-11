@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/erraggy/oastools/internal/joiner"
+	"github.com/erraggy/oastools/joiner"
 )
 
 func TestParseJoinFlags(t *testing.T) {

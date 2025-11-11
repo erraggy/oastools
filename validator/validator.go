@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/erraggy/oastools/internal/parser"
+	"github.com/erraggy/oastools/parser"
 )
 
 // Severity indicates the severity level of a validation issue

@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/erraggy/oastools/internal/joiner"
-	"github.com/erraggy/oastools/internal/parser"
-	"github.com/erraggy/oastools/internal/validator"
+	"github.com/erraggy/oastools/joiner"
+	"github.com/erraggy/oastools/parser"
+	"github.com/erraggy/oastools/validator"
 )
 
 const version = "0.1.0"

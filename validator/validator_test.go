@@ -144,7 +144,7 @@ func TestValidateOAS3Invalid(t *testing.T) {
 // TestValidateWithExternalRefs tests validation with external references
 func TestValidateWithExternalRefs(t *testing.T) {
 	v := New()
-	testFile := filepath.Join("..", "..", "testdata", "with-external-refs.yaml")
+	testFile := filepath.Join("..", "testdata", "with-external-refs.yaml")
 
 	result, err := v.Validate(testFile)
 	if err != nil {
@@ -165,7 +165,7 @@ func TestValidateStrictMode(t *testing.T) {
 	v := New()
 	v.StrictMode = true
 
-	testFile := filepath.Join("..", "..", "testdata", "petstore-3.0.yaml")
+	testFile := filepath.Join("..", "testdata", "petstore-3.0.yaml")
 
 	result, err := v.Validate(testFile)
 	if err != nil {
@@ -181,7 +181,7 @@ func TestValidateNoWarnings(t *testing.T) {
 	v := New()
 	v.IncludeWarnings = false
 
-	testFile := filepath.Join("..", "..", "testdata", "petstore-3.0.yaml")
+	testFile := filepath.Join("..", "testdata", "petstore-3.0.yaml")
 
 	result, err := v.Validate(testFile)
 	if err != nil {

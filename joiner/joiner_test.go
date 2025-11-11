@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/erraggy/oastools/internal/parser"
+	"github.com/erraggy/oastools/parser"
 )
 
 // oas3JoinTestCase represents a test case for joining OAS3 documents
@@ -20,7 +20,7 @@ type oas3JoinTestCase struct {
 }
 
 func TestJoinOAS3_SuccessfulJoins(t *testing.T) {
-	testdataDir := filepath.Join("..", "..", "testdata")
+	testdataDir := filepath.Join("..", "testdata")
 
 	tests := []oas3JoinTestCase{
 		{
@@ -144,7 +144,7 @@ func TestJoinOAS3_SuccessfulJoins(t *testing.T) {
 }
 
 func TestJoinOAS3_CollisionStrategies(t *testing.T) {
-	testdataDir := filepath.Join("..", "..", "testdata")
+	testdataDir := filepath.Join("..", "testdata")
 
 	tests := []oas3JoinTestCase{
 		{
@@ -255,7 +255,7 @@ func TestJoinOAS3_CollisionStrategies(t *testing.T) {
 }
 
 func TestJoinOAS3_ErrorCases(t *testing.T) {
-	testdataDir := filepath.Join("..", "..", "testdata")
+	testdataDir := filepath.Join("..", "testdata")
 
 	tests := []oas3JoinTestCase{
 		{
@@ -305,7 +305,7 @@ func runJoinOAS3Test(t *testing.T, tt oas3JoinTestCase) {
 }
 
 func TestJoinOAS2Documents(t *testing.T) {
-	testdataDir := filepath.Join("..", "..", "testdata")
+	testdataDir := filepath.Join("..", "testdata")
 
 	tests := []struct {
 		name           string
@@ -377,7 +377,7 @@ func TestJoinOAS2Documents(t *testing.T) {
 }
 
 func TestVersionCompatibility(t *testing.T) {
-	testdataDir := filepath.Join("..", "..", "testdata")
+	testdataDir := filepath.Join("..", "testdata")
 
 	tests := []struct {
 		name        string
@@ -443,7 +443,7 @@ func TestVersionCompatibility(t *testing.T) {
 }
 
 func TestWriteResult(t *testing.T) {
-	testdataDir := filepath.Join("..", "..", "testdata")
+	testdataDir := filepath.Join("..", "testdata")
 	tempDir := t.TempDir()
 	outputPath := filepath.Join(tempDir, "joined.yaml")
 

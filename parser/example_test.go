@@ -5,14 +5,14 @@ import (
 	"log"
 	"strings"
 
-	"github.com/erraggy/oastools/internal/parser"
+	"github.com/erraggy/oastools/parser"
 )
 
 // Example demonstrates basic usage of the parser to parse an OpenAPI specification file.
 func Example() {
 	p := parser.New()
 
-	result, err := p.Parse("../../testdata/petstore-3.0.yaml")
+	result, err := p.Parse("../testdata/petstore-3.0.yaml")
 	if err != nil {
 		log.Fatalf("failed to parse: %v", err)
 	}
@@ -30,7 +30,7 @@ func Example_parseWithValidation() {
 	p := parser.New()
 	p.ValidateStructure = true
 
-	result, err := p.Parse("../../testdata/petstore-3.0.yaml")
+	result, err := p.Parse("../testdata/petstore-3.0.yaml")
 	if err != nil {
 		log.Fatalf("failed to parse: %v", err)
 	}
@@ -48,7 +48,7 @@ func Example_parseWithRefs() {
 	p := parser.New()
 	p.ResolveRefs = true
 
-	result, err := p.Parse("../../testdata/with-external-refs.yaml")
+	result, err := p.Parse("../testdata/with-external-refs.yaml")
 	if err != nil {
 		log.Fatalf("failed to parse: %v", err)
 	}
@@ -111,7 +111,7 @@ paths: {}
 func Example_oas2() {
 	p := parser.New()
 
-	result, err := p.Parse("../../testdata/petstore-2.0.yaml")
+	result, err := p.Parse("../testdata/petstore-2.0.yaml")
 	if err != nil {
 		log.Fatalf("failed to parse: %v", err)
 	}
@@ -132,7 +132,7 @@ func Example_oas2() {
 func Example_oas3() {
 	p := parser.New()
 
-	result, err := p.Parse("../../testdata/petstore-3.0.yaml")
+	result, err := p.Parse("../testdata/petstore-3.0.yaml")
 	if err != nil {
 		log.Fatalf("failed to parse: %v", err)
 	}

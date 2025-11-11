@@ -1,6 +1,6 @@
 package joiner
 
-import "github.com/erraggy/oastools/internal/parser"
+import "github.com/erraggy/oastools/parser"
 
 // copyInfo creates a shallow copy of an Info object
 func copyInfo(info *parser.Info) *parser.Info {
