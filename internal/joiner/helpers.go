@@ -32,7 +32,22 @@ func copyServers(servers []*parser.Server) []*parser.Server {
 			if server.Variables != nil {
 				copied.Variables = make(map[string]parser.ServerVariable)
 				for k, v := range server.Variables {
-					copied.Variables[k] = v
+					// Deep copy ServerVariable fields (Enum slice and Extra map)
+					varCopy := parser.ServerVariable{
+						Default:     v.Default,
+						Description: v.Description,
+					}
+					if v.Enum != nil {
+						varCopy.Enum = make([]string, len(v.Enum))
+						copy(varCopy.Enum, v.Enum)
+					}
+					if v.Extra != nil {
+						varCopy.Extra = make(map[string]interface{})
+						for ek, ev := range v.Extra {
+							varCopy.Extra[ek] = ev
+						}
+					}
+					copied.Variables[k] = varCopy
 				}
 			}
 			result[i] = &copied

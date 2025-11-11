@@ -88,7 +88,7 @@ func (j *Joiner) mergeOAS2Paths(joined, source *parser.OAS2Document, ctx documen
 				joined.Paths[path] = pathItem
 				result.Warnings = append(result.Warnings, fmt.Sprintf("path '%s' at paths.%s overwritten: source %s", path, path, ctx.filePath))
 			} else {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("path '%s' at paths.%s kept from earlier (collision with %s)", path, path, ctx.filePath))
+				result.Warnings = append(result.Warnings, fmt.Sprintf("path '%s' at paths.%s kept from %s (collision with %s)", path, path, result.firstFilePath, ctx.filePath))
 			}
 		} else {
 			joined.Paths[path] = pathItem
@@ -110,7 +110,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				joined.Definitions[name] = schema
 				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' at definitions.%s overwritten: source %s", name, name, ctx.filePath))
 			} else {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' at definitions.%s kept from earlier (collision with %s)", name, name, ctx.filePath))
+				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' at definitions.%s kept from %s (collision with %s)", name, name, result.firstFilePath, ctx.filePath))
 			}
 		} else {
 			joined.Definitions[name] = schema

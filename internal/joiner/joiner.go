@@ -70,7 +70,10 @@ func DefaultConfig() JoinerConfig {
 	}
 }
 
-// Joiner handles joining of multiple OpenAPI specifications
+// Joiner handles joining of multiple OpenAPI specifications.
+//
+// Concurrency: Joiner instances are not safe for concurrent use.
+// Create separate Joiner instances for concurrent operations.
 type Joiner struct {
 	config JoinerConfig
 	parser *parser.Parser
@@ -141,22 +144,41 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 
 	// Verify all documents are the same major version
 	baseVersion := parsedDocs[0].OASVersion
+	var warnings []string
 	for i, doc := range parsedDocs[1:] {
 		if !j.versionsCompatible(baseVersion, doc.OASVersion) {
 			return nil, fmt.Errorf("joiner: incompatible versions: %s (%s) and %s (%s) cannot be joined",
 				specPaths[0], parsedDocs[0].Version, specPaths[i+1], doc.Version)
 		}
+
+		// Warn about minor version mismatches (e.g., 3.0.x with 3.1.x)
+		if baseVersion != doc.OASVersion && j.hasMinorVersionMismatch(baseVersion, doc.OASVersion) {
+			warnings = append(warnings, fmt.Sprintf(
+				"joining documents with different minor versions: %s (%s) and %s (%s). "+
+					"This may result in an invalid specification if features from the later version are used. "+
+					"Joined document will use version %s.",
+				specPaths[0], parsedDocs[0].Version, specPaths[i+1], doc.Version, parsedDocs[0].Version))
+		}
 	}
 
 	// Join based on version
+	var result *JoinResult
+	var err error
 	switch {
 	case baseVersion == parser.OASVersion20:
-		return j.joinOAS2Documents(parsedDocs, docContexts)
+		result, err = j.joinOAS2Documents(parsedDocs, docContexts)
 	case baseVersion.IsValid():
-		return j.joinOAS3Documents(parsedDocs, docContexts)
+		result, err = j.joinOAS3Documents(parsedDocs, docContexts)
 	default:
 		return nil, fmt.Errorf("joiner: unsupported OpenAPI version: %s", parsedDocs[0].Version)
 	}
+
+	// Add version mismatch warnings to result
+	if result != nil {
+		result.Warnings = append(warnings, result.Warnings...)
+	}
+
+	return result, err
 }
 
 // outputFileMode is the file permission mode for output files (owner read/write only)
@@ -209,6 +231,35 @@ func (j *Joiner) versionsCompatible(v1, v2 parser.OASVersion) bool {
 	// All OAS 3.x versions can be joined together
 	// The result will use the version of the first document
 	return v1.IsValid() && v2.IsValid()
+}
+
+// hasMinorVersionMismatch detects if two OAS versions have different minor versions
+// (e.g., 3.0.x vs 3.1.x). This is important because minor versions can introduce
+// breaking changes like webhooks in 3.1.0 or schema changes.
+func (j *Joiner) hasMinorVersionMismatch(v1, v2 parser.OASVersion) bool {
+	// Not applicable to OAS 2.0
+	if v1 == parser.OASVersion20 || v2 == parser.OASVersion20 {
+		return false
+	}
+
+	// Detect minor version by grouping versions
+	// 3.0.x: OASVersion300-304
+	// 3.1.x: OASVersion310-312
+	// 3.2.x: OASVersion320
+	getMinorVersion := func(v parser.OASVersion) int {
+		switch v {
+		case parser.OASVersion300, parser.OASVersion301, parser.OASVersion302, parser.OASVersion303, parser.OASVersion304:
+			return 0
+		case parser.OASVersion310, parser.OASVersion311, parser.OASVersion312:
+			return 1
+		case parser.OASVersion320:
+			return 2
+		default:
+			return -1
+		}
+	}
+
+	return getMinorVersion(v1) != getMinorVersion(v2)
 }
 
 // getEffectiveStrategy determines which strategy to use for a specific type

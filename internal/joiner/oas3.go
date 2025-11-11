@@ -57,15 +57,15 @@ func (j *Joiner) joinOAS3Documents(docs []*parser.ParseResult, contexts []docume
 		pathStrategy := j.getEffectiveStrategy(j.config.PathStrategy)
 		for path, pathItem := range oas3Doc.Paths {
 			if _, exists := joined.Paths[path]; exists {
-				if err := j.handleCollision(path, "paths", pathStrategy, contexts[0].filePath, ctx.filePath); err != nil {
+				if err := j.handleCollision(path, "paths", pathStrategy, result.firstFilePath, ctx.filePath); err != nil {
 					return nil, err
 				}
 				result.CollisionCount++
 				if j.shouldOverwrite(pathStrategy) {
 					joined.Paths[path] = pathItem
-					result.Warnings = append(result.Warnings, fmt.Sprintf("path '%s' overwritten: %s -> %s", path, contexts[0].filePath, ctx.filePath))
+					result.Warnings = append(result.Warnings, fmt.Sprintf("path '%s' overwritten: %s -> %s", path, result.firstFilePath, ctx.filePath))
 				} else {
-					result.Warnings = append(result.Warnings, fmt.Sprintf("path '%s' kept from %s (collision with %s)", path, contexts[0].filePath, ctx.filePath))
+					result.Warnings = append(result.Warnings, fmt.Sprintf("path '%s' kept from %s (collision with %s)", path, result.firstFilePath, ctx.filePath))
 				}
 			} else {
 				joined.Paths[path] = pathItem
@@ -75,15 +75,15 @@ func (j *Joiner) joinOAS3Documents(docs []*parser.ParseResult, contexts []docume
 		// Merge webhooks (OAS 3.1+)
 		for name, webhook := range oas3Doc.Webhooks {
 			if _, exists := joined.Webhooks[name]; exists {
-				if err := j.handleCollision(name, "webhooks", pathStrategy, contexts[0].filePath, ctx.filePath); err != nil {
+				if err := j.handleCollision(name, "webhooks", pathStrategy, result.firstFilePath, ctx.filePath); err != nil {
 					return nil, err
 				}
 				result.CollisionCount++
 				if j.shouldOverwrite(pathStrategy) {
 					joined.Webhooks[name] = webhook
-					result.Warnings = append(result.Warnings, fmt.Sprintf("webhook '%s' overwritten: %s -> %s", name, contexts[0].filePath, ctx.filePath))
+					result.Warnings = append(result.Warnings, fmt.Sprintf("webhook '%s' overwritten: %s -> %s", name, result.firstFilePath, ctx.filePath))
 				} else {
-					result.Warnings = append(result.Warnings, fmt.Sprintf("webhook '%s' kept from %s (collision with %s)", name, contexts[0].filePath, ctx.filePath))
+					result.Warnings = append(result.Warnings, fmt.Sprintf("webhook '%s' kept from %s (collision with %s)", name, result.firstFilePath, ctx.filePath))
 				}
 			} else {
 				joined.Webhooks[name] = webhook
@@ -174,7 +174,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				target[name] = schema
 				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' at components.schemas.%s overwritten: source %s", name, name, ctx.filePath))
 			} else {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' at components.schemas.%s kept from earlier (collision with %s)", name, name, ctx.filePath))
+				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' at components.schemas.%s kept from %s (collision with %s)", name, name, result.firstFilePath, ctx.filePath))
 			}
 		} else {
 			target[name] = schema

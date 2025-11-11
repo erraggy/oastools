@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/internal/joiner"
@@ -287,7 +288,7 @@ func runParseJoinFlagsTest(t *testing.T, tt struct {
 		if err == nil {
 			t.Fatalf("expected error containing '%s', got nil", tt.errorContains)
 		}
-		if tt.errorContains != "" && !containsString(err.Error(), tt.errorContains) {
+		if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
 			t.Errorf("expected error containing '%s', got '%s'", tt.errorContains, err.Error())
 		}
 		return
@@ -313,19 +314,4 @@ func runParseJoinFlagsTest(t *testing.T, tt struct {
 	if tt.validateOutput != nil {
 		tt.validateOutput(t, output)
 	}
-}
-
-// Helper function for string containment checks
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

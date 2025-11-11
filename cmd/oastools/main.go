@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/erraggy/oastools/internal/joiner"
 	"github.com/erraggy/oastools/internal/parser"
@@ -311,6 +312,34 @@ func parseJoinFlags(args []string) (joiner.JoinerConfig, []string, string, bool,
 	return config, filePaths, outputPath, false, nil
 }
 
+// validateOutputPath checks if the output path is safe to write to
+func validateOutputPath(outputPath string, inputPaths []string) error {
+	// Get absolute path of output file
+	absOutputPath, err := filepath.Abs(outputPath)
+	if err != nil {
+		return fmt.Errorf("invalid output path: %w", err)
+	}
+
+	// Check if output file would overwrite any input files
+	for _, inputPath := range inputPaths {
+		absInputPath, err := filepath.Abs(inputPath)
+		if err != nil {
+			return fmt.Errorf("invalid input path %s: %w", inputPath, err)
+		}
+
+		if absOutputPath == absInputPath {
+			return fmt.Errorf("output file %s would overwrite input file %s", outputPath, inputPath)
+		}
+	}
+
+	// Check if output file already exists and warn (but don't error)
+	if _, err := os.Stat(outputPath); err == nil {
+		fmt.Fprintf(os.Stderr, "Warning: output file %s already exists and will be overwritten\n", outputPath)
+	}
+
+	return nil
+}
+
 func handleJoin(args []string) {
 	config, filePaths, outputPath, showHelp, err := parseJoinFlags(args)
 	if showHelp {
@@ -320,6 +349,12 @@ func handleJoin(args []string) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n\n", err)
 		printJoinUsage()
+		os.Exit(1)
+	}
+
+	// Validate output path before joining
+	if err := validateOutputPath(outputPath, filePaths); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -396,7 +431,8 @@ Examples:
 Notes:
   - All input files must be the same major OAS version (2.0 or 3.x)
   - The output will use the version of the first input file
-  - Info section is taken from the first document by default`)
+  - Info section is taken from the first document by default
+  - Output file is written with restrictive permissions (0600) for security`)
 }
 
 func printUsage() {
