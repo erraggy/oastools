@@ -9,7 +9,7 @@ OpenAPI Specification (OAS) tools for validation, parsing, and joining.
 
 - **Validate** - Validate OpenAPI specification files for correctness
 - **Parse** - Parse and analyze OpenAPI specifications
-- **Join** - Join multiple OpenAPI Specification documents (planned)
+- **Join** - Join multiple OpenAPI Specification documents
 
 ## Supported OpenAPI Specification Versions
 
