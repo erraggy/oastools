@@ -60,7 +60,7 @@ type ParseResult struct {
 func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 	data, err := os.ReadFile(specPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
+		return nil, fmt.Errorf("parser: failed to read file: %w", err)
 	}
 	// Get the directory of the spec file for resolving relative refs
 	baseDir := filepath.Dir(specPath)
@@ -71,7 +71,7 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 func (p *Parser) ParseReader(r io.Reader) (*ParseResult, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read data: %w", err)
+		return nil, fmt.Errorf("parser: failed to read data: %w", err)
 	}
 	return p.ParseBytes(data)
 }
@@ -92,7 +92,7 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 	// First pass: parse to generic map to detect OAS version
 	var rawData map[string]interface{}
 	if err := yaml.Unmarshal(data, &rawData); err != nil {
-		return nil, fmt.Errorf("failed to parse YAML/JSON: %w", err)
+		return nil, fmt.Errorf("parser: failed to parse YAML/JSON: %w", err)
 	}
 
 	// Resolve references if enabled (before semver-specific parsing)
@@ -108,7 +108,7 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 	// Detect semver
 	version, err := p.detectVersion(rawData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to detect OAS semver: %w", err)
+		return nil, fmt.Errorf("parser: failed to detect OAS version: %w", err)
 	}
 	result.Version = version
 
@@ -125,7 +125,7 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 		// Re-marshal the data with resolved refs
 		parseData, err = yaml.Marshal(rawData)
 		if err != nil {
-			return nil, fmt.Errorf("failed to re-marshal data: %w", err)
+			return nil, fmt.Errorf("parser: failed to re-marshal data: %w", err)
 		}
 	} else {
 		// Use original data directly
@@ -162,7 +162,7 @@ func (p *Parser) detectVersion(data map[string]interface{}) (string, error) {
 	}
 
 	// Neither field was found - provide helpful error message
-	return "", fmt.Errorf("version detection: unable to detect OpenAPI version: document must contain either 'swagger: \"2.0\"' (for OAS 2.0) or 'openapi: \"3.x.x\"' (for OAS 3.x) at the root level")
+	return "", fmt.Errorf("parser: unable to detect OpenAPI version: document must contain either 'swagger: \"2.0\"' (for OAS 2.0) or 'openapi: \"3.x.x\"' (for OAS 3.x) at the root level")
 }
 
 // parseSemVer parses a semver string into a semantic semver
@@ -204,13 +204,13 @@ func versionInRangeExclusive(v, minVersion, maxVersion string) bool {
 func (p *Parser) parseVersionSpecific(data []byte, version string) (interface{}, OASVersion, error) {
 	v, ok := ParseVersion(version)
 	if !ok {
-		return nil, 0, fmt.Errorf("invalid OAS semver: %s", version)
+		return nil, 0, fmt.Errorf("parser: invalid OAS version: %s", version)
 	}
 	switch v {
 	case OASVersion20:
 		var doc OAS2Document
 		if err := yaml.Unmarshal(data, &doc); err != nil {
-			return nil, 0, fmt.Errorf("oas 2.0 parser: failed to parse document structure: %w", err)
+			return nil, 0, fmt.Errorf("parser: failed to parse OAS 2.0 document structure: %w", err)
 		}
 		doc.OASVersion = v
 		return &doc, v, nil
@@ -218,7 +218,7 @@ func (p *Parser) parseVersionSpecific(data []byte, version string) (interface{},
 	case OASVersion300, OASVersion301, OASVersion302, OASVersion303, OASVersion304, OASVersion310, OASVersion311, OASVersion312, OASVersion320:
 		var doc OAS3Document
 		if err := yaml.Unmarshal(data, &doc); err != nil {
-			return nil, 0, fmt.Errorf("oas %s parser: failed to parse document structure: %w", version, err)
+			return nil, 0, fmt.Errorf("parser: failed to parse OAS %s document structure: %w", version, err)
 		}
 		doc.OASVersion = v
 		return &doc, v, nil

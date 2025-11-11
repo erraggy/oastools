@@ -1,0 +1,41 @@
+openapi: 3.0.3
+info:
+  title: Collision API
+  version: 1.0.0
+paths:
+  /users:
+    post:
+      summary: Create a user (colliding path)
+      operationId: createUser
+      tags:
+        - users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewUser'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+components:
+  schemas:
+    User:
+      type: object
+      description: Different User schema (collision)
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+    NewUser:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
