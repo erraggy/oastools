@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: Additional API
+  description: Additional endpoints for testing
+  version: 1.0.0
+servers:
+  - url: https://additional.example.com/v1
+    description: Additional server
+paths:
+  /orders:
+    get:
+      tags:
+        - orders
+      summary: List orders
+      operationId: listOrders
+      responses:
+        '200':
+          description: A list of orders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderList'
+  /orders/{orderId}:
+    get:
+      tags:
+        - orders
+      summary: Get an order
+      operationId: getOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+components:
+  schemas:
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+        userId:
+          type: string
+        quantity:
+          type: integer
+    OrderList:
+      type: object
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://example.com/oauth/authorize
+          tokenUrl: https://example.com/oauth/token
+          scopes:
+            read: Read access
+            write: Write access

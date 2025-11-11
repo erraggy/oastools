@@ -8,17 +8,20 @@ import (
 	"github.com/erraggy/oastools/internal/parser"
 )
 
-func TestJoinOAS3Documents(t *testing.T) {
+// oas3JoinTestCase represents a test case for joining OAS3 documents
+type oas3JoinTestCase struct {
+	name           string
+	files          []string
+	config         JoinerConfig
+	expectError    bool
+	errorContains  string
+	validateResult func(*testing.T, *JoinResult)
+}
+
+func TestJoinOAS3_SuccessfulJoins(t *testing.T) {
 	testdataDir := filepath.Join("..", "..", "testdata")
 
-	tests := []struct {
-		name           string
-		files          []string
-		config         JoinerConfig
-		expectError    bool
-		errorContains  string
-		validateResult func(*testing.T, *JoinResult)
-	}{
+	tests := []oas3JoinTestCase{
 		{
 			name: "successful join with no collisions",
 			files: []string{
@@ -75,6 +78,75 @@ func TestJoinOAS3Documents(t *testing.T) {
 			},
 		},
 		{
+			name: "successful join with 3 documents",
+			files: []string{
+				filepath.Join(testdataDir, "join-base-3.0.yaml"),
+				filepath.Join(testdataDir, "join-extension-3.0.yaml"),
+				filepath.Join(testdataDir, "join-additional-3.0.yaml"),
+			},
+			config:      DefaultConfig(),
+			expectError: false,
+			validateResult: func(t *testing.T, result *JoinResult) {
+				doc, ok := result.Document.(*parser.OAS3Document)
+				if !ok {
+					t.Fatalf("expected *parser.OAS3Document, got %T", result.Document)
+				}
+
+				// Check that we have paths from all three documents
+				if len(doc.Paths) != 5 {
+					t.Errorf("expected 5 paths (2 from base, 1 from extension, 2 from additional), got %d", len(doc.Paths))
+				}
+
+				// Check specific paths from all documents
+				expectedPaths := []string{"/users", "/users/{userId}", "/products", "/orders", "/orders/{orderId}"}
+				for _, path := range expectedPaths {
+					if doc.Paths[path] == nil {
+						t.Errorf("expected path '%s' to be present", path)
+					}
+				}
+
+				// Check that schemas from all documents are present
+				if doc.Components == nil {
+					t.Fatal("expected components to be present")
+				}
+				expectedSchemas := []string{"User", "UserList", "Product", "Order", "OrderList"}
+				for _, schema := range expectedSchemas {
+					if doc.Components.Schemas[schema] == nil {
+						t.Errorf("expected schema '%s' to be present", schema)
+					}
+				}
+
+				// Check that security schemes from all documents are present
+				if doc.Components.SecuritySchemes["bearerAuth"] == nil {
+					t.Error("expected bearerAuth security scheme")
+				}
+				if doc.Components.SecuritySchemes["apiKey"] == nil {
+					t.Error("expected apiKey security scheme")
+				}
+				if doc.Components.SecuritySchemes["oauth2"] == nil {
+					t.Error("expected oauth2 security scheme")
+				}
+
+				// Check that servers are merged (3 servers total)
+				if len(doc.Servers) != 3 {
+					t.Errorf("expected 3 servers (one from each document), got %d", len(doc.Servers))
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runJoinOAS3Test(t, tt)
+		})
+	}
+}
+
+func TestJoinOAS3_CollisionStrategies(t *testing.T) {
+	testdataDir := filepath.Join("..", "..", "testdata")
+
+	tests := []oas3JoinTestCase{
+		{
 			name: "fail on path collision",
 			files: []string{
 				filepath.Join(testdataDir, "join-base-3.0.yaml"),
@@ -96,7 +168,6 @@ func TestJoinOAS3Documents(t *testing.T) {
 				ComponentStrategy: StrategyAcceptLeft,
 				DeduplicateTags:   true,
 				MergeArrays:       true,
-				PreserveFirstInfo: true,
 			},
 			expectError: false,
 			validateResult: func(t *testing.T, result *JoinResult) {
@@ -134,7 +205,6 @@ func TestJoinOAS3Documents(t *testing.T) {
 				ComponentStrategy: StrategyAcceptLeft,
 				DeduplicateTags:   true,
 				MergeArrays:       true,
-				PreserveFirstInfo: true,
 			},
 			expectError: false,
 			validateResult: func(t *testing.T, result *JoinResult) {
@@ -170,11 +240,23 @@ func TestJoinOAS3Documents(t *testing.T) {
 				ComponentStrategy: StrategyFailOnPaths,
 				DeduplicateTags:   true,
 				MergeArrays:       true,
-				PreserveFirstInfo: true,
 			},
 			expectError:   true,
 			errorContains: "collision in paths: '/users'",
 		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runJoinOAS3Test(t, tt)
+		})
+	}
+}
+
+func TestJoinOAS3_ErrorCases(t *testing.T) {
+	testdataDir := filepath.Join("..", "..", "testdata")
+
+	tests := []oas3JoinTestCase{
 		{
 			name: "insufficient files",
 			files: []string{
@@ -188,31 +270,36 @@ func TestJoinOAS3Documents(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			j := New(tt.config)
-			result, err := j.Join(tt.files)
-
-			if tt.expectError {
-				if err == nil {
-					t.Fatalf("expected error containing '%s', got nil", tt.errorContains)
-				}
-				if tt.errorContains != "" && !containsString(err.Error(), tt.errorContains) {
-					t.Errorf("expected error containing '%s', got '%s'", tt.errorContains, err.Error())
-				}
-				return
-			}
-
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if result == nil {
-				t.Fatal("expected non-nil result")
-			}
-
-			if tt.validateResult != nil {
-				tt.validateResult(t, result)
-			}
+			runJoinOAS3Test(t, tt)
 		})
+	}
+}
+
+// runJoinOAS3Test executes a single OAS3 join test case
+func runJoinOAS3Test(t *testing.T, tt oas3JoinTestCase) {
+	j := New(tt.config)
+	result, err := j.Join(tt.files)
+
+	if tt.expectError {
+		if err == nil {
+			t.Fatalf("expected error containing '%s', got nil", tt.errorContains)
+		}
+		if tt.errorContains != "" && !containsString(err.Error(), tt.errorContains) {
+			t.Errorf("expected error containing '%s', got '%s'", tt.errorContains, err.Error())
+		}
+		return
+	}
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+
+	if tt.validateResult != nil {
+		tt.validateResult(t, result)
 	}
 }
 
@@ -304,11 +391,44 @@ func TestVersionCompatibility(t *testing.T) {
 			},
 			expectError: true,
 		},
+		{
+			name: "compatible 3.x versions (3.0 and 3.1)",
+			files: []string{
+				filepath.Join(testdataDir, "petstore-3.0.yaml"),
+				filepath.Join(testdataDir, "petstore-3.1.yaml"),
+			},
+			expectError: false, // Should succeed - all 3.x versions are compatible
+		},
+		{
+			name: "compatible 3.x versions (3.0 and 3.2)",
+			files: []string{
+				filepath.Join(testdataDir, "petstore-3.0.yaml"),
+				filepath.Join(testdataDir, "petstore-3.2.yaml"),
+			},
+			expectError: false, // Should succeed - all 3.x versions are compatible
+		},
+		{
+			name: "compatible 3.x versions (3.1 and 3.2)",
+			files: []string{
+				filepath.Join(testdataDir, "petstore-3.1.yaml"),
+				filepath.Join(testdataDir, "petstore-3.2.yaml"),
+			},
+			expectError: false, // Should succeed - all 3.x versions are compatible
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			j := New(DefaultConfig())
+			// Use accept-left strategy to allow path collisions when testing version compatibility
+			// We're testing whether versions CAN be joined, not whether they have colliding content
+			config := JoinerConfig{
+				PathStrategy:      StrategyAcceptLeft,
+				SchemaStrategy:    StrategyAcceptLeft,
+				ComponentStrategy: StrategyAcceptLeft,
+				DeduplicateTags:   true,
+				MergeArrays:       true,
+			}
+			j := New(config)
 			_, err := j.Join(tt.files)
 
 			if tt.expectError && err == nil {
@@ -321,19 +441,23 @@ func TestVersionCompatibility(t *testing.T) {
 	}
 }
 
-func TestJoinToFile(t *testing.T) {
+func TestWriteResult(t *testing.T) {
 	testdataDir := filepath.Join("..", "..", "testdata")
 	tempDir := t.TempDir()
 	outputPath := filepath.Join(tempDir, "joined.yaml")
 
 	j := New(DefaultConfig())
-	err := j.JoinToFile([]string{
+	result, err := j.Join([]string{
 		filepath.Join(testdataDir, "join-base-3.0.yaml"),
 		filepath.Join(testdataDir, "join-extension-3.0.yaml"),
-	}, outputPath)
-
+	})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("unexpected error from Join: %v", err)
+	}
+
+	err = j.WriteResult(result, outputPath)
+	if err != nil {
+		t.Fatalf("unexpected error from WriteResult: %v", err)
 	}
 
 	// Verify file was created
@@ -343,13 +467,13 @@ func TestJoinToFile(t *testing.T) {
 
 	// Verify file can be parsed
 	p := parser.New()
-	result, err := p.Parse(outputPath)
+	parseResult, err := p.Parse(outputPath)
 	if err != nil {
 		t.Fatalf("failed to parse output file: %v", err)
 	}
 
-	if result.Version != "3.0.3" {
-		t.Errorf("expected version 3.0.3, got %s", result.Version)
+	if parseResult.Version != "3.0.3" {
+		t.Errorf("expected version 3.0.3, got %s", parseResult.Version)
 	}
 }
 

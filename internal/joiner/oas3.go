@@ -112,13 +112,8 @@ func (j *Joiner) joinOAS3Documents(docs []*parser.ParseResult, contexts []docume
 			joined.Tags = j.mergeTags(joined.Tags, oas3Doc.Tags)
 		}
 
-		// Handle Info object
-		if i > 0 && !j.config.PreserveFirstInfo {
-			// Optionally update info from subsequent documents
-			if oas3Doc.Info != nil {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("info section from document %d ignored (using first document's info)", i+1))
-			}
-		}
+		// Info object is always taken from the first document
+		// Additional info sections from subsequent documents are ignored
 	}
 
 	result.Document = joined

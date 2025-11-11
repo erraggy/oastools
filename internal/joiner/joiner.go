@@ -56,8 +56,6 @@ type JoinerConfig struct {
 	DeduplicateTags bool
 	// MergeArrays determines whether to merge array fields (servers, security, etc.)
 	MergeArrays bool
-	// PreserveFirstInfo keeps the info section from the first document
-	PreserveFirstInfo bool
 }
 
 // DefaultConfig returns a sensible default configuration
@@ -69,7 +67,6 @@ func DefaultConfig() JoinerConfig {
 		ComponentStrategy: StrategyAcceptLeft,
 		DeduplicateTags:   true,
 		MergeArrays:       true,
-		PreserveFirstInfo: true,
 	}
 }
 
@@ -127,7 +124,12 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 			return nil, fmt.Errorf("joiner: failed to parse %s: %w", path, err)
 		}
 		if len(result.Errors) > 0 {
-			return nil, fmt.Errorf("joiner: validation errors in %s: %v", path, result.Errors[0])
+			// Show all validation errors for better debugging
+			errMsg := fmt.Sprintf("joiner: validation errors in %s (%d error(s)):", path, len(result.Errors))
+			for idx, e := range result.Errors {
+				errMsg += fmt.Sprintf("\n  %d. %v", idx+1, e)
+			}
+			return nil, fmt.Errorf("%s", errMsg)
 		}
 		parsedDocs = append(parsedDocs, result)
 		docContexts = append(docContexts, documentContext{
@@ -157,7 +159,14 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 	}
 }
 
+// outputFileMode is the file permission mode for output files (owner read/write only)
+const outputFileMode = 0600
+
 // WriteResult writes a join result to a file
+//
+// The output file is written with restrictive permissions (0600 - owner read/write only)
+// to protect potentially sensitive API specifications. If the file already exists, its
+// permissions will be explicitly set to 0600 after writing.
 func (j *Joiner) WriteResult(result *JoinResult, outputPath string) error {
 	// Marshal to YAML
 	data, err := yaml.Marshal(result.Document)
@@ -166,25 +175,31 @@ func (j *Joiner) WriteResult(result *JoinResult, outputPath string) error {
 	}
 
 	// Write to file with restrictive permissions for potentially sensitive API specs
-	if err := os.WriteFile(outputPath, data, 0600); err != nil {
+	if err := os.WriteFile(outputPath, data, outputFileMode); err != nil {
 		return fmt.Errorf("joiner: failed to write output file: %w", err)
+	}
+
+	// Explicitly set permissions to ensure they're correct even if file existed before
+	// This handles the case where an existing file may have had different permissions
+	if err := os.Chmod(outputPath, outputFileMode); err != nil {
+		return fmt.Errorf("joiner: failed to set output file permissions: %w", err)
 	}
 
 	return nil
 }
 
-// JoinToFile joins multiple specifications and writes the result to a file
-// Deprecated: Use Join() followed by WriteResult() for better performance and control
-func (j *Joiner) JoinToFile(specPaths []string, outputPath string) error {
-	result, err := j.Join(specPaths)
-	if err != nil {
-		return err
-	}
-
-	return j.WriteResult(result, outputPath)
-}
-
 // versionsCompatible checks if two OAS versions can be joined
+//
+// Compatibility Rules:
+//   - OAS 2.0 documents can only be joined with other 2.0 documents
+//   - All OAS 3.x versions (3.0.x, 3.1.x, 3.2.x) can be joined together
+//   - The joined document will use the OpenAPI version of the first input document
+//
+// Note: Joining documents with different minor versions (e.g., 3.0.3 + 3.1.0) is allowed
+// but may result in a document that uses features from the later version while declaring
+// an earlier version (or vice versa). Users should verify the joined document is valid
+// for its declared version. Future OAS versions with breaking changes may require
+// stricter compatibility checks.
 func (j *Joiner) versionsCompatible(v1, v2 parser.OASVersion) bool {
 	// OAS 2.0 documents can only be joined with other 2.0 documents
 	if v1 == parser.OASVersion20 || v2 == parser.OASVersion20 {

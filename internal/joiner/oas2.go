@@ -154,9 +154,8 @@ func (j *Joiner) mergeOAS2Arrays(joined, source *parser.OAS2Document, ctx docume
 			result.Warnings = append(result.Warnings, fmt.Sprintf("basePath '%s' from %s ignored (using first document's basePath: '%s')", source.BasePath, ctx.filePath, joined.BasePath))
 		}
 
-		if !j.config.PreserveFirstInfo && source.Info != nil {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("info section from %s ignored (using first document's info)", ctx.filePath))
-		}
+		// Info object is always taken from the first document
+		// Additional info sections from subsequent documents are ignored
 	}
 }
 
