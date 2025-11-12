@@ -120,6 +120,9 @@ func (j *Joiner) JoinParsed(parsedDocs []*parser.ParseResult) (*JoinResult, erro
 		if doc.Document == nil {
 			return nil, fmt.Errorf("joiner: parsedDocs[%d].Document is nil", i)
 		}
+		if len(doc.Errors) > 0 {
+			return nil, fmt.Errorf("joiner: parsedDocs[%d].Errors is not empty: %v", i, doc.Errors)
+		}
 	}
 
 	// Verify all documents are the same major version

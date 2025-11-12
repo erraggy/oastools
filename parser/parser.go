@@ -87,7 +87,7 @@ func (p *Parser) ParseReader(r io.Reader) (*ParseResult, error) {
 		return nil, err
 	}
 	res.SourcePath = "ParseReader.yaml"
-	return res, err
+	return res, nil
 }
 
 // ParseBytes parses an OpenAPI specification from a byte slice
@@ -99,7 +99,7 @@ func (p *Parser) ParseBytes(data []byte) (*ParseResult, error) {
 		return nil, err
 	}
 	res.SourcePath = "ParseBytes.yaml"
-	return res, err
+	return res, nil
 }
 
 // parseBytesWithBaseDir parses data with a specified base directory for ref resolution
