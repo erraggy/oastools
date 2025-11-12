@@ -76,16 +76,12 @@ func DefaultConfig() JoinerConfig {
 // Create separate Joiner instances for concurrent operations.
 type Joiner struct {
 	config JoinerConfig
-	parser *parser.Parser
 }
 
 // New creates a new Joiner instance with the provided configuration
 func New(config JoinerConfig) *Joiner {
-	p := parser.New()
-	p.ValidateStructure = true
 	return &Joiner{
 		config: config,
-		parser: p,
 	}
 }
 
@@ -112,34 +108,9 @@ type documentContext struct {
 	result   *parser.ParseResult
 }
 
-// Join joins multiple OpenAPI specifications into a single document
-func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
-	if len(specPaths) < 2 {
-		return nil, fmt.Errorf("joiner: at least 2 specification files are required for joining, got %d", len(specPaths))
-	}
-
-	// Parse all documents
-	var parsedDocs []*parser.ParseResult
-	var docContexts []documentContext
-	for i, path := range specPaths {
-		result, err := j.parser.Parse(path)
-		if err != nil {
-			return nil, fmt.Errorf("joiner: failed to parse %s: %w", path, err)
-		}
-		if len(result.Errors) > 0 {
-			// Show all validation errors for better debugging
-			errMsg := fmt.Sprintf("joiner: validation errors in %s (%d error(s)):", path, len(result.Errors))
-			for idx, e := range result.Errors {
-				errMsg += fmt.Sprintf("\n  %d. %v", idx+1, e)
-			}
-			return nil, fmt.Errorf("%s", errMsg)
-		}
-		parsedDocs = append(parsedDocs, result)
-		docContexts = append(docContexts, documentContext{
-			filePath: path,
-			docIndex: i,
-			result:   result,
-		})
+func (j *Joiner) JoinParsed(parsedDocs []*parser.ParseResult) (*JoinResult, error) {
+	if len(parsedDocs) < 2 {
+		return nil, fmt.Errorf("joiner: at least 2 specification documents are required for joining, got %d", len(parsedDocs))
 	}
 
 	// Verify all documents are the same major version
@@ -148,7 +119,7 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 	for i, doc := range parsedDocs[1:] {
 		if !j.versionsCompatible(baseVersion, doc.OASVersion) {
 			return nil, fmt.Errorf("joiner: incompatible versions: %s (%s) and %s (%s) cannot be joined",
-				specPaths[0], parsedDocs[0].Version, specPaths[i+1], doc.Version)
+				parsedDocs[0].SourcePath, parsedDocs[0].Version, parsedDocs[i+1].SourcePath, doc.Version)
 		}
 
 		// Warn about minor version mismatches (e.g., 3.0.x with 3.1.x)
@@ -157,7 +128,7 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 				"joining documents with different minor versions: %s (%s) and %s (%s). "+
 					"This may result in an invalid specification if features from the later version are used. "+
 					"Joined document will use version %s.",
-				specPaths[0], parsedDocs[0].Version, specPaths[i+1], doc.Version, parsedDocs[0].Version))
+				parsedDocs[0].SourcePath, parsedDocs[0].Version, parsedDocs[i+1].SourcePath, doc.Version, parsedDocs[0].Version))
 		}
 	}
 
@@ -166,9 +137,9 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 	var err error
 	switch {
 	case baseVersion == parser.OASVersion20:
-		result, err = j.joinOAS2Documents(parsedDocs, docContexts)
+		result, err = j.joinOAS2Documents(parsedDocs)
 	case baseVersion.IsValid():
-		result, err = j.joinOAS3Documents(parsedDocs, docContexts)
+		result, err = j.joinOAS3Documents(parsedDocs)
 	default:
 		return nil, fmt.Errorf("joiner: unsupported OpenAPI version: %s", parsedDocs[0].Version)
 	}
@@ -179,6 +150,35 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 	}
 
 	return result, err
+}
+
+// Join joins multiple OpenAPI specifications into a single document
+func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
+	if len(specPaths) < 2 {
+		return nil, fmt.Errorf("joiner: at least 2 specification files are required for joining, got %d", len(specPaths))
+	}
+
+	// Parse all documents
+	p := parser.New()
+	p.ValidateStructure = true
+	var parsedDocs []*parser.ParseResult
+	n := len(specPaths)
+	for i, path := range specPaths {
+		result, err := p.Parse(path)
+		if err != nil {
+			return nil, fmt.Errorf("joiner: failed to parse %s (%d of %d): %w", path, i+1, n, err)
+		}
+		if len(result.Errors) > 0 {
+			// Show all validation errors for better debugging
+			errMsg := fmt.Sprintf("joiner: validation errors (%d error(s)) in %s (%d of %d):", len(result.Errors), path, i+1, n)
+			for idx, e := range result.Errors {
+				errMsg += fmt.Sprintf("\n  %d. %v", idx+1, e)
+			}
+			return nil, fmt.Errorf("%s", errMsg)
+		}
+		parsedDocs = append(parsedDocs, result)
+	}
+	return j.JoinParsed(parsedDocs)
 }
 
 // outputFileMode is the file permission mode for output files (owner read/write only)

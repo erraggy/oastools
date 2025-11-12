@@ -40,6 +40,9 @@ func New() *Parser {
 // This structure provides both the raw parsed data and version-specific
 // typed representations of the OpenAPI document.
 type ParseResult struct {
+	// SourcePath is the document's input source path that it was read from.
+	// Note: if the source was not a file path, this will be set to the name of the method and end in: '.yaml'
+	SourcePath string
 	// Version is the detected OAS version string (e.g., "2.0", "3.0.3", "3.1.0")
 	Version string
 	// Data contains the raw parsed data as a map, potentially with resolved $refs
@@ -64,22 +67,39 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 	}
 	// Get the directory of the spec file for resolving relative refs
 	baseDir := filepath.Dir(specPath)
-	return p.parseBytesWithBaseDir(data, baseDir)
+	res, err := p.parseBytesWithBaseDir(data, baseDir)
+	if err != nil {
+		return nil, err
+	}
+	res.SourcePath = specPath
+	return res, nil
 }
 
 // ParseReader parses an OpenAPI specification from an io.Reader
+// Note: since there is no actual ParseResult.SourcePath, it will be set to: ParseReader.yaml
 func (p *Parser) ParseReader(r io.Reader) (*ParseResult, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("parser: failed to read data: %w", err)
 	}
-	return p.ParseBytes(data)
+	res, err := p.ParseBytes(data)
+	if err != nil {
+		return nil, err
+	}
+	res.SourcePath = "ParseReader.yaml"
+	return res, err
 }
 
 // ParseBytes parses an OpenAPI specification from a byte slice
 // For external references to work, use Parse() with a file path instead
+// Note: since there is no actual ParseResult.SourcePath, it will be set to: ParseBytes.yaml
 func (p *Parser) ParseBytes(data []byte) (*ParseResult, error) {
-	return p.parseBytesWithBaseDir(data, ".")
+	res, err := p.parseBytesWithBaseDir(data, ".")
+	if err != nil {
+		return nil, err
+	}
+	res.SourcePath = "ParseBytes.yaml"
+	return res, err
 }
 
 // parseBytesWithBaseDir parses data with a specified base directory for ref resolution

@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"errors"
 	"fmt"
 	"mime"
 	"net/url"
@@ -28,19 +29,9 @@ const (
 	defaultWarningCapacity = 10
 
 	// HTTP status code validation constants
-	httpStatusCodeLength   = 3
-	minHTTPStatusCode      = 100
-	maxHTTPStatusCode      = 599
-	minInformationalStatus = 100
-	maxInformationalStatus = 199
-	minSuccessStatus       = 200
-	maxSuccessStatus       = 299
-	minRedirectionStatus   = 300
-	maxRedirectionStatus   = 399
-	minClientErrorStatus   = 400
-	maxClientErrorStatus   = 499
-	minServerErrorStatus   = 500
-	maxServerErrorStatus   = 599
+	httpStatusCodeLength = 3
+	minHTTPStatusCode    = 100
+	maxHTTPStatusCode    = 599
 
 	// Resource exhaustion protection
 	maxSchemaNestingDepth = 100 // Maximum depth for nested schemas to prevent stack overflow
@@ -111,8 +102,6 @@ type Validator struct {
 	IncludeWarnings bool
 	// StrictMode enables stricter validation beyond the spec requirements
 	StrictMode bool
-	// parser instance for parsing OAS documents
-	parser *parser.Parser
 }
 
 // New creates a new Validator instance with default settings
@@ -120,16 +109,13 @@ func New() *Validator {
 	return &Validator{
 		IncludeWarnings: true,
 		StrictMode:      false,
-		parser:          parser.New(),
 	}
 }
 
-// Validate validates an OpenAPI specification file
-func (v *Validator) Validate(specPath string) (*ValidationResult, error) {
-	// Parse the document first
-	parseResult, err := v.parser.Parse(specPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse specification: %w", err)
+// ValidateParsed validates an already parsed OpenAPI specification
+func (v *Validator) ValidateParsed(parseResult *parser.ParseResult) (*ValidationResult, error) {
+	if parseResult == nil {
+		return nil, errors.New("nil parseResult")
 	}
 
 	result := &ValidationResult{
@@ -189,6 +175,18 @@ func (v *Validator) Validate(specPath string) (*ValidationResult, error) {
 	}
 
 	return result, nil
+}
+
+// Validate validates an OpenAPI specification file
+func (v *Validator) Validate(specPath string) (*ValidationResult, error) {
+	// Parse the document first
+	p := parser.New()
+	parseResult, err := p.Parse(specPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse specification: %w", err)
+	}
+
+	return v.ValidateParsed(parseResult)
 }
 
 // validateOAS2 performs OAS 2.0 specific validation

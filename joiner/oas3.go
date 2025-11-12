@@ -7,7 +7,7 @@ import (
 )
 
 // joinOAS3Documents joins multiple OAS 3.x documents
-func (j *Joiner) joinOAS3Documents(docs []*parser.ParseResult, contexts []documentContext) (*JoinResult, error) {
+func (j *Joiner) joinOAS3Documents(docs []*parser.ParseResult) (*JoinResult, error) {
 	// Start with a copy of the first document
 	baseDoc := docs[0].Document.(*parser.OAS3Document)
 
@@ -15,7 +15,7 @@ func (j *Joiner) joinOAS3Documents(docs []*parser.ParseResult, contexts []docume
 		Version:       docs[0].Version,
 		OASVersion:    docs[0].OASVersion,
 		Warnings:      make([]string, 0),
-		firstFilePath: contexts[0].filePath,
+		firstFilePath: docs[0].SourcePath,
 	}
 
 	// Create the joined document starting with the base
@@ -51,7 +51,11 @@ func (j *Joiner) joinOAS3Documents(docs []*parser.ParseResult, contexts []docume
 	// Merge all documents
 	for i, doc := range docs {
 		oas3Doc := doc.Document.(*parser.OAS3Document)
-		ctx := contexts[i]
+		ctx := documentContext{
+			filePath: doc.SourcePath,
+			docIndex: i,
+			result:   doc,
+		}
 
 		// Merge paths
 		pathStrategy := j.getEffectiveStrategy(j.config.PathStrategy)
