@@ -17,7 +17,11 @@ build:
 ## test: Run tests
 test:
 	@echo "Running tests..."
+ifeq ("$(shell command -v gotestsum)", "")
 	go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+else
+	gotestsum --format testname -- -v -coverprofile=coverage.unit.out -covermode=atomic -timeout=60m -race -failfast ./...
+endif
 
 ## test-coverage: Run tests with coverage report
 test-coverage: test

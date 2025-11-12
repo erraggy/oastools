@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseOAS2(t *testing.T) {
@@ -1417,6 +1418,58 @@ paths:
 			if !tt.expectErr && hasExpectedWarning {
 				t.Errorf("Did not expect warning, but got one. Warnings: %v", result.Warnings)
 			}
+		})
+	}
+}
+
+func TestParseResultSourcePath(t *testing.T) {
+	tests := []struct {
+		name           string
+		parseFunc      func(*Parser) (*ParseResult, error)
+		expectedSource string
+	}{
+		{
+			name: "Parse sets actual file path",
+			parseFunc: func(p *Parser) (*ParseResult, error) {
+				return p.Parse("../testdata/petstore-3.0.yaml")
+			},
+			expectedSource: "../testdata/petstore-3.0.yaml",
+		},
+		{
+			name: "ParseBytes sets synthetic path",
+			parseFunc: func(p *Parser) (*ParseResult, error) {
+				return p.ParseBytes([]byte(`
+openapi: "3.0.0"
+info:
+  title: Test ParseBytes
+  version: 1.0.0
+paths: {}
+`))
+			},
+			expectedSource: "ParseBytes.yaml",
+		},
+		{
+			name: "ParseReader sets synthetic path",
+			parseFunc: func(p *Parser) (*ParseResult, error) {
+				r := strings.NewReader(`
+openapi: "3.0.0"
+info:
+  title: Test ParseReader
+  version: 1.0.0
+paths: {}
+`)
+				return p.ParseReader(r)
+			},
+			expectedSource: "ParseReader.yaml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New()
+			result, err := tt.parseFunc(p)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedSource, result.SourcePath)
 		})
 	}
 }

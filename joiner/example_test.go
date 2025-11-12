@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/erraggy/oastools/joiner"
+	"github.com/erraggy/oastools/parser"
 )
 
 // Example demonstrates basic usage of the joiner to combine two OpenAPI specifications.
@@ -351,4 +352,27 @@ func Example_collisionError() {
 
 	// Output:
 	// No collisions detected
+}
+
+func Example_joinParsed() {
+	// Parse documents once
+	p := parser.New()
+	p.ValidateStructure = true
+
+	doc1, _ := p.Parse("../testdata/join-base-3.0.yaml")
+	doc2, _ := p.Parse("../testdata/join-extension-3.0.yaml")
+
+	// Join already-parsed documents
+	j := joiner.New(joiner.DefaultConfig())
+	result, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2})
+	if err != nil {
+		log.Fatalf("failed to join: %v", err)
+	}
+	if result == nil {
+		log.Fatalf("result is nil")
+	}
+
+	fmt.Printf("Version: %s\n", result.Version)
+	// Output:
+	// Version: 3.0.3
 }

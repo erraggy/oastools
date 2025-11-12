@@ -1,18 +1,13 @@
 package validator
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
-)
 
-// skipIfTestFileNotFound checks if a test file exists and skips the test if not
-func skipIfTestFileNotFound(t *testing.T, testFile string) {
-	t.Helper()
-	if _, err := os.Stat(testFile); os.IsNotExist(err) {
-		t.Skipf("Test file not found: %s", testFile)
-	}
-}
+	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 // TestValidatorNew tests the New constructor
 func TestValidatorNew(t *testing.T) {
@@ -26,16 +21,12 @@ func TestValidatorNew(t *testing.T) {
 	if v.StrictMode {
 		t.Error("Expected StrictMode to be false by default")
 	}
-	if v.parser == nil {
-		t.Error("Expected parser to be initialized")
-	}
 }
 
 // TestValidateOAS2Valid tests validation of a valid OAS 2.0 document
 func TestValidateOAS2Valid(t *testing.T) {
 	v := New()
-	testFile := filepath.Join("..", "..", "testdata", "petstore-2.0.yaml")
-	skipIfTestFileNotFound(t, testFile)
+	testFile := filepath.Join("..", "testdata", "petstore-2.0.yaml")
 
 	result, err := v.Validate(testFile)
 	if err != nil {
@@ -57,8 +48,7 @@ func TestValidateOAS2Valid(t *testing.T) {
 // TestValidateOAS2Invalid tests validation of an invalid OAS 2.0 document
 func TestValidateOAS2Invalid(t *testing.T) {
 	v := New()
-	testFile := filepath.Join("..", "..", "testdata", "invalid-oas2.yaml")
-	skipIfTestFileNotFound(t, testFile)
+	testFile := filepath.Join("..", "testdata", "invalid-oas2.yaml")
 
 	result, err := v.Validate(testFile)
 	if err != nil {
@@ -94,8 +84,7 @@ func TestValidateOAS3Valid(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			v := New()
-			testFile := filepath.Join("..", "..", "testdata", tc.file)
-			skipIfTestFileNotFound(t, testFile)
+			testFile := filepath.Join("..", "testdata", tc.file)
 
 			result, err := v.Validate(testFile)
 			if err != nil {
@@ -119,8 +108,7 @@ func TestValidateOAS3Valid(t *testing.T) {
 // TestValidateOAS3Invalid tests validation of an invalid OAS 3.x document
 func TestValidateOAS3Invalid(t *testing.T) {
 	v := New()
-	testFile := filepath.Join("..", "..", "testdata", "invalid-oas3.yaml")
-	skipIfTestFileNotFound(t, testFile)
+	testFile := filepath.Join("..", "testdata", "invalid-oas3.yaml")
 
 	result, err := v.Validate(testFile)
 	if err != nil {
@@ -457,7 +445,7 @@ func TestEmptyNilDocuments(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			v := New()
-			testFile := filepath.Join("..", "..", "testdata", tc.file)
+			testFile := filepath.Join("..", "testdata", tc.file)
 
 			result, err := v.Validate(testFile)
 			// File might not exist - that's okay for this test
@@ -588,6 +576,18 @@ func TestNilInfoObject(t *testing.T) {
 	if !hasInfoError {
 		t.Error("Expected error message about missing info object")
 	}
+}
+
+func TestValidateParsed(t *testing.T) {
+	p := parser.New()
+	result, err := p.Parse("../testdata/petstore-3.0.yaml")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	v := New()
+	valResult, err := v.ValidateParsed(*result)
+	require.NoError(t, err)
+	assert.True(t, valResult.Valid)
 }
 
 // Helper function to check if a string contains a substring
