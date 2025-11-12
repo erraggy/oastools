@@ -112,6 +112,15 @@ func (j *Joiner) JoinParsed(parsedDocs []*parser.ParseResult) (*JoinResult, erro
 	if len(parsedDocs) < 2 {
 		return nil, fmt.Errorf("joiner: at least 2 specification documents are required for joining, got %d", len(parsedDocs))
 	}
+	// Validate inputs
+	for i, doc := range parsedDocs {
+		if doc == nil {
+			return nil, fmt.Errorf("joiner: parsedDocs[%d] is nil", i)
+		}
+		if doc.Document == nil {
+			return nil, fmt.Errorf("joiner: parsedDocs[%d].Document is nil", i)
+		}
+	}
 
 	// Verify all documents are the same major version
 	baseVersion := parsedDocs[0].OASVersion

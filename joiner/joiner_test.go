@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // oas3JoinTestCase represents a test case for joining OAS3 documents
@@ -539,4 +541,19 @@ func TestCollisionStrategies(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestJoinParsed(t *testing.T) {
+	p := parser.New()
+	p.ValidateStructure = true
+
+	doc1, err := p.Parse("../testdata/join-base-3.0.yaml")
+	require.NoError(t, err)
+	doc2, err := p.Parse("../testdata/join-extension-3.0.yaml")
+	require.NoError(t, err)
+
+	j := New(DefaultConfig())
+	result, err := j.JoinParsed([]*parser.ParseResult{doc1, doc2})
+	require.NoError(t, err)
+	assert.NotNil(t, result)
 }

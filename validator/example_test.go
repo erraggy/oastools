@@ -5,6 +5,7 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/validator"
 )
 
@@ -156,4 +157,23 @@ func ExampleValidator_Validate_multipleVersions() {
 		fmt.Printf("%s: Valid=%v, Version=%s, Errors=%d, Warnings=%d\n",
 			file, result.Valid, result.Version, result.ErrorCount, result.WarningCount)
 	}
+}
+
+func ExampleValidator_ValidateParsed() {
+	// Parse once
+	p := parser.New()
+	parseResult, err := p.Parse("../testdata/petstore-3.0.yaml")
+	if err != nil {
+		log.Fatalf("Parse failed: %v", err)
+	}
+
+	// Validate the already-parsed document
+	v := validator.New()
+	v.StrictMode = true
+	result, err := v.ValidateParsed(parseResult)
+	if err != nil {
+		log.Fatalf("Validation failed: %v", err)
+	}
+
+	fmt.Printf("Valid: %v\n", result.Valid)
 }
