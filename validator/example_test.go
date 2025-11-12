@@ -170,7 +170,7 @@ func ExampleValidator_ValidateParsed() {
 	// Validate the already-parsed document
 	v := validator.New()
 	v.StrictMode = true
-	result, err := v.ValidateParsed(parseResult)
+	result, err := v.ValidateParsed(*parseResult)
 	if err != nil {
 		log.Fatalf("Validation failed: %v", err)
 	}

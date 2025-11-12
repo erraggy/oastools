@@ -38,7 +38,7 @@ func New() *Parser {
 
 // ParseResult contains the parsed OpenAPI specification and metadata.
 // This structure provides both the raw parsed data and version-specific
-// typed representations of the OpenAPI document.
+// typed representations of the OpenAPI document, and should be treated as immutable.
 type ParseResult struct {
 	// SourcePath is the document's input source path that it was read from.
 	// Note: if the source was not a file path, this will be set to the name of the method and end in: '.yaml'

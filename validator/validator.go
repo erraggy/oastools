@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"errors"
 	"fmt"
 	"mime"
 	"net/url"
@@ -113,11 +112,7 @@ func New() *Validator {
 }
 
 // ValidateParsed validates an already parsed OpenAPI specification
-func (v *Validator) ValidateParsed(parseResult *parser.ParseResult) (*ValidationResult, error) {
-	if parseResult == nil {
-		return nil, errors.New("nil parseResult")
-	}
-
+func (v *Validator) ValidateParsed(parseResult parser.ParseResult) (*ValidationResult, error) {
 	result := &ValidationResult{
 		Version:    parseResult.Version,
 		OASVersion: parseResult.OASVersion,
@@ -186,7 +181,7 @@ func (v *Validator) Validate(specPath string) (*ValidationResult, error) {
 		return nil, fmt.Errorf("failed to parse specification: %w", err)
 	}
 
-	return v.ValidateParsed(parseResult)
+	return v.ValidateParsed(*parseResult)
 }
 
 // validateOAS2 performs OAS 2.0 specific validation

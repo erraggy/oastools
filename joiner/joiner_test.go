@@ -549,11 +549,13 @@ func TestJoinParsed(t *testing.T) {
 
 	doc1, err := p.Parse("../testdata/join-base-3.0.yaml")
 	require.NoError(t, err)
+	require.NotNil(t, doc1)
 	doc2, err := p.Parse("../testdata/join-extension-3.0.yaml")
 	require.NoError(t, err)
+	require.NotNil(t, doc2)
 
 	j := New(DefaultConfig())
-	result, err := j.JoinParsed([]*parser.ParseResult{doc1, doc2})
+	result, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2})
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }

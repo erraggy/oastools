@@ -364,7 +364,7 @@ func Example_joinParsed() {
 
 	// Join already-parsed documents
 	j := joiner.New(joiner.DefaultConfig())
-	result, err := j.JoinParsed([]*parser.ParseResult{doc1, doc2})
+	result, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2})
 	if err != nil {
 		log.Fatalf("failed to join: %v", err)
 	}

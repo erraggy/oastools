@@ -582,18 +582,12 @@ func TestValidateParsed(t *testing.T) {
 	p := parser.New()
 	result, err := p.Parse("../testdata/petstore-3.0.yaml")
 	require.NoError(t, err)
+	require.NotNil(t, result)
 
 	v := New()
-	valResult, err := v.ValidateParsed(result)
+	valResult, err := v.ValidateParsed(*result)
 	require.NoError(t, err)
 	assert.True(t, valResult.Valid)
-}
-
-func TestValidateParsed_NilInput(t *testing.T) {
-	v := New()
-	_, err := v.ValidateParsed(nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "nil parseResult")
 }
 
 // Helper function to check if a string contains a substring

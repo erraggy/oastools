@@ -12,6 +12,7 @@
 *.out
 coverage.txt
 coverage.html
+coverage.*.out
 
 # Dependency directories
 vendor/

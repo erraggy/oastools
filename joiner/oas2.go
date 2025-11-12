@@ -7,7 +7,7 @@ import (
 )
 
 // joinOAS2Documents joins multiple OAS 2.0 (Swagger) documents
-func (j *Joiner) joinOAS2Documents(docs []*parser.ParseResult) (*JoinResult, error) {
+func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, error) {
 	// Start with a copy of the first document
 	baseDoc := docs[0].Document.(*parser.OAS2Document)
 
@@ -44,7 +44,7 @@ func (j *Joiner) joinOAS2Documents(docs []*parser.ParseResult) (*JoinResult, err
 		ctx := documentContext{
 			filePath: doc.SourcePath,
 			docIndex: i,
-			result:   doc,
+			result:   &doc,
 		}
 
 		if err := j.mergeOAS2Document(joined, oas2Doc, ctx, result); err != nil {

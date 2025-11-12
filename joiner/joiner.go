@@ -108,20 +108,17 @@ type documentContext struct {
 	result   *parser.ParseResult
 }
 
-func (j *Joiner) JoinParsed(parsedDocs []*parser.ParseResult) (*JoinResult, error) {
+func (j *Joiner) JoinParsed(parsedDocs []parser.ParseResult) (*JoinResult, error) {
 	if len(parsedDocs) < 2 {
 		return nil, fmt.Errorf("joiner: at least 2 specification documents are required for joining, got %d", len(parsedDocs))
 	}
 	// Validate inputs
 	for i, doc := range parsedDocs {
-		if doc == nil {
-			return nil, fmt.Errorf("joiner: parsedDocs[%d] is nil", i)
-		}
 		if doc.Document == nil {
 			return nil, fmt.Errorf("joiner: parsedDocs[%d].Document is nil", i)
 		}
 		if len(doc.Errors) > 0 {
-			return nil, fmt.Errorf("joiner: parsedDocs[%d].Errors is not empty: %v", i, doc.Errors)
+			return nil, fmt.Errorf("joiner: parsedDocs[%d].Errors is not empty: %d errors found", i, len(doc.Errors))
 		}
 	}
 
@@ -173,7 +170,7 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 	// Parse all documents
 	p := parser.New()
 	p.ValidateStructure = true
-	var parsedDocs []*parser.ParseResult
+	var parsedDocs []parser.ParseResult
 	n := len(specPaths)
 	for i, path := range specPaths {
 		result, err := p.Parse(path)
@@ -188,7 +185,7 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 			}
 			return nil, fmt.Errorf("%s", errMsg)
 		}
-		parsedDocs = append(parsedDocs, result)
+		parsedDocs = append(parsedDocs, *result)
 	}
 	return j.JoinParsed(parsedDocs)
 }

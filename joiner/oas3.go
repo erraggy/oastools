@@ -7,7 +7,7 @@ import (
 )
 
 // joinOAS3Documents joins multiple OAS 3.x documents
-func (j *Joiner) joinOAS3Documents(docs []*parser.ParseResult) (*JoinResult, error) {
+func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, error) {
 	// Start with a copy of the first document
 	baseDoc := docs[0].Document.(*parser.OAS3Document)
 
@@ -54,7 +54,7 @@ func (j *Joiner) joinOAS3Documents(docs []*parser.ParseResult) (*JoinResult, err
 		ctx := documentContext{
 			filePath: doc.SourcePath,
 			docIndex: i,
-			result:   doc,
+			result:   &doc,
 		}
 
 		// Merge paths
