@@ -52,6 +52,7 @@ make install
 ### Testing
 ```bash
 # Run all tests with race detection and coverage
+# Note: If gotestsum is installed, it will be used automatically for better output formatting
 make test
 
 # Generate and view HTML coverage report
@@ -155,3 +156,25 @@ Each package includes:
 - `doc.go` - Comprehensive package-level documentation
 - `example_test.go` - Runnable examples for godoc
 - Full godoc comments on all exported types and functions
+
+### Key API Features
+
+**Parser Package:**
+- `parser.ParseResult` includes a `SourcePath` field that tracks the document's source:
+  - For `Parse(path)`: contains the actual file path
+  - For `ParseReader(r)`: set to `"ParseReader.yaml"`
+  - For `ParseBytes(data)`: set to `"ParseBytes.yaml"`
+- ParseResult is treated as immutable after creation
+
+**Validator Package:**
+- `Validator.Validate(specPath)`: Parse and validate an OpenAPI specification file
+- `Validator.ValidateParsed(parseResult)`: Validate an already-parsed ParseResult
+  - Useful when you need to parse once and validate multiple times
+  - Enables efficient workflows when combining parser with validator
+
+**Joiner Package:**
+- `Joiner.Join(specPaths)`: Parse and join multiple OpenAPI specification files
+- `Joiner.JoinParsed(parsedDocs)`: Join already-parsed ParseResult documents
+  - Efficient when documents are already parsed
+  - Enables advanced workflows where parsing and joining are separated
+  - All input documents must be pre-validated (Errors slice must be empty)
