@@ -139,6 +139,61 @@ When adding new public APIs:
 - Run tests with race detection enabled to catch concurrency issues
 - Aim for high test coverage, especially for validation, parsing, and joining logic
 
+### Test Coverage Requirements
+
+**CRITICAL: All exported functionality MUST have comprehensive test coverage.**
+
+When adding or modifying exported functionality, you MUST include test coverage for:
+
+1. **Exported Functions** - All package-level functions and methods
+   - Test all exported convenience functions (e.g., `parser.Parse()`, `validator.Validate()`, `joiner.Join()`)
+   - Test all struct methods (e.g., `Parser.Parse()`, `Validator.ValidateParsed()`, `Joiner.JoinParsed()`)
+   - Include both success and error cases
+   - Test with various input combinations and edge cases
+
+2. **Exported Types** - All public structs, interfaces, and type aliases
+   - Test struct initialization and default values
+   - Test all exported fields and their behavior
+   - Test type conversions and assertions
+
+3. **Exported Constants and Variables**
+   - Test that constants have expected values
+   - Test exported variables and their initialization
+
+**Test Coverage Guidelines:**
+
+- **Positive Cases**: Test that functionality works correctly with valid inputs
+- **Negative Cases**: Test error handling with invalid inputs, missing files, malformed data
+- **Edge Cases**: Test boundary conditions, empty inputs, nil values, large inputs
+- **Integration**: Test how components work together (e.g., parse then validate, parse then join)
+- **Documentation**: Use descriptive test names that clearly explain what is being tested
+
+**Example Test Naming Pattern:**
+```go
+// Package-level convenience functions
+func TestParseConvenience(t *testing.T) { ... }
+func TestValidateConvenience(t *testing.T) { ... }
+func TestJoinConvenience(t *testing.T) { ... }
+
+// Struct methods
+func TestParserParse(t *testing.T) { ... }
+func TestValidatorValidate(t *testing.T) { ... }
+func TestJoinerJoin(t *testing.T) { ... }
+```
+
+**Before Submitting Code:**
+
+1. Run `make test` to ensure all tests pass
+2. Run `make test-coverage` to review coverage report
+3. Verify that all new exported functionality has dedicated test cases
+4. Check that test names clearly describe what they test
+
+**Never submit a PR with:**
+- Untested exported functions
+- Untested exported methods
+- Untested exported types or their fields
+- Tests that only cover the "happy path" without error cases
+
 ## Go Module
 
 - Module path: `github.com/erraggy/oastools`

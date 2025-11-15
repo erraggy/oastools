@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -588,6 +589,261 @@ func TestValidateParsed(t *testing.T) {
 	valResult, err := v.ValidateParsed(*result)
 	require.NoError(t, err)
 	assert.True(t, valResult.Valid)
+}
+
+// ========================================
+// Tests for package-level convenience functions
+// ========================================
+
+// TestValidateConvenience tests the package-level Validate convenience function
+func TestValidateConvenience(t *testing.T) {
+	tests := []struct {
+		name            string
+		specPath        string
+		includeWarnings bool
+		strictMode      bool
+		expectError     bool
+		expectValid     bool
+		validateResult  func(*testing.T, *ValidationResult)
+	}{
+		{
+			name:            "validate valid OAS 3.0 with warnings",
+			specPath:        "../testdata/petstore-3.0.yaml",
+			includeWarnings: true,
+			strictMode:      false,
+			expectError:     false,
+			expectValid:     true,
+			validateResult: func(t *testing.T, result *ValidationResult) {
+				assert.True(t, result.Valid)
+				assert.Equal(t, "3.0.3", result.Version)
+				assert.Zero(t, result.ErrorCount)
+			},
+		},
+		{
+			name:            "validate valid OAS 2.0 without warnings",
+			specPath:        "../testdata/petstore-2.0.yaml",
+			includeWarnings: false,
+			strictMode:      false,
+			expectError:     false,
+			expectValid:     true,
+			validateResult: func(t *testing.T, result *ValidationResult) {
+				assert.True(t, result.Valid)
+				assert.Equal(t, "2.0", result.Version)
+				assert.Zero(t, result.WarningCount)
+				assert.Empty(t, result.Warnings)
+			},
+		},
+		{
+			name:            "validate with strict mode enabled",
+			specPath:        "../testdata/petstore-3.1.yaml",
+			includeWarnings: true,
+			strictMode:      true,
+			expectError:     false,
+			expectValid:     true,
+			validateResult: func(t *testing.T, result *ValidationResult) {
+				assert.True(t, result.Valid)
+				assert.Equal(t, "3.1.0", result.Version)
+			},
+		},
+		{
+			name:            "validate invalid OAS 2.0",
+			specPath:        "../testdata/invalid-oas2.yaml",
+			includeWarnings: true,
+			strictMode:      false,
+			expectError:     false,
+			expectValid:     false,
+			validateResult: func(t *testing.T, result *ValidationResult) {
+				assert.False(t, result.Valid)
+				assert.Greater(t, result.ErrorCount, 0)
+			},
+		},
+		{
+			name:            "validate invalid OAS 3.0",
+			specPath:        "../testdata/invalid-oas3.yaml",
+			includeWarnings: true,
+			strictMode:      false,
+			expectError:     false,
+			expectValid:     false,
+			validateResult: func(t *testing.T, result *ValidationResult) {
+				assert.False(t, result.Valid)
+				assert.Greater(t, result.ErrorCount, 0)
+			},
+		},
+		{
+			name:            "validate nonexistent file",
+			specPath:        "nonexistent-file.yaml",
+			includeWarnings: true,
+			strictMode:      false,
+			expectError:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := Validate(tt.specPath, tt.includeWarnings, tt.strictMode)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, result)
+				assert.Equal(t, tt.expectValid, result.Valid)
+				if tt.validateResult != nil {
+					tt.validateResult(t, result)
+				}
+			}
+		})
+	}
+}
+
+// TestValidateParsedConvenience tests the package-level ValidateParsed convenience function
+func TestValidateParsedConvenience(t *testing.T) {
+	tests := []struct {
+		name            string
+		setupParse      func(*testing.T) parser.ParseResult
+		includeWarnings bool
+		strictMode      bool
+		expectError     bool
+		expectValid     bool
+		validateResult  func(*testing.T, *ValidationResult)
+	}{
+		{
+			name: "validate parsed OAS 3.0 document",
+			setupParse: func(t *testing.T) parser.ParseResult {
+				result, err := parser.Parse("../testdata/petstore-3.0.yaml", false, true)
+				require.NoError(t, err)
+				return *result
+			},
+			includeWarnings: true,
+			strictMode:      false,
+			expectError:     false,
+			expectValid:     true,
+			validateResult: func(t *testing.T, result *ValidationResult) {
+				assert.True(t, result.Valid)
+				assert.Equal(t, "3.0.3", result.Version)
+				assert.Equal(t, parser.OASVersion303, result.OASVersion)
+			},
+		},
+		{
+			name: "validate parsed OAS 2.0 document without warnings",
+			setupParse: func(t *testing.T) parser.ParseResult {
+				result, err := parser.Parse("../testdata/petstore-2.0.yaml", false, true)
+				require.NoError(t, err)
+				return *result
+			},
+			includeWarnings: false,
+			strictMode:      false,
+			expectError:     false,
+			expectValid:     true,
+			validateResult: func(t *testing.T, result *ValidationResult) {
+				assert.True(t, result.Valid)
+				assert.Zero(t, result.WarningCount)
+				assert.Empty(t, result.Warnings)
+			},
+		},
+		{
+			name: "validate parsed OAS 3.1 with strict mode",
+			setupParse: func(t *testing.T) parser.ParseResult {
+				result, err := parser.Parse("../testdata/petstore-3.1.yaml", false, true)
+				require.NoError(t, err)
+				return *result
+			},
+			includeWarnings: true,
+			strictMode:      true,
+			expectError:     false,
+			expectValid:     true,
+			validateResult: func(t *testing.T, result *ValidationResult) {
+				assert.True(t, result.Valid)
+				assert.Equal(t, parser.OASVersion310, result.OASVersion)
+			},
+		},
+		{
+			name: "validate parsed document with validation errors from parser",
+			setupParse: func(t *testing.T) parser.ParseResult {
+				// Parse with validation enabled to get errors
+				result, err := parser.Parse("../testdata/invalid-oas3.yaml", false, true)
+				require.NoError(t, err)
+				return *result
+			},
+			includeWarnings: true,
+			strictMode:      false,
+			expectError:     false,
+			expectValid:     false,
+			validateResult: func(t *testing.T, result *ValidationResult) {
+				assert.False(t, result.Valid)
+				assert.Greater(t, result.ErrorCount, 0)
+			},
+		},
+		{
+			name: "validate parsed bytes document",
+			setupParse: func(t *testing.T) parser.ParseResult {
+				data := []byte(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+`)
+				result, err := parser.ParseBytes(data, false, true)
+				require.NoError(t, err)
+				return *result
+			},
+			includeWarnings: true,
+			strictMode:      false,
+			expectError:     false,
+			expectValid:     true,
+			validateResult: func(t *testing.T, result *ValidationResult) {
+				assert.True(t, result.Valid)
+				assert.Equal(t, "3.0.0", result.Version)
+			},
+		},
+		{
+			name: "validate parsed reader document",
+			setupParse: func(t *testing.T) parser.ParseResult {
+				file, err := os.Open("../testdata/petstore-3.2.yaml")
+				require.NoError(t, err)
+				defer func() {
+					if err := file.Close(); err != nil {
+						t.Logf("Failed to close file: %v", err)
+					}
+				}()
+
+				result, err := parser.ParseReader(file, false, true)
+				require.NoError(t, err)
+				return *result
+			},
+			includeWarnings: true,
+			strictMode:      false,
+			expectError:     false,
+			expectValid:     true,
+			validateResult: func(t *testing.T, result *ValidationResult) {
+				assert.True(t, result.Valid)
+				assert.Equal(t, "3.2.0", result.Version)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parseResult := tt.setupParse(t)
+			result, err := ValidateParsed(parseResult, tt.includeWarnings, tt.strictMode)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, result)
+				assert.Equal(t, tt.expectValid, result.Valid)
+				if tt.validateResult != nil {
+					tt.validateResult(t, result)
+				}
+			}
+		})
+	}
 }
 
 // Helper function to check if a string contains a substring
