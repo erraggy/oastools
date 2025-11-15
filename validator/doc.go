@@ -87,8 +87,9 @@
 //
 // # Basic Usage
 //
-//	v := validator.New()
-//	result, err := v.Validate("openapi.yaml")
+// For simple, one-off validation, use the convenience function:
+//
+//	result, err := validator.Validate("openapi.yaml", true, false)
 //	if err != nil {
 //		log.Fatalf("Validation failed: %v", err)
 //	}
@@ -100,15 +101,20 @@
 //		}
 //	}
 //
-// # Advanced Usage
-//
-// Enable strict mode for additional validation:
+// For validating multiple files with the same configuration, create a Validator instance:
 //
 //	v := validator.New()
 //	v.StrictMode = true
 //	v.IncludeWarnings = true
 //
-//	result, err := v.Validate("openapi.yaml")
+//	result1, err := v.Validate("api1.yaml")
+//	result2, err := v.Validate("api2.yaml")
+//
+// # Advanced Usage
+//
+// Enable strict mode with warnings:
+//
+//	result, err := validator.Validate("openapi.yaml", true, true)
 //	if err != nil {
 //		log.Fatalf("Validation failed: %v", err)
 //	}
@@ -128,10 +134,7 @@
 //
 // Suppress warnings for production:
 //
-//	v := validator.New()
-//	v.IncludeWarnings = false
-//
-//	result, err := v.Validate("openapi.yaml")
+//	result, err := validator.Validate("openapi.yaml", false, false)
 //	if err != nil {
 //		log.Fatalf("Validation failed: %v", err)
 //	}

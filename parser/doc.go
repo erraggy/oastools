@@ -45,21 +45,27 @@
 //
 // # Basic Usage
 //
-//	opts := &parser.Options{
-//		StrictValidation: true,
-//		ResolveRefs:      true,
-//	}
+// For simple, one-off parsing, use the convenience function:
 //
-//	result, err := parser.ParseFile("openapi.yaml", opts)
+//	result, err := parser.Parse("openapi.yaml", false, true)
 //	if err != nil {
 //		log.Fatalf("Parse failed: %v", err)
 //	}
 //
-//	if !result.Valid {
-//		for _, issue := range result.Issues {
-//			fmt.Printf("%s: %s\n", issue.Severity, issue.Message)
+//	if len(result.Errors) > 0 {
+//		for _, parseErr := range result.Errors {
+//			fmt.Printf("Error: %v\n", parseErr)
 //		}
 //	}
+//
+// For parsing multiple files with the same configuration, create a Parser instance:
+//
+//	p := parser.New()
+//	p.ResolveRefs = false
+//	p.ValidateStructure = true
+//
+//	result1, err := p.Parse("api1.yaml")
+//	result2, err := p.Parse("api2.yaml")
 //
 // # Performance Notes
 //

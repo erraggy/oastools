@@ -75,6 +75,12 @@ oastools join -o merged.yaml base.yaml extensions.yaml
 
 ### Library Usage
 
+The library provides two API styles for different use cases:
+
+#### Simple API (Convenience Functions)
+
+For quick, one-off operations, use the package-level convenience functions:
+
 ```go
 package main
 
@@ -89,16 +95,14 @@ import (
 
 func main() {
 	// Parse an OpenAPI specification
-	p := parser.New()
-	result, err := p.Parse("openapi.yaml")
+	result, err := parser.Parse("openapi.yaml", false, true)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Version: %s\n", result.Version)
 
 	// Validate an OpenAPI specification
-	v := validator.New()
-	vResult, err := v.Validate("openapi.yaml")
+	vResult, err := validator.Validate("openapi.yaml", true, false)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -107,17 +111,73 @@ func main() {
 	}
 
 	// Join multiple OpenAPI specifications
-	j := joiner.New(joiner.DefaultConfig())
-	jResult, err := j.Join([]string{"base.yaml", "extensions.yaml"})
+	config := joiner.DefaultConfig()
+	config.PathStrategy = joiner.StrategyAcceptLeft
+
+	jResult, err := joiner.Join([]string{"base.yaml", "extensions.yaml"}, config)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Write the result using a Joiner instance
+	j := joiner.New(config)
 	err = j.WriteResult(jResult, "merged.yaml")
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 ```
+
+#### Advanced API (Reusable Instances)
+
+For processing multiple files with the same configuration, create reusable instances:
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/erraggy/oastools/parser"
+	"github.com/erraggy/oastools/validator"
+	"github.com/erraggy/oastools/joiner"
+)
+
+func main() {
+	// Create a parser instance for reuse
+	p := parser.New()
+	p.ResolveRefs = false
+	p.ValidateStructure = true
+
+	result1, _ := p.Parse("api1.yaml")
+	result2, _ := p.Parse("api2.yaml")
+	result3, _ := p.Parse("api3.yaml")
+
+	fmt.Printf("Parsed %d files\n", 3)
+
+	// Create a validator instance for reuse
+	v := validator.New()
+	v.IncludeWarnings = true
+	v.StrictMode = false
+
+	vResult1, _ := v.Validate("api1.yaml")
+	vResult2, _ := v.Validate("api2.yaml")
+
+	// Create a joiner instance for reuse
+	config := joiner.DefaultConfig()
+	config.SchemaStrategy = joiner.StrategyAcceptLeft
+
+	j := joiner.New(config)
+	jResult1, _ := j.Join([]string{"api1-base.yaml", "api1-ext.yaml"})
+	jResult2, _ := j.Join([]string{"api2-base.yaml", "api2-ext.yaml"})
+
+	j.WriteResult(jResult1, "merged-api1.yaml")
+	j.WriteResult(jResult2, "merged-api2.yaml")
+}
+```
+
+For complete API documentation, see [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools).
 
 ### Example Usage
 

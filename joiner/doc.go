@@ -65,20 +65,30 @@
 //
 // # Basic Usage
 //
+// For simple, one-off joining, use the convenience function:
+//
+//	config := joiner.DefaultConfig()
+//	config.PathStrategy = joiner.StrategyAcceptLeft
+//	config.SchemaStrategy = joiner.StrategyAcceptLeft
+//
+//	result, err := joiner.Join([]string{"api-base.yaml", "api-extensions.yaml"}, config)
+//	if err != nil {
+//		log.Fatalf("Join failed: %v", err)
+//	}
+//
+// For joining multiple sets of files with the same configuration, create a Joiner instance:
+//
 //	config := joiner.DefaultConfig()
 //	config.PathStrategy = joiner.StrategyFailOnCollision
 //	config.SchemaStrategy = joiner.StrategyAcceptLeft
 //
 //	j := joiner.New(config)
-//	result, err := j.Join([]string{"api-base.yaml", "api-extensions.yaml"})
-//	if err != nil {
-//		log.Fatalf("Join failed: %v", err)
-//	}
+//	result1, err := j.Join([]string{"api1-base.yaml", "api1-ext.yaml"})
+//	result2, err := j.Join([]string{"api2-base.yaml", "api2-ext.yaml"})
 //
-//	err = j.WriteResult(result, "merged-api.yaml")
-//	if err != nil {
-//		log.Fatalf("Failed to write result: %v", err)
-//	}
+//	// Write results
+//	j.WriteResult(result1, "merged-api1.yaml")
+//	j.WriteResult(result2, "merged-api2.yaml")
 //
 // # Advanced Usage
 //
@@ -93,8 +103,7 @@
 //		MergeArrays:       true,
 //	}
 //
-//	j := joiner.New(config)
-//	result, err := j.Join([]string{"base.yaml", "ext1.yaml", "ext2.yaml"})
+//	result, err := joiner.Join([]string{"base.yaml", "ext1.yaml", "ext2.yaml"}, config)
 //	if err != nil {
 //		log.Fatalf("Join failed: %v", err)
 //	}

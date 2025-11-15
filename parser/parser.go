@@ -102,6 +102,59 @@ func (p *Parser) ParseBytes(data []byte) (*ParseResult, error) {
 	return res, nil
 }
 
+// Parse is a convenience function that parses an OpenAPI specification file
+// with the specified options. It's equivalent to creating a Parser with
+// New(), setting the options, and calling Parse().
+//
+// For one-off parsing operations, this function provides a simpler API.
+// For parsing multiple files with the same configuration, create a Parser
+// instance and reuse it.
+//
+// Example:
+//
+//	result, err := parser.Parse("openapi.yaml", false, true)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+func Parse(specPath string, resolveRefs, validateStructure bool) (*ParseResult, error) {
+	p := &Parser{
+		ResolveRefs:       resolveRefs,
+		ValidateStructure: validateStructure,
+	}
+	return p.Parse(specPath)
+}
+
+// ParseReader is a convenience function that parses an OpenAPI specification
+// from an io.Reader with the specified options.
+//
+// Example:
+//
+//	file, _ := os.Open("openapi.yaml")
+//	defer file.Close()
+//	result, err := parser.ParseReader(file, false, true)
+func ParseReader(r io.Reader, resolveRefs, validateStructure bool) (*ParseResult, error) {
+	p := &Parser{
+		ResolveRefs:       resolveRefs,
+		ValidateStructure: validateStructure,
+	}
+	return p.ParseReader(r)
+}
+
+// ParseBytes is a convenience function that parses an OpenAPI specification
+// from a byte slice with the specified options.
+//
+// Example:
+//
+//	data := []byte(`openapi: "3.0.0"...`)
+//	result, err := parser.ParseBytes(data, false, true)
+func ParseBytes(data []byte, resolveRefs, validateStructure bool) (*ParseResult, error) {
+	p := &Parser{
+		ResolveRefs:       resolveRefs,
+		ValidateStructure: validateStructure,
+	}
+	return p.ParseBytes(data)
+}
+
 // parseBytesWithBaseDir parses data with a specified base directory for ref resolution
 func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResult, error) {
 	result := &ParseResult{
