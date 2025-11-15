@@ -1473,3 +1473,303 @@ paths: {}
 		})
 	}
 }
+
+// ========================================
+// Tests for package-level convenience functions
+// ========================================
+
+// TestParseConvenience tests the package-level Parse convenience function
+func TestParseConvenience(t *testing.T) {
+	tests := []struct {
+		name              string
+		specPath          string
+		resolveRefs       bool
+		validateStructure bool
+		expectError       bool
+		validateResult    func(*testing.T, *ParseResult)
+	}{
+		{
+			name:              "parse OAS 3.0 with validation enabled",
+			specPath:          "../testdata/petstore-3.0.yaml",
+			resolveRefs:       false,
+			validateStructure: true,
+			expectError:       false,
+			validateResult: func(t *testing.T, result *ParseResult) {
+				assert.Equal(t, "3.0.3", result.Version)
+				assert.Equal(t, OASVersion303, result.OASVersion)
+				doc, ok := result.Document.(*OAS3Document)
+				assert.True(t, ok, "expected *OAS3Document")
+				assert.NotNil(t, doc.Info)
+				assert.Equal(t, "Petstore API", doc.Info.Title)
+				assert.Empty(t, result.Errors)
+			},
+		},
+		{
+			name:              "parse OAS 2.0 with validation disabled",
+			specPath:          "../testdata/petstore-2.0.yaml",
+			resolveRefs:       false,
+			validateStructure: false,
+			expectError:       false,
+			validateResult: func(t *testing.T, result *ParseResult) {
+				assert.Equal(t, "2.0", result.Version)
+				assert.Equal(t, OASVersion20, result.OASVersion)
+				doc, ok := result.Document.(*OAS2Document)
+				assert.True(t, ok, "expected *OAS2Document")
+				assert.NotNil(t, doc.Info)
+				assert.Empty(t, result.Errors)
+			},
+		},
+		{
+			name:              "parse with ref resolution enabled",
+			specPath:          "../testdata/petstore-3.0.yaml",
+			resolveRefs:       true,
+			validateStructure: true,
+			expectError:       false,
+			validateResult: func(t *testing.T, result *ParseResult) {
+				assert.Equal(t, "3.0.3", result.Version)
+				assert.NotNil(t, result.Document)
+			},
+		},
+		{
+			name:              "parse nonexistent file",
+			specPath:          "nonexistent-file.yaml",
+			resolveRefs:       false,
+			validateStructure: true,
+			expectError:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := Parse(tt.specPath, tt.resolveRefs, tt.validateStructure)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Nil(t, result)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, result)
+				if tt.validateResult != nil {
+					tt.validateResult(t, result)
+				}
+			}
+		})
+	}
+}
+
+// TestParseReaderConvenience tests the package-level ParseReader convenience function
+func TestParseReaderConvenience(t *testing.T) {
+	tests := []struct {
+		name              string
+		content           string
+		resolveRefs       bool
+		validateStructure bool
+		expectError       bool
+		validateResult    func(*testing.T, *ParseResult)
+	}{
+		{
+			name: "parse valid OAS 3.0 from reader",
+			content: `openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+`,
+			resolveRefs:       false,
+			validateStructure: true,
+			expectError:       false,
+			validateResult: func(t *testing.T, result *ParseResult) {
+				assert.Equal(t, "3.0.0", result.Version)
+				assert.Equal(t, "ParseReader.yaml", result.SourcePath)
+				doc, ok := result.Document.(*OAS3Document)
+				assert.True(t, ok)
+				assert.Equal(t, "Test API", doc.Info.Title)
+				assert.Empty(t, result.Errors)
+			},
+		},
+		{
+			name: "parse valid OAS 2.0 from reader",
+			content: `swagger: "2.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+`,
+			resolveRefs:       false,
+			validateStructure: true,
+			expectError:       false,
+			validateResult: func(t *testing.T, result *ParseResult) {
+				assert.Equal(t, "2.0", result.Version)
+				assert.Equal(t, "ParseReader.yaml", result.SourcePath)
+				doc, ok := result.Document.(*OAS2Document)
+				assert.True(t, ok)
+				assert.Equal(t, "Test API", doc.Info.Title)
+			},
+		},
+		{
+			name:              "parse invalid YAML from reader",
+			content:           `{{{invalid yaml content`,
+			resolveRefs:       false,
+			validateStructure: true,
+			expectError:       true,
+		},
+		{
+			name: "parse with validation disabled",
+			content: `openapi: "3.0.0"
+info:
+  title: Test
+  version: 1.0.0
+paths: {}
+`,
+			resolveRefs:       false,
+			validateStructure: false,
+			expectError:       false,
+			validateResult: func(t *testing.T, result *ParseResult) {
+				assert.Equal(t, "3.0.0", result.Version)
+				assert.Empty(t, result.Errors)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.content)
+			result, err := ParseReader(reader, tt.resolveRefs, tt.validateStructure)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, result)
+				if tt.validateResult != nil {
+					tt.validateResult(t, result)
+				}
+			}
+		})
+	}
+}
+
+// TestParseBytesConvenience tests the package-level ParseBytes convenience function
+func TestParseBytesConvenience(t *testing.T) {
+	tests := []struct {
+		name              string
+		data              []byte
+		resolveRefs       bool
+		validateStructure bool
+		expectError       bool
+		validateResult    func(*testing.T, *ParseResult)
+	}{
+		{
+			name: "parse valid OAS 3.1 from bytes",
+			data: []byte(`openapi: "3.1.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Success
+`),
+			resolveRefs:       false,
+			validateStructure: true,
+			expectError:       false,
+			validateResult: func(t *testing.T, result *ParseResult) {
+				assert.Equal(t, "3.1.0", result.Version)
+				assert.Equal(t, "ParseBytes.yaml", result.SourcePath)
+				doc, ok := result.Document.(*OAS3Document)
+				assert.True(t, ok)
+				assert.Equal(t, "Test API", doc.Info.Title)
+				assert.Empty(t, result.Errors)
+			},
+		},
+		{
+			name: "parse OAS 3.2 with validation disabled",
+			data: []byte(`openapi: "3.2.0"
+info:
+  title: Advanced API
+  version: 2.0.0
+paths: {}
+`),
+			resolveRefs:       false,
+			validateStructure: false,
+			expectError:       false,
+			validateResult: func(t *testing.T, result *ParseResult) {
+				assert.Equal(t, "3.2.0", result.Version)
+				assert.Equal(t, OASVersion320, result.OASVersion)
+				assert.Empty(t, result.Errors)
+			},
+		},
+		{
+			name: "parse with missing version",
+			data: []byte(`info:
+  title: No Version
+  version: 1.0.0
+paths: {}
+`),
+			resolveRefs:       false,
+			validateStructure: true,
+			expectError:       true,
+		},
+		{
+			name: "parse with validation enabled - should catch errors",
+			data: []byte(`swagger: "2.0"
+paths: {}
+`),
+			resolveRefs:       false,
+			validateStructure: true,
+			expectError:       false,
+			validateResult: func(t *testing.T, result *ParseResult) {
+				// Should have validation errors for missing required fields
+				assert.NotEmpty(t, result.Errors, "expected validation errors for missing info")
+			},
+		},
+		{
+			name: "parse JSON format",
+			data: []byte(`{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "JSON Test",
+    "version": "1.0.0"
+  },
+  "paths": {}
+}`),
+			resolveRefs:       false,
+			validateStructure: true,
+			expectError:       false,
+			validateResult: func(t *testing.T, result *ParseResult) {
+				assert.Equal(t, "3.0.0", result.Version)
+				doc, ok := result.Document.(*OAS3Document)
+				assert.True(t, ok)
+				assert.Equal(t, "JSON Test", doc.Info.Title)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseBytes(tt.data, tt.resolveRefs, tt.validateStructure)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, result)
+				if tt.validateResult != nil {
+					tt.validateResult(t, result)
+				}
+			}
+		})
+	}
+}

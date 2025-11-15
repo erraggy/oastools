@@ -108,6 +108,40 @@ type documentContext struct {
 	result   *parser.ParseResult
 }
 
+// Join is a convenience function that joins multiple OpenAPI specification files
+// with the specified configuration. It's equivalent to creating a Joiner with
+// New(), and calling Join().
+//
+// For one-off join operations, this function provides a simpler API.
+// For joining multiple sets of files with the same configuration, create a Joiner
+// instance and reuse it.
+//
+// Example:
+//
+//	config := joiner.DefaultConfig()
+//	config.PathStrategy = joiner.StrategyAcceptLeft
+//	result, err := joiner.Join([]string{"api1.yaml", "api2.yaml"}, config)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+func Join(specPaths []string, config JoinerConfig) (*JoinResult, error) {
+	j := New(config)
+	return j.Join(specPaths)
+}
+
+// JoinParsed is a convenience function that joins already-parsed OpenAPI
+// specifications with the specified configuration.
+//
+// Example:
+//
+//	doc1, _ := parser.Parse("api1.yaml", false, true)
+//	doc2, _ := parser.Parse("api2.yaml", false, true)
+//	result, err := joiner.JoinParsed([]parser.ParseResult{*doc1, *doc2}, joiner.DefaultConfig())
+func JoinParsed(parsedDocs []parser.ParseResult, config JoinerConfig) (*JoinResult, error) {
+	j := New(config)
+	return j.JoinParsed(parsedDocs)
+}
+
 func (j *Joiner) JoinParsed(parsedDocs []parser.ParseResult) (*JoinResult, error) {
 	if len(parsedDocs) < 2 {
 		return nil, fmt.Errorf("joiner: at least 2 specification documents are required for joining, got %d", len(parsedDocs))
@@ -167,13 +201,11 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 		return nil, fmt.Errorf("joiner: at least 2 specification files are required for joining, got %d", len(specPaths))
 	}
 
-	// Parse all documents
-	p := parser.New()
-	p.ValidateStructure = true
+	// Parse all documents using the parser convenience function
 	var parsedDocs []parser.ParseResult
 	n := len(specPaths)
 	for i, path := range specPaths {
-		result, err := p.Parse(path)
+		result, err := parser.Parse(path, false, true)
 		if err != nil {
 			return nil, fmt.Errorf("joiner: failed to parse %s (%d of %d): %w", path, i+1, n, err)
 		}

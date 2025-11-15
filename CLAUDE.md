@@ -139,6 +139,61 @@ When adding new public APIs:
 - Run tests with race detection enabled to catch concurrency issues
 - Aim for high test coverage, especially for validation, parsing, and joining logic
 
+### Test Coverage Requirements
+
+**CRITICAL: All exported functionality MUST have comprehensive test coverage.**
+
+When adding or modifying exported functionality, you MUST include test coverage for:
+
+1. **Exported Functions** - All package-level functions and methods
+   - Test all exported convenience functions (e.g., `parser.Parse()`, `validator.Validate()`, `joiner.Join()`)
+   - Test all struct methods (e.g., `Parser.Parse()`, `Validator.ValidateParsed()`, `Joiner.JoinParsed()`)
+   - Include both success and error cases
+   - Test with various input combinations and edge cases
+
+2. **Exported Types** - All public structs, interfaces, and type aliases
+   - Test struct initialization and default values
+   - Test all exported fields and their behavior
+   - Test type conversions and assertions
+
+3. **Exported Constants and Variables**
+   - Test that constants have expected values
+   - Test exported variables and their initialization
+
+**Test Coverage Guidelines:**
+
+- **Positive Cases**: Test that functionality works correctly with valid inputs
+- **Negative Cases**: Test error handling with invalid inputs, missing files, malformed data
+- **Edge Cases**: Test boundary conditions, empty inputs, nil values, large inputs
+- **Integration**: Test how components work together (e.g., parse then validate, parse then join)
+- **Documentation**: Use descriptive test names that clearly explain what is being tested
+
+**Example Test Naming Pattern:**
+```go
+// Package-level convenience functions
+func TestParseConvenience(t *testing.T) { ... }
+func TestValidateConvenience(t *testing.T) { ... }
+func TestJoinConvenience(t *testing.T) { ... }
+
+// Struct methods
+func TestParserParse(t *testing.T) { ... }
+func TestValidatorValidate(t *testing.T) { ... }
+func TestJoinerJoin(t *testing.T) { ... }
+```
+
+**Before Submitting Code:**
+
+1. Run `make test` to ensure all tests pass
+2. Run `make test-coverage` to review coverage report
+3. Verify that all new exported functionality has dedicated test cases
+4. Check that test names clearly describe what they test
+
+**Never submit a PR with:**
+- Untested exported functions
+- Untested exported methods
+- Untested exported types or their fields
+- Tests that only cover the "happy path" without error cases
+
 ## Go Module
 
 - Module path: `github.com/erraggy/oastools`
@@ -157,9 +212,41 @@ Each package includes:
 - `example_test.go` - Runnable examples for godoc
 - Full godoc comments on all exported types and functions
 
+### API Design Philosophy
+
+The oastools library provides **two complementary API styles**:
+
+1. **Package-level convenience functions** - For simple, one-off operations
+2. **Struct-based API** - For reusable instances with configuration
+
+**When to use convenience functions:**
+- Simple scripts or one-time operations
+- Prototyping and quick testing
+- Code examples and documentation
+- Default configuration is sufficient
+
+**When to use struct-based API:**
+- Processing multiple files with the same configuration
+- Need to reuse the same parser/validator/joiner instance
+- Advanced configuration requirements
+- Performance-critical scenarios where instance reuse matters
+
 ### Key API Features
 
 **Parser Package:**
+
+Package-level convenience functions:
+- `parser.Parse(specPath, resolveRefs, validateStructure)` - Parse a file with options
+- `parser.ParseReader(r, resolveRefs, validateStructure)` - Parse from io.Reader
+- `parser.ParseBytes(data, resolveRefs, validateStructure)` - Parse from bytes
+
+Struct-based API:
+- `parser.New()` - Create a Parser instance with default settings
+- `Parser.Parse(specPath)` - Parse a file using instance configuration
+- `Parser.ParseReader(r)` - Parse from io.Reader using instance configuration
+- `Parser.ParseBytes(data)` - Parse from bytes using instance configuration
+
+Notes:
 - `parser.ParseResult` includes a `SourcePath` field that tracks the document's source:
   - For `Parse(path)`: contains the actual file path
   - For `ParseReader(r)`: set to `"ParseReader.yaml"`
@@ -167,14 +254,92 @@ Each package includes:
 - ParseResult is treated as immutable after creation
 
 **Validator Package:**
-- `Validator.Validate(specPath)`: Parse and validate an OpenAPI specification file
-- `Validator.ValidateParsed(parseResult)`: Validate an already-parsed ParseResult
+
+Package-level convenience functions:
+- `validator.Validate(specPath, includeWarnings, strictMode)` - Validate a file with options
+- `validator.ValidateParsed(parseResult, includeWarnings, strictMode)` - Validate an already-parsed result
+
+Struct-based API:
+- `validator.New()` - Create a Validator instance with default settings
+- `Validator.Validate(specPath)` - Parse and validate a file
+- `Validator.ValidateParsed(parseResult)` - Validate an already-parsed ParseResult
   - Useful when you need to parse once and validate multiple times
   - Enables efficient workflows when combining parser with validator
 
 **Joiner Package:**
-- `Joiner.Join(specPaths)`: Parse and join multiple OpenAPI specification files
-- `Joiner.JoinParsed(parsedDocs)`: Join already-parsed ParseResult documents
+
+Package-level convenience functions:
+- `joiner.Join(specPaths, config)` - Join files with configuration
+- `joiner.JoinParsed(parsedDocs, config)` - Join already-parsed documents
+
+Struct-based API:
+- `joiner.New(config)` - Create a Joiner instance with configuration
+- `Joiner.Join(specPaths)` - Parse and join multiple files
+- `Joiner.JoinParsed(parsedDocs)` - Join already-parsed ParseResult documents
   - Efficient when documents are already parsed
   - Enables advanced workflows where parsing and joining are separated
   - All input documents must be pre-validated (Errors slice must be empty)
+- `Joiner.WriteResult(result, outputPath)` - Write joined result to file
+
+### Usage Examples
+
+**Quick parsing with convenience function:**
+```go
+result, err := parser.Parse("openapi.yaml", false, true)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**Reusable parser instance:**
+```go
+p := parser.New()
+p.ResolveRefs = false
+p.ValidateStructure = true
+
+result1, _ := p.Parse("api1.yaml")
+result2, _ := p.Parse("api2.yaml")
+result3, _ := p.Parse("api3.yaml")
+```
+
+**Quick validation with convenience function:**
+```go
+result, err := validator.Validate("openapi.yaml", true, false)
+if err != nil {
+    log.Fatal(err)
+}
+if !result.Valid {
+    // Handle errors
+}
+```
+
+**Reusable validator instance:**
+```go
+v := validator.New()
+v.IncludeWarnings = true
+v.StrictMode = false
+
+result1, _ := v.Validate("api1.yaml")
+result2, _ := v.Validate("api2.yaml")
+```
+
+**Quick join with convenience function:**
+```go
+config := joiner.DefaultConfig()
+config.PathStrategy = joiner.StrategyAcceptLeft
+
+result, err := joiner.Join([]string{"base.yaml", "ext.yaml"}, config)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**Reusable joiner instance:**
+```go
+config := joiner.DefaultConfig()
+config.SchemaStrategy = joiner.StrategyAcceptLeft
+
+j := joiner.New(config)
+result1, _ := j.Join([]string{"api1-base.yaml", "api1-ext.yaml"})
+result2, _ := j.Join([]string{"api2-base.yaml", "api2-ext.yaml"})
+```
