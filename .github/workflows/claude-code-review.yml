@@ -47,7 +47,25 @@ jobs:
             - Security concerns
             - Test coverage
 
-            Use the repository's CLAUDE.md for guidance on style and conventions. Be constructive and helpful in your feedback.
+            Use the repository's CLAUDE.md for guidance on style and conventions. 
+            
+            Use the gopls-mcp server to to leverage:
+            1. Workspace Analysis - go_workspace gives me the module structure and layout
+            2. Real-time Diagnostics - go_diagnostics shows build errors and issues
+            3. Package API Discovery - go_package_api provides comprehensive type information
+            4. File Context - go_file_context shows intra-package dependencies
+            5. Symbol Search - go_search helps locate types, functions, and variables
+            6. Reference Tracking - go_symbol_references shows where symbols are used
+            
+            Proactively use gopls-mcp when:
+            - Analyzing Go code changes or PRs
+            - Investigating bugs or issues
+            - Planning refactoring work
+            - Understanding codebases
+            - Validating that changes don't break builds
+            - Exploring package dependencies
+            
+            Be constructive and helpful in your feedback.
 
             Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
 
