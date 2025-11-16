@@ -72,6 +72,9 @@ func (c *Converter) convertOAS2ToOAS3(parseResult parser.ParseResult, targetVers
 		dst.Security = src.Security
 	}
 
+	// Rewrite all $ref paths from OAS 2.0 to OAS 3.x format
+	c.rewriteAllRefsOAS2ToOAS3(dst)
+
 	result.Document = dst
 	return nil
 }
