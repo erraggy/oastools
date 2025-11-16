@@ -1,79 +1,39 @@
-// Package parser provides OpenAPI Specification (OAS) parsing functionality.
+// Package parser provides parsing for OpenAPI Specification documents.
 //
-// This package supports parsing and validating OpenAPI specifications across
-// multiple versions, from OAS 2.0 (Swagger) through OAS 3.2.0. It handles
-// YAML and JSON formats, resolves external references, and performs structural
-// validation.
+// The parser supports OAS 2.0 through OAS 3.2.0 in YAML and JSON formats. It can
+// resolve external references ($ref), validate structure, and preserve unknown
+// fields for forward compatibility and extension properties.
 //
-// # Supported Versions
+// # Quick Start
 //
-// The parser supports all official OpenAPI Specification releases:
-//   - OAS 2.0 (Swagger): https://spec.openapis.org/oas/v2.0.html
-//   - OAS 3.0.x (3.0.0 through 3.0.4): https://spec.openapis.org/oas/v3.0.0.html
-//   - OAS 3.1.x (3.1.0 through 3.1.2): https://spec.openapis.org/oas/v3.1.0.html
-//   - OAS 3.2.0: https://spec.openapis.org/oas/v3.2.0.html
-//
-// All schema definitions use JSON Schema Specification Draft 2020-12:
-// https://www.ietf.org/archive/id/draft-bhutton-json-schema-01.html
-//
-// Release candidate versions (e.g., 3.0.0-rc0) are detected but not officially supported.
-//
-// # Features
-//
-//   - Multi-format parsing (YAML, JSON)
-//   - External reference resolution ($ref)
-//   - Path traversal protection for file references
-//   - Operation ID uniqueness validation
-//   - Status code format validation
-//   - Memory-efficient caching with limits
-//
-// # Security Considerations
-//
-// The parser implements several security protections:
-//
-//   - Path traversal prevention: External file references are restricted to the
-//     base directory and its subdirectories using filepath.Rel validation
-//
-//   - Cache limits: A maximum of MaxCachedDocuments (default: 1000) external
-//     documents can be loaded to prevent memory exhaustion
-//
-//   - HTTP(S) references: Remote URL references are not currently supported,
-//     limiting attack surface to local filesystem only
-//
-//   - Input validation: All numeric status codes, operation IDs, and reference
-//     formats are validated before processing
-//
-// # Basic Usage
-//
-// For simple, one-off parsing, use the convenience function:
+// Parse a file:
 //
 //	result, err := parser.Parse("openapi.yaml", false, true)
 //	if err != nil {
-//		log.Fatalf("Parse failed: %v", err)
+//		log.Fatal(err)
 //	}
-//
 //	if len(result.Errors) > 0 {
-//		for _, parseErr := range result.Errors {
-//			fmt.Printf("Error: %v\n", parseErr)
-//		}
+//		fmt.Printf("Parse errors: %d\n", len(result.Errors))
 //	}
 //
-// For parsing multiple files with the same configuration, create a Parser instance:
+// Or create a reusable Parser instance:
 //
 //	p := parser.New()
 //	p.ResolveRefs = false
-//	p.ValidateStructure = true
+//	result1, _ := p.Parse("api1.yaml")
+//	result2, _ := p.Parse("api2.yaml")
 //
-//	result1, err := p.Parse("api1.yaml")
-//	result2, err := p.Parse("api2.yaml")
+// # Features and Security
 //
-// # Performance Notes
+// The parser validates operation IDs, status codes, and HTTP status codes. For
+// external references, it prevents path traversal attacks by restricting file
+// access to the base directory and subdirectories. Reference resolution caches
+// up to 1000 documents to prevent memory exhaustion. See the examples in
+// example_test.go for more details.
 //
-// When ResolveRefs is enabled, the parser performs additional marshaling/unmarshaling
-// to resolve external references, which may impact performance on large documents.
-// For read-only validation without reference resolution, set ResolveRefs to false.
+// # ParseResult Fields
 //
-// The parser maintains internal maps (Extra fields) on all structs to preserve
-// unknown fields during parsing, allowing for extension properties and forward
-// compatibility. This trades some memory for flexibility.
+// ParseResult includes the detected Version, OASVersion, and any parsing Errors
+// or Warnings. The Document field contains the parsed OAS2Document or OAS3Document.
+// See the exported ParseResult and document type fields for complete details.
 package parser

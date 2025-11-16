@@ -280,6 +280,19 @@ make clean
   - Best-effort conversion with transparent issue tracking
   - Package documentation in `doc.go` and examples in `example_test.go`
 
+- **internal/** - Internal packages with shared utilities (not part of public API)
+  - **internal/httputil/** - HTTP-related validation constants and utilities
+    - HTTP status code validation and RFC 9110 standards
+    - HTTP method constants and media type validation
+  - **internal/severity/** - Severity level type for issue reporting
+    - Unified severity levels across validator and converter
+    - SeverityError, SeverityWarning, SeverityInfo, SeverityCritical
+  - **internal/issues/** - Unified issue type for validation and conversion errors
+    - Consolidated Issue struct with all necessary fields
+    - Supports both validation (SpecRef) and conversion (Context) use cases
+  - **internal/testutil/** - Test fixtures and helpers for unit tests
+  - *Future:* **internal/copyutil/** - Generic deep copy utilities
+
 - **testdata/** - Test fixtures including sample OpenAPI specification files
 
 - **doc.go** - Root package documentation for the oastools library
@@ -290,6 +303,33 @@ make clean
 - **Separation of concerns**: Each package has a single, well-defined responsibility
 - **CLI structure**: Simple command dispatcher in main.go that delegates to library packages
 - **Comprehensive documentation**: Each package includes doc.go for package-level documentation and example_test.go for godoc examples
+
+### Constant Usage
+
+**IMPORTANT: Use package-level constants instead of string literals to maintain consistency and enable single-point-of-change updates.**
+
+When constants exist for frequently-used values, always use them instead of embedding string literals throughout the code:
+
+**HTTP Methods:**
+- Use `internal/httputil` constants for HTTP methods: `httputil.MethodGet`, `httputil.MethodPost`, etc.
+- These are defined in lowercase (`"get"`, `"post"`, etc.) to match OpenAPI specification usage
+- Example: `parser.GetOAS2Operations()` uses `httputil.MethodGet` instead of `"get"`
+
+**HTTP Status Codes:**
+- Use validation functions `httputil.ValidateStatusCode()` for code validation
+- Use `httputil.StandardHTTPStatusCodes` map for checking RFC 9110 standard codes
+
+**Severity Levels:**
+- Use `severity.SeverityError`, `severity.SeverityWarning`, etc. from `internal/severity` package
+- Don't hardcode severity values in individual packages
+
+**Benefits of this approach:**
+1. **Single source of truth**: Changes to a value only need to be made in one place
+2. **Type safety**: Reduces risk of typos in string literals
+3. **Maintainability**: Clear intent and easier to find all usages
+4. **Consistency**: Ensures the same value is used everywhere
+
+When adding new utilities or extracting duplicated code, always expose the constant values through package-level exports rather than hiding them inside functions.
 
 ### Extension Points
 

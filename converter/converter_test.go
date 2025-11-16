@@ -2,21 +2,18 @@ package converter
 
 import (
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
-	"gopkg.in/yaml.v3"
 )
 
 // TestConvertConvenience tests the package-level Convert convenience function
 func TestConvertConvenience(t *testing.T) {
 	// Create a simple OAS 2.0 document
-	oas2Doc := createSimpleOAS2Document()
-	tmpFile := writeTemporaryYAML(t, oas2Doc)
-	defer func() { _ = os.Remove(tmpFile) }()
+	oas2Doc := testutil.NewSimpleOAS2Document()
+	tmpFile := testutil.WriteTempYAML(t, oas2Doc)
 
 	// Test conversion using convenience function
 	result, err := Convert(tmpFile, "3.0.3")
@@ -49,7 +46,7 @@ func TestConvertConvenience(t *testing.T) {
 
 // TestConvertParsedConvenience tests the ConvertParsed convenience function
 func TestConvertParsedConvenience(t *testing.T) {
-	oas2Doc := createSimpleOAS2Document()
+	oas2Doc := testutil.NewSimpleOAS2Document()
 	parseResult := parser.ParseResult{
 		Document:   oas2Doc,
 		Version:    "2.0",
@@ -94,9 +91,8 @@ func TestConverterNew(t *testing.T) {
 // TestConverterConvert tests the Converter.Convert method
 func TestConverterConvert(t *testing.T) {
 	c := New()
-	oas2Doc := createSimpleOAS2Document()
-	tmpFile := writeTemporaryYAML(t, oas2Doc)
-	defer func() { _ = os.Remove(tmpFile) }()
+	oas2Doc := testutil.NewSimpleOAS2Document()
+	tmpFile := testutil.WriteTempYAML(t, oas2Doc)
 
 	result, err := c.Convert(tmpFile, "3.0.3")
 	if err != nil {
@@ -115,7 +111,7 @@ func TestConverterConvert(t *testing.T) {
 // TestConverterConvertParsed tests the Converter.ConvertParsed method
 func TestConverterConvertParsed(t *testing.T) {
 	c := New()
-	oas2Doc := createSimpleOAS2Document()
+	oas2Doc := testutil.NewSimpleOAS2Document()
 	parseResult := parser.ParseResult{
 		Document:   oas2Doc,
 		Version:    "2.0",
@@ -139,7 +135,7 @@ func TestConverterConvertParsed(t *testing.T) {
 // TestOAS2ToOAS3Conversion tests OAS 2.0 to OAS 3.x conversion
 func TestOAS2ToOAS3Conversion(t *testing.T) {
 	c := New()
-	oas2Doc := createDetailedOAS2Document()
+	oas2Doc := testutil.NewDetailedOAS2Document()
 	parseResult := parser.ParseResult{
 		Document:   oas2Doc,
 		Version:    "2.0",
@@ -177,7 +173,7 @@ func TestOAS2ToOAS3Conversion(t *testing.T) {
 // TestOAS3ToOAS2Conversion tests OAS 3.x to OAS 2.0 conversion
 func TestOAS3ToOAS2Conversion(t *testing.T) {
 	c := New()
-	oas3Doc := createDetailedOAS3Document()
+	oas3Doc := testutil.NewDetailedOAS3Document()
 
 	// get server URL and host to verify path parameters are handled
 	serverURL := oas3Doc.Servers[0].URL
@@ -221,7 +217,7 @@ func TestOAS3ToOAS2Conversion(t *testing.T) {
 // TestOAS3ToOAS3Conversion tests OAS 3.x to OAS 3.y version update
 func TestOAS3ToOAS3Conversion(t *testing.T) {
 	c := New()
-	oas3Doc := createDetailedOAS3Document()
+	oas3Doc := testutil.NewDetailedOAS3Document()
 	oas3Doc.OpenAPI = "3.0.3"
 	oas3Doc.OASVersion = parser.OASVersion303
 
@@ -264,7 +260,7 @@ func TestOAS3ToOAS3Conversion(t *testing.T) {
 // TestSameVersionConversion tests conversion when source and target are the same
 func TestSameVersionConversion(t *testing.T) {
 	c := New()
-	oas2Doc := createSimpleOAS2Document()
+	oas2Doc := testutil.NewSimpleOAS2Document()
 	parseResult := parser.ParseResult{
 		Document:   oas2Doc,
 		Version:    "2.0",
@@ -299,7 +295,7 @@ func TestSameVersionConversion(t *testing.T) {
 // TestInvalidTargetVersion tests error handling for invalid target version
 func TestInvalidTargetVersion(t *testing.T) {
 	c := New()
-	oas2Doc := createSimpleOAS2Document()
+	oas2Doc := testutil.NewSimpleOAS2Document()
 	parseResult := parser.ParseResult{
 		Document:   oas2Doc,
 		Version:    "2.0",
@@ -320,7 +316,7 @@ func TestStrictMode(t *testing.T) {
 	c.StrictMode = true
 
 	// Create an OAS 3.x document with webhooks that will cause critical issues when converting to 2.0
-	oas3Doc := createDetailedOAS3Document()
+	oas3Doc := testutil.NewDetailedOAS3Document()
 	oas3Doc.Webhooks = map[string]*parser.PathItem{
 		"newPet": {},
 	}
@@ -345,7 +341,7 @@ func TestIncludeInfo(t *testing.T) {
 	c := New()
 	c.IncludeInfo = false
 
-	oas2Doc := createSimpleOAS2Document()
+	oas2Doc := testutil.NewSimpleOAS2Document()
 	parseResult := parser.ParseResult{
 		Document:   oas2Doc,
 		Version:    "2.0",
@@ -458,95 +454,4 @@ func TestConversionIssueString(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Helper functions
-
-func createSimpleOAS2Document() *parser.OAS2Document {
-	return &parser.OAS2Document{
-		Swagger:    "2.0",
-		OASVersion: parser.OASVersion20,
-		Info: &parser.Info{
-			Title:   "Test API",
-			Version: "1.0.0",
-		},
-		Host:     "api.example.com",
-		BasePath: "/v1",
-		Schemes:  []string{"https"},
-		Paths:    make(map[string]*parser.PathItem),
-	}
-}
-
-func createDetailedOAS2Document() *parser.OAS2Document {
-	doc := createSimpleOAS2Document()
-	doc.Definitions = map[string]*parser.Schema{
-		"Pet": {
-			Type: "object",
-			Properties: map[string]*parser.Schema{
-				"id":   {Type: "integer"},
-				"name": {Type: "string"},
-			},
-		},
-	}
-	doc.Paths = map[string]*parser.PathItem{
-		"/pets": {
-			Get: &parser.Operation{
-				Summary:     "List pets",
-				OperationID: "listPets",
-			},
-		},
-	}
-	return doc
-}
-
-func createDetailedOAS3Document() *parser.OAS3Document {
-	return &parser.OAS3Document{
-		OpenAPI:    "3.0.3",
-		OASVersion: parser.OASVersion303,
-		Info: &parser.Info{
-			Title:   "Test API",
-			Version: "1.0.0",
-		},
-		Servers: []*parser.Server{
-			{
-				URL:         "https://api.example.com/v1",
-				Description: "Production server",
-			},
-		},
-		Paths: map[string]*parser.PathItem{
-			"/pets": {
-				Get: &parser.Operation{
-					Summary:     "List pets",
-					OperationID: "listPets",
-				},
-			},
-		},
-		Components: &parser.Components{
-			Schemas: map[string]*parser.Schema{
-				"Pet": {
-					Type: "object",
-					Properties: map[string]*parser.Schema{
-						"id":   {Type: "integer"},
-						"name": {Type: "string"},
-					},
-				},
-			},
-		},
-	}
-}
-
-func writeTemporaryYAML(t *testing.T, doc interface{}) string {
-	t.Helper()
-
-	data, err := yaml.Marshal(doc)
-	if err != nil {
-		t.Fatalf("Failed to marshal document: %v", err)
-	}
-
-	tmpFile := filepath.Join(t.TempDir(), "test.yaml")
-	if err := os.WriteFile(tmpFile, data, 0600); err != nil {
-		t.Fatalf("Failed to write temporary file: %v", err)
-	}
-
-	return tmpFile
 }

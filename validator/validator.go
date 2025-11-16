@@ -5,20 +5,22 @@ import (
 	"mime"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/httputil"
+	"github.com/erraggy/oastools/internal/issues"
+	"github.com/erraggy/oastools/internal/severity"
 	"github.com/erraggy/oastools/parser"
 )
 
 // Severity indicates the severity level of a validation issue
-type Severity int
+type Severity = severity.Severity
 
 const (
 	// SeverityError indicates a spec violation that makes the document invalid
-	SeverityError Severity = iota
+	SeverityError = severity.SeverityError
 	// SeverityWarning indicates a best practice violation or recommendation
-	SeverityWarning
+	SeverityWarning = severity.SeverityWarning
 )
 
 const (
@@ -27,55 +29,12 @@ const (
 	// defaultWarningCapacity is the initial capacity for warning slices
 	defaultWarningCapacity = 10
 
-	// HTTP status code validation constants
-	httpStatusCodeLength = 3
-	minHTTPStatusCode    = 100
-	maxHTTPStatusCode    = 599
-
 	// Resource exhaustion protection
 	maxSchemaNestingDepth = 100 // Maximum depth for nested schemas to prevent stack overflow
 )
 
-func (s Severity) String() string {
-	switch s {
-	case SeverityError:
-		return "error"
-	case SeverityWarning:
-		return "warning"
-	default:
-		return "unknown"
-	}
-}
-
 // ValidationError represents a single validation issue
-type ValidationError struct {
-	// Path is the JSON path to the problematic field (e.g., "paths./pets.get.responses")
-	Path string
-	// Message is a human-readable error message
-	Message string
-	// SpecRef is the URL to the relevant section of the OAS specification
-	SpecRef string
-	// Severity indicates whether this is an error or warning
-	Severity Severity
-	// Field is the specific field name that has the issue
-	Field string
-	// Value is the problematic value (optional)
-	Value interface{}
-}
-
-// String returns a formatted string representation of the validation error
-func (e ValidationError) String() string {
-	severity := "✗"
-	if e.Severity == SeverityWarning {
-		severity = "⚠"
-	}
-
-	result := fmt.Sprintf("%s %s: %s", severity, e.Path, e.Message)
-	if e.SpecRef != "" {
-		result += fmt.Sprintf("\n    Spec: %s", e.SpecRef)
-	}
-	return result
-}
+type ValidationError = issues.Issue
 
 // ValidationResult contains the results of validating an OpenAPI specification
 type ValidationResult struct {
@@ -333,15 +292,7 @@ func (v *Validator) validateOAS2OperationIds(doc *parser.OAS2Document, result *V
 			continue
 		}
 
-		operations := map[string]*parser.Operation{
-			"get":     pathItem.Get,
-			"put":     pathItem.Put,
-			"post":    pathItem.Post,
-			"delete":  pathItem.Delete,
-			"options": pathItem.Options,
-			"head":    pathItem.Head,
-			"patch":   pathItem.Patch,
-		}
+		operations := parser.GetOAS2Operations(pathItem)
 
 		v.checkDuplicateOperationIds(operations, "paths", pathPattern, operationIds, result, baseURL)
 	}
@@ -379,15 +330,7 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
 
 		// Validate each operation
-		operations := map[string]*parser.Operation{
-			"get":     pathItem.Get,
-			"put":     pathItem.Put,
-			"post":    pathItem.Post,
-			"delete":  pathItem.Delete,
-			"options": pathItem.Options,
-			"head":    pathItem.Head,
-			"patch":   pathItem.Patch,
-		}
+		operations := parser.GetOAS2Operations(pathItem)
 
 		for method, op := range operations {
 			if op == nil {
@@ -418,7 +361,7 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 		hasSuccess := false
 		for code := range op.Responses.Codes {
 			// Validate HTTP status code format
-			if !validateHTTPStatusCode(code) {
+			if !httputil.ValidateStatusCode(code) {
 				result.Errors = append(result.Errors, ValidationError{
 					Path:     fmt.Sprintf("%s.responses.%s", path, code),
 					Message:  fmt.Sprintf("Invalid HTTP status code: %s", code),
@@ -426,7 +369,7 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 					Severity: SeverityError,
 					Value:    code,
 				})
-			} else if v.StrictMode && !isStandardHTTPStatusCode(code) {
+			} else if v.StrictMode && !httputil.IsStandardStatusCode(code) {
 				// In strict mode, warn about non-standard status codes
 				result.Warnings = append(result.Warnings, ValidationError{
 					Path:     fmt.Sprintf("%s.responses.%s", path, code),
@@ -659,15 +602,7 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 		pathParams := extractPathParameters(pathPattern)
 
 		// Check all operations in this path
-		operations := map[string]*parser.Operation{
-			"get":     pathItem.Get,
-			"put":     pathItem.Put,
-			"post":    pathItem.Post,
-			"delete":  pathItem.Delete,
-			"options": pathItem.Options,
-			"head":    pathItem.Head,
-			"patch":   pathItem.Patch,
-		}
+		operations := parser.GetOAS2Operations(pathItem)
 
 		for method, op := range operations {
 			if op == nil {
@@ -868,16 +803,7 @@ func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *V
 				continue
 			}
 
-			operations := map[string]*parser.Operation{
-				"get":     pathItem.Get,
-				"put":     pathItem.Put,
-				"post":    pathItem.Post,
-				"delete":  pathItem.Delete,
-				"options": pathItem.Options,
-				"head":    pathItem.Head,
-				"patch":   pathItem.Patch,
-				"trace":   pathItem.Trace,
-			}
+			operations := parser.GetOAS3Operations(pathItem)
 
 			v.checkDuplicateOperationIds(operations, "paths", pathPattern, operationIds, result, baseURL)
 		}
@@ -889,16 +815,7 @@ func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *V
 			continue
 		}
 
-		operations := map[string]*parser.Operation{
-			"get":     pathItem.Get,
-			"put":     pathItem.Put,
-			"post":    pathItem.Post,
-			"delete":  pathItem.Delete,
-			"options": pathItem.Options,
-			"head":    pathItem.Head,
-			"patch":   pathItem.Patch,
-			"trace":   pathItem.Trace,
-		}
+		operations := parser.GetOAS3Operations(pathItem)
 
 		v.checkDuplicateOperationIds(operations, "webhooks", webhookName, operationIds, result, baseURL)
 	}
@@ -993,16 +910,7 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
 
 		// Validate each operation
-		operations := map[string]*parser.Operation{
-			"get":     pathItem.Get,
-			"put":     pathItem.Put,
-			"post":    pathItem.Post,
-			"delete":  pathItem.Delete,
-			"options": pathItem.Options,
-			"head":    pathItem.Head,
-			"patch":   pathItem.Patch,
-			"trace":   pathItem.Trace,
-		}
+		operations := parser.GetOAS3Operations(pathItem)
 
 		for method, op := range operations {
 			if op == nil {
@@ -1038,7 +946,7 @@ func (v *Validator) validateOAS3Operation(op *parser.Operation, path string, res
 		hasSuccess := false
 		for code := range op.Responses.Codes {
 			// Validate HTTP status code format
-			if !validateHTTPStatusCode(code) {
+			if !httputil.ValidateStatusCode(code) {
 				result.Errors = append(result.Errors, ValidationError{
 					Path:     fmt.Sprintf("%s.responses.%s", path, code),
 					Message:  fmt.Sprintf("Invalid HTTP status code: %s", code),
@@ -1046,7 +954,7 @@ func (v *Validator) validateOAS3Operation(op *parser.Operation, path string, res
 					Severity: SeverityError,
 					Value:    code,
 				})
-			} else if v.StrictMode && !isStandardHTTPStatusCode(code) {
+			} else if v.StrictMode && !httputil.IsStandardStatusCode(code) {
 				// In strict mode, warn about non-standard status codes
 				result.Warnings = append(result.Warnings, ValidationError{
 					Path:     fmt.Sprintf("%s.responses.%s", path, code),
@@ -1406,16 +1314,7 @@ func (v *Validator) validateOAS3Webhooks(doc *parser.OAS3Document, result *Valid
 		pathPrefix := fmt.Sprintf("webhooks.%s", webhookName)
 
 		// Validate each operation in the webhook
-		operations := map[string]*parser.Operation{
-			"get":     pathItem.Get,
-			"put":     pathItem.Put,
-			"post":    pathItem.Post,
-			"delete":  pathItem.Delete,
-			"options": pathItem.Options,
-			"head":    pathItem.Head,
-			"patch":   pathItem.Patch,
-			"trace":   pathItem.Trace,
-		}
+		operations := parser.GetOAS3Operations(pathItem)
 
 		for method, op := range operations {
 			if op == nil {
@@ -1443,16 +1342,7 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 		pathParams := extractPathParameters(pathPattern)
 
 		// Check all operations in this path
-		operations := map[string]*parser.Operation{
-			"get":     pathItem.Get,
-			"put":     pathItem.Put,
-			"post":    pathItem.Post,
-			"delete":  pathItem.Delete,
-			"options": pathItem.Options,
-			"head":    pathItem.Head,
-			"patch":   pathItem.Patch,
-			"trace":   pathItem.Trace,
-		}
+		operations := parser.GetOAS3Operations(pathItem)
 
 		for method, op := range operations {
 			if op == nil {
@@ -1559,16 +1449,7 @@ func (v *Validator) validateOAS3SecurityRequirements(doc *parser.OAS3Document, r
 				continue
 			}
 
-			operations := map[string]*parser.Operation{
-				"get":     pathItem.Get,
-				"put":     pathItem.Put,
-				"post":    pathItem.Post,
-				"delete":  pathItem.Delete,
-				"options": pathItem.Options,
-				"head":    pathItem.Head,
-				"patch":   pathItem.Patch,
-				"trace":   pathItem.Trace,
-			}
+			operations := parser.GetOAS3Operations(pathItem)
 
 			for method, op := range operations {
 				if op == nil {
@@ -2046,66 +1927,4 @@ func validateSPDXLicense(identifier string) bool {
 	// Basic validation - should not contain spaces and follow SPDX format
 	// For a complete implementation, you'd need the full SPDX license list
 	return !strings.Contains(identifier, " ")
-}
-
-// Common HTTP status codes that are well-defined in RFC 9110 and other RFCs
-var standardHTTPStatusCodes = map[int]bool{
-	// 1xx Informational
-	100: true, 101: true, 102: true, 103: true,
-	// 2xx Success
-	200: true, 201: true, 202: true, 203: true, 204: true, 205: true, 206: true, 207: true, 208: true, 226: true,
-	// 3xx Redirection
-	300: true, 301: true, 302: true, 303: true, 304: true, 305: true, 307: true, 308: true,
-	// 4xx Client Error
-	400: true, 401: true, 402: true, 403: true, 404: true, 405: true, 406: true, 407: true, 408: true, 409: true,
-	410: true, 411: true, 412: true, 413: true, 414: true, 415: true, 416: true, 417: true, 418: true, 421: true,
-	422: true, 423: true, 424: true, 425: true, 426: true, 428: true, 429: true, 431: true, 451: true,
-	// 5xx Server Error
-	500: true, 501: true, 502: true, 503: true, 504: true, 505: true, 506: true, 507: true, 508: true, 510: true, 511: true,
-}
-
-// validateHTTPStatusCode validates HTTP status code format
-func validateHTTPStatusCode(code string) bool {
-	if code == "default" {
-		return true
-	}
-
-	// Check wildcard patterns (e.g., "2XX", "4XX")
-	if len(code) == httpStatusCodeLength && code[1] == 'X' && code[2] == 'X' {
-		if code[0] >= '1' && code[0] <= '5' {
-			return true
-		}
-		return false
-	}
-
-	// Check numeric status codes
-	if len(code) != httpStatusCodeLength {
-		return false
-	}
-
-	statusCode, err := strconv.Atoi(code)
-	if err != nil {
-		return false
-	}
-
-	return statusCode >= minHTTPStatusCode && statusCode <= maxHTTPStatusCode
-}
-
-// isStandardHTTPStatusCode checks if a numeric status code is a well-defined standard code
-func isStandardHTTPStatusCode(code string) bool {
-	if code == "default" {
-		return true
-	}
-
-	// Wildcard patterns are considered standard
-	if len(code) == httpStatusCodeLength && code[1] == 'X' && code[2] == 'X' {
-		return code[0] >= '1' && code[0] <= '5'
-	}
-
-	statusCode, err := strconv.Atoi(code)
-	if err != nil {
-		return false
-	}
-
-	return standardHTTPStatusCodes[statusCode]
 }
