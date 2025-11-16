@@ -1,14 +1,15 @@
 // Package oastools provides comprehensive tools for working with OpenAPI Specification (OAS) documents.
 //
-// oastools offers three main packages for parsing, validating, and joining OpenAPI
+// oastools offers four main packages for parsing, validating, converting, and joining OpenAPI
 // specifications across all major versions from OAS 2.0 (Swagger) through OAS 3.2.0.
 //
 // # Overview
 //
-// The library consists of three primary packages:
+// The library consists of four primary packages:
 //
 //   - parser: Parse and analyze OpenAPI specifications
 //   - validator: Validate OpenAPI specifications against their declared version
+//   - converter: Convert OpenAPI specifications between different versions
 //   - joiner: Join multiple OpenAPI specifications into a single document
 //
 // All packages support the following OpenAPI Specification versions:
@@ -126,6 +127,38 @@
 //	}
 //
 // See the validator package documentation for more details.
+//
+// # Converter Package
+//
+// The converter package converts OpenAPI specifications between different OAS versions.
+// It performs best-effort conversion while tracking issues and incompatibilities.
+//
+// Key features:
+//   - OAS 2.0 ↔ OAS 3.x conversion
+//   - OAS 3.x → OAS 3.y version updates
+//   - Best-effort conversion preserving maximum information
+//   - Detailed issue tracking with severity levels (Info, Warning, Critical)
+//   - Security scheme conversion
+//   - Schema conversion across versions
+//
+// Example:
+//
+//	c := converter.New()
+//	result, err := c.Convert("swagger.yaml", "3.0.3")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	if result.HasCriticalIssues() {
+//		fmt.Printf("Conversion completed with %d critical issue(s):\n", result.CriticalCount)
+//		for _, issue := range result.Issues {
+//			if issue.Severity == converter.SeverityCritical {
+//				fmt.Printf("  %s\n", issue.String())
+//			}
+//		}
+//	}
+//
+// See the converter package documentation for more details.
 //
 // # Joiner Package
 //
@@ -288,6 +321,9 @@
 //
 //	# Parse a spec
 //	oastools parse openapi.yaml
+//
+//	# Convert between versions
+//	oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
 //
 //	# Join multiple specs
 //	oastools join -o merged.yaml base.yaml extensions.yaml
