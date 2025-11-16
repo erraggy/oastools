@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/erraggy/oastools/internal/httputil"
 )
 
 // Paths holds the relative paths to the individual endpoints
@@ -83,7 +85,7 @@ func (r *Responses) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			r.Default = &defaultResp
 		} else {
 			// All other fields should be valid status codes or extension fields
-			if !isValidStatusCode(key) {
+			if !httputil.ValidateStatusCode(key) {
 				return fmt.Errorf("invalid status code '%s' in responses: must be a valid HTTP status code (e.g., \"200\", \"404\"), wildcard pattern (e.g., \"2XX\"), or extension field (e.g., \"x-custom\")", key)
 			}
 			valueBytes, err := yamlMarshalValue(value)

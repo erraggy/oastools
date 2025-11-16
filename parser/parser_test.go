@@ -302,21 +302,14 @@ func TestParseJSON(t *testing.T) {
 		"paths": {}
 	}`
 
-	tmpfile, err := os.CreateTemp("", "test-*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.Remove(tmpfile.Name()) }()
-
-	if _, err := tmpfile.Write([]byte(jsonData)); err != nil {
-		t.Fatal(err)
-	}
-	if err := tmpfile.Close(); err != nil {
+	tmpDir := t.TempDir()
+	tmpfile := filepath.Join(tmpDir, "test.json")
+	if err := os.WriteFile(tmpfile, []byte(jsonData), 0600); err != nil {
 		t.Fatal(err)
 	}
 
 	parser := New()
-	result, err := parser.Parse(tmpfile.Name())
+	result, err := parser.Parse(tmpfile)
 	if err != nil {
 		t.Fatalf("Failed to parse JSON file: %v", err)
 	}

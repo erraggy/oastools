@@ -3,8 +3,10 @@ package validator
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -227,7 +229,7 @@ func TestValidationErrorString(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := tc.error.String()
 			for _, substr := range tc.contains {
-				if !contains(result, substr) {
+				if !strings.Contains(result, substr) {
 					t.Errorf("Expected string to contain %q, got: %s", substr, result)
 				}
 			}
@@ -376,7 +378,7 @@ func TestIsValidEmail(t *testing.T) {
 	}
 }
 
-// TestValidateHTTPStatusCode tests the validateHTTPStatusCode helper
+// TestValidateHTTPStatusCode tests the httputil.ValidateStatusCode helper
 func TestValidateHTTPStatusCode(t *testing.T) {
 	testCases := []struct {
 		code  string
@@ -398,9 +400,9 @@ func TestValidateHTTPStatusCode(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.code, func(t *testing.T) {
-			result := validateHTTPStatusCode(tc.code)
+			result := httputil.ValidateStatusCode(tc.code)
 			if result != tc.valid {
-				t.Errorf("validateHTTPStatusCode(%q) = %v, expected %v", tc.code, result, tc.valid)
+				t.Errorf("httputil.ValidateStatusCode(%q) = %v, expected %v", tc.code, result, tc.valid)
 			}
 		})
 	}
@@ -568,7 +570,7 @@ func TestNilInfoObject(t *testing.T) {
 	// Should have error about missing info
 	hasInfoError := false
 	for _, e := range result.Errors {
-		if contains(e.Message, "info") {
+		if strings.Contains(e.Message, "info") {
 			hasInfoError = true
 			break
 		}
@@ -844,19 +846,4 @@ paths:
 			}
 		})
 	}
-}
-
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

@@ -3,68 +3,25 @@ package converter
 import (
 	"fmt"
 
+	"github.com/erraggy/oastools/internal/issues"
+	"github.com/erraggy/oastools/internal/severity"
 	"github.com/erraggy/oastools/parser"
 )
 
 // Severity indicates the severity level of a conversion issue
-type Severity int
+type Severity = severity.Severity
 
 const (
 	// SeverityInfo indicates informational messages about conversion choices
-	SeverityInfo Severity = iota
+	SeverityInfo = severity.SeverityInfo
 	// SeverityWarning indicates lossy conversions or best-effort transformations
-	SeverityWarning
+	SeverityWarning = severity.SeverityWarning
 	// SeverityCritical indicates features that cannot be converted (data loss)
-	SeverityCritical
+	SeverityCritical = severity.SeverityCritical
 )
 
-func (s Severity) String() string {
-	switch s {
-	case SeverityInfo:
-		return "info"
-	case SeverityWarning:
-		return "warning"
-	case SeverityCritical:
-		return "critical"
-	default:
-		return "unknown"
-	}
-}
-
 // ConversionIssue represents a single conversion issue or limitation
-type ConversionIssue struct {
-	// Path is the JSON path to the field (e.g., "paths./pets.get.parameters[0]")
-	Path string
-	// Message is a human-readable description
-	Message string
-	// Severity indicates the severity level
-	Severity Severity
-	// Field is the specific field name that has the issue
-	Field string
-	// Value is the problematic value (optional)
-	Value interface{}
-	// Context provides additional information about the issue
-	Context string
-}
-
-// String returns a formatted string representation of the conversion issue
-func (i ConversionIssue) String() string {
-	var severity string
-	switch i.Severity {
-	case SeverityCritical:
-		severity = "✗"
-	case SeverityWarning:
-		severity = "⚠"
-	case SeverityInfo:
-		severity = "ℹ"
-	}
-
-	result := fmt.Sprintf("%s %s: %s", severity, i.Path, i.Message)
-	if i.Context != "" {
-		result += fmt.Sprintf("\n    Context: %s", i.Context)
-	}
-	return result
-}
+type ConversionIssue = issues.Issue
 
 // ConversionResult contains the results of converting an OpenAPI specification
 type ConversionResult struct {

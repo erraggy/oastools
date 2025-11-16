@@ -8,16 +8,8 @@ import (
 
 	semver "github.com/hashicorp/go-version"
 	"gopkg.in/yaml.v3"
-)
 
-const (
-	// HTTP status code validation constants
-	statusCodeLength     = 3   // Standard length of HTTP status codes (e.g., "200", "404")
-	minStatusCode        = 100 // Minimum valid HTTP status code
-	maxStatusCode        = 599 // Maximum valid HTTP status code
-	wildcardChar         = 'X' // Wildcard character used in status code patterns (e.g., "2XX")
-	minWildcardFirstChar = '1' // Minimum first digit for wildcard patterns
-	maxWildcardFirstChar = '5' // Maximum first digit for wildcard patterns
+	"github.com/erraggy/oastools/internal/httputil"
 )
 
 // Parser handles OpenAPI specification parsing
@@ -330,49 +322,6 @@ func (p *Parser) validateStructure(result *ParseResult) []error {
 	return errors
 }
 
-// isValidStatusCode checks if a status code string is valid per OAS spec
-// Valid formats: "200", "404", "2XX", "4XX", "5XX", "default", "x-*" (extension fields), etc.
-func isValidStatusCode(code string) bool {
-	if code == "" {
-		return false
-	}
-
-	// Check if it's the "default" response
-	if code == ResponseDefault {
-		return true
-	}
-
-	// Check if it's an extension field (starts with "x-")
-	if len(code) >= 2 && code[0] == 'x' && code[1] == '-' {
-		return true
-	}
-
-	// Check if it's a wildcard pattern (e.g., "2XX", "4XX")
-	if len(code) == statusCodeLength && code[1] == wildcardChar && code[2] == wildcardChar {
-		// First character should be a digit 1-5
-		if code[0] >= minWildcardFirstChar && code[0] <= maxWildcardFirstChar {
-			return true
-		}
-		return false
-	}
-
-	// Check if it's a valid HTTP status code (100-599)
-	if len(code) != statusCodeLength {
-		return false
-	}
-	for _, c := range code {
-		if c < '0' || c > '9' {
-			return false
-		}
-	}
-	// Convert to int and validate range
-	statusCode := 0
-	for _, c := range code {
-		statusCode = statusCode*10 + int(c-'0')
-	}
-	return statusCode >= minStatusCode && statusCode <= maxStatusCode
-}
-
 // validateOAS2 validates an OAS 2.0 document
 func (p *Parser) validateOAS2(doc *OAS2Document) []error {
 	errors := make([]error, 0)
@@ -435,15 +384,7 @@ func (p *Parser) validateOAS2Paths(paths map[string]*PathItem) []error {
 
 func (p *Parser) validateOAS2PathItem(pathItem *PathItem, pathPattern string, operationIDs map[string]string) []error {
 	errors := make([]error, 0)
-	operations := map[string]*Operation{
-		"get":     pathItem.Get,
-		"put":     pathItem.Put,
-		"post":    pathItem.Post,
-		"delete":  pathItem.Delete,
-		"options": pathItem.Options,
-		"head":    pathItem.Head,
-		"patch":   pathItem.Patch,
-	}
+	operations := GetOAS2Operations(pathItem)
 
 	for method, op := range operations {
 		if op == nil {
@@ -476,7 +417,7 @@ func (p *Parser) validateOAS2Operation(op *Operation, opPath string, operationID
 	} else {
 		// Validate status codes in responses
 		for code := range op.Responses.Codes {
-			if !isValidStatusCode(code) {
+			if !httputil.ValidateStatusCode(code) {
 				errors = append(errors, fmt.Errorf("oas 2.0: invalid status code '%s' in '%s.responses': must be a valid HTTP status code (e.g., \"200\", \"404\") or wildcard pattern (e.g., \"2XX\")", code, opPath))
 			}
 		}
@@ -607,16 +548,7 @@ func (p *Parser) validateOAS3Paths(paths map[string]*PathItem, version string) [
 
 func (p *Parser) validateOAS3PathItem(pathItem *PathItem, pathPattern string, operationIDs map[string]string, version string) []error {
 	errors := make([]error, 0)
-	operations := map[string]*Operation{
-		"get":     pathItem.Get,
-		"put":     pathItem.Put,
-		"post":    pathItem.Post,
-		"delete":  pathItem.Delete,
-		"options": pathItem.Options,
-		"head":    pathItem.Head,
-		"patch":   pathItem.Patch,
-		"trace":   pathItem.Trace,
-	}
+	operations := GetOAS3Operations(pathItem)
 
 	for method, op := range operations {
 		if op == nil {
@@ -649,7 +581,7 @@ func (p *Parser) validateOAS3Operation(op *Operation, opPath string, operationID
 	} else {
 		// Validate status codes in responses
 		for code := range op.Responses.Codes {
-			if !isValidStatusCode(code) {
+			if !httputil.ValidateStatusCode(code) {
 				errors = append(errors, fmt.Errorf("oas %s: invalid status code '%s' in '%s.responses': must be a valid HTTP status code (e.g., \"200\", \"404\") or wildcard pattern (e.g., \"2XX\")", version, code, opPath))
 			}
 		}
