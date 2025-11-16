@@ -557,7 +557,11 @@ func handleConvert(args []string) {
 			fmt.Fprintf(os.Stderr, "Error marshaling converted document: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("\n" + string(data))
+		// Write raw YAML to stdout
+		if _, err = os.Stdout.Write(data); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing converted document to stderr: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	// Exit with error if conversion failed

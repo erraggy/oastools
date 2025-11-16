@@ -3,6 +3,7 @@ package converter
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -389,6 +390,63 @@ func TestConversionResultHelpers(t *testing.T) {
 	result.WarningCount = 0
 	if result.HasWarnings() {
 		t.Error("Expected HasWarnings to return false")
+	}
+}
+
+// Add these tests to converter_test.go:
+
+func TestSeverityString(t *testing.T) {
+	tests := []struct {
+		severity Severity
+		expected string
+	}{
+		{SeverityInfo, "info"},
+		{SeverityWarning, "warning"},
+		{SeverityCritical, "critical"},
+		{Severity(999), "unknown"},
+	}
+	for _, tt := range tests {
+		if got := tt.severity.String(); got != tt.expected {
+			t.Errorf("Severity.String() = %v, want %v", got, tt.expected)
+		}
+	}
+}
+
+func TestConversionIssueString(t *testing.T) {
+	tests := []struct {
+		name  string
+		issue ConversionIssue
+		want  string
+	}{
+		{
+			name: "critical issue with context",
+			issue: ConversionIssue{
+				Path:     "paths./pets",
+				Message:  "TRACE method not supported",
+				Severity: SeverityCritical,
+				Context:  "OAS 2.0 does not support TRACE",
+			},
+			// Test that it contains expected strings
+		},
+		{
+			name: "warning without context",
+			issue: ConversionIssue{
+				Path:     "servers[0]",
+				Message:  "Multiple servers found",
+				Severity: SeverityWarning,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.issue.String()
+			if !strings.Contains(got, tt.issue.Path) {
+				t.Errorf("String() should contain path")
+			}
+			if !strings.Contains(got, tt.issue.Message) {
+				t.Errorf("String() should contain message")
+			}
+		})
 	}
 }
 

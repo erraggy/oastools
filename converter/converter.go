@@ -272,7 +272,10 @@ func (c *Converter) convertOAS3ToOAS3(parseResult parser.ParseResult, targetVers
 	}
 
 	// Create a deep copy of the document
-	converted := c.deepCopyOAS3Document(doc)
+	converted, err := c.deepCopyOAS3Document(doc)
+	if err != nil {
+		return err
+	}
 
 	// Update the version string
 	converted.OpenAPI = result.TargetVersion

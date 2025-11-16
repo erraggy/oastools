@@ -9,23 +9,23 @@ import (
 )
 
 // deepCopyOAS3Document creates a deep copy of an OAS3 document
-func (c *Converter) deepCopyOAS3Document(src *parser.OAS3Document) *parser.OAS3Document {
+func (c *Converter) deepCopyOAS3Document(src *parser.OAS3Document) (*parser.OAS3Document, error) {
 	// Use JSON marshal/unmarshal for deep copy
 	data, err := json.Marshal(src)
 	if err != nil {
 		// This should never happen with valid documents
-		return src
+		return nil, fmt.Errorf("failed to marshal src document: %w", err)
 	}
 
 	var dst parser.OAS3Document
 	if err := json.Unmarshal(data, &dst); err != nil {
-		return src
+		return nil, fmt.Errorf("failed to unmarshal dst document: %w", err)
 	}
 
 	// Restore OASVersion which may not round-trip through JSON
 	dst.OASVersion = src.OASVersion
 
-	return &dst
+	return &dst, nil
 }
 
 // parseServerURL extracts host, basePath, and schemes from an OAS 3.x server URL
@@ -33,6 +33,7 @@ func (c *Converter) deepCopyOAS3Document(src *parser.OAS3Document) *parser.OAS3D
 func parseServerURL(serverURL string) (host, basePath string, schemes []string, err error) {
 	// Handle server variables by replacing them with defaults or placeholders
 	// For simplicity, we'll strip variables for now and parse the base URL
+	// TODO: address what is called out in the comments above instead of doing nothing
 	cleanURL := serverURL
 
 	// Parse the URL

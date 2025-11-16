@@ -114,6 +114,11 @@ func (c *Converter) convertServers(src *parser.OAS2Document, result *ConversionR
 
 // convertOAS2PathItemToOAS3 converts an OAS 2.0 path item to OAS 3.x
 func (c *Converter) convertOAS2PathItemToOAS3(src *parser.PathItem, doc *parser.OAS2Document, result *ConversionResult, pathPrefix string) *parser.PathItem {
+	// nil in, nil out...
+	if src == nil {
+		return nil
+	}
+
 	dst := &parser.PathItem{
 		Summary:     src.Summary,
 		Description: src.Description,
