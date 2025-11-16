@@ -27,6 +27,176 @@ This tool supports the following OpenAPI Specification versions:
 All OAS versions utilize the **JSON Schema Specification Draft 2020-12** for schema definitions:
 - https://www.ietf.org/archive/id/draft-bhutton-json-schema-01.html
 
+## Key OpenAPI Specification Concepts
+
+Understanding the evolution and differences between OAS versions is critical when working with this codebase. This section documents key concepts learned during implementation.
+
+### OAS Version Evolution
+
+**OAS 2.0 (Swagger) → OAS 3.0:**
+- **Servers**: `host`, `basePath`, and `schemes` → unified `servers` array with URL templates
+- **Components**: `definitions`, `parameters`, `responses`, `securityDefinitions` → `components.*`
+- **Request Bodies**: `consumes` + body parameter → `requestBody.content` with media types
+- **Response Bodies**: `produces` + schema → `responses.*.content` with media types
+- **Security**: `securityDefinitions` → `components.securitySchemes` with flows restructuring
+- **New Features**: Links, callbacks, and more flexible parameter serialization
+
+**OAS 3.0 → OAS 3.1:**
+- **JSON Schema Alignment**: OAS 3.1 fully aligns with JSON Schema Draft 2020-12
+- **Type Arrays**: `type` can be a string or array (e.g., `type: ["string", "null"]`)
+- **Nullable Handling**: Deprecated `nullable: true` in favor of `type: ["string", "null"]`
+- **Webhooks**: New top-level `webhooks` object for event-driven APIs
+- **License**: Added `identifier` field to license object
+
+### Critical Type System Considerations
+
+**interface{} Fields:**
+Several OAS 3.1+ fields use `interface{}` to support multiple types:
+- `schema.Type`: Can be `string` (e.g., `"string"`) or `[]string` (e.g., `["string", "null"]`)
+- Always use type assertions when accessing these fields:
+  ```go
+  if typeStr, ok := schema.Type.(string); ok {
+      // Handle string type
+  } else if typeArr, ok := schema.Type.([]string); ok {
+      // Handle array type
+  }
+  ```
+
+**Pointer vs Value Types:**
+- `OAS3Document.Servers`: Uses `[]*parser.Server` (slice of pointers), not `[]parser.Server`
+- When creating server objects, always use `&parser.Server{...}` for pointer semantics
+- This pattern applies to other nested structures to avoid unexpected mutations
+
+### Structural Differences Between Versions
+
+**OAS 2.0 Document Structure:**
+```yaml
+swagger: "2.0"
+info: {...}
+host: api.example.com
+basePath: /v1
+schemes: [https]
+consumes: [application/json]
+produces: [application/json]
+paths: {...}
+definitions: {...}
+parameters: {...}
+responses: {...}
+securityDefinitions: {...}
+```
+
+**OAS 3.x Document Structure:**
+```yaml
+openapi: 3.0.3
+info: {...}
+servers:
+  - url: https://api.example.com/v1
+paths: {...}
+components:
+  schemas: {...}
+  parameters: {...}
+  responses: {...}
+  securitySchemes: {...}
+```
+
+### Version-Specific Features
+
+**OAS 2.0 Only:**
+- `allowEmptyValue`: Removed in OAS 3.0+
+- `collectionFormat`: Replaced by `style` and `explode` in OAS 3.0+
+- Single `host`/`basePath`/`schemes`: Replaced by flexible `servers` array
+
+**OAS 3.0+ Only:**
+- `requestBody`: Replaces body parameters and consumes
+- `callbacks`: Asynchronous callback definitions
+- `links`: Relationships between operations
+- Cookie parameters (`in: cookie`)
+- `servers` array with variable substitution
+
+**OAS 3.1+ Only:**
+- `webhooks`: Event-driven API definitions
+- JSON Schema 2020-12 alignment
+- `type` as array for nullable types
+- `license.identifier` field
+
+**OAS 3.x Method Support:**
+- TRACE method is OAS 3.x only (not in OAS 2.0)
+
+### Conversion Challenges and Solutions
+
+**Multiple Servers → Single Host/BasePath:**
+- OAS 3.x supports multiple servers; OAS 2.0 supports only one host/basePath/schemes combination
+- Solution: Use first server and warn about others
+- Parse server URL to extract host, basePath, and scheme components
+
+**Multiple Media Types:**
+- OAS 3.x: Each request/response can have multiple media types in `content` object
+- OAS 2.0: Single schema with `consumes`/`produces` arrays
+- Solution: Extract first media type's schema and collect all media types in consumes/produces
+
+**Security Scheme Conversion:**
+- OAS 3.x HTTP schemes (bearer, basic) → OAS 2.0 basic auth only
+- OAS 3.x OAuth2 flows (multiple) → OAS 2.0 single flow
+- OpenID Connect (OAS 3.x+) → No equivalent in OAS 2.0 (critical issue)
+
+**Parameter Serialization:**
+- OAS 2.0 `collectionFormat` → OAS 3.x `style` and `explode`
+- No perfect mapping; requires context-specific warnings
+
+### Best Practices for OAS Document Manipulation
+
+**Deep Copying Documents:**
+```go
+// Use JSON marshal/unmarshal for deep copy to avoid mutations
+data, _ := json.Marshal(srcDocument)
+var dstDocument parser.OAS3Document
+json.Unmarshal(data, &dstDocument)
+// Restore fields that don't round-trip through JSON
+dstDocument.OASVersion = srcDocument.OASVersion
+```
+
+**Type Assertions:**
+```go
+// Always check interface{} fields before using
+if typeStr, ok := schema.Type.(string); ok {
+    converted.Type = typeStr
+}
+```
+
+**Issue Tracking:**
+- Use severity levels: Info (informational), Warning (lossy), Critical (data loss)
+- Provide context with each issue to help users understand impact
+- Track JSON path for precise issue location (e.g., `paths./pets.get.parameters[0]`)
+
+**Version Detection:**
+```go
+// Use parser.ParseVersion for robust version detection
+version, ok := parser.ParseVersion("3.0.3")
+if !ok {
+    // Handle invalid version
+}
+```
+
+### Common Pitfalls and Solutions
+
+**Pitfall 1: Assuming schema.Type is always a string**
+- Solution: Use type assertions and handle both string and []string cases
+
+**Pitfall 2: Creating value slices instead of pointer slices**
+- Solution: Check parser types (e.g., `[]*parser.Server`) and use `&Type{...}` syntax
+
+**Pitfall 3: Forgetting to track conversion issues**
+- Solution: Add issues for every lossy conversion or unsupported feature
+
+**Pitfall 4: Mutating source documents**
+- Solution: Always deep copy before modification
+
+**Pitfall 5: Not handling operation-level consumes/produces**
+- Solution: Check operation-level first, then fall back to document-level
+
+**Pitfall 6: Ignoring version-specific features during conversion**
+- Solution: Explicitly check and warn about features that don't convert (webhooks, callbacks, links, etc.)
+
 ## Development Commands
 
 ### Recommended Workflow
@@ -105,13 +275,18 @@ make clean
   - Flexible collision resolution strategies
   - Package documentation in `doc.go` and examples in `example_test.go`
 
+- **converter/** - Public conversion library for OpenAPI specifications
+  - Logic for converting between OAS versions (2.0 ↔ 3.x)
+  - Best-effort conversion with transparent issue tracking
+  - Package documentation in `doc.go` and examples in `example_test.go`
+
 - **testdata/** - Test fixtures including sample OpenAPI specification files
 
 - **doc.go** - Root package documentation for the oastools library
 
 ### Design Patterns
 
-- **Public API**: All core packages (parser, validator, joiner) are public and can be imported by external projects
+- **Public API**: All core packages (parser, validator, joiner, converter) are public and can be imported by external projects
 - **Separation of concerns**: Each package has a single, well-defined responsibility
 - **CLI structure**: Simple command dispatcher in main.go that delegates to library packages
 - **Comprehensive documentation**: Each package includes doc.go for package-level documentation and example_test.go for godoc examples
@@ -120,7 +295,7 @@ make clean
 
 When adding new commands:
 1. Add the command case to the switch statement in `cmd/oastools/main.go`
-2. Create corresponding logic in the appropriate public package (parser, validator, or joiner)
+2. Create corresponding logic in the appropriate public package (parser, validator, joiner, or converter)
 3. Update the `printUsage()` function to document the new command
 4. Add test files in the same package as the implementation
 5. Update package documentation in `doc.go` if adding new public APIs
@@ -174,11 +349,13 @@ When adding or modifying exported functionality, you MUST include test coverage 
 func TestParseConvenience(t *testing.T) { ... }
 func TestValidateConvenience(t *testing.T) { ... }
 func TestJoinConvenience(t *testing.T) { ... }
+func TestConvertConvenience(t *testing.T) { ... }
 
 // Struct methods
 func TestParserParse(t *testing.T) { ... }
 func TestValidatorValidate(t *testing.T) { ... }
 func TestJoinerJoin(t *testing.T) { ... }
+func TestConverterConvert(t *testing.T) { ... }
 ```
 
 **Before Submitting Code:**
@@ -201,11 +378,12 @@ func TestJoinerJoin(t *testing.T) { ... }
 
 ## Public API Structure
 
-As of v1.3.0, all core packages are public and can be imported:
+As of v1.3.0, all core packages are public and can be imported. Planned for v1.5.0, the converter package will be added:
 
 - `github.com/erraggy/oastools/parser` - Parse OpenAPI specifications
 - `github.com/erraggy/oastools/validator` - Validate OpenAPI specifications
 - `github.com/erraggy/oastools/joiner` - Join multiple OpenAPI specifications
+- `github.com/erraggy/oastools/converter` - Convert between OpenAPI specification versions (planned for v1.5.0)
 
 Each package includes:
 - `doc.go` - Comprehensive package-level documentation
@@ -281,6 +459,24 @@ Struct-based API:
   - All input documents must be pre-validated (Errors slice must be empty)
 - `Joiner.WriteResult(result, outputPath)` - Write joined result to file
 
+**Converter Package (planned for v1.5.0):**
+
+Package-level convenience functions:
+- `converter.Convert(specPath, targetVersion)` - Convert a file to target OAS version
+- `converter.ConvertParsed(parseResult, targetVersion)` - Convert an already-parsed result
+
+Struct-based API:
+- `converter.New()` - Create a Converter instance with default settings
+- `Converter.Convert(specPath, targetVersion)` - Parse and convert a file
+- `Converter.ConvertParsed(parseResult, targetVersion)` - Convert an already-parsed ParseResult
+  - Efficient when document is already parsed
+  - Enables workflows where parsing and conversion are separated
+  - Returns ConversionResult with severity-tracked issues (Info, Warning, Critical)
+
+Configuration:
+- `StrictMode bool` - Fail on any issues (even warnings)
+- `IncludeInfo bool` - Include informational messages in results
+
 ### Usage Examples
 
 **Quick parsing with convenience function:**
@@ -342,4 +538,25 @@ config.SchemaStrategy = joiner.StrategyAcceptLeft
 j := joiner.New(config)
 result1, _ := j.Join([]string{"api1-base.yaml", "api1-ext.yaml"})
 result2, _ := j.Join([]string{"api2-base.yaml", "api2-ext.yaml"})
+```
+
+**Quick conversion with convenience function:**
+```go
+result, err := converter.Convert("swagger.yaml", "3.0.3")
+if err != nil {
+    log.Fatal(err)
+}
+if result.HasCriticalIssues() {
+    fmt.Printf("Conversion completed with %d critical issue(s)\n", result.CriticalCount)
+}
+```
+
+**Reusable converter instance:**
+```go
+c := converter.New()
+c.StrictMode = false
+c.IncludeInfo = true
+
+result1, _ := c.Convert("swagger-v1.yaml", "3.0.3")
+result2, _ := c.Convert("swagger-v2.yaml", "3.0.3")
 ```

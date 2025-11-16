@@ -6,12 +6,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/erraggy/oastools/converter"
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/validator"
+	"gopkg.in/yaml.v3"
 )
 
-const version = "1.3.0"
+const version = "1.5.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -32,6 +34,8 @@ func main() {
 		handleParse(os.Args[2:])
 	case "join":
 		handleJoin(os.Args[2:])
+	case "convert":
+		handleConvert(os.Args[2:])
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", command)
 		printUsage()
@@ -435,6 +439,164 @@ Notes:
   - Output file is written with restrictive permissions (0600) for security`)
 }
 
+func handleConvert(args []string) {
+	// Parse flags
+	var targetVersion string
+	var outputPath string
+	var strict bool
+	var noWarnings bool
+	var filePath string
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "-t", "--target":
+			if i+1 >= len(args) {
+				fmt.Fprintf(os.Stderr, "Error: %s requires an argument\n", arg)
+				os.Exit(1)
+			}
+			targetVersion = args[i+1]
+			i++
+		case "-o", "--output":
+			if i+1 >= len(args) {
+				fmt.Fprintf(os.Stderr, "Error: %s requires an argument\n", arg)
+				os.Exit(1)
+			}
+			outputPath = args[i+1]
+			i++
+		case "--strict":
+			strict = true
+		case "--no-warnings":
+			noWarnings = true
+		case "-h", "--help":
+			printConvertUsage()
+			return
+		default:
+			if filePath == "" {
+				filePath = arg
+			} else {
+				fmt.Fprintf(os.Stderr, "Error: unexpected argument '%s'\n", arg)
+				os.Exit(1)
+			}
+		}
+	}
+
+	if filePath == "" {
+		fmt.Fprintf(os.Stderr, "Error: convert command requires a file path\n\n")
+		printConvertUsage()
+		os.Exit(1)
+	}
+
+	if targetVersion == "" {
+		fmt.Fprintf(os.Stderr, "Error: target version is required (use -t or --target)\n\n")
+		printConvertUsage()
+		os.Exit(1)
+	}
+
+	// Create converter with options
+	c := converter.New()
+	c.StrictMode = strict
+	c.IncludeInfo = !noWarnings
+
+	// Convert the file
+	result, err := c.Convert(filePath, targetVersion)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error converting file: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Print results
+	fmt.Printf("OpenAPI Specification Converter\n")
+	fmt.Printf("===============================\n\n")
+	fmt.Printf("File: %s\n", filePath)
+	fmt.Printf("Source Version: %s\n", result.SourceVersion)
+	fmt.Printf("Target Version: %s\n\n", result.TargetVersion)
+
+	// Print issues
+	if len(result.Issues) > 0 {
+		fmt.Printf("Conversion Issues (%d):\n", len(result.Issues))
+		for _, issue := range result.Issues {
+			fmt.Printf("  %s\n", issue.String())
+		}
+		fmt.Println()
+	}
+
+	// Print summary
+	if result.Success {
+		fmt.Printf("✓ Conversion successful")
+		if result.InfoCount > 0 || result.WarningCount > 0 {
+			fmt.Printf(" (%d info, %d warnings)", result.InfoCount, result.WarningCount)
+		}
+		fmt.Println()
+	} else {
+		fmt.Printf("✗ Conversion completed with %d critical issue(s)", result.CriticalCount)
+		if result.WarningCount > 0 {
+			fmt.Printf(", %d warning(s)", result.WarningCount)
+		}
+		fmt.Println()
+	}
+
+	// Write output
+	if outputPath != "" {
+		data, err := yaml.Marshal(result.Document)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error marshaling converted document: %v\n", err)
+			os.Exit(1)
+		}
+
+		if err := os.WriteFile(outputPath, data, 0600); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing output file: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("\nOutput written to: %s\n", outputPath)
+	} else {
+		// Write to stdout
+		data, err := yaml.Marshal(result.Document)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error marshaling converted document: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("\n" + string(data))
+	}
+
+	// Exit with error if conversion failed
+	if !result.Success {
+		os.Exit(1)
+	}
+}
+
+func printConvertUsage() {
+	fmt.Println(`Usage: oastools convert [options] <file>
+
+Convert an OpenAPI specification from one version to another.
+
+Required Options:
+  -t, --target <version>  Target OAS version (e.g., "3.0.3", "2.0", "3.1.0")
+
+Optional:
+  -o, --output <file>     Output file path (default: stdout)
+  --strict                Fail on any conversion issues (even warnings)
+  --no-warnings           Suppress warning and info messages
+  -h, --help              Show this help message
+
+Supported Conversions:
+  - OAS 2.0 → OAS 3.x (3.0.0 through 3.2.0)
+  - OAS 3.x → OAS 2.0
+  - OAS 3.x → OAS 3.y (version updates)
+
+Examples:
+  oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
+  oastools convert -t 2.0 openapi-v3.yaml
+  oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml
+
+Notes:
+  - Critical issues indicate features that cannot be converted (data loss)
+  - Warnings indicate lossy conversions or best-effort transformations
+  - Info messages provide context about conversion choices
+  - Always validate converted documents before deployment`)
+}
+
 func printUsage() {
 	fmt.Println(`oastools - OpenAPI Specification Tools
 
@@ -443,6 +605,7 @@ Usage:
 
 Commands:
   validate    Validate an OpenAPI specification file
+  convert     Convert between OpenAPI specification versions
   join        Join multiple OpenAPI specification files
   parse       Parse and display an OpenAPI specification
   version     Show version information
@@ -450,6 +613,7 @@ Commands:
 
 Examples:
   oastools validate openapi.yaml
+  oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
   oastools join -o merged.yaml base.yaml extensions.yaml
   oastools parse openapi.yaml
 

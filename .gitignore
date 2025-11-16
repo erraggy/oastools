@@ -37,3 +37,6 @@ Thumbs.db
 
 # Claude local
 .claude/settings.local.json
+
+# Local release notes (not tracked in git)
+releases/
