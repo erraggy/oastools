@@ -290,7 +290,7 @@ make clean
   - **internal/issues/** - Unified issue type for validation and conversion errors
     - Consolidated Issue struct with all necessary fields
     - Supports both validation (SpecRef) and conversion (Context) use cases
-  - *Future:* **internal/testutil/** - Test fixtures and helpers for unit tests
+  - **internal/testutil/** - Test fixtures and helpers for unit tests
   - *Future:* **internal/copyutil/** - Generic deep copy utilities
 
 - **testdata/** - Test fixtures including sample OpenAPI specification files
