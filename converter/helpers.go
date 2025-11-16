@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -31,10 +32,10 @@ func (c *Converter) deepCopyOAS3Document(src *parser.OAS3Document) (*parser.OAS3
 // parseServerURL extracts host, basePath, and schemes from an OAS 3.x server URL
 // Returns host, basePath, schemes, and error
 func parseServerURL(serverURL string) (host, basePath string, schemes []string, err error) {
-	// Handle server variables by replacing them with defaults or placeholders
-	// For simplicity, we'll strip variables for now and parse the base URL
-	// TODO: address what is called out in the comments above instead of doing nothing
-	cleanURL := serverURL
+	// Handle server variables by replacing them with defaults or placeholders like:
+	// http://example.com/foo/{parameter}/bar ==> http://example.com/foo/placeholder/bar
+	// For simplicity, we'll strip variables for now and parse the base URL since the rest of the path is ignored here
+	cleanURL := regexp.MustCompile(`\{[^}]+}`).ReplaceAllString(serverURL, "placeholder")
 
 	// Parse the URL
 	u, err := url.Parse(cleanURL)

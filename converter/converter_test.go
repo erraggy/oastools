@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -177,6 +178,15 @@ func TestOAS2ToOAS3Conversion(t *testing.T) {
 func TestOAS3ToOAS2Conversion(t *testing.T) {
 	c := New()
 	oas3Doc := createDetailedOAS3Document()
+
+	// get server URL and host to verify path parameters are handled
+	serverURL := oas3Doc.Servers[0].URL
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		t.Fatalf("Failed to parse server URL: %v", err)
+	}
+	host := u.Host
+	oas3Doc.Servers[0].URL = serverURL + "/{foo}/bar"
 	parseResult := parser.ParseResult{
 		Document:   oas3Doc,
 		Version:    "3.0.3",
@@ -196,8 +206,8 @@ func TestOAS3ToOAS2Conversion(t *testing.T) {
 	}
 
 	// Verify host/basePath were created from servers
-	if doc.Host == "" {
-		t.Error("Expected host to be set")
+	if doc.Host != host {
+		t.Errorf("Expected host to be set to %q, got %q", host, doc.Host)
 	}
 
 	// Verify definitions were created from schemas
