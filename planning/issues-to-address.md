@@ -1,7 +1,7 @@
 # Issues To Address
 The following issues have been identified and need to be addressed.
 
-## 1. Validator fails to validate `$ref` paths properly point to schemas that are resolveable
+## 1. Validator fails to validate `$ref` paths properly point to schemas that are resolvable
 If for instance an OAS3.2.0 document defines an Operation with a `requestBody.content.application/json.schema.$ref` is set to `"#/definitions/foo.Bar"` (a swagger 2.0 reference), the validation doens't report any errors or warnings.
 
 ## 2. Converter fails to update `$ref` paths when the schemas need to be moved
