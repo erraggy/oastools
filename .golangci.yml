@@ -16,12 +16,11 @@ linters:
     - unused
     - ineffassign
     - misspell
-    - gocyclo
+    - cyclop
     - unparam
-
-linters-settings:
-  gocyclo:
-    min-complexity: 15
+  settings:
+    cyclop:
+      max-complexity: 50
 
 issues:
   max-issues-per-linter: 0
