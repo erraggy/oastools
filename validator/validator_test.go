@@ -474,7 +474,7 @@ func TestEmptyNilDocuments(t *testing.T) {
 // TestCircularSchemaReferences tests handling of circular schema references
 func TestCircularSchemaReferences(t *testing.T) {
 	v := New()
-	testFile := filepath.Join("..", "..", "testdata", "circular-schema.yaml")
+	testFile := filepath.Join("..", "testdata", "circular-schema.yaml")
 
 	result, err := v.Validate(testFile)
 	if err != nil {
@@ -494,7 +494,7 @@ func TestCircularSchemaReferences(t *testing.T) {
 // TestDeeplyNestedSchemas tests validation of deeply nested schema objects
 func TestDeeplyNestedSchemas(t *testing.T) {
 	v := New()
-	testFile := filepath.Join("..", "..", "testdata", "deeply-nested-schema.yaml")
+	testFile := filepath.Join("..", "testdata", "deeply-nested-schema.yaml")
 
 	result, err := v.Validate(testFile)
 	if err != nil {
@@ -527,7 +527,7 @@ func TestMalformedPathTemplates(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			v := New()
-			testFile := filepath.Join("..", "..", "testdata", tc.file)
+			testFile := filepath.Join("..", "testdata", tc.file)
 
 			result, err := v.Validate(testFile)
 			// File might not exist - that's okay for this test
@@ -849,7 +849,7 @@ components:
 // TestNilInfoObject tests handling when info object is completely missing
 func TestNilInfoObject(t *testing.T) {
 	v := New()
-	testFile := filepath.Join("..", "..", "testdata", "missing-info.yaml")
+	testFile := filepath.Join("..", "testdata", "missing-info.yaml")
 
 	result, err := v.Validate(testFile)
 	if err != nil {

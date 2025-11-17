@@ -5,8 +5,30 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/erraggy/oastools/parser"
+)
+
+var (
+	// Path parameters like: /foo/{bar}/v1
+	pathParamRegx = regexp.MustCompile(`\{[^}]+}`)
+
+	// Map OAS 3.x locations to the Regexp for the prefix of the OAS 2.0 locations
+	refRegxMapWithOAS3AsNew = map[string]*regexp.Regexp{
+		"#/components/schemas/":         regexp.MustCompile(`^` + regexp.QuoteMeta("#/definitions/")),
+		"#/components/parameters/":      regexp.MustCompile(`^` + regexp.QuoteMeta("#/parameters/")),
+		"#/components/responses/":       regexp.MustCompile(`^` + regexp.QuoteMeta("#/responses/")),
+		"#/components/securitySchemes/": regexp.MustCompile(`^` + regexp.QuoteMeta("#/securityDefinitions/")),
+	}
+
+	// Map OAS 2.0 locations to the Regexp for the prefix of the OAS 3.x locations
+	refRegxMapWithSwaggerAsNew = map[string]*regexp.Regexp{
+		"#/definitions/":         regexp.MustCompile(`^` + regexp.QuoteMeta("#/components/schemas/")),
+		"#/parameters/":          regexp.MustCompile(`^` + regexp.QuoteMeta("#/components/parameters/")),
+		"#/responses/":           regexp.MustCompile(`^` + regexp.QuoteMeta("#/components/responses/")),
+		"#/securityDefinitions/": regexp.MustCompile(`^` + regexp.QuoteMeta("#/components/securitySchemes/")),
+	}
 )
 
 // deepCopyOAS3Document creates a deep copy of an OAS3 document
@@ -35,7 +57,7 @@ func parseServerURL(serverURL string) (host, basePath string, schemes []string, 
 	// Handle server variables by replacing them with defaults or placeholders like:
 	// http://example.com/foo/{parameter}/bar ==> http://example.com/foo/placeholder/bar
 	// For simplicity, we'll strip variables for now and parse the base URL since the rest of the path is ignored here
-	cleanURL := regexp.MustCompile(`\{[^}]+}`).ReplaceAllString(serverURL, "placeholder")
+	cleanURL := pathParamRegx.ReplaceAllString(serverURL, "placeholder")
 
 	// Parse the URL
 	u, err := url.Parse(cleanURL)
@@ -303,22 +325,14 @@ func (c *Converter) convertOAS3ResponseToOAS2(response *parser.Response, result 
 // rewriteRefOAS2ToOAS3 rewrites an OAS 2.0 $ref to OAS 3.x format
 // Only rewrites local references (starting with #/)
 func rewriteRefOAS2ToOAS3(ref string) string {
-	if ref == "" || !regexp.MustCompile(`^#/`).MatchString(ref) {
-		// Not a local reference, don't modify
+	if !strings.HasPrefix(ref, "#/") {
 		return ref
 	}
 
-	// Map OAS 2.0 component locations to OAS 3.x locations
-	mappings := map[string]string{
-		"#/definitions/":         "#/components/schemas/",
-		"#/parameters/":          "#/components/parameters/",
-		"#/responses/":           "#/components/responses/",
-		"#/securityDefinitions/": "#/components/securitySchemes/",
-	}
-
-	for oldPrefix, newPrefix := range mappings {
-		if regexp.MustCompile(`^` + regexp.QuoteMeta(oldPrefix)).MatchString(ref) {
-			return regexp.MustCompile(`^`+regexp.QuoteMeta(oldPrefix)).ReplaceAllString(ref, newPrefix)
+	// iterate all regexp mappings and if found on the specified ref, replace it with the new prefix
+	for newOAS3Prefix, swaggerPrefixRegX := range refRegxMapWithOAS3AsNew {
+		if swaggerPrefixRegX.MatchString(ref) {
+			return swaggerPrefixRegX.ReplaceAllString(ref, newOAS3Prefix)
 		}
 	}
 
@@ -329,30 +343,14 @@ func rewriteRefOAS2ToOAS3(ref string) string {
 // rewriteRefOAS3ToOAS2 rewrites an OAS 3.x $ref to OAS 2.0 format
 // Only rewrites local references (starting with #/)
 func rewriteRefOAS3ToOAS2(ref string) string {
-	if ref == "" || !regexp.MustCompile(`^#/`).MatchString(ref) {
-		// Not a local reference, don't modify
+	if !strings.HasPrefix(ref, "#/") {
 		return ref
 	}
 
-	// Map OAS 3.x component locations to OAS 2.0 locations
-	mappings := map[string]string{
-		"#/components/schemas/":         "#/definitions/",
-		"#/components/parameters/":      "#/parameters/",
-		"#/components/responses/":       "#/responses/",
-		"#/components/securitySchemes/": "#/securityDefinitions/",
-		// OAS 3.x-only components that don't have OAS 2.0 equivalents
-		// These will remain as-is but should be caught by validation
-		"#/components/requestBodies/": "#/components/requestBodies/",
-		"#/components/headers/":       "#/components/headers/",
-		"#/components/examples/":      "#/components/examples/",
-		"#/components/links/":         "#/components/links/",
-		"#/components/callbacks/":     "#/components/callbacks/",
-		"#/components/pathItems/":     "#/components/pathItems/",
-	}
-
-	for oldPrefix, newPrefix := range mappings {
-		if regexp.MustCompile(`^` + regexp.QuoteMeta(oldPrefix)).MatchString(ref) {
-			return regexp.MustCompile(`^`+regexp.QuoteMeta(oldPrefix)).ReplaceAllString(ref, newPrefix)
+	// iterate all regexp mappings and if found on the specified ref, replace it with the new prefix
+	for newSwaggerPrefix, oas3PrefixRegX := range refRegxMapWithSwaggerAsNew {
+		if oas3PrefixRegX.MatchString(ref) {
+			return oas3PrefixRegX.ReplaceAllString(ref, newSwaggerPrefix)
 		}
 	}
 
