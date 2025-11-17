@@ -460,10 +460,11 @@ func TestValidatorValidate(t *testing.T) { ... }
 func TestJoinerJoin(t *testing.T) { ... }
 func TestConverterConvert(t *testing.T) { ... }
 ```
+## Submitting changes
 
 **Before Submitting Code:**
 
-1. Run `make test` to ensure all tests pass
+1. Run `make check` to ensure all code is formatted and all lints/tests pass
 2. Run `make test-coverage` to review coverage report
 3. Verify that all new exported functionality has dedicated test cases
 4. Check that test names clearly describe what they test
@@ -479,6 +480,16 @@ func TestConverterConvert(t *testing.T) { ... }
 - The rest of the commit message should be simply formatted with maximum width (columns) of 100, and should summarize just the basic reasoning why and the changes included. 
 - Following the commit, and after the human has pushed it to origin, be prepared to create a PR using `gh` that uses the same first line of the commit message as the PR's title, and well formatted markdown content that lays out the reasoning as well as the changes made and any useful context. Here is where the details are to go. 
 - The actual commit will be a much briefer version of the messaging used to cover the changes
+
+### Creating a new release
+
+**After one or more PRs have been merged and a new release is desired:**
+- Be sure to be on the `main` branch and up-to-date with `origin`
+- Create the next semver tag based on the changes included:
+  - Minor changes: bump the minor version one: so like from `v1.1.0` to `v1.2.0` 
+  - Patching bugs or docs alone without feature changes: bump the patch version one: so like from `v1.1.0` to `v1.1.1`
+  - Breaking changes: would bump the major version one, but that is a larger process that requires more discussion
+- Use `gh` to create the new release and summarize the changes in a brief title (less than 75 chars) and a well formatted markdown body that covers the reasoning, changes, and any additional notes
 
 ## Go Module
 
