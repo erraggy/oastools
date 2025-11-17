@@ -5,8 +5,30 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/erraggy/oastools/parser"
+)
+
+var (
+	// Path parameters like: /foo/{bar}/v1
+	pathParamRegx = regexp.MustCompile(`\{[^}]+}`)
+
+	// Map OAS 3.x locations to the Regexp for the prefix of the OAS 2.0 locations
+	refRegxMapWithOAS3AsNew = map[string]*regexp.Regexp{
+		"#/components/schemas/":         regexp.MustCompile(`^` + regexp.QuoteMeta("#/definitions/")),
+		"#/components/parameters/":      regexp.MustCompile(`^` + regexp.QuoteMeta("#/parameters/")),
+		"#/components/responses/":       regexp.MustCompile(`^` + regexp.QuoteMeta("#/responses/")),
+		"#/components/securitySchemes/": regexp.MustCompile(`^` + regexp.QuoteMeta("#/securityDefinitions/")),
+	}
+
+	// Map OAS 2.0 locations to the Regexp for the prefix of the OAS 3.x locations
+	refRegxMapWithSwaggerAsNew = map[string]*regexp.Regexp{
+		"#/definitions/":         regexp.MustCompile(`^` + regexp.QuoteMeta("#/components/schemas/")),
+		"#/parameters/":          regexp.MustCompile(`^` + regexp.QuoteMeta("#/components/parameters/")),
+		"#/responses/":           regexp.MustCompile(`^` + regexp.QuoteMeta("#/components/responses/")),
+		"#/securityDefinitions/": regexp.MustCompile(`^` + regexp.QuoteMeta("#/components/securitySchemes/")),
+	}
 )
 
 // deepCopyOAS3Document creates a deep copy of an OAS3 document
@@ -35,7 +57,7 @@ func parseServerURL(serverURL string) (host, basePath string, schemes []string, 
 	// Handle server variables by replacing them with defaults or placeholders like:
 	// http://example.com/foo/{parameter}/bar ==> http://example.com/foo/placeholder/bar
 	// For simplicity, we'll strip variables for now and parse the base URL since the rest of the path is ignored here
-	cleanURL := regexp.MustCompile(`\{[^}]+}`).ReplaceAllString(serverURL, "placeholder")
+	cleanURL := pathParamRegx.ReplaceAllString(serverURL, "placeholder")
 
 	// Parse the URL
 	u, err := url.Parse(cleanURL)
@@ -63,9 +85,13 @@ func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema) *parser.Schem
 		return nil
 	}
 
-	// For now, schemas are compatible between OAS 2.0 and 3.x
 	// Deep copy to avoid mutations
-	return c.deepCopySchema(schema)
+	converted := c.deepCopySchema(schema)
+
+	// Rewrite all $ref paths from OAS 2.0 to OAS 3.x format
+	rewriteSchemaRefsOAS2ToOAS3(converted)
+
+	return converted
 }
 
 // convertOAS3SchemaToOAS2 converts an OAS 3.x schema to OAS 2.0 format
@@ -82,6 +108,9 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 		c.addIssueWithContext(result, path, "Schema uses 'nullable' which is OAS 3.0+",
 			"Consider using 'x-nullable' extension for OAS 2.0 compatibility")
 	}
+
+	// Rewrite all $ref paths from OAS 3.x to OAS 2.0 format
+	rewriteSchemaRefsOAS3ToOAS2(converted)
 
 	return converted
 }
@@ -135,6 +164,7 @@ func (c *Converter) convertOAS2ParameterToOAS3(param *parser.Parameter, result *
 	}
 
 	converted := &parser.Parameter{
+		Ref:             param.Ref, // Copy $ref field
 		Name:            param.Name,
 		In:              param.In,
 		Description:     param.Description,
@@ -183,6 +213,7 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 	}
 
 	converted := &parser.Parameter{
+		Ref:         param.Ref, // Copy $ref field
 		Name:        param.Name,
 		In:          param.In,
 		Description: param.Description,
@@ -289,4 +320,476 @@ func (c *Converter) convertOAS3ResponseToOAS2(response *parser.Response, result 
 	}
 
 	return converted, produces
+}
+
+// rewriteRefOAS2ToOAS3 rewrites an OAS 2.0 $ref to OAS 3.x format
+// Only rewrites local references (starting with #/)
+func rewriteRefOAS2ToOAS3(ref string) string {
+	if !strings.HasPrefix(ref, "#/") {
+		return ref
+	}
+
+	// iterate all regexp mappings and if found on the specified ref, replace it with the new prefix
+	for newOAS3Prefix, swaggerPrefixRegX := range refRegxMapWithOAS3AsNew {
+		if swaggerPrefixRegX.MatchString(ref) {
+			return swaggerPrefixRegX.ReplaceAllString(ref, newOAS3Prefix)
+		}
+	}
+
+	// Unknown reference format, return as-is
+	return ref
+}
+
+// rewriteRefOAS3ToOAS2 rewrites an OAS 3.x $ref to OAS 2.0 format
+// Only rewrites local references (starting with #/)
+func rewriteRefOAS3ToOAS2(ref string) string {
+	if !strings.HasPrefix(ref, "#/") {
+		return ref
+	}
+
+	// iterate all regexp mappings and if found on the specified ref, replace it with the new prefix
+	for newSwaggerPrefix, oas3PrefixRegX := range refRegxMapWithSwaggerAsNew {
+		if oas3PrefixRegX.MatchString(ref) {
+			return oas3PrefixRegX.ReplaceAllString(ref, newSwaggerPrefix)
+		}
+	}
+
+	// Unknown reference format, return as-is
+	return ref
+}
+
+// rewriteSchemaRefsOAS2ToOAS3 recursively rewrites all $ref values in a schema from OAS 2.0 to OAS 3.x format
+func rewriteSchemaRefsOAS2ToOAS3(schema *parser.Schema) {
+	if schema == nil {
+		return
+	}
+
+	// Rewrite the $ref in this schema
+	if schema.Ref != "" {
+		schema.Ref = rewriteRefOAS2ToOAS3(schema.Ref)
+	}
+
+	// Recursively rewrite nested schemas
+	for _, propSchema := range schema.Properties {
+		rewriteSchemaRefsOAS2ToOAS3(propSchema)
+	}
+
+	for _, propSchema := range schema.PatternProperties {
+		rewriteSchemaRefsOAS2ToOAS3(propSchema)
+	}
+
+	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
+		rewriteSchemaRefsOAS2ToOAS3(addProps)
+	}
+
+	if items, ok := schema.Items.(*parser.Schema); ok {
+		rewriteSchemaRefsOAS2ToOAS3(items)
+	}
+
+	for _, subSchema := range schema.AllOf {
+		rewriteSchemaRefsOAS2ToOAS3(subSchema)
+	}
+
+	for _, subSchema := range schema.AnyOf {
+		rewriteSchemaRefsOAS2ToOAS3(subSchema)
+	}
+
+	for _, subSchema := range schema.OneOf {
+		rewriteSchemaRefsOAS2ToOAS3(subSchema)
+	}
+
+	rewriteSchemaRefsOAS2ToOAS3(schema.Not)
+
+	if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
+		rewriteSchemaRefsOAS2ToOAS3(addItems)
+	}
+
+	for _, prefixItem := range schema.PrefixItems {
+		rewriteSchemaRefsOAS2ToOAS3(prefixItem)
+	}
+
+	rewriteSchemaRefsOAS2ToOAS3(schema.Contains)
+	rewriteSchemaRefsOAS2ToOAS3(schema.PropertyNames)
+
+	for _, depSchema := range schema.DependentSchemas {
+		rewriteSchemaRefsOAS2ToOAS3(depSchema)
+	}
+
+	rewriteSchemaRefsOAS2ToOAS3(schema.If)
+	rewriteSchemaRefsOAS2ToOAS3(schema.Then)
+	rewriteSchemaRefsOAS2ToOAS3(schema.Else)
+
+	for _, defSchema := range schema.Defs {
+		rewriteSchemaRefsOAS2ToOAS3(defSchema)
+	}
+}
+
+// rewriteSchemaRefsOAS3ToOAS2 recursively rewrites all $ref values in a schema from OAS 3.x to OAS 2.0 format
+func rewriteSchemaRefsOAS3ToOAS2(schema *parser.Schema) {
+	if schema == nil {
+		return
+	}
+
+	// Rewrite the $ref in this schema
+	if schema.Ref != "" {
+		schema.Ref = rewriteRefOAS3ToOAS2(schema.Ref)
+	}
+
+	// Recursively rewrite nested schemas
+	for _, propSchema := range schema.Properties {
+		rewriteSchemaRefsOAS3ToOAS2(propSchema)
+	}
+
+	for _, propSchema := range schema.PatternProperties {
+		rewriteSchemaRefsOAS3ToOAS2(propSchema)
+	}
+
+	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
+		rewriteSchemaRefsOAS3ToOAS2(addProps)
+	}
+
+	if items, ok := schema.Items.(*parser.Schema); ok {
+		rewriteSchemaRefsOAS3ToOAS2(items)
+	}
+
+	for _, subSchema := range schema.AllOf {
+		rewriteSchemaRefsOAS3ToOAS2(subSchema)
+	}
+
+	for _, subSchema := range schema.AnyOf {
+		rewriteSchemaRefsOAS3ToOAS2(subSchema)
+	}
+
+	for _, subSchema := range schema.OneOf {
+		rewriteSchemaRefsOAS3ToOAS2(subSchema)
+	}
+
+	rewriteSchemaRefsOAS3ToOAS2(schema.Not)
+
+	if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
+		rewriteSchemaRefsOAS3ToOAS2(addItems)
+	}
+
+	for _, prefixItem := range schema.PrefixItems {
+		rewriteSchemaRefsOAS3ToOAS2(prefixItem)
+	}
+
+	rewriteSchemaRefsOAS3ToOAS2(schema.Contains)
+	rewriteSchemaRefsOAS3ToOAS2(schema.PropertyNames)
+
+	for _, depSchema := range schema.DependentSchemas {
+		rewriteSchemaRefsOAS3ToOAS2(depSchema)
+	}
+
+	rewriteSchemaRefsOAS3ToOAS2(schema.If)
+	rewriteSchemaRefsOAS3ToOAS2(schema.Then)
+	rewriteSchemaRefsOAS3ToOAS2(schema.Else)
+
+	for _, defSchema := range schema.Defs {
+		rewriteSchemaRefsOAS3ToOAS2(defSchema)
+	}
+}
+
+// rewriteParameterRefsOAS2ToOAS3 rewrites $ref values in a parameter from OAS 2.0 to OAS 3.x format
+func rewriteParameterRefsOAS2ToOAS3(param *parser.Parameter) {
+	if param == nil {
+		return
+	}
+
+	if param.Ref != "" {
+		param.Ref = rewriteRefOAS2ToOAS3(param.Ref)
+	}
+
+	// Rewrite refs in the schema
+	rewriteSchemaRefsOAS2ToOAS3(param.Schema)
+}
+
+// rewriteParameterRefsOAS3ToOAS2 rewrites $ref values in a parameter from OAS 3.x to OAS 2.0 format
+func rewriteParameterRefsOAS3ToOAS2(param *parser.Parameter) {
+	if param == nil {
+		return
+	}
+
+	if param.Ref != "" {
+		param.Ref = rewriteRefOAS3ToOAS2(param.Ref)
+	}
+
+	// Rewrite refs in the schema
+	rewriteSchemaRefsOAS3ToOAS2(param.Schema)
+
+	// Rewrite refs in content media types (OAS 3.x)
+	for _, mediaType := range param.Content {
+		if mediaType != nil {
+			rewriteSchemaRefsOAS3ToOAS2(mediaType.Schema)
+		}
+	}
+}
+
+// rewrite ResponseRefsOAS2ToOAS3 rewrites $ref values in a response from OAS 2.0 to OAS 3.x format
+func rewriteResponseRefsOAS2ToOAS3(response *parser.Response) {
+	if response == nil {
+		return
+	}
+
+	if response.Ref != "" {
+		response.Ref = rewriteRefOAS2ToOAS3(response.Ref)
+	}
+
+	// Rewrite refs in the schema
+	rewriteSchemaRefsOAS2ToOAS3(response.Schema)
+
+	// Rewrite refs in headers
+	for _, header := range response.Headers {
+		if header != nil {
+			if header.Ref != "" {
+				header.Ref = rewriteRefOAS2ToOAS3(header.Ref)
+			}
+			rewriteSchemaRefsOAS2ToOAS3(header.Schema)
+		}
+	}
+}
+
+// rewriteResponseRefsOAS3ToOAS2 rewrites $ref values in a response from OAS 3.x to OAS 2.0 format
+func rewriteResponseRefsOAS3ToOAS2(response *parser.Response) {
+	if response == nil {
+		return
+	}
+
+	if response.Ref != "" {
+		response.Ref = rewriteRefOAS3ToOAS2(response.Ref)
+	}
+
+	// Rewrite refs in the schema
+	rewriteSchemaRefsOAS3ToOAS2(response.Schema)
+
+	// Rewrite refs in content media types (OAS 3.x)
+	for _, mediaType := range response.Content {
+		if mediaType != nil {
+			rewriteSchemaRefsOAS3ToOAS2(mediaType.Schema)
+		}
+	}
+
+	// Rewrite refs in headers
+	for _, header := range response.Headers {
+		if header != nil {
+			if header.Ref != "" {
+				header.Ref = rewriteRefOAS3ToOAS2(header.Ref)
+			}
+			rewriteSchemaRefsOAS3ToOAS2(header.Schema)
+
+			// Rewrite refs in header content (OAS 3.x)
+			for _, mediaType := range header.Content {
+				if mediaType != nil {
+					rewriteSchemaRefsOAS3ToOAS2(mediaType.Schema)
+				}
+			}
+		}
+	}
+
+	// Rewrite refs in links (OAS 3.x)
+	for _, link := range response.Links {
+		if link != nil && link.Ref != "" {
+			link.Ref = rewriteRefOAS3ToOAS2(link.Ref)
+		}
+	}
+}
+
+// rewriteRequestBodyRefsOAS2ToOAS3 rewrites $ref values in a request body from OAS 2.0 to OAS 3.x format
+func rewriteRequestBodyRefsOAS2ToOAS3(requestBody *parser.RequestBody) {
+	if requestBody == nil {
+		return
+	}
+
+	if requestBody.Ref != "" {
+		requestBody.Ref = rewriteRefOAS2ToOAS3(requestBody.Ref)
+	}
+
+	// Rewrite refs in content media types
+	for _, mediaType := range requestBody.Content {
+		if mediaType != nil {
+			rewriteSchemaRefsOAS2ToOAS3(mediaType.Schema)
+		}
+	}
+}
+
+// rewriteRequestBodyRefsOAS3ToOAS2 rewrites $ref values in a request body from OAS 3.x to OAS 2.0 format
+func rewriteRequestBodyRefsOAS3ToOAS2(requestBody *parser.RequestBody) {
+	if requestBody == nil {
+		return
+	}
+
+	if requestBody.Ref != "" {
+		requestBody.Ref = rewriteRefOAS3ToOAS2(requestBody.Ref)
+	}
+
+	// Rewrite refs in content media types
+	for _, mediaType := range requestBody.Content {
+		if mediaType != nil {
+			rewriteSchemaRefsOAS3ToOAS2(mediaType.Schema)
+		}
+	}
+}
+
+// rewritePathItemRefsOAS2ToOAS3 rewrites $ref values in a path item from OAS 2.0 to OAS 3.x format
+func rewritePathItemRefsOAS2ToOAS3(pathItem *parser.PathItem) {
+	if pathItem == nil {
+		return
+	}
+
+	if pathItem.Ref != "" {
+		pathItem.Ref = rewriteRefOAS2ToOAS3(pathItem.Ref)
+	}
+
+	// Rewrite refs in parameters
+	for _, param := range pathItem.Parameters {
+		rewriteParameterRefsOAS2ToOAS3(param)
+	}
+
+	// Rewrite refs in each operation
+	operations := parser.GetOAS2Operations(pathItem)
+	for _, op := range operations {
+		if op == nil {
+			continue
+		}
+
+		// Rewrite operation parameters
+		for _, param := range op.Parameters {
+			rewriteParameterRefsOAS2ToOAS3(param)
+		}
+
+		// Rewrite operation responses
+		if op.Responses != nil {
+			rewriteResponseRefsOAS2ToOAS3(op.Responses.Default)
+
+			for _, response := range op.Responses.Codes {
+				rewriteResponseRefsOAS2ToOAS3(response)
+			}
+		}
+	}
+}
+
+// rewritePathItemRefsOAS3ToOAS2 rewrites $ref values in a path item from OAS 3.x to OAS 2.0 format
+func rewritePathItemRefsOAS3ToOAS2(pathItem *parser.PathItem) {
+	if pathItem == nil {
+		return
+	}
+
+	if pathItem.Ref != "" {
+		pathItem.Ref = rewriteRefOAS3ToOAS2(pathItem.Ref)
+	}
+
+	// Rewrite refs in parameters
+	for _, param := range pathItem.Parameters {
+		rewriteParameterRefsOAS3ToOAS2(param)
+	}
+
+	// Rewrite refs in each operation
+	operations := parser.GetOAS3Operations(pathItem)
+	for _, op := range operations {
+		if op == nil {
+			continue
+		}
+
+		// Rewrite operation parameters
+		for _, param := range op.Parameters {
+			rewriteParameterRefsOAS3ToOAS2(param)
+		}
+
+		// Rewrite request body
+		rewriteRequestBodyRefsOAS3ToOAS2(op.RequestBody)
+
+		// Rewrite operation responses
+		if op.Responses != nil {
+			rewriteResponseRefsOAS3ToOAS2(op.Responses.Default)
+
+			for _, response := range op.Responses.Codes {
+				rewriteResponseRefsOAS3ToOAS2(response)
+			}
+		}
+	}
+}
+
+// rewriteAllRefsOAS2ToOAS3 rewrites all $ref values in an OAS 3.x document from OAS 2.0 to OAS 3.x format
+func (c *Converter) rewriteAllRefsOAS2ToOAS3(doc *parser.OAS3Document) {
+	if doc == nil {
+		return
+	}
+
+	// Rewrite refs in components
+	if doc.Components != nil {
+		for _, schema := range doc.Components.Schemas {
+			rewriteSchemaRefsOAS2ToOAS3(schema)
+		}
+
+		for _, param := range doc.Components.Parameters {
+			rewriteParameterRefsOAS2ToOAS3(param)
+		}
+
+		for _, response := range doc.Components.Responses {
+			rewriteResponseRefsOAS2ToOAS3(response)
+		}
+
+		for _, requestBody := range doc.Components.RequestBodies {
+			rewriteRequestBodyRefsOAS2ToOAS3(requestBody)
+		}
+
+		for _, header := range doc.Components.Headers {
+			if header != nil {
+				if header.Ref != "" {
+					header.Ref = rewriteRefOAS2ToOAS3(header.Ref)
+				}
+				rewriteSchemaRefsOAS2ToOAS3(header.Schema)
+			}
+		}
+
+		for _, securityScheme := range doc.Components.SecuritySchemes {
+			if securityScheme != nil && securityScheme.Ref != "" {
+				securityScheme.Ref = rewriteRefOAS2ToOAS3(securityScheme.Ref)
+			}
+		}
+	}
+
+	// Rewrite refs in paths
+	for _, pathItem := range doc.Paths {
+		rewritePathItemRefsOAS2ToOAS3(pathItem)
+	}
+
+	// Rewrite refs in webhooks (OAS 3.1+)
+	for _, pathItem := range doc.Webhooks {
+		rewritePathItemRefsOAS2ToOAS3(pathItem)
+	}
+}
+
+// rewriteAllRefsOAS3ToOAS2 rewrites all $ref values in an OAS 2.0 document from OAS 3.x to OAS 2.0 format
+func (c *Converter) rewriteAllRefsOAS3ToOAS2(doc *parser.OAS2Document) {
+	if doc == nil {
+		return
+	}
+
+	// Rewrite refs in definitions
+	for _, schema := range doc.Definitions {
+		rewriteSchemaRefsOAS3ToOAS2(schema)
+	}
+
+	// Rewrite refs in parameters
+	for _, param := range doc.Parameters {
+		rewriteParameterRefsOAS3ToOAS2(param)
+	}
+
+	// Rewrite refs in responses
+	for _, response := range doc.Responses {
+		rewriteResponseRefsOAS3ToOAS2(response)
+	}
+
+	// Rewrite refs in security definitions
+	for _, securityScheme := range doc.SecurityDefinitions {
+		if securityScheme != nil && securityScheme.Ref != "" {
+			securityScheme.Ref = rewriteRefOAS3ToOAS2(securityScheme.Ref)
+		}
+	}
+
+	// Rewrite refs in paths
+	for _, pathItem := range doc.Paths {
+		rewritePathItemRefsOAS3ToOAS2(pathItem)
+	}
 }
