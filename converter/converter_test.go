@@ -819,3 +819,37 @@ func TestRefRewritingParameters(t *testing.T) {
 
 	t.Logf("Successfully verified parameter $ref rewriting")
 }
+
+// TestJSONFormatPreservation tests that JSON input produces JSON output
+func TestJSONFormatPreservation(t *testing.T) {
+	// Test with JSON file
+	c := New()
+	result, err := c.Convert("../testdata/minimal-oas2.json", "3.0.3")
+	if err != nil {
+		t.Fatalf("Conversion failed: %v", err)
+	}
+
+	// Verify source format was detected as JSON
+	if result.SourceFormat != parser.SourceFormatJSON {
+		t.Errorf("Expected source format to be JSON, got %s", result.SourceFormat)
+	}
+
+	t.Logf("Successfully verified JSON format detection")
+}
+
+// TestYAMLFormatPreservation tests that YAML input preserves YAML format
+func TestYAMLFormatPreservation(t *testing.T) {
+	// Test with YAML file
+	c := New()
+	result, err := c.Convert("../testdata/minimal-oas2.yaml", "3.0.3")
+	if err != nil {
+		t.Fatalf("Conversion failed: %v", err)
+	}
+
+	// Verify source format was detected as YAML
+	if result.SourceFormat != parser.SourceFormatYAML {
+		t.Errorf("Expected source format to be YAML, got %s", result.SourceFormat)
+	}
+
+	t.Logf("Successfully verified YAML format detection")
+}

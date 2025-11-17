@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1763,6 +1764,179 @@ paths: {}
 					tt.validateResult(t, result)
 				}
 			}
+		})
+	}
+}
+
+// TestFormatDetection tests format detection for various inputs
+func TestFormatDetection(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          []byte
+		expectedFormat SourceFormat
+	}{
+		{
+			name:           "JSON object",
+			input:          []byte(`{"openapi": "3.0.0"}`),
+			expectedFormat: SourceFormatJSON,
+		},
+		{
+			name:           "JSON array",
+			input:          []byte(`[{"test": "value"}]`),
+			expectedFormat: SourceFormatJSON,
+		},
+		{
+			name:           "JSON with leading whitespace",
+			input:          []byte("  \n\t  {\"openapi\": \"3.0.0\"}"),
+			expectedFormat: SourceFormatJSON,
+		},
+		{
+			name:           "YAML content",
+			input:          []byte("openapi: 3.0.0\ninfo:\n  title: Test"),
+			expectedFormat: SourceFormatYAML,
+		},
+		{
+			name:           "YAML with leading whitespace",
+			input:          []byte("  \n  openapi: 3.0.0"),
+			expectedFormat: SourceFormatYAML,
+		},
+		{
+			name:           "empty content",
+			input:          []byte(""),
+			expectedFormat: SourceFormatUnknown,
+		},
+		{
+			name:           "only whitespace",
+			input:          []byte("   \n\t  \r\n  "),
+			expectedFormat: SourceFormatUnknown,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			format := detectFormatFromContent(tt.input)
+			assert.Equal(t, tt.expectedFormat, format)
+		})
+	}
+}
+
+// TestParseReaderFormatDetection tests format detection via ParseReader
+func TestParseReaderFormatDetection(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedFormat SourceFormat
+	}{
+		{
+			name: "ParseReader with JSON",
+			input: `{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Test API",
+    "version": "1.0.0"
+  },
+  "paths": {}
+}`,
+			expectedFormat: SourceFormatJSON,
+		},
+		{
+			name: "ParseReader with YAML",
+			input: `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`,
+			expectedFormat: SourceFormatYAML,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := bytes.NewReader([]byte(tt.input))
+			p := New()
+			result, err := p.ParseReader(reader)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.Equal(t, tt.expectedFormat, result.SourceFormat)
+		})
+	}
+}
+
+// TestParseBytesFormatDetection tests format detection via ParseBytes
+func TestParseBytesFormatDetection(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          []byte
+		expectedFormat SourceFormat
+	}{
+		{
+			name: "ParseBytes with JSON",
+			input: []byte(`{
+  "swagger": "2.0",
+  "info": {
+    "title": "Test API",
+    "version": "1.0.0"
+  },
+  "paths": {}
+}`),
+			expectedFormat: SourceFormatJSON,
+		},
+		{
+			name: "ParseBytes with YAML",
+			input: []byte(`swagger: "2.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`),
+			expectedFormat: SourceFormatYAML,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New()
+			result, err := p.ParseBytes(tt.input)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.Equal(t, tt.expectedFormat, result.SourceFormat)
+		})
+	}
+}
+
+// TestParseFileFormatDetection tests format detection from file extension
+func TestParseFileFormatDetection(t *testing.T) {
+	tests := []struct {
+		name           string
+		filepath       string
+		expectedFormat SourceFormat
+	}{
+		{
+			name:           "JSON file extension",
+			filepath:       "../testdata/minimal-oas2.json",
+			expectedFormat: SourceFormatJSON,
+		},
+		{
+			name:           "YAML file extension",
+			filepath:       "../testdata/minimal-oas2.yaml",
+			expectedFormat: SourceFormatYAML,
+		},
+		{
+			name:           "YML file extension",
+			filepath:       "../testdata/petstore-2.0.yaml",
+			expectedFormat: SourceFormatYAML,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New()
+			result, err := p.Parse(tt.filepath)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.Equal(t, tt.expectedFormat, result.SourceFormat)
 		})
 	}
 }

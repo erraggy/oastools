@@ -2,7 +2,9 @@
 //
 // The converter supports OAS 2.0 ↔ OAS 3.x conversions, performing best-effort
 // conversion with detailed issue tracking. Features converted include servers,
-// schemas, parameters, security schemes, and request/response bodies.
+// schemas, parameters, security schemes, and request/response bodies. The converter
+// preserves the input file format (JSON or YAML) in the ConversionResult.SourceFormat
+// field, allowing tools to maintain format consistency when writing output.
 //
 // # Quick Start
 //

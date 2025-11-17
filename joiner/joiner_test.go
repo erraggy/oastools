@@ -895,3 +895,82 @@ paths:
 		})
 	}
 }
+
+// TestJSONFormatPreservation tests that JSON input produces JSON output
+func TestJSONFormatPreservation(t *testing.T) {
+	testdataDir := filepath.Join("..", "testdata")
+
+	// Test with JSON files - first need to create JSON versions
+	j := New(DefaultConfig())
+	result, err := j.Join([]string{
+		filepath.Join(testdataDir, "minimal-oas2.json"),
+		filepath.Join(testdataDir, "minimal-oas2.json"), // joining same file twice for simplicity
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// Verify source format was detected as JSON from first file
+	assert.Equal(t, parser.SourceFormatJSON, result.SourceFormat)
+	t.Logf("Successfully verified JSON format detection for joined documents")
+}
+
+// TestYAMLFormatPreservation tests that YAML input preserves YAML format
+func TestYAMLFormatPreservation(t *testing.T) {
+	testdataDir := filepath.Join("..", "testdata")
+
+	// Test with YAML files
+	j := New(DefaultConfig())
+	result, err := j.Join([]string{
+		filepath.Join(testdataDir, "minimal-oas2.yaml"),
+		filepath.Join(testdataDir, "minimal-oas2.yaml"), // joining same file twice for simplicity
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// Verify source format was detected as YAML from first file
+	assert.Equal(t, parser.SourceFormatYAML, result.SourceFormat)
+	t.Logf("Successfully verified YAML format detection for joined documents")
+}
+
+// TestMixedFormatJoining tests that joining JSON + YAML uses format from first file
+func TestMixedFormatJoining(t *testing.T) {
+	testdataDir := filepath.Join("..", "testdata")
+
+	tests := []struct {
+		name           string
+		files          []string
+		expectedFormat parser.SourceFormat
+	}{
+		{
+			name: "JSON first, then YAML - should output JSON",
+			files: []string{
+				filepath.Join(testdataDir, "minimal-oas2.json"),
+				filepath.Join(testdataDir, "minimal-oas2.yaml"),
+			},
+			expectedFormat: parser.SourceFormatJSON,
+		},
+		{
+			name: "YAML first, then JSON - should output YAML",
+			files: []string{
+				filepath.Join(testdataDir, "minimal-oas2.yaml"),
+				filepath.Join(testdataDir, "minimal-oas2.json"),
+			},
+			expectedFormat: parser.SourceFormatYAML,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			j := New(DefaultConfig())
+			result, err := j.Join(tt.files)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.Equal(t, tt.expectedFormat, result.SourceFormat,
+				"Expected format from first file to be preserved")
+			t.Logf("Successfully verified format preservation: %s", tt.expectedFormat)
+		})
+	}
+}

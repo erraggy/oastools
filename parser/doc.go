@@ -33,7 +33,9 @@
 //
 // # ParseResult Fields
 //
-// ParseResult includes the detected Version, OASVersion, and any parsing Errors
-// or Warnings. The Document field contains the parsed OAS2Document or OAS3Document.
-// See the exported ParseResult and document type fields for complete details.
+// ParseResult includes the detected Version, OASVersion, SourceFormat (JSON or YAML),
+// and any parsing Errors or Warnings. The Document field contains the parsed OAS2Document
+// or OAS3Document. The SourceFormat field can be used by conversion and joining tools to
+// preserve the original file format. See the exported ParseResult and document type fields
+// for complete details.
 package parser

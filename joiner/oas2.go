@@ -14,6 +14,7 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 	result := &JoinResult{
 		Version:       docs[0].Version,
 		OASVersion:    docs[0].OASVersion,
+		SourceFormat:  docs[0].SourceFormat,
 		Warnings:      make([]string, 0),
 		firstFilePath: docs[0].SourcePath,
 	}
