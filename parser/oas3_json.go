@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 )
 
-// MarshalJSON implements custom JSON marshaling for OAS3Document
+// MarshalJSON implements custom JSON marshaling for OAS3Document.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (d *OAS3Document) MarshalJSON() ([]byte, error) {
 	type Alias OAS3Document
 	aux, err := json.Marshal((*Alias)(d))
@@ -28,7 +31,8 @@ func (d *OAS3Document) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for OAS3Document
+// UnmarshalJSON implements custom JSON unmarshaling for OAS3Document.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (d *OAS3Document) UnmarshalJSON(data []byte) error {
 	type Alias OAS3Document
 	aux := (*Alias)(d)
@@ -69,7 +73,10 @@ func (d *OAS3Document) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for Components
+// MarshalJSON implements custom JSON marshaling for Components.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (c *Components) MarshalJSON() ([]byte, error) {
 	type Alias Components
 	aux, err := json.Marshal((*Alias)(c))
@@ -93,7 +100,8 @@ func (c *Components) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Components
+// UnmarshalJSON implements custom JSON unmarshaling for Components.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (c *Components) UnmarshalJSON(data []byte) error {
 	type Alias Components
 	aux := (*Alias)(c)

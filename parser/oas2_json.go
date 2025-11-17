@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 )
 
-// MarshalJSON implements custom JSON marshaling for OAS2Document
-// This flattens the Extra map into the top-level JSON object
+// MarshalJSON implements custom JSON marshaling for OAS2Document.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline". The Extra map is merged after marshaling
+// the base struct to ensure specification extensions appear at the root level.
 func (d *OAS2Document) MarshalJSON() ([]byte, error) {
 	// Create an alias type to avoid recursion
 	type Alias OAS2Document
@@ -36,8 +39,10 @@ func (d *OAS2Document) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for OAS2Document
-// This captures unknown fields in the Extra map
+// UnmarshalJSON implements custom JSON unmarshaling for OAS2Document.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
+// It unmarshals known fields using the standard decoder, then identifies and stores
+// any fields not defined in the OAS 2.0 specification in the Extra map.
 func (d *OAS2Document) UnmarshalJSON(data []byte) error {
 	// Create an alias type to avoid recursion
 	type Alias OAS2Document

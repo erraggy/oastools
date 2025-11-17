@@ -2,11 +2,15 @@ package parser
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/erraggy/oastools/internal/httputil"
 )
 
-// MarshalJSON implements custom JSON marshaling for PathItem
+// MarshalJSON implements custom JSON marshaling for PathItem.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (p *PathItem) MarshalJSON() ([]byte, error) {
 	type Alias PathItem
 	aux, err := json.Marshal((*Alias)(p))
@@ -30,7 +34,8 @@ func (p *PathItem) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for PathItem
+// UnmarshalJSON implements custom JSON unmarshaling for PathItem.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (p *PathItem) UnmarshalJSON(data []byte) error {
 	type Alias PathItem
 	aux := (*Alias)(p)
@@ -64,7 +69,10 @@ func (p *PathItem) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for Operation
+// MarshalJSON implements custom JSON marshaling for Operation.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (o *Operation) MarshalJSON() ([]byte, error) {
 	type Alias Operation
 	aux, err := json.Marshal((*Alias)(o))
@@ -88,7 +96,8 @@ func (o *Operation) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Operation
+// UnmarshalJSON implements custom JSON unmarshaling for Operation.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (o *Operation) UnmarshalJSON(data []byte) error {
 	type Alias Operation
 	aux := (*Alias)(o)
@@ -122,7 +131,10 @@ func (o *Operation) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for Response
+// MarshalJSON implements custom JSON marshaling for Response.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (r *Response) MarshalJSON() ([]byte, error) {
 	type Alias Response
 	aux, err := json.Marshal((*Alias)(r))
@@ -146,7 +158,8 @@ func (r *Response) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Response
+// UnmarshalJSON implements custom JSON unmarshaling for Response.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (r *Response) UnmarshalJSON(data []byte) error {
 	type Alias Response
 	aux := (*Alias)(r)
@@ -184,7 +197,10 @@ func (r *Response) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for Link
+// MarshalJSON implements custom JSON marshaling for Link.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (l *Link) MarshalJSON() ([]byte, error) {
 	type Alias Link
 	aux, err := json.Marshal((*Alias)(l))
@@ -208,7 +224,8 @@ func (l *Link) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Link
+// UnmarshalJSON implements custom JSON unmarshaling for Link.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (l *Link) UnmarshalJSON(data []byte) error {
 	type Alias Link
 	aux := (*Alias)(l)
@@ -246,7 +263,10 @@ func (l *Link) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for MediaType
+// MarshalJSON implements custom JSON marshaling for MediaType.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (mt *MediaType) MarshalJSON() ([]byte, error) {
 	type Alias MediaType
 	aux, err := json.Marshal((*Alias)(mt))
@@ -270,7 +290,8 @@ func (mt *MediaType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for MediaType
+// UnmarshalJSON implements custom JSON unmarshaling for MediaType.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (mt *MediaType) UnmarshalJSON(data []byte) error {
 	type Alias MediaType
 	aux := (*Alias)(mt)
@@ -305,7 +326,10 @@ func (mt *MediaType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for Example
+// MarshalJSON implements custom JSON marshaling for Example.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (e *Example) MarshalJSON() ([]byte, error) {
 	type Alias Example
 	aux, err := json.Marshal((*Alias)(e))
@@ -329,7 +353,8 @@ func (e *Example) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Example
+// UnmarshalJSON implements custom JSON unmarshaling for Example.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (e *Example) UnmarshalJSON(data []byte) error {
 	type Alias Example
 	aux := (*Alias)(e)
@@ -365,7 +390,10 @@ func (e *Example) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for Encoding
+// MarshalJSON implements custom JSON marshaling for Encoding.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (e *Encoding) MarshalJSON() ([]byte, error) {
 	type Alias Encoding
 	aux, err := json.Marshal((*Alias)(e))
@@ -389,7 +417,8 @@ func (e *Encoding) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Encoding
+// UnmarshalJSON implements custom JSON unmarshaling for Encoding.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (e *Encoding) UnmarshalJSON(data []byte) error {
 	type Alias Encoding
 	aux := (*Alias)(e)
@@ -425,8 +454,11 @@ func (e *Encoding) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for Responses
-// This flattens the Codes map into the top-level JSON object
+// MarshalJSON implements custom JSON marshaling for Responses.
+// This flattens the Codes map into the top-level JSON object, where each
+// HTTP status code (e.g., "200", "404") or wildcard pattern (e.g., "2XX")
+// becomes a direct field in the JSON output. The "default" response is also
+// included at the top level if present.
 func (r *Responses) MarshalJSON() ([]byte, error) {
 	m := make(map[string]interface{})
 
@@ -443,8 +475,11 @@ func (r *Responses) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Responses
-// This captures status code fields in the Codes map
+// UnmarshalJSON implements custom JSON unmarshaling for Responses.
+// This captures status code fields in the Codes map and validates that each
+// status code is either a valid HTTP status code (e.g., "200", "404"), a
+// wildcard pattern (e.g., "2XX"), or a specification extension (e.g., "x-custom").
+// Returns an error if an invalid status code is encountered.
 func (r *Responses) UnmarshalJSON(data []byte) error {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -461,10 +496,9 @@ func (r *Responses) UnmarshalJSON(data []byte) error {
 			}
 			r.Default = &defaultResp
 		} else {
-			// Validate status code
+			// Validate status code - must be valid HTTP status code or extension field
 			if !httputil.ValidateStatusCode(key) {
-				// Ignore invalid status codes (they'll be lost, but this maintains compatibility)
-				continue
+				return fmt.Errorf("invalid status code '%s' in responses: must be a valid HTTP status code (e.g., \"200\", \"404\"), wildcard pattern (e.g., \"2XX\"), or extension field (e.g., \"x-custom\")", key)
 			}
 			var resp Response
 			if err := json.Unmarshal(value, &resp); err != nil {

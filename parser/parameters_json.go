@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 )
 
-// MarshalJSON implements custom JSON marshaling for Parameter
+// MarshalJSON implements custom JSON marshaling for Parameter.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (p *Parameter) MarshalJSON() ([]byte, error) {
 	type Alias Parameter
 	aux, err := json.Marshal((*Alias)(p))
@@ -28,7 +31,8 @@ func (p *Parameter) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Parameter
+// UnmarshalJSON implements custom JSON unmarshaling for Parameter.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (p *Parameter) UnmarshalJSON(data []byte) error {
 	type Alias Parameter
 	aux := (*Alias)(p)
@@ -64,7 +68,10 @@ func (p *Parameter) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for Items
+// MarshalJSON implements custom JSON marshaling for Items.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (i *Items) MarshalJSON() ([]byte, error) {
 	type Alias Items
 	aux, err := json.Marshal((*Alias)(i))
@@ -88,7 +95,8 @@ func (i *Items) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Items
+// UnmarshalJSON implements custom JSON unmarshaling for Items.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (i *Items) UnmarshalJSON(data []byte) error {
 	type Alias Items
 	aux := (*Alias)(i)
@@ -122,7 +130,10 @@ func (i *Items) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for RequestBody
+// MarshalJSON implements custom JSON marshaling for RequestBody.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (rb *RequestBody) MarshalJSON() ([]byte, error) {
 	type Alias RequestBody
 	aux, err := json.Marshal((*Alias)(rb))
@@ -146,7 +157,8 @@ func (rb *RequestBody) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for RequestBody
+// UnmarshalJSON implements custom JSON unmarshaling for RequestBody.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (rb *RequestBody) UnmarshalJSON(data []byte) error {
 	type Alias RequestBody
 	aux := (*Alias)(rb)
@@ -181,7 +193,10 @@ func (rb *RequestBody) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for Header
+// MarshalJSON implements custom JSON marshaling for Header.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (h *Header) MarshalJSON() ([]byte, error) {
 	type Alias Header
 	aux, err := json.Marshal((*Alias)(h))
@@ -205,7 +220,8 @@ func (h *Header) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Header
+// UnmarshalJSON implements custom JSON unmarshaling for Header.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (h *Header) UnmarshalJSON(data []byte) error {
 	type Alias Header
 	aux := (*Alias)(h)

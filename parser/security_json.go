@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 )
 
-// MarshalJSON implements custom JSON marshaling for SecurityScheme
+// MarshalJSON implements custom JSON marshaling for SecurityScheme.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (ss *SecurityScheme) MarshalJSON() ([]byte, error) {
 	type Alias SecurityScheme
 	aux, err := json.Marshal((*Alias)(ss))
@@ -28,7 +31,8 @@ func (ss *SecurityScheme) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for SecurityScheme
+// UnmarshalJSON implements custom JSON unmarshaling for SecurityScheme.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (ss *SecurityScheme) UnmarshalJSON(data []byte) error {
 	type Alias SecurityScheme
 	aux := (*Alias)(ss)
@@ -72,7 +76,10 @@ func (ss *SecurityScheme) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for OAuthFlows
+// MarshalJSON implements custom JSON marshaling for OAuthFlows.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (of *OAuthFlows) MarshalJSON() ([]byte, error) {
 	type Alias OAuthFlows
 	aux, err := json.Marshal((*Alias)(of))
@@ -96,7 +103,8 @@ func (of *OAuthFlows) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for OAuthFlows
+// UnmarshalJSON implements custom JSON unmarshaling for OAuthFlows.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (of *OAuthFlows) UnmarshalJSON(data []byte) error {
 	type Alias OAuthFlows
 	aux := (*Alias)(of)
@@ -131,7 +139,10 @@ func (of *OAuthFlows) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for OAuthFlow
+// MarshalJSON implements custom JSON marshaling for OAuthFlow.
+// This is required to flatten Extra fields (specification extensions like x-*)
+// into the top-level JSON object, as Go's encoding/json doesn't support
+// inline maps like yaml:",inline".
 func (of *OAuthFlow) MarshalJSON() ([]byte, error) {
 	type Alias OAuthFlow
 	aux, err := json.Marshal((*Alias)(of))
@@ -155,7 +166,8 @@ func (of *OAuthFlow) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for OAuthFlow
+// UnmarshalJSON implements custom JSON unmarshaling for OAuthFlow.
+// This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (of *OAuthFlow) UnmarshalJSON(data []byte) error {
 	type Alias OAuthFlow
 	aux := (*Alias)(of)
