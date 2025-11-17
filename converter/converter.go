@@ -31,6 +31,8 @@ type ConversionResult struct {
 	SourceVersion string
 	// SourceOASVersion is the enumerated source OAS version
 	SourceOASVersion parser.OASVersion
+	// SourceFormat is the format of the source file (JSON or YAML)
+	SourceFormat parser.SourceFormat
 	// TargetVersion is the target OAS version string
 	TargetVersion string
 	// TargetOASVersion is the enumerated target OAS version
@@ -135,6 +137,7 @@ func (c *Converter) ConvertParsed(parseResult parser.ParseResult, targetVersionS
 	result := &ConversionResult{
 		SourceVersion:    parseResult.Version,
 		SourceOASVersion: parseResult.OASVersion,
+		SourceFormat:     parseResult.SourceFormat,
 		TargetVersion:    targetVersionStr,
 		TargetOASVersion: targetVersion,
 		Issues:           make([]ConversionIssue, 0),

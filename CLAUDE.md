@@ -303,6 +303,69 @@ make clean
 - **Separation of concerns**: Each package has a single, well-defined responsibility
 - **CLI structure**: Simple command dispatcher in main.go that delegates to library packages
 - **Comprehensive documentation**: Each package includes doc.go for package-level documentation and example_test.go for godoc examples
+- **Format preservation**: Input file format (JSON or YAML) is automatically detected and preserved throughout the conversion and joining pipelines
+
+### Format Preservation
+
+**IMPORTANT: The parser, converter, and joiner automatically preserve the input file format (JSON or YAML).**
+
+When converting or joining OpenAPI specifications, oastools maintains format consistency:
+
+**Implementation:**
+
+1. **Parser** (`parser/parser.go`):
+   - Adds `SourceFormat` field to `ParseResult` to track the detected format
+   - Detects format from file extension (`.json`, `.yaml`, `.yml`)
+   - For readers/bytes, detects format from content (JSON starts with `{` or `[`)
+   - Format detection functions: `detectFormatFromPath()`, `detectFormatFromContent()`
+
+2. **Converter** (`converter/converter.go`):
+   - Adds `SourceFormat` field to `ConversionResult` copied from `ParseResult`
+   - CLI (`cmd/oastools/main.go`) uses `result.SourceFormat` to choose marshaler:
+     - `parser.SourceFormatJSON` → `json.MarshalIndent()` with 2-space indentation
+     - `parser.SourceFormatYAML` → `yaml.Marshal()`
+
+3. **Joiner** (`joiner/joiner.go`):
+   - Adds `SourceFormat` field to `JoinResult` copied from first document's `ParseResult`
+   - `WriteResult()` method uses `result.SourceFormat` to choose marshaler:
+     - `parser.SourceFormatJSON` → `marshalJSON()` helper (uses `json.MarshalIndent()`)
+     - `parser.SourceFormatYAML` → `yaml.Marshal()`
+
+**Test Coverage:**
+
+- `converter/converter_test.go`: `TestJSONFormatPreservation`, `TestYAMLFormatPreservation`
+- `joiner/joiner_test.go`: `TestJSONFormatPreservation`, `TestYAMLFormatPreservation`
+- Test files: `testdata/minimal-oas2.json`, `testdata/minimal-oas3.json`
+
+**Format Detection Logic:**
+
+```go
+// File extension detection
+func detectFormatFromPath(path string) SourceFormat {
+    ext := filepath.Ext(path)
+    switch ext {
+    case ".json":
+        return SourceFormatJSON
+    case ".yaml", ".yml":
+        return SourceFormatYAML
+    default:
+        return SourceFormatUnknown
+    }
+}
+
+// Content-based detection (for readers/bytes)
+func detectFormatFromContent(data []byte) SourceFormat {
+    // Trim leading whitespace, check first character
+    // JSON objects/arrays start with '{' or '['
+    // Otherwise assume YAML
+}
+```
+
+**Key Design Decisions:**
+
+1. **First file wins for joiner**: When joining multiple files, the format of the first file determines the output format
+2. **Default to YAML on unknown**: If format cannot be determined, default to YAML (most common for OpenAPI specs)
+3. **Consistent indentation**: JSON output uses 2-space indentation to match common formatting standards
 
 ### Constant Usage
 
@@ -410,6 +473,12 @@ func TestConverterConvert(t *testing.T) { ... }
 - Untested exported methods
 - Untested exported types or their fields
 - Tests that only cover the "happy path" without error cases
+
+**When changes are ready for commit:**
+- Always use a conventional commit message for the first line and keep it within 72 characters
+- The rest of the commit message should be simply formatted with maximum width (columns) of 100, and should summarize just the basic reasoning why and the changes included. 
+- Following the commit, and after the human has pushed it to origin, be prepared to create a PR using `gh` that uses the same first line of the commit message as the PR's title, and well formatted markdown content that lays out the reasoning as well as the changes made and any useful context. Here is where the details are to go. 
+- The actual commit will be a much briefer version of the messaging used to cover the changes
 
 ## Go Module
 

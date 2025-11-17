@@ -15,6 +15,27 @@ OpenAPI Specification (OAS) tools for validation, parsing, converting, and joini
 - **Join** - Join multiple OpenAPI Specification documents
 - **Library** - Use as a Go library in your own applications
 
+## Format Preservation
+
+When converting or joining OpenAPI specifications, oastools automatically preserves the input file format:
+
+- **JSON input → JSON output**: If your source file is in JSON format, the converted or joined output will also be in JSON format
+- **YAML input → YAML output**: If your source file is in YAML format, the converted or joined output will also be in YAML format
+
+This ensures format consistency across your toolchain and makes it easier to maintain version-controlled API specifications.
+
+**Example:**
+```bash
+# Convert a JSON file - output will also be JSON
+oastools convert -t 3.0.3 swagger.json -o openapi.json
+
+# Convert a YAML file - output will also be YAML
+oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
+
+# Join JSON files - output will be JSON (format from first file)
+oastools join -o merged.json api1.json api2.json
+```
+
 ## Supported OpenAPI Specification Versions
 
 This tool supports all official OpenAPI Specification releases:

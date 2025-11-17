@@ -439,6 +439,14 @@ Notes:
   - Output file is written with restrictive permissions (0600) for security`)
 }
 
+// marshalDocument marshals a document to bytes in the specified format
+func marshalDocument(doc interface{}, format parser.SourceFormat) ([]byte, error) {
+	if format == parser.SourceFormatJSON {
+		return json.MarshalIndent(doc, "", "  ")
+	}
+	return yaml.Marshal(doc)
+}
+
 func handleConvert(args []string) {
 	// Parse flags
 	var targetVersion string
@@ -537,29 +545,22 @@ func handleConvert(args []string) {
 	}
 
 	// Write output
-	if outputPath != "" {
-		data, err := yaml.Marshal(result.Document)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error marshaling converted document: %v\n", err)
-			os.Exit(1)
-		}
+	data, err := marshalDocument(result.Document, result.SourceFormat)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error marshaling converted document: %v\n", err)
+		os.Exit(1)
+	}
 
+	if outputPath != "" {
 		if err := os.WriteFile(outputPath, data, 0600); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing output file: %v\n", err)
 			os.Exit(1)
 		}
-
 		fmt.Printf("\nOutput written to: %s\n", outputPath)
 	} else {
 		// Write to stdout
-		data, err := yaml.Marshal(result.Document)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error marshaling converted document: %v\n", err)
-			os.Exit(1)
-		}
-		// Write raw YAML to stdout
 		if _, err = os.Stdout.Write(data); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing converted document to stderr: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error writing converted document to stdout: %v\n", err)
 			os.Exit(1)
 		}
 	}

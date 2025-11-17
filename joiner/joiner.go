@@ -1,6 +1,7 @@
 package joiner
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -93,6 +94,8 @@ type JoinResult struct {
 	Version string
 	// OASVersion is the enumerated version
 	OASVersion parser.OASVersion
+	// SourceFormat is the format of the first source file (JSON or YAML)
+	SourceFormat parser.SourceFormat
 	// Warnings contains non-fatal issues encountered during joining
 	Warnings []string
 	// CollisionCount tracks the number of collisions resolved
@@ -225,14 +228,29 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 // outputFileMode is the file permission mode for output files (owner read/write only)
 const outputFileMode = 0600
 
-// WriteResult writes a join result to a file
+// marshalJSON marshals a document to JSON format with proper indentation
+func marshalJSON(doc interface{}) ([]byte, error) {
+	return json.MarshalIndent(doc, "", "  ")
+}
+
+// WriteResult writes a join result to a file in YAML or JSON format (matching the source format)
 //
 // The output file is written with restrictive permissions (0600 - owner read/write only)
 // to protect potentially sensitive API specifications. If the file already exists, its
 // permissions will be explicitly set to 0600 after writing.
 func (j *Joiner) WriteResult(result *JoinResult, outputPath string) error {
-	// Marshal to YAML
-	data, err := yaml.Marshal(result.Document)
+	var data []byte
+	var err error
+
+	// Marshal to the same format as the first input file
+	if result.SourceFormat == parser.SourceFormatJSON {
+		// Use encoding/json for JSON format with indentation
+		data, err = marshalJSON(result.Document)
+	} else {
+		// Default to YAML
+		data, err = yaml.Marshal(result.Document)
+	}
+
 	if err != nil {
 		return fmt.Errorf("joiner: failed to marshal joined document: %w", err)
 	}

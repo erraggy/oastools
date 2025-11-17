@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -28,13 +29,28 @@ func New() *Parser {
 	}
 }
 
+// SourceFormat represents the format of the source OpenAPI specification file
+type SourceFormat string
+
+const (
+	// SourceFormatYAML indicates the source was in YAML format
+	SourceFormatYAML SourceFormat = "yaml"
+	// SourceFormatJSON indicates the source was in JSON format
+	SourceFormatJSON SourceFormat = "json"
+	// SourceFormatUnknown indicates the source format could not be determined
+	SourceFormatUnknown SourceFormat = "unknown"
+)
+
 // ParseResult contains the parsed OpenAPI specification and metadata.
 // This structure provides both the raw parsed data and version-specific
 // typed representations of the OpenAPI document, and should be treated as immutable.
 type ParseResult struct {
 	// SourcePath is the document's input source path that it was read from.
-	// Note: if the source was not a file path, this will be set to the name of the method and end in: '.yaml'
+	// Note: if the source was not a file path, this will be set to the name of the method
+	// and end in '.yaml' or '.json' based on the detected format
 	SourcePath string
+	// SourceFormat is the format of the source file (JSON or YAML)
+	SourceFormat SourceFormat
 	// Version is the detected OAS version string (e.g., "2.0", "3.0.3", "3.1.0")
 	Version string
 	// Data contains the raw parsed data as a map, potentially with resolved $refs
@@ -51,6 +67,38 @@ type ParseResult struct {
 	OASVersion OASVersion
 }
 
+// detectFormatFromPath detects the source format from a file path
+func detectFormatFromPath(path string) SourceFormat {
+	ext := filepath.Ext(path)
+	switch ext {
+	case ".json":
+		return SourceFormatJSON
+	case ".yaml", ".yml":
+		return SourceFormatYAML
+	default:
+		return SourceFormatUnknown
+	}
+}
+
+// detectFormatFromContent attempts to detect the format from the content bytes
+// JSON typically starts with '{' or '[', while YAML does not
+func detectFormatFromContent(data []byte) SourceFormat {
+	// Trim leading whitespace
+	trimmed := bytes.TrimLeft(data, " \t\n\r")
+
+	if len(trimmed) == 0 {
+		return SourceFormatUnknown
+	}
+
+	// JSON objects/arrays start with { or [
+	if trimmed[0] == '{' || trimmed[0] == '[' {
+		return SourceFormatJSON
+	}
+
+	// Otherwise assume YAML (could be more sophisticated, but this covers most cases)
+	return SourceFormatYAML
+}
+
 // Parse parses an OpenAPI specification file
 func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 	data, err := os.ReadFile(specPath)
@@ -64,11 +112,13 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 		return nil, err
 	}
 	res.SourcePath = specPath
+	// Detect format from file extension
+	res.SourceFormat = detectFormatFromPath(specPath)
 	return res, nil
 }
 
 // ParseReader parses an OpenAPI specification from an io.Reader
-// Note: since there is no actual ParseResult.SourcePath, it will be set to: ParseReader.yaml
+// Note: since there is no actual ParseResult.SourcePath, it will be set to: ParseReader.yaml or ParseReader.json
 func (p *Parser) ParseReader(r io.Reader) (*ParseResult, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
@@ -78,19 +128,31 @@ func (p *Parser) ParseReader(r io.Reader) (*ParseResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	res.SourcePath = "ParseReader.yaml"
+	// Update SourcePath to match detected format
+	if res.SourceFormat == SourceFormatJSON {
+		res.SourcePath = "ParseReader.json"
+	} else {
+		res.SourcePath = "ParseReader.yaml"
+	}
 	return res, nil
 }
 
 // ParseBytes parses an OpenAPI specification from a byte slice
 // For external references to work, use Parse() with a file path instead
-// Note: since there is no actual ParseResult.SourcePath, it will be set to: ParseBytes.yaml
+// Note: since there is no actual ParseResult.SourcePath, it will be set to: ParseBytes.yaml or ParseBytes.json
 func (p *Parser) ParseBytes(data []byte) (*ParseResult, error) {
 	res, err := p.parseBytesWithBaseDir(data, ".")
 	if err != nil {
 		return nil, err
 	}
-	res.SourcePath = "ParseBytes.yaml"
+	// Detect format from content
+	res.SourceFormat = detectFormatFromContent(data)
+	// Update SourcePath to match detected format
+	if res.SourceFormat == SourceFormatJSON {
+		res.SourcePath = "ParseBytes.json"
+	} else {
+		res.SourcePath = "ParseBytes.yaml"
+	}
 	return res, nil
 }
 

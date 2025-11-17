@@ -2,8 +2,9 @@
 //
 // The joiner merges multiple OAS documents of the same major version into a single
 // document. It supports OAS 2.0 documents with other 2.0 documents, and all OAS 3.x
-// versions together (3.0.x, 3.1.x, 3.2.x). It uses the version from the first
-// document as the result version.
+// versions together (3.0.x, 3.1.x, 3.2.x). It uses the version and format (JSON or YAML)
+// from the first document as the result version and format, ensuring format consistency
+// when writing output with WriteResult.
 //
 // # Quick Start
 //
