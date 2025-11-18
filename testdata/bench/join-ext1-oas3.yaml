@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info:
+  title: Extension API 1
+  version: 1.0.0
+paths:
+  /posts:
+    get:
+      operationId: listPosts
+      summary: List posts
+      responses:
+        '200':
+          description: Success
+components:
+  schemas:
+    Post:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string

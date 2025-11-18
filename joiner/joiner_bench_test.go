@@ -1,0 +1,171 @@
+package joiner
+
+import (
+	"testing"
+
+	"github.com/erraggy/oastools/parser"
+)
+
+// Note on b.Fatalf usage in benchmarks:
+// Using b.Fatalf for errors in benchmark setup or execution is an acceptable pattern.
+// These operations (join, parse) should never fail with valid test fixtures.
+// If they do fail, it indicates a bug that should halt the benchmark immediately.
+
+// Benchmark fixtures
+const (
+	joinBaseOAS3Path = "../testdata/bench/join-base-oas3.yaml"
+	joinExt1OAS3Path = "../testdata/bench/join-ext1-oas3.yaml"
+	joinExt2OAS3Path = "../testdata/bench/join-ext2-oas3.yaml"
+	mediumOAS3Path   = "../testdata/bench/medium-oas3.yaml"
+)
+
+// BenchmarkJoinTwoSmallDocs benchmarks joining 2 small documents
+func BenchmarkJoinTwoSmallDocs(b *testing.B) {
+	config := DefaultConfig()
+	config.PathStrategy = StrategyAcceptLeft
+	config.SchemaStrategy = StrategyAcceptLeft
+
+	j := New(config)
+
+	for b.Loop() {
+		_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
+		if err != nil {
+			b.Fatalf("Failed to join: %v", err)
+		}
+	}
+}
+
+// BenchmarkJoinThreeSmallDocs benchmarks joining 3 small documents
+func BenchmarkJoinThreeSmallDocs(b *testing.B) {
+	config := DefaultConfig()
+	config.PathStrategy = StrategyAcceptLeft
+	config.SchemaStrategy = StrategyAcceptLeft
+
+	j := New(config)
+
+	for b.Loop() {
+		_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path, joinExt2OAS3Path})
+		if err != nil {
+			b.Fatalf("Failed to join: %v", err)
+		}
+	}
+}
+
+// BenchmarkJoinParsedTwoSmallDocs benchmarks joining already-parsed documents
+func BenchmarkJoinParsedTwoSmallDocs(b *testing.B) {
+	// Parse once
+	doc1, err := parser.Parse(joinBaseOAS3Path, false, false)
+	if err != nil {
+		b.Fatalf("Failed to parse doc1: %v", err)
+	}
+	doc2, err := parser.Parse(joinExt1OAS3Path, false, false)
+	if err != nil {
+		b.Fatalf("Failed to parse doc2: %v", err)
+	}
+
+	config := DefaultConfig()
+	config.PathStrategy = StrategyAcceptLeft
+	config.SchemaStrategy = StrategyAcceptLeft
+
+	j := New(config)
+
+	for b.Loop() {
+		_, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2})
+		if err != nil {
+			b.Fatalf("Failed to join: %v", err)
+		}
+	}
+}
+
+// BenchmarkJoinParsedThreeSmallDocs benchmarks joining 3 already-parsed documents
+func BenchmarkJoinParsedThreeSmallDocs(b *testing.B) {
+	// Parse once
+	doc1, err := parser.Parse(joinBaseOAS3Path, false, false)
+	if err != nil {
+		b.Fatalf("Failed to parse doc1: %v", err)
+	}
+	doc2, err := parser.Parse(joinExt1OAS3Path, false, false)
+	if err != nil {
+		b.Fatalf("Failed to parse doc2: %v", err)
+	}
+	doc3, err := parser.Parse(joinExt2OAS3Path, false, false)
+	if err != nil {
+		b.Fatalf("Failed to parse doc3: %v", err)
+	}
+
+	config := DefaultConfig()
+	config.PathStrategy = StrategyAcceptLeft
+	config.SchemaStrategy = StrategyAcceptLeft
+
+	j := New(config)
+
+	for b.Loop() {
+		_, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2, *doc3})
+		if err != nil {
+			b.Fatalf("Failed to join: %v", err)
+		}
+	}
+}
+
+// BenchmarkConvenienceJoinTwoSmallDocs benchmarks the convenience function
+func BenchmarkConvenienceJoinTwoSmallDocs(b *testing.B) {
+	config := DefaultConfig()
+	config.PathStrategy = StrategyAcceptLeft
+
+	for b.Loop() {
+		_, err := Join([]string{joinBaseOAS3Path, joinExt1OAS3Path}, config)
+		if err != nil {
+			b.Fatalf("Failed to join: %v", err)
+		}
+	}
+}
+
+// BenchmarkJoinStrategyAcceptRight benchmarks with StrategyAcceptRight
+func BenchmarkJoinStrategyAcceptRight(b *testing.B) {
+	config := DefaultConfig()
+	config.PathStrategy = StrategyAcceptRight
+	config.SchemaStrategy = StrategyAcceptRight
+
+	j := New(config)
+
+	for b.Loop() {
+		_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
+		if err != nil {
+			b.Fatalf("Failed to join: %v", err)
+		}
+	}
+}
+
+// BenchmarkJoinWithArrayMerge benchmarks joining with array merging enabled
+func BenchmarkJoinWithArrayMerge(b *testing.B) {
+	config := DefaultConfig()
+	config.PathStrategy = StrategyAcceptLeft
+	config.SchemaStrategy = StrategyAcceptLeft
+	config.MergeArrays = true
+
+	j := New(config)
+
+	for b.Loop() {
+		_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
+		if err != nil {
+			b.Fatalf("Failed to join: %v", err)
+		}
+	}
+}
+
+// BenchmarkJoinWithDeduplicateTags benchmarks joining with tag deduplication
+func BenchmarkJoinWithDeduplicateTags(b *testing.B) {
+	config := DefaultConfig()
+	config.PathStrategy = StrategyAcceptLeft
+	config.SchemaStrategy = StrategyAcceptLeft
+	config.DeduplicateTags = true
+
+	j := New(config)
+
+	for b.Loop() {
+		_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
+		if err != nil {
+			b.Fatalf("Failed to join: %v", err)
+		}
+	}
+}

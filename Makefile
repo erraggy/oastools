@@ -1,9 +1,11 @@
-.PHONY: build test lint clean install tidy check help
+.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-converter bench-joiner bench-save bench-compare bench-baseline bench-clean
 
 # Build variables
 BINARY_NAME=oastools
 BUILD_DIR=bin
 MAIN_PATH=./cmd/oastools
+BENCH_DIR=benchmarks
+BENCH_TIME=5s
 
 # Default target
 all: build
@@ -49,11 +51,12 @@ vet:
 	@echo "Running go vet..."
 	go vet ./...
 
-## clean: Clean build artifacts
+## clean: Clean build artifacts and benchmark outputs
 clean:
 	@echo "Cleaning..."
 	@rm -rf $(BUILD_DIR)
 	@rm -f coverage.txt coverage.html
+	@rm -f benchmark-*.txt
 
 ## install: Install the binary
 install:
@@ -76,9 +79,113 @@ check: tidy fmt lint test
 	@echo "Running git status..."
 	@git status
 
+## bench: Run all benchmarks
+bench:
+	@echo "Running all benchmarks ($(BENCH_TIME) per benchmark)..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./converter ./joiner
+
+## bench-parser: Run parser benchmarks only
+bench-parser:
+	@echo "Running parser benchmarks..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser
+
+## bench-validator: Run validator benchmarks only
+bench-validator:
+	@echo "Running validator benchmarks..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./validator
+
+## bench-converter: Run converter benchmarks only
+bench-converter:
+	@echo "Running converter benchmarks..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./converter
+
+## bench-joiner: Run joiner benchmarks only
+bench-joiner:
+	@echo "Running joiner benchmarks..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./joiner
+
+## bench-save: Run all benchmarks and save to timestamped file
+bench-save:
+	@echo "Running benchmarks and saving results..."
+	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
+	OUTPUT_FILE="benchmark-$${TIMESTAMP}.txt"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./converter ./joiner 2>&1 | tee "$${OUTPUT_FILE}"; \
+	echo ""; \
+	echo "Benchmark results saved to: $${OUTPUT_FILE}"
+
+## bench-baseline: Run benchmarks and update baseline file
+bench-baseline:
+	@echo "Running benchmarks and updating baseline..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./converter ./joiner 2>&1 | tee benchmark-baseline.txt
+	@echo ""
+	@echo "Baseline updated: benchmark-baseline.txt"
+
+## bench-compare: Compare two benchmark files (usage: make bench-compare OLD=file1.txt NEW=file2.txt)
+bench-compare:
+	@if [ -z "$(OLD)" ] || [ -z "$(NEW)" ]; then \
+		echo "Error: Please specify OLD and NEW benchmark files"; \
+		echo "Usage: make bench-compare OLD=benchmark-baseline.txt NEW=benchmark-20251117.txt"; \
+		exit 1; \
+	fi
+	@if command -v benchstat >/dev/null 2>&1; then \
+		echo "Comparing $(OLD) vs $(NEW)..."; \
+		benchstat "$(OLD)" "$(NEW)"; \
+	else \
+		echo "benchstat not installed. Install it with:"; \
+		echo "  go install golang.org/x/perf/cmd/benchstat@latest"; \
+		echo ""; \
+		echo "Showing simple diff instead:"; \
+		echo ""; \
+		diff -u "$(OLD)" "$(NEW)" || true; \
+	fi
+
+## bench-cpu: Run benchmarks with CPU profiling
+bench-cpu:
+	@echo "Running benchmarks with CPU profiling..."
+	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
+	PROFILE_FILE="cpu-profile-$${TIMESTAMP}.prof"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -cpuprofile="$${PROFILE_FILE}" ./parser ./validator ./converter ./joiner; \
+	echo ""; \
+	echo "CPU profile saved to: $${PROFILE_FILE}"; \
+	echo "Analyze with: go tool pprof $${PROFILE_FILE}"
+
+## bench-mem: Run benchmarks with memory profiling
+bench-mem:
+	@echo "Running benchmarks with memory profiling..."
+	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
+	PROFILE_FILE="mem-profile-$${TIMESTAMP}.prof"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -memprofile="$${PROFILE_FILE}" ./parser ./validator ./converter ./joiner; \
+	echo ""; \
+	echo "Memory profile saved to: $${PROFILE_FILE}"; \
+	echo "Analyze with: go tool pprof $${PROFILE_FILE}"
+
+## bench-profile: Run benchmarks with both CPU and memory profiling
+bench-profile:
+	@echo "Running benchmarks with CPU and memory profiling..."
+	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
+	CPU_PROFILE="cpu-profile-$${TIMESTAMP}.prof"; \
+	MEM_PROFILE="mem-profile-$${TIMESTAMP}.prof"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -cpuprofile="$${CPU_PROFILE}" -memprofile="$${MEM_PROFILE}" ./parser ./validator ./converter ./joiner; \
+	echo ""; \
+	echo "CPU profile saved to: $${CPU_PROFILE}"; \
+	echo "Memory profile saved to: $${MEM_PROFILE}"; \
+	echo "Analyze with: go tool pprof <profile-file>"
+
+## bench-clean: Remove timestamped benchmark output files (preserves baseline)
+bench-clean:
+	@echo "Cleaning benchmark outputs..."
+	@rm -f benchmark-[0-9]*.txt
+	@rm -f cpu-profile-*.prof
+	@rm -f mem-profile-*.prof
+	@echo "Benchmark outputs cleaned (baseline preserved)"
+
 ## help: Show this help message
 help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Targets:"
 	@sed -n 's/^##//p' $(MAKEFILE_LIST) | column -t -s ':' | sed -e 's/^/ /'
+	@echo ""
+	@echo "Benchmark Configuration:"
+	@echo "  BENCH_TIME=<duration>  Benchmark run time per test (default: 5s)"
+	@echo "                         Example: make bench BENCH_TIME=10s"

@@ -1,0 +1,6176 @@
+openapi: 3.0.3
+info:
+  title: Large Test API
+  version: 1.0.0
+  description: Large API specification for benchmarking performance
+  contact:
+    name: API Support Team
+    email: support@example.com
+    url: https://example.com/support
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: https://example.com/terms
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: https://staging-api.example.com/v1
+    description: Staging server
+  - url: https://dev-api.example.com/v1
+    description: Development server
+security:
+  - bearerAuth: []
+  - apiKey: []
+tags:
+  - name: resource1
+    description: Resource 1 management operations
+  - name: resource2
+    description: Resource 2 management operations
+  - name: resource3
+    description: Resource 3 management operations
+  - name: resource4
+    description: Resource 4 management operations
+  - name: resource5
+    description: Resource 5 management operations
+  - name: resource6
+    description: Resource 6 management operations
+  - name: resource7
+    description: Resource 7 management operations
+  - name: resource8
+    description: Resource 8 management operations
+  - name: resource9
+    description: Resource 9 management operations
+  - name: resource10
+    description: Resource 10 management operations
+  - name: resource11
+    description: Resource 11 management operations
+  - name: resource12
+    description: Resource 12 management operations
+  - name: resource13
+    description: Resource 13 management operations
+  - name: resource14
+    description: Resource 14 management operations
+  - name: resource15
+    description: Resource 15 management operations
+  - name: resource16
+    description: Resource 16 management operations
+  - name: resource17
+    description: Resource 17 management operations
+  - name: resource18
+    description: Resource 18 management operations
+  - name: resource19
+    description: Resource 19 management operations
+  - name: resource20
+    description: Resource 20 management operations
+paths:
+  /resource1:
+    get:
+      operationId: listResource1
+      summary: List all resource1 items
+      tags:
+        - resource1
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource1'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource1
+      summary: Create a new resource1 item
+      tags:
+        - resource1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource1Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource1Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource1'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource1/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource1 identifier
+    get:
+      operationId: getResource1
+      summary: Get resource1 item by ID
+      tags:
+        - resource1
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource1'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource1
+      summary: Update resource1 item
+      tags:
+        - resource1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource1Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource1'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource1
+      summary: Partially update resource1 item
+      tags:
+        - resource1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource1Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource1'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource1
+      summary: Delete resource1 item
+      tags:
+        - resource1
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource2:
+    get:
+      operationId: listResource2
+      summary: List all resource2 items
+      tags:
+        - resource2
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource2'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource2
+      summary: Create a new resource2 item
+      tags:
+        - resource2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource2Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource2Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource2'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource2/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource2 identifier
+    get:
+      operationId: getResource2
+      summary: Get resource2 item by ID
+      tags:
+        - resource2
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource2'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource2
+      summary: Update resource2 item
+      tags:
+        - resource2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource2Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource2'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource2
+      summary: Partially update resource2 item
+      tags:
+        - resource2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource2Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource2'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource2
+      summary: Delete resource2 item
+      tags:
+        - resource2
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource3:
+    get:
+      operationId: listResource3
+      summary: List all resource3 items
+      tags:
+        - resource3
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource3'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource3
+      summary: Create a new resource3 item
+      tags:
+        - resource3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource3Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource3Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource3'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource3/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource3 identifier
+    get:
+      operationId: getResource3
+      summary: Get resource3 item by ID
+      tags:
+        - resource3
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource3'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource3
+      summary: Update resource3 item
+      tags:
+        - resource3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource3Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource3'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource3
+      summary: Partially update resource3 item
+      tags:
+        - resource3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource3Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource3'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource3
+      summary: Delete resource3 item
+      tags:
+        - resource3
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource4:
+    get:
+      operationId: listResource4
+      summary: List all resource4 items
+      tags:
+        - resource4
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource4'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource4
+      summary: Create a new resource4 item
+      tags:
+        - resource4
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource4Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource4Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource4'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource4/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource4 identifier
+    get:
+      operationId: getResource4
+      summary: Get resource4 item by ID
+      tags:
+        - resource4
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource4'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource4
+      summary: Update resource4 item
+      tags:
+        - resource4
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource4Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource4'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource4
+      summary: Partially update resource4 item
+      tags:
+        - resource4
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource4Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource4'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource4
+      summary: Delete resource4 item
+      tags:
+        - resource4
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource5:
+    get:
+      operationId: listResource5
+      summary: List all resource5 items
+      tags:
+        - resource5
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource5'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource5
+      summary: Create a new resource5 item
+      tags:
+        - resource5
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource5Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource5Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource5'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource5/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource5 identifier
+    get:
+      operationId: getResource5
+      summary: Get resource5 item by ID
+      tags:
+        - resource5
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource5'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource5
+      summary: Update resource5 item
+      tags:
+        - resource5
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource5Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource5'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource5
+      summary: Partially update resource5 item
+      tags:
+        - resource5
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource5Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource5'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource5
+      summary: Delete resource5 item
+      tags:
+        - resource5
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource6:
+    get:
+      operationId: listResource6
+      summary: List all resource6 items
+      tags:
+        - resource6
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource6'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource6
+      summary: Create a new resource6 item
+      tags:
+        - resource6
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource6Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource6Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource6'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource6/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource6 identifier
+    get:
+      operationId: getResource6
+      summary: Get resource6 item by ID
+      tags:
+        - resource6
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource6'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource6
+      summary: Update resource6 item
+      tags:
+        - resource6
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource6Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource6'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource6
+      summary: Partially update resource6 item
+      tags:
+        - resource6
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource6Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource6'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource6
+      summary: Delete resource6 item
+      tags:
+        - resource6
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource7:
+    get:
+      operationId: listResource7
+      summary: List all resource7 items
+      tags:
+        - resource7
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource7'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource7
+      summary: Create a new resource7 item
+      tags:
+        - resource7
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource7Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource7Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource7'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource7/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource7 identifier
+    get:
+      operationId: getResource7
+      summary: Get resource7 item by ID
+      tags:
+        - resource7
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource7'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource7
+      summary: Update resource7 item
+      tags:
+        - resource7
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource7Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource7'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource7
+      summary: Partially update resource7 item
+      tags:
+        - resource7
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource7Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource7'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource7
+      summary: Delete resource7 item
+      tags:
+        - resource7
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource8:
+    get:
+      operationId: listResource8
+      summary: List all resource8 items
+      tags:
+        - resource8
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource8'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource8
+      summary: Create a new resource8 item
+      tags:
+        - resource8
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource8Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource8Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource8'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource8/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource8 identifier
+    get:
+      operationId: getResource8
+      summary: Get resource8 item by ID
+      tags:
+        - resource8
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource8'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource8
+      summary: Update resource8 item
+      tags:
+        - resource8
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource8Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource8'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource8
+      summary: Partially update resource8 item
+      tags:
+        - resource8
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource8Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource8'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource8
+      summary: Delete resource8 item
+      tags:
+        - resource8
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource9:
+    get:
+      operationId: listResource9
+      summary: List all resource9 items
+      tags:
+        - resource9
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource9'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource9
+      summary: Create a new resource9 item
+      tags:
+        - resource9
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource9Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource9Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource9'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource9/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource9 identifier
+    get:
+      operationId: getResource9
+      summary: Get resource9 item by ID
+      tags:
+        - resource9
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource9'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource9
+      summary: Update resource9 item
+      tags:
+        - resource9
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource9Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource9'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource9
+      summary: Partially update resource9 item
+      tags:
+        - resource9
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource9Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource9'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource9
+      summary: Delete resource9 item
+      tags:
+        - resource9
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource10:
+    get:
+      operationId: listResource10
+      summary: List all resource10 items
+      tags:
+        - resource10
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource10'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource10
+      summary: Create a new resource10 item
+      tags:
+        - resource10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource10Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource10Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource10'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource10/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource10 identifier
+    get:
+      operationId: getResource10
+      summary: Get resource10 item by ID
+      tags:
+        - resource10
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource10'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource10
+      summary: Update resource10 item
+      tags:
+        - resource10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource10Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource10'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource10
+      summary: Partially update resource10 item
+      tags:
+        - resource10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource10Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource10'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource10
+      summary: Delete resource10 item
+      tags:
+        - resource10
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource11:
+    get:
+      operationId: listResource11
+      summary: List all resource11 items
+      tags:
+        - resource11
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource11'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource11
+      summary: Create a new resource11 item
+      tags:
+        - resource11
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource11Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource11Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource11'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource11/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource11 identifier
+    get:
+      operationId: getResource11
+      summary: Get resource11 item by ID
+      tags:
+        - resource11
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource11'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource11
+      summary: Update resource11 item
+      tags:
+        - resource11
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource11Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource11'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource11
+      summary: Partially update resource11 item
+      tags:
+        - resource11
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource11Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource11'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource11
+      summary: Delete resource11 item
+      tags:
+        - resource11
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource12:
+    get:
+      operationId: listResource12
+      summary: List all resource12 items
+      tags:
+        - resource12
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource12'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource12
+      summary: Create a new resource12 item
+      tags:
+        - resource12
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource12Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource12Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource12'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource12/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource12 identifier
+    get:
+      operationId: getResource12
+      summary: Get resource12 item by ID
+      tags:
+        - resource12
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource12'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource12
+      summary: Update resource12 item
+      tags:
+        - resource12
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource12Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource12'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource12
+      summary: Partially update resource12 item
+      tags:
+        - resource12
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource12Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource12'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource12
+      summary: Delete resource12 item
+      tags:
+        - resource12
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource13:
+    get:
+      operationId: listResource13
+      summary: List all resource13 items
+      tags:
+        - resource13
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource13'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource13
+      summary: Create a new resource13 item
+      tags:
+        - resource13
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource13Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource13Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource13'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource13/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource13 identifier
+    get:
+      operationId: getResource13
+      summary: Get resource13 item by ID
+      tags:
+        - resource13
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource13'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource13
+      summary: Update resource13 item
+      tags:
+        - resource13
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource13Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource13'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource13
+      summary: Partially update resource13 item
+      tags:
+        - resource13
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource13Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource13'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource13
+      summary: Delete resource13 item
+      tags:
+        - resource13
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource14:
+    get:
+      operationId: listResource14
+      summary: List all resource14 items
+      tags:
+        - resource14
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource14'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource14
+      summary: Create a new resource14 item
+      tags:
+        - resource14
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource14Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource14Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource14'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource14/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource14 identifier
+    get:
+      operationId: getResource14
+      summary: Get resource14 item by ID
+      tags:
+        - resource14
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource14'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource14
+      summary: Update resource14 item
+      tags:
+        - resource14
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource14Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource14'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource14
+      summary: Partially update resource14 item
+      tags:
+        - resource14
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource14Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource14'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource14
+      summary: Delete resource14 item
+      tags:
+        - resource14
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource15:
+    get:
+      operationId: listResource15
+      summary: List all resource15 items
+      tags:
+        - resource15
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource15'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource15
+      summary: Create a new resource15 item
+      tags:
+        - resource15
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource15Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource15Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource15'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource15/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource15 identifier
+    get:
+      operationId: getResource15
+      summary: Get resource15 item by ID
+      tags:
+        - resource15
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource15'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource15
+      summary: Update resource15 item
+      tags:
+        - resource15
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource15Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource15'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource15
+      summary: Partially update resource15 item
+      tags:
+        - resource15
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource15Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource15'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource15
+      summary: Delete resource15 item
+      tags:
+        - resource15
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource16:
+    get:
+      operationId: listResource16
+      summary: List all resource16 items
+      tags:
+        - resource16
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource16'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource16
+      summary: Create a new resource16 item
+      tags:
+        - resource16
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource16Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource16Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource16'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource16/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource16 identifier
+    get:
+      operationId: getResource16
+      summary: Get resource16 item by ID
+      tags:
+        - resource16
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource16'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource16
+      summary: Update resource16 item
+      tags:
+        - resource16
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource16Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource16'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource16
+      summary: Partially update resource16 item
+      tags:
+        - resource16
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource16Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource16'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource16
+      summary: Delete resource16 item
+      tags:
+        - resource16
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource17:
+    get:
+      operationId: listResource17
+      summary: List all resource17 items
+      tags:
+        - resource17
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource17'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource17
+      summary: Create a new resource17 item
+      tags:
+        - resource17
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource17Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource17Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource17'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource17/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource17 identifier
+    get:
+      operationId: getResource17
+      summary: Get resource17 item by ID
+      tags:
+        - resource17
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource17'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource17
+      summary: Update resource17 item
+      tags:
+        - resource17
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource17Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource17'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource17
+      summary: Partially update resource17 item
+      tags:
+        - resource17
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource17Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource17'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource17
+      summary: Delete resource17 item
+      tags:
+        - resource17
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource18:
+    get:
+      operationId: listResource18
+      summary: List all resource18 items
+      tags:
+        - resource18
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource18'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource18
+      summary: Create a new resource18 item
+      tags:
+        - resource18
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource18Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource18Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource18'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource18/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource18 identifier
+    get:
+      operationId: getResource18
+      summary: Get resource18 item by ID
+      tags:
+        - resource18
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource18'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource18
+      summary: Update resource18 item
+      tags:
+        - resource18
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource18Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource18'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource18
+      summary: Partially update resource18 item
+      tags:
+        - resource18
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource18Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource18'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource18
+      summary: Delete resource18 item
+      tags:
+        - resource18
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource19:
+    get:
+      operationId: listResource19
+      summary: List all resource19 items
+      tags:
+        - resource19
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource19'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource19
+      summary: Create a new resource19 item
+      tags:
+        - resource19
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource19Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource19Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource19'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource19/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource19 identifier
+    get:
+      operationId: getResource19
+      summary: Get resource19 item by ID
+      tags:
+        - resource19
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource19'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource19
+      summary: Update resource19 item
+      tags:
+        - resource19
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource19Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource19'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource19
+      summary: Partially update resource19 item
+      tags:
+        - resource19
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource19Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource19'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource19
+      summary: Delete resource19 item
+      tags:
+        - resource19
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource20:
+    get:
+      operationId: listResource20
+      summary: List all resource20 items
+      tags:
+        - resource20
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created, updated, id]
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Filter expression
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource20'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createResource20
+      summary: Create a new resource20 item
+      tags:
+        - resource20
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource20Create'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Resource20Create'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource20'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /resource20/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Resource20 identifier
+    get:
+      operationId: getResource20
+      summary: Get resource20 item by ID
+      tags:
+        - resource20
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource20'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateResource20
+      summary: Update resource20 item
+      tags:
+        - resource20
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource20Update'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource20'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: patchResource20
+      summary: Partially update resource20 item
+      tags:
+        - resource20
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resource20Patch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource20'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteResource20
+      summary: Delete resource20 item
+      tags:
+        - resource20
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  schemas:
+    Resource1:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource1Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource1Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource1Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource2:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource2Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource2Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource2Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource3:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource3Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource3Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource3Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource4:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource4Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource4Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource4Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource5:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource5Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource5Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource5Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource6:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource6Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource6Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource6Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource7:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource7Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource7Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource7Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource8:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource8Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource8Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource8Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource9:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource9Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource9Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource9Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource10:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource10Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource10Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource10Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource11:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource11Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource11Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource11Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource12:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource12Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource12Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource12Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource13:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource13Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource13Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource13Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource14:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource14Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource14Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource14Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource15:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource15Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource15Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource15Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource16:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource16Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource16Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource16Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource17:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource17Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource17Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource17Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource18:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource18Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource18Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource18Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource19:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource19Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource19Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource19Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Resource20:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+          description: Reference to related resource1
+        relatedResource2:
+          type: string
+          description: Reference to related resource2
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+    Resource20Create:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+          default: active
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource20Update:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        relatedResource1:
+          type: string
+        relatedResource2:
+          type: string
+    Resource20Patch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [active, inactive, pending, archived]
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+        traceId:
+          type: string
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
