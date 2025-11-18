@@ -40,3 +40,7 @@ Thumbs.db
 
 # Local release notes (not tracked in git)
 releases/
+
+# Benchmark outputs (not tracked in git - kept locally for comparison)
+benchmark-baseline.txt
+benchmark-[0-9]*.txt

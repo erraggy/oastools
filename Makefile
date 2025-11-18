@@ -139,11 +139,11 @@ bench-compare:
 		diff -u $(OLD) $(NEW) || true; \
 	fi
 
-## bench-clean: Remove all benchmark output files
+## bench-clean: Remove timestamped benchmark output files (preserves baseline)
 bench-clean:
 	@echo "Cleaning benchmark outputs..."
-	@rm -f benchmark-*.txt
-	@echo "Benchmark outputs cleaned"
+	@rm -f benchmark-[0-9]*.txt
+	@echo "Benchmark outputs cleaned (baseline preserved)"
 
 ## help: Show this help message
 help:
