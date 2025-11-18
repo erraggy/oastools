@@ -483,13 +483,110 @@ func TestConverterConvert(t *testing.T) { ... }
 
 ### Creating a new release
 
-**After one or more PRs have been merged and a new release is desired:**
-- Be sure to be on the `main` branch and up-to-date with `origin`
-- Create the next semver tag based on the changes included:
-  - Minor changes: bump the minor version one: so like from `v1.1.0` to `v1.2.0` 
-  - Patching bugs or docs alone without feature changes: bump the patch version one: so like from `v1.1.0` to `v1.1.1`
-  - Breaking changes: would bump the major version one, but that is a larger process that requires more discussion
-- Use `gh` to create the new release and summarize the changes in a brief title (less than 75 chars) and a well formatted markdown body that covers the reasoning, changes, and any additional notes
+**Prerequisites:**
+1. Ensure you are on the `main` branch
+2. Ensure your local `main` is up-to-date with `origin/main`
+3. Verify all tests pass: `make check`
+4. Review merged PRs since last release to understand changes
+
+**Semantic Versioning (SemVer) Rules:**
+
+The version tag follows the format `vMAJOR.MINOR.PATCH` (e.g., `v1.7.0`):
+
+- **PATCH** (increment 3rd number): Bug fixes, documentation updates, minor changes without new features
+  - Example: `v1.6.0` → `v1.6.1`
+  - Use when: Fixing bugs, updating docs, small refactors with no API changes
+
+- **MINOR** (increment 2nd number): New features, larger implementation changes, performance improvements
+  - Example: `v1.6.0` → `v1.7.0`
+  - Use when: Adding new functionality, significant optimizations, new public APIs (backward compatible)
+
+- **MAJOR** (increment 1st number): Breaking changes to public APIs
+  - Example: `v1.6.0` → `v2.0.0`
+  - Use when: Removing/changing public APIs, incompatible changes
+  - Note: Major version bumps require careful planning and are extremely rare
+
+**Release Process:**
+
+1. **Determine the version number** based on the changes included (see rules above)
+
+2. **Create the release using `gh release create`:**
+   ```bash
+   gh release create v1.7.0 \
+     --title "v1.7.0 - Brief summary within 72 chars" \
+     --notes "$(cat <<'EOF'
+   ## Summary
+
+   High-level overview of what this release delivers.
+
+   ## What's New
+
+   - Feature 1: Description
+   - Feature 2: Description
+   - Performance: Improvements achieved
+
+   ## Changes
+
+   - Change 1
+   - Change 2
+
+   ## Technical Details
+
+   Additional context, benchmark results, migration notes, etc.
+
+   ## Related PRs
+
+   - #17 - PR title
+   - #18 - PR title
+   EOF
+   )"
+   ```
+
+3. **Title format**: `vX.Y.Z - Brief summary` (keep within 72 characters total)
+   - Example: `v1.7.0 - Performance improvements and benchmark suite`
+
+4. **Body format**: Well-formatted markdown with:
+   - **Summary**: High-level overview of the release
+   - **What's New**: Bullet points of new features/improvements
+   - **Changes**: Notable changes or fixes
+   - **Technical Details**: Benchmarks, metrics, migration notes (if applicable)
+   - **Related PRs**: Links to merged pull requests
+
+**Example Release Command:**
+
+```bash
+gh release create v1.7.0 \
+  --title "v1.7.0 - Performance improvements and benchmark suite" \
+  --notes "$(cat <<'EOF'
+## Summary
+
+This release introduces comprehensive performance benchmarking infrastructure
+and delivers significant JSON marshaling performance improvements.
+
+## What's New
+
+- Comprehensive benchmark suite (60+ benchmarks across all packages)
+- JSON marshaler optimization (25-32% faster, 29-37% fewer allocations)
+- Performance improvement planning documentation
+
+## Performance Improvements
+
+- Info marshaling: 26% faster (2,323ns → 1,707ns)
+- Contact marshaling: 32% faster (2,336ns → 1,599ns)
+- Server marshaling: 25% faster (2,837ns → 2,160ns)
+
+## Related PRs
+
+- #17 - Phase 1: Benchmark infrastructure and baseline
+- #18 - Phase 2: JSON marshaler optimization
+EOF
+)"
+```
+
+**After Release:**
+- Verify the release appears correctly on GitHub
+- The tag is automatically created by `gh release create`
+- GitHub Actions will run (if configured) to build/publish artifacts
 
 ## Go Module
 
