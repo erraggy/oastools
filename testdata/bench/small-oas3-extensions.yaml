@@ -1,0 +1,97 @@
+openapi: 3.0.3
+info:
+  title: Small Test API with Extensions
+  version: 1.0.0
+  description: Minimal API with specification extensions for marshaler benchmarking
+  x-api-id: test-api-001
+  x-audience: internal
+  x-custom-metadata:
+    team: platform
+    region: us-east-1
+servers:
+  - url: https://api.example.com/v1
+    x-environment: production
+    x-load-balancer: alb-prod-001
+paths:
+  /users:
+    x-rate-limit: 1000
+    x-cache-ttl: 300
+    get:
+      operationId: listUsers
+      summary: List all users
+      x-internal-only: false
+      x-requires-approval: false
+      responses:
+        '200':
+          description: Success
+          x-response-time-sla: 200ms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      x-encrypted: false
+                    name:
+                      type: string
+                      x-pii: true
+                      x-max-length: 100
+                  x-additional-validation: custom-user-validator
+    post:
+      operationId: createUser
+      summary: Create a user
+      x-requires-approval: true
+      x-audit-log: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  x-pii: true
+              required:
+                - name
+              x-validator: strict
+      responses:
+        '201':
+          description: Created
+          x-webhook-trigger: user.created
+  /users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        x-format: uuid
+    get:
+      operationId: getUser
+      summary: Get user by ID
+      x-cache-enabled: true
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+components:
+  schemas:
+    UserExtended:
+      type: object
+      x-table-name: users
+      x-primary-key: id
+      properties:
+        id:
+          type: string
+          x-generated: true
+        name:
+          type: string
+          x-indexed: true
+      x-relationships:
+        posts: hasMany
+        profile: hasOne

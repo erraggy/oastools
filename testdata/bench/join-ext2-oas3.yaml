@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info:
+  title: Extension API 2
+  version: 1.0.0
+paths:
+  /comments:
+    get:
+      operationId: listComments
+      summary: List comments
+      responses:
+        '200':
+          description: Success
+components:
+  schemas:
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+        content:
+          type: string
