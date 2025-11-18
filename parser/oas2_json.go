@@ -10,32 +10,63 @@ import (
 // inline maps like yaml:",inline". The Extra map is merged after marshaling
 // the base struct to ensure specification extensions appear at the root level.
 func (d *OAS2Document) MarshalJSON() ([]byte, error) {
-	// Create an alias type to avoid recursion
-	type Alias OAS2Document
-
-	// Marshal the base struct
-	aux, err := json.Marshal((*Alias)(d))
-	if err != nil {
-		return nil, err
-	}
-
-	// If there's no Extra, return as-is
+	// Fast path: no Extra fields, use standard marshaling
 	if len(d.Extra) == 0 {
-		return aux, nil
+		type Alias OAS2Document
+		return json.Marshal((*Alias)(d))
 	}
 
-	// Unmarshal into a map
-	var m map[string]interface{}
-	if err := json.Unmarshal(aux, &m); err != nil {
-		return nil, err
+	// Build map directly to avoid double-marshal pattern
+	m := make(map[string]interface{}, 15+len(d.Extra))
+
+	// Add known fields (omit zero values to match json:",omitempty" behavior)
+	// Swagger and Info are required, always include
+	m["swagger"] = d.Swagger
+	m["info"] = d.Info
+	if d.Host != "" {
+		m["host"] = d.Host
+	}
+	if d.BasePath != "" {
+		m["basePath"] = d.BasePath
+	}
+	if len(d.Schemes) > 0 {
+		m["schemes"] = d.Schemes
+	}
+	if len(d.Consumes) > 0 {
+		m["consumes"] = d.Consumes
+	}
+	if len(d.Produces) > 0 {
+		m["produces"] = d.Produces
+	}
+	// Paths is required, always include
+	m["paths"] = d.Paths
+	if len(d.Definitions) > 0 {
+		m["definitions"] = d.Definitions
+	}
+	if len(d.Parameters) > 0 {
+		m["parameters"] = d.Parameters
+	}
+	if len(d.Responses) > 0 {
+		m["responses"] = d.Responses
+	}
+	if len(d.SecurityDefinitions) > 0 {
+		m["securityDefinitions"] = d.SecurityDefinitions
+	}
+	if len(d.Security) > 0 {
+		m["security"] = d.Security
+	}
+	if len(d.Tags) > 0 {
+		m["tags"] = d.Tags
+	}
+	if d.ExternalDocs != nil {
+		m["externalDocs"] = d.ExternalDocs
 	}
 
-	// Merge Extra fields into the map
+	// Add Extra fields (spec extensions must start with "x-")
 	for k, v := range d.Extra {
 		m[k] = v
 	}
 
-	// Marshal the final result
 	return json.Marshal(m)
 }
 
@@ -44,44 +75,22 @@ func (d *OAS2Document) MarshalJSON() ([]byte, error) {
 // It unmarshals known fields using the standard decoder, then identifies and stores
 // any fields not defined in the OAS 2.0 specification in the Extra map.
 func (d *OAS2Document) UnmarshalJSON(data []byte) error {
-	// Create an alias type to avoid recursion
 	type Alias OAS2Document
 	aux := (*Alias)(d)
 
-	// Unmarshal known fields
 	if err := json.Unmarshal(data, aux); err != nil {
 		return err
 	}
 
-	// Unmarshal into a map to find unknown fields
 	var m map[string]interface{}
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
-	// Known field names from OAS 2.0 spec
-	knownFields := map[string]bool{
-		"swagger":             true,
-		"info":                true,
-		"host":                true,
-		"basePath":            true,
-		"schemes":             true,
-		"consumes":            true,
-		"produces":            true,
-		"paths":               true,
-		"definitions":         true,
-		"parameters":          true,
-		"responses":           true,
-		"securityDefinitions": true,
-		"security":            true,
-		"tags":                true,
-		"externalDocs":        true,
-	}
-
-	// Collect unknown fields
+	// Extract specification extensions (fields starting with "x-")
 	extra := make(map[string]interface{})
 	for k, v := range m {
-		if !knownFields[k] {
+		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
 		}
 	}
