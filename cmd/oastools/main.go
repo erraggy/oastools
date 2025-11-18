@@ -13,7 +13,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const version = "1.5.0"
+// version is set via ldflags during build by GoReleaser
+// For development builds, this will show "dev"
+var version = "dev"
 
 func main() {
 	if len(os.Args) < 2 {
