@@ -17,6 +17,21 @@ OpenAPI Specification (OAS) tools for validation, parsing, converting, and joini
 
 ### CLI Tool
 
+#### Homebrew (macOS and Linux)
+
+```bash
+brew tap erraggy/oastools
+brew install oastools
+```
+
+To upgrade to the latest version:
+
+```bash
+brew upgrade oastools
+```
+
+#### Other Methods
+
 ```bash
 # Using Go
 go install github.com/erraggy/oastools/cmd/oastools@latest
@@ -25,6 +40,10 @@ go install github.com/erraggy/oastools/cmd/oastools@latest
 git clone https://github.com/erraggy/oastools.git
 cd oastools
 make install
+
+# Download pre-built binaries
+# Available for macOS (Intel/ARM), Linux (x86_64/ARM64/i386), and Windows (x86_64/i386)
+# https://github.com/erraggy/oastools/releases/latest
 ```
 
 ### Go Library
