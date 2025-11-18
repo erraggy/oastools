@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-converter bench-joiner bench-save bench-compare bench-baseline bench-clean
+.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-converter bench-joiner bench-save bench-compare bench-baseline bench-clean release-test release-clean
 
 # Build variables
 BINARY_NAME=oastools
@@ -55,6 +55,7 @@ vet:
 clean:
 	@echo "Cleaning..."
 	@rm -rf $(BUILD_DIR)
+	@rm -rf dist/
 	@rm -f coverage.txt coverage.html
 	@rm -f benchmark-*.txt
 
@@ -178,6 +179,28 @@ bench-clean:
 	@rm -f cpu-profile-*.prof
 	@rm -f mem-profile-*.prof
 	@echo "Benchmark outputs cleaned (baseline preserved)"
+
+## release-test: Test GoReleaser configuration locally (creates dist/ without publishing)
+release-test:
+	@echo "Testing GoReleaser configuration (snapshot mode)..."
+	@if ! command -v goreleaser >/dev/null 2>&1; then \
+		echo "Error: goreleaser not installed. Install it with:"; \
+		echo "  brew install goreleaser"; \
+		exit 1; \
+	fi
+	@goreleaser release --snapshot --clean
+	@echo ""
+	@echo "Test successful! Check dist/ directory for generated artifacts."
+	@echo "To clean up: make release-clean"
+	@echo ""
+	@echo "To create a real release, use:"
+	@echo "  gh release create vX.Y.Z --title \"vX.Y.Z - Description\" --notes \"...\""
+
+## release-clean: Clean GoReleaser artifacts from local testing
+release-clean:
+	@echo "Cleaning release artifacts..."
+	@rm -rf dist/
+	@echo "Release artifacts cleaned"
 
 ## help: Show this help message
 help:

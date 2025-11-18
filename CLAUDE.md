@@ -483,7 +483,18 @@ func TestConverterConvert(t *testing.T) { ... }
 
 ### Creating a new release
 
+**Release Infrastructure:**
+
+This repository uses **GoReleaser** with **GitHub Actions** to automate binary builds and Homebrew publishing.
+The recommended workflow is:
+
+1. Create a GitHub Release with detailed notes using `gh release create`
+2. GoReleaser automatically triggers, adds binaries to your release, and publishes to Homebrew
+
+This approach maintains full control over release notes while automating the build and distribution process.
+
 **Prerequisites:**
+
 1. Ensure you are on the `main` branch
 2. Ensure your local `main` is up-to-date with `origin/main`
 3. Verify all tests pass: `make check`
@@ -506,14 +517,88 @@ The version tag follows the format `vMAJOR.MINOR.PATCH` (e.g., `v1.7.0`):
   - Use when: Removing/changing public APIs, incompatible changes
   - Note: Major version bumps require careful planning and are extremely rare
 
-**Release Process:**
+**GitHub Personal Access Token (PAT) Setup:**
 
-1. **Determine the version number** based on the changes included (see rules above)
+**REQUIRED:** The automated release workflow needs a Personal Access Token to push to the Homebrew tap repository.
 
-2. **Create the release using `gh release create`:**
+The default `GITHUB_TOKEN` provided by GitHub Actions only has permissions for the current repository and
+**cannot** push to the separate `homebrew-oastools` repository. You must create a PAT with `repo` scope.
+
+**For Automated Releases (GitHub Actions) - REQUIRED SETUP:**
+
+1. Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Click "Generate new token (classic)"
+3. Set a descriptive name (e.g., "GoReleaser - oastools Homebrew Publishing")
+4. Select scopes: **`repo`** (full control of private repositories)
+5. Click "Generate token" and **copy the token immediately** (you won't be able to see it again)
+6. Go to the oastools repository → Settings → Secrets and variables → Actions
+7. Click "New repository secret"
+8. Name: `HOMEBREW_TAP_TOKEN`
+9. Value: Paste the token you copied
+10. Click "Add secret"
+
+The `.github/workflows/release.yml` file is already configured to use `${{ secrets.HOMEBREW_TAP_TOKEN }}`.
+
+**Verify PAT Setup:**
+
+Before creating your first release, verify the PAT secret is configured:
+```bash
+gh secret list --repo erraggy/oastools
+```
+
+You should see `HOMEBREW_TAP_TOKEN` in the list.
+
+**For Local Releases:**
+
+If you prefer to run releases locally (not recommended), you'll need to use the same PAT:
+
+1. Create a PAT as described above (or use the same one)
+2. Export it in your shell:
    ```bash
-   gh release create v1.7.0 \
-     --title "v1.7.0 - Brief summary within 72 chars" \
+   export GITHUB_TOKEN="ghp_your_token_here"
+   ```
+3. Use the `make release-test` target to test locally before running a real release
+
+**IMPORTANT:** Never commit the PAT to git. Keep it secure in GitHub Secrets or your local environment only.
+
+**Release Make Targets:**
+
+The following make targets are available to help with testing:
+
+```bash
+# Test the GoReleaser configuration locally (no publishing)
+make release-test
+
+# Clean up local release artifacts
+make release-clean
+```
+
+**Pre-Release Checklist:**
+
+Before creating your first release, ensure:
+- [ ] `HOMEBREW_TAP_TOKEN` secret is created and added to repository secrets
+- [ ] Secret verified with: `gh secret list --repo erraggy/oastools`
+- [ ] Local test successful: `make release-test`
+- [ ] Commit author email in `.goreleaser.yaml` matches a verified email in your GitHub account
+- [ ] All changes committed and pushed to `main`
+- [ ] All tests pass: `make check`
+
+**Release Process (Recommended Workflow):**
+
+This workflow creates the GitHub Release first with detailed notes, then GoReleaser adds binaries and publishes to Homebrew.
+
+1. **Determine the version number** based on the changes included (see SemVer rules above)
+
+2. **Test the release configuration locally** (optional but recommended):
+   ```bash
+   make release-test
+   ```
+   This runs GoReleaser in snapshot mode to verify everything builds correctly without publishing.
+
+3. **Create the GitHub Release with detailed notes**:
+   ```bash
+   gh release create v1.7.1 \
+     --title "v1.7.1 - Brief summary within 72 chars" \
      --notes "$(cat <<'EOF'
    ## Summary
 
@@ -538,55 +623,70 @@ The version tag follows the format `vMAJOR.MINOR.PATCH` (e.g., `v1.7.0`):
 
    - #17 - PR title
    - #18 - PR title
+
+   ## Installation
+
+   ### Homebrew
+   ```bash
+   brew tap erraggy/oastools
+   brew install oastools
+   ```
+
+   ### Binary Download
+   Download the appropriate binary for your platform from the assets below.
    EOF
    )"
    ```
 
-3. **Title format**: `vX.Y.Z - Brief summary` (keep within 72 characters total)
-   - Example: `v1.7.0 - Performance improvements and benchmark suite`
+   **Important:** The `gh release create` command automatically:
+   - Creates the version tag (e.g., `v1.7.1`)
+   - Creates the GitHub Release with your detailed notes
+   - Triggers the GitHub Actions workflow
 
-4. **Body format**: Well-formatted markdown with:
-   - **Summary**: High-level overview of the release
-   - **What's New**: Bullet points of new features/improvements
-   - **Changes**: Notable changes or fixes
-   - **Technical Details**: Benchmarks, metrics, migration notes (if applicable)
-   - **Related PRs**: Links to merged pull requests
+4. **Monitor the automated build**:
+   The GitHub Actions workflow will automatically:
+   - Build binaries for all platforms (Linux, macOS, Windows)
+   - Add binary archives to your GitHub Release
+   - Publish the Homebrew formula to `homebrew-oastools`
 
-**Example Release Command:**
+   Monitor progress at:
+   - Workflow: https://github.com/erraggy/oastools/actions
+   - Release: https://github.com/erraggy/oastools/releases
+   - Homebrew tap: https://github.com/erraggy/homebrew-oastools
 
-```bash
-gh release create v1.7.0 \
-  --title "v1.7.0 - Performance improvements and benchmark suite" \
-  --notes "$(cat <<'EOF'
-## Summary
-
-This release introduces comprehensive performance benchmarking infrastructure
-and delivers significant JSON marshaling performance improvements.
-
-## What's New
-
-- Comprehensive benchmark suite (60+ benchmarks across all packages)
-- JSON marshaler optimization (25-32% faster, 29-37% fewer allocations)
-- Performance improvement planning documentation
-
-## Performance Improvements
-
-- Info marshaling: 26% faster (2,323ns → 1,707ns)
-- Contact marshaling: 32% faster (2,336ns → 1,599ns)
-- Server marshaling: 25% faster (2,837ns → 2,160ns)
-
-## Related PRs
-
-- #17 - Phase 1: Benchmark infrastructure and baseline
-- #18 - Phase 2: JSON marshaler optimization
-EOF
-)"
-```
+5. **Verify the release**:
+   - Check that binaries were added to the GitHub Release
+   - Verify Homebrew formula was updated in `homebrew-oastools`
+   - Test Homebrew installation (optional):
+     ```bash
+     brew tap erraggy/oastools
+     brew install oastools
+     oastools --version
+     ```
 
 **After Release:**
+
 - Verify the release appears correctly on GitHub
-- The tag is automatically created by `gh release create`
-- GitHub Actions will run (if configured) to build/publish artifacts
+- Test Homebrew installation: `brew tap erraggy/oastools && brew install oastools`
+- Announce the release (if applicable)
+- Update project documentation if needed
+
+**Troubleshooting:**
+
+**Issue: GoReleaser can't push to homebrew-oastools**
+- Verify the `homebrew-oastools` repository exists and is public
+- Check that the GitHub token has `repo` scope
+- Ensure the commit author email in `.goreleaser.yaml` matches a verified email in your GitHub account
+
+**Issue: Build fails for certain platforms**
+- Review the GitHub Actions logs for specific error messages
+- Check if any dependencies require CGO (we've set `CGO_ENABLED=0`)
+- Test locally with `make release-test` to reproduce the issue
+
+**Issue: Homebrew formula doesn't work**
+- Verify the formula in `homebrew-oastools` repository
+- Test installation in a clean environment
+- Check binary architecture matches the user's system
 
 ## Go Module
 
