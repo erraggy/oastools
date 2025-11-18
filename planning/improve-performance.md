@@ -6,8 +6,9 @@
 ## Current Status
 
 - **Last Updated**: 2025-11-17
-- **Current Phase**: Phase 1 Complete - Baseline Established
+- **Current Phase**: Phase 2 Complete - Marshaler Optimization Complete
 - **Benchmarking**: ✅ Implemented and baseline captured (see benchmark-baseline.txt)
+- **Phase 2 Results**: ✅ 25-32% performance improvement in JSON marshaling (see benchmark-20251117-193712.txt)
 
 ---
 
@@ -547,16 +548,28 @@ Use in conjunction with benchmarking to guide optimization efforts.
 - ✅ Baseline metrics captured (see actual results below)
 - ⬜ Profiling scripts (deferred to Phase 2)
 
-### Phase 2: Low-Risk Quick Wins (v1.7.0)
-**Status**: Not started
+### Phase 2: JSON Marshaler Optimization (v1.7.0)
+**Status**: ✅ Complete
 **Dependencies**: Phase 1 complete
 
-1. ⬜ Memory allocation optimization (Strategy 5A)
-2. ⬜ Validation early exits (Strategy 4B)
-3. ⬜ Reference resolution two-pass (Strategy 2A)
-4. ⬜ Document marshaler tradeoffs (Strategy 1C)
+1. ✅ JSON marshaler optimization (Strategy 1 - exceeded expectations!)
+   - Optimized all 29 custom JSON marshalers across 7 files
+   - Eliminated double-marshal pattern (build map directly instead of marshal→unmarshal→marshal)
+   - Replaced knownFields map lookup with efficient x- prefix check
+   - Files modified: common_json.go, paths_json.go, parameters_json.go, schema_json.go, security_json.go, oas2_json.go, oas3_json.go
+   - All 403 tests pass
 
-**Deliverables**: 10-20% overall performance improvement, updated docs
+**Deliverables**: ✅ 25-32% performance improvement in JSON marshaling, 29-37% fewer allocations
+
+**Actual Results** (see benchmark-20251117-193712.txt):
+- Info: 26% faster (2,323ns → 1,707ns), 32% fewer allocations (38 → 26)
+- Contact: 32% faster (2,336ns → 1,599ns), 37% fewer allocations (38 → 24)
+- Server: 25% faster (2,837ns → 2,160ns), 29% fewer allocations (41 → 29)
+
+**Deferred for Future Phases**:
+2. ⬜ Memory allocation optimization (Strategy 5A)
+3. ⬜ Validation early exits (Strategy 4B)
+4. ⬜ Reference resolution two-pass (Strategy 2A)
 
 ### Phase 3: Medium-Risk Optimizations (v1.8.0)
 **Status**: Not planned
@@ -679,3 +692,57 @@ All benchmarks should:
 2. Start with memory allocation optimization (Strategy 5A)
 3. Implement validation early exits (Strategy 4B)
 4. Document marshaler tradeoffs (Strategy 1C)
+
+### Session 2 (2025-11-17) - Phase 2: Marshaler Optimization
+
+**Decision**: Instead of just documenting the marshaler tradeoff (Strategy 1C), we implemented a direct map-building optimization that exceeded initial expectations.
+
+**Implementation Details**:
+- **Pattern Change**: Eliminated double-marshal pattern across all 29 JSON marshalers
+  - OLD: `marshal(struct) → unmarshal(map) → add extras → marshal(map)` (4 operations)
+  - NEW: `build map directly → add extras → marshal(map)` (2 operations)
+- **Fast Path**: When no Extra fields present, use standard marshaling (zero overhead)
+- **UnmarshalJSON Optimization**: Replaced knownFields map with x- prefix check
+  - OLD: Map lookup for every field to identify extras
+  - NEW: Direct prefix check: `len(k) >= 2 && k[0] == 'x' && k[1] == '-'`
+  - More efficient AND correctly enforces OpenAPI spec requirement
+
+**Files Modified** (7 files, 29 marshalers):
+1. `parser/common_json.go` - 8 marshalers (Info, Contact, License, ExternalDocs, Tag, Server, ServerVariable, Reference)
+2. `parser/paths_json.go` - 7 marshalers (PathItem, Operation, Response, Link, MediaType, Example, Encoding)
+3. `parser/parameters_json.go` - 4 marshalers (Parameter, Items, RequestBody, Header)
+4. `parser/schema_json.go` - 3 marshalers (Schema, Discriminator, XML)
+5. `parser/security_json.go` - 3 marshalers (SecurityScheme, OAuthFlows, OAuthFlow)
+6. `parser/oas2_json.go` - 1 marshaler (OAS2Document)
+7. `parser/oas3_json.go` - 2 marshalers (OAS3Document, Components)
+
+**Performance Results** (Apple M4, Go 1.24):
+
+| Type | Before | After | Time Improvement | Alloc Improvement |
+|------|--------|-------|------------------|-------------------|
+| Info | 2,323 ns/op, 38 allocs | 1,707 ns/op, 26 allocs | **26% faster** | **32% fewer** |
+| Contact | 2,336 ns/op, 38 allocs | 1,599 ns/op, 24 allocs | **32% faster** | **37% fewer** |
+| Server | 2,837 ns/op, 41 allocs | 2,160 ns/op, 29 allocs | **25% faster** | **29% fewer** |
+
+**Key Learnings**:
+1. **Direct map building is significantly faster** than marshal→unmarshal→marshal pattern
+2. **Prefix checking is more efficient** than map lookups for identifying extensions
+3. **Fast path optimization** (early return when no Extra fields) maintains performance for common case
+4. **Schema complexity** (50+ fields) required nolint:cyclop directive - complexity is inherent to OpenAPI spec
+5. **Exceeded initial estimates**: Achieved 25-32% improvements vs initial estimate of 10-20% for Phase 2
+
+**Test Coverage**: All 403 tests pass - no regressions in functionality
+
+**Commits**:
+- `aa6e9c3` - perf(parser): optimize JSON marshalers to eliminate double-marshal pattern (common_json.go)
+- `73425f7` - perf(parser): complete marshaler optimization for all remaining types (6 remaining files)
+
+**Benchmark Files**:
+- Baseline: `benchmark-baseline.txt` (commit 4a61c95)
+- Post-optimization: `benchmark-20251117-193712.txt` (commits aa6e9c3, 73425f7)
+
+**Next Steps for Phase 3**:
+- Consider memory allocation optimization (Strategy 5A) - pre-allocate slices with capacity
+- Consider validation early exits (Strategy 4B)
+- Consider reference resolution two-pass (Strategy 2A)
+- Re-evaluate priorities based on Phase 2 success

@@ -8,22 +8,198 @@ import (
 // This is required to flatten Extra fields (specification extensions like x-*)
 // into the top-level JSON object, as Go's encoding/json doesn't support
 // inline maps like yaml:",inline".
+//
+//nolint:cyclop // Schema has 50+ fields per OpenAPI spec, complexity is inherent
 func (s *Schema) MarshalJSON() ([]byte, error) {
-	type Alias Schema
-	aux, err := json.Marshal((*Alias)(s))
-	if err != nil {
-		return nil, err
-	}
-
+	// Fast path: no Extra fields, use standard marshaling
 	if len(s.Extra) == 0 {
-		return aux, nil
+		type Alias Schema
+		return json.Marshal((*Alias)(s))
 	}
 
-	var m map[string]interface{}
-	if err := json.Unmarshal(aux, &m); err != nil {
-		return nil, err
+	// Build map directly to avoid double-marshal pattern
+	m := make(map[string]interface{}, 50+len(s.Extra))
+
+	// Add known fields (omit zero values to match json:",omitempty" behavior)
+	if s.Ref != "" {
+		m["$ref"] = s.Ref
+	}
+	if s.Schema != "" {
+		m["$schema"] = s.Schema
+	}
+	if s.Title != "" {
+		m["title"] = s.Title
+	}
+	if s.Description != "" {
+		m["description"] = s.Description
+	}
+	if s.Default != nil {
+		m["default"] = s.Default
+	}
+	if len(s.Examples) > 0 {
+		m["examples"] = s.Examples
+	}
+	if s.Type != nil {
+		m["type"] = s.Type
+	}
+	if len(s.Enum) > 0 {
+		m["enum"] = s.Enum
+	}
+	if s.Const != nil {
+		m["const"] = s.Const
+	}
+	if s.MultipleOf != nil {
+		m["multipleOf"] = s.MultipleOf
+	}
+	if s.Maximum != nil {
+		m["maximum"] = s.Maximum
+	}
+	if s.ExclusiveMaximum != nil {
+		m["exclusiveMaximum"] = s.ExclusiveMaximum
+	}
+	if s.Minimum != nil {
+		m["minimum"] = s.Minimum
+	}
+	if s.ExclusiveMinimum != nil {
+		m["exclusiveMinimum"] = s.ExclusiveMinimum
+	}
+	if s.MaxLength != nil {
+		m["maxLength"] = s.MaxLength
+	}
+	if s.MinLength != nil {
+		m["minLength"] = s.MinLength
+	}
+	if s.Pattern != "" {
+		m["pattern"] = s.Pattern
+	}
+	if s.Items != nil {
+		m["items"] = s.Items
+	}
+	if len(s.PrefixItems) > 0 {
+		m["prefixItems"] = s.PrefixItems
+	}
+	if s.AdditionalItems != nil {
+		m["additionalItems"] = s.AdditionalItems
+	}
+	if s.MaxItems != nil {
+		m["maxItems"] = s.MaxItems
+	}
+	if s.MinItems != nil {
+		m["minItems"] = s.MinItems
+	}
+	if s.UniqueItems {
+		m["uniqueItems"] = s.UniqueItems
+	}
+	if s.Contains != nil {
+		m["contains"] = s.Contains
+	}
+	if s.MaxContains != nil {
+		m["maxContains"] = s.MaxContains
+	}
+	if s.MinContains != nil {
+		m["minContains"] = s.MinContains
+	}
+	if len(s.Properties) > 0 {
+		m["properties"] = s.Properties
+	}
+	if len(s.PatternProperties) > 0 {
+		m["patternProperties"] = s.PatternProperties
+	}
+	if s.AdditionalProperties != nil {
+		m["additionalProperties"] = s.AdditionalProperties
+	}
+	if len(s.Required) > 0 {
+		m["required"] = s.Required
+	}
+	if s.PropertyNames != nil {
+		m["propertyNames"] = s.PropertyNames
+	}
+	if s.MaxProperties != nil {
+		m["maxProperties"] = s.MaxProperties
+	}
+	if s.MinProperties != nil {
+		m["minProperties"] = s.MinProperties
+	}
+	if len(s.DependentRequired) > 0 {
+		m["dependentRequired"] = s.DependentRequired
+	}
+	if len(s.DependentSchemas) > 0 {
+		m["dependentSchemas"] = s.DependentSchemas
+	}
+	if s.If != nil {
+		m["if"] = s.If
+	}
+	if s.Then != nil {
+		m["then"] = s.Then
+	}
+	if s.Else != nil {
+		m["else"] = s.Else
+	}
+	if len(s.AllOf) > 0 {
+		m["allOf"] = s.AllOf
+	}
+	if len(s.AnyOf) > 0 {
+		m["anyOf"] = s.AnyOf
+	}
+	if len(s.OneOf) > 0 {
+		m["oneOf"] = s.OneOf
+	}
+	if s.Not != nil {
+		m["not"] = s.Not
+	}
+	if s.Nullable {
+		m["nullable"] = s.Nullable
+	}
+	if s.Discriminator != nil {
+		m["discriminator"] = s.Discriminator
+	}
+	if s.ReadOnly {
+		m["readOnly"] = s.ReadOnly
+	}
+	if s.WriteOnly {
+		m["writeOnly"] = s.WriteOnly
+	}
+	if s.XML != nil {
+		m["xml"] = s.XML
+	}
+	if s.ExternalDocs != nil {
+		m["externalDocs"] = s.ExternalDocs
+	}
+	if s.Example != nil {
+		m["example"] = s.Example
+	}
+	if s.Deprecated {
+		m["deprecated"] = s.Deprecated
+	}
+	if s.Format != "" {
+		m["format"] = s.Format
+	}
+	if s.CollectionFormat != "" {
+		m["collectionFormat"] = s.CollectionFormat
+	}
+	if s.ID != "" {
+		m["$id"] = s.ID
+	}
+	if s.Anchor != "" {
+		m["$anchor"] = s.Anchor
+	}
+	if s.DynamicRef != "" {
+		m["$dynamicRef"] = s.DynamicRef
+	}
+	if s.DynamicAnchor != "" {
+		m["$dynamicAnchor"] = s.DynamicAnchor
+	}
+	if len(s.Vocabulary) > 0 {
+		m["$vocabulary"] = s.Vocabulary
+	}
+	if s.Comment != "" {
+		m["$comment"] = s.Comment
+	}
+	if len(s.Defs) > 0 {
+		m["$defs"] = s.Defs
 	}
 
+	// Add Extra fields (spec extensions must start with "x-")
 	for k, v := range s.Extra {
 		m[k] = v
 	}
@@ -46,25 +222,10 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	knownFields := map[string]bool{
-		"$ref": true, "$schema": true, "title": true, "description": true, "default": true,
-		"examples": true, "type": true, "enum": true, "const": true,
-		"multipleOf": true, "maximum": true, "exclusiveMaximum": true, "minimum": true, "exclusiveMinimum": true,
-		"maxLength": true, "minLength": true, "pattern": true,
-		"items": true, "prefixItems": true, "additionalItems": true, "maxItems": true, "minItems": true,
-		"uniqueItems": true, "contains": true, "maxContains": true, "minContains": true,
-		"properties": true, "patternProperties": true, "additionalProperties": true, "required": true,
-		"propertyNames": true, "maxProperties": true, "minProperties": true, "dependentRequired": true, "dependentSchemas": true,
-		"if": true, "then": true, "else": true,
-		"allOf": true, "anyOf": true, "oneOf": true, "not": true,
-		"nullable": true, "discriminator": true, "readOnly": true, "writeOnly": true, "xml": true,
-		"externalDocs": true, "example": true, "deprecated": true, "format": true, "collectionFormat": true,
-		"$id": true, "$anchor": true, "$dynamicRef": true, "$dynamicAnchor": true, "$vocabulary": true, "$comment": true, "$defs": true,
-	}
-
+	// Extract specification extensions (fields starting with "x-")
 	extra := make(map[string]interface{})
 	for k, v := range m {
-		if !knownFields[k] {
+		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
 		}
 	}
@@ -81,21 +242,23 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 // into the top-level JSON object, as Go's encoding/json doesn't support
 // inline maps like yaml:",inline".
 func (d *Discriminator) MarshalJSON() ([]byte, error) {
-	type Alias Discriminator
-	aux, err := json.Marshal((*Alias)(d))
-	if err != nil {
-		return nil, err
-	}
-
+	// Fast path: no Extra fields, use standard marshaling
 	if len(d.Extra) == 0 {
-		return aux, nil
+		type Alias Discriminator
+		return json.Marshal((*Alias)(d))
 	}
 
-	var m map[string]interface{}
-	if err := json.Unmarshal(aux, &m); err != nil {
-		return nil, err
+	// Build map directly to avoid double-marshal pattern
+	m := make(map[string]interface{}, 2+len(d.Extra))
+
+	// Add known fields (omit zero values to match json:",omitempty" behavior)
+	// PropertyName is required, always include
+	m["propertyName"] = d.PropertyName
+	if len(d.Mapping) > 0 {
+		m["mapping"] = d.Mapping
 	}
 
+	// Add Extra fields (spec extensions must start with "x-")
 	for k, v := range d.Extra {
 		m[k] = v
 	}
@@ -118,14 +281,10 @@ func (d *Discriminator) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	knownFields := map[string]bool{
-		"propertyName": true,
-		"mapping":      true,
-	}
-
+	// Extract specification extensions (fields starting with "x-")
 	extra := make(map[string]interface{})
 	for k, v := range m {
-		if !knownFields[k] {
+		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
 		}
 	}
@@ -142,21 +301,33 @@ func (d *Discriminator) UnmarshalJSON(data []byte) error {
 // into the top-level JSON object, as Go's encoding/json doesn't support
 // inline maps like yaml:",inline".
 func (x *XML) MarshalJSON() ([]byte, error) {
-	type Alias XML
-	aux, err := json.Marshal((*Alias)(x))
-	if err != nil {
-		return nil, err
-	}
-
+	// Fast path: no Extra fields, use standard marshaling
 	if len(x.Extra) == 0 {
-		return aux, nil
+		type Alias XML
+		return json.Marshal((*Alias)(x))
 	}
 
-	var m map[string]interface{}
-	if err := json.Unmarshal(aux, &m); err != nil {
-		return nil, err
+	// Build map directly to avoid double-marshal pattern
+	m := make(map[string]interface{}, 5+len(x.Extra))
+
+	// Add known fields (omit zero values to match json:",omitempty" behavior)
+	if x.Name != "" {
+		m["name"] = x.Name
+	}
+	if x.Namespace != "" {
+		m["namespace"] = x.Namespace
+	}
+	if x.Prefix != "" {
+		m["prefix"] = x.Prefix
+	}
+	if x.Attribute {
+		m["attribute"] = x.Attribute
+	}
+	if x.Wrapped {
+		m["wrapped"] = x.Wrapped
 	}
 
+	// Add Extra fields (spec extensions must start with "x-")
 	for k, v := range x.Extra {
 		m[k] = v
 	}
@@ -179,17 +350,10 @@ func (x *XML) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	knownFields := map[string]bool{
-		"name":      true,
-		"namespace": true,
-		"prefix":    true,
-		"attribute": true,
-		"wrapped":   true,
-	}
-
+	// Extract specification extensions (fields starting with "x-")
 	extra := make(map[string]interface{})
 	for k, v := range m {
-		if !knownFields[k] {
+		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
 		}
 	}
