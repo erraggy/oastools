@@ -44,3 +44,7 @@ releases/
 # Benchmark outputs (not tracked in git - kept locally for comparison)
 benchmark-baseline.txt
 benchmark-[0-9]*.txt
+
+# Profiling outputs
+cpu-profile-*.prof
+mem-profile-*.prof

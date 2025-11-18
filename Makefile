@@ -139,10 +139,44 @@ bench-compare:
 		diff -u $(OLD) $(NEW) || true; \
 	fi
 
+## bench-cpu: Run benchmarks with CPU profiling
+bench-cpu:
+	@echo "Running benchmarks with CPU profiling..."
+	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
+	PROFILE_FILE="cpu-profile-$${TIMESTAMP}.prof"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -cpuprofile="$${PROFILE_FILE}" ./parser ./validator ./converter ./joiner; \
+	echo ""; \
+	echo "CPU profile saved to: $${PROFILE_FILE}"; \
+	echo "Analyze with: go tool pprof $${PROFILE_FILE}"
+
+## bench-mem: Run benchmarks with memory profiling
+bench-mem:
+	@echo "Running benchmarks with memory profiling..."
+	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
+	PROFILE_FILE="mem-profile-$${TIMESTAMP}.prof"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -memprofile="$${PROFILE_FILE}" ./parser ./validator ./converter ./joiner; \
+	echo ""; \
+	echo "Memory profile saved to: $${PROFILE_FILE}"; \
+	echo "Analyze with: go tool pprof $${PROFILE_FILE}"
+
+## bench-profile: Run benchmarks with both CPU and memory profiling
+bench-profile:
+	@echo "Running benchmarks with CPU and memory profiling..."
+	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
+	CPU_PROFILE="cpu-profile-$${TIMESTAMP}.prof"; \
+	MEM_PROFILE="mem-profile-$${TIMESTAMP}.prof"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -cpuprofile="$${CPU_PROFILE}" -memprofile="$${MEM_PROFILE}" ./parser ./validator ./converter ./joiner; \
+	echo ""; \
+	echo "CPU profile saved to: $${CPU_PROFILE}"; \
+	echo "Memory profile saved to: $${MEM_PROFILE}"; \
+	echo "Analyze with: go tool pprof <profile-file>"
+
 ## bench-clean: Remove timestamped benchmark output files (preserves baseline)
 bench-clean:
 	@echo "Cleaning benchmark outputs..."
 	@rm -f benchmark-[0-9]*.txt
+	@rm -f cpu-profile-*.prof
+	@rm -f mem-profile-*.prof
 	@echo "Benchmark outputs cleaned (baseline preserved)"
 
 ## help: Show this help message

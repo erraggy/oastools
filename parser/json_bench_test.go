@@ -49,6 +49,114 @@ func BenchmarkMarshalInfoWithExtra(b *testing.B) {
 	}
 }
 
+// BenchmarkMarshalInfoExtra1 benchmarks marshaling Info with 1 Extra field
+func BenchmarkMarshalInfoExtra1(b *testing.B) {
+	info := &Info{
+		Title:       "Test API",
+		Version:     "1.0.0",
+		Description: "A test API for benchmarking",
+		Extra: map[string]interface{}{
+			"x-api-id": "test-001",
+		},
+	}
+
+	for b.Loop() {
+		_, err := json.Marshal(info)
+		if err != nil {
+			b.Fatalf("Failed to marshal: %v", err)
+		}
+	}
+}
+
+// BenchmarkMarshalInfoExtra5 benchmarks marshaling Info with 5 Extra fields
+func BenchmarkMarshalInfoExtra5(b *testing.B) {
+	info := &Info{
+		Title:       "Test API",
+		Version:     "1.0.0",
+		Description: "A test API for benchmarking",
+		Extra: map[string]interface{}{
+			"x-api-id":      "test-001",
+			"x-audience":    "internal",
+			"x-team":        "platform",
+			"x-environment": "production",
+			"x-region":      "us-east-1",
+		},
+	}
+
+	for b.Loop() {
+		_, err := json.Marshal(info)
+		if err != nil {
+			b.Fatalf("Failed to marshal: %v", err)
+		}
+	}
+}
+
+// BenchmarkMarshalInfoExtra10 benchmarks marshaling Info with 10 Extra fields
+func BenchmarkMarshalInfoExtra10(b *testing.B) {
+	info := &Info{
+		Title:       "Test API",
+		Version:     "1.0.0",
+		Description: "A test API for benchmarking",
+		Extra: map[string]interface{}{
+			"x-api-id":       "test-001",
+			"x-audience":     "internal",
+			"x-team":         "platform",
+			"x-environment":  "production",
+			"x-region":       "us-east-1",
+			"x-owner":        "platform-team",
+			"x-cost-center":  "engineering",
+			"x-project":      "api-gateway",
+			"x-service-tier": "gold",
+			"x-compliance":   "pci-dss",
+		},
+	}
+
+	for b.Loop() {
+		_, err := json.Marshal(info)
+		if err != nil {
+			b.Fatalf("Failed to marshal: %v", err)
+		}
+	}
+}
+
+// BenchmarkMarshalInfoExtra20 benchmarks marshaling Info with 20 Extra fields
+func BenchmarkMarshalInfoExtra20(b *testing.B) {
+	info := &Info{
+		Title:       "Test API",
+		Version:     "1.0.0",
+		Description: "A test API for benchmarking",
+		Extra: map[string]interface{}{
+			"x-api-id":        "test-001",
+			"x-audience":      "internal",
+			"x-team":          "platform",
+			"x-environment":   "production",
+			"x-region":        "us-east-1",
+			"x-owner":         "platform-team",
+			"x-cost-center":   "engineering",
+			"x-project":       "api-gateway",
+			"x-service-tier":  "gold",
+			"x-compliance":    "pci-dss",
+			"x-department":    "engineering",
+			"x-division":      "technology",
+			"x-budget-code":   "ENG-2024-001",
+			"x-manager":       "john.doe@example.com",
+			"x-contact":       "api-team@example.com",
+			"x-slack-channel": "#api-platform",
+			"x-wiki":          "https://wiki.example.com/api",
+			"x-oncall":        "api-platform-oncall",
+			"x-sla":           "99.95",
+			"x-support-level": "24x7",
+		},
+	}
+
+	for b.Loop() {
+		_, err := json.Marshal(info)
+		if err != nil {
+			b.Fatalf("Failed to marshal: %v", err)
+		}
+	}
+}
+
 // BenchmarkMarshalContactNoExtra benchmarks marshaling Contact without Extra fields
 func BenchmarkMarshalContactNoExtra(b *testing.B) {
 	contact := &Contact{
