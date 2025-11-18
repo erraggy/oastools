@@ -1,9 +1,11 @@
-.PHONY: build test lint clean install tidy check help
+.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-converter bench-joiner bench-save bench-compare bench-baseline bench-clean
 
 # Build variables
 BINARY_NAME=oastools
 BUILD_DIR=bin
 MAIN_PATH=./cmd/oastools
+BENCH_DIR=benchmarks
+BENCH_TIME=5s
 
 # Default target
 all: build
@@ -49,11 +51,12 @@ vet:
 	@echo "Running go vet..."
 	go vet ./...
 
-## clean: Clean build artifacts
+## clean: Clean build artifacts and benchmark outputs
 clean:
 	@echo "Cleaning..."
 	@rm -rf $(BUILD_DIR)
 	@rm -f coverage.txt coverage.html
+	@rm -f benchmark-*.txt
 
 ## install: Install the binary
 install:
@@ -75,6 +78,72 @@ tidy:
 check: tidy fmt lint test
 	@echo "Running git status..."
 	@git status
+
+## bench: Run all benchmarks
+bench:
+	@echo "Running all benchmarks ($(BENCH_TIME) per benchmark)..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./converter ./joiner
+
+## bench-parser: Run parser benchmarks only
+bench-parser:
+	@echo "Running parser benchmarks..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser
+
+## bench-validator: Run validator benchmarks only
+bench-validator:
+	@echo "Running validator benchmarks..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./validator
+
+## bench-converter: Run converter benchmarks only
+bench-converter:
+	@echo "Running converter benchmarks..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./converter
+
+## bench-joiner: Run joiner benchmarks only
+bench-joiner:
+	@echo "Running joiner benchmarks..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./joiner
+
+## bench-save: Run all benchmarks and save to timestamped file
+bench-save:
+	@echo "Running benchmarks and saving results..."
+	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
+	OUTPUT_FILE="benchmark-$${TIMESTAMP}.txt"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./converter ./joiner 2>&1 | tee "$${OUTPUT_FILE}"; \
+	echo ""; \
+	echo "Benchmark results saved to: $${OUTPUT_FILE}"
+
+## bench-baseline: Run benchmarks and update baseline file
+bench-baseline:
+	@echo "Running benchmarks and updating baseline..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./converter ./joiner 2>&1 | tee benchmark-baseline.txt
+	@echo ""
+	@echo "Baseline updated: benchmark-baseline.txt"
+
+## bench-compare: Compare two benchmark files (usage: make bench-compare OLD=file1.txt NEW=file2.txt)
+bench-compare:
+	@if [ -z "$(OLD)" ] || [ -z "$(NEW)" ]; then \
+		echo "Error: Please specify OLD and NEW benchmark files"; \
+		echo "Usage: make bench-compare OLD=benchmark-baseline.txt NEW=benchmark-20251117.txt"; \
+		exit 1; \
+	fi
+	@if command -v benchstat >/dev/null 2>&1; then \
+		echo "Comparing $(OLD) vs $(NEW)..."; \
+		benchstat $(OLD) $(NEW); \
+	else \
+		echo "benchstat not installed. Install it with:"; \
+		echo "  go install golang.org/x/perf/cmd/benchstat@latest"; \
+		echo ""; \
+		echo "Showing simple diff instead:"; \
+		echo ""; \
+		diff -u $(OLD) $(NEW) || true; \
+	fi
+
+## bench-clean: Remove all benchmark output files
+bench-clean:
+	@echo "Cleaning benchmark outputs..."
+	@rm -f benchmark-*.txt
+	@echo "Benchmark outputs cleaned"
 
 ## help: Show this help message
 help:
