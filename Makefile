@@ -129,14 +129,14 @@ bench-compare:
 	fi
 	@if command -v benchstat >/dev/null 2>&1; then \
 		echo "Comparing $(OLD) vs $(NEW)..."; \
-		benchstat $(OLD) $(NEW); \
+		benchstat "$(OLD)" "$(NEW)"; \
 	else \
 		echo "benchstat not installed. Install it with:"; \
 		echo "  go install golang.org/x/perf/cmd/benchstat@latest"; \
 		echo ""; \
 		echo "Showing simple diff instead:"; \
 		echo ""; \
-		diff -u $(OLD) $(NEW) || true; \
+		diff -u "$(OLD)" "$(NEW)" || true; \
 	fi
 
 ## bench-cpu: Run benchmarks with CPU profiling
