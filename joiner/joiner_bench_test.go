@@ -6,6 +6,11 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// Note on b.Fatalf usage in benchmarks:
+// Using b.Fatalf for errors in benchmark setup or execution is an acceptable pattern.
+// These operations (join, parse) should never fail with valid test fixtures.
+// If they do fail, it indicates a bug that should halt the benchmark immediately.
+
 // Benchmark fixtures
 const (
 	joinBaseOAS3Path = "../testdata/bench/join-base-oas3.yaml"

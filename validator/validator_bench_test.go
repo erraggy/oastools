@@ -6,6 +6,11 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// Note on b.Fatalf usage in benchmarks:
+// Using b.Fatalf for errors in benchmark setup or execution is an acceptable pattern.
+// These operations (validate, parse) should never fail with valid test fixtures.
+// If they do fail, it indicates a bug that should halt the benchmark immediately.
+
 // Benchmark fixtures
 const (
 	smallOAS3Path  = "../testdata/bench/small-oas3.yaml"
