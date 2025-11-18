@@ -151,3 +151,7 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@sed -n 's/^##//p' $(MAKEFILE_LIST) | column -t -s ':' | sed -e 's/^/ /'
+	@echo ""
+	@echo "Benchmark Configuration:"
+	@echo "  BENCH_TIME=<duration>  Benchmark run time per test (default: 5s)"
+	@echo "                         Example: make bench BENCH_TIME=10s"
