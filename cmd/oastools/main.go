@@ -52,14 +52,14 @@ func handleParse(args []string) {
 		os.Exit(1)
 	}
 
-	filePath := args[0]
+	specPath := args[0]
 
 	// Create parser with version in User-Agent
 	p := parser.New()
 	p.UserAgent = fmt.Sprintf("oastools/%s", version)
 
-	// Parse the file
-	result, err := p.Parse(filePath)
+	// Parse the file or URL
+	result, err := p.Parse(specPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing file: %v\n", err)
 		os.Exit(1)
@@ -68,7 +68,7 @@ func handleParse(args []string) {
 	// Print results
 	fmt.Printf("OpenAPI Specification Parser\n")
 	fmt.Printf("============================\n\n")
-	fmt.Printf("File: %s\n", filePath)
+	fmt.Printf("Specification: %s\n", specPath)
 	fmt.Printf("Version: %s\n\n", result.Version)
 
 	// Print warnings
@@ -136,7 +136,7 @@ func handleValidate(args []string) {
 	// Parse flags
 	var strict bool
 	var noWarnings bool
-	var filePath string
+	var specPath string
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -149,8 +149,8 @@ func handleValidate(args []string) {
 			printValidateUsage()
 			return
 		default:
-			if filePath == "" {
-				filePath = arg
+			if specPath == "" {
+				specPath = arg
 			} else {
 				fmt.Fprintf(os.Stderr, "Error: unexpected argument '%s'\n", arg)
 				os.Exit(1)
@@ -158,7 +158,7 @@ func handleValidate(args []string) {
 		}
 	}
 
-	if filePath == "" {
+	if specPath == "" {
 		fmt.Fprintf(os.Stderr, "Error: validate command requires a file path or URL\n\n")
 		printValidateUsage()
 		os.Exit(1)
@@ -170,8 +170,8 @@ func handleValidate(args []string) {
 	v.IncludeWarnings = !noWarnings
 	v.UserAgent = fmt.Sprintf("oastools/%s", version)
 
-	// Validate the file
-	result, err := v.Validate(filePath)
+	// Validate the file or URL
+	result, err := v.Validate(specPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error validating file: %v\n", err)
 		os.Exit(1)
@@ -180,7 +180,7 @@ func handleValidate(args []string) {
 	// Print results
 	fmt.Printf("OpenAPI Specification Validator\n")
 	fmt.Printf("================================\n\n")
-	fmt.Printf("File: %s\n", filePath)
+	fmt.Printf("Specification: %s\n", specPath)
 	fmt.Printf("Version: %s\n\n", result.Version)
 
 	// Print errors
@@ -458,7 +458,7 @@ func handleConvert(args []string) {
 	var outputPath string
 	var strict bool
 	var noWarnings bool
-	var filePath string
+	var specPath string
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -485,8 +485,8 @@ func handleConvert(args []string) {
 			printConvertUsage()
 			return
 		default:
-			if filePath == "" {
-				filePath = arg
+			if specPath == "" {
+				specPath = arg
 			} else {
 				fmt.Fprintf(os.Stderr, "Error: unexpected argument '%s'\n", arg)
 				os.Exit(1)
@@ -494,7 +494,7 @@ func handleConvert(args []string) {
 		}
 	}
 
-	if filePath == "" {
+	if specPath == "" {
 		fmt.Fprintf(os.Stderr, "Error: convert command requires a file path or URL\n\n")
 		printConvertUsage()
 		os.Exit(1)
@@ -512,8 +512,8 @@ func handleConvert(args []string) {
 	c.IncludeInfo = !noWarnings
 	c.UserAgent = fmt.Sprintf("oastools/%s", version)
 
-	// Convert the file
-	result, err := c.Convert(filePath, targetVersion)
+	// Convert the file or URL
+	result, err := c.Convert(specPath, targetVersion)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error converting file: %v\n", err)
 		os.Exit(1)
@@ -522,7 +522,7 @@ func handleConvert(args []string) {
 	// Print results
 	fmt.Printf("OpenAPI Specification Converter\n")
 	fmt.Printf("===============================\n\n")
-	fmt.Printf("File: %s\n", filePath)
+	fmt.Printf("Specification: %s\n", specPath)
 	fmt.Printf("Source Version: %s\n", result.SourceVersion)
 	fmt.Printf("Target Version: %s\n\n", result.TargetVersion)
 

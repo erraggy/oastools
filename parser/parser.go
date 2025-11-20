@@ -112,8 +112,8 @@ func isURL(path string) bool {
 	return strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://")
 }
 
-// fetchURL fetches content from a URL and returns the bytes
-func (p *Parser) fetchURL(urlStr string) ([]byte, error) {
+// fetchURL fetches content from a URL and returns the bytes and Content-Type header
+func (p *Parser) fetchURL(urlStr string) ([]byte, string, error) {
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 30 * time.Second,
@@ -122,7 +122,7 @@ func (p *Parser) fetchURL(urlStr string) ([]byte, error) {
 	// Create request
 	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
 	if err != nil {
-		return nil, fmt.Errorf("parser: failed to create request: %w", err)
+		return nil, "", fmt.Errorf("parser: failed to create request: %w", err)
 	}
 
 	// Set user agent (use default if not set)
@@ -135,7 +135,7 @@ func (p *Parser) fetchURL(urlStr string) ([]byte, error) {
 	// Execute request
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("parser: failed to fetch URL: %w", err)
+		return nil, "", fmt.Errorf("parser: failed to fetch URL: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -143,16 +143,18 @@ func (p *Parser) fetchURL(urlStr string) ([]byte, error) {
 
 	// Check status code
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("parser: HTTP %d: %s", resp.StatusCode, resp.Status)
+		return nil, "", fmt.Errorf("parser: HTTP %d: %s", resp.StatusCode, resp.Status)
 	}
 
 	// Read response body
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("parser: failed to read response body: %w", err)
+		return nil, "", fmt.Errorf("parser: failed to read response body: %w", err)
 	}
 
-	return data, nil
+	// Return data and Content-Type header
+	contentType := resp.Header.Get("Content-Type")
+	return data, contentType, nil
 }
 
 // detectFormatFromURL attempts to detect the format from a URL path and Content-Type header
@@ -198,16 +200,20 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 	// Check if specPath is a URL
 	if isURL(specPath) {
 		// Fetch content from URL
-		data, err = p.fetchURL(specPath)
+		var contentType string
+		data, contentType, err = p.fetchURL(specPath)
 		if err != nil {
 			return nil, err
 		}
 
 		// For URLs, we can't resolve relative refs easily, so use current directory
+		// Note: This means relative $ref paths in URL-loaded specs will attempt to
+		// load from the local filesystem, not relative to the URL. This is a known
+		// limitation that may be addressed in a future version.
 		baseDir = "."
 
-		// Try to detect format from URL path
-		format = detectFormatFromURL(specPath, "")
+		// Try to detect format from URL path and Content-Type header
+		format = detectFormatFromURL(specPath, contentType)
 	} else {
 		// Read from file
 		data, err = os.ReadFile(specPath)

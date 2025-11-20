@@ -2123,7 +2123,7 @@ paths:
 			defer server.Close()
 
 			p := New()
-			data, err := p.fetchURL(server.URL)
+			data, contentType, err := p.fetchURL(server.URL)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -2134,6 +2134,7 @@ paths:
 				require.NoError(t, err)
 				assert.NotEmpty(t, data)
 				assert.Contains(t, string(data), "Test API")
+				assert.Equal(t, "application/yaml", contentType)
 			}
 		})
 	}
@@ -2232,6 +2233,28 @@ paths:
 			expectError: false,
 			validateResult: func(t *testing.T, result *ParseResult) {
 				assert.Equal(t, SourceFormatJSON, result.SourceFormat)
+			},
+		},
+		{
+			name:        "format detection from Content-Type (no extension)",
+			urlPath:     "/api/spec",
+			content:     oas30YAML,
+			contentType: "application/yaml",
+			expectError: false,
+			validateResult: func(t *testing.T, result *ParseResult) {
+				assert.Equal(t, SourceFormatYAML, result.SourceFormat)
+				assert.Equal(t, "3.0.3", result.Version)
+			},
+		},
+		{
+			name:        "format detection from Content-Type with charset (no extension)",
+			urlPath:     "/openapi",
+			content:     oas20JSON,
+			contentType: "application/json; charset=utf-8",
+			expectError: false,
+			validateResult: func(t *testing.T, result *ParseResult) {
+				assert.Equal(t, SourceFormatJSON, result.SourceFormat)
+				assert.Equal(t, "2.0", result.Version)
 			},
 		},
 	}
@@ -2364,7 +2387,7 @@ func TestFetchURLWithInvalidURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := New()
-			_, err := p.fetchURL(tt.url)
+			_, _, err := p.fetchURL(tt.url)
 			assert.Error(t, err)
 		})
 	}
