@@ -57,8 +57,9 @@ go get github.com/erraggy/oastools@latest
 ### Command-Line Interface
 
 ```bash
-# Validate an OpenAPI spec
+# Validate an OpenAPI spec (from file or URL)
 oastools validate openapi.yaml
+oastools validate https://example.com/api/openapi.yaml
 
 # Parse and analyze
 oastools parse openapi.yaml
@@ -74,9 +75,11 @@ oastools help
 ```
 
 **CLI Features**:
+- **Load from files or URLs** (HTTP/HTTPS) for parse, validate, and convert commands
 - Automatic format detection (JSON/YAML)
 - Format preservation (JSON input → JSON output, YAML → YAML)
 - Detailed validation error messages with spec references
+- **Path validation** with REST best practice warnings (trailing slashes, malformed templates)
 - External reference resolution (local files only)
 - Collision resolution strategies for joining (AcceptLeft, AcceptRight, Error)
 
@@ -237,6 +240,7 @@ Warnings (3):
 
 - **HTTP(S) References Not Supported**: Only local file references for `$ref` values are supported
 - **Security**: External file references are restricted to the base directory and subdirectories to prevent path traversal attacks
+- **URL-loaded Specs**: When loading a spec from a URL, relative `$ref` paths resolve against the current directory, not relative to the URL (known limitation)
 
 ## Development
 
