@@ -65,6 +65,9 @@ type Converter struct {
 	StrictMode bool
 	// IncludeInfo determines whether to include informational messages
 	IncludeInfo bool
+	// UserAgent is the User-Agent string used when fetching URLs
+	// Defaults to "oastools" if not set
+	UserAgent string
 }
 
 // New creates a new Converter instance with default settings
@@ -111,8 +114,14 @@ func ConvertParsed(parseResult parser.ParseResult, targetVersion string) (*Conve
 
 // Convert converts an OpenAPI specification file to a target version
 func (c *Converter) Convert(specPath string, targetVersion string) (*ConversionResult, error) {
+	// Create parser and set UserAgent if specified
+	p := parser.New()
+	if c.UserAgent != "" {
+		p.UserAgent = c.UserAgent
+	}
+
 	// Parse the source document
-	parseResult, err := parser.Parse(specPath, false, true)
+	parseResult, err := p.Parse(specPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse specification: %w", err)
 	}
