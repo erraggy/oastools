@@ -32,7 +32,7 @@ func BenchmarkMarshalInfoWithExtra(b *testing.B) {
 		Title:       "Test API",
 		Version:     "1.0.0",
 		Description: "A test API for benchmarking",
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"x-api-id":       "test-001",
 			"x-audience":     "internal",
 			"x-team":         "platform",
@@ -55,7 +55,7 @@ func BenchmarkMarshalInfoExtra1(b *testing.B) {
 		Title:       "Test API",
 		Version:     "1.0.0",
 		Description: "A test API for benchmarking",
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"x-api-id": "test-001",
 		},
 	}
@@ -74,7 +74,7 @@ func BenchmarkMarshalInfoExtra5(b *testing.B) {
 		Title:       "Test API",
 		Version:     "1.0.0",
 		Description: "A test API for benchmarking",
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"x-api-id":      "test-001",
 			"x-audience":    "internal",
 			"x-team":        "platform",
@@ -97,7 +97,7 @@ func BenchmarkMarshalInfoExtra10(b *testing.B) {
 		Title:       "Test API",
 		Version:     "1.0.0",
 		Description: "A test API for benchmarking",
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"x-api-id":       "test-001",
 			"x-audience":     "internal",
 			"x-team":         "platform",
@@ -125,7 +125,7 @@ func BenchmarkMarshalInfoExtra20(b *testing.B) {
 		Title:       "Test API",
 		Version:     "1.0.0",
 		Description: "A test API for benchmarking",
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"x-api-id":        "test-001",
 			"x-audience":      "internal",
 			"x-team":          "platform",
@@ -179,7 +179,7 @@ func BenchmarkMarshalContactWithExtra(b *testing.B) {
 		Name:  "API Support",
 		Email: "support@example.com",
 		URL:   "https://example.com/support",
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"x-team-id":   "platform-001",
 			"x-slack":     "#api-support",
 			"x-on-call":   true,
@@ -216,7 +216,7 @@ func BenchmarkMarshalServerWithExtra(b *testing.B) {
 	server := &Server{
 		URL:         "https://api.example.com/v1",
 		Description: "Production server",
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"x-environment":    "production",
 			"x-region":         "us-east-1",
 			"x-load-balancer":  "alb-prod-001",

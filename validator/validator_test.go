@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -547,6 +548,279 @@ func TestMalformedPathTemplates(t *testing.T) {
 			}
 
 			t.Logf("%s: %d errors, %d warnings", tc.name, result.ErrorCount, result.WarningCount)
+		})
+	}
+}
+
+// TestPathTemplateValidation tests comprehensive path template validation
+func TestPathTemplateValidation(t *testing.T) {
+	testCases := []struct {
+		name            string
+		oasVersion      string
+		paths           map[string]string // path -> operation summary
+		expectErrors    int
+		expectWarnings  int
+		errorContains   string
+		warningContains string
+	}{
+		{
+			name:       "Valid path without trailing slash",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/users": "Get users",
+			},
+			expectErrors:   0,
+			expectWarnings: 0,
+		},
+		{
+			name:       "Valid root path",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/": "Root endpoint",
+			},
+			expectErrors:   0,
+			expectWarnings: 0,
+		},
+		{
+			name:       "Trailing slash - should warn",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/users/": "Get users with trailing slash",
+			},
+			expectErrors:    0,
+			expectWarnings:  1,
+			warningContains: "trailing slash",
+		},
+		{
+			name:       "Trailing slash with parameter - should warn (and error for undeclared param)",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/users/{userId}/": "Get user with trailing slash",
+			},
+			expectErrors:    1, // undeclared parameter
+			expectWarnings:  1, // trailing slash
+			warningContains: "trailing slash",
+		},
+		{
+			name:       "Multiple paths with trailing slashes - should warn for each",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/users/":         "Get users",
+				"/pets/":          "Get pets",
+				"/products/{id}/": "Get product",
+			},
+			expectErrors:    1, // undeclared parameter in /products/{id}/
+			expectWarnings:  3, // trailing slash on all three paths
+			warningContains: "trailing slash",
+		},
+		{
+			name:       "Consecutive slashes - should error",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/users//pets": "Invalid double slash",
+			},
+			expectErrors:   1,
+			expectWarnings: 0,
+			errorContains:  "consecutive slashes",
+		},
+		{
+			name:       "Reserved character # - should error",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/users#section": "Invalid hash",
+			},
+			expectErrors:   1,
+			expectWarnings: 0,
+			errorContains:  "reserved character '#'",
+		},
+		{
+			name:       "Reserved character ? - should error",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/users?query=test": "Invalid query string",
+			},
+			expectErrors:   1,
+			expectWarnings: 0,
+			errorContains:  "reserved character '?'",
+		},
+		{
+			name:       "Empty braces - should error",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/users/{}": "Empty parameter",
+			},
+			expectErrors:   1,
+			expectWarnings: 0,
+			errorContains:  "empty parameter name",
+		},
+		{
+			name:       "Unclosed brace - should error",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/users/{userId": "Unclosed brace",
+			},
+			expectErrors:   1,
+			expectWarnings: 0,
+			errorContains:  "unclosed brace",
+		},
+		{
+			name:       "Missing opening brace - should error",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/users/userId}": "Missing opening brace",
+			},
+			expectErrors:   1,
+			expectWarnings: 0,
+			errorContains:  "unexpected closing brace",
+		},
+		{
+			name:       "Nested braces - should error",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/users/{{userId}}": "Nested braces",
+			},
+			expectErrors:   2, // nested braces + undeclared parameter
+			expectWarnings: 0,
+			errorContains:  "nested braces",
+		},
+		{
+			name:       "Duplicate parameter names - should error",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"/users/{id}/pets/{id}": "Duplicate parameter",
+			},
+			expectErrors:   2, // duplicate parameter + undeclared parameter
+			expectWarnings: 0,
+			errorContains:  "duplicate parameter name",
+		},
+		{
+			name:       "Path not starting with / - should error",
+			oasVersion: "3.0.3",
+			paths: map[string]string{
+				"users": "Missing leading slash",
+			},
+			expectErrors:   1,
+			expectWarnings: 0,
+			errorContains:  "must start with '/'",
+		},
+		{
+			name:       "OAS 2.0 - trailing slash warning",
+			oasVersion: "2.0",
+			paths: map[string]string{
+				"/users/": "Get users",
+			},
+			expectErrors:    0,
+			expectWarnings:  1,
+			warningContains: "trailing slash",
+		},
+		{
+			name:       "OAS 2.0 - consecutive slashes error",
+			oasVersion: "2.0",
+			paths: map[string]string{
+				"/users//pets": "Invalid double slash",
+			},
+			expectErrors:   1,
+			expectWarnings: 0,
+			errorContains:  "consecutive slashes",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Build OAS document
+			var content string
+			if tc.oasVersion == "2.0" {
+				content = fmt.Sprintf(`swagger: "%s"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+`, tc.oasVersion)
+				for path, summary := range tc.paths {
+					content += fmt.Sprintf(`  "%s":
+    get:
+      summary: %s
+      responses:
+        '200':
+          description: Success
+`, path, summary)
+				}
+			} else {
+				content = fmt.Sprintf(`openapi: %s
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+`, tc.oasVersion)
+				for path, summary := range tc.paths {
+					content += fmt.Sprintf(`  "%s":
+    get:
+      summary: %s
+      responses:
+        '200':
+          description: Success
+`, path, summary)
+				}
+			}
+
+			// Parse and validate
+			p := parser.New()
+			p.ValidateStructure = false // Skip parser validation to focus on validator
+			parseResult, err := p.ParseBytes([]byte(content))
+			if err != nil {
+				t.Fatalf("Failed to parse test document: %v", err)
+			}
+
+			v := New()
+			v.IncludeWarnings = true
+			result, err := v.ValidateParsed(*parseResult)
+			if err != nil {
+				t.Fatalf("Validation failed: %v", err)
+			}
+
+			// Check error count
+			if result.ErrorCount != tc.expectErrors {
+				t.Errorf("Expected %d errors, got %d", tc.expectErrors, result.ErrorCount)
+				for _, e := range result.Errors {
+					t.Logf("  Error: %s", e.Message)
+				}
+			}
+
+			// Check warning count
+			if result.WarningCount != tc.expectWarnings {
+				t.Errorf("Expected %d warnings, got %d", tc.expectWarnings, result.WarningCount)
+				for _, w := range result.Warnings {
+					t.Logf("  Warning: %s", w.Message)
+				}
+			}
+
+			// Check error message contains expected text
+			if tc.errorContains != "" {
+				found := false
+				for _, e := range result.Errors {
+					if strings.Contains(strings.ToLower(e.Message), strings.ToLower(tc.errorContains)) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected error message containing '%s', but not found", tc.errorContains)
+				}
+			}
+
+			// Check warning message contains expected text
+			if tc.warningContains != "" {
+				found := false
+				for _, w := range result.Warnings {
+					if strings.Contains(strings.ToLower(w.Message), strings.ToLower(tc.warningContains)) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected warning message containing '%s', but not found", tc.warningContains)
+				}
+			}
 		})
 	}
 }

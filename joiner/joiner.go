@@ -89,7 +89,7 @@ func New(config JoinerConfig) *Joiner {
 // JoinResult contains the joined OpenAPI specification and metadata
 type JoinResult struct {
 	// Document contains the joined document (*parser.OAS2Document or *parser.OAS3Document)
-	Document interface{}
+	Document any
 	// Version is the OpenAPI version of the joined document
 	Version string
 	// OASVersion is the enumerated version
@@ -229,7 +229,7 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 const outputFileMode = 0600
 
 // marshalJSON marshals a document to JSON format with proper indentation
-func marshalJSON(doc interface{}) ([]byte, error) {
+func marshalJSON(doc any) ([]byte, error) {
 	return json.MarshalIndent(doc, "", "  ")
 }
 

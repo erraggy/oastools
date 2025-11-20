@@ -27,7 +27,7 @@ type PathItem struct {
 	Servers     []*Server    `yaml:"servers,omitempty" json:"servers,omitempty"` // OAS 3.0+
 	Parameters  []*Parameter `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // Operation describes a single API operation on a path
@@ -49,7 +49,7 @@ type Operation struct {
 	Produces []string `yaml:"produces,omitempty" json:"produces,omitempty"` // OAS 2.0
 	Schemes  []string `yaml:"schemes,omitempty" json:"schemes,omitempty"`   // OAS 2.0
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // Responses is a container for the expected responses of an operation
@@ -60,9 +60,9 @@ type Responses struct {
 
 // UnmarshalYAML implements custom unmarshaling for Responses to validate status codes during parsing.
 // This prevents invalid fields from being captured in the Codes map and provides clearer error messages.
-func (r *Responses) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (r *Responses) UnmarshalYAML(unmarshal func(any) error) error {
 	// First unmarshal into a raw map to inspect all fields
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := unmarshal(&raw); err != nil {
 		return err
 	}
@@ -111,10 +111,10 @@ type Response struct {
 	Content     map[string]*MediaType `yaml:"content,omitempty" json:"content,omitempty"` // OAS 3.0+
 	Links       map[string]*Link      `yaml:"links,omitempty" json:"links,omitempty"`     // OAS 3.0+
 	// OAS 2.0 specific
-	Schema   *Schema                `yaml:"schema,omitempty" json:"schema,omitempty"`     // OAS 2.0
-	Examples map[string]interface{} `yaml:"examples,omitempty" json:"examples,omitempty"` // OAS 2.0
+	Schema   *Schema        `yaml:"schema,omitempty" json:"schema,omitempty"`     // OAS 2.0
+	Examples map[string]any `yaml:"examples,omitempty" json:"examples,omitempty"` // OAS 2.0
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // Callback is a map of expressions to path items (OAS 3.0+)
@@ -122,36 +122,36 @@ type Callback map[string]*PathItem
 
 // Link represents a possible design-time link for a response (OAS 3.0+)
 type Link struct {
-	Ref          string                 `yaml:"$ref,omitempty" json:"$ref,omitempty"`
-	OperationRef string                 `yaml:"operationRef,omitempty" json:"operationRef,omitempty"`
-	OperationID  string                 `yaml:"operationId,omitempty" json:"operationId,omitempty"`
-	Parameters   map[string]interface{} `yaml:"parameters,omitempty" json:"parameters,omitempty"`
-	RequestBody  interface{}            `yaml:"requestBody,omitempty" json:"requestBody,omitempty"`
-	Description  string                 `yaml:"description,omitempty" json:"description,omitempty"`
-	Server       *Server                `yaml:"server,omitempty" json:"server,omitempty"`
+	Ref          string         `yaml:"$ref,omitempty" json:"$ref,omitempty"`
+	OperationRef string         `yaml:"operationRef,omitempty" json:"operationRef,omitempty"`
+	OperationID  string         `yaml:"operationId,omitempty" json:"operationId,omitempty"`
+	Parameters   map[string]any `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	RequestBody  any            `yaml:"requestBody,omitempty" json:"requestBody,omitempty"`
+	Description  string         `yaml:"description,omitempty" json:"description,omitempty"`
+	Server       *Server        `yaml:"server,omitempty" json:"server,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // MediaType provides schema and examples for the media type (OAS 3.0+)
 type MediaType struct {
 	Schema   *Schema              `yaml:"schema,omitempty" json:"schema,omitempty"`
-	Example  interface{}          `yaml:"example,omitempty" json:"example,omitempty"`
+	Example  any                  `yaml:"example,omitempty" json:"example,omitempty"`
 	Examples map[string]*Example  `yaml:"examples,omitempty" json:"examples,omitempty"`
 	Encoding map[string]*Encoding `yaml:"encoding,omitempty" json:"encoding,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // Example represents an example object (OAS 3.0+)
 type Example struct {
-	Ref           string      `yaml:"$ref,omitempty" json:"$ref,omitempty"`
-	Summary       string      `yaml:"summary,omitempty" json:"summary,omitempty"`
-	Description   string      `yaml:"description,omitempty" json:"description,omitempty"`
-	Value         interface{} `yaml:"value,omitempty" json:"value,omitempty"`
-	ExternalValue string      `yaml:"externalValue,omitempty" json:"externalValue,omitempty"`
+	Ref           string `yaml:"$ref,omitempty" json:"$ref,omitempty"`
+	Summary       string `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Description   string `yaml:"description,omitempty" json:"description,omitempty"`
+	Value         any    `yaml:"value,omitempty" json:"value,omitempty"`
+	ExternalValue string `yaml:"externalValue,omitempty" json:"externalValue,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // Encoding defines encoding for a specific property (OAS 3.0+)
@@ -162,15 +162,15 @@ type Encoding struct {
 	Explode       *bool              `yaml:"explode,omitempty" json:"explode,omitempty"`
 	AllowReserved bool               `yaml:"allowReserved,omitempty" json:"allowReserved,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // yamlMarshalValue marshals a value to YAML bytes for re-parsing
-func yamlMarshalValue(value interface{}) ([]byte, error) {
+func yamlMarshalValue(value any) ([]byte, error) {
 	return yaml.Marshal(value)
 }
 
 // yamlUnmarshalValue unmarshals YAML bytes into a target
-func yamlUnmarshalValue(data []byte, target interface{}) error {
+func yamlUnmarshalValue(data []byte, target any) error {
 	return yaml.Unmarshal(data, target)
 }

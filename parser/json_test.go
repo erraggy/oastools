@@ -85,12 +85,12 @@ func TestExtraFieldsJSONInline(t *testing.T) {
 		Info: &Info{
 			Title:   "Test API",
 			Version: "1.0.0",
-			Extra: map[string]interface{}{
+			Extra: map[string]any{
 				"x-custom-field": "custom-value",
 			},
 		},
 		Paths: Paths{},
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"x-root-extension": "root-value",
 		},
 	}
@@ -120,7 +120,7 @@ func TestInfoExtraFieldsJSONInline(t *testing.T) {
 	info := &Info{
 		Title:   "Test API",
 		Version: "1.0.0",
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"x-custom":  "value",
 			"x-another": 123,
 		},
@@ -131,7 +131,7 @@ func TestInfoExtraFieldsJSONInline(t *testing.T) {
 		t.Fatalf("Failed to marshal Info with Extra: %v", err)
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(data, &result); err != nil {
 		t.Fatalf("Failed to unmarshal JSON: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestJSONRoundTrip(t *testing.T) {
 		Info: &Info{
 			Title:   "Test API",
 			Version: "1.0.0",
-			Extra: map[string]interface{}{
+			Extra: map[string]any{
 				"x-info-custom": "info-value",
 			},
 		},
@@ -168,13 +168,13 @@ func TestJSONRoundTrip(t *testing.T) {
 			{
 				URL:         "https://api.example.com",
 				Description: "Production server",
-				Extra: map[string]interface{}{
+				Extra: map[string]any{
 					"x-server-custom": "server-value",
 				},
 			},
 		},
 		Paths: Paths{},
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"x-doc-custom": "doc-value",
 		},
 	}
@@ -216,7 +216,7 @@ func TestSchemaJSONFieldCasing(t *testing.T) {
 		Type:        "string",
 		Description: "A test schema",
 		Example:     "test",
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"x-custom-schema": "schema-value",
 		},
 	}
@@ -263,7 +263,7 @@ func TestResponsesJSONMarshaling(t *testing.T) {
 		t.Fatalf("Failed to marshal Responses: %v", err)
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(data, &result); err != nil {
 		t.Fatalf("Failed to unmarshal JSON: %v", err)
 	}
@@ -298,11 +298,11 @@ func TestComplexNestedExtraFields(t *testing.T) {
 			Contact: &Contact{
 				Name:  "API Team",
 				Email: "api@example.com",
-				Extra: map[string]interface{}{
+				Extra: map[string]any{
 					"x-contact-custom": "contact-value",
 				},
 			},
-			Extra: map[string]interface{}{
+			Extra: map[string]any{
 				"x-info-custom": "info-value",
 			},
 		},
@@ -314,22 +314,22 @@ func TestComplexNestedExtraFields(t *testing.T) {
 						Codes: map[string]*Response{
 							"200": {
 								Description: "Success",
-								Extra: map[string]interface{}{
+								Extra: map[string]any{
 									"x-response-custom": "response-value",
 								},
 							},
 						},
 					},
-					Extra: map[string]interface{}{
+					Extra: map[string]any{
 						"x-operation-custom": "operation-value",
 					},
 				},
-				Extra: map[string]interface{}{
+				Extra: map[string]any{
 					"x-path-custom": "path-value",
 				},
 			},
 		},
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"x-doc-custom": "doc-value",
 		},
 	}
@@ -348,8 +348,8 @@ func TestComplexNestedExtraFields(t *testing.T) {
 	// Verify all Extra fields at different levels
 	tests := []struct {
 		name  string
-		got   interface{}
-		want  interface{}
+		got   any
+		want  any
 		field string
 	}{
 		{"Document Extra", restored.Extra["x-doc-custom"], "doc-value", "x-doc-custom"},
@@ -379,7 +379,7 @@ func TestEmptyExtraFields(t *testing.T) {
 			Extra:   nil, // Explicitly nil
 		},
 		Paths: Paths{},
-		Extra: map[string]interface{}{}, // Explicitly empty
+		Extra: map[string]any{}, // Explicitly empty
 	}
 
 	data, err := json.Marshal(doc)
@@ -451,7 +451,7 @@ func TestExtraFieldConflicts(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Paths: Paths{},
-		Extra: map[string]interface{}{
+		Extra: map[string]any{
 			"openapi": "2.0",     // Conflicts with real field
 			"info":    "invalid", // Conflicts with real field
 			"x-safe":  "value",   // Safe extension
@@ -463,7 +463,7 @@ func TestExtraFieldConflicts(t *testing.T) {
 		t.Fatalf("Failed to marshal document with conflicting Extra: %v", err)
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(data, &result); err != nil {
 		t.Fatalf("Failed to unmarshal to map: %v", err)
 	}
@@ -608,8 +608,8 @@ func TestMarshalUnmarshalErrors(t *testing.T) {
 
 func TestLargeExtraMap(t *testing.T) {
 	// Test performance with many extension fields
-	largeExtra := make(map[string]interface{})
-	for i := 0; i < 100; i++ {
+	largeExtra := make(map[string]any)
+	for i := range 100 {
 		largeExtra[fmt.Sprintf("x-field-%d", i)] = fmt.Sprintf("value-%d", i)
 	}
 

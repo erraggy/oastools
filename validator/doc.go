@@ -27,8 +27,10 @@
 //
 // The validator checks document structure, required fields, format validation
 // (URLs, emails, media types), semantic constraints (operation ID uniqueness,
-// parameter consistency), and JSON schemas. See the examples in example_test.go
-// for more usage patterns.
+// parameter consistency), and JSON schemas. Path validation includes checking
+// for malformed templates (unclosed braces, reserved characters, consecutive slashes)
+// and REST best practices (trailing slashes generate warnings when IncludeWarnings
+// is enabled). See the examples in example_test.go for more usage patterns.
 //
 // # Validation Output
 //

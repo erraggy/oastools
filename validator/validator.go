@@ -339,6 +339,9 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 			})
 		}
 
+		// Warning: trailing slash in path (REST best practice)
+		checkTrailingSlash(v, pathPattern, result, baseURL)
+
 		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
 
 		// Validate each operation
@@ -921,6 +924,9 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 				Value:    pathPattern,
 			})
 		}
+
+		// Warning: trailing slash in path (REST best practice)
+		checkTrailingSlash(v, pathPattern, result, baseURL)
 
 		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
 
@@ -1801,14 +1807,8 @@ func validatePathTemplate(pathPattern string) error {
 		return fmt.Errorf("path contains reserved character '?'")
 	}
 
-	// Check for empty path segments
-	segments := strings.Split(pathPattern, "/")
-	for i, segment := range segments {
-		// First segment can be empty (leading slash), but others cannot
-		if i > 0 && segment == "" {
-			return fmt.Errorf("path contains empty segment")
-		}
-	}
+	// Note: Trailing slashes are handled separately as warnings, not errors
+	// Empty segments in the middle are caught by the consecutive slash check above
 
 	// Check for unclosed or unopened braces
 	openCount := 0
@@ -1852,6 +1852,20 @@ func validatePathTemplate(pathPattern string) error {
 	}
 
 	return nil
+}
+
+// checkTrailingSlash adds a warning if the path has a trailing slash
+// Trailing slashes are discouraged by REST best practices but not forbidden by OAS spec
+func checkTrailingSlash(v *Validator, pathPattern string, result *ValidationResult, baseURL string) {
+	if v.IncludeWarnings && len(pathPattern) > 1 && strings.HasSuffix(pathPattern, "/") {
+		result.Warnings = append(result.Warnings, ValidationError{
+			Path:     fmt.Sprintf("paths.%s", pathPattern),
+			Message:  "Path has trailing slash, which is discouraged by REST best practices",
+			SpecRef:  fmt.Sprintf("%s#paths-object", baseURL),
+			Severity: SeverityWarning,
+			Value:    pathPattern,
+		})
+	}
 }
 
 // extractPathParameters extracts parameter names from a path template

@@ -29,7 +29,7 @@ type RefResolver struct {
 	// visited tracks visited refs to prevent circular reference loops
 	visited map[string]bool
 	// documents caches loaded external documents
-	documents map[string]map[string]interface{}
+	documents map[string]map[string]any
 	// baseDir is the base directory for resolving relative file paths
 	baseDir string
 }
@@ -38,14 +38,14 @@ type RefResolver struct {
 func NewRefResolver(baseDir string) *RefResolver {
 	return &RefResolver{
 		visited:   make(map[string]bool),
-		documents: make(map[string]map[string]interface{}),
+		documents: make(map[string]map[string]any),
 		baseDir:   baseDir,
 	}
 }
 
 // ResolveLocal resolves local references within a document
 // Local refs are in the format: #/path/to/component
-func (r *RefResolver) ResolveLocal(doc map[string]interface{}, ref string) (interface{}, error) {
+func (r *RefResolver) ResolveLocal(doc map[string]any, ref string) (any, error) {
 	// Check for circular references
 	if r.visited[ref] {
 		return nil, fmt.Errorf("circular reference detected: %s", ref)
@@ -63,20 +63,20 @@ func (r *RefResolver) ResolveLocal(doc map[string]interface{}, ref string) (inte
 	parts := strings.Split(strings.TrimPrefix(ref, "/"), "/")
 
 	// Traverse the document
-	current := interface{}(doc)
+	current := any(doc)
 	for i, part := range parts {
 		// Unescape JSON Pointer tokens
 		part = unescapeJSONPointer(part)
 
 		switch v := current.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			next, ok := v[part]
 			if !ok {
 				return nil, fmt.Errorf("reference not found: #/%s (missing key: %s)", strings.Join(parts[:i+1], "/"), part)
 			}
 			current = next
 
-		case []interface{}:
+		case []any:
 			// Handle array indexing (not common in OAS but valid JSON Pointer)
 			return nil, fmt.Errorf("array indexing not supported in reference: #/%s", strings.Join(parts, "/"))
 
@@ -90,7 +90,7 @@ func (r *RefResolver) ResolveLocal(doc map[string]interface{}, ref string) (inte
 
 // ResolveExternal resolves external file references
 // External refs are in the format: ./file.yaml#/path/to/component or file.yaml#/path/to/component
-func (r *RefResolver) ResolveExternal(ref string) (interface{}, error) {
+func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 	// Check for circular references
 	if r.visited[ref] {
 		return nil, fmt.Errorf("circular reference detected: %s", ref)
@@ -154,7 +154,7 @@ func (r *RefResolver) ResolveExternal(ref string) (interface{}, error) {
 		}
 
 		// Parse the external document
-		var extDoc map[string]interface{}
+		var extDoc map[string]any
 		if err := yaml.Unmarshal(data, &extDoc); err != nil {
 			return nil, fmt.Errorf("failed to parse external file %s: %w", filePath, err)
 		}
@@ -173,7 +173,7 @@ func (r *RefResolver) ResolveExternal(ref string) (interface{}, error) {
 }
 
 // Resolve resolves a $ref reference (local or external)
-func (r *RefResolver) Resolve(doc map[string]interface{}, ref string) (interface{}, error) {
+func (r *RefResolver) Resolve(doc map[string]any, ref string) (any, error) {
 	// Check if it's a local reference (starts with #)
 	if strings.HasPrefix(ref, "#") {
 		return r.ResolveLocal(doc, ref)
@@ -197,22 +197,22 @@ func unescapeJSONPointer(token string) string {
 }
 
 // ResolveAllRefs walks through the entire document and resolves all $ref references
-func (r *RefResolver) ResolveAllRefs(doc map[string]interface{}) error {
+func (r *RefResolver) ResolveAllRefs(doc map[string]any) error {
 	return r.resolveRefsRecursive(doc, doc, 0)
 }
 
 // resolveRefsRecursive recursively walks through the document structure and resolves $ref
-func (r *RefResolver) resolveRefsRecursive(root, current interface{}, depth int) error {
+func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 	// Prevent stack overflow from deeply nested structures
 	if depth > MaxRefDepth {
 		return fmt.Errorf("exceeded maximum reference depth (%d): structure too deeply nested", MaxRefDepth)
 	}
-	rootMap, ok := root.(map[string]interface{})
+	rootMap, ok := root.(map[string]any)
 	if !ok {
-		return fmt.Errorf("invalid root type: expected map[string]interface{}, got %T", root)
+		return fmt.Errorf("invalid root type: expected map[string]any, got %T", root)
 	}
 	switch v := current.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		// Check if this object has a $ref field
 		if ref, ok := v["$ref"].(string); ok {
 			// Resolve the reference
@@ -228,7 +228,7 @@ func (r *RefResolver) resolveRefsRecursive(root, current interface{}, depth int)
 					delete(v, k)
 				}
 			}
-			resolvedMap, ok := resolved.(map[string]interface{})
+			resolvedMap, ok := resolved.(map[string]any)
 			if !ok {
 				return fmt.Errorf("resolved $ref %s is not an object (got %T)", ref, resolved)
 			}
@@ -248,7 +248,7 @@ func (r *RefResolver) resolveRefsRecursive(root, current interface{}, depth int)
 			}
 		}
 
-	case []interface{}:
+	case []any:
 		// Recursively process all items in the array
 		for _, item := range v {
 			if err := r.resolveRefsRecursive(root, item, depth+1); err != nil {

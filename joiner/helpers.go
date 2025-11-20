@@ -42,7 +42,7 @@ func copyServers(servers []*parser.Server) []*parser.Server {
 						copy(varCopy.Enum, v.Enum)
 					}
 					if v.Extra != nil {
-						varCopy.Extra = make(map[string]interface{})
+						varCopy.Extra = make(map[string]any)
 						for ek, ev := range v.Extra {
 							varCopy.Extra[ek] = ev
 						}

@@ -16,7 +16,7 @@ func (ss *SecurityScheme) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 11+len(ss.Extra))
+	m := make(map[string]any, 11+len(ss.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	if ss.Ref != "" {
@@ -76,13 +76,13 @@ func (ss *SecurityScheme) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
@@ -108,7 +108,7 @@ func (of *OAuthFlows) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 4+len(of.Extra))
+	m := make(map[string]any, 4+len(of.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	if of.Implicit != nil {
@@ -142,13 +142,13 @@ func (of *OAuthFlows) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
@@ -174,7 +174,7 @@ func (of *OAuthFlow) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 4+len(of.Extra))
+	m := make(map[string]any, 4+len(of.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	if of.AuthorizationURL != "" {
@@ -207,13 +207,13 @@ func (of *OAuthFlow) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
