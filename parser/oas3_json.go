@@ -16,7 +16,7 @@ func (d *OAS3Document) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 10+len(d.Extra))
+	m := make(map[string]any, 10+len(d.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	// OpenAPI and Info are required, always include
@@ -65,13 +65,13 @@ func (d *OAS3Document) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
@@ -97,7 +97,7 @@ func (c *Components) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 10+len(c.Extra))
+	m := make(map[string]any, 10+len(c.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	if len(c.Schemas) > 0 {
@@ -149,13 +149,13 @@ func (c *Components) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v

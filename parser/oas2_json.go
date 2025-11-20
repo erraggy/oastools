@@ -17,7 +17,7 @@ func (d *OAS2Document) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 15+len(d.Extra))
+	m := make(map[string]any, 15+len(d.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	// Swagger and Info are required, always include
@@ -82,13 +82,13 @@ func (d *OAS2Document) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v

@@ -62,11 +62,11 @@ type ParseResult struct {
 	// Version is the detected OAS version string (e.g., "2.0", "3.0.3", "3.1.0")
 	Version string
 	// Data contains the raw parsed data as a map, potentially with resolved $refs
-	Data map[string]interface{}
+	Data map[string]any
 	// Document contains the version-specific parsed document:
 	// - *OAS2Document for OpenAPI 2.0
 	// - *OAS3Document for OpenAPI 3.x
-	Document interface{}
+	Document any
 	// Errors contains any parsing or validation errors encountered
 	Errors []error
 	// Warnings contains non-fatal issues such as ref resolution failures
@@ -348,7 +348,7 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 	}
 
 	// First pass: parse to generic map to detect OAS version
-	var rawData map[string]interface{}
+	var rawData map[string]any
 	if err := yaml.Unmarshal(data, &rawData); err != nil {
 		return nil, fmt.Errorf("parser: failed to parse YAML/JSON: %w", err)
 	}
@@ -408,7 +408,7 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 }
 
 // detectVersion determines the OAS semver from the raw data
-func (p *Parser) detectVersion(data map[string]interface{}) (string, error) {
+func (p *Parser) detectVersion(data map[string]any) (string, error) {
 	// Check for OAS 2.0 (Swagger)
 	if swagger, ok := data["swagger"].(string); ok {
 		return swagger, nil
@@ -459,7 +459,7 @@ func versionInRangeExclusive(v, minVersion, maxVersion string) bool {
 }
 
 // parseVersionSpecific parses the data into a semver-specific structure
-func (p *Parser) parseVersionSpecific(data []byte, version string) (interface{}, OASVersion, error) {
+func (p *Parser) parseVersionSpecific(data []byte, version string) (any, OASVersion, error) {
 	v, ok := ParseVersion(version)
 	if !ok {
 		return nil, 0, fmt.Errorf("parser: invalid OAS version: %s", version)

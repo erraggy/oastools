@@ -250,31 +250,31 @@ func TestDetectVersion(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected string
 		wantErr  bool
 	}{
 		{
 			name:     "OAS 2.0",
-			data:     map[string]interface{}{"swagger": "2.0"},
+			data:     map[string]any{"swagger": "2.0"},
 			expected: "2.0",
 			wantErr:  false,
 		},
 		{
 			name:     "OAS 3.0.0",
-			data:     map[string]interface{}{"openapi": "3.0.0"},
+			data:     map[string]any{"openapi": "3.0.0"},
 			expected: "3.0.0",
 			wantErr:  false,
 		},
 		{
 			name:     "OAS 3.1.0",
-			data:     map[string]interface{}{"openapi": "3.1.0"},
+			data:     map[string]any{"openapi": "3.1.0"},
 			expected: "3.1.0",
 			wantErr:  false,
 		},
 		{
 			name:     "Missing version",
-			data:     map[string]interface{}{"info": "test"},
+			data:     map[string]any{"info": "test"},
 			expected: "",
 			wantErr:  true,
 		},

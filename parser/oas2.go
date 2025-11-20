@@ -19,6 +19,6 @@ type OAS2Document struct {
 	Tags                []*Tag                     `yaml:"tags,omitempty" json:"tags,omitempty"`
 	ExternalDocs        *ExternalDocs              `yaml:"externalDocs,omitempty" json:"externalDocs,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra      map[string]interface{} `yaml:",inline" json:"-"`
-	OASVersion OASVersion             `yaml:"-" json:"-"`
+	Extra      map[string]any `yaml:",inline" json:"-"`
+	OASVersion OASVersion     `yaml:"-" json:"-"`
 }

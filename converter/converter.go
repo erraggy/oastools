@@ -26,7 +26,7 @@ type ConversionIssue = issues.Issue
 // ConversionResult contains the results of converting an OpenAPI specification
 type ConversionResult struct {
 	// Document contains the converted document (*parser.OAS2Document or *parser.OAS3Document)
-	Document interface{}
+	Document any
 	// SourceVersion is the detected source OAS version string
 	SourceVersion string
 	// SourceOASVersion is the enumerated source OAS version

@@ -31,23 +31,23 @@ type SecurityScheme struct {
 	OpenIDConnectURL string `yaml:"openIdConnectUrl,omitempty" json:"openIdConnectUrl,omitempty"`
 
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // OAuthFlows allows configuration of the supported OAuth Flows (OAS 3.0+)
 type OAuthFlows struct {
-	Implicit          *OAuthFlow             `yaml:"implicit,omitempty" json:"implicit,omitempty"`
-	Password          *OAuthFlow             `yaml:"password,omitempty" json:"password,omitempty"`
-	ClientCredentials *OAuthFlow             `yaml:"clientCredentials,omitempty" json:"clientCredentials,omitempty"`
-	AuthorizationCode *OAuthFlow             `yaml:"authorizationCode,omitempty" json:"authorizationCode,omitempty"`
-	Extra             map[string]interface{} `yaml:",inline" json:"-"`
+	Implicit          *OAuthFlow     `yaml:"implicit,omitempty" json:"implicit,omitempty"`
+	Password          *OAuthFlow     `yaml:"password,omitempty" json:"password,omitempty"`
+	ClientCredentials *OAuthFlow     `yaml:"clientCredentials,omitempty" json:"clientCredentials,omitempty"`
+	AuthorizationCode *OAuthFlow     `yaml:"authorizationCode,omitempty" json:"authorizationCode,omitempty"`
+	Extra             map[string]any `yaml:",inline" json:"-"`
 }
 
 // OAuthFlow represents configuration for a single OAuth flow (OAS 3.0+)
 type OAuthFlow struct {
-	AuthorizationURL string                 `yaml:"authorizationUrl,omitempty" json:"authorizationUrl,omitempty"`
-	TokenURL         string                 `yaml:"tokenUrl,omitempty" json:"tokenUrl,omitempty"`
-	RefreshURL       string                 `yaml:"refreshUrl,omitempty" json:"refreshUrl,omitempty"`
-	Scopes           map[string]string      `yaml:"scopes" json:"scopes"`
-	Extra            map[string]interface{} `yaml:",inline" json:"-"`
+	AuthorizationURL string            `yaml:"authorizationUrl,omitempty" json:"authorizationUrl,omitempty"`
+	TokenURL         string            `yaml:"tokenUrl,omitempty" json:"tokenUrl,omitempty"`
+	RefreshURL       string            `yaml:"refreshUrl,omitempty" json:"refreshUrl,omitempty"`
+	Scopes           map[string]string `yaml:"scopes" json:"scopes"`
+	Extra            map[string]any    `yaml:",inline" json:"-"`
 }

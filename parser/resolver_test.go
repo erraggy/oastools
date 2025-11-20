@@ -81,7 +81,7 @@ func TestMaxDepthExceeded(t *testing.T) {
 
 	// Build schema definitions
 	schemasBuilder := strings.Builder{}
-	for i := 0; i < depth; i++ {
+	for i := range depth {
 		schemasBuilder.WriteString("    Schema")
 		schemasBuilder.WriteString(string(rune('A' + (i % 26))))
 		schemasBuilder.WriteString(string(rune('0' + (i / 26))))
@@ -165,7 +165,7 @@ components:
   schemas:
 `)
 
-	for i := 0; i < numFiles; i++ {
+	for i := range numFiles {
 		// Create external file
 		extFile := filepath.Join(tmpDir, "schema"+string(rune('0'+i%10))+string(rune('0'+i/10))+".yaml")
 		extContent := `
@@ -307,13 +307,13 @@ components:
 func TestLocalRefResolution(t *testing.T) {
 	resolver := NewRefResolver(".")
 
-	doc := map[string]interface{}{
-		"components": map[string]interface{}{
-			"schemas": map[string]interface{}{
-				"Pet": map[string]interface{}{
+	doc := map[string]any{
+		"components": map[string]any{
+			"schemas": map[string]any{
+				"Pet": map[string]any{
 					"type": "object",
-					"properties": map[string]interface{}{
-						"name": map[string]interface{}{
+					"properties": map[string]any{
+						"name": map[string]any{
 							"type": "string",
 						},
 					},
@@ -328,7 +328,7 @@ func TestLocalRefResolution(t *testing.T) {
 		t.Fatalf("Failed to resolve local ref: %v", err)
 	}
 
-	petSchema, ok := result.(map[string]interface{})
+	petSchema, ok := result.(map[string]any)
 	if !ok {
 		t.Fatalf("Expected map result, got %T", result)
 	}
@@ -342,9 +342,9 @@ func TestLocalRefResolution(t *testing.T) {
 func TestLocalRefNotFound(t *testing.T) {
 	resolver := NewRefResolver(".")
 
-	doc := map[string]interface{}{
-		"components": map[string]interface{}{
-			"schemas": map[string]interface{}{},
+	doc := map[string]any{
+		"components": map[string]any{
+			"schemas": map[string]any{},
 		},
 	}
 
@@ -364,15 +364,15 @@ func TestJSONPointerEscaping(t *testing.T) {
 	resolver := NewRefResolver(".")
 
 	// JSON Pointer uses ~0 for ~ and ~1 for /
-	doc := map[string]interface{}{
-		"definitions": map[string]interface{}{
-			"a/b": map[string]interface{}{
+	doc := map[string]any{
+		"definitions": map[string]any{
+			"a/b": map[string]any{
 				"type": "string",
 			},
-			"c~d": map[string]interface{}{
+			"c~d": map[string]any{
 				"type": "number",
 			},
-			"e~1f": map[string]interface{}{
+			"e~1f": map[string]any{
 				"type": "boolean",
 			},
 		},
@@ -407,7 +407,7 @@ func TestJSONPointerEscaping(t *testing.T) {
 				t.Fatalf("Failed to resolve ref %s: %v", tt.ref, err)
 			}
 
-			schema, ok := result.(map[string]interface{})
+			schema, ok := result.(map[string]any)
 			if !ok {
 				t.Fatalf("Expected map result, got %T", result)
 			}
@@ -423,7 +423,7 @@ func TestJSONPointerEscaping(t *testing.T) {
 func TestHTTPReferencesNotSupported(t *testing.T) {
 	resolver := NewRefResolver(".")
 
-	doc := map[string]interface{}{}
+	doc := map[string]any{}
 
 	refs := []string{
 		"http://example.com/schema.yaml",

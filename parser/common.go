@@ -13,7 +13,7 @@ type Info struct {
 	Summary string `yaml:"summary,omitempty" json:"summary,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
 	// and any other fields not explicitly defined in the struct
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // Contact information for the exposed API
@@ -22,7 +22,7 @@ type Contact struct {
 	URL   string `yaml:"url,omitempty" json:"url,omitempty"`
 	Email string `yaml:"email,omitempty" json:"email,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // License information for the exposed API
@@ -31,7 +31,7 @@ type License struct {
 	URL        string `yaml:"url,omitempty" json:"url,omitempty"`
 	Identifier string `yaml:"identifier,omitempty" json:"identifier,omitempty"` // OAS 3.1+
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // ExternalDocs allows referencing external documentation
@@ -39,7 +39,7 @@ type ExternalDocs struct {
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	URL         string `yaml:"url" json:"url"`
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // Tag adds metadata to a single tag used by operations
@@ -48,7 +48,7 @@ type Tag struct {
 	Description  string        `yaml:"description,omitempty" json:"description,omitempty"`
 	ExternalDocs *ExternalDocs `yaml:"externalDocs,omitempty" json:"externalDocs,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // Server represents a Server object (OAS 3.0+)
@@ -57,7 +57,7 @@ type Server struct {
 	Description string                    `yaml:"description,omitempty" json:"description,omitempty"`
 	Variables   map[string]ServerVariable `yaml:"variables,omitempty" json:"variables,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // ServerVariable represents a Server Variable object (OAS 3.0+)
@@ -66,7 +66,7 @@ type ServerVariable struct {
 	Default     string   `yaml:"default" json:"default"`
 	Description string   `yaml:"description,omitempty" json:"description,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // Reference represents a JSON Reference ($ref)
@@ -75,5 +75,5 @@ type Reference struct {
 	Summary     string `yaml:"summary,omitempty" json:"summary,omitempty"`         // OAS 3.1+
 	Description string `yaml:"description,omitempty" json:"description,omitempty"` // OAS 3.1+
 	// Extra captures specification extensions (fields starting with "x-")
-	Extra map[string]interface{} `yaml:",inline" json:"-"`
+	Extra map[string]any `yaml:",inline" json:"-"`
 }

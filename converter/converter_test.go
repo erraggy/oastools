@@ -51,7 +51,7 @@ func TestConvertParsedConvenience(t *testing.T) {
 		Document:   oas2Doc,
 		Version:    "2.0",
 		OASVersion: parser.OASVersion20,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 		Errors:     []error{},
 		Warnings:   []string{},
@@ -116,7 +116,7 @@ func TestConverterConvertParsed(t *testing.T) {
 		Document:   oas2Doc,
 		Version:    "2.0",
 		OASVersion: parser.OASVersion20,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 		Errors:     []error{},
 		Warnings:   []string{},
@@ -140,7 +140,7 @@ func TestOAS2ToOAS3Conversion(t *testing.T) {
 		Document:   oas2Doc,
 		Version:    "2.0",
 		OASVersion: parser.OASVersion20,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 	}
 
@@ -187,7 +187,7 @@ func TestOAS3ToOAS2Conversion(t *testing.T) {
 		Document:   oas3Doc,
 		Version:    "3.0.3",
 		OASVersion: parser.OASVersion303,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 	}
 
@@ -225,7 +225,7 @@ func TestOAS3ToOAS3Conversion(t *testing.T) {
 		Document:   oas3Doc,
 		Version:    "3.0.3",
 		OASVersion: parser.OASVersion303,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 	}
 
@@ -265,7 +265,7 @@ func TestSameVersionConversion(t *testing.T) {
 		Document:   oas2Doc,
 		Version:    "2.0",
 		OASVersion: parser.OASVersion20,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 	}
 
@@ -300,7 +300,7 @@ func TestInvalidTargetVersion(t *testing.T) {
 		Document:   oas2Doc,
 		Version:    "2.0",
 		OASVersion: parser.OASVersion20,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 	}
 
@@ -325,7 +325,7 @@ func TestStrictMode(t *testing.T) {
 		Document:   oas3Doc,
 		Version:    "3.1.0",
 		OASVersion: parser.OASVersion310,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 	}
 
@@ -346,7 +346,7 @@ func TestIncludeInfo(t *testing.T) {
 		Document:   oas2Doc,
 		Version:    "2.0",
 		OASVersion: parser.OASVersion20,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 	}
 
@@ -505,7 +505,7 @@ func TestRefRewritingOAS2ToOAS3(t *testing.T) {
 		Document:   oas2Doc,
 		Version:    "2.0",
 		OASVersion: parser.OASVersion20,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 	}
 
@@ -614,7 +614,7 @@ func TestRefRewritingOAS3ToOAS2(t *testing.T) {
 		Document:   oas3Doc,
 		Version:    "3.0.3",
 		OASVersion: parser.OASVersion303,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 	}
 
@@ -715,7 +715,7 @@ func TestRefRewritingNestedSchemas(t *testing.T) {
 		Document:   oas2Doc,
 		Version:    "2.0",
 		OASVersion: parser.OASVersion20,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 	}
 
@@ -798,7 +798,7 @@ func TestRefRewritingParameters(t *testing.T) {
 		Document:   oas2Doc,
 		Version:    "2.0",
 		OASVersion: parser.OASVersion20,
-		Data:       make(map[string]interface{}),
+		Data:       make(map[string]any),
 		SourcePath: "test.yaml",
 	}
 

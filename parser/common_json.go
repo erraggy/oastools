@@ -16,7 +16,7 @@ func (i *Info) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 7+len(i.Extra))
+	m := make(map[string]any, 7+len(i.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	m["title"] = i.Title
@@ -56,13 +56,13 @@ func (i *Info) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
@@ -88,7 +88,7 @@ func (c *Contact) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 3+len(c.Extra))
+	m := make(map[string]any, 3+len(c.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	if c.Name != "" {
@@ -119,13 +119,13 @@ func (c *Contact) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
@@ -151,7 +151,7 @@ func (l *License) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 3+len(l.Extra))
+	m := make(map[string]any, 3+len(l.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	if l.Name != "" {
@@ -182,13 +182,13 @@ func (l *License) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
@@ -214,7 +214,7 @@ func (e *ExternalDocs) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 2+len(e.Extra))
+	m := make(map[string]any, 2+len(e.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	if e.Description != "" {
@@ -240,13 +240,13 @@ func (e *ExternalDocs) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
@@ -272,7 +272,7 @@ func (t *Tag) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 3+len(t.Extra))
+	m := make(map[string]any, 3+len(t.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	m["name"] = t.Name
@@ -302,13 +302,13 @@ func (t *Tag) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
@@ -334,7 +334,7 @@ func (s *Server) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 3+len(s.Extra))
+	m := make(map[string]any, 3+len(s.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	m["url"] = s.URL
@@ -364,13 +364,13 @@ func (s *Server) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
@@ -396,7 +396,7 @@ func (sv *ServerVariable) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 3+len(sv.Extra))
+	m := make(map[string]any, 3+len(sv.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	if len(sv.Enum) > 0 {
@@ -426,13 +426,13 @@ func (sv *ServerVariable) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v
@@ -458,7 +458,7 @@ func (r *Reference) MarshalJSON() ([]byte, error) {
 	}
 
 	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]interface{}, 3+len(r.Extra))
+	m := make(map[string]any, 3+len(r.Extra))
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	m["$ref"] = r.Ref
@@ -488,13 +488,13 @@ func (r *Reference) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
 	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	for k, v := range m {
 		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
 			extra[k] = v

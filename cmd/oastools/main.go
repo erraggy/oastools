@@ -445,7 +445,7 @@ Notes:
 }
 
 // marshalDocument marshals a document to bytes in the specified format
-func marshalDocument(doc interface{}, format parser.SourceFormat) ([]byte, error) {
+func marshalDocument(doc any, format parser.SourceFormat) ([]byte, error) {
 	if format == parser.SourceFormatJSON {
 		return json.MarshalIndent(doc, "", "  ")
 	}

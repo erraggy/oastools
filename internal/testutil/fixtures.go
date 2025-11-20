@@ -114,7 +114,7 @@ func NewDetailedOAS3Document() *parser.OAS3Document {
 // WriteTempYAML marshals a document to YAML and writes it to a temporary file.
 // Returns the path to the temporary file.
 // The file is automatically cleaned up when the test completes (via t.TempDir).
-func WriteTempYAML(t *testing.T, doc interface{}) string {
+func WriteTempYAML(t *testing.T, doc any) string {
 	t.Helper()
 
 	data, err := yaml.Marshal(doc)
@@ -133,7 +133,7 @@ func WriteTempYAML(t *testing.T, doc interface{}) string {
 // WriteTempJSON marshals a document to JSON and writes it to a temporary file.
 // Returns the path to the temporary file.
 // The file is automatically cleaned up when the test completes (via t.TempDir).
-func WriteTempJSON(t *testing.T, doc interface{}) string {
+func WriteTempJSON(t *testing.T, doc any) string {
 	t.Helper()
 
 	data, err := json.MarshalIndent(doc, "", "  ")

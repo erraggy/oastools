@@ -18,7 +18,7 @@ type Issue struct {
 	// Field is the specific field name that has the issue
 	Field string
 	// Value is the problematic value (optional)
-	Value interface{}
+	Value any
 	// SpecRef is the URL to the relevant section of the OAS specification (optional, validation use)
 	SpecRef string
 	// Context provides additional information about the issue (optional, conversion use)
