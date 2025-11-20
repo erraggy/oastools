@@ -1,0 +1,205 @@
+# Benchmark Update Process
+
+This document describes the process for updating benchmark results after making changes to the codebase. Follow this process before each release to ensure performance metrics are current.
+
+## When to Update Benchmarks
+
+Update benchmarks in the following situations:
+- Before creating a new release
+- After making performance-related changes
+- After adding new functionality that may affect performance
+- When significant changes are made to core packages (parser, validator, converter, joiner)
+
+## Prerequisites
+
+- Ensure all code changes are complete and tested
+- Ensure `make check` passes (all tests, formatting, and linting pass)
+- Close unnecessary applications to minimize system load during benchmarking
+- Ensure the system is not under heavy load (for consistent results)
+
+## Step-by-Step Process
+
+### 1. Run All Benchmarks
+
+Run each package's benchmarks to collect updated metrics:
+
+```bash
+# Run parser benchmarks
+make bench-parser
+
+# Run validator benchmarks
+make bench-validator
+
+# Run converter benchmarks
+make bench-converter
+
+# Run joiner benchmarks
+make bench-joiner
+```
+
+**Alternative:** Run all benchmarks at once:
+```bash
+make bench
+```
+
+### 2. Collect Benchmark Results
+
+The benchmark output includes:
+- **Iterations**: Number of times the benchmark ran (e.g., `42094`)
+- **Time per operation**: In nanoseconds (e.g., `142212 ns/op`)
+- **Memory per operation**: In bytes (e.g., `202678 B/op`)
+- **Allocations per operation**: Number of allocations (e.g., `2128 allocs/op`)
+
+Example output:
+```
+BenchmarkParseSmallOAS3-10    42094    142212 ns/op    202678 B/op    2128 allocs/op
+```
+
+### 3. Update benchmarks.md
+
+Update the following sections in `benchmarks.md` with the new results:
+
+#### 3.1 Parser Performance
+
+**Document Parsing table:**
+- Convert nanoseconds to microseconds (divide by 1,000)
+- Convert bytes to kilobytes (divide by 1,024)
+- Round to whole numbers for readability
+
+Example:
+```
+BenchmarkParseSmallOAS3: 142212 ns/op, 202678 B/op, 2128 allocs/op
+→ Small OAS3: 142 μs, 203 KB, 2,128 allocs
+```
+
+**JSON Marshaling table:**
+- Keep time in nanoseconds (round to whole numbers)
+- Keep memory in bytes (round to whole numbers)
+- Keep allocations exact
+
+Example:
+```
+BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
+→ Info (5 fields): 1,717 ns, 1,737 bytes, 26 allocs
+```
+
+#### 3.2 Validator Performance
+
+**Validation table:**
+- Convert nanoseconds to microseconds
+- Convert bytes to kilobytes
+- Round to whole numbers
+
+**ValidateParsed table:**
+- Keep microseconds with one decimal place for small values (e.g., 4.7 μs)
+- Keep kilobytes with one decimal place for small values (e.g., 5.2 KB)
+- Keep allocations exact
+
+#### 3.3 Converter Performance
+
+**Conversion table (parse + convert):**
+- Convert nanoseconds to microseconds
+- Convert bytes to kilobytes
+- Round to whole numbers
+
+**ConvertParsed table:**
+- Keep microseconds with one decimal place
+- Keep kilobytes with one decimal place
+- Keep allocations exact
+
+#### 3.4 Joiner Performance
+
+**Joining table (parse + join):**
+- Convert nanoseconds to microseconds
+- Convert bytes to kilobytes
+- Round to whole numbers
+
+**JoinParsed table:**
+- Keep time in nanoseconds (round to whole numbers)
+- Keep memory in bytes (round to whole numbers)
+- Keep allocations exact
+
+### 4. Update README.md
+
+Update the **Document Processing Performance** table in README.md:
+- Use the same values from benchmarks.md's "Current Performance Metrics" section
+- Ensure consistency between the two files
+
+Example:
+```
+| Parse            | 142 μs            | 1,130 μs            | 14,131 μs           |
+| Validate         | 143 μs            | 1,160 μs            | 14,635 μs           |
+| Convert (OAS2→3) | 153 μs            | 1,314 μs            | -                   |
+| Join (2 docs)    | 115 μs            | -                   | -                   |
+```
+
+### 5. Verify Changes
+
+Before committing, verify:
+- All tables are properly formatted (aligned columns)
+- All numbers use comma separators for thousands (e.g., `2,128` not `2128`)
+- Microsecond values are consistent across benchmarks.md and README.md
+- Observations and commentary still make sense with the new numbers
+
+### 6. Commit Changes
+
+Create a commit with the updated benchmarks:
+
+```bash
+git add benchmarks.md README.md
+git commit -m "docs: update benchmark results for v1.x.x release"
+```
+
+## Tips for Accurate Benchmarking
+
+1. **Consistent Environment**: Run benchmarks on the same machine with similar system load
+2. **Multiple Runs**: If results seem inconsistent, run benchmarks multiple times and use the median
+3. **Benchmark Time**: Use `BENCH_TIME` to run longer benchmarks for more stable results:
+   ```bash
+   make bench BENCH_TIME=10s
+   ```
+4. **Baseline Comparison**: Save baseline benchmarks and use `benchstat` to compare:
+   ```bash
+   make bench-baseline          # Save current as baseline
+   # Make changes...
+   make bench-save              # Save new results
+   make bench-compare OLD=benchmark-baseline.txt NEW=benchmark-YYYY-MM-DD-HHMMSS.txt
+   ```
+
+## Platform Information
+
+Always include the platform information in benchmarks.md:
+- CPU model (e.g., "Apple M4")
+- Operating system (e.g., "darwin/arm64")
+- Go version (e.g., "Go 1.24")
+
+This can be found at the top of each benchmark output:
+```
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/parser
+cpu: Apple M4
+```
+
+## Troubleshooting
+
+**Benchmarks show wildly different results:**
+- Ensure system is not under load
+- Close other applications
+- Run benchmarks multiple times
+- Consider using `make bench-baseline` and `benchstat` for comparison
+
+**Benchmark command fails:**
+- Ensure `make check` passes first
+- Ensure all dependencies are installed (`make deps`)
+- Check that test files exist in `testdata/bench/` directory
+
+**Numbers don't match between packages:**
+- This is expected - different packages have different overhead
+- Parser is the baseline; other packages build on top of parsing
+
+## Related Documentation
+
+- [benchmarks.md](benchmarks.md) - Detailed performance analysis
+- [README.md](README.md) - Project overview with performance highlights
+- [CLAUDE.md](CLAUDE.md) - Development guidelines

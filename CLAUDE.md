@@ -498,7 +498,8 @@ This approach maintains full control over release notes while automating the bui
 1. Ensure you are on the `main` branch
 2. Ensure your local `main` is up-to-date with `origin/main`
 3. Verify all tests pass: `make check`
-4. Review merged PRs since last release to understand changes
+4. Update benchmark results: Follow the process in [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md)
+5. Review merged PRs since last release to understand changes
 
 **Semantic Versioning (SemVer) Rules:**
 
