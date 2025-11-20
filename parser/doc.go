@@ -2,7 +2,8 @@
 //
 // The parser supports OAS 2.0 through OAS 3.2.0 in YAML and JSON formats. It can
 // resolve external references ($ref), validate structure, and preserve unknown
-// fields for forward compatibility and extension properties.
+// fields for forward compatibility and extension properties. The parser can load
+// specifications from local files or remote URLs (http:// or https://).
 //
 // # Quick Start
 //
@@ -16,12 +17,19 @@
 //		fmt.Printf("Parse errors: %d\n", len(result.Errors))
 //	}
 //
+// Parse from a URL:
+//
+//	result, err := parser.Parse("https://example.com/api/openapi.yaml", false, true)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
 // Or create a reusable Parser instance:
 //
 //	p := parser.New()
 //	p.ResolveRefs = false
 //	result1, _ := p.Parse("api1.yaml")
-//	result2, _ := p.Parse("api2.yaml")
+//	result2, _ := p.Parse("https://example.com/api2.yaml")
 //
 // # Features and Security
 //

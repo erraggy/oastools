@@ -47,15 +47,16 @@ func main() {
 
 func handleParse(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: parse command requires a file path\n\n")
-		fmt.Println("Usage: oastools parse <file>")
+		fmt.Fprintf(os.Stderr, "Error: parse command requires a file path or URL\n\n")
+		fmt.Println("Usage: oastools parse <file|url>")
 		os.Exit(1)
 	}
 
 	filePath := args[0]
 
-	// Create parser
+	// Create parser with version in User-Agent
 	p := parser.New()
+	p.UserAgent = fmt.Sprintf("oastools/%s", version)
 
 	// Parse the file
 	result, err := p.Parse(filePath)
@@ -158,7 +159,7 @@ func handleValidate(args []string) {
 	}
 
 	if filePath == "" {
-		fmt.Fprintf(os.Stderr, "Error: validate command requires a file path\n\n")
+		fmt.Fprintf(os.Stderr, "Error: validate command requires a file path or URL\n\n")
 		printValidateUsage()
 		os.Exit(1)
 	}
@@ -167,6 +168,7 @@ func handleValidate(args []string) {
 	v := validator.New()
 	v.StrictMode = strict
 	v.IncludeWarnings = !noWarnings
+	v.UserAgent = fmt.Sprintf("oastools/%s", version)
 
 	// Validate the file
 	result, err := v.Validate(filePath)
@@ -217,9 +219,9 @@ func handleValidate(args []string) {
 }
 
 func printValidateUsage() {
-	fmt.Println(`Usage: oastools validate [options] <file>
+	fmt.Println(`Usage: oastools validate [options] <file|url>
 
-Validate an OpenAPI specification file against the specification version it declares.
+Validate an OpenAPI specification file or URL against the specification version it declares.
 
 Options:
   --strict        Enable stricter validation beyond spec requirements
@@ -228,6 +230,7 @@ Options:
 
 Examples:
   oastools validate openapi.yaml
+  oastools validate https://example.com/api/openapi.yaml
   oastools validate --strict api-spec.yaml
   oastools validate --no-warnings openapi.json`)
 }
@@ -492,7 +495,7 @@ func handleConvert(args []string) {
 	}
 
 	if filePath == "" {
-		fmt.Fprintf(os.Stderr, "Error: convert command requires a file path\n\n")
+		fmt.Fprintf(os.Stderr, "Error: convert command requires a file path or URL\n\n")
 		printConvertUsage()
 		os.Exit(1)
 	}
@@ -507,6 +510,7 @@ func handleConvert(args []string) {
 	c := converter.New()
 	c.StrictMode = strict
 	c.IncludeInfo = !noWarnings
+	c.UserAgent = fmt.Sprintf("oastools/%s", version)
 
 	// Convert the file
 	result, err := c.Convert(filePath, targetVersion)
@@ -574,7 +578,7 @@ func handleConvert(args []string) {
 }
 
 func printConvertUsage() {
-	fmt.Println(`Usage: oastools convert [options] <file>
+	fmt.Println(`Usage: oastools convert [options] <file|url>
 
 Convert an OpenAPI specification from one version to another.
 
@@ -594,6 +598,7 @@ Supported Conversions:
 
 Examples:
   oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
+  oastools convert -t 3.0.3 https://example.com/swagger.yaml -o openapi.yaml
   oastools convert -t 2.0 openapi-v3.yaml
   oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml
 
@@ -611,18 +616,19 @@ Usage:
   oastools <command> [options]
 
 Commands:
-  validate    Validate an OpenAPI specification file
+  validate    Validate an OpenAPI specification file or URL
   convert     Convert between OpenAPI specification versions
   join        Join multiple OpenAPI specification files
-  parse       Parse and display an OpenAPI specification
+  parse       Parse and display an OpenAPI specification file or URL
   version     Show version information
   help        Show this help message
 
 Examples:
   oastools validate openapi.yaml
+  oastools validate https://example.com/api/openapi.yaml
   oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
   oastools join -o merged.yaml base.yaml extensions.yaml
-  oastools parse openapi.yaml
+  oastools parse https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.yaml
 
 Run 'oastools <command> --help' for more information on a command.`)
 }

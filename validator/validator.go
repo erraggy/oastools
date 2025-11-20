@@ -60,6 +60,9 @@ type Validator struct {
 	IncludeWarnings bool
 	// StrictMode enables stricter validation beyond the spec requirements
 	StrictMode bool
+	// UserAgent is the User-Agent string used when fetching URLs
+	// Defaults to "oastools" if not set
+	UserAgent string
 }
 
 // New creates a new Validator instance with default settings
@@ -173,8 +176,14 @@ func (v *Validator) ValidateParsed(parseResult parser.ParseResult) (*ValidationR
 
 // Validate validates an OpenAPI specification file
 func (v *Validator) Validate(specPath string) (*ValidationResult, error) {
-	// Parse the document first using the parser convenience function
-	parseResult, err := parser.Parse(specPath, false, true)
+	// Create parser and set UserAgent if specified
+	p := parser.New()
+	if v.UserAgent != "" {
+		p.UserAgent = v.UserAgent
+	}
+
+	// Parse the document
+	parseResult, err := p.Parse(specPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse specification: %w", err)
 	}

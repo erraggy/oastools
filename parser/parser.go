@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	semver "github.com/hashicorp/go-version"
 	"gopkg.in/yaml.v3"
@@ -19,6 +23,9 @@ type Parser struct {
 	ResolveRefs bool
 	// ValidateStructure determines whether to perform basic structure validation
 	ValidateStructure bool
+	// UserAgent is the User-Agent string used when fetching URLs
+	// Defaults to "oastools" if not set
+	UserAgent string
 }
 
 // New creates a new Parser instance with default settings
@@ -26,6 +33,7 @@ func New() *Parser {
 	return &Parser{
 		ResolveRefs:       false,
 		ValidateStructure: true,
+		UserAgent:         "oastools",
 	}
 }
 
@@ -99,21 +107,138 @@ func detectFormatFromContent(data []byte) SourceFormat {
 	return SourceFormatYAML
 }
 
-// Parse parses an OpenAPI specification file
-func (p *Parser) Parse(specPath string) (*ParseResult, error) {
-	data, err := os.ReadFile(specPath)
-	if err != nil {
-		return nil, fmt.Errorf("parser: failed to read file: %w", err)
+// isURL determines if the given path is a URL (http:// or https://)
+func isURL(path string) bool {
+	return strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://")
+}
+
+// fetchURL fetches content from a URL and returns the bytes
+func (p *Parser) fetchURL(urlStr string) ([]byte, error) {
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
 	}
-	// Get the directory of the spec file for resolving relative refs
-	baseDir := filepath.Dir(specPath)
+
+	// Create request
+	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
+	if err != nil {
+		return nil, fmt.Errorf("parser: failed to create request: %w", err)
+	}
+
+	// Set user agent (use default if not set)
+	userAgent := p.UserAgent
+	if userAgent == "" {
+		userAgent = "oastools"
+	}
+	req.Header.Set("User-Agent", userAgent)
+
+	// Execute request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("parser: failed to fetch URL: %w", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	// Check status code
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("parser: HTTP %d: %s", resp.StatusCode, resp.Status)
+	}
+
+	// Read response body
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("parser: failed to read response body: %w", err)
+	}
+
+	return data, nil
+}
+
+// detectFormatFromURL attempts to detect the format from a URL path and Content-Type header
+func detectFormatFromURL(urlStr string, contentType string) SourceFormat {
+	// First try to detect from URL path extension
+	parsedURL, err := url.Parse(urlStr)
+	if err == nil && parsedURL.Path != "" {
+		format := detectFormatFromPath(parsedURL.Path)
+		if format != SourceFormatUnknown {
+			return format
+		}
+	}
+
+	// Try to detect from Content-Type header
+	if contentType != "" {
+		contentType = strings.ToLower(contentType)
+		// Remove charset and other parameters
+		if idx := strings.Index(contentType, ";"); idx != -1 {
+			contentType = contentType[:idx]
+		}
+		contentType = strings.TrimSpace(contentType)
+
+		switch contentType {
+		case "application/json":
+			return SourceFormatJSON
+		case "application/yaml", "application/x-yaml", "text/yaml", "text/x-yaml":
+			return SourceFormatYAML
+		}
+	}
+
+	return SourceFormatUnknown
+}
+
+// Parse parses an OpenAPI specification file or URL
+// For URLs (http:// or https://), the content is fetched and parsed
+// For local files, the file is read and parsed
+func (p *Parser) Parse(specPath string) (*ParseResult, error) {
+	var data []byte
+	var err error
+	var format SourceFormat
+	var baseDir string
+
+	// Check if specPath is a URL
+	if isURL(specPath) {
+		// Fetch content from URL
+		data, err = p.fetchURL(specPath)
+		if err != nil {
+			return nil, err
+		}
+
+		// For URLs, we can't resolve relative refs easily, so use current directory
+		baseDir = "."
+
+		// Try to detect format from URL path
+		format = detectFormatFromURL(specPath, "")
+	} else {
+		// Read from file
+		data, err = os.ReadFile(specPath)
+		if err != nil {
+			return nil, fmt.Errorf("parser: failed to read file: %w", err)
+		}
+
+		// Get the directory of the spec file for resolving relative refs
+		baseDir = filepath.Dir(specPath)
+
+		// Detect format from file extension
+		format = detectFormatFromPath(specPath)
+	}
+
+	// Parse the data
 	res, err := p.parseBytesWithBaseDir(data, baseDir)
 	if err != nil {
 		return nil, err
 	}
+
+	// Set source path and format
 	res.SourcePath = specPath
-	// Detect format from file extension
-	res.SourceFormat = detectFormatFromPath(specPath)
+
+	// If format was detected from path/URL, use it; otherwise use content-based detection
+	if format != SourceFormatUnknown {
+		res.SourceFormat = format
+	} else if res.SourceFormat == SourceFormatUnknown {
+		// Fallback to content-based detection if not already set
+		res.SourceFormat = detectFormatFromContent(data)
+	}
+
 	return res, nil
 }
 
