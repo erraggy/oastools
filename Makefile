@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-converter bench-joiner bench-save bench-compare bench-baseline bench-clean release-test release-clean
+.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-converter bench-joiner bench-differ bench-save bench-compare bench-baseline bench-clean release-test release-clean
 
 # Build variables
 BINARY_NAME=oastools
@@ -83,7 +83,7 @@ check: tidy fmt lint test
 ## bench: Run all benchmarks
 bench:
 	@echo "Running all benchmarks ($(BENCH_TIME) per benchmark)..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./converter ./joiner
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./converter ./joiner ./differ
 
 ## bench-parser: Run parser benchmarks only
 bench-parser:
@@ -105,19 +105,24 @@ bench-joiner:
 	@echo "Running joiner benchmarks..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./joiner
 
+## bench-differ: Run differ benchmarks only
+bench-differ:
+	@echo "Running differ benchmarks..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./differ
+
 ## bench-save: Run all benchmarks and save to timestamped file
 bench-save:
 	@echo "Running benchmarks and saving results..."
 	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
 	OUTPUT_FILE="benchmark-$${TIMESTAMP}.txt"; \
-	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./converter ./joiner 2>&1 | tee "$${OUTPUT_FILE}"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./converter ./joiner ./differ 2>&1 | tee "$${OUTPUT_FILE}"; \
 	echo ""; \
 	echo "Benchmark results saved to: $${OUTPUT_FILE}"
 
 ## bench-baseline: Run benchmarks and update baseline file
 bench-baseline:
 	@echo "Running benchmarks and updating baseline..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./converter ./joiner 2>&1 | tee benchmark-baseline.txt
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./converter ./joiner ./differ 2>&1 | tee benchmark-baseline.txt
 	@echo ""
 	@echo "Baseline updated: benchmark-baseline.txt"
 
@@ -145,7 +150,7 @@ bench-cpu:
 	@echo "Running benchmarks with CPU profiling..."
 	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
 	PROFILE_FILE="cpu-profile-$${TIMESTAMP}.prof"; \
-	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -cpuprofile="$${PROFILE_FILE}" ./parser ./validator ./converter ./joiner; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -cpuprofile="$${PROFILE_FILE}" ./parser ./validator ./converter ./joiner ./differ; \
 	echo ""; \
 	echo "CPU profile saved to: $${PROFILE_FILE}"; \
 	echo "Analyze with: go tool pprof $${PROFILE_FILE}"
@@ -155,7 +160,7 @@ bench-mem:
 	@echo "Running benchmarks with memory profiling..."
 	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
 	PROFILE_FILE="mem-profile-$${TIMESTAMP}.prof"; \
-	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -memprofile="$${PROFILE_FILE}" ./parser ./validator ./converter ./joiner; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -memprofile="$${PROFILE_FILE}" ./parser ./validator ./converter ./joiner ./differ; \
 	echo ""; \
 	echo "Memory profile saved to: $${PROFILE_FILE}"; \
 	echo "Analyze with: go tool pprof $${PROFILE_FILE}"
@@ -166,7 +171,7 @@ bench-profile:
 	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
 	CPU_PROFILE="cpu-profile-$${TIMESTAMP}.prof"; \
 	MEM_PROFILE="mem-profile-$${TIMESTAMP}.prof"; \
-	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -cpuprofile="$${CPU_PROFILE}" -memprofile="$${MEM_PROFILE}" ./parser ./validator ./converter ./joiner; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -cpuprofile="$${CPU_PROFILE}" -memprofile="$${MEM_PROFILE}" ./parser ./validator ./converter ./joiner ./differ; \
 	echo ""; \
 	echo "CPU profile saved to: $${CPU_PROFILE}"; \
 	echo "Memory profile saved to: $${MEM_PROFILE}"; \
