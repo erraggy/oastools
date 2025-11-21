@@ -32,7 +32,7 @@ builds:
       - goos: windows
         goarch: arm64
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      - -s -w -X github.com/erraggy/oastools.version={{.Version}}
 
 archives:
   - formats: [tar.gz]
