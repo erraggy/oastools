@@ -2,6 +2,7 @@ package converter
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/erraggy/oastools/internal/issues"
 	"github.com/erraggy/oastools/internal/severity"
@@ -47,6 +48,10 @@ type ConversionResult struct {
 	CriticalCount int
 	// Success is true if conversion completed without critical issues
 	Success bool
+	// LoadTime is the time taken to load the source data
+	LoadTime time.Duration
+	// SourceSize is the size of the source data in bytes
+	SourceSize int64
 }
 
 // HasCriticalIssues returns true if there are any critical issues
@@ -150,6 +155,8 @@ func (c *Converter) ConvertParsed(parseResult parser.ParseResult, targetVersionS
 		TargetVersion:    targetVersionStr,
 		TargetOASVersion: targetVersion,
 		Issues:           make([]ConversionIssue, 0),
+		LoadTime:         parseResult.LoadTime,
+		SourceSize:       parseResult.SourceSize,
 	}
 
 	// Check if conversion is needed

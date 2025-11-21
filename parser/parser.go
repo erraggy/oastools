@@ -73,6 +73,24 @@ type ParseResult struct {
 	Warnings []string
 	// OASVersion is the enumerated version of the OpenAPI specification
 	OASVersion OASVersion
+	// LoadTime is the time taken to load the source data (file, URL, etc.)
+	LoadTime time.Duration
+	// SourceSize is the size of the source data in bytes
+	SourceSize int64
+}
+
+// FormatBytes formats a byte count into a human-readable string
+func FormatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 // detectFormatFromPath detects the source format from a file path
@@ -196,12 +214,16 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 	var err error
 	var format SourceFormat
 	var baseDir string
+	var loadStart time.Time
+	var loadTime time.Duration
 
 	// Check if specPath is a URL
 	if isURL(specPath) {
 		// Fetch content from URL
 		var contentType string
+		loadStart = time.Now()
 		data, contentType, err = p.fetchURL(specPath)
+		loadTime = time.Since(loadStart)
 		if err != nil {
 			return nil, err
 		}
@@ -216,7 +238,9 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 		format = detectFormatFromURL(specPath, contentType)
 	} else {
 		// Read from file
+		loadStart = time.Now()
 		data, err = os.ReadFile(specPath)
+		loadTime = time.Since(loadStart)
 		if err != nil {
 			return nil, fmt.Errorf("parser: failed to read file: %w", err)
 		}
@@ -236,6 +260,8 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 
 	// Set source path and format
 	res.SourcePath = specPath
+	res.LoadTime = loadTime
+	res.SourceSize = int64(len(data))
 
 	// If format was detected from path/URL, use it; otherwise use content-based detection
 	if format != SourceFormatUnknown {
@@ -251,7 +277,9 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 // ParseReader parses an OpenAPI specification from an io.Reader
 // Note: since there is no actual ParseResult.SourcePath, it will be set to: ParseReader.yaml or ParseReader.json
 func (p *Parser) ParseReader(r io.Reader) (*ParseResult, error) {
+	loadStart := time.Now()
 	data, err := io.ReadAll(r)
+	loadTime := time.Since(loadStart)
 	if err != nil {
 		return nil, fmt.Errorf("parser: failed to read data: %w", err)
 	}
@@ -259,6 +287,9 @@ func (p *Parser) ParseReader(r io.Reader) (*ParseResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Update timing and size info
+	res.LoadTime = loadTime
+	res.SourceSize = int64(len(data))
 	// Update SourcePath to match detected format
 	if res.SourceFormat == SourceFormatJSON {
 		res.SourcePath = "ParseReader.json"
@@ -278,6 +309,8 @@ func (p *Parser) ParseBytes(data []byte) (*ParseResult, error) {
 	}
 	// Detect format from content
 	res.SourceFormat = detectFormatFromContent(data)
+	// Set size (no load time since data is already in memory)
+	res.SourceSize = int64(len(data))
 	// Update SourcePath to match detected format
 	if res.SourceFormat == SourceFormatJSON {
 		res.SourcePath = "ParseBytes.json"

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/erraggy/oastools/converter"
 	"github.com/erraggy/oastools/differ"
@@ -72,7 +73,9 @@ func handleParse(args []string) {
 	fmt.Printf("OpenAPI Specification Parser\n")
 	fmt.Printf("============================\n\n")
 	fmt.Printf("Specification: %s\n", specPath)
-	fmt.Printf("Version: %s\n\n", result.Version)
+	fmt.Printf("Version: %s\n", result.Version)
+	fmt.Printf("Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+	fmt.Printf("Load Time: %v\n\n", result.LoadTime)
 
 	// Print warnings
 	if len(result.Warnings) > 0 {
@@ -173,8 +176,10 @@ func handleValidate(args []string) {
 	v.IncludeWarnings = !noWarnings
 	v.UserAgent = fmt.Sprintf("oastools/%s", version)
 
-	// Validate the file or URL
+	// Validate the file or URL with timing
+	startTime := time.Now()
 	result, err := v.Validate(specPath)
+	totalTime := time.Since(startTime)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error validating file: %v\n", err)
 		os.Exit(1)
@@ -184,7 +189,10 @@ func handleValidate(args []string) {
 	fmt.Printf("OpenAPI Specification Validator\n")
 	fmt.Printf("================================\n\n")
 	fmt.Printf("Specification: %s\n", specPath)
-	fmt.Printf("Version: %s\n\n", result.Version)
+	fmt.Printf("Version: %s\n", result.Version)
+	fmt.Printf("Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+	fmt.Printf("Load Time: %v\n", result.LoadTime)
+	fmt.Printf("Total Time: %v\n\n", totalTime)
 
 	// Print errors
 	if len(result.Errors) > 0 {
@@ -370,7 +378,8 @@ func handleJoin(args []string) {
 		os.Exit(1)
 	}
 
-	// Create joiner and execute
+	// Create joiner and execute with timing
+	startTime := time.Now()
 	j := joiner.New(config)
 	result, err := j.Join(filePaths)
 	if err != nil {
@@ -380,6 +389,7 @@ func handleJoin(args []string) {
 
 	// Write result to file
 	err = j.WriteResult(result, outputPath)
+	totalTime := time.Since(startTime)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing output file: %v\n", err)
 		os.Exit(1)
@@ -390,7 +400,8 @@ func handleJoin(args []string) {
 	fmt.Printf("============================\n\n")
 	fmt.Printf("Successfully joined %d specification files\n", len(filePaths))
 	fmt.Printf("Output: %s\n", outputPath)
-	fmt.Printf("Version: %s\n\n", result.Version)
+	fmt.Printf("Version: %s\n", result.Version)
+	fmt.Printf("Total Time: %v\n\n", totalTime)
 
 	if result.CollisionCount > 0 {
 		fmt.Printf("Collisions resolved: %d\n\n", result.CollisionCount)
@@ -515,8 +526,10 @@ func handleConvert(args []string) {
 	c.IncludeInfo = !noWarnings
 	c.UserAgent = fmt.Sprintf("oastools/%s", version)
 
-	// Convert the file or URL
+	// Convert the file or URL with timing
+	startTime := time.Now()
 	result, err := c.Convert(specPath, targetVersion)
+	totalTime := time.Since(startTime)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error converting file: %v\n", err)
 		os.Exit(1)
@@ -527,7 +540,10 @@ func handleConvert(args []string) {
 	fmt.Printf("===============================\n\n")
 	fmt.Printf("Specification: %s\n", specPath)
 	fmt.Printf("Source Version: %s\n", result.SourceVersion)
-	fmt.Printf("Target Version: %s\n\n", result.TargetVersion)
+	fmt.Printf("Target Version: %s\n", result.TargetVersion)
+	fmt.Printf("Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+	fmt.Printf("Load Time: %v\n", result.LoadTime)
+	fmt.Printf("Total Time: %v\n\n", totalTime)
 
 	// Print issues
 	if len(result.Issues) > 0 {
@@ -657,8 +673,10 @@ func handleDiff(args []string) {
 	d.IncludeInfo = !noInfo
 	d.UserAgent = fmt.Sprintf("oastools/%s", version)
 
-	// Diff the files
+	// Diff the files with timing
+	startTime := time.Now()
 	result, err := d.Diff(sourcePath, targetPath)
+	totalTime := time.Since(startTime)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error comparing specifications: %v\n", err)
 		os.Exit(1)
@@ -668,7 +686,8 @@ func handleDiff(args []string) {
 	fmt.Printf("OpenAPI Specification Diff\n")
 	fmt.Printf("==========================\n\n")
 	fmt.Printf("Source: %s (%s)\n", sourcePath, result.SourceVersion)
-	fmt.Printf("Target: %s (%s)\n\n", targetPath, result.TargetVersion)
+	fmt.Printf("Target: %s (%s)\n", targetPath, result.TargetVersion)
+	fmt.Printf("Total Time: %v\n\n", totalTime)
 
 	if len(result.Changes) == 0 {
 		fmt.Println("✓ No differences found - specifications are identical")
