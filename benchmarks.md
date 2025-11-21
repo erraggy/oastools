@@ -4,7 +4,7 @@ This document provides detailed performance analysis and benchmark results for t
 
 ## Overview
 
-As of v1.7.0, oastools includes comprehensive performance benchmarking infrastructure covering all major operations across the parser, validator, converter, and joiner packages. The library has undergone targeted optimizations to achieve significant performance improvements while maintaining correctness and code quality.
+As of v1.9.1, oastools includes comprehensive performance benchmarking infrastructure covering all major operations across the parser, validator, converter, joiner, and differ packages. The library has undergone targeted optimizations to achieve significant performance improvements while maintaining correctness and code quality.
 
 **Platform**: Apple M4, darwin/arm64, Go 1.24
 
@@ -35,7 +35,7 @@ The v1.7.0 release includes a major optimization to JSON marshaling that elimina
 
 ## Benchmark Suite
 
-The benchmark suite includes **60+ benchmarks** across four main packages:
+The benchmark suite includes **70+ benchmarks** across five main packages:
 
 ### Parser Package (32 benchmarks)
 
@@ -83,6 +83,16 @@ The benchmark suite includes **60+ benchmarks** across four main packages:
 - Different collision resolution strategies (AcceptLeft, AcceptRight)
 - Array merge strategies
 - Tag deduplication
+
+### Differ Package (10 benchmarks)
+
+**Diffing Operations**:
+- Diff (parse + diff) vs DiffParsed (pre-parsed)
+- Simple mode vs Breaking mode
+- Convenience functions (Diff, DiffParsed) vs struct-based API
+- Configuration options (IncludeInfo)
+- Edge cases (identical specifications)
+- Parse-once pattern efficiency
 
 ## Current Performance Metrics
 
@@ -178,16 +188,43 @@ The benchmark suite includes **60+ benchmarks** across four main packages:
 
 **Observation**: JoinParsed is **154x faster** than Join for 2 small documents (747ns vs 115μs) because it skips parsing. The actual joining operation has minimal overhead.
 
+### Differ Performance
+
+**Diffing** (parse + diff):
+
+| Mode     | Time (μs) | Memory (KB) | Allocations |
+|----------|-----------|-------------|-------------|
+| Simple   | 457       | 609         | 7,156       |
+| Breaking | 458       | 611         | 7,157       |
+
+**Diffing pre-parsed documents** (DiffParsed):
+
+| Mode     | Time (μs) | Memory (KB) | Allocations |
+|----------|-----------|-------------|-------------|
+| Simple   | 7.82      | 6.89        | 138         |
+| Breaking | 7.97      | 6.96        | 137         |
+
+**Special cases**:
+
+| Case               | Time (μs) | Memory (KB) | Allocations |
+|--------------------|-----------|-------------|-------------|
+| Identical specs    | 2.82      | 2.08        | 79          |
+| With info changes  | 7.97      | 6.96        | 137         |
+| Without info       | 8.10      | 8.11        | 138         |
+
+**Observation**: DiffParsed is **58x faster** than Diff (7.8μs vs 457μs) because it skips parsing. The differ includes a fast path for identical specifications that runs in ~2.8μs. Breaking mode vs Simple mode has negligible performance difference (~0.15μs), making breaking change detection essentially free.
+
 ## Performance Best Practices
 
 ### For Library Users
 
-1. **Reuse parser/validator/converter/joiner instances** when processing multiple files with the same configuration
-2. **Use ParseOnce workflows**: For operations on the same document (validate, convert, join), parse once and pass the `ParseResult` to subsequent operations:
+1. **Reuse parser/validator/converter/joiner/differ instances** when processing multiple files with the same configuration
+2. **Use ParseOnce workflows**: For operations on the same document (validate, convert, join, diff), parse once and pass the `ParseResult` to subsequent operations:
    ```go
    result, _ := parser.Parse("spec.yaml", false, true)
    validator.ValidateParsed(result, true, false)   // 30x faster than Validate
    converter.ConvertParsed(result, "3.0.3")        // 9x faster than Convert
+   differ.DiffParsed(result1, result2)             // 58x faster than Diff
    ```
 3. **Disable reference resolution** (`ResolveRefs=false`) when not needed
 4. **Disable validation** during parsing (`ValidateStructure=false`) if you'll validate separately
@@ -220,12 +257,14 @@ make bench-parser
 make bench-validator
 make bench-converter
 make bench-joiner
+make bench-differ
 
 # Or individually
 go test -bench=. -benchmem ./parser
 go test -bench=. -benchmem ./validator
 go test -bench=. -benchmem ./converter
 go test -bench=. -benchmem ./joiner
+go test -bench=. -benchmem ./differ
 
 # Save baseline for comparison
 go test -bench=. -benchmem ./... > benchmark-baseline.txt

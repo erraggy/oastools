@@ -1,0 +1,56 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/differ
+cpu: Apple M4
+BenchmarkDiffConvenience-10          	    2523	    436911 ns/op	  607112 B/op	    7156 allocs/op
+BenchmarkDiffConvenience-10          	    2776	    446545 ns/op	  607657 B/op	    7156 allocs/op
+BenchmarkDiffConvenience-10          	    2698	    439833 ns/op	  607993 B/op	    7156 allocs/op
+BenchmarkDiffConvenience-10          	    2757	    508917 ns/op	  608323 B/op	    7156 allocs/op
+BenchmarkDiffConvenience-10          	    2715	    451005 ns/op	  608371 B/op	    7156 allocs/op
+BenchmarkDiffParsedConvenience-10    	  156670	      7678 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDiffParsedConvenience-10    	  157692	      7662 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDiffParsedConvenience-10    	  156468	      7670 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDiffParsedConvenience-10    	  156780	      7728 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDiffParsedConvenience-10    	  155041	      7691 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDifferDiff-10               	    2600	    452266 ns/op	  609324 B/op	    7156 allocs/op
+BenchmarkDifferDiff-10               	    2640	    455860 ns/op	  610072 B/op	    7157 allocs/op
+BenchmarkDifferDiff-10               	    2637	    457806 ns/op	  610558 B/op	    7157 allocs/op
+BenchmarkDifferDiff-10               	    2600	    460511 ns/op	  610688 B/op	    7157 allocs/op
+BenchmarkDifferDiff-10               	    2638	    458362 ns/op	  610756 B/op	    7157 allocs/op
+BenchmarkDifferDiffParsed-10         	  153064	      7812 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDifferDiffParsed-10         	  153217	      7847 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDifferDiffParsed-10         	  154752	      7768 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDifferDiffParsed-10         	  153975	      7823 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDifferDiffParsed-10         	  153349	      7807 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDifferSimpleMode-10         	  149916	      7820 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDifferSimpleMode-10         	  153992	      7799 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDifferSimpleMode-10         	  154177	      7809 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDifferSimpleMode-10         	  153376	      7836 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDifferSimpleMode-10         	  151728	      7872 ns/op	    6891 B/op	     138 allocs/op
+BenchmarkDifferBreakingMode-10       	  150068	      7931 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkDifferBreakingMode-10       	  150386	      8020 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkDifferBreakingMode-10       	  149853	      7989 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkDifferBreakingMode-10       	  151822	      7969 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkDifferBreakingMode-10       	  151111	      7944 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkDifferWithInfo-10           	  150004	      7974 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkDifferWithInfo-10           	  148920	      7946 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkDifferWithInfo-10           	  150672	      7988 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkDifferWithInfo-10           	  150805	      7965 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkDifferWithInfo-10           	  151230	      7977 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkDifferWithoutInfo-10        	  148821	      8086 ns/op	    8108 B/op	     138 allocs/op
+BenchmarkDifferWithoutInfo-10        	  148964	      8108 ns/op	    8108 B/op	     138 allocs/op
+BenchmarkDifferWithoutInfo-10        	  147596	      8111 ns/op	    8108 B/op	     138 allocs/op
+BenchmarkDifferWithoutInfo-10        	  148171	      8091 ns/op	    8108 B/op	     138 allocs/op
+BenchmarkDifferWithoutInfo-10        	  147568	      8129 ns/op	    8108 B/op	     138 allocs/op
+BenchmarkDifferIdenticalSpecs-10     	  425127	      2829 ns/op	    2081 B/op	      79 allocs/op
+BenchmarkDifferIdenticalSpecs-10     	  418862	      2822 ns/op	    2081 B/op	      79 allocs/op
+BenchmarkDifferIdenticalSpecs-10     	  429141	      2829 ns/op	    2081 B/op	      79 allocs/op
+BenchmarkDifferIdenticalSpecs-10     	  426162	      2821 ns/op	    2081 B/op	      79 allocs/op
+BenchmarkDifferIdenticalSpecs-10     	  421341	      2827 ns/op	    2081 B/op	      79 allocs/op
+BenchmarkParseOnceDiffMany-10        	  151274	      7975 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkParseOnceDiffMany-10        	  150036	      7994 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkParseOnceDiffMany-10        	  149776	      7988 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkParseOnceDiffMany-10        	  149809	      7984 ns/op	    6955 B/op	     137 allocs/op
+BenchmarkParseOnceDiffMany-10        	  149707	      8006 ns/op	    6955 B/op	     137 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/differ	64.034s

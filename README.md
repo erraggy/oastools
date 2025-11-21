@@ -166,7 +166,7 @@ See [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) for complete AP
 
 ## Benchmarks
 
-The library includes comprehensive performance benchmarking (60+ benchmarks across all packages). As of v1.7.0, significant optimizations have been implemented:
+The library includes comprehensive performance benchmarking (70+ benchmarks across all packages). As of v1.9.1, significant optimizations have been implemented:
 
 **Performance Highlights**:
 - **25-32% faster** JSON marshaling (v1.7.0 optimization)
@@ -174,6 +174,7 @@ The library includes comprehensive performance benchmarking (60+ benchmarks acro
 - **30x faster** validation with `ValidateParsed` vs `Validate` (parse once, validate many)
 - **9x faster** conversion with `ConvertParsed` vs `Convert` (parse once, convert many)
 - **154x faster** joining with `JoinParsed` vs `Join` (parse once, join many)
+- **58x faster** diffing with `DiffParsed` vs `Diff` (parse once, diff many)
 
 **Document Processing Performance** (Apple M4, Go 1.24):
 
@@ -183,6 +184,7 @@ The library includes comprehensive performance benchmarking (60+ benchmarks acro
 | Validate         | 143 μs            | 1,160 μs            | 14,635 μs           |
 | Convert (OAS2→3) | 153 μs            | 1,314 μs            | -                   |
 | Join (2 docs)    | 115 μs            | -                   | -                   |
+| Diff (2 docs)    | 457 μs            | -                   | -                   |
 
 For detailed performance analysis, methodology, and optimization strategies, see [benchmarks.md](benchmarks.md).
 

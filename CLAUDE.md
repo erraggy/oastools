@@ -468,6 +468,74 @@ func TestValidatorValidate(t *testing.T) { ... }
 func TestJoinerJoin(t *testing.T) { ... }
 func TestConverterConvert(t *testing.T) { ... }
 ```
+
+### Benchmark Test Requirements
+
+**CRITICAL: Use the Go 1.24+ `for b.Loop()` pattern for all benchmarks.**
+
+When writing benchmark tests, you MUST follow these requirements:
+
+1. **Use `for b.Loop()` Pattern** (Go 1.24+)
+   - **ALWAYS** use `for b.Loop()` instead of `for i := 0; i < b.N; i++`
+   - **DO NOT** call `b.ReportAllocs()` manually (handled automatically by `b.Loop()`)
+   - This is the modern, consistent pattern used across all packages
+
+   **Correct Pattern**:
+   ```go
+   func BenchmarkDiffParsed(b *testing.B) {
+       // Setup (parsing, creating instances, etc.)
+       source, _ := parser.Parse("file.yaml", false, true)
+       target, _ := parser.Parse("file2.yaml", false, true)
+
+       for b.Loop() {  // ✅ Correct - modern Go 1.24+ pattern
+           _, err := DiffParsed(*source, *target)
+           if err != nil {
+               b.Fatal(err)
+           }
+       }
+   }
+   ```
+
+   **Incorrect Pattern**:
+   ```go
+   func BenchmarkDiffParsed(b *testing.B) {
+       source, _ := parser.Parse("file.yaml", false, true)
+       target, _ := parser.Parse("file2.yaml", false, true)
+
+       b.ReportAllocs()  // ❌ Wrong - redundant with b.Loop()
+       for i := 0; i < b.N; i++ {  // ❌ Wrong - old pattern
+           _, err := DiffParsed(*source, *target)
+           if err != nil {
+               b.Fatal(err)
+           }
+       }
+   }
+   ```
+
+2. **No Manual Timer Resets**
+   - **DO NOT** call `b.ResetTimer()` for trivial setup (e.g., creating a Differ instance)
+   - `b.Loop()` handles timing automatically
+   - Only include expensive setup (like parsing) outside the loop
+
+3. **Package-Level Comment**
+   - Add this comment at the top of each benchmark file:
+   ```go
+   // Note on b.Fatalf usage in benchmarks:
+   // Using b.Fatalf for errors in benchmark setup or execution is an acceptable pattern.
+   // These operations (parse, diff, validate, etc.) should never fail with valid test fixtures.
+   // If they do fail, it indicates a bug that should halt the benchmark immediately.
+   ```
+
+4. **Consistency Across Packages**
+   - All benchmark files (`parser`, `validator`, `converter`, `joiner`, `differ`) use the same pattern
+   - This ensures maintainability and consistency with Go evolution
+
+**Why This Matters**:
+- **Consistency**: All existing benchmarks use `for b.Loop()`
+- **Best Practice**: Modern Go 1.24+ approach
+- **Automatic Handling**: `b.Loop()` manages allocations reporting and timing
+- **Future Compatibility**: Aligns with Go's benchmark evolution
+
 ## Submitting changes
 
 **Before Submitting Code:**
