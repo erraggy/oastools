@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/erraggy/oastools/converter"
+	"github.com/erraggy/oastools/differ"
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/validator"
@@ -38,6 +39,8 @@ func main() {
 		handleJoin(os.Args[2:])
 	case "convert":
 		handleConvert(os.Args[2:])
+	case "diff":
+		handleDiff(os.Args[2:])
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", command)
 		printUsage()
@@ -609,6 +612,167 @@ Notes:
   - Always validate converted documents before deployment`)
 }
 
+func handleDiff(args []string) {
+	// Parse flags
+	var breaking bool
+	var noInfo bool
+	var sourcePath string
+	var targetPath string
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "--breaking":
+			breaking = true
+		case "--no-info":
+			noInfo = true
+		case "-h", "--help":
+			printDiffUsage()
+			return
+		default:
+			if sourcePath == "" {
+				sourcePath = arg
+			} else if targetPath == "" {
+				targetPath = arg
+			} else {
+				fmt.Fprintf(os.Stderr, "Error: unexpected argument '%s'\n", arg)
+				os.Exit(1)
+			}
+		}
+	}
+
+	if sourcePath == "" || targetPath == "" {
+		fmt.Fprintf(os.Stderr, "Error: diff command requires two file paths or URLs\n\n")
+		printDiffUsage()
+		os.Exit(1)
+	}
+
+	// Create differ with options
+	d := differ.New()
+	if breaking {
+		d.Mode = differ.ModeBreaking
+	} else {
+		d.Mode = differ.ModeSimple
+	}
+	d.IncludeInfo = !noInfo
+	d.UserAgent = fmt.Sprintf("oastools/%s", version)
+
+	// Diff the files
+	result, err := d.Diff(sourcePath, targetPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error comparing specifications: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Print results
+	fmt.Printf("OpenAPI Specification Diff\n")
+	fmt.Printf("==========================\n\n")
+	fmt.Printf("Source: %s (%s)\n", sourcePath, result.SourceVersion)
+	fmt.Printf("Target: %s (%s)\n\n", targetPath, result.TargetVersion)
+
+	if len(result.Changes) == 0 {
+		fmt.Println("✓ No differences found - specifications are identical")
+		return
+	}
+
+	// Print changes grouped by category if in breaking mode
+	if breaking {
+		// Group changes by category
+		categories := make(map[differ.ChangeCategory][]differ.Change)
+		for _, change := range result.Changes {
+			categories[change.Category] = append(categories[change.Category], change)
+		}
+
+		// Print each category
+		categoryOrder := []differ.ChangeCategory{
+			differ.CategoryEndpoint,
+			differ.CategoryOperation,
+			differ.CategoryParameter,
+			differ.CategoryRequestBody,
+			differ.CategoryResponse,
+			differ.CategorySchema,
+			differ.CategorySecurity,
+			differ.CategoryServer,
+			differ.CategoryInfo,
+		}
+
+		for _, category := range categoryOrder {
+			changes := categories[category]
+			if len(changes) == 0 {
+				continue
+			}
+
+			fmt.Printf("%s Changes (%d):\n", category, len(changes))
+			for _, change := range changes {
+				fmt.Printf("  %s\n", change.String())
+			}
+			fmt.Println()
+		}
+
+		// Print summary
+		fmt.Printf("Summary:\n")
+		fmt.Printf("  Total changes: %d\n", len(result.Changes))
+		if result.HasBreakingChanges {
+			fmt.Printf("  ⚠️  Breaking changes: %d\n", result.BreakingCount)
+		} else {
+			fmt.Printf("  ✓ Breaking changes: 0\n")
+		}
+		fmt.Printf("  Warnings: %d\n", result.WarningCount)
+		if d.IncludeInfo {
+			fmt.Printf("  Info: %d\n", result.InfoCount)
+		}
+
+		// Exit with error if breaking changes found
+		if result.HasBreakingChanges {
+			os.Exit(1)
+		}
+	} else {
+		// Simple mode - just print all changes
+		fmt.Printf("Changes (%d):\n", len(result.Changes))
+		for _, change := range result.Changes {
+			fmt.Printf("  %s\n", change.String())
+		}
+	}
+}
+
+func printDiffUsage() {
+	fmt.Println(`Usage: oastools diff [options] <source> <target>
+
+Compare two OpenAPI specification files or URLs and report differences.
+
+Options:
+  --breaking      Enable breaking change detection and categorization
+  --no-info       Exclude informational changes from output
+  -h, --help      Show this help message
+
+Modes:
+  Default (Simple):
+    Reports all semantic differences between specifications without
+    categorizing them by severity or breaking change impact.
+
+  --breaking (Breaking Change Detection):
+    Categorizes changes by severity and identifies breaking API changes:
+    - Critical: Removed endpoints or operations
+    - Error:    Removed required parameters, incompatible type changes
+    - Warning:  Deprecated operations, added required fields
+    - Info:     Additions, relaxed constraints, documentation updates
+
+Examples:
+  oastools diff api-v1.yaml api-v2.yaml
+  oastools diff --breaking api-v1.yaml api-v2.yaml
+  oastools diff --breaking --no-info old.yaml new.yaml
+  oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml
+
+Exit Status:
+  0    No differences found (or no breaking changes in --breaking mode)
+  1    Differences found (or breaking changes found in --breaking mode)
+
+Notes:
+  - Both specifications must be valid OpenAPI documents
+  - Cross-version comparison (2.0 vs 3.x) is supported with limitations
+  - Breaking change detection helps identify backward compatibility issues`)
+}
+
 func printUsage() {
 	fmt.Println(`oastools - OpenAPI Specification Tools
 
@@ -618,6 +782,7 @@ Usage:
 Commands:
   validate    Validate an OpenAPI specification file or URL
   convert     Convert between OpenAPI specification versions
+  diff        Compare two OpenAPI specifications and detect changes
   join        Join multiple OpenAPI specification files
   parse       Parse and display an OpenAPI specification file or URL
   version     Show version information
@@ -627,6 +792,7 @@ Examples:
   oastools validate openapi.yaml
   oastools validate https://example.com/api/openapi.yaml
   oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
+  oastools diff --breaking api-v1.yaml api-v2.yaml
   oastools join -o merged.yaml base.yaml extensions.yaml
   oastools parse https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.yaml
 
