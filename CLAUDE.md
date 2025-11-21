@@ -553,9 +553,46 @@ When writing benchmark tests, you MUST follow these requirements:
 
 **When changes are ready for commit:**
 - Always use a conventional commit message for the first line and keep it within 72 characters
-- The rest of the commit message should be simply formatted with maximum width (columns) of 100, and should summarize just the basic reasoning why and the changes included. 
-- Following the commit, and after the human has pushed it to origin, be prepared to create a PR using `gh` that uses the same first line of the commit message as the PR's title, and well formatted markdown content that lays out the reasoning as well as the changes made and any useful context. Here is where the details are to go. 
+- The rest of the commit message should be simply formatted with maximum width (columns) of 100, and should summarize just the basic reasoning why and the changes included.
+- Following the commit, and after the human has pushed it to origin, be prepared to create a PR using `gh` that uses the same first line of the commit message as the PR's title, and well formatted markdown content that lays out the reasoning as well as the changes made and any useful context. Here is where the details are to go.
 - The actual commit will be a much briefer version of the messaging used to cover the changes
+
+### Retrieving PR Comments and Review Feedback
+
+**Getting comments from Pull Requests:**
+
+To retrieve all comments from a PR (including automated workflow comments from claude-review, github-actions, etc.):
+
+```bash
+gh pr view <PR_NUMBER> --comments
+```
+
+**Important notes:**
+- This command displays **all comments** on the PR in chronological order
+- Comments from github-actions bot (including claude-review workflow) appear with `author: github-actions[bot]`
+- The output includes the full comment text, making it easy to read review feedback
+- This is the **reliable method** for getting PR comments - other approaches (like using `gh api`) may not work consistently
+
+**Example usage:**
+```bash
+# Get all comments from PR #25
+gh pr view 25 --comments
+
+# The output will show each comment with metadata:
+# author: github-actions[bot]
+# association: none
+# edited: false
+# status: none
+# --
+# [Full comment text here]
+# --
+```
+
+**When to use this:**
+- After creating a PR and waiting for automated review workflows (claude-review typically takes 2+ minutes)
+- To check feedback before merging a PR
+- To retrieve specific review recommendations or issues that need addressing
+- To understand what changes are needed based on automated code review
 
 ### Creating a new release
 
