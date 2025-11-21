@@ -79,18 +79,26 @@ type ParseResult struct {
 	SourceSize int64
 }
 
-// FormatBytes formats a byte count into a human-readable string
+// FormatBytes formats a byte count into a human-readable string using binary units (KiB, MiB, etc.)
 func FormatBytes(bytes int64) string {
+	// Handle negative values
+	if bytes < 0 {
+		return fmt.Sprintf("%d B", bytes)
+	}
+
 	const unit = 1024
 	if bytes < unit {
 		return fmt.Sprintf("%d B", bytes)
 	}
+
 	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
+	for n := bytes / unit; n >= unit && exp < 5; n /= unit {
 		div *= unit
 		exp++
 	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+
+	// Use proper binary unit notation (KiB, MiB, GiB, etc.)
+	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 // detectFormatFromPath detects the source format from a file path
