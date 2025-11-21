@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Validating OpenAPI specification files
 - Parsing and analyzing OAS documents
 - Joining multiple OpenAPI specification documents
+- Converting between OAS versions
+- Comparing OAS documents and detecting breaking changes
 
 ## Specification References
 
@@ -278,6 +280,12 @@ make clean
 - **converter/** - Public conversion library for OpenAPI specifications
   - Logic for converting between OAS versions (2.0 ↔ 3.x)
   - Best-effort conversion with transparent issue tracking
+  - Package documentation in `doc.go` and examples in `example_test.go`
+
+- **differ/** - Public diffing library for OpenAPI specifications
+  - Logic for comparing OpenAPI specification files
+  - Simple semantic diff and breaking change detection
+  - Categorizes changes by severity (Critical, Error, Warning, Info)
   - Package documentation in `doc.go` and examples in `example_test.go`
 
 - **internal/** - Internal packages with shared utilities (not part of public API)
