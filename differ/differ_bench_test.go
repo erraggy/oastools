@@ -6,10 +6,14 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// Note on b.Fatalf usage in benchmarks:
+// Using b.Fatalf for errors in benchmark setup or execution is an acceptable pattern.
+// These operations (diff, parse) should never fail with valid test fixtures.
+// If they do fail, it indicates a bug that should halt the benchmark immediately.
+
 // Benchmark differ convenience functions
 func BenchmarkDiffConvenience(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := Diff("../testdata/petstore-v1.yaml", "../testdata/petstore-v2.yaml")
 		if err != nil {
 			b.Fatal(err)
@@ -28,9 +32,7 @@ func BenchmarkDiffParsedConvenience(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := DiffParsed(*source, *target)
 		if err != nil {
 			b.Fatal(err)
@@ -43,9 +45,7 @@ func BenchmarkDifferDiff(b *testing.B) {
 	d := New()
 	d.Mode = ModeSimple
 
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := d.Diff("../testdata/petstore-v1.yaml", "../testdata/petstore-v2.yaml")
 		if err != nil {
 			b.Fatal(err)
@@ -67,9 +67,7 @@ func BenchmarkDifferDiffParsed(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := d.DiffParsed(*source, *target)
 		if err != nil {
 			b.Fatal(err)
@@ -91,9 +89,7 @@ func BenchmarkDifferSimpleMode(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := d.DiffParsed(*source, *target)
 		if err != nil {
 			b.Fatal(err)
@@ -114,9 +110,7 @@ func BenchmarkDifferBreakingMode(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := d.DiffParsed(*source, *target)
 		if err != nil {
 			b.Fatal(err)
@@ -139,9 +133,7 @@ func BenchmarkDifferWithInfo(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := d.DiffParsed(*source, *target)
 		if err != nil {
 			b.Fatal(err)
@@ -163,9 +155,7 @@ func BenchmarkDifferWithoutInfo(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := d.DiffParsed(*source, *target)
 		if err != nil {
 			b.Fatal(err)
@@ -183,9 +173,7 @@ func BenchmarkDifferIdenticalSpecs(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := d.DiffParsed(*source, *source)
 		if err != nil {
 			b.Fatal(err)
@@ -208,9 +196,7 @@ func BenchmarkParseOnceDiffMany(b *testing.B) {
 	d := New()
 	d.Mode = ModeBreaking
 
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		// Diff many times without re-parsing
 		_, err := d.DiffParsed(*source, *target)
 		if err != nil {
