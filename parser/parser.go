@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/erraggy/oastools"
 	semver "github.com/hashicorp/go-version"
 	"gopkg.in/yaml.v3"
 
@@ -33,7 +34,7 @@ func New() *Parser {
 	return &Parser{
 		ResolveRefs:       false,
 		ValidateStructure: true,
-		UserAgent:         "oastools",
+		UserAgent:         oastools.UserAgent(),
 	}
 }
 
@@ -154,7 +155,7 @@ func (p *Parser) fetchURL(urlStr string) ([]byte, string, error) {
 	// Set user agent (use default if not set)
 	userAgent := p.UserAgent
 	if userAgent == "" {
-		userAgent = "oastools"
+		userAgent = oastools.UserAgent()
 	}
 	req.Header.Set("User-Agent", userAgent)
 

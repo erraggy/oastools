@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/converter"
 	"github.com/erraggy/oastools/differ"
 	"github.com/erraggy/oastools/joiner"
@@ -14,10 +15,6 @@ import (
 	"github.com/erraggy/oastools/validator"
 	"gopkg.in/yaml.v3"
 )
-
-// version is set via ldflags during build by GoReleaser
-// For development builds, this will show "dev"
-var version = "dev"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -29,7 +26,7 @@ func main() {
 
 	switch command {
 	case "version", "-v", "--version":
-		fmt.Printf("oastools v%s\n", version)
+		fmt.Printf("oastools v%s\n", oastools.Version())
 	case "help", "-h", "--help":
 		printUsage()
 	case "validate":
@@ -60,7 +57,6 @@ func handleParse(args []string) {
 
 	// Create parser with version in User-Agent
 	p := parser.New()
-	p.UserAgent = fmt.Sprintf("oastools/%s", version)
 
 	// Parse the file or URL
 	result, err := p.Parse(specPath)
@@ -174,7 +170,6 @@ func handleValidate(args []string) {
 	v := validator.New()
 	v.StrictMode = strict
 	v.IncludeWarnings = !noWarnings
-	v.UserAgent = fmt.Sprintf("oastools/%s", version)
 
 	// Validate the file or URL with timing
 	startTime := time.Now()
@@ -524,7 +519,6 @@ func handleConvert(args []string) {
 	c := converter.New()
 	c.StrictMode = strict
 	c.IncludeInfo = !noWarnings
-	c.UserAgent = fmt.Sprintf("oastools/%s", version)
 
 	// Convert the file or URL with timing
 	startTime := time.Now()
@@ -671,7 +665,6 @@ func handleDiff(args []string) {
 		d.Mode = differ.ModeSimple
 	}
 	d.IncludeInfo = !noInfo
-	d.UserAgent = fmt.Sprintf("oastools/%s", version)
 
 	// Diff the files with timing
 	startTime := time.Now()

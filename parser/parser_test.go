@@ -2422,12 +2422,12 @@ paths: {}`
 		{
 			name:              "default user agent when not set",
 			userAgent:         "",
-			expectedUserAgent: "oastools",
+			expectedUserAgent: "oastools/dev",
 		},
 		{
 			name:              "default user agent from New()",
 			userAgent:         "default",
-			expectedUserAgent: "oastools",
+			expectedUserAgent: "oastools/dev",
 		},
 	}
 
