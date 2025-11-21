@@ -1,6 +1,6 @@
 # oastools
 
-OpenAPI Specification (OAS) tools for validation, parsing, converting, and joining.
+OpenAPI Specification (OAS) tools for validation, parsing, converting, joining, and comparing.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/erraggy/oastools.svg)](https://pkg.go.dev/github.com/erraggy/oastools)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -11,6 +11,7 @@ OpenAPI Specification (OAS) tools for validation, parsing, converting, and joini
 - **Validate** - Validate OpenAPI specification files for correctness
 - **Convert** - Convert between OpenAPI versions (2.0 ↔ 3.x) with transparent issue tracking
 - **Join** - Merge multiple OpenAPI specifications with flexible collision resolution
+- **Diff** - Compare OpenAPI specifications and detect breaking changes
 - **Library** - Use as a Go library with both simple and advanced APIs
 
 ## Installation
@@ -70,6 +71,9 @@ oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
 # Join multiple specs
 oastools join -o merged.yaml base.yaml extensions.yaml
 
+# Compare specs and detect breaking changes
+oastools diff --breaking api-v1.yaml api-v2.yaml
+
 # Show all commands
 oastools help
 ```
@@ -97,6 +101,7 @@ import (
     "github.com/erraggy/oastools/validator"
     "github.com/erraggy/oastools/converter"
     "github.com/erraggy/oastools/joiner"
+    "github.com/erraggy/oastools/differ"
 )
 
 // Parse
@@ -111,6 +116,9 @@ cResult, err := converter.Convert("swagger.yaml", "3.0.3")
 // Join
 config := joiner.DefaultConfig()
 jResult, err := joiner.Join([]string{"base.yaml", "ext.yaml"}, config)
+
+// Diff
+dResult, err := differ.Diff("api-v1.yaml", "api-v2.yaml")
 ```
 
 #### Advanced API (Reusable Instances)
@@ -132,6 +140,9 @@ c.StrictMode = false
 config := joiner.DefaultConfig()
 j := joiner.New(config)
 
+d := differ.New()
+d.Mode = differ.ModeBreaking
+
 // Process multiple files efficiently
 result1, _ := p.Parse("api1.yaml")
 result2, _ := p.Parse("api2.yaml")
@@ -140,6 +151,7 @@ result3, _ := p.Parse("api3.yaml")
 v.ValidateParsed(result1)  // 30x faster than Validate
 c.ConvertParsed(result2, "3.0.3")  // 9x faster than Convert
 j.JoinParsed([]parser.ParseResult{result1, result2})  // 154x faster than Join
+d.DiffParsed(result1, result2)  // Faster than Diff
 ```
 
 **Library Features**:
@@ -147,7 +159,8 @@ j.JoinParsed([]parser.ParseResult{result1, result2})  // 154x faster than Join
 - **Validator**: Structural, format, and semantic validation; configurable warnings and strict mode
 - **Converter**: Convert OAS 2.0 ↔ 3.x with severity-tracked issues (Info, Warning, Critical)
 - **Joiner**: Flexible collision strategies, array merging, tag deduplication
-- **Performance**: ParseOnce pattern enables efficient workflows (parse once, validate/convert/join many times)
+- **Differ**: Compare specs with simple or breaking change detection; severity-based classification (Critical, Error, Warning, Info)
+- **Performance**: ParseOnce pattern enables efficient workflows (parse once, validate/convert/join/diff many times)
 
 See [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) for complete API documentation.
 
@@ -280,6 +293,7 @@ make help           # Show all available commands
 ├── validator/          # OpenAPI validation library (public API)
 ├── converter/          # OpenAPI conversion library (public API)
 ├── joiner/             # OpenAPI joining library (public API)
+├── differ/             # OpenAPI diffing library (public API)
 ├── internal/           # Internal shared utilities
 │   ├── httputil/       # HTTP validation constants
 │   ├── severity/       # Severity levels for issues
@@ -288,7 +302,7 @@ make help           # Show all available commands
 └── testdata/           # Test fixtures and sample specs
 ```
 
-All four main packages (parser, validator, converter, joiner) are public and can be imported directly.
+All five main packages (parser, validator, converter, joiner, differ) are public and can be imported directly.
 
 ## License
 
