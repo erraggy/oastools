@@ -784,6 +784,7 @@ This workflow creates the GitHub Release first with detailed notes, then GoRelea
 - Test Homebrew installation: `brew tap erraggy/oastools && brew install oastools`
 - Announce the release (if applicable)
 - Update project documentation if needed
+- **IMPORTANT**: Check [planning/homebrew-cask-migration.md](planning/homebrew-cask-migration.md) for Homebrew Cask migration follow-up tasks (applies to releases v1.9.5+)
 
 **Troubleshooting:**
 
