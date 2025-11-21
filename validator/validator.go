@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/internal/issues"
@@ -52,6 +53,10 @@ type ValidationResult struct {
 	ErrorCount int
 	// WarningCount is the total number of warnings
 	WarningCount int
+	// LoadTime is the time taken to load the source data
+	LoadTime time.Duration
+	// SourceSize is the size of the source data in bytes
+	SourceSize int64
 }
 
 // Validator handles OpenAPI specification validation
@@ -120,6 +125,8 @@ func (v *Validator) ValidateParsed(parseResult parser.ParseResult) (*ValidationR
 		OASVersion: parseResult.OASVersion,
 		Errors:     make([]ValidationError, 0, defaultErrorCapacity),
 		Warnings:   make([]ValidationError, 0, defaultWarningCapacity),
+		LoadTime:   parseResult.LoadTime,
+		SourceSize: parseResult.SourceSize,
 	}
 
 	// Add parser errors to validation result
