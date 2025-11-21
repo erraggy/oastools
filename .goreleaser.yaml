@@ -49,7 +49,7 @@ archives:
       - goos: windows
         formats: [zip]
 
-brews:
+homebrew_casks:
   - name: oastools
     repository:
       owner: erraggy
@@ -60,6 +60,8 @@ brews:
     homepage: "https://github.com/erraggy/oastools"
     description: "OpenAPI Specification (OAS) tools for validation, parsing, converting, and joining specs."
     license: "MIT"
+    url:
+      verified: github.com/erraggy/oastools
 
 changelog:
   sort: asc
