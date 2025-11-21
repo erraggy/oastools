@@ -1416,3 +1416,62 @@ paths:
 		})
 	}
 }
+
+// ========================================
+// Tests for metric propagation
+// ========================================
+
+// TestValidateParsedPropagatesMetrics tests that LoadTime and SourceSize are propagated from ParseResult to ValidationResult
+func TestValidateParsedPropagatesMetrics(t *testing.T) {
+	parseResult, err := parser.Parse("../testdata/minimal-oas3.yaml", false, true)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	if err != nil {
+		t.Fatalf("ValidateParsed() error = %v", err)
+	}
+
+	// Verify metrics are propagated
+	if result.LoadTime != parseResult.LoadTime {
+		t.Errorf("LoadTime not propagated: got %v, want %v", result.LoadTime, parseResult.LoadTime)
+	}
+	if result.SourceSize != parseResult.SourceSize {
+		t.Errorf("SourceSize not propagated: got %d, want %d", result.SourceSize, parseResult.SourceSize)
+	}
+
+	// Verify metrics are non-zero (they should have been captured during parsing)
+	if result.LoadTime == 0 {
+		t.Error("Expected LoadTime to be > 0 after propagation")
+	}
+	if result.SourceSize == 0 {
+		t.Error("Expected SourceSize to be > 0 after propagation")
+	}
+}
+
+// TestValidateConveniencePropagatesMetrics tests that the convenience function also propagates metrics
+func TestValidateConveniencePropagatesMetrics(t *testing.T) {
+	result, err := Validate("../testdata/minimal-oas3.yaml", true, false)
+	if err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	// Verify metrics are captured
+	if result.LoadTime == 0 {
+		t.Error("Expected LoadTime to be > 0")
+	}
+	if result.SourceSize == 0 {
+		t.Error("Expected SourceSize to be > 0")
+	}
+
+	// SourceSize should match file size
+	data, err := os.ReadFile("../testdata/minimal-oas3.yaml")
+	if err != nil {
+		t.Fatalf("Failed to read test file: %v", err)
+	}
+	if result.SourceSize != int64(len(data)) {
+		t.Errorf("SourceSize = %d, expected %d", result.SourceSize, len(data))
+	}
+}

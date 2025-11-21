@@ -2491,3 +2491,117 @@ paths: {}`
 	require.True(t, ok)
 	assert.Equal(t, "URL Test API", doc2.Info.Title)
 }
+
+// ========================================
+// Tests for LoadTime and SourceSize metrics
+// ========================================
+
+// TestFormatBytes tests the FormatBytes helper function with various byte sizes
+func TestFormatBytes(t *testing.T) {
+	tests := []struct {
+		name     string
+		bytes    int64
+		expected string
+	}{
+		{"zero bytes", 0, "0 B"},
+		{"bytes", 512, "512 B"},
+		{"kilobytes", 1024, "1.0 KiB"},
+		{"kilobytes decimal", 1536, "1.5 KiB"},
+		{"megabytes", 1048576, "1.0 MiB"},
+		{"megabytes decimal", 5242880, "5.0 MiB"},
+		{"gigabytes", 1073741824, "1.0 GiB"},
+		{"gigabytes decimal", 2147483648, "2.0 GiB"},
+		{"terabytes", 1099511627776, "1.0 TiB"},
+		{"petabytes", 1125899906842624, "1.0 PiB"},
+		{"exabytes", 1152921504606846976, "1.0 EiB"},
+		{"large", 5368709120, "5.0 GiB"},
+		{"negative bytes", -1024, "-1024 B"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FormatBytes(tt.bytes)
+			if got != tt.expected {
+				t.Errorf("FormatBytes(%d) = %q, want %q", tt.bytes, got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestParseLoadTimeAndSize tests that LoadTime and SourceSize are captured when parsing a file
+func TestParseLoadTimeAndSize(t *testing.T) {
+	result, err := Parse("../testdata/minimal-oas3.yaml", false, true)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	// Verify LoadTime is captured
+	if result.LoadTime == 0 {
+		t.Error("Expected LoadTime to be > 0, got 0")
+	}
+
+	// Verify SourceSize is set
+	if result.SourceSize == 0 {
+		t.Error("Expected SourceSize to be > 0, got 0")
+	}
+
+	// SourceSize should match file size
+	data, err := os.ReadFile("../testdata/minimal-oas3.yaml")
+	if err != nil {
+		t.Fatalf("Failed to read test file: %v", err)
+	}
+	if result.SourceSize != int64(len(data)) {
+		t.Errorf("SourceSize = %d, expected %d", result.SourceSize, len(data))
+	}
+}
+
+// TestParseReaderLoadTimeAndSize tests that LoadTime and SourceSize are captured when parsing from a reader
+func TestParseReaderLoadTimeAndSize(t *testing.T) {
+	file, err := os.Open("../testdata/minimal-oas3.yaml")
+	if err != nil {
+		t.Fatalf("Failed to open test file: %v", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("Failed to close file: %v", err)
+		}
+	}()
+
+	result, err := ParseReader(file, false, true)
+	if err != nil {
+		t.Fatalf("ParseReader() error = %v", err)
+	}
+
+	// Verify LoadTime is captured
+	if result.LoadTime == 0 {
+		t.Error("Expected LoadTime to be > 0, got 0")
+	}
+
+	// Verify SourceSize is set
+	if result.SourceSize == 0 {
+		t.Error("Expected SourceSize to be > 0, got 0")
+	}
+}
+
+// TestParseBytesSize tests that SourceSize is set correctly when parsing from bytes
+func TestParseBytesSize(t *testing.T) {
+	data, err := os.ReadFile("../testdata/minimal-oas3.yaml")
+	if err != nil {
+		t.Fatalf("Failed to read test file: %v", err)
+	}
+
+	result, err := ParseBytes(data, false, true)
+	if err != nil {
+		t.Fatalf("ParseBytes() error = %v", err)
+	}
+
+	// ParseBytes has no load time (in-memory)
+	// LoadTime should be 0 for in-memory data
+	if result.LoadTime != 0 {
+		t.Logf("Note: ParseBytes LoadTime is %v (expected 0 for in-memory data)", result.LoadTime)
+	}
+
+	// Verify SourceSize is set correctly
+	if result.SourceSize != int64(len(data)) {
+		t.Errorf("SourceSize = %d, expected %d", result.SourceSize, len(data))
+	}
+}
