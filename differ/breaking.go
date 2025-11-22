@@ -66,6 +66,9 @@ func (d *Differ) diffOAS2Breaking(source, target *parser.OAS2Document, result *D
 
 	// Compare Security Definitions
 	d.diffSecuritySchemesBreaking(source.SecurityDefinitions, target.SecurityDefinitions, basePath+".securityDefinitions", result)
+
+	// Compare Extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, basePath, result)
 }
 
 // diffOAS3Breaking compares two OAS 3.x documents with breaking change detection
@@ -90,6 +93,9 @@ func (d *Differ) diffOAS3Breaking(source, target *parser.OAS3Document, result *D
 	if source.Components != nil || target.Components != nil {
 		d.diffComponentsBreaking(source.Components, target.Components, basePath+".components", result)
 	}
+
+	// Compare Extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, basePath, result)
 }
 
 // diffCrossVersionBreaking compares documents of different OAS versions
@@ -166,6 +172,9 @@ func (d *Differ) diffInfoBreaking(source, target *parser.Info, path string, resu
 			Message:  "description changed",
 		})
 	}
+
+	// Compare Info extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffServersBreaking compares Server slices (OAS 3.x)
@@ -181,8 +190,9 @@ func (d *Differ) diffServersBreaking(source, target []*parser.Server, path strin
 	}
 
 	// Removed servers - warning
-	for url := range sourceMap {
-		if _, exists := targetMap[url]; !exists {
+	for url, sourceSrv := range sourceMap {
+		targetSrv, exists := targetMap[url]
+		if !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s[%s]", path, url),
 				Type:     ChangeTypeRemoved,
@@ -191,7 +201,11 @@ func (d *Differ) diffServersBreaking(source, target []*parser.Server, path strin
 				OldValue: url,
 				Message:  fmt.Sprintf("server %q removed", url),
 			})
+			continue
 		}
+
+		// Compare server details if both exist
+		d.diffServerBreaking(sourceSrv, targetSrv, fmt.Sprintf("%s[%s]", path, url), result)
 	}
 
 	// Added servers - info
@@ -207,6 +221,24 @@ func (d *Differ) diffServersBreaking(source, target []*parser.Server, path strin
 			})
 		}
 	}
+}
+
+// diffServerBreaking compares individual Server objects
+func (d *Differ) diffServerBreaking(source, target *parser.Server, path string, result *DiffResult) {
+	if source.Description != target.Description && source.Description != "" {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryServer,
+			Severity: SeverityInfo,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "server description changed",
+		})
+	}
+
+	// Compare Server extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffPathsBreaking compares Paths with breaking change detection
@@ -295,6 +327,9 @@ func (d *Differ) diffPathItemBreaking(source, target *parser.PathItem, path stri
 		// Compare operations
 		d.diffOperationBreaking(ops.source, ops.target, opPath, result)
 	}
+
+	// Compare PathItem extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffOperationBreaking compares Operation objects with breaking change detection
@@ -334,6 +369,9 @@ func (d *Differ) diffOperationBreaking(source, target *parser.Operation, path st
 	if source.RequestBody != nil || target.RequestBody != nil {
 		d.diffRequestBodyBreaking(source.RequestBody, target.RequestBody, path+".requestBody", result)
 	}
+
+	// Compare Operation extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffParametersBreaking compares Parameter slices with breaking change detection
@@ -454,6 +492,9 @@ func (d *Differ) diffParameterBreaking(source, target *parser.Parameter, path st
 
 	// Enum constraints
 	d.diffEnumBreaking(source.Enum, target.Enum, path+".enum", result)
+
+	// Compare Parameter extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffRequestBodyBreaking compares RequestBody objects with breaking change detection
@@ -512,6 +553,9 @@ func (d *Differ) diffRequestBodyBreaking(source, target *parser.RequestBody, pat
 			Message:  "request body changed from required to optional",
 		})
 	}
+
+	// Compare RequestBody extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffResponsesBreaking compares Responses with breaking change detection
@@ -538,16 +582,11 @@ func (d *Differ) diffResponsesBreaking(source, target *parser.Responses, path st
 				OldValue: sourceResp,
 				Message:  fmt.Sprintf("response code %s removed", code),
 			})
-		} else if !reflect.DeepEqual(sourceResp, targetResp) {
-			// Response modified - details would require deeper schema comparison
-			result.Changes = append(result.Changes, Change{
-				Path:     fmt.Sprintf("%s[%s]", path, code),
-				Type:     ChangeTypeModified,
-				Category: CategoryResponse,
-				Severity: SeverityWarning,
-				Message:  fmt.Sprintf("response code %s modified", code),
-			})
+			continue
 		}
+
+		// Compare response details
+		d.diffResponseBreaking(sourceResp, targetResp, fmt.Sprintf("%s[%s]", path, code), result)
 	}
 
 	// Added response codes - generally INFO
@@ -570,11 +609,30 @@ func (d *Differ) diffResponsesBreaking(source, target *parser.Responses, path st
 	}
 }
 
+// diffResponseBreaking compares individual Response objects
+func (d *Differ) diffResponseBreaking(source, target *parser.Response, path string, result *DiffResult) {
+	if source.Description != target.Description && source.Description != "" {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			Severity: SeverityInfo,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "response description changed",
+		})
+	}
+
+	// Compare Response extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
+}
+
 // diffSchemasBreaking compares schema maps with breaking change detection
 func (d *Differ) diffSchemasBreaking(source, target map[string]*parser.Schema, path string, result *DiffResult) {
 	// Removed schemas - ERROR
-	for name := range source {
-		if _, exists := target[name]; !exists {
+	for name, sourceSchema := range source {
+		targetSchema, exists := target[name]
+		if !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s.%s", path, name),
 				Type:     ChangeTypeRemoved,
@@ -582,7 +640,11 @@ func (d *Differ) diffSchemasBreaking(source, target map[string]*parser.Schema, p
 				Severity: SeverityError,
 				Message:  fmt.Sprintf("schema %q removed", name),
 			})
+			continue
 		}
+
+		// Compare schema extensions
+		d.diffSchemaBreaking(sourceSchema, targetSchema, fmt.Sprintf("%s.%s", path, name), result)
 	}
 
 	// Added schemas - INFO
@@ -597,15 +659,24 @@ func (d *Differ) diffSchemasBreaking(source, target map[string]*parser.Schema, p
 			})
 		}
 	}
+}
 
-	// Note: Deep schema property comparison would be added here for production use
+// diffSchemaBreaking compares individual Schema objects
+func (d *Differ) diffSchemaBreaking(source, target *parser.Schema, path string, result *DiffResult) {
+	// Note: Full schema comparison is complex.
+	// Currently we only compare extensions.
+	// Deep schema field comparison would require significant additional logic.
+
+	// Compare Schema extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffSecuritySchemesBreaking compares security schemes with breaking change detection
 func (d *Differ) diffSecuritySchemesBreaking(source, target map[string]*parser.SecurityScheme, path string, result *DiffResult) {
 	// Removed security schemes - ERROR
-	for name := range source {
-		if _, exists := target[name]; !exists {
+	for name, sourceScheme := range source {
+		targetScheme, exists := target[name]
+		if !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s.%s", path, name),
 				Type:     ChangeTypeRemoved,
@@ -613,7 +684,11 @@ func (d *Differ) diffSecuritySchemesBreaking(source, target map[string]*parser.S
 				Severity: SeverityError,
 				Message:  fmt.Sprintf("security scheme %q removed", name),
 			})
+			continue
 		}
+
+		// Compare security scheme details
+		d.diffSecuritySchemeBreaking(sourceScheme, targetScheme, fmt.Sprintf("%s.%s", path, name), result)
 	}
 
 	// Added security schemes - WARNING (clients may need to handle new auth)
@@ -628,6 +703,24 @@ func (d *Differ) diffSecuritySchemesBreaking(source, target map[string]*parser.S
 			})
 		}
 	}
+}
+
+// diffSecuritySchemeBreaking compares individual SecurityScheme objects
+func (d *Differ) diffSecuritySchemeBreaking(source, target *parser.SecurityScheme, path string, result *DiffResult) {
+	if source.Type != target.Type {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".type",
+			Type:     ChangeTypeModified,
+			Category: CategorySecurity,
+			Severity: SeverityError,
+			OldValue: source.Type,
+			NewValue: target.Type,
+			Message:  fmt.Sprintf("security scheme type changed from %q to %q", source.Type, target.Type),
+		})
+	}
+
+	// Compare SecurityScheme extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffComponentsBreaking compares Components with breaking change detection
@@ -663,6 +756,9 @@ func (d *Differ) diffComponentsBreaking(source, target *parser.Components, path 
 
 	// Compare security schemes
 	d.diffSecuritySchemesBreaking(source.SecuritySchemes, target.SecuritySchemes, path+".securitySchemes", result)
+
+	// Compare Components extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffWebhooksBreaking compares webhooks with breaking change detection
@@ -773,6 +869,56 @@ func (d *Differ) diffEnumBreaking(source, target []any, path string, result *Dif
 				Category: CategoryParameter,
 				Severity: SeverityInfo,
 				Message:  fmt.Sprintf("enum value %q added", val),
+			})
+		}
+	}
+}
+
+// diffExtrasBreaking compares Extra maps with severity classification
+func (d *Differ) diffExtrasBreaking(source, target map[string]any, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed extensions - INFO (non-breaking, extensions are typically optional)
+	for key, sourceValue := range source {
+		targetValue, exists := target[key]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryExtension,
+				Severity: SeverityInfo,
+				OldValue: sourceValue,
+				Message:  fmt.Sprintf("extension %q removed", key),
+			})
+			continue
+		}
+
+		// Check if value changed - INFO (extensions are non-normative)
+		if !reflect.DeepEqual(sourceValue, targetValue) {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeModified,
+				Category: CategoryExtension,
+				Severity: SeverityInfo,
+				OldValue: sourceValue,
+				NewValue: targetValue,
+				Message:  fmt.Sprintf("extension %q modified", key),
+			})
+		}
+	}
+
+	// Find added extensions - INFO (non-breaking)
+	for key, targetValue := range target {
+		if _, exists := source[key]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeAdded,
+				Category: CategoryExtension,
+				Severity: SeverityInfo,
+				NewValue: targetValue,
+				Message:  fmt.Sprintf("extension %q added", key),
 			})
 		}
 	}
