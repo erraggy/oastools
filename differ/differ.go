@@ -51,6 +51,8 @@ const (
 	CategoryServer ChangeCategory = "server"
 	// CategoryInfo indicates metadata change (info, contact, license, etc.)
 	CategoryInfo ChangeCategory = "info"
+	// CategoryExtension indicates a specification extension (x-*) change
+	CategoryExtension ChangeCategory = "extension"
 )
 
 // Severity indicates the severity level of a change

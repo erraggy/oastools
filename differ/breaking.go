@@ -66,6 +66,9 @@ func (d *Differ) diffOAS2Breaking(source, target *parser.OAS2Document, result *D
 
 	// Compare Security Definitions
 	d.diffSecuritySchemesBreaking(source.SecurityDefinitions, target.SecurityDefinitions, basePath+".securityDefinitions", result)
+
+	// Compare Extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, basePath, result)
 }
 
 // diffOAS3Breaking compares two OAS 3.x documents with breaking change detection
@@ -90,6 +93,9 @@ func (d *Differ) diffOAS3Breaking(source, target *parser.OAS3Document, result *D
 	if source.Components != nil || target.Components != nil {
 		d.diffComponentsBreaking(source.Components, target.Components, basePath+".components", result)
 	}
+
+	// Compare Extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, basePath, result)
 }
 
 // diffCrossVersionBreaking compares documents of different OAS versions
@@ -295,6 +301,9 @@ func (d *Differ) diffPathItemBreaking(source, target *parser.PathItem, path stri
 		// Compare operations
 		d.diffOperationBreaking(ops.source, ops.target, opPath, result)
 	}
+
+	// Compare PathItem extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffOperationBreaking compares Operation objects with breaking change detection
@@ -334,6 +343,9 @@ func (d *Differ) diffOperationBreaking(source, target *parser.Operation, path st
 	if source.RequestBody != nil || target.RequestBody != nil {
 		d.diffRequestBodyBreaking(source.RequestBody, target.RequestBody, path+".requestBody", result)
 	}
+
+	// Compare Operation extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffParametersBreaking compares Parameter slices with breaking change detection
@@ -663,6 +675,9 @@ func (d *Differ) diffComponentsBreaking(source, target *parser.Components, path 
 
 	// Compare security schemes
 	d.diffSecuritySchemesBreaking(source.SecuritySchemes, target.SecuritySchemes, path+".securitySchemes", result)
+
+	// Compare Components extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffWebhooksBreaking compares webhooks with breaking change detection
@@ -773,6 +788,56 @@ func (d *Differ) diffEnumBreaking(source, target []any, path string, result *Dif
 				Category: CategoryParameter,
 				Severity: SeverityInfo,
 				Message:  fmt.Sprintf("enum value %q added", val),
+			})
+		}
+	}
+}
+
+// diffExtrasBreaking compares Extra maps with severity classification
+func (d *Differ) diffExtrasBreaking(source, target map[string]any, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed extensions - INFO (non-breaking, extensions are typically optional)
+	for key, sourceValue := range source {
+		targetValue, exists := target[key]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryExtension,
+				Severity: SeverityInfo,
+				OldValue: sourceValue,
+				Message:  fmt.Sprintf("extension %q removed", key),
+			})
+			continue
+		}
+
+		// Check if value changed - INFO (extensions are non-normative)
+		if !reflect.DeepEqual(sourceValue, targetValue) {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeModified,
+				Category: CategoryExtension,
+				Severity: SeverityInfo,
+				OldValue: sourceValue,
+				NewValue: targetValue,
+				Message:  fmt.Sprintf("extension %q modified", key),
+			})
+		}
+	}
+
+	// Find added extensions - INFO (non-breaking)
+	for key, targetValue := range target {
+		if _, exists := source[key]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeAdded,
+				Category: CategoryExtension,
+				Severity: SeverityInfo,
+				NewValue: targetValue,
+				Message:  fmt.Sprintf("extension %q added", key),
 			})
 		}
 	}

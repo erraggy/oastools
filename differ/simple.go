@@ -69,6 +69,9 @@ func (d *Differ) diffOAS2Simple(source, target *parser.OAS2Document, result *Dif
 
 	// Compare Tags
 	d.diffTags(source.Tags, target.Tags, basePath+".tags", result)
+
+	// Compare Extensions
+	d.diffExtras(source.Extra, target.Extra, basePath, result)
 }
 
 // diffOAS3Simple compares two OAS 3.x documents
@@ -96,6 +99,9 @@ func (d *Differ) diffOAS3Simple(source, target *parser.OAS3Document, result *Dif
 
 	// Compare Tags
 	d.diffTags(source.Tags, target.Tags, basePath+".tags", result)
+
+	// Compare Extensions
+	d.diffExtras(source.Extra, target.Extra, basePath, result)
 }
 
 // diffCrossVersionSimple compares documents of different OAS versions
@@ -329,6 +335,9 @@ func (d *Differ) diffPathItem(source, target *parser.PathItem, path string, resu
 		// Compare operations
 		d.diffOperation(ops.source, ops.target, opPath, result)
 	}
+
+	// Compare PathItem extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffOperation compares Operation objects
@@ -355,6 +364,9 @@ func (d *Differ) diffOperation(source, target *parser.Operation, path string, re
 	if source.RequestBody != nil || target.RequestBody != nil {
 		d.diffRequestBody(source.RequestBody, target.RequestBody, path+".requestBody", result)
 	}
+
+	// Compare Operation extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffParameters compares Parameter slices
@@ -669,6 +681,9 @@ func (d *Differ) diffComponents(source, target *parser.Components, path string, 
 
 	// Compare security schemes
 	d.diffSecuritySchemes(source.SecuritySchemes, target.SecuritySchemes, path+".securitySchemes", result)
+
+	// Compare Components extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffWebhooks compares webhook maps (OAS 3.1+)
@@ -736,6 +751,53 @@ func (d *Differ) diffStringSlices(source, target []string, path string, category
 				Category: category,
 				NewValue: item,
 				Message:  fmt.Sprintf("%s %q added", itemName, item),
+			})
+		}
+	}
+}
+
+// diffExtras compares Extra maps (specification extensions with x- prefix)
+func (d *Differ) diffExtras(source, target map[string]any, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed extensions
+	for key, sourceValue := range source {
+		targetValue, exists := target[key]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryExtension,
+				OldValue: sourceValue,
+				Message:  fmt.Sprintf("extension %q removed", key),
+			})
+			continue
+		}
+
+		// Check if value changed
+		if !reflect.DeepEqual(sourceValue, targetValue) {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeModified,
+				Category: CategoryExtension,
+				OldValue: sourceValue,
+				NewValue: targetValue,
+				Message:  fmt.Sprintf("extension %q modified", key),
+			})
+		}
+	}
+
+	// Find added extensions
+	for key, targetValue := range target {
+		if _, exists := source[key]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeAdded,
+				Category: CategoryExtension,
+				NewValue: targetValue,
+				Message:  fmt.Sprintf("extension %q added", key),
 			})
 		}
 	}
