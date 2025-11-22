@@ -207,6 +207,9 @@ func (d *Differ) diffInfo(source, target *parser.Info, path string, result *Diff
 			Message:  "description changed",
 		})
 	}
+
+	// Compare Info extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffServers compares Server slices (OAS 3.x)
@@ -227,7 +230,7 @@ func (d *Differ) diffServers(source, target []*parser.Server, path string, resul
 	}
 
 	// Find removed servers
-	for url := range sourceMap {
+	for url, sourceSrv := range sourceMap {
 		if _, exists := targetMap[url]; !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s[%s]", path, url),
@@ -236,7 +239,11 @@ func (d *Differ) diffServers(source, target []*parser.Server, path string, resul
 				OldValue: url,
 				Message:  fmt.Sprintf("server %q removed", url),
 			})
+			continue
 		}
+
+		// Compare server details if both exist
+		d.diffServer(sourceSrv, targetMap[url], fmt.Sprintf("%s[%s]", path, url), result)
 	}
 
 	// Find added servers
@@ -251,6 +258,23 @@ func (d *Differ) diffServers(source, target []*parser.Server, path string, resul
 			})
 		}
 	}
+}
+
+// diffServer compares individual Server objects
+func (d *Differ) diffServer(source, target *parser.Server, path string, result *DiffResult) {
+	if source.Description != target.Description {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryServer,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "server description changed",
+		})
+	}
+
+	// Compare Server extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffPaths compares Paths objects
@@ -450,6 +474,9 @@ func (d *Differ) diffParameter(source, target *parser.Parameter, path string, re
 			Message:  fmt.Sprintf("format changed from %q to %q", source.Format, target.Format),
 		})
 	}
+
+	// Compare Parameter extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffRequestBody compares RequestBody objects (OAS 3.x)
@@ -490,6 +517,9 @@ func (d *Differ) diffRequestBody(source, target *parser.RequestBody, path string
 			Message:  fmt.Sprintf("required changed from %v to %v", source.Required, target.Required),
 		})
 	}
+
+	// Compare RequestBody extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffResponses compares Responses objects
@@ -531,16 +561,11 @@ func (d *Differ) diffResponses(source, target *parser.Responses, path string, re
 				OldValue: sourceResp,
 				Message:  fmt.Sprintf("response code %s removed", code),
 			})
-		} else if !reflect.DeepEqual(sourceResp, targetResp) {
-			result.Changes = append(result.Changes, Change{
-				Path:     fmt.Sprintf("%s[%s]", path, code),
-				Type:     ChangeTypeModified,
-				Category: CategoryResponse,
-				OldValue: sourceResp,
-				NewValue: targetResp,
-				Message:  fmt.Sprintf("response code %s modified", code),
-			})
+			continue
 		}
+
+		// Compare response details
+		d.diffResponse(sourceResp, targetResp, fmt.Sprintf("%s[%s]", path, code), result)
 	}
 
 	// Find added response codes
@@ -557,18 +582,40 @@ func (d *Differ) diffResponses(source, target *parser.Responses, path string, re
 	}
 }
 
+// diffResponse compares individual Response objects
+func (d *Differ) diffResponse(source, target *parser.Response, path string, result *DiffResult) {
+	if source.Description != target.Description {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "response description changed",
+		})
+	}
+
+	// Compare Response extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
+}
+
 // diffSchemas compares schema maps
 func (d *Differ) diffSchemas(source, target map[string]*parser.Schema, path string, result *DiffResult) {
 	// Find removed schemas
-	for name := range source {
-		if _, exists := target[name]; !exists {
+	for name, sourceSchema := range source {
+		targetSchema, exists := target[name]
+		if !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s.%s", path, name),
 				Type:     ChangeTypeRemoved,
 				Category: CategorySchema,
 				Message:  fmt.Sprintf("schema %q removed", name),
 			})
+			continue
 		}
+
+		// Compare schema extensions
+		d.diffSchema(sourceSchema, targetSchema, fmt.Sprintf("%s.%s", path, name), result)
 	}
 
 	// Find added schemas
@@ -582,22 +629,35 @@ func (d *Differ) diffSchemas(source, target map[string]*parser.Schema, path stri
 			})
 		}
 	}
+}
 
-	// Note: Deep schema comparison is complex and would require significant additional logic
+// diffSchema compares individual Schema objects
+func (d *Differ) diffSchema(source, target *parser.Schema, path string, result *DiffResult) {
+	// Note: Full schema comparison is complex.
+	// Currently we only compare extensions.
+	// Deep schema field comparison would require significant additional logic.
+
+	// Compare Schema extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffSecuritySchemes compares security scheme maps
 func (d *Differ) diffSecuritySchemes(source, target map[string]*parser.SecurityScheme, path string, result *DiffResult) {
 	// Find removed schemes
-	for name := range source {
-		if _, exists := target[name]; !exists {
+	for name, sourceScheme := range source {
+		targetScheme, exists := target[name]
+		if !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s.%s", path, name),
 				Type:     ChangeTypeRemoved,
 				Category: CategorySecurity,
 				Message:  fmt.Sprintf("security scheme %q removed", name),
 			})
+			continue
 		}
+
+		// Compare security scheme details
+		d.diffSecurityScheme(sourceScheme, targetScheme, fmt.Sprintf("%s.%s", path, name), result)
 	}
 
 	// Find added schemes
@@ -613,6 +673,23 @@ func (d *Differ) diffSecuritySchemes(source, target map[string]*parser.SecurityS
 	}
 }
 
+// diffSecurityScheme compares individual SecurityScheme objects
+func (d *Differ) diffSecurityScheme(source, target *parser.SecurityScheme, path string, result *DiffResult) {
+	if source.Type != target.Type {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".type",
+			Type:     ChangeTypeModified,
+			Category: CategorySecurity,
+			OldValue: source.Type,
+			NewValue: target.Type,
+			Message:  fmt.Sprintf("security scheme type changed from %q to %q", source.Type, target.Type),
+		})
+	}
+
+	// Compare SecurityScheme extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
+}
+
 // diffTags compares Tag slices
 func (d *Differ) diffTags(source, target []*parser.Tag, path string, result *DiffResult) {
 	sourceMap := make(map[string]*parser.Tag)
@@ -626,15 +703,20 @@ func (d *Differ) diffTags(source, target []*parser.Tag, path string, result *Dif
 	}
 
 	// Find removed tags
-	for name := range sourceMap {
-		if _, exists := targetMap[name]; !exists {
+	for name, sourceTag := range sourceMap {
+		targetTag, exists := targetMap[name]
+		if !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s[%s]", path, name),
 				Type:     ChangeTypeRemoved,
 				Category: CategoryInfo,
 				Message:  fmt.Sprintf("tag %q removed", name),
 			})
+			continue
 		}
+
+		// Compare tag details
+		d.diffTag(sourceTag, targetTag, fmt.Sprintf("%s[%s]", path, name), result)
 	}
 
 	// Find added tags
@@ -648,6 +730,23 @@ func (d *Differ) diffTags(source, target []*parser.Tag, path string, result *Dif
 			})
 		}
 	}
+}
+
+// diffTag compares individual Tag objects
+func (d *Differ) diffTag(source, target *parser.Tag, path string, result *DiffResult) {
+	if source.Description != target.Description {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryInfo,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "tag description changed",
+		})
+	}
+
+	// Compare Tag extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffComponents compares Components objects (OAS 3.x)

@@ -232,5 +232,47 @@ The differ works with:
 
 When comparing documents of different OAS versions (e.g., 2.0 vs 3.0),
 the diff is limited to common elements present in both versions.
+
+# Extension (x-*) Field Coverage
+
+The OpenAPI Specification allows custom extension fields (starting with "x-")
+at many levels of the document. The differ detects and reports changes to
+extensions at commonly-used locations:
+
+Extensions ARE diffed for these types:
+  - Document level (OAS2Document, OAS3Document)
+  - Info object
+  - Server objects
+  - PathItem objects
+  - Operation objects
+  - Parameter objects
+  - RequestBody objects
+  - Response objects
+  - Schema objects
+  - SecurityScheme objects
+  - Tag objects
+  - Components object
+
+Extensions are NOT currently diffed for these less commonly-used types:
+  - Contact, License, ExternalDocs (nested within Info)
+  - ServerVariable (nested within Server)
+  - Reference objects
+  - Items (OAS 2.0 array item definitions)
+  - Header objects
+  - Link, MediaType, Example, Encoding (response-related nested objects)
+  - Discriminator, XML (schema-related nested objects)
+  - OAuthFlows, OAuthFlow (security-related nested objects)
+
+The rationale for this selective coverage is that extensions are most commonly
+placed at document, path, operation, parameter, and schema levels where they
+provide cross-cutting metadata. Extensions in deeply nested objects like
+ServerVariable or Discriminator are rare in practice.
+
+If your use case requires extension diffing for the uncovered types, please
+open an issue at https://github.com/erraggy/oastools/issues
+
+All extension changes are reported with CategoryExtension and are assigned
+SeverityInfo in breaking mode, as specification extensions are non-normative
+and optional according to the OpenAPI Specification.
 */
 package differ

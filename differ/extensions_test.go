@@ -425,3 +425,465 @@ func TestComplexExtensionValues(t *testing.T) {
 		t.Errorf("Expected type modified, got %s", result.Changes[0].Type)
 	}
 }
+
+// TestNewExtensionLocations tests extension diffing at newly added locations
+func TestNewExtensionLocations(t *testing.T) {
+	tests := []struct {
+		name          string
+		source        *parser.OAS3Document
+		target        *parser.OAS3Document
+		expectedCount int
+		expectedPath  string
+	}{
+		{
+			name: "Info level extension",
+			source: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info: &parser.Info{
+					Title:   "Test API",
+					Version: "1.0.0",
+					Extra: map[string]any{
+						"x-logo": "logo.png",
+					},
+				},
+			},
+			target: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info: &parser.Info{
+					Title:   "Test API",
+					Version: "1.0.0",
+					Extra: map[string]any{
+						"x-logo": "new-logo.png",
+					},
+				},
+			},
+			expectedCount: 1,
+			expectedPath:  "document.info.x-logo",
+		},
+		{
+			name: "Server level extension",
+			source: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Servers: []*parser.Server{
+					{
+						URL: "https://api.example.com",
+						Extra: map[string]any{
+							"x-region": "us-east-1",
+						},
+					},
+				},
+			},
+			target: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Servers: []*parser.Server{
+					{
+						URL: "https://api.example.com",
+						Extra: map[string]any{
+							"x-region": "us-west-2",
+						},
+					},
+				},
+			},
+			expectedCount: 1,
+			expectedPath:  "document.servers[https://api.example.com].x-region",
+		},
+		{
+			name: "Parameter level extension",
+			source: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Paths: parser.Paths{
+					"/pets": &parser.PathItem{
+						Get: &parser.Operation{
+							Parameters: []*parser.Parameter{
+								{
+									Name: "limit",
+									In:   "query",
+									Extra: map[string]any{
+										"x-example-values": []int{10, 20, 50},
+									},
+								},
+							},
+							Responses: &parser.Responses{
+								Codes: map[string]*parser.Response{
+									"200": {Description: "OK"},
+								},
+							},
+						},
+					},
+				},
+			},
+			target: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Paths: parser.Paths{
+					"/pets": &parser.PathItem{
+						Get: &parser.Operation{
+							Parameters: []*parser.Parameter{
+								{
+									Name: "limit",
+									In:   "query",
+									Extra: map[string]any{
+										"x-example-values": []int{10, 20, 50, 100},
+									},
+								},
+							},
+							Responses: &parser.Responses{
+								Codes: map[string]*parser.Response{
+									"200": {Description: "OK"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedCount: 1,
+			expectedPath:  "document.paths./pets.get.parameters[limit:query].x-example-values",
+		},
+		{
+			name: "RequestBody level extension",
+			source: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Paths: parser.Paths{
+					"/pets": &parser.PathItem{
+						Post: &parser.Operation{
+							RequestBody: &parser.RequestBody{
+								Content: map[string]*parser.MediaType{
+									"application/json": {
+										Schema: &parser.Schema{Type: "object"},
+									},
+								},
+								Extra: map[string]any{
+									"x-body-examples": "see-docs",
+								},
+							},
+							Responses: &parser.Responses{
+								Codes: map[string]*parser.Response{
+									"201": {Description: "Created"},
+								},
+							},
+						},
+					},
+				},
+			},
+			target: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Paths: parser.Paths{
+					"/pets": &parser.PathItem{
+						Post: &parser.Operation{
+							RequestBody: &parser.RequestBody{
+								Content: map[string]*parser.MediaType{
+									"application/json": {
+										Schema: &parser.Schema{Type: "object"},
+									},
+								},
+								Extra: map[string]any{}, // Removed
+							},
+							Responses: &parser.Responses{
+								Codes: map[string]*parser.Response{
+									"201": {Description: "Created"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedCount: 1,
+			expectedPath:  "document.paths./pets.post.requestBody.x-body-examples",
+		},
+		{
+			name: "Response level extension",
+			source: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Paths: parser.Paths{
+					"/pets": &parser.PathItem{
+						Get: &parser.Operation{
+							Responses: &parser.Responses{
+								Codes: map[string]*parser.Response{
+									"200": {
+										Description: "OK",
+										Extra: map[string]any{
+											"x-cache-ttl": 3600,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			target: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Paths: parser.Paths{
+					"/pets": &parser.PathItem{
+						Get: &parser.Operation{
+							Responses: &parser.Responses{
+								Codes: map[string]*parser.Response{
+									"200": {
+										Description: "OK",
+										Extra: map[string]any{
+											"x-cache-ttl": 7200,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedCount: 1,
+			expectedPath:  "document.paths./pets.get.responses[200].x-cache-ttl",
+		},
+		{
+			name: "Schema level extension",
+			source: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"Pet": {
+							Type: "object",
+							Extra: map[string]any{
+								"x-table-name": "pets",
+							},
+						},
+					},
+				},
+			},
+			target: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"Pet": {
+							Type: "object",
+							Extra: map[string]any{
+								"x-table-name": "pet_records",
+							},
+						},
+					},
+				},
+			},
+			expectedCount: 1,
+			expectedPath:  "document.components.schemas.Pet.x-table-name",
+		},
+		{
+			name: "SecurityScheme level extension",
+			source: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					SecuritySchemes: map[string]*parser.SecurityScheme{
+						"api_key": {
+							Type: "apiKey",
+							Name: "X-API-Key",
+							In:   "header",
+							Extra: map[string]any{
+								"x-key-source": "env-var",
+							},
+						},
+					},
+				},
+			},
+			target: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					SecuritySchemes: map[string]*parser.SecurityScheme{
+						"api_key": {
+							Type: "apiKey",
+							Name: "X-API-Key",
+							In:   "header",
+							Extra: map[string]any{
+								"x-key-source": "vault",
+							},
+						},
+					},
+				},
+			},
+			expectedCount: 1,
+			expectedPath:  "document.components.securitySchemes.api_key.x-key-source",
+		},
+		{
+			name: "Tag level extension",
+			source: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Tags: []*parser.Tag{
+					{
+						Name: "pets",
+						Extra: map[string]any{
+							"x-display-order": 1,
+						},
+					},
+				},
+			},
+			target: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Tags: []*parser.Tag{
+					{
+						Name: "pets",
+						Extra: map[string]any{
+							"x-display-order": 2,
+						},
+					},
+				},
+			},
+			expectedCount: 1,
+			expectedPath:  "document.tags[pets].x-display-order",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := New()
+			d.Mode = ModeSimple
+
+			sourceResult := parser.ParseResult{
+				Document:   tt.source,
+				Version:    tt.source.OpenAPI,
+				OASVersion: parser.OASVersion300,
+			}
+			targetResult := parser.ParseResult{
+				Document:   tt.target,
+				Version:    tt.target.OpenAPI,
+				OASVersion: parser.OASVersion300,
+			}
+
+			result, err := d.DiffParsed(sourceResult, targetResult)
+			if err != nil {
+				t.Fatalf("DiffParsed failed: %v", err)
+			}
+
+			if len(result.Changes) != tt.expectedCount {
+				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
+				for i, change := range result.Changes {
+					t.Logf("Change %d: %s at %s", i, change.Type, change.Path)
+				}
+			}
+
+			if len(result.Changes) > 0 {
+				if result.Changes[0].Path != tt.expectedPath {
+					t.Errorf("Expected path %q, got %q", tt.expectedPath, result.Changes[0].Path)
+				}
+				if result.Changes[0].Category != CategoryExtension {
+					t.Errorf("Expected category extension, got %s", result.Changes[0].Category)
+				}
+			}
+		})
+	}
+}
+
+// TestNewExtensionLocationsBreaking tests extension diffing in breaking mode for new locations
+func TestNewExtensionLocationsBreaking(t *testing.T) {
+	// All these should be SeverityInfo (non-breaking)
+	tests := []struct {
+		name   string
+		source *parser.OAS3Document
+		target *parser.OAS3Document
+	}{
+		{
+			name: "Info extension change",
+			source: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info: &parser.Info{
+					Title:   "Test",
+					Version: "1.0.0",
+					Extra:   map[string]any{"x-logo": "old.png"},
+				},
+			},
+			target: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info: &parser.Info{
+					Title:   "Test",
+					Version: "1.0.0",
+					Extra:   map[string]any{"x-logo": "new.png"},
+				},
+			},
+		},
+		{
+			name: "Server extension change",
+			source: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Servers: []*parser.Server{
+					{URL: "https://api.example.com", Extra: map[string]any{"x-region": "us-east"}},
+				},
+			},
+			target: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Servers: []*parser.Server{
+					{URL: "https://api.example.com", Extra: map[string]any{"x-region": "us-west"}},
+				},
+			},
+		},
+		{
+			name: "Schema extension change",
+			source: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"Pet": {Type: "object", Extra: map[string]any{"x-db-table": "pets"}},
+					},
+				},
+			},
+			target: &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"Pet": {Type: "object", Extra: map[string]any{"x-db-table": "pet_records"}},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := New()
+			d.Mode = ModeBreaking
+
+			sourceResult := parser.ParseResult{
+				Document:   tt.source,
+				Version:    tt.source.OpenAPI,
+				OASVersion: parser.OASVersion300,
+			}
+			targetResult := parser.ParseResult{
+				Document:   tt.target,
+				Version:    tt.target.OpenAPI,
+				OASVersion: parser.OASVersion300,
+			}
+
+			result, err := d.DiffParsed(sourceResult, targetResult)
+			if err != nil {
+				t.Fatalf("DiffParsed failed: %v", err)
+			}
+
+			if len(result.Changes) == 0 {
+				t.Fatal("Expected at least one change")
+			}
+
+			// All extension changes should be SeverityInfo
+			for _, change := range result.Changes {
+				if change.Category == CategoryExtension && change.Severity != SeverityInfo {
+					t.Errorf("Extension change should be SeverityInfo, got %v", change.Severity)
+				}
+			}
+
+			// Extension changes should not be breaking
+			if result.HasBreakingChanges {
+				t.Error("Extension changes should not be classified as breaking")
+			}
+		})
+	}
+}
