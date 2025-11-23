@@ -72,8 +72,5 @@ changelog:
 
 release:
   # Let GoReleaser create and manage the release
-  mode: replace
-  # Create as draft first, then publish after verification
-  draft: false
-  # Replace existing release if present
-  replace_existing_draft: true
+  # Create as draft to allow asset uploads before publishing
+  draft: true
