@@ -44,11 +44,6 @@ jobs:
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
-            
-            Please skip performing the following code review if the pushed commit message contains:
-            #skip-claude-review
-            
-            Otherwise, please continue below:
 
             Please review this pull request and provide feedback on:
             - Code quality and best practices
