@@ -233,6 +233,69 @@ The differ works with:
 When comparing documents of different OAS versions (e.g., 2.0 vs 3.0),
 the diff is limited to common elements present in both versions.
 
+# Coverage Details
+
+The differ provides comprehensive comparison of OpenAPI specification elements:
+
+# Response Comparison
+
+Response objects are fully compared including:
+  - Headers: All header properties (description, required, deprecated, type, style, schema)
+  - Content/MediaTypes: Media type objects and their schemas
+  - Links: Link objects (operationRef, operationId, description)
+  - Examples: Example map keys (not deep value comparison)
+  - Extensions: All x-* fields on Response objects
+
+Header comparison includes:
+  - Description and deprecation status
+  - Required flag changes
+  - Type and style modifications
+  - Schema changes (delegates to schema comparison)
+  - Extensions on Header objects
+
+MediaType comparison includes:
+  - Schema changes (delegates to comprehensive schema comparison)
+  - Extensions on MediaType objects
+
+Link comparison includes:
+  - Operation references (operationRef, operationId)
+  - Description changes
+  - Extensions on Link objects
+
+# Schema Comparison
+
+Schema objects are comprehensively compared including all fields:
+
+Metadata:
+  - title, description
+
+Type information:
+  - type, format
+
+Numeric constraints:
+  - multipleOf, maximum, exclusiveMaximum, minimum, exclusiveMinimum
+
+String constraints:
+  - maxLength, minLength, pattern
+
+Array constraints:
+  - maxItems, minItems, uniqueItems
+
+Object constraints:
+  - maxProperties, minProperties
+  - required fields (with smart severity: adding required=ERROR, removing=INFO)
+
+OAS-specific fields:
+  - nullable, readOnly, writeOnly, deprecated
+
+Schema comparison uses smart severity assignment in breaking mode:
+  - ERROR: Stricter constraints (adding required fields, lowering max values, raising min values)
+  - WARNING: Changes that might affect consumers (type changes, constraint modifications)
+  - INFO: Relaxations and non-breaking changes (removing required, raising max, lowering min)
+
+Note: Recursive schema properties (properties, items, allOf, oneOf, anyOf, not) are
+compared separately to avoid cyclic comparison issues.
+
 # Extension (x-*) Field Coverage
 
 The OpenAPI Specification allows custom extension fields (starting with "x-")
@@ -248,6 +311,9 @@ Extensions ARE diffed for these types:
   - Parameter objects
   - RequestBody objects
   - Response objects
+  - Header objects (response headers)
+  - Link objects (response links)
+  - MediaType objects (content types)
   - Schema objects
   - SecurityScheme objects
   - Tag objects
@@ -258,15 +324,14 @@ Extensions are NOT currently diffed for these less commonly-used types:
   - ServerVariable (nested within Server)
   - Reference objects
   - Items (OAS 2.0 array item definitions)
-  - Header objects
-  - Link, MediaType, Example, Encoding (response-related nested objects)
+  - Example, Encoding (response-related nested objects)
   - Discriminator, XML (schema-related nested objects)
   - OAuthFlows, OAuthFlow (security-related nested objects)
 
 The rationale for this selective coverage is that extensions are most commonly
-placed at document, path, operation, parameter, and schema levels where they
-provide cross-cutting metadata. Extensions in deeply nested objects like
-ServerVariable or Discriminator are rare in practice.
+placed at document, path, operation, parameter, response, and schema levels where
+they provide cross-cutting metadata. Extensions in deeply nested objects like
+ServerVariable, Discriminator, or Example are rare in practice.
 
 If your use case requires extension diffing for the uncovered types, please
 open an issue at https://github.com/erraggy/oastools/issues
