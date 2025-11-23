@@ -9,8 +9,6 @@ on:
     #   - "src/**/*.tsx"
     #   - "src/**/*.js"
     #   - "src/**/*.jsx"
-#    paths:
-#      - "*.go"
 
 jobs:
   claude-review:
