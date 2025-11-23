@@ -21,8 +21,6 @@ jobs:
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
 
     runs-on: ubuntu-latest
-    # Add this 'if' condition to skip the job if the commit message contains the keyword
-    if: ${{ !contains(github.event.pull_request.head.ref, '#skip-claude-review') && !contains(github.event.head_commit.message, '#skip-claude-review') }}
     permissions:
       contents: read
       pull-requests: read
@@ -48,6 +46,11 @@ jobs:
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
+            
+            Please skip performing the following code review if the pushed commit message contains:
+            #skip-claude-review
+            
+            Otherwise, please continue below:
 
             Please review this pull request and provide feedback on:
             - Code quality and best practices
