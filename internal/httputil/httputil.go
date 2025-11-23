@@ -9,12 +9,10 @@ import (
 
 // HTTP Status Code Constants
 const (
-	StatusCodeLength     = 3   // Standard length of HTTP status codes (e.g., "200", "404")
-	MinStatusCode        = 100 // Minimum valid HTTP status code
-	MaxStatusCode        = 599 // Maximum valid HTTP status code
-	WildcardChar         = 'X' // Wildcard character used in status code patterns (e.g., "2XX")
-	MinWildcardFirstChar = '1' // Minimum first digit for wildcard patterns
-	MaxWildcardFirstChar = '5' // Maximum first digit for wildcard patterns
+	StatusCodeLength = 3   // Standard length of HTTP status codes (e.g., "200", "404")
+	MinStatusCode    = 100 // Minimum valid HTTP status code
+	MaxStatusCode    = 599 // Maximum valid HTTP status code
+	WildcardChar     = 'X' // Wildcard character used in status code patterns (e.g., "2XX")
 )
 
 // HTTP Method Constants

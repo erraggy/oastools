@@ -595,8 +595,284 @@ func (d *Differ) diffResponse(source, target *parser.Response, path string, resu
 		})
 	}
 
+	// Compare Response headers
+	d.diffResponseHeaders(source.Headers, target.Headers, path, result)
+
+	// Compare Response content
+	d.diffResponseContent(source.Content, target.Content, path, result)
+
+	// Compare Response links
+	d.diffResponseLinks(source.Links, target.Links, path, result)
+
+	// Compare Response examples
+	d.diffResponseExamples(source.Examples, target.Examples, path, result)
+
 	// Compare Response extensions
 	d.diffExtras(source.Extra, target.Extra, path, result)
+}
+
+// diffResponseHeaders compares header maps
+func (d *Differ) diffResponseHeaders(source, target map[string]*parser.Header, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed headers
+	for name := range source {
+		if _, exists := target[name]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.headers.%s", path, name),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response header %q removed", name),
+			})
+		}
+	}
+
+	// Find added or modified headers
+	for name, targetHeader := range target {
+		sourceHeader, exists := source[name]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.headers.%s", path, name),
+				Type:     ChangeTypeAdded,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response header %q added", name),
+			})
+			continue
+		}
+
+		// Compare header details
+		d.diffHeader(sourceHeader, targetHeader, fmt.Sprintf("%s.headers.%s", path, name), result)
+	}
+}
+
+// diffHeader compares individual Header objects
+func (d *Differ) diffHeader(source, target *parser.Header, path string, result *DiffResult) {
+	if source.Description != target.Description {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "header description changed",
+		})
+	}
+
+	if source.Required != target.Required {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".required",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Required,
+			NewValue: target.Required,
+			Message:  fmt.Sprintf("required changed from %v to %v", source.Required, target.Required),
+		})
+	}
+
+	if source.Deprecated != target.Deprecated {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".deprecated",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Deprecated,
+			NewValue: target.Deprecated,
+			Message:  fmt.Sprintf("deprecated changed from %v to %v", source.Deprecated, target.Deprecated),
+		})
+	}
+
+	if source.Type != target.Type {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".type",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Type,
+			NewValue: target.Type,
+			Message:  fmt.Sprintf("type changed from %q to %q", source.Type, target.Type),
+		})
+	}
+
+	if source.Style != target.Style {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".style",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Style,
+			NewValue: target.Style,
+			Message:  fmt.Sprintf("style changed from %q to %q", source.Style, target.Style),
+		})
+	}
+
+	// Compare Header extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
+}
+
+// diffMediaType compares individual MediaType objects
+func (d *Differ) diffMediaType(source, target *parser.MediaType, path string, result *DiffResult) {
+	// Compare schemas if present
+	if source.Schema != nil && target.Schema != nil {
+		d.diffSchema(source.Schema, target.Schema, path+".schema", result)
+	} else if source.Schema != nil && target.Schema == nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".schema",
+			Type:     ChangeTypeRemoved,
+			Category: CategoryResponse,
+			Message:  "schema removed",
+		})
+	} else if source.Schema == nil && target.Schema != nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".schema",
+			Type:     ChangeTypeAdded,
+			Category: CategoryResponse,
+			Message:  "schema added",
+		})
+	}
+
+	// Compare MediaType extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
+}
+
+// diffLink compares individual Link objects
+func (d *Differ) diffLink(source, target *parser.Link, path string, result *DiffResult) {
+	if source.OperationRef != target.OperationRef {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".operationRef",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.OperationRef,
+			NewValue: target.OperationRef,
+			Message:  "operationRef changed",
+		})
+	}
+
+	if source.OperationID != target.OperationID {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".operationId",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.OperationID,
+			NewValue: target.OperationID,
+			Message:  "operationId changed",
+		})
+	}
+
+	if source.Description != target.Description {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "description changed",
+		})
+	}
+
+	// Compare Link extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
+}
+
+// diffResponseContent compares response content maps
+func (d *Differ) diffResponseContent(source, target map[string]*parser.MediaType, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed media types
+	for mediaType := range source {
+		if _, exists := target[mediaType]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.content.%s", path, mediaType),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response media type %q removed", mediaType),
+			})
+		}
+	}
+
+	// Find added or modified media types
+	for mediaType, targetMedia := range target {
+		sourceMedia, exists := source[mediaType]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.content.%s", path, mediaType),
+				Type:     ChangeTypeAdded,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response media type %q added", mediaType),
+			})
+			continue
+		}
+
+		// Compare media type details
+		d.diffMediaType(sourceMedia, targetMedia, fmt.Sprintf("%s.content.%s", path, mediaType), result)
+	}
+}
+
+// diffResponseLinks compares response link maps
+func (d *Differ) diffResponseLinks(source, target map[string]*parser.Link, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed links
+	for name := range source {
+		if _, exists := target[name]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.links.%s", path, name),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response link %q removed", name),
+			})
+		}
+	}
+
+	// Find added or modified links
+	for name, targetLink := range target {
+		sourceLink, exists := source[name]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.links.%s", path, name),
+				Type:     ChangeTypeAdded,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response link %q added", name),
+			})
+			continue
+		}
+
+		// Compare link details
+		d.diffLink(sourceLink, targetLink, fmt.Sprintf("%s.links.%s", path, name), result)
+	}
+}
+
+// diffResponseExamples compares response example maps
+func (d *Differ) diffResponseExamples(source, target map[string]any, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed examples
+	for name := range source {
+		if _, exists := target[name]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.examples.%s", path, name),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response example %q removed", name),
+			})
+		}
+	}
+
+	// Find added examples (we don't deep-compare example values)
+	for name := range target {
+		if _, exists := source[name]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.examples.%s", path, name),
+				Type:     ChangeTypeAdded,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response example %q added", name),
+			})
+		}
+	}
 }
 
 // diffSchemas compares schema maps
@@ -818,19 +1094,19 @@ func (d *Differ) diffWebhooks(source, target map[string]*parser.PathItem, path s
 
 // diffStringSlices compares string slices and reports differences
 func (d *Differ) diffStringSlices(source, target []string, path string, category ChangeCategory, itemName string, result *DiffResult) {
-	sourceMap := make(map[string]bool)
+	sourceMap := make(map[string]struct{})
 	for _, item := range source {
-		sourceMap[item] = true
+		sourceMap[item] = struct{}{}
 	}
 
-	targetMap := make(map[string]bool)
+	targetMap := make(map[string]struct{})
 	for _, item := range target {
-		targetMap[item] = true
+		targetMap[item] = struct{}{}
 	}
 
 	// Find removed items
 	for item := range sourceMap {
-		if !targetMap[item] {
+		if _, ok := targetMap[item]; !ok {
 			result.Changes = append(result.Changes, Change{
 				Path:     path,
 				Type:     ChangeTypeRemoved,
@@ -843,7 +1119,7 @@ func (d *Differ) diffStringSlices(source, target []string, path string, category
 
 	// Find added items
 	for item := range targetMap {
-		if !sourceMap[item] {
+		if _, ok := sourceMap[item]; !ok {
 			result.Changes = append(result.Changes, Change{
 				Path:     path,
 				Type:     ChangeTypeAdded,
