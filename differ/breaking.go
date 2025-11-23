@@ -66,6 +66,9 @@ func (d *Differ) diffOAS2Breaking(source, target *parser.OAS2Document, result *D
 
 	// Compare Security Definitions
 	d.diffSecuritySchemesBreaking(source.SecurityDefinitions, target.SecurityDefinitions, basePath+".securityDefinitions", result)
+
+	// Compare Extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, basePath, result)
 }
 
 // diffOAS3Breaking compares two OAS 3.x documents with breaking change detection
@@ -90,6 +93,9 @@ func (d *Differ) diffOAS3Breaking(source, target *parser.OAS3Document, result *D
 	if source.Components != nil || target.Components != nil {
 		d.diffComponentsBreaking(source.Components, target.Components, basePath+".components", result)
 	}
+
+	// Compare Extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, basePath, result)
 }
 
 // diffCrossVersionBreaking compares documents of different OAS versions
@@ -166,6 +172,9 @@ func (d *Differ) diffInfoBreaking(source, target *parser.Info, path string, resu
 			Message:  "description changed",
 		})
 	}
+
+	// Compare Info extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffServersBreaking compares Server slices (OAS 3.x)
@@ -181,8 +190,9 @@ func (d *Differ) diffServersBreaking(source, target []*parser.Server, path strin
 	}
 
 	// Removed servers - warning
-	for url := range sourceMap {
-		if _, exists := targetMap[url]; !exists {
+	for url, sourceSrv := range sourceMap {
+		targetSrv, exists := targetMap[url]
+		if !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s[%s]", path, url),
 				Type:     ChangeTypeRemoved,
@@ -191,7 +201,11 @@ func (d *Differ) diffServersBreaking(source, target []*parser.Server, path strin
 				OldValue: url,
 				Message:  fmt.Sprintf("server %q removed", url),
 			})
+			continue
 		}
+
+		// Compare server details if both exist
+		d.diffServerBreaking(sourceSrv, targetSrv, fmt.Sprintf("%s[%s]", path, url), result)
 	}
 
 	// Added servers - info
@@ -207,6 +221,24 @@ func (d *Differ) diffServersBreaking(source, target []*parser.Server, path strin
 			})
 		}
 	}
+}
+
+// diffServerBreaking compares individual Server objects
+func (d *Differ) diffServerBreaking(source, target *parser.Server, path string, result *DiffResult) {
+	if source.Description != target.Description && source.Description != "" {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryServer,
+			Severity: SeverityInfo,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "server description changed",
+		})
+	}
+
+	// Compare Server extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffPathsBreaking compares Paths with breaking change detection
@@ -295,6 +327,9 @@ func (d *Differ) diffPathItemBreaking(source, target *parser.PathItem, path stri
 		// Compare operations
 		d.diffOperationBreaking(ops.source, ops.target, opPath, result)
 	}
+
+	// Compare PathItem extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffOperationBreaking compares Operation objects with breaking change detection
@@ -334,6 +369,9 @@ func (d *Differ) diffOperationBreaking(source, target *parser.Operation, path st
 	if source.RequestBody != nil || target.RequestBody != nil {
 		d.diffRequestBodyBreaking(source.RequestBody, target.RequestBody, path+".requestBody", result)
 	}
+
+	// Compare Operation extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffParametersBreaking compares Parameter slices with breaking change detection
@@ -454,6 +492,9 @@ func (d *Differ) diffParameterBreaking(source, target *parser.Parameter, path st
 
 	// Enum constraints
 	d.diffEnumBreaking(source.Enum, target.Enum, path+".enum", result)
+
+	// Compare Parameter extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffRequestBodyBreaking compares RequestBody objects with breaking change detection
@@ -512,6 +553,9 @@ func (d *Differ) diffRequestBodyBreaking(source, target *parser.RequestBody, pat
 			Message:  "request body changed from required to optional",
 		})
 	}
+
+	// Compare RequestBody extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffResponsesBreaking compares Responses with breaking change detection
@@ -538,16 +582,11 @@ func (d *Differ) diffResponsesBreaking(source, target *parser.Responses, path st
 				OldValue: sourceResp,
 				Message:  fmt.Sprintf("response code %s removed", code),
 			})
-		} else if !reflect.DeepEqual(sourceResp, targetResp) {
-			// Response modified - details would require deeper schema comparison
-			result.Changes = append(result.Changes, Change{
-				Path:     fmt.Sprintf("%s[%s]", path, code),
-				Type:     ChangeTypeModified,
-				Category: CategoryResponse,
-				Severity: SeverityWarning,
-				Message:  fmt.Sprintf("response code %s modified", code),
-			})
+			continue
 		}
+
+		// Compare response details
+		d.diffResponseBreaking(sourceResp, targetResp, fmt.Sprintf("%s[%s]", path, code), result)
 	}
 
 	// Added response codes - generally INFO
@@ -570,11 +609,285 @@ func (d *Differ) diffResponsesBreaking(source, target *parser.Responses, path st
 	}
 }
 
+// diffResponseBreaking compares individual Response objects
+func (d *Differ) diffResponseBreaking(source, target *parser.Response, path string, result *DiffResult) {
+	if source.Description != target.Description && source.Description != "" {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			Severity: SeverityInfo,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "response description changed",
+		})
+	}
+
+	// Compare Response headers
+	d.diffResponseHeadersBreaking(source.Headers, target.Headers, path, result)
+
+	// Compare Response content
+	d.diffResponseContentBreaking(source.Content, target.Content, path, result)
+
+	// Compare Response links
+	d.diffResponseLinksBreaking(source.Links, target.Links, path, result)
+
+	// Compare Response examples
+	d.diffResponseExamplesBreaking(source.Examples, target.Examples, path, result)
+
+	// Compare Response extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
+}
+
+// diffResponseHeadersBreaking compares header maps with breaking change detection
+func (d *Differ) diffResponseHeadersBreaking(source, target map[string]*parser.Header, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Removed headers - WARNING (removing a response header is informational)
+	for name := range source {
+		if _, exists := target[name]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.headers.%s", path, name),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryResponse,
+				Severity: SeverityWarning,
+				Message:  fmt.Sprintf("response header %q removed", name),
+			})
+		}
+	}
+
+	// Added headers - INFO
+	for name, targetHeader := range target {
+		sourceHeader, exists := source[name]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.headers.%s", path, name),
+				Type:     ChangeTypeAdded,
+				Category: CategoryResponse,
+				Severity: SeverityInfo,
+				Message:  fmt.Sprintf("response header %q added", name),
+			})
+			continue
+		}
+
+		// Compare header details
+		d.diffHeaderBreaking(sourceHeader, targetHeader, fmt.Sprintf("%s.headers.%s", path, name), result)
+	}
+}
+
+// diffHeaderBreaking compares individual Header objects with breaking change detection
+func (d *Differ) diffHeaderBreaking(source, target *parser.Header, path string, result *DiffResult) {
+	// Required changed - WARNING/ERROR
+	if source.Required != target.Required {
+		severity := SeverityWarning
+		if !source.Required && target.Required {
+			// Making a header required is an ERROR
+			severity = SeverityError
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".required",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			Severity: severity,
+			OldValue: source.Required,
+			NewValue: target.Required,
+			Message:  fmt.Sprintf("required changed from %v to %v", source.Required, target.Required),
+		})
+	}
+
+	// Type changed - WARNING
+	if source.Type != target.Type {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".type",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			Severity: SeverityWarning,
+			OldValue: source.Type,
+			NewValue: target.Type,
+			Message:  fmt.Sprintf("type changed from %q to %q", source.Type, target.Type),
+		})
+	}
+
+	// Compare Header extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
+}
+
+// diffResponseContentBreaking compares response content maps with breaking change detection
+func (d *Differ) diffResponseContentBreaking(source, target map[string]*parser.MediaType, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Removed media types - WARNING
+	for mediaType := range source {
+		if _, exists := target[mediaType]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.content.%s", path, mediaType),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryResponse,
+				Severity: SeverityWarning,
+				Message:  fmt.Sprintf("response media type %q removed", mediaType),
+			})
+		}
+	}
+
+	// Added or modified media types - INFO/changes
+	for mediaType, targetMedia := range target {
+		sourceMedia, exists := source[mediaType]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.content.%s", path, mediaType),
+				Type:     ChangeTypeAdded,
+				Category: CategoryResponse,
+				Severity: SeverityInfo,
+				Message:  fmt.Sprintf("response media type %q added", mediaType),
+			})
+			continue
+		}
+
+		// Compare media type details
+		d.diffMediaTypeBreaking(sourceMedia, targetMedia, fmt.Sprintf("%s.content.%s", path, mediaType), result)
+	}
+}
+
+// diffMediaTypeBreaking compares individual MediaType objects with breaking change detection
+func (d *Differ) diffMediaTypeBreaking(source, target *parser.MediaType, path string, result *DiffResult) {
+	// Compare schemas if present
+	if source.Schema != nil && target.Schema != nil {
+		d.diffSchemaBreaking(source.Schema, target.Schema, path+".schema", result)
+	} else if source.Schema != nil && target.Schema == nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".schema",
+			Type:     ChangeTypeRemoved,
+			Category: CategoryResponse,
+			Severity: SeverityWarning,
+			Message:  "schema removed",
+		})
+	} else if source.Schema == nil && target.Schema != nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".schema",
+			Type:     ChangeTypeAdded,
+			Category: CategoryResponse,
+			Severity: SeverityInfo,
+			Message:  "schema added",
+		})
+	}
+
+	// Compare MediaType extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
+}
+
+// diffResponseLinksBreaking compares response link maps with breaking change detection
+func (d *Differ) diffResponseLinksBreaking(source, target map[string]*parser.Link, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Removed links - WARNING
+	for name := range source {
+		if _, exists := target[name]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.links.%s", path, name),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryResponse,
+				Severity: SeverityWarning,
+				Message:  fmt.Sprintf("response link %q removed", name),
+			})
+		}
+	}
+
+	// Added or modified links - INFO/changes
+	for name, targetLink := range target {
+		sourceLink, exists := source[name]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.links.%s", path, name),
+				Type:     ChangeTypeAdded,
+				Category: CategoryResponse,
+				Severity: SeverityInfo,
+				Message:  fmt.Sprintf("response link %q added", name),
+			})
+			continue
+		}
+
+		// Compare link details
+		d.diffLinkBreaking(sourceLink, targetLink, fmt.Sprintf("%s.links.%s", path, name), result)
+	}
+}
+
+// diffLinkBreaking compares individual Link objects with breaking change detection
+func (d *Differ) diffLinkBreaking(source, target *parser.Link, path string, result *DiffResult) {
+	// OperationRef changed - WARNING
+	if source.OperationRef != target.OperationRef {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".operationRef",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			Severity: SeverityWarning,
+			OldValue: source.OperationRef,
+			NewValue: target.OperationRef,
+			Message:  "operationRef changed",
+		})
+	}
+
+	// OperationID changed - WARNING
+	if source.OperationID != target.OperationID {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".operationId",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			Severity: SeverityWarning,
+			OldValue: source.OperationID,
+			NewValue: target.OperationID,
+			Message:  "operationId changed",
+		})
+	}
+
+	// Compare Link extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
+}
+
+// diffResponseExamplesBreaking compares response example maps with breaking changes
+func (d *Differ) diffResponseExamplesBreaking(source, target map[string]any, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Removed examples - INFO
+	for name := range source {
+		if _, exists := target[name]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.examples.%s", path, name),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryResponse,
+				Severity: SeverityInfo,
+				Message:  fmt.Sprintf("response example %q removed", name),
+			})
+		}
+	}
+
+	// Added examples - INFO (we don't deep-compare example values)
+	for name := range target {
+		if _, exists := source[name]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.examples.%s", path, name),
+				Type:     ChangeTypeAdded,
+				Category: CategoryResponse,
+				Severity: SeverityInfo,
+				Message:  fmt.Sprintf("response example %q added", name),
+			})
+		}
+	}
+}
+
 // diffSchemasBreaking compares schema maps with breaking change detection
 func (d *Differ) diffSchemasBreaking(source, target map[string]*parser.Schema, path string, result *DiffResult) {
 	// Removed schemas - ERROR
-	for name := range source {
-		if _, exists := target[name]; !exists {
+	for name, sourceSchema := range source {
+		targetSchema, exists := target[name]
+		if !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s.%s", path, name),
 				Type:     ChangeTypeRemoved,
@@ -582,7 +895,11 @@ func (d *Differ) diffSchemasBreaking(source, target map[string]*parser.Schema, p
 				Severity: SeverityError,
 				Message:  fmt.Sprintf("schema %q removed", name),
 			})
+			continue
 		}
+
+		// Compare schema extensions
+		d.diffSchemaBreaking(sourceSchema, targetSchema, fmt.Sprintf("%s.%s", path, name), result)
 	}
 
 	// Added schemas - INFO
@@ -597,15 +914,466 @@ func (d *Differ) diffSchemasBreaking(source, target map[string]*parser.Schema, p
 			})
 		}
 	}
+}
 
-	// Note: Deep schema property comparison would be added here for production use
+// diffSchemaBreaking compares individual Schema objects
+func (d *Differ) diffSchemaBreaking(source, target *parser.Schema, path string, result *DiffResult) {
+	// Compare metadata fields
+	d.diffSchemaMetadata(source, target, path, result)
+
+	// Compare type and format
+	d.diffSchemaType(source, target, path, result)
+
+	// Compare numeric constraints
+	d.diffSchemaNumericConstraints(source, target, path, result)
+
+	// Compare string constraints
+	d.diffSchemaStringConstraints(source, target, path, result)
+
+	// Compare array constraints
+	d.diffSchemaArrayConstraints(source, target, path, result)
+
+	// Compare object constraints
+	d.diffSchemaObjectConstraints(source, target, path, result)
+
+	// Compare required fields
+	d.diffSchemaRequiredFields(source, target, path, result)
+
+	// Compare OAS-specific fields
+	d.diffSchemaOASFields(source, target, path, result)
+
+	// Compare Schema extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
+}
+
+// diffSchemaMetadata compares schema metadata fields
+func (d *Differ) diffSchemaMetadata(source, target *parser.Schema, path string, result *DiffResult) {
+	if source.Title != target.Title {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".title",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityInfo,
+			OldValue: source.Title,
+			NewValue: target.Title,
+			Message:  "schema title changed",
+		})
+	}
+
+	if source.Description != target.Description {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityInfo,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "schema description changed",
+		})
+	}
+}
+
+// diffSchemaType compares schema type and format fields
+func (d *Differ) diffSchemaType(source, target *parser.Schema, path string, result *DiffResult) {
+	// Type can be string or []string in OAS 3.1+
+	sourceTypeStr := fmt.Sprintf("%v", source.Type)
+	targetTypeStr := fmt.Sprintf("%v", target.Type)
+	if sourceTypeStr != targetTypeStr {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".type",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityError,
+			OldValue: source.Type,
+			NewValue: target.Type,
+			Message:  "schema type changed",
+		})
+	}
+
+	if source.Format != target.Format {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".format",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			OldValue: source.Format,
+			NewValue: target.Format,
+			Message:  "schema format changed",
+		})
+	}
+}
+
+// diffSchemaNumericConstraints compares numeric validation constraints
+func (d *Differ) diffSchemaNumericConstraints(source, target *parser.Schema, path string, result *DiffResult) {
+	if source.MultipleOf != nil && target.MultipleOf != nil && *source.MultipleOf != *target.MultipleOf {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".multipleOf",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			OldValue: *source.MultipleOf,
+			NewValue: *target.MultipleOf,
+			Message:  "multipleOf constraint changed",
+		})
+	}
+
+	// Maximum constraint
+	if source.Maximum != nil && target.Maximum != nil && *source.Maximum != *target.Maximum {
+		severity := SeverityWarning
+		if *target.Maximum < *source.Maximum {
+			severity = SeverityError
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".maximum",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: *source.Maximum,
+			NewValue: *target.Maximum,
+			Message:  "maximum constraint changed",
+		})
+	} else if source.Maximum == nil && target.Maximum != nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".maximum",
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			Severity: SeverityError,
+			NewValue: *target.Maximum,
+			Message:  "maximum constraint added",
+		})
+	}
+
+	// Minimum constraint
+	if source.Minimum != nil && target.Minimum != nil && *source.Minimum != *target.Minimum {
+		severity := SeverityWarning
+		if *target.Minimum > *source.Minimum {
+			severity = SeverityError
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".minimum",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: *source.Minimum,
+			NewValue: *target.Minimum,
+			Message:  "minimum constraint changed",
+		})
+	} else if source.Minimum == nil && target.Minimum != nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".minimum",
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			Severity: SeverityError,
+			NewValue: *target.Minimum,
+			Message:  "minimum constraint added",
+		})
+	}
+}
+
+// diffSchemaStringConstraints compares string validation constraints
+func (d *Differ) diffSchemaStringConstraints(source, target *parser.Schema, path string, result *DiffResult) {
+	// MaxLength constraint
+	if source.MaxLength != nil && target.MaxLength != nil && *source.MaxLength != *target.MaxLength {
+		severity := SeverityWarning
+		if *target.MaxLength < *source.MaxLength {
+			severity = SeverityError
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".maxLength",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: *source.MaxLength,
+			NewValue: *target.MaxLength,
+			Message:  "maxLength constraint changed",
+		})
+	} else if source.MaxLength == nil && target.MaxLength != nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".maxLength",
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			Severity: SeverityError,
+			NewValue: *target.MaxLength,
+			Message:  "maxLength constraint added",
+		})
+	}
+
+	// MinLength constraint
+	if source.MinLength != nil && target.MinLength != nil && *source.MinLength != *target.MinLength {
+		severity := SeverityWarning
+		if *target.MinLength > *source.MinLength {
+			severity = SeverityError
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".minLength",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: *source.MinLength,
+			NewValue: *target.MinLength,
+			Message:  "minLength constraint changed",
+		})
+	} else if source.MinLength == nil && target.MinLength != nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".minLength",
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			Severity: SeverityError,
+			NewValue: *target.MinLength,
+			Message:  "minLength constraint added",
+		})
+	}
+
+	// Pattern constraint
+	if source.Pattern != target.Pattern {
+		severity := SeverityWarning
+		if source.Pattern == "" && target.Pattern != "" {
+			severity = SeverityError
+		}
+		if source.Pattern != "" || target.Pattern != "" {
+			result.Changes = append(result.Changes, Change{
+				Path:     path + ".pattern",
+				Type:     ChangeTypeModified,
+				Category: CategorySchema,
+				Severity: severity,
+				OldValue: source.Pattern,
+				NewValue: target.Pattern,
+				Message:  "pattern constraint changed",
+			})
+		}
+	}
+}
+
+// diffSchemaArrayConstraints compares array validation constraints
+func (d *Differ) diffSchemaArrayConstraints(source, target *parser.Schema, path string, result *DiffResult) {
+	// MaxItems constraint
+	if source.MaxItems != nil && target.MaxItems != nil && *source.MaxItems != *target.MaxItems {
+		severity := SeverityWarning
+		if *target.MaxItems < *source.MaxItems {
+			severity = SeverityError
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".maxItems",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: *source.MaxItems,
+			NewValue: *target.MaxItems,
+			Message:  "maxItems constraint changed",
+		})
+	} else if source.MaxItems == nil && target.MaxItems != nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".maxItems",
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			Severity: SeverityError,
+			NewValue: *target.MaxItems,
+			Message:  "maxItems constraint added",
+		})
+	}
+
+	// MinItems constraint
+	if source.MinItems != nil && target.MinItems != nil && *source.MinItems != *target.MinItems {
+		severity := SeverityWarning
+		if *target.MinItems > *source.MinItems {
+			severity = SeverityError
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".minItems",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: *source.MinItems,
+			NewValue: *target.MinItems,
+			Message:  "minItems constraint changed",
+		})
+	} else if source.MinItems == nil && target.MinItems != nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".minItems",
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			Severity: SeverityError,
+			NewValue: *target.MinItems,
+			Message:  "minItems constraint added",
+		})
+	}
+
+	// UniqueItems constraint
+	if source.UniqueItems != target.UniqueItems {
+		severity := SeverityWarning
+		if !source.UniqueItems && target.UniqueItems {
+			severity = SeverityError
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".uniqueItems",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: source.UniqueItems,
+			NewValue: target.UniqueItems,
+			Message:  "uniqueItems constraint changed",
+		})
+	}
+}
+
+// diffSchemaObjectConstraints compares object validation constraints
+func (d *Differ) diffSchemaObjectConstraints(source, target *parser.Schema, path string, result *DiffResult) {
+	// MaxProperties constraint
+	if source.MaxProperties != nil && target.MaxProperties != nil && *source.MaxProperties != *target.MaxProperties {
+		severity := SeverityWarning
+		if *target.MaxProperties < *source.MaxProperties {
+			severity = SeverityError
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".maxProperties",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: *source.MaxProperties,
+			NewValue: *target.MaxProperties,
+			Message:  "maxProperties constraint changed",
+		})
+	} else if source.MaxProperties == nil && target.MaxProperties != nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".maxProperties",
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			Severity: SeverityError,
+			NewValue: *target.MaxProperties,
+			Message:  "maxProperties constraint added",
+		})
+	}
+
+	// MinProperties constraint
+	if source.MinProperties != nil && target.MinProperties != nil && *source.MinProperties != *target.MinProperties {
+		severity := SeverityWarning
+		if *target.MinProperties > *source.MinProperties {
+			severity = SeverityError
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".minProperties",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: *source.MinProperties,
+			NewValue: *target.MinProperties,
+			Message:  "minProperties constraint changed",
+		})
+	} else if source.MinProperties == nil && target.MinProperties != nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".minProperties",
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			Severity: SeverityError,
+			NewValue: *target.MinProperties,
+			Message:  "minProperties constraint added",
+		})
+	}
+}
+
+// diffSchemaRequiredFields compares required field lists
+func (d *Differ) diffSchemaRequiredFields(source, target *parser.Schema, path string, result *DiffResult) {
+	sourceRequired := make(map[string]bool)
+	for _, req := range source.Required {
+		sourceRequired[req] = true
+	}
+	targetRequired := make(map[string]bool)
+	for _, req := range target.Required {
+		targetRequired[req] = true
+	}
+
+	// Removed required fields - INFO (relaxing)
+	for req := range sourceRequired {
+		if !targetRequired[req] {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.required[%s]", path, req),
+				Type:     ChangeTypeRemoved,
+				Category: CategorySchema,
+				Severity: SeverityInfo,
+				Message:  fmt.Sprintf("required field %q removed", req),
+			})
+		}
+	}
+
+	// Added required fields - ERROR (stricter)
+	for req := range targetRequired {
+		if !sourceRequired[req] {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.required[%s]", path, req),
+				Type:     ChangeTypeAdded,
+				Category: CategorySchema,
+				Severity: SeverityError,
+				Message:  fmt.Sprintf("required field %q added", req),
+			})
+		}
+	}
+}
+
+// diffSchemaOASFields compares OAS-specific schema fields
+func (d *Differ) diffSchemaOASFields(source, target *parser.Schema, path string, result *DiffResult) {
+	if source.Nullable != target.Nullable {
+		severity := SeverityWarning
+		if source.Nullable && !target.Nullable {
+			severity = SeverityError
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".nullable",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: source.Nullable,
+			NewValue: target.Nullable,
+			Message:  "nullable changed",
+		})
+	}
+
+	if source.ReadOnly != target.ReadOnly {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".readOnly",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			OldValue: source.ReadOnly,
+			NewValue: target.ReadOnly,
+			Message:  "readOnly changed",
+		})
+	}
+
+	if source.WriteOnly != target.WriteOnly {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".writeOnly",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			OldValue: source.WriteOnly,
+			NewValue: target.WriteOnly,
+			Message:  "writeOnly changed",
+		})
+	}
+
+	if source.Deprecated != target.Deprecated {
+		severity := SeverityInfo
+		if !source.Deprecated && target.Deprecated {
+			severity = SeverityWarning
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".deprecated",
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: source.Deprecated,
+			NewValue: target.Deprecated,
+			Message:  "deprecated status changed",
+		})
+	}
 }
 
 // diffSecuritySchemesBreaking compares security schemes with breaking change detection
 func (d *Differ) diffSecuritySchemesBreaking(source, target map[string]*parser.SecurityScheme, path string, result *DiffResult) {
 	// Removed security schemes - ERROR
-	for name := range source {
-		if _, exists := target[name]; !exists {
+	for name, sourceScheme := range source {
+		targetScheme, exists := target[name]
+		if !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s.%s", path, name),
 				Type:     ChangeTypeRemoved,
@@ -613,7 +1381,11 @@ func (d *Differ) diffSecuritySchemesBreaking(source, target map[string]*parser.S
 				Severity: SeverityError,
 				Message:  fmt.Sprintf("security scheme %q removed", name),
 			})
+			continue
 		}
+
+		// Compare security scheme details
+		d.diffSecuritySchemeBreaking(sourceScheme, targetScheme, fmt.Sprintf("%s.%s", path, name), result)
 	}
 
 	// Added security schemes - WARNING (clients may need to handle new auth)
@@ -628,6 +1400,24 @@ func (d *Differ) diffSecuritySchemesBreaking(source, target map[string]*parser.S
 			})
 		}
 	}
+}
+
+// diffSecuritySchemeBreaking compares individual SecurityScheme objects
+func (d *Differ) diffSecuritySchemeBreaking(source, target *parser.SecurityScheme, path string, result *DiffResult) {
+	if source.Type != target.Type {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".type",
+			Type:     ChangeTypeModified,
+			Category: CategorySecurity,
+			Severity: SeverityError,
+			OldValue: source.Type,
+			NewValue: target.Type,
+			Message:  fmt.Sprintf("security scheme type changed from %q to %q", source.Type, target.Type),
+		})
+	}
+
+	// Compare SecurityScheme extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffComponentsBreaking compares Components with breaking change detection
@@ -663,6 +1453,9 @@ func (d *Differ) diffComponentsBreaking(source, target *parser.Components, path 
 
 	// Compare security schemes
 	d.diffSecuritySchemesBreaking(source.SecuritySchemes, target.SecuritySchemes, path+".securitySchemes", result)
+
+	// Compare Components extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
 // diffWebhooksBreaking compares webhooks with breaking change detection
@@ -696,19 +1489,19 @@ func (d *Differ) diffWebhooksBreaking(source, target map[string]*parser.PathItem
 
 // diffStringSlicesBreaking compares string slices with severity classification
 func (d *Differ) diffStringSlicesBreaking(source, target []string, path string, category ChangeCategory, itemName string, removeSeverity Severity, result *DiffResult) {
-	sourceMap := make(map[string]bool)
+	sourceMap := make(map[string]struct{})
 	for _, item := range source {
-		sourceMap[item] = true
+		sourceMap[item] = struct{}{}
 	}
 
-	targetMap := make(map[string]bool)
+	targetMap := make(map[string]struct{})
 	for _, item := range target {
-		targetMap[item] = true
+		targetMap[item] = struct{}{}
 	}
 
 	// Removed items
 	for item := range sourceMap {
-		if !targetMap[item] {
+		if _, ok := targetMap[item]; !ok {
 			result.Changes = append(result.Changes, Change{
 				Path:     path,
 				Type:     ChangeTypeRemoved,
@@ -722,7 +1515,7 @@ func (d *Differ) diffStringSlicesBreaking(source, target []string, path string, 
 
 	// Added items - INFO
 	for item := range targetMap {
-		if !sourceMap[item] {
+		if _, ok := sourceMap[item]; !ok {
 			result.Changes = append(result.Changes, Change{
 				Path:     path,
 				Type:     ChangeTypeAdded,
@@ -741,19 +1534,19 @@ func (d *Differ) diffEnumBreaking(source, target []any, path string, result *Dif
 		return
 	}
 
-	sourceMap := make(map[string]bool)
+	sourceMap := make(map[string]struct{})
 	for _, val := range source {
-		sourceMap[fmt.Sprint(val)] = true
+		sourceMap[anyToString(val)] = struct{}{}
 	}
 
-	targetMap := make(map[string]bool)
+	targetMap := make(map[string]struct{})
 	for _, val := range target {
-		targetMap[fmt.Sprint(val)] = true
+		targetMap[anyToString(val)] = struct{}{}
 	}
 
 	// Removed enum values - ERROR (restricts valid values)
 	for val := range sourceMap {
-		if !targetMap[val] {
+		if _, ok := targetMap[val]; !ok {
 			result.Changes = append(result.Changes, Change{
 				Path:     path,
 				Type:     ChangeTypeRemoved,
@@ -766,13 +1559,63 @@ func (d *Differ) diffEnumBreaking(source, target []any, path string, result *Dif
 
 	// Added enum values - INFO (expands valid values)
 	for val := range targetMap {
-		if !sourceMap[val] {
+		if _, ok := sourceMap[val]; !ok {
 			result.Changes = append(result.Changes, Change{
 				Path:     path,
 				Type:     ChangeTypeAdded,
 				Category: CategoryParameter,
 				Severity: SeverityInfo,
 				Message:  fmt.Sprintf("enum value %q added", val),
+			})
+		}
+	}
+}
+
+// diffExtrasBreaking compares Extra maps with severity classification
+func (d *Differ) diffExtrasBreaking(source, target map[string]any, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed extensions - INFO (non-breaking, extensions are typically optional)
+	for key, sourceValue := range source {
+		targetValue, exists := target[key]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryExtension,
+				Severity: SeverityInfo,
+				OldValue: sourceValue,
+				Message:  fmt.Sprintf("extension %q removed", key),
+			})
+			continue
+		}
+
+		// Check if value changed - INFO (extensions are non-normative)
+		if !reflect.DeepEqual(sourceValue, targetValue) {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeModified,
+				Category: CategoryExtension,
+				Severity: SeverityInfo,
+				OldValue: sourceValue,
+				NewValue: targetValue,
+				Message:  fmt.Sprintf("extension %q modified", key),
+			})
+		}
+	}
+
+	// Find added extensions - INFO (non-breaking)
+	for key, targetValue := range target {
+		if _, exists := source[key]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeAdded,
+				Category: CategoryExtension,
+				Severity: SeverityInfo,
+				NewValue: targetValue,
+				Message:  fmt.Sprintf("extension %q added", key),
 			})
 		}
 	}
@@ -811,4 +1654,21 @@ func isErrorCode(code string) bool {
 		return codeNum >= 400
 	}
 	return false
+}
+
+func anyToString(v any) string {
+	switch val := v.(type) {
+	case string:
+		return val // Direct string return is most efficient
+	case int:
+		return strconv.Itoa(val) // Optimized for integers
+	case int64:
+		return strconv.FormatInt(val, 10) // Optimized for int64
+	case float64:
+		return strconv.FormatFloat(val, 'f', -1, 64) // Use strconv for floats as well
+	case fmt.Stringer:
+		return val.String() // Use the String() method if the type implements it
+	default:
+		return fmt.Sprint(val) // Fallback for all other types (uses reflection)
+	}
 }

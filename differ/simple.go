@@ -69,6 +69,9 @@ func (d *Differ) diffOAS2Simple(source, target *parser.OAS2Document, result *Dif
 
 	// Compare Tags
 	d.diffTags(source.Tags, target.Tags, basePath+".tags", result)
+
+	// Compare Extensions
+	d.diffExtras(source.Extra, target.Extra, basePath, result)
 }
 
 // diffOAS3Simple compares two OAS 3.x documents
@@ -96,6 +99,9 @@ func (d *Differ) diffOAS3Simple(source, target *parser.OAS3Document, result *Dif
 
 	// Compare Tags
 	d.diffTags(source.Tags, target.Tags, basePath+".tags", result)
+
+	// Compare Extensions
+	d.diffExtras(source.Extra, target.Extra, basePath, result)
 }
 
 // diffCrossVersionSimple compares documents of different OAS versions
@@ -201,6 +207,9 @@ func (d *Differ) diffInfo(source, target *parser.Info, path string, result *Diff
 			Message:  "description changed",
 		})
 	}
+
+	// Compare Info extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffServers compares Server slices (OAS 3.x)
@@ -221,7 +230,7 @@ func (d *Differ) diffServers(source, target []*parser.Server, path string, resul
 	}
 
 	// Find removed servers
-	for url := range sourceMap {
+	for url, sourceSrv := range sourceMap {
 		if _, exists := targetMap[url]; !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s[%s]", path, url),
@@ -230,7 +239,11 @@ func (d *Differ) diffServers(source, target []*parser.Server, path string, resul
 				OldValue: url,
 				Message:  fmt.Sprintf("server %q removed", url),
 			})
+			continue
 		}
+
+		// Compare server details if both exist
+		d.diffServer(sourceSrv, targetMap[url], fmt.Sprintf("%s[%s]", path, url), result)
 	}
 
 	// Find added servers
@@ -245,6 +258,23 @@ func (d *Differ) diffServers(source, target []*parser.Server, path string, resul
 			})
 		}
 	}
+}
+
+// diffServer compares individual Server objects
+func (d *Differ) diffServer(source, target *parser.Server, path string, result *DiffResult) {
+	if source.Description != target.Description {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryServer,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "server description changed",
+		})
+	}
+
+	// Compare Server extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffPaths compares Paths objects
@@ -329,6 +359,9 @@ func (d *Differ) diffPathItem(source, target *parser.PathItem, path string, resu
 		// Compare operations
 		d.diffOperation(ops.source, ops.target, opPath, result)
 	}
+
+	// Compare PathItem extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffOperation compares Operation objects
@@ -355,6 +388,9 @@ func (d *Differ) diffOperation(source, target *parser.Operation, path string, re
 	if source.RequestBody != nil || target.RequestBody != nil {
 		d.diffRequestBody(source.RequestBody, target.RequestBody, path+".requestBody", result)
 	}
+
+	// Compare Operation extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffParameters compares Parameter slices
@@ -438,6 +474,9 @@ func (d *Differ) diffParameter(source, target *parser.Parameter, path string, re
 			Message:  fmt.Sprintf("format changed from %q to %q", source.Format, target.Format),
 		})
 	}
+
+	// Compare Parameter extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffRequestBody compares RequestBody objects (OAS 3.x)
@@ -478,6 +517,9 @@ func (d *Differ) diffRequestBody(source, target *parser.RequestBody, path string
 			Message:  fmt.Sprintf("required changed from %v to %v", source.Required, target.Required),
 		})
 	}
+
+	// Compare RequestBody extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffResponses compares Responses objects
@@ -519,16 +561,11 @@ func (d *Differ) diffResponses(source, target *parser.Responses, path string, re
 				OldValue: sourceResp,
 				Message:  fmt.Sprintf("response code %s removed", code),
 			})
-		} else if !reflect.DeepEqual(sourceResp, targetResp) {
-			result.Changes = append(result.Changes, Change{
-				Path:     fmt.Sprintf("%s[%s]", path, code),
-				Type:     ChangeTypeModified,
-				Category: CategoryResponse,
-				OldValue: sourceResp,
-				NewValue: targetResp,
-				Message:  fmt.Sprintf("response code %s modified", code),
-			})
+			continue
 		}
+
+		// Compare response details
+		d.diffResponse(sourceResp, targetResp, fmt.Sprintf("%s[%s]", path, code), result)
 	}
 
 	// Find added response codes
@@ -545,18 +582,316 @@ func (d *Differ) diffResponses(source, target *parser.Responses, path string, re
 	}
 }
 
+// diffResponse compares individual Response objects
+func (d *Differ) diffResponse(source, target *parser.Response, path string, result *DiffResult) {
+	if source.Description != target.Description {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "response description changed",
+		})
+	}
+
+	// Compare Response headers
+	d.diffResponseHeaders(source.Headers, target.Headers, path, result)
+
+	// Compare Response content
+	d.diffResponseContent(source.Content, target.Content, path, result)
+
+	// Compare Response links
+	d.diffResponseLinks(source.Links, target.Links, path, result)
+
+	// Compare Response examples
+	d.diffResponseExamples(source.Examples, target.Examples, path, result)
+
+	// Compare Response extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
+}
+
+// diffResponseHeaders compares header maps
+func (d *Differ) diffResponseHeaders(source, target map[string]*parser.Header, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed headers
+	for name := range source {
+		if _, exists := target[name]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.headers.%s", path, name),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response header %q removed", name),
+			})
+		}
+	}
+
+	// Find added or modified headers
+	for name, targetHeader := range target {
+		sourceHeader, exists := source[name]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.headers.%s", path, name),
+				Type:     ChangeTypeAdded,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response header %q added", name),
+			})
+			continue
+		}
+
+		// Compare header details
+		d.diffHeader(sourceHeader, targetHeader, fmt.Sprintf("%s.headers.%s", path, name), result)
+	}
+}
+
+// diffHeader compares individual Header objects
+func (d *Differ) diffHeader(source, target *parser.Header, path string, result *DiffResult) {
+	if source.Description != target.Description {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "header description changed",
+		})
+	}
+
+	if source.Required != target.Required {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".required",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Required,
+			NewValue: target.Required,
+			Message:  fmt.Sprintf("required changed from %v to %v", source.Required, target.Required),
+		})
+	}
+
+	if source.Deprecated != target.Deprecated {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".deprecated",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Deprecated,
+			NewValue: target.Deprecated,
+			Message:  fmt.Sprintf("deprecated changed from %v to %v", source.Deprecated, target.Deprecated),
+		})
+	}
+
+	if source.Type != target.Type {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".type",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Type,
+			NewValue: target.Type,
+			Message:  fmt.Sprintf("type changed from %q to %q", source.Type, target.Type),
+		})
+	}
+
+	if source.Style != target.Style {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".style",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Style,
+			NewValue: target.Style,
+			Message:  fmt.Sprintf("style changed from %q to %q", source.Style, target.Style),
+		})
+	}
+
+	// Compare Header extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
+}
+
+// diffMediaType compares individual MediaType objects
+func (d *Differ) diffMediaType(source, target *parser.MediaType, path string, result *DiffResult) {
+	// Compare schemas if present
+	if source.Schema != nil && target.Schema != nil {
+		d.diffSchema(source.Schema, target.Schema, path+".schema", result)
+	} else if source.Schema != nil && target.Schema == nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".schema",
+			Type:     ChangeTypeRemoved,
+			Category: CategoryResponse,
+			Message:  "schema removed",
+		})
+	} else if source.Schema == nil && target.Schema != nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".schema",
+			Type:     ChangeTypeAdded,
+			Category: CategoryResponse,
+			Message:  "schema added",
+		})
+	}
+
+	// Compare MediaType extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
+}
+
+// diffLink compares individual Link objects
+func (d *Differ) diffLink(source, target *parser.Link, path string, result *DiffResult) {
+	if source.OperationRef != target.OperationRef {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".operationRef",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.OperationRef,
+			NewValue: target.OperationRef,
+			Message:  "operationRef changed",
+		})
+	}
+
+	if source.OperationID != target.OperationID {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".operationId",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.OperationID,
+			NewValue: target.OperationID,
+			Message:  "operationId changed",
+		})
+	}
+
+	if source.Description != target.Description {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryResponse,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "description changed",
+		})
+	}
+
+	// Compare Link extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
+}
+
+// diffResponseContent compares response content maps
+func (d *Differ) diffResponseContent(source, target map[string]*parser.MediaType, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed media types
+	for mediaType := range source {
+		if _, exists := target[mediaType]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.content.%s", path, mediaType),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response media type %q removed", mediaType),
+			})
+		}
+	}
+
+	// Find added or modified media types
+	for mediaType, targetMedia := range target {
+		sourceMedia, exists := source[mediaType]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.content.%s", path, mediaType),
+				Type:     ChangeTypeAdded,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response media type %q added", mediaType),
+			})
+			continue
+		}
+
+		// Compare media type details
+		d.diffMediaType(sourceMedia, targetMedia, fmt.Sprintf("%s.content.%s", path, mediaType), result)
+	}
+}
+
+// diffResponseLinks compares response link maps
+func (d *Differ) diffResponseLinks(source, target map[string]*parser.Link, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed links
+	for name := range source {
+		if _, exists := target[name]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.links.%s", path, name),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response link %q removed", name),
+			})
+		}
+	}
+
+	// Find added or modified links
+	for name, targetLink := range target {
+		sourceLink, exists := source[name]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.links.%s", path, name),
+				Type:     ChangeTypeAdded,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response link %q added", name),
+			})
+			continue
+		}
+
+		// Compare link details
+		d.diffLink(sourceLink, targetLink, fmt.Sprintf("%s.links.%s", path, name), result)
+	}
+}
+
+// diffResponseExamples compares response example maps
+func (d *Differ) diffResponseExamples(source, target map[string]any, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed examples
+	for name := range source {
+		if _, exists := target[name]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.examples.%s", path, name),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response example %q removed", name),
+			})
+		}
+	}
+
+	// Find added examples (we don't deep-compare example values)
+	for name := range target {
+		if _, exists := source[name]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.examples.%s", path, name),
+				Type:     ChangeTypeAdded,
+				Category: CategoryResponse,
+				Message:  fmt.Sprintf("response example %q added", name),
+			})
+		}
+	}
+}
+
 // diffSchemas compares schema maps
 func (d *Differ) diffSchemas(source, target map[string]*parser.Schema, path string, result *DiffResult) {
 	// Find removed schemas
-	for name := range source {
-		if _, exists := target[name]; !exists {
+	for name, sourceSchema := range source {
+		targetSchema, exists := target[name]
+		if !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s.%s", path, name),
 				Type:     ChangeTypeRemoved,
 				Category: CategorySchema,
 				Message:  fmt.Sprintf("schema %q removed", name),
 			})
+			continue
 		}
+
+		// Compare schema extensions
+		d.diffSchema(sourceSchema, targetSchema, fmt.Sprintf("%s.%s", path, name), result)
 	}
 
 	// Find added schemas
@@ -570,22 +905,35 @@ func (d *Differ) diffSchemas(source, target map[string]*parser.Schema, path stri
 			})
 		}
 	}
+}
 
-	// Note: Deep schema comparison is complex and would require significant additional logic
+// diffSchema compares individual Schema objects
+func (d *Differ) diffSchema(source, target *parser.Schema, path string, result *DiffResult) {
+	// Note: Full schema comparison is complex.
+	// Currently we only compare extensions.
+	// Deep schema field comparison would require significant additional logic.
+
+	// Compare Schema extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffSecuritySchemes compares security scheme maps
 func (d *Differ) diffSecuritySchemes(source, target map[string]*parser.SecurityScheme, path string, result *DiffResult) {
 	// Find removed schemes
-	for name := range source {
-		if _, exists := target[name]; !exists {
+	for name, sourceScheme := range source {
+		targetScheme, exists := target[name]
+		if !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s.%s", path, name),
 				Type:     ChangeTypeRemoved,
 				Category: CategorySecurity,
 				Message:  fmt.Sprintf("security scheme %q removed", name),
 			})
+			continue
 		}
+
+		// Compare security scheme details
+		d.diffSecurityScheme(sourceScheme, targetScheme, fmt.Sprintf("%s.%s", path, name), result)
 	}
 
 	// Find added schemes
@@ -601,6 +949,23 @@ func (d *Differ) diffSecuritySchemes(source, target map[string]*parser.SecurityS
 	}
 }
 
+// diffSecurityScheme compares individual SecurityScheme objects
+func (d *Differ) diffSecurityScheme(source, target *parser.SecurityScheme, path string, result *DiffResult) {
+	if source.Type != target.Type {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".type",
+			Type:     ChangeTypeModified,
+			Category: CategorySecurity,
+			OldValue: source.Type,
+			NewValue: target.Type,
+			Message:  fmt.Sprintf("security scheme type changed from %q to %q", source.Type, target.Type),
+		})
+	}
+
+	// Compare SecurityScheme extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
+}
+
 // diffTags compares Tag slices
 func (d *Differ) diffTags(source, target []*parser.Tag, path string, result *DiffResult) {
 	sourceMap := make(map[string]*parser.Tag)
@@ -614,15 +979,20 @@ func (d *Differ) diffTags(source, target []*parser.Tag, path string, result *Dif
 	}
 
 	// Find removed tags
-	for name := range sourceMap {
-		if _, exists := targetMap[name]; !exists {
+	for name, sourceTag := range sourceMap {
+		targetTag, exists := targetMap[name]
+		if !exists {
 			result.Changes = append(result.Changes, Change{
 				Path:     fmt.Sprintf("%s[%s]", path, name),
 				Type:     ChangeTypeRemoved,
 				Category: CategoryInfo,
 				Message:  fmt.Sprintf("tag %q removed", name),
 			})
+			continue
 		}
+
+		// Compare tag details
+		d.diffTag(sourceTag, targetTag, fmt.Sprintf("%s[%s]", path, name), result)
 	}
 
 	// Find added tags
@@ -636,6 +1006,23 @@ func (d *Differ) diffTags(source, target []*parser.Tag, path string, result *Dif
 			})
 		}
 	}
+}
+
+// diffTag compares individual Tag objects
+func (d *Differ) diffTag(source, target *parser.Tag, path string, result *DiffResult) {
+	if source.Description != target.Description {
+		result.Changes = append(result.Changes, Change{
+			Path:     path + ".description",
+			Type:     ChangeTypeModified,
+			Category: CategoryInfo,
+			OldValue: source.Description,
+			NewValue: target.Description,
+			Message:  "tag description changed",
+		})
+	}
+
+	// Compare Tag extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffComponents compares Components objects (OAS 3.x)
@@ -669,6 +1056,9 @@ func (d *Differ) diffComponents(source, target *parser.Components, path string, 
 
 	// Compare security schemes
 	d.diffSecuritySchemes(source.SecuritySchemes, target.SecuritySchemes, path+".securitySchemes", result)
+
+	// Compare Components extensions
+	d.diffExtras(source.Extra, target.Extra, path, result)
 }
 
 // diffWebhooks compares webhook maps (OAS 3.1+)
@@ -704,19 +1094,19 @@ func (d *Differ) diffWebhooks(source, target map[string]*parser.PathItem, path s
 
 // diffStringSlices compares string slices and reports differences
 func (d *Differ) diffStringSlices(source, target []string, path string, category ChangeCategory, itemName string, result *DiffResult) {
-	sourceMap := make(map[string]bool)
+	sourceMap := make(map[string]struct{})
 	for _, item := range source {
-		sourceMap[item] = true
+		sourceMap[item] = struct{}{}
 	}
 
-	targetMap := make(map[string]bool)
+	targetMap := make(map[string]struct{})
 	for _, item := range target {
-		targetMap[item] = true
+		targetMap[item] = struct{}{}
 	}
 
 	// Find removed items
 	for item := range sourceMap {
-		if !targetMap[item] {
+		if _, ok := targetMap[item]; !ok {
 			result.Changes = append(result.Changes, Change{
 				Path:     path,
 				Type:     ChangeTypeRemoved,
@@ -729,13 +1119,60 @@ func (d *Differ) diffStringSlices(source, target []string, path string, category
 
 	// Find added items
 	for item := range targetMap {
-		if !sourceMap[item] {
+		if _, ok := sourceMap[item]; !ok {
 			result.Changes = append(result.Changes, Change{
 				Path:     path,
 				Type:     ChangeTypeAdded,
 				Category: category,
 				NewValue: item,
 				Message:  fmt.Sprintf("%s %q added", itemName, item),
+			})
+		}
+	}
+}
+
+// diffExtras compares Extra maps (specification extensions with x- prefix)
+func (d *Differ) diffExtras(source, target map[string]any, path string, result *DiffResult) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed extensions
+	for key, sourceValue := range source {
+		targetValue, exists := target[key]
+		if !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeRemoved,
+				Category: CategoryExtension,
+				OldValue: sourceValue,
+				Message:  fmt.Sprintf("extension %q removed", key),
+			})
+			continue
+		}
+
+		// Check if value changed
+		if !reflect.DeepEqual(sourceValue, targetValue) {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeModified,
+				Category: CategoryExtension,
+				OldValue: sourceValue,
+				NewValue: targetValue,
+				Message:  fmt.Sprintf("extension %q modified", key),
+			})
+		}
+	}
+
+	// Find added extensions
+	for key, targetValue := range target {
+		if _, exists := source[key]; !exists {
+			result.Changes = append(result.Changes, Change{
+				Path:     fmt.Sprintf("%s.%s", path, key),
+				Type:     ChangeTypeAdded,
+				Category: CategoryExtension,
+				NewValue: targetValue,
+				Message:  fmt.Sprintf("extension %q added", key),
 			})
 		}
 	}
