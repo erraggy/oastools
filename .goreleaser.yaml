@@ -71,10 +71,9 @@ changelog:
       - "^test:"
 
 release:
-  # Use existing release created by gh release create
-  # This allows you to write detailed release notes first
-  mode: keep-existing
-  # Disable draft mode - use the release as-is
+  # Let GoReleaser create and manage the release
+  mode: replace
+  # Create as draft first, then publish after verification
   draft: false
-  # Don't replace the release notes you created
-  replace_existing_draft: false
+  # Replace existing release if present
+  replace_existing_draft: true
