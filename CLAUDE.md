@@ -680,10 +680,11 @@ If you prefer to run releases locally (not recommended), you'll need to use the 
 The following repository settings are **required** for automated releases to work correctly:
 
 1. **Enable release immutability** (Settings → General → Releases):
-   - **MUST be ENABLED** for security best practices
-   - This setting requires releases to be immutable after creation
-   - `.goreleaser.yaml` is configured with `draft: false` to be compatible with this setting
-   - GoReleaser publishes releases immediately (no draft stage)
+   - **RECOMMENDED to be ENABLED** for supply chain security best practices
+   - Once published, releases become immutable (assets/tags cannot be modified)
+   - `.goreleaser.yaml` is configured with `draft: true` to be compatible with this setting
+   - Draft releases remain mutable, allowing GoReleaser to add assets
+   - Releases must be manually published after GoReleaser completes
 
 2. **Workflow permissions** (Settings → Actions → General):
    - **Required**: "Read and write permissions" for workflows
@@ -719,7 +720,7 @@ Before creating your first release, ensure:
 
 **Release Process (Recommended Workflow):**
 
-This workflow creates the GitHub Release first with detailed notes, then GoReleaser adds binaries and publishes to Homebrew.
+This workflow creates a draft GitHub Release with custom notes, GoReleaser adds binaries, then you manually publish the release.
 
 1. **Determine the version number** based on the changes included (see SemVer rules above)
 
@@ -729,9 +730,9 @@ This workflow creates the GitHub Release first with detailed notes, then GoRelea
    ```
    This runs GoReleaser in snapshot mode to verify everything builds correctly without publishing.
 
-3. **Create the GitHub Release with detailed notes**:
+3. **Create a DRAFT GitHub Release with detailed notes**:
    ```bash
-   gh release create v1.7.1 \
+   gh release create v1.7.1 --draft \
      --title "v1.7.1 - Brief summary within 72 chars" \
      --notes "$(cat <<'EOF'
    ## Summary
@@ -772,28 +773,47 @@ This workflow creates the GitHub Release first with detailed notes, then GoRelea
    )"
    ```
 
-   **Important:** The `gh release create` command automatically:
+   **Important:** The `gh release create --draft` command:
    - Creates the version tag (e.g., `v1.7.1`)
-   - Creates the GitHub Release with your detailed notes
+   - Creates a **DRAFT** GitHub Release with your detailed notes
    - Triggers the GitHub Actions workflow
+   - Draft releases remain **mutable** (assets can be added even with immutability enabled)
 
 4. **Monitor the automated build**:
    The GitHub Actions workflow will automatically:
    - Build binaries for all platforms (Linux, macOS, Windows)
-   - Add binary archives to your GitHub Release (published immediately, not as draft)
-   - Publish the Homebrew Cask to `homebrew-oastools`
+   - Add binary archives to your **DRAFT** GitHub Release
+   - Update the Homebrew Cask in `homebrew-oastools`
 
-   **Note**: With `draft: false` in `.goreleaser.yaml`, releases are published immediately
-   for compatibility with the "Enable release immutability" security setting.
+   **Note**: With `draft: true` in `.goreleaser.yaml`, GoReleaser adds assets to the draft
+   without publishing. This is compatible with GitHub's immutability setting because
+   draft releases remain mutable.
 
    Monitor progress at:
    - Workflow: https://github.com/erraggy/oastools/actions
-   - Release: https://github.com/erraggy/oastools/releases
+   - Release (draft): https://github.com/erraggy/oastools/releases
    - Homebrew tap: https://github.com/erraggy/homebrew-oastools
 
-5. **Verify the release**:
-   - Check that binaries were added to the GitHub Release
-   - Verify Homebrew formula was updated in `homebrew-oastools`
+5. **Verify the draft release has all assets**:
+   ```bash
+   gh release view v1.7.1 --json assets,isDraft
+   ```
+   Confirm:
+   - `isDraft: true`
+   - All platform binaries are attached (Darwin, Linux, Windows)
+
+6. **Publish the release**:
+   Once you've verified everything looks good, publish the draft:
+   ```bash
+   gh release edit v1.7.1 --draft=false
+   ```
+
+   **Once published, the release becomes IMMUTABLE** (if immutability setting is enabled).
+   Assets and tags cannot be modified or deleted.
+
+7. **Verify the published release**:
+   - Check that the release is now public on GitHub
+   - Verify Homebrew Cask is accessible
    - Test Homebrew installation (optional):
      ```bash
      brew tap erraggy/oastools

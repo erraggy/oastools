@@ -71,7 +71,7 @@ changelog:
       - "^test:"
 
 release:
-  # Let GoReleaser create and manage the release
-  # Publish releases immediately for compatibility with release immutability setting
-  # (Settings → General → Releases → Enable release immutability)
-  draft: false
+  # Create as draft to allow custom release notes via gh release create --draft
+  # GoReleaser adds binaries to the draft, then manually publish with gh release edit
+  # Compatible with GitHub's immutability setting (drafts remain mutable until published)
+  draft: true
