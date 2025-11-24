@@ -72,5 +72,6 @@ changelog:
 
 release:
   # Let GoReleaser create and manage the release
-  # Create as draft to allow asset uploads before publishing
-  draft: true
+  # Publish releases immediately for compatibility with release immutability setting
+  # (Settings → General → Releases → Enable release immutability)
+  draft: false

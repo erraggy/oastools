@@ -675,6 +675,26 @@ If you prefer to run releases locally (not recommended), you'll need to use the 
 
 **IMPORTANT:** Never commit the PAT to git. Keep it secure in GitHub Secrets or your local environment only.
 
+**GitHub Repository Settings for Releases:**
+
+The following repository settings are **required** for automated releases to work correctly:
+
+1. **Enable release immutability** (Settings → General → Releases):
+   - **MUST be ENABLED** for security best practices
+   - This setting requires releases to be immutable after creation
+   - `.goreleaser.yaml` is configured with `draft: false` to be compatible with this setting
+   - GoReleaser publishes releases immediately (no draft stage)
+
+2. **Workflow permissions** (Settings → Actions → General):
+   - **Required**: "Read and write permissions" for workflows
+   - The release workflow needs `contents: write` to create releases and attach binary assets
+
+3. **Branch protection and rulesets**:
+   - Branch protection rules and rulesets (like `main-protections`) can be safely enabled
+   - They apply to branch operations, not tag creation
+   - Release workflow triggers on tag push, which bypasses branch protection
+   - The `main-protections` ruleset requires PRs and status checks for direct commits to main
+
 **Release Make Targets:**
 
 The following make targets are available to help with testing:
@@ -760,8 +780,11 @@ This workflow creates the GitHub Release first with detailed notes, then GoRelea
 4. **Monitor the automated build**:
    The GitHub Actions workflow will automatically:
    - Build binaries for all platforms (Linux, macOS, Windows)
-   - Add binary archives to your GitHub Release
-   - Publish the Homebrew formula to `homebrew-oastools`
+   - Add binary archives to your GitHub Release (published immediately, not as draft)
+   - Publish the Homebrew Cask to `homebrew-oastools`
+
+   **Note**: With `draft: false` in `.goreleaser.yaml`, releases are published immediately
+   for compatibility with the "Enable release immutability" security setting.
 
    Monitor progress at:
    - Workflow: https://github.com/erraggy/oastools/actions
