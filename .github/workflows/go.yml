@@ -13,6 +13,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Kill job if it runs longer than 15 minutes
     steps:
     - uses: actions/checkout@v6
 
@@ -25,7 +26,9 @@ jobs:
       run: go build -v ./...
 
     - name: Test
-      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic -timeout=10m -parallel=4 ./...
+      env:
+        GOMAXPROCS: 2  # Limit parallelism to avoid overwhelming the runner
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5
