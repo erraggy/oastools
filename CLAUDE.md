@@ -556,19 +556,23 @@ go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 1. **Size computation for allocation may overflow** (CWE-190)
    - **Issue**: Computing slice/array capacity using `len(a)+len(b)` can overflow
-   - **Fix**: Add overflow guard before allocation
+   - **Fix**: Use uint64 for safe arithmetic, then check if result fits in int
    - **Example**:
      ```go
      // Before (vulnerable)
      result := make([]string, 0, len(a)+len(b))
 
-     // After (safe)
+     // After (safe - using uint64 to avoid overflow in the check itself)
      capacity := 0
-     if len(a) <= (1<<31-1)-len(b) { // Check if len(a)+len(b) would overflow
-         capacity = len(a) + len(b)
+     sum := uint64(len(a)) + uint64(len(b))
+     if sum <= uint64(1<<31-1) { // Check if sum fits in int
+         capacity = int(sum)
      }
      result := make([]string, 0, capacity)
      ```
+   - **Why uint64**: Performing arithmetic in int can trigger overflow warnings even in
+     the overflow check itself. Using uint64 ensures safe arithmetic, then we verify
+     the result fits within int bounds before using it.
 
 2. **Workflow does not contain permissions** (CWE-275)
    - **Issue**: GitHub Actions workflows without explicit `permissions` block use default read-write access
