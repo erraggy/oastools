@@ -447,6 +447,18 @@ Check workflow status:
 - Check for timing-dependent tests
 - Verify all test files are committed
 
+**Exit code 143 (SIGTERM):**
+- This means the test process was killed by the runner
+- Common with `go test -race` on GitHub Actions
+- Usually indicates tests hung or timed out
+- Current mitigations in place:
+  - Test timeout: 10 minutes per package
+  - Job timeout: 15 minutes total
+  - Limited parallelism: `-parallel=4`
+  - `GOMAXPROCS=2` to prevent resource exhaustion
+- If you see this error intermittently, it's likely a runner resource issue, not your code
+- Related: [actions/runner-images#6680](https://github.com/actions/runner-images/issues/6680), [actions/runner-images#7146](https://github.com/actions/runner-images/issues/7146)
+
 **Linter fails:**
 - Run `make lint` locally
 - Fix reported issues
