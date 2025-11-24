@@ -274,55 +274,100 @@ With release immutability **disabled temporarily**:
 
 ### Understanding `gh release create --draft` Behavior
 
+**CRITICAL FINDING**: Draft releases do NOT create/push tags!
+
 **With release immutability DISABLED**:
 - `gh release create v1.X.Y` (without `--draft`) creates a published release AND creates/pushes the tag
 - Tag creation triggers the workflow
 - GoReleaser can upload assets to the already-published release (no 422 errors)
 - This works because the release is mutable
 
-**With release immutability ENABLED** (not yet tested, theoretical):
-- `gh release create v1.X.Y --draft` should create a draft release AND create/push the tag
-- Tag creation should trigger the workflow
-- GoReleaser should upload assets to the **draft** release (because `.goreleaser.yaml` has `draft: true`)
-- After workflow completes and assets are verified, manually publish with `gh release edit v1.X.Y --draft=false`
-- Once published, release becomes immutable
+**With release immutability ENABLED**:
+- `gh release create v1.X.Y --draft` creates a draft release but **does NOT push the tag**
+- No tag = no workflow trigger = no assets uploaded
+- Publishing the draft with `gh release edit v1.X.Y --draft=false` creates/pushes the tag
+- Tag creation triggers the workflow
+- BUT: Release is now immutable, so GoReleaser cannot upload assets → 422 errors
 
-### The Critical Mistake Pattern
+**The Fundamental Problem**:
+With immutability enabled, there's a catch-22:
+- If you create a draft: tag isn't pushed, workflow doesn't run
+- If you publish the draft: tag is pushed, workflow runs, but release is immutable → 422 errors
+- `.goreleaser.yaml` has `draft: true`, but this doesn't help because the release is already published/immutable when GoReleaser tries to update it
 
-**What causes 422 errors**:
-1. Create draft release (creates tag, triggers workflow)
-2. **Immediately publish the draft** before workflow completes
-3. Release becomes immutable
-4. GoReleaser tries to upload assets to immutable release → 422 errors
+### Possible Solutions for Immutability-Enabled Releases
 
-**The fix**:
-- WAIT for the workflow to complete before publishing
-- Verify assets are attached to the draft
-- THEN publish the draft
+**Option 1: Keep Immutability Disabled** (Current approach)
+- Create published releases directly with `gh release create v1.X.Y`
+- Tag is created/pushed, workflow runs
+- GoReleaser can update the mutable release
+- Simple and works reliably
+
+**Option 2: Change GoReleaser Workflow** (Requires workflow changes)
+- Don't trigger on tag push
+- Instead, trigger workflow manually or on release publication
+- GoReleaser creates the release instead of us creating it first
+- Complex, requires rethinking the entire workflow
+
+**Option 3: Manual Tag Push** (Not viable)
+- Manually create and push tag to trigger workflow
+- But: Repository rules prevent direct tag creation
+- Only `gh release create` can bypass these rules
+
+**Recommendation**: Keep immutability disabled for now. The security benefit of immutability is minimal for this use case, and the complexity cost is high.
+
+### The Critical Mistake Pattern (CORRECTED)
+
+**What causes 422 errors with immutability enabled**:
+1. Create draft release with `gh release create v1.X.Y --draft`
+2. Draft is created but NO TAG is pushed (workflow doesn't trigger)
+3. Publish the draft with `gh release edit v1.X.Y --draft=false`
+4. Tag is NOW created/pushed, triggering the workflow
+5. Release is now immutable (because it's published)
+6. GoReleaser tries to upload assets to immutable release → 422 errors
+
+**Why the original CLAUDE.md instructions were wrong**:
+- They assumed draft creation would create/push the tag
+- They assumed we could wait for workflow to complete before publishing
+- But workflow doesn't run until the tag is pushed
+- And tag isn't pushed until the draft is published
+- By the time workflow runs, release is already immutable
 
 ## Questions Resolved
 
 1. **Does `gh release create --draft` actually create and push the tag?**
-   - ✅ YES - confirmed that creating a release (draft or published) creates and pushes the tag
-   - This triggers the workflow via the `on: push: tags: v*` trigger
+   - ❌ NO - Draft releases do NOT create/push tags
+   - ✅ Only PUBLISHED releases create/push tags
+   - This is the critical misunderstanding that caused the 422 errors
 
 2. **What's the exact timing of tag creation?**
-   - ✅ Tag is created when you run `gh release create` (whether `--draft` or not)
-   - Publishing the draft does NOT create the tag (it already exists)
+   - ✅ Tag is created when you run `gh release create v1.X.Y` (WITHOUT `--draft`)
+   - ✅ OR when you publish a draft with `gh release edit v1.X.Y --draft=false`
+   - ❌ Tag is NOT created when you run `gh release create v1.X.Y --draft`
 
 3. **Can we see workflow logs for v1.9.11 failure?**
-   - ✅ Already reviewed - confirmed 422 errors
-   - Release was immutable when GoReleaser tried to upload
+   - ✅ Reviewed - confirmed 422 errors
+   - ✅ Release was immutable when GoReleaser tried to upload
+   - ✅ Root cause: Published draft before workflow completed, but workflow didn't run until we published
 
-## Future Testing Needed
+## Recommended Approach Going Forward
 
-When we re-enable immutability, we need to test:
-1. Create draft release with `gh release create v1.X.Y --draft`
-2. Verify tag is created and workflow triggers
-3. Wait for workflow to complete
-4. Verify assets are attached to draft
-5. Publish with `gh release edit v1.X.Y --draft=false`
-6. Confirm this process works without 422 errors
+**DO NOT re-enable release immutability** unless we're willing to redesign the entire release workflow.
+
+**Current working process** (with immutability disabled):
+1. Create published release directly: `gh release create v1.X.Y --title "..." --notes "..."`
+2. Tag is created/pushed automatically
+3. Workflow triggers via tag push
+4. GoReleaser uploads assets to the (mutable) release
+5. Done - release is published with all assets
+
+**This is simple, reliable, and works.**
+
+**If we want to use immutability in the future**, we would need to:
+1. Change the workflow to NOT trigger on tag push
+2. Change the workflow to trigger on release publication or run manually
+3. Have GoReleaser create the release instead of us
+4. This is complex and not worth the effort for minimal security benefit
 
 ## References
 

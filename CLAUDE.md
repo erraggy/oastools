@@ -271,22 +271,28 @@ Verify setup: `gh secret list --repo erraggy/oastools`
 
 ### GitHub Repository Settings
 
-1. **Enable release immutability** - Recommended for security (Settings → General → Releases)
+1. **Release immutability** - Currently DISABLED (not compatible with current workflow)
 2. **Workflow permissions** - "Read and write permissions" required (Settings → Actions → General)
 3. **Branch protection** - Can be enabled (applies to branches, not tags)
 
 ### Release Process
 
-⚠️ **CRITICAL**: Use `--draft` flag to create draft release compatible with immutability setting.
+⚠️ **IMPORTANT**: Release immutability is DISABLED. Use direct published releases (not drafts).
+
+**Why not use drafts?**
+- Draft releases don't create/push tags
+- No tag = no workflow trigger
+- Publishing draft creates tag, but release is then immutable → 422 errors
+- See [planning/release-issues.md](planning/release-issues.md) for full analysis
 
 **Step 1:** Test locally (optional but recommended)
 ```bash
 make release-test
 ```
 
-**Step 2:** Create DRAFT GitHub Release
+**Step 2:** Create published GitHub Release
 ```bash
-gh release create v1.7.1 --draft \
+gh release create v1.7.1 \
   --title "v1.7.1 - Brief summary within 72 chars" \
   --notes "$(cat <<'EOF'
 ## Summary
@@ -316,26 +322,25 @@ EOF
 )"
 ```
 
-This creates git tag, draft release, and triggers GitHub Actions workflow.
+This creates git tag, published release, and triggers GitHub Actions workflow immediately.
 
 **Step 3:** Monitor automated build
 - Workflow: https://github.com/erraggy/oastools/actions
-- Release (draft): https://github.com/erraggy/oastools/releases
+- Release: https://github.com/erraggy/oastools/releases
 
-**Step 4:** Verify draft release
+**Step 4:** Verify release has assets
 ```bash
-gh release view v1.7.1 --json assets,isDraft
+gh release view v1.7.1 --json assets
 ```
 
-**Step 5:** Publish release
-```bash
-gh release edit v1.7.1 --draft=false
-```
+Confirm all platform binaries are attached (Darwin, Linux, Windows).
 
-**Step 6:** Verify and test
-- Check release is public on GitHub
-- Test: `brew tap erraggy/oastools && brew install oastools`
-- Check [planning/homebrew-cask-migration.md](planning/homebrew-cask-migration.md) for follow-up tasks (v1.9.5+)
+**Step 5:** Test installation
+```bash
+brew tap erraggy/oastools
+brew install oastools
+oastools --version
+```
 
 ### Troubleshooting
 
