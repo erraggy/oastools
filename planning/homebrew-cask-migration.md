@@ -1,8 +1,14 @@
 # Homebrew Cask Migration Follow-Up
 
+## Migration Status: ✅ COMPLETED (2025-11-23)
+
+All migration steps have been completed successfully. The old Formula has been disabled and users are being directed to the new Cask.
+
 ## Context
 
 As of commit 9c737d0 (2025-11-20), we migrated the GoReleaser configuration from the deprecated `brews` section to the modern `homebrew_casks` section. This aligns with GoReleaser v2.10+ best practices for distributing pre-compiled binaries.
+
+**Completion Date**: 2025-11-23 (commit 4016641 in homebrew-oastools repository)
 
 ## What Changed
 
@@ -83,11 +89,11 @@ Both files may coexist temporarily during the migration period.
 - [x] Update `.goreleaser.yaml` to use `homebrew_casks` (commit 9c737d0)
 - [x] Test configuration with `make release-test`
 - [x] Push changes to main branch
-- [ ] Release next version (v1.9.5+)
-- [ ] Verify new Cask file is created in `homebrew-oastools` repository
-- [ ] Disable old Formula with `disable!` directive
-- [ ] Test that users can install/upgrade successfully
-- [ ] Consider deleting the old Formula after a grace period (optional)
+- [x] Release next version (v1.9.5+) - Released v1.9.8 on 2025-11-23
+- [x] Verify new Cask file is created in `homebrew-oastools` repository - Verified, Cask exists and is up-to-date
+- [x] Disable old Formula with `disable!` directive - Completed on 2025-11-23 (commit 4016641 in homebrew-oastools)
+- [x] Test that users can install/upgrade successfully - Verified, Cask shows version 1.9.8 and is installable
+- [ ] Consider deleting the old Formula after a grace period (optional) - Recommend keeping for 3-6 months
 
 ## References
 
