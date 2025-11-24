@@ -2,6 +2,7 @@ package joiner
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -167,7 +168,14 @@ func (j *Joiner) mergeOAS2Arrays(joined, source *parser.OAS2Document, ctx docume
 // mergeUniqueStrings merges two string slices, removing duplicates
 func (j *Joiner) mergeUniqueStrings(a, b []string) []string {
 	seen := make(map[string]bool)
-	result := make([]string, 0, len(a)+len(b))
+	// Guard against overflow when computing capacity (CWE-190)
+	// Use uint64 to safely compute the sum, then check if it fits in int for the current platform
+	capacity := 0
+	sum := uint64(len(a)) + uint64(len(b))
+	if sum <= uint64(math.MaxInt) {
+		capacity = int(sum)
+	}
+	result := make([]string, 0, capacity)
 
 	for _, s := range a {
 		if !seen[s] {

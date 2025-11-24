@@ -536,6 +536,109 @@ When writing benchmark tests, you MUST follow these requirements:
 - **Automatic Handling**: `b.Loop()` manages allocations reporting and timing
 - **Future Compatibility**: Aligns with Go's benchmark evolution
 
+## Security
+
+### Reviewing Security Alerts
+
+**Checking for security vulnerabilities:**
+
+GitHub Code Scanning alerts are not accessible via web scraping, but can be retrieved using the GitHub API:
+
+```bash
+# List all code scanning alerts
+gh api /repos/erraggy/oastools/code-scanning/alerts
+
+# Check for Go vulnerabilities using govulncheck
+go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+```
+
+**Common security alert types:**
+
+1. **Size computation for allocation may overflow** (CWE-190)
+   - **Issue**: Computing slice/array capacity using `len(a)+len(b)` can overflow
+   - **Fix**: Use uint64 for safe arithmetic, then check if result fits in int
+   - **Example** (see `joiner/oas2.go:171-178` for production usage):
+     ```go
+     // Before (vulnerable)
+     result := make([]string, 0, len(a)+len(b))
+
+     // After (safe - using uint64 to avoid overflow in the check itself)
+     import "math"
+
+     capacity := 0
+     sum := uint64(len(a)) + uint64(len(b))
+     if sum <= uint64(math.MaxInt) { // Platform-independent: works on 32-bit and 64-bit
+         capacity = int(sum)
+     }
+     result := make([]string, 0, capacity)
+     ```
+   - **Why uint64**: Performing arithmetic in int can trigger overflow warnings even in
+     the overflow check itself. Using uint64 ensures safe arithmetic, then we verify
+     the result fits within int bounds before using it.
+   - **Why math.MaxInt**: Go's `int` type is platform-dependent (32-bit on 386, 64-bit
+     on amd64/arm64). Using `math.MaxInt` ensures the check works correctly on all
+     supported platforms without hardcoding architecture-specific values.
+
+2. **Workflow does not contain permissions** (CWE-275)
+   - **Issue**: GitHub Actions workflows without explicit `permissions` block use default read-write access
+   - **Fix**: Add minimal `permissions` block to workflow
+   - **Example**:
+     ```yaml
+     # .github/workflows/go.yml
+     on:
+       push:
+         branches: [ "main" ]
+
+     permissions:
+       contents: read  # Minimal permissions following principle of least privilege
+
+     jobs:
+       build:
+         runs-on: ubuntu-latest
+     ```
+
+**Security fix workflow:**
+
+1. Retrieve alerts using `gh api /repos/erraggy/oastools/code-scanning/alerts`
+2. Review alert details including severity, location, and recommendations
+3. Implement fixes following alert-specific guidance
+4. Run `make test` to verify fixes don't break functionality
+5. Run `govulncheck` to verify no remaining vulnerabilities
+6. Commit with clear security-focused message
+7. Verify alerts are closed after push
+
+**Retrieving workflow results and PR check details:**
+
+When a PR is created or updated, GitHub Actions runs multiple workflows (CodeQL, tests, linting, etc.). To retrieve results:
+
+```bash
+# Check status of all PR checks
+gh pr checks <PR_NUMBER>
+
+# View details of a specific workflow run
+gh run view <RUN_ID>
+
+# Get CodeQL/security scanning results for a PR
+gh api /repos/erraggy/oastools/check-runs/<CHECK_RUN_ID>/annotations
+
+# Monitor a running workflow in real-time
+gh run watch <RUN_ID>
+
+# List recent workflow runs
+gh run list --workflow=codeql.yml --limit=5
+```
+
+**Common workflow check scenarios:**
+
+1. **CodeQL fails with new alerts**: The check run output includes a summary like "1 new alert including 1 high severity security vulnerability". Retrieve annotations to see the exact location and issue.
+
+2. **Getting check run IDs from PR checks**: The `gh pr checks` command shows URLs like `https://github.com/.../runs/56190404681` - the number at the end is the check run ID.
+
+3. **Understanding check run vs workflow run**:
+   - **Workflow run**: The overall execution of a workflow (has multiple jobs)
+   - **Check run**: Individual status check that appears on the PR (one per job/conclusion)
+   - Use `gh run view` for workflow runs, `gh api check-runs` for individual checks
+
 ## Submitting changes
 
 **Before Submitting Code:**
@@ -544,6 +647,7 @@ When writing benchmark tests, you MUST follow these requirements:
 2. Run `make test-coverage` to review coverage report
 3. Verify that all new exported functionality has dedicated test cases
 4. Check that test names clearly describe what they test
+5. Check for security vulnerabilities using `govulncheck`
 
 **Never submit a PR with:**
 - Untested exported functions
