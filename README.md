@@ -175,20 +175,20 @@ The library includes comprehensive performance benchmarking (70+ benchmarks acro
 **Performance Highlights**:
 - **25-32% faster** JSON marshaling (v1.7.0 optimization)
 - **29-37% fewer** memory allocations
-- **30x faster** validation with `ValidateParsed` vs `Validate` (parse once, validate many)
+- **31x faster** validation with `ValidateParsed` vs `Validate` (parse once, validate many)
 - **9x faster** conversion with `ConvertParsed` vs `Convert` (parse once, convert many)
-- **154x faster** joining with `JoinParsed` vs `Join` (parse once, join many)
-- **58x faster** diffing with `DiffParsed` vs `Diff` (parse once, diff many)
+- **150x faster** joining with `JoinParsed` vs `Join` (parse once, join many)
+- **81x faster** diffing with `DiffParsed` vs `Diff` (parse once, diff many)
 
 **Document Processing Performance** (Apple M4, Go 1.24):
 
 | Operation        | Small (~60 lines) | Medium (~570 lines) | Large (~6000 lines) |
 |------------------|-------------------|---------------------|---------------------|
-| Parse            | 142 μs            | 1,130 μs            | 14,131 μs           |
-| Validate         | 143 μs            | 1,160 μs            | 14,635 μs           |
-| Convert (OAS2→3) | 153 μs            | 1,314 μs            | -                   |
-| Join (2 docs)    | 115 μs            | -                   | -                   |
-| Diff (2 docs)    | 457 μs            | -                   | -                   |
+| Parse            | 145 μs            | 1,144 μs            | 14,178 μs           |
+| Validate         | 147 μs            | 1,171 μs            | 14,583 μs           |
+| Convert (OAS2→3) | 152 μs            | 1,258 μs            | -                   |
+| Join (2 docs)    | 110 μs            | -                   | -                   |
+| Diff (2 docs)    | 463 μs            | -                   | -                   |
 
 For detailed performance analysis, methodology, and optimization strategies, see [benchmarks.md](benchmarks.md).
 

@@ -102,11 +102,11 @@ The benchmark suite includes **70+ benchmarks** across five main packages:
 
 | Document Size | Lines | Time (μs) | Memory (KB) | Allocations |
 |---------------|-------|-----------|-------------|-------------|
-| Small OAS3    | ~60   | 142       | 203         | 2,128       |
-| Medium OAS3   | ~570  | 1,130     | 1,465       | 17,449      |
-| Large OAS3    | ~6000 | 14,131    | 16,468      | 194,777     |
-| Small OAS2    | ~60   | 134       | 174         | 2,059       |
-| Medium OAS2   | ~570  | 1,024     | 1,230       | 16,027      |
+| Small OAS3    | ~60   | 145       | 203         | 2,128       |
+| Medium OAS3   | ~570  | 1,144     | 1,465       | 17,449      |
+| Large OAS3    | ~6000 | 14,178    | 16,468      | 194,777     |
+| Small OAS2    | ~60   | 136       | 174         | 2,059       |
+| Medium OAS2   | ~570  | 1,039     | 1,230       | 16,027      |
 
 **Parsing without validation** provides ~3-5% improvement over validated parsing.
 
@@ -114,15 +114,15 @@ The benchmark suite includes **70+ benchmarks** across five main packages:
 
 | Type         | Extra Fields | Time (ns) | Memory (bytes) | Allocations |
 |--------------|--------------|-----------|----------------|-------------|
-| Info         | None         | 421       | 192            | 2           |
-| Info         | 5 fields     | 1,717     | 1,737          | 26          |
-| Contact      | None         | 447       | 192            | 2           |
-| Contact      | With extras  | 1,692     | 1,377          | 24          |
-| Server       | None         | 373       | 160            | 2           |
-| Server       | With extras  | 2,205     | 2,010          | 29          |
-| OAS3Document | Small        | 19,750    | 7,002          | 66          |
-| OAS3Document | Medium       | 220,733   | 65,744         | 471         |
-| OAS3Document | Large        | 2,720,263 | 844,323        | 5,336       |
+| Info         | None         | 432       | 192            | 2           |
+| Info         | 5 fields     | 1,762     | 1,705          | 26          |
+| Contact      | None         | 449       | 192            | 2           |
+| Contact      | With extras  | 1,686     | 1,377          | 24          |
+| Server       | None         | 371       | 160            | 2           |
+| Server       | With extras  | 2,275     | 2,010          | 29          |
+| OAS3Document | Small        | 19,891    | 7,003          | 66          |
+| OAS3Document | Medium       | 221,137   | 65,753         | 471         |
+| OAS3Document | Large        | 2,724,839 | 840,948        | 5,336       |
 
 **Observation**: Marshaling performance scales linearly with document size and extra field count. The fast path (no extra fields) has minimal overhead.
 
@@ -132,21 +132,21 @@ The benchmark suite includes **70+ benchmarks** across five main packages:
 
 | Document Size | Lines | Time (μs) | Memory (KB) | Allocations |
 |---------------|-------|-----------|-------------|-------------|
-| Small OAS3    | ~60   | 143       | 208         | 2,218       |
-| Medium OAS3   | ~570  | 1,160     | 1,494       | 18,363      |
-| Large OAS3    | ~6000 | 14,635    | 16,851      | 205,078     |
-| Small OAS2    | ~60   | 137       | 180         | 2,133       |
-| Medium OAS2   | ~570  | 1,042     | 1,268       | 16,849      |
+| Small OAS3    | ~60   | 147       | 208         | 2,220       |
+| Medium OAS3   | ~570  | 1,171     | 1,495       | 18,365      |
+| Large OAS3    | ~6000 | 14,583    | 16,848      | 205,079     |
+| Small OAS2    | ~60   | 138       | 181         | 2,135       |
+| Medium OAS2   | ~570  | 1,075     | 1,268       | 16,851      |
 
 **Validating pre-parsed documents** (ValidateParsed):
 
 | Document Size | Time (μs) | Memory (KB) | Allocations |
 |---------------|-----------|-------------|-------------|
-| Small OAS3    | 4.7       | 5.2         | 90          |
-| Medium OAS3   | 40.2      | 33.4        | 914         |
-| Large OAS3    | 458       | 376         | 10,297      |
+| Small OAS3    | 4.7       | 5.1         | 90          |
+| Medium OAS3   | 40.4      | 32.6        | 914         |
+| Large OAS3    | 462       | 367         | 10,297      |
 
-**Observation**: ValidateParsed is **30x faster** than Validate for small documents (4.7μs vs 143μs) because it skips parsing. This is ideal for workflows where documents are parsed once and validated multiple times.
+**Observation**: ValidateParsed is **31x faster** than Validate for small documents (4.7μs vs 147μs) because it skips parsing. This is ideal for workflows where documents are parsed once and validated multiple times.
 
 ### Converter Performance
 
@@ -154,21 +154,21 @@ The benchmark suite includes **70+ benchmarks** across five main packages:
 
 | Conversion    | Document Size | Time (μs) | Memory (KB) | Allocations |
 |---------------|---------------|-----------|-------------|-------------|
-| OAS2 → OAS3   | Small         | 153       | 195         | 2,357       |
-| OAS2 → OAS3   | Medium        | 1,314     | 1,496       | 19,638      |
-| OAS3 → OAS2   | Small         | 168       | 221         | 2,388       |
-| OAS3 → OAS2   | Medium        | 1,540     | 1,741       | 21,370      |
+| OAS2 → OAS3   | Small         | 152       | 191         | 2,359       |
+| OAS2 → OAS3   | Medium        | 1,258     | 1,461       | 19,640      |
+| OAS3 → OAS2   | Small         | 160       | 216         | 2,390       |
+| OAS3 → OAS2   | Medium        | 1,438     | 1,696       | 21,369      |
 
 **Converting pre-parsed documents** (ConvertParsed):
 
 | Conversion    | Document Size | Time (μs) | Memory (KB) | Allocations |
 |---------------|---------------|-----------|-------------|-------------|
-| OAS2 → OAS3   | Small         | 17.3      | 21.1        | 297         |
-| OAS2 → OAS3   | Medium        | 270       | 265         | 3,608       |
-| OAS3 → OAS2   | Small         | 14.4      | 17.5        | 258         |
-| OAS3 → OAS2   | Medium        | 292       | 269         | 3,910       |
+| OAS2 → OAS3   | Small         | 16.2      | 20.6        | 297         |
+| OAS2 → OAS3   | Medium        | 256       | 259         | 3,608       |
+| OAS3 → OAS2   | Small         | 13.6      | 17.1        | 258         |
+| OAS3 → OAS2   | Medium        | 278       | 262         | 3,909       |
 
-**Observation**: ConvertParsed is **9-10x faster** than Convert for small documents because it skips parsing. Conversion overhead is minimal compared to parsing.
+**Observation**: ConvertParsed is **9x faster** than Convert for small documents because it skips parsing. Conversion overhead is minimal compared to parsing.
 
 ### Joiner Performance
 
@@ -176,17 +176,17 @@ The benchmark suite includes **70+ benchmarks** across five main packages:
 
 | Documents | Time (μs) | Memory (KB) | Allocations |
 |-----------|-----------|-------------|-------------|
-| 2 small   | 115       | 144         | 1,602       |
-| 3 small   | 171       | 215         | 2,363       |
+| 2 small   | 110       | 141         | 1,602       |
+| 3 small   | 162       | 210         | 2,363       |
 
 **Joining pre-parsed documents** (JoinParsed):
 
 | Documents | Time (ns) | Memory (bytes) | Allocations |
 |-----------|-----------|----------------|-------------|
-| 2 small   | 747       | 1,784          | 22          |
-| 3 small   | 953       | 1,912          | 23          |
+| 2 small   | 732       | 1,816          | 22          |
+| 3 small   | 934       | 1,960          | 23          |
 
-**Observation**: JoinParsed is **154x faster** than Join for 2 small documents (747ns vs 115μs) because it skips parsing. The actual joining operation has minimal overhead.
+**Observation**: JoinParsed is **150x faster** than Join for 2 small documents (732ns vs 110μs) because it skips parsing. The actual joining operation has minimal overhead.
 
 ### Differ Performance
 
@@ -194,25 +194,25 @@ The benchmark suite includes **70+ benchmarks** across five main packages:
 
 | Mode     | Time (μs) | Memory (KB) | Allocations |
 |----------|-----------|-------------|-------------|
-| Simple   | 457       | 609         | 7,156       |
-| Breaking | 458       | 611         | 7,157       |
+| Simple   | 463       | 594         | 7,182       |
+| Breaking | 467       | 597         | 7,183       |
 
 **Diffing pre-parsed documents** (DiffParsed):
 
 | Mode     | Time (μs) | Memory (KB) | Allocations |
 |----------|-----------|-------------|-------------|
-| Simple   | 7.82      | 6.89        | 138         |
-| Breaking | 7.97      | 6.96        | 137         |
+| Simple   | 5.7       | 7.6         | 162         |
+| Breaking | 6.9       | 7.9         | 177         |
 
 **Special cases**:
 
 | Case               | Time (μs) | Memory (KB) | Allocations |
 |--------------------|-----------|-------------|-------------|
-| Identical specs    | 2.82      | 2.08        | 79          |
-| With info changes  | 7.97      | 6.96        | 137         |
-| Without info       | 8.10      | 8.11        | 138         |
+| Identical specs    | 3.8       | 3.2         | 115         |
+| With info changes  | 6.8       | 7.9         | 177         |
+| Without info       | 6.9       | 9.0         | 178         |
 
-**Observation**: DiffParsed is **58x faster** than Diff (7.8μs vs 457μs) because it skips parsing. The differ includes a fast path for identical specifications that runs in ~2.8μs. Breaking mode vs Simple mode has negligible performance difference (~0.15μs), making breaking change detection essentially free.
+**Observation**: DiffParsed is **81x faster** than Diff (5.7μs vs 463μs) because it skips parsing. The differ includes a fast path for identical specifications that runs in ~3.8μs. Breaking mode vs Simple mode has negligible performance difference (~1.2μs), making breaking change detection essentially free.
 
 ## Performance Best Practices
 
