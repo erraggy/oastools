@@ -822,9 +822,13 @@ Before creating your first release, ensure:
 - [ ] All changes committed and pushed to `main`
 - [ ] All tests pass: `make check`
 
-**Release Process (Recommended Workflow):**
+**Release Process (Immutability-Compatible Workflow):**
 
-This workflow creates a draft GitHub Release with custom notes, GoReleaser adds binaries, then you manually publish the release.
+⚠️ **CRITICAL**: This repository has "Enable release immutability" enabled. You MUST follow this exact workflow or releases will fail.
+
+**The complete workflow** creates a draft GitHub Release with custom notes, GoReleaser adds binaries automatically, then you manually publish the draft.
+
+### Step-by-Step Release Process
 
 1. **Determine the version number** based on the changes included (see SemVer rules above)
 
@@ -834,7 +838,10 @@ This workflow creates a draft GitHub Release with custom notes, GoReleaser adds 
    ```
    This runs GoReleaser in snapshot mode to verify everything builds correctly without publishing.
 
-3. **Create a DRAFT GitHub Release with detailed notes**:
+3. **⚠️ CRITICAL: Create a DRAFT GitHub Release with detailed notes**:
+
+   **YOU MUST USE THE `--draft` FLAG** or the release will be immutable immediately and GoReleaser cannot add assets.
+
    ```bash
    gh release create v1.7.1 --draft \
      --title "v1.7.1 - Brief summary within 72 chars" \
@@ -875,6 +882,21 @@ This workflow creates a draft GitHub Release with custom notes, GoReleaser adds 
    Download the appropriate binary for your platform from the assets below.
    EOF
    )"
+   ```
+
+   **What happens**:
+   - ✅ Git tag `v1.7.1` is created automatically
+   - ✅ Draft release is created with your custom notes
+   - ✅ GitHub Actions workflow is triggered automatically
+   - ✅ Draft remains **mutable** (compatible with immutability setting)
+
+   **⚠️ WRONG COMMANDS** (will cause immutable release errors):
+   ```bash
+   # ❌ NEVER use without --draft flag:
+   gh release create v1.7.1 ...  # Creates IMMUTABLE release immediately!
+
+   # ❌ NEVER push tag manually before creating draft:
+   git push origin v1.7.1  # Workflow will fail - no draft to add assets to
    ```
 
    **Important:** The `gh release create --draft` command:
