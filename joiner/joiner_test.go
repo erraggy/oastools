@@ -974,3 +974,74 @@ func TestMixedFormatJoining(t *testing.T) {
 		})
 	}
 }
+
+// TestMergeUniqueStrings_OverflowSafety tests that mergeUniqueStrings handles overflow gracefully.
+// While triggering actual overflow is impractical in tests (would require enormous slices),
+// this test documents the expected behavior: the function should work correctly even when
+// capacity calculation defaults to 0 (falling back to dynamic growth via append).
+func TestMergeUniqueStrings_OverflowSafety(t *testing.T) {
+	j := New(DefaultConfig())
+
+	tests := []struct {
+		name     string
+		a        []string
+		b        []string
+		expected []string
+	}{
+		{
+			name:     "basic merge with duplicates",
+			a:        []string{"a", "b", "c"},
+			b:        []string{"b", "c", "d"},
+			expected: []string{"a", "b", "c", "d"},
+		},
+		{
+			name:     "empty first slice",
+			a:        []string{},
+			b:        []string{"x", "y"},
+			expected: []string{"x", "y"},
+		},
+		{
+			name:     "empty second slice",
+			a:        []string{"x", "y"},
+			b:        []string{},
+			expected: []string{"x", "y"},
+		},
+		{
+			name:     "both empty",
+			a:        []string{},
+			b:        []string{},
+			expected: []string{},
+		},
+		{
+			name:     "all duplicates",
+			a:        []string{"a", "b"},
+			b:        []string{"a", "b"},
+			expected: []string{"a", "b"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := j.mergeUniqueStrings(tt.a, tt.b)
+
+			// Verify result contains all expected elements
+			assert.Equal(t, len(tt.expected), len(result),
+				"Result should have %d elements, got %d", len(tt.expected), len(result))
+
+			// Verify each expected element is present (order may vary due to map iteration)
+			resultMap := make(map[string]bool)
+			for _, s := range result {
+				resultMap[s] = true
+			}
+
+			for _, expected := range tt.expected {
+				assert.True(t, resultMap[expected],
+					"Expected %q to be in result %v", expected, result)
+			}
+
+			// Verify no duplicates in result
+			assert.Equal(t, len(result), len(resultMap),
+				"Result should not contain duplicates")
+		})
+	}
+}
