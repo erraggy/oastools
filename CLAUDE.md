@@ -557,7 +557,7 @@ go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 1. **Size computation for allocation may overflow** (CWE-190)
    - **Issue**: Computing slice/array capacity using `len(a)+len(b)` can overflow
    - **Fix**: Use uint64 for safe arithmetic, then check if result fits in int
-   - **Example**:
+   - **Example** (see `joiner/oas2.go:171-178` for production usage):
      ```go
      // Before (vulnerable)
      result := make([]string, 0, len(a)+len(b))
