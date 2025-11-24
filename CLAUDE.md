@@ -536,6 +536,68 @@ When writing benchmark tests, you MUST follow these requirements:
 - **Automatic Handling**: `b.Loop()` manages allocations reporting and timing
 - **Future Compatibility**: Aligns with Go's benchmark evolution
 
+## Security
+
+### Reviewing Security Alerts
+
+**Checking for security vulnerabilities:**
+
+GitHub Code Scanning alerts are not accessible via web scraping, but can be retrieved using the GitHub API:
+
+```bash
+# List all code scanning alerts
+gh api /repos/erraggy/oastools/code-scanning/alerts
+
+# Check for Go vulnerabilities using govulncheck
+go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+```
+
+**Common security alert types:**
+
+1. **Size computation for allocation may overflow** (CWE-190)
+   - **Issue**: Computing slice/array capacity using `len(a)+len(b)` can overflow
+   - **Fix**: Add overflow guard before allocation
+   - **Example**:
+     ```go
+     // Before (vulnerable)
+     result := make([]string, 0, len(a)+len(b))
+
+     // After (safe)
+     capacity := 0
+     if len(a) <= (1<<31-1)-len(b) { // Check if len(a)+len(b) would overflow
+         capacity = len(a) + len(b)
+     }
+     result := make([]string, 0, capacity)
+     ```
+
+2. **Workflow does not contain permissions** (CWE-275)
+   - **Issue**: GitHub Actions workflows without explicit `permissions` block use default read-write access
+   - **Fix**: Add minimal `permissions` block to workflow
+   - **Example**:
+     ```yaml
+     # .github/workflows/go.yml
+     on:
+       push:
+         branches: [ "main" ]
+
+     permissions:
+       contents: read  # Minimal permissions following principle of least privilege
+
+     jobs:
+       build:
+         runs-on: ubuntu-latest
+     ```
+
+**Security fix workflow:**
+
+1. Retrieve alerts using `gh api /repos/erraggy/oastools/code-scanning/alerts`
+2. Review alert details including severity, location, and recommendations
+3. Implement fixes following alert-specific guidance
+4. Run `make test` to verify fixes don't break functionality
+5. Run `govulncheck` to verify no remaining vulnerabilities
+6. Commit with clear security-focused message
+7. Verify alerts are closed after push
+
 ## Submitting changes
 
 **Before Submitting Code:**
@@ -544,6 +606,7 @@ When writing benchmark tests, you MUST follow these requirements:
 2. Run `make test-coverage` to review coverage report
 3. Verify that all new exported functionality has dedicated test cases
 4. Check that test names clearly describe what they test
+5. Check for security vulnerabilities using `govulncheck`
 
 **Never submit a PR with:**
 - Untested exported functions

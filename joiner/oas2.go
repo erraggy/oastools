@@ -167,7 +167,12 @@ func (j *Joiner) mergeOAS2Arrays(joined, source *parser.OAS2Document, ctx docume
 // mergeUniqueStrings merges two string slices, removing duplicates
 func (j *Joiner) mergeUniqueStrings(a, b []string) []string {
 	seen := make(map[string]bool)
-	result := make([]string, 0, len(a)+len(b))
+	// Guard against overflow when computing capacity
+	capacity := 0
+	if len(a) <= (1<<31-1)-len(b) { // Check if len(a)+len(b) would overflow
+		capacity = len(a) + len(b)
+	}
+	result := make([]string, 0, capacity)
 
 	for _, s := range a {
 		if !seen[s] {
