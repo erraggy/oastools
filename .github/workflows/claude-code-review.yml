@@ -29,14 +29,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0  # Need full history to check commit messages
+
+      - name: Check for skip directive in commit messages
+        id: check-skip
+        run: |
+          # Check if any commit message contains [skip-review]
+          if git log --format=%B origin/${{ github.base_ref }}..${{ github.sha }} | grep -qi '\[skip-review\]'; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Found [skip-review] in commit messages - skipping Claude Code Review"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "No [skip-review] directive found - proceeding with review"
+          fi
 
       - name: Verify gopls installation
+        if: steps.check-skip.outputs.skip != 'true'
         run: |
           which gopls || echo "Warning: gopls not found"
           gopls version || echo "Warning: gopls not executable"
 
       - name: Run Claude Code Review
+        if: steps.check-skip.outputs.skip != 'true'
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
