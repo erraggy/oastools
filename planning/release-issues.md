@@ -254,26 +254,75 @@ With release immutability **disabled temporarily**:
 
 **Key insight**: With immutability disabled, creating a published release (not draft) works because GoReleaser can update it. The `draft: true` in `.goreleaser.yaml` doesn't prevent this when immutability is disabled.
 
+### Completed Tasks
+
+1. ✅ Deleted broken v1.9.11 draft release
+2. ✅ Deleted local v1.9.11 tag
+3. ✅ Created v1.9.12 release successfully
+4. ✅ All binaries uploaded to release
+5. ✅ Formula pushed to homebrew-oastools
+6. ✅ Tested installation - works without code signing errors
+7. ✅ Deleted old Cask from homebrew-oastools (commit ddcb5a2)
+
 ### Remaining Tasks
 
-1. Re-enable release immutability
-2. Delete the old Cask from homebrew-oastools (Casks/oastools.rb)
-3. Update the Formula to disable or note that Cask is deprecated
-4. Document the **correct** process for future releases with immutability enabled
+1. Re-enable release immutability (after understanding correct process)
+2. Document the **correct** process for future releases with immutability enabled
+3. Test the process with a future release to validate documentation
 
-## Questions to Resolve
+## Lessons Learned
+
+### Understanding `gh release create --draft` Behavior
+
+**With release immutability DISABLED**:
+- `gh release create v1.X.Y` (without `--draft`) creates a published release AND creates/pushes the tag
+- Tag creation triggers the workflow
+- GoReleaser can upload assets to the already-published release (no 422 errors)
+- This works because the release is mutable
+
+**With release immutability ENABLED** (not yet tested, theoretical):
+- `gh release create v1.X.Y --draft` should create a draft release AND create/push the tag
+- Tag creation should trigger the workflow
+- GoReleaser should upload assets to the **draft** release (because `.goreleaser.yaml` has `draft: true`)
+- After workflow completes and assets are verified, manually publish with `gh release edit v1.X.Y --draft=false`
+- Once published, release becomes immutable
+
+### The Critical Mistake Pattern
+
+**What causes 422 errors**:
+1. Create draft release (creates tag, triggers workflow)
+2. **Immediately publish the draft** before workflow completes
+3. Release becomes immutable
+4. GoReleaser tries to upload assets to immutable release → 422 errors
+
+**The fix**:
+- WAIT for the workflow to complete before publishing
+- Verify assets are attached to the draft
+- THEN publish the draft
+
+## Questions Resolved
 
 1. **Does `gh release create --draft` actually create and push the tag?**
-   - Need to verify this behavior
-   - Test by creating a draft and checking if workflow triggers
+   - ✅ YES - confirmed that creating a release (draft or published) creates and pushes the tag
+   - This triggers the workflow via the `on: push: tags: v*` trigger
 
 2. **What's the exact timing of tag creation?**
-   - When draft is created? Or when draft is published?
-   - This determines when workflow triggers
+   - ✅ Tag is created when you run `gh release create` (whether `--draft` or not)
+   - Publishing the draft does NOT create the tag (it already exists)
 
 3. **Can we see workflow logs for v1.9.11 failure?**
-   - Already reviewed - confirmed 422 errors
+   - ✅ Already reviewed - confirmed 422 errors
    - Release was immutable when GoReleaser tried to upload
+
+## Future Testing Needed
+
+When we re-enable immutability, we need to test:
+1. Create draft release with `gh release create v1.X.Y --draft`
+2. Verify tag is created and workflow triggers
+3. Wait for workflow to complete
+4. Verify assets are attached to draft
+5. Publish with `gh release edit v1.X.Y --draft=false`
+6. Confirm this process works without 422 errors
 
 ## References
 
