@@ -10,14 +10,14 @@ import (
 func TestDiffSchemaCircularReferences(t *testing.T) {
 	// Create schemas with circular references
 	schema1 := &parser.Schema{
-		Type: "object",
+		Type:       "object",
 		Properties: make(map[string]*parser.Schema),
 	}
 	// Self-reference
 	schema1.Properties["self"] = schema1
 
 	schema2 := &parser.Schema{
-		Type: "object",
+		Type:       "object",
 		Properties: make(map[string]*parser.Schema),
 	}
 	// Self-reference
@@ -47,7 +47,7 @@ func TestDiffSchemaCircularReferencesTargetOnly(t *testing.T) {
 
 	// Target: schema with circular reference
 	target := &parser.Schema{
-		Type: "object",
+		Type:       "object",
 		Properties: make(map[string]*parser.Schema),
 	}
 	target.Properties["self"] = target
@@ -68,13 +68,13 @@ func TestDiffSchemaCircularReferencesTargetOnly(t *testing.T) {
 // TestDiffSchemaPropertiesRequired tests severity for required vs optional properties
 func TestDiffSchemaPropertiesRequired(t *testing.T) {
 	tests := []struct {
-		name             string
-		sourceRequired   []string
-		targetRequired   []string
-		removedProp      string
-		addedProp        string
-		expectedRemoved  Severity
-		expectedAdded    Severity
+		name            string
+		sourceRequired  []string
+		targetRequired  []string
+		removedProp     string
+		addedProp       string
+		expectedRemoved Severity
+		expectedAdded   Severity
 	}{
 		{
 			name:            "removed required property",
@@ -241,11 +241,11 @@ func TestDiffSchemaItemsTypeChange(t *testing.T) {
 // TestDiffSchemaAdditionalPropertiesBreaking tests additionalProperties field with severity
 func TestDiffSchemaAdditionalPropertiesBreaking(t *testing.T) {
 	tests := []struct {
-		name               string
-		sourceAdditional   any
-		targetAdditional   any
-		expectChanges      bool
-		expectedSeverity   Severity
+		name             string
+		sourceAdditional any
+		targetAdditional any
+		expectChanges    bool
+		expectedSeverity Severity
 	}{
 		{
 			name:             "additionalProperties: true to false (restricting)",
