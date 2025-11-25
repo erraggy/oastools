@@ -1207,13 +1207,13 @@ func (d *Differ) diffSchemaRecursive(
 		return
 	}
 
-	// Cycle detection
-	if visited.enter(source, path) {
-		// Already visiting this schema - circular reference
+	// Cycle detection - track both source and target to prevent infinite loops
+	if visited.enter(source, target, path) {
+		// Already visiting this schema pair - circular reference
 		// Don't report as a change, just skip further traversal
 		return
 	}
-	defer visited.leave(source)
+	defer visited.leave(source, target)
 
 	// Compare metadata
 	if source.Title != target.Title {
@@ -1501,6 +1501,32 @@ func (d *Differ) diffSchemaItems(
 
 	itemsPath := path + ".items"
 
+	// Check for unknown types (spec violation)
+	// If both have unknown type, skip comparison (can't diff unknown structures)
+	if sourceType == schemaItemsTypeUnknown && targetType == schemaItemsTypeUnknown {
+		return
+	}
+	if sourceType == schemaItemsTypeUnknown {
+		result.Changes = append(result.Changes, Change{
+			Path:     itemsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			OldValue: source,
+			Message:  fmt.Sprintf("items has unexpected type in source: %T (should be Schema or bool)", source),
+		})
+		return
+	}
+	if targetType == schemaItemsTypeUnknown {
+		result.Changes = append(result.Changes, Change{
+			Path:     itemsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			NewValue: target,
+			Message:  fmt.Sprintf("items has unexpected type in target: %T (should be Schema or bool)", target),
+		})
+		return
+	}
+
 	// Both nil
 	if sourceType == schemaItemsTypeNil && targetType == schemaItemsTypeNil {
 		return
@@ -1577,6 +1603,32 @@ func (d *Differ) diffSchemaAdditionalProperties(
 	targetType := getSchemaAdditionalPropsType(target)
 
 	addPropsPath := path + ".additionalProperties"
+
+	// Check for unknown types (spec violation)
+	// If both have unknown type, skip comparison (can't diff unknown structures)
+	if sourceType == schemaAdditionalPropsTypeUnknown && targetType == schemaAdditionalPropsTypeUnknown {
+		return
+	}
+	if sourceType == schemaAdditionalPropsTypeUnknown {
+		result.Changes = append(result.Changes, Change{
+			Path:     addPropsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			OldValue: source,
+			Message:  fmt.Sprintf("additionalProperties has unexpected type in source: %T (should be Schema or bool)", source),
+		})
+		return
+	}
+	if targetType == schemaAdditionalPropsTypeUnknown {
+		result.Changes = append(result.Changes, Change{
+			Path:     addPropsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			NewValue: target,
+			Message:  fmt.Sprintf("additionalProperties has unexpected type in target: %T (should be Schema or bool)", target),
+		})
+		return
+	}
 
 	// Both nil
 	if sourceType == schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {

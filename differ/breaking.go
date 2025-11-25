@@ -1684,13 +1684,13 @@ func (d *Differ) diffSchemaRecursiveBreaking(
 		return
 	}
 
-	// Cycle detection
-	if visited.enter(source, path) {
-		// Already visiting this schema - circular reference
+	// Cycle detection - track both source and target to prevent infinite loops
+	if visited.enter(source, target, path) {
+		// Already visiting this schema pair - circular reference
 		// Don't report as a change, just skip further traversal
 		return
 	}
-	defer visited.leave(source)
+	defer visited.leave(source, target)
 
 	// Compare all existing fields (already implemented)
 	d.diffSchemaMetadata(source, target, path, result)
@@ -1703,7 +1703,7 @@ func (d *Differ) diffSchemaRecursiveBreaking(
 	d.diffSchemaOASFields(source, target, path, result)
 
 	// NEW: Compare recursive/complex fields
-	d.diffSchemaPropertiesBreaking(source.Properties, target.Properties, path, visited, result)
+	d.diffSchemaPropertiesBreaking(source.Properties, target.Properties, source.Required, target.Required, path, visited, result)
 	d.diffSchemaItemsBreaking(source.Items, target.Items, path, visited, result)
 	d.diffSchemaAdditionalPropertiesBreaking(source.AdditionalProperties, target.AdditionalProperties, path, visited, result)
 
@@ -1714,6 +1714,7 @@ func (d *Differ) diffSchemaRecursiveBreaking(
 // diffSchemaPropertiesBreaking compares schema properties maps
 func (d *Differ) diffSchemaPropertiesBreaking(
 	source, target map[string]*parser.Schema,
+	sourceRequired, targetRequired []string,
 	path string,
 	visited *schemaVisited,
 	result *DiffResult,
@@ -1727,9 +1728,9 @@ func (d *Differ) diffSchemaPropertiesBreaking(
 		propPath := fmt.Sprintf("%s.properties.%s", path, name)
 		if targetSchema, exists := target[name]; !exists {
 			// Removed property
-			// Severity depends on whether it was required
+			// Severity depends on whether it was required in the parent schema
 			severity := SeverityWarning
-			if isPropertyRequired(name, sourceSchema.Required) {
+			if isPropertyRequired(name, sourceRequired) {
 				severity = SeverityError
 			}
 			result.Changes = append(result.Changes, Change{
@@ -1751,9 +1752,9 @@ func (d *Differ) diffSchemaPropertiesBreaking(
 		if _, exists := source[name]; !exists {
 			propPath := fmt.Sprintf("%s.properties.%s", path, name)
 			// Added property
-			// Severity depends on whether it's required
+			// Severity depends on whether it's required in the parent schema
 			severity := SeverityInfo
-			if isPropertyRequired(name, targetSchema.Required) {
+			if isPropertyRequired(name, targetRequired) {
 				severity = SeverityWarning
 			}
 			result.Changes = append(result.Changes, Change{
@@ -1779,6 +1780,34 @@ func (d *Differ) diffSchemaItemsBreaking(
 	targetType := getSchemaItemsType(target)
 
 	itemsPath := path + ".items"
+
+	// Check for unknown types (spec violation)
+	// If both have unknown type, skip comparison (can't diff unknown structures)
+	if sourceType == schemaItemsTypeUnknown && targetType == schemaItemsTypeUnknown {
+		return
+	}
+	if sourceType == schemaItemsTypeUnknown {
+		result.Changes = append(result.Changes, Change{
+			Path:     itemsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			OldValue: source,
+			Message:  fmt.Sprintf("items has unexpected type in source: %T (should be Schema or bool)", source),
+		})
+		return
+	}
+	if targetType == schemaItemsTypeUnknown {
+		result.Changes = append(result.Changes, Change{
+			Path:     itemsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			NewValue: target,
+			Message:  fmt.Sprintf("items has unexpected type in target: %T (should be Schema or bool)", target),
+		})
+		return
+	}
 
 	// Both nil
 	if sourceType == schemaItemsTypeNil && targetType == schemaItemsTypeNil {
@@ -1870,6 +1899,34 @@ func (d *Differ) diffSchemaAdditionalPropertiesBreaking(
 	targetType := getSchemaAdditionalPropsType(target)
 
 	addPropsPath := path + ".additionalProperties"
+
+	// Check for unknown types (spec violation)
+	// If both have unknown type, skip comparison (can't diff unknown structures)
+	if sourceType == schemaAdditionalPropsTypeUnknown && targetType == schemaAdditionalPropsTypeUnknown {
+		return
+	}
+	if sourceType == schemaAdditionalPropsTypeUnknown {
+		result.Changes = append(result.Changes, Change{
+			Path:     addPropsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			OldValue: source,
+			Message:  fmt.Sprintf("additionalProperties has unexpected type in source: %T (should be Schema or bool)", source),
+		})
+		return
+	}
+	if targetType == schemaAdditionalPropsTypeUnknown {
+		result.Changes = append(result.Changes, Change{
+			Path:     addPropsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			NewValue: target,
+			Message:  fmt.Sprintf("additionalProperties has unexpected type in target: %T (should be Schema or bool)", target),
+		})
+		return
+	}
 
 	// Both nil (means true in JSON Schema)
 	if sourceType == schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {

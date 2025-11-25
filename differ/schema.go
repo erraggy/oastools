@@ -6,33 +6,42 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// schemaVisited tracks visited schemas during recursive traversal to detect cycles.
-// It uses pointer-based identity to detect when we encounter the same schema instance.
+// schemaPair represents a pair of schemas being compared.
+// Used as a map key for cycle detection.
+type schemaPair struct {
+	source *parser.Schema
+	target *parser.Schema
+}
+
+// schemaVisited tracks visited schema pairs during recursive traversal to detect cycles.
+// It uses pointer-based identity to detect when we encounter the same comparison pair.
 type schemaVisited struct {
-	visited map[*parser.Schema]string // schema pointer -> first occurrence path
+	visited map[schemaPair]string // schema pair -> first occurrence path
 }
 
 // newSchemaVisited creates a new visited tracker for schema traversal.
 func newSchemaVisited() *schemaVisited {
 	return &schemaVisited{
-		visited: make(map[*parser.Schema]string),
+		visited: make(map[schemaPair]string),
 	}
 }
 
-// enter marks a schema as visited at the given path.
-// Returns true if the schema was already visited.
-func (v *schemaVisited) enter(schema *parser.Schema, path string) bool {
-	if _, exists := v.visited[schema]; exists {
+// enter marks a schema pair as visited at the given path.
+// Returns true if this exact pair was already visited.
+func (v *schemaVisited) enter(source, target *parser.Schema, path string) bool {
+	pair := schemaPair{source: source, target: target}
+	if _, exists := v.visited[pair]; exists {
 		return true
 	}
-	v.visited[schema] = path
+	v.visited[pair] = path
 	return false
 }
 
-// leave removes a schema from the visited set.
-// This should be called when exiting a schema's traversal to allow revisiting in different contexts.
-func (v *schemaVisited) leave(schema *parser.Schema) {
-	delete(v.visited, schema)
+// leave removes a schema pair from the visited set.
+// This should be called when exiting a schema pair's traversal to allow revisiting in different contexts.
+func (v *schemaVisited) leave(source, target *parser.Schema) {
+	pair := schemaPair{source: source, target: target}
+	delete(v.visited, pair)
 }
 
 // schemaItemsType represents the possible types for the Items field
