@@ -19,16 +19,24 @@ if [ -z "$PREV_VERSION" ] || [ -z "$CURR_VERSION" ]; then
     exit 1
 fi
 
-PREV_FILE="benchmark-${PREV_VERSION}.txt"
-CURR_FILE="benchmark-${CURR_VERSION}.txt"
-OUTPUT_FILE="benchmark-comparison-${CURR_VERSION}.txt"
+BENCH_DIR="benchmarks"
+PREV_FILE="${BENCH_DIR}/benchmark-${PREV_VERSION}.txt"
+CURR_FILE="${BENCH_DIR}/benchmark-${CURR_VERSION}.txt"
+OUTPUT_FILE="${BENCH_DIR}/benchmark-comparison-${CURR_VERSION}.txt"
+
+# Check if benchmarks directory exists
+if [ ! -d "$BENCH_DIR" ]; then
+    echo "Error: Benchmarks directory not found: $BENCH_DIR"
+    echo "Creating directory..."
+    mkdir -p "$BENCH_DIR"
+fi
 
 # Check if previous benchmark file exists
 if [ ! -f "$PREV_FILE" ]; then
     echo "Error: Previous benchmark file not found: $PREV_FILE"
     echo ""
     echo "Available benchmark files:"
-    ls -1 benchmark-v*.txt 2>/dev/null || echo "  (none found)"
+    ls -1 ${BENCH_DIR}/benchmark-v*.txt 2>/dev/null || echo "  (none found)"
     exit 1
 fi
 

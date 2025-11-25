@@ -166,6 +166,15 @@ git commit -m "docs: update benchmark results for v1.x.x release"
    make bench-compare OLD=benchmark-baseline.txt NEW=benchmark-YYYY-MM-DD-HHMMSS.txt
    ```
 
+## Benchmark Storage
+
+Benchmarks are stored in the `benchmarks/` directory:
+- **Version-tagged benchmarks**: `benchmarks/benchmark-v1.9.10.txt` (committed to repo)
+- **Comparison reports**: `benchmarks/benchmark-comparison-v1.10.0.txt` (ignored by git)
+- **Timestamped benchmarks**: `benchmark-YYYYMMDD-HHMMSS.txt` (root, ignored by git)
+
+The benchmark scripts automatically handle file organization and cleanup of temporary files.
+
 ## Platform Information
 
 Always include the platform information in benchmarks.md:

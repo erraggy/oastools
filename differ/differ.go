@@ -229,15 +229,8 @@ func (d *Differ) DiffParsed(source, target parser.ParseResult) (*DiffResult, err
 		Changes:          make([]Change, 0),
 	}
 
-	// Perform diff based on mode
-	switch d.Mode {
-	case ModeSimple:
-		d.diffSimple(source, target, result)
-	case ModeBreaking:
-		d.diffBreaking(source, target, result)
-	default:
-		return nil, fmt.Errorf("unknown diff mode: %d", d.Mode)
-	}
+	// Perform unified diff (handles both ModeSimple and ModeBreaking)
+	d.diffUnified(source, target, result)
 
 	// Filter out info-level changes if not requested
 	if !d.IncludeInfo {

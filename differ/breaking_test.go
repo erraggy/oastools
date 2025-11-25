@@ -83,7 +83,8 @@ func TestDiffOAS2Breaking(t *testing.T) {
 			d := New()
 			result := &DiffResult{Changes: []Change{}}
 
-			d.diffOAS2Breaking(tt.source, tt.target, result)
+			d.Mode = ModeBreaking
+			d.diffOAS2Unified(tt.source, tt.target, result)
 
 			hasCritical := false
 			hasWarning := false
@@ -143,19 +144,20 @@ func TestDiffCrossVersionBreaking(t *testing.T) {
 			d := New()
 			result := &DiffResult{Changes: []Change{}}
 
-			d.diffCrossVersionBreaking(tt.source, tt.target, result)
+			d.Mode = ModeBreaking
+			d.diffCrossVersionUnified(tt.source, tt.target, result)
 
 			if tt.expectChange {
 				assert.NotEmpty(t, result.Changes, "Expected version change to be detected")
-				// Verify that version change is SeverityInfo
+				// Verify that version change is detected (path is "document" for cross-version diff)
 				hasVersionChange := false
 				for _, change := range result.Changes {
-					if change.Path == "document.openapi" && change.Severity == SeverityInfo {
+					if change.Path == "document" && change.Category == CategoryInfo {
 						hasVersionChange = true
 						break
 					}
 				}
-				assert.True(t, hasVersionChange, "Expected informational version change")
+				assert.True(t, hasVersionChange, "Expected version change")
 			}
 		})
 	}
@@ -197,7 +199,8 @@ func TestDiffStringSlicesBreaking(t *testing.T) {
 			d := New()
 			result := &DiffResult{Changes: []Change{}}
 
-			d.diffStringSlicesBreaking(tt.source, tt.target, "test.schemes", CategoryServer, "scheme", SeverityWarning, result)
+			d.Mode = ModeBreaking
+			d.diffStringSlicesUnified(tt.source, tt.target, "test.schemes", CategoryServer, "scheme", result)
 
 			if tt.expectChange {
 				assert.NotEmpty(t, result.Changes, "Expected changes to be detected")
@@ -255,7 +258,8 @@ func TestDiffSecuritySchemeBreaking(t *testing.T) {
 			d := New()
 			result := &DiffResult{Changes: []Change{}}
 
-			d.diffSecuritySchemeBreaking(tt.source, tt.target, "test.securityScheme", result)
+			d.Mode = ModeBreaking
+			d.diffSecuritySchemeUnified(tt.source, tt.target, "test.securityScheme", result)
 
 			if tt.expectChange {
 				assert.NotEmpty(t, result.Changes, "Expected changes to be detected")
@@ -292,7 +296,8 @@ func TestDiffEnumBreaking(t *testing.T) {
 			d := New()
 			result := &DiffResult{Changes: []Change{}}
 
-			d.diffEnumBreaking(tt.source, tt.target, "test.enum", result)
+			d.Mode = ModeBreaking
+			d.diffEnumUnified(tt.source, tt.target, "test.enum", result)
 
 			if tt.expectError {
 				hasError := false
@@ -347,7 +352,8 @@ func TestDiffWebhooksBreaking(t *testing.T) {
 			d := New()
 			result := &DiffResult{Changes: []Change{}}
 
-			d.diffWebhooksBreaking(tt.source, tt.target, "test.webhooks", result)
+			d.Mode = ModeBreaking
+			d.diffWebhooksUnified(tt.source, tt.target, "test.webhooks", result)
 
 			if tt.expectChange {
 				assert.NotEmpty(t, result.Changes, "Expected changes to be detected")
@@ -397,7 +403,8 @@ func TestDiffHeaderBreaking(t *testing.T) {
 			d := New()
 			result := &DiffResult{Changes: []Change{}}
 
-			d.diffHeaderBreaking(tt.source, tt.target, "test.header", result)
+			d.Mode = ModeBreaking
+			d.diffHeaderUnified(tt.source, tt.target, "test.header", result)
 
 			if tt.expectChange {
 				assert.NotEmpty(t, result.Changes, "Expected changes to be detected")
@@ -445,7 +452,8 @@ func TestDiffLinkBreaking(t *testing.T) {
 			d := New()
 			result := &DiffResult{Changes: []Change{}}
 
-			d.diffLinkBreaking(tt.source, tt.target, "test.link", result)
+			d.Mode = ModeBreaking
+			d.diffLinkUnified(tt.source, tt.target, "test.link", result)
 
 			if tt.expectChange {
 				assert.NotEmpty(t, result.Changes, "Expected changes to be detected")
@@ -606,7 +614,8 @@ func TestDiffBreakingIntegration(t *testing.T) {
 			d := New()
 			result := &DiffResult{Changes: []Change{}}
 
-			d.diffBreaking(tt.source, tt.target, result)
+			d.Mode = ModeBreaking
+			d.diffUnified(tt.source, tt.target, result)
 
 			if tt.expectChange {
 				assert.NotEmpty(t, result.Changes, "Expected changes to be detected")
@@ -652,7 +661,8 @@ func TestDiffCrossVersionSimple(t *testing.T) {
 			d := New()
 			result := &DiffResult{Changes: []Change{}}
 
-			d.diffCrossVersionSimple(tt.source, tt.target, result)
+			d.Mode = ModeSimple
+			d.diffCrossVersionUnified(tt.source, tt.target, result)
 
 			if tt.expectChange {
 				require.NotEmpty(t, result.Changes, "Expected version change to be detected")
