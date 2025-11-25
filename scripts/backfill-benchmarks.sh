@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-BACKFILL_DIR="backfilled-benchmarks"
+BACKFILL_DIR="benchmarks"
 
 # Print colored message
 log_info() {
@@ -63,7 +63,7 @@ Notes:
     - Requires clean working directory (will stash changes)
     - Benchmarks are run in isolated checkouts to avoid conflicts
     - Failed builds are logged but don't stop the process
-    - Results are placed in the backfilled-benchmarks/ directory
+    - Results are placed in the benchmarks/ directory
 
 EOF
 }
@@ -222,8 +222,15 @@ backfill_version() {
     # Move to backfill directory
     mkdir -p "$BACKFILL_DIR"
     mv "$benchmark_file" "$BACKFILL_DIR/"
+
+    # Clean up log file (we only keep the benchmark results)
     if [ -f "benchmark-${version}.log" ]; then
-        mv "benchmark-${version}.log" "$BACKFILL_DIR/"
+        rm "benchmark-${version}.log"
+    fi
+
+    # Clean up any timestamped benchmark files from the build
+    if [ -n "$generated_file" ] && [ "$generated_file" != "$benchmark_file" ] && [ -f "$generated_file" ]; then
+        rm "$generated_file"
     fi
 
     return 0
@@ -330,8 +337,7 @@ main() {
             log_info "Files have been uploaded to GitHub releases"
         else
             log_info "To commit these to the repository:"
-            echo "  mv $BACKFILL_DIR/benchmark-*.txt ."
-            echo "  git add benchmark-v*.txt"
+            echo "  git add $BACKFILL_DIR/benchmark-v*.txt"
             echo "  git commit -m \"chore: back-fill benchmark results\""
             echo ""
             log_info "To upload to GitHub releases instead:"
@@ -344,7 +350,7 @@ main() {
 
     if [ $failed -gt 0 ]; then
         echo ""
-        log_warning "Some versions failed to back-fill. Check the log files in $BACKFILL_DIR/"
+        log_warning "Some versions failed to back-fill."
         exit 1
     fi
 
