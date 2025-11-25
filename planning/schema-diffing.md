@@ -1,9 +1,9 @@
 # RFC: Full Schema Diffing Support for the Differ Package
 
-**Status:** Phase 1 Complete
+**Status:** Phase 2 Complete
 **Author:** Claude (AI Assistant)
 **Created:** 2024-11-24
-**Updated:** 2024-11-24
+**Updated:** 2025-11-24
 **Target Version:** Go 1.24+
 
 ## Abstract
@@ -39,10 +39,34 @@ Phase 1 has been successfully implemented and merged. The following components a
 - Linter clean (0 issues)
 - Benchmark baselines updated
 
+### Phase 2: Composition ✅ COMPLETE (2025-11-24)
+
+Phase 2 has been successfully implemented and merged via PR #36. The following composition and conditional schema features are now available:
+
+**Modified Files:**
+- `differ/breaking.go` - Added composition and conditional diffing functions
+- `differ/simple.go` - Added simple mode composition and conditional diffing
+- `differ/schema_test.go` - Added comprehensive test coverage (33 new test cases)
+
+**Features Implemented:**
+- ✅ AllOf schema composition diffing with index-based matching
+- ✅ AnyOf schema composition diffing
+- ✅ OneOf schema composition diffing
+- ✅ Not schema negation diffing
+- ✅ Conditional schema diffing (if/then/else)
+- ✅ Recursive comparison within composition schemas
+- ✅ Proper add/remove/modify detection for all composition types
+
+**Quality Metrics:**
+- Coverage improvements: All composition functions >90% coverage
+- Total differ package coverage: 73.6%
+- All 1025 tests passing
+- Linter clean (0 issues)
+
 **Remaining Phases:**
-- Phase 2: Composition (allOf/anyOf/oneOf/not)
-- Phase 3: Structured types (Discriminator/XML/ExternalDocs)
-- Phase 4: Simple value fields (Enum/Default/Examples/etc.)
+- Phase 3: Pattern properties and property names
+- Phase 4: Structured types (Discriminator/XML/ExternalDocs)
+- Phase 5: Simple value fields (Enum/Default/Examples/etc.)
 
 ## Table of Contents
 
@@ -587,16 +611,16 @@ const (
 5. **Implement AdditionalProperties Diffing**
    - `diffSchemaAdditionalProperties` for `any` (*Schema or bool)
 
-### 6.2 Phase 2: Composition (Must Have)
+### 6.2 Phase 2: Composition ✅ COMPLETE
 
-1. **Implement Composition Diffing**
-   - `diffSchemaAllOf` for `[]*Schema`
-   - `diffSchemaAnyOf` for `[]*Schema`
-   - `diffSchemaOneOf` for `[]*Schema`
-   - `diffSchemaNot` for `*Schema`
+1. **Implement Composition Diffing** ✅
+   - ✅ `diffSchemaAllOf` for `[]*Schema`
+   - ✅ `diffSchemaAnyOf` for `[]*Schema`
+   - ✅ `diffSchemaOneOf` for `[]*Schema`
+   - ✅ `diffSchemaNot` for `*Schema`
 
-2. **Implement Conditional Schemas**
-   - `diffSchemaConditional` for `if`/`then`/`else`
+2. **Implement Conditional Schemas** ✅
+   - ✅ `diffSchemaConditional` for `if`/`then`/`else`
 
 ### 6.3 Phase 3: Structured Types (Should Have)
 
@@ -767,13 +791,13 @@ Complete list of `parser.Schema` fields with implementation status and OAS versi
 | `MinProperties` | `*int` | All | Yes | - |
 | `DependentRequired` | `map[string][]string` | 3.1+ | No | 3 |
 | `DependentSchemas` | `map[string]*Schema` | 3.1+ | No | 3 |
-| `If` | `*Schema` | 3.1+ | No | 2 |
-| `Then` | `*Schema` | 3.1+ | No | 2 |
-| `Else` | `*Schema` | 3.1+ | No | 2 |
-| `AllOf` | `[]*Schema` | All | No | 2 |
-| `AnyOf` | `[]*Schema` | 3.0+ | No | 2 |
-| `OneOf` | `[]*Schema` | 3.0+ | No | 2 |
-| `Not` | `*Schema` | 3.0+ | No | 2 |
+| `If` | `*Schema` | 3.1+ | Yes | ✅ |
+| `Then` | `*Schema` | 3.1+ | Yes | ✅ |
+| `Else` | `*Schema` | 3.1+ | Yes | ✅ |
+| `AllOf` | `[]*Schema` | All | Yes | ✅ |
+| `AnyOf` | `[]*Schema` | 3.0+ | Yes | ✅ |
+| `OneOf` | `[]*Schema` | 3.0+ | Yes | ✅ |
+| `Not` | `*Schema` | 3.0+ | Yes | ✅ |
 | `Nullable` | `bool` | 3.0 only (deprecated 3.1+) | Yes | - |
 | `Discriminator` | `*Discriminator` | 3.0+ | No | 3 |
 | `ReadOnly` | `bool` | All | Yes | - |
