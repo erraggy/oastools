@@ -2038,9 +2038,6 @@ func (d *Differ) diffSchemaAllOfBreaking(
 		return
 	}
 
-	// Track which schemas have been matched
-	matched := make(map[int]bool)
-
 	// Compare schemas by index (order matters for validation)
 	for i, sourceSchema := range source {
 		schemaPath := fmt.Sprintf("%s[%d]", allOfPath, i)
@@ -2048,7 +2045,6 @@ func (d *Differ) diffSchemaAllOfBreaking(
 		if i < len(target) {
 			// Schema at same index in both
 			targetSchema := target[i]
-			matched[i] = true
 			d.diffSchemaRecursiveBreaking(sourceSchema, targetSchema, schemaPath, visited, result)
 		} else {
 			// Schema removed from target
