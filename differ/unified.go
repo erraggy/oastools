@@ -156,7 +156,7 @@ func (d *Differ) diffExtrasUnified(source, target map[string]any, path string, r
 }
 
 // diffStringSlicesUnified compares string slices with mode-appropriate severity
-func (d *Differ) diffStringSlicesUnified(source, target []string, path string, category ChangeCategory, itemName string, removeSeverity Severity, result *DiffResult) {
+func (d *Differ) diffStringSlicesUnified(source, target []string, path string, category ChangeCategory, itemName string, result *DiffResult) {
 	sourceMap := make(map[string]struct{})
 	for _, item := range source {
 		sourceMap[item] = struct{}{}
@@ -171,7 +171,7 @@ func (d *Differ) diffStringSlicesUnified(source, target []string, path string, c
 	for item := range sourceMap {
 		if _, ok := targetMap[item]; !ok {
 			d.addChange(result, path, ChangeTypeRemoved, category,
-				removeSeverity, item, nil, fmt.Sprintf("%s %q removed", itemName, item))
+				SeverityWarning, item, nil, fmt.Sprintf("%s %q removed", itemName, item))
 		}
 	}
 
@@ -1679,11 +1679,11 @@ func (d *Differ) diffOAS2Unified(source, target *parser.OAS2Document, result *Di
 			SeverityWarning, source.BasePath, target.BasePath, fmt.Sprintf("basePath changed from %q to %q", source.BasePath, target.BasePath))
 	}
 
-	d.diffStringSlicesUnified(source.Schemes, target.Schemes, basePath+".schemes", CategoryServer, "scheme", SeverityWarning, result)
+	d.diffStringSlicesUnified(source.Schemes, target.Schemes, basePath+".schemes", CategoryServer, "scheme", result)
 
 	// Compare Consumes/Produces
-	d.diffStringSlicesUnified(source.Consumes, target.Consumes, basePath+".consumes", CategoryOperation, "consumes media type", SeverityWarning, result)
-	d.diffStringSlicesUnified(source.Produces, target.Produces, basePath+".produces", CategoryOperation, "produces media type", SeverityWarning, result)
+	d.diffStringSlicesUnified(source.Consumes, target.Consumes, basePath+".consumes", CategoryOperation, "consumes media type", result)
+	d.diffStringSlicesUnified(source.Produces, target.Produces, basePath+".produces", CategoryOperation, "produces media type", result)
 
 	// Compare Paths
 	d.diffPathsUnified(source.Paths, target.Paths, basePath+".paths", result)

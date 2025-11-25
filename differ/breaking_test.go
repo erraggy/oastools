@@ -200,7 +200,7 @@ func TestDiffStringSlicesBreaking(t *testing.T) {
 			result := &DiffResult{Changes: []Change{}}
 
 			d.Mode = ModeBreaking
-			d.diffStringSlicesUnified(tt.source, tt.target, "test.schemes", CategoryServer, "scheme", SeverityWarning, result)
+			d.diffStringSlicesUnified(tt.source, tt.target, "test.schemes", CategoryServer, "scheme", result)
 
 			if tt.expectChange {
 				assert.NotEmpty(t, result.Changes, "Expected changes to be detected")
