@@ -1,0 +1,320 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/converter
+cpu: Apple M4
+                                      │ benchmark-v1.9.10.txt │        benchmark-v1.9.12.txt         │
+                                      │        sec/op         │    sec/op     vs base                │
+ConvertOAS2ToOAS3Small-10                        156.1µ ± ∞ ¹   152.6µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertOAS2ToOAS3Medium-10                       1.256m ± ∞ ¹   1.264m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertOAS3ToOAS2Small-10                        160.3µ ± ∞ ¹   160.2µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertOAS3ToOAS2Medium-10                       1.449m ± ∞ ¹   1.450m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertParsedOAS2ToOAS3Small-10                  16.13µ ± ∞ ¹   16.10µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertParsedOAS2ToOAS3Medium-10                 257.2µ ± ∞ ¹   255.8µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertParsedOAS3ToOAS2Small-10                  13.70µ ± ∞ ¹   13.63µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertParsedOAS3ToOAS2Medium-10                 279.1µ ± ∞ ¹   277.1µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceConvertOAS2ToOAS3Small-10             152.6µ ± ∞ ¹   151.2µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceConvertOAS2ToOAS3Medium-10            1.262m ± ∞ ¹   1.261m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertNoInfoOAS2ToOAS3Small-10                  153.0µ ± ∞ ¹   153.1µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertNoInfoOAS2ToOAS3Medium-10                 1.263m ± ∞ ¹   1.264m ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                                          233.9µ         233.1µ        -0.36%
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+
+                                      │ benchmark-v1.9.10.txt │         benchmark-v1.9.12.txt         │
+                                      │         B/op          │     B/op       vs base                │
+ConvertOAS2ToOAS3Small-10                       190.9Ki ± ∞ ¹   190.9Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertOAS2ToOAS3Medium-10                      1.427Mi ± ∞ ¹   1.427Mi ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertOAS3ToOAS2Small-10                       216.2Ki ± ∞ ¹   216.3Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertOAS3ToOAS2Medium-10                      1.655Mi ± ∞ ¹   1.655Mi ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertParsedOAS2ToOAS3Small-10                 20.62Ki ± ∞ ¹   20.62Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+ConvertParsedOAS2ToOAS3Medium-10                258.9Ki ± ∞ ¹   258.9Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertParsedOAS3ToOAS2Small-10                 17.08Ki ± ∞ ¹   17.06Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertParsedOAS3ToOAS2Medium-10                262.3Ki ± ∞ ¹   262.4Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceConvertOAS2ToOAS3Small-10            190.9Ki ± ∞ ¹   190.9Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceConvertOAS2ToOAS3Medium-10           1.427Mi ± ∞ ¹   1.427Mi ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertNoInfoOAS2ToOAS3Small-10                 190.9Ki ± ∞ ¹   190.9Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertNoInfoOAS2ToOAS3Medium-10                1.427Mi ± ∞ ¹   1.427Mi ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                                         275.4Ki         275.4Ki        -0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+³ all samples are equal
+
+                                      │ benchmark-v1.9.10.txt │        benchmark-v1.9.12.txt         │
+                                      │       allocs/op       │  allocs/op    vs base                │
+ConvertOAS2ToOAS3Small-10                        2.359k ± ∞ ¹   2.359k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertOAS2ToOAS3Medium-10                       19.64k ± ∞ ¹   19.64k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertOAS3ToOAS2Small-10                        2.390k ± ∞ ¹   2.390k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertOAS3ToOAS2Medium-10                       21.37k ± ∞ ¹   21.37k ± ∞ ¹       ~ (p=1.000 n=1) ³
+ConvertParsedOAS2ToOAS3Small-10                   297.0 ± ∞ ¹    297.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertParsedOAS2ToOAS3Medium-10                 3.608k ± ∞ ¹   3.608k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertParsedOAS3ToOAS2Small-10                   258.0 ± ∞ ¹    258.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertParsedOAS3ToOAS2Medium-10                 3.909k ± ∞ ¹   3.909k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceConvertOAS2ToOAS3Small-10             2.359k ± ∞ ¹   2.359k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceConvertOAS2ToOAS3Medium-10            19.64k ± ∞ ¹   19.64k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertNoInfoOAS2ToOAS3Small-10                  2.359k ± ∞ ¹   2.359k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvertNoInfoOAS2ToOAS3Medium-10                 19.64k ± ∞ ¹   19.64k ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                                          3.644k         3.644k        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+³ need >= 4 samples to detect a difference at alpha level 0.05
+
+pkg: github.com/erraggy/oastools/differ
+                         │ benchmark-v1.9.10.txt │        benchmark-v1.9.12.txt         │
+                         │        sec/op         │    sec/op     vs base                │
+DiffConvenience-10                  461.2µ ± ∞ ¹   457.5µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+DiffParsedConvenience-10            5.681µ ± ∞ ¹   5.683µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferDiff-10                       461.4µ ± ∞ ¹   459.7µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferDiffParsed-10                 5.638µ ± ∞ ¹   5.712µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferSimpleMode-10                 5.702µ ± ∞ ¹   5.835µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferBreakingMode-10               6.750µ ± ∞ ¹   6.734µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferWithInfo-10                   6.746µ ± ∞ ¹   6.679µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferWithoutInfo-10                6.878µ ± ∞ ¹   6.844µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferIdenticalSpecs-10             3.844µ ± ∞ ¹   3.775µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseOnceDiffMany-10                6.743µ ± ∞ ¹   6.735µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                             14.12µ         14.11µ        -0.12%
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+
+                         │ benchmark-v1.9.10.txt │         benchmark-v1.9.12.txt         │
+                         │         B/op          │     B/op       vs base                │
+DiffConvenience-10                 594.5Ki ± ∞ ¹   594.5Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+DiffParsedConvenience-10           7.637Ki ± ∞ ¹   7.637Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+DifferDiff-10                      597.0Ki ± ∞ ¹   596.7Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferDiffParsed-10                7.637Ki ± ∞ ¹   7.637Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+DifferSimpleMode-10                7.637Ki ± ∞ ¹   7.637Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+DifferBreakingMode-10              7.896Ki ± ∞ ¹   7.896Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+DifferWithInfo-10                  7.896Ki ± ∞ ¹   7.896Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+DifferWithoutInfo-10               9.021Ki ± ∞ ¹   9.021Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+DifferIdenticalSpecs-10            3.188Ki ± ∞ ¹   3.188Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+ParseOnceDiffMany-10               7.896Ki ± ∞ ¹   7.896Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+geomean                            17.18Ki         17.18Ki        -0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+³ all samples are equal
+
+                         │ benchmark-v1.9.10.txt │        benchmark-v1.9.12.txt         │
+                         │       allocs/op       │  allocs/op    vs base                │
+DiffConvenience-10                  7.182k ± ∞ ¹   7.182k ± ∞ ¹       ~ (p=1.000 n=1) ²
+DiffParsedConvenience-10             162.0 ± ∞ ¹    162.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferDiff-10                       7.183k ± ∞ ¹   7.183k ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferDiffParsed-10                  162.0 ± ∞ ¹    162.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferSimpleMode-10                  162.0 ± ∞ ¹    162.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferBreakingMode-10                177.0 ± ∞ ¹    177.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferWithInfo-10                    177.0 ± ∞ ¹    177.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferWithoutInfo-10                 178.0 ± ∞ ¹    178.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+DifferIdenticalSpecs-10              115.0 ± ∞ ¹    115.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseOnceDiffMany-10                 177.0 ± ∞ ¹    177.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                              346.4          346.4        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+pkg: github.com/erraggy/oastools/joiner
+                               │ benchmark-v1.9.10.txt │        benchmark-v1.9.12.txt         │
+                               │        sec/op         │    sec/op     vs base                │
+JoinTwoSmallDocs-10                       110.1µ ± ∞ ¹   110.7µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinThreeSmallDocs-10                     162.6µ ± ∞ ¹   162.4µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinParsedTwoSmallDocs-10                 793.6n ± ∞ ¹   724.1n ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinParsedThreeSmallDocs-10               918.4n ± ∞ ¹   917.5n ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceJoinTwoSmallDocs-10            109.8µ ± ∞ ¹   110.0µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinStrategyAcceptRight-10                109.9µ ± ∞ ¹   110.5µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinWithArrayMerge-10                     110.4µ ± ∞ ¹   110.8µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinWithDeduplicateTags-10                110.5µ ± ∞ ¹   110.0µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                                   34.32µ         33.96µ        -1.04%
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+
+                               │ benchmark-v1.9.10.txt │         benchmark-v1.9.12.txt         │
+                               │         B/op          │     B/op       vs base                │
+JoinTwoSmallDocs-10                      141.1Ki ± ∞ ¹   141.1Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinThreeSmallDocs-10                    209.9Ki ± ∞ ¹   209.9Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinParsedTwoSmallDocs-10                1.773Ki ± ∞ ¹   1.773Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+JoinParsedThreeSmallDocs-10              1.914Ki ± ∞ ¹   1.914Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+ConvenienceJoinTwoSmallDocs-10           141.2Ki ± ∞ ¹   141.2Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinStrategyAcceptRight-10               141.4Ki ± ∞ ¹   141.4Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinWithArrayMerge-10                    141.6Ki ± ∞ ¹   141.6Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinWithDeduplicateTags-10               141.7Ki ± ∞ ¹   141.7Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                                  50.19Ki         50.19Ki        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+³ all samples are equal
+
+                               │ benchmark-v1.9.10.txt │        benchmark-v1.9.12.txt         │
+                               │       allocs/op       │  allocs/op    vs base                │
+JoinTwoSmallDocs-10                       1.602k ± ∞ ¹   1.602k ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinThreeSmallDocs-10                     2.363k ± ∞ ¹   2.363k ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinParsedTwoSmallDocs-10                  22.00 ± ∞ ¹    22.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinParsedThreeSmallDocs-10                23.00 ± ∞ ¹    23.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceJoinTwoSmallDocs-10            1.602k ± ∞ ¹   1.602k ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinStrategyAcceptRight-10                1.602k ± ∞ ¹   1.602k ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinWithArrayMerge-10                     1.602k ± ∞ ¹   1.602k ± ∞ ¹       ~ (p=1.000 n=1) ²
+JoinWithDeduplicateTags-10                1.602k ± ∞ ¹   1.602k ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                                    578.9          578.9        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+pkg: github.com/erraggy/oastools/parser
+                               │ benchmark-v1.9.10.txt │        benchmark-v1.9.12.txt         │
+                               │        sec/op         │    sec/op     vs base                │
+MarshalInfoNoExtra-10                     440.6n ± ∞ ¹   438.5n ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoWithExtra-10                   1.783µ ± ∞ ¹   1.782µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoExtra1-10                      961.9n ± ∞ ¹   932.5n ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoExtra5-10                      1.771µ ± ∞ ¹   1.747µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoExtra10-10                     3.013µ ± ∞ ¹   2.990µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoExtra20-10                     5.439µ ± ∞ ¹   5.360µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalContactNoExtra-10                  446.1n ± ∞ ¹   445.1n ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalContactWithExtra-10                1.677µ ± ∞ ¹   1.658µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalServerNoExtra-10                   368.6n ± ∞ ¹   367.3n ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalServerWithExtra-10                 2.244µ ± ∞ ¹   2.261µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalOAS3DocumentSmall-10               19.75µ ± ∞ ¹   19.60µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalOAS3DocumentMedium-10              217.5µ ± ∞ ¹   217.7µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalOAS3DocumentLarge-10               2.703m ± ∞ ¹   2.656m ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalOAS2DocumentSmall-10               17.45µ ± ∞ ¹   17.30µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalOAS2DocumentMedium-10              175.8µ ± ∞ ¹   174.1µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+UnmarshalInfoNoExtra-10                   1.469µ ± ∞ ¹   1.469µ ± ∞ ¹       ~ (p=1.000 n=1) ³
+UnmarshalInfoWithExtra-10                 3.282µ ± ∞ ¹   3.493µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseSmallOAS3-10                         144.9µ ± ∞ ¹   145.8µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseMediumOAS3-10                        1.142m ± ∞ ¹   1.138m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseLargeOAS3-10                         14.14m ± ∞ ¹   14.14m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseSmallOAS2-10                         136.1µ ± ∞ ¹   136.0µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseMediumOAS2-10                        1.035m ± ∞ ¹   1.034m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseSmallOAS3NoValidation-10             140.4µ ± ∞ ¹   140.3µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseMediumOAS3NoValidation-10            1.135m ± ∞ ¹   1.134m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseBytesSmallOAS3-10                    134.6µ ± ∞ ¹   134.5µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseBytesMediumOAS3-10                   1.129m ± ∞ ¹   1.126m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceParseSmallOAS3-10              146.1µ ± ∞ ¹   145.8µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceParseMediumOAS3-10             1.151m ± ∞ ¹   1.142m ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                                   32.94µ         32.85µ        -0.26%
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+³ all samples are equal
+
+                               │ benchmark-v1.9.10.txt │         benchmark-v1.9.12.txt         │
+                               │         B/op          │     B/op       vs base                │
+MarshalInfoNoExtra-10                      192.0 ± ∞ ¹     192.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoWithExtra-10                  1.696Ki ± ∞ ¹   1.696Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoExtra1-10                       896.0 ± ∞ ¹     896.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoExtra5-10                     1.665Ki ± ∞ ¹   1.665Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoExtra10-10                    2.917Ki ± ∞ ¹   2.917Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoExtra20-10                    4.231Ki ± ∞ ¹   4.231Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalContactNoExtra-10                   192.0 ± ∞ ¹     192.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalContactWithExtra-10               1.345Ki ± ∞ ¹   1.345Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalServerNoExtra-10                    160.0 ± ∞ ¹     160.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalServerWithExtra-10                1.963Ki ± ∞ ¹   1.963Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalOAS3DocumentSmall-10              6.839Ki ± ∞ ¹   6.838Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+MarshalOAS3DocumentMedium-10             64.21Ki ± ∞ ¹   64.23Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+MarshalOAS3DocumentLarge-10              817.5Ki ± ∞ ¹   821.8Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+MarshalOAS2DocumentSmall-10              6.221Ki ± ∞ ¹   6.221Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalOAS2DocumentMedium-10             52.35Ki ± ∞ ¹   52.34Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+UnmarshalInfoNoExtra-10                  1.195Ki ± ∞ ¹   1.195Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+UnmarshalInfoWithExtra-10                1.695Ki ± ∞ ¹   1.695Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseSmallOAS3-10                        198.0Ki ± ∞ ¹   198.0Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+ParseMediumOAS3-10                       1.397Mi ± ∞ ¹   1.397Mi ± ∞ ¹       ~ (p=1.000 n=1) ³
+ParseLargeOAS3-10                        15.70Mi ± ∞ ¹   15.70Mi ± ∞ ¹       ~ (p=1.000 n=1) ³
+ParseSmallOAS2-10                        170.1Ki ± ∞ ¹   170.1Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+ParseMediumOAS2-10                       1.173Mi ± ∞ ¹   1.173Mi ± ∞ ¹       ~ (p=1.000 n=1) ³
+ParseSmallOAS3NoValidation-10            191.7Ki ± ∞ ¹   191.7Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+ParseMediumOAS3NoValidation-10           1.376Mi ± ∞ ¹   1.375Mi ± ∞ ¹       ~ (p=1.000 n=1) ³
+ParseBytesSmallOAS3-10                   196.4Ki ± ∞ ¹   196.4Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+ParseBytesMediumOAS3-10                  1.380Mi ± ∞ ¹   1.379Mi ± ∞ ¹       ~ (p=1.000 n=1) ³
+ConvenienceParseSmallOAS3-10             198.1Ki ± ∞ ¹   198.0Ki ± ∞ ¹       ~ (p=1.000 n=1) ³
+ConvenienceParseMediumOAS3-10            1.393Mi ± ∞ ¹   1.393Mi ± ∞ ¹       ~ (p=1.000 n=1) ³
+geomean                                  25.36Ki         25.36Ki        +0.01%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+³ need >= 4 samples to detect a difference at alpha level 0.05
+
+                               │ benchmark-v1.9.10.txt │        benchmark-v1.9.12.txt         │
+                               │       allocs/op       │  allocs/op    vs base                │
+MarshalInfoNoExtra-10                      2.000 ± ∞ ¹    2.000 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoWithExtra-10                    26.00 ± ∞ ¹    26.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoExtra1-10                       16.00 ± ∞ ¹    16.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoExtra5-10                       26.00 ± ∞ ¹    26.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoExtra10-10                      36.00 ± ∞ ¹    36.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalInfoExtra20-10                      56.00 ± ∞ ¹    56.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalContactNoExtra-10                   2.000 ± ∞ ¹    2.000 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalContactWithExtra-10                 24.00 ± ∞ ¹    24.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalServerNoExtra-10                    2.000 ± ∞ ¹    2.000 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalServerWithExtra-10                  29.00 ± ∞ ¹    29.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalOAS3DocumentSmall-10                66.00 ± ∞ ¹    66.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalOAS3DocumentMedium-10               471.0 ± ∞ ¹    471.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalOAS3DocumentLarge-10               5.336k ± ∞ ¹   5.336k ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalOAS2DocumentSmall-10                58.00 ± ∞ ¹    58.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+MarshalOAS2DocumentMedium-10               396.0 ± ∞ ¹    396.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+UnmarshalInfoNoExtra-10                    29.00 ± ∞ ¹    29.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+UnmarshalInfoWithExtra-10                  46.00 ± ∞ ¹    46.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseSmallOAS3-10                         2.128k ± ∞ ¹   2.128k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseMediumOAS3-10                        17.45k ± ∞ ¹   17.45k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseLargeOAS3-10                         194.8k ± ∞ ¹   194.8k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseSmallOAS2-10                         2.059k ± ∞ ¹   2.059k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseMediumOAS2-10                        16.03k ± ∞ ¹   16.03k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseSmallOAS3NoValidation-10             2.047k ± ∞ ¹   2.047k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseMediumOAS3NoValidation-10            17.30k ± ∞ ¹   17.30k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseBytesSmallOAS3-10                    2.123k ± ∞ ¹   2.123k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ParseBytesMediumOAS3-10                   17.44k ± ∞ ¹   17.44k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceParseSmallOAS3-10              2.128k ± ∞ ¹   2.128k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceParseMediumOAS3-10             17.45k ± ∞ ¹   17.45k ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                                    312.5          312.5        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+pkg: github.com/erraggy/oastools/validator
+                                 │ benchmark-v1.9.10.txt │        benchmark-v1.9.12.txt         │
+                                 │        sec/op         │    sec/op     vs base                │
+ValidateSmallOAS3-10                        146.2µ ± ∞ ¹   146.3µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateMediumOAS3-10                       1.169m ± ∞ ¹   1.158m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateLargeOAS3-10                        14.65m ± ∞ ¹   14.67m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateSmallOAS2-10                        137.3µ ± ∞ ¹   137.8µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateMediumOAS2-10                       1.046m ± ∞ ¹   1.043m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateSmallOAS3NoWarnings-10              147.1µ ± ∞ ¹   146.9µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateMediumOAS3NoWarnings-10             1.169m ± ∞ ¹   1.168m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateParsedSmallOAS3-10                  4.732µ ± ∞ ¹   4.695µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateParsedMediumOAS3-10                 40.50µ ± ∞ ¹   40.32µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateParsedLargeOAS3-10                  460.7µ ± ∞ ¹   461.2µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceValidateSmallOAS3-10             147.2µ ± ∞ ¹   147.4µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceValidateMediumOAS3-10            1.173m ± ∞ ¹   1.172m ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateStrictModeSmallOAS3-10              147.1µ ± ∞ ¹   147.5µ ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateStrictModeMediumOAS3-10             1.174m ± ∞ ¹   1.171m ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                                     327.4µ         327.0µ        -0.13%
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+
+                                 │ benchmark-v1.9.10.txt │         benchmark-v1.9.12.txt         │
+                                 │         B/op          │     B/op       vs base                │
+ValidateSmallOAS3-10                       203.1Ki ± ∞ ¹   203.2Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateMediumOAS3-10                      1.426Mi ± ∞ ¹   1.426Mi ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateLargeOAS3-10                       16.07Mi ± ∞ ¹   16.07Mi ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateSmallOAS2-10                       176.2Ki ± ∞ ¹   176.3Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateMediumOAS2-10                      1.210Mi ± ∞ ¹   1.209Mi ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateSmallOAS3NoWarnings-10             203.3Ki ± ∞ ¹   203.4Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateMediumOAS3NoWarnings-10            1.425Mi ± ∞ ¹   1.425Mi ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateParsedSmallOAS3-10                 5.137Ki ± ∞ ¹   5.138Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateParsedMediumOAS3-10                32.64Ki ± ∞ ¹   32.64Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateParsedLargeOAS3-10                 367.0Ki ± ∞ ¹   367.5Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceValidateSmallOAS3-10            203.4Ki ± ∞ ¹   203.5Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceValidateMediumOAS3-10           1.425Mi ± ∞ ¹   1.425Mi ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateStrictModeSmallOAS3-10             203.3Ki ± ∞ ¹   203.4Ki ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateStrictModeMediumOAS3-10            1.424Mi ± ∞ ¹   1.425Mi ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                                    387.3Ki         387.5Ki        +0.04%
+¹ need >= 6 samples for confidence interval at level 0.95
+² need >= 4 samples to detect a difference at alpha level 0.05
+
+                                 │ benchmark-v1.9.10.txt │        benchmark-v1.9.12.txt         │
+                                 │       allocs/op       │  allocs/op    vs base                │
+ValidateSmallOAS3-10                        2.220k ± ∞ ¹   2.220k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateMediumOAS3-10                       18.36k ± ∞ ¹   18.36k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateLargeOAS3-10                        205.1k ± ∞ ¹   205.1k ± ∞ ¹       ~ (p=1.000 n=1) ³
+ValidateSmallOAS2-10                        2.135k ± ∞ ¹   2.135k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateMediumOAS2-10                       16.85k ± ∞ ¹   16.85k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateSmallOAS3NoWarnings-10              2.220k ± ∞ ¹   2.220k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateMediumOAS3NoWarnings-10             18.36k ± ∞ ¹   18.36k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateParsedSmallOAS3-10                   90.00 ± ∞ ¹    90.00 ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateParsedMediumOAS3-10                  914.0 ± ∞ ¹    914.0 ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateParsedLargeOAS3-10                  10.30k ± ∞ ¹   10.30k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceValidateSmallOAS3-10             2.220k ± ∞ ¹   2.220k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ConvenienceValidateMediumOAS3-10            18.36k ± ∞ ¹   18.36k ± ∞ ¹       ~ (p=1.000 n=1) ³
+ValidateStrictModeSmallOAS3-10              2.220k ± ∞ ¹   2.220k ± ∞ ¹       ~ (p=1.000 n=1) ²
+ValidateStrictModeMediumOAS3-10             18.36k ± ∞ ¹   18.36k ± ∞ ¹       ~ (p=1.000 n=1) ²
+geomean                                     5.385k         5.386k        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+³ need >= 4 samples to detect a difference at alpha level 0.05

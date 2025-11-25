@@ -1,0 +1,102 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/parser
+cpu: Apple M4
+BenchmarkMarshalInfoNoExtra-10             	13722390	       440.6 ns/op	     192 B/op	       2 allocs/op
+BenchmarkMarshalInfoWithExtra-10           	 3375986	      1783 ns/op	    1737 B/op	      26 allocs/op
+BenchmarkMarshalInfoExtra1-10              	 6468483	       961.9 ns/op	     896 B/op	      16 allocs/op
+BenchmarkMarshalInfoExtra5-10              	 3357483	      1771 ns/op	    1705 B/op	      26 allocs/op
+BenchmarkMarshalInfoExtra10-10             	 1992024	      3013 ns/op	    2987 B/op	      36 allocs/op
+BenchmarkMarshalInfoExtra20-10             	 1000000	      5439 ns/op	    4333 B/op	      56 allocs/op
+BenchmarkMarshalContactNoExtra-10          	13407921	       446.1 ns/op	     192 B/op	       2 allocs/op
+BenchmarkMarshalContactWithExtra-10        	 3629209	      1677 ns/op	    1377 B/op	      24 allocs/op
+BenchmarkMarshalServerNoExtra-10           	16028533	       368.6 ns/op	     160 B/op	       2 allocs/op
+BenchmarkMarshalServerWithExtra-10         	 2671447	      2244 ns/op	    2010 B/op	      29 allocs/op
+BenchmarkMarshalOAS3DocumentSmall-10       	  306405	     19748 ns/op	    7003 B/op	      66 allocs/op
+BenchmarkMarshalOAS3DocumentMedium-10      	   27520	    217504 ns/op	   65748 B/op	     471 allocs/op
+BenchmarkMarshalOAS3DocumentLarge-10       	    2242	   2702693 ns/op	  837158 B/op	    5336 allocs/op
+BenchmarkMarshalOAS2DocumentSmall-10       	  339057	     17452 ns/op	    6370 B/op	      58 allocs/op
+BenchmarkMarshalOAS2DocumentMedium-10      	   34089	    175777 ns/op	   53607 B/op	     396 allocs/op
+BenchmarkUnmarshalInfoNoExtra-10           	 4088379	      1469 ns/op	    1224 B/op	      29 allocs/op
+BenchmarkUnmarshalInfoWithExtra-10         	 1828834	      3282 ns/op	    1736 B/op	      46 allocs/op
+BenchmarkParseSmallOAS3-10                 	   41458	    144876 ns/op	  202743 B/op	    2128 allocs/op
+BenchmarkParseMediumOAS3-10                	    5263	   1141726 ns/op	 1465296 B/op	   17449 allocs/op
+BenchmarkParseLargeOAS3-10                 	     423	  14140655 ns/op	16467657 B/op	  194777 allocs/op
+BenchmarkParseSmallOAS2-10                 	   44161	    136121 ns/op	  174163 B/op	    2059 allocs/op
+BenchmarkParseMediumOAS2-10                	    5784	   1034542 ns/op	 1229962 B/op	   16027 allocs/op
+BenchmarkParseSmallOAS3NoValidation-10     	   42723	    140370 ns/op	  196276 B/op	    2047 allocs/op
+BenchmarkParseMediumOAS3NoValidation-10    	    5289	   1135496 ns/op	 1442318 B/op	   17296 allocs/op
+BenchmarkParseBytesSmallOAS3-10            	   44596	    134562 ns/op	  201111 B/op	    2123 allocs/op
+BenchmarkParseBytesMediumOAS3-10           	    5288	   1128619 ns/op	 1446661 B/op	   17443 allocs/op
+BenchmarkConvenienceParseSmallOAS3-10      	   41246	    146053 ns/op	  202891 B/op	    2128 allocs/op
+BenchmarkConvenienceParseMediumOAS3-10     	    5014	   1150759 ns/op	 1460690 B/op	   17448 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/parser	167.812s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/validator
+cpu: Apple M4
+BenchmarkValidateSmallOAS3-10                	   40982	    146200 ns/op	  207953 B/op	    2220 allocs/op
+BenchmarkValidateMediumOAS3-10               	    5161	   1168523 ns/op	 1495156 B/op	   18365 allocs/op
+BenchmarkValidateLargeOAS3-10                	     409	  14649072 ns/op	16847416 B/op	  205079 allocs/op
+BenchmarkValidateSmallOAS2-10                	   43610	    137300 ns/op	  180441 B/op	    2135 allocs/op
+BenchmarkValidateMediumOAS2-10               	    5719	   1046162 ns/op	 1268255 B/op	   16851 allocs/op
+BenchmarkValidateSmallOAS3NoWarnings-10      	   40788	    147078 ns/op	  208180 B/op	    2220 allocs/op
+BenchmarkValidateMediumOAS3NoWarnings-10     	    5175	   1169101 ns/op	 1493825 B/op	   18364 allocs/op
+BenchmarkValidateParsedSmallOAS3-10          	 1267962	      4732 ns/op	    5260 B/op	      90 allocs/op
+BenchmarkValidateParsedMediumOAS3-10         	  148581	     40500 ns/op	   33421 B/op	     914 allocs/op
+BenchmarkValidateParsedLargeOAS3-10          	   13009	    460703 ns/op	  375813 B/op	   10297 allocs/op
+BenchmarkConvenienceValidateSmallOAS3-10     	   40821	    147224 ns/op	  208288 B/op	    2220 allocs/op
+BenchmarkConvenienceValidateMediumOAS3-10    	    5104	   1172641 ns/op	 1493915 B/op	   18364 allocs/op
+BenchmarkValidateStrictModeSmallOAS3-10      	   40774	    147090 ns/op	  208166 B/op	    2220 allocs/op
+BenchmarkValidateStrictModeMediumOAS3-10     	    5133	   1173652 ns/op	 1493637 B/op	   18364 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/validator	84.462s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/converter
+cpu: Apple M4
+BenchmarkConvertOAS2ToOAS3Small-10                	   39117	    156116 ns/op	  195517 B/op	    2359 allocs/op
+BenchmarkConvertOAS2ToOAS3Medium-10               	    4756	   1255601 ns/op	 1496339 B/op	   19640 allocs/op
+BenchmarkConvertOAS3ToOAS2Small-10                	   37392	    160301 ns/op	  221372 B/op	    2390 allocs/op
+BenchmarkConvertOAS3ToOAS2Medium-10               	    4138	   1448744 ns/op	 1735366 B/op	   21368 allocs/op
+BenchmarkConvertParsedOAS2ToOAS3Small-10          	  364527	     16127 ns/op	   21115 B/op	     297 allocs/op
+BenchmarkConvertParsedOAS2ToOAS3Medium-10         	   23433	    257158 ns/op	  265147 B/op	    3608 allocs/op
+BenchmarkConvertParsedOAS3ToOAS2Small-10          	  439068	     13698 ns/op	   17488 B/op	     258 allocs/op
+BenchmarkConvertParsedOAS3ToOAS2Medium-10         	   21446	    279098 ns/op	  268593 B/op	    3909 allocs/op
+BenchmarkConvenienceConvertOAS2ToOAS3Small-10     	   39416	    152605 ns/op	  195523 B/op	    2359 allocs/op
+BenchmarkConvenienceConvertOAS2ToOAS3Medium-10    	    4734	   1261640 ns/op	 1496277 B/op	   19640 allocs/op
+BenchmarkConvertNoInfoOAS2ToOAS3Small-10          	   39172	    153014 ns/op	  195525 B/op	    2359 allocs/op
+BenchmarkConvertNoInfoOAS2ToOAS3Medium-10         	    4758	   1262569 ns/op	 1496277 B/op	   19640 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/converter	72.379s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/joiner
+cpu: Apple M4
+BenchmarkJoinTwoSmallDocs-10               	   54340	    110132 ns/op	  144486 B/op	    1602 allocs/op
+BenchmarkJoinThreeSmallDocs-10             	   36936	    162614 ns/op	  214931 B/op	    2363 allocs/op
+BenchmarkJoinParsedTwoSmallDocs-10         	 7830409	       793.6 ns/op	    1816 B/op	      22 allocs/op
+BenchmarkJoinParsedThreeSmallDocs-10       	 6570546	       918.4 ns/op	    1960 B/op	      23 allocs/op
+BenchmarkConvenienceJoinTwoSmallDocs-10    	   54415	    109797 ns/op	  144554 B/op	    1602 allocs/op
+BenchmarkJoinStrategyAcceptRight-10        	   54637	    109927 ns/op	  144752 B/op	    1602 allocs/op
+BenchmarkJoinWithArrayMerge-10             	   54369	    110437 ns/op	  145008 B/op	    1602 allocs/op
+BenchmarkJoinWithDeduplicateTags-10        	   54328	    110520 ns/op	  145072 B/op	    1602 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/joiner	48.618s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/differ
+cpu: Apple M4
+BenchmarkDiffConvenience-10          	   13006	    461228 ns/op	  608813 B/op	    7182 allocs/op
+BenchmarkDiffParsedConvenience-10    	 1000000	      5681 ns/op	    7820 B/op	     162 allocs/op
+BenchmarkDifferDiff-10               	   12964	    461430 ns/op	  611309 B/op	    7183 allocs/op
+BenchmarkDifferDiffParsed-10         	 1000000	      5638 ns/op	    7820 B/op	     162 allocs/op
+BenchmarkDifferSimpleMode-10         	 1000000	      5702 ns/op	    7820 B/op	     162 allocs/op
+BenchmarkDifferBreakingMode-10       	  887470	      6750 ns/op	    8085 B/op	     177 allocs/op
+BenchmarkDifferWithInfo-10           	  887862	      6746 ns/op	    8085 B/op	     177 allocs/op
+BenchmarkDifferWithoutInfo-10        	  870596	      6878 ns/op	    9238 B/op	     178 allocs/op
+BenchmarkDifferIdenticalSpecs-10     	 1593081	      3844 ns/op	    3265 B/op	     115 allocs/op
+BenchmarkParseOnceDiffMany-10        	  891602	      6743 ns/op	    8085 B/op	     177 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/differ	59.484s
