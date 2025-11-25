@@ -844,3 +844,614 @@ func TestDiffSchemaPropertiesSimpleMode(t *testing.T) {
 		t.Error("Expected to find modified property type change")
 	}
 }
+
+// TestDiffSchemaAllOf tests allOf composition diffing
+func TestDiffSchemaAllOf(t *testing.T) {
+	tests := []struct {
+		name           string
+		source         []*parser.Schema
+		target         []*parser.Schema
+		expectedCount  int
+		mode           string
+		checkSeverity  bool
+		expectedSevere int // Count of Error or Critical severity changes
+	}{
+		{
+			name: "AllOf schemas identical",
+			source: []*parser.Schema{
+				{Type: "string"},
+				{Type: "object"},
+			},
+			target: []*parser.Schema{
+				{Type: "string"},
+				{Type: "object"},
+			},
+			expectedCount:  0,
+			mode:           "breaking",
+			checkSeverity:  false,
+			expectedSevere: 0,
+		},
+		{
+			name: "AllOf schema added (breaking mode - Error severity)",
+			source: []*parser.Schema{
+				{Type: "string"},
+			},
+			target: []*parser.Schema{
+				{Type: "string"},
+				{Type: "object"},
+			},
+			expectedCount:  1,
+			mode:           "breaking",
+			checkSeverity:  true,
+			expectedSevere: 1, // Adding allOf is Error in breaking mode
+		},
+		{
+			name: "AllOf schema removed (breaking mode - Info severity)",
+			source: []*parser.Schema{
+				{Type: "string"},
+				{Type: "object"},
+			},
+			target: []*parser.Schema{
+				{Type: "string"},
+			},
+			expectedCount:  1,
+			mode:           "breaking",
+			checkSeverity:  true,
+			expectedSevere: 0, // Removing allOf is Info in breaking mode
+		},
+		{
+			name: "AllOf schema modified",
+			source: []*parser.Schema{
+				{Type: "string", MinLength: ptrInt(5)},
+			},
+			target: []*parser.Schema{
+				{Type: "string", MinLength: ptrInt(10)},
+			},
+			expectedCount:  1,
+			mode:           "breaking",
+			checkSeverity:  false,
+			expectedSevere: 0,
+		},
+		{
+			name: "AllOf schema added (simple mode - no severity)",
+			source: []*parser.Schema{
+				{Type: "string"},
+			},
+			target: []*parser.Schema{
+				{Type: "string"},
+				{Type: "object"},
+			},
+			expectedCount:  1,
+			mode:           "simple",
+			checkSeverity:  false,
+			expectedSevere: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source := &parser.Schema{AllOf: tt.source}
+			target := &parser.Schema{AllOf: tt.target}
+
+			sourceDoc := &parser.OAS3Document{
+				OpenAPI: "3.1.0",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"TestSchema": source,
+					},
+				},
+			}
+			targetDoc := &parser.OAS3Document{
+				OpenAPI: "3.1.0",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"TestSchema": target,
+					},
+				},
+			}
+
+			differ := New()
+			if tt.mode == "breaking" {
+				differ.Mode = ModeBreaking
+			}
+
+			result, err := differ.DiffParsed(
+				parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
+				parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
+			)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(result.Changes) != tt.expectedCount {
+				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
+				for _, c := range result.Changes {
+					t.Logf("Change: %s - %s", c.Path, c.Message)
+				}
+			}
+
+			if tt.checkSeverity {
+				severeCount := 0
+				for _, c := range result.Changes {
+					if c.Severity == SeverityError || c.Severity == SeverityCritical {
+						severeCount++
+					}
+				}
+				if severeCount != tt.expectedSevere {
+					t.Errorf("Expected %d severe changes, got %d", tt.expectedSevere, severeCount)
+				}
+			}
+		})
+	}
+}
+
+// TestDiffSchemaAnyOf tests anyOf composition diffing
+func TestDiffSchemaAnyOf(t *testing.T) {
+	tests := []struct {
+		name          string
+		source        []*parser.Schema
+		target        []*parser.Schema
+		expectedCount int
+		mode          string
+	}{
+		{
+			name: "AnyOf schemas identical",
+			source: []*parser.Schema{
+				{Type: "string"},
+				{Type: "integer"},
+			},
+			target: []*parser.Schema{
+				{Type: "string"},
+				{Type: "integer"},
+			},
+			expectedCount: 0,
+			mode:          "breaking",
+		},
+		{
+			name: "AnyOf schema added",
+			source: []*parser.Schema{
+				{Type: "string"},
+			},
+			target: []*parser.Schema{
+				{Type: "string"},
+				{Type: "integer"},
+			},
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+		{
+			name: "AnyOf schema removed",
+			source: []*parser.Schema{
+				{Type: "string"},
+				{Type: "integer"},
+			},
+			target: []*parser.Schema{
+				{Type: "string"},
+			},
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+		{
+			name: "AnyOf schema modified",
+			source: []*parser.Schema{
+				{Type: "string", MinLength: ptrInt(5)},
+			},
+			target: []*parser.Schema{
+				{Type: "string", MinLength: ptrInt(10)},
+			},
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source := &parser.Schema{AnyOf: tt.source}
+			target := &parser.Schema{AnyOf: tt.target}
+
+			sourceDoc := &parser.OAS3Document{
+				OpenAPI: "3.1.0",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"TestSchema": source,
+					},
+				},
+			}
+			targetDoc := &parser.OAS3Document{
+				OpenAPI: "3.1.0",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"TestSchema": target,
+					},
+				},
+			}
+
+			differ := New()
+			if tt.mode == "breaking" {
+				differ.Mode = ModeBreaking
+			}
+
+			result, err := differ.DiffParsed(
+				parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
+				parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
+			)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(result.Changes) != tt.expectedCount {
+				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
+			}
+		})
+	}
+}
+
+// TestDiffSchemaOneOf tests oneOf composition diffing
+func TestDiffSchemaOneOf(t *testing.T) {
+	tests := []struct {
+		name          string
+		source        []*parser.Schema
+		target        []*parser.Schema
+		expectedCount int
+		mode          string
+	}{
+		{
+			name: "OneOf schemas identical",
+			source: []*parser.Schema{
+				{Type: "string"},
+				{Type: "integer"},
+			},
+			target: []*parser.Schema{
+				{Type: "string"},
+				{Type: "integer"},
+			},
+			expectedCount: 0,
+			mode:          "breaking",
+		},
+		{
+			name: "OneOf schema added",
+			source: []*parser.Schema{
+				{Type: "string"},
+			},
+			target: []*parser.Schema{
+				{Type: "string"},
+				{Type: "integer"},
+			},
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+		{
+			name: "OneOf schema removed",
+			source: []*parser.Schema{
+				{Type: "string"},
+				{Type: "integer"},
+			},
+			target: []*parser.Schema{
+				{Type: "string"},
+			},
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source := &parser.Schema{OneOf: tt.source}
+			target := &parser.Schema{OneOf: tt.target}
+
+			sourceDoc := &parser.OAS3Document{
+				OpenAPI: "3.1.0",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"TestSchema": source,
+					},
+				},
+			}
+			targetDoc := &parser.OAS3Document{
+				OpenAPI: "3.1.0",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"TestSchema": target,
+					},
+				},
+			}
+
+			differ := New()
+			if tt.mode == "breaking" {
+				differ.Mode = ModeBreaking
+			}
+
+			result, err := differ.DiffParsed(
+				parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
+				parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
+			)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(result.Changes) != tt.expectedCount {
+				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
+			}
+		})
+	}
+}
+
+// TestDiffSchemaNot tests not schema diffing
+func TestDiffSchemaNot(t *testing.T) {
+	tests := []struct {
+		name          string
+		source        *parser.Schema
+		target        *parser.Schema
+		expectedCount int
+		mode          string
+	}{
+		{
+			name:          "Not schemas identical",
+			source:        &parser.Schema{Type: "string"},
+			target:        &parser.Schema{Type: "string"},
+			expectedCount: 0,
+			mode:          "breaking",
+		},
+		{
+			name:          "Not schema added",
+			source:        nil,
+			target:        &parser.Schema{Type: "string"},
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+		{
+			name:          "Not schema removed",
+			source:        &parser.Schema{Type: "string"},
+			target:        nil,
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+		{
+			name:          "Not schema modified",
+			source:        &parser.Schema{Type: "string", MinLength: ptrInt(5)},
+			target:        &parser.Schema{Type: "string", MinLength: ptrInt(10)},
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source := &parser.Schema{Not: tt.source}
+			target := &parser.Schema{Not: tt.target}
+
+			sourceDoc := &parser.OAS3Document{
+				OpenAPI: "3.1.0",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"TestSchema": source,
+					},
+				},
+			}
+			targetDoc := &parser.OAS3Document{
+				OpenAPI: "3.1.0",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"TestSchema": target,
+					},
+				},
+			}
+
+			differ := New()
+			if tt.mode == "breaking" {
+				differ.Mode = ModeBreaking
+			}
+
+			result, err := differ.DiffParsed(
+				parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
+				parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
+			)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(result.Changes) != tt.expectedCount {
+				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
+			}
+		})
+	}
+}
+
+// TestDiffSchemaConditional tests conditional schema diffing (if/then/else)
+func TestDiffSchemaConditional(t *testing.T) {
+	tests := []struct {
+		name          string
+		sourceIf      *parser.Schema
+		sourceThen    *parser.Schema
+		sourceElse    *parser.Schema
+		targetIf      *parser.Schema
+		targetThen    *parser.Schema
+		targetElse    *parser.Schema
+		expectedCount int
+		mode          string
+	}{
+		{
+			name:          "Conditional schemas identical",
+			sourceIf:      &parser.Schema{Type: "string"},
+			sourceThen:    &parser.Schema{MinLength: ptrInt(5)},
+			sourceElse:    &parser.Schema{MaxLength: ptrInt(10)},
+			targetIf:      &parser.Schema{Type: "string"},
+			targetThen:    &parser.Schema{MinLength: ptrInt(5)},
+			targetElse:    &parser.Schema{MaxLength: ptrInt(10)},
+			expectedCount: 0,
+			mode:          "breaking",
+		},
+		{
+			name:          "If schema added",
+			sourceIf:      nil,
+			sourceThen:    nil,
+			sourceElse:    nil,
+			targetIf:      &parser.Schema{Type: "string"},
+			targetThen:    nil,
+			targetElse:    nil,
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+		{
+			name:          "Then schema added",
+			sourceIf:      &parser.Schema{Type: "string"},
+			sourceThen:    nil,
+			sourceElse:    nil,
+			targetIf:      &parser.Schema{Type: "string"},
+			targetThen:    &parser.Schema{MinLength: ptrInt(5)},
+			targetElse:    nil,
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+		{
+			name:          "Else schema added",
+			sourceIf:      &parser.Schema{Type: "string"},
+			sourceThen:    nil,
+			sourceElse:    nil,
+			targetIf:      &parser.Schema{Type: "string"},
+			targetThen:    nil,
+			targetElse:    &parser.Schema{MaxLength: ptrInt(10)},
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+		{
+			name:          "If schema removed",
+			sourceIf:      &parser.Schema{Type: "string"},
+			sourceThen:    nil,
+			sourceElse:    nil,
+			targetIf:      nil,
+			targetThen:    nil,
+			targetElse:    nil,
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+		{
+			name:          "If schema modified",
+			sourceIf:      &parser.Schema{Type: "string", MinLength: ptrInt(5)},
+			sourceThen:    nil,
+			sourceElse:    nil,
+			targetIf:      &parser.Schema{Type: "string", MinLength: ptrInt(10)},
+			targetThen:    nil,
+			targetElse:    nil,
+			expectedCount: 1,
+			mode:          "breaking",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source := &parser.Schema{
+				If:   tt.sourceIf,
+				Then: tt.sourceThen,
+				Else: tt.sourceElse,
+			}
+			target := &parser.Schema{
+				If:   tt.targetIf,
+				Then: tt.targetThen,
+				Else: tt.targetElse,
+			}
+
+			sourceDoc := &parser.OAS3Document{
+				OpenAPI: "3.1.0",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"TestSchema": source,
+					},
+				},
+			}
+			targetDoc := &parser.OAS3Document{
+				OpenAPI: "3.1.0",
+				Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"TestSchema": target,
+					},
+				},
+			}
+
+			differ := New()
+			if tt.mode == "breaking" {
+				differ.Mode = ModeBreaking
+			}
+
+			result, err := differ.DiffParsed(
+				parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
+				parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
+			)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(result.Changes) != tt.expectedCount {
+				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
+				for _, c := range result.Changes {
+					t.Logf("Change: %s - %s", c.Path, c.Message)
+				}
+			}
+		})
+	}
+}
+
+// TestDiffSchemaCompositionCycles tests composition with circular references
+func TestDiffSchemaCompositionCycles(t *testing.T) {
+	// Create a schema with circular allOf reference
+	sourceSchema := &parser.Schema{
+		Type: "object",
+	}
+	sourceSchema.AllOf = []*parser.Schema{sourceSchema} // Self-reference
+
+	targetSchema := &parser.Schema{
+		Type: "object",
+	}
+	targetSchema.AllOf = []*parser.Schema{targetSchema} // Self-reference
+
+	sourceDoc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Node": sourceSchema,
+			},
+		},
+	}
+	targetDoc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Node": targetSchema,
+			},
+		},
+	}
+
+	differ := New()
+	differ.Mode = ModeBreaking
+
+	result, err := differ.DiffParsed(
+		parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
+		parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
+	)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Should handle cycles without infinite loop
+	// No changes expected since both have same circular structure
+	if len(result.Changes) != 0 {
+		t.Errorf("Expected 0 changes for identical circular schemas, got %d", len(result.Changes))
+	}
+}
+
+// ptrInt is a helper function to create *int from int
+func ptrInt(i int) *int {
+	return &i
+}

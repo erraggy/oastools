@@ -1442,6 +1442,15 @@ func (d *Differ) diffSchemaRecursive(
 	d.diffSchemaItems(source.Items, target.Items, path, visited, result)
 	d.diffSchemaAdditionalProperties(source.AdditionalProperties, target.AdditionalProperties, path, visited, result)
 
+	// Compare composition fields
+	d.diffSchemaAllOf(source.AllOf, target.AllOf, path, visited, result)
+	d.diffSchemaAnyOf(source.AnyOf, target.AnyOf, path, visited, result)
+	d.diffSchemaOneOf(source.OneOf, target.OneOf, path, visited, result)
+	d.diffSchemaNot(source.Not, target.Not, path, visited, result)
+
+	// Compare conditional schemas
+	d.diffSchemaConditional(source.If, source.Then, source.Else, target.If, target.Then, target.Else, path, visited, result)
+
 	// Compare extensions
 	d.diffExtras(source.Extra, target.Extra, path, result)
 }
@@ -1691,6 +1700,270 @@ func (d *Differ) diffSchemaAdditionalProperties(
 				NewValue: targetBool,
 				Message:  fmt.Sprintf("additionalProperties changed from %v to %v", sourceBool, targetBool),
 			})
+		}
+	}
+}
+
+// diffSchemaAllOf compares allOf composition schemas (simple mode - no severity)
+func (d *Differ) diffSchemaAllOf(
+	source, target []*parser.Schema,
+	path string,
+	visited *schemaVisited,
+	result *DiffResult,
+) {
+	allOfPath := path + ".allOf"
+
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Compare schemas by index (order matters for validation)
+	for i, sourceSchema := range source {
+		schemaPath := fmt.Sprintf("%s[%d]", allOfPath, i)
+
+		if i < len(target) {
+			// Schema at same index in both
+			targetSchema := target[i]
+			d.diffSchemaRecursive(sourceSchema, targetSchema, schemaPath, visited, result)
+		} else {
+			// Schema removed from target
+			result.Changes = append(result.Changes, Change{
+				Path:     schemaPath,
+				Type:     ChangeTypeRemoved,
+				Category: CategorySchema,
+				OldValue: sourceSchema,
+				Message:  fmt.Sprintf("allOf schema at index %d removed", i),
+			})
+		}
+	}
+
+	// Find added schemas
+	for i := len(source); i < len(target); i++ {
+		schemaPath := fmt.Sprintf("%s[%d]", allOfPath, i)
+		targetSchema := target[i]
+
+		result.Changes = append(result.Changes, Change{
+			Path:     schemaPath,
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			NewValue: targetSchema,
+			Message:  fmt.Sprintf("allOf schema at index %d added", i),
+		})
+	}
+}
+
+// diffSchemaAnyOf compares anyOf composition schemas (simple mode - no severity)
+func (d *Differ) diffSchemaAnyOf(
+	source, target []*parser.Schema,
+	path string,
+	visited *schemaVisited,
+	result *DiffResult,
+) {
+	anyOfPath := path + ".anyOf"
+
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Compare schemas by index
+	for i, sourceSchema := range source {
+		schemaPath := fmt.Sprintf("%s[%d]", anyOfPath, i)
+
+		if i < len(target) {
+			// Schema at same index in both
+			targetSchema := target[i]
+			d.diffSchemaRecursive(sourceSchema, targetSchema, schemaPath, visited, result)
+		} else {
+			// Schema removed from target
+			result.Changes = append(result.Changes, Change{
+				Path:     schemaPath,
+				Type:     ChangeTypeRemoved,
+				Category: CategorySchema,
+				OldValue: sourceSchema,
+				Message:  fmt.Sprintf("anyOf schema at index %d removed", i),
+			})
+		}
+	}
+
+	// Find added schemas
+	for i := len(source); i < len(target); i++ {
+		schemaPath := fmt.Sprintf("%s[%d]", anyOfPath, i)
+		targetSchema := target[i]
+
+		result.Changes = append(result.Changes, Change{
+			Path:     schemaPath,
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			NewValue: targetSchema,
+			Message:  fmt.Sprintf("anyOf schema at index %d added", i),
+		})
+	}
+}
+
+// diffSchemaOneOf compares oneOf composition schemas (simple mode - no severity)
+func (d *Differ) diffSchemaOneOf(
+	source, target []*parser.Schema,
+	path string,
+	visited *schemaVisited,
+	result *DiffResult,
+) {
+	oneOfPath := path + ".oneOf"
+
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Compare schemas by index
+	for i, sourceSchema := range source {
+		schemaPath := fmt.Sprintf("%s[%d]", oneOfPath, i)
+
+		if i < len(target) {
+			// Schema at same index in both
+			targetSchema := target[i]
+			d.diffSchemaRecursive(sourceSchema, targetSchema, schemaPath, visited, result)
+		} else {
+			// Schema removed from target
+			result.Changes = append(result.Changes, Change{
+				Path:     schemaPath,
+				Type:     ChangeTypeRemoved,
+				Category: CategorySchema,
+				OldValue: sourceSchema,
+				Message:  fmt.Sprintf("oneOf schema at index %d removed", i),
+			})
+		}
+	}
+
+	// Find added schemas
+	for i := len(source); i < len(target); i++ {
+		schemaPath := fmt.Sprintf("%s[%d]", oneOfPath, i)
+		targetSchema := target[i]
+
+		result.Changes = append(result.Changes, Change{
+			Path:     schemaPath,
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			NewValue: targetSchema,
+			Message:  fmt.Sprintf("oneOf schema at index %d added", i),
+		})
+	}
+}
+
+// diffSchemaNot compares not schemas (simple mode - no severity)
+func (d *Differ) diffSchemaNot(
+	source, target *parser.Schema,
+	path string,
+	visited *schemaVisited,
+	result *DiffResult,
+) {
+	notPath := path + ".not"
+
+	if source == nil && target == nil {
+		return
+	}
+
+	if source == nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     notPath,
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			NewValue: target,
+			Message:  "not schema added",
+		})
+		return
+	}
+
+	if target == nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     notPath,
+			Type:     ChangeTypeRemoved,
+			Category: CategorySchema,
+			OldValue: source,
+			Message:  "not schema removed",
+		})
+		return
+	}
+
+	// Both exist - compare recursively
+	d.diffSchemaRecursive(source, target, notPath, visited, result)
+}
+
+// diffSchemaConditional compares conditional schemas (if/then/else) (simple mode - no severity)
+func (d *Differ) diffSchemaConditional(
+	sourceIf, sourceThen, sourceElse *parser.Schema,
+	targetIf, targetThen, targetElse *parser.Schema,
+	path string,
+	visited *schemaVisited,
+	result *DiffResult,
+) {
+	// Compare if condition
+	if sourceIf != nil || targetIf != nil {
+		ifPath := path + ".if"
+		if sourceIf == nil {
+			result.Changes = append(result.Changes, Change{
+				Path:     ifPath,
+				Type:     ChangeTypeAdded,
+				Category: CategorySchema,
+				NewValue: targetIf,
+				Message:  "conditional if schema added",
+			})
+		} else if targetIf == nil {
+			result.Changes = append(result.Changes, Change{
+				Path:     ifPath,
+				Type:     ChangeTypeRemoved,
+				Category: CategorySchema,
+				OldValue: sourceIf,
+				Message:  "conditional if schema removed",
+			})
+		} else {
+			d.diffSchemaRecursive(sourceIf, targetIf, ifPath, visited, result)
+		}
+	}
+
+	// Compare then branch
+	if sourceThen != nil || targetThen != nil {
+		thenPath := path + ".then"
+		if sourceThen == nil {
+			result.Changes = append(result.Changes, Change{
+				Path:     thenPath,
+				Type:     ChangeTypeAdded,
+				Category: CategorySchema,
+				NewValue: targetThen,
+				Message:  "conditional then schema added",
+			})
+		} else if targetThen == nil {
+			result.Changes = append(result.Changes, Change{
+				Path:     thenPath,
+				Type:     ChangeTypeRemoved,
+				Category: CategorySchema,
+				OldValue: sourceThen,
+				Message:  "conditional then schema removed",
+			})
+		} else {
+			d.diffSchemaRecursive(sourceThen, targetThen, thenPath, visited, result)
+		}
+	}
+
+	// Compare else branch
+	if sourceElse != nil || targetElse != nil {
+		elsePath := path + ".else"
+		if sourceElse == nil {
+			result.Changes = append(result.Changes, Change{
+				Path:     elsePath,
+				Type:     ChangeTypeAdded,
+				Category: CategorySchema,
+				NewValue: targetElse,
+				Message:  "conditional else schema added",
+			})
+		} else if targetElse == nil {
+			result.Changes = append(result.Changes, Change{
+				Path:     elsePath,
+				Type:     ChangeTypeRemoved,
+				Category: CategorySchema,
+				OldValue: sourceElse,
+				Message:  "conditional else schema removed",
+			})
+		} else {
+			d.diffSchemaRecursive(sourceElse, targetElse, elsePath, visited, result)
 		}
 	}
 }
