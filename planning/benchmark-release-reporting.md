@@ -79,6 +79,13 @@ Benchmark results on Apple M4 (darwin/arm64) with Go 1.24:
 
 Create a new script `scripts/generate-benchmark-comparison.sh`:
 
+**Prerequisites:**
+Install `benchstat` if not already available:
+```bash
+go install golang.org/x/perf/cmd/benchstat@latest
+```
+
+**Script:**
 ```bash
 #!/bin/bash
 # Generate benchmark comparison for releases

@@ -19,6 +19,39 @@ Back-filling benchmark results allows us to:
 - Clean working directory
 - Sufficient disk space for checking out multiple versions
 
+### Required Tooling
+
+**benchstat** (for generating benchmark comparisons):
+```bash
+# Install benchstat
+go install golang.org/x/perf/cmd/benchstat@latest
+
+# Verify installation
+benchstat -h
+```
+
+**GitHub CLI** (optional, for uploading to releases):
+```bash
+# macOS
+brew install gh
+
+# Or download from: https://cli.github.com/
+
+# Verify installation
+gh --version
+
+# Authenticate (first time only)
+gh auth login
+```
+
+**Make** (should already be installed):
+```bash
+# Verify make is available
+make --version
+```
+
+The `scripts/backfill-benchmarks.sh` script will check for these prerequisites and provide installation instructions if any are missing.
+
 ## Manual Back-fill Process
 
 ### Step 1: Identify Releases to Back-fill
