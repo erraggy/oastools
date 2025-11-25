@@ -918,32 +918,9 @@ func (d *Differ) diffSchemasBreaking(source, target map[string]*parser.Schema, p
 
 // diffSchemaBreaking compares individual Schema objects
 func (d *Differ) diffSchemaBreaking(source, target *parser.Schema, path string, result *DiffResult) {
-	// Compare metadata fields
-	d.diffSchemaMetadata(source, target, path, result)
-
-	// Compare type and format
-	d.diffSchemaType(source, target, path, result)
-
-	// Compare numeric constraints
-	d.diffSchemaNumericConstraints(source, target, path, result)
-
-	// Compare string constraints
-	d.diffSchemaStringConstraints(source, target, path, result)
-
-	// Compare array constraints
-	d.diffSchemaArrayConstraints(source, target, path, result)
-
-	// Compare object constraints
-	d.diffSchemaObjectConstraints(source, target, path, result)
-
-	// Compare required fields
-	d.diffSchemaRequiredFields(source, target, path, result)
-
-	// Compare OAS-specific fields
-	d.diffSchemaOASFields(source, target, path, result)
-
-	// Compare Schema extensions
-	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
+	// Use recursive diffing with cycle detection
+	visited := newSchemaVisited()
+	d.diffSchemaRecursiveBreaking(source, target, path, visited, result)
 }
 
 // diffSchemaMetadata compares schema metadata fields
@@ -1670,5 +1647,368 @@ func anyToString(v any) string {
 		return val.String() // Use the String() method if the type implements it
 	default:
 		return fmt.Sprint(val) // Fallback for all other types (uses reflection)
+	}
+}
+
+// diffSchemaRecursiveBreaking performs comprehensive recursive schema comparison with cycle detection
+func (d *Differ) diffSchemaRecursiveBreaking(
+	source, target *parser.Schema,
+	path string,
+	visited *schemaVisited,
+	result *DiffResult,
+) {
+	// Nil handling
+	if source == nil && target == nil {
+		return
+	}
+	if source == nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path,
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			Severity: SeverityInfo,
+			NewValue: target,
+			Message:  "schema added",
+		})
+		return
+	}
+	if target == nil {
+		result.Changes = append(result.Changes, Change{
+			Path:     path,
+			Type:     ChangeTypeRemoved,
+			Category: CategorySchema,
+			Severity: SeverityError,
+			OldValue: source,
+			Message:  "schema removed",
+		})
+		return
+	}
+
+	// Cycle detection - track both source and target to prevent infinite loops
+	if visited.enter(source, target, path) {
+		// Already visiting this schema pair - circular reference
+		// Don't report as a change, just skip further traversal
+		return
+	}
+	defer visited.leave(source, target)
+
+	// Compare all existing fields (already implemented)
+	d.diffSchemaMetadata(source, target, path, result)
+	d.diffSchemaType(source, target, path, result)
+	d.diffSchemaNumericConstraints(source, target, path, result)
+	d.diffSchemaStringConstraints(source, target, path, result)
+	d.diffSchemaArrayConstraints(source, target, path, result)
+	d.diffSchemaObjectConstraints(source, target, path, result)
+	d.diffSchemaRequiredFields(source, target, path, result)
+	d.diffSchemaOASFields(source, target, path, result)
+
+	// NEW: Compare recursive/complex fields
+	d.diffSchemaPropertiesBreaking(source.Properties, target.Properties, source.Required, target.Required, path, visited, result)
+	d.diffSchemaItemsBreaking(source.Items, target.Items, path, visited, result)
+	d.diffSchemaAdditionalPropertiesBreaking(source.AdditionalProperties, target.AdditionalProperties, path, visited, result)
+
+	// All known fields addressed, now address extensions
+	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
+}
+
+// diffSchemaPropertiesBreaking compares schema properties maps
+func (d *Differ) diffSchemaPropertiesBreaking(
+	source, target map[string]*parser.Schema,
+	sourceRequired, targetRequired []string,
+	path string,
+	visited *schemaVisited,
+	result *DiffResult,
+) {
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Find removed properties
+	for name, sourceSchema := range source {
+		propPath := fmt.Sprintf("%s.properties.%s", path, name)
+		if targetSchema, exists := target[name]; !exists {
+			// Removed property
+			// Severity depends on whether it was required in the parent schema
+			severity := SeverityWarning
+			if isPropertyRequired(name, sourceRequired) {
+				severity = SeverityError
+			}
+			result.Changes = append(result.Changes, Change{
+				Path:     propPath,
+				Type:     ChangeTypeRemoved,
+				Category: CategorySchema,
+				Severity: severity,
+				OldValue: sourceSchema,
+				Message:  fmt.Sprintf("property %q removed", name),
+			})
+		} else {
+			// Property exists in both - recursive comparison
+			d.diffSchemaRecursiveBreaking(sourceSchema, targetSchema, propPath, visited, result)
+		}
+	}
+
+	// Find added properties
+	for name, targetSchema := range target {
+		if _, exists := source[name]; !exists {
+			propPath := fmt.Sprintf("%s.properties.%s", path, name)
+			// Added property
+			// Severity depends on whether it's required in the parent schema
+			severity := SeverityInfo
+			if isPropertyRequired(name, targetRequired) {
+				severity = SeverityWarning
+			}
+			result.Changes = append(result.Changes, Change{
+				Path:     propPath,
+				Type:     ChangeTypeAdded,
+				Category: CategorySchema,
+				Severity: severity,
+				NewValue: targetSchema,
+				Message:  fmt.Sprintf("property %q added", name),
+			})
+		}
+	}
+}
+
+// diffSchemaItemsBreaking compares schema Items field (can be *Schema or bool)
+func (d *Differ) diffSchemaItemsBreaking(
+	source, target any,
+	path string,
+	visited *schemaVisited,
+	result *DiffResult,
+) {
+	sourceType := getSchemaItemsType(source)
+	targetType := getSchemaItemsType(target)
+
+	itemsPath := path + ".items"
+
+	// Check for unknown types (spec violation)
+	// If both have unknown type, skip comparison (can't diff unknown structures)
+	if sourceType == schemaItemsTypeUnknown && targetType == schemaItemsTypeUnknown {
+		return
+	}
+	if sourceType == schemaItemsTypeUnknown {
+		result.Changes = append(result.Changes, Change{
+			Path:     itemsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			OldValue: source,
+			Message:  fmt.Sprintf("items has unexpected type in source: %T (should be Schema or bool)", source),
+		})
+		return
+	}
+	if targetType == schemaItemsTypeUnknown {
+		result.Changes = append(result.Changes, Change{
+			Path:     itemsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			NewValue: target,
+			Message:  fmt.Sprintf("items has unexpected type in target: %T (should be Schema or bool)", target),
+		})
+		return
+	}
+
+	// Both nil
+	if sourceType == schemaItemsTypeNil && targetType == schemaItemsTypeNil {
+		return
+	}
+
+	// Items added
+	if sourceType == schemaItemsTypeNil && targetType != schemaItemsTypeNil {
+		result.Changes = append(result.Changes, Change{
+			Path:     itemsPath,
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			NewValue: target,
+			Message:  "items schema added",
+		})
+		return
+	}
+
+	// Items removed
+	if sourceType != schemaItemsTypeNil && targetType == schemaItemsTypeNil {
+		result.Changes = append(result.Changes, Change{
+			Path:     itemsPath,
+			Type:     ChangeTypeRemoved,
+			Category: CategorySchema,
+			Severity: SeverityError,
+			OldValue: source,
+			Message:  "items schema removed",
+		})
+		return
+	}
+
+	// Type changed
+	if sourceType != targetType {
+		severity := SeverityError
+		if sourceType == schemaItemsTypeBool && targetType == schemaItemsTypeSchema {
+			// bool -> schema might be relaxing or tightening depending on bool value
+			severity = SeverityWarning
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     itemsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: source,
+			NewValue: target,
+			Message:  "items type changed",
+		})
+		return
+	}
+
+	// Both same type - compare
+	switch sourceType {
+	case schemaItemsTypeSchema:
+		sourceSchema := source.(*parser.Schema)
+		targetSchema := target.(*parser.Schema)
+		d.diffSchemaRecursiveBreaking(sourceSchema, targetSchema, itemsPath, visited, result)
+
+	case schemaItemsTypeBool:
+		sourceBool := source.(bool)
+		targetBool := target.(bool)
+		if sourceBool != targetBool {
+			severity := SeverityWarning
+			if sourceBool && !targetBool {
+				// true -> false: was allowing any, now disallowing
+				severity = SeverityError
+			}
+			result.Changes = append(result.Changes, Change{
+				Path:     itemsPath,
+				Type:     ChangeTypeModified,
+				Category: CategorySchema,
+				Severity: severity,
+				OldValue: sourceBool,
+				NewValue: targetBool,
+				Message:  fmt.Sprintf("items changed from %v to %v", sourceBool, targetBool),
+			})
+		}
+	}
+}
+
+// diffSchemaAdditionalPropertiesBreaking compares additionalProperties field (can be *Schema or bool)
+func (d *Differ) diffSchemaAdditionalPropertiesBreaking(
+	source, target any,
+	path string,
+	visited *schemaVisited,
+	result *DiffResult,
+) {
+	sourceType := getSchemaAdditionalPropsType(source)
+	targetType := getSchemaAdditionalPropsType(target)
+
+	addPropsPath := path + ".additionalProperties"
+
+	// Check for unknown types (spec violation)
+	// If both have unknown type, skip comparison (can't diff unknown structures)
+	if sourceType == schemaAdditionalPropsTypeUnknown && targetType == schemaAdditionalPropsTypeUnknown {
+		return
+	}
+	if sourceType == schemaAdditionalPropsTypeUnknown {
+		result.Changes = append(result.Changes, Change{
+			Path:     addPropsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			OldValue: source,
+			Message:  fmt.Sprintf("additionalProperties has unexpected type in source: %T (should be Schema or bool)", source),
+		})
+		return
+	}
+	if targetType == schemaAdditionalPropsTypeUnknown {
+		result.Changes = append(result.Changes, Change{
+			Path:     addPropsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			NewValue: target,
+			Message:  fmt.Sprintf("additionalProperties has unexpected type in target: %T (should be Schema or bool)", target),
+		})
+		return
+	}
+
+	// Both nil (means true in JSON Schema)
+	if sourceType == schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
+		return
+	}
+
+	// additionalProperties added
+	if sourceType == schemaAdditionalPropsTypeNil && targetType != schemaAdditionalPropsTypeNil {
+		severity := SeverityInfo
+		// If target is false, this restricts what was previously allowed
+		if targetType == schemaAdditionalPropsTypeBool && !target.(bool) {
+			severity = SeverityError
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     addPropsPath,
+			Type:     ChangeTypeAdded,
+			Category: CategorySchema,
+			Severity: severity,
+			NewValue: target,
+			Message:  "additionalProperties constraint added",
+		})
+		return
+	}
+
+	// additionalProperties removed
+	if sourceType != schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
+		severity := SeverityWarning
+		// If source was false, removing it relaxes constraint
+		if sourceType == schemaAdditionalPropsTypeBool && !source.(bool) {
+			severity = SeverityInfo
+		}
+		result.Changes = append(result.Changes, Change{
+			Path:     addPropsPath,
+			Type:     ChangeTypeRemoved,
+			Category: CategorySchema,
+			Severity: severity,
+			OldValue: source,
+			Message:  "additionalProperties constraint removed",
+		})
+		return
+	}
+
+	// Type changed
+	if sourceType != targetType {
+		result.Changes = append(result.Changes, Change{
+			Path:     addPropsPath,
+			Type:     ChangeTypeModified,
+			Category: CategorySchema,
+			Severity: SeverityWarning,
+			OldValue: source,
+			NewValue: target,
+			Message:  "additionalProperties type changed",
+		})
+		return
+	}
+
+	// Both same type - compare
+	switch sourceType {
+	case schemaAdditionalPropsTypeSchema:
+		sourceSchema := source.(*parser.Schema)
+		targetSchema := target.(*parser.Schema)
+		d.diffSchemaRecursiveBreaking(sourceSchema, targetSchema, addPropsPath, visited, result)
+
+	case schemaAdditionalPropsTypeBool:
+		sourceBool := source.(bool)
+		targetBool := target.(bool)
+		if sourceBool != targetBool {
+			severity := SeverityInfo
+			if sourceBool && !targetBool {
+				// true -> false: was allowing additional properties, now disallowing
+				severity = SeverityError
+			}
+			// false -> true: was disallowing, now allowing (relaxing) - Info severity
+			result.Changes = append(result.Changes, Change{
+				Path:     addPropsPath,
+				Type:     ChangeTypeModified,
+				Category: CategorySchema,
+				Severity: severity,
+				OldValue: sourceBool,
+				NewValue: targetBool,
+				Message:  fmt.Sprintf("additionalProperties changed from %v to %v", sourceBool, targetBool),
+			})
+		}
 	}
 }

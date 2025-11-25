@@ -296,6 +296,7 @@ go test -bench=. ./parser
 2. ✅ Add tests for new functionality
 3. ✅ Update documentation (godoc, doc.go, example_test.go)
 4. ✅ Verify test coverage is sufficient
+5. ✅ Update benchmarks with `make bench-save` for performance-impacting changes
 
 ### Commit Message Format
 
@@ -419,6 +420,7 @@ Before requesting review, ensure:
 - [ ] New functionality has tests
 - [ ] Public APIs have godoc comments
 - [ ] Examples added for new features
+- [ ] Benchmarks updated with `make bench-save` (if changes affect performance)
 - [ ] No unintended files committed (e.g., binaries, editor files)
 - [ ] Commit messages follow conventional format
 
