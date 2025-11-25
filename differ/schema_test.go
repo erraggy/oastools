@@ -29,7 +29,7 @@ func TestDiffSchemaCircularReferences(t *testing.T) {
 	visited := newSchemaVisited()
 
 	// Should not panic or infinite loop
-	d.diffSchemaRecursiveBreaking(schema1, schema2, "test.schema", visited, result)
+	d.diffSchemaRecursiveUnified(schema1, schema2, "test.schema", visited, result)
 
 	if len(result.Changes) > 0 {
 		t.Errorf("Expected no changes for identical circular structures, got %d", len(result.Changes))
@@ -58,7 +58,7 @@ func TestDiffSchemaCircularReferencesTargetOnly(t *testing.T) {
 	visited := newSchemaVisited()
 
 	// Should not panic or infinite loop
-	d.diffSchemaRecursiveBreaking(source, target, "test.schema", visited, result)
+	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 	// We expect changes (property added/removed), but no infinite loop
 	if len(result.Changes) == 0 {
@@ -128,10 +128,11 @@ func TestDiffSchemaPropertiesRequired(t *testing.T) {
 			}
 
 			d := New()
+			d.Mode = ModeBreaking // Need breaking mode for severity checks
 			result := &DiffResult{}
 			visited := newSchemaVisited()
 
-			d.diffSchemaRecursiveBreaking(source, target, "test.schema", visited, result)
+			d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 			if len(result.Changes) == 0 {
 				t.Fatal("Expected changes but got none")
@@ -229,7 +230,7 @@ func TestDiffSchemaItemsTypeChange(t *testing.T) {
 			result := &DiffResult{}
 			visited := newSchemaVisited()
 
-			d.diffSchemaRecursiveBreaking(source, target, "test.schema", visited, result)
+			d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 			hasChanges := len(result.Changes) > 0
 			if hasChanges != tt.expectChanges {
@@ -302,10 +303,11 @@ func TestDiffSchemaAdditionalPropertiesBreaking(t *testing.T) {
 			}
 
 			d := New()
+			d.Mode = ModeBreaking // Need breaking mode for severity checks
 			result := &DiffResult{}
 			visited := newSchemaVisited()
 
-			d.diffSchemaRecursiveBreaking(source, target, "test.schema", visited, result)
+			d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 			hasChanges := len(result.Changes) > 0
 			if hasChanges != tt.expectChanges {
@@ -367,7 +369,7 @@ func TestDiffSchemaNestedProperties(t *testing.T) {
 	result := &DiffResult{}
 	visited := newSchemaVisited()
 
-	d.diffSchemaRecursiveBreaking(source, target, "test.schema", visited, result)
+	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 	if len(result.Changes) == 0 {
 		t.Fatal("Expected changes for nested property addition")
@@ -422,7 +424,7 @@ func TestDiffSchemaComplexCircular(t *testing.T) {
 	visited := newSchemaVisited()
 
 	// Should not panic or infinite loop
-	d.diffSchemaRecursiveBreaking(schemaA, targetA, "test.schema", visited, result)
+	d.diffSchemaRecursiveUnified(schemaA, targetA, "test.schema", visited, result)
 
 	// Identical circular structures should have no changes
 	if len(result.Changes) > 0 {
@@ -459,7 +461,7 @@ func TestDiffSchemaItemsRecursive(t *testing.T) {
 	result := &DiffResult{}
 	visited := newSchemaVisited()
 
-	d.diffSchemaRecursiveBreaking(source, target, "test.schema", visited, result)
+	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 	if len(result.Changes) == 0 {
 		t.Fatal("Expected changes for items property addition")
@@ -504,7 +506,7 @@ func TestDiffSchemaAdditionalPropertiesRecursive(t *testing.T) {
 	result := &DiffResult{}
 	visited := newSchemaVisited()
 
-	d.diffSchemaRecursiveBreaking(source, target, "test.schema", visited, result)
+	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 	if len(result.Changes) == 0 {
 		t.Fatal("Expected changes for additionalProperties schema modification")
@@ -548,7 +550,7 @@ func TestDiffSchemaUnknownTypesIdentical(t *testing.T) {
 	result := &DiffResult{}
 	visited := newSchemaVisited()
 
-	d.diffSchemaRecursiveBreaking(source, target, "test.schema", visited, result)
+	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 	// Identical unknown types should be skipped, no changes reported
 	if len(result.Changes) > 0 {
@@ -572,7 +574,7 @@ func TestDiffSchemaUnknownTypesDifferent(t *testing.T) {
 	result := &DiffResult{}
 	visited := newSchemaVisited()
 
-	d.diffSchemaRecursiveBreaking(source, target, "test.schema", visited, result)
+	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 	// Different types should be reported
 	if len(result.Changes) == 0 {
@@ -601,7 +603,7 @@ func TestDiffSchemaSimpleMode(t *testing.T) {
 	result := &DiffResult{}
 	visited := newSchemaVisited()
 
-	d.diffSchemaRecursive(source, target, "test.schema", visited, result)
+	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 	if len(result.Changes) == 0 {
 		t.Fatal("Expected changes in simple mode")
@@ -682,7 +684,7 @@ func TestDiffSchemaItemsSimpleMode(t *testing.T) {
 			result := &DiffResult{}
 			visited := newSchemaVisited()
 
-			d.diffSchemaRecursive(source, target, "test.schema", visited, result)
+			d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 			hasChanges := len(result.Changes) > 0
 			if hasChanges != tt.expectChanges {
@@ -766,7 +768,7 @@ func TestDiffSchemaAdditionalPropertiesSimpleMode(t *testing.T) {
 			result := &DiffResult{}
 			visited := newSchemaVisited()
 
-			d.diffSchemaRecursive(source, target, "test.schema", visited, result)
+			d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 			hasChanges := len(result.Changes) > 0
 			if hasChanges != tt.expectChanges {
@@ -807,7 +809,7 @@ func TestDiffSchemaPropertiesSimpleMode(t *testing.T) {
 	result := &DiffResult{}
 	visited := newSchemaVisited()
 
-	d.diffSchemaRecursive(source, target, "test.schema", visited, result)
+	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 	if len(result.Changes) == 0 {
 		t.Fatal("Expected changes for property modifications")
