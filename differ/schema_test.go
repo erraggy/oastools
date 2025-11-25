@@ -613,3 +613,234 @@ func TestDiffSchemaSimpleMode(t *testing.T) {
 		}
 	}
 }
+
+// TestDiffSchemaItemsSimpleMode tests Items diffing in simple mode
+func TestDiffSchemaItemsSimpleMode(t *testing.T) {
+	tests := []struct {
+		name          string
+		sourceItems   any
+		targetItems   any
+		expectChanges bool
+	}{
+		{
+			name:          "Items nil to nil",
+			sourceItems:   nil,
+			targetItems:   nil,
+			expectChanges: false,
+		},
+		{
+			name:          "Items nil to Schema",
+			sourceItems:   nil,
+			targetItems:   &parser.Schema{Type: "string"},
+			expectChanges: true,
+		},
+		{
+			name:          "Items Schema to nil",
+			sourceItems:   &parser.Schema{Type: "string"},
+			targetItems:   nil,
+			expectChanges: true,
+		},
+		{
+			name:          "Items type change",
+			sourceItems:   &parser.Schema{Type: "string"},
+			targetItems:   &parser.Schema{Type: "number"},
+			expectChanges: true,
+		},
+		{
+			name:          "Items bool change",
+			sourceItems:   true,
+			targetItems:   false,
+			expectChanges: true,
+		},
+		{
+			name:          "Items Schema to bool",
+			sourceItems:   &parser.Schema{Type: "string"},
+			targetItems:   true,
+			expectChanges: true,
+		},
+		{
+			name:          "Items bool to Schema",
+			sourceItems:   false,
+			targetItems:   &parser.Schema{Type: "string"},
+			expectChanges: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source := &parser.Schema{
+				Type:  "array",
+				Items: tt.sourceItems,
+			}
+			target := &parser.Schema{
+				Type:  "array",
+				Items: tt.targetItems,
+			}
+
+			d := New()
+			result := &DiffResult{}
+			visited := newSchemaVisited()
+
+			d.diffSchemaRecursive(source, target, "test.schema", visited, result)
+
+			hasChanges := len(result.Changes) > 0
+			if hasChanges != tt.expectChanges {
+				t.Errorf("Expected changes=%v, got %d changes", tt.expectChanges, len(result.Changes))
+			}
+
+			// Verify no severity in simple mode
+			for _, change := range result.Changes {
+				if change.Severity != Severity(0) {
+					t.Errorf("Simple mode should not have severity, got %v", change.Severity)
+				}
+			}
+		})
+	}
+}
+
+// TestDiffSchemaAdditionalPropertiesSimpleMode tests AdditionalProperties in simple mode
+func TestDiffSchemaAdditionalPropertiesSimpleMode(t *testing.T) {
+	tests := []struct {
+		name             string
+		sourceAdditional any
+		targetAdditional any
+		expectChanges    bool
+	}{
+		{
+			name:             "AdditionalProperties nil to nil",
+			sourceAdditional: nil,
+			targetAdditional: nil,
+			expectChanges:    false,
+		},
+		{
+			name:             "AdditionalProperties nil to false",
+			sourceAdditional: nil,
+			targetAdditional: false,
+			expectChanges:    true,
+		},
+		{
+			name:             "AdditionalProperties false to nil",
+			sourceAdditional: false,
+			targetAdditional: nil,
+			expectChanges:    true,
+		},
+		{
+			name:             "AdditionalProperties true to false",
+			sourceAdditional: true,
+			targetAdditional: false,
+			expectChanges:    true,
+		},
+		{
+			name:             "AdditionalProperties Schema to Schema",
+			sourceAdditional: &parser.Schema{Type: "string"},
+			targetAdditional: &parser.Schema{Type: "number"},
+			expectChanges:    true,
+		},
+		{
+			name:             "AdditionalProperties bool to Schema",
+			sourceAdditional: false,
+			targetAdditional: &parser.Schema{Type: "string"},
+			expectChanges:    true,
+		},
+		{
+			name:             "AdditionalProperties Schema to bool",
+			sourceAdditional: &parser.Schema{Type: "string"},
+			targetAdditional: true,
+			expectChanges:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source := &parser.Schema{
+				Type:                 "object",
+				AdditionalProperties: tt.sourceAdditional,
+			}
+			target := &parser.Schema{
+				Type:                 "object",
+				AdditionalProperties: tt.targetAdditional,
+			}
+
+			d := New()
+			result := &DiffResult{}
+			visited := newSchemaVisited()
+
+			d.diffSchemaRecursive(source, target, "test.schema", visited, result)
+
+			hasChanges := len(result.Changes) > 0
+			if hasChanges != tt.expectChanges {
+				t.Errorf("Expected changes=%v, got %d changes", tt.expectChanges, len(result.Changes))
+			}
+
+			// Verify no severity in simple mode
+			for _, change := range result.Changes {
+				if change.Severity != Severity(0) {
+					t.Errorf("Simple mode should not have severity, got %v", change.Severity)
+				}
+			}
+		})
+	}
+}
+
+// TestDiffSchemaPropertiesSimpleMode tests property diffing in simple mode
+func TestDiffSchemaPropertiesSimpleMode(t *testing.T) {
+	source := &parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"name":    {Type: "string"},
+			"age":     {Type: "integer"},
+			"removed": {Type: "string"},
+		},
+	}
+
+	target := &parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"name":  {Type: "string"},
+			"age":   {Type: "number"}, // Changed type
+			"email": {Type: "string"}, // Added
+		},
+	}
+
+	d := New()
+	result := &DiffResult{}
+	visited := newSchemaVisited()
+
+	d.diffSchemaRecursive(source, target, "test.schema", visited, result)
+
+	if len(result.Changes) == 0 {
+		t.Fatal("Expected changes for property modifications")
+	}
+
+	// Verify we have changes for removed, added, and modified properties
+	foundRemoved := false
+	foundAdded := false
+	foundModified := false
+
+	for _, change := range result.Changes {
+		// Verify no severity in simple mode
+		if change.Severity != Severity(0) {
+			t.Errorf("Simple mode should not have severity, got %v for change at %s", change.Severity, change.Path)
+		}
+
+		if change.Path == "test.schema.properties.removed" && change.Type == ChangeTypeRemoved {
+			foundRemoved = true
+		}
+		if change.Path == "test.schema.properties.email" && change.Type == ChangeTypeAdded {
+			foundAdded = true
+		}
+		if change.Path == "test.schema.properties.age.type" && change.Type == ChangeTypeModified {
+			foundModified = true
+		}
+	}
+
+	if !foundRemoved {
+		t.Error("Expected to find removed property change")
+	}
+	if !foundAdded {
+		t.Error("Expected to find added property change")
+	}
+	if !foundModified {
+		t.Error("Expected to find modified property type change")
+	}
+}

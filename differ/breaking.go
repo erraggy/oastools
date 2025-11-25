@@ -1707,7 +1707,7 @@ func (d *Differ) diffSchemaRecursiveBreaking(
 	d.diffSchemaItemsBreaking(source.Items, target.Items, path, visited, result)
 	d.diffSchemaAdditionalPropertiesBreaking(source.AdditionalProperties, target.AdditionalProperties, path, visited, result)
 
-	// Extensions already handled by diffSchemaOASFields
+	// All known fields addressed, now address extensions
 	d.diffExtrasBreaking(source.Extra, target.Extra, path, result)
 }
 
