@@ -232,11 +232,13 @@ gh pr view <PR_NUMBER> --comments   # Get all PR comments (including bot reviews
 1. Run `make check` - all code formatted, lints/tests pass
 2. Run `make test-coverage` - review coverage report
 3. Verify all new exported functionality has tests
-4. Check for security vulnerabilities: `govulncheck`
+4. Update benchmarks with `make bench-save` if changes affect performance
+5. Check for security vulnerabilities: `govulncheck`
 
 **Never submit a PR with:**
 - Untested exported functions, methods, or types
 - Tests that only cover the "happy path" without error cases
+- Performance regressions without documented justification
 
 **Commit Message Format:**
 - First line: Conventional commit message within 72 characters
