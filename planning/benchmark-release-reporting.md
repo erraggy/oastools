@@ -323,8 +323,18 @@ Starting with a simple, manual process (Phase 1) for v1.10.0 allows us to:
 
 The immediate value is transparency and performance awareness, with room to grow into more sophisticated tooling as the project matures.
 
+## Back-filling Historical Benchmarks
+
+For establishing historical baselines, see:
+
+- [planning/benchmark-backfill-process.md](benchmark-backfill-process.md) - How to back-fill benchmarks for older releases
+- [scripts/backfill-benchmarks.sh](../scripts/backfill-benchmarks.sh) - Automated back-fill tool
+
+This allows generating benchmark comparisons against older releases even if they weren't benchmarked at the time.
+
 ## Related Documentation
 
 - [BENCHMARK_UPDATE_PROCESS.md](../BENCHMARK_UPDATE_PROCESS.md) - How to update benchmarks
 - [benchmarks.md](../benchmarks.md) - Detailed performance analysis
 - [CLAUDE.md](../CLAUDE.md) - Release process documentation
+- [planning/benchmark-backfill-process.md](benchmark-backfill-process.md) - Back-filling older versions
