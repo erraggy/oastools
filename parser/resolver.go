@@ -232,6 +232,8 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 			}
 
 			// Mark this ref as being resolved
+			// Note: The defer runs when the function returns, not at loop iteration end,
+			// which is correct - we need to track refs for the entire call stack depth
 			r.resolving[ref] = true
 			defer func() { delete(r.resolving, ref) }()
 

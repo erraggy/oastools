@@ -429,7 +429,7 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 			// fall back to using the original data. This can happen with complex circular structures
 			// like $ref: "#" which we intentionally don't resolve to prevent infinite loops.
 			parseData = data
-			result.Warnings = append(result.Warnings, fmt.Sprintf("Warning: Could not re-marshal document after reference resolution (likely due to circular references): %v. Using original document structure.", err))
+			result.Warnings = append(result.Warnings, fmt.Sprintf("Warning: Could not re-marshal document after reference resolution (likely due to circular references): %v. Using original document structure. Some references may not be fully resolved.", err))
 		}
 	} else {
 		// Use original data directly
