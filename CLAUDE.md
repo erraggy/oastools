@@ -273,50 +273,113 @@ Verify setup: `gh secret list --repo erraggy/oastools`
 
 ### GitHub Repository Settings
 
-1. **Release immutability** - Currently DISABLED (not compatible with current workflow)
+1. **Release immutability** - ENABLED (compatible with tag-first workflow)
 2. **Workflow permissions** - "Read and write permissions" required (Settings → Actions → General)
-3. **Branch protection** - Can be enabled (applies to branches, not tags)
+3. **Branch protection** - Enabled on `main` branch (does not affect tag creation)
 
 ### Release Process
 
-⚠️ **IMPORTANT**: Release immutability is DISABLED. Use direct published releases (not drafts).
+This process is compatible with GitHub's **immutable releases** feature. The workflow creates a draft release first, then requires a human to publish it.
 
-**Why not use drafts?**
-- Draft releases don't create/push tags
-- No tag = no workflow trigger
-- Publishing draft creates tag, but release is then immutable → 422 errors
-- See [planning/release-issues.md](planning/release-issues.md) for full analysis
+**Workflow:** Push tag → Workflow creates draft + uploads assets → Human reviews → Human publishes
 
-**Step 1:** Test locally (optional but recommended)
+See [planning/releases-with-immutability.md](planning/releases-with-immutability.md) for detailed analysis.
+
+**Step 1:** Prepare for release
 ```bash
-make release-test
+# Ensure you're on main and up-to-date
+git checkout main
+git pull origin main
+
+# Run all checks
+make check
+
+# Review changes since last release
+git log $(git describe --tags --abbrev=0)..HEAD --oneline
 ```
 
-**Step 2:** Create published GitHub Release
+**Step 2:** Create and push the tag
 ```bash
-gh release create v1.7.1 \
-  --title "v1.7.1 - Brief summary within 72 chars" \
-  --notes "$(cat <<'EOF'
+# Determine the next version (follow semver)
+# Create and push the tag (this triggers the workflow)
+git tag v1.X.Y
+git push origin v1.X.Y
+```
+
+**Step 3:** Monitor the workflow
+```bash
+# Watch the workflow run
+gh run list --workflow=release.yml --limit=1
+
+# Get the run ID and monitor progress
+gh run watch <RUN_ID>
+```
+
+The workflow will:
+- Build binaries for all platforms
+- Create a **draft** release on GitHub
+- Upload all binary assets to the draft
+- Push the Homebrew formula to `erraggy/homebrew-oastools`
+
+**Step 4:** Verify the draft release
+```bash
+# Confirm draft status and assets
+gh release view v1.X.Y --json isDraft,assets --jq '{isDraft, assetCount: (.assets | length), assets: [.assets[].name]}'
+```
+
+Expected: `isDraft: true` with 8 assets (checksums + binaries for Darwin, Linux, Windows).
+
+**Step 5:** Generate and set release notes
+
+Ask Claude Code to generate release notes based on commits and PRs since the last release. Claude will:
+- Review git log and merged PRs
+- Categorize changes (features, bug fixes, improvements, breaking changes)
+- Generate well-formatted markdown release notes
+- Apply them to the draft release
+
+Example prompt: "Generate release notes for v1.X.Y based on changes since the last release"
+
+Claude will run:
+```bash
+# Review changes
+git log $(git describe --tags --abbrev=0)..HEAD --oneline
+
+# Review merged PRs
+gh pr list --state merged --limit 20
+
+# Generate and apply formatted notes
+gh release edit v1.X.Y --notes "$(cat <<'EOF'
 ## Summary
-High-level overview of what this release delivers.
+[High-level overview of what this release delivers]
 
 ## What's New
-- Feature 1: Description
-- Feature 2: Description
+- [Feature 1: Description]
+- [Feature 2: Description]
 
-## Changes
-- Change 1
-- Change 2
+## Bug Fixes
+- [Fix 1]
+
+## Improvements
+- [Improvement 1]
+
+## Breaking Changes
+- [If any]
 
 ## Related PRs
-- #17 - PR title
+- #XX - [PR title]
 
 ## Installation
+
 ### Homebrew
-```bash
+\`\`\`bash
 brew tap erraggy/oastools
 brew install oastools
-```
+\`\`\`
+
+### Go Module
+\`\`\`bash
+go get github.com/erraggy/oastools@v1.X.Y
+\`\`\`
 
 ### Binary Download
 Download the appropriate binary for your platform from the assets below.
@@ -324,28 +387,44 @@ EOF
 )"
 ```
 
-This creates git tag, published release, and triggers GitHub Actions workflow immediately.
+Release notes can be edited before or after publishing via `gh release edit` or the GitHub web UI.
 
-**Step 3:** Monitor automated build
-- Workflow: https://github.com/erraggy/oastools/actions
-- Release: https://github.com/erraggy/oastools/releases
-
-**Step 4:** Verify release has assets
+**Step 6:** Publish the release (hands-on-keyboard)
 ```bash
-gh release view v1.7.1 --json assets
+# This makes the release immutable (tags and assets are locked)
+gh release edit v1.X.Y --draft=false
 ```
 
-Confirm all platform binaries are attached (Darwin, Linux, Windows).
-
-**Step 5:** Test installation
+**Step 7:** Test installation
 ```bash
-brew tap erraggy/oastools
-brew install oastools
+brew update
+brew upgrade oastools || brew install erraggy/oastools/oastools
 oastools --version
 ```
 
 ### Troubleshooting
 
+**Workflow failed before creating draft:**
+```bash
+# Delete the tag and start over
+git push origin :refs/tags/v1.X.Y
+git tag -d v1.X.Y
+# Fix the issue, then repeat from Step 2
+```
+
+**Workflow failed after creating draft (missing assets):**
+```bash
+# Delete the draft release and tag
+gh release delete v1.X.Y --yes
+git push origin :refs/tags/v1.X.Y
+git tag -d v1.X.Y
+# Fix the issue, then repeat from Step 2
+```
+
+**Accidentally published too early:**
+With immutability enabled, this cannot be fixed. You must delete the release (may require temporarily disabling immutability), delete the tag, increment the version, and start over.
+
+**Other issues:**
 - **GoReleaser can't push**: Verify `homebrew-oastools` repo exists, token has `repo` scope, commit author email verified
 - **Build fails**: Review GitHub Actions logs, check CGO dependencies, test with `make release-test`
 - **Formula doesn't work**: Verify formula in homebrew-oastools, test in clean environment
