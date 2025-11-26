@@ -2,8 +2,6 @@ package parser
 
 import (
 	"fmt"
-
-	semver "github.com/hashicorp/go-version"
 )
 
 // OASVersion represents each canonical version of the OpenAPI Specification that may be found at:
@@ -93,13 +91,13 @@ func ParseVersion(s string) (OASVersion, bool) {
 	}
 
 	// Try to parse as semver and map to known major.minor series
-	ver, err := semver.NewVersion(s)
+	ver, err := parseVersion(s)
 	if err != nil {
 		return Unknown, false
 	}
 
 	// Extract major.minor.patch from the base version (stripping pre-release suffix)
-	segments := ver.Segments()
+	segments := ver.segments()
 	if len(segments) < 2 {
 		return Unknown, false
 	}
@@ -146,12 +144,12 @@ func findClosestVersion(major, minor, patch int) (OASVersion, bool) {
 		}
 
 		// Parse the version string
-		v, err := semver.NewVersion(verStr)
+		v, err := parseVersion(verStr)
 		if err != nil {
 			continue
 		}
 
-		segs := v.Segments()
+		segs := v.segments()
 		if len(segs) < 3 {
 			continue
 		}

@@ -3,7 +3,6 @@ module github.com/erraggy/oastools
 go 1.24
 
 require (
-	github.com/hashicorp/go-version v1.7.0
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 )

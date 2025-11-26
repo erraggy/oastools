@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/erraggy/oastools"
-	semver "github.com/hashicorp/go-version"
 	"gopkg.in/yaml.v3"
 
 	"github.com/erraggy/oastools/internal/httputil"
@@ -469,9 +468,9 @@ func (p *Parser) detectVersion(data map[string]any) (string, error) {
 	return "", fmt.Errorf("parser: unable to detect OpenAPI version: document must contain either 'swagger: \"2.0\"' (for OAS 2.0) or 'openapi: \"3.x.x\"' (for OAS 3.x) at the root level")
 }
 
-// parseSemVer parses a semver string into a semantic semver
-func parseSemVer(v string) (*semver.Version, error) {
-	return semver.NewVersion(v)
+// parseSemVer parses a semver string into a semantic version
+func parseSemVer(v string) (*version, error) {
+	return parseVersion(v)
 }
 
 // versionInRangeExclusive checks if a semver string is within the specified range: minVersion <= v < maxVersion
@@ -488,7 +487,7 @@ func versionInRangeExclusive(v, minVersion, maxVersion string) bool {
 	}
 
 	// Check lower bound
-	if !ver.GreaterThanOrEqual(min) {
+	if !ver.greaterThanOrEqual(min) {
 		return false
 	}
 
@@ -501,7 +500,7 @@ func versionInRangeExclusive(v, minVersion, maxVersion string) bool {
 	if err != nil {
 		return false
 	}
-	return ver.LessThan(max)
+	return ver.lessThan(max)
 }
 
 // parseVersionSpecific parses the data into a semver-specific structure
