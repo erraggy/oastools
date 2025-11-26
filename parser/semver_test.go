@@ -83,6 +83,11 @@ func TestParseVersion(t *testing.T) {
 			input:      "3.-1.0",
 			shouldFail: true,
 		},
+		{
+			name:       "invalid overflow",
+			input:      "999999999999999999999.0.0",
+			shouldFail: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -141,6 +146,9 @@ func TestVersionLessThan(t *testing.T) {
 		{"patch less", "3.0.0", "3.0.1", true},
 		{"patch greater", "3.0.1", "3.0.0", false},
 		{"equal", "3.0.0", "3.0.0", false},
+		{"two-segment less", "3.0", "3.1", true},
+		{"two-segment greater", "3.1", "3.0", false},
+		{"two-segment equal", "3.0", "3.0", false},
 		{"prerelease less than release", "3.0.0-rc1", "3.0.0", true},
 		{"release not less than prerelease", "3.0.0", "3.0.0-rc1", false},
 		{"prerelease comparison", "3.0.0-alpha", "3.0.0-beta", true},
@@ -176,6 +184,9 @@ func TestVersionGreaterThanOrEqual(t *testing.T) {
 		{"greater minor", "3.1.0", "3.0.0", true},
 		{"greater patch", "3.0.1", "3.0.0", true},
 		{"equal", "3.0.0", "3.0.0", true},
+		{"two-segment greater", "3.1", "3.0", true},
+		{"two-segment equal", "3.0", "3.0", true},
+		{"two-segment less", "3.0", "3.1", false},
 		{"less", "2.0.0", "3.0.0", false},
 		{"release >= prerelease", "3.0.0", "3.0.0-rc1", true},
 		{"prerelease < release", "3.0.0-rc1", "3.0.0", false},

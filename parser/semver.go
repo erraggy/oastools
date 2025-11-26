@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -32,23 +33,23 @@ func parseVersion(s string) (*version, error) {
 		return nil, fmt.Errorf("invalid version format: %q", s)
 	}
 
-	// Parse major
+	// Parse major with bounds checking
 	major, err := strconv.Atoi(parts[0])
-	if err != nil || major < 0 {
+	if err != nil || major < 0 || major > math.MaxInt32 {
 		return nil, fmt.Errorf("invalid major version: %q", parts[0])
 	}
 
-	// Parse minor
+	// Parse minor with bounds checking
 	minor, err := strconv.Atoi(parts[1])
-	if err != nil || minor < 0 {
+	if err != nil || minor < 0 || minor > math.MaxInt32 {
 		return nil, fmt.Errorf("invalid minor version: %q", parts[1])
 	}
 
-	// Parse patch (optional, defaults to 0)
+	// Parse patch (optional, defaults to 0) with bounds checking
 	patch := 0
 	if len(parts) == 3 {
 		patch, err = strconv.Atoi(parts[2])
-		if err != nil || patch < 0 {
+		if err != nil || patch < 0 || patch > math.MaxInt32 {
 			return nil, fmt.Errorf("invalid patch version: %q", parts[2])
 		}
 	}
@@ -87,6 +88,9 @@ func (v *version) lessThan(other *version) bool {
 		return true // v is pre-release, other is release
 	}
 	// Both have pre-release or both don't
+	// Note: This uses simplified lexicographic comparison, which is sufficient
+	// for OpenAPI version strings (e.g., "3.0.0-rc1" < "3.0.0-rc2").
+	// The full semver spec has more complex pre-release precedence rules.
 	return v.prerelease < other.prerelease
 }
 
