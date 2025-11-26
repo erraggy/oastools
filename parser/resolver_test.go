@@ -534,40 +534,21 @@ paths:
 		t.Errorf("Expected version 3.0.0, got %v", result.Version)
 	}
 
-	// The $ref should be left in place (not resolved)
-	doc := result.Document.(*OAS3Document)
-	if doc.Paths == nil {
-		t.Fatal("Expected paths to be present")
-	}
-	pathItem := doc.Paths["/test"]
-	if pathItem == nil {
-		t.Fatal("Expected /test path to be present")
-	}
-	if pathItem.Get == nil {
-		t.Fatal("Expected GET operation to be present")
-	}
-	if pathItem.Get.Responses == nil {
-		t.Fatal("Expected responses to be present")
-	}
-	response := pathItem.Get.Responses.Codes["200"]
-	if response == nil {
-		t.Fatal("Expected 200 response to be present")
-	}
-	if response.Content == nil {
-		t.Fatal("Expected content to be present")
-	}
-	mediaType := response.Content["application/json"]
-	if mediaType == nil {
-		t.Fatal("Expected application/json media type to be present")
-	}
-	if mediaType.Schema == nil {
-		t.Fatal("Expected schema to be present")
+	// Verify the $ref was preserved (not resolved to prevent infinite loop)
+	doc, ok := result.Document.(*OAS3Document)
+	if !ok || doc.Paths == nil || doc.Paths["/test"] == nil ||
+		doc.Paths["/test"].Get == nil || doc.Paths["/test"].Get.Responses == nil {
+		t.Fatal("Expected valid document structure with /test GET operation")
 	}
 
-	// The schema should still have the $ref (not resolved to prevent infinite loop)
-	if mediaType.Schema.Ref == "" {
-		t.Error("Expected $ref to be preserved (not resolved)")
-	} else if mediaType.Schema.Ref != "#" {
-		t.Errorf("Expected $ref to be '#', got %s", mediaType.Schema.Ref)
+	response := doc.Paths["/test"].Get.Responses.Codes["200"]
+	if response == nil || response.Content == nil || response.Content["application/json"] == nil ||
+		response.Content["application/json"].Schema == nil {
+		t.Fatal("Expected 200 response with application/json schema")
+	}
+
+	schema := response.Content["application/json"].Schema
+	if schema.Ref != "#" {
+		t.Errorf("Expected $ref to be preserved as '#', got %q", schema.Ref)
 	}
 }

@@ -72,11 +72,15 @@ paths:
 
 	// 2. Fuzz Target: Test ParseBytes with both flags enabled
 	f.Fuzz(func(t *testing.T, data []byte) {
-		// Call ParseBytes with both resolveRefs and validateStructure enabled
-		// This exercises the most complex code paths including reference resolution
-		// and structural validation. We expect many inputs to cause an error,
-		// but we must ensure the function never panics (crashes).
-		// The fuzzing framework will automatically report any panic.
+		// Test with both resolveRefs and validateStructure enabled to exercise
+		// the most complex code paths including reference resolution and structural
+		// validation. We expect many inputs to cause an error, but we must ensure
+		// the function never panics (crashes).
+		//
+		// Note: We only test one flag combination (true, true) to keep the seed
+		// corpus regression tests fast. Testing all 4 combinations would multiply
+		// test time by 4x for each seed (19 seeds × 4 = 76 test cases). The other
+		// combinations are well-covered by existing unit tests.
 		_, _ = ParseBytes(data, true, true)
 	})
 }
