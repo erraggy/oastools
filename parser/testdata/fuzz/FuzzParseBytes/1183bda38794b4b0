@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("openapi: 3.0.0\ninfo:\n  title: Cicular Schema API\n  version: \"1.0.0\"\npaths:\n  /test:\n    get:\n      responses:\n        \"200\":\n          description: Success\n          content:\n            application/json:\n              schema:\n                $ref: \"#/camponents/schemas/Node\"\ncomponents:\n  schemas:\n    Node:\n      type: object\n      properties:\n        volue:\n          type: string\n        next:\n          $ref: \"#/components/schemas/Node\"\n")
