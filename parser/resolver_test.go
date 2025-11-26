@@ -444,3 +444,130 @@ func TestHTTPReferencesNotSupported(t *testing.T) {
 		})
 	}
 }
+
+// TestCircularSelfReferenceInResolve tests that a schema with a circular self-reference
+// doesn't cause an infinite loop during resolution. This test case was discovered by fuzzing.
+func TestCircularSelfReferenceInResolve(t *testing.T) {
+	// This input was discovered by the fuzzer and caused an infinite loop
+	// The key issue: a circular reference (Node.next -> Node) that creates an
+	// infinite expansion when resolving refs
+	input := []byte(`openapi: 3.0.0
+info:
+  title: Circular Schema API
+  version: "1.0.0"
+paths:
+  /test:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Node"
+components:
+  schemas:
+    Node:
+      type: object
+      properties:
+        value:
+          type: string
+        next:
+          $ref: "#/components/schemas/Node"
+`)
+
+	// Parse with resolveRefs enabled - this should not hang
+	result, err := ParseBytes(input, true, true)
+
+	// Should parse successfully without hanging
+	if err != nil {
+		t.Fatalf("ParseBytes failed: %v", err)
+	}
+
+	// Should have parsed the document
+	if result.Document == nil {
+		t.Fatal("Expected document to be parsed")
+	}
+
+	// Verify it's OAS 3.0
+	if result.Version != "3.0.0" {
+		t.Errorf("Expected version 3.0.0, got %v", result.Version)
+	}
+}
+
+// TestRefToDocumentRoot tests that a $ref pointing to the document root ("#")
+// doesn't cause an infinite loop. This test case was discovered by fuzzing.
+func TestRefToDocumentRoot(t *testing.T) {
+	// This input was discovered by the fuzzer and caused an infinite loop
+	// The issue: $ref: "#" points to the document root, creating infinite recursion
+	input := []byte(`openapi: 3.0.0
+info:
+  title: Circular Schema API
+  version: "1.0.0"
+paths:
+  /test:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#"
+`)
+
+	// Parse with resolveRefs enabled - this should not hang
+	result, err := ParseBytes(input, true, true)
+
+	// Should parse successfully without hanging
+	if err != nil {
+		t.Fatalf("ParseBytes failed: %v", err)
+	}
+
+	// Should have parsed the document
+	if result.Document == nil {
+		t.Fatal("Expected document to be parsed")
+	}
+
+	// Verify it's OAS 3.0
+	if result.Version != "3.0.0" {
+		t.Errorf("Expected version 3.0.0, got %v", result.Version)
+	}
+
+	// The $ref should be left in place (not resolved)
+	doc := result.Document.(*OAS3Document)
+	if doc.Paths == nil {
+		t.Fatal("Expected paths to be present")
+	}
+	pathItem := doc.Paths["/test"]
+	if pathItem == nil {
+		t.Fatal("Expected /test path to be present")
+	}
+	if pathItem.Get == nil {
+		t.Fatal("Expected GET operation to be present")
+	}
+	if pathItem.Get.Responses == nil {
+		t.Fatal("Expected responses to be present")
+	}
+	response := pathItem.Get.Responses.Codes["200"]
+	if response == nil {
+		t.Fatal("Expected 200 response to be present")
+	}
+	if response.Content == nil {
+		t.Fatal("Expected content to be present")
+	}
+	mediaType := response.Content["application/json"]
+	if mediaType == nil {
+		t.Fatal("Expected application/json media type to be present")
+	}
+	if mediaType.Schema == nil {
+		t.Fatal("Expected schema to be present")
+	}
+
+	// The schema should still have the $ref (not resolved to prevent infinite loop)
+	if mediaType.Schema.Ref == "" {
+		t.Error("Expected $ref to be preserved (not resolved)")
+	} else if mediaType.Schema.Ref != "#" {
+		t.Errorf("Expected $ref to be '#', got %s", mediaType.Schema.Ref)
+	}
+}

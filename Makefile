@@ -16,13 +16,13 @@ build:
 	@mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 
-## test: Run tests
+## test: Run tests (fuzz tests run separately with 'make test-fuzz-parse')
 test:
 	@echo "Running tests..."
 ifeq ("$(shell command -v gotestsum)", "")
-	go test -v -race -coverprofile=coverage.txt -covermode=atomic -parallel=4 ./...
+	go test -v -race -coverprofile=coverage.txt -covermode=atomic -parallel=4 -run='Test[^F]|TestF[^u]' ./...
 else
-	gotestsum --format testname -- -v -coverprofile=coverage.txt -covermode=atomic -timeout=60m -race -failfast -parallel=4 ./...
+	gotestsum --format testname -- -v -coverprofile=coverage.txt -covermode=atomic -timeout=60m -race -failfast -parallel=4 -run='Test[^F]|TestF[^u]' ./...
 endif
 
 ## test-coverage: Run tests with coverage report
@@ -30,6 +30,28 @@ test-coverage: test
 	@echo "Generating coverage report..."
 	go tool cover -html=coverage.txt -o coverage.html
 	@echo "Coverage report generated at coverage.html"
+
+## test-fuzz-parse: Run fuzz tests for parser (default: 1m30s, override with FUZZ_TIME, optionally set FUZZ_LOG=1 to save output)
+test-fuzz-parse:
+	@echo "Running fuzz tests for ParseBytes..."
+	@FUZZ_TIME=$${FUZZ_TIME:-1m30s}; \
+	FUZZ_LOG=$${FUZZ_LOG:-0}; \
+	echo "Fuzz time: $${FUZZ_TIME}"; \
+	if [ "$$FUZZ_LOG" = "1" ]; then \
+		TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
+		LOG_FILE="fuzz-parse-$${TIMESTAMP}.log"; \
+		echo "Saving output to: $${LOG_FILE}"; \
+		go test -v ./parser -run=^$$ -fuzz=FuzzParseBytes -fuzztime=$${FUZZ_TIME} -fuzzminimizetime=30s -parallel=4 2>&1 | tee "$${LOG_FILE}"; \
+		echo ""; \
+		echo "Fuzz log saved to: $${LOG_FILE}"; \
+	else \
+		go test -v ./parser -run=^$$ -fuzz=FuzzParseBytes -fuzztime=$${FUZZ_TIME} -fuzzminimizetime=30s -parallel=4; \
+	fi
+	@echo ""
+	@echo "Fuzz corpus stored in: parser/testdata/fuzz/FuzzParseBytes"
+	@echo ""
+	@echo "To re-run a specific failing input: go test ./parser -run=FuzzParseBytes/<hash>"
+	@echo "To save fuzz output to a log file: FUZZ_LOG=1 make test-fuzz-parse"
 
 ## lint: Run linter
 lint:
@@ -177,13 +199,14 @@ bench-profile:
 	echo "Memory profile saved to: $${MEM_PROFILE}"; \
 	echo "Analyze with: go tool pprof <profile-file>"
 
-## bench-clean: Remove timestamped benchmark output files (preserves baseline)
+## bench-clean: Remove timestamped benchmark and fuzz output files (preserves baseline and corpus)
 bench-clean:
-	@echo "Cleaning benchmark outputs..."
+	@echo "Cleaning benchmark and fuzz outputs..."
 	@rm -f benchmark-[0-9]*.txt
 	@rm -f cpu-profile-*.prof
 	@rm -f mem-profile-*.prof
-	@echo "Benchmark outputs cleaned (baseline preserved)"
+	@rm -f fuzz-parse-*.log
+	@echo "Benchmark and fuzz outputs cleaned (baseline and corpus preserved)"
 
 ## release-test: Test GoReleaser configuration locally (creates dist/ without publishing)
 release-test:
