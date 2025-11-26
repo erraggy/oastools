@@ -21,10 +21,6 @@ linters:
   settings:
     cyclop:
       max-complexity: 50
-    staticcheck:
-      checks:
-        - "all"
-        - "-SA5011"  # Disable false positives for nil checks followed by t.Fatal()
 
 issues:
   max-issues-per-linter: 0
