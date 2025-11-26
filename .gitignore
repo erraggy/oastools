@@ -52,3 +52,6 @@ backfilled-benchmarks/
 # Profiling outputs
 cpu-profile-*.prof
 mem-profile-*.prof
+
+# Fuzz test logs (timestamped files not tracked)
+fuzz-parse-*.log

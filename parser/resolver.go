@@ -28,6 +28,8 @@ const (
 type RefResolver struct {
 	// visited tracks visited refs to prevent circular reference loops
 	visited map[string]bool
+	// resolving tracks refs currently being resolved in the recursion stack
+	resolving map[string]bool
 	// documents caches loaded external documents
 	documents map[string]map[string]any
 	// baseDir is the base directory for resolving relative file paths
@@ -38,6 +40,7 @@ type RefResolver struct {
 func NewRefResolver(baseDir string) *RefResolver {
 	return &RefResolver{
 		visited:   make(map[string]bool),
+		resolving: make(map[string]bool),
 		documents: make(map[string]map[string]any),
 		baseDir:   baseDir,
 	}
@@ -215,6 +218,25 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 	case map[string]any:
 		// Check if this object has a $ref field
 		if ref, ok := v["$ref"].(string); ok {
+			// Check for $ref pointing to document root (always circular)
+			if ref == "#" || ref == "#/" {
+				// Leave the $ref in place - resolving it would create infinite recursion
+				return nil
+			}
+
+			// Check if we're already resolving this reference (circular dependency)
+			if r.resolving[ref] {
+				// Leave the $ref in place rather than trying to expand it infinitely
+				// This allows circular references to exist in the document
+				return nil
+			}
+
+			// Mark this ref as being resolved. The defer cleanup runs when
+			// resolveRefsRecursive returns (either from line 263 or line 269's error),
+			// which correctly maintains the resolving state across recursive calls.
+			r.resolving[ref] = true
+			defer func() { delete(r.resolving, ref) }()
+
 			// Resolve the reference
 			resolved, err := r.Resolve(rootMap, ref)
 			if err != nil {
