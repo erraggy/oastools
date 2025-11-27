@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -94,7 +95,7 @@ func handleParse(args []string) error {
 	fs, flags := setupParseFlags()
 
 	if err := fs.Parse(args); err != nil {
-		if err == flag.ErrHelp {
+		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
@@ -223,7 +224,7 @@ func handleValidate(args []string) error {
 	fs, flags := setupValidateFlags()
 
 	if err := fs.Parse(args); err != nil {
-		if err == flag.ErrHelp {
+		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
@@ -349,7 +350,7 @@ func handleJoin(args []string) error {
 	fs, flags := setupJoinFlags()
 
 	if err := fs.Parse(args); err != nil {
-		if err == flag.ErrHelp {
+		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
@@ -515,7 +516,7 @@ func handleConvert(args []string) error {
 	fs, flags := setupConvertFlags()
 
 	if err := fs.Parse(args); err != nil {
-		if err == flag.ErrHelp {
+		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
@@ -667,7 +668,7 @@ func handleDiff(args []string) error {
 	fs, flags := setupDiffFlags()
 
 	if err := fs.Parse(args); err != nil {
-		if err == flag.ErrHelp {
+		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
