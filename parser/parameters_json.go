@@ -2,6 +2,8 @@ package parser
 
 import (
 	"encoding/json"
+
+	"github.com/erraggy/oastools/parser/internal/jsonhelpers"
 )
 
 // MarshalJSON implements custom JSON marshaling for Parameter.
@@ -15,107 +17,43 @@ func (p *Parameter) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(p))
 	}
 
-	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]any, 30+len(p.Extra))
+	// Build map with known fields
+	m := map[string]any{
+		"name": p.Name, // Required field, always include
+		"in":   p.In,   // Required field, always include
+	}
+	jsonhelpers.SetIfNotEmpty(m, "$ref", p.Ref)
+	jsonhelpers.SetIfNotEmpty(m, "description", p.Description)
+	jsonhelpers.SetIfTrue(m, "required", p.Required)
+	jsonhelpers.SetIfTrue(m, "deprecated", p.Deprecated)
+	jsonhelpers.SetIfNotEmpty(m, "style", p.Style)
+	jsonhelpers.SetIfNotNil(m, "explode", p.Explode)
+	jsonhelpers.SetIfTrue(m, "allowReserved", p.AllowReserved)
+	jsonhelpers.SetIfNotNil(m, "schema", p.Schema)
+	jsonhelpers.SetIfNotNil(m, "example", p.Example)
+	jsonhelpers.SetIfMapNotEmpty(m, "examples", p.Examples)
+	jsonhelpers.SetIfMapNotEmpty(m, "content", p.Content)
+	jsonhelpers.SetIfNotEmpty(m, "type", p.Type)
+	jsonhelpers.SetIfNotEmpty(m, "format", p.Format)
+	jsonhelpers.SetIfTrue(m, "allowEmptyValue", p.AllowEmptyValue)
+	jsonhelpers.SetIfNotNil(m, "items", p.Items)
+	jsonhelpers.SetIfNotEmpty(m, "collectionFormat", p.CollectionFormat)
+	jsonhelpers.SetIfNotNil(m, "default", p.Default)
+	jsonhelpers.SetIfNotNil(m, "maximum", p.Maximum)
+	jsonhelpers.SetIfTrue(m, "exclusiveMaximum", p.ExclusiveMaximum)
+	jsonhelpers.SetIfNotNil(m, "minimum", p.Minimum)
+	jsonhelpers.SetIfTrue(m, "exclusiveMinimum", p.ExclusiveMinimum)
+	jsonhelpers.SetIfNotNil(m, "maxLength", p.MaxLength)
+	jsonhelpers.SetIfNotNil(m, "minLength", p.MinLength)
+	jsonhelpers.SetIfNotEmpty(m, "pattern", p.Pattern)
+	jsonhelpers.SetIfNotNil(m, "maxItems", p.MaxItems)
+	jsonhelpers.SetIfNotNil(m, "minItems", p.MinItems)
+	jsonhelpers.SetIfTrue(m, "uniqueItems", p.UniqueItems)
+	jsonhelpers.SetIfNotNil(m, "enum", p.Enum)
+	jsonhelpers.SetIfNotNil(m, "multipleOf", p.MultipleOf)
 
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	if p.Ref != "" {
-		m["$ref"] = p.Ref
-	}
-	// Name and In are required, always include
-	m["name"] = p.Name
-	m["in"] = p.In
-	if p.Description != "" {
-		m["description"] = p.Description
-	}
-	if p.Required {
-		m["required"] = p.Required
-	}
-	if p.Deprecated {
-		m["deprecated"] = p.Deprecated
-	}
-	if p.Style != "" {
-		m["style"] = p.Style
-	}
-	if p.Explode != nil {
-		m["explode"] = p.Explode
-	}
-	if p.AllowReserved {
-		m["allowReserved"] = p.AllowReserved
-	}
-	if p.Schema != nil {
-		m["schema"] = p.Schema
-	}
-	if p.Example != nil {
-		m["example"] = p.Example
-	}
-	if len(p.Examples) > 0 {
-		m["examples"] = p.Examples
-	}
-	if len(p.Content) > 0 {
-		m["content"] = p.Content
-	}
-	if p.Type != "" {
-		m["type"] = p.Type
-	}
-	if p.Format != "" {
-		m["format"] = p.Format
-	}
-	if p.AllowEmptyValue {
-		m["allowEmptyValue"] = p.AllowEmptyValue
-	}
-	if p.Items != nil {
-		m["items"] = p.Items
-	}
-	if p.CollectionFormat != "" {
-		m["collectionFormat"] = p.CollectionFormat
-	}
-	if p.Default != nil {
-		m["default"] = p.Default
-	}
-	if p.Maximum != nil {
-		m["maximum"] = p.Maximum
-	}
-	if p.ExclusiveMaximum {
-		m["exclusiveMaximum"] = p.ExclusiveMaximum
-	}
-	if p.Minimum != nil {
-		m["minimum"] = p.Minimum
-	}
-	if p.ExclusiveMinimum {
-		m["exclusiveMinimum"] = p.ExclusiveMinimum
-	}
-	if p.MaxLength != nil {
-		m["maxLength"] = p.MaxLength
-	}
-	if p.MinLength != nil {
-		m["minLength"] = p.MinLength
-	}
-	if p.Pattern != "" {
-		m["pattern"] = p.Pattern
-	}
-	if p.MaxItems != nil {
-		m["maxItems"] = p.MaxItems
-	}
-	if p.MinItems != nil {
-		m["minItems"] = p.MinItems
-	}
-	if p.UniqueItems {
-		m["uniqueItems"] = p.UniqueItems
-	}
-	if len(p.Enum) > 0 {
-		m["enum"] = p.Enum
-	}
-	if p.MultipleOf != nil {
-		m["multipleOf"] = p.MultipleOf
-	}
-
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range p.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, p.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Parameter.
@@ -159,67 +97,29 @@ func (i *Items) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(i))
 	}
 
-	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]any, 18+len(i.Extra))
+	// Build map with known fields
+	m := map[string]any{
+		"type": i.Type, // Required field, always include
+	}
+	jsonhelpers.SetIfNotEmpty(m, "format", i.Format)
+	jsonhelpers.SetIfNotNil(m, "items", i.Items)
+	jsonhelpers.SetIfNotEmpty(m, "collectionFormat", i.CollectionFormat)
+	jsonhelpers.SetIfNotNil(m, "default", i.Default)
+	jsonhelpers.SetIfNotNil(m, "maximum", i.Maximum)
+	jsonhelpers.SetIfTrue(m, "exclusiveMaximum", i.ExclusiveMaximum)
+	jsonhelpers.SetIfNotNil(m, "minimum", i.Minimum)
+	jsonhelpers.SetIfTrue(m, "exclusiveMinimum", i.ExclusiveMinimum)
+	jsonhelpers.SetIfNotNil(m, "maxLength", i.MaxLength)
+	jsonhelpers.SetIfNotNil(m, "minLength", i.MinLength)
+	jsonhelpers.SetIfNotEmpty(m, "pattern", i.Pattern)
+	jsonhelpers.SetIfNotNil(m, "maxItems", i.MaxItems)
+	jsonhelpers.SetIfNotNil(m, "minItems", i.MinItems)
+	jsonhelpers.SetIfTrue(m, "uniqueItems", i.UniqueItems)
+	jsonhelpers.SetIfNotNil(m, "enum", i.Enum)
+	jsonhelpers.SetIfNotNil(m, "multipleOf", i.MultipleOf)
 
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	// Type is required, always include
-	m["type"] = i.Type
-	if i.Format != "" {
-		m["format"] = i.Format
-	}
-	if i.Items != nil {
-		m["items"] = i.Items
-	}
-	if i.CollectionFormat != "" {
-		m["collectionFormat"] = i.CollectionFormat
-	}
-	if i.Default != nil {
-		m["default"] = i.Default
-	}
-	if i.Maximum != nil {
-		m["maximum"] = i.Maximum
-	}
-	if i.ExclusiveMaximum {
-		m["exclusiveMaximum"] = i.ExclusiveMaximum
-	}
-	if i.Minimum != nil {
-		m["minimum"] = i.Minimum
-	}
-	if i.ExclusiveMinimum {
-		m["exclusiveMinimum"] = i.ExclusiveMinimum
-	}
-	if i.MaxLength != nil {
-		m["maxLength"] = i.MaxLength
-	}
-	if i.MinLength != nil {
-		m["minLength"] = i.MinLength
-	}
-	if i.Pattern != "" {
-		m["pattern"] = i.Pattern
-	}
-	if i.MaxItems != nil {
-		m["maxItems"] = i.MaxItems
-	}
-	if i.MinItems != nil {
-		m["minItems"] = i.MinItems
-	}
-	if i.UniqueItems {
-		m["uniqueItems"] = i.UniqueItems
-	}
-	if len(i.Enum) > 0 {
-		m["enum"] = i.Enum
-	}
-	if i.MultipleOf != nil {
-		m["multipleOf"] = i.MultipleOf
-	}
-
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range i.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, i.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Items.
@@ -263,28 +163,16 @@ func (rb *RequestBody) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(rb))
 	}
 
-	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]any, 4+len(rb.Extra))
+	// Build map with known fields
+	m := map[string]any{
+		"content": rb.Content, // Required field, always include
+	}
+	jsonhelpers.SetIfNotEmpty(m, "$ref", rb.Ref)
+	jsonhelpers.SetIfNotEmpty(m, "description", rb.Description)
+	jsonhelpers.SetIfTrue(m, "required", rb.Required)
 
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	if rb.Ref != "" {
-		m["$ref"] = rb.Ref
-	}
-	if rb.Description != "" {
-		m["description"] = rb.Description
-	}
-	// Content is required, always include
-	m["content"] = rb.Content
-	if rb.Required {
-		m["required"] = rb.Required
-	}
-
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range rb.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, rb.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for RequestBody.
@@ -328,98 +216,38 @@ func (h *Header) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(h))
 	}
 
-	// Build map directly to avoid double-marshal pattern
+	// Build map with known fields
 	m := make(map[string]any, 27+len(h.Extra))
+	jsonhelpers.SetIfNotEmpty(m, "$ref", h.Ref)
+	jsonhelpers.SetIfNotEmpty(m, "description", h.Description)
+	jsonhelpers.SetIfTrue(m, "required", h.Required)
+	jsonhelpers.SetIfTrue(m, "deprecated", h.Deprecated)
+	jsonhelpers.SetIfNotEmpty(m, "style", h.Style)
+	jsonhelpers.SetIfNotNil(m, "explode", h.Explode)
+	jsonhelpers.SetIfNotNil(m, "schema", h.Schema)
+	jsonhelpers.SetIfNotNil(m, "example", h.Example)
+	jsonhelpers.SetIfMapNotEmpty(m, "examples", h.Examples)
+	jsonhelpers.SetIfMapNotEmpty(m, "content", h.Content)
+	jsonhelpers.SetIfNotEmpty(m, "type", h.Type)
+	jsonhelpers.SetIfNotEmpty(m, "format", h.Format)
+	jsonhelpers.SetIfNotNil(m, "items", h.Items)
+	jsonhelpers.SetIfNotEmpty(m, "collectionFormat", h.CollectionFormat)
+	jsonhelpers.SetIfNotNil(m, "default", h.Default)
+	jsonhelpers.SetIfNotNil(m, "maximum", h.Maximum)
+	jsonhelpers.SetIfTrue(m, "exclusiveMaximum", h.ExclusiveMaximum)
+	jsonhelpers.SetIfNotNil(m, "minimum", h.Minimum)
+	jsonhelpers.SetIfTrue(m, "exclusiveMinimum", h.ExclusiveMinimum)
+	jsonhelpers.SetIfNotNil(m, "maxLength", h.MaxLength)
+	jsonhelpers.SetIfNotNil(m, "minLength", h.MinLength)
+	jsonhelpers.SetIfNotEmpty(m, "pattern", h.Pattern)
+	jsonhelpers.SetIfNotNil(m, "maxItems", h.MaxItems)
+	jsonhelpers.SetIfNotNil(m, "minItems", h.MinItems)
+	jsonhelpers.SetIfTrue(m, "uniqueItems", h.UniqueItems)
+	jsonhelpers.SetIfNotNil(m, "enum", h.Enum)
+	jsonhelpers.SetIfNotNil(m, "multipleOf", h.MultipleOf)
 
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	if h.Ref != "" {
-		m["$ref"] = h.Ref
-	}
-	if h.Description != "" {
-		m["description"] = h.Description
-	}
-	if h.Required {
-		m["required"] = h.Required
-	}
-	if h.Deprecated {
-		m["deprecated"] = h.Deprecated
-	}
-	if h.Style != "" {
-		m["style"] = h.Style
-	}
-	if h.Explode != nil {
-		m["explode"] = h.Explode
-	}
-	if h.Schema != nil {
-		m["schema"] = h.Schema
-	}
-	if h.Example != nil {
-		m["example"] = h.Example
-	}
-	if len(h.Examples) > 0 {
-		m["examples"] = h.Examples
-	}
-	if len(h.Content) > 0 {
-		m["content"] = h.Content
-	}
-	if h.Type != "" {
-		m["type"] = h.Type
-	}
-	if h.Format != "" {
-		m["format"] = h.Format
-	}
-	if h.Items != nil {
-		m["items"] = h.Items
-	}
-	if h.CollectionFormat != "" {
-		m["collectionFormat"] = h.CollectionFormat
-	}
-	if h.Default != nil {
-		m["default"] = h.Default
-	}
-	if h.Maximum != nil {
-		m["maximum"] = h.Maximum
-	}
-	if h.ExclusiveMaximum {
-		m["exclusiveMaximum"] = h.ExclusiveMaximum
-	}
-	if h.Minimum != nil {
-		m["minimum"] = h.Minimum
-	}
-	if h.ExclusiveMinimum {
-		m["exclusiveMinimum"] = h.ExclusiveMinimum
-	}
-	if h.MaxLength != nil {
-		m["maxLength"] = h.MaxLength
-	}
-	if h.MinLength != nil {
-		m["minLength"] = h.MinLength
-	}
-	if h.Pattern != "" {
-		m["pattern"] = h.Pattern
-	}
-	if h.MaxItems != nil {
-		m["maxItems"] = h.MaxItems
-	}
-	if h.MinItems != nil {
-		m["minItems"] = h.MinItems
-	}
-	if h.UniqueItems {
-		m["uniqueItems"] = h.UniqueItems
-	}
-	if len(h.Enum) > 0 {
-		m["enum"] = h.Enum
-	}
-	if h.MultipleOf != nil {
-		m["multipleOf"] = h.MultipleOf
-	}
-
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range h.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, h.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Header.
