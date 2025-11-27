@@ -68,9 +68,13 @@ func handleParse(args []string) {
 	// Print results
 	fmt.Printf("OpenAPI Specification Parser\n")
 	fmt.Printf("============================\n\n")
+	fmt.Printf("oastools version: %s\n", oastools.Version())
 	fmt.Printf("Specification: %s\n", specPath)
-	fmt.Printf("Version: %s\n", result.Version)
+	fmt.Printf("OAS Version: %s\n", result.Version)
 	fmt.Printf("Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+	fmt.Printf("Paths: %d\n", result.Stats.PathCount)
+	fmt.Printf("Operations: %d\n", result.Stats.OperationCount)
+	fmt.Printf("Schemas: %d\n", result.Stats.SchemaCount)
 	fmt.Printf("Load Time: %v\n\n", result.LoadTime)
 
 	// Print warnings
@@ -183,9 +187,13 @@ func handleValidate(args []string) {
 	// Print results
 	fmt.Printf("OpenAPI Specification Validator\n")
 	fmt.Printf("================================\n\n")
+	fmt.Printf("oastools version: %s\n", oastools.Version())
 	fmt.Printf("Specification: %s\n", specPath)
-	fmt.Printf("Version: %s\n", result.Version)
+	fmt.Printf("OAS Version: %s\n", result.Version)
 	fmt.Printf("Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+	fmt.Printf("Paths: %d\n", result.Stats.PathCount)
+	fmt.Printf("Operations: %d\n", result.Stats.OperationCount)
+	fmt.Printf("Schemas: %d\n", result.Stats.SchemaCount)
 	fmt.Printf("Load Time: %v\n", result.LoadTime)
 	fmt.Printf("Total Time: %v\n\n", totalTime)
 
@@ -393,9 +401,13 @@ func handleJoin(args []string) {
 	// Print success message
 	fmt.Printf("OpenAPI Specification Joiner\n")
 	fmt.Printf("============================\n\n")
+	fmt.Printf("oastools version: %s\n", oastools.Version())
 	fmt.Printf("Successfully joined %d specification files\n", len(filePaths))
 	fmt.Printf("Output: %s\n", outputPath)
-	fmt.Printf("Version: %s\n", result.Version)
+	fmt.Printf("OAS Version: %s\n", result.Version)
+	fmt.Printf("Paths: %d\n", result.Stats.PathCount)
+	fmt.Printf("Operations: %d\n", result.Stats.OperationCount)
+	fmt.Printf("Schemas: %d\n", result.Stats.SchemaCount)
 	fmt.Printf("Total Time: %v\n\n", totalTime)
 
 	if result.CollisionCount > 0 {
@@ -532,10 +544,14 @@ func handleConvert(args []string) {
 	// Print results
 	fmt.Printf("OpenAPI Specification Converter\n")
 	fmt.Printf("===============================\n\n")
+	fmt.Printf("oastools version: %s\n", oastools.Version())
 	fmt.Printf("Specification: %s\n", specPath)
 	fmt.Printf("Source Version: %s\n", result.SourceVersion)
 	fmt.Printf("Target Version: %s\n", result.TargetVersion)
 	fmt.Printf("Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+	fmt.Printf("Paths: %d\n", result.Stats.PathCount)
+	fmt.Printf("Operations: %d\n", result.Stats.OperationCount)
+	fmt.Printf("Schemas: %d\n", result.Stats.SchemaCount)
 	fmt.Printf("Load Time: %v\n", result.LoadTime)
 	fmt.Printf("Total Time: %v\n\n", totalTime)
 
@@ -678,6 +694,7 @@ func handleDiff(args []string) {
 	// Print results
 	fmt.Printf("OpenAPI Specification Diff\n")
 	fmt.Printf("==========================\n\n")
+	fmt.Printf("oastools version: %s\n", oastools.Version())
 	fmt.Printf("Source: %s (%s)\n", sourcePath, result.SourceVersion)
 	fmt.Printf("Target: %s (%s)\n", targetPath, result.TargetVersion)
 	fmt.Printf("Total Time: %v\n\n", totalTime)

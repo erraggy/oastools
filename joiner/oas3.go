@@ -122,6 +122,7 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 	}
 
 	result.Document = joined
+	result.Stats = parser.GetDocumentStats(joined)
 	return result, nil
 }
 

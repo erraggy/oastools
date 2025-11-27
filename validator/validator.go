@@ -57,6 +57,8 @@ type ValidationResult struct {
 	LoadTime time.Duration
 	// SourceSize is the size of the source data in bytes
 	SourceSize int64
+	// Stats contains statistical information about the document
+	Stats parser.DocumentStats
 }
 
 // Validator handles OpenAPI specification validation
@@ -257,6 +259,7 @@ func (v *Validator) ValidateParsed(parseResult parser.ParseResult) (*ValidationR
 		Warnings:   make([]ValidationError, 0, defaultWarningCapacity),
 		LoadTime:   parseResult.LoadTime,
 		SourceSize: parseResult.SourceSize,
+		Stats:      parseResult.Stats,
 	}
 
 	// Add parser errors to validation result

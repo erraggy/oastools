@@ -77,6 +77,8 @@ type ParseResult struct {
 	LoadTime time.Duration
 	// SourceSize is the size of the source data in bytes
 	SourceSize int64
+	// Stats contains statistical information about the document
+	Stats DocumentStats
 }
 
 // FormatBytes formats a byte count into a human-readable string using binary units (KiB, MiB, etc.)
@@ -601,6 +603,9 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 		validationErrors := p.validateStructure(result)
 		result.Errors = append(result.Errors, validationErrors...)
 	}
+
+	// Calculate document statistics
+	result.Stats = GetDocumentStats(result.Document)
 
 	return result, nil
 }

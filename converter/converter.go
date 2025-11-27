@@ -52,6 +52,8 @@ type ConversionResult struct {
 	LoadTime time.Duration
 	// SourceSize is the size of the source data in bytes
 	SourceSize int64
+	// Stats contains statistical information about the source document
+	Stats parser.DocumentStats
 }
 
 // HasCriticalIssues returns true if there are any critical issues
@@ -308,6 +310,7 @@ func (c *Converter) ConvertParsed(parseResult parser.ParseResult, targetVersionS
 		Issues:           make([]ConversionIssue, 0),
 		LoadTime:         parseResult.LoadTime,
 		SourceSize:       parseResult.SourceSize,
+		Stats:            parseResult.Stats,
 	}
 
 	// Check if conversion is needed
