@@ -55,6 +55,7 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 	}
 
 	result.Document = joined
+	result.Stats = parser.GetDocumentStats(joined)
 	return result, nil
 }
 

@@ -100,6 +100,8 @@ type JoinResult struct {
 	Warnings []string
 	// CollisionCount tracks the number of collisions resolved
 	CollisionCount int
+	// Stats contains statistical information about the joined document
+	Stats parser.DocumentStats
 	// firstFilePath stores the path of the first document for error reporting
 	firstFilePath string
 }
