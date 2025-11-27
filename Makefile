@@ -16,13 +16,22 @@ build:
 	@mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 
-## test: Run tests (fuzz tests run separately with 'make test-fuzz-parse')
+## test: Run tests (fast, without race detector)
 test:
 	@echo "Running tests..."
 ifeq ("$(shell command -v gotestsum)", "")
-	go test -v -race -coverprofile=coverage.txt -covermode=atomic -parallel=4 -skip='FuzzParseBytes' ./...
+	go test -v -coverprofile=coverage.txt -covermode=atomic -parallel=4 ./...
 else
-	gotestsum --format testname -- -v -coverprofile=coverage.txt -covermode=atomic -timeout=60m -race -failfast -parallel=4 -skip='FuzzParseBytes' ./...
+	gotestsum --format testname -- -v -coverprofile=coverage.txt -covermode=atomic -timeout=10m -failfast -parallel=4 ./...
+endif
+
+## test-race: Run tests with race detector (slower, thorough race detection)
+test-race:
+	@echo "Running tests with race detector (this may take several minutes)..."
+ifeq ("$(shell command -v gotestsum)", "")
+	GORACE="halt_on_error=1" go test -v -race -timeout=20m -parallel=4 ./...
+else
+	GORACE="halt_on_error=1" gotestsum --format testname -- -v -race -timeout=20m -failfast -parallel=4 ./...
 endif
 
 ## test-coverage: Run tests with coverage report
