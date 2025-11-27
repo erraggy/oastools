@@ -161,7 +161,10 @@ Correct pattern:
 ```go
 func BenchmarkOperation(b *testing.B) {
     // Setup (parsing, creating instances, etc.)
-    source, _ := parser.Parse("file.yaml", false, true)
+    source, _ := parser.ParseWithOptions(
+        parser.WithFilePath("file.yaml"),
+        parser.WithValidateStructure(true),
+    )
 
     for b.Loop() {  // ✅ Modern Go 1.24+ pattern
         _, err := Operation(source)
@@ -455,27 +458,27 @@ Use struct-based API for: multiple files, reusable instances, advanced configura
 ### Key API Features
 
 **Parser Package:**
-- Convenience: `parser.Parse()`, `ParseReader()`, `ParseBytes()`
+- Functional options: `parser.ParseWithOptions(parser.WithFilePath(...), parser.WithResolveRefs(...), ...)`
 - Struct-based: `parser.New()`, `Parser.Parse()`, `Parser.ParseReader()`, `Parser.ParseBytes()`
 - `ParseResult.SourcePath` tracks source (`"ParseReader.yaml"` for readers, `"ParseBytes.yaml"` for bytes)
 
 **Validator Package:**
-- Convenience: `validator.Validate()`, `ValidateParsed()`
+- Functional options: `validator.ValidateWithOptions(validator.WithFilePath(...), validator.WithIncludeWarnings(...), ...)`
 - Struct-based: `validator.New()`, `Validator.Validate()`, `Validator.ValidateParsed()`
 
 **Joiner Package:**
-- Convenience: `joiner.Join()`, `JoinParsed()`
+- Functional options: `joiner.JoinWithOptions(joiner.WithFilePaths(...), joiner.WithPathStrategy(...), ...)`
 - Struct-based: `joiner.New()`, `Joiner.Join()`, `Joiner.JoinParsed()`, `Joiner.WriteResult()`
 - All input documents must be pre-validated (Errors slice must be empty)
 
 **Converter Package:**
-- Convenience: `converter.Convert()`, `ConvertParsed()`
+- Functional options: `converter.ConvertWithOptions(converter.WithFilePath(...), converter.WithTargetVersion(...), ...)`
 - Struct-based: `converter.New()`, `Converter.Convert()`, `Converter.ConvertParsed()`
 - Configuration: `StrictMode`, `IncludeInfo`
 - Returns ConversionResult with severity-tracked issues (Info, Warning, Critical)
 
 **Differ Package:**
-- Convenience: `differ.Diff()`, `DiffParsed()`
+- Functional options: `differ.DiffWithOptions(differ.WithSourceFilePath(...), differ.WithTargetFilePath(...), differ.WithMode(...), ...)`
 - Struct-based: `differ.New()`, `Differ.Diff()`, `Differ.DiffParsed()`
 - Returns DiffResult with changes categorized by severity (Critical, Error, Warning, Info)
 
@@ -484,19 +487,34 @@ Use struct-based API for: multiple files, reusable instances, advanced configura
 **Quick operations:**
 ```go
 // Parse
-result, _ := parser.Parse("openapi.yaml", false, true)
+result, _ := parser.ParseWithOptions(
+    parser.WithFilePath("openapi.yaml"),
+    parser.WithValidateStructure(true),
+)
 
 // Validate
-result, _ := validator.Validate("openapi.yaml", true, false)
+result, _ := validator.ValidateWithOptions(
+    validator.WithFilePath("openapi.yaml"),
+    validator.WithIncludeWarnings(true),
+)
 
 // Join
-result, _ := joiner.Join([]string{"base.yaml", "ext.yaml"}, config)
+result, _ := joiner.JoinWithOptions(
+    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+    joiner.WithConfig(joiner.DefaultConfig()),
+)
 
 // Convert
-result, _ := converter.Convert("swagger.yaml", "3.0.3")
+result, _ := converter.ConvertWithOptions(
+    converter.WithFilePath("swagger.yaml"),
+    converter.WithTargetVersion("3.0.3"),
+)
 
 // Diff
-result, _ := differ.Diff("v1.yaml", "v2.yaml")
+result, _ := differ.DiffWithOptions(
+    differ.WithSourceFilePath("v1.yaml"),
+    differ.WithTargetFilePath("v2.yaml"),
+)
 ```
 
 **Reusable instances:**

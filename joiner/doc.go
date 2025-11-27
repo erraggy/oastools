@@ -8,19 +8,29 @@
 //
 // # Quick Start
 //
-// Join files with a config:
+// Join files using functional options:
 //
-//	config := joiner.DefaultConfig()
-//	config.PathStrategy = joiner.StrategyAcceptLeft
-//	result, err := joiner.Join([]string{"base.yaml", "ext.yaml"}, config)
+//	result, err := joiner.JoinWithOptions(
+//		joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+//		joiner.WithPathStrategy(joiner.StrategyAcceptLeft),
+//	)
 //	if err != nil {
 //		log.Fatal(err)
 //	}
 //	_ = joiner.WriteResult(result, "merged.yaml")
 //
+// Or use a full config with options:
+//
+//	config := joiner.DefaultConfig()
+//	config.PathStrategy = joiner.StrategyAcceptLeft
+//	result, err := joiner.JoinWithOptions(
+//		joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+//		joiner.WithConfig(config),
+//	)
+//
 // Or create a reusable Joiner instance:
 //
-//	j := joiner.New(config)
+//	j := joiner.New(joiner.DefaultConfig())
 //	result1, _ := j.Join([]string{"api1-base.yaml", "api1-ext.yaml"})
 //	result2, _ := j.Join([]string{"api2-base.yaml", "api2-ext.yaml"})
 //	j.WriteResult(result1, "merged1.yaml")

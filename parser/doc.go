@@ -7,9 +7,12 @@
 //
 // # Quick Start
 //
-// Parse a file:
+// Parse a file using functional options:
 //
-//	result, err := parser.Parse("openapi.yaml", false, true)
+//	result, err := parser.ParseWithOptions(
+//		parser.WithFilePath("openapi.yaml"),
+//		parser.WithValidateStructure(true),
+//	)
 //	if err != nil {
 //		log.Fatal(err)
 //	}
@@ -19,7 +22,10 @@
 //
 // Parse from a URL:
 //
-//	result, err := parser.Parse("https://example.com/api/openapi.yaml", false, true)
+//	result, err := parser.ParseWithOptions(
+//		parser.WithFilePath("https://example.com/api/openapi.yaml"),
+//		parser.WithValidateStructure(true),
+//	)
 //	if err != nil {
 //		log.Fatal(err)
 //	}

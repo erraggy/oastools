@@ -55,8 +55,11 @@ In ModeBreaking, changes are assigned severity levels:
 	)
 
 	func main() {
-		// Simple diff using convenience function
-		result, err := differ.Diff("api-v1.yaml", "api-v2.yaml")
+		// Simple diff using functional options
+		result, err := differ.DiffWithOptions(
+			differ.WithSourceFilePath("api-v1.yaml"),
+			differ.WithTargetFilePath("api-v2.yaml"),
+		)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -79,12 +82,13 @@ In ModeBreaking, changes are assigned severity levels:
 	)
 
 	func main() {
-		// Create differ with breaking mode
-		d := differ.New()
-		d.Mode = differ.ModeBreaking
-		d.IncludeInfo = true
-
-		result, err := d.Diff("api-v1.yaml", "api-v2.yaml")
+		// Diff with breaking mode using functional options
+		result, err := differ.DiffWithOptions(
+			differ.WithSourceFilePath("api-v1.yaml"),
+			differ.WithTargetFilePath("api-v2.yaml"),
+			differ.WithMode(differ.ModeBreaking),
+			differ.WithIncludeInfo(true),
+		)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -144,7 +148,7 @@ In ModeBreaking, changes are assigned severity levels:
 
 # Working with Parsed Documents
 
-For efficiency when documents are already parsed, use DiffParsed:
+For efficiency when documents are already parsed, use WithSourceParsed and WithTargetParsed:
 
 	package main
 
@@ -158,18 +162,27 @@ For efficiency when documents are already parsed, use DiffParsed:
 
 	func main() {
 		// Parse documents once
-		source, err := parser.Parse("api-v1.yaml", false, true)
+		source, err := parser.ParseWithOptions(
+			parser.WithFilePath("api-v1.yaml"),
+			parser.WithValidateStructure(true),
+		)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		target, err := parser.Parse("api-v2.yaml", false, true)
+		target, err := parser.ParseWithOptions(
+			parser.WithFilePath("api-v2.yaml"),
+			parser.WithValidateStructure(true),
+		)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		// Compare parsed documents
-		result, err := differ.DiffParsed(*source, *target)
+		result, err := differ.DiffWithOptions(
+			differ.WithSourceParsed(*source),
+			differ.WithTargetParsed(*target),
+		)
 		if err != nil {
 			log.Fatal(err)
 		}

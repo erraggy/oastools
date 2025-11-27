@@ -78,6 +78,132 @@ func New() *Validator {
 	}
 }
 
+// Option is a function that configures a validation operation
+type Option func(*validateConfig) error
+
+// validateConfig holds configuration for a validation operation
+type validateConfig struct {
+	// Input source (exactly one must be set)
+	filePath *string
+	parsed   *parser.ParseResult
+
+	// Configuration options
+	includeWarnings bool
+	strictMode      bool
+	userAgent       string
+}
+
+// ValidateWithOptions validates an OpenAPI specification using functional options.
+// This provides a flexible, extensible API that combines input source selection
+// and configuration in a single function call.
+//
+// Example:
+//
+//	result, err := validator.ValidateWithOptions(
+//	    validator.WithFilePath("openapi.yaml"),
+//	    validator.WithStrictMode(true),
+//	)
+func ValidateWithOptions(opts ...Option) (*ValidationResult, error) {
+	cfg, err := applyOptions(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("validator: invalid options: %w", err)
+	}
+
+	v := &Validator{
+		IncludeWarnings: cfg.includeWarnings,
+		StrictMode:      cfg.strictMode,
+		UserAgent:       cfg.userAgent,
+	}
+
+	// Route to appropriate validation method based on input source
+	if cfg.filePath != nil {
+		return v.Validate(*cfg.filePath)
+	}
+	if cfg.parsed != nil {
+		return v.ValidateParsed(*cfg.parsed)
+	}
+
+	// Should never reach here due to validation in applyOptions
+	return nil, fmt.Errorf("validator: no input source specified")
+}
+
+// applyOptions applies option functions and validates configuration
+func applyOptions(opts ...Option) (*validateConfig, error) {
+	cfg := &validateConfig{
+		// Set defaults to match existing behavior
+		includeWarnings: true,
+		strictMode:      false,
+		userAgent:       "",
+	}
+
+	for _, opt := range opts {
+		if err := opt(cfg); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate exactly one input source is specified
+	sourceCount := 0
+	if cfg.filePath != nil {
+		sourceCount++
+	}
+	if cfg.parsed != nil {
+		sourceCount++
+	}
+
+	if sourceCount == 0 {
+		return nil, fmt.Errorf("must specify an input source (use WithFilePath or WithParsed)")
+	}
+	if sourceCount > 1 {
+		return nil, fmt.Errorf("must specify exactly one input source")
+	}
+
+	return cfg, nil
+}
+
+// WithFilePath specifies a file path or URL as the input source
+func WithFilePath(path string) Option {
+	return func(cfg *validateConfig) error {
+		cfg.filePath = &path
+		return nil
+	}
+}
+
+// WithParsed specifies a parsed ParseResult as the input source
+func WithParsed(result parser.ParseResult) Option {
+	return func(cfg *validateConfig) error {
+		cfg.parsed = &result
+		return nil
+	}
+}
+
+// WithIncludeWarnings enables or disables best practice warnings
+// Default: true
+func WithIncludeWarnings(enabled bool) Option {
+	return func(cfg *validateConfig) error {
+		cfg.includeWarnings = enabled
+		return nil
+	}
+}
+
+// WithStrictMode enables or disables strict validation beyond spec requirements
+// Default: false
+func WithStrictMode(enabled bool) Option {
+	return func(cfg *validateConfig) error {
+		cfg.strictMode = enabled
+		return nil
+	}
+}
+
+// WithUserAgent sets the User-Agent string for HTTP requests
+// Default: "" (uses parser default)
+func WithUserAgent(ua string) Option {
+	return func(cfg *validateConfig) error {
+		cfg.userAgent = ua
+		return nil
+	}
+}
+
 // Validate is a convenience function that validates an OpenAPI specification file
 // with the specified options. It's equivalent to creating a Validator with
 // New(), setting the options, and calling Validate().
@@ -85,6 +211,8 @@ func New() *Validator {
 // For one-off validation operations, this function provides a simpler API.
 // For validating multiple files with the same configuration, create a Validator
 // instance and reuse it.
+//
+// Deprecated: Use ValidateWithOptions for a more flexible API.
 //
 // Example:
 //
@@ -105,6 +233,8 @@ func Validate(specPath string, includeWarnings, strictMode bool) (*ValidationRes
 
 // ValidateParsed is a convenience function that validates an already-parsed
 // OpenAPI specification with the specified options.
+//
+// Deprecated: Use ValidateWithOptions for a more flexible API.
 //
 // Example:
 //

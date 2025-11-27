@@ -8,9 +8,12 @@
 //
 // # Quick Start
 //
-// Convert a file:
+// Convert a file using functional options:
 //
-//	result, err := converter.Convert("swagger.yaml", "3.0.3")
+//	result, err := converter.ConvertWithOptions(
+//		converter.WithFilePath("swagger.yaml"),
+//		converter.WithTargetVersion("3.0.3"),
+//	)
 //	if err != nil {
 //		log.Fatal(err)
 //	}
@@ -37,11 +40,17 @@
 //
 // Always validate converted documents for the target version:
 //
-//	convResult, _ := converter.Convert("swagger.yaml", "3.0.3")
+//	convResult, _ := converter.ConvertWithOptions(
+//		converter.WithFilePath("swagger.yaml"),
+//		converter.WithTargetVersion("3.0.3"),
+//	)
 //	data, _ := yaml.Marshal(convResult.Document)
 //	tmpFile := "temp.yaml"
 //	os.WriteFile(tmpFile, data, 0600)
-//	valResult, _ := validator.Validate(tmpFile, true, false)
+//	valResult, _ := validator.ValidateWithOptions(
+//		validator.WithFilePath(tmpFile),
+//		validator.WithIncludeWarnings(true),
+//	)
 //	if !valResult.Valid {
 //		fmt.Printf("Conversion produced invalid document\n")
 //	}

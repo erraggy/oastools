@@ -718,9 +718,15 @@ func TestJoinParsedConvenience(t *testing.T) {
 		{
 			name: "join two parsed OAS 3.0 documents",
 			setupDocs: func(t *testing.T) []parser.ParseResult {
-				doc1, err := parser.Parse(filepath.Join(testdataDir, "join-base-3.0.yaml"), false, true)
+				doc1, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-base-3.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
-				doc2, err := parser.Parse(filepath.Join(testdataDir, "join-extension-3.0.yaml"), false, true)
+				doc2, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-extension-3.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return []parser.ParseResult{*doc1, *doc2}
 			},
@@ -737,11 +743,20 @@ func TestJoinParsedConvenience(t *testing.T) {
 		{
 			name: "join three parsed documents",
 			setupDocs: func(t *testing.T) []parser.ParseResult {
-				doc1, err := parser.Parse(filepath.Join(testdataDir, "join-base-3.0.yaml"), false, true)
+				doc1, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-base-3.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
-				doc2, err := parser.Parse(filepath.Join(testdataDir, "join-extension-3.0.yaml"), false, true)
+				doc2, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-extension-3.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
-				doc3, err := parser.Parse(filepath.Join(testdataDir, "join-additional-3.0.yaml"), false, true)
+				doc3, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-additional-3.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return []parser.ParseResult{*doc1, *doc2, *doc3}
 			},
@@ -757,9 +772,15 @@ func TestJoinParsedConvenience(t *testing.T) {
 		{
 			name: "join parsed OAS 2.0 documents",
 			setupDocs: func(t *testing.T) []parser.ParseResult {
-				doc1, err := parser.Parse(filepath.Join(testdataDir, "join-base-2.0.yaml"), false, true)
+				doc1, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-base-2.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
-				doc2, err := parser.Parse(filepath.Join(testdataDir, "join-extension-2.0.yaml"), false, true)
+				doc2, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-extension-2.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return []parser.ParseResult{*doc1, *doc2}
 			},
@@ -776,9 +797,15 @@ func TestJoinParsedConvenience(t *testing.T) {
 		{
 			name: "join with collision resolution",
 			setupDocs: func(t *testing.T) []parser.ParseResult {
-				doc1, err := parser.Parse(filepath.Join(testdataDir, "join-base-3.0.yaml"), false, true)
+				doc1, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-base-3.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
-				doc2, err := parser.Parse(filepath.Join(testdataDir, "join-collision-3.0.yaml"), false, true)
+				doc2, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-collision-3.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return []parser.ParseResult{*doc1, *doc2}
 			},
@@ -820,9 +847,15 @@ paths:
         '200':
           description: Success
 `)
-				doc1, err := parser.ParseBytes(data1, false, true)
+				doc1, err := parser.ParseWithOptions(
+					parser.WithBytes(data1),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
-				doc2, err := parser.ParseBytes(data2, false, true)
+				doc2, err := parser.ParseWithOptions(
+					parser.WithBytes(data2),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return []parser.ParseResult{*doc1, *doc2}
 			},
@@ -838,7 +871,10 @@ paths:
 		{
 			name: "join insufficient documents - should error",
 			setupDocs: func(t *testing.T) []parser.ParseResult {
-				doc1, err := parser.Parse(filepath.Join(testdataDir, "join-base-3.0.yaml"), false, true)
+				doc1, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-base-3.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return []parser.ParseResult{*doc1}
 			},
@@ -849,10 +885,16 @@ paths:
 		{
 			name: "join documents with parse errors - should error",
 			setupDocs: func(t *testing.T) []parser.ParseResult {
-				doc1, err := parser.Parse(filepath.Join(testdataDir, "join-base-3.0.yaml"), false, true)
+				doc1, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-base-3.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				// Create a document with errors
-				doc2, err := parser.Parse(filepath.Join(testdataDir, "invalid-oas3.yaml"), false, true)
+				doc2, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "invalid-oas3.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return []parser.ParseResult{*doc1, *doc2}
 			},
@@ -863,9 +905,15 @@ paths:
 		{
 			name: "join incompatible versions - should error",
 			setupDocs: func(t *testing.T) []parser.ParseResult {
-				doc1, err := parser.Parse(filepath.Join(testdataDir, "join-base-2.0.yaml"), false, true)
+				doc1, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-base-2.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
-				doc2, err := parser.Parse(filepath.Join(testdataDir, "join-base-3.0.yaml"), false, true)
+				doc2, err := parser.ParseWithOptions(
+					parser.WithFilePath(filepath.Join(testdataDir, "join-base-3.0.yaml")),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return []parser.ParseResult{*doc1, *doc2}
 			},
@@ -1044,4 +1092,109 @@ func TestMergeUniqueStrings_OverflowSafety(t *testing.T) {
 				"Result should not contain duplicates")
 		})
 	}
+}
+
+// TestJoinWithOptions_FilePaths tests the functional options API with file paths
+func TestJoinWithOptions_FilePaths(t *testing.T) {
+	result, err := JoinWithOptions(
+		WithFilePaths("../testdata/join-base-3.0.yaml", "../testdata/join-extension-3.0.yaml"),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.NotNil(t, result.Document)
+}
+
+// TestJoinWithOptions_Parsed tests the functional options API with parsed documents
+func TestJoinWithOptions_Parsed(t *testing.T) {
+	doc1, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/join-base-3.0.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	doc2, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/join-extension-3.0.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	result, err := JoinWithOptions(
+		WithParsed(*doc1, *doc2),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
+// TestJoinWithOptions_MixedSources tests mixing file paths and parsed docs
+func TestJoinWithOptions_MixedSources(t *testing.T) {
+	doc1, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/join-base-3.0.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	result, err := JoinWithOptions(
+		WithParsed(*doc1),
+		WithFilePaths("../testdata/join-extension-3.0.yaml"),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
+// TestJoinWithOptions_WithConfig tests using WithConfig option
+func TestJoinWithOptions_WithConfig(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.PathStrategy = StrategyAcceptLeft
+	cfg.DeduplicateTags = false
+
+	result, err := JoinWithOptions(
+		WithFilePaths("../testdata/join-base-3.0.yaml", "../testdata/join-extension-3.0.yaml"),
+		WithConfig(cfg),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
+// TestJoinWithOptions_IndividualStrategies tests setting individual strategies
+func TestJoinWithOptions_IndividualStrategies(t *testing.T) {
+	result, err := JoinWithOptions(
+		WithFilePaths("../testdata/join-base-3.0.yaml", "../testdata/join-extension-3.0.yaml"),
+		WithPathStrategy(StrategyAcceptLeft),
+		WithSchemaStrategy(StrategyAcceptRight),
+		WithComponentStrategy(StrategyFailOnCollision),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
+// TestJoinWithOptions_NotEnoughDocuments tests error when < 2 documents
+func TestJoinWithOptions_NotEnoughDocuments(t *testing.T) {
+	_, err := JoinWithOptions(
+		WithFilePaths("../testdata/join-base-3.0.yaml"),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "at least 2 documents are required")
+}
+
+// TestJoinWithOptions_BackwardCompatibility tests that new API produces same results as old API
+func TestJoinWithOptions_BackwardCompatibility(t *testing.T) {
+	paths := []string{"../testdata/join-base-3.0.yaml", "../testdata/join-extension-3.0.yaml"}
+
+	// Old API
+	oldConfig := DefaultConfig()
+	oldConfig.PathStrategy = StrategyAcceptLeft
+	oldResult, err := Join(paths, oldConfig)
+	require.NoError(t, err)
+
+	// New API
+	newResult, err := JoinWithOptions(
+		WithFilePaths(paths...),
+		WithPathStrategy(StrategyAcceptLeft),
+	)
+	require.NoError(t, err)
+
+	// Compare results
+	assert.Equal(t, oldResult.Version, newResult.Version)
+	assert.Equal(t, oldResult.SourceFormat, newResult.SourceFormat)
+	assert.Equal(t, oldResult.CollisionCount, newResult.CollisionCount)
 }

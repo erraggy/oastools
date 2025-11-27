@@ -83,6 +83,153 @@ func New() *Converter {
 	}
 }
 
+// Option is a function that configures a conversion operation
+type Option func(*convertConfig) error
+
+// convertConfig holds configuration for a conversion operation
+type convertConfig struct {
+	// Input source (exactly one must be set)
+	filePath *string
+	parsed   *parser.ParseResult
+
+	// Target version (required)
+	targetVersion string
+
+	// Configuration options
+	strictMode  bool
+	includeInfo bool
+	userAgent   string
+}
+
+// ConvertWithOptions converts an OpenAPI specification using functional options.
+// This provides a flexible, extensible API that combines input source selection
+// and configuration in a single function call.
+//
+// Example:
+//
+//	result, err := converter.ConvertWithOptions(
+//	    converter.WithFilePath("swagger.yaml"),
+//	    converter.WithTargetVersion("3.0.3"),
+//	    converter.WithStrictMode(true),
+//	)
+func ConvertWithOptions(opts ...Option) (*ConversionResult, error) {
+	cfg, err := applyOptions(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("converter: invalid options: %w", err)
+	}
+
+	c := &Converter{
+		StrictMode:  cfg.strictMode,
+		IncludeInfo: cfg.includeInfo,
+		UserAgent:   cfg.userAgent,
+	}
+
+	// Route to appropriate conversion method based on input source
+	if cfg.filePath != nil {
+		return c.Convert(*cfg.filePath, cfg.targetVersion)
+	}
+	if cfg.parsed != nil {
+		return c.ConvertParsed(*cfg.parsed, cfg.targetVersion)
+	}
+
+	// Should never reach here due to validation in applyOptions
+	return nil, fmt.Errorf("converter: no input source specified")
+}
+
+// applyOptions applies option functions and validates configuration
+func applyOptions(opts ...Option) (*convertConfig, error) {
+	cfg := &convertConfig{
+		// Set defaults to match existing behavior
+		strictMode:  false,
+		includeInfo: true,
+		userAgent:   "",
+	}
+
+	for _, opt := range opts {
+		if err := opt(cfg); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate exactly one input source is specified
+	sourceCount := 0
+	if cfg.filePath != nil {
+		sourceCount++
+	}
+	if cfg.parsed != nil {
+		sourceCount++
+	}
+
+	if sourceCount == 0 {
+		return nil, fmt.Errorf("must specify an input source (use WithFilePath or WithParsed)")
+	}
+	if sourceCount > 1 {
+		return nil, fmt.Errorf("must specify exactly one input source")
+	}
+
+	// Validate target version is specified
+	if cfg.targetVersion == "" {
+		return nil, fmt.Errorf("must specify a target version (use WithTargetVersion)")
+	}
+
+	return cfg, nil
+}
+
+// WithFilePath specifies a file path or URL as the input source
+func WithFilePath(path string) Option {
+	return func(cfg *convertConfig) error {
+		cfg.filePath = &path
+		return nil
+	}
+}
+
+// WithParsed specifies a parsed ParseResult as the input source
+func WithParsed(result parser.ParseResult) Option {
+	return func(cfg *convertConfig) error {
+		cfg.parsed = &result
+		return nil
+	}
+}
+
+// WithTargetVersion specifies the target OAS version for conversion
+// Required option - must be one of: "2.0", "3.0.0", "3.0.1", "3.0.2", "3.0.3", "3.1.0", etc.
+func WithTargetVersion(version string) Option {
+	return func(cfg *convertConfig) error {
+		if version == "" {
+			return fmt.Errorf("target version cannot be empty")
+		}
+		cfg.targetVersion = version
+		return nil
+	}
+}
+
+// WithStrictMode enables or disables strict mode (fail on any issues)
+// Default: false
+func WithStrictMode(enabled bool) Option {
+	return func(cfg *convertConfig) error {
+		cfg.strictMode = enabled
+		return nil
+	}
+}
+
+// WithIncludeInfo enables or disables informational messages
+// Default: true
+func WithIncludeInfo(enabled bool) Option {
+	return func(cfg *convertConfig) error {
+		cfg.includeInfo = enabled
+		return nil
+	}
+}
+
+// WithUserAgent sets the User-Agent string for HTTP requests
+// Default: "" (uses parser default)
+func WithUserAgent(ua string) Option {
+	return func(cfg *convertConfig) error {
+		cfg.userAgent = ua
+		return nil
+	}
+}
+
 // Convert is a convenience function that converts an OpenAPI specification file
 // to a target version with the specified options. It's equivalent to creating a
 // Converter with New() and calling Convert().
@@ -90,6 +237,8 @@ func New() *Converter {
 // For one-off conversion operations, this function provides a simpler API.
 // For converting multiple files with the same configuration, create a Converter
 // instance and reuse it.
+//
+// Deprecated: Use ConvertWithOptions for a more flexible API.
 //
 // Example:
 //
@@ -107,6 +256,8 @@ func Convert(specPath string, targetVersion string) (*ConversionResult, error) {
 
 // ConvertParsed is a convenience function that converts an already-parsed
 // OpenAPI specification to a target version.
+//
+// Deprecated: Use ConvertWithOptions for a more flexible API.
 //
 // Example:
 //

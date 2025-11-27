@@ -8,6 +8,8 @@ import (
 
 	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestConvertConvenience tests the package-level Convert convenience function
@@ -861,7 +863,10 @@ func TestYAMLFormatPreservation(t *testing.T) {
 
 // TestConvertParsedPropagatesMetrics tests that LoadTime and SourceSize are propagated from ParseResult to ConversionResult
 func TestConvertParsedPropagatesMetrics(t *testing.T) {
-	parseResult, err := parser.Parse("../testdata/minimal-oas2.yaml", false, true)
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/minimal-oas2.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -911,5 +916,302 @@ func TestConvertConveniencePropagatesMetrics(t *testing.T) {
 	}
 	if result.SourceSize != int64(len(data)) {
 		t.Errorf("SourceSize = %d, expected %d", result.SourceSize, len(data))
+	}
+}
+
+// TestConvertWithOptions_FilePath tests the functional options API with file path
+func TestConvertWithOptions_FilePath(t *testing.T) {
+	result, err := ConvertWithOptions(
+		WithFilePath("../testdata/minimal-oas2.yaml"),
+		WithTargetVersion("3.0.3"),
+		WithIncludeInfo(true),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, "2.0", result.SourceVersion)
+	assert.Equal(t, "3.0.3", result.TargetVersion)
+}
+
+// TestConvertWithOptions_Parsed tests the functional options API with parsed result
+func TestConvertWithOptions_Parsed(t *testing.T) {
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/minimal-oas2.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	result, err := ConvertWithOptions(
+		WithParsed(*parseResult),
+		WithTargetVersion("3.0.3"),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, "2.0", result.SourceVersion)
+}
+
+// TestConvertWithOptions_StrictMode tests that strict mode is applied
+func TestConvertWithOptions_StrictMode(t *testing.T) {
+	result, err := ConvertWithOptions(
+		WithFilePath("../testdata/minimal-oas2.yaml"),
+		WithTargetVersion("3.0.3"),
+		WithStrictMode(true),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	// Strict mode doesn't fail conversion, just affects issue reporting
+}
+
+// TestConvertWithOptions_DisableInfo tests that info messages can be disabled
+func TestConvertWithOptions_DisableInfo(t *testing.T) {
+	result, err := ConvertWithOptions(
+		WithFilePath("../testdata/minimal-oas2.yaml"),
+		WithTargetVersion("3.0.3"),
+		WithIncludeInfo(false),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	// Info messages should be filtered out
+	assert.Equal(t, 0, result.InfoCount)
+}
+
+// TestConvertWithOptions_DefaultValues tests that default values are applied correctly
+func TestConvertWithOptions_DefaultValues(t *testing.T) {
+	result, err := ConvertWithOptions(
+		WithFilePath("../testdata/minimal-oas2.yaml"),
+		WithTargetVersion("3.0.3"),
+		// Not specifying WithStrictMode or WithIncludeInfo to test defaults
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	// Default: IncludeInfo = true, so info messages may be present
+}
+
+// TestConvertWithOptions_NoInputSource tests error when no input source is specified
+func TestConvertWithOptions_NoInputSource(t *testing.T) {
+	_, err := ConvertWithOptions(
+		WithTargetVersion("3.0.3"),
+		WithStrictMode(false),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must specify an input source")
+}
+
+// TestConvertWithOptions_NoTargetVersion tests error when no target version is specified
+func TestConvertWithOptions_NoTargetVersion(t *testing.T) {
+	_, err := ConvertWithOptions(
+		WithFilePath("../testdata/minimal-oas2.yaml"),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must specify a target version")
+}
+
+// TestConvertWithOptions_EmptyTargetVersion tests error when empty target version is provided
+func TestConvertWithOptions_EmptyTargetVersion(t *testing.T) {
+	_, err := ConvertWithOptions(
+		WithFilePath("../testdata/minimal-oas2.yaml"),
+		WithTargetVersion(""),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target version cannot be empty")
+}
+
+// TestConvertWithOptions_MultipleInputSources tests error when multiple input sources are specified
+func TestConvertWithOptions_MultipleInputSources(t *testing.T) {
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/minimal-oas2.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	_, err = ConvertWithOptions(
+		WithFilePath("../testdata/minimal-oas2.yaml"),
+		WithParsed(*parseResult),
+		WithTargetVersion("3.0.3"),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must specify exactly one input source")
+}
+
+// TestConvertWithOptions_AllOptions tests using all options together
+func TestConvertWithOptions_AllOptions(t *testing.T) {
+	result, err := ConvertWithOptions(
+		WithFilePath("../testdata/minimal-oas2.yaml"),
+		WithTargetVersion("3.0.3"),
+		WithStrictMode(true),
+		WithIncludeInfo(false),
+		WithUserAgent("test-converter/1.0"),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, 0, result.InfoCount)
+}
+
+// TestWithFilePath_Converter tests the WithFilePath option function
+func TestWithFilePath_Converter(t *testing.T) {
+	cfg := &convertConfig{}
+	opt := WithFilePath("test.yaml")
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, cfg.filePath)
+	assert.Equal(t, "test.yaml", *cfg.filePath)
+}
+
+// TestWithParsed_Converter tests the WithParsed option function
+func TestWithParsed_Converter(t *testing.T) {
+	parseResult := parser.ParseResult{Version: "2.0"}
+	cfg := &convertConfig{}
+	opt := WithParsed(parseResult)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, cfg.parsed)
+	assert.Equal(t, "2.0", cfg.parsed.Version)
+}
+
+// TestWithTargetVersion tests the WithTargetVersion option function
+func TestWithTargetVersion(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		wantErr bool
+	}{
+		{"valid_3.0.3", "3.0.3", false},
+		{"valid_2.0", "2.0", false},
+		{"valid_3.1.0", "3.1.0", false},
+		{"empty", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &convertConfig{}
+			opt := WithTargetVersion(tt.version)
+			err := opt(cfg)
+
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.version, cfg.targetVersion)
+			}
+		})
+	}
+}
+
+// TestWithStrictMode_Converter tests the WithStrictMode option function
+func TestWithStrictMode_Converter(t *testing.T) {
+	tests := []struct {
+		name    string
+		enabled bool
+	}{
+		{"enabled", true},
+		{"disabled", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &convertConfig{}
+			opt := WithStrictMode(tt.enabled)
+			err := opt(cfg)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.enabled, cfg.strictMode)
+		})
+	}
+}
+
+// TestWithIncludeInfo tests the WithIncludeInfo option function
+func TestWithIncludeInfo(t *testing.T) {
+	tests := []struct {
+		name    string
+		enabled bool
+	}{
+		{"enabled", true},
+		{"disabled", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &convertConfig{}
+			opt := WithIncludeInfo(tt.enabled)
+			err := opt(cfg)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.enabled, cfg.includeInfo)
+		})
+	}
+}
+
+// TestWithUserAgent_Converter tests the WithUserAgent option function
+func TestWithUserAgent_Converter(t *testing.T) {
+	cfg := &convertConfig{}
+	opt := WithUserAgent("custom-agent/2.0")
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, "custom-agent/2.0", cfg.userAgent)
+}
+
+// TestApplyOptions_Defaults_Converter tests that default values are set correctly
+func TestApplyOptions_Defaults_Converter(t *testing.T) {
+	cfg, err := applyOptions(
+		WithFilePath("test.yaml"),
+		WithTargetVersion("3.0.3"),
+	)
+
+	require.NoError(t, err)
+	assert.False(t, cfg.strictMode, "default strictMode should be false")
+	assert.True(t, cfg.includeInfo, "default includeInfo should be true")
+	assert.Equal(t, "", cfg.userAgent, "default userAgent should be empty")
+}
+
+// TestApplyOptions_OverrideDefaults_Converter tests that options override defaults
+func TestApplyOptions_OverrideDefaults_Converter(t *testing.T) {
+	cfg, err := applyOptions(
+		WithFilePath("test.yaml"),
+		WithTargetVersion("3.0.3"),
+		WithStrictMode(true),
+		WithIncludeInfo(false),
+		WithUserAgent("custom/1.0"),
+	)
+
+	require.NoError(t, err)
+	assert.True(t, cfg.strictMode)
+	assert.False(t, cfg.includeInfo)
+	assert.Equal(t, "custom/1.0", cfg.userAgent)
+}
+
+// TestConvertWithOptions_BackwardCompatibility tests that new API produces same results as old API
+func TestConvertWithOptions_BackwardCompatibility(t *testing.T) {
+	testCases := []struct {
+		name          string
+		sourceFile    string
+		targetVersion string
+	}{
+		{"oas2_to_3.0.3", "../testdata/minimal-oas2.yaml", "3.0.3"},
+		{"oas2_to_3.1.0", "../testdata/minimal-oas2.yaml", "3.1.0"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Old API
+			oldResult, err := Convert(tc.sourceFile, tc.targetVersion)
+			require.NoError(t, err)
+
+			// New API
+			newResult, err := ConvertWithOptions(
+				WithFilePath(tc.sourceFile),
+				WithTargetVersion(tc.targetVersion),
+			)
+			require.NoError(t, err)
+
+			// Compare results
+			assert.Equal(t, oldResult.Success, newResult.Success)
+			assert.Equal(t, oldResult.SourceVersion, newResult.SourceVersion)
+			assert.Equal(t, oldResult.TargetVersion, newResult.TargetVersion)
+			assert.Equal(t, oldResult.InfoCount, newResult.InfoCount)
+			assert.Equal(t, oldResult.WarningCount, newResult.WarningCount)
+			assert.Equal(t, oldResult.CriticalCount, newResult.CriticalCount)
+		})
 	}
 }

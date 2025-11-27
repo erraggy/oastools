@@ -109,20 +109,34 @@ import (
 )
 
 // Parse
-result, err := parser.Parse("openapi.yaml", false, true)
+result, err := parser.ParseWithOptions(
+    parser.WithFilePath("openapi.yaml"),
+    parser.WithValidateStructure(true),
+)
 
 // Validate
-vResult, err := validator.Validate("openapi.yaml", true, false)
+vResult, err := validator.ValidateWithOptions(
+    validator.WithFilePath("openapi.yaml"),
+    validator.WithIncludeWarnings(true),
+)
 
 // Convert
-cResult, err := converter.Convert("swagger.yaml", "3.0.3")
+cResult, err := converter.ConvertWithOptions(
+    converter.WithFilePath("swagger.yaml"),
+    converter.WithTargetVersion("3.0.3"),
+)
 
 // Join
-config := joiner.DefaultConfig()
-jResult, err := joiner.Join([]string{"base.yaml", "ext.yaml"}, config)
+jResult, err := joiner.JoinWithOptions(
+    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+    joiner.WithConfig(joiner.DefaultConfig()),
+)
 
 // Diff
-dResult, err := differ.Diff("api-v1.yaml", "api-v2.yaml")
+dResult, err := differ.DiffWithOptions(
+    differ.WithSourceFilePath("api-v1.yaml"),
+    differ.WithTargetFilePath("api-v2.yaml"),
+)
 ```
 
 #### Advanced API (Reusable Instances)

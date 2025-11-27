@@ -1281,7 +1281,10 @@ func TestValidateParsedConvenience(t *testing.T) {
 		{
 			name: "validate parsed OAS 3.0 document",
 			setupParse: func(t *testing.T) parser.ParseResult {
-				result, err := parser.Parse("../testdata/petstore-3.0.yaml", false, true)
+				result, err := parser.ParseWithOptions(
+					parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return *result
 			},
@@ -1298,7 +1301,10 @@ func TestValidateParsedConvenience(t *testing.T) {
 		{
 			name: "validate parsed OAS 2.0 document without warnings",
 			setupParse: func(t *testing.T) parser.ParseResult {
-				result, err := parser.Parse("../testdata/petstore-2.0.yaml", false, true)
+				result, err := parser.ParseWithOptions(
+					parser.WithFilePath("../testdata/petstore-2.0.yaml"),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return *result
 			},
@@ -1315,7 +1321,10 @@ func TestValidateParsedConvenience(t *testing.T) {
 		{
 			name: "validate parsed OAS 3.1 with strict mode",
 			setupParse: func(t *testing.T) parser.ParseResult {
-				result, err := parser.Parse("../testdata/petstore-3.1.yaml", false, true)
+				result, err := parser.ParseWithOptions(
+					parser.WithFilePath("../testdata/petstore-3.1.yaml"),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return *result
 			},
@@ -1332,7 +1341,10 @@ func TestValidateParsedConvenience(t *testing.T) {
 			name: "validate parsed document with validation errors from parser",
 			setupParse: func(t *testing.T) parser.ParseResult {
 				// Parse with validation enabled to get errors
-				result, err := parser.Parse("../testdata/invalid-oas3.yaml", false, true)
+				result, err := parser.ParseWithOptions(
+					parser.WithFilePath("../testdata/invalid-oas3.yaml"),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return *result
 			},
@@ -1359,7 +1371,10 @@ paths:
         '200':
           description: Success
 `)
-				result, err := parser.ParseBytes(data, false, true)
+				result, err := parser.ParseWithOptions(
+					parser.WithBytes(data),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return *result
 			},
@@ -1383,7 +1398,10 @@ paths:
 					}
 				}()
 
-				result, err := parser.ParseReader(file, false, true)
+				result, err := parser.ParseWithOptions(
+					parser.WithReader(file),
+					parser.WithValidateStructure(true),
+				)
 				require.NoError(t, err)
 				return *result
 			},
@@ -1423,7 +1441,10 @@ paths:
 
 // TestValidateParsedPropagatesMetrics tests that LoadTime and SourceSize are propagated from ParseResult to ValidationResult
 func TestValidateParsedPropagatesMetrics(t *testing.T) {
-	parseResult, err := parser.Parse("../testdata/minimal-oas3.yaml", false, true)
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/minimal-oas3.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -1473,5 +1494,247 @@ func TestValidateConveniencePropagatesMetrics(t *testing.T) {
 	}
 	if result.SourceSize != int64(len(data)) {
 		t.Errorf("SourceSize = %d, expected %d", result.SourceSize, len(data))
+	}
+}
+
+// TestValidateWithOptions_FilePath tests the functional options API with file path
+func TestValidateWithOptions_FilePath(t *testing.T) {
+	result, err := ValidateWithOptions(
+		WithFilePath("../testdata/petstore-3.0.yaml"),
+		WithIncludeWarnings(true),
+		WithStrictMode(false),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Valid)
+	assert.Equal(t, "3.0.3", result.Version)
+}
+
+// TestValidateWithOptions_Parsed tests the functional options API with parsed result
+func TestValidateWithOptions_Parsed(t *testing.T) {
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	result, err := ValidateWithOptions(
+		WithParsed(*parseResult),
+		WithIncludeWarnings(true),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Valid)
+	assert.Equal(t, "3.0.3", result.Version)
+}
+
+// TestValidateWithOptions_StrictMode tests that strict mode is applied
+func TestValidateWithOptions_StrictMode(t *testing.T) {
+	result, err := ValidateWithOptions(
+		WithFilePath("../testdata/petstore-3.0.yaml"),
+		WithStrictMode(true),
+		WithIncludeWarnings(true),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	// Strict mode may generate additional warnings
+}
+
+// TestValidateWithOptions_DisableWarnings tests that warnings can be disabled
+func TestValidateWithOptions_DisableWarnings(t *testing.T) {
+	result, err := ValidateWithOptions(
+		WithFilePath("../testdata/petstore-3.0.yaml"),
+		WithIncludeWarnings(false),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Valid)
+	assert.Empty(t, result.Warnings, "warnings should be filtered out when IncludeWarnings=false")
+	assert.Equal(t, 0, result.WarningCount)
+}
+
+// TestValidateWithOptions_DefaultValues tests that default values are applied correctly
+func TestValidateWithOptions_DefaultValues(t *testing.T) {
+	result, err := ValidateWithOptions(
+		WithFilePath("../testdata/petstore-3.0.yaml"),
+		// Not specifying WithIncludeWarnings or WithStrictMode to test defaults
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Valid)
+	// Default: IncludeWarnings = true, so warnings may be present
+	// (though petstore might not have warnings)
+}
+
+// TestValidateWithOptions_NoInputSource tests error when no input source is specified
+func TestValidateWithOptions_NoInputSource(t *testing.T) {
+	_, err := ValidateWithOptions(
+		WithIncludeWarnings(true),
+		WithStrictMode(false),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must specify an input source")
+}
+
+// TestValidateWithOptions_MultipleInputSources tests error when multiple input sources are specified
+func TestValidateWithOptions_MultipleInputSources(t *testing.T) {
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	_, err = ValidateWithOptions(
+		WithFilePath("../testdata/petstore-3.0.yaml"),
+		WithParsed(*parseResult),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must specify exactly one input source")
+}
+
+// TestValidateWithOptions_AllOptions tests using all options together
+func TestValidateWithOptions_AllOptions(t *testing.T) {
+	result, err := ValidateWithOptions(
+		WithFilePath("../testdata/petstore-3.0.yaml"),
+		WithIncludeWarnings(false),
+		WithStrictMode(true),
+		WithUserAgent("test-validator/1.0"),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Valid)
+	assert.Empty(t, result.Warnings)
+}
+
+// TestWithFilePath_Validator tests the WithFilePath option function
+func TestWithFilePath_Validator(t *testing.T) {
+	cfg := &validateConfig{}
+	opt := WithFilePath("test.yaml")
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, cfg.filePath)
+	assert.Equal(t, "test.yaml", *cfg.filePath)
+}
+
+// TestWithParsed tests the WithParsed option function
+func TestWithParsed(t *testing.T) {
+	parseResult := parser.ParseResult{Version: "3.0.0"}
+	cfg := &validateConfig{}
+	opt := WithParsed(parseResult)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, cfg.parsed)
+	assert.Equal(t, "3.0.0", cfg.parsed.Version)
+}
+
+// TestWithIncludeWarnings tests the WithIncludeWarnings option function
+func TestWithIncludeWarnings(t *testing.T) {
+	tests := []struct {
+		name    string
+		enabled bool
+	}{
+		{"enabled", true},
+		{"disabled", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &validateConfig{}
+			opt := WithIncludeWarnings(tt.enabled)
+			err := opt(cfg)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.enabled, cfg.includeWarnings)
+		})
+	}
+}
+
+// TestWithStrictMode tests the WithStrictMode option function
+func TestWithStrictMode(t *testing.T) {
+	tests := []struct {
+		name    string
+		enabled bool
+	}{
+		{"enabled", true},
+		{"disabled", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &validateConfig{}
+			opt := WithStrictMode(tt.enabled)
+			err := opt(cfg)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.enabled, cfg.strictMode)
+		})
+	}
+}
+
+// TestWithUserAgent_Validator tests the WithUserAgent option function
+func TestWithUserAgent_Validator(t *testing.T) {
+	cfg := &validateConfig{}
+	opt := WithUserAgent("custom-agent/2.0")
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, "custom-agent/2.0", cfg.userAgent)
+}
+
+// TestApplyOptions_Defaults_Validator tests that default values are set correctly
+func TestApplyOptions_Defaults_Validator(t *testing.T) {
+	cfg, err := applyOptions(WithFilePath("test.yaml"))
+
+	require.NoError(t, err)
+	assert.True(t, cfg.includeWarnings, "default includeWarnings should be true")
+	assert.False(t, cfg.strictMode, "default strictMode should be false")
+	assert.Equal(t, "", cfg.userAgent, "default userAgent should be empty")
+}
+
+// TestApplyOptions_OverrideDefaults_Validator tests that options override defaults
+func TestApplyOptions_OverrideDefaults_Validator(t *testing.T) {
+	cfg, err := applyOptions(
+		WithFilePath("test.yaml"),
+		WithIncludeWarnings(false),
+		WithStrictMode(true),
+		WithUserAgent("custom/1.0"),
+	)
+
+	require.NoError(t, err)
+	assert.False(t, cfg.includeWarnings)
+	assert.True(t, cfg.strictMode)
+	assert.Equal(t, "custom/1.0", cfg.userAgent)
+}
+
+// TestValidateWithOptions_BackwardCompatibility tests that new API produces same results as old API
+func TestValidateWithOptions_BackwardCompatibility(t *testing.T) {
+	testCases := []struct {
+		name            string
+		includeWarnings bool
+		strictMode      bool
+	}{
+		{"default", true, false},
+		{"no_warnings", false, false},
+		{"strict", true, true},
+		{"strict_no_warnings", false, true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Old API
+			oldResult, err := Validate("../testdata/petstore-3.0.yaml", tc.includeWarnings, tc.strictMode)
+			require.NoError(t, err)
+
+			// New API
+			newResult, err := ValidateWithOptions(
+				WithFilePath("../testdata/petstore-3.0.yaml"),
+				WithIncludeWarnings(tc.includeWarnings),
+				WithStrictMode(tc.strictMode),
+			)
+			require.NoError(t, err)
+
+			// Compare results
+			assert.Equal(t, oldResult.Valid, newResult.Valid)
+			assert.Equal(t, oldResult.Version, newResult.Version)
+			assert.Equal(t, oldResult.ErrorCount, newResult.ErrorCount)
+			assert.Equal(t, oldResult.WarningCount, newResult.WarningCount)
+		})
 	}
 }

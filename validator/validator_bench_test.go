@@ -121,7 +121,9 @@ func BenchmarkValidateMediumOAS3NoWarnings(b *testing.B) {
 // BenchmarkValidateParsedSmallOAS3 benchmarks validating an already-parsed document
 func BenchmarkValidateParsedSmallOAS3(b *testing.B) {
 	// Parse once
-	parseResult, err := parser.Parse(smallOAS3Path, false, false)
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath(smallOAS3Path),
+	)
 	if err != nil {
 		b.Fatalf("Failed to parse: %v", err)
 	}
@@ -141,7 +143,9 @@ func BenchmarkValidateParsedSmallOAS3(b *testing.B) {
 // BenchmarkValidateParsedMediumOAS3 benchmarks validating an already-parsed medium doc
 func BenchmarkValidateParsedMediumOAS3(b *testing.B) {
 	// Parse once
-	parseResult, err := parser.Parse(mediumOAS3Path, false, false)
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath(mediumOAS3Path),
+	)
 	if err != nil {
 		b.Fatalf("Failed to parse: %v", err)
 	}
@@ -161,7 +165,9 @@ func BenchmarkValidateParsedMediumOAS3(b *testing.B) {
 // BenchmarkValidateParsedLargeOAS3 benchmarks validating an already-parsed large doc
 func BenchmarkValidateParsedLargeOAS3(b *testing.B) {
 	// Parse once
-	parseResult, err := parser.Parse(largeOAS3Path, false, false)
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath(largeOAS3Path),
+	)
 	if err != nil {
 		b.Fatalf("Failed to parse: %v", err)
 	}
