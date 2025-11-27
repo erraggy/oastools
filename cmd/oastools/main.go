@@ -63,12 +63,23 @@ func main() {
 	}
 }
 
+// validateCollisionStrategy validates a collision strategy name and returns an error if invalid.
+// The strategyName parameter is used in the error message (e.g., "path-strategy").
+func validateCollisionStrategy(strategyName, value string) error {
+	if value != "" && !joiner.IsValidStrategy(value) {
+		return fmt.Errorf("invalid %s '%s'. Valid strategies: %v", strategyName, value, joiner.ValidStrategies())
+	}
+	return nil
+}
+
 // parseFlags contains flags for the parse command
 type parseFlags struct {
 	resolveRefs       bool
 	validateStructure bool
 }
 
+// setupParseFlags creates and configures a FlagSet for the parse command.
+// Returns the FlagSet and a parseFlags struct with bound flag variables.
 func setupParseFlags() (*flag.FlagSet, *parseFlags) {
 	fs := flag.NewFlagSet("parse", flag.ContinueOnError)
 	flags := &parseFlags{}
@@ -198,6 +209,8 @@ type validateFlags struct {
 	noWarnings bool
 }
 
+// setupValidateFlags creates and configures a FlagSet for the validate command.
+// Returns the FlagSet and a validateFlags struct with bound flag variables.
 func setupValidateFlags() (*flag.FlagSet, *validateFlags) {
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
 	flags := &validateFlags{}
@@ -310,6 +323,8 @@ type joinFlags struct {
 	noDedupTags       bool
 }
 
+// setupJoinFlags creates and configures a FlagSet for the join command.
+// Returns the FlagSet and a joinFlags struct with bound flag variables.
 func setupJoinFlags() (*flag.FlagSet, *joinFlags) {
 	fs := flag.NewFlagSet("join", flag.ContinueOnError)
 	flags := &joinFlags{}
@@ -374,22 +389,24 @@ func handleJoin(args []string) error {
 	config.DeduplicateTags = !flags.noDedupTags
 
 	// Validate and parse strategy flags
+	if err := validateCollisionStrategy("path-strategy", flags.pathStrategy); err != nil {
+		return err
+	}
+	if err := validateCollisionStrategy("schema-strategy", flags.schemaStrategy); err != nil {
+		return err
+	}
+	if err := validateCollisionStrategy("component-strategy", flags.componentStrategy); err != nil {
+		return err
+	}
+
+	// Apply validated strategies to config
 	if flags.pathStrategy != "" {
-		if !joiner.IsValidStrategy(flags.pathStrategy) {
-			return fmt.Errorf("invalid path-strategy '%s'. Valid strategies: %v", flags.pathStrategy, joiner.ValidStrategies())
-		}
 		config.PathStrategy = joiner.CollisionStrategy(flags.pathStrategy)
 	}
 	if flags.schemaStrategy != "" {
-		if !joiner.IsValidStrategy(flags.schemaStrategy) {
-			return fmt.Errorf("invalid schema-strategy '%s'. Valid strategies: %v", flags.schemaStrategy, joiner.ValidStrategies())
-		}
 		config.SchemaStrategy = joiner.CollisionStrategy(flags.schemaStrategy)
 	}
 	if flags.componentStrategy != "" {
-		if !joiner.IsValidStrategy(flags.componentStrategy) {
-			return fmt.Errorf("invalid component-strategy '%s'. Valid strategies: %v", flags.componentStrategy, joiner.ValidStrategies())
-		}
 		config.ComponentStrategy = joiner.CollisionStrategy(flags.componentStrategy)
 	}
 
@@ -477,6 +494,8 @@ type convertFlags struct {
 	noWarnings bool
 }
 
+// setupConvertFlags creates and configures a FlagSet for the convert command.
+// Returns the FlagSet and a convertFlags struct with bound flag variables.
 func setupConvertFlags() (*flag.FlagSet, *convertFlags) {
 	fs := flag.NewFlagSet("convert", flag.ContinueOnError)
 	flags := &convertFlags{}
@@ -625,6 +644,8 @@ type diffFlags struct {
 	noInfo   bool
 }
 
+// setupDiffFlags creates and configures a FlagSet for the diff command.
+// Returns the FlagSet and a diffFlags struct with bound flag variables.
 func setupDiffFlags() (*flag.FlagSet, *diffFlags) {
 	fs := flag.NewFlagSet("diff", flag.ContinueOnError)
 	flags := &diffFlags{}
