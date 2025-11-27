@@ -23,11 +23,17 @@ func BenchmarkDiffConvenience(b *testing.B) {
 
 func BenchmarkDiffParsedConvenience(b *testing.B) {
 	// Parse once, then benchmark diff many times
-	source, err := parser.Parse("../testdata/petstore-v1.yaml", false, true)
+	source, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
-	target, err := parser.Parse("../testdata/petstore-v2.yaml", false, true)
+	target, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -58,11 +64,17 @@ func BenchmarkDifferDiffParsed(b *testing.B) {
 	d.Mode = ModeSimple
 
 	// Parse once
-	source, err := parser.Parse("../testdata/petstore-v1.yaml", false, true)
+	source, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
-	target, err := parser.Parse("../testdata/petstore-v2.yaml", false, true)
+	target, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -80,11 +92,17 @@ func BenchmarkDifferSimpleMode(b *testing.B) {
 	d := New()
 	d.Mode = ModeSimple
 
-	source, err := parser.Parse("../testdata/petstore-v1.yaml", false, true)
+	source, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
-	target, err := parser.Parse("../testdata/petstore-v2.yaml", false, true)
+	target, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -101,11 +119,17 @@ func BenchmarkDifferBreakingMode(b *testing.B) {
 	d := New()
 	d.Mode = ModeBreaking
 
-	source, err := parser.Parse("../testdata/petstore-v1.yaml", false, true)
+	source, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
-	target, err := parser.Parse("../testdata/petstore-v2.yaml", false, true)
+	target, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -124,11 +148,17 @@ func BenchmarkDifferWithInfo(b *testing.B) {
 	d.Mode = ModeBreaking
 	d.IncludeInfo = true
 
-	source, err := parser.Parse("../testdata/petstore-v1.yaml", false, true)
+	source, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
-	target, err := parser.Parse("../testdata/petstore-v2.yaml", false, true)
+	target, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -146,11 +176,17 @@ func BenchmarkDifferWithoutInfo(b *testing.B) {
 	d.Mode = ModeBreaking
 	d.IncludeInfo = false
 
-	source, err := parser.Parse("../testdata/petstore-v1.yaml", false, true)
+	source, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
-	target, err := parser.Parse("../testdata/petstore-v2.yaml", false, true)
+	target, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -168,7 +204,10 @@ func BenchmarkDifferIdenticalSpecs(b *testing.B) {
 	d := New()
 	d.Mode = ModeSimple
 
-	source, err := parser.Parse("../testdata/petstore-v1.yaml", false, true)
+	source, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -184,11 +223,17 @@ func BenchmarkDifferIdenticalSpecs(b *testing.B) {
 // Benchmark parse-once pattern efficiency
 func BenchmarkParseOnceDiffMany(b *testing.B) {
 	// Parse once
-	source, err := parser.Parse("../testdata/petstore-v1.yaml", false, true)
+	source, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
-	target, err := parser.Parse("../testdata/petstore-v2.yaml", false, true)
+	target, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		b.Fatal(err)
 	}

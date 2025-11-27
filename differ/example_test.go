@@ -8,10 +8,13 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// Example demonstrates basic diff usage with the convenience function
+// Example demonstrates basic diff usage with functional options
 func Example() {
 	// Compare two OpenAPI specifications
-	result, err := differ.Diff("../testdata/petstore-v1.yaml", "../testdata/petstore-v2.yaml")
+	result, err := differ.DiffWithOptions(
+		differ.WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		differ.WithTargetFilePath("../testdata/petstore-v2.yaml"),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -23,10 +26,11 @@ func Example() {
 
 // Example_simple demonstrates simple diff mode
 func Example_simple() {
-	d := differ.New()
-	d.Mode = differ.ModeSimple
-
-	result, err := d.Diff("../testdata/petstore-v1.yaml", "../testdata/petstore-v2.yaml")
+	result, err := differ.DiffWithOptions(
+		differ.WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		differ.WithTargetFilePath("../testdata/petstore-v2.yaml"),
+		differ.WithMode(differ.ModeSimple),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -44,11 +48,12 @@ func Example_simple() {
 
 // Example_breaking demonstrates breaking change detection
 func Example_breaking() {
-	d := differ.New()
-	d.Mode = differ.ModeBreaking
-	d.IncludeInfo = true
-
-	result, err := d.Diff("../testdata/petstore-v1.yaml", "../testdata/petstore-v2.yaml")
+	result, err := differ.DiffWithOptions(
+		differ.WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		differ.WithTargetFilePath("../testdata/petstore-v2.yaml"),
+		differ.WithMode(differ.ModeBreaking),
+		differ.WithIncludeInfo(true),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,18 +71,27 @@ func Example_breaking() {
 // Example_parsed demonstrates comparing already-parsed documents
 func Example_parsed() {
 	// Parse documents once
-	source, err := parser.Parse("../testdata/petstore-v1.yaml", false, true)
+	source, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	target, err := parser.Parse("../testdata/petstore-v2.yaml", false, true)
+	target, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Compare parsed documents
-	result, err := differ.DiffParsed(*source, *target)
+	result, err := differ.DiffWithOptions(
+		differ.WithSourceParsed(*source),
+		differ.WithTargetParsed(*target),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}

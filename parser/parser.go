@@ -328,6 +328,153 @@ func (p *Parser) ParseBytes(data []byte) (*ParseResult, error) {
 	return res, nil
 }
 
+// Option is a function that configures a parse operation
+type Option func(*parseConfig) error
+
+// parseConfig holds configuration for a parse operation
+type parseConfig struct {
+	// Input source (exactly one must be set)
+	filePath *string
+	reader   io.Reader
+	bytes    []byte
+
+	// Configuration options
+	resolveRefs       bool
+	validateStructure bool
+	userAgent         string
+}
+
+// ParseWithOptions parses an OpenAPI specification using functional options.
+// This provides a flexible, extensible API that combines input source selection
+// and configuration in a single function call.
+//
+// Example:
+//
+//	result, err := parser.ParseWithOptions(
+//	    parser.WithFilePath("openapi.yaml"),
+//	    parser.WithResolveRefs(true),
+//	)
+func ParseWithOptions(opts ...Option) (*ParseResult, error) {
+	cfg, err := applyOptions(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("parser: invalid options: %w", err)
+	}
+
+	p := &Parser{
+		ResolveRefs:       cfg.resolveRefs,
+		ValidateStructure: cfg.validateStructure,
+		UserAgent:         cfg.userAgent,
+	}
+
+	// Route to appropriate parsing method based on input source
+	if cfg.filePath != nil {
+		return p.Parse(*cfg.filePath)
+	}
+	if cfg.reader != nil {
+		return p.ParseReader(cfg.reader)
+	}
+	if cfg.bytes != nil {
+		return p.ParseBytes(cfg.bytes)
+	}
+
+	// Should never reach here due to validation in applyOptions
+	return nil, fmt.Errorf("parser: no input source specified")
+}
+
+// applyOptions applies option functions and validates configuration
+func applyOptions(opts ...Option) (*parseConfig, error) {
+	cfg := &parseConfig{
+		// Set defaults to match existing behavior
+		resolveRefs:       false,
+		validateStructure: true,
+		userAgent:         oastools.UserAgent(),
+	}
+
+	for _, opt := range opts {
+		if err := opt(cfg); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate exactly one input source is specified
+	sourceCount := 0
+	if cfg.filePath != nil {
+		sourceCount++
+	}
+	if cfg.reader != nil {
+		sourceCount++
+	}
+	if cfg.bytes != nil {
+		sourceCount++
+	}
+
+	if sourceCount == 0 {
+		return nil, fmt.Errorf("must specify an input source (use WithFilePath, WithReader, or WithBytes)")
+	}
+	if sourceCount > 1 {
+		return nil, fmt.Errorf("must specify exactly one input source")
+	}
+
+	return cfg, nil
+}
+
+// WithFilePath specifies a file path or URL as the input source
+func WithFilePath(path string) Option {
+	return func(cfg *parseConfig) error {
+		cfg.filePath = &path
+		return nil
+	}
+}
+
+// WithReader specifies an io.Reader as the input source
+func WithReader(r io.Reader) Option {
+	return func(cfg *parseConfig) error {
+		if r == nil {
+			return fmt.Errorf("reader cannot be nil")
+		}
+		cfg.reader = r
+		return nil
+	}
+}
+
+// WithBytes specifies a byte slice as the input source
+func WithBytes(data []byte) Option {
+	return func(cfg *parseConfig) error {
+		if data == nil {
+			return fmt.Errorf("bytes cannot be nil")
+		}
+		cfg.bytes = data
+		return nil
+	}
+}
+
+// WithResolveRefs enables or disables reference resolution ($ref)
+// Default: false
+func WithResolveRefs(enabled bool) Option {
+	return func(cfg *parseConfig) error {
+		cfg.resolveRefs = enabled
+		return nil
+	}
+}
+
+// WithValidateStructure enables or disables basic structure validation
+// Default: true
+func WithValidateStructure(enabled bool) Option {
+	return func(cfg *parseConfig) error {
+		cfg.validateStructure = enabled
+		return nil
+	}
+}
+
+// WithUserAgent sets the User-Agent string for HTTP requests
+// Default: "oastools/vX.Y.Z"
+func WithUserAgent(ua string) Option {
+	return func(cfg *parseConfig) error {
+		cfg.userAgent = ua
+		return nil
+	}
+}
+
 // Parse is a convenience function that parses an OpenAPI specification file
 // with the specified options. It's equivalent to creating a Parser with
 // New(), setting the options, and calling Parse().
@@ -335,6 +482,8 @@ func (p *Parser) ParseBytes(data []byte) (*ParseResult, error) {
 // For one-off parsing operations, this function provides a simpler API.
 // For parsing multiple files with the same configuration, create a Parser
 // instance and reuse it.
+//
+// Deprecated: Use ParseWithOptions for a more flexible API.
 //
 // Example:
 //
@@ -353,6 +502,8 @@ func Parse(specPath string, resolveRefs, validateStructure bool) (*ParseResult, 
 // ParseReader is a convenience function that parses an OpenAPI specification
 // from an io.Reader with the specified options.
 //
+// Deprecated: Use ParseWithOptions for a more flexible API.
+//
 // Example:
 //
 //	file, _ := os.Open("openapi.yaml")
@@ -368,6 +519,8 @@ func ParseReader(r io.Reader, resolveRefs, validateStructure bool) (*ParseResult
 
 // ParseBytes is a convenience function that parses an OpenAPI specification
 // from a byte slice with the specified options.
+//
+// Deprecated: Use ParseWithOptions for a more flexible API.
 //
 // Example:
 //

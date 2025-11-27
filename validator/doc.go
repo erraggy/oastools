@@ -6,9 +6,12 @@
 //
 // # Quick Start
 //
-// Validate a file with warnings enabled:
+// Validate a file with warnings enabled using functional options:
 //
-//	result, err := validator.Validate("openapi.yaml", true, false)
+//	result, err := validator.ValidateWithOptions(
+//		validator.WithFilePath("openapi.yaml"),
+//		validator.WithIncludeWarnings(true),
+//	)
 //	if err != nil {
 //		log.Fatal(err)
 //	}

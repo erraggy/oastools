@@ -155,12 +155,204 @@ func New() *Differ {
 	}
 }
 
+// Option is a function that configures a diff operation
+type Option func(*diffConfig) error
+
+// diffConfig holds configuration for a diff operation
+type diffConfig struct {
+	// Input sources (exactly one source and one target must be set)
+	sourceFilePath *string
+	sourceParsed   *parser.ParseResult
+	targetFilePath *string
+	targetParsed   *parser.ParseResult
+
+	// Configuration options
+	mode        DiffMode
+	includeInfo bool
+	userAgent   string
+}
+
+// DiffWithOptions compares two OpenAPI specifications using functional options.
+// This provides a flexible, extensible API that combines input source selection
+// and configuration in a single function call.
+//
+// Example:
+//
+//	result, err := differ.DiffWithOptions(
+//	    differ.WithSourceFilePath("api-v1.yaml"),
+//	    differ.WithTargetFilePath("api-v2.yaml"),
+//	    differ.WithMode(differ.ModeBreaking),
+//	)
+func DiffWithOptions(opts ...Option) (*DiffResult, error) {
+	cfg, err := applyOptions(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("differ: invalid options: %w", err)
+	}
+
+	d := &Differ{
+		Mode:        cfg.mode,
+		IncludeInfo: cfg.includeInfo,
+		UserAgent:   cfg.userAgent,
+	}
+
+	// Determine source
+	var source parser.ParseResult
+	if cfg.sourceFilePath != nil {
+		p := parser.New()
+		if d.UserAgent != "" {
+			p.UserAgent = d.UserAgent
+		}
+		sourceResult, err := p.Parse(*cfg.sourceFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse source: %w", err)
+		}
+		if len(sourceResult.Errors) > 0 {
+			return nil, fmt.Errorf("source document has %d parse error(s)", len(sourceResult.Errors))
+		}
+		source = *sourceResult
+	} else {
+		source = *cfg.sourceParsed
+	}
+
+	// Determine target
+	var target parser.ParseResult
+	if cfg.targetFilePath != nil {
+		p := parser.New()
+		if d.UserAgent != "" {
+			p.UserAgent = d.UserAgent
+		}
+		targetResult, err := p.Parse(*cfg.targetFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse target: %w", err)
+		}
+		if len(targetResult.Errors) > 0 {
+			return nil, fmt.Errorf("target document has %d parse error(s)", len(targetResult.Errors))
+		}
+		target = *targetResult
+	} else {
+		target = *cfg.targetParsed
+	}
+
+	return d.DiffParsed(source, target)
+}
+
+// applyOptions applies option functions and validates configuration
+func applyOptions(opts ...Option) (*diffConfig, error) {
+	cfg := &diffConfig{
+		// Set defaults to match existing behavior
+		mode:        ModeSimple,
+		includeInfo: true,
+		userAgent:   "",
+	}
+
+	for _, opt := range opts {
+		if err := opt(cfg); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate exactly one source is specified
+	sourceCount := 0
+	if cfg.sourceFilePath != nil {
+		sourceCount++
+	}
+	if cfg.sourceParsed != nil {
+		sourceCount++
+	}
+
+	if sourceCount == 0 {
+		return nil, fmt.Errorf("must specify a source (use WithSourceFilePath or WithSourceParsed)")
+	}
+	if sourceCount > 1 {
+		return nil, fmt.Errorf("must specify exactly one source")
+	}
+
+	// Validate exactly one target is specified
+	targetCount := 0
+	if cfg.targetFilePath != nil {
+		targetCount++
+	}
+	if cfg.targetParsed != nil {
+		targetCount++
+	}
+
+	if targetCount == 0 {
+		return nil, fmt.Errorf("must specify a target (use WithTargetFilePath or WithTargetParsed)")
+	}
+	if targetCount > 1 {
+		return nil, fmt.Errorf("must specify exactly one target")
+	}
+
+	return cfg, nil
+}
+
+// WithSourceFilePath specifies a file path or URL as the source document
+func WithSourceFilePath(path string) Option {
+	return func(cfg *diffConfig) error {
+		cfg.sourceFilePath = &path
+		return nil
+	}
+}
+
+// WithSourceParsed specifies a parsed ParseResult as the source document
+func WithSourceParsed(result parser.ParseResult) Option {
+	return func(cfg *diffConfig) error {
+		cfg.sourceParsed = &result
+		return nil
+	}
+}
+
+// WithTargetFilePath specifies a file path or URL as the target document
+func WithTargetFilePath(path string) Option {
+	return func(cfg *diffConfig) error {
+		cfg.targetFilePath = &path
+		return nil
+	}
+}
+
+// WithTargetParsed specifies a parsed ParseResult as the target document
+func WithTargetParsed(result parser.ParseResult) Option {
+	return func(cfg *diffConfig) error {
+		cfg.targetParsed = &result
+		return nil
+	}
+}
+
+// WithMode sets the diff mode (Simple or Breaking)
+// Default: ModeSimple
+func WithMode(mode DiffMode) Option {
+	return func(cfg *diffConfig) error {
+		cfg.mode = mode
+		return nil
+	}
+}
+
+// WithIncludeInfo enables or disables informational changes
+// Default: true
+func WithIncludeInfo(enabled bool) Option {
+	return func(cfg *diffConfig) error {
+		cfg.includeInfo = enabled
+		return nil
+	}
+}
+
+// WithUserAgent sets the User-Agent string for HTTP requests
+// Default: "" (uses parser default)
+func WithUserAgent(ua string) Option {
+	return func(cfg *diffConfig) error {
+		cfg.userAgent = ua
+		return nil
+	}
+}
+
 // Diff is a convenience function that compares two OpenAPI specification files.
 // It's equivalent to creating a Differ with New() and calling Diff().
 //
 // For one-off diff operations, this function provides a simpler API.
 // For comparing multiple files with the same configuration, create a Differ
 // instance and reuse it.
+//
+// Deprecated: Use DiffWithOptions for a more flexible API.
 //
 // Example:
 //
@@ -178,6 +370,8 @@ func Diff(sourcePath, targetPath string) (*DiffResult, error) {
 
 // DiffParsed is a convenience function that compares two already-parsed
 // OpenAPI specifications.
+//
+// Deprecated: Use DiffWithOptions for a more flexible API.
 //
 // Example:
 //

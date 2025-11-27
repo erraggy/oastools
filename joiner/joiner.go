@@ -111,6 +111,201 @@ type documentContext struct {
 	result   *parser.ParseResult
 }
 
+// Option is a function that configures a join operation
+type Option func(*joinConfig) error
+
+// joinConfig holds configuration for a join operation
+type joinConfig struct {
+	// Input sources (variadic, requires at least 2 total)
+	filePaths  []string
+	parsedDocs []parser.ParseResult
+
+	// Configuration options (nil means use default from DefaultConfig)
+	defaultStrategy   *CollisionStrategy
+	pathStrategy      *CollisionStrategy
+	schemaStrategy    *CollisionStrategy
+	componentStrategy *CollisionStrategy
+	deduplicateTags   *bool
+	mergeArrays       *bool
+}
+
+// JoinWithOptions joins multiple OpenAPI specifications using functional options.
+// This provides a flexible, extensible API that combines input source selection
+// and configuration in a single function call.
+//
+// Example:
+//
+//	result, err := joiner.JoinWithOptions(
+//	    joiner.WithFilePaths("api1.yaml", "api2.yaml"),
+//	    joiner.WithPathStrategy(joiner.StrategyAcceptLeft),
+//	)
+func JoinWithOptions(opts ...Option) (*JoinResult, error) {
+	cfg, err := applyOptions(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("joiner: invalid options: %w", err)
+	}
+
+	// Build JoinerConfig from options (use defaults for nil values)
+	defaults := DefaultConfig()
+	joinerCfg := JoinerConfig{
+		DefaultStrategy:   valueOrDefault(cfg.defaultStrategy, defaults.DefaultStrategy),
+		PathStrategy:      valueOrDefault(cfg.pathStrategy, defaults.PathStrategy),
+		SchemaStrategy:    valueOrDefault(cfg.schemaStrategy, defaults.SchemaStrategy),
+		ComponentStrategy: valueOrDefault(cfg.componentStrategy, defaults.ComponentStrategy),
+		DeduplicateTags:   boolValueOrDefault(cfg.deduplicateTags, defaults.DeduplicateTags),
+		MergeArrays:       boolValueOrDefault(cfg.mergeArrays, defaults.MergeArrays),
+	}
+
+	j := New(joinerCfg)
+
+	// Route to appropriate join method based on input sources
+	if len(cfg.filePaths) > 0 && len(cfg.parsedDocs) == 0 {
+		// File paths only
+		return j.Join(cfg.filePaths)
+	} else if len(cfg.parsedDocs) > 0 && len(cfg.filePaths) == 0 {
+		// Parsed docs only
+		return j.JoinParsed(cfg.parsedDocs)
+	} else if len(cfg.filePaths) > 0 && len(cfg.parsedDocs) > 0 {
+		// Mixed: parse file paths and append to parsed docs
+		var allDocs []parser.ParseResult
+		allDocs = append(allDocs, cfg.parsedDocs...)
+
+		p := parser.New()
+		for _, path := range cfg.filePaths {
+			result, err := p.Parse(path)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse %s: %w", path, err)
+			}
+			if len(result.Errors) > 0 {
+				return nil, fmt.Errorf("%s has %d parse error(s)", path, len(result.Errors))
+			}
+			allDocs = append(allDocs, *result)
+		}
+
+		return j.JoinParsed(allDocs)
+	}
+
+	// Should never reach here due to validation in applyOptions
+	return nil, fmt.Errorf("joiner: no input sources specified")
+}
+
+// applyOptions applies option functions and validates configuration
+func applyOptions(opts ...Option) (*joinConfig, error) {
+	cfg := &joinConfig{
+		filePaths:  make([]string, 0),
+		parsedDocs: make([]parser.ParseResult, 0),
+	}
+
+	for _, opt := range opts {
+		if err := opt(cfg); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate at least 2 documents total
+	totalDocs := len(cfg.filePaths) + len(cfg.parsedDocs)
+	if totalDocs < 2 {
+		return nil, fmt.Errorf("at least 2 documents are required for joining, got %d", totalDocs)
+	}
+
+	return cfg, nil
+}
+
+// Helper functions for option defaults
+func valueOrDefault(ptr *CollisionStrategy, defaultVal CollisionStrategy) CollisionStrategy {
+	if ptr == nil {
+		return defaultVal
+	}
+	return *ptr
+}
+
+func boolValueOrDefault(ptr *bool, defaultVal bool) bool {
+	if ptr == nil {
+		return defaultVal
+	}
+	return *ptr
+}
+
+// WithFilePaths specifies file paths as input sources
+func WithFilePaths(paths ...string) Option {
+	return func(cfg *joinConfig) error {
+		cfg.filePaths = append(cfg.filePaths, paths...)
+		return nil
+	}
+}
+
+// WithParsed specifies parsed ParseResults as input sources
+func WithParsed(docs ...parser.ParseResult) Option {
+	return func(cfg *joinConfig) error {
+		cfg.parsedDocs = append(cfg.parsedDocs, docs...)
+		return nil
+	}
+}
+
+// WithConfig applies an entire JoinerConfig struct
+// This is useful for reusing existing configurations or loading from files
+func WithConfig(config JoinerConfig) Option {
+	return func(cfg *joinConfig) error {
+		cfg.defaultStrategy = &config.DefaultStrategy
+		cfg.pathStrategy = &config.PathStrategy
+		cfg.schemaStrategy = &config.SchemaStrategy
+		cfg.componentStrategy = &config.ComponentStrategy
+		cfg.deduplicateTags = &config.DeduplicateTags
+		cfg.mergeArrays = &config.MergeArrays
+		return nil
+	}
+}
+
+// WithDefaultStrategy sets the global collision strategy
+func WithDefaultStrategy(strategy CollisionStrategy) Option {
+	return func(cfg *joinConfig) error {
+		cfg.defaultStrategy = &strategy
+		return nil
+	}
+}
+
+// WithPathStrategy sets the collision strategy for paths
+func WithPathStrategy(strategy CollisionStrategy) Option {
+	return func(cfg *joinConfig) error {
+		cfg.pathStrategy = &strategy
+		return nil
+	}
+}
+
+// WithSchemaStrategy sets the collision strategy for schemas/definitions
+func WithSchemaStrategy(strategy CollisionStrategy) Option {
+	return func(cfg *joinConfig) error {
+		cfg.schemaStrategy = &strategy
+		return nil
+	}
+}
+
+// WithComponentStrategy sets the collision strategy for components
+func WithComponentStrategy(strategy CollisionStrategy) Option {
+	return func(cfg *joinConfig) error {
+		cfg.componentStrategy = &strategy
+		return nil
+	}
+}
+
+// WithDeduplicateTags enables or disables tag deduplication
+// Default: true
+func WithDeduplicateTags(enabled bool) Option {
+	return func(cfg *joinConfig) error {
+		cfg.deduplicateTags = &enabled
+		return nil
+	}
+}
+
+// WithMergeArrays enables or disables array merging (servers, security, etc.)
+// Default: true
+func WithMergeArrays(enabled bool) Option {
+	return func(cfg *joinConfig) error {
+		cfg.mergeArrays = &enabled
+		return nil
+	}
+}
+
 // Join is a convenience function that joins multiple OpenAPI specification files
 // with the specified configuration. It's equivalent to creating a Joiner with
 // New(), and calling Join().
@@ -118,6 +313,8 @@ type documentContext struct {
 // For one-off join operations, this function provides a simpler API.
 // For joining multiple sets of files with the same configuration, create a Joiner
 // instance and reuse it.
+//
+// Deprecated: Use JoinWithOptions for a more flexible API.
 //
 // Example:
 //
@@ -134,6 +331,8 @@ func Join(specPaths []string, config JoinerConfig) (*JoinResult, error) {
 
 // JoinParsed is a convenience function that joins already-parsed OpenAPI
 // specifications with the specified configuration.
+//
+// Deprecated: Use JoinWithOptions for a more flexible API.
 //
 // Example:
 //
@@ -204,11 +403,14 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 		return nil, fmt.Errorf("joiner: at least 2 specification files are required for joining, got %d", len(specPaths))
 	}
 
-	// Parse all documents using the parser convenience function
+	// Parse all documents using the parser
 	var parsedDocs []parser.ParseResult
 	n := len(specPaths)
 	for i, path := range specPaths {
-		result, err := parser.Parse(path, false, true)
+		result, err := parser.ParseWithOptions(
+			parser.WithFilePath(path),
+			parser.WithValidateStructure(true),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("joiner: failed to parse %s (%d of %d): %w", path, i+1, n, err)
 		}

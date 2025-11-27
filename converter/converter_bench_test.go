@@ -78,7 +78,9 @@ func BenchmarkConvertOAS3ToOAS2Medium(b *testing.B) {
 // BenchmarkConvertParsedOAS2ToOAS3Small benchmarks converting already-parsed OAS 2.0 to 3.0.3
 func BenchmarkConvertParsedOAS2ToOAS3Small(b *testing.B) {
 	// Parse once
-	parseResult, err := parser.Parse(smallOAS2Path, false, false)
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath(smallOAS2Path),
+	)
 	if err != nil {
 		b.Fatalf("Failed to parse: %v", err)
 	}
@@ -98,7 +100,9 @@ func BenchmarkConvertParsedOAS2ToOAS3Small(b *testing.B) {
 // BenchmarkConvertParsedOAS2ToOAS3Medium benchmarks converting already-parsed medium OAS 2.0
 func BenchmarkConvertParsedOAS2ToOAS3Medium(b *testing.B) {
 	// Parse once
-	parseResult, err := parser.Parse(mediumOAS2Path, false, false)
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath(mediumOAS2Path),
+	)
 	if err != nil {
 		b.Fatalf("Failed to parse: %v", err)
 	}
@@ -118,7 +122,9 @@ func BenchmarkConvertParsedOAS2ToOAS3Medium(b *testing.B) {
 // BenchmarkConvertParsedOAS3ToOAS2Small benchmarks converting already-parsed OAS 3.0 to 2.0
 func BenchmarkConvertParsedOAS3ToOAS2Small(b *testing.B) {
 	// Parse once
-	parseResult, err := parser.Parse(smallOAS3Path, false, false)
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath(smallOAS3Path),
+	)
 	if err != nil {
 		b.Fatalf("Failed to parse: %v", err)
 	}
@@ -138,7 +144,9 @@ func BenchmarkConvertParsedOAS3ToOAS2Small(b *testing.B) {
 // BenchmarkConvertParsedOAS3ToOAS2Medium benchmarks converting already-parsed medium OAS 3.0
 func BenchmarkConvertParsedOAS3ToOAS2Medium(b *testing.B) {
 	// Parse once
-	parseResult, err := parser.Parse(mediumOAS3Path, false, false)
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath(mediumOAS3Path),
+	)
 	if err != nil {
 		b.Fatalf("Failed to parse: %v", err)
 	}

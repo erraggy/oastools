@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDifferConvenience(t *testing.T) {
@@ -24,12 +26,18 @@ func TestDifferConvenience(t *testing.T) {
 
 func TestDifferParsedConvenience(t *testing.T) {
 	// Test the convenience function DiffParsed
-	source, err := parser.Parse("../testdata/petstore-v1.yaml", false, true)
+	source, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		t.Fatalf("Failed to parse source: %v", err)
 	}
 
-	target, err := parser.Parse("../testdata/petstore-v2.yaml", false, true)
+	target, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
 	if err != nil {
 		t.Fatalf("Failed to parse target: %v", err)
 	}
@@ -296,5 +304,323 @@ func TestDifferUserAgent(t *testing.T) {
 
 	if result == nil {
 		t.Fatal("Expected non-nil result")
+	}
+}
+
+// TestDiffWithOptions_FilePaths tests the functional options API with file paths
+func TestDiffWithOptions_FilePaths(t *testing.T) {
+	result, err := DiffWithOptions(
+		WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		WithTargetFilePath("../testdata/petstore-v2.yaml"),
+		WithMode(ModeSimple),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.NotEmpty(t, result.Changes, "Expected to find changes between v1 and v2")
+}
+
+// TestDiffWithOptions_Parsed tests the functional options API with parsed results
+func TestDiffWithOptions_Parsed(t *testing.T) {
+	source, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	target, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	result, err := DiffWithOptions(
+		WithSourceParsed(*source),
+		WithTargetParsed(*target),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.NotEmpty(t, result.Changes)
+}
+
+// TestDiffWithOptions_MixedSources tests using file path for source and parsed for target
+func TestDiffWithOptions_MixedSources(t *testing.T) {
+	target, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	result, err := DiffWithOptions(
+		WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		WithTargetParsed(*target),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
+// TestDiffWithOptions_BreakingMode tests that breaking mode is applied
+func TestDiffWithOptions_BreakingMode(t *testing.T) {
+	result, err := DiffWithOptions(
+		WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		WithTargetFilePath("../testdata/petstore-v2.yaml"),
+		WithMode(ModeBreaking),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	// In breaking mode, changes should have severity assigned
+}
+
+// TestDiffWithOptions_DisableInfo tests that info messages can be disabled
+func TestDiffWithOptions_DisableInfo(t *testing.T) {
+	result, err := DiffWithOptions(
+		WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		WithTargetFilePath("../testdata/petstore-v2.yaml"),
+		WithIncludeInfo(false),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	// Info count should be 0 when disabled
+	assert.Equal(t, 0, result.InfoCount)
+}
+
+// TestDiffWithOptions_DefaultValues tests that default values are applied correctly
+func TestDiffWithOptions_DefaultValues(t *testing.T) {
+	result, err := DiffWithOptions(
+		WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		WithTargetFilePath("../testdata/petstore-v2.yaml"),
+		// Not specifying WithMode or WithIncludeInfo to test defaults
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
+// TestDiffWithOptions_NoSource tests error when no source is specified
+func TestDiffWithOptions_NoSource(t *testing.T) {
+	_, err := DiffWithOptions(
+		WithTargetFilePath("../testdata/petstore-v2.yaml"),
+		WithMode(ModeSimple),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must specify a source")
+}
+
+// TestDiffWithOptions_NoTarget tests error when no target is specified
+func TestDiffWithOptions_NoTarget(t *testing.T) {
+	_, err := DiffWithOptions(
+		WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		WithMode(ModeSimple),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must specify a target")
+}
+
+// TestDiffWithOptions_MultipleSources tests error when multiple sources are specified
+func TestDiffWithOptions_MultipleSources(t *testing.T) {
+	source, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	_, err = DiffWithOptions(
+		WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		WithSourceParsed(*source),
+		WithTargetFilePath("../testdata/petstore-v2.yaml"),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must specify exactly one source")
+}
+
+// TestDiffWithOptions_MultipleTargets tests error when multiple targets are specified
+func TestDiffWithOptions_MultipleTargets(t *testing.T) {
+	target, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	_, err = DiffWithOptions(
+		WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		WithTargetFilePath("../testdata/petstore-v2.yaml"),
+		WithTargetParsed(*target),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must specify exactly one target")
+}
+
+// TestDiffWithOptions_AllOptions tests using all options together
+func TestDiffWithOptions_AllOptions(t *testing.T) {
+	result, err := DiffWithOptions(
+		WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		WithTargetFilePath("../testdata/petstore-v2.yaml"),
+		WithMode(ModeBreaking),
+		WithIncludeInfo(false),
+		WithUserAgent("test-differ/1.0"),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, 0, result.InfoCount)
+}
+
+// TestWithSourceFilePath tests the WithSourceFilePath option function
+func TestWithSourceFilePath(t *testing.T) {
+	cfg := &diffConfig{}
+	opt := WithSourceFilePath("source.yaml")
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, cfg.sourceFilePath)
+	assert.Equal(t, "source.yaml", *cfg.sourceFilePath)
+}
+
+// TestWithSourceParsed tests the WithSourceParsed option function
+func TestWithSourceParsed(t *testing.T) {
+	parseResult := parser.ParseResult{Version: "3.0.0"}
+	cfg := &diffConfig{}
+	opt := WithSourceParsed(parseResult)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, cfg.sourceParsed)
+	assert.Equal(t, "3.0.0", cfg.sourceParsed.Version)
+}
+
+// TestWithTargetFilePath tests the WithTargetFilePath option function
+func TestWithTargetFilePath(t *testing.T) {
+	cfg := &diffConfig{}
+	opt := WithTargetFilePath("target.yaml")
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, cfg.targetFilePath)
+	assert.Equal(t, "target.yaml", *cfg.targetFilePath)
+}
+
+// TestWithTargetParsed tests the WithTargetParsed option function
+func TestWithTargetParsed(t *testing.T) {
+	parseResult := parser.ParseResult{Version: "3.1.0"}
+	cfg := &diffConfig{}
+	opt := WithTargetParsed(parseResult)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, cfg.targetParsed)
+	assert.Equal(t, "3.1.0", cfg.targetParsed.Version)
+}
+
+// TestWithMode tests the WithMode option function
+func TestWithMode(t *testing.T) {
+	tests := []struct {
+		name string
+		mode DiffMode
+	}{
+		{"simple", ModeSimple},
+		{"breaking", ModeBreaking},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &diffConfig{}
+			opt := WithMode(tt.mode)
+			err := opt(cfg)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.mode, cfg.mode)
+		})
+	}
+}
+
+// TestWithIncludeInfo_Differ tests the WithIncludeInfo option function
+func TestWithIncludeInfo_Differ(t *testing.T) {
+	tests := []struct {
+		name    string
+		enabled bool
+	}{
+		{"enabled", true},
+		{"disabled", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &diffConfig{}
+			opt := WithIncludeInfo(tt.enabled)
+			err := opt(cfg)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.enabled, cfg.includeInfo)
+		})
+	}
+}
+
+// TestWithUserAgent_Differ tests the WithUserAgent option function
+func TestWithUserAgent_Differ(t *testing.T) {
+	cfg := &diffConfig{}
+	opt := WithUserAgent("custom-agent/2.0")
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, "custom-agent/2.0", cfg.userAgent)
+}
+
+// TestApplyOptions_Defaults_Differ tests that default values are set correctly
+func TestApplyOptions_Defaults_Differ(t *testing.T) {
+	cfg, err := applyOptions(
+		WithSourceFilePath("source.yaml"),
+		WithTargetFilePath("target.yaml"),
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, ModeSimple, cfg.mode, "default mode should be ModeSimple")
+	assert.True(t, cfg.includeInfo, "default includeInfo should be true")
+	assert.Equal(t, "", cfg.userAgent, "default userAgent should be empty")
+}
+
+// TestApplyOptions_OverrideDefaults_Differ tests that options override defaults
+func TestApplyOptions_OverrideDefaults_Differ(t *testing.T) {
+	cfg, err := applyOptions(
+		WithSourceFilePath("source.yaml"),
+		WithTargetFilePath("target.yaml"),
+		WithMode(ModeBreaking),
+		WithIncludeInfo(false),
+		WithUserAgent("custom/1.0"),
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, ModeBreaking, cfg.mode)
+	assert.False(t, cfg.includeInfo)
+	assert.Equal(t, "custom/1.0", cfg.userAgent)
+}
+
+// TestDiffWithOptions_BackwardCompatibility tests that new API produces same results as old API
+func TestDiffWithOptions_BackwardCompatibility(t *testing.T) {
+	testCases := []struct {
+		name       string
+		sourceFile string
+		targetFile string
+	}{
+		{"petstore_v1_to_v2", "../testdata/petstore-v1.yaml", "../testdata/petstore-v2.yaml"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Old API
+			oldResult, err := Diff(tc.sourceFile, tc.targetFile)
+			require.NoError(t, err)
+
+			// New API
+			newResult, err := DiffWithOptions(
+				WithSourceFilePath(tc.sourceFile),
+				WithTargetFilePath(tc.targetFile),
+			)
+			require.NoError(t, err)
+
+			// Compare results
+			assert.Equal(t, oldResult.SourceVersion, newResult.SourceVersion)
+			assert.Equal(t, oldResult.TargetVersion, newResult.TargetVersion)
+			assert.Equal(t, len(oldResult.Changes), len(newResult.Changes))
+			assert.Equal(t, oldResult.BreakingCount, newResult.BreakingCount)
+			assert.Equal(t, oldResult.WarningCount, newResult.WarningCount)
+			assert.Equal(t, oldResult.InfoCount, newResult.InfoCount)
+		})
 	}
 }

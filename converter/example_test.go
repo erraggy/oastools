@@ -7,10 +7,13 @@ import (
 	"github.com/erraggy/oastools/converter"
 )
 
-// Example demonstrates basic conversion using the convenience function
+// Example demonstrates basic conversion using functional options
 func Example() {
 	// Convert an OAS 2.0 specification to OAS 3.0.3
-	result, err := converter.Convert("testdata/petstore-2.0.yaml", "3.0.3")
+	result, err := converter.ConvertWithOptions(
+		converter.WithFilePath("testdata/petstore-2.0.yaml"),
+		converter.WithTargetVersion("3.0.3"),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -28,7 +31,10 @@ func Example() {
 
 // Example_handleConversionIssues demonstrates processing conversion issues
 func Example_handleConversionIssues() {
-	result, _ := converter.Convert("openapi.yaml", "2.0")
+	result, _ := converter.ConvertWithOptions(
+		converter.WithFilePath("openapi.yaml"),
+		converter.WithTargetVersion("2.0"),
+	)
 
 	// Categorize issues by severity
 	for _, issue := range result.Issues {

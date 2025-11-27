@@ -54,11 +54,15 @@ func BenchmarkJoinThreeSmallDocs(b *testing.B) {
 // BenchmarkJoinParsedTwoSmallDocs benchmarks joining already-parsed documents
 func BenchmarkJoinParsedTwoSmallDocs(b *testing.B) {
 	// Parse once
-	doc1, err := parser.Parse(joinBaseOAS3Path, false, false)
+	doc1, err := parser.ParseWithOptions(
+		parser.WithFilePath(joinBaseOAS3Path),
+	)
 	if err != nil {
 		b.Fatalf("Failed to parse doc1: %v", err)
 	}
-	doc2, err := parser.Parse(joinExt1OAS3Path, false, false)
+	doc2, err := parser.ParseWithOptions(
+		parser.WithFilePath(joinExt1OAS3Path),
+	)
 	if err != nil {
 		b.Fatalf("Failed to parse doc2: %v", err)
 	}
@@ -80,15 +84,21 @@ func BenchmarkJoinParsedTwoSmallDocs(b *testing.B) {
 // BenchmarkJoinParsedThreeSmallDocs benchmarks joining 3 already-parsed documents
 func BenchmarkJoinParsedThreeSmallDocs(b *testing.B) {
 	// Parse once
-	doc1, err := parser.Parse(joinBaseOAS3Path, false, false)
+	doc1, err := parser.ParseWithOptions(
+		parser.WithFilePath(joinBaseOAS3Path),
+	)
 	if err != nil {
 		b.Fatalf("Failed to parse doc1: %v", err)
 	}
-	doc2, err := parser.Parse(joinExt1OAS3Path, false, false)
+	doc2, err := parser.ParseWithOptions(
+		parser.WithFilePath(joinExt1OAS3Path),
+	)
 	if err != nil {
 		b.Fatalf("Failed to parse doc2: %v", err)
 	}
-	doc3, err := parser.Parse(joinExt2OAS3Path, false, false)
+	doc3, err := parser.ParseWithOptions(
+		parser.WithFilePath(joinExt2OAS3Path),
+	)
 	if err != nil {
 		b.Fatalf("Failed to parse doc3: %v", err)
 	}
