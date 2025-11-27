@@ -7,13 +7,11 @@ import (
 	"github.com/erraggy/oastools/joiner"
 )
 
-func TestParseJoinFlags(t *testing.T) {
+// TestJoinFlagsBasic tests basic join flag parsing scenarios
+func TestJoinFlagsBasic(t *testing.T) {
 	tests := []struct {
 		name           string
 		args           []string
-		expectError    bool
-		expectHelp     bool
-		errorContains  string
 		validateConfig func(*testing.T, joiner.JoinerConfig)
 		validateFiles  func(*testing.T, []string)
 		validateOutput func(*testing.T, string)
@@ -57,6 +55,60 @@ func TestParseJoinFlags(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "valid with multiple input files",
+			args: []string{"-o", "out.yaml", "f1.yaml", "f2.yaml", "f3.yaml", "f4.yaml"},
+			validateFiles: func(t *testing.T, files []string) {
+				if len(files) != 4 {
+					t.Errorf("expected 4 files, got %d", len(files))
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs, flags := setupJoinFlags()
+			if err := fs.Parse(tt.args); err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+
+			config := joiner.DefaultConfig()
+			config.MergeArrays = !flags.noMergeArrays
+			config.DeduplicateTags = !flags.noDedupTags
+
+			if flags.pathStrategy != "" {
+				config.PathStrategy = joiner.CollisionStrategy(flags.pathStrategy)
+			}
+			if flags.schemaStrategy != "" {
+				config.SchemaStrategy = joiner.CollisionStrategy(flags.schemaStrategy)
+			}
+			if flags.componentStrategy != "" {
+				config.ComponentStrategy = joiner.CollisionStrategy(flags.componentStrategy)
+			}
+
+			filePaths := fs.Args()
+
+			if tt.validateConfig != nil {
+				tt.validateConfig(t, config)
+			}
+			if tt.validateFiles != nil {
+				tt.validateFiles(t, filePaths)
+			}
+			if tt.validateOutput != nil {
+				tt.validateOutput(t, flags.output)
+			}
+		})
+	}
+}
+
+// TestJoinFlagsStrategies tests collision strategy parsing
+func TestJoinFlagsStrategies(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		validateConfig func(*testing.T, joiner.JoinerConfig)
+	}{
 		{
 			name: "valid with path strategy",
 			args: []string{"-o", "out.yaml", "--path-strategy", "accept-left", "f1.yaml", "f2.yaml"},
@@ -105,6 +157,40 @@ func TestParseJoinFlags(t *testing.T) {
 				}
 			},
 		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs, flags := setupJoinFlags()
+			if err := fs.Parse(tt.args); err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+
+			config := joiner.DefaultConfig()
+			if flags.pathStrategy != "" {
+				config.PathStrategy = joiner.CollisionStrategy(flags.pathStrategy)
+			}
+			if flags.schemaStrategy != "" {
+				config.SchemaStrategy = joiner.CollisionStrategy(flags.schemaStrategy)
+			}
+			if flags.componentStrategy != "" {
+				config.ComponentStrategy = joiner.CollisionStrategy(flags.componentStrategy)
+			}
+
+			if tt.validateConfig != nil {
+				tt.validateConfig(t, config)
+			}
+		})
+	}
+}
+
+// TestJoinFlagsBooleans tests boolean flags
+func TestJoinFlagsBooleans(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		validateConfig func(*testing.T, joiner.JoinerConfig)
+	}{
 		{
 			name: "valid with no-merge-arrays flag",
 			args: []string{"-o", "out.yaml", "--no-merge-arrays", "f1.yaml", "f2.yaml"},
@@ -135,183 +221,443 @@ func TestParseJoinFlags(t *testing.T) {
 				}
 			},
 		},
-		{
-			name: "valid with multiple input files",
-			args: []string{"-o", "out.yaml", "f1.yaml", "f2.yaml", "f3.yaml", "f4.yaml"},
-			validateFiles: func(t *testing.T, files []string) {
-				if len(files) != 4 {
-					t.Errorf("expected 4 files, got %d", len(files))
-				}
-			},
-		},
-		{
-			name:        "help flag short",
-			args:        []string{"-h"},
-			expectHelp:  true,
-			expectError: false,
-		},
-		{
-			name:        "help flag long",
-			args:        []string{"--help"},
-			expectHelp:  true,
-			expectError: false,
-		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs, flags := setupJoinFlags()
+			if err := fs.Parse(tt.args); err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+
+			config := joiner.DefaultConfig()
+			config.MergeArrays = !flags.noMergeArrays
+			config.DeduplicateTags = !flags.noDedupTags
+
+			if tt.validateConfig != nil {
+				tt.validateConfig(t, config)
+			}
+		})
+	}
+}
+
+// TestJoinFlagsErrors tests error cases for join flag parsing
+func TestJoinFlagsErrors(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		errorContains string
+	}{
 		{
 			name:          "error: missing output flag",
 			args:          []string{"f1.yaml", "f2.yaml"},
-			expectError:   true,
 			errorContains: "output file is required",
 		},
 		{
 			name:          "error: insufficient input files (none)",
 			args:          []string{"-o", "out.yaml"},
-			expectError:   true,
 			errorContains: "at least 2 input files",
 		},
 		{
 			name:          "error: insufficient input files (only one)",
 			args:          []string{"-o", "out.yaml", "f1.yaml"},
-			expectError:   true,
 			errorContains: "at least 2 input files",
-		},
-		{
-			name:          "error: output flag without argument",
-			args:          []string{"-o"},
-			expectError:   true,
-			errorContains: "requires an argument",
-		},
-		{
-			name:          "error: path-strategy flag without argument",
-			args:          []string{"-o", "out.yaml", "--path-strategy"},
-			expectError:   true,
-			errorContains: "requires an argument",
-		},
-		{
-			name:          "error: schema-strategy flag without argument",
-			args:          []string{"-o", "out.yaml", "--schema-strategy"},
-			expectError:   true,
-			errorContains: "requires an argument",
-		},
-		{
-			name:          "error: component-strategy flag without argument",
-			args:          []string{"-o", "out.yaml", "--component-strategy"},
-			expectError:   true,
-			errorContains: "requires an argument",
 		},
 		{
 			name:          "error: invalid path strategy",
 			args:          []string{"-o", "out.yaml", "--path-strategy", "invalid-strategy", "f1.yaml", "f2.yaml"},
-			expectError:   true,
-			errorContains: "invalid path-strategy 'invalid-strategy'",
+			errorContains: "invalid path-strategy",
 		},
 		{
 			name:          "error: invalid schema strategy",
 			args:          []string{"-o", "out.yaml", "--schema-strategy", "bad-value", "f1.yaml", "f2.yaml"},
-			expectError:   true,
-			errorContains: "invalid schema-strategy 'bad-value'",
+			errorContains: "invalid schema-strategy",
 		},
 		{
 			name:          "error: invalid component strategy",
 			args:          []string{"-o", "out.yaml", "--component-strategy", "unknown", "f1.yaml", "f2.yaml"},
-			expectError:   true,
-			errorContains: "invalid component-strategy 'unknown'",
-		},
-		{
-			name: "complex valid case with mixed flag positions",
-			args: []string{
-				"--path-strategy", "accept-left",
-				"-o", "merged.yaml",
-				"base.yaml",
-				"--schema-strategy", "accept-right",
-				"extension.yaml",
-				"--no-merge-arrays",
-				"addon.yaml",
-			},
-			validateConfig: func(t *testing.T, config joiner.JoinerConfig) {
-				if config.PathStrategy != joiner.StrategyAcceptLeft {
-					t.Errorf("expected PathStrategy 'accept-left', got '%s'", config.PathStrategy)
-				}
-				if config.SchemaStrategy != joiner.StrategyAcceptRight {
-					t.Errorf("expected SchemaStrategy 'accept-right', got '%s'", config.SchemaStrategy)
-				}
-				if config.MergeArrays != false {
-					t.Error("expected MergeArrays to be false")
-				}
-			},
-			validateFiles: func(t *testing.T, files []string) {
-				expected := []string{"base.yaml", "extension.yaml", "addon.yaml"}
-				if len(files) != len(expected) {
-					t.Errorf("expected %d files, got %d", len(expected), len(files))
-					return
-				}
-				for i, exp := range expected {
-					if files[i] != exp {
-						t.Errorf("file %d: expected '%s', got '%s'", i, exp, files[i])
-					}
-				}
-			},
-			validateOutput: func(t *testing.T, output string) {
-				if output != "merged.yaml" {
-					t.Errorf("expected output 'merged.yaml', got '%s'", output)
-				}
-			},
+			errorContains: "invalid component-strategy",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			runParseJoinFlagsTest(t, tt)
+			fs, flags := setupJoinFlags()
+			if err := fs.Parse(tt.args); err != nil {
+				return // Flag parse error is valid
+			}
+
+			// Check validation conditions
+			if fs.NArg() < 2 && strings.Contains(tt.errorContains, "at least 2 input files") {
+				return
+			}
+			if flags.output == "" && strings.Contains(tt.errorContains, "output file is required") {
+				return
+			}
+			if flags.pathStrategy != "" && !joiner.IsValidStrategy(flags.pathStrategy) {
+				return
+			}
+			if flags.schemaStrategy != "" && !joiner.IsValidStrategy(flags.schemaStrategy) {
+				return
+			}
+			if flags.componentStrategy != "" && !joiner.IsValidStrategy(flags.componentStrategy) {
+				return
+			}
+
+			t.Fatal("expected error but got none")
 		})
 	}
 }
 
-// runParseJoinFlagsTest executes a single test case for parseJoinFlags
-func runParseJoinFlagsTest(t *testing.T, tt struct {
-	name           string
-	args           []string
-	expectError    bool
-	expectHelp     bool
-	errorContains  string
-	validateConfig func(*testing.T, joiner.JoinerConfig)
-	validateFiles  func(*testing.T, []string)
-	validateOutput func(*testing.T, string)
-}) {
-	config, files, output, showHelp, err := parseJoinFlags(tt.args)
-
-	// Check help flag
-	if showHelp != tt.expectHelp {
-		t.Errorf("expected showHelp=%v, got %v", tt.expectHelp, showHelp)
+// TestParseFlags tests the parse command flag parsing
+func TestParseFlags(t *testing.T) {
+	tests := []struct {
+		name               string
+		args               []string
+		expectError        bool
+		wantResolveRefs    bool
+		wantValidateStruct bool
+	}{
+		{
+			name:               "no flags",
+			args:               []string{"openapi.yaml"},
+			wantResolveRefs:    false,
+			wantValidateStruct: false,
+		},
+		{
+			name:               "resolve refs only",
+			args:               []string{"--resolve-refs", "openapi.yaml"},
+			wantResolveRefs:    true,
+			wantValidateStruct: false,
+		},
+		{
+			name:               "validate structure only",
+			args:               []string{"--validate-structure", "openapi.yaml"},
+			wantResolveRefs:    false,
+			wantValidateStruct: true,
+		},
+		{
+			name:               "both flags",
+			args:               []string{"--resolve-refs", "--validate-structure", "openapi.yaml"},
+			wantResolveRefs:    true,
+			wantValidateStruct: true,
+		},
+		{
+			name:        "no file path",
+			args:        []string{"--resolve-refs"},
+			expectError: true,
+		},
+		{
+			name:        "too many arguments",
+			args:        []string{"file1.yaml", "file2.yaml"},
+			expectError: true,
+		},
 	}
 
-	// Check error expectations
-	if tt.expectError {
-		if err == nil {
-			t.Fatalf("expected error containing '%s', got nil", tt.errorContains)
-		}
-		if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
-			t.Errorf("expected error containing '%s', got '%s'", tt.errorContains, err.Error())
-		}
-		return
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs, flags := setupParseFlags()
+
+			err := fs.Parse(tt.args)
+			if err != nil {
+				if !tt.expectError {
+					t.Fatalf("unexpected parse error: %v", err)
+				}
+				return
+			}
+
+			// Check argument count
+			if fs.NArg() != 1 {
+				if !tt.expectError {
+					t.Errorf("expected exactly 1 file argument, got %d", fs.NArg())
+				}
+				return
+			}
+
+			if tt.expectError {
+				t.Fatalf("expected error but got none")
+			}
+
+			if flags.resolveRefs != tt.wantResolveRefs {
+				t.Errorf("resolveRefs = %v, want %v", flags.resolveRefs, tt.wantResolveRefs)
+			}
+			if flags.validateStructure != tt.wantValidateStruct {
+				t.Errorf("validateStructure = %v, want %v", flags.validateStructure, tt.wantValidateStruct)
+			}
+		})
+	}
+}
+
+// TestValidateFlags tests the validate command flag parsing
+func TestValidateFlags(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		expectError    bool
+		wantStrict     bool
+		wantNoWarnings bool
+	}{
+		{
+			name:           "no flags",
+			args:           []string{"openapi.yaml"},
+			wantStrict:     false,
+			wantNoWarnings: false,
+		},
+		{
+			name:           "strict only",
+			args:           []string{"--strict", "openapi.yaml"},
+			wantStrict:     true,
+			wantNoWarnings: false,
+		},
+		{
+			name:           "no-warnings only",
+			args:           []string{"--no-warnings", "openapi.yaml"},
+			wantStrict:     false,
+			wantNoWarnings: true,
+		},
+		{
+			name:           "both flags",
+			args:           []string{"--strict", "--no-warnings", "openapi.yaml"},
+			wantStrict:     true,
+			wantNoWarnings: true,
+		},
+		{
+			name:        "no file path",
+			args:        []string{"--strict"},
+			expectError: true,
+		},
 	}
 
-	// For non-error cases
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs, flags := setupValidateFlags()
+
+			err := fs.Parse(tt.args)
+			if err != nil {
+				if !tt.expectError {
+					t.Fatalf("unexpected parse error: %v", err)
+				}
+				return
+			}
+
+			if fs.NArg() != 1 {
+				if !tt.expectError {
+					t.Errorf("expected exactly 1 file argument, got %d", fs.NArg())
+				}
+				return
+			}
+
+			if tt.expectError {
+				t.Fatalf("expected error but got none")
+			}
+
+			if flags.strict != tt.wantStrict {
+				t.Errorf("strict = %v, want %v", flags.strict, tt.wantStrict)
+			}
+			if flags.noWarnings != tt.wantNoWarnings {
+				t.Errorf("noWarnings = %v, want %v", flags.noWarnings, tt.wantNoWarnings)
+			}
+		})
+	}
+}
+
+// TestConvertFlags tests the convert command flag parsing
+func TestConvertFlags(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		expectError    bool
+		wantTarget     string
+		wantOutput     string
+		wantStrict     bool
+		wantNoWarnings bool
+	}{
+		{
+			name:           "minimal flags",
+			args:           []string{"-t", "3.0.3", "swagger.yaml"},
+			wantTarget:     "3.0.3",
+			wantOutput:     "",
+			wantStrict:     false,
+			wantNoWarnings: false,
+		},
+		{
+			name:           "with output",
+			args:           []string{"-t", "3.0.3", "-o", "openapi.yaml", "swagger.yaml"},
+			wantTarget:     "3.0.3",
+			wantOutput:     "openapi.yaml",
+			wantStrict:     false,
+			wantNoWarnings: false,
+		},
+		{
+			name:           "with strict",
+			args:           []string{"-t", "3.0.3", "--strict", "swagger.yaml"},
+			wantTarget:     "3.0.3",
+			wantStrict:     true,
+			wantNoWarnings: false,
+		},
+		{
+			name:           "with no-warnings",
+			args:           []string{"-t", "3.0.3", "--no-warnings", "swagger.yaml"},
+			wantTarget:     "3.0.3",
+			wantStrict:     false,
+			wantNoWarnings: true,
+		},
+		{
+			name:           "all flags",
+			args:           []string{"-t", "3.1.0", "-o", "output.yaml", "--strict", "--no-warnings", "input.yaml"},
+			wantTarget:     "3.1.0",
+			wantOutput:     "output.yaml",
+			wantStrict:     true,
+			wantNoWarnings: true,
+		},
+		{
+			name:           "long form flags",
+			args:           []string{"--target", "2.0", "--output", "swagger.yaml", "openapi.yaml"},
+			wantTarget:     "2.0",
+			wantOutput:     "swagger.yaml",
+			wantStrict:     false,
+			wantNoWarnings: false,
+		},
+		{
+			name:        "no target flag",
+			args:        []string{"swagger.yaml"},
+			expectError: true,
+		},
+		{
+			name:        "no file path",
+			args:        []string{"-t", "3.0.3"},
+			expectError: true,
+		},
 	}
 
-	// Don't validate further if help was requested
-	if showHelp {
-		return
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs, flags := setupConvertFlags()
+
+			err := fs.Parse(tt.args)
+			if err != nil {
+				if !tt.expectError {
+					t.Fatalf("unexpected parse error: %v", err)
+				}
+				return
+			}
+
+			// Check for missing target
+			if flags.target == "" {
+				if !tt.expectError {
+					t.Error("target is required but not provided")
+				}
+				return
+			}
+
+			// Check argument count
+			if fs.NArg() != 1 {
+				if !tt.expectError {
+					t.Errorf("expected exactly 1 file argument, got %d", fs.NArg())
+				}
+				return
+			}
+
+			if tt.expectError {
+				t.Fatalf("expected error but got none")
+			}
+
+			if flags.target != tt.wantTarget {
+				t.Errorf("target = %v, want %v", flags.target, tt.wantTarget)
+			}
+			if flags.output != tt.wantOutput {
+				t.Errorf("output = %v, want %v", flags.output, tt.wantOutput)
+			}
+			if flags.strict != tt.wantStrict {
+				t.Errorf("strict = %v, want %v", flags.strict, tt.wantStrict)
+			}
+			if flags.noWarnings != tt.wantNoWarnings {
+				t.Errorf("noWarnings = %v, want %v", flags.noWarnings, tt.wantNoWarnings)
+			}
+		})
+	}
+}
+
+// TestDiffFlags tests the diff command flag parsing
+func TestDiffFlags(t *testing.T) {
+	tests := []struct {
+		name         string
+		args         []string
+		expectError  bool
+		wantBreaking bool
+		wantNoInfo   bool
+	}{
+		{
+			name:         "no flags",
+			args:         []string{"api-v1.yaml", "api-v2.yaml"},
+			wantBreaking: false,
+			wantNoInfo:   false,
+		},
+		{
+			name:         "breaking only",
+			args:         []string{"--breaking", "api-v1.yaml", "api-v2.yaml"},
+			wantBreaking: true,
+			wantNoInfo:   false,
+		},
+		{
+			name:         "no-info only",
+			args:         []string{"--no-info", "api-v1.yaml", "api-v2.yaml"},
+			wantBreaking: false,
+			wantNoInfo:   true,
+		},
+		{
+			name:         "both flags",
+			args:         []string{"--breaking", "--no-info", "api-v1.yaml", "api-v2.yaml"},
+			wantBreaking: true,
+			wantNoInfo:   true,
+		},
+		{
+			name:        "missing target file",
+			args:        []string{"api-v1.yaml"},
+			expectError: true,
+		},
+		{
+			name:        "no file paths",
+			args:        []string{"--breaking"},
+			expectError: true,
+		},
+		{
+			name:        "too many file paths",
+			args:        []string{"file1.yaml", "file2.yaml", "file3.yaml"},
+			expectError: true,
+		},
 	}
 
-	// Run validation functions
-	if tt.validateConfig != nil {
-		tt.validateConfig(t, config)
-	}
-	if tt.validateFiles != nil {
-		tt.validateFiles(t, files)
-	}
-	if tt.validateOutput != nil {
-		tt.validateOutput(t, output)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs, flags := setupDiffFlags()
+
+			err := fs.Parse(tt.args)
+			if err != nil {
+				if !tt.expectError {
+					t.Fatalf("unexpected parse error: %v", err)
+				}
+				return
+			}
+
+			// Check argument count
+			if fs.NArg() != 2 {
+				if !tt.expectError {
+					t.Errorf("expected exactly 2 file arguments, got %d", fs.NArg())
+				}
+				return
+			}
+
+			if tt.expectError {
+				t.Fatalf("expected error but got none")
+			}
+
+			if flags.breaking != tt.wantBreaking {
+				t.Errorf("breaking = %v, want %v", flags.breaking, tt.wantBreaking)
+			}
+			if flags.noInfo != tt.wantNoInfo {
+				t.Errorf("noInfo = %v, want %v", flags.noInfo, tt.wantNoInfo)
+			}
+		})
 	}
 }

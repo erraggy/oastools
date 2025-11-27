@@ -55,3 +55,38 @@ func Example_handleConversionIssues() {
 	fmt.Printf("\nSummary: %d critical, %d warnings, %d info\n",
 		result.CriticalCount, result.WarningCount, result.InfoCount)
 }
+
+// Example_complexConversion demonstrates converting a complex OAS 2.0 document
+// with OAuth2 flows, custom security schemes, and polymorphic schemas to OAS 3.0.
+func Example_complexConversion() {
+	// Convert a complex OAS 2.0 document with strict mode disabled
+	// to allow for lossy conversions (e.g., allowEmptyValue is dropped)
+	result, err := converter.ConvertWithOptions(
+		converter.WithFilePath("testdata/petstore-2.0.yaml"),
+		converter.WithTargetVersion("3.0.3"),
+		converter.WithStrictMode(false), // Allow lossy conversions
+		converter.WithIncludeInfo(true), // Include informational messages
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Review conversion issues to understand the changes
+	fmt.Printf("Conversion from %s to %s:\n", result.SourceVersion, result.TargetVersion)
+	fmt.Printf("- Critical issues: %d\n", result.CriticalCount)
+	fmt.Printf("- Warnings: %d\n", result.WarningCount)
+	fmt.Printf("- Info messages: %d\n", result.InfoCount)
+
+	// Important conversions in OAS 2.0 → 3.0:
+	// - OAuth2 flows are restructured under components.securitySchemes
+	// - `host`, `basePath`, `schemes` → `servers` array with URL templates
+	// - `definitions` → `components.schemas`
+	// - `consumes`/`produces` → requestBody.content / responses.*.content
+	// - Body parameters → requestBody objects
+
+	// Check if conversion was successful despite issues
+	if !result.HasCriticalIssues() {
+		fmt.Println("\nConversion completed successfully")
+	}
+}

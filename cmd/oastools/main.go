@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,15 +32,30 @@ func main() {
 	case "help", "-h", "--help":
 		printUsage()
 	case "validate":
-		handleValidate(os.Args[2:])
+		if err := handleValidate(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	case "parse":
-		handleParse(os.Args[2:])
+		if err := handleParse(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	case "join":
-		handleJoin(os.Args[2:])
+		if err := handleJoin(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	case "convert":
-		handleConvert(os.Args[2:])
+		if err := handleConvert(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	case "diff":
-		handleDiff(os.Args[2:])
+		if err := handleDiff(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", command)
 		printUsage()
@@ -46,23 +63,71 @@ func main() {
 	}
 }
 
-func handleParse(args []string) {
-	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: parse command requires a file path or URL\n\n")
-		fmt.Println("Usage: oastools parse <file|url>")
-		os.Exit(1)
+// validateCollisionStrategy validates a collision strategy name and returns an error if invalid.
+// The strategyName parameter is used in the error message (e.g., "path-strategy").
+func validateCollisionStrategy(strategyName, value string) error {
+	if value != "" && !joiner.IsValidStrategy(value) {
+		return fmt.Errorf("invalid %s '%s'. Valid strategies: %v", strategyName, value, joiner.ValidStrategies())
+	}
+	return nil
+}
+
+// parseFlags contains flags for the parse command
+type parseFlags struct {
+	resolveRefs       bool
+	validateStructure bool
+}
+
+// setupParseFlags creates and configures a FlagSet for the parse command.
+// Returns the FlagSet and a parseFlags struct with bound flag variables.
+func setupParseFlags() (*flag.FlagSet, *parseFlags) {
+	fs := flag.NewFlagSet("parse", flag.ContinueOnError)
+	flags := &parseFlags{}
+
+	fs.BoolVar(&flags.resolveRefs, "resolve-refs", false, "resolve external $ref references")
+	fs.BoolVar(&flags.validateStructure, "validate-structure", false, "validate document structure during parsing")
+
+	fs.Usage = func() {
+		output := fs.Output()
+		_, _ = fmt.Fprintf(output, "Usage: oastools parse [flags] <file|url>\n\n")
+		_, _ = fmt.Fprintf(output, "Parse and output OpenAPI document structure.\n\n")
+		_, _ = fmt.Fprintf(output, "Flags:\n")
+		fs.PrintDefaults()
+		_, _ = fmt.Fprintf(output, "\nExamples:\n")
+		_, _ = fmt.Fprintf(output, "  oastools parse openapi.yaml\n")
+		_, _ = fmt.Fprintf(output, "  oastools parse --resolve-refs openapi.yaml\n")
+		_, _ = fmt.Fprintf(output, "  oastools parse --validate-structure https://example.com/api/openapi.yaml\n")
 	}
 
-	specPath := args[0]
+	return fs, flags
+}
 
-	// Create parser with version in User-Agent
+func handleParse(args []string) error {
+	fs, flags := setupParseFlags()
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+
+	if fs.NArg() != 1 {
+		fs.Usage()
+		return fmt.Errorf("parse command requires exactly one file path or URL")
+	}
+
+	specPath := fs.Arg(0)
+
+	// Create parser with options
 	p := parser.New()
+	p.ResolveRefs = flags.resolveRefs
+	p.ValidateStructure = flags.validateStructure
 
 	// Parse the file or URL
 	result, err := p.Parse(specPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("parsing file: %w", err)
 	}
 
 	// Print results
@@ -130,58 +195,72 @@ func handleParse(args []string) {
 	fmt.Printf("\nRaw Data (JSON):\n")
 	jsonData, err := json.MarshalIndent(result.Data, "", "  ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error marshaling to JSON: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("marshaling to JSON: %w", err)
 	}
 	fmt.Println(string(jsonData))
 
 	fmt.Printf("\nParsing completed successfully!\n")
+	return nil
 }
 
-func handleValidate(args []string) {
-	// Parse flags
-	var strict bool
-	var noWarnings bool
-	var specPath string
+// validateFlags contains flags for the validate command
+type validateFlags struct {
+	strict     bool
+	noWarnings bool
+}
 
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		switch arg {
-		case "--strict":
-			strict = true
-		case "--no-warnings":
-			noWarnings = true
-		case "-h", "--help":
-			printValidateUsage()
-			return
-		default:
-			if specPath == "" {
-				specPath = arg
-			} else {
-				fmt.Fprintf(os.Stderr, "Error: unexpected argument '%s'\n", arg)
-				os.Exit(1)
-			}
+// setupValidateFlags creates and configures a FlagSet for the validate command.
+// Returns the FlagSet and a validateFlags struct with bound flag variables.
+func setupValidateFlags() (*flag.FlagSet, *validateFlags) {
+	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
+	flags := &validateFlags{}
+
+	fs.BoolVar(&flags.strict, "strict", false, "enable stricter validation beyond spec requirements")
+	fs.BoolVar(&flags.noWarnings, "no-warnings", false, "suppress warning messages (only show errors)")
+
+	fs.Usage = func() {
+		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools validate [flags] <file|url>\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Validate an OpenAPI specification file or URL against the specification version it declares.\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
+		fs.PrintDefaults()
+		_, _ = fmt.Fprintf(fs.Output(), "\nExamples:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate openapi.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate https://example.com/api/openapi.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate --strict api-spec.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate --no-warnings openapi.json\n")
+	}
+
+	return fs, flags
+}
+
+func handleValidate(args []string) error {
+	fs, flags := setupValidateFlags()
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
 		}
+		return err
 	}
 
-	if specPath == "" {
-		fmt.Fprintf(os.Stderr, "Error: validate command requires a file path or URL\n\n")
-		printValidateUsage()
-		os.Exit(1)
+	if fs.NArg() != 1 {
+		fs.Usage()
+		return fmt.Errorf("validate command requires exactly one file path or URL")
 	}
+
+	specPath := fs.Arg(0)
 
 	// Create validator with options
 	v := validator.New()
-	v.StrictMode = strict
-	v.IncludeWarnings = !noWarnings
+	v.StrictMode = flags.strict
+	v.IncludeWarnings = !flags.noWarnings
 
 	// Validate the file or URL with timing
 	startTime := time.Now()
 	result, err := v.Validate(specPath)
 	totalTime := time.Since(startTime)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error validating file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("validating file: %w", err)
 	}
 
 	// Print results
@@ -230,109 +309,153 @@ func handleValidate(args []string) {
 		fmt.Println()
 		os.Exit(1)
 	}
+
+	return nil
 }
 
-func printValidateUsage() {
-	fmt.Println(`Usage: oastools validate [options] <file|url>
-
-Validate an OpenAPI specification file or URL against the specification version it declares.
-
-Options:
-  --strict        Enable stricter validation beyond spec requirements
-  --no-warnings   Suppress warning messages (only show errors)
-  -h, --help      Show this help message
-
-Examples:
-  oastools validate openapi.yaml
-  oastools validate https://example.com/api/openapi.yaml
-  oastools validate --strict api-spec.yaml
-  oastools validate --no-warnings openapi.json`)
+// joinFlags contains flags for the join command
+type joinFlags struct {
+	output            string
+	pathStrategy      string
+	schemaStrategy    string
+	componentStrategy string
+	noMergeArrays     bool
+	noDedupTags       bool
 }
 
-// parseJoinFlags parses command-line arguments for the join command
-// Returns config, filePaths, outputPath, showHelp flag, and error
-func parseJoinFlags(args []string) (joiner.JoinerConfig, []string, string, bool, error) {
-	var outputPath string
-	var pathStrategy string
-	var schemaStrategy string
-	var componentStrategy string
-	var noMergeArrays bool
-	var noDedupTags bool
-	var filePaths []string
+// setupJoinFlags creates and configures a FlagSet for the join command.
+// Returns the FlagSet and a joinFlags struct with bound flag variables.
+func setupJoinFlags() (*flag.FlagSet, *joinFlags) {
+	fs := flag.NewFlagSet("join", flag.ContinueOnError)
+	flags := &joinFlags{}
 
-	// Parse flags
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		switch arg {
-		case "-o", "--output":
-			if i+1 >= len(args) {
-				return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("%s requires an argument", arg)
-			}
-			outputPath = args[i+1]
-			i++
-		case "--path-strategy":
-			if i+1 >= len(args) {
-				return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("%s requires an argument", arg)
-			}
-			pathStrategy = args[i+1]
-			i++
-		case "--schema-strategy":
-			if i+1 >= len(args) {
-				return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("%s requires an argument", arg)
-			}
-			schemaStrategy = args[i+1]
-			i++
-		case "--component-strategy":
-			if i+1 >= len(args) {
-				return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("%s requires an argument", arg)
-			}
-			componentStrategy = args[i+1]
-			i++
-		case "--no-merge-arrays":
-			noMergeArrays = true
-		case "--no-dedup-tags":
-			noDedupTags = true
-		case "-h", "--help":
-			return joiner.JoinerConfig{}, nil, "", true, nil
-		default:
-			filePaths = append(filePaths, arg)
+	fs.StringVar(&flags.output, "o", "", "output file path (required)")
+	fs.StringVar(&flags.output, "output", "", "output file path (required)")
+	fs.StringVar(&flags.pathStrategy, "path-strategy", "", "collision strategy for paths (accept-left, accept-right, fail, fail-on-paths)")
+	fs.StringVar(&flags.schemaStrategy, "schema-strategy", "", "collision strategy for schemas/definitions")
+	fs.StringVar(&flags.componentStrategy, "component-strategy", "", "collision strategy for other components")
+	fs.BoolVar(&flags.noMergeArrays, "no-merge-arrays", false, "don't merge arrays (servers, security, etc.)")
+	fs.BoolVar(&flags.noDedupTags, "no-dedup-tags", false, "don't deduplicate tags by name")
+
+	fs.Usage = func() {
+		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools join [flags] <file1> <file2> [file3...]\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Join multiple OpenAPI specification files into a single document.\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
+		fs.PrintDefaults()
+		_, _ = fmt.Fprintf(fs.Output(), "\nCollision Strategies:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  accept-left      Keep the first value when collisions occur\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  accept-right     Keep the last value when collisions occur (overwrite)\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  fail             Fail with an error on any collision\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  fail-on-paths    Fail only on path collisions, allow schema collisions\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nExamples:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools join -o merged.yaml base.yaml extensions.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nNotes:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - All input files must be the same major OAS version (2.0 or 3.x)\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - The output will use the version of the first input file\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Info section is taken from the first document by default\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Output file is written with restrictive permissions (0600) for security\n")
+	}
+
+	return fs, flags
+}
+
+func handleJoin(args []string) error {
+	fs, flags := setupJoinFlags()
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
 		}
+		return err
 	}
 
-	if len(filePaths) < 2 {
-		return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("join command requires at least 2 input files")
+	if fs.NArg() < 2 {
+		fs.Usage()
+		return fmt.Errorf("join command requires at least 2 input files")
 	}
 
-	if outputPath == "" {
-		return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("output file is required (use -o or --output)")
+	if flags.output == "" {
+		fs.Usage()
+		return fmt.Errorf("output file is required (use -o or --output)")
 	}
+
+	filePaths := fs.Args()
 
 	// Build configuration
 	config := joiner.DefaultConfig()
-	config.MergeArrays = !noMergeArrays
-	config.DeduplicateTags = !noDedupTags
+	config.MergeArrays = !flags.noMergeArrays
+	config.DeduplicateTags = !flags.noDedupTags
 
 	// Validate and parse strategy flags
-	if pathStrategy != "" {
-		if !joiner.IsValidStrategy(pathStrategy) {
-			return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("invalid path-strategy '%s'. Valid strategies: %v", pathStrategy, joiner.ValidStrategies())
-		}
-		config.PathStrategy = joiner.CollisionStrategy(pathStrategy)
+	if err := validateCollisionStrategy("path-strategy", flags.pathStrategy); err != nil {
+		return err
 	}
-	if schemaStrategy != "" {
-		if !joiner.IsValidStrategy(schemaStrategy) {
-			return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("invalid schema-strategy '%s'. Valid strategies: %v", schemaStrategy, joiner.ValidStrategies())
-		}
-		config.SchemaStrategy = joiner.CollisionStrategy(schemaStrategy)
+	if err := validateCollisionStrategy("schema-strategy", flags.schemaStrategy); err != nil {
+		return err
 	}
-	if componentStrategy != "" {
-		if !joiner.IsValidStrategy(componentStrategy) {
-			return joiner.JoinerConfig{}, nil, "", false, fmt.Errorf("invalid component-strategy '%s'. Valid strategies: %v", componentStrategy, joiner.ValidStrategies())
-		}
-		config.ComponentStrategy = joiner.CollisionStrategy(componentStrategy)
+	if err := validateCollisionStrategy("component-strategy", flags.componentStrategy); err != nil {
+		return err
 	}
 
-	return config, filePaths, outputPath, false, nil
+	// Apply validated strategies to config
+	if flags.pathStrategy != "" {
+		config.PathStrategy = joiner.CollisionStrategy(flags.pathStrategy)
+	}
+	if flags.schemaStrategy != "" {
+		config.SchemaStrategy = joiner.CollisionStrategy(flags.schemaStrategy)
+	}
+	if flags.componentStrategy != "" {
+		config.ComponentStrategy = joiner.CollisionStrategy(flags.componentStrategy)
+	}
+
+	// Validate output path before joining
+	if err := validateOutputPath(flags.output, filePaths); err != nil {
+		return err
+	}
+
+	// Create joiner and execute with timing
+	startTime := time.Now()
+	j := joiner.New(config)
+	result, err := j.Join(filePaths)
+	if err != nil {
+		return fmt.Errorf("joining specifications: %w", err)
+	}
+
+	// Write result to file
+	err = j.WriteResult(result, flags.output)
+	totalTime := time.Since(startTime)
+	if err != nil {
+		return fmt.Errorf("writing output file: %w", err)
+	}
+
+	// Print success message
+	fmt.Printf("OpenAPI Specification Joiner\n")
+	fmt.Printf("============================\n\n")
+	fmt.Printf("oastools version: %s\n", oastools.Version())
+	fmt.Printf("Successfully joined %d specification files\n", len(filePaths))
+	fmt.Printf("Output: %s\n", flags.output)
+	fmt.Printf("OAS Version: %s\n", result.Version)
+	fmt.Printf("Paths: %d\n", result.Stats.PathCount)
+	fmt.Printf("Operations: %d\n", result.Stats.OperationCount)
+	fmt.Printf("Schemas: %d\n", result.Stats.SchemaCount)
+	fmt.Printf("Total Time: %v\n\n", totalTime)
+
+	if result.CollisionCount > 0 {
+		fmt.Printf("Collisions resolved: %d\n\n", result.CollisionCount)
+	}
+
+	if len(result.Warnings) > 0 {
+		fmt.Printf("Warnings (%d):\n", len(result.Warnings))
+		for _, warning := range result.Warnings {
+			fmt.Printf("  - %s\n", warning)
+		}
+		fmt.Println()
+	}
+
+	fmt.Printf("✓ Join completed successfully!\n")
+	return nil
 }
 
 // validateOutputPath checks if the output path is safe to write to
@@ -363,182 +486,84 @@ func validateOutputPath(outputPath string, inputPaths []string) error {
 	return nil
 }
 
-func handleJoin(args []string) {
-	config, filePaths, outputPath, showHelp, err := parseJoinFlags(args)
-	if showHelp {
-		printJoinUsage()
-		return
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n\n", err)
-		printJoinUsage()
-		os.Exit(1)
-	}
+// convertFlags contains flags for the convert command
+type convertFlags struct {
+	target     string
+	output     string
+	strict     bool
+	noWarnings bool
+}
 
-	// Validate output path before joining
-	if err := validateOutputPath(outputPath, filePaths); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
+// setupConvertFlags creates and configures a FlagSet for the convert command.
+// Returns the FlagSet and a convertFlags struct with bound flag variables.
+func setupConvertFlags() (*flag.FlagSet, *convertFlags) {
+	fs := flag.NewFlagSet("convert", flag.ContinueOnError)
+	flags := &convertFlags{}
 
-	// Create joiner and execute with timing
-	startTime := time.Now()
-	j := joiner.New(config)
-	result, err := j.Join(filePaths)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error joining specifications: %v\n", err)
-		os.Exit(1)
-	}
+	fs.StringVar(&flags.target, "t", "", "target OAS version (e.g., \"3.0.3\", \"2.0\", \"3.1.0\") (required)")
+	fs.StringVar(&flags.target, "target", "", "target OAS version (e.g., \"3.0.3\", \"2.0\", \"3.1.0\") (required)")
+	fs.StringVar(&flags.output, "o", "", "output file path (default: stdout)")
+	fs.StringVar(&flags.output, "output", "", "output file path (default: stdout)")
+	fs.BoolVar(&flags.strict, "strict", false, "fail on any conversion issues (even warnings)")
+	fs.BoolVar(&flags.noWarnings, "no-warnings", false, "suppress warning and info messages")
 
-	// Write result to file
-	err = j.WriteResult(result, outputPath)
-	totalTime := time.Since(startTime)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing output file: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Print success message
-	fmt.Printf("OpenAPI Specification Joiner\n")
-	fmt.Printf("============================\n\n")
-	fmt.Printf("oastools version: %s\n", oastools.Version())
-	fmt.Printf("Successfully joined %d specification files\n", len(filePaths))
-	fmt.Printf("Output: %s\n", outputPath)
-	fmt.Printf("OAS Version: %s\n", result.Version)
-	fmt.Printf("Paths: %d\n", result.Stats.PathCount)
-	fmt.Printf("Operations: %d\n", result.Stats.OperationCount)
-	fmt.Printf("Schemas: %d\n", result.Stats.SchemaCount)
-	fmt.Printf("Total Time: %v\n\n", totalTime)
-
-	if result.CollisionCount > 0 {
-		fmt.Printf("Collisions resolved: %d\n\n", result.CollisionCount)
+	fs.Usage = func() {
+		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools convert [flags] <file|url>\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Convert an OpenAPI specification from one version to another.\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
+		fs.PrintDefaults()
+		_, _ = fmt.Fprintf(fs.Output(), "\nSupported Conversions:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - OAS 2.0 → OAS 3.x (3.0.0 through 3.2.0)\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - OAS 3.x → OAS 2.0\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - OAS 3.x → OAS 3.y (version updates)\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nExamples:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools convert -t 3.0.3 https://example.com/swagger.yaml -o openapi.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools convert -t 2.0 openapi-v3.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nNotes:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Critical issues indicate features that cannot be converted (data loss)\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Warnings indicate lossy conversions or best-effort transformations\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Info messages provide context about conversion choices\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Always validate converted documents before deployment\n")
 	}
 
-	if len(result.Warnings) > 0 {
-		fmt.Printf("Warnings (%d):\n", len(result.Warnings))
-		for _, warning := range result.Warnings {
-			fmt.Printf("  - %s\n", warning)
+	return fs, flags
+}
+
+func handleConvert(args []string) error {
+	fs, flags := setupConvertFlags()
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
 		}
-		fmt.Println()
+		return err
 	}
 
-	fmt.Printf("✓ Join completed successfully!\n")
-}
-
-func printJoinUsage() {
-	fmt.Println(`Usage: oastools join [options] <file1> <file2> [file3...]
-
-Join multiple OpenAPI specification files into a single document.
-
-Required Options:
-  -o, --output <file>              Output file path
-
-Strategy Options:
-  --path-strategy <strategy>       Collision strategy for paths
-                                   (accept-left, accept-right, fail, fail-on-paths)
-                                   Default: fail
-  --schema-strategy <strategy>     Collision strategy for schemas/definitions
-                                   Default: accept-left
-  --component-strategy <strategy>  Collision strategy for other components
-                                   Default: accept-left
-
-Other Options:
-  --no-merge-arrays               Don't merge arrays (servers, security, etc.)
-  --no-dedup-tags                 Don't deduplicate tags by name
-  -h, --help                      Show this help message
-
-Collision Strategies:
-  accept-left      Keep the first value when collisions occur
-  accept-right     Keep the last value when collisions occur (overwrite)
-  fail             Fail with an error on any collision
-  fail-on-paths    Fail only on path collisions, allow schema collisions
-
-Examples:
-  oastools join -o merged.yaml base.yaml extensions.yaml
-  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml
-  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml
-
-Notes:
-  - All input files must be the same major OAS version (2.0 or 3.x)
-  - The output will use the version of the first input file
-  - Info section is taken from the first document by default
-  - Output file is written with restrictive permissions (0600) for security`)
-}
-
-// marshalDocument marshals a document to bytes in the specified format
-func marshalDocument(doc any, format parser.SourceFormat) ([]byte, error) {
-	if format == parser.SourceFormatJSON {
-		return json.MarshalIndent(doc, "", "  ")
-	}
-	return yaml.Marshal(doc)
-}
-
-func handleConvert(args []string) {
-	// Parse flags
-	var targetVersion string
-	var outputPath string
-	var strict bool
-	var noWarnings bool
-	var specPath string
-
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		switch arg {
-		case "-t", "--target":
-			if i+1 >= len(args) {
-				fmt.Fprintf(os.Stderr, "Error: %s requires an argument\n", arg)
-				os.Exit(1)
-			}
-			targetVersion = args[i+1]
-			i++
-		case "-o", "--output":
-			if i+1 >= len(args) {
-				fmt.Fprintf(os.Stderr, "Error: %s requires an argument\n", arg)
-				os.Exit(1)
-			}
-			outputPath = args[i+1]
-			i++
-		case "--strict":
-			strict = true
-		case "--no-warnings":
-			noWarnings = true
-		case "-h", "--help":
-			printConvertUsage()
-			return
-		default:
-			if specPath == "" {
-				specPath = arg
-			} else {
-				fmt.Fprintf(os.Stderr, "Error: unexpected argument '%s'\n", arg)
-				os.Exit(1)
-			}
-		}
+	if fs.NArg() != 1 {
+		fs.Usage()
+		return fmt.Errorf("convert command requires exactly one file path or URL")
 	}
 
-	if specPath == "" {
-		fmt.Fprintf(os.Stderr, "Error: convert command requires a file path or URL\n\n")
-		printConvertUsage()
-		os.Exit(1)
-	}
+	specPath := fs.Arg(0)
 
-	if targetVersion == "" {
-		fmt.Fprintf(os.Stderr, "Error: target version is required (use -t or --target)\n\n")
-		printConvertUsage()
-		os.Exit(1)
+	if flags.target == "" {
+		fs.Usage()
+		return fmt.Errorf("target version is required (use -t or --target)")
 	}
 
 	// Create converter with options
 	c := converter.New()
-	c.StrictMode = strict
-	c.IncludeInfo = !noWarnings
+	c.StrictMode = flags.strict
+	c.IncludeInfo = !flags.noWarnings
 
 	// Convert the file or URL with timing
 	startTime := time.Now()
-	result, err := c.Convert(specPath, targetVersion)
+	result, err := c.Convert(specPath, flags.target)
 	totalTime := time.Since(startTime)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error converting file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("converting file: %w", err)
 	}
 
 	// Print results
@@ -582,21 +607,18 @@ func handleConvert(args []string) {
 	// Write output
 	data, err := marshalDocument(result.Document, result.SourceFormat)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error marshaling converted document: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("marshaling converted document: %w", err)
 	}
 
-	if outputPath != "" {
-		if err := os.WriteFile(outputPath, data, 0600); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing output file: %v\n", err)
-			os.Exit(1)
+	if flags.output != "" {
+		if err := os.WriteFile(flags.output, data, 0600); err != nil {
+			return fmt.Errorf("writing output file: %w", err)
 		}
-		fmt.Printf("\nOutput written to: %s\n", outputPath)
+		fmt.Printf("\nOutput written to: %s\n", flags.output)
 	} else {
 		// Write to stdout
 		if _, err = os.Stdout.Write(data); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing converted document to stdout: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("writing converted document to stdout: %w", err)
 		}
 	}
 
@@ -604,91 +626,98 @@ func handleConvert(args []string) {
 	if !result.Success {
 		os.Exit(1)
 	}
+
+	return nil
 }
 
-func printConvertUsage() {
-	fmt.Println(`Usage: oastools convert [options] <file|url>
-
-Convert an OpenAPI specification from one version to another.
-
-Required Options:
-  -t, --target <version>  Target OAS version (e.g., "3.0.3", "2.0", "3.1.0")
-
-Optional:
-  -o, --output <file>     Output file path (default: stdout)
-  --strict                Fail on any conversion issues (even warnings)
-  --no-warnings           Suppress warning and info messages
-  -h, --help              Show this help message
-
-Supported Conversions:
-  - OAS 2.0 → OAS 3.x (3.0.0 through 3.2.0)
-  - OAS 3.x → OAS 2.0
-  - OAS 3.x → OAS 3.y (version updates)
-
-Examples:
-  oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
-  oastools convert -t 3.0.3 https://example.com/swagger.yaml -o openapi.yaml
-  oastools convert -t 2.0 openapi-v3.yaml
-  oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml
-
-Notes:
-  - Critical issues indicate features that cannot be converted (data loss)
-  - Warnings indicate lossy conversions or best-effort transformations
-  - Info messages provide context about conversion choices
-  - Always validate converted documents before deployment`)
+// marshalDocument marshals a document to bytes in the specified format
+func marshalDocument(doc any, format parser.SourceFormat) ([]byte, error) {
+	if format == parser.SourceFormatJSON {
+		return json.MarshalIndent(doc, "", "  ")
+	}
+	return yaml.Marshal(doc)
 }
 
-func handleDiff(args []string) {
-	// Parse flags
-	var breaking bool
-	var noInfo bool
-	var sourcePath string
-	var targetPath string
+// diffFlags contains flags for the diff command
+type diffFlags struct {
+	breaking bool
+	noInfo   bool
+}
 
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		switch arg {
-		case "--breaking":
-			breaking = true
-		case "--no-info":
-			noInfo = true
-		case "-h", "--help":
-			printDiffUsage()
-			return
-		default:
-			if sourcePath == "" {
-				sourcePath = arg
-			} else if targetPath == "" {
-				targetPath = arg
-			} else {
-				fmt.Fprintf(os.Stderr, "Error: unexpected argument '%s'\n", arg)
-				os.Exit(1)
-			}
+// setupDiffFlags creates and configures a FlagSet for the diff command.
+// Returns the FlagSet and a diffFlags struct with bound flag variables.
+func setupDiffFlags() (*flag.FlagSet, *diffFlags) {
+	fs := flag.NewFlagSet("diff", flag.ContinueOnError)
+	flags := &diffFlags{}
+
+	fs.BoolVar(&flags.breaking, "breaking", false, "enable breaking change detection and categorization")
+	fs.BoolVar(&flags.noInfo, "no-info", false, "exclude informational changes from output")
+
+	fs.Usage = func() {
+		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools diff [flags] <source> <target>\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Compare two OpenAPI specification files or URLs and report differences.\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
+		fs.PrintDefaults()
+		_, _ = fmt.Fprintf(fs.Output(), "\nModes:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  Default (Simple):\n")
+		_, _ = fmt.Fprintf(fs.Output(), "    Reports all semantic differences between specifications without\n")
+		_, _ = fmt.Fprintf(fs.Output(), "    categorizing them by severity or breaking change impact.\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  --breaking (Breaking Change Detection):\n")
+		_, _ = fmt.Fprintf(fs.Output(), "    Categorizes changes by severity and identifies breaking API changes:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "    - Critical: Removed endpoints or operations\n")
+		_, _ = fmt.Fprintf(fs.Output(), "    - Error:    Removed required parameters, incompatible type changes\n")
+		_, _ = fmt.Fprintf(fs.Output(), "    - Warning:  Deprecated operations, added required fields\n")
+		_, _ = fmt.Fprintf(fs.Output(), "    - Info:     Additions, relaxed constraints, documentation updates\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nExamples:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff api-v1.yaml api-v2.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff --breaking api-v1.yaml api-v2.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff --breaking --no-info old.yaml new.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nExit Status:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  0    No differences found (or no breaking changes in --breaking mode)\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  1    Differences found (or breaking changes found in --breaking mode)\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nNotes:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Both specifications must be valid OpenAPI documents\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Cross-version comparison (2.0 vs 3.x) is supported with limitations\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Breaking change detection helps identify backward compatibility issues\n")
+	}
+
+	return fs, flags
+}
+
+func handleDiff(args []string) error {
+	fs, flags := setupDiffFlags()
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
 		}
+		return err
 	}
 
-	if sourcePath == "" || targetPath == "" {
-		fmt.Fprintf(os.Stderr, "Error: diff command requires two file paths or URLs\n\n")
-		printDiffUsage()
-		os.Exit(1)
+	if fs.NArg() != 2 {
+		fs.Usage()
+		return fmt.Errorf("diff command requires exactly two file paths or URLs")
 	}
+
+	sourcePath := fs.Arg(0)
+	targetPath := fs.Arg(1)
 
 	// Create differ with options
 	d := differ.New()
-	if breaking {
+	if flags.breaking {
 		d.Mode = differ.ModeBreaking
 	} else {
 		d.Mode = differ.ModeSimple
 	}
-	d.IncludeInfo = !noInfo
+	d.IncludeInfo = !flags.noInfo
 
 	// Diff the files with timing
 	startTime := time.Now()
 	result, err := d.Diff(sourcePath, targetPath)
 	totalTime := time.Since(startTime)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error comparing specifications: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("comparing specifications: %w", err)
 	}
 
 	// Print results
@@ -701,11 +730,11 @@ func handleDiff(args []string) {
 
 	if len(result.Changes) == 0 {
 		fmt.Println("✓ No differences found - specifications are identical")
-		return
+		return nil
 	}
 
 	// Print changes grouped by category if in breaking mode
-	if breaking {
+	if flags.breaking {
 		// Group changes by category
 		categories := make(map[differ.ChangeCategory][]differ.Change)
 		for _, change := range result.Changes {
@@ -762,44 +791,8 @@ func handleDiff(args []string) {
 			fmt.Printf("  %s\n", change.String())
 		}
 	}
-}
 
-func printDiffUsage() {
-	fmt.Println(`Usage: oastools diff [options] <source> <target>
-
-Compare two OpenAPI specification files or URLs and report differences.
-
-Options:
-  --breaking      Enable breaking change detection and categorization
-  --no-info       Exclude informational changes from output
-  -h, --help      Show this help message
-
-Modes:
-  Default (Simple):
-    Reports all semantic differences between specifications without
-    categorizing them by severity or breaking change impact.
-
-  --breaking (Breaking Change Detection):
-    Categorizes changes by severity and identifies breaking API changes:
-    - Critical: Removed endpoints or operations
-    - Error:    Removed required parameters, incompatible type changes
-    - Warning:  Deprecated operations, added required fields
-    - Info:     Additions, relaxed constraints, documentation updates
-
-Examples:
-  oastools diff api-v1.yaml api-v2.yaml
-  oastools diff --breaking api-v1.yaml api-v2.yaml
-  oastools diff --breaking --no-info old.yaml new.yaml
-  oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml
-
-Exit Status:
-  0    No differences found (or no breaking changes in --breaking mode)
-  1    Differences found (or breaking changes found in --breaking mode)
-
-Notes:
-  - Both specifications must be valid OpenAPI documents
-  - Cross-version comparison (2.0 vs 3.x) is supported with limitations
-  - Breaking change detection helps identify backward compatibility issues`)
+	return nil
 }
 
 func printUsage() {

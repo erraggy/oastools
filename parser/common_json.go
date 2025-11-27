@@ -2,6 +2,8 @@ package parser
 
 import (
 	"encoding/json"
+
+	"github.com/erraggy/oastools/parser/internal/jsonhelpers"
 )
 
 // MarshalJSON implements custom JSON marshaling for Info.
@@ -15,35 +17,19 @@ func (i *Info) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(i))
 	}
 
-	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]any, 7+len(i.Extra))
+	// Build map with known fields
+	m := map[string]any{
+		"title":   i.Title,   // Required field, always include
+		"version": i.Version, // Required field, always include
+	}
+	jsonhelpers.SetIfNotEmpty(m, "description", i.Description)
+	jsonhelpers.SetIfNotEmpty(m, "termsOfService", i.TermsOfService)
+	jsonhelpers.SetIfNotNil(m, "contact", i.Contact)
+	jsonhelpers.SetIfNotNil(m, "license", i.License)
+	jsonhelpers.SetIfNotEmpty(m, "summary", i.Summary)
 
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	m["title"] = i.Title
-	m["version"] = i.Version
-
-	if i.Description != "" {
-		m["description"] = i.Description
-	}
-	if i.TermsOfService != "" {
-		m["termsOfService"] = i.TermsOfService
-	}
-	if i.Contact != nil {
-		m["contact"] = i.Contact
-	}
-	if i.License != nil {
-		m["license"] = i.License
-	}
-	if i.Summary != "" {
-		m["summary"] = i.Summary
-	}
-
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range i.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, i.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Info.
@@ -87,26 +73,14 @@ func (c *Contact) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(c))
 	}
 
-	// Build map directly to avoid double-marshal pattern
+	// Build map with known fields
 	m := make(map[string]any, 3+len(c.Extra))
+	jsonhelpers.SetIfNotEmpty(m, "name", c.Name)
+	jsonhelpers.SetIfNotEmpty(m, "url", c.URL)
+	jsonhelpers.SetIfNotEmpty(m, "email", c.Email)
 
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	if c.Name != "" {
-		m["name"] = c.Name
-	}
-	if c.URL != "" {
-		m["url"] = c.URL
-	}
-	if c.Email != "" {
-		m["email"] = c.Email
-	}
-
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range c.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, c.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Contact.
@@ -150,26 +124,14 @@ func (l *License) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(l))
 	}
 
-	// Build map directly to avoid double-marshal pattern
+	// Build map with known fields
 	m := make(map[string]any, 3+len(l.Extra))
+	jsonhelpers.SetIfNotEmpty(m, "name", l.Name)
+	jsonhelpers.SetIfNotEmpty(m, "url", l.URL)
+	jsonhelpers.SetIfNotEmpty(m, "identifier", l.Identifier)
 
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	if l.Name != "" {
-		m["name"] = l.Name
-	}
-	if l.URL != "" {
-		m["url"] = l.URL
-	}
-	if l.Identifier != "" {
-		m["identifier"] = l.Identifier
-	}
-
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range l.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, l.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for License.
@@ -213,21 +175,14 @@ func (e *ExternalDocs) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(e))
 	}
 
-	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]any, 2+len(e.Extra))
-
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	if e.Description != "" {
-		m["description"] = e.Description
+	// Build map with known fields
+	m := map[string]any{
+		"url": e.URL, // Required field, always include
 	}
-	m["url"] = e.URL
+	jsonhelpers.SetIfNotEmpty(m, "description", e.Description)
 
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range e.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, e.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for ExternalDocs.
@@ -271,25 +226,15 @@ func (t *Tag) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(t))
 	}
 
-	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]any, 3+len(t.Extra))
-
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	m["name"] = t.Name
-
-	if t.Description != "" {
-		m["description"] = t.Description
+	// Build map with known fields
+	m := map[string]any{
+		"name": t.Name, // Required field, always include
 	}
-	if t.ExternalDocs != nil {
-		m["externalDocs"] = t.ExternalDocs
-	}
+	jsonhelpers.SetIfNotEmpty(m, "description", t.Description)
+	jsonhelpers.SetIfNotNil(m, "externalDocs", t.ExternalDocs)
 
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range t.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, t.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Tag.
@@ -333,25 +278,15 @@ func (s *Server) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(s))
 	}
 
-	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]any, 3+len(s.Extra))
-
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	m["url"] = s.URL
-
-	if s.Description != "" {
-		m["description"] = s.Description
+	// Build map with known fields
+	m := map[string]any{
+		"url": s.URL, // Required field, always include
 	}
-	if len(s.Variables) > 0 {
-		m["variables"] = s.Variables
-	}
+	jsonhelpers.SetIfNotEmpty(m, "description", s.Description)
+	jsonhelpers.SetIfMapNotEmpty(m, "variables", s.Variables)
 
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range s.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, s.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Server.
@@ -395,25 +330,15 @@ func (sv *ServerVariable) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(sv))
 	}
 
-	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]any, 3+len(sv.Extra))
-
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	if len(sv.Enum) > 0 {
-		m["enum"] = sv.Enum
+	// Build map with known fields
+	m := map[string]any{
+		"default": sv.Default, // Required field, always include
 	}
-	m["default"] = sv.Default
+	jsonhelpers.SetIfNotNil(m, "enum", sv.Enum)
+	jsonhelpers.SetIfNotEmpty(m, "description", sv.Description)
 
-	if sv.Description != "" {
-		m["description"] = sv.Description
-	}
-
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range sv.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, sv.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for ServerVariable.
@@ -457,25 +382,15 @@ func (r *Reference) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(r))
 	}
 
-	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]any, 3+len(r.Extra))
-
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	m["$ref"] = r.Ref
-
-	if r.Summary != "" {
-		m["summary"] = r.Summary
+	// Build map with known fields
+	m := map[string]any{
+		"$ref": r.Ref, // Required field, always include
 	}
-	if r.Description != "" {
-		m["description"] = r.Description
-	}
+	jsonhelpers.SetIfNotEmpty(m, "summary", r.Summary)
+	jsonhelpers.SetIfNotEmpty(m, "description", r.Description)
 
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range r.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, r.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Reference.

@@ -2,14 +2,14 @@ package parser
 
 import (
 	"encoding/json"
+
+	"github.com/erraggy/oastools/parser/internal/jsonhelpers"
 )
 
 // MarshalJSON implements custom JSON marshaling for Schema.
 // This is required to flatten Extra fields (specification extensions like x-*)
 // into the top-level JSON object, as Go's encoding/json doesn't support
 // inline maps like yaml:",inline".
-//
-//nolint:cyclop // Schema has 50+ fields per OpenAPI spec, complexity is inherent
 func (s *Schema) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(s.Extra) == 0 {
@@ -17,194 +17,72 @@ func (s *Schema) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(s))
 	}
 
-	// Build map directly to avoid double-marshal pattern
+	// Build map with known fields
 	m := make(map[string]any, 50+len(s.Extra))
 
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	if s.Ref != "" {
-		m["$ref"] = s.Ref
-	}
-	if s.Schema != "" {
-		m["$schema"] = s.Schema
-	}
-	if s.Title != "" {
-		m["title"] = s.Title
-	}
-	if s.Description != "" {
-		m["description"] = s.Description
-	}
-	if s.Default != nil {
-		m["default"] = s.Default
-	}
-	if len(s.Examples) > 0 {
-		m["examples"] = s.Examples
-	}
-	if s.Type != nil {
-		m["type"] = s.Type
-	}
-	if len(s.Enum) > 0 {
-		m["enum"] = s.Enum
-	}
-	if s.Const != nil {
-		m["const"] = s.Const
-	}
-	if s.MultipleOf != nil {
-		m["multipleOf"] = s.MultipleOf
-	}
-	if s.Maximum != nil {
-		m["maximum"] = s.Maximum
-	}
-	if s.ExclusiveMaximum != nil {
-		m["exclusiveMaximum"] = s.ExclusiveMaximum
-	}
-	if s.Minimum != nil {
-		m["minimum"] = s.Minimum
-	}
-	if s.ExclusiveMinimum != nil {
-		m["exclusiveMinimum"] = s.ExclusiveMinimum
-	}
-	if s.MaxLength != nil {
-		m["maxLength"] = s.MaxLength
-	}
-	if s.MinLength != nil {
-		m["minLength"] = s.MinLength
-	}
-	if s.Pattern != "" {
-		m["pattern"] = s.Pattern
-	}
-	if s.Items != nil {
-		m["items"] = s.Items
-	}
-	if len(s.PrefixItems) > 0 {
-		m["prefixItems"] = s.PrefixItems
-	}
-	if s.AdditionalItems != nil {
-		m["additionalItems"] = s.AdditionalItems
-	}
-	if s.MaxItems != nil {
-		m["maxItems"] = s.MaxItems
-	}
-	if s.MinItems != nil {
-		m["minItems"] = s.MinItems
-	}
-	if s.UniqueItems {
-		m["uniqueItems"] = s.UniqueItems
-	}
-	if s.Contains != nil {
-		m["contains"] = s.Contains
-	}
-	if s.MaxContains != nil {
-		m["maxContains"] = s.MaxContains
-	}
-	if s.MinContains != nil {
-		m["minContains"] = s.MinContains
-	}
-	if len(s.Properties) > 0 {
-		m["properties"] = s.Properties
-	}
-	if len(s.PatternProperties) > 0 {
-		m["patternProperties"] = s.PatternProperties
-	}
-	if s.AdditionalProperties != nil {
-		m["additionalProperties"] = s.AdditionalProperties
-	}
-	if len(s.Required) > 0 {
-		m["required"] = s.Required
-	}
-	if s.PropertyNames != nil {
-		m["propertyNames"] = s.PropertyNames
-	}
-	if s.MaxProperties != nil {
-		m["maxProperties"] = s.MaxProperties
-	}
-	if s.MinProperties != nil {
-		m["minProperties"] = s.MinProperties
-	}
-	if len(s.DependentRequired) > 0 {
-		m["dependentRequired"] = s.DependentRequired
-	}
-	if len(s.DependentSchemas) > 0 {
-		m["dependentSchemas"] = s.DependentSchemas
-	}
-	if s.If != nil {
-		m["if"] = s.If
-	}
-	if s.Then != nil {
-		m["then"] = s.Then
-	}
-	if s.Else != nil {
-		m["else"] = s.Else
-	}
-	if len(s.AllOf) > 0 {
-		m["allOf"] = s.AllOf
-	}
-	if len(s.AnyOf) > 0 {
-		m["anyOf"] = s.AnyOf
-	}
-	if len(s.OneOf) > 0 {
-		m["oneOf"] = s.OneOf
-	}
-	if s.Not != nil {
-		m["not"] = s.Not
-	}
-	if s.Nullable {
-		m["nullable"] = s.Nullable
-	}
-	if s.Discriminator != nil {
-		m["discriminator"] = s.Discriminator
-	}
-	if s.ReadOnly {
-		m["readOnly"] = s.ReadOnly
-	}
-	if s.WriteOnly {
-		m["writeOnly"] = s.WriteOnly
-	}
-	if s.XML != nil {
-		m["xml"] = s.XML
-	}
-	if s.ExternalDocs != nil {
-		m["externalDocs"] = s.ExternalDocs
-	}
-	if s.Example != nil {
-		m["example"] = s.Example
-	}
-	if s.Deprecated {
-		m["deprecated"] = s.Deprecated
-	}
-	if s.Format != "" {
-		m["format"] = s.Format
-	}
-	if s.CollectionFormat != "" {
-		m["collectionFormat"] = s.CollectionFormat
-	}
-	if s.ID != "" {
-		m["$id"] = s.ID
-	}
-	if s.Anchor != "" {
-		m["$anchor"] = s.Anchor
-	}
-	if s.DynamicRef != "" {
-		m["$dynamicRef"] = s.DynamicRef
-	}
-	if s.DynamicAnchor != "" {
-		m["$dynamicAnchor"] = s.DynamicAnchor
-	}
-	if len(s.Vocabulary) > 0 {
-		m["$vocabulary"] = s.Vocabulary
-	}
-	if s.Comment != "" {
-		m["$comment"] = s.Comment
-	}
-	if len(s.Defs) > 0 {
-		m["$defs"] = s.Defs
-	}
+	// Add known fields (using helpers to omit zero values)
+	jsonhelpers.SetIfNotEmpty(m, "$ref", s.Ref)
+	jsonhelpers.SetIfNotEmpty(m, "$schema", s.Schema)
+	jsonhelpers.SetIfNotEmpty(m, "title", s.Title)
+	jsonhelpers.SetIfNotEmpty(m, "description", s.Description)
+	jsonhelpers.SetIfNotNil(m, "default", s.Default)
+	jsonhelpers.SetIfSliceNotEmpty(m, "examples", s.Examples)
+	jsonhelpers.SetIfNotNil(m, "type", s.Type)
+	jsonhelpers.SetIfNotNil(m, "enum", s.Enum)
+	jsonhelpers.SetIfNotNil(m, "const", s.Const)
+	jsonhelpers.SetIfNotNil(m, "multipleOf", s.MultipleOf)
+	jsonhelpers.SetIfNotNil(m, "maximum", s.Maximum)
+	jsonhelpers.SetIfNotNil(m, "exclusiveMaximum", s.ExclusiveMaximum)
+	jsonhelpers.SetIfNotNil(m, "minimum", s.Minimum)
+	jsonhelpers.SetIfNotNil(m, "exclusiveMinimum", s.ExclusiveMinimum)
+	jsonhelpers.SetIfNotNil(m, "maxLength", s.MaxLength)
+	jsonhelpers.SetIfNotNil(m, "minLength", s.MinLength)
+	jsonhelpers.SetIfNotEmpty(m, "pattern", s.Pattern)
+	jsonhelpers.SetIfNotNil(m, "items", s.Items)
+	jsonhelpers.SetIfNotNil(m, "prefixItems", s.PrefixItems)
+	jsonhelpers.SetIfNotNil(m, "additionalItems", s.AdditionalItems)
+	jsonhelpers.SetIfNotNil(m, "maxItems", s.MaxItems)
+	jsonhelpers.SetIfNotNil(m, "minItems", s.MinItems)
+	jsonhelpers.SetIfTrue(m, "uniqueItems", s.UniqueItems)
+	jsonhelpers.SetIfNotNil(m, "contains", s.Contains)
+	jsonhelpers.SetIfNotNil(m, "maxContains", s.MaxContains)
+	jsonhelpers.SetIfNotNil(m, "minContains", s.MinContains)
+	jsonhelpers.SetIfNotNil(m, "properties", s.Properties)
+	jsonhelpers.SetIfNotNil(m, "patternProperties", s.PatternProperties)
+	jsonhelpers.SetIfNotNil(m, "additionalProperties", s.AdditionalProperties)
+	jsonhelpers.SetIfNotNil(m, "required", s.Required)
+	jsonhelpers.SetIfNotNil(m, "propertyNames", s.PropertyNames)
+	jsonhelpers.SetIfNotNil(m, "maxProperties", s.MaxProperties)
+	jsonhelpers.SetIfNotNil(m, "minProperties", s.MinProperties)
+	jsonhelpers.SetIfNotNil(m, "dependentRequired", s.DependentRequired)
+	jsonhelpers.SetIfNotNil(m, "dependentSchemas", s.DependentSchemas)
+	jsonhelpers.SetIfNotNil(m, "if", s.If)
+	jsonhelpers.SetIfNotNil(m, "then", s.Then)
+	jsonhelpers.SetIfNotNil(m, "else", s.Else)
+	jsonhelpers.SetIfNotNil(m, "allOf", s.AllOf)
+	jsonhelpers.SetIfNotNil(m, "anyOf", s.AnyOf)
+	jsonhelpers.SetIfNotNil(m, "oneOf", s.OneOf)
+	jsonhelpers.SetIfNotNil(m, "not", s.Not)
+	jsonhelpers.SetIfTrue(m, "nullable", s.Nullable)
+	jsonhelpers.SetIfNotNil(m, "discriminator", s.Discriminator)
+	jsonhelpers.SetIfTrue(m, "readOnly", s.ReadOnly)
+	jsonhelpers.SetIfTrue(m, "writeOnly", s.WriteOnly)
+	jsonhelpers.SetIfNotNil(m, "xml", s.XML)
+	jsonhelpers.SetIfNotNil(m, "externalDocs", s.ExternalDocs)
+	jsonhelpers.SetIfNotNil(m, "example", s.Example)
+	jsonhelpers.SetIfTrue(m, "deprecated", s.Deprecated)
+	jsonhelpers.SetIfNotEmpty(m, "format", s.Format)
+	jsonhelpers.SetIfNotEmpty(m, "collectionFormat", s.CollectionFormat)
+	jsonhelpers.SetIfNotEmpty(m, "$id", s.ID)
+	jsonhelpers.SetIfNotEmpty(m, "$anchor", s.Anchor)
+	jsonhelpers.SetIfNotEmpty(m, "$dynamicRef", s.DynamicRef)
+	jsonhelpers.SetIfNotEmpty(m, "$dynamicAnchor", s.DynamicAnchor)
+	jsonhelpers.SetIfNotNil(m, "$vocabulary", s.Vocabulary)
+	jsonhelpers.SetIfNotEmpty(m, "$comment", s.Comment)
+	jsonhelpers.SetIfNotNil(m, "$defs", s.Defs)
 
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range s.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, s.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Schema.
@@ -248,22 +126,14 @@ func (d *Discriminator) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(d))
 	}
 
-	// Build map directly to avoid double-marshal pattern
-	m := make(map[string]any, 2+len(d.Extra))
-
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	// PropertyName is required, always include
-	m["propertyName"] = d.PropertyName
-	if len(d.Mapping) > 0 {
-		m["mapping"] = d.Mapping
+	// Build map with known fields
+	m := map[string]any{
+		"propertyName": d.PropertyName, // Required field, always include
 	}
+	jsonhelpers.SetIfNotNil(m, "mapping", d.Mapping)
 
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range d.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, d.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Discriminator.
@@ -307,32 +177,16 @@ func (x *XML) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*Alias)(x))
 	}
 
-	// Build map directly to avoid double-marshal pattern
+	// Build map with known fields
 	m := make(map[string]any, 5+len(x.Extra))
+	jsonhelpers.SetIfNotEmpty(m, "name", x.Name)
+	jsonhelpers.SetIfNotEmpty(m, "namespace", x.Namespace)
+	jsonhelpers.SetIfNotEmpty(m, "prefix", x.Prefix)
+	jsonhelpers.SetIfTrue(m, "attribute", x.Attribute)
+	jsonhelpers.SetIfTrue(m, "wrapped", x.Wrapped)
 
-	// Add known fields (omit zero values to match json:",omitempty" behavior)
-	if x.Name != "" {
-		m["name"] = x.Name
-	}
-	if x.Namespace != "" {
-		m["namespace"] = x.Namespace
-	}
-	if x.Prefix != "" {
-		m["prefix"] = x.Prefix
-	}
-	if x.Attribute {
-		m["attribute"] = x.Attribute
-	}
-	if x.Wrapped {
-		m["wrapped"] = x.Wrapped
-	}
-
-	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range x.Extra {
-		m[k] = v
-	}
-
-	return json.Marshal(m)
+	// Merge in Extra fields and marshal
+	return jsonhelpers.MarshalWithExtras(m, x.Extra)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for XML.
