@@ -14,11 +14,21 @@ func GetDocumentStats(doc any) DocumentStats {
 	switch d := doc.(type) {
 	case *OAS2Document:
 		stats.PathCount = len(d.Paths)
-		stats.OperationCount = countOAS2Operations(d.Paths)
+		stats.OperationCount = countOperations(d.Paths)
 		stats.SchemaCount = len(d.Definitions)
 	case *OAS3Document:
 		stats.PathCount = len(d.Paths)
-		stats.OperationCount = countOAS3Operations(d.Paths)
+		stats.OperationCount = countOperations(d.Paths)
+
+		// Count webhook operations (OAS 3.1+)
+		if len(d.Webhooks) > 0 {
+			for _, pathItem := range d.Webhooks {
+				if pathItem != nil {
+					stats.OperationCount += countPathItemOperations(pathItem)
+				}
+			}
+		}
+
 		if d.Components != nil && d.Components.Schemas != nil {
 			stats.SchemaCount = len(d.Components.Schemas)
 		}
@@ -27,20 +37,8 @@ func GetDocumentStats(doc any) DocumentStats {
 	return stats
 }
 
-// countOAS2Operations counts the total number of operations in OAS 2.0 paths
-func countOAS2Operations(paths Paths) int {
-	count := 0
-	for _, pathItem := range paths {
-		if pathItem == nil {
-			continue
-		}
-		count += countPathItemOperations(pathItem)
-	}
-	return count
-}
-
-// countOAS3Operations counts the total number of operations in OAS 3.x paths
-func countOAS3Operations(paths Paths) int {
+// countOperations counts the total number of operations in a path collection
+func countOperations(paths Paths) int {
 	count := 0
 	for _, pathItem := range paths {
 		if pathItem == nil {

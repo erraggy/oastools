@@ -214,6 +214,76 @@ func TestGetDocumentStats_OAS3(t *testing.T) {
 				SchemaCount:    2,
 			},
 		},
+		{
+			name: "document with webhooks (OAS 3.1+)",
+			doc: &OAS3Document{
+				Paths: Paths{
+					"/pets": &PathItem{
+						Get: &Operation{},
+					},
+				},
+				Webhooks: map[string]*PathItem{
+					"newPetWebhook": {
+						Post: &Operation{},
+					},
+					"updatePetWebhook": {
+						Put: &Operation{},
+					},
+				},
+				Components: &Components{
+					Schemas: map[string]*Schema{
+						"Pet": {},
+					},
+				},
+			},
+			want: DocumentStats{
+				PathCount:      1,
+				OperationCount: 3, // 1 from paths + 2 from webhooks
+				SchemaCount:    1,
+			},
+		},
+		{
+			name: "webhooks only (OAS 3.1+)",
+			doc: &OAS3Document{
+				Paths: Paths{},
+				Webhooks: map[string]*PathItem{
+					"webhook1": {
+						Post: &Operation{},
+						Put:  &Operation{},
+					},
+				},
+				Components: &Components{
+					Schemas: map[string]*Schema{},
+				},
+			},
+			want: DocumentStats{
+				PathCount:      0,
+				OperationCount: 2, // Only from webhooks
+				SchemaCount:    0,
+			},
+		},
+		{
+			name: "webhooks with nil path item",
+			doc: &OAS3Document{
+				Paths: Paths{
+					"/test": &PathItem{
+						Get: &Operation{},
+					},
+				},
+				Webhooks: map[string]*PathItem{
+					"validWebhook": {
+						Post: &Operation{},
+					},
+					"nilWebhook": nil,
+				},
+				Components: nil,
+			},
+			want: DocumentStats{
+				PathCount:      1,
+				OperationCount: 2, // 1 from path + 1 from webhook (nil ignored)
+				SchemaCount:    0,
+			},
+		},
 	}
 
 	for _, tt := range tests {
