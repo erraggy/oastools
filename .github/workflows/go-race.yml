@@ -37,13 +37,3 @@ jobs:
       env:
         GOMAXPROCS: 2  # Limit parallelism to avoid overwhelming the runner
         GORACE: "halt_on_error=1"  # Exit immediately on first race for faster feedback
-
-    - name: Report Status
-      if: always()
-      run: |
-        if [ $? -eq 0 ]; then
-          echo "✅ Race detection passed - no data races found"
-        else
-          echo "❌ Race detection failed - data races detected"
-          exit 1
-        fi
