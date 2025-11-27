@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,7 +52,24 @@ const (
 
 // ParseResult contains the parsed OpenAPI specification and metadata.
 // This structure provides both the raw parsed data and version-specific
-// typed representations of the OpenAPI document, and should be treated as immutable.
+// typed representations of the OpenAPI document.
+//
+// # Immutability
+//
+// While Go does not enforce immutability, callers should treat ParseResult as
+// read-only after parsing. Modifying the returned document may lead to unexpected
+// behavior if the document is cached or shared across multiple operations.
+//
+// For document modification use cases:
+//   - Version conversion: Use the converter package
+//   - Document merging: Use the joiner package
+//   - Manual modification: Create a deep copy first using Copy() method
+//
+// Example of safe modification:
+//
+//	original, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
+//	modified := original.Copy()  // Deep copy
+//	// Now safe to modify 'modified' without affecting 'original'
 type ParseResult struct {
 	// SourcePath is the document's input source path that it was read from.
 	// Note: if the source was not a file path, this will be set to the name of the method
@@ -79,6 +97,45 @@ type ParseResult struct {
 	SourceSize int64
 	// Stats contains statistical information about the document
 	Stats DocumentStats
+}
+
+// Copy creates a deep copy of the ParseResult, including all nested documents and data.
+// This is useful when you need to modify a parsed document without affecting the original.
+//
+// The deep copy is performed using JSON marshaling and unmarshaling to ensure
+// all nested structures and maps are properly copied.
+//
+// Example:
+//
+//	original, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
+//	modified := original.Copy()
+//	// Modify the copy without affecting the original
+//	if doc, ok := modified.Document.(*parser.OAS3Document); ok {
+//	    doc.Info.Title = "Modified API"
+//	}
+func (pr *ParseResult) Copy() *ParseResult {
+	if pr == nil {
+		return nil
+	}
+
+	// Deep copy by marshaling and unmarshaling
+	data, err := json.Marshal(pr)
+	if err != nil {
+		// If marshal fails, return a shallow copy with a warning
+		result := *pr
+		result.Warnings = append(result.Warnings, fmt.Sprintf("Copy() warning: failed to deep copy: %v", err))
+		return &result
+	}
+
+	var copy ParseResult
+	if err := json.Unmarshal(data, &copy); err != nil {
+		// If unmarshal fails, return a shallow copy with a warning
+		result := *pr
+		result.Warnings = append(result.Warnings, fmt.Sprintf("Copy() warning: failed to deep copy: %v", err))
+		return &result
+	}
+
+	return &copy
 }
 
 // FormatBytes formats a byte count into a human-readable string using binary units (KiB, MiB, etc.)

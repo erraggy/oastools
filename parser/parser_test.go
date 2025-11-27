@@ -2972,3 +2972,54 @@ func TestParseWithOptions_BackwardCompatibility(t *testing.T) {
 		})
 	}
 }
+
+func TestParseResultCopy(t *testing.T) {
+	// Parse a document
+	original, err := ParseWithOptions(
+		WithFilePath("../testdata/petstore-3.0.yaml"),
+		WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, original)
+
+	// Create a copy
+	copied := original.Copy()
+	require.NotNil(t, copied)
+
+	// Verify all fields are copied
+	assert.Equal(t, original.SourcePath, copied.SourcePath)
+	assert.Equal(t, original.SourceFormat, copied.SourceFormat)
+	assert.Equal(t, original.Version, copied.Version)
+	assert.Equal(t, original.OASVersion, copied.OASVersion)
+	assert.Equal(t, len(original.Errors), len(copied.Errors))
+	assert.Equal(t, len(original.Warnings), len(copied.Warnings))
+
+	// Verify the copy is independent - modifying Data in copy doesn't affect original
+	copied.Data["test-key"] = "test-value"
+	_, exists := original.Data["test-key"]
+	assert.False(t, exists, "Modifying copied Data should not affect original")
+}
+
+func TestParseResultCopyNil(t *testing.T) {
+	var nilResult *ParseResult
+	copied := nilResult.Copy()
+	assert.Nil(t, copied)
+}
+
+func TestParseResultCopyPreservesMetadata(t *testing.T) {
+	original, err := ParseWithOptions(
+		WithFilePath("../testdata/petstore-3.0.yaml"),
+	)
+	require.NoError(t, err)
+
+	// Create a copy
+	copied := original.Copy()
+	require.NotNil(t, copied)
+
+	// Verify metadata is preserved
+	assert.Equal(t, original.LoadTime, copied.LoadTime)
+	assert.Equal(t, original.SourceSize, copied.SourceSize)
+	assert.Equal(t, original.Stats.PathCount, copied.Stats.PathCount)
+	assert.Equal(t, original.Stats.OperationCount, copied.Stats.OperationCount)
+	assert.Equal(t, original.Stats.SchemaCount, copied.Stats.SchemaCount)
+}

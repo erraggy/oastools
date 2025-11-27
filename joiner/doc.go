@@ -53,6 +53,41 @@
 // The joiner validates all input documents, prevents output file overwrites with
 // restrictive 0600 permissions, deduplicates tags, and optionally merges arrays
 // (servers, security, tags). It uses the info object from the first document;
-// subsequent info sections are ignored. External $ref values are preserved but
-// not merged across documents.
+// subsequent info sections are ignored.
+//
+// # External References
+//
+// The joiner preserves external $ref values but does NOT resolve or merge them.
+// This is intentional to avoid ambiguity and maintain document structure.
+//
+// If your documents contain external references, you have two options:
+//
+//  1. Resolve references before joining:
+//     Use parser.ParseWithOptions(parser.WithResolveRefs(true)) before joining
+//
+//  2. Keep external references and resolve after joining:
+//     Join the documents, then parse the result with WithResolveRefs(true)
+//
+// Example with external references:
+//
+//	// Document 1: base.yaml
+//	// paths:
+//	//   /users:
+//	//     get:
+//	//       responses:
+//	//         200:
+//	//           schema:
+//	//             $ref: "./schemas/user.yaml#/User"
+//	//
+//	// Document 2: extension.yaml
+//	// paths:
+//	//   /posts:
+//	//     get:
+//	//       responses:
+//	//         200:
+//	//           schema:
+//	//             $ref: "./schemas/post.yaml#/Post"
+//	//
+//	// After joining, both $ref values are preserved in the merged document.
+//	// Use parser.WithResolveRefs(true) to resolve them if needed.
 package joiner

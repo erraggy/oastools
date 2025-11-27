@@ -166,3 +166,60 @@ func Example_reusableDiffer() {
 		}
 	}
 }
+
+// Example_breakingChanges demonstrates how to detect breaking changes
+// between two API versions and interpret the results by severity.
+func Example_breakingChanges() {
+	// Compare two API versions with breaking mode enabled
+	result, err := differ.DiffWithOptions(
+		differ.WithSourceFilePath("../testdata/petstore-v1.yaml"),
+		differ.WithTargetFilePath("../testdata/petstore-v2.yaml"),
+		differ.WithMode(differ.ModeBreaking),
+		differ.WithIncludeInfo(true), // Include all change levels
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Comparing %s to %s\n", result.SourceVersion, result.TargetVersion)
+	fmt.Printf("Total changes: %d\n\n", len(result.Changes))
+
+	// Critical changes: API consumers WILL break
+	// Examples: removed endpoints, required parameters, response schema changes
+	criticalCount := 0
+	errorCount := 0
+	warningCount := 0
+	infoCount := 0
+
+	for _, change := range result.Changes {
+		// Severity constants from internal/severity package:
+		// SeverityCritical = 3, SeverityError = 2, SeverityWarning = 1, SeverityInfo = 0
+		switch change.Severity {
+		case 3: // Critical
+			criticalCount++
+			fmt.Printf("CRITICAL [%s]: %s\n", change.Path, change.Message)
+		case 2: // Error
+			errorCount++
+		case 1: // Warning
+			warningCount++
+		case 0: // Info
+			infoCount++
+		}
+	}
+
+	// Summary by severity
+	fmt.Printf("\nSummary:\n")
+	fmt.Printf("- Critical (API will break): %d\n", criticalCount)
+	fmt.Printf("- Errors (likely to break): %d\n", errorCount)
+	fmt.Printf("- Warnings (may affect clients): %d\n", warningCount)
+	fmt.Printf("- Info (non-breaking changes): %d\n", infoCount)
+
+	// Check if changes are backward compatible
+	if result.HasBreakingChanges {
+		fmt.Println("\n⚠️  This update contains BREAKING CHANGES")
+		fmt.Println("Consider versioning the API (e.g., /v2/...)")
+	} else {
+		fmt.Println("\n✓ Changes are backward compatible")
+	}
+}
