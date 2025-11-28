@@ -324,6 +324,14 @@ make help           # Show all available commands
 
 All five main packages (parser, validator, converter, joiner, differ) are public and can be imported directly.
 
+## Documentation
+
+- **[Developer Guide](docs/developer-guide.md)** - Comprehensive guide for library and CLI usage
+- **[CLI Reference](docs/cli-reference.md)** - Complete command-line reference with examples
+- **[Breaking Changes Guide](docs/breaking-changes.md)** - Understanding breaking change semantics
+- **[Performance Benchmarks](benchmarks.md)** - Detailed performance analysis
+- **[API Reference](https://pkg.go.dev/github.com/erraggy/oastools)** - GoDoc API documentation
+
 ## License
 
 MIT
