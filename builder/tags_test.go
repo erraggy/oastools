@@ -260,6 +260,100 @@ func TestCopySchema(t *testing.T) {
 		result.Description = "Modified"
 		assert.Equal(t, "Test", original.Description)
 	})
+
+	t.Run("deep copy pointer fields", func(t *testing.T) {
+		min := 1.0
+		max := 100.0
+		minLen := 5
+		maxLen := 50
+		minItems := 1
+		maxItems := 10
+		minProps := 2
+		maxProps := 20
+		multOf := 5.0
+
+		original := &parser.Schema{
+			Type:             "integer",
+			Minimum:          &min,
+			Maximum:          &max,
+			MinLength:        &minLen,
+			MaxLength:        &maxLen,
+			MinItems:         &minItems,
+			MaxItems:         &maxItems,
+			MinProperties:    &minProps,
+			MaxProperties:    &maxProps,
+			MultipleOf:       &multOf,
+			ExclusiveMaximum: 99.0, // interface{} type, not pointer
+			ExclusiveMinimum: 2.0,  // interface{} type, not pointer
+		}
+
+		result := copySchema(original)
+
+		// Verify all pointer fields are copied
+		require.NotNil(t, result.Minimum)
+		require.NotNil(t, result.Maximum)
+		require.NotNil(t, result.MinLength)
+		require.NotNil(t, result.MaxLength)
+		require.NotNil(t, result.MinItems)
+		require.NotNil(t, result.MaxItems)
+		require.NotNil(t, result.MinProperties)
+		require.NotNil(t, result.MaxProperties)
+		require.NotNil(t, result.MultipleOf)
+		require.NotNil(t, result.ExclusiveMaximum)
+		require.NotNil(t, result.ExclusiveMinimum)
+
+		// Verify values
+		assert.Equal(t, 1.0, *result.Minimum)
+		assert.Equal(t, 100.0, *result.Maximum)
+		assert.Equal(t, 5, *result.MinLength)
+		assert.Equal(t, 50, *result.MaxLength)
+		assert.Equal(t, 1, *result.MinItems)
+		assert.Equal(t, 10, *result.MaxItems)
+		assert.Equal(t, 2, *result.MinProperties)
+		assert.Equal(t, 20, *result.MaxProperties)
+		assert.Equal(t, 5.0, *result.MultipleOf)
+		assert.Equal(t, 99.0, result.ExclusiveMaximum) // interface{} type
+		assert.Equal(t, 2.0, result.ExclusiveMinimum)  // interface{} type
+
+		// Verify pointers are different (deep copy)
+		assert.NotSame(t, original.Minimum, result.Minimum)
+		assert.NotSame(t, original.Maximum, result.Maximum)
+		assert.NotSame(t, original.MinLength, result.MinLength)
+		assert.NotSame(t, original.MaxLength, result.MaxLength)
+		assert.NotSame(t, original.MinItems, result.MinItems)
+		assert.NotSame(t, original.MaxItems, result.MaxItems)
+		assert.NotSame(t, original.MinProperties, result.MinProperties)
+		assert.NotSame(t, original.MaxProperties, result.MaxProperties)
+		assert.NotSame(t, original.MultipleOf, result.MultipleOf)
+
+		// Modifying result should not affect original
+		*result.Minimum = 999.0
+		assert.Equal(t, 1.0, *original.Minimum)
+	})
+
+	t.Run("deep copy slices", func(t *testing.T) {
+		original := &parser.Schema{
+			Type:     "object",
+			Enum:     []any{"a", "b", "c"},
+			Required: []string{"field1", "field2"},
+		}
+
+		result := copySchema(original)
+
+		// Verify slices are copied
+		require.Len(t, result.Enum, 3)
+		require.Len(t, result.Required, 2)
+
+		// Verify values
+		assert.Equal(t, "a", result.Enum[0])
+		assert.Equal(t, "field1", result.Required[0])
+
+		// Modifying result slices should not affect original
+		result.Enum[0] = "modified"
+		result.Required[0] = "modified"
+		assert.Equal(t, "a", original.Enum[0])
+		assert.Equal(t, "field1", original.Required[0])
+	})
 }
 
 func TestIntegration_OASTagsOnStruct(t *testing.T) {

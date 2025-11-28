@@ -171,6 +171,13 @@ func TestBuilder_MarshalYAML(t *testing.T) {
 	assert.Contains(t, string(data), "title: Test API")
 }
 
+func TestBuilder_MarshalYAML_Error(t *testing.T) {
+	b := New(parser.OASVersion320)
+	// Missing title and version
+	_, err := b.MarshalYAML()
+	assert.Error(t, err)
+}
+
 func TestBuilder_MarshalJSON(t *testing.T) {
 	b := New(parser.OASVersion320).
 		SetTitle("Test API").
@@ -180,6 +187,20 @@ func TestBuilder_MarshalJSON(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(data), `"openapi": "3.2.0"`)
 	assert.Contains(t, string(data), `"title": "Test API"`)
+}
+
+func TestBuilder_MarshalJSON_Error(t *testing.T) {
+	b := New(parser.OASVersion320)
+	// Missing title and version
+	_, err := b.MarshalJSON()
+	assert.Error(t, err)
+}
+
+func TestBuilder_BuildResult_Error(t *testing.T) {
+	b := New(parser.OASVersion320)
+	// Missing title and version
+	_, err := b.BuildResult()
+	assert.Error(t, err)
 }
 
 func TestBuilder_WriteFile(t *testing.T) {
@@ -201,6 +222,35 @@ func TestBuilder_WriteFile(t *testing.T) {
 		path := t.TempDir() + "/test.json"
 		err := b.WriteFile(path)
 		require.NoError(t, err)
+	})
+
+	t.Run("default extension", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0")
+
+		path := t.TempDir() + "/test"
+		err := b.WriteFile(path)
+		require.NoError(t, err)
+	})
+
+	t.Run("yml extension", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0")
+
+		path := t.TempDir() + "/test.yml"
+		err := b.WriteFile(path)
+		require.NoError(t, err)
+	})
+
+	t.Run("error on build", func(t *testing.T) {
+		b := New(parser.OASVersion320)
+		// Missing title and version
+
+		path := t.TempDir() + "/test.yaml"
+		err := b.WriteFile(path)
+		assert.Error(t, err)
 	})
 }
 
@@ -391,6 +441,162 @@ func TestBuilder_SecuritySchemes(t *testing.T) {
 	assert.Len(t, doc.Security, 2)
 }
 
+func TestBuilder_AddSecurityScheme(t *testing.T) {
+	b := New(parser.OASVersion320).
+		SetTitle("Test API").
+		SetVersion("1.0.0").
+		AddSecurityScheme("custom", &parser.SecurityScheme{
+			Type:        "apiKey",
+			Name:        "custom-key",
+			In:          "header",
+			Description: "Custom scheme",
+		})
+
+	doc, err := b.Build()
+	require.NoError(t, err)
+
+	require.NotNil(t, doc.Components.SecuritySchemes)
+	assert.Contains(t, doc.Components.SecuritySchemes, "custom")
+	assert.Equal(t, "apiKey", doc.Components.SecuritySchemes["custom"].Type)
+}
+
+func TestBuilder_AddOAuth2SecurityScheme(t *testing.T) {
+	flows := &parser.OAuthFlows{
+		AuthorizationCode: &parser.OAuthFlow{
+			AuthorizationURL: "https://example.com/oauth/authorize",
+			TokenURL:         "https://example.com/oauth/token",
+			Scopes: map[string]string{
+				"read":  "Read access",
+				"write": "Write access",
+			},
+		},
+	}
+
+	b := New(parser.OASVersion320).
+		SetTitle("Test API").
+		SetVersion("1.0.0").
+		AddOAuth2SecurityScheme("oauth2", flows, "OAuth2 authentication")
+
+	doc, err := b.Build()
+	require.NoError(t, err)
+
+	require.NotNil(t, doc.Components.SecuritySchemes)
+	assert.Contains(t, doc.Components.SecuritySchemes, "oauth2")
+	scheme := doc.Components.SecuritySchemes["oauth2"]
+	assert.Equal(t, "oauth2", scheme.Type)
+	assert.Equal(t, "OAuth2 authentication", scheme.Description)
+	require.NotNil(t, scheme.Flows)
+	require.NotNil(t, scheme.Flows.AuthorizationCode)
+	assert.Equal(t, "https://example.com/oauth/authorize", scheme.Flows.AuthorizationCode.AuthorizationURL)
+}
+
+func TestBuilder_AddOpenIDConnectSecurityScheme(t *testing.T) {
+	b := New(parser.OASVersion320).
+		SetTitle("Test API").
+		SetVersion("1.0.0").
+		AddOpenIDConnectSecurityScheme("oidc", "https://example.com/.well-known/openid-configuration", "OpenID Connect")
+
+	doc, err := b.Build()
+	require.NoError(t, err)
+
+	require.NotNil(t, doc.Components.SecuritySchemes)
+	assert.Contains(t, doc.Components.SecuritySchemes, "oidc")
+	scheme := doc.Components.SecuritySchemes["oidc"]
+	assert.Equal(t, "openIdConnect", scheme.Type)
+	assert.Equal(t, "https://example.com/.well-known/openid-configuration", scheme.OpenIDConnectURL)
+	assert.Equal(t, "OpenID Connect", scheme.Description)
+}
+
+func TestBuilder_AddResponse(t *testing.T) {
+	type ErrorResponse struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+
+	b := New(parser.OASVersion320).
+		SetTitle("Test API").
+		SetVersion("1.0.0").
+		AddResponse("Error", "Error response", ErrorResponse{},
+			WithResponseExample(map[string]any{"code": 500, "message": "Internal error"}),
+		)
+
+	doc, err := b.Build()
+	require.NoError(t, err)
+
+	require.NotNil(t, doc.Components.Responses)
+	assert.Contains(t, doc.Components.Responses, "Error")
+	resp := doc.Components.Responses["Error"]
+	assert.Equal(t, "Error response", resp.Description)
+	require.Contains(t, resp.Content, "application/json")
+	require.NotNil(t, resp.Content["application/json"].Schema)
+}
+
+func TestBuilder_AddResponseWithContentType(t *testing.T) {
+	b := New(parser.OASVersion320).
+		SetTitle("Test API").
+		SetVersion("1.0.0").
+		AddResponseWithContentType("XMLError", "XML Error response", "application/xml", struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		}{})
+
+	doc, err := b.Build()
+	require.NoError(t, err)
+
+	require.NotNil(t, doc.Components.Responses)
+	assert.Contains(t, doc.Components.Responses, "XMLError")
+	resp := doc.Components.Responses["XMLError"]
+	assert.Equal(t, "XML Error response", resp.Description)
+	require.Contains(t, resp.Content, "application/xml")
+}
+
+func TestResponseRef(t *testing.T) {
+	ref := ResponseRef("Error")
+	assert.Equal(t, "#/components/responses/Error", ref)
+}
+
+func TestBuilder_AddParameter(t *testing.T) {
+	b := New(parser.OASVersion320).
+		SetTitle("Test API").
+		SetVersion("1.0.0").
+		AddParameter("PageLimit", "query", "limit", int32(0),
+			WithParamDescription("Maximum number of items to return"),
+			WithParamRequired(false),
+		)
+
+	doc, err := b.Build()
+	require.NoError(t, err)
+
+	require.NotNil(t, doc.Components.Parameters)
+	assert.Contains(t, doc.Components.Parameters, "PageLimit")
+	param := doc.Components.Parameters["PageLimit"]
+	assert.Equal(t, "limit", param.Name)
+	assert.Equal(t, "query", param.In)
+	assert.Equal(t, "Maximum number of items to return", param.Description)
+	assert.False(t, param.Required)
+}
+
+func TestBuilder_AddParameter_PathAlwaysRequired(t *testing.T) {
+	b := New(parser.OASVersion320).
+		SetTitle("Test API").
+		SetVersion("1.0.0").
+		AddParameter("UserId", "path", "userId", int64(0),
+			WithParamRequired(false), // This should be ignored for path params
+		)
+
+	doc, err := b.Build()
+	require.NoError(t, err)
+
+	require.NotNil(t, doc.Components.Parameters)
+	param := doc.Components.Parameters["UserId"]
+	assert.True(t, param.Required) // Path parameters are always required
+}
+
+func TestParameterRef(t *testing.T) {
+	ref := ParameterRef("PageLimit")
+	assert.Equal(t, "#/components/parameters/PageLimit", ref)
+}
+
 func TestBuilder_CompleteExample(t *testing.T) {
 	type Pet struct {
 		ID   int64  `json:"id" oas:"description=Unique pet identifier"`
@@ -447,45 +653,154 @@ func TestBuilder_CompleteExample(t *testing.T) {
 }
 
 func TestFromDocument(t *testing.T) {
-	// Create an existing document
-	original := &parser.OAS3Document{
-		OpenAPI: "3.1.0",
-		Info: &parser.Info{
-			Title:   "Original API",
-			Version: "1.0.0",
-		},
-		Paths: parser.Paths{
-			"/existing": &parser.PathItem{
-				Get: &parser.Operation{
-					OperationID: "existingOp",
+	t.Run("basic", func(t *testing.T) {
+		// Create an existing document
+		original := &parser.OAS3Document{
+			OpenAPI: "3.1.0",
+			Info: &parser.Info{
+				Title:   "Original API",
+				Version: "1.0.0",
+			},
+			Paths: parser.Paths{
+				"/existing": &parser.PathItem{
+					Get: &parser.Operation{
+						OperationID: "existingOp",
+					},
 				},
 			},
-		},
-		Components: &parser.Components{
-			Schemas: map[string]*parser.Schema{
-				"ExistingSchema": {Type: "string"},
+			Components: &parser.Components{
+				Schemas: map[string]*parser.Schema{
+					"ExistingSchema": {Type: "string"},
+				},
 			},
-		},
-	}
+		}
 
-	// Create builder from document
-	b := FromDocument(original)
+		// Create builder from document
+		b := FromDocument(original)
 
-	// Add new operation
-	b.AddOperation(http.MethodPost, "/new",
-		WithOperationID("newOp"),
-		WithResponse(http.StatusOK, struct{}{}),
-	)
+		// Add new operation
+		b.AddOperation(http.MethodPost, "/new",
+			WithOperationID("newOp"),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
 
-	doc, err := b.Build()
-	require.NoError(t, err)
+		doc, err := b.Build()
+		require.NoError(t, err)
 
-	// Verify original content preserved
-	assert.Contains(t, doc.Paths, "/existing")
-	assert.Contains(t, doc.Components.Schemas, "ExistingSchema")
+		// Verify original content preserved
+		assert.Contains(t, doc.Paths, "/existing")
+		assert.Contains(t, doc.Components.Schemas, "ExistingSchema")
 
-	// Verify new content added
-	assert.Contains(t, doc.Paths, "/new")
+		// Verify new content added
+		assert.Contains(t, doc.Paths, "/new")
+	})
+
+	t.Run("with responses and parameters", func(t *testing.T) {
+		original := &parser.OAS3Document{
+			OpenAPI: "3.0.3",
+			Info: &parser.Info{
+				Title:   "Original API",
+				Version: "1.0.0",
+			},
+			Components: &parser.Components{
+				Responses: map[string]*parser.Response{
+					"NotFound": {Description: "Not found"},
+				},
+				Parameters: map[string]*parser.Parameter{
+					"PageSize": {Name: "pageSize", In: "query"},
+				},
+			},
+		}
+
+		b := FromDocument(original)
+		doc, err := b.Build()
+		require.NoError(t, err)
+
+		assert.Contains(t, doc.Components.Responses, "NotFound")
+		assert.Contains(t, doc.Components.Parameters, "PageSize")
+	})
+
+	t.Run("with security schemes", func(t *testing.T) {
+		original := &parser.OAS3Document{
+			OpenAPI: "3.0.3",
+			Info: &parser.Info{
+				Title:   "Original API",
+				Version: "1.0.0",
+			},
+			Components: &parser.Components{
+				SecuritySchemes: map[string]*parser.SecurityScheme{
+					"api_key": {Type: "apiKey", Name: "X-API-Key", In: "header"},
+				},
+			},
+			Security: []parser.SecurityRequirement{
+				{"api_key": []string{}},
+			},
+		}
+
+		b := FromDocument(original)
+		doc, err := b.Build()
+		require.NoError(t, err)
+
+		assert.Contains(t, doc.Components.SecuritySchemes, "api_key")
+		assert.Len(t, doc.Security, 1)
+	})
+
+	t.Run("with servers and tags", func(t *testing.T) {
+		original := &parser.OAS3Document{
+			OpenAPI: "3.0.3",
+			Info: &parser.Info{
+				Title:   "Original API",
+				Version: "1.0.0",
+			},
+			Servers: []*parser.Server{
+				{URL: "https://api.example.com"},
+			},
+			Tags: []*parser.Tag{
+				{Name: "users", Description: "User operations"},
+			},
+		}
+
+		b := FromDocument(original)
+		doc, err := b.Build()
+		require.NoError(t, err)
+
+		require.Len(t, doc.Servers, 1)
+		assert.Equal(t, "https://api.example.com", doc.Servers[0].URL)
+		require.Len(t, doc.Tags, 1)
+		assert.Equal(t, "users", doc.Tags[0].Name)
+	})
+
+	t.Run("with invalid version defaults to 3.2.0", func(t *testing.T) {
+		original := &parser.OAS3Document{
+			OpenAPI: "invalid",
+			Info: &parser.Info{
+				Title:   "Original API",
+				Version: "1.0.0",
+			},
+		}
+
+		b := FromDocument(original)
+		doc, err := b.Build()
+		require.NoError(t, err)
+
+		assert.Equal(t, "3.2.0", doc.OpenAPI)
+	})
+
+	t.Run("with nil components", func(t *testing.T) {
+		original := &parser.OAS3Document{
+			OpenAPI: "3.0.3",
+			Info: &parser.Info{
+				Title:   "Original API",
+				Version: "1.0.0",
+			},
+			Components: nil,
+		}
+
+		b := FromDocument(original)
+		doc, err := b.Build()
+		require.NoError(t, err)
+		assert.NotNil(t, doc)
+	})
 }
 
 func TestBuilder_TimeType(t *testing.T) {

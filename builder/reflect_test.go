@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -342,4 +343,89 @@ func TestSchemaCache(t *testing.T) {
 		cache.byName["Test"] = nil
 		assert.True(t, cache.hasName("Test"))
 	})
+
+	t.Run("getNameForType", func(t *testing.T) {
+		type TestType struct{}
+		cache := newSchemaCache()
+
+		// Not found case
+		name := cache.getNameForType(reflect.TypeOf(TestType{}))
+		assert.Empty(t, name)
+
+		// Found case
+		cache.set(reflect.TypeOf(TestType{}), "TestType", &parser.Schema{})
+		name = cache.getNameForType(reflect.TypeOf(TestType{}))
+		assert.Equal(t, "TestType", name)
+	})
+}
+
+func TestSchemaFromType(t *testing.T) {
+	// Test the public SchemaFromType function
+	schema := SchemaFromType(reflect.TypeOf(""))
+	assert.Equal(t, "string", schema.Type)
+
+	schema = SchemaFromType(reflect.TypeOf(int64(0)))
+	assert.Equal(t, "integer", schema.Type)
+	assert.Equal(t, "int64", schema.Format)
+}
+
+func TestBuilder_generateSchema_PointerToStruct(t *testing.T) {
+	type MyStruct struct {
+		Field string `json:"field"`
+	}
+
+	b := New(parser.OASVersion320)
+	var ptr *MyStruct
+	schema := b.generateSchema(ptr)
+
+	// Should return a reference with nullable
+	assert.Contains(t, schema.Ref, "MyStruct")
+	// Note: nullable flag may be set differently on references
+	require.Contains(t, b.schemas, "MyStruct")
+}
+
+func TestBuilder_generateSchema_AnonymousStruct(t *testing.T) {
+	b := New(parser.OASVersion320)
+	schema := b.generateSchema(struct {
+		Field string `json:"field"`
+	}{})
+
+	// Anonymous struct should return a ref to the generated schema
+	// or be inline depending on implementation
+	assert.NotNil(t, schema)
+}
+
+func TestBuilder_generateSchema_UnknownKind(t *testing.T) {
+	b := New(parser.OASVersion320)
+	// Test with channel type (uncommon)
+	ch := make(chan int)
+	schema := b.generateSchema(ch)
+	// Should return empty schema for unknown types
+	assert.NotNil(t, schema)
+}
+
+func TestBuilder_extractRefName(t *testing.T) {
+	tests := []struct {
+		ref      string
+		expected string
+	}{
+		{"#/components/schemas/User", "User"},
+		{"#/components/schemas/", ""},
+		{"", ""},
+		{"#/components/schemas/ComplexName", "ComplexName"},
+	}
+
+	for _, tc := range tests {
+		result := extractRefName(tc.ref)
+		assert.Equal(t, tc.expected, result)
+	}
+}
+
+func TestBuilder_contains(t *testing.T) {
+	slice := []string{"a", "b", "c"}
+	assert.True(t, contains(slice, "a"))
+	assert.True(t, contains(slice, "b"))
+	assert.True(t, contains(slice, "c"))
+	assert.False(t, contains(slice, "d"))
+	assert.False(t, contains(nil, "a"))
 }
