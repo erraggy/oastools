@@ -703,4 +703,4 @@ builder/
 - OpenAPI Specification 3.2.0: https://spec.openapis.org/oas/v3.2.0.html
 - JSON Schema Draft 2020-12: https://www.ietf.org/archive/id/draft-bhutton-json-schema-01.html
 - Existing parser types: `github.com/erraggy/oastools/parser`
-- Functional options pattern: https://go.dev/blog/using-go-modules
+- Functional options pattern: https://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis
