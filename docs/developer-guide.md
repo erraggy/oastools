@@ -929,6 +929,6 @@ Two documents define the same path. Choose a collision strategy:
 ### Getting Help
 
 - **API Documentation**: [pkg.go.dev/github.com/erraggy/oastools](https://pkg.go.dev/github.com/erraggy/oastools)
-- **GitHub Issues**: [github.com/erraggy/oastools/issues](https://github.com/erraggy/oastools/issues)
-- **Breaking Change Semantics**: See [docs/breaking-changes.md](breaking-changes.md)
+- **GitHub Issues**: [https://github.com/erraggy/oastools/issues](https://github.com/erraggy/oastools/issues)
+- **Breaking Change Semantics**: See [breaking-changes.md](breaking-changes.md)
 - **Performance Details**: See [benchmarks.md](../benchmarks.md)

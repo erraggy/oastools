@@ -578,7 +578,7 @@ Supported URL schemes:
 - `http://`
 - `https://`
 
-Note: When loading from URLs, relative `$ref` paths resolve against the current directory, not the URL.
+Note: When loading from URLs, relative `$ref` paths resolve against the current working directory (where the CLI is executed), not relative to the remote URL location.
 
 ---
 
