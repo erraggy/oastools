@@ -198,22 +198,60 @@ func copySchema(s *parser.Schema) *parser.Schema {
 		UniqueItems: s.UniqueItems,
 	}
 
-	// Copy pointers (shallow)
-	result.Minimum = s.Minimum
-	result.Maximum = s.Maximum
-	result.MinLength = s.MinLength
-	result.MaxLength = s.MaxLength
-	result.MinItems = s.MinItems
-	result.MaxItems = s.MaxItems
-	result.MinProperties = s.MinProperties
-	result.MaxProperties = s.MaxProperties
-	result.MultipleOf = s.MultipleOf
-	result.ExclusiveMaximum = s.ExclusiveMaximum
-	result.ExclusiveMinimum = s.ExclusiveMinimum
+	// Deep copy pointer fields
+	if s.Minimum != nil {
+		minCopy := *s.Minimum
+		result.Minimum = &minCopy
+	}
+	if s.Maximum != nil {
+		maxCopy := *s.Maximum
+		result.Maximum = &maxCopy
+	}
+	if s.MinLength != nil {
+		minLenCopy := *s.MinLength
+		result.MinLength = &minLenCopy
+	}
+	if s.MaxLength != nil {
+		maxLenCopy := *s.MaxLength
+		result.MaxLength = &maxLenCopy
+	}
+	if s.MinItems != nil {
+		minItemsCopy := *s.MinItems
+		result.MinItems = &minItemsCopy
+	}
+	if s.MaxItems != nil {
+		maxItemsCopy := *s.MaxItems
+		result.MaxItems = &maxItemsCopy
+	}
+	if s.MinProperties != nil {
+		minPropsCopy := *s.MinProperties
+		result.MinProperties = &minPropsCopy
+	}
+	if s.MaxProperties != nil {
+		maxPropsCopy := *s.MaxProperties
+		result.MaxProperties = &maxPropsCopy
+	}
+	if s.MultipleOf != nil {
+		multOfCopy := *s.MultipleOf
+		result.MultipleOf = &multOfCopy
+	}
+	if s.ExclusiveMaximum != nil {
+		result.ExclusiveMaximum = s.ExclusiveMaximum
+	}
+	if s.ExclusiveMinimum != nil {
+		result.ExclusiveMinimum = s.ExclusiveMinimum
+	}
 
-	// Copy slices (shallow reference)
-	result.Enum = s.Enum
-	result.Required = s.Required
+	// Deep copy slices that might be modified
+	if s.Enum != nil {
+		result.Enum = make([]any, len(s.Enum))
+		copy(result.Enum, s.Enum)
+	}
+	if s.Required != nil {
+		result.Required = make([]string, len(s.Required))
+		copy(result.Required, s.Required)
+	}
+	// Copy slices (shallow reference for immutable schemas)
 	result.Examples = s.Examples
 	result.AllOf = s.AllOf
 	result.AnyOf = s.AnyOf

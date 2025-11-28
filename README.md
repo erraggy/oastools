@@ -102,6 +102,8 @@ For quick, one-off operations:
 
 ```go
 import (
+    "net/http"
+
     "github.com/erraggy/oastools/parser"
     "github.com/erraggy/oastools/validator"
     "github.com/erraggy/oastools/converter"
