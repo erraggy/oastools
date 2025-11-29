@@ -43,9 +43,8 @@ type Builder struct {
 }
 
 // New creates a new Builder instance for the specified OAS version.
-//
-// Deprecated: Use NewOAS2() or NewOAS3() for type-safe document building.
-// New() is retained for backward compatibility but Build() returns `any`.
+// For type-safe document building, prefer NewOAS2() or NewOAS3() with
+// their corresponding BuildOAS2() or BuildOAS3() methods.
 //
 // Example:
 //
@@ -104,8 +103,7 @@ func NewOAS3(version parser.OASVersion) *Builder {
 }
 
 // NewWithInfo creates a Builder with pre-configured Info.
-//
-// Deprecated: Use NewOAS2() or NewOAS3() with SetInfo() instead.
+// For type-safe document building, prefer NewOAS2() or NewOAS3() with SetInfo().
 //
 // Example:
 //

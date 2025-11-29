@@ -97,7 +97,6 @@ func Example_withRequestBody() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	doc := result.(*parser.OAS3Document)
 
 	hasRequestBody := doc.Paths["/pets"].Post.RequestBody != nil
 	fmt.Printf("Has request body: %v\n", hasRequestBody)
@@ -125,7 +124,6 @@ func Example_withParameters() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	doc := result.(*parser.OAS3Document)
 
 	paramCount := len(doc.Paths["/pets/{petId}"].Get.Parameters)
 	fmt.Printf("Parameters: %d\n", paramCount)
@@ -153,7 +151,6 @@ func Example_withSecurity() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	doc := result.(*parser.OAS3Document)
 
 	schemeCount := len(doc.Components.SecuritySchemes)
 	securityCount := len(doc.Security)
@@ -213,7 +210,6 @@ func Example_completeAPI() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	doc := result.(*parser.OAS3Document)
 
 	fmt.Printf("Title: %s\n", doc.Info.Title)
 	fmt.Printf("Paths: %d\n", len(doc.Paths))
@@ -254,7 +250,6 @@ func Example_schemaGeneration() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	doc := result.(*parser.OAS3Document)
 
 	// Both Customer and Address schemas are auto-generated with package-qualified names
 	_, hasCustomer := doc.Components.Schemas["builder_test.Customer"]
@@ -307,7 +302,6 @@ func Example_fromDocument() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	doc := result.(*parser.OAS3Document)
 
 	fmt.Printf("Paths: %d\n", len(doc.Paths))
 	fmt.Printf("Has /existing: %v\n", doc.Paths["/existing"] != nil)
