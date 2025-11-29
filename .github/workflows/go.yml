@@ -30,8 +30,8 @@ jobs:
       run: go build -v ./...
 
     - name: Test
-      timeout-minutes: 10  # Step-level timeout (slightly higher than go test timeout)
-      run: go test -v -coverprofile=coverage.txt -covermode=atomic -timeout=8m -parallel=2 -skip='^Fuzz' ./...
+      timeout-minutes: 5  # Step-level timeout (slightly higher than go test timeout)
+      run: go test -v -coverprofile=coverage.txt -covermode=atomic -timeout=3m -parallel=2 -skip='^Fuzz' ./...
       env:
         GOMAXPROCS: 2  # Match GitHub Actions runner CPU count to avoid resource contention
 
