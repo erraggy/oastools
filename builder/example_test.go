@@ -250,9 +250,9 @@ func Example_schemaGeneration() {
 		log.Fatal(err)
 	}
 
-	// Both Customer and Address schemas are auto-generated
-	_, hasCustomer := doc.Components.Schemas["Customer"]
-	_, hasAddress := doc.Components.Schemas["Address"]
+	// Both Customer and Address schemas are auto-generated with package-qualified names
+	_, hasCustomer := doc.Components.Schemas["builder_test.Customer"]
+	_, hasAddress := doc.Components.Schemas["builder_test.Address"]
 	fmt.Printf("Has Customer schema: %v\n", hasCustomer)
 	fmt.Printf("Has Address schema: %v\n", hasAddress)
 	// Output:

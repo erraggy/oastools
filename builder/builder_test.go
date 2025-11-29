@@ -654,8 +654,8 @@ func TestBuilder_CompleteExample(t *testing.T) {
 	// Verify schemas were generated
 	require.NotNil(t, doc.Components)
 	require.NotNil(t, doc.Components.Schemas)
-	assert.Contains(t, doc.Components.Schemas, "Pet")
-	assert.Contains(t, doc.Components.Schemas, "Error")
+	assert.Contains(t, doc.Components.Schemas, "builder.Pet")
+	assert.Contains(t, doc.Components.Schemas, "builder.Error")
 }
 
 func TestFromDocument(t *testing.T) {
@@ -822,11 +822,11 @@ func TestBuilder_TimeType(t *testing.T) {
 	schema := b.generateSchema(Event{})
 
 	// The schema should be a reference
-	assert.Contains(t, schema.Ref, "Event")
+	assert.Contains(t, schema.Ref, "builder.Event")
 
 	// Check the actual schema
-	require.Contains(t, b.schemas, "Event")
-	eventSchema := b.schemas["Event"]
+	require.Contains(t, b.schemas, "builder.Event")
+	eventSchema := b.schemas["builder.Event"]
 	require.Contains(t, eventSchema.Properties, "timestamp")
 
 	// The timestamp property should point to a time type schema with date-time format

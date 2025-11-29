@@ -370,8 +370,8 @@ func TestIntegration_OASTagsOnStruct(t *testing.T) {
 	b := New(parser.OASVersion320)
 	b.generateSchema(User{})
 
-	require.Contains(t, b.schemas, "User")
-	schema := b.schemas["User"]
+	require.Contains(t, b.schemas, "builder.User")
+	schema := b.schemas["builder.User"]
 
 	// Check id field
 	require.Contains(t, schema.Properties, "id")

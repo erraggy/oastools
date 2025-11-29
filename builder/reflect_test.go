@@ -67,11 +67,11 @@ func TestBuilder_generateSchema_Struct(t *testing.T) {
 	schema := b.generateSchema(SimpleStruct{})
 
 	// Schema should be a $ref
-	assert.Contains(t, schema.Ref, "SimpleStruct")
+	assert.Contains(t, schema.Ref, "builder.SimpleStruct")
 
 	// Check the actual schema
-	require.Contains(t, b.schemas, "SimpleStruct")
-	actualSchema := b.schemas["SimpleStruct"]
+	require.Contains(t, b.schemas, "builder.SimpleStruct")
+	actualSchema := b.schemas["builder.SimpleStruct"]
 	assert.Equal(t, "object", actualSchema.Type)
 	require.Contains(t, actualSchema.Properties, "name")
 	require.Contains(t, actualSchema.Properties, "age")
@@ -91,8 +91,8 @@ func TestBuilder_generateSchema_RequiredFields(t *testing.T) {
 	b := New(parser.OASVersion320)
 	b.generateSchema(StructWithRequired{})
 
-	require.Contains(t, b.schemas, "StructWithRequired")
-	schema := b.schemas["StructWithRequired"]
+	require.Contains(t, b.schemas, "builder.StructWithRequired")
+	schema := b.schemas["builder.StructWithRequired"]
 
 	assert.Contains(t, schema.Required, "required1")
 	assert.Contains(t, schema.Required, "required2")
@@ -110,8 +110,8 @@ func TestBuilder_generateSchema_JSONTagMinus(t *testing.T) {
 	b := New(parser.OASVersion320)
 	b.generateSchema(StructWithExcluded{})
 
-	require.Contains(t, b.schemas, "StructWithExcluded")
-	schema := b.schemas["StructWithExcluded"]
+	require.Contains(t, b.schemas, "builder.StructWithExcluded")
+	schema := b.schemas["builder.StructWithExcluded"]
 
 	assert.Contains(t, schema.Properties, "included")
 	assert.NotContains(t, schema.Properties, "Excluded")
@@ -126,8 +126,8 @@ func TestBuilder_generateSchema_UnexportedFields(t *testing.T) {
 	b := New(parser.OASVersion320)
 	b.generateSchema(StructWithUnexported{})
 
-	require.Contains(t, b.schemas, "StructWithUnexported")
-	schema := b.schemas["StructWithUnexported"]
+	require.Contains(t, b.schemas, "builder.StructWithUnexported")
+	schema := b.schemas["builder.StructWithUnexported"]
 
 	assert.Contains(t, schema.Properties, "exported")
 	assert.NotContains(t, schema.Properties, "unexported")
@@ -157,7 +157,7 @@ func TestBuilder_generateSchema_SliceOfStructs(t *testing.T) {
 	require.NotNil(t, schema.Items)
 	itemsSchema, ok := schema.Items.(*parser.Schema)
 	require.True(t, ok)
-	assert.Contains(t, itemsSchema.Ref, "Item")
+	assert.Contains(t, itemsSchema.Ref, "builder.Item")
 }
 
 func TestBuilder_generateSchema_Map(t *testing.T) {
@@ -183,7 +183,7 @@ func TestBuilder_generateSchema_MapOfStructs(t *testing.T) {
 	require.NotNil(t, schema.AdditionalProperties)
 	addPropsSchema, ok := schema.AdditionalProperties.(*parser.Schema)
 	require.True(t, ok)
-	assert.Contains(t, addPropsSchema.Ref, "Value")
+	assert.Contains(t, addPropsSchema.Ref, "builder.Value")
 }
 
 func TestBuilder_generateSchema_Pointer(t *testing.T) {
@@ -210,13 +210,13 @@ func TestBuilder_generateSchema_NestedStruct(t *testing.T) {
 	b.generateSchema(Person{})
 
 	// Both schemas should be registered
-	require.Contains(t, b.schemas, "Person")
-	require.Contains(t, b.schemas, "Address")
+	require.Contains(t, b.schemas, "builder.Person")
+	require.Contains(t, b.schemas, "builder.Address")
 
 	// Person's address should be a ref
-	personSchema := b.schemas["Person"]
+	personSchema := b.schemas["builder.Person"]
 	require.Contains(t, personSchema.Properties, "address")
-	assert.Contains(t, personSchema.Properties["address"].Ref, "Address")
+	assert.Contains(t, personSchema.Properties["address"].Ref, "builder.Address")
 }
 
 func TestBuilder_generateSchema_CircularReference(t *testing.T) {
@@ -228,8 +228,8 @@ func TestBuilder_generateSchema_CircularReference(t *testing.T) {
 	b := New(parser.OASVersion320)
 	b.generateSchema(Node{})
 
-	require.Contains(t, b.schemas, "Node")
-	nodeSchema := b.schemas["Node"]
+	require.Contains(t, b.schemas, "builder.Node")
+	nodeSchema := b.schemas["builder.Node"]
 
 	// Children should be an array with $ref to Node
 	require.Contains(t, nodeSchema.Properties, "children")
@@ -238,7 +238,7 @@ func TestBuilder_generateSchema_CircularReference(t *testing.T) {
 	require.NotNil(t, childrenProp.Items)
 	itemsSchema, ok := childrenProp.Items.(*parser.Schema)
 	require.True(t, ok)
-	assert.Contains(t, itemsSchema.Ref, "Node")
+	assert.Contains(t, itemsSchema.Ref, "builder.Node")
 }
 
 func TestBuilder_generateSchema_EmbeddedStruct(t *testing.T) {
@@ -255,8 +255,8 @@ func TestBuilder_generateSchema_EmbeddedStruct(t *testing.T) {
 	b := New(parser.OASVersion320)
 	b.generateSchema(Extended{})
 
-	require.Contains(t, b.schemas, "Extended")
-	schema := b.schemas["Extended"]
+	require.Contains(t, b.schemas, "builder.Extended")
+	schema := b.schemas["builder.Extended"]
 
 	// Should have properties from both Base and Extended
 	assert.Contains(t, schema.Properties, "id")
@@ -308,8 +308,8 @@ func TestBuilder_RegisterType(t *testing.T) {
 	b := New(parser.OASVersion320)
 	schema := b.RegisterType(CustomType{})
 
-	assert.Contains(t, schema.Ref, "CustomType")
-	require.Contains(t, b.schemas, "CustomType")
+	assert.Contains(t, schema.Ref, "builder.CustomType")
+	require.Contains(t, b.schemas, "builder.CustomType")
 }
 
 func TestBuilder_RegisterTypeAs(t *testing.T) {
@@ -393,9 +393,9 @@ func TestBuilder_generateSchema_PointerToStruct(t *testing.T) {
 	schema := b.generateSchema(ptr)
 
 	// Should return a reference with nullable
-	assert.Contains(t, schema.Ref, "MyStruct")
+	assert.Contains(t, schema.Ref, "builder.MyStruct")
 	// Note: nullable flag may be set differently on references
-	require.Contains(t, b.schemas, "MyStruct")
+	require.Contains(t, b.schemas, "builder.MyStruct")
 }
 
 func TestBuilder_generateSchema_AnonymousStruct(t *testing.T) {

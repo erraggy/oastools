@@ -294,25 +294,22 @@ func (b *Builder) generatePrimitiveSchema(t reflect.Type) *parser.Schema {
 }
 
 // schemaName generates a schema name from a type.
-// If a conflict is detected (same name for different type), the package name is prefixed.
+// The name always includes the package name in the format "package.TypeName" (e.g., "foo.Bar").
 func (b *Builder) schemaName(t reflect.Type) string {
-	// Use the type name (without package prefix)
-	name := t.Name()
-	if name == "" {
+	typeName := t.Name()
+	if typeName == "" {
 		// Anonymous type - generate a unique name
-		name = "AnonymousType"
+		return "AnonymousType"
 	}
 
-	// Check for name conflicts with different types
-	if existingType := b.schemaCache.getTypeForName(name); existingType != nil && existingType != t {
-		// Conflict detected - prefix with package name
-		if pkgPath := t.PkgPath(); pkgPath != "" {
-			pkgName := path.Base(pkgPath)
-			name = pkgName + name
-		}
+	// Always include package name in the format "package.TypeName"
+	if pkgPath := t.PkgPath(); pkgPath != "" {
+		pkgName := path.Base(pkgPath)
+		return pkgName + "." + typeName
 	}
 
-	return name
+	// Built-in types without package path
+	return typeName
 }
 
 // refToSchema creates a schema with a $ref to a named schema.

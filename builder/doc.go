@@ -42,6 +42,12 @@
 //   - *T → schema of T (nullable)
 //   - time.Time → string (format: date-time)
 //
+// # Schema Naming
+//
+// Schemas are named using the Go convention of "package.TypeName" (e.g., "myapp.User").
+// This ensures uniqueness and matches Go developers' expectations for type identification.
+// Anonymous types are named "AnonymousType".
+//
 // # Struct Tags
 //
 // Customize schema generation with struct tags:
