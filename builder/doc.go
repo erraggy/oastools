@@ -52,6 +52,44 @@
 //	}
 //	// doc is *parser.OAS2Document - no type assertion needed
 //
+// # Modifying Existing Documents
+//
+// Use FromDocument or FromOAS2Document to create a builder from an existing document:
+//
+//	// For OAS 3.x documents
+//	b := builder.FromDocument(existingOAS3Doc)
+//	b.AddOperation(http.MethodPost, "/users", ...)
+//	newDoc, _ := b.BuildOAS3()
+//
+//	// For OAS 2.0 documents
+//	b := builder.FromOAS2Document(existingSwaggerDoc)
+//	b.AddOperation(http.MethodPost, "/users", ...)
+//	newDoc, _ := b.BuildOAS2()
+//
+// # Webhooks (OAS 3.1+)
+//
+// For OAS 3.1+ specifications, webhooks can be added using AddWebhook:
+//
+//	spec := builder.NewOAS3(parser.OASVersion310).
+//		SetTitle("Webhook API").
+//		SetVersion("1.0.0").
+//		AddWebhook("userCreated", http.MethodPost,
+//			builder.WithRequestBody("application/json", UserEvent{}),
+//			builder.WithResponse(http.StatusOK, struct{}{}),
+//		)
+//
+// # External Documentation
+//
+// Add document-level external documentation using SetExternalDocs:
+//
+//	spec := builder.NewOAS3(parser.OASVersion320).
+//		SetTitle("My API").
+//		SetVersion("1.0.0").
+//		SetExternalDocs(&parser.ExternalDocs{
+//			URL:         "https://docs.example.com",
+//			Description: "API documentation",
+//		})
+//
 // # Reflection-Based Schema Generation
 //
 // The core feature is automatic schema generation from Go types via reflection.
@@ -121,6 +159,12 @@
 //   - Non-pointer fields without omitempty are required
 //   - Fields with oas:"required=true" are explicitly required
 //   - Fields with oas:"required=false" are explicitly optional
+//
+// # Operation Responses
+//
+// Note: OpenAPI requires at least one response per operation. If no responses
+// are defined, the resulting spec will fail OAS validation. Always use
+// WithResponse() or WithDefaultResponse() to add responses to operations.
 //
 // # Integration with Other Packages
 //

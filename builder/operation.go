@@ -387,6 +387,10 @@ func WithCookieParam(name string, paramType any, opts ...ParamOption) OperationO
 
 // AddOperation adds an API operation to the specification.
 // Go types passed to options are automatically converted to schemas via reflection.
+//
+// Note: OpenAPI requires at least one response per operation. If no responses
+// are defined, the resulting spec will fail OAS validation. Use WithResponse()
+// or WithDefaultResponse() to add responses.
 func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Builder {
 	// Create operation config with defaults
 	cfg := &operationConfig{

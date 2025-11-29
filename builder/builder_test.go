@@ -957,6 +957,203 @@ func TestFromDocument(t *testing.T) {
 		doc := buildOAS3(t, b)
 		assert.NotNil(t, doc)
 	})
+
+	t.Run("with external docs", func(t *testing.T) {
+		original := &parser.OAS3Document{
+			OpenAPI: "3.0.3",
+			Info: &parser.Info{
+				Title:   "Original API",
+				Version: "1.0.0",
+			},
+			ExternalDocs: &parser.ExternalDocs{
+				URL:         "https://docs.example.com",
+				Description: "API documentation",
+			},
+		}
+
+		b := FromDocument(original)
+		doc := buildOAS3(t, b)
+
+		require.NotNil(t, doc.ExternalDocs)
+		assert.Equal(t, "https://docs.example.com", doc.ExternalDocs.URL)
+		assert.Equal(t, "API documentation", doc.ExternalDocs.Description)
+	})
+}
+
+func TestFromOAS2Document(t *testing.T) {
+	t.Run("basic", func(t *testing.T) {
+		// Create an existing OAS 2.0 document
+		original := &parser.OAS2Document{
+			Swagger: "2.0",
+			Info: &parser.Info{
+				Title:   "Original API",
+				Version: "1.0.0",
+			},
+			Paths: parser.Paths{
+				"/existing": &parser.PathItem{
+					Get: &parser.Operation{
+						OperationID: "existingOp",
+					},
+				},
+			},
+			Definitions: map[string]*parser.Schema{
+				"ExistingSchema": {Type: "string"},
+			},
+		}
+
+		// Create builder from document
+		b := FromOAS2Document(original)
+
+		// Add new operation
+		b.AddOperation(http.MethodPost, "/new",
+			WithOperationID("newOp"),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+		doc, err := b.BuildOAS2()
+		require.NoError(t, err)
+
+		// Verify original content preserved
+		assert.Contains(t, doc.Paths, "/existing")
+		assert.Contains(t, doc.Definitions, "ExistingSchema")
+
+		// Verify new content added
+		assert.Contains(t, doc.Paths, "/new")
+	})
+
+	t.Run("with parameters and responses", func(t *testing.T) {
+		original := &parser.OAS2Document{
+			Swagger: "2.0",
+			Info: &parser.Info{
+				Title:   "Original API",
+				Version: "1.0.0",
+			},
+			Parameters: map[string]*parser.Parameter{
+				"PageSize": {Name: "pageSize", In: "query"},
+			},
+			Responses: map[string]*parser.Response{
+				"NotFound": {Description: "Not found"},
+			},
+		}
+
+		b := FromOAS2Document(original)
+		doc, err := b.BuildOAS2()
+		require.NoError(t, err)
+
+		assert.Contains(t, doc.Parameters, "PageSize")
+		assert.Contains(t, doc.Responses, "NotFound")
+	})
+
+	t.Run("with security definitions", func(t *testing.T) {
+		original := &parser.OAS2Document{
+			Swagger: "2.0",
+			Info: &parser.Info{
+				Title:   "Original API",
+				Version: "1.0.0",
+			},
+			SecurityDefinitions: map[string]*parser.SecurityScheme{
+				"api_key": {Type: "apiKey", Name: "X-API-Key", In: "header"},
+			},
+			Security: []parser.SecurityRequirement{
+				{"api_key": []string{}},
+			},
+		}
+
+		b := FromOAS2Document(original)
+		doc, err := b.BuildOAS2()
+		require.NoError(t, err)
+
+		assert.Contains(t, doc.SecurityDefinitions, "api_key")
+		assert.Len(t, doc.Security, 1)
+	})
+
+	t.Run("with tags and external docs", func(t *testing.T) {
+		original := &parser.OAS2Document{
+			Swagger: "2.0",
+			Info: &parser.Info{
+				Title:   "Original API",
+				Version: "1.0.0",
+			},
+			Tags: []*parser.Tag{
+				{Name: "users", Description: "User operations"},
+			},
+			ExternalDocs: &parser.ExternalDocs{
+				URL:         "https://docs.example.com",
+				Description: "API documentation",
+			},
+		}
+
+		b := FromOAS2Document(original)
+		doc, err := b.BuildOAS2()
+		require.NoError(t, err)
+
+		require.Len(t, doc.Tags, 1)
+		assert.Equal(t, "users", doc.Tags[0].Name)
+		require.NotNil(t, doc.ExternalDocs)
+		assert.Equal(t, "https://docs.example.com", doc.ExternalDocs.URL)
+	})
+}
+
+func TestBuilder_SetExternalDocs(t *testing.T) {
+	b := New(parser.OASVersion320).
+		SetTitle("Test API").
+		SetVersion("1.0.0").
+		SetExternalDocs(&parser.ExternalDocs{
+			URL:         "https://docs.example.com",
+			Description: "API documentation",
+		})
+
+	doc := buildOAS3(t, b)
+
+	require.NotNil(t, doc.ExternalDocs)
+	assert.Equal(t, "https://docs.example.com", doc.ExternalDocs.URL)
+	assert.Equal(t, "API documentation", doc.ExternalDocs.Description)
+}
+
+func TestBuilder_AddWebhook(t *testing.T) {
+	type WebhookPayload struct {
+		Event string `json:"event"`
+		Data  any    `json:"data"`
+	}
+
+	t.Run("basic webhook", func(t *testing.T) {
+		b := NewOAS3(parser.OASVersion310).
+			SetTitle("Webhook API").
+			SetVersion("1.0.0").
+			AddWebhook("newUser", http.MethodPost,
+				WithOperationID("userCreatedWebhook"),
+				WithRequestBody("application/json", WebhookPayload{}),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc := buildOAS3(t, b)
+
+		require.NotNil(t, doc.Webhooks)
+		require.Contains(t, doc.Webhooks, "newUser")
+		assert.NotNil(t, doc.Webhooks["newUser"].Post)
+		assert.Equal(t, "userCreatedWebhook", doc.Webhooks["newUser"].Post.OperationID)
+	})
+
+	t.Run("multiple methods on same webhook", func(t *testing.T) {
+		b := NewOAS3(parser.OASVersion310).
+			SetTitle("Webhook API").
+			SetVersion("1.0.0").
+			AddWebhook("events", http.MethodPost,
+				WithOperationID("createEvent"),
+				WithResponse(http.StatusOK, struct{}{}),
+			).
+			AddWebhook("events", http.MethodGet,
+				WithOperationID("listEvents"),
+				WithResponse(http.StatusOK, []struct{}{}),
+			)
+
+		doc := buildOAS3(t, b)
+
+		require.NotNil(t, doc.Webhooks)
+		require.Contains(t, doc.Webhooks, "events")
+		assert.NotNil(t, doc.Webhooks["events"].Post)
+		assert.NotNil(t, doc.Webhooks["events"].Get)
+	})
 }
 
 func TestBuilder_TimeType(t *testing.T) {

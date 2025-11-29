@@ -59,12 +59,6 @@ func (c *schemaCache) getNameForType(t reflect.Type) string {
 	return c.nameByType[t]
 }
 
-// hasName returns true if a name is already registered.
-func (c *schemaCache) hasName(name string) bool {
-	_, exists := c.byName[name]
-	return exists
-}
-
 // getTypeForName returns the type registered for a name, or nil if not found.
 func (c *schemaCache) getTypeForName(name string) reflect.Type {
 	return c.byName[name]

@@ -337,14 +337,6 @@ func TestSchemaCache(t *testing.T) {
 		assert.Contains(t, schema.Ref, "TestType")
 	})
 
-	t.Run("hasName", func(t *testing.T) {
-		cache := newSchemaCache()
-		assert.False(t, cache.hasName("Test"))
-
-		cache.byName["Test"] = nil
-		assert.True(t, cache.hasName("Test"))
-	})
-
 	t.Run("getNameForType", func(t *testing.T) {
 		type TestType struct{}
 		cache := newSchemaCache()

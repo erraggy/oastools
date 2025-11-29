@@ -21,11 +21,13 @@ type Builder struct {
 	version parser.OASVersion
 
 	// Document sections
-	info     *parser.Info
-	servers  []*parser.Server
-	paths    parser.Paths
-	tags     []*parser.Tag
-	security []parser.SecurityRequirement
+	info         *parser.Info
+	servers      []*parser.Server
+	paths        parser.Paths
+	tags         []*parser.Tag
+	security     []parser.SecurityRequirement
+	externalDocs *parser.ExternalDocs
+	webhooks     map[string]*parser.PathItem // OAS 3.1+ only
 
 	// Components (tracked separately for deduplication)
 	schemas         map[string]*parser.Schema
@@ -55,6 +57,7 @@ func New(version parser.OASVersion) *Builder {
 	return &Builder{
 		version:         version,
 		paths:           make(parser.Paths),
+		webhooks:        make(map[string]*parser.PathItem),
 		schemas:         make(map[string]*parser.Schema),
 		responses:       make(map[string]*parser.Response),
 		parameters:      make(map[string]*parser.Parameter),
@@ -176,6 +179,108 @@ func (b *Builder) SetLicense(license *parser.License) *Builder {
 	return b
 }
 
+// SetExternalDocs sets the external documentation for the document.
+// This is used for providing additional documentation at the document level.
+func (b *Builder) SetExternalDocs(externalDocs *parser.ExternalDocs) *Builder {
+	b.externalDocs = externalDocs
+	return b
+}
+
+// AddWebhook adds a webhook to the specification (OAS 3.1+ only).
+// Webhooks are callbacks that are triggered by the API provider.
+// Returns an error during Build if used with OAS versions earlier than 3.1.
+//
+// Example:
+//
+//	spec.AddWebhook("newUser", http.MethodPost,
+//	    builder.WithResponse(http.StatusOK, UserCreatedEvent{}),
+//	)
+func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Builder {
+	// Create operation config with defaults
+	cfg := &operationConfig{
+		responses: make(map[string]*parser.Response),
+	}
+
+	// Apply all options
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	// Process request body schema
+	if cfg.requestBody != nil && cfg.requestBody.Extra != nil {
+		if bodyType, ok := cfg.requestBody.Extra["_bodyType"]; ok {
+			schema := b.generateSchema(bodyType)
+			for contentType := range cfg.requestBody.Content {
+				cfg.requestBody.Content[contentType].Schema = schema
+			}
+		}
+		cfg.requestBody.Extra = nil
+	}
+
+	// Process response schemas
+	for code, resp := range cfg.responses {
+		if resp.Extra != nil {
+			if respType, ok := resp.Extra["_responseType"]; ok {
+				schema := b.generateSchema(respType)
+				for contentType := range resp.Content {
+					resp.Content[contentType].Schema = schema
+				}
+			}
+			resp.Extra = nil
+		}
+		cfg.responses[code] = resp
+	}
+
+	// Process parameter schemas
+	for _, param := range cfg.parameters {
+		if param.Extra != nil {
+			if paramType, ok := param.Extra["_paramType"]; ok {
+				param.Schema = b.generateSchema(paramType)
+			}
+			param.Extra = nil
+		}
+	}
+
+	// Build responses object
+	var responses *parser.Responses
+	if len(cfg.responses) > 0 {
+		responses = &parser.Responses{
+			Codes: make(map[string]*parser.Response),
+		}
+		for code, resp := range cfg.responses {
+			if code == "default" {
+				responses.Default = resp
+			} else {
+				responses.Codes[code] = resp
+			}
+		}
+	}
+
+	// Build Operation struct
+	op := &parser.Operation{
+		OperationID: cfg.operationID,
+		Summary:     cfg.summary,
+		Description: cfg.description,
+		Tags:        cfg.tags,
+		Parameters:  cfg.parameters,
+		RequestBody: cfg.requestBody,
+		Responses:   responses,
+		Deprecated:  cfg.deprecated,
+	}
+
+	// Get or create PathItem for webhook
+	pathItem, exists := b.webhooks[name]
+	if !exists {
+		pathItem = &parser.PathItem{}
+		b.webhooks[name] = pathItem
+	}
+
+	// Assign operation to method
+	b.setOperation(pathItem, method, op)
+
+	return b
+}
+
 // Build creates the final OAS document based on the version specified in New().
 // Returns either *parser.OAS2Document or *parser.OAS3Document depending on the version.
 // Returns an error if required fields are missing or validation errors occurred.
@@ -216,12 +321,13 @@ func (b *Builder) BuildOAS2() (*parser.OAS2Document, error) {
 
 	// Create document
 	doc := &parser.OAS2Document{
-		Swagger:    "2.0",
-		OASVersion: b.version,
-		Info:       b.info,
-		Paths:      paths,
-		Tags:       b.tags,
-		Security:   b.security,
+		Swagger:      "2.0",
+		OASVersion:   b.version,
+		Info:         b.info,
+		Paths:        paths,
+		Tags:         b.tags,
+		Security:     b.security,
+		ExternalDocs: b.externalDocs,
 	}
 
 	// Add definitions (schemas)
@@ -297,14 +403,20 @@ func (b *Builder) BuildOAS3() (*parser.OAS3Document, error) {
 
 	// Create document
 	doc := &parser.OAS3Document{
-		OpenAPI:    b.version.String(),
-		OASVersion: b.version,
-		Info:       b.info,
-		Servers:    b.servers,
-		Paths:      paths,
-		Components: components,
-		Tags:       b.tags,
-		Security:   b.security,
+		OpenAPI:      b.version.String(),
+		OASVersion:   b.version,
+		Info:         b.info,
+		Servers:      b.servers,
+		Paths:        paths,
+		Components:   components,
+		Tags:         b.tags,
+		Security:     b.security,
+		ExternalDocs: b.externalDocs,
+	}
+
+	// Add webhooks (OAS 3.1+ only)
+	if len(b.webhooks) > 0 {
+		doc.Webhooks = b.webhooks
 	}
 
 	return doc, nil
@@ -427,6 +539,8 @@ func (b *Builder) RegisterTypeAs(name string, v any) *parser.Schema {
 
 // FromDocument creates a builder from an existing OAS3Document.
 // This allows modifying an existing document by adding operations.
+//
+// For OAS 2.0 documents, use FromOAS2Document instead.
 func FromDocument(doc *parser.OAS3Document) *Builder {
 	version, ok := parser.ParseVersion(doc.OpenAPI)
 	if !ok {
@@ -438,6 +552,7 @@ func FromDocument(doc *parser.OAS3Document) *Builder {
 	b.servers = doc.Servers
 	b.tags = doc.Tags
 	b.security = doc.Security
+	b.externalDocs = doc.ExternalDocs
 
 	// Copy paths
 	if doc.Paths != nil {
@@ -472,6 +587,55 @@ func FromDocument(doc *parser.OAS3Document) *Builder {
 			for name, ss := range doc.Components.SecuritySchemes {
 				b.securitySchemes[name] = ss
 			}
+		}
+	}
+
+	return b
+}
+
+// FromOAS2Document creates a builder from an existing OAS2Document (Swagger 2.0).
+// This allows modifying an existing document by adding operations.
+//
+// For OAS 3.x documents, use FromDocument instead.
+func FromOAS2Document(doc *parser.OAS2Document) *Builder {
+	b := New(parser.OASVersion20)
+	b.info = doc.Info
+	b.tags = doc.Tags
+	b.security = doc.Security
+	b.externalDocs = doc.ExternalDocs
+
+	// Copy paths
+	if doc.Paths != nil {
+		for path, item := range doc.Paths {
+			b.paths[path] = item
+		}
+	}
+
+	// Copy definitions (schemas)
+	if doc.Definitions != nil {
+		for name, schema := range doc.Definitions {
+			b.schemas[name] = schema
+		}
+	}
+
+	// Copy parameters
+	if doc.Parameters != nil {
+		for name, param := range doc.Parameters {
+			b.parameters[name] = param
+		}
+	}
+
+	// Copy responses
+	if doc.Responses != nil {
+		for name, resp := range doc.Responses {
+			b.responses[name] = resp
+		}
+	}
+
+	// Copy security definitions
+	if doc.SecurityDefinitions != nil {
+		for name, ss := range doc.SecurityDefinitions {
+			b.securitySchemes[name] = ss
 		}
 	}
 
