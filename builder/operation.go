@@ -322,7 +322,7 @@ func WithCookieParam(name string, paramType any, opts ...ParamOption) OperationO
 // Note: OpenAPI requires at least one response per operation. If no responses
 // are defined, the resulting spec will fail OAS validation. Use WithResponse()
 // or WithDefaultResponse() to add responses. The builder package does not perform
-// validation; use the validator package to validate built documents.
+// OAS specification validation; use the validator package to validate built documents.
 func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Builder {
 	// Create operation config with defaults
 	cfg := &operationConfig{
@@ -334,7 +334,7 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 		opt(cfg)
 	}
 
-	// Track operation ID for uniqueness
+	// Check for duplicate operation ID
 	if cfg.operationID != "" {
 		if b.operationIDs[cfg.operationID] {
 			b.errors = append(b.errors, fmt.Errorf("duplicate operation ID: %s", cfg.operationID))
