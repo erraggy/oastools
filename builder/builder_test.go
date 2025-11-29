@@ -11,6 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// buildOAS3 is a test helper that builds and asserts OAS3 document.
+func buildOAS3(t *testing.T, b *Builder) *parser.OAS3Document {
+	t.Helper()
+	doc, err := b.BuildOAS3()
+	require.NoError(t, err)
+	return doc
+}
+
 func TestNew(t *testing.T) {
 	b := New(parser.OASVersion320)
 
@@ -19,6 +27,157 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, b.schemas)
 	assert.NotNil(t, b.schemaCache)
 	assert.NotNil(t, b.operationIDs)
+}
+
+func TestNewOAS2(t *testing.T) {
+	b := NewOAS2()
+
+	assert.Equal(t, parser.OASVersion20, b.version)
+	assert.NotNil(t, b.paths)
+	assert.NotNil(t, b.schemas)
+}
+
+func TestNewOAS3(t *testing.T) {
+	b := NewOAS3(parser.OASVersion320)
+
+	assert.Equal(t, parser.OASVersion320, b.version)
+	assert.NotNil(t, b.paths)
+	assert.NotNil(t, b.schemas)
+}
+
+func TestNewOAS3_DefaultsToLatest(t *testing.T) {
+	// If OAS 2.0 is passed to NewOAS3, it should default to latest 3.x
+	b := NewOAS3(parser.OASVersion20)
+	assert.Equal(t, parser.OASVersion320, b.version)
+
+	// Unknown version should also default to latest
+	b2 := NewOAS3(parser.Unknown)
+	assert.Equal(t, parser.OASVersion320, b2.version)
+}
+
+func TestNew_OAS20(t *testing.T) {
+	// OAS 2.0 should be supported
+	b := New(parser.OASVersion20)
+
+	assert.Equal(t, parser.OASVersion20, b.version)
+	assert.Empty(t, b.errors, "No errors should be recorded for OAS 2.0")
+}
+
+func TestBuild_OAS20Document(t *testing.T) {
+	type User struct {
+		ID   int64  `json:"id"`
+		Name string `json:"name"`
+	}
+
+	b := NewOAS2().
+		SetTitle("Test API").
+		SetVersion("1.0.0")
+
+	b.AddOperation("GET", "/users",
+		WithOperationID("listUsers"),
+		WithResponse(200, []User{}),
+	)
+
+	// Use typed method - no type assertion needed
+	doc, err := b.BuildOAS2()
+	require.NoError(t, err)
+
+	assert.Equal(t, "2.0", doc.Swagger)
+	assert.Equal(t, "Test API", doc.Info.Title)
+	assert.Equal(t, "1.0.0", doc.Info.Version)
+
+	// Check that schemas are in definitions, not components
+	assert.NotNil(t, doc.Definitions, "Schemas should be in definitions")
+	assert.Contains(t, doc.Definitions, "builder.User")
+}
+
+func TestBuildOAS2_WrongVersion(t *testing.T) {
+	// BuildOAS2() should error when builder is OAS 3.x
+	b := NewOAS3(parser.OASVersion320).
+		SetTitle("Test API").
+		SetVersion("1.0.0")
+
+	_, err := b.BuildOAS2()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "BuildOAS2()")
+	assert.Contains(t, err.Error(), "use BuildOAS3()")
+}
+
+func TestBuildOAS3_WrongVersion(t *testing.T) {
+	// BuildOAS3() should error when builder is OAS 2.0
+	b := NewOAS2().
+		SetTitle("Test API").
+		SetVersion("1.0.0")
+
+	_, err := b.BuildOAS3()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "BuildOAS3()")
+	assert.Contains(t, err.Error(), "use BuildOAS2()")
+}
+
+func TestBuild_OAS3Document(t *testing.T) {
+	type User struct {
+		ID   int64  `json:"id"`
+		Name string `json:"name"`
+	}
+
+	b := NewOAS3(parser.OASVersion320).
+		SetTitle("Test API").
+		SetVersion("1.0.0")
+
+	b.AddOperation("GET", "/users",
+		WithOperationID("listUsers"),
+		WithResponse(200, []User{}),
+	)
+
+	// Use typed method - no type assertion needed
+	doc, err := b.BuildOAS3()
+	require.NoError(t, err)
+
+	assert.Equal(t, "3.2.0", doc.OpenAPI)
+	assert.Equal(t, "Test API", doc.Info.Title)
+	assert.Equal(t, "1.0.0", doc.Info.Version)
+
+	// Check that schemas are in components, not definitions
+	assert.NotNil(t, doc.Components, "Should have components")
+	assert.NotNil(t, doc.Components.Schemas, "Schemas should be in components.schemas")
+	assert.Contains(t, doc.Components.Schemas, "builder.User")
+}
+
+func TestSchemaRef_OAS20(t *testing.T) {
+	b := New(parser.OASVersion20)
+	ref := b.SchemaRef("User")
+	assert.Equal(t, "#/definitions/User", ref)
+}
+
+func TestSchemaRef_OAS3(t *testing.T) {
+	b := New(parser.OASVersion320)
+	ref := b.SchemaRef("User")
+	assert.Equal(t, "#/components/schemas/User", ref)
+}
+
+func TestParameterRef_OAS20(t *testing.T) {
+	b := New(parser.OASVersion20)
+	ref := b.ParameterRef("limitParam")
+	assert.Equal(t, "#/parameters/limitParam", ref)
+}
+
+func TestParameterRef_OAS3(t *testing.T) {
+	b := New(parser.OASVersion320)
+	ref := b.ParameterRef("limitParam")
+	assert.Equal(t, "#/components/parameters/limitParam", ref)
+}
+
+func TestResponseRef_OAS20(t *testing.T) {
+	b := New(parser.OASVersion20)
+	ref := b.ResponseRef("NotFound")
+	assert.Equal(t, "#/responses/NotFound", ref)
+}
+
+func TestResponseRef_OAS3(t *testing.T) {
+	b := New(parser.OASVersion320)
+	ref := b.ResponseRef("NotFound")
+	assert.Equal(t, "#/components/responses/NotFound", ref)
 }
 
 func TestNewWithInfo(t *testing.T) {
@@ -106,8 +265,10 @@ func TestBuilder_Build(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0")
 
-		doc, err := b.Build()
+		result, err := b.Build()
 		require.NoError(t, err)
+		doc, ok := result.(*parser.OAS3Document)
+		require.True(t, ok, "Should return OAS3Document")
 		assert.Equal(t, "3.2.0", doc.OpenAPI)
 		assert.Equal(t, "Test API", doc.Info.Title)
 		assert.Equal(t, "1.0.0", doc.Info.Version)
@@ -437,8 +598,7 @@ func TestBuilder_SecuritySchemes(t *testing.T) {
 			SecurityRequirement("bearer_auth"),
 		)
 
-	doc, err := b.Build()
-	require.NoError(t, err)
+	doc := buildOAS3(t, b)
 
 	require.NotNil(t, doc.Components)
 	require.NotNil(t, doc.Components.SecuritySchemes)
@@ -458,8 +618,7 @@ func TestBuilder_AddSecurityScheme(t *testing.T) {
 			Description: "Custom scheme",
 		})
 
-	doc, err := b.Build()
-	require.NoError(t, err)
+	doc := buildOAS3(t, b)
 
 	require.NotNil(t, doc.Components.SecuritySchemes)
 	assert.Contains(t, doc.Components.SecuritySchemes, "custom")
@@ -483,8 +642,7 @@ func TestBuilder_AddOAuth2SecurityScheme(t *testing.T) {
 		SetVersion("1.0.0").
 		AddOAuth2SecurityScheme("oauth2", flows, "OAuth2 authentication")
 
-	doc, err := b.Build()
-	require.NoError(t, err)
+	doc := buildOAS3(t, b)
 
 	require.NotNil(t, doc.Components.SecuritySchemes)
 	assert.Contains(t, doc.Components.SecuritySchemes, "oauth2")
@@ -502,8 +660,7 @@ func TestBuilder_AddOpenIDConnectSecurityScheme(t *testing.T) {
 		SetVersion("1.0.0").
 		AddOpenIDConnectSecurityScheme("oidc", "https://example.com/.well-known/openid-configuration", "OpenID Connect")
 
-	doc, err := b.Build()
-	require.NoError(t, err)
+	doc := buildOAS3(t, b)
 
 	require.NotNil(t, doc.Components.SecuritySchemes)
 	assert.Contains(t, doc.Components.SecuritySchemes, "oidc")
@@ -526,8 +683,7 @@ func TestBuilder_AddResponse(t *testing.T) {
 			WithResponseExample(map[string]any{"code": 500, "message": "Internal error"}),
 		)
 
-	doc, err := b.Build()
-	require.NoError(t, err)
+	doc := buildOAS3(t, b)
 
 	require.NotNil(t, doc.Components.Responses)
 	assert.Contains(t, doc.Components.Responses, "Error")
@@ -546,8 +702,7 @@ func TestBuilder_AddResponseWithContentType(t *testing.T) {
 			Message string `json:"message"`
 		}{})
 
-	doc, err := b.Build()
-	require.NoError(t, err)
+	doc := buildOAS3(t, b)
 
 	require.NotNil(t, doc.Components.Responses)
 	assert.Contains(t, doc.Components.Responses, "XMLError")
@@ -557,7 +712,9 @@ func TestBuilder_AddResponseWithContentType(t *testing.T) {
 }
 
 func TestResponseRef(t *testing.T) {
-	ref := ResponseRef("Error")
+	// Test OAS 3.x default
+	b := New(parser.OASVersion320)
+	ref := b.ResponseRef("Error")
 	assert.Equal(t, "#/components/responses/Error", ref)
 }
 
@@ -570,8 +727,7 @@ func TestBuilder_AddParameter(t *testing.T) {
 			WithParamRequired(false),
 		)
 
-	doc, err := b.Build()
-	require.NoError(t, err)
+	doc := buildOAS3(t, b)
 
 	require.NotNil(t, doc.Components.Parameters)
 	assert.Contains(t, doc.Components.Parameters, "PageLimit")
@@ -590,8 +746,7 @@ func TestBuilder_AddParameter_PathAlwaysRequired(t *testing.T) {
 			WithParamRequired(false), // This should be ignored for path params
 		)
 
-	doc, err := b.Build()
-	require.NoError(t, err)
+	doc := buildOAS3(t, b)
 
 	require.NotNil(t, doc.Components.Parameters)
 	param := doc.Components.Parameters["UserId"]
@@ -599,7 +754,9 @@ func TestBuilder_AddParameter_PathAlwaysRequired(t *testing.T) {
 }
 
 func TestParameterRef(t *testing.T) {
-	ref := ParameterRef("PageLimit")
+	// Test OAS 3.x default
+	b := New(parser.OASVersion320)
+	ref := b.ParameterRef("PageLimit")
 	assert.Equal(t, "#/components/parameters/PageLimit", ref)
 }
 
@@ -640,8 +797,7 @@ func TestBuilder_CompleteExample(t *testing.T) {
 			WithResponse(http.StatusNotFound, Error{}),
 		)
 
-	doc, err := b.Build()
-	require.NoError(t, err)
+	doc := buildOAS3(t, b)
 
 	// Verify document structure
 	assert.Equal(t, "3.2.0", doc.OpenAPI)
@@ -690,8 +846,7 @@ func TestFromDocument(t *testing.T) {
 			WithResponse(http.StatusOK, struct{}{}),
 		)
 
-		doc, err := b.Build()
-		require.NoError(t, err)
+		doc := buildOAS3(t, b)
 
 		// Verify original content preserved
 		assert.Contains(t, doc.Paths, "/existing")
@@ -719,8 +874,7 @@ func TestFromDocument(t *testing.T) {
 		}
 
 		b := FromDocument(original)
-		doc, err := b.Build()
-		require.NoError(t, err)
+		doc := buildOAS3(t, b)
 
 		assert.Contains(t, doc.Components.Responses, "NotFound")
 		assert.Contains(t, doc.Components.Parameters, "PageSize")
@@ -744,8 +898,7 @@ func TestFromDocument(t *testing.T) {
 		}
 
 		b := FromDocument(original)
-		doc, err := b.Build()
-		require.NoError(t, err)
+		doc := buildOAS3(t, b)
 
 		assert.Contains(t, doc.Components.SecuritySchemes, "api_key")
 		assert.Len(t, doc.Security, 1)
@@ -767,8 +920,7 @@ func TestFromDocument(t *testing.T) {
 		}
 
 		b := FromDocument(original)
-		doc, err := b.Build()
-		require.NoError(t, err)
+		doc := buildOAS3(t, b)
 
 		require.Len(t, doc.Servers, 1)
 		assert.Equal(t, "https://api.example.com", doc.Servers[0].URL)
@@ -786,8 +938,7 @@ func TestFromDocument(t *testing.T) {
 		}
 
 		b := FromDocument(original)
-		doc, err := b.Build()
-		require.NoError(t, err)
+		doc := buildOAS3(t, b)
 
 		assert.Equal(t, "3.2.0", doc.OpenAPI)
 	})
@@ -803,8 +954,7 @@ func TestFromDocument(t *testing.T) {
 		}
 
 		b := FromDocument(original)
-		doc, err := b.Build()
-		require.NoError(t, err)
+		doc := buildOAS3(t, b)
 		assert.NotNil(t, doc)
 	})
 }

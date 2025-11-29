@@ -356,18 +356,42 @@ func sanitizeSchemaName(name string) string {
 	return name
 }
 
+// schemaRefPrefix returns the appropriate $ref prefix based on the OAS version.
+// OAS 2.0 uses "#/definitions/" while OAS 3.x uses "#/components/schemas/".
+func (b *Builder) schemaRefPrefix() string {
+	if b.version == parser.OASVersion20 {
+		return "#/definitions/"
+	}
+	return "#/components/schemas/"
+}
+
+// SchemaRef returns a reference string to a named schema.
+// This method returns the version-appropriate ref path:
+//   - OAS 2.0: "#/definitions/{name}"
+//   - OAS 3.x: "#/components/schemas/{name}"
+func (b *Builder) SchemaRef(name string) string {
+	return b.schemaRefPrefix() + name
+}
+
 // refToSchema creates a schema with a $ref to a named schema.
+// The ref path is version-appropriate (definitions for OAS 2.0, components/schemas for OAS 3.x).
 func (b *Builder) refToSchema(name string) *parser.Schema {
 	return &parser.Schema{
-		Ref: "#/components/schemas/" + name,
+		Ref: b.schemaRefPrefix() + name,
 	}
 }
 
 // extractRefName extracts the schema name from a $ref string.
+// Handles both OAS 2.0 (#/definitions/) and OAS 3.x (#/components/schemas/) formats.
 func extractRefName(ref string) string {
-	const prefix = "#/components/schemas/"
-	if len(ref) > len(prefix) {
-		return ref[len(prefix):]
+	const oas3Prefix = "#/components/schemas/"
+	const oas2Prefix = "#/definitions/"
+
+	if strings.HasPrefix(ref, oas3Prefix) {
+		return ref[len(oas3Prefix):]
+	}
+	if strings.HasPrefix(ref, oas2Prefix) {
+		return ref[len(oas2Prefix):]
 	}
 	return ""
 }

@@ -26,7 +26,7 @@ type Error struct {
 
 // Example demonstrates basic builder usage.
 func Example() {
-	spec := builder.New(parser.OASVersion320).
+	spec := builder.NewOAS3(parser.OASVersion320).
 		SetTitle("Pet Store API").
 		SetVersion("1.0.0")
 
@@ -35,7 +35,8 @@ func Example() {
 		builder.WithResponse(http.StatusOK, []Pet{}),
 	)
 
-	doc, err := spec.Build()
+	// Use BuildOAS3() for type-safe access - no type assertion needed
+	doc, err := spec.BuildOAS3()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -51,7 +52,7 @@ func Example() {
 
 // Example_withServer demonstrates adding servers.
 func Example_withServer() {
-	spec := builder.New(parser.OASVersion320).
+	spec := builder.NewOAS3(parser.OASVersion320).
 		SetTitle("My API").
 		SetVersion("1.0.0").
 		AddServer("https://api.example.com/v1",
@@ -61,7 +62,7 @@ func Example_withServer() {
 			builder.WithServerDescription("Staging server"),
 		)
 
-	doc, err := spec.Build()
+	doc, err := spec.BuildOAS3()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -80,7 +81,7 @@ func Example_withRequestBody() {
 		Tag  string `json:"tag,omitempty"`
 	}
 
-	spec := builder.New(parser.OASVersion320).
+	spec := builder.NewOAS3(parser.OASVersion320).
 		SetTitle("Pet Store API").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/pets",
@@ -92,10 +93,11 @@ func Example_withRequestBody() {
 			builder.WithResponse(http.StatusCreated, Pet{}),
 		)
 
-	doc, err := spec.Build()
+	doc, err := spec.BuildOAS3()
 	if err != nil {
 		log.Fatal(err)
 	}
+	doc := result.(*parser.OAS3Document)
 
 	hasRequestBody := doc.Paths["/pets"].Post.RequestBody != nil
 	fmt.Printf("Has request body: %v\n", hasRequestBody)
@@ -105,7 +107,7 @@ func Example_withRequestBody() {
 
 // Example_withParameters demonstrates adding parameters.
 func Example_withParameters() {
-	spec := builder.New(parser.OASVersion320).
+	spec := builder.NewOAS3(parser.OASVersion320).
 		SetTitle("Pet Store API").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodGet, "/pets/{petId}",
@@ -119,10 +121,11 @@ func Example_withParameters() {
 			builder.WithResponse(http.StatusOK, Pet{}),
 		)
 
-	doc, err := spec.Build()
+	doc, err := spec.BuildOAS3()
 	if err != nil {
 		log.Fatal(err)
 	}
+	doc := result.(*parser.OAS3Document)
 
 	paramCount := len(doc.Paths["/pets/{petId}"].Get.Parameters)
 	fmt.Printf("Parameters: %d\n", paramCount)
@@ -132,7 +135,7 @@ func Example_withParameters() {
 
 // Example_withSecurity demonstrates security configuration.
 func Example_withSecurity() {
-	spec := builder.New(parser.OASVersion320).
+	spec := builder.NewOAS3(parser.OASVersion320).
 		SetTitle("Secure API").
 		SetVersion("1.0.0").
 		AddAPIKeySecurityScheme("api_key", "header", "X-API-Key", "API key authentication").
@@ -146,10 +149,11 @@ func Example_withSecurity() {
 			builder.WithResponse(http.StatusOK, struct{}{}),
 		)
 
-	doc, err := spec.Build()
+	doc, err := spec.BuildOAS3()
 	if err != nil {
 		log.Fatal(err)
 	}
+	doc := result.(*parser.OAS3Document)
 
 	schemeCount := len(doc.Components.SecuritySchemes)
 	securityCount := len(doc.Security)
@@ -162,7 +166,7 @@ func Example_withSecurity() {
 
 // Example_completeAPI demonstrates a complete API specification.
 func Example_completeAPI() {
-	spec := builder.New(parser.OASVersion320).
+	spec := builder.NewOAS3(parser.OASVersion320).
 		SetTitle("Pet Store API").
 		SetVersion("1.0.0").
 		SetDescription("A sample Pet Store API demonstrating the builder package").
@@ -205,10 +209,11 @@ func Example_completeAPI() {
 		),
 	)
 
-	doc, err := spec.Build()
+	doc, err := spec.BuildOAS3()
 	if err != nil {
 		log.Fatal(err)
 	}
+	doc := result.(*parser.OAS3Document)
 
 	fmt.Printf("Title: %s\n", doc.Info.Title)
 	fmt.Printf("Paths: %d\n", len(doc.Paths))
@@ -236,7 +241,7 @@ func Example_schemaGeneration() {
 		Address Address `json:"address"`
 	}
 
-	spec := builder.New(parser.OASVersion320).
+	spec := builder.NewOAS3(parser.OASVersion320).
 		SetTitle("Customer API").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodGet, "/customers/{id}",
@@ -245,10 +250,11 @@ func Example_schemaGeneration() {
 			builder.WithResponse(http.StatusOK, Customer{}),
 		)
 
-	doc, err := spec.Build()
+	doc, err := spec.BuildOAS3()
 	if err != nil {
 		log.Fatal(err)
 	}
+	doc := result.(*parser.OAS3Document)
 
 	// Both Customer and Address schemas are auto-generated with package-qualified names
 	_, hasCustomer := doc.Components.Schemas["builder_test.Customer"]
@@ -297,10 +303,11 @@ func Example_fromDocument() {
 		builder.WithResponse(http.StatusOK, HealthResponse{}),
 	)
 
-	doc, err := spec.Build()
+	doc, err := spec.BuildOAS3()
 	if err != nil {
 		log.Fatal(err)
 	}
+	doc := result.(*parser.OAS3Document)
 
 	fmt.Printf("Paths: %d\n", len(doc.Paths))
 	fmt.Printf("Has /existing: %v\n", doc.Paths["/existing"] != nil)

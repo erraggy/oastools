@@ -2,14 +2,25 @@
 //
 // The builder package enables users to construct OAS documents in Go using a fluent API
 // with automatic reflection-based schema generation. Go types are passed directly to the
-// API, and the builder automatically generates OpenAPI-compatible JSON schemas in the
-// components.schemas section.
+// API, and the builder automatically generates OpenAPI-compatible JSON schemas.
+//
+// # Supported Versions
+//
+// The builder supports both OAS 2.0 (Swagger) and OAS 3.x (3.0.0 through 3.2.0).
+// Use the appropriate factory function for type-safe document building:
+//
+//   - NewOAS2() + BuildOAS2() → *parser.OAS2Document with schemas in "definitions"
+//   - NewOAS3(version) + BuildOAS3() → *parser.OAS3Document with schemas in "components/schemas"
+//
+// The $ref paths are automatically adjusted based on the builder type:
+//   - OAS 2.0: "#/definitions/", "#/parameters/", "#/responses/"
+//   - OAS 3.x: "#/components/schemas/", "#/components/parameters/", "#/components/responses/"
 //
 // # Quick Start
 //
-// Build a simple API specification:
+// Build an OAS 3.x API specification:
 //
-//	spec := builder.New(parser.OASVersion320).
+//	spec := builder.NewOAS3(parser.OASVersion320).
 //		SetTitle("My API").
 //		SetVersion("1.0.0")
 //
@@ -18,10 +29,28 @@
 //		builder.WithResponse(http.StatusOK, []User{}),
 //	)
 //
-//	doc, err := spec.Build()
+//	doc, err := spec.BuildOAS3()
 //	if err != nil {
 //		log.Fatal(err)
 //	}
+//	// doc is *parser.OAS3Document - no type assertion needed
+//
+// Build an OAS 2.0 (Swagger) API specification:
+//
+//	spec := builder.NewOAS2().
+//		SetTitle("My API").
+//		SetVersion("1.0.0")
+//
+//	spec.AddOperation(http.MethodGet, "/users",
+//		builder.WithOperationID("listUsers"),
+//		builder.WithResponse(http.StatusOK, []User{}),
+//	)
+//
+//	doc, err := spec.BuildOAS2()
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	// doc is *parser.OAS2Document - no type assertion needed
 //
 // # Reflection-Based Schema Generation
 //

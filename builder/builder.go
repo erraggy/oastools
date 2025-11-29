@@ -43,8 +43,9 @@ type Builder struct {
 }
 
 // New creates a new Builder instance for the specified OAS version.
-// The version determines which OpenAPI features are available and how
-// the document is structured.
+//
+// Deprecated: Use NewOAS2() or NewOAS3() for type-safe document building.
+// New() is retained for backward compatibility but Build() returns `any`.
 //
 // Example:
 //
@@ -66,7 +67,45 @@ func New(version parser.OASVersion) *Builder {
 	}
 }
 
+// NewOAS2 creates a new Builder for OAS 2.0 (Swagger) documents.
+// Use BuildOAS2() to get the typed *parser.OAS2Document.
+//
+// Schema references use "#/definitions/" format.
+//
+// Example:
+//
+//	spec := builder.NewOAS2().
+//		SetTitle("My API").
+//		SetVersion("1.0.0")
+//	doc, err := spec.BuildOAS2()
+func NewOAS2() *Builder {
+	return New(parser.OASVersion20)
+}
+
+// NewOAS3 creates a new Builder for OAS 3.x documents.
+// Use BuildOAS3() to get the typed *parser.OAS3Document.
+//
+// Schema references use "#/components/schemas/" format.
+// The version parameter specifies the exact OAS 3.x version (e.g., OASVersion320).
+//
+// Example:
+//
+//	spec := builder.NewOAS3(parser.OASVersion320).
+//		SetTitle("My API").
+//		SetVersion("1.0.0")
+//	doc, err := spec.BuildOAS3()
+func NewOAS3(version parser.OASVersion) *Builder {
+	// Validate that it's an OAS 3.x version
+	if version == parser.OASVersion20 || version == parser.Unknown {
+		// Default to latest OAS 3.x if invalid version provided
+		version = parser.OASVersion320
+	}
+	return New(version)
+}
+
 // NewWithInfo creates a Builder with pre-configured Info.
+//
+// Deprecated: Use NewOAS2() or NewOAS3() with SetInfo() instead.
 //
 // Example:
 //
@@ -139,27 +178,95 @@ func (b *Builder) SetLicense(license *parser.License) *Builder {
 	return b
 }
 
-// Build creates the final OAS document.
+// Build creates the final OAS document based on the version specified in New().
+// Returns either *parser.OAS2Document or *parser.OAS3Document depending on the version.
 // Returns an error if required fields are missing or validation errors occurred.
-func (b *Builder) Build() (*parser.OAS3Document, error) {
-	// Check accumulated errors
-	if len(b.errors) > 0 {
-		var errMsgs []string
-		for _, err := range b.errors {
-			errMsgs = append(errMsgs, err.Error())
-		}
-		return nil, fmt.Errorf("builder: %d error(s): %s", len(b.errors), strings.Join(errMsgs, "; "))
+//
+// For type-safe access without casting, use BuildOAS2() or BuildOAS3() instead.
+func (b *Builder) Build() (any, error) {
+	if b.version == parser.OASVersion20 {
+		return b.BuildOAS2()
+	}
+	return b.BuildOAS3()
+}
+
+// BuildOAS2 creates an OAS 2.0 (Swagger) document.
+// Returns an error if the builder was created with an OAS 3.x version,
+// or if required fields are missing.
+//
+// Example:
+//
+//	spec := builder.New(parser.OASVersion20).
+//		SetTitle("My API").
+//		SetVersion("1.0.0")
+//	doc, err := spec.BuildOAS2()
+//	// doc is *parser.OAS2Document - no type assertion needed
+func (b *Builder) BuildOAS2() (*parser.OAS2Document, error) {
+	if err := b.validate(); err != nil {
+		return nil, err
 	}
 
-	// Validate required fields
-	if b.info == nil {
-		return nil, fmt.Errorf("builder: info is required")
+	if b.version != parser.OASVersion20 {
+		return nil, fmt.Errorf("builder: BuildOAS2() called but builder was created with version %s; use BuildOAS3() instead", b.version)
 	}
-	if b.info.Title == "" {
-		return nil, fmt.Errorf("builder: info.title is required")
+
+	// Build paths - only include if non-empty
+	var paths parser.Paths
+	if len(b.paths) > 0 {
+		paths = b.paths
 	}
-	if b.info.Version == "" {
-		return nil, fmt.Errorf("builder: info.version is required")
+
+	// Create document
+	doc := &parser.OAS2Document{
+		Swagger:    "2.0",
+		OASVersion: b.version,
+		Info:       b.info,
+		Paths:      paths,
+		Tags:       b.tags,
+		Security:   b.security,
+	}
+
+	// Add definitions (schemas)
+	if len(b.schemas) > 0 {
+		doc.Definitions = b.schemas
+	}
+
+	// Add parameters
+	if len(b.parameters) > 0 {
+		doc.Parameters = b.parameters
+	}
+
+	// Add responses
+	if len(b.responses) > 0 {
+		doc.Responses = b.responses
+	}
+
+	// Add security definitions
+	if len(b.securitySchemes) > 0 {
+		doc.SecurityDefinitions = b.securitySchemes
+	}
+
+	return doc, nil
+}
+
+// BuildOAS3 creates an OAS 3.x document.
+// Returns an error if the builder was created with OAS 2.0 version,
+// or if required fields are missing.
+//
+// Example:
+//
+//	spec := builder.New(parser.OASVersion320).
+//		SetTitle("My API").
+//		SetVersion("1.0.0")
+//	doc, err := spec.BuildOAS3()
+//	// doc is *parser.OAS3Document - no type assertion needed
+func (b *Builder) BuildOAS3() (*parser.OAS3Document, error) {
+	if err := b.validate(); err != nil {
+		return nil, err
+	}
+
+	if b.version == parser.OASVersion20 {
+		return nil, fmt.Errorf("builder: BuildOAS3() called but builder was created with OAS 2.0; use BuildOAS2() instead")
 	}
 
 	// Build components
@@ -203,6 +310,31 @@ func (b *Builder) Build() (*parser.OAS3Document, error) {
 	}
 
 	return doc, nil
+}
+
+// validate checks that all required fields are present.
+func (b *Builder) validate() error {
+	// Check accumulated errors
+	if len(b.errors) > 0 {
+		var errMsgs []string
+		for _, err := range b.errors {
+			errMsgs = append(errMsgs, err.Error())
+		}
+		return fmt.Errorf("builder: %d error(s): %s", len(b.errors), strings.Join(errMsgs, "; "))
+	}
+
+	// Validate required fields
+	if b.info == nil {
+		return fmt.Errorf("builder: info is required")
+	}
+	if b.info.Title == "" {
+		return fmt.Errorf("builder: info.title is required")
+	}
+	if b.info.Version == "" {
+		return fmt.Errorf("builder: info.version is required")
+	}
+
+	return nil
 }
 
 // BuildResult creates a ParseResult for compatibility with other packages.

@@ -4,7 +4,8 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// AddResponse adds a reusable response to components.responses.
+// AddResponse adds a reusable response to components.responses (OAS 3.x)
+// or responses (OAS 2.0).
 func (b *Builder) AddResponse(name string, description string, responseType any, opts ...ResponseOption) *Builder {
 	rCfg := &responseConfig{
 		description: description,
@@ -56,7 +57,17 @@ func (b *Builder) AddResponseWithContentType(name string, description string, co
 	return b
 }
 
-// ResponseRef returns a reference to a named response in components.
-func ResponseRef(name string) string {
-	return "#/components/responses/" + name
+// responseRefPrefix returns the appropriate $ref prefix for responses.
+// OAS 2.0 uses "#/responses/" while OAS 3.x uses "#/components/responses/".
+func (b *Builder) responseRefPrefix() string {
+	if b.version == parser.OASVersion20 {
+		return "#/responses/"
+	}
+	return "#/components/responses/"
+}
+
+// ResponseRef returns a reference to a named response.
+// This method returns the version-appropriate ref path.
+func (b *Builder) ResponseRef(name string) string {
+	return b.responseRefPrefix() + name
 }

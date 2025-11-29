@@ -4,7 +4,8 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// AddParameter adds a reusable parameter to components.parameters.
+// AddParameter adds a reusable parameter to components.parameters (OAS 3.x)
+// or parameters (OAS 2.0).
 func (b *Builder) AddParameter(name string, in string, paramName string, paramType any, opts ...ParamOption) *Builder {
 	pCfg := &paramConfig{}
 	for _, opt := range opts {
@@ -33,9 +34,19 @@ func (b *Builder) AddParameter(name string, in string, paramName string, paramTy
 	return b
 }
 
-// ParameterRef returns a reference to a named parameter in components.
-func ParameterRef(name string) string {
-	return "#/components/parameters/" + name
+// parameterRefPrefix returns the appropriate $ref prefix for parameters.
+// OAS 2.0 uses "#/parameters/" while OAS 3.x uses "#/components/parameters/".
+func (b *Builder) parameterRefPrefix() string {
+	if b.version == parser.OASVersion20 {
+		return "#/parameters/"
+	}
+	return "#/components/parameters/"
+}
+
+// ParameterRef returns a reference to a named parameter.
+// This method returns the version-appropriate ref path.
+func (b *Builder) ParameterRef(name string) string {
+	return b.parameterRefPrefix() + name
 }
 
 // WithParameterRef adds a parameter reference to the operation.
