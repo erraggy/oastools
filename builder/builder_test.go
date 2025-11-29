@@ -1154,6 +1154,26 @@ func TestBuilder_AddWebhook(t *testing.T) {
 		assert.NotNil(t, doc.Webhooks["events"].Post)
 		assert.NotNil(t, doc.Webhooks["events"].Get)
 	})
+
+	t.Run("with security", func(t *testing.T) {
+		b := NewOAS3(parser.OASVersion310).
+			SetTitle("Webhook API").
+			SetVersion("1.0.0").
+			AddAPIKeySecurityScheme("api_key", "header", "X-API-Key", "API Key").
+			AddWebhook("secure", http.MethodPost,
+				WithOperationID("secureWebhook"),
+				WithResponse(http.StatusOK, struct{}{}),
+				WithSecurity(parser.SecurityRequirement{"api_key": []string{}}),
+			)
+
+		doc := buildOAS3(t, b)
+
+		require.NotNil(t, doc.Webhooks)
+		require.Contains(t, doc.Webhooks, "secure")
+		require.NotNil(t, doc.Webhooks["secure"].Post)
+		require.Len(t, doc.Webhooks["secure"].Post.Security, 1)
+		assert.Contains(t, doc.Webhooks["secure"].Post.Security[0], "api_key")
+	})
 }
 
 func TestBuilder_TimeType(t *testing.T) {

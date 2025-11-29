@@ -256,6 +256,14 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 		}
 	}
 
+	// Build security
+	var security []parser.SecurityRequirement
+	if cfg.noSecurity {
+		security = []parser.SecurityRequirement{{}}
+	} else if len(cfg.security) > 0 {
+		security = cfg.security
+	}
+
 	// Build Operation struct
 	op := &parser.Operation{
 		OperationID: cfg.operationID,
@@ -265,6 +273,7 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 		Parameters:  cfg.parameters,
 		RequestBody: cfg.requestBody,
 		Responses:   responses,
+		Security:    security,
 		Deprecated:  cfg.deprecated,
 	}
 
