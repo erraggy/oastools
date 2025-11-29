@@ -3,6 +3,7 @@ package builder
 import (
 	"path"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/erraggy/oastools/parser"
@@ -294,7 +295,9 @@ func (b *Builder) generatePrimitiveSchema(t reflect.Type) *parser.Schema {
 }
 
 // schemaName generates a schema name from a type.
-// The name always includes the package name in the format "package.TypeName" (e.g., "foo.Bar").
+// The name uses the format "package.TypeName" (e.g., "models.User").
+// If a conflict is detected (same base name from different packages),
+// the full package path is used to disambiguate.
 func (b *Builder) schemaName(t reflect.Type) string {
 	typeName := t.Name()
 	if typeName == "" {
@@ -302,14 +305,26 @@ func (b *Builder) schemaName(t reflect.Type) string {
 		return "AnonymousType"
 	}
 
-	// Always include package name in the format "package.TypeName"
-	if pkgPath := t.PkgPath(); pkgPath != "" {
-		pkgName := path.Base(pkgPath)
-		return pkgName + "." + typeName
+	pkgPath := t.PkgPath()
+	if pkgPath == "" {
+		// Built-in types without package path
+		return typeName
 	}
 
-	// Built-in types without package path
-	return typeName
+	// Use package base name (e.g., "models.User")
+	pkgName := path.Base(pkgPath)
+	name := pkgName + "." + typeName
+
+	// Check for name conflicts with different types (same base name, different full path)
+	if existingType := b.schemaCache.getTypeForName(name); existingType != nil && existingType != t {
+		// Conflict detected - use full package path to disambiguate
+		// Replace slashes with underscores to make it a valid schema name
+		// e.g., "github.com/foo/models.User" -> "github.com_foo_models.User"
+		safePkgPath := strings.ReplaceAll(pkgPath, "/", "_")
+		name = safePkgPath + "." + typeName
+	}
+
+	return name
 }
 
 // refToSchema creates a schema with a $ref to a named schema.

@@ -44,8 +44,11 @@
 //
 // # Schema Naming
 //
-// Schemas are named using the Go convention of "package.TypeName" (e.g., "myapp.User").
+// Schemas are named using the Go convention of "package.TypeName" (e.g., "models.User").
 // This ensures uniqueness and matches Go developers' expectations for type identification.
+// If multiple packages have the same base name (e.g., github.com/foo/models and
+// github.com/bar/models), the full package path is used to disambiguate
+// (e.g., "github.com_foo_models.User").
 // Anonymous types are named "AnonymousType".
 //
 // # Struct Tags

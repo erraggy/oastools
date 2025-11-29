@@ -10,7 +10,7 @@ import (
 // It prevents duplicate generation and handles circular references.
 type schemaCache struct {
 	byType     map[reflect.Type]*parser.Schema // Type → Schema
-	byName     map[string]reflect.Type         // Name → Type (for reverse lookup)
+	byName     map[string]reflect.Type         // Name → Type (for conflict detection)
 	nameByType map[reflect.Type]string         // Type → Name (for O(1) reverse lookup)
 	inProgress map[reflect.Type]bool           // Circular reference detection
 }
