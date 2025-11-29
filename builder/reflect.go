@@ -9,27 +9,6 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// SchemaFrom generates an OpenAPI schema from a Go type using reflection.
-// This is a convenience function for one-off schema generation.
-//
-// Example:
-//
-//	type User struct {
-//		ID   int64  `json:"id"`
-//		Name string `json:"name"`
-//	}
-//	schema := builder.SchemaFrom(User{})
-func SchemaFrom(v any) *parser.Schema {
-	b := New(parser.OASVersion320)
-	return b.generateSchema(v)
-}
-
-// SchemaFromType generates a schema from a reflect.Type.
-func SchemaFromType(t reflect.Type) *parser.Schema {
-	b := New(parser.OASVersion320)
-	return b.generateSchemaFromType(t)
-}
-
 // generateSchema converts a Go type to an OpenAPI schema.
 func (b *Builder) generateSchema(v any) *parser.Schema {
 	if v == nil {
@@ -166,6 +145,10 @@ func (b *Builder) generateStructSchema(t reflect.Type) *parser.Schema {
 		// Handle embedded structs
 		if field.Anonymous {
 			embeddedSchema := b.generateSchemaFromType(field.Type)
+			// Skip if nil schema was returned
+			if embeddedSchema == nil {
+				continue
+			}
 			// If embedded schema is a ref, resolve it for inlining
 			if embeddedSchema.Ref != "" {
 				// Get the referenced schema and merge its properties

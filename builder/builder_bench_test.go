@@ -64,7 +64,8 @@ func BenchmarkBuilder_SetInfo(b *testing.B) {
 
 func BenchmarkSchemaFrom_Primitive(b *testing.B) {
 	for b.Loop() {
-		_ = SchemaFrom(string(""))
+		bldr := New(parser.OASVersion320)
+		_ = bldr.generateSchema(string(""))
 	}
 }
 
@@ -172,7 +173,7 @@ func BenchmarkBuilder_Build(b *testing.B) {
 				WithResponse(http.StatusCreated, BenchmarkUser{}),
 			)
 
-		_, err := spec.Build()
+		_, err := spec.BuildOAS3()
 		if err != nil {
 			b.Fatal(err)
 		}

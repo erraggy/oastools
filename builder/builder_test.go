@@ -29,32 +29,6 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, b.operationIDs)
 }
 
-func TestNewOAS2(t *testing.T) {
-	b := NewOAS2()
-
-	assert.Equal(t, parser.OASVersion20, b.version)
-	assert.NotNil(t, b.paths)
-	assert.NotNil(t, b.schemas)
-}
-
-func TestNewOAS3(t *testing.T) {
-	b := NewOAS3(parser.OASVersion320)
-
-	assert.Equal(t, parser.OASVersion320, b.version)
-	assert.NotNil(t, b.paths)
-	assert.NotNil(t, b.schemas)
-}
-
-func TestNewOAS3_DefaultsToLatest(t *testing.T) {
-	// If OAS 2.0 is passed to NewOAS3, it should default to latest 3.x
-	b := NewOAS3(parser.OASVersion20)
-	assert.Equal(t, parser.OASVersion320, b.version)
-
-	// Unknown version should also default to latest
-	b2 := NewOAS3(parser.Unknown)
-	assert.Equal(t, parser.OASVersion320, b2.version)
-}
-
 func TestNew_OAS20(t *testing.T) {
 	// OAS 2.0 should be supported
 	b := New(parser.OASVersion20)
@@ -69,7 +43,7 @@ func TestBuild_OAS20Document(t *testing.T) {
 		Name string `json:"name"`
 	}
 
-	b := NewOAS2().
+	b := New(parser.OASVersion20).
 		SetTitle("Test API").
 		SetVersion("1.0.0")
 
@@ -93,7 +67,7 @@ func TestBuild_OAS20Document(t *testing.T) {
 
 func TestBuildOAS2_WrongVersion(t *testing.T) {
 	// BuildOAS2() should error when builder is OAS 3.x
-	b := NewOAS3(parser.OASVersion320).
+	b := New(parser.OASVersion320).
 		SetTitle("Test API").
 		SetVersion("1.0.0")
 
@@ -105,7 +79,7 @@ func TestBuildOAS2_WrongVersion(t *testing.T) {
 
 func TestBuildOAS3_WrongVersion(t *testing.T) {
 	// BuildOAS3() should error when builder is OAS 2.0
-	b := NewOAS2().
+	b := New(parser.OASVersion20).
 		SetTitle("Test API").
 		SetVersion("1.0.0")
 
@@ -121,7 +95,7 @@ func TestBuild_OAS3Document(t *testing.T) {
 		Name string `json:"name"`
 	}
 
-	b := NewOAS3(parser.OASVersion320).
+	b := New(parser.OASVersion320).
 		SetTitle("Test API").
 		SetVersion("1.0.0")
 
@@ -259,42 +233,26 @@ func TestBuilder_SetLicense(t *testing.T) {
 	assert.Equal(t, license, b.info.License)
 }
 
-func TestBuilder_Build(t *testing.T) {
+func TestBuilder_BuildOAS3(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		b := New(parser.OASVersion320).
 			SetTitle("Test API").
 			SetVersion("1.0.0")
 
-		result, err := b.Build()
+		doc, err := b.BuildOAS3()
 		require.NoError(t, err)
-		doc, ok := result.(*parser.OAS3Document)
-		require.True(t, ok, "Should return OAS3Document")
 		assert.Equal(t, "3.2.0", doc.OpenAPI)
 		assert.Equal(t, "Test API", doc.Info.Title)
 		assert.Equal(t, "1.0.0", doc.Info.Version)
 	})
 
-	t.Run("missing info", func(t *testing.T) {
+	t.Run("without info - no validation", func(t *testing.T) {
+		// Builder does not perform OAS validation, that's the job of validator package
 		b := New(parser.OASVersion320)
-		_, err := b.Build()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "info is required")
-	})
-
-	t.Run("missing title", func(t *testing.T) {
-		b := New(parser.OASVersion320).
-			SetVersion("1.0.0")
-		_, err := b.Build()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "info.title is required")
-	})
-
-	t.Run("missing version", func(t *testing.T) {
-		b := New(parser.OASVersion320).
-			SetTitle("Test API")
-		_, err := b.Build()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "info.version is required")
+		doc, err := b.BuildOAS3()
+		// No error because builder doesn't validate
+		require.NoError(t, err)
+		assert.Nil(t, doc.Info)
 	})
 
 	t.Run("with accumulated errors", func(t *testing.T) {
@@ -304,7 +262,7 @@ func TestBuilder_Build(t *testing.T) {
 		b.errors = append(b.errors, assert.AnError)
 		b.errors = append(b.errors, fmt.Errorf("another error"))
 
-		_, err := b.Build()
+		_, err := b.BuildOAS3()
 		assert.Error(t, err)
 		// Verify all errors are included in the message
 		assert.Contains(t, err.Error(), "2 error(s)")
@@ -340,7 +298,8 @@ func TestBuilder_MarshalYAML(t *testing.T) {
 
 func TestBuilder_MarshalYAML_Error(t *testing.T) {
 	b := New(parser.OASVersion320)
-	// Missing title and version
+	// Add accumulated error to cause build to fail
+	b.errors = append(b.errors, fmt.Errorf("test error"))
 	_, err := b.MarshalYAML()
 	assert.Error(t, err)
 }
@@ -358,14 +317,16 @@ func TestBuilder_MarshalJSON(t *testing.T) {
 
 func TestBuilder_MarshalJSON_Error(t *testing.T) {
 	b := New(parser.OASVersion320)
-	// Missing title and version
+	// Add accumulated error to cause build to fail
+	b.errors = append(b.errors, fmt.Errorf("test error"))
 	_, err := b.MarshalJSON()
 	assert.Error(t, err)
 }
 
 func TestBuilder_BuildResult_Error(t *testing.T) {
 	b := New(parser.OASVersion320)
-	// Missing title and version
+	// Add accumulated error to cause build to fail
+	b.errors = append(b.errors, fmt.Errorf("test error"))
 	_, err := b.BuildResult()
 	assert.Error(t, err)
 }
@@ -413,7 +374,8 @@ func TestBuilder_WriteFile(t *testing.T) {
 
 	t.Run("error on build", func(t *testing.T) {
 		b := New(parser.OASVersion320)
-		// Missing title and version
+		// Add accumulated error to cause build to fail
+		b.errors = append(b.errors, fmt.Errorf("test error"))
 
 		path := t.TempDir() + "/test.yaml"
 		err := b.WriteFile(path)
@@ -693,14 +655,14 @@ func TestBuilder_AddResponse(t *testing.T) {
 	require.NotNil(t, resp.Content["application/json"].Schema)
 }
 
-func TestBuilder_AddResponseWithContentType(t *testing.T) {
+func TestBuilder_AddResponse_WithContentType(t *testing.T) {
 	b := New(parser.OASVersion320).
 		SetTitle("Test API").
 		SetVersion("1.0.0").
-		AddResponseWithContentType("XMLError", "XML Error response", "application/xml", struct {
+		AddResponse("XMLError", "XML Error response", struct {
 			Code    int    `json:"code"`
 			Message string `json:"message"`
-		}{})
+		}{}, WithResponseContentType("application/xml"))
 
 	doc := buildOAS3(t, b)
 
@@ -1117,7 +1079,7 @@ func TestBuilder_AddWebhook(t *testing.T) {
 	}
 
 	t.Run("basic webhook", func(t *testing.T) {
-		b := NewOAS3(parser.OASVersion310).
+		b := New(parser.OASVersion310).
 			SetTitle("Webhook API").
 			SetVersion("1.0.0").
 			AddWebhook("newUser", http.MethodPost,
@@ -1135,7 +1097,7 @@ func TestBuilder_AddWebhook(t *testing.T) {
 	})
 
 	t.Run("multiple methods on same webhook", func(t *testing.T) {
-		b := NewOAS3(parser.OASVersion310).
+		b := New(parser.OASVersion310).
 			SetTitle("Webhook API").
 			SetVersion("1.0.0").
 			AddWebhook("events", http.MethodPost,
@@ -1156,7 +1118,7 @@ func TestBuilder_AddWebhook(t *testing.T) {
 	})
 
 	t.Run("with security", func(t *testing.T) {
-		b := NewOAS3(parser.OASVersion310).
+		b := New(parser.OASVersion310).
 			SetTitle("Webhook API").
 			SetVersion("1.0.0").
 			AddAPIKeySecurityScheme("api_key", "header", "X-API-Key", "API Key").

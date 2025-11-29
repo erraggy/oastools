@@ -7,20 +7,28 @@
 // # Supported Versions
 //
 // The builder supports both OAS 2.0 (Swagger) and OAS 3.x (3.0.0 through 3.2.0).
-// Use the appropriate factory function for type-safe document building:
+// Use New() with the desired OAS version and the corresponding Build method:
 //
-//   - NewOAS2() + BuildOAS2() → *parser.OAS2Document with schemas in "definitions"
-//   - NewOAS3(version) + BuildOAS3() → *parser.OAS3Document with schemas in "components/schemas"
+//   - New(parser.OASVersion20) + BuildOAS2() → *parser.OAS2Document with schemas in "definitions"
+//   - New(parser.OASVersion3xx) + BuildOAS3() → *parser.OAS3Document with schemas in "components/schemas"
 //
-// The $ref paths are automatically adjusted based on the builder type:
+// The $ref paths are automatically adjusted based on the OAS version:
 //   - OAS 2.0: "#/definitions/", "#/parameters/", "#/responses/"
 //   - OAS 3.x: "#/components/schemas/", "#/components/parameters/", "#/components/responses/"
+//
+// # Validation
+//
+// The builder does not perform OAS specification validation. Use the validator package
+// to validate built documents:
+//
+//	result, _ := spec.BuildResult()
+//	valResult, _ := validator.ValidateWithOptions(validator.WithParsed(*result))
 //
 // # Quick Start
 //
 // Build an OAS 3.x API specification:
 //
-//	spec := builder.NewOAS3(parser.OASVersion320).
+//	spec := builder.New(parser.OASVersion320).
 //		SetTitle("My API").
 //		SetVersion("1.0.0")
 //
@@ -37,7 +45,7 @@
 //
 // Build an OAS 2.0 (Swagger) API specification:
 //
-//	spec := builder.NewOAS2().
+//	spec := builder.New(parser.OASVersion20).
 //		SetTitle("My API").
 //		SetVersion("1.0.0")
 //
@@ -70,7 +78,7 @@
 //
 // For OAS 3.1+ specifications, webhooks can be added using AddWebhook:
 //
-//	spec := builder.NewOAS3(parser.OASVersion310).
+//	spec := builder.New(parser.OASVersion310).
 //		SetTitle("Webhook API").
 //		SetVersion("1.0.0").
 //		AddWebhook("userCreated", http.MethodPost,
@@ -82,7 +90,7 @@
 //
 // Add document-level external documentation using SetExternalDocs:
 //
-//	spec := builder.NewOAS3(parser.OASVersion320).
+//	spec := builder.New(parser.OASVersion320).
 //		SetTitle("My API").
 //		SetVersion("1.0.0").
 //		SetExternalDocs(&parser.ExternalDocs{
@@ -166,18 +174,14 @@
 // are defined, the resulting spec will fail OAS validation. Always use
 // WithResponse() or WithDefaultResponse() to add responses to operations.
 //
-// # Integration with Other Packages
+// # Custom Content Types
 //
-// The builder integrates with the validator package:
+// Use WithResponseContentType to specify content types other than the default "application/json":
 //
-//	spec := builder.New(parser.OASVersion320).
-//		SetTitle("My API").
-//		SetVersion("1.0.0")
-//	// ... add operations ...
-//
-//	result, _ := spec.BuildResult()
-//	valResult, _ := validator.ValidateWithOptions(
-//		validator.WithParsed(*result),
+//	spec.AddOperation(http.MethodGet, "/users",
+//		builder.WithResponse(http.StatusOK, []User{},
+//			builder.WithResponseContentType("application/xml"),
+//		),
 //	)
 //
 // See the examples in example_test.go for more patterns.

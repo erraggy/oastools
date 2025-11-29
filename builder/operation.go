@@ -112,79 +112,6 @@ func WithRequestExample(example any) RequestBodyOption {
 	}
 }
 
-// responseConfig holds configuration for response building.
-type responseConfig struct {
-	description string
-	example     any
-	headers     map[string]*parser.Header
-}
-
-// ResponseOption configures a response.
-type ResponseOption func(*responseConfig)
-
-// WithResponseDescription sets the response description.
-func WithResponseDescription(desc string) ResponseOption {
-	return func(cfg *responseConfig) {
-		cfg.description = desc
-	}
-}
-
-// WithResponseExample sets the response example.
-func WithResponseExample(example any) ResponseOption {
-	return func(cfg *responseConfig) {
-		cfg.example = example
-	}
-}
-
-// WithResponseHeader adds a header to the response.
-func WithResponseHeader(name string, header *parser.Header) ResponseOption {
-	return func(cfg *responseConfig) {
-		if cfg.headers == nil {
-			cfg.headers = make(map[string]*parser.Header)
-		}
-		cfg.headers[name] = header
-	}
-}
-
-// paramConfig holds configuration for parameter building.
-type paramConfig struct {
-	description string
-	required    bool
-	deprecated  bool
-	example     any
-}
-
-// ParamOption configures a parameter.
-type ParamOption func(*paramConfig)
-
-// WithParamDescription sets the parameter description.
-func WithParamDescription(desc string) ParamOption {
-	return func(cfg *paramConfig) {
-		cfg.description = desc
-	}
-}
-
-// WithParamRequired sets whether the parameter is required.
-func WithParamRequired(required bool) ParamOption {
-	return func(cfg *paramConfig) {
-		cfg.required = required
-	}
-}
-
-// WithParamExample sets the parameter example.
-func WithParamExample(example any) ParamOption {
-	return func(cfg *paramConfig) {
-		cfg.example = example
-	}
-}
-
-// WithParamDeprecated marks the parameter as deprecated.
-func WithParamDeprecated(deprecated bool) ParamOption {
-	return func(cfg *paramConfig) {
-		cfg.deprecated = deprecated
-	}
-}
-
 // WithRequestBody sets the request body for the operation.
 // The bodyType is reflected to generate the schema.
 func WithRequestBody(contentType string, bodyType any, opts ...RequestBodyOption) OperationOption {
@@ -217,10 +144,12 @@ func WithRequestBody(contentType string, bodyType any, opts ...RequestBodyOption
 
 // WithResponse adds a response to the operation.
 // The responseType is reflected to generate the schema.
+// Use WithResponseContentType to specify a content type other than "application/json".
 func WithResponse(statusCode int, responseType any, opts ...ResponseOption) OperationOption {
 	return func(cfg *operationConfig) {
 		rCfg := &responseConfig{
 			description: fmt.Sprintf("%d response", statusCode),
+			contentType: "application/json", // Default content type
 		}
 		for _, opt := range opts {
 			opt(rCfg)
@@ -235,7 +164,7 @@ func WithResponse(statusCode int, responseType any, opts ...ResponseOption) Oper
 			Description: rCfg.description,
 			Headers:     rCfg.headers,
 			Content: map[string]*parser.MediaType{
-				"application/json": {
+				rCfg.contentType: {
 					// Schema will be populated by AddOperation
 					Example: rCfg.example,
 				},
@@ -262,10 +191,12 @@ func WithResponseRef(statusCode int, ref string) OperationOption {
 }
 
 // WithDefaultResponse sets the default response for the operation.
+// Use WithResponseContentType to specify a content type other than "application/json".
 func WithDefaultResponse(responseType any, opts ...ResponseOption) OperationOption {
 	return func(cfg *operationConfig) {
 		rCfg := &responseConfig{
 			description: "Default response",
+			contentType: "application/json", // Default content type
 		}
 		for _, opt := range opts {
 			opt(rCfg)
@@ -279,7 +210,7 @@ func WithDefaultResponse(responseType any, opts ...ResponseOption) OperationOpti
 			Description: rCfg.description,
 			Headers:     rCfg.headers,
 			Content: map[string]*parser.MediaType{
-				"application/json": {
+				rCfg.contentType: {
 					Example: rCfg.example,
 				},
 			},
@@ -390,7 +321,8 @@ func WithCookieParam(name string, paramType any, opts ...ParamOption) OperationO
 //
 // Note: OpenAPI requires at least one response per operation. If no responses
 // are defined, the resulting spec will fail OAS validation. Use WithResponse()
-// or WithDefaultResponse() to add responses.
+// or WithDefaultResponse() to add responses. The builder package does not perform
+// validation; use the validator package to validate built documents.
 func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Builder {
 	// Create operation config with defaults
 	cfg := &operationConfig{
@@ -402,7 +334,7 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 		opt(cfg)
 	}
 
-	// Validate operation ID uniqueness
+	// Track operation ID for uniqueness
 	if cfg.operationID != "" {
 		if b.operationIDs[cfg.operationID] {
 			b.errors = append(b.errors, fmt.Errorf("duplicate operation ID: %s", cfg.operationID))

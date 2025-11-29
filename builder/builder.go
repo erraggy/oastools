@@ -41,18 +41,21 @@ type Builder struct {
 
 	// Tracking
 	operationIDs map[string]bool // Track used operation IDs for uniqueness
-	errors       []error         // Accumulated validation errors
+	errors       []error         // Accumulated errors
 }
 
 // New creates a new Builder instance for the specified OAS version.
-// For type-safe document building, prefer NewOAS2() or NewOAS3() with
-// their corresponding BuildOAS2() or BuildOAS3() methods.
+// Use BuildOAS2() for OAS 2.0 (Swagger) or BuildOAS3() for OAS 3.x documents.
+//
+// The builder does not perform OAS specification validation. Use the validator
+// package to validate built documents.
 //
 // Example:
 //
 //	spec := builder.New(parser.OASVersion320).
 //		SetTitle("My API").
 //		SetVersion("1.0.0")
+//	doc, err := spec.BuildOAS3()
 func New(version parser.OASVersion) *Builder {
 	return &Builder{
 		version:         version,
@@ -69,44 +72,7 @@ func New(version parser.OASVersion) *Builder {
 	}
 }
 
-// NewOAS2 creates a new Builder for OAS 2.0 (Swagger) documents.
-// Use BuildOAS2() to get the typed *parser.OAS2Document.
-//
-// Schema references use "#/definitions/" format.
-//
-// Example:
-//
-//	spec := builder.NewOAS2().
-//		SetTitle("My API").
-//		SetVersion("1.0.0")
-//	doc, err := spec.BuildOAS2()
-func NewOAS2() *Builder {
-	return New(parser.OASVersion20)
-}
-
-// NewOAS3 creates a new Builder for OAS 3.x documents.
-// Use BuildOAS3() to get the typed *parser.OAS3Document.
-//
-// Schema references use "#/components/schemas/" format.
-// The version parameter specifies the exact OAS 3.x version (e.g., OASVersion320).
-//
-// Example:
-//
-//	spec := builder.NewOAS3(parser.OASVersion320).
-//		SetTitle("My API").
-//		SetVersion("1.0.0")
-//	doc, err := spec.BuildOAS3()
-func NewOAS3(version parser.OASVersion) *Builder {
-	// Validate that it's an OAS 3.x version
-	if version == parser.OASVersion20 || version == parser.Unknown {
-		// Default to latest OAS 3.x if invalid version provided
-		version = parser.OASVersion320
-	}
-	return New(version)
-}
-
 // NewWithInfo creates a Builder with pre-configured Info.
-// For type-safe document building, prefer NewOAS2() or NewOAS3() with SetInfo().
 //
 // Example:
 //
@@ -290,21 +256,12 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 	return b
 }
 
-// Build creates the final OAS document based on the version specified in New().
-// Returns either *parser.OAS2Document or *parser.OAS3Document depending on the version.
-// Returns an error if required fields are missing or validation errors occurred.
-//
-// For type-safe access without casting, use BuildOAS2() or BuildOAS3() instead.
-func (b *Builder) Build() (any, error) {
-	if b.version == parser.OASVersion20 {
-		return b.BuildOAS2()
-	}
-	return b.BuildOAS3()
-}
-
 // BuildOAS2 creates an OAS 2.0 (Swagger) document.
 // Returns an error if the builder was created with an OAS 3.x version,
 // or if required fields are missing.
+//
+// The builder does not perform OAS specification validation. Use the validator
+// package to validate built documents.
 //
 // Example:
 //
@@ -314,7 +271,7 @@ func (b *Builder) Build() (any, error) {
 //	doc, err := spec.BuildOAS2()
 //	// doc is *parser.OAS2Document - no type assertion needed
 func (b *Builder) BuildOAS2() (*parser.OAS2Document, error) {
-	if err := b.validate(); err != nil {
+	if err := b.checkErrors(); err != nil {
 		return nil, err
 	}
 
@@ -366,6 +323,9 @@ func (b *Builder) BuildOAS2() (*parser.OAS2Document, error) {
 // Returns an error if the builder was created with OAS 2.0 version,
 // or if required fields are missing.
 //
+// The builder does not perform OAS specification validation. Use the validator
+// package to validate built documents.
+//
 // Example:
 //
 //	spec := builder.New(parser.OASVersion320).
@@ -374,7 +334,7 @@ func (b *Builder) BuildOAS2() (*parser.OAS2Document, error) {
 //	doc, err := spec.BuildOAS3()
 //	// doc is *parser.OAS3Document - no type assertion needed
 func (b *Builder) BuildOAS3() (*parser.OAS3Document, error) {
-	if err := b.validate(); err != nil {
+	if err := b.checkErrors(); err != nil {
 		return nil, err
 	}
 
@@ -431,9 +391,11 @@ func (b *Builder) BuildOAS3() (*parser.OAS3Document, error) {
 	return doc, nil
 }
 
-// validate checks that all required fields are present.
-func (b *Builder) validate() error {
-	// Check accumulated errors
+// checkErrors checks for accumulated errors during building.
+// The builder does not perform OAS specification validation.
+// Use the validator package to validate built documents.
+func (b *Builder) checkErrors() error {
+	// Check accumulated errors (like duplicate operation IDs)
 	if len(b.errors) > 0 {
 		var errMsgs []string
 		for _, err := range b.errors {
@@ -442,24 +404,27 @@ func (b *Builder) validate() error {
 		return fmt.Errorf("builder: %d error(s): %s", len(b.errors), strings.Join(errMsgs, "; "))
 	}
 
-	// Validate required fields
-	if b.info == nil {
-		return fmt.Errorf("builder: info is required")
-	}
-	if b.info.Title == "" {
-		return fmt.Errorf("builder: info.title is required")
-	}
-	if b.info.Version == "" {
-		return fmt.Errorf("builder: info.version is required")
-	}
-
 	return nil
 }
 
 // BuildResult creates a ParseResult for compatibility with other packages.
 // This is useful for validating the built document with the validator package.
+//
+// The builder does not perform OAS specification validation. Use the validator
+// package to validate built documents:
+//
+//	result, err := spec.BuildResult()
+//	if err != nil { return err }
+//	valResult, err := validator.ValidateParsed(result)
 func (b *Builder) BuildResult() (*parser.ParseResult, error) {
-	doc, err := b.Build()
+	var doc any
+	var err error
+
+	if b.version == parser.OASVersion20 {
+		doc, err = b.BuildOAS2()
+	} else {
+		doc, err = b.BuildOAS3()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -477,7 +442,14 @@ func (b *Builder) BuildResult() (*parser.ParseResult, error) {
 
 // MarshalYAML returns the document as YAML bytes.
 func (b *Builder) MarshalYAML() ([]byte, error) {
-	doc, err := b.Build()
+	var doc any
+	var err error
+
+	if b.version == parser.OASVersion20 {
+		doc, err = b.BuildOAS2()
+	} else {
+		doc, err = b.BuildOAS3()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -486,7 +458,14 @@ func (b *Builder) MarshalYAML() ([]byte, error) {
 
 // MarshalJSON returns the document as JSON bytes.
 func (b *Builder) MarshalJSON() ([]byte, error) {
-	doc, err := b.Build()
+	var doc any
+	var err error
+
+	if b.version == parser.OASVersion20 {
+		doc, err = b.BuildOAS2()
+	} else {
+		doc, err = b.BuildOAS3()
+	}
 	if err != nil {
 		return nil, err
 	}

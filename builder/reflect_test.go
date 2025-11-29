@@ -11,49 +11,55 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSchemaFrom(t *testing.T) {
+// schemaFrom is a helper function for tests that creates a builder and generates a schema
+func schemaFrom(v any) *parser.Schema {
+	b := New(parser.OASVersion320)
+	return b.generateSchema(v)
+}
+
+func TestGenerateSchema(t *testing.T) {
 	t.Run("string", func(t *testing.T) {
-		schema := SchemaFrom("")
+		schema := schemaFrom("")
 		assert.Equal(t, "string", schema.Type)
 	})
 
 	t.Run("int32", func(t *testing.T) {
-		schema := SchemaFrom(int32(0))
+		schema := schemaFrom(int32(0))
 		assert.Equal(t, "integer", schema.Type)
 		assert.Equal(t, "int32", schema.Format)
 	})
 
 	t.Run("int64", func(t *testing.T) {
-		schema := SchemaFrom(int64(0))
+		schema := schemaFrom(int64(0))
 		assert.Equal(t, "integer", schema.Type)
 		assert.Equal(t, "int64", schema.Format)
 	})
 
 	t.Run("float32", func(t *testing.T) {
-		schema := SchemaFrom(float32(0))
+		schema := schemaFrom(float32(0))
 		assert.Equal(t, "number", schema.Type)
 		assert.Equal(t, "float", schema.Format)
 	})
 
 	t.Run("float64", func(t *testing.T) {
-		schema := SchemaFrom(float64(0))
+		schema := schemaFrom(float64(0))
 		assert.Equal(t, "number", schema.Type)
 		assert.Equal(t, "double", schema.Format)
 	})
 
 	t.Run("bool", func(t *testing.T) {
-		schema := SchemaFrom(false)
+		schema := schemaFrom(false)
 		assert.Equal(t, "boolean", schema.Type)
 	})
 
 	t.Run("time.Time", func(t *testing.T) {
-		schema := SchemaFrom(time.Time{})
+		schema := schemaFrom(time.Time{})
 		assert.Equal(t, "string", schema.Type)
 		assert.Equal(t, "date-time", schema.Format)
 	})
 
 	t.Run("nil", func(t *testing.T) {
-		schema := SchemaFrom(nil)
+		schema := schemaFrom(nil)
 		assert.NotNil(t, schema)
 	})
 }
@@ -294,7 +300,7 @@ func TestBuilder_generateSchema_AllIntTypes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			schema := SchemaFrom(tc.value)
+			schema := schemaFrom(tc.value)
 			assert.Equal(t, "integer", schema.Type)
 			assert.Equal(t, tc.format, schema.Format)
 		})
@@ -366,12 +372,14 @@ func TestSchemaCache(t *testing.T) {
 	})
 }
 
-func TestSchemaFromType(t *testing.T) {
-	// Test the public SchemaFromType function
-	schema := SchemaFromType(reflect.TypeOf(""))
+func TestGenerateSchemaFromType(t *testing.T) {
+	// Test generating schema from reflect.Type
+	b := New(parser.OASVersion320)
+
+	schema := b.generateSchemaFromType(reflect.TypeOf(""))
 	assert.Equal(t, "string", schema.Type)
 
-	schema = SchemaFromType(reflect.TypeOf(int64(0)))
+	schema = b.generateSchemaFromType(reflect.TypeOf(int64(0)))
 	assert.Equal(t, "integer", schema.Type)
 	assert.Equal(t, "int64", schema.Format)
 }

@@ -8,6 +8,31 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// tagConfig holds configuration for tag building.
+type tagConfig struct {
+	description      string
+	externalDocsURL  string
+	externalDocsDesc string
+}
+
+// TagOption configures a tag.
+type TagOption func(*tagConfig)
+
+// WithTagDescription sets the tag description.
+func WithTagDescription(desc string) TagOption {
+	return func(cfg *tagConfig) {
+		cfg.description = desc
+	}
+}
+
+// WithTagExternalDocs sets the external documentation for a tag.
+func WithTagExternalDocs(url, description string) TagOption {
+	return func(cfg *tagConfig) {
+		cfg.externalDocsURL = url
+		cfg.externalDocsDesc = description
+	}
+}
+
 // parseJSONTag parses a struct field's json tag.
 // Returns the field name and options (like "omitempty").
 func parseJSONTag(tag string) (name string, opts []string) {

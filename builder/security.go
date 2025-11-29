@@ -65,31 +65,6 @@ func SecurityRequirement(schemeName string, scopes ...string) parser.SecurityReq
 	}
 }
 
-// tagConfig holds configuration for tag building.
-type tagConfig struct {
-	description      string
-	externalDocsURL  string
-	externalDocsDesc string
-}
-
-// TagOption configures a tag.
-type TagOption func(*tagConfig)
-
-// WithTagDescription sets the tag description.
-func WithTagDescription(desc string) TagOption {
-	return func(cfg *tagConfig) {
-		cfg.description = desc
-	}
-}
-
-// WithTagExternalDocs sets the external documentation for a tag.
-func WithTagExternalDocs(url, description string) TagOption {
-	return func(cfg *tagConfig) {
-		cfg.externalDocsURL = url
-		cfg.externalDocsDesc = description
-	}
-}
-
 // AddTag adds a tag to the specification.
 func (b *Builder) AddTag(name string, opts ...TagOption) *Builder {
 	cfg := &tagConfig{}

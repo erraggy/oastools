@@ -4,6 +4,45 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// paramConfig holds configuration for parameter building.
+type paramConfig struct {
+	description string
+	required    bool
+	deprecated  bool
+	example     any
+}
+
+// ParamOption configures a parameter.
+type ParamOption func(*paramConfig)
+
+// WithParamDescription sets the parameter description.
+func WithParamDescription(desc string) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.description = desc
+	}
+}
+
+// WithParamRequired sets whether the parameter is required.
+func WithParamRequired(required bool) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.required = required
+	}
+}
+
+// WithParamExample sets the parameter example.
+func WithParamExample(example any) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.example = example
+	}
+}
+
+// WithParamDeprecated marks the parameter as deprecated.
+func WithParamDeprecated(deprecated bool) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.deprecated = deprecated
+	}
+}
+
 // AddParameter adds a reusable parameter to components.parameters (OAS 3.x)
 // or parameters (OAS 2.0).
 func (b *Builder) AddParameter(name string, in string, paramName string, paramType any, opts ...ParamOption) *Builder {

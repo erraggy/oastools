@@ -26,7 +26,7 @@ type Error struct {
 
 // Example demonstrates basic builder usage.
 func Example() {
-	spec := builder.NewOAS3(parser.OASVersion320).
+	spec := builder.New(parser.OASVersion320).
 		SetTitle("Pet Store API").
 		SetVersion("1.0.0")
 
@@ -52,7 +52,7 @@ func Example() {
 
 // Example_withServer demonstrates adding servers.
 func Example_withServer() {
-	spec := builder.NewOAS3(parser.OASVersion320).
+	spec := builder.New(parser.OASVersion320).
 		SetTitle("My API").
 		SetVersion("1.0.0").
 		AddServer("https://api.example.com/v1",
@@ -81,7 +81,7 @@ func Example_withRequestBody() {
 		Tag  string `json:"tag,omitempty"`
 	}
 
-	spec := builder.NewOAS3(parser.OASVersion320).
+	spec := builder.New(parser.OASVersion320).
 		SetTitle("Pet Store API").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/pets",
@@ -106,7 +106,7 @@ func Example_withRequestBody() {
 
 // Example_withParameters demonstrates adding parameters.
 func Example_withParameters() {
-	spec := builder.NewOAS3(parser.OASVersion320).
+	spec := builder.New(parser.OASVersion320).
 		SetTitle("Pet Store API").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodGet, "/pets/{petId}",
@@ -133,7 +133,7 @@ func Example_withParameters() {
 
 // Example_withSecurity demonstrates security configuration.
 func Example_withSecurity() {
-	spec := builder.NewOAS3(parser.OASVersion320).
+	spec := builder.New(parser.OASVersion320).
 		SetTitle("Secure API").
 		SetVersion("1.0.0").
 		AddAPIKeySecurityScheme("api_key", "header", "X-API-Key", "API key authentication").
@@ -163,7 +163,7 @@ func Example_withSecurity() {
 
 // Example_completeAPI demonstrates a complete API specification.
 func Example_completeAPI() {
-	spec := builder.NewOAS3(parser.OASVersion320).
+	spec := builder.New(parser.OASVersion320).
 		SetTitle("Pet Store API").
 		SetVersion("1.0.0").
 		SetDescription("A sample Pet Store API demonstrating the builder package").
@@ -237,7 +237,7 @@ func Example_schemaGeneration() {
 		Address Address `json:"address"`
 	}
 
-	spec := builder.NewOAS3(parser.OASVersion320).
+	spec := builder.New(parser.OASVersion320).
 		SetTitle("Customer API").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodGet, "/customers/{id}",
