@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -140,9 +141,14 @@ func TestBuilder_Build(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0")
 		b.errors = append(b.errors, assert.AnError)
+		b.errors = append(b.errors, fmt.Errorf("another error"))
 
 		_, err := b.Build()
 		assert.Error(t, err)
+		// Verify all errors are included in the message
+		assert.Contains(t, err.Error(), "2 error(s)")
+		assert.Contains(t, err.Error(), "assert.AnError")
+		assert.Contains(t, err.Error(), "another error")
 	})
 }
 

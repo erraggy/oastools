@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"path"
 	"reflect"
 	"time"
 
@@ -293,6 +294,7 @@ func (b *Builder) generatePrimitiveSchema(t reflect.Type) *parser.Schema {
 }
 
 // schemaName generates a schema name from a type.
+// If a conflict is detected (same name for different type), the package name is prefixed.
 func (b *Builder) schemaName(t reflect.Type) string {
 	// Use the type name (without package prefix)
 	name := t.Name()
@@ -300,6 +302,16 @@ func (b *Builder) schemaName(t reflect.Type) string {
 		// Anonymous type - generate a unique name
 		name = "AnonymousType"
 	}
+
+	// Check for name conflicts with different types
+	if existingType := b.schemaCache.getTypeForName(name); existingType != nil && existingType != t {
+		// Conflict detected - prefix with package name
+		if pkgPath := t.PkgPath(); pkgPath != "" {
+			pkgName := path.Base(pkgPath)
+			name = pkgName + name
+		}
+	}
+
 	return name
 }
 

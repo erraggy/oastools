@@ -11,6 +11,7 @@ import (
 type schemaCache struct {
 	byType     map[reflect.Type]*parser.Schema // Type → Schema
 	byName     map[string]reflect.Type         // Name → Type (for conflict detection)
+	nameByType map[reflect.Type]string         // Type → Name (for O(1) reverse lookup)
 	inProgress map[reflect.Type]bool           // Circular reference detection
 }
 
@@ -19,6 +20,7 @@ func newSchemaCache() *schemaCache {
 	return &schemaCache{
 		byType:     make(map[reflect.Type]*parser.Schema),
 		byName:     make(map[string]reflect.Type),
+		nameByType: make(map[reflect.Type]string),
 		inProgress: make(map[reflect.Type]bool),
 	}
 }
@@ -32,6 +34,7 @@ func (c *schemaCache) get(t reflect.Type) *parser.Schema {
 func (c *schemaCache) set(t reflect.Type, name string, schema *parser.Schema) {
 	c.byType[t] = schema
 	c.byName[name] = t
+	c.nameByType[t] = name
 }
 
 // isInProgress returns true if the type is currently being processed.
@@ -51,17 +54,18 @@ func (c *schemaCache) clearInProgress(t reflect.Type) {
 }
 
 // getNameForType returns the cached name for a type, or empty string if not cached.
+// Uses O(1) reverse mapping for performance.
 func (c *schemaCache) getNameForType(t reflect.Type) string {
-	for name, cachedType := range c.byName {
-		if cachedType == t {
-			return name
-		}
-	}
-	return ""
+	return c.nameByType[t]
 }
 
 // hasName returns true if a name is already registered.
 func (c *schemaCache) hasName(name string) bool {
 	_, exists := c.byName[name]
 	return exists
+}
+
+// getTypeForName returns the type registered for a name, or nil if not found.
+func (c *schemaCache) getTypeForName(name string) reflect.Type {
+	return c.byName[name]
 }

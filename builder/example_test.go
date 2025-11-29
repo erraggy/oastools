@@ -259,3 +259,54 @@ func Example_schemaGeneration() {
 	// Has Customer schema: true
 	// Has Address schema: true
 }
+
+// Example_fromDocument demonstrates modifying an existing document.
+func Example_fromDocument() {
+	// Create an existing document (in real code, this would be parsed from a file)
+	existingDoc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info: &parser.Info{
+			Title:   "Existing API",
+			Version: "1.0.0",
+		},
+		Paths: parser.Paths{
+			"/existing": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "existingOperation",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {
+								Description: "Existing response",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Create builder from existing document and add new operations
+	spec := builder.FromDocument(existingDoc)
+
+	type HealthResponse struct {
+		Status string `json:"status"`
+	}
+
+	spec.AddOperation(http.MethodGet, "/health",
+		builder.WithOperationID("healthCheck"),
+		builder.WithResponse(http.StatusOK, HealthResponse{}),
+	)
+
+	doc, err := spec.Build()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Paths: %d\n", len(doc.Paths))
+	fmt.Printf("Has /existing: %v\n", doc.Paths["/existing"] != nil)
+	fmt.Printf("Has /health: %v\n", doc.Paths["/health"] != nil)
+	// Output:
+	// Paths: 2
+	// Has /existing: true
+	// Has /health: true
+}

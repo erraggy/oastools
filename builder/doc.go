@@ -23,14 +23,6 @@
 //		log.Fatal(err)
 //	}
 //
-// Or use functional options for parsing and building:
-//
-//	result, err := builder.BuildWithOptions(
-//		builder.WithVersion(parser.OASVersion320),
-//		builder.WithTitle("My API"),
-//		builder.WithAPIVersion("1.0.0"),
-//	)
-//
 // # Reflection-Based Schema Generation
 //
 // The core feature is automatic schema generation from Go types via reflection.

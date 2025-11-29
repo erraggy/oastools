@@ -357,6 +357,20 @@ func TestSchemaCache(t *testing.T) {
 		name = cache.getNameForType(reflect.TypeOf(TestType{}))
 		assert.Equal(t, "TestType", name)
 	})
+
+	t.Run("getTypeForName", func(t *testing.T) {
+		type TestType struct{}
+		cache := newSchemaCache()
+
+		// Not found case
+		t1 := cache.getTypeForName("TestType")
+		assert.Nil(t, t1)
+
+		// Found case
+		cache.set(reflect.TypeOf(TestType{}), "TestType", &parser.Schema{})
+		t2 := cache.getTypeForName("TestType")
+		assert.Equal(t, reflect.TypeOf(TestType{}), t2)
+	})
 }
 
 func TestSchemaFromType(t *testing.T) {

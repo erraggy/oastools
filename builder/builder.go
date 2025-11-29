@@ -144,7 +144,11 @@ func (b *Builder) SetLicense(license *parser.License) *Builder {
 func (b *Builder) Build() (*parser.OAS3Document, error) {
 	// Check accumulated errors
 	if len(b.errors) > 0 {
-		return nil, fmt.Errorf("builder: has %d error(s): %v", len(b.errors), b.errors[0])
+		var errMsgs []string
+		for _, err := range b.errors {
+			errMsgs = append(errMsgs, err.Error())
+		}
+		return nil, fmt.Errorf("builder: %d error(s): %s", len(b.errors), strings.Join(errMsgs, "; "))
 	}
 
 	// Validate required fields
