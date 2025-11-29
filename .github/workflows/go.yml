@@ -16,7 +16,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # Fast tests should complete in under 5 minutes
+    timeout-minutes: 10  # Allow time for module downloads on first run; cached runs complete in ~30s
     steps:
     - uses: actions/checkout@v6
 
