@@ -155,7 +155,7 @@ spec := builder.New(parser.OASVersion320).
         builder.WithOperationID("listUsers"),
         builder.WithResponse(http.StatusOK, []User{}),
     )
-doc, err := spec.Build()
+doc, err := spec.BuildOAS3()  // Returns *parser.OAS3Document
 ```
 
 #### Advanced API (Reusable Instances)
