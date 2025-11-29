@@ -30,6 +30,7 @@ jobs:
       run: go build -v ./...
 
     - name: Test
+      timeout-minutes: 10  # Step-level timeout (matches go test timeout)
       run: go test -v -coverprofile=coverage.txt -covermode=atomic -timeout=10m -parallel=4 ./...
 
     - name: Upload coverage reports to Codecov
