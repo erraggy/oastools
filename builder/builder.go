@@ -1,0 +1,631 @@
+package builder
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/erraggy/oastools/parser"
+	"gopkg.in/yaml.v3"
+)
+
+// Builder is the main entry point for constructing OAS documents.
+// It maintains internal state for accumulated components and reflection cache.
+//
+// Concurrency: Builder instances are not safe for concurrent use.
+// Create separate Builder instances for concurrent operations.
+type Builder struct {
+	// Configuration
+	version parser.OASVersion
+
+	// Document sections
+	info         *parser.Info
+	servers      []*parser.Server
+	paths        parser.Paths
+	tags         []*parser.Tag
+	security     []parser.SecurityRequirement
+	externalDocs *parser.ExternalDocs
+	webhooks     map[string]*parser.PathItem // OAS 3.1+ only
+
+	// Components (tracked separately for deduplication)
+	schemas         map[string]*parser.Schema
+	responses       map[string]*parser.Response
+	parameters      map[string]*parser.Parameter
+	requestBodies   map[string]*parser.RequestBody
+	securitySchemes map[string]*parser.SecurityScheme
+
+	// Reflection cache for schema generation
+	schemaCache *schemaCache
+
+	// Tracking
+	operationIDs map[string]bool // Track used operation IDs for uniqueness
+	errors       []error         // Accumulated errors
+}
+
+// New creates a new Builder instance for the specified OAS version.
+// Use BuildOAS2() for OAS 2.0 (Swagger) or BuildOAS3() for OAS 3.x documents.
+//
+// The builder does not perform OAS specification validation. Use the validator
+// package to validate built documents.
+//
+// Example:
+//
+//	spec := builder.New(parser.OASVersion320).
+//		SetTitle("My API").
+//		SetVersion("1.0.0")
+//	doc, err := spec.BuildOAS3()
+func New(version parser.OASVersion) *Builder {
+	return &Builder{
+		version:         version,
+		paths:           make(parser.Paths),
+		webhooks:        make(map[string]*parser.PathItem),
+		schemas:         make(map[string]*parser.Schema),
+		responses:       make(map[string]*parser.Response),
+		parameters:      make(map[string]*parser.Parameter),
+		requestBodies:   make(map[string]*parser.RequestBody),
+		securitySchemes: make(map[string]*parser.SecurityScheme),
+		schemaCache:     newSchemaCache(),
+		operationIDs:    make(map[string]bool),
+		errors:          make([]error, 0),
+	}
+}
+
+// NewWithInfo creates a Builder with pre-configured Info.
+//
+// Example:
+//
+//	info := &parser.Info{Title: "My API", Version: "1.0.0"}
+//	spec := builder.NewWithInfo(parser.OASVersion320, info)
+func NewWithInfo(version parser.OASVersion, info *parser.Info) *Builder {
+	b := New(version)
+	b.info = info
+	return b
+}
+
+// SetInfo sets the Info object for the document.
+func (b *Builder) SetInfo(info *parser.Info) *Builder {
+	b.info = info
+	return b
+}
+
+// SetTitle sets the title in the Info object.
+func (b *Builder) SetTitle(title string) *Builder {
+	if b.info == nil {
+		b.info = &parser.Info{}
+	}
+	b.info.Title = title
+	return b
+}
+
+// SetVersion sets the version in the Info object.
+// Note: This is the API version, not the OpenAPI specification version.
+func (b *Builder) SetVersion(version string) *Builder {
+	if b.info == nil {
+		b.info = &parser.Info{}
+	}
+	b.info.Version = version
+	return b
+}
+
+// SetDescription sets the description in the Info object.
+func (b *Builder) SetDescription(desc string) *Builder {
+	if b.info == nil {
+		b.info = &parser.Info{}
+	}
+	b.info.Description = desc
+	return b
+}
+
+// SetTermsOfService sets the terms of service URL in the Info object.
+func (b *Builder) SetTermsOfService(url string) *Builder {
+	if b.info == nil {
+		b.info = &parser.Info{}
+	}
+	b.info.TermsOfService = url
+	return b
+}
+
+// SetContact sets the contact information in the Info object.
+func (b *Builder) SetContact(contact *parser.Contact) *Builder {
+	if b.info == nil {
+		b.info = &parser.Info{}
+	}
+	b.info.Contact = contact
+	return b
+}
+
+// SetLicense sets the license information in the Info object.
+func (b *Builder) SetLicense(license *parser.License) *Builder {
+	if b.info == nil {
+		b.info = &parser.Info{}
+	}
+	b.info.License = license
+	return b
+}
+
+// SetExternalDocs sets the external documentation for the document.
+// This is used for providing additional documentation at the document level.
+func (b *Builder) SetExternalDocs(externalDocs *parser.ExternalDocs) *Builder {
+	b.externalDocs = externalDocs
+	return b
+}
+
+// AddWebhook adds a webhook to the specification (OAS 3.1+ only).
+// Webhooks are callbacks that are triggered by the API provider.
+// Returns an error during Build if used with OAS versions earlier than 3.1.
+//
+// Example:
+//
+//	spec.AddWebhook("newUser", http.MethodPost,
+//	    builder.WithResponse(http.StatusOK, UserCreatedEvent{}),
+//	)
+func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Builder {
+	// Create operation config with defaults
+	cfg := &operationConfig{
+		responses: make(map[string]*parser.Response),
+	}
+
+	// Apply all options
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	// Process request body schema
+	if cfg.requestBody != nil && cfg.requestBody.Extra != nil {
+		if bodyType, ok := cfg.requestBody.Extra["_bodyType"]; ok {
+			schema := b.generateSchema(bodyType)
+			for contentType := range cfg.requestBody.Content {
+				cfg.requestBody.Content[contentType].Schema = schema
+			}
+		}
+		cfg.requestBody.Extra = nil
+	}
+
+	// Process response schemas
+	for code, resp := range cfg.responses {
+		if resp.Extra != nil {
+			if respType, ok := resp.Extra["_responseType"]; ok {
+				schema := b.generateSchema(respType)
+				for contentType := range resp.Content {
+					resp.Content[contentType].Schema = schema
+				}
+			}
+			resp.Extra = nil
+		}
+		cfg.responses[code] = resp
+	}
+
+	// Process parameter schemas
+	for _, param := range cfg.parameters {
+		if param.Extra != nil {
+			if paramType, ok := param.Extra["_paramType"]; ok {
+				param.Schema = b.generateSchema(paramType)
+			}
+			param.Extra = nil
+		}
+	}
+
+	// Build responses object
+	var responses *parser.Responses
+	if len(cfg.responses) > 0 {
+		responses = &parser.Responses{
+			Codes: make(map[string]*parser.Response),
+		}
+		for code, resp := range cfg.responses {
+			if code == "default" {
+				responses.Default = resp
+			} else {
+				responses.Codes[code] = resp
+			}
+		}
+	}
+
+	// Build security
+	var security []parser.SecurityRequirement
+	if cfg.noSecurity {
+		security = []parser.SecurityRequirement{{}}
+	} else if len(cfg.security) > 0 {
+		security = cfg.security
+	}
+
+	// Build Operation struct
+	op := &parser.Operation{
+		OperationID: cfg.operationID,
+		Summary:     cfg.summary,
+		Description: cfg.description,
+		Tags:        cfg.tags,
+		Parameters:  cfg.parameters,
+		RequestBody: cfg.requestBody,
+		Responses:   responses,
+		Security:    security,
+		Deprecated:  cfg.deprecated,
+	}
+
+	// Get or create PathItem for webhook
+	pathItem, exists := b.webhooks[name]
+	if !exists {
+		pathItem = &parser.PathItem{}
+		b.webhooks[name] = pathItem
+	}
+
+	// Assign operation to method
+	b.setOperation(pathItem, method, op)
+
+	return b
+}
+
+// BuildOAS2 creates an OAS 2.0 (Swagger) document.
+// Returns an error if the builder was created with an OAS 3.x version,
+// or if required fields are missing.
+//
+// The builder does not perform OAS specification validation. Use the validator
+// package to validate built documents.
+//
+// Example:
+//
+//	spec := builder.New(parser.OASVersion20).
+//		SetTitle("My API").
+//		SetVersion("1.0.0")
+//	doc, err := spec.BuildOAS2()
+//	// doc is *parser.OAS2Document - no type assertion needed
+func (b *Builder) BuildOAS2() (*parser.OAS2Document, error) {
+	if err := b.checkErrors(); err != nil {
+		return nil, err
+	}
+
+	if b.version != parser.OASVersion20 {
+		return nil, fmt.Errorf("builder: BuildOAS2() called but builder was created with version %s; use BuildOAS3() instead", b.version)
+	}
+
+	// Build paths - only include if non-empty
+	var paths parser.Paths
+	if len(b.paths) > 0 {
+		paths = b.paths
+	}
+
+	// Create document
+	doc := &parser.OAS2Document{
+		Swagger:      "2.0",
+		OASVersion:   b.version,
+		Info:         b.info,
+		Paths:        paths,
+		Tags:         b.tags,
+		Security:     b.security,
+		ExternalDocs: b.externalDocs,
+	}
+
+	// Add definitions (schemas)
+	if len(b.schemas) > 0 {
+		doc.Definitions = b.schemas
+	}
+
+	// Add parameters
+	if len(b.parameters) > 0 {
+		doc.Parameters = b.parameters
+	}
+
+	// Add responses
+	if len(b.responses) > 0 {
+		doc.Responses = b.responses
+	}
+
+	// Add security definitions
+	if len(b.securitySchemes) > 0 {
+		doc.SecurityDefinitions = b.securitySchemes
+	}
+
+	return doc, nil
+}
+
+// BuildOAS3 creates an OAS 3.x document.
+// Returns an error if the builder was created with OAS 2.0 version,
+// or if required fields are missing.
+//
+// The builder does not perform OAS specification validation. Use the validator
+// package to validate built documents.
+//
+// Example:
+//
+//	spec := builder.New(parser.OASVersion320).
+//		SetTitle("My API").
+//		SetVersion("1.0.0")
+//	doc, err := spec.BuildOAS3()
+//	// doc is *parser.OAS3Document - no type assertion needed
+func (b *Builder) BuildOAS3() (*parser.OAS3Document, error) {
+	if err := b.checkErrors(); err != nil {
+		return nil, err
+	}
+
+	if b.version == parser.OASVersion20 {
+		return nil, fmt.Errorf("builder: BuildOAS3() called but builder was created with OAS 2.0; use BuildOAS2() instead")
+	}
+
+	// Build components
+	var components *parser.Components
+	if len(b.schemas) > 0 || len(b.responses) > 0 || len(b.parameters) > 0 ||
+		len(b.requestBodies) > 0 || len(b.securitySchemes) > 0 {
+		components = &parser.Components{}
+		if len(b.schemas) > 0 {
+			components.Schemas = b.schemas
+		}
+		if len(b.responses) > 0 {
+			components.Responses = b.responses
+		}
+		if len(b.parameters) > 0 {
+			components.Parameters = b.parameters
+		}
+		if len(b.requestBodies) > 0 {
+			components.RequestBodies = b.requestBodies
+		}
+		if len(b.securitySchemes) > 0 {
+			components.SecuritySchemes = b.securitySchemes
+		}
+	}
+
+	// Build paths - only include if non-empty
+	var paths parser.Paths
+	if len(b.paths) > 0 {
+		paths = b.paths
+	}
+
+	// Create document
+	doc := &parser.OAS3Document{
+		OpenAPI:      b.version.String(),
+		OASVersion:   b.version,
+		Info:         b.info,
+		Servers:      b.servers,
+		Paths:        paths,
+		Components:   components,
+		Tags:         b.tags,
+		Security:     b.security,
+		ExternalDocs: b.externalDocs,
+	}
+
+	// Add webhooks (OAS 3.1+ only)
+	if len(b.webhooks) > 0 {
+		doc.Webhooks = b.webhooks
+	}
+
+	return doc, nil
+}
+
+// checkErrors checks for accumulated errors during building.
+// The builder does not perform OAS specification validation.
+// Use the validator package to validate built documents.
+func (b *Builder) checkErrors() error {
+	// Check accumulated errors (like duplicate operation IDs)
+	if len(b.errors) > 0 {
+		var errMsgs []string
+		for _, err := range b.errors {
+			errMsgs = append(errMsgs, err.Error())
+		}
+		return fmt.Errorf("builder: %d error(s): %s", len(b.errors), strings.Join(errMsgs, "; "))
+	}
+
+	return nil
+}
+
+// BuildResult creates a ParseResult for compatibility with other packages.
+// This is useful for validating the built document with the validator package.
+//
+// The builder does not perform OAS specification validation. Use the validator
+// package to validate built documents:
+//
+//	result, err := spec.BuildResult()
+//	if err != nil { return err }
+//	valResult, err := validator.ValidateParsed(result)
+func (b *Builder) BuildResult() (*parser.ParseResult, error) {
+	var doc any
+	var err error
+
+	if b.version == parser.OASVersion20 {
+		doc, err = b.BuildOAS2()
+	} else {
+		doc, err = b.BuildOAS3()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &parser.ParseResult{
+		SourcePath:   "builder",
+		SourceFormat: parser.SourceFormatYAML,
+		Version:      b.version.String(),
+		OASVersion:   b.version,
+		Document:     doc,
+		Errors:       make([]error, 0),
+		Warnings:     make([]string, 0),
+	}, nil
+}
+
+// MarshalYAML returns the document as YAML bytes.
+func (b *Builder) MarshalYAML() ([]byte, error) {
+	var doc any
+	var err error
+
+	if b.version == parser.OASVersion20 {
+		doc, err = b.BuildOAS2()
+	} else {
+		doc, err = b.BuildOAS3()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return yaml.Marshal(doc)
+}
+
+// MarshalJSON returns the document as JSON bytes.
+func (b *Builder) MarshalJSON() ([]byte, error) {
+	var doc any
+	var err error
+
+	if b.version == parser.OASVersion20 {
+		doc, err = b.BuildOAS2()
+	} else {
+		doc, err = b.BuildOAS3()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return json.MarshalIndent(doc, "", "  ")
+}
+
+// outputFileMode is the file permission mode for output files (owner read/write only)
+const outputFileMode = 0600
+
+// WriteFile writes the document to a file.
+// The format is inferred from the file extension (.json for JSON, .yaml/.yml for YAML).
+func (b *Builder) WriteFile(path string) error {
+	var data []byte
+	var err error
+
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".json":
+		data, err = b.MarshalJSON()
+	case ".yaml", ".yml":
+		data, err = b.MarshalYAML()
+	default:
+		// Default to YAML
+		data, err = b.MarshalYAML()
+	}
+
+	if err != nil {
+		return fmt.Errorf("builder: failed to marshal document: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, outputFileMode); err != nil {
+		return fmt.Errorf("builder: failed to write file: %w", err)
+	}
+
+	return nil
+}
+
+// getOrCreatePathItem gets or creates a PathItem for the given path.
+func (b *Builder) getOrCreatePathItem(path string) *parser.PathItem {
+	if pathItem, exists := b.paths[path]; exists {
+		return pathItem
+	}
+	pathItem := &parser.PathItem{}
+	b.paths[path] = pathItem
+	return pathItem
+}
+
+// RegisterType registers a Go type and returns a $ref to it.
+// The schema is automatically generated via reflection and added to components.schemas.
+func (b *Builder) RegisterType(v any) *parser.Schema {
+	return b.generateSchema(v)
+}
+
+// RegisterTypeAs registers a Go type with a custom schema name.
+func (b *Builder) RegisterTypeAs(name string, v any) *parser.Schema {
+	schema := b.generateSchemaInternal(v, name)
+	return schema
+}
+
+// FromDocument creates a builder from an existing OAS3Document.
+// This allows modifying an existing document by adding operations.
+//
+// For OAS 2.0 documents, use FromOAS2Document instead.
+func FromDocument(doc *parser.OAS3Document) *Builder {
+	version, ok := parser.ParseVersion(doc.OpenAPI)
+	if !ok {
+		version = parser.OASVersion320 // Default to latest
+	}
+
+	b := New(version)
+	b.info = doc.Info
+	b.servers = doc.Servers
+	b.tags = doc.Tags
+	b.security = doc.Security
+	b.externalDocs = doc.ExternalDocs
+
+	// Copy paths
+	if doc.Paths != nil {
+		for path, item := range doc.Paths {
+			b.paths[path] = item
+		}
+	}
+
+	// Copy components
+	if doc.Components != nil {
+		if doc.Components.Schemas != nil {
+			for name, schema := range doc.Components.Schemas {
+				b.schemas[name] = schema
+			}
+		}
+		if doc.Components.Responses != nil {
+			for name, resp := range doc.Components.Responses {
+				b.responses[name] = resp
+			}
+		}
+		if doc.Components.Parameters != nil {
+			for name, param := range doc.Components.Parameters {
+				b.parameters[name] = param
+			}
+		}
+		if doc.Components.RequestBodies != nil {
+			for name, rb := range doc.Components.RequestBodies {
+				b.requestBodies[name] = rb
+			}
+		}
+		if doc.Components.SecuritySchemes != nil {
+			for name, ss := range doc.Components.SecuritySchemes {
+				b.securitySchemes[name] = ss
+			}
+		}
+	}
+
+	return b
+}
+
+// FromOAS2Document creates a builder from an existing OAS2Document (Swagger 2.0).
+// This allows modifying an existing document by adding operations.
+//
+// For OAS 3.x documents, use FromDocument instead.
+func FromOAS2Document(doc *parser.OAS2Document) *Builder {
+	b := New(parser.OASVersion20)
+	b.info = doc.Info
+	b.tags = doc.Tags
+	b.security = doc.Security
+	b.externalDocs = doc.ExternalDocs
+
+	// Copy paths
+	if doc.Paths != nil {
+		for path, item := range doc.Paths {
+			b.paths[path] = item
+		}
+	}
+
+	// Copy definitions (schemas)
+	if doc.Definitions != nil {
+		for name, schema := range doc.Definitions {
+			b.schemas[name] = schema
+		}
+	}
+
+	// Copy parameters
+	if doc.Parameters != nil {
+		for name, param := range doc.Parameters {
+			b.parameters[name] = param
+		}
+	}
+
+	// Copy responses
+	if doc.Responses != nil {
+		for name, resp := range doc.Responses {
+			b.responses[name] = resp
+		}
+	}
+
+	// Copy security definitions
+	if doc.SecurityDefinitions != nil {
+		for name, ss := range doc.SecurityDefinitions {
+			b.securitySchemes[name] = ss
+		}
+	}
+
+	return b
+}

@@ -16,6 +16,7 @@ OpenAPI Specification (OAS) tools for validation, parsing, converting, joining, 
 - **Convert** - Convert between OpenAPI versions (2.0 ↔ 3.x) with transparent issue tracking
 - **Join** - Merge multiple OpenAPI specifications with flexible collision resolution
 - **Diff** - Compare OpenAPI specifications and detect breaking changes
+- **Build** - Programmatically construct OpenAPI specifications with reflection-based schema generation
 - **Library** - Use as a Go library with both simple and advanced APIs
 
 ## Installation
@@ -101,11 +102,14 @@ For quick, one-off operations:
 
 ```go
 import (
+    "net/http"
+
     "github.com/erraggy/oastools/parser"
     "github.com/erraggy/oastools/validator"
     "github.com/erraggy/oastools/converter"
     "github.com/erraggy/oastools/joiner"
     "github.com/erraggy/oastools/differ"
+    "github.com/erraggy/oastools/builder"
 )
 
 // Parse
@@ -137,6 +141,21 @@ dResult, err := differ.DiffWithOptions(
     differ.WithSourceFilePath("api-v1.yaml"),
     differ.WithTargetFilePath("api-v2.yaml"),
 )
+
+// Build (programmatic construction)
+type User struct {
+    ID   int64  `json:"id" oas:"description=Unique identifier"`
+    Name string `json:"name" oas:"minLength=1"`
+}
+
+spec := builder.New(parser.OASVersion320).
+    SetTitle("User API").
+    SetVersion("1.0.0").
+    AddOperation(http.MethodGet, "/users",
+        builder.WithOperationID("listUsers"),
+        builder.WithResponse(http.StatusOK, []User{}),
+    )
+doc, err := spec.Build()
 ```
 
 #### Advanced API (Reusable Instances)
@@ -178,6 +197,7 @@ d.DiffParsed(result1, result2)  // Faster than Diff
 - **Converter**: Convert OAS 2.0 ↔ 3.x with severity-tracked issues (Info, Warning, Critical)
 - **Joiner**: Flexible collision strategies, array merging, tag deduplication
 - **Differ**: Compare specs with simple or breaking change detection; severity-based classification (Critical, Error, Warning, Info)
+- **Builder**: Programmatically construct OAS documents with reflection-based schema generation from Go types
 - **Performance**: ParseOnce pattern enables efficient workflows (parse once, validate/convert/join/diff many times)
 
 See [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) for complete API documentation.
@@ -314,6 +334,7 @@ make help           # Show all available commands
 ├── converter/          # OpenAPI conversion library (public API)
 ├── joiner/             # OpenAPI joining library (public API)
 ├── differ/             # OpenAPI diffing library (public API)
+├── builder/            # OpenAPI builder library (public API)
 ├── internal/           # Internal shared utilities
 │   ├── httputil/       # HTTP validation constants
 │   ├── severity/       # Severity levels for issues
@@ -322,7 +343,7 @@ make help           # Show all available commands
 └── testdata/           # Test fixtures and sample specs
 ```
 
-All five main packages (parser, validator, converter, joiner, differ) are public and can be imported directly.
+All six main packages (parser, validator, converter, joiner, differ, builder) are public and can be imported directly.
 
 ## Documentation
 

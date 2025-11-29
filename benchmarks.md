@@ -35,7 +35,7 @@ The v1.7.0 release includes a major optimization to JSON marshaling that elimina
 
 ## Benchmark Suite
 
-The benchmark suite includes **70+ benchmarks** across five main packages:
+The benchmark suite includes **85+ benchmarks** across six main packages:
 
 ### Parser Package (32 benchmarks)
 
@@ -93,6 +93,17 @@ The benchmark suite includes **70+ benchmarks** across five main packages:
 - Configuration options (IncludeInfo)
 - Edge cases (identical specifications)
 - Parse-once pattern efficiency
+
+### Builder Package (15 benchmarks)
+
+**Builder Construction Operations**:
+- Builder instantiation (New)
+- Info configuration (SetTitle, SetVersion, SetDescription)
+- Schema generation from reflection (primitives, structs, nested structs, slices, maps)
+- Operation building (simple operations, with parameters, with request bodies)
+- Full document building (Build)
+- Serialization (MarshalYAML, MarshalJSON)
+- OAS tag parsing and application
 
 ## Current Performance Metrics
 
@@ -214,6 +225,50 @@ The benchmark suite includes **70+ benchmarks** across five main packages:
 
 **Observation**: DiffParsed is **81x faster** than Diff (5.7μs vs 463μs) because it skips parsing. The differ includes a fast path for identical specifications that runs in ~3.8μs. Breaking mode vs Simple mode has negligible performance difference (~1.2μs), making breaking change detection essentially free.
 
+### Builder Performance
+
+**Builder Construction**:
+
+| Operation                | Time (ns) | Memory (bytes) | Allocations |
+|--------------------------|-----------|----------------|-------------|
+| New                      | 203       | 736            | 13          |
+| SetInfo (fluent chain)   | 221       | 848            | 14          |
+
+**Schema Generation** (reflection-based):
+
+| Type             | Time (ns) | Memory (bytes) | Allocations |
+|------------------|-----------|----------------|-------------|
+| Primitive        | 166       | 768            | 1           |
+| Struct           | 3,229     | 15,280         | 75          |
+| Nested struct    | 4,684     | 22,960         | 95          |
+| Slice            | 3,356     | 16,048         | 76          |
+| Map              | 3,389     | 16,048         | 76          |
+
+**Operation Building**:
+
+| Operation Type          | Time (ns) | Memory (bytes) | Allocations |
+|-------------------------|-----------|----------------|-------------|
+| Simple operation        | 4,087     | 18,633         | 99          |
+| With parameters         | 5,741     | 26,925         | 140         |
+| With request body       | 6,835     | 31,504         | 151         |
+
+**Document Building**:
+
+| Operation        | Time (ns) | Memory (bytes) | Allocations |
+|------------------|-----------|----------------|-------------|
+| Build (3 ops)    | 8,013     | 35,490         | 211         |
+| MarshalYAML      | 32,841    | 93,870         | 482         |
+| MarshalJSON      | 18,704    | 8,429          | 38          |
+
+**Tag Processing**:
+
+| Operation      | Time (ns) | Memory (bytes) | Allocations |
+|----------------|-----------|----------------|-------------|
+| Parse OAS tag  | 181       | 432            | 3           |
+| Apply OAS tag  | 267       | 1,184          | 6           |
+
+**Observation**: Builder provides efficient programmatic construction of OAS documents. Schema generation from reflection is ~3-5μs for typical structs, making it suitable for runtime use. JSON marshaling is ~2x faster than YAML marshaling (18.7μs vs 32.8μs). Tag parsing is highly optimized at ~181ns per tag.
+
 ## Performance Best Practices
 
 ### For Library Users
@@ -258,6 +313,7 @@ make bench-validator
 make bench-converter
 make bench-joiner
 make bench-differ
+make bench-builder
 
 # Or individually
 go test -bench=. -benchmem ./parser
@@ -265,6 +321,7 @@ go test -bench=. -benchmem ./validator
 go test -bench=. -benchmem ./converter
 go test -bench=. -benchmem ./joiner
 go test -bench=. -benchmem ./differ
+go test -bench=. -benchmem ./builder
 
 # Save baseline for comparison
 go test -bench=. -benchmem ./... > benchmark-baseline.txt
