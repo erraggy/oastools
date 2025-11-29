@@ -296,6 +296,8 @@ func (b *Builder) generatePrimitiveSchema(t reflect.Type) *parser.Schema {
 
 // schemaName generates a schema name from a type.
 // The name uses the format "package.TypeName" (e.g., "models.User").
+// Generic types are handled by replacing brackets with underscores
+// (e.g., "Response[User]" becomes "Response_User_").
 // If a conflict is detected (same base name from different packages),
 // the full package path is used to disambiguate.
 func (b *Builder) schemaName(t reflect.Type) string {
@@ -304,6 +306,9 @@ func (b *Builder) schemaName(t reflect.Type) string {
 		// Anonymous type - generate a unique name
 		return "AnonymousType"
 	}
+
+	// Sanitize type name for URI safety (handles generic types with brackets)
+	typeName = sanitizeSchemaName(typeName)
 
 	pkgPath := t.PkgPath()
 	if pkgPath == "" {
@@ -324,6 +329,30 @@ func (b *Builder) schemaName(t reflect.Type) string {
 		name = safePkgPath + "." + typeName
 	}
 
+	return name
+}
+
+// sanitizeSchemaName replaces characters that are problematic in URIs.
+// This is especially important for generic types which include brackets
+// (e.g., "Response[User]" becomes "Response_User_").
+// The function handles:
+// - Square brackets [ ] (from generic types)
+// - Commas (from multi-parameter generics like Map[string,int])
+// - Spaces (shouldn't appear, but sanitized for safety)
+func sanitizeSchemaName(name string) string {
+	// Replace brackets used in generic types
+	name = strings.ReplaceAll(name, "[", "_")
+	name = strings.ReplaceAll(name, "]", "_")
+	// Replace commas (multi-type generics)
+	name = strings.ReplaceAll(name, ",", "_")
+	// Replace spaces (shouldn't occur but be safe)
+	name = strings.ReplaceAll(name, " ", "_")
+	// Clean up multiple consecutive underscores
+	for strings.Contains(name, "__") {
+		name = strings.ReplaceAll(name, "__", "_")
+	}
+	// Remove trailing underscore
+	name = strings.TrimSuffix(name, "_")
 	return name
 }
 

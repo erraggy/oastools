@@ -51,6 +51,18 @@
 // (e.g., "github.com_foo_models.User").
 // Anonymous types are named "AnonymousType".
 //
+// # Generic Types
+//
+// Go 1.18+ generic types are fully supported. The type parameters are included in the
+// schema name but sanitized for URI safety by replacing brackets with underscores:
+//
+//	Response[User] → "builder.Response_User"
+//	Map[string,int] → "builder.Map_string_int"
+//	Response[List[User]] → "builder.Response_List_User"
+//
+// This ensures $ref URIs are valid and compatible with all OpenAPI tools, which may
+// not handle square brackets properly in schema references.
+//
 // # Struct Tags
 //
 // Customize schema generation with struct tags:

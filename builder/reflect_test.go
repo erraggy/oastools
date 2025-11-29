@@ -2,6 +2,7 @@ package builder
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -445,27 +446,210 @@ func TestBuilder_contains(t *testing.T) {
 }
 
 func TestBuilder_schemaName_ConflictDetection(t *testing.T) {
-// This test verifies that when two types have the same base name
-// (e.g., models.User from different packages), the conflict is detected
-// and the second type gets a full package path name.
+	// This test verifies that when two types have the same base name
+	// (e.g., models.User from different packages), the conflict is detected
+	// and the second type gets a full package path name.
 
-// Create a builder and simulate a conflict scenario
-b := New(parser.OASVersion320)
+	// Create a builder and simulate a conflict scenario
+	b := New(parser.OASVersion320)
 
-// Simulate registering a type with name "models.User" from package "github.com/foo/models"
-// by directly manipulating the cache
-type FakeType1 struct{ A string }
-type FakeType2 struct{ B string }
+	// Simulate registering a type with name "models.User" from package "github.com/foo/models"
+	// by directly manipulating the cache
+	type FakeType1 struct{ A string }
+	type FakeType2 struct{ B string }
 
-// Register the first type with a name that would conflict
-b.schemaCache.set(reflect.TypeOf(FakeType1{}), "models.User", &parser.Schema{Type: "object"})
+	// Register the first type with a name that would conflict
+	b.schemaCache.set(reflect.TypeOf(FakeType1{}), "models.User", &parser.Schema{Type: "object"})
 
-// Now when we try to get a name for a different type that would have the same base name,
-// the conflict detection should kick in
-existingType := b.schemaCache.getTypeForName("models.User")
-assert.NotNil(t, existingType, "Expected to find existing type in cache")
-assert.NotEqual(t, reflect.TypeOf(FakeType2{}), existingType, "Types should be different")
+	// Now when we try to get a name for a different type that would have the same base name,
+	// the conflict detection should kick in
+	existingType := b.schemaCache.getTypeForName("models.User")
+	assert.NotNil(t, existingType, "Expected to find existing type in cache")
+	assert.NotEqual(t, reflect.TypeOf(FakeType2{}), existingType, "Types should be different")
 
-// Verify the getTypeForName function works correctly for conflict detection
-assert.Equal(t, reflect.TypeOf(FakeType1{}), existingType)
+	// Verify the getTypeForName function works correctly for conflict detection
+	assert.Equal(t, reflect.TypeOf(FakeType1{}), existingType)
+}
+
+func TestSanitizeSchemaName(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple type",
+			input:    "User",
+			expected: "User",
+		},
+		{
+			name:     "generic type with single parameter",
+			input:    "Response[User]",
+			expected: "Response_User",
+		},
+		{
+			name:     "generic type with package qualifier",
+			input:    "Response[main.User]",
+			expected: "Response_main.User",
+		},
+		{
+			name:     "generic type with multiple parameters",
+			input:    "Map[string,int]",
+			expected: "Map_string_int",
+		},
+		{
+			name:     "nested generic type",
+			input:    "Response[List[User]]",
+			expected: "Response_List_User",
+		},
+		{
+			name:     "complex nested generics",
+			input:    "Map[string,Response[User]]",
+			expected: "Map_string_Response_User",
+		},
+		{
+			name:     "type with spaces (edge case)",
+			input:    "Some Type",
+			expected: "Some_Type",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := sanitizeSchemaName(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+// Generic test types for schema generation tests
+type GenericResponse[T any] struct {
+	Data    T      `json:"data"`
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+}
+
+type GenericList[T any] struct {
+	Items []T `json:"items"`
+	Total int `json:"total"`
+}
+
+type GenericMap[K comparable, V any] struct {
+	Entries map[K]V `json:"entries"`
+}
+
+func TestBuilder_generateSchema_GenericTypes(t *testing.T) {
+	t.Run("simple generic type", func(t *testing.T) {
+		type User struct {
+			ID   int    `json:"id"`
+			Name string `json:"name"`
+		}
+
+		b := New(parser.OASVersion320)
+		response := GenericResponse[User]{}
+		schema := b.generateSchema(response)
+
+		// Schema should be a $ref with sanitized name (no brackets)
+		assert.NotEmpty(t, schema.Ref)
+		assert.NotContains(t, schema.Ref, "[")
+		assert.NotContains(t, schema.Ref, "]")
+
+		// Find the schema name
+		found := false
+		for name := range b.schemas {
+			if strings.Contains(name, "GenericResponse") {
+				found = true
+				assert.NotContains(t, name, "[")
+				assert.NotContains(t, name, "]")
+			}
+		}
+		assert.True(t, found, "Expected to find GenericResponse schema")
+	})
+
+	t.Run("nested generic types", func(t *testing.T) {
+		type Item struct {
+			Value string `json:"value"`
+		}
+
+		b := New(parser.OASVersion320)
+		listResponse := GenericResponse[GenericList[Item]]{}
+		schema := b.generateSchema(listResponse)
+
+		// All refs should be sanitized
+		assert.NotEmpty(t, schema.Ref)
+		assert.NotContains(t, schema.Ref, "[")
+		assert.NotContains(t, schema.Ref, "]")
+
+		// Check all registered schemas have sanitized names
+		for name := range b.schemas {
+			assert.NotContains(t, name, "[", "Schema name %s contains brackets", name)
+			assert.NotContains(t, name, "]", "Schema name %s contains brackets", name)
+		}
+	})
+
+	t.Run("generic type with primitive", func(t *testing.T) {
+		b := New(parser.OASVersion320)
+		response := GenericResponse[string]{}
+		schema := b.generateSchema(response)
+
+		assert.NotEmpty(t, schema.Ref)
+		assert.NotContains(t, schema.Ref, "[")
+		assert.NotContains(t, schema.Ref, "]")
+	})
+
+	t.Run("generic list type", func(t *testing.T) {
+		type Product struct {
+			SKU   string  `json:"sku"`
+			Price float64 `json:"price"`
+		}
+
+		b := New(parser.OASVersion320)
+		list := GenericList[Product]{}
+		schema := b.generateSchema(list)
+
+		assert.NotEmpty(t, schema.Ref)
+		assert.NotContains(t, schema.Ref, "[")
+		assert.NotContains(t, schema.Ref, "]")
+
+		// Verify the internal schema has the right structure
+		for name, s := range b.schemas {
+			if strings.Contains(name, "GenericList") {
+				require.Contains(t, s.Properties, "items")
+				require.Contains(t, s.Properties, "total")
+			}
+		}
+	})
+}
+
+func TestBuilder_refToSchema_WithGenericTypes(t *testing.T) {
+	// Test that $ref URIs don't contain problematic characters
+	testCases := []struct {
+		name     string
+		typeName string
+	}{
+		{"simple", "User"},
+		{"with_dot", "models.User"},
+		{"sanitized_generic", "Response_User"},
+		{"complex_generic", "Map_string_Response_User"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			b := New(parser.OASVersion320)
+			schema := b.refToSchema(tc.typeName)
+
+			assert.Equal(t, "#/components/schemas/"+tc.typeName, schema.Ref)
+
+			// Ensure no problematic URI characters
+			assert.NotContains(t, schema.Ref, "[")
+			assert.NotContains(t, schema.Ref, "]")
+			assert.NotContains(t, schema.Ref, ",")
+			assert.NotContains(t, schema.Ref, " ")
+		})
+	}
 }
