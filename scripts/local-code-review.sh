@@ -192,7 +192,7 @@ PROMPT
         echo '```diff'
         cat "$temp_diff"
         echo '```'
-    } | claude --model "$model" --no-context
+    } | claude --print --model "$model"
 
     echo
     echo -e "${GREEN}=== Review Complete ===${NC}"
