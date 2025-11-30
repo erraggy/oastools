@@ -229,6 +229,45 @@ gh run watch <RUN_ID>               # Monitor running workflow
 gh pr view <PR_NUMBER> --comments   # Get all PR comments (including bot reviews)
 ```
 
+## Local Code Review
+
+We use local Claude Code review instead of GitHub Actions to provide faster feedback during development.
+
+### Setup
+
+Install the pre-push hook (one-time setup):
+```bash
+./scripts/install-git-hooks.sh
+```
+
+This installs a Git hook that runs Claude Code review before each push.
+
+### Manual Review
+
+Run code review manually anytime:
+```bash
+# Review all uncommitted changes
+./scripts/local-code-review.sh
+
+# Review only staged changes (useful before commit)
+./scripts/local-code-review.sh staged
+
+# Review all changes in current branch (useful before PR)
+./scripts/local-code-review.sh branch
+```
+
+### Skipping Review
+
+To skip the pre-push review (use sparingly):
+```bash
+SKIP_REVIEW=1 git push
+```
+
+To bypass the hook entirely (not recommended):
+```bash
+git push --no-verify
+```
+
 ## Submitting Changes
 
 **Before Submitting:**
@@ -237,6 +276,7 @@ gh pr view <PR_NUMBER> --comments   # Get all PR comments (including bot reviews
 3. Verify all new exported functionality has tests
 4. Update benchmarks with `make bench-save` if changes affect performance
 5. Check for security vulnerabilities: `govulncheck`
+6. Run local code review: `./scripts/local-code-review.sh branch`
 
 **Never submit a PR with:**
 - Untested exported functions, methods, or types
