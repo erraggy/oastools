@@ -2,7 +2,6 @@ package converter
 
 import (
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 
@@ -11,68 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// TestConvertConvenience tests the package-level Convert convenience function
-func TestConvertConvenience(t *testing.T) {
-	// Create a simple OAS 2.0 document
-	oas2Doc := testutil.NewSimpleOAS2Document()
-	tmpFile := testutil.WriteTempYAML(t, oas2Doc)
-
-	// Test conversion using convenience function
-	result, err := Convert(tmpFile, "3.0.3")
-	if err != nil {
-		t.Fatalf("Convert failed: %v", err)
-	}
-
-	if result == nil {
-		t.Fatal("Expected non-nil result")
-	}
-
-	if result.TargetVersion != "3.0.3" {
-		t.Errorf("Expected target version 3.0.3, got %s", result.TargetVersion)
-	}
-
-	if !result.Success {
-		t.Errorf("Expected successful conversion, got Success=false")
-	}
-
-	// Verify document was converted
-	doc, ok := result.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Expected OAS3Document")
-	}
-
-	if doc.OpenAPI != "3.0.3" {
-		t.Errorf("Expected OpenAPI version 3.0.3, got %s", doc.OpenAPI)
-	}
-}
-
-// TestConvertParsedConvenience tests the ConvertParsed convenience function
-func TestConvertParsedConvenience(t *testing.T) {
-	oas2Doc := testutil.NewSimpleOAS2Document()
-	parseResult := parser.ParseResult{
-		Document:   oas2Doc,
-		Version:    "2.0",
-		OASVersion: parser.OASVersion20,
-		Data:       make(map[string]any),
-		SourcePath: "test.yaml",
-		Errors:     []error{},
-		Warnings:   []string{},
-	}
-
-	result, err := ConvertParsed(parseResult, "3.0.3")
-	if err != nil {
-		t.Fatalf("ConvertParsed failed: %v", err)
-	}
-
-	if result.TargetVersion != "3.0.3" {
-		t.Errorf("Expected target version 3.0.3, got %s", result.TargetVersion)
-	}
-
-	if !result.Success {
-		t.Errorf("Expected successful conversion")
-	}
-}
 
 // TestConverterNew tests the New() constructor
 func TestConverterNew(t *testing.T) {
@@ -894,31 +831,6 @@ func TestConvertParsedPropagatesMetrics(t *testing.T) {
 	}
 }
 
-// TestConvertConveniencePropagatesMetrics tests that the convenience function also propagates metrics
-func TestConvertConveniencePropagatesMetrics(t *testing.T) {
-	result, err := Convert("../testdata/minimal-oas2.yaml", "3.0.3")
-	if err != nil {
-		t.Fatalf("Convert() error = %v", err)
-	}
-
-	// Verify metrics are captured
-	if result.LoadTime == 0 {
-		t.Error("Expected LoadTime to be > 0")
-	}
-	if result.SourceSize == 0 {
-		t.Error("Expected SourceSize to be > 0")
-	}
-
-	// SourceSize should match file size
-	data, err := os.ReadFile("../testdata/minimal-oas2.yaml")
-	if err != nil {
-		t.Fatalf("Failed to read test file: %v", err)
-	}
-	if result.SourceSize != int64(len(data)) {
-		t.Errorf("SourceSize = %d, expected %d", result.SourceSize, len(data))
-	}
-}
-
 // TestConvertWithOptions_FilePath tests the functional options API with file path
 func TestConvertWithOptions_FilePath(t *testing.T) {
 	result, err := ConvertWithOptions(
@@ -1179,39 +1091,4 @@ func TestApplyOptions_OverrideDefaults_Converter(t *testing.T) {
 	assert.True(t, cfg.strictMode)
 	assert.False(t, cfg.includeInfo)
 	assert.Equal(t, "custom/1.0", cfg.userAgent)
-}
-
-// TestConvertWithOptions_BackwardCompatibility tests that new API produces same results as old API
-func TestConvertWithOptions_BackwardCompatibility(t *testing.T) {
-	testCases := []struct {
-		name          string
-		sourceFile    string
-		targetVersion string
-	}{
-		{"oas2_to_3.0.3", "../testdata/minimal-oas2.yaml", "3.0.3"},
-		{"oas2_to_3.1.0", "../testdata/minimal-oas2.yaml", "3.1.0"},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Old API
-			oldResult, err := Convert(tc.sourceFile, tc.targetVersion)
-			require.NoError(t, err)
-
-			// New API
-			newResult, err := ConvertWithOptions(
-				WithFilePath(tc.sourceFile),
-				WithTargetVersion(tc.targetVersion),
-			)
-			require.NoError(t, err)
-
-			// Compare results
-			assert.Equal(t, oldResult.Success, newResult.Success)
-			assert.Equal(t, oldResult.SourceVersion, newResult.SourceVersion)
-			assert.Equal(t, oldResult.TargetVersion, newResult.TargetVersion)
-			assert.Equal(t, oldResult.InfoCount, newResult.InfoCount)
-			assert.Equal(t, oldResult.WarningCount, newResult.WarningCount)
-			assert.Equal(t, oldResult.CriticalCount, newResult.CriticalCount)
-		})
-	}
 }

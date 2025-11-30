@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+#
+# Git pre-push hook for local code review
+#
+# This hook runs before `git push` and performs a Claude Code review
+# of the changes being pushed.
+#
+# To install this hook:
+#   ln -sf ../../scripts/pre-push-hook .git/hooks/pre-push
+#
+# To skip the review for a specific push:
+#   SKIP_REVIEW=1 git push
+#
+# To bypass the hook entirely (not recommended):
+#   git push --no-verify
+
+set -euo pipefail
+
+# Check if review should be skipped
+if [ "${SKIP_REVIEW:-0}" = "1" ]; then
+    echo "Skipping pre-push code review (SKIP_REVIEW=1)"
+    exit 0
+fi
+
+# Get the script directory
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$HOOK_DIR/../.." && pwd)"
+
+# Run the code review script for branch changes
+echo "Running pre-push code review..."
+"$PROJECT_ROOT/scripts/local-code-review.sh" branch
+
+# Always exit 0 to allow the push
+# (we're providing feedback, not blocking)
+echo
+echo "Code review complete. You may now push."
+exit 0

@@ -206,50 +206,6 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
-// Validate is a convenience function that validates an OpenAPI specification file
-// with the specified options. It's equivalent to creating a Validator with
-// New(), setting the options, and calling Validate().
-//
-// For one-off validation operations, this function provides a simpler API.
-// For validating multiple files with the same configuration, create a Validator
-// instance and reuse it.
-//
-// Deprecated: Use ValidateWithOptions for a more flexible API.
-//
-// Example:
-//
-//	result, err := validator.Validate("openapi.yaml", true, false)
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//	if !result.Valid {
-//	    // Handle validation errors
-//	}
-func Validate(specPath string, includeWarnings, strictMode bool) (*ValidationResult, error) {
-	v := &Validator{
-		IncludeWarnings: includeWarnings,
-		StrictMode:      strictMode,
-	}
-	return v.Validate(specPath)
-}
-
-// ValidateParsed is a convenience function that validates an already-parsed
-// OpenAPI specification with the specified options.
-//
-// Deprecated: Use ValidateWithOptions for a more flexible API.
-//
-// Example:
-//
-//	parseResult, _ := parser.Parse("openapi.yaml", false, true)
-//	result, err := validator.ValidateParsed(*parseResult, true, false)
-func ValidateParsed(parseResult parser.ParseResult, includeWarnings, strictMode bool) (*ValidationResult, error) {
-	v := &Validator{
-		IncludeWarnings: includeWarnings,
-		StrictMode:      strictMode,
-	}
-	return v.ValidateParsed(parseResult)
-}
-
 // ValidateParsed validates an already parsed OpenAPI specification
 func (v *Validator) ValidateParsed(parseResult parser.ParseResult) (*ValidationResult, error) {
 	result := &ValidationResult{

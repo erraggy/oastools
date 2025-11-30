@@ -184,26 +184,6 @@ func BenchmarkValidateParsedLargeOAS3(b *testing.B) {
 	}
 }
 
-// BenchmarkConvenienceValidateSmallOAS3 benchmarks the convenience function
-func BenchmarkConvenienceValidateSmallOAS3(b *testing.B) {
-	for b.Loop() {
-		_, err := Validate(smallOAS3Path, true, false)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
-	}
-}
-
-// BenchmarkConvenienceValidateMediumOAS3 benchmarks the convenience function with medium doc
-func BenchmarkConvenienceValidateMediumOAS3(b *testing.B) {
-	for b.Loop() {
-		_, err := Validate(mediumOAS3Path, true, false)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
-	}
-}
-
 // BenchmarkValidateStrictModeSmallOAS3 benchmarks strict mode validation
 func BenchmarkValidateStrictModeSmallOAS3(b *testing.B) {
 	v := New()

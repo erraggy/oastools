@@ -308,44 +308,6 @@ func WithMergeArrays(enabled bool) Option {
 	}
 }
 
-// Join is a convenience function that joins multiple OpenAPI specification files
-// with the specified configuration. It's equivalent to creating a Joiner with
-// New(), and calling Join().
-//
-// For one-off join operations, this function provides a simpler API.
-// For joining multiple sets of files with the same configuration, create a Joiner
-// instance and reuse it.
-//
-// Deprecated: Use JoinWithOptions for a more flexible API.
-//
-// Example:
-//
-//	config := joiner.DefaultConfig()
-//	config.PathStrategy = joiner.StrategyAcceptLeft
-//	result, err := joiner.Join([]string{"api1.yaml", "api2.yaml"}, config)
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-func Join(specPaths []string, config JoinerConfig) (*JoinResult, error) {
-	j := New(config)
-	return j.Join(specPaths)
-}
-
-// JoinParsed is a convenience function that joins already-parsed OpenAPI
-// specifications with the specified configuration.
-//
-// Deprecated: Use JoinWithOptions for a more flexible API.
-//
-// Example:
-//
-//	doc1, _ := parser.Parse("api1.yaml", false, true)
-//	doc2, _ := parser.Parse("api2.yaml", false, true)
-//	result, err := joiner.JoinParsed([]parser.ParseResult{*doc1, *doc2}, joiner.DefaultConfig())
-func JoinParsed(parsedDocs []parser.ParseResult, config JoinerConfig) (*JoinResult, error) {
-	j := New(config)
-	return j.JoinParsed(parsedDocs)
-}
-
 func (j *Joiner) JoinParsed(parsedDocs []parser.ParseResult) (*JoinResult, error) {
 	if len(parsedDocs) < 2 {
 		return nil, fmt.Errorf("joiner: at least 2 specification documents are required for joining, got %d", len(parsedDocs))

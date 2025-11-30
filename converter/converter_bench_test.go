@@ -163,26 +163,6 @@ func BenchmarkConvertParsedOAS3ToOAS2Medium(b *testing.B) {
 	}
 }
 
-// BenchmarkConvenienceConvertOAS2ToOAS3Small benchmarks the convenience function
-func BenchmarkConvenienceConvertOAS2ToOAS3Small(b *testing.B) {
-	for b.Loop() {
-		_, err := Convert(smallOAS2Path, "3.0.3")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
-		}
-	}
-}
-
-// BenchmarkConvenienceConvertOAS2ToOAS3Medium benchmarks the convenience function with medium doc
-func BenchmarkConvenienceConvertOAS2ToOAS3Medium(b *testing.B) {
-	for b.Loop() {
-		_, err := Convert(mediumOAS2Path, "3.0.3")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
-		}
-	}
-}
-
 // BenchmarkConvertNoInfoOAS2ToOAS3Small benchmarks conversion without info messages
 func BenchmarkConvertNoInfoOAS2ToOAS3Small(b *testing.B) {
 	c := New()

@@ -232,44 +232,6 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
-// Convert is a convenience function that converts an OpenAPI specification file
-// to a target version with the specified options. It's equivalent to creating a
-// Converter with New() and calling Convert().
-//
-// For one-off conversion operations, this function provides a simpler API.
-// For converting multiple files with the same configuration, create a Converter
-// instance and reuse it.
-//
-// Deprecated: Use ConvertWithOptions for a more flexible API.
-//
-// Example:
-//
-//	result, err := converter.Convert("swagger.yaml", "3.0.3")
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//	if result.HasCriticalIssues() {
-//	    // Handle critical issues
-//	}
-func Convert(specPath string, targetVersion string) (*ConversionResult, error) {
-	c := New()
-	return c.Convert(specPath, targetVersion)
-}
-
-// ConvertParsed is a convenience function that converts an already-parsed
-// OpenAPI specification to a target version.
-//
-// Deprecated: Use ConvertWithOptions for a more flexible API.
-//
-// Example:
-//
-//	parseResult, _ := parser.Parse("swagger.yaml", false, true)
-//	result, err := converter.ConvertParsed(*parseResult, "3.0.3")
-func ConvertParsed(parseResult parser.ParseResult, targetVersion string) (*ConversionResult, error) {
-	c := New()
-	return c.ConvertParsed(parseResult, targetVersion)
-}
-
 // Convert converts an OpenAPI specification file to a target version
 func (c *Converter) Convert(specPath string, targetVersion string) (*ConversionResult, error) {
 	// Create parser and set UserAgent if specified

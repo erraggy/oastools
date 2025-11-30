@@ -477,7 +477,11 @@ components:
 `)
 
 	// Parse with resolveRefs enabled - this should not hang
-	result, err := ParseBytes(input, true, true)
+	result, err := ParseWithOptions(
+		WithBytes(input),
+		WithResolveRefs(true),
+		WithValidateStructure(true),
+	)
 
 	// Should parse successfully without hanging
 	if err != nil {
@@ -517,7 +521,11 @@ paths:
 `)
 
 	// Parse with resolveRefs enabled - this should not hang
-	result, err := ParseBytes(input, true, true)
+	result, err := ParseWithOptions(
+		WithBytes(input),
+		WithResolveRefs(true),
+		WithValidateStructure(true),
+	)
 
 	// Should parse successfully without hanging
 	if err != nil {

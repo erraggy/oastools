@@ -117,19 +117,6 @@ func BenchmarkJoinParsedThreeSmallDocs(b *testing.B) {
 	}
 }
 
-// BenchmarkConvenienceJoinTwoSmallDocs benchmarks the convenience function
-func BenchmarkConvenienceJoinTwoSmallDocs(b *testing.B) {
-	config := DefaultConfig()
-	config.PathStrategy = StrategyAcceptLeft
-
-	for b.Loop() {
-		_, err := Join([]string{joinBaseOAS3Path, joinExt1OAS3Path}, config)
-		if err != nil {
-			b.Fatalf("Failed to join: %v", err)
-		}
-	}
-}
-
 // BenchmarkJoinStrategyAcceptRight benchmarks with StrategyAcceptRight
 func BenchmarkJoinStrategyAcceptRight(b *testing.B) {
 	config := DefaultConfig()

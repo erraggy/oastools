@@ -1,10 +1,10 @@
-# Migration Guide: oastools v1.x → v2.0
+# Migration Guide: oastools v1.12.x → v1.13.0
 
-This guide helps you migrate from oastools v1.x to v2.0, which introduces a new functional options API pattern and removes deprecated convenience functions.
+This guide helps you migrate from oastools v1.12.x to v1.13.0, which removes deprecated convenience functions in favor of the `*WithOptions` functional options API pattern.
 
 ## Overview of Changes
 
-v2.0 removes 11 deprecated package-level convenience functions and standardizes on the `*WithOptions` functional options API across all packages. This provides:
+v1.13.0 removes 11 deprecated package-level convenience functions and standardizes on the `*WithOptions` functional options API across all packages. This provides:
 
 - **Self-documenting code**: Named options make API calls clearer
 - **Flexible input sources**: File paths, io.Reader, byte slices, and parsed documents
@@ -33,12 +33,12 @@ All deprecated package-level convenience functions have been removed:
 
 #### Basic File Parsing
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 result, err := parser.Parse("openapi.yaml", false, true)
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 result, err := parser.ParseWithOptions(
     parser.WithFilePath("openapi.yaml"),
@@ -48,13 +48,13 @@ result, err := parser.ParseWithOptions(
 
 #### Parsing from io.Reader
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 file, _ := os.Open("openapi.yaml")
 result, err := parser.ParseReader(file, false, true)
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 file, _ := os.Open("openapi.yaml")
 result, err := parser.ParseWithOptions(
@@ -65,13 +65,13 @@ result, err := parser.ParseWithOptions(
 
 #### Parsing from Byte Slice
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 data := []byte(`openapi: 3.0.0...`)
 result, err := parser.ParseBytes(data, false, true)
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 data := []byte(`openapi: 3.0.0...`)
 result, err := parser.ParseWithOptions(
@@ -82,7 +82,7 @@ result, err := parser.ParseWithOptions(
 
 #### Parser Options Reference
 
-| v1.x Parameter | v2.0 Option | Default |
+| v1.12.x and earlier Parameter | v1.13.0 and later Option | Default |
 |----------------|-------------|---------|
 | `resolveRefs bool` | `parser.WithResolveRefs(bool)` | `false` |
 | `validateStructure bool` | `parser.WithValidateStructure(bool)` | `false` |
@@ -92,12 +92,12 @@ result, err := parser.ParseWithOptions(
 
 #### Basic Validation
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 result, err := validator.Validate("openapi.yaml", true, false)
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 result, err := validator.ValidateWithOptions(
     validator.WithFilePath("openapi.yaml"),
@@ -107,13 +107,13 @@ result, err := validator.ValidateWithOptions(
 
 #### Validating Parsed Document
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 parsed, _ := parser.Parse("openapi.yaml", false, true)
 result, err := validator.ValidateParsed(*parsed, true, false)
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 parsed, _ := parser.ParseWithOptions(
     parser.WithFilePath("openapi.yaml"),
@@ -127,7 +127,7 @@ result, err := validator.ValidateWithOptions(
 
 #### Validator Options Reference
 
-| v1.x Parameter | v2.0 Option | Default |
+| v1.12.x and earlier Parameter | v1.13.0 and later Option | Default |
 |----------------|-------------|---------|
 | `includeWarnings bool` | `validator.WithIncludeWarnings(bool)` | `false` |
 | `strictMode bool` | `validator.WithStrictMode(bool)` | `false` |
@@ -137,12 +137,12 @@ result, err := validator.ValidateWithOptions(
 
 #### Basic Conversion
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 result, err := converter.Convert("swagger.yaml", "3.0.3")
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 result, err := converter.ConvertWithOptions(
     converter.WithFilePath("swagger.yaml"),
@@ -152,13 +152,13 @@ result, err := converter.ConvertWithOptions(
 
 #### Converting Parsed Document
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 parsed, _ := parser.Parse("swagger.yaml", false, true)
 result, err := converter.ConvertParsed(*parsed, "3.0.3")
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 parsed, _ := parser.ParseWithOptions(
     parser.WithFilePath("swagger.yaml"),
@@ -172,7 +172,7 @@ result, err := converter.ConvertWithOptions(
 
 #### Converter Options Reference
 
-| v1.x Parameter | v2.0 Option | Default |
+| v1.12.x and earlier Parameter | v1.13.0 and later Option | Default |
 |----------------|-------------|---------|
 | `targetVersion string` | `converter.WithTargetVersion(string)` | **Required** |
 | N/A | `converter.WithStrictMode(bool)` | `false` |
@@ -183,13 +183,13 @@ result, err := converter.ConvertWithOptions(
 
 #### Basic Joining
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 config := joiner.DefaultConfig()
 result, err := joiner.Join([]string{"base.yaml", "ext.yaml"}, config)
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 result, err := joiner.JoinWithOptions(
     joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
@@ -199,14 +199,14 @@ result, err := joiner.JoinWithOptions(
 
 #### Joining with Custom Strategy
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 config := joiner.DefaultConfig()
 config.PathStrategy = joiner.StrategyAcceptLeft
 result, err := joiner.Join([]string{"base.yaml", "ext.yaml"}, config)
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 result, err := joiner.JoinWithOptions(
     joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
@@ -216,7 +216,7 @@ result, err := joiner.JoinWithOptions(
 
 #### Joining Parsed Documents
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 doc1, _ := parser.Parse("base.yaml", false, true)
 doc2, _ := parser.Parse("ext.yaml", false, true)
@@ -224,7 +224,7 @@ config := joiner.DefaultConfig()
 result, err := joiner.JoinParsed([]parser.ParseResult{*doc1, *doc2}, config)
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 doc1, _ := parser.ParseWithOptions(
     parser.WithFilePath("base.yaml"),
@@ -242,7 +242,7 @@ result, err := joiner.JoinWithOptions(
 
 #### Joiner Options Reference
 
-| v1.x Parameter | v2.0 Option | Default |
+| v1.12.x and earlier Parameter | v1.13.0 and later Option | Default |
 |----------------|-------------|---------|
 | `config JoinerConfig` | `joiner.WithConfig(JoinerConfig)` | `DefaultConfig()` |
 | N/A | `joiner.WithDefaultStrategy(CollisionStrategy)` | `StrategyFailOnCollision` |
@@ -256,12 +256,12 @@ result, err := joiner.JoinWithOptions(
 
 #### Basic Diff
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 result, err := differ.Diff("api-v1.yaml", "api-v2.yaml")
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 result, err := differ.DiffWithOptions(
     differ.WithSourceFilePath("api-v1.yaml"),
@@ -271,14 +271,14 @@ result, err := differ.DiffWithOptions(
 
 #### Diff with Breaking Change Detection
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 d := differ.New()
 d.Mode = differ.ModeBreaking
 result, err := d.Diff("api-v1.yaml", "api-v2.yaml")
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 result, err := differ.DiffWithOptions(
     differ.WithSourceFilePath("api-v1.yaml"),
@@ -289,14 +289,14 @@ result, err := differ.DiffWithOptions(
 
 #### Diffing Parsed Documents
 
-**v1.x (Removed):**
+**v1.12.x and earlier (Removed in v1.13.0):**
 ```go
 source, _ := parser.Parse("api-v1.yaml", false, true)
 target, _ := parser.Parse("api-v2.yaml", false, true)
 result, err := differ.DiffParsed(*source, *target)
 ```
 
-**v2.0 (New):**
+**v1.13.0 and later:**
 ```go
 source, _ := parser.ParseWithOptions(
     parser.WithFilePath("api-v1.yaml"),
@@ -314,7 +314,7 @@ result, err := differ.DiffWithOptions(
 
 #### Differ Options Reference
 
-| v1.x Parameter | v2.0 Option | Default |
+| v1.12.x and earlier Parameter | v1.13.0 and later Option | Default |
 |----------------|-------------|---------|
 | N/A | `differ.WithMode(DiffMode)` | `ModeSimple` |
 | N/A | `differ.WithIncludeInfo(bool)` | `true` |
@@ -371,12 +371,12 @@ result2, _ := d.Diff("api-v2.yaml", "api-v3.yaml")
 
 ### 1. Self-Documenting Code
 
-**v1.x:**
+**v1.12.x and earlier:**
 ```go
 result, err := parser.Parse("api.yaml", false, true)  // What do these bools mean?
 ```
 
-**v2.0:**
+**v1.13.0 and later:**
 ```go
 result, err := parser.ParseWithOptions(
     parser.WithFilePath("api.yaml"),
@@ -387,7 +387,7 @@ result, err := parser.ParseWithOptions(
 
 ### 2. Flexible Input Sources
 
-**v2.0** allows mixing input sources in a single call:
+**v1.13.0** allows mixing input sources in a single call:
 ```go
 // Parse from URL with custom user agent
 result, err := parser.ParseWithOptions(
@@ -412,12 +412,12 @@ result, err := parser.ParseWithOptions(
 
 New options can be added without breaking existing code:
 ```go
-// v2.0
+// v1.13.0
 result, err := parser.ParseWithOptions(
     parser.WithFilePath("api.yaml"),
 )
 
-// v2.1+ (hypothetical) - adds new option without breaking v2.0 code
+// v1.14+ (hypothetical) - adds new option without breaking v1.13.0 code
 result, err := parser.ParseWithOptions(
     parser.WithFilePath("api.yaml"),
     parser.WithCacheTTL(5 * time.Minute),  // New option, old code still works
@@ -434,7 +434,7 @@ With functional options, IDEs can suggest available options as you type, making 
 
 1. Update all deprecated function calls to use `*WithOptions` variants
 2. Run tests to ensure behavior is unchanged
-3. Update to v2.0
+3. Update to v1.13.0
 
 ### For Large Codebases
 
@@ -455,7 +455,7 @@ With functional options, IDEs can suggest available options as you type, making 
 
 3. **Phase 3**: Test thoroughly after each package migration
 
-4. **Phase 4**: Update to v2.0
+4. **Phase 4**: Update your go.mod to use v1.13.0
 
 ### Automated Migration
 
@@ -469,16 +469,16 @@ sed -i '' 's/parser\.Parse(\([^,]*\), false, true)/parser.ParseWithOptions(parse
 
 **Warning**: Automated migration may not handle all cases correctly. Always review and test changes.
 
-## Staying on v1.x
+## Staying on v1.12.x
 
-If you're not ready to migrate immediately, v1.x will remain available:
+If you're not ready to migrate immediately, v1.12.x and earlier will remain available:
 
 ```go
-// Continue using v1.x
-go get github.com/erraggy/oastools@v1.6.0
+// Continue using v1.12.x
+go get github.com/erraggy/oastools@v1.12.0
 ```
 
-However, v1.x will no longer receive new features. Security patches may be provided for critical issues.
+However, v1.12.x and earlier will no longer receive new features. Security patches may be provided for critical issues.
 
 ## Getting Help
 
@@ -490,15 +490,17 @@ However, v1.x will no longer receive new features. Security patches may be provi
 
 | oastools Version | Go Version | API Style |
 |------------------|------------|-----------|
-| v1.x | ≥ 1.24 | Boolean parameters + struct methods |
-| v2.0 | ≥ 1.24 | Functional options + struct methods |
+| v1.12.x and earlier | ≥ 1.24 | Boolean parameters + struct methods |
+| v1.13.0 and later | ≥ 1.24 | Functional options only + struct methods |
 
 ## Summary
 
-The v2.0 migration removes deprecated convenience functions in favor of a more flexible, maintainable functional options API. The struct method API remains unchanged, providing a smooth migration path for codebases already using that pattern.
+The v1.13.0 release removes deprecated convenience functions in favor of a more flexible, maintainable functional options API. The struct method API remains unchanged, providing a smooth migration path for codebases already using that pattern.
 
 **Key Takeaways:**
 - Replace `Package.Function(args...)` with `Package.FunctionWithOptions(Package.WithOption(...), ...)`
 - Struct methods (`New().Method()`) remain unchanged
 - New API provides better clarity, flexibility, and extensibility
-- v1.x remains available for gradual migration
+- v1.12.x remains available for gradual migration
+
+**Note:** While this is technically a breaking change, we're releasing as v1.13.0 instead of v2.0.0 because the module is still relatively new and has minimal library adoption. Future breaking changes will follow semantic versioning more strictly.

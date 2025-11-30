@@ -229,6 +229,45 @@ gh run watch <RUN_ID>               # Monitor running workflow
 gh pr view <PR_NUMBER> --comments   # Get all PR comments (including bot reviews)
 ```
 
+## Local Code Review
+
+We use local Claude Code review instead of GitHub Actions to provide faster feedback during development.
+
+### Setup
+
+Install the pre-push hook (one-time setup):
+```bash
+./scripts/install-git-hooks.sh
+```
+
+This installs a Git hook that runs Claude Code review before each push.
+
+### Manual Review
+
+Run code review manually anytime:
+```bash
+# Review all uncommitted changes
+./scripts/local-code-review.sh
+
+# Review only staged changes (useful before commit)
+./scripts/local-code-review.sh staged
+
+# Review all changes in current branch (useful before PR)
+./scripts/local-code-review.sh branch
+```
+
+### Skipping Review
+
+To skip the pre-push review (use sparingly):
+```bash
+SKIP_REVIEW=1 git push
+```
+
+To bypass the hook entirely (not recommended):
+```bash
+git push --no-verify
+```
+
 ## Submitting Changes
 
 **Before Submitting:**
@@ -237,6 +276,7 @@ gh pr view <PR_NUMBER> --comments   # Get all PR comments (including bot reviews
 3. Verify all new exported functionality has tests
 4. Update benchmarks with `make bench-save` if changes affect performance
 5. Check for security vulnerabilities: `govulncheck`
+6. Run local code review: `./scripts/local-code-review.sh branch`
 
 **Never submit a PR with:**
 - Untested exported functions, methods, or types
@@ -262,6 +302,14 @@ gh pr view <PR_NUMBER> --comments   # Get all PR comments (including bot reviews
 - **PATCH** (`v1.6.0` → `v1.6.1`): Bug fixes, docs, small refactors without API changes
 - **MINOR** (`v1.6.0` → `v1.7.0`): New features, optimizations, new public APIs (backward compatible)
 - **MAJOR** (`v1.6.0` → `v2.0.0`): Breaking changes to public APIs (rare)
+
+**Note on v1.13.0:** This release removed 11 deprecated package-level convenience functions in favor of the `*WithOptions` functional options API. While this is technically a breaking change, it was released as a MINOR version (v1.13.0) instead of MAJOR (v2.0.0) because:
+- The module is still relatively new with minimal library adoption
+- The deprecated functions were marked as deprecated in previous releases
+- The migration path is straightforward (see MIGRATION_V1.12_TO_V1.13.md)
+- The struct-based API (which is the recommended approach for most use cases) remains unchanged
+
+Future breaking changes will follow semantic versioning more strictly and will trigger a major version bump.
 
 ### GitHub PAT Setup (Required)
 

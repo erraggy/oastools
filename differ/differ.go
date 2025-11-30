@@ -345,44 +345,6 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
-// Diff is a convenience function that compares two OpenAPI specification files.
-// It's equivalent to creating a Differ with New() and calling Diff().
-//
-// For one-off diff operations, this function provides a simpler API.
-// For comparing multiple files with the same configuration, create a Differ
-// instance and reuse it.
-//
-// Deprecated: Use DiffWithOptions for a more flexible API.
-//
-// Example:
-//
-//	result, err := differ.Diff("api-v1.yaml", "api-v2.yaml")
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//	if result.HasBreakingChanges {
-//	    // Handle breaking changes
-//	}
-func Diff(sourcePath, targetPath string) (*DiffResult, error) {
-	d := New()
-	return d.Diff(sourcePath, targetPath)
-}
-
-// DiffParsed is a convenience function that compares two already-parsed
-// OpenAPI specifications.
-//
-// Deprecated: Use DiffWithOptions for a more flexible API.
-//
-// Example:
-//
-//	source, _ := parser.Parse("api-v1.yaml", false, true)
-//	target, _ := parser.Parse("api-v2.yaml", false, true)
-//	result, err := differ.DiffParsed(*source, *target)
-func DiffParsed(source, target parser.ParseResult) (*DiffResult, error) {
-	d := New()
-	return d.DiffParsed(source, target)
-}
-
 // Diff compares two OpenAPI specification files
 func (d *Differ) Diff(sourcePath, targetPath string) (*DiffResult, error) {
 	// Create parser and set UserAgent if specified

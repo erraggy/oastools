@@ -77,10 +77,12 @@ paths:
 		// validation. We expect many inputs to cause an error, but we must ensure
 		// the function never panics (crashes).
 		//
-		// Note: We only test one flag combination (true, true) to keep the seed
-		// corpus regression tests fast. Testing all 4 combinations would multiply
-		// test time by 4x for each seed (19 seeds × 4 = 76 test cases). The other
-		// combinations are well-covered by existing unit tests.
-		_, _ = ParseBytes(data, true, true)
+		// Note: We test with both resolve refs and validate structure enabled.
+		// The combinations are well-covered by existing unit tests.
+		_, _ = ParseWithOptions(
+			WithBytes(data),
+			WithResolveRefs(true),
+			WithValidateStructure(true),
+		)
 	})
 }

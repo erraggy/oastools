@@ -239,7 +239,7 @@ func BenchmarkMarshalServerWithExtra(b *testing.B) {
 // BenchmarkMarshalOAS3DocumentSmall benchmarks marshaling a small OAS3 document
 func BenchmarkMarshalOAS3DocumentSmall(b *testing.B) {
 	// Parse a small document first
-	result, err := Parse(smallOAS3Path, false, false)
+	result, err := ParseWithOptions(WithFilePath(smallOAS3Path))
 	if err != nil {
 		b.Fatalf("Failed to parse: %v", err)
 	}
@@ -260,7 +260,7 @@ func BenchmarkMarshalOAS3DocumentSmall(b *testing.B) {
 // BenchmarkMarshalOAS3DocumentMedium benchmarks marshaling a medium OAS3 document
 func BenchmarkMarshalOAS3DocumentMedium(b *testing.B) {
 	// Parse a medium document first
-	result, err := Parse(mediumOAS3Path, false, false)
+	result, err := ParseWithOptions(WithFilePath(mediumOAS3Path))
 	if err != nil {
 		b.Fatalf("Failed to parse: %v", err)
 	}
@@ -281,7 +281,7 @@ func BenchmarkMarshalOAS3DocumentMedium(b *testing.B) {
 // BenchmarkMarshalOAS3DocumentLarge benchmarks marshaling a large OAS3 document
 func BenchmarkMarshalOAS3DocumentLarge(b *testing.B) {
 	// Parse a large document first
-	result, err := Parse(largeOAS3Path, false, false)
+	result, err := ParseWithOptions(WithFilePath(largeOAS3Path))
 	if err != nil {
 		b.Fatalf("Failed to parse: %v", err)
 	}
@@ -302,7 +302,7 @@ func BenchmarkMarshalOAS3DocumentLarge(b *testing.B) {
 // BenchmarkMarshalOAS2DocumentSmall benchmarks marshaling a small OAS2 document
 func BenchmarkMarshalOAS2DocumentSmall(b *testing.B) {
 	// Parse a small document first
-	result, err := Parse(smallOAS2Path, false, false)
+	result, err := ParseWithOptions(WithFilePath(smallOAS2Path))
 	if err != nil {
 		b.Fatalf("Failed to parse: %v", err)
 	}
@@ -323,7 +323,7 @@ func BenchmarkMarshalOAS2DocumentSmall(b *testing.B) {
 // BenchmarkMarshalOAS2DocumentMedium benchmarks marshaling a medium OAS2 document
 func BenchmarkMarshalOAS2DocumentMedium(b *testing.B) {
 	// Parse a medium document first
-	result, err := Parse(mediumOAS2Path, false, false)
+	result, err := ParseWithOptions(WithFilePath(mediumOAS2Path))
 	if err != nil {
 		b.Fatalf("Failed to parse: %v", err)
 	}
