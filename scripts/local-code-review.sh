@@ -48,7 +48,7 @@ EXAMPLES:
 
 REQUIREMENTS:
     - Claude Code CLI must be installed and authenticated
-    - Run 'claude-code --version' to verify installation
+    - Run 'claude --version' to verify installation
 
 ENVIRONMENT:
     SKIP_REVIEW=1       Skip the code review (useful for emergencies)
@@ -57,16 +57,16 @@ EOF
 }
 
 check_requirements() {
-    if ! command -v claude-code &> /dev/null; then
-        echo -e "${RED}Error: claude-code CLI not found${NC}"
-        echo "Install from: https://docs.claude.com/en/docs/claude-code/installation"
+    if ! command -v claude &> /dev/null; then
+        echo -e "${RED}Error: claude CLI not found${NC}"
+        echo "Install from: https://code.claude.com/docs/en/quickstart#step-1:-install-claude-code"
         exit 1
     fi
 
     # Check authentication
-    if ! claude-code --version &> /dev/null; then
+    if ! claude --version &> /dev/null; then
         echo -e "${RED}Error: Claude Code not properly configured${NC}"
-        echo "Run: claude-code auth"
+        echo "Run: claude auth"
         exit 1
     fi
 }
@@ -184,7 +184,7 @@ Changes to review:
 PROMPT
 )
 
-    # Use claude-code CLI to review
+    # Use claude CLI to review
     local model="${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}"
 
     {
@@ -192,7 +192,7 @@ PROMPT
         echo '```diff'
         cat "$temp_diff"
         echo '```'
-    } | claude-code --model "$model" --no-context
+    } | claude --model "$model" --no-context
 
     echo
     echo -e "${GREEN}=== Review Complete ===${NC}"
