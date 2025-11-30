@@ -8,54 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDifferConvenience(t *testing.T) {
-	// Test the convenience function Diff
-	result, err := Diff("../testdata/petstore-v1.yaml", "../testdata/petstore-v2.yaml")
-	if err != nil {
-		t.Fatalf("Diff failed: %v", err)
-	}
-
-	if result == nil {
-		t.Fatal("Expected non-nil result")
-	}
-
-	if len(result.Changes) == 0 {
-		t.Error("Expected changes between v1 and v2")
-	}
-}
-
-func TestDifferParsedConvenience(t *testing.T) {
-	// Test the convenience function DiffParsed
-	source, err := parser.ParseWithOptions(
-		parser.WithFilePath("../testdata/petstore-v1.yaml"),
-		parser.WithValidateStructure(true),
-	)
-	if err != nil {
-		t.Fatalf("Failed to parse source: %v", err)
-	}
-
-	target, err := parser.ParseWithOptions(
-		parser.WithFilePath("../testdata/petstore-v2.yaml"),
-		parser.WithValidateStructure(true),
-	)
-	if err != nil {
-		t.Fatalf("Failed to parse target: %v", err)
-	}
-
-	result, err := DiffParsed(*source, *target)
-	if err != nil {
-		t.Fatalf("DiffParsed failed: %v", err)
-	}
-
-	if result == nil {
-		t.Fatal("Expected non-nil result")
-	}
-
-	if len(result.Changes) == 0 {
-		t.Error("Expected changes between v1 and v2")
-	}
-}
-
 func TestDifferNew(t *testing.T) {
 	d := New()
 	if d == nil {
@@ -589,38 +541,4 @@ func TestApplyOptions_OverrideDefaults_Differ(t *testing.T) {
 	assert.Equal(t, ModeBreaking, cfg.mode)
 	assert.False(t, cfg.includeInfo)
 	assert.Equal(t, "custom/1.0", cfg.userAgent)
-}
-
-// TestDiffWithOptions_BackwardCompatibility tests that new API produces same results as old API
-func TestDiffWithOptions_BackwardCompatibility(t *testing.T) {
-	testCases := []struct {
-		name       string
-		sourceFile string
-		targetFile string
-	}{
-		{"petstore_v1_to_v2", "../testdata/petstore-v1.yaml", "../testdata/petstore-v2.yaml"},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Old API
-			oldResult, err := Diff(tc.sourceFile, tc.targetFile)
-			require.NoError(t, err)
-
-			// New API
-			newResult, err := DiffWithOptions(
-				WithSourceFilePath(tc.sourceFile),
-				WithTargetFilePath(tc.targetFile),
-			)
-			require.NoError(t, err)
-
-			// Compare results
-			assert.Equal(t, oldResult.SourceVersion, newResult.SourceVersion)
-			assert.Equal(t, oldResult.TargetVersion, newResult.TargetVersion)
-			assert.Equal(t, len(oldResult.Changes), len(newResult.Changes))
-			assert.Equal(t, oldResult.BreakingCount, newResult.BreakingCount)
-			assert.Equal(t, oldResult.WarningCount, newResult.WarningCount)
-			assert.Equal(t, oldResult.InfoCount, newResult.InfoCount)
-		})
-	}
 }

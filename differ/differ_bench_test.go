@@ -11,41 +11,6 @@ import (
 // These operations (diff, parse) should never fail with valid test fixtures.
 // If they do fail, it indicates a bug that should halt the benchmark immediately.
 
-// Benchmark differ convenience functions
-func BenchmarkDiffConvenience(b *testing.B) {
-	for b.Loop() {
-		_, err := Diff("../testdata/petstore-v1.yaml", "../testdata/petstore-v2.yaml")
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkDiffParsedConvenience(b *testing.B) {
-	// Parse once, then benchmark diff many times
-	source, err := parser.ParseWithOptions(
-		parser.WithFilePath("../testdata/petstore-v1.yaml"),
-		parser.WithValidateStructure(true),
-	)
-	if err != nil {
-		b.Fatal(err)
-	}
-	target, err := parser.ParseWithOptions(
-		parser.WithFilePath("../testdata/petstore-v2.yaml"),
-		parser.WithValidateStructure(true),
-	)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	for b.Loop() {
-		_, err := DiffParsed(*source, *target)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 // Benchmark struct-based API
 func BenchmarkDifferDiff(b *testing.B) {
 	d := New()

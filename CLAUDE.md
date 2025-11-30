@@ -263,6 +263,14 @@ gh pr view <PR_NUMBER> --comments   # Get all PR comments (including bot reviews
 - **MINOR** (`v1.6.0` → `v1.7.0`): New features, optimizations, new public APIs (backward compatible)
 - **MAJOR** (`v1.6.0` → `v2.0.0`): Breaking changes to public APIs (rare)
 
+**Note on v1.13.0:** This release removed 11 deprecated package-level convenience functions in favor of the `*WithOptions` functional options API. While this is technically a breaking change, it was released as a MINOR version (v1.13.0) instead of MAJOR (v2.0.0) because:
+- The module is still relatively new with minimal library adoption
+- The deprecated functions were marked as deprecated in previous releases
+- The migration path is straightforward (see MIGRATION_V1.12_TO_V1.13.md)
+- The struct-based API (which is the recommended approach for most use cases) remains unchanged
+
+Future breaking changes will follow semantic versioning more strictly and will trigger a major version bump.
+
 ### GitHub PAT Setup (Required)
 
 **REQUIRED:** Create `HOMEBREW_TAP_TOKEN` secret with `repo` scope to push to homebrew-oastools repository.

@@ -154,23 +154,3 @@ func BenchmarkParseBytesMediumOAS3(b *testing.B) {
 		}
 	}
 }
-
-// BenchmarkConvenienceParseSmallOAS3 benchmarks the convenience function
-func BenchmarkConvenienceParseSmallOAS3(b *testing.B) {
-	for b.Loop() {
-		_, err := Parse(smallOAS3Path, false, true)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
-		}
-	}
-}
-
-// BenchmarkConvenienceParseMediumOAS3 benchmarks the convenience function with medium doc
-func BenchmarkConvenienceParseMediumOAS3(b *testing.B) {
-	for b.Loop() {
-		_, err := Parse(mediumOAS3Path, false, true)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
-		}
-	}
-}
