@@ -237,7 +237,8 @@ func WithQueryParam(name string, paramType any, opts ...ParamOption) OperationOp
 			Deprecated:  pCfg.deprecated,
 			Example:     pCfg.example,
 			Extra: map[string]any{
-				"_paramType": paramType,
+				"_paramType":   paramType,
+				"_paramConfig": pCfg,
 			},
 		}
 		cfg.parameters = append(cfg.parameters, param)
@@ -263,7 +264,8 @@ func WithPathParam(name string, paramType any, opts ...ParamOption) OperationOpt
 			Deprecated:  pCfg.deprecated,
 			Example:     pCfg.example,
 			Extra: map[string]any{
-				"_paramType": paramType,
+				"_paramType":   paramType,
+				"_paramConfig": pCfg,
 			},
 		}
 		cfg.parameters = append(cfg.parameters, param)
@@ -286,7 +288,8 @@ func WithHeaderParam(name string, paramType any, opts ...ParamOption) OperationO
 			Deprecated:  pCfg.deprecated,
 			Example:     pCfg.example,
 			Extra: map[string]any{
-				"_paramType": paramType,
+				"_paramType":   paramType,
+				"_paramConfig": pCfg,
 			},
 		}
 		cfg.parameters = append(cfg.parameters, param)
@@ -309,7 +312,8 @@ func WithCookieParam(name string, paramType any, opts ...ParamOption) OperationO
 			Deprecated:  pCfg.deprecated,
 			Example:     pCfg.example,
 			Extra: map[string]any{
-				"_paramType": paramType,
+				"_paramType":   paramType,
+				"_paramConfig": pCfg,
 			},
 		}
 		cfg.parameters = append(cfg.parameters, param)
@@ -374,6 +378,16 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 		if param.Extra != nil {
 			if paramType, ok := param.Extra["_paramType"]; ok {
 				param.Schema = b.generateSchema(paramType)
+			}
+			// Apply constraints from config if present
+			if pCfg, ok := param.Extra["_paramConfig"].(*paramConfig); ok {
+				if b.version != parser.OASVersion20 {
+					// OAS 3.x: Apply constraints to schema
+					param.Schema = applyParamConstraintsToSchema(param.Schema, pCfg)
+				} else {
+					// OAS 2.0: Apply constraints directly to parameter
+					applyParamConstraintsToParam(param, pCfg)
+				}
 			}
 			// Clear the extra field
 			param.Extra = nil

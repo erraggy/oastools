@@ -174,6 +174,45 @@
 // are defined, the resulting spec will fail OAS validation. Always use
 // WithResponse() or WithDefaultResponse() to add responses to operations.
 //
+// # Parameter Constraints
+//
+// Add validation constraints to parameters using WithParam* options:
+//
+//	spec.AddOperation(http.MethodGet, "/pets",
+//		builder.WithQueryParam("limit", int32(0),
+//			builder.WithParamDescription("Maximum number of pets to return"),
+//			builder.WithParamMinimum(1),
+//			builder.WithParamMaximum(100),
+//			builder.WithParamDefault(20),
+//		),
+//		builder.WithQueryParam("status", string(""),
+//			builder.WithParamEnum("available", "pending", "sold"),
+//		),
+//		builder.WithQueryParam("name", string(""),
+//			builder.WithParamMinLength(1),
+//			builder.WithParamMaxLength(50),
+//			builder.WithParamPattern("^[a-zA-Z]+$"),
+//		),
+//	)
+//
+// Supported parameter constraint options:
+//   - WithParamMinimum(min float64) - Minimum value for numeric parameters
+//   - WithParamMaximum(max float64) - Maximum value for numeric parameters
+//   - WithParamExclusiveMinimum(exclusive bool) - Whether minimum is exclusive
+//   - WithParamExclusiveMaximum(exclusive bool) - Whether maximum is exclusive
+//   - WithParamMultipleOf(value float64) - Value must be a multiple of this
+//   - WithParamMinLength(min int) - Minimum length for string parameters
+//   - WithParamMaxLength(max int) - Maximum length for string parameters
+//   - WithParamPattern(pattern string) - Regex pattern for string parameters
+//   - WithParamMinItems(min int) - Minimum items for array parameters
+//   - WithParamMaxItems(max int) - Maximum items for array parameters
+//   - WithParamUniqueItems(unique bool) - Whether array items must be unique
+//   - WithParamEnum(values ...any) - Allowed enumeration values
+//   - WithParamDefault(value any) - Default value for the parameter
+//
+// For OAS 3.x, constraints are applied to the parameter's schema field.
+// For OAS 2.0, constraints are applied directly to the parameter.
+//
 // # Custom Content Types
 //
 // Use WithResponseContentType to specify content types other than the default "application/json":

@@ -203,6 +203,16 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 			if paramType, ok := param.Extra["_paramType"]; ok {
 				param.Schema = b.generateSchema(paramType)
 			}
+			// Apply constraints from config if present
+			if pCfg, ok := param.Extra["_paramConfig"].(*paramConfig); ok {
+				if b.version != parser.OASVersion20 {
+					// OAS 3.x: Apply constraints to schema
+					param.Schema = applyParamConstraintsToSchema(param.Schema, pCfg)
+				} else {
+					// OAS 2.0: Apply constraints directly to parameter
+					applyParamConstraintsToParam(param, pCfg)
+				}
+			}
 			param.Extra = nil
 		}
 	}
