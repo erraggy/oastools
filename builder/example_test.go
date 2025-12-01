@@ -362,3 +362,69 @@ func Example_withParameterConstraints() {
 	// status enum count: 3
 	// name pattern: ^[a-zA-Z]+$
 }
+
+// Example_withFormParameters demonstrates using form parameters.
+// Form parameters work differently in OAS 2.0 vs 3.x:
+//   - OAS 2.0: parameters with in="formData"
+//   - OAS 3.x: request body with application/x-www-form-urlencoded
+func Example_withFormParameters() {
+	// OAS 3.x example - form parameters become request body
+	spec := builder.New(parser.OASVersion320).
+		SetTitle("Login API").
+		SetVersion("1.0.0")
+
+	type LoginResponse struct {
+		Token     string `json:"token"`
+		ExpiresIn int32  `json:"expires_in"`
+	}
+
+	spec.AddOperation(http.MethodPost, "/login",
+		builder.WithOperationID("login"),
+		builder.WithSummary("User login"),
+		// Form parameters are automatically converted to request body schema
+		builder.WithFormParam("username", string(""),
+			builder.WithParamDescription("User's username"),
+			builder.WithParamRequired(true),
+			builder.WithParamMinLength(3),
+			builder.WithParamMaxLength(20),
+		),
+		builder.WithFormParam("password", string(""),
+			builder.WithParamDescription("User's password"),
+			builder.WithParamRequired(true),
+			builder.WithParamMinLength(8),
+		),
+		builder.WithFormParam("remember_me", bool(false),
+			builder.WithParamDescription("Remember login session"),
+			builder.WithParamDefault(false),
+		),
+		builder.WithResponse(http.StatusOK, LoginResponse{},
+			builder.WithResponseDescription("Successful login"),
+		),
+		builder.WithResponse(http.StatusUnauthorized, Error{},
+			builder.WithResponseDescription("Invalid credentials"),
+		),
+	)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Form parameters are in the request body
+	rb := doc.Paths["/login"].Post.RequestBody
+	mediaType := rb.Content["application/x-www-form-urlencoded"]
+	fmt.Printf("Request body content type: application/x-www-form-urlencoded\n")
+	fmt.Printf("Form fields: %d\n", len(mediaType.Schema.Properties))
+	fmt.Printf("Required fields: %d\n", len(mediaType.Schema.Required))
+	fmt.Printf("Has username: %v\n", mediaType.Schema.Properties["username"] != nil)
+	fmt.Printf("Has password: %v\n", mediaType.Schema.Properties["password"] != nil)
+	fmt.Printf("Has remember_me: %v\n", mediaType.Schema.Properties["remember_me"] != nil)
+	// Output:
+	// Request body content type: application/x-www-form-urlencoded
+	// Form fields: 3
+	// Required fields: 2
+	// Has username: true
+	// Has password: true
+	// Has remember_me: true
+}
+
