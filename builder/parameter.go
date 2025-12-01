@@ -1,8 +1,21 @@
 package builder
 
 import (
+	"fmt"
+	"regexp"
+
 	"github.com/erraggy/oastools/parser"
 )
+
+// ConstraintError represents an invalid constraint configuration.
+type ConstraintError struct {
+	Field   string
+	Message string
+}
+
+func (e *ConstraintError) Error() string {
+	return fmt.Sprintf("constraint error on %s: %s", e.Field, e.Message)
+}
 
 // paramConfig holds configuration for parameter building.
 type paramConfig struct {
@@ -151,10 +164,19 @@ func WithParamDefault(value any) ParamOption {
 
 // AddParameter adds a reusable parameter to components.parameters (OAS 3.x)
 // or parameters (OAS 2.0).
+//
+// Constraint validation is performed and any errors are accumulated in the builder.
+// Use BuildOAS2() or BuildOAS3() to check for accumulated errors.
 func (b *Builder) AddParameter(name string, in string, paramName string, paramType any, opts ...ParamOption) *Builder {
 	pCfg := &paramConfig{}
 	for _, opt := range opts {
 		opt(pCfg)
+	}
+
+	// Validate constraints
+	if err := validateParamConstraints(pCfg); err != nil {
+		b.errors = append(b.errors, err)
+		return b
 	}
 
 	// Path parameters are always required
@@ -189,8 +211,103 @@ func (b *Builder) AddParameter(name string, in string, paramName string, paramTy
 	return b
 }
 
+// validateParamConstraints validates that parameter constraints are logically consistent.
+// It checks for:
+//   - minimum <= maximum (if both set)
+//   - minLength <= maxLength (if both set)
+//   - minItems <= maxItems (if both set)
+//   - non-negative values for length and items constraints
+//   - valid regex pattern syntax
+//   - positive multipleOf value
+func validateParamConstraints(cfg *paramConfig) error {
+	// Validate min/max numeric bounds
+	if cfg.minimum != nil && cfg.maximum != nil && *cfg.minimum > *cfg.maximum {
+		return &ConstraintError{
+			Field:   "minimum/maximum",
+			Message: fmt.Sprintf("minimum (%v) cannot be greater than maximum (%v)", *cfg.minimum, *cfg.maximum),
+		}
+	}
+
+	// Validate minLength/maxLength bounds
+	if cfg.minLength != nil && cfg.maxLength != nil && *cfg.minLength > *cfg.maxLength {
+		return &ConstraintError{
+			Field:   "minLength/maxLength",
+			Message: fmt.Sprintf("minLength (%d) cannot be greater than maxLength (%d)", *cfg.minLength, *cfg.maxLength),
+		}
+	}
+
+	// Validate non-negative minLength
+	if cfg.minLength != nil && *cfg.minLength < 0 {
+		return &ConstraintError{
+			Field:   "minLength",
+			Message: fmt.Sprintf("minLength (%d) cannot be negative", *cfg.minLength),
+		}
+	}
+
+	// Validate non-negative maxLength
+	if cfg.maxLength != nil && *cfg.maxLength < 0 {
+		return &ConstraintError{
+			Field:   "maxLength",
+			Message: fmt.Sprintf("maxLength (%d) cannot be negative", *cfg.maxLength),
+		}
+	}
+
+	// Validate minItems/maxItems bounds
+	if cfg.minItems != nil && cfg.maxItems != nil && *cfg.minItems > *cfg.maxItems {
+		return &ConstraintError{
+			Field:   "minItems/maxItems",
+			Message: fmt.Sprintf("minItems (%d) cannot be greater than maxItems (%d)", *cfg.minItems, *cfg.maxItems),
+		}
+	}
+
+	// Validate non-negative minItems
+	if cfg.minItems != nil && *cfg.minItems < 0 {
+		return &ConstraintError{
+			Field:   "minItems",
+			Message: fmt.Sprintf("minItems (%d) cannot be negative", *cfg.minItems),
+		}
+	}
+
+	// Validate non-negative maxItems
+	if cfg.maxItems != nil && *cfg.maxItems < 0 {
+		return &ConstraintError{
+			Field:   "maxItems",
+			Message: fmt.Sprintf("maxItems (%d) cannot be negative", *cfg.maxItems),
+		}
+	}
+
+	// Validate positive multipleOf
+	if cfg.multipleOf != nil && *cfg.multipleOf <= 0 {
+		return &ConstraintError{
+			Field:   "multipleOf",
+			Message: fmt.Sprintf("multipleOf (%v) must be greater than 0", *cfg.multipleOf),
+		}
+	}
+
+	// Validate regex pattern syntax
+	if cfg.pattern != "" {
+		if _, err := regexp.Compile(cfg.pattern); err != nil {
+			return &ConstraintError{
+				Field:   "pattern",
+				Message: fmt.Sprintf("invalid regex pattern: %v", err),
+			}
+		}
+	}
+
+	return nil
+}
+
 // applyParamConstraintsToSchema applies parameter constraints to a schema.
 // This is used for OAS 3.x where constraints are applied to the schema field.
+//
+// The function creates a copy of the schema to avoid mutating shared schema references.
+// If no constraints are set, the original schema is returned unchanged.
+//
+// Parameters:
+//   - schema: The schema to apply constraints to (may be nil)
+//   - cfg: The parameter configuration containing constraint values
+//
+// Returns the schema with constraints applied, or nil if the input schema is nil.
 func applyParamConstraintsToSchema(schema *parser.Schema, cfg *paramConfig) *parser.Schema {
 	if schema == nil {
 		return nil
@@ -248,7 +365,16 @@ func applyParamConstraintsToSchema(schema *parser.Schema, cfg *paramConfig) *par
 }
 
 // applyParamConstraintsToParam applies parameter constraints directly to a parameter.
-// This is used for OAS 2.0 where constraints are set on the parameter itself.
+// This is used for OAS 2.0 where constraints are set on the parameter itself,
+// rather than on a nested schema field.
+//
+// In OAS 2.0, parameters have their own constraint fields (minimum, maximum,
+// minLength, etc.) that are applied directly, whereas in OAS 3.x these
+// constraints are placed on the parameter's Schema object.
+//
+// Parameters:
+//   - param: The parameter to apply constraints to
+//   - cfg: The parameter configuration containing constraint values
 func applyParamConstraintsToParam(param *parser.Parameter, cfg *paramConfig) {
 	if cfg.minimum != nil {
 		param.Minimum = cfg.minimum
@@ -291,7 +417,15 @@ func applyParamConstraintsToParam(param *parser.Parameter, cfg *paramConfig) {
 	}
 }
 
-// hasParamConstraints returns true if any constraint is set.
+// hasParamConstraints checks if any constraint field is set in the parameter configuration.
+// This is used to determine whether schema copying is necessary before applying constraints,
+// avoiding unnecessary allocations when no constraints are specified.
+//
+// Returns true if any of the following are set:
+//   - Numeric constraints: minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf
+//   - String constraints: minLength, maxLength, pattern
+//   - Array constraints: minItems, maxItems, uniqueItems
+//   - Value constraints: enum, defaultValue
 func hasParamConstraints(cfg *paramConfig) bool {
 	return cfg.minimum != nil || cfg.maximum != nil ||
 		cfg.exclusiveMinimum || cfg.exclusiveMaximum ||

@@ -205,6 +205,12 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 			}
 			// Apply constraints from config if present
 			if pCfg, ok := param.Extra["_paramConfig"].(*paramConfig); ok {
+				// Validate constraints
+				if err := validateParamConstraints(pCfg); err != nil {
+					b.errors = append(b.errors, err)
+					param.Extra = nil
+					continue
+				}
 				if b.version != parser.OASVersion20 {
 					// OAS 3.x: Apply constraints to schema
 					param.Schema = applyParamConstraintsToSchema(param.Schema, pCfg)

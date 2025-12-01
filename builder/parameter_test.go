@@ -756,6 +756,247 @@ func TestCombinedConstraints(t *testing.T) {
 	assert.Equal(t, 10, sizeParam.Schema.Default)
 }
 
+// TestValidateParamConstraints tests the validateParamConstraints helper.
+func TestValidateParamConstraints(t *testing.T) {
+	t.Run("valid constraints", func(t *testing.T) {
+		cfg := &paramConfig{
+			minimum:    ptrFloat64(1.0),
+			maximum:    ptrFloat64(100.0),
+			minLength:  ptrInt(1),
+			maxLength:  ptrInt(50),
+			minItems:   ptrInt(0),
+			maxItems:   ptrInt(10),
+			pattern:    "^[a-z]+$",
+			multipleOf: ptrFloat64(5.0),
+		}
+		err := validateParamConstraints(cfg)
+		assert.NoError(t, err)
+	})
+
+	t.Run("minimum greater than maximum", func(t *testing.T) {
+		cfg := &paramConfig{
+			minimum: ptrFloat64(100.0),
+			maximum: ptrFloat64(1.0),
+		}
+		err := validateParamConstraints(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "minimum")
+		assert.Contains(t, err.Error(), "maximum")
+	})
+
+	t.Run("minLength greater than maxLength", func(t *testing.T) {
+		cfg := &paramConfig{
+			minLength: ptrInt(100),
+			maxLength: ptrInt(10),
+		}
+		err := validateParamConstraints(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "minLength")
+		assert.Contains(t, err.Error(), "maxLength")
+	})
+
+	t.Run("negative minLength", func(t *testing.T) {
+		cfg := &paramConfig{
+			minLength: ptrInt(-1),
+		}
+		err := validateParamConstraints(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "minLength")
+		assert.Contains(t, err.Error(), "negative")
+	})
+
+	t.Run("negative maxLength", func(t *testing.T) {
+		cfg := &paramConfig{
+			maxLength: ptrInt(-1),
+		}
+		err := validateParamConstraints(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maxLength")
+		assert.Contains(t, err.Error(), "negative")
+	})
+
+	t.Run("minItems greater than maxItems", func(t *testing.T) {
+		cfg := &paramConfig{
+			minItems: ptrInt(10),
+			maxItems: ptrInt(1),
+		}
+		err := validateParamConstraints(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "minItems")
+		assert.Contains(t, err.Error(), "maxItems")
+	})
+
+	t.Run("negative minItems", func(t *testing.T) {
+		cfg := &paramConfig{
+			minItems: ptrInt(-1),
+		}
+		err := validateParamConstraints(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "minItems")
+		assert.Contains(t, err.Error(), "negative")
+	})
+
+	t.Run("negative maxItems", func(t *testing.T) {
+		cfg := &paramConfig{
+			maxItems: ptrInt(-1),
+		}
+		err := validateParamConstraints(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maxItems")
+		assert.Contains(t, err.Error(), "negative")
+	})
+
+	t.Run("zero multipleOf", func(t *testing.T) {
+		cfg := &paramConfig{
+			multipleOf: ptrFloat64(0),
+		}
+		err := validateParamConstraints(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "multipleOf")
+		assert.Contains(t, err.Error(), "greater than 0")
+	})
+
+	t.Run("negative multipleOf", func(t *testing.T) {
+		cfg := &paramConfig{
+			multipleOf: ptrFloat64(-5),
+		}
+		err := validateParamConstraints(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "multipleOf")
+		assert.Contains(t, err.Error(), "greater than 0")
+	})
+
+	t.Run("invalid regex pattern", func(t *testing.T) {
+		cfg := &paramConfig{
+			pattern: "[invalid",
+		}
+		err := validateParamConstraints(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "pattern")
+		assert.Contains(t, err.Error(), "invalid regex")
+	})
+
+	t.Run("valid empty constraints", func(t *testing.T) {
+		cfg := &paramConfig{}
+		err := validateParamConstraints(cfg)
+		assert.NoError(t, err)
+	})
+
+	t.Run("nil config fields are valid", func(t *testing.T) {
+		cfg := &paramConfig{
+			minimum: ptrFloat64(1.0), // Only minimum set, no maximum
+		}
+		err := validateParamConstraints(cfg)
+		assert.NoError(t, err)
+	})
+}
+
+// TestConstraintError tests the ConstraintError type.
+func TestConstraintError(t *testing.T) {
+	err := &ConstraintError{
+		Field:   "minimum",
+		Message: "test message",
+	}
+	assert.Equal(t, "constraint error on minimum: test message", err.Error())
+}
+
+// TestAddParameterWithInvalidConstraints tests that invalid constraints accumulate errors.
+func TestAddParameterWithInvalidConstraints(t *testing.T) {
+	t.Run("min greater than max", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddParameter("BadParam", "query", "bad", int32(0),
+				WithParamMinimum(100),
+				WithParamMaximum(1),
+			)
+
+		_, err := b.BuildOAS3()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "minimum")
+	})
+
+	t.Run("invalid pattern", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddParameter("BadParam", "query", "bad", string(""),
+				WithParamPattern("[invalid"),
+			)
+
+		_, err := b.BuildOAS3()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "pattern")
+	})
+}
+
+// TestInlineParamWithInvalidConstraints tests that invalid constraints in inline params accumulate errors.
+func TestInlineParamWithInvalidConstraints(t *testing.T) {
+	t.Run("min greater than max in query param", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/test",
+				WithQueryParam("bad", int32(0),
+					WithParamMinimum(100),
+					WithParamMaximum(1),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		_, err := b.BuildOAS3()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "minimum")
+	})
+
+	t.Run("invalid pattern in header param", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/test",
+				WithHeaderParam("X-Bad", string(""),
+					WithParamPattern("[invalid"),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		_, err := b.BuildOAS3()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "pattern")
+	})
+}
+
+// TestSchemaCopying tests that schema copying works correctly to avoid mutations.
+func TestSchemaCopying(t *testing.T) {
+	b := New(parser.OASVersion320).
+		SetTitle("Test API").
+		SetVersion("1.0.0")
+
+	// Create two parameters with the same type but different constraints
+	b.AddParameter("Param1", "query", "p1", int32(0),
+		WithParamMinimum(1),
+		WithParamMaximum(10),
+	)
+	b.AddParameter("Param2", "query", "p2", int32(0),
+		WithParamMinimum(100),
+		WithParamMaximum(1000),
+	)
+
+	doc, err := b.BuildOAS3()
+	require.NoError(t, err)
+
+	param1 := doc.Components.Parameters["Param1"]
+	param2 := doc.Components.Parameters["Param2"]
+
+	// Verify constraints are independent
+	require.NotNil(t, param1.Schema.Minimum)
+	require.NotNil(t, param2.Schema.Minimum)
+	assert.Equal(t, 1.0, *param1.Schema.Minimum)
+	assert.Equal(t, 100.0, *param2.Schema.Minimum)
+	assert.Equal(t, 10.0, *param1.Schema.Maximum)
+	assert.Equal(t, 1000.0, *param2.Schema.Maximum)
+}
+
 // Helper functions for pointer creation
 func ptrFloat64(v float64) *float64 {
 	return &v
