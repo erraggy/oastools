@@ -8,6 +8,27 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// parameterBuilder wraps a parameter with builder-specific metadata.
+// This allows us to store type information and configuration without
+// polluting the parser.Parameter.Extra map with non-extension fields.
+type parameterBuilder struct {
+	param  *parser.Parameter
+	pType  any
+	config *paramConfig
+}
+
+// requestBodyBuilder wraps a request body with builder-specific metadata.
+type requestBodyBuilder struct {
+	body  *parser.RequestBody
+	bType any
+}
+
+// responseBuilder wraps a response with builder-specific metadata.
+type responseBuilder struct {
+	response *parser.Response
+	rType    any
+}
+
 // operationConfig holds the configuration for building an operation.
 type operationConfig struct {
 	operationID string
@@ -15,9 +36,9 @@ type operationConfig struct {
 	description string
 	tags        []string
 	deprecated  bool
-	parameters  []*parser.Parameter
-	requestBody *parser.RequestBody
-	responses   map[string]*parser.Response
+	parameters  []*parameterBuilder
+	requestBody *requestBodyBuilder
+	responses   map[string]*responseBuilder
 	security    []parser.SecurityRequirement
 	noSecurity  bool
 }
@@ -63,7 +84,9 @@ func WithDeprecated(deprecated bool) OperationOption {
 // WithParameter adds a pre-built parameter to the operation.
 func WithParameter(param *parser.Parameter) OperationOption {
 	return func(cfg *operationConfig) {
-		cfg.parameters = append(cfg.parameters, param)
+		cfg.parameters = append(cfg.parameters, &parameterBuilder{
+			param: param,
+		})
 	}
 }
 
@@ -123,21 +146,19 @@ func WithRequestBody(contentType string, bodyType any, opts ...RequestBodyOption
 			opt(rbCfg)
 		}
 
-		// We'll need to generate the schema in the context of the builder
-		// This is a marker that will be processed by AddOperation
-		cfg.requestBody = &parser.RequestBody{
-			Description: rbCfg.description,
-			Required:    rbCfg.required,
-			Content: map[string]*parser.MediaType{
-				contentType: {
-					// Schema will be populated by AddOperation
-					Example: rbCfg.example,
+		// Wrap the request body with builder metadata
+		cfg.requestBody = &requestBodyBuilder{
+			body: &parser.RequestBody{
+				Description: rbCfg.description,
+				Required:    rbCfg.required,
+				Content: map[string]*parser.MediaType{
+					contentType: {
+						// Schema will be populated by AddOperation
+						Example: rbCfg.example,
+					},
 				},
 			},
-		}
-		// Store the body type for later schema generation
-		cfg.requestBody.Extra = map[string]any{
-			"_bodyType": bodyType,
+			bType: bodyType,
 		}
 	}
 }
@@ -156,22 +177,22 @@ func WithResponse(statusCode int, responseType any, opts ...ResponseOption) Oper
 		}
 
 		if cfg.responses == nil {
-			cfg.responses = make(map[string]*parser.Response)
+			cfg.responses = make(map[string]*responseBuilder)
 		}
 
 		code := strconv.Itoa(statusCode)
-		cfg.responses[code] = &parser.Response{
-			Description: rCfg.description,
-			Headers:     rCfg.headers,
-			Content: map[string]*parser.MediaType{
-				rCfg.contentType: {
-					// Schema will be populated by AddOperation
-					Example: rCfg.example,
+		cfg.responses[code] = &responseBuilder{
+			response: &parser.Response{
+				Description: rCfg.description,
+				Headers:     rCfg.headers,
+				Content: map[string]*parser.MediaType{
+					rCfg.contentType: {
+						// Schema will be populated by AddOperation
+						Example: rCfg.example,
+					},
 				},
 			},
-			Extra: map[string]any{
-				"_responseType": responseType,
-			},
+			rType: responseType,
 		}
 	}
 }
@@ -180,12 +201,14 @@ func WithResponse(statusCode int, responseType any, opts ...ResponseOption) Oper
 func WithResponseRef(statusCode int, ref string) OperationOption {
 	return func(cfg *operationConfig) {
 		if cfg.responses == nil {
-			cfg.responses = make(map[string]*parser.Response)
+			cfg.responses = make(map[string]*responseBuilder)
 		}
 
 		code := strconv.Itoa(statusCode)
-		cfg.responses[code] = &parser.Response{
-			Ref: ref,
+		cfg.responses[code] = &responseBuilder{
+			response: &parser.Response{
+				Ref: ref,
+			},
 		}
 	}
 }
@@ -203,20 +226,20 @@ func WithDefaultResponse(responseType any, opts ...ResponseOption) OperationOpti
 		}
 
 		if cfg.responses == nil {
-			cfg.responses = make(map[string]*parser.Response)
+			cfg.responses = make(map[string]*responseBuilder)
 		}
 
-		cfg.responses["default"] = &parser.Response{
-			Description: rCfg.description,
-			Headers:     rCfg.headers,
-			Content: map[string]*parser.MediaType{
-				rCfg.contentType: {
-					Example: rCfg.example,
+		cfg.responses["default"] = &responseBuilder{
+			response: &parser.Response{
+				Description: rCfg.description,
+				Headers:     rCfg.headers,
+				Content: map[string]*parser.MediaType{
+					rCfg.contentType: {
+						Example: rCfg.example,
+					},
 				},
 			},
-			Extra: map[string]any{
-				"_responseType": responseType,
-			},
+			rType: responseType,
 		}
 	}
 }
@@ -229,19 +252,18 @@ func WithQueryParam(name string, paramType any, opts ...ParamOption) OperationOp
 			opt(pCfg)
 		}
 
-		param := &parser.Parameter{
-			Name:        name,
-			In:          parser.ParamInQuery,
-			Description: pCfg.description,
-			Required:    pCfg.required,
-			Deprecated:  pCfg.deprecated,
-			Example:     pCfg.example,
-			Extra: map[string]any{
-				"_paramType":   paramType,
-				"_paramConfig": pCfg,
+		cfg.parameters = append(cfg.parameters, &parameterBuilder{
+			param: &parser.Parameter{
+				Name:        name,
+				In:          parser.ParamInQuery,
+				Description: pCfg.description,
+				Required:    pCfg.required,
+				Deprecated:  pCfg.deprecated,
+				Example:     pCfg.example,
 			},
-		}
-		cfg.parameters = append(cfg.parameters, param)
+			pType:  paramType,
+			config: pCfg,
+		})
 	}
 }
 
@@ -256,19 +278,18 @@ func WithPathParam(name string, paramType any, opts ...ParamOption) OperationOpt
 			opt(pCfg)
 		}
 
-		param := &parser.Parameter{
-			Name:        name,
-			In:          parser.ParamInPath,
-			Description: pCfg.description,
-			Required:    true, // Always required for path params
-			Deprecated:  pCfg.deprecated,
-			Example:     pCfg.example,
-			Extra: map[string]any{
-				"_paramType":   paramType,
-				"_paramConfig": pCfg,
+		cfg.parameters = append(cfg.parameters, &parameterBuilder{
+			param: &parser.Parameter{
+				Name:        name,
+				In:          parser.ParamInPath,
+				Description: pCfg.description,
+				Required:    true, // Always required for path params
+				Deprecated:  pCfg.deprecated,
+				Example:     pCfg.example,
 			},
-		}
-		cfg.parameters = append(cfg.parameters, param)
+			pType:  paramType,
+			config: pCfg,
+		})
 	}
 }
 
@@ -280,19 +301,18 @@ func WithHeaderParam(name string, paramType any, opts ...ParamOption) OperationO
 			opt(pCfg)
 		}
 
-		param := &parser.Parameter{
-			Name:        name,
-			In:          parser.ParamInHeader,
-			Description: pCfg.description,
-			Required:    pCfg.required,
-			Deprecated:  pCfg.deprecated,
-			Example:     pCfg.example,
-			Extra: map[string]any{
-				"_paramType":   paramType,
-				"_paramConfig": pCfg,
+		cfg.parameters = append(cfg.parameters, &parameterBuilder{
+			param: &parser.Parameter{
+				Name:        name,
+				In:          parser.ParamInHeader,
+				Description: pCfg.description,
+				Required:    pCfg.required,
+				Deprecated:  pCfg.deprecated,
+				Example:     pCfg.example,
 			},
-		}
-		cfg.parameters = append(cfg.parameters, param)
+			pType:  paramType,
+			config: pCfg,
+		})
 	}
 }
 
@@ -304,19 +324,18 @@ func WithCookieParam(name string, paramType any, opts ...ParamOption) OperationO
 			opt(pCfg)
 		}
 
-		param := &parser.Parameter{
-			Name:        name,
-			In:          parser.ParamInCookie,
-			Description: pCfg.description,
-			Required:    pCfg.required,
-			Deprecated:  pCfg.deprecated,
-			Example:     pCfg.example,
-			Extra: map[string]any{
-				"_paramType":   paramType,
-				"_paramConfig": pCfg,
+		cfg.parameters = append(cfg.parameters, &parameterBuilder{
+			param: &parser.Parameter{
+				Name:        name,
+				In:          parser.ParamInCookie,
+				Description: pCfg.description,
+				Required:    pCfg.required,
+				Deprecated:  pCfg.deprecated,
+				Example:     pCfg.example,
 			},
-		}
-		cfg.parameters = append(cfg.parameters, param)
+			pType:  paramType,
+			config: pCfg,
+		})
 	}
 }
 
@@ -330,7 +349,7 @@ func WithCookieParam(name string, paramType any, opts ...ParamOption) OperationO
 func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Builder {
 	// Create operation config with defaults
 	cfg := &operationConfig{
-		responses: make(map[string]*parser.Response),
+		responses: make(map[string]*responseBuilder),
 	}
 
 	// Apply all options
@@ -346,67 +365,68 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 		b.operationIDs[cfg.operationID] = true
 	}
 
-	// Process request body schema
-	if cfg.requestBody != nil && cfg.requestBody.Extra != nil {
-		if bodyType, ok := cfg.requestBody.Extra["_bodyType"]; ok {
-			schema := b.generateSchema(bodyType)
-			for contentType := range cfg.requestBody.Content {
-				cfg.requestBody.Content[contentType].Schema = schema
+	// Unwrap and process request body
+	var requestBody *parser.RequestBody
+	if cfg.requestBody != nil {
+		requestBody = cfg.requestBody.body
+		if cfg.requestBody.bType != nil {
+			schema := b.generateSchema(cfg.requestBody.bType)
+			for contentType := range requestBody.Content {
+				requestBody.Content[contentType].Schema = schema
 			}
 		}
-		// Clear the extra field to avoid serialization issues
-		cfg.requestBody.Extra = nil
 	}
 
-	// Process response schemas
-	for code, resp := range cfg.responses {
-		if resp.Extra != nil {
-			if respType, ok := resp.Extra["_responseType"]; ok {
-				schema := b.generateSchema(respType)
-				for contentType := range resp.Content {
-					resp.Content[contentType].Schema = schema
-				}
+	// Unwrap and process responses
+	responseMap := make(map[string]*parser.Response)
+	for code, respBuilder := range cfg.responses {
+		resp := respBuilder.response
+		if respBuilder.rType != nil {
+			schema := b.generateSchema(respBuilder.rType)
+			for contentType := range resp.Content {
+				resp.Content[contentType].Schema = schema
 			}
-			// Clear the extra field
-			resp.Extra = nil
 		}
-		cfg.responses[code] = resp
+		responseMap[code] = resp
 	}
 
-	// Process parameter schemas
-	for _, param := range cfg.parameters {
-		if param.Extra != nil {
-			if paramType, ok := param.Extra["_paramType"]; ok {
-				param.Schema = b.generateSchema(paramType)
-			}
-			// Apply constraints from config if present
-			if pCfg, ok := param.Extra["_paramConfig"].(*paramConfig); ok {
-				// Validate constraints
-				if err := validateParamConstraints(pCfg); err != nil {
-					b.errors = append(b.errors, err)
-					param.Extra = nil
-					continue
-				}
-				if b.version != parser.OASVersion20 {
-					// OAS 3.x: Apply constraints to schema
-					param.Schema = applyParamConstraintsToSchema(param.Schema, pCfg)
-				} else {
-					// OAS 2.0: Apply constraints directly to parameter
-					applyParamConstraintsToParam(param, pCfg)
-				}
-			}
-			// Clear the extra field
-			param.Extra = nil
+	// Unwrap and process parameters
+	var parameters []*parser.Parameter
+	for _, paramBuilder := range cfg.parameters {
+		param := paramBuilder.param
+
+		// Generate schema if type is provided
+		if paramBuilder.pType != nil {
+			param.Schema = b.generateSchema(paramBuilder.pType)
 		}
+
+		// Apply constraints from config if present
+		if paramBuilder.config != nil {
+			pCfg := paramBuilder.config
+			// Validate constraints
+			if err := validateParamConstraints(pCfg); err != nil {
+				b.errors = append(b.errors, err)
+				continue
+			}
+			if b.version != parser.OASVersion20 {
+				// OAS 3.x: Apply constraints to schema
+				param.Schema = applyParamConstraintsToSchema(param.Schema, pCfg)
+			} else {
+				// OAS 2.0: Apply constraints directly to parameter
+				applyParamConstraintsToParam(param, pCfg)
+			}
+		}
+
+		parameters = append(parameters, param)
 	}
 
 	// Build responses object
 	var responses *parser.Responses
-	if len(cfg.responses) > 0 {
+	if len(responseMap) > 0 {
 		responses = &parser.Responses{
 			Codes: make(map[string]*parser.Response),
 		}
-		for code, resp := range cfg.responses {
+		for code, resp := range responseMap {
 			if code == "default" {
 				responses.Default = resp
 			} else {
@@ -429,8 +449,8 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 		Summary:     cfg.summary,
 		Description: cfg.description,
 		Tags:        cfg.tags,
-		Parameters:  cfg.parameters,
-		RequestBody: cfg.requestBody,
+		Parameters:  parameters,
+		RequestBody: requestBody,
 		Responses:   responses,
 		Security:    security,
 		Deprecated:  cfg.deprecated,

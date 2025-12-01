@@ -456,9 +456,10 @@ func (b *Builder) ParameterRef(name string) string {
 // WithParameterRef adds a parameter reference to the operation.
 func WithParameterRef(ref string) OperationOption {
 	return func(cfg *operationConfig) {
-		param := &parser.Parameter{
-			Ref: ref,
-		}
-		cfg.parameters = append(cfg.parameters, param)
+		cfg.parameters = append(cfg.parameters, &parameterBuilder{
+			param: &parser.Parameter{
+				Ref: ref,
+			},
+		})
 	}
 }
