@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -219,82 +220,86 @@ func (b *Builder) AddParameter(name string, in string, paramName string, paramTy
 //   - non-negative values for length and items constraints
 //   - valid regex pattern syntax
 //   - positive multipleOf value
+//
+// All validation errors are collected and returned as a joined error using errors.Join.
 func validateParamConstraints(cfg *paramConfig) error {
+	var errs []error
+
 	// Validate min/max numeric bounds
 	if cfg.minimum != nil && cfg.maximum != nil && *cfg.minimum > *cfg.maximum {
-		return &ConstraintError{
+		errs = append(errs, &ConstraintError{
 			Field:   "minimum/maximum",
 			Message: fmt.Sprintf("minimum (%v) cannot be greater than maximum (%v)", *cfg.minimum, *cfg.maximum),
-		}
+		})
 	}
 
 	// Validate minLength/maxLength bounds
 	if cfg.minLength != nil && cfg.maxLength != nil && *cfg.minLength > *cfg.maxLength {
-		return &ConstraintError{
+		errs = append(errs, &ConstraintError{
 			Field:   "minLength/maxLength",
 			Message: fmt.Sprintf("minLength (%d) cannot be greater than maxLength (%d)", *cfg.minLength, *cfg.maxLength),
-		}
+		})
 	}
 
 	// Validate non-negative minLength
 	if cfg.minLength != nil && *cfg.minLength < 0 {
-		return &ConstraintError{
+		errs = append(errs, &ConstraintError{
 			Field:   "minLength",
 			Message: fmt.Sprintf("minLength (%d) cannot be negative", *cfg.minLength),
-		}
+		})
 	}
 
 	// Validate non-negative maxLength
 	if cfg.maxLength != nil && *cfg.maxLength < 0 {
-		return &ConstraintError{
+		errs = append(errs, &ConstraintError{
 			Field:   "maxLength",
 			Message: fmt.Sprintf("maxLength (%d) cannot be negative", *cfg.maxLength),
-		}
+		})
 	}
 
 	// Validate minItems/maxItems bounds
 	if cfg.minItems != nil && cfg.maxItems != nil && *cfg.minItems > *cfg.maxItems {
-		return &ConstraintError{
+		errs = append(errs, &ConstraintError{
 			Field:   "minItems/maxItems",
 			Message: fmt.Sprintf("minItems (%d) cannot be greater than maxItems (%d)", *cfg.minItems, *cfg.maxItems),
-		}
+		})
 	}
 
 	// Validate non-negative minItems
 	if cfg.minItems != nil && *cfg.minItems < 0 {
-		return &ConstraintError{
+		errs = append(errs, &ConstraintError{
 			Field:   "minItems",
 			Message: fmt.Sprintf("minItems (%d) cannot be negative", *cfg.minItems),
-		}
+		})
 	}
 
 	// Validate non-negative maxItems
 	if cfg.maxItems != nil && *cfg.maxItems < 0 {
-		return &ConstraintError{
+		errs = append(errs, &ConstraintError{
 			Field:   "maxItems",
 			Message: fmt.Sprintf("maxItems (%d) cannot be negative", *cfg.maxItems),
-		}
+		})
 	}
 
 	// Validate positive multipleOf
 	if cfg.multipleOf != nil && *cfg.multipleOf <= 0 {
-		return &ConstraintError{
+		errs = append(errs, &ConstraintError{
 			Field:   "multipleOf",
 			Message: fmt.Sprintf("multipleOf (%v) must be greater than 0", *cfg.multipleOf),
-		}
+		})
 	}
 
 	// Validate regex pattern syntax
 	if cfg.pattern != "" {
 		if _, err := regexp.Compile(cfg.pattern); err != nil {
-			return &ConstraintError{
+			errs = append(errs, &ConstraintError{
 				Field:   "pattern",
 				Message: fmt.Sprintf("invalid regex pattern: %v", err),
-			}
+			})
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 // applyParamConstraintsToSchema applies parameter constraints to a schema.

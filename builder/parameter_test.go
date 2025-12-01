@@ -889,6 +889,27 @@ func TestValidateParamConstraints(t *testing.T) {
 		err := validateParamConstraints(cfg)
 		assert.NoError(t, err)
 	})
+
+	t.Run("multiple errors joined", func(t *testing.T) {
+		cfg := &paramConfig{
+			minimum:    ptrFloat64(100.0),
+			maximum:    ptrFloat64(1.0), // min > max
+			minLength:  ptrInt(-1),      // negative
+			maxLength:  ptrInt(-2),      // negative
+			multipleOf: ptrFloat64(0),   // not positive
+			pattern:    "[invalid",      // invalid regex
+		}
+		err := validateParamConstraints(cfg)
+		require.Error(t, err)
+		// All errors should be present in the joined error
+		errStr := err.Error()
+		assert.Contains(t, errStr, "minimum")
+		assert.Contains(t, errStr, "maximum")
+		assert.Contains(t, errStr, "minLength")
+		assert.Contains(t, errStr, "maxLength")
+		assert.Contains(t, errStr, "multipleOf")
+		assert.Contains(t, errStr, "pattern")
+	})
 }
 
 // TestConstraintError tests the ConstraintError type.
