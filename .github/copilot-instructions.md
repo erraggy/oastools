@@ -261,7 +261,7 @@ For documentation-only changes, only items 3, 6, and 7 apply.
 - `.git/` - Version control internals
 - `go.mod`, `go.sum` - Only modify when explicitly adding/removing dependencies
 - `.goreleaser.yaml` - Release configuration (managed separately)
-- `benchmarks/` - Benchmark data (except when updating benchmarks per ../BENCHMARK_UPDATE_PROCESS.md)
+- `benchmarks/` - Benchmark data (except when updating benchmarks per [BENCHMARK_UPDATE_PROCESS.md](../BENCHMARK_UPDATE_PROCESS.md))
 
 **DO NOT:**
 - Add dependencies without checking for security vulnerabilities first
