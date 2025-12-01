@@ -164,7 +164,7 @@ func (b *Builder) SetExternalDocs(externalDocs *parser.ExternalDocs) *Builder {
 func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Builder {
 	// Create operation config with defaults
 	cfg := &operationConfig{
-		responses: make(map[string]*parser.Response),
+		responses: make(map[string]*responseBuilder),
 	}
 
 	// Apply all options
@@ -172,48 +172,68 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 		opt(cfg)
 	}
 
-	// Process request body schema
-	if cfg.requestBody != nil && cfg.requestBody.Extra != nil {
-		if bodyType, ok := cfg.requestBody.Extra["_bodyType"]; ok {
-			schema := b.generateSchema(bodyType)
-			for contentType := range cfg.requestBody.Content {
-				cfg.requestBody.Content[contentType].Schema = schema
+	// Unwrap and process request body
+	var requestBody *parser.RequestBody
+	if cfg.requestBody != nil {
+		requestBody = cfg.requestBody.body
+		if cfg.requestBody.bType != nil {
+			schema := b.generateSchema(cfg.requestBody.bType)
+			for contentType := range requestBody.Content {
+				requestBody.Content[contentType].Schema = schema
 			}
 		}
-		cfg.requestBody.Extra = nil
 	}
 
-	// Process response schemas
-	for code, resp := range cfg.responses {
-		if resp.Extra != nil {
-			if respType, ok := resp.Extra["_responseType"]; ok {
-				schema := b.generateSchema(respType)
-				for contentType := range resp.Content {
-					resp.Content[contentType].Schema = schema
-				}
+	// Unwrap and process responses
+	responseMap := make(map[string]*parser.Response)
+	for code, respBuilder := range cfg.responses {
+		resp := respBuilder.response
+		if respBuilder.rType != nil {
+			schema := b.generateSchema(respBuilder.rType)
+			for contentType := range resp.Content {
+				resp.Content[contentType].Schema = schema
 			}
-			resp.Extra = nil
 		}
-		cfg.responses[code] = resp
+		responseMap[code] = resp
 	}
 
-	// Process parameter schemas
-	for _, param := range cfg.parameters {
-		if param.Extra != nil {
-			if paramType, ok := param.Extra["_paramType"]; ok {
-				param.Schema = b.generateSchema(paramType)
-			}
-			param.Extra = nil
+	// Unwrap and process parameters
+	var parameters []*parser.Parameter
+	for _, paramBuilder := range cfg.parameters {
+		param := paramBuilder.param
+
+		// Generate schema if type is provided
+		if paramBuilder.pType != nil {
+			param.Schema = b.generateSchema(paramBuilder.pType)
 		}
+
+		// Apply constraints from config if present
+		if paramBuilder.config != nil {
+			pCfg := paramBuilder.config
+			// Validate constraints
+			if err := validateParamConstraints(pCfg); err != nil {
+				b.errors = append(b.errors, err)
+				continue
+			}
+			if b.version != parser.OASVersion20 {
+				// OAS 3.x: Apply constraints to schema
+				param.Schema = applyParamConstraintsToSchema(param.Schema, pCfg)
+			} else {
+				// OAS 2.0: Apply constraints directly to parameter
+				applyParamConstraintsToParam(param, pCfg)
+			}
+		}
+
+		parameters = append(parameters, param)
 	}
 
 	// Build responses object
 	var responses *parser.Responses
-	if len(cfg.responses) > 0 {
+	if len(responseMap) > 0 {
 		responses = &parser.Responses{
 			Codes: make(map[string]*parser.Response),
 		}
-		for code, resp := range cfg.responses {
+		for code, resp := range responseMap {
 			if code == "default" {
 				responses.Default = resp
 			} else {
@@ -236,8 +256,8 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 		Summary:     cfg.summary,
 		Description: cfg.description,
 		Tags:        cfg.tags,
-		Parameters:  cfg.parameters,
-		RequestBody: cfg.requestBody,
+		Parameters:  parameters,
+		RequestBody: requestBody,
 		Responses:   responses,
 		Security:    security,
 		Deprecated:  cfg.deprecated,

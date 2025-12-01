@@ -44,7 +44,7 @@ func TestWithParameter(t *testing.T) {
 	param := &parser.Parameter{Name: "test"}
 	WithParameter(param)(cfg)
 	require.Len(t, cfg.parameters, 1)
-	assert.Equal(t, "test", cfg.parameters[0].Name)
+	assert.Equal(t, "test", cfg.parameters[0].param.Name)
 }
 
 func TestWithSecurity(t *testing.T) {

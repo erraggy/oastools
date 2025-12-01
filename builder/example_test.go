@@ -311,3 +311,54 @@ func Example_fromDocument() {
 	// Has /existing: true
 	// Has /health: true
 }
+
+// Example_withParameterConstraints demonstrates adding parameter constraints.
+func Example_withParameterConstraints() {
+	spec := builder.New(parser.OASVersion320).
+		SetTitle("Pet Store API").
+		SetVersion("1.0.0")
+
+	// Add operation with constrained parameters
+	spec.AddOperation(http.MethodGet, "/pets",
+		builder.WithOperationID("listPets"),
+		// Numeric constraint: limit must be between 1 and 100, default 20
+		builder.WithQueryParam("limit", int32(0),
+			builder.WithParamDescription("Maximum number of pets to return"),
+			builder.WithParamMinimum(1),
+			builder.WithParamMaximum(100),
+			builder.WithParamDefault(20),
+		),
+		// Enum constraint: status must be one of the allowed values
+		builder.WithQueryParam("status", string(""),
+			builder.WithParamDescription("Filter by status"),
+			builder.WithParamEnum("available", "pending", "sold"),
+			builder.WithParamDefault("available"),
+		),
+		// String constraint: name must match pattern and length
+		builder.WithQueryParam("name", string(""),
+			builder.WithParamDescription("Filter by name"),
+			builder.WithParamMinLength(1),
+			builder.WithParamMaxLength(50),
+			builder.WithParamPattern("^[a-zA-Z]+$"),
+		),
+		builder.WithResponse(http.StatusOK, []Pet{}),
+	)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	params := doc.Paths["/pets"].Get.Parameters
+	fmt.Printf("Parameters: %d\n", len(params))
+	fmt.Printf("limit min: %.0f\n", *params[0].Schema.Minimum)
+	fmt.Printf("limit max: %.0f\n", *params[0].Schema.Maximum)
+	fmt.Printf("status enum count: %d\n", len(params[1].Schema.Enum))
+	fmt.Printf("name pattern: %s\n", params[2].Schema.Pattern)
+	// Output:
+	// Parameters: 3
+	// limit min: 1
+	// limit max: 100
+	// status enum count: 3
+	// name pattern: ^[a-zA-Z]+$
+}

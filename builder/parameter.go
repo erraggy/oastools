@@ -1,8 +1,22 @@
 package builder
 
 import (
+	"errors"
+	"fmt"
+	"regexp"
+
 	"github.com/erraggy/oastools/parser"
 )
+
+// ConstraintError represents an invalid constraint configuration.
+type ConstraintError struct {
+	Field   string
+	Message string
+}
+
+func (e *ConstraintError) Error() string {
+	return fmt.Sprintf("constraint error on %s: %s", e.Field, e.Message)
+}
 
 // paramConfig holds configuration for parameter building.
 type paramConfig struct {
@@ -10,6 +24,21 @@ type paramConfig struct {
 	required    bool
 	deprecated  bool
 	example     any
+
+	// Constraint fields
+	minimum          *float64
+	maximum          *float64
+	exclusiveMinimum bool
+	exclusiveMaximum bool
+	multipleOf       *float64
+	minLength        *int
+	maxLength        *int
+	pattern          string
+	minItems         *int
+	maxItems         *int
+	uniqueItems      bool
+	enum             []any
+	defaultValue     any
 }
 
 // ParamOption configures a parameter.
@@ -43,12 +72,112 @@ func WithParamDeprecated(deprecated bool) ParamOption {
 	}
 }
 
+// WithParamMinimum sets the minimum value for numeric parameters.
+func WithParamMinimum(min float64) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.minimum = &min
+	}
+}
+
+// WithParamMaximum sets the maximum value for numeric parameters.
+func WithParamMaximum(max float64) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.maximum = &max
+	}
+}
+
+// WithParamExclusiveMinimum sets whether the minimum is exclusive.
+func WithParamExclusiveMinimum(exclusive bool) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.exclusiveMinimum = exclusive
+	}
+}
+
+// WithParamExclusiveMaximum sets whether the maximum is exclusive.
+func WithParamExclusiveMaximum(exclusive bool) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.exclusiveMaximum = exclusive
+	}
+}
+
+// WithParamMultipleOf sets the multipleOf constraint for numeric parameters.
+func WithParamMultipleOf(value float64) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.multipleOf = &value
+	}
+}
+
+// WithParamMinLength sets the minimum length for string parameters.
+func WithParamMinLength(min int) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.minLength = &min
+	}
+}
+
+// WithParamMaxLength sets the maximum length for string parameters.
+func WithParamMaxLength(max int) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.maxLength = &max
+	}
+}
+
+// WithParamPattern sets the pattern (regex) for string parameters.
+func WithParamPattern(pattern string) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.pattern = pattern
+	}
+}
+
+// WithParamMinItems sets the minimum number of items for array parameters.
+func WithParamMinItems(min int) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.minItems = &min
+	}
+}
+
+// WithParamMaxItems sets the maximum number of items for array parameters.
+func WithParamMaxItems(max int) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.maxItems = &max
+	}
+}
+
+// WithParamUniqueItems sets whether array items must be unique.
+func WithParamUniqueItems(unique bool) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.uniqueItems = unique
+	}
+}
+
+// WithParamEnum sets the allowed values for the parameter.
+func WithParamEnum(values ...any) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.enum = values
+	}
+}
+
+// WithParamDefault sets the default value for the parameter.
+func WithParamDefault(value any) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.defaultValue = value
+	}
+}
+
 // AddParameter adds a reusable parameter to components.parameters (OAS 3.x)
 // or parameters (OAS 2.0).
+//
+// Constraint validation is performed and any errors are accumulated in the builder.
+// Use BuildOAS2() or BuildOAS3() to check for accumulated errors.
 func (b *Builder) AddParameter(name string, in string, paramName string, paramType any, opts ...ParamOption) *Builder {
 	pCfg := &paramConfig{}
 	for _, opt := range opts {
 		opt(pCfg)
+	}
+
+	// Validate constraints
+	if err := validateParamConstraints(pCfg); err != nil {
+		b.errors = append(b.errors, err)
+		return b
 	}
 
 	// Path parameters are always required
@@ -58,6 +187,11 @@ func (b *Builder) AddParameter(name string, in string, paramName string, paramTy
 	}
 
 	schema := b.generateSchema(paramType)
+
+	// Apply constraints to schema for OAS 3.x
+	if b.version != parser.OASVersion20 {
+		schema = applyParamConstraintsToSchema(schema, pCfg)
+	}
 
 	param := &parser.Parameter{
 		Name:        paramName,
@@ -69,8 +203,244 @@ func (b *Builder) AddParameter(name string, in string, paramName string, paramTy
 		Example:     pCfg.example,
 	}
 
+	// Apply constraints directly to parameter for OAS 2.0
+	if b.version == parser.OASVersion20 {
+		applyParamConstraintsToParam(param, pCfg)
+	}
+
 	b.parameters[name] = param
 	return b
+}
+
+// validateParamConstraints validates that parameter constraints are logically consistent.
+// It checks for:
+//   - minimum <= maximum (if both set)
+//   - minLength <= maxLength (if both set)
+//   - minItems <= maxItems (if both set)
+//   - non-negative values for length and items constraints
+//   - valid regex pattern syntax
+//   - positive multipleOf value
+//
+// All validation errors are collected and returned as a joined error using errors.Join.
+func validateParamConstraints(cfg *paramConfig) error {
+	var errs []error
+
+	// Validate min/max numeric bounds
+	if cfg.minimum != nil && cfg.maximum != nil && *cfg.minimum > *cfg.maximum {
+		errs = append(errs, &ConstraintError{
+			Field:   "minimum/maximum",
+			Message: fmt.Sprintf("minimum (%v) cannot be greater than maximum (%v)", *cfg.minimum, *cfg.maximum),
+		})
+	}
+
+	// Validate minLength/maxLength bounds
+	if cfg.minLength != nil && cfg.maxLength != nil && *cfg.minLength > *cfg.maxLength {
+		errs = append(errs, &ConstraintError{
+			Field:   "minLength/maxLength",
+			Message: fmt.Sprintf("minLength (%d) cannot be greater than maxLength (%d)", *cfg.minLength, *cfg.maxLength),
+		})
+	}
+
+	// Validate non-negative minLength
+	if cfg.minLength != nil && *cfg.minLength < 0 {
+		errs = append(errs, &ConstraintError{
+			Field:   "minLength",
+			Message: fmt.Sprintf("minLength (%d) cannot be negative", *cfg.minLength),
+		})
+	}
+
+	// Validate non-negative maxLength
+	if cfg.maxLength != nil && *cfg.maxLength < 0 {
+		errs = append(errs, &ConstraintError{
+			Field:   "maxLength",
+			Message: fmt.Sprintf("maxLength (%d) cannot be negative", *cfg.maxLength),
+		})
+	}
+
+	// Validate minItems/maxItems bounds
+	if cfg.minItems != nil && cfg.maxItems != nil && *cfg.minItems > *cfg.maxItems {
+		errs = append(errs, &ConstraintError{
+			Field:   "minItems/maxItems",
+			Message: fmt.Sprintf("minItems (%d) cannot be greater than maxItems (%d)", *cfg.minItems, *cfg.maxItems),
+		})
+	}
+
+	// Validate non-negative minItems
+	if cfg.minItems != nil && *cfg.minItems < 0 {
+		errs = append(errs, &ConstraintError{
+			Field:   "minItems",
+			Message: fmt.Sprintf("minItems (%d) cannot be negative", *cfg.minItems),
+		})
+	}
+
+	// Validate non-negative maxItems
+	if cfg.maxItems != nil && *cfg.maxItems < 0 {
+		errs = append(errs, &ConstraintError{
+			Field:   "maxItems",
+			Message: fmt.Sprintf("maxItems (%d) cannot be negative", *cfg.maxItems),
+		})
+	}
+
+	// Validate positive multipleOf
+	if cfg.multipleOf != nil && *cfg.multipleOf <= 0 {
+		errs = append(errs, &ConstraintError{
+			Field:   "multipleOf",
+			Message: fmt.Sprintf("multipleOf (%v) must be greater than 0", *cfg.multipleOf),
+		})
+	}
+
+	// Validate regex pattern syntax
+	if cfg.pattern != "" {
+		if _, err := regexp.Compile(cfg.pattern); err != nil {
+			errs = append(errs, &ConstraintError{
+				Field:   "pattern",
+				Message: fmt.Sprintf("invalid regex pattern: %v", err),
+			})
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+// applyParamConstraintsToSchema applies parameter constraints to a schema.
+// This is used for OAS 3.x where constraints are applied to the schema field.
+//
+// The function creates a copy of the schema to avoid mutating shared schema references.
+// If no constraints are set, the original schema is returned unchanged.
+//
+// Parameters:
+//   - schema: The schema to apply constraints to (may be nil)
+//   - cfg: The parameter configuration containing constraint values
+//
+// Returns the schema with constraints applied, or nil if the input schema is nil.
+func applyParamConstraintsToSchema(schema *parser.Schema, cfg *paramConfig) *parser.Schema {
+	if schema == nil {
+		return nil
+	}
+
+	// Check if any constraints are set
+	if !hasParamConstraints(cfg) {
+		return schema
+	}
+
+	// Create a copy if we're modifying a referenced schema
+	result := copySchema(schema)
+
+	if cfg.minimum != nil {
+		result.Minimum = cfg.minimum
+	}
+	if cfg.maximum != nil {
+		result.Maximum = cfg.maximum
+	}
+	if cfg.exclusiveMinimum {
+		result.ExclusiveMinimum = cfg.exclusiveMinimum
+	}
+	if cfg.exclusiveMaximum {
+		result.ExclusiveMaximum = cfg.exclusiveMaximum
+	}
+	if cfg.multipleOf != nil {
+		result.MultipleOf = cfg.multipleOf
+	}
+	if cfg.minLength != nil {
+		result.MinLength = cfg.minLength
+	}
+	if cfg.maxLength != nil {
+		result.MaxLength = cfg.maxLength
+	}
+	if cfg.pattern != "" {
+		result.Pattern = cfg.pattern
+	}
+	if cfg.minItems != nil {
+		result.MinItems = cfg.minItems
+	}
+	if cfg.maxItems != nil {
+		result.MaxItems = cfg.maxItems
+	}
+	if cfg.uniqueItems {
+		result.UniqueItems = cfg.uniqueItems
+	}
+	if len(cfg.enum) > 0 {
+		result.Enum = cfg.enum
+	}
+	if cfg.defaultValue != nil {
+		result.Default = cfg.defaultValue
+	}
+
+	return result
+}
+
+// applyParamConstraintsToParam applies parameter constraints directly to a parameter.
+// This is used for OAS 2.0 where constraints are set on the parameter itself,
+// rather than on a nested schema field.
+//
+// In OAS 2.0, parameters have their own constraint fields (minimum, maximum,
+// minLength, etc.) that are applied directly, whereas in OAS 3.x these
+// constraints are placed on the parameter's Schema object.
+//
+// Parameters:
+//   - param: The parameter to apply constraints to
+//   - cfg: The parameter configuration containing constraint values
+func applyParamConstraintsToParam(param *parser.Parameter, cfg *paramConfig) {
+	if cfg.minimum != nil {
+		param.Minimum = cfg.minimum
+	}
+	if cfg.maximum != nil {
+		param.Maximum = cfg.maximum
+	}
+	if cfg.exclusiveMinimum {
+		param.ExclusiveMinimum = cfg.exclusiveMinimum
+	}
+	if cfg.exclusiveMaximum {
+		param.ExclusiveMaximum = cfg.exclusiveMaximum
+	}
+	if cfg.multipleOf != nil {
+		param.MultipleOf = cfg.multipleOf
+	}
+	if cfg.minLength != nil {
+		param.MinLength = cfg.minLength
+	}
+	if cfg.maxLength != nil {
+		param.MaxLength = cfg.maxLength
+	}
+	if cfg.pattern != "" {
+		param.Pattern = cfg.pattern
+	}
+	if cfg.minItems != nil {
+		param.MinItems = cfg.minItems
+	}
+	if cfg.maxItems != nil {
+		param.MaxItems = cfg.maxItems
+	}
+	if cfg.uniqueItems {
+		param.UniqueItems = cfg.uniqueItems
+	}
+	if len(cfg.enum) > 0 {
+		param.Enum = cfg.enum
+	}
+	if cfg.defaultValue != nil {
+		param.Default = cfg.defaultValue
+	}
+}
+
+// hasParamConstraints checks if any constraint field is set in the parameter configuration.
+// This is used to determine whether schema copying is necessary before applying constraints,
+// avoiding unnecessary allocations when no constraints are specified.
+//
+// Returns true if any of the following are set:
+//   - Numeric constraints: minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf
+//   - String constraints: minLength, maxLength, pattern
+//   - Array constraints: minItems, maxItems, uniqueItems
+//   - Value constraints: enum, defaultValue
+func hasParamConstraints(cfg *paramConfig) bool {
+	return cfg.minimum != nil || cfg.maximum != nil ||
+		cfg.exclusiveMinimum || cfg.exclusiveMaximum ||
+		cfg.multipleOf != nil ||
+		cfg.minLength != nil || cfg.maxLength != nil ||
+		cfg.pattern != "" ||
+		cfg.minItems != nil || cfg.maxItems != nil ||
+		cfg.uniqueItems ||
+		len(cfg.enum) > 0 ||
+		cfg.defaultValue != nil
 }
 
 // parameterRefPrefix returns the appropriate $ref prefix for parameters.
@@ -91,9 +461,10 @@ func (b *Builder) ParameterRef(name string) string {
 // WithParameterRef adds a parameter reference to the operation.
 func WithParameterRef(ref string) OperationOption {
 	return func(cfg *operationConfig) {
-		param := &parser.Parameter{
-			Ref: ref,
-		}
-		cfg.parameters = append(cfg.parameters, param)
+		cfg.parameters = append(cfg.parameters, &parameterBuilder{
+			param: &parser.Parameter{
+				Ref: ref,
+			},
+		})
 	}
 }

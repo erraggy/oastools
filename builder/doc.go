@@ -174,6 +174,79 @@
 // are defined, the resulting spec will fail OAS validation. Always use
 // WithResponse() or WithDefaultResponse() to add responses to operations.
 //
+// # Parameter Constraints
+//
+// Add validation constraints to parameters using WithParam* options:
+//
+//	spec.AddOperation(http.MethodGet, "/pets",
+//		builder.WithQueryParam("limit", int32(0),
+//			builder.WithParamDescription("Maximum number of pets to return"),
+//			builder.WithParamMinimum(1),
+//			builder.WithParamMaximum(100),
+//			builder.WithParamDefault(20),
+//		),
+//		builder.WithQueryParam("status", string(""),
+//			builder.WithParamEnum("available", "pending", "sold"),
+//		),
+//		builder.WithQueryParam("name", string(""),
+//			builder.WithParamMinLength(1),
+//			builder.WithParamMaxLength(50),
+//			builder.WithParamPattern("^[a-zA-Z]+$"),
+//		),
+//	)
+//
+// Supported parameter constraint options:
+//   - WithParamMinimum(min float64) - Minimum value for numeric parameters
+//   - WithParamMaximum(max float64) - Maximum value for numeric parameters
+//   - WithParamExclusiveMinimum(exclusive bool) - Whether minimum is exclusive
+//   - WithParamExclusiveMaximum(exclusive bool) - Whether maximum is exclusive
+//   - WithParamMultipleOf(value float64) - Value must be a multiple of this (must be > 0)
+//   - WithParamMinLength(min int) - Minimum length for string parameters (must be >= 0)
+//   - WithParamMaxLength(max int) - Maximum length for string parameters (must be >= 0)
+//   - WithParamPattern(pattern string) - Regex pattern for string parameters (validated at build time)
+//   - WithParamMinItems(min int) - Minimum items for array parameters (must be >= 0)
+//   - WithParamMaxItems(max int) - Maximum items for array parameters (must be >= 0)
+//   - WithParamUniqueItems(unique bool) - Whether array items must be unique
+//   - WithParamEnum(values ...any) - Allowed enumeration values
+//   - WithParamDefault(value any) - Default value for the parameter
+//
+// Constraint validation is performed when building the document. The following rules are enforced:
+//   - minimum must be <= maximum (if both are set)
+//   - minLength must be <= maxLength (if both are set)
+//   - minItems must be <= maxItems (if both are set)
+//   - minLength, maxLength, minItems, maxItems must be non-negative
+//   - multipleOf must be greater than 0
+//   - pattern must be a valid regex
+//
+// # OAS Version Differences for Constraints
+//
+// The builder handles constraint placement automatically based on the OAS version:
+//
+// OAS 3.x (3.0.0+): Constraints are applied to the parameter's Schema field.
+// The OAS 3.x specification separates the parameter metadata (name, location, required)
+// from the value schema (type, format, constraints). This is the modern approach:
+//
+//	parameters:
+//	  - name: limit
+//	    in: query
+//	    schema:
+//	      type: integer
+//	      minimum: 1        # Constraint on schema
+//	      maximum: 100      # Constraint on schema
+//
+// OAS 2.0 (Swagger): Constraints are applied directly to the Parameter object.
+// In OAS 2.0, non-body parameters have type and constraints as top-level fields:
+//
+//	parameters:
+//	  - name: limit
+//	    in: query
+//	    type: integer
+//	    minimum: 1          # Constraint on parameter
+//	    maximum: 100        # Constraint on parameter
+//
+// The builder abstracts this difference, allowing you to use the same WithParam*
+// options regardless of target OAS version.
+//
 // # Custom Content Types
 //
 // Use WithResponseContentType to specify content types other than the default "application/json":
