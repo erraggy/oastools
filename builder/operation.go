@@ -365,9 +365,6 @@ func WithFormParam(name string, paramType any, opts ...ParamOption) OperationOpt
 		}
 
 		// Store form parameter metadata for processing in AddOperation
-		if cfg.formParams == nil {
-			cfg.formParams = make([]*formParamBuilder, 0)
-		}
 		cfg.formParams = append(cfg.formParams, &formParamBuilder{
 			name:   name,
 			pType:  paramType,
@@ -490,26 +487,7 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 		} else {
 			// OAS 3.x: Add form parameters to request body with application/x-www-form-urlencoded
 			formSchema := b.buildFormParamSchema(cfg.formParams)
-
-			// Check if request body already exists
-			if requestBody != nil {
-				// Merge form parameters into existing request body
-				if requestBody.Content == nil {
-					requestBody.Content = make(map[string]*parser.MediaType)
-				}
-				requestBody.Content["application/x-www-form-urlencoded"] = &parser.MediaType{
-					Schema: formSchema,
-				}
-			} else {
-				// Create new request body for form parameters
-				requestBody = &parser.RequestBody{
-					Content: map[string]*parser.MediaType{
-						"application/x-www-form-urlencoded": {
-							Schema: formSchema,
-						},
-					},
-				}
-			}
+			requestBody = addFormParamsToRequestBody(requestBody, formSchema)
 		}
 	}
 
@@ -631,3 +609,4 @@ func (b *Builder) buildFormParamSchema(formParams []*formParamBuilder) *parser.S
 
 	return schema
 }
+
