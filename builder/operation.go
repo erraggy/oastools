@@ -609,4 +609,3 @@ func (b *Builder) buildFormParamSchema(formParams []*formParamBuilder) *parser.S
 
 	return schema
 }
-

@@ -679,4 +679,3 @@ func addFormParamsToRequestBody(requestBody *parser.RequestBody, formSchema *par
 		},
 	}
 }
-

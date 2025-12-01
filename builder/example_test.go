@@ -427,4 +427,3 @@ func Example_withFormParameters() {
 	// Has password: true
 	// Has remember_me: true
 }
-
