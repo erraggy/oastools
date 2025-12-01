@@ -46,7 +46,7 @@ GitHub Actions workflow definitions:
 - `go.yml` - Main CI workflow (build, test, coverage)
 - `go-race.yml` - Race condition detection tests
 - `golangci-lint.yml` - Code quality linting
-- `claude.yml` - Claude Code integration (if applicable)
+- `claude.yml` - Claude Code integration
 - `release.yml` - Release automation with GoReleaser
 
 See individual workflow files for details.

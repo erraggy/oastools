@@ -261,11 +261,11 @@ For documentation-only changes, only items 3, 6, and 7 apply.
 - `.git/` - Version control internals
 - `go.mod`, `go.sum` - Only modify when explicitly adding/removing dependencies
 - `.goreleaser.yaml` - Release configuration (managed separately)
-- `benchmarks/` - Benchmark data (except when updating benchmarks per BENCHMARK_UPDATE_PROCESS.md)
+- `benchmarks/` - Benchmark data (except when updating benchmarks per ../BENCHMARK_UPDATE_PROCESS.md)
 
 **DO NOT:**
 - Add dependencies without checking for security vulnerabilities first
-- Modify benchmark test patterns (must use Go 1.24+ `for b.Loop()` pattern)
+- Modify benchmark test patterns (must use Go 1.24 `for b.Loop()` pattern)
 - Remove or weaken existing test coverage
 - Change public API signatures without documenting breaking changes
 - Commit secrets, credentials, or sensitive data
