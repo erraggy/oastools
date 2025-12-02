@@ -229,18 +229,9 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 
 	// Process form parameters (webhooks are OAS 3.1+ only, so always use request body)
 	if len(cfg.formParams) > 0 {
-		// Check if any form param is a file to determine content type
-		hasFileParam := false
-		for _, formParam := range cfg.formParams {
-			if formParam.pType == "file" {
-				hasFileParam = true
-				break
-			}
-		}
-
 		formSchema := b.buildFormParamSchema(cfg.formParams)
 		contentType := "application/x-www-form-urlencoded"
-		if hasFileParam {
+		if hasFileParam(cfg.formParams) {
 			contentType = "multipart/form-data"
 		}
 		requestBody = addFormParamsToRequestBody(requestBody, formSchema, contentType)

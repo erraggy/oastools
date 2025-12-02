@@ -420,6 +420,10 @@ func WithCookieParam(name string, paramType any, opts ...ParamOption) OperationO
 	}
 }
 
+// fileParamType is a special marker value used to indicate file upload parameters.
+// This is used internally by WithFileParam to distinguish file parameters from regular form parameters.
+const fileParamType = "file"
+
 // WithFileParam adds a file upload parameter to the operation.
 // This is primarily for OAS 2.0 file uploads using formData parameters with type="file".
 // For OAS 3.x, it automatically creates a multipart/form-data request body with binary format.
@@ -443,7 +447,7 @@ func WithFileParam(name string, opts ...ParamOption) OperationOption {
 		// For OAS 3.x: This will be handled as a multipart/form-data request body
 		cfg.formParams = append(cfg.formParams, &formParamBuilder{
 			name:   name,
-			pType:  "file", // Special marker for file type
+			pType:  fileParamType, // Special marker for file type
 			config: pCfg,
 		})
 	}
@@ -457,6 +461,17 @@ type formParamBuilder struct {
 	name   string
 	pType  any
 	config *paramConfig
+}
+
+// hasFileParam checks if any of the form parameters represent file uploads.
+// Returns true if any formParam has pType set to fileParamType.
+func hasFileParam(formParams []*formParamBuilder) bool {
+	for _, formParam := range formParams {
+		if formParam.pType == fileParamType {
+			return true
+		}
+	}
+	return false
 }
 
 // WithFormParam adds a form parameter to the operation.
@@ -584,7 +599,7 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 				}
 
 				// Handle file type specially for OAS 2.0
-				if formParam.pType == "file" {
+				if formParam.pType == fileParamType {
 					// For OAS 2.0, file uploads use type="file"
 					param.Type = "file"
 					// File parameters don't need schema or constraints
@@ -603,17 +618,9 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 		} else {
 			// OAS 3.x: Add form parameters to request body
 			// Use multipart/form-data if any file parameters, otherwise application/x-www-form-urlencoded
-			hasFileParam := false
-			for _, formParam := range cfg.formParams {
-				if formParam.pType == "file" {
-					hasFileParam = true
-					break
-				}
-			}
-
 			formSchema := b.buildFormParamSchema(cfg.formParams)
 			contentType := "application/x-www-form-urlencoded"
-			if hasFileParam {
+			if hasFileParam(cfg.formParams) {
 				contentType = "multipart/form-data"
 			}
 			requestBody = addFormParamsToRequestBody(requestBody, formSchema, contentType)
@@ -706,7 +713,7 @@ func (b *Builder) buildFormParamSchema(formParams []*formParamBuilder) *parser.S
 		var propSchema *parser.Schema
 
 		// Handle file type specially for OAS 3.x
-		if formParam.pType == "file" {
+		if formParam.pType == fileParamType {
 			// For OAS 3.x, file uploads use type="string" with format="binary"
 			propSchema = &parser.Schema{
 				Type:   "string",
