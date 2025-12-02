@@ -164,6 +164,43 @@ func WithRequestBody(contentType string, bodyType any, opts ...RequestBodyOption
 	}
 }
 
+// WithRequestBodyRawSchema sets the request body for the operation with a pre-built schema.
+// This is useful when you need full control over the schema structure or when working with
+// schemas that cannot be easily represented with Go types (e.g., file uploads, oneOf/anyOf).
+//
+// Example:
+//
+//	schema := &parser.Schema{
+//		Type: "string",
+//		Format: "binary",
+//	}
+//	WithRequestBodyRawSchema("application/octet-stream", schema)
+func WithRequestBodyRawSchema(contentType string, schema *parser.Schema, opts ...RequestBodyOption) OperationOption {
+	return func(cfg *operationConfig) {
+		rbCfg := &requestBodyConfig{
+			required: false, // Default to false
+		}
+		for _, opt := range opts {
+			opt(rbCfg)
+		}
+
+		// Create request body with pre-built schema
+		cfg.requestBody = &requestBodyBuilder{
+			body: &parser.RequestBody{
+				Description: rbCfg.description,
+				Required:    rbCfg.required,
+				Content: map[string]*parser.MediaType{
+					contentType: {
+						Schema:  schema,
+						Example: rbCfg.example,
+					},
+				},
+			},
+			bType: nil, // No type reflection needed
+		}
+	}
+}
+
 // WithResponse adds a response to the operation.
 // The responseType is reflected to generate the schema.
 // Use WithResponseContentType to specify a content type other than "application/json".
@@ -194,6 +231,49 @@ func WithResponse(statusCode int, responseType any, opts ...ResponseOption) Oper
 				},
 			},
 			rType: responseType,
+		}
+	}
+}
+
+// WithResponseRawSchema adds a response to the operation with a pre-built schema.
+// This is useful when you need full control over the schema structure or when working with
+// schemas that cannot be easily represented with Go types (e.g., file downloads, oneOf/anyOf).
+//
+// Example:
+//
+//	schema := &parser.Schema{
+//		Type: "string",
+//		Format: "binary",
+//	}
+//	WithResponseRawSchema(200, "application/octet-stream", schema,
+//		WithResponseDescription("File download"))
+func WithResponseRawSchema(statusCode int, contentType string, schema *parser.Schema, opts ...ResponseOption) OperationOption {
+	return func(cfg *operationConfig) {
+		rCfg := &responseConfig{
+			description: fmt.Sprintf("%d response", statusCode),
+			contentType: contentType,
+		}
+		for _, opt := range opts {
+			opt(rCfg)
+		}
+
+		if cfg.responses == nil {
+			cfg.responses = make(map[string]*responseBuilder)
+		}
+
+		code := strconv.Itoa(statusCode)
+		cfg.responses[code] = &responseBuilder{
+			response: &parser.Response{
+				Description: rCfg.description,
+				Headers:     rCfg.headers,
+				Content: map[string]*parser.MediaType{
+					contentType: {
+						Schema:  schema,
+						Example: rCfg.example,
+					},
+				},
+			},
+			rType: nil, // No type reflection needed
 		}
 	}
 }
@@ -340,6 +420,36 @@ func WithCookieParam(name string, paramType any, opts ...ParamOption) OperationO
 	}
 }
 
+// WithFileParam adds a file upload parameter to the operation.
+// This is primarily for OAS 2.0 file uploads using formData parameters with type="file".
+// For OAS 3.x, consider using WithRequestBodyRawSchema with a binary/octet-stream schema instead.
+//
+// Example (OAS 2.0):
+//
+//	WithFileParam("file", WithParamDescription("File to upload"), WithParamRequired(true))
+//
+// Example (OAS 3.x alternative):
+//
+//	schema := &parser.Schema{Type: "string", Format: "binary"}
+//	WithRequestBodyRawSchema("multipart/form-data", schema)
+func WithFileParam(name string, opts ...ParamOption) OperationOption {
+	return func(cfg *operationConfig) {
+		pCfg := &paramConfig{}
+		for _, opt := range opts {
+			opt(pCfg)
+		}
+
+		// For OAS 2.0: Create a formData parameter with type="file"
+		// For OAS 3.x: This will be handled as a formData parameter, but the builder
+		// will need to convert it to a request body with multipart/form-data
+		cfg.formParams = append(cfg.formParams, &formParamBuilder{
+			name:   name,
+			pType:  "file", // Special marker for file type
+			config: pCfg,
+		})
+	}
+}
+
 // formParamBuilder tracks form parameter metadata for later processing.
 // Form parameters are handled differently in OAS 2.0 vs 3.x:
 // - OAS 2.0: parameters with in="formData"
@@ -474,13 +584,20 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 					Example:     formParam.config.example,
 				}
 
-				// Generate schema from type
-				if formParam.pType != nil {
-					param.Schema = b.generateSchema(formParam.pType)
-				}
+				// Handle file type specially for OAS 2.0
+				if formParam.pType == "file" {
+					// For OAS 2.0, file uploads use type="file"
+					param.Type = "file"
+					// File parameters don't need schema or constraints
+				} else {
+					// Generate schema from type
+					if formParam.pType != nil {
+						param.Schema = b.generateSchema(formParam.pType)
+					}
 
-				// Apply constraints directly to parameter for OAS 2.0
-				applyParamConstraintsToParam(param, formParam.config)
+					// Apply constraints directly to parameter for OAS 2.0
+					applyParamConstraintsToParam(param, formParam.config)
+				}
 
 				parameters = append(parameters, param)
 			}
@@ -574,11 +691,22 @@ func (b *Builder) buildFormParamSchema(formParams []*formParamBuilder) *parser.S
 			continue
 		}
 
-		// Generate schema from type
-		propSchema := b.generateSchema(formParam.pType)
+		var propSchema *parser.Schema
 
-		// Apply constraints to the property schema
-		propSchema = applyParamConstraintsToSchema(propSchema, formParam.config)
+		// Handle file type specially for OAS 3.x
+		if formParam.pType == "file" {
+			// For OAS 3.x, file uploads use type="string" with format="binary"
+			propSchema = &parser.Schema{
+				Type:   "string",
+				Format: "binary",
+			}
+		} else {
+			// Generate schema from type
+			propSchema = b.generateSchema(formParam.pType)
+
+			// Apply constraints to the property schema
+			propSchema = applyParamConstraintsToSchema(propSchema, formParam.config)
+		}
 
 		// Set description if provided
 		if formParam.config.description != "" {

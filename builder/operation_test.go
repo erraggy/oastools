@@ -355,3 +355,182 @@ func TestBuilder_AddOperation_MultipleOnSamePath(t *testing.T) {
 	assert.Equal(t, "listUsers", b.paths["/users"].Get.OperationID)
 	assert.Equal(t, "createUser", b.paths["/users"].Post.OperationID)
 }
+
+func TestWithRequestBodyRawSchema(t *testing.T) {
+	schema := &parser.Schema{
+		Type:   "string",
+		Format: "binary",
+	}
+
+	b := New(parser.OASVersion320).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/upload",
+			WithRequestBodyRawSchema("application/octet-stream", schema,
+				WithRequired(true),
+				WithRequestDescription("File upload"),
+			),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	require.NotNil(t, b.paths["/upload"].Post.RequestBody)
+	rb := b.paths["/upload"].Post.RequestBody
+	assert.True(t, rb.Required)
+	assert.Equal(t, "File upload", rb.Description)
+	require.Contains(t, rb.Content, "application/octet-stream")
+	require.NotNil(t, rb.Content["application/octet-stream"].Schema)
+	assert.Equal(t, "string", rb.Content["application/octet-stream"].Schema.Type)
+	assert.Equal(t, "binary", rb.Content["application/octet-stream"].Schema.Format)
+}
+
+func TestWithResponseRawSchema(t *testing.T) {
+	schema := &parser.Schema{
+		Type:   "string",
+		Format: "binary",
+	}
+
+	b := New(parser.OASVersion320).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodGet, "/download",
+			WithResponseRawSchema(http.StatusOK, "application/octet-stream", schema,
+				WithResponseDescription("File download"),
+			),
+		)
+
+	require.NotNil(t, b.paths["/download"].Get.Responses)
+	require.Contains(t, b.paths["/download"].Get.Responses.Codes, "200")
+	resp := b.paths["/download"].Get.Responses.Codes["200"]
+	assert.Equal(t, "File download", resp.Description)
+	require.Contains(t, resp.Content, "application/octet-stream")
+	require.NotNil(t, resp.Content["application/octet-stream"].Schema)
+	assert.Equal(t, "string", resp.Content["application/octet-stream"].Schema.Type)
+	assert.Equal(t, "binary", resp.Content["application/octet-stream"].Schema.Format)
+}
+
+func TestWithFileParam_OAS20(t *testing.T) {
+	b := New(parser.OASVersion20).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/upload",
+			WithFileParam("file",
+				WithParamDescription("File to upload"),
+				WithParamRequired(true),
+			),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	params := b.paths["/upload"].Post.Parameters
+	require.Len(t, params, 1)
+	assert.Equal(t, "file", params[0].Name)
+	assert.Equal(t, parser.ParamInFormData, params[0].In)
+	assert.Equal(t, "file", params[0].Type)
+	assert.Equal(t, "File to upload", params[0].Description)
+	assert.True(t, params[0].Required)
+}
+
+func TestWithFileParam_OAS3(t *testing.T) {
+	b := New(parser.OASVersion320).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/upload",
+			WithFileParam("file",
+				WithParamDescription("File to upload"),
+				WithParamRequired(true),
+			),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	require.NotNil(t, b.paths["/upload"].Post.RequestBody)
+	rb := b.paths["/upload"].Post.RequestBody
+	require.Contains(t, rb.Content, "application/x-www-form-urlencoded")
+	schema := rb.Content["application/x-www-form-urlencoded"].Schema
+	require.NotNil(t, schema)
+	assert.Equal(t, "object", schema.Type)
+	require.Contains(t, schema.Properties, "file")
+	fileSchema := schema.Properties["file"]
+	assert.Equal(t, "string", fileSchema.Type)
+	assert.Equal(t, "binary", fileSchema.Format)
+	assert.Equal(t, "File to upload", fileSchema.Description)
+	require.Contains(t, schema.Required, "file")
+}
+
+func TestWithFileParam_MultipleFiles(t *testing.T) {
+	b := New(parser.OASVersion20).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/upload-multiple",
+			WithFileParam("file1", WithParamRequired(true)),
+			WithFileParam("file2", WithParamRequired(false)),
+			WithFormParam("description", "", WithParamDescription("Upload description")),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	params := b.paths["/upload-multiple"].Post.Parameters
+	require.Len(t, params, 3)
+
+	// Check file1
+	assert.Equal(t, "file1", params[0].Name)
+	assert.Equal(t, "file", params[0].Type)
+	assert.True(t, params[0].Required)
+
+	// Check file2
+	assert.Equal(t, "file2", params[1].Name)
+	assert.Equal(t, "file", params[1].Type)
+	assert.False(t, params[1].Required)
+
+	// Check description
+	assert.Equal(t, "description", params[2].Name)
+	assert.Equal(t, "Upload description", params[2].Description)
+}
+
+func TestWithRequestBodyRawSchema_WithExample(t *testing.T) {
+	schema := &parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"name": {Type: "string"},
+		},
+	}
+	example := map[string]any{"name": "test"}
+
+	b := New(parser.OASVersion320).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/test",
+			WithRequestBodyRawSchema("application/json", schema,
+				WithRequestExample(example),
+			),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	rb := b.paths["/test"].Post.RequestBody
+	require.NotNil(t, rb)
+	require.Contains(t, rb.Content, "application/json")
+	assert.Equal(t, example, rb.Content["application/json"].Example)
+}
+
+func TestWithResponseRawSchema_WithHeaders(t *testing.T) {
+	schema := &parser.Schema{
+		Type:   "string",
+		Format: "binary",
+	}
+	header := &parser.Header{
+		Description: "Content disposition",
+		Schema:      &parser.Schema{Type: "string"},
+	}
+
+	b := New(parser.OASVersion320).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodGet, "/download",
+			WithResponseRawSchema(http.StatusOK, "application/pdf", schema,
+				WithResponseDescription("PDF download"),
+				WithResponseHeader("Content-Disposition", header),
+			),
+		)
+
+	resp := b.paths["/download"].Get.Responses.Codes["200"]
+	require.NotNil(t, resp)
+	require.Contains(t, resp.Headers, "Content-Disposition")
+	assert.Equal(t, "Content disposition", resp.Headers["Content-Disposition"].Description)
+}
