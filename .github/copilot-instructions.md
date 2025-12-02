@@ -11,6 +11,7 @@ GitHub Copilot uses these instructions to:
 - Avoid common pitfalls specific to this codebase
 
 Read through all sections before making changes. Pay special attention to:
+- **Development Environment Setup** - Install golangci-lint v2 before running `make check`
 - **Acceptance Criteria** - Know when a task is truly complete
 - **Boundaries and Exclusions** - Files and directories you should never modify
 - **Testing Requirements** - All exported functionality must have comprehensive tests
@@ -94,6 +95,26 @@ if typeStr, ok := schema.Type.(string); ok {
 
 ## Development Commands
 
+### Development Environment Setup
+
+**CRITICAL: Install golangci-lint v2 before running `make check`**
+
+The repository uses golangci-lint v2 for linting. Install it before making any code changes:
+
+```bash
+# Install golangci-lint v2.1.0
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.1.0
+
+# Add GOPATH/bin to PATH if not already present
+export PATH=$PATH:$(go env GOPATH)/bin
+
+# Verify installation
+golangci-lint version
+# Expected output: golangci-lint has version 2.1.0 built with go1.24.2...
+```
+
+**Without golangci-lint v2 installed, `make check` and `make lint` will fail.**
+
 ### Recommended Workflow
 
 After making changes to Go source files:
@@ -115,7 +136,7 @@ make test-coverage # Generate and view HTML coverage report
 # Code Quality
 make fmt   # Format all Go code
 make vet   # Run go vet
-make lint  # Run golangci-lint
+make lint  # Run golangci-lint (requires golangci-lint v2 installation)
 
 # Maintenance
 make deps  # Download and tidy dependencies
@@ -219,16 +240,18 @@ permissions:
 ## Code Quality Standards
 
 **Before Submitting:**
-1. Run `make check` - all code formatted, lints/tests pass
-2. Run `make test-coverage` - review coverage report
-3. Verify all new exported functionality has tests
-4. Update benchmarks with `make bench-save` if changes affect performance
-5. Check for security vulnerabilities: `govulncheck`
+1. **Install golangci-lint v2** - Required for `make check` and `make lint` (see Development Environment Setup)
+2. Run `make check` - all code formatted, lints/tests pass
+3. Run `make test-coverage` - review coverage report
+4. Verify all new exported functionality has tests
+5. Update benchmarks with `make bench-save` if changes affect performance
+6. Check for security vulnerabilities: `govulncheck`
 
 **Never submit code with:**
 - Untested exported functions, methods, or types
 - Tests that only cover the "happy path" without error cases
 - Performance regressions without documented justification
+- Linting errors (all golangci-lint checks must pass)
 
 **Commit Message Format:**
 - First line: Conventional commit message within 72 characters
