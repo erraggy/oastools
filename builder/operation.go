@@ -428,6 +428,10 @@ const fileParamType = "file"
 // This is primarily for OAS 2.0 file uploads using formData parameters with type="file".
 // For OAS 3.x, it automatically creates a multipart/form-data request body with binary format.
 //
+// Note: Parameter constraints (minLength, maxLength, pattern, etc.) are not applicable to
+// file parameters and will be ignored. Only description, required, and deprecated options
+// are meaningful for file uploads.
+//
 // Example (OAS 2.0):
 //
 //	WithFileParam("file", WithParamDescription("File to upload"), WithParamRequired(true))

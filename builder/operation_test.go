@@ -562,3 +562,92 @@ func TestWithResponseRawSchema_WithHeaders(t *testing.T) {
 	require.Contains(t, resp.Headers, "Content-Disposition")
 	assert.Equal(t, "Content disposition", resp.Headers["Content-Disposition"].Description)
 }
+
+func TestWithFileParam_IgnoresConstraints_OAS20(t *testing.T) {
+	// Test that parameter constraints are ignored for file parameters in OAS 2.0
+	b := New(parser.OASVersion20).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/upload",
+			WithFileParam("file",
+				WithParamDescription("File to upload"),
+				WithParamRequired(true),
+				WithParamMinLength(10),   // Should be ignored
+				WithParamMaxLength(1000), // Should be ignored
+				WithParamPattern(".*"),   // Should be ignored
+			),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	params := b.paths["/upload"].Post.Parameters
+	require.Len(t, params, 1)
+	assert.Equal(t, "file", params[0].Name)
+	assert.Equal(t, "file", params[0].Type)
+	assert.Equal(t, "File to upload", params[0].Description)
+	assert.True(t, params[0].Required)
+
+	// Verify constraints are not applied to file parameters
+	assert.Nil(t, params[0].MinLength, "minLength should not be set for file parameters")
+	assert.Nil(t, params[0].MaxLength, "maxLength should not be set for file parameters")
+	assert.Empty(t, params[0].Pattern, "pattern should not be set for file parameters")
+	assert.Nil(t, params[0].Schema, "schema should not be set for file parameters in OAS 2.0")
+}
+
+func TestWithFileParam_IgnoresConstraints_OAS3(t *testing.T) {
+	// Test that parameter constraints are ignored for file parameters in OAS 3.x
+	b := New(parser.OASVersion320).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/upload",
+			WithFileParam("file",
+				WithParamDescription("File to upload"),
+				WithParamRequired(true),
+				WithParamMinLength(10),   // Should be ignored
+				WithParamMaxLength(1000), // Should be ignored
+				WithParamPattern(".*"),   // Should be ignored
+			),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	rb := b.paths["/upload"].Post.RequestBody
+	require.NotNil(t, rb)
+	require.Contains(t, rb.Content, "multipart/form-data")
+
+	schema := rb.Content["multipart/form-data"].Schema
+	require.NotNil(t, schema)
+	require.Contains(t, schema.Properties, "file")
+
+	fileSchema := schema.Properties["file"]
+	assert.Equal(t, "string", fileSchema.Type)
+	assert.Equal(t, "binary", fileSchema.Format)
+	assert.Equal(t, "File to upload", fileSchema.Description)
+
+	// Verify constraints are not applied to file schema
+	assert.Nil(t, fileSchema.MinLength, "minLength should not be set for file parameters")
+	assert.Nil(t, fileSchema.MaxLength, "maxLength should not be set for file parameters")
+	assert.Empty(t, fileSchema.Pattern, "pattern should not be set for file parameters")
+}
+
+func TestWithFileParam_EmptyName(t *testing.T) {
+	// Test that empty file parameter name is handled (though not recommended)
+	b := New(parser.OASVersion320).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/upload",
+			WithFileParam("", WithParamRequired(true)),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	rb := b.paths["/upload"].Post.RequestBody
+	require.NotNil(t, rb)
+	require.Contains(t, rb.Content, "multipart/form-data")
+
+	schema := rb.Content["multipart/form-data"].Schema
+	require.NotNil(t, schema)
+
+	// Empty name is allowed (though not valid OpenAPI), it creates a property with empty key
+	require.Contains(t, schema.Properties, "")
+	fileSchema := schema.Properties[""]
+	assert.Equal(t, "string", fileSchema.Type)
+	assert.Equal(t, "binary", fileSchema.Format)
+}
