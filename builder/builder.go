@@ -227,6 +227,12 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 		parameters = append(parameters, param)
 	}
 
+	// Process form parameters (webhooks are OAS 3.1+ only, so always use request body)
+	if len(cfg.formParams) > 0 {
+		formSchema := b.buildFormParamSchema(cfg.formParams)
+		requestBody = addFormParamsToRequestBody(requestBody, formSchema)
+	}
+
 	// Build responses object
 	var responses *parser.Responses
 	if len(responseMap) > 0 {
@@ -648,4 +654,28 @@ func FromOAS2Document(doc *parser.OAS2Document) *Builder {
 	}
 
 	return b
+}
+
+// addFormParamsToRequestBody adds form parameters to a request body with application/x-www-form-urlencoded.
+// If requestBody is nil, a new one is created. Otherwise, the form content type is added.
+func addFormParamsToRequestBody(requestBody *parser.RequestBody, formSchema *parser.Schema) *parser.RequestBody {
+	if requestBody != nil {
+		// Merge form parameters into existing request body
+		if requestBody.Content == nil {
+			requestBody.Content = make(map[string]*parser.MediaType)
+		}
+		requestBody.Content["application/x-www-form-urlencoded"] = &parser.MediaType{
+			Schema: formSchema,
+		}
+		return requestBody
+	}
+
+	// Create new request body for form parameters
+	return &parser.RequestBody{
+		Content: map[string]*parser.MediaType{
+			"application/x-www-form-urlencoded": {
+				Schema: formSchema,
+			},
+		},
+	}
 }

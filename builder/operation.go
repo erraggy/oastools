@@ -37,6 +37,7 @@ type operationConfig struct {
 	tags        []string
 	deprecated  bool
 	parameters  []*parameterBuilder
+	formParams  []*formParamBuilder // Form parameters (handled differently in OAS 2.0 vs 3.x)
 	requestBody *requestBodyBuilder
 	responses   map[string]*responseBuilder
 	security    []parser.SecurityRequirement
@@ -339,6 +340,39 @@ func WithCookieParam(name string, paramType any, opts ...ParamOption) OperationO
 	}
 }
 
+// formParamBuilder tracks form parameter metadata for later processing.
+// Form parameters are handled differently in OAS 2.0 vs 3.x:
+// - OAS 2.0: parameters with in="formData"
+// - OAS 3.x: properties in request body schema with application/x-www-form-urlencoded
+type formParamBuilder struct {
+	name   string
+	pType  any
+	config *paramConfig
+}
+
+// WithFormParam adds a form parameter to the operation.
+// The handling differs based on OAS version:
+//   - OAS 2.0: Adds a parameter with in="formData"
+//   - OAS 3.x: Adds to request body with content-type application/x-www-form-urlencoded
+//
+// Form parameters support all standard parameter options including constraints,
+// description, required flag, default values, and format specifications.
+func WithFormParam(name string, paramType any, opts ...ParamOption) OperationOption {
+	return func(cfg *operationConfig) {
+		pCfg := &paramConfig{}
+		for _, opt := range opts {
+			opt(pCfg)
+		}
+
+		// Store form parameter metadata for processing in AddOperation
+		cfg.formParams = append(cfg.formParams, &formParamBuilder{
+			name:   name,
+			pType:  paramType,
+			config: pCfg,
+		})
+	}
+}
+
 // AddOperation adds an API operation to the specification.
 // Go types passed to options are automatically converted to schemas via reflection.
 //
@@ -420,6 +454,43 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 		parameters = append(parameters, param)
 	}
 
+	// Process form parameters based on OAS version
+	if len(cfg.formParams) > 0 {
+		if b.version == parser.OASVersion20 {
+			// OAS 2.0: Add form parameters as parameters with in="formData"
+			for _, formParam := range cfg.formParams {
+				// Validate constraints
+				if err := validateParamConstraints(formParam.config); err != nil {
+					b.errors = append(b.errors, err)
+					continue
+				}
+
+				param := &parser.Parameter{
+					Name:        formParam.name,
+					In:          parser.ParamInFormData,
+					Description: formParam.config.description,
+					Required:    formParam.config.required,
+					Deprecated:  formParam.config.deprecated,
+					Example:     formParam.config.example,
+				}
+
+				// Generate schema from type
+				if formParam.pType != nil {
+					param.Schema = b.generateSchema(formParam.pType)
+				}
+
+				// Apply constraints directly to parameter for OAS 2.0
+				applyParamConstraintsToParam(param, formParam.config)
+
+				parameters = append(parameters, param)
+			}
+		} else {
+			// OAS 3.x: Add form parameters to request body with application/x-www-form-urlencoded
+			formSchema := b.buildFormParamSchema(cfg.formParams)
+			requestBody = addFormParamsToRequestBody(requestBody, formSchema)
+		}
+	}
+
 	// Build responses object
 	var responses *parser.Responses
 	if len(responseMap) > 0 {
@@ -487,4 +558,54 @@ func (b *Builder) setOperation(pathItem *parser.PathItem, method string, op *par
 	default:
 		b.errors = append(b.errors, fmt.Errorf("unsupported HTTP method: %s", method))
 	}
+}
+
+// buildFormParamSchema builds a schema for form parameters in OAS 3.x.
+// Form parameters are represented as an object schema where each form parameter
+// becomes a property. The schema supports all parameter constraints.
+func (b *Builder) buildFormParamSchema(formParams []*formParamBuilder) *parser.Schema {
+	properties := make(map[string]*parser.Schema)
+	var required []string
+
+	for _, formParam := range formParams {
+		// Validate constraints
+		if err := validateParamConstraints(formParam.config); err != nil {
+			b.errors = append(b.errors, err)
+			continue
+		}
+
+		// Generate schema from type
+		propSchema := b.generateSchema(formParam.pType)
+
+		// Apply constraints to the property schema
+		propSchema = applyParamConstraintsToSchema(propSchema, formParam.config)
+
+		// Set description if provided
+		if formParam.config.description != "" {
+			propSchema.Description = formParam.config.description
+		}
+
+		// Set deprecated if specified
+		if formParam.config.deprecated {
+			propSchema.Deprecated = formParam.config.deprecated
+		}
+
+		properties[formParam.name] = propSchema
+
+		// Track required fields
+		if formParam.config.required {
+			required = append(required, formParam.name)
+		}
+	}
+
+	schema := &parser.Schema{
+		Type:       "object",
+		Properties: properties,
+	}
+
+	if len(required) > 0 {
+		schema.Required = required
+	}
+
+	return schema
 }

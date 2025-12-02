@@ -230,3 +230,49 @@ func BenchmarkParseOASTag(b *testing.B) {
 		_ = parseOASTag(tag)
 	}
 }
+
+func BenchmarkBuilder_AddOperation_WithFormParams_OAS2(b *testing.B) {
+	for b.Loop() {
+		_ = New(parser.OASVersion20).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodPost, "/login",
+				WithOperationID("login"),
+				WithFormParam("username", string(""),
+					WithParamRequired(true),
+					WithParamMinLength(3),
+				),
+				WithFormParam("password", string(""),
+					WithParamRequired(true),
+					WithParamMinLength(8),
+				),
+				WithFormParam("remember_me", bool(false),
+					WithParamDefault(false),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+	}
+}
+
+func BenchmarkBuilder_AddOperation_WithFormParams_OAS3(b *testing.B) {
+	for b.Loop() {
+		_ = New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodPost, "/login",
+				WithOperationID("login"),
+				WithFormParam("username", string(""),
+					WithParamRequired(true),
+					WithParamMinLength(3),
+				),
+				WithFormParam("password", string(""),
+					WithParamRequired(true),
+					WithParamMinLength(8),
+				),
+				WithFormParam("remember_me", bool(false),
+					WithParamDefault(false),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+	}
+}

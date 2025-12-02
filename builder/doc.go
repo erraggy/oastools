@@ -218,6 +218,50 @@
 //   - multipleOf must be greater than 0
 //   - pattern must be a valid regex
 //
+// # Form Parameters
+//
+// Form parameters are handled differently across OAS versions. The builder provides a unified
+// WithFormParam method that automatically adapts to the target OAS version:
+//
+//	spec.AddOperation(http.MethodPost, "/login",
+//		builder.WithFormParam("username", string(""),
+//			builder.WithParamRequired(true),
+//			builder.WithParamMinLength(3),
+//		),
+//		builder.WithFormParam("password", string(""),
+//			builder.WithParamRequired(true),
+//			builder.WithParamMinLength(8),
+//		),
+//		builder.WithResponse(http.StatusOK, LoginResponse{}),
+//	)
+//
+// OAS 2.0: Form parameters are created as parameters with in="formData":
+//
+//	parameters:
+//	  - name: username
+//	    in: formData
+//	    type: string
+//	    required: true
+//	    minLength: 3
+//
+// OAS 3.x: Form parameters are added to the request body with application/x-www-form-urlencoded:
+//
+//	requestBody:
+//	  content:
+//	    application/x-www-form-urlencoded:
+//	      schema:
+//	        type: object
+//	        properties:
+//	          username:
+//	            type: string
+//	            minLength: 3
+//	        required:
+//	          - username
+//
+// All parameter constraints and options work with form parameters. If a request body already
+// exists (e.g., for multipart/form-data), form parameters are merged into it with the
+// application/x-www-form-urlencoded content type.
+//
 // # OAS Version Differences for Constraints
 //
 // The builder handles constraint placement automatically based on the OAS version:
