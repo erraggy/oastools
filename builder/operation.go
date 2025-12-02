@@ -529,6 +529,7 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 
 	// Unwrap and process request body
 	var requestBody *parser.RequestBody
+	var bodyParam *parser.Parameter // OAS 2.0 body parameter
 	if cfg.requestBody != nil {
 		requestBody = cfg.requestBody.body
 		if cfg.requestBody.bType != nil {
@@ -536,6 +537,30 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 			for contentType := range requestBody.Content {
 				requestBody.Content[contentType].Schema = schema
 			}
+		}
+
+		// OAS 2.0: Convert requestBody to body parameter
+		if b.version == parser.OASVersion20 {
+			// Extract the first media type's schema (OAS 2.0 doesn't support multiple content types in body)
+			var bodySchema *parser.Schema
+			for _, mediaType := range requestBody.Content {
+				if mediaType.Schema != nil {
+					bodySchema = mediaType.Schema
+					break
+				}
+			}
+
+			// Create body parameter
+			bodyParam = &parser.Parameter{
+				Name:        "body",
+				In:          parser.ParamInBody,
+				Description: requestBody.Description,
+				Required:    requestBody.Required,
+				Schema:      bodySchema,
+			}
+
+			// Clear requestBody for OAS 2.0 (will be set to nil in Operation struct)
+			requestBody = nil
 		}
 	}
 
@@ -549,6 +574,26 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 				resp.Content[contentType].Schema = schema
 			}
 		}
+
+		// OAS 2.0: Convert response content to direct schema
+		if b.version == parser.OASVersion20 && len(resp.Content) > 0 {
+			// Extract the first media type's schema and example (OAS 2.0 doesn't support multiple content types)
+			for contentType, mediaType := range resp.Content {
+				if mediaType.Schema != nil {
+					resp.Schema = mediaType.Schema
+				}
+				if mediaType.Example != nil {
+					// In OAS 2.0, examples is a map[string]any where the key is the MIME type
+					resp.Examples = map[string]any{
+						contentType: mediaType.Example,
+					}
+				}
+				break // Only use first content type for OAS 2.0
+			}
+			// Clear content for OAS 2.0
+			resp.Content = nil
+		}
+
 		responseMap[code] = resp
 	}
 
@@ -580,6 +625,11 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 		}
 
 		parameters = append(parameters, param)
+	}
+
+	// Add body parameter for OAS 2.0 if present
+	if bodyParam != nil {
+		parameters = append(parameters, bodyParam)
 	}
 
 	// Process form parameters based on OAS version
