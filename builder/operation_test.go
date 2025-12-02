@@ -443,8 +443,8 @@ func TestWithFileParam_OAS3(t *testing.T) {
 
 	require.NotNil(t, b.paths["/upload"].Post.RequestBody)
 	rb := b.paths["/upload"].Post.RequestBody
-	require.Contains(t, rb.Content, "application/x-www-form-urlencoded")
-	schema := rb.Content["application/x-www-form-urlencoded"].Schema
+	require.Contains(t, rb.Content, "multipart/form-data")
+	schema := rb.Content["multipart/form-data"].Schema
 	require.NotNil(t, schema)
 	assert.Equal(t, "object", schema.Type)
 	require.Contains(t, schema.Properties, "file")
@@ -453,6 +453,34 @@ func TestWithFileParam_OAS3(t *testing.T) {
 	assert.Equal(t, "binary", fileSchema.Format)
 	assert.Equal(t, "File to upload", fileSchema.Description)
 	require.Contains(t, schema.Required, "file")
+}
+
+func TestWithFormParam_OAS3_NoFile(t *testing.T) {
+	// Test that form params without files use application/x-www-form-urlencoded
+	b := New(parser.OASVersion320).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/login",
+			WithFormParam("username", "",
+				WithParamRequired(true),
+				WithParamDescription("Username"),
+			),
+			WithFormParam("password", "",
+				WithParamRequired(true),
+				WithParamDescription("Password"),
+			),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	require.NotNil(t, b.paths["/login"].Post.RequestBody)
+	rb := b.paths["/login"].Post.RequestBody
+	require.Contains(t, rb.Content, "application/x-www-form-urlencoded")
+	schema := rb.Content["application/x-www-form-urlencoded"].Schema
+	require.NotNil(t, schema)
+	assert.Equal(t, "object", schema.Type)
+	require.Contains(t, schema.Properties, "username")
+	require.Contains(t, schema.Properties, "password")
+	require.Len(t, schema.Required, 2)
 }
 
 func TestWithFileParam_MultipleFiles(t *testing.T) {

@@ -422,16 +422,16 @@ func WithCookieParam(name string, paramType any, opts ...ParamOption) OperationO
 
 // WithFileParam adds a file upload parameter to the operation.
 // This is primarily for OAS 2.0 file uploads using formData parameters with type="file".
-// For OAS 3.x, consider using WithRequestBodyRawSchema with a binary/octet-stream schema instead.
+// For OAS 3.x, it automatically creates a multipart/form-data request body with binary format.
 //
 // Example (OAS 2.0):
 //
 //	WithFileParam("file", WithParamDescription("File to upload"), WithParamRequired(true))
 //
-// Example (OAS 3.x alternative):
+// Example (OAS 3.x):
 //
-//	schema := &parser.Schema{Type: "string", Format: "binary"}
-//	WithRequestBodyRawSchema("multipart/form-data", schema)
+//	// Automatically generates multipart/form-data request body:
+//	WithFileParam("file", WithParamDescription("File to upload"), WithParamRequired(true))
 func WithFileParam(name string, opts ...ParamOption) OperationOption {
 	return func(cfg *operationConfig) {
 		pCfg := &paramConfig{}
@@ -440,8 +440,7 @@ func WithFileParam(name string, opts ...ParamOption) OperationOption {
 		}
 
 		// For OAS 2.0: Create a formData parameter with type="file"
-		// For OAS 3.x: This will be handled as a formData parameter, but the builder
-		// will need to convert it to a request body with multipart/form-data
+		// For OAS 3.x: This will be handled as a multipart/form-data request body
 		cfg.formParams = append(cfg.formParams, &formParamBuilder{
 			name:   name,
 			pType:  "file", // Special marker for file type
@@ -602,9 +601,22 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 				parameters = append(parameters, param)
 			}
 		} else {
-			// OAS 3.x: Add form parameters to request body with application/x-www-form-urlencoded
+			// OAS 3.x: Add form parameters to request body
+			// Use multipart/form-data if any file parameters, otherwise application/x-www-form-urlencoded
+			hasFileParam := false
+			for _, formParam := range cfg.formParams {
+				if formParam.pType == "file" {
+					hasFileParam = true
+					break
+				}
+			}
+
 			formSchema := b.buildFormParamSchema(cfg.formParams)
-			requestBody = addFormParamsToRequestBody(requestBody, formSchema)
+			contentType := "application/x-www-form-urlencoded"
+			if hasFileParam {
+				contentType = "multipart/form-data"
+			}
+			requestBody = addFormParamsToRequestBody(requestBody, formSchema, contentType)
 		}
 	}
 

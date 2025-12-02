@@ -1235,10 +1235,10 @@ func TestBuilder_FileUpload_OAS3_Integration(t *testing.T) {
 	// Verify request body exists (OAS 3.x uses request body for form data)
 	rb := doc.Paths["/upload"].Post.RequestBody
 	require.NotNil(t, rb)
-	require.Contains(t, rb.Content, "application/x-www-form-urlencoded")
+	require.Contains(t, rb.Content, "multipart/form-data")
 
 	// Verify schema structure
-	schema := rb.Content["application/x-www-form-urlencoded"].Schema
+	schema := rb.Content["multipart/form-data"].Schema
 	require.NotNil(t, schema)
 	assert.Equal(t, "object", schema.Type)
 

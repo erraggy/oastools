@@ -456,7 +456,7 @@ func Example_withFileUpload() {
 	}
 
 	rb := doc.Paths["/upload"].Post.RequestBody
-	schema := rb.Content["application/x-www-form-urlencoded"].Schema
+	schema := rb.Content["multipart/form-data"].Schema
 	fmt.Printf("Has file property: %v\n", schema.Properties["file"] != nil)
 	fmt.Printf("File type: %s\n", schema.Properties["file"].Type)
 	fmt.Printf("File format: %s\n", schema.Properties["file"].Format)
