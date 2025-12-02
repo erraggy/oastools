@@ -1194,9 +1194,10 @@ func TestBuilder_FileUpload_OAS20_Integration(t *testing.T) {
 	// Find file parameter
 	var fileParam, descParam *parser.Parameter
 	for _, p := range params {
-		if p.Name == "file" {
+		switch p.Name {
+		case "file":
 			fileParam = p
-		} else if p.Name == "description" {
+		case "description":
 			descParam = p
 		}
 	}
