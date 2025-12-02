@@ -427,3 +427,153 @@ func Example_withFormParameters() {
 	// Has password: true
 	// Has remember_me: true
 }
+
+// Example_withFileUpload demonstrates file upload support using WithFileParam.
+func Example_withFileUpload() {
+	// OAS 3.x file upload with multipart/form-data
+	spec := builder.New(parser.OASVersion320).
+		SetTitle("File Upload API").
+		SetVersion("1.0.0")
+
+	spec.AddOperation(http.MethodPost, "/upload",
+		builder.WithOperationID("uploadFile"),
+		builder.WithFileParam("file",
+			builder.WithParamRequired(true),
+			builder.WithParamDescription("File to upload"),
+		),
+		builder.WithFormParam("description", "",
+			builder.WithParamDescription("File description"),
+		),
+		builder.WithResponse(http.StatusOK, struct {
+			Success bool   `json:"success"`
+			FileID  string `json:"file_id"`
+		}{}),
+	)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rb := doc.Paths["/upload"].Post.RequestBody
+	schema := rb.Content["application/x-www-form-urlencoded"].Schema
+	fmt.Printf("Has file property: %v\n", schema.Properties["file"] != nil)
+	fmt.Printf("File type: %s\n", schema.Properties["file"].Type)
+	fmt.Printf("File format: %s\n", schema.Properties["file"].Format)
+	fmt.Printf("Has description: %v\n", schema.Properties["description"] != nil)
+	fmt.Printf("Required: %v\n", schema.Required)
+	// Output:
+	// Has file property: true
+	// File type: string
+	// File format: binary
+	// Has description: true
+	// Required: [file]
+}
+
+// Example_withRawSchema demonstrates using raw schemas for binary data.
+func Example_withRawSchema() {
+	spec := builder.New(parser.OASVersion320).
+		SetTitle("File Download API").
+		SetVersion("1.0.0")
+
+	// Binary file download response
+	binarySchema := &parser.Schema{
+		Type:   "string",
+		Format: "binary",
+	}
+
+	spec.AddOperation(http.MethodGet, "/download/{id}",
+		builder.WithOperationID("downloadFile"),
+		builder.WithPathParam("id", int64(0),
+			builder.WithParamDescription("File ID"),
+		),
+		builder.WithResponseRawSchema(http.StatusOK, "application/octet-stream", binarySchema,
+			builder.WithResponseDescription("Binary file content"),
+			builder.WithResponseHeader("Content-Disposition", &parser.Header{
+				Description: "Suggested filename",
+				Schema:      &parser.Schema{Type: "string"},
+			}),
+		),
+	)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	resp := doc.Paths["/download/{id}"].Get.Responses.Codes["200"]
+	mediaType := resp.Content["application/octet-stream"]
+	fmt.Printf("Response content type: application/octet-stream\n")
+	fmt.Printf("Schema type: %s\n", mediaType.Schema.Type)
+	fmt.Printf("Schema format: %s\n", mediaType.Schema.Format)
+	fmt.Printf("Has Content-Disposition header: %v\n", resp.Headers["Content-Disposition"] != nil)
+	// Output:
+	// Response content type: application/octet-stream
+	// Schema type: string
+	// Schema format: binary
+	// Has Content-Disposition header: true
+}
+
+// Example_withComplexRawSchema demonstrates using raw schemas for complex multipart uploads.
+func Example_withComplexRawSchema() {
+	spec := builder.New(parser.OASVersion320).
+		SetTitle("Complex Upload API").
+		SetVersion("1.0.0")
+
+	// Complex multipart schema with file and metadata
+	uploadSchema := &parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"file": {
+				Type:        "string",
+				Format:      "binary",
+				Description: "The file data",
+			},
+			"metadata": {
+				Type: "object",
+				Properties: map[string]*parser.Schema{
+					"filename": {
+						Type:        "string",
+						Description: "Original filename",
+					},
+					"tags": {
+						Type:        "array",
+						Items:       &parser.Schema{Type: "string"},
+						Description: "File tags",
+					},
+				},
+			},
+		},
+		Required: []string{"file"},
+	}
+
+	spec.AddOperation(http.MethodPost, "/upload-with-metadata",
+		builder.WithOperationID("uploadWithMetadata"),
+		builder.WithRequestBodyRawSchema("multipart/form-data", uploadSchema,
+			builder.WithRequired(true),
+			builder.WithRequestDescription("Upload file with metadata"),
+		),
+		builder.WithResponse(http.StatusCreated, struct {
+			ID string `json:"id"`
+		}{}),
+	)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rb := doc.Paths["/upload-with-metadata"].Post.RequestBody
+	schema := rb.Content["multipart/form-data"].Schema
+	fmt.Printf("Request body required: %v\n", rb.Required)
+	fmt.Printf("Has file property: %v\n", schema.Properties["file"] != nil)
+	fmt.Printf("Has metadata property: %v\n", schema.Properties["metadata"] != nil)
+	fmt.Printf("File format: %s\n", schema.Properties["file"].Format)
+	fmt.Printf("Required fields: %v\n", schema.Required)
+	// Output:
+	// Request body required: true
+	// Has file property: true
+	// Has metadata property: true
+	// File format: binary
+	// Required fields: [file]
+}

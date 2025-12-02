@@ -1164,3 +1164,215 @@ func TestBuilder_TimeType(t *testing.T) {
 	assert.Equal(t, "string", timestampProp.Type)
 	assert.Equal(t, "date-time", timestampProp.Format)
 }
+
+func TestBuilder_FileUpload_OAS20_Integration(t *testing.T) {
+	b := New(parser.OASVersion20).
+		SetTitle("File Upload API").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/upload",
+			WithOperationID("uploadFile"),
+			WithFileParam("file", WithParamRequired(true), WithParamDescription("File to upload")),
+			WithFormParam("description", "", WithParamDescription("File description")),
+			WithResponse(http.StatusOK, struct {
+				Success bool   `json:"success"`
+				FileID  string `json:"file_id"`
+			}{}),
+		)
+
+	doc, err := b.BuildOAS2()
+	require.NoError(t, err)
+	require.NotNil(t, doc)
+
+	// Verify operation exists
+	require.Contains(t, doc.Paths, "/upload")
+	require.NotNil(t, doc.Paths["/upload"].Post)
+
+	// Verify file parameter
+	params := doc.Paths["/upload"].Post.Parameters
+	require.Len(t, params, 2)
+
+	// Find file parameter
+	var fileParam, descParam *parser.Parameter
+	for _, p := range params {
+		if p.Name == "file" {
+			fileParam = p
+		} else if p.Name == "description" {
+			descParam = p
+		}
+	}
+
+	require.NotNil(t, fileParam, "file parameter should exist")
+	assert.Equal(t, parser.ParamInFormData, fileParam.In)
+	assert.Equal(t, "file", fileParam.Type)
+	assert.True(t, fileParam.Required)
+
+	require.NotNil(t, descParam, "description parameter should exist")
+	assert.Equal(t, parser.ParamInFormData, descParam.In)
+}
+
+func TestBuilder_FileUpload_OAS3_Integration(t *testing.T) {
+	b := New(parser.OASVersion320).
+		SetTitle("File Upload API").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/upload",
+			WithOperationID("uploadFile"),
+			WithFileParam("file", WithParamRequired(true), WithParamDescription("File to upload")),
+			WithFormParam("description", "", WithParamDescription("File description")),
+			WithResponse(http.StatusOK, struct {
+				Success bool   `json:"success"`
+				FileID  string `json:"file_id"`
+			}{}),
+		)
+
+	doc, err := b.BuildOAS3()
+	require.NoError(t, err)
+	require.NotNil(t, doc)
+
+	// Verify operation exists
+	require.Contains(t, doc.Paths, "/upload")
+	require.NotNil(t, doc.Paths["/upload"].Post)
+
+	// Verify request body exists (OAS 3.x uses request body for form data)
+	rb := doc.Paths["/upload"].Post.RequestBody
+	require.NotNil(t, rb)
+	require.Contains(t, rb.Content, "application/x-www-form-urlencoded")
+
+	// Verify schema structure
+	schema := rb.Content["application/x-www-form-urlencoded"].Schema
+	require.NotNil(t, schema)
+	assert.Equal(t, "object", schema.Type)
+
+	// Verify file property
+	require.Contains(t, schema.Properties, "file")
+	fileSchema := schema.Properties["file"]
+	assert.Equal(t, "string", fileSchema.Type)
+	assert.Equal(t, "binary", fileSchema.Format)
+	assert.Equal(t, "File to upload", fileSchema.Description)
+
+	// Verify description property
+	require.Contains(t, schema.Properties, "description")
+	descSchema := schema.Properties["description"]
+	assert.Equal(t, "string", descSchema.Type)
+	assert.Equal(t, "File description", descSchema.Description)
+
+	// Verify required fields
+	require.Contains(t, schema.Required, "file")
+}
+
+func TestBuilder_RawSchema_BinaryDownload_Integration(t *testing.T) {
+	schema := &parser.Schema{
+		Type:   "string",
+		Format: "binary",
+	}
+
+	b := New(parser.OASVersion320).
+		SetTitle("Download API").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodGet, "/download/{id}",
+			WithOperationID("downloadFile"),
+			WithPathParam("id", int64(0), WithParamDescription("File ID")),
+			WithResponseRawSchema(http.StatusOK, "application/octet-stream", schema,
+				WithResponseDescription("Binary file content"),
+				WithResponseHeader("Content-Disposition", &parser.Header{
+					Description: "Suggested filename",
+					Schema:      &parser.Schema{Type: "string"},
+				}),
+			),
+		)
+
+	doc, err := b.BuildOAS3()
+	require.NoError(t, err)
+	require.NotNil(t, doc)
+
+	// Verify operation exists
+	require.Contains(t, doc.Paths, "/download/{id}")
+	require.NotNil(t, doc.Paths["/download/{id}"].Get)
+
+	// Verify response
+	resp := doc.Paths["/download/{id}"].Get.Responses.Codes["200"]
+	require.NotNil(t, resp)
+	assert.Equal(t, "Binary file content", resp.Description)
+
+	// Verify content type
+	require.Contains(t, resp.Content, "application/octet-stream")
+	mediaType := resp.Content["application/octet-stream"]
+	require.NotNil(t, mediaType.Schema)
+	assert.Equal(t, "string", mediaType.Schema.Type)
+	assert.Equal(t, "binary", mediaType.Schema.Format)
+
+	// Verify header
+	require.Contains(t, resp.Headers, "Content-Disposition")
+	assert.Equal(t, "Suggested filename", resp.Headers["Content-Disposition"].Description)
+}
+
+func TestBuilder_RawSchema_ComplexUpload_Integration(t *testing.T) {
+	// Complex schema for multipart upload with file and metadata
+	schema := &parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"file": {
+				Type:        "string",
+				Format:      "binary",
+				Description: "The file data",
+			},
+			"metadata": {
+				Type: "object",
+				Properties: map[string]*parser.Schema{
+					"filename": {Type: "string"},
+					"tags":     {Type: "array", Items: &parser.Schema{Type: "string"}},
+				},
+			},
+		},
+		Required: []string{"file"},
+	}
+
+	b := New(parser.OASVersion320).
+		SetTitle("Complex Upload API").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/upload-with-metadata",
+			WithOperationID("uploadWithMetadata"),
+			WithRequestBodyRawSchema("multipart/form-data", schema,
+				WithRequired(true),
+				WithRequestDescription("Upload file with metadata"),
+			),
+			WithResponse(http.StatusCreated, struct {
+				ID string `json:"id"`
+			}{}),
+		)
+
+	doc, err := b.BuildOAS3()
+	require.NoError(t, err)
+	require.NotNil(t, doc)
+
+	// Verify operation exists
+	require.Contains(t, doc.Paths, "/upload-with-metadata")
+	require.NotNil(t, doc.Paths["/upload-with-metadata"].Post)
+
+	// Verify request body
+	rb := doc.Paths["/upload-with-metadata"].Post.RequestBody
+	require.NotNil(t, rb)
+	assert.True(t, rb.Required)
+	assert.Equal(t, "Upload file with metadata", rb.Description)
+
+	// Verify schema structure
+	require.Contains(t, rb.Content, "multipart/form-data")
+	reqSchema := rb.Content["multipart/form-data"].Schema
+	require.NotNil(t, reqSchema)
+	assert.Equal(t, "object", reqSchema.Type)
+
+	// Verify file property
+	require.Contains(t, reqSchema.Properties, "file")
+	fileSchema := reqSchema.Properties["file"]
+	assert.Equal(t, "string", fileSchema.Type)
+	assert.Equal(t, "binary", fileSchema.Format)
+
+	// Verify metadata property
+	require.Contains(t, reqSchema.Properties, "metadata")
+	metadataSchema := reqSchema.Properties["metadata"]
+	assert.Equal(t, "object", metadataSchema.Type)
+	require.Contains(t, metadataSchema.Properties, "filename")
+	require.Contains(t, metadataSchema.Properties, "tags")
+
+	// Verify required fields
+	require.Contains(t, reqSchema.Required, "file")
+}
