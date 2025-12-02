@@ -184,6 +184,72 @@ func TestWithResponseRef(t *testing.T) {
 	assert.Equal(t, "#/components/responses/Success", b.paths["/test"].Get.Responses.Codes["200"].Ref)
 }
 
+func TestWithResponse_OAS20(t *testing.T) {
+	// Test that OAS 2.0 converts response content to direct schema
+	type Response struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+
+	b := New(parser.OASVersion20).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodGet, "/test",
+			WithResponse(http.StatusOK, Response{},
+				WithResponseDescription("Success response"),
+			),
+		)
+
+	require.NotNil(t, b.paths["/test"].Get.Responses)
+	require.Contains(t, b.paths["/test"].Get.Responses.Codes, "200")
+	resp := b.paths["/test"].Get.Responses.Codes["200"]
+	assert.Equal(t, "Success response", resp.Description)
+
+	// OAS 2.0 should NOT have Content
+	assert.Nil(t, resp.Content)
+
+	// OAS 2.0 should have direct Schema field with $ref
+	require.NotNil(t, resp.Schema)
+	assert.Contains(t, resp.Schema.Ref, "builder.Response")
+
+	// Check the actual schema in definitions
+	require.Contains(t, b.schemas, "builder.Response")
+	actualSchema := b.schemas["builder.Response"]
+	assert.Equal(t, "object", actualSchema.Type)
+	require.Contains(t, actualSchema.Properties, "success")
+	require.Contains(t, actualSchema.Properties, "message")
+}
+
+func TestWithResponseRawSchema_OAS20(t *testing.T) {
+	// Test that OAS 2.0 converts response content to direct schema with raw schema
+	schema := &parser.Schema{
+		Type:   "string",
+		Format: "binary",
+	}
+
+	b := New(parser.OASVersion20).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodGet, "/download",
+			WithResponseRawSchema(http.StatusOK, "application/octet-stream", schema,
+				WithResponseDescription("File download"),
+			),
+		)
+
+	require.NotNil(t, b.paths["/download"].Get.Responses)
+	require.Contains(t, b.paths["/download"].Get.Responses.Codes, "200")
+	resp := b.paths["/download"].Get.Responses.Codes["200"]
+	assert.Equal(t, "File download", resp.Description)
+
+	// OAS 2.0 should NOT have Content
+	assert.Nil(t, resp.Content)
+
+	// OAS 2.0 should have direct Schema field
+	require.NotNil(t, resp.Schema)
+	assert.Equal(t, "string", resp.Schema.Type)
+	assert.Equal(t, "binary", resp.Schema.Format)
+}
+
 func TestWithDefaultResponse(t *testing.T) {
 	type ErrorResponse struct {
 		Error string `json:"error"`
@@ -535,6 +601,80 @@ func TestWithRequestBodyRawSchema_WithExample(t *testing.T) {
 	require.NotNil(t, rb)
 	require.Contains(t, rb.Content, "application/json")
 	assert.Equal(t, example, rb.Content["application/json"].Example)
+}
+
+func TestWithRequestBodyRawSchema_OAS20(t *testing.T) {
+	// Test that OAS 2.0 converts requestBody to body parameter
+	schema := &parser.Schema{
+		Type:   "string",
+		Format: "binary",
+	}
+
+	b := New(parser.OASVersion20).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/upload",
+			WithRequestBodyRawSchema("application/octet-stream", schema,
+				WithRequired(true),
+				WithRequestDescription("File upload"),
+			),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	// OAS 2.0 should NOT have RequestBody
+	assert.Nil(t, b.paths["/upload"].Post.RequestBody)
+
+	// OAS 2.0 should have a body parameter
+	params := b.paths["/upload"].Post.Parameters
+	require.Len(t, params, 1)
+	assert.Equal(t, "body", params[0].Name)
+	assert.Equal(t, parser.ParamInBody, params[0].In)
+	assert.Equal(t, "File upload", params[0].Description)
+	assert.True(t, params[0].Required)
+	require.NotNil(t, params[0].Schema)
+	assert.Equal(t, "string", params[0].Schema.Type)
+	assert.Equal(t, "binary", params[0].Schema.Format)
+}
+
+func TestWithRequestBody_OAS20(t *testing.T) {
+	// Test that OAS 2.0 converts requestBody to body parameter with reflection
+	type RequestBody struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+
+	b := New(parser.OASVersion20).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodPost, "/users",
+			WithRequestBody("application/json", RequestBody{},
+				WithRequired(true),
+				WithRequestDescription("User data"),
+			),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	// OAS 2.0 should NOT have RequestBody
+	assert.Nil(t, b.paths["/users"].Post.RequestBody)
+
+	// OAS 2.0 should have a body parameter
+	params := b.paths["/users"].Post.Parameters
+	require.Len(t, params, 1)
+	assert.Equal(t, "body", params[0].Name)
+	assert.Equal(t, parser.ParamInBody, params[0].In)
+	assert.Equal(t, "User data", params[0].Description)
+	assert.True(t, params[0].Required)
+	require.NotNil(t, params[0].Schema)
+
+	// Schema should be a $ref to the generated schema
+	assert.Contains(t, params[0].Schema.Ref, "builder.RequestBody")
+
+	// Check the actual schema in definitions
+	require.Contains(t, b.schemas, "builder.RequestBody")
+	actualSchema := b.schemas["builder.RequestBody"]
+	assert.Equal(t, "object", actualSchema.Type)
+	require.Contains(t, actualSchema.Properties, "name")
+	require.Contains(t, actualSchema.Properties, "email")
 }
 
 func TestWithResponseRawSchema_WithHeaders(t *testing.T) {
