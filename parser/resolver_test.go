@@ -73,6 +73,12 @@ components:
 
 // TestMaxDepthExceeded tests that deeply nested references are rejected
 func TestMaxDepthExceeded(t *testing.T) {
+	// Skip this test when running with race detector due to high memory usage
+	// Building deeply nested structures with the race detector can exhaust memory
+	if testing.Short() {
+		t.Skip("Skipping resource-intensive test in short mode")
+	}
+	
 	tmpDir := t.TempDir()
 
 	// Create a spec with very deeply nested structure
@@ -148,6 +154,12 @@ components:
 
 // TestCacheLimitExhaustion tests that the cache limit prevents excessive memory usage
 func TestCacheLimitExhaustion(t *testing.T) {
+	// Skip this test when running with race detector due to high memory usage
+	// Creating many files and caching them with the race detector can exhaust memory
+	if testing.Short() {
+		t.Skip("Skipping resource-intensive test in short mode")
+	}
+	
 	tmpDir := t.TempDir()
 
 	// Create more external files than the cache limit
@@ -221,6 +233,13 @@ properties:
 
 // TestFileSizeLimit tests that large external files are rejected
 func TestFileSizeLimit(t *testing.T) {
+	// Skip this test when running with race detector due to high memory usage
+	// The race detector increases memory usage by 5-10x, and writing >10MB of data
+	// can cause GitHub Actions runners to kill the process
+	if testing.Short() {
+		t.Skip("Skipping resource-intensive test in short mode")
+	}
+	
 	tmpDir := t.TempDir()
 
 	// Create a file larger than MaxFileSize
