@@ -35,7 +35,7 @@ jobs:
 
     - name: Test with Race Detector
       timeout-minutes: 25  # Step-level timeout (slightly higher than go test timeout)
-      run: go test -v -race -timeout=20m -parallel=2 -skip='^Fuzz' ./...
+      run: go test -v -race -timeout=20m -p=1 -parallel=1 -skip='^Fuzz' ./...
       env:
-        GOMAXPROCS: 2  # Limit parallelism to avoid overwhelming the runner
+        GOMAXPROCS: 1  # Limit to 1 CPU to prevent resource exhaustion on GitHub Actions runners
         GORACE: "halt_on_error=1"  # Exit immediately on first race for faster feedback
