@@ -31,9 +31,9 @@ jobs:
 
     - name: Test
       timeout-minutes: 5  # Step-level timeout (slightly higher than go test timeout)
-      run: go test -v -coverprofile=coverage.txt -covermode=atomic -timeout=3m -parallel=1 -skip='^Fuzz' ./...
+      run: go test -v -coverprofile=coverage.txt -covermode=atomic -timeout=3m -p=1 -parallel=1 -skip='^Fuzz' ./...
       env:
-        GOMAXPROCS: 2  # Limit to 2 CPUs to match GitHub Actions standard runner
+        GOMAXPROCS: 1  # Limit to 1 CPU to prevent resource exhaustion on GitHub Actions runners
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5
