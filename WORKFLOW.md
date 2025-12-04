@@ -7,10 +7,11 @@ This document defines the standard workflow for the oastools repository, from co
 - [Development Workflow](#development-workflow)
   - [Table of Contents](#table-of-contents)
   - [Commit-to-PR Workflow](#commit-to-pr-workflow)
-    - [Pre-Commit Checklist](#pre-commit-checklist)
-    - [Commit Message Format](#commit-message-format)
-    - [Local Code Review](#local-code-review)
-    - [Pushing Changes](#pushing-changes)
+    - [Step 1: Create a Feature Branch](#step-1-create-a-feature-branch)
+    - [Step 2: Pre-Commit Checklist](#step-2-pre-commit-checklist)
+    - [Step 3: Commit Message Format](#step-3-commit-message-format)
+    - [Step 4: Local Code Review](#step-4-local-code-review)
+    - [Step 5: Pushing Changes](#step-5-pushing-changes)
   - [PR Workflow](#pr-workflow)
     - [Creating a Pull Request](#creating-a-pull-request)
     - [PR Title and Description](#pr-title-and-description)
@@ -26,7 +27,42 @@ This document defines the standard workflow for the oastools repository, from co
 
 ## Commit-to-PR Workflow
 
-### Pre-Commit Checklist
+### Step 1: Create a Feature Branch
+
+Before making any changes, create a feature branch from the latest main:
+
+1. **Update local main branch:**
+   ```bash
+   git checkout main
+   git pull origin main
+   ```
+
+2. **Create feature branch:**
+   ```bash
+   git checkout -b <type>/<summary-kebab-case>
+   ```
+
+   **Branch naming format:**
+   - `<type>`: Same as commit types (`feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`)
+   - `<summary-kebab-case>`: Brief description using kebab-case (lowercase with hyphens)
+
+   **Examples:**
+   ```bash
+   git checkout -b feat/add-oas-3.2-support
+   git checkout -b fix/handle-nil-schema-type
+   git checkout -b docs/update-api-examples
+   git checkout -b refactor/simplify-json-marshaling
+   git checkout -b chore/update-dependencies
+   ```
+
+3. **Verify you're on the new branch:**
+   ```bash
+   git branch --show-current
+   ```
+
+**IMPORTANT:** Never commit directly to the `main` branch. All changes must go through a feature branch and pull request.
+
+### Step 2: Pre-Commit Checklist
 
 Before committing code changes, ensure:
 
@@ -59,7 +95,7 @@ Before committing code changes, ensure:
    - Avoid over-engineering (only implement what's requested)
    - No backwards-compatibility hacks for unused code
 
-### Commit Message Format
+### Step 3: Commit Message Format
 
 **Structure:**
 ```
@@ -100,7 +136,7 @@ processing documents with missing type fields.
 Fixes #456
 ```
 
-### Local Code Review
+### Step 4: Local Code Review
 
 **One-time setup:**
 ```bash
@@ -119,7 +155,7 @@ Fixes #456
 ./scripts/local-code-review.sh branch
 ```
 
-### Pushing Changes
+### Step 5: Pushing Changes
 
 **Standard push:**
 ```bash
