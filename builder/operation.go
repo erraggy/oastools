@@ -744,7 +744,11 @@ func (b *Builder) setOperation(pathItem *parser.PathItem, method string, op *par
 	case httputil.MethodPatch, "PATCH":
 		pathItem.Patch = op
 	case httputil.MethodTrace, "TRACE":
-		pathItem.Trace = op
+		if b.version >= parser.OASVersion300 {
+			pathItem.Trace = op
+		} else {
+			b.errors = append(b.errors, fmt.Errorf("TRACE method is only supported in OAS 3.0+"))
+		}
 	case httputil.MethodQuery, "QUERY":
 		if b.version >= parser.OASVersion320 {
 			pathItem.Query = op
