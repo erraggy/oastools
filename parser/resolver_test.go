@@ -78,7 +78,7 @@ func TestMaxDepthExceeded(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping resource-intensive test in short mode")
 	}
-	
+
 	tmpDir := t.TempDir()
 
 	// Create a spec with very deeply nested structure
@@ -159,7 +159,7 @@ func TestCacheLimitExhaustion(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping resource-intensive test in short mode")
 	}
-	
+
 	tmpDir := t.TempDir()
 
 	// Create more external files than the cache limit
@@ -239,7 +239,7 @@ func TestFileSizeLimit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping resource-intensive test in short mode")
 	}
-	
+
 	tmpDir := t.TempDir()
 
 	// Create a file larger than MaxFileSize
