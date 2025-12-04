@@ -229,256 +229,35 @@ gh run watch <RUN_ID>               # Monitor running workflow
 gh pr view <PR_NUMBER> --comments   # Get all PR comments (including bot reviews)
 ```
 
-## Local Code Review
+## Development Workflow
 
-We use local Claude Code review instead of GitHub Actions to provide faster feedback during development.
+For detailed information on the development workflow from commit to pull request to release, see [WORKFLOW.md](WORKFLOW.md).
 
-### Setup
+**Quick reference:**
+- **Before committing:** Run `make check`, verify test coverage, update benchmarks if needed
+- **Commit format:** Conventional commits (e.g., `feat(parser): add feature`)
+- **Local review:** `./scripts/local-code-review.sh branch`
+- **Creating PR:** Use `gh pr create` with detailed description
+- **Release process:** Tag → CI builds draft → Review → Publish
 
-Install the pre-push hook (one-time setup):
-```bash
-./scripts/install-git-hooks.sh
-```
+## Release Process
 
-This installs a Git hook that runs Claude Code review before each push.
+For detailed release procedures, see the **PR-to-Release Workflow** section in [WORKFLOW.md](WORKFLOW.md).
 
-### Manual Review
+**Quick reference:**
+1. Update benchmarks per [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md)
+2. Tag release: `git tag v1.X.Y && git push origin v1.X.Y`
+3. Monitor workflow: `gh run watch <RUN_ID>`
+4. Verify draft: `gh release view v1.X.Y`
+5. Generate release notes (use Claude Code)
+6. Publish: `gh release edit v1.X.Y --draft=false`
 
-Run code review manually anytime:
-```bash
-# Review all uncommitted changes
-./scripts/local-code-review.sh
-
-# Review only staged changes (useful before commit)
-./scripts/local-code-review.sh staged
-
-# Review all changes in current branch (useful before PR)
-./scripts/local-code-review.sh branch
-```
-
-### Skipping Review
-
-To skip the pre-push review (use sparingly):
-```bash
-SKIP_REVIEW=1 git push
-```
-
-To bypass the hook entirely (not recommended):
-```bash
-git push --no-verify
-```
-
-## Submitting Changes
-
-**Before Submitting:**
-1. Run `make check` - all code formatted, lints/tests pass
-2. Run `make test-coverage` - review coverage report
-3. Verify all new exported functionality has tests
-4. Update benchmarks with `make bench-save` if changes affect performance
-5. Check for security vulnerabilities: `govulncheck`
-6. Run local code review: `./scripts/local-code-review.sh branch`
-
-**Never submit a PR with:**
-- Untested exported functions, methods, or types
-- Tests that only cover the "happy path" without error cases
-- Performance regressions without documented justification
-
-**Commit Message Format:**
-- First line: Conventional commit message within 72 characters
-- Body: Simply formatted (max 100 columns), basic reasoning and changes
-- PR: Same title as commit, detailed markdown with reasoning, changes, and context
-
-## Creating a New Release
-
-### Prerequisites
-
-1. On `main` branch, up-to-date with `origin/main`
-2. All tests pass: `make check`
-3. Update benchmark results per [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md)
-4. Review merged PRs since last release
-
-### Semantic Versioning
-
-- **PATCH** (`v1.6.0` → `v1.6.1`): Bug fixes, docs, small refactors without API changes
-- **MINOR** (`v1.6.0` → `v1.7.0`): New features, optimizations, new public APIs (backward compatible)
-- **MAJOR** (`v1.6.0` → `v2.0.0`): Breaking changes to public APIs (rare)
-
-**Note on v1.13.0:** This release removed 11 deprecated package-level convenience functions in favor of the `*WithOptions` functional options API. While this is technically a breaking change, it was released as a MINOR version (v1.13.0) instead of MAJOR (v2.0.0) because:
-- The module is still relatively new with minimal library adoption
-- The deprecated functions were marked as deprecated in previous releases
-- The migration path is straightforward (see MIGRATION_V1.12_TO_V1.13.md)
-- The struct-based API (which is the recommended approach for most use cases) remains unchanged
-
-Future breaking changes will follow semantic versioning more strictly and will trigger a major version bump.
-
-### GitHub PAT Setup (Required)
-
-**REQUIRED:** Create `HOMEBREW_TAP_TOKEN` secret with `repo` scope to push to homebrew-oastools repository.
-
-1. GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Generate token with `repo` scope
-3. Add to repository: Settings → Secrets and variables → Actions
-4. Name: `HOMEBREW_TAP_TOKEN`
-
-Verify setup: `gh secret list --repo erraggy/oastools`
-
-### GitHub Repository Settings
-
-1. **Release immutability** - ENABLED (compatible with tag-first workflow)
-2. **Workflow permissions** - "Read and write permissions" required (Settings → Actions → General)
-3. **Branch protection** - Enabled on `main` branch (does not affect tag creation)
-
-### Release Process
-
-This process is compatible with GitHub's **immutable releases** feature. The workflow creates a draft release first, then requires a human to publish it.
-
-**Workflow:** Push tag → Workflow creates draft + uploads assets → Human reviews → Human publishes
+**Semantic versioning:**
+- **PATCH**: Bug fixes, docs, small refactors
+- **MINOR**: New features, APIs (backward compatible)
+- **MAJOR**: Breaking API changes
 
 See [planning/releases-with-immutability.md](planning/releases-with-immutability.md) for detailed analysis.
-
-**Step 1:** Prepare for release
-```bash
-# Ensure you're on main and up-to-date
-git checkout main
-git pull origin main
-
-# Run all checks
-make check
-
-# Review changes since last release
-git log $(git describe --tags --abbrev=0)..HEAD --oneline
-```
-
-**Step 2:** Create and push the tag
-```bash
-# Determine the next version (follow semver)
-# Create and push the tag (this triggers the workflow)
-git tag v1.X.Y
-git push origin v1.X.Y
-```
-
-**Step 3:** Monitor the workflow
-```bash
-# Watch the workflow run
-gh run list --workflow=release.yml --limit=1
-
-# Get the run ID and monitor progress
-gh run watch <RUN_ID>
-```
-
-The workflow will:
-- Build binaries for all platforms
-- Create a **draft** release on GitHub
-- Upload all binary assets to the draft
-- Push the Homebrew formula to `erraggy/homebrew-oastools`
-
-**Step 4:** Verify the draft release
-```bash
-# Confirm draft status and assets
-gh release view v1.X.Y --json isDraft,assets --jq '{isDraft, assetCount: (.assets | length), assets: [.assets[].name]}'
-```
-
-Expected: `isDraft: true` with 8 assets (checksums + binaries for Darwin, Linux, Windows).
-
-**Step 5:** Generate and set release notes
-
-Ask Claude Code to generate release notes based on commits and PRs since the last release. Claude will:
-- Review git log and merged PRs
-- Categorize changes (features, bug fixes, improvements, breaking changes)
-- Generate well-formatted markdown release notes
-- Apply them to the draft release
-
-Example prompt: "Generate release notes for v1.X.Y based on changes since the last release"
-
-Claude will run:
-```bash
-# Review changes
-git log $(git describe --tags --abbrev=0)..HEAD --oneline
-
-# Review merged PRs
-gh pr list --state merged --limit 20
-
-# Generate and apply formatted notes
-gh release edit v1.X.Y --notes "$(cat <<'EOF'
-## Summary
-[High-level overview of what this release delivers]
-
-## What's New
-- [Feature 1: Description]
-- [Feature 2: Description]
-
-## Bug Fixes
-- [Fix 1]
-
-## Improvements
-- [Improvement 1]
-
-## Breaking Changes
-- [If any]
-
-## Related PRs
-- #XX - [PR title]
-
-## Installation
-
-### Homebrew
-\`\`\`bash
-brew tap erraggy/oastools
-brew install oastools
-\`\`\`
-
-### Go Module
-\`\`\`bash
-go get github.com/erraggy/oastools@v1.X.Y
-\`\`\`
-
-### Binary Download
-Download the appropriate binary for your platform from the assets below.
-EOF
-)"
-```
-
-Release notes can be edited before or after publishing via `gh release edit` or the GitHub web UI.
-
-**Step 6:** Publish the release (hands-on-keyboard)
-```bash
-# This makes the release immutable (tags and assets are locked)
-gh release edit v1.X.Y --draft=false
-```
-
-**Step 7:** Test installation
-```bash
-brew update
-brew upgrade oastools || brew install erraggy/oastools/oastools
-oastools --version
-```
-
-### Troubleshooting
-
-**Workflow failed before creating draft:**
-```bash
-# Delete the tag and start over
-git push origin :refs/tags/v1.X.Y
-git tag -d v1.X.Y
-# Fix the issue, then repeat from Step 2
-```
-
-**Workflow failed after creating draft (missing assets):**
-```bash
-# Delete the draft release and tag
-gh release delete v1.X.Y --yes
-git push origin :refs/tags/v1.X.Y
-git tag -d v1.X.Y
-# Fix the issue, then repeat from Step 2
-```
-
-**Accidentally published too early:**
-With immutability enabled, this cannot be fixed. You must delete the release (may require temporarily disabling immutability), delete the tag, increment the version, and start over.
-
-**Other issues:**
-- **GoReleaser can't push**: Verify `homebrew-oastools` repo exists, token has `repo` scope, commit author email verified
-- **Build fails**: Review GitHub Actions logs, check CGO dependencies, test with `make release-test`
-- **Formula doesn't work**: Verify formula in homebrew-oastools, test in clean environment
 
 ## Go Module
 
