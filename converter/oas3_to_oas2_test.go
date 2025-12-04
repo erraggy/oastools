@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -11,10 +12,10 @@ import (
 // TestConvertParametersToOAS2 tests the convertParametersToOAS2 method.
 func TestConvertParametersToOAS2(t *testing.T) {
 	tests := []struct {
-		name       string
-		params     []*parser.Parameter
-		wantCount  int
-		wantNil    bool
+		name      string
+		params    []*parser.Parameter
+		wantCount int
+		wantNil   bool
 	}{
 		{
 			name:      "nil parameters",
@@ -108,12 +109,12 @@ func TestConvertParametersToOAS2(t *testing.T) {
 // TestConvertSecuritySchemes tests the convertSecuritySchemes method.
 func TestConvertSecuritySchemes(t *testing.T) {
 	tests := []struct {
-		name          string
-		src           *parser.OAS3Document
-		wantSchemes   int
-		checkIssues   bool
-		expectedType  string
-		schemeName    string
+		name         string
+		src          *parser.OAS3Document
+		wantSchemes  int
+		checkIssues  bool
+		expectedType string
+		schemeName   string
 	}{
 		{
 			name: "no security schemes",
@@ -385,7 +386,7 @@ func TestConvertOAS3OperationToOAS2_EdgeCases(t *testing.T) {
 				assert.NotEmpty(t, result.Issues, "Expected issue about callbacks")
 				foundCallback := false
 				for _, issue := range result.Issues {
-					if issue.Severity == SeverityCritical && contains(issue.Message, "callbacks") {
+					if issue.Severity == SeverityCritical && strings.Contains(issue.Message, "callbacks") {
 						foundCallback = true
 						break
 					}
@@ -576,24 +577,10 @@ func TestConvertOAS3PathItemToOAS2_Trace(t *testing.T) {
 
 	foundTrace := false
 	for _, issue := range result.Issues {
-		if issue.Severity == SeverityCritical && contains(issue.Message, "TRACE") {
+		if issue.Severity == SeverityCritical && strings.Contains(issue.Message, "TRACE") {
 			foundTrace = true
 			break
 		}
 	}
 	assert.True(t, foundTrace, "Expected critical issue about TRACE method")
-}
-
-// contains is a helper function to check if a string contains a substring.
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsAt(s, substr))
-}
-
-func containsAt(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

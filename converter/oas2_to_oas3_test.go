@@ -204,7 +204,7 @@ func TestConvertOAS2OperationToOAS3_EdgeCases(t *testing.T) {
 						Type: "string",
 					},
 				},
-				Consumes: []string{"application/json"},
+				Consumes:  []string{"application/json"},
 				Responses: &parser.Responses{},
 			},
 			doc: &parser.OAS2Document{},
@@ -260,7 +260,7 @@ func TestConvertOAS2OperationToOAS3_EdgeCases(t *testing.T) {
 // TestConvertOAS2PathItemToOAS3_AllMethods tests all HTTP methods in convertOAS2PathItemToOAS3.
 func TestConvertOAS2PathItemToOAS3_AllMethods(t *testing.T) {
 	c := New()
-	
+
 	pathItem := &parser.PathItem{
 		Summary:     "Test path",
 		Description: "Test description",
@@ -293,7 +293,7 @@ func TestConvertOAS2PathItemToOAS3_AllMethods(t *testing.T) {
 			Responses: &parser.Responses{},
 		},
 	}
-	
+
 	doc := &parser.OAS2Document{}
 	result := &ConversionResult{}
 
@@ -378,12 +378,12 @@ func TestGetProduces(t *testing.T) {
 // TestConvertServers tests the convertServers method with different scenarios.
 func TestConvertServers(t *testing.T) {
 	tests := []struct {
-		name         string
-		src          *parser.OAS2Document
-		wantServers  int
-		checkFirst   bool
-		expectedURL  string
-		checkIssues  bool
+		name        string
+		src         *parser.OAS2Document
+		wantServers int
+		checkFirst  bool
+		expectedURL string
+		checkIssues bool
 	}{
 		{
 			name: "no host",
