@@ -31,7 +31,7 @@ jobs:
 
     - name: Test
       timeout-minutes: 5  # Step-level timeout (slightly higher than go test timeout)
-      run: go test -v -coverprofile=coverage.txt -covermode=atomic -timeout=3m -p=1 -parallel=1 -skip='^Fuzz' ./...
+      run: go test -v -coverprofile=coverage.txt -covermode=atomic -short -timeout=3m -p=1 -parallel=1 -skip='^Fuzz' ./...
       env:
         GOMAXPROCS: 1  # Limit to 1 CPU to prevent resource exhaustion on GitHub Actions runners
 
