@@ -440,6 +440,28 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 
 		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
 
+		// Validate QUERY method is not used in OAS 2.0
+		if pathItem.Query != nil {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     fmt.Sprintf("%s.query", pathPrefix),
+				Message:  "QUERY method is only supported in OAS 3.2+, not in OAS 2.0",
+				SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
+				Severity: SeverityError,
+				Field:    "query",
+			})
+		}
+
+		// Validate TRACE method is not used in OAS 2.0
+		if pathItem.Trace != nil {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     fmt.Sprintf("%s.trace", pathPrefix),
+				Message:  "TRACE method is only supported in OAS 3.0+, not in OAS 2.0",
+				SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
+				Severity: SeverityError,
+				Field:    "trace",
+			})
+		}
+
 		// Validate each operation
 		operations := parser.GetOperations(pathItem, parser.OASVersion20)
 
@@ -1030,6 +1052,17 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 		checkTrailingSlash(v, pathPattern, result, baseURL)
 
 		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
+
+		// Validate QUERY method is only used in OAS 3.2+
+		if pathItem.Query != nil && doc.OASVersion < parser.OASVersion320 {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     fmt.Sprintf("%s.query", pathPrefix),
+				Message:  fmt.Sprintf("QUERY method is only supported in OAS 3.2+, but document is version %s", doc.OASVersion),
+				SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
+				Severity: SeverityError,
+				Field:    "query",
+			})
+		}
 
 		// Validate each operation
 		operations := getOperationsForVersion(pathItem, doc.OASVersion)

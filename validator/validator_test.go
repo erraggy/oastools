@@ -1404,3 +1404,229 @@ func TestApplyOptions_OverrideDefaults_Validator(t *testing.T) {
 	assert.True(t, cfg.strictMode)
 	assert.Equal(t, "custom/1.0", cfg.userAgent)
 }
+
+// TestQueryMethodValidation tests that QUERY method is validated based on OAS version
+func TestQueryMethodValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		version     parser.OASVersion
+		shouldError bool
+	}{
+		{
+			name:        "QUERY in OAS 3.2.0 - valid",
+			version:     parser.OASVersion320,
+			shouldError: false,
+		},
+		{
+			name:        "QUERY in OAS 3.1.0 - error",
+			version:     parser.OASVersion310,
+			shouldError: true,
+		},
+		{
+			name:        "QUERY in OAS 3.0.3 - error",
+			version:     parser.OASVersion303,
+			shouldError: true,
+		},
+		{
+			name:        "QUERY in OAS 2.0 - error",
+			version:     parser.OASVersion20,
+			shouldError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var doc interface{}
+
+			if tt.version == parser.OASVersion20 {
+				doc = &parser.OAS2Document{
+					Swagger: "2.0",
+					Info: &parser.Info{
+						Title:   "Test API",
+						Version: "1.0.0",
+					},
+					Paths: map[string]*parser.PathItem{
+						"/test": {
+							Query: &parser.Operation{
+								OperationID: "queryTest",
+								Responses: &parser.Responses{
+									Codes: map[string]*parser.Response{
+										"200": {Description: "OK"},
+									},
+								},
+							},
+						},
+					},
+				}
+			} else {
+				doc = &parser.OAS3Document{
+					OASVersion: tt.version,
+					OpenAPI:    tt.version.String(),
+					Info: &parser.Info{
+						Title:   "Test API",
+						Version: "1.0.0",
+					},
+					Paths: map[string]*parser.PathItem{
+						"/test": {
+							Query: &parser.Operation{
+								OperationID: "queryTest",
+								Responses: &parser.Responses{
+									Codes: map[string]*parser.Response{
+										"200": {Description: "OK"},
+									},
+								},
+							},
+						},
+					},
+				}
+			}
+
+			parseResult := &parser.ParseResult{
+				OASVersion: tt.version,
+				Document:   doc,
+			}
+
+			v := New()
+			result, err := v.ValidateParsed(*parseResult)
+			require.NoError(t, err)
+
+			if tt.shouldError {
+				assert.False(t, result.Valid, "Document should be invalid when QUERY used in %s", tt.version)
+				assert.NotEmpty(t, result.Errors, "Should have validation errors")
+
+				// Check for QUERY-specific error
+				foundQueryError := false
+				for _, e := range result.Errors {
+					if strings.Contains(e.Path, ".query") && strings.Contains(e.Message, "QUERY method") {
+						foundQueryError = true
+						break
+					}
+				}
+				assert.True(t, foundQueryError, "Should have error about QUERY method not being supported in %s", tt.version)
+			} else {
+				// In OAS 3.2, QUERY should be valid
+				hasQueryError := false
+				for _, e := range result.Errors {
+					if strings.Contains(e.Path, ".query") && strings.Contains(e.Message, "QUERY method") {
+						hasQueryError = true
+						break
+					}
+				}
+				assert.False(t, hasQueryError, "Should not have QUERY method error in OAS 3.2")
+			}
+		})
+	}
+}
+
+// TestTraceMethodValidation tests that TRACE method is validated based on OAS version
+func TestTraceMethodValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		version     parser.OASVersion
+		shouldError bool
+	}{
+		{
+			name:        "TRACE in OAS 3.2.0 - valid",
+			version:     parser.OASVersion320,
+			shouldError: false,
+		},
+		{
+			name:        "TRACE in OAS 3.1.0 - valid",
+			version:     parser.OASVersion310,
+			shouldError: false,
+		},
+		{
+			name:        "TRACE in OAS 3.0.3 - valid",
+			version:     parser.OASVersion303,
+			shouldError: false,
+		},
+		{
+			name:        "TRACE in OAS 2.0 - error",
+			version:     parser.OASVersion20,
+			shouldError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var doc interface{}
+
+			if tt.version == parser.OASVersion20 {
+				doc = &parser.OAS2Document{
+					Swagger: "2.0",
+					Info: &parser.Info{
+						Title:   "Test API",
+						Version: "1.0.0",
+					},
+					Paths: map[string]*parser.PathItem{
+						"/test": {
+							Trace: &parser.Operation{
+								OperationID: "traceTest",
+								Responses: &parser.Responses{
+									Codes: map[string]*parser.Response{
+										"200": {Description: "OK"},
+									},
+								},
+							},
+						},
+					},
+				}
+			} else {
+				doc = &parser.OAS3Document{
+					OASVersion: tt.version,
+					OpenAPI:    tt.version.String(),
+					Info: &parser.Info{
+						Title:   "Test API",
+						Version: "1.0.0",
+					},
+					Paths: map[string]*parser.PathItem{
+						"/test": {
+							Trace: &parser.Operation{
+								OperationID: "traceTest",
+								Responses: &parser.Responses{
+									Codes: map[string]*parser.Response{
+										"200": {Description: "OK"},
+									},
+								},
+							},
+						},
+					},
+				}
+			}
+
+			parseResult := &parser.ParseResult{
+				OASVersion: tt.version,
+				Document:   doc,
+			}
+
+			v := New()
+			result, err := v.ValidateParsed(*parseResult)
+			require.NoError(t, err)
+
+			if tt.shouldError {
+				assert.False(t, result.Valid, "Document should be invalid when TRACE used in %s", tt.version)
+				assert.NotEmpty(t, result.Errors, "Should have validation errors")
+
+				// Check for TRACE-specific error
+				foundTraceError := false
+				for _, e := range result.Errors {
+					if strings.Contains(e.Path, ".trace") && strings.Contains(e.Message, "TRACE method") {
+						foundTraceError = true
+						break
+					}
+				}
+				assert.True(t, foundTraceError, "Should have error about TRACE method not being supported in %s", tt.version)
+			} else {
+				// In OAS 3.x, TRACE should be valid
+				hasTraceError := false
+				for _, e := range result.Errors {
+					if strings.Contains(e.Path, ".trace") && strings.Contains(e.Message, "TRACE method") {
+						hasTraceError = true
+						break
+					}
+				}
+				assert.False(t, hasTraceError, "Should not have TRACE method error in %s", tt.version)
+			}
+		})
+	}
+}

@@ -125,6 +125,68 @@ func TestParseOAS32(t *testing.T) {
 	}
 }
 
+func TestParseOAS32WithQueryMethod(t *testing.T) {
+	// Test that QUERY method is correctly parsed in OAS 3.2 document
+	data := []byte(`openapi: 3.2.0
+info:
+  title: Test API with QUERY
+  version: 1.0.0
+paths:
+  /users:
+    query:
+      operationId: queryUsers
+      summary: Query users
+      responses:
+        '200':
+          description: Successful query response
+`)
+
+	parser := New()
+	result, err := parser.ParseBytes(data)
+	if err != nil {
+		t.Fatalf("Failed to parse OAS 3.2 document with QUERY: %v", err)
+	}
+
+	if result.Version != "3.2.0" {
+		t.Errorf("Expected version 3.2.0, got %s", result.Version)
+	}
+
+	doc, ok := result.Document.(*OAS3Document)
+	if !ok {
+		t.Fatalf("Expected OAS3Document, got %T", result.Document)
+	}
+
+	// Verify QUERY operation is present
+	usersPath := doc.Paths["/users"]
+	if usersPath == nil {
+		t.Fatal("Expected /users path to be present")
+	}
+
+	if usersPath.Query == nil {
+		t.Fatal("Expected QUERY operation to be present")
+	}
+
+	if usersPath.Query.OperationID != "queryUsers" {
+		t.Errorf("Expected operationId 'queryUsers', got %s", usersPath.Query.OperationID)
+	}
+
+	if usersPath.Query.Summary != "Query users" {
+		t.Errorf("Expected summary 'Query users', got %s", usersPath.Query.Summary)
+	}
+
+	// Verify GetOperations includes QUERY for OAS 3.2
+	ops := GetOperations(usersPath, OASVersion320)
+	if ops["query"] == nil {
+		t.Error("Expected 'query' to be in operations map for OAS 3.2")
+	}
+
+	// Verify GetOperations excludes QUERY for earlier versions
+	opsOAS31 := GetOperations(usersPath, OASVersion310)
+	if opsOAS31["query"] != nil {
+		t.Error("Expected 'query' to NOT be in operations map for OAS 3.1")
+	}
+}
+
 func TestParseInvalidFile(t *testing.T) {
 	parser := New()
 	_, err := parser.Parse("nonexistent.yaml")
