@@ -496,10 +496,10 @@ go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 **Development:**
 ```bash
-make check              # Run all quality checks
-make test-coverage      # View test coverage
-make bench-save         # Update benchmarks
-govulncheck ./...       # Check for vulnerabilities
+make check                                              # Run all quality checks
+make test-coverage                                      # View test coverage
+make bench-save                                         # Update benchmarks
+go run golang.org/x/vuln/cmd/govulncheck@latest ./...  # Check for vulnerabilities
 ```
 
 **Git workflow:**
