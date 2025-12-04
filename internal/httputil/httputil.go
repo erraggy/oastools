@@ -25,6 +25,7 @@ const (
 	MethodHead    = "head"
 	MethodPatch   = "patch"
 	MethodTrace   = "trace" // OAS 3.0+ only
+	MethodQuery   = "query" // OAS 3.2+ only
 )
 
 // Wildcard boundary characters for validation

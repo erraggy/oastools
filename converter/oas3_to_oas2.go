@@ -180,6 +180,12 @@ func (c *Converter) convertOAS3PathItemToOAS2(src *parser.PathItem, doc *parser.
 			"TRACE method is OAS 3.x only and cannot be converted to OAS 2.0", SeverityCritical)
 	}
 
+	// Query is OAS 3.2+ only
+	if src.Query != nil {
+		c.addIssue(result, fmt.Sprintf("%s.query", pathPrefix),
+			"QUERY method is OAS 3.2+ only and cannot be converted to OAS 2.0", SeverityCritical)
+	}
+
 	return dst
 }
 

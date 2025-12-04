@@ -24,6 +24,7 @@ type PathItem struct {
 	Head        *Operation   `yaml:"head,omitempty" json:"head,omitempty"`
 	Patch       *Operation   `yaml:"patch,omitempty" json:"patch,omitempty"`
 	Trace       *Operation   `yaml:"trace,omitempty" json:"trace,omitempty"`     // OAS 3.0+
+	Query       *Operation   `yaml:"query,omitempty" json:"query,omitempty"`     // OAS 3.2+
 	Servers     []*Server    `yaml:"servers,omitempty" json:"servers,omitempty"` // OAS 3.0+
 	Parameters  []*Parameter `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")

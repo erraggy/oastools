@@ -646,7 +646,7 @@ func rewritePathItemRefsOAS2ToOAS3(pathItem *parser.PathItem) {
 	}
 
 	// Rewrite refs in each operation
-	operations := parser.GetOAS2Operations(pathItem)
+	operations := parser.GetOperations(pathItem, parser.OASVersion20)
 	for _, op := range operations {
 		if op == nil {
 			continue
@@ -684,7 +684,10 @@ func rewritePathItemRefsOAS3ToOAS2(pathItem *parser.PathItem) {
 	}
 
 	// Rewrite refs in each operation
-	operations := parser.GetOAS3Operations(pathItem)
+	// Note: We use OASVersion300 here as a representative OAS 3.x version since this function
+	// is only called during OAS3→OAS2 conversion and the QUERY method (OAS 3.2+) cannot be
+	// converted to OAS 2.0 anyway (handled separately in convertOAS3PathItemToOAS2).
+	operations := parser.GetOperations(pathItem, parser.OASVersion300)
 	for _, op := range operations {
 		if op == nil {
 			continue
