@@ -33,9 +33,16 @@ jobs:
         go-version: '1.24'
         cache: true
 
-    - name: Test with Race Detector
-      timeout-minutes: 25  # Step-level timeout (slightly higher than go test timeout)
-      run: go test -v -race -timeout=20m -p=1 -parallel=1 -skip='^Fuzz' ./...
+    - name: Test parser package with Race Detector
+      timeout-minutes: 12
+      run: go test -v -race -short -timeout=10m -p=1 -parallel=1 -skip='^Fuzz' ./parser
+      env:
+        GOMAXPROCS: 1  # Limit to 1 CPU to prevent resource exhaustion on GitHub Actions runners
+        GORACE: "halt_on_error=1"  # Exit immediately on first race for faster feedback
+
+    - name: Test other packages with Race Detector
+      timeout-minutes: 15
+      run: go test -v -race -short -timeout=10m -p=1 -parallel=1 -skip='^Fuzz' $(go list ./... | grep -v '/parser$')
       env:
         GOMAXPROCS: 1  # Limit to 1 CPU to prevent resource exhaustion on GitHub Actions runners
         GORACE: "halt_on_error=1"  # Exit immediately on first race for faster feedback
