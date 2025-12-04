@@ -9,6 +9,10 @@ import (
 
 // TestCircularReferenceDetection tests that circular references are properly detected and rejected
 func TestCircularReferenceDetection(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping circular reference test in short mode due to high memory usage with race detector")
+	}
+
 	tmpDir := t.TempDir()
 
 	// Create a spec with a circular reference
@@ -467,6 +471,10 @@ func TestHTTPReferencesNotSupported(t *testing.T) {
 // TestCircularSelfReferenceInResolve tests that a schema with a circular self-reference
 // doesn't cause an infinite loop during resolution. This test case was discovered by fuzzing.
 func TestCircularSelfReferenceInResolve(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping circular reference test in short mode due to high memory usage with race detector")
+	}
+
 	// This input was discovered by the fuzzer and caused an infinite loop
 	// The key issue: a circular reference (Node.next -> Node) that creates an
 	// infinite expansion when resolving refs
@@ -521,6 +529,10 @@ components:
 // TestRefToDocumentRoot tests that a $ref pointing to the document root ("#")
 // doesn't cause an infinite loop. This test case was discovered by fuzzing.
 func TestRefToDocumentRoot(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping document root reference test in short mode due to high memory usage with race detector")
+	}
+
 	// This input was discovered by the fuzzer and caused an infinite loop
 	// The issue: $ref: "#" points to the document root, creating infinite recursion
 	input := []byte(`openapi: 3.0.0
