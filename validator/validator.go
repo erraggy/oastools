@@ -928,11 +928,6 @@ func (v *Validator) validateOAS3Info(doc *parser.OAS3Document, result *Validatio
 	}
 }
 
-// getOperationsForVersion returns the appropriate operations map based on OAS version
-func getOperationsForVersion(pathItem *parser.PathItem, version parser.OASVersion) map[string]*parser.Operation {
-	return parser.GetOperations(pathItem, version)
-}
-
 // validateOAS3OperationIds validates that operationIds are unique across the document
 func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *ValidationResult, baseURL string) {
 	operationIds := make(map[string]string) // map of operationId -> path where first seen
@@ -944,7 +939,7 @@ func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *V
 				continue
 			}
 
-			operations := getOperationsForVersion(pathItem, doc.OASVersion)
+			operations := parser.GetOperations(pathItem, doc.OASVersion)
 
 			v.checkDuplicateOperationIds(operations, "paths", pathPattern, operationIds, result, baseURL)
 		}
@@ -956,7 +951,7 @@ func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *V
 			continue
 		}
 
-		operations := getOperationsForVersion(pathItem, doc.OASVersion)
+		operations := parser.GetOperations(pathItem, doc.OASVersion)
 
 		v.checkDuplicateOperationIds(operations, "webhooks", webhookName, operationIds, result, baseURL)
 	}
@@ -1065,7 +1060,7 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 		}
 
 		// Validate each operation
-		operations := getOperationsForVersion(pathItem, doc.OASVersion)
+		operations := parser.GetOperations(pathItem, doc.OASVersion)
 
 		for method, op := range operations {
 			if op == nil {
@@ -1469,7 +1464,7 @@ func (v *Validator) validateOAS3Webhooks(doc *parser.OAS3Document, result *Valid
 		pathPrefix := fmt.Sprintf("webhooks.%s", webhookName)
 
 		// Validate each operation in the webhook
-		operations := getOperationsForVersion(pathItem, doc.OASVersion)
+		operations := parser.GetOperations(pathItem, doc.OASVersion)
 
 		for method, op := range operations {
 			if op == nil {
@@ -1497,7 +1492,7 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 		pathParams := extractPathParameters(pathPattern)
 
 		// Check all operations in this path
-		operations := getOperationsForVersion(pathItem, doc.OASVersion)
+		operations := parser.GetOperations(pathItem, doc.OASVersion)
 
 		for method, op := range operations {
 			if op == nil {
@@ -1604,7 +1599,7 @@ func (v *Validator) validateOAS3SecurityRequirements(doc *parser.OAS3Document, r
 				continue
 			}
 
-			operations := getOperationsForVersion(pathItem, doc.OASVersion)
+			operations := parser.GetOperations(pathItem, doc.OASVersion)
 
 			for method, op := range operations {
 				if op == nil {
@@ -2567,7 +2562,7 @@ func (v *Validator) validateOAS3Refs(doc *parser.OAS3Document, result *Validatio
 			}
 
 			// Validate each operation
-			operations := getOperationsForVersion(pathItem, doc.OASVersion)
+			operations := parser.GetOperations(pathItem, doc.OASVersion)
 			for method, op := range operations {
 				if op == nil {
 					continue
@@ -2621,7 +2616,7 @@ func (v *Validator) validateOAS3Refs(doc *parser.OAS3Document, result *Validatio
 		}
 
 		// Validate webhook operations
-		operations := getOperationsForVersion(pathItem, doc.OASVersion)
+		operations := parser.GetOperations(pathItem, doc.OASVersion)
 		for method, op := range operations {
 			if op == nil {
 				continue
