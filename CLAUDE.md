@@ -257,7 +257,7 @@ For detailed release procedures, see the **PR-to-Release Workflow** section in [
 - **MINOR**: New features, APIs (backward compatible)
 - **MAJOR**: Breaking API changes
 
-See [planning/releases-with-immutability.md](planning/releases-with-immutability.md) for detailed analysis.
+For detailed release workflow, see [WORKFLOW.md](WORKFLOW.md).
 
 ## Go Module
 

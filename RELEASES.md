@@ -379,12 +379,12 @@ With immutability enabled:
 ### oastools Documentation
 
 - [CLAUDE.md](./CLAUDE.md) - Complete project documentation including release process
-- [planning/releases-with-immutability.md](./planning/releases-with-immutability.md) - Detailed release workflow analysis
+- [WORKFLOW.md](./WORKFLOW.md) - Detailed development and release workflow
+- [BENCHMARK_UPDATE_PROCESS.md](./BENCHMARK_UPDATE_PROCESS.md) - Benchmark update process for releases
 
 ### Related Issues
 
 - [GitHub Issue #39](https://github.com/erraggy/oastools/issues/39) - Release management discussion
-- [planning/release-issues.md](./planning/release-issues.md) - Historical context and lessons learned
 
 ---
 
