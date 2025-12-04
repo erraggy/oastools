@@ -584,3 +584,31 @@ func TestConvertOAS3PathItemToOAS2_Trace(t *testing.T) {
 	}
 	assert.True(t, foundTrace, "Expected critical issue about TRACE method")
 }
+
+// TestConvertOAS3PathItemToOAS2_Query tests QUERY method handling in convertOAS3PathItemToOAS2.
+func TestConvertOAS3PathItemToOAS2_Query(t *testing.T) {
+	c := New()
+	pathItem := &parser.PathItem{
+		Query: &parser.Operation{
+			Summary:   "Query endpoint",
+			Responses: &parser.Responses{},
+		},
+	}
+	doc := &parser.OAS2Document{}
+	result := &ConversionResult{}
+
+	converted := c.convertOAS3PathItemToOAS2(pathItem, doc, result, "paths./search")
+
+	assert.NotNil(t, converted)
+	assert.Nil(t, converted.Query, "QUERY should not be in OAS 2.0")
+	assert.NotEmpty(t, result.Issues, "Expected issue about QUERY method")
+
+	foundQuery := false
+	for _, issue := range result.Issues {
+		if issue.Severity == SeverityCritical && strings.Contains(issue.Message, "QUERY") {
+			foundQuery = true
+			break
+		}
+	}
+	assert.True(t, foundQuery, "Expected critical issue about QUERY method")
+}

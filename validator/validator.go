@@ -400,7 +400,7 @@ func (v *Validator) validateOAS2OperationIds(doc *parser.OAS2Document, result *V
 			continue
 		}
 
-		operations := parser.GetOAS2Operations(pathItem)
+		operations := parser.GetOperations(pathItem, parser.OASVersion20)
 
 		v.checkDuplicateOperationIds(operations, "paths", pathPattern, operationIds, result, baseURL)
 	}
@@ -440,8 +440,30 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 
 		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
 
+		// Validate QUERY method is not used in OAS 2.0
+		if pathItem.Query != nil {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     fmt.Sprintf("%s.query", pathPrefix),
+				Message:  "QUERY method is only supported in OAS 3.2+, not in OAS 2.0",
+				SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
+				Severity: SeverityError,
+				Field:    "query",
+			})
+		}
+
+		// Validate TRACE method is not used in OAS 2.0
+		if pathItem.Trace != nil {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     fmt.Sprintf("%s.trace", pathPrefix),
+				Message:  "TRACE method is only supported in OAS 3.0+, not in OAS 2.0",
+				SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
+				Severity: SeverityError,
+				Field:    "trace",
+			})
+		}
+
 		// Validate each operation
-		operations := parser.GetOAS2Operations(pathItem)
+		operations := parser.GetOperations(pathItem, parser.OASVersion20)
 
 		for method, op := range operations {
 			if op == nil {
@@ -713,7 +735,7 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 		pathParams := extractPathParameters(pathPattern)
 
 		// Check all operations in this path
-		operations := parser.GetOAS2Operations(pathItem)
+		operations := parser.GetOperations(pathItem, parser.OASVersion20)
 
 		for method, op := range operations {
 			if op == nil {
@@ -906,6 +928,11 @@ func (v *Validator) validateOAS3Info(doc *parser.OAS3Document, result *Validatio
 	}
 }
 
+// getOperationsForVersion returns the appropriate operations map based on OAS version
+func getOperationsForVersion(pathItem *parser.PathItem, version parser.OASVersion) map[string]*parser.Operation {
+	return parser.GetOperations(pathItem, version)
+}
+
 // validateOAS3OperationIds validates that operationIds are unique across the document
 func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *ValidationResult, baseURL string) {
 	operationIds := make(map[string]string) // map of operationId -> path where first seen
@@ -917,7 +944,7 @@ func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *V
 				continue
 			}
 
-			operations := parser.GetOAS3Operations(pathItem)
+			operations := getOperationsForVersion(pathItem, doc.OASVersion)
 
 			v.checkDuplicateOperationIds(operations, "paths", pathPattern, operationIds, result, baseURL)
 		}
@@ -929,7 +956,7 @@ func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *V
 			continue
 		}
 
-		operations := parser.GetOAS3Operations(pathItem)
+		operations := getOperationsForVersion(pathItem, doc.OASVersion)
 
 		v.checkDuplicateOperationIds(operations, "webhooks", webhookName, operationIds, result, baseURL)
 	}
@@ -1026,8 +1053,19 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 
 		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
 
+		// Validate QUERY method is only used in OAS 3.2+
+		if pathItem.Query != nil && doc.OASVersion < parser.OASVersion320 {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     fmt.Sprintf("%s.query", pathPrefix),
+				Message:  fmt.Sprintf("QUERY method is only supported in OAS 3.2+, but document is version %s", doc.OASVersion),
+				SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
+				Severity: SeverityError,
+				Field:    "query",
+			})
+		}
+
 		// Validate each operation
-		operations := parser.GetOAS3Operations(pathItem)
+		operations := getOperationsForVersion(pathItem, doc.OASVersion)
 
 		for method, op := range operations {
 			if op == nil {
@@ -1431,7 +1469,7 @@ func (v *Validator) validateOAS3Webhooks(doc *parser.OAS3Document, result *Valid
 		pathPrefix := fmt.Sprintf("webhooks.%s", webhookName)
 
 		// Validate each operation in the webhook
-		operations := parser.GetOAS3Operations(pathItem)
+		operations := getOperationsForVersion(pathItem, doc.OASVersion)
 
 		for method, op := range operations {
 			if op == nil {
@@ -1459,7 +1497,7 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 		pathParams := extractPathParameters(pathPattern)
 
 		// Check all operations in this path
-		operations := parser.GetOAS3Operations(pathItem)
+		operations := getOperationsForVersion(pathItem, doc.OASVersion)
 
 		for method, op := range operations {
 			if op == nil {
@@ -1566,7 +1604,7 @@ func (v *Validator) validateOAS3SecurityRequirements(doc *parser.OAS3Document, r
 				continue
 			}
 
-			operations := parser.GetOAS3Operations(pathItem)
+			operations := getOperationsForVersion(pathItem, doc.OASVersion)
 
 			for method, op := range operations {
 				if op == nil {
@@ -2419,7 +2457,7 @@ func (v *Validator) validateOAS2Refs(doc *parser.OAS2Document, result *Validatio
 		}
 
 		// Validate each operation
-		operations := parser.GetOAS2Operations(pathItem)
+		operations := parser.GetOperations(pathItem, parser.OASVersion20)
 		for method, op := range operations {
 			if op == nil {
 				continue
@@ -2529,7 +2567,7 @@ func (v *Validator) validateOAS3Refs(doc *parser.OAS3Document, result *Validatio
 			}
 
 			// Validate each operation
-			operations := parser.GetOAS3Operations(pathItem)
+			operations := getOperationsForVersion(pathItem, doc.OASVersion)
 			for method, op := range operations {
 				if op == nil {
 					continue
@@ -2583,7 +2621,7 @@ func (v *Validator) validateOAS3Refs(doc *parser.OAS3Document, result *Validatio
 		}
 
 		// Validate webhook operations
-		operations := parser.GetOAS3Operations(pathItem)
+		operations := getOperationsForVersion(pathItem, doc.OASVersion)
 		for method, op := range operations {
 			if op == nil {
 				continue

@@ -373,6 +373,50 @@ func TestBuilder_AddOperation_UnsupportedMethod(t *testing.T) {
 	assert.Contains(t, b.errors[0].Error(), "unsupported HTTP method")
 }
 
+func TestBuilder_AddOperation_QueryMethod_OAS32(t *testing.T) {
+	// QUERY method should work in OAS 3.2.0
+	b := New(parser.OASVersion320).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation("QUERY", "/search",
+			WithOperationID("searchQuery"),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	require.Empty(t, b.errors, "QUERY method should be supported in OAS 3.2.0")
+	require.NotNil(t, b.paths["/search"])
+	assert.NotNil(t, b.paths["/search"].Query, "QUERY operation should be set")
+	assert.Equal(t, "searchQuery", b.paths["/search"].Query.OperationID)
+}
+
+func TestBuilder_AddOperation_QueryMethod_OAS31_Error(t *testing.T) {
+	// QUERY method should fail in OAS 3.1
+	b := New(parser.OASVersion310).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation("QUERY", "/search",
+			WithOperationID("searchQuery"),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	require.Len(t, b.errors, 1, "QUERY method should not be supported in OAS 3.1")
+	assert.Contains(t, b.errors[0].Error(), "QUERY method is only supported in OAS 3.2.0+")
+}
+
+func TestBuilder_AddOperation_QueryMethod_OAS20_Error(t *testing.T) {
+	// QUERY method should fail in OAS 2.0
+	b := New(parser.OASVersion20).
+		SetTitle("Test").
+		SetVersion("1.0.0").
+		AddOperation("QUERY", "/search",
+			WithOperationID("searchQuery"),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	require.Len(t, b.errors, 1, "QUERY method should not be supported in OAS 2.0")
+	assert.Contains(t, b.errors[0].Error(), "QUERY method is only supported in OAS 3.2.0+")
+}
+
 func TestBuilder_AddOperation_WithNoSecurity(t *testing.T) {
 	b := New(parser.OASVersion320).
 		SetTitle("Test").
