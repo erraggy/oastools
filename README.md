@@ -16,6 +16,7 @@ OpenAPI Specification (OAS) tools for validating, parsing, converting, diffing, 
 - **Convert** - Convert between OpenAPI versions (2.0 ↔ 3.x) with transparent issue tracking
 - **Join** - Merge multiple OpenAPI specifications with flexible collision resolution
 - **Diff** - Compare OpenAPI specifications and detect breaking changes
+- **Generate** - Create idiomatic Go code for API clients and server stubs from OpenAPI specs
 - **Build** - Programmatically construct OpenAPI specifications with reflection-based schema generation
 - **Library** - Use as a Go library with both simple and advanced APIs
 
@@ -79,6 +80,9 @@ oastools join -o merged.yaml base.yaml extensions.yaml
 # Compare specs and detect breaking changes
 oastools diff --breaking api-v1.yaml api-v2.yaml
 
+# Generate Go client and server code
+oastools generate --client --server -o ./generated -p api openapi.yaml
+
 # Show all commands
 oastools help
 ```
@@ -91,6 +95,7 @@ oastools help
 - **Path validation** with REST best practice warnings (trailing slashes, malformed templates)
 - External reference resolution (local files only)
 - Collision resolution strategies for joining (AcceptLeft, AcceptRight, Error)
+- **Code generation** for HTTP clients and server interfaces (client, server, or types-only)
 
 ### Library Usage
 
@@ -109,6 +114,7 @@ import (
     "github.com/erraggy/oastools/converter"
     "github.com/erraggy/oastools/joiner"
     "github.com/erraggy/oastools/differ"
+    "github.com/erraggy/oastools/generator"
     "github.com/erraggy/oastools/builder"
 )
 
@@ -141,6 +147,16 @@ dResult, err := differ.DiffWithOptions(
     differ.WithSourceFilePath("api-v1.yaml"),
     differ.WithTargetFilePath("api-v2.yaml"),
 )
+
+// Generate Go code (client, server, or types)
+gResult, err := generator.GenerateWithOptions(
+    generator.WithFilePath("openapi.yaml"),
+    generator.WithPackageName("petstore"),
+    generator.WithClient(true),
+)
+if err == nil {
+    gResult.WriteFiles("./generated")  // Write generated files
+}
 
 // Build (programmatic construction)
 type User struct {
@@ -189,6 +205,14 @@ v.ValidateParsed(result1)  // 30x faster than Validate
 c.ConvertParsed(result2, "3.0.3")  // 9x faster than Convert
 j.JoinParsed([]parser.ParseResult{result1, result2})  // 154x faster than Join
 d.DiffParsed(result1, result2)  // Faster than Diff
+
+// Generator processes one spec at a time
+gen := generator.New()
+gen.PackageName = "myapi"
+gen.GenerateClient = true
+gen.GenerateServer = true
+genResult, _ := gen.Generate("api.yaml")
+genResult.WriteFiles("./generated")
 ```
 
 **Library Features**:
@@ -197,6 +221,7 @@ d.DiffParsed(result1, result2)  // Faster than Diff
 - **Converter**: Convert OAS 2.0 ↔ 3.x with severity-tracked issues (Info, Warning, Critical)
 - **Joiner**: Flexible collision strategies, array merging, tag deduplication
 - **Differ**: Compare specs with simple or breaking change detection; severity-based classification (Critical, Error, Warning, Info)
+- **Generator**: Create idiomatic Go code for HTTP clients, server interfaces, or type-only generation
 - **Builder**: Programmatically construct OAS documents with reflection-based schema generation from Go types
 - **Performance**: ParseOnce pattern enables efficient workflows (parse once, validate/convert/join/diff many times)
 
@@ -334,6 +359,7 @@ make help           # Show all available commands
 ├── converter/          # OpenAPI conversion library (public API)
 ├── joiner/             # OpenAPI joining library (public API)
 ├── differ/             # OpenAPI diffing library (public API)
+├── generator/          # OpenAPI code generation library (public API)
 ├── builder/            # OpenAPI builder library (public API)
 ├── internal/           # Internal shared utilities
 │   ├── httputil/       # HTTP validation constants
@@ -343,7 +369,7 @@ make help           # Show all available commands
 └── testdata/           # Test fixtures and sample specs
 ```
 
-All six main packages (parser, validator, converter, joiner, differ, builder) are public and can be imported directly.
+All seven main packages (parser, validator, converter, joiner, differ, generator, builder) are public and can be imported directly.
 
 ## Documentation
 

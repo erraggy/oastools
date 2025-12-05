@@ -17,6 +17,7 @@ oastools <command> [options] [arguments]
 | `convert` | Convert between OpenAPI specification versions |
 | `join` | Join multiple OpenAPI specifications |
 | `diff` | Compare two OpenAPI specifications |
+| `generate` | Generate Go code from an OpenAPI specification |
 | `version` | Show version information |
 | `help` | Show help information |
 
@@ -482,6 +483,129 @@ Summary:
 - Cross-version comparison (2.0 vs 3.x) is supported with limitations
 - Breaking change detection helps identify backward compatibility issues
 - Use in CI/CD pipelines to prevent accidental breaking changes
+
+---
+
+## generate
+
+Generate idiomatic Go code (clients, servers, or types) from an OpenAPI specification.
+
+### Synopsis
+
+```bash
+oastools generate [flags] <file|url>
+```
+
+### Description
+
+The generate command creates Go code from OpenAPI specifications. It can generate:
+- **HTTP clients** with methods for each API operation
+- **Server interfaces** defining the endpoints your implementation must satisfy
+- **Type definitions** for all schemas in the specification
+
+Generated code follows Go idioms, includes proper error handling, and is suitable for production use.
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `-o, --output string` | Output directory for generated files **(required)** |
+| `-p, --package string` | Go package name for generated code (default: "api") |
+| `--client` | Generate HTTP client code |
+| `--server` | Generate server interface code |
+| `--types` | Generate type definitions from schemas (default: true) |
+| `--no-pointers` | Don't use pointer types for optional fields |
+| `--no-validation` | Don't include validation tags in generated code |
+| `--strict` | Fail on any generation issues (even warnings) |
+| `--no-warnings` | Suppress warning and info messages |
+| `-h, --help` | Display help for generate command |
+
+### Examples
+
+**Generate HTTP client:**
+
+```bash
+oastools generate --client -o ./client -p petstore openapi.yaml
+```
+
+**Generate server interface:**
+
+```bash
+oastools generate --server -o ./server -p petstore openapi.yaml
+```
+
+**Generate both client and server:**
+
+```bash
+oastools generate --client --server -o ./generated -p myapi openapi.yaml
+```
+
+**Generate types only:**
+
+```bash
+oastools generate --types -o ./models openapi.yaml
+```
+
+**Generate from URL:**
+
+```bash
+oastools generate --client -o ./client https://example.com/api/openapi.yaml
+```
+
+### Output
+
+The command generates the following files in the output directory:
+
+- **`types.go`** - Struct definitions generated from schema definitions
+  - Includes JSON marshaling/unmarshaling
+  - Validation tags if `--no-validation` is not set
+  - Comments from schema descriptions
+
+- **`client.go`** (when `--client` is used)
+  - HTTP client struct with configurable base URL
+  - Methods for each operation in the specification
+  - Automatic request/response marshaling
+  - Comprehensive error handling
+
+- **`server.go`** (when `--server` is used)
+  - Server interface defining all endpoints
+  - Request/response types for type safety
+  - Framework-agnostic (implement the interface in your chosen framework)
+
+### Type Mapping
+
+OpenAPI types are mapped to Go types as follows:
+
+| OpenAPI Type | Go Type | Notes |
+|--------------|---------|-------|
+| `string` | `string` | Respects format hints (uuid, email, date-time, etc.) |
+| `integer` (format: int32) | `int32` | |
+| `integer` | `int64` | Default for integers |
+| `number` (format: float) | `float32` | |
+| `number` | `float64` | Default for numbers |
+| `boolean` | `bool` | |
+| `array` | `[]T` | T depends on item type |
+| `object` | `struct` | Generated with fields from properties |
+| `null` (OAS 3.1+) | `*T` | Using pointers for optional fields |
+
+Optional fields (not in required array) use pointer types when `--no-pointers` is not set.
+
+### Notes
+
+- **Format Preservation**: Input files determine output format (JSON → JSON, YAML → YAML)
+- **At least one generation mode required**: If none of `--client`, `--server`, or `--types` are specified, types generation is enabled by default
+- **Package naming**: Go package names must be valid identifiers (lowercase, no hyphens)
+- **Schema support**: Generates code for all OAS versions (2.0, 3.0.x, 3.1.x, 3.2.0)
+- **Validation tags**: Generated structs include `validate` struct tags for integration with validation libraries
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Code generation successful |
+| 1 | Output directory is required |
+| 2 | At least one generation mode must be enabled |
+| 3 | Generation failed (file read, parsing, or code generation error) |
 
 ---
 
