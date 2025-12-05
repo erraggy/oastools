@@ -190,3 +190,51 @@ func BenchmarkConvertNoInfoOAS2ToOAS3Medium(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkConvertWithOptionsOAS2ToOAS3Small benchmarks ConvertWithOptions convenience API
+func BenchmarkConvertWithOptionsOAS2ToOAS3Small(b *testing.B) {
+	for b.Loop() {
+		_, err := ConvertWithOptions(
+			WithFilePath(smallOAS2Path),
+			WithTargetVersion("3.0.3"),
+		)
+		if err != nil {
+			b.Fatalf("Failed to convert: %v", err)
+		}
+	}
+}
+
+// BenchmarkConvertWithOptionsParsedOAS2ToOAS3Small benchmarks ConvertWithOptions with pre-parsed document
+func BenchmarkConvertWithOptionsParsedOAS2ToOAS3Small(b *testing.B) {
+	// Parse once
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath(smallOAS2Path),
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for b.Loop() {
+		_, err := ConvertWithOptions(
+			WithParsed(*parseResult),
+			WithTargetVersion("3.0.3"),
+		)
+		if err != nil {
+			b.Fatalf("Failed to convert: %v", err)
+		}
+	}
+}
+
+// BenchmarkConvertOAS30ToOAS31Small benchmarks OAS 3.0 to OAS 3.1 version update
+func BenchmarkConvertOAS30ToOAS31Small(b *testing.B) {
+	c := New()
+	c.StrictMode = false
+	c.IncludeInfo = true
+
+	for b.Loop() {
+		_, err := c.Convert(smallOAS3Path, "3.1.0")
+		if err != nil {
+			b.Fatalf("Failed to convert: %v", err)
+		}
+	}
+}

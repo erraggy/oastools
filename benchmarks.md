@@ -35,9 +35,9 @@ The v1.7.0 release includes a major optimization to JSON marshaling that elimina
 
 ## Benchmark Suite
 
-The benchmark suite includes **85+ benchmarks** across six main packages:
+The benchmark suite includes **103 benchmarks** across six main packages:
 
-### Parser Package (32 benchmarks)
+### Parser Package (33 benchmarks)
 
 **Marshaling Operations**:
 - Info marshaling: no extra fields, with extra fields, varying extra field counts (1, 5, 10, 20)
@@ -50,51 +50,60 @@ The benchmark suite includes **85+ benchmarks** across six main packages:
 - Small and medium OAS 2.0 documents
 - Parsing with and without validation
 - ParseBytes vs Parse (file-based)
-- Convenience function performance
+- ParseWithOptions convenience API (file path, reader, reference resolution)
+- ParseReader I/O performance
+- ParseResult.Copy() deep copy performance
+- Reference resolution overhead measurement
+- FormatBytes utility function
 
 **Unmarshaling Operations**:
 - Info unmarshaling: no extra fields, with extra fields
 
-### Validator Package (12 benchmarks)
+### Validator Package (16 benchmarks)
 
 **Validation Operations**:
 - Small, medium, and large OAS 3.x documents
 - Small and medium OAS 2.0 documents
 - With and without warnings
 - ValidateParsed (pre-parsed documents) vs Validate (parse + validate)
-- Convenience function performance
-- Strict mode validation
+- ValidateWithOptions convenience API (basic and pre-parsed variants)
+- Strict mode validation (small, medium, and large documents)
+- Large document validation without warnings
 
-### Converter Package (10 benchmarks)
+### Converter Package (13 benchmarks)
 
 **Conversion Operations**:
 - OAS 2.0 → OAS 3.x (small and medium documents)
 - OAS 3.x → OAS 2.0 (small and medium documents)
+- OAS 3.0 → OAS 3.1 version updates
 - ConvertParsed (pre-parsed) vs Convert (parse + convert)
-- Convenience function performance
+- ConvertWithOptions convenience API (basic and pre-parsed variants)
 - Conversion with and without info messages
 
-### Joiner Package (8 benchmarks)
+### Joiner Package (14 benchmarks)
 
 **Joining Operations**:
-- Join 2 and 3 small documents
+- Join 2, 3, and 5 small documents
 - JoinParsed (pre-parsed) vs Join (parse + join)
-- Convenience function performance
+- JoinWithOptions convenience API (basic and pre-parsed variants)
 - Different collision resolution strategies (AcceptLeft, AcceptRight)
 - Array merge strategies
 - Tag deduplication
+- WriteResult I/O performance
+- Configuration utilities (DefaultConfig, IsValidStrategy, ValidStrategies)
 
 ### Differ Package (10 benchmarks)
 
 **Diffing Operations**:
 - Diff (parse + diff) vs DiffParsed (pre-parsed)
+- DiffWithOptions convenience API
 - Simple mode vs Breaking mode
-- Convenience functions (Diff, DiffParsed) vs struct-based API
 - Configuration options (IncludeInfo)
 - Edge cases (identical specifications)
 - Parse-once pattern efficiency
+- Change.String() formatting performance
 
-### Builder Package (15 benchmarks)
+### Builder Package (17 benchmarks)
 
 **Builder Construction Operations**:
 - Builder instantiation (New)
@@ -113,11 +122,11 @@ The benchmark suite includes **85+ benchmarks** across six main packages:
 
 | Document Size | Lines | Time (μs) | Memory (KB) | Allocations |
 |---------------|-------|-----------|-------------|-------------|
-| Small OAS3    | ~60   | 145       | 203         | 2,128       |
-| Medium OAS3   | ~570  | 1,144     | 1,465       | 17,449      |
-| Large OAS3    | ~6000 | 14,178    | 16,468      | 194,777     |
-| Small OAS2    | ~60   | 136       | 174         | 2,059       |
-| Medium OAS2   | ~570  | 1,039     | 1,230       | 16,027      |
+| Small OAS3    | ~60   | 138       | 197         | 2,070       |
+| Medium OAS3   | ~570  | 1,119     | 1,447       | 17,389      |
+| Large OAS3    | ~6000 | 13,880    | 16,425      | 194,712     |
+| Small OAS2    | ~60   | 134       | 174         | 2,059       |
+| Medium OAS2   | ~570  | 1,016     | 1,230       | 16,027      |
 
 **Parsing without validation** provides ~3-5% improvement over validated parsing.
 
@@ -143,11 +152,11 @@ The benchmark suite includes **85+ benchmarks** across six main packages:
 
 | Document Size | Lines | Time (μs) | Memory (KB) | Allocations |
 |---------------|-------|-----------|-------------|-------------|
-| Small OAS3    | ~60   | 147       | 208         | 2,220       |
-| Medium OAS3   | ~570  | 1,171     | 1,495       | 18,365      |
-| Large OAS3    | ~6000 | 14,583    | 16,848      | 205,079     |
-| Small OAS2    | ~60   | 138       | 181         | 2,135       |
-| Medium OAS2   | ~570  | 1,075     | 1,268       | 16,851      |
+| Small OAS3    | ~60   | 139       | 204         | 2,162       |
+| Medium OAS3   | ~570  | 1,133     | 1,492       | 18,307      |
+| Large OAS3    | ~6000 | 14,409    | 16,844      | 205,022     |
+| Small OAS2    | ~60   | 134       | 181         | 2,135       |
+| Medium OAS2   | ~570  | 1,058     | 1,268       | 16,851      |
 
 **Validating pre-parsed documents** (ValidateParsed):
 

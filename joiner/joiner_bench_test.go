@@ -1,6 +1,7 @@
 package joiner
 
 import (
+	"os"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -164,5 +165,134 @@ func BenchmarkJoinWithDeduplicateTags(b *testing.B) {
 		if err != nil {
 			b.Fatalf("Failed to join: %v", err)
 		}
+	}
+}
+
+// BenchmarkJoinWithOptionsTwoSmallDocs benchmarks JoinWithOptions convenience API
+func BenchmarkJoinWithOptionsTwoSmallDocs(b *testing.B) {
+	config := DefaultConfig()
+
+	for b.Loop() {
+		_, err := JoinWithOptions(
+			WithFilePaths(joinBaseOAS3Path, joinExt1OAS3Path),
+			WithConfig(config),
+		)
+		if err != nil {
+			b.Fatalf("Failed to join: %v", err)
+		}
+	}
+}
+
+// BenchmarkJoinWithOptionsParsedTwoSmallDocs benchmarks JoinWithOptions with pre-parsed documents
+func BenchmarkJoinWithOptionsParsedTwoSmallDocs(b *testing.B) {
+	// Parse once
+	doc1, err := parser.ParseWithOptions(
+		parser.WithFilePath(joinBaseOAS3Path),
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc2, err := parser.ParseWithOptions(
+		parser.WithFilePath(joinExt1OAS3Path),
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	config := DefaultConfig()
+
+	for b.Loop() {
+		_, err := JoinWithOptions(
+			WithParsed(*doc1, *doc2),
+			WithConfig(config),
+		)
+		if err != nil {
+			b.Fatalf("Failed to join: %v", err)
+		}
+	}
+}
+
+// BenchmarkJoinWriteResult benchmarks WriteResult I/O performance
+func BenchmarkJoinWriteResult(b *testing.B) {
+	// Join once
+	config := DefaultConfig()
+	config.PathStrategy = StrategyAcceptLeft
+	config.SchemaStrategy = StrategyAcceptLeft
+
+	j := New(config)
+	result, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	// Use temp file for writing
+	tmpfile, err := os.CreateTemp("", "bench-join-*.yaml")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer func() {
+		_ = os.Remove(tmpfile.Name())
+	}()
+	if err := tmpfile.Close(); err != nil {
+		b.Fatal(err)
+	}
+
+	for b.Loop() {
+		err := j.WriteResult(result, tmpfile.Name())
+		if err != nil {
+			b.Fatalf("Failed to write: %v", err)
+		}
+	}
+}
+
+// BenchmarkJoinFiveSmallDocs benchmarks joining 5 documents
+func BenchmarkJoinFiveSmallDocs(b *testing.B) {
+	config := DefaultConfig()
+	config.PathStrategy = StrategyAcceptLeft
+	config.SchemaStrategy = StrategyAcceptLeft
+
+	j := New(config)
+
+	for b.Loop() {
+		_, err := j.Join([]string{
+			joinBaseOAS3Path,
+			joinExt1OAS3Path,
+			joinExt2OAS3Path,
+			joinBaseOAS3Path,
+			joinExt1OAS3Path,
+		})
+		if err != nil {
+			b.Fatalf("Failed to join: %v", err)
+		}
+	}
+}
+
+// BenchmarkDefaultConfig benchmarks DefaultConfig construction
+func BenchmarkDefaultConfig(b *testing.B) {
+	for b.Loop() {
+		_ = DefaultConfig()
+	}
+}
+
+// BenchmarkIsValidStrategy benchmarks IsValidStrategy validation
+func BenchmarkIsValidStrategy(b *testing.B) {
+	strategies := []string{
+		string(StrategyAcceptLeft),
+		string(StrategyAcceptRight),
+		string(StrategyFailOnCollision),
+		"invalid-strategy",
+	}
+
+	for b.Loop() {
+		for _, strategy := range strategies {
+			_ = IsValidStrategy(strategy)
+		}
+	}
+}
+
+// BenchmarkValidStrategies benchmarks ValidStrategies list generation
+func BenchmarkValidStrategies(b *testing.B) {
+	for b.Loop() {
+		_ = ValidStrategies()
 	}
 }

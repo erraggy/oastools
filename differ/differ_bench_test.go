@@ -3,6 +3,7 @@ package differ
 import (
 	"testing"
 
+	"github.com/erraggy/oastools/internal/severity"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -211,6 +212,50 @@ func BenchmarkParseOnceDiffMany(b *testing.B) {
 		_, err := d.DiffParsed(*source, *target)
 		if err != nil {
 			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkDiffWithOptionsSmallOAS3 benchmarks DiffWithOptions convenience API
+func BenchmarkDiffWithOptionsSmallOAS3(b *testing.B) {
+	for b.Loop() {
+		_, err := DiffWithOptions(
+			WithSourceFilePath("../testdata/petstore-v1.yaml"),
+			WithTargetFilePath("../testdata/petstore-v2.yaml"),
+		)
+		if err != nil {
+			b.Fatalf("Failed to diff: %v", err)
+		}
+	}
+}
+
+// BenchmarkChangeString benchmarks Change.String() formatting performance
+func BenchmarkChangeString(b *testing.B) {
+	// Create sample changes
+	changes := []Change{
+		{
+			Type:     ChangeTypeModified,
+			Path:     "/paths/~1pet~1{petId}/get/summary",
+			Message:  "Modified operation summary",
+			Severity: severity.SeverityInfo,
+		},
+		{
+			Type:     ChangeTypeAdded,
+			Path:     "/paths/~1pet~1findByStatus",
+			Message:  "Added new endpoint",
+			Severity: severity.SeverityInfo,
+		},
+		{
+			Type:     ChangeTypeRemoved,
+			Path:     "/paths/~1user~1logout/post",
+			Message:  "Removed endpoint",
+			Severity: severity.SeverityError,
+		},
+	}
+
+	for b.Loop() {
+		for _, change := range changes {
+			_ = change.String()
 		}
 	}
 }

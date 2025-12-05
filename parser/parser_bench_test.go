@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"bytes"
 	"os"
 	"testing"
 )
@@ -151,6 +152,119 @@ func BenchmarkParseBytesMediumOAS3(b *testing.B) {
 		_, err := p.ParseBytes(data)
 		if err != nil {
 			b.Fatalf("Failed to parse: %v", err)
+		}
+	}
+}
+
+// BenchmarkParseWithOptionsSmallOAS3 benchmarks ParseWithOptions convenience API with file path
+func BenchmarkParseWithOptionsSmallOAS3(b *testing.B) {
+	for b.Loop() {
+		_, err := ParseWithOptions(
+			WithFilePath(smallOAS3Path),
+			WithValidateStructure(true),
+		)
+		if err != nil {
+			b.Fatalf("Failed to parse: %v", err)
+		}
+	}
+}
+
+// BenchmarkParseWithOptionsReaderSmallOAS3 benchmarks ParseWithOptions convenience API with Reader
+func BenchmarkParseWithOptionsReaderSmallOAS3(b *testing.B) {
+	data, err := os.ReadFile(smallOAS3Path)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for b.Loop() {
+		_, err := ParseWithOptions(
+			WithBytes(data),
+			WithValidateStructure(true),
+		)
+		if err != nil {
+			b.Fatalf("Failed to parse: %v", err)
+		}
+	}
+}
+
+// BenchmarkParseWithOptionsResolveRefsSmallOAS3 benchmarks ParseWithOptions with reference resolution
+func BenchmarkParseWithOptionsResolveRefsSmallOAS3(b *testing.B) {
+	for b.Loop() {
+		_, err := ParseWithOptions(
+			WithFilePath(smallOAS3Path),
+			WithResolveRefs(true),
+		)
+		if err != nil {
+			b.Fatalf("Failed to parse: %v", err)
+		}
+	}
+}
+
+// BenchmarkParseReaderMediumOAS3 benchmarks ParseReader method I/O performance
+func BenchmarkParseReaderMediumOAS3(b *testing.B) {
+	data, err := os.ReadFile(mediumOAS3Path)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	p := New()
+	p.ResolveRefs = false
+	p.ValidateStructure = true
+
+	for b.Loop() {
+		reader := bytes.NewReader(data)
+		_, err := p.ParseReader(reader)
+		if err != nil {
+			b.Fatalf("Failed to parse: %v", err)
+		}
+	}
+}
+
+// BenchmarkParseResultCopySmall benchmarks ParseResult.Copy() deep copy performance
+func BenchmarkParseResultCopySmall(b *testing.B) {
+	// Parse once
+	parseResult, err := ParseWithOptions(
+		WithFilePath(smallOAS3Path),
+		WithValidateStructure(true),
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for b.Loop() {
+		copy := parseResult.Copy()
+		if copy == nil {
+			b.Fatal("Copy returned nil")
+		}
+	}
+}
+
+// BenchmarkParseResolveRefsMediumOAS3 benchmarks Parse with ResolveRefs enabled
+func BenchmarkParseResolveRefsMediumOAS3(b *testing.B) {
+	p := New()
+	p.ResolveRefs = true
+	p.ValidateStructure = true
+
+	for b.Loop() {
+		_, err := p.Parse(mediumOAS3Path)
+		if err != nil {
+			b.Fatalf("Failed to parse: %v", err)
+		}
+	}
+}
+
+// BenchmarkFormatBytes benchmarks FormatBytes utility function
+func BenchmarkFormatBytes(b *testing.B) {
+	testCases := []int64{
+		512,              // 512 B
+		1024,             // 1 KB
+		1024 * 1024,      // 1 MB
+		1024 * 1024 * 10, // 10 MB
+	}
+
+	for b.Loop() {
+		for _, size := range testCases {
+			_ = FormatBytes(size)
 		}
 	}
 }

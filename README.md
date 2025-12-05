@@ -218,11 +218,11 @@ The library includes comprehensive performance benchmarking (70+ benchmarks acro
 
 | Operation        | Small (~60 lines) | Medium (~570 lines) | Large (~6000 lines) |
 |------------------|-------------------|---------------------|---------------------|
-| Parse            | 145 μs            | 1,144 μs            | 14,178 μs           |
-| Validate         | 147 μs            | 1,171 μs            | 14,583 μs           |
-| Convert (OAS2→3) | 152 μs            | 1,258 μs            | -                   |
-| Join (2 docs)    | 110 μs            | -                   | -                   |
-| Diff (2 docs)    | 463 μs            | -                   | -                   |
+| Parse            | 138 μs            | 1,119 μs            | 13,880 μs           |
+| Validate         | 139 μs            | 1,133 μs            | 14,409 μs           |
+| Convert (OAS2→3) | 148 μs            | 1,184 μs            | -                   |
+| Join (2 docs)    | 101 μs            | -                   | -                   |
+| Diff (2 docs)    | 448 μs            | -                   | -                   |
 
 For detailed performance analysis, methodology, and optimization strategies, see [benchmarks.md](benchmarks.md).
 
