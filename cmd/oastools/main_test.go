@@ -317,30 +317,70 @@ func TestParseFlags(t *testing.T) {
 		expectError        bool
 		wantResolveRefs    bool
 		wantValidateStruct bool
+		wantQuiet          bool
 	}{
 		{
 			name:               "no flags",
 			args:               []string{"openapi.yaml"},
 			wantResolveRefs:    false,
 			wantValidateStruct: false,
+			wantQuiet:          false,
 		},
 		{
 			name:               "resolve refs only",
 			args:               []string{"--resolve-refs", "openapi.yaml"},
 			wantResolveRefs:    true,
 			wantValidateStruct: false,
+			wantQuiet:          false,
 		},
 		{
 			name:               "validate structure only",
 			args:               []string{"--validate-structure", "openapi.yaml"},
 			wantResolveRefs:    false,
 			wantValidateStruct: true,
+			wantQuiet:          false,
+		},
+		{
+			name:               "quiet short flag",
+			args:               []string{"-q", "openapi.yaml"},
+			wantResolveRefs:    false,
+			wantValidateStruct: false,
+			wantQuiet:          true,
+		},
+		{
+			name:               "quiet long flag",
+			args:               []string{"--quiet", "openapi.yaml"},
+			wantResolveRefs:    false,
+			wantValidateStruct: false,
+			wantQuiet:          true,
+		},
+		{
+			name:               "stdin input",
+			args:               []string{"-"},
+			wantResolveRefs:    false,
+			wantValidateStruct: false,
+			wantQuiet:          false,
+		},
+		{
+			name:               "stdin with quiet",
+			args:               []string{"-q", "-"},
+			wantResolveRefs:    false,
+			wantValidateStruct: false,
+			wantQuiet:          true,
 		},
 		{
 			name:               "both flags",
 			args:               []string{"--resolve-refs", "--validate-structure", "openapi.yaml"},
 			wantResolveRefs:    true,
 			wantValidateStruct: true,
+			wantQuiet:          false,
+		},
+		{
+			name:               "all flags",
+			args:               []string{"--resolve-refs", "--validate-structure", "--quiet", "openapi.yaml"},
+			wantResolveRefs:    true,
+			wantValidateStruct: true,
+			wantQuiet:          true,
 		},
 		{
 			name:        "no file path",
@@ -384,6 +424,9 @@ func TestParseFlags(t *testing.T) {
 			if flags.validateStructure != tt.wantValidateStruct {
 				t.Errorf("validateStructure = %v, want %v", flags.validateStructure, tt.wantValidateStruct)
 			}
+			if flags.quiet != tt.wantQuiet {
+				t.Errorf("quiet = %v, want %v", flags.quiet, tt.wantQuiet)
+			}
 		})
 	}
 }
@@ -396,30 +439,70 @@ func TestValidateFlags(t *testing.T) {
 		expectError    bool
 		wantStrict     bool
 		wantNoWarnings bool
+		wantQuiet      bool
 	}{
 		{
 			name:           "no flags",
 			args:           []string{"openapi.yaml"},
 			wantStrict:     false,
 			wantNoWarnings: false,
+			wantQuiet:      false,
 		},
 		{
 			name:           "strict only",
 			args:           []string{"--strict", "openapi.yaml"},
 			wantStrict:     true,
 			wantNoWarnings: false,
+			wantQuiet:      false,
 		},
 		{
 			name:           "no-warnings only",
 			args:           []string{"--no-warnings", "openapi.yaml"},
 			wantStrict:     false,
 			wantNoWarnings: true,
+			wantQuiet:      false,
+		},
+		{
+			name:           "quiet short flag",
+			args:           []string{"-q", "openapi.yaml"},
+			wantStrict:     false,
+			wantNoWarnings: false,
+			wantQuiet:      true,
+		},
+		{
+			name:           "quiet long flag",
+			args:           []string{"--quiet", "openapi.yaml"},
+			wantStrict:     false,
+			wantNoWarnings: false,
+			wantQuiet:      true,
+		},
+		{
+			name:           "stdin input",
+			args:           []string{"-"},
+			wantStrict:     false,
+			wantNoWarnings: false,
+			wantQuiet:      false,
+		},
+		{
+			name:           "stdin with quiet",
+			args:           []string{"-q", "-"},
+			wantStrict:     false,
+			wantNoWarnings: false,
+			wantQuiet:      true,
 		},
 		{
 			name:           "both flags",
 			args:           []string{"--strict", "--no-warnings", "openapi.yaml"},
 			wantStrict:     true,
 			wantNoWarnings: true,
+			wantQuiet:      false,
+		},
+		{
+			name:           "all flags",
+			args:           []string{"--strict", "--no-warnings", "--quiet", "openapi.yaml"},
+			wantStrict:     true,
+			wantNoWarnings: true,
+			wantQuiet:      true,
 		},
 		{
 			name:        "no file path",
@@ -457,6 +540,9 @@ func TestValidateFlags(t *testing.T) {
 			if flags.noWarnings != tt.wantNoWarnings {
 				t.Errorf("noWarnings = %v, want %v", flags.noWarnings, tt.wantNoWarnings)
 			}
+			if flags.quiet != tt.wantQuiet {
+				t.Errorf("quiet = %v, want %v", flags.quiet, tt.wantQuiet)
+			}
 		})
 	}
 }
@@ -471,6 +557,7 @@ func TestConvertFlags(t *testing.T) {
 		wantOutput     string
 		wantStrict     bool
 		wantNoWarnings bool
+		wantQuiet      bool
 	}{
 		{
 			name:           "minimal flags",
@@ -479,6 +566,7 @@ func TestConvertFlags(t *testing.T) {
 			wantOutput:     "",
 			wantStrict:     false,
 			wantNoWarnings: false,
+			wantQuiet:      false,
 		},
 		{
 			name:           "with output",
@@ -487,6 +575,7 @@ func TestConvertFlags(t *testing.T) {
 			wantOutput:     "openapi.yaml",
 			wantStrict:     false,
 			wantNoWarnings: false,
+			wantQuiet:      false,
 		},
 		{
 			name:           "with strict",
@@ -494,6 +583,7 @@ func TestConvertFlags(t *testing.T) {
 			wantTarget:     "3.0.3",
 			wantStrict:     true,
 			wantNoWarnings: false,
+			wantQuiet:      false,
 		},
 		{
 			name:           "with no-warnings",
@@ -501,14 +591,48 @@ func TestConvertFlags(t *testing.T) {
 			wantTarget:     "3.0.3",
 			wantStrict:     false,
 			wantNoWarnings: true,
+			wantQuiet:      false,
+		},
+		{
+			name:           "with quiet short flag",
+			args:           []string{"-t", "3.0.3", "-q", "swagger.yaml"},
+			wantTarget:     "3.0.3",
+			wantStrict:     false,
+			wantNoWarnings: false,
+			wantQuiet:      true,
+		},
+		{
+			name:           "with quiet long flag",
+			args:           []string{"-t", "3.0.3", "--quiet", "swagger.yaml"},
+			wantTarget:     "3.0.3",
+			wantStrict:     false,
+			wantNoWarnings: false,
+			wantQuiet:      true,
+		},
+		{
+			name:           "stdin input",
+			args:           []string{"-t", "3.0.3", "-"},
+			wantTarget:     "3.0.3",
+			wantStrict:     false,
+			wantNoWarnings: false,
+			wantQuiet:      false,
+		},
+		{
+			name:           "stdin with quiet",
+			args:           []string{"-t", "3.0.3", "-q", "-"},
+			wantTarget:     "3.0.3",
+			wantStrict:     false,
+			wantNoWarnings: false,
+			wantQuiet:      true,
 		},
 		{
 			name:           "all flags",
-			args:           []string{"-t", "3.1.0", "-o", "output.yaml", "--strict", "--no-warnings", "input.yaml"},
+			args:           []string{"-t", "3.1.0", "-o", "output.yaml", "--strict", "--no-warnings", "--quiet", "input.yaml"},
 			wantTarget:     "3.1.0",
 			wantOutput:     "output.yaml",
 			wantStrict:     true,
 			wantNoWarnings: true,
+			wantQuiet:      true,
 		},
 		{
 			name:           "long form flags",
@@ -517,6 +641,7 @@ func TestConvertFlags(t *testing.T) {
 			wantOutput:     "swagger.yaml",
 			wantStrict:     false,
 			wantNoWarnings: false,
+			wantQuiet:      false,
 		},
 		{
 			name:        "no target flag",
@@ -573,6 +698,9 @@ func TestConvertFlags(t *testing.T) {
 			}
 			if flags.noWarnings != tt.wantNoWarnings {
 				t.Errorf("noWarnings = %v, want %v", flags.noWarnings, tt.wantNoWarnings)
+			}
+			if flags.quiet != tt.wantQuiet {
+				t.Errorf("quiet = %v, want %v", flags.quiet, tt.wantQuiet)
 			}
 		})
 	}
