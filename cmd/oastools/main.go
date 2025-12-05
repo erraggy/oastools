@@ -153,45 +153,39 @@ func handleParse(args []string) error {
 		}
 	}
 
-	// Determine output destination
-	output := os.Stdout
-	if flags.quiet {
-		output = os.Stderr
-	}
-
-	// Print results
+	// Print results (always to stderr to keep stdout clean for JSON output)
 	if !flags.quiet {
-		fmt.Fprintf(output, "OpenAPI Specification Parser\n")
-		fmt.Fprintf(output, "============================\n\n")
-		fmt.Fprintf(output, "oastools version: %s\n", oastools.Version())
+		fmt.Fprintf(os.Stderr, "OpenAPI Specification Parser\n")
+		fmt.Fprintf(os.Stderr, "============================\n\n")
+		fmt.Fprintf(os.Stderr, "oastools version: %s\n", oastools.Version())
 		if specPath == "-" {
-			fmt.Fprintf(output, "Specification: <stdin>\n")
+			fmt.Fprintf(os.Stderr, "Specification: <stdin>\n")
 		} else {
-			fmt.Fprintf(output, "Specification: %s\n", specPath)
+			fmt.Fprintf(os.Stderr, "Specification: %s\n", specPath)
 		}
-		fmt.Fprintf(output, "OAS Version: %s\n", result.Version)
-		fmt.Fprintf(output, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
-		fmt.Fprintf(output, "Paths: %d\n", result.Stats.PathCount)
-		fmt.Fprintf(output, "Operations: %d\n", result.Stats.OperationCount)
-		fmt.Fprintf(output, "Schemas: %d\n", result.Stats.SchemaCount)
-		fmt.Fprintf(output, "Load Time: %v\n\n", result.LoadTime)
+		fmt.Fprintf(os.Stderr, "OAS Version: %s\n", result.Version)
+		fmt.Fprintf(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+		fmt.Fprintf(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
+		fmt.Fprintf(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
+		fmt.Fprintf(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
+		fmt.Fprintf(os.Stderr, "Load Time: %v\n\n", result.LoadTime)
 
 		// Print warnings
 		if len(result.Warnings) > 0 {
-			fmt.Fprintf(output, "Warnings:\n")
+			fmt.Fprintf(os.Stderr, "Warnings:\n")
 			for _, warning := range result.Warnings {
-				fmt.Fprintf(output, "  - %s\n", warning)
+				fmt.Fprintf(os.Stderr, "  - %s\n", warning)
 			}
-			fmt.Fprintf(output, "\n")
+			fmt.Fprintf(os.Stderr, "\n")
 		}
 
 		// Print errors
 		if len(result.Errors) > 0 {
-			fmt.Fprintf(output, "Validation Errors:\n")
+			fmt.Fprintf(os.Stderr, "Validation Errors:\n")
 			for _, err := range result.Errors {
-				fmt.Fprintf(output, "  - %s\n", err)
+				fmt.Fprintf(os.Stderr, "  - %s\n", err)
 			}
-			fmt.Fprintf(output, "\n")
+			fmt.Fprintf(os.Stderr, "\n")
 			os.Exit(1)
 		}
 
@@ -199,38 +193,34 @@ func handleParse(args []string) error {
 		if result.Document != nil {
 			switch doc := result.Document.(type) {
 			case *parser.OAS2Document:
-				fmt.Fprintf(output, "Document Type: OpenAPI 2.0 (Swagger)\n")
+				fmt.Fprintf(os.Stderr, "Document Type: OpenAPI 2.0 (Swagger)\n")
 				if doc.Info != nil {
-					fmt.Fprintf(output, "Title: %s\n", doc.Info.Title)
-					fmt.Fprintf(output, "Description: %s\n", doc.Info.Description)
-					fmt.Fprintf(output, "Version: %s\n", doc.Info.Version)
+					fmt.Fprintf(os.Stderr, "Title: %s\n", doc.Info.Title)
+					fmt.Fprintf(os.Stderr, "Description: %s\n", doc.Info.Description)
+					fmt.Fprintf(os.Stderr, "Version: %s\n", doc.Info.Version)
 				}
-				fmt.Fprintf(output, "Paths: %d\n", len(doc.Paths))
+				fmt.Fprintf(os.Stderr, "Paths: %d\n", len(doc.Paths))
 
 			case *parser.OAS3Document:
-				fmt.Fprintf(output, "Document Type: OpenAPI 3.x\n")
+				fmt.Fprintf(os.Stderr, "Document Type: OpenAPI 3.x\n")
 				if doc.Info != nil {
-					fmt.Fprintf(output, "Title: %s\n", doc.Info.Title)
+					fmt.Fprintf(os.Stderr, "Title: %s\n", doc.Info.Title)
 					if doc.Info.Summary != "" {
-						fmt.Fprintf(output, "Summary: %s\n", doc.Info.Summary)
+						fmt.Fprintf(os.Stderr, "Summary: %s\n", doc.Info.Summary)
 					}
-					fmt.Fprintf(output, "Description: %s\n", doc.Info.Description)
-					fmt.Fprintf(output, "Version: %s\n", doc.Info.Version)
+					fmt.Fprintf(os.Stderr, "Description: %s\n", doc.Info.Description)
+					fmt.Fprintf(os.Stderr, "Version: %s\n", doc.Info.Version)
 				}
-				fmt.Fprintf(output, "Servers: %d\n", len(doc.Servers))
-				fmt.Fprintf(output, "Paths: %d\n", len(doc.Paths))
+				fmt.Fprintf(os.Stderr, "Servers: %d\n", len(doc.Servers))
+				fmt.Fprintf(os.Stderr, "Paths: %d\n", len(doc.Paths))
 				if len(doc.Webhooks) > 0 {
-					fmt.Fprintf(output, "Webhooks: %d\n", len(doc.Webhooks))
+					fmt.Fprintf(os.Stderr, "Webhooks: %d\n", len(doc.Webhooks))
 				}
 			}
 		}
 
-		fmt.Fprintf(output, "\n")
-	}
-
-	// Output raw data as JSON for inspection (always to stdout)
-	if !flags.quiet {
-		fmt.Printf("Raw Data (JSON):\n")
+		fmt.Fprintf(os.Stderr, "\n")
+		fmt.Fprintf(os.Stderr, "Raw Data (JSON):\n")
 	}
 	jsonData, err := json.MarshalIndent(result.Data, "", "  ")
 	if err != nil {
@@ -369,19 +359,24 @@ func handleValidate(args []string) error {
 		}
 	}
 
-	// Print summary (always to stdout)
+	// Print summary (to stderr in quiet mode to keep stdout clean)
+	summaryOutput := os.Stdout
+	if flags.quiet {
+		summaryOutput = os.Stderr
+	}
+	
 	if result.Valid {
-		fmt.Printf("✓ Validation passed")
+		fmt.Fprintf(summaryOutput, "✓ Validation passed")
 		if result.WarningCount > 0 {
-			fmt.Printf(" with %d warning(s)", result.WarningCount)
+			fmt.Fprintf(summaryOutput, " with %d warning(s)", result.WarningCount)
 		}
-		fmt.Println()
+		fmt.Fprintf(summaryOutput, "\n")
 	} else {
-		fmt.Printf("✗ Validation failed: %d error(s)", result.ErrorCount)
+		fmt.Fprintf(summaryOutput, "✗ Validation failed: %d error(s)", result.ErrorCount)
 		if result.WarningCount > 0 {
-			fmt.Printf(", %d warning(s)", result.WarningCount)
+			fmt.Fprintf(summaryOutput, ", %d warning(s)", result.WarningCount)
 		}
-		fmt.Println()
+		fmt.Fprintf(summaryOutput, "\n")
 		os.Exit(1)
 	}
 
