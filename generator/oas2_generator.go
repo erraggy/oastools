@@ -172,12 +172,7 @@ func (cg *oas2CodeGenerator) generateSchemaType(name string, schema *parser.Sche
 
 	case "array":
 		// Generate type alias for array
-		itemType := "any"
-		if schema.Items != nil {
-			if itemSchema, ok := schema.Items.(*parser.Schema); ok {
-				itemType = cg.schemaToGoType(itemSchema, true)
-			}
-		}
+		itemType := cg.getArrayItemType(schema)
 		buf.WriteString(fmt.Sprintf("type %s []%s\n", typeName, itemType))
 
 	case "string":
@@ -286,21 +281,11 @@ func (cg *oas2CodeGenerator) schemaToGoType(schema *parser.Schema, required bool
 	case "boolean":
 		goType = "bool"
 	case "array":
-		itemType := "any"
-		if schema.Items != nil {
-			if itemSchema, ok := schema.Items.(*parser.Schema); ok {
-				itemType = cg.schemaToGoType(itemSchema, true)
-			}
-		}
-		goType = "[]" + itemType
+		goType = "[]" + cg.getArrayItemType(schema)
 	case "object":
 		if schema.Properties == nil && schema.AdditionalProperties != nil {
 			// Map type
-			valueType := "any"
-			if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-				valueType = cg.schemaToGoType(addProps, true)
-			}
-			goType = "map[string]" + valueType
+			goType = "map[string]" + cg.getAdditionalPropertiesType(schema)
 		} else {
 			goType = "map[string]any"
 		}
@@ -313,6 +298,46 @@ func (cg *oas2CodeGenerator) schemaToGoType(schema *parser.Schema, required bool
 	}
 
 	return goType
+}
+
+// getArrayItemType extracts the Go type for array items, handling $ref properly
+func (cg *oas2CodeGenerator) getArrayItemType(schema *parser.Schema) string {
+	if schema.Items == nil {
+		return "any"
+	}
+
+	switch items := schema.Items.(type) {
+	case *parser.Schema:
+		if items.Ref != "" {
+			return cg.resolveRef(items.Ref)
+		}
+		return cg.schemaToGoType(items, true)
+	case map[string]interface{}:
+		if ref, ok := items["$ref"].(string); ok {
+			return cg.resolveRef(ref)
+		}
+		return schemaTypeFromMap(items)
+	}
+	return "any"
+}
+
+// getAdditionalPropertiesType extracts the Go type for additionalProperties
+func (cg *oas2CodeGenerator) getAdditionalPropertiesType(schema *parser.Schema) string {
+	if schema.AdditionalProperties == nil {
+		return "any"
+	}
+
+	switch addProps := schema.AdditionalProperties.(type) {
+	case *parser.Schema:
+		return cg.schemaToGoType(addProps, true)
+	case map[string]interface{}:
+		return schemaTypeFromMap(addProps)
+	case bool:
+		if addProps {
+			return "any"
+		}
+	}
+	return "any"
 }
 
 // resolveRef resolves a $ref to a Go type name

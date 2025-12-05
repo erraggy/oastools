@@ -6,7 +6,6 @@ import (
 	"go/format"
 	"sort"
 	"strings"
-	"unicode"
 
 	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/parser"
@@ -163,35 +162,45 @@ func (cg *oas3CodeGenerator) generateSchemaType(name string, schema *parser.Sche
 					jsonTag += ",omitempty"
 				}
 
+				// Build struct tags
+				tags := fmt.Sprintf("json:%q", jsonTag)
+				if cg.g.IncludeValidation {
+					if validateTag := cg.buildValidateTag(propSchema, isRequired(schema.Required, propName)); validateTag != "" {
+						tags += fmt.Sprintf(" validate:%q", validateTag)
+					}
+				}
+
 				// Add field comment
 				if propSchema.Description != "" {
 					buf.WriteString(fmt.Sprintf("\t// %s\n", cleanDescription(propSchema.Description)))
 				}
 
-				buf.WriteString(fmt.Sprintf("\t%s %s `json:%q`\n", fieldName, goType, jsonTag))
+				buf.WriteString(fmt.Sprintf("\t%s %s `%s`\n", fieldName, goType, tags))
 			}
 		}
 		// Handle additionalProperties
 		if schema.AdditionalProperties != nil {
-			if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-				goType := cg.schemaToGoType(addProps, true)
+			var goType string
+			switch addProps := schema.AdditionalProperties.(type) {
+			case *parser.Schema:
+				goType = cg.schemaToGoType(addProps, true)
+			case map[string]interface{}:
+				goType = schemaTypeFromMap(addProps)
+			case bool:
+				if addProps {
+					goType = "any"
+				}
+			}
+			if goType != "" {
 				buf.WriteString("\t// AdditionalProperties holds additional properties.\n")
 				buf.WriteString(fmt.Sprintf("\tAdditionalProperties map[string]%s `json:\"-\"`\n", goType))
-			} else if addProps, ok := schema.AdditionalProperties.(bool); ok && addProps {
-				buf.WriteString("\t// AdditionalProperties holds additional properties.\n")
-				buf.WriteString("\tAdditionalProperties map[string]any `json:\"-\"`\n")
 			}
 		}
 		buf.WriteString("}\n")
 
 	case "array":
 		// Generate type alias for array
-		itemType := "any"
-		if schema.Items != nil {
-			if itemSchema, ok := schema.Items.(*parser.Schema); ok {
-				itemType = cg.schemaToGoType(itemSchema, true)
-			}
-		}
+		itemType := cg.getArrayItemType(schema)
 		buf.WriteString(fmt.Sprintf("type %s []%s\n", typeName, itemType))
 
 	case "string":
@@ -287,12 +296,25 @@ func (cg *oas3CodeGenerator) generateUnionType(typeName string, schema *parser.S
 
 	buf.WriteString(fmt.Sprintf("// %s represents a union type.\n", typeName))
 	buf.WriteString("// Only one of the fields should be set.\n")
+
+	// Check for discriminator
+	if schema.Discriminator != nil && schema.Discriminator.PropertyName != "" {
+		buf.WriteString(fmt.Sprintf("// Discriminator: %s\n", schema.Discriminator.PropertyName))
+	}
+
 	buf.WriteString(fmt.Sprintf("type %s struct {\n", typeName))
+
+	// Add discriminator field if present
+	if schema.Discriminator != nil && schema.Discriminator.PropertyName != "" {
+		fieldName := toFieldName(schema.Discriminator.PropertyName)
+		buf.WriteString(fmt.Sprintf("\t// %s is the discriminator field.\n", fieldName))
+		buf.WriteString(fmt.Sprintf("\t%s string `json:%q`\n", fieldName, schema.Discriminator.PropertyName))
+	}
 
 	for i, subSchema := range schemas {
 		if subSchema.Ref != "" {
 			refType := cg.resolveRef(subSchema.Ref)
-			buf.WriteString(fmt.Sprintf("\t%s *%s\n", refType, refType))
+			buf.WriteString(fmt.Sprintf("\t%s *%s `json:\"-\"`\n", refType, refType))
 		} else {
 			buf.WriteString(fmt.Sprintf("\tVariant%d any `json:\"-\"`\n", i))
 		}
@@ -300,9 +322,63 @@ func (cg *oas3CodeGenerator) generateUnionType(typeName string, schema *parser.S
 
 	buf.WriteString("}\n")
 
+	// Add UnmarshalJSON if discriminator is present
+	if schema.Discriminator != nil && schema.Discriminator.PropertyName != "" {
+		buf.WriteString(cg.generateDiscriminatorUnmarshal(typeName, schema))
+	}
+
 	cg.addIssue("components.schemas."+typeName, "union types (oneOf/anyOf) are generated as structs with pointer fields", SeverityInfo)
 
 	return buf.String(), nil
+}
+
+// generateDiscriminatorUnmarshal generates an UnmarshalJSON method for discriminated unions
+func (cg *oas3CodeGenerator) generateDiscriminatorUnmarshal(typeName string, schema *parser.Schema) string {
+	var buf bytes.Buffer
+
+	propName := schema.Discriminator.PropertyName
+	mapping := schema.Discriminator.Mapping
+
+	buf.WriteString(fmt.Sprintf("\n// UnmarshalJSON implements json.Unmarshaler for %s.\n", typeName))
+	buf.WriteString(fmt.Sprintf("func (u *%s) UnmarshalJSON(data []byte) error {\n", typeName))
+	buf.WriteString(fmt.Sprintf("\tvar disc struct {\n\t\t%s string `json:%q`\n\t}\n", toFieldName(propName), propName))
+	buf.WriteString("\tif err := json.Unmarshal(data, &disc); err != nil {\n")
+	buf.WriteString("\t\treturn err\n")
+	buf.WriteString("\t}\n")
+	buf.WriteString(fmt.Sprintf("\tu.%s = disc.%s\n", toFieldName(propName), toFieldName(propName)))
+	buf.WriteString(fmt.Sprintf("\tswitch disc.%s {\n", toFieldName(propName)))
+
+	// Use mapping if provided, otherwise use ref names
+	schemas := schema.OneOf
+	if len(schemas) == 0 {
+		schemas = schema.AnyOf
+	}
+
+	for _, subSchema := range schemas {
+		if subSchema.Ref == "" {
+			continue
+		}
+		refType := cg.resolveRef(subSchema.Ref)
+		discriminatorValue := refType // default to type name
+
+		// Check if there's a mapping for this ref
+		for value, ref := range mapping {
+			if ref == subSchema.Ref || strings.HasSuffix(ref, "/"+refType) {
+				discriminatorValue = value
+				break
+			}
+		}
+
+		buf.WriteString(fmt.Sprintf("\tcase %q:\n", discriminatorValue))
+		buf.WriteString(fmt.Sprintf("\t\tu.%s = new(%s)\n", refType, refType))
+		buf.WriteString(fmt.Sprintf("\t\treturn json.Unmarshal(data, u.%s)\n", refType))
+	}
+
+	buf.WriteString("\t}\n")
+	buf.WriteString("\treturn nil\n")
+	buf.WriteString("}\n")
+
+	return buf.String()
 }
 
 // schemaToGoType converts a schema to a Go type string
@@ -333,21 +409,11 @@ func (cg *oas3CodeGenerator) schemaToGoType(schema *parser.Schema, required bool
 	case "boolean":
 		goType = "bool"
 	case "array":
-		itemType := "any"
-		if schema.Items != nil {
-			if itemSchema, ok := schema.Items.(*parser.Schema); ok {
-				itemType = cg.schemaToGoType(itemSchema, true)
-			}
-		}
-		goType = "[]" + itemType
+		goType = "[]" + cg.getArrayItemType(schema)
 	case "object":
 		if schema.Properties == nil && schema.AdditionalProperties != nil {
 			// Map type
-			valueType := "any"
-			if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-				valueType = cg.schemaToGoType(addProps, true)
-			}
-			goType = "map[string]" + valueType
+			goType = "map[string]" + cg.getAdditionalPropertiesType(schema)
 		} else {
 			goType = "map[string]any"
 		}
@@ -367,6 +433,48 @@ func (cg *oas3CodeGenerator) schemaToGoType(schema *parser.Schema, required bool
 	return goType
 }
 
+// getArrayItemType extracts the Go type for array items, handling $ref properly
+func (cg *oas3CodeGenerator) getArrayItemType(schema *parser.Schema) string {
+	if schema.Items == nil {
+		return "any"
+	}
+
+	switch items := schema.Items.(type) {
+	case *parser.Schema:
+		// Check if items has a $ref
+		if items.Ref != "" {
+			return cg.resolveRef(items.Ref)
+		}
+		return cg.schemaToGoType(items, true)
+	case map[string]interface{}:
+		// Handle inline schema as map
+		if ref, ok := items["$ref"].(string); ok {
+			return cg.resolveRef(ref)
+		}
+		return schemaTypeFromMap(items)
+	}
+	return "any"
+}
+
+// getAdditionalPropertiesType extracts the Go type for additionalProperties
+func (cg *oas3CodeGenerator) getAdditionalPropertiesType(schema *parser.Schema) string {
+	if schema.AdditionalProperties == nil {
+		return "any"
+	}
+
+	switch addProps := schema.AdditionalProperties.(type) {
+	case *parser.Schema:
+		return cg.schemaToGoType(addProps, true)
+	case map[string]interface{}:
+		return schemaTypeFromMap(addProps)
+	case bool:
+		if addProps {
+			return "any"
+		}
+	}
+	return "any"
+}
+
 // resolveRef resolves a $ref to a Go type name
 func (cg *oas3CodeGenerator) resolveRef(ref string) string {
 	if typeName, ok := cg.schemaNames[ref]; ok {
@@ -378,6 +486,92 @@ func (cg *oas3CodeGenerator) resolveRef(ref string) string {
 		return toTypeName(parts[len(parts)-1])
 	}
 	return "any"
+}
+
+// buildValidateTag builds a validate tag from schema constraints
+func (cg *oas3CodeGenerator) buildValidateTag(schema *parser.Schema, required bool) string {
+	if schema == nil {
+		return ""
+	}
+
+	var parts []string
+
+	if required {
+		parts = append(parts, "required")
+	}
+
+	schemaType := getSchemaType(schema)
+
+	// String constraints
+	if schemaType == "string" {
+		if schema.MinLength != nil && *schema.MinLength > 0 {
+			parts = append(parts, fmt.Sprintf("min=%d", *schema.MinLength))
+		}
+		if schema.MaxLength != nil {
+			parts = append(parts, fmt.Sprintf("max=%d", *schema.MaxLength))
+		}
+		if schema.Pattern != "" {
+			// Note: complex patterns may need escaping
+			parts = append(parts, "regexp")
+		}
+		if schema.Format == "email" {
+			parts = append(parts, "email")
+		}
+		if schema.Format == "uri" || schema.Format == "url" {
+			parts = append(parts, "url")
+		}
+	}
+
+	// Numeric constraints
+	if schemaType == "integer" || schemaType == "number" {
+		if schema.Minimum != nil {
+			isExclusive := false
+			if schema.ExclusiveMinimum != nil {
+				if b, ok := schema.ExclusiveMinimum.(bool); ok && b {
+					isExclusive = true
+				}
+			}
+			if isExclusive {
+				parts = append(parts, fmt.Sprintf("gt=%v", *schema.Minimum))
+			} else {
+				parts = append(parts, fmt.Sprintf("gte=%v", *schema.Minimum))
+			}
+		}
+		if schema.Maximum != nil {
+			isExclusive := false
+			if schema.ExclusiveMaximum != nil {
+				if b, ok := schema.ExclusiveMaximum.(bool); ok && b {
+					isExclusive = true
+				}
+			}
+			if isExclusive {
+				parts = append(parts, fmt.Sprintf("lt=%v", *schema.Maximum))
+			} else {
+				parts = append(parts, fmt.Sprintf("lte=%v", *schema.Maximum))
+			}
+		}
+	}
+
+	// Array constraints
+	if schemaType == "array" {
+		if schema.MinItems != nil && *schema.MinItems > 0 {
+			parts = append(parts, fmt.Sprintf("min=%d", *schema.MinItems))
+		}
+		if schema.MaxItems != nil {
+			parts = append(parts, fmt.Sprintf("max=%d", *schema.MaxItems))
+		}
+	}
+
+	// Enum constraint
+	if len(schema.Enum) > 0 {
+		var enumVals []string
+		for _, e := range schema.Enum {
+			enumVals = append(enumVals, fmt.Sprintf("%v", e))
+		}
+		parts = append(parts, "oneof="+strings.Join(enumVals, " "))
+	}
+
+	return strings.Join(parts, ",")
 }
 
 // addIssue adds a generation issue
@@ -545,9 +739,11 @@ func (cg *oas3CodeGenerator) generateClientMethod(path, method string, op *parse
 
 	// Request body
 	hasBody := op.RequestBody != nil
+	contentType := "application/json" // default
 	if hasBody {
 		bodyType := cg.getRequestBodyType(op.RequestBody)
 		params = append(params, "body "+bodyType)
+		contentType = cg.getRequestBodyContentType(op.RequestBody)
 	}
 
 	// Write method documentation
@@ -620,7 +816,7 @@ func (cg *oas3CodeGenerator) generateClientMethod(path, method string, op *parse
 
 	// Set content type for requests with body
 	if hasBody {
-		buf.WriteString("\treq.Header.Set(\"Content-Type\", \"application/json\")\n")
+		buf.WriteString(fmt.Sprintf("\treq.Header.Set(\"Content-Type\", %q)\n", contentType))
 	}
 	buf.WriteString("\treq.Header.Set(\"Accept\", \"application/json\")\n")
 
@@ -726,6 +922,24 @@ func (cg *oas3CodeGenerator) getRequestBodyType(rb *parser.RequestBody) string {
 		}
 	}
 	return "any"
+}
+
+// getRequestBodyContentType returns the primary content type for a request body
+func (cg *oas3CodeGenerator) getRequestBodyContentType(rb *parser.RequestBody) string {
+	if rb == nil || rb.Content == nil {
+		return "application/json"
+	}
+	// Prefer JSON content types
+	for contentType := range rb.Content {
+		if strings.Contains(contentType, "json") {
+			return contentType
+		}
+	}
+	// Fall back to first available content type
+	for contentType := range rb.Content {
+		return contentType
+	}
+	return "application/json"
 }
 
 // getResponseType determines the Go type for the success response
@@ -930,7 +1144,7 @@ func (cg *oas3CodeGenerator) generateRequestType(path, method string, op *parser
 	buf.WriteString(fmt.Sprintf("type %sRequest struct {\n", methodName))
 
 	// Categorize parameters in a single pass
-	var pathParams, queryParams, headerParams []*parser.Parameter
+	var pathParams, queryParams, headerParams, cookieParams []*parser.Parameter
 	for _, param := range op.Parameters {
 		if param == nil {
 			continue
@@ -942,6 +1156,8 @@ func (cg *oas3CodeGenerator) generateRequestType(path, method string, op *parser
 			queryParams = append(queryParams, param)
 		case parser.ParamInHeader:
 			headerParams = append(headerParams, param)
+		case parser.ParamInCookie:
+			cookieParams = append(cookieParams, param)
 		}
 	}
 
@@ -965,6 +1181,17 @@ func (cg *oas3CodeGenerator) generateRequestType(path, method string, op *parser
 
 	// Header parameters
 	for _, param := range headerParams {
+		goType := cg.paramToGoType(param)
+		fieldName := toFieldName(param.Name)
+		if !param.Required {
+			buf.WriteString(fmt.Sprintf("\t%s *%s\n", fieldName, goType))
+		} else {
+			buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
+		}
+	}
+
+	// Cookie parameters
+	for _, param := range cookieParams {
 		goType := cg.paramToGoType(param)
 		fieldName := toFieldName(param.Name)
 		if !param.Required {
@@ -1025,194 +1252,3 @@ var (
 	_ = strings.TrimSpace
 )
 `
-
-// Helper functions
-
-func toTypeName(s string) string {
-	// Convert to PascalCase and ensure valid Go identifier
-	s = strings.ReplaceAll(s, "-", " ")
-	s = strings.ReplaceAll(s, "_", " ")
-	s = strings.ReplaceAll(s, ".", " ")
-
-	words := strings.Fields(s)
-	for i, word := range words {
-		if len(word) > 0 {
-			words[i] = strings.ToUpper(word[:1]) + word[1:]
-		}
-	}
-
-	result := strings.Join(words, "")
-	if len(result) == 0 {
-		return "Type"
-	}
-
-	// Ensure first character is a letter
-	if !unicode.IsLetter(rune(result[0])) {
-		result = "T" + result
-	}
-
-	return result
-}
-
-func toFieldName(s string) string {
-	// Convert to PascalCase for exported fields
-	return toTypeName(s)
-}
-
-func toParamName(s string) string {
-	// Convert to camelCase for parameters
-	name := toTypeName(s)
-	if len(name) > 0 {
-		return strings.ToLower(name[:1]) + name[1:]
-	}
-	return "param"
-}
-
-func operationToMethodName(op *parser.Operation, path, method string) string {
-	if op.OperationID != "" {
-		return toTypeName(op.OperationID)
-	}
-	// Generate from path and method
-	pathPart := path
-	pathPart = strings.ReplaceAll(pathPart, "/", " ")
-	pathPart = strings.ReplaceAll(pathPart, "{", "By ")
-	pathPart = strings.ReplaceAll(pathPart, "}", "")
-	return toTypeName(method + " " + pathPart)
-}
-
-func cleanDescription(s string) string {
-	// Clean up description for Go comments
-	s = strings.ReplaceAll(s, "\n", " ")
-	s = strings.TrimSpace(s)
-	if len(s) > 200 {
-		s = s[:197] + "..."
-	}
-	return s
-}
-
-func getSchemaType(schema *parser.Schema) string {
-	if schema == nil {
-		return ""
-	}
-
-	switch t := schema.Type.(type) {
-	case string:
-		return t
-	case []any:
-		// OAS 3.1+ type array
-		for _, v := range t {
-			if str, ok := v.(string); ok && str != "null" {
-				return str
-			}
-		}
-	}
-
-	// Infer type from other fields
-	if schema.Properties != nil {
-		return "object"
-	}
-	if schema.Items != nil {
-		return "array"
-	}
-	if len(schema.Enum) > 0 {
-		return "string"
-	}
-
-	return ""
-}
-
-func isTypeNullable(t any) bool {
-	if arr, ok := t.([]any); ok {
-		for _, v := range arr {
-			if str, ok := v.(string); ok && str == "null" {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func isRequired(required []string, name string) bool {
-	for _, r := range required {
-		if r == name {
-			return true
-		}
-	}
-	return false
-}
-
-func stringFormatToGoType(format string) string {
-	switch format {
-	case "date-time":
-		return "time.Time"
-	case "date":
-		return "string" // Could use time.Time with custom parsing
-	case "time":
-		return "string"
-	case "byte":
-		return "[]byte"
-	case "binary":
-		return "[]byte"
-	default:
-		return "string"
-	}
-}
-
-func integerFormatToGoType(format string) string {
-	switch format {
-	case "int32":
-		return "int32"
-	case "int64":
-		return "int64"
-	default:
-		return "int64"
-	}
-}
-
-func numberFormatToGoType(format string) string {
-	switch format {
-	case "float":
-		return "float32"
-	case "double":
-		return "float64"
-	default:
-		return "float64"
-	}
-}
-
-func needsTimeImport(schema *parser.Schema) bool {
-	if schema == nil {
-		return false
-	}
-
-	schemaType := getSchemaType(schema)
-	if schemaType == "string" && schema.Format == "date-time" {
-		return true
-	}
-
-	// Check properties
-	for _, prop := range schema.Properties {
-		if needsTimeImport(prop) {
-			return true
-		}
-	}
-
-	// Check items
-	if items, ok := schema.Items.(*parser.Schema); ok {
-		if needsTimeImport(items) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func zeroValue(t string) string {
-	if t == "" || t == "*http.Response" {
-		return "nil"
-	}
-	if strings.HasPrefix(t, "*") || strings.HasPrefix(t, "[]") || strings.HasPrefix(t, "map") {
-		return "nil"
-	}
-	return t + "{}"
-}
