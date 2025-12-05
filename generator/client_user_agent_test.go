@@ -263,12 +263,12 @@ func TestBuildDefaultUserAgent(t *testing.T) {
 		{
 			name:     "with empty title",
 			info:     &parser.Info{Title: ""},
-			expected: "oastools/" + oastools.Version() + "/generated/API",
+			expected: "oastools/" + oastools.Version() + "/generated/API Client",
 		},
 		{
 			name:     "with nil info",
 			info:     nil,
-			expected: "oastools/" + oastools.Version() + "/generated/API",
+			expected: "oastools/" + oastools.Version() + "/generated/API Client",
 		},
 	}
 

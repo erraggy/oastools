@@ -286,10 +286,10 @@ func schemaTypeFromMap(m map[string]interface{}) string {
 
 // buildDefaultUserAgent generates the default User-Agent string for generated clients.
 // Format: oastools/{version}/generated/{title}
-// If title is empty, it uses "API" as a fallback.
+// If title is empty, it uses "API Client" as a fallback.
 func buildDefaultUserAgent(info *parser.Info) string {
 	version := oastools.Version()
-	title := "API"
+	title := "API Client"
 	if info != nil && info.Title != "" {
 		title = info.Title
 	}
