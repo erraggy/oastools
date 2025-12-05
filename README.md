@@ -383,16 +383,18 @@ All seven main packages (parser, validator, converter, joiner, differ, generator
 
 We welcome contributions! Please see:
 
+- **[AGENTS.md](AGENTS.md)** - Quick reference guide for AI coding agents (GitHub Copilot, etc.)
 - **[WORKFLOW.md](WORKFLOW.md)** - Development workflow from commit to PR to release
 - **[CLAUDE.md](CLAUDE.md)** - Project guidance for Claude Code
 - **[CONTRIBUTORS.md](CONTRIBUTORS.md)** - List of contributors
 
 **Quick Start for Contributors:**
-1. Read [WORKFLOW.md](WORKFLOW.md) for the complete development process
-2. Run `make check` before committing
-3. Follow conventional commit format (e.g., `feat(parser): add feature`)
-4. Create detailed pull requests with testing checklist
-5. All new exported functionality must have comprehensive tests
+1. Read [AGENTS.md](AGENTS.md) for quick setup and commands (AI agents start here)
+2. Read [WORKFLOW.md](WORKFLOW.md) for the complete development process
+3. Run `make check` before committing
+4. Follow conventional commit format (e.g., `feat(parser): add feature`)
+5. Create detailed pull requests with testing checklist
+6. All new exported functionality must have comprehensive tests
 
 ## License
 
