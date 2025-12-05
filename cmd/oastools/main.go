@@ -238,7 +238,9 @@ func handleParse(args []string) error {
 	}
 	fmt.Println(string(jsonData))
 
-	fmt.Printf("\nParsing completed successfully!\n")
+	if !flags.quiet {
+		fmt.Printf("\nParsing completed successfully!\n")
+	}
 	return nil
 }
 
