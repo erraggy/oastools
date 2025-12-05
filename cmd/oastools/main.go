@@ -82,19 +82,20 @@ func validateOutputFormat(format string) error {
 func outputStructured(data any, format string) error {
 	var bytes []byte
 	var err error
-	
-	if format == "json" {
+
+	switch format {
+	case "json":
 		bytes, err = json.MarshalIndent(data, "", "  ")
-	} else if format == "yaml" {
+	case "yaml":
 		bytes, err = yaml.Marshal(data)
-	} else {
+	default:
 		return fmt.Errorf("invalid format for structured output: %s", format)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("marshaling to %s: %w", format, err)
 	}
-	
+
 	fmt.Println(string(bytes))
 	return nil
 }
@@ -365,12 +366,12 @@ func handleValidate(args []string) error {
 		if err := outputStructured(result, flags.format); err != nil {
 			return err
 		}
-		
+
 		// Exit with error if validation failed
 		if !result.Valid {
 			os.Exit(1)
 		}
-		
+
 		return nil
 	}
 
@@ -886,12 +887,12 @@ func handleDiff(args []string) error {
 		if err := outputStructured(result, flags.format); err != nil {
 			return err
 		}
-		
+
 		// Exit with error if breaking changes found (in breaking mode)
 		if flags.breaking && result.HasBreakingChanges {
 			os.Exit(1)
 		}
-		
+
 		return nil
 	}
 
