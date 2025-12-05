@@ -1,0 +1,120 @@
+package generator_test
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/erraggy/oastools/generator"
+)
+
+// Example demonstrates basic code generation using functional options
+func Example() {
+	// Generate types and client from an OAS 3.0 specification
+	result, err := generator.GenerateWithOptions(
+		generator.WithFilePath("testdata/petstore-3.0.yaml"),
+		generator.WithPackageName("petstore"),
+		generator.WithClient(true),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Check for critical issues
+	if result.HasCriticalIssues() {
+		fmt.Printf("Generation completed with %d critical issue(s)\n", result.CriticalCount)
+		return
+	}
+
+	fmt.Printf("Successfully generated %d files\n", len(result.Files))
+	fmt.Printf("Types: %d, Operations: %d\n", result.GeneratedTypes, result.GeneratedOperations)
+	fmt.Printf("Issues: %d info, %d warnings, %d critical\n",
+		result.InfoCount, result.WarningCount, result.CriticalCount)
+}
+
+// Example_typesOnly demonstrates generating only type definitions
+func Example_typesOnly() {
+	result, err := generator.GenerateWithOptions(
+		generator.WithFilePath("openapi.yaml"),
+		generator.WithPackageName("myapi"),
+		generator.WithTypes(true),
+		generator.WithClient(false),
+		generator.WithServer(false),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Access generated types
+	if typesFile := result.GetFile("types.go"); typesFile != nil {
+		fmt.Printf("Generated types.go with %d bytes\n", len(typesFile.Content))
+	}
+}
+
+// Example_clientAndServer demonstrates generating both client and server code
+func Example_clientAndServer() {
+	g := generator.New()
+	g.PackageName = "petstore"
+	g.GenerateClient = true
+	g.GenerateServer = true
+	g.UsePointers = true
+	g.IncludeValidation = true
+
+	result, err := g.Generate("testdata/petstore-3.0.yaml")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Generated %d files:\n", len(result.Files))
+	for _, file := range result.Files {
+		fmt.Printf("  - %s (%d bytes)\n", file.Name, len(file.Content))
+	}
+
+	// Write files to output directory
+	if err := result.WriteFiles("./generated/petstore"); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Files written to ./generated/petstore")
+}
+
+// Example_handleIssues demonstrates processing generation issues
+func Example_handleIssues() {
+	result, _ := generator.GenerateWithOptions(
+		generator.WithFilePath("complex-api.yaml"),
+		generator.WithPackageName("api"),
+		generator.WithClient(true),
+	)
+
+	// Categorize issues by severity
+	for _, issue := range result.Issues {
+		switch issue.Severity {
+		case generator.SeverityCritical:
+			fmt.Printf("CRITICAL [%s]: %s\n", issue.Path, issue.Message)
+		case generator.SeverityWarning:
+			fmt.Printf("WARNING [%s]: %s\n", issue.Path, issue.Message)
+		case generator.SeverityInfo:
+			fmt.Printf("INFO [%s]: %s\n", issue.Path, issue.Message)
+		}
+	}
+
+	fmt.Printf("\nSummary: %d critical, %d warnings, %d info\n",
+		result.CriticalCount, result.WarningCount, result.InfoCount)
+}
+
+// Example_withParsedDocument demonstrates using a pre-parsed document
+func Example_withParsedDocument() {
+	// This example shows how to use a pre-parsed document
+	// Useful when you need to parse once and generate multiple times
+	// or when integrating with other oastools packages
+
+	// First, parse the document using the parser package
+	// parsed, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
+
+	// Then generate using the parsed result
+	// result, _ := generator.GenerateWithOptions(
+	//     generator.WithParsed(*parsed),
+	//     generator.WithPackageName("api"),
+	//     generator.WithClient(true),
+	// )
+
+	fmt.Println("Pre-parsed document can be used with WithParsed option")
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/converter"
 	"github.com/erraggy/oastools/differ"
+	"github.com/erraggy/oastools/generator"
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/validator"
@@ -53,6 +54,11 @@ func main() {
 		}
 	case "diff":
 		if err := handleDiff(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "generate":
+		if err := handleGenerate(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -795,6 +801,156 @@ func handleDiff(args []string) error {
 	return nil
 }
 
+// generateFlags contains flags for the generate command
+type generateFlags struct {
+	output       string
+	packageName  string
+	client       bool
+	server       bool
+	types        bool
+	noPointers   bool
+	noValidation bool
+	strict       bool
+	noWarnings   bool
+}
+
+// setupGenerateFlags creates and configures a FlagSet for the generate command.
+// Returns the FlagSet and a generateFlags struct with bound flag variables.
+func setupGenerateFlags() (*flag.FlagSet, *generateFlags) {
+	fs := flag.NewFlagSet("generate", flag.ContinueOnError)
+	flags := &generateFlags{}
+
+	fs.StringVar(&flags.output, "o", "", "output directory for generated files (required)")
+	fs.StringVar(&flags.output, "output", "", "output directory for generated files (required)")
+	fs.StringVar(&flags.packageName, "p", "api", "Go package name for generated code")
+	fs.StringVar(&flags.packageName, "package", "api", "Go package name for generated code")
+	fs.BoolVar(&flags.client, "client", false, "generate HTTP client code")
+	fs.BoolVar(&flags.server, "server", false, "generate server interface code")
+	fs.BoolVar(&flags.types, "types", true, "generate type definitions from schemas")
+	fs.BoolVar(&flags.noPointers, "no-pointers", false, "don't use pointer types for optional fields")
+	fs.BoolVar(&flags.noValidation, "no-validation", false, "don't include validation tags")
+	fs.BoolVar(&flags.strict, "strict", false, "fail on any generation issues (even warnings)")
+	fs.BoolVar(&flags.noWarnings, "no-warnings", false, "suppress warning and info messages")
+
+	fs.Usage = func() {
+		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools generate [flags] <file|url>\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Generate Go code from an OpenAPI specification.\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
+		fs.PrintDefaults()
+		_, _ = fmt.Fprintf(fs.Output(), "\nExamples:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools generate --client -o ./client openapi.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools generate --server -o ./server -p myapi openapi.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools generate --client --server -o ./api petstore.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools generate --types -o ./models https://example.com/api/openapi.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nNotes:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - At least one of --client, --server, or --types must be enabled\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Types are always generated when --client or --server is enabled\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Generated code uses Go idioms and best practices\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Server interface is framework-agnostic\n")
+	}
+
+	return fs, flags
+}
+
+func handleGenerate(args []string) error {
+	fs, flags := setupGenerateFlags()
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+
+	if fs.NArg() != 1 {
+		fs.Usage()
+		return fmt.Errorf("generate command requires exactly one file path or URL")
+	}
+
+	specPath := fs.Arg(0)
+
+	if flags.output == "" {
+		fs.Usage()
+		return fmt.Errorf("output directory is required (use -o or --output)")
+	}
+
+	// Ensure at least one generation mode is enabled
+	if !flags.client && !flags.server && !flags.types {
+		fs.Usage()
+		return fmt.Errorf("at least one of --client, --server, or --types must be enabled")
+	}
+
+	// Create generator with options
+	g := generator.New()
+	g.PackageName = flags.packageName
+	g.GenerateClient = flags.client
+	g.GenerateServer = flags.server
+	g.GenerateTypes = flags.types || flags.client || flags.server
+	g.UsePointers = !flags.noPointers
+	g.IncludeValidation = !flags.noValidation
+	g.StrictMode = flags.strict
+	g.IncludeInfo = !flags.noWarnings
+
+	// Generate the code with timing
+	startTime := time.Now()
+	result, err := g.Generate(specPath)
+	totalTime := time.Since(startTime)
+	if err != nil {
+		return fmt.Errorf("generating code: %w", err)
+	}
+
+	// Print results
+	fmt.Printf("OpenAPI Code Generator\n")
+	fmt.Printf("=====================\n\n")
+	fmt.Printf("oastools version: %s\n", oastools.Version())
+	fmt.Printf("Specification: %s\n", specPath)
+	fmt.Printf("OAS Version: %s\n", result.SourceVersion)
+	fmt.Printf("Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+	fmt.Printf("Package: %s\n", result.PackageName)
+	fmt.Printf("Types: %d\n", result.GeneratedTypes)
+	fmt.Printf("Operations: %d\n", result.GeneratedOperations)
+	fmt.Printf("Total Time: %v\n\n", totalTime)
+
+	// Print issues
+	if len(result.Issues) > 0 {
+		fmt.Printf("Generation Issues (%d):\n", len(result.Issues))
+		for _, issue := range result.Issues {
+			fmt.Printf("  %s\n", issue.String())
+		}
+		fmt.Println()
+	}
+
+	// Write files
+	if err := result.WriteFiles(flags.output); err != nil {
+		return fmt.Errorf("writing files: %w", err)
+	}
+
+	// Print generated files
+	fmt.Printf("Generated Files (%d):\n", len(result.Files))
+	for _, file := range result.Files {
+		fmt.Printf("  - %s/%s (%d bytes)\n", flags.output, file.Name, len(file.Content))
+	}
+	fmt.Println()
+
+	// Print summary
+	if result.Success {
+		fmt.Printf("✓ Generation successful")
+		if result.InfoCount > 0 || result.WarningCount > 0 {
+			fmt.Printf(" (%d info, %d warnings)", result.InfoCount, result.WarningCount)
+		}
+		fmt.Println()
+	} else {
+		fmt.Printf("✗ Generation completed with %d critical issue(s)", result.CriticalCount)
+		if result.WarningCount > 0 {
+			fmt.Printf(", %d warning(s)", result.WarningCount)
+		}
+		fmt.Println()
+		os.Exit(1)
+	}
+
+	return nil
+}
+
 func printUsage() {
 	fmt.Println(`oastools - OpenAPI Specification Tools
 
@@ -805,6 +961,7 @@ Commands:
   validate    Validate an OpenAPI specification file or URL
   convert     Convert between OpenAPI specification versions
   diff        Compare two OpenAPI specifications and detect changes
+  generate    Generate Go client/server code from an OpenAPI specification
   join        Join multiple OpenAPI specification files
   parse       Parse and display an OpenAPI specification file or URL
   version     Show version information
@@ -815,6 +972,7 @@ Examples:
   oastools validate https://example.com/api/openapi.yaml
   oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
   oastools diff --breaking api-v1.yaml api-v2.yaml
+  oastools generate --client -o ./client openapi.yaml
   oastools join -o merged.yaml base.yaml extensions.yaml
   oastools parse https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.yaml
 
