@@ -239,6 +239,7 @@ type validateFlags struct {
 	strict     bool
 	noWarnings bool
 	quiet      bool
+	format     string
 }
 
 // setupValidateFlags creates and configures a FlagSet for the validate command.
@@ -251,21 +252,28 @@ func setupValidateFlags() (*flag.FlagSet, *validateFlags) {
 	fs.BoolVar(&flags.noWarnings, "no-warnings", false, "suppress warning messages (only show errors)")
 	fs.BoolVar(&flags.quiet, "q", false, "quiet mode: only output validation result, no diagnostic messages")
 	fs.BoolVar(&flags.quiet, "quiet", false, "quiet mode: only output validation result, no diagnostic messages")
+	fs.StringVar(&flags.format, "format", "text", "output format: text, json, or yaml")
 
 	fs.Usage = func() {
 		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools validate [flags] <file|url|->\n\n")
 		_, _ = fmt.Fprintf(fs.Output(), "Validate an OpenAPI specification file, URL, or stdin against the specification version it declares.\n\n")
 		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
+		_, _ = fmt.Fprintf(fs.Output(), "\nOutput Formats:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  text (default)  Human-readable text output\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  json            JSON format for programmatic processing\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  yaml            YAML format for programmatic processing\n")
 		_, _ = fmt.Fprintf(fs.Output(), "\nExamples:\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate openapi.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate https://example.com/api/openapi.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate --strict api-spec.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate --no-warnings openapi.json\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  cat openapi.yaml | oastools validate -q -\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate --format json openapi.yaml | jq '.valid'\n")
 		_, _ = fmt.Fprintf(fs.Output(), "\nPipelining:\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Use --format json/yaml for structured output that can be parsed\n")
 	}
 
 	return fs, flags
@@ -317,6 +325,38 @@ func handleValidate(args []string) error {
 	}
 	totalTime := time.Since(startTime)
 
+	// Validate format flag
+	if flags.format != "text" && flags.format != "json" && flags.format != "yaml" {
+		return fmt.Errorf("invalid format '%s'. Valid formats: text, json, yaml", flags.format)
+	}
+
+	// Handle structured output formats
+	if flags.format == "json" || flags.format == "yaml" {
+		// Output structured format to stdout
+		var data []byte
+		var err error
+		
+		if flags.format == "json" {
+			data, err = json.MarshalIndent(result, "", "  ")
+		} else {
+			data, err = yaml.Marshal(result)
+		}
+		
+		if err != nil {
+			return fmt.Errorf("marshaling validation result: %w", err)
+		}
+		
+		fmt.Println(string(data))
+		
+		// Exit with error if validation failed
+		if !result.Valid {
+			os.Exit(1)
+		}
+		
+		return nil
+	}
+
+	// Text format output (original behavior)
 	// Print results (always to stderr to be consistent with parse and convert)
 	if !flags.quiet {
 		fmt.Fprintf(os.Stderr, "OpenAPI Specification Validator\n")
@@ -733,6 +773,7 @@ func marshalDocument(doc any, format parser.SourceFormat) ([]byte, error) {
 type diffFlags struct {
 	breaking bool
 	noInfo   bool
+	format   string
 }
 
 // setupDiffFlags creates and configures a FlagSet for the diff command.
@@ -743,12 +784,17 @@ func setupDiffFlags() (*flag.FlagSet, *diffFlags) {
 
 	fs.BoolVar(&flags.breaking, "breaking", false, "enable breaking change detection and categorization")
 	fs.BoolVar(&flags.noInfo, "no-info", false, "exclude informational changes from output")
+	fs.StringVar(&flags.format, "format", "text", "output format: text, json, or yaml")
 
 	fs.Usage = func() {
 		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools diff [flags] <source> <target>\n\n")
 		_, _ = fmt.Fprintf(fs.Output(), "Compare two OpenAPI specification files or URLs and report differences.\n\n")
 		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
+		_, _ = fmt.Fprintf(fs.Output(), "\nOutput Formats:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  text (default)  Human-readable text output\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  json            JSON format for programmatic processing\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  yaml            YAML format for programmatic processing\n")
 		_, _ = fmt.Fprintf(fs.Output(), "\nModes:\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  Default (Simple):\n")
 		_, _ = fmt.Fprintf(fs.Output(), "    Reports all semantic differences between specifications without\n")
@@ -763,6 +809,7 @@ func setupDiffFlags() (*flag.FlagSet, *diffFlags) {
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff api-v1.yaml api-v2.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff --breaking api-v1.yaml api-v2.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff --breaking --no-info old.yaml new.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff --format json --breaking api-v1.yaml api-v2.yaml | jq '.HasBreakingChanges'\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "\nExit Status:\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  0    No differences found (or no breaking changes in --breaking mode)\n")
@@ -794,6 +841,11 @@ func handleDiff(args []string) error {
 	sourcePath := fs.Arg(0)
 	targetPath := fs.Arg(1)
 
+	// Validate format flag
+	if flags.format != "text" && flags.format != "json" && flags.format != "yaml" {
+		return fmt.Errorf("invalid format '%s'. Valid formats: text, json, yaml", flags.format)
+	}
+
 	// Create differ with options
 	d := differ.New()
 	if flags.breaking {
@@ -811,6 +863,32 @@ func handleDiff(args []string) error {
 		return fmt.Errorf("comparing specifications: %w", err)
 	}
 
+	// Handle structured output formats
+	if flags.format == "json" || flags.format == "yaml" {
+		var data []byte
+		var err error
+		
+		if flags.format == "json" {
+			data, err = json.MarshalIndent(result, "", "  ")
+		} else {
+			data, err = yaml.Marshal(result)
+		}
+		
+		if err != nil {
+			return fmt.Errorf("marshaling diff result: %w", err)
+		}
+		
+		fmt.Println(string(data))
+		
+		// Exit with error if breaking changes found (in breaking mode)
+		if flags.breaking && result.HasBreakingChanges {
+			os.Exit(1)
+		}
+		
+		return nil
+	}
+
+	// Text format output (original behavior)
 	// Print results
 	fmt.Printf("OpenAPI Specification Diff\n")
 	fmt.Printf("==========================\n\n")
