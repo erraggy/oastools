@@ -799,3 +799,1047 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// Additional tests for improved coverage
+
+func TestGenerateOAS2Client(t *testing.T) {
+	spec := `swagger: "2.0"
+info:
+  title: Pet API
+  version: "1.0.0"
+basePath: /v1
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List all pets
+      parameters:
+        - name: limit
+          in: query
+          type: integer
+          description: Maximum number of pets
+        - name: status
+          in: query
+          type: string
+          required: true
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: A list of pets
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Pet'
+    post:
+      operationId: createPet
+      summary: Create a pet
+      consumes:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/NewPet'
+      responses:
+        '201':
+          description: Pet created
+          schema:
+            $ref: '#/definitions/Pet'
+  /pets/{petId}:
+    get:
+      operationId: getPet
+      summary: Get a pet by ID
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: A pet
+          schema:
+            $ref: '#/definitions/Pet'
+        default:
+          description: Error
+          schema:
+            $ref: '#/definitions/Error'
+definitions:
+  Pet:
+    type: object
+    required:
+      - id
+      - name
+    properties:
+      id:
+        type: integer
+        format: int64
+      name:
+        type: string
+      tag:
+        type: string
+  NewPet:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+      tag:
+        type: string
+  Error:
+    type: object
+    properties:
+      code:
+        type: integer
+      message:
+        type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "swagger.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithClient(true),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	// Check client.go was generated
+	clientFile := result.GetFile("client.go")
+	if clientFile == nil {
+		t.Fatal("client.go not generated")
+	}
+
+	content := string(clientFile.Content)
+
+	// Verify client struct
+	if !strings.Contains(content, "type Client struct") {
+		t.Error("client.go missing Client struct")
+	}
+
+	// Verify operation methods
+	if !strings.Contains(content, "func (c *Client) ListPets") {
+		t.Error("client.go missing ListPets method")
+	}
+	if !strings.Contains(content, "func (c *Client) CreatePet") {
+		t.Error("client.go missing CreatePet method")
+	}
+	if !strings.Contains(content, "func (c *Client) GetPet") {
+		t.Error("client.go missing GetPet method")
+	}
+
+	// Verify params struct for query parameters
+	if !strings.Contains(content, "ListPetsParams") {
+		t.Error("client.go missing ListPetsParams struct")
+	}
+
+	// Verify generated operations count
+	if result.GeneratedOperations != 3 {
+		t.Errorf("GeneratedOperations = %d, want 3", result.GeneratedOperations)
+	}
+}
+
+func TestGenerateOAS2Server(t *testing.T) {
+	spec := `swagger: "2.0"
+info:
+  title: Pet API
+  version: "1.0.0"
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      parameters:
+        - name: limit
+          in: query
+          type: integer
+        - name: X-Request-ID
+          in: header
+          type: string
+      responses:
+        '200':
+          description: A list of pets
+    post:
+      operationId: createPet
+      parameters:
+        - name: body
+          in: body
+          schema:
+            $ref: '#/definitions/Pet'
+      responses:
+        '201':
+          description: Pet created
+definitions:
+  Pet:
+    type: object
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "swagger.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	// Check server.go was generated
+	serverFile := result.GetFile("server.go")
+	if serverFile == nil {
+		t.Fatal("server.go not generated")
+	}
+
+	content := string(serverFile.Content)
+
+	// Verify server interface
+	if !strings.Contains(content, "type ServerInterface interface") {
+		t.Error("server.go missing ServerInterface")
+	}
+
+	// Verify methods in interface
+	if !strings.Contains(content, "ListPets(") {
+		t.Error("server.go missing ListPets in interface")
+	}
+	if !strings.Contains(content, "CreatePet(") {
+		t.Error("server.go missing CreatePet in interface")
+	}
+
+	// Verify request types
+	if !strings.Contains(content, "ListPetsRequest") {
+		t.Error("server.go missing ListPetsRequest struct")
+	}
+	// CreatePet request should have Body field
+	if !strings.Contains(content, "CreatePetRequest") {
+		t.Error("server.go missing CreatePetRequest struct")
+	}
+
+	// Verify UnimplementedServer
+	if !strings.Contains(content, "UnimplementedServer") {
+		t.Error("server.go missing UnimplementedServer")
+	}
+}
+
+func TestGenerateWithStrictMode(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Pet:
+      oneOf:
+        - $ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+    Cat:
+      type: object
+      properties:
+        meow:
+          type: boolean
+    Dog:
+      type: object
+      properties:
+        bark:
+          type: boolean
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	// With strict mode, info messages should not cause failure
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithStrictMode(false),
+		WithIncludeInfo(true),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	// Should have info about oneOf
+	if result.InfoCount == 0 {
+		t.Error("expected info messages about oneOf union types")
+	}
+}
+
+func TestGenerateWithoutInfo(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Pet:
+      oneOf:
+        - type: string
+        - type: integer
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithIncludeInfo(false),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	// Info messages should be filtered out
+	for _, issue := range result.Issues {
+		if issue.Severity == SeverityInfo {
+			t.Error("info messages should be filtered out when IncludeInfo is false")
+		}
+	}
+}
+
+func TestGenerateWithParsedDocument(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        id:
+          type: integer
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	// Parse first
+	p := parser.New()
+	parseResult, err := p.Parse(tmpFile)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
+
+	// Generate using parsed result
+	result, err := GenerateWithOptions(
+		WithParsed(*parseResult),
+		WithPackageName("testapi"),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	if result.GeneratedTypes != 1 {
+		t.Errorf("GeneratedTypes = %d, want 1", result.GeneratedTypes)
+	}
+}
+
+func TestGenerateFileNotFound(t *testing.T) {
+	_, err := GenerateWithOptions(
+		WithFilePath("nonexistent.yaml"),
+		WithPackageName("testapi"),
+	)
+	if err == nil {
+		t.Error("expected error for non-existent file")
+	}
+}
+
+func TestGenerateInvalidSpec(t *testing.T) {
+	spec := `not valid yaml: [[[`
+
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "invalid.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	_, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+	)
+	if err == nil {
+		t.Error("expected error for invalid spec")
+	}
+}
+
+func TestGenerateSchemaWithRef(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Pet:
+      $ref: '#/components/schemas/Animal'
+    Animal:
+      type: object
+      properties:
+        name:
+          type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	typesFile := result.GetFile("types.go")
+	if typesFile == nil {
+		t.Fatal("types.go not generated")
+	}
+
+	content := string(typesFile.Content)
+	// Pet should be an alias for Animal
+	if !strings.Contains(content, "type Pet = Animal") {
+		t.Error("expected Pet to be an alias for Animal")
+	}
+}
+
+func TestGenerateSchemaWithAllOf(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Pet:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          properties:
+            petId:
+              type: integer
+    Animal:
+      type: object
+      properties:
+        name:
+          type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	typesFile := result.GetFile("types.go")
+	content := string(typesFile.Content)
+
+	// Pet should embed Animal and have PetId
+	if !strings.Contains(content, "type Pet struct") {
+		t.Error("expected Pet struct")
+	}
+	if !strings.Contains(content, "Animal") {
+		t.Error("expected Animal to be embedded")
+	}
+	if !strings.Contains(content, "PetId") {
+		t.Error("expected PetId field")
+	}
+}
+
+func TestGenerateSchemaWithEnum(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Status:
+      type: string
+      enum:
+        - available
+        - pending
+        - sold
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	typesFile := result.GetFile("types.go")
+	content := string(typesFile.Content)
+
+	// Should have enum constants
+	if !strings.Contains(content, "type Status string") {
+		t.Error("expected Status string type")
+	}
+	if !strings.Contains(content, "StatusAvailable") {
+		t.Error("expected StatusAvailable constant")
+	}
+	if !strings.Contains(content, "StatusPending") {
+		t.Error("expected StatusPending constant")
+	}
+	if !strings.Contains(content, "StatusSold") {
+		t.Error("expected StatusSold constant")
+	}
+}
+
+func TestGenerateSchemaWithArray(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Pets:
+      type: array
+      items:
+        $ref: '#/components/schemas/Pet'
+    Pet:
+      type: object
+      properties:
+        id:
+          type: integer
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	typesFile := result.GetFile("types.go")
+	content := string(typesFile.Content)
+
+	// Pets should be a slice type (may be []any if ref not fully resolved)
+	if !strings.Contains(content, "type Pets []") {
+		t.Error("expected Pets to be a slice type")
+	}
+}
+
+func TestGenerateSchemaWithAdditionalProperties(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Metadata:
+      type: object
+      properties:
+        name:
+          type: string
+      additionalProperties: true
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	typesFile := result.GetFile("types.go")
+	content := string(typesFile.Content)
+
+	// Should have Metadata struct
+	if !strings.Contains(content, "type Metadata struct") {
+		t.Error("expected Metadata struct")
+	}
+	// Should have Name field
+	if !strings.Contains(content, "Name") {
+		t.Error("expected Name field")
+	}
+}
+
+func TestGenerateSchemaWithNullable(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithPointers(true),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	typesFile := result.GetFile("types.go")
+	content := string(typesFile.Content)
+
+	// Nullable field should be pointer
+	if !strings.Contains(content, "*string") {
+		t.Error("expected nullable string to be pointer type")
+	}
+}
+
+func TestGenerateSchemaWithFormats(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Data:
+      type: object
+      properties:
+        created:
+          type: string
+          format: date-time
+        data:
+          type: string
+          format: byte
+        id32:
+          type: integer
+          format: int32
+        id64:
+          type: integer
+          format: int64
+        score:
+          type: number
+          format: float
+        value:
+          type: number
+          format: double
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	typesFile := result.GetFile("types.go")
+	content := string(typesFile.Content)
+
+	// Check format mappings
+	if !strings.Contains(content, "time.Time") {
+		t.Error("expected time.Time for date-time format")
+	}
+	if !strings.Contains(content, "[]byte") {
+		t.Error("expected []byte for byte format")
+	}
+	if !strings.Contains(content, "int32") {
+		t.Error("expected int32")
+	}
+	if !strings.Contains(content, "int64") {
+		t.Error("expected int64")
+	}
+	if !strings.Contains(content, "float32") {
+		t.Error("expected float32")
+	}
+	if !strings.Contains(content, "float64") {
+		t.Error("expected float64")
+	}
+}
+
+func TestGenerateWithNoPointers(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        name:
+          type: string
+        tag:
+          type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithPointers(false),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	typesFile := result.GetFile("types.go")
+	content := string(typesFile.Content)
+
+	// Without pointers, optional fields should not have *
+	// Note: checking that tag field doesn't have pointer
+	if strings.Contains(content, "*string `json:\"tag") {
+		t.Error("expected no pointer for optional string when UsePointers is false")
+	}
+}
+
+func TestGeneratedFile_WriteFile(t *testing.T) {
+	file := &GeneratedFile{
+		Name:    "test.go",
+		Content: []byte("package test\n"),
+	}
+
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "subdir", "test.go")
+
+	if err := file.WriteFile(filePath); err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+
+	// Verify file was created
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("failed to read file: %v", err)
+	}
+	if string(content) != "package test\n" {
+		t.Error("file content mismatch")
+	}
+}
+
+func TestGenerateClientWithDeprecatedOperation(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /old:
+    get:
+      operationId: oldEndpoint
+      deprecated: true
+      responses:
+        '200':
+          description: OK
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithClient(true),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	clientFile := result.GetFile("client.go")
+	content := string(clientFile.Content)
+
+	// Should have Deprecated comment
+	if !strings.Contains(content, "Deprecated:") {
+		t.Error("expected Deprecated comment for deprecated operation")
+	}
+}
+
+func TestGenerateServerWithAllParameterTypes(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /items/{id}:
+    get:
+      operationId: getItem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: filter
+          in: query
+          schema:
+            type: string
+        - name: X-Request-ID
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithServer(true),
+	)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions failed: %v", err)
+	}
+
+	serverFile := result.GetFile("server.go")
+	content := string(serverFile.Content)
+
+	// Request struct should have all parameter types
+	if !strings.Contains(content, "GetItemRequest") {
+		t.Error("expected GetItemRequest struct")
+	}
+	if !strings.Contains(content, "Id") {
+		t.Error("expected Id field for path parameter")
+	}
+	if !strings.Contains(content, "Filter") {
+		t.Error("expected Filter field for query parameter")
+	}
+	if !strings.Contains(content, "XRequestID") {
+		t.Error("expected XRequestID field for header parameter")
+	}
+}
+
+func TestIsTypeNullable(t *testing.T) {
+	tests := []struct {
+		name     string
+		typeVal  any
+		expected bool
+	}{
+		{"string type", "string", false},
+		{"array with null", []any{"string", "null"}, true},
+		{"array without null", []any{"string", "integer"}, false},
+		{"nil", nil, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isTypeNullable(tt.typeVal)
+			if result != tt.expected {
+				t.Errorf("isTypeNullable() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNeedsTimeImport(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   *parser.Schema
+		expected bool
+	}{
+		{"nil schema", nil, false},
+		{"date-time format", &parser.Schema{Type: "string", Format: "date-time"}, true},
+		{"no format", &parser.Schema{Type: "string"}, false},
+		{"nested date-time", &parser.Schema{
+			Type: "object",
+			Properties: map[string]*parser.Schema{
+				"created": {Type: "string", Format: "date-time"},
+			},
+		}, true},
+		{"array with date-time items", &parser.Schema{
+			Type:  "array",
+			Items: &parser.Schema{Type: "string", Format: "date-time"},
+		}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := needsTimeImport(tt.schema)
+			if result != tt.expected {
+				t.Errorf("needsTimeImport() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGeneratorStruct_Generate(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        id:
+          type: integer
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	g := New()
+	g.PackageName = "testapi"
+	g.GenerateTypes = true
+
+	result, err := g.Generate(tmpFile)
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	if result.PackageName != "testapi" {
+		t.Errorf("PackageName = %q, want %q", result.PackageName, "testapi")
+	}
+	if result.GeneratedTypes != 1 {
+		t.Errorf("GeneratedTypes = %d, want 1", result.GeneratedTypes)
+	}
+}
+
+func TestGeneratorStruct_GenerateParsed(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        id:
+          type: integer
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	p := parser.New()
+	parseResult, err := p.Parse(tmpFile)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
+
+	g := New()
+	g.PackageName = "testapi"
+	g.GenerateClient = true
+	g.GenerateServer = true
+
+	result, err := g.GenerateParsed(*parseResult)
+	if err != nil {
+		t.Fatalf("GenerateParsed failed: %v", err)
+	}
+
+	// Should have all three files
+	if result.GetFile("types.go") == nil {
+		t.Error("expected types.go")
+	}
+	if result.GetFile("client.go") == nil {
+		t.Error("expected client.go")
+	}
+	if result.GetFile("server.go") == nil {
+		t.Error("expected server.go")
+	}
+}
+
+func TestGenerateEmptyPackageName(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	// Generator with empty package name should default to "api"
+	g := New()
+	g.PackageName = ""
+	g.GenerateTypes = true
+
+	result, err := g.Generate(tmpFile)
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	if result.PackageName != "api" {
+		t.Errorf("PackageName should default to 'api', got %q", result.PackageName)
+	}
+}

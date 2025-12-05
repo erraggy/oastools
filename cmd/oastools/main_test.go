@@ -661,3 +661,159 @@ func TestDiffFlags(t *testing.T) {
 		})
 	}
 }
+
+// TestGenerateFlags tests the generate command flag parsing
+func TestGenerateFlags(t *testing.T) {
+	tests := []struct {
+		name             string
+		args             []string
+		expectError      bool
+		wantClient       bool
+		wantServer       bool
+		wantTypes        bool
+		wantPackage      string
+		wantOutput       string
+		wantNoPointers   bool
+		wantNoValidation bool
+		wantStrict       bool
+		wantNoWarnings   bool
+	}{
+		{
+			name:        "client only",
+			args:        []string{"--client", "-o", "output", "openapi.yaml"},
+			wantClient:  true,
+			wantServer:  false,
+			wantTypes:   true,
+			wantPackage: "api",
+			wantOutput:  "output",
+		},
+		{
+			name:        "server only",
+			args:        []string{"--server", "-o", "output", "openapi.yaml"},
+			wantClient:  false,
+			wantServer:  true,
+			wantTypes:   true,
+			wantPackage: "api",
+			wantOutput:  "output",
+		},
+		{
+			name:        "types only",
+			args:        []string{"--types", "-o", "output", "openapi.yaml"},
+			wantClient:  false,
+			wantServer:  false,
+			wantTypes:   true,
+			wantPackage: "api",
+			wantOutput:  "output",
+		},
+		{
+			name:        "client and server",
+			args:        []string{"--client", "--server", "-o", "output", "openapi.yaml"},
+			wantClient:  true,
+			wantServer:  true,
+			wantTypes:   true,
+			wantPackage: "api",
+			wantOutput:  "output",
+		},
+		{
+			name:        "custom package name",
+			args:        []string{"--client", "-o", "output", "-p", "petstore", "openapi.yaml"},
+			wantClient:  true,
+			wantPackage: "petstore",
+			wantOutput:  "output",
+			wantTypes:   true,
+		},
+		{
+			name:        "long package flag",
+			args:        []string{"--client", "--output", "output", "--package", "myapi", "openapi.yaml"},
+			wantClient:  true,
+			wantPackage: "myapi",
+			wantOutput:  "output",
+			wantTypes:   true,
+		},
+		{
+			name:             "all options",
+			args:             []string{"--client", "--server", "--no-pointers", "--no-validation", "--strict", "--no-warnings", "-o", "out", "-p", "pkg", "api.yaml"},
+			wantClient:       true,
+			wantServer:       true,
+			wantTypes:        true,
+			wantPackage:      "pkg",
+			wantOutput:       "out",
+			wantNoPointers:   true,
+			wantNoValidation: true,
+			wantStrict:       true,
+			wantNoWarnings:   true,
+		},
+		{
+			name:        "missing output",
+			args:        []string{"--client", "openapi.yaml"},
+			expectError: true,
+		},
+		{
+			name:        "no file path",
+			args:        []string{"--client", "-o", "output"},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs, flags := setupGenerateFlags()
+
+			err := fs.Parse(tt.args)
+			if err != nil {
+				if !tt.expectError {
+					t.Fatalf("unexpected parse error: %v", err)
+				}
+				return
+			}
+
+			// Check for missing output
+			if flags.output == "" {
+				if !tt.expectError {
+					t.Error("output is required but not provided")
+				}
+				return
+			}
+
+			// Check argument count
+			if fs.NArg() != 1 {
+				if !tt.expectError {
+					t.Errorf("expected exactly 1 file argument, got %d", fs.NArg())
+				}
+				return
+			}
+
+			if tt.expectError {
+				t.Fatalf("expected error but got none")
+			}
+
+			if flags.client != tt.wantClient {
+				t.Errorf("client = %v, want %v", flags.client, tt.wantClient)
+			}
+			if flags.server != tt.wantServer {
+				t.Errorf("server = %v, want %v", flags.server, tt.wantServer)
+			}
+			if flags.types != tt.wantTypes {
+				t.Errorf("types = %v, want %v", flags.types, tt.wantTypes)
+			}
+			if flags.packageName != tt.wantPackage {
+				t.Errorf("packageName = %v, want %v", flags.packageName, tt.wantPackage)
+			}
+			if flags.output != tt.wantOutput {
+				t.Errorf("output = %v, want %v", flags.output, tt.wantOutput)
+			}
+			if flags.noPointers != tt.wantNoPointers {
+				t.Errorf("noPointers = %v, want %v", flags.noPointers, tt.wantNoPointers)
+			}
+			if flags.noValidation != tt.wantNoValidation {
+				t.Errorf("noValidation = %v, want %v", flags.noValidation, tt.wantNoValidation)
+			}
+			if flags.strict != tt.wantStrict {
+				t.Errorf("strict = %v, want %v", flags.strict, tt.wantStrict)
+			}
+			if flags.noWarnings != tt.wantNoWarnings {
+				t.Errorf("noWarnings = %v, want %v", flags.noWarnings, tt.wantNoWarnings)
+			}
+		})
+	}
+}
