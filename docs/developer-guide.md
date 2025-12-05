@@ -11,12 +11,15 @@ This guide provides comprehensive documentation for developers using oastools as
   - [Convert Command](#convert-command)
   - [Join Command](#join-command)
   - [Diff Command](#diff-command)
+  - [Generate Command](#generate-command)
 - [Library Usage](#library-usage)
   - [Parser Package](#parser-package)
   - [Validator Package](#validator-package)
   - [Converter Package](#converter-package)
   - [Joiner Package](#joiner-package)
   - [Differ Package](#differ-package)
+  - [Generator Package](#generator-package)
+  - [Builder Package](#builder-package)
 - [Advanced Patterns](#advanced-patterns)
   - [Parse-Once Pattern](#parse-once-pattern)
   - [Error Handling](#error-handling)
@@ -335,6 +338,77 @@ Summary:
 |------|---------|
 | 0 | No differences (or no breaking changes in `--breaking` mode) |
 | 1 | Differences found (or breaking changes in `--breaking` mode) |
+
+### Generate Command
+
+The generate command creates idiomatic Go code for API clients and server stubs from an OpenAPI specification.
+
+**Basic Usage:**
+
+```bash
+# Generate client code
+oastools generate --client -o ./client -p petstore openapi.yaml
+
+# Generate server interface
+oastools generate --server -o ./server -p petstore openapi.yaml
+
+# Generate both client and server
+oastools generate --client --server -o ./generated -p myapi openapi.yaml
+
+# Generate types only
+oastools generate --types -o ./models -p models openapi.yaml
+
+# From a URL
+oastools generate --client -o ./generated https://example.com/api/openapi.yaml
+```
+
+**Options:**
+
+```bash
+-o, --output string         Output directory for generated files (required)
+-p, --package string        Go package name for generated code (default: "api")
+--client                    Generate HTTP client code
+--server                    Generate server interface code
+--types                     Generate type definitions from schemas (default: true)
+--no-pointers              Don't use pointer types for optional fields
+--no-validation            Don't include validation tags in generated code
+--strict                   Fail on any generation issues (even warnings)
+--no-warnings              Suppress warning and info messages
+```
+
+**Generated Files:**
+
+The command produces:
+- `types.go` - Model structs from schema definitions
+- `client.go` - HTTP client with methods for each operation (when `--client` is used)
+- `server.go` - Server interface for implementing endpoints (when `--server` is used)
+
+**Understanding Output:**
+
+```
+Generating code from OpenAPI specification...
+==============================
+
+File: openapi.yaml
+Version: 3.0.3
+Package: petstore
+
+Generated Files:
+  types.go (8.2 KB)
+  client.go (12.5 KB)
+  server.go (5.8 KB)
+
+Statistics:
+  Types: 15
+  Operations: 8
+
+Issues (3):
+  INFO [paths./pets.post]: Consider adding a requestBody description
+  WARNING [paths./pets/{id}.get]: Parameter 'limit' should have a description
+  INFO [components.schemas.Pet]: Consider adding examples
+
+Generation complete in 245ms
+```
 
 ## Library Usage
 
@@ -751,6 +825,197 @@ for _, category := range categoryOrder {
         }
     }
 }
+```
+
+### Generator Package
+
+The generator package creates idiomatic Go code for API clients and server stubs from OpenAPI specifications.
+
+**Basic Code Generation:**
+
+```go
+import "github.com/erraggy/oastools/generator"
+
+// Generate client and server code
+result, err := generator.GenerateWithOptions(
+    generator.WithFilePath("openapi.yaml"),
+    generator.WithPackageName("petstore"),
+    generator.WithClient(true),
+    generator.WithServer(true),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Write generated files to output directory
+if err := result.WriteFiles("./generated"); err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Generated %d files\n", len(result.Files))
+fmt.Printf("Types: %d, Operations: %d\n", result.GeneratedTypes, result.GeneratedOperations)
+```
+
+**Types-Only Generation:**
+
+```go
+// Generate only type definitions from schemas
+result, err := generator.GenerateWithOptions(
+    generator.WithFilePath("openapi.yaml"),
+    generator.WithPackageName("models"),
+    generator.WithTypes(true),
+    generator.WithClient(false),
+    generator.WithServer(false),
+)
+```
+
+**Configuration Options:**
+
+```go
+g := generator.New()
+g.PackageName = "api"
+g.GenerateClient = true
+g.GenerateServer = true
+g.GenerateTypes = true      // Always true when client or server enabled
+g.UsePointers = true        // Use pointers for optional fields
+g.IncludeValidation = true  // Add validation tags
+g.StrictMode = false        // Fail on generation issues
+g.IncludeInfo = true        // Include info messages
+
+result, err := g.Generate("openapi.yaml")
+if err != nil {
+    log.Fatal(err)
+}
+
+// Access generated files
+for _, file := range result.Files {
+    fmt.Printf("%s: %d bytes\n", file.Name, len(file.Content))
+}
+
+// Check for critical issues
+if result.HasCriticalIssues() {
+    fmt.Printf("Warning: %d critical issue(s)\n", result.CriticalCount)
+}
+```
+
+**Handling Generation Issues:**
+
+```go
+result, err := generator.GenerateWithOptions(
+    generator.WithFilePath("openapi.yaml"),
+    generator.WithPackageName("api"),
+    generator.WithClient(true),
+)
+
+if err != nil {
+    log.Fatal(err)
+}
+
+// Process issues by severity
+for _, issue := range result.Issues {
+    switch issue.Severity {
+    case generator.SeverityCritical:
+        fmt.Printf("CRITICAL [%s]: %s\n", issue.Path, issue.Message)
+    case generator.SeverityWarning:
+        fmt.Printf("WARNING [%s]: %s\n", issue.Path, issue.Message)
+    case generator.SeverityInfo:
+        fmt.Printf("INFO [%s]: %s\n", issue.Path, issue.Message)
+    }
+}
+```
+
+### Builder Package
+
+The builder package enables programmatic construction of OpenAPI specifications with reflection-based schema generation from Go types.
+
+**Basic Construction:**
+
+```go
+import (
+    "net/http"
+    "github.com/erraggy/oastools/builder"
+    "github.com/erraggy/oastools/parser"
+)
+
+// Define Go types for your API
+type User struct {
+    ID   int64  `json:"id" oas:"description=Unique user identifier"`
+    Name string `json:"name" oas:"minLength=1,maxLength=100"`
+    Email string `json:"email" oas:"format=email"`
+}
+
+type Error struct {
+    Code    int    `json:"code" oas:"description=HTTP status code"`
+    Message string `json:"message" oas:"description=Error message"`
+}
+
+// Build OAS 3.0 specification
+spec := builder.New(parser.OASVersion300).
+    SetTitle("User API").
+    SetVersion("1.0.0").
+    SetDescription("Simple user management API").
+    AddOperation(http.MethodGet, "/users/{id}",
+        builder.WithOperationID("getUserByID"),
+        builder.WithOperationDescription("Get a user by ID"),
+        builder.WithParameter("id", "path", "string", "User ID"),
+        builder.WithResponse(http.StatusOK, User{}),
+        builder.WithResponse(http.StatusNotFound, Error{}),
+    ).
+    AddOperation(http.MethodPost, "/users",
+        builder.WithOperationID("createUser"),
+        builder.WithRequestBody(User{}, "Create user request"),
+        builder.WithResponse(http.StatusCreated, User{}),
+        builder.WithResponse(http.StatusBadRequest, Error{}),
+    )
+
+// Build the document
+doc, err := spec.BuildOAS3()
+if err != nil {
+    log.Fatal(err)
+}
+
+// Convert to YAML/JSON
+data, _ := parser.ToYAML(doc)
+fmt.Println(string(data))
+```
+
+**OAS Version Selection:**
+
+```go
+// Build for OAS 3.2.0 (latest)
+spec := builder.New(parser.OASVersion320)
+
+// Build for OAS 3.1.x
+spec := builder.New(parser.OASVersion310)
+
+// Build for OAS 3.0.x
+spec := builder.New(parser.OASVersion300)
+
+// Build for OAS 2.0 (Swagger)
+spec := builder.New(parser.OASVersion20)
+```
+
+**Schema Generation from Go Types:**
+
+```go
+// Builder automatically generates JSON Schema from Go types
+// Struct tags control schema properties:
+
+type Product struct {
+    ID          int64     `json:"id" oas:"description=Product ID"`
+    Name        string    `json:"name" oas:"minLength=1,maxLength=255"`
+    Price       float64   `json:"price" oas:"minimum=0,exclusiveMinimum=true"`
+    Description string    `json:"description" oas:"maxLength=1000"`
+    Tags        []string  `json:"tags" oas:"maxItems=10"`
+    Active      bool      `json:"active" oas:"description=Is product active"`
+    CreatedAt   time.Time `json:"created_at" oas:"format=date-time"`
+}
+
+// Builder generates appropriate OpenAPI 3.0 schema:
+// - Infers types from struct field types
+// - Applies constraints from oas tags
+// - Handles nested structs, arrays, and time.Time
+// - Generates descriptions and format hints
 ```
 
 ## Advanced Patterns
