@@ -2242,8 +2242,8 @@ func TestToFieldName(t *testing.T) {
 		{"petId", "PetId"},
 		{"pet_id", "PetId"},
 		{"pet-id", "PetId"},
-		{"PET_ID", "PETID"},     // All caps treated as one word
-		{"break", "Break_"},     // keyword gets escaped
+		{"PET_ID", "PETID"}, // All caps treated as one word
+		{"break", "Break_"}, // keyword gets escaped
 		{"pet", "Pet"},
 	}
 
