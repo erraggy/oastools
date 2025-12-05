@@ -55,7 +55,6 @@
 //   - types.go: Model structs from components/schemas
 //   - client.go: HTTP client (when GenerateClient is true)
 //   - server.go: Server interface (when GenerateServer is true)
-//   - helpers.go: Shared utilities
 //
 // See the exported GenerateResult and GenerateIssue types for complete details.
 package generator

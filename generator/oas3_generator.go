@@ -522,21 +522,20 @@ func (cg *oas3CodeGenerator) generateClientMethod(path, method string, op *parse
 	var params []string
 	params = append(params, "ctx context.Context")
 
-	// Path parameters
+	// Process all parameters in a single pass
 	var pathParams []pathParam
+	var queryParams []*parser.Parameter
 	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInPath {
+		if param == nil {
+			continue
+		}
+		switch param.In {
+		case parser.ParamInPath:
 			goType := cg.paramToGoType(param)
 			paramName := toParamName(param.Name)
 			params = append(params, fmt.Sprintf("%s %s", paramName, goType))
 			pathParams = append(pathParams, pathParam{name: param.Name, varName: paramName})
-		}
-	}
-
-	// Query parameters - group into params struct if many
-	var queryParams []*parser.Parameter
-	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInQuery {
+		case parser.ParamInQuery:
 			queryParams = append(queryParams, param)
 		}
 	}
@@ -930,38 +929,48 @@ func (cg *oas3CodeGenerator) generateRequestType(path, method string, op *parser
 	buf.WriteString(fmt.Sprintf("// %sRequest contains the request data for %s.\n", methodName, methodName))
 	buf.WriteString(fmt.Sprintf("type %sRequest struct {\n", methodName))
 
-	// Path parameters
+	// Categorize parameters in a single pass
+	var pathParams, queryParams, headerParams []*parser.Parameter
 	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInPath {
-			goType := cg.paramToGoType(param)
-			fieldName := toFieldName(param.Name)
+		if param == nil {
+			continue
+		}
+		switch param.In {
+		case parser.ParamInPath:
+			pathParams = append(pathParams, param)
+		case parser.ParamInQuery:
+			queryParams = append(queryParams, param)
+		case parser.ParamInHeader:
+			headerParams = append(headerParams, param)
+		}
+	}
+
+	// Path parameters
+	for _, param := range pathParams {
+		goType := cg.paramToGoType(param)
+		fieldName := toFieldName(param.Name)
+		buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
+	}
+
+	// Query parameters
+	for _, param := range queryParams {
+		goType := cg.paramToGoType(param)
+		fieldName := toFieldName(param.Name)
+		if !param.Required {
+			buf.WriteString(fmt.Sprintf("\t%s *%s\n", fieldName, goType))
+		} else {
 			buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
 		}
 	}
 
-	// Query parameters
-	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInQuery {
-			goType := cg.paramToGoType(param)
-			fieldName := toFieldName(param.Name)
-			if !param.Required {
-				buf.WriteString(fmt.Sprintf("\t%s *%s\n", fieldName, goType))
-			} else {
-				buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
-			}
-		}
-	}
-
 	// Header parameters
-	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInHeader {
-			goType := cg.paramToGoType(param)
-			fieldName := toFieldName(param.Name)
-			if !param.Required {
-				buf.WriteString(fmt.Sprintf("\t%s *%s\n", fieldName, goType))
-			} else {
-				buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
-			}
+	for _, param := range headerParams {
+		goType := cg.paramToGoType(param)
+		fieldName := toFieldName(param.Name)
+		if !param.Required {
+			buf.WriteString(fmt.Sprintf("\t%s *%s\n", fieldName, goType))
+		} else {
+			buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
 		}
 	}
 

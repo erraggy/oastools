@@ -472,37 +472,32 @@ func (cg *oas2CodeGenerator) generateClientMethod(path, method string, op *parse
 	var params []string
 	params = append(params, "ctx context.Context")
 
-	// Path parameters
+	// Process all parameters in a single pass
 	var pathParams []pathParam
+	var queryParams []*parser.Parameter
+	var hasBody bool
+	var bodyParamSchema *parser.Schema
 	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInPath {
+		if param == nil {
+			continue
+		}
+		switch param.In {
+		case parser.ParamInPath:
 			goType := cg.paramToGoType(param)
 			paramName := toParamName(param.Name)
 			params = append(params, fmt.Sprintf("%s %s", paramName, goType))
 			pathParams = append(pathParams, pathParam{name: param.Name, varName: paramName})
-		}
-	}
-
-	// Query parameters
-	var queryParams []*parser.Parameter
-	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInQuery {
+		case parser.ParamInQuery:
 			queryParams = append(queryParams, param)
+		case parser.ParamInBody:
+			if !hasBody { // Only use the first body param
+				hasBody = true
+				bodyParamSchema = param.Schema
+			}
 		}
 	}
 	if len(queryParams) > 0 {
 		params = append(params, "params *"+methodName+"Params")
-	}
-
-	// Request body (body parameter in OAS 2.0)
-	var hasBody bool
-	var bodyParamSchema *parser.Schema
-	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInBody {
-			hasBody = true
-			bodyParamSchema = param.Schema
-			break
-		}
 	}
 	if hasBody {
 		bodyType := "any"
@@ -864,51 +859,63 @@ func (cg *oas2CodeGenerator) generateRequestType(path, method string, op *parser
 	buf.WriteString(fmt.Sprintf("// %sRequest contains the request data for %s.\n", methodName, methodName))
 	buf.WriteString(fmt.Sprintf("type %sRequest struct {\n", methodName))
 
-	// Path parameters
+	// Categorize parameters in a single pass
+	var pathParams, queryParams, headerParams []*parser.Parameter
+	var bodyParam *parser.Parameter
 	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInPath {
-			goType := cg.paramToGoType(param)
-			fieldName := toFieldName(param.Name)
+		if param == nil {
+			continue
+		}
+		switch param.In {
+		case parser.ParamInPath:
+			pathParams = append(pathParams, param)
+		case parser.ParamInQuery:
+			queryParams = append(queryParams, param)
+		case parser.ParamInHeader:
+			headerParams = append(headerParams, param)
+		case parser.ParamInBody:
+			if bodyParam == nil { // OAS 2.0 allows only one body parameter
+				bodyParam = param
+			}
+		}
+	}
+
+	// Path parameters
+	for _, param := range pathParams {
+		goType := cg.paramToGoType(param)
+		fieldName := toFieldName(param.Name)
+		buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
+	}
+
+	// Query parameters
+	for _, param := range queryParams {
+		goType := cg.paramToGoType(param)
+		fieldName := toFieldName(param.Name)
+		if !param.Required {
+			buf.WriteString(fmt.Sprintf("\t%s *%s\n", fieldName, goType))
+		} else {
 			buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
 		}
 	}
 
-	// Query parameters
-	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInQuery {
-			goType := cg.paramToGoType(param)
-			fieldName := toFieldName(param.Name)
-			if !param.Required {
-				buf.WriteString(fmt.Sprintf("\t%s *%s\n", fieldName, goType))
-			} else {
-				buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
-			}
-		}
-	}
-
 	// Header parameters
-	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInHeader {
-			goType := cg.paramToGoType(param)
-			fieldName := toFieldName(param.Name)
-			if !param.Required {
-				buf.WriteString(fmt.Sprintf("\t%s *%s\n", fieldName, goType))
-			} else {
-				buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
-			}
+	for _, param := range headerParams {
+		goType := cg.paramToGoType(param)
+		fieldName := toFieldName(param.Name)
+		if !param.Required {
+			buf.WriteString(fmt.Sprintf("\t%s *%s\n", fieldName, goType))
+		} else {
+			buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
 		}
 	}
 
 	// Body parameter (OAS 2.0)
-	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInBody {
-			bodyType := "any"
-			if param.Schema != nil {
-				bodyType = cg.schemaToGoType(param.Schema, true)
-			}
-			buf.WriteString(fmt.Sprintf("\tBody %s\n", bodyType))
-			break
+	if bodyParam != nil {
+		bodyType := "any"
+		if bodyParam.Schema != nil {
+			bodyType = cg.schemaToGoType(bodyParam.Schema, true)
 		}
+		buf.WriteString(fmt.Sprintf("\tBody %s\n", bodyType))
 	}
 
 	// HTTP request
