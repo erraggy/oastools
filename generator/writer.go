@@ -16,7 +16,7 @@ func (r *GenerateResult) WriteFiles(outputDir string) error {
 
 	for _, file := range r.Files {
 		filePath := filepath.Join(outputDir, file.Name)
-		if err := os.WriteFile(filePath, file.Content, 0600); err != nil {
+		if err := os.WriteFile(filePath, file.Content, 0644); err != nil {
 			return fmt.Errorf("failed to write file %s: %w", file.Name, err)
 		}
 	}
@@ -32,7 +32,7 @@ func (f *GeneratedFile) WriteFile(path string) error {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	if err := os.WriteFile(path, f.Content, 0600); err != nil {
+	if err := os.WriteFile(path, f.Content, 0644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
