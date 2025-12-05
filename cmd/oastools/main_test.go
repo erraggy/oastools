@@ -945,3 +945,143 @@ func TestGenerateFlags(t *testing.T) {
 		})
 	}
 }
+
+// TestValidateOutputFormat tests the validateOutputFormat helper function
+func TestValidateOutputFormat(t *testing.T) {
+	tests := []struct {
+		name        string
+		format      string
+		expectError bool
+	}{
+		{
+			name:        "valid format text",
+			format:      FormatText,
+			expectError: false,
+		},
+		{
+			name:        "valid format json",
+			format:      FormatJSON,
+			expectError: false,
+		},
+		{
+			name:        "valid format yaml",
+			format:      FormatYAML,
+			expectError: false,
+		},
+		{
+			name:        "invalid format xml",
+			format:      "xml",
+			expectError: true,
+		},
+		{
+			name:        "invalid format csv",
+			format:      "csv",
+			expectError: true,
+		},
+		{
+			name:        "invalid format empty string",
+			format:      "",
+			expectError: true,
+		},
+		{
+			name:        "invalid format random string",
+			format:      "invalid-format",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateOutputFormat(tt.format)
+			if tt.expectError && err == nil {
+				t.Errorf("expected error for format '%s', but got none", tt.format)
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error for format '%s': %v", tt.format, err)
+			}
+		})
+	}
+}
+
+// TestOutputStructured tests the outputStructured helper function
+func TestOutputStructured(t *testing.T) {
+	tests := []struct {
+		name        string
+		data        interface{}
+		format      string
+		expectError bool
+	}{
+		{
+			name: "json format with simple struct",
+			data: struct {
+				Name  string
+				Value int
+			}{Name: "test", Value: 42},
+			format:      FormatJSON,
+			expectError: false,
+		},
+		{
+			name: "yaml format with simple struct",
+			data: struct {
+				Name  string
+				Value int
+			}{Name: "test", Value: 42},
+			format:      FormatYAML,
+			expectError: false,
+		},
+		{
+			name: "json format with map",
+			data: map[string]interface{}{
+				"key1": "value1",
+				"key2": 123,
+			},
+			format:      FormatJSON,
+			expectError: false,
+		},
+		{
+			name: "yaml format with map",
+			data: map[string]interface{}{
+				"key1": "value1",
+				"key2": 123,
+			},
+			format:      FormatYAML,
+			expectError: false,
+		},
+		{
+			name:        "json format with nil data",
+			data:        nil,
+			format:      FormatJSON,
+			expectError: false,
+		},
+		{
+			name:        "yaml format with nil data",
+			data:        nil,
+			format:      FormatYAML,
+			expectError: false,
+		},
+		{
+			name:        "invalid format text",
+			data:        struct{ Name string }{Name: "test"},
+			format:      FormatText,
+			expectError: true,
+		},
+		{
+			name:        "invalid format random",
+			data:        struct{ Name string }{Name: "test"},
+			format:      "invalid",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := outputStructured(tt.data, tt.format)
+			if tt.expectError && err == nil {
+				t.Errorf("expected error for format '%s', but got none", tt.format)
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error for format '%s': %v", tt.format, err)
+			}
+		})
+	}
+}

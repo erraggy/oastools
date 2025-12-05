@@ -19,6 +19,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Output format constants
+const (
+	FormatText = "text"
+	FormatJSON = "json"
+	FormatYAML = "yaml"
+)
+
+// Special file path constant
+const (
+	StdinFilePath = "-"
+)
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -71,8 +83,8 @@ func main() {
 
 // validateOutputFormat validates an output format and returns an error if invalid.
 func validateOutputFormat(format string) error {
-	if format != "text" && format != "json" && format != "yaml" {
-		return fmt.Errorf("invalid format '%s'. Valid formats: text, json, yaml", format)
+	if format != FormatText && format != FormatJSON && format != FormatYAML {
+		return fmt.Errorf("invalid format '%s'. Valid formats: %s, %s, %s", format, FormatText, FormatJSON, FormatYAML)
 	}
 	return nil
 }
@@ -84,9 +96,9 @@ func outputStructured(data any, format string) error {
 	var err error
 
 	switch format {
-	case "json":
+	case FormatJSON:
 		bytes, err = json.MarshalIndent(data, "", "  ")
-	case "yaml":
+	case FormatYAML:
 		bytes, err = yaml.Marshal(data)
 	default:
 		return fmt.Errorf("invalid format for structured output: %s", format)
@@ -172,7 +184,7 @@ func handleParse(args []string) error {
 	var result *parser.ParseResult
 	var err error
 
-	if specPath == "-" {
+	if specPath == StdinFilePath {
 		result, err = p.ParseReader(os.Stdin)
 		if err != nil {
 			return fmt.Errorf("parsing stdin: %w", err)
@@ -189,7 +201,7 @@ func handleParse(args []string) error {
 		fmt.Fprintf(os.Stderr, "OpenAPI Specification Parser\n")
 		fmt.Fprintf(os.Stderr, "============================\n\n")
 		fmt.Fprintf(os.Stderr, "oastools version: %s\n", oastools.Version())
-		if specPath == "-" {
+		if specPath == StdinFilePath {
 			fmt.Fprintf(os.Stderr, "Specification: <stdin>\n")
 		} else {
 			fmt.Fprintf(os.Stderr, "Specification: %s\n", specPath)
@@ -283,7 +295,7 @@ func setupValidateFlags() (*flag.FlagSet, *validateFlags) {
 	fs.BoolVar(&flags.noWarnings, "no-warnings", false, "suppress warning messages (only show errors)")
 	fs.BoolVar(&flags.quiet, "q", false, "quiet mode: only output validation result, no diagnostic messages")
 	fs.BoolVar(&flags.quiet, "quiet", false, "quiet mode: only output validation result, no diagnostic messages")
-	fs.StringVar(&flags.format, "format", "text", "output format: text, json, or yaml")
+	fs.StringVar(&flags.format, "format", FormatText, "output format: text, json, or yaml")
 
 	fs.Usage = func() {
 		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools validate [flags] <file|url|->\n\n")
@@ -337,7 +349,7 @@ func handleValidate(args []string) error {
 	var result *validator.ValidationResult
 	var err error
 
-	if specPath == "-" {
+	if specPath == StdinFilePath {
 		// Read from stdin
 		p := parser.New()
 		parseResult, err := p.ParseReader(os.Stdin)
@@ -362,7 +374,7 @@ func handleValidate(args []string) error {
 	}
 
 	// Handle structured output formats
-	if flags.format == "json" || flags.format == "yaml" {
+	if flags.format == FormatJSON || flags.format == FormatYAML {
 		if err := outputStructured(result, flags.format); err != nil {
 			return err
 		}
@@ -381,7 +393,7 @@ func handleValidate(args []string) error {
 		fmt.Fprintf(os.Stderr, "OpenAPI Specification Validator\n")
 		fmt.Fprintf(os.Stderr, "================================\n\n")
 		fmt.Fprintf(os.Stderr, "oastools version: %s\n", oastools.Version())
-		if specPath == "-" {
+		if specPath == StdinFilePath {
 			fmt.Fprintf(os.Stderr, "Specification: <stdin>\n")
 		} else {
 			fmt.Fprintf(os.Stderr, "Specification: %s\n", specPath)
@@ -413,19 +425,25 @@ func handleValidate(args []string) error {
 		}
 	}
 
-	// Print summary (always to stderr for consistency)
-	if result.Valid {
-		fmt.Fprintf(os.Stderr, "✓ Validation passed")
-		if result.WarningCount > 0 {
-			fmt.Fprintf(os.Stderr, " with %d warning(s)", result.WarningCount)
+	// Print summary (only in non-quiet mode to respect --quiet flag)
+	if !flags.quiet {
+		if result.Valid {
+			fmt.Fprintf(os.Stderr, "✓ Validation passed")
+			if result.WarningCount > 0 {
+				fmt.Fprintf(os.Stderr, " with %d warning(s)", result.WarningCount)
+			}
+			fmt.Fprintf(os.Stderr, "\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "✗ Validation failed: %d error(s)", result.ErrorCount)
+			if result.WarningCount > 0 {
+				fmt.Fprintf(os.Stderr, ", %d warning(s)", result.WarningCount)
+			}
+			fmt.Fprintf(os.Stderr, "\n")
 		}
-		fmt.Fprintf(os.Stderr, "\n")
-	} else {
-		fmt.Fprintf(os.Stderr, "✗ Validation failed: %d error(s)", result.ErrorCount)
-		if result.WarningCount > 0 {
-			fmt.Fprintf(os.Stderr, ", %d warning(s)", result.WarningCount)
-		}
-		fmt.Fprintf(os.Stderr, "\n")
+	}
+
+	// Exit with error if validation failed
+	if !result.Valid {
 		os.Exit(1)
 	}
 
@@ -689,7 +707,7 @@ func handleConvert(args []string) error {
 	var result *converter.ConversionResult
 	var err error
 
-	if specPath == "-" {
+	if specPath == StdinFilePath {
 		// Read from stdin
 		p := parser.New()
 		parseResult, err := p.ParseReader(os.Stdin)
@@ -713,7 +731,7 @@ func handleConvert(args []string) error {
 		fmt.Fprintf(os.Stderr, "OpenAPI Specification Converter\n")
 		fmt.Fprintf(os.Stderr, "===============================\n\n")
 		fmt.Fprintf(os.Stderr, "oastools version: %s\n", oastools.Version())
-		if specPath == "-" {
+		if specPath == StdinFilePath {
 			fmt.Fprintf(os.Stderr, "Specification: <stdin>\n")
 		} else {
 			fmt.Fprintf(os.Stderr, "Specification: %s\n", specPath)
@@ -803,7 +821,7 @@ func setupDiffFlags() (*flag.FlagSet, *diffFlags) {
 
 	fs.BoolVar(&flags.breaking, "breaking", false, "enable breaking change detection and categorization")
 	fs.BoolVar(&flags.noInfo, "no-info", false, "exclude informational changes from output")
-	fs.StringVar(&flags.format, "format", "text", "output format: text, json, or yaml")
+	fs.StringVar(&flags.format, "format", FormatText, "output format: text, json, or yaml")
 
 	fs.Usage = func() {
 		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools diff [flags] <source> <target>\n\n")
@@ -883,7 +901,7 @@ func handleDiff(args []string) error {
 	}
 
 	// Handle structured output formats
-	if flags.format == "json" || flags.format == "yaml" {
+	if flags.format == FormatJSON || flags.format == FormatYAML {
 		if err := outputStructured(result, flags.format); err != nil {
 			return err
 		}
