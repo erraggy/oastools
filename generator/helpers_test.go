@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 )
@@ -343,6 +344,42 @@ func TestSchemaTypeFromMap(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := schemaTypeFromMap(tt.schema)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestBuildDefaultUserAgent(t *testing.T) {
+	tests := []struct {
+		name     string
+		info     *parser.Info
+		expected string
+	}{
+		{
+			name:     "with title",
+			info:     &parser.Info{Title: "PetStore"},
+			expected: "oastools/" + oastools.Version() + "/generated/PetStore",
+		},
+		{
+			name:     "with complex title",
+			info:     &parser.Info{Title: "My Complex API"},
+			expected: "oastools/" + oastools.Version() + "/generated/My Complex API",
+		},
+		{
+			name:     "with empty title",
+			info:     &parser.Info{Title: ""},
+			expected: "oastools/" + oastools.Version() + "/generated/API Client",
+		},
+		{
+			name:     "with nil info",
+			info:     nil,
+			expected: "oastools/" + oastools.Version() + "/generated/API Client",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildDefaultUserAgent(tt.info)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
