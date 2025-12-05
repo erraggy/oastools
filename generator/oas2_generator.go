@@ -391,6 +391,8 @@ func (cg *oas2CodeGenerator) generateClient() error {
 	buf.WriteString("\tBaseURL string\n")
 	buf.WriteString("\t// HTTPClient is the HTTP client to use for requests.\n")
 	buf.WriteString("\tHTTPClient *http.Client\n")
+	buf.WriteString("\t// UserAgent is the User-Agent header value for requests.\n")
+	buf.WriteString("\tUserAgent string\n")
 	buf.WriteString("\t// RequestEditors are functions that can modify requests before sending.\n")
 	buf.WriteString("\tRequestEditors []RequestEditorFn\n")
 	buf.WriteString("}\n\n")
@@ -403,11 +405,13 @@ func (cg *oas2CodeGenerator) generateClient() error {
 	buf.WriteString("type ClientOption func(*Client) error\n\n")
 
 	// Write constructor
+	defaultUserAgent := buildDefaultUserAgent(cg.doc.Info)
 	buf.WriteString("// NewClient creates a new API client.\n")
 	buf.WriteString("func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {\n")
 	buf.WriteString("\tc := &Client{\n")
 	buf.WriteString("\t\tBaseURL:    strings.TrimSuffix(baseURL, \"/\"),\n")
 	buf.WriteString("\t\tHTTPClient: http.DefaultClient,\n")
+	buf.WriteString(fmt.Sprintf("\t\tUserAgent:  %q,\n", defaultUserAgent))
 	buf.WriteString("\t}\n")
 	buf.WriteString("\tfor _, opt := range opts {\n")
 	buf.WriteString("\t\tif err := opt(c); err != nil {\n")
@@ -430,6 +434,14 @@ func (cg *oas2CodeGenerator) generateClient() error {
 	buf.WriteString("func WithRequestEditor(fn RequestEditorFn) ClientOption {\n")
 	buf.WriteString("\treturn func(c *Client) error {\n")
 	buf.WriteString("\t\tc.RequestEditors = append(c.RequestEditors, fn)\n")
+	buf.WriteString("\t\treturn nil\n")
+	buf.WriteString("\t}\n")
+	buf.WriteString("}\n\n")
+
+	buf.WriteString("// WithUserAgent sets the User-Agent header value.\n")
+	buf.WriteString("func WithUserAgent(ua string) ClientOption {\n")
+	buf.WriteString("\treturn func(c *Client) error {\n")
+	buf.WriteString("\t\tc.UserAgent = ua\n")
 	buf.WriteString("\t\treturn nil\n")
 	buf.WriteString("\t}\n")
 	buf.WriteString("}\n\n")
@@ -605,6 +617,9 @@ func (cg *oas2CodeGenerator) generateClientMethod(path, method string, op *parse
 		buf.WriteString("\treq.Header.Set(\"Content-Type\", \"application/json\")\n")
 	}
 	buf.WriteString("\treq.Header.Set(\"Accept\", \"application/json\")\n")
+	buf.WriteString("\tif c.UserAgent != \"\" {\n")
+	buf.WriteString("\t\treq.Header.Set(\"User-Agent\", c.UserAgent)\n")
+	buf.WriteString("\t}\n")
 
 	// Apply request editors
 	buf.WriteString("\tfor _, editor := range c.RequestEditors {\n")
