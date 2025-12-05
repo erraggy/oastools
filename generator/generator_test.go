@@ -1843,3 +1843,416 @@ paths: {}
 		t.Errorf("PackageName should default to 'api', got %q", result.PackageName)
 	}
 }
+
+func TestGenerateWithAdditionalProperties(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Pet API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Tags:
+      type: object
+      additionalProperties:
+        type: string
+    Config:
+      type: object
+      additionalProperties:
+        type: object
+        properties:
+          value:
+            type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	g := New()
+	g.GenerateTypes = true
+	result, err := g.Generate(tmpFile)
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	content := string(result.GetFile("types.go").Content)
+	// Should handle additionalProperties with typed values
+	if !strings.Contains(content, "map[string]string") {
+		t.Error("types.go should have map[string]string for Tags")
+	}
+}
+
+func TestGenerateWithDiscriminator(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Pet API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Animal:
+      oneOf:
+        - $ref: '#/components/schemas/Dog'
+        - $ref: '#/components/schemas/Cat'
+      discriminator:
+        propertyName: petType
+        mapping:
+          dog: '#/components/schemas/Dog'
+          cat: '#/components/schemas/Cat'
+    Dog:
+      type: object
+      properties:
+        petType:
+          type: string
+        breed:
+          type: string
+    Cat:
+      type: object
+      properties:
+        petType:
+          type: string
+        color:
+          type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	g := New()
+	g.GenerateTypes = true
+	result, err := g.Generate(tmpFile)
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	content := string(result.GetFile("types.go").Content)
+	// Should have UnmarshalJSON for discriminated union
+	if !strings.Contains(content, "UnmarshalJSON") {
+		t.Error("types.go missing UnmarshalJSON for discriminated union")
+	}
+	if !strings.Contains(content, "petType") {
+		t.Error("types.go missing petType discriminator field")
+	}
+	if !strings.Contains(content, "switch") {
+		t.Error("types.go missing switch statement for discriminator")
+	}
+}
+
+func TestGenerateWithValidationTags(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Pet API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - name
+        - age
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        age:
+          type: integer
+          minimum: 0
+          maximum: 150
+        tags:
+          type: array
+          minItems: 1
+          maxItems: 10
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	g := New()
+	g.GenerateTypes = true
+	g.IncludeValidation = true
+	result, err := g.Generate(tmpFile)
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	content := string(result.GetFile("types.go").Content)
+	// Should have validate tags
+	if !strings.Contains(content, "validate:") {
+		t.Error("types.go missing validate tags")
+	}
+	if !strings.Contains(content, "required") {
+		t.Error("types.go missing required validation")
+	}
+	if !strings.Contains(content, "email") {
+		t.Error("types.go missing email validation")
+	}
+	if !strings.Contains(content, "min=") {
+		t.Error("types.go missing min validation")
+	}
+}
+
+func TestSchemaTypeFromMap(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   map[string]interface{}
+		expected string
+	}{
+		{
+			name:     "string type",
+			schema:   map[string]interface{}{"type": "string"},
+			expected: "string",
+		},
+		{
+			name:     "number type",
+			schema:   map[string]interface{}{"type": "number"},
+			expected: "float64",
+		},
+		{
+			name:     "integer type",
+			schema:   map[string]interface{}{"type": "integer"},
+			expected: "int64",
+		},
+		{
+			name:     "boolean type",
+			schema:   map[string]interface{}{"type": "boolean"},
+			expected: "bool",
+		},
+		{
+			name:     "object type",
+			schema:   map[string]interface{}{"type": "object"},
+			expected: "map[string]any",
+		},
+		{
+			name:     "array type",
+			schema:   map[string]interface{}{"type": "array"},
+			expected: "[]any",
+		},
+		{
+			name:     "missing type",
+			schema:   map[string]interface{}{},
+			expected: "any",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := schemaTypeFromMap(tt.schema)
+			if result != tt.expected {
+				t.Errorf("schemaTypeFromMap() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGenerateOAS2WithAllOf(t *testing.T) {
+	spec := `swagger: "2.0"
+info:
+  title: Pet API
+  version: "1.0.0"
+paths: {}
+definitions:
+  Pet:
+    type: object
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+  Dog:
+    allOf:
+      - $ref: '#/definitions/Pet'
+      - type: object
+        properties:
+          breed:
+            type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	g := New()
+	g.GenerateTypes = true
+	result, err := g.Generate(tmpFile)
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	content := string(result.GetFile("types.go").Content)
+	if !strings.Contains(content, "type Dog struct") {
+		t.Error("types.go missing Dog struct for allOf")
+	}
+	if !strings.Contains(content, "Pet") {
+		t.Error("types.go missing Pet reference in allOf")
+	}
+}
+
+func TestGenerateOAS3WithContentTypeDetection(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Pet API
+  version: "1.0.0"
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Pet'
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	g := New()
+	g.GenerateClient = true
+	result, err := g.Generate(tmpFile)
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	content := string(result.GetFile("client.go").Content)
+	// Should use application/xml content type instead of hardcoded application/json
+	if !strings.Contains(content, "application/xml") {
+		t.Error("client.go should use application/xml from spec")
+	}
+}
+
+func TestGenerateOAS3ServerWithCookieParams(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Pet API
+  version: "1.0.0"
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      parameters:
+        - name: session_id
+          in: cookie
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	g := New()
+	g.GenerateServer = true
+	result, err := g.Generate(tmpFile)
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	content := string(result.GetFile("server.go").Content)
+	// Should have cookie parameter in request type
+	if !strings.Contains(content, "SessionId") {
+		t.Error("server.go should have SessionId cookie parameter")
+	}
+}
+
+func TestEscapeReservedWord(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"break", "break_"},
+		{"type", "type_"},
+		{"Package", "Package_"}, // "package" is a keyword, matches when lowercased
+		{"Error", "Error"},      // "error" is not in reserved words (predeclared, can be shadowed)
+		{"func", "func_"},
+		{"interface", "interface_"},
+		{"pet", "pet"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := escapeReservedWord(tt.input)
+			if result != tt.expected {
+				t.Errorf("escapeReservedWord(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestToFieldName(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"petId", "PetId"},
+		{"pet_id", "PetId"},
+		{"pet-id", "PetId"},
+		{"PET_ID", "PETID"},     // All caps treated as one word
+		{"break", "Break_"},     // keyword gets escaped
+		{"pet", "Pet"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := toFieldName(tt.input)
+			if result != tt.expected {
+				t.Errorf("toFieldName(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
