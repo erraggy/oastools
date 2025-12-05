@@ -1,9 +1,11 @@
 package generator
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 
+	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -280,4 +282,16 @@ func schemaTypeFromMap(m map[string]interface{}) string {
 		}
 	}
 	return "any"
+}
+
+// buildDefaultUserAgent generates the default User-Agent string for generated clients.
+// Format: oastools/{version}/generated/{title}
+// If title is empty, it uses "API" as a fallback.
+func buildDefaultUserAgent(info *parser.Info) string {
+	version := oastools.Version()
+	title := "API"
+	if info != nil && info.Title != "" {
+		title = info.Title
+	}
+	return fmt.Sprintf("oastools/%s/generated/%s", version, title)
 }
