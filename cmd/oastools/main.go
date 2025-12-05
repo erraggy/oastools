@@ -140,7 +140,7 @@ func handleParse(args []string) error {
 	// Parse the file, URL, or stdin
 	var result *parser.ParseResult
 	var err error
-	
+
 	if specPath == "-" {
 		result, err = p.ParseReader(os.Stdin)
 		if err != nil {
@@ -297,7 +297,7 @@ func handleValidate(args []string) error {
 	startTime := time.Now()
 	var result *validator.ValidationResult
 	var err error
-	
+
 	if specPath == "-" {
 		// Read from stdin
 		p := parser.New()
@@ -317,66 +317,56 @@ func handleValidate(args []string) error {
 	}
 	totalTime := time.Since(startTime)
 
-	// Print results (to stderr in quiet mode, but always show validation status)
-	output := os.Stdout
-	if flags.quiet {
-		output = os.Stderr
-	}
-
+	// Print results (always to stderr to be consistent with parse and convert)
 	if !flags.quiet {
-		fmt.Fprintf(output, "OpenAPI Specification Validator\n")
-		fmt.Fprintf(output, "================================\n\n")
-		fmt.Fprintf(output, "oastools version: %s\n", oastools.Version())
+		fmt.Fprintf(os.Stderr, "OpenAPI Specification Validator\n")
+		fmt.Fprintf(os.Stderr, "================================\n\n")
+		fmt.Fprintf(os.Stderr, "oastools version: %s\n", oastools.Version())
 		if specPath == "-" {
-			fmt.Fprintf(output, "Specification: <stdin>\n")
+			fmt.Fprintf(os.Stderr, "Specification: <stdin>\n")
 		} else {
-			fmt.Fprintf(output, "Specification: %s\n", specPath)
+			fmt.Fprintf(os.Stderr, "Specification: %s\n", specPath)
 		}
-		fmt.Fprintf(output, "OAS Version: %s\n", result.Version)
-		fmt.Fprintf(output, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
-		fmt.Fprintf(output, "Paths: %d\n", result.Stats.PathCount)
-		fmt.Fprintf(output, "Operations: %d\n", result.Stats.OperationCount)
-		fmt.Fprintf(output, "Schemas: %d\n", result.Stats.SchemaCount)
-		fmt.Fprintf(output, "Load Time: %v\n", result.LoadTime)
-		fmt.Fprintf(output, "Total Time: %v\n\n", totalTime)
+		fmt.Fprintf(os.Stderr, "OAS Version: %s\n", result.Version)
+		fmt.Fprintf(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+		fmt.Fprintf(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
+		fmt.Fprintf(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
+		fmt.Fprintf(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
+		fmt.Fprintf(os.Stderr, "Load Time: %v\n", result.LoadTime)
+		fmt.Fprintf(os.Stderr, "Total Time: %v\n\n", totalTime)
 
 		// Print errors
 		if len(result.Errors) > 0 {
-			fmt.Fprintf(output, "Errors (%d):\n", result.ErrorCount)
+			fmt.Fprintf(os.Stderr, "Errors (%d):\n", result.ErrorCount)
 			for _, err := range result.Errors {
-				fmt.Fprintf(output, "  %s\n", err.String())
+				fmt.Fprintf(os.Stderr, "  %s\n", err.String())
 			}
-			fmt.Fprintf(output, "\n")
+			fmt.Fprintf(os.Stderr, "\n")
 		}
 
 		// Print warnings
 		if len(result.Warnings) > 0 {
-			fmt.Fprintf(output, "Warnings (%d):\n", result.WarningCount)
+			fmt.Fprintf(os.Stderr, "Warnings (%d):\n", result.WarningCount)
 			for _, warning := range result.Warnings {
-				fmt.Fprintf(output, "  %s\n", warning.String())
+				fmt.Fprintf(os.Stderr, "  %s\n", warning.String())
 			}
-			fmt.Fprintf(output, "\n")
+			fmt.Fprintf(os.Stderr, "\n")
 		}
 	}
 
-	// Print summary (to stderr in quiet mode to keep stdout clean)
-	summaryOutput := os.Stdout
-	if flags.quiet {
-		summaryOutput = os.Stderr
-	}
-	
+	// Print summary (always to stderr for consistency)
 	if result.Valid {
-		fmt.Fprintf(summaryOutput, "✓ Validation passed")
+		fmt.Fprintf(os.Stderr, "✓ Validation passed")
 		if result.WarningCount > 0 {
-			fmt.Fprintf(summaryOutput, " with %d warning(s)", result.WarningCount)
+			fmt.Fprintf(os.Stderr, " with %d warning(s)", result.WarningCount)
 		}
-		fmt.Fprintf(summaryOutput, "\n")
+		fmt.Fprintf(os.Stderr, "\n")
 	} else {
-		fmt.Fprintf(summaryOutput, "✗ Validation failed: %d error(s)", result.ErrorCount)
+		fmt.Fprintf(os.Stderr, "✗ Validation failed: %d error(s)", result.ErrorCount)
 		if result.WarningCount > 0 {
-			fmt.Fprintf(summaryOutput, ", %d warning(s)", result.WarningCount)
+			fmt.Fprintf(os.Stderr, ", %d warning(s)", result.WarningCount)
 		}
-		fmt.Fprintf(summaryOutput, "\n")
+		fmt.Fprintf(os.Stderr, "\n")
 		os.Exit(1)
 	}
 
@@ -639,7 +629,7 @@ func handleConvert(args []string) error {
 	startTime := time.Now()
 	var result *converter.ConversionResult
 	var err error
-	
+
 	if specPath == "-" {
 		// Read from stdin
 		p := parser.New()
