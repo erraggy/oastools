@@ -154,9 +154,11 @@ For documentation-only changes, only items 3, 6, and 7 apply.
 cmd/oastools/     - CLI entry point
 parser/           - Parse YAML/JSON OAS files, resolve refs
 validator/        - Validate OAS against spec schema
-joiner/           - Join multiple OAS files
 converter/        - Convert between OAS versions
+joiner/           - Join multiple OAS files
 differ/           - Compare and diff OAS files
+generator/        - Generate Go code from OAS files
+builder/          - Build OAS documents programmatically
 internal/         - Shared utilities (httputil, severity, issues, testutil)
 testdata/         - Test fixtures
 ```
