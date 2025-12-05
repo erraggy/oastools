@@ -150,9 +150,11 @@ make clean # Remove build artifacts
 - **cmd/oastools/** - CLI entry point with command routing
 - **parser/** - Parse YAML/JSON OAS files, resolve references, detect versions
 - **validator/** - Validate OAS against spec schema (structural, format, semantic)
-- **joiner/** - Join multiple OAS files with flexible collision resolution
 - **converter/** - Convert between OAS versions (2.0 ↔ 3.x) with issue tracking
+- **joiner/** - Join multiple OAS files with flexible collision resolution
 - **differ/** - Compare OAS files, detect breaking changes by severity
+- **generator/** - Generate Go code (clients, servers, types) from OAS files
+- **builder/** - Build OAS documents programmatically with reflection-based schema generation
 - **internal/** - Shared utilities (httputil, severity, issues, testutil)
 - **testdata/** - Test fixtures including sample OAS files
 
@@ -304,9 +306,11 @@ For documentation-only changes, only items 3, 6, and 7 apply.
 All core packages are public:
 - `github.com/erraggy/oastools/parser` - Parse OpenAPI specifications
 - `github.com/erraggy/oastools/validator` - Validate OpenAPI specifications
-- `github.com/erraggy/oastools/joiner` - Join multiple OpenAPI specifications
 - `github.com/erraggy/oastools/converter` - Convert between OpenAPI specification versions
+- `github.com/erraggy/oastools/joiner` - Join multiple OpenAPI specifications
 - `github.com/erraggy/oastools/differ` - Compare and diff OpenAPI specifications
+- `github.com/erraggy/oastools/generator` - Generate Go code from OpenAPI specifications
+- `github.com/erraggy/oastools/builder` - Build OpenAPI specifications programmatically
 
 ### API Design Philosophy
 
