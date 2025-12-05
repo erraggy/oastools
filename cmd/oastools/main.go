@@ -69,6 +69,36 @@ func main() {
 	}
 }
 
+// validateOutputFormat validates an output format and returns an error if invalid.
+func validateOutputFormat(format string) error {
+	if format != "text" && format != "json" && format != "yaml" {
+		return fmt.Errorf("invalid format '%s'. Valid formats: text, json, yaml", format)
+	}
+	return nil
+}
+
+// outputStructured outputs data in the specified format (json or yaml) to stdout.
+// Returns an error if marshaling fails.
+func outputStructured(data any, format string) error {
+	var bytes []byte
+	var err error
+	
+	if format == "json" {
+		bytes, err = json.MarshalIndent(data, "", "  ")
+	} else if format == "yaml" {
+		bytes, err = yaml.Marshal(data)
+	} else {
+		return fmt.Errorf("invalid format for structured output: %s", format)
+	}
+	
+	if err != nil {
+		return fmt.Errorf("marshaling to %s: %w", format, err)
+	}
+	
+	fmt.Println(string(bytes))
+	return nil
+}
+
 // validateCollisionStrategy validates a collision strategy name and returns an error if invalid.
 // The strategyName parameter is used in the error message (e.g., "path-strategy").
 func validateCollisionStrategy(strategyName, value string) error {
@@ -326,27 +356,15 @@ func handleValidate(args []string) error {
 	totalTime := time.Since(startTime)
 
 	// Validate format flag
-	if flags.format != "text" && flags.format != "json" && flags.format != "yaml" {
-		return fmt.Errorf("invalid format '%s'. Valid formats: text, json, yaml", flags.format)
+	if err := validateOutputFormat(flags.format); err != nil {
+		return err
 	}
 
 	// Handle structured output formats
 	if flags.format == "json" || flags.format == "yaml" {
-		// Output structured format to stdout
-		var data []byte
-		var err error
-		
-		if flags.format == "json" {
-			data, err = json.MarshalIndent(result, "", "  ")
-		} else {
-			data, err = yaml.Marshal(result)
+		if err := outputStructured(result, flags.format); err != nil {
+			return err
 		}
-		
-		if err != nil {
-			return fmt.Errorf("marshaling validation result: %w", err)
-		}
-		
-		fmt.Println(string(data))
 		
 		// Exit with error if validation failed
 		if !result.Valid {
@@ -842,8 +860,8 @@ func handleDiff(args []string) error {
 	targetPath := fs.Arg(1)
 
 	// Validate format flag
-	if flags.format != "text" && flags.format != "json" && flags.format != "yaml" {
-		return fmt.Errorf("invalid format '%s'. Valid formats: text, json, yaml", flags.format)
+	if err := validateOutputFormat(flags.format); err != nil {
+		return err
 	}
 
 	// Create differ with options
@@ -865,20 +883,9 @@ func handleDiff(args []string) error {
 
 	// Handle structured output formats
 	if flags.format == "json" || flags.format == "yaml" {
-		var data []byte
-		var err error
-		
-		if flags.format == "json" {
-			data, err = json.MarshalIndent(result, "", "  ")
-		} else {
-			data, err = yaml.Marshal(result)
+		if err := outputStructured(result, flags.format); err != nil {
+			return err
 		}
-		
-		if err != nil {
-			return fmt.Errorf("marshaling diff result: %w", err)
-		}
-		
-		fmt.Println(string(data))
 		
 		// Exit with error if breaking changes found (in breaking mode)
 		if flags.breaking && result.HasBreakingChanges {
