@@ -229,7 +229,7 @@ See [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) for complete AP
 
 ## Benchmarks
 
-The library includes comprehensive performance benchmarking (70+ benchmarks across all packages). As of v1.9.1, significant optimizations have been implemented:
+The library includes comprehensive performance benchmarking (100+ benchmarks across all packages). As of v1.9.1, significant optimizations have been implemented:
 
 **Performance Highlights**:
 - **25-32% faster** JSON marshaling (v1.7.0 optimization)
