@@ -1,4 +1,4 @@
 {{if .Comment}}// {{.TypeName}} {{.Comment}}
-{{else}}{{if .IsAlias}}// {{.TypeName}} is an alias for {{.TargetType}}.
+{{else}}{{if not .IsDefined}}// {{.TypeName}} is an alias for {{.TargetType}}.
 {{else}}// {{.TypeName}} represents the {{.TypeName}} schema.
-{{end}}{{end}}type {{.TypeName}} {{if .IsAlias}}= {{end}}{{.TargetType}}
+{{end}}{{end}}type {{.TypeName}} {{if not .IsDefined}}= {{end}}{{.TargetType}}

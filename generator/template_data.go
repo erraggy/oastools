@@ -39,12 +39,12 @@ type EnumData struct {
 	Values   []EnumValueData
 }
 
-// AliasData contains data for a type alias
+// AliasData contains data for a type alias or defined type
 type AliasData struct {
 	Comment    string
 	TypeName   string
 	TargetType string
-	IsAlias    bool // true for type alias (=), false for defined type
+	IsDefined  bool // true for defined type, false for type alias (=)
 }
 
 // AllOfData contains data for AllOf composition

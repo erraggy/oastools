@@ -254,7 +254,7 @@ func (cg *oas3CodeGenerator) buildAliasTypeDefinition(typeName string, schema *p
 		TypeName:   typeName,
 		TargetType: refType,
 		Comment:    fmt.Sprintf("is an alias for %s.", refType),
-		IsAlias:    true,
+		IsDefined:  false,
 	}
 
 	return TypeDefinition{
@@ -270,7 +270,7 @@ func (cg *oas3CodeGenerator) buildArrayAliasTypeDefinition(typeName string, sche
 	aliasData := &AliasData{
 		TypeName:   typeName,
 		TargetType: "[]" + itemType,
-		IsAlias:    false, // Arrays use defined types, not type aliases
+		IsDefined:  true, // Arrays use defined types, not type aliases
 	}
 
 	if schema.Description != "" {
@@ -290,7 +290,7 @@ func (cg *oas3CodeGenerator) buildStringAliasTypeDefinition(typeName string, sch
 	aliasData := &AliasData{
 		TypeName:   typeName,
 		TargetType: goType,
-		IsAlias:    true,
+		IsDefined:  false,
 	}
 
 	if schema.Description != "" {
@@ -310,7 +310,7 @@ func (cg *oas3CodeGenerator) buildIntegerAliasTypeDefinition(typeName string, sc
 	aliasData := &AliasData{
 		TypeName:   typeName,
 		TargetType: goType,
-		IsAlias:    true,
+		IsDefined:  false,
 	}
 
 	if schema.Description != "" {
@@ -330,7 +330,7 @@ func (cg *oas3CodeGenerator) buildNumberAliasTypeDefinition(typeName string, sch
 	aliasData := &AliasData{
 		TypeName:   typeName,
 		TargetType: goType,
-		IsAlias:    true,
+		IsDefined:  false,
 	}
 
 	if schema.Description != "" {
@@ -348,7 +348,7 @@ func (cg *oas3CodeGenerator) buildBooleanAliasTypeDefinition(typeName string, sc
 	aliasData := &AliasData{
 		TypeName:   typeName,
 		TargetType: "bool",
-		IsAlias:    true,
+		IsDefined:  false,
 	}
 
 	if schema.Description != "" {
@@ -366,7 +366,7 @@ func (cg *oas3CodeGenerator) buildAnyAliasTypeDefinition(typeName string) TypeDe
 	aliasData := &AliasData{
 		TypeName:   typeName,
 		TargetType: "any",
-		IsAlias:    true,
+		IsDefined:  false,
 	}
 
 	return TypeDefinition{
