@@ -83,12 +83,22 @@ oastools diff --breaking api-v1.yaml api-v2.yaml
 # Generate Go client and server code
 oastools generate --client --server -o ./generated -p api openapi.yaml
 
+# Pipeline support (stdin with quiet mode)
+cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
+curl -s https://example.com/openapi.yaml | oastools validate -q -
+
+# Structured output for scripting
+oastools validate --format json openapi.yaml | jq '.valid'
+oastools diff --format json --breaking v1.yaml v2.yaml | jq '.HasBreakingChanges'
+
 # Show all commands
 oastools help
 ```
 
 **CLI Features**:
-- **Load from files or URLs** (HTTP/HTTPS) for parse, validate, and convert commands
+- **Load from files, URLs, or stdin** (HTTP/HTTPS) for parse, validate, convert, diff, and generate commands
+- **Pipeline support** with stdin (`-`) and quiet mode (`-q`) for shell scripting
+- **Structured output** with `--format json/yaml` for programmatic processing
 - Automatic format detection (JSON/YAML)
 - Format preservation (JSON input → JSON output, YAML → YAML)
 - Detailed validation error messages with spec references
