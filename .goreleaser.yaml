@@ -31,8 +31,14 @@ builds:
         goarch: "386"
       - goos: windows
         goarch: arm64
+    # Build flags for size optimization and reproducibility
+    flags:
+      - -trimpath
     ldflags:
-      - -s -w -X github.com/erraggy/oastools.version={{.Version}}
+      - -s -w
+      - -X github.com/erraggy/oastools.version={{.Version}}
+      - -X github.com/erraggy/oastools.commit={{.ShortCommit}}
+      - -X github.com/erraggy/oastools.buildTime={{.Date}}
 
 archives:
   - formats: [tar.gz]

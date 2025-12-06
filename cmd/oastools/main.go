@@ -43,6 +43,9 @@ func main() {
 	switch command {
 	case "version", "-v", "--version":
 		fmt.Printf("oastools v%s\n", oastools.Version())
+		fmt.Printf("commit: %s\n", oastools.Commit())
+		fmt.Printf("built: %s\n", oastools.BuildTime())
+		fmt.Printf("go: %s\n", oastools.GoVersion())
 	case "help", "-h", "--help":
 		printUsage()
 	case "validate":
