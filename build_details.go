@@ -47,5 +47,5 @@ func UserAgent() string {
 // BuildInfo returns a formatted string with all build metadata
 func BuildInfo() string {
 	return fmt.Sprintf("Version: %s\nCommit: %s\nBuild Time: %s\nGo Version: %s",
-		version, commit, buildTime, runtime.Version())
+		Version(), Commit(), BuildTime(), GoVersion())
 }
