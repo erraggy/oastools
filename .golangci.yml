@@ -18,9 +18,55 @@ linters:
     - misspell
     - cyclop
     - unparam
+    # Added per expert review recommendations
+    - goconst    # Find repeated strings that could be constants
+    - gosec      # Security-focused linting
+    - prealloc   # Find slice declarations that could be preallocated
+    - nilerr     # Detect returning nil where error is expected
+    - errorlint  # Go 1.13+ error handling patterns
+    - revive     # Style and naming consistency
   settings:
     cyclop:
-      max-complexity: 50
+      max-complexity: 50  # Consider lowering to 30-40 for maintainability
+    goconst:
+      min-len: 4
+      min-occurrences: 6  # Only flag with 6+ occurrences
+      ignore-string-values:
+        - "true"
+        - "false"
+        - "null"
+        - "any"
+        - "string"
+        - "integer"
+        - "number"
+        - "boolean"
+        - "object"
+        - "array"
+        - "body"
+        - "path"
+        - "query"
+        - "header"
+        - "basic"
+        - "bearer"
+    gosec:
+      excludes:
+        - G304  # File inclusion via variable - acceptable for parsers
+        - G301  # Directory permissions 0755 - standard for tools
+        - G306  # File permissions 0644 - standard for tools
+    revive:
+      rules:
+        - name: exported
+          disabled: true  # Too noisy for stable APIs
+  exclusions:
+    rules:
+      # Exclude gosec file permission warnings in test files
+      - path: _test\.go
+        linters:
+          - gosec
+      # Allow string literals in test files
+      - path: _test\.go
+        linters:
+          - goconst
 
 issues:
   max-issues-per-linter: 0

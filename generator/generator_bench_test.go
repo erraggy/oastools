@@ -8,9 +8,14 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-func BenchmarkGenerateTypes(b *testing.B) {
-	// Create a spec with multiple schemas
-	spec := `openapi: "3.0.0"
+// Note on b.Fatalf usage in benchmarks:
+// Using b.Fatalf for errors in benchmark setup or execution is an acceptable pattern.
+// These operations (generate, parse) should never fail with valid test fixtures.
+// If they do fail, it indicates a bug that should halt the benchmark immediately.
+
+// Benchmark spec definitions
+const (
+	benchTypesSpec = `openapi: "3.0.0"
 info:
   title: Benchmark API
   version: "1.0.0"
@@ -51,33 +56,7 @@ components:
         - pending
         - sold
 `
-	tmpDir := b.TempDir()
-	tmpFile := filepath.Join(tmpDir, "bench-api.yaml")
-	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
-		b.Fatalf("failed to write temp file: %v", err)
-	}
-
-	// Parse once outside the loop
-	p := parser.New()
-	parseResult, err := p.Parse(tmpFile)
-	if err != nil {
-		b.Fatalf("failed to parse: %v", err)
-	}
-
-	g := New()
-	g.PackageName = "benchapi"
-	g.GenerateTypes = true
-
-	for b.Loop() {
-		_, err := g.GenerateParsed(*parseResult)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkGenerateClient(b *testing.B) {
-	spec := `openapi: "3.0.0"
+	benchClientSpec = `openapi: "3.0.0"
 info:
   title: Benchmark API
   version: "1.0.0"
@@ -162,32 +141,7 @@ components:
         name:
           type: string
 `
-	tmpDir := b.TempDir()
-	tmpFile := filepath.Join(tmpDir, "bench-client.yaml")
-	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
-		b.Fatalf("failed to write temp file: %v", err)
-	}
-
-	p := parser.New()
-	parseResult, err := p.Parse(tmpFile)
-	if err != nil {
-		b.Fatalf("failed to parse: %v", err)
-	}
-
-	g := New()
-	g.PackageName = "benchapi"
-	g.GenerateClient = true
-
-	for b.Loop() {
-		_, err := g.GenerateParsed(*parseResult)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkGenerateServer(b *testing.B) {
-	spec := `openapi: "3.0.0"
+	benchServerSpec = `openapi: "3.0.0"
 info:
   title: Benchmark API
   version: "1.0.0"
@@ -225,32 +179,7 @@ components:
         name:
           type: string
 `
-	tmpDir := b.TempDir()
-	tmpFile := filepath.Join(tmpDir, "bench-server.yaml")
-	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
-		b.Fatalf("failed to write temp file: %v", err)
-	}
-
-	p := parser.New()
-	parseResult, err := p.Parse(tmpFile)
-	if err != nil {
-		b.Fatalf("failed to parse: %v", err)
-	}
-
-	g := New()
-	g.PackageName = "benchapi"
-	g.GenerateServer = true
-
-	for b.Loop() {
-		_, err := g.GenerateParsed(*parseResult)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkGenerateAll(b *testing.B) {
-	spec := `openapi: "3.0.0"
+	benchFullSpec = `openapi: "3.0.0"
 info:
   title: Benchmark API
   version: "1.0.0"
@@ -312,8 +241,13 @@ components:
         name:
           type: string
 `
+)
+
+// parseSpecForBench parses a spec string and returns the parse result for benchmarking.
+func parseSpecForBench(b *testing.B, spec, filename string) *parser.ParseResult {
+	b.Helper()
 	tmpDir := b.TempDir()
-	tmpFile := filepath.Join(tmpDir, "bench-all.yaml")
+	tmpFile := filepath.Join(tmpDir, filename)
 	if err := os.WriteFile(tmpFile, []byte(spec), 0600); err != nil {
 		b.Fatalf("failed to write temp file: %v", err)
 	}
@@ -323,17 +257,74 @@ components:
 	if err != nil {
 		b.Fatalf("failed to parse: %v", err)
 	}
+	return parseResult
+}
 
-	g := New()
-	g.PackageName = "benchapi"
-	g.GenerateTypes = true
-	g.GenerateClient = true
-	g.GenerateServer = true
+// BenchmarkGenerate benchmarks code generation for different generation modes
+func BenchmarkGenerate(b *testing.B) {
+	b.Run("Types", func(b *testing.B) {
+		parseResult := parseSpecForBench(b, benchTypesSpec, "bench-types.yaml")
 
-	for b.Loop() {
-		_, err := g.GenerateParsed(*parseResult)
-		if err != nil {
-			b.Fatal(err)
+		g := New()
+		g.PackageName = "benchapi"
+		g.GenerateTypes = true
+
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := g.GenerateParsed(*parseResult)
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
-	}
+	})
+
+	b.Run("Client", func(b *testing.B) {
+		parseResult := parseSpecForBench(b, benchClientSpec, "bench-client.yaml")
+
+		g := New()
+		g.PackageName = "benchapi"
+		g.GenerateClient = true
+
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := g.GenerateParsed(*parseResult)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("Server", func(b *testing.B) {
+		parseResult := parseSpecForBench(b, benchServerSpec, "bench-server.yaml")
+
+		g := New()
+		g.PackageName = "benchapi"
+		g.GenerateServer = true
+
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := g.GenerateParsed(*parseResult)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("All", func(b *testing.B) {
+		parseResult := parseSpecForBench(b, benchFullSpec, "bench-all.yaml")
+
+		g := New()
+		g.PackageName = "benchapi"
+		g.GenerateTypes = true
+		g.GenerateClient = true
+		g.GenerateServer = true
+
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := g.GenerateParsed(*parseResult)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
 }

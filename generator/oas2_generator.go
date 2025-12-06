@@ -642,7 +642,7 @@ func (cg *oas2CodeGenerator) generateClientMethod(path, method string, op *parse
 	buf.WriteString("\t}\n")
 
 	// Parse response body
-	if responseType != "" && responseType != "*http.Response" {
+	if responseType != "" && responseType != httpResponseType {
 		if strings.HasPrefix(responseType, "*") {
 			buf.WriteString(fmt.Sprintf("\tvar result %s\n", responseType[1:]))
 			buf.WriteString("\tif err := json.NewDecoder(resp.Body).Decode(&result); err != nil {\n")
@@ -706,7 +706,7 @@ func (cg *oas2CodeGenerator) paramToGoType(param *parser.Parameter) string {
 // getResponseType determines the Go type for the success response
 func (cg *oas2CodeGenerator) getResponseType(op *parser.Operation) string {
 	if op.Responses == nil {
-		return "*http.Response"
+		return httpResponseType
 	}
 
 	// Check for 200, 201 responses
@@ -732,7 +732,7 @@ func (cg *oas2CodeGenerator) getResponseType(op *parser.Operation) string {
 		return goType
 	}
 
-	return "*http.Response"
+	return httpResponseType
 }
 
 // generateServer generates server interface code for OAS 2.0

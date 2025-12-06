@@ -352,5 +352,15 @@ open an issue at https://github.com/erraggy/oastools/issues
 All extension changes are reported with CategoryExtension and are assigned
 SeverityInfo in breaking mode, as specification extensions are non-normative
 and optional according to the OpenAPI Specification.
+
+# Related Packages
+
+The differ integrates with other oastools packages:
+  - [github.com/erraggy/oastools/parser] - Parse specifications before diffing
+  - [github.com/erraggy/oastools/validator] - Validate specifications before comparison
+  - [github.com/erraggy/oastools/converter] - Convert versions before comparing different OAS versions
+  - [github.com/erraggy/oastools/joiner] - Join specifications before comparison
+  - [github.com/erraggy/oastools/generator] - Generate code from compared specifications
+  - [github.com/erraggy/oastools/builder] - Programmatically build specifications to compare
 */
 package differ

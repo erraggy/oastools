@@ -198,7 +198,7 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 	}
 
 	// Unwrap and process parameters
-	var parameters []*parser.Parameter
+	parameters := make([]*parser.Parameter, 0, len(cfg.parameters))
 	for _, paramBuilder := range cfg.parameters {
 		param := paramBuilder.param
 

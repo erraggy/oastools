@@ -20,255 +20,158 @@ const (
 	mediumOAS2Path = "../testdata/bench/medium-oas2.yaml"
 )
 
-// BenchmarkValidateSmallOAS3 benchmarks validating a small OAS 3.0 document
-func BenchmarkValidateSmallOAS3(b *testing.B) {
-	v := New()
-	v.IncludeWarnings = true
-	v.StrictMode = false
+// BenchmarkValidate benchmarks validating OAS documents of various sizes
+func BenchmarkValidate(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"SmallOAS3", smallOAS3Path},
+		{"MediumOAS3", mediumOAS3Path},
+		{"LargeOAS3", largeOAS3Path},
+		{"SmallOAS2", smallOAS2Path},
+		{"MediumOAS2", mediumOAS2Path},
+	}
 
-	for b.Loop() {
-		_, err := v.Validate(smallOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			v := New()
+			v.IncludeWarnings = true
+			v.StrictMode = false
+
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := v.Validate(tt.path)
+				if err != nil {
+					b.Fatalf("Failed to validate: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkValidateMediumOAS3 benchmarks validating a medium OAS 3.0 document
-func BenchmarkValidateMediumOAS3(b *testing.B) {
-	v := New()
-	v.IncludeWarnings = true
-	v.StrictMode = false
+// BenchmarkValidateNoWarnings benchmarks validation without collecting warnings
+func BenchmarkValidateNoWarnings(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"SmallOAS3", smallOAS3Path},
+		{"MediumOAS3", mediumOAS3Path},
+		{"LargeOAS3", largeOAS3Path},
+	}
 
-	for b.Loop() {
-		_, err := v.Validate(mediumOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			v := New()
+			v.IncludeWarnings = false
+			v.StrictMode = false
+
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := v.Validate(tt.path)
+				if err != nil {
+					b.Fatalf("Failed to validate: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkValidateLargeOAS3 benchmarks validating a large OAS 3.0 document
-func BenchmarkValidateLargeOAS3(b *testing.B) {
-	v := New()
-	v.IncludeWarnings = true
-	v.StrictMode = false
+// BenchmarkValidateParsed benchmarks validating already-parsed documents
+func BenchmarkValidateParsed(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"SmallOAS3", smallOAS3Path},
+		{"MediumOAS3", mediumOAS3Path},
+		{"LargeOAS3", largeOAS3Path},
+	}
 
-	for b.Loop() {
-		_, err := v.Validate(largeOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			parseResult, err := parser.ParseWithOptions(
+				parser.WithFilePath(tt.path),
+			)
+			if err != nil {
+				b.Fatalf("Failed to parse: %v", err)
+			}
+
+			v := New()
+			v.IncludeWarnings = true
+			v.StrictMode = false
+
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := v.ValidateParsed(*parseResult)
+				if err != nil {
+					b.Fatalf("Failed to validate: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkValidateSmallOAS2 benchmarks validating a small OAS 2.0 document
-func BenchmarkValidateSmallOAS2(b *testing.B) {
-	v := New()
-	v.IncludeWarnings = true
-	v.StrictMode = false
+// BenchmarkValidateStrictMode benchmarks strict mode validation
+func BenchmarkValidateStrictMode(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"SmallOAS3", smallOAS3Path},
+		{"MediumOAS3", mediumOAS3Path},
+		{"LargeOAS3", largeOAS3Path},
+	}
 
-	for b.Loop() {
-		_, err := v.Validate(smallOAS2Path)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			v := New()
+			v.IncludeWarnings = true
+			v.StrictMode = true
+
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := v.Validate(tt.path)
+				if err != nil {
+					b.Fatalf("Failed to validate: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkValidateMediumOAS2 benchmarks validating a medium OAS 2.0 document
-func BenchmarkValidateMediumOAS2(b *testing.B) {
-	v := New()
-	v.IncludeWarnings = true
-	v.StrictMode = false
-
-	for b.Loop() {
-		_, err := v.Validate(mediumOAS2Path)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
+// BenchmarkValidateWithOptions benchmarks the functional options API
+func BenchmarkValidateWithOptions(b *testing.B) {
+	b.Run("FilePath/SmallOAS3", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := ValidateWithOptions(
+				WithFilePath(smallOAS3Path),
+				WithIncludeWarnings(true),
+			)
+			if err != nil {
+				b.Fatalf("Failed to validate: %v", err)
+			}
 		}
-	}
-}
+	})
 
-// BenchmarkValidateSmallOAS3NoWarnings benchmarks validation without warnings
-func BenchmarkValidateSmallOAS3NoWarnings(b *testing.B) {
-	v := New()
-	v.IncludeWarnings = false
-	v.StrictMode = false
-
-	for b.Loop() {
-		_, err := v.Validate(smallOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
-	}
-}
-
-// BenchmarkValidateMediumOAS3NoWarnings benchmarks validation without warnings
-func BenchmarkValidateMediumOAS3NoWarnings(b *testing.B) {
-	v := New()
-	v.IncludeWarnings = false
-	v.StrictMode = false
-
-	for b.Loop() {
-		_, err := v.Validate(mediumOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
-	}
-}
-
-// BenchmarkValidateParsedSmallOAS3 benchmarks validating an already-parsed document
-func BenchmarkValidateParsedSmallOAS3(b *testing.B) {
-	// Parse once
-	parseResult, err := parser.ParseWithOptions(
-		parser.WithFilePath(smallOAS3Path),
-	)
-	if err != nil {
-		b.Fatalf("Failed to parse: %v", err)
-	}
-
-	v := New()
-	v.IncludeWarnings = true
-	v.StrictMode = false
-
-	for b.Loop() {
-		_, err := v.ValidateParsed(*parseResult)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
-	}
-}
-
-// BenchmarkValidateParsedMediumOAS3 benchmarks validating an already-parsed medium doc
-func BenchmarkValidateParsedMediumOAS3(b *testing.B) {
-	// Parse once
-	parseResult, err := parser.ParseWithOptions(
-		parser.WithFilePath(mediumOAS3Path),
-	)
-	if err != nil {
-		b.Fatalf("Failed to parse: %v", err)
-	}
-
-	v := New()
-	v.IncludeWarnings = true
-	v.StrictMode = false
-
-	for b.Loop() {
-		_, err := v.ValidateParsed(*parseResult)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
-	}
-}
-
-// BenchmarkValidateParsedLargeOAS3 benchmarks validating an already-parsed large doc
-func BenchmarkValidateParsedLargeOAS3(b *testing.B) {
-	// Parse once
-	parseResult, err := parser.ParseWithOptions(
-		parser.WithFilePath(largeOAS3Path),
-	)
-	if err != nil {
-		b.Fatalf("Failed to parse: %v", err)
-	}
-
-	v := New()
-	v.IncludeWarnings = true
-	v.StrictMode = false
-
-	for b.Loop() {
-		_, err := v.ValidateParsed(*parseResult)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
-	}
-}
-
-// BenchmarkValidateStrictModeSmallOAS3 benchmarks strict mode validation
-func BenchmarkValidateStrictModeSmallOAS3(b *testing.B) {
-	v := New()
-	v.IncludeWarnings = true
-	v.StrictMode = true
-
-	for b.Loop() {
-		_, err := v.Validate(smallOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
-	}
-}
-
-// BenchmarkValidateStrictModeMediumOAS3 benchmarks strict mode validation on medium doc
-func BenchmarkValidateStrictModeMediumOAS3(b *testing.B) {
-	v := New()
-	v.IncludeWarnings = true
-	v.StrictMode = true
-
-	for b.Loop() {
-		_, err := v.Validate(mediumOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
-	}
-}
-
-// BenchmarkValidateWithOptionsSmallOAS3 benchmarks ValidateWithOptions convenience API
-func BenchmarkValidateWithOptionsSmallOAS3(b *testing.B) {
-	for b.Loop() {
-		_, err := ValidateWithOptions(
-			WithFilePath(smallOAS3Path),
-			WithIncludeWarnings(true),
+	b.Run("Parsed/SmallOAS3", func(b *testing.B) {
+		parseResult, err := parser.ParseWithOptions(
+			parser.WithFilePath(smallOAS3Path),
 		)
 		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
+			b.Fatal(err)
 		}
-	}
-}
 
-// BenchmarkValidateWithOptionsParsedSmallOAS3 benchmarks ValidateWithOptions with pre-parsed document
-func BenchmarkValidateWithOptionsParsedSmallOAS3(b *testing.B) {
-	// Parse once
-	parseResult, err := parser.ParseWithOptions(
-		parser.WithFilePath(smallOAS3Path),
-	)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	for b.Loop() {
-		_, err := ValidateWithOptions(
-			WithParsed(*parseResult),
-		)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := ValidateWithOptions(
+				WithParsed(*parseResult),
+			)
+			if err != nil {
+				b.Fatalf("Failed to validate: %v", err)
+			}
 		}
-	}
-}
-
-// BenchmarkValidateStrictModeLargeOAS3 benchmarks strict mode validation at scale
-func BenchmarkValidateStrictModeLargeOAS3(b *testing.B) {
-	v := New()
-	v.IncludeWarnings = true
-	v.StrictMode = true
-
-	for b.Loop() {
-		_, err := v.Validate(largeOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
-	}
-}
-
-// BenchmarkValidateLargeOAS3NoWarnings benchmarks large doc validation without warnings
-func BenchmarkValidateLargeOAS3NoWarnings(b *testing.B) {
-	v := New()
-	v.IncludeWarnings = false
-	v.StrictMode = false
-
-	for b.Loop() {
-		_, err := v.Validate(largeOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to validate: %v", err)
-		}
-	}
+	})
 }

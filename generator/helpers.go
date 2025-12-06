@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"github.com/erraggy/oastools"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -13,6 +14,9 @@ import (
 // before truncation. This keeps generated code readable and prevents excessively
 // long comment lines.
 const maxDescriptionLength = 200
+
+// httpResponseType is the Go type for HTTP responses, used in zero value checks.
+const httpResponseType = "*http.Response"
 
 // goReservedWords contains Go reserved keywords that cannot be used as identifiers.
 // Note: We only include actual keywords, not predeclared identifiers like "error",
@@ -124,19 +128,12 @@ func getSchemaType(schema *parser.Schema) string {
 		return ""
 	}
 
-	switch t := schema.Type.(type) {
-	case string:
-		return t
-	case []any:
-		// OAS 3.1+ type array - return first non-null type
-		for _, v := range t {
-			if str, ok := v.(string); ok && str != "null" {
-				return str
-			}
-		}
+	// Use schemautil for type extraction
+	if primaryType := schemautil.GetPrimaryType(schema); primaryType != "" {
+		return primaryType
 	}
 
-	// Infer type from other fields
+	// Infer type from other fields when no explicit type is set
 	if schema.Properties != nil {
 		return "object"
 	}
@@ -148,18 +145,6 @@ func getSchemaType(schema *parser.Schema) string {
 	}
 
 	return ""
-}
-
-// isTypeNullable checks if an OAS 3.1+ type array includes "null".
-func isTypeNullable(t any) bool {
-	if arr, ok := t.([]any); ok {
-		for _, v := range arr {
-			if str, ok := v.(string); ok && str == "null" {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // isRequired checks if a property name is in the required list.
@@ -244,7 +229,7 @@ func needsTimeImport(schema *parser.Schema) bool {
 
 // zeroValue returns the Go zero value expression for a type.
 func zeroValue(t string) string {
-	if t == "" || t == "*http.Response" {
+	if t == "" || t == httpResponseType {
 		return "nil"
 	}
 	if strings.HasPrefix(t, "*") || strings.HasPrefix(t, "[]") || strings.HasPrefix(t, "map") {
