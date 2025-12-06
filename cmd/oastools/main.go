@@ -19,6 +19,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Output format constants
+const (
+	FormatText = "text"
+	FormatJSON = "json"
+	FormatYAML = "yaml"
+)
+
+// Special file path constant
+const (
+	StdinFilePath = "-"
+)
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -69,6 +81,37 @@ func main() {
 	}
 }
 
+// validateOutputFormat validates an output format and returns an error if invalid.
+func validateOutputFormat(format string) error {
+	if format != FormatText && format != FormatJSON && format != FormatYAML {
+		return fmt.Errorf("invalid format '%s'. Valid formats: %s, %s, %s", format, FormatText, FormatJSON, FormatYAML)
+	}
+	return nil
+}
+
+// outputStructured outputs data in the specified format (json or yaml) to stdout.
+// Returns an error if marshaling fails.
+func outputStructured(data any, format string) error {
+	var bytes []byte
+	var err error
+
+	switch format {
+	case FormatJSON:
+		bytes, err = json.MarshalIndent(data, "", "  ")
+	case FormatYAML:
+		bytes, err = yaml.Marshal(data)
+	default:
+		return fmt.Errorf("invalid format for structured output: %s", format)
+	}
+
+	if err != nil {
+		return fmt.Errorf("marshaling to %s: %w", format, err)
+	}
+
+	fmt.Println(string(bytes))
+	return nil
+}
+
 // validateCollisionStrategy validates a collision strategy name and returns an error if invalid.
 // The strategyName parameter is used in the error message (e.g., "path-strategy").
 func validateCollisionStrategy(strategyName, value string) error {
@@ -82,6 +125,7 @@ func validateCollisionStrategy(strategyName, value string) error {
 type parseFlags struct {
 	resolveRefs       bool
 	validateStructure bool
+	quiet             bool
 }
 
 // setupParseFlags creates and configures a FlagSet for the parse command.
@@ -92,10 +136,12 @@ func setupParseFlags() (*flag.FlagSet, *parseFlags) {
 
 	fs.BoolVar(&flags.resolveRefs, "resolve-refs", false, "resolve external $ref references")
 	fs.BoolVar(&flags.validateStructure, "validate-structure", false, "validate document structure during parsing")
+	fs.BoolVar(&flags.quiet, "q", false, "quiet mode: only output the document, no diagnostic messages")
+	fs.BoolVar(&flags.quiet, "quiet", false, "quiet mode: only output the document, no diagnostic messages")
 
 	fs.Usage = func() {
 		output := fs.Output()
-		_, _ = fmt.Fprintf(output, "Usage: oastools parse [flags] <file|url>\n\n")
+		_, _ = fmt.Fprintf(output, "Usage: oastools parse [flags] <file|url|->\n\n")
 		_, _ = fmt.Fprintf(output, "Parse and output OpenAPI document structure.\n\n")
 		_, _ = fmt.Fprintf(output, "Flags:\n")
 		fs.PrintDefaults()
@@ -103,6 +149,13 @@ func setupParseFlags() (*flag.FlagSet, *parseFlags) {
 		_, _ = fmt.Fprintf(output, "  oastools parse openapi.yaml\n")
 		_, _ = fmt.Fprintf(output, "  oastools parse --resolve-refs openapi.yaml\n")
 		_, _ = fmt.Fprintf(output, "  oastools parse --validate-structure https://example.com/api/openapi.yaml\n")
+		_, _ = fmt.Fprintf(output, "  cat openapi.yaml | oastools parse -q -\n")
+		_, _ = fmt.Fprintf(output, "\nPipelining:\n")
+		_, _ = fmt.Fprintf(output, "  - Use '-' as the file path to read from stdin\n")
+		_, _ = fmt.Fprintf(output, "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
+		_, _ = fmt.Fprintf(output, "\nExit Codes:\n")
+		_, _ = fmt.Fprintf(output, "  0    Parsing successful\n")
+		_, _ = fmt.Fprintf(output, "  1    Parsing failed or validation errors found (with --validate-structure)\n")
 	}
 
 	return fs, flags
@@ -120,7 +173,7 @@ func handleParse(args []string) error {
 
 	if fs.NArg() != 1 {
 		fs.Usage()
-		return fmt.Errorf("parse command requires exactly one file path or URL")
+		return fmt.Errorf("parse command requires exactly one file path, URL, or '-' for stdin")
 	}
 
 	specPath := fs.Arg(0)
@@ -130,82 +183,100 @@ func handleParse(args []string) error {
 	p.ResolveRefs = flags.resolveRefs
 	p.ValidateStructure = flags.validateStructure
 
-	// Parse the file or URL
-	result, err := p.Parse(specPath)
-	if err != nil {
-		return fmt.Errorf("parsing file: %w", err)
-	}
+	// Parse the file, URL, or stdin
+	var result *parser.ParseResult
+	var err error
 
-	// Print results
-	fmt.Printf("OpenAPI Specification Parser\n")
-	fmt.Printf("============================\n\n")
-	fmt.Printf("oastools version: %s\n", oastools.Version())
-	fmt.Printf("Specification: %s\n", specPath)
-	fmt.Printf("OAS Version: %s\n", result.Version)
-	fmt.Printf("Source Size: %s\n", parser.FormatBytes(result.SourceSize))
-	fmt.Printf("Paths: %d\n", result.Stats.PathCount)
-	fmt.Printf("Operations: %d\n", result.Stats.OperationCount)
-	fmt.Printf("Schemas: %d\n", result.Stats.SchemaCount)
-	fmt.Printf("Load Time: %v\n\n", result.LoadTime)
-
-	// Print warnings
-	if len(result.Warnings) > 0 {
-		fmt.Printf("Warnings:\n")
-		for _, warning := range result.Warnings {
-			fmt.Printf("  - %s\n", warning)
+	if specPath == StdinFilePath {
+		result, err = p.ParseReader(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("parsing stdin: %w", err)
 		}
-		fmt.Println()
+	} else {
+		result, err = p.Parse(specPath)
+		if err != nil {
+			return fmt.Errorf("parsing file: %w", err)
+		}
 	}
 
-	// Print errors
+	// Always print errors to stderr, even in quiet mode (critical for debugging)
 	if len(result.Errors) > 0 {
-		fmt.Printf("Validation Errors:\n")
+		fmt.Fprintf(os.Stderr, "Validation Errors:\n")
 		for _, err := range result.Errors {
-			fmt.Printf("  - %s\n", err)
+			fmt.Fprintf(os.Stderr, "  - %s\n", err)
 		}
-		fmt.Println()
+		fmt.Fprintf(os.Stderr, "\n")
 		os.Exit(1)
 	}
 
-	// Print document info
-	if result.Document != nil {
-		switch doc := result.Document.(type) {
-		case *parser.OAS2Document:
-			fmt.Printf("Document Type: OpenAPI 2.0 (Swagger)\n")
-			if doc.Info != nil {
-				fmt.Printf("Title: %s\n", doc.Info.Title)
-				fmt.Printf("Description: %s\n", doc.Info.Description)
-				fmt.Printf("Version: %s\n", doc.Info.Version)
-			}
-			fmt.Printf("Paths: %d\n", len(doc.Paths))
+	// Print results (always to stderr to keep stdout clean for JSON output)
+	if !flags.quiet {
+		fmt.Fprintf(os.Stderr, "OpenAPI Specification Parser\n")
+		fmt.Fprintf(os.Stderr, "============================\n\n")
+		fmt.Fprintf(os.Stderr, "oastools version: %s\n", oastools.Version())
+		if specPath == StdinFilePath {
+			fmt.Fprintf(os.Stderr, "Specification: <stdin>\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "Specification: %s\n", specPath)
+		}
+		fmt.Fprintf(os.Stderr, "OAS Version: %s\n", result.Version)
+		fmt.Fprintf(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+		fmt.Fprintf(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
+		fmt.Fprintf(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
+		fmt.Fprintf(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
+		fmt.Fprintf(os.Stderr, "Load Time: %v\n\n", result.LoadTime)
 
-		case *parser.OAS3Document:
-			fmt.Printf("Document Type: OpenAPI 3.x\n")
-			if doc.Info != nil {
-				fmt.Printf("Title: %s\n", doc.Info.Title)
-				if doc.Info.Summary != "" {
-					fmt.Printf("Summary: %s\n", doc.Info.Summary)
-				}
-				fmt.Printf("Description: %s\n", doc.Info.Description)
-				fmt.Printf("Version: %s\n", doc.Info.Version)
+		// Print warnings
+		if len(result.Warnings) > 0 {
+			fmt.Fprintf(os.Stderr, "Warnings:\n")
+			for _, warning := range result.Warnings {
+				fmt.Fprintf(os.Stderr, "  - %s\n", warning)
 			}
-			fmt.Printf("Servers: %d\n", len(doc.Servers))
-			fmt.Printf("Paths: %d\n", len(doc.Paths))
-			if len(doc.Webhooks) > 0 {
-				fmt.Printf("Webhooks: %d\n", len(doc.Webhooks))
+			fmt.Fprintf(os.Stderr, "\n")
+		}
+
+		// Print document info
+		if result.Document != nil {
+			switch doc := result.Document.(type) {
+			case *parser.OAS2Document:
+				fmt.Fprintf(os.Stderr, "Document Type: OpenAPI 2.0 (Swagger)\n")
+				if doc.Info != nil {
+					fmt.Fprintf(os.Stderr, "Title: %s\n", doc.Info.Title)
+					fmt.Fprintf(os.Stderr, "Description: %s\n", doc.Info.Description)
+					fmt.Fprintf(os.Stderr, "Version: %s\n", doc.Info.Version)
+				}
+				fmt.Fprintf(os.Stderr, "Paths: %d\n", len(doc.Paths))
+
+			case *parser.OAS3Document:
+				fmt.Fprintf(os.Stderr, "Document Type: OpenAPI 3.x\n")
+				if doc.Info != nil {
+					fmt.Fprintf(os.Stderr, "Title: %s\n", doc.Info.Title)
+					if doc.Info.Summary != "" {
+						fmt.Fprintf(os.Stderr, "Summary: %s\n", doc.Info.Summary)
+					}
+					fmt.Fprintf(os.Stderr, "Description: %s\n", doc.Info.Description)
+					fmt.Fprintf(os.Stderr, "Version: %s\n", doc.Info.Version)
+				}
+				fmt.Fprintf(os.Stderr, "Servers: %d\n", len(doc.Servers))
+				fmt.Fprintf(os.Stderr, "Paths: %d\n", len(doc.Paths))
+				if len(doc.Webhooks) > 0 {
+					fmt.Fprintf(os.Stderr, "Webhooks: %d\n", len(doc.Webhooks))
+				}
 			}
 		}
-	}
 
-	// Output raw data as JSON for inspection
-	fmt.Printf("\nRaw Data (JSON):\n")
+		fmt.Fprintf(os.Stderr, "\n")
+		fmt.Fprintf(os.Stderr, "Raw Data (JSON):\n")
+	}
 	jsonData, err := json.MarshalIndent(result.Data, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshaling to JSON: %w", err)
 	}
 	fmt.Println(string(jsonData))
 
-	fmt.Printf("\nParsing completed successfully!\n")
+	if !flags.quiet {
+		fmt.Fprintf(os.Stderr, "\nParsing completed successfully!\n")
+	}
 	return nil
 }
 
@@ -213,6 +284,8 @@ func handleParse(args []string) error {
 type validateFlags struct {
 	strict     bool
 	noWarnings bool
+	quiet      bool
+	format     string
 }
 
 // setupValidateFlags creates and configures a FlagSet for the validate command.
@@ -223,17 +296,33 @@ func setupValidateFlags() (*flag.FlagSet, *validateFlags) {
 
 	fs.BoolVar(&flags.strict, "strict", false, "enable stricter validation beyond spec requirements")
 	fs.BoolVar(&flags.noWarnings, "no-warnings", false, "suppress warning messages (only show errors)")
+	fs.BoolVar(&flags.quiet, "q", false, "quiet mode: only output validation result, no diagnostic messages")
+	fs.BoolVar(&flags.quiet, "quiet", false, "quiet mode: only output validation result, no diagnostic messages")
+	fs.StringVar(&flags.format, "format", FormatText, "output format: text, json, or yaml")
 
 	fs.Usage = func() {
-		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools validate [flags] <file|url>\n\n")
-		_, _ = fmt.Fprintf(fs.Output(), "Validate an OpenAPI specification file or URL against the specification version it declares.\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools validate [flags] <file|url|->\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Validate an OpenAPI specification file, URL, or stdin against the specification version it declares.\n\n")
 		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
+		_, _ = fmt.Fprintf(fs.Output(), "\nOutput Formats:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  text (default)  Human-readable text output\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  json            JSON format for programmatic processing\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  yaml            YAML format for programmatic processing\n")
 		_, _ = fmt.Fprintf(fs.Output(), "\nExamples:\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate openapi.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate https://example.com/api/openapi.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate --strict api-spec.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate --no-warnings openapi.json\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  cat openapi.yaml | oastools validate -q -\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate --format json openapi.yaml | jq '.valid'\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nPipelining:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Use --format json/yaml for structured output that can be parsed\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nExit Codes:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  0    Validation successful\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  1    Validation failed with errors\n")
 	}
 
 	return fs, flags
@@ -251,68 +340,116 @@ func handleValidate(args []string) error {
 
 	if fs.NArg() != 1 {
 		fs.Usage()
-		return fmt.Errorf("validate command requires exactly one file path or URL")
+		return fmt.Errorf("validate command requires exactly one file path, URL, or '-' for stdin")
 	}
 
 	specPath := fs.Arg(0)
+
+	// Validate format flag early to fail fast before expensive operations
+	if err := validateOutputFormat(flags.format); err != nil {
+		return err
+	}
 
 	// Create validator with options
 	v := validator.New()
 	v.StrictMode = flags.strict
 	v.IncludeWarnings = !flags.noWarnings
 
-	// Validate the file or URL with timing
+	// Validate the file, URL, or stdin with timing
 	startTime := time.Now()
-	result, err := v.Validate(specPath)
-	totalTime := time.Since(startTime)
-	if err != nil {
-		return fmt.Errorf("validating file: %w", err)
-	}
+	var result *validator.ValidationResult
+	var err error
 
-	// Print results
-	fmt.Printf("OpenAPI Specification Validator\n")
-	fmt.Printf("================================\n\n")
-	fmt.Printf("oastools version: %s\n", oastools.Version())
-	fmt.Printf("Specification: %s\n", specPath)
-	fmt.Printf("OAS Version: %s\n", result.Version)
-	fmt.Printf("Source Size: %s\n", parser.FormatBytes(result.SourceSize))
-	fmt.Printf("Paths: %d\n", result.Stats.PathCount)
-	fmt.Printf("Operations: %d\n", result.Stats.OperationCount)
-	fmt.Printf("Schemas: %d\n", result.Stats.SchemaCount)
-	fmt.Printf("Load Time: %v\n", result.LoadTime)
-	fmt.Printf("Total Time: %v\n\n", totalTime)
-
-	// Print errors
-	if len(result.Errors) > 0 {
-		fmt.Printf("Errors (%d):\n", result.ErrorCount)
-		for _, err := range result.Errors {
-			fmt.Printf("  %s\n", err.String())
+	if specPath == StdinFilePath {
+		// Read from stdin
+		p := parser.New()
+		parseResult, err := p.ParseReader(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("parsing stdin: %w", err)
 		}
-		fmt.Println()
-	}
-
-	// Print warnings
-	if len(result.Warnings) > 0 {
-		fmt.Printf("Warnings (%d):\n", result.WarningCount)
-		for _, warning := range result.Warnings {
-			fmt.Printf("  %s\n", warning.String())
+		result, err = v.ValidateParsed(*parseResult)
+		if err != nil {
+			return fmt.Errorf("validating from stdin: %w", err)
 		}
-		fmt.Println()
-	}
-
-	// Print summary
-	if result.Valid {
-		fmt.Printf("✓ Validation passed")
-		if result.WarningCount > 0 {
-			fmt.Printf(" with %d warning(s)", result.WarningCount)
-		}
-		fmt.Println()
 	} else {
-		fmt.Printf("✗ Validation failed: %d error(s)", result.ErrorCount)
-		if result.WarningCount > 0 {
-			fmt.Printf(", %d warning(s)", result.WarningCount)
+		result, err = v.Validate(specPath)
+		if err != nil {
+			return fmt.Errorf("validating file: %w", err)
 		}
-		fmt.Println()
+	}
+	totalTime := time.Since(startTime)
+
+	// Handle structured output formats
+	if flags.format == FormatJSON || flags.format == FormatYAML {
+		if err := outputStructured(result, flags.format); err != nil {
+			return err
+		}
+
+		// Exit with error if validation failed
+		if !result.Valid {
+			os.Exit(1)
+		}
+
+		return nil
+	}
+
+	// Text format output (original behavior)
+	// Print results (always to stderr to be consistent with parse and convert)
+	if !flags.quiet {
+		fmt.Fprintf(os.Stderr, "OpenAPI Specification Validator\n")
+		fmt.Fprintf(os.Stderr, "================================\n\n")
+		fmt.Fprintf(os.Stderr, "oastools version: %s\n", oastools.Version())
+		if specPath == StdinFilePath {
+			fmt.Fprintf(os.Stderr, "Specification: <stdin>\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "Specification: %s\n", specPath)
+		}
+		fmt.Fprintf(os.Stderr, "OAS Version: %s\n", result.Version)
+		fmt.Fprintf(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+		fmt.Fprintf(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
+		fmt.Fprintf(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
+		fmt.Fprintf(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
+		fmt.Fprintf(os.Stderr, "Load Time: %v\n", result.LoadTime)
+		fmt.Fprintf(os.Stderr, "Total Time: %v\n\n", totalTime)
+
+		// Print errors
+		if len(result.Errors) > 0 {
+			fmt.Fprintf(os.Stderr, "Errors (%d):\n", result.ErrorCount)
+			for _, err := range result.Errors {
+				fmt.Fprintf(os.Stderr, "  %s\n", err.String())
+			}
+			fmt.Fprintf(os.Stderr, "\n")
+		}
+
+		// Print warnings
+		if len(result.Warnings) > 0 {
+			fmt.Fprintf(os.Stderr, "Warnings (%d):\n", result.WarningCount)
+			for _, warning := range result.Warnings {
+				fmt.Fprintf(os.Stderr, "  %s\n", warning.String())
+			}
+			fmt.Fprintf(os.Stderr, "\n")
+		}
+	}
+
+	// Print summary (only in non-quiet mode to respect --quiet flag)
+	if !flags.quiet {
+		if result.Valid {
+			fmt.Fprintf(os.Stderr, "✓ Validation passed")
+			if result.WarningCount > 0 {
+				fmt.Fprintf(os.Stderr, " with %d warning(s)", result.WarningCount)
+			}
+			fmt.Fprintf(os.Stderr, "\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "✗ Validation failed: %d error(s)", result.ErrorCount)
+			if result.WarningCount > 0 {
+				fmt.Fprintf(os.Stderr, ", %d warning(s)", result.WarningCount)
+			}
+			fmt.Fprintf(os.Stderr, "\n")
+		}
+	}
+
+	// Exit with error if validation failed
+	if !result.Valid {
 		os.Exit(1)
 	}
 
@@ -498,6 +635,7 @@ type convertFlags struct {
 	output     string
 	strict     bool
 	noWarnings bool
+	quiet      bool
 }
 
 // setupConvertFlags creates and configures a FlagSet for the convert command.
@@ -512,9 +650,11 @@ func setupConvertFlags() (*flag.FlagSet, *convertFlags) {
 	fs.StringVar(&flags.output, "output", "", "output file path (default: stdout)")
 	fs.BoolVar(&flags.strict, "strict", false, "fail on any conversion issues (even warnings)")
 	fs.BoolVar(&flags.noWarnings, "no-warnings", false, "suppress warning and info messages")
+	fs.BoolVar(&flags.quiet, "q", false, "quiet mode: only output the document, no diagnostic messages")
+	fs.BoolVar(&flags.quiet, "quiet", false, "quiet mode: only output the document, no diagnostic messages")
 
 	fs.Usage = func() {
-		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools convert [flags] <file|url>\n\n")
+		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools convert [flags] <file|url|->\n\n")
 		_, _ = fmt.Fprintf(fs.Output(), "Convert an OpenAPI specification from one version to another.\n\n")
 		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
@@ -527,11 +667,18 @@ func setupConvertFlags() (*flag.FlagSet, *convertFlags) {
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools convert -t 3.0.3 https://example.com/swagger.yaml -o openapi.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools convert -t 2.0 openapi-v3.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nPipelining:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
 		_, _ = fmt.Fprintf(fs.Output(), "\nNotes:\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  - Critical issues indicate features that cannot be converted (data loss)\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  - Warnings indicate lossy conversions or best-effort transformations\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  - Info messages provide context about conversion choices\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  - Always validate converted documents before deployment\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nExit Codes:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  0    Conversion successful\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  1    Conversion failed or critical issues found (in --strict mode)\n")
 	}
 
 	return fs, flags
@@ -549,7 +696,7 @@ func handleConvert(args []string) error {
 
 	if fs.NArg() != 1 {
 		fs.Usage()
-		return fmt.Errorf("convert command requires exactly one file path or URL")
+		return fmt.Errorf("convert command requires exactly one file path, URL, or '-' for stdin")
 	}
 
 	specPath := fs.Arg(0)
@@ -564,50 +711,72 @@ func handleConvert(args []string) error {
 	c.StrictMode = flags.strict
 	c.IncludeInfo = !flags.noWarnings
 
-	// Convert the file or URL with timing
+	// Convert the file, URL, or stdin with timing
 	startTime := time.Now()
-	result, err := c.Convert(specPath, flags.target)
-	totalTime := time.Since(startTime)
-	if err != nil {
-		return fmt.Errorf("converting file: %w", err)
-	}
+	var result *converter.ConversionResult
+	var err error
 
-	// Print results
-	fmt.Printf("OpenAPI Specification Converter\n")
-	fmt.Printf("===============================\n\n")
-	fmt.Printf("oastools version: %s\n", oastools.Version())
-	fmt.Printf("Specification: %s\n", specPath)
-	fmt.Printf("Source Version: %s\n", result.SourceVersion)
-	fmt.Printf("Target Version: %s\n", result.TargetVersion)
-	fmt.Printf("Source Size: %s\n", parser.FormatBytes(result.SourceSize))
-	fmt.Printf("Paths: %d\n", result.Stats.PathCount)
-	fmt.Printf("Operations: %d\n", result.Stats.OperationCount)
-	fmt.Printf("Schemas: %d\n", result.Stats.SchemaCount)
-	fmt.Printf("Load Time: %v\n", result.LoadTime)
-	fmt.Printf("Total Time: %v\n\n", totalTime)
-
-	// Print issues
-	if len(result.Issues) > 0 {
-		fmt.Printf("Conversion Issues (%d):\n", len(result.Issues))
-		for _, issue := range result.Issues {
-			fmt.Printf("  %s\n", issue.String())
+	if specPath == StdinFilePath {
+		// Read from stdin
+		p := parser.New()
+		parseResult, err := p.ParseReader(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("parsing stdin: %w", err)
 		}
-		fmt.Println()
-	}
-
-	// Print summary
-	if result.Success {
-		fmt.Printf("✓ Conversion successful")
-		if result.InfoCount > 0 || result.WarningCount > 0 {
-			fmt.Printf(" (%d info, %d warnings)", result.InfoCount, result.WarningCount)
+		result, err = c.ConvertParsed(*parseResult, flags.target)
+		if err != nil {
+			return fmt.Errorf("converting from stdin: %w", err)
 		}
-		fmt.Println()
 	} else {
-		fmt.Printf("✗ Conversion completed with %d critical issue(s)", result.CriticalCount)
-		if result.WarningCount > 0 {
-			fmt.Printf(", %d warning(s)", result.WarningCount)
+		result, err = c.Convert(specPath, flags.target)
+		if err != nil {
+			return fmt.Errorf("converting file: %w", err)
 		}
-		fmt.Println()
+	}
+	totalTime := time.Since(startTime)
+
+	// Print results (to stderr in quiet mode)
+	if !flags.quiet {
+		fmt.Fprintf(os.Stderr, "OpenAPI Specification Converter\n")
+		fmt.Fprintf(os.Stderr, "===============================\n\n")
+		fmt.Fprintf(os.Stderr, "oastools version: %s\n", oastools.Version())
+		if specPath == StdinFilePath {
+			fmt.Fprintf(os.Stderr, "Specification: <stdin>\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "Specification: %s\n", specPath)
+		}
+		fmt.Fprintf(os.Stderr, "Source Version: %s\n", result.SourceVersion)
+		fmt.Fprintf(os.Stderr, "Target Version: %s\n", result.TargetVersion)
+		fmt.Fprintf(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+		fmt.Fprintf(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
+		fmt.Fprintf(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
+		fmt.Fprintf(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
+		fmt.Fprintf(os.Stderr, "Load Time: %v\n", result.LoadTime)
+		fmt.Fprintf(os.Stderr, "Total Time: %v\n\n", totalTime)
+
+		// Print issues
+		if len(result.Issues) > 0 {
+			fmt.Fprintf(os.Stderr, "Conversion Issues (%d):\n", len(result.Issues))
+			for _, issue := range result.Issues {
+				fmt.Fprintf(os.Stderr, "  %s\n", issue.String())
+			}
+			fmt.Fprintf(os.Stderr, "\n")
+		}
+
+		// Print summary
+		if result.Success {
+			fmt.Fprintf(os.Stderr, "✓ Conversion successful")
+			if result.InfoCount > 0 || result.WarningCount > 0 {
+				fmt.Fprintf(os.Stderr, " (%d info, %d warnings)", result.InfoCount, result.WarningCount)
+			}
+			fmt.Fprintf(os.Stderr, "\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "✗ Conversion completed with %d critical issue(s)", result.CriticalCount)
+			if result.WarningCount > 0 {
+				fmt.Fprintf(os.Stderr, ", %d warning(s)", result.WarningCount)
+			}
+			fmt.Fprintf(os.Stderr, "\n")
+		}
 	}
 
 	// Write output
@@ -620,7 +789,9 @@ func handleConvert(args []string) error {
 		if err := os.WriteFile(flags.output, data, 0600); err != nil {
 			return fmt.Errorf("writing output file: %w", err)
 		}
-		fmt.Printf("\nOutput written to: %s\n", flags.output)
+		if !flags.quiet {
+			fmt.Fprintf(os.Stderr, "\nOutput written to: %s\n", flags.output)
+		}
 	} else {
 		// Write to stdout
 		if _, err = os.Stdout.Write(data); err != nil {
@@ -648,6 +819,7 @@ func marshalDocument(doc any, format parser.SourceFormat) ([]byte, error) {
 type diffFlags struct {
 	breaking bool
 	noInfo   bool
+	format   string
 }
 
 // setupDiffFlags creates and configures a FlagSet for the diff command.
@@ -658,12 +830,17 @@ func setupDiffFlags() (*flag.FlagSet, *diffFlags) {
 
 	fs.BoolVar(&flags.breaking, "breaking", false, "enable breaking change detection and categorization")
 	fs.BoolVar(&flags.noInfo, "no-info", false, "exclude informational changes from output")
+	fs.StringVar(&flags.format, "format", FormatText, "output format: text, json, or yaml")
 
 	fs.Usage = func() {
 		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools diff [flags] <source> <target>\n\n")
 		_, _ = fmt.Fprintf(fs.Output(), "Compare two OpenAPI specification files or URLs and report differences.\n\n")
 		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
+		_, _ = fmt.Fprintf(fs.Output(), "\nOutput Formats:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  text (default)  Human-readable text output\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  json            JSON format for programmatic processing\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  yaml            YAML format for programmatic processing\n")
 		_, _ = fmt.Fprintf(fs.Output(), "\nModes:\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  Default (Simple):\n")
 		_, _ = fmt.Fprintf(fs.Output(), "    Reports all semantic differences between specifications without\n")
@@ -678,6 +855,7 @@ func setupDiffFlags() (*flag.FlagSet, *diffFlags) {
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff api-v1.yaml api-v2.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff --breaking api-v1.yaml api-v2.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff --breaking --no-info old.yaml new.yaml\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff --format json --breaking api-v1.yaml api-v2.yaml | jq '.HasBreakingChanges'\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml\n")
 		_, _ = fmt.Fprintf(fs.Output(), "\nExit Status:\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  0    No differences found (or no breaking changes in --breaking mode)\n")
@@ -709,6 +887,11 @@ func handleDiff(args []string) error {
 	sourcePath := fs.Arg(0)
 	targetPath := fs.Arg(1)
 
+	// Validate format flag
+	if err := validateOutputFormat(flags.format); err != nil {
+		return err
+	}
+
 	// Create differ with options
 	d := differ.New()
 	if flags.breaking {
@@ -726,6 +909,21 @@ func handleDiff(args []string) error {
 		return fmt.Errorf("comparing specifications: %w", err)
 	}
 
+	// Handle structured output formats
+	if flags.format == FormatJSON || flags.format == FormatYAML {
+		if err := outputStructured(result, flags.format); err != nil {
+			return err
+		}
+
+		// Exit with error if breaking changes found (in breaking mode)
+		if flags.breaking && result.HasBreakingChanges {
+			os.Exit(1)
+		}
+
+		return nil
+	}
+
+	// Text format output (original behavior)
 	// Print results
 	fmt.Printf("OpenAPI Specification Diff\n")
 	fmt.Printf("==========================\n\n")
