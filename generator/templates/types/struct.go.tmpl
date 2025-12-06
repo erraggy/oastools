@@ -1,0 +1,8 @@
+{{if .Comment}}// {{.TypeName}} {{.Comment}}
+{{else}}// {{.TypeName}} represents the {{.OriginalName}} schema.
+{{end}}type {{.TypeName}} struct {
+{{range .Fields}}{{if .Comment}}	// {{.Comment}}
+{{end}}	{{.Name}} {{.Type}} `{{.Tags}}`
+{{end}}{{if .HasAdditionalProps}}	// AdditionalProperties holds additional properties.
+	AdditionalProperties map[string]{{.AdditionalPropsType}} `json:"-"`
+{{end}}}

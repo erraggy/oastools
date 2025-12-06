@@ -1,0 +1,7 @@
+{{.Comment}}
+{{if .Discriminator}}// Discriminator: {{.Discriminator}}
+{{end}}type {{.TypeName}} struct {
+{{if .DiscriminatorField}}	// {{.DiscriminatorField}} is the discriminator field.
+	{{.DiscriminatorField}} string `json:"{{.DiscriminatorJSONName}}"`
+{{end}}{{range .Variants}}	{{.Name}} *{{.Type}} `json:"-"`
+{{end}}}

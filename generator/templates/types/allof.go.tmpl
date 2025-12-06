@@ -1,0 +1,6 @@
+{{.Comment}}
+type {{.TypeName}} struct {
+{{range .EmbeddedTypes}}	{{.}}
+{{end}}{{range .Fields}}{{if .Comment}}	// {{.Comment}}
+{{end}}	{{.Name}} {{.Type}} `{{.Tags}}`
+{{end}}}

@@ -1,0 +1,6 @@
+{{.Comment}}
+type {{.TypeName}} {{.BaseType}}
+
+const (
+{{range .Values}}	{{.ConstName}} {{.Type}} = {{.Value | quote}}
+{{end}})

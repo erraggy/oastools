@@ -1,0 +1,57 @@
+{{.Comment}}
+func (c *Client) {{.MethodName}}({{.Params}}) ({{.ResponseType}}, error) {
+	path := {{.PathTemplate}}
+{{if .HasQueryParams}}
+	queryParams := url.Values{}
+	if params != nil {
+		// Add query parameters
+		// This is populated by the actual implementation
+	}
+	if len(queryParams) > 0 {
+		path = path + "?" + queryParams.Encode()
+	}
+{{end}}
+	req, err := http.NewRequestWithContext(ctx, {{.HttpMethod | quote}}, c.BaseURL+path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", c.UserAgent)
+{{if .HasBody}}
+	req.Header.Set("Content-Type", {{.ContentType | quote}})
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+{{end}}
+
+	for _, editor := range c.RequestEditors {
+		if err := editor(ctx, req); err != nil {
+			return nil, err
+		}
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, &APIError{StatusCode: resp.StatusCode, Body: body}
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var result {{.ResponseType}}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
