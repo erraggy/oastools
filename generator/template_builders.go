@@ -46,12 +46,15 @@ func (cg *oas3CodeGenerator) buildTypesFileData() *TypesFileData {
 func (cg *oas3CodeGenerator) buildHeaderData() HeaderData {
 	imports := make(map[string]bool)
 
-	// Check if we need time import
+	// Check if we need time or encoding/json imports
 	if cg.doc.Components != nil && cg.doc.Components.Schemas != nil {
 		for _, schema := range cg.doc.Components.Schemas {
 			if needsTimeImport(schema) {
 				imports["time"] = true
-				break
+			}
+			// Check if schema has discriminator (which generates UnmarshalJSON)
+			if hasDiscriminator(schema) {
+				imports["encoding/json"] = true
 			}
 		}
 	}
@@ -67,6 +70,20 @@ func (cg *oas3CodeGenerator) buildHeaderData() HeaderData {
 		PackageName: cg.result.PackageName,
 		Imports:     importList,
 	}
+}
+
+// hasDiscriminator checks if a schema has a discriminator that will generate UnmarshalJSON
+func hasDiscriminator(schema *parser.Schema) bool {
+	if schema == nil {
+		return false
+	}
+	// Check oneOf/anyOf with discriminator
+	if (len(schema.OneOf) > 0 || len(schema.AnyOf) > 0) &&
+		schema.Discriminator != nil &&
+		schema.Discriminator.PropertyName != "" {
+		return true
+	}
+	return false
 }
 
 // buildTypeDefinition builds a TypeDefinition from a schema.

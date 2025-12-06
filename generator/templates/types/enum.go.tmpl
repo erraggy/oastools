@@ -1,4 +1,5 @@
 {{if .Comment}}// {{.TypeName}} {{.Comment}}
+{{else}}// {{.TypeName}} represents the {{.TypeName}} schema.
 {{end}}type {{.TypeName}} {{.BaseType}}
 
 const (
