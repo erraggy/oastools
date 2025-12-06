@@ -153,6 +153,9 @@ func setupParseFlags() (*flag.FlagSet, *parseFlags) {
 		_, _ = fmt.Fprintf(output, "\nPipelining:\n")
 		_, _ = fmt.Fprintf(output, "  - Use '-' as the file path to read from stdin\n")
 		_, _ = fmt.Fprintf(output, "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
+		_, _ = fmt.Fprintf(output, "\nExit Codes:\n")
+		_, _ = fmt.Fprintf(output, "  0    Parsing successful\n")
+		_, _ = fmt.Fprintf(output, "  1    Parsing failed or validation errors found (with --validate-structure)\n")
 	}
 
 	return fs, flags
@@ -196,6 +199,16 @@ func handleParse(args []string) error {
 		}
 	}
 
+	// Always print errors to stderr, even in quiet mode (critical for debugging)
+	if len(result.Errors) > 0 {
+		fmt.Fprintf(os.Stderr, "Validation Errors:\n")
+		for _, err := range result.Errors {
+			fmt.Fprintf(os.Stderr, "  - %s\n", err)
+		}
+		fmt.Fprintf(os.Stderr, "\n")
+		os.Exit(1)
+	}
+
 	// Print results (always to stderr to keep stdout clean for JSON output)
 	if !flags.quiet {
 		fmt.Fprintf(os.Stderr, "OpenAPI Specification Parser\n")
@@ -220,16 +233,6 @@ func handleParse(args []string) error {
 				fmt.Fprintf(os.Stderr, "  - %s\n", warning)
 			}
 			fmt.Fprintf(os.Stderr, "\n")
-		}
-
-		// Print errors
-		if len(result.Errors) > 0 {
-			fmt.Fprintf(os.Stderr, "Validation Errors:\n")
-			for _, err := range result.Errors {
-				fmt.Fprintf(os.Stderr, "  - %s\n", err)
-			}
-			fmt.Fprintf(os.Stderr, "\n")
-			os.Exit(1)
 		}
 
 		// Print document info
@@ -317,6 +320,9 @@ func setupValidateFlags() (*flag.FlagSet, *validateFlags) {
 		_, _ = fmt.Fprintf(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  - Use --format json/yaml for structured output that can be parsed\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nExit Codes:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  0    Validation successful\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  1    Validation failed with errors\n")
 	}
 
 	return fs, flags
@@ -338,6 +344,11 @@ func handleValidate(args []string) error {
 	}
 
 	specPath := fs.Arg(0)
+
+	// Validate format flag early to fail fast before expensive operations
+	if err := validateOutputFormat(flags.format); err != nil {
+		return err
+	}
 
 	// Create validator with options
 	v := validator.New()
@@ -367,11 +378,6 @@ func handleValidate(args []string) error {
 		}
 	}
 	totalTime := time.Since(startTime)
-
-	// Validate format flag
-	if err := validateOutputFormat(flags.format); err != nil {
-		return err
-	}
 
 	// Handle structured output formats
 	if flags.format == FormatJSON || flags.format == FormatYAML {
@@ -670,6 +676,9 @@ func setupConvertFlags() (*flag.FlagSet, *convertFlags) {
 		_, _ = fmt.Fprintf(fs.Output(), "  - Warnings indicate lossy conversions or best-effort transformations\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  - Info messages provide context about conversion choices\n")
 		_, _ = fmt.Fprintf(fs.Output(), "  - Always validate converted documents before deployment\n")
+		_, _ = fmt.Fprintf(fs.Output(), "\nExit Codes:\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  0    Conversion successful\n")
+		_, _ = fmt.Fprintf(fs.Output(), "  1    Conversion failed or critical issues found (in --strict mode)\n")
 	}
 
 	return fs, flags
