@@ -368,7 +368,7 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 	}
 
 	// Parse all documents using the parser
-	var parsedDocs []parser.ParseResult
+	parsedDocs := make([]parser.ParseResult, 0, len(specPaths))
 	n := len(specPaths)
 	for i, path := range specPaths {
 		result, err := parser.ParseWithOptions(

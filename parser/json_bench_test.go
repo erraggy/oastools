@@ -10,94 +10,24 @@ import (
 // These operations (marshal, unmarshal, parse) should never fail with valid test fixtures.
 // If they do fail, it indicates a bug that should halt the benchmark immediately.
 
-// BenchmarkMarshalInfoNoExtra benchmarks marshaling Info without Extra fields
-func BenchmarkMarshalInfoNoExtra(b *testing.B) {
-	info := &Info{
-		Title:       "Test API",
-		Version:     "1.0.0",
-		Description: "A test API for benchmarking",
-	}
-
-	for b.Loop() {
-		_, err := json.Marshal(info)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
-	}
-}
-
-// BenchmarkMarshalInfoWithExtra benchmarks marshaling Info with Extra fields
-func BenchmarkMarshalInfoWithExtra(b *testing.B) {
-	info := &Info{
-		Title:       "Test API",
-		Version:     "1.0.0",
-		Description: "A test API for benchmarking",
-		Extra: map[string]any{
-			"x-api-id":       "test-001",
-			"x-audience":     "internal",
-			"x-team":         "platform",
-			"x-environment":  "production",
-			"x-custom-field": "custom-value",
-		},
-	}
-
-	for b.Loop() {
-		_, err := json.Marshal(info)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
-	}
-}
-
-// BenchmarkMarshalInfoExtra1 benchmarks marshaling Info with 1 Extra field
-func BenchmarkMarshalInfoExtra1(b *testing.B) {
-	info := &Info{
-		Title:       "Test API",
-		Version:     "1.0.0",
-		Description: "A test API for benchmarking",
-		Extra: map[string]any{
+// BenchmarkMarshalInfo benchmarks marshaling Info with various Extra field counts
+func BenchmarkMarshalInfo(b *testing.B) {
+	tests := []struct {
+		name  string
+		extra map[string]any
+	}{
+		{"NoExtra", nil},
+		{"Extra1", map[string]any{
 			"x-api-id": "test-001",
-		},
-	}
-
-	for b.Loop() {
-		_, err := json.Marshal(info)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
-	}
-}
-
-// BenchmarkMarshalInfoExtra5 benchmarks marshaling Info with 5 Extra fields
-func BenchmarkMarshalInfoExtra5(b *testing.B) {
-	info := &Info{
-		Title:       "Test API",
-		Version:     "1.0.0",
-		Description: "A test API for benchmarking",
-		Extra: map[string]any{
+		}},
+		{"Extra5", map[string]any{
 			"x-api-id":      "test-001",
 			"x-audience":    "internal",
 			"x-team":        "platform",
 			"x-environment": "production",
 			"x-region":      "us-east-1",
-		},
-	}
-
-	for b.Loop() {
-		_, err := json.Marshal(info)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
-	}
-}
-
-// BenchmarkMarshalInfoExtra10 benchmarks marshaling Info with 10 Extra fields
-func BenchmarkMarshalInfoExtra10(b *testing.B) {
-	info := &Info{
-		Title:       "Test API",
-		Version:     "1.0.0",
-		Description: "A test API for benchmarking",
-		Extra: map[string]any{
+		}},
+		{"Extra10", map[string]any{
 			"x-api-id":       "test-001",
 			"x-audience":     "internal",
 			"x-team":         "platform",
@@ -108,24 +38,8 @@ func BenchmarkMarshalInfoExtra10(b *testing.B) {
 			"x-project":      "api-gateway",
 			"x-service-tier": "gold",
 			"x-compliance":   "pci-dss",
-		},
-	}
-
-	for b.Loop() {
-		_, err := json.Marshal(info)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
-	}
-}
-
-// BenchmarkMarshalInfoExtra20 benchmarks marshaling Info with 20 Extra fields
-func BenchmarkMarshalInfoExtra20(b *testing.B) {
-	info := &Info{
-		Title:       "Test API",
-		Version:     "1.0.0",
-		Description: "A test API for benchmarking",
-		Extra: map[string]any{
+		}},
+		{"Extra20", map[string]any{
 			"x-api-id":        "test-001",
 			"x-audience":      "internal",
 			"x-team":          "platform",
@@ -146,77 +60,73 @@ func BenchmarkMarshalInfoExtra20(b *testing.B) {
 			"x-oncall":        "api-platform-oncall",
 			"x-sla":           "99.95",
 			"x-support-level": "24x7",
-		},
+		}},
 	}
 
-	for b.Loop() {
-		_, err := json.Marshal(info)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
-	}
-}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			info := &Info{
+				Title:       "Test API",
+				Version:     "1.0.0",
+				Description: "A test API for benchmarking",
+				Extra:       tt.extra,
+			}
 
-// BenchmarkMarshalContactNoExtra benchmarks marshaling Contact without Extra fields
-func BenchmarkMarshalContactNoExtra(b *testing.B) {
-	contact := &Contact{
-		Name:  "API Support",
-		Email: "support@example.com",
-		URL:   "https://example.com/support",
-	}
-
-	for b.Loop() {
-		_, err := json.Marshal(contact)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := json.Marshal(info)
+				if err != nil {
+					b.Fatalf("Failed to marshal: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkMarshalContactWithExtra benchmarks marshaling Contact with Extra fields
-func BenchmarkMarshalContactWithExtra(b *testing.B) {
-	contact := &Contact{
-		Name:  "API Support",
-		Email: "support@example.com",
-		URL:   "https://example.com/support",
-		Extra: map[string]any{
+// BenchmarkMarshalContact benchmarks marshaling Contact with and without Extra fields
+func BenchmarkMarshalContact(b *testing.B) {
+	tests := []struct {
+		name  string
+		extra map[string]any
+	}{
+		{"NoExtra", nil},
+		{"WithExtra", map[string]any{
 			"x-team-id":   "platform-001",
 			"x-slack":     "#api-support",
 			"x-on-call":   true,
 			"x-timezone":  "UTC",
 			"x-languages": []string{"en", "es", "fr"},
-		},
+		}},
 	}
 
-	for b.Loop() {
-		_, err := json.Marshal(contact)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
-	}
-}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			contact := &Contact{
+				Name:  "API Support",
+				Email: "support@example.com",
+				URL:   "https://example.com/support",
+				Extra: tt.extra,
+			}
 
-// BenchmarkMarshalServerNoExtra benchmarks marshaling Server without Extra fields
-func BenchmarkMarshalServerNoExtra(b *testing.B) {
-	server := &Server{
-		URL:         "https://api.example.com/v1",
-		Description: "Production server",
-	}
-
-	for b.Loop() {
-		_, err := json.Marshal(server)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := json.Marshal(contact)
+				if err != nil {
+					b.Fatalf("Failed to marshal: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkMarshalServerWithExtra benchmarks marshaling Server with Extra fields
-func BenchmarkMarshalServerWithExtra(b *testing.B) {
-	server := &Server{
-		URL:         "https://api.example.com/v1",
-		Description: "Production server",
-		Extra: map[string]any{
+// BenchmarkMarshalServer benchmarks marshaling Server with and without Extra fields
+func BenchmarkMarshalServer(b *testing.B) {
+	tests := []struct {
+		name  string
+		extra map[string]any
+	}{
+		{"NoExtra", nil},
+		{"WithExtra", map[string]any{
 			"x-environment":    "production",
 			"x-region":         "us-east-1",
 			"x-load-balancer":  "alb-prod-001",
@@ -225,152 +135,123 @@ func BenchmarkMarshalServerWithExtra(b *testing.B) {
 			"x-cache-enabled":  true,
 			"x-timeout-ms":     5000,
 			"x-retry-attempts": 3,
-		},
+		}},
 	}
 
-	for b.Loop() {
-		_, err := json.Marshal(server)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
-	}
-}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			server := &Server{
+				URL:         "https://api.example.com/v1",
+				Description: "Production server",
+				Extra:       tt.extra,
+			}
 
-// BenchmarkMarshalOAS3DocumentSmall benchmarks marshaling a small OAS3 document
-func BenchmarkMarshalOAS3DocumentSmall(b *testing.B) {
-	// Parse a small document first
-	result, err := ParseWithOptions(WithFilePath(smallOAS3Path))
-	if err != nil {
-		b.Fatalf("Failed to parse: %v", err)
-	}
-
-	doc, ok := result.Document.(*OAS3Document)
-	if !ok {
-		b.Fatalf("Expected *OAS3Document, got %T", result.Document)
-	}
-
-	for b.Loop() {
-		_, err := json.Marshal(doc)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := json.Marshal(server)
+				if err != nil {
+					b.Fatalf("Failed to marshal: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkMarshalOAS3DocumentMedium benchmarks marshaling a medium OAS3 document
-func BenchmarkMarshalOAS3DocumentMedium(b *testing.B) {
-	// Parse a medium document first
-	result, err := ParseWithOptions(WithFilePath(mediumOAS3Path))
-	if err != nil {
-		b.Fatalf("Failed to parse: %v", err)
+// BenchmarkMarshalOAS3Document benchmarks marshaling OAS3 documents of various sizes
+func BenchmarkMarshalOAS3Document(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"Small", smallOAS3Path},
+		{"Medium", mediumOAS3Path},
+		{"Large", largeOAS3Path},
 	}
 
-	doc, ok := result.Document.(*OAS3Document)
-	if !ok {
-		b.Fatalf("Expected *OAS3Document, got %T", result.Document)
-	}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			result, err := ParseWithOptions(WithFilePath(tt.path))
+			if err != nil {
+				b.Fatalf("Failed to parse: %v", err)
+			}
 
-	for b.Loop() {
-		_, err := json.Marshal(doc)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
-	}
-}
+			doc, ok := result.Document.(*OAS3Document)
+			if !ok {
+				b.Fatalf("Expected *OAS3Document, got %T", result.Document)
+			}
 
-// BenchmarkMarshalOAS3DocumentLarge benchmarks marshaling a large OAS3 document
-func BenchmarkMarshalOAS3DocumentLarge(b *testing.B) {
-	// Parse a large document first
-	result, err := ParseWithOptions(WithFilePath(largeOAS3Path))
-	if err != nil {
-		b.Fatalf("Failed to parse: %v", err)
-	}
-
-	doc, ok := result.Document.(*OAS3Document)
-	if !ok {
-		b.Fatalf("Expected *OAS3Document, got %T", result.Document)
-	}
-
-	for b.Loop() {
-		_, err := json.Marshal(doc)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := json.Marshal(doc)
+				if err != nil {
+					b.Fatalf("Failed to marshal: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkMarshalOAS2DocumentSmall benchmarks marshaling a small OAS2 document
-func BenchmarkMarshalOAS2DocumentSmall(b *testing.B) {
-	// Parse a small document first
-	result, err := ParseWithOptions(WithFilePath(smallOAS2Path))
-	if err != nil {
-		b.Fatalf("Failed to parse: %v", err)
+// BenchmarkMarshalOAS2Document benchmarks marshaling OAS2 documents of various sizes
+func BenchmarkMarshalOAS2Document(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"Small", smallOAS2Path},
+		{"Medium", mediumOAS2Path},
 	}
 
-	doc, ok := result.Document.(*OAS2Document)
-	if !ok {
-		b.Fatalf("Expected *OAS2Document, got %T", result.Document)
-	}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			result, err := ParseWithOptions(WithFilePath(tt.path))
+			if err != nil {
+				b.Fatalf("Failed to parse: %v", err)
+			}
 
-	for b.Loop() {
-		_, err := json.Marshal(doc)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
-	}
-}
+			doc, ok := result.Document.(*OAS2Document)
+			if !ok {
+				b.Fatalf("Expected *OAS2Document, got %T", result.Document)
+			}
 
-// BenchmarkMarshalOAS2DocumentMedium benchmarks marshaling a medium OAS2 document
-func BenchmarkMarshalOAS2DocumentMedium(b *testing.B) {
-	// Parse a medium document first
-	result, err := ParseWithOptions(WithFilePath(mediumOAS2Path))
-	if err != nil {
-		b.Fatalf("Failed to parse: %v", err)
-	}
-
-	doc, ok := result.Document.(*OAS2Document)
-	if !ok {
-		b.Fatalf("Expected *OAS2Document, got %T", result.Document)
-	}
-
-	for b.Loop() {
-		_, err := json.Marshal(doc)
-		if err != nil {
-			b.Fatalf("Failed to marshal: %v", err)
-		}
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := json.Marshal(doc)
+				if err != nil {
+					b.Fatalf("Failed to marshal: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkUnmarshalInfoNoExtra benchmarks unmarshaling Info without Extra fields
-func BenchmarkUnmarshalInfoNoExtra(b *testing.B) {
-	data := []byte(`{"title":"Test API","version":"1.0.0","description":"A test API"}`)
-
-	for b.Loop() {
-		var info Info
-		err := json.Unmarshal(data, &info)
-		if err != nil {
-			b.Fatalf("Failed to unmarshal: %v", err)
-		}
+// BenchmarkUnmarshalInfo benchmarks unmarshaling Info with and without Extra fields
+func BenchmarkUnmarshalInfo(b *testing.B) {
+	tests := []struct {
+		name string
+		data []byte
+	}{
+		{"NoExtra", []byte(`{"title":"Test API","version":"1.0.0","description":"A test API"}`)},
+		{"WithExtra", []byte(`{
+			"title":"Test API",
+			"version":"1.0.0",
+			"description":"A test API",
+			"x-api-id":"test-001",
+			"x-audience":"internal",
+			"x-team":"platform",
+			"x-environment":"production"
+		}`)},
 	}
-}
 
-// BenchmarkUnmarshalInfoWithExtra benchmarks unmarshaling Info with Extra fields
-func BenchmarkUnmarshalInfoWithExtra(b *testing.B) {
-	data := []byte(`{
-		"title":"Test API",
-		"version":"1.0.0",
-		"description":"A test API",
-		"x-api-id":"test-001",
-		"x-audience":"internal",
-		"x-team":"platform",
-		"x-environment":"production"
-	}`)
-
-	for b.Loop() {
-		var info Info
-		err := json.Unmarshal(data, &info)
-		if err != nil {
-			b.Fatalf("Failed to unmarshal: %v", err)
-		}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				var info Info
+				err := json.Unmarshal(tt.data, &info)
+				if err != nil {
+					b.Fatalf("Failed to unmarshal: %v", err)
+				}
+			}
+		})
 	}
 }

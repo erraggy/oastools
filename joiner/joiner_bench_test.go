@@ -17,89 +17,63 @@ const (
 	joinBaseOAS3Path = "../testdata/bench/join-base-oas3.yaml"
 	joinExt1OAS3Path = "../testdata/bench/join-ext1-oas3.yaml"
 	joinExt2OAS3Path = "../testdata/bench/join-ext2-oas3.yaml"
-	mediumOAS3Path   = "../testdata/bench/medium-oas3.yaml"
 )
 
-// BenchmarkJoinTwoSmallDocs benchmarks joining 2 small documents
-func BenchmarkJoinTwoSmallDocs(b *testing.B) {
+// BenchmarkJoin benchmarks joining documents from file paths
+func BenchmarkJoin(b *testing.B) {
 	config := DefaultConfig()
 	config.PathStrategy = StrategyAcceptLeft
 	config.SchemaStrategy = StrategyAcceptLeft
-
 	j := New(config)
 
-	for b.Loop() {
-		_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
-		if err != nil {
-			b.Fatalf("Failed to join: %v", err)
+	b.Run("TwoDocs", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
+			if err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
 		}
-	}
+	})
+
+	b.Run("ThreeDocs", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path, joinExt2OAS3Path})
+			if err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
+		}
+	})
+
+	b.Run("FiveDocs", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := j.Join([]string{
+				joinBaseOAS3Path,
+				joinExt1OAS3Path,
+				joinExt2OAS3Path,
+				joinBaseOAS3Path,
+				joinExt1OAS3Path,
+			})
+			if err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
+		}
+	})
 }
 
-// BenchmarkJoinThreeSmallDocs benchmarks joining 3 small documents
-func BenchmarkJoinThreeSmallDocs(b *testing.B) {
-	config := DefaultConfig()
-	config.PathStrategy = StrategyAcceptLeft
-	config.SchemaStrategy = StrategyAcceptLeft
-
-	j := New(config)
-
-	for b.Loop() {
-		_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path, joinExt2OAS3Path})
-		if err != nil {
-			b.Fatalf("Failed to join: %v", err)
-		}
-	}
-}
-
-// BenchmarkJoinParsedTwoSmallDocs benchmarks joining already-parsed documents
-func BenchmarkJoinParsedTwoSmallDocs(b *testing.B) {
-	// Parse once
-	doc1, err := parser.ParseWithOptions(
-		parser.WithFilePath(joinBaseOAS3Path),
-	)
+// BenchmarkJoinParsed benchmarks joining already-parsed documents
+func BenchmarkJoinParsed(b *testing.B) {
+	doc1, err := parser.ParseWithOptions(parser.WithFilePath(joinBaseOAS3Path))
 	if err != nil {
 		b.Fatalf("Failed to parse doc1: %v", err)
 	}
-	doc2, err := parser.ParseWithOptions(
-		parser.WithFilePath(joinExt1OAS3Path),
-	)
+	doc2, err := parser.ParseWithOptions(parser.WithFilePath(joinExt1OAS3Path))
 	if err != nil {
 		b.Fatalf("Failed to parse doc2: %v", err)
 	}
-
-	config := DefaultConfig()
-	config.PathStrategy = StrategyAcceptLeft
-	config.SchemaStrategy = StrategyAcceptLeft
-
-	j := New(config)
-
-	for b.Loop() {
-		_, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2})
-		if err != nil {
-			b.Fatalf("Failed to join: %v", err)
-		}
-	}
-}
-
-// BenchmarkJoinParsedThreeSmallDocs benchmarks joining 3 already-parsed documents
-func BenchmarkJoinParsedThreeSmallDocs(b *testing.B) {
-	// Parse once
-	doc1, err := parser.ParseWithOptions(
-		parser.WithFilePath(joinBaseOAS3Path),
-	)
-	if err != nil {
-		b.Fatalf("Failed to parse doc1: %v", err)
-	}
-	doc2, err := parser.ParseWithOptions(
-		parser.WithFilePath(joinExt1OAS3Path),
-	)
-	if err != nil {
-		b.Fatalf("Failed to parse doc2: %v", err)
-	}
-	doc3, err := parser.ParseWithOptions(
-		parser.WithFilePath(joinExt2OAS3Path),
-	)
+	doc3, err := parser.ParseWithOptions(parser.WithFilePath(joinExt2OAS3Path))
 	if err != nil {
 		b.Fatalf("Failed to parse doc3: %v", err)
 	}
@@ -107,136 +81,159 @@ func BenchmarkJoinParsedThreeSmallDocs(b *testing.B) {
 	config := DefaultConfig()
 	config.PathStrategy = StrategyAcceptLeft
 	config.SchemaStrategy = StrategyAcceptLeft
-
 	j := New(config)
 
-	for b.Loop() {
-		_, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2, *doc3})
-		if err != nil {
-			b.Fatalf("Failed to join: %v", err)
+	b.Run("TwoDocs", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2})
+			if err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
 		}
-	}
+	})
+
+	b.Run("ThreeDocs", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2, *doc3})
+			if err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
+		}
+	})
 }
 
-// BenchmarkJoinStrategyAcceptRight benchmarks with StrategyAcceptRight
-func BenchmarkJoinStrategyAcceptRight(b *testing.B) {
-	config := DefaultConfig()
-	config.PathStrategy = StrategyAcceptRight
-	config.SchemaStrategy = StrategyAcceptRight
+// BenchmarkJoinStrategy benchmarks different merge strategies
+func BenchmarkJoinStrategy(b *testing.B) {
+	b.Run("AcceptLeft", func(b *testing.B) {
+		config := DefaultConfig()
+		config.PathStrategy = StrategyAcceptLeft
+		config.SchemaStrategy = StrategyAcceptLeft
+		j := New(config)
 
-	j := New(config)
-
-	for b.Loop() {
-		_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
-		if err != nil {
-			b.Fatalf("Failed to join: %v", err)
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
+			if err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
 		}
-	}
+	})
+
+	b.Run("AcceptRight", func(b *testing.B) {
+		config := DefaultConfig()
+		config.PathStrategy = StrategyAcceptRight
+		config.SchemaStrategy = StrategyAcceptRight
+		j := New(config)
+
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
+			if err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
+		}
+	})
 }
 
-// BenchmarkJoinWithArrayMerge benchmarks joining with array merging enabled
-func BenchmarkJoinWithArrayMerge(b *testing.B) {
-	config := DefaultConfig()
-	config.PathStrategy = StrategyAcceptLeft
-	config.SchemaStrategy = StrategyAcceptLeft
-	config.MergeArrays = true
+// BenchmarkJoinOptions benchmarks join with various options
+func BenchmarkJoinOptions(b *testing.B) {
+	b.Run("MergeArrays", func(b *testing.B) {
+		config := DefaultConfig()
+		config.PathStrategy = StrategyAcceptLeft
+		config.SchemaStrategy = StrategyAcceptLeft
+		config.MergeArrays = true
+		j := New(config)
 
-	j := New(config)
-
-	for b.Loop() {
-		_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
-		if err != nil {
-			b.Fatalf("Failed to join: %v", err)
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
+			if err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
 		}
-	}
+	})
+
+	b.Run("DeduplicateTags", func(b *testing.B) {
+		config := DefaultConfig()
+		config.PathStrategy = StrategyAcceptLeft
+		config.SchemaStrategy = StrategyAcceptLeft
+		config.DeduplicateTags = true
+		j := New(config)
+
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
+			if err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
+		}
+	})
 }
 
-// BenchmarkJoinWithDeduplicateTags benchmarks joining with tag deduplication
-func BenchmarkJoinWithDeduplicateTags(b *testing.B) {
-	config := DefaultConfig()
-	config.PathStrategy = StrategyAcceptLeft
-	config.SchemaStrategy = StrategyAcceptLeft
-	config.DeduplicateTags = true
-
-	j := New(config)
-
-	for b.Loop() {
-		_, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
-		if err != nil {
-			b.Fatalf("Failed to join: %v", err)
-		}
-	}
-}
-
-// BenchmarkJoinWithOptionsTwoSmallDocs benchmarks JoinWithOptions convenience API
-func BenchmarkJoinWithOptionsTwoSmallDocs(b *testing.B) {
+// BenchmarkJoinWithOptions benchmarks the functional options API
+func BenchmarkJoinWithOptions(b *testing.B) {
 	config := DefaultConfig()
 
-	for b.Loop() {
-		_, err := JoinWithOptions(
-			WithFilePaths(joinBaseOAS3Path, joinExt1OAS3Path),
-			WithConfig(config),
-		)
-		if err != nil {
-			b.Fatalf("Failed to join: %v", err)
+	b.Run("FilePaths", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := JoinWithOptions(
+				WithFilePaths(joinBaseOAS3Path, joinExt1OAS3Path),
+				WithConfig(config),
+			)
+			if err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
 		}
-	}
-}
+	})
 
-// BenchmarkJoinWithOptionsParsedTwoSmallDocs benchmarks JoinWithOptions with pre-parsed documents
-func BenchmarkJoinWithOptionsParsedTwoSmallDocs(b *testing.B) {
-	// Parse once
-	doc1, err := parser.ParseWithOptions(
-		parser.WithFilePath(joinBaseOAS3Path),
-	)
-	if err != nil {
-		b.Fatal(err)
-	}
-	doc2, err := parser.ParseWithOptions(
-		parser.WithFilePath(joinExt1OAS3Path),
-	)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	config := DefaultConfig()
-
-	for b.Loop() {
-		_, err := JoinWithOptions(
-			WithParsed(*doc1, *doc2),
-			WithConfig(config),
-		)
+	b.Run("Parsed", func(b *testing.B) {
+		doc1, err := parser.ParseWithOptions(parser.WithFilePath(joinBaseOAS3Path))
 		if err != nil {
-			b.Fatalf("Failed to join: %v", err)
+			b.Fatal(err)
 		}
-	}
+		doc2, err := parser.ParseWithOptions(parser.WithFilePath(joinExt1OAS3Path))
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := JoinWithOptions(
+				WithParsed(*doc1, *doc2),
+				WithConfig(config),
+			)
+			if err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
+		}
+	})
 }
 
 // BenchmarkJoinWriteResult benchmarks WriteResult I/O performance
 func BenchmarkJoinWriteResult(b *testing.B) {
-	// Join once
 	config := DefaultConfig()
 	config.PathStrategy = StrategyAcceptLeft
 	config.SchemaStrategy = StrategyAcceptLeft
-
 	j := New(config)
+
 	result, err := j.Join([]string{joinBaseOAS3Path, joinExt1OAS3Path})
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	// Use temp file for writing
 	tmpfile, err := os.CreateTemp("", "bench-join-*.yaml")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer func() {
-		_ = os.Remove(tmpfile.Name())
-	}()
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
 	if err := tmpfile.Close(); err != nil {
 		b.Fatal(err)
 	}
 
+	b.ReportAllocs()
 	for b.Loop() {
 		err := j.WriteResult(result, tmpfile.Name())
 		if err != nil {
@@ -245,54 +242,35 @@ func BenchmarkJoinWriteResult(b *testing.B) {
 	}
 }
 
-// BenchmarkJoinFiveSmallDocs benchmarks joining 5 documents
-func BenchmarkJoinFiveSmallDocs(b *testing.B) {
-	config := DefaultConfig()
-	config.PathStrategy = StrategyAcceptLeft
-	config.SchemaStrategy = StrategyAcceptLeft
-
-	j := New(config)
-
-	for b.Loop() {
-		_, err := j.Join([]string{
-			joinBaseOAS3Path,
-			joinExt1OAS3Path,
-			joinExt2OAS3Path,
-			joinBaseOAS3Path,
-			joinExt1OAS3Path,
-		})
-		if err != nil {
-			b.Fatalf("Failed to join: %v", err)
+// BenchmarkJoinHelpers benchmarks helper functions
+func BenchmarkJoinHelpers(b *testing.B) {
+	b.Run("DefaultConfig", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_ = DefaultConfig()
 		}
-	}
-}
+	})
 
-// BenchmarkDefaultConfig benchmarks DefaultConfig construction
-func BenchmarkDefaultConfig(b *testing.B) {
-	for b.Loop() {
-		_ = DefaultConfig()
-	}
-}
-
-// BenchmarkIsValidStrategy benchmarks IsValidStrategy validation
-func BenchmarkIsValidStrategy(b *testing.B) {
-	strategies := []string{
-		string(StrategyAcceptLeft),
-		string(StrategyAcceptRight),
-		string(StrategyFailOnCollision),
-		"invalid-strategy",
-	}
-
-	for b.Loop() {
-		for _, strategy := range strategies {
-			_ = IsValidStrategy(strategy)
+	b.Run("IsValidStrategy", func(b *testing.B) {
+		strategies := []string{
+			string(StrategyAcceptLeft),
+			string(StrategyAcceptRight),
+			string(StrategyFailOnCollision),
+			"invalid-strategy",
 		}
-	}
-}
 
-// BenchmarkValidStrategies benchmarks ValidStrategies list generation
-func BenchmarkValidStrategies(b *testing.B) {
-	for b.Loop() {
-		_ = ValidStrategies()
-	}
+		b.ReportAllocs()
+		for b.Loop() {
+			for _, strategy := range strategies {
+				_ = IsValidStrategy(strategy)
+			}
+		}
+	})
+
+	b.Run("ValidStrategies", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_ = ValidStrategies()
+		}
+	})
 }

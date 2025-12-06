@@ -53,6 +53,7 @@ func executeTemplate(name string, data any) ([]byte, error) {
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
 		// If formatting fails, return unformatted but don't fail the generation
+		// nolint:nilerr // intentional: formatting is optional, unformatted code is acceptable
 		return buf.Bytes(), nil
 	}
 	return formatted, nil

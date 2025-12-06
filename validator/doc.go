@@ -45,4 +45,14 @@
 //   - ErrorCount, WarningCount: Issue counts
 //
 // See the exported ValidationError and ValidationResult types for complete details.
+//
+// # Related Packages
+//
+// Validation typically follows parsing:
+//   - [github.com/erraggy/oastools/parser] - Parse specifications before validation
+//   - [github.com/erraggy/oastools/converter] - Convert validated specs between OAS versions
+//   - [github.com/erraggy/oastools/joiner] - Join validated specs into one document
+//   - [github.com/erraggy/oastools/differ] - Compare specifications and detect breaking changes
+//   - [github.com/erraggy/oastools/generator] - Generate Go code from validated specifications
+//   - [github.com/erraggy/oastools/builder] - Programmatically build specifications
 package validator

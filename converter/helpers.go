@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -227,10 +228,8 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 
 		// Extract type and format for non-body parameters
 		if param.In != "body" && schema != nil {
-			// Type can be string or []string, extract as string if possible
-			if typeStr, ok := schema.Type.(string); ok {
-				converted.Type = typeStr
-			}
+			// Type can be string or []string (OAS 3.1+), extract primary type
+			converted.Type = schemautil.GetPrimaryType(schema)
 			converted.Format = schema.Format
 		}
 	}

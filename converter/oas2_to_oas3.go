@@ -81,7 +81,12 @@ func (c *Converter) convertOAS2ToOAS3(parseResult parser.ParseResult, targetVers
 
 // convertServers converts OAS 2.0 host/basePath/schemes to OAS 3.x servers
 func (c *Converter) convertServers(src *parser.OAS2Document, result *ConversionResult) []*parser.Server {
-	var servers []*parser.Server
+	// Pre-allocate based on number of schemes (or 1 for default)
+	schemeCount := len(src.Schemes)
+	if schemeCount == 0 {
+		schemeCount = 1
+	}
+	servers := make([]*parser.Server, 0, schemeCount)
 
 	// If no host is specified, create a default server
 	if src.Host == "" {

@@ -13,6 +13,7 @@ import (
 	"github.com/erraggy/oastools/converter"
 	"github.com/erraggy/oastools/differ"
 	"github.com/erraggy/oastools/generator"
+	"github.com/erraggy/oastools/internal/cliutil"
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/validator"
@@ -46,36 +47,36 @@ func main() {
 		printUsage()
 	case "validate":
 		if err := handleValidate(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			cliutil.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "parse":
 		if err := handleParse(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			cliutil.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "join":
 		if err := handleJoin(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			cliutil.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "convert":
 		if err := handleConvert(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			cliutil.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "diff":
 		if err := handleDiff(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			cliutil.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "generate":
 		if err := handleGenerate(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			cliutil.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", command)
+		cliutil.Writef(os.Stderr, "Unknown command: %s\n\n", command)
 		printUsage()
 		os.Exit(1)
 	}
@@ -141,21 +142,21 @@ func setupParseFlags() (*flag.FlagSet, *parseFlags) {
 
 	fs.Usage = func() {
 		output := fs.Output()
-		_, _ = fmt.Fprintf(output, "Usage: oastools parse [flags] <file|url|->\n\n")
-		_, _ = fmt.Fprintf(output, "Parse and output OpenAPI document structure.\n\n")
-		_, _ = fmt.Fprintf(output, "Flags:\n")
+		cliutil.Writef(output, "Usage: oastools parse [flags] <file|url|->\n\n")
+		cliutil.Writef(output, "Parse and output OpenAPI document structure.\n\n")
+		cliutil.Writef(output, "Flags:\n")
 		fs.PrintDefaults()
-		_, _ = fmt.Fprintf(output, "\nExamples:\n")
-		_, _ = fmt.Fprintf(output, "  oastools parse openapi.yaml\n")
-		_, _ = fmt.Fprintf(output, "  oastools parse --resolve-refs openapi.yaml\n")
-		_, _ = fmt.Fprintf(output, "  oastools parse --validate-structure https://example.com/api/openapi.yaml\n")
-		_, _ = fmt.Fprintf(output, "  cat openapi.yaml | oastools parse -q -\n")
-		_, _ = fmt.Fprintf(output, "\nPipelining:\n")
-		_, _ = fmt.Fprintf(output, "  - Use '-' as the file path to read from stdin\n")
-		_, _ = fmt.Fprintf(output, "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
-		_, _ = fmt.Fprintf(output, "\nExit Codes:\n")
-		_, _ = fmt.Fprintf(output, "  0    Parsing successful\n")
-		_, _ = fmt.Fprintf(output, "  1    Parsing failed or validation errors found (with --validate-structure)\n")
+		cliutil.Writef(output, "\nExamples:\n")
+		cliutil.Writef(output, "  oastools parse openapi.yaml\n")
+		cliutil.Writef(output, "  oastools parse --resolve-refs openapi.yaml\n")
+		cliutil.Writef(output, "  oastools parse --validate-structure https://example.com/api/openapi.yaml\n")
+		cliutil.Writef(output, "  cat openapi.yaml | oastools parse -q -\n")
+		cliutil.Writef(output, "\nPipelining:\n")
+		cliutil.Writef(output, "  - Use '-' as the file path to read from stdin\n")
+		cliutil.Writef(output, "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
+		cliutil.Writef(output, "\nExit Codes:\n")
+		cliutil.Writef(output, "  0    Parsing successful\n")
+		cliutil.Writef(output, "  1    Parsing failed or validation errors found (with --validate-structure)\n")
 	}
 
 	return fs, flags
@@ -201,72 +202,72 @@ func handleParse(args []string) error {
 
 	// Always print errors to stderr, even in quiet mode (critical for debugging)
 	if len(result.Errors) > 0 {
-		fmt.Fprintf(os.Stderr, "Validation Errors:\n")
+		cliutil.Writef(os.Stderr, "Validation Errors:\n")
 		for _, err := range result.Errors {
-			fmt.Fprintf(os.Stderr, "  - %s\n", err)
+			cliutil.Writef(os.Stderr, "  - %s\n", err)
 		}
-		fmt.Fprintf(os.Stderr, "\n")
+		cliutil.Writef(os.Stderr, "\n")
 		os.Exit(1)
 	}
 
 	// Print results (always to stderr to keep stdout clean for JSON output)
 	if !flags.quiet {
-		fmt.Fprintf(os.Stderr, "OpenAPI Specification Parser\n")
-		fmt.Fprintf(os.Stderr, "============================\n\n")
-		fmt.Fprintf(os.Stderr, "oastools version: %s\n", oastools.Version())
+		cliutil.Writef(os.Stderr, "OpenAPI Specification Parser\n")
+		cliutil.Writef(os.Stderr, "============================\n\n")
+		cliutil.Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
 		if specPath == StdinFilePath {
-			fmt.Fprintf(os.Stderr, "Specification: <stdin>\n")
+			cliutil.Writef(os.Stderr, "Specification: <stdin>\n")
 		} else {
-			fmt.Fprintf(os.Stderr, "Specification: %s\n", specPath)
+			cliutil.Writef(os.Stderr, "Specification: %s\n", specPath)
 		}
-		fmt.Fprintf(os.Stderr, "OAS Version: %s\n", result.Version)
-		fmt.Fprintf(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
-		fmt.Fprintf(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
-		fmt.Fprintf(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
-		fmt.Fprintf(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
-		fmt.Fprintf(os.Stderr, "Load Time: %v\n\n", result.LoadTime)
+		cliutil.Writef(os.Stderr, "OAS Version: %s\n", result.Version)
+		cliutil.Writef(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+		cliutil.Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
+		cliutil.Writef(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
+		cliutil.Writef(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
+		cliutil.Writef(os.Stderr, "Load Time: %v\n\n", result.LoadTime)
 
 		// Print warnings
 		if len(result.Warnings) > 0 {
-			fmt.Fprintf(os.Stderr, "Warnings:\n")
+			cliutil.Writef(os.Stderr, "Warnings:\n")
 			for _, warning := range result.Warnings {
-				fmt.Fprintf(os.Stderr, "  - %s\n", warning)
+				cliutil.Writef(os.Stderr, "  - %s\n", warning)
 			}
-			fmt.Fprintf(os.Stderr, "\n")
+			cliutil.Writef(os.Stderr, "\n")
 		}
 
 		// Print document info
 		if result.Document != nil {
 			switch doc := result.Document.(type) {
 			case *parser.OAS2Document:
-				fmt.Fprintf(os.Stderr, "Document Type: OpenAPI 2.0 (Swagger)\n")
+				cliutil.Writef(os.Stderr, "Document Type: OpenAPI 2.0 (Swagger)\n")
 				if doc.Info != nil {
-					fmt.Fprintf(os.Stderr, "Title: %s\n", doc.Info.Title)
-					fmt.Fprintf(os.Stderr, "Description: %s\n", doc.Info.Description)
-					fmt.Fprintf(os.Stderr, "Version: %s\n", doc.Info.Version)
+					cliutil.Writef(os.Stderr, "Title: %s\n", doc.Info.Title)
+					cliutil.Writef(os.Stderr, "Description: %s\n", doc.Info.Description)
+					cliutil.Writef(os.Stderr, "Version: %s\n", doc.Info.Version)
 				}
-				fmt.Fprintf(os.Stderr, "Paths: %d\n", len(doc.Paths))
+				cliutil.Writef(os.Stderr, "Paths: %d\n", len(doc.Paths))
 
 			case *parser.OAS3Document:
-				fmt.Fprintf(os.Stderr, "Document Type: OpenAPI 3.x\n")
+				cliutil.Writef(os.Stderr, "Document Type: OpenAPI 3.x\n")
 				if doc.Info != nil {
-					fmt.Fprintf(os.Stderr, "Title: %s\n", doc.Info.Title)
+					cliutil.Writef(os.Stderr, "Title: %s\n", doc.Info.Title)
 					if doc.Info.Summary != "" {
-						fmt.Fprintf(os.Stderr, "Summary: %s\n", doc.Info.Summary)
+						cliutil.Writef(os.Stderr, "Summary: %s\n", doc.Info.Summary)
 					}
-					fmt.Fprintf(os.Stderr, "Description: %s\n", doc.Info.Description)
-					fmt.Fprintf(os.Stderr, "Version: %s\n", doc.Info.Version)
+					cliutil.Writef(os.Stderr, "Description: %s\n", doc.Info.Description)
+					cliutil.Writef(os.Stderr, "Version: %s\n", doc.Info.Version)
 				}
-				fmt.Fprintf(os.Stderr, "Servers: %d\n", len(doc.Servers))
-				fmt.Fprintf(os.Stderr, "Paths: %d\n", len(doc.Paths))
+				cliutil.Writef(os.Stderr, "Servers: %d\n", len(doc.Servers))
+				cliutil.Writef(os.Stderr, "Paths: %d\n", len(doc.Paths))
 				if len(doc.Webhooks) > 0 {
-					fmt.Fprintf(os.Stderr, "Webhooks: %d\n", len(doc.Webhooks))
+					cliutil.Writef(os.Stderr, "Webhooks: %d\n", len(doc.Webhooks))
 				}
 			}
 		}
 
-		fmt.Fprintf(os.Stderr, "\n")
-		fmt.Fprintf(os.Stderr, "Raw Data (JSON):\n")
+		cliutil.Writef(os.Stderr, "\n")
+		cliutil.Writef(os.Stderr, "Raw Data (JSON):\n")
 	}
 	jsonData, err := json.MarshalIndent(result.Data, "", "  ")
 	if err != nil {
@@ -275,7 +276,7 @@ func handleParse(args []string) error {
 	fmt.Println(string(jsonData))
 
 	if !flags.quiet {
-		fmt.Fprintf(os.Stderr, "\nParsing completed successfully!\n")
+		cliutil.Writef(os.Stderr, "\nParsing completed successfully!\n")
 	}
 	return nil
 }
@@ -301,28 +302,28 @@ func setupValidateFlags() (*flag.FlagSet, *validateFlags) {
 	fs.StringVar(&flags.format, "format", FormatText, "output format: text, json, or yaml")
 
 	fs.Usage = func() {
-		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools validate [flags] <file|url|->\n\n")
-		_, _ = fmt.Fprintf(fs.Output(), "Validate an OpenAPI specification file, URL, or stdin against the specification version it declares.\n\n")
-		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
+		cliutil.Writef(fs.Output(), "Usage: oastools validate [flags] <file|url|->\n\n")
+		cliutil.Writef(fs.Output(), "Validate an OpenAPI specification file, URL, or stdin against the specification version it declares.\n\n")
+		cliutil.Writef(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
-		_, _ = fmt.Fprintf(fs.Output(), "\nOutput Formats:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  text (default)  Human-readable text output\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  json            JSON format for programmatic processing\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  yaml            YAML format for programmatic processing\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nExamples:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate openapi.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate https://example.com/api/openapi.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate --strict api-spec.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate --no-warnings openapi.json\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  cat openapi.yaml | oastools validate -q -\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools validate --format json openapi.yaml | jq '.valid'\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nPipelining:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Use --format json/yaml for structured output that can be parsed\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nExit Codes:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  0    Validation successful\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  1    Validation failed with errors\n")
+		cliutil.Writef(fs.Output(), "\nOutput Formats:\n")
+		cliutil.Writef(fs.Output(), "  text (default)  Human-readable text output\n")
+		cliutil.Writef(fs.Output(), "  json            JSON format for programmatic processing\n")
+		cliutil.Writef(fs.Output(), "  yaml            YAML format for programmatic processing\n")
+		cliutil.Writef(fs.Output(), "\nExamples:\n")
+		cliutil.Writef(fs.Output(), "  oastools validate openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools validate https://example.com/api/openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools validate --strict api-spec.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools validate --no-warnings openapi.json\n")
+		cliutil.Writef(fs.Output(), "  cat openapi.yaml | oastools validate -q -\n")
+		cliutil.Writef(fs.Output(), "  oastools validate --format json openapi.yaml | jq '.valid'\n")
+		cliutil.Writef(fs.Output(), "\nPipelining:\n")
+		cliutil.Writef(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
+		cliutil.Writef(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
+		cliutil.Writef(fs.Output(), "  - Use --format json/yaml for structured output that can be parsed\n")
+		cliutil.Writef(fs.Output(), "\nExit Codes:\n")
+		cliutil.Writef(fs.Output(), "  0    Validation successful\n")
+		cliutil.Writef(fs.Output(), "  1    Validation failed with errors\n")
 	}
 
 	return fs, flags
@@ -396,55 +397,55 @@ func handleValidate(args []string) error {
 	// Text format output (original behavior)
 	// Print results (always to stderr to be consistent with parse and convert)
 	if !flags.quiet {
-		fmt.Fprintf(os.Stderr, "OpenAPI Specification Validator\n")
-		fmt.Fprintf(os.Stderr, "================================\n\n")
-		fmt.Fprintf(os.Stderr, "oastools version: %s\n", oastools.Version())
+		cliutil.Writef(os.Stderr, "OpenAPI Specification Validator\n")
+		cliutil.Writef(os.Stderr, "================================\n\n")
+		cliutil.Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
 		if specPath == StdinFilePath {
-			fmt.Fprintf(os.Stderr, "Specification: <stdin>\n")
+			cliutil.Writef(os.Stderr, "Specification: <stdin>\n")
 		} else {
-			fmt.Fprintf(os.Stderr, "Specification: %s\n", specPath)
+			cliutil.Writef(os.Stderr, "Specification: %s\n", specPath)
 		}
-		fmt.Fprintf(os.Stderr, "OAS Version: %s\n", result.Version)
-		fmt.Fprintf(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
-		fmt.Fprintf(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
-		fmt.Fprintf(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
-		fmt.Fprintf(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
-		fmt.Fprintf(os.Stderr, "Load Time: %v\n", result.LoadTime)
-		fmt.Fprintf(os.Stderr, "Total Time: %v\n\n", totalTime)
+		cliutil.Writef(os.Stderr, "OAS Version: %s\n", result.Version)
+		cliutil.Writef(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+		cliutil.Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
+		cliutil.Writef(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
+		cliutil.Writef(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
+		cliutil.Writef(os.Stderr, "Load Time: %v\n", result.LoadTime)
+		cliutil.Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
 
 		// Print errors
 		if len(result.Errors) > 0 {
-			fmt.Fprintf(os.Stderr, "Errors (%d):\n", result.ErrorCount)
+			cliutil.Writef(os.Stderr, "Errors (%d):\n", result.ErrorCount)
 			for _, err := range result.Errors {
-				fmt.Fprintf(os.Stderr, "  %s\n", err.String())
+				cliutil.Writef(os.Stderr, "  %s\n", err.String())
 			}
-			fmt.Fprintf(os.Stderr, "\n")
+			cliutil.Writef(os.Stderr, "\n")
 		}
 
 		// Print warnings
 		if len(result.Warnings) > 0 {
-			fmt.Fprintf(os.Stderr, "Warnings (%d):\n", result.WarningCount)
+			cliutil.Writef(os.Stderr, "Warnings (%d):\n", result.WarningCount)
 			for _, warning := range result.Warnings {
-				fmt.Fprintf(os.Stderr, "  %s\n", warning.String())
+				cliutil.Writef(os.Stderr, "  %s\n", warning.String())
 			}
-			fmt.Fprintf(os.Stderr, "\n")
+			cliutil.Writef(os.Stderr, "\n")
 		}
 	}
 
 	// Print summary (only in non-quiet mode to respect --quiet flag)
 	if !flags.quiet {
 		if result.Valid {
-			fmt.Fprintf(os.Stderr, "✓ Validation passed")
+			cliutil.Writef(os.Stderr, "✓ Validation passed")
 			if result.WarningCount > 0 {
-				fmt.Fprintf(os.Stderr, " with %d warning(s)", result.WarningCount)
+				cliutil.Writef(os.Stderr, " with %d warning(s)", result.WarningCount)
 			}
-			fmt.Fprintf(os.Stderr, "\n")
+			cliutil.Writef(os.Stderr, "\n")
 		} else {
-			fmt.Fprintf(os.Stderr, "✗ Validation failed: %d error(s)", result.ErrorCount)
+			cliutil.Writef(os.Stderr, "✗ Validation failed: %d error(s)", result.ErrorCount)
 			if result.WarningCount > 0 {
-				fmt.Fprintf(os.Stderr, ", %d warning(s)", result.WarningCount)
+				cliutil.Writef(os.Stderr, ", %d warning(s)", result.WarningCount)
 			}
-			fmt.Fprintf(os.Stderr, "\n")
+			cliutil.Writef(os.Stderr, "\n")
 		}
 	}
 
@@ -481,24 +482,24 @@ func setupJoinFlags() (*flag.FlagSet, *joinFlags) {
 	fs.BoolVar(&flags.noDedupTags, "no-dedup-tags", false, "don't deduplicate tags by name")
 
 	fs.Usage = func() {
-		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools join [flags] <file1> <file2> [file3...]\n\n")
-		_, _ = fmt.Fprintf(fs.Output(), "Join multiple OpenAPI specification files into a single document.\n\n")
-		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
+		cliutil.Writef(fs.Output(), "Usage: oastools join [flags] <file1> <file2> [file3...]\n\n")
+		cliutil.Writef(fs.Output(), "Join multiple OpenAPI specification files into a single document.\n\n")
+		cliutil.Writef(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
-		_, _ = fmt.Fprintf(fs.Output(), "\nCollision Strategies:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  accept-left      Keep the first value when collisions occur\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  accept-right     Keep the last value when collisions occur (overwrite)\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  fail             Fail with an error on any collision\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  fail-on-paths    Fail only on path collisions, allow schema collisions\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nExamples:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools join -o merged.yaml base.yaml extensions.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nNotes:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - All input files must be the same major OAS version (2.0 or 3.x)\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - The output will use the version of the first input file\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Info section is taken from the first document by default\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Output file is written with restrictive permissions (0600) for security\n")
+		cliutil.Writef(fs.Output(), "\nCollision Strategies:\n")
+		cliutil.Writef(fs.Output(), "  accept-left      Keep the first value when collisions occur\n")
+		cliutil.Writef(fs.Output(), "  accept-right     Keep the last value when collisions occur (overwrite)\n")
+		cliutil.Writef(fs.Output(), "  fail             Fail with an error on any collision\n")
+		cliutil.Writef(fs.Output(), "  fail-on-paths    Fail only on path collisions, allow schema collisions\n")
+		cliutil.Writef(fs.Output(), "\nExamples:\n")
+		cliutil.Writef(fs.Output(), "  oastools join -o merged.yaml base.yaml extensions.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml\n")
+		cliutil.Writef(fs.Output(), "\nNotes:\n")
+		cliutil.Writef(fs.Output(), "  - All input files must be the same major OAS version (2.0 or 3.x)\n")
+		cliutil.Writef(fs.Output(), "  - The output will use the version of the first input file\n")
+		cliutil.Writef(fs.Output(), "  - Info section is taken from the first document by default\n")
+		cliutil.Writef(fs.Output(), "  - Output file is written with restrictive permissions (0600) for security\n")
 	}
 
 	return fs, flags
@@ -623,7 +624,7 @@ func validateOutputPath(outputPath string, inputPaths []string) error {
 
 	// Check if output file already exists and warn (but don't error)
 	if _, err := os.Stat(outputPath); err == nil {
-		fmt.Fprintf(os.Stderr, "Warning: output file %s already exists and will be overwritten\n", outputPath)
+		cliutil.Writef(os.Stderr, "Warning: output file %s already exists and will be overwritten\n", outputPath)
 	}
 
 	return nil
@@ -654,31 +655,31 @@ func setupConvertFlags() (*flag.FlagSet, *convertFlags) {
 	fs.BoolVar(&flags.quiet, "quiet", false, "quiet mode: only output the document, no diagnostic messages")
 
 	fs.Usage = func() {
-		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools convert [flags] <file|url|->\n\n")
-		_, _ = fmt.Fprintf(fs.Output(), "Convert an OpenAPI specification from one version to another.\n\n")
-		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
+		cliutil.Writef(fs.Output(), "Usage: oastools convert [flags] <file|url|->\n\n")
+		cliutil.Writef(fs.Output(), "Convert an OpenAPI specification from one version to another.\n\n")
+		cliutil.Writef(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
-		_, _ = fmt.Fprintf(fs.Output(), "\nSupported Conversions:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - OAS 2.0 → OAS 3.x (3.0.0 through 3.2.0)\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - OAS 3.x → OAS 2.0\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - OAS 3.x → OAS 3.y (version updates)\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nExamples:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools convert -t 3.0.3 https://example.com/swagger.yaml -o openapi.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools convert -t 2.0 openapi-v3.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nPipelining:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nNotes:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Critical issues indicate features that cannot be converted (data loss)\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Warnings indicate lossy conversions or best-effort transformations\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Info messages provide context about conversion choices\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Always validate converted documents before deployment\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nExit Codes:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  0    Conversion successful\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  1    Conversion failed or critical issues found (in --strict mode)\n")
+		cliutil.Writef(fs.Output(), "\nSupported Conversions:\n")
+		cliutil.Writef(fs.Output(), "  - OAS 2.0 → OAS 3.x (3.0.0 through 3.2.0)\n")
+		cliutil.Writef(fs.Output(), "  - OAS 3.x → OAS 2.0\n")
+		cliutil.Writef(fs.Output(), "  - OAS 3.x → OAS 3.y (version updates)\n")
+		cliutil.Writef(fs.Output(), "\nExamples:\n")
+		cliutil.Writef(fs.Output(), "  oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools convert -t 3.0.3 https://example.com/swagger.yaml -o openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools convert -t 2.0 openapi-v3.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml\n")
+		cliutil.Writef(fs.Output(), "  cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "\nPipelining:\n")
+		cliutil.Writef(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
+		cliutil.Writef(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
+		cliutil.Writef(fs.Output(), "\nNotes:\n")
+		cliutil.Writef(fs.Output(), "  - Critical issues indicate features that cannot be converted (data loss)\n")
+		cliutil.Writef(fs.Output(), "  - Warnings indicate lossy conversions or best-effort transformations\n")
+		cliutil.Writef(fs.Output(), "  - Info messages provide context about conversion choices\n")
+		cliutil.Writef(fs.Output(), "  - Always validate converted documents before deployment\n")
+		cliutil.Writef(fs.Output(), "\nExit Codes:\n")
+		cliutil.Writef(fs.Output(), "  0    Conversion successful\n")
+		cliutil.Writef(fs.Output(), "  1    Conversion failed or critical issues found (in --strict mode)\n")
 	}
 
 	return fs, flags
@@ -737,45 +738,45 @@ func handleConvert(args []string) error {
 
 	// Print results (to stderr in quiet mode)
 	if !flags.quiet {
-		fmt.Fprintf(os.Stderr, "OpenAPI Specification Converter\n")
-		fmt.Fprintf(os.Stderr, "===============================\n\n")
-		fmt.Fprintf(os.Stderr, "oastools version: %s\n", oastools.Version())
+		cliutil.Writef(os.Stderr, "OpenAPI Specification Converter\n")
+		cliutil.Writef(os.Stderr, "===============================\n\n")
+		cliutil.Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
 		if specPath == StdinFilePath {
-			fmt.Fprintf(os.Stderr, "Specification: <stdin>\n")
+			cliutil.Writef(os.Stderr, "Specification: <stdin>\n")
 		} else {
-			fmt.Fprintf(os.Stderr, "Specification: %s\n", specPath)
+			cliutil.Writef(os.Stderr, "Specification: %s\n", specPath)
 		}
-		fmt.Fprintf(os.Stderr, "Source Version: %s\n", result.SourceVersion)
-		fmt.Fprintf(os.Stderr, "Target Version: %s\n", result.TargetVersion)
-		fmt.Fprintf(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
-		fmt.Fprintf(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
-		fmt.Fprintf(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
-		fmt.Fprintf(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
-		fmt.Fprintf(os.Stderr, "Load Time: %v\n", result.LoadTime)
-		fmt.Fprintf(os.Stderr, "Total Time: %v\n\n", totalTime)
+		cliutil.Writef(os.Stderr, "Source Version: %s\n", result.SourceVersion)
+		cliutil.Writef(os.Stderr, "Target Version: %s\n", result.TargetVersion)
+		cliutil.Writef(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+		cliutil.Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
+		cliutil.Writef(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
+		cliutil.Writef(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
+		cliutil.Writef(os.Stderr, "Load Time: %v\n", result.LoadTime)
+		cliutil.Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
 
 		// Print issues
 		if len(result.Issues) > 0 {
-			fmt.Fprintf(os.Stderr, "Conversion Issues (%d):\n", len(result.Issues))
+			cliutil.Writef(os.Stderr, "Conversion Issues (%d):\n", len(result.Issues))
 			for _, issue := range result.Issues {
-				fmt.Fprintf(os.Stderr, "  %s\n", issue.String())
+				cliutil.Writef(os.Stderr, "  %s\n", issue.String())
 			}
-			fmt.Fprintf(os.Stderr, "\n")
+			cliutil.Writef(os.Stderr, "\n")
 		}
 
 		// Print summary
 		if result.Success {
-			fmt.Fprintf(os.Stderr, "✓ Conversion successful")
+			cliutil.Writef(os.Stderr, "✓ Conversion successful")
 			if result.InfoCount > 0 || result.WarningCount > 0 {
-				fmt.Fprintf(os.Stderr, " (%d info, %d warnings)", result.InfoCount, result.WarningCount)
+				cliutil.Writef(os.Stderr, " (%d info, %d warnings)", result.InfoCount, result.WarningCount)
 			}
-			fmt.Fprintf(os.Stderr, "\n")
+			cliutil.Writef(os.Stderr, "\n")
 		} else {
-			fmt.Fprintf(os.Stderr, "✗ Conversion completed with %d critical issue(s)", result.CriticalCount)
+			cliutil.Writef(os.Stderr, "✗ Conversion completed with %d critical issue(s)", result.CriticalCount)
 			if result.WarningCount > 0 {
-				fmt.Fprintf(os.Stderr, ", %d warning(s)", result.WarningCount)
+				cliutil.Writef(os.Stderr, ", %d warning(s)", result.WarningCount)
 			}
-			fmt.Fprintf(os.Stderr, "\n")
+			cliutil.Writef(os.Stderr, "\n")
 		}
 	}
 
@@ -790,7 +791,7 @@ func handleConvert(args []string) error {
 			return fmt.Errorf("writing output file: %w", err)
 		}
 		if !flags.quiet {
-			fmt.Fprintf(os.Stderr, "\nOutput written to: %s\n", flags.output)
+			cliutil.Writef(os.Stderr, "\nOutput written to: %s\n", flags.output)
 		}
 	} else {
 		// Write to stdout
@@ -833,37 +834,37 @@ func setupDiffFlags() (*flag.FlagSet, *diffFlags) {
 	fs.StringVar(&flags.format, "format", FormatText, "output format: text, json, or yaml")
 
 	fs.Usage = func() {
-		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools diff [flags] <source> <target>\n\n")
-		_, _ = fmt.Fprintf(fs.Output(), "Compare two OpenAPI specification files or URLs and report differences.\n\n")
-		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
+		cliutil.Writef(fs.Output(), "Usage: oastools diff [flags] <source> <target>\n\n")
+		cliutil.Writef(fs.Output(), "Compare two OpenAPI specification files or URLs and report differences.\n\n")
+		cliutil.Writef(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
-		_, _ = fmt.Fprintf(fs.Output(), "\nOutput Formats:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  text (default)  Human-readable text output\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  json            JSON format for programmatic processing\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  yaml            YAML format for programmatic processing\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nModes:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  Default (Simple):\n")
-		_, _ = fmt.Fprintf(fs.Output(), "    Reports all semantic differences between specifications without\n")
-		_, _ = fmt.Fprintf(fs.Output(), "    categorizing them by severity or breaking change impact.\n\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  --breaking (Breaking Change Detection):\n")
-		_, _ = fmt.Fprintf(fs.Output(), "    Categorizes changes by severity and identifies breaking API changes:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "    - Critical: Removed endpoints or operations\n")
-		_, _ = fmt.Fprintf(fs.Output(), "    - Error:    Removed required parameters, incompatible type changes\n")
-		_, _ = fmt.Fprintf(fs.Output(), "    - Warning:  Deprecated operations, added required fields\n")
-		_, _ = fmt.Fprintf(fs.Output(), "    - Info:     Additions, relaxed constraints, documentation updates\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nExamples:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff api-v1.yaml api-v2.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff --breaking api-v1.yaml api-v2.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff --breaking --no-info old.yaml new.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff --format json --breaking api-v1.yaml api-v2.yaml | jq '.HasBreakingChanges'\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nExit Status:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  0    No differences found (or no breaking changes in --breaking mode)\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  1    Differences found (or breaking changes found in --breaking mode)\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nNotes:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Both specifications must be valid OpenAPI documents\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Cross-version comparison (2.0 vs 3.x) is supported with limitations\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Breaking change detection helps identify backward compatibility issues\n")
+		cliutil.Writef(fs.Output(), "\nOutput Formats:\n")
+		cliutil.Writef(fs.Output(), "  text (default)  Human-readable text output\n")
+		cliutil.Writef(fs.Output(), "  json            JSON format for programmatic processing\n")
+		cliutil.Writef(fs.Output(), "  yaml            YAML format for programmatic processing\n")
+		cliutil.Writef(fs.Output(), "\nModes:\n")
+		cliutil.Writef(fs.Output(), "  Default (Simple):\n")
+		cliutil.Writef(fs.Output(), "    Reports all semantic differences between specifications without\n")
+		cliutil.Writef(fs.Output(), "    categorizing them by severity or breaking change impact.\n\n")
+		cliutil.Writef(fs.Output(), "  --breaking (Breaking Change Detection):\n")
+		cliutil.Writef(fs.Output(), "    Categorizes changes by severity and identifies breaking API changes:\n")
+		cliutil.Writef(fs.Output(), "    - Critical: Removed endpoints or operations\n")
+		cliutil.Writef(fs.Output(), "    - Error:    Removed required parameters, incompatible type changes\n")
+		cliutil.Writef(fs.Output(), "    - Warning:  Deprecated operations, added required fields\n")
+		cliutil.Writef(fs.Output(), "    - Info:     Additions, relaxed constraints, documentation updates\n")
+		cliutil.Writef(fs.Output(), "\nExamples:\n")
+		cliutil.Writef(fs.Output(), "  oastools diff api-v1.yaml api-v2.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools diff --breaking api-v1.yaml api-v2.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools diff --breaking --no-info old.yaml new.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools diff --format json --breaking api-v1.yaml api-v2.yaml | jq '.HasBreakingChanges'\n")
+		cliutil.Writef(fs.Output(), "  oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml\n")
+		cliutil.Writef(fs.Output(), "\nExit Status:\n")
+		cliutil.Writef(fs.Output(), "  0    No differences found (or no breaking changes in --breaking mode)\n")
+		cliutil.Writef(fs.Output(), "  1    Differences found (or breaking changes found in --breaking mode)\n")
+		cliutil.Writef(fs.Output(), "\nNotes:\n")
+		cliutil.Writef(fs.Output(), "  - Both specifications must be valid OpenAPI documents\n")
+		cliutil.Writef(fs.Output(), "  - Cross-version comparison (2.0 vs 3.x) is supported with limitations\n")
+		cliutil.Writef(fs.Output(), "  - Breaking change detection helps identify backward compatibility issues\n")
 	}
 
 	return fs, flags
@@ -1031,20 +1032,20 @@ func setupGenerateFlags() (*flag.FlagSet, *generateFlags) {
 	fs.BoolVar(&flags.noWarnings, "no-warnings", false, "suppress warning and info messages")
 
 	fs.Usage = func() {
-		_, _ = fmt.Fprintf(fs.Output(), "Usage: oastools generate [flags] <file|url>\n\n")
-		_, _ = fmt.Fprintf(fs.Output(), "Generate Go code from an OpenAPI specification.\n\n")
-		_, _ = fmt.Fprintf(fs.Output(), "Flags:\n")
+		cliutil.Writef(fs.Output(), "Usage: oastools generate [flags] <file|url>\n\n")
+		cliutil.Writef(fs.Output(), "Generate Go code from an OpenAPI specification.\n\n")
+		cliutil.Writef(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
-		_, _ = fmt.Fprintf(fs.Output(), "\nExamples:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools generate --client -o ./client openapi.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools generate --server -o ./server -p myapi openapi.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools generate --client --server -o ./api petstore.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  oastools generate --types -o ./models https://example.com/api/openapi.yaml\n")
-		_, _ = fmt.Fprintf(fs.Output(), "\nNotes:\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - At least one of --client, --server, or --types must be enabled\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Types are always generated when --client or --server is enabled\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Generated code uses Go idioms and best practices\n")
-		_, _ = fmt.Fprintf(fs.Output(), "  - Server interface is framework-agnostic\n")
+		cliutil.Writef(fs.Output(), "\nExamples:\n")
+		cliutil.Writef(fs.Output(), "  oastools generate --client -o ./client openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools generate --server -o ./server -p myapi openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools generate --client --server -o ./api petstore.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools generate --types -o ./models https://example.com/api/openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "\nNotes:\n")
+		cliutil.Writef(fs.Output(), "  - At least one of --client, --server, or --types must be enabled\n")
+		cliutil.Writef(fs.Output(), "  - Types are always generated when --client or --server is enabled\n")
+		cliutil.Writef(fs.Output(), "  - Generated code uses Go idioms and best practices\n")
+		cliutil.Writef(fs.Output(), "  - Server interface is framework-agnostic\n")
 	}
 
 	return fs, flags

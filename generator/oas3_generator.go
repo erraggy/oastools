@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/internal/httputil"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -96,7 +97,7 @@ func (cg *oas3CodeGenerator) schemaToGoType(schema *parser.Schema, required bool
 	}
 
 	// Handle nullable (OAS 3.0) or type array with null (OAS 3.1+)
-	isNullable := schema.Nullable || isTypeNullable(schema.Type)
+	isNullable := schema.Nullable || schemautil.IsNullable(schema)
 	if !required && cg.g.UsePointers && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map") {
 		return "*" + goType
 	}
@@ -530,7 +531,7 @@ func (cg *oas3CodeGenerator) generateClientMethod(path, method string, op *parse
 	buf.WriteString("\t}\n")
 
 	// Parse response body
-	if responseType != "" && responseType != "*http.Response" {
+	if responseType != "" && responseType != httpResponseType {
 		if strings.HasPrefix(responseType, "*") {
 			buf.WriteString(fmt.Sprintf("\tvar result %s\n", responseType[1:]))
 			buf.WriteString("\tif err := json.NewDecoder(resp.Body).Decode(&result); err != nil {\n")
@@ -634,7 +635,7 @@ func (cg *oas3CodeGenerator) getRequestBodyContentType(rb *parser.RequestBody) s
 // getResponseType determines the Go type for the success response
 func (cg *oas3CodeGenerator) getResponseType(op *parser.Operation) string {
 	if op.Responses == nil {
-		return "*http.Response"
+		return httpResponseType
 	}
 
 	// Check for 200, 201, 2XX responses
@@ -665,7 +666,7 @@ func (cg *oas3CodeGenerator) getResponseType(op *parser.Operation) string {
 		}
 	}
 
-	return "*http.Response"
+	return httpResponseType
 }
 
 // generateServer generates server interface code

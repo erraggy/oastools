@@ -60,7 +60,7 @@ func (cg *oas3CodeGenerator) buildHeaderData() HeaderData {
 	}
 
 	// Convert to sorted slice
-	var importList []string
+	importList := make([]string, 0, len(imports))
 	for imp := range imports {
 		importList = append(importList, imp)
 	}

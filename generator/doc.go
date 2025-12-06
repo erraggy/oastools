@@ -57,4 +57,14 @@
 //   - server.go: Server interface (when GenerateServer is true)
 //
 // See the exported GenerateResult and GenerateIssue types for complete details.
+//
+// # Related Packages
+//
+// The generator integrates with other oastools packages:
+//   - [github.com/erraggy/oastools/parser] - Parse specifications before code generation
+//   - [github.com/erraggy/oastools/validator] - Validate specifications before generation
+//   - [github.com/erraggy/oastools/converter] - Convert OAS versions before generation
+//   - [github.com/erraggy/oastools/joiner] - Join specifications before generation
+//   - [github.com/erraggy/oastools/differ] - Compare specifications to understand changes
+//   - [github.com/erraggy/oastools/builder] - Programmatically build specifications
 package generator

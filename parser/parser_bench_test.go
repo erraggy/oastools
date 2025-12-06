@@ -20,237 +20,201 @@ const (
 	mediumOAS2Path = "../testdata/bench/medium-oas2.yaml"
 )
 
-// BenchmarkParseSmallOAS3 benchmarks parsing a small OAS 3.0 document (~60 lines)
-func BenchmarkParseSmallOAS3(b *testing.B) {
-	p := New()
-	p.ResolveRefs = false
-	p.ValidateStructure = true
+// BenchmarkParse benchmarks parsing OAS documents of various sizes
+func BenchmarkParse(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"SmallOAS3", smallOAS3Path},
+		{"MediumOAS3", mediumOAS3Path},
+		{"LargeOAS3", largeOAS3Path},
+		{"SmallOAS2", smallOAS2Path},
+		{"MediumOAS2", mediumOAS2Path},
+	}
 
-	for b.Loop() {
-		_, err := p.Parse(smallOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
-		}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			p := New()
+			p.ResolveRefs = false
+			p.ValidateStructure = true
+
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := p.Parse(tt.path)
+				if err != nil {
+					b.Fatalf("Failed to parse: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkParseMediumOAS3 benchmarks parsing a medium OAS 3.0 document (~570 lines)
-func BenchmarkParseMediumOAS3(b *testing.B) {
-	p := New()
-	p.ResolveRefs = false
-	p.ValidateStructure = true
+// BenchmarkParseNoValidation benchmarks parsing without structure validation
+func BenchmarkParseNoValidation(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"SmallOAS3", smallOAS3Path},
+		{"MediumOAS3", mediumOAS3Path},
+	}
 
-	for b.Loop() {
-		_, err := p.Parse(mediumOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
-		}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			p := New()
+			p.ResolveRefs = false
+			p.ValidateStructure = false
+
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := p.Parse(tt.path)
+				if err != nil {
+					b.Fatalf("Failed to parse: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkParseLargeOAS3 benchmarks parsing a large OAS 3.0 document (~6000 lines)
-func BenchmarkParseLargeOAS3(b *testing.B) {
-	p := New()
-	p.ResolveRefs = false
-	p.ValidateStructure = true
+// BenchmarkParseBytes benchmarks parsing from byte slices
+func BenchmarkParseBytes(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"SmallOAS3", smallOAS3Path},
+		{"MediumOAS3", mediumOAS3Path},
+	}
 
-	for b.Loop() {
-		_, err := p.Parse(largeOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
-		}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			data, err := os.ReadFile(tt.path)
+			if err != nil {
+				b.Fatalf("Failed to read file: %v", err)
+			}
+
+			p := New()
+			p.ResolveRefs = false
+			p.ValidateStructure = true
+
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := p.ParseBytes(data)
+				if err != nil {
+					b.Fatalf("Failed to parse: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkParseSmallOAS2 benchmarks parsing a small OAS 2.0 document (~60 lines)
-func BenchmarkParseSmallOAS2(b *testing.B) {
-	p := New()
-	p.ResolveRefs = false
-	p.ValidateStructure = true
-
-	for b.Loop() {
-		_, err := p.Parse(smallOAS2Path)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
+// BenchmarkParseWithOptions benchmarks the functional options API
+func BenchmarkParseWithOptions(b *testing.B) {
+	b.Run("FilePath/SmallOAS3", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := ParseWithOptions(
+				WithFilePath(smallOAS3Path),
+				WithValidateStructure(true),
+			)
+			if err != nil {
+				b.Fatalf("Failed to parse: %v", err)
+			}
 		}
-	}
+	})
+
+	b.Run("Bytes/SmallOAS3", func(b *testing.B) {
+		data, err := os.ReadFile(smallOAS3Path)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := ParseWithOptions(
+				WithBytes(data),
+				WithValidateStructure(true),
+			)
+			if err != nil {
+				b.Fatalf("Failed to parse: %v", err)
+			}
+		}
+	})
+
+	b.Run("ResolveRefs/SmallOAS3", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := ParseWithOptions(
+				WithFilePath(smallOAS3Path),
+				WithResolveRefs(true),
+			)
+			if err != nil {
+				b.Fatalf("Failed to parse: %v", err)
+			}
+		}
+	})
 }
 
-// BenchmarkParseMediumOAS2 benchmarks parsing a medium OAS 2.0 document (~530 lines)
-func BenchmarkParseMediumOAS2(b *testing.B) {
-	p := New()
-	p.ResolveRefs = false
-	p.ValidateStructure = true
-
-	for b.Loop() {
-		_, err := p.Parse(mediumOAS2Path)
+// BenchmarkParseReader benchmarks ParseReader method I/O performance
+func BenchmarkParseReader(b *testing.B) {
+	b.Run("MediumOAS3", func(b *testing.B) {
+		data, err := os.ReadFile(mediumOAS3Path)
 		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
+			b.Fatal(err)
 		}
-	}
+
+		p := New()
+		p.ResolveRefs = false
+		p.ValidateStructure = true
+
+		b.ReportAllocs()
+		for b.Loop() {
+			reader := bytes.NewReader(data)
+			_, err := p.ParseReader(reader)
+			if err != nil {
+				b.Fatalf("Failed to parse: %v", err)
+			}
+		}
+	})
 }
 
-// BenchmarkParseSmallOAS3NoValidation benchmarks parsing without validation
-func BenchmarkParseSmallOAS3NoValidation(b *testing.B) {
-	p := New()
-	p.ResolveRefs = false
-	p.ValidateStructure = false
-
-	for b.Loop() {
-		_, err := p.Parse(smallOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
-		}
-	}
-}
-
-// BenchmarkParseMediumOAS3NoValidation benchmarks parsing without validation
-func BenchmarkParseMediumOAS3NoValidation(b *testing.B) {
-	p := New()
-	p.ResolveRefs = false
-	p.ValidateStructure = false
-
-	for b.Loop() {
-		_, err := p.Parse(mediumOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
-		}
-	}
-}
-
-// BenchmarkParseBytes benchmarks parsing from byte slice
-func BenchmarkParseBytesSmallOAS3(b *testing.B) {
-	data, err := os.ReadFile(smallOAS3Path)
-	if err != nil {
-		b.Fatalf("Failed to read file: %v", err)
-	}
-
-	p := New()
-	p.ResolveRefs = false
-	p.ValidateStructure = true
-
-	for b.Loop() {
-		_, err := p.ParseBytes(data)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
-		}
-	}
-}
-
-// BenchmarkParseBytesMediumOAS3 benchmarks parsing medium doc from bytes
-func BenchmarkParseBytesMediumOAS3(b *testing.B) {
-	data, err := os.ReadFile(mediumOAS3Path)
-	if err != nil {
-		b.Fatalf("Failed to read file: %v", err)
-	}
-
-	p := New()
-	p.ResolveRefs = false
-	p.ValidateStructure = true
-
-	for b.Loop() {
-		_, err := p.ParseBytes(data)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
-		}
-	}
-}
-
-// BenchmarkParseWithOptionsSmallOAS3 benchmarks ParseWithOptions convenience API with file path
-func BenchmarkParseWithOptionsSmallOAS3(b *testing.B) {
-	for b.Loop() {
-		_, err := ParseWithOptions(
+// BenchmarkParseResultCopy benchmarks ParseResult.Copy() deep copy performance
+func BenchmarkParseResultCopy(b *testing.B) {
+	b.Run("SmallOAS3", func(b *testing.B) {
+		parseResult, err := ParseWithOptions(
 			WithFilePath(smallOAS3Path),
 			WithValidateStructure(true),
 		)
 		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
+			b.Fatal(err)
 		}
-	}
+
+		b.ReportAllocs()
+		for b.Loop() {
+			copy := parseResult.Copy()
+			if copy == nil {
+				b.Fatal("Copy returned nil")
+			}
+		}
+	})
 }
 
-// BenchmarkParseWithOptionsReaderSmallOAS3 benchmarks ParseWithOptions convenience API with Reader
-func BenchmarkParseWithOptionsReaderSmallOAS3(b *testing.B) {
-	data, err := os.ReadFile(smallOAS3Path)
-	if err != nil {
-		b.Fatal(err)
-	}
+// BenchmarkParseResolveRefs benchmarks Parse with reference resolution enabled
+func BenchmarkParseResolveRefs(b *testing.B) {
+	b.Run("MediumOAS3", func(b *testing.B) {
+		p := New()
+		p.ResolveRefs = true
+		p.ValidateStructure = true
 
-	for b.Loop() {
-		_, err := ParseWithOptions(
-			WithBytes(data),
-			WithValidateStructure(true),
-		)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := p.Parse(mediumOAS3Path)
+			if err != nil {
+				b.Fatalf("Failed to parse: %v", err)
+			}
 		}
-	}
-}
-
-// BenchmarkParseWithOptionsResolveRefsSmallOAS3 benchmarks ParseWithOptions with reference resolution
-func BenchmarkParseWithOptionsResolveRefsSmallOAS3(b *testing.B) {
-	for b.Loop() {
-		_, err := ParseWithOptions(
-			WithFilePath(smallOAS3Path),
-			WithResolveRefs(true),
-		)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
-		}
-	}
-}
-
-// BenchmarkParseReaderMediumOAS3 benchmarks ParseReader method I/O performance
-func BenchmarkParseReaderMediumOAS3(b *testing.B) {
-	data, err := os.ReadFile(mediumOAS3Path)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	p := New()
-	p.ResolveRefs = false
-	p.ValidateStructure = true
-
-	for b.Loop() {
-		reader := bytes.NewReader(data)
-		_, err := p.ParseReader(reader)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
-		}
-	}
-}
-
-// BenchmarkParseResultCopySmall benchmarks ParseResult.Copy() deep copy performance
-func BenchmarkParseResultCopySmall(b *testing.B) {
-	// Parse once
-	parseResult, err := ParseWithOptions(
-		WithFilePath(smallOAS3Path),
-		WithValidateStructure(true),
-	)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	for b.Loop() {
-		copy := parseResult.Copy()
-		if copy == nil {
-			b.Fatal("Copy returned nil")
-		}
-	}
-}
-
-// BenchmarkParseResolveRefsMediumOAS3 benchmarks Parse with ResolveRefs enabled
-func BenchmarkParseResolveRefsMediumOAS3(b *testing.B) {
-	p := New()
-	p.ResolveRefs = true
-	p.ValidateStructure = true
-
-	for b.Loop() {
-		_, err := p.Parse(mediumOAS3Path)
-		if err != nil {
-			b.Fatalf("Failed to parse: %v", err)
-		}
-	}
+	})
 }
 
 // BenchmarkFormatBytes benchmarks FormatBytes utility function
@@ -262,6 +226,7 @@ func BenchmarkFormatBytes(b *testing.B) {
 		1024 * 1024 * 10, // 10 MB
 	}
 
+	b.ReportAllocs()
 	for b.Loop() {
 		for _, size := range testCases {
 			_ = FormatBytes(size)

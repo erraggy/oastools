@@ -90,4 +90,14 @@
 //	//
 //	// After joining, both $ref values are preserved in the merged document.
 //	// Use parser.WithResolveRefs(true) to resolve them if needed.
+//
+// # Related Packages
+//
+// The joiner integrates with other oastools packages:
+//   - [github.com/erraggy/oastools/parser] - Parse specifications before joining
+//   - [github.com/erraggy/oastools/validator] - Validate documents before joining (required)
+//   - [github.com/erraggy/oastools/converter] - Convert between OAS versions before joining
+//   - [github.com/erraggy/oastools/differ] - Compare joined results with original documents
+//   - [github.com/erraggy/oastools/generator] - Generate code from joined specifications
+//   - [github.com/erraggy/oastools/builder] - Programmatically build specifications to join
 package joiner

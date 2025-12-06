@@ -598,7 +598,7 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 	}
 
 	// Unwrap and process parameters
-	var parameters []*parser.Parameter
+	parameters := make([]*parser.Parameter, 0, len(cfg.parameters))
 	for _, paramBuilder := range cfg.parameters {
 		param := paramBuilder.param
 

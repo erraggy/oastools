@@ -227,25 +227,7 @@ func TestZeroValue(t *testing.T) {
 	}
 }
 
-func TestIsTypeNullable(t *testing.T) {
-	tests := []struct {
-		name     string
-		typeVal  any
-		expected bool
-	}{
-		{"string type", "string", false},
-		{"array with null", []any{"string", "null"}, true},
-		{"array without null", []any{"string", "integer"}, false},
-		{"nil", nil, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := isTypeNullable(tt.typeVal)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
+// Note: isTypeNullable tests moved to internal/schemautil/type_test.go as IsNullable
 
 func TestNeedsTimeImport(t *testing.T) {
 	tests := []struct {

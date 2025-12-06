@@ -254,7 +254,7 @@ func (c *Converter) convertOAS3RequestBodyToOAS2(requestBody *parser.RequestBody
 		return nil, nil
 	}
 
-	var consumes []string
+	consumes := make([]string, 0, len(requestBody.Content))
 	var firstMediaType string
 	var firstContent *parser.MediaType
 

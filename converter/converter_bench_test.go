@@ -19,222 +19,204 @@ const (
 	mediumOAS2Path = "../testdata/bench/medium-oas2.yaml"
 )
 
-// BenchmarkConvertOAS2ToOAS3Small benchmarks converting small OAS 2.0 to 3.0.3
-func BenchmarkConvertOAS2ToOAS3Small(b *testing.B) {
-	c := New()
-	c.StrictMode = false
-	c.IncludeInfo = true
+// BenchmarkConvertOAS2ToOAS3 benchmarks converting OAS 2.0 to 3.0.3
+func BenchmarkConvertOAS2ToOAS3(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"Small", smallOAS2Path},
+		{"Medium", mediumOAS2Path},
+	}
 
-	for b.Loop() {
-		_, err := c.Convert(smallOAS2Path, "3.0.3")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
-		}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			c := New()
+			c.StrictMode = false
+			c.IncludeInfo = true
+
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := c.Convert(tt.path, "3.0.3")
+				if err != nil {
+					b.Fatalf("Failed to convert: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkConvertOAS2ToOAS3Medium benchmarks converting medium OAS 2.0 to 3.0.3
-func BenchmarkConvertOAS2ToOAS3Medium(b *testing.B) {
-	c := New()
-	c.StrictMode = false
-	c.IncludeInfo = true
+// BenchmarkConvertOAS3ToOAS2 benchmarks converting OAS 3.0 to 2.0
+func BenchmarkConvertOAS3ToOAS2(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"Small", smallOAS3Path},
+		{"Medium", mediumOAS3Path},
+	}
 
-	for b.Loop() {
-		_, err := c.Convert(mediumOAS2Path, "3.0.3")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
-		}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			c := New()
+			c.StrictMode = false
+			c.IncludeInfo = true
+
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := c.Convert(tt.path, "2.0")
+				if err != nil {
+					b.Fatalf("Failed to convert: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkConvertOAS3ToOAS2Small benchmarks converting small OAS 3.0 to 2.0
-func BenchmarkConvertOAS3ToOAS2Small(b *testing.B) {
-	c := New()
-	c.StrictMode = false
-	c.IncludeInfo = true
+// BenchmarkConvertParsedOAS2ToOAS3 benchmarks converting already-parsed OAS 2.0 to 3.0.3
+func BenchmarkConvertParsedOAS2ToOAS3(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"Small", smallOAS2Path},
+		{"Medium", mediumOAS2Path},
+	}
 
-	for b.Loop() {
-		_, err := c.Convert(smallOAS3Path, "2.0")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
-		}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			parseResult, err := parser.ParseWithOptions(
+				parser.WithFilePath(tt.path),
+			)
+			if err != nil {
+				b.Fatalf("Failed to parse: %v", err)
+			}
+
+			c := New()
+			c.StrictMode = false
+			c.IncludeInfo = true
+
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := c.ConvertParsed(*parseResult, "3.0.3")
+				if err != nil {
+					b.Fatalf("Failed to convert: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkConvertOAS3ToOAS2Medium benchmarks converting medium OAS 3.0 to 2.0
-func BenchmarkConvertOAS3ToOAS2Medium(b *testing.B) {
-	c := New()
-	c.StrictMode = false
-	c.IncludeInfo = true
+// BenchmarkConvertParsedOAS3ToOAS2 benchmarks converting already-parsed OAS 3.0 to 2.0
+func BenchmarkConvertParsedOAS3ToOAS2(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"Small", smallOAS3Path},
+		{"Medium", mediumOAS3Path},
+	}
 
-	for b.Loop() {
-		_, err := c.Convert(mediumOAS3Path, "2.0")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
-		}
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			parseResult, err := parser.ParseWithOptions(
+				parser.WithFilePath(tt.path),
+			)
+			if err != nil {
+				b.Fatalf("Failed to parse: %v", err)
+			}
+
+			c := New()
+			c.StrictMode = false
+			c.IncludeInfo = true
+
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := c.ConvertParsed(*parseResult, "2.0")
+				if err != nil {
+					b.Fatalf("Failed to convert: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkConvertParsedOAS2ToOAS3Small benchmarks converting already-parsed OAS 2.0 to 3.0.3
-func BenchmarkConvertParsedOAS2ToOAS3Small(b *testing.B) {
-	// Parse once
-	parseResult, err := parser.ParseWithOptions(
-		parser.WithFilePath(smallOAS2Path),
-	)
-	if err != nil {
-		b.Fatalf("Failed to parse: %v", err)
+// BenchmarkConvertNoInfo benchmarks conversion without info messages
+func BenchmarkConvertNoInfo(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"Small", smallOAS2Path},
+		{"Medium", mediumOAS2Path},
 	}
 
-	c := New()
-	c.StrictMode = false
-	c.IncludeInfo = true
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			c := New()
+			c.StrictMode = false
+			c.IncludeInfo = false
 
-	for b.Loop() {
-		_, err := c.ConvertParsed(*parseResult, "3.0.3")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
-		}
-	}
-}
-
-// BenchmarkConvertParsedOAS2ToOAS3Medium benchmarks converting already-parsed medium OAS 2.0
-func BenchmarkConvertParsedOAS2ToOAS3Medium(b *testing.B) {
-	// Parse once
-	parseResult, err := parser.ParseWithOptions(
-		parser.WithFilePath(mediumOAS2Path),
-	)
-	if err != nil {
-		b.Fatalf("Failed to parse: %v", err)
-	}
-
-	c := New()
-	c.StrictMode = false
-	c.IncludeInfo = true
-
-	for b.Loop() {
-		_, err := c.ConvertParsed(*parseResult, "3.0.3")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
-		}
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := c.Convert(tt.path, "3.0.3")
+				if err != nil {
+					b.Fatalf("Failed to convert: %v", err)
+				}
+			}
+		})
 	}
 }
 
-// BenchmarkConvertParsedOAS3ToOAS2Small benchmarks converting already-parsed OAS 3.0 to 2.0
-func BenchmarkConvertParsedOAS3ToOAS2Small(b *testing.B) {
-	// Parse once
-	parseResult, err := parser.ParseWithOptions(
-		parser.WithFilePath(smallOAS3Path),
-	)
-	if err != nil {
-		b.Fatalf("Failed to parse: %v", err)
-	}
-
-	c := New()
-	c.StrictMode = false
-	c.IncludeInfo = true
-
-	for b.Loop() {
-		_, err := c.ConvertParsed(*parseResult, "2.0")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
+// BenchmarkConvertWithOptions benchmarks the functional options API
+func BenchmarkConvertWithOptions(b *testing.B) {
+	b.Run("FilePath/Small", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := ConvertWithOptions(
+				WithFilePath(smallOAS2Path),
+				WithTargetVersion("3.0.3"),
+			)
+			if err != nil {
+				b.Fatalf("Failed to convert: %v", err)
+			}
 		}
-	}
-}
+	})
 
-// BenchmarkConvertParsedOAS3ToOAS2Medium benchmarks converting already-parsed medium OAS 3.0
-func BenchmarkConvertParsedOAS3ToOAS2Medium(b *testing.B) {
-	// Parse once
-	parseResult, err := parser.ParseWithOptions(
-		parser.WithFilePath(mediumOAS3Path),
-	)
-	if err != nil {
-		b.Fatalf("Failed to parse: %v", err)
-	}
-
-	c := New()
-	c.StrictMode = false
-	c.IncludeInfo = true
-
-	for b.Loop() {
-		_, err := c.ConvertParsed(*parseResult, "2.0")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
-		}
-	}
-}
-
-// BenchmarkConvertNoInfoOAS2ToOAS3Small benchmarks conversion without info messages
-func BenchmarkConvertNoInfoOAS2ToOAS3Small(b *testing.B) {
-	c := New()
-	c.StrictMode = false
-	c.IncludeInfo = false
-
-	for b.Loop() {
-		_, err := c.Convert(smallOAS2Path, "3.0.3")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
-		}
-	}
-}
-
-// BenchmarkConvertNoInfoOAS2ToOAS3Medium benchmarks conversion without info on medium doc
-func BenchmarkConvertNoInfoOAS2ToOAS3Medium(b *testing.B) {
-	c := New()
-	c.StrictMode = false
-	c.IncludeInfo = false
-
-	for b.Loop() {
-		_, err := c.Convert(mediumOAS2Path, "3.0.3")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
-		}
-	}
-}
-
-// BenchmarkConvertWithOptionsOAS2ToOAS3Small benchmarks ConvertWithOptions convenience API
-func BenchmarkConvertWithOptionsOAS2ToOAS3Small(b *testing.B) {
-	for b.Loop() {
-		_, err := ConvertWithOptions(
-			WithFilePath(smallOAS2Path),
-			WithTargetVersion("3.0.3"),
+	b.Run("Parsed/Small", func(b *testing.B) {
+		parseResult, err := parser.ParseWithOptions(
+			parser.WithFilePath(smallOAS2Path),
 		)
 		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
+			b.Fatal(err)
 		}
-	}
+
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := ConvertWithOptions(
+				WithParsed(*parseResult),
+				WithTargetVersion("3.0.3"),
+			)
+			if err != nil {
+				b.Fatalf("Failed to convert: %v", err)
+			}
+		}
+	})
 }
 
-// BenchmarkConvertWithOptionsParsedOAS2ToOAS3Small benchmarks ConvertWithOptions with pre-parsed document
-func BenchmarkConvertWithOptionsParsedOAS2ToOAS3Small(b *testing.B) {
-	// Parse once
-	parseResult, err := parser.ParseWithOptions(
-		parser.WithFilePath(smallOAS2Path),
-	)
-	if err != nil {
-		b.Fatal(err)
-	}
+// BenchmarkConvertOAS30ToOAS31 benchmarks OAS 3.0 to OAS 3.1 version update
+func BenchmarkConvertOAS30ToOAS31(b *testing.B) {
+	b.Run("Small", func(b *testing.B) {
+		c := New()
+		c.StrictMode = false
+		c.IncludeInfo = true
 
-	for b.Loop() {
-		_, err := ConvertWithOptions(
-			WithParsed(*parseResult),
-			WithTargetVersion("3.0.3"),
-		)
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := c.Convert(smallOAS3Path, "3.1.0")
+			if err != nil {
+				b.Fatalf("Failed to convert: %v", err)
+			}
 		}
-	}
-}
-
-// BenchmarkConvertOAS30ToOAS31Small benchmarks OAS 3.0 to OAS 3.1 version update
-func BenchmarkConvertOAS30ToOAS31Small(b *testing.B) {
-	c := New()
-	c.StrictMode = false
-	c.IncludeInfo = true
-
-	for b.Loop() {
-		_, err := c.Convert(smallOAS3Path, "3.1.0")
-		if err != nil {
-			b.Fatalf("Failed to convert: %v", err)
-		}
-	}
+	})
 }
