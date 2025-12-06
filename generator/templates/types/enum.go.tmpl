@@ -1,5 +1,5 @@
-{{.Comment}}
-type {{.TypeName}} {{.BaseType}}
+{{if .Comment}}// {{.TypeName}} {{.Comment}}
+{{end}}type {{.TypeName}} {{.BaseType}}
 
 const (
 {{range .Values}}	{{.ConstName}} {{.Type}} = {{.Value | quote}}

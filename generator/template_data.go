@@ -44,6 +44,7 @@ type AliasData struct {
 	Comment    string
 	TypeName   string
 	TargetType string
+	IsAlias    bool // true for type alias (=), false for defined type
 }
 
 // AllOfData contains data for AllOf composition
@@ -56,14 +57,14 @@ type AllOfData struct {
 
 // OneOfData contains data for OneOf union type
 type OneOfData struct {
-	Comment             string
-	TypeName            string
-	Discriminator       string
-	DiscriminatorField  string
+	Comment               string
+	TypeName              string
+	Discriminator         string
+	DiscriminatorField    string
 	DiscriminatorJSONName string
-	Variants            []OneOfVariant
-	HasUnmarshal        bool
-	UnmarshalCases      []UnmarshalCase
+	Variants              []OneOfVariant
+	HasUnmarshal          bool
+	UnmarshalCases        []UnmarshalCase
 }
 
 // OneOfVariant contains data for a OneOf variant
@@ -105,18 +106,18 @@ type ClientFileData struct {
 
 // ClientMethodData contains data for a client method
 type ClientMethodData struct {
-	Comment        string
-	MethodName     string
-	Params         string
-	ResponseType   string
-	PathTemplate   string
-	PathArgs       []string
-	HasQueryParams bool
+	Comment         string
+	MethodName      string
+	Params          string
+	ResponseType    string
+	PathTemplate    string
+	PathArgs        []string
+	HasQueryParams  bool
 	QueryParamsType string
-	HasBody        bool
-	BodyType       string
-	ContentType    string
-	MethodBody     string // Complex body handled in Go
+	HasBody         bool
+	BodyType        string
+	ContentType     string
+	MethodBody      string // Complex body handled in Go
 }
 
 // ParamsStructData contains data for a query params struct
@@ -127,9 +128,9 @@ type ParamsStructData struct {
 
 // ServerFileData contains all data for a server.go file
 type ServerFileData struct {
-	Header         HeaderData
-	Methods        []ServerMethodData
-	RequestTypes   []RequestTypeData
+	Header       HeaderData
+	Methods      []ServerMethodData
+	RequestTypes []RequestTypeData
 }
 
 // ServerMethodData contains data for a server interface method

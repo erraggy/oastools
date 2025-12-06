@@ -1,7 +1,11 @@
-{{.Comment}}
+// {{.TypeName}} {{.Comment}}
+// Only one of the fields should be set.
 {{if .Discriminator}}// Discriminator: {{.Discriminator}}
 {{end}}type {{.TypeName}} struct {
 {{if .DiscriminatorField}}	// {{.DiscriminatorField}} is the discriminator field.
-	{{.DiscriminatorField}} string `json:"{{.DiscriminatorJSONName}}"`
-{{end}}{{range .Variants}}	{{.Name}} *{{.Type}} `json:"-"`
+	{{.DiscriminatorField}} string `json:{{.DiscriminatorJSONName | quote}}`
+{{end}}{{range .Variants}}	{{.Name}} {{.Type}} `json:"-"`
 {{end}}}
+{{if .HasUnmarshal}}
+{{template "unmarshal.go.tmpl" .}}
+{{end}}

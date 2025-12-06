@@ -1,4 +1,4 @@
-{{.Comment}}
+// {{.TypeName}} {{.Comment}}
 type {{.TypeName}} struct {
 {{range .EmbeddedTypes}}	{{.}}
 {{end}}{{range .Fields}}{{if .Comment}}	// {{.Comment}}

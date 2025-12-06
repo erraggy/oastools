@@ -1,2 +1,4 @@
-// {{.TypeName}} is an alias for {{.TargetType}}.
-type {{.TypeName}} = {{.TargetType}}
+{{if .Comment}}// {{.TypeName}} {{.Comment}}
+{{else}}{{if .IsAlias}}// {{.TypeName}} is an alias for {{.TargetType}}.
+{{else}}// {{.TypeName}} represents the {{.TypeName}} schema.
+{{end}}{{end}}type {{.TypeName}} {{if .IsAlias}}= {{end}}{{.TargetType}}
