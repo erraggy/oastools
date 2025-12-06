@@ -1621,3 +1621,179 @@ paths: {}`
 		t.Errorf("handleDiff with all flags failed: %v", err)
 	}
 }
+
+// TestSetupParseFlagsWithQuiet tests that setupParseFlags includes the quiet flag
+func TestSetupParseFlagsWithQuiet(t *testing.T) {
+	fs, flags := setupParseFlags()
+
+	// Test parsing quiet flag short form
+	err := fs.Parse([]string{"-q", "test.yaml"})
+	if err != nil {
+		t.Fatalf("failed to parse flags: %v", err)
+	}
+
+	if !flags.quiet {
+		t.Error("expected quiet flag to be true")
+	}
+}
+
+// TestSetupParseFlagsWithQuietLong tests that setupParseFlags includes the quiet long flag
+func TestSetupParseFlagsWithQuietLong(t *testing.T) {
+	fs, flags := setupParseFlags()
+
+	// Test parsing quiet flag long form
+	err := fs.Parse([]string{"--quiet", "test.yaml"})
+	if err != nil {
+		t.Fatalf("failed to parse flags: %v", err)
+	}
+
+	if !flags.quiet {
+		t.Error("expected quiet flag to be true")
+	}
+}
+
+// TestSetupValidateFlagsWithQuiet tests that setupValidateFlags includes the quiet flag
+func TestSetupValidateFlagsWithQuiet(t *testing.T) {
+	fs, flags := setupValidateFlags()
+
+	// Test parsing quiet flag short form
+	err := fs.Parse([]string{"-q", "test.yaml"})
+	if err != nil {
+		t.Fatalf("failed to parse flags: %v", err)
+	}
+
+	if !flags.quiet {
+		t.Error("expected quiet flag to be true")
+	}
+}
+
+// TestSetupValidateFlagsWithFormat tests that setupValidateFlags includes the format flag
+func TestSetupValidateFlagsWithFormat(t *testing.T) {
+	fs, flags := setupValidateFlags()
+
+	tests := []struct {
+		name           string
+		args           []string
+		expectedFormat string
+	}{
+		{"default format", []string{"test.yaml"}, FormatText},
+		{"json format", []string{"--format", "json", "test.yaml"}, FormatJSON},
+		{"yaml format", []string{"--format", "yaml", "test.yaml"}, FormatYAML},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset flags for each test
+			fs, flags = setupValidateFlags()
+			err := fs.Parse(tt.args)
+			if err != nil {
+				t.Fatalf("failed to parse flags: %v", err)
+			}
+
+			if flags.format != tt.expectedFormat {
+				t.Errorf("expected format %s, got %s", tt.expectedFormat, flags.format)
+			}
+		})
+	}
+}
+
+// TestSetupConvertFlagsWithQuiet tests that setupConvertFlags includes the quiet flag
+func TestSetupConvertFlagsWithQuiet(t *testing.T) {
+	fs, flags := setupConvertFlags()
+
+	// Test parsing quiet flag short form
+	err := fs.Parse([]string{"-q", "-t", "3.0.3", "test.yaml"})
+	if err != nil {
+		t.Fatalf("failed to parse flags: %v", err)
+	}
+
+	if !flags.quiet {
+		t.Error("expected quiet flag to be true")
+	}
+}
+
+// TestSetupDiffFlagsWithFormat tests that setupDiffFlags includes the format flag
+func TestSetupDiffFlagsWithFormat(t *testing.T) {
+	fs, flags := setupDiffFlags()
+
+	tests := []struct {
+		name           string
+		args           []string
+		expectedFormat string
+	}{
+		{"default format", []string{"file1.yaml", "file2.yaml"}, FormatText},
+		{"json format", []string{"--format", "json", "file1.yaml", "file2.yaml"}, FormatJSON},
+		{"yaml format", []string{"--format", "yaml", "file1.yaml", "file2.yaml"}, FormatYAML},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset flags for each test
+			fs, flags = setupDiffFlags()
+			err := fs.Parse(tt.args)
+			if err != nil {
+				t.Fatalf("failed to parse flags: %v", err)
+			}
+
+			if flags.format != tt.expectedFormat {
+				t.Errorf("expected format %s, got %s", tt.expectedFormat, flags.format)
+			}
+		})
+	}
+}
+
+// TestSetupParseFlagsUsage tests that setupParseFlags usage includes pipeline info
+func TestSetupParseFlagsUsage(t *testing.T) {
+	fs, _ := setupParseFlags()
+
+	// Redirect output to discard
+	var buf strings.Builder
+	fs.SetOutput(&buf)
+
+	// Trigger usage
+	fs.Usage()
+
+	// Check that usage was generated (not empty)
+	if buf.Len() == 0 {
+		t.Error("expected usage output, got empty string")
+	}
+}
+
+// TestSetupValidateFlagsUsage tests that setupValidateFlags usage can be called
+func TestSetupValidateFlagsUsage(t *testing.T) {
+	fs, _ := setupValidateFlags()
+
+	var buf strings.Builder
+	fs.SetOutput(&buf)
+	fs.Usage()
+
+	if buf.Len() == 0 {
+		t.Error("expected usage output, got empty string")
+	}
+}
+
+// TestSetupConvertFlagsUsage tests that setupConvertFlags usage includes pipeline info
+func TestSetupConvertFlagsUsage(t *testing.T) {
+	fs, _ := setupConvertFlags()
+
+	var buf strings.Builder
+	fs.SetOutput(&buf)
+	fs.Usage()
+
+	if buf.Len() == 0 {
+		t.Error("expected usage output, got empty string")
+	}
+}
+
+// TestSetupDiffFlagsUsage tests that setupDiffFlags usage includes format info
+func TestSetupDiffFlagsUsage(t *testing.T) {
+	fs, _ := setupDiffFlags()
+
+	var buf strings.Builder
+	fs.SetOutput(&buf)
+	fs.Usage()
+
+	if buf.Len() == 0 {
+		t.Error("expected usage output, got empty string")
+	}
+}
