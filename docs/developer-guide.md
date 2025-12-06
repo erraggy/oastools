@@ -64,6 +64,9 @@ oastools validate openapi.yaml
 
 # Validate from a URL
 oastools validate https://example.com/api/openapi.yaml
+
+# Validate from stdin
+cat openapi.yaml | oastools validate -
 ```
 
 **Options:**
@@ -74,6 +77,15 @@ oastools validate --strict openapi.yaml
 
 # Suppress warnings (show only errors)
 oastools validate --no-warnings openapi.yaml
+
+# Quiet mode for pipelines
+oastools validate -q openapi.yaml
+
+# Output as JSON for programmatic processing
+oastools validate --format json openapi.yaml | jq '.valid'
+
+# Output as YAML
+oastools validate --format yaml openapi.yaml
 ```
 
 **Understanding Output:**
@@ -129,6 +141,12 @@ oastools parse --resolve-refs openapi.yaml
 
 # Parse with structure validation
 oastools parse --validate-structure openapi.yaml
+
+# Parse from stdin
+cat openapi.yaml | oastools parse -
+
+# Quiet mode for pipelines (outputs only JSON)
+cat openapi.yaml | oastools parse -q - | jq '.info.title'
 ```
 
 **Output Explanation:**
@@ -174,6 +192,12 @@ oastools convert --strict -t 3.0.3 swagger.yaml -o openapi.yaml
 
 # Suppress info messages
 oastools convert --no-warnings -t 3.0.3 swagger.yaml -o openapi.yaml
+
+# Convert from stdin (for pipelines)
+cat swagger.yaml | oastools convert -t 3.0.3 - -o openapi.yaml
+
+# Pipeline with quiet mode (output to stdout)
+cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
 ```
 
 **Understanding Conversion Issues:**
@@ -293,6 +317,12 @@ oastools diff --breaking --no-info api-v1.yaml api-v2.yaml
 
 # Compare from URLs
 oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml
+
+# Output as JSON for CI/CD pipelines
+oastools diff --format json --breaking api-v1.yaml api-v2.yaml | jq '.HasBreakingChanges'
+
+# Output as YAML
+oastools diff --format yaml api-v1.yaml api-v2.yaml
 ```
 
 **Understanding Breaking Change Severity:**

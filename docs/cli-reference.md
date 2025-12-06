@@ -23,12 +23,12 @@ oastools <command> [options] [arguments]
 
 ## validate
 
-Validate an OpenAPI specification file or URL against the specification version it declares.
+Validate an OpenAPI specification file, URL, or stdin against the specification version it declares.
 
 ### Synopsis
 
 ```bash
-oastools validate [flags] <file|url>
+oastools validate [flags] <file|url|->
 ```
 
 ### Flags
@@ -37,6 +37,8 @@ oastools validate [flags] <file|url>
 |------|-------------|
 | `--strict` | Enable stricter validation beyond spec requirements |
 | `--no-warnings` | Suppress warning messages (only show errors) |
+| `-q, --quiet` | Quiet mode: only output validation result, no diagnostic messages |
+| `--format` | Output format: text, json, or yaml (default: "text") |
 | `-h, --help` | Display help for validate command |
 
 ### Examples
@@ -59,6 +61,34 @@ oastools validate --no-warnings openapi.yaml
 
 # Combine flags
 oastools validate --strict --no-warnings openapi.yaml
+
+# Output as JSON for programmatic processing
+oastools validate --format json openapi.yaml | jq '.valid'
+
+# Output as YAML
+oastools validate --format yaml openapi.yaml
+
+# Read from stdin (for pipelines)
+cat openapi.yaml | oastools validate -
+
+# Pipeline with quiet mode
+cat openapi.yaml | oastools validate -q -
+```
+
+### Pipelining
+
+The validate command supports shell pipelines:
+
+- Use `-` as the file path to read from stdin
+- Use `--quiet/-q` to suppress diagnostic output for clean pipelining
+- Use `--format json/yaml` for structured output that can be parsed by other tools
+
+```bash
+# Validate and extract just the valid field
+cat openapi.yaml | oastools validate --format json - | jq '.valid'
+
+# Chain with other tools
+curl -s https://example.com/openapi.yaml | oastools validate -q -
 ```
 
 ### Output Format
@@ -67,7 +97,7 @@ oastools validate --strict --no-warnings openapi.yaml
 OpenAPI Specification Validator
 ================================
 
-oastools version: 1.9.12
+oastools version: v1.17.1
 Specification: openapi.yaml
 OAS Version: 3.0.3
 Source Size: 2.5 KB
@@ -106,7 +136,7 @@ Parse and output OpenAPI document structure and metadata.
 ### Synopsis
 
 ```bash
-oastools parse [flags] <file|url>
+oastools parse [flags] <file|url|->
 ```
 
 ### Flags
@@ -115,6 +145,7 @@ oastools parse [flags] <file|url>
 |------|-------------|
 | `--resolve-refs` | Resolve external $ref references |
 | `--validate-structure` | Validate document structure during parsing |
+| `-q, --quiet` | Quiet mode: only output the document, no diagnostic messages |
 | `-h, --help` | Display help for parse command |
 
 ### Examples
@@ -134,6 +165,27 @@ oastools parse --validate-structure openapi.yaml
 
 # Combine both options
 oastools parse --resolve-refs --validate-structure openapi.yaml
+
+# Read from stdin (for pipelines)
+cat openapi.yaml | oastools parse -
+
+# Pipeline with quiet mode (output only JSON)
+cat openapi.yaml | oastools parse -q -
+```
+
+### Pipelining
+
+The parse command supports shell pipelines:
+
+- Use `-` as the file path to read from stdin
+- Use `--quiet/-q` to suppress diagnostic output and get clean JSON output
+
+```bash
+# Parse and pipe to jq for processing
+cat openapi.yaml | oastools parse -q - | jq '.info.title'
+
+# Chain with other tools
+curl -s https://example.com/openapi.yaml | oastools parse -q -
 ```
 
 ### Output Format
@@ -142,7 +194,7 @@ oastools parse --resolve-refs --validate-structure openapi.yaml
 OpenAPI Specification Parser
 ============================
 
-oastools version: 1.9.12
+oastools version: v1.17.1
 Specification: petstore.yaml
 OAS Version: 3.0.3
 Source Size: 15.2 KB
@@ -186,7 +238,7 @@ Convert an OpenAPI specification from one version to another.
 ### Synopsis
 
 ```bash
-oastools convert [flags] <file|url>
+oastools convert [flags] <file|url|->
 ```
 
 ### Flags
@@ -197,6 +249,7 @@ oastools convert [flags] <file|url>
 | `--output` | `-o` | Output file path (default: stdout) |
 | `--strict` | | Fail on any conversion issues (even warnings) |
 | `--no-warnings` | | Suppress warning and info messages |
+| `-q, --quiet` | | Quiet mode: only output the document, no diagnostic messages |
 | `-h, --help` | | Display help for convert command |
 
 ### Supported Conversions
@@ -232,6 +285,28 @@ oastools convert --no-warnings -t 3.0.3 swagger.yaml -o openapi.yaml
 
 # Update OpenAPI 3.0.x to 3.1.0
 oastools convert -t 3.1.0 openapi-3.0.yaml -o openapi-3.1.yaml
+
+# Read from stdin (for pipelines)
+cat swagger.yaml | oastools convert -t 3.0.3 - -o openapi.yaml
+
+# Pipeline with quiet mode (output to stdout)
+cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
+```
+
+### Pipelining
+
+The convert command supports shell pipelines:
+
+- Use `-` as the file path to read from stdin
+- Use `--quiet/-q` to suppress diagnostic output for clean pipelining
+- Output goes to stdout by default (use `-o` for file output)
+
+```bash
+# Convert and write to file
+cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
+
+# Chain conversions
+curl -s https://example.com/swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
 ```
 
 ### Output Format
@@ -240,7 +315,7 @@ oastools convert -t 3.1.0 openapi-3.0.yaml -o openapi-3.1.yaml
 OpenAPI Specification Converter
 ===============================
 
-oastools version: 1.9.12
+oastools version: v1.17.1
 Specification: swagger.yaml
 Source Version: 2.0
 Target Version: 3.0.3
@@ -339,7 +414,7 @@ oastools join --no-dedup-tags -o merged.yaml base.yaml ext.yaml
 OpenAPI Specification Joiner
 ============================
 
-oastools version: 1.9.12
+oastools version: v1.17.1
 Successfully joined 3 specification files
 Output: merged.yaml
 OAS Version: 3.0.3
@@ -389,6 +464,7 @@ oastools diff [flags] <source> <target>
 |------|-------------|
 | `--breaking` | Enable breaking change detection and categorization |
 | `--no-info` | Exclude informational changes from output |
+| `--format` | Output format: text, json, or yaml (default: "text") |
 | `-h, --help` | Display help for diff command |
 
 ### Examples
@@ -410,6 +486,12 @@ oastools diff \
 
 # Compare local with remote
 oastools diff local-api.yaml https://example.com/api/openapi.yaml
+
+# Output as JSON for programmatic processing
+oastools diff --format json --breaking api-v1.yaml api-v2.yaml | jq '.HasBreakingChanges'
+
+# Output as YAML
+oastools diff --format yaml api-v1.yaml api-v2.yaml
 ```
 
 ### Output Format (Simple Mode)
@@ -418,7 +500,7 @@ oastools diff local-api.yaml https://example.com/api/openapi.yaml
 OpenAPI Specification Diff
 ==========================
 
-oastools version: 1.9.12
+oastools version: v1.17.1
 Source: api-v1.yaml (3.0.3)
 Target: api-v2.yaml (3.0.3)
 Total Time: 125ms
@@ -438,7 +520,7 @@ Changes (8):
 OpenAPI Specification Diff
 ==========================
 
-oastools version: 1.9.12
+oastools version: v1.17.1
 Source: api-v1.yaml (3.0.3)
 Target: api-v2.yaml (3.0.3)
 Total Time: 125ms
@@ -611,7 +693,7 @@ Optional fields (not in required array) use pointer types when `--no-pointers` i
 
 ## version
 
-Display oastools version information.
+Display oastools version and build information.
 
 ### Synopsis
 
@@ -624,8 +706,17 @@ oastools --version
 ### Output
 
 ```
-oastools v1.9.12
+oastools v1.17.1
+commit: 540e27a
+built: 2025-12-06T20:05:42Z
+go: go1.24.0
 ```
+
+The version command displays:
+- **version**: The release version
+- **commit**: The git commit hash of the build
+- **built**: The build timestamp (RFC3339 format)
+- **go**: The Go version used to compile the binary
 
 ---
 
@@ -654,6 +745,7 @@ Commands:
   validate    Validate an OpenAPI specification file or URL
   convert     Convert between OpenAPI specification versions
   diff        Compare two OpenAPI specifications and detect changes
+  generate    Generate Go client/server code from an OpenAPI specification
   join        Join multiple OpenAPI specification files
   parse       Parse and display an OpenAPI specification file or URL
   version     Show version information
@@ -664,8 +756,9 @@ Examples:
   oastools validate https://example.com/api/openapi.yaml
   oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
   oastools diff --breaking api-v1.yaml api-v2.yaml
+  oastools generate --client -o ./client openapi.yaml
   oastools join -o merged.yaml base.yaml extensions.yaml
-  oastools parse https://petstore.swagger.io/v2/swagger.yaml
+  oastools parse https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.yaml
 
 Run 'oastools <command> --help' for more information on a command.
 ```
@@ -697,12 +790,64 @@ The following commands support loading specifications from URLs:
 - `parse`
 - `convert`
 - `diff`
+- `generate`
 
 Supported URL schemes:
 - `http://`
 - `https://`
 
 Note: When loading from URLs, relative `$ref` paths resolve against the current working directory (where the CLI is executed), not relative to the remote URL location.
+
+---
+
+## Stdin and Pipeline Support
+
+The following commands support reading from stdin using `-` as the file path:
+
+- `validate`
+- `parse`
+- `convert`
+
+### Pipeline Usage
+
+```bash
+# Validate from stdin
+cat openapi.yaml | oastools validate -
+
+# Parse from stdin with quiet mode
+cat openapi.yaml | oastools parse -q -
+
+# Convert from stdin to stdout
+cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
+
+# Chain with curl
+curl -s https://example.com/openapi.yaml | oastools validate -q -
+
+# Chain multiple operations
+cat swagger.yaml | oastools convert -q -t 3.0.3 - | oastools validate -q -
+```
+
+### Quiet Mode
+
+Use `-q` or `--quiet` to suppress diagnostic messages for clean pipeline output:
+
+| Command | Quiet Mode Behavior |
+|---------|---------------------|
+| `validate` | Only outputs validation result (no banners/stats) |
+| `parse` | Only outputs the document JSON (no banners/stats) |
+| `convert` | Only outputs the converted document (no banners/issues) |
+
+### Structured Output
+
+Use `--format json` or `--format yaml` for machine-readable output:
+
+```bash
+# Get validation result as JSON
+oastools validate --format json openapi.yaml | jq '.valid'
+
+# Get diff result as JSON for CI/CD
+oastools diff --format json --breaking v1.yaml v2.yaml | jq '.HasBreakingChanges'
+```
 
 ---
 
