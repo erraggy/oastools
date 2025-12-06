@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 
 	"github.com/erraggy/oastools/internal/httputil"
 )

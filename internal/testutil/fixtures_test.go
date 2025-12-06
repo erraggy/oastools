@@ -9,7 +9,7 @@ import (
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // TestNewSimpleOAS2Document verifies that a minimal OAS 2.0 document is created correctly.

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/parser"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // Builder is the main entry point for constructing OAS documents.
