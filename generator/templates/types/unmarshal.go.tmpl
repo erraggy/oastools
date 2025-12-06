@@ -1,0 +1,16 @@
+// UnmarshalJSON implements json.Unmarshaler for {{.TypeName}}.
+func (u *{{.TypeName}}) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		{{.DiscriminatorField}} string `json:"{{.DiscriminatorJSONName}}"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	u.{{.DiscriminatorField}} = disc.{{.DiscriminatorField}}
+	switch disc.{{.DiscriminatorField}} {
+{{range .UnmarshalCases}}	case {{.Value | quote}}:
+		u.{{.TypeName}} = new({{.TypeName}})
+		return json.Unmarshal(data, u.{{.TypeName}})
+{{end}}	}
+	return nil
+}
