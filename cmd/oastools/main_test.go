@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -1083,5 +1084,234 @@ func TestOutputStructured(t *testing.T) {
 				t.Errorf("unexpected error for format '%s': %v", tt.format, err)
 			}
 		})
+	}
+}
+
+// TestHandleValidateWithStdin tests the validate command with stdin input
+func TestHandleValidateWithStdin(t *testing.T) {
+	// Create a temporary test file
+	content := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	tmpFile := "/tmp/test-validate-stdin.yaml"
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	// Test validate with file input (baseline)
+	err = handleValidate([]string{tmpFile})
+	if err != nil {
+		t.Errorf("handleValidate with file failed: %v", err)
+	}
+}
+
+// TestHandleValidateWithQuietMode tests the validate command with quiet flag
+func TestHandleValidateWithQuietMode(t *testing.T) {
+	tmpFile := "/tmp/test-validate-quiet.yaml"
+	content := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	// Test with quiet mode
+	err = handleValidate([]string{"-q", tmpFile})
+	if err != nil {
+		t.Errorf("handleValidate with quiet mode failed: %v", err)
+	}
+}
+
+// TestHandleValidateWithFormat tests the validate command with different output formats
+func TestHandleValidateWithFormat(t *testing.T) {
+	tmpFile := "/tmp/test-validate-format.yaml"
+	content := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	tests := []struct {
+		name   string
+		format string
+	}{
+		{"json format", FormatJSON},
+		{"yaml format", FormatYAML},
+		{"text format", FormatText},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := handleValidate([]string{"--format", tt.format, tmpFile})
+			if err != nil {
+				t.Errorf("handleValidate with format %s failed: %v", tt.format, err)
+			}
+		})
+	}
+}
+
+// TestHandleConvertWithQuietMode tests the convert command with quiet flag
+func TestHandleConvertWithQuietMode(t *testing.T) {
+	tmpFile := "/tmp/test-convert-quiet.yaml"
+	content := `swagger: "2.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	// Test with quiet mode
+	err = handleConvert([]string{"-q", "-t", "3.0.3", tmpFile})
+	if err != nil {
+		t.Errorf("handleConvert with quiet mode failed: %v", err)
+	}
+}
+
+// TestHandleConvertWithOutput tests the convert command with output file
+func TestHandleConvertWithOutput(t *testing.T) {
+	tmpFile := "/tmp/test-convert-input.yaml"
+	outFile := "/tmp/test-convert-output.yaml"
+	content := `swagger: "2.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+	defer func() { _ = os.Remove(outFile) }()
+
+	err = handleConvert([]string{"-t", "3.0.3", "-o", outFile, tmpFile})
+	if err != nil {
+		t.Errorf("handleConvert with output file failed: %v", err)
+	}
+
+	// Check that output file was created
+	if _, err := os.Stat(outFile); os.IsNotExist(err) {
+		t.Errorf("output file was not created")
+	}
+}
+
+// TestHandleParseWithQuietMode tests the parse command with quiet flag
+func TestHandleParseWithQuietMode(t *testing.T) {
+	tmpFile := "/tmp/test-parse-quiet.yaml"
+	content := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	err = handleParse([]string{"-q", tmpFile})
+	if err != nil {
+		t.Errorf("handleParse with quiet mode failed: %v", err)
+	}
+}
+
+// TestHandleDiffWithFormat tests the diff command with different output formats
+func TestHandleDiffWithFormat(t *testing.T) {
+	tmpFile1 := "/tmp/test-diff-1.yaml"
+	tmpFile2 := "/tmp/test-diff-2.yaml"
+	content1 := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+	content2 := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 2.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile1, []byte(content1), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file 1: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile1) }()
+
+	err = os.WriteFile(tmpFile2, []byte(content2), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file 2: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile2) }()
+
+	tests := []struct {
+		name   string
+		format string
+	}{
+		{"json format", FormatJSON},
+		{"yaml format", FormatYAML},
+		{"text format", FormatText},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := handleDiff([]string{"--format", tt.format, tmpFile1, tmpFile2})
+			if err != nil {
+				t.Errorf("handleDiff with format %s failed: %v", tt.format, err)
+			}
+		})
+	}
+}
+
+// TestHandleDiffWithBreaking tests the diff command with breaking change detection
+func TestHandleDiffWithBreaking(t *testing.T) {
+	tmpFile1 := "/tmp/test-diff-breaking-1.yaml"
+	tmpFile2 := "/tmp/test-diff-breaking-2.yaml"
+	content1 := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+	content2 := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile1, []byte(content1), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file 1: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile1) }()
+
+	err = os.WriteFile(tmpFile2, []byte(content2), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file 2: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile2) }()
+
+	err = handleDiff([]string{"--breaking", tmpFile1, tmpFile2})
+	if err != nil {
+		t.Errorf("handleDiff with breaking mode failed: %v", err)
 	}
 }
