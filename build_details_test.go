@@ -1,6 +1,7 @@
 package oastools
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 
@@ -21,6 +22,61 @@ func TestVersion(t *testing.T) {
 	assert.True(t,
 		result == "dev" || strings.HasPrefix(result, "v"),
 		"Version() should be 'dev' or start with 'v', got: %s", result)
+}
+
+// TestCommit verifies that Commit() returns the commit variable.
+// In normal builds, this is set via ldflags by GoReleaser.
+// In development, it defaults to "unknown".
+func TestCommit(t *testing.T) {
+	result := Commit()
+
+	// Should not be empty
+	assert.NotEmpty(t, result, "Commit() should not return empty string")
+
+	// Should be either "unknown" (development) or a git short hash (7+ hex chars)
+	if result != "unknown" {
+		// Git short hash is typically 7+ hex characters
+		assert.GreaterOrEqual(t, len(result), 7,
+			"Commit() should be at least 7 characters for a git hash, got: %s", result)
+		// Verify it's valid hex
+		for _, ch := range result {
+			assert.True(t, (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'),
+				"Commit() should contain only hex characters, got: %s", result)
+		}
+	}
+}
+
+// TestBuildTime verifies that BuildTime() returns the buildTime variable.
+// In normal builds, this is set via ldflags by GoReleaser in RFC3339 format.
+// In development, it defaults to "unknown".
+func TestBuildTime(t *testing.T) {
+	result := BuildTime()
+
+	// Should not be empty
+	assert.NotEmpty(t, result, "BuildTime() should not return empty string")
+
+	// Should be either "unknown" (development) or an RFC3339 timestamp
+	if result != "unknown" {
+		// RFC3339 timestamps contain 'T' separator and include timezone
+		assert.Contains(t, result, "T",
+			"BuildTime() should be RFC3339 format containing 'T', got: %s", result)
+	}
+}
+
+// TestGoVersion verifies that GoVersion() returns the runtime Go version.
+func TestGoVersion(t *testing.T) {
+	result := GoVersion()
+
+	// Should not be empty
+	assert.NotEmpty(t, result, "GoVersion() should not return empty string")
+
+	// Should match runtime.Version()
+	assert.Equal(t, runtime.Version(), result,
+		"GoVersion() should match runtime.Version()")
+
+	// Should start with "go"
+	assert.True(t, strings.HasPrefix(result, "go"),
+		"GoVersion() should start with 'go', got: %s", result)
 }
 
 // TestUserAgent verifies that UserAgent() returns a properly formatted User-Agent string.
@@ -96,4 +152,24 @@ func TestUserAgentFormat(t *testing.T) {
 	// Should not contain other problematic characters for HTTP headers
 	assert.NotContains(t, userAgent, "\r", "UserAgent() should not contain carriage returns")
 	assert.NotContains(t, userAgent, "\x00", "UserAgent() should not contain null bytes")
+}
+
+// TestBuildInfo verifies that BuildInfo() returns a formatted string with all build metadata.
+func TestBuildInfo(t *testing.T) {
+	result := BuildInfo()
+
+	// Should not be empty
+	assert.NotEmpty(t, result, "BuildInfo() should not return empty string")
+
+	// Should contain all build metadata labels
+	assert.Contains(t, result, "Version:", "BuildInfo() should contain 'Version:'")
+	assert.Contains(t, result, "Commit:", "BuildInfo() should contain 'Commit:'")
+	assert.Contains(t, result, "Build Time:", "BuildInfo() should contain 'Build Time:'")
+	assert.Contains(t, result, "Go Version:", "BuildInfo() should contain 'Go Version:'")
+
+	// Should contain actual values from the individual functions
+	assert.Contains(t, result, Version(), "BuildInfo() should contain Version()")
+	assert.Contains(t, result, Commit(), "BuildInfo() should contain Commit()")
+	assert.Contains(t, result, BuildTime(), "BuildInfo() should contain BuildTime()")
+	assert.Contains(t, result, GoVersion(), "BuildInfo() should contain GoVersion()")
 }
