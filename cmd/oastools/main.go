@@ -16,7 +16,7 @@ import (
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/validator"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // Output format constants

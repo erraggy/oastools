@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/erraggy/oastools/parser"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // CollisionStrategy defines how to handle collisions when merging documents

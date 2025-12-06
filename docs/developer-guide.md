@@ -623,7 +623,7 @@ for _, issue := range result.Issues {
 import (
     "os"
     "encoding/json"
-    "gopkg.in/yaml.v3"
+    "go.yaml.in/yaml/v4"
 )
 
 result, err := converter.ConvertWithOptions(
