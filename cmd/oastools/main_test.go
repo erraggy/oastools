@@ -1315,3 +1315,309 @@ paths: {}`
 		t.Errorf("handleDiff with breaking mode failed: %v", err)
 	}
 }
+
+// TestHandleParseWithResolveRefs tests the parse command with resolve-refs flag
+func TestHandleParseWithResolveRefs(t *testing.T) {
+	tmpFile := "/tmp/test-parse-refs.yaml"
+	content := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	err = handleParse([]string{"--resolve-refs", tmpFile})
+	if err != nil {
+		t.Errorf("handleParse with resolve-refs failed: %v", err)
+	}
+}
+
+// TestHandleParseWithValidateStructure tests the parse command with validate-structure flag
+func TestHandleParseWithValidateStructure(t *testing.T) {
+	tmpFile := "/tmp/test-parse-validate.yaml"
+	content := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	err = handleParse([]string{"--validate-structure", tmpFile})
+	if err != nil {
+		t.Errorf("handleParse with validate-structure failed: %v", err)
+	}
+}
+
+// TestHandleValidateWithStrict tests the validate command with strict mode
+func TestHandleValidateWithStrict(t *testing.T) {
+	tmpFile := "/tmp/test-validate-strict.yaml"
+	content := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	err = handleValidate([]string{"--strict", tmpFile})
+	if err != nil {
+		t.Errorf("handleValidate with strict mode failed: %v", err)
+	}
+}
+
+// TestHandleValidateWithNoWarnings tests the validate command with no-warnings flag
+func TestHandleValidateWithNoWarnings(t *testing.T) {
+	tmpFile := "/tmp/test-validate-nowarn.yaml"
+	content := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	err = handleValidate([]string{"--no-warnings", tmpFile})
+	if err != nil {
+		t.Errorf("handleValidate with no-warnings failed: %v", err)
+	}
+}
+
+// TestHandleConvertWithStrict tests the convert command with strict mode
+func TestHandleConvertWithStrict(t *testing.T) {
+	tmpFile := "/tmp/test-convert-strict.yaml"
+	content := `swagger: "2.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	err = handleConvert([]string{"-t", "3.0.3", "--strict", tmpFile})
+	if err != nil {
+		t.Errorf("handleConvert with strict mode failed: %v", err)
+	}
+}
+
+// TestHandleConvertWithNoWarnings tests the convert command with no-warnings flag
+func TestHandleConvertWithNoWarnings(t *testing.T) {
+	tmpFile := "/tmp/test-convert-nowarn.yaml"
+	content := `swagger: "2.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	err = handleConvert([]string{"-t", "3.0.3", "--no-warnings", tmpFile})
+	if err != nil {
+		t.Errorf("handleConvert with no-warnings failed: %v", err)
+	}
+}
+
+// TestHandleDiffWithNoInfo tests the diff command with no-info flag
+func TestHandleDiffWithNoInfo(t *testing.T) {
+	tmpFile1 := "/tmp/test-diff-noinfo-1.yaml"
+	tmpFile2 := "/tmp/test-diff-noinfo-2.yaml"
+	content1 := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+	content2 := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 2.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile1, []byte(content1), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file 1: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile1) }()
+
+	err = os.WriteFile(tmpFile2, []byte(content2), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file 2: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile2) }()
+
+	err = handleDiff([]string{"--no-info", tmpFile1, tmpFile2})
+	if err != nil {
+		t.Errorf("handleDiff with no-info failed: %v", err)
+	}
+}
+
+// TestHandleValidateInvalidFormat tests the validate command with invalid format
+func TestHandleValidateInvalidFormat(t *testing.T) {
+	tmpFile := "/tmp/test-validate-invalid.yaml"
+	content := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	err = handleValidate([]string{"--format", "invalid", tmpFile})
+	if err == nil {
+		t.Error("handleValidate with invalid format should return error")
+	}
+}
+
+// TestHandleDiffInvalidFormat tests the diff command with invalid format
+func TestHandleDiffInvalidFormat(t *testing.T) {
+	tmpFile1 := "/tmp/test-diff-invalid-1.yaml"
+	tmpFile2 := "/tmp/test-diff-invalid-2.yaml"
+	content := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile1, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file 1: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile1) }()
+
+	err = os.WriteFile(tmpFile2, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file 2: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile2) }()
+
+	err = handleDiff([]string{"--format", "xml", tmpFile1, tmpFile2})
+	if err == nil {
+		t.Error("handleDiff with invalid format should return error")
+	}
+}
+
+// TestHandleParseWithAllFlags tests parse with multiple flags combined
+func TestHandleParseWithAllFlags(t *testing.T) {
+	tmpFile := "/tmp/test-parse-all.yaml"
+	content := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	err = handleParse([]string{"-q", "--resolve-refs", "--validate-structure", tmpFile})
+	if err != nil {
+		t.Errorf("handleParse with all flags failed: %v", err)
+	}
+}
+
+// TestHandleValidateWithAllFlags tests validate with multiple flags combined
+func TestHandleValidateWithAllFlags(t *testing.T) {
+	tmpFile := "/tmp/test-validate-all.yaml"
+	content := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+
+	err = handleValidate([]string{"-q", "--strict", "--no-warnings", tmpFile})
+	if err != nil {
+		t.Errorf("handleValidate with all flags failed: %v", err)
+	}
+}
+
+// TestHandleConvertWithAllFlags tests convert with multiple flags combined
+func TestHandleConvertWithAllFlags(t *testing.T) {
+	tmpFile := "/tmp/test-convert-all.yaml"
+	outFile := "/tmp/test-convert-all-out.yaml"
+	content := `swagger: "2.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile) }()
+	defer func() { _ = os.Remove(outFile) }()
+
+	err = handleConvert([]string{"-q", "-t", "3.0.3", "-o", outFile, "--strict", "--no-warnings", tmpFile})
+	if err != nil {
+		t.Errorf("handleConvert with all flags failed: %v", err)
+	}
+}
+
+// TestHandleDiffWithAllFlags tests diff with multiple flags combined
+func TestHandleDiffWithAllFlags(t *testing.T) {
+	tmpFile1 := "/tmp/test-diff-all-1.yaml"
+	tmpFile2 := "/tmp/test-diff-all-2.yaml"
+	content1 := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`
+	content2 := `openapi: 3.0.0
+info:
+  title: Test API
+  version: 2.0.0
+paths: {}`
+
+	err := os.WriteFile(tmpFile1, []byte(content1), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file 1: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile1) }()
+
+	err = os.WriteFile(tmpFile2, []byte(content2), 0600)
+	if err != nil {
+		t.Fatalf("failed to create test file 2: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile2) }()
+
+	err = handleDiff([]string{"--breaking", "--no-info", "--format", FormatJSON, tmpFile1, tmpFile2})
+	if err != nil {
+		t.Errorf("handleDiff with all flags failed: %v", err)
+	}
+}
