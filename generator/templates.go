@@ -1,3 +1,33 @@
+// Package generator provides code generation from OpenAPI specifications.
+//
+// TEMPLATE REFACTORING STRATEGY:
+//
+// This package is in the process of refactoring from string-based code generation
+// (using bytes.Buffer.WriteString()) to Go text/template-based generation.
+//
+// CURRENT STATE:
+// - Infrastructure for templates is in place (templates.go, template_data.go)
+// - Template files are embedded (.tmpl files in templates/ directory)
+// - Existing generation functions (oas3_generator.go, oas2_generator.go) remain unchanged
+//
+// NEXT STEPS:
+// 1. Create builder functions that convert parser types to template data structures
+// 2. Refactor generation methods to build template data instead of using WriteString
+// 3. Execute templates to generate output
+// 4. Verify output is byte-for-byte identical to original
+// 5. Remove old WriteString-based code
+//
+// DESIGN PRINCIPLE:
+// Templates should handle OUTPUT FORMATTING ONLY. All complex logic (type resolution,
+// ref handling, conditionals) happens in Go code that builds the template data.
+// This keeps templates simple, readable, and maintainable.
+//
+// EXAMPLE:
+// Instead of:
+//   buf.WriteString(fmt.Sprintf("type %s struct {\n", typeName))
+// We do:
+//   data := buildStructData(typeName, schema, generator)
+//   executeTemplate("struct.go.tmpl", data)
 package generator
 
 import (
