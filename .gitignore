@@ -55,3 +55,9 @@ mem-profile-*.prof
 
 # Fuzz test logs (timestamped files not tracked)
 fuzz-parse-*.log
+
+# Corpus files (downloaded on demand, not committed)
+testdata/corpus/*.json
+testdata/corpus/*.yaml
+testdata/corpus/*.yml
+!testdata/corpus/README.md
