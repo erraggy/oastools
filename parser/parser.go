@@ -604,8 +604,10 @@ func (p *Parser) parseBytesWithBaseDirAndURL(data []byte, baseDir, baseURL strin
 	// Resolve references if enabled (before semver-specific parsing)
 	if p.ResolveRefs {
 		var resolver *RefResolver
-		if p.ResolveHTTPRefs && baseURL != "" {
-			// Use HTTP-enabled resolver when parsing from URL with HTTP refs enabled
+		if p.ResolveHTTPRefs {
+			// Use HTTP-enabled resolver when HTTP refs are enabled
+			// This supports both: local files with absolute HTTP $refs, and
+			// HTTP-sourced specs with relative $refs (resolved against baseURL)
 			resolver = NewRefResolverWithHTTP(baseDir, baseURL, p.fetchURL)
 		} else {
 			resolver = NewRefResolver(baseDir)
