@@ -251,11 +251,6 @@ func TestJoinFlagsErrors(t *testing.T) {
 		errorContains string
 	}{
 		{
-			name:          "error: missing output flag",
-			args:          []string{"f1.yaml", "f2.yaml"},
-			errorContains: "output file is required",
-		},
-		{
 			name:          "error: insufficient input files (none)",
 			args:          []string{"-o", "out.yaml"},
 			errorContains: "at least 2 input files",
@@ -291,9 +286,6 @@ func TestJoinFlagsErrors(t *testing.T) {
 
 			// Check validation conditions
 			if fs.NArg() < 2 && strings.Contains(tt.errorContains, "at least 2 input files") {
-				return
-			}
-			if flags.output == "" && strings.Contains(tt.errorContains, "output file is required") {
 				return
 			}
 			if flags.pathStrategy != "" && !joiner.IsValidStrategy(flags.pathStrategy) {

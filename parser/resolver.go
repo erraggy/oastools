@@ -2,7 +2,9 @@ package parser
 
 import (
 	"fmt"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -24,6 +26,10 @@ const (
 	MaxFileSize = 10 * 1024 * 1024 // 10MB
 )
 
+// HTTPFetcher is a function type for fetching content from HTTP/HTTPS URLs
+// Returns the response body, content-type header, and any error
+type HTTPFetcher func(url string) ([]byte, string, error)
+
 // RefResolver handles $ref resolution in OpenAPI documents
 type RefResolver struct {
 	// visited tracks visited refs to prevent circular reference loops
@@ -34,15 +40,35 @@ type RefResolver struct {
 	documents map[string]map[string]any
 	// baseDir is the base directory for resolving relative file paths
 	baseDir string
+	// baseURL is the base URL for resolving relative HTTP references
+	// When set, relative refs in HTTP-loaded documents resolve against this URL
+	baseURL string
+	// httpFetch is the function used to fetch HTTP/HTTPS URLs
+	// If nil, HTTP references will return an error
+	httpFetch HTTPFetcher
 }
 
-// NewRefResolver creates a new reference resolver
+// NewRefResolver creates a new reference resolver for local and file-based refs
 func NewRefResolver(baseDir string) *RefResolver {
 	return &RefResolver{
 		visited:   make(map[string]bool),
 		resolving: make(map[string]bool),
 		documents: make(map[string]map[string]any),
 		baseDir:   baseDir,
+	}
+}
+
+// NewRefResolverWithHTTP creates a reference resolver with HTTP/HTTPS support
+// The baseURL is used for resolving relative refs when the source is an HTTP URL
+// The fetcher function is called to retrieve content from HTTP/HTTPS URLs
+func NewRefResolverWithHTTP(baseDir, baseURL string, fetcher HTTPFetcher) *RefResolver {
+	return &RefResolver{
+		visited:   make(map[string]bool),
+		resolving: make(map[string]bool),
+		documents: make(map[string]map[string]any),
+		baseDir:   baseDir,
+		baseURL:   baseURL,
+		httpFetch: fetcher,
 	}
 }
 
@@ -175,7 +201,64 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 	return r.ResolveLocal(doc, "#"+internalPath)
 }
 
-// Resolve resolves a $ref reference (local or external)
+// ResolveHTTP resolves HTTP/HTTPS URL references
+// HTTP refs are in the format: https://example.com/api.yaml#/components/schemas/Pet
+func (r *RefResolver) ResolveHTTP(ref string) (any, error) {
+	// Check for circular references
+	if r.visited[ref] {
+		return nil, fmt.Errorf("circular reference detected: %s", ref)
+	}
+	r.visited[ref] = true
+	defer func() { r.visited[ref] = false }()
+
+	// Split the reference into URL and fragment (internal path)
+	parts := strings.SplitN(ref, "#", 2)
+	urlStr := parts[0]
+	internalPath := ""
+	if len(parts) > 1 {
+		internalPath = parts[1]
+	}
+
+	// Check if document is already cached
+	doc, ok := r.documents[urlStr]
+	if !ok {
+		// Enforce cache size limit to prevent memory exhaustion
+		if len(r.documents) >= MaxCachedDocuments {
+			return nil, fmt.Errorf("exceeded maximum cached documents limit (%d): too many external references", MaxCachedDocuments)
+		}
+
+		// Fetch the URL content
+		data, _, err := r.httpFetch(urlStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch HTTP reference %s: %w", urlStr, err)
+		}
+
+		// Enforce file size limit
+		if int64(len(data)) > MaxFileSize {
+			return nil, fmt.Errorf("HTTP response from %s exceeds maximum size limit (%d bytes): response is %d bytes",
+				urlStr, MaxFileSize, len(data))
+		}
+
+		// Parse the document (YAML parser handles both YAML and JSON)
+		var extDoc map[string]any
+		if err := yaml.Unmarshal(data, &extDoc); err != nil {
+			return nil, fmt.Errorf("failed to parse HTTP reference %s: %w", urlStr, err)
+		}
+
+		r.documents[urlStr] = extDoc
+		doc = extDoc
+	}
+
+	// If there's no internal path, return the whole document
+	if internalPath == "" {
+		return doc, nil
+	}
+
+	// Resolve the internal reference
+	return r.ResolveLocal(doc, "#"+internalPath)
+}
+
+// Resolve resolves a $ref reference (local, file, or HTTP)
 func (r *RefResolver) Resolve(doc map[string]any, ref string) (any, error) {
 	// Check if it's a local reference (starts with #)
 	if strings.HasPrefix(ref, "#") {
@@ -184,11 +267,48 @@ func (r *RefResolver) Resolve(doc map[string]any, ref string) (any, error) {
 
 	// Check if it's an HTTP(S) URL
 	if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
-		return nil, fmt.Errorf("HTTP(S) references not yet supported: %s", ref)
+		if r.httpFetch == nil {
+			return nil, fmt.Errorf("HTTP references require HTTP fetcher to be configured: %s", ref)
+		}
+		return r.ResolveHTTP(ref)
+	}
+
+	// Check if we have a base URL and this is a relative reference
+	// (not starting with # and not an absolute URL)
+	if r.baseURL != "" {
+		// Resolve relative path against base URL
+		resolved, err := r.resolveRelativeURL(ref)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve relative URL %s: %w", ref, err)
+		}
+		return r.ResolveHTTP(resolved)
 	}
 
 	// Otherwise, treat it as an external file reference
 	return r.ResolveExternal(ref)
+}
+
+// resolveRelativeURL resolves a relative reference against the baseURL
+func (r *RefResolver) resolveRelativeURL(ref string) (string, error) {
+	// Split ref into path and fragment
+	parts := strings.SplitN(ref, "#", 2)
+	relPath := parts[0]
+	fragment := ""
+	if len(parts) > 1 {
+		fragment = "#" + parts[1]
+	}
+
+	// Parse the base URL
+	base, err := url.Parse(r.baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid base URL: %w", err)
+	}
+
+	// Resolve the relative path against the base URL's directory
+	// Use path.Dir to get the directory of the base URL path
+	base.Path = path.Join(path.Dir(base.Path), relPath)
+
+	return base.String() + fragment, nil
 }
 
 // unescapeJSONPointer unescapes JSON Pointer tokens
