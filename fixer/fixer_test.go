@@ -405,6 +405,143 @@ components:
 	assert.True(t, userIdParam.Required)
 }
 
+// TestFixWithSecuritySchemeRefs tests that security schemes with $ref don't get empty type field
+// after deep copy. This regression test ensures that the SecurityScheme struct has omitempty
+// on type JSON tag to prevent empty strings from being added during JSON marshal/unmarshal.
+func TestFixWithSecuritySchemeRefs(t *testing.T) {
+	spec := `
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      security:
+        - apiKey: []
+      responses:
+        '200':
+          description: Success
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      name: X-API-Key
+      in: header
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	f := New()
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Should have added userId parameter
+	assert.Equal(t, 1, result.FixCount)
+
+	// Verify security schemes are preserved correctly after deep copy
+	doc := result.Document.(*parser.OAS3Document)
+	assert.NotNil(t, doc.Components)
+	assert.NotNil(t, doc.Components.SecuritySchemes)
+	scheme := doc.Components.SecuritySchemes["apiKey"]
+	require.NotNil(t, scheme)
+	assert.Equal(t, "apiKey", scheme.Type)
+	assert.Equal(t, "X-API-Key", scheme.Name)
+	assert.Empty(t, scheme.Ref, "SecurityScheme without $ref should not have ref field set")
+}
+
+// TestFixWithResponseRefs tests that responses with $ref don't get empty description field
+// after deep copy. This regression test ensures that the Response struct has omitempty
+// on description JSON tag to prevent empty strings from being added during JSON marshal/unmarshal.
+func TestFixWithResponseRefs(t *testing.T) {
+	spec := `
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+components:
+  responses:
+    Success:
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: object
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	f := New()
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Should have added userId parameter
+	assert.Equal(t, 1, result.FixCount)
+
+	// Verify response ref is preserved correctly
+	doc := result.Document.(*parser.OAS3Document)
+	resp := doc.Paths["/users/{userId}"].Get.Responses.Codes["200"]
+	require.NotNil(t, resp)
+	assert.Equal(t, "#/components/responses/Success", resp.Ref)
+	assert.Empty(t, resp.Description, "Response with $ref should not have description field set")
+}
+
+// TestFixWithRequestBodyRefs tests that request bodies with $ref don't get empty content field
+// after deep copy. This regression test ensures that the RequestBody struct has omitempty
+// on content JSON tag to prevent nil maps from being added during JSON marshal/unmarshal.
+func TestFixWithRequestBodyRefs(t *testing.T) {
+	spec := `
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    put:
+      operationId: updateUser
+      requestBody:
+        $ref: '#/components/requestBodies/UserRequest'
+      responses:
+        '200':
+          description: Success
+components:
+  requestBodies:
+    UserRequest:
+      description: User update request
+      content:
+        application/json:
+          schema:
+            type: object
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	f := New()
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Should have added userId parameter
+	assert.Equal(t, 1, result.FixCount)
+
+	// Verify request body ref is preserved correctly
+	doc := result.Document.(*parser.OAS3Document)
+	reqBody := doc.Paths["/users/{userId}"].Put.RequestBody
+	require.NotNil(t, reqBody)
+	assert.Equal(t, "#/components/requestBodies/UserRequest", reqBody.Ref)
+	assert.Nil(t, reqBody.Content, "RequestBody with $ref should not have content field set")
+}
+
 // TestDeepCopyOAS3Document tests that deep copy preserves OASVersion
 func TestDeepCopyOAS3Document(t *testing.T) {
 	doc := &parser.OAS3Document{

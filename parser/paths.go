@@ -106,8 +106,11 @@ func (r *Responses) UnmarshalYAML(unmarshal func(any) error) error {
 
 // Response describes a single response from an API Operation
 type Response struct {
-	Ref         string                `yaml:"$ref,omitempty" json:"$ref,omitempty"`
-	Description string                `yaml:"description" json:"description"`
+	Ref string `yaml:"$ref,omitempty" json:"$ref,omitempty"`
+	// Description uses omitempty because responses can be defined via $ref.
+	// When a response uses $ref, this field should be empty in the referencing object
+	// (the actual value is in the referenced response definition).
+	Description string                `yaml:"description,omitempty" json:"description,omitempty"`
 	Headers     map[string]*Header    `yaml:"headers,omitempty" json:"headers,omitempty"`
 	Content     map[string]*MediaType `yaml:"content,omitempty" json:"content,omitempty"` // OAS 3.0+
 	Links       map[string]*Link      `yaml:"links,omitempty" json:"links,omitempty"`     // OAS 3.0+

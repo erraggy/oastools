@@ -72,8 +72,11 @@ type Items struct {
 type RequestBody struct {
 	Ref         string                `yaml:"$ref,omitempty" json:"$ref,omitempty"`
 	Description string                `yaml:"description,omitempty" json:"description,omitempty"`
-	Content     map[string]*MediaType `yaml:"content" json:"content"`
-	Required    bool                  `yaml:"required,omitempty" json:"required,omitempty"`
+	// Content uses omitempty because request bodies can be defined via $ref.
+	// When a request body uses $ref, this field should be empty/nil in the referencing object
+	// (the actual value is in the referenced request body definition).
+	Content  map[string]*MediaType `yaml:"content,omitempty" json:"content,omitempty"`
+	Required bool                  `yaml:"required,omitempty" json:"required,omitempty"`
 	Extra       map[string]any        `yaml:",inline" json:"-"`
 }
 

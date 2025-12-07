@@ -6,8 +6,11 @@ type SecurityRequirement map[string][]string
 
 // SecurityScheme defines a security scheme that can be used by the operations
 type SecurityScheme struct {
-	Ref         string `yaml:"$ref,omitempty" json:"$ref,omitempty"`
-	Type        string `yaml:"type" json:"type"` // "apiKey", "http", "oauth2", "openIdConnect" (OAS 3.0+), "basic", "apiKey", "oauth2" (OAS 2.0)
+	Ref string `yaml:"$ref,omitempty" json:"$ref,omitempty"`
+	// Type uses omitempty because security schemes can be defined via $ref.
+	// When a security scheme uses $ref, this field should be empty in the referencing object
+	// (the actual value is in the referenced security scheme definition).
+	Type        string `yaml:"type,omitempty" json:"type,omitempty"` // "apiKey", "http", "oauth2", "openIdConnect" (OAS 3.0+), "basic", "apiKey", "oauth2" (OAS 2.0)
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 
 	// Type: apiKey (OAS 2.0+, 3.0+)
