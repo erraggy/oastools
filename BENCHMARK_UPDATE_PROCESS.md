@@ -8,7 +8,7 @@ Update benchmarks in the following situations:
 - Before creating a new release
 - After making performance-related changes
 - After adding new functionality that may affect performance
-- When significant changes are made to core packages (parser, validator, converter, joiner)
+- When significant changes are made to core packages (parser, validator, fixer, converter, joiner, differ, generator, builder)
 
 ## Prerequisites
 
@@ -30,11 +30,23 @@ make bench-parser
 # Run validator benchmarks
 make bench-validator
 
+# Run fixer benchmarks
+make bench-fixer
+
 # Run converter benchmarks
 make bench-converter
 
 # Run joiner benchmarks
 make bench-joiner
+
+# Run differ benchmarks
+make bench-differ
+
+# Run generator benchmarks
+make bench-generator
+
+# Run builder benchmarks
+make bench-builder
 ```
 
 **Alternative:** Run all benchmarks at once:
@@ -95,7 +107,19 @@ BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
 - Keep kilobytes with one decimal place for small values (e.g., 5.2 KB)
 - Keep allocations exact
 
-#### 3.3 Converter Performance
+#### 3.3 Fixer Performance
+
+**Fixing table (parse + fix):**
+- Convert nanoseconds to microseconds
+- Convert bytes to kilobytes
+- Round to whole numbers
+
+**FixParsed table:**
+- Keep microseconds with one decimal place for small values (e.g., 86 μs)
+- Keep kilobytes with one decimal place for small values (e.g., 79 KB)
+- Keep allocations exact
+
+#### 3.4 Converter Performance
 
 **Conversion table (parse + convert):**
 - Convert nanoseconds to microseconds
@@ -107,7 +131,7 @@ BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
 - Keep kilobytes with one decimal place
 - Keep allocations exact
 
-#### 3.4 Joiner Performance
+#### 3.5 Joiner Performance
 
 **Joining table (parse + join):**
 - Convert nanoseconds to microseconds
@@ -115,6 +139,32 @@ BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
 - Round to whole numbers
 
 **JoinParsed table:**
+- Keep time in nanoseconds (round to whole numbers)
+- Keep memory in bytes (round to whole numbers)
+- Keep allocations exact
+
+#### 3.6 Differ Performance
+
+**Diffing table (parse + diff):**
+- Convert nanoseconds to microseconds
+- Convert bytes to kilobytes
+- Round to whole numbers
+
+**DiffParsed table:**
+- Keep microseconds with one decimal place
+- Keep kilobytes with one decimal place
+- Keep allocations exact
+
+#### 3.7 Generator Performance
+
+**Code generation table:**
+- Convert nanoseconds to microseconds
+- Convert bytes to kilobytes
+- Round to whole numbers
+
+#### 3.8 Builder Performance
+
+**Builder operations table:**
 - Keep time in nanoseconds (round to whole numbers)
 - Keep memory in bytes (round to whole numbers)
 - Keep allocations exact
@@ -129,9 +179,15 @@ Example:
 ```
 | Parse            | 142 μs            | 1,130 μs            | 14,131 μs           |
 | Validate         | 143 μs            | 1,160 μs            | 14,635 μs           |
+| Fix              | 220 μs            | 2,034 μs            | 24,957 μs           |
 | Convert (OAS2→3) | 153 μs            | 1,314 μs            | -                   |
 | Join (2 docs)    | 115 μs            | -                   | -                   |
+| Diff (2 docs)    | 448 μs            | -                   | -                   |
+| Generate (types) | 39 μs             | -                   | -                   |
+| Generate (all)   | 249 μs            | -                   | -                   |
 ```
+
+*Note: Generator benchmarks use pre-parsed documents. Builder constructs documents programmatically (~8-33 μs).*
 
 ### 5. Verify Changes
 

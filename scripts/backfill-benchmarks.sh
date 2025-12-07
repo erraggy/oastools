@@ -192,28 +192,26 @@ backfill_version() {
     go mod tidy 2>/dev/null || true
 
     # Run benchmarks
+    # Use -short flag and timeout to prevent long-running corpus benchmarks from hanging
+    # Also set SKIP_LARGE_TESTS=1 as a fallback for older versions
+    # Run go test directly instead of make bench-save to ensure consistent flags across versions
     log_info "Running benchmarks (this may take several minutes)..."
-    if ! make bench-save 2>&1 | tee "benchmark-${version}.log"; then
-        log_error "Failed to run benchmarks for $version (see benchmark-${version}.log)"
+    local temp_output="benchmark-${version}-temp.txt"
+    if ! SKIP_LARGE_TESTS=1 go test -bench=. -benchmem -benchtime=5s -timeout=15m -short ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee "$temp_output"; then
+        log_warning "Some benchmarks failed for $version (results may be partial)"
+        # Don't fail completely - we may still have partial results
+    fi
+
+    # Check if we got any benchmark output
+    if ! grep -q "^Benchmark" "$temp_output" 2>/dev/null; then
+        log_error "No benchmark output generated for $version"
+        rm -f "$temp_output"
         git checkout "$CURRENT_BRANCH"
         return 1
     fi
 
-    # Find the generated benchmark file
-    local generated_file=$(ls -t benchmark-*.txt 2>/dev/null | head -1)
-    if [ -z "$generated_file" ] || [ "$generated_file" = "$benchmark_file" ]; then
-        # Look for timestamped file
-        generated_file=$(ls -t benchmark-[0-9]*.txt 2>/dev/null | head -1)
-    fi
-
-    if [ -z "$generated_file" ]; then
-        log_error "No benchmark file generated for $version"
-        git checkout "$CURRENT_BRANCH"
-        return 1
-    fi
-
-    # Copy to version-tagged name
-    cp "$generated_file" "$benchmark_file"
+    # Move temp file to version-tagged name
+    mv "$temp_output" "$benchmark_file"
     log_success "Created $benchmark_file"
 
     # Return to original branch
@@ -222,16 +220,6 @@ backfill_version() {
     # Move to backfill directory
     mkdir -p "$BACKFILL_DIR"
     mv "$benchmark_file" "$BACKFILL_DIR/"
-
-    # Clean up log file (we only keep the benchmark results)
-    if [ -f "benchmark-${version}.log" ]; then
-        rm "benchmark-${version}.log"
-    fi
-
-    # Clean up any timestamped benchmark files from the build
-    if [ -n "$generated_file" ] && [ "$generated_file" != "$benchmark_file" ] && [ -f "$generated_file" ]; then
-        rm "$generated_file"
-    fi
 
     return 0
 }

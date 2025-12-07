@@ -271,9 +271,14 @@ The library includes comprehensive performance benchmarking (100+ benchmarks acr
 |------------------|-------------------|---------------------|---------------------|
 | Parse            | 138 μs            | 1,119 μs            | 13,880 μs           |
 | Validate         | 139 μs            | 1,133 μs            | 14,409 μs           |
+| Fix              | 220 μs            | 2,034 μs            | 24,957 μs           |
 | Convert (OAS2→3) | 148 μs            | 1,184 μs            | -                   |
 | Join (2 docs)    | 101 μs            | -                   | -                   |
 | Diff (2 docs)    | 448 μs            | -                   | -                   |
+| Generate (types) | 39 μs             | -                   | -                   |
+| Generate (all)   | 249 μs            | -                   | -                   |
+
+*Note: Generator benchmarks use pre-parsed documents. Builder constructs documents programmatically (~8-33 μs).*
 
 For detailed performance analysis, methodology, and optimization strategies, see [benchmarks.md](benchmarks.md).
 
@@ -377,7 +382,7 @@ make help           # Show all available commands
 
 ### Integration Testing
 
-The project includes comprehensive integration tests using 10 real-world public OpenAPI specifications spanning OAS 2.0, 3.0.x, and 3.1.0. These tests validate the full pipeline: parser, validator, converter, joiner, and differ.
+The project includes comprehensive integration tests using 10 real-world public OpenAPI specifications spanning OAS 2.0, 3.0.x, and 3.1.0. These tests validate the full pipeline: parser, validator, fixer, converter, joiner, and differ.
 
 ```bash
 # Download corpus specs (one-time setup)
@@ -401,6 +406,7 @@ For detailed information about the corpus selection methodology and validation r
 ├── cmd/oastools/       # CLI entry point
 ├── parser/             # OpenAPI parsing library (public API)
 ├── validator/          # OpenAPI validation library (public API)
+├── fixer/              # OpenAPI auto-fix library (public API)
 ├── converter/          # OpenAPI conversion library (public API)
 ├── joiner/             # OpenAPI joining library (public API)
 ├── differ/             # OpenAPI diffing library (public API)
@@ -416,7 +422,7 @@ For detailed information about the corpus selection methodology and validation r
 └── planning/           # Research docs (OAS corpus selection)
 ```
 
-All seven main packages (parser, validator, converter, joiner, differ, generator, builder) are public and can be imported directly.
+All eight main packages (parser, validator, fixer, converter, joiner, differ, generator, builder) are public and can be imported directly.
 
 ## Documentation
 

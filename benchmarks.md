@@ -4,7 +4,7 @@ This document provides detailed performance analysis and benchmark results for t
 
 ## Overview
 
-As of v1.9.1, oastools includes comprehensive performance benchmarking infrastructure covering all major operations across the parser, validator, converter, joiner, and differ packages. The library has undergone targeted optimizations to achieve significant performance improvements while maintaining correctness and code quality.
+As of v1.18.0, oastools includes comprehensive performance benchmarking infrastructure covering all major operations across the parser, validator, fixer, converter, joiner, differ, generator, and builder packages. The library has undergone targeted optimizations to achieve significant performance improvements while maintaining correctness and code quality.
 
 **Platform**: Apple M4, darwin/arm64, Go 1.24
 
@@ -35,7 +35,7 @@ The v1.7.0 release includes a major optimization to JSON marshaling that elimina
 
 ## Benchmark Suite
 
-The benchmark suite includes **100+ benchmarks** (48 benchmark functions with many sub-benchmarks) across seven main packages:
+The benchmark suite includes **115+ benchmarks** (52 benchmark functions with many sub-benchmarks) across eight main packages:
 
 ### Parser Package (33 benchmarks)
 
@@ -70,6 +70,15 @@ The benchmark suite includes **100+ benchmarks** (48 benchmark functions with ma
 - Strict mode validation (small, medium, and large documents)
 - Large document validation without warnings
 
+### Fixer Package (13 benchmarks)
+
+**Fixing Operations**:
+- Small, medium, and large OAS 3.x documents
+- Small and medium OAS 2.0 documents
+- With and without type inference
+- FixParsed (pre-parsed documents) vs Fix (parse + fix)
+- FixWithOptions convenience API (basic and pre-parsed variants)
+
 ### Converter Package (13 benchmarks)
 
 **Conversion Operations**:
@@ -102,6 +111,14 @@ The benchmark suite includes **100+ benchmarks** (48 benchmark functions with ma
 - Edge cases (identical specifications)
 - Parse-once pattern efficiency
 - Change.String() formatting performance
+
+### Generator Package (4 benchmarks)
+
+**Code Generation Operations**:
+- Types-only generation
+- Client code generation
+- Server code generation
+- Full generation (types + client + server)
 
 ### Builder Package (17 benchmarks)
 
@@ -167,6 +184,28 @@ The benchmark suite includes **100+ benchmarks** (48 benchmark functions with ma
 | Large OAS3    | 462       | 367         | 10,297      |
 
 **Observation**: ValidateParsed is **31x faster** than Validate for small documents (4.7μs vs 147μs) because it skips parsing. This is ideal for workflows where documents are parsed once and validated multiple times.
+
+### Fixer Performance
+
+**Fixing** (parse + fix):
+
+| Document Size | Lines | Time (μs) | Memory (KB) | Allocations |
+|---------------|-------|-----------|-------------|-------------|
+| Small OAS3    | ~60   | 220       | 279         | 3,252       |
+| Medium OAS3   | ~570  | 2,034     | 2,208       | 28,422      |
+| Large OAS3    | ~6000 | 24,957    | 25,028      | 320,120     |
+| Small OAS2    | ~60   | 209       | 239         | 3,100       |
+| Medium OAS2   | ~570  | 1,733     | 1,797       | 24,946      |
+
+**Fixing pre-parsed documents** (FixParsed):
+
+| Document Size | Time (μs) | Memory (KB) | Allocations |
+|---------------|-----------|-------------|-------------|
+| Small OAS3    | 86        | 79          | 1,177       |
+| Medium OAS3   | 908       | 737         | 11,017      |
+| Large OAS3    | 11,264    | 8,601       | 125,401     |
+
+**Observation**: FixParsed is **2.6x faster** than Fix for small documents (86μs vs 220μs) because it skips parsing. Type inference has negligible overhead (~3% slower). The fixer is I/O and parse-bound for most workflows.
 
 ### Converter Performance
 
@@ -234,6 +273,19 @@ The benchmark suite includes **100+ benchmarks** (48 benchmark functions with ma
 
 **Observation**: DiffParsed is **81x faster** than Diff (5.7μs vs 463μs) because it skips parsing. The differ includes a fast path for identical specifications that runs in ~3.8μs. Breaking mode vs Simple mode has negligible performance difference (~1.2μs), making breaking change detection essentially free.
 
+### Generator Performance
+
+**Code Generation** (pre-parsed documents):
+
+| Generation Mode | Time (μs) | Memory (KB) | Allocations |
+|-----------------|-----------|-------------|-------------|
+| Types only      | 39        | 28          | 724         |
+| Client          | 272       | 187         | 4,088       |
+| Server          | 57        | 48          | 1,040       |
+| All (full)      | 249       | 182         | 3,882       |
+
+**Observation**: Types-only generation is fastest at 39μs. Client generation is most expensive due to HTTP client method generation. Full generation (all modes) is comparable to client-only because client code dominates the generation time.
+
 ### Builder Performance
 
 **Builder Construction**:
@@ -282,13 +334,14 @@ The benchmark suite includes **100+ benchmarks** (48 benchmark functions with ma
 
 ### For Library Users
 
-1. **Reuse parser/validator/converter/joiner/differ instances** when processing multiple files with the same configuration
-2. **Use ParseOnce workflows**: For operations on the same document (validate, convert, join, diff), parse once and pass the `ParseResult` to subsequent operations:
+1. **Reuse parser/validator/fixer/converter/joiner/differ instances** when processing multiple files with the same configuration
+2. **Use ParseOnce workflows**: For operations on the same document (validate, fix, convert, join, diff), parse once and pass the `ParseResult` to subsequent operations:
    ```go
    result, _ := parser.Parse("spec.yaml", false, true)
    validator.ValidateParsed(result, true, false)   // 30x faster than Validate
+   fixer.FixParsed(result)                         // 2.6x faster than Fix
    converter.ConvertParsed(result, "3.0.3")        // 9x faster than Convert
-   differ.DiffParsed(result1, result2)             // 58x faster than Diff
+   differ.DiffParsed(result1, result2)             // 81x faster than Diff
    ```
 3. **Disable reference resolution** (`ResolveRefs=false`) when not needed
 4. **Disable validation** during parsing (`ValidateStructure=false`) if you'll validate separately
@@ -319,17 +372,21 @@ All benchmarks follow these standards:
 # Run all benchmarks
 make bench-parser
 make bench-validator
+make bench-fixer
 make bench-converter
 make bench-joiner
 make bench-differ
+make bench-generator
 make bench-builder
 
 # Or individually
 go test -bench=. -benchmem ./parser
 go test -bench=. -benchmem ./validator
+go test -bench=. -benchmem ./fixer
 go test -bench=. -benchmem ./converter
 go test -bench=. -benchmem ./joiner
 go test -bench=. -benchmem ./differ
+go test -bench=. -benchmem ./generator
 go test -bench=. -benchmem ./builder
 
 # Save baseline for comparison
