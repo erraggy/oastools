@@ -235,6 +235,15 @@ gh pr view <PR_NUMBER> --comments   # Get all PR comments (including bot reviews
 
 For detailed information on the development workflow from commit to pull request to release, see [WORKFLOW.md](WORKFLOW.md).
 
+**CRITICAL: Always use feature branches. NEVER commit directly to main.**
+
+Create a feature branch before making any changes:
+```bash
+git checkout main
+git pull origin main
+git checkout -b <type>/<description>  # e.g., feat/add-feature, fix/bug-name, chore/update-docs
+```
+
 **Quick reference:**
 - **Before committing:** Run `make check`, verify test coverage, update benchmarks if needed
 - **Commit format:** Conventional commits (e.g., `feat(parser): add feature`)
