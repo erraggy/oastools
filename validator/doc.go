@@ -50,6 +50,7 @@
 //
 // Validation typically follows parsing:
 //   - [github.com/erraggy/oastools/parser] - Parse specifications before validation
+//   - [github.com/erraggy/oastools/fixer] - Fix common validation errors automatically
 //   - [github.com/erraggy/oastools/converter] - Convert validated specs between OAS versions
 //   - [github.com/erraggy/oastools/joiner] - Join validated specs into one document
 //   - [github.com/erraggy/oastools/differ] - Compare specifications and detect breaking changes

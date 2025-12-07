@@ -4,7 +4,7 @@ This file provides quick, actionable guidance for AI coding agents working on th
 
 ## Project Overview
 
-`oastools` is a Go-based CLI tool for working with OpenAPI Specification (OAS) files. It supports parsing, validating, joining, converting, and comparing OAS documents across versions 2.0, 3.0.x, 3.1.x, and 3.2.0.
+`oastools` is a Go-based CLI tool for working with OpenAPI Specification (OAS) files. It supports parsing, validating, fixing, joining, converting, and comparing OAS documents across versions 2.0, 3.0.x, 3.1.x, and 3.2.0.
 
 **Module:** `github.com/erraggy/oastools`  
 **Go Version:** 1.24+
@@ -154,6 +154,7 @@ For documentation-only changes, only items 3, 6, and 7 apply.
 cmd/oastools/     - CLI entry point
 parser/           - Parse YAML/JSON OAS files, resolve refs
 validator/        - Validate OAS against spec schema
+fixer/            - Automatically fix common validation errors
 converter/        - Convert between OAS versions
 joiner/           - Join multiple OAS files
 differ/           - Compare and diff OAS files

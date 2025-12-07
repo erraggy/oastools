@@ -62,6 +62,7 @@
 // Conversion integrates with other oastools packages:
 //   - [github.com/erraggy/oastools/parser] - Parse specifications before conversion
 //   - [github.com/erraggy/oastools/validator] - Validate converted specifications
+//   - [github.com/erraggy/oastools/fixer] - Fix common validation errors in specifications
 //   - [github.com/erraggy/oastools/joiner] - Join converted specifications
 //   - [github.com/erraggy/oastools/differ] - Compare original and converted specifications
 //   - [github.com/erraggy/oastools/generator] - Generate code from converted specifications

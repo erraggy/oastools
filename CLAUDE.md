@@ -6,6 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `oastools` is a Go-based command-line tool for working with OpenAPI Specification (OAS) files. The primary goals are:
 - Validating OpenAPI specification files
+- Fixing common validation errors automatically
 - Parsing and analyzing OAS documents
 - Joining multiple OpenAPI specification documents
 - Converting between OAS versions
@@ -115,6 +116,7 @@ make clean # Remove build artifacts
 - **cmd/oastools/** - CLI entry point with command routing
 - **parser/** - Parse YAML/JSON OAS files, resolve references, detect versions
 - **validator/** - Validate OAS against spec schema (structural, format, semantic)
+- **fixer/** - Automatically fix common validation errors (missing path parameters)
 - **joiner/** - Join multiple OAS files with flexible collision resolution
 - **converter/** - Convert between OAS versions (2.0 ↔ 3.x) with issue tracking
 - **differ/** - Compare OAS files, detect breaking changes by severity
@@ -269,6 +271,7 @@ For detailed release workflow, see [WORKFLOW.md](WORKFLOW.md).
 All core packages are public:
 - `github.com/erraggy/oastools/parser` - Parse OpenAPI specifications
 - `github.com/erraggy/oastools/validator` - Validate OpenAPI specifications
+- `github.com/erraggy/oastools/fixer` - Fix common validation errors automatically
 - `github.com/erraggy/oastools/joiner` - Join multiple OpenAPI specifications
 - `github.com/erraggy/oastools/converter` - Convert between OpenAPI specification versions
 - `github.com/erraggy/oastools/differ` - Compare and diff OpenAPI specifications
@@ -309,6 +312,12 @@ Use struct-based API for: multiple files, reusable instances, advanced configura
 - Struct-based: `differ.New()`, `Differ.Diff()`, `Differ.DiffParsed()`
 - Returns DiffResult with changes categorized by severity (Critical, Error, Warning, Info)
 
+**Fixer Package:**
+- Functional options: `fixer.FixWithOptions(fixer.WithFilePath(...), fixer.WithInferTypes(...), ...)`
+- Struct-based: `fixer.New()`, `Fixer.Fix()`, `Fixer.FixParsed()`
+- Configuration: `InferTypes` (infer parameter types from naming conventions)
+- Returns FixResult with list of applied fixes and fixed document
+
 ### Usage Examples
 
 **Quick operations:**
@@ -342,6 +351,12 @@ result, _ := differ.DiffWithOptions(
     differ.WithSourceFilePath("v1.yaml"),
     differ.WithTargetFilePath("v2.yaml"),
 )
+
+// Fix
+result, _ := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithInferTypes(true),
+)
 ```
 
 **Reusable instances:**
@@ -370,4 +385,10 @@ result1, _ := c.Convert("swagger-v1.yaml", "3.0.3")
 d := differ.New()
 result1, _ := d.Diff("api-v1.yaml", "api-v2.yaml")
 result2, _ := d.Diff("api-v2.yaml", "api-v3.yaml")
+
+// Fixer with type inference
+f := fixer.New()
+f.InferTypes = true
+result1, _ := f.Fix("api1.yaml")
+result2, _ := f.Fix("api2.yaml")
 ```

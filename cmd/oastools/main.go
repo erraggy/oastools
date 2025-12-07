@@ -12,6 +12,7 @@ import (
 	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/converter"
 	"github.com/erraggy/oastools/differ"
+	"github.com/erraggy/oastools/fixer"
 	"github.com/erraggy/oastools/generator"
 	"github.com/erraggy/oastools/internal/cliutil"
 	"github.com/erraggy/oastools/joiner"
@@ -75,6 +76,11 @@ func main() {
 		}
 	case "generate":
 		if err := handleGenerate(os.Args[2:]); err != nil {
+			cliutil.Writef(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "fix":
+		if err := handleFix(os.Args[2:]); err != nil {
 			cliutil.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -1190,6 +1196,159 @@ func handleGenerate(args []string) error {
 	return nil
 }
 
+// fixFlags contains flags for the fix command
+type fixFlags struct {
+	output string
+	infer  bool
+	quiet  bool
+}
+
+// setupFixFlags creates and configures a FlagSet for the fix command.
+// Returns the FlagSet and a fixFlags struct with bound flag variables.
+func setupFixFlags() (*flag.FlagSet, *fixFlags) {
+	fs := flag.NewFlagSet("fix", flag.ContinueOnError)
+	flags := &fixFlags{}
+
+	fs.StringVar(&flags.output, "o", "", "output file path (default: stdout)")
+	fs.StringVar(&flags.output, "output", "", "output file path (default: stdout)")
+	fs.BoolVar(&flags.infer, "infer", false, "infer parameter types from naming conventions")
+	fs.BoolVar(&flags.quiet, "q", false, "quiet mode: only output the document, no diagnostic messages")
+	fs.BoolVar(&flags.quiet, "quiet", false, "quiet mode: only output the document, no diagnostic messages")
+
+	fs.Usage = func() {
+		cliutil.Writef(fs.Output(), "Usage: oastools fix [flags] <file|url|->\n\n")
+		cliutil.Writef(fs.Output(), "Apply automatic fixes to common OpenAPI specification issues.\n\n")
+		cliutil.Writef(fs.Output(), "Flags:\n")
+		fs.PrintDefaults()
+		cliutil.Writef(fs.Output(), "\nSupported Fixes:\n")
+		cliutil.Writef(fs.Output(), "  - Missing path parameters: Adds Parameter objects for path template\n")
+		cliutil.Writef(fs.Output(), "    variables that are not declared in the operation's parameters list.\n")
+		cliutil.Writef(fs.Output(), "    Default type is 'string'. Use --infer for smart type inference.\n")
+		cliutil.Writef(fs.Output(), "\nType Inference (--infer):\n")
+		cliutil.Writef(fs.Output(), "  - Names ending in 'id', 'Id', 'ID' -> integer\n")
+		cliutil.Writef(fs.Output(), "  - Names containing 'uuid', 'guid' -> string with format uuid\n")
+		cliutil.Writef(fs.Output(), "  - All other names -> string\n")
+		cliutil.Writef(fs.Output(), "\nExamples:\n")
+		cliutil.Writef(fs.Output(), "  oastools fix openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools fix -o fixed.yaml openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools fix --infer openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "  cat openapi.yaml | oastools fix -q - > fixed.yaml\n")
+		cliutil.Writef(fs.Output(), "\nPipelining:\n")
+		cliutil.Writef(fs.Output(), "  oastools fix -q api.yaml | oastools validate -q -\n")
+		cliutil.Writef(fs.Output(), "  oastools fix -q --infer api.yaml | oastools convert -q -t 3.1.0 -\n")
+		cliutil.Writef(fs.Output(), "\nNotes:\n")
+		cliutil.Writef(fs.Output(), "  - Use 'oastools validate' to see validation errors before fixing\n")
+		cliutil.Writef(fs.Output(), "  - The fix command always applies all available fixes\n")
+		cliutil.Writef(fs.Output(), "  - Output preserves the original format (JSON or YAML)\n")
+		cliutil.Writef(fs.Output(), "\nExit Codes:\n")
+		cliutil.Writef(fs.Output(), "  0    Fixes applied successfully (or no fixes needed)\n")
+		cliutil.Writef(fs.Output(), "  1    Failed to parse or fix the specification\n")
+	}
+
+	return fs, flags
+}
+
+func handleFix(args []string) error {
+	fs, flags := setupFixFlags()
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+
+	if fs.NArg() != 1 {
+		fs.Usage()
+		return fmt.Errorf("fix command requires exactly one file path, URL, or '-' for stdin")
+	}
+
+	specPath := fs.Arg(0)
+
+	// Create fixer with options
+	f := fixer.New()
+	f.InferTypes = flags.infer
+
+	// Fix the file, URL, or stdin with timing
+	startTime := time.Now()
+	var result *fixer.FixResult
+	var err error
+
+	if specPath == StdinFilePath {
+		// Read from stdin
+		p := parser.New()
+		parseResult, err := p.ParseReader(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("parsing stdin: %w", err)
+		}
+		result, err = f.FixParsed(*parseResult)
+		if err != nil {
+			return fmt.Errorf("fixing from stdin: %w", err)
+		}
+	} else {
+		result, err = f.Fix(specPath)
+		if err != nil {
+			return fmt.Errorf("fixing file: %w", err)
+		}
+	}
+	totalTime := time.Since(startTime)
+
+	// Print diagnostic messages (to stderr to keep stdout clean for pipelining)
+	if !flags.quiet {
+		cliutil.Writef(os.Stderr, "OpenAPI Specification Fixer\n")
+		cliutil.Writef(os.Stderr, "===========================\n\n")
+		cliutil.Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
+		if specPath == StdinFilePath {
+			cliutil.Writef(os.Stderr, "Specification: <stdin>\n")
+		} else {
+			cliutil.Writef(os.Stderr, "Specification: %s\n", specPath)
+		}
+		cliutil.Writef(os.Stderr, "OAS Version: %s\n", result.SourceVersion)
+		cliutil.Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
+		cliutil.Writef(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
+		cliutil.Writef(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
+		cliutil.Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
+
+		// Print fixes applied
+		if result.HasFixes() {
+			cliutil.Writef(os.Stderr, "Fixes Applied (%d):\n", result.FixCount)
+			for _, fix := range result.Fixes {
+				cliutil.Writef(os.Stderr, "  - [%s] %s: %s\n", fix.Type, fix.Path, fix.Description)
+			}
+			cliutil.Writef(os.Stderr, "\n")
+		}
+
+		// Print summary
+		if result.HasFixes() {
+			cliutil.Writef(os.Stderr, "✓ Applied %d fix(es)\n", result.FixCount)
+		} else {
+			cliutil.Writef(os.Stderr, "✓ No fixes needed - specification is already valid\n")
+		}
+	}
+
+	// Write output
+	data, err := marshalDocument(result.Document, result.SourceFormat)
+	if err != nil {
+		return fmt.Errorf("marshaling fixed document: %w", err)
+	}
+
+	if flags.output != "" {
+		if err := os.WriteFile(flags.output, data, 0600); err != nil {
+			return fmt.Errorf("writing output file: %w", err)
+		}
+		if !flags.quiet {
+			cliutil.Writef(os.Stderr, "\nOutput written to: %s\n", flags.output)
+		}
+	} else {
+		// Write to stdout
+		if _, err = os.Stdout.Write(data); err != nil {
+			return fmt.Errorf("writing fixed document to stdout: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func printUsage() {
 	fmt.Println(`oastools - OpenAPI Specification Tools
 
@@ -1198,6 +1357,7 @@ Usage:
 
 Commands:
   validate    Validate an OpenAPI specification file or URL
+  fix         Apply automatic fixes to common OpenAPI specification issues
   convert     Convert between OpenAPI specification versions
   diff        Compare two OpenAPI specifications and detect changes
   generate    Generate Go client/server code from an OpenAPI specification
@@ -1208,6 +1368,7 @@ Commands:
 
 Examples:
   oastools validate openapi.yaml
+  oastools fix api.yaml | oastools validate -q -
   oastools validate https://example.com/api/openapi.yaml
   oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
   oastools diff --breaking api-v1.yaml api-v2.yaml

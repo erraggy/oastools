@@ -308,6 +308,7 @@
 // The builder integrates with other oastools packages:
 //   - [github.com/erraggy/oastools/parser] - Builder generates parser-compatible documents
 //   - [github.com/erraggy/oastools/validator] - Validate built specifications
+//   - [github.com/erraggy/oastools/fixer] - Fix common validation errors in built specifications
 //   - [github.com/erraggy/oastools/converter] - Convert built specs between OAS versions
 //   - [github.com/erraggy/oastools/joiner] - Join built specs with existing documents
 //   - [github.com/erraggy/oastools/differ] - Compare built specs with other specifications

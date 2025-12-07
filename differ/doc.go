@@ -358,6 +358,7 @@ and optional according to the OpenAPI Specification.
 The differ integrates with other oastools packages:
   - [github.com/erraggy/oastools/parser] - Parse specifications before diffing
   - [github.com/erraggy/oastools/validator] - Validate specifications before comparison
+  - [github.com/erraggy/oastools/fixer] - Fix common validation errors in specifications
   - [github.com/erraggy/oastools/converter] - Convert versions before comparing different OAS versions
   - [github.com/erraggy/oastools/joiner] - Join specifications before comparison
   - [github.com/erraggy/oastools/generator] - Generate code from compared specifications

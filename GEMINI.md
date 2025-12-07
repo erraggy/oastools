@@ -10,6 +10,7 @@ The project is structured as a Go module with several public packages, each corr
 
 *   `parser`: For parsing and analyzing OpenAPI specifications.
 *   `validator`: For validating the correctness of OpenAPI specifications.
+*   `fixer`: For automatically fixing common validation errors in OpenAPI specifications.
 *   `converter`: For converting between different OpenAPI versions (e.g., 2.0 to 3.x).
 *   `joiner`: For merging multiple OpenAPI specifications.
 *   `differ`: For comparing OpenAPI specifications and detecting breaking changes.
@@ -83,6 +84,7 @@ The project uses a `Makefile` to streamline common development tasks.
 *   **`cmd/oastools/`**: CLI entry point.
 *   **`parser/`**: OpenAPI parsing library.
 *   **`validator/`**: OpenAPI validation library.
+*   **`fixer/`**: OpenAPI fixer library (auto-fix common errors).
 *   **`converter/`**: OpenAPI conversion library.
 *   **`joiner/`**: OpenAPI joining library.
 *   **`differ/`**: OpenAPI diffing library.

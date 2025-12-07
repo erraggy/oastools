@@ -61,6 +61,7 @@
 //
 // After parsing, use these packages for additional operations:
 //   - [github.com/erraggy/oastools/validator] - Validate specifications against OAS rules
+//   - [github.com/erraggy/oastools/fixer] - Fix common validation errors automatically
 //   - [github.com/erraggy/oastools/converter] - Convert between OAS versions (2.0 ↔ 3.x)
 //   - [github.com/erraggy/oastools/joiner] - Join multiple specifications into one
 //   - [github.com/erraggy/oastools/differ] - Compare specifications and detect breaking changes
