@@ -2,7 +2,10 @@ package parser
 
 // Parameter describes a single operation parameter
 type Parameter struct {
-	Ref         string `yaml:"$ref,omitempty" json:"$ref,omitempty"`
+	Ref string `yaml:"$ref,omitempty" json:"$ref,omitempty"`
+	// Name and In use omitempty because parameters can be defined via $ref.
+	// When a parameter uses $ref, these fields should be empty (they're in the referenced object).
+	// This differs from License/Tag which don't support $ref in the OpenAPI spec.
 	Name        string `yaml:"name,omitempty" json:"name,omitempty"`
 	In          string `yaml:"in,omitempty" json:"in,omitempty"` // "query", "header", "path", "cookie" (OAS 3.0+), "formData", "body" (OAS 2.0)
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
