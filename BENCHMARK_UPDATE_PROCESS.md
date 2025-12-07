@@ -182,7 +182,12 @@ Example:
 | Fix              | 220 μs            | 2,034 μs            | 24,957 μs           |
 | Convert (OAS2→3) | 153 μs            | 1,314 μs            | -                   |
 | Join (2 docs)    | 115 μs            | -                   | -                   |
+| Diff (2 docs)    | 448 μs            | -                   | -                   |
+| Generate (types) | 39 μs             | -                   | -                   |
+| Generate (all)   | 249 μs            | -                   | -                   |
 ```
+
+*Note: Generator benchmarks use pre-parsed documents. Builder constructs documents programmatically (~8-33 μs).*
 
 ### 5. Verify Changes
 

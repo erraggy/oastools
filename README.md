@@ -275,6 +275,10 @@ The library includes comprehensive performance benchmarking (100+ benchmarks acr
 | Convert (OAS2→3) | 148 μs            | 1,184 μs            | -                   |
 | Join (2 docs)    | 101 μs            | -                   | -                   |
 | Diff (2 docs)    | 448 μs            | -                   | -                   |
+| Generate (types) | 39 μs             | -                   | -                   |
+| Generate (all)   | 249 μs            | -                   | -                   |
+
+*Note: Generator benchmarks use pre-parsed documents. Builder constructs documents programmatically (~8-33 μs).*
 
 For detailed performance analysis, methodology, and optimization strategies, see [benchmarks.md](benchmarks.md).
 
