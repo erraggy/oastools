@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-converter bench-joiner bench-differ bench-builder bench-save bench-compare bench-baseline bench-clean release-test release-clean
+.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-converter bench-joiner bench-differ bench-builder bench-save bench-compare bench-baseline bench-clean release-test release-clean corpus-download corpus-clean test-corpus test-corpus-short bench-corpus
 
 # Build variables
 BINARY_NAME=oastools
@@ -245,6 +245,55 @@ release-clean:
 	@rm -rf dist/
 	@echo "Release artifacts cleaned"
 
+## corpus-download: Download public OpenAPI specifications for integration testing
+corpus-download:
+	@echo "Downloading corpus specifications..."
+	@mkdir -p testdata/corpus
+	@echo "  Downloading Petstore (OAS 2.0)..."
+	@curl -sL -o testdata/corpus/petstore-swagger.json "https://petstore.swagger.io/v2/swagger.json"
+	@echo "  Downloading DigitalOcean (OAS 3.0.0)..."
+	@curl -sL -o testdata/corpus/digitalocean-public.v2.yaml "https://raw.githubusercontent.com/digitalocean/openapi/main/specification/DigitalOcean-public.v2.yaml"
+	@echo "  Downloading Asana (OAS 3.0.0)..."
+	@curl -sL -o testdata/corpus/asana-oas.yaml "https://raw.githubusercontent.com/Asana/openapi/master/defs/asana_oas.yaml"
+	@echo "  Downloading Google Maps (OAS 3.0.3)..."
+	@curl -sL -o testdata/corpus/google-maps-platform.json "https://raw.githubusercontent.com/googlemaps/openapi-specification/main/dist/google-maps-platform-openapi3.json"
+	@echo "  Downloading US NWS (OAS 3.0.3)..."
+	@curl -sL -o testdata/corpus/nws-openapi.json "https://api.weather.gov/openapi.json"
+	@echo "  Downloading Plaid (OAS 3.0.0)..."
+	@curl -sL -o testdata/corpus/plaid-2020-09-14.yml "https://raw.githubusercontent.com/plaid/plaid-openapi/master/2020-09-14.yml"
+	@echo "  Downloading Discord (OAS 3.1.0)..."
+	@curl -sL -o testdata/corpus/discord-openapi.json "https://raw.githubusercontent.com/discord/discord-api-spec/main/specs/openapi.json"
+	@echo "  Downloading GitHub (OAS 3.0.3)..."
+	@curl -sL -o testdata/corpus/github-api.json "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json"
+	@echo "  Downloading Stripe (OAS 3.0.0, large)..."
+	@curl -sL -o testdata/corpus/stripe-spec3.json "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json"
+	@echo "  Downloading Microsoft Graph (OAS 3.0.4, large)..."
+	@curl -sL -o testdata/corpus/msgraph-openapi.yaml "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/v1.0/openapi.yaml"
+	@echo "Corpus download complete!"
+	@echo ""
+	@ls -lh testdata/corpus/
+
+## corpus-clean: Remove downloaded corpus files
+corpus-clean:
+	@echo "Cleaning corpus files..."
+	@rm -f testdata/corpus/*.json testdata/corpus/*.yaml testdata/corpus/*.yml
+	@echo "Corpus files removed (README.md preserved)"
+
+## test-corpus: Run corpus integration tests (requires corpus-download)
+test-corpus:
+	@echo "Running corpus integration tests..."
+	@go test -v -count=1 ./... -run 'TestCorpus_'
+
+## test-corpus-short: Run corpus integration tests excluding large specs
+test-corpus-short:
+	@echo "Running corpus integration tests (short mode, excludes large specs)..."
+	@go test -v -short -count=1 ./... -run 'TestCorpus_'
+
+## bench-corpus: Run corpus benchmarks
+bench-corpus:
+	@echo "Running corpus benchmarks..."
+	@go test -bench='BenchmarkCorpus' -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./differ
+
 ## help: Show this help message
 help:
 	@echo "Usage: make [target]"
@@ -255,3 +304,8 @@ help:
 	@echo "Benchmark Configuration:"
 	@echo "  BENCH_TIME=<duration>  Benchmark run time per test (default: 5s)"
 	@echo "                         Example: make bench BENCH_TIME=10s"
+	@echo ""
+	@echo "Corpus Testing:"
+	@echo "  1. make corpus-download    # Download all specs (one-time)"
+	@echo "  2. make test-corpus-short  # Run tests (excludes large specs)"
+	@echo "  3. make test-corpus        # Run all corpus tests"
