@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-fixer bench-converter bench-joiner bench-differ bench-builder bench-save bench-compare bench-baseline bench-clean release-test release-clean corpus-download corpus-clean test-corpus test-corpus-short bench-corpus
+.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-fixer bench-converter bench-joiner bench-differ bench-generator bench-builder bench-save bench-compare bench-baseline bench-clean release-test release-clean corpus-download corpus-clean test-corpus test-corpus-short bench-corpus
 
 # Build variables
 BINARY_NAME=oastools
@@ -115,7 +115,7 @@ check: tidy fmt lint test
 ## bench: Run all benchmarks
 bench:
 	@echo "Running all benchmarks ($(BENCH_TIME) per benchmark)..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./fixer ./converter ./joiner ./differ ./builder
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder
 
 ## bench-parser: Run parser benchmarks only
 bench-parser:
@@ -147,6 +147,11 @@ bench-differ:
 	@echo "Running differ benchmarks..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./differ
 
+## bench-generator: Run generator benchmarks only
+bench-generator:
+	@echo "Running generator benchmarks..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./generator
+
 ## bench-builder: Run builder benchmarks only
 bench-builder:
 	@echo "Running builder benchmarks..."
@@ -157,14 +162,14 @@ bench-save:
 	@echo "Running benchmarks and saving results..."
 	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
 	OUTPUT_FILE="benchmark-$${TIMESTAMP}.txt"; \
-	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./fixer ./converter ./joiner ./differ ./builder 2>&1 | tee "$${OUTPUT_FILE}"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee "$${OUTPUT_FILE}"; \
 	echo ""; \
 	echo "Benchmark results saved to: $${OUTPUT_FILE}"
 
 ## bench-baseline: Run benchmarks and update baseline file
 bench-baseline:
 	@echo "Running benchmarks and updating baseline..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./fixer ./converter ./joiner ./differ ./builder 2>&1 | tee benchmark-baseline.txt
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee benchmark-baseline.txt
 	@echo ""
 	@echo "Baseline updated: benchmark-baseline.txt"
 

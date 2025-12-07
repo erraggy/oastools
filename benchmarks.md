@@ -4,7 +4,7 @@ This document provides detailed performance analysis and benchmark results for t
 
 ## Overview
 
-As of v1.18.0, oastools includes comprehensive performance benchmarking infrastructure covering all major operations across the parser, validator, fixer, converter, joiner, differ, and builder packages. The library has undergone targeted optimizations to achieve significant performance improvements while maintaining correctness and code quality.
+As of v1.18.0, oastools includes comprehensive performance benchmarking infrastructure covering all major operations across the parser, validator, fixer, converter, joiner, differ, generator, and builder packages. The library has undergone targeted optimizations to achieve significant performance improvements while maintaining correctness and code quality.
 
 **Platform**: Apple M4, darwin/arm64, Go 1.24
 
@@ -112,6 +112,14 @@ The benchmark suite includes **115+ benchmarks** (52 benchmark functions with ma
 - Edge cases (identical specifications)
 - Parse-once pattern efficiency
 - Change.String() formatting performance
+
+### Generator Package (4 benchmarks)
+
+**Code Generation Operations**:
+- Types-only generation
+- Client code generation
+- Server code generation
+- Full generation (types + client + server)
 
 ### Builder Package (17 benchmarks)
 
@@ -266,6 +274,19 @@ The benchmark suite includes **115+ benchmarks** (52 benchmark functions with ma
 
 **Observation**: DiffParsed is **81x faster** than Diff (5.7μs vs 463μs) because it skips parsing. The differ includes a fast path for identical specifications that runs in ~3.8μs. Breaking mode vs Simple mode has negligible performance difference (~1.2μs), making breaking change detection essentially free.
 
+### Generator Performance
+
+**Code Generation** (pre-parsed documents):
+
+| Generation Mode | Time (μs) | Memory (KB) | Allocations |
+|-----------------|-----------|-------------|-------------|
+| Types only      | 39        | 28          | 724         |
+| Client          | 272       | 187         | 4,088       |
+| Server          | 57        | 48          | 1,040       |
+| All (full)      | 249       | 182         | 3,882       |
+
+**Observation**: Types-only generation is fastest at 39μs. Client generation is most expensive due to HTTP client method generation. Full generation (all modes) is comparable to client-only because client code dominates the generation time.
+
 ### Builder Performance
 
 **Builder Construction**:
@@ -356,6 +377,7 @@ make bench-fixer
 make bench-converter
 make bench-joiner
 make bench-differ
+make bench-generator
 make bench-builder
 
 # Or individually
@@ -365,6 +387,7 @@ go test -bench=. -benchmem ./fixer
 go test -bench=. -benchmem ./converter
 go test -bench=. -benchmem ./joiner
 go test -bench=. -benchmem ./differ
+go test -bench=. -benchmem ./generator
 go test -bench=. -benchmem ./builder
 
 # Save baseline for comparison
