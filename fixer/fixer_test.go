@@ -349,6 +349,62 @@ paths:
 	assert.False(t, result.HasFixes())
 }
 
+// TestFixWithParameterRefs tests that parameters with $ref don't get empty name/in fields
+// after deep copy. This regression test ensures that the Parameter struct has omitempty
+// on name and in JSON tags to prevent empty strings from being added during JSON marshal/unmarshal.
+func TestFixWithParameterRefs(t *testing.T) {
+	spec := `
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Success
+components:
+  parameters:
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	f := New()
+	f.InferTypes = true
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Should have added userId parameter
+	assert.Equal(t, 1, result.FixCount)
+
+	// Get the operation parameters
+	doc := result.Document.(*parser.OAS3Document)
+	params := doc.Paths["/users/{userId}"].Get.Parameters
+	require.Len(t, params, 2)
+
+	// First parameter should be the $ref with NO empty name/in fields
+	refParam := params[0]
+	assert.Equal(t, "#/components/parameters/LimitParam", refParam.Ref)
+	assert.Empty(t, refParam.Name, "Parameter with $ref should not have name field set")
+	assert.Empty(t, refParam.In, "Parameter with $ref should not have in field set")
+
+	// Second parameter should be the added userId parameter
+	userIdParam := params[1]
+	assert.Equal(t, "userId", userIdParam.Name)
+	assert.Equal(t, "path", userIdParam.In)
+	assert.True(t, userIdParam.Required)
+}
+
 // TestDeepCopyOAS3Document tests that deep copy preserves OASVersion
 func TestDeepCopyOAS3Document(t *testing.T) {
 	doc := &parser.OAS3Document{

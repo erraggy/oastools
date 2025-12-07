@@ -3,8 +3,8 @@ package parser
 // Parameter describes a single operation parameter
 type Parameter struct {
 	Ref         string `yaml:"$ref,omitempty" json:"$ref,omitempty"`
-	Name        string `yaml:"name" json:"name"`
-	In          string `yaml:"in" json:"in"` // "query", "header", "path", "cookie" (OAS 3.0+), "formData", "body" (OAS 2.0)
+	Name        string `yaml:"name,omitempty" json:"name,omitempty"`
+	In          string `yaml:"in,omitempty" json:"in,omitempty"` // "query", "header", "path", "cookie" (OAS 3.0+), "formData", "body" (OAS 2.0)
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	Required    bool   `yaml:"required,omitempty" json:"required,omitempty"`
 	Deprecated  bool   `yaml:"deprecated,omitempty" json:"deprecated,omitempty"` // OAS 3.0+
