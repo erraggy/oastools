@@ -42,8 +42,12 @@
 // The parser validates operation IDs, status codes, and HTTP status codes. For
 // external references, it prevents path traversal attacks by restricting file
 // access to the base directory and subdirectories. Reference resolution caches
-// up to 1000 documents to prevent memory exhaustion. See the examples in
-// example_test.go for more details.
+// up to 1000 documents to prevent memory exhaustion.
+//
+// HTTP/HTTPS $ref resolution is available via WithResolveHTTPRefs (opt-in for
+// security). Use WithInsecureSkipVerify for self-signed certificates. HTTP
+// responses are cached, size-limited, and protected against circular references.
+// See the examples in example_test.go for more details.
 //
 // # ParseResult Fields
 //

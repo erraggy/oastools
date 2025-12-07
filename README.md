@@ -326,7 +326,7 @@ Warnings (3):
 
 ### External References
 
-- **HTTP(S) References Not Supported**: Only local file references for `$ref` values are supported
+- **HTTP(S) References**: Supported via `--resolve-http-refs` flag (opt-in for security). Use `--insecure` for self-signed certificates.
 - **Security**: External file references are restricted to the base directory and subdirectories to prevent path traversal attacks
 - **URL-loaded Specs**: When loading a spec from a URL, relative `$ref` paths resolve against the current directory, not relative to the URL (known limitation)
 
@@ -359,6 +359,25 @@ make clean          # Remove build artifacts
 make help           # Show all available commands
 ```
 
+### Integration Testing
+
+The project includes comprehensive integration tests using 10 real-world public OpenAPI specifications spanning OAS 2.0, 3.0.x, and 3.1.0. These tests validate the full pipeline: parser, validator, converter, joiner, and differ.
+
+```bash
+# Download corpus specs (one-time setup)
+make corpus-download
+
+# Run integration tests (excludes large >5MB specs)
+make test-corpus-short
+
+# Run all integration tests including large specs
+make test-corpus
+```
+
+**Corpus specifications include:** Petstore (2.0), Discord (3.1.0), Stripe, GitHub, Microsoft Graph, DigitalOcean, Google Maps, Asana, Plaid, and US National Weather Service.
+
+For detailed information about the corpus selection methodology and validation results, see the [OAS Corpus Research](planning/Top10-Public-OAS-Docs-CombinedSummary.md) documentation.
+
 ### Project Structure
 
 ```
@@ -372,11 +391,13 @@ make help           # Show all available commands
 ├── generator/          # OpenAPI code generation library (public API)
 ├── builder/            # OpenAPI builder library (public API)
 ├── internal/           # Internal shared utilities
+│   ├── corpusutil/     # Corpus management for integration tests
 │   ├── httputil/       # HTTP validation constants
 │   ├── severity/       # Severity levels for issues
 │   ├── issues/         # Unified issue type
 │   └── testutil/       # Test fixtures and helpers
-└── testdata/           # Test fixtures and sample specs
+├── testdata/           # Test fixtures and sample specs
+└── planning/           # Research docs (OAS corpus selection)
 ```
 
 All seven main packages (parser, validator, converter, joiner, differ, generator, builder) are public and can be imported directly.
