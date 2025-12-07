@@ -1,5 +1,3 @@
-.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-fixer bench-converter bench-joiner bench-differ bench-generator bench-builder bench-save bench-compare bench-baseline bench-release bench-clean release-test release-clean corpus-download corpus-clean test-corpus test-corpus-short bench-corpus
-
 # Build variables
 BINARY_NAME=oastools
 BUILD_DIR=bin
@@ -10,14 +8,39 @@ BENCH_TIME=5s
 # Default target
 all: build
 
+# =============================================================================
+# Build Targets
+# =============================================================================
+
 ## build: Build the binary
+.PHONY: build
 build:
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 
+## install: Install the binary
+.PHONY: install
+install:
+	@echo "Installing $(BINARY_NAME)..."
+	go install $(MAIN_PATH)
+
+## clean: Clean build artifacts and benchmark outputs
+.PHONY: clean
+clean:
+	@echo "Cleaning..."
+	@rm -rf $(BUILD_DIR)
+	@rm -rf dist/
+	@rm -f coverage.txt coverage.html
+	@rm -f benchmark-*.txt
+
+# =============================================================================
+# Test Targets
+# =============================================================================
+
 ## test: Run tests (fast, without race detector, skips fuzz tests)
 ## Note: Fuzz tests are skipped in regular test runs. Use 'make test-fuzz-parse' to run them separately.
+.PHONY: test
 test:
 	@echo "Running tests..."
 ifeq ("$(shell command -v gotestsum)", "")
@@ -27,6 +50,7 @@ else
 endif
 
 ## test-race: Run tests with race detector (slower, thorough race detection)
+.PHONY: test-race
 test-race:
 	@echo "Running tests with race detector (this may take several minutes)..."
 ifeq ("$(shell command -v gotestsum)", "")
@@ -36,12 +60,14 @@ else
 endif
 
 ## test-coverage: Run tests with coverage report
+.PHONY: test-coverage
 test-coverage: test
 	@echo "Generating coverage report..."
 	go tool cover -html=coverage.txt -o coverage.html
 	@echo "Coverage report generated at coverage.html"
 
 ## test-fuzz-parse: Run fuzz tests for parser (default: 1m30s, override with FUZZ_TIME, optionally set FUZZ_LOG=1 to save output)
+.PHONY: test-fuzz-parse
 test-fuzz-parse:
 	@echo "Running fuzz tests for ParseBytes..."
 	@FUZZ_TIME=$${FUZZ_TIME:-1m30s}; \
@@ -63,7 +89,12 @@ test-fuzz-parse:
 	@echo "To re-run a specific failing input: go test ./parser -run=FuzzParseBytes/<hash>"
 	@echo "To save fuzz output to a log file: FUZZ_LOG=1 make test-fuzz-parse"
 
+# =============================================================================
+# Code Quality Targets
+# =============================================================================
+
 ## lint: Run linter
+.PHONY: lint
 lint:
 	@echo "Running linter..."
 	@if command -v golangci-lint >/dev/null 2>&1; then \
@@ -74,90 +105,100 @@ lint:
 	fi
 
 ## fmt: Format code
+.PHONY: fmt
 fmt:
 	@echo "Formatting code..."
 	go fmt ./...
 
 ## vet: Run go vet
+.PHONY: vet
 vet:
 	@echo "Running go vet..."
 	go vet ./...
 
-## clean: Clean build artifacts and benchmark outputs
-clean:
-	@echo "Cleaning..."
-	@rm -rf $(BUILD_DIR)
-	@rm -rf dist/
-	@rm -f coverage.txt coverage.html
-	@rm -f benchmark-*.txt
+## check: Run tidy, fmt, lint, test, and git status
+.PHONY: check
+check: tidy fmt lint test
+	@echo "Running git status..."
+	@git status
 
-## install: Install the binary
-install:
-	@echo "Installing $(BINARY_NAME)..."
-	go install $(MAIN_PATH)
+# =============================================================================
+# Dependency Targets
+# =============================================================================
 
 ## deps: Download dependencies
+.PHONY: deps
 deps:
 	@echo "Downloading dependencies..."
 	go mod download
 	go mod tidy
 
 ## tidy: Tidy go modules
+.PHONY: tidy
 tidy:
 	@echo "Tidying go modules..."
 	go mod tidy
 
-## check: Run tidy, fmt, lint, test, and git status
-check: tidy fmt lint test
-	@echo "Running git status..."
-	@git status
+# =============================================================================
+# Benchmark Targets
+# =============================================================================
 
 ## bench: Run all benchmarks
+.PHONY: bench
 bench:
 	@echo "Running all benchmarks ($(BENCH_TIME) per benchmark)..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder
 
 ## bench-parser: Run parser benchmarks only
+.PHONY: bench-parser
 bench-parser:
 	@echo "Running parser benchmarks..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser
 
 ## bench-validator: Run validator benchmarks only
+.PHONY: bench-validator
 bench-validator:
 	@echo "Running validator benchmarks..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./validator
 
 ## bench-fixer: Run fixer benchmarks only
+.PHONY: bench-fixer
 bench-fixer:
 	@echo "Running fixer benchmarks..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./fixer
 
 ## bench-converter: Run converter benchmarks only
+.PHONY: bench-converter
 bench-converter:
 	@echo "Running converter benchmarks..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./converter
 
 ## bench-joiner: Run joiner benchmarks only
+.PHONY: bench-joiner
 bench-joiner:
 	@echo "Running joiner benchmarks..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./joiner
 
 ## bench-differ: Run differ benchmarks only
+.PHONY: bench-differ
 bench-differ:
 	@echo "Running differ benchmarks..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./differ
 
 ## bench-generator: Run generator benchmarks only
+.PHONY: bench-generator
 bench-generator:
 	@echo "Running generator benchmarks..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./generator
 
 ## bench-builder: Run builder benchmarks only
+.PHONY: bench-builder
 bench-builder:
 	@echo "Running builder benchmarks..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./builder
 
 ## bench-save: Run all benchmarks and save to timestamped file
+.PHONY: bench-save
 bench-save:
 	@echo "Running benchmarks and saving results..."
 	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
@@ -167,6 +208,7 @@ bench-save:
 	echo "Benchmark results saved to: $${OUTPUT_FILE}"
 
 ## bench-baseline: Run benchmarks and update baseline file
+.PHONY: bench-baseline
 bench-baseline:
 	@echo "Running benchmarks and updating baseline..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee benchmark-baseline.txt
@@ -176,6 +218,7 @@ bench-baseline:
 ## bench-release: Run benchmarks for upcoming release (usage: make bench-release VERSION=v1.19.1)
 ## Note: Excludes corpus benchmarks (BenchmarkCorpus_*) which require large specs and more memory.
 ## Use 'make bench-corpus' to run corpus benchmarks separately.
+.PHONY: bench-release
 bench-release:
 	@if [ -z "$(VERSION)" ]; then \
 		echo "Error: VERSION required"; \
@@ -190,6 +233,7 @@ bench-release:
 	@./scripts/compare-with-previous.sh "$(VERSION)" || true
 
 ## bench-compare: Compare two benchmark files (usage: make bench-compare OLD=file1.txt NEW=file2.txt)
+.PHONY: bench-compare
 bench-compare:
 	@if [ -z "$(OLD)" ] || [ -z "$(NEW)" ]; then \
 		echo "Error: Please specify OLD and NEW benchmark files"; \
@@ -208,7 +252,22 @@ bench-compare:
 		diff -u "$(OLD)" "$(NEW)" || true; \
 	fi
 
+## bench-clean: Remove timestamped benchmark and fuzz output files (preserves baseline and corpus)
+.PHONY: bench-clean
+bench-clean:
+	@echo "Cleaning benchmark and fuzz outputs..."
+	@rm -f benchmark-[0-9]*.txt
+	@rm -f cpu-profile-*.prof
+	@rm -f mem-profile-*.prof
+	@rm -f fuzz-parse-*.log
+	@echo "Benchmark and fuzz outputs cleaned (baseline and corpus preserved)"
+
+# =============================================================================
+# Profiling Targets
+# =============================================================================
+
 ## bench-cpu: Run benchmarks with CPU profiling
+.PHONY: bench-cpu
 bench-cpu:
 	@echo "Running benchmarks with CPU profiling..."
 	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
@@ -219,6 +278,7 @@ bench-cpu:
 	echo "Analyze with: go tool pprof $${PROFILE_FILE}"
 
 ## bench-mem: Run benchmarks with memory profiling
+.PHONY: bench-mem
 bench-mem:
 	@echo "Running benchmarks with memory profiling..."
 	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
@@ -229,6 +289,7 @@ bench-mem:
 	echo "Analyze with: go tool pprof $${PROFILE_FILE}"
 
 ## bench-profile: Run benchmarks with both CPU and memory profiling
+.PHONY: bench-profile
 bench-profile:
 	@echo "Running benchmarks with CPU and memory profiling..."
 	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
@@ -240,16 +301,12 @@ bench-profile:
 	echo "Memory profile saved to: $${MEM_PROFILE}"; \
 	echo "Analyze with: go tool pprof <profile-file>"
 
-## bench-clean: Remove timestamped benchmark and fuzz output files (preserves baseline and corpus)
-bench-clean:
-	@echo "Cleaning benchmark and fuzz outputs..."
-	@rm -f benchmark-[0-9]*.txt
-	@rm -f cpu-profile-*.prof
-	@rm -f mem-profile-*.prof
-	@rm -f fuzz-parse-*.log
-	@echo "Benchmark and fuzz outputs cleaned (baseline and corpus preserved)"
+# =============================================================================
+# Release Targets
+# =============================================================================
 
 ## release-test: Test GoReleaser configuration locally (creates dist/ without publishing)
+.PHONY: release-test
 release-test:
 	@echo "Testing GoReleaser configuration (snapshot mode)..."
 	@if ! command -v goreleaser >/dev/null 2>&1; then \
@@ -266,12 +323,18 @@ release-test:
 	@echo "  gh release create vX.Y.Z --title \"vX.Y.Z - Description\" --notes \"...\""
 
 ## release-clean: Clean GoReleaser artifacts from local testing
+.PHONY: release-clean
 release-clean:
 	@echo "Cleaning release artifacts..."
 	@rm -rf dist/
 	@echo "Release artifacts cleaned"
 
+# =============================================================================
+# Corpus Testing Targets
+# =============================================================================
+
 ## corpus-download: Download public OpenAPI specifications for integration testing
+.PHONY: corpus-download
 corpus-download:
 	@echo "Downloading corpus specifications..."
 	@mkdir -p testdata/corpus
@@ -300,27 +363,36 @@ corpus-download:
 	@ls -lh testdata/corpus/
 
 ## corpus-clean: Remove downloaded corpus files
+.PHONY: corpus-clean
 corpus-clean:
 	@echo "Cleaning corpus files..."
 	@rm -f testdata/corpus/*.json testdata/corpus/*.yaml testdata/corpus/*.yml
 	@echo "Corpus files removed (README.md preserved)"
 
 ## test-corpus: Run corpus integration tests (requires corpus-download)
+.PHONY: test-corpus
 test-corpus:
 	@echo "Running corpus integration tests..."
 	@go test -v -count=1 ./... -run 'TestCorpus_'
 
 ## test-corpus-short: Run corpus integration tests excluding large specs
+.PHONY: test-corpus-short
 test-corpus-short:
 	@echo "Running corpus integration tests (short mode, excludes large specs)..."
 	@go test -v -short -count=1 ./... -run 'TestCorpus_'
 
 ## bench-corpus: Run corpus benchmarks
+.PHONY: bench-corpus
 bench-corpus:
 	@echo "Running corpus benchmarks..."
 	@go test -bench='BenchmarkCorpus' -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./differ
 
+# =============================================================================
+# Help Target
+# =============================================================================
+
 ## help: Show this help message
+.PHONY: help
 help:
 	@echo "Usage: make [target]"
 	@echo ""
