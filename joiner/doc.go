@@ -96,6 +96,7 @@
 // The joiner integrates with other oastools packages:
 //   - [github.com/erraggy/oastools/parser] - Parse specifications before joining
 //   - [github.com/erraggy/oastools/validator] - Validate documents before joining (required)
+//   - [github.com/erraggy/oastools/fixer] - Fix common validation errors before joining
 //   - [github.com/erraggy/oastools/converter] - Convert between OAS versions before joining
 //   - [github.com/erraggy/oastools/differ] - Compare joined results with original documents
 //   - [github.com/erraggy/oastools/generator] - Generate code from joined specifications

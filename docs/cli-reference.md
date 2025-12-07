@@ -13,6 +13,7 @@ oastools <command> [options] [arguments]
 | Command | Description |
 |---------|-------------|
 | `validate` | Validate an OpenAPI specification file or URL |
+| `fix` | Automatically fix common validation errors |
 | `parse` | Parse and display an OpenAPI specification |
 | `convert` | Convert between OpenAPI specification versions |
 | `join` | Join multiple OpenAPI specifications |
@@ -126,6 +127,115 @@ Warnings (1):
 |------|---------|
 | 0 | Validation passed |
 | 1 | Validation failed (errors found) |
+
+---
+
+## fix
+
+Automatically fix common validation errors in an OpenAPI specification file, URL, or stdin.
+
+### Synopsis
+
+```bash
+oastools fix [flags] <file|url|->
+```
+
+### Description
+
+The fix command automatically corrects common validation errors in OpenAPI specifications. Currently supported fixes:
+
+- **Missing path parameters**: Adds missing path parameters (e.g., `{userId}`) that are referenced in the path but not declared in the parameters list
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--infer` | Infer parameter types from naming conventions (e.g., `userId` → integer) |
+| `-o, --output` | Output file path (default: stdout) |
+| `-q, --quiet` | Quiet mode: only output the fixed document, no diagnostic messages |
+| `-h, --help` | Display help for fix command |
+
+### Type Inference
+
+When `--infer` is enabled, parameter types are inferred from naming conventions:
+
+| Pattern | Type | Format |
+|---------|------|--------|
+| Names ending in `id`, `Id`, `ID` | `integer` | - |
+| Names containing `uuid`, `guid` | `string` | `uuid` |
+| All other names | `string` | - |
+
+### Examples
+
+```bash
+# Fix a local file and output to stdout
+oastools fix openapi.yaml
+
+# Fix and write to a specific file
+oastools fix openapi.yaml -o fixed.yaml
+
+# Fix with type inference
+oastools fix --infer openapi.yaml -o fixed.yaml
+
+# Fix from a URL
+oastools fix https://example.com/api/openapi.yaml -o fixed.yaml
+
+# Fix from stdin (for pipelines)
+cat openapi.yaml | oastools fix - > fixed.yaml
+
+# Pipeline: fix then validate
+oastools fix api.yaml | oastools validate -q -
+
+# Pipeline with quiet mode
+cat openapi.yaml | oastools fix -q - | oastools validate -q -
+```
+
+### Pipelining
+
+The fix command supports shell pipelines:
+
+- Use `-` as the file path to read from stdin
+- Use `--quiet/-q` to suppress diagnostic output for clean pipelining
+- Output goes to stdout by default (use `-o` for file output)
+
+```bash
+# Fix and pipe to validate
+cat openapi.yaml | oastools fix -q - | oastools validate -q -
+
+# Chain with curl
+curl -s https://example.com/openapi.yaml | oastools fix -q - > fixed.yaml
+```
+
+### Output Format
+
+```
+OpenAPI Specification Fixer
+===========================
+
+oastools version: v1.17.1
+Specification: openapi.yaml
+OAS Version: 3.0.3
+Source Size: 2.5 KB
+Paths: 5
+Operations: 12
+Schemas: 8
+Load Time: 125ms
+Total Time: 140ms
+
+Fixes Applied (3):
+  ✓ paths./users/{userId}.get.parameters: Added missing path parameter 'userId' (type: string)
+  ✓ paths./projects/{projectId}.get.parameters: Added missing path parameter 'projectId' (type: integer)
+  ✓ paths./docs/{documentUuid}.get.parameters: Added missing path parameter 'documentUuid' (type: string, format: uuid)
+
+✓ Fixed: 3 issue(s) corrected
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Fix completed successfully |
+| 1 | Fix failed (parse error or invalid input) |
 
 ---
 
@@ -743,6 +853,7 @@ Usage:
 
 Commands:
   validate    Validate an OpenAPI specification file or URL
+  fix         Automatically fix common validation errors
   convert     Convert between OpenAPI specification versions
   diff        Compare two OpenAPI specifications and detect changes
   generate    Generate Go client/server code from an OpenAPI specification
@@ -754,6 +865,7 @@ Commands:
 Examples:
   oastools validate openapi.yaml
   oastools validate https://example.com/api/openapi.yaml
+  oastools fix --infer api.yaml -o fixed.yaml
   oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
   oastools diff --breaking api-v1.yaml api-v2.yaml
   oastools generate --client -o ./client openapi.yaml
@@ -787,6 +899,7 @@ The output format matches the input format (JSON input → JSON output, YAML inp
 The following commands support loading specifications from URLs:
 
 - `validate`
+- `fix`
 - `parse`
 - `convert`
 - `diff`
@@ -805,6 +918,7 @@ Note: When loading from URLs, relative `$ref` paths resolve against the current 
 The following commands support reading from stdin using `-` as the file path:
 
 - `validate`
+- `fix`
 - `parse`
 - `convert`
 
@@ -834,6 +948,7 @@ Use `-q` or `--quiet` to suppress diagnostic messages for clean pipeline output:
 | Command | Quiet Mode Behavior |
 |---------|---------------------|
 | `validate` | Only outputs validation result (no banners/stats) |
+| `fix` | Only outputs the fixed document (no banners/stats) |
 | `parse` | Only outputs the document JSON (no banners/stats) |
 | `convert` | Only outputs the converted document (no banners/issues) |
 

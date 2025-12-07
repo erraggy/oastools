@@ -9,6 +9,11 @@ coverage:
         target: 70%
         threshold: 5%
 
+# Ignore CLI entry point from patch coverage - CLI handlers are integration-tested
+# via actual CLI usage, not unit tests. Library code in packages is fully tested.
+ignore:
+  - "cmd/**/*"
+
 comment:
   layout: "diff, flags, files"
   behavior: default

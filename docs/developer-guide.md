@@ -7,6 +7,7 @@ This guide provides comprehensive documentation for developers using oastools as
 - [Installation](#installation)
 - [CLI Usage](#cli-usage)
   - [Validate Command](#validate-command)
+  - [Fix Command](#fix-command)
   - [Parse Command](#parse-command)
   - [Convert Command](#convert-command)
   - [Join Command](#join-command)
@@ -15,6 +16,7 @@ This guide provides comprehensive documentation for developers using oastools as
 - [Library Usage](#library-usage)
   - [Parser Package](#parser-package)
   - [Validator Package](#validator-package)
+  - [Fixer Package](#fixer-package)
   - [Converter Package](#converter-package)
   - [Joiner Package](#joiner-package)
   - [Differ Package](#differ-package)
@@ -125,6 +127,64 @@ Warnings (1):
 | `missing required field 'responses'` | Add at least one response (e.g., `200` or `default`) to each operation |
 | `missing required 'type' field` | Add `type: string`, `type: object`, etc. to schema definitions |
 | `Invalid $ref format` | Use `#/components/schemas/Name` for OAS 3.x or `#/definitions/Name` for OAS 2.0 |
+
+### Fix Command
+
+The fix command automatically corrects common validation errors in OpenAPI specifications.
+
+**Basic Usage:**
+
+```bash
+# Fix a file and output to stdout
+oastools fix openapi.yaml
+
+# Fix and write to a specific file
+oastools fix openapi.yaml -o fixed.yaml
+
+# Fix with type inference
+oastools fix --infer openapi.yaml -o fixed.yaml
+
+# Fix from stdin
+cat openapi.yaml | oastools fix - > fixed.yaml
+```
+
+**Pipeline Usage:**
+
+```bash
+# Fix then validate
+oastools fix api.yaml | oastools validate -q -
+
+# Fix with quiet mode (only output the document)
+cat openapi.yaml | oastools fix -q - | oastools validate -q -
+```
+
+**Type Inference:**
+
+When `--infer` is enabled, parameter types are inferred from naming conventions:
+
+| Pattern | Type | Format |
+|---------|------|--------|
+| Names ending in `id`, `Id`, `ID` | `integer` | - |
+| Names containing `uuid`, `guid` | `string` | `uuid` |
+| All other names | `string` | - |
+
+**Understanding Output:**
+
+```
+OpenAPI Specification Fixer
+===========================
+
+Specification: openapi.yaml
+OAS Version: 3.0.3
+Load Time: 125ms
+Total Time: 140ms
+
+Fixes Applied (2):
+  ✓ paths./users/{userId}.get.parameters: Added missing path parameter 'userId' (type: string)
+  ✓ paths./projects/{projectId}.get.parameters: Added missing path parameter 'projectId' (type: integer)
+
+✓ Fixed: 2 issue(s) corrected
+```
 
 ### Parse Command
 
@@ -590,6 +650,82 @@ for _, err := range result.Errors {
     if err.SpecRef != "" {
         fmt.Printf("Spec Reference: %s\n", err.SpecRef)
     }
+}
+```
+
+### Fixer Package
+
+The fixer package automatically corrects common validation errors in OpenAPI Specification documents.
+
+**Basic Fixing:**
+
+```go
+import "github.com/erraggy/oastools/fixer"
+
+// Fix with functional options
+result, err := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithInferTypes(true),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+if result.HasFixes() {
+    fmt.Printf("Applied %d fixes\n", result.FixCount)
+    for _, fix := range result.Fixes {
+        fmt.Printf("  %s: %s\n", fix.Type, fix.Description)
+    }
+}
+```
+
+**Reusable Fixer Instance:**
+
+```go
+// Create a reusable fixer for processing multiple files
+f := fixer.New()
+f.InferTypes = true
+
+// Process multiple files with same configuration
+result1, _ := f.Fix("api1.yaml")
+result2, _ := f.Fix("api2.yaml")
+result3, _ := f.Fix("api3.yaml")
+```
+
+**Fixing Pre-Parsed Documents:**
+
+```go
+// Parse once, fix multiple times
+parseResult, err := parser.ParseWithOptions(
+    parser.WithFilePath("openapi.yaml"),
+    parser.WithValidateStructure(true),
+)
+
+result, err := fixer.FixWithOptions(
+    fixer.WithParsed(*parseResult),
+    fixer.WithInferTypes(true),
+)
+```
+
+**Processing Fix Results:**
+
+```go
+result, _ := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+)
+
+for _, fix := range result.Fixes {
+    fmt.Printf("Type: %s\n", fix.Type)
+    fmt.Printf("Path: %s\n", fix.Path)
+    fmt.Printf("Description: %s\n", fix.Description)
+}
+
+// Access the fixed document
+switch doc := result.Document.(type) {
+case *parser.OAS2Document:
+    // Work with fixed OAS 2.0 document
+case *parser.OAS3Document:
+    // Work with fixed OAS 3.x document
 }
 ```
 

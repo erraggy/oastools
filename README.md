@@ -1,6 +1,6 @@
 # oastools
 
-OpenAPI Specification (OAS) tools for validating, parsing, converting, diffing, joining, and building specs; as well as generating client/servers/types _from_ specs.
+OpenAPI Specification (OAS) tools for validating, parsing, fixing, converting, diffing, joining, and building specs; as well as generating client/servers/types _from_ specs.
 
 [![CI: Go](https://github.com/erraggy/oastools/actions/workflows/go.yml/badge.svg)](https://github.com/erraggy/oastools/actions/workflows/go.yml)
 [![CI: golangci-lint](https://github.com/erraggy/oastools/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/erraggy/oastools/actions/workflows/golangci-lint.yml)
@@ -13,6 +13,7 @@ OpenAPI Specification (OAS) tools for validating, parsing, converting, diffing, 
 
 - **Parse** - Parse and analyze OpenAPI specifications (all versions 2.0 through 3.2.0)
 - **Validate** - Validate OpenAPI specification files for correctness
+- **Fix** - Automatically fix common validation errors (e.g., missing path parameters)
 - **Convert** - Convert between OpenAPI versions (2.0 ↔ 3.x) with transparent issue tracking
 - **Join** - Merge multiple OpenAPI specifications with flexible collision resolution
 - **Diff** - Compare OpenAPI specifications and detect breaking changes
@@ -77,6 +78,10 @@ oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
 # Join multiple specs
 oastools join -o merged.yaml base.yaml extensions.yaml
 
+# Fix common validation errors (e.g., missing path parameters)
+oastools fix api.yaml -o fixed.yaml
+oastools fix --infer api.yaml | oastools validate -q -  # Fix then validate
+
 # Compare specs and detect breaking changes
 oastools diff --breaking api-v1.yaml api-v2.yaml
 
@@ -121,6 +126,7 @@ import (
 
     "github.com/erraggy/oastools/parser"
     "github.com/erraggy/oastools/validator"
+    "github.com/erraggy/oastools/fixer"
     "github.com/erraggy/oastools/converter"
     "github.com/erraggy/oastools/joiner"
     "github.com/erraggy/oastools/differ"
@@ -138,6 +144,12 @@ result, err := parser.ParseWithOptions(
 vResult, err := validator.ValidateWithOptions(
     validator.WithFilePath("openapi.yaml"),
     validator.WithIncludeWarnings(true),
+)
+
+// Fix (automatically fix common validation errors)
+fResult, err := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithInferTypes(true),  // Infer types from parameter names
 )
 
 // Convert
@@ -197,6 +209,9 @@ p.ValidateStructure = true
 v := validator.New()
 v.IncludeWarnings = true
 
+f := fixer.New()
+f.InferTypes = true  // Infer types from parameter names
+
 c := converter.New()
 c.StrictMode = false
 
@@ -228,12 +243,13 @@ genResult.WriteFiles("./generated")
 **Library Features**:
 - **Parser**: Parse from files, readers, or bytes; optional reference resolution and structure validation
 - **Validator**: Structural, format, and semantic validation; configurable warnings and strict mode
+- **Fixer**: Automatically fix common validation errors; optional type inference from parameter names
 - **Converter**: Convert OAS 2.0 ↔ 3.x with severity-tracked issues (Info, Warning, Critical)
 - **Joiner**: Flexible collision strategies, array merging, tag deduplication
 - **Differ**: Compare specs with simple or breaking change detection; severity-based classification (Critical, Error, Warning, Info)
 - **Generator**: Create idiomatic Go code for HTTP clients, server interfaces, or type-only generation
 - **Builder**: Programmatically construct OAS documents with reflection-based schema generation from Go types
-- **Performance**: ParseOnce pattern enables efficient workflows (parse once, validate/convert/join/diff many times)
+- **Performance**: ParseOnce pattern enables efficient workflows (parse once, validate/convert/join/diff/fix many times)
 
 See [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) for complete API documentation.
 
