@@ -1,6 +1,6 @@
 # oastools
 
-OpenAPI Specification (OAS) tools for validating, parsing, converting, diffing, joining, and building specs; as well as generating client/servers/types _from_ specs.
+OpenAPI Specification (OAS) tools for validating, parsing, fixing, converting, diffing, joining, and building specs; as well as generating client/servers/types _from_ specs.
 
 [![CI: Go](https://github.com/erraggy/oastools/actions/workflows/go.yml/badge.svg)](https://github.com/erraggy/oastools/actions/workflows/go.yml)
 [![CI: golangci-lint](https://github.com/erraggy/oastools/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/erraggy/oastools/actions/workflows/golangci-lint.yml)
