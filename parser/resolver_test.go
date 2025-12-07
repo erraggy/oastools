@@ -444,8 +444,9 @@ func TestJSONPointerEscaping(t *testing.T) {
 	}
 }
 
-// TestHTTPReferencesNotSupported tests that HTTP(S) references return appropriate errors
-func TestHTTPReferencesNotSupported(t *testing.T) {
+// TestHTTPReferencesRequireFetcher tests that HTTP(S) references require an HTTP fetcher
+func TestHTTPReferencesRequireFetcher(t *testing.T) {
+	// Without HTTP fetcher configured, HTTP refs should return an error
 	resolver := NewRefResolver(".")
 
 	doc := map[string]any{}
@@ -460,11 +461,11 @@ func TestHTTPReferencesNotSupported(t *testing.T) {
 		t.Run(ref, func(t *testing.T) {
 			_, err := resolver.Resolve(doc, ref)
 			if err == nil {
-				t.Error("Expected error for HTTP(S) reference")
+				t.Error("Expected error for HTTP(S) reference without fetcher")
 			}
 
-			if !strings.Contains(err.Error(), "not yet supported") {
-				t.Errorf("Expected 'not yet supported' error, got: %v", err)
+			if !strings.Contains(err.Error(), "HTTP references require HTTP fetcher") {
+				t.Errorf("Expected 'HTTP references require HTTP fetcher' error, got: %v", err)
 			}
 		})
 	}

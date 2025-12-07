@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,6 +23,13 @@ import (
 type Parser struct {
 	// ResolveRefs determines whether to resolve $ref references
 	ResolveRefs bool
+	// ResolveHTTPRefs determines whether to resolve HTTP/HTTPS $ref URLs
+	// This is disabled by default for security (SSRF protection)
+	// Must be explicitly enabled when parsing specifications with HTTP refs
+	ResolveHTTPRefs bool
+	// InsecureSkipVerify disables TLS certificate verification for HTTP refs
+	// Use with caution - only enable for testing or internal servers with self-signed certs
+	InsecureSkipVerify bool
 	// ValidateStructure determines whether to perform basic structure validation
 	ValidateStructure bool
 	// UserAgent is the User-Agent string used when fetching URLs
@@ -200,8 +208,22 @@ func isURL(path string) bool {
 // fetchURL fetches content from a URL and returns the bytes and Content-Type header
 func (p *Parser) fetchURL(urlStr string) ([]byte, string, error) {
 	// Create HTTP client with timeout
-	client := &http.Client{
-		Timeout: 30 * time.Second,
+	// Configure TLS if InsecureSkipVerify is enabled
+	var client *http.Client
+	if p.InsecureSkipVerify {
+		transport := &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, //nolint:gosec // User explicitly requested insecure mode
+			},
+		}
+		client = &http.Client{
+			Timeout:   30 * time.Second,
+			Transport: transport,
+		}
+	} else {
+		client = &http.Client{
+			Timeout: 30 * time.Second,
+		}
 	}
 
 	// Create request
@@ -281,6 +303,7 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 	var err error
 	var format SourceFormat
 	var baseDir string
+	var baseURL string
 	var loadStart time.Time
 	var loadTime time.Duration
 
@@ -295,11 +318,10 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 			return nil, err
 		}
 
-		// For URLs, we can't resolve relative refs easily, so use current directory
-		// Note: This means relative $ref paths in URL-loaded specs will attempt to
-		// load from the local filesystem, not relative to the URL. This is a known
-		// limitation that may be addressed in a future version.
+		// For URLs, use current directory for local file refs
+		// but store the URL for resolving relative HTTP refs
 		baseDir = "."
+		baseURL = specPath
 
 		// Try to detect format from URL path and Content-Type header
 		format = detectFormatFromURL(specPath, contentType)
@@ -314,13 +336,15 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 
 		// Get the directory of the spec file for resolving relative refs
 		baseDir = filepath.Dir(specPath)
+		// No base URL for local files
+		baseURL = ""
 
 		// Detect format from file extension
 		format = detectFormatFromPath(specPath)
 	}
 
 	// Parse the data
-	res, err := p.parseBytesWithBaseDir(data, baseDir)
+	res, err := p.parseBytesWithBaseDirAndURL(data, baseDir, baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -398,9 +422,11 @@ type parseConfig struct {
 	bytes    []byte
 
 	// Configuration options
-	resolveRefs       bool
-	validateStructure bool
-	userAgent         string
+	resolveRefs        bool
+	resolveHTTPRefs    bool
+	insecureSkipVerify bool
+	validateStructure  bool
+	userAgent          string
 }
 
 // ParseWithOptions parses an OpenAPI specification using functional options.
@@ -420,9 +446,11 @@ func ParseWithOptions(opts ...Option) (*ParseResult, error) {
 	}
 
 	p := &Parser{
-		ResolveRefs:       cfg.resolveRefs,
-		ValidateStructure: cfg.validateStructure,
-		UserAgent:         cfg.userAgent,
+		ResolveRefs:        cfg.resolveRefs,
+		ResolveHTTPRefs:    cfg.resolveHTTPRefs,
+		InsecureSkipVerify: cfg.insecureSkipVerify,
+		ValidateStructure:  cfg.validateStructure,
+		UserAgent:          cfg.userAgent,
 	}
 
 	// Route to appropriate parsing method based on input source
@@ -534,8 +562,34 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
+// WithResolveHTTPRefs enables resolution of HTTP/HTTPS $ref URLs
+// This is disabled by default for security (SSRF protection)
+// Must be explicitly enabled when parsing specifications with HTTP refs
+// Note: This option only takes effect when ResolveRefs is also enabled
+func WithResolveHTTPRefs(enabled bool) Option {
+	return func(cfg *parseConfig) error {
+		cfg.resolveHTTPRefs = enabled
+		return nil
+	}
+}
+
+// WithInsecureSkipVerify disables TLS certificate verification for HTTPS refs
+// Use with caution - only enable for testing or internal servers with self-signed certs
+// Note: This option only takes effect when ResolveHTTPRefs is also enabled
+func WithInsecureSkipVerify(enabled bool) Option {
+	return func(cfg *parseConfig) error {
+		cfg.insecureSkipVerify = enabled
+		return nil
+	}
+}
+
 // parseBytesWithBaseDir parses data with a specified base directory for ref resolution
 func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResult, error) {
+	return p.parseBytesWithBaseDirAndURL(data, baseDir, "")
+}
+
+// parseBytesWithBaseDirAndURL parses data with base directory and optional base URL for HTTP refs
+func (p *Parser) parseBytesWithBaseDirAndURL(data []byte, baseDir, baseURL string) (*ParseResult, error) {
 	result := &ParseResult{
 		Errors:   make([]error, 0),
 		Warnings: make([]string, 0),
@@ -549,7 +603,13 @@ func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResul
 
 	// Resolve references if enabled (before semver-specific parsing)
 	if p.ResolveRefs {
-		resolver := NewRefResolver(baseDir)
+		var resolver *RefResolver
+		if p.ResolveHTTPRefs && baseURL != "" {
+			// Use HTTP-enabled resolver when parsing from URL with HTTP refs enabled
+			resolver = NewRefResolverWithHTTP(baseDir, baseURL, p.fetchURL)
+		} else {
+			resolver = NewRefResolver(baseDir)
+		}
 		if err := resolver.ResolveAllRefs(rawData); err != nil {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("ref resolution warning: %v", err))
 		}

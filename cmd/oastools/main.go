@@ -128,6 +128,8 @@ func validateCollisionStrategy(strategyName, value string) error {
 // parseFlags contains flags for the parse command
 type parseFlags struct {
 	resolveRefs       bool
+	resolveHTTPRefs   bool
+	insecure          bool
 	validateStructure bool
 	quiet             bool
 }
@@ -139,6 +141,8 @@ func setupParseFlags() (*flag.FlagSet, *parseFlags) {
 	flags := &parseFlags{}
 
 	fs.BoolVar(&flags.resolveRefs, "resolve-refs", false, "resolve external $ref references")
+	fs.BoolVar(&flags.resolveHTTPRefs, "resolve-http-refs", false, "resolve HTTP/HTTPS $ref URLs (requires --resolve-refs)")
+	fs.BoolVar(&flags.insecure, "insecure", false, "disable TLS certificate verification for HTTPS refs")
 	fs.BoolVar(&flags.validateStructure, "validate-structure", false, "validate document structure during parsing")
 	fs.BoolVar(&flags.quiet, "q", false, "quiet mode: only output the document, no diagnostic messages")
 	fs.BoolVar(&flags.quiet, "quiet", false, "quiet mode: only output the document, no diagnostic messages")
@@ -152,8 +156,14 @@ func setupParseFlags() (*flag.FlagSet, *parseFlags) {
 		cliutil.Writef(output, "\nExamples:\n")
 		cliutil.Writef(output, "  oastools parse openapi.yaml\n")
 		cliutil.Writef(output, "  oastools parse --resolve-refs openapi.yaml\n")
+		cliutil.Writef(output, "  oastools parse --resolve-refs --resolve-http-refs https://example.com/api/openapi.yaml\n")
+		cliutil.Writef(output, "  oastools parse --resolve-refs --resolve-http-refs --insecure https://internal-server/api.yaml\n")
 		cliutil.Writef(output, "  oastools parse --validate-structure https://example.com/api/openapi.yaml\n")
 		cliutil.Writef(output, "  cat openapi.yaml | oastools parse -q -\n")
+		cliutil.Writef(output, "\nHTTP Reference Resolution:\n")
+		cliutil.Writef(output, "  --resolve-http-refs enables fetching and resolving $refs that point to HTTP/HTTPS URLs.\n")
+		cliutil.Writef(output, "  This is disabled by default for security (SSRF protection).\n")
+		cliutil.Writef(output, "  Use --insecure to skip TLS certificate verification for self-signed certs.\n")
 		cliutil.Writef(output, "\nPipelining:\n")
 		cliutil.Writef(output, "  - Use '-' as the file path to read from stdin\n")
 		cliutil.Writef(output, "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
@@ -185,6 +195,8 @@ func handleParse(args []string) error {
 	// Create parser with options
 	p := parser.New()
 	p.ResolveRefs = flags.resolveRefs
+	p.ResolveHTTPRefs = flags.resolveHTTPRefs
+	p.InsecureSkipVerify = flags.insecure
 	p.ValidateStructure = flags.validateStructure
 
 	// Parse the file, URL, or stdin
@@ -468,6 +480,7 @@ type joinFlags struct {
 	componentStrategy string
 	noMergeArrays     bool
 	noDedupTags       bool
+	quiet             bool
 }
 
 // setupJoinFlags creates and configures a FlagSet for the join command.
@@ -476,13 +489,15 @@ func setupJoinFlags() (*flag.FlagSet, *joinFlags) {
 	fs := flag.NewFlagSet("join", flag.ContinueOnError)
 	flags := &joinFlags{}
 
-	fs.StringVar(&flags.output, "o", "", "output file path (required)")
-	fs.StringVar(&flags.output, "output", "", "output file path (required)")
+	fs.StringVar(&flags.output, "o", "", "output file path (default: stdout)")
+	fs.StringVar(&flags.output, "output", "", "output file path (default: stdout)")
 	fs.StringVar(&flags.pathStrategy, "path-strategy", "", "collision strategy for paths (accept-left, accept-right, fail, fail-on-paths)")
 	fs.StringVar(&flags.schemaStrategy, "schema-strategy", "", "collision strategy for schemas/definitions")
 	fs.StringVar(&flags.componentStrategy, "component-strategy", "", "collision strategy for other components")
 	fs.BoolVar(&flags.noMergeArrays, "no-merge-arrays", false, "don't merge arrays (servers, security, etc.)")
 	fs.BoolVar(&flags.noDedupTags, "no-dedup-tags", false, "don't deduplicate tags by name")
+	fs.BoolVar(&flags.quiet, "q", false, "quiet mode: suppress diagnostic messages (for pipelining)")
+	fs.BoolVar(&flags.quiet, "quiet", false, "quiet mode: suppress diagnostic messages (for pipelining)")
 
 	fs.Usage = func() {
 		cliutil.Writef(fs.Output(), "Usage: oastools join [flags] <file1> <file2> [file3...]\n\n")
@@ -498,11 +513,14 @@ func setupJoinFlags() (*flag.FlagSet, *joinFlags) {
 		cliutil.Writef(fs.Output(), "  oastools join -o merged.yaml base.yaml extensions.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml\n")
+		cliutil.Writef(fs.Output(), "\nPipelining:\n")
+		cliutil.Writef(fs.Output(), "  oastools join -q base.yaml ext.yaml | oastools validate -q -\n")
+		cliutil.Writef(fs.Output(), "  oastools join -q spec1.yaml spec2.yaml | oastools convert -q -t 3.1.0 -\n")
 		cliutil.Writef(fs.Output(), "\nNotes:\n")
 		cliutil.Writef(fs.Output(), "  - All input files must be the same major OAS version (2.0 or 3.x)\n")
 		cliutil.Writef(fs.Output(), "  - The output will use the version of the first input file\n")
 		cliutil.Writef(fs.Output(), "  - Info section is taken from the first document by default\n")
-		cliutil.Writef(fs.Output(), "  - Output file is written with restrictive permissions (0600) for security\n")
+		cliutil.Writef(fs.Output(), "  - When -o is specified, file is written with restrictive permissions (0600)\n")
 	}
 
 	return fs, flags
@@ -521,11 +539,6 @@ func handleJoin(args []string) error {
 	if fs.NArg() < 2 {
 		fs.Usage()
 		return fmt.Errorf("join command requires at least 2 input files")
-	}
-
-	if flags.output == "" {
-		fs.Usage()
-		return fmt.Errorf("output file is required (use -o or --output)")
 	}
 
 	filePaths := fs.Args()
@@ -557,9 +570,11 @@ func handleJoin(args []string) error {
 		config.ComponentStrategy = joiner.CollisionStrategy(flags.componentStrategy)
 	}
 
-	// Validate output path before joining
-	if err := validateOutputPath(flags.output, filePaths); err != nil {
-		return err
+	// Validate output path before joining (only when writing to file)
+	if flags.output != "" {
+		if err := validateOutputPath(flags.output, filePaths); err != nil {
+			return err
+		}
 	}
 
 	// Create joiner and execute with timing
@@ -569,39 +584,61 @@ func handleJoin(args []string) error {
 	if err != nil {
 		return fmt.Errorf("joining specifications: %w", err)
 	}
-
-	// Write result to file
-	err = j.WriteResult(result, flags.output)
 	totalTime := time.Since(startTime)
-	if err != nil {
-		return fmt.Errorf("writing output file: %w", err)
-	}
 
-	// Print success message
-	fmt.Printf("OpenAPI Specification Joiner\n")
-	fmt.Printf("============================\n\n")
-	fmt.Printf("oastools version: %s\n", oastools.Version())
-	fmt.Printf("Successfully joined %d specification files\n", len(filePaths))
-	fmt.Printf("Output: %s\n", flags.output)
-	fmt.Printf("OAS Version: %s\n", result.Version)
-	fmt.Printf("Paths: %d\n", result.Stats.PathCount)
-	fmt.Printf("Operations: %d\n", result.Stats.OperationCount)
-	fmt.Printf("Schemas: %d\n", result.Stats.SchemaCount)
-	fmt.Printf("Total Time: %v\n\n", totalTime)
-
-	if result.CollisionCount > 0 {
-		fmt.Printf("Collisions resolved: %d\n\n", result.CollisionCount)
-	}
-
-	if len(result.Warnings) > 0 {
-		fmt.Printf("Warnings (%d):\n", len(result.Warnings))
-		for _, warning := range result.Warnings {
-			fmt.Printf("  - %s\n", warning)
+	// Print diagnostic messages (to stderr to keep stdout clean for pipelining)
+	if !flags.quiet {
+		cliutil.Writef(os.Stderr, "OpenAPI Specification Joiner\n")
+		cliutil.Writef(os.Stderr, "============================\n\n")
+		cliutil.Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
+		cliutil.Writef(os.Stderr, "Successfully joined %d specification files\n", len(filePaths))
+		if flags.output != "" {
+			cliutil.Writef(os.Stderr, "Output: %s\n", flags.output)
+		} else {
+			cliutil.Writef(os.Stderr, "Output: <stdout>\n")
 		}
-		fmt.Println()
+		cliutil.Writef(os.Stderr, "OAS Version: %s\n", result.Version)
+		cliutil.Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
+		cliutil.Writef(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
+		cliutil.Writef(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
+		cliutil.Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
+
+		if result.CollisionCount > 0 {
+			cliutil.Writef(os.Stderr, "Collisions resolved: %d\n\n", result.CollisionCount)
+		}
+
+		if len(result.Warnings) > 0 {
+			cliutil.Writef(os.Stderr, "Warnings (%d):\n", len(result.Warnings))
+			for _, warning := range result.Warnings {
+				cliutil.Writef(os.Stderr, "  - %s\n", warning)
+			}
+			cliutil.Writef(os.Stderr, "\n")
+		}
+
+		cliutil.Writef(os.Stderr, "✓ Join completed successfully!\n")
 	}
 
-	fmt.Printf("✓ Join completed successfully!\n")
+	// Write output
+	if flags.output != "" {
+		// Write to file
+		err = j.WriteResult(result, flags.output)
+		if err != nil {
+			return fmt.Errorf("writing output file: %w", err)
+		}
+		if !flags.quiet {
+			cliutil.Writef(os.Stderr, "\nOutput written to: %s\n", flags.output)
+		}
+	} else {
+		// Write to stdout
+		data, err := marshalDocument(result.Document, result.SourceFormat)
+		if err != nil {
+			return fmt.Errorf("marshaling joined document: %w", err)
+		}
+		if _, err = os.Stdout.Write(data); err != nil {
+			return fmt.Errorf("writing joined document to stdout: %w", err)
+		}
+	}
+
 	return nil
 }
 
