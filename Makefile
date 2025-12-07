@@ -115,61 +115,61 @@ check: tidy fmt lint test
 ## bench: Run all benchmarks
 bench:
 	@echo "Running all benchmarks ($(BENCH_TIME) per benchmark)..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder
 
 ## bench-parser: Run parser benchmarks only
 bench-parser:
 	@echo "Running parser benchmarks..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser
 
 ## bench-validator: Run validator benchmarks only
 bench-validator:
 	@echo "Running validator benchmarks..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./validator
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./validator
 
 ## bench-fixer: Run fixer benchmarks only
 bench-fixer:
 	@echo "Running fixer benchmarks..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./fixer
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./fixer
 
 ## bench-converter: Run converter benchmarks only
 bench-converter:
 	@echo "Running converter benchmarks..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./converter
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./converter
 
 ## bench-joiner: Run joiner benchmarks only
 bench-joiner:
 	@echo "Running joiner benchmarks..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./joiner
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./joiner
 
 ## bench-differ: Run differ benchmarks only
 bench-differ:
 	@echo "Running differ benchmarks..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./differ
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./differ
 
 ## bench-generator: Run generator benchmarks only
 bench-generator:
 	@echo "Running generator benchmarks..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./generator
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./generator
 
 ## bench-builder: Run builder benchmarks only
 bench-builder:
 	@echo "Running builder benchmarks..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./builder
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./builder
 
 ## bench-save: Run all benchmarks and save to timestamped file
 bench-save:
 	@echo "Running benchmarks and saving results..."
 	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
 	OUTPUT_FILE="benchmark-$${TIMESTAMP}.txt"; \
-	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee "$${OUTPUT_FILE}"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee "$${OUTPUT_FILE}"; \
 	echo ""; \
 	echo "Benchmark results saved to: $${OUTPUT_FILE}"
 
 ## bench-baseline: Run benchmarks and update baseline file
 bench-baseline:
 	@echo "Running benchmarks and updating baseline..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee benchmark-baseline.txt
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee benchmark-baseline.txt
 	@echo ""
 	@echo "Baseline updated: benchmark-baseline.txt"
 
