@@ -261,6 +261,72 @@ For detailed release procedures, see the **PR-to-Release Workflow** section in [
 
 For detailed release workflow, see [WORKFLOW.md](WORKFLOW.md).
 
+## Adding a New Package/Feature Checklist
+
+When adding a new package (like `fixer`, `generator`, etc.) or major feature, ensure these are updated:
+
+### Required Updates
+
+1. **Package Implementation**
+   - Create package directory with implementation files
+   - Add `doc.go` with package documentation
+   - Add `example_test.go` with runnable godoc examples
+   - Add comprehensive tests (`*_test.go`)
+
+2. **CLI Integration** (if applicable)
+   - Add command in `cmd/oastools/commands/`
+   - Register in `cmd/oastools/main.go`
+   - Add to CLI help text
+
+3. **Benchmark Tests**
+   - Create `*_bench_test.go` with benchmarks for:
+     - File-based operations (parse + process)
+     - Pre-parsed operations (`*Parsed` methods)
+     - Functional options API
+   - Follow Go 1.24+ `for b.Loop()` pattern
+
+4. **Documentation Updates**
+   - **README.md**:
+     - Add to Features section
+     - Add to Quick Start examples (CLI and library)
+     - Add to Project Structure
+     - Update package count in "All X main packages..."
+     - Add to Integration Testing pipeline list
+     - Add row to Document Processing Performance table
+   - **benchmarks.md**:
+     - Update package count in overview
+     - Add new section in Benchmark Suite
+     - Add performance metrics section with tables
+     - Update "Running Benchmarks" command lists
+     - Update Performance Best Practices
+   - **BENCHMARK_UPDATE_PROCESS.md**:
+     - Add to core packages list
+     - Add benchmark command
+     - Add section with formatting instructions
+     - Update example table if applicable
+   - **CLAUDE.md** (this file):
+     - Add to Public API Structure package list
+     - Add Key API Features section
+   - **AGENTS.md**:
+     - Add to Architecture section
+   - **docs/developer-guide.md**:
+     - Add to Table of Contents
+     - Add CLI Usage section
+     - Add Library Usage section with examples
+
+5. **Makefile Updates**
+   - Add to `.PHONY` targets list
+   - Add `bench-<package>` target
+   - Add to `bench` target package list
+   - Add to `bench-save` command
+   - Add to `bench-baseline` command
+
+6. **Verification**
+   - Run `make check` to verify all tests pass
+   - Run `make bench-<package>` to verify benchmarks work
+   - Verify `make lint` passes
+   - Verify package is importable: `go doc github.com/erraggy/oastools/<package>`
+
 ## Go Module
 
 - Module path: `github.com/erraggy/oastools`
