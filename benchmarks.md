@@ -70,7 +70,7 @@ The benchmark suite includes **115+ benchmarks** (52 benchmark functions with ma
 - Strict mode validation (small, medium, and large documents)
 - Large document validation without warnings
 
-### Fixer Package (15 benchmarks)
+### Fixer Package (13 benchmarks)
 
 **Fixing Operations**:
 - Small, medium, and large OAS 3.x documents
@@ -78,7 +78,6 @@ The benchmark suite includes **115+ benchmarks** (52 benchmark functions with ma
 - With and without type inference
 - FixParsed (pre-parsed documents) vs Fix (parse + fix)
 - FixWithOptions convenience API (basic and pre-parsed variants)
-- Corpus-based real-world document fixing
 
 ### Converter Package (13 benchmarks)
 

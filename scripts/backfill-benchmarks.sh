@@ -197,7 +197,7 @@ backfill_version() {
     # Run go test directly instead of make bench-save to ensure consistent flags across versions
     log_info "Running benchmarks (this may take several minutes)..."
     local temp_output="benchmark-${version}-temp.txt"
-    if ! SKIP_LARGE_TESTS=1 go test -bench=. -benchmem -benchtime=5s -timeout=15m -short ./parser ./validator ./converter ./joiner ./differ ./builder 2>&1 | tee "$temp_output"; then
+    if ! SKIP_LARGE_TESTS=1 go test -bench=. -benchmem -benchtime=5s -timeout=15m -short ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee "$temp_output"; then
         log_warning "Some benchmarks failed for $version (results may be partial)"
         # Don't fail completely - we may still have partial results
     fi
