@@ -46,17 +46,17 @@ For specifications with external HTTP `$ref` references, parsing used:
 | 3 | GitHub | FAILED | 8,074 errors |
 | 4 | Plaid | FAILED | 101 errors |
 | 5 | Discord | PASSED | Valid specification |
-| 6 | DigitalOcean | PASSED | Valid (354 paths, 542 operations, 651 schemas) |
+| 6 | DigitalOcean | FAILED | 1,918 errors (path params not declared) |
 | 7 | Google Maps | FAILED | 228 errors |
 | 8 | US NWS | FAILED | 156 errors |
 | 9 | Petstore 2.0 | PASSED | Valid specification |
 | 10 | Asana | FAILED | 302 errors |
 
-**Summary:** 4 passed, 6 failed validation
+**Summary:** 3 passed, 7 failed validation
 
 **Common validation errors:** Most failures involve path template parameters not declared in the operation's parameters list (e.g., `{owner}` in path but missing from `parameters` array). This is a strict validation check per the OAS specification.
 
-**Note:** DigitalOcean uses extensive external `$ref` files across 1,300+ referenced files. With the new `--resolve-http-refs` flag (added in v1.18.0), oastools successfully resolves all HTTP references and parses the complete specification.
+**Note:** DigitalOcean provides a pre-bundled spec via their CI at `https://api-engineering.nyc3.digitaloceanspaces.com/spec-ci/DigitalOcean-public.v2.yaml`. The bundled version (2.4MB) parses successfully with 354 paths, 542 operations, and 651 schemas. Validation fails due to path template parameters not declared in operation parameters (same issue as GitHub and others).
 
 ---
 
@@ -158,15 +158,17 @@ The **only OpenAPI 3.1.0 specification** from a major API provider in this corpu
 
 | Attribute | Value |
 |-----------|-------|
-| **Source URL** | `https://raw.githubusercontent.com/digitalocean/openapi/main/specification/DigitalOcean-public.v2.yaml` |
+| **Source URL** | `https://api-engineering.nyc3.digitaloceanspaces.com/spec-ci/DigitalOcean-public.v2.yaml` |
 | **OAS Version** | 3.0.0 |
-| **Paths** | ~150-294 |
-| **Operations** | ~250-400 |
-| **Schemas** | ~150-200 |
-| **File Size** | ~150-200 KB (base file) |
+| **Paths** | 354 |
+| **Operations** | 542 |
+| **Schemas** | 651 |
+| **File Size** | ~2.4 MB (bundled) |
 | **Format** | YAML |
 
-Clean, resource-oriented cloud provider API. Uses extensive external `$ref` references across 1,300+ files. Excellent for testing **spec resolution, bundling, and RESTful design patterns**.
+Clean, resource-oriented cloud provider API. The bundled version consolidates 1,300+ external `$ref` files into a single file. Excellent for testing **large schema counts and RESTful design patterns**.
+
+**Note:** The corpus uses DigitalOcean's pre-bundled CI artifact. The unbundled source at `github.com/digitalocean/openapi` uses non-standard `$ref` in `info.description`.
 
 **Source:** Claude (#3), Copilot (#8)
 
@@ -253,7 +255,7 @@ Clean YAML structure covering tasks, projects, portfolios, goals, teams, webhook
 | 3 | GitHub | 3.0.3 | ~400 | ~600 | ~700 | ~424 KB | JSON |
 | 4 | Plaid | 3.0.0 | ~150 | ~250 | ~200 | ~1.2 MB | YAML |
 | 5 | Discord | **3.1.0** | ~150 | ~300 | ~400 | ~2-5 MB | JSON |
-| 6 | DigitalOcean | 3.0.0 | ~294 | ~400 | ~200 | ~200 KB | YAML |
+| 6 | DigitalOcean | 3.0.0 | 354 | 542 | 651 | ~2.4 MB | YAML |
 | 7 | Google Maps | 3.0.3 | ~50 | ~60 | ~150 | ~500 KB | JSON |
 | 8 | US NWS | 3.0.3 | ~50 | ~120 | ~100 | ~800 KB | JSON |
 | 9 | Petstore | **2.0** | 14 | 21 | 6 | ~20 KB | JSON |
