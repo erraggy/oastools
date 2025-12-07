@@ -300,8 +300,12 @@ Before creating a release:
    make check
    ```
 
-3. **Benchmarks updated:**
-   Follow [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md) to update benchmark results
+3. **Benchmarks captured for this release:**
+   ```bash
+   # Run benchmarks and save to versioned file (replace with your version)
+   make bench-release VERSION=v1.X.Y
+   ```
+   This runs all benchmarks, saves to `benchmarks/benchmark-v1.X.Y.txt`, and automatically compares with the previous version. See [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md) for details.
 
 4. **Review merged PRs:**
    ```bash

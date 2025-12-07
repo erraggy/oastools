@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-fixer bench-converter bench-joiner bench-differ bench-generator bench-builder bench-save bench-compare bench-baseline bench-clean release-test release-clean corpus-download corpus-clean test-corpus test-corpus-short bench-corpus
+.PHONY: build test lint clean install tidy check help bench bench-parser bench-validator bench-fixer bench-converter bench-joiner bench-differ bench-generator bench-builder bench-save bench-compare bench-baseline bench-release bench-clean release-test release-clean corpus-download corpus-clean test-corpus test-corpus-short bench-corpus
 
 # Build variables
 BINARY_NAME=oastools
@@ -172,6 +172,22 @@ bench-baseline:
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee benchmark-baseline.txt
 	@echo ""
 	@echo "Baseline updated: benchmark-baseline.txt"
+
+## bench-release: Run benchmarks for upcoming release (usage: make bench-release VERSION=v1.19.1)
+## Note: Excludes corpus benchmarks (BenchmarkCorpus_*) which require large specs and more memory.
+## Use 'make bench-corpus' to run corpus benchmarks separately.
+bench-release:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION required"; \
+		echo "Usage: make bench-release VERSION=v1.19.1"; \
+		exit 1; \
+	fi
+	@echo "Running benchmarks for $(VERSION) (excluding corpus benchmarks)..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m -skip='BenchmarkCorpus' ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee "$(BENCH_DIR)/benchmark-$(VERSION).txt"
+	@echo ""
+	@echo "Benchmark saved to: $(BENCH_DIR)/benchmark-$(VERSION).txt"
+	@echo ""
+	@./scripts/compare-with-previous.sh "$(VERSION)" || true
 
 ## bench-compare: Compare two benchmark files (usage: make bench-compare OLD=file1.txt NEW=file2.txt)
 bench-compare:

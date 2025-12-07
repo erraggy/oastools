@@ -15,7 +15,27 @@ This directory contains versioned benchmark results for the oastools project.
 
 ## Generating Benchmarks
 
-### For a New Release
+### For a New Release (Recommended)
+
+Use the streamlined release benchmark command:
+
+```bash
+# Run benchmarks and save directly to versioned file
+make bench-release VERSION=v1.19.1
+
+# Commit the results
+git add benchmarks/benchmark-v1.19.1.txt
+git commit -m "chore: add benchmark results for v1.19.1"
+```
+
+This command:
+- Runs all package benchmarks with proper timeout handling
+- Saves results directly to `benchmarks/benchmark-v1.19.1.txt`
+- Automatically compares with the previous version (if `benchstat` is installed)
+
+### Manual Approach
+
+If you prefer manual control:
 
 1. Run all benchmarks and save the results:
    ```bash

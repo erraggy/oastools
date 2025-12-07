@@ -17,11 +17,31 @@ Update benchmarks in the following situations:
 - Close unnecessary applications to minimize system load during benchmarking
 - Ensure the system is not under heavy load (for consistent results)
 
-## Step-by-Step Process
+## Quick Start: Release Benchmarks
+
+For capturing benchmarks as part of a release, use the streamlined command:
+
+```bash
+# Capture benchmarks for upcoming release (e.g., v1.19.1)
+make bench-release VERSION=v1.19.1
+```
+
+This command:
+1. Runs all package benchmarks with proper timeout handling
+2. Saves results directly to `benchmarks/benchmark-v1.19.1.txt`
+3. Automatically compares with the previous version (if `benchstat` is installed)
+
+After running, commit the benchmark file:
+```bash
+git add benchmarks/benchmark-v1.19.1.txt
+git commit -m "chore: add benchmark results for v1.19.1"
+```
+
+## Detailed Process
 
 ### 1. Run All Benchmarks
 
-Run each package's benchmarks to collect updated metrics:
+For individual package benchmarks or debugging, run each separately:
 
 ```bash
 # Run parser benchmarks
