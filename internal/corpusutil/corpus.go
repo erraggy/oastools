@@ -47,16 +47,17 @@ var Corpus = []SpecInfo{
 		SizeBytes:      20_000,
 	},
 	{
-		Name:             "DigitalOcean",
-		Filename:         "digitalocean-public.v2.yaml",
-		URL:              "https://raw.githubusercontent.com/digitalocean/openapi/main/specification/DigitalOcean-public.v2.yaml",
-		OASVersion:       "3.0.0",
-		Format:           "yaml",
-		ExpectedValid:    true,
-		ExpectedErrors:   0,
-		IsLarge:          false,
-		SizeBytes:        200_000,
-		HasParsingIssues: true, // Uses $ref in info.description which our parser can't handle
+		Name:           "DigitalOcean",
+		Filename:       "digitalocean-public.v2.yaml",
+		URL:            "https://api-engineering.nyc3.digitaloceanspaces.com/spec-ci/DigitalOcean-public.v2.yaml",
+		OASVersion:     "3.0.0",
+		Format:         "yaml",
+		ExpectedValid:  false,
+		ExpectedErrors: 1918,
+		IsLarge:        false,
+		SizeBytes:      2_500_000,
+		// Note: Uses bundled version from DigitalOcean's CI. The unbundled source
+		// uses non-standard $ref in info.description and 1,300+ external ref files.
 	},
 	{
 		Name:           "Asana",

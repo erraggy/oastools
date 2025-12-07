@@ -251,8 +251,8 @@ corpus-download:
 	@mkdir -p testdata/corpus
 	@echo "  Downloading Petstore (OAS 2.0)..."
 	@curl -sL -o testdata/corpus/petstore-swagger.json "https://petstore.swagger.io/v2/swagger.json"
-	@echo "  Downloading DigitalOcean (OAS 3.0.0)..."
-	@curl -sL -o testdata/corpus/digitalocean-public.v2.yaml "https://raw.githubusercontent.com/digitalocean/openapi/main/specification/DigitalOcean-public.v2.yaml"
+	@echo "  Downloading DigitalOcean (OAS 3.0.0, bundled)..."
+	@curl -sL -o testdata/corpus/digitalocean-public.v2.yaml "https://api-engineering.nyc3.digitaloceanspaces.com/spec-ci/DigitalOcean-public.v2.yaml"
 	@echo "  Downloading Asana (OAS 3.0.0)..."
 	@curl -sL -o testdata/corpus/asana-oas.yaml "https://raw.githubusercontent.com/Asana/openapi/master/defs/asana_oas.yaml"
 	@echo "  Downloading Google Maps (OAS 3.0.3)..."
