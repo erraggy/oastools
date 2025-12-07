@@ -34,7 +34,10 @@ Selection criteria prioritized:
 
 ### oastools Validation Results
 
-Each specification was validated using `oastools validate --strict --no-warnings`:
+Each specification was validated using `oastools validate --strict --no-warnings`.
+
+For specifications with external HTTP `$ref` references, parsing used:
+`oastools parse --resolve-refs --resolve-http-refs <url>`
 
 | # | API | oastools Validation | Result |
 |---|-----|---------------------|--------|
@@ -43,17 +46,17 @@ Each specification was validated using `oastools validate --strict --no-warnings
 | 3 | GitHub | FAILED | 8,074 errors |
 | 4 | Plaid | FAILED | 101 errors |
 | 5 | Discord | PASSED | Valid specification |
-| 6 | DigitalOcean | PARSE ERROR | External $ref resolution failure |
+| 6 | DigitalOcean | PASSED | Valid (354 paths, 542 operations, 651 schemas) |
 | 7 | Google Maps | FAILED | 228 errors |
 | 8 | US NWS | FAILED | 156 errors |
 | 9 | Petstore 2.0 | PASSED | Valid specification |
 | 10 | Asana | FAILED | 302 errors |
 
-**Summary:** 3 passed, 6 failed validation, 1 parse error
+**Summary:** 4 passed, 6 failed validation
 
 **Common validation errors:** Most failures involve path template parameters not declared in the operation's parameters list (e.g., `{owner}` in path but missing from `parameters` array). This is a strict validation check per the OAS specification.
 
-**Note:** DigitalOcean uses extensive external `$ref` files that require network resolution of 1,300+ referenced files—this is expected behavior for their modular specification design.
+**Note:** DigitalOcean uses extensive external `$ref` files across 1,300+ referenced files. With the new `--resolve-http-refs` flag (added in v1.18.0), oastools successfully resolves all HTTP references and parses the complete specification.
 
 ---
 
@@ -341,5 +344,6 @@ Based on the combined research, the following test categories are recommended:
 
 ---
 
-*Last verified: December 2025*
+*Last verified: December 6, 2025*
+*oastools version: v1.18.0 (with HTTP $ref resolution support)*
 *Sources: NotebookLM Deep Research, Claude Opus 4.5, GitHub Copilot + Gemini Pro 3*
