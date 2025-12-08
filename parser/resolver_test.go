@@ -687,4 +687,16 @@ paths:
 	if schema.Ref != "#" {
 		t.Errorf("Expected $ref to be preserved as '#', got %q", schema.Ref)
 	}
+
+	// Verify that a circular reference warning was added
+	foundCircularWarning := false
+	for _, w := range result.Warnings {
+		if strings.Contains(w, "Circular references detected") {
+			foundCircularWarning = true
+			break
+		}
+	}
+	if !foundCircularWarning {
+		t.Error("Expected a warning about circular references being detected")
+	}
 }
