@@ -9,10 +9,14 @@ coverage:
         target: 70%
         threshold: 5%
 
-# Ignore CLI entry point from patch coverage - CLI handlers are integration-tested
-# via actual CLI usage, not unit tests. Library code in packages is fully tested.
+# Ignore from patch coverage:
+# - CLI entry point: CLI handlers are integration-tested via actual CLI usage
+# - Code generators: Build tools run via go generate, not during test execution
+# - Generated files: Validated by compilation and integration tests, not unit tests
 ignore:
   - "cmd/**/*"
+  - "internal/codegen/**/*"
+  - "**/zz_generated_*.go"
 
 comment:
   layout: "diff, flags, files"

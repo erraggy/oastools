@@ -3,7 +3,6 @@ package parser
 import (
 	"bytes"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -126,24 +125,46 @@ func (pr *ParseResult) Copy() *ParseResult {
 		return nil
 	}
 
-	// Deep copy by marshaling and unmarshaling
-	data, err := json.Marshal(pr)
-	if err != nil {
-		// If marshal fails, return a shallow copy with a warning
-		result := *pr
-		result.Warnings = append(result.Warnings, fmt.Sprintf("Copy() warning: failed to deep copy: %v", err))
-		return &result
+	// Create a shallow copy of the result
+	result := &ParseResult{
+		SourcePath:   pr.SourcePath,
+		SourceFormat: pr.SourceFormat,
+		Version:      pr.Version,
+		OASVersion:   pr.OASVersion,
+		LoadTime:     pr.LoadTime,
+		SourceSize:   pr.SourceSize,
+		Stats:        pr.Stats, // DocumentStats is a value type, copied by value
 	}
 
-	var copy ParseResult
-	if err := json.Unmarshal(data, &copy); err != nil {
-		// If unmarshal fails, return a shallow copy with a warning
-		result := *pr
-		result.Warnings = append(result.Warnings, fmt.Sprintf("Copy() warning: failed to deep copy: %v", err))
-		return &result
+	// Deep copy the Document using generated DeepCopy methods
+	switch doc := pr.Document.(type) {
+	case *OAS2Document:
+		result.Document = doc.DeepCopy()
+	case *OAS3Document:
+		result.Document = doc.DeepCopy()
+	default:
+		// Unknown document type, leave as nil
+		result.Document = nil
 	}
 
-	return &copy
+	// Deep copy the Data map
+	if pr.Data != nil {
+		result.Data = deepCopyExtensions(pr.Data)
+	}
+
+	// Deep copy errors slice
+	if pr.Errors != nil {
+		result.Errors = make([]error, len(pr.Errors))
+		copy(result.Errors, pr.Errors)
+	}
+
+	// Deep copy warnings slice
+	if pr.Warnings != nil {
+		result.Warnings = make([]string, len(pr.Warnings))
+		copy(result.Warnings, pr.Warnings)
+	}
+
+	return result
 }
 
 // FormatBytes formats a byte count into a human-readable string using binary units (KiB, MiB, etc.)

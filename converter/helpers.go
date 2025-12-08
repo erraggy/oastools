@@ -1,7 +1,6 @@
 package converter
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -32,24 +31,13 @@ var (
 	}
 )
 
-// deepCopyOAS3Document creates a deep copy of an OAS3 document
+// deepCopyOAS3Document creates a deep copy of an OAS3 document.
+// Uses generated DeepCopy methods for type-safe, efficient copying.
 func (c *Converter) deepCopyOAS3Document(src *parser.OAS3Document) (*parser.OAS3Document, error) {
-	// Use JSON marshal/unmarshal for deep copy
-	data, err := json.Marshal(src)
-	if err != nil {
-		// This should never happen with valid documents
-		return nil, fmt.Errorf("failed to marshal src document: %w", err)
+	if src == nil {
+		return nil, fmt.Errorf("cannot copy nil document")
 	}
-
-	var dst parser.OAS3Document
-	if err := json.Unmarshal(data, &dst); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal dst document: %w", err)
-	}
-
-	// Restore OASVersion which may not round-trip through JSON
-	dst.OASVersion = src.OASVersion
-
-	return &dst, nil
+	return src.DeepCopy(), nil
 }
 
 // parseServerURL extracts host, basePath, and schemes from an OAS 3.x server URL
@@ -116,24 +104,13 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 	return converted
 }
 
-// deepCopySchema creates a deep copy of a schema
+// deepCopySchema creates a deep copy of a schema.
+// Uses generated DeepCopy methods for type-safe, efficient copying.
 func (c *Converter) deepCopySchema(src *parser.Schema) *parser.Schema {
 	if src == nil {
 		return nil
 	}
-
-	// Use JSON marshal/unmarshal for deep copy
-	data, err := json.Marshal(src)
-	if err != nil {
-		return src
-	}
-
-	var dst parser.Schema
-	if err := json.Unmarshal(data, &dst); err != nil {
-		return src
-	}
-
-	return &dst
+	return src.DeepCopy()
 }
 
 // getDefaultMediaType returns a default media type if none is specified
