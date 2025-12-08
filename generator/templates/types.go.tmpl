@@ -1,8 +1,8 @@
 {{template "header.go.tmpl" .Header}}
-{{range .Types}}
-{{if eq .Kind "struct"}}{{template "struct.go.tmpl" .Struct}}{{end}}
-{{if eq .Kind "enum"}}{{template "enum.go.tmpl" .Enum}}{{end}}
-{{if eq .Kind "alias"}}{{template "alias.go.tmpl" .Alias}}{{end}}
-{{if eq .Kind "allof"}}{{template "allof.go.tmpl" .AllOf}}{{end}}
-{{if eq .Kind "oneof"}}{{template "oneof.go.tmpl" .OneOf}}{{end}}
+{{- range .Types}}
+{{if eq .Kind "struct"}}{{template "struct.go.tmpl" .Struct}}{{end -}}
+{{if eq .Kind "enum"}}{{template "enum.go.tmpl" .Enum}}{{end -}}
+{{if eq .Kind "alias"}}{{template "alias.go.tmpl" .Alias}}{{end -}}
+{{if eq .Kind "allof"}}{{template "allof.go.tmpl" .AllOf}}{{end -}}
+{{if eq .Kind "oneof"}}{{template "oneof.go.tmpl" .OneOf}}{{end -}}
 {{end}}

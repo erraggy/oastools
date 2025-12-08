@@ -155,6 +155,9 @@ func (cg *oas3CodeGenerator) buildStructTypeDefinition(typeName, originalName st
 		}
 		sort.Strings(propNames)
 
+		// Track used field names to avoid duplicates (e.g., @id and id both become Id)
+		usedFieldNames := make(map[string]int)
+
 		for _, propName := range propNames {
 			propSchema := schema.Properties[propName]
 			if propSchema == nil {
@@ -162,22 +165,40 @@ func (cg *oas3CodeGenerator) buildStructTypeDefinition(typeName, originalName st
 			}
 
 			field := cg.buildFieldData(propName, propSchema, isRequired(schema.Required, propName))
+
+			// Handle duplicate field names (e.g., @id and id both become Id)
+			baseName := field.Name
+			if count, exists := usedFieldNames[baseName]; exists {
+				// Append suffix to make unique
+				field.Name = fmt.Sprintf("%s%d", baseName, count+1)
+			}
+			usedFieldNames[baseName]++
+
 			structData.Fields = append(structData.Fields, field)
 		}
 	}
 
 	// Handle additionalProperties
 	if schema.AdditionalProperties != nil {
-		structData.HasAdditionalProps = true
+		var addPropsType string
 		switch addProps := schema.AdditionalProperties.(type) {
 		case *parser.Schema:
-			structData.AdditionalPropsType = cg.schemaToGoType(addProps, true)
+			addPropsType = cg.schemaToGoType(addProps, true)
 		case map[string]interface{}:
-			structData.AdditionalPropsType = schemaTypeFromMap(addProps)
+			addPropsType = schemaTypeFromMap(addProps)
 		case bool:
 			if addProps {
-				structData.AdditionalPropsType = "any"
+				addPropsType = "any"
 			}
+			// If false, don't add AdditionalProperties field
+		default:
+			// Unknown type, default to any
+			addPropsType = "any"
+		}
+		// Only set HasAdditionalProps if we have a valid type
+		if addPropsType != "" {
+			structData.HasAdditionalProps = true
+			structData.AdditionalPropsType = addPropsType
 		}
 	}
 
