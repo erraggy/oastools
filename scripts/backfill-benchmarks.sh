@@ -192,8 +192,9 @@ backfill_version() {
     go mod tidy 2>/dev/null || true
 
     # Run benchmarks
-    # Use -short flag and timeout to prevent long-running corpus benchmarks from hanging
+    # Use -short flag and timeout to prevent long-running tests from hanging
     # Also set SKIP_LARGE_TESTS=1 as a fallback for older versions
+    # Note: Corpus benchmarks require -tags=corpus (v1.20.0+) so they won't run here
     # Run go test directly instead of make bench-save to ensure consistent flags across versions
     log_info "Running benchmarks (this may take several minutes)..."
     local temp_output="benchmark-${version}-temp.txt"

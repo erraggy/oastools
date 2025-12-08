@@ -185,37 +185,5 @@ func TestCorpus_ValidateParsed(t *testing.T) {
 	assert.True(t, result.Valid, "Discord should be valid")
 }
 
-// BenchmarkCorpus_Validate benchmarks validation performance.
-func BenchmarkCorpus_Validate(b *testing.B) {
-	// Benchmark with Petstore (small, valid)
-	spec := corpusutil.GetByName("Petstore")
-	if spec == nil || !spec.IsAvailable() {
-		b.Skip("Petstore spec not available")
-	}
-
-	b.Run("Petstore", func(b *testing.B) {
-		v := New()
-		for b.Loop() {
-			_, err := v.Validate(spec.GetLocalPath())
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-
-	// Benchmark with DigitalOcean (medium, valid)
-	spec = corpusutil.GetByName("DigitalOcean")
-	if spec == nil || !spec.IsAvailable() {
-		return
-	}
-
-	b.Run("DigitalOcean", func(b *testing.B) {
-		v := New()
-		for b.Loop() {
-			_, err := v.Validate(spec.GetLocalPath())
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-}
+// Note: BenchmarkCorpus_Validate has been moved to corpus_bench_test.go
+// Run with: go test -tags=corpus -bench=BenchmarkCorpus ./validator/...

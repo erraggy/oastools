@@ -181,20 +181,5 @@ func TestCorpus_DiffParsed(t *testing.T) {
 	assert.Empty(t, diffResult.Changes)
 }
 
-// BenchmarkCorpus_Diff benchmarks diff performance.
-func BenchmarkCorpus_Diff(b *testing.B) {
-	spec := corpusutil.GetByName("Petstore")
-	if spec == nil || !spec.IsAvailable() {
-		b.Skip("Petstore spec not available")
-	}
-
-	d := New()
-	d.Mode = ModeBreaking
-
-	for b.Loop() {
-		_, err := d.Diff(spec.GetLocalPath(), spec.GetLocalPath())
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
+// Note: BenchmarkCorpus_Diff has been moved to corpus_bench_test.go
+// Run with: go test -tags=corpus -bench=BenchmarkCorpus ./differ/...

@@ -97,28 +97,5 @@ func TestCorpus_MicrosoftGraph(t *testing.T) {
 		len(doc.Paths), doc.OpenAPI)
 }
 
-// BenchmarkCorpus_LargeSpecs benchmarks parsing large specifications.
-func BenchmarkCorpus_LargeSpecs(b *testing.B) {
-	if os.Getenv("SKIP_LARGE_TESTS") == "1" {
-		b.Skip("Skipping large spec benchmarks (SKIP_LARGE_TESTS=1)")
-	}
-
-	for _, spec := range corpusutil.GetLargeSpecs() {
-		if !spec.IsAvailable() {
-			continue
-		}
-
-		b.Run(spec.Name, func(b *testing.B) {
-			p := New()
-			p.ResolveRefs = false
-			p.ValidateStructure = true
-
-			for b.Loop() {
-				_, err := p.Parse(spec.GetLocalPath())
-				if err != nil {
-					b.Fatal(err)
-				}
-			}
-		})
-	}
-}
+// Note: BenchmarkCorpus_LargeSpecs has been moved to corpus_bench_test.go
+// Run with: go test -tags=corpus -bench=BenchmarkCorpus ./parser/...
