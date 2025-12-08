@@ -915,6 +915,11 @@ func (p *Parser) validateOAS2Parameter(param *Parameter, opPath string, index in
 	errors := make([]error, 0)
 	paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, index)
 
+	// Skip validation for $ref parameters - they reference definitions elsewhere
+	if param.Ref != "" {
+		return errors
+	}
+
 	if param.Name == "" {
 		errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.name': Parameter must have a name", paramPath))
 	}
@@ -1072,8 +1077,8 @@ func (p *Parser) validateOAS3Operation(op *Operation, opPath string, operationID
 		errors = append(errors, p.validateOAS3Parameter(param, opPath, i, version)...)
 	}
 
-	// Validate requestBody if present
-	if op.RequestBody != nil {
+	// Validate requestBody if present (skip if it's a $ref)
+	if op.RequestBody != nil && op.RequestBody.Ref == "" {
 		rbPath := fmt.Sprintf("%s.requestBody", opPath)
 		if len(op.RequestBody.Content) == 0 {
 			errors = append(errors, fmt.Errorf("oas %s: missing required field '%s.content': RequestBody must have at least one media type", version, rbPath))
@@ -1086,6 +1091,11 @@ func (p *Parser) validateOAS3Operation(op *Operation, opPath string, operationID
 func (p *Parser) validateOAS3Parameter(param *Parameter, opPath string, index int, version string) []error {
 	errors := make([]error, 0)
 	paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, index)
+
+	// Skip validation for $ref parameters - they reference definitions elsewhere
+	if param.Ref != "" {
+		return errors
+	}
 
 	if param.Name == "" {
 		errors = append(errors, fmt.Errorf("oas %s: missing required field '%s.name': Parameter must have a name", version, paramPath))

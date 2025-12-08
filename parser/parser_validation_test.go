@@ -419,6 +419,221 @@ paths:
 	}
 }
 
+// TestParameterRefValidation tests that parameters using $ref are not incorrectly
+// validated for required fields like name and in (those are in the referenced definition)
+func TestParameterRefValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		spec      string
+		expectErr bool
+		errorMsg  string
+	}{
+		{
+			name: "OAS 3.0 - Parameter with $ref should not require name/in",
+			spec: `openapi: "3.0.3"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test/{id}:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Success
+components:
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+`,
+			expectErr: false,
+		},
+		{
+			name: "OAS 3.0 - Mixed ref and inline parameters",
+			spec: `openapi: "3.0.3"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test/{id}:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+components:
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+`,
+			expectErr: false,
+		},
+		{
+			name: "OAS 3.0 - Inline parameter without name should error",
+			spec: `openapi: "3.0.3"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    get:
+      parameters:
+        - in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+`,
+			expectErr: true,
+			errorMsg:  "must have a name",
+		},
+		{
+			name: "OAS 2.0 - Parameter with $ref should not require name/in",
+			spec: `swagger: "2.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test/{id}:
+    get:
+      parameters:
+        - $ref: '#/parameters/IdParam'
+      responses:
+        '200':
+          description: Success
+parameters:
+  IdParam:
+    name: id
+    in: path
+    required: true
+    type: string
+`,
+			expectErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := New()
+			result, err := parser.ParseBytes([]byte(tt.spec))
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			hasExpectedError := false
+			for _, e := range result.Errors {
+				if strings.Contains(e.Error(), tt.errorMsg) {
+					hasExpectedError = true
+					break
+				}
+			}
+
+			if tt.expectErr && !hasExpectedError {
+				t.Errorf("Expected error containing '%s', but got errors: %v", tt.errorMsg, result.Errors)
+			}
+
+			if !tt.expectErr && len(result.Errors) > 0 {
+				t.Errorf("Did not expect validation errors, but got: %v", result.Errors)
+			}
+		})
+	}
+}
+
+// TestRequestBodyRefValidation tests that requestBody using $ref is not incorrectly
+// validated for required fields like content (those are in the referenced definition)
+func TestRequestBodyRefValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		spec      string
+		expectErr bool
+		errorMsg  string
+	}{
+		{
+			name: "OAS 3.0 - RequestBody with $ref should not require content",
+			spec: `openapi: "3.0.3"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    post:
+      requestBody:
+        $ref: '#/components/requestBodies/TestBody'
+      responses:
+        '200':
+          description: Success
+components:
+  requestBodies:
+    TestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+`,
+			expectErr: false,
+		},
+		{
+			name: "OAS 3.0 - Inline requestBody without content should error",
+			spec: `openapi: "3.0.3"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /test:
+    post:
+      requestBody:
+        description: A test body
+      responses:
+        '200':
+          description: Success
+`,
+			expectErr: true,
+			errorMsg:  "must have at least one media type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := New()
+			result, err := parser.ParseBytes([]byte(tt.spec))
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			hasExpectedError := false
+			for _, e := range result.Errors {
+				if strings.Contains(e.Error(), tt.errorMsg) {
+					hasExpectedError = true
+					break
+				}
+			}
+
+			if tt.expectErr && !hasExpectedError {
+				t.Errorf("Expected error containing '%s', but got errors: %v", tt.errorMsg, result.Errors)
+			}
+
+			if !tt.expectErr && len(result.Errors) > 0 {
+				t.Errorf("Did not expect validation errors, but got: %v", result.Errors)
+			}
+		})
+	}
+}
+
 func TestDuplicateOperationIds(t *testing.T) {
 	tests := []struct {
 		name      string
