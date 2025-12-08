@@ -155,6 +155,33 @@ Coverage types:
 - **Edge Cases**: Boundary conditions, empty inputs, nil values
 - **Integration**: Components working together (parse then validate, parse then join)
 
+### Codecov Patch Coverage Requirements
+
+**IMPORTANT: Codecov enforces 70% patch coverage on all PRs.**
+
+The `.codecov.yml` configuration requires:
+- **Project coverage**: auto target with 1% threshold (overall project)
+- **Patch coverage**: 70% target with 5% threshold (new/modified lines only)
+
+**When adding new code, ensure:**
+
+1. **All branches are tested** - Functions with multiple `if` statements, nil checks, or `switch` cases need tests that exercise each branch. Defensive nil checks that are unlikely to be hit still count against patch coverage.
+
+2. **Test all code paths** - If a function checks parameters, request bodies, responses, and default responses, add separate tests for each path to ensure coverage.
+
+3. **Check coverage locally before pushing:**
+   ```bash
+   go test -coverprofile=cover.out ./package/
+   go tool cover -func=cover.out | grep "function_name"
+   ```
+
+4. **For functions with many nil-check branches**, consider adding targeted unit tests that construct scenarios to hit each branch, rather than relying solely on integration tests.
+
+**Common patch coverage failures:**
+- New helper functions with multiple conditional paths
+- Error handling branches that require specific error conditions
+- Nil checks for optional struct fields that are rarely nil in tests
+
 ### Benchmark Test Requirements
 
 **CRITICAL: Use the Go 1.24+ `for b.Loop()` pattern for all benchmarks.**

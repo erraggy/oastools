@@ -674,3 +674,280 @@ paths:
 	assert.Contains(t, content, "GetPets")
 	assert.Contains(t, content, "GetPetsById")
 }
+
+func TestGenerateClientWithTimeImport_Parameter(t *testing.T) {
+	// Test that time import is added when a parameter uses date-time format
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      parameters:
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: OK
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithClient(true),
+	)
+	require.NoError(t, err)
+
+	clientFile := result.GetFile("client.go")
+	content := string(clientFile.Content)
+
+	assert.Contains(t, content, `"time"`, "client.go should import time package")
+	assert.Contains(t, content, "time.Time", "parameter should use time.Time")
+}
+
+func TestGenerateClientWithTimeImport_RequestBody(t *testing.T) {
+	// Test that time import is added when request body uses date-time format
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /events:
+    post:
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                startTime:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Created
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithClient(true),
+	)
+	require.NoError(t, err)
+
+	clientFile := result.GetFile("client.go")
+	content := string(clientFile.Content)
+
+	assert.Contains(t, content, `"time"`, "client.go should import time package")
+}
+
+func TestGenerateClientWithTimeImport_Response(t *testing.T) {
+	// Test that time import is added when response uses date-time format
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  createdAt:
+                    type: string
+                    format: date-time
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithClient(true),
+	)
+	require.NoError(t, err)
+
+	clientFile := result.GetFile("client.go")
+	content := string(clientFile.Content)
+
+	assert.Contains(t, content, `"time"`, "client.go should import time package")
+}
+
+func TestGenerateClientWithTimeImport_DefaultResponse(t *testing.T) {
+	// Test that time import is added when default response uses date-time format
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp:
+                    type: string
+                    format: date-time
+                  message:
+                    type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithClient(true),
+	)
+	require.NoError(t, err)
+
+	clientFile := result.GetFile("client.go")
+	content := string(clientFile.Content)
+
+	assert.Contains(t, content, `"time"`, "client.go should import time package")
+}
+
+func TestGenerateClientWithoutTimeImport(t *testing.T) {
+	// Test that time is NOT imported when no date-time fields exist
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /items:
+    get:
+      operationId: listItems
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithClient(true),
+	)
+	require.NoError(t, err)
+
+	clientFile := result.GetFile("client.go")
+	content := string(clientFile.Content)
+
+	assert.NotContains(t, content, `"time"`, "client.go should NOT import time package")
+}
+
+func TestGenerateServerWithTimeImport(t *testing.T) {
+	// Test that time import is added to server.go when operations use date-time
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      parameters:
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: OK
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithServer(true),
+	)
+	require.NoError(t, err)
+
+	serverFile := result.GetFile("server.go")
+	content := string(serverFile.Content)
+
+	assert.Contains(t, content, `"time"`, "server.go should import time package")
+}
+
+func TestGenerateServerWithoutTimeImport(t *testing.T) {
+	// Test that time is NOT imported in server.go when no date-time fields exist
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /items:
+    get:
+      operationId: listItems
+      responses:
+        '200':
+          description: OK
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithServer(true),
+	)
+	require.NoError(t, err)
+
+	serverFile := result.GetFile("server.go")
+	content := string(serverFile.Content)
+
+	assert.NotContains(t, content, `"time"`, "server.go should NOT import time package")
+}
