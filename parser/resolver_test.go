@@ -77,6 +77,96 @@ components:
 	}
 }
 
+// TestRefResolver_HasCircularRefs tests the HasCircularRefs method
+func TestRefResolver_HasCircularRefs(t *testing.T) {
+	tests := []struct {
+		name         string
+		doc          map[string]any
+		wantCircular bool
+	}{
+		{
+			name: "no circular refs",
+			doc: map[string]any{
+				"components": map[string]any{
+					"schemas": map[string]any{
+						"Pet": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"name": map[string]any{"type": "string"},
+							},
+						},
+					},
+				},
+			},
+			wantCircular: false,
+		},
+		{
+			name: "root ref is circular",
+			doc: map[string]any{
+				"components": map[string]any{
+					"schemas": map[string]any{
+						"Recursive": map[string]any{
+							"$ref": "#",
+						},
+					},
+				},
+			},
+			wantCircular: true,
+		},
+		{
+			name: "root path ref is circular",
+			doc: map[string]any{
+				"components": map[string]any{
+					"schemas": map[string]any{
+						"Recursive": map[string]any{
+							"$ref": "#/",
+						},
+					},
+				},
+			},
+			wantCircular: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver := NewRefResolver("")
+			_ = resolver.ResolveAllRefs(tt.doc)
+
+			if got := resolver.HasCircularRefs(); got != tt.wantCircular {
+				t.Errorf("HasCircularRefs() = %v, want %v", got, tt.wantCircular)
+			}
+		})
+	}
+}
+
+// TestRefResolver_HasCircularRefs_Reset verifies the flag is reset between calls
+func TestRefResolver_HasCircularRefs_Reset(t *testing.T) {
+	resolver := NewRefResolver("")
+
+	// First: resolve a doc with circular refs
+	docWithCircular := map[string]any{
+		"schema": map[string]any{"$ref": "#"},
+	}
+	_ = resolver.ResolveAllRefs(docWithCircular)
+	if !resolver.HasCircularRefs() {
+		t.Error("expected HasCircularRefs() = true after resolving circular doc")
+	}
+
+	// Second: resolve a doc without circular refs - flag should reset
+	docWithoutCircular := map[string]any{
+		"components": map[string]any{
+			"schemas": map[string]any{
+				"Pet": map[string]any{"type": "object"},
+			},
+		},
+	}
+	_ = resolver.ResolveAllRefs(docWithoutCircular)
+	if resolver.HasCircularRefs() {
+		t.Error("expected HasCircularRefs() = false after resolving non-circular doc")
+	}
+}
+
 // TestMaxDepthExceeded tests that deeply nested references are rejected
 func TestMaxDepthExceeded(t *testing.T) {
 	// Skip this test when running with race detector due to high memory usage

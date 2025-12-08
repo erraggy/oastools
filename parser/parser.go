@@ -623,6 +623,7 @@ func (p *Parser) parseBytesWithBaseDirAndURL(data []byte, baseDir, baseURL strin
 	}
 
 	// Resolve references if enabled (before semver-specific parsing)
+	var hasCircularRefs bool
 	if p.ResolveRefs {
 		var resolver *RefResolver
 		if p.ResolveHTTPRefs {
@@ -636,6 +637,7 @@ func (p *Parser) parseBytesWithBaseDirAndURL(data []byte, baseDir, baseURL strin
 		if err := resolver.ResolveAllRefs(rawData); err != nil {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("ref resolution warning: %v", err))
 		}
+		hasCircularRefs = resolver.HasCircularRefs()
 	}
 
 	result.Data = rawData
@@ -648,24 +650,29 @@ func (p *Parser) parseBytesWithBaseDirAndURL(data []byte, baseDir, baseURL strin
 	result.Version = version
 
 	// Prepare data for version-specific parsing
-	// Only re-marshal if we resolved refs (to avoid unnecessary overhead)
+	// Only re-marshal if we resolved refs AND no circular refs were detected
 	//
 	// Performance trade-off: When ResolveRefs is enabled, we must re-marshal the
 	// rawData map after reference resolution to ensure the resolved content is
 	// available to the version-specific parsers. This adds overhead (especially
 	// for large documents), but is necessary for correct reference resolution.
 	// When ResolveRefs is disabled, we skip this step and use the original data.
+	//
+	// IMPORTANT: If circular references were detected, we MUST skip re-marshaling
+	// because yaml.Marshal will enter an infinite loop on circular Go structures.
 	var parseData []byte
-	if p.ResolveRefs {
+	if p.ResolveRefs && !hasCircularRefs {
 		// Re-marshal the data with resolved refs
 		parseData, err = yaml.Marshal(rawData)
 		if err != nil {
-			// If marshaling fails (e.g., due to circular references that couldn't be resolved),
-			// fall back to using the original data. This can happen with complex circular structures
-			// like $ref: "#" which we intentionally don't resolve to prevent infinite loops.
+			// If marshaling fails, fall back to using the original data.
 			parseData = data
-			result.Warnings = append(result.Warnings, fmt.Sprintf("Warning: Could not re-marshal document after reference resolution (likely due to circular references): %v. Using original document structure. Some references may not be fully resolved.", err))
+			result.Warnings = append(result.Warnings, fmt.Sprintf("Warning: Could not re-marshal document after reference resolution: %v. Using original document structure. Some references may not be fully resolved.", err))
 		}
+	} else if hasCircularRefs {
+		// Use original data when circular refs detected to avoid infinite loop in yaml.Marshal
+		parseData = data
+		result.Warnings = append(result.Warnings, "Warning: Circular references detected. Using original document structure. Some references may not be fully resolved.")
 	} else {
 		// Use original data directly
 		parseData = data

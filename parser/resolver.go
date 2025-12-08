@@ -46,6 +46,9 @@ type RefResolver struct {
 	// httpFetch is the function used to fetch HTTP/HTTPS URLs
 	// If nil, HTTP references will return an error
 	httpFetch HTTPFetcher
+	// hasCircularRefs is set to true when circular references are detected
+	// This is used to skip re-marshaling which would cause infinite loops
+	hasCircularRefs bool
 }
 
 // NewRefResolver creates a new reference resolver for local and file-based refs
@@ -321,6 +324,8 @@ func unescapeJSONPointer(token string) string {
 
 // ResolveAllRefs walks through the entire document and resolves all $ref references
 func (r *RefResolver) ResolveAllRefs(doc map[string]any) error {
+	// Reset circular ref flag for each resolution pass
+	r.hasCircularRefs = false
 	return r.resolveRefsRecursive(doc, doc, 0)
 }
 
@@ -341,6 +346,7 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 			// Check for $ref pointing to document root (always circular)
 			if ref == "#" || ref == "#/" {
 				// Leave the $ref in place - resolving it would create infinite recursion
+				r.hasCircularRefs = true
 				return nil
 			}
 
@@ -348,6 +354,7 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 			if r.resolving[ref] {
 				// Leave the $ref in place rather than trying to expand it infinitely
 				// This allows circular references to exist in the document
+				r.hasCircularRefs = true
 				return nil
 			}
 
@@ -400,4 +407,11 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 	}
 
 	return nil
+}
+
+// HasCircularRefs returns true if circular references were detected during resolution.
+// When true, the resolved data contains actual Go circular references and cannot be
+// safely serialized with yaml.Marshal (which would cause an infinite loop).
+func (r *RefResolver) HasCircularRefs() bool {
+	return r.hasCircularRefs
 }
