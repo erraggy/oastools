@@ -67,4 +67,6 @@
 //   - [github.com/erraggy/oastools/differ] - Compare specifications and detect breaking changes
 //   - [github.com/erraggy/oastools/generator] - Generate Go code from specifications
 //   - [github.com/erraggy/oastools/builder] - Programmatically build specifications
+
+//go:generate go run ../internal/codegen/deepcopy
 package parser
