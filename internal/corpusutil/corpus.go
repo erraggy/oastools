@@ -53,7 +53,7 @@ var Corpus = []SpecInfo{
 		OASVersion:     "3.0.0",
 		Format:         "yaml",
 		ExpectedValid:  false,
-		ExpectedErrors: 1918,
+		ExpectedErrors: 496, // Reduced from 1918 after fixing $ref parameter validation
 		IsLarge:        false,
 		SizeBytes:      2_500_000,
 		// Note: Uses bundled version from DigitalOcean's CI. The unbundled source
@@ -76,8 +76,8 @@ var Corpus = []SpecInfo{
 		URL:            "https://raw.githubusercontent.com/googlemaps/openapi-specification/main/dist/google-maps-platform-openapi3.json",
 		OASVersion:     "3.0.3",
 		Format:         "json",
-		ExpectedValid:  false,
-		ExpectedErrors: 228,
+		ExpectedValid:  true, // Now valid after fixing $ref parameter validation (was 228 false positives)
+		ExpectedErrors: 0,
 		IsLarge:        false,
 		SizeBytes:      500_000,
 	},
@@ -88,7 +88,7 @@ var Corpus = []SpecInfo{
 		OASVersion:     "3.0.3",
 		Format:         "json",
 		ExpectedValid:  false,
-		ExpectedErrors: 156,
+		ExpectedErrors: 44, // Reduced from 156 after fixing $ref parameter validation
 		IsLarge:        false,
 		SizeBytes:      800_000,
 	},
@@ -121,7 +121,7 @@ var Corpus = []SpecInfo{
 		OASVersion:     "3.0.3",
 		Format:         "json",
 		ExpectedValid:  false,
-		ExpectedErrors: 8000,
+		ExpectedErrors: 2224, // Reduced from 8000 after fixing $ref parameter/requestBody validation
 		IsLarge:        false,
 		SizeBytes:      5_000_000,
 	},
@@ -142,8 +142,8 @@ var Corpus = []SpecInfo{
 		URL:            "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/v1.0/openapi.yaml",
 		OASVersion:     "3.0.4",
 		Format:         "yaml",
-		ExpectedValid:  false,
-		ExpectedErrors: 30000,
+		ExpectedValid:  true, // Now valid after fixing $ref parameter/requestBody validation (was 30,000 false positives!)
+		ExpectedErrors: 0,
 		IsLarge:        true,
 		SizeBytes:      15_000_000,
 	},

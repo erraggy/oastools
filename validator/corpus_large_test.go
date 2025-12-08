@@ -83,10 +83,9 @@ func TestCorpus_MicrosoftGraph_Validate(t *testing.T) {
 	result, err := v.Validate(spec.GetLocalPath())
 	require.NoError(t, err)
 
-	// Microsoft Graph has many validation errors (path params)
-	assert.False(t, result.Valid, "Microsoft Graph should have validation errors")
-	assert.Greater(t, result.ErrorCount, 1000,
-		"Microsoft Graph should have many errors")
+	// Microsoft Graph is now valid after fixing $ref parameter/requestBody validation
+	// (previously had 30,000+ false positives)
+	assert.True(t, result.Valid, "Microsoft Graph should pass validation")
 
 	t.Logf("Microsoft Graph: Valid=%v, Errors=%d",
 		result.Valid, result.ErrorCount)
