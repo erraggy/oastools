@@ -1,7 +1,7 @@
 package generator
 
 import (
-	"go/parser"
+	goparser "go/parser"
 	"go/token"
 	"testing"
 
@@ -36,7 +36,7 @@ func TestCorpus_Generate(t *testing.T) {
 			// Verify generated code is valid Go syntax
 			fset := token.NewFileSet()
 			for _, file := range result.Files {
-				_, err := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
+				_, err := goparser.ParseFile(fset, file.Name, file.Content, goparser.AllErrors)
 				assert.NoError(t, err, "%s: generated %s should be valid Go syntax", spec.Name, file.Name)
 			}
 
@@ -75,7 +75,7 @@ func TestCorpus_GenerateTypesOnly(t *testing.T) {
 
 			// Verify valid Go syntax
 			fset := token.NewFileSet()
-			_, err = parser.ParseFile(fset, "types.go", typesFile.Content, parser.AllErrors)
+			_, err = goparser.ParseFile(fset, "types.go", typesFile.Content, goparser.AllErrors)
 			assert.NoError(t, err, "%s: types.go should be valid Go syntax", spec.Name)
 
 			t.Logf("%s: Generated %d types", spec.Name, result.GeneratedTypes)
@@ -90,9 +90,7 @@ func TestCorpus_GenerateClient(t *testing.T) {
 
 	for _, name := range specNames {
 		spec := corpusutil.GetByName(name)
-		if spec == nil {
-			continue
-		}
+		require.NotNil(t, spec, "Spec %s should exist in corpus", name)
 
 		t.Run(spec.Name+"_Client", func(t *testing.T) {
 			corpusutil.SkipIfNotCached(t, *spec)
@@ -113,7 +111,7 @@ func TestCorpus_GenerateClient(t *testing.T) {
 
 			// Verify valid Go syntax
 			fset := token.NewFileSet()
-			_, err = parser.ParseFile(fset, "client.go", clientFile.Content, parser.AllErrors)
+			_, err = goparser.ParseFile(fset, "client.go", clientFile.Content, goparser.AllErrors)
 			assert.NoError(t, err, "%s: client.go should be valid Go syntax", spec.Name)
 
 			t.Logf("%s: Generated %d operations", spec.Name, result.GeneratedOperations)
@@ -139,7 +137,7 @@ func TestCorpus_OAS2Generation(t *testing.T) {
 	// Verify all generated files are valid Go
 	fset := token.NewFileSet()
 	for _, file := range result.Files {
-		_, err := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
+		_, err := goparser.ParseFile(fset, file.Name, file.Content, goparser.AllErrors)
 		assert.NoError(t, err, "Petstore: %s should be valid Go syntax", file.Name)
 	}
 
@@ -169,7 +167,7 @@ func TestCorpus_OAS31Generation(t *testing.T) {
 	// Verify all generated files are valid Go
 	fset := token.NewFileSet()
 	for _, file := range result.Files {
-		_, err := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
+		_, err := goparser.ParseFile(fset, file.Name, file.Content, goparser.AllErrors)
 		assert.NoError(t, err, "Discord: %s should be valid Go syntax", file.Name)
 	}
 

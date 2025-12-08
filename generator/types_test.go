@@ -900,3 +900,111 @@ components:
 	// Check for validation tags
 	assert.True(t, strings.Contains(content, "min=") || strings.Contains(content, "validate:"))
 }
+
+func TestGenerateTypesWithDuplicateFieldNames(t *testing.T) {
+	// Test that properties like @id and id (which both convert to Id) are handled
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    JsonLdResource:
+      type: object
+      properties:
+        "@id":
+          type: string
+          description: JSON-LD identifier
+        id:
+          type: string
+          description: Regular identifier
+        "@type":
+          type: string
+        type:
+          type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+	)
+	require.NoError(t, err)
+
+	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile)
+	content := string(typesFile.Content)
+
+	// Should have JsonLdResource struct
+	assert.Contains(t, content, "type JsonLdResource struct")
+
+	// Should have both Id and Id2 fields (or similar deduplication)
+	assert.Contains(t, content, "Id ")
+	assert.Contains(t, content, "Id2 ")
+
+	// Should have proper JSON tags for both
+	assert.Contains(t, content, `json:"@id`)
+	assert.Contains(t, content, `json:"id`)
+
+	// Should have Type_ and Type_2 fields (underscore from @type conversion)
+	assert.Contains(t, content, "Type_ ")
+	assert.Contains(t, content, "Type_2 ")
+}
+
+func TestGenerateTypesWithAdditionalPropertiesFalse(t *testing.T) {
+	// Test that additionalProperties: false does not generate an AdditionalProperties field
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    StrictObject:
+      type: object
+      properties:
+        name:
+          type: string
+      additionalProperties: false
+    FlexibleObject:
+      type: object
+      properties:
+        name:
+          type: string
+      additionalProperties: true
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+	)
+	require.NoError(t, err)
+
+	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile)
+	content := string(typesFile.Content)
+
+	// Both structs should be generated
+	assert.Contains(t, content, "type StrictObject struct")
+	assert.Contains(t, content, "type FlexibleObject struct")
+
+	// Find the StrictObject struct and verify it doesn't have AdditionalProperties
+	strictStart := strings.Index(content, "type StrictObject struct")
+	strictEnd := strings.Index(content[strictStart:], "}")
+	strictStruct := content[strictStart : strictStart+strictEnd+1]
+	assert.NotContains(t, strictStruct, "AdditionalProperties")
+
+	// FlexibleObject should have AdditionalProperties
+	flexStart := strings.Index(content, "type FlexibleObject struct")
+	flexEnd := strings.Index(content[flexStart:], "}")
+	flexStruct := content[flexStart : flexStart+flexEnd+1]
+	assert.Contains(t, flexStruct, "AdditionalProperties")
+}
