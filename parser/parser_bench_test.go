@@ -233,3 +233,43 @@ func BenchmarkFormatBytes(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkDeepCopy benchmarks DeepCopy methods for OAS documents
+func BenchmarkDeepCopy(b *testing.B) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"SmallOAS3", smallOAS3Path},
+		{"MediumOAS3", mediumOAS3Path},
+		{"LargeOAS3", largeOAS3Path},
+		{"SmallOAS2", smallOAS2Path},
+		{"MediumOAS2", mediumOAS2Path},
+	}
+
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			p := New()
+			p.ResolveRefs = false
+			p.ValidateStructure = false
+
+			result, err := p.Parse(tt.path)
+			if err != nil {
+				b.Fatalf("Failed to parse: %v", err)
+			}
+
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			if doc, ok := result.Document.(*OAS3Document); ok {
+				for b.Loop() {
+					_ = doc.DeepCopy()
+				}
+			} else if doc, ok := result.Document.(*OAS2Document); ok {
+				for b.Loop() {
+					_ = doc.DeepCopy()
+				}
+			}
+		})
+	}
+}

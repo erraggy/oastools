@@ -35,9 +35,9 @@ The v1.7.0 release includes a major optimization to JSON marshaling that elimina
 
 ## Benchmark Suite
 
-The benchmark suite includes **115+ benchmarks** (52 benchmark functions with many sub-benchmarks) across eight main packages:
+The benchmark suite includes **120+ benchmarks** (53 benchmark functions with many sub-benchmarks) across eight main packages:
 
-### Parser Package (33 benchmarks)
+### Parser Package (38 benchmarks)
 
 **Marshaling Operations**:
 - Info marshaling: no extra fields, with extra fields, varying extra field counts (1, 5, 10, 20)
@@ -55,6 +55,11 @@ The benchmark suite includes **115+ benchmarks** (52 benchmark functions with ma
 - ParseResult.Copy() deep copy performance
 - Reference resolution overhead measurement
 - FormatBytes utility function
+
+**DeepCopy Operations**:
+- OAS3Document.DeepCopy() for small, medium, and large documents
+- OAS2Document.DeepCopy() for small and medium documents
+- Type-aware copying that preserves nil vs empty distinction
 
 **Unmarshaling Operations**:
 - Info unmarshaling: no extra fields, with extra fields
@@ -163,6 +168,18 @@ The benchmark suite includes **115+ benchmarks** (52 benchmark functions with ma
 
 **Observation**: Marshaling performance scales linearly with document size and extra field count. The fast path (no extra fields) has minimal overhead.
 
+**DeepCopy Performance** (code-generated, type-aware copying):
+
+| Document Size | Time (ns) | Memory (KB) | Allocations |
+|---------------|-----------|-------------|-------------|
+| Small OAS3    | 1,760     | 7.2         | 44          |
+| Medium OAS3   | 21,039    | 106         | 466         |
+| Large OAS3    | 390,520   | 1,136       | 4,877       |
+| Small OAS2    | 1,497     | 6.2         | 38          |
+| Medium OAS2   | 17,788    | 92.5        | 387         |
+
+**Observation**: DeepCopy uses code-generated methods that are type-aware, preserving nil vs empty distinction and handling OAS-specific polymorphic fields (Schema.Type, AdditionalProperties, etc.) correctly. This replaces the previous JSON marshal/unmarshal approach which was ~20-40x slower and corrupted `$ref` parameters.
+
 ### Validator Performance
 
 **Validation** (with warnings):
@@ -201,11 +218,11 @@ The benchmark suite includes **115+ benchmarks** (52 benchmark functions with ma
 
 | Document Size | Time (μs) | Memory (KB) | Allocations |
 |---------------|-----------|-------------|-------------|
-| Small OAS3    | 86        | 79          | 1,177       |
-| Medium OAS3   | 908       | 737         | 11,017      |
-| Large OAS3    | 11,264    | 8,601       | 125,401     |
+| Small OAS3    | 2.3       | 8.2         | 52          |
+| Medium OAS3   | 28.5      | 115         | 530         |
+| Large OAS3    | 347       | 1,160       | 5,021       |
 
-**Observation**: FixParsed is **2.6x faster** than Fix for small documents (86μs vs 220μs) because it skips parsing. Type inference has negligible overhead (~3% slower). The fixer is I/O and parse-bound for most workflows.
+**Observation**: FixParsed is **60x faster** than Fix for small documents (2.3μs vs 141μs) because it skips parsing. The v1.20.0 release dramatically improved FixParsed performance by replacing JSON marshal/unmarshal with code-generated DeepCopy methods, resulting in ~37x faster deep copying operations. Type inference has negligible overhead (~3% slower). The fixer is I/O and parse-bound for most workflows.
 
 ### Converter Performance
 
@@ -222,12 +239,12 @@ The benchmark suite includes **115+ benchmarks** (52 benchmark functions with ma
 
 | Conversion    | Document Size | Time (μs) | Memory (KB) | Allocations |
 |---------------|---------------|-----------|-------------|-------------|
-| OAS2 → OAS3   | Small         | 16.2      | 20.6        | 297         |
-| OAS2 → OAS3   | Medium        | 256       | 259         | 3,608       |
-| OAS3 → OAS2   | Small         | 13.6      | 17.1        | 258         |
-| OAS3 → OAS2   | Medium        | 278       | 262         | 3,909       |
+| OAS2 → OAS3   | Small         | 3.2       | 10.0        | 83          |
+| OAS2 → OAS3   | Medium        | 37.3      | 119         | 687         |
+| OAS3 → OAS2   | Small         | 3.6       | 8.4         | 89          |
+| OAS3 → OAS2   | Medium        | 44.9      | 114         | 821         |
 
-**Observation**: ConvertParsed is **9x faster** than Convert for small documents because it skips parsing. Conversion overhead is minimal compared to parsing.
+**Observation**: ConvertParsed is **42x faster** than Convert for small documents (3.2μs vs 135μs) because it skips parsing. The v1.20.0 release improved ConvertParsed by ~5x through code-generated DeepCopy methods replacing JSON marshal/unmarshal. Conversion overhead is minimal compared to parsing.
 
 ### Joiner Performance
 
