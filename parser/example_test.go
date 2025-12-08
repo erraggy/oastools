@@ -113,3 +113,33 @@ func Example_reusableParser() {
 			file, result.Version, len(result.Errors))
 	}
 }
+
+// Example_deepCopy demonstrates using DeepCopy to create independent copies
+// of parsed documents. This is useful when you need to modify a document
+// without affecting the original (e.g., in fixers or converters).
+func Example_deepCopy() {
+	result, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Type assert to get the OAS3 document
+	original, ok := result.Document.(*parser.OAS3Document)
+	if !ok {
+		log.Fatal("expected OAS3 document")
+	}
+
+	// Create a deep copy of the document
+	docCopy := original.DeepCopy()
+
+	// Modify the copy without affecting the original
+	docCopy.Info.Title = "Modified Petstore API"
+
+	fmt.Printf("Original title: %s\n", original.Info.Title)
+	fmt.Printf("Copy title: %s\n", docCopy.Info.Title)
+	// Output:
+	// Original title: Petstore API
+	// Copy title: Modified Petstore API
+}

@@ -216,7 +216,7 @@ bench-baseline:
 	@echo "Baseline updated: benchmark-baseline.txt"
 
 ## bench-release: Run benchmarks for upcoming release (usage: make bench-release VERSION=v1.19.1)
-## Note: Excludes corpus benchmarks (BenchmarkCorpus_*) which require large specs and more memory.
+## Note: Corpus benchmarks require -tags=corpus and are excluded by default.
 ## Use 'make bench-corpus' to run corpus benchmarks separately.
 .PHONY: bench-release
 bench-release:
@@ -225,8 +225,8 @@ bench-release:
 		echo "Usage: make bench-release VERSION=v1.19.1"; \
 		exit 1; \
 	fi
-	@echo "Running benchmarks for $(VERSION) (excluding corpus benchmarks)..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m -skip='BenchmarkCorpus' ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee "$(BENCH_DIR)/benchmark-$(VERSION).txt"
+	@echo "Running benchmarks for $(VERSION)..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee "$(BENCH_DIR)/benchmark-$(VERSION).txt"
 	@echo ""
 	@echo "Benchmark saved to: $(BENCH_DIR)/benchmark-$(VERSION).txt"
 	@echo ""
@@ -381,11 +381,13 @@ test-corpus-short:
 	@echo "Running corpus integration tests (short mode, excludes large specs)..."
 	@go test -v -short -count=1 ./... -run 'TestCorpus_'
 
-## bench-corpus: Run corpus benchmarks
+## bench-corpus: Run corpus benchmarks (requires -tags=corpus)
+## Note: Corpus benchmarks require large specs and more memory.
+## These are excluded from regular benchmark runs to prevent memory exhaustion.
 .PHONY: bench-corpus
 bench-corpus:
-	@echo "Running corpus benchmarks..."
-	@go test -bench='BenchmarkCorpus' -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./differ
+	@echo "Running corpus benchmarks (requires -tags=corpus)..."
+	@go test -tags=corpus -bench='BenchmarkCorpus' -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./fixer ./differ
 
 # =============================================================================
 # Help Target

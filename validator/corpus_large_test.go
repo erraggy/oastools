@@ -92,26 +92,5 @@ func TestCorpus_MicrosoftGraph_Validate(t *testing.T) {
 		result.Valid, result.ErrorCount)
 }
 
-// BenchmarkCorpus_LargeSpecs_Validate benchmarks validation of large specs.
-func BenchmarkCorpus_LargeSpecs_Validate(b *testing.B) {
-	if os.Getenv("SKIP_LARGE_TESTS") == "1" {
-		b.Skip("Skipping large spec benchmarks (SKIP_LARGE_TESTS=1)")
-	}
-
-	spec := corpusutil.GetByName("Stripe")
-	if spec == nil || !spec.IsAvailable() {
-		b.Skip("Stripe spec not available")
-	}
-
-	b.Run("Stripe", func(b *testing.B) {
-		v := New()
-		v.IncludeWarnings = false
-
-		for b.Loop() {
-			_, err := v.Validate(spec.GetLocalPath())
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-}
+// Note: BenchmarkCorpus_LargeSpecs_Validate has been moved to corpus_bench_test.go
+// Run with: go test -tags=corpus -bench=BenchmarkCorpus ./validator/...
