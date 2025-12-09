@@ -1,5 +1,7 @@
 package parser
 
+//go:generate go run ../internal/codegen/deepcopy
+
 import (
 	"bytes"
 	"crypto/tls"
