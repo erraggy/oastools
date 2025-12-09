@@ -96,7 +96,9 @@ make build    # Build binary to bin/oastools
 make install  # Install to $GOPATH/bin
 
 # Testing
-make test          # Run all tests with race detection and coverage
+make test          # Run tests with coverage (parallel, fast)
+make test-quick    # Run tests quickly (no coverage, for rapid iteration)
+make test-full     # Run comprehensive tests with race detection
 make test-coverage # Generate and view HTML coverage report
 
 # Code Quality

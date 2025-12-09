@@ -331,6 +331,10 @@ func TestSchemaTypeFromMap(t *testing.T) {
 	}
 }
 
+// TestBuildDefaultUserAgent tests the buildDefaultUserAgent helper function.
+// This test covers empty/nil title cases which cannot be tested via integration
+// tests (e.g., GenerateWithOptions) because the parser rejects specs with empty
+// info.title as invalid before reaching user agent generation.
 func TestBuildDefaultUserAgent(t *testing.T) {
 	tests := []struct {
 		name     string

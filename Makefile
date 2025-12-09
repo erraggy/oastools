@@ -38,16 +38,22 @@ clean:
 # Test Targets
 # =============================================================================
 
-## test: Run tests (fast, without race detector, skips fuzz tests)
+## test: Run tests with coverage (parallel execution for speed)
 ## Note: Fuzz tests are skipped in regular test runs. Use 'make test-fuzz-parse' to run them separately.
 .PHONY: test
 test:
 	@echo "Running tests..."
 ifeq ("$(shell command -v gotestsum)", "")
-	go test -v -coverprofile=coverage.txt -covermode=atomic -p=1 -parallel=1 -skip='^Fuzz' ./...
+	go test -coverprofile=coverage.txt -covermode=atomic -timeout=5m -skip='^Fuzz' ./...
 else
-	gotestsum --format testname -- -v -coverprofile=coverage.txt -covermode=atomic -timeout=10m -failfast -p=1 -parallel=1 -skip='^Fuzz' ./...
+	gotestsum --format testname -- -coverprofile=coverage.txt -covermode=atomic -timeout=5m -failfast -skip='^Fuzz' ./...
 endif
+
+## test-quick: Run tests quickly for rapid iteration (no coverage, short mode)
+.PHONY: test-quick
+test-quick:
+	@echo "Running quick tests..."
+	go test -short -skip='^Fuzz' ./...
 
 ## test-race: Run tests with race detector (slower, thorough race detection)
 .PHONY: test-race
@@ -58,6 +64,19 @@ ifeq ("$(shell command -v gotestsum)", "")
 else
 	GORACE="halt_on_error=1" GOMAXPROCS=1 gotestsum --format testname -- -v -race -short -timeout=10m -failfast -p=1 -parallel=1 -skip='^Fuzz' ./...
 endif
+
+## test-full: Run comprehensive tests including race detection and all test modes
+.PHONY: test-full
+test-full:
+	@echo "Running comprehensive tests (this may take several minutes)..."
+	@echo ""
+	@echo "Phase 1: Unit tests with race detection..."
+	GORACE="halt_on_error=1" go test -race -short -timeout=10m -skip='^Fuzz' ./...
+	@echo ""
+	@echo "Phase 2: Full test suite with coverage..."
+	go test -v -coverprofile=coverage.txt -covermode=atomic -timeout=10m -skip='^Fuzz' ./...
+	@echo ""
+	@echo "Comprehensive tests complete."
 
 ## test-coverage: Run tests with coverage report
 .PHONY: test-coverage
