@@ -341,3 +341,161 @@ func TestApplyOptions_OverrideDefaults(t *testing.T) {
 	assert.False(t, cfg.validateStructure)
 	assert.Equal(t, "custom/1.0", cfg.userAgent)
 }
+
+// TestWithLogger tests the logger option
+func TestWithLogger(t *testing.T) {
+	t.Run("nil logger", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithLogger(nil)
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Nil(t, cfg.logger)
+	})
+
+	t.Run("with NopLogger", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithLogger(NopLogger{})
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.NotNil(t, cfg.logger)
+	})
+
+	t.Run("with SlogAdapter", func(t *testing.T) {
+		cfg := &parseConfig{}
+		logger := NewSlogAdapter(nil)
+		opt := WithLogger(logger)
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, logger, cfg.logger)
+	})
+}
+
+// TestParserLog tests the log() helper method
+func TestParserLog(t *testing.T) {
+	t.Run("returns NopLogger when Logger is nil", func(t *testing.T) {
+		p := &Parser{}
+		logger := p.log()
+		_, ok := logger.(NopLogger)
+		assert.True(t, ok, "expected NopLogger when Logger is nil")
+	})
+
+	t.Run("returns configured logger", func(t *testing.T) {
+		adapter := NewSlogAdapter(nil)
+		p := &Parser{Logger: adapter}
+		logger := p.log()
+		assert.Equal(t, adapter, logger)
+	})
+}
+
+// TestWithMaxRefDepth tests the WithMaxRefDepth option
+func TestWithMaxRefDepth(t *testing.T) {
+	t.Run("sets positive value", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithMaxRefDepth(50)
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, 50, cfg.maxRefDepth)
+	})
+
+	t.Run("accepts zero (use default)", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithMaxRefDepth(0)
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, 0, cfg.maxRefDepth)
+	})
+
+	t.Run("rejects negative value", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithMaxRefDepth(-1)
+		err := opt(cfg)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot be negative")
+	})
+}
+
+// TestWithMaxCachedDocuments tests the WithMaxCachedDocuments option
+func TestWithMaxCachedDocuments(t *testing.T) {
+	t.Run("sets positive value", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithMaxCachedDocuments(200)
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, 200, cfg.maxCachedDocuments)
+	})
+
+	t.Run("accepts zero (use default)", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithMaxCachedDocuments(0)
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, 0, cfg.maxCachedDocuments)
+	})
+
+	t.Run("rejects negative value", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithMaxCachedDocuments(-1)
+		err := opt(cfg)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot be negative")
+	})
+}
+
+// TestWithMaxFileSize tests the WithMaxFileSize option
+func TestWithMaxFileSize(t *testing.T) {
+	t.Run("sets positive value", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithMaxFileSize(20 * 1024 * 1024) // 20MB
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, int64(20*1024*1024), cfg.maxFileSize)
+	})
+
+	t.Run("accepts zero (use default)", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithMaxFileSize(0)
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), cfg.maxFileSize)
+	})
+
+	t.Run("rejects negative value", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithMaxFileSize(-1)
+		err := opt(cfg)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot be negative")
+	})
+}
+
+// TestParseWithOptions_ResourceLimits tests that resource limits are passed to parser
+func TestParseWithOptions_ResourceLimits(t *testing.T) {
+	// We can't easily test that the limits are actually used without
+	// modifying the resolver, but we can verify they're passed through
+	// by testing the parseConfig
+	t.Run("limits are applied to config", func(t *testing.T) {
+		cfg, err := applyOptions(
+			WithFilePath("../testdata/petstore-3.0.yaml"),
+			WithMaxRefDepth(50),
+			WithMaxCachedDocuments(200),
+			WithMaxFileSize(5*1024*1024),
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, 50, cfg.maxRefDepth)
+		assert.Equal(t, 200, cfg.maxCachedDocuments)
+		assert.Equal(t, int64(5*1024*1024), cfg.maxFileSize)
+	})
+}

@@ -1,10 +1,13 @@
 package parser
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/erraggy/oastools/oaserrors"
 )
 
 // TestResolveHTTPBasic tests basic HTTP ref resolution
@@ -200,9 +203,23 @@ func TestResolveHTTPCircularDetection(t *testing.T) {
 	_, err = resolver.Resolve(doc, server.URL)
 	if err == nil {
 		t.Error("Expected circular reference error")
+		return
 	}
-	if !strings.Contains(err.Error(), "circular reference") {
-		t.Errorf("Expected 'circular reference' error, got: %v", err)
+	// Use errors.Is for sentinel error check
+	if !errors.Is(err, oaserrors.ErrCircularReference) {
+		t.Errorf("Expected ErrCircularReference, got: %v", err)
+	}
+	// Use errors.As to verify error type and fields
+	var refErr *oaserrors.ReferenceError
+	if !errors.As(err, &refErr) {
+		t.Errorf("Expected *oaserrors.ReferenceError, got %T", err)
+	} else {
+		if !refErr.IsCircular {
+			t.Errorf("Expected IsCircular=true, got false")
+		}
+		if refErr.RefType != "http" {
+			t.Errorf("Expected RefType='http', got %q", refErr.RefType)
+		}
 	}
 }
 

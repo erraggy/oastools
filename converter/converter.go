@@ -17,6 +17,8 @@ const (
 	SeverityInfo = severity.SeverityInfo
 	// SeverityWarning indicates lossy conversions or best-effort transformations
 	SeverityWarning = severity.SeverityWarning
+	// SeverityError indicates validation errors
+	SeverityError = severity.SeverityError
 	// SeverityCritical indicates features that cannot be converted (data loss)
 	SeverityCritical = severity.SeverityCritical
 )
@@ -383,7 +385,141 @@ func (c *Converter) convertOAS3ToOAS3(parseResult parser.ParseResult, targetVers
 		Context:  "OAS 3.x versions are generally compatible, but verify features are supported",
 	})
 
+	// Check for nullable deprecation when converting 3.0.x to 3.1.x
+	if c.isOAS30(parseResult.OASVersion) && c.isOAS31OrLater(targetVersion) {
+		c.checkNullableDeprecation(converted, result)
+	}
+
 	return nil
+}
+
+// isOAS30 returns true if the version is OAS 3.0.x
+func (c *Converter) isOAS30(v parser.OASVersion) bool {
+	return v == parser.OASVersion300 || v == parser.OASVersion301 || v == parser.OASVersion302 || v == parser.OASVersion303 || v == parser.OASVersion304
+}
+
+// isOAS31OrLater returns true if the version is OAS 3.1.x or later
+func (c *Converter) isOAS31OrLater(v parser.OASVersion) bool {
+	return v == parser.OASVersion310 || v == parser.OASVersion311 || v == parser.OASVersion312 || v == parser.OASVersion320
+}
+
+// checkNullableDeprecation walks the document and warns about nullable usage
+func (c *Converter) checkNullableDeprecation(doc *parser.OAS3Document, result *ConversionResult) {
+	// Check component schemas
+	if doc.Components != nil && doc.Components.Schemas != nil {
+		for name, schema := range doc.Components.Schemas {
+			c.checkSchemaNullable(schema, fmt.Sprintf("components.schemas.%s", name), result)
+		}
+	}
+
+	// Check paths
+	for pathPattern, pathItem := range doc.Paths {
+		c.checkPathItemNullable(pathItem, fmt.Sprintf("paths.%s", pathPattern), result)
+	}
+}
+
+// checkPathItemNullable checks all operations in a path item for nullable schemas
+func (c *Converter) checkPathItemNullable(pathItem *parser.PathItem, pathPrefix string, result *ConversionResult) {
+	if pathItem == nil {
+		return
+	}
+	ops := map[string]*parser.Operation{
+		"get":     pathItem.Get,
+		"put":     pathItem.Put,
+		"post":    pathItem.Post,
+		"delete":  pathItem.Delete,
+		"options": pathItem.Options,
+		"head":    pathItem.Head,
+		"patch":   pathItem.Patch,
+		"trace":   pathItem.Trace,
+	}
+	for method, op := range ops {
+		if op != nil {
+			c.checkOperationNullable(op, fmt.Sprintf("%s.%s", pathPrefix, method), result)
+		}
+	}
+}
+
+// checkOperationNullable checks request body and responses for nullable schemas
+func (c *Converter) checkOperationNullable(op *parser.Operation, opPath string, result *ConversionResult) {
+	// Check request body
+	if op.RequestBody != nil && op.RequestBody.Content != nil {
+		for mediaType, content := range op.RequestBody.Content {
+			if content.Schema != nil {
+				c.checkSchemaNullable(content.Schema, fmt.Sprintf("%s.requestBody.content.%s.schema", opPath, mediaType), result)
+			}
+		}
+	}
+
+	// Check responses
+	if op.Responses != nil {
+		if op.Responses.Default != nil && op.Responses.Default.Content != nil {
+			for mediaType, content := range op.Responses.Default.Content {
+				if content.Schema != nil {
+					c.checkSchemaNullable(content.Schema, fmt.Sprintf("%s.responses.default.content.%s.schema", opPath, mediaType), result)
+				}
+			}
+		}
+		for code, response := range op.Responses.Codes {
+			if response != nil && response.Content != nil {
+				for mediaType, content := range response.Content {
+					if content.Schema != nil {
+						c.checkSchemaNullable(content.Schema, fmt.Sprintf("%s.responses.%s.content.%s.schema", opPath, code, mediaType), result)
+					}
+				}
+			}
+		}
+	}
+
+	// Check parameters
+	for i, param := range op.Parameters {
+		if param != nil && param.Schema != nil {
+			c.checkSchemaNullable(param.Schema, fmt.Sprintf("%s.parameters[%d].schema", opPath, i), result)
+		}
+	}
+}
+
+// checkSchemaNullable recursively checks a schema for nullable usage
+func (c *Converter) checkSchemaNullable(schema *parser.Schema, path string, result *ConversionResult) {
+	if schema == nil {
+		return
+	}
+
+	if schema.Nullable {
+		result.Issues = append(result.Issues, ConversionIssue{
+			Path:     path,
+			Message:  "'nullable: true' is deprecated in OAS 3.1",
+			Severity: SeverityWarning,
+			Context:  "In OAS 3.1, use 'type: [\"<type>\", \"null\"]' instead of 'nullable: true'",
+		})
+	}
+
+	// Check nested schemas
+	if schema.Items != nil {
+		if itemsSchema, ok := schema.Items.(*parser.Schema); ok {
+			c.checkSchemaNullable(itemsSchema, path+".items", result)
+		}
+	}
+	for propName, propSchema := range schema.Properties {
+		c.checkSchemaNullable(propSchema, fmt.Sprintf("%s.properties.%s", path, propName), result)
+	}
+	if schema.AdditionalProperties != nil {
+		if additionalSchema, ok := schema.AdditionalProperties.(*parser.Schema); ok {
+			c.checkSchemaNullable(additionalSchema, path+".additionalProperties", result)
+		}
+	}
+	for i, allOf := range schema.AllOf {
+		c.checkSchemaNullable(allOf, fmt.Sprintf("%s.allOf[%d]", path, i), result)
+	}
+	for i, anyOf := range schema.AnyOf {
+		c.checkSchemaNullable(anyOf, fmt.Sprintf("%s.anyOf[%d]", path, i), result)
+	}
+	for i, oneOf := range schema.OneOf {
+		c.checkSchemaNullable(oneOf, fmt.Sprintf("%s.oneOf[%d]", path, i), result)
+	}
+	if schema.Not != nil {
+		c.checkSchemaNullable(schema.Not, path+".not", result)
+	}
 }
 
 // addIssue is a helper to add a conversion issue to the result

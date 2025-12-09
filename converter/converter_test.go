@@ -1092,3 +1092,102 @@ func TestApplyOptions_OverrideDefaults_Converter(t *testing.T) {
 	assert.False(t, cfg.includeInfo)
 	assert.Equal(t, "custom/1.0", cfg.userAgent)
 }
+
+// TestNullableDeprecationWarning tests that nullable: true generates warnings
+// when converting from OAS 3.0.x to OAS 3.1.x
+func TestNullableDeprecationWarning(t *testing.T) {
+	c := New()
+
+	// Create an OAS 3.0.3 document with nullable schemas
+	oas3Doc := &parser.OAS3Document{
+		OpenAPI:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"NullableString": {
+					Type:     "string",
+					Nullable: true,
+				},
+				"NullableObject": {
+					Type:     "object",
+					Nullable: true,
+					Properties: map[string]*parser.Schema{
+						"nestedNullable": {
+							Type:     "integer",
+							Nullable: true,
+						},
+					},
+				},
+			},
+		},
+		Paths: make(map[string]*parser.PathItem),
+	}
+
+	parseResult := parser.ParseResult{
+		Document:   oas3Doc,
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Data:       make(map[string]any),
+		SourcePath: "test.yaml",
+	}
+
+	result, err := c.ConvertParsed(parseResult, "3.1.0")
+	require.NoError(t, err)
+
+	// Count nullable warnings
+	nullableWarnings := 0
+	for _, issue := range result.Issues {
+		if issue.Severity == SeverityWarning && strings.Contains(issue.Message, "nullable") {
+			nullableWarnings++
+		}
+	}
+
+	// Should have 3 warnings: NullableString, NullableObject, and nestedNullable
+	assert.Equal(t, 3, nullableWarnings, "Expected 3 nullable deprecation warnings")
+}
+
+// TestNullableDeprecationNotTriggeredFor30To30 tests that nullable warnings
+// are not generated when converting within 3.0.x versions
+func TestNullableDeprecationNotTriggeredFor30To30(t *testing.T) {
+	c := New()
+
+	oas3Doc := &parser.OAS3Document{
+		OpenAPI:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"NullableString": {
+					Type:     "string",
+					Nullable: true,
+				},
+			},
+		},
+		Paths: make(map[string]*parser.PathItem),
+	}
+
+	parseResult := parser.ParseResult{
+		Document:   oas3Doc,
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Data:       make(map[string]any),
+		SourcePath: "test.yaml",
+	}
+
+	result, err := c.ConvertParsed(parseResult, "3.0.3")
+	require.NoError(t, err)
+
+	// Should NOT have nullable warnings
+	for _, issue := range result.Issues {
+		if strings.Contains(issue.Message, "nullable") {
+			t.Errorf("Unexpected nullable warning when converting 3.0.x to 3.0.x: %s", issue.Message)
+		}
+	}
+}

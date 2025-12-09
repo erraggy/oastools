@@ -34,6 +34,21 @@ type Parser struct {
 	// UserAgent is the User-Agent string used when fetching URLs
 	// Defaults to "oastools" if not set
 	UserAgent string
+	// Logger is the structured logger for debug output
+	// If nil, logging is disabled (default)
+	Logger Logger
+
+	// Resource limits (0 means use default)
+
+	// MaxRefDepth is the maximum depth for resolving nested $ref pointers.
+	// Default: 100
+	MaxRefDepth int
+	// MaxCachedDocuments is the maximum number of external documents to cache.
+	// Default: 100
+	MaxCachedDocuments int
+	// MaxFileSize is the maximum file size in bytes for external references.
+	// Default: 10MB
+	MaxFileSize int64
 }
 
 // New creates a new Parser instance with default settings
@@ -43,6 +58,14 @@ func New() *Parser {
 		ValidateStructure: true,
 		UserAgent:         oastools.UserAgent(),
 	}
+}
+
+// log returns the configured logger, or a no-op logger if none is set.
+func (p *Parser) log() Logger {
+	if p.Logger != nil {
+		return p.Logger
+	}
+	return NopLogger{}
 }
 
 // SourceFormat represents the format of the source OpenAPI specification file
@@ -448,6 +471,12 @@ type parseConfig struct {
 	insecureSkipVerify bool
 	validateStructure  bool
 	userAgent          string
+	logger             Logger
+
+	// Resource limits (0 means use default)
+	maxRefDepth        int
+	maxCachedDocuments int
+	maxFileSize        int64
 }
 
 // ParseWithOptions parses an OpenAPI specification using functional options.
@@ -472,6 +501,10 @@ func ParseWithOptions(opts ...Option) (*ParseResult, error) {
 		InsecureSkipVerify: cfg.insecureSkipVerify,
 		ValidateStructure:  cfg.validateStructure,
 		UserAgent:          cfg.userAgent,
+		Logger:             cfg.logger,
+		MaxRefDepth:        cfg.maxRefDepth,
+		MaxCachedDocuments: cfg.maxCachedDocuments,
+		MaxFileSize:        cfg.maxFileSize,
 	}
 
 	// Route to appropriate parsing method based on input source
@@ -600,6 +633,69 @@ func WithResolveHTTPRefs(enabled bool) Option {
 func WithInsecureSkipVerify(enabled bool) Option {
 	return func(cfg *parseConfig) error {
 		cfg.insecureSkipVerify = enabled
+		return nil
+	}
+}
+
+// WithLogger sets a structured logger for debug output during parsing.
+// By default, no logging is performed (nil logger).
+//
+// The logger interface is compatible with log/slog, zap, and zerolog.
+// Use NewSlogAdapter to wrap a *slog.Logger.
+//
+// Example:
+//
+//	logger := parser.NewSlogAdapter(slog.Default())
+//	result, err := parser.ParseWithOptions(
+//	    parser.WithFilePath("api.yaml"),
+//	    parser.WithLogger(logger),
+//	)
+func WithLogger(l Logger) Option {
+	return func(cfg *parseConfig) error {
+		cfg.logger = l
+		return nil
+	}
+}
+
+// WithMaxRefDepth sets the maximum depth for resolving nested $ref pointers.
+// This prevents stack overflow from deeply nested (but non-circular) references.
+// A value of 0 means use the default (100).
+// Returns an error if depth is negative.
+func WithMaxRefDepth(depth int) Option {
+	return func(cfg *parseConfig) error {
+		if depth < 0 {
+			return fmt.Errorf("maxRefDepth cannot be negative")
+		}
+		cfg.maxRefDepth = depth
+		return nil
+	}
+}
+
+// WithMaxCachedDocuments sets the maximum number of external documents to cache
+// during reference resolution. This prevents memory exhaustion from documents
+// with many external references.
+// A value of 0 means use the default (100).
+// Returns an error if count is negative.
+func WithMaxCachedDocuments(count int) Option {
+	return func(cfg *parseConfig) error {
+		if count < 0 {
+			return fmt.Errorf("maxCachedDocuments cannot be negative")
+		}
+		cfg.maxCachedDocuments = count
+		return nil
+	}
+}
+
+// WithMaxFileSize sets the maximum file size in bytes for external reference files.
+// This prevents resource exhaustion from loading arbitrarily large files.
+// A value of 0 means use the default (10MB).
+// Returns an error if size is negative.
+func WithMaxFileSize(size int64) Option {
+	return func(cfg *parseConfig) error {
+		if size < 0 {
+			return fmt.Errorf("maxFileSize cannot be negative")
+		}
+		cfg.maxFileSize = size
 		return nil
 	}
 }

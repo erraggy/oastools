@@ -17,6 +17,8 @@ const (
 	SeverityInfo = severity.SeverityInfo
 	// SeverityWarning indicates features that may not generate perfectly
 	SeverityWarning = severity.SeverityWarning
+	// SeverityError indicates validation errors
+	SeverityError = severity.SeverityError
 	// SeverityCritical indicates features that cannot be generated
 	SeverityCritical = severity.SeverityCritical
 )

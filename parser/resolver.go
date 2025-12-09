@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/erraggy/oastools/oaserrors"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -80,7 +81,11 @@ func NewRefResolverWithHTTP(baseDir, baseURL string, fetcher HTTPFetcher) *RefRe
 func (r *RefResolver) ResolveLocal(doc map[string]any, ref string) (any, error) {
 	// Check for circular references
 	if r.visited[ref] {
-		return nil, fmt.Errorf("circular reference detected: %s", ref)
+		return nil, &oaserrors.ReferenceError{
+			Ref:        ref,
+			RefType:    "local",
+			IsCircular: true,
+		}
 	}
 	r.visited[ref] = true
 	defer func() { r.visited[ref] = false }()
@@ -125,7 +130,11 @@ func (r *RefResolver) ResolveLocal(doc map[string]any, ref string) (any, error) 
 func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 	// Check for circular references
 	if r.visited[ref] {
-		return nil, fmt.Errorf("circular reference detected: %s", ref)
+		return nil, &oaserrors.ReferenceError{
+			Ref:        ref,
+			RefType:    "file",
+			IsCircular: true,
+		}
 	}
 	r.visited[ref] = true
 	defer func() { r.visited[ref] = false }()
@@ -158,7 +167,11 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 	// (filepath.Rel returns an error when paths are on different drives)
 	relPath, err := filepath.Rel(absBase, absPath)
 	if err != nil || strings.HasPrefix(relPath, "..") {
-		return nil, fmt.Errorf("path traversal detected: %s", ref)
+		return nil, &oaserrors.ReferenceError{
+			Ref:             ref,
+			RefType:         "file",
+			IsPathTraversal: true,
+		}
 	}
 
 	// Check if document is already loaded
@@ -166,7 +179,12 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 	if !ok {
 		// Enforce cache size limit to prevent memory exhaustion
 		if len(r.documents) >= MaxCachedDocuments {
-			return nil, fmt.Errorf("exceeded maximum cached documents limit (%d): too many external references", MaxCachedDocuments)
+			return nil, &oaserrors.ResourceLimitError{
+				ResourceType: "cached_documents",
+				Limit:        MaxCachedDocuments,
+				Actual:       int64(len(r.documents)),
+				Message:      "too many external references",
+			}
 		}
 
 		// Check file size to prevent resource exhaustion
@@ -209,7 +227,11 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 func (r *RefResolver) ResolveHTTP(ref string) (any, error) {
 	// Check for circular references
 	if r.visited[ref] {
-		return nil, fmt.Errorf("circular reference detected: %s", ref)
+		return nil, &oaserrors.ReferenceError{
+			Ref:        ref,
+			RefType:    "http",
+			IsCircular: true,
+		}
 	}
 	r.visited[ref] = true
 	defer func() { r.visited[ref] = false }()
@@ -227,7 +249,12 @@ func (r *RefResolver) ResolveHTTP(ref string) (any, error) {
 	if !ok {
 		// Enforce cache size limit to prevent memory exhaustion
 		if len(r.documents) >= MaxCachedDocuments {
-			return nil, fmt.Errorf("exceeded maximum cached documents limit (%d): too many external references", MaxCachedDocuments)
+			return nil, &oaserrors.ResourceLimitError{
+				ResourceType: "cached_documents",
+				Limit:        MaxCachedDocuments,
+				Actual:       int64(len(r.documents)),
+				Message:      "too many external references",
+			}
 		}
 
 		// Fetch the URL content
@@ -333,7 +360,12 @@ func (r *RefResolver) ResolveAllRefs(doc map[string]any) error {
 func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 	// Prevent stack overflow from deeply nested structures
 	if depth > MaxRefDepth {
-		return fmt.Errorf("exceeded maximum reference depth (%d): structure too deeply nested", MaxRefDepth)
+		return &oaserrors.ResourceLimitError{
+			ResourceType: "ref_depth",
+			Limit:        MaxRefDepth,
+			Actual:       int64(depth),
+			Message:      "structure too deeply nested",
+		}
 	}
 	rootMap, ok := root.(map[string]any)
 	if !ok {

@@ -11,6 +11,9 @@ import (
 // The fuzzer tests ParseBytes with different combinations of resolveRefs and
 // validateStructure flags to ensure robust error handling across all code paths.
 func FuzzParseBytes(f *testing.F) {
+	if testing.Short() {
+		f.Skip("skipping fuzz test in short mode")
+	}
 	// 1. Seed Corpus: Provide known, valid and invalid examples for the fuzzer.
 	// This helps the fuzzer understand the expected input structure and edge cases.
 	seedCorpus := [][]byte{}
