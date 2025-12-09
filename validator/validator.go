@@ -22,6 +22,10 @@ const (
 	SeverityError = severity.SeverityError
 	// SeverityWarning indicates a best practice violation or recommendation
 	SeverityWarning = severity.SeverityWarning
+	// SeverityInfo indicates informational messages
+	SeverityInfo = severity.SeverityInfo
+	// SeverityCritical indicates critical issues
+	SeverityCritical = severity.SeverityCritical
 )
 
 const (

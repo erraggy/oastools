@@ -1,10 +1,13 @@
 package parser
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/erraggy/oastools/oaserrors"
 )
 
 func TestResolveLocalRefs(t *testing.T) {
@@ -88,7 +91,6 @@ paths: {}
 		name          string
 		ref           string
 		shouldSucceed bool
-		errorContains string
 	}{
 		{
 			name:          "Valid reference within baseDir",
@@ -99,25 +101,21 @@ paths: {}
 			name:          "Path traversal with ../",
 			ref:           "../forbidden.yaml",
 			shouldSucceed: false,
-			errorContains: "path traversal detected",
 		},
 		{
 			name:          "Path traversal with ../../",
 			ref:           "../../forbidden.yaml",
 			shouldSucceed: false,
-			errorContains: "path traversal detected",
 		},
 		{
 			name:          "Path traversal with ../../../",
 			ref:           "../../../etc/passwd",
 			shouldSucceed: false,
-			errorContains: "path traversal detected",
 		},
 		{
 			name:          "Absolute path outside baseDir",
 			ref:           restrictedFile,
 			shouldSucceed: false,
-			errorContains: "path traversal detected",
 		},
 	}
 
@@ -136,8 +134,18 @@ paths: {}
 			} else {
 				if err == nil {
 					t.Error("Expected error but got nil")
-				} else if !strings.Contains(err.Error(), tt.errorContains) {
-					t.Errorf("Expected error containing '%s', got: %v", tt.errorContains, err)
+					return
+				}
+				// Use errors.Is for sentinel error check
+				if !errors.Is(err, oaserrors.ErrPathTraversal) {
+					t.Errorf("Expected ErrPathTraversal, got: %v", err)
+				}
+				// Use errors.As to verify error type and fields
+				var refErr *oaserrors.ReferenceError
+				if !errors.As(err, &refErr) {
+					t.Errorf("Expected *oaserrors.ReferenceError, got %T", err)
+				} else if !refErr.IsPathTraversal {
+					t.Errorf("Expected IsPathTraversal=true, got false")
 				}
 			}
 		})
@@ -188,8 +196,18 @@ func TestPathTraversalWindows(t *testing.T) {
 			// All these should fail with path traversal error
 			if err == nil {
 				t.Errorf("Expected path traversal error for ref '%s', but got nil error. Result: %v", ref, result)
-			} else if !strings.Contains(err.Error(), "path traversal detected") {
-				t.Errorf("Expected 'path traversal detected' error for ref '%s', got: %v", ref, err)
+				return
+			}
+			// Use errors.Is for sentinel error check
+			if !errors.Is(err, oaserrors.ErrPathTraversal) {
+				t.Errorf("Expected ErrPathTraversal for ref '%s', got: %v", ref, err)
+			}
+			// Use errors.As to verify error type
+			var refErr *oaserrors.ReferenceError
+			if !errors.As(err, &refErr) {
+				t.Errorf("Expected *oaserrors.ReferenceError for ref '%s', got %T", ref, err)
+			} else if !refErr.IsPathTraversal {
+				t.Errorf("Expected IsPathTraversal=true for ref '%s'", ref)
 			}
 		})
 	}

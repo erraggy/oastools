@@ -15,9 +15,10 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 
 - **Minimal Dependencies** - Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4) at runtime; zero transitive deps
 - **Battle-Tested** - 820+ tests against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
-- **Complete Toolset** - 8 packages covering the full OpenAPI lifecycle
+- **Complete Toolset** - 9 packages covering the full OpenAPI lifecycle
 - **Performance Optimized** - 120+ benchmarks; pre-parsed workflows 9-150x faster
 - **Type-Safe Cloning** - Generated `DeepCopy()` methods preserve types across OAS versions (no JSON marshal hacks)
+- **Enterprise Ready** - Structured errors with `errors.Is()`/`errors.As()`, pluggable logging, configurable resource limits
 - **Well Documented** - Every package has godoc and runnable examples on [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools)
 
 ## Package Ecosystem
@@ -32,6 +33,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 | [differ](https://pkg.go.dev/github.com/erraggy/oastools/differ)       | Detect breaking changes between versions               |
 | [generator](https://pkg.go.dev/github.com/erraggy/oastools/generator) | Generate Go client/server code                         |
 | [builder](https://pkg.go.dev/github.com/erraggy/oastools/builder)     | Programmatically construct OAS documents               |
+| [oaserrors](https://pkg.go.dev/github.com/erraggy/oastools/oaserrors) | Structured error types for programmatic handling       |
 
 All packages include comprehensive documentation with runnable examples. See individual package pages on [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) for API details.
 
@@ -164,6 +166,47 @@ All parser types include generated `DeepCopy()` methods for safe document mutati
 // Safe mutation without affecting the original
 copy := result.OAS3Document.DeepCopy()
 copy.Info.Title = "Modified API"
+```
+
+### Enterprise-Grade Error Handling
+
+The `oaserrors` package provides structured error types that work with Go's standard `errors.Is()` and `errors.As()`:
+
+```go
+import (
+    "errors"
+    "github.com/erraggy/oastools/oaserrors"
+    "github.com/erraggy/oastools/parser"
+)
+
+result, err := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
+if err != nil {
+    // Check error category with errors.Is()
+    if errors.Is(err, oaserrors.ErrPathTraversal) {
+        log.Fatal("Security: path traversal attempt blocked")
+    }
+
+    // Extract details with errors.As()
+    var refErr *oaserrors.ReferenceError
+    if errors.As(err, &refErr) {
+        log.Printf("Failed to resolve: %s (type: %s)", refErr.Ref, refErr.RefType)
+    }
+}
+```
+
+Error types include `ParseError`, `ReferenceError`, `ValidationError`, `ResourceLimitError`, `ConversionError`, and `ConfigError`.
+
+### Configurable Resource Limits
+
+Protect against resource exhaustion with configurable limits:
+
+```go
+result, err := parser.ParseWithOptions(
+    parser.WithFilePath("api.yaml"),
+    parser.WithMaxRefDepth(50),           // Max $ref nesting (default: 100)
+    parser.WithMaxCachedDocuments(200),   // Max cached external docs (default: 100)
+    parser.WithMaxFileSize(20*1024*1024), // Max file size in bytes (default: 10MB)
+)
 ```
 
 ## Supported OpenAPI Versions

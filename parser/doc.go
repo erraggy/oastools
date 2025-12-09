@@ -42,12 +42,60 @@
 // The parser validates operation IDs, status codes, and HTTP status codes. For
 // external references, it prevents path traversal attacks by restricting file
 // access to the base directory and subdirectories. Reference resolution caches
-// up to 1000 documents to prevent memory exhaustion.
+// up to 100 documents by default to prevent memory exhaustion.
 //
 // HTTP/HTTPS $ref resolution is available via WithResolveHTTPRefs (opt-in for
 // security). Use WithInsecureSkipVerify for self-signed certificates. HTTP
 // responses are cached, size-limited, and protected against circular references.
 // See the examples in example_test.go for more details.
+//
+// # Circular Reference Handling
+//
+// When the parser detects circular references during $ref resolution, it uses a
+// "silent fallback" strategy: the affected $ref nodes remain unresolved, but
+// parsing continues successfully. This ensures documents with circular references
+// can still be used while maintaining safety.
+//
+// Circular references are detected when:
+//   - A $ref points to an ancestor in the current resolution path
+//   - The resolution depth exceeds MaxRefDepth (default: 100)
+//
+// When circular references are detected:
+//   - The $ref node is left unresolved (preserves the "$ref" key)
+//   - A warning is added to result.Warnings
+//   - The document remains valid for most operations
+//
+// To check for circular reference warnings after parsing:
+//
+//	result, err := parser.ParseWithOptions(
+//		parser.WithFilePath("openapi.yaml"),
+//		parser.WithResolveRefs(true),
+//	)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	for _, warning := range result.Warnings {
+//		if strings.Contains(warning, "circular") {
+//			fmt.Println("Document contains circular references")
+//		}
+//	}
+//
+// # Resource Limits
+//
+// The parser enforces configurable resource limits to prevent denial-of-service:
+//
+//   - MaxRefDepth: Maximum depth for nested $ref resolution (default: 100)
+//   - MaxCachedDocuments: Maximum external documents to cache (default: 100)
+//   - MaxFileSize: Maximum file size for external references (default: 10MB)
+//
+// Configure limits using functional options:
+//
+//	result, err := parser.ParseWithOptions(
+//		parser.WithFilePath("openapi.yaml"),
+//		parser.WithMaxRefDepth(50),           // Reduce max depth
+//		parser.WithMaxCachedDocuments(200),   // Allow more cached docs
+//		parser.WithMaxFileSize(20*1024*1024), // 20MB limit
+//	)
 //
 // # ParseResult Fields
 //
