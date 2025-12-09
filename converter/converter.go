@@ -395,12 +395,12 @@ func (c *Converter) convertOAS3ToOAS3(parseResult parser.ParseResult, targetVers
 
 // isOAS30 returns true if the version is OAS 3.0.x
 func (c *Converter) isOAS30(v parser.OASVersion) bool {
-	return v == parser.OASVersion300 || v == parser.OASVersion301 || v == parser.OASVersion302 || v == parser.OASVersion303 || v == parser.OASVersion304
+	return v >= parser.OASVersion300 && v <= parser.OASVersion304
 }
 
 // isOAS31OrLater returns true if the version is OAS 3.1.x or later
 func (c *Converter) isOAS31OrLater(v parser.OASVersion) bool {
-	return v == parser.OASVersion310 || v == parser.OASVersion311 || v == parser.OASVersion312 || v == parser.OASVersion320
+	return v >= parser.OASVersion310
 }
 
 // checkNullableDeprecation walks the document and warns about nullable usage
