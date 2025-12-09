@@ -4,7 +4,7 @@
 // The corpus includes 10 carefully selected specifications spanning:
 //   - OAS versions: 2.0, 3.0.0, 3.0.3, 3.0.4, 3.1.0
 //   - Formats: JSON and YAML
-//   - Sizes: From 20KB (Petstore) to 15MB (Microsoft Graph)
+//   - Sizes: From 20KB (Petstore) to 34MB (Microsoft Graph)
 //   - Domains: FinTech, Developer Tools, Enterprise, etc.
 //
 // # Usage

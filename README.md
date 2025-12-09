@@ -16,7 +16,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 - **Minimal Dependencies** - Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4) at runtime; zero transitive deps
 - **Battle-Tested** - 820+ tests against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
 - **Complete Toolset** - 8 packages covering the full OpenAPI lifecycle
-- **Performance Optimized** - 120+ benchmarks; pre-parsed workflows 30-150x faster
+- **Performance Optimized** - 120+ benchmarks; pre-parsed workflows 9-150x faster
 - **Type-Safe Cloning** - Generated `DeepCopy()` methods preserve types across OAS versions (no JSON marshal hacks)
 - **Well Documented** - Every package has godoc and runnable examples on [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools)
 
