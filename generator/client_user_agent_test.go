@@ -151,13 +151,6 @@ paths:
 	assert.Contains(t, content, `UserAgent:  "`+expectedUserAgent+`"`, "NewClient should use full title in UserAgent")
 }
 
-func TestGeneratedClientUserAgentWithEmptyTitle(t *testing.T) {
-	// Note: Empty title will trigger a parse error in validation,
-	// so we skip this test and rely on the unit test for buildDefaultUserAgent
-	// which tests the fallback behavior directly
-	t.Skip("Empty title triggers parse validation error - tested in TestBuildDefaultUserAgent")
-}
-
 func TestGeneratedClientWithUserAgentOption(t *testing.T) {
 	spec := `openapi: "3.0.0"
 info:

@@ -10,26 +10,17 @@ import (
 )
 
 // TestCorpus_JoinSameVersionSpecs tests joining specs of the same OAS version.
+// Uses embedded test fixtures to avoid dependency on corpus download.
 func TestCorpus_JoinSameVersionSpecs(t *testing.T) {
-	// Find small OAS 3.0.0 specs to join that don't have parsing issues
-	var oas30Specs []corpusutil.SpecInfo
-	for _, spec := range corpusutil.GetParseableSpecs(false) {
-		if spec.OASVersion == "3.0.0" && spec.SizeBytes < 500_000 {
-			if spec.IsAvailable() {
-				oas30Specs = append(oas30Specs, spec)
-			}
-		}
-	}
+	// Use embedded join test fixtures (both OAS 3.0.3)
+	spec1 := "../testdata/join-base-3.0.yaml"
+	spec2 := "../testdata/join-extension-3.0.yaml"
 
-	if len(oas30Specs) < 2 {
-		t.Skip("Need at least 2 small OAS 3.0.0 specs for join test")
-	}
-
-	// Parse the first two specs
+	// Parse both specs
 	p := parser.New()
-	result1, err := p.Parse(oas30Specs[0].GetLocalPath())
+	result1, err := p.Parse(spec1)
 	require.NoError(t, err)
-	result2, err := p.Parse(oas30Specs[1].GetLocalPath())
+	result2, err := p.Parse(spec2)
 	require.NoError(t, err)
 
 	// Use accept-left strategy for all collisions
@@ -41,17 +32,18 @@ func TestCorpus_JoinSameVersionSpecs(t *testing.T) {
 	j := New(config)
 	joinResult, err := j.JoinParsed([]parser.ParseResult{*result1, *result2})
 
-	// Join may fail due to incompatible specs, but should not error
+	// Join should succeed
 	require.NoError(t, err)
+	require.NotNil(t, joinResult)
 
-	if joinResult != nil {
-		doc, ok := joinResult.Document.(*parser.OAS3Document)
-		if ok {
-			t.Logf("Joined %s + %s: Paths=%d, Collisions=%d",
-				oas30Specs[0].Name, oas30Specs[1].Name,
-				len(doc.Paths), joinResult.CollisionCount)
-		}
-	}
+	doc, ok := joinResult.Document.(*parser.OAS3Document)
+	require.True(t, ok, "Expected OAS3 document")
+
+	// Verify the join produced meaningful output
+	assert.Greater(t, len(doc.Paths), 0, "Joined doc should have paths")
+
+	t.Logf("Joined join-base-3.0.yaml + join-extension-3.0.yaml: Paths=%d, Collisions=%d",
+		len(doc.Paths), joinResult.CollisionCount)
 }
 
 // TestCorpus_JoinPetstoreWithSelf tests joining Petstore with itself.
