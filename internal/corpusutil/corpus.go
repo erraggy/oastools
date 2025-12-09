@@ -145,7 +145,7 @@ var Corpus = []SpecInfo{
 		ExpectedValid:  true, // Now valid after fixing $ref parameter/requestBody validation (was 30,000 false positives!)
 		ExpectedErrors: 0,
 		IsLarge:        true,
-		SizeBytes:      15_000_000,
+		SizeBytes:      34_000_000,
 	},
 }
 
