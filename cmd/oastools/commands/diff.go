@@ -10,6 +10,7 @@ import (
 	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/differ"
 	"github.com/erraggy/oastools/internal/cliutil"
+	"github.com/erraggy/oastools/parser"
 )
 
 // DiffFlags contains flags for the diff command
@@ -125,10 +126,24 @@ func HandleDiff(args []string) error {
 	// Print results
 	fmt.Printf("OpenAPI Specification Diff\n")
 	fmt.Printf("==========================\n\n")
-	fmt.Printf("oastools version: %s\n", oastools.Version())
-	fmt.Printf("Source: %s (%s)\n", sourcePath, result.SourceVersion)
-	fmt.Printf("Target: %s (%s)\n", targetPath, result.TargetVersion)
-	fmt.Printf("Total Time: %v\n\n", totalTime)
+	fmt.Printf("oastools version: %s\n\n", oastools.Version())
+
+	// Print source and target details in 2-column format
+	fmt.Printf("%-40s %s\n", "Source: "+sourcePath, "Target: "+targetPath)
+	fmt.Printf("%-40s %s\n", "  OAS Version: "+result.SourceVersion, "  OAS Version: "+result.TargetVersion)
+	fmt.Printf("%-40s %s\n",
+		"  Source Size: "+parser.FormatBytes(result.SourceSize),
+		"  Source Size: "+parser.FormatBytes(result.TargetSize))
+	fmt.Printf("%-40s %s\n",
+		fmt.Sprintf("  Paths: %d", result.SourceStats.PathCount),
+		fmt.Sprintf("  Paths: %d", result.TargetStats.PathCount))
+	fmt.Printf("%-40s %s\n",
+		fmt.Sprintf("  Operations: %d", result.SourceStats.OperationCount),
+		fmt.Sprintf("  Operations: %d", result.TargetStats.OperationCount))
+	fmt.Printf("%-40s %s\n",
+		fmt.Sprintf("  Schemas: %d", result.SourceStats.SchemaCount),
+		fmt.Sprintf("  Schemas: %d", result.TargetStats.SchemaCount))
+	fmt.Printf("\nTotal Time: %v\n\n", totalTime)
 
 	if len(result.Changes) == 0 {
 		fmt.Println("✓ No differences found - specifications are identical")

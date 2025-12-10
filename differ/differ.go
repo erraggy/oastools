@@ -120,10 +120,18 @@ type DiffResult struct {
 	SourceVersion string
 	// SourceOASVersion is the enumerated source OAS version
 	SourceOASVersion parser.OASVersion
+	// SourceStats contains statistical information about the source document
+	SourceStats parser.DocumentStats
+	// SourceSize is the size of the source document in bytes
+	SourceSize int64
 	// TargetVersion is the target document's OAS version string
 	TargetVersion string
 	// TargetOASVersion is the enumerated target OAS version
 	TargetOASVersion parser.OASVersion
+	// TargetStats contains statistical information about the target document
+	TargetStats parser.DocumentStats
+	// TargetSize is the size of the target document in bytes
+	TargetSize int64
 	// Changes contains all detected changes
 	Changes []Change
 	// BreakingCount is the number of breaking changes (Critical + Error severity)
@@ -380,8 +388,12 @@ func (d *Differ) DiffParsed(source, target parser.ParseResult) (*DiffResult, err
 	result := &DiffResult{
 		SourceVersion:    source.Version,
 		SourceOASVersion: source.OASVersion,
+		SourceStats:      source.Stats,
+		SourceSize:       source.SourceSize,
 		TargetVersion:    target.Version,
 		TargetOASVersion: target.OASVersion,
+		TargetStats:      target.Stats,
+		TargetSize:       target.SourceSize,
 		Changes:          make([]Change, 0),
 	}
 

@@ -542,3 +542,29 @@ func TestApplyOptions_OverrideDefaults_Differ(t *testing.T) {
 	assert.False(t, cfg.includeInfo)
 	assert.Equal(t, "custom/1.0", cfg.userAgent)
 }
+
+// TestDiffResult_StatsPopulated tests that document statistics are correctly populated
+func TestDiffResult_StatsPopulated(t *testing.T) {
+	d := New()
+	result, err := d.Diff("../testdata/petstore-v1.yaml", "../testdata/petstore-v2.yaml")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// Verify source stats are populated
+	assert.Greater(t, result.SourceStats.PathCount, 0, "Expected source to have paths")
+	assert.Greater(t, result.SourceStats.OperationCount, 0, "Expected source to have operations")
+	assert.Greater(t, result.SourceStats.SchemaCount, 0, "Expected source to have schemas")
+	assert.Greater(t, result.SourceSize, int64(0), "Expected source size to be greater than 0")
+
+	// Verify target stats are populated
+	assert.Greater(t, result.TargetStats.PathCount, 0, "Expected target to have paths")
+	assert.Greater(t, result.TargetStats.OperationCount, 0, "Expected target to have operations")
+	assert.Greater(t, result.TargetStats.SchemaCount, 0, "Expected target to have schemas")
+	assert.Greater(t, result.TargetSize, int64(0), "Expected target size to be greater than 0")
+
+	// Verify specific values for petstore files
+	assert.Equal(t, 2, result.SourceStats.PathCount, "Expected 2 paths in petstore-v1")
+	assert.Equal(t, 3, result.SourceStats.OperationCount, "Expected 3 operations in petstore-v1")
+	assert.Equal(t, 2, result.TargetStats.PathCount, "Expected 2 paths in petstore-v2")
+	assert.Equal(t, 4, result.TargetStats.OperationCount, "Expected 4 operations in petstore-v2")
+}
