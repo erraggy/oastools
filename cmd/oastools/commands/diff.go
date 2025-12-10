@@ -133,7 +133,7 @@ func HandleDiff(args []string) error {
 	fmt.Printf("%-40s %s\n", "  OAS Version: "+result.SourceVersion, "  OAS Version: "+result.TargetVersion)
 	fmt.Printf("%-40s %s\n",
 		"  Source Size: "+parser.FormatBytes(result.SourceSize),
-		"  Source Size: "+parser.FormatBytes(result.TargetSize))
+		"  Target Size: "+parser.FormatBytes(result.TargetSize))
 	fmt.Printf("%-40s %s\n",
 		fmt.Sprintf("  Paths: %d", result.SourceStats.PathCount),
 		fmt.Sprintf("  Paths: %d", result.TargetStats.PathCount))
