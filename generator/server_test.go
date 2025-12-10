@@ -507,7 +507,8 @@ components:
 	assert.NotNil(t, result.GetFile("types.go"))
 	assert.NotNil(t, result.GetFile("client.go"))
 	assert.NotNil(t, result.GetFile("server.go"))
-	assert.Equal(t, 3, len(result.Files))
+	assert.NotNil(t, result.GetFile("README.md"))
+	assert.Equal(t, 4, len(result.Files))
 }
 
 func TestGenerateServerWithNoOperationId(t *testing.T) {

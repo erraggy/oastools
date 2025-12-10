@@ -31,7 +31,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 | [converter](https://pkg.go.dev/github.com/erraggy/oastools/converter) | Convert between OAS 2.0 and 3.x                        |
 | [joiner](https://pkg.go.dev/github.com/erraggy/oastools/joiner)       | Merge multiple OAS documents                           |
 | [differ](https://pkg.go.dev/github.com/erraggy/oastools/differ)       | Detect breaking changes between versions               |
-| [generator](https://pkg.go.dev/github.com/erraggy/oastools/generator) | Generate Go client/server code                         |
+| [generator](https://pkg.go.dev/github.com/erraggy/oastools/generator) | Generate Go client/server code with security support   |
 | [builder](https://pkg.go.dev/github.com/erraggy/oastools/builder)     | Programmatically construct OAS documents               |
 | [oaserrors](https://pkg.go.dev/github.com/erraggy/oastools/oaserrors) | Structured error types for programmatic handling       |
 
@@ -79,6 +79,9 @@ oastools fix api.yaml -o fixed.yaml
 
 # Generate Go client/server code
 oastools generate --client --server -o ./generated -p api openapi.yaml
+
+# Generate client with full OAuth2 support
+oastools generate --client --oauth2-flows --readme -o ./client -p api openapi.yaml
 
 # Merge multiple specs
 oastools join -o merged.yaml base.yaml extensions.yaml

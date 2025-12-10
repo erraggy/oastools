@@ -3,6 +3,7 @@ package generator
 import (
 	goparser "go/parser"
 	"go/token"
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/internal/corpusutil"
@@ -36,6 +37,10 @@ func TestCorpus_Generate(t *testing.T) {
 			// Verify generated code is valid Go syntax
 			fset := token.NewFileSet()
 			for _, file := range result.Files {
+				// Skip non-Go files (README.md, etc.)
+				if !strings.HasSuffix(file.Name, ".go") {
+					continue
+				}
 				_, err := goparser.ParseFile(fset, file.Name, file.Content, goparser.AllErrors)
 				assert.NoError(t, err, "%s: generated %s should be valid Go syntax", spec.Name, file.Name)
 			}
@@ -137,6 +142,10 @@ func TestCorpus_OAS2Generation(t *testing.T) {
 	// Verify all generated files are valid Go
 	fset := token.NewFileSet()
 	for _, file := range result.Files {
+		// Skip non-Go files (README.md, etc.)
+		if !strings.HasSuffix(file.Name, ".go") {
+			continue
+		}
 		_, err := goparser.ParseFile(fset, file.Name, file.Content, goparser.AllErrors)
 		assert.NoError(t, err, "Petstore: %s should be valid Go syntax", file.Name)
 	}
@@ -167,6 +176,10 @@ func TestCorpus_OAS31Generation(t *testing.T) {
 	// Verify all generated files are valid Go
 	fset := token.NewFileSet()
 	for _, file := range result.Files {
+		// Skip non-Go files (README.md, etc.)
+		if !strings.HasSuffix(file.Name, ".go") {
+			continue
+		}
 		_, err := goparser.ParseFile(fset, file.Name, file.Content, goparser.AllErrors)
 		assert.NoError(t, err, "Discord: %s should be valid Go syntax", file.Name)
 	}

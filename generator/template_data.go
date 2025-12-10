@@ -4,6 +4,7 @@ package generator
 type HeaderData struct {
 	PackageName string
 	Imports     []string
+	Comment     string // Optional file-level comment
 }
 
 // FieldData contains data for a struct field

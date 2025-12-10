@@ -122,6 +122,62 @@ type Generator struct {
 
 	// UserAgent is the User-Agent string used when fetching URLs
 	UserAgent string
+
+	// File splitting options for large APIs
+
+	// MaxLinesPerFile is the maximum lines per generated file before splitting.
+	// When exceeded, files are split by tag or path prefix.
+	// Default: 2000, 0 = no limit
+	MaxLinesPerFile int
+
+	// MaxTypesPerFile is the maximum types per generated file before splitting.
+	// Default: 200, 0 = no limit
+	MaxTypesPerFile int
+
+	// MaxOperationsPerFile is the maximum operations per generated file before splitting.
+	// Default: 100, 0 = no limit
+	MaxOperationsPerFile int
+
+	// SplitByTag enables splitting files by operation tag.
+	// Default: true
+	SplitByTag bool
+
+	// SplitByPathPrefix enables splitting files by path prefix as a fallback
+	// when tags are not available.
+	// Default: true
+	SplitByPathPrefix bool
+
+	// Security generation options
+
+	// GenerateSecurity enables security helper generation.
+	// When true, generates ClientOption functions for each security scheme.
+	// Default: true when GenerateClient is true
+	GenerateSecurity bool
+
+	// GenerateOAuth2Flows enables OAuth2 token flow helper generation.
+	// Generates token acquisition, refresh, and authorization code exchange.
+	// Default: false
+	GenerateOAuth2Flows bool
+
+	// GenerateCredentialMgmt enables credential management interface generation.
+	// Generates CredentialProvider interface and built-in implementations.
+	// Default: false
+	GenerateCredentialMgmt bool
+
+	// GenerateSecurityEnforce enables security enforcement code generation.
+	// Generates per-operation security requirements and validation middleware.
+	// Default: false
+	GenerateSecurityEnforce bool
+
+	// GenerateOIDCDiscovery enables OpenID Connect discovery client generation.
+	// Generates OIDC discovery client and auto-configuration helpers.
+	// Default: false
+	GenerateOIDCDiscovery bool
+
+	// GenerateReadme enables README.md generation in the output directory.
+	// The README includes regeneration commands, file listing, and usage examples.
+	// Default: true
+	GenerateReadme bool
 }
 
 // New creates a new Generator instance with default settings
@@ -135,6 +191,19 @@ func New() *Generator {
 		IncludeValidation: true,
 		StrictMode:        false,
 		IncludeInfo:       true,
+		// File splitting defaults
+		MaxLinesPerFile:      2000,
+		MaxTypesPerFile:      200,
+		MaxOperationsPerFile: 100,
+		SplitByTag:           true,
+		SplitByPathPrefix:    true,
+		// Security defaults
+		GenerateSecurity:        true, // Enabled by default when client is generated
+		GenerateOAuth2Flows:     false,
+		GenerateCredentialMgmt:  false,
+		GenerateSecurityEnforce: false,
+		GenerateOIDCDiscovery:   false,
+		GenerateReadme:          true,
 	}
 }
 
@@ -157,6 +226,21 @@ type generateConfig struct {
 	strictMode        bool
 	includeInfo       bool
 	userAgent         string
+
+	// File splitting options
+	maxLinesPerFile      int
+	maxTypesPerFile      int
+	maxOperationsPerFile int
+	splitByTag           bool
+	splitByPathPrefix    bool
+
+	// Security generation options
+	generateSecurity        bool
+	generateOAuth2Flows     bool
+	generateCredentialMgmt  bool
+	generateSecurityEnforce bool
+	generateOIDCDiscovery   bool
+	generateReadme          bool
 }
 
 // GenerateWithOptions generates code from an OpenAPI specification using functional options.
@@ -186,6 +270,19 @@ func GenerateWithOptions(opts ...Option) (*GenerateResult, error) {
 		StrictMode:        cfg.strictMode,
 		IncludeInfo:       cfg.includeInfo,
 		UserAgent:         cfg.userAgent,
+		// File splitting
+		MaxLinesPerFile:      cfg.maxLinesPerFile,
+		MaxTypesPerFile:      cfg.maxTypesPerFile,
+		MaxOperationsPerFile: cfg.maxOperationsPerFile,
+		SplitByTag:           cfg.splitByTag,
+		SplitByPathPrefix:    cfg.splitByPathPrefix,
+		// Security
+		GenerateSecurity:        cfg.generateSecurity,
+		GenerateOAuth2Flows:     cfg.generateOAuth2Flows,
+		GenerateCredentialMgmt:  cfg.generateCredentialMgmt,
+		GenerateSecurityEnforce: cfg.generateSecurityEnforce,
+		GenerateOIDCDiscovery:   cfg.generateOIDCDiscovery,
+		GenerateReadme:          cfg.generateReadme,
 	}
 
 	// Route to appropriate generation method based on input source
@@ -213,6 +310,19 @@ func applyOptions(opts ...Option) (*generateConfig, error) {
 		strictMode:        false,
 		includeInfo:       true,
 		userAgent:         "",
+		// File splitting defaults
+		maxLinesPerFile:      2000,
+		maxTypesPerFile:      200,
+		maxOperationsPerFile: 100,
+		splitByTag:           true,
+		splitByPathPrefix:    true,
+		// Security defaults
+		generateSecurity:        true,
+		generateOAuth2Flows:     false,
+		generateCredentialMgmt:  false,
+		generateSecurityEnforce: false,
+		generateOIDCDiscovery:   false,
+		generateReadme:          true,
 	}
 
 	for _, opt := range opts {
@@ -346,6 +456,146 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
+// File splitting options
+
+// WithMaxLinesPerFile sets the maximum lines per generated file before splitting.
+// When exceeded, files are split by tag or path prefix.
+// Default: 2000, 0 = no limit
+func WithMaxLinesPerFile(n int) Option {
+	return func(cfg *generateConfig) error {
+		if n < 0 {
+			return fmt.Errorf("max lines per file cannot be negative")
+		}
+		cfg.maxLinesPerFile = n
+		return nil
+	}
+}
+
+// WithMaxTypesPerFile sets the maximum types per generated file before splitting.
+// Default: 200, 0 = no limit
+func WithMaxTypesPerFile(n int) Option {
+	return func(cfg *generateConfig) error {
+		if n < 0 {
+			return fmt.Errorf("max types per file cannot be negative")
+		}
+		cfg.maxTypesPerFile = n
+		return nil
+	}
+}
+
+// WithMaxOperationsPerFile sets the maximum operations per generated file before splitting.
+// Default: 100, 0 = no limit
+func WithMaxOperationsPerFile(n int) Option {
+	return func(cfg *generateConfig) error {
+		if n < 0 {
+			return fmt.Errorf("max operations per file cannot be negative")
+		}
+		cfg.maxOperationsPerFile = n
+		return nil
+	}
+}
+
+// WithSplitByTag enables or disables splitting files by operation tag.
+// Default: true
+func WithSplitByTag(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.splitByTag = enabled
+		return nil
+	}
+}
+
+// WithSplitByPathPrefix enables or disables splitting files by path prefix.
+// This is used as a fallback when tags are not available.
+// Default: true
+func WithSplitByPathPrefix(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.splitByPathPrefix = enabled
+		return nil
+	}
+}
+
+// Security generation options
+
+// WithGenerateSecurity enables or disables security helper generation.
+// When true, generates ClientOption functions for each security scheme.
+// Default: true
+func WithGenerateSecurity(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.generateSecurity = enabled
+		return nil
+	}
+}
+
+// WithGenerateOAuth2Flows enables or disables OAuth2 token flow helper generation.
+// Generates token acquisition, refresh, and authorization code exchange.
+// Default: false
+func WithGenerateOAuth2Flows(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.generateOAuth2Flows = enabled
+		return nil
+	}
+}
+
+// WithGenerateCredentialMgmt enables or disables credential management interface generation.
+// Generates CredentialProvider interface and built-in implementations.
+// Default: false
+func WithGenerateCredentialMgmt(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.generateCredentialMgmt = enabled
+		return nil
+	}
+}
+
+// WithGenerateSecurityEnforce enables or disables security enforcement code generation.
+// Generates per-operation security requirements and validation middleware.
+// Default: false
+func WithGenerateSecurityEnforce(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.generateSecurityEnforce = enabled
+		return nil
+	}
+}
+
+// WithGenerateOIDCDiscovery enables or disables OpenID Connect discovery client generation.
+// Generates OIDC discovery client and auto-configuration helpers.
+// Default: false
+func WithGenerateOIDCDiscovery(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.generateOIDCDiscovery = enabled
+		return nil
+	}
+}
+
+// WithGenerateReadme enables or disables README.md generation in the output directory.
+// The README includes regeneration commands, file listing, and usage examples.
+// Default: true
+func WithGenerateReadme(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.generateReadme = enabled
+		return nil
+	}
+}
+
+// Convenience aliases for security generation options
+
+// WithSecurity is an alias for WithGenerateSecurity.
+func WithSecurity(enabled bool) Option { return WithGenerateSecurity(enabled) }
+
+// WithOAuth2Flows is an alias for WithGenerateOAuth2Flows.
+func WithOAuth2Flows(enabled bool) Option { return WithGenerateOAuth2Flows(enabled) }
+
+// WithCredentialMgmt is an alias for WithGenerateCredentialMgmt.
+func WithCredentialMgmt(enabled bool) Option { return WithGenerateCredentialMgmt(enabled) }
+
+// WithSecurityEnforce is an alias for WithGenerateSecurityEnforce.
+func WithSecurityEnforce(enabled bool) Option { return WithGenerateSecurityEnforce(enabled) }
+
+// WithOIDCDiscovery is an alias for WithGenerateOIDCDiscovery.
+func WithOIDCDiscovery(enabled bool) Option { return WithGenerateOIDCDiscovery(enabled) }
+
+// WithReadme is an alias for WithGenerateReadme.
+func WithReadme(enabled bool) Option { return WithGenerateReadme(enabled) }
+
 // Generate generates code from an OpenAPI specification file or URL
 func (g *Generator) Generate(specPath string) (*GenerateResult, error) {
 	// Create parser and set UserAgent if specified
@@ -430,6 +680,11 @@ func (g *Generator) GenerateParsed(parseResult parser.ParseResult) (*GenerateRes
 		}
 	}
 
+	// Generate security helpers and related files
+	if err := cg.generateSecurityHelpers(); err != nil {
+		return nil, fmt.Errorf("failed to generate security helpers: %w", err)
+	}
+
 	// Update counts and timing
 	result.GenerateTime = time.Since(startTime)
 	g.updateCounts(result)
@@ -479,4 +734,5 @@ type codeGenerator interface {
 	generateTypes() error
 	generateClient() error
 	generateServer() error
+	generateSecurityHelpers() error
 }
