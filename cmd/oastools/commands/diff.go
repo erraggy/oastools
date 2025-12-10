@@ -128,21 +128,44 @@ func HandleDiff(args []string) error {
 	fmt.Printf("==========================\n\n")
 	fmt.Printf("oastools version: %s\n\n", oastools.Version())
 
-	// Print source and target details in 2-column format
-	fmt.Printf("%-40s %s\n", "Source: "+sourcePath, "Target: "+targetPath)
-	fmt.Printf("%-40s %s\n", "  OAS Version: "+result.SourceVersion, "  OAS Version: "+result.TargetVersion)
-	fmt.Printf("%-40s %s\n",
-		"  Source Size: "+parser.FormatBytes(result.SourceSize),
-		"  Target Size: "+parser.FormatBytes(result.TargetSize))
-	fmt.Printf("%-40s %s\n",
-		fmt.Sprintf("  Paths: %d", result.SourceStats.PathCount),
-		fmt.Sprintf("  Paths: %d", result.TargetStats.PathCount))
-	fmt.Printf("%-40s %s\n",
-		fmt.Sprintf("  Operations: %d", result.SourceStats.OperationCount),
-		fmt.Sprintf("  Operations: %d", result.TargetStats.OperationCount))
-	fmt.Printf("%-40s %s\n",
-		fmt.Sprintf("  Schemas: %d", result.SourceStats.SchemaCount),
-		fmt.Sprintf("  Schemas: %d", result.TargetStats.SchemaCount))
+	// Determine if we should use single or 2-column layout
+	// Use single column if either path is too long to fit comfortably in 2 columns
+	// For 80-char terminal: leave room for labels, spacing, and both paths
+	const maxPathLengthForTwoColumns = 35 // "Source: " (8 chars) + path should fit in ~40 chars
+	useSingleColumn := len(sourcePath) > maxPathLengthForTwoColumns || len(targetPath) > maxPathLengthForTwoColumns
+
+	if useSingleColumn {
+		// Single column layout for long paths
+		fmt.Printf("Source: %s\n", sourcePath)
+		fmt.Printf("  OAS Version: %s\n", result.SourceVersion)
+		fmt.Printf("  Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+		fmt.Printf("  Paths: %d\n", result.SourceStats.PathCount)
+		fmt.Printf("  Operations: %d\n", result.SourceStats.OperationCount)
+		fmt.Printf("  Schemas: %d\n\n", result.SourceStats.SchemaCount)
+
+		fmt.Printf("Target: %s\n", targetPath)
+		fmt.Printf("  OAS Version: %s\n", result.TargetVersion)
+		fmt.Printf("  Target Size: %s\n", parser.FormatBytes(result.TargetSize))
+		fmt.Printf("  Paths: %d\n", result.TargetStats.PathCount)
+		fmt.Printf("  Operations: %d\n", result.TargetStats.OperationCount)
+		fmt.Printf("  Schemas: %d\n", result.TargetStats.SchemaCount)
+	} else {
+		// 2-column layout for short paths (side-by-side comparison)
+		fmt.Printf("%-40s %s\n", "Source: "+sourcePath, "Target: "+targetPath)
+		fmt.Printf("%-40s %s\n", "  OAS Version: "+result.SourceVersion, "  OAS Version: "+result.TargetVersion)
+		fmt.Printf("%-40s %s\n",
+			"  Source Size: "+parser.FormatBytes(result.SourceSize),
+			"  Target Size: "+parser.FormatBytes(result.TargetSize))
+		fmt.Printf("%-40s %s\n",
+			fmt.Sprintf("  Paths: %d", result.SourceStats.PathCount),
+			fmt.Sprintf("  Paths: %d", result.TargetStats.PathCount))
+		fmt.Printf("%-40s %s\n",
+			fmt.Sprintf("  Operations: %d", result.SourceStats.OperationCount),
+			fmt.Sprintf("  Operations: %d", result.TargetStats.OperationCount))
+		fmt.Printf("%-40s %s\n",
+			fmt.Sprintf("  Schemas: %d", result.SourceStats.SchemaCount),
+			fmt.Sprintf("  Schemas: %d", result.TargetStats.SchemaCount))
+	}
 	fmt.Printf("\nTotal Time: %v\n\n", totalTime)
 
 	if len(result.Changes) == 0 {
