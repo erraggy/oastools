@@ -863,42 +863,9 @@ func (cg *oas3CodeGenerator) generateClientMethod(path, method string, op *parse
 
 	// Write method documentation - handle multiline descriptions properly
 	if op.Summary != "" {
-		buf.WriteString(fmt.Sprintf("// %s ", methodName))
-		// If summary contains newlines, format as multi-line comment
-		if strings.Contains(op.Summary, "\n") {
-			buf.WriteString(strings.TrimSpace(strings.Split(op.Summary, "\n")[0]))
-			buf.WriteString("\n")
-			remainingLines := strings.Split(op.Summary, "\n")[1:]
-			for _, line := range remainingLines {
-				line = strings.TrimSpace(line)
-				if line != "" {
-					buf.WriteString("// ")
-					buf.WriteString(line)
-					buf.WriteString("\n")
-				}
-			}
-		} else {
-			buf.WriteString(op.Summary)
-			buf.WriteString("\n")
-		}
+		buf.WriteString(formatMultilineComment(op.Summary, methodName, ""))
 	} else if op.Description != "" {
-		buf.WriteString(fmt.Sprintf("// %s ", methodName))
-		if strings.Contains(op.Description, "\n") {
-			buf.WriteString(strings.TrimSpace(strings.Split(op.Description, "\n")[0]))
-			buf.WriteString("\n")
-			remainingLines := strings.Split(op.Description, "\n")[1:]
-			for _, line := range remainingLines {
-				line = strings.TrimSpace(line)
-				if line != "" {
-					buf.WriteString("// ")
-					buf.WriteString(line)
-					buf.WriteString("\n")
-				}
-			}
-		} else {
-			buf.WriteString(cleanDescription(op.Description))
-			buf.WriteString("\n")
-		}
+		buf.WriteString(formatMultilineComment(op.Description, methodName, ""))
 	} else {
 		buf.WriteString(fmt.Sprintf("// %s calls %s %s\n", methodName, strings.ToUpper(method), path))
 	}
@@ -1524,44 +1491,9 @@ func (cg *oas3CodeGenerator) generateServerMethodSignature(path, method string, 
 
 	// Write comment - handle multiline descriptions properly
 	if op.Summary != "" {
-		// Format the summary as a proper comment with method name prefix
-		buf.WriteString(fmt.Sprintf("\t// %s ", methodName))
-		// If summary contains newlines, format as multi-line comment
-		if strings.Contains(op.Summary, "\n") {
-			buf.WriteString(strings.TrimSpace(strings.Split(op.Summary, "\n")[0]))
-			buf.WriteString("\n")
-			remainingLines := strings.Split(op.Summary, "\n")[1:]
-			for _, line := range remainingLines {
-				line = strings.TrimSpace(line)
-				if line != "" {
-					buf.WriteString("\t// ")
-					buf.WriteString(line)
-					buf.WriteString("\n")
-				}
-			}
-		} else {
-			buf.WriteString(op.Summary)
-			buf.WriteString("\n")
-		}
+		buf.WriteString(formatMultilineComment(op.Summary, methodName, "\t"))
 	} else if op.Description != "" {
-		// Use description if no summary, properly formatted for multiline
-		buf.WriteString(fmt.Sprintf("\t// %s ", methodName))
-		if strings.Contains(op.Description, "\n") {
-			buf.WriteString(strings.TrimSpace(strings.Split(op.Description, "\n")[0]))
-			buf.WriteString("\n")
-			remainingLines := strings.Split(op.Description, "\n")[1:]
-			for _, line := range remainingLines {
-				line = strings.TrimSpace(line)
-				if line != "" {
-					buf.WriteString("\t// ")
-					buf.WriteString(line)
-					buf.WriteString("\n")
-				}
-			}
-		} else {
-			buf.WriteString(cleanDescription(op.Description))
-			buf.WriteString("\n")
-		}
+		buf.WriteString(formatMultilineComment(op.Description, methodName, "\t"))
 	}
 	if op.Deprecated {
 		buf.WriteString("\t// Deprecated: This operation is deprecated.\n")
