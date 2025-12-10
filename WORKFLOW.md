@@ -283,6 +283,38 @@ PRs are merged by maintainers once:
 3. No outstanding change requests
 4. Branch is up-to-date with main
 
+### Post-Merge Cleanup
+
+After a PR is merged (typically via GitHub web interface), clean up the local and remote branches:
+
+**When user says:** `pr merged, please clean up`
+
+**Execute:**
+```bash
+# Switch to main and get latest
+git checkout main
+git pull origin main
+
+# Delete the feature branch locally
+git branch -d <branch-name>
+
+# Delete the feature branch on remote
+git push origin --delete <branch-name>
+```
+
+**Example cleanup session:**
+```bash
+git checkout main
+git pull origin main
+git branch -d feat/security-codegen
+git push origin --delete feat/security-codegen
+```
+
+**Notes:**
+- Use `-d` (not `-D`) to ensure the branch was fully merged
+- If `-d` fails with "not fully merged" error, verify the PR was actually merged before using `-D`
+- The remote branch may already be deleted if GitHub's "auto-delete branches" setting is enabled
+
 ## PR-to-Release Workflow
 
 ### Prerequisites
