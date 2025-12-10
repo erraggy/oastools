@@ -121,6 +121,28 @@ func cleanDescription(s string) string {
 	return s
 }
 
+// formatCommentLines formats a description as multi-line Go comments.
+// Each line of the input (split by \n) becomes a separate comment line.
+// Empty lines and whitespace are preserved to maintain readability.
+func formatCommentLines(prefix, description string) string {
+	if description == "" {
+		return ""
+	}
+
+	var result strings.Builder
+	lines := strings.Split(description, "\n")
+	
+	for _, line := range lines {
+		line = strings.TrimRight(line, " \t\r") // Trim trailing whitespace but preserve leading
+		result.WriteString(prefix)
+		result.WriteString("// ")
+		result.WriteString(line)
+		result.WriteString("\n")
+	}
+	
+	return result.String()
+}
+
 // getSchemaType extracts the type from a schema, handling both OAS 2.0/3.0
 // string types and OAS 3.1+ type arrays.
 func getSchemaType(schema *parser.Schema) string {
