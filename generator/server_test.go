@@ -684,18 +684,18 @@ paths:
 
 	serverFile := result.GetFile("server.go")
 	require.NotNil(t, serverFile, "server.go not generated")
-	
+
 	content := string(serverFile.Content)
 
 	// Verify GetBar has proper multiline comments
 	assert.Contains(t, content, "// GetBar Retrieves all Bars")
 	assert.Contains(t, content, "// This API is intended for retrieval")
 	assert.Contains(t, content, "// If you need to use offset pagination")
-	
+
 	// Verify deprecated operation has proper comments
 	assert.Contains(t, content, "// DeprecatedOp Foo")
 	assert.Contains(t, content, "// Deprecated: Please use version v2")
-	
+
 	// Ensure no bare newlines in comments (would cause compile error)
 	assert.NotContains(t, content, "criteria\nThis API")
 	assert.NotContains(t, content, "token.\nIf you")

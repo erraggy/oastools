@@ -987,19 +987,19 @@ paths:
 
 	clientFile := result.GetFile("client.go")
 	require.NotNil(t, clientFile, "client.go not generated")
-	
+
 	content := string(clientFile.Content)
 
 	// Verify GetBar has proper multiline comments
 	assert.Contains(t, content, "// GetBar Retrieves all Bars")
 	assert.Contains(t, content, "// This API is intended for retrieval")
 	assert.Contains(t, content, "// If you need to use offset pagination")
-	
+
 	// Verify CreateItem has proper multiline comments from description
 	assert.Contains(t, content, "// CreateItem Creates a new item")
 	assert.Contains(t, content, "// The item must have a unique identifier")
 	assert.Contains(t, content, "// Duplicate items will be rejected")
-	
+
 	// Ensure no bare newlines in comments (would cause compile error)
 	assert.NotContains(t, content, "criteria\nThis API")
 	assert.NotContains(t, content, "system.\nThe item")
@@ -1032,7 +1032,7 @@ paths:
 
 	clientFile := result.GetFile("client.go")
 	require.NotNil(t, clientFile, "client.go not generated")
-	
+
 	content := string(clientFile.Content)
 
 	// Verify all required imports are present
@@ -1044,21 +1044,21 @@ paths:
 	assert.Contains(t, content, `"net/http"`)
 	assert.Contains(t, content, `"net/url"`)
 	assert.Contains(t, content, `"strings"`)
-	
+
 	// Verify the unused import enforcement block exists
 	assert.Contains(t, content, "_ = bytes.NewReader")
 	assert.Contains(t, content, "_ = json.Marshal")
 	assert.Contains(t, content, "_ = url.Values{}")
-	
+
 	// Write to temp file and attempt to compile
 	outputDir := filepath.Join(tmpDir, "output")
 	err = os.MkdirAll(outputDir, 0755)
 	require.NoError(t, err)
-	
+
 	clientPath := filepath.Join(outputDir, "client.go")
 	err = os.WriteFile(clientPath, clientFile.Content, 0644)
 	require.NoError(t, err)
-	
+
 	// Try to compile the generated code
 	// This is the ultimate test - the code must actually compile
 	// Note: We don't need to run it, just verify it compiles
