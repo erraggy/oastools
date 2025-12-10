@@ -606,13 +606,21 @@ oastools diff --format yaml api-v1.yaml api-v2.yaml
 
 ### Output Format (Simple Mode)
 
+The diff output includes document statistics showing paths, operations, and schemas for both source and target. The layout adapts automatically: side-by-side columns for short paths, single column for longer paths.
+
 ```
 OpenAPI Specification Diff
 ==========================
 
-oastools version: v1.17.1
-Source: api-v1.yaml (3.0.3)
-Target: api-v2.yaml (3.0.3)
+oastools version: v1.22.0
+
+Source: api-v1.yaml                      Target: api-v2.yaml
+  OAS Version: 3.0.3                       OAS Version: 3.0.3
+  Source Size: 12.5 KB                     Target Size: 14.2 KB
+  Paths: 5                                 Paths: 6
+  Operations: 12                           Operations: 15
+  Schemas: 8                               Schemas: 10
+
 Total Time: 125ms
 
 Changes (8):
@@ -630,9 +638,15 @@ Changes (8):
 OpenAPI Specification Diff
 ==========================
 
-oastools version: v1.17.1
-Source: api-v1.yaml (3.0.3)
-Target: api-v2.yaml (3.0.3)
+oastools version: v1.22.0
+
+Source: api-v1.yaml                      Target: api-v2.yaml
+  OAS Version: 3.0.3                       OAS Version: 3.0.3
+  Source Size: 12.5 KB                     Target Size: 14.2 KB
+  Paths: 5                                 Paths: 6
+  Operations: 12                           Operations: 15
+  Schemas: 8                               Schemas: 10
+
 Total Time: 125ms
 
 Endpoint Changes (2):
