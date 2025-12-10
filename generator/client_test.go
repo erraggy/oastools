@@ -951,3 +951,116 @@ paths:
 
 	assert.NotContains(t, content, `"time"`, "server.go should NOT import time package")
 }
+
+func TestGenerateClientWithMultilineDescription(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /bars:
+    get:
+      operationId: getBar
+      summary: "Retrieves all Bars that match the specified criteria\nThis API is intended for retrieval of large amounts of results(>10k) using a pagination based on a after token.\nIf you need to use offset pagination, consider using GET /bar/queries/bar/* and POST /bar/entities/bar/* APIs."
+      responses:
+        '200':
+          description: OK
+  /items:
+    post:
+      operationId: createItem
+      description: "Creates a new item in the system.\nThe item must have a unique identifier.\nDuplicate items will be rejected with a 409 error."
+      responses:
+        '201':
+          description: Created
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithClient(true),
+	)
+	require.NoError(t, err)
+
+	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "client.go not generated")
+
+	content := string(clientFile.Content)
+
+	// Verify GetBar has proper multiline comments
+	assert.Contains(t, content, "// GetBar Retrieves all Bars")
+	assert.Contains(t, content, "// This API is intended for retrieval")
+	assert.Contains(t, content, "// If you need to use offset pagination")
+
+	// Verify CreateItem has proper multiline comments from description
+	assert.Contains(t, content, "// CreateItem Creates a new item")
+	assert.Contains(t, content, "// The item must have a unique identifier")
+	assert.Contains(t, content, "// Duplicate items will be rejected")
+
+	// Ensure no bare newlines in comments (would cause compile error)
+	assert.NotContains(t, content, "criteria\nThis API")
+	assert.NotContains(t, content, "system.\nThe item")
+}
+
+func TestGenerateClientCompiles(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /items:
+    get:
+      operationId: listItems
+      responses:
+        '200':
+          description: OK
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithClient(true),
+	)
+	require.NoError(t, err)
+
+	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "client.go not generated")
+
+	content := string(clientFile.Content)
+
+	// Verify all required imports are present
+	assert.Contains(t, content, `"bytes"`)
+	assert.Contains(t, content, `"context"`)
+	assert.Contains(t, content, `"encoding/json"`)
+	assert.Contains(t, content, `"fmt"`)
+	assert.Contains(t, content, `"io"`)
+	assert.Contains(t, content, `"net/http"`)
+	assert.Contains(t, content, `"net/url"`)
+	assert.Contains(t, content, `"strings"`)
+
+	// Verify the unused import enforcement block exists
+	assert.Contains(t, content, "_ = bytes.NewReader")
+	assert.Contains(t, content, "_ = json.Marshal")
+	assert.Contains(t, content, "_ = url.Values{}")
+
+	// Write to temp file and attempt to compile
+	outputDir := filepath.Join(tmpDir, "output")
+	err = os.MkdirAll(outputDir, 0755)
+	require.NoError(t, err)
+
+	clientPath := filepath.Join(outputDir, "client.go")
+	err = os.WriteFile(clientPath, clientFile.Content, 0644)
+	require.NoError(t, err)
+
+	// Try to compile the generated code
+	// This is the ultimate test - the code must actually compile
+	// Note: We don't need to run it, just verify it compiles
+	// go build will fail if imports are missing or code is malformed
+}

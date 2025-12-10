@@ -647,3 +647,56 @@ paths:
 	assert.Contains(t, content, "Status")
 	assert.Contains(t, content, "Category")
 }
+
+func TestGenerateServerWithMultilineDescription(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths:
+  /bars:
+    get:
+      operationId: getBar
+      summary: "Retrieves all Bars that match the specified criteria\nThis API is intended for retrieval of large amounts of results(>10k) using a pagination based on a after token.\nIf you need to use offset pagination, consider using GET /bar/queries/bar/* and POST /bar/entities/bar/* APIs."
+      responses:
+        '200':
+          description: OK
+  /deprecated:
+    get:
+      operationId: deprecatedOp
+      summary: "Foo\nDeprecated: Please use version v2 of this endpoint."
+      deprecated: true
+      responses:
+        '200':
+          description: OK
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithServer(true),
+	)
+	require.NoError(t, err)
+
+	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "server.go not generated")
+
+	content := string(serverFile.Content)
+
+	// Verify GetBar has proper multiline comments
+	assert.Contains(t, content, "// GetBar Retrieves all Bars")
+	assert.Contains(t, content, "// This API is intended for retrieval")
+	assert.Contains(t, content, "// If you need to use offset pagination")
+
+	// Verify deprecated operation has proper comments
+	assert.Contains(t, content, "// DeprecatedOp Foo")
+	assert.Contains(t, content, "// Deprecated: Please use version v2")
+
+	// Ensure no bare newlines in comments (would cause compile error)
+	assert.NotContains(t, content, "criteria\nThis API")
+	assert.NotContains(t, content, "token.\nIf you")
+}
