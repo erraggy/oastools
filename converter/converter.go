@@ -132,12 +132,8 @@ func ConvertWithOptions(opts ...Option) (*ConversionResult, error) {
 	if cfg.filePath != nil {
 		return c.Convert(*cfg.filePath, cfg.targetVersion)
 	}
-	if cfg.parsed != nil {
-		return c.ConvertParsed(*cfg.parsed, cfg.targetVersion)
-	}
-
-	// Should never reach here due to validation in applyOptions
-	return nil, fmt.Errorf("converter: no input source specified")
+	// cfg.parsed must be non-nil here (validated by applyOptions)
+	return c.ConvertParsed(*cfg.parsed, cfg.targetVersion)
 }
 
 // applyOptions applies option functions and validates configuration
@@ -245,12 +241,12 @@ func (c *Converter) Convert(specPath string, targetVersion string) (*ConversionR
 	// Parse the source document
 	parseResult, err := p.Parse(specPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse specification: %w", err)
+		return nil, fmt.Errorf("converter: failed to parse specification: %w", err)
 	}
 
 	// Check for parse errors
 	if len(parseResult.Errors) > 0 {
-		return nil, fmt.Errorf("source document has %d parse error(s), cannot convert", len(parseResult.Errors))
+		return nil, fmt.Errorf("converter: source document has %d parse error(s), cannot convert", len(parseResult.Errors))
 	}
 
 	return c.ConvertParsed(*parseResult, targetVersion)
@@ -261,7 +257,7 @@ func (c *Converter) ConvertParsed(parseResult parser.ParseResult, targetVersionS
 	// Parse target version
 	targetVersion, ok := parser.ParseVersion(targetVersionStr)
 	if !ok {
-		return nil, fmt.Errorf("invalid target version: %s", targetVersionStr)
+		return nil, fmt.Errorf("converter: invalid target version: %s", targetVersionStr)
 	}
 
 	// Initialize result
@@ -303,11 +299,10 @@ func (c *Converter) ConvertParsed(parseResult parser.ParseResult, targetVersionS
 	case !sourceIsOAS2 && targetIsOAS2:
 		// OAS 3.x → OAS 2.0
 		err = c.convertOAS3ToOAS2(parseResult, result)
-	case !sourceIsOAS2 && !targetIsOAS2:
-		// OAS 3.x → OAS 3.y (version update)
-		err = c.convertOAS3ToOAS3(parseResult, targetVersion, result)
 	default:
-		return nil, fmt.Errorf("unsupported conversion: %s → %s", parseResult.Version, targetVersionStr)
+		// OAS 3.x → OAS 3.y (version update)
+		// Note: all other cases handled above (OAS 2.0↔3.x, same version handled earlier)
+		err = c.convertOAS3ToOAS3(parseResult, targetVersion, result)
 	}
 
 	if err != nil {

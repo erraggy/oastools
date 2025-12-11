@@ -526,8 +526,8 @@ func TestBuilder_AddOperation_WithParameters(t *testing.T) {
 		AddOperation(http.MethodGet, "/users/{userId}",
 			WithOperationID("getUser"),
 			WithPathParam("userId", int64(0), WithParamDescription("User ID")),
-			WithQueryParam("include", string(""), WithParamDescription("Include related")),
-			WithHeaderParam("X-Request-ID", string(""), WithParamRequired(true)),
+			WithQueryParam("include", "", WithParamDescription("Include related")),
+			WithHeaderParam("X-Request-ID", "", WithParamRequired(true)),
 			WithResponse(http.StatusOK, struct{}{}),
 		)
 

@@ -144,8 +144,8 @@ func TestSchemaDeepCopy_AnyFields(t *testing.T) {
 	})
 
 	t.Run("ExclusiveMinimum as bool (OAS 3.0)", func(t *testing.T) {
-		min := 0.0
-		s := &Schema{Minimum: &min, ExclusiveMinimum: true}
+		minVal := 0.0
+		s := &Schema{Minimum: &minVal, ExclusiveMinimum: true}
 		cp := s.DeepCopy()
 		assert.Equal(t, true, cp.ExclusiveMinimum)
 	})

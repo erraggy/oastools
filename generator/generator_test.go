@@ -312,6 +312,7 @@ func TestGenerateFileNotFound(t *testing.T) {
 		WithPackageName("testapi"),
 	)
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "generator: failed to parse specification")
 }
 
 func TestGenerateInvalidSpec(t *testing.T) {

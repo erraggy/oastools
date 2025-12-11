@@ -351,7 +351,7 @@ func TestAddParameterWithConstraints_OAS3(t *testing.T) {
 		b := New(parser.OASVersion320).
 			SetTitle("Test API").
 			SetVersion("1.0.0").
-			AddParameter("NameParam", "query", "name", string(""),
+			AddParameter("NameParam", "query", "name", "",
 				WithParamMinLength(1),
 				WithParamMaxLength(50),
 				WithParamPattern("^[a-zA-Z]+$"),
@@ -373,7 +373,7 @@ func TestAddParameterWithConstraints_OAS3(t *testing.T) {
 		b := New(parser.OASVersion320).
 			SetTitle("Test API").
 			SetVersion("1.0.0").
-			AddParameter("StatusParam", "query", "status", string(""),
+			AddParameter("StatusParam", "query", "status", "",
 				WithParamEnum("available", "pending", "sold"),
 				WithParamDefault("available"),
 			)
@@ -423,7 +423,7 @@ func TestAddParameterWithConstraints_OAS2(t *testing.T) {
 		b := New(parser.OASVersion20).
 			SetTitle("Test API").
 			SetVersion("1.0.0").
-			AddParameter("NameParam", "query", "name", string(""),
+			AddParameter("NameParam", "query", "name", "",
 				WithParamMinLength(1),
 				WithParamMaxLength(50),
 				WithParamPattern("^[a-zA-Z]+$"),
@@ -444,7 +444,7 @@ func TestAddParameterWithConstraints_OAS2(t *testing.T) {
 		b := New(parser.OASVersion20).
 			SetTitle("Test API").
 			SetVersion("1.0.0").
-			AddParameter("StatusParam", "query", "status", string(""),
+			AddParameter("StatusParam", "query", "status", "",
 				WithParamEnum("available", "pending", "sold"),
 				WithParamDefault("available"),
 			)
@@ -496,7 +496,7 @@ func TestInlineParamWithConstraints_OAS3(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodGet, "/pets",
-				WithQueryParam("name", string(""),
+				WithQueryParam("name", "",
 					WithParamMinLength(1),
 					WithParamMaxLength(50),
 					WithParamPattern("^[a-zA-Z]+$"),
@@ -523,7 +523,7 @@ func TestInlineParamWithConstraints_OAS3(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodGet, "/pets",
-				WithQueryParam("status", string(""),
+				WithQueryParam("status", "",
 					WithParamEnum("available", "pending", "sold"),
 					WithParamDefault("available"),
 				),
@@ -570,7 +570,7 @@ func TestInlineParamWithConstraints_OAS3(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodGet, "/pets",
-				WithHeaderParam("X-Request-ID", string(""),
+				WithHeaderParam("X-Request-ID", "",
 					WithParamPattern("^[a-f0-9-]+$"),
 					WithParamRequired(true),
 				),
@@ -593,7 +593,7 @@ func TestInlineParamWithConstraints_OAS3(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodGet, "/pets",
-				WithCookieParam("session_id", string(""),
+				WithCookieParam("session_id", "",
 					WithParamMinLength(32),
 					WithParamMaxLength(64),
 				),
@@ -649,7 +649,7 @@ func TestInlineParamWithConstraints_OAS2(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodGet, "/pets",
-				WithQueryParam("status", string(""),
+				WithQueryParam("status", "",
 					WithParamEnum("available", "pending", "sold"),
 				),
 				WithResponse(http.StatusOK, struct{}{}),
@@ -699,7 +699,7 @@ func TestCombinedConstraints(t *testing.T) {
 		SetTitle("Test API").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodGet, "/search",
-			WithQueryParam("q", string(""),
+			WithQueryParam("q", "",
 				WithParamDescription("Search query"),
 				WithParamRequired(true),
 				WithParamMinLength(1),
@@ -941,7 +941,7 @@ func TestAddParameterWithInvalidConstraints(t *testing.T) {
 		b := New(parser.OASVersion320).
 			SetTitle("Test API").
 			SetVersion("1.0.0").
-			AddParameter("BadParam", "query", "bad", string(""),
+			AddParameter("BadParam", "query", "bad", "",
 				WithParamPattern("[invalid"),
 			)
 
@@ -975,7 +975,7 @@ func TestInlineParamWithInvalidConstraints(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodGet, "/test",
-				WithHeaderParam("X-Bad", string(""),
+				WithHeaderParam("X-Bad", "",
 					WithParamPattern("[invalid"),
 				),
 				WithResponse(http.StatusOK, struct{}{}),
@@ -1034,7 +1034,7 @@ func TestWithFormParam_OAS2(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodPost, "/login",
-				WithFormParam("username", string(""),
+				WithFormParam("username", "",
 					WithParamDescription("User's username"),
 					WithParamRequired(true),
 				),
@@ -1058,14 +1058,14 @@ func TestWithFormParam_OAS2(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodPost, "/login",
-				WithFormParam("username", string(""),
+				WithFormParam("username", "",
 					WithParamRequired(true),
 				),
-				WithFormParam("password", string(""),
+				WithFormParam("password", "",
 					WithParamRequired(true),
 					WithParamMinLength(8),
 				),
-				WithFormParam("remember", bool(false),
+				WithFormParam("remember", false,
 					WithParamDefault(false),
 				),
 				WithResponse(http.StatusOK, struct{}{}),
@@ -1105,10 +1105,10 @@ func TestWithFormParam_OAS2(t *testing.T) {
 					WithParamMinimum(18),
 					WithParamMaximum(100),
 				),
-				WithFormParam("email", string(""),
+				WithFormParam("email", "",
 					WithParamPattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"),
 				),
-				WithFormParam("status", string(""),
+				WithFormParam("status", "",
 					WithParamEnum("active", "inactive", "pending"),
 					WithParamDefault("pending"),
 				),
@@ -1152,14 +1152,14 @@ func TestWithFormParam_OAS2(t *testing.T) {
 				WithPathParam("id", int64(0),
 					WithParamDescription("Item ID"),
 				),
-				WithQueryParam("format", string(""),
+				WithQueryParam("format", "",
 					WithParamEnum("json", "xml"),
 					WithParamDefault("json"),
 				),
-				WithFormParam("name", string(""),
+				WithFormParam("name", "",
 					WithParamRequired(true),
 				),
-				WithFormParam("description", string(""),
+				WithFormParam("description", "",
 					WithParamMaxLength(500),
 				),
 				WithResponse(http.StatusOK, struct{}{}),
@@ -1186,7 +1186,7 @@ func TestWithFormParam_OAS3(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodPost, "/login",
-				WithFormParam("username", string(""),
+				WithFormParam("username", "",
 					WithParamDescription("User's username"),
 					WithParamRequired(true),
 				),
@@ -1220,15 +1220,15 @@ func TestWithFormParam_OAS3(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodPost, "/login",
-				WithFormParam("username", string(""),
+				WithFormParam("username", "",
 					WithParamRequired(true),
 					WithParamMinLength(3),
 				),
-				WithFormParam("password", string(""),
+				WithFormParam("password", "",
 					WithParamRequired(true),
 					WithParamMinLength(8),
 				),
-				WithFormParam("remember", bool(false),
+				WithFormParam("remember", false,
 					WithParamDefault(false),
 				),
 				WithResponse(http.StatusOK, struct{}{}),
@@ -1276,10 +1276,10 @@ func TestWithFormParam_OAS3(t *testing.T) {
 					WithParamMinimum(18),
 					WithParamMaximum(100),
 				),
-				WithFormParam("email", string(""),
+				WithFormParam("email", "",
 					WithParamPattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"),
 				),
-				WithFormParam("status", string(""),
+				WithFormParam("status", "",
 					WithParamEnum("active", "inactive", "pending"),
 					WithParamDefault("pending"),
 				),
@@ -1320,14 +1320,14 @@ func TestWithFormParam_OAS3(t *testing.T) {
 				WithPathParam("id", int64(0),
 					WithParamDescription("Item ID"),
 				),
-				WithQueryParam("format", string(""),
+				WithQueryParam("format", "",
 					WithParamEnum("json", "xml"),
 					WithParamDefault("json"),
 				),
-				WithFormParam("name", string(""),
+				WithFormParam("name", "",
 					WithParamRequired(true),
 				),
-				WithFormParam("description", string(""),
+				WithFormParam("description", "",
 					WithParamMaxLength(500),
 				),
 				WithResponse(http.StatusOK, struct{}{}),
@@ -1361,7 +1361,7 @@ func TestWithFormParam_OAS3(t *testing.T) {
 				}{},
 					WithRequired(true),
 				),
-				WithFormParam("file", string(""),
+				WithFormParam("file", "",
 					WithParamRequired(true),
 				),
 				WithResponse(http.StatusOK, struct{}{}),
@@ -1391,12 +1391,12 @@ func TestWithFormParam_OAS31(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodPost, "/register",
-				WithFormParam("username", string(""),
+				WithFormParam("username", "",
 					WithParamRequired(true),
 					WithParamMinLength(3),
 					WithParamMaxLength(20),
 				),
-				WithFormParam("email", string(""),
+				WithFormParam("email", "",
 					WithParamRequired(true),
 					WithParamPattern("^[^@]+@[^@]+\\.[^@]+$"),
 				),
@@ -1436,7 +1436,7 @@ func TestWithFormParam_Webhooks(t *testing.T) {
 				WithFormParam("user_id", int64(0),
 					WithParamRequired(true),
 				),
-				WithFormParam("username", string(""),
+				WithFormParam("username", "",
 					WithParamRequired(true),
 				),
 				WithResponse(http.StatusOK, struct{}{}),
@@ -1488,7 +1488,7 @@ func TestWithFormParam_InvalidConstraints(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodPost, "/test",
-				WithFormParam("bad", string(""),
+				WithFormParam("bad", "",
 					WithParamPattern("[invalid"),
 				),
 				WithResponse(http.StatusOK, struct{}{}),
@@ -1507,7 +1507,7 @@ func TestWithFormParam_EmptyName(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodPost, "/test",
-				WithFormParam("", string("")),
+				WithFormParam("", ""),
 				WithResponse(http.StatusOK, struct{}{}),
 			)
 
@@ -1525,7 +1525,7 @@ func TestWithFormParam_EmptyName(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodPost, "/test",
-				WithFormParam("", string("")),
+				WithFormParam("", ""),
 				WithResponse(http.StatusOK, struct{}{}),
 			)
 
@@ -1545,7 +1545,7 @@ func TestWithFormParam_DeprecatedField(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodPost, "/test",
-				WithFormParam("old_field", string(""),
+				WithFormParam("old_field", "",
 					WithParamDeprecated(true),
 				),
 				WithResponse(http.StatusOK, struct{}{}),
@@ -1564,7 +1564,7 @@ func TestWithFormParam_DeprecatedField(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodPost, "/test",
-				WithFormParam("old_field", string(""),
+				WithFormParam("old_field", "",
 					WithParamDeprecated(true),
 				),
 				WithResponse(http.StatusOK, struct{}{}),

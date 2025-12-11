@@ -142,6 +142,68 @@ Format detection:
 - HTTP Status Codes: `httputil.ValidateStatusCode()`, `httputil.StandardHTTPStatusCodes`
 - Severity Levels: `severity.SeverityError`, `severity.SeverityWarning`, etc.
 
+### gopls Diagnostics
+
+**IMPORTANT: Always check and address gopls diagnostics, including hints.**
+
+The gopls MCP server provides valuable code quality hints that should be addressed:
+- Use `go_diagnostics` tool to check files for issues
+- **Hints are actionable** - they suggest modern Go idioms and stdlib usage
+- Address all severity levels: errors, warnings, and hints
+
+Common hints and their fixes:
+- **"Loop can be simplified using slices.Contains"** - Replace manual contains loops with `slices.Contains(slice, item)`
+- **"Replace m[k]=v loop with maps.Copy"** - Use `maps.Copy(dst, src)` for map copying
+- **"Constant reflect.Ptr should be inlined"** - Use `reflect.Pointer` (reflect.Ptr is deprecated)
+- **"Ranging over SplitSeq is more efficient"** - Use `for part := range strings.SplitSeq(s, sep)` instead of `for _, part := range strings.Split(s, sep)`
+- **"for loop can be modernized using range over int"** - Use `for i := range n` instead of `for i := 0; i < n; i++`
+
+Run diagnostics on modified files after making changes:
+```go
+// Via gopls MCP: go_diagnostics with file paths
+```
+
+### Error Handling Standards
+
+**IMPORTANT: Follow consistent error handling patterns across all packages.**
+
+**Error Message Format:**
+```go
+fmt.Errorf("<package>: <action>: %w", err)
+```
+
+**Rules:**
+1. **Always prefix with package name** - Every error returned from a public function should start with the package name
+2. **Use lowercase** - Error messages should start with lowercase (except acronyms like HTTP, OAS, JSON)
+3. **No trailing punctuation** - Do not end error messages with periods
+4. **Use `%w` for wrapping** - Always use `%w` (not `%v` or `%s`) when wrapping errors for `errors.Is()` and `errors.Unwrap()` support
+5. **Be descriptive** - Include relevant context (file paths, version numbers, counts)
+
+**Examples:**
+```go
+// Good - consistent prefixing and wrapping
+return fmt.Errorf("parser: failed to parse specification: %w", err)
+return fmt.Errorf("converter: invalid target version: %s", targetVersionStr)
+return fmt.Errorf("validator: unsupported OAS version: %s", version)
+return fmt.Errorf("joiner: %s has %d parse error(s)", path, len(errors))
+return fmt.Errorf("generator: failed to generate types: %w", err)
+
+// Bad - inconsistent patterns
+return fmt.Errorf("failed to parse specification: %w", err)  // Missing package prefix
+return fmt.Errorf("Invalid target version: %s", version)     // Capitalized
+return fmt.Errorf("parse error: %v", err)                    // Using %v instead of %w
+```
+
+**Sentinel Errors:**
+Use the `oaserrors` package for programmatic error handling:
+```go
+import "github.com/erraggy/oastools/oaserrors"
+
+// Check error types
+if errors.Is(err, oaserrors.ErrParse) { ... }
+if errors.Is(err, oaserrors.ErrCircularReference) { ... }
+```
+
 ### Testing Requirements
 
 **CRITICAL: All exported functionality MUST have comprehensive test coverage.**
@@ -156,6 +218,21 @@ Coverage types:
 - **Negative Cases**: Error handling with invalid inputs, missing files, malformed data
 - **Edge Cases**: Boundary conditions, empty inputs, nil values
 - **Integration**: Components working together (parse then validate, parse then join)
+
+### Known Test Stability Issues
+
+**TestCircularReferenceDetection** (`parser/resolver_test.go`):
+- This test has a history of timeout issues related to circular reference handling
+- **Root causes (both fixed in the same commit):**
+  1. **Circular Go pointer creation**: When resolving A -> B -> A circular refs, shallow copying created actual Go pointer chains that caused `yaml.Marshal` to infinite loop. Fixed by deep copying resolved content using `deepCopyJSONValue()`.
+  2. **Closure bug in ResolveLocal**: The `ref` variable was modified after the defer was registered (`ref = strings.TrimPrefix(ref, "#")`), but Go closures capture by reference. The defer was clearing the wrong key in the visited map. Fixed by passing `ref` as a parameter to the defer function to capture by value: `defer func(rf string) { r.visited[rf] = false }(ref)`.
+- If this test starts failing/hanging again:
+  1. Check `parser/resolver.go` - `resolveRefsRecursive` function (deep copy at line ~422)
+  2. Check `parser/resolver.go` - `ResolveLocal` function (parameterized defer at line ~92)
+  3. Verify resolved content is being deep-copied, not shallow-copied
+  4. Verify defer closures capture ref by value (pass as parameter), not by reference
+  5. Test with: `go test -timeout=30s github.com/erraggy/oastools/parser -run "TestCircularReferenceDetection"`
+- The `hasCircularRefs` flag in RefResolver must prevent yaml.Marshal from being called on circular structures
 
 ### Codecov Patch Coverage Requirements
 

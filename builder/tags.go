@@ -2,6 +2,7 @@ package builder
 
 import (
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -50,12 +51,7 @@ func parseJSONTag(tag string) (name string, opts []string) {
 
 // hasOmitempty checks if json tag options include omitempty.
 func hasOmitempty(opts []string) bool {
-	for _, opt := range opts {
-		if opt == "omitempty" {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(opts, "omitempty")
 }
 
 // isFieldRequired determines if a struct field should be marked as required.
@@ -75,7 +71,7 @@ func isFieldRequired(field reflect.StructField, jsonOpts []string) bool {
 	}
 
 	// Pointer fields are optional by default
-	if field.Type.Kind() == reflect.Ptr {
+	if field.Type.Kind() == reflect.Pointer {
 		return false
 	}
 
@@ -91,8 +87,7 @@ func parseOASTag(tag string) map[string]string {
 		return result
 	}
 
-	parts := strings.Split(tag, ",")
-	for _, part := range parts {
+	for part := range strings.SplitSeq(tag, ",") {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue

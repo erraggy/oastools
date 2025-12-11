@@ -237,14 +237,14 @@ func TestCopySchema(t *testing.T) {
 	})
 
 	t.Run("basic copy", func(t *testing.T) {
-		min := 0.0
-		max := 100.0
+		minVal := 0.0
+		maxVal := 100.0
 		original := &parser.Schema{
 			Type:        "integer",
 			Format:      "int32",
 			Description: "Test",
-			Minimum:     &min,
-			Maximum:     &max,
+			Minimum:     &minVal,
+			Maximum:     &maxVal,
 		}
 
 		result := copySchema(original)
@@ -262,8 +262,8 @@ func TestCopySchema(t *testing.T) {
 	})
 
 	t.Run("deep copy pointer fields", func(t *testing.T) {
-		min := 1.0
-		max := 100.0
+		minVal := 1.0
+		maxVal := 100.0
 		minLen := 5
 		maxLen := 50
 		minItems := 1
@@ -274,8 +274,8 @@ func TestCopySchema(t *testing.T) {
 
 		original := &parser.Schema{
 			Type:             "integer",
-			Minimum:          &min,
-			Maximum:          &max,
+			Minimum:          &minVal,
+			Maximum:          &maxVal,
 			MinLength:        &minLen,
 			MaxLength:        &maxLen,
 			MinItems:         &minItems,

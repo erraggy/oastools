@@ -248,6 +248,15 @@ func TestInvalidTargetVersion(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error for invalid target version")
 	}
+	assert.Contains(t, err.Error(), "converter: invalid target version")
+}
+
+// TestConvert_ParseError tests error when file cannot be parsed
+func TestConvert_ParseError(t *testing.T) {
+	c := New()
+	_, err := c.Convert("nonexistent-file.yaml", "3.0.3")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "converter: failed to parse specification")
 }
 
 // TestStrictMode tests strict mode behavior

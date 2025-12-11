@@ -212,7 +212,7 @@ func quotedStrings(strs []string) string {
 	return strings.Join(quoted, ", ")
 }
 
-// ExtractOperationSecurity extracts security requirements from an OAS 3.x document.
+// ExtractOperationSecurityOAS3 extracts security requirements from an OAS 3.x document.
 func ExtractOperationSecurityOAS3(doc *parser.OAS3Document) OperationSecurityRequirements {
 	result := make(OperationSecurityRequirements)
 

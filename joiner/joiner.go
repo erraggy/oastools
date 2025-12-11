@@ -161,34 +161,31 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 	j := New(joinerCfg)
 
 	// Route to appropriate join method based on input sources
+	// Note: applyOptions ensures at least 2 total documents, so one branch must execute
 	if len(cfg.filePaths) > 0 && len(cfg.parsedDocs) == 0 {
 		// File paths only
 		return j.Join(cfg.filePaths)
-	} else if len(cfg.parsedDocs) > 0 && len(cfg.filePaths) == 0 {
+	}
+	if len(cfg.parsedDocs) > 0 && len(cfg.filePaths) == 0 {
 		// Parsed docs only
 		return j.JoinParsed(cfg.parsedDocs)
-	} else if len(cfg.filePaths) > 0 && len(cfg.parsedDocs) > 0 {
-		// Mixed: parse file paths and append to parsed docs
-		var allDocs []parser.ParseResult
-		allDocs = append(allDocs, cfg.parsedDocs...)
-
-		p := parser.New()
-		for _, path := range cfg.filePaths {
-			result, err := p.Parse(path)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse %s: %w", path, err)
-			}
-			if len(result.Errors) > 0 {
-				return nil, fmt.Errorf("%s has %d parse error(s)", path, len(result.Errors))
-			}
-			allDocs = append(allDocs, *result)
-		}
-
-		return j.JoinParsed(allDocs)
 	}
+	// Mixed: parse file paths and append to parsed docs
+	allDocs := make([]parser.ParseResult, 0, len(cfg.parsedDocs)+len(cfg.filePaths))
+	allDocs = append(allDocs, cfg.parsedDocs...)
 
-	// Should never reach here due to validation in applyOptions
-	return nil, fmt.Errorf("joiner: no input sources specified")
+	p := parser.New()
+	for _, path := range cfg.filePaths {
+		result, err := p.Parse(path)
+		if err != nil {
+			return nil, fmt.Errorf("joiner: failed to parse %s: %w", path, err)
+		}
+		if len(result.Errors) > 0 {
+			return nil, fmt.Errorf("joiner: %s has %d parse error(s)", path, len(result.Errors))
+		}
+		allDocs = append(allDocs, *result)
+	}
+	return j.JoinParsed(allDocs)
 }
 
 // applyOptions applies option functions and validates configuration
@@ -207,7 +204,7 @@ func applyOptions(opts ...Option) (*joinConfig, error) {
 	// Validate at least 2 documents total
 	totalDocs := len(cfg.filePaths) + len(cfg.parsedDocs)
 	if totalDocs < 2 {
-		return nil, fmt.Errorf("at least 2 documents are required for joining, got %d", totalDocs)
+		return nil, fmt.Errorf("joiner: at least 2 documents are required for joining, got %d", totalDocs)
 	}
 
 	return cfg, nil

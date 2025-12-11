@@ -89,6 +89,8 @@ func Example_handleIssues() {
 		switch issue.Severity {
 		case generator.SeverityCritical:
 			fmt.Printf("CRITICAL [%s]: %s\n", issue.Path, issue.Message)
+		case generator.SeverityError:
+			fmt.Printf("ERROR [%s]: %s\n", issue.Path, issue.Message)
 		case generator.SeverityWarning:
 			fmt.Printf("WARNING [%s]: %s\n", issue.Path, issue.Message)
 		case generator.SeverityInfo:
