@@ -390,15 +390,16 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 				return nil
 			}
 
-			// Mark this ref as being resolved. The defer cleanup runs when
-			// resolveRefsRecursive returns (either from line 263 or line 269's error),
-			// which correctly maintains the resolving state across recursive calls.
+			// Mark this ref as being resolved.
+			// IMPORTANT: We must keep this ref marked as "resolving" until AFTER we've
+			// finished recursively processing the resolved content. This prevents infinite
+			// loops when a schema references itself (e.g., Node.next -> Node).
 			r.resolving[ref] = true
-			defer func() { delete(r.resolving, ref) }()
 
 			// Resolve the reference
 			resolved, err := r.Resolve(rootMap, ref)
 			if err != nil {
+				delete(r.resolving, ref)
 				return fmt.Errorf("failed to resolve $ref %s: %w", ref, err)
 			}
 
@@ -411,6 +412,7 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 			}
 			resolvedMap, ok := resolved.(map[string]any)
 			if !ok {
+				delete(r.resolving, ref)
 				return fmt.Errorf("resolved $ref %s is not an object (got %T)", ref, resolved)
 			}
 			for k, val := range resolvedMap {
@@ -419,7 +421,10 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 			delete(v, "$ref")
 
 			// Continue resolving in the newly resolved content
-			return r.resolveRefsRecursive(root, v, depth+1)
+			// Keep ref in resolving map during this recursive call to detect self-references
+			err = r.resolveRefsRecursive(root, v, depth+1)
+			delete(r.resolving, ref)
+			return err
 		}
 
 		// Recursively process all values in the map
