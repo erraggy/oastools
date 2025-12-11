@@ -61,7 +61,7 @@ components:
 `
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.yaml")
-	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	err := os.WriteFile(tmpFile, []byte(spec), 0644)
 	require.NoError(t, err)
 
 	result, err := GenerateWithOptions(
@@ -138,7 +138,7 @@ components:
 `
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.yaml")
-	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	err := os.WriteFile(tmpFile, []byte(spec), 0644)
 	require.NoError(t, err)
 
 	result, err := GenerateWithOptions(
@@ -207,7 +207,7 @@ components:
 `
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.yaml")
-	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	err := os.WriteFile(tmpFile, []byte(spec), 0644)
 	require.NoError(t, err)
 
 	result, err := GenerateWithOptions(
@@ -298,7 +298,7 @@ components:
 `
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.yaml")
-	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	err := os.WriteFile(tmpFile, []byte(spec), 0644)
 	require.NoError(t, err)
 
 	// Generate with split client (low MaxOperationsPerFile to trigger split)
@@ -426,7 +426,7 @@ definitions:
 `
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "swagger.yaml")
-	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	err := os.WriteFile(tmpFile, []byte(spec), 0644)
 	require.NoError(t, err)
 
 	result, err := GenerateWithOptions(
@@ -522,7 +522,7 @@ definitions:
 `
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "swagger.yaml")
-	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	err := os.WriteFile(tmpFile, []byte(spec), 0644)
 	require.NoError(t, err)
 
 	result, err := GenerateWithOptions(
