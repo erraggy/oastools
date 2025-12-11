@@ -72,7 +72,7 @@ func BenchmarkSchemaFrom(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
 			bldr := New(parser.OASVersion320)
-			_ = bldr.generateSchema(string(""))
+			_ = bldr.generateSchema("")
 		}
 	})
 
@@ -133,8 +133,8 @@ func BenchmarkBuilderAddOperation(b *testing.B) {
 				AddOperation(http.MethodGet, "/users/{id}",
 					WithOperationID("getUser"),
 					WithPathParam("id", int64(0)),
-					WithQueryParam("include", string("")),
-					WithHeaderParam("X-Request-ID", string("")),
+					WithQueryParam("include", ""),
+					WithHeaderParam("X-Request-ID", ""),
 					WithResponse(http.StatusOK, BenchmarkUser{}),
 					WithResponse(http.StatusNotFound, BenchmarkError{}),
 				)
@@ -263,15 +263,15 @@ func BenchmarkBuilderFormParams(b *testing.B) {
 				SetVersion("1.0.0").
 				AddOperation(http.MethodPost, "/login",
 					WithOperationID("login"),
-					WithFormParam("username", string(""),
+					WithFormParam("username", "",
 						WithParamRequired(true),
 						WithParamMinLength(3),
 					),
-					WithFormParam("password", string(""),
+					WithFormParam("password", "",
 						WithParamRequired(true),
 						WithParamMinLength(8),
 					),
-					WithFormParam("remember_me", bool(false),
+					WithFormParam("remember_me", false,
 						WithParamDefault(false),
 					),
 					WithResponse(http.StatusOK, struct{}{}),
@@ -287,15 +287,15 @@ func BenchmarkBuilderFormParams(b *testing.B) {
 				SetVersion("1.0.0").
 				AddOperation(http.MethodPost, "/login",
 					WithOperationID("login"),
-					WithFormParam("username", string(""),
+					WithFormParam("username", "",
 						WithParamRequired(true),
 						WithParamMinLength(3),
 					),
-					WithFormParam("password", string(""),
+					WithFormParam("password", "",
 						WithParamRequired(true),
 						WithParamMinLength(8),
 					),
-					WithFormParam("remember_me", bool(false),
+					WithFormParam("remember_me", false,
 						WithParamDefault(false),
 					),
 					WithResponse(http.StatusOK, struct{}{}),

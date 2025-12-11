@@ -56,14 +56,19 @@ func Example_customValidation() {
 	warnings := 0
 
 	for _, issue := range result.Errors {
-		// In validator, Severity is an int (SeverityError=2, SeverityWarning=1)
+		// Severity levels: SeverityCritical=3, SeverityError=2, SeverityWarning=1, SeverityInfo=0
 		switch issue.Severity {
+		case validator.SeverityCritical:
+			errors++ // Critical issues are also errors
+			fmt.Printf("CRITICAL [%s]: %s\n", issue.Path, issue.Message)
 		case validator.SeverityError:
 			errors++
 			fmt.Printf("ERROR [%s]: %s\n", issue.Path, issue.Message)
 		case validator.SeverityWarning:
 			warnings++
 			fmt.Printf("WARNING [%s]: %s\n", issue.Path, issue.Message)
+		case validator.SeverityInfo:
+			fmt.Printf("INFO [%s]: %s\n", issue.Path, issue.Message)
 		}
 	}
 

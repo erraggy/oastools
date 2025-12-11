@@ -125,12 +125,8 @@ func ValidateWithOptions(opts ...Option) (*ValidationResult, error) {
 	if cfg.filePath != nil {
 		return v.Validate(*cfg.filePath)
 	}
-	if cfg.parsed != nil {
-		return v.ValidateParsed(*cfg.parsed)
-	}
-
-	// Should never reach here due to validation in applyOptions
-	return nil, fmt.Errorf("validator: no input source specified")
+	// cfg.parsed must be non-nil here (validated by applyOptions)
+	return v.ValidateParsed(*cfg.parsed)
 }
 
 // applyOptions applies option functions and validates configuration
@@ -245,19 +241,19 @@ func (v *Validator) ValidateParsed(parseResult parser.ParseResult) (*ValidationR
 	case parser.OASVersion20:
 		doc, ok := parseResult.Document.(*parser.OAS2Document)
 		if !ok {
-			return nil, fmt.Errorf("failed to cast document to OAS2Document")
+			return nil, fmt.Errorf("validator: failed to cast document to OAS2Document")
 		}
 		v.validateOAS2(doc, result)
 	case parser.OASVersion300, parser.OASVersion301, parser.OASVersion302, parser.OASVersion303, parser.OASVersion304,
 		parser.OASVersion310, parser.OASVersion311, parser.OASVersion312, parser.OASVersion320:
 		doc, ok := parseResult.Document.(*parser.OAS3Document)
 		if !ok {
-			return nil, fmt.Errorf("failed to cast document to OAS3Document")
+			return nil, fmt.Errorf("validator: failed to cast document to OAS3Document")
 		}
 		v.validateOAS3(doc, result)
 	default:
 		// in reality this should never happen, since the parser's `Parse` would have errored as well
-		return nil, fmt.Errorf("unsupported OAS Version: %s", parseResult.OASVersion)
+		return nil, fmt.Errorf("validator: unsupported OAS version: %s", parseResult.OASVersion)
 	}
 
 	// Calculate counts

@@ -318,7 +318,7 @@ func TestWithHeaderParam(t *testing.T) {
 		SetTitle("Test").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodGet, "/test",
-			WithHeaderParam("X-Request-ID", string(""),
+			WithHeaderParam("X-Request-ID", "",
 				WithParamDescription("Request ID"),
 				WithParamRequired(true),
 			),
@@ -337,7 +337,7 @@ func TestWithCookieParam(t *testing.T) {
 		SetTitle("Test").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodGet, "/test",
-			WithCookieParam("session_id", string(""),
+			WithCookieParam("session_id", "",
 				WithParamDescription("Session cookie"),
 			),
 			WithResponse(http.StatusOK, struct{}{}),

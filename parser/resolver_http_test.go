@@ -393,7 +393,7 @@ func TestNewRefResolverWithHTTP(t *testing.T) {
 
 // TestResolveHTTPRelativeRefFromHTTPSource tests that relative refs are resolved against baseURL
 func TestResolveHTTPRelativeRefFromHTTPSource(t *testing.T) {
-	callPaths := []string{}
+	var callPaths []string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callPaths = append(callPaths, r.URL.Path)

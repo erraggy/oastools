@@ -48,6 +48,7 @@ func TestParseError(t *testing.T) {
 		cause := errors.New("underlying")
 		err := &ParseError{Cause: cause}
 		//nolint:errorlint // testing pointer identity
+		//goland:noinspection GoDirectComparisonOfErrors
 		if unwrapped := err.Unwrap(); unwrapped != cause {
 			t.Error("Unwrap should return cause")
 		}
@@ -144,6 +145,7 @@ func TestReferenceError(t *testing.T) {
 		cause := errors.New("network error")
 		err := &ReferenceError{Cause: cause}
 		//nolint:errorlint // testing pointer identity
+		//goland:noinspection GoDirectComparisonOfErrors
 		if unwrapped := err.Unwrap(); unwrapped != cause {
 			t.Error("Unwrap should return cause")
 		}
@@ -242,6 +244,7 @@ func TestValidationError(t *testing.T) {
 		cause := errors.New("format error")
 		err := &ValidationError{Cause: cause}
 		//nolint:errorlint // testing pointer identity
+		//goland:noinspection GoDirectComparisonOfErrors
 		if unwrapped := err.Unwrap(); unwrapped != cause {
 			t.Error("Unwrap should return cause")
 		}
@@ -386,6 +389,7 @@ func TestConversionError(t *testing.T) {
 		cause := errors.New("version mismatch")
 		err := &ConversionError{Cause: cause}
 		//nolint:errorlint // testing pointer identity
+		//goland:noinspection GoDirectComparisonOfErrors
 		if unwrapped := err.Unwrap(); unwrapped != cause {
 			t.Error("Unwrap should return cause")
 		}
@@ -466,6 +470,7 @@ func TestConfigError(t *testing.T) {
 		cause := errors.New("missing value")
 		err := &ConfigError{Cause: cause}
 		//nolint:errorlint // testing pointer identity
+		//goland:noinspection GoDirectComparisonOfErrors
 		if unwrapped := err.Unwrap(); unwrapped != cause {
 			t.Error("Unwrap should return cause")
 		}

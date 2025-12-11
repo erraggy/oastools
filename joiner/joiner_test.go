@@ -791,3 +791,20 @@ func TestJoinWithOptions_NotEnoughDocuments(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "at least 2 documents are required")
 }
+
+// TestJoinWithOptions_MixedSources_ParseError tests error when a file path fails to parse in mixed mode
+func TestJoinWithOptions_MixedSources_ParseError(t *testing.T) {
+	doc1, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/join-base-3.0.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+
+	// Mix parsed doc with a non-existent file
+	_, err = JoinWithOptions(
+		WithParsed(*doc1),
+		WithFilePaths("nonexistent-file.yaml"),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "joiner: failed to parse")
+}

@@ -825,13 +825,13 @@ func versionInRangeExclusive(v, minVersion, maxVersion string) bool {
 		return false
 	}
 
-	min, err := parseSemVer(minVersion)
+	minVer, err := parseSemVer(minVersion)
 	if err != nil {
 		return false
 	}
 
 	// Check lower bound
-	if !ver.greaterThanOrEqual(min) {
+	if !ver.greaterThanOrEqual(minVer) {
 		return false
 	}
 
@@ -840,11 +840,11 @@ func versionInRangeExclusive(v, minVersion, maxVersion string) bool {
 		return true
 	}
 
-	max, err := parseSemVer(maxVersion)
+	maxVer, err := parseSemVer(maxVersion)
 	if err != nil {
 		return false
 	}
-	return ver.lessThan(max)
+	return ver.lessThan(maxVer)
 }
 
 // parseVersionSpecific parses the data into a semver-specific structure
@@ -966,7 +966,7 @@ func (p *Parser) validateOAS2Paths(paths map[string]*PathItem) []error {
 
 func (p *Parser) validateOAS2PathItem(pathItem *PathItem, pathPattern string, operationIDs map[string]string) []error {
 	errors := make([]error, 0)
-	operations := GetOAS2Operations(pathItem)
+	operations := GetOperations(pathItem, OASVersion20)
 
 	for method, op := range operations {
 		if op == nil {
@@ -1135,7 +1135,8 @@ func (p *Parser) validateOAS3Paths(paths map[string]*PathItem, version string) [
 
 func (p *Parser) validateOAS3PathItem(pathItem *PathItem, pathPattern string, operationIDs map[string]string, version string) []error {
 	errors := make([]error, 0)
-	operations := GetOAS3Operations(pathItem)
+	oasVersion, _ := ParseVersion(version)
+	operations := GetOperations(pathItem, oasVersion)
 
 	for method, op := range operations {
 		if op == nil {

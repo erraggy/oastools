@@ -3,6 +3,7 @@ package builder
 import (
 	"path"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -38,7 +39,7 @@ func (b *Builder) generateSchemaFromType(t reflect.Type) *parser.Schema {
 func (b *Builder) generateSchemaFromTypeWithName(t reflect.Type, nameOverride string) *parser.Schema {
 	// Dereference pointers
 	isPointer := false
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 		isPointer = true
 	}
@@ -381,10 +382,5 @@ func extractRefName(ref string) string {
 
 // contains checks if a slice contains a string.
 func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, item)
 }

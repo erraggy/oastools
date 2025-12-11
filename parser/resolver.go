@@ -88,7 +88,8 @@ func (r *RefResolver) ResolveLocal(doc map[string]any, ref string) (any, error) 
 		}
 	}
 	r.visited[ref] = true
-	defer func() { r.visited[ref] = false }()
+	// Pass ref as a parameter to capture by value - ref is modified below and closures capture by reference
+	defer func(rf string) { r.visited[rf] = false }(ref)
 
 	// Remove the leading # if present
 	ref = strings.TrimPrefix(ref, "#")
@@ -415,8 +416,11 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 				delete(r.resolving, ref)
 				return fmt.Errorf("resolved $ref %s is not an object (got %T)", ref, resolved)
 			}
+			// Deep copy resolved content to prevent circular Go pointer creation
+			// When A -> B -> A refs are resolved, shallow copying creates actual
+			// circular pointer chains that cause yaml.Marshal to infinite loop.
 			for k, val := range resolvedMap {
-				v[k] = val
+				v[k] = deepCopyJSONValue(val)
 			}
 			delete(v, "$ref")
 

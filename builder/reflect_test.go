@@ -286,7 +286,7 @@ func TestBuilder_generateSchema_AllIntTypes(t *testing.T) {
 		value  any
 		format string
 	}{
-		{"int", int(0), "int32"},
+		{"int", 0, "int32"},
 		{"int8", int8(0), "int32"},
 		{"int16", int16(0), "int32"},
 		{"int32", int32(0), "int32"},
@@ -537,10 +537,6 @@ type GenericResponse[T any] struct {
 type GenericList[T any] struct {
 	Items []T `json:"items"`
 	Total int `json:"total"`
-}
-
-type GenericMap[K comparable, V any] struct {
-	Entries map[K]V `json:"entries"`
 }
 
 func TestBuilder_generateSchema_GenericTypes(t *testing.T) {

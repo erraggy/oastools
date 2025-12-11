@@ -44,6 +44,8 @@ func Example_handleConversionIssues() {
 			if issue.Context != "" {
 				fmt.Printf("  Context: %s\n", issue.Context)
 			}
+		case converter.SeverityError:
+			fmt.Printf("ERROR [%s]: %s\n", issue.Path, issue.Message)
 		case converter.SeverityWarning:
 			fmt.Printf("WARNING [%s]: %s\n", issue.Path, issue.Message)
 		case converter.SeverityInfo:

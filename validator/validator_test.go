@@ -1290,6 +1290,23 @@ func TestValidateWithOptions_MultipleInputSources(t *testing.T) {
 	assert.Contains(t, err.Error(), "must specify exactly one input source")
 }
 
+// TestValidateParsed_UnsupportedVersion tests error for unsupported OAS version
+func TestValidateParsed_UnsupportedVersion(t *testing.T) {
+	v := New()
+	// Create a ParseResult with an unsupported OAS version
+	parseResult := parser.ParseResult{
+		Document:   &parser.OAS3Document{}, // Valid document
+		Version:    "0.0.0",                // Invalid version string
+		OASVersion: parser.OASVersion(999), // Unknown enum value
+		Data:       make(map[string]any),
+		SourcePath: "test.yaml",
+	}
+
+	_, err := v.ValidateParsed(parseResult)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "validator: unsupported OAS version")
+}
+
 // TestValidateWithOptions_AllOptions tests using all options together
 func TestValidateWithOptions_AllOptions(t *testing.T) {
 	result, err := ValidateWithOptions(

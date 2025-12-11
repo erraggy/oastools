@@ -16,7 +16,7 @@ func FuzzParseBytes(f *testing.F) {
 	}
 	// 1. Seed Corpus: Provide known, valid and invalid examples for the fuzzer.
 	// This helps the fuzzer understand the expected input structure and edge cases.
-	seedCorpus := [][]byte{}
+	var seedCorpus [][]byte
 
 	// Helper to read testdata files for seed corpus
 	addTestFile := func(path string) {

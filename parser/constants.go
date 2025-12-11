@@ -15,9 +15,3 @@ const (
 	// ParamInBody indicates the parameter is in the request body (OAS 2.0 only)
 	ParamInBody = "body"
 )
-
-// Response code constants
-const (
-	// ResponseDefault represents the default response (for any status code not explicitly defined)
-	ResponseDefault = "default"
-)

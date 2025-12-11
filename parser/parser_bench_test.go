@@ -192,8 +192,8 @@ func BenchmarkParseResultCopy(b *testing.B) {
 
 		b.ReportAllocs()
 		for b.Loop() {
-			copy := parseResult.Copy()
-			if copy == nil {
+			copied := parseResult.Copy()
+			if copied == nil {
 				b.Fatal("Copy returned nil")
 			}
 		}

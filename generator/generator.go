@@ -341,10 +341,10 @@ func applyOptions(opts ...Option) (*generateConfig, error) {
 	}
 
 	if sourceCount == 0 {
-		return nil, fmt.Errorf("must specify an input source (use WithFilePath or WithParsed)")
+		return nil, fmt.Errorf("generator: must specify an input source (use WithFilePath or WithParsed)")
 	}
 	if sourceCount > 1 {
-		return nil, fmt.Errorf("must specify exactly one input source")
+		return nil, fmt.Errorf("generator: must specify exactly one input source")
 	}
 
 	// Ensure types are generated if client or server is enabled
@@ -376,7 +376,7 @@ func WithParsed(result parser.ParseResult) Option {
 func WithPackageName(name string) Option {
 	return func(cfg *generateConfig) error {
 		if name == "" {
-			return fmt.Errorf("package name cannot be empty")
+			return fmt.Errorf("generator: package name cannot be empty")
 		}
 		cfg.packageName = name
 		return nil
@@ -464,7 +464,7 @@ func WithUserAgent(ua string) Option {
 func WithMaxLinesPerFile(n int) Option {
 	return func(cfg *generateConfig) error {
 		if n < 0 {
-			return fmt.Errorf("max lines per file cannot be negative")
+			return fmt.Errorf("generator: max lines per file cannot be negative")
 		}
 		cfg.maxLinesPerFile = n
 		return nil
@@ -476,7 +476,7 @@ func WithMaxLinesPerFile(n int) Option {
 func WithMaxTypesPerFile(n int) Option {
 	return func(cfg *generateConfig) error {
 		if n < 0 {
-			return fmt.Errorf("max types per file cannot be negative")
+			return fmt.Errorf("generator: max types per file cannot be negative")
 		}
 		cfg.maxTypesPerFile = n
 		return nil
@@ -488,7 +488,7 @@ func WithMaxTypesPerFile(n int) Option {
 func WithMaxOperationsPerFile(n int) Option {
 	return func(cfg *generateConfig) error {
 		if n < 0 {
-			return fmt.Errorf("max operations per file cannot be negative")
+			return fmt.Errorf("generator: max operations per file cannot be negative")
 		}
 		cfg.maxOperationsPerFile = n
 		return nil
@@ -607,12 +607,12 @@ func (g *Generator) Generate(specPath string) (*GenerateResult, error) {
 	// Parse the source document
 	parseResult, err := p.Parse(specPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse specification: %w", err)
+		return nil, fmt.Errorf("generator: failed to parse specification: %w", err)
 	}
 
 	// Check for parse errors
 	if len(parseResult.Errors) > 0 {
-		return nil, fmt.Errorf("source document has %d parse error(s), cannot generate", len(parseResult.Errors))
+		return nil, fmt.Errorf("generator: source document has %d parse error(s), cannot generate", len(parseResult.Errors))
 	}
 
 	return g.GenerateParsed(*parseResult)
@@ -662,27 +662,27 @@ func (g *Generator) GenerateParsed(parseResult parser.ParseResult) (*GenerateRes
 	// Generate types if enabled
 	if g.GenerateTypes || g.GenerateClient || g.GenerateServer {
 		if err := cg.generateTypes(); err != nil {
-			return nil, fmt.Errorf("failed to generate types: %w", err)
+			return nil, fmt.Errorf("generator: failed to generate types: %w", err)
 		}
 	}
 
 	// Generate client if enabled
 	if g.GenerateClient {
 		if err := cg.generateClient(); err != nil {
-			return nil, fmt.Errorf("failed to generate client: %w", err)
+			return nil, fmt.Errorf("generator: failed to generate client: %w", err)
 		}
 	}
 
 	// Generate server if enabled
 	if g.GenerateServer {
 		if err := cg.generateServer(); err != nil {
-			return nil, fmt.Errorf("failed to generate server: %w", err)
+			return nil, fmt.Errorf("generator: failed to generate server: %w", err)
 		}
 	}
 
 	// Generate security helpers and related files
 	if err := cg.generateSecurityHelpers(); err != nil {
-		return nil, fmt.Errorf("failed to generate security helpers: %w", err)
+		return nil, fmt.Errorf("generator: failed to generate security helpers: %w", err)
 	}
 
 	// Update counts and timing
@@ -692,7 +692,7 @@ func (g *Generator) GenerateParsed(parseResult parser.ParseResult) (*GenerateRes
 
 	// In strict mode, fail on any issues
 	if g.StrictMode && (result.CriticalCount > 0 || result.WarningCount > 0) {
-		return result, fmt.Errorf("generation failed in strict mode: %d critical issue(s), %d warning(s)",
+		return result, fmt.Errorf("generator: generation failed in strict mode: %d critical issue(s), %d warning(s)",
 			result.CriticalCount, result.WarningCount)
 	}
 

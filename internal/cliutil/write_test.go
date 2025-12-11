@@ -33,7 +33,7 @@ func TestWritef_MultipleArgs(t *testing.T) {
 // errorWriter is a writer that always returns an error
 type errorWriter struct{}
 
-func (e errorWriter) Write(p []byte) (n int, err error) {
+func (e errorWriter) Write(_ []byte) (n int, err error) {
 	return 0, &writeError{}
 }
 

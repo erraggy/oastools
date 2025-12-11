@@ -20,10 +20,8 @@ const (
 	FormatYAML = "yaml"
 )
 
-// Special file path constant
-const (
-	StdinFilePath = "-"
-)
+// StdinFilePath is the special file path used to indicate reading from stdin.
+const StdinFilePath = "-"
 
 // ValidateOutputFormat validates an output format and returns an error if invalid.
 func ValidateOutputFormat(format string) error {
