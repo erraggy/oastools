@@ -27,10 +27,10 @@ go.work
 # IDE
 .idea/
 .vscode/
+.junie/
 *.swp
 *.swo
 *~
-
 # OS
 .DS_Store
 Thumbs.db
