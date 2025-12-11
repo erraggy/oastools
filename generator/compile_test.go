@@ -376,3 +376,186 @@ go 1.24
 		}
 	}
 }
+
+// TestGeneratedOAS2ClientCompiles verifies that generated OAS 2.0 (Swagger) client code
+// compiles without errors, specifically testing multiline description handling.
+func TestGeneratedOAS2ClientCompiles(t *testing.T) {
+	spec := `swagger: "2.0"
+info:
+  title: Test API
+  version: "1.0.0"
+basePath: /v1
+paths:
+  /items:
+    get:
+      operationId: listItems
+      summary: "List all items\nSupports pagination and filtering\nReturns paginated results"
+      parameters:
+        - name: page
+          in: query
+          type: integer
+          description: "Page number\nStarts from 1"
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Item'
+    post:
+      operationId: createItem
+      summary: Create an item
+      description: "Creates a new item in the system.\nThe item will be assigned an ID automatically.\nReturns the created item."
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/Item'
+      responses:
+        '201':
+          description: Created
+definitions:
+  Item:
+    type: object
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "swagger.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithClient(true),
+		WithTypes(true),
+	)
+	require.NoError(t, err)
+
+	// Create output directory
+	outputDir := filepath.Join(tmpDir, "testapi")
+	err = os.MkdirAll(outputDir, 0755)
+	require.NoError(t, err)
+
+	// Write generated files
+	for _, file := range result.Files {
+		filePath := filepath.Join(outputDir, file.Name)
+		err = os.WriteFile(filePath, file.Content, 0644)
+		require.NoError(t, err, "failed to write %s", file.Name)
+	}
+
+	// Create go.mod for the test package
+	goModContent := `module testapi
+
+go 1.24
+`
+	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
+	require.NoError(t, err)
+
+	// Try to compile the generated code
+	cmd := exec.Command("go", "build", "./...")
+	cmd.Dir = outputDir
+	output, err := cmd.CombinedOutput()
+	assert.NoError(t, err, "generated OAS 2.0 client code should compile without errors.\nCompiler output:\n%s", string(output))
+}
+
+// TestGeneratedOAS2ServerCompiles verifies that generated OAS 2.0 (Swagger) server code
+// compiles without errors, specifically testing multiline description handling.
+func TestGeneratedOAS2ServerCompiles(t *testing.T) {
+	spec := `swagger: "2.0"
+info:
+  title: Test API
+  version: "1.0.0"
+basePath: /v1
+paths:
+  /bars:
+    get:
+      operationId: listBars
+      summary: "List all bars\nWith filtering support"
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Bar'
+    post:
+      operationId: createBar
+      description: "Create a new bar.\nThis endpoint requires authentication.\nReturns the created bar with its ID."
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/Bar'
+      responses:
+        '201':
+          description: Created
+  /bars/{barId}:
+    get:
+      operationId: getBar
+      summary: Get a bar by ID
+      deprecated: true
+      parameters:
+        - name: barId
+          in: path
+          required: true
+          type: integer
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/Bar'
+definitions:
+  Bar:
+    type: object
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "swagger.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("testapi"),
+		WithServer(true),
+		WithTypes(true),
+	)
+	require.NoError(t, err)
+
+	// Create output directory
+	outputDir := filepath.Join(tmpDir, "testapi")
+	err = os.MkdirAll(outputDir, 0755)
+	require.NoError(t, err)
+
+	// Write generated files
+	for _, file := range result.Files {
+		filePath := filepath.Join(outputDir, file.Name)
+		err = os.WriteFile(filePath, file.Content, 0644)
+		require.NoError(t, err, "failed to write %s", file.Name)
+	}
+
+	// Create go.mod for the test package
+	goModContent := `module testapi
+
+go 1.24
+`
+	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
+	require.NoError(t, err)
+
+	// Try to compile the generated code
+	cmd := exec.Command("go", "build", "./...")
+	cmd.Dir = outputDir
+	output, err := cmd.CombinedOutput()
+	assert.NoError(t, err, "generated OAS 2.0 server code should compile without errors.\nCompiler output:\n%s", string(output))
+}
