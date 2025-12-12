@@ -1820,10 +1820,20 @@ func (cg *oas3CodeGenerator) generateCredentialsFile() error {
 	return nil
 }
 
-// generateSecurityEnforceFile generates the security_enforce.go file
+// generateSecurityEnforceFile generates security enforcement code.
+// If file splitting is enabled and needed, generates multiple files.
 //
 //nolint:unparam // error return kept for API consistency and future extensibility
 func (cg *oas3CodeGenerator) generateSecurityEnforceFile() error {
+	// Check if we should split
+	if cg.splitPlan != nil && cg.splitPlan.NeedsSplit {
+		return cg.generateSplitSecurityEnforce()
+	}
+	return cg.generateSingleSecurityEnforce()
+}
+
+// generateSingleSecurityEnforce generates all security enforcement in a single file.
+func (cg *oas3CodeGenerator) generateSingleSecurityEnforce() error {
 	g := NewSecurityEnforceGenerator(cg.result.PackageName)
 
 	// Extract operation security requirements
@@ -1842,6 +1852,61 @@ func (cg *oas3CodeGenerator) generateSecurityEnforceFile() error {
 		Name:    "security_enforce.go",
 		Content: formatted,
 	})
+
+	return nil
+}
+
+// generateSplitSecurityEnforce generates security enforcement split across multiple files.
+func (cg *oas3CodeGenerator) generateSplitSecurityEnforce() error {
+	g := NewSecurityEnforceGenerator(cg.result.PackageName)
+
+	// Generate base file with shared types and empty map
+	baseCode := g.GenerateBaseSecurityEnforceFile(cg.doc.Security)
+	formatted, err := format.Source([]byte(baseCode))
+	if err != nil {
+		cg.addIssue("security_enforce.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
+		formatted = []byte(baseCode)
+	}
+	cg.result.Files = append(cg.result.Files, GeneratedFile{
+		Name:    "security_enforce.go",
+		Content: formatted,
+	})
+
+	// Extract all operation security
+	allOpSecurity := ExtractOperationSecurityOAS3(cg.doc)
+
+	// Group operations by their file group
+	for _, group := range cg.splitPlan.Groups {
+		if group.IsShared {
+			continue
+		}
+
+		// Filter operation security for this group
+		groupOpSecurity := make(OperationSecurityRequirements)
+		for _, opID := range group.Operations {
+			if sec, ok := allOpSecurity[opID]; ok {
+				groupOpSecurity[opID] = sec
+			}
+		}
+
+		if len(groupOpSecurity) == 0 {
+			continue
+		}
+
+		// Generate group file
+		groupCode := g.GenerateSecurityEnforceGroupFile(group.Name, group.DisplayName, groupOpSecurity)
+		formatted, err := format.Source([]byte(groupCode))
+		if err != nil {
+			cg.addIssue(fmt.Sprintf("security_enforce_%s.go", group.Name),
+				fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
+			formatted = []byte(groupCode)
+		}
+
+		cg.result.Files = append(cg.result.Files, GeneratedFile{
+			Name:    fmt.Sprintf("security_enforce_%s.go", group.Name),
+			Content: formatted,
+		})
+	}
 
 	return nil
 }

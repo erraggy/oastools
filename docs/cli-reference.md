@@ -699,7 +699,7 @@ Generate idiomatic Go code (clients, servers, or types) from an OpenAPI specific
 ### Synopsis
 
 ```bash
-oastools generate [flags] <file|url>
+oastools generate [flags] <file|url|->
 ```
 
 ### Description
@@ -1018,6 +1018,7 @@ The following commands support reading from stdin using `-` as the file path:
 - `fix`
 - `parse`
 - `convert`
+- `generate`
 
 ### Pipeline Usage
 
@@ -1036,6 +1037,9 @@ curl -s https://example.com/openapi.yaml | oastools validate -q -
 
 # Chain multiple operations
 cat swagger.yaml | oastools convert -q -t 3.0.3 - | oastools validate -q -
+
+# Generate client from stdin
+cat openapi.yaml | oastools generate --client -o ./client -
 ```
 
 ### Quiet Mode
