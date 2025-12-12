@@ -1126,3 +1126,179 @@ func TestJoinWithOptions_NewStrategies(t *testing.T) {
 		assert.True(t, foundRenamed, "should have renamed schema with fallback pattern")
 	})
 }
+
+// TestJoinOAS3_NamespacePrefix tests the namespace prefix functionality
+func TestJoinOAS3_NamespacePrefix(t *testing.T) {
+	testdataDir := filepath.Join("..", "testdata")
+	basePath := filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml")
+	extPath := filepath.Join(testdataDir, "join-collision-rename-ext-3.0.yaml")
+
+	t.Run("namespace prefix on collision with rename-right", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyRenameRight
+		config.NamespacePrefix = map[string]string{
+			extPath: "Ext",
+		}
+
+		j := New(config)
+		result, err := j.Join([]string{basePath, extPath})
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
+
+		// Should have original User and prefixed Ext_User
+		assert.NotNil(t, doc.Components.Schemas["User"], "original User schema should exist")
+		assert.NotNil(t, doc.Components.Schemas["Ext_User"], "prefixed Ext_User schema should exist")
+	})
+
+	t.Run("always apply prefix", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyAcceptLeft
+		config.NamespacePrefix = map[string]string{
+			extPath: "Ext",
+		}
+		config.AlwaysApplyPrefix = true
+
+		j := New(config)
+		result, err := j.Join([]string{basePath, extPath})
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
+
+		// With AlwaysApplyPrefix, all schemas from ext should be prefixed
+		// Original User from base should exist
+		assert.NotNil(t, doc.Components.Schemas["User"], "original User schema should exist")
+		// Extension User should be prefixed even though accept-left keeps original
+		assert.NotNil(t, doc.Components.Schemas["Ext_User"], "prefixed Ext_User schema should exist")
+	})
+
+	t.Run("functional options WithNamespacePrefix", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(basePath, extPath),
+			WithSchemaStrategy(StrategyRenameRight),
+			WithNamespacePrefix(extPath, "Api2"),
+		)
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
+
+		// Should have original User and prefixed Api2_User
+		assert.NotNil(t, doc.Components.Schemas["User"], "original User schema should exist")
+		assert.NotNil(t, doc.Components.Schemas["Api2_User"], "prefixed Api2_User schema should exist")
+	})
+
+	t.Run("functional options WithAlwaysApplyPrefix", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(basePath, extPath),
+			WithSchemaStrategy(StrategyAcceptLeft),
+			WithNamespacePrefix(extPath, "V2"),
+			WithAlwaysApplyPrefix(true),
+		)
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
+
+		// With AlwaysApplyPrefix, User from ext gets prefixed regardless of collision handling
+		assert.NotNil(t, doc.Components.Schemas["User"], "original User from base should exist")
+		assert.NotNil(t, doc.Components.Schemas["V2_User"], "prefixed V2_User should exist")
+	})
+
+	t.Run("namespace prefix on collision with rename-left", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyRenameLeft
+		config.NamespacePrefix = map[string]string{
+			basePath: "Base",
+		}
+
+		j := New(config)
+		result, err := j.Join([]string{basePath, extPath})
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
+
+		// With rename-left, the left (base) schema gets renamed using prefix
+		// Original name goes to the right (ext) schema
+		assert.NotNil(t, doc.Components.Schemas["User"], "User schema (from ext) should exist")
+		assert.NotNil(t, doc.Components.Schemas["Base_User"], "prefixed Base_User (from base) should exist")
+	})
+}
+
+// TestGeneratePrefixedSchemaName tests the helper function for prefixed schema names
+func TestGeneratePrefixedSchemaName(t *testing.T) {
+	j := New(DefaultConfig())
+
+	tests := []struct {
+		name         string
+		originalName string
+		prefix       string
+		expected     string
+	}{
+		{
+			name:         "basic prefix",
+			originalName: "User",
+			prefix:       "Api",
+			expected:     "Api_User",
+		},
+		{
+			name:         "empty prefix returns original",
+			originalName: "Schema",
+			prefix:       "",
+			expected:     "Schema",
+		},
+		{
+			name:         "complex schema name",
+			originalName: "UserProfile",
+			prefix:       "Users",
+			expected:     "Users_UserProfile",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := j.generatePrefixedSchemaName(tt.originalName, tt.prefix)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestGetNamespacePrefix tests the namespace prefix lookup function
+func TestGetNamespacePrefix(t *testing.T) {
+	config := DefaultConfig()
+	config.NamespacePrefix = map[string]string{
+		"users.yaml":   "Users",
+		"billing.yaml": "Billing",
+	}
+
+	j := New(config)
+
+	t.Run("returns prefix for configured source", func(t *testing.T) {
+		assert.Equal(t, "Users", j.getNamespacePrefix("users.yaml"))
+		assert.Equal(t, "Billing", j.getNamespacePrefix("billing.yaml"))
+	})
+
+	t.Run("returns empty for unconfigured source", func(t *testing.T) {
+		assert.Equal(t, "", j.getNamespacePrefix("other.yaml"))
+	})
+
+	t.Run("handles nil map", func(t *testing.T) {
+		emptyConfig := DefaultConfig()
+		emptyConfig.NamespacePrefix = nil
+		j2 := New(emptyConfig)
+		assert.Equal(t, "", j2.getNamespacePrefix("any.yaml"))
+	})
+}

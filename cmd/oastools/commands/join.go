@@ -4,13 +4,46 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/internal/cliutil"
 	"github.com/erraggy/oastools/joiner"
 )
+
+// namespacePrefixFlag is a custom flag type for collecting namespace prefix mappings.
+// It allows the flag to be specified multiple times, each with "source=prefix" format.
+type namespacePrefixFlag map[string]string
+
+// String returns the string representation of the flag value
+func (n namespacePrefixFlag) String() string {
+	if n == nil {
+		return ""
+	}
+	pairs := make([]string, 0, len(n))
+	for k, v := range n {
+		pairs = append(pairs, k+"="+v)
+	}
+	return strings.Join(pairs, ",")
+}
+
+// Set parses a "source=prefix" value and adds it to the map
+func (n namespacePrefixFlag) Set(value string) error {
+	parts := strings.SplitN(value, "=", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid namespace prefix format: %q (expected source=prefix)", value)
+	}
+	source := strings.TrimSpace(parts[0])
+	prefix := strings.TrimSpace(parts[1])
+	if source == "" || prefix == "" {
+		return fmt.Errorf("namespace prefix requires non-empty source and prefix: %q", value)
+	}
+	n[source] = prefix
+	return nil
+}
 
 // JoinFlags contains flags for the join command
 type JoinFlags struct {
@@ -25,13 +58,18 @@ type JoinFlags struct {
 	RenameTemplate  string
 	EquivalenceMode string
 	CollisionReport bool
+	// Namespace prefix configuration
+	NamespacePrefix namespacePrefixFlag
+	AlwaysPrefix    bool
 }
 
 // SetupJoinFlags creates and configures a FlagSet for the join command.
 // Returns the FlagSet and a JoinFlags struct with bound flag variables.
 func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 	fs := flag.NewFlagSet("join", flag.ContinueOnError)
-	flags := &JoinFlags{}
+	flags := &JoinFlags{
+		NamespacePrefix: make(namespacePrefixFlag),
+	}
 
 	fs.StringVar(&flags.Output, "o", "", "output file path (default: stdout)")
 	fs.StringVar(&flags.Output, "output", "", "output file path (default: stdout)")
@@ -48,6 +86,10 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 	fs.StringVar(&flags.EquivalenceMode, "equivalence-mode", "none", "schema comparison mode for deduplication (none, shallow, deep)")
 	fs.BoolVar(&flags.CollisionReport, "collision-report", false, "generate detailed collision analysis report")
 
+	// Namespace prefix configuration
+	fs.Var(flags.NamespacePrefix, "namespace-prefix", "namespace prefix for source file (format: source=prefix, can be repeated)")
+	fs.BoolVar(&flags.AlwaysPrefix, "always-prefix", false, "apply namespace prefix to all schemas, not just on collision")
+
 	fs.Usage = func() {
 		cliutil.Writef(fs.Output(), "Usage: oastools join [flags] <file1> <file2> [file3...]\n\n")
 		cliutil.Writef(fs.Output(), "Join multiple OpenAPI specification files into a single document.\n\n")
@@ -61,10 +103,17 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 		cliutil.Writef(fs.Output(), "  deduplicate      Merge structurally identical schemas (requires equivalence-mode)\n")
 		cliutil.Writef(fs.Output(), "  fail             Fail with an error on any collision\n")
 		cliutil.Writef(fs.Output(), "  fail-on-paths    Fail only on path collisions, allow schema collisions\n")
+		cliutil.Writef(fs.Output(), "\nNamespace Prefixes:\n")
+		cliutil.Writef(fs.Output(), "  Use --namespace-prefix to add source-based prefixes to schema names.\n")
+		cliutil.Writef(fs.Output(), "  Format: source=prefix (can be specified multiple times)\n")
+		cliutil.Writef(fs.Output(), "  By default, prefix is only applied on collision. Use --always-prefix to\n")
+		cliutil.Writef(fs.Output(), "  apply namespace prefixes to all schemas from the configured sources.\n")
 		cliutil.Writef(fs.Output(), "\nExamples:\n")
 		cliutil.Writef(fs.Output(), "  oastools join -o merged.yaml base.yaml extensions.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools join --namespace-prefix users.yaml=Users --namespace-prefix billing.yaml=Billing -o merged.yaml users.yaml billing.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools join --namespace-prefix api2.yaml=V2 --always-prefix -o merged.yaml api1.yaml api2.yaml\n")
 		cliutil.Writef(fs.Output(), "\nPipelining:\n")
 		cliutil.Writef(fs.Output(), "  oastools join -q base.yaml ext.yaml | oastools validate -q -\n")
 		cliutil.Writef(fs.Output(), "  oastools join -q spec1.yaml spec2.yaml | oastools convert -q -t 3.1.0 -\n")
@@ -105,6 +154,13 @@ func HandleJoin(args []string) error {
 	config.RenameTemplate = flags.RenameTemplate
 	config.EquivalenceMode = flags.EquivalenceMode
 	config.CollisionReport = flags.CollisionReport
+
+	// Apply namespace prefix configuration
+	if len(flags.NamespacePrefix) > 0 {
+		config.NamespacePrefix = make(map[string]string)
+		maps.Copy(config.NamespacePrefix, flags.NamespacePrefix)
+	}
+	config.AlwaysApplyPrefix = flags.AlwaysPrefix
 
 	// Validate and parse strategy flags
 	if err := ValidateCollisionStrategy("path-strategy", flags.PathStrategy); err != nil {
