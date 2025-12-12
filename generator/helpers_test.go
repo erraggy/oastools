@@ -420,6 +420,40 @@ func TestIsSelfReference(t *testing.T) {
 			parentTypeName: "UserGroup",
 			expected:       true, // toTypeName("user_group") == "UserGroup"
 		},
+		{
+			name: "allOf self reference",
+			propSchema: &parser.Schema{
+				AllOf: []*parser.Schema{
+					{Ref: "#/components/schemas/User"},
+				},
+			},
+			parentTypeName: "User",
+			expected:       true,
+		},
+		{
+			name: "allOf no self reference",
+			propSchema: &parser.Schema{
+				AllOf: []*parser.Schema{
+					{Ref: "#/components/schemas/Pet"},
+				},
+			},
+			parentTypeName: "User",
+			expected:       false,
+		},
+		{
+			name: "nested allOf self reference",
+			propSchema: &parser.Schema{
+				AllOf: []*parser.Schema{
+					{
+						AllOf: []*parser.Schema{
+							{Ref: "#/components/schemas/TreeNode"},
+						},
+					},
+				},
+			},
+			parentTypeName: "TreeNode",
+			expected:       true,
+		},
 	}
 
 	for _, tt := range tests {

@@ -345,15 +345,29 @@ func formatAndFixImports(filename string, src []byte) ([]byte, error) {
 
 // isSelfReference checks if a schema property references its parent type.
 // This is used to detect recursive type definitions that need pointer indirection.
+// It handles both direct $ref and allOf compositions.
 func isSelfReference(propSchema *parser.Schema, parentTypeName string) bool {
-	if propSchema == nil || propSchema.Ref == "" {
+	if propSchema == nil {
 		return false
 	}
-	// Extract type name from ref (e.g., "#/components/schemas/Foo" -> "Foo")
-	parts := strings.Split(propSchema.Ref, "/")
-	if len(parts) > 0 {
-		refTypeName := toTypeName(parts[len(parts)-1])
-		return refTypeName == parentTypeName
+
+	// Check direct $ref
+	if propSchema.Ref != "" {
+		parts := strings.Split(propSchema.Ref, "/")
+		if len(parts) > 0 {
+			refTypeName := toTypeName(parts[len(parts)-1])
+			if refTypeName == parentTypeName {
+				return true
+			}
+		}
 	}
+
+	// Check allOf compositions for self-reference
+	for _, subSchema := range propSchema.AllOf {
+		if isSelfReference(subSchema, parentTypeName) {
+			return true
+		}
+	}
+
 	return false
 }

@@ -1138,7 +1138,8 @@ func (cg *oas3CodeGenerator) generateSingleServer() error {
 	}
 	buf.WriteString(")\n\n")
 
-	// Track generated methods to avoid duplicates (can happen with duplicate operationIds)
+	// Track generated methods to avoid duplicates (can happen with duplicate operationIds).
+	// NOTE: This map must be local per file generation to avoid stale data in split mode.
 	generatedMethods := make(map[string]bool)
 
 	// Generate server interface
@@ -1206,7 +1207,7 @@ func (cg *oas3CodeGenerator) generateSingleServer() error {
 			}
 
 			methodName := operationToMethodName(op, path, method)
-			// Skip if we already warned about this duplicate
+			// Skip if method was not added to interface (was filtered as duplicate)
 			if !generatedMethods[methodName] {
 				continue
 			}
@@ -1348,7 +1349,8 @@ func (cg *oas3CodeGenerator) generateBaseServer() error {
 	}
 	buf.WriteString(")\n\n")
 
-	// Track generated methods to avoid duplicates (can happen with duplicate operationIds)
+	// Track generated methods to avoid duplicates (can happen with duplicate operationIds).
+	// NOTE: This map must be local per file generation to avoid stale data in split mode.
 	generatedMethods := make(map[string]bool)
 
 	// Generate server interface (must be complete)
