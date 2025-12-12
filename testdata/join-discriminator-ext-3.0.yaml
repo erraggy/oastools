@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: Extended Pet Store
+  version: 1.0.0
+paths:
+  /animals:
+    get:
+      summary: Get animals
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Dog'
+components:
+  schemas:
+    Dog:
+      type: object
+      properties:
+        id:
+          type: integer
+        size:
+          type: string

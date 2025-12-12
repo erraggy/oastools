@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: API with Circular Reference
+  version: 1.0.0
+paths:
+  /nodes:
+    get:
+      summary: Get tree nodes
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Node'
+components:
+  schemas:
+    Node:
+      type: object
+      properties:
+        name:
+          type: string
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Node'

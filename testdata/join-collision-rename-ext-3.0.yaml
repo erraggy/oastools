@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: Extension API with Different User Schema
+  version: 1.0.0
+paths:
+  /profiles:
+    get:
+      summary: Get profiles
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        fullName:
+          type: string
+      required:
+        - id
+        - username
