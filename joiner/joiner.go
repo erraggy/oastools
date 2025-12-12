@@ -21,6 +21,12 @@ const (
 	StrategyFailOnCollision CollisionStrategy = "fail"
 	// StrategyFailOnPaths fails only on path collisions, allows schema/component collisions
 	StrategyFailOnPaths CollisionStrategy = "fail-on-paths"
+	// StrategyRenameLeft keeps the right-side schema and renames the left-side schema
+	StrategyRenameLeft CollisionStrategy = "rename-left"
+	// StrategyRenameRight keeps the left-side schema and renames the right-side schema
+	StrategyRenameRight CollisionStrategy = "rename-right"
+	// StrategyDeduplicateEquivalent uses semantic comparison to deduplicate structurally identical schemas
+	StrategyDeduplicateEquivalent CollisionStrategy = "deduplicate"
 )
 
 // ValidStrategies returns all valid collision strategy strings
@@ -30,13 +36,17 @@ func ValidStrategies() []string {
 		string(StrategyAcceptRight),
 		string(StrategyFailOnCollision),
 		string(StrategyFailOnPaths),
+		string(StrategyRenameLeft),
+		string(StrategyRenameRight),
+		string(StrategyDeduplicateEquivalent),
 	}
 }
 
 // IsValidStrategy checks if a strategy string is valid
 func IsValidStrategy(strategy string) bool {
 	switch CollisionStrategy(strategy) {
-	case StrategyAcceptLeft, StrategyAcceptRight, StrategyFailOnCollision, StrategyFailOnPaths:
+	case StrategyAcceptLeft, StrategyAcceptRight, StrategyFailOnCollision, StrategyFailOnPaths,
+		StrategyRenameLeft, StrategyRenameRight, StrategyDeduplicateEquivalent:
 		return true
 	default:
 		return false
@@ -57,6 +67,20 @@ type JoinerConfig struct {
 	DeduplicateTags bool
 	// MergeArrays determines whether to merge array fields (servers, security, etc.)
 	MergeArrays bool
+
+	// Advanced collision strategies configuration
+	// RenameTemplate is a Go template for renamed schema names (default: "{{.Name}}_{{.Source}}")
+	// Available variables: {{.Name}} (original name), {{.Source}} (source file), {{.Index}} (doc index), {{.Suffix}} (custom suffix)
+	RenameTemplate string
+	// NamespacePrefix maps source file paths to namespace prefixes
+	// Example: {"users-api.yaml": "Users", "billing-api.yaml": "Billing"}
+	NamespacePrefix map[string]string
+	// AlwaysApplyPrefix applies namespace prefix even without collision
+	AlwaysApplyPrefix bool
+	// EquivalenceMode controls depth of schema comparison: "none", "shallow", or "deep"
+	EquivalenceMode string
+	// CollisionReport enables detailed collision analysis reporting
+	CollisionReport bool
 }
 
 // DefaultConfig returns a sensible default configuration
@@ -68,6 +92,11 @@ func DefaultConfig() JoinerConfig {
 		ComponentStrategy: StrategyAcceptLeft,
 		DeduplicateTags:   true,
 		MergeArrays:       true,
+		RenameTemplate:    "{{.Name}}_{{.Source}}",
+		NamespacePrefix:   make(map[string]string),
+		AlwaysApplyPrefix: false,
+		EquivalenceMode:   "none",
+		CollisionReport:   false,
 	}
 }
 
@@ -129,6 +158,13 @@ type joinConfig struct {
 	componentStrategy *CollisionStrategy
 	deduplicateTags   *bool
 	mergeArrays       *bool
+
+	// Advanced collision strategies configuration
+	renameTemplate    *string
+	namespacePrefix   map[string]string
+	alwaysApplyPrefix *bool
+	equivalenceMode   *string
+	collisionReport   *bool
 }
 
 // JoinWithOptions joins multiple OpenAPI specifications using functional options.
@@ -156,6 +192,11 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 		ComponentStrategy: valueOrDefault(cfg.componentStrategy, defaults.ComponentStrategy),
 		DeduplicateTags:   boolValueOrDefault(cfg.deduplicateTags, defaults.DeduplicateTags),
 		MergeArrays:       boolValueOrDefault(cfg.mergeArrays, defaults.MergeArrays),
+		RenameTemplate:    stringValueOrDefault(cfg.renameTemplate, defaults.RenameTemplate),
+		NamespacePrefix:   mapValueOrDefault(cfg.namespacePrefix, defaults.NamespacePrefix),
+		AlwaysApplyPrefix: boolValueOrDefault(cfg.alwaysApplyPrefix, defaults.AlwaysApplyPrefix),
+		EquivalenceMode:   stringValueOrDefault(cfg.equivalenceMode, defaults.EquivalenceMode),
+		CollisionReport:   boolValueOrDefault(cfg.collisionReport, defaults.CollisionReport),
 	}
 
 	j := New(joinerCfg)
@@ -225,6 +266,20 @@ func boolValueOrDefault(ptr *bool, defaultVal bool) bool {
 	return *ptr
 }
 
+func stringValueOrDefault(ptr *string, defaultVal string) string {
+	if ptr == nil {
+		return defaultVal
+	}
+	return *ptr
+}
+
+func mapValueOrDefault(m map[string]string, defaultVal map[string]string) map[string]string {
+	if m == nil {
+		return defaultVal
+	}
+	return m
+}
+
 // WithFilePaths specifies file paths as input sources
 func WithFilePaths(paths ...string) Option {
 	return func(cfg *joinConfig) error {
@@ -251,6 +306,11 @@ func WithConfig(config JoinerConfig) Option {
 		cfg.componentStrategy = &config.ComponentStrategy
 		cfg.deduplicateTags = &config.DeduplicateTags
 		cfg.mergeArrays = &config.MergeArrays
+		cfg.renameTemplate = &config.RenameTemplate
+		cfg.namespacePrefix = config.NamespacePrefix
+		cfg.alwaysApplyPrefix = &config.AlwaysApplyPrefix
+		cfg.equivalenceMode = &config.EquivalenceMode
+		cfg.collisionReport = &config.CollisionReport
 		return nil
 	}
 }
@@ -301,6 +361,56 @@ func WithDeduplicateTags(enabled bool) Option {
 func WithMergeArrays(enabled bool) Option {
 	return func(cfg *joinConfig) error {
 		cfg.mergeArrays = &enabled
+		return nil
+	}
+}
+
+// WithRenameTemplate sets the Go template for renamed schema names
+// Default: "{{.Name}}_{{.Source}}"
+// Available variables: {{.Name}}, {{.Source}}, {{.Index}}, {{.Suffix}}
+func WithRenameTemplate(template string) Option {
+	return func(cfg *joinConfig) error {
+		cfg.renameTemplate = &template
+		return nil
+	}
+}
+
+// WithNamespacePrefix adds a namespace prefix mapping for a source file
+// Can be called multiple times to add multiple mappings
+func WithNamespacePrefix(sourcePath, prefix string) Option {
+	return func(cfg *joinConfig) error {
+		if cfg.namespacePrefix == nil {
+			cfg.namespacePrefix = make(map[string]string)
+		}
+		cfg.namespacePrefix[sourcePath] = prefix
+		return nil
+	}
+}
+
+// WithAlwaysApplyPrefix enables or disables applying prefix even without collision
+// Default: false
+func WithAlwaysApplyPrefix(enabled bool) Option {
+	return func(cfg *joinConfig) error {
+		cfg.alwaysApplyPrefix = &enabled
+		return nil
+	}
+}
+
+// WithEquivalenceMode sets the schema comparison mode for deduplication
+// Valid values: "none", "shallow", "deep"
+// Default: "none"
+func WithEquivalenceMode(mode string) Option {
+	return func(cfg *joinConfig) error {
+		cfg.equivalenceMode = &mode
+		return nil
+	}
+}
+
+// WithCollisionReport enables or disables detailed collision reporting
+// Default: false
+func WithCollisionReport(enabled bool) Option {
+	return func(cfg *joinConfig) error {
+		cfg.collisionReport = &enabled
 		return nil
 	}
 }
