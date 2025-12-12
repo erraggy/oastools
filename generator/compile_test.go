@@ -317,11 +317,9 @@ components:
 	for _, file := range result.Files {
 		if file.Name == "client.go" {
 			hasBaseClient = true
-			// Verify the base client has all required imports
-			content := string(file.Content)
-			assert.Contains(t, content, `"bytes"`, "base client.go should import bytes")
-			assert.Contains(t, content, `"encoding/json"`, "base client.go should import encoding/json")
-			assert.Contains(t, content, `"net/url"`, "base client.go should import net/url")
+			// With imports.Process(), base client.go only contains imports it actually uses.
+			// The actual API methods (which use bytes, encoding/json, etc.) are in split files.
+			// The compilation test below verifies everything works together.
 		}
 		if len(file.Name) > 7 && file.Name[:7] == "client_" {
 			hasSplitClient = true

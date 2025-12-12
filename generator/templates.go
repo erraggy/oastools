@@ -3,7 +3,6 @@ package generator
 import (
 	"bytes"
 	"embed"
-	"go/format"
 	"strconv"
 	"strings"
 	"text/template"
@@ -49,8 +48,8 @@ func executeTemplate(name string, data any) ([]byte, error) {
 		return nil, err
 	}
 
-	// Format the output using go/format
-	formatted, err := format.Source(buf.Bytes())
+	// Format the output and fix imports using goimports-equivalent processing
+	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
 	if err != nil {
 		// If formatting fails, return unformatted but don't fail the generation
 		// nolint:nilerr // intentional: formatting is optional, unformatted code is acceptable

@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -22,8 +23,17 @@ func (cg *oas3CodeGenerator) buildTypesFileData() *TypesFileData {
 			if schema == nil {
 				continue
 			}
+			// Check for duplicate type names (e.g., "user_profile" and "UserProfile" both become "UserProfile")
+			typeName := toTypeName(name)
+			if cg.generatedTypes[typeName] {
+				cg.addIssue(fmt.Sprintf("components.schemas.%s", name),
+					fmt.Sprintf("duplicate type name %s - skipping", typeName), SeverityWarning)
+				continue
+			}
+			cg.generatedTypes[typeName] = true
+
 			schemas = append(schemas, schemaEntry{name: name, schema: schema})
-			cg.schemaNames["#/components/schemas/"+name] = toTypeName(name)
+			cg.schemaNames["#/components/schemas/"+name] = typeName
 		}
 	}
 
@@ -165,6 +175,14 @@ func (cg *oas3CodeGenerator) buildStructTypeDefinition(typeName, originalName st
 			}
 
 			field := cg.buildFieldData(propName, propSchema, isRequired(schema.Required, propName))
+
+			// Check for self-reference (recursive type) - needs pointer indirection
+			// e.g., type UserGroup struct { Children UserGroup } is invalid, needs *UserGroup
+			if isSelfReference(propSchema, typeName) &&
+				!strings.HasPrefix(field.Type, "*") &&
+				!strings.HasPrefix(field.Type, "[]") {
+				field.Type = "*" + field.Type
+			}
 
 			// Handle duplicate field names (e.g., @id and id both become Id)
 			baseName := field.Name

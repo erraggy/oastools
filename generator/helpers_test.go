@@ -370,3 +370,169 @@ func TestBuildDefaultUserAgent(t *testing.T) {
 		})
 	}
 }
+
+func TestIsSelfReference(t *testing.T) {
+	tests := []struct {
+		name           string
+		propSchema     *parser.Schema
+		parentTypeName string
+		expected       bool
+	}{
+		{
+			name:           "nil schema",
+			propSchema:     nil,
+			parentTypeName: "User",
+			expected:       false,
+		},
+		{
+			name:           "no ref",
+			propSchema:     &parser.Schema{Type: "string"},
+			parentTypeName: "User",
+			expected:       false,
+		},
+		{
+			name:           "self reference OAS3",
+			propSchema:     &parser.Schema{Ref: "#/components/schemas/User"},
+			parentTypeName: "User",
+			expected:       true,
+		},
+		{
+			name:           "self reference OAS2",
+			propSchema:     &parser.Schema{Ref: "#/definitions/User"},
+			parentTypeName: "User",
+			expected:       true,
+		},
+		{
+			name:           "different reference",
+			propSchema:     &parser.Schema{Ref: "#/components/schemas/Pet"},
+			parentTypeName: "User",
+			expected:       false,
+		},
+		{
+			name:           "case sensitive - different case",
+			propSchema:     &parser.Schema{Ref: "#/components/schemas/user"},
+			parentTypeName: "User",
+			expected:       true, // toTypeName normalizes to same name
+		},
+		{
+			name:           "underscore naming",
+			propSchema:     &parser.Schema{Ref: "#/components/schemas/user_group"},
+			parentTypeName: "UserGroup",
+			expected:       true, // toTypeName("user_group") == "UserGroup"
+		},
+		{
+			name: "allOf self reference",
+			propSchema: &parser.Schema{
+				AllOf: []*parser.Schema{
+					{Ref: "#/components/schemas/User"},
+				},
+			},
+			parentTypeName: "User",
+			expected:       true,
+		},
+		{
+			name: "allOf no self reference",
+			propSchema: &parser.Schema{
+				AllOf: []*parser.Schema{
+					{Ref: "#/components/schemas/Pet"},
+				},
+			},
+			parentTypeName: "User",
+			expected:       false,
+		},
+		{
+			name: "nested allOf self reference",
+			propSchema: &parser.Schema{
+				AllOf: []*parser.Schema{
+					{
+						AllOf: []*parser.Schema{
+							{Ref: "#/components/schemas/TreeNode"},
+						},
+					},
+				},
+			},
+			parentTypeName: "TreeNode",
+			expected:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isSelfReference(tt.propSchema, tt.parentTypeName)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestFormatAndFixImports(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantErr  bool
+		contains []string
+	}{
+		{
+			name: "adds missing import",
+			input: `package test
+
+func foo() {
+	fmt.Println("hello")
+}
+`,
+			wantErr:  false,
+			contains: []string{`"fmt"`},
+		},
+		{
+			name: "removes unused import",
+			input: `package test
+
+import "fmt"
+import "strings"
+
+func foo() {
+	fmt.Println("hello")
+}
+`,
+			wantErr:  false,
+			contains: []string{`"fmt"`},
+		},
+		{
+			name: "invalid Go code",
+			input: `package test
+
+func foo( {
+`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := formatAndFixImports("test.go", []byte(tt.input))
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			for _, s := range tt.contains {
+				assert.Contains(t, string(result), s)
+			}
+		})
+	}
+
+	// Special test: verify unused import is removed
+	t.Run("unused import removed", func(t *testing.T) {
+		input := `package test
+
+import "fmt"
+import "strings"
+
+func foo() {
+	fmt.Println("hello")
+}
+`
+		result, err := formatAndFixImports("test.go", []byte(input))
+		assert.NoError(t, err)
+		assert.NotContains(t, string(result), `"strings"`)
+	})
+}
