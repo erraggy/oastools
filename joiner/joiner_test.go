@@ -1302,3 +1302,319 @@ func TestGetNamespacePrefix(t *testing.T) {
 		assert.Equal(t, "", j2.getNamespacePrefix("any.yaml"))
 	})
 }
+
+// TestValidStrategies tests the ValidStrategies helper function
+func TestValidStrategies(t *testing.T) {
+	strategies := ValidStrategies()
+
+	// Should return all valid strategy strings
+	assert.Contains(t, strategies, string(StrategyAcceptLeft))
+	assert.Contains(t, strategies, string(StrategyAcceptRight))
+	assert.Contains(t, strategies, string(StrategyFailOnCollision))
+	assert.Contains(t, strategies, string(StrategyFailOnPaths))
+	assert.Contains(t, strategies, string(StrategyRenameLeft))
+	assert.Contains(t, strategies, string(StrategyRenameRight))
+	assert.Contains(t, strategies, string(StrategyDeduplicateEquivalent))
+
+	// Should have exactly 7 strategies
+	assert.Equal(t, 7, len(strategies))
+}
+
+// TestIsValidStrategy tests the IsValidStrategy helper function
+func TestIsValidStrategy(t *testing.T) {
+	tests := []struct {
+		strategy string
+		expected bool
+	}{
+		{"accept-left", true},
+		{"accept-right", true},
+		{"fail", true},
+		{"fail-on-paths", true},
+		{"rename-left", true},
+		{"rename-right", true},
+		{"deduplicate", true},
+		{"invalid", false},
+		{"", false},
+		{"AcceptLeft", false}, // Case sensitive
+		{"ACCEPT-LEFT", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.strategy, func(t *testing.T) {
+			assert.Equal(t, tt.expected, IsValidStrategy(tt.strategy))
+		})
+	}
+}
+
+// TestJoinWithOptions_FunctionalOptions tests additional functional options
+func TestJoinWithOptions_FunctionalOptions(t *testing.T) {
+	testdataDir := filepath.Join("..", "testdata")
+	basePath := filepath.Join(testdataDir, "join-base-3.0.yaml")
+	extPath := filepath.Join(testdataDir, "join-extension-3.0.yaml")
+
+	t.Run("WithDefaultStrategy", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(basePath, extPath),
+			WithDefaultStrategy(StrategyAcceptLeft),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+	})
+
+	t.Run("WithDeduplicateTags false", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(basePath, extPath),
+			WithDeduplicateTags(false),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
+
+		// Without deduplication, tags may have duplicates
+		// The result document is valid even if Tags is nil or empty
+		assert.NotNil(t, doc)
+	})
+
+	t.Run("WithDeduplicateTags true", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(basePath, extPath),
+			WithDeduplicateTags(true),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
+		// With deduplication enabled, the result document is valid
+		assert.NotNil(t, doc)
+	})
+
+	t.Run("WithMergeArrays false", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(basePath, extPath),
+			WithMergeArrays(false),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
+
+		// Without array merging, should only have servers from first document
+		assert.Equal(t, 1, len(doc.Servers))
+	})
+
+	t.Run("WithMergeArrays true", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(basePath, extPath),
+			WithMergeArrays(true),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
+
+		// With array merging, should have servers from both documents
+		assert.Equal(t, 2, len(doc.Servers))
+	})
+
+	t.Run("WithCollisionReport enabled", func(t *testing.T) {
+		collisionBasePath := filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml")
+		collisionExtPath := filepath.Join(testdataDir, "join-collision-rename-ext-3.0.yaml")
+
+		result, err := JoinWithOptions(
+			WithFilePaths(collisionBasePath, collisionExtPath),
+			WithSchemaStrategy(StrategyAcceptLeft),
+			WithCollisionReport(true),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+
+		// Collision report should be populated
+		assert.NotNil(t, result.CollisionDetails)
+		assert.Greater(t, len(result.CollisionDetails.Events), 0)
+	})
+
+	t.Run("WithCollisionReport disabled", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(basePath, extPath),
+			WithCollisionReport(false),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+
+		// Collision report should be nil when disabled
+		assert.Nil(t, result.CollisionDetails)
+	})
+}
+
+// TestJoinOAS2_NamespacePrefix tests namespace prefix functionality for OAS 2.0 documents
+func TestJoinOAS2_NamespacePrefix(t *testing.T) {
+	testdataDir := filepath.Join("..", "testdata")
+	basePath := filepath.Join(testdataDir, "join-collision-rename-base-2.0.yaml")
+	extPath := filepath.Join(testdataDir, "join-collision-rename-ext-2.0.yaml")
+
+	t.Run("namespace prefix on collision with rename-right", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyRenameRight
+		config.NamespacePrefix = map[string]string{
+			extPath: "Ext",
+		}
+
+		j := New(config)
+		result, err := j.Join([]string{basePath, extPath})
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS2Document)
+		require.True(t, ok)
+
+		// Should have original User and prefixed Ext_User
+		assert.NotNil(t, doc.Definitions["User"], "original User definition should exist")
+		assert.NotNil(t, doc.Definitions["Ext_User"], "prefixed Ext_User definition should exist")
+	})
+
+	t.Run("always apply prefix", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyAcceptLeft
+		config.NamespacePrefix = map[string]string{
+			extPath: "Ext",
+		}
+		config.AlwaysApplyPrefix = true
+
+		j := New(config)
+		result, err := j.Join([]string{basePath, extPath})
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS2Document)
+		require.True(t, ok)
+
+		// With AlwaysApplyPrefix, all definitions from ext should be prefixed
+		assert.NotNil(t, doc.Definitions["User"], "original User definition should exist")
+		assert.NotNil(t, doc.Definitions["Ext_User"], "prefixed Ext_User definition should exist")
+		assert.NotNil(t, doc.Definitions["Ext_UserList"], "prefixed Ext_UserList definition should exist")
+	})
+
+	t.Run("namespace prefix on collision with rename-left", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyRenameLeft
+		config.NamespacePrefix = map[string]string{
+			basePath: "Base",
+		}
+
+		j := New(config)
+		result, err := j.Join([]string{basePath, extPath})
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS2Document)
+		require.True(t, ok)
+
+		// With rename-left, the left (base) definition gets renamed using prefix
+		assert.NotNil(t, doc.Definitions["User"], "User definition (from ext) should exist")
+		assert.NotNil(t, doc.Definitions["Base_User"], "prefixed Base_User (from base) should exist")
+	})
+
+	t.Run("functional options for OAS2", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(basePath, extPath),
+			WithSchemaStrategy(StrategyRenameRight),
+			WithNamespacePrefix(extPath, "Api2"),
+		)
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS2Document)
+		require.True(t, ok)
+
+		// Should have original User and prefixed Api2_User
+		assert.NotNil(t, doc.Definitions["User"], "original User definition should exist")
+		assert.NotNil(t, doc.Definitions["Api2_User"], "prefixed Api2_User definition should exist")
+	})
+}
+
+// TestJoinOAS2_RenameStrategies tests rename strategies for OAS 2.0 documents
+func TestJoinOAS2_RenameStrategies(t *testing.T) {
+	testdataDir := filepath.Join("..", "testdata")
+	basePath := filepath.Join(testdataDir, "join-collision-rename-base-2.0.yaml")
+	extPath := filepath.Join(testdataDir, "join-collision-rename-ext-2.0.yaml")
+
+	t.Run("rename-left strategy", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyRenameLeft
+
+		j := New(config)
+		result, err := j.Join([]string{basePath, extPath})
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS2Document)
+		require.True(t, ok)
+
+		// Should have both User definitions
+		assert.NotNil(t, doc.Definitions["User"])
+		// Find the renamed definition
+		foundRenamed := false
+		for name := range doc.Definitions {
+			if strings.HasPrefix(name, "User_") && name != "User" {
+				foundRenamed = true
+				break
+			}
+		}
+		assert.True(t, foundRenamed, "renamed definition should exist")
+
+		// Should have 2 paths
+		assert.Equal(t, 2, len(doc.Paths))
+	})
+
+	t.Run("rename-right strategy", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyRenameRight
+
+		j := New(config)
+		result, err := j.Join([]string{basePath, extPath})
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS2Document)
+		require.True(t, ok)
+
+		// Should have both User definitions
+		assert.NotNil(t, doc.Definitions["User"])
+		// Find the renamed definition
+		foundRenamed := false
+		for name := range doc.Definitions {
+			if strings.HasPrefix(name, "User_") && name != "User" {
+				foundRenamed = true
+				break
+			}
+		}
+		assert.True(t, foundRenamed, "renamed definition should exist")
+
+		// Should have 2 paths
+		assert.Equal(t, 2, len(doc.Paths))
+	})
+
+	t.Run("deduplicate strategy fails on non-equivalent", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyDeduplicateEquivalent
+		config.EquivalenceMode = "deep"
+
+		j := New(config)
+		_, err := j.Join([]string{basePath, extPath})
+
+		// Should fail because User definitions are different
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not equivalent")
+	})
+}

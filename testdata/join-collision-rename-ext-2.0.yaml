@@ -1,0 +1,46 @@
+swagger: "2.0"
+info:
+  title: Extension API (OAS 2.0)
+  description: Extension API for testing collision renames with OAS 2.0
+  version: 1.0.0
+host: api.example.com
+basePath: /v1
+schemes:
+  - https
+paths:
+  /profiles:
+    get:
+      summary: List user profiles
+      operationId: listProfiles
+      tags:
+        - profiles
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: A list of user profiles
+          schema:
+            $ref: '#/definitions/UserList'
+definitions:
+  User:
+    type: object
+    description: User from extension document (different structure)
+    properties:
+      id:
+        type: string
+      username:
+        type: string
+      profile:
+        type: object
+        properties:
+          firstName:
+            type: string
+          lastName:
+            type: string
+  UserList:
+    type: object
+    properties:
+      data:
+        type: array
+        items:
+          $ref: '#/definitions/User'
