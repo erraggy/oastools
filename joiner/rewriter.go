@@ -83,10 +83,7 @@ func (r *SchemaRewriter) rewriteOAS3Document(doc *parser.OAS3Document) error {
 		for _, callback := range doc.Components.Callbacks {
 			r.rewriteCallback(callback)
 		}
-		// Links
-		for _, link := range doc.Components.Links {
-			r.rewriteLink(link)
-		}
+		// Links - intentionally not rewritten (don't contain schema references)
 		// Path items
 		for _, pathItem := range doc.Components.PathItems {
 			r.rewritePathItem(pathItem)
@@ -223,12 +220,10 @@ func (r *SchemaRewriter) rewriteSchema(schema *parser.Schema) {
 	// Rewrite discriminator mappings
 	if schema.Discriminator != nil && schema.Discriminator.Mapping != nil {
 		for key, value := range schema.Discriminator.Mapping {
-			// Handle full $ref paths
+			// Handle full $ref paths first, then bare schema names if not matched
 			if newRef, exists := r.refMap[value]; exists {
 				schema.Discriminator.Mapping[key] = newRef
-			}
-			// Handle bare schema names
-			if newName, exists := r.bareNameMap[value]; exists {
+			} else if newName, exists := r.bareNameMap[value]; exists {
 				schema.Discriminator.Mapping[key] = newName
 			}
 		}
@@ -284,10 +279,7 @@ func (r *SchemaRewriter) rewriteResponse(resp *parser.Response) {
 		r.rewriteHeader(header)
 	}
 
-	// Rewrite links (OAS 3.0+)
-	for _, link := range resp.Links {
-		r.rewriteLink(link)
-	}
+	// Links intentionally not rewritten (don't contain schema references)
 }
 
 // rewriteRequestBody rewrites references in a request body
@@ -316,10 +308,7 @@ func (r *SchemaRewriter) rewriteMediaType(mediaType *parser.MediaType) {
 
 	r.rewriteSchema(mediaType.Schema)
 
-	// Rewrite examples
-	for _, example := range mediaType.Examples {
-		r.rewriteExample(example)
-	}
+	// Examples intentionally not rewritten (don't contain schema references)
 }
 
 // rewriteHeader rewrites references in a header
@@ -342,15 +331,6 @@ func (r *SchemaRewriter) rewriteHeader(header *parser.Header) {
 	}
 }
 
-// rewriteExample rewrites references in an example
-func (r *SchemaRewriter) rewriteExample(example *parser.Example) {
-	if example == nil {
-		return
-	}
-
-	// Examples have $ref but don't contain schema references
-}
-
 // rewriteCallback rewrites references in a callback
 func (r *SchemaRewriter) rewriteCallback(callback *parser.Callback) {
 	if callback == nil {
@@ -361,15 +341,6 @@ func (r *SchemaRewriter) rewriteCallback(callback *parser.Callback) {
 	for _, pathItem := range *callback {
 		r.rewritePathItem(pathItem)
 	}
-}
-
-// rewriteLink rewrites references in a link
-func (r *SchemaRewriter) rewriteLink(link *parser.Link) {
-	if link == nil {
-		return
-	}
-
-	// Links have $ref but don't contain schema references
 }
 
 // rewritePathItem rewrites references in a path item

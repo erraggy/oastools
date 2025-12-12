@@ -73,13 +73,8 @@ type JoinerConfig struct {
 
 	// Advanced collision strategies configuration
 	// RenameTemplate is a Go template for renamed schema names (default: "{{.Name}}_{{.Source}}")
-	// Available variables: {{.Name}} (original name), {{.Source}} (source file), {{.Index}} (doc index), {{.Suffix}} (custom suffix)
+	// Available variables: {{.Name}} (original name), {{.Source}} (source file), {{.Index}} (doc index)
 	RenameTemplate string
-	// NamespacePrefix maps source file paths to namespace prefixes
-	// Example: {"users-api.yaml": "Users", "billing-api.yaml": "Billing"}
-	NamespacePrefix map[string]string
-	// AlwaysApplyPrefix applies namespace prefix even without collision
-	AlwaysApplyPrefix bool
 	// EquivalenceMode controls depth of schema comparison: "none", "shallow", or "deep"
 	EquivalenceMode string
 	// CollisionReport enables detailed collision analysis reporting
@@ -96,8 +91,6 @@ func DefaultConfig() JoinerConfig {
 		DeduplicateTags:   true,
 		MergeArrays:       true,
 		RenameTemplate:    "{{.Name}}_{{.Source}}",
-		NamespacePrefix:   make(map[string]string),
-		AlwaysApplyPrefix: false,
 		EquivalenceMode:   "none",
 		CollisionReport:   false,
 	}
@@ -134,6 +127,8 @@ type JoinResult struct {
 	CollisionCount int
 	// Stats contains statistical information about the joined document
 	Stats parser.DocumentStats
+	// CollisionDetails contains detailed collision analysis (when CollisionReport is enabled)
+	CollisionDetails *CollisionReport
 	// firstFilePath stores the path of the first document for error reporting
 	firstFilePath string
 	// rewriter accumulates schema renames for reference rewriting
@@ -165,11 +160,9 @@ type joinConfig struct {
 	mergeArrays       *bool
 
 	// Advanced collision strategies configuration
-	renameTemplate    *string
-	namespacePrefix   map[string]string
-	alwaysApplyPrefix *bool
-	equivalenceMode   *string
-	collisionReport   *bool
+	renameTemplate  *string
+	equivalenceMode *string
+	collisionReport *bool
 }
 
 // JoinWithOptions joins multiple OpenAPI specifications using functional options.
@@ -198,8 +191,6 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 		DeduplicateTags:   boolValueOrDefault(cfg.deduplicateTags, defaults.DeduplicateTags),
 		MergeArrays:       boolValueOrDefault(cfg.mergeArrays, defaults.MergeArrays),
 		RenameTemplate:    stringValueOrDefault(cfg.renameTemplate, defaults.RenameTemplate),
-		NamespacePrefix:   mapValueOrDefault(cfg.namespacePrefix, defaults.NamespacePrefix),
-		AlwaysApplyPrefix: boolValueOrDefault(cfg.alwaysApplyPrefix, defaults.AlwaysApplyPrefix),
 		EquivalenceMode:   stringValueOrDefault(cfg.equivalenceMode, defaults.EquivalenceMode),
 		CollisionReport:   boolValueOrDefault(cfg.collisionReport, defaults.CollisionReport),
 	}
@@ -278,13 +269,6 @@ func stringValueOrDefault(ptr *string, defaultVal string) string {
 	return *ptr
 }
 
-func mapValueOrDefault(m map[string]string, defaultVal map[string]string) map[string]string {
-	if m == nil {
-		return defaultVal
-	}
-	return m
-}
-
 // WithFilePaths specifies file paths as input sources
 func WithFilePaths(paths ...string) Option {
 	return func(cfg *joinConfig) error {
@@ -312,8 +296,6 @@ func WithConfig(config JoinerConfig) Option {
 		cfg.deduplicateTags = &config.DeduplicateTags
 		cfg.mergeArrays = &config.MergeArrays
 		cfg.renameTemplate = &config.RenameTemplate
-		cfg.namespacePrefix = config.NamespacePrefix
-		cfg.alwaysApplyPrefix = &config.AlwaysApplyPrefix
 		cfg.equivalenceMode = &config.EquivalenceMode
 		cfg.collisionReport = &config.CollisionReport
 		return nil
@@ -376,27 +358,6 @@ func WithMergeArrays(enabled bool) Option {
 func WithRenameTemplate(template string) Option {
 	return func(cfg *joinConfig) error {
 		cfg.renameTemplate = &template
-		return nil
-	}
-}
-
-// WithNamespacePrefix adds a namespace prefix mapping for a source file
-// Can be called multiple times to add multiple mappings
-func WithNamespacePrefix(sourcePath, prefix string) Option {
-	return func(cfg *joinConfig) error {
-		if cfg.namespacePrefix == nil {
-			cfg.namespacePrefix = make(map[string]string)
-		}
-		cfg.namespacePrefix[sourcePath] = prefix
-		return nil
-	}
-}
-
-// WithAlwaysApplyPrefix enables or disables applying prefix even without collision
-// Default: false
-func WithAlwaysApplyPrefix(enabled bool) Option {
-	return func(cfg *joinConfig) error {
-		cfg.alwaysApplyPrefix = &enabled
 		return nil
 	}
 }
@@ -732,4 +693,19 @@ func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docI
 	}
 
 	return buf.String()
+}
+
+// recordCollisionEvent records a collision event if reporting is enabled
+func (j *Joiner) recordCollisionEvent(result *JoinResult, schemaName, leftSource, rightSource string, strategy CollisionStrategy, resolution, newName string) {
+	if result.CollisionDetails == nil {
+		return
+	}
+	result.CollisionDetails.AddEvent(CollisionEvent{
+		SchemaName:  schemaName,
+		LeftSource:  leftSource,
+		RightSource: rightSource,
+		Strategy:    strategy,
+		Resolution:  resolution,
+		NewName:     newName,
+	})
 }

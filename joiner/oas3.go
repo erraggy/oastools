@@ -19,6 +19,11 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 		firstFilePath: docs[0].SourcePath,
 	}
 
+	// Initialize collision report if enabled
+	if j.config.CollisionReport {
+		result.CollisionDetails = NewCollisionReport()
+	}
+
 	// Create the joined document starting with the base
 	joined := &parser.OAS3Document{
 		OpenAPI:           baseDoc.OpenAPI,
@@ -199,6 +204,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 					if eqResult.Equivalent {
 						// Schemas are equivalent, keep existing and skip
 						result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' deduplicated (structurally equivalent): %s", name, ctx.filePath))
+						j.recordCollisionEvent(result, name, result.firstFilePath, ctx.filePath, strategy, "deduplicated", "")
 						continue
 					}
 					// Not equivalent, fall back to default strategy or fail
@@ -223,6 +229,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				result.rewriter.RegisterRename(name, newName, result.OASVersion)
 
 				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' renamed to '%s' (kept from %s), new schema '%s' from %s", name, newName, result.firstFilePath, name, ctx.filePath))
+				j.recordCollisionEvent(result, name, result.firstFilePath, ctx.filePath, strategy, "renamed", newName)
 
 			case StrategyRenameRight:
 				// Rename the new (right) schema and keep existing (left) schema under original name
@@ -240,6 +247,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				result.rewriter.RegisterRename(name, newName, result.OASVersion)
 
 				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' from %s renamed to '%s', kept original '%s' from %s", name, ctx.filePath, newName, name, result.firstFilePath))
+				j.recordCollisionEvent(result, name, result.firstFilePath, ctx.filePath, strategy, "renamed", newName)
 
 			default:
 				// Handle existing strategies (accept-left, accept-right, fail, fail-on-paths)
@@ -249,8 +257,10 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				if j.shouldOverwrite(strategy) {
 					target[name] = schema
 					result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' at components.schemas.%s overwritten: source %s", name, name, ctx.filePath))
+					j.recordCollisionEvent(result, name, result.firstFilePath, ctx.filePath, strategy, "kept-right", "")
 				} else {
 					result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' at components.schemas.%s kept from %s (collision with %s)", name, name, result.firstFilePath, ctx.filePath))
+					j.recordCollisionEvent(result, name, result.firstFilePath, ctx.filePath, strategy, "kept-left", "")
 				}
 			}
 		} else {

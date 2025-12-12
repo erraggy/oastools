@@ -20,6 +20,11 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 		firstFilePath: docs[0].SourcePath,
 	}
 
+	// Initialize collision report if enabled
+	if j.config.CollisionReport {
+		result.CollisionDetails = NewCollisionReport()
+	}
+
 	// Create the joined document starting with the base
 	joined := &parser.OAS2Document{
 		Swagger:             baseDoc.Swagger,
@@ -136,6 +141,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 					if eqResult.Equivalent {
 						// Schemas are equivalent, keep existing and skip
 						result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' deduplicated (structurally equivalent): %s", name, ctx.filePath))
+						j.recordCollisionEvent(result, name, result.firstFilePath, ctx.filePath, schemaStrategy, "deduplicated", "")
 						continue
 					}
 					// Not equivalent, fall back to fail
@@ -160,6 +166,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				result.rewriter.RegisterRename(name, newName, result.OASVersion)
 
 				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' renamed to '%s' (kept from %s), new definition '%s' from %s", name, newName, result.firstFilePath, name, ctx.filePath))
+				j.recordCollisionEvent(result, name, result.firstFilePath, ctx.filePath, schemaStrategy, "renamed", newName)
 
 			case StrategyRenameRight:
 				// Rename the new (right) definition and keep existing (left) definition under original name
@@ -177,6 +184,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				result.rewriter.RegisterRename(name, newName, result.OASVersion)
 
 				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' from %s renamed to '%s', kept original '%s' from %s", name, ctx.filePath, newName, name, result.firstFilePath))
+				j.recordCollisionEvent(result, name, result.firstFilePath, ctx.filePath, schemaStrategy, "renamed", newName)
 
 			default:
 				// Handle existing strategies
@@ -186,8 +194,10 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				if j.shouldOverwrite(schemaStrategy) {
 					joined.Definitions[name] = schema
 					result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' at definitions.%s overwritten: source %s", name, name, ctx.filePath))
+					j.recordCollisionEvent(result, name, result.firstFilePath, ctx.filePath, schemaStrategy, "kept-right", "")
 				} else {
 					result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' at definitions.%s kept from %s (collision with %s)", name, name, result.firstFilePath, ctx.filePath))
+					j.recordCollisionEvent(result, name, result.firstFilePath, ctx.filePath, schemaStrategy, "kept-left", "")
 				}
 			}
 		} else {
