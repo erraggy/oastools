@@ -140,28 +140,28 @@ func TestExtractOperationSecurityOAS3(t *testing.T) {
 
 	result := ExtractOperationSecurityOAS3(doc)
 
-	// listUsers should have its own security
-	listUsersSec, ok := result["listUsers"]
+	// ListUsers (transformed from listUsers) should have its own security
+	listUsersSec, ok := result["ListUsers"]
 	if !ok {
-		t.Error("expected listUsers in result")
+		t.Error("expected ListUsers in result")
 	}
 	if len(listUsersSec) != 1 {
-		t.Errorf("expected 1 security requirement for listUsers, got %d", len(listUsersSec))
+		t.Errorf("expected 1 security requirement for ListUsers, got %d", len(listUsersSec))
 	}
 	if _, hasOAuth2 := listUsersSec[0]["oauth2"]; !hasOAuth2 {
-		t.Error("expected oauth2 scheme for listUsers")
+		t.Error("expected oauth2 scheme for ListUsers")
 	}
 
-	// createUser should have global security
-	createUserSec, ok := result["createUser"]
+	// CreateUser (transformed from createUser) should have global security
+	createUserSec, ok := result["CreateUser"]
 	if !ok {
-		t.Error("expected createUser in result")
+		t.Error("expected CreateUser in result")
 	}
 	if len(createUserSec) != 1 {
-		t.Errorf("expected 1 security requirement for createUser, got %d", len(createUserSec))
+		t.Errorf("expected 1 security requirement for CreateUser, got %d", len(createUserSec))
 	}
 	if _, hasGlobal := createUserSec[0]["global_auth"]; !hasGlobal {
-		t.Error("expected global_auth scheme for createUser")
+		t.Error("expected global_auth scheme for CreateUser")
 	}
 }
 
@@ -181,12 +181,13 @@ func TestExtractOperationSecurityOAS2(t *testing.T) {
 
 	result := ExtractOperationSecurityOAS2(doc)
 
-	listPetsSec, ok := result["listPets"]
+	// ListPets (transformed from listPets) should have global security
+	listPetsSec, ok := result["ListPets"]
 	if !ok {
-		t.Error("expected listPets in result")
+		t.Error("expected ListPets in result")
 	}
 	if len(listPetsSec) != 1 {
-		t.Errorf("expected 1 security requirement for listPets, got %d", len(listPetsSec))
+		t.Errorf("expected 1 security requirement for ListPets, got %d", len(listPetsSec))
 	}
 }
 

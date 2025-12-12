@@ -190,6 +190,11 @@ func (fs *FileSplitter) AnalyzeOAS3(doc *parser.OAS3Document) *SplitPlan {
 	}
 	sort.Strings(sortedGroupNames)
 
+	// Track method names across all groups to avoid duplicates.
+	// When two operations from different tags normalize to the same method name,
+	// only the first occurrence (alphabetically by group name) gets included.
+	assignedMethods := make(map[string]bool)
+
 	for _, groupName := range sortedGroupNames {
 		ops := groups[groupName]
 		group := FileGroup{
@@ -201,7 +206,14 @@ func (fs *FileSplitter) AnalyzeOAS3(doc *parser.OAS3Document) *SplitPlan {
 		}
 
 		for _, op := range ops {
-			group.Operations = append(group.Operations, op.OperationID)
+			// Store the transformed Go method name to match code generator expectations
+			methodName := operationInfoToMethodName(op)
+			// Skip if this method name was already assigned to another group
+			if assignedMethods[methodName] {
+				continue
+			}
+			assignedMethods[methodName] = true
+			group.Operations = append(group.Operations, methodName)
 		}
 
 		// Add group-specific types
@@ -288,6 +300,11 @@ func (fs *FileSplitter) AnalyzeOAS2(doc *parser.OAS2Document) *SplitPlan {
 	}
 	sort.Strings(sortedGroupNames)
 
+	// Track method names across all groups to avoid duplicates.
+	// When two operations from different tags normalize to the same method name,
+	// only the first occurrence (alphabetically by group name) gets included.
+	assignedMethods := make(map[string]bool)
+
 	for _, groupName := range sortedGroupNames {
 		ops := groups[groupName]
 		group := FileGroup{
@@ -299,7 +316,14 @@ func (fs *FileSplitter) AnalyzeOAS2(doc *parser.OAS2Document) *SplitPlan {
 		}
 
 		for _, op := range ops {
-			group.Operations = append(group.Operations, op.OperationID)
+			// Store the transformed Go method name to match code generator expectations
+			methodName := operationInfoToMethodName(op)
+			// Skip if this method name was already assigned to another group
+			if assignedMethods[methodName] {
+				continue
+			}
+			assignedMethods[methodName] = true
+			group.Operations = append(group.Operations, methodName)
 		}
 
 		// Add group-specific types

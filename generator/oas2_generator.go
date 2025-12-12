@@ -492,7 +492,7 @@ func (cg *oas2CodeGenerator) getArrayItemType(schema *parser.Schema) string {
 			return cg.resolveRef(items.Ref)
 		}
 		return cg.schemaToGoType(items, true)
-	case map[string]interface{}:
+	case map[string]any:
 		if ref, ok := items["$ref"].(string); ok {
 			return cg.resolveRef(ref)
 		}
@@ -510,7 +510,7 @@ func (cg *oas2CodeGenerator) getAdditionalPropertiesType(schema *parser.Schema) 
 	switch addProps := schema.AdditionalProperties.(type) {
 	case *parser.Schema:
 		return cg.schemaToGoType(addProps, true)
-	case map[string]interface{}:
+	case map[string]any:
 		return schemaTypeFromMap(addProps)
 	case bool:
 		if addProps {
@@ -1241,6 +1241,11 @@ func (cg *oas2CodeGenerator) generateSingleServer() error {
 	buf.WriteString("// UnimplementedServer provides default implementations that return errors.\n")
 	buf.WriteString("type UnimplementedServer struct{}\n\n")
 
+	// Track generated UnimplementedServer methods separately to avoid duplicates.
+	// We can't reuse generatedMethods because it's used to check if a method was
+	// added to the interface (i.e., wasn't filtered as duplicate).
+	generatedUnimplemented := make(map[string]bool)
+
 	// Generate unimplemented methods (methods already tracked from interface generation)
 	if cg.doc.Paths != nil {
 		var pathKeys []string
@@ -1263,10 +1268,15 @@ func (cg *oas2CodeGenerator) generateSingleServer() error {
 				}
 
 				methodName := operationToMethodName(op, path, method)
-				// Skip if not in generated methods (was a duplicate)
+				// Skip if not in generated methods (was a duplicate in interface)
 				if !generatedMethods[methodName] {
 					continue
 				}
+				// Skip if already generated for UnimplementedServer
+				if generatedUnimplemented[methodName] {
+					continue
+				}
+				generatedUnimplemented[methodName] = true
 
 				responseType := cg.getResponseType(op)
 
@@ -1303,7 +1313,9 @@ func (cg *oas2CodeGenerator) generateSingleServer() error {
 // generateSplitServer generates server code split across multiple files
 func (cg *oas2CodeGenerator) generateSplitServer() error {
 	// Generate the base server.go (interface, unimplemented, error types)
-	if err := cg.generateOAS2BaseServer(); err != nil {
+	// Returns the set of methods that were actually generated (excludes duplicates)
+	generatedMethods, err := cg.generateOAS2BaseServer()
+	if err != nil {
 		return err
 	}
 
@@ -1341,7 +1353,7 @@ func (cg *oas2CodeGenerator) generateSplitServer() error {
 			continue // Skip shared types group
 		}
 
-		if err := cg.generateOAS2ServerGroupFile(group, opToPathMethod); err != nil {
+		if err := cg.generateOAS2ServerGroupFile(group, opToPathMethod, generatedMethods); err != nil {
 			cg.addIssue(fmt.Sprintf("server_%s.go", group.Name), fmt.Sprintf("failed to generate: %v", err), SeverityWarning)
 		}
 	}
@@ -1349,8 +1361,11 @@ func (cg *oas2CodeGenerator) generateSplitServer() error {
 	return nil
 }
 
-// generateOAS2BaseServer generates the base server.go with interface and unimplemented struct
-func (cg *oas2CodeGenerator) generateOAS2BaseServer() error {
+// generateOAS2BaseServer generates the base server.go with interface and unimplemented struct.
+// Returns a map of generated method names (to exclude duplicates from request type generation).
+//
+//nolint:unparam // error return kept for API consistency and future extensibility
+func (cg *oas2CodeGenerator) generateOAS2BaseServer() (map[string]bool, error) {
 	var buf bytes.Buffer
 
 	// Write header
@@ -1410,7 +1425,12 @@ func (cg *oas2CodeGenerator) generateOAS2BaseServer() error {
 	buf.WriteString("// UnimplementedServer provides default implementations that return errors.\n")
 	buf.WriteString("type UnimplementedServer struct{}\n\n")
 
-	// Generate unimplemented methods (methods already tracked from interface generation)
+	// Generate unimplemented methods (use same generatedMethods map to skip duplicates)
+	// Reset the map - we'll use it to track which methods have been generated for UnimplementedServer
+	for k := range generatedMethods {
+		generatedMethods[k] = false
+	}
+
 	if cg.doc.Paths != nil {
 		var pathKeys []string
 		for path := range cg.doc.Paths {
@@ -1432,10 +1452,11 @@ func (cg *oas2CodeGenerator) generateOAS2BaseServer() error {
 				}
 
 				methodName := operationToMethodName(op, path, method)
-				// Skip if not in generated methods (was a duplicate)
-				if !generatedMethods[methodName] {
+				// Skip if already generated (duplicate operationId)
+				if generatedMethods[methodName] {
 					continue
 				}
+				generatedMethods[methodName] = true
 
 				responseType := cg.getResponseType(op)
 
@@ -1466,17 +1487,18 @@ func (cg *oas2CodeGenerator) generateOAS2BaseServer() error {
 		Content: formatted,
 	})
 
-	return nil
+	return generatedMethods, nil
 }
 
-// generateOAS2ServerGroupFile generates a server_{group}.go file with request types for a specific group
+// generateOAS2ServerGroupFile generates a server_{group}.go file with request types for a specific group.
+// The generatedMethods map indicates which methods were added to the interface (duplicates excluded).
 //
 //nolint:unparam // error return kept for API consistency with other generate methods
 func (cg *oas2CodeGenerator) generateOAS2ServerGroupFile(group FileGroup, opToPathMethod map[string]struct {
 	path   string
 	method string
 	op     *parser.Operation
-}) error {
+}, generatedMethods map[string]bool) error {
 	var buf bytes.Buffer
 
 	// Write header with comment about the group
@@ -1491,6 +1513,11 @@ func (cg *oas2CodeGenerator) generateOAS2ServerGroupFile(group FileGroup, opToPa
 
 	// Generate request types for each operation in this group
 	for _, opID := range group.Operations {
+		// Skip if method was not added to interface (was filtered as duplicate)
+		if !generatedMethods[opID] {
+			continue
+		}
+
 		info, ok := opToPathMethod[opID]
 		if !ok {
 			continue
