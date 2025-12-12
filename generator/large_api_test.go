@@ -914,6 +914,136 @@ func TestSelfReferencingTypeCompiles(t *testing.T) {
 	}
 }
 
+// TestOAS3DuplicateOperationIdAcrossTags tests that duplicate operationIds across
+// different tags are deduplicated correctly during split generation for OAS 3.0.
+// This is a regression test for GitHub issue #126.
+func TestOAS3DuplicateOperationIdAcrossTags(t *testing.T) {
+	// Parse the synthetic test file with duplicate operationIds across tags
+	parseResult, err := oasparser.ParseWithOptions(
+		oasparser.WithFilePath("../testdata/generator/duplicate_operations_oas3.json"),
+		oasparser.WithValidateStructure(true),
+	)
+	if err != nil {
+		t.Fatalf("failed to parse test file: %v", err)
+	}
+
+	gen := New()
+	gen.PackageName = "duplicateops"
+	gen.GenerateClient = true
+	gen.GenerateServer = true
+	gen.GenerateTypes = true
+	gen.SplitByTag = true
+	gen.MaxOperationsPerFile = 2 // Force splitting
+
+	result, err := gen.GenerateParsed(*parseResult)
+	if err != nil {
+		t.Fatalf("GenerateParsed() error: %v", err)
+	}
+
+	// Track which operations appear in which files to verify deduplication
+	methodsInFiles := make(map[string][]string) // method name -> list of file names
+	for _, file := range result.Files {
+		if !isGoFile(file.Name) {
+			continue
+		}
+		content := string(file.Content)
+
+		// Check for request type definitions
+		for _, methodName := range []string{"ListItems", "CreateItem", "GetItem", "DeleteItem"} {
+			// Look for request type definition (not just usage)
+			requestType := methodName + "Request struct"
+			if strings.Contains(content, requestType) {
+				methodsInFiles[methodName] = append(methodsInFiles[methodName], file.Name)
+			}
+		}
+	}
+
+	// Verify each duplicate operationId only generates ONE request type
+	for methodName, files := range methodsInFiles {
+		if len(files) > 1 {
+			t.Errorf("request type %sRequest defined in multiple files: %v (should be deduplicated)",
+				methodName, files)
+		}
+	}
+
+	// Verify all generated Go code compiles
+	for _, file := range result.Files {
+		if !isGoFile(file.Name) {
+			continue
+		}
+		fset := token.NewFileSet()
+		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
+		if parseErr != nil {
+			t.Errorf("generated file %s does not compile: %v\nContent:\n%s",
+				file.Name, parseErr, string(file.Content))
+		}
+	}
+}
+
+// TestOAS3DuplicateOperationIdSingleFile tests duplicate operationId handling
+// when NOT using file splitting (single file generation) for OAS 3.0.
+func TestOAS3DuplicateOperationIdSingleFile(t *testing.T) {
+	// Parse the synthetic test file with duplicate operationIds across tags
+	parseResult, err := oasparser.ParseWithOptions(
+		oasparser.WithFilePath("../testdata/generator/duplicate_operations_oas3.json"),
+		oasparser.WithValidateStructure(true),
+	)
+	if err != nil {
+		t.Fatalf("failed to parse test file: %v", err)
+	}
+
+	gen := New()
+	gen.PackageName = "duplicateops"
+	gen.GenerateClient = true
+	gen.GenerateServer = true
+	gen.GenerateTypes = true
+	gen.SplitByTag = false // No splitting
+
+	result, err := gen.GenerateParsed(*parseResult)
+	if err != nil {
+		t.Fatalf("GenerateParsed() error: %v", err)
+	}
+
+	// Verify all generated Go code compiles
+	for _, file := range result.Files {
+		if !isGoFile(file.Name) {
+			continue
+		}
+		fset := token.NewFileSet()
+		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
+		if parseErr != nil {
+			t.Errorf("generated file %s does not compile: %v\nContent:\n%s",
+				file.Name, parseErr, string(file.Content))
+		}
+	}
+
+	// Count occurrences of each method in server.go to verify no duplicates
+	var serverContent string
+	for _, file := range result.Files {
+		if file.Name == "server.go" {
+			serverContent = string(file.Content)
+			break
+		}
+	}
+
+	if serverContent == "" {
+		t.Fatal("server.go not found in generated files")
+	}
+
+	// Each method should appear exactly twice in server.go:
+	// once in the interface and once in UnimplementedServer
+	for _, methodName := range []string{"ListItems", "CreateItem", "GetItem", "DeleteItem"} {
+		// Count interface method declarations
+		interfacePattern := methodName + "("
+		count := strings.Count(serverContent, interfacePattern)
+		// Should be 2: interface declaration + unimplemented method
+		if count != 2 {
+			t.Errorf("method %s appears %d times in server.go (expected 2: interface + unimplemented)",
+				methodName, count)
+		}
+	}
+}
+
 // TestOAS2DuplicateOperationIdAcrossTags tests that duplicate operationIds across
 // different tags are deduplicated correctly during split generation.
 // This is a regression test for GitHub issue #126.

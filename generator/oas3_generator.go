@@ -1412,11 +1412,10 @@ func (cg *oas3CodeGenerator) generateBaseServer() (map[string]bool, error) {
 	buf.WriteString("// UnimplementedServer provides default implementations that return errors.\n")
 	buf.WriteString("type UnimplementedServer struct{}\n\n")
 
-	// Generate unimplemented methods (use same generatedMethods map to skip duplicates)
-	// Reset the map - we'll use it to track which methods have been generated for UnimplementedServer
-	for k := range generatedMethods {
-		generatedMethods[k] = false
-	}
+	// Track generated UnimplementedServer methods separately to avoid duplicates.
+	// We can't reuse generatedMethods because it's used to check if a method was
+	// added to the interface (i.e., wasn't filtered as duplicate).
+	generatedUnimplemented := make(map[string]bool)
 
 	if cg.doc.Paths != nil {
 		var pathKeys []string
@@ -1439,11 +1438,15 @@ func (cg *oas3CodeGenerator) generateBaseServer() (map[string]bool, error) {
 				}
 
 				methodName := operationToMethodName(op, path, method)
-				// Skip if already generated (duplicate operationId)
-				if generatedMethods[methodName] {
+				// Only generate if the method was added to the interface (not a duplicate)
+				if !generatedMethods[methodName] {
 					continue
 				}
-				generatedMethods[methodName] = true
+				// Skip if already generated for UnimplementedServer
+				if generatedUnimplemented[methodName] {
+					continue
+				}
+				generatedUnimplemented[methodName] = true
 
 				responseType := cg.getResponseType(op)
 
