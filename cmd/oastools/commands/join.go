@@ -116,6 +116,9 @@ func HandleJoin(args []string) error {
 	if err := ValidateCollisionStrategy("component-strategy", flags.ComponentStrategy); err != nil {
 		return err
 	}
+	if err := ValidateEquivalenceMode(flags.EquivalenceMode); err != nil {
+		return err
+	}
 
 	// Apply validated strategies to config
 	if flags.PathStrategy != "" {

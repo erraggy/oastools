@@ -459,3 +459,32 @@ func TestPathJoin(t *testing.T) {
 	assert.Equal(t, "properties.name", pathJoin("properties", "name"))
 	assert.Equal(t, "properties.address.city", pathJoin("properties.address", "city"))
 }
+
+func TestValidEquivalenceModes(t *testing.T) {
+	modes := ValidEquivalenceModes()
+	assert.Equal(t, 3, len(modes))
+	assert.Contains(t, modes, "none")
+	assert.Contains(t, modes, "shallow")
+	assert.Contains(t, modes, "deep")
+}
+
+func TestIsValidEquivalenceMode(t *testing.T) {
+	tests := []struct {
+		mode     string
+		expected bool
+	}{
+		{"none", true},
+		{"shallow", true},
+		{"deep", true},
+		{"", false},
+		{"invalid", false},
+		{"DEEP", false}, // case-sensitive
+		{"None", false}, // case-sensitive
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.mode, func(t *testing.T) {
+			assert.Equal(t, tt.expected, IsValidEquivalenceMode(tt.mode))
+		})
+	}
+}

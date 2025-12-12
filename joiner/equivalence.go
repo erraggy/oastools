@@ -20,6 +20,25 @@ const (
 	EquivalenceModeDeep EquivalenceMode = "deep"
 )
 
+// ValidEquivalenceModes returns all valid equivalence mode strings
+func ValidEquivalenceModes() []string {
+	return []string{
+		string(EquivalenceModeNone),
+		string(EquivalenceModeShallow),
+		string(EquivalenceModeDeep),
+	}
+}
+
+// IsValidEquivalenceMode checks if an equivalence mode string is valid
+func IsValidEquivalenceMode(mode string) bool {
+	switch EquivalenceMode(mode) {
+	case EquivalenceModeNone, EquivalenceModeShallow, EquivalenceModeDeep:
+		return true
+	default:
+		return false
+	}
+}
+
 // EquivalenceResult contains the outcome of schema comparison
 type EquivalenceResult struct {
 	Equivalent  bool

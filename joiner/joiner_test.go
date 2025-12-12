@@ -1056,4 +1056,73 @@ func TestJoinWithOptions_NewStrategies(t *testing.T) {
 		// Should have only one Product schema
 		assert.Equal(t, 1, len(doc.Components.Schemas))
 	})
+
+	t.Run("with custom rename template patterns", func(t *testing.T) {
+		tests := []struct {
+			name           string
+			template       string
+			expectedPrefix string
+		}{
+			{"name and source", "{{.Name}}_{{.Source}}", "User_join_collision_rename"},
+			{"name and index", "{{.Name}}_v{{.Index}}", "User_v"},
+			{"source only prefix", "{{.Source}}_{{.Name}}", "join_collision_rename"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result, err := JoinWithOptions(
+					WithFilePaths(
+						filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml"),
+						filepath.Join(testdataDir, "join-collision-rename-ext-3.0.yaml"),
+					),
+					WithSchemaStrategy(StrategyRenameRight),
+					WithRenameTemplate(tt.template),
+				)
+
+				require.NoError(t, err)
+				require.NotNil(t, result)
+
+				doc, ok := result.Document.(*parser.OAS3Document)
+				require.True(t, ok)
+
+				// Check that renamed schema follows the expected pattern
+				foundExpected := false
+				for name := range doc.Components.Schemas {
+					if strings.HasPrefix(name, tt.expectedPrefix) {
+						foundExpected = true
+						break
+					}
+				}
+				assert.True(t, foundExpected, "expected schema name with prefix %s", tt.expectedPrefix)
+			})
+		}
+	})
+
+	t.Run("with invalid template falls back to default", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(
+				filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml"),
+				filepath.Join(testdataDir, "join-collision-rename-ext-3.0.yaml"),
+			),
+			WithSchemaStrategy(StrategyRenameRight),
+			WithRenameTemplate("{{.InvalidField}}"), // Invalid template field
+		)
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
+
+		// Should still have both schemas (fallback worked)
+		assert.NotNil(t, doc.Components.Schemas["User"])
+		foundRenamed := false
+		for name := range doc.Components.Schemas {
+			if strings.HasPrefix(name, "User_") {
+				foundRenamed = true
+				break
+			}
+		}
+		assert.True(t, foundRenamed, "should have renamed schema with fallback pattern")
+	})
 }

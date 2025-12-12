@@ -1,10 +1,12 @@
 package joiner
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+	"text/template"
 
 	"github.com/erraggy/oastools/parser"
 	"go.yaml.in/yaml/v4"
@@ -683,11 +685,15 @@ func (j *Joiner) shouldOverwrite(strategy CollisionStrategy) bool {
 	return strategy == StrategyAcceptRight
 }
 
-// generateRenamedSchemaName generates a new name for a renamed schema based on the template
-func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, _ int) string {
-	// For now, use a simple pattern: Name_Source
-	// TODO: Implement full template support with {{.Name}}, {{.Source}}, {{.Index}}
+// renameTemplateData provides the context for rename template execution
+type renameTemplateData struct {
+	Name   string // Original schema name
+	Source string // Source file name (without path/extension, sanitized)
+	Index  int    // Document index (0-based)
+}
 
+// generateRenamedSchemaName generates a new name for a renamed schema based on the template
+func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docIndex int) string {
 	// Extract base filename without extension for source
 	source := sourcePath
 	if idx := strings.LastIndex(source, "/"); idx >= 0 {
@@ -701,5 +707,29 @@ func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, _ in
 	source = strings.ReplaceAll(source, "-", "_")
 	source = strings.ReplaceAll(source, " ", "_")
 
-	return fmt.Sprintf("%s_%s", originalName, source)
+	// Use template if configured
+	tmplStr := j.config.RenameTemplate
+	if tmplStr == "" {
+		tmplStr = "{{.Name}}_{{.Source}}"
+	}
+
+	tmpl, err := template.New("rename").Parse(tmplStr)
+	if err != nil {
+		// Fall back to default pattern on template parse error
+		return fmt.Sprintf("%s_%s", originalName, source)
+	}
+
+	data := renameTemplateData{
+		Name:   originalName,
+		Source: source,
+		Index:  docIndex,
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		// Fall back to default pattern on template execution error
+		return fmt.Sprintf("%s_%s", originalName, source)
+	}
+
+	return buf.String()
 }

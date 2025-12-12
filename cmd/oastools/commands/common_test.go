@@ -53,6 +53,30 @@ func TestValidateCollisionStrategy(t *testing.T) {
 	}
 }
 
+func TestValidateEquivalenceMode(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{"empty value", "", false},
+		{"valid none", "none", false},
+		{"valid shallow", "shallow", false},
+		{"valid deep", "deep", false},
+		{"invalid mode", "invalid", true},
+		{"case sensitive DEEP", "DEEP", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateEquivalenceMode(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateEquivalenceMode(%q) error = %v, wantErr %v", tt.value, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestMarshalDocument(t *testing.T) {
 	doc := map[string]string{"key": "value"}
 
