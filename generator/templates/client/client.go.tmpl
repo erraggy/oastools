@@ -86,15 +86,3 @@ type APIError struct {
 func (e *APIError) Error() string {
 	return fmt.Sprintf("API error: status %d: %s", e.StatusCode, string(e.Body))
 }
-
-// Ensure unused imports don't cause errors
-var (
-	_ = bytes.NewReader
-	_ = context.Background
-	_ = json.Marshal
-	_ = fmt.Sprintf
-	_ = io.ReadAll
-	_ = http.NewRequest
-	_ = url.Values{}
-	_ = strings.TrimSpace
-)

@@ -68,13 +68,6 @@ import (
 		}
 	}
 
-	// Add blank identifier usage to avoid unused import errors
-	buf.WriteString(`// Ensure unused imports don't cause errors
-var (
-	_ = base64.StdEncoding
-)
-`)
-
 	return buf.String()
 }
 

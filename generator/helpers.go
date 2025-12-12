@@ -8,6 +8,7 @@ import (
 	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
+	"golang.org/x/tools/imports"
 )
 
 // maxDescriptionLength is the maximum length for descriptions in Go comments
@@ -331,4 +332,28 @@ func buildDefaultUserAgent(info *parser.Info) string {
 		title = info.Title
 	}
 	return fmt.Sprintf("oastools/%s/generated/%s", version, title)
+}
+
+// formatAndFixImports formats Go source code and automatically fixes imports.
+// It adds missing imports and removes unused ones using goimports-equivalent processing.
+// This ensures generated code is immediately compilable without requiring users to run goimports.
+//
+//nolint:unparam // filename kept for clarity and future flexibility, even though currently always "generated.go"
+func formatAndFixImports(filename string, src []byte) ([]byte, error) {
+	return imports.Process(filename, src, nil)
+}
+
+// isSelfReference checks if a schema property references its parent type.
+// This is used to detect recursive type definitions that need pointer indirection.
+func isSelfReference(propSchema *parser.Schema, parentTypeName string) bool {
+	if propSchema == nil || propSchema.Ref == "" {
+		return false
+	}
+	// Extract type name from ref (e.g., "#/components/schemas/Foo" -> "Foo")
+	parts := strings.Split(propSchema.Ref, "/")
+	if len(parts) > 0 {
+		refTypeName := toTypeName(parts[len(parts)-1])
+		return refTypeName == parentTypeName
+	}
+	return false
 }

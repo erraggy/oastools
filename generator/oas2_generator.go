@@ -3,7 +3,6 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"go/format"
 	"sort"
 	"strings"
 	"time"
@@ -18,16 +17,19 @@ type oas2CodeGenerator struct {
 	result *GenerateResult
 	// schemaNames maps schema references to generated type names
 	schemaNames map[string]string
+	// generatedTypes tracks which type names have been generated (for deduplication)
+	generatedTypes map[string]bool
 	// splitPlan contains the file splitting plan for large APIs
 	splitPlan *SplitPlan
 }
 
 func newOAS2CodeGenerator(g *Generator, doc *parser.OAS2Document, result *GenerateResult) *oas2CodeGenerator {
 	cg := &oas2CodeGenerator{
-		g:           g,
-		doc:         doc,
-		result:      result,
-		schemaNames: make(map[string]string),
+		g:              g,
+		doc:            doc,
+		result:         result,
+		schemaNames:    make(map[string]string),
+		generatedTypes: make(map[string]bool),
 	}
 
 	// Analyze document for file splitting
@@ -55,6 +57,8 @@ func (cg *oas2CodeGenerator) generateTypes() error {
 
 // collectSchemas extracts all schemas from definitions and populates schemaNames mapping.
 // Returns a sorted slice of schema entries for deterministic output.
+// Duplicate type names (e.g., "user_profile" and "UserProfile" both becoming "UserProfile")
+// are detected and skipped with a warning.
 func (cg *oas2CodeGenerator) collectSchemas() []oas2SchemaEntry {
 	var schemas []oas2SchemaEntry
 	if cg.doc.Definitions != nil {
@@ -62,8 +66,17 @@ func (cg *oas2CodeGenerator) collectSchemas() []oas2SchemaEntry {
 			if schema == nil {
 				continue
 			}
+			// Check for duplicate type names (e.g., "user_profile" and "UserProfile" both become "UserProfile")
+			typeName := toTypeName(name)
+			if cg.generatedTypes[typeName] {
+				cg.addIssue(fmt.Sprintf("definitions.%s", name),
+					fmt.Sprintf("duplicate type name %s - skipping", typeName), SeverityWarning)
+				continue
+			}
+			cg.generatedTypes[typeName] = true
+
 			schemas = append(schemas, oas2SchemaEntry{name: name, schema: schema})
-			cg.schemaNames["#/definitions/"+name] = toTypeName(name)
+			cg.schemaNames["#/definitions/"+name] = typeName
 		}
 	}
 
@@ -124,7 +137,7 @@ func (cg *oas2CodeGenerator) generateSingleTypes() error {
 	}
 
 	// Format the code
-	formatted, err := format.Source(buf.Bytes())
+	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
 	if err != nil {
 		cg.addIssue("types.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = buf.Bytes()
@@ -241,7 +254,7 @@ func (cg *oas2CodeGenerator) generateOAS2TypesFile(fileName, comment string, all
 	}
 
 	// Format the code
-	formatted, err := format.Source(buf.Bytes())
+	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
 	if err != nil {
 		cg.addIssue(fileName, fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = buf.Bytes()
@@ -304,6 +317,15 @@ func (cg *oas2CodeGenerator) generateSchemaType(name string, schema *parser.Sche
 				}
 
 				goType := cg.schemaToGoType(propSchema, isRequired(schema.Required, propName))
+
+				// Check for self-reference (recursive type) - needs pointer indirection
+				// e.g., type UserGroup struct { Children UserGroup } is invalid, needs *UserGroup
+				if isSelfReference(propSchema, typeName) &&
+					!strings.HasPrefix(goType, "*") &&
+					!strings.HasPrefix(goType, "[]") {
+					goType = "*" + goType
+				}
+
 				fieldName := toFieldName(propName)
 				jsonTag := propName
 				if !isRequired(schema.Required, propName) {
@@ -389,6 +411,14 @@ func (cg *oas2CodeGenerator) generateAllOfType(typeName string, schema *parser.S
 					continue
 				}
 				goType := cg.schemaToGoType(propSchema, isRequired(subSchema.Required, propName))
+
+				// Check for self-reference (recursive type) - needs pointer indirection
+				if isSelfReference(propSchema, typeName) &&
+					!strings.HasPrefix(goType, "*") &&
+					!strings.HasPrefix(goType, "[]") {
+					goType = "*" + goType
+				}
+
 				fieldName := toFieldName(propName)
 				jsonTag := propName
 				if !isRequired(subSchema.Required, propName) {
@@ -643,7 +673,7 @@ func (cg *oas2CodeGenerator) generateSingleClient() error {
 	buf.WriteString(clientHelpers)
 
 	// Format the code
-	formatted, err := format.Source(buf.Bytes())
+	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
 	if err != nil {
 		cg.addIssue("client.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = buf.Bytes()
@@ -792,7 +822,7 @@ func (cg *oas2CodeGenerator) generateOAS2BaseClient() error {
 	buf.WriteString(clientHelpers)
 
 	// Format the code
-	formatted, err := format.Source(buf.Bytes())
+	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
 	if err != nil {
 		cg.addIssue("client.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = buf.Bytes()
@@ -850,7 +880,7 @@ func (cg *oas2CodeGenerator) generateOAS2ClientGroupFile(group FileGroup, opToPa
 	}
 
 	// Format the code
-	formatted, err := format.Source(buf.Bytes())
+	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
 	if err != nil {
 		cg.addIssue(fmt.Sprintf("client_%s.go", group.Name), fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = buf.Bytes()
@@ -1126,6 +1156,9 @@ func (cg *oas2CodeGenerator) generateSingleServer() error {
 	buf.WriteString("\t\"net/http\"\n")
 	buf.WriteString(")\n\n")
 
+	// Track generated methods to avoid duplicates (can happen with duplicate operationIds)
+	generatedMethods := make(map[string]bool)
+
 	// Generate server interface
 	buf.WriteString("// ServerInterface represents the server API.\n")
 	buf.WriteString("type ServerInterface interface {\n")
@@ -1151,6 +1184,14 @@ func (cg *oas2CodeGenerator) generateSingleServer() error {
 					continue
 				}
 
+				methodName := operationToMethodName(op, path, method)
+				if generatedMethods[methodName] {
+					cg.addIssue(fmt.Sprintf("paths.%s.%s", path, method),
+						fmt.Sprintf("duplicate method name %s - skipping", methodName), SeverityWarning)
+					continue
+				}
+				generatedMethods[methodName] = true
+
 				sig := cg.generateServerMethodSignature(path, method, op)
 				buf.WriteString(sig)
 			}
@@ -1159,7 +1200,7 @@ func (cg *oas2CodeGenerator) generateSingleServer() error {
 
 	buf.WriteString("}\n\n")
 
-	// Generate request types
+	// Generate request types (use same tracking map since request types are named after methods)
 	for _, path := range func() []string {
 		var keys []string
 		if cg.doc.Paths != nil {
@@ -1182,6 +1223,12 @@ func (cg *oas2CodeGenerator) generateSingleServer() error {
 				continue
 			}
 
+			methodName := operationToMethodName(op, path, method)
+			// Skip if we already warned about this duplicate
+			if !generatedMethods[methodName] {
+				continue
+			}
+
 			reqType := cg.generateRequestType(path, method, op)
 			if reqType != "" {
 				buf.WriteString(reqType)
@@ -1193,7 +1240,7 @@ func (cg *oas2CodeGenerator) generateSingleServer() error {
 	buf.WriteString("// UnimplementedServer provides default implementations that return errors.\n")
 	buf.WriteString("type UnimplementedServer struct{}\n\n")
 
-	// Generate unimplemented methods
+	// Generate unimplemented methods (methods already tracked from interface generation)
 	if cg.doc.Paths != nil {
 		var pathKeys []string
 		for path := range cg.doc.Paths {
@@ -1215,6 +1262,11 @@ func (cg *oas2CodeGenerator) generateSingleServer() error {
 				}
 
 				methodName := operationToMethodName(op, path, method)
+				// Skip if not in generated methods (was a duplicate)
+				if !generatedMethods[methodName] {
+					continue
+				}
+
 				responseType := cg.getResponseType(op)
 
 				buf.WriteString(fmt.Sprintf("func (s *UnimplementedServer) %s(ctx context.Context, req *%sRequest) (%s, error) {\n",
@@ -1233,7 +1285,7 @@ func (cg *oas2CodeGenerator) generateSingleServer() error {
 	buf.WriteString("func (e *NotImplementedError) Error() string { return \"not implemented\" }\n\n")
 
 	// Format the code
-	formatted, err := format.Source(buf.Bytes())
+	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
 	if err != nil {
 		cg.addIssue("server.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = buf.Bytes()
@@ -1309,6 +1361,9 @@ func (cg *oas2CodeGenerator) generateOAS2BaseServer() error {
 	buf.WriteString("\t\"context\"\n")
 	buf.WriteString(")\n\n")
 
+	// Track generated methods to avoid duplicates (can happen with duplicate operationIds)
+	generatedMethods := make(map[string]bool)
+
 	// Generate server interface (must be complete)
 	buf.WriteString("// ServerInterface represents the server API.\n")
 	buf.WriteString("type ServerInterface interface {\n")
@@ -1333,6 +1388,14 @@ func (cg *oas2CodeGenerator) generateOAS2BaseServer() error {
 					continue
 				}
 
+				methodName := operationToMethodName(op, path, method)
+				if generatedMethods[methodName] {
+					cg.addIssue(fmt.Sprintf("paths.%s.%s", path, method),
+						fmt.Sprintf("duplicate method name %s - skipping", methodName), SeverityWarning)
+					continue
+				}
+				generatedMethods[methodName] = true
+
 				sig := cg.generateServerMethodSignature(path, method, op)
 				buf.WriteString(sig)
 			}
@@ -1345,7 +1408,7 @@ func (cg *oas2CodeGenerator) generateOAS2BaseServer() error {
 	buf.WriteString("// UnimplementedServer provides default implementations that return errors.\n")
 	buf.WriteString("type UnimplementedServer struct{}\n\n")
 
-	// Generate unimplemented methods
+	// Generate unimplemented methods (methods already tracked from interface generation)
 	if cg.doc.Paths != nil {
 		var pathKeys []string
 		for path := range cg.doc.Paths {
@@ -1367,6 +1430,11 @@ func (cg *oas2CodeGenerator) generateOAS2BaseServer() error {
 				}
 
 				methodName := operationToMethodName(op, path, method)
+				// Skip if not in generated methods (was a duplicate)
+				if !generatedMethods[methodName] {
+					continue
+				}
+
 				responseType := cg.getResponseType(op)
 
 				buf.WriteString(fmt.Sprintf("func (s *UnimplementedServer) %s(ctx context.Context, req *%sRequest) (%s, error) {\n",
@@ -1385,7 +1453,7 @@ func (cg *oas2CodeGenerator) generateOAS2BaseServer() error {
 	buf.WriteString("func (e *NotImplementedError) Error() string { return \"not implemented\" }\n\n")
 
 	// Format the code
-	formatted, err := format.Source(buf.Bytes())
+	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
 	if err != nil {
 		cg.addIssue("server.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = buf.Bytes()
@@ -1433,7 +1501,7 @@ func (cg *oas2CodeGenerator) generateOAS2ServerGroupFile(group FileGroup, opToPa
 	}
 
 	// Format the code
-	formatted, err := format.Source(buf.Bytes())
+	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
 	if err != nil {
 		cg.addIssue(fmt.Sprintf("server_%s.go", group.Name), fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = buf.Bytes()
@@ -1608,7 +1676,7 @@ func (cg *oas2CodeGenerator) generateSecurityHelpersFile(schemes map[string]*par
 	code := g.GenerateSecurityHelpers(schemes)
 
 	// Format the code
-	formatted, err := format.Source([]byte(code))
+	formatted, err := formatAndFixImports("generated.go", []byte(code))
 	if err != nil {
 		cg.addIssue("security_helpers.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = []byte(code)
@@ -1639,7 +1707,7 @@ func (cg *oas2CodeGenerator) generateOAuth2Files(schemes map[string]*parser.Secu
 		code := g.GenerateOAuth2File(cg.result.PackageName)
 
 		// Format the code
-		formatted, err := format.Source([]byte(code))
+		formatted, err := formatAndFixImports("generated.go", []byte(code))
 		if err != nil {
 			cg.addIssue(fmt.Sprintf("oauth2_%s.go", name), fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 			formatted = []byte(code)
@@ -1663,7 +1731,7 @@ func (cg *oas2CodeGenerator) generateCredentialsFile() error {
 	code := g.GenerateCredentialsFile()
 
 	// Format the code
-	formatted, err := format.Source([]byte(code))
+	formatted, err := formatAndFixImports("generated.go", []byte(code))
 	if err != nil {
 		cg.addIssue("credentials.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = []byte(code)
@@ -1699,7 +1767,7 @@ func (cg *oas2CodeGenerator) generateSingleSecurityEnforce() error {
 	code := g.GenerateSecurityEnforceFile(opSecurity, cg.doc.Security)
 
 	// Format the code
-	formatted, err := format.Source([]byte(code))
+	formatted, err := formatAndFixImports("generated.go", []byte(code))
 	if err != nil {
 		cg.addIssue("security_enforce.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = []byte(code)
@@ -1719,7 +1787,7 @@ func (cg *oas2CodeGenerator) generateSplitSecurityEnforce() error {
 
 	// Generate base file with shared types and empty map
 	baseCode := g.GenerateBaseSecurityEnforceFile(cg.doc.Security)
-	formatted, err := format.Source([]byte(baseCode))
+	formatted, err := formatAndFixImports("generated.go", []byte(baseCode))
 	if err != nil {
 		cg.addIssue("security_enforce.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = []byte(baseCode)
@@ -1752,7 +1820,7 @@ func (cg *oas2CodeGenerator) generateSplitSecurityEnforce() error {
 
 		// Generate group file
 		groupCode := g.GenerateSecurityEnforceGroupFile(group.Name, group.DisplayName, groupOpSecurity)
-		formatted, err := format.Source([]byte(groupCode))
+		formatted, err := formatAndFixImports("generated.go", []byte(groupCode))
 		if err != nil {
 			cg.addIssue(fmt.Sprintf("security_enforce_%s.go", group.Name),
 				fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
@@ -1786,7 +1854,7 @@ func (cg *oas2CodeGenerator) generateOIDCDiscoveryFile(schemes map[string]*parse
 	code := g.GenerateOIDCDiscoveryFile(discoveryURL)
 
 	// Format the code
-	formatted, err := format.Source([]byte(code))
+	formatted, err := formatAndFixImports("generated.go", []byte(code))
 	if err != nil {
 		cg.addIssue("oidc_discovery.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
 		formatted = []byte(code)

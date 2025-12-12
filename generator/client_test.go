@@ -715,7 +715,9 @@ paths:
 }
 
 func TestGenerateClientWithTimeImport_RequestBody(t *testing.T) {
-	// Test that time import is added when request body uses date-time format
+	// Test that client generates correctly when request body uses date-time format.
+	// Note: The client uses map[string]any for bodies, so time import is not needed.
+	// With imports.Process(), unused imports are automatically removed.
 	spec := `openapi: "3.0.0"
 info:
   title: Test API
@@ -753,11 +755,16 @@ paths:
 	clientFile := result.GetFile("client.go")
 	content := string(clientFile.Content)
 
-	assert.Contains(t, content, `"time"`, "client.go should import time package")
+	// The generated client uses map[string]any for request body, not typed structs.
+	// Therefore, time import is not needed (and is removed by imports.Process()).
+	assert.Contains(t, content, "body map[string]any", "request body should use map[string]any")
+	assert.NotContains(t, content, `"time"`, "time import should not be present when not used")
 }
 
 func TestGenerateClientWithTimeImport_Response(t *testing.T) {
-	// Test that time import is added when response uses date-time format
+	// Test that client generates correctly when response uses date-time format.
+	// Note: The client uses map[string]any for responses, so time import is not needed.
+	// With imports.Process(), unused imports are automatically removed.
 	spec := `openapi: "3.0.0"
 info:
   title: Test API
@@ -793,11 +800,16 @@ paths:
 	clientFile := result.GetFile("client.go")
 	content := string(clientFile.Content)
 
-	assert.Contains(t, content, `"time"`, "client.go should import time package")
+	// The generated client uses map[string]any for responses, not typed structs.
+	// Therefore, time import is not needed (and is removed by imports.Process()).
+	assert.Contains(t, content, "map[string]any", "response should use map[string]any")
+	assert.NotContains(t, content, `"time"`, "time import should not be present when not used")
 }
 
 func TestGenerateClientWithTimeImport_DefaultResponse(t *testing.T) {
-	// Test that time import is added when default response uses date-time format
+	// Test that client generates correctly when default response uses date-time format.
+	// Note: The client uses map[string]any for responses, so time import is not needed.
+	// With imports.Process(), unused imports are automatically removed.
 	spec := `openapi: "3.0.0"
 info:
   title: Test API
@@ -835,7 +847,10 @@ paths:
 	clientFile := result.GetFile("client.go")
 	content := string(clientFile.Content)
 
-	assert.Contains(t, content, `"time"`, "client.go should import time package")
+	// The generated client uses map[string]any for responses, not typed structs.
+	// Therefore, time import is not needed (and is removed by imports.Process()).
+	assert.Contains(t, content, "map[string]any", "response should use map[string]any")
+	assert.NotContains(t, content, `"time"`, "time import should not be present when not used")
 }
 
 func TestGenerateClientWithoutTimeImport(t *testing.T) {
@@ -1035,20 +1050,19 @@ paths:
 
 	content := string(clientFile.Content)
 
-	// Verify all required imports are present
-	assert.Contains(t, content, `"bytes"`)
+	// With imports.Process(), only imports that are actually used are present.
+	// This simple GET endpoint doesn't need bytes, json, or url packages.
 	assert.Contains(t, content, `"context"`)
-	assert.Contains(t, content, `"encoding/json"`)
 	assert.Contains(t, content, `"fmt"`)
 	assert.Contains(t, content, `"io"`)
 	assert.Contains(t, content, `"net/http"`)
-	assert.Contains(t, content, `"net/url"`)
 	assert.Contains(t, content, `"strings"`)
 
-	// Verify the unused import enforcement block exists
-	assert.Contains(t, content, "_ = bytes.NewReader")
-	assert.Contains(t, content, "_ = json.Marshal")
-	assert.Contains(t, content, "_ = url.Values{}")
+	// Verify the unused import enforcement block is NOT present
+	// (imports.Process() removes unused imports automatically)
+	assert.NotContains(t, content, "_ = bytes.NewReader", "unused import hack should be removed")
+	assert.NotContains(t, content, "_ = json.Marshal", "unused import hack should be removed")
+	assert.NotContains(t, content, "_ = url.Values{}", "unused import hack should be removed")
 
 	// Write to temp file and attempt to compile
 	outputDir := filepath.Join(tmpDir, "output")
