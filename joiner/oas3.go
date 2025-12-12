@@ -19,6 +19,11 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 		firstFilePath: docs[0].SourcePath,
 	}
 
+	// Initialize collision report if enabled
+	if j.config.CollisionReport {
+		result.CollisionDetails = NewCollisionReport()
+	}
+
 	// Create the joined document starting with the base
 	joined := &parser.OAS3Document{
 		OpenAPI:           baseDoc.OpenAPI,
@@ -123,6 +128,14 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	result.Document = joined
 	result.Stats = parser.GetDocumentStats(joined)
+
+	// Apply reference rewriting if schemas were renamed
+	if result.rewriter != nil {
+		if err := result.rewriter.RewriteDocument(joined); err != nil {
+			return nil, fmt.Errorf("failed to rewrite references after schema renames: %w", err)
+		}
+	}
+
 	return result, nil
 }
 
@@ -170,20 +183,121 @@ func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx docu
 
 // mergeSchemas is a specialized merger for schemas with detailed warnings
 func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
+	// Get namespace prefix for this source (if configured)
+	sourcePrefix := j.getNamespacePrefix(ctx.filePath)
+
 	for name, schema := range source {
-		if _, exists := target[name]; exists {
-			if err := j.handleCollision(name, "components.schemas", strategy, result.firstFilePath, ctx.filePath); err != nil {
-				return err
+		// Determine the effective name for this schema
+		effectiveName := name
+
+		// If AlwaysApplyPrefix is true and source has a prefix, apply it to all schemas
+		if j.config.AlwaysApplyPrefix && sourcePrefix != "" {
+			effectiveName = j.generatePrefixedSchemaName(name, sourcePrefix)
+
+			// Register rename for reference rewriting (original name -> prefixed name)
+			if result.rewriter == nil {
+				result.rewriter = NewSchemaRewriter()
 			}
+			result.rewriter.RegisterRename(name, effectiveName, result.OASVersion)
+
+			result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' prefixed to '%s' (namespace prefix from %s)", name, effectiveName, ctx.filePath))
+		}
+
+		if _, exists := target[effectiveName]; exists {
+			// Handle collision based on strategy
 			result.CollisionCount++
-			if j.shouldOverwrite(strategy) {
-				target[name] = schema
-				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' at components.schemas.%s overwritten: source %s", name, name, ctx.filePath))
-			} else {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' at components.schemas.%s kept from %s (collision with %s)", name, name, result.firstFilePath, ctx.filePath))
+
+			switch strategy {
+			case StrategyDeduplicateEquivalent:
+				// Use semantic equivalence to determine if schemas are identical
+				mode := EquivalenceModeNone
+				switch j.config.EquivalenceMode {
+				case "shallow":
+					mode = EquivalenceModeShallow
+				case "deep":
+					mode = EquivalenceModeDeep
+				}
+
+				if mode != EquivalenceModeNone {
+					eqResult := CompareSchemas(target[effectiveName], schema, mode)
+					if eqResult.Equivalent {
+						// Schemas are equivalent, keep existing and skip
+						result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' deduplicated (structurally equivalent): %s", effectiveName, ctx.filePath))
+						j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "deduplicated", "")
+						continue
+					}
+					// Not equivalent, fall back to default strategy or fail
+					return fmt.Errorf("schema '%s' collision: not equivalent, deduplicate strategy requires identical schemas (found %d differences)", effectiveName, len(eqResult.Differences))
+				}
+				return fmt.Errorf("schema '%s' collision: deduplicate strategy requires equivalence mode to be 'shallow' or 'deep'", effectiveName)
+
+			case StrategyRenameLeft:
+				// Rename the existing (left) schema and keep the new (right) schema under original name
+				// Use namespace prefix if available for the left source, otherwise use template
+				leftPrefix := j.getNamespacePrefix(result.firstFilePath)
+				var newName string
+				if leftPrefix != "" {
+					newName = j.generatePrefixedSchemaName(effectiveName, leftPrefix)
+				} else {
+					newName = j.generateRenamedSchemaName(effectiveName, result.firstFilePath, 0)
+				}
+
+				// Move existing schema to new name
+				target[newName] = target[effectiveName]
+
+				// Add new schema under original name
+				target[effectiveName] = schema
+
+				// Register rename for reference rewriting (will be applied at end of join)
+				if result.rewriter == nil {
+					result.rewriter = NewSchemaRewriter()
+				}
+				result.rewriter.RegisterRename(effectiveName, newName, result.OASVersion)
+
+				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' renamed to '%s' (kept from %s), new schema '%s' from %s", effectiveName, newName, result.firstFilePath, effectiveName, ctx.filePath))
+				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "renamed", newName)
+
+			case StrategyRenameRight:
+				// Rename the new (right) schema and keep existing (left) schema under original name
+				// Use namespace prefix if available, otherwise use template
+				var newName string
+				if sourcePrefix != "" && !j.config.AlwaysApplyPrefix {
+					// Source has prefix but AlwaysApplyPrefix is false - apply prefix now on collision
+					newName = j.generatePrefixedSchemaName(name, sourcePrefix)
+				} else {
+					newName = j.generateRenamedSchemaName(effectiveName, ctx.filePath, ctx.docIndex)
+				}
+
+				// Add new schema under renamed name
+				target[newName] = schema
+
+				// Keep existing schema under original name (no change needed)
+
+				// Register rename for reference rewriting
+				if result.rewriter == nil {
+					result.rewriter = NewSchemaRewriter()
+				}
+				result.rewriter.RegisterRename(effectiveName, newName, result.OASVersion)
+
+				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' from %s renamed to '%s', kept original '%s' from %s", effectiveName, ctx.filePath, newName, effectiveName, result.firstFilePath))
+				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "renamed", newName)
+
+			default:
+				// Handle existing strategies (accept-left, accept-right, fail, fail-on-paths)
+				if err := j.handleCollision(effectiveName, "components.schemas", strategy, result.firstFilePath, ctx.filePath); err != nil {
+					return err
+				}
+				if j.shouldOverwrite(strategy) {
+					target[effectiveName] = schema
+					result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' at components.schemas.%s overwritten: source %s", effectiveName, effectiveName, ctx.filePath))
+					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "kept-right", "")
+				} else {
+					result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' at components.schemas.%s kept from %s (collision with %s)", effectiveName, effectiveName, result.firstFilePath, ctx.filePath))
+					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "kept-left", "")
+				}
 			}
 		} else {
-			target[name] = schema
+			target[effectiveName] = schema
 		}
 	}
 	return nil

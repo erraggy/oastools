@@ -1,0 +1,45 @@
+openapi: 3.0.3
+info:
+  title: Pet Store with Discriminator
+  version: 1.0.0
+paths:
+  /pets:
+    get:
+      summary: Get pets
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - petType
+      properties:
+        petType:
+          type: string
+      discriminator:
+        propertyName: petType
+        mapping:
+          dog: '#/components/schemas/Dog'
+          cat: Cat
+    Dog:
+      allOf:
+        - $ref: '#/components/schemas/Pet'
+        - type: object
+          properties:
+            breed:
+              type: string
+    Cat:
+      allOf:
+        - $ref: '#/components/schemas/Pet'
+        - type: object
+          properties:
+            indoor:
+              type: boolean

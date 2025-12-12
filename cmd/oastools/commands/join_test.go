@@ -95,3 +95,132 @@ func TestHandleJoin_InvalidStrategy(t *testing.T) {
 		t.Error("expected error for invalid strategy")
 	}
 }
+
+func TestSetupJoinFlags_NamespacePrefix(t *testing.T) {
+	t.Run("parse single namespace prefix", func(t *testing.T) {
+		fs, flags := SetupJoinFlags()
+		args := []string{"--namespace-prefix", "api.yaml=Api", "f1.yaml", "f2.yaml"}
+		if err := fs.Parse(args); err != nil {
+			t.Fatalf("unexpected parse error: %v", err)
+		}
+		if prefix, ok := flags.NamespacePrefix["api.yaml"]; !ok || prefix != "Api" {
+			t.Errorf("expected NamespacePrefix['api.yaml'] = 'Api', got '%v'", flags.NamespacePrefix)
+		}
+	})
+
+	t.Run("parse multiple namespace prefixes", func(t *testing.T) {
+		fs, flags := SetupJoinFlags()
+		args := []string{
+			"--namespace-prefix", "users.yaml=Users",
+			"--namespace-prefix", "billing.yaml=Billing",
+			"f1.yaml", "f2.yaml",
+		}
+		if err := fs.Parse(args); err != nil {
+			t.Fatalf("unexpected parse error: %v", err)
+		}
+		if flags.NamespacePrefix["users.yaml"] != "Users" {
+			t.Errorf("expected NamespacePrefix['users.yaml'] = 'Users', got '%s'", flags.NamespacePrefix["users.yaml"])
+		}
+		if flags.NamespacePrefix["billing.yaml"] != "Billing" {
+			t.Errorf("expected NamespacePrefix['billing.yaml'] = 'Billing', got '%s'", flags.NamespacePrefix["billing.yaml"])
+		}
+	})
+
+	t.Run("parse always-prefix flag", func(t *testing.T) {
+		fs, flags := SetupJoinFlags()
+		args := []string{"--always-prefix", "f1.yaml", "f2.yaml"}
+		if err := fs.Parse(args); err != nil {
+			t.Fatalf("unexpected parse error: %v", err)
+		}
+		if !flags.AlwaysPrefix {
+			t.Error("expected AlwaysPrefix to be true")
+		}
+	})
+
+	t.Run("parse namespace-prefix with always-prefix", func(t *testing.T) {
+		fs, flags := SetupJoinFlags()
+		args := []string{
+			"--namespace-prefix", "api.yaml=Api",
+			"--always-prefix",
+			"f1.yaml", "f2.yaml",
+		}
+		if err := fs.Parse(args); err != nil {
+			t.Fatalf("unexpected parse error: %v", err)
+		}
+		if flags.NamespacePrefix["api.yaml"] != "Api" {
+			t.Errorf("expected NamespacePrefix['api.yaml'] = 'Api', got '%s'", flags.NamespacePrefix["api.yaml"])
+		}
+		if !flags.AlwaysPrefix {
+			t.Error("expected AlwaysPrefix to be true")
+		}
+	})
+
+	t.Run("invalid namespace prefix format", func(t *testing.T) {
+		fs, _ := SetupJoinFlags()
+		args := []string{"--namespace-prefix", "invalid", "f1.yaml", "f2.yaml"}
+		err := fs.Parse(args)
+		if err == nil {
+			t.Error("expected error for invalid namespace prefix format")
+		}
+	})
+
+	t.Run("empty source in namespace prefix", func(t *testing.T) {
+		fs, _ := SetupJoinFlags()
+		args := []string{"--namespace-prefix", "=Prefix", "f1.yaml", "f2.yaml"}
+		err := fs.Parse(args)
+		if err == nil {
+			t.Error("expected error for empty source in namespace prefix")
+		}
+	})
+
+	t.Run("empty prefix in namespace prefix", func(t *testing.T) {
+		fs, _ := SetupJoinFlags()
+		args := []string{"--namespace-prefix", "api.yaml=", "f1.yaml", "f2.yaml"}
+		err := fs.Parse(args)
+		if err == nil {
+			t.Error("expected error for empty prefix in namespace prefix")
+		}
+	})
+}
+
+func TestNamespacePrefixFlag_String(t *testing.T) {
+	npf := make(namespacePrefixFlag)
+	npf["a.yaml"] = "A"
+
+	str := npf.String()
+	if str != "a.yaml=A" {
+		t.Errorf("expected 'a.yaml=A', got '%s'", str)
+	}
+}
+
+func TestNamespacePrefixFlag_Set(t *testing.T) {
+	t.Run("valid format", func(t *testing.T) {
+		npf := make(namespacePrefixFlag)
+		err := npf.Set("users.yaml=Users")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if npf["users.yaml"] != "Users" {
+			t.Errorf("expected 'Users', got '%s'", npf["users.yaml"])
+		}
+	})
+
+	t.Run("invalid format - no equals", func(t *testing.T) {
+		npf := make(namespacePrefixFlag)
+		err := npf.Set("invalid")
+		if err == nil {
+			t.Error("expected error for invalid format")
+		}
+	})
+
+	t.Run("handles spaces in value", func(t *testing.T) {
+		npf := make(namespacePrefixFlag)
+		err := npf.Set("  users.yaml  =  Users  ")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if npf["users.yaml"] != "Users" {
+			t.Errorf("expected 'Users', got '%s'", npf["users.yaml"])
+		}
+	})
+}

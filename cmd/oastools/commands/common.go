@@ -63,6 +63,14 @@ func ValidateCollisionStrategy(strategyName, value string) error {
 	return nil
 }
 
+// ValidateEquivalenceMode validates an equivalence mode and returns an error if invalid.
+func ValidateEquivalenceMode(value string) error {
+	if value != "" && !joiner.IsValidEquivalenceMode(value) {
+		return fmt.Errorf("invalid equivalence-mode '%s'. Valid modes: %v", value, joiner.ValidEquivalenceModes())
+	}
+	return nil
+}
+
 // ValidateOutputPath checks if the output path is safe to write to
 func ValidateOutputPath(outputPath string, inputPaths []string) error {
 	// Get absolute path of output file

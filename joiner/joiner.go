@@ -1,9 +1,12 @@
 package joiner
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
+	"text/template"
 
 	"github.com/erraggy/oastools/parser"
 	"go.yaml.in/yaml/v4"
@@ -21,6 +24,12 @@ const (
 	StrategyFailOnCollision CollisionStrategy = "fail"
 	// StrategyFailOnPaths fails only on path collisions, allows schema/component collisions
 	StrategyFailOnPaths CollisionStrategy = "fail-on-paths"
+	// StrategyRenameLeft keeps the right-side schema and renames the left-side schema
+	StrategyRenameLeft CollisionStrategy = "rename-left"
+	// StrategyRenameRight keeps the left-side schema and renames the right-side schema
+	StrategyRenameRight CollisionStrategy = "rename-right"
+	// StrategyDeduplicateEquivalent uses semantic comparison to deduplicate structurally identical schemas
+	StrategyDeduplicateEquivalent CollisionStrategy = "deduplicate"
 )
 
 // ValidStrategies returns all valid collision strategy strings
@@ -30,13 +39,17 @@ func ValidStrategies() []string {
 		string(StrategyAcceptRight),
 		string(StrategyFailOnCollision),
 		string(StrategyFailOnPaths),
+		string(StrategyRenameLeft),
+		string(StrategyRenameRight),
+		string(StrategyDeduplicateEquivalent),
 	}
 }
 
 // IsValidStrategy checks if a strategy string is valid
 func IsValidStrategy(strategy string) bool {
 	switch CollisionStrategy(strategy) {
-	case StrategyAcceptLeft, StrategyAcceptRight, StrategyFailOnCollision, StrategyFailOnPaths:
+	case StrategyAcceptLeft, StrategyAcceptRight, StrategyFailOnCollision, StrategyFailOnPaths,
+		StrategyRenameLeft, StrategyRenameRight, StrategyDeduplicateEquivalent:
 		return true
 	default:
 		return false
@@ -57,6 +70,22 @@ type JoinerConfig struct {
 	DeduplicateTags bool
 	// MergeArrays determines whether to merge array fields (servers, security, etc.)
 	MergeArrays bool
+
+	// Advanced collision strategies configuration
+	// RenameTemplate is a Go template for renamed schema names (default: "{{.Name}}_{{.Source}}")
+	// Available variables: {{.Name}} (original name), {{.Source}} (source file), {{.Index}} (doc index)
+	RenameTemplate string
+	// NamespacePrefix maps source file paths to namespace prefixes for schema names
+	// Example: {"users-api.yaml": "Users", "billing-api.yaml": "Billing"}
+	// When a prefix is configured, schemas from that source get prefixed: User -> Users_User
+	NamespacePrefix map[string]string
+	// AlwaysApplyPrefix when true applies namespace prefix to all schemas from a source,
+	// not just those that collide. When false (default), prefix is only applied on collision.
+	AlwaysApplyPrefix bool
+	// EquivalenceMode controls depth of schema comparison: "none", "shallow", or "deep"
+	EquivalenceMode string
+	// CollisionReport enables detailed collision analysis reporting
+	CollisionReport bool
 }
 
 // DefaultConfig returns a sensible default configuration
@@ -68,6 +97,11 @@ func DefaultConfig() JoinerConfig {
 		ComponentStrategy: StrategyAcceptLeft,
 		DeduplicateTags:   true,
 		MergeArrays:       true,
+		RenameTemplate:    "{{.Name}}_{{.Source}}",
+		NamespacePrefix:   make(map[string]string),
+		AlwaysApplyPrefix: false,
+		EquivalenceMode:   "none",
+		CollisionReport:   false,
 	}
 }
 
@@ -102,8 +136,12 @@ type JoinResult struct {
 	CollisionCount int
 	// Stats contains statistical information about the joined document
 	Stats parser.DocumentStats
+	// CollisionDetails contains detailed collision analysis (when CollisionReport is enabled)
+	CollisionDetails *CollisionReport
 	// firstFilePath stores the path of the first document for error reporting
 	firstFilePath string
+	// rewriter accumulates schema renames for reference rewriting
+	rewriter *SchemaRewriter
 }
 
 // documentContext tracks the source file and document for error reporting
@@ -129,6 +167,13 @@ type joinConfig struct {
 	componentStrategy *CollisionStrategy
 	deduplicateTags   *bool
 	mergeArrays       *bool
+
+	// Advanced collision strategies configuration
+	renameTemplate    *string
+	namespacePrefix   map[string]string
+	alwaysApplyPrefix *bool
+	equivalenceMode   *string
+	collisionReport   *bool
 }
 
 // JoinWithOptions joins multiple OpenAPI specifications using functional options.
@@ -156,6 +201,11 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 		ComponentStrategy: valueOrDefault(cfg.componentStrategy, defaults.ComponentStrategy),
 		DeduplicateTags:   boolValueOrDefault(cfg.deduplicateTags, defaults.DeduplicateTags),
 		MergeArrays:       boolValueOrDefault(cfg.mergeArrays, defaults.MergeArrays),
+		RenameTemplate:    stringValueOrDefault(cfg.renameTemplate, defaults.RenameTemplate),
+		NamespacePrefix:   mapValueOrDefault(cfg.namespacePrefix, defaults.NamespacePrefix),
+		AlwaysApplyPrefix: boolValueOrDefault(cfg.alwaysApplyPrefix, defaults.AlwaysApplyPrefix),
+		EquivalenceMode:   stringValueOrDefault(cfg.equivalenceMode, defaults.EquivalenceMode),
+		CollisionReport:   boolValueOrDefault(cfg.collisionReport, defaults.CollisionReport),
 	}
 
 	j := New(joinerCfg)
@@ -225,6 +275,20 @@ func boolValueOrDefault(ptr *bool, defaultVal bool) bool {
 	return *ptr
 }
 
+func stringValueOrDefault(ptr *string, defaultVal string) string {
+	if ptr == nil {
+		return defaultVal
+	}
+	return *ptr
+}
+
+func mapValueOrDefault(m map[string]string, defaultVal map[string]string) map[string]string {
+	if m == nil {
+		return defaultVal
+	}
+	return m
+}
+
 // WithFilePaths specifies file paths as input sources
 func WithFilePaths(paths ...string) Option {
 	return func(cfg *joinConfig) error {
@@ -251,6 +315,11 @@ func WithConfig(config JoinerConfig) Option {
 		cfg.componentStrategy = &config.ComponentStrategy
 		cfg.deduplicateTags = &config.DeduplicateTags
 		cfg.mergeArrays = &config.MergeArrays
+		cfg.renameTemplate = &config.RenameTemplate
+		cfg.namespacePrefix = config.NamespacePrefix
+		cfg.alwaysApplyPrefix = &config.AlwaysApplyPrefix
+		cfg.equivalenceMode = &config.EquivalenceMode
+		cfg.collisionReport = &config.CollisionReport
 		return nil
 	}
 }
@@ -301,6 +370,58 @@ func WithDeduplicateTags(enabled bool) Option {
 func WithMergeArrays(enabled bool) Option {
 	return func(cfg *joinConfig) error {
 		cfg.mergeArrays = &enabled
+		return nil
+	}
+}
+
+// WithRenameTemplate sets the Go template for renamed schema names
+// Default: "{{.Name}}_{{.Source}}"
+// Available variables: {{.Name}}, {{.Source}}, {{.Index}}, {{.Suffix}}
+func WithRenameTemplate(template string) Option {
+	return func(cfg *joinConfig) error {
+		cfg.renameTemplate = &template
+		return nil
+	}
+}
+
+// WithNamespacePrefix adds a namespace prefix mapping for a source file.
+// When schemas from a source file collide (or when AlwaysApplyPrefix is true),
+// the prefix is applied to schema names: e.g., "User" -> "Users_User"
+// Can be called multiple times to add multiple mappings.
+func WithNamespacePrefix(sourcePath, prefix string) Option {
+	return func(cfg *joinConfig) error {
+		if cfg.namespacePrefix == nil {
+			cfg.namespacePrefix = make(map[string]string)
+		}
+		cfg.namespacePrefix[sourcePath] = prefix
+		return nil
+	}
+}
+
+// WithAlwaysApplyPrefix enables or disables applying namespace prefix to all schemas,
+// not just those that collide. When false (default), prefix is only applied on collision.
+func WithAlwaysApplyPrefix(enabled bool) Option {
+	return func(cfg *joinConfig) error {
+		cfg.alwaysApplyPrefix = &enabled
+		return nil
+	}
+}
+
+// WithEquivalenceMode sets the schema comparison mode for deduplication
+// Valid values: "none", "shallow", "deep"
+// Default: "none"
+func WithEquivalenceMode(mode string) Option {
+	return func(cfg *joinConfig) error {
+		cfg.equivalenceMode = &mode
+		return nil
+	}
+}
+
+// WithCollisionReport enables or disables detailed collision reporting
+// Default: false
+func WithCollisionReport(enabled bool) Option {
+	return func(cfg *joinConfig) error {
+		cfg.collisionReport = &enabled
 		return nil
 	}
 }
@@ -568,4 +689,86 @@ func (j *Joiner) handleCollision(name, section string, strategy CollisionStrateg
 // shouldOverwrite determines if a value should be overwritten based on strategy
 func (j *Joiner) shouldOverwrite(strategy CollisionStrategy) bool {
 	return strategy == StrategyAcceptRight
+}
+
+// renameTemplateData provides the context for rename template execution
+type renameTemplateData struct {
+	Name   string // Original schema name
+	Source string // Source file name (without path/extension, sanitized)
+	Index  int    // Document index (0-based)
+}
+
+// generateRenamedSchemaName generates a new name for a renamed schema based on the template
+func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docIndex int) string {
+	// Extract base filename without extension for source
+	source := sourcePath
+	if idx := strings.LastIndex(source, "/"); idx >= 0 {
+		source = source[idx+1:]
+	}
+	if idx := strings.LastIndex(source, "."); idx >= 0 {
+		source = source[:idx]
+	}
+
+	// Clean source name for use in schema name (replace invalid characters)
+	source = strings.ReplaceAll(source, "-", "_")
+	source = strings.ReplaceAll(source, " ", "_")
+
+	// Use template if configured
+	tmplStr := j.config.RenameTemplate
+	if tmplStr == "" {
+		tmplStr = "{{.Name}}_{{.Source}}"
+	}
+
+	tmpl, err := template.New("rename").Parse(tmplStr)
+	if err != nil {
+		// Fall back to default pattern on template parse error
+		return fmt.Sprintf("%s_%s", originalName, source)
+	}
+
+	data := renameTemplateData{
+		Name:   originalName,
+		Source: source,
+		Index:  docIndex,
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		// Fall back to default pattern on template execution error
+		return fmt.Sprintf("%s_%s", originalName, source)
+	}
+
+	return buf.String()
+}
+
+// recordCollisionEvent records a collision event if reporting is enabled
+func (j *Joiner) recordCollisionEvent(result *JoinResult, schemaName, leftSource, rightSource string, strategy CollisionStrategy, resolution, newName string) {
+	if result.CollisionDetails == nil {
+		return
+	}
+	result.CollisionDetails.AddEvent(CollisionEvent{
+		SchemaName:  schemaName,
+		LeftSource:  leftSource,
+		RightSource: rightSource,
+		Strategy:    strategy,
+		Resolution:  resolution,
+		NewName:     newName,
+	})
+}
+
+// generatePrefixedSchemaName generates a schema name with a namespace prefix.
+// The format is: Prefix_OriginalName (e.g., "Users_User", "Billing_Invoice")
+func (j *Joiner) generatePrefixedSchemaName(originalName, prefix string) string {
+	if prefix == "" {
+		return originalName
+	}
+	return prefix + "_" + originalName
+}
+
+// getNamespacePrefix returns the namespace prefix configured for a source file path.
+// Returns empty string if no prefix is configured for the source.
+func (j *Joiner) getNamespacePrefix(sourcePath string) string {
+	if j.config.NamespacePrefix == nil {
+		return ""
+	}
+	return j.config.NamespacePrefix[sourcePath]
 }

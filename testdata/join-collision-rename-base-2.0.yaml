@@ -1,0 +1,41 @@
+swagger: "2.0"
+info:
+  title: Base API (OAS 2.0)
+  description: Base API for testing collision renames with OAS 2.0
+  version: 1.0.0
+host: api.example.com
+basePath: /v1
+schemes:
+  - https
+paths:
+  /users:
+    get:
+      summary: List users (base)
+      operationId: listUsers
+      tags:
+        - users
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: A list of users
+          schema:
+            $ref: '#/definitions/UserList'
+definitions:
+  User:
+    type: object
+    description: User from base document
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      email:
+        type: string
+  UserList:
+    type: object
+    properties:
+      users:
+        type: array
+        items:
+          $ref: '#/definitions/User'
