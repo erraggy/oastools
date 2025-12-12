@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/erraggy/oastools"
@@ -76,7 +77,7 @@ func SetupGenerateFlags() (*flag.FlagSet, *GenerateFlags) {
 	fs.BoolVar(&flags.NoSplitByPath, "no-split-by-path", false, "don't split files by path prefix")
 
 	fs.Usage = func() {
-		cliutil.Writef(fs.Output(), "Usage: oastools generate [flags] <file|url>\n\n")
+		cliutil.Writef(fs.Output(), "Usage: oastools generate [flags] <file|url|->\n\n")
 		cliutil.Writef(fs.Output(), "Generate Go code from an OpenAPI specification.\n\n")
 		cliutil.Writef(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
@@ -88,6 +89,10 @@ func SetupGenerateFlags() (*flag.FlagSet, *GenerateFlags) {
 		cliutil.Writef(fs.Output(), "  oastools generate --client --oauth2-flows -o ./client openapi.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools generate --client --credential-mgmt --security-enforce -o ./api openapi.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools generate --client --max-lines-per-file 1500 -o ./client large-api.yaml\n")
+		cliutil.Writef(fs.Output(), "  cat openapi.yaml | oastools generate --client -o ./client -\n")
+		cliutil.Writef(fs.Output(), "\nPipelining:\n")
+		cliutil.Writef(fs.Output(), "  Use '-' as the file path to read the OpenAPI specification from stdin.\n")
+		cliutil.Writef(fs.Output(), "  Example: oastools convert -t 3.0.3 swagger.yaml | oastools generate --client -o ./client -\n")
 		cliutil.Writef(fs.Output(), "\nNotes:\n")
 		cliutil.Writef(fs.Output(), "  - At least one of --client, --server, or --types must be enabled\n")
 		cliutil.Writef(fs.Output(), "  - Types are always generated when --client or --server is enabled\n")
@@ -112,7 +117,7 @@ func HandleGenerate(args []string) error {
 
 	if fs.NArg() != 1 {
 		fs.Usage()
-		return fmt.Errorf("generate command requires exactly one file path or URL")
+		return fmt.Errorf("generate command requires exactly one file path, URL, or '-' for stdin")
 	}
 
 	specPath := fs.Arg(0)
@@ -156,7 +161,20 @@ func HandleGenerate(args []string) error {
 
 	// Generate the code with timing
 	startTime := time.Now()
-	result, err := g.Generate(specPath)
+	var result *generator.GenerateResult
+	var err error
+
+	if specPath == StdinFilePath {
+		// Read from stdin
+		p := parser.New()
+		parseResult, parseErr := p.ParseReader(os.Stdin)
+		if parseErr != nil {
+			return fmt.Errorf("parsing stdin: %w", parseErr)
+		}
+		result, err = g.GenerateParsed(*parseResult)
+	} else {
+		result, err = g.Generate(specPath)
+	}
 	totalTime := time.Since(startTime)
 	if err != nil {
 		return fmt.Errorf("generating code: %w", err)
@@ -166,7 +184,11 @@ func HandleGenerate(args []string) error {
 	fmt.Printf("OpenAPI Code Generator\n")
 	fmt.Printf("=====================\n\n")
 	fmt.Printf("oastools version: %s\n", oastools.Version())
-	fmt.Printf("Specification: %s\n", specPath)
+	if specPath == StdinFilePath {
+		fmt.Printf("Specification: <stdin>\n")
+	} else {
+		fmt.Printf("Specification: %s\n", specPath)
+	}
 	fmt.Printf("OAS Version: %s\n", result.SourceVersion)
 	fmt.Printf("Source Size: %s\n", parser.FormatBytes(result.SourceSize))
 	fmt.Printf("Package: %s\n", result.PackageName)

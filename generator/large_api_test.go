@@ -3,6 +3,7 @@ package generator
 import (
 	"go/parser"
 	"go/token"
+	"strings"
 	"testing"
 
 	oasparser "github.com/erraggy/oastools/parser"
@@ -312,7 +313,7 @@ func createLargeOAS3Doc(pathCount int) *oasparser.OAS3Document {
 
 	// Create paths with alternating tags
 	tags := []string{"users", "orders", "products", "inventory", "reports"}
-	for i := 0; i < pathCount; i++ {
+	for i := range pathCount {
 		tag := tags[i%len(tags)]
 		path := "/" + tag + "/" + string(rune('a'+i))
 
@@ -366,7 +367,7 @@ func createLargeOAS2Doc(pathCount int) *oasparser.OAS2Document {
 	}
 
 	tags := []string{"users", "orders", "products", "inventory", "reports"}
-	for i := 0; i < pathCount; i++ {
+	for i := range pathCount {
 		tag := tags[i%len(tags)]
 		path := "/" + tag + "/" + string(rune('a'+i))
 
@@ -453,4 +454,221 @@ func createSmallOAS3Doc() *oasparser.OAS3Document {
 		},
 	}
 	return doc
+}
+
+// TestLargeAPISecurityEnforceSplit tests that security_enforce.go is split for large APIs
+func TestLargeAPISecurityEnforceSplit(t *testing.T) {
+	// Create large doc with security requirements
+	doc := createLargeOAS3DocWithSecurity(30)
+
+	gen := New()
+	gen.PackageName = "securitysplit"
+	gen.GenerateClient = true
+	gen.GenerateSecurityEnforce = true
+	gen.SplitByTag = true
+	gen.MaxOperationsPerFile = 10
+
+	parseResult := oasparser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: oasparser.OASVersion303,
+		Document:   doc,
+	}
+
+	result, err := gen.GenerateParsed(parseResult)
+	if err != nil {
+		t.Fatalf("GenerateParsed() error: %v", err)
+	}
+
+	// Check that we have multiple security_enforce files
+	securityFiles := countFilesByPrefix(result.Files, "security_enforce")
+	if securityFiles < 2 {
+		t.Errorf("expected multiple security_enforce files when splitting, got %d", securityFiles)
+	}
+
+	// Verify all generated Go code compiles
+	for _, file := range result.Files {
+		if !isGoFile(file.Name) {
+			continue
+		}
+		fset := token.NewFileSet()
+		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
+		if parseErr != nil {
+			t.Errorf("generated file %s does not compile: %v", file.Name, parseErr)
+		}
+	}
+
+	// Log file count for visibility
+	t.Logf("Generated %d security_enforce files", securityFiles)
+	for _, file := range result.Files {
+		if len(file.Name) >= 16 && file.Name[:16] == "security_enforce" {
+			t.Logf("  - %s (%d bytes)", file.Name, len(file.Content))
+		}
+	}
+}
+
+// TestOAS2SplitClientCompiles verifies OAS 2.0 split client files have correct imports (Issue #118)
+func TestOAS2SplitClientCompiles(t *testing.T) {
+	doc := createLargeOAS2Doc(20)
+
+	gen := New()
+	gen.PackageName = "oas2splitclient"
+	gen.GenerateClient = true
+	gen.GenerateTypes = true
+	gen.SplitByTag = true
+	gen.MaxOperationsPerFile = 10
+
+	parseResult := oasparser.ParseResult{
+		Version:    "2.0",
+		OASVersion: oasparser.OASVersion20,
+		Document:   doc,
+	}
+
+	result, err := gen.GenerateParsed(parseResult)
+	if err != nil {
+		t.Fatalf("GenerateParsed() error: %v", err)
+	}
+
+	// Verify ALL generated Go files compile - this catches missing imports
+	for _, file := range result.Files {
+		if !isGoFile(file.Name) {
+			continue
+		}
+		fset := token.NewFileSet()
+		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
+		if parseErr != nil {
+			t.Errorf("generated file %s does not compile: %v\nContent preview:\n%s",
+				file.Name, parseErr, truncateContent(file.Content, 500))
+		}
+	}
+
+	// Specifically check client.go has the required imports for clientHelpers
+	var clientFile *GeneratedFile
+	for i := range result.Files {
+		if result.Files[i].Name == "client.go" {
+			clientFile = &result.Files[i]
+			break
+		}
+	}
+
+	if clientFile == nil {
+		t.Fatal("expected client.go file")
+	}
+
+	content := string(clientFile.Content)
+	requiredImports := []string{
+		`"bytes"`,
+		`"encoding/json"`,
+		`"net/url"`,
+	}
+	for _, imp := range requiredImports {
+		if !strings.Contains(content, imp) {
+			t.Errorf("client.go missing import %s", imp)
+		}
+	}
+}
+
+// TestOAS2SecurityEnforceSplit tests security_enforce splitting for OAS 2.0
+func TestOAS2SecurityEnforceSplit(t *testing.T) {
+	doc := createLargeOAS2DocWithSecurity(30)
+
+	gen := New()
+	gen.PackageName = "oas2securitysplit"
+	gen.GenerateClient = true
+	gen.GenerateSecurityEnforce = true
+	gen.SplitByTag = true
+	gen.MaxOperationsPerFile = 10
+
+	parseResult := oasparser.ParseResult{
+		Version:    "2.0",
+		OASVersion: oasparser.OASVersion20,
+		Document:   doc,
+	}
+
+	result, err := gen.GenerateParsed(parseResult)
+	if err != nil {
+		t.Fatalf("GenerateParsed() error: %v", err)
+	}
+
+	// Check that we have multiple security_enforce files
+	securityFiles := countFilesByPrefix(result.Files, "security_enforce")
+	if securityFiles < 2 {
+		t.Errorf("expected multiple security_enforce files when splitting, got %d", securityFiles)
+	}
+
+	// Verify all generated Go code compiles
+	for _, file := range result.Files {
+		if !isGoFile(file.Name) {
+			continue
+		}
+		fset := token.NewFileSet()
+		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
+		if parseErr != nil {
+			t.Errorf("generated file %s does not compile: %v", file.Name, parseErr)
+		}
+	}
+}
+
+// Helper functions for new tests
+
+func createLargeOAS3DocWithSecurity(pathCount int) *oasparser.OAS3Document {
+	doc := createLargeOAS3Doc(pathCount)
+
+	// Add security schemes
+	doc.Components.SecuritySchemes = map[string]*oasparser.SecurityScheme{
+		"oauth2": {
+			Type: "oauth2",
+			Flows: &oasparser.OAuthFlows{
+				ClientCredentials: &oasparser.OAuthFlow{
+					TokenURL: "https://example.com/token",
+					Scopes:   map[string]string{"read": "Read access", "write": "Write access"},
+				},
+			},
+		},
+		"apiKey": {
+			Type: "apiKey",
+			In:   "header",
+			Name: "X-API-Key",
+		},
+	}
+
+	// Add security to all operations
+	doc.Security = []oasparser.SecurityRequirement{
+		{"oauth2": []string{"read"}},
+	}
+
+	return doc
+}
+
+func createLargeOAS2DocWithSecurity(pathCount int) *oasparser.OAS2Document {
+	doc := createLargeOAS2Doc(pathCount)
+
+	// Add security definitions
+	doc.SecurityDefinitions = map[string]*oasparser.SecurityScheme{
+		"oauth2": {
+			Type:             "oauth2",
+			Flow:             "application",
+			TokenURL:         "https://example.com/token",
+			Scopes:           map[string]string{"read": "Read access", "write": "Write access"},
+			AuthorizationURL: "",
+		},
+		"apiKey": {
+			Type: "apiKey",
+			In:   "header",
+			Name: "X-API-Key",
+		},
+	}
+
+	// Add security to all operations
+	doc.Security = []oasparser.SecurityRequirement{
+		{"oauth2": []string{"read"}},
+	}
+
+	return doc
+}
+
+func truncateContent(content []byte, maxLen int) string {
+	if len(content) <= maxLen {
+		return string(content)
+	}
+	return string(content[:maxLen]) + "..."
 }
