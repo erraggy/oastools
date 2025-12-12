@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/erraggy/oastools/parser"
 	"go.yaml.in/yaml/v4"
@@ -133,6 +134,8 @@ type JoinResult struct {
 	Stats parser.DocumentStats
 	// firstFilePath stores the path of the first document for error reporting
 	firstFilePath string
+	// rewriter accumulates schema renames for reference rewriting
+	rewriter *SchemaRewriter
 }
 
 // documentContext tracks the source file and document for error reporting
@@ -678,4 +681,25 @@ func (j *Joiner) handleCollision(name, section string, strategy CollisionStrateg
 // shouldOverwrite determines if a value should be overwritten based on strategy
 func (j *Joiner) shouldOverwrite(strategy CollisionStrategy) bool {
 	return strategy == StrategyAcceptRight
+}
+
+// generateRenamedSchemaName generates a new name for a renamed schema based on the template
+func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docIndex int) string {
+	// For now, use a simple pattern: Name_Source
+	// TODO: Implement full template support with {{.Name}}, {{.Source}}, {{.Index}}
+	
+	// Extract base filename without extension for source
+	source := sourcePath
+	if idx := strings.LastIndex(source, "/"); idx >= 0 {
+		source = source[idx+1:]
+	}
+	if idx := strings.LastIndex(source, "."); idx >= 0 {
+		source = source[:idx]
+	}
+	
+	// Clean source name for use in schema name (replace invalid characters)
+	source = strings.ReplaceAll(source, "-", "_")
+	source = strings.ReplaceAll(source, " ", "_")
+	
+	return fmt.Sprintf("%s_%s", originalName, source)
 }

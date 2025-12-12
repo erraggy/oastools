@@ -56,6 +56,14 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	result.Document = joined
 	result.Stats = parser.GetDocumentStats(joined)
+
+	// Apply reference rewriting if definitions were renamed
+	if result.rewriter != nil {
+		if err := result.rewriter.RewriteDocument(joined); err != nil {
+			return nil, fmt.Errorf("failed to rewrite references after definition renames: %w", err)
+		}
+	}
+
 	return result, nil
 }
 
@@ -109,15 +117,77 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 	schemaStrategy := j.getEffectiveStrategy(j.config.SchemaStrategy)
 	for name, schema := range source.Definitions {
 		if _, exists := joined.Definitions[name]; exists {
-			if err := j.handleCollision(name, "definitions", schemaStrategy, result.firstFilePath, ctx.filePath); err != nil {
-				return err
-			}
+			// Handle collision based on strategy
 			result.CollisionCount++
-			if j.shouldOverwrite(schemaStrategy) {
+
+			switch schemaStrategy {
+			case StrategyDeduplicateEquivalent:
+				// Use semantic equivalence to determine if schemas are identical
+				mode := EquivalenceModeNone
+				if j.config.EquivalenceMode == "shallow" {
+					mode = EquivalenceModeShallow
+				} else if j.config.EquivalenceMode == "deep" {
+					mode = EquivalenceModeDeep
+				}
+
+				if mode != EquivalenceModeNone {
+					eqResult := CompareSchemas(joined.Definitions[name], schema, mode)
+					if eqResult.Equivalent {
+						// Schemas are equivalent, keep existing and skip
+						result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' deduplicated (structurally equivalent): %s", name, ctx.filePath))
+						continue
+					}
+					// Not equivalent, fall back to fail
+					return fmt.Errorf("definition '%s' collision: not equivalent, deduplicate strategy requires identical schemas (found %d differences)", name, len(eqResult.Differences))
+				}
+				return fmt.Errorf("definition '%s' collision: deduplicate strategy requires equivalence mode to be 'shallow' or 'deep'", name)
+
+			case StrategyRenameLeft:
+				// Rename the existing (left) definition and keep the new (right) definition under original name
+				newName := j.generateRenamedSchemaName(name, result.firstFilePath, 0)
+				
+				// Move existing definition to new name
+				joined.Definitions[newName] = joined.Definitions[name]
+				
+				// Add new definition under original name
 				joined.Definitions[name] = schema
-				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' at definitions.%s overwritten: source %s", name, name, ctx.filePath))
-			} else {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' at definitions.%s kept from %s (collision with %s)", name, name, result.firstFilePath, ctx.filePath))
+				
+				// Register rename for reference rewriting
+				if result.rewriter == nil {
+					result.rewriter = NewSchemaRewriter()
+				}
+				result.rewriter.RegisterRename(name, newName, result.OASVersion)
+				
+				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' renamed to '%s' (kept from %s), new definition '%s' from %s", name, newName, result.firstFilePath, name, ctx.filePath))
+
+			case StrategyRenameRight:
+				// Rename the new (right) definition and keep existing (left) definition under original name
+				newName := j.generateRenamedSchemaName(name, ctx.filePath, ctx.docIndex)
+				
+				// Add new definition under renamed name
+				joined.Definitions[newName] = schema
+				
+				// Keep existing definition under original name (no change needed)
+				
+				// Register rename for reference rewriting
+				if result.rewriter == nil {
+					result.rewriter = NewSchemaRewriter()
+				}
+				result.rewriter.RegisterRename(name, newName, result.OASVersion)
+				
+				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' from %s renamed to '%s', kept original '%s' from %s", name, ctx.filePath, newName, name, result.firstFilePath))
+
+			default:
+				// Handle existing strategies
+				if err := j.handleCollision(name, "definitions", schemaStrategy, result.firstFilePath, ctx.filePath); err != nil {
+					return err
+				}
+				if j.shouldOverwrite(schemaStrategy) {
+					joined.Definitions[name] = schema
+					result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' at definitions.%s overwritten: source %s", name, name, ctx.filePath))
+				} else {
+					result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' at definitions.%s kept from %s (collision with %s)", name, name, result.firstFilePath, ctx.filePath))
+				}
 			}
 		} else {
 			joined.Definitions[name] = schema
