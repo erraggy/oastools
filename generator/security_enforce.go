@@ -344,10 +344,9 @@ func ExtractOperationSecurityOAS3(doc *parser.OAS3Document) OperationSecurityReq
 				continue
 			}
 
-			opID := op.OperationID
-			if opID == "" {
-				opID = operationToMethodName(op, path, method)
-			}
+			// Always use operationToMethodName for consistency with code generator.
+			// This ensures the key matches what's stored in group.Operations.
+			opID := operationToMethodName(op, path, method)
 
 			// Use operation-level security if defined, otherwise fall back to global
 			if op.Security != nil {
@@ -389,10 +388,9 @@ func ExtractOperationSecurityOAS2(doc *parser.OAS2Document) OperationSecurityReq
 				continue
 			}
 
-			opID := op.OperationID
-			if opID == "" {
-				opID = operationToMethodName(op, path, method)
-			}
+			// Always use operationToMethodName for consistency with code generator.
+			// This ensures the key matches what's stored in group.Operations.
+			opID := operationToMethodName(op, path, method)
 
 			// Use operation-level security if defined, otherwise fall back to global
 			if op.Security != nil {

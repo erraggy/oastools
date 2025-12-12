@@ -1,0 +1,301 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Duplicate Operations Test API (OAS 3.0)",
+    "description": "A synthetic API spec to test duplicate operationId handling across tags. This tests: (1) multiple operations with the same operationId in different tags, (2) operations that normalize to the same Go method name, (3) file splitting behavior with duplicates.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {"url": "https://api.example.com/v1"}
+  ],
+  "tags": [
+    {"name": "animals", "description": "Animal management"},
+    {"name": "plants", "description": "Plant management"},
+    {"name": "minerals", "description": "Mineral management"}
+  ],
+  "paths": {
+    "/animals/items": {
+      "get": {
+        "tags": ["animals"],
+        "operationId": "listItems",
+        "summary": "List all animal items",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ItemList"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["animals"],
+        "operationId": "createItem",
+        "summary": "Create an animal item",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/Item"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Item"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/animals/items/{itemId}": {
+      "get": {
+        "tags": ["animals"],
+        "operationId": "getItem",
+        "summary": "Get an animal item by ID",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Item"}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["animals"],
+        "operationId": "deleteItem",
+        "summary": "Delete an animal item",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/plants/items": {
+      "get": {
+        "tags": ["plants"],
+        "operationId": "listItems",
+        "summary": "List all plant items - DUPLICATE operationId",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ItemList"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["plants"],
+        "operationId": "createItem",
+        "summary": "Create a plant item - DUPLICATE operationId",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/Item"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Item"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plants/items/{itemId}": {
+      "get": {
+        "tags": ["plants"],
+        "operationId": "getItem",
+        "summary": "Get a plant item by ID - DUPLICATE operationId",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Item"}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["plants"],
+        "operationId": "deleteItem",
+        "summary": "Delete a plant item - DUPLICATE operationId",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/minerals/rocks": {
+      "get": {
+        "tags": ["minerals"],
+        "operationId": "listRocks",
+        "summary": "List all rocks",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/RockList"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/minerals/gems": {
+      "get": {
+        "tags": ["minerals"],
+        "operationId": "listGems",
+        "summary": "List all gems",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/GemList"}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Item": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Item name"
+          },
+          "category": {
+            "type": "string",
+            "description": "Item category"
+          }
+        }
+      },
+      "ItemList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Item"}
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "Rock": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "mineralType": {
+            "type": "string"
+          },
+          "hardness": {
+            "type": "number",
+            "format": "float"
+          }
+        }
+      },
+      "RockList": {
+        "type": "object",
+        "properties": {
+          "rocks": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Rock"}
+          }
+        }
+      },
+      "Gem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clarity": {
+            "type": "string"
+          },
+          "carats": {
+            "type": "number",
+            "format": "float"
+          }
+        }
+      },
+      "GemList": {
+        "type": "object",
+        "properties": {
+          "gems": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/Gem"}
+          }
+        }
+      }
+    }
+  }
+}

@@ -104,6 +104,23 @@ func operationToMethodName(op *parser.Operation, path, method string) string {
 		return toTypeName(op.OperationID)
 	}
 	// Generate from path and method
+	return generateMethodNameFromPathMethod(path, method)
+}
+
+// operationInfoToMethodName generates a Go method name from an OperationInfo.
+// This is used by the file splitter to ensure consistent naming between
+// split planning and code generation.
+func operationInfoToMethodName(op *OperationInfo) string {
+	if op.OperationID != "" {
+		return toTypeName(op.OperationID)
+	}
+	// Generate from path and method
+	return generateMethodNameFromPathMethod(op.Path, op.Method)
+}
+
+// generateMethodNameFromPathMethod generates a Go method name from path and HTTP method.
+// This is the common implementation used when no operationId is provided.
+func generateMethodNameFromPathMethod(path, method string) string {
 	pathPart := path
 	pathPart = strings.ReplaceAll(pathPart, "/", " ")
 	pathPart = strings.ReplaceAll(pathPart, "{", "By ")
