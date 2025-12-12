@@ -3,6 +3,7 @@ package generator
 import (
 	"go/parser"
 	"go/token"
+	"strings"
 	"testing"
 
 	oasparser "github.com/erraggy/oastools/parser"
@@ -312,7 +313,7 @@ func createLargeOAS3Doc(pathCount int) *oasparser.OAS3Document {
 
 	// Create paths with alternating tags
 	tags := []string{"users", "orders", "products", "inventory", "reports"}
-	for i := 0; i < pathCount; i++ {
+	for i := range pathCount {
 		tag := tags[i%len(tags)]
 		path := "/" + tag + "/" + string(rune('a'+i))
 
@@ -366,7 +367,7 @@ func createLargeOAS2Doc(pathCount int) *oasparser.OAS2Document {
 	}
 
 	tags := []string{"users", "orders", "products", "inventory", "reports"}
-	for i := 0; i < pathCount; i++ {
+	for i := range pathCount {
 		tag := tags[i%len(tags)]
 		path := "/" + tag + "/" + string(rune('a'+i))
 
@@ -560,7 +561,7 @@ func TestOAS2SplitClientCompiles(t *testing.T) {
 		`"net/url"`,
 	}
 	for _, imp := range requiredImports {
-		if !containsString(content, imp) {
+		if !strings.Contains(content, imp) {
 			t.Errorf("client.go missing import %s", imp)
 		}
 	}
@@ -663,19 +664,6 @@ func createLargeOAS2DocWithSecurity(pathCount int) *oasparser.OAS2Document {
 	}
 
 	return doc
-}
-
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStringHelper(s, substr))
-}
-
-func containsStringHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 func truncateContent(content []byte, maxLen int) string {
