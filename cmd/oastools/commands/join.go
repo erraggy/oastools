@@ -22,9 +22,9 @@ type JoinFlags struct {
 	NoDedupTags       bool
 	Quiet             bool
 	// Advanced collision strategies
-	RenameTemplate    string
-	EquivalenceMode   string
-	CollisionReport   bool
+	RenameTemplate  string
+	EquivalenceMode string
+	CollisionReport bool
 }
 
 // SetupJoinFlags creates and configures a FlagSet for the join command.

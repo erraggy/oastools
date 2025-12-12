@@ -187,9 +187,10 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 			case StrategyDeduplicateEquivalent:
 				// Use semantic equivalence to determine if schemas are identical
 				mode := EquivalenceModeNone
-				if j.config.EquivalenceMode == "shallow" {
+				switch j.config.EquivalenceMode {
+				case "shallow":
 					mode = EquivalenceModeShallow
-				} else if j.config.EquivalenceMode == "deep" {
+				case "deep":
 					mode = EquivalenceModeDeep
 				}
 
@@ -208,36 +209,36 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 			case StrategyRenameLeft:
 				// Rename the existing (left) schema and keep the new (right) schema under original name
 				newName := j.generateRenamedSchemaName(name, result.firstFilePath, 0)
-				
+
 				// Move existing schema to new name
 				target[newName] = target[name]
-				
+
 				// Add new schema under original name
 				target[name] = schema
-				
+
 				// Register rename for reference rewriting (will be applied at end of join)
 				if result.rewriter == nil {
 					result.rewriter = NewSchemaRewriter()
 				}
 				result.rewriter.RegisterRename(name, newName, result.OASVersion)
-				
+
 				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' renamed to '%s' (kept from %s), new schema '%s' from %s", name, newName, result.firstFilePath, name, ctx.filePath))
 
 			case StrategyRenameRight:
 				// Rename the new (right) schema and keep existing (left) schema under original name
 				newName := j.generateRenamedSchemaName(name, ctx.filePath, ctx.docIndex)
-				
+
 				// Add new schema under renamed name
 				target[newName] = schema
-				
+
 				// Keep existing schema under original name (no change needed)
-				
+
 				// Register rename for reference rewriting
 				if result.rewriter == nil {
 					result.rewriter = NewSchemaRewriter()
 				}
 				result.rewriter.RegisterRename(name, newName, result.OASVersion)
-				
+
 				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' from %s renamed to '%s', kept original '%s' from %s", name, ctx.filePath, newName, name, result.firstFilePath))
 
 			default:

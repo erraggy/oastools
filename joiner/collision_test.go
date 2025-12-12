@@ -22,13 +22,13 @@ func TestNewCollisionReport(t *testing.T) {
 
 func TestCollisionReport_AddEvent(t *testing.T) {
 	tests := []struct {
-		name               string
-		event              CollisionEvent
-		expectedTotal      int
-		expectedRename     int
-		expectedDedup      int
-		expectedAccept     int
-		expectedFailed     int
+		name           string
+		event          CollisionEvent
+		expectedTotal  int
+		expectedRename int
+		expectedDedup  int
+		expectedAccept int
+		expectedFailed int
 	}{
 		{
 			name: "renamed event",

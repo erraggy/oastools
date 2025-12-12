@@ -811,249 +811,249 @@ func TestJoinWithOptions_MixedSources_ParseError(t *testing.T) {
 
 // TestJoinOAS3_RenameStrategies tests the rename-left and rename-right strategies
 func TestJoinOAS3_RenameStrategies(t *testing.T) {
-testdataDir := filepath.Join("..", "testdata")
+	testdataDir := filepath.Join("..", "testdata")
 
-t.Run("rename-left strategy", func(t *testing.T) {
-config := DefaultConfig()
-config.SchemaStrategy = StrategyRenameLeft
+	t.Run("rename-left strategy", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyRenameLeft
 
-j := New(config)
-result, err := j.Join([]string{
-filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml"),
-filepath.Join(testdataDir, "join-collision-rename-ext-3.0.yaml"),
-})
+		j := New(config)
+		result, err := j.Join([]string{
+			filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml"),
+			filepath.Join(testdataDir, "join-collision-rename-ext-3.0.yaml"),
+		})
 
-require.NoError(t, err)
-require.NotNil(t, result)
+		require.NoError(t, err)
+		require.NotNil(t, result)
 
-doc, ok := result.Document.(*parser.OAS3Document)
-require.True(t, ok)
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
 
-// Should have both User schemas: original "User" and renamed one
-assert.NotNil(t, doc.Components.Schemas["User"])
-// Find the renamed schema (should be User_join-collision-rename-base-3.0)
-foundRenamed := false
-for name := range doc.Components.Schemas {
-if strings.HasPrefix(name, "User_") && name != "User" {
-foundRenamed = true
-break
-}
-}
-assert.True(t, foundRenamed, "renamed schema should exist")
+		// Should have both User schemas: original "User" and renamed one
+		assert.NotNil(t, doc.Components.Schemas["User"])
+		// Find the renamed schema (should be User_join-collision-rename-base-3.0)
+		foundRenamed := false
+		for name := range doc.Components.Schemas {
+			if strings.HasPrefix(name, "User_") && name != "User" {
+				foundRenamed = true
+				break
+			}
+		}
+		assert.True(t, foundRenamed, "renamed schema should exist")
 
-// Should have 2 paths
-assert.Equal(t, 2, len(doc.Paths))
-})
+		// Should have 2 paths
+		assert.Equal(t, 2, len(doc.Paths))
+	})
 
-t.Run("rename-right strategy", func(t *testing.T) {
-config := DefaultConfig()
-config.SchemaStrategy = StrategyRenameRight
+	t.Run("rename-right strategy", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyRenameRight
 
-j := New(config)
-result, err := j.Join([]string{
-filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml"),
-filepath.Join(testdataDir, "join-collision-rename-ext-3.0.yaml"),
-})
+		j := New(config)
+		result, err := j.Join([]string{
+			filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml"),
+			filepath.Join(testdataDir, "join-collision-rename-ext-3.0.yaml"),
+		})
 
-require.NoError(t, err)
-require.NotNil(t, result)
+		require.NoError(t, err)
+		require.NotNil(t, result)
 
-doc, ok := result.Document.(*parser.OAS3Document)
-require.True(t, ok)
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
 
-// Should have both User schemas: original "User" and renamed one
-assert.NotNil(t, doc.Components.Schemas["User"])
-// Find the renamed schema
-foundRenamed := false
-for name := range doc.Components.Schemas {
-if strings.HasPrefix(name, "User_") && name != "User" {
-foundRenamed = true
-break
-}
-}
-assert.True(t, foundRenamed, "renamed schema should exist")
+		// Should have both User schemas: original "User" and renamed one
+		assert.NotNil(t, doc.Components.Schemas["User"])
+		// Find the renamed schema
+		foundRenamed := false
+		for name := range doc.Components.Schemas {
+			if strings.HasPrefix(name, "User_") && name != "User" {
+				foundRenamed = true
+				break
+			}
+		}
+		assert.True(t, foundRenamed, "renamed schema should exist")
 
-// Should have 2 paths
-assert.Equal(t, 2, len(doc.Paths))
-})
+		// Should have 2 paths
+		assert.Equal(t, 2, len(doc.Paths))
+	})
 }
 
 // TestJoinOAS3_DeduplicateStrategy tests the deduplicate strategy with equivalence detection
 func TestJoinOAS3_DeduplicateStrategy(t *testing.T) {
-testdataDir := filepath.Join("..", "testdata")
+	testdataDir := filepath.Join("..", "testdata")
 
-t.Run("deduplicate equivalent schemas", func(t *testing.T) {
-config := DefaultConfig()
-config.SchemaStrategy = StrategyDeduplicateEquivalent
-config.EquivalenceMode = "deep"
+	t.Run("deduplicate equivalent schemas", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyDeduplicateEquivalent
+		config.EquivalenceMode = "deep"
 
-j := New(config)
-result, err := j.Join([]string{
-filepath.Join(testdataDir, "join-equivalent-schemas-base-3.0.yaml"),
-filepath.Join(testdataDir, "join-equivalent-schemas-ext-3.0.yaml"),
-})
+		j := New(config)
+		result, err := j.Join([]string{
+			filepath.Join(testdataDir, "join-equivalent-schemas-base-3.0.yaml"),
+			filepath.Join(testdataDir, "join-equivalent-schemas-ext-3.0.yaml"),
+		})
 
-require.NoError(t, err)
-require.NotNil(t, result)
+		require.NoError(t, err)
+		require.NotNil(t, result)
 
-doc, ok := result.Document.(*parser.OAS3Document)
-require.True(t, ok)
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
 
-// Should have only one Product schema (deduplicated)
-assert.NotNil(t, doc.Components.Schemas["Product"])
-assert.Equal(t, 1, len(doc.Components.Schemas))
+		// Should have only one Product schema (deduplicated)
+		assert.NotNil(t, doc.Components.Schemas["Product"])
+		assert.Equal(t, 1, len(doc.Components.Schemas))
 
-// Should have both paths
-assert.Equal(t, 2, len(doc.Paths))
-})
+		// Should have both paths
+		assert.Equal(t, 2, len(doc.Paths))
+	})
 
-t.Run("deduplicate fails on non-equivalent schemas", func(t *testing.T) {
-config := DefaultConfig()
-config.SchemaStrategy = StrategyDeduplicateEquivalent
-config.EquivalenceMode = "deep"
+	t.Run("deduplicate fails on non-equivalent schemas", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyDeduplicateEquivalent
+		config.EquivalenceMode = "deep"
 
-j := New(config)
-_, err := j.Join([]string{
-filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml"),
-filepath.Join(testdataDir, "join-collision-rename-ext-3.0.yaml"),
-})
+		j := New(config)
+		_, err := j.Join([]string{
+			filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml"),
+			filepath.Join(testdataDir, "join-collision-rename-ext-3.0.yaml"),
+		})
 
-// Should fail because User schemas are different
-require.Error(t, err)
-assert.Contains(t, err.Error(), "not equivalent")
-})
+		// Should fail because User schemas are different
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not equivalent")
+	})
 }
 
 // TestJoinOAS3_DiscriminatorRewriting tests discriminator reference rewriting
 func TestJoinOAS3_DiscriminatorRewriting(t *testing.T) {
-testdataDir := filepath.Join("..", "testdata")
+	testdataDir := filepath.Join("..", "testdata")
 
-t.Run("discriminator with rename-right", func(t *testing.T) {
-config := DefaultConfig()
-config.SchemaStrategy = StrategyRenameRight
+	t.Run("discriminator with rename-right", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyRenameRight
 
-j := New(config)
-result, err := j.Join([]string{
-filepath.Join(testdataDir, "join-discriminator-base-3.0.yaml"),
-filepath.Join(testdataDir, "join-discriminator-ext-3.0.yaml"),
-})
+		j := New(config)
+		result, err := j.Join([]string{
+			filepath.Join(testdataDir, "join-discriminator-base-3.0.yaml"),
+			filepath.Join(testdataDir, "join-discriminator-ext-3.0.yaml"),
+		})
 
-require.NoError(t, err)
-require.NotNil(t, result)
+		require.NoError(t, err)
+		require.NotNil(t, result)
 
-doc, ok := result.Document.(*parser.OAS3Document)
-require.True(t, ok)
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
 
-// Should have Pet schema from base
-assert.NotNil(t, doc.Components.Schemas["Pet"])
+		// Should have Pet schema from base
+		assert.NotNil(t, doc.Components.Schemas["Pet"])
 
-// Should have Dog schema from base and renamed Dog from ext
-assert.NotNil(t, doc.Components.Schemas["Dog"])
+		// Should have Dog schema from base and renamed Dog from ext
+		assert.NotNil(t, doc.Components.Schemas["Dog"])
 
-// Find renamed Dog schema
-foundRenamed := false
-for name := range doc.Components.Schemas {
-if strings.HasPrefix(name, "Dog_") {
-foundRenamed = true
-break
-}
-}
-assert.True(t, foundRenamed, "renamed Dog schema should exist")
+		// Find renamed Dog schema
+		foundRenamed := false
+		for name := range doc.Components.Schemas {
+			if strings.HasPrefix(name, "Dog_") {
+				foundRenamed = true
+				break
+			}
+		}
+		assert.True(t, foundRenamed, "renamed Dog schema should exist")
 
-// Check discriminator mapping was updated
-pet := doc.Components.Schemas["Pet"]
-if pet.Discriminator != nil && pet.Discriminator.Mapping != nil {
-// The discriminator mapping should still reference Dog (from base)
-assert.Contains(t, pet.Discriminator.Mapping, "dog")
-}
-})
+		// Check discriminator mapping was updated
+		pet := doc.Components.Schemas["Pet"]
+		if pet.Discriminator != nil && pet.Discriminator.Mapping != nil {
+			// The discriminator mapping should still reference Dog (from base)
+			assert.Contains(t, pet.Discriminator.Mapping, "dog")
+		}
+	})
 }
 
 // TestJoinOAS3_CircularReferences tests circular reference handling
 func TestJoinOAS3_CircularReferences(t *testing.T) {
-testdataDir := filepath.Join("..", "testdata")
+	testdataDir := filepath.Join("..", "testdata")
 
-t.Run("circular refs with rename", func(t *testing.T) {
-config := DefaultConfig()
-config.SchemaStrategy = StrategyRenameLeft
+	t.Run("circular refs with rename", func(t *testing.T) {
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyRenameLeft
 
-j := New(config)
-result, err := j.Join([]string{
-filepath.Join(testdataDir, "join-circular-refs-base-3.0.yaml"),
-filepath.Join(testdataDir, "join-circular-refs-ext-3.0.yaml"),
-})
+		j := New(config)
+		result, err := j.Join([]string{
+			filepath.Join(testdataDir, "join-circular-refs-base-3.0.yaml"),
+			filepath.Join(testdataDir, "join-circular-refs-ext-3.0.yaml"),
+		})
 
-require.NoError(t, err)
-require.NotNil(t, result)
+		require.NoError(t, err)
+		require.NotNil(t, result)
 
-doc, ok := result.Document.(*parser.OAS3Document)
-require.True(t, ok)
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
 
-// Should have two Node schemas
-assert.NotNil(t, doc.Components.Schemas["Node"])
-foundRenamed := false
-for name := range doc.Components.Schemas {
-if strings.HasPrefix(name, "Node_") {
-foundRenamed = true
-break
-}
-}
-assert.True(t, foundRenamed, "renamed Node schema should exist")
+		// Should have two Node schemas
+		assert.NotNil(t, doc.Components.Schemas["Node"])
+		foundRenamed := false
+		for name := range doc.Components.Schemas {
+			if strings.HasPrefix(name, "Node_") {
+				foundRenamed = true
+				break
+			}
+		}
+		assert.True(t, foundRenamed, "renamed Node schema should exist")
 
-// Should have 2 paths
-assert.Equal(t, 2, len(doc.Paths))
-})
+		// Should have 2 paths
+		assert.Equal(t, 2, len(doc.Paths))
+	})
 }
 
 // TestJoinWithOptions_NewStrategies tests the functional options API with new strategies
 func TestJoinWithOptions_NewStrategies(t *testing.T) {
-testdataDir := filepath.Join("..", "testdata")
+	testdataDir := filepath.Join("..", "testdata")
 
-t.Run("with rename template option", func(t *testing.T) {
-result, err := JoinWithOptions(
-WithFilePaths(
-filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml"),
-filepath.Join(testdataDir, "join-collision-rename-ext-3.0.yaml"),
-),
-WithSchemaStrategy(StrategyRenameRight),
-WithRenameTemplate("{{.Name}}_{{.Source}}"),
-)
+	t.Run("with rename template option", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(
+				filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml"),
+				filepath.Join(testdataDir, "join-collision-rename-ext-3.0.yaml"),
+			),
+			WithSchemaStrategy(StrategyRenameRight),
+			WithRenameTemplate("{{.Name}}_{{.Source}}"),
+		)
 
-require.NoError(t, err)
-require.NotNil(t, result)
+		require.NoError(t, err)
+		require.NotNil(t, result)
 
-doc, ok := result.Document.(*parser.OAS3Document)
-require.True(t, ok)
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
 
-// Should have both User schemas
-assert.NotNil(t, doc.Components.Schemas["User"])
-foundRenamed := false
-for name := range doc.Components.Schemas {
-if strings.HasPrefix(name, "User_") {
-foundRenamed = true
-break
-}
-}
-assert.True(t, foundRenamed)
-})
+		// Should have both User schemas
+		assert.NotNil(t, doc.Components.Schemas["User"])
+		foundRenamed := false
+		for name := range doc.Components.Schemas {
+			if strings.HasPrefix(name, "User_") {
+				foundRenamed = true
+				break
+			}
+		}
+		assert.True(t, foundRenamed)
+	})
 
-t.Run("with equivalence mode option", func(t *testing.T) {
-result, err := JoinWithOptions(
-WithFilePaths(
-filepath.Join(testdataDir, "join-equivalent-schemas-base-3.0.yaml"),
-filepath.Join(testdataDir, "join-equivalent-schemas-ext-3.0.yaml"),
-),
-WithSchemaStrategy(StrategyDeduplicateEquivalent),
-WithEquivalenceMode("deep"),
-)
+	t.Run("with equivalence mode option", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(
+				filepath.Join(testdataDir, "join-equivalent-schemas-base-3.0.yaml"),
+				filepath.Join(testdataDir, "join-equivalent-schemas-ext-3.0.yaml"),
+			),
+			WithSchemaStrategy(StrategyDeduplicateEquivalent),
+			WithEquivalenceMode("deep"),
+		)
 
-require.NoError(t, err)
-require.NotNil(t, result)
+		require.NoError(t, err)
+		require.NotNil(t, result)
 
-doc, ok := result.Document.(*parser.OAS3Document)
-require.True(t, ok)
+		doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok)
 
-// Should have only one Product schema
-assert.Equal(t, 1, len(doc.Components.Schemas))
-})
+		// Should have only one Product schema
+		assert.Equal(t, 1, len(doc.Components.Schemas))
+	})
 }

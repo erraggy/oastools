@@ -43,10 +43,39 @@
 //   - StrategyAcceptLeft: Keep value from first document
 //   - StrategyAcceptRight: Keep value from last document
 //   - StrategyFailOnPaths: Fail only on path collisions, allow schema merging
+//   - StrategyRenameLeft: Rename left schema, keep right under original name
+//   - StrategyRenameRight: Rename right schema, keep left under original name
+//   - StrategyDeduplicateEquivalent: Merge structurally identical schemas
 //
 // Set strategies globally (DefaultStrategy) or per component type (PathStrategy,
-// SchemaStrategy, ComponentStrategy). See the examples in example_test.go for
-// configuration patterns.
+// SchemaStrategy, ComponentStrategy). The rename and deduplicate strategies provide
+// advanced collision handling with automatic reference rewriting.
+//
+// # Advanced Collision Handling
+//
+// The rename strategies preserve both colliding schemas by renaming one and
+// automatically updating all references throughout the merged document:
+//
+//	config := joiner.DefaultConfig()
+//	config.SchemaStrategy = joiner.StrategyRenameRight
+//	config.RenameTemplate = "{{.Name}}_{{.Source}}"
+//	result, err := joiner.JoinWithOptions(
+//		joiner.WithFilePaths([]string{"users-api.yaml", "billing-api.yaml"}),
+//		joiner.WithConfig(config),
+//	)
+//
+// The deduplicate strategy uses semantic equivalence detection to merge
+// structurally identical schemas while failing on true structural conflicts:
+//
+//	config := joiner.DefaultConfig()
+//	config.SchemaStrategy = joiner.StrategyDeduplicateEquivalent
+//	config.EquivalenceMode = "deep"
+//	result, err := joiner.JoinWithOptions(
+//		joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+//		joiner.WithConfig(config),
+//	)
+//
+// See the examples in example_test.go for more configuration patterns.
 //
 // # Features and Limitations
 //

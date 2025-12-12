@@ -124,9 +124,10 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 			case StrategyDeduplicateEquivalent:
 				// Use semantic equivalence to determine if schemas are identical
 				mode := EquivalenceModeNone
-				if j.config.EquivalenceMode == "shallow" {
+				switch j.config.EquivalenceMode {
+				case "shallow":
 					mode = EquivalenceModeShallow
-				} else if j.config.EquivalenceMode == "deep" {
+				case "deep":
 					mode = EquivalenceModeDeep
 				}
 
@@ -145,36 +146,36 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 			case StrategyRenameLeft:
 				// Rename the existing (left) definition and keep the new (right) definition under original name
 				newName := j.generateRenamedSchemaName(name, result.firstFilePath, 0)
-				
+
 				// Move existing definition to new name
 				joined.Definitions[newName] = joined.Definitions[name]
-				
+
 				// Add new definition under original name
 				joined.Definitions[name] = schema
-				
+
 				// Register rename for reference rewriting
 				if result.rewriter == nil {
 					result.rewriter = NewSchemaRewriter()
 				}
 				result.rewriter.RegisterRename(name, newName, result.OASVersion)
-				
+
 				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' renamed to '%s' (kept from %s), new definition '%s' from %s", name, newName, result.firstFilePath, name, ctx.filePath))
 
 			case StrategyRenameRight:
 				// Rename the new (right) definition and keep existing (left) definition under original name
 				newName := j.generateRenamedSchemaName(name, ctx.filePath, ctx.docIndex)
-				
+
 				// Add new definition under renamed name
 				joined.Definitions[newName] = schema
-				
+
 				// Keep existing definition under original name (no change needed)
-				
+
 				// Register rename for reference rewriting
 				if result.rewriter == nil {
 					result.rewriter = NewSchemaRewriter()
 				}
 				result.rewriter.RegisterRename(name, newName, result.OASVersion)
-				
+
 				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' from %s renamed to '%s', kept original '%s' from %s", name, ctx.filePath, newName, name, result.firstFilePath))
 
 			default:
