@@ -21,6 +21,10 @@ type JoinFlags struct {
 	NoMergeArrays     bool
 	NoDedupTags       bool
 	Quiet             bool
+	// Advanced collision strategies
+	RenameTemplate    string
+	EquivalenceMode   string
+	CollisionReport   bool
 }
 
 // SetupJoinFlags creates and configures a FlagSet for the join command.
@@ -32,12 +36,17 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 	fs.StringVar(&flags.Output, "o", "", "output file path (default: stdout)")
 	fs.StringVar(&flags.Output, "output", "", "output file path (default: stdout)")
 	fs.StringVar(&flags.PathStrategy, "path-strategy", "", "collision strategy for paths (accept-left, accept-right, fail, fail-on-paths)")
-	fs.StringVar(&flags.SchemaStrategy, "schema-strategy", "", "collision strategy for schemas/definitions")
+	fs.StringVar(&flags.SchemaStrategy, "schema-strategy", "", "collision strategy for schemas (accept-left, accept-right, rename-left, rename-right, deduplicate, fail)")
 	fs.StringVar(&flags.ComponentStrategy, "component-strategy", "", "collision strategy for other components")
 	fs.BoolVar(&flags.NoMergeArrays, "no-merge-arrays", false, "don't merge arrays (servers, security, etc.)")
 	fs.BoolVar(&flags.NoDedupTags, "no-dedup-tags", false, "don't deduplicate tags by name")
 	fs.BoolVar(&flags.Quiet, "q", false, "quiet mode: suppress diagnostic messages (for pipelining)")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "quiet mode: suppress diagnostic messages (for pipelining)")
+
+	// Advanced collision strategies
+	fs.StringVar(&flags.RenameTemplate, "rename-template", "{{.Name}}_{{.Source}}", "template for renamed schema names")
+	fs.StringVar(&flags.EquivalenceMode, "equivalence-mode", "none", "schema comparison mode for deduplication (none, shallow, deep)")
+	fs.BoolVar(&flags.CollisionReport, "collision-report", false, "generate detailed collision analysis report")
 
 	fs.Usage = func() {
 		cliutil.Writef(fs.Output(), "Usage: oastools join [flags] <file1> <file2> [file3...]\n\n")
@@ -47,6 +56,9 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 		cliutil.Writef(fs.Output(), "\nCollision Strategies:\n")
 		cliutil.Writef(fs.Output(), "  accept-left      Keep the first value when collisions occur\n")
 		cliutil.Writef(fs.Output(), "  accept-right     Keep the last value when collisions occur (overwrite)\n")
+		cliutil.Writef(fs.Output(), "  rename-left      Rename left schema, keep right under original name\n")
+		cliutil.Writef(fs.Output(), "  rename-right     Rename right schema, keep left under original name\n")
+		cliutil.Writef(fs.Output(), "  deduplicate      Merge structurally identical schemas (requires equivalence-mode)\n")
 		cliutil.Writef(fs.Output(), "  fail             Fail with an error on any collision\n")
 		cliutil.Writef(fs.Output(), "  fail-on-paths    Fail only on path collisions, allow schema collisions\n")
 		cliutil.Writef(fs.Output(), "\nExamples:\n")
@@ -88,6 +100,11 @@ func HandleJoin(args []string) error {
 	config := joiner.DefaultConfig()
 	config.MergeArrays = !flags.NoMergeArrays
 	config.DeduplicateTags = !flags.NoDedupTags
+
+	// Apply advanced collision strategy settings
+	config.RenameTemplate = flags.RenameTemplate
+	config.EquivalenceMode = flags.EquivalenceMode
+	config.CollisionReport = flags.CollisionReport
 
 	// Validate and parse strategy flags
 	if err := ValidateCollisionStrategy("path-strategy", flags.PathStrategy); err != nil {
