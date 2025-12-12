@@ -3,14 +3,14 @@
 //
 // The library consists of eight packages:
 //
-//   - parser: Parse OpenAPI specifications from YAML or JSON
-//   - validator: Validate OpenAPI specifications against their declared version
-//   - fixer: Automatically fix common validation errors
-//   - converter: Convert OpenAPI specifications between different OAS versions
-//   - joiner: Join multiple OpenAPI specifications into a single document
-//   - differ: Compare OpenAPI specifications and detect breaking changes
-//   - generator: Generate idiomatic Go code for API clients and server stubs
-//   - builder: Programmatically construct OpenAPI specifications with reflection-based schema generation
+//   - [github.com/erraggy/oastools/parser] - Parse OpenAPI specifications from YAML or JSON
+//   - [github.com/erraggy/oastools/validator] - Validate OpenAPI specifications against their declared version
+//   - [github.com/erraggy/oastools/fixer] - Automatically fix common validation errors
+//   - [github.com/erraggy/oastools/converter] - Convert OpenAPI specifications between different OAS versions
+//   - [github.com/erraggy/oastools/joiner] - Join multiple OpenAPI specifications into a single document
+//   - [github.com/erraggy/oastools/differ] - Compare OpenAPI specifications and detect breaking changes
+//   - [github.com/erraggy/oastools/generator] - Generate idiomatic Go code for API clients and server stubs
+//   - [github.com/erraggy/oastools/builder] - Programmatically construct OpenAPI specifications with reflection-based schema generation
 //
 // For installation, CLI usage, and examples, see: https://github.com/erraggy/oastools
 //
