@@ -125,8 +125,10 @@ make check  # Runs tidy, fmt, lint, test
 | Severity | Criteria | Action |
 |----------|----------|--------|
 | **Critical** | Bugs, security vulnerabilities, breaking changes, test failures, data corruption risk | Must fix before merge |
-| **Warning** | Standards violations, missing tests, potential issues, poor error handling | Should fix |
-| **Suggestion** | Style improvements, refactoring opportunities, optional enhancements | Consider |
+| **Warning** | Standards violations, missing tests, potential issues, poor error handling | Must fix before merge |
+| **Suggestion** | Style improvements, refactoring opportunities, optional enhancements | Consider (optional) |
+
+> **Note:** Both "Critical" and "Warning" items are **requirements**. The Developer agent is expected to address all items marked "should fix" or higher. Only "Suggestion" items are truly optional. This prevents additional review cycles from external reviewers (like GitHub Copilot) catching issues that were already identified.
 
 ## Project-Specific Checks
 

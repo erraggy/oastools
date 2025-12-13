@@ -72,6 +72,23 @@ For each phase in the implementation plan:
 ### After Final Phase
 Invoke the **Maintainer agent** for comprehensive code review.
 
+## Responding to Maintainer Reviews
+
+When the Maintainer agent provides a code review, you **must** address all findings based on severity:
+
+| Maintainer Severity | Your Action |
+|---------------------|-------------|
+| **Critical** | Must fix immediately |
+| **Warning** ("should fix") | Must fix immediately |
+| **Suggestion** | Optional - use judgment |
+
+> **Important:** "Warning" items marked "should fix" are **requirements**, not suggestions. Failing to address them leads to additional review cycles when external reviewers (like GitHub Copilot) catch the same issues. Fix all warnings before considering the work complete.
+
+If you **disagree** with a finding:
+1. Explain your reasoning clearly
+2. Ask the user for a decision
+3. Do NOT skip the fix without explicit user approval
+
 ## Implementation Standards
 
 ### Code Style
