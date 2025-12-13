@@ -131,6 +131,55 @@ type ParseResult struct {
 	Stats DocumentStats
 }
 
+// OAS2Document returns the parsed document as an OAS2Document if the specification
+// is version 2.0 (Swagger), and a boolean indicating whether the type assertion succeeded.
+// This is a convenience method that provides a safe type assertion pattern.
+//
+// Example:
+//
+//	result, _ := parser.ParseWithOptions(parser.WithFilePath("swagger.yaml"))
+//	if doc, ok := result.OAS2Document(); ok {
+//	    fmt.Println("API Title:", doc.Info.Title)
+//	}
+func (pr *ParseResult) OAS2Document() (*OAS2Document, bool) {
+	doc, ok := pr.Document.(*OAS2Document)
+	return doc, ok
+}
+
+// OAS3Document returns the parsed document as an OAS3Document if the specification
+// is version 3.x, and a boolean indicating whether the type assertion succeeded.
+// This is a convenience method that provides a safe type assertion pattern.
+//
+// Example:
+//
+//	result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
+//	if doc, ok := result.OAS3Document(); ok {
+//	    fmt.Println("API Title:", doc.Info.Title)
+//	}
+func (pr *ParseResult) OAS3Document() (*OAS3Document, bool) {
+	doc, ok := pr.Document.(*OAS3Document)
+	return doc, ok
+}
+
+// IsOAS2 returns true if the parsed document is an OpenAPI 2.0 (Swagger) specification.
+// This is a convenience method for checking the document version without type assertions.
+func (pr *ParseResult) IsOAS2() bool {
+	return pr.OASVersion == OASVersion20
+}
+
+// IsOAS3 returns true if the parsed document is an OpenAPI 3.x specification
+// (including 3.0.x, 3.1.x, and 3.2.x).
+// This is a convenience method for checking the document version without type assertions.
+func (pr *ParseResult) IsOAS3() bool {
+	switch pr.OASVersion {
+	case OASVersion300, OASVersion301, OASVersion302, OASVersion303, OASVersion304,
+		OASVersion310, OASVersion311, OASVersion312, OASVersion320:
+		return true
+	default:
+		return false
+	}
+}
+
 // Copy creates a deep copy of the ParseResult, including all nested documents and data.
 // This is useful when you need to modify a parsed document without affecting the original.
 //

@@ -182,7 +182,8 @@ paths:
 	assert.Contains(t, result.Fixes[0].Description, "userId")
 
 	// Verify the parameter was added
-	doc := result.Document.(*parser.OAS3Document)
+	doc, ok := result.Document.(*parser.OAS3Document)
+	require.True(t, ok, "expected OAS3Document")
 	pathItem := doc.Paths["/users/{userId}"]
 	require.NotNil(t, pathItem)
 	require.NotNil(t, pathItem.Get)
@@ -223,7 +224,8 @@ paths:
 	assert.Equal(t, 2, result.FixCount)
 
 	// Find the parameters
-	doc := result.Document.(*parser.OAS3Document)
+	doc, ok := result.Document.(*parser.OAS3Document)
+	require.True(t, ok, "expected OAS3Document")
 	params := doc.Paths["/users/{userId}/documents/{documentUuid}"].Get.Parameters
 	require.Len(t, params, 2)
 
@@ -265,7 +267,8 @@ paths:
 	assert.Equal(t, 1, result.FixCount)
 
 	// Verify the parameter was added with OAS 2.0 style (type directly on param)
-	doc := result.Document.(*parser.OAS2Document)
+	doc, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok, "expected OAS2Document")
 	pathItem := doc.Paths["/users/{userId}"]
 	require.NotNil(t, pathItem)
 	require.NotNil(t, pathItem.Get)

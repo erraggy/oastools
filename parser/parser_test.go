@@ -516,3 +516,187 @@ func TestParseResultCopyPreservesMetadata(t *testing.T) {
 	assert.Equal(t, original.Stats.OperationCount, copied.Stats.OperationCount)
 	assert.Equal(t, original.Stats.SchemaCount, copied.Stats.SchemaCount)
 }
+
+func TestOAS2Document(t *testing.T) {
+	t.Run("returns document for OAS 2.0 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-2.0.yaml"),
+		)
+		require.NoError(t, err)
+
+		doc, ok := result.OAS2Document()
+		assert.True(t, ok, "OAS2Document should return true for 2.0 spec")
+		assert.NotNil(t, doc, "Document should not be nil")
+		assert.Equal(t, "Petstore API", doc.Info.Title)
+	})
+
+	t.Run("returns false for OAS 3.0 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-3.0.yaml"),
+		)
+		require.NoError(t, err)
+
+		doc, ok := result.OAS2Document()
+		assert.False(t, ok, "OAS2Document should return false for 3.0 spec")
+		assert.Nil(t, doc, "Document should be nil for 3.0 spec")
+	})
+}
+
+func TestOAS3Document(t *testing.T) {
+	t.Run("returns document for OAS 3.x spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-3.0.yaml"),
+		)
+		require.NoError(t, err)
+
+		doc, ok := result.OAS3Document()
+		assert.True(t, ok, "OAS3Document should return true for 3.x spec")
+		assert.NotNil(t, doc, "Document should not be nil")
+		assert.Equal(t, "Petstore API", doc.Info.Title)
+	})
+
+	t.Run("returns false for OAS 2.0 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-2.0.yaml"),
+		)
+		require.NoError(t, err)
+
+		doc, ok := result.OAS3Document()
+		assert.False(t, ok, "OAS3Document should return false for 2.0 spec")
+		assert.Nil(t, doc, "Document should be nil for 2.0 spec")
+	})
+
+	t.Run("works with OAS 3.1 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-3.1.yaml"),
+		)
+		require.NoError(t, err)
+
+		doc, ok := result.OAS3Document()
+		assert.True(t, ok, "OAS3Document should return true for 3.1 spec")
+		assert.NotNil(t, doc)
+	})
+
+	t.Run("works with OAS 3.2 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-3.2.yaml"),
+		)
+		require.NoError(t, err)
+
+		doc, ok := result.OAS3Document()
+		assert.True(t, ok, "OAS3Document should return true for 3.2 spec")
+		assert.NotNil(t, doc)
+	})
+}
+
+func TestIsOAS2(t *testing.T) {
+	t.Run("returns true for OAS 2.0 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-2.0.yaml"),
+		)
+		require.NoError(t, err)
+
+		assert.True(t, result.IsOAS2(), "IsOAS2 should return true for 2.0 spec")
+	})
+
+	t.Run("returns false for OAS 3.0 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-3.0.yaml"),
+		)
+		require.NoError(t, err)
+
+		assert.False(t, result.IsOAS2(), "IsOAS2 should return false for 3.0 spec")
+	})
+
+	t.Run("returns false for OAS 3.1 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-3.1.yaml"),
+		)
+		require.NoError(t, err)
+
+		assert.False(t, result.IsOAS2(), "IsOAS2 should return false for 3.1 spec")
+	})
+
+	t.Run("returns false for OAS 3.2 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-3.2.yaml"),
+		)
+		require.NoError(t, err)
+
+		assert.False(t, result.IsOAS2(), "IsOAS2 should return false for 3.2 spec")
+	})
+}
+
+func TestIsOAS3(t *testing.T) {
+	t.Run("returns false for OAS 2.0 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-2.0.yaml"),
+		)
+		require.NoError(t, err)
+
+		assert.False(t, result.IsOAS3(), "IsOAS3 should return false for 2.0 spec")
+	})
+
+	t.Run("returns true for OAS 3.0 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-3.0.yaml"),
+		)
+		require.NoError(t, err)
+
+		assert.True(t, result.IsOAS3(), "IsOAS3 should return true for 3.0 spec")
+	})
+
+	t.Run("returns true for OAS 3.1 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-3.1.yaml"),
+		)
+		require.NoError(t, err)
+
+		assert.True(t, result.IsOAS3(), "IsOAS3 should return true for 3.1 spec")
+	})
+
+	t.Run("returns true for OAS 3.2 spec", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-3.2.yaml"),
+		)
+		require.NoError(t, err)
+
+		assert.True(t, result.IsOAS3(), "IsOAS3 should return true for 3.2 spec")
+	})
+
+	t.Run("returns false for unknown version", func(t *testing.T) {
+		// Create a ParseResult with an unknown OASVersion
+		result := &ParseResult{
+			OASVersion: Unknown,
+		}
+		assert.False(t, result.IsOAS3(), "IsOAS3 should return false for unknown version")
+	})
+}
+
+func TestIsOAS3AllVersions(t *testing.T) {
+	// Test all known OAS 3.x versions return true for IsOAS3
+	oas3Versions := []struct {
+		version    OASVersion
+		versionStr string
+	}{
+		{OASVersion300, "3.0.0"},
+		{OASVersion301, "3.0.1"},
+		{OASVersion302, "3.0.2"},
+		{OASVersion303, "3.0.3"},
+		{OASVersion304, "3.0.4"},
+		{OASVersion310, "3.1.0"},
+		{OASVersion311, "3.1.1"},
+		{OASVersion312, "3.1.2"},
+		{OASVersion320, "3.2.0"},
+	}
+
+	for _, tt := range oas3Versions {
+		t.Run("OAS_"+tt.versionStr, func(t *testing.T) {
+			result := &ParseResult{
+				OASVersion: tt.version,
+			}
+			assert.True(t, result.IsOAS3(), "IsOAS3 should return true for %s", tt.versionStr)
+			assert.False(t, result.IsOAS2(), "IsOAS2 should return false for %s", tt.versionStr)
+		})
+	}
+}

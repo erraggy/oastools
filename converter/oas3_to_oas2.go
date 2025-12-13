@@ -8,7 +8,7 @@ import (
 
 // convertOAS3ToOAS2 converts an OAS 3.x document to OAS 2.0
 func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *ConversionResult) error {
-	src, ok := parseResult.Document.(*parser.OAS3Document)
+	src, ok := parseResult.OAS3Document()
 	if !ok {
 		return fmt.Errorf("source document is not an OAS3Document")
 	}

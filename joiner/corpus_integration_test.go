@@ -70,7 +70,7 @@ func TestCorpus_JoinPetstoreWithSelf(t *testing.T) {
 
 	// Should have same number of paths as original
 	doc := joinResult.Document.(*parser.OAS2Document)
-	origDoc := result1.Document.(*parser.OAS2Document)
+	origDoc, _ := result1.OAS2Document()
 
 	assert.Equal(t, len(origDoc.Paths), len(doc.Paths),
 		"Joined doc should have same paths as original")
@@ -129,7 +129,7 @@ func TestCorpus_JoinPreservesInfo(t *testing.T) {
 	require.NotNil(t, joinResult)
 
 	doc := joinResult.Document.(*parser.OAS3Document)
-	origDoc := result1.Document.(*parser.OAS3Document)
+	origDoc, _ := result1.OAS3Document()
 
 	assert.Equal(t, origDoc.Info.Title, doc.Info.Title, "Title should be preserved")
 }

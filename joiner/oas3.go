@@ -9,7 +9,7 @@ import (
 // joinOAS3Documents joins multiple OAS 3.x documents
 func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, error) {
 	// Start with a copy of the first document
-	baseDoc := docs[0].Document.(*parser.OAS3Document)
+	baseDoc, _ := docs[0].OAS3Document()
 
 	result := &JoinResult{
 		Version:       docs[0].Version,
@@ -56,7 +56,7 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	// Merge all documents
 	for i, doc := range docs {
-		oas3Doc := doc.Document.(*parser.OAS3Document)
+		oas3Doc, _ := doc.OAS3Document()
 		ctx := documentContext{
 			filePath: doc.SourcePath,
 			docIndex: i,

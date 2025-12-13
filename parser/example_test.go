@@ -143,3 +143,28 @@ func Example_deepCopy() {
 	// Original title: Petstore API
 	// Copy title: Modified Petstore API
 }
+
+// Example_documentTypeHelpers demonstrates using the type assertion helper methods
+// to safely extract version-specific documents and check document versions.
+func Example_documentTypeHelpers() {
+	// Parse an OAS 3.x document
+	result, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Use IsOAS2/IsOAS3 for version checking without type assertions
+	fmt.Printf("Is OAS 2.0: %v\n", result.IsOAS2())
+	fmt.Printf("Is OAS 3.x: %v\n", result.IsOAS3())
+
+	// Use OAS3Document for safe type assertion
+	if doc, ok := result.OAS3Document(); ok {
+		fmt.Printf("API Title: %s\n", doc.Info.Title)
+	}
+	// Output:
+	// Is OAS 2.0: false
+	// Is OAS 3.x: true
+	// API Title: Petstore API
+}
