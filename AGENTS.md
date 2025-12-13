@@ -157,6 +157,7 @@ validator/        - Validate OAS against spec schema
 fixer/            - Automatically fix common validation errors
 converter/        - Convert between OAS versions
 joiner/           - Join multiple OAS files
+overlay/          - Apply OpenAPI Overlay transformations
 differ/           - Compare and diff OAS files
 generator/        - Generate Go code from OAS files
 builder/          - Build OAS documents programmatically

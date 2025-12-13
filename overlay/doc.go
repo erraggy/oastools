@@ -62,6 +62,21 @@
 //   - Wildcards: $.paths.*, $.paths.*.*
 //   - Array indices: $.servers[0], $.servers[-1]
 //   - Simple filters: $.paths[?@.x-internal==true]
+//   - Compound filters: $.paths[?@.deprecated==true && @.x-internal==false]
+//   - Recursive descent: $..description (find all descriptions at any depth)
+//
+// # Dry-Run Preview
+//
+// Preview overlay changes without modifying the document:
+//
+//	result, _ := overlay.DryRunWithOptions(
+//	    overlay.WithSpecFilePath("openapi.yaml"),
+//	    overlay.WithOverlayFilePath("changes.yaml"),
+//	)
+//	for _, change := range result.Changes {
+//	    fmt.Printf("Would %s %d nodes at %s\n",
+//	        change.Operation, change.MatchCount, change.Target)
+//	}
 //
 // # Validation
 //

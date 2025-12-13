@@ -57,6 +57,20 @@
 //
 // See the exported ConversionResult and ConversionIssue types for complete details.
 //
+// # Overlay Integration
+//
+// Apply overlays before or after conversion:
+//
+//	result, err := converter.ConvertWithOptions(
+//	    converter.WithFilePath("swagger.yaml"),
+//	    converter.WithTargetVersion("3.0.3"),
+//	    converter.WithPreConversionOverlayFile("fix-v2.yaml"),   // Fix v2-specific issues
+//	    converter.WithPostConversionOverlayFile("enhance.yaml"), // Add v3-specific extensions
+//	)
+//
+// Pre-conversion overlays are useful for normalizing or fixing the source document.
+// Post-conversion overlays can add version-specific extensions to the result.
+//
 // # Related Packages
 //
 // Conversion integrates with other oastools packages:
@@ -67,4 +81,5 @@
 //   - [github.com/erraggy/oastools/differ] - Compare original and converted specifications
 //   - [github.com/erraggy/oastools/generator] - Generate code from converted specifications
 //   - [github.com/erraggy/oastools/builder] - Programmatically build specifications
+//   - [github.com/erraggy/oastools/overlay] - Apply overlay transformations
 package converter
