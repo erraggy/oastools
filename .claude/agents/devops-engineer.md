@@ -121,8 +121,8 @@ git checkout main
 # 4. Pull latest changes
 git pull origin main
 
-# 5. Delete local working branch
-git branch -d <branch-name>
+# 5. Delete local working branch (use -D for squash merges)
+git branch -D <branch-name>
 ```
 
 **Example for PR #123 on branch `feat/my-feature`:**
@@ -131,13 +131,13 @@ gh pr merge 123 --squash --admin
 git push origin --delete feat/my-feature
 git checkout main
 git pull origin main
-git branch -d feat/my-feature
+git branch -D feat/my-feature
 ```
 
 **Flags explained:**
 - `--squash` - Combines all commits into one clean commit
 - `--admin` - Bypasses branch protection (maintainer privilege)
-- `-d` - Safe delete (only if branch is fully merged)
+- `-D` - Force delete (required after squash merge—original commits aren't in main's history)
 
 ### Semantic Versioning
 
