@@ -2,7 +2,7 @@
 name: developer
 description: Go developer for implementing code changes, writing tests, and fixing bugs. Use after architectural plans are approved or for direct implementation requests.
 tools: Read, Edit, Write, Grep, Glob, Bash
-model: inherit
+model: opus
 ---
 
 # Developer Agent

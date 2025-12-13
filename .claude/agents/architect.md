@@ -2,7 +2,7 @@
 name: architect
 description: Expert software architect for planning features, designing APIs, and architectural decisions. Use when starting new features, planning refactors, or making complex multi-package changes.
 tools: Read, Grep, Glob, Bash
-model: sonnet
+model: opus
 ---
 
 # Architect Agent
