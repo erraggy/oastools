@@ -1,0 +1,8 @@
+overlay: 1.0.0
+info:
+  title: Invalid JSONPath Overlay
+  version: 1.0.0
+actions:
+  - target: $[invalid[[syntax
+    update:
+      title: Updated

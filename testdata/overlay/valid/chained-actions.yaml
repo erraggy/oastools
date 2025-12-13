@@ -1,0 +1,18 @@
+overlay: 1.0.0
+info:
+  title: Chained Actions Overlay
+  version: 1.0.0
+actions:
+  - target: $.info
+    description: Update title
+    update:
+      title: Enhanced API
+  - target: $.info
+    description: Add contact info
+    update:
+      contact:
+        name: API Team
+        email: api@example.com
+  - target: $.paths[?@.x-deprecated==true]
+    description: Remove deprecated paths
+    remove: true

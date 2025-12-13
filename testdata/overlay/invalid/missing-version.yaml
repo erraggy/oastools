@@ -1,0 +1,7 @@
+info:
+  title: Missing Version Overlay
+  version: 1.0.0
+actions:
+  - target: $.info
+    update:
+      title: Updated

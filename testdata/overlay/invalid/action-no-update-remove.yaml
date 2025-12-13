@@ -1,0 +1,7 @@
+overlay: 1.0.0
+info:
+  title: Action Without Update or Remove
+  version: 1.0.0
+actions:
+  - target: $.info
+    description: This action has no update or remove

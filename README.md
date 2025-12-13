@@ -15,7 +15,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 
 - **Minimal Dependencies** - Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4) and [`golang.org/x/tools`](https://pkg.go.dev/golang.org/x/tools) at runtime
 - **Battle-Tested** - 820+ tests against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
-- **Complete Toolset** - 9 packages covering the full OpenAPI lifecycle
+- **Complete Toolset** - 10 packages covering the full OpenAPI lifecycle
 - **Performance Optimized** - 120+ benchmarks; pre-parsed workflows 9-150x faster
 - **Type-Safe Cloning** - Generated `DeepCopy()` methods preserve types across OAS versions (no JSON marshal hacks)
 - **Enterprise Ready** - Structured errors with `errors.Is()`/`errors.As()`, pluggable logging, configurable resource limits
@@ -30,6 +30,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 | [fixer](https://pkg.go.dev/github.com/erraggy/oastools/fixer)         | Auto-fix common validation errors                      |
 | [converter](https://pkg.go.dev/github.com/erraggy/oastools/converter) | Convert between OAS 2.0 and 3.x                        |
 | [joiner](https://pkg.go.dev/github.com/erraggy/oastools/joiner)       | Merge multiple OAS documents                           |
+| [overlay](https://pkg.go.dev/github.com/erraggy/oastools/overlay)     | Apply OpenAPI Overlay transformations                  |
 | [differ](https://pkg.go.dev/github.com/erraggy/oastools/differ)       | Detect breaking changes between versions               |
 | [generator](https://pkg.go.dev/github.com/erraggy/oastools/generator) | Generate Go client/server code with security support   |
 | [builder](https://pkg.go.dev/github.com/erraggy/oastools/builder)     | Programmatically construct OAS documents               |
@@ -86,6 +87,9 @@ oastools generate --client --oauth2-flows --readme -o ./client -p api openapi.ya
 # Merge multiple specs
 oastools join -o merged.yaml base.yaml extensions.yaml
 
+# Apply overlays for environment-specific customizations
+oastools overlay apply -s openapi.yaml production.yaml -o production-api.yaml
+
 # Pipeline support
 cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
 oastools validate --format json openapi.yaml | jq '.valid'
@@ -98,6 +102,7 @@ import (
     "github.com/erraggy/oastools/parser"
     "github.com/erraggy/oastools/validator"
     "github.com/erraggy/oastools/differ"
+    "github.com/erraggy/oastools/overlay"
 )
 
 // Parse
@@ -110,6 +115,12 @@ vResult, _ := validator.ValidateWithOptions(validator.WithFilePath("api.yaml"))
 dResult, _ := differ.DiffWithOptions(
     differ.WithSourceFilePath("v1.yaml"),
     differ.WithTargetFilePath("v2.yaml"),
+)
+
+// Overlay
+oResult, _ := overlay.ApplyWithOptions(
+    overlay.WithSpecFilePath("api.yaml"),
+    overlay.WithOverlayFilePath("production.yaml"),
 )
 ```
 

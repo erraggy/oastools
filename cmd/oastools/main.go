@@ -60,6 +60,11 @@ func main() {
 			cliutil.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+	case "overlay":
+		if err := commands.HandleOverlay(os.Args[2:]); err != nil {
+			cliutil.Writef(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		cliutil.Writef(os.Stderr, "Unknown command: %s\n\n", command)
 		printUsage()
@@ -80,6 +85,7 @@ Commands:
   diff        Compare two OpenAPI specifications and detect changes
   generate    Generate Go client/server code from an OpenAPI specification
   join        Join multiple OpenAPI specification files
+  overlay     Apply or validate OpenAPI Overlay documents
   parse       Parse and display an OpenAPI specification file or URL
   version     Show version information
   help        Show this help message
@@ -92,6 +98,7 @@ Examples:
   oastools diff --breaking api-v1.yaml api-v2.yaml
   oastools generate --client -o ./client openapi.yaml
   oastools join -o merged.yaml base.yaml extensions.yaml
+  oastools overlay apply -s openapi.yaml changes.yaml -o production.yaml
   oastools parse https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.yaml
 
 Run 'oastools <command> --help' for more information on a command.`)

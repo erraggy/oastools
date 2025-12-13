@@ -459,6 +459,7 @@ All core packages are public:
 - `github.com/erraggy/oastools/fixer` - Fix common validation errors automatically
 - `github.com/erraggy/oastools/joiner` - Join multiple OpenAPI specifications
 - `github.com/erraggy/oastools/converter` - Convert between OpenAPI specification versions
+- `github.com/erraggy/oastools/overlay` - Apply OpenAPI Overlay transformations
 - `github.com/erraggy/oastools/differ` - Compare and diff OpenAPI specifications
 
 ### API Design Philosophy
@@ -503,6 +504,13 @@ Use struct-based API for: multiple files, reusable instances, advanced configura
 - Configuration: `InferTypes` (infer parameter types from naming conventions)
 - Returns FixResult with list of applied fixes and fixed document
 
+**Overlay Package:**
+- Functional options: `overlay.ApplyWithOptions(overlay.WithSpecFilePath(...), overlay.WithOverlayFilePath(...), ...)`
+- Struct-based: `overlay.NewApplier()`, `Applier.Apply()`, `Applier.ApplyParsed()`
+- Configuration: `StrictTargets` (fail if any target matches nothing)
+- Parsing: `overlay.ParseOverlay()`, `overlay.ParseOverlayFile()`, `overlay.Validate()`
+- Returns ApplyResult with ActionsApplied, ActionsSkipped, Changes, Warnings
+
 ### Usage Examples
 
 **Quick operations:**
@@ -542,6 +550,12 @@ result, _ := fixer.FixWithOptions(
     fixer.WithFilePath("openapi.yaml"),
     fixer.WithInferTypes(true),
 )
+
+// Overlay
+result, _ := overlay.ApplyWithOptions(
+    overlay.WithSpecFilePath("openapi.yaml"),
+    overlay.WithOverlayFilePath("production.yaml"),
+)
 ```
 
 **Reusable instances:**
@@ -576,4 +590,10 @@ f := fixer.New()
 f.InferTypes = true
 result1, _ := f.Fix("api1.yaml")
 result2, _ := f.Fix("api2.yaml")
+
+// Overlay applier with strict mode
+a := overlay.NewApplier()
+a.StrictTargets = true
+result1, _ := a.Apply("api1.yaml", "overlay1.yaml")
+result2, _ := a.Apply("api2.yaml", "overlay2.yaml")
 ```
