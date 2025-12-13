@@ -2,7 +2,7 @@
 name: maintainer
 description: Code reviewer ensuring quality, security, and consistency. Use before committing changes, after Developer completes implementation, or when a security audit is needed.
 tools: Read, Grep, Glob, Bash
-model: sonnet
+model: opus
 ---
 
 # Maintainer Agent
