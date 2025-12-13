@@ -122,6 +122,36 @@ func applyOptions(opts ...Option) (*applyConfig, error) {
 	return cfg, nil
 }
 
+// loadInputs parses the specification and overlay from the configuration.
+func loadInputs(cfg *applyConfig) (*parser.ParseResult, *Overlay, error) {
+	var spec *parser.ParseResult
+	var o *Overlay
+	var err error
+
+	// Get specification
+	if cfg.specFilePath != nil {
+		p := parser.New()
+		spec, err = p.Parse(*cfg.specFilePath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("overlay: failed to parse specification: %w", err)
+		}
+	} else {
+		spec = cfg.specParsed
+	}
+
+	// Get overlay
+	if cfg.overlayFilePath != nil {
+		o, err = ParseOverlayFile(*cfg.overlayFilePath)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		o = cfg.overlayParsed
+	}
+
+	return spec, o, nil
+}
+
 // ApplyWithOptions applies an overlay to a specification using functional options.
 //
 // This is the recommended API for most use cases. It provides a clean, fluent
@@ -140,33 +170,11 @@ func ApplyWithOptions(opts ...Option) (*ApplyResult, error) {
 		return nil, fmt.Errorf("overlay: invalid options: %w", err)
 	}
 
-	// Create applier with configuration
-	a := &Applier{
-		StrictTargets: cfg.strictTargets,
+	spec, o, err := loadInputs(cfg)
+	if err != nil {
+		return nil, err
 	}
 
-	// Get specification
-	var spec *parser.ParseResult
-	if cfg.specFilePath != nil {
-		p := parser.New()
-		spec, err = p.Parse(*cfg.specFilePath)
-		if err != nil {
-			return nil, fmt.Errorf("overlay: failed to parse specification: %w", err)
-		}
-	} else {
-		spec = cfg.specParsed
-	}
-
-	// Get overlay
-	var o *Overlay
-	if cfg.overlayFilePath != nil {
-		o, err = ParseOverlayFile(*cfg.overlayFilePath)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		o = cfg.overlayParsed
-	}
-
+	a := &Applier{StrictTargets: cfg.strictTargets}
 	return a.ApplyParsed(spec, o)
 }

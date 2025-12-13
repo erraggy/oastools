@@ -105,3 +105,52 @@ func (r *ApplyResult) HasChanges() bool {
 func (r *ApplyResult) HasWarnings() bool {
 	return len(r.Warnings) > 0
 }
+
+// DryRunResult contains the result of a dry-run overlay preview.
+//
+// A dry-run evaluates the overlay without modifying the document,
+// allowing users to see what changes would be made.
+type DryRunResult struct {
+	// WouldApply is the number of actions that would be successfully applied.
+	WouldApply int
+
+	// WouldSkip is the number of actions that would be skipped (e.g., no matches).
+	WouldSkip int
+
+	// Changes lists the proposed changes that would be made.
+	Changes []ProposedChange
+
+	// Warnings contains non-fatal issues that would occur during application.
+	Warnings []string
+}
+
+// ProposedChange describes a change that would be made during overlay application.
+type ProposedChange struct {
+	// ActionIndex is the zero-based index of the action in the overlay.
+	ActionIndex int
+
+	// Target is the JSONPath expression that was evaluated.
+	Target string
+
+	// Description is the action's description, if provided.
+	Description string
+
+	// Operation describes what would be done: "update", "remove", "replace", or "append".
+	Operation string
+
+	// MatchCount is the number of nodes that would be affected.
+	MatchCount int
+
+	// MatchedPaths lists the JSONPath locations of matched nodes (up to 10).
+	MatchedPaths []string
+}
+
+// HasChanges returns true if any changes would be made.
+func (r *DryRunResult) HasChanges() bool {
+	return r.WouldApply > 0
+}
+
+// HasWarnings returns true if any warnings would occur.
+func (r *DryRunResult) HasWarnings() bool {
+	return len(r.Warnings) > 0
+}

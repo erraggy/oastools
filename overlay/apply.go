@@ -6,6 +6,7 @@ import (
 
 	"github.com/erraggy/oastools/internal/jsonpath"
 	"github.com/erraggy/oastools/parser"
+	"go.yaml.in/yaml/v4"
 )
 
 // Applier applies overlays to OpenAPI documents.
@@ -53,10 +54,7 @@ func (a *Applier) ApplyParsed(spec *parser.ParseResult, o *Overlay) (*ApplyResul
 	}
 
 	// Deep copy the document to avoid modifying the original
-	doc, err := deepCopy(spec.Document)
-	if err != nil {
-		return nil, fmt.Errorf("overlay: failed to copy document: %w", err)
-	}
+	doc := deepCopy(spec.Document)
 
 	result := &ApplyResult{
 		Document:     doc,
@@ -89,6 +87,117 @@ func (a *Applier) ApplyParsed(spec *parser.ParseResult, o *Overlay) (*ApplyResul
 	}
 
 	return result, nil
+}
+
+// DryRun previews overlay application without modifying the document.
+//
+// This method evaluates the overlay against the specification and returns
+// information about what changes would be made, without actually applying them.
+// Useful for previewing changes before committing to them.
+func (a *Applier) DryRun(spec *parser.ParseResult, o *Overlay) (*DryRunResult, error) {
+	// Validate overlay first
+	if errs := Validate(o); len(errs) > 0 {
+		return nil, errs[0]
+	}
+
+	// Work with a copy to avoid any side effects
+	doc := deepCopy(spec.Document)
+
+	result := &DryRunResult{}
+
+	for i, action := range o.Actions {
+		change, err := a.previewAction(doc, action, i)
+		if err != nil {
+			result.Warnings = append(result.Warnings, err.Error())
+			result.WouldSkip++
+			continue
+		}
+
+		if change.MatchCount == 0 {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("action[%d] target %q would match no nodes", i, action.Target))
+			result.WouldSkip++
+			continue
+		}
+
+		result.Changes = append(result.Changes, *change)
+		result.WouldApply++
+	}
+
+	return result, nil
+}
+
+// previewAction previews what a single action would do.
+func (a *Applier) previewAction(doc any, action Action, index int) (*ProposedChange, error) {
+	path, err := jsonpath.Parse(action.Target)
+	if err != nil {
+		return nil, &ApplyError{
+			ActionIndex: index,
+			Target:      action.Target,
+			Cause:       fmt.Errorf("invalid JSONPath: %w", err),
+		}
+	}
+
+	change := &ProposedChange{
+		ActionIndex: index,
+		Target:      action.Target,
+		Description: action.Description,
+	}
+
+	// Get matches
+	matches := path.Get(doc)
+	change.MatchCount = len(matches)
+
+	// Determine operation type
+	if action.Remove {
+		change.Operation = "remove"
+	} else if action.Update != nil {
+		// Peek at first match to determine operation type
+		if len(matches) > 0 {
+			switch target := matches[0].(type) {
+			case map[string]any:
+				if _, ok := action.Update.(map[string]any); ok {
+					change.Operation = "update"
+				} else {
+					change.Operation = "replace"
+				}
+			case []any:
+				change.Operation = "append"
+				_ = target // use variable
+			default:
+				change.Operation = "replace"
+			}
+		} else {
+			change.Operation = "update" // Default for no matches
+		}
+	}
+
+	return change, nil
+}
+
+// DryRunWithOptions previews overlay application using functional options.
+//
+// Example:
+//
+//	result, err := overlay.DryRunWithOptions(
+//	    overlay.WithSpecFilePath("openapi.yaml"),
+//	    overlay.WithOverlayFilePath("changes.yaml"),
+//	)
+//	for _, change := range result.Changes {
+//	    fmt.Printf("Would %s %d nodes at %s\n", change.Operation, change.MatchCount, change.Target)
+//	}
+func DryRunWithOptions(opts ...Option) (*DryRunResult, error) {
+	cfg, err := applyOptions(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("overlay: invalid options: %w", err)
+	}
+
+	spec, o, err := loadInputs(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	a := &Applier{StrictTargets: cfg.strictTargets}
+	return a.DryRun(spec, o)
 }
 
 // applyAction applies a single action to the document.
@@ -186,19 +295,109 @@ func mergeDeep(target, source map[string]any) map[string]any {
 	return target
 }
 
-// deepCopy creates a deep copy of a document using JSON marshaling.
+// deepCopy creates a deep copy of a document using recursive copying.
 //
 // This ensures the original document is not modified during overlay application.
-func deepCopy(doc any) (any, error) {
+// Unlike JSON marshal/unmarshal, this preserves exact types and float precision.
+func deepCopy(doc any) any {
+	return deepCopyValue(doc)
+}
+
+// deepCopyValue recursively copies a value.
+func deepCopyValue(v any) any {
+	if v == nil {
+		return nil
+	}
+
+	switch val := v.(type) {
+	case map[string]any:
+		result := make(map[string]any, len(val))
+		for k, v := range val {
+			result[k] = deepCopyValue(v)
+		}
+		return result
+
+	case []any:
+		result := make([]any, len(val))
+		for i, v := range val {
+			result[i] = deepCopyValue(v)
+		}
+		return result
+
+	case string, bool, int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		// Primitives are immutable, return as-is
+		return val
+
+	// Parser types need to be converted to map[string]any for JSONPath navigation.
+	// JSONPath can only traverse unstructured map types, not typed Go structs.
+	case *parser.OAS3Document, *parser.OAS2Document:
+		return typedDocToMap(val)
+
+	default:
+		// For unknown types, return as-is (they may be immutable or
+		// the caller may not need a deep copy for this type)
+		return val
+	}
+}
+
+// typedDocToMap converts a typed parser document to map[string]any.
+// This is necessary because JSONPath can only navigate unstructured maps.
+func typedDocToMap(doc any) map[string]any {
 	data, err := json.Marshal(doc)
 	if err != nil {
-		return nil, err
+		// Fallback: return empty map if marshal fails
+		return make(map[string]any)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return make(map[string]any)
+	}
+	return result
+}
+
+// ParseOverlaySingle is a helper that returns an overlay from either an instance or a file path.
+//
+// This is useful for packages that integrate with overlay support and need to handle
+// both pre-parsed overlays and overlay file paths. If the overlay instance is provided,
+// it is returned directly. If only the file path is provided, the overlay is parsed from the file.
+// Returns nil if neither is provided.
+func ParseOverlaySingle(o *Overlay, file *string) (*Overlay, error) {
+	if o != nil {
+		return o, nil
+	}
+	if file != nil && *file != "" {
+		return ParseOverlayFile(*file)
+	}
+	return nil, nil
+}
+
+// ReparseDocument re-parses an overlaid document to restore typed structures.
+//
+// After overlay application, the document becomes a map[string]any.
+// Packages that need typed documents (*parser.OAS2Document or *parser.OAS3Document)
+// can use this function to serialize to YAML and re-parse to restore the typed structure.
+// The original ParseResult's metadata (SourcePath, SourceFormat) is preserved.
+func ReparseDocument(original *parser.ParseResult, doc any) (*parser.ParseResult, error) {
+	// Serialize the document to YAML
+	data, err := yaml.Marshal(doc)
+	if err != nil {
+		return nil, fmt.Errorf("overlay: failed to marshal document: %w", err)
 	}
 
-	var copy any
-	if err := json.Unmarshal(data, &copy); err != nil {
-		return nil, err
+	// Re-parse with the parser to get typed document
+	p := parser.New()
+	p.ValidateStructure = true
+
+	result, err := p.ParseBytes(data)
+	if err != nil {
+		return nil, fmt.Errorf("overlay: failed to reparse document: %w", err)
 	}
 
-	return copy, nil
+	// Preserve original metadata
+	result.SourcePath = original.SourcePath
+	result.SourceFormat = original.SourceFormat
+
+	return result, nil
 }

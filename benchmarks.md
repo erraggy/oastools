@@ -4,7 +4,7 @@ This document provides detailed performance analysis and benchmark results for t
 
 ## Overview
 
-As of v1.18.0, oastools includes comprehensive performance benchmarking infrastructure covering all major operations across the parser, validator, fixer, converter, joiner, differ, generator, and builder packages. The library has undergone targeted optimizations to achieve significant performance improvements while maintaining correctness and code quality.
+As of v1.18.0, oastools includes comprehensive performance benchmarking infrastructure covering all major operations across the parser, validator, fixer, converter, joiner, differ, generator, builder, and overlay packages. The library has undergone targeted optimizations to achieve significant performance improvements while maintaining correctness and code quality.
 
 **Platform**: Apple M4, darwin/arm64, Go 1.24
 
@@ -124,6 +124,21 @@ The benchmark suite includes **120+ benchmarks** (53 benchmark functions with ma
 - Client code generation
 - Server code generation
 - Full generation (types + client + server)
+
+### Overlay Package (18 benchmarks)
+
+**Overlay Application Operations**:
+- Apply overlays to small, medium, and large documents
+- Apply with in-memory overlays vs file-based
+- ApplyParsed performance (pre-parsed documents)
+- ApplyWithOptions functional API
+- DryRun preview functionality
+
+**JSONPath Operations**:
+- Parse expressions of varying complexity
+- Get operations with wildcards, filters, recursive descent
+- Modify operations for document transformation
+- Compound filter evaluation (&&, ||)
 
 ### Builder Package (17 benchmarks)
 

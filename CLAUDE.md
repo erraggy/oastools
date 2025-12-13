@@ -506,10 +506,13 @@ Use struct-based API for: multiple files, reusable instances, advanced configura
 
 **Overlay Package:**
 - Functional options: `overlay.ApplyWithOptions(overlay.WithSpecFilePath(...), overlay.WithOverlayFilePath(...), ...)`
-- Struct-based: `overlay.NewApplier()`, `Applier.Apply()`, `Applier.ApplyParsed()`
+- Struct-based: `overlay.NewApplier()`, `Applier.Apply()`, `Applier.ApplyParsed()`, `Applier.DryRun()`
 - Configuration: `StrictTargets` (fail if any target matches nothing)
 - Parsing: `overlay.ParseOverlay()`, `overlay.ParseOverlayFile()`, `overlay.Validate()`
+- Preview: `overlay.DryRunWithOptions()` - preview changes without applying
 - Returns ApplyResult with ActionsApplied, ActionsSkipped, Changes, Warnings
+- JSONPath support: recursive descent (`$..field`), compound filters (`&&`, `||`)
+- Integration: Joiner and Converter support pre/post overlays
 
 ### Usage Examples
 

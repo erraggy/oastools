@@ -1,20 +1,22 @@
 // Package jsonpath provides a minimal JSONPath implementation for OpenAPI Overlay support.
 //
 // This package implements a subset of RFC 9535 JSONPath sufficient for OpenAPI Overlay
-// v1.0.0 specification requirements. It supports path navigation, wildcards, and simple
-// filter expressions without external dependencies.
+// v1.0.0 specification requirements. It supports path navigation, wildcards, recursive
+// descent, and filter expressions without external dependencies.
 //
 // Supported syntax:
 //   - $ (root)
 //   - .field or ['field'] (child access)
 //   - .* (wildcard - all children)
+//   - .. (recursive descent - search all descendants)
+//   - ..field (recursive descent for specific field)
 //   - [0] (array index)
-//   - [?@.field==value] (simple equality filter)
+//   - [?@.field==value] (filter with comparison)
+//   - [?@.a==1 && @.b==2] (compound filter with AND)
+//   - [?@.a==1 || @.b==2] (compound filter with OR)
 //
 // Not supported (planned for future):
-//   - .. (recursive descent)
 //   - [start:end:step] (array slicing)
-//   - && and || (complex boolean filters)
 //   - Filter functions like length(), count()
 package jsonpath
 
@@ -73,11 +75,29 @@ type FilterSegment struct {
 
 func (s FilterSegment) segmentType() string { return "filter" }
 
-// FilterExpr represents a simple filter expression.
+// RecursiveSegment represents recursive descent (..).
+// It searches all descendants for matching children.
+type RecursiveSegment struct {
+	// Child is the segment to match at any depth.
+	// For $..name, Child is ChildSegment{Key: "name"}
+	// For $.., Child is nil (match all descendants)
+	Child Segment
+}
+
+func (s RecursiveSegment) segmentType() string { return "recursive" }
+
+// FilterExpr represents a filter expression that can be a simple condition
+// or a compound expression using && or ||.
 type FilterExpr struct {
+	// For simple conditions: @.field op value
 	Field    string // Field path after @ (e.g., "name" for @.name)
 	Operator string // ==, !=, <, >, <=, >=
 	Value    any    // The comparison value (string, number, bool, nil)
+
+	// For compound expressions: left && right or left || right
+	Left    *FilterExpr // Left operand (nil for simple conditions)
+	Right   *FilterExpr // Right operand (nil for simple conditions)
+	LogicOp string      // "&&" or "||" (empty for simple conditions)
 }
 
 // Parse parses a JSONPath expression string into a Path.
@@ -131,11 +151,21 @@ func (p *parser) parse() ([]Segment, error) {
 		switch ch {
 		case '.':
 			p.advance()
-			seg, err := p.parseDotSegment()
-			if err != nil {
-				return nil, err
+			// Check for recursive descent (..)
+			if p.pos < len(p.input) && p.peek() == '.' {
+				p.advance()
+				seg, err := p.parseRecursiveSegment()
+				if err != nil {
+					return nil, err
+				}
+				segments = append(segments, seg)
+			} else {
+				seg, err := p.parseDotSegment()
+				if err != nil {
+					return nil, err
+				}
+				segments = append(segments, seg)
 			}
-			segments = append(segments, seg)
 
 		case '[':
 			p.advance()
@@ -171,6 +201,47 @@ func (p *parser) parseDotSegment() (Segment, error) {
 	}
 
 	return ChildSegment{Key: key}, nil
+}
+
+// parseRecursiveSegment parses the content after '..'
+// Examples: $..name, $..*
+func (p *parser) parseRecursiveSegment() (Segment, error) {
+	// Check if we're at end of input - bare recursive descent ($.. at end)
+	if p.pos >= len(p.input) {
+		return RecursiveSegment{Child: nil}, nil
+	}
+
+	ch := p.peek()
+
+	// Check for wildcard: $..*
+	if ch == '*' {
+		p.advance()
+		return RecursiveSegment{Child: WildcardSegment{}}, nil
+	}
+
+	// Check for bracket: $..[...]
+	if ch == '[' {
+		p.advance()
+		child, err := p.parseBracketSegment()
+		if err != nil {
+			return nil, err
+		}
+		return RecursiveSegment{Child: child}, nil
+	}
+
+	// Check for identifier: $..name
+	if isIdentifierStart(ch) {
+		key := p.parseIdentifier()
+		return RecursiveSegment{Child: ChildSegment{Key: key}}, nil
+	}
+
+	// Bare recursive descent followed by other segment ($.. followed by . or end)
+	return RecursiveSegment{Child: nil}, nil
+}
+
+// isIdentifierStart returns true if ch can start an identifier
+func isIdentifierStart(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_' || ch == '-'
 }
 
 func (p *parser) parseBracketSegment() (Segment, error) {
@@ -226,8 +297,52 @@ func (p *parser) parseBracketSegment() (Segment, error) {
 }
 
 func (p *parser) parseFilterSegment() (Segment, error) {
-	// Skip optional opening parenthesis (legacy syntax support)
+	// Parse the first condition
+	expr, err := p.parseFilterExpr()
+	if err != nil {
+		return nil, err
+	}
+
+	// Check for compound operators (&& or ||)
+	p.skipWhitespace()
+	for {
+		logicOp := p.parseLogicOperator()
+		if logicOp == "" {
+			break
+		}
+
+		p.skipWhitespace()
+
+		// Parse the next condition
+		right, err := p.parseFilterExpr()
+		if err != nil {
+			return nil, err
+		}
+
+		// Combine into compound expression
+		expr = &FilterExpr{
+			Left:    expr,
+			Right:   right,
+			LogicOp: logicOp,
+		}
+
+		p.skipWhitespace()
+	}
+
+	// Must end with ]
+	if !p.consume(']') {
+		return nil, fmt.Errorf("jsonpath: expected ']' after filter expression")
+	}
+
+	return FilterSegment{Expr: expr}, nil
+}
+
+// parseFilterExpr parses a single filter condition: @.field op value
+func (p *parser) parseFilterExpr() (*FilterExpr, error) {
+	// Skip optional opening parenthesis
 	hadParen := p.consume('(')
+
+	p.skipWhitespace()
 
 	// Skip optional @ at start
 	p.consume('@')
@@ -267,18 +382,23 @@ func (p *parser) parseFilterSegment() (Segment, error) {
 		p.consume(')')
 	}
 
-	// Must end with ]
-	if !p.consume(']') {
-		return nil, fmt.Errorf("jsonpath: expected ']' after filter expression")
-	}
-
-	return FilterSegment{
-		Expr: &FilterExpr{
-			Field:    field,
-			Operator: op,
-			Value:    value,
-		},
+	return &FilterExpr{
+		Field:    field,
+		Operator: op,
+		Value:    value,
 	}, nil
+}
+
+// parseLogicOperator parses && or ||
+func (p *parser) parseLogicOperator() string {
+	if p.pos+1 < len(p.input) {
+		twoChar := p.input[p.pos : p.pos+2]
+		if twoChar == "&&" || twoChar == "||" {
+			p.pos += 2
+			return twoChar
+		}
+	}
+	return ""
 }
 
 func (p *parser) parseIdentifier() string {
