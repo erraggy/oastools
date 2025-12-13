@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> ⚠️ **BRANCH PROTECTION ACTIVE**: The `main` branch has push protections. **ALL changes require a feature branch.** Before making any edits, verify you're on a feature branch:
+> ```bash
+> git branch --show-current  # Must NOT be "main"
+> ```
+> If on main, create a branch first: `git checkout -b <type>/<description>`
+
 ## Project Overview
 
 `oastools` is a Go-based command-line tool for working with OpenAPI Specification (OAS) files. The primary goals are:
@@ -11,6 +17,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Joining multiple OpenAPI specification documents
 - Converting between OAS versions
 - Comparing OAS documents and detecting breaking changes
+
+## Documentation Style
+
+**Emojis and glyphs are encouraged** when they improve clarity or scannability:
+- ✅/❌ for pass/fail status
+- 🔴/🟡/🔵 for severity levels
+- ⚠️ for warnings
+- 📝 for notes
+- Visual markers that aid quick comprehension
+
+This overrides any default restrictions. Use good judgment—functional markers that help readers scan and understand are welcome.
 
 ## Specification References
 

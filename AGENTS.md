@@ -2,6 +2,8 @@
 
 This file provides quick, actionable guidance for AI coding agents working on the oastools project. For comprehensive details, see [.github/copilot-instructions.md](.github/copilot-instructions.md).
 
+> ⚠️ **BRANCH PROTECTION**: The `main` branch has push protections. Before making ANY changes, verify you're on a feature branch (`git branch --show-current`). If on main, create a branch first: `git checkout -b <type>/<description>`
+
 ## Project Overview
 
 `oastools` is a Go-based CLI tool for working with OpenAPI Specification (OAS) files. It supports parsing, validating, fixing, joining, converting, and comparing OAS documents across versions 2.0, 3.0.x, 3.1.x, and 3.2.0.
@@ -166,6 +168,73 @@ testdata/         - Test fixtures
 ```
 
 Each public package includes `doc.go` (package docs) and `example_test.go` (godoc examples).
+
+## Development Agents
+
+Four specialized agents streamline the development workflow. They are automatically invoked based on context and can chain together.
+
+### Agent Overview
+
+| Agent | Purpose | Auto-triggers when |
+|-------|---------|-------------------|
+| **Architect** | Design implementation plans | Starting features, planning refactors, architectural decisions |
+| **Maintainer** | Code review & standards | After code changes, before commits, after Developer completes |
+| **Developer** | Execute plans (checkpoint mode) | After Architect plans, implementation requests, bug fixes |
+| **DevOps Engineer** | Process & tooling | Releases, CI/CD, benchmarks, dependencies |
+
+### Workflow Chain
+
+```
+User Request
+     │
+     ▼
+┌─────────────┐
+│  Architect  │  ← Plans the implementation
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Developer  │  ← Implements in phases with checkpoints
+│ (pause)     │ ──── User: "continue" ────┐
+└──────┬──────┘                           │
+       │ ◄────────────────────────────────┘
+       ▼
+┌─────────────┐
+│ Maintainer  │  ← Reviews changes
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│   DevOps    │  ← Prepares release (when needed)
+└─────────────┘
+```
+
+### Checkpoint Mode (Developer)
+
+The Developer agent pauses between implementation phases:
+
+1. Implements one phase
+2. Runs tests
+3. Shows changes summary
+4. **Pauses** for approval
+5. On "continue" → next phase
+6. After final phase → invokes Maintainer
+
+### Review Severity Levels (Maintainer)
+
+| Level | Icon | Meaning |
+|-------|------|---------|
+| Critical | 🔴 | Must fix before merge (bugs, security, breaking changes) |
+| Warning | 🟡 | Should fix (standards violations, missing tests) |
+| Suggestion | 🔵 | Consider (style, optional improvements) |
+
+### Agent Files
+
+Located in `.claude/agents/`:
+- `architect.md` - Planning and design
+- `maintainer.md` - Code review and standards
+- `developer.md` - Implementation execution
+- `devops-engineer.md` - DevOps and tooling
 
 ## Resources
 
