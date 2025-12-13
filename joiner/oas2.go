@@ -10,7 +10,10 @@ import (
 // joinOAS2Documents joins multiple OAS 2.0 (Swagger) documents
 func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, error) {
 	// Start with a copy of the first document
-	baseDoc := docs[0].Document.(*parser.OAS2Document)
+	baseDoc, ok := docs[0].OAS2Document()
+	if !ok || baseDoc == nil {
+		return nil, fmt.Errorf("joiner: first document is not a valid OAS 2.0 document")
+	}
 
 	result := &JoinResult{
 		Version:       docs[0].Version,
@@ -47,7 +50,10 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	// Merge all documents
 	for i, doc := range docs {
-		oas2Doc := doc.Document.(*parser.OAS2Document)
+		oas2Doc, ok := doc.OAS2Document()
+		if !ok || oas2Doc == nil {
+			return nil, fmt.Errorf("joiner: document at index %d (path: %s) is not a valid OAS 2.0 document", i, doc.SourcePath)
+		}
 		ctx := documentContext{
 			filePath: doc.SourcePath,
 			docIndex: i,

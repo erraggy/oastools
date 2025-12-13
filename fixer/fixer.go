@@ -266,7 +266,7 @@ func (f *Fixer) isFixEnabled(fixType FixType) bool {
 // fixOAS2 applies fixes to an OAS 2.0 document
 func (f *Fixer) fixOAS2(parseResult parser.ParseResult, result *FixResult) (*FixResult, error) {
 	// Extract the OAS 2.0 document from the generic Document field
-	srcDoc, ok := parseResult.Document.(*parser.OAS2Document)
+	srcDoc, ok := parseResult.OAS2Document()
 	if !ok {
 		return nil, fmt.Errorf("fixer: expected *parser.OAS2Document, got %T", parseResult.Document)
 	}
@@ -292,7 +292,7 @@ func (f *Fixer) fixOAS2(parseResult parser.ParseResult, result *FixResult) (*Fix
 // fixOAS3 applies fixes to an OAS 3.x document
 func (f *Fixer) fixOAS3(parseResult parser.ParseResult, result *FixResult) (*FixResult, error) {
 	// Extract the OAS 3.x document from the generic Document field
-	srcDoc, ok := parseResult.Document.(*parser.OAS3Document)
+	srcDoc, ok := parseResult.OAS3Document()
 	if !ok {
 		return nil, fmt.Errorf("fixer: expected *parser.OAS3Document, got %T", parseResult.Document)
 	}

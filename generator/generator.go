@@ -642,20 +642,11 @@ func (g *Generator) GenerateParsed(parseResult parser.ParseResult) (*GenerateRes
 
 	// Create code generator based on OAS version
 	var cg codeGenerator
-	switch {
-	case parseResult.OASVersion == parser.OASVersion20:
-		doc, ok := parseResult.Document.(*parser.OAS2Document)
-		if !ok {
-			return nil, fmt.Errorf("generator: document type mismatch for OAS 2.0")
-		}
+	if doc, ok := parseResult.OAS2Document(); ok {
 		cg = newOAS2CodeGenerator(g, doc, result)
-	case parseResult.OASVersion.IsValid():
-		doc, ok := parseResult.Document.(*parser.OAS3Document)
-		if !ok {
-			return nil, fmt.Errorf("generator: document type mismatch for OAS 3.x")
-		}
+	} else if doc, ok := parseResult.OAS3Document(); ok {
 		cg = newOAS3CodeGenerator(g, doc, result)
-	default:
+	} else {
 		return nil, fmt.Errorf("generator: unsupported OAS version: %s", parseResult.Version)
 	}
 

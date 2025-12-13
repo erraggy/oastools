@@ -442,7 +442,7 @@ func (c *Converter) updateCounts(result *ConversionResult) {
 // convertOAS3ToOAS3 handles version updates within OAS 3.x (e.g., 3.0.3 → 3.1.0)
 func (c *Converter) convertOAS3ToOAS3(parseResult parser.ParseResult, targetVersion parser.OASVersion, result *ConversionResult) error {
 	// For OAS 3.x to 3.y conversions, we primarily just update the version string
-	doc, ok := parseResult.Document.(*parser.OAS3Document)
+	doc, ok := parseResult.OAS3Document()
 	if !ok {
 		return fmt.Errorf("source document is not an OAS3Document")
 	}

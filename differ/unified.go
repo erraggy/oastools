@@ -1741,24 +1741,18 @@ func (d *Differ) diffCrossVersionUnified(source, target parser.ParseResult, resu
 	var sourceInfo, targetInfo *parser.Info
 	var sourcePaths, targetPaths parser.Paths
 
-	switch source.OASVersion {
-	case parser.OASVersion20:
-		doc := source.Document.(*parser.OAS2Document)
+	if doc, ok := source.OAS2Document(); ok {
 		sourceInfo = doc.Info
 		sourcePaths = doc.Paths
-	default:
-		doc := source.Document.(*parser.OAS3Document)
+	} else if doc, ok := source.OAS3Document(); ok {
 		sourceInfo = doc.Info
 		sourcePaths = doc.Paths
 	}
 
-	switch target.OASVersion {
-	case parser.OASVersion20:
-		doc := target.Document.(*parser.OAS2Document)
+	if doc, ok := target.OAS2Document(); ok {
 		targetInfo = doc.Info
 		targetPaths = doc.Paths
-	default:
-		doc := target.Document.(*parser.OAS3Document)
+	} else if doc, ok := target.OAS3Document(); ok {
 		targetInfo = doc.Info
 		targetPaths = doc.Paths
 	}
@@ -1770,11 +1764,16 @@ func (d *Differ) diffCrossVersionUnified(source, target parser.ParseResult, resu
 // diffUnified performs the unified diff that handles both ModeSimple and ModeBreaking
 func (d *Differ) diffUnified(source, target parser.ParseResult, result *DiffResult) {
 	// Compare based on OAS version
+	sourceOAS2, sourceIsOAS2 := source.OAS2Document()
+	targetOAS2, targetIsOAS2 := target.OAS2Document()
+	sourceOAS3, sourceIsOAS3 := source.OAS3Document()
+	targetOAS3, targetIsOAS3 := target.OAS3Document()
+
 	switch {
-	case source.OASVersion == parser.OASVersion20 && target.OASVersion == parser.OASVersion20:
-		d.diffOAS2Unified(source.Document.(*parser.OAS2Document), target.Document.(*parser.OAS2Document), result)
-	case source.OASVersion >= parser.OASVersion300 && target.OASVersion >= parser.OASVersion300:
-		d.diffOAS3Unified(source.Document.(*parser.OAS3Document), target.Document.(*parser.OAS3Document), result)
+	case sourceIsOAS2 && targetIsOAS2:
+		d.diffOAS2Unified(sourceOAS2, targetOAS2, result)
+	case sourceIsOAS3 && targetIsOAS3:
+		d.diffOAS3Unified(sourceOAS3, targetOAS3, result)
 	default:
 		// Cross-version comparison
 		d.diffCrossVersionUnified(source, target, result)

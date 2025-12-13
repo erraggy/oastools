@@ -160,7 +160,8 @@ func TestCorpus_ConvertPreservesInfo(t *testing.T) {
 	p := parser.New()
 	original, err := p.Parse(spec.GetLocalPath())
 	require.NoError(t, err)
-	origDoc := original.Document.(*parser.OAS2Document)
+	origDoc, ok := original.OAS2Document()
+	require.True(t, ok, "Expected OAS2Document")
 
 	// Convert
 	result, err := ConvertWithOptions(
