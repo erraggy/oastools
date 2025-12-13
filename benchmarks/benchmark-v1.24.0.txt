@@ -171,3 +171,49 @@ BenchmarkBuilderFormParams/OAS2-10                      	 2910788	      2056 ns/
 BenchmarkBuilderFormParams/OAS3-10                      	 2553086	      2324 ns/op	   13023 B/op	      81 allocs/op
 PASS
 ok  	github.com/erraggy/oastools/builder	101.316s
+pkg: github.com/erraggy/oastools/overlay
+cpu: Apple M4
+BenchmarkApply/SmallOAS3-10     	   32037	    190509 ns/op	  237792 B/op	    2669 allocs/op
+BenchmarkApply/MediumOAS3-10    	    4200	   1500968 ns/op	 1645818 B/op	   19959 allocs/op
+BenchmarkApply/LargeOAS3-10     	     332	  17840599 ns/op	18962409 B/op	  220065 allocs/op
+BenchmarkApply/SmallOAS3/InMemoryOverlay-10         	  197304	     30474 ns/op	   20802 B/op	     303 allocs/op
+BenchmarkApply/MediumOAS3/InMemoryOverlay-10        	   19369	    310621 ns/op	  172450 B/op	    2269 allocs/op
+BenchmarkApply/LargeOAS3/InMemoryOverlay-10         	    1585	   3762816 ns/op	 1984805 B/op	   24972 allocs/op
+BenchmarkApplyParsed/SmallOAS3-10                   	  211530	     28392 ns/op	   20368 B/op	     287 allocs/op
+BenchmarkApplyParsed/MediumOAS3-10                  	   20365	    295022 ns/op	  172072 B/op	    2253 allocs/op
+BenchmarkApplyParsed/LargeOAS3-10                   	    1645	   3614168 ns/op	 1995905 B/op	   24956 allocs/op
+BenchmarkApplyWithOptions/FilePaths-10              	   35469	    168597 ns/op	  191536 B/op	    2349 allocs/op
+BenchmarkApplyWithOptions/Parsed-10                 	  225445	     26596 ns/op	   20849 B/op	     312 allocs/op
+BenchmarkDryRun/SmallOAS3-10                        	  197522	     30436 ns/op	   20990 B/op	     300 allocs/op
+BenchmarkDryRun/MediumOAS3-10                       	   19329	    310631 ns/op	  172429 B/op	    2266 allocs/op
+BenchmarkDryRun/LargeOAS3-10                        	    1591	   3756727 ns/op	 1982221 B/op	   24968 allocs/op
+BenchmarkRecursiveDescent/LargeOAS3-10              	    1488	   4013844 ns/op	 2114977 B/op	   27315 allocs/op
+BenchmarkCompoundFilters/LargeOAS3-10               	    1644	   3603247 ns/op	 1995336 B/op	   24949 allocs/op
+BenchmarkValidate-10                                	15937669	       374.7 ns/op	     528 B/op	      18 allocs/op
+BenchmarkParseOverlay/FromFile-10                   	  233529	     26534 ns/op	   19272 B/op	     292 allocs/op
+pkg: github.com/erraggy/oastools/internal/jsonpath
+cpu: Apple M4
+BenchmarkParse/Simple-10           	57375477	        87.20 ns/op	     192 B/op	       6 allocs/op
+BenchmarkParse/Bracket-10          	51151404	       118.7 ns/op	     216 B/op	       8 allocs/op
+BenchmarkParse/Wildcard-10         	46916204	       128.6 ns/op	     336 B/op	       8 allocs/op
+BenchmarkParse/Filter-10           	53503930	       110.0 ns/op	     256 B/op	       6 allocs/op
+BenchmarkParse/CompoundFilter-10   	37339730	       163.5 ns/op	     416 B/op	       8 allocs/op
+BenchmarkParse/RecursiveDescent-10 	87700171	        67.97 ns/op	     128 B/op	       5 allocs/op
+BenchmarkParse/Complex-10          	35381791	       170.8 ns/op	     416 B/op	       9 allocs/op
+BenchmarkGet/Simple-10             	100000000	        50.92 ns/op	      48 B/op	       3 allocs/op
+BenchmarkGet/Nested-10             	63611658	        94.58 ns/op	      80 B/op	       5 allocs/op
+BenchmarkGet/Wildcard-10           	53210612	       112.7 ns/op	     144 B/op	       5 allocs/op
+BenchmarkGet/DeepWildcard-10       	13448816	       446.4 ns/op	     752 B/op	      13 allocs/op
+BenchmarkGet/Filter-10             	20438426	       293.3 ns/op	     144 B/op	       5 allocs/op
+BenchmarkGet/RecursiveDescent-10   	 4213670	      1420 ns/op	     457 B/op	      17 allocs/op
+BenchmarkModify/Simple-10          	 4519183	      1333 ns/op	    7424 B/op	      46 allocs/op
+BenchmarkModify/Wildcard-10        	 4249479	      1412 ns/op	    7424 B/op	      46 allocs/op
+BenchmarkModify/Filter-10          	 3770155	      1583 ns/op	    7536 B/op	      49 allocs/op
+BenchmarkRecursiveDescentGet/AllSummary-10         	  158509	     38088 ns/op	   42296 B/op	     860 allocs/op
+BenchmarkRecursiveDescentGet/AllDescription-10     	  153795	     38451 ns/op	   42342 B/op	     862 allocs/op
+BenchmarkRecursiveDescentGet/AllDeprecated-10      	  198264	     30158 ns/op	   22496 B/op	     410 allocs/op
+BenchmarkRecursiveDescentGet/WildcardDescendant-10 	   81290	     73807 ns/op	  169548 B/op	    1666 allocs/op
+BenchmarkCompoundFilter/SimpleFilter-10            	20416206	       293.9 ns/op	     144 B/op	       5 allocs/op
+BenchmarkCompoundFilter/AndFilter-10               	16306238	       367.2 ns/op	     144 B/op	       5 allocs/op
+BenchmarkCompoundFilter/OrFilter-10                	16265005	       367.8 ns/op	     144 B/op	       5 allocs/op
+BenchmarkCompoundFilter/ChainedAnd-10              	13560458	       440.5 ns/op	     144 B/op	       5 allocs/op

@@ -224,14 +224,14 @@ func Example_dryRun() {
 	fmt.Printf("Would apply: %d actions\n", result.WouldApply)
 	fmt.Printf("Would skip: %d actions\n", result.WouldSkip)
 	for _, change := range result.Changes {
-		fmt.Printf("- %s %d nodes at %s\n", change.Operation, change.MatchCount, change.Target)
+		fmt.Printf("- %s %d node(s) at %s\n", change.Operation, change.MatchCount, change.Target)
 	}
 
 	// Output:
 	// Would apply: 2 actions
 	// Would skip: 0 actions
-	// - update 1 nodes at $.info
-	// - update 1 nodes at $.paths.*
+	// - update 1 node(s) at $.info
+	// - update 1 node(s) at $.paths.*
 }
 
 // Example_recursiveDescent demonstrates using $.. to find fields at any depth.
@@ -346,8 +346,8 @@ func Example_compoundFilter() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Compound filter (deprecated && internal) matched: %d paths\n", result.Changes[0].MatchCount)
+	fmt.Printf("Compound filter (deprecated && internal) matched: %d path(s)\n", result.Changes[0].MatchCount)
 
 	// Output:
-	// Compound filter (deprecated && internal) matched: 1 paths
+	// Compound filter (deprecated && internal) matched: 1 path(s)
 }
