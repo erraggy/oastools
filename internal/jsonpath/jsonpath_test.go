@@ -578,3 +578,319 @@ func TestFilterExpr_String(t *testing.T) {
 		t.Errorf("FilterExpr.String() = %q, want %q", expr.String(), expected)
 	}
 }
+
+// TestSetInParent tests setting values at nested paths.
+func TestSetInParent(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		doc     any
+		value   any
+		wantErr bool
+	}{
+		{
+			name:  "set in map",
+			path:  "$.info.title",
+			doc:   map[string]any{"info": map[string]any{"title": "old"}},
+			value: "new",
+		},
+		{
+			name:  "set array element",
+			path:  "$.servers[0]",
+			doc:   map[string]any{"servers": []any{"a", "b"}},
+			value: "new",
+		},
+		{
+			name:  "set via wildcard",
+			path:  "$.items.*",
+			doc:   map[string]any{"items": map[string]any{"a": 1, "b": 2}},
+			value: 99,
+		},
+		{
+			name:  "set with bracket notation",
+			path:  "$.paths['/users']",
+			doc:   map[string]any{"paths": map[string]any{"/users": "old"}},
+			value: "new",
+		},
+		{
+			name:    "set on nil parent",
+			path:    "$.missing.child",
+			doc:     map[string]any{},
+			value:   "value",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := Parse(tt.path)
+			if err != nil {
+				t.Fatalf("Parse error: %v", err)
+			}
+
+			err = p.Set(tt.doc, tt.value)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// TestRemoveFromParent tests removing values from nested paths.
+func TestRemoveFromParent(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		doc     any
+		wantErr bool
+	}{
+		{
+			name: "remove from map",
+			path: "$.info.title",
+			doc:  map[string]any{"info": map[string]any{"title": "test", "version": "1.0"}},
+		},
+		{
+			name: "remove array element",
+			path: "$.servers[1]",
+			doc:  map[string]any{"servers": []any{"a", "b", "c"}},
+		},
+		{
+			name: "remove via wildcard",
+			path: "$.items.*",
+			doc:  map[string]any{"items": map[string]any{"a": 1, "b": 2}},
+		},
+		{
+			name: "remove with bracket notation",
+			path: "$.paths['/users']",
+			doc:  map[string]any{"paths": map[string]any{"/users": "val", "/pets": "val2"}},
+		},
+		{
+			name:    "remove from missing path",
+			path:    "$.missing.child",
+			doc:     map[string]any{},
+			wantErr: false, // Remove on missing path is a no-op
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := Parse(tt.path)
+			if err != nil {
+				t.Fatalf("Parse error: %v", err)
+			}
+
+			_, err = p.Remove(tt.doc)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// TestModifyInParent tests modifying values at nested paths.
+func TestModifyInParent(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		doc  any
+	}{
+		{
+			name: "modify in map",
+			path: "$.info.title",
+			doc:  map[string]any{"info": map[string]any{"title": "old"}},
+		},
+		{
+			name: "modify array element",
+			path: "$.servers[0]",
+			doc:  map[string]any{"servers": []any{"a", "b"}},
+		},
+		{
+			name: "modify via wildcard",
+			path: "$.items.*",
+			doc:  map[string]any{"items": map[string]any{"a": 1, "b": 2}},
+		},
+		{
+			name: "modify with bracket notation",
+			path: "$.paths['/users']",
+			doc:  map[string]any{"paths": map[string]any{"/users": "old"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := Parse(tt.path)
+			if err != nil {
+				t.Fatalf("Parse error: %v", err)
+			}
+
+			err = p.Modify(tt.doc, func(v any) any {
+				return "modified"
+			})
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// TestFilterComparisons tests filter expressions with different operators.
+func TestFilterComparisons(t *testing.T) {
+	doc := map[string]any{
+		"items": []any{
+			map[string]any{"name": "a", "count": 5, "price": 10.5},
+			map[string]any{"name": "b", "count": 10, "price": 20.0},
+			map[string]any{"name": "c", "count": 15, "price": 5.5},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		path     string
+		wantLen  int
+		wantName string
+	}{
+		{name: "less than int", path: "$.items[?@.count<10]", wantLen: 1, wantName: "a"},
+		{name: "less equal int", path: "$.items[?@.count<=10]", wantLen: 2},
+		{name: "greater than int", path: "$.items[?@.count>10]", wantLen: 1, wantName: "c"},
+		{name: "greater equal int", path: "$.items[?@.count>=10]", wantLen: 2},
+		{name: "less than float", path: "$.items[?@.price<10]", wantLen: 1, wantName: "c"},
+		{name: "greater than float", path: "$.items[?@.price>15]", wantLen: 1, wantName: "b"},
+		{name: "not equal string", path: "$.items[?@.name!='a']", wantLen: 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := Parse(tt.path)
+			if err != nil {
+				t.Fatalf("Parse error: %v", err)
+			}
+
+			results := p.Get(doc)
+			if len(results) != tt.wantLen {
+				t.Errorf("Get(%q) returned %d results, want %d", tt.path, len(results), tt.wantLen)
+			}
+			if tt.wantName != "" && len(results) > 0 {
+				if m, ok := results[0].(map[string]any); ok {
+					if m["name"] != tt.wantName {
+						t.Errorf("Expected first match to have name %q, got %v", tt.wantName, m["name"])
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestParseQuotedStrings tests parsing various quoted string formats.
+func TestParseQuotedStrings(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{name: "single quoted", path: "$.paths['/api/v1']", wantErr: false},
+		{name: "double quoted", path: `$.paths["/api/v1"]`, wantErr: false},
+		{name: "escaped single", path: "$.paths['it\\'s']", wantErr: false},
+		{name: "escaped double", path: `$.paths["say \"hello\""]`, wantErr: false},
+		{name: "with special chars", path: "$.paths['/users/{id}/profile']", wantErr: false},
+		{name: "empty string", path: "$.paths['']", wantErr: false},
+		{name: "unclosed single", path: "$.paths['test", wantErr: true},
+		{name: "unclosed double", path: `$.paths["test`, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse(tt.path)
+			if tt.wantErr && err == nil {
+				t.Error("Expected error but got none")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// TestParseNumbers tests parsing numeric indices and values.
+func TestParseNumbers(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{name: "positive index", path: "$.arr[0]", wantErr: false},
+		{name: "larger index", path: "$.arr[123]", wantErr: false},
+		{name: "negative index", path: "$.arr[-1]", wantErr: false},
+		{name: "filter with int", path: "$.items[?@.count==42]", wantErr: false},
+		{name: "filter with negative", path: "$.items[?@.val==-5]", wantErr: false},
+		{name: "filter with float", path: "$.items[?@.price==19.99]", wantErr: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse(tt.path)
+			if tt.wantErr && err == nil {
+				t.Error("Expected error but got none")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// TestNormalizeValue tests value normalization for comparisons.
+func TestNormalizeValue(t *testing.T) {
+	doc := map[string]any{
+		"items": []any{
+			map[string]any{"id": int64(1), "val": float32(1.5)},
+			map[string]any{"id": int64(2), "val": float32(2.5)},
+		},
+	}
+
+	// Test that int64 compares correctly
+	p, _ := Parse("$.items[?@.id==1]")
+	results := p.Get(doc)
+	if len(results) != 1 {
+		t.Errorf("Expected 1 result for int64 comparison, got %d", len(results))
+	}
+
+	// Test float32 comparison
+	p2, _ := Parse("$.items[?@.val>2.0]")
+	results2 := p2.Get(doc)
+	if len(results2) != 1 {
+		t.Errorf("Expected 1 result for float32 comparison, got %d", len(results2))
+	}
+}
+
+// TestPathString tests the String method of Path.
+func TestPathString(t *testing.T) {
+	tests := []struct {
+		input string
+	}{
+		{"$"},
+		{"$.info"},
+		{"$.paths.*"},
+		{"$.servers[0]"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			p, _ := Parse(tt.input)
+			if p.String() != tt.input {
+				t.Errorf("String() = %q, want %q", p.String(), tt.input)
+			}
+		})
+	}
+}

@@ -1,6 +1,7 @@
 package overlay
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -684,5 +685,345 @@ func TestMarshalOverlay(t *testing.T) {
 	}
 	if o2.Info.Title != o.Info.Title {
 		t.Errorf("Title mismatch: %v != %v", o2.Info.Title, o.Info.Title)
+	}
+}
+
+// TestParseOverlayFile tests file-based overlay parsing.
+func TestParseOverlayFile(t *testing.T) {
+	t.Run("valid file", func(t *testing.T) {
+		o, err := ParseOverlayFile("../testdata/overlay/valid/basic-update.yaml")
+		if err != nil {
+			t.Fatalf("ParseOverlayFile error: %v", err)
+		}
+		if o.Version != "1.0.0" {
+			t.Errorf("Version = %q, want 1.0.0", o.Version)
+		}
+		if len(o.Actions) != 1 {
+			t.Errorf("len(Actions) = %d, want 1", len(o.Actions))
+		}
+	})
+
+	t.Run("missing file", func(t *testing.T) {
+		_, err := ParseOverlayFile("nonexistent.yaml")
+		if err == nil {
+			t.Error("Expected error for missing file")
+		}
+	})
+
+	t.Run("invalid yaml file", func(t *testing.T) {
+		_, err := ParseOverlayFile("../testdata/overlay/invalid/invalid-jsonpath.yaml")
+		// File parses but validation would fail
+		if err != nil {
+			t.Logf("Got error (expected for invalid file): %v", err)
+		}
+	})
+}
+
+// TestApplierApply tests the file-based Apply method.
+func TestApplierApply(t *testing.T) {
+	t.Run("valid files", func(t *testing.T) {
+		a := NewApplier()
+		result, err := a.Apply(
+			"../testdata/overlay/fixtures/petstore-base.yaml",
+			"../testdata/overlay/fixtures/petstore-overlay.yaml",
+		)
+		if err != nil {
+			t.Fatalf("Apply error: %v", err)
+		}
+
+		if result.ActionsApplied != 3 {
+			t.Errorf("ActionsApplied = %d, want 3", result.ActionsApplied)
+		}
+	})
+
+	t.Run("missing spec file", func(t *testing.T) {
+		a := NewApplier()
+		_, err := a.Apply("nonexistent.yaml", "../testdata/overlay/valid/basic-update.yaml")
+		if err == nil {
+			t.Error("Expected error for missing spec file")
+		}
+	})
+
+	t.Run("missing overlay file", func(t *testing.T) {
+		a := NewApplier()
+		_, err := a.Apply("../testdata/overlay/fixtures/petstore-base.yaml", "nonexistent.yaml")
+		if err == nil {
+			t.Error("Expected error for missing overlay file")
+		}
+	})
+}
+
+// TestApplyWithOptionsFilePaths tests file path options.
+func TestApplyWithOptionsFilePaths(t *testing.T) {
+	t.Run("with file paths", func(t *testing.T) {
+		result, err := ApplyWithOptions(
+			WithSpecFilePath("../testdata/overlay/fixtures/petstore-base.yaml"),
+			WithOverlayFilePath("../testdata/overlay/fixtures/petstore-overlay.yaml"),
+		)
+		if err != nil {
+			t.Fatalf("ApplyWithOptions error: %v", err)
+		}
+
+		if result.ActionsApplied != 3 {
+			t.Errorf("ActionsApplied = %d, want 3", result.ActionsApplied)
+		}
+	})
+
+	t.Run("empty spec path", func(t *testing.T) {
+		_, err := ApplyWithOptions(
+			WithSpecFilePath(""),
+			WithOverlayFilePath("../testdata/overlay/valid/basic-update.yaml"),
+		)
+		if err == nil {
+			t.Error("Expected error for empty spec path")
+		}
+	})
+
+	t.Run("empty overlay path", func(t *testing.T) {
+		_, err := ApplyWithOptions(
+			WithSpecFilePath("../testdata/overlay/fixtures/petstore-base.yaml"),
+			WithOverlayFilePath(""),
+		)
+		if err == nil {
+			t.Error("Expected error for empty overlay path")
+		}
+	})
+
+	t.Run("nil overlay", func(t *testing.T) {
+		_, err := ApplyWithOptions(
+			WithSpecFilePath("../testdata/overlay/fixtures/petstore-base.yaml"),
+			WithOverlayParsed(nil),
+		)
+		if err == nil {
+			t.Error("Expected error for nil overlay")
+		}
+	})
+}
+
+// TestErrorUnwrap tests error Unwrap methods.
+func TestErrorUnwrap(t *testing.T) {
+	t.Run("ApplyError Unwrap", func(t *testing.T) {
+		cause := &ParseError{Path: "test"}
+		e := &ApplyError{Cause: cause}
+		unwrapped := e.Unwrap()
+		if unwrapped == nil {
+			t.Error("Unwrap should return non-nil cause")
+		}
+		// Verify errors.As works with ApplyError
+		var applyErr *ApplyError
+		if !errors.As(e, &applyErr) {
+			t.Error("errors.As should find ApplyError")
+		}
+	})
+
+	t.Run("ParseError Unwrap", func(t *testing.T) {
+		cause := &ValidationError{Message: "test"}
+		e := &ParseError{Cause: cause}
+		unwrapped := e.Unwrap()
+		if unwrapped == nil {
+			t.Error("Unwrap should return non-nil cause")
+		}
+		// Verify errors.As works with ParseError
+		var parseErr *ParseError
+		if !errors.As(e, &parseErr) {
+			t.Error("errors.As should find ParseError")
+		}
+	})
+}
+
+// TestApplyScalarReplace tests replacing scalar values.
+func TestApplyScalarReplace(t *testing.T) {
+	doc := map[string]any{
+		"info": map[string]any{
+			"title": "Old Title",
+		},
+	}
+
+	o := &Overlay{
+		Version: "1.0.0",
+		Info:    Info{Title: "Test", Version: "1.0.0"},
+		Actions: []Action{
+			{Target: "$.info.title", Update: "New Title"},
+		},
+	}
+
+	spec := &parser.ParseResult{
+		Document:     doc,
+		SourceFormat: parser.SourceFormatYAML,
+	}
+
+	a := NewApplier()
+	result, err := a.ApplyParsed(spec, o)
+	if err != nil {
+		t.Fatalf("Apply error: %v", err)
+	}
+
+	if result.ActionsApplied != 1 {
+		t.Errorf("ActionsApplied = %d, want 1", result.ActionsApplied)
+	}
+
+	// Check the change record
+	if len(result.Changes) == 0 {
+		t.Fatal("Expected change record")
+	}
+	if result.Changes[0].Operation != "replace" {
+		t.Errorf("Operation = %q, want replace", result.Changes[0].Operation)
+	}
+}
+
+// TestApplyArrayAppend tests appending to arrays.
+func TestApplyArrayAppend(t *testing.T) {
+	doc := map[string]any{
+		"servers": []any{
+			map[string]any{"url": "https://api.example.com"},
+		},
+	}
+
+	o := &Overlay{
+		Version: "1.0.0",
+		Info:    Info{Title: "Test", Version: "1.0.0"},
+		Actions: []Action{
+			{Target: "$.servers", Update: map[string]any{"url": "https://staging.example.com"}},
+		},
+	}
+
+	spec := &parser.ParseResult{
+		Document:     doc,
+		SourceFormat: parser.SourceFormatYAML,
+	}
+
+	a := NewApplier()
+	result, err := a.ApplyParsed(spec, o)
+	if err != nil {
+		t.Fatalf("Apply error: %v", err)
+	}
+
+	// Check the change record
+	if len(result.Changes) == 0 {
+		t.Fatal("Expected change record")
+	}
+	if result.Changes[0].Operation != "append" {
+		t.Errorf("Operation = %q, want append", result.Changes[0].Operation)
+	}
+
+	// Verify array has two elements
+	resultDoc := result.Document.(map[string]any)
+	servers := resultDoc["servers"].([]any)
+	if len(servers) != 2 {
+		t.Errorf("len(servers) = %d, want 2", len(servers))
+	}
+}
+
+// TestInvalidOverlayValidation tests validation errors for invalid overlays.
+func TestInvalidOverlayValidation(t *testing.T) {
+	doc := map[string]any{"info": map[string]any{}}
+
+	o := &Overlay{
+		Version: "1.0.0",
+		Info:    Info{Title: "Test", Version: "1.0.0"},
+		Actions: []Action{
+			{Target: "invalid[[path", Update: map[string]any{}},
+		},
+	}
+
+	spec := &parser.ParseResult{
+		Document:     doc,
+		SourceFormat: parser.SourceFormatYAML,
+	}
+
+	a := NewApplier()
+	a.StrictTargets = false
+
+	// ApplyParsed validates first, so invalid JSONPath should cause validation error
+	_, err := a.ApplyParsed(spec, o)
+	if err == nil {
+		t.Error("Expected validation error for invalid JSONPath")
+	}
+}
+
+// TestDeepCopyError tests deepCopy with non-serializable input.
+func TestDeepCopyPreservesStructure(t *testing.T) {
+	doc := map[string]any{
+		"nested": map[string]any{
+			"array": []any{1, 2, 3},
+			"map":   map[string]any{"key": "value"},
+		},
+	}
+
+	o := &Overlay{
+		Version: "1.0.0",
+		Info:    Info{Title: "Test", Version: "1.0.0"},
+		Actions: []Action{
+			{Target: "$.nested", Update: map[string]any{"added": true}},
+		},
+	}
+
+	spec := &parser.ParseResult{
+		Document:     doc,
+		SourceFormat: parser.SourceFormatYAML,
+	}
+
+	a := NewApplier()
+	result, err := a.ApplyParsed(spec, o)
+	if err != nil {
+		t.Fatalf("Apply error: %v", err)
+	}
+
+	// Original should be unchanged
+	originalNested := doc["nested"].(map[string]any)
+	if _, exists := originalNested["added"]; exists {
+		t.Error("Original document was modified")
+	}
+
+	// Result should have the new field
+	resultDoc := result.Document.(map[string]any)
+	resultNested := resultDoc["nested"].(map[string]any)
+	if _, exists := resultNested["added"]; !exists {
+		t.Error("Result should have added field")
+	}
+}
+
+// TestRemovePrecedence tests that remove takes precedence over update.
+func TestRemovePrecedence(t *testing.T) {
+	doc := map[string]any{
+		"info": map[string]any{
+			"title":   "Test",
+			"x-temp":  "to-remove",
+			"version": "1.0.0",
+		},
+	}
+
+	o := &Overlay{
+		Version: "1.0.0",
+		Info:    Info{Title: "Test", Version: "1.0.0"},
+		Actions: []Action{
+			{
+				Target: "$.info.x-temp",
+				Update: map[string]any{"should": "not-apply"},
+				Remove: true,
+			},
+		},
+	}
+
+	spec := &parser.ParseResult{
+		Document:     doc,
+		SourceFormat: parser.SourceFormatYAML,
+	}
+
+	a := NewApplier()
+	result, err := a.ApplyParsed(spec, o)
+	if err != nil {
+		t.Fatalf("Apply error: %v", err)
+	}
+
+	// The field should be removed, not updated
+	resultDoc := result.Document.(map[string]any)
+	info := resultDoc["info"].(map[string]any)
+	if _, exists := info["x-temp"]; exists {
+		t.Error("x-temp should have been removed")
+	}
+
+	if result.Changes[0].Operation != "remove" {
+		t.Errorf("Operation = %q, want remove", result.Changes[0].Operation)
 	}
 }
