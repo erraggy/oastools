@@ -13,7 +13,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 
 ## Highlights
 
-- **Minimal Dependencies** - Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4) at runtime; zero transitive deps
+- **Minimal Dependencies** - Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4) and [`golang.org/x/tools`](https://pkg.go.dev/golang.org/x/tools) at runtime
 - **Battle-Tested** - 820+ tests against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
 - **Complete Toolset** - 9 packages covering the full OpenAPI lifecycle
 - **Performance Optimized** - 120+ benchmarks; pre-parsed workflows 9-150x faster
@@ -121,7 +121,8 @@ For complete API documentation and examples, see [pkg.go.dev](https://pkg.go.dev
 
 ```
 github.com/erraggy/oastools
-└── go.yaml.in/yaml/v4  (YAML parsing - the only runtime dependency)
+├── go.yaml.in/yaml/v4  (YAML parsing)
+└── golang.org/x/tools  (Code generation - imports analysis)
 ```
 
 Unlike many OpenAPI tools that pull in dozens of transitive dependencies, oastools is designed to be self-contained. The `stretchr/testify` dependency is test-only and not included in your production builds.
