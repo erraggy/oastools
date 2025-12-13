@@ -171,10 +171,59 @@ func applySegment(current []any, seg Segment) []any {
 					}
 				}
 			}
+
+		case RecursiveSegment:
+			// Recursive descent searches all descendants
+			results = append(results, recursiveDescend(node, s.Child)...)
 		}
 	}
 
 	return results
+}
+
+// recursiveDescend finds all nodes matching the child selector at any depth.
+func recursiveDescend(node any, child Segment) []any {
+	var results []any
+
+	// If child is nil, collect all descendants
+	if child == nil {
+		collectAllDescendants(node, &results)
+		return results
+	}
+
+	// Apply child selector at this level first
+	childResults := applySegment([]any{node}, child)
+	results = append(results, childResults...)
+
+	// Recurse into children
+	switch v := node.(type) {
+	case map[string]any:
+		for _, val := range v {
+			results = append(results, recursiveDescend(val, child)...)
+		}
+	case []any:
+		for _, elem := range v {
+			results = append(results, recursiveDescend(elem, child)...)
+		}
+	}
+
+	return results
+}
+
+// collectAllDescendants collects all nodes in the tree (for bare ..)
+func collectAllDescendants(node any, results *[]any) {
+	switch v := node.(type) {
+	case map[string]any:
+		for _, val := range v {
+			*results = append(*results, val)
+			collectAllDescendants(val, results)
+		}
+	case []any:
+		for _, elem := range v {
+			*results = append(*results, elem)
+			collectAllDescendants(elem, results)
+		}
+	}
 }
 
 // setInParent sets a value in the parent at the location specified by the segment.

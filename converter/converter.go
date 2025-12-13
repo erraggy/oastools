@@ -6,6 +6,7 @@ import (
 
 	"github.com/erraggy/oastools/internal/issues"
 	"github.com/erraggy/oastools/internal/severity"
+	"github.com/erraggy/oastools/overlay"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -103,11 +104,23 @@ type convertConfig struct {
 	strictMode  bool
 	includeInfo bool
 	userAgent   string
+
+	// Overlay integration options
+	preConversionOverlay      *overlay.Overlay // Applied before conversion
+	preConversionOverlayFile  *string          // File path for pre-conversion overlay
+	postConversionOverlay     *overlay.Overlay // Applied after conversion
+	postConversionOverlayFile *string          // File path for post-conversion overlay
 }
 
 // ConvertWithOptions converts an OpenAPI specification using functional options.
 // This provides a flexible, extensible API that combines input source selection
 // and configuration in a single function call.
+//
+// When overlay options are provided, the conversion process follows these steps:
+//  1. Parse the source specification
+//  2. Apply pre-conversion overlay (if specified)
+//  3. Perform the version conversion
+//  4. Apply post-conversion overlay (if specified)
 //
 // Example:
 //
@@ -115,6 +128,7 @@ type convertConfig struct {
 //	    converter.WithFilePath("swagger.yaml"),
 //	    converter.WithTargetVersion("3.0.3"),
 //	    converter.WithStrictMode(true),
+//	    converter.WithPostConversionOverlayFile("enhance-v3.yaml"),
 //	)
 func ConvertWithOptions(opts ...Option) (*ConversionResult, error) {
 	cfg, err := applyOptions(opts...)
@@ -128,12 +142,85 @@ func ConvertWithOptions(opts ...Option) (*ConversionResult, error) {
 		UserAgent:   cfg.userAgent,
 	}
 
-	// Route to appropriate conversion method based on input source
-	if cfg.filePath != nil {
-		return c.Convert(*cfg.filePath, cfg.targetVersion)
+	// Check if any overlays are configured
+	hasOverlays := cfg.preConversionOverlay != nil ||
+		cfg.preConversionOverlayFile != nil ||
+		cfg.postConversionOverlay != nil ||
+		cfg.postConversionOverlayFile != nil
+
+	// Fast path: no overlays configured, use original logic
+	if !hasOverlays {
+		if cfg.filePath != nil {
+			return c.Convert(*cfg.filePath, cfg.targetVersion)
+		}
+		return c.ConvertParsed(*cfg.parsed, cfg.targetVersion)
 	}
-	// cfg.parsed must be non-nil here (validated by applyOptions)
-	return c.ConvertParsed(*cfg.parsed, cfg.targetVersion)
+
+	// Slow path: overlays require us to parse, transform, convert, transform
+	return convertWithOverlays(c, cfg)
+}
+
+// convertWithOverlays handles conversion with overlay processing
+func convertWithOverlays(c *Converter, cfg *convertConfig) (*ConversionResult, error) {
+	// Step 1: Parse overlay files if specified
+	preOverlay, err := overlay.ParseOverlaySingle(cfg.preConversionOverlay, cfg.preConversionOverlayFile)
+	if err != nil {
+		return nil, fmt.Errorf("converter: pre-conversion overlay: %w", err)
+	}
+
+	postOverlay, err := overlay.ParseOverlaySingle(cfg.postConversionOverlay, cfg.postConversionOverlayFile)
+	if err != nil {
+		return nil, fmt.Errorf("converter: post-conversion overlay: %w", err)
+	}
+
+	// Step 2: Parse the source specification
+	var parsed *parser.ParseResult
+	if cfg.filePath != nil {
+		p := parser.New()
+		p.UserAgent = c.UserAgent
+		parsed, err = p.Parse(*cfg.filePath)
+		if err != nil {
+			return nil, fmt.Errorf("converter: failed to parse source: %w", err)
+		}
+	} else {
+		parsed = cfg.parsed
+	}
+
+	// Step 3: Apply pre-conversion overlay
+	if preOverlay != nil {
+		applier := overlay.NewApplier()
+		result, err := applier.ApplyParsed(parsed, preOverlay)
+		if err != nil {
+			return nil, fmt.Errorf("converter: applying pre-conversion overlay: %w", err)
+		}
+		// Re-parse to restore typed document
+		reparsed, err := overlay.ReparseDocument(parsed, result.Document)
+		if err != nil {
+			return nil, err
+		}
+		parsed = reparsed
+	}
+
+	// Step 4: Perform the conversion
+	convResult, err := c.ConvertParsed(*parsed, cfg.targetVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 5: Apply post-conversion overlay
+	if postOverlay != nil {
+		applier := overlay.NewApplier()
+		postResult, err := applier.ApplyParsed(&parser.ParseResult{
+			Document:     convResult.Document,
+			SourceFormat: convResult.SourceFormat,
+		}, postOverlay)
+		if err != nil {
+			return nil, fmt.Errorf("converter: applying post-conversion overlay: %w", err)
+		}
+		convResult.Document = postResult.Document
+	}
+
+	return convResult, nil
 }
 
 // applyOptions applies option functions and validates configuration

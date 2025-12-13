@@ -216,13 +216,19 @@ bench-builder:
 	@echo "Running builder benchmarks..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./builder
 
+## bench-overlay: Run overlay and jsonpath benchmarks only
+.PHONY: bench-overlay
+bench-overlay:
+	@echo "Running overlay benchmarks..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./overlay ./internal/jsonpath
+
 ## bench-save: Run all benchmarks and save to timestamped file
 .PHONY: bench-save
 bench-save:
 	@echo "Running benchmarks and saving results..."
 	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
 	OUTPUT_FILE="benchmark-$${TIMESTAMP}.txt"; \
-	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee "$${OUTPUT_FILE}"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder ./overlay ./internal/jsonpath 2>&1 | tee "$${OUTPUT_FILE}"; \
 	echo ""; \
 	echo "Benchmark results saved to: $${OUTPUT_FILE}"
 
@@ -230,7 +236,7 @@ bench-save:
 .PHONY: bench-baseline
 bench-baseline:
 	@echo "Running benchmarks and updating baseline..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee benchmark-baseline.txt
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder ./overlay ./internal/jsonpath 2>&1 | tee benchmark-baseline.txt
 	@echo ""
 	@echo "Baseline updated: benchmark-baseline.txt"
 

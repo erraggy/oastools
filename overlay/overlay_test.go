@@ -1027,3 +1027,224 @@ func TestRemovePrecedence(t *testing.T) {
 		t.Errorf("Operation = %q, want remove", result.Changes[0].Operation)
 	}
 }
+
+// TestDryRun tests the dry-run preview functionality.
+func TestDryRun(t *testing.T) {
+	t.Run("preview update action", func(t *testing.T) {
+		doc := map[string]any{
+			"info": map[string]any{
+				"title":   "Original",
+				"version": "1.0.0",
+			},
+		}
+
+		o := &Overlay{
+			Version: "1.0.0",
+			Info:    Info{Title: "Test", Version: "1.0.0"},
+			Actions: []Action{
+				{
+					Target:      "$.info",
+					Description: "Update info metadata",
+					Update:      map[string]any{"title": "Updated"},
+				},
+			},
+		}
+
+		spec := &parser.ParseResult{
+			Document:     doc,
+			SourceFormat: parser.SourceFormatYAML,
+		}
+
+		a := NewApplier()
+		result, err := a.DryRun(spec, o)
+		if err != nil {
+			t.Fatalf("DryRun error: %v", err)
+		}
+
+		if result.WouldApply != 1 {
+			t.Errorf("WouldApply = %d, want 1", result.WouldApply)
+		}
+		if result.WouldSkip != 0 {
+			t.Errorf("WouldSkip = %d, want 0", result.WouldSkip)
+		}
+		if len(result.Changes) != 1 {
+			t.Fatalf("len(Changes) = %d, want 1", len(result.Changes))
+		}
+		if result.Changes[0].Operation != "update" {
+			t.Errorf("Operation = %q, want update", result.Changes[0].Operation)
+		}
+		if result.Changes[0].MatchCount != 1 {
+			t.Errorf("MatchCount = %d, want 1", result.Changes[0].MatchCount)
+		}
+		if result.Changes[0].Description != "Update info metadata" {
+			t.Errorf("Description = %q, want 'Update info metadata'", result.Changes[0].Description)
+		}
+
+		// Verify original document was not modified
+		origInfo := doc["info"].(map[string]any)
+		if origInfo["title"] != "Original" {
+			t.Error("Original document should not be modified by DryRun")
+		}
+	})
+
+	t.Run("preview remove action", func(t *testing.T) {
+		doc := map[string]any{
+			"paths": map[string]any{
+				"/internal": map[string]any{"x-internal": true},
+				"/public":   map[string]any{"x-internal": false},
+			},
+		}
+
+		o := &Overlay{
+			Version: "1.0.0",
+			Info:    Info{Title: "Test", Version: "1.0.0"},
+			Actions: []Action{
+				{
+					Target: "$.paths[?@.x-internal==true]",
+					Remove: true,
+				},
+			},
+		}
+
+		spec := &parser.ParseResult{
+			Document:     doc,
+			SourceFormat: parser.SourceFormatYAML,
+		}
+
+		a := NewApplier()
+		result, err := a.DryRun(spec, o)
+		if err != nil {
+			t.Fatalf("DryRun error: %v", err)
+		}
+
+		if result.Changes[0].Operation != "remove" {
+			t.Errorf("Operation = %q, want remove", result.Changes[0].Operation)
+		}
+		if result.Changes[0].MatchCount != 1 {
+			t.Errorf("MatchCount = %d, want 1", result.Changes[0].MatchCount)
+		}
+
+		// Verify original document was not modified
+		paths := doc["paths"].(map[string]any)
+		if _, exists := paths["/internal"]; !exists {
+			t.Error("Original document should not be modified by DryRun")
+		}
+	})
+
+	t.Run("preview no matches", func(t *testing.T) {
+		doc := map[string]any{
+			"info": map[string]any{"title": "Test"},
+		}
+
+		o := &Overlay{
+			Version: "1.0.0",
+			Info:    Info{Title: "Test", Version: "1.0.0"},
+			Actions: []Action{
+				{
+					Target: "$.nonexistent",
+					Update: map[string]any{"foo": "bar"},
+				},
+			},
+		}
+
+		spec := &parser.ParseResult{
+			Document:     doc,
+			SourceFormat: parser.SourceFormatYAML,
+		}
+
+		a := NewApplier()
+		result, err := a.DryRun(spec, o)
+		if err != nil {
+			t.Fatalf("DryRun error: %v", err)
+		}
+
+		if result.WouldApply != 0 {
+			t.Errorf("WouldApply = %d, want 0", result.WouldApply)
+		}
+		if result.WouldSkip != 1 {
+			t.Errorf("WouldSkip = %d, want 1", result.WouldSkip)
+		}
+		if len(result.Warnings) != 1 {
+			t.Errorf("len(Warnings) = %d, want 1", len(result.Warnings))
+		}
+	})
+
+	t.Run("preview append to array", func(t *testing.T) {
+		doc := map[string]any{
+			"servers": []any{
+				map[string]any{"url": "https://api.example.com"},
+			},
+		}
+
+		o := &Overlay{
+			Version: "1.0.0",
+			Info:    Info{Title: "Test", Version: "1.0.0"},
+			Actions: []Action{
+				{
+					Target: "$.servers",
+					Update: map[string]any{"url": "https://staging.example.com"},
+				},
+			},
+		}
+
+		spec := &parser.ParseResult{
+			Document:     doc,
+			SourceFormat: parser.SourceFormatYAML,
+		}
+
+		a := NewApplier()
+		result, err := a.DryRun(spec, o)
+		if err != nil {
+			t.Fatalf("DryRun error: %v", err)
+		}
+
+		if result.Changes[0].Operation != "append" {
+			t.Errorf("Operation = %q, want append", result.Changes[0].Operation)
+		}
+	})
+}
+
+// TestDryRunWithOptions tests the functional options API for dry-run.
+func TestDryRunWithOptions(t *testing.T) {
+	result, err := DryRunWithOptions(
+		WithSpecFilePath("../testdata/overlay/fixtures/petstore-base.yaml"),
+		WithOverlayFilePath("../testdata/overlay/fixtures/petstore-overlay.yaml"),
+	)
+	if err != nil {
+		t.Fatalf("DryRunWithOptions error: %v", err)
+	}
+
+	if result.WouldApply != 3 {
+		t.Errorf("WouldApply = %d, want 3", result.WouldApply)
+	}
+	if !result.HasChanges() {
+		t.Error("HasChanges() should return true")
+	}
+}
+
+// TestDryRunResultHelpers tests the helper methods on DryRunResult.
+func TestDryRunResultHelpers(t *testing.T) {
+	t.Run("HasChanges", func(t *testing.T) {
+		r := &DryRunResult{WouldApply: 0}
+		if r.HasChanges() {
+			t.Error("HasChanges() should return false when WouldApply is 0")
+		}
+
+		r.WouldApply = 1
+		if !r.HasChanges() {
+			t.Error("HasChanges() should return true when WouldApply > 0")
+		}
+	})
+
+	t.Run("HasWarnings", func(t *testing.T) {
+		r := &DryRunResult{}
+		if r.HasWarnings() {
+			t.Error("HasWarnings() should return false when Warnings is empty")
+		}
+
+		r.Warnings = []string{"warning"}
+		if !r.HasWarnings() {
+			t.Error("HasWarnings() should return true when Warnings is not empty")
+		}
+	})
+}

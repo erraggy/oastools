@@ -9,15 +9,29 @@ import (
 //
 // The value is typically a map[string]any representing an object.
 // Returns true if the filter matches, false otherwise.
+// Supports both simple conditions and compound expressions with && and ||.
 func evalFilter(value any, expr *FilterExpr) bool {
 	if expr == nil {
 		return true
 	}
 
-	// Get the field value from the object
-	fieldValue := getFieldValue(value, expr.Field)
+	// Check if this is a compound expression
+	if expr.LogicOp != "" {
+		leftResult := evalFilter(value, expr.Left)
+		rightResult := evalFilter(value, expr.Right)
 
-	// Compare using the operator
+		switch expr.LogicOp {
+		case "&&":
+			return leftResult && rightResult
+		case "||":
+			return leftResult || rightResult
+		default:
+			return false
+		}
+	}
+
+	// Simple condition: @.field op value
+	fieldValue := getFieldValue(value, expr.Field)
 	return compare(fieldValue, expr.Operator, expr.Value)
 }
 

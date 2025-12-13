@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"text/template"
 
+	"github.com/erraggy/oastools/overlay"
 	"github.com/erraggy/oastools/parser"
 	"go.yaml.in/yaml/v4"
 )
@@ -174,17 +176,34 @@ type joinConfig struct {
 	alwaysApplyPrefix *bool
 	equivalenceMode   *string
 	collisionReport   *bool
+
+	// Overlay integration options
+	preJoinOverlays     []*overlay.Overlay          // Applied to all specs before joining
+	preJoinOverlayFiles []string                    // File paths for pre-join overlays
+	postJoinOverlay     *overlay.Overlay            // Applied to result after joining
+	postJoinOverlayFile *string                     // File path for post-join overlay
+	specOverlays        map[string]*overlay.Overlay // Per-spec overlays
+	specOverlayFiles    map[string]string           // Per-spec overlay file paths
 }
 
 // JoinWithOptions joins multiple OpenAPI specifications using functional options.
 // This provides a flexible, extensible API that combines input source selection
 // and configuration in a single function call.
 //
+// When overlay options are provided, the join process follows these steps:
+//  1. Parse all input specifications
+//  2. Apply pre-join overlays to all specs (in order specified)
+//  3. Apply per-spec overlays to their respective specs
+//  4. Perform the join operation
+//  5. Apply post-join overlay to the merged result
+//
 // Example:
 //
 //	result, err := joiner.JoinWithOptions(
 //	    joiner.WithFilePaths("api1.yaml", "api2.yaml"),
 //	    joiner.WithPathStrategy(joiner.StrategyAcceptLeft),
+//	    joiner.WithPreJoinOverlayFile("normalize.yaml"),
+//	    joiner.WithPostJoinOverlayFile("enhance.yaml"),
 //	)
 func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 	cfg, err := applyOptions(opts...)
@@ -210,14 +229,30 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 
 	j := New(joinerCfg)
 
+	// Check if any overlays are configured
+	hasOverlays := len(cfg.preJoinOverlays) > 0 ||
+		len(cfg.preJoinOverlayFiles) > 0 ||
+		cfg.postJoinOverlay != nil ||
+		cfg.postJoinOverlayFile != nil ||
+		len(cfg.specOverlays) > 0 ||
+		len(cfg.specOverlayFiles) > 0
+
+	// Fast path: no overlays configured, use original logic
+	if !hasOverlays {
+		return joinWithoutOverlays(j, cfg)
+	}
+
+	// Slow path: overlays require us to parse, transform, then join
+	return joinWithOverlays(j, cfg)
+}
+
+// joinWithoutOverlays handles the original join logic without overlay processing
+func joinWithoutOverlays(j *Joiner, cfg *joinConfig) (*JoinResult, error) {
 	// Route to appropriate join method based on input sources
-	// Note: applyOptions ensures at least 2 total documents, so one branch must execute
 	if len(cfg.filePaths) > 0 && len(cfg.parsedDocs) == 0 {
-		// File paths only
 		return j.Join(cfg.filePaths)
 	}
 	if len(cfg.parsedDocs) > 0 && len(cfg.filePaths) == 0 {
-		// Parsed docs only
 		return j.JoinParsed(cfg.parsedDocs)
 	}
 	// Mixed: parse file paths and append to parsed docs
@@ -236,6 +271,144 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 		allDocs = append(allDocs, *result)
 	}
 	return j.JoinParsed(allDocs)
+}
+
+// joinWithOverlays handles join with overlay processing
+func joinWithOverlays(j *Joiner, cfg *joinConfig) (*JoinResult, error) {
+	// Step 1: Parse all overlay files
+	preOverlays, err := parseOverlayList(cfg.preJoinOverlays, cfg.preJoinOverlayFiles)
+	if err != nil {
+		return nil, fmt.Errorf("joiner: pre-join overlay: %w", err)
+	}
+
+	postOverlay, err := overlay.ParseOverlaySingle(cfg.postJoinOverlay, cfg.postJoinOverlayFile)
+	if err != nil {
+		return nil, fmt.Errorf("joiner: post-join overlay: %w", err)
+	}
+
+	specOverlays, err := mergeSpecOverlays(cfg.specOverlays, cfg.specOverlayFiles)
+	if err != nil {
+		return nil, fmt.Errorf("joiner: spec overlay: %w", err)
+	}
+
+	// Step 2: Parse all input documents
+	allDocs := make([]parser.ParseResult, 0, len(cfg.parsedDocs)+len(cfg.filePaths))
+	docIdentifiers := make([]string, 0, len(cfg.parsedDocs)+len(cfg.filePaths))
+
+	// Add pre-parsed documents
+	for i, doc := range cfg.parsedDocs {
+		allDocs = append(allDocs, doc)
+		docIdentifiers = append(docIdentifiers, strconv.Itoa(i))
+	}
+
+	// Parse file paths
+	p := parser.New()
+	for _, path := range cfg.filePaths {
+		result, err := p.Parse(path)
+		if err != nil {
+			return nil, fmt.Errorf("joiner: failed to parse %s: %w", path, err)
+		}
+		if len(result.Errors) > 0 {
+			return nil, fmt.Errorf("joiner: %s has %d parse error(s)", path, len(result.Errors))
+		}
+		allDocs = append(allDocs, *result)
+		docIdentifiers = append(docIdentifiers, path)
+	}
+
+	// Step 3: Apply pre-join overlays to all documents
+	// After overlay application, we must re-parse to restore typed documents
+	applier := overlay.NewApplier()
+	for i := range allDocs {
+		needsReparse := false
+		for _, o := range preOverlays {
+			result, err := applier.ApplyParsed(&allDocs[i], o)
+			if err != nil {
+				return nil, fmt.Errorf("joiner: applying pre-join overlay to doc %d: %w", i, err)
+			}
+			allDocs[i].Document = result.Document
+			needsReparse = true
+		}
+
+		// Check for spec-specific overlay
+		if o, ok := specOverlays[docIdentifiers[i]]; ok {
+			result, err := applier.ApplyParsed(&allDocs[i], o)
+			if err != nil {
+				return nil, fmt.Errorf("joiner: applying spec overlay to %s: %w", docIdentifiers[i], err)
+			}
+			allDocs[i].Document = result.Document
+			needsReparse = true
+		}
+
+		// Re-parse to restore typed document if overlays were applied
+		if needsReparse {
+			reparsed, err := overlay.ReparseDocument(&allDocs[i], allDocs[i].Document)
+			if err != nil {
+				return nil, fmt.Errorf("joiner: failed to reparse doc %d after overlay: %w", i, err)
+			}
+			allDocs[i] = *reparsed
+		}
+	}
+
+	// Step 5: Perform the join
+	joinResult, err := j.JoinParsed(allDocs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 6: Apply post-join overlay
+	if postOverlay != nil {
+		postResult, err := applier.ApplyParsed(&parser.ParseResult{
+			Document:     joinResult.Document,
+			SourceFormat: joinResult.SourceFormat,
+		}, postOverlay)
+		if err != nil {
+			return nil, fmt.Errorf("joiner: applying post-join overlay: %w", err)
+		}
+		joinResult.Document = postResult.Document
+	}
+
+	return joinResult, nil
+}
+
+// parseOverlayList parses and combines overlay instances and files
+func parseOverlayList(overlays []*overlay.Overlay, files []string) ([]*overlay.Overlay, error) {
+	result := make([]*overlay.Overlay, 0, len(overlays)+len(files))
+	result = append(result, overlays...)
+
+	for _, path := range files {
+		o, err := overlay.ParseOverlayFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse %s: %w", path, err)
+		}
+		result = append(result, o)
+	}
+
+	return result, nil
+}
+
+// mergeSpecOverlays combines spec overlay instances and files
+func mergeSpecOverlays(overlays map[string]*overlay.Overlay, files map[string]string) (map[string]*overlay.Overlay, error) {
+	if len(overlays) == 0 && len(files) == 0 {
+		return nil, nil
+	}
+
+	result := make(map[string]*overlay.Overlay)
+
+	// Copy existing overlays
+	for k, v := range overlays {
+		result[k] = v
+	}
+
+	// Parse and add file overlays (files override instances if same key)
+	for spec, path := range files {
+		o, err := overlay.ParseOverlayFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse overlay for %s: %w", spec, err)
+		}
+		result[spec] = o
+	}
+
+	return result, nil
 }
 
 // applyOptions applies option functions and validates configuration

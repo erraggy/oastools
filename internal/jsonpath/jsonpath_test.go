@@ -35,6 +35,19 @@ func TestParse(t *testing.T) {
 		{name: "components schemas", input: "$.components.schemas.Pet", wantErr: false, segLen: 4},
 		{name: "extension field", input: "$.info.x-custom-field", wantErr: false, segLen: 3},
 
+		// Compound filters
+		{name: "filter with AND", input: "$.items[?@.active==true && @.count>0]", wantErr: false, segLen: 3},
+		{name: "filter with OR", input: "$.items[?@.status=='pending' || @.status=='active']", wantErr: false, segLen: 3},
+		{name: "filter with multiple AND", input: "$.items[?@.a==1 && @.b==2 && @.c==3]", wantErr: false, segLen: 3},
+		{name: "filter with parens AND", input: "$.items[?(@.x==1) && (@.y==2)]", wantErr: false, segLen: 3},
+
+		// Recursive descent
+		{name: "recursive descent field", input: "$..name", wantErr: false, segLen: 2},
+		{name: "recursive descent wildcard", input: "$..*", wantErr: false, segLen: 2},
+		{name: "recursive descent bracket", input: "$..[0]", wantErr: false, segLen: 2},
+		{name: "recursive after child", input: "$.info..title", wantErr: false, segLen: 3},
+		{name: "recursive with filter", input: "$..[?@.deprecated==true]", wantErr: false, segLen: 2},
+
 		// Invalid expressions
 		{name: "empty string", input: "", wantErr: true},
 		{name: "no dollar", input: "info", wantErr: true},
@@ -213,6 +226,58 @@ func TestGet(t *testing.T) {
 			path:    "$.components.schemas.User",
 			wantLen: 1,
 		},
+		// Recursive descent tests
+		{
+			name:    "recursive descent summary",
+			path:    "$..summary",
+			wantLen: 3, // 3 summary fields: /users/get, /users/post, /admin/get
+		},
+		{
+			name:    "recursive descent x-internal",
+			path:    "$..x-internal",
+			wantLen: 2, // /users and /admin path items
+		},
+		{
+			name:    "recursive descent url",
+			path:    "$..url",
+			wantLen: 2, // 2 servers
+			checkVal: func(results []any) bool {
+				// Should find both server URLs
+				hasApi := false
+				hasStaging := false
+				for _, r := range results {
+					if s, ok := r.(string); ok {
+						if s == "https://api.example.com" {
+							hasApi = true
+						}
+						if s == "https://staging.example.com" {
+							hasStaging = true
+						}
+					}
+				}
+				return hasApi && hasStaging
+			},
+		},
+		{
+			name:    "recursive descent type",
+			path:    "$..type",
+			wantLen: 2, // User.type and Pet.type in components/schemas
+		},
+		{
+			name:    "recursive descent wildcard",
+			path:    "$.paths..*",
+			wantLen: 10, // All descendants: 2 path items, each with x-internal + operations
+		},
+		{
+			name:    "recursive descent after child",
+			path:    "$.paths..summary",
+			wantLen: 3, // All summary fields under paths
+		},
+		{
+			name:    "recursive descent nonexistent",
+			path:    "$..nonexistent",
+			wantLen: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -231,6 +296,91 @@ func TestGet(t *testing.T) {
 			if tt.checkVal != nil && len(results) > 0 {
 				if !tt.checkVal(results) {
 					t.Errorf("Get(%q) value check failed, got %v", tt.path, results)
+				}
+			}
+		})
+	}
+}
+
+// TestCompoundFilters tests evaluation of compound filter expressions.
+func TestCompoundFilters(t *testing.T) {
+	doc := map[string]any{
+		"items": []any{
+			map[string]any{"name": "a", "active": true, "count": 5},
+			map[string]any{"name": "b", "active": false, "count": 3},
+			map[string]any{"name": "c", "active": true, "count": 0},
+			map[string]any{"name": "d", "active": false, "count": 10},
+			map[string]any{"name": "e", "status": "pending", "priority": 1},
+			map[string]any{"name": "f", "status": "active", "priority": 2},
+			map[string]any{"name": "g", "status": "completed", "priority": 3},
+		},
+	}
+
+	tests := []struct {
+		name    string
+		path    string
+		wantLen int
+	}{
+		{
+			name:    "AND both true",
+			path:    "$.items[?@.active==true && @.count>0]",
+			wantLen: 1, // Only "a" has active=true AND count>0
+		},
+		{
+			name:    "AND one false",
+			path:    "$.items[?@.active==true && @.count==0]",
+			wantLen: 1, // Only "c" has active=true AND count=0
+		},
+		{
+			name:    "AND neither matches",
+			path:    "$.items[?@.active==true && @.count>100]",
+			wantLen: 0,
+		},
+		{
+			name:    "OR either true",
+			path:    "$.items[?@.status=='pending' || @.status=='active']",
+			wantLen: 2, // "e" and "f"
+		},
+		{
+			name:    "OR first true only",
+			path:    "$.items[?@.name=='a' || @.name=='z']",
+			wantLen: 1,
+		},
+		{
+			name:    "OR second true only",
+			path:    "$.items[?@.name=='z' || @.name=='b']",
+			wantLen: 1,
+		},
+		{
+			name:    "OR neither matches",
+			path:    "$.items[?@.status=='unknown' || @.status=='deleted']",
+			wantLen: 0,
+		},
+		{
+			name:    "chained AND",
+			path:    "$.items[?@.active==false && @.count>0 && @.count<15]",
+			wantLen: 2, // "b" (count=3) and "d" (count=10)
+		},
+		{
+			name:    "mixed priority filter",
+			path:    "$.items[?@.priority>=2 && @.status!='completed']",
+			wantLen: 1, // Only "f" has priority>=2 AND status!='completed'
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := Parse(tt.path)
+			if err != nil {
+				t.Fatalf("Parse(%q) error: %v", tt.path, err)
+			}
+
+			results := p.Get(doc)
+
+			if len(results) != tt.wantLen {
+				t.Errorf("Get(%q) returned %d results, want %d", tt.path, len(results), tt.wantLen)
+				for i, r := range results {
+					t.Logf("  result[%d]: %v", i, r)
 				}
 			}
 		})
