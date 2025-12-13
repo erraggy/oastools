@@ -77,6 +77,19 @@
 //
 // See the examples in example_test.go for more configuration patterns.
 //
+// # Overlay Integration
+//
+// Apply overlays during the join process for pre-processing inputs or post-processing results:
+//
+//	result, err := joiner.JoinWithOptions(
+//	    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+//	    joiner.WithPreJoinOverlayFile("normalize.yaml"),   // Applied to each input
+//	    joiner.WithPostJoinOverlayFile("enhance.yaml"),    // Applied to merged result
+//	)
+//
+// Pre-join overlays are applied to each input document before merging.
+// Post-join overlays are applied to the final merged result.
+//
 // # Features and Limitations
 //
 // The joiner validates all input documents, prevents output file overwrites with
@@ -130,4 +143,5 @@
 //   - [github.com/erraggy/oastools/differ] - Compare joined results with original documents
 //   - [github.com/erraggy/oastools/generator] - Generate code from joined specifications
 //   - [github.com/erraggy/oastools/builder] - Programmatically build specifications to join
+//   - [github.com/erraggy/oastools/overlay] - Apply overlay transformations during join
 package joiner

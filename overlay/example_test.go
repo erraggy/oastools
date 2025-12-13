@@ -177,3 +177,177 @@ func Example_removeAction() {
 	// Remaining paths: 1
 	// - /public
 }
+
+// Example_dryRun demonstrates previewing overlay changes without applying them.
+func Example_dryRun() {
+	// Create a document
+	doc := map[string]any{
+		"openapi": "3.0.3",
+		"info":    map[string]any{"title": "API", "version": "1.0.0"},
+		"paths": map[string]any{
+			"/users": map[string]any{
+				"get": map[string]any{"summary": "List users"},
+			},
+		},
+	}
+
+	// Create overlay with multiple actions
+	o := &overlay.Overlay{
+		Version: "1.0.0",
+		Info:    overlay.Info{Title: "Preview Changes", Version: "1.0.0"},
+		Actions: []overlay.Action{
+			{
+				Target: "$.info",
+				Update: map[string]any{"x-version": "v2"},
+			},
+			{
+				Target: "$.paths.*",
+				Update: map[string]any{"x-tested": true},
+			},
+		},
+	}
+
+	parseResult := &parser.ParseResult{
+		Document:     doc,
+		SourceFormat: parser.SourceFormatYAML,
+	}
+
+	// Preview changes without applying
+	result, err := overlay.DryRunWithOptions(
+		overlay.WithSpecParsed(*parseResult),
+		overlay.WithOverlayParsed(o),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Would apply: %d actions\n", result.WouldApply)
+	fmt.Printf("Would skip: %d actions\n", result.WouldSkip)
+	for _, change := range result.Changes {
+		fmt.Printf("- %s %d node(s) at %s\n", change.Operation, change.MatchCount, change.Target)
+	}
+
+	// Output:
+	// Would apply: 2 actions
+	// Would skip: 0 actions
+	// - update 1 node(s) at $.info
+	// - update 1 node(s) at $.paths.*
+}
+
+// Example_recursiveDescent demonstrates using $.. to find fields at any depth.
+func Example_recursiveDescent() {
+	// Create a document with descriptions at multiple levels
+	doc := map[string]any{
+		"openapi": "3.0.3",
+		"info": map[string]any{
+			"title":       "API",
+			"version":     "1.0.0",
+			"description": "Top-level description",
+		},
+		"paths": map[string]any{
+			"/users": map[string]any{
+				"get": map[string]any{
+					"summary":     "List users",
+					"description": "Operation description",
+					"responses": map[string]any{
+						"200": map[string]any{
+							"description": "Success response",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Update ALL descriptions at any depth using recursive descent
+	o := &overlay.Overlay{
+		Version: "1.0.0",
+		Info:    overlay.Info{Title: "Update Descriptions", Version: "1.0.0"},
+		Actions: []overlay.Action{
+			{
+				Target: "$..description",
+				Update: "Updated by overlay",
+			},
+		},
+	}
+
+	parseResult := &parser.ParseResult{
+		Document:     doc,
+		SourceFormat: parser.SourceFormatYAML,
+	}
+
+	// Use dry-run to see how many descriptions would be updated
+	result, err := overlay.DryRunWithOptions(
+		overlay.WithSpecParsed(*parseResult),
+		overlay.WithOverlayParsed(o),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Recursive descent found: %d descriptions\n", result.Changes[0].MatchCount)
+
+	// Output:
+	// Recursive descent found: 3 descriptions
+}
+
+// Example_compoundFilter demonstrates using && and || in filter expressions.
+func Example_compoundFilter() {
+	// Create a document with various operation states
+	doc := map[string]any{
+		"openapi": "3.0.3",
+		"info":    map[string]any{"title": "API", "version": "1.0.0"},
+		"paths": map[string]any{
+			"/deprecated-internal": map[string]any{
+				"deprecated": true,
+				"x-internal": true,
+				"get":        map[string]any{"summary": "Old internal endpoint"},
+			},
+			"/deprecated-public": map[string]any{
+				"deprecated": true,
+				"x-internal": false,
+				"get":        map[string]any{"summary": "Old public endpoint"},
+			},
+			"/active-internal": map[string]any{
+				"deprecated": false,
+				"x-internal": true,
+				"get":        map[string]any{"summary": "Active internal endpoint"},
+			},
+			"/active-public": map[string]any{
+				"deprecated": false,
+				"x-internal": false,
+				"get":        map[string]any{"summary": "Active public endpoint"},
+			},
+		},
+	}
+
+	// Use compound filter: deprecated AND internal
+	o := &overlay.Overlay{
+		Version: "1.0.0",
+		Info:    overlay.Info{Title: "Filter Test", Version: "1.0.0"},
+		Actions: []overlay.Action{
+			{
+				Target: "$.paths[?@.deprecated==true && @.x-internal==true]",
+				Update: map[string]any{"x-removal-scheduled": "2025-01-01"},
+			},
+		},
+	}
+
+	parseResult := &parser.ParseResult{
+		Document:     doc,
+		SourceFormat: parser.SourceFormatYAML,
+	}
+
+	result, err := overlay.DryRunWithOptions(
+		overlay.WithSpecParsed(*parseResult),
+		overlay.WithOverlayParsed(o),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Compound filter (deprecated && internal) matched: %d path(s)\n", result.Changes[0].MatchCount)
+
+	// Output:
+	// Compound filter (deprecated && internal) matched: 1 path(s)
+}

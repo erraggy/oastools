@@ -115,4 +115,5 @@
 //   - [github.com/erraggy/oastools/differ] - Compare specifications and detect breaking changes
 //   - [github.com/erraggy/oastools/generator] - Generate Go code from specifications
 //   - [github.com/erraggy/oastools/builder] - Programmatically build specifications
+//   - [github.com/erraggy/oastools/overlay] - Apply overlay transformations
 package parser

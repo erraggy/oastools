@@ -19,6 +19,7 @@ oastools <command> [options] [arguments]
 | `join` | Join multiple OpenAPI specifications |
 | `diff` | Compare two OpenAPI specifications |
 | `generate` | Generate Go code from an OpenAPI specification |
+| `overlay` | Apply OpenAPI Overlay transformations |
 | `version` | Show version information |
 | `help` | Show help information |
 
@@ -898,6 +899,188 @@ Optional fields (not in required array) use pointer types when `--no-pointers` i
 
 ---
 
+## overlay
+
+Apply OpenAPI Overlay Specification transformations to OpenAPI documents.
+
+### Synopsis
+
+```bash
+oastools overlay <subcommand> [flags]
+```
+
+### Subcommands
+
+| Subcommand | Description |
+|------------|-------------|
+| `apply` | Apply an overlay to an OpenAPI specification |
+| `validate` | Validate an overlay document |
+
+### overlay apply
+
+Apply an overlay transformation to an OpenAPI specification.
+
+```bash
+oastools overlay apply [flags]
+```
+
+#### Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--spec` | `-s` | Path to the OpenAPI specification file (required) |
+| `--overlay` | | Path to the overlay file (or positional argument) |
+| `--output` | `-o` | Output file path (default: stdout) |
+| `--strict` | | Fail if any target matches nothing |
+| `--dry-run` | | Preview changes without applying |
+| `--quiet` | `-q` | Suppress diagnostic output |
+| `-h, --help` | | Display help |
+
+#### Examples
+
+```bash
+# Apply overlay and write to file
+oastools overlay apply --spec openapi.yaml --overlay changes.yaml -o result.yaml
+
+# Apply overlay to stdout
+oastools overlay apply --spec openapi.yaml --overlay changes.yaml
+
+# Preview changes without applying
+oastools overlay apply --spec openapi.yaml --overlay changes.yaml --dry-run
+
+# Strict mode (fail if targets don't match)
+oastools overlay apply --spec openapi.yaml --overlay changes.yaml --strict
+
+# From stdin
+cat openapi.yaml | oastools overlay apply --spec - --overlay changes.yaml
+
+# Quiet mode for pipelines
+oastools overlay apply -q --spec openapi.yaml --overlay changes.yaml > result.yaml
+```
+
+#### Output Format
+
+```
+OpenAPI Overlay Application
+============================
+
+oastools version: v1.24.0
+Overlay: changes.yaml
+Spec: openapi.yaml
+OAS Version: 3.0.3
+
+Actions applied: 3
+Actions skipped: 0
+
+Changes:
+  - update 1 nodes at $.info
+  - update 5 nodes at $.paths.*.get
+  - remove 2 nodes at $.paths[?@.x-internal==true]
+
+✓ Overlay applied successfully
+```
+
+#### Dry-Run Output
+
+```
+OpenAPI Overlay Dry Run
+=======================
+
+oastools version: v1.24.0
+Overlay: changes.yaml
+Spec: openapi.yaml
+OAS Version: 3.0.3
+
+Would apply: 3 actions
+Would skip: 0 actions
+
+Proposed changes:
+  - update 1 nodes at $.info
+  - update 5 nodes at $.paths.*.get
+  - remove 2 nodes at $.paths[?@.x-internal==true]
+```
+
+### overlay validate
+
+Validate an overlay document against the OpenAPI Overlay Specification.
+
+```bash
+oastools overlay validate [flags] <overlay-file>
+```
+
+#### Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--quiet` | `-q` | Suppress diagnostic output |
+| `-h, --help` | | Display help |
+
+#### Examples
+
+```bash
+# Validate an overlay file
+oastools overlay validate overlay.yaml
+
+# Quiet mode
+oastools overlay validate -q overlay.yaml
+```
+
+#### Output Format
+
+```
+OpenAPI Overlay Validator
+=========================
+
+oastools version: v1.24.0
+Overlay: overlay.yaml
+Title: Update API Metadata
+Version: 1.0.0
+Actions: 5
+
+✓ Overlay is valid
+```
+
+#### Validation Errors
+
+```
+OpenAPI Overlay Validator
+=========================
+
+oastools version: v1.24.0
+Overlay: invalid-overlay.yaml
+
+Errors (2):
+  ✗ info.version: version is required
+  ✗ actions: at least one action is required
+
+✗ Validation failed: 2 error(s)
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success (overlay applied or validated) |
+| 1 | Failure (errors in overlay or application) |
+
+### JSONPath Support
+
+The overlay package supports these JSONPath expressions:
+
+| Expression | Description | Example |
+|------------|-------------|---------|
+| `$.field` | Root field access | `$.info` |
+| `$.a.b.c` | Nested field access | `$.info.title` |
+| `$['field']` | Bracket notation | `$.paths['/users']` |
+| `$.*` | Wildcard (all children) | `$.paths.*` |
+| `$[0]` | Array index | `$.servers[0]` |
+| `$..field` | Recursive descent | `$..description` |
+| `$[?@.x==y]` | Filter expression | `$.paths[?@.x-internal==true]` |
+| `$[?@ && @]` | Compound AND filter | `$.paths[?@.deprecated==true && @.x-internal==true]` |
+| `$[?@ \|\| @]` | Compound OR filter | `$.paths[?@.deprecated==true \|\| @.x-obsolete==true]` |
+
+---
+
 ## version
 
 Display oastools version and build information.
@@ -955,6 +1138,7 @@ Commands:
   diff        Compare two OpenAPI specifications and detect changes
   generate    Generate Go client/server code from an OpenAPI specification
   join        Join multiple OpenAPI specification files
+  overlay     Apply OpenAPI Overlay transformations
   parse       Parse and display an OpenAPI specification file or URL
   version     Show version information
   help        Show this help message
@@ -967,6 +1151,7 @@ Examples:
   oastools diff --breaking api-v1.yaml api-v2.yaml
   oastools generate --client -o ./client openapi.yaml
   oastools join -o merged.yaml base.yaml extensions.yaml
+  oastools overlay apply --spec openapi.yaml --overlay changes.yaml -o result.yaml
   oastools parse https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.yaml
 
 Run 'oastools <command> --help' for more information on a command.

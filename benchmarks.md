@@ -35,7 +35,7 @@ The v1.7.0 release includes a major optimization to JSON marshaling that elimina
 
 ## Benchmark Suite
 
-The benchmark suite includes **120+ benchmarks** (53 benchmark functions with many sub-benchmarks) across eight main packages:
+The benchmark suite includes **130+ benchmarks** across nine main packages:
 
 ### Parser Package (38 benchmarks)
 

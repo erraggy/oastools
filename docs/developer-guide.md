@@ -6,13 +6,8 @@ This guide provides comprehensive documentation for developers using oastools as
 
 - [Installation](#installation)
 - [CLI Usage](#cli-usage)
-  - [Validate Command](#validate-command)
-  - [Fix Command](#fix-command)
-  - [Parse Command](#parse-command)
-  - [Convert Command](#convert-command)
-  - [Join Command](#join-command)
-  - [Diff Command](#diff-command)
-  - [Generate Command](#generate-command)
+  - [Quick Reference](#quick-reference)
+  - [Pipeline Support](#pipeline-support)
 - [Library Usage](#library-usage)
   - [Parser Package](#parser-package)
   - [Validator Package](#validator-package)
@@ -22,6 +17,7 @@ This guide provides comprehensive documentation for developers using oastools as
   - [Differ Package](#differ-package)
   - [Generator Package](#generator-package)
   - [Builder Package](#builder-package)
+  - [Overlay Package](#overlay-package)
 - [Advanced Patterns](#advanced-patterns)
   - [Parse-Once Pattern](#parse-once-pattern)
   - [Error Handling](#error-handling)
@@ -54,472 +50,61 @@ go get github.com/erraggy/oastools@latest
 
 ## CLI Usage
 
-### Validate Command
+This section provides quick examples of common CLI operations. For complete documentation including all flags, options, and output formats, see the **[CLI Reference](cli-reference.md)**.
 
-The validate command checks an OpenAPI specification for correctness against the OpenAPI Specification.
-
-**Basic Usage:**
+### Quick Reference
 
 ```bash
-# Validate a local file
+# Validate
 oastools validate openapi.yaml
+oastools validate --strict --format json openapi.yaml
 
-# Validate from a URL
-oastools validate https://example.com/api/openapi.yaml
-
-# Validate from stdin
-cat openapi.yaml | oastools validate -
-```
-
-**Options:**
-
-```bash
-# Enable strict mode (treats warnings as errors)
-oastools validate --strict openapi.yaml
-
-# Suppress warnings (show only errors)
-oastools validate --no-warnings openapi.yaml
-
-# Quiet mode for pipelines
-oastools validate -q openapi.yaml
-
-# Output as JSON for programmatic processing
-oastools validate --format json openapi.yaml | jq '.valid'
-
-# Output as YAML
-oastools validate --format yaml openapi.yaml
-```
-
-**Understanding Output:**
-
-```
-OpenAPI Specification Validator
-================================
-
-Specification: openapi.yaml
-OAS Version: 3.0.3
-Source Size: 2.5 KB
-Paths: 5
-Operations: 12
-Schemas: 8
-Load Time: 125ms
-Total Time: 140ms
-
-Errors (2):
-  ✗ paths./users.get.responses: missing required field '200' or 'default': at least one response is required
-    Spec: https://spec.openapis.org/oas/v3.0.3.html#responses-object
-  ✗ components.schemas.User.properties.id: missing required 'type' field
-    Spec: https://spec.openapis.org/oas/v3.0.3.html#schema-object
-
-Warnings (1):
-  ⚠ paths./users/{id}.get: Operation should have a description or summary for better documentation
-    Spec: https://spec.openapis.org/oas/v3.0.3.html#operation-object
-
-✗ Validation failed: 2 error(s), 1 warning(s)
-```
-
-**Common Validation Errors and Fixes:**
-
-| Error | Solution |
-|-------|----------|
-| `missing required field 'info.version'` | Add `version: "1.0.0"` to the info section |
-| `path must begin with '/'` | Ensure all paths start with `/` (e.g., `/users` not `users`) |
-| `missing required field 'responses'` | Add at least one response (e.g., `200` or `default`) to each operation |
-| `missing required 'type' field` | Add `type: string`, `type: object`, etc. to schema definitions |
-| `Invalid $ref format` | Use `#/components/schemas/Name` for OAS 3.x or `#/definitions/Name` for OAS 2.0 |
-
-### Fix Command
-
-The fix command automatically corrects common validation errors in OpenAPI specifications.
-
-**Basic Usage:**
-
-```bash
-# Fix a file and output to stdout
-oastools fix openapi.yaml
-
-# Fix and write to a specific file
+# Fix common errors
 oastools fix openapi.yaml -o fixed.yaml
+oastools fix --infer openapi.yaml -o fixed.yaml  # Type inference
 
-# Fix with type inference
-oastools fix --infer openapi.yaml -o fixed.yaml
+# Parse and inspect
+oastools parse openapi.yaml
+oastools parse --resolve-refs openapi.yaml
 
-# Fix from stdin
-cat openapi.yaml | oastools fix - > fixed.yaml
+# Convert between versions
+oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
+oastools convert -t 2.0 openapi.yaml -o swagger.yaml
+
+# Join multiple specs
+oastools join -o merged.yaml base.yaml ext.yaml
+oastools join --path-strategy accept-left -o merged.yaml base.yaml ext.yaml
+
+# Compare specs (breaking change detection)
+oastools diff api-v1.yaml api-v2.yaml
+oastools diff --breaking api-v1.yaml api-v2.yaml
+
+# Generate Go code
+oastools generate --client -o ./client -p petstore openapi.yaml
+oastools generate --server -o ./server -p petstore openapi.yaml
+
+# Apply overlay transformations
+oastools overlay apply --spec openapi.yaml --overlay changes.yaml -o result.yaml
+oastools overlay validate overlay.yaml
+oastools overlay apply --spec openapi.yaml --overlay changes.yaml --dry-run
 ```
 
-**Pipeline Usage:**
+### Pipeline Support
+
+All commands support stdin (`-`) and quiet mode (`-q`) for shell pipelines:
 
 ```bash
 # Fix then validate
 oastools fix api.yaml | oastools validate -q -
 
-# Fix with quiet mode (only output the document)
-cat openapi.yaml | oastools fix -q - | oastools validate -q -
-```
-
-**Type Inference:**
-
-When `--infer` is enabled, parameter types are inferred from naming conventions:
-
-| Pattern | Type | Format |
-|---------|------|--------|
-| Names ending in `id`, `Id`, `ID` | `integer` | - |
-| Names containing `uuid`, `guid` | `string` | `uuid` |
-| All other names | `string` | - |
-
-**Understanding Output:**
-
-```
-OpenAPI Specification Fixer
-===========================
-
-Specification: openapi.yaml
-OAS Version: 3.0.3
-Load Time: 125ms
-Total Time: 140ms
-
-Fixes Applied (2):
-  ✓ paths./users/{userId}.get.parameters: Added missing path parameter 'userId' (type: string)
-  ✓ paths./projects/{projectId}.get.parameters: Added missing path parameter 'projectId' (type: integer)
-
-✓ Fixed: 2 issue(s) corrected
-```
-
-### Parse Command
-
-The parse command reads and analyzes an OpenAPI specification, displaying its structure and metadata.
-
-**Basic Usage:**
-
-```bash
-# Parse a file
-oastools parse openapi.yaml
-
-# Parse with external reference resolution
-oastools parse --resolve-refs openapi.yaml
-
-# Parse with structure validation
-oastools parse --validate-structure openapi.yaml
-
-# Parse from stdin
-cat openapi.yaml | oastools parse -
-
-# Quiet mode for pipelines (outputs only JSON)
-cat openapi.yaml | oastools parse -q - | jq '.info.title'
-```
-
-**Output Explanation:**
-
-```
-OpenAPI Specification Parser
-============================
-
-Specification: petstore.yaml
-OAS Version: 3.0.3
-Source Size: 15.2 KB
-Paths: 8
-Operations: 15
-Schemas: 12
-Load Time: 45ms
-
-Document Type: OpenAPI 3.x
-Title: Petstore API
-Description: A sample API for a pet store
-Version: 1.0.0
-Servers: 2
-Paths: 8
-```
-
-### Convert Command
-
-The convert command transforms OpenAPI specifications between different versions.
-
-**Basic Usage:**
-
-```bash
-# Convert OAS 2.0 (Swagger) to OAS 3.0.3
-oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
-
-# Convert from URL
-oastools convert -t 3.0.3 https://example.com/swagger.yaml -o openapi.yaml
-
-# Convert OAS 3.x back to OAS 2.0
-oastools convert -t 2.0 openapi.yaml -o swagger.yaml
-
-# Strict mode (fail on any conversion issues)
-oastools convert --strict -t 3.0.3 swagger.yaml -o openapi.yaml
-
-# Suppress info messages
-oastools convert --no-warnings -t 3.0.3 swagger.yaml -o openapi.yaml
-
-# Convert from stdin (for pipelines)
-cat swagger.yaml | oastools convert -t 3.0.3 - -o openapi.yaml
-
-# Pipeline with quiet mode (output to stdout)
+# Convert via pipeline
 cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
+
+# Chain operations
+curl -s https://example.com/swagger.yaml | oastools convert -q -t 3.0.3 - | oastools validate -q -
 ```
 
-**Understanding Conversion Issues:**
-
-```
-Conversion Issues (3):
-  [INFO] servers: Converted host 'api.example.com' with basePath '/v1' to server URL 'https://api.example.com/v1'
-  [WARNING] parameters.filter.allowEmptyValue: OAS 3.x does not support allowEmptyValue for query parameters; value dropped
-  [CRITICAL] paths./webhook: Webhooks cannot be converted to OAS 2.0; webhook removed from output
-```
-
-| Severity | Meaning | Action |
-|----------|---------|--------|
-| INFO | Conversion choice or transformation | Review for correctness |
-| WARNING | Lossy conversion, some data may be lost | Verify output meets requirements |
-| CRITICAL | Feature cannot be converted | Manual intervention required |
-
-**OAS 2.0 → 3.x Conversion Notes:**
-
-- `host`, `basePath`, `schemes` → `servers` array
-- `definitions` → `components.schemas`
-- `parameters` → `components.parameters`
-- `responses` → `components.responses`
-- `securityDefinitions` → `components.securitySchemes`
-- `consumes`/`produces` → `requestBody.content` / `responses.*.content`
-- Body parameters → `requestBody` objects
-
-**OAS 3.x → 2.0 Conversion Notes:**
-
-These features cannot be converted:
-- Webhooks (OAS 3.1+)
-- Callbacks
-- Links
-- TRACE HTTP method
-- Cookie parameters (partial support)
-- Multiple servers (only first is used)
-
-### Join Command
-
-The join command merges multiple OpenAPI specifications into a single document.
-
-**Basic Usage:**
-
-```bash
-# Join two specifications
-oastools join -o merged.yaml base.yaml extensions.yaml
-
-# Join multiple specifications
-oastools join -o api.yaml users.yaml posts.yaml comments.yaml
-```
-
-**Collision Strategies:**
-
-```bash
-# Keep first value on collision (default behavior)
-oastools join --path-strategy accept-left -o merged.yaml base.yaml ext.yaml
-
-# Keep last value on collision (overwrite)
-oastools join --path-strategy accept-right -o merged.yaml base.yaml ext.yaml
-
-# Fail on any collision
-oastools join --path-strategy fail -o merged.yaml base.yaml ext.yaml
-
-# Fail only on path collisions, allow schema merging
-oastools join --path-strategy fail-on-paths -o merged.yaml base.yaml ext.yaml
-```
-
-**Per-Component Strategies:**
-
-```bash
-# Different strategies for different component types
-oastools join \
-  --path-strategy fail \
-  --schema-strategy accept-left \
-  --component-strategy accept-right \
-  -o merged.yaml base.yaml ext.yaml
-```
-
-**Array Handling:**
-
-```bash
-# Don't merge arrays (servers, security, tags)
-oastools join --no-merge-arrays -o merged.yaml base.yaml ext.yaml
-
-# Don't deduplicate tags
-oastools join --no-dedup-tags -o merged.yaml base.yaml ext.yaml
-```
-
-**Example Scenario: Merging Microservice APIs**
-
-```bash
-# Combine APIs from multiple microservices
-oastools join \
-  --path-strategy fail \
-  --schema-strategy accept-left \
-  -o gateway-api.yaml \
-  users-service/openapi.yaml \
-  orders-service/openapi.yaml \
-  products-service/openapi.yaml
-```
-
-### Diff Command
-
-The diff command compares two OpenAPI specifications and reports differences.
-
-**Basic Usage:**
-
-```bash
-# Simple diff (all changes)
-oastools diff api-v1.yaml api-v2.yaml
-
-# Breaking change detection
-oastools diff --breaking api-v1.yaml api-v2.yaml
-
-# Exclude informational changes
-oastools diff --breaking --no-info api-v1.yaml api-v2.yaml
-
-# Compare from URLs
-oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml
-
-# Output as JSON for CI/CD pipelines
-oastools diff --format json --breaking api-v1.yaml api-v2.yaml | jq '.HasBreakingChanges'
-
-# Output as YAML
-oastools diff --format yaml api-v1.yaml api-v2.yaml
-```
-
-**Understanding Breaking Change Severity:**
-
-| Severity | Impact | Examples |
-|----------|--------|----------|
-| CRITICAL | API consumers WILL break | Removed endpoints, removed operations |
-| ERROR | API consumers MAY break | Type changes, new required parameters |
-| WARNING | Consumers SHOULD be aware | Deprecated operations, new optional fields |
-| INFO | Non-breaking changes | Added endpoints, improved documentation |
-
-**Example Output:**
-
-```
-OpenAPI Specification Diff
-==========================
-
-Source: api-v1.yaml (3.0.3)
-Target: api-v2.yaml (3.0.3)
-Total Time: 125ms
-
-Endpoint Changes (2):
-  [CRITICAL] /users/{id}: Endpoint removed
-  [INFO] /posts: Endpoint added
-
-Operation Changes (1):
-  [WARNING] GET /users: Operation deprecated
-
-Parameter Changes (2):
-  [ERROR] GET /users: Required parameter 'limit' added
-  [INFO] GET /users: Optional parameter 'filter' added
-
-Summary:
-  Total changes: 5
-  ⚠️  Breaking changes: 2
-  Warnings: 1
-  Info: 2
-```
-
-**Exit Codes:**
-
-| Code | Meaning |
-|------|---------|
-| 0 | No differences (or no breaking changes in `--breaking` mode) |
-| 1 | Differences found (or breaking changes in `--breaking` mode) |
-
-### Generate Command
-
-The generate command creates idiomatic Go code for API clients and server stubs from an OpenAPI specification.
-
-**Basic Usage:**
-
-```bash
-# Generate client code
-oastools generate --client -o ./client -p petstore openapi.yaml
-
-# Generate server interface
-oastools generate --server -o ./server -p petstore openapi.yaml
-
-# Generate both client and server
-oastools generate --client --server -o ./generated -p myapi openapi.yaml
-
-# Generate types only
-oastools generate --types -o ./models -p models openapi.yaml
-
-# From a URL
-oastools generate --client -o ./generated https://example.com/api/openapi.yaml
-```
-
-**Options:**
-
-```bash
--o, --output string         Output directory for generated files (required)
--p, --package string        Go package name for generated code (default: "api")
---client                    Generate HTTP client code
---server                    Generate server interface code
---types                     Generate type definitions from schemas (default: true)
---no-pointers              Don't use pointer types for optional fields
---no-validation            Don't include validation tags in generated code
---strict                   Fail on any generation issues (even warnings)
---no-warnings              Suppress warning and info messages
-
-# Security generation options
---no-security              Don't generate security helper functions (default: generated with --client)
---oauth2-flows             Generate full OAuth2 token flow helpers
---credential-mgmt          Generate credential management interfaces
---security-enforce         Generate security enforcement middleware
---oidc-discovery           Generate OpenID Connect discovery client
---no-readme                Don't generate README.md documentation (default: generated)
-
-# File splitting options (for large APIs)
---max-lines-per-file int   Maximum lines per generated file (default: 2000)
---max-types-per-file int   Maximum types per generated file (default: 200)
---max-ops-per-file int     Maximum operations per generated file (default: 100)
---split-by-tag             Split files by operation tag (default: true)
---split-by-path            Split files by path prefix (default: true)
-```
-
-**Generated Files:**
-
-The command produces:
-- `types.go` - Model structs from schema definitions
-- `client.go` - HTTP client with methods for each operation (when `--client` is used)
-- `server.go` - Server interface for implementing endpoints (when `--server` is used)
-- `security_helpers.go` - Security ClientOption functions (generated by default with `--client`)
-- `{scheme}_oauth2.go` - OAuth2 client for each OAuth2 scheme (when `--oauth2-flows` is used)
-- `credentials.go` - Credential provider interfaces (when `--credential-mgmt` is used)
-- `security_enforce.go` - Security validation middleware (when `--security-enforce` is used)
-- `oidc_discovery.go` - OpenID Connect discovery client (when `--oidc-discovery` is used)
-- `README.md` - Documentation for the generated package (generated by default)
-
-**Understanding Output:**
-
-```
-Generating code from OpenAPI specification...
-==============================
-
-File: openapi.yaml
-Version: 3.0.3
-Package: petstore
-
-Generated Files:
-  types.go (8.2 KB)
-  client.go (12.5 KB)
-  server.go (5.8 KB)
-
-Statistics:
-  Types: 15
-  Operations: 8
-
-Issues (3):
-  INFO [paths./pets.post]: Consider adding a requestBody description
-  WARNING [paths./pets/{id}.get]: Parameter 'limit' should have a description
-  INFO [components.schemas.Pet]: Consider adding examples
-
-Generation complete in 245ms
-```
+For detailed documentation on each command including all flags, output formats, exit codes, and examples, see the **[CLI Reference](cli-reference.md)**.
 
 ## Library Usage
 
@@ -1341,6 +926,111 @@ type Product struct {
 // - Applies constraints from oas tags
 // - Handles nested structs, arrays, and time.Time
 // - Generates descriptions and format hints
+```
+
+### Overlay Package
+
+The overlay package applies OpenAPI Overlay Specification v1.0.0 transformations to OpenAPI documents using JSONPath targeting.
+
+**Basic Usage:**
+
+```go
+import "github.com/erraggy/oastools/overlay"
+
+// Apply overlay with functional options
+result, err := overlay.ApplyWithOptions(
+    overlay.WithSpecFilePath("openapi.yaml"),
+    overlay.WithOverlayFilePath("changes.yaml"),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Applied %d actions\n", result.ActionsApplied)
+```
+
+**Creating Overlays Programmatically:**
+
+```go
+// Create an overlay to update API metadata
+o := &overlay.Overlay{
+    Version: "1.0.0",
+    Info: overlay.Info{
+        Title:   "Update API Title",
+        Version: "1.0.0",
+    },
+    Actions: []overlay.Action{
+        {
+            Target: "$.info",
+            Update: map[string]any{
+                "title":         "Production API",
+                "x-environment": "production",
+            },
+        },
+        {
+            Target: "$.paths[?@.x-internal==true]",
+            Remove: true,
+        },
+    },
+}
+
+result, err := overlay.ApplyWithOptions(
+    overlay.WithSpecFilePath("openapi.yaml"),
+    overlay.WithOverlayParsed(o),
+)
+```
+
+**Dry-Run Mode (Preview Changes):**
+
+```go
+// Preview changes without applying
+dryResult, err := overlay.DryRunWithOptions(
+    overlay.WithSpecFilePath("openapi.yaml"),
+    overlay.WithOverlayFilePath("changes.yaml"),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Would apply: %d actions\n", dryResult.WouldApply)
+fmt.Printf("Would skip: %d actions\n", dryResult.WouldSkip)
+for _, change := range dryResult.Changes {
+    fmt.Printf("  - %s %d nodes at %s\n", change.Operation, change.MatchCount, change.Target)
+}
+```
+
+**Validating Overlay Documents:**
+
+```go
+o, err := overlay.ParseOverlayFile("overlay.yaml")
+if err != nil {
+    log.Fatal(err)
+}
+
+errs := overlay.Validate(o)
+if len(errs) > 0 {
+    for _, err := range errs {
+        fmt.Printf("Validation error: %s\n", err.Message)
+    }
+}
+```
+
+**Advanced JSONPath Targeting:**
+
+```go
+// The overlay package supports various JSONPath expressions:
+
+// Recursive descent - find all descriptions at any depth
+{Target: "$..description", Update: "Updated description"}
+
+// Compound filters with AND
+{Target: "$.paths[?@.deprecated==true && @.x-internal==true]", Remove: true}
+
+// Compound filters with OR
+{Target: "$.paths[?@.deprecated==true || @.x-obsolete==true]", Remove: true}
+
+// Wildcard selectors
+{Target: "$.paths.*.get", Update: map[string]any{"x-cached": true}}
 ```
 
 ## Advanced Patterns

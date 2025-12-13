@@ -14,9 +14,9 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 ## Highlights
 
 - **Minimal Dependencies** - Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4) and [`golang.org/x/tools`](https://pkg.go.dev/golang.org/x/tools) at runtime
-- **Battle-Tested** - 820+ tests against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
+- **Battle-Tested** - 3000+ tests against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
 - **Complete Toolset** - 10 packages covering the full OpenAPI lifecycle
-- **Performance Optimized** - 120+ benchmarks; pre-parsed workflows 9-150x faster
+- **Performance Optimized** - 130+ benchmarks; pre-parsed workflows 9-150x faster
 - **Type-Safe Cloning** - Generated `DeepCopy()` methods preserve types across OAS versions (no JSON marshal hacks)
 - **Enterprise Ready** - Structured errors with `errors.Is()`/`errors.As()`, pluggable logging, configurable resource limits
 - **Well Documented** - Every package has godoc and runnable examples on [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools)
@@ -30,7 +30,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 | [fixer](https://pkg.go.dev/github.com/erraggy/oastools/fixer)         | Auto-fix common validation errors                      |
 | [converter](https://pkg.go.dev/github.com/erraggy/oastools/converter) | Convert between OAS 2.0 and 3.x                        |
 | [joiner](https://pkg.go.dev/github.com/erraggy/oastools/joiner)       | Merge multiple OAS documents                           |
-| [overlay](https://pkg.go.dev/github.com/erraggy/oastools/overlay)     | Apply OpenAPI Overlay transformations                  |
+| [overlay](https://pkg.go.dev/github.com/erraggy/oastools/overlay)     | Apply OpenAPI Overlay v1.0.0 with JSONPath targeting   |
 | [differ](https://pkg.go.dev/github.com/erraggy/oastools/differ)       | Detect breaking changes between versions               |
 | [generator](https://pkg.go.dev/github.com/erraggy/oastools/generator) | Generate Go client/server code with security support   |
 | [builder](https://pkg.go.dev/github.com/erraggy/oastools/builder)     | Programmatically construct OAS documents               |
@@ -90,6 +90,9 @@ oastools join -o merged.yaml base.yaml extensions.yaml
 # Apply overlays for environment-specific customizations
 oastools overlay apply -s openapi.yaml production.yaml -o production-api.yaml
 
+# Validate an overlay document
+oastools overlay validate changes.yaml
+
 # Pipeline support
 cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
 oastools validate --format json openapi.yaml | jq '.valid'
@@ -117,11 +120,14 @@ dResult, _ := differ.DiffWithOptions(
     differ.WithTargetFilePath("v2.yaml"),
 )
 
-// Overlay
-oResult, _ := overlay.ApplyWithOptions(
+// Overlay with dry-run preview
+oResult, _ := overlay.DryRunWithOptions(
     overlay.WithSpecFilePath("api.yaml"),
-    overlay.WithOverlayFilePath("production.yaml"),
+    overlay.WithOverlayFilePath("changes.yaml"),
 )
+for _, change := range oResult.Changes {
+    fmt.Printf("Would %s %d nodes at %s\n", change.Operation, change.MatchCount, change.Target)
+}
 ```
 
 For complete API documentation and examples, see [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) or the [Developer Guide](docs/developer-guide.md).
@@ -240,11 +246,13 @@ result, err := parser.ParseWithOptions(
 
 ## Documentation
 
+📚 **[Developer Guide](docs/developer-guide.md)** - Complete library usage with examples for all 10 packages
+
+📖 **[CLI Reference](docs/cli-reference.md)** - Full command documentation with all flags, options, and output formats
+
 | Resource                                                     | Description                             |
 |--------------------------------------------------------------|-----------------------------------------|
 | [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) | API reference with runnable examples    |
-| [Developer Guide](docs/developer-guide.md)                   | Comprehensive library and CLI usage     |
-| [CLI Reference](docs/cli-reference.md)                       | All commands and options                |
 | [Breaking Changes Guide](docs/breaking-changes.md)           | Understanding breaking change detection |
 | [Benchmarks](benchmarks.md)                                  | Detailed performance analysis           |
 

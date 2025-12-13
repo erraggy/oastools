@@ -8,7 +8,7 @@ Update benchmarks in the following situations:
 - Before creating a new release
 - After making performance-related changes
 - After adding new functionality that may affect performance
-- When significant changes are made to core packages (parser, validator, fixer, converter, joiner, differ, generator, builder)
+- When significant changes are made to core packages (parser, validator, fixer, converter, joiner, overlay, differ, generator, builder)
 
 ## Prerequisites
 
@@ -67,6 +67,9 @@ make bench-generator
 
 # Run builder benchmarks
 make bench-builder
+
+# Run overlay benchmarks (includes jsonpath)
+make bench-overlay
 ```
 
 **Alternative:** Run all benchmarks at once:
