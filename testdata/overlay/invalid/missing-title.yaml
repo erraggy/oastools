@@ -1,0 +1,7 @@
+overlay: 1.0.0
+info:
+  version: 1.0.0
+actions:
+  - target: $.info
+    update:
+      title: Updated

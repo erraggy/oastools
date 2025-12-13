@@ -1,0 +1,18 @@
+overlay: 1.0.0
+info:
+  title: Petstore Production Overlay
+  version: 1.0.0
+actions:
+  - target: $.info
+    description: Update API title for production
+    update:
+      title: Petstore Production API
+      x-environment: production
+  - target: $.servers
+    description: Add staging server
+    update:
+      url: https://staging.petstore.example.com
+      description: Staging server
+  - target: $.paths[?@.x-internal==true]
+    description: Remove internal endpoints
+    remove: true
