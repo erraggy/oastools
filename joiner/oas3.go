@@ -9,7 +9,10 @@ import (
 // joinOAS3Documents joins multiple OAS 3.x documents
 func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, error) {
 	// Start with a copy of the first document
-	baseDoc, _ := docs[0].OAS3Document()
+	baseDoc, ok := docs[0].OAS3Document()
+	if !ok || baseDoc == nil {
+		return nil, fmt.Errorf("joiner: first document is not a valid OAS 3.x document")
+	}
 
 	result := &JoinResult{
 		Version:       docs[0].Version,
@@ -56,7 +59,10 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	// Merge all documents
 	for i, doc := range docs {
-		oas3Doc, _ := doc.OAS3Document()
+		oas3Doc, ok := doc.OAS3Document()
+		if !ok || oas3Doc == nil {
+			return nil, fmt.Errorf("joiner: document at index %d (path: %s) is not a valid OAS 3.x document", i, doc.SourcePath)
+		}
 		ctx := documentContext{
 			filePath: doc.SourcePath,
 			docIndex: i,
