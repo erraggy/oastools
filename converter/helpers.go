@@ -335,6 +335,8 @@ func rewriteRefOAS3ToOAS2(ref string) string {
 }
 
 // refRewriter is a function that rewrites a $ref string to a different format.
+// It is used by [walkSchemaRefs] to apply version-specific reference transformations.
+// The function receives the original $ref value and returns the rewritten value.
 type refRewriter func(ref string) string
 
 // walkSchemaRefs recursively walks a schema and rewrites all $ref values using the provided rewriter function.
@@ -358,7 +360,8 @@ func walkSchemaRefs(schema *parser.Schema, rewrite refRewriter) {
 		walkSchemaRefs(propSchema, rewrite)
 	}
 
-	// Handle interface{} typed fields with type assertion
+	// Handle interface{} typed fields with type assertion.
+	// These can be bool (OAS 3.1+) or *Schema - only *Schema needs traversal.
 	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
 		walkSchemaRefs(addProps, rewrite)
 	}
