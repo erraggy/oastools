@@ -105,6 +105,30 @@
 // preserve the original file format. See the exported ParseResult and document type fields
 // for complete details.
 //
+// # Document Type Helpers
+//
+// ParseResult provides convenient methods for version checking and type assertion:
+//
+//	result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
+//
+//	// Version checking
+//	if result.IsOAS2() {
+//		fmt.Println("This is a Swagger 2.0 document")
+//	}
+//	if result.IsOAS3() {
+//		fmt.Println("This is an OAS 3.x document")
+//	}
+//
+//	// Safe type assertion
+//	if doc, ok := result.OAS3Document(); ok {
+//		fmt.Printf("API: %s v%s\n", doc.Info.Title, doc.Info.Version)
+//	}
+//	if doc, ok := result.OAS2Document(); ok {
+//		fmt.Printf("Swagger: %s v%s\n", doc.Info.Title, doc.Info.Version)
+//	}
+//
+// These helpers eliminate the need for manual type switches on the Document field.
+//
 // # Related Packages
 //
 // After parsing, use these packages for additional operations:
