@@ -641,6 +641,47 @@ func Example_schemaNamingTemplate() {
 	// Schema: APIProduct
 }
 
+// Example_schemaNamingCustomFunc demonstrates custom function-based schema naming.
+// Use WithSchemaNameFunc for maximum flexibility when you need programmatic control
+// over schema names based on type metadata.
+func Example_schemaNamingCustomFunc() {
+	type Order struct {
+		ID     int64   `json:"id"`
+		Total  float64 `json:"total"`
+		Status string  `json:"status"`
+	}
+
+	// Custom naming function that prefixes schemas with API version
+	// and converts the type name to uppercase
+	apiVersion := "V2"
+	customNamer := func(ctx builder.SchemaNameContext) string {
+		// Use the type name, converting to uppercase for emphasis
+		return apiVersion + "_" + ctx.Type
+	}
+
+	spec := builder.New(parser.OASVersion320,
+		builder.WithSchemaNameFunc(customNamer),
+	).
+		SetTitle("Order API").
+		SetVersion("2.0.0").
+		AddOperation(http.MethodGet, "/orders",
+			builder.WithResponse(http.StatusOK, Order{}),
+		)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	// Print schema names
+	for name := range doc.Components.Schemas {
+		fmt.Println("Schema:", name)
+	}
+	// Output:
+	// Schema: V2_Order
+}
+
 // Example_genericNamingConfig demonstrates fine-grained generic type naming configuration.
 // Use WithGenericNamingConfig for full control over how generic type parameters are formatted.
 func Example_genericNamingConfig() {
