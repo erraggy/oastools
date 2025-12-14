@@ -334,136 +334,91 @@ func rewriteRefOAS3ToOAS2(ref string) string {
 	return ref
 }
 
-// rewriteSchemaRefsOAS2ToOAS3 recursively rewrites all $ref values in a schema from OAS 2.0 to OAS 3.x format
-func rewriteSchemaRefsOAS2ToOAS3(schema *parser.Schema) {
+// refRewriter is a function that rewrites a $ref string to a different format.
+type refRewriter func(ref string) string
+
+// walkSchemaRefs recursively walks a schema and rewrites all $ref values using the provided rewriter function.
+// This is a generic traversal function that handles all nested schema locations.
+func walkSchemaRefs(schema *parser.Schema, rewrite refRewriter) {
 	if schema == nil {
 		return
 	}
 
 	// Rewrite the $ref in this schema
 	if schema.Ref != "" {
-		schema.Ref = rewriteRefOAS2ToOAS3(schema.Ref)
+		schema.Ref = rewrite(schema.Ref)
 	}
 
-	// Recursively rewrite nested schemas
+	// Recursively rewrite nested schemas in properties
 	for _, propSchema := range schema.Properties {
-		rewriteSchemaRefsOAS2ToOAS3(propSchema)
+		walkSchemaRefs(propSchema, rewrite)
 	}
 
 	for _, propSchema := range schema.PatternProperties {
-		rewriteSchemaRefsOAS2ToOAS3(propSchema)
+		walkSchemaRefs(propSchema, rewrite)
 	}
 
+	// Handle interface{} typed fields with type assertion
 	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-		rewriteSchemaRefsOAS2ToOAS3(addProps)
+		walkSchemaRefs(addProps, rewrite)
 	}
 
 	if items, ok := schema.Items.(*parser.Schema); ok {
-		rewriteSchemaRefsOAS2ToOAS3(items)
+		walkSchemaRefs(items, rewrite)
 	}
 
+	// Composition keywords
 	for _, subSchema := range schema.AllOf {
-		rewriteSchemaRefsOAS2ToOAS3(subSchema)
+		walkSchemaRefs(subSchema, rewrite)
 	}
 
 	for _, subSchema := range schema.AnyOf {
-		rewriteSchemaRefsOAS2ToOAS3(subSchema)
+		walkSchemaRefs(subSchema, rewrite)
 	}
 
 	for _, subSchema := range schema.OneOf {
-		rewriteSchemaRefsOAS2ToOAS3(subSchema)
+		walkSchemaRefs(subSchema, rewrite)
 	}
 
-	rewriteSchemaRefsOAS2ToOAS3(schema.Not)
+	walkSchemaRefs(schema.Not, rewrite)
 
+	// Array-related keywords
 	if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
-		rewriteSchemaRefsOAS2ToOAS3(addItems)
+		walkSchemaRefs(addItems, rewrite)
 	}
 
 	for _, prefixItem := range schema.PrefixItems {
-		rewriteSchemaRefsOAS2ToOAS3(prefixItem)
+		walkSchemaRefs(prefixItem, rewrite)
 	}
 
-	rewriteSchemaRefsOAS2ToOAS3(schema.Contains)
-	rewriteSchemaRefsOAS2ToOAS3(schema.PropertyNames)
+	walkSchemaRefs(schema.Contains, rewrite)
+
+	// Object validation keywords
+	walkSchemaRefs(schema.PropertyNames, rewrite)
 
 	for _, depSchema := range schema.DependentSchemas {
-		rewriteSchemaRefsOAS2ToOAS3(depSchema)
+		walkSchemaRefs(depSchema, rewrite)
 	}
 
-	rewriteSchemaRefsOAS2ToOAS3(schema.If)
-	rewriteSchemaRefsOAS2ToOAS3(schema.Then)
-	rewriteSchemaRefsOAS2ToOAS3(schema.Else)
+	// Conditional keywords
+	walkSchemaRefs(schema.If, rewrite)
+	walkSchemaRefs(schema.Then, rewrite)
+	walkSchemaRefs(schema.Else, rewrite)
 
+	// Schema definitions
 	for _, defSchema := range schema.Defs {
-		rewriteSchemaRefsOAS2ToOAS3(defSchema)
+		walkSchemaRefs(defSchema, rewrite)
 	}
 }
 
-// rewriteSchemaRefsOAS3ToOAS2 recursively rewrites all $ref values in a schema from OAS 3.x to OAS 2.0 format
+// rewriteSchemaRefsOAS2ToOAS3 recursively rewrites all $ref values in a schema from OAS 2.0 to OAS 3.x format.
+func rewriteSchemaRefsOAS2ToOAS3(schema *parser.Schema) {
+	walkSchemaRefs(schema, rewriteRefOAS2ToOAS3)
+}
+
+// rewriteSchemaRefsOAS3ToOAS2 recursively rewrites all $ref values in a schema from OAS 3.x to OAS 2.0 format.
 func rewriteSchemaRefsOAS3ToOAS2(schema *parser.Schema) {
-	if schema == nil {
-		return
-	}
-
-	// Rewrite the $ref in this schema
-	if schema.Ref != "" {
-		schema.Ref = rewriteRefOAS3ToOAS2(schema.Ref)
-	}
-
-	// Recursively rewrite nested schemas
-	for _, propSchema := range schema.Properties {
-		rewriteSchemaRefsOAS3ToOAS2(propSchema)
-	}
-
-	for _, propSchema := range schema.PatternProperties {
-		rewriteSchemaRefsOAS3ToOAS2(propSchema)
-	}
-
-	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-		rewriteSchemaRefsOAS3ToOAS2(addProps)
-	}
-
-	if items, ok := schema.Items.(*parser.Schema); ok {
-		rewriteSchemaRefsOAS3ToOAS2(items)
-	}
-
-	for _, subSchema := range schema.AllOf {
-		rewriteSchemaRefsOAS3ToOAS2(subSchema)
-	}
-
-	for _, subSchema := range schema.AnyOf {
-		rewriteSchemaRefsOAS3ToOAS2(subSchema)
-	}
-
-	for _, subSchema := range schema.OneOf {
-		rewriteSchemaRefsOAS3ToOAS2(subSchema)
-	}
-
-	rewriteSchemaRefsOAS3ToOAS2(schema.Not)
-
-	if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
-		rewriteSchemaRefsOAS3ToOAS2(addItems)
-	}
-
-	for _, prefixItem := range schema.PrefixItems {
-		rewriteSchemaRefsOAS3ToOAS2(prefixItem)
-	}
-
-	rewriteSchemaRefsOAS3ToOAS2(schema.Contains)
-	rewriteSchemaRefsOAS3ToOAS2(schema.PropertyNames)
-
-	for _, depSchema := range schema.DependentSchemas {
-		rewriteSchemaRefsOAS3ToOAS2(depSchema)
-	}
-
-	rewriteSchemaRefsOAS3ToOAS2(schema.If)
-	rewriteSchemaRefsOAS3ToOAS2(schema.Then)
-	rewriteSchemaRefsOAS3ToOAS2(schema.Else)
-
-	for _, defSchema := range schema.Defs {
-		rewriteSchemaRefsOAS3ToOAS2(defSchema)
-	}
+	walkSchemaRefs(schema, rewriteRefOAS3ToOAS2)
 }
 
 // rewriteParameterRefsOAS2ToOAS3 rewrites $ref values in a parameter from OAS 2.0 to OAS 3.x format
