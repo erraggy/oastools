@@ -840,6 +840,110 @@ func TestTemplateExecutionError(t *testing.T) {
 	}
 }
 
+// TestWithSchemaNameFunc tests the custom naming function option.
+func TestWithSchemaNameFunc(t *testing.T) {
+	customNamer := func(ctx SchemaNameContext) string {
+		return "custom_" + ctx.Type
+	}
+
+	spec := New(parser.OASVersion320, WithSchemaNameFunc(customNamer))
+	spec.SetTitle("Test").SetVersion("1.0.0")
+	spec.RegisterType(testUser{})
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		t.Fatalf("BuildOAS3 failed: %v", err)
+	}
+
+	// Verify the custom function was used
+	if _, exists := doc.Components.Schemas["custom_testUser"]; !exists {
+		t.Errorf("expected schema named 'custom_testUser', got keys: %v", mapKeys(doc.Components.Schemas))
+	}
+}
+
+// TestWithGenericNaming tests the generic naming strategy option.
+func TestWithGenericNaming(t *testing.T) {
+	tests := []struct {
+		name     string
+		strategy GenericNamingStrategy
+	}{
+		{"Underscore", GenericNamingUnderscore},
+		{"Of", GenericNamingOf},
+		{"For", GenericNamingFor},
+		{"AngleBrackets", GenericNamingAngleBrackets},
+		{"Flattened", GenericNamingFlattened},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := New(parser.OASVersion320, WithGenericNaming(tt.strategy))
+			spec.SetTitle("Test").SetVersion("1.0.0")
+
+			// Build should succeed with any strategy
+			doc, err := spec.BuildOAS3()
+			if err != nil {
+				t.Fatalf("BuildOAS3 failed with strategy %s: %v", tt.name, err)
+			}
+			if doc == nil {
+				t.Error("expected non-nil document")
+			}
+		})
+	}
+}
+
+// TestWithGenericSeparator tests custom separator for generic types.
+func TestWithGenericSeparator(t *testing.T) {
+	spec := New(parser.OASVersion320, WithGenericSeparator("__"))
+	spec.SetTitle("Test").SetVersion("1.0.0")
+
+	// Verify the option was applied
+	if spec.namer.genericConfig.Separator != "__" {
+		t.Errorf("separator = %q, want %q", spec.namer.genericConfig.Separator, "__")
+	}
+}
+
+// TestWithGenericParamSeparator tests custom parameter separator.
+func TestWithGenericParamSeparator(t *testing.T) {
+	spec := New(parser.OASVersion320, WithGenericParamSeparator("And"))
+	spec.SetTitle("Test").SetVersion("1.0.0")
+
+	// Verify the option was applied
+	if spec.namer.genericConfig.ParamSeparator != "And" {
+		t.Errorf("ParamSeparator = %q, want %q", spec.namer.genericConfig.ParamSeparator, "And")
+	}
+}
+
+// TestWithGenericIncludePackage tests package inclusion in generic params.
+func TestWithGenericIncludePackage(t *testing.T) {
+	spec := New(parser.OASVersion320, WithGenericIncludePackage(true))
+	spec.SetTitle("Test").SetVersion("1.0.0")
+
+	// Verify the option was applied
+	if !spec.namer.genericConfig.IncludePackage {
+		t.Error("IncludePackage should be true")
+	}
+}
+
+// TestWithGenericApplyBaseCasing tests base casing for generic params.
+func TestWithGenericApplyBaseCasing(t *testing.T) {
+	spec := New(parser.OASVersion320, WithGenericApplyBaseCasing(true))
+	spec.SetTitle("Test").SetVersion("1.0.0")
+
+	// Verify the option was applied
+	if !spec.namer.genericConfig.ApplyBaseCasing {
+		t.Error("ApplyBaseCasing should be true")
+	}
+}
+
+// mapKeys returns the keys of a map for error messages.
+func mapKeys[K comparable, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // TestBuilder_InvalidTemplateError tests that invalid templates cause BuildOAS3/BuildOAS2 to return errors.
 // This is an integration test for the configError propagation path.
 func TestBuilder_InvalidTemplateError(t *testing.T) {
