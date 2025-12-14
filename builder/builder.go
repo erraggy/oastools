@@ -42,10 +42,21 @@ type Builder struct {
 	// Tracking
 	operationIDs map[string]bool // Track used operation IDs for uniqueness
 	errors       []error         // Accumulated errors
+
+	// Schema naming configuration
+	namer       *schemaNamer
+	configError error // Stores configuration errors (e.g., invalid templates)
 }
 
 // New creates a new Builder instance for the specified OAS version.
 // Use BuildOAS2() for OAS 2.0 (Swagger) or BuildOAS3() for OAS 3.x documents.
+//
+// Options can be provided to customize schema naming:
+//
+//	// Use PascalCase naming (e.g., "ModelsUser" instead of "models.User")
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithSchemaNaming(builder.SchemaNamingPascalCase),
+//	)
 //
 // The builder does not perform OAS specification validation. Use the validator
 // package to validate built documents.
@@ -56,7 +67,20 @@ type Builder struct {
 //		SetTitle("My API").
 //		SetVersion("1.0.0")
 //	doc, err := spec.BuildOAS3()
-func New(version parser.OASVersion) *Builder {
+func New(version parser.OASVersion, opts ...BuilderOption) *Builder {
+	// Apply options to get configuration
+	cfg := defaultBuilderConfig()
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	// Create namer from config
+	namer := newSchemaNamer()
+	namer.strategy = cfg.namingStrategy
+	namer.genericConfig = cfg.genericConfig
+	namer.template = cfg.namingTemplate
+	namer.fn = cfg.namingFunc
+
 	return &Builder{
 		version:         version,
 		paths:           make(parser.Paths),
@@ -69,6 +93,8 @@ func New(version parser.OASVersion) *Builder {
 		schemaCache:     newSchemaCache(),
 		operationIDs:    make(map[string]bool),
 		errors:          make([]error, 0),
+		namer:           namer,
+		configError:     cfg.templateError,
 	}
 }
 
@@ -301,6 +327,10 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 //	doc, err := spec.BuildOAS2()
 //	// doc is *parser.OAS2Document - no type assertion needed
 func (b *Builder) BuildOAS2() (*parser.OAS2Document, error) {
+	if b.configError != nil {
+		return nil, fmt.Errorf("builder: configuration error: %w", b.configError)
+	}
+
 	if err := b.checkErrors(); err != nil {
 		return nil, err
 	}
@@ -364,6 +394,10 @@ func (b *Builder) BuildOAS2() (*parser.OAS2Document, error) {
 //	doc, err := spec.BuildOAS3()
 //	// doc is *parser.OAS3Document - no type assertion needed
 func (b *Builder) BuildOAS3() (*parser.OAS3Document, error) {
+	if b.configError != nil {
+		return nil, fmt.Errorf("builder: configuration error: %w", b.configError)
+	}
+
 	if err := b.checkErrors(); err != nil {
 		return nil, err
 	}

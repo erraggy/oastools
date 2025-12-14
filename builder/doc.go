@@ -126,6 +126,52 @@
 // (e.g., "github.com_foo_models.User").
 // Anonymous types are named "AnonymousType".
 //
+// # Extensible Schema Naming
+//
+// The default schema naming uses "package.TypeName" format. For custom naming,
+// use options when creating a Builder:
+//
+// Built-in strategies:
+//
+//	// PascalCase: ModelsUser
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithSchemaNaming(builder.SchemaNamingPascalCase),
+//	)
+//
+//	// Type only (no package prefix): User
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithSchemaNaming(builder.SchemaNamingTypeOnly),
+//	)
+//
+// Available strategies:
+//   - SchemaNamingDefault: "package.TypeName" (e.g., models.User)
+//   - SchemaNamingPascalCase: "PackageTypeName" (e.g., ModelsUser)
+//   - SchemaNamingCamelCase: "packageTypeName" (e.g., modelsUser)
+//   - SchemaNamingSnakeCase: "package_type_name" (e.g., models_user)
+//   - SchemaNamingKebabCase: "package-type-name" (e.g., models-user)
+//   - SchemaNamingTypeOnly: "TypeName" (e.g., User) - may cause conflicts
+//   - SchemaNamingFullPath: "full_path_TypeName" (e.g., github.com_org_models_User)
+//
+// Custom templates using Go text/template:
+//
+//	// Custom format: models+User
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithSchemaNameTemplate(`{{.Package}}+{{.Type}}`),
+//	)
+//
+// Available template functions: pascal, camel, snake, kebab, upper, lower,
+// title, sanitize, trimPrefix, trimSuffix, replace, join.
+//
+// Custom naming function for maximum flexibility:
+//
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithSchemaNameFunc(func(ctx builder.SchemaNameContext) string {
+//	        return strings.ToUpper(ctx.Type)
+//	    }),
+//	)
+//
+// Note: RegisterTypeAs always takes precedence over any naming strategy.
+//
 // # Generic Types
 //
 // Go 1.18+ generic types are fully supported. The type parameters are included in the
@@ -137,6 +183,30 @@
 //
 // This ensures $ref URIs are valid and compatible with all OpenAPI tools, which may
 // not handle square brackets properly in schema references.
+//
+// Generic type naming strategies control how generic types are formatted:
+//
+//	// "Of" separator: Response[User] → ResponseOfUser
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithGenericNaming(builder.GenericNamingOf),
+//	)
+//
+// Available generic strategies:
+//   - GenericNamingUnderscore: "Response_User_" (default)
+//   - GenericNamingOf: "ResponseOfUser"
+//   - GenericNamingFor: "ResponseForUser"
+//   - GenericNamingAngleBrackets: "Response<User>" (URI-encoded in $ref)
+//   - GenericNamingFlattened: "ResponseUser"
+//
+// For fine-grained control over generic naming:
+//
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithGenericNamingConfig(builder.GenericNamingConfig{
+//	        Strategy:        builder.GenericNamingOf,
+//	        ParamSeparator:  "And",
+//	        ApplyBaseCasing: true,
+//	    }),
+//	)
 //
 // # Struct Tags
 //

@@ -577,3 +577,101 @@ func Example_withComplexRawSchema() {
 	// File format: binary
 	// Required fields: [file]
 }
+
+// Example_schemaNamingPascalCase demonstrates PascalCase schema naming strategy.
+// With SchemaNamingPascalCase, "package.TypeName" becomes "PackageTypeName".
+func Example_schemaNamingPascalCase() {
+	type User struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+
+	spec := builder.New(parser.OASVersion320,
+		builder.WithSchemaNaming(builder.SchemaNamingPascalCase),
+	).
+		SetTitle("Example API").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodGet, "/users",
+			builder.WithResponse(http.StatusOK, User{}),
+		)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	// Print schema names
+	for name := range doc.Components.Schemas {
+		fmt.Println("Schema:", name)
+	}
+	// Output:
+	// Schema: BuilderTestUser
+}
+
+// Example_schemaNamingTemplate demonstrates custom template-based schema naming.
+// Templates use Go text/template syntax with helper functions like pascal, camel, etc.
+func Example_schemaNamingTemplate() {
+	type Product struct {
+		ID    int     `json:"id"`
+		Price float64 `json:"price"`
+	}
+
+	// Custom template: prefix with "API" and use pascal case
+	spec := builder.New(parser.OASVersion320,
+		builder.WithSchemaNameTemplate(`API{{pascal .Type}}`),
+	).
+		SetTitle("Example API").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodGet, "/products",
+			builder.WithResponse(http.StatusOK, Product{}),
+		)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	// Print schema names
+	for name := range doc.Components.Schemas {
+		fmt.Println("Schema:", name)
+	}
+	// Output:
+	// Schema: APIProduct
+}
+
+// Example_genericNamingConfig demonstrates fine-grained generic type naming configuration.
+// Use WithGenericNamingConfig for full control over how generic type parameters are formatted.
+func Example_genericNamingConfig() {
+	// Configure generic naming with custom settings.
+	// This example uses GenericNamingOf strategy with "And" as the separator
+	// between multiple type parameters.
+	//
+	// For generic types like Response[User], this would produce "ResponseOfUser".
+	// For types like Map[string,int], this would produce "MapOfStringAndOfInt".
+	spec := builder.New(parser.OASVersion320,
+		builder.WithGenericNamingConfig(builder.GenericNamingConfig{
+			Strategy:        builder.GenericNamingOf,
+			ParamSeparator:  "And",
+			ApplyBaseCasing: true,
+		}),
+	).
+		SetTitle("Example API").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodGet, "/pets",
+			builder.WithResponse(http.StatusOK, []Pet{}),
+		)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Printf("Title: %s\n", doc.Info.Title)
+	fmt.Printf("Schemas: %d\n", len(doc.Components.Schemas))
+	// Output:
+	// Title: Example API
+	// Schemas: 1
+}

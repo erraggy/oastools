@@ -53,4 +53,4 @@ These specifications were selected based on:
 3. **Diversity** - Multiple OAS versions, formats, and domains
 4. **Accessibility** - All publicly available without authentication
 
-See `planning/Top10-Public-OAS-Docs-CombinedSummary.md` for detailed research.
+See `planning/archive/Top10-Public-OAS-Docs-CombinedSummary.md` for detailed research.

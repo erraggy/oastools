@@ -471,61 +471,8 @@ func TestBuilder_schemaName_ConflictDetection(t *testing.T) {
 	assert.Equal(t, reflect.TypeOf(FakeType1{}), existingType)
 }
 
-func TestSanitizeSchemaName(t *testing.T) {
-	testCases := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "simple type",
-			input:    "User",
-			expected: "User",
-		},
-		{
-			name:     "generic type with single parameter",
-			input:    "Response[User]",
-			expected: "Response_User",
-		},
-		{
-			name:     "generic type with package qualifier",
-			input:    "Response[main.User]",
-			expected: "Response_main.User",
-		},
-		{
-			name:     "generic type with multiple parameters",
-			input:    "Map[string,int]",
-			expected: "Map_string_int",
-		},
-		{
-			name:     "nested generic type",
-			input:    "Response[List[User]]",
-			expected: "Response_List_User",
-		},
-		{
-			name:     "complex nested generics",
-			input:    "Map[string,Response[User]]",
-			expected: "Map_string_Response_User",
-		},
-		{
-			name:     "type with spaces (edge case)",
-			input:    "Some Type",
-			expected: "Some_Type",
-		},
-		{
-			name:     "empty string",
-			input:    "",
-			expected: "",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := sanitizeSchemaName(tc.input)
-			assert.Equal(t, tc.expected, result)
-		})
-	}
-}
+// Note: TestSanitizeSchemaName has been moved to naming_test.go since
+// sanitizeSchemaName is now defined in naming.go
 
 // Generic test types for schema generation tests
 type GenericResponse[T any] struct {

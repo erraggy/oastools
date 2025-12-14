@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"path"
 	"reflect"
 	"slices"
 	"strings"
@@ -65,7 +64,10 @@ func (b *Builder) generateSchemaFromTypeWithName(t reflect.Type, nameOverride st
 	// Check for circular reference
 	if b.schemaCache.isInProgress(t) {
 		// Return a reference - the schema will be completed later
-		name := b.schemaName(t)
+		name := b.namer.nameWithConflictCheck(t, func(n string) bool {
+			existing := b.schemaCache.getTypeForName(n)
+			return existing != nil && existing != t
+		})
 		if nameOverride != "" {
 			name = nameOverride
 		}
@@ -83,7 +85,10 @@ func (b *Builder) generateSchemaFromTypeWithName(t reflect.Type, nameOverride st
 		schema = b.generateStructSchema(t)
 
 		// Register named types in components.schemas
-		name := b.schemaName(t)
+		name := b.namer.nameWithConflictCheck(t, func(n string) bool {
+			existing := b.schemaCache.getTypeForName(n)
+			return existing != nil && existing != t
+		})
 		if nameOverride != "" {
 			name = nameOverride
 		}
@@ -276,68 +281,6 @@ func (b *Builder) generatePrimitiveSchema(t reflect.Type) *parser.Schema {
 		// Unknown type - return empty schema
 		return &parser.Schema{}
 	}
-}
-
-// schemaName generates a schema name from a type.
-// The name uses the format "package.TypeName" (e.g., "models.User").
-// Generic types are handled by replacing brackets with underscores
-// (e.g., "Response[User]" becomes "Response_User_").
-// If a conflict is detected (same base name from different packages),
-// the full package path is used to disambiguate.
-func (b *Builder) schemaName(t reflect.Type) string {
-	typeName := t.Name()
-	if typeName == "" {
-		// Anonymous type - generate a unique name
-		return "AnonymousType"
-	}
-
-	// Sanitize type name for URI safety (handles generic types with brackets)
-	typeName = sanitizeSchemaName(typeName)
-
-	pkgPath := t.PkgPath()
-	if pkgPath == "" {
-		// Built-in types without package path
-		return typeName
-	}
-
-	// Use package base name (e.g., "models.User")
-	pkgName := path.Base(pkgPath)
-	name := pkgName + "." + typeName
-
-	// Check for name conflicts with different types (same base name, different full path)
-	if existingType := b.schemaCache.getTypeForName(name); existingType != nil && existingType != t {
-		// Conflict detected - use full package path to disambiguate
-		// Replace slashes with underscores to make it a valid schema name
-		// e.g., "github.com/foo/models.User" -> "github.com_foo_models.User"
-		safePkgPath := strings.ReplaceAll(pkgPath, "/", "_")
-		name = safePkgPath + "." + typeName
-	}
-
-	return name
-}
-
-// sanitizeSchemaName replaces characters that are problematic in URIs.
-// This is especially important for generic types which include brackets
-// (e.g., "Response[User]" becomes "Response_User_").
-// The function handles:
-// - Square brackets [ ] (from generic types)
-// - Commas (from multi-parameter generics like Map[string,int])
-// - Spaces (shouldn't appear, but sanitized for safety)
-func sanitizeSchemaName(name string) string {
-	// Replace brackets used in generic types
-	name = strings.ReplaceAll(name, "[", "_")
-	name = strings.ReplaceAll(name, "]", "_")
-	// Replace commas (multi-type generics)
-	name = strings.ReplaceAll(name, ",", "_")
-	// Replace spaces (shouldn't occur but be safe)
-	name = strings.ReplaceAll(name, " ", "_")
-	// Clean up multiple consecutive underscores
-	for strings.Contains(name, "__") {
-		name = strings.ReplaceAll(name, "__", "_")
-	}
-	// Remove trailing underscore
-	name = strings.TrimSuffix(name, "_")
-	return name
 }
 
 // schemaRefPrefix returns the appropriate $ref prefix based on the OAS version.
