@@ -478,6 +478,7 @@ All core packages are public:
 - `github.com/erraggy/oastools/converter` - Convert between OpenAPI specification versions
 - `github.com/erraggy/oastools/overlay` - Apply OpenAPI Overlay transformations
 - `github.com/erraggy/oastools/differ` - Compare and diff OpenAPI specifications
+- `github.com/erraggy/oastools/builder` - Build OpenAPI specifications programmatically
 
 ### API Design Philosophy
 
@@ -530,6 +531,17 @@ Use struct-based API for: multiple files, reusable instances, advanced configura
 - Returns ApplyResult with ActionsApplied, ActionsSkipped, Changes, Warnings
 - JSONPath support: recursive descent (`$..field`), compound filters (`&&`, `||`)
 - Integration: Joiner and Converter support pre/post overlays
+
+**Builder Package:**
+- Creates OAS documents programmatically with fluent API: `builder.New(version).SetTitle(...).AddOperation(...).BuildOAS3()`
+- Supports OAS 2.0 (`BuildOAS2()`) and OAS 3.x (`BuildOAS3()`)
+- Automatic schema generation from Go types via reflection
+- Schema naming options: `WithSchemaNaming(strategy)`, `WithSchemaNameTemplate(tmpl)`, `WithSchemaNameFunc(fn)`
+- Generic naming options: `WithGenericNaming(strategy)`, `WithGenericNamingConfig(config)`
+- Built-in schema strategies: `SchemaNamingDefault`, `SchemaNamingPascalCase`, `SchemaNamingCamelCase`, `SchemaNamingSnakeCase`, `SchemaNamingKebabCase`, `SchemaNamingTypeOnly`, `SchemaNamingFullPath`
+- Generic strategies: `GenericNamingUnderscore`, `GenericNamingOf`, `GenericNamingFor`, `GenericNamingAngleBrackets`, `GenericNamingFlattened`
+- Template functions: `pascal`, `camel`, `snake`, `kebab`, `upper`, `lower`, `title`, `sanitize`, `trimPrefix`, `trimSuffix`, `replace`, `join`
+- `RegisterTypeAs` always takes precedence over any naming strategy
 
 ### Usage Examples
 

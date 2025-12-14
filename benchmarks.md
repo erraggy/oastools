@@ -479,7 +479,7 @@ These optimizations are **on hold** pending real-world performance feedback. The
 
 ## Related Documentation
 
-- [Performance Planning](planning/improve-performance.md) - Detailed optimization strategy and analysis
+- [Performance Planning](planning/archive/improve-performance.md) - Detailed optimization strategy and analysis
 - [CLAUDE.md](CLAUDE.md) - Development guidelines and architecture
 - [README.md](README.md) - Project overview and usage
 
