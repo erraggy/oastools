@@ -8,11 +8,12 @@ type BuilderOption func(*builderConfig)
 
 // builderConfig holds builder configuration applied via options.
 type builderConfig struct {
-	namingStrategy SchemaNamingStrategy
-	namingTemplate *template.Template
-	namingFunc     SchemaNameFunc
-	genericConfig  GenericNamingConfig
-	templateError  error // Stores template parse errors for Build() to return
+	namingStrategy        SchemaNamingStrategy
+	namingTemplate        *template.Template
+	namingFunc            SchemaNameFunc
+	genericConfig         GenericNamingConfig
+	templateError         error // Stores template parse errors for Build() to return
+	semanticDeduplication bool  // Enable semantic schema deduplication
 }
 
 // defaultBuilderConfig returns a new builderConfig with default values.
@@ -192,5 +193,27 @@ func WithGenericIncludePackage(include bool) BuilderOption {
 func WithGenericApplyBaseCasing(apply bool) BuilderOption {
 	return func(cfg *builderConfig) {
 		cfg.genericConfig.ApplyBaseCasing = apply
+	}
+}
+
+// WithSemanticDeduplication enables semantic schema deduplication.
+// When enabled, the builder identifies schemas that are structurally identical
+// and consolidates them to a single canonical schema. All references to
+// duplicate schemas are rewritten to point to the canonical schema.
+//
+// The canonical schema name is selected alphabetically (e.g., if "Address"
+// and "Location" are identical, "Address" becomes canonical).
+//
+// This option reduces document size when multiple types converge to the
+// same structure. It is disabled by default.
+//
+// Example:
+//
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithSemanticDeduplication(true),
+//	)
+func WithSemanticDeduplication(enabled bool) BuilderOption {
+	return func(cfg *builderConfig) {
+		cfg.semanticDeduplication = enabled
 	}
 }

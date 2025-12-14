@@ -3,6 +3,7 @@ package joiner
 import (
 	"fmt"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -133,12 +134,42 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 	}
 
 	result.Document = joined
+
+	// Apply semantic deduplication if enabled
+	if j.config.SemanticDeduplication && len(joined.Components.Schemas) > 1 {
+		compare := func(left, right *parser.Schema) bool {
+			res := CompareSchemas(left, right, EquivalenceModeDeep)
+			return res.Equivalent
+		}
+		config := schemautil.DefaultDeduplicationConfig()
+		deduper := schemautil.NewSchemaDeduplicator(config, compare)
+		dedupeResult, err := deduper.Deduplicate(joined.Components.Schemas)
+		if err != nil {
+			return nil, fmt.Errorf("joiner: semantic deduplication failed: %w", err)
+		}
+
+		// Apply results: replace schemas map with canonical schemas only
+		joined.Components.Schemas = dedupeResult.CanonicalSchemas
+
+		// Register aliases for reference rewriting
+		if len(dedupeResult.Aliases) > 0 {
+			if result.rewriter == nil {
+				result.rewriter = NewSchemaRewriter()
+			}
+			for alias, canonical := range dedupeResult.Aliases {
+				result.rewriter.RegisterRename(alias, canonical, joined.OASVersion)
+			}
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("semantic deduplication: consolidated %d duplicate schema(s)", dedupeResult.RemovedCount))
+		}
+	}
+
 	result.Stats = parser.GetDocumentStats(joined)
 
 	// Apply reference rewriting if schemas were renamed
 	if result.rewriter != nil {
 		if err := result.rewriter.RewriteDocument(joined); err != nil {
-			return nil, fmt.Errorf("failed to rewrite references after schema renames: %w", err)
+			return nil, fmt.Errorf("joiner: failed to rewrite references after schema renames: %w", err)
 		}
 	}
 

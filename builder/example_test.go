@@ -716,3 +716,51 @@ func Example_genericNamingConfig() {
 	// Title: Example API
 	// Schemas: 1
 }
+
+// Example_semanticDeduplication demonstrates automatic consolidation of identical schemas.
+// When multiple Go types generate structurally identical schemas, enabling semantic
+// deduplication identifies these duplicates and consolidates them to a single canonical schema.
+func Example_semanticDeduplication() {
+	// Define types that are structurally identical but have different names
+	type UserID struct {
+		Value int64 `json:"value"`
+	}
+	type CustomerID struct {
+		Value int64 `json:"value"`
+	}
+	type OrderID struct {
+		Value int64 `json:"value"`
+	}
+
+	// Build specification with semantic deduplication enabled
+	spec := builder.New(parser.OASVersion320,
+		builder.WithSemanticDeduplication(true),
+	).
+		SetTitle("ID API").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodGet, "/users/{id}",
+			builder.WithResponse(http.StatusOK, UserID{}),
+		).
+		AddOperation(http.MethodGet, "/customers/{id}",
+			builder.WithResponse(http.StatusOK, CustomerID{}),
+		).
+		AddOperation(http.MethodGet, "/orders/{id}",
+			builder.WithResponse(http.StatusOK, OrderID{}),
+		)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	// Without deduplication: 3 schemas (UserID, CustomerID, OrderID)
+	// With deduplication: 1 schema (the alphabetically first canonical name)
+	fmt.Printf("Title: %s\n", doc.Info.Title)
+	fmt.Printf("Schemas: %d\n", len(doc.Components.Schemas))
+	fmt.Printf("Operations: %d\n", len(doc.Paths))
+	// Output:
+	// Title: ID API
+	// Schemas: 1
+	// Operations: 3
+}

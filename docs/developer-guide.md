@@ -496,6 +496,33 @@ if result.CollisionCount > 0 {
 }
 ```
 
+**Semantic Deduplication:**
+
+Semantic deduplication identifies structurally identical schemas across documents and consolidates them to reduce duplication:
+
+```go
+// Enable semantic deduplication to consolidate identical schemas
+config := joiner.JoinerConfig{
+    DefaultStrategy:       joiner.StrategyAcceptLeft,
+    SemanticDeduplication: true,   // Enable schema deduplication
+    EquivalenceMode:       "deep", // Use deep structural comparison
+    DeduplicateTags:       true,
+    MergeArrays:           true,
+}
+
+j := joiner.New(config)
+result, err := j.Join([]string{"api1.yaml", "api2.yaml", "api3.yaml"})
+if err != nil {
+    log.Fatal(err)
+}
+
+// Semantic deduplication consolidates identical schemas:
+// - Schemas with identical structure are detected via FNV-1a hashing
+// - The alphabetically-first name becomes the canonical schema
+// - All $ref references are automatically rewritten
+// - Warnings indicate how many duplicates were consolidated
+```
+
 ### Differ Package
 
 The differ package provides OpenAPI specification comparison and breaking change detection.
@@ -926,6 +953,42 @@ type Product struct {
 // - Applies constraints from oas tags
 // - Handles nested structs, arrays, and time.Time
 // - Generates descriptions and format hints
+```
+
+**Semantic Deduplication:**
+
+Enable semantic deduplication to automatically consolidate structurally identical schemas:
+
+```go
+import (
+    "net/http"
+    "github.com/erraggy/oastools/builder"
+    "github.com/erraggy/oastools/parser"
+)
+
+// Types that are structurally identical
+type UserID struct {
+    Value int64 `json:"value"`
+}
+type CustomerID struct {
+    Value int64 `json:"value"`
+}
+
+// Enable semantic deduplication
+spec := builder.New(parser.OASVersion320,
+    builder.WithSemanticDeduplication(true),
+).
+    SetTitle("API").
+    SetVersion("1.0.0").
+    AddOperation(http.MethodGet, "/users/{id}",
+        builder.WithResponse(http.StatusOK, UserID{}),
+    ).
+    AddOperation(http.MethodGet, "/customers/{id}",
+        builder.WithResponse(http.StatusOK, CustomerID{}),
+    )
+
+doc, err := spec.BuildOAS3()
+// Result: Only 1 schema instead of 2, with $refs automatically rewritten
 ```
 
 ### Overlay Package

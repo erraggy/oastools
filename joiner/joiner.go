@@ -88,6 +88,10 @@ type JoinerConfig struct {
 	EquivalenceMode string
 	// CollisionReport enables detailed collision analysis reporting
 	CollisionReport bool
+	// SemanticDeduplication enables cross-document schema deduplication after merging.
+	// When enabled, semantically identical schemas are consolidated to a single
+	// canonical schema (alphabetically first), and all references are rewritten.
+	SemanticDeduplication bool
 }
 
 // DefaultConfig returns a sensible default configuration
@@ -171,11 +175,12 @@ type joinConfig struct {
 	mergeArrays       *bool
 
 	// Advanced collision strategies configuration
-	renameTemplate    *string
-	namespacePrefix   map[string]string
-	alwaysApplyPrefix *bool
-	equivalenceMode   *string
-	collisionReport   *bool
+	renameTemplate        *string
+	namespacePrefix       map[string]string
+	alwaysApplyPrefix     *bool
+	equivalenceMode       *string
+	collisionReport       *bool
+	semanticDeduplication *bool
 
 	// Overlay integration options
 	preJoinOverlays     []*overlay.Overlay          // Applied to all specs before joining
@@ -214,17 +219,18 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 	// Build JoinerConfig from options (use defaults for nil values)
 	defaults := DefaultConfig()
 	joinerCfg := JoinerConfig{
-		DefaultStrategy:   valueOrDefault(cfg.defaultStrategy, defaults.DefaultStrategy),
-		PathStrategy:      valueOrDefault(cfg.pathStrategy, defaults.PathStrategy),
-		SchemaStrategy:    valueOrDefault(cfg.schemaStrategy, defaults.SchemaStrategy),
-		ComponentStrategy: valueOrDefault(cfg.componentStrategy, defaults.ComponentStrategy),
-		DeduplicateTags:   boolValueOrDefault(cfg.deduplicateTags, defaults.DeduplicateTags),
-		MergeArrays:       boolValueOrDefault(cfg.mergeArrays, defaults.MergeArrays),
-		RenameTemplate:    stringValueOrDefault(cfg.renameTemplate, defaults.RenameTemplate),
-		NamespacePrefix:   mapValueOrDefault(cfg.namespacePrefix, defaults.NamespacePrefix),
-		AlwaysApplyPrefix: boolValueOrDefault(cfg.alwaysApplyPrefix, defaults.AlwaysApplyPrefix),
-		EquivalenceMode:   stringValueOrDefault(cfg.equivalenceMode, defaults.EquivalenceMode),
-		CollisionReport:   boolValueOrDefault(cfg.collisionReport, defaults.CollisionReport),
+		DefaultStrategy:       valueOrDefault(cfg.defaultStrategy, defaults.DefaultStrategy),
+		PathStrategy:          valueOrDefault(cfg.pathStrategy, defaults.PathStrategy),
+		SchemaStrategy:        valueOrDefault(cfg.schemaStrategy, defaults.SchemaStrategy),
+		ComponentStrategy:     valueOrDefault(cfg.componentStrategy, defaults.ComponentStrategy),
+		DeduplicateTags:       boolValueOrDefault(cfg.deduplicateTags, defaults.DeduplicateTags),
+		MergeArrays:           boolValueOrDefault(cfg.mergeArrays, defaults.MergeArrays),
+		RenameTemplate:        stringValueOrDefault(cfg.renameTemplate, defaults.RenameTemplate),
+		NamespacePrefix:       mapValueOrDefault(cfg.namespacePrefix, defaults.NamespacePrefix),
+		AlwaysApplyPrefix:     boolValueOrDefault(cfg.alwaysApplyPrefix, defaults.AlwaysApplyPrefix),
+		EquivalenceMode:       stringValueOrDefault(cfg.equivalenceMode, defaults.EquivalenceMode),
+		CollisionReport:       boolValueOrDefault(cfg.collisionReport, defaults.CollisionReport),
+		SemanticDeduplication: boolValueOrDefault(cfg.semanticDeduplication, defaults.SemanticDeduplication),
 	}
 
 	j := New(joinerCfg)
@@ -493,6 +499,7 @@ func WithConfig(config JoinerConfig) Option {
 		cfg.alwaysApplyPrefix = &config.AlwaysApplyPrefix
 		cfg.equivalenceMode = &config.EquivalenceMode
 		cfg.collisionReport = &config.CollisionReport
+		cfg.semanticDeduplication = &config.SemanticDeduplication
 		return nil
 	}
 }
@@ -595,6 +602,19 @@ func WithEquivalenceMode(mode string) Option {
 func WithCollisionReport(enabled bool) Option {
 	return func(cfg *joinConfig) error {
 		cfg.collisionReport = &enabled
+		return nil
+	}
+}
+
+// WithSemanticDeduplication enables or disables semantic schema deduplication.
+// When enabled, after merging all documents, the joiner identifies semantically
+// identical schemas and consolidates them to a single canonical schema.
+// The canonical name is selected alphabetically (e.g., "Address" beats "Location").
+// All references to duplicate schemas are rewritten to the canonical name.
+// Default: false
+func WithSemanticDeduplication(enabled bool) Option {
+	return func(cfg *joinConfig) error {
+		cfg.semanticDeduplication = &enabled
 		return nil
 	}
 }

@@ -63,3 +63,44 @@ func Example_customStrategies() {
 	// Joined successfully
 	// Collisions resolved: 0
 }
+
+// Example_semanticDeduplication demonstrates automatic consolidation of identical schemas
+// across multiple OpenAPI documents. When documents share structurally identical schemas
+// (even if named differently), semantic deduplication identifies these duplicates and
+// consolidates them to a single canonical schema.
+func Example_semanticDeduplication() {
+	outputPath := filepath.Join(os.TempDir(), "joined-dedup.yaml")
+	defer func() { _ = os.Remove(outputPath) }()
+
+	// Enable semantic deduplication in the joiner configuration
+	config := joiner.JoinerConfig{
+		DefaultStrategy:       joiner.StrategyAcceptLeft,
+		SemanticDeduplication: true,   // Enable schema deduplication
+		EquivalenceMode:       "deep", // Use deep structural comparison
+		DeduplicateTags:       true,
+		MergeArrays:           true,
+	}
+
+	j := joiner.New(config)
+	result, err := j.Join([]string{
+		"../testdata/join-base-3.0.yaml",
+		"../testdata/join-extension-3.0.yaml",
+	})
+	if err != nil {
+		log.Fatalf("failed to join: %v", err)
+	}
+
+	err = j.WriteResult(result, outputPath)
+	if err != nil {
+		log.Fatalf("failed to write result: %v", err)
+	}
+
+	// Semantic deduplication identifies structurally equivalent schemas
+	// across documents and consolidates them, reducing duplication in the
+	// merged output. The alphabetically-first name becomes canonical.
+	fmt.Printf("Joined successfully\n")
+	fmt.Printf("Version: %s\n", result.Version)
+	// Output:
+	// Joined successfully
+	// Version: 3.0.3
+}

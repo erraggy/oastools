@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/schemautil"
+	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
 	"go.yaml.in/yaml/v4"
 )
@@ -46,6 +48,10 @@ type Builder struct {
 	// Schema naming configuration
 	namer       *schemaNamer
 	configError error // Stores configuration errors (e.g., invalid templates)
+
+	// Semantic deduplication
+	dedupeEnabled bool              // Whether deduplication is enabled
+	schemaAliases map[string]string // Maps alias names to canonical names
 }
 
 // New creates a new Builder instance for the specified OAS version.
@@ -95,6 +101,8 @@ func New(version parser.OASVersion, opts ...BuilderOption) *Builder {
 		errors:          make([]error, 0),
 		namer:           namer,
 		configError:     cfg.templateError,
+		dedupeEnabled:   cfg.semanticDeduplication,
+		schemaAliases:   make(map[string]string),
 	}
 }
 
@@ -107,6 +115,51 @@ func New(version parser.OASVersion, opts ...BuilderOption) *Builder {
 func NewWithInfo(version parser.OASVersion, info *parser.Info) *Builder {
 	b := New(version)
 	b.info = info
+	return b
+}
+
+// DeduplicateSchemas identifies semantically identical schemas and consolidates
+// them to a single canonical schema. This method should be called after all
+// schemas have been added but before Build*() methods.
+//
+// Schemas are considered semantically identical if they have the same structural
+// properties (type, format, properties, constraints, etc.), ignoring metadata
+// fields like title, description, and examples.
+//
+// The canonical schema name is selected alphabetically. For example, if
+// "Address" and "Location" schemas are identical, "Address" becomes canonical
+// and all references to "Location" are rewritten to point to "Address".
+//
+// Returns the Builder for method chaining.
+//
+// Note: This method is automatically called by Build*() methods when
+// WithSemanticDeduplication(true) is set. Call it manually only if you need
+// to inspect schemaAliases before building.
+func (b *Builder) DeduplicateSchemas() *Builder {
+	if len(b.schemas) < 2 {
+		return b
+	}
+
+	// Create compare function using joiner's deep comparison
+	compare := func(left, right *parser.Schema) bool {
+		result := joiner.CompareSchemas(left, right, joiner.EquivalenceModeDeep)
+		return result.Equivalent
+	}
+
+	// Create deduplicator and run deduplication
+	config := schemautil.DefaultDeduplicationConfig()
+	deduper := schemautil.NewSchemaDeduplicator(config, compare)
+
+	result, err := deduper.Deduplicate(b.schemas)
+	if err != nil {
+		b.errors = append(b.errors, fmt.Errorf("builder: schema deduplication failed: %w", err))
+		return b
+	}
+
+	// Apply results
+	b.schemas = result.CanonicalSchemas
+	b.schemaAliases = result.Aliases
+
 	return b
 }
 
@@ -331,12 +384,17 @@ func (b *Builder) BuildOAS2() (*parser.OAS2Document, error) {
 		return nil, fmt.Errorf("builder: configuration error: %w", b.configError)
 	}
 
-	if err := b.checkErrors(); err != nil {
-		return nil, err
-	}
-
 	if b.version != parser.OASVersion20 {
 		return nil, fmt.Errorf("builder: BuildOAS2() called but builder was created with version %s; use BuildOAS3() instead", b.version)
+	}
+
+	// Apply semantic deduplication if enabled
+	if b.dedupeEnabled {
+		b.DeduplicateSchemas()
+	}
+
+	if err := b.checkErrors(); err != nil {
+		return nil, err
 	}
 
 	// Build paths - only include if non-empty
@@ -376,6 +434,17 @@ func (b *Builder) BuildOAS2() (*parser.OAS2Document, error) {
 		doc.SecurityDefinitions = b.securitySchemes
 	}
 
+	// Rewrite references if schema aliases exist
+	if len(b.schemaAliases) > 0 {
+		rewriter := joiner.NewSchemaRewriter()
+		for alias, canonical := range b.schemaAliases {
+			rewriter.RegisterRename(alias, canonical, b.version)
+		}
+		if err := rewriter.RewriteDocument(doc); err != nil {
+			return nil, fmt.Errorf("builder: failed to rewrite deduplicated references: %w", err)
+		}
+	}
+
 	return doc, nil
 }
 
@@ -398,12 +467,17 @@ func (b *Builder) BuildOAS3() (*parser.OAS3Document, error) {
 		return nil, fmt.Errorf("builder: configuration error: %w", b.configError)
 	}
 
-	if err := b.checkErrors(); err != nil {
-		return nil, err
-	}
-
 	if b.version == parser.OASVersion20 {
 		return nil, fmt.Errorf("builder: BuildOAS3() called but builder was created with OAS 2.0; use BuildOAS2() instead")
+	}
+
+	// Apply semantic deduplication if enabled
+	if b.dedupeEnabled {
+		b.DeduplicateSchemas()
+	}
+
+	if err := b.checkErrors(); err != nil {
+		return nil, err
 	}
 
 	// Build components
@@ -450,6 +524,17 @@ func (b *Builder) BuildOAS3() (*parser.OAS3Document, error) {
 	// Add webhooks (OAS 3.1+ only)
 	if len(b.webhooks) > 0 {
 		doc.Webhooks = b.webhooks
+	}
+
+	// Rewrite references if schema aliases exist
+	if len(b.schemaAliases) > 0 {
+		rewriter := joiner.NewSchemaRewriter()
+		for alias, canonical := range b.schemaAliases {
+			rewriter.RegisterRename(alias, canonical, b.version)
+		}
+		if err := rewriter.RewriteDocument(doc); err != nil {
+			return nil, fmt.Errorf("builder: failed to rewrite deduplicated references: %w", err)
+		}
 	}
 
 	return doc, nil
