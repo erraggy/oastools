@@ -474,6 +474,7 @@ oastools join [flags] <file1> <file2> [file3...]
 | `--path-strategy` | | Collision strategy for paths |
 | `--schema-strategy` | | Collision strategy for schemas/definitions |
 | `--component-strategy` | | Collision strategy for other components |
+| `--semantic-dedup` | | Enable semantic deduplication to consolidate identical schemas |
 | `--no-merge-arrays` | | Don't merge arrays (servers, security, etc.) |
 | `--no-dedup-tags` | | Don't deduplicate tags by name |
 | `-h, --help` | | Display help for join command |
@@ -517,6 +518,9 @@ oastools join --no-merge-arrays -o merged.yaml base.yaml ext.yaml
 
 # Don't deduplicate tags
 oastools join --no-dedup-tags -o merged.yaml base.yaml ext.yaml
+
+# Enable semantic deduplication to consolidate identical schemas
+oastools join --semantic-dedup -o merged.yaml api1.yaml api2.yaml
 ```
 
 ### Output Format
@@ -542,6 +546,16 @@ Warnings (1):
 ✓ Join completed successfully!
 ```
 
+**With Semantic Deduplication:**
+
+When `--semantic-dedup` is enabled, the output includes deduplication information:
+
+```
+Warnings (2):
+  - Schema 'User' collision resolved with accept-left strategy
+  - semantic deduplication: consolidated 3 duplicate definition(s)
+```
+
 ### Exit Codes
 
 | Code | Meaning |
@@ -556,6 +570,7 @@ Warnings (1):
 - Info section is taken from the first document
 - Output file is written with restrictive permissions (0600) for security
 - Warning is displayed if output file already exists (will be overwritten)
+- Semantic deduplication identifies structurally identical schemas and consolidates them, reducing document size
 
 ---
 

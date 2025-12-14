@@ -373,6 +373,37 @@
 //
 // See the examples in example_test.go for more patterns.
 //
+// # Semantic Schema Deduplication
+//
+// The builder can automatically identify and consolidate structurally identical schemas,
+// reducing document size when multiple types converge to the same structure.
+//
+// Enable via option:
+//
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithSemanticDeduplication(true),
+//	)
+//
+//	// Add schemas that happen to be structurally identical
+//	spec.AddOperation(http.MethodGet, "/addresses",
+//	    builder.WithResponse(http.StatusOK, []Address{}),
+//	)
+//	spec.AddOperation(http.MethodGet, "/locations",
+//	    builder.WithResponse(http.StatusOK, []Location{}), // Same structure as Address
+//	)
+//
+//	doc, _ := spec.BuildOAS3()
+//	// Only one schema exists; all $refs point to the canonical (alphabetically first) name
+//
+// Or call manually before building:
+//
+//	spec.DeduplicateSchemas()
+//	doc, _ := spec.BuildOAS3()
+//
+// Deduplication compares schemas structurally, ignoring metadata fields (title, description,
+// example, deprecated). When duplicates are found, the alphabetically first name becomes
+// canonical, and all references are automatically rewritten.
+//
 // # Related Packages
 //
 // The builder integrates with other oastools packages:

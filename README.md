@@ -20,6 +20,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 - **Type-Safe Cloning** - Generated `DeepCopy()` methods preserve types across OAS versions (no JSON marshal hacks)
 - **Enterprise Ready** - Structured errors with `errors.Is()`/`errors.As()`, pluggable logging, configurable resource limits
 - **Well Documented** - Every package has godoc and runnable examples on [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools)
+- **Semantic Deduplication** - Automatically consolidate structurally identical schemas, reducing document size
 
 ## Package Ecosystem
 
@@ -29,11 +30,11 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 | [validator](https://pkg.go.dev/github.com/erraggy/oastools/validator) | Validate specs with structural & semantic checks       |
 | [fixer](https://pkg.go.dev/github.com/erraggy/oastools/fixer)         | Auto-fix common validation errors                      |
 | [converter](https://pkg.go.dev/github.com/erraggy/oastools/converter) | Convert between OAS 2.0 and 3.x                        |
-| [joiner](https://pkg.go.dev/github.com/erraggy/oastools/joiner)       | Merge multiple OAS documents                           |
+| [joiner](https://pkg.go.dev/github.com/erraggy/oastools/joiner)       | Merge multiple OAS documents with schema deduplication |
 | [overlay](https://pkg.go.dev/github.com/erraggy/oastools/overlay)     | Apply OpenAPI Overlay v1.0.0 with JSONPath targeting   |
 | [differ](https://pkg.go.dev/github.com/erraggy/oastools/differ)       | Detect breaking changes between versions               |
 | [generator](https://pkg.go.dev/github.com/erraggy/oastools/generator) | Generate Go client/server code with security support   |
-| [builder](https://pkg.go.dev/github.com/erraggy/oastools/builder)     | Programmatically construct OAS documents               |
+| [builder](https://pkg.go.dev/github.com/erraggy/oastools/builder)     | Programmatically construct OAS documents with deduplication |
 | [oaserrors](https://pkg.go.dev/github.com/erraggy/oastools/oaserrors) | Structured error types for programmatic handling       |
 
 All packages include comprehensive documentation with runnable examples. See individual package pages on [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) for API details.

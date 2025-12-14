@@ -44,6 +44,15 @@ Invoke this agent when:
 - Highlight performance considerations
 - Note security implications
 
+### 5. Documentation Planning
+Every feature plan MUST include a documentation phase that addresses:
+- **README.md** - Update highlights, package descriptions, and quick start examples
+- **docs/developer-guide.md** - Add library usage examples and API documentation
+- **docs/cli-reference.md** - Add new flags, options, and CLI examples (if CLI-facing)
+- **Package doc.go** - Update package-level documentation
+- **Package example_test.go** - Add runnable godoc examples demonstrating the feature
+- **CLAUDE.md** - Update if new patterns, API features, or important context is added
+
 ## Process
 
 When tasked with architectural work:
@@ -109,6 +118,15 @@ func (d *Doer) Do() (*Result, error)
 - Integration tests: [approach]
 - Benchmark tests: [if performance-sensitive]
 
+### Documentation Phase
+**Files to update:**
+- `README.md` - [what to add: highlights, package table, quick start examples]
+- `docs/developer-guide.md` - [library usage section with code examples]
+- `docs/cli-reference.md` - [new flags, examples, output format] (if CLI-facing)
+- `package/doc.go` - [package documentation updates]
+- `package/example_test.go` - [runnable Example_* functions for godoc]
+- `CLAUDE.md` - [new patterns or API features to document] (if applicable)
+
 ### Considerations
 - [Known gotcha or edge case]
 - [Performance consideration]
@@ -123,10 +141,18 @@ func (d *Doer) Do() (*Result, error)
 
 ### Package Structure
 Each package should have:
-- `doc.go` - Package documentation
-- `example_test.go` - Runnable godoc examples
+- `doc.go` - Package documentation (MUST be updated for new features)
+- `example_test.go` - Runnable godoc examples (MUST add Example_* for new public APIs)
 - `*_test.go` - Comprehensive tests
 - `*_bench_test.go` - Benchmarks (if performance-sensitive)
+
+### Documentation Checklist
+For ANY new feature or significant change, the plan MUST include updates to:
+1. **Package-level:** `doc.go` and `example_test.go` in affected packages
+2. **User-facing:** `README.md` (highlights, package table, quick start)
+3. **Developer-facing:** `docs/developer-guide.md` (library usage with examples)
+4. **CLI-facing:** `docs/cli-reference.md` (if adding CLI flags or commands)
+5. **AI-facing:** `CLAUDE.md` (if adding patterns, APIs, or context future agents need)
 
 ### API Patterns
 

@@ -58,6 +58,7 @@ type JoinFlags struct {
 	RenameTemplate  string
 	EquivalenceMode string
 	CollisionReport bool
+	SemanticDedup   bool
 	// Namespace prefix configuration
 	NamespacePrefix namespacePrefixFlag
 	AlwaysPrefix    bool
@@ -85,6 +86,7 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 	fs.StringVar(&flags.RenameTemplate, "rename-template", "{{.Name}}_{{.Source}}", "template for renamed schema names")
 	fs.StringVar(&flags.EquivalenceMode, "equivalence-mode", "none", "schema comparison mode for deduplication (none, shallow, deep)")
 	fs.BoolVar(&flags.CollisionReport, "collision-report", false, "generate detailed collision analysis report")
+	fs.BoolVar(&flags.SemanticDedup, "semantic-dedup", false, "enable semantic deduplication to consolidate identical schemas")
 
 	// Namespace prefix configuration
 	fs.Var(flags.NamespacePrefix, "namespace-prefix", "namespace prefix for source file (format: source=prefix, can be repeated)")
@@ -154,6 +156,7 @@ func HandleJoin(args []string) error {
 	config.RenameTemplate = flags.RenameTemplate
 	config.EquivalenceMode = flags.EquivalenceMode
 	config.CollisionReport = flags.CollisionReport
+	config.SemanticDeduplication = flags.SemanticDedup
 
 	// Apply namespace prefix configuration
 	if len(flags.NamespacePrefix) > 0 {

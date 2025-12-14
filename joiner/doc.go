@@ -90,6 +90,34 @@
 // Pre-join overlays are applied to each input document before merging.
 // Post-join overlays are applied to the final merged result.
 //
+// # Semantic Schema Deduplication
+//
+// After merging, the joiner can automatically identify and consolidate structurally
+// identical schemas across all input documents. This reduces document size when multiple
+// APIs happen to define equivalent types with different names.
+//
+// Enable via option:
+//
+//	result, err := joiner.JoinWithOptions(
+//	    joiner.WithFilePaths([]string{"users-api.yaml", "orders-api.yaml"}),
+//	    joiner.WithSemanticDeduplication(true),
+//	)
+//
+// Or via config:
+//
+//	config := joiner.DefaultConfig()
+//	config.SemanticDeduplication = true
+//	j := joiner.New(config)
+//	result, _ := j.Join([]string{"api1.yaml", "api2.yaml"})
+//
+// When schemas from different documents are structurally equivalent (same type, properties,
+// constraints), they are consolidated into a single canonical schema (alphabetically first
+// name). All $ref references throughout the merged document are automatically rewritten.
+//
+// This differs from the StrategyDeduplicateEquivalent collision strategy which only
+// handles same-named collisions. Semantic deduplication works across all schemas
+// regardless of their original names.
+//
 // # Features and Limitations
 //
 // The joiner validates all input documents, prevents output file overwrites with
