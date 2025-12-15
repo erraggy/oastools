@@ -974,20 +974,46 @@ func main() {
 
 ## Source Map Integration
 
-For IDE-friendly output with line numbers in generation issues, enable source maps during parsing:
+Source maps enable **precise issue locations** by tracking line and column numbers from your YAML/JSON source. Without source maps, generation issues only show JSON paths. With source maps, issues include file:line:column positions that IDEs can click to jump directly to the problematic schema or operation.
+
+**Without source maps:**
+```
+warning: components.schemas.Order: schema has no properties defined
+```
+
+**With source maps:**
+```
+openapi.yaml:142:5: warning: schema has no properties defined
+```
+
+To enable source map tracking:
 
 ```go
 parseResult, _ := parser.ParseWithOptions(
     parser.WithFilePath("openapi.yaml"),
-    parser.WithSourceMap(true),
+    parser.WithSourceMap(true),  // Enable line tracking during parse
 )
+
 result, _ := generator.GenerateWithOptions(
     generator.WithParsed(*parseResult),
-    generator.WithSourceMap(parseResult.SourceMap),
+    generator.WithSourceMap(parseResult.SourceMap),  // Pass to generator
     generator.WithPackageName("api"),
     generator.WithClient(true),
 )
+
+// Issues now include line/column/file info
+for _, issue := range result.Issues {
+    if issue.HasLocation() {
+        // IDE-friendly format: file:line:column
+        fmt.Printf("%s: %s: %s\n", issue.Location(), issue.Severity, issue.Message)
+    } else {
+        // Fallback to JSON path
+        fmt.Printf("%s: %s: %s\n", issue.Path, issue.Severity, issue.Message)
+    }
+}
 ```
+
+The `Location()` method returns the IDE-friendly `file:line:column` format. The `HasLocation()` method checks if line info is available (returns `true` when `Line > 0`).
 
 [Back to top](#top)
 

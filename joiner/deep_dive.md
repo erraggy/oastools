@@ -736,23 +736,45 @@ type JoinResult struct {
 
 ## Source Map Integration
 
-When joining multiple files with source map support, use `WithSourceMaps` (plural) to pass source maps for all input documents:
+Source maps enable **precise collision and warning locations** by tracking line and column numbers from your YAML/JSON source files. Without source maps, collision errors only show JSON paths. With source maps, collision errors include file:line:column positions that IDEs can click to jump directly to the conflict.
+
+**Without source maps:**
+```
+schema collision: 'User' defined in users-api.yaml (components.schemas.User) and orders-api.yaml (components.schemas.User)
+```
+
+**With source maps:**
+```
+schema collision: 'User' defined in users-api.yaml:45:5 and orders-api.yaml:62:5
+```
+
+When joining multiple files, use `WithSourceMaps` (plural) to pass source maps for all input documents:
 
 ```go
 sourceMaps := make(map[string]*parser.SourceMap)
-for _, path := range filePaths {
+var docs []parser.ParseResult
+
+for _, path := range []string{"users-api.yaml", "orders-api.yaml"} {
     p, _ := parser.ParseWithOptions(
         parser.WithFilePath(path),
-        parser.WithSourceMap(true),
+        parser.WithSourceMap(true),  // Enable line tracking during parse
     )
     sourceMaps[path] = p.SourceMap
     docs = append(docs, *p)
 }
+
 result, _ := joiner.JoinWithOptions(
     joiner.WithParsed(docs...),
-    joiner.WithSourceMaps(sourceMaps),
+    joiner.WithSourceMaps(sourceMaps),  // Pass all source maps (keyed by file path)
 )
+
+// Warnings and collision details now include line/column/file info
+for _, warning := range result.Warnings {
+    fmt.Println(warning)  // Includes file:line:column when available
+}
 ```
+
+The joiner uses `WithSourceMaps` (plural, with a map) because it needs source maps from multiple input files to track collision locations across documents.
 
 [Back to top](#top)
 
