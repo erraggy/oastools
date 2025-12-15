@@ -407,6 +407,7 @@ When adding a new package (like `fixer`, `generator`, etc.) or major feature, en
    - Create package directory with implementation files
    - Add `doc.go` with package documentation
    - Add `example_test.go` with runnable godoc examples
+   - Add `deep_dive.md` with comprehensive usage guide (for feature-rich packages)
    - Add comprehensive tests (`*_test.go`)
 
 2. **CLI Integration** (if applicable)
@@ -449,6 +450,14 @@ When adding a new package (like `fixer`, `generator`, etc.) or major feature, en
      - Add to Table of Contents
      - Add CLI Usage section
      - Add Library Usage section with examples
+     - Add deep dive cross-reference at end of package section
+   - **Package deep_dive.md** (for feature-rich packages):
+     - Table of contents with section links
+     - Comprehensive API coverage with practical examples
+     - All functional options documented
+     - Common patterns and best practices
+     - Integration examples with other packages
+     - Back-to-top links for navigation in tall documents
 
 5. **Makefile Updates**
    - Add to `.PHONY` targets list

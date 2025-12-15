@@ -259,6 +259,8 @@ for _, err := range result.Errors {
 }
 ```
 
+> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Validator Deep Dive](../validator/deep_dive.md).
+
 ### Fixer Package
 
 The fixer package automatically corrects common validation errors in OpenAPI Specification documents.
@@ -523,6 +525,8 @@ if err != nil {
 // - Warnings indicate how many duplicates were consolidated
 ```
 
+> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Joiner Deep Dive](../joiner/deep_dive.md).
+
 ### Differ Package
 
 The differ package provides OpenAPI specification comparison and breaking change detection.
@@ -625,6 +629,8 @@ for _, category := range categoryOrder {
     }
 }
 ```
+
+> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Differ Deep Dive](../differ/deep_dive.md).
 
 ### Generator Package
 
@@ -861,6 +867,8 @@ result, err := generator.GenerateWithOptions(
 // - Regeneration command
 ```
 
+> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Generator Deep Dive](../generator/deep_dive.md).
+
 ### Builder Package
 
 The builder package enables programmatic construction of OpenAPI specifications with reflection-based schema generation from Go types.
@@ -990,6 +998,8 @@ spec := builder.New(parser.OASVersion320,
 doc, err := spec.BuildOAS3()
 // Result: Only 1 schema instead of 2, with $refs automatically rewritten
 ```
+
+> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Builder Deep Dive](../builder/deep_dive.md).
 
 ### Overlay Package
 
