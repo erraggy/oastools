@@ -14,8 +14,7 @@ Launch these agents **in parallel** to maximize efficiency:
 
 1. **DevOps Engineer** - Update benchmarks:
    - Check commits since last release tag
-   - Run `make bench` and update `benchmarks.md`
-   - Save benchmark baseline with `make bench-save`
+   - Run `make bench-release VERSION=<version>` and update `benchmarks.md`
    - Create feature branch `chore/<version>-release-prep`
 
 2. **Architect** - Review documentation:

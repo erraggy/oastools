@@ -15,9 +15,10 @@ import (
 
 // FixFlags contains flags for the fix command
 type FixFlags struct {
-	Output string
-	Infer  bool
-	Quiet  bool
+	Output    string
+	Infer     bool
+	Quiet     bool
+	SourceMap bool
 }
 
 // SetupFixFlags creates and configures a FlagSet for the fix command.
@@ -31,6 +32,8 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 	fs.BoolVar(&flags.Infer, "infer", false, "infer parameter types from naming conventions")
 	fs.BoolVar(&flags.Quiet, "q", false, "quiet mode: only output the document, no diagnostic messages")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "quiet mode: only output the document, no diagnostic messages")
+	fs.BoolVar(&flags.SourceMap, "source-map", false, "include line numbers in fix output (IDE-friendly format)")
+	fs.BoolVar(&flags.SourceMap, "s", false, "include line numbers in fix output (IDE-friendly format)")
 
 	fs.Usage = func() {
 		cliutil.Writef(fs.Output(), "Usage: oastools fix [flags] <file|url|->\n\n")
@@ -50,6 +53,7 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 		cliutil.Writef(fs.Output(), "  oastools fix -o fixed.yaml openapi.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools fix --infer openapi.yaml\n")
 		cliutil.Writef(fs.Output(), "  cat openapi.yaml | oastools fix -q - > fixed.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools fix -s openapi.yaml  # Include line numbers in fixes\n")
 		cliutil.Writef(fs.Output(), "\nPipelining:\n")
 		cliutil.Writef(fs.Output(), "  oastools fix -q api.yaml | oastools validate -q -\n")
 		cliutil.Writef(fs.Output(), "  oastools fix -q --infer api.yaml | oastools convert -q -t 3.1.0 -\n")
@@ -83,28 +87,50 @@ func HandleFix(args []string) error {
 
 	specPath := fs.Arg(0)
 
-	// Create fixer with options
-	f := fixer.New()
-	f.InferTypes = flags.Infer
-
 	// Fix the file, URL, or stdin with timing
 	startTime := time.Now()
 	var result *fixer.FixResult
 	var err error
 
 	if specPath == StdinFilePath {
-		// Read from stdin
+		// Read from stdin - source map not supported for stdin
 		p := parser.New()
-		parseResult, err := p.ParseReader(os.Stdin)
-		if err != nil {
-			return fmt.Errorf("parsing stdin: %w", err)
+		parseResult, parseErr := p.ParseReader(os.Stdin)
+		if parseErr != nil {
+			return fmt.Errorf("parsing stdin: %w", parseErr)
 		}
+		f := fixer.New()
+		f.InferTypes = flags.Infer
 		result, err = f.FixParsed(*parseResult)
 		if err != nil {
 			return fmt.Errorf("fixing from stdin: %w", err)
 		}
 	} else {
-		result, err = f.Fix(specPath)
+		// Build fixer options
+		fixOpts := []fixer.Option{
+			fixer.WithFilePath(specPath),
+			fixer.WithInferTypes(flags.Infer),
+		}
+
+		// If source map requested, parse with source map first
+		if flags.SourceMap {
+			parseResult, parseErr := parser.ParseWithOptions(
+				parser.WithFilePath(specPath),
+				parser.WithSourceMap(true),
+			)
+			if parseErr != nil {
+				return fmt.Errorf("parsing file: %w", parseErr)
+			}
+			fixOpts = []fixer.Option{
+				fixer.WithParsed(*parseResult),
+				fixer.WithInferTypes(flags.Infer),
+			}
+			if parseResult.SourceMap != nil {
+				fixOpts = append(fixOpts, fixer.WithSourceMap(parseResult.SourceMap))
+			}
+		}
+
+		result, err = fixer.FixWithOptions(fixOpts...)
 		if err != nil {
 			return fmt.Errorf("fixing file: %w", err)
 		}
@@ -131,7 +157,12 @@ func HandleFix(args []string) error {
 		if result.HasFixes() {
 			cliutil.Writef(os.Stderr, "Fixes Applied (%d):\n", result.FixCount)
 			for _, fix := range result.Fixes {
-				cliutil.Writef(os.Stderr, "  - [%s] %s: %s\n", fix.Type, fix.Path, fix.Description)
+				if flags.SourceMap && fix.HasLocation() {
+					// IDE-friendly format: file:line:column: path: description
+					cliutil.Writef(os.Stderr, "  - %s: [%s] %s: %s\n", fix.Location(), fix.Type, fix.Path, fix.Description)
+				} else {
+					cliutil.Writef(os.Stderr, "  - [%s] %s: %s\n", fix.Type, fix.Path, fix.Description)
+				}
 			}
 			cliutil.Writef(os.Stderr, "\n")
 		}

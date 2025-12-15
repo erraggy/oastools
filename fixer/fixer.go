@@ -26,6 +26,30 @@ type Fix struct {
 	Before any
 	// After is the value that was added or changed
 	After any
+	// Line is the 1-based line number in the source file (0 if unknown)
+	Line int
+	// Column is the 1-based column number in the source file (0 if unknown)
+	Column int
+	// File is the source file path (empty for main document)
+	File string
+}
+
+// HasLocation returns true if this fix has source location information.
+func (f Fix) HasLocation() bool {
+	return f.Line > 0
+}
+
+// Location returns an IDE-friendly location string.
+// Returns "file:line:column" if file is set, "line:column" if only line is set,
+// or the Path if location is unknown.
+func (f Fix) Location() string {
+	if f.Line == 0 {
+		return f.Path
+	}
+	if f.File != "" {
+		return fmt.Sprintf("%s:%d:%d", f.File, f.Line, f.Column)
+	}
+	return fmt.Sprintf("%d:%d", f.Line, f.Column)
 }
 
 // FixResult contains the results of a fix operation
@@ -68,6 +92,9 @@ type Fixer struct {
 	// UserAgent is the User-Agent string used when fetching URLs.
 	// Defaults to "oastools" if not set.
 	UserAgent string
+	// SourceMap provides source location lookup for fix issues.
+	// When set, fixes will include Line, Column, and File information.
+	SourceMap *parser.SourceMap
 }
 
 // New creates a new Fixer instance with default settings
@@ -91,6 +118,9 @@ type fixConfig struct {
 	inferTypes   bool
 	enabledFixes []FixType
 	userAgent    string
+
+	// Source map for line/column tracking
+	sourceMap *parser.SourceMap
 }
 
 // FixWithOptions fixes an OpenAPI specification using functional options.
@@ -113,6 +143,7 @@ func FixWithOptions(opts ...Option) (*FixResult, error) {
 		InferTypes:   cfg.inferTypes,
 		EnabledFixes: cfg.enabledFixes,
 		UserAgent:    cfg.userAgent,
+		SourceMap:    cfg.sourceMap,
 	}
 
 	// Route to appropriate fix method based on input source
@@ -200,6 +231,16 @@ func WithEnabledFixes(fixes ...FixType) Option {
 func WithUserAgent(userAgent string) Option {
 	return func(cfg *fixConfig) error {
 		cfg.userAgent = userAgent
+		return nil
+	}
+}
+
+// WithSourceMap provides a SourceMap for populating line/column information
+// in fix records. When set, fixes will include source location details
+// that enable IDE-friendly error reporting.
+func WithSourceMap(sm *parser.SourceMap) Option {
+	return func(cfg *fixConfig) error {
+		cfg.sourceMap = sm
 		return nil
 	}
 }
@@ -313,4 +354,31 @@ func (f *Fixer) fixOAS3(parseResult parser.ParseResult, result *FixResult) (*Fix
 	result.FixCount = len(result.Fixes)
 
 	return result, nil
+}
+
+// populateFixLocation fills in Line/Column/File from the SourceMap if available.
+// The path parameter is the JSON path in the source document.
+func (f *Fixer) populateFixLocation(fix *Fix) {
+	if f.SourceMap == nil {
+		return
+	}
+
+	// Convert path format if needed (fixer uses dotted paths like "paths./users.get",
+	// while SourceMap uses JSON path notation like "$.paths./users.get")
+	jsonPath := fix.Path
+	if !hasJSONPathPrefix(jsonPath) {
+		jsonPath = "$." + fix.Path
+	}
+
+	loc := f.SourceMap.Get(jsonPath)
+	if loc.IsKnown() {
+		fix.Line = loc.Line
+		fix.Column = loc.Column
+		fix.File = loc.File
+	}
+}
+
+// hasJSONPathPrefix returns true if the path already has a JSON path prefix.
+func hasJSONPathPrefix(path string) bool {
+	return len(path) > 0 && path[0] == '$'
 }

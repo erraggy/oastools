@@ -50,6 +50,11 @@ type RefResolver struct {
 	// hasCircularRefs is set to true when circular references are detected
 	// This is used to skip re-marshaling which would cause infinite loops
 	hasCircularRefs bool
+	// SourceMap is the accumulated source map being built during resolution
+	// When non-nil, external file source maps are built and merged
+	SourceMap *SourceMap
+	// ExternalSourceMaps caches source maps for external documents
+	ExternalSourceMaps map[string]*SourceMap
 }
 
 // NewRefResolver creates a new reference resolver for local and file-based refs
@@ -210,6 +215,9 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 			return nil, fmt.Errorf("failed to parse external file %s: %w", filePath, err)
 		}
 
+		// Build source map for external document if enabled
+		r.buildExternalSourceMap(filePath, data)
+
 		r.documents[filePath] = extDoc
 		doc = extDoc
 	}
@@ -275,6 +283,9 @@ func (r *RefResolver) ResolveHTTP(ref string) (any, error) {
 		if err := yaml.Unmarshal(data, &extDoc); err != nil {
 			return nil, fmt.Errorf("failed to parse HTTP reference %s: %w", urlStr, err)
 		}
+
+		// Build source map for HTTP document if enabled
+		r.buildExternalSourceMap(urlStr, data)
 
 		r.documents[urlStr] = extDoc
 		doc = extDoc
@@ -455,4 +466,110 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 // safely serialized with yaml.Marshal (which would cause an infinite loop).
 func (r *RefResolver) HasCircularRefs() bool {
 	return r.hasCircularRefs
+}
+
+// convertRefToJSONPath converts a $ref string to a JSON path.
+// Only handles local references (starting with "#/").
+// Example: "#/components/schemas/Pet" -> "$.components.schemas.Pet"
+// Returns empty string for external refs or invalid formats.
+func convertRefToJSONPath(ref string) string {
+	if !strings.HasPrefix(ref, "#/") {
+		return "" // Only handle local refs
+	}
+
+	trimmed := strings.TrimPrefix(ref, "#/")
+	// Handle root ref "#/" -> "$"
+	if trimmed == "" {
+		return "$"
+	}
+
+	parts := strings.Split(trimmed, "/")
+	path := "$"
+	for _, part := range parts {
+		// URL-decode the part (handles %2F -> / etc)
+		decoded, err := url.PathUnescape(part)
+		if err != nil {
+			decoded = part // Use original if decoding fails
+		}
+		// Unescape JSON Pointer tokens (~0 -> ~, ~1 -> /)
+		decoded = unescapeJSONPointer(decoded)
+		path = buildChildPath(path, decoded)
+	}
+	return path
+}
+
+// buildExternalSourceMap builds a source map for an external document.
+// Only called when r.SourceMap is non-nil.
+func (r *RefResolver) buildExternalSourceMap(path string, data []byte) {
+	if r.SourceMap == nil {
+		return
+	}
+
+	var node yaml.Node
+	if err := yaml.Unmarshal(data, &node); err != nil {
+		// Silently skip - don't fail resolution just because source map failed
+		return
+	}
+
+	extMap := buildSourceMap(&node, path)
+	if r.ExternalSourceMaps == nil {
+		r.ExternalSourceMaps = make(map[string]*SourceMap)
+	}
+	r.ExternalSourceMaps[path] = extMap
+	r.SourceMap.Merge(extMap)
+}
+
+// updateRefTargetLocation updates the Target field in a RefLocation
+// after the reference has been resolved.
+func (r *RefResolver) updateRefTargetLocation(refPath, targetRef string) {
+	if r.SourceMap == nil {
+		return
+	}
+
+	refLoc := r.SourceMap.GetRef(refPath)
+	if refLoc.TargetRef == "" {
+		return // No $ref tracked at this path
+	}
+
+	// Convert the $ref to a JSON path
+	targetPath := convertRefToJSONPath(targetRef)
+	if targetPath == "" {
+		return // External ref, can't resolve target location
+	}
+
+	// Look up the target location
+	targetLoc := r.SourceMap.Get(targetPath)
+	if targetLoc.IsKnown() {
+		refLoc.Target = targetLoc
+		r.SourceMap.setRef(refPath, refLoc)
+	}
+}
+
+// updateAllRefTargets updates Target locations for all refs in the source map.
+// This is called after reference resolution is complete to populate
+// target locations for all tracked $ref occurrences.
+func (r *RefResolver) updateAllRefTargets() {
+	if r.SourceMap == nil || r.SourceMap.refs == nil {
+		return
+	}
+
+	for path, refLoc := range r.SourceMap.refs {
+		// Skip if target is already set or no target ref
+		if refLoc.Target.IsKnown() || refLoc.TargetRef == "" {
+			continue
+		}
+
+		// Convert the $ref to a JSON path
+		targetPath := convertRefToJSONPath(refLoc.TargetRef)
+		if targetPath == "" {
+			continue // External ref or invalid format
+		}
+
+		// Look up the target location
+		targetLoc := r.SourceMap.Get(targetPath)
+		if targetLoc.IsKnown() {
+			refLoc.Target = targetLoc
+			r.SourceMap.refs[path] = refLoc
+		}
+	}
 }

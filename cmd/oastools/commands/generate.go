@@ -24,6 +24,7 @@ type GenerateFlags struct {
 	NoValidation bool
 	Strict       bool
 	NoWarnings   bool
+	SourceMap    bool
 
 	// Security generation options
 	NoSecurity      bool
@@ -60,6 +61,8 @@ func SetupGenerateFlags() (*flag.FlagSet, *GenerateFlags) {
 	fs.BoolVar(&flags.NoValidation, "no-validation", false, "don't include validation tags")
 	fs.BoolVar(&flags.Strict, "strict", false, "fail on any generation issues (even warnings)")
 	fs.BoolVar(&flags.NoWarnings, "no-warnings", false, "suppress warning and info messages")
+	fs.BoolVar(&flags.SourceMap, "source-map", false, "include line numbers in generation issues (IDE-friendly format)")
+	fs.BoolVar(&flags.SourceMap, "s", false, "include line numbers in generation issues (IDE-friendly format)")
 
 	// Security generation flags
 	fs.BoolVar(&flags.NoSecurity, "no-security", false, "don't generate security helper functions")
@@ -90,6 +93,7 @@ func SetupGenerateFlags() (*flag.FlagSet, *GenerateFlags) {
 		cliutil.Writef(fs.Output(), "  oastools generate --client --credential-mgmt --security-enforce -o ./api openapi.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools generate --client --max-lines-per-file 1500 -o ./client large-api.yaml\n")
 		cliutil.Writef(fs.Output(), "  cat openapi.yaml | oastools generate --client -o ./client -\n")
+		cliutil.Writef(fs.Output(), "  oastools generate -s --client -o ./client openapi.yaml  # Include line numbers in issues\n")
 		cliutil.Writef(fs.Output(), "\nPipelining:\n")
 		cliutil.Writef(fs.Output(), "  Use '-' as the file path to read the OpenAPI specification from stdin.\n")
 		cliutil.Writef(fs.Output(), "  Example: oastools convert -t 3.0.3 swagger.yaml | oastools generate --client -o ./client -\n")
@@ -133,47 +137,75 @@ func HandleGenerate(args []string) error {
 		return fmt.Errorf("at least one of --client, --server, or --types must be enabled")
 	}
 
-	// Create generator with options
-	g := generator.New()
-	g.PackageName = flags.PackageName
-	g.GenerateClient = flags.Client
-	g.GenerateServer = flags.Server
-	g.GenerateTypes = flags.Types || flags.Client || flags.Server
-	g.UsePointers = !flags.NoPointers
-	g.IncludeValidation = !flags.NoValidation
-	g.StrictMode = flags.Strict
-	g.IncludeInfo = !flags.NoWarnings
-
-	// Security generation options
-	g.GenerateSecurity = !flags.NoSecurity
-	g.GenerateOAuth2Flows = flags.OAuth2Flows
-	g.GenerateCredentialMgmt = flags.CredentialMgmt
-	g.GenerateSecurityEnforce = flags.SecurityEnforce
-	g.GenerateOIDCDiscovery = flags.OIDCDiscovery
-	g.GenerateReadme = !flags.NoReadme
-
-	// File splitting options
-	g.MaxLinesPerFile = flags.MaxLinesPerFile
-	g.MaxTypesPerFile = flags.MaxTypesPerFile
-	g.MaxOperationsPerFile = flags.MaxOpsPerFile
-	g.SplitByTag = !flags.NoSplitByTag
-	g.SplitByPathPrefix = !flags.NoSplitByPath
-
 	// Generate the code with timing
 	startTime := time.Now()
 	var result *generator.GenerateResult
 	var err error
 
 	if specPath == StdinFilePath {
-		// Read from stdin
+		// Read from stdin - source map not supported for stdin
 		p := parser.New()
 		parseResult, parseErr := p.ParseReader(os.Stdin)
 		if parseErr != nil {
 			return fmt.Errorf("parsing stdin: %w", parseErr)
 		}
+		g := generator.New()
+		g.PackageName = flags.PackageName
+		g.GenerateClient = flags.Client
+		g.GenerateServer = flags.Server
+		g.GenerateTypes = flags.Types || flags.Client || flags.Server
+		g.UsePointers = !flags.NoPointers
+		g.IncludeValidation = !flags.NoValidation
+		g.StrictMode = flags.Strict
+		g.IncludeInfo = !flags.NoWarnings
+		g.GenerateSecurity = !flags.NoSecurity
+		g.GenerateOAuth2Flows = flags.OAuth2Flows
+		g.GenerateCredentialMgmt = flags.CredentialMgmt
+		g.GenerateSecurityEnforce = flags.SecurityEnforce
+		g.GenerateOIDCDiscovery = flags.OIDCDiscovery
+		g.GenerateReadme = !flags.NoReadme
+		g.MaxLinesPerFile = flags.MaxLinesPerFile
+		g.MaxTypesPerFile = flags.MaxTypesPerFile
+		g.MaxOperationsPerFile = flags.MaxOpsPerFile
+		g.SplitByTag = !flags.NoSplitByTag
+		g.SplitByPathPrefix = !flags.NoSplitByPath
 		result, err = g.GenerateParsed(*parseResult)
 	} else {
-		result, err = g.Generate(specPath)
+		// Build generator options
+		genOpts := []generator.Option{
+			generator.WithFilePath(specPath),
+			generator.WithPackageName(flags.PackageName),
+			generator.WithClient(flags.Client),
+			generator.WithServer(flags.Server),
+			generator.WithTypes(flags.Types || flags.Client || flags.Server),
+			generator.WithStrictMode(flags.Strict),
+			generator.WithIncludeInfo(!flags.NoWarnings),
+		}
+
+		// If source map requested, parse with source map first
+		if flags.SourceMap {
+			parseResult, parseErr := parser.ParseWithOptions(
+				parser.WithFilePath(specPath),
+				parser.WithSourceMap(true),
+			)
+			if parseErr != nil {
+				return fmt.Errorf("parsing file: %w", parseErr)
+			}
+			genOpts = []generator.Option{
+				generator.WithParsed(*parseResult),
+				generator.WithPackageName(flags.PackageName),
+				generator.WithClient(flags.Client),
+				generator.WithServer(flags.Server),
+				generator.WithTypes(flags.Types || flags.Client || flags.Server),
+				generator.WithStrictMode(flags.Strict),
+				generator.WithIncludeInfo(!flags.NoWarnings),
+			}
+			if parseResult.SourceMap != nil {
+				genOpts = append(genOpts, generator.WithSourceMap(parseResult.SourceMap))
+			}
+		}
+
+		result, err = generator.GenerateWithOptions(genOpts...)
 	}
 	totalTime := time.Since(startTime)
 	if err != nil {
@@ -200,7 +232,12 @@ func HandleGenerate(args []string) error {
 	if len(result.Issues) > 0 {
 		fmt.Printf("Generation Issues (%d):\n", len(result.Issues))
 		for _, issue := range result.Issues {
-			fmt.Printf("  %s\n", issue.String())
+			if flags.SourceMap && issue.HasLocation() {
+				// IDE-friendly format: file:line:column: path: message
+				fmt.Printf("  %s: %s: %s\n", issue.Location(), issue.Path, issue.Message)
+			} else {
+				fmt.Printf("  %s\n", issue.String())
+			}
 		}
 		fmt.Println()
 	}

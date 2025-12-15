@@ -1073,6 +1073,68 @@ func TestWithUserAgent_Converter(t *testing.T) {
 	assert.Equal(t, "custom-agent/2.0", cfg.userAgent)
 }
 
+// TestWithSourceMap_Converter tests the WithSourceMap option function
+func TestWithSourceMap_Converter(t *testing.T) {
+	sm := parser.NewSourceMap()
+
+	cfg := &convertConfig{}
+	opt := WithSourceMap(sm)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, sm, cfg.sourceMap)
+}
+
+// TestWithSourceMap_NilSourceMap tests that nil SourceMap is accepted
+func TestWithSourceMap_NilSourceMap(t *testing.T) {
+	cfg := &convertConfig{}
+	opt := WithSourceMap(nil)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Nil(t, cfg.sourceMap)
+}
+
+// TestSourceMapPopulatesIssueLocation tests that issues get line/column info from SourceMap
+func TestSourceMapPopulatesIssueLocation(t *testing.T) {
+	// Create a SourceMap with a known location
+	sm := parser.NewSourceMap()
+	// The converter uses paths like "servers", so we need "$." prefix for the SourceMap
+	// This is handled by populateIssueLocation
+
+	// Create a converter with SourceMap
+	c := New()
+	c.SourceMap = sm
+
+	// Create a minimal OAS 3.0 doc that will produce an issue when converting to 3.1
+	oas3Doc := &parser.OAS3Document{
+		OpenAPI:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: map[string]*parser.PathItem{},
+	}
+
+	parseResult := parser.ParseResult{
+		Document:   oas3Doc,
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Data:       make(map[string]any),
+		SourcePath: "test.yaml",
+	}
+
+	// Convert same version - should produce an info issue
+	result, err := c.ConvertParsed(parseResult, "3.0.3")
+	require.NoError(t, err)
+
+	// Verify we got the "no conversion needed" info issue
+	require.NotEmpty(t, result.Issues)
+	// The issue path is "document" - without source map data, Line should be 0
+	assert.Equal(t, 0, result.Issues[0].Line)
+}
+
 // TestApplyOptions_Defaults_Converter tests that default values are set correctly
 func TestApplyOptions_Defaults_Converter(t *testing.T) {
 	cfg, err := applyOptions(

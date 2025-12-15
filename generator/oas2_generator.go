@@ -537,11 +537,34 @@ func (cg *oas2CodeGenerator) resolveRef(ref string) string {
 //
 //nolint:unparam // severity parameter kept for API consistency and future extensibility
 func (cg *oas2CodeGenerator) addIssue(path, message string, severity Severity) {
-	cg.result.Issues = append(cg.result.Issues, GenerateIssue{
+	issue := GenerateIssue{
 		Path:     path,
 		Message:  message,
 		Severity: severity,
-	})
+	}
+	cg.populateIssueLocation(&issue, path)
+	cg.result.Issues = append(cg.result.Issues, issue)
+}
+
+// populateIssueLocation fills in Line/Column/File from the SourceMap if available.
+func (cg *oas2CodeGenerator) populateIssueLocation(issue *GenerateIssue, path string) {
+	if cg.g.SourceMap == nil {
+		return
+	}
+
+	// Convert path format if needed (generator uses dotted paths like "definitions.Pet",
+	// while SourceMap uses JSON path notation like "$.definitions.Pet")
+	jsonPath := path
+	if len(jsonPath) == 0 || jsonPath[0] != '$' {
+		jsonPath = "$." + path
+	}
+
+	loc := cg.g.SourceMap.Get(jsonPath)
+	if loc.IsKnown() {
+		issue.Line = loc.Line
+		issue.Column = loc.Column
+		issue.File = loc.File
+	}
 }
 
 // generateClient generates HTTP client code for OAS 2.0

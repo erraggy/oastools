@@ -74,6 +74,9 @@ type Validator struct {
 	// UserAgent is the User-Agent string used when fetching URLs
 	// Defaults to "oastools" if not set
 	UserAgent string
+	// SourceMap provides source location lookup for validation errors.
+	// When set, validation errors will include Line, Column, and File fields.
+	SourceMap *parser.SourceMap
 }
 
 // New creates a new Validator instance with default settings
@@ -97,6 +100,7 @@ type validateConfig struct {
 	includeWarnings bool
 	strictMode      bool
 	userAgent       string
+	sourceMap       *parser.SourceMap
 }
 
 // ValidateWithOptions validates an OpenAPI specification using functional options.
@@ -119,6 +123,7 @@ func ValidateWithOptions(opts ...Option) (*ValidationResult, error) {
 		IncludeWarnings: cfg.includeWarnings,
 		StrictMode:      cfg.strictMode,
 		UserAgent:       cfg.userAgent,
+		SourceMap:       cfg.sourceMap,
 	}
 
 	// Route to appropriate validation method based on input source
@@ -204,6 +209,75 @@ func WithUserAgent(ua string) Option {
 		cfg.userAgent = ua
 		return nil
 	}
+}
+
+// WithSourceMap provides a SourceMap for populating line/column information
+// in validation errors. The SourceMap is typically obtained from parsing
+// with parser.WithSourceMap(true).
+func WithSourceMap(sm *parser.SourceMap) Option {
+	return func(cfg *validateConfig) error {
+		cfg.sourceMap = sm
+		return nil
+	}
+}
+
+// populateIssueLocation looks up the source location for an issue's path
+// and populates the Line, Column, and File fields if found.
+func (v *Validator) populateIssueLocation(issue *ValidationError) {
+	if v.SourceMap == nil {
+		return
+	}
+	// Convert validation path to JSON path format (add $ prefix)
+	jsonPath := "$." + issue.Path
+	loc := v.SourceMap.Get(jsonPath)
+	if loc.IsKnown() {
+		issue.Line = loc.Line
+		issue.Column = loc.Column
+		issue.File = loc.File
+	}
+}
+
+// addError appends a validation error and populates its source location.
+func (v *Validator) addError(result *ValidationResult, path, message string, opts ...func(*ValidationError)) {
+	err := ValidationError{
+		Path:     path,
+		Message:  message,
+		Severity: SeverityError,
+	}
+	for _, opt := range opts {
+		opt(&err)
+	}
+	v.populateIssueLocation(&err)
+	result.Errors = append(result.Errors, err)
+}
+
+// addWarning appends a validation warning and populates its source location.
+func (v *Validator) addWarning(result *ValidationResult, path, message string, opts ...func(*ValidationError)) {
+	warn := ValidationError{
+		Path:     path,
+		Message:  message,
+		Severity: SeverityWarning,
+	}
+	for _, opt := range opts {
+		opt(&warn)
+	}
+	v.populateIssueLocation(&warn)
+	result.Warnings = append(result.Warnings, warn)
+}
+
+// withField sets the Field on a ValidationError.
+func withField(field string) func(*ValidationError) {
+	return func(e *ValidationError) { e.Field = field }
+}
+
+// withValue sets the Value on a ValidationError.
+func withValue(value any) func(*ValidationError) {
+	return func(e *ValidationError) { e.Value = value }
+}
+
+// withSpecRef sets the SpecRef on a ValidationError.
+func withSpecRef(ref string) func(*ValidationError) {
+	return func(e *ValidationError) { e.SpecRef = ref }
 }
 
 // ValidateParsed validates an already parsed OpenAPI specification
@@ -847,82 +921,61 @@ func (v *Validator) validateOAS3(doc *parser.OAS3Document, result *ValidationRes
 // validateOAS3Info validates the info object in OAS 3.x
 func (v *Validator) validateOAS3Info(doc *parser.OAS3Document, result *ValidationResult, baseURL string) {
 	if doc.Info == nil {
-		result.Errors = append(result.Errors, ValidationError{
-			Path:     "info",
-			Message:  "Document must have an info object",
-			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
-			Severity: SeverityError,
-			Field:    "info",
-		})
+		v.addError(result, "info", "Document must have an info object",
+			withSpecRef(fmt.Sprintf("%s#info-object", baseURL)),
+			withField("info"),
+		)
 		return
 	}
 
 	if doc.Info.Title == "" {
-		result.Errors = append(result.Errors, ValidationError{
-			Path:     "info.title",
-			Message:  "Info object must have a title",
-			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
-			Severity: SeverityError,
-			Field:    "title",
-		})
+		v.addError(result, "info.title", "Info object must have a title",
+			withSpecRef(fmt.Sprintf("%s#info-object", baseURL)),
+			withField("title"),
+		)
 	}
 
 	if doc.Info.Version == "" {
-		result.Errors = append(result.Errors, ValidationError{
-			Path:     "info.version",
-			Message:  "Info object must have a version",
-			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
-			Severity: SeverityError,
-			Field:    "version",
-		})
+		v.addError(result, "info.version", "Info object must have a version",
+			withSpecRef(fmt.Sprintf("%s#info-object", baseURL)),
+			withField("version"),
+		)
 	}
 
 	// Validate contact information if present
 	if doc.Info.Contact != nil {
 		if doc.Info.Contact.URL != "" && !isValidURL(doc.Info.Contact.URL) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     "info.contact.url",
-				Message:  fmt.Sprintf("Invalid URL format: %s", doc.Info.Contact.URL),
-				SpecRef:  fmt.Sprintf("%s#contact-object", baseURL),
-				Severity: SeverityError,
-				Field:    "url",
-				Value:    doc.Info.Contact.URL,
-			})
+			v.addError(result, "info.contact.url", fmt.Sprintf("Invalid URL format: %s", doc.Info.Contact.URL),
+				withSpecRef(fmt.Sprintf("%s#contact-object", baseURL)),
+				withField("url"),
+				withValue(doc.Info.Contact.URL),
+			)
 		}
 		if doc.Info.Contact.Email != "" && !isValidEmail(doc.Info.Contact.Email) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     "info.contact.email",
-				Message:  fmt.Sprintf("Invalid email format: %s", doc.Info.Contact.Email),
-				SpecRef:  fmt.Sprintf("%s#contact-object", baseURL),
-				Severity: SeverityError,
-				Field:    "email",
-				Value:    doc.Info.Contact.Email,
-			})
+			v.addError(result, "info.contact.email", fmt.Sprintf("Invalid email format: %s", doc.Info.Contact.Email),
+				withSpecRef(fmt.Sprintf("%s#contact-object", baseURL)),
+				withField("email"),
+				withValue(doc.Info.Contact.Email),
+			)
 		}
 	}
 
 	// Validate license information if present
 	if doc.Info.License != nil {
 		if doc.Info.License.URL != "" && !isValidURL(doc.Info.License.URL) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     "info.license.url",
-				Message:  fmt.Sprintf("Invalid URL format: %s", doc.Info.License.URL),
-				SpecRef:  fmt.Sprintf("%s#license-object", baseURL),
-				Severity: SeverityError,
-				Field:    "url",
-				Value:    doc.Info.License.URL,
-			})
+			v.addError(result, "info.license.url", fmt.Sprintf("Invalid URL format: %s", doc.Info.License.URL),
+				withSpecRef(fmt.Sprintf("%s#license-object", baseURL)),
+				withField("url"),
+				withValue(doc.Info.License.URL),
+			)
 		}
 		// SPDX license identifier validation (OAS 3.1+)
 		if doc.Info.License.Identifier != "" && !validateSPDXLicense(doc.Info.License.Identifier) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     "info.license.identifier",
-				Message:  fmt.Sprintf("Invalid SPDX license identifier format: %s", doc.Info.License.Identifier),
-				SpecRef:  fmt.Sprintf("%s#license-object", baseURL),
-				Severity: SeverityError,
-				Field:    "identifier",
-				Value:    doc.Info.License.Identifier,
-			})
+			v.addError(result, "info.license.identifier", fmt.Sprintf("Invalid SPDX license identifier format: %s", doc.Info.License.Identifier),
+				withSpecRef(fmt.Sprintf("%s#license-object", baseURL)),
+				withField("identifier"),
+				withValue(doc.Info.License.Identifier),
+			)
 		}
 	}
 }
@@ -1020,42 +1073,34 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 			continue
 		}
 
+		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
+
 		// Validate path pattern starts with "/"
 		if !strings.HasPrefix(pathPattern, "/") {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     fmt.Sprintf("paths.%s", pathPattern),
-				Message:  "Path must start with '/'",
-				SpecRef:  fmt.Sprintf("%s#paths-object", baseURL),
-				Severity: SeverityError,
-				Value:    pathPattern,
-			})
+			v.addError(result, pathPrefix, "Path must start with '/'",
+				withSpecRef(fmt.Sprintf("%s#paths-object", baseURL)),
+				withValue(pathPattern),
+			)
 		}
 
 		// Validate path template is well-formed
 		if err := validatePathTemplate(pathPattern); err != nil {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     fmt.Sprintf("paths.%s", pathPattern),
-				Message:  fmt.Sprintf("Invalid path template: %s", err),
-				SpecRef:  fmt.Sprintf("%s#paths-object", baseURL),
-				Severity: SeverityError,
-				Value:    pathPattern,
-			})
+			v.addError(result, pathPrefix, fmt.Sprintf("Invalid path template: %s", err),
+				withSpecRef(fmt.Sprintf("%s#paths-object", baseURL)),
+				withValue(pathPattern),
+			)
 		}
 
 		// Warning: trailing slash in path (REST best practice)
 		checkTrailingSlash(v, pathPattern, result, baseURL)
 
-		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
-
 		// Validate QUERY method is only used in OAS 3.2+
 		if pathItem.Query != nil && doc.OASVersion < parser.OASVersion320 {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     fmt.Sprintf("%s.query", pathPrefix),
-				Message:  fmt.Sprintf("QUERY method is only supported in OAS 3.2+, but document is version %s", doc.OASVersion),
-				SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
-				Severity: SeverityError,
-				Field:    "query",
-			})
+			v.addError(result, fmt.Sprintf("%s.query", pathPrefix),
+				fmt.Sprintf("QUERY method is only supported in OAS 3.2+, but document is version %s", doc.OASVersion),
+				withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
+				withField("query"),
+			)
 		}
 
 		// Validate each operation
@@ -1071,13 +1116,10 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 
 			// Warning: recommend description
 			if v.IncludeWarnings && op.Description == "" && op.Summary == "" {
-				result.Warnings = append(result.Warnings, ValidationError{
-					Path:     opPath,
-					Message:  "Operation should have a description or summary for better documentation",
-					SpecRef:  fmt.Sprintf("%s#operation-object", baseURL),
-					Severity: SeverityWarning,
-					Field:    "description",
-				})
+				v.addWarning(result, opPath, "Operation should have a description or summary for better documentation",
+					withSpecRef(fmt.Sprintf("%s#operation-object", baseURL)),
+					withField("description"),
+				)
 			}
 		}
 	}
@@ -1142,13 +1184,10 @@ func (v *Validator) validateOAS3RequestBody(requestBody *parser.RequestBody, pat
 
 	// RequestBody must have content
 	if len(requestBody.Content) == 0 {
-		result.Errors = append(result.Errors, ValidationError{
-			Path:     path,
-			Message:  "RequestBody must have a content object with at least one media type",
-			SpecRef:  fmt.Sprintf("%s#request-body-object", baseURL),
-			Severity: SeverityError,
-			Field:    "content",
-		})
+		v.addError(result, path, "RequestBody must have a content object with at least one media type",
+			withSpecRef(fmt.Sprintf("%s#request-body-object", baseURL)),
+			withField("content"),
+		)
 		return
 	}
 
@@ -1158,13 +1197,10 @@ func (v *Validator) validateOAS3RequestBody(requestBody *parser.RequestBody, pat
 
 		// Validate media type format
 		if !isValidMediaType(mediaType) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     mediaTypePath,
-				Message:  fmt.Sprintf("Invalid media type: %s", mediaType),
-				SpecRef:  fmt.Sprintf("%s#request-body-object", baseURL),
-				Severity: SeverityError,
-				Value:    mediaType,
-			})
+			v.addError(result, mediaTypePath, fmt.Sprintf("Invalid media type: %s", mediaType),
+				withSpecRef(fmt.Sprintf("%s#request-body-object", baseURL)),
+				withValue(mediaType),
+			)
 		}
 
 		// Validate that media type has a schema
@@ -1508,13 +1544,11 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 
 					// Path parameters must have required: true
 					if !param.Required {
-						result.Errors = append(result.Errors, ValidationError{
-							Path:     fmt.Sprintf("paths.%s.parameters[%d]", pathPattern, i),
-							Message:  "Path parameters must have required: true",
-							SpecRef:  fmt.Sprintf("%s#parameter-object", baseURL),
-							Severity: SeverityError,
-							Field:    "required",
-						})
+						v.addError(result, fmt.Sprintf("paths.%s.parameters[%d]", pathPattern, i),
+							"Path parameters must have required: true",
+							withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+							withField("required"),
+						)
 					}
 				}
 			}
@@ -1526,13 +1560,11 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 
 					// Path parameters must have required: true
 					if !param.Required {
-						result.Errors = append(result.Errors, ValidationError{
-							Path:     fmt.Sprintf("paths.%s.%s.parameters[%d]", pathPattern, method, i),
-							Message:  "Path parameters must have required: true",
-							SpecRef:  fmt.Sprintf("%s#parameter-object", baseURL),
-							Severity: SeverityError,
-							Field:    "required",
-						})
+						v.addError(result, fmt.Sprintf("paths.%s.%s.parameters[%d]", pathPattern, method, i),
+							"Path parameters must have required: true",
+							withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+							withField("required"),
+						)
 					}
 				}
 			}
@@ -1540,26 +1572,22 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 			// Verify all path template parameters are declared
 			for paramName := range pathParams {
 				if !declaredParams[paramName] {
-					result.Errors = append(result.Errors, ValidationError{
-						Path:     fmt.Sprintf("paths.%s.%s", pathPattern, method),
-						Message:  fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
-						SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
-						Severity: SeverityError,
-						Value:    paramName,
-					})
+					v.addError(result, fmt.Sprintf("paths.%s.%s", pathPattern, method),
+						fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
+						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
+						withValue(paramName),
+					)
 				}
 			}
 
 			// Warn about declared path parameters not in template
 			for paramName := range declaredParams {
 				if !pathParams[paramName] {
-					result.Warnings = append(result.Warnings, ValidationError{
-						Path:     fmt.Sprintf("paths.%s.%s", pathPattern, method),
-						Message:  fmt.Sprintf("Parameter '%s' is declared as path parameter but not used in path template", paramName),
-						SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
-						Severity: SeverityWarning,
-						Value:    paramName,
-					})
+					v.addWarning(result, fmt.Sprintf("paths.%s.%s", pathPattern, method),
+						fmt.Sprintf("Parameter '%s' is declared as path parameter but not used in path template", paramName),
+						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
+						withValue(paramName),
+					)
 				}
 			}
 		}

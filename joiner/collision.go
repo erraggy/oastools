@@ -16,7 +16,11 @@ type CollisionReport struct {
 type CollisionEvent struct {
 	SchemaName  string
 	LeftSource  string
+	LeftLine    int // 1-based line number in left source (0 if unknown)
+	LeftColumn  int // 1-based column number in left source (0 if unknown)
 	RightSource string
+	RightLine   int // 1-based line number in right source (0 if unknown)
+	RightColumn int // 1-based column number in right source (0 if unknown)
 	Strategy    CollisionStrategy
 	Resolution  string // "renamed", "deduplicated", "kept-left", "kept-right", "failed"
 	NewName     string // For rename resolutions
@@ -28,7 +32,11 @@ type CollisionEvent struct {
 type SchemaDifference struct {
 	Path        string // JSON path to differing element (e.g., "properties.name.type")
 	LeftValue   any
+	LeftLine    int // 1-based line number for left value (0 if unknown)
+	LeftColumn  int // 1-based column number for left value (0 if unknown)
 	RightValue  any
+	RightLine   int // 1-based line number for right value (0 if unknown)
+	RightColumn int // 1-based column number for right value (0 if unknown)
 	Description string
 }
 

@@ -398,3 +398,52 @@ components:
 		assert.NotEqual(t, SeverityInfo, issue.Severity, "info messages should be filtered out")
 	}
 }
+
+// TestWithSourceMap_Generator tests the WithSourceMap option function
+func TestWithSourceMap_Generator(t *testing.T) {
+	sm := parser.NewSourceMap()
+	cfg := &generateConfig{}
+	opt := WithSourceMap(sm)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, sm, cfg.sourceMap)
+}
+
+// TestGenerator_SourceMapPassedThrough tests that source map is passed to the Generator
+func TestGenerator_SourceMapPassedThrough(t *testing.T) {
+	sm := parser.NewSourceMap()
+
+	spec := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        name:
+          type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath(tmpFile),
+	)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithParsed(*parseResult),
+		WithPackageName("testapi"),
+		WithSourceMap(sm),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	// Verify generation completed
+	assert.Greater(t, result.GeneratedTypes, 0)
+}

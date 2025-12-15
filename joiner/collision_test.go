@@ -271,3 +271,64 @@ func TestCollisionEvent(t *testing.T) {
 	assert.Equal(t, 1, len(event.Differences))
 	assert.Equal(t, severity.SeverityInfo, event.Severity)
 }
+
+func TestCollisionEvent_WithLineNumbers(t *testing.T) {
+	event := CollisionEvent{
+		SchemaName:  "Pet",
+		LeftSource:  "pets.yaml",
+		LeftLine:    42,
+		LeftColumn:  5,
+		RightSource: "animals.yaml",
+		RightLine:   108,
+		RightColumn: 3,
+		Strategy:    StrategyFailOnCollision,
+		Resolution:  "failed",
+	}
+
+	assert.Equal(t, "Pet", event.SchemaName)
+	assert.Equal(t, "pets.yaml", event.LeftSource)
+	assert.Equal(t, 42, event.LeftLine)
+	assert.Equal(t, 5, event.LeftColumn)
+	assert.Equal(t, "animals.yaml", event.RightSource)
+	assert.Equal(t, 108, event.RightLine)
+	assert.Equal(t, 3, event.RightColumn)
+}
+
+func TestCollisionEvent_ZeroLineNumbers(t *testing.T) {
+	// Line numbers of 0 indicate unknown location
+	event := CollisionEvent{
+		SchemaName:  "User",
+		LeftSource:  "api.yaml",
+		LeftLine:    0,
+		LeftColumn:  0,
+		RightSource: "other.yaml",
+		RightLine:   0,
+		RightColumn: 0,
+	}
+
+	assert.Equal(t, 0, event.LeftLine)
+	assert.Equal(t, 0, event.LeftColumn)
+	assert.Equal(t, 0, event.RightLine)
+	assert.Equal(t, 0, event.RightColumn)
+}
+
+func TestSchemaDifference_WithLineNumbers(t *testing.T) {
+	diff := SchemaDifference{
+		Path:        "properties.email.format",
+		LeftValue:   "email",
+		LeftLine:    25,
+		LeftColumn:  12,
+		RightValue:  "string",
+		RightLine:   30,
+		RightColumn: 14,
+		Description: "format mismatch",
+	}
+
+	assert.Equal(t, "properties.email.format", diff.Path)
+	assert.Equal(t, "email", diff.LeftValue)
+	assert.Equal(t, 25, diff.LeftLine)
+	assert.Equal(t, 12, diff.LeftColumn)
+	assert.Equal(t, "string", diff.RightValue)
+	assert.Equal(t, 30, diff.RightLine)
+	assert.Equal(t, 14, diff.RightColumn)
+}

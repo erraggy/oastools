@@ -423,6 +423,73 @@ func TestFixResult_HasFixes(t *testing.T) {
 	assert.True(t, result.HasFixes())
 }
 
+// TestFix_HasLocation tests the HasLocation helper method
+func TestFix_HasLocation(t *testing.T) {
+	tests := []struct {
+		name     string
+		fix      Fix
+		expected bool
+	}{
+		{
+			name:     "no location",
+			fix:      Fix{Path: "paths./users.get"},
+			expected: false,
+		},
+		{
+			name:     "with line",
+			fix:      Fix{Path: "paths./users.get", Line: 10},
+			expected: true,
+		},
+		{
+			name:     "with line and column",
+			fix:      Fix{Path: "paths./users.get", Line: 10, Column: 5},
+			expected: true,
+		},
+		{
+			name:     "with file and line",
+			fix:      Fix{Path: "paths./users.get", File: "api.yaml", Line: 10, Column: 5},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.fix.HasLocation())
+		})
+	}
+}
+
+// TestFix_Location tests the Location helper method
+func TestFix_Location(t *testing.T) {
+	tests := []struct {
+		name     string
+		fix      Fix
+		expected string
+	}{
+		{
+			name:     "no location returns path",
+			fix:      Fix{Path: "paths./users.get"},
+			expected: "paths./users.get",
+		},
+		{
+			name:     "line and column only",
+			fix:      Fix{Path: "paths./users.get", Line: 10, Column: 5},
+			expected: "10:5",
+		},
+		{
+			name:     "file, line and column",
+			fix:      Fix{Path: "paths./users.get", File: "api.yaml", Line: 10, Column: 5},
+			expected: "api.yaml:10:5",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.fix.Location())
+		})
+	}
+}
+
 // =============================================================================
 // Corpus Integration Tests
 // =============================================================================
@@ -652,3 +719,45 @@ paths:
 
 // Note: BenchmarkCorpus_Fix has been moved to corpus_bench_test.go
 // Run with: go test -tags=corpus -bench=BenchmarkCorpus ./fixer/...
+
+// TestWithSourceMap_Fixer tests the WithSourceMap option function
+func TestWithSourceMap_Fixer(t *testing.T) {
+	sm := parser.NewSourceMap()
+	cfg := &fixConfig{}
+	opt := WithSourceMap(sm)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, sm, cfg.sourceMap)
+}
+
+// TestFixer_SourceMapPassedThrough tests that source map is passed to the Fixer
+func TestFixer_SourceMapPassedThrough(t *testing.T) {
+	sm := parser.NewSourceMap()
+
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	result, err := FixWithOptions(
+		WithParsed(*parseResult),
+		WithSourceMap(sm),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	// Verify fix was applied (missing userId parameter)
+	assert.True(t, result.HasFixes())
+}

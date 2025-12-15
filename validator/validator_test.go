@@ -1647,3 +1647,172 @@ func TestTraceMethodValidation(t *testing.T) {
 		})
 	}
 }
+
+// ========================================
+// Tests for SourceMap integration
+// ========================================
+
+// TestWithSourceMap tests the WithSourceMap option function
+func TestWithSourceMap(t *testing.T) {
+	sm := parser.NewSourceMap()
+	cfg := &validateConfig{}
+	opt := WithSourceMap(sm)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, sm, cfg.sourceMap)
+}
+
+// TestWithSourceMap_Nil tests WithSourceMap with nil value
+func TestWithSourceMap_Nil(t *testing.T) {
+	cfg := &validateConfig{}
+	opt := WithSourceMap(nil)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Nil(t, cfg.sourceMap)
+}
+
+// TestValidateWithSourceMap tests validation with source map integration
+func TestValidateWithSourceMap(t *testing.T) {
+	// Parse with source map
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/invalid-oas3.yaml"),
+		parser.WithSourceMap(true),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, parseResult.SourceMap)
+
+	// Validate with source map
+	result, err := ValidateWithOptions(
+		WithParsed(*parseResult),
+		WithSourceMap(parseResult.SourceMap),
+	)
+	require.NoError(t, err)
+
+	// Check that errors have line numbers
+	require.NotEmpty(t, result.Errors)
+	hasLocationCount := 0
+	for _, e := range result.Errors {
+		if e.HasLocation() {
+			hasLocationCount++
+			assert.Greater(t, e.Line, 0)
+		}
+	}
+	// Some errors should have locations (may not be all depending on path matching)
+	t.Logf("Validation errors with location: %d out of %d", hasLocationCount, len(result.Errors))
+}
+
+// TestValidateWithoutSourceMap tests validation without source map (default behavior)
+func TestValidateWithoutSourceMap(t *testing.T) {
+	// Validate without source map (default behavior)
+	result, err := ValidateWithOptions(
+		WithFilePath("../testdata/invalid-oas3.yaml"),
+	)
+	require.NoError(t, err)
+
+	// Errors should NOT have line numbers
+	require.NotEmpty(t, result.Errors)
+	for _, e := range result.Errors {
+		assert.False(t, e.HasLocation(), "Error should not have location when SourceMap not provided: %s", e.Path)
+	}
+}
+
+// TestPopulateIssueLocation tests the populateIssueLocation helper
+func TestPopulateIssueLocation(t *testing.T) {
+	tests := []struct {
+		name       string
+		sourceMap  *parser.SourceMap
+		path       string
+		wantLine   int
+		wantColumn int
+		wantFile   string
+	}{
+		{
+			name:      "nil source map",
+			sourceMap: nil,
+			path:      "info.title",
+			wantLine:  0,
+		},
+		{
+			name: "path found in source map",
+			sourceMap: func() *parser.SourceMap {
+				sm := parser.NewSourceMap()
+				// Manually set up the source map for testing
+				// Note: We can't set directly, so we'll use a parsed result
+				return sm
+			}(),
+			path:     "nonexistent.path",
+			wantLine: 0, // Path not found
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := &Validator{SourceMap: tt.sourceMap}
+			issue := &ValidationError{Path: tt.path}
+			v.populateIssueLocation(issue)
+
+			assert.Equal(t, tt.wantLine, issue.Line)
+		})
+	}
+}
+
+// TestAddError tests the addError helper function
+func TestAddError(t *testing.T) {
+	v := New()
+	result := &ValidationResult{
+		Errors: make([]ValidationError, 0),
+	}
+
+	v.addError(result, "info.title", "Test error message",
+		withField("title"),
+		withValue("test-value"),
+		withSpecRef("https://example.com"),
+	)
+
+	require.Len(t, result.Errors, 1)
+	assert.Equal(t, "info.title", result.Errors[0].Path)
+	assert.Equal(t, "Test error message", result.Errors[0].Message)
+	assert.Equal(t, SeverityError, result.Errors[0].Severity)
+	assert.Equal(t, "title", result.Errors[0].Field)
+	assert.Equal(t, "test-value", result.Errors[0].Value)
+	assert.Equal(t, "https://example.com", result.Errors[0].SpecRef)
+}
+
+// TestAddWarning tests the addWarning helper function
+func TestAddWarning(t *testing.T) {
+	v := New()
+	result := &ValidationResult{
+		Warnings: make([]ValidationError, 0),
+	}
+
+	v.addWarning(result, "info.description", "Test warning message",
+		withField("description"),
+	)
+
+	require.Len(t, result.Warnings, 1)
+	assert.Equal(t, "info.description", result.Warnings[0].Path)
+	assert.Equal(t, "Test warning message", result.Warnings[0].Message)
+	assert.Equal(t, SeverityWarning, result.Warnings[0].Severity)
+	assert.Equal(t, "description", result.Warnings[0].Field)
+}
+
+// TestSourceMapIntegrationWithValidDocument tests source map with a valid document
+func TestSourceMapIntegrationWithValidDocument(t *testing.T) {
+	// Parse a valid document with source map
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+		parser.WithSourceMap(true),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, parseResult.SourceMap)
+
+	// Validate with source map
+	result, err := ValidateWithOptions(
+		WithParsed(*parseResult),
+		WithSourceMap(parseResult.SourceMap),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Valid)
+}

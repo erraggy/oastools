@@ -1618,3 +1618,202 @@ func TestJoinOAS2_RenameStrategies(t *testing.T) {
 		assert.Contains(t, err.Error(), "not equivalent")
 	})
 }
+
+func TestWithSourceMaps(t *testing.T) {
+	// Create mock SourceMaps
+	sm1 := parser.NewSourceMap()
+	sm2 := parser.NewSourceMap()
+
+	sourceMaps := map[string]*parser.SourceMap{
+		"api1.yaml": sm1,
+		"api2.yaml": sm2,
+	}
+
+	// Test WithSourceMaps option
+	cfg := &joinConfig{
+		filePaths:  make([]string, 0),
+		parsedDocs: make([]parser.ParseResult, 0),
+	}
+
+	opt := WithSourceMaps(sourceMaps)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, sourceMaps, cfg.sourceMaps)
+	assert.Same(t, sm1, cfg.sourceMaps["api1.yaml"])
+	assert.Same(t, sm2, cfg.sourceMaps["api2.yaml"])
+}
+
+func TestWithSourceMaps_NilMap(t *testing.T) {
+	cfg := &joinConfig{
+		filePaths:  make([]string, 0),
+		parsedDocs: make([]parser.ParseResult, 0),
+	}
+
+	opt := WithSourceMaps(nil)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Nil(t, cfg.sourceMaps)
+}
+
+func TestJoiner_getLocation(t *testing.T) {
+	// Create a SourceMap with test data
+	sm := parser.NewSourceMap()
+
+	// Set up test locations using the Copy method workaround
+	// Since set() is unexported, we'll test via integration
+
+	tests := []struct {
+		name         string
+		sourceMaps   map[string]*parser.SourceMap
+		filePath     string
+		jsonPath     string
+		expectedLine int
+		expectedCol  int
+	}{
+		{
+			name:         "nil SourceMaps returns zeros",
+			sourceMaps:   nil,
+			filePath:     "test.yaml",
+			jsonPath:     "$.components.schemas.User",
+			expectedLine: 0,
+			expectedCol:  0,
+		},
+		{
+			name:         "missing file returns zeros",
+			sourceMaps:   map[string]*parser.SourceMap{"other.yaml": sm},
+			filePath:     "test.yaml",
+			jsonPath:     "$.components.schemas.User",
+			expectedLine: 0,
+			expectedCol:  0,
+		},
+		{
+			name:         "nil SourceMap for file returns zeros",
+			sourceMaps:   map[string]*parser.SourceMap{"test.yaml": nil},
+			filePath:     "test.yaml",
+			jsonPath:     "$.components.schemas.User",
+			expectedLine: 0,
+			expectedCol:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			j := &Joiner{
+				config:     DefaultConfig(),
+				SourceMaps: tt.sourceMaps,
+			}
+
+			line, col := j.getLocation(tt.filePath, tt.jsonPath)
+			assert.Equal(t, tt.expectedLine, line)
+			assert.Equal(t, tt.expectedCol, col)
+		})
+	}
+}
+
+func TestCollisionError_Error_WithLineNumbers(t *testing.T) {
+	tests := []struct {
+		name           string
+		err            *CollisionError
+		shouldContain  []string
+		shouldNotMatch []string
+	}{
+		{
+			name: "with line numbers",
+			err: &CollisionError{
+				Section:      "components.schemas",
+				Key:          "User",
+				FirstFile:    "api1.yaml",
+				FirstPath:    "components.schemas.User",
+				FirstLine:    42,
+				FirstColumn:  5,
+				SecondFile:   "api2.yaml",
+				SecondPath:   "components.schemas.User",
+				SecondLine:   108,
+				SecondColumn: 3,
+				Strategy:     StrategyFailOnCollision,
+			},
+			shouldContain: []string{
+				"api1.yaml (line 42)",
+				"api2.yaml (line 108)",
+				"components.schemas",
+				"User",
+			},
+		},
+		{
+			name: "without line numbers (zeros)",
+			err: &CollisionError{
+				Section:    "paths",
+				Key:        "/users",
+				FirstFile:  "base.yaml",
+				FirstPath:  "paths./users",
+				FirstLine:  0,
+				SecondFile: "ext.yaml",
+				SecondPath: "paths./users",
+				SecondLine: 0,
+				Strategy:   StrategyFailOnCollision,
+			},
+			shouldContain:  []string{"base.yaml at paths./users", "ext.yaml at paths./users"},
+			shouldNotMatch: []string{"(line 0)"},
+		},
+		{
+			name: "only first has line number",
+			err: &CollisionError{
+				Section:    "definitions",
+				Key:        "Pet",
+				FirstFile:  "pets.yaml",
+				FirstPath:  "definitions.Pet",
+				FirstLine:  25,
+				SecondFile: "animals.yaml",
+				SecondPath: "definitions.Pet",
+				SecondLine: 0,
+				Strategy:   StrategyFailOnCollision,
+			},
+			shouldContain:  []string{"pets.yaml (line 25)", "animals.yaml at definitions.Pet"},
+			shouldNotMatch: []string{"animals.yaml (line"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errStr := tt.err.Error()
+
+			for _, contain := range tt.shouldContain {
+				assert.Contains(t, errStr, contain)
+			}
+
+			for _, notMatch := range tt.shouldNotMatch {
+				assert.NotContains(t, errStr, notMatch)
+			}
+		})
+	}
+}
+
+func TestCollisionError_StructFields(t *testing.T) {
+	err := &CollisionError{
+		Section:      "components.schemas",
+		Key:          "Address",
+		FirstFile:    "service-a.yaml",
+		FirstPath:    "components.schemas.Address",
+		FirstLine:    150,
+		FirstColumn:  4,
+		SecondFile:   "service-b.yaml",
+		SecondPath:   "components.schemas.Address",
+		SecondLine:   200,
+		SecondColumn: 6,
+		Strategy:     StrategyFailOnPaths,
+	}
+
+	assert.Equal(t, "components.schemas", err.Section)
+	assert.Equal(t, "Address", err.Key)
+	assert.Equal(t, "service-a.yaml", err.FirstFile)
+	assert.Equal(t, "components.schemas.Address", err.FirstPath)
+	assert.Equal(t, 150, err.FirstLine)
+	assert.Equal(t, 4, err.FirstColumn)
+	assert.Equal(t, "service-b.yaml", err.SecondFile)
+	assert.Equal(t, "components.schemas.Address", err.SecondPath)
+	assert.Equal(t, 200, err.SecondLine)
+	assert.Equal(t, 6, err.SecondColumn)
+	assert.Equal(t, StrategyFailOnPaths, err.Strategy)
+}
