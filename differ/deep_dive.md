@@ -10,6 +10,7 @@
 - [Practical Examples](#practical-examples)
 - [Schema Comparison Details](#schema-comparison-details)
 - [Extension (x-*) Field Coverage](#extension-x--field-coverage)
+- [Source Map Integration](#source-map-integration)
 - [Integration with Other Packages](#integration-with-other-packages)
 - [Best Practices](#best-practices)
 - [DiffResult Structure](#diffresult-structure)
@@ -503,6 +504,56 @@ The differ tracks changes to custom extension fields at commonly-used locations:
 All extension changes are reported with `SeverityInfo` since extensions are non-normative.
 
 [↑ Back to top](#top)
+
+## Source Map Integration
+
+Source maps enable **precise change locations** by tracking line and column numbers from your YAML/JSON source files. Without source maps, changes only show JSON paths. With source maps, changes include file:line:column positions that IDEs can click to jump directly to the modification.
+
+**Without source maps:**
+```
+paths./pets.get.parameters.limit: required changed from false to true
+```
+
+**With source maps:**
+```
+api-v2.yaml:45:11: required changed from false to true
+```
+
+The differ compares two documents, so it accepts both `WithSourceMap` (for the source/old document) and `WithTargetMap` (for the target/new document):
+
+```go
+source, _ := parser.ParseWithOptions(
+    parser.WithFilePath("api-v1.yaml"),
+    parser.WithSourceMap(true),  // Enable line tracking during parse
+)
+target, _ := parser.ParseWithOptions(
+    parser.WithFilePath("api-v2.yaml"),
+    parser.WithSourceMap(true),  // Enable line tracking during parse
+)
+
+result, _ := differ.DiffWithOptions(
+    differ.WithSourceParsed(*source),
+    differ.WithTargetParsed(*target),
+    differ.WithSourceMap(source.SourceMap),   // Source document locations
+    differ.WithTargetMap(target.SourceMap),   // Target document locations
+    differ.WithMode(differ.ModeBreaking),
+)
+
+// Changes now include line/column/file info
+for _, change := range result.Changes {
+    if change.HasLocation() {
+        // IDE-friendly format: file:line:column
+        fmt.Printf("%s: %s\n", change.Location(), change.Description)
+    } else {
+        // Fallback to JSON path
+        fmt.Printf("%s: %s\n", change.Path, change.Description)
+    }
+}
+```
+
+The `Location()` method returns the IDE-friendly `file:line:column` format pointing to where the change occurred in the target document. The `HasLocation()` method checks if line info is available (returns `true` when `Line > 0`).
+
+[Back to top](#top)
 
 ## Integration with Other Packages
 
