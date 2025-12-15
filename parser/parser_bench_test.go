@@ -273,3 +273,65 @@ func BenchmarkDeepCopy(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkSourceMapOverhead benchmarks the overhead of source map generation.
+// This demonstrates that:
+// - Default parsing (no source map) has zero overhead
+// - Source map generation adds measurable but acceptable overhead
+func BenchmarkSourceMapOverhead(b *testing.B) {
+	sizes := []struct {
+		name string
+		path string
+	}{
+		{"Small", smallOAS3Path},
+		{"Medium", mediumOAS3Path},
+		{"Large", largeOAS3Path},
+	}
+
+	for _, size := range sizes {
+		// Baseline: Default parsing (no source map) - what users get by default
+		b.Run(size.name+"/Default", func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := ParseWithOptions(
+					WithFilePath(size.path),
+					WithValidateStructure(true),
+					// No WithSourceMap - testing default behavior
+				)
+				if err != nil {
+					b.Fatalf("Failed to parse: %v", err)
+				}
+			}
+		})
+
+		// Explicit disabled: Should be identical to default
+		b.Run(size.name+"/SourceMapDisabled", func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := ParseWithOptions(
+					WithFilePath(size.path),
+					WithValidateStructure(true),
+					WithSourceMap(false), // Explicitly disabled
+				)
+				if err != nil {
+					b.Fatalf("Failed to parse: %v", err)
+				}
+			}
+		})
+
+		// Source map enabled: Shows the overhead when feature is used
+		b.Run(size.name+"/SourceMapEnabled", func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := ParseWithOptions(
+					WithFilePath(size.path),
+					WithValidateStructure(true),
+					WithSourceMap(true), // Enabled - expect overhead
+				)
+				if err != nil {
+					b.Fatalf("Failed to parse: %v", err)
+				}
+			}
+		})
+	}
+}

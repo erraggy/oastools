@@ -12,6 +12,7 @@ import (
 	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/internal/cliutil"
 	"github.com/erraggy/oastools/joiner"
+	"github.com/erraggy/oastools/parser"
 )
 
 // namespacePrefixFlag is a custom flag type for collecting namespace prefix mappings.
@@ -54,6 +55,7 @@ type JoinFlags struct {
 	NoMergeArrays     bool
 	NoDedupTags       bool
 	Quiet             bool
+	SourceMap         bool
 	// Advanced collision strategies
 	RenameTemplate  string
 	EquivalenceMode string
@@ -81,6 +83,8 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 	fs.BoolVar(&flags.NoDedupTags, "no-dedup-tags", false, "don't deduplicate tags by name")
 	fs.BoolVar(&flags.Quiet, "q", false, "quiet mode: suppress diagnostic messages (for pipelining)")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "quiet mode: suppress diagnostic messages (for pipelining)")
+	fs.BoolVar(&flags.SourceMap, "source-map", false, "include line numbers in collision warnings (IDE-friendly format)")
+	fs.BoolVar(&flags.SourceMap, "s", false, "include line numbers in collision warnings (IDE-friendly format)")
 
 	// Advanced collision strategies
 	fs.StringVar(&flags.RenameTemplate, "rename-template", "{{.Name}}_{{.Source}}", "template for renamed schema names")
@@ -116,6 +120,7 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 		cliutil.Writef(fs.Output(), "  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools join --namespace-prefix users.yaml=Users --namespace-prefix billing.yaml=Billing -o merged.yaml users.yaml billing.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools join --namespace-prefix api2.yaml=V2 --always-prefix -o merged.yaml api1.yaml api2.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools join -s -o merged.yaml api1.yaml api2.yaml  # Include line numbers in warnings\n")
 		cliutil.Writef(fs.Output(), "\nPipelining:\n")
 		cliutil.Writef(fs.Output(), "  oastools join -q base.yaml ext.yaml | oastools validate -q -\n")
 		cliutil.Writef(fs.Output(), "  oastools join -q spec1.yaml spec2.yaml | oastools convert -q -t 3.1.0 -\n")
@@ -199,8 +204,37 @@ func HandleJoin(args []string) error {
 
 	// Create joiner and execute with timing
 	startTime := time.Now()
-	j := joiner.New(config)
-	result, err := j.Join(filePaths)
+	var result *joiner.JoinResult
+	var err error
+
+	if flags.SourceMap {
+		// Parse all files with source maps
+		parsedDocs := make([]parser.ParseResult, 0, len(filePaths))
+		sourceMaps := make(map[string]*parser.SourceMap)
+		for _, path := range filePaths {
+			parseResult, parseErr := parser.ParseWithOptions(
+				parser.WithFilePath(path),
+				parser.WithSourceMap(true),
+			)
+			if parseErr != nil {
+				return fmt.Errorf("parsing %s: %w", path, parseErr)
+			}
+			parsedDocs = append(parsedDocs, *parseResult)
+			if parseResult.SourceMap != nil {
+				sourceMaps[path] = parseResult.SourceMap
+			}
+		}
+
+		joinOpts := []joiner.Option{
+			joiner.WithParsed(parsedDocs...),
+			joiner.WithConfig(config),
+			joiner.WithSourceMaps(sourceMaps),
+		}
+		result, err = joiner.JoinWithOptions(joinOpts...)
+	} else {
+		j := joiner.New(config)
+		result, err = j.Join(filePaths)
+	}
 	if err != nil {
 		return fmt.Errorf("joining specifications: %w", err)
 	}
@@ -240,22 +274,29 @@ func HandleJoin(args []string) error {
 
 	// Write output
 	if flags.Output != "" {
-		// Write to file
-		err = j.WriteResult(result, flags.Output)
-		if err != nil {
-			return fmt.Errorf("writing output file: %w", err)
+		// Write to file with restrictive permissions (matching joiner.WriteResult behavior)
+		data, dataErr := MarshalDocument(result.Document, result.SourceFormat)
+		if dataErr != nil {
+			return fmt.Errorf("marshaling joined document: %w", dataErr)
+		}
+		if writeErr := os.WriteFile(flags.Output, data, 0600); writeErr != nil {
+			return fmt.Errorf("writing output file: %w", writeErr)
+		}
+		// Ensure correct permissions even if file pre-existed with different permissions
+		if chmodErr := os.Chmod(flags.Output, 0600); chmodErr != nil {
+			return fmt.Errorf("setting output file permissions: %w", chmodErr)
 		}
 		if !flags.Quiet {
 			cliutil.Writef(os.Stderr, "\nOutput written to: %s\n", flags.Output)
 		}
 	} else {
 		// Write to stdout
-		data, err := MarshalDocument(result.Document, result.SourceFormat)
-		if err != nil {
-			return fmt.Errorf("marshaling joined document: %w", err)
+		data, dataErr := MarshalDocument(result.Document, result.SourceFormat)
+		if dataErr != nil {
+			return fmt.Errorf("marshaling joined document: %w", dataErr)
 		}
-		if _, err = os.Stdout.Write(data); err != nil {
-			return fmt.Errorf("writing joined document to stdout: %w", err)
+		if _, writeErr := os.Stdout.Write(data); writeErr != nil {
+			return fmt.Errorf("writing joined document to stdout: %w", writeErr)
 		}
 	}
 

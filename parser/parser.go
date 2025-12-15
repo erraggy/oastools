@@ -51,6 +51,11 @@ type Parser struct {
 	// MaxFileSize is the maximum file size in bytes for external references.
 	// Default: 10MB
 	MaxFileSize int64
+	// BuildSourceMap enables source location tracking during parsing.
+	// When enabled, the ParseResult.SourceMap will contain line/column
+	// information for each JSON path in the document.
+	// Default: false
+	BuildSourceMap bool
 }
 
 // New creates a new Parser instance with default settings
@@ -129,6 +134,9 @@ type ParseResult struct {
 	SourceSize int64
 	// Stats contains statistical information about the document
 	Stats DocumentStats
+	// SourceMap contains JSON path to source location mappings.
+	// Only populated when Parser.BuildSourceMap is true.
+	SourceMap *SourceMap
 }
 
 // OAS2Document returns the parsed document as an OAS2Document if the specification
@@ -236,6 +244,11 @@ func (pr *ParseResult) Copy() *ParseResult {
 	if pr.Warnings != nil {
 		result.Warnings = make([]string, len(pr.Warnings))
 		copy(result.Warnings, pr.Warnings)
+	}
+
+	// Deep copy the SourceMap
+	if pr.SourceMap != nil {
+		result.SourceMap = pr.SourceMap.Copy()
 	}
 
 	return result
@@ -457,6 +470,9 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 		res.SourceFormat = detectFormatFromContent(data)
 	}
 
+	// Update source map file paths
+	updateSourceMapFilePath(res.SourceMap, specPath)
+
 	return res, nil
 }
 
@@ -482,6 +498,8 @@ func (p *Parser) ParseReader(r io.Reader) (*ParseResult, error) {
 	} else {
 		res.SourcePath = "ParseReader.yaml"
 	}
+	// Update source map file paths
+	updateSourceMapFilePath(res.SourceMap, res.SourcePath)
 	return res, nil
 }
 
@@ -503,6 +521,8 @@ func (p *Parser) ParseBytes(data []byte) (*ParseResult, error) {
 	} else {
 		res.SourcePath = "ParseBytes.yaml"
 	}
+	// Update source map file paths
+	updateSourceMapFilePath(res.SourceMap, res.SourcePath)
 	return res, nil
 }
 
@@ -528,6 +548,9 @@ type parseConfig struct {
 	maxRefDepth        int
 	maxCachedDocuments int
 	maxFileSize        int64
+
+	// Source map building
+	buildSourceMap bool
 }
 
 // ParseWithOptions parses an OpenAPI specification using functional options.
@@ -556,6 +579,7 @@ func ParseWithOptions(opts ...Option) (*ParseResult, error) {
 		MaxRefDepth:        cfg.maxRefDepth,
 		MaxCachedDocuments: cfg.maxCachedDocuments,
 		MaxFileSize:        cfg.maxFileSize,
+		BuildSourceMap:     cfg.buildSourceMap,
 	}
 
 	// Route to appropriate parsing method based on input source
@@ -751,6 +775,17 @@ func WithMaxFileSize(size int64) Option {
 	}
 }
 
+// WithSourceMap enables or disables source location tracking.
+// When enabled, the ParseResult.SourceMap will contain line/column
+// information for each JSON path in the document.
+// Default: false
+func WithSourceMap(enabled bool) Option {
+	return func(cfg *parseConfig) error {
+		cfg.buildSourceMap = enabled
+		return nil
+	}
+}
+
 // parseBytesWithBaseDir parses data with a specified base directory for ref resolution
 func (p *Parser) parseBytesWithBaseDir(data []byte, baseDir string) (*ParseResult, error) {
 	return p.parseBytesWithBaseDirAndURL(data, baseDir, "")
@@ -761,6 +796,18 @@ func (p *Parser) parseBytesWithBaseDirAndURL(data []byte, baseDir, baseURL strin
 	result := &ParseResult{
 		Errors:   make([]error, 0),
 		Warnings: make([]string, 0),
+	}
+
+	// Build source map if enabled (requires parsing to yaml.Node first)
+	if p.BuildSourceMap {
+		var rootNode yaml.Node
+		if err := yaml.Unmarshal(data, &rootNode); err != nil {
+			// Don't fail parsing, just add a warning
+			result.Warnings = append(result.Warnings, fmt.Sprintf("source map: failed to parse YAML nodes: %v", err))
+		} else {
+			// Build the source map with empty source path (will be updated later)
+			result.SourceMap = buildSourceMap(&rootNode, "")
+		}
 	}
 
 	// First pass: parse to generic map to detect OAS version
@@ -781,10 +828,22 @@ func (p *Parser) parseBytesWithBaseDirAndURL(data []byte, baseDir, baseURL strin
 		} else {
 			resolver = NewRefResolver(baseDir)
 		}
+
+		// If building source maps, pass the source map to the resolver
+		// so it can build source maps for external documents
+		if p.BuildSourceMap && result.SourceMap != nil {
+			resolver.SourceMap = result.SourceMap
+		}
+
 		if err := resolver.ResolveAllRefs(rawData); err != nil {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("ref resolution warning: %v", err))
 		}
 		hasCircularRefs = resolver.HasCircularRefs()
+
+		// After resolution, update ref target locations in the source map
+		if p.BuildSourceMap && result.SourceMap != nil {
+			resolver.updateAllRefTargets()
+		}
 	}
 
 	result.Data = rawData

@@ -78,6 +78,9 @@ type Converter struct {
 	// UserAgent is the User-Agent string used when fetching URLs
 	// Defaults to "oastools" if not set
 	UserAgent string
+	// SourceMap provides source location lookup for conversion issues.
+	// When set, issues will include Line, Column, and File information.
+	SourceMap *parser.SourceMap
 }
 
 // New creates a new Converter instance with default settings
@@ -104,6 +107,9 @@ type convertConfig struct {
 	strictMode  bool
 	includeInfo bool
 	userAgent   string
+
+	// Source map for line/column tracking
+	sourceMap *parser.SourceMap
 
 	// Overlay integration options
 	preConversionOverlay      *overlay.Overlay // Applied before conversion
@@ -140,6 +146,7 @@ func ConvertWithOptions(opts ...Option) (*ConversionResult, error) {
 		StrictMode:  cfg.strictMode,
 		IncludeInfo: cfg.includeInfo,
 		UserAgent:   cfg.userAgent,
+		SourceMap:   cfg.sourceMap,
 	}
 
 	// Check if any overlays are configured
@@ -317,6 +324,16 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
+// WithSourceMap provides a SourceMap for populating line/column information
+// in conversion issues. When set, issues will include source location details
+// that enable IDE-friendly error reporting.
+func WithSourceMap(sm *parser.SourceMap) Option {
+	return func(cfg *convertConfig) error {
+		cfg.sourceMap = sm
+		return nil
+	}
+}
+
 // Convert converts an OpenAPI specification file to a target version
 func (c *Converter) Convert(specPath string, targetVersion string) (*ConversionResult, error) {
 	// Create parser and set UserAgent if specified
@@ -365,11 +382,7 @@ func (c *Converter) ConvertParsed(parseResult parser.ParseResult, targetVersionS
 		// No conversion needed, just copy the document
 		result.Document = parseResult.Document
 		result.Success = true
-		result.Issues = append(result.Issues, ConversionIssue{
-			Path:     "document",
-			Message:  fmt.Sprintf("Source and target versions are the same (%s), no conversion needed", targetVersionStr),
-			Severity: SeverityInfo,
-		})
+		c.addIssue(result, "document", fmt.Sprintf("Source and target versions are the same (%s), no conversion needed", targetVersionStr), SeverityInfo)
 		c.updateCounts(result)
 		return result, nil
 	}
@@ -460,12 +473,7 @@ func (c *Converter) convertOAS3ToOAS3(parseResult parser.ParseResult, targetVers
 	result.Document = converted
 
 	// Add informational message about version update
-	result.Issues = append(result.Issues, ConversionIssue{
-		Path:     "openapi",
-		Message:  fmt.Sprintf("Updated version from %s to %s", parseResult.Version, result.TargetVersion),
-		Severity: SeverityInfo,
-		Context:  "OAS 3.x versions are generally compatible, but verify features are supported",
-	})
+	c.addInfoWithContext(result, "openapi", fmt.Sprintf("Updated version from %s to %s", parseResult.Version, result.TargetVersion), "OAS 3.x versions are generally compatible, but verify features are supported")
 
 	// Check for nullable deprecation when converting 3.0.x to 3.1.x
 	if c.isOAS30(parseResult.OASVersion) && c.isOAS31OrLater(targetVersion) {
@@ -568,12 +576,7 @@ func (c *Converter) checkSchemaNullable(schema *parser.Schema, path string, resu
 	}
 
 	if schema.Nullable {
-		result.Issues = append(result.Issues, ConversionIssue{
-			Path:     path,
-			Message:  "'nullable: true' is deprecated in OAS 3.1",
-			Severity: SeverityWarning,
-			Context:  "In OAS 3.1, use 'type: [\"<type>\", \"null\"]' instead of 'nullable: true'",
-		})
+		c.addIssueWithContext(result, path, "'nullable: true' is deprecated in OAS 3.1", "In OAS 3.1, use 'type: [\"<type>\", \"null\"]' instead of 'nullable: true'")
 	}
 
 	// Check nested schemas
@@ -606,19 +609,60 @@ func (c *Converter) checkSchemaNullable(schema *parser.Schema, path string, resu
 
 // addIssue is a helper to add a conversion issue to the result
 func (c *Converter) addIssue(result *ConversionResult, path, message string, severity Severity) {
-	result.Issues = append(result.Issues, ConversionIssue{
+	issue := ConversionIssue{
 		Path:     path,
 		Message:  message,
 		Severity: severity,
-	})
+	}
+	c.populateIssueLocation(&issue, path)
+	result.Issues = append(result.Issues, issue)
 }
 
 // addIssueWithContext is a helper to add a conversion issue with context
 func (c *Converter) addIssueWithContext(result *ConversionResult, path, message, context string) {
-	result.Issues = append(result.Issues, ConversionIssue{
+	issue := ConversionIssue{
 		Path:     path,
 		Message:  message,
 		Severity: SeverityWarning,
 		Context:  context,
-	})
+	}
+	c.populateIssueLocation(&issue, path)
+	result.Issues = append(result.Issues, issue)
+}
+
+// addInfoWithContext is a helper to add an informational conversion issue with context
+func (c *Converter) addInfoWithContext(result *ConversionResult, path, message, context string) {
+	issue := ConversionIssue{
+		Path:     path,
+		Message:  message,
+		Severity: SeverityInfo,
+		Context:  context,
+	}
+	c.populateIssueLocation(&issue, path)
+	result.Issues = append(result.Issues, issue)
+}
+
+// populateIssueLocation fills in Line/Column/File from the SourceMap if available.
+// The path parameter is the JSON path in the source document.
+func (c *Converter) populateIssueLocation(issue *ConversionIssue, path string) {
+	if c.SourceMap == nil {
+		return
+	}
+	// Convert path format if needed (converter uses dotted paths like "paths./users.get",
+	// while SourceMap uses JSON path notation like "$.paths./users.get")
+	jsonPath := path
+	if !hasJSONPathPrefix(jsonPath) {
+		jsonPath = "$." + path
+	}
+	loc := c.SourceMap.Get(jsonPath)
+	if loc.IsKnown() {
+		issue.Line = loc.Line
+		issue.Column = loc.Column
+		issue.File = loc.File
+	}
+}
+
+// hasJSONPathPrefix returns true if the path already has a JSON path prefix.
+func hasJSONPathPrefix(path string) bool {
+	return len(path) > 0 && path[0] == '$'
 }

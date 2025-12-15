@@ -20,6 +20,7 @@ type ConvertFlags struct {
 	Strict     bool
 	NoWarnings bool
 	Quiet      bool
+	SourceMap  bool
 }
 
 // SetupConvertFlags creates and configures a FlagSet for the convert command.
@@ -36,6 +37,8 @@ func SetupConvertFlags() (*flag.FlagSet, *ConvertFlags) {
 	fs.BoolVar(&flags.NoWarnings, "no-warnings", false, "suppress warning and info messages")
 	fs.BoolVar(&flags.Quiet, "q", false, "quiet mode: only output the document, no diagnostic messages")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "quiet mode: only output the document, no diagnostic messages")
+	fs.BoolVar(&flags.SourceMap, "source-map", false, "include line numbers in conversion issues (IDE-friendly format)")
+	fs.BoolVar(&flags.SourceMap, "s", false, "include line numbers in conversion issues (IDE-friendly format)")
 
 	fs.Usage = func() {
 		cliutil.Writef(fs.Output(), "Usage: oastools convert [flags] <file|url|->\n\n")
@@ -52,6 +55,7 @@ func SetupConvertFlags() (*flag.FlagSet, *ConvertFlags) {
 		cliutil.Writef(fs.Output(), "  oastools convert -t 2.0 openapi-v3.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml\n")
 		cliutil.Writef(fs.Output(), "  cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools convert -s -t 3.0.3 swagger.yaml  # Include line numbers in issues\n")
 		cliutil.Writef(fs.Output(), "\nPipelining:\n")
 		cliutil.Writef(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
 		cliutil.Writef(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
@@ -91,29 +95,55 @@ func HandleConvert(args []string) error {
 		return fmt.Errorf("target version is required (use -t or --target)")
 	}
 
-	// Create converter with options
-	c := converter.New()
-	c.StrictMode = flags.Strict
-	c.IncludeInfo = !flags.NoWarnings
-
 	// Convert the file, URL, or stdin with timing
 	startTime := time.Now()
 	var result *converter.ConversionResult
 	var err error
 
 	if specPath == StdinFilePath {
-		// Read from stdin
+		// Read from stdin - source map not supported for stdin
 		p := parser.New()
-		parseResult, err := p.ParseReader(os.Stdin)
-		if err != nil {
-			return fmt.Errorf("parsing stdin: %w", err)
+		parseResult, parseErr := p.ParseReader(os.Stdin)
+		if parseErr != nil {
+			return fmt.Errorf("parsing stdin: %w", parseErr)
 		}
+		c := converter.New()
+		c.StrictMode = flags.Strict
+		c.IncludeInfo = !flags.NoWarnings
 		result, err = c.ConvertParsed(*parseResult, flags.Target)
 		if err != nil {
 			return fmt.Errorf("converting from stdin: %w", err)
 		}
 	} else {
-		result, err = c.Convert(specPath, flags.Target)
+		// Build converter options
+		convertOpts := []converter.Option{
+			converter.WithFilePath(specPath),
+			converter.WithTargetVersion(flags.Target),
+			converter.WithStrictMode(flags.Strict),
+			converter.WithIncludeInfo(!flags.NoWarnings),
+		}
+
+		// If source map requested, parse with source map first
+		if flags.SourceMap {
+			parseResult, parseErr := parser.ParseWithOptions(
+				parser.WithFilePath(specPath),
+				parser.WithSourceMap(true),
+			)
+			if parseErr != nil {
+				return fmt.Errorf("parsing file: %w", parseErr)
+			}
+			convertOpts = []converter.Option{
+				converter.WithParsed(*parseResult),
+				converter.WithTargetVersion(flags.Target),
+				converter.WithStrictMode(flags.Strict),
+				converter.WithIncludeInfo(!flags.NoWarnings),
+			}
+			if parseResult.SourceMap != nil {
+				convertOpts = append(convertOpts, converter.WithSourceMap(parseResult.SourceMap))
+			}
+		}
+
+		result, err = converter.ConvertWithOptions(convertOpts...)
 		if err != nil {
 			return fmt.Errorf("converting file: %w", err)
 		}
@@ -143,7 +173,12 @@ func HandleConvert(args []string) error {
 		if len(result.Issues) > 0 {
 			cliutil.Writef(os.Stderr, "Conversion Issues (%d):\n", len(result.Issues))
 			for _, issue := range result.Issues {
-				cliutil.Writef(os.Stderr, "  %s\n", issue.String())
+				if flags.SourceMap && issue.HasLocation() {
+					// IDE-friendly format: file:line:column: path: message
+					cliutil.Writef(os.Stderr, "  %s: %s: %s\n", issue.Location(), issue.Path, issue.Message)
+				} else {
+					cliutil.Writef(os.Stderr, "  %s\n", issue.String())
+				}
 			}
 			cliutil.Writef(os.Stderr, "\n")
 		}

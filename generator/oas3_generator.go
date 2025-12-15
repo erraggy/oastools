@@ -288,7 +288,7 @@ func (cg *oas3CodeGenerator) getArrayItemType(schema *parser.Schema) string {
 			return cg.resolveRef(items.Ref)
 		}
 		return cg.schemaToGoType(items, true)
-	case map[string]interface{}:
+	case map[string]any:
 		// Handle inline schema as map
 		if ref, ok := items["$ref"].(string); ok {
 			return cg.resolveRef(ref)
@@ -307,7 +307,7 @@ func (cg *oas3CodeGenerator) getAdditionalPropertiesType(schema *parser.Schema) 
 	switch addProps := schema.AdditionalProperties.(type) {
 	case *parser.Schema:
 		return cg.schemaToGoType(addProps, true)
-	case map[string]interface{}:
+	case map[string]any:
 		return schemaTypeFromMap(addProps)
 	case bool:
 		if addProps {
@@ -418,11 +418,34 @@ func (cg *oas3CodeGenerator) buildValidateTag(schema *parser.Schema, required bo
 
 // addIssue adds a generation issue
 func (cg *oas3CodeGenerator) addIssue(path, message string, severity Severity) {
-	cg.result.Issues = append(cg.result.Issues, GenerateIssue{
+	issue := GenerateIssue{
 		Path:     path,
 		Message:  message,
 		Severity: severity,
-	})
+	}
+	cg.populateIssueLocation(&issue, path)
+	cg.result.Issues = append(cg.result.Issues, issue)
+}
+
+// populateIssueLocation fills in Line/Column/File from the SourceMap if available.
+func (cg *oas3CodeGenerator) populateIssueLocation(issue *GenerateIssue, path string) {
+	if cg.g.SourceMap == nil {
+		return
+	}
+
+	// Convert path format if needed (generator uses dotted paths like "components.schemas.Pet",
+	// while SourceMap uses JSON path notation like "$.components.schemas.Pet")
+	jsonPath := path
+	if len(jsonPath) == 0 || jsonPath[0] != '$' {
+		jsonPath = "$." + path
+	}
+
+	loc := cg.g.SourceMap.Get(jsonPath)
+	if loc.IsKnown() {
+		issue.Line = loc.Line
+		issue.Column = loc.Column
+		issue.File = loc.File
+	}
 }
 
 // generateClient generates HTTP client code

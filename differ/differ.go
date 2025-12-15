@@ -85,6 +85,12 @@ type Change struct {
 	NewValue any
 	// Message is a human-readable description of the change
 	Message string
+	// Line is the 1-based line number in the source file (0 if unknown)
+	Line int
+	// Column is the 1-based column number in the source file (0 if unknown)
+	Column int
+	// File is the source file path (empty for main document)
+	File string
 }
 
 // String returns a formatted string representation of the change
@@ -112,6 +118,24 @@ func (c Change) String() string {
 	}
 
 	return fmt.Sprintf("%s %s [%s] %s: %s", symbol, c.Path, typeStr, c.Category, c.Message)
+}
+
+// HasLocation returns true if this change has source location information.
+func (c Change) HasLocation() bool {
+	return c.Line > 0
+}
+
+// Location returns an IDE-friendly location string.
+// Returns "file:line:column" if file is set, "line:column" if only line is set,
+// or the Path if location is unknown.
+func (c Change) Location() string {
+	if c.Line == 0 {
+		return c.Path
+	}
+	if c.File != "" {
+		return fmt.Sprintf("%s:%d:%d", c.File, c.Line, c.Column)
+	}
+	return fmt.Sprintf("%d:%d", c.Line, c.Column)
 }
 
 // DiffResult contains the results of comparing two OpenAPI specifications
@@ -153,6 +177,14 @@ type Differ struct {
 	// UserAgent is the User-Agent string used when fetching URLs
 	// Defaults to "oastools" if not set
 	UserAgent string
+	// SourceMap provides source location lookup for the source document.
+	// When set, changes will include Line, Column, and File information
+	// for elements in the source document.
+	SourceMap *parser.SourceMap
+	// TargetMap provides source location lookup for the target document.
+	// When set, changes will include Line, Column, and File information
+	// for elements in the target document (used for additions).
+	TargetMap *parser.SourceMap
 }
 
 // New creates a new Differ instance with default settings
@@ -178,6 +210,10 @@ type diffConfig struct {
 	mode        DiffMode
 	includeInfo bool
 	userAgent   string
+
+	// Source maps for line/column tracking
+	sourceMap *parser.SourceMap
+	targetMap *parser.SourceMap
 }
 
 // DiffWithOptions compares two OpenAPI specifications using functional options.
@@ -201,6 +237,8 @@ func DiffWithOptions(opts ...Option) (*DiffResult, error) {
 		Mode:        cfg.mode,
 		IncludeInfo: cfg.includeInfo,
 		UserAgent:   cfg.userAgent,
+		SourceMap:   cfg.sourceMap,
+		TargetMap:   cfg.targetMap,
 	}
 
 	// Determine source
@@ -353,6 +391,26 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
+// WithSourceMap provides a SourceMap for the source document.
+// When set, changes will include Line, Column, and File information
+// for elements that exist in (or were removed from) the source document.
+func WithSourceMap(sm *parser.SourceMap) Option {
+	return func(cfg *diffConfig) error {
+		cfg.sourceMap = sm
+		return nil
+	}
+}
+
+// WithTargetMap provides a SourceMap for the target document.
+// When set, changes will include Line, Column, and File information
+// for elements that were added in the target document.
+func WithTargetMap(sm *parser.SourceMap) Option {
+	return func(cfg *diffConfig) error {
+		cfg.targetMap = sm
+		return nil
+	}
+}
+
 // Diff compares two OpenAPI specification files
 func (d *Differ) Diff(sourcePath, targetPath string) (*DiffResult, error) {
 	// Create parser and set UserAgent if specified
@@ -426,4 +484,40 @@ func (d *Differ) DiffParsed(source, target parser.ParseResult) (*DiffResult, err
 	result.HasBreakingChanges = result.BreakingCount > 0
 
 	return result, nil
+}
+
+// populateChangeLocation fills in Line/Column/File from the SourceMap if available.
+// For removals and modifications, it uses the SourceMap (source document location).
+// For additions, it uses the TargetMap (target document location).
+// The path parameter is the JSON path in the document.
+func (d *Differ) populateChangeLocation(change *Change, changeType ChangeType) {
+	var sm *parser.SourceMap
+	if changeType == ChangeTypeAdded {
+		sm = d.TargetMap
+	} else {
+		sm = d.SourceMap
+	}
+
+	if sm == nil {
+		return
+	}
+
+	// Convert path format if needed (differ uses dotted paths like "paths./users.get",
+	// while SourceMap uses JSON path notation like "$.paths./users.get")
+	jsonPath := change.Path
+	if !hasJSONPathPrefix(jsonPath) {
+		jsonPath = "$." + change.Path
+	}
+
+	loc := sm.Get(jsonPath)
+	if loc.IsKnown() {
+		change.Line = loc.Line
+		change.Column = loc.Column
+		change.File = loc.File
+	}
+}
+
+// hasJSONPathPrefix returns true if the path already has a JSON path prefix.
+func hasJSONPathPrefix(path string) bool {
+	return len(path) > 0 && path[0] == '$'
 }

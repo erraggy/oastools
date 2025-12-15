@@ -96,7 +96,7 @@ func (d *Differ) severityConditional(condition bool, severityIfTrue, severityIfF
 
 // addChange is a helper to append a change with mode-appropriate severity.
 func (d *Differ) addChange(result *DiffResult, path string, changeType ChangeType, category ChangeCategory, breakingSeverity Severity, oldValue, newValue any, message string) {
-	result.Changes = append(result.Changes, Change{
+	change := Change{
 		Path:     path,
 		Type:     changeType,
 		Category: category,
@@ -104,12 +104,14 @@ func (d *Differ) addChange(result *DiffResult, path string, changeType ChangeTyp
 		OldValue: oldValue,
 		NewValue: newValue,
 		Message:  message,
-	})
+	}
+	d.populateChangeLocation(&change, changeType)
+	result.Changes = append(result.Changes, change)
 }
 
 // addChangeConditional is a helper that picks severity based on a condition.
 func (d *Differ) addChangeConditional(result *DiffResult, path string, changeType ChangeType, category ChangeCategory, condition bool, severityIfTrue, severityIfFalse Severity, oldValue, newValue any, message string) {
-	result.Changes = append(result.Changes, Change{
+	change := Change{
 		Path:     path,
 		Type:     changeType,
 		Category: category,
@@ -117,7 +119,9 @@ func (d *Differ) addChangeConditional(result *DiffResult, path string, changeTyp
 		OldValue: oldValue,
 		NewValue: newValue,
 		Message:  message,
-	})
+	}
+	d.populateChangeLocation(&change, changeType)
+	result.Changes = append(result.Changes, change)
 }
 
 // ============================================================================

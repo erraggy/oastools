@@ -151,13 +151,15 @@ func (f *Fixer) fixMissingPathParametersOAS2(doc *parser.OAS2Document, result *F
 				}
 				description += ")"
 
-				result.Fixes = append(result.Fixes, Fix{
+				fix := Fix{
 					Type:        FixTypeMissingPathParameter,
 					Path:        jsonPath,
 					Description: description,
 					Before:      nil,
 					After:       newParam,
-				})
+				}
+				f.populateFixLocation(&fix)
+				result.Fixes = append(result.Fixes, fix)
 			}
 		}
 	}
@@ -268,13 +270,15 @@ func (f *Fixer) fixMissingPathParametersOAS3(doc *parser.OAS3Document, result *F
 				}
 				description += ")"
 
-				result.Fixes = append(result.Fixes, Fix{
+				fix := Fix{
 					Type:        FixTypeMissingPathParameter,
 					Path:        jsonPath,
 					Description: description,
 					Before:      nil,
 					After:       newParam,
-				})
+				}
+				f.populateFixLocation(&fix)
+				result.Fixes = append(result.Fixes, fix)
 			}
 		}
 	}

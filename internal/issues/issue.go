@@ -23,6 +23,12 @@ type Issue struct {
 	SpecRef string
 	// Context provides additional information about the issue (optional, conversion use)
 	Context string
+	// Line is the 1-based line number in the source file (0 if unknown)
+	Line int
+	// Column is the 1-based column number in the source file (0 if unknown)
+	Column int
+	// File is the source file path (empty for main document)
+	File string
 }
 
 // String returns a formatted string representation of the issue.
@@ -43,7 +49,12 @@ func (i Issue) String() string {
 		symbol = "?"
 	}
 
-	result := fmt.Sprintf("%s %s: %s", symbol, i.Path, i.Message)
+	var result string
+	if i.Line > 0 {
+		result = fmt.Sprintf("%s %s (line %d, col %d): %s", symbol, i.Path, i.Line, i.Column, i.Message)
+	} else {
+		result = fmt.Sprintf("%s %s: %s", symbol, i.Path, i.Message)
+	}
 
 	// Add SpecRef if present (validation use case)
 	if i.SpecRef != "" {
@@ -56,4 +67,22 @@ func (i Issue) String() string {
 	}
 
 	return result
+}
+
+// Location returns the source location in IDE-friendly format.
+// Returns "file:line:column" if file is set, "line:column" if only line is set,
+// or the JSON path if location is unknown.
+func (i Issue) Location() string {
+	if i.Line == 0 {
+		return i.Path
+	}
+	if i.File != "" {
+		return fmt.Sprintf("%s:%d:%d", i.File, i.Line, i.Column)
+	}
+	return fmt.Sprintf("%d:%d", i.Line, i.Column)
+}
+
+// HasLocation returns true if this issue has source location information.
+func (i Issue) HasLocation() bool {
+	return i.Line > 0
 }

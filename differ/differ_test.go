@@ -197,6 +197,78 @@ func TestChangeString(t *testing.T) {
 	}
 }
 
+// TestChange_HasLocation tests the HasLocation helper method
+func TestChange_HasLocation(t *testing.T) {
+	tests := []struct {
+		name     string
+		change   Change
+		expected bool
+	}{
+		{
+			name:     "no location",
+			change:   Change{Path: "paths./users.get"},
+			expected: false,
+		},
+		{
+			name:     "with line",
+			change:   Change{Path: "paths./users.get", Line: 10},
+			expected: true,
+		},
+		{
+			name:     "with line and column",
+			change:   Change{Path: "paths./users.get", Line: 10, Column: 5},
+			expected: true,
+		},
+		{
+			name:     "with file and line",
+			change:   Change{Path: "paths./users.get", File: "api.yaml", Line: 10, Column: 5},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.change.HasLocation() != tt.expected {
+				t.Errorf("Expected HasLocation() = %v, got %v", tt.expected, tt.change.HasLocation())
+			}
+		})
+	}
+}
+
+// TestChange_Location tests the Location helper method
+func TestChange_Location(t *testing.T) {
+	tests := []struct {
+		name     string
+		change   Change
+		expected string
+	}{
+		{
+			name:     "no location returns path",
+			change:   Change{Path: "paths./users.get"},
+			expected: "paths./users.get",
+		},
+		{
+			name:     "line and column only",
+			change:   Change{Path: "paths./users.get", Line: 10, Column: 5},
+			expected: "10:5",
+		},
+		{
+			name:     "file, line and column",
+			change:   Change{Path: "paths./users.get", File: "api.yaml", Line: 10, Column: 5},
+			expected: "api.yaml:10:5",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.change.Location()
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
 func TestDiffResultHasBreakingChanges(t *testing.T) {
 	result := &DiffResult{
 		Changes: []Change{
@@ -567,4 +639,55 @@ func TestDiffResult_StatsPopulated(t *testing.T) {
 	assert.Equal(t, 3, result.SourceStats.OperationCount, "Expected 3 operations in petstore-v1")
 	assert.Equal(t, 2, result.TargetStats.PathCount, "Expected 2 paths in petstore-v2")
 	assert.Equal(t, 4, result.TargetStats.OperationCount, "Expected 4 operations in petstore-v2")
+}
+
+// TestWithSourceMap_Differ tests the WithSourceMap option function
+func TestWithSourceMap_Differ(t *testing.T) {
+	sm := parser.NewSourceMap()
+	cfg := &diffConfig{}
+	opt := WithSourceMap(sm)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, sm, cfg.sourceMap)
+}
+
+// TestWithTargetMap_Differ tests the WithTargetMap option function
+func TestWithTargetMap_Differ(t *testing.T) {
+	sm := parser.NewSourceMap()
+	cfg := &diffConfig{}
+	opt := WithTargetMap(sm)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, sm, cfg.targetMap)
+}
+
+// TestDiffer_SourceMapPassedThrough tests that source maps are passed to the Differ
+func TestDiffer_SourceMapPassedThrough(t *testing.T) {
+	sourceSM := parser.NewSourceMap()
+	targetSM := parser.NewSourceMap()
+
+	// Parse source document
+	sourceResult, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+	)
+	require.NoError(t, err)
+
+	// Parse target document
+	targetResult, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+	)
+	require.NoError(t, err)
+
+	result, err := DiffWithOptions(
+		WithSourceParsed(*sourceResult),
+		WithTargetParsed(*targetResult),
+		WithSourceMap(sourceSM),
+		WithTargetMap(targetSM),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	// Verify diff was performed (result has changes)
+	assert.NotEmpty(t, result.Changes)
 }

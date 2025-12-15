@@ -178,6 +178,10 @@ type Generator struct {
 	// The README includes regeneration commands, file listing, and usage examples.
 	// Default: true
 	GenerateReadme bool
+
+	// SourceMap provides source location lookup for generation issues.
+	// When set, issues will include Line, Column, and File information.
+	SourceMap *parser.SourceMap
 }
 
 // New creates a new Generator instance with default settings
@@ -241,6 +245,9 @@ type generateConfig struct {
 	generateSecurityEnforce bool
 	generateOIDCDiscovery   bool
 	generateReadme          bool
+
+	// Source map for line/column tracking
+	sourceMap *parser.SourceMap
 }
 
 // GenerateWithOptions generates code from an OpenAPI specification using functional options.
@@ -283,6 +290,8 @@ func GenerateWithOptions(opts ...Option) (*GenerateResult, error) {
 		GenerateSecurityEnforce: cfg.generateSecurityEnforce,
 		GenerateOIDCDiscovery:   cfg.generateOIDCDiscovery,
 		GenerateReadme:          cfg.generateReadme,
+		// Source map
+		SourceMap: cfg.sourceMap,
 	}
 
 	// Route to appropriate generation method based on input source
@@ -595,6 +604,16 @@ func WithOIDCDiscovery(enabled bool) Option { return WithGenerateOIDCDiscovery(e
 
 // WithReadme is an alias for WithGenerateReadme.
 func WithReadme(enabled bool) Option { return WithGenerateReadme(enabled) }
+
+// WithSourceMap provides a SourceMap for populating line/column information
+// in generation issues. When set, issues will include source location details
+// that enable IDE-friendly error reporting.
+func WithSourceMap(sm *parser.SourceMap) Option {
+	return func(cfg *generateConfig) error {
+		cfg.sourceMap = sm
+		return nil
+	}
+}
 
 // Generate generates code from an OpenAPI specification file or URL
 func (g *Generator) Generate(specPath string) (*GenerateResult, error) {

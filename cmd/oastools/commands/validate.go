@@ -19,6 +19,7 @@ type ValidateFlags struct {
 	NoWarnings bool
 	Quiet      bool
 	Format     string
+	SourceMap  bool
 }
 
 // SetupValidateFlags creates and configures a FlagSet for the validate command.
@@ -32,6 +33,8 @@ func SetupValidateFlags() (*flag.FlagSet, *ValidateFlags) {
 	fs.BoolVar(&flags.Quiet, "q", false, "quiet mode: only output validation result, no diagnostic messages")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "quiet mode: only output validation result, no diagnostic messages")
 	fs.StringVar(&flags.Format, "format", FormatText, "output format: text, json, or yaml")
+	fs.BoolVar(&flags.SourceMap, "source-map", false, "include line numbers in validation errors (IDE-friendly format)")
+	fs.BoolVar(&flags.SourceMap, "s", false, "include line numbers in validation errors (IDE-friendly format)")
 
 	fs.Usage = func() {
 		cliutil.Writef(fs.Output(), "Usage: oastools validate [flags] <file|url|->\n\n")
@@ -49,6 +52,7 @@ func SetupValidateFlags() (*flag.FlagSet, *ValidateFlags) {
 		cliutil.Writef(fs.Output(), "  oastools validate --no-warnings openapi.json\n")
 		cliutil.Writef(fs.Output(), "  cat openapi.yaml | oastools validate -q -\n")
 		cliutil.Writef(fs.Output(), "  oastools validate --format json openapi.yaml | jq '.valid'\n")
+		cliutil.Writef(fs.Output(), "  oastools validate -s openapi.yaml  # Include line numbers in errors\n")
 		cliutil.Writef(fs.Output(), "\nPipelining:\n")
 		cliutil.Writef(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
 		cliutil.Writef(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
@@ -84,29 +88,53 @@ func HandleValidate(args []string) error {
 		return err
 	}
 
-	// Create validator with options
-	v := validator.New()
-	v.StrictMode = flags.Strict
-	v.IncludeWarnings = !flags.NoWarnings
-
 	// Validate the file, URL, or stdin with timing
 	startTime := time.Now()
 	var result *validator.ValidationResult
 	var err error
 
 	if specPath == StdinFilePath {
-		// Read from stdin
+		// Read from stdin - source map not supported for stdin
 		p := parser.New()
-		parseResult, err := p.ParseReader(os.Stdin)
-		if err != nil {
-			return fmt.Errorf("parsing stdin: %w", err)
+		parseResult, parseErr := p.ParseReader(os.Stdin)
+		if parseErr != nil {
+			return fmt.Errorf("parsing stdin: %w", parseErr)
 		}
+		v := validator.New()
+		v.StrictMode = flags.Strict
+		v.IncludeWarnings = !flags.NoWarnings
 		result, err = v.ValidateParsed(*parseResult)
 		if err != nil {
 			return fmt.Errorf("validating from stdin: %w", err)
 		}
 	} else {
-		result, err = v.Validate(specPath)
+		// Build validation options
+		validateOpts := []validator.Option{
+			validator.WithFilePath(specPath),
+			validator.WithStrictMode(flags.Strict),
+			validator.WithIncludeWarnings(!flags.NoWarnings),
+		}
+
+		// If source map requested, parse with source map first
+		if flags.SourceMap {
+			parseResult, parseErr := parser.ParseWithOptions(
+				parser.WithFilePath(specPath),
+				parser.WithSourceMap(true),
+			)
+			if parseErr != nil {
+				return fmt.Errorf("parsing file: %w", parseErr)
+			}
+			validateOpts = []validator.Option{
+				validator.WithParsed(*parseResult),
+				validator.WithStrictMode(flags.Strict),
+				validator.WithIncludeWarnings(!flags.NoWarnings),
+			}
+			if parseResult.SourceMap != nil {
+				validateOpts = append(validateOpts, validator.WithSourceMap(parseResult.SourceMap))
+			}
+		}
+
+		result, err = validator.ValidateWithOptions(validateOpts...)
 		if err != nil {
 			return fmt.Errorf("validating file: %w", err)
 		}
@@ -149,8 +177,13 @@ func HandleValidate(args []string) error {
 		// Print errors
 		if len(result.Errors) > 0 {
 			cliutil.Writef(os.Stderr, "Errors (%d):\n", result.ErrorCount)
-			for _, err := range result.Errors {
-				cliutil.Writef(os.Stderr, "  %s\n", err.String())
+			for _, e := range result.Errors {
+				if flags.SourceMap && e.HasLocation() {
+					// IDE-friendly format: file:line:column: path: message
+					cliutil.Writef(os.Stderr, "  %s: %s: %s\n", e.Location(), e.Path, e.Message)
+				} else {
+					cliutil.Writef(os.Stderr, "  %s\n", e.String())
+				}
 			}
 			cliutil.Writef(os.Stderr, "\n")
 		}
@@ -159,7 +192,12 @@ func HandleValidate(args []string) error {
 		if len(result.Warnings) > 0 {
 			cliutil.Writef(os.Stderr, "Warnings (%d):\n", result.WarningCount)
 			for _, warning := range result.Warnings {
-				cliutil.Writef(os.Stderr, "  %s\n", warning.String())
+				if flags.SourceMap && warning.HasLocation() {
+					// IDE-friendly format: file:line:column: path: message
+					cliutil.Writef(os.Stderr, "  %s: %s: %s\n", warning.Location(), warning.Path, warning.Message)
+				} else {
+					cliutil.Writef(os.Stderr, "  %s\n", warning.String())
+				}
 			}
 			cliutil.Writef(os.Stderr, "\n")
 		}

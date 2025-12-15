@@ -270,3 +270,210 @@ func TestIssueMultilineFormatting(t *testing.T) {
 	assert.True(t, strings.HasPrefix(lines[2], "    "), "Context line should be indented with 4 spaces")
 	assert.Contains(t, lines[2], "Context:")
 }
+
+// TestIssueStringWithLocation verifies that the String() method includes location
+// information when Line > 0.
+func TestIssueStringWithLocation(t *testing.T) {
+	tests := []struct {
+		name        string
+		issue       Issue
+		contains    []string
+		notContains []string
+	}{
+		{
+			name: "no location (Line=0)",
+			issue: Issue{
+				Path:     "paths./users.get",
+				Message:  "missing responses",
+				Severity: severity.SeverityError,
+				Line:     0,
+				Column:   0,
+			},
+			contains:    []string{"✗ paths./users.get: missing responses"},
+			notContains: []string{"line", "col"},
+		},
+		{
+			name: "with location (Line=42, Column=5)",
+			issue: Issue{
+				Path:     "paths./users.get",
+				Message:  "missing responses",
+				Severity: severity.SeverityError,
+				Line:     42,
+				Column:   5,
+			},
+			contains:    []string{"✗ paths./users.get (line 42, col 5): missing responses"},
+			notContains: []string{},
+		},
+		{
+			name: "with location and Column=0",
+			issue: Issue{
+				Path:     "info.title",
+				Message:  "title is required",
+				Severity: severity.SeverityError,
+				Line:     10,
+				Column:   0,
+			},
+			contains:    []string{"(line 10, col 0)"},
+			notContains: []string{},
+		},
+		{
+			name: "location appears after path, before colon",
+			issue: Issue{
+				Path:     "components.schemas.Pet",
+				Message:  "invalid type",
+				Severity: severity.SeverityWarning,
+				Line:     100,
+				Column:   15,
+			},
+			contains:    []string{"⚠ components.schemas.Pet (line 100, col 15): invalid type"},
+			notContains: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.issue.String()
+
+			for _, substr := range tt.contains {
+				assert.Contains(t, result, substr)
+			}
+
+			for _, substr := range tt.notContains {
+				assert.NotContains(t, result, substr)
+			}
+		})
+	}
+}
+
+// TestIssueLocation verifies the Location() method returns IDE-friendly formats.
+func TestIssueLocation(t *testing.T) {
+	tests := []struct {
+		name     string
+		issue    Issue
+		expected string
+	}{
+		{
+			name: "Line=0 returns Path",
+			issue: Issue{
+				Path:   "paths./users.get",
+				Line:   0,
+				Column: 0,
+				File:   "",
+			},
+			expected: "paths./users.get",
+		},
+		{
+			name: "Line>0 without File returns line:column",
+			issue: Issue{
+				Path:   "paths./users.get",
+				Line:   10,
+				Column: 5,
+				File:   "",
+			},
+			expected: "10:5",
+		},
+		{
+			name: "Line>0 with File returns file:line:column",
+			issue: Issue{
+				Path:   "paths./users.get",
+				Line:   10,
+				Column: 5,
+				File:   "api.yaml",
+			},
+			expected: "api.yaml:10:5",
+		},
+		{
+			name: "File with path and line/column",
+			issue: Issue{
+				Path:   "components.schemas.Pet",
+				Line:   42,
+				Column: 1,
+				File:   "/absolute/path/to/openapi.yaml",
+			},
+			expected: "/absolute/path/to/openapi.yaml:42:1",
+		},
+		{
+			name: "Column=0 is valid",
+			issue: Issue{
+				Path:   "info",
+				Line:   1,
+				Column: 0,
+				File:   "",
+			},
+			expected: "1:0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.issue.Location()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestIssueHasLocation verifies the HasLocation() helper method.
+func TestIssueHasLocation(t *testing.T) {
+	tests := []struct {
+		name     string
+		line     int
+		expected bool
+	}{
+		{
+			name:     "Line=0 returns false",
+			line:     0,
+			expected: false,
+		},
+		{
+			name:     "Line=1 returns true",
+			line:     1,
+			expected: true,
+		},
+		{
+			name:     "Line>0 returns true",
+			line:     42,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			issue := Issue{
+				Path:     "test.path",
+				Message:  "test message",
+				Severity: severity.SeverityError,
+				Line:     tt.line,
+			}
+			result := issue.HasLocation()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestIssueLocationFields verifies that the new location fields can be set and accessed.
+func TestIssueLocationFields(t *testing.T) {
+	issue := Issue{
+		Path:     "paths./test",
+		Message:  "Test message",
+		Severity: severity.SeverityError,
+		Line:     42,
+		Column:   15,
+		File:     "openapi.yaml",
+	}
+
+	// Verify fields are accessible
+	assert.Equal(t, 42, issue.Line)
+	assert.Equal(t, 15, issue.Column)
+	assert.Equal(t, "openapi.yaml", issue.File)
+
+	// Verify String() incorporates location
+	result := issue.String()
+	assert.Contains(t, result, "(line 42, col 15)")
+
+	// Verify Location() returns IDE format
+	location := issue.Location()
+	assert.Equal(t, "openapi.yaml:42:15", location)
+
+	// Verify HasLocation() returns true
+	assert.True(t, issue.HasLocation())
+}

@@ -378,6 +378,108 @@ git checkout -b <type>/<description>  # e.g., feat/add-feature, fix/bug-name, ch
 - **Creating PR:** Use `gh pr create` with detailed description
 - **Release process:** Tag → CI builds draft → Review → Publish
 
+## Agent-Based Development Workflow
+
+**When the user enters Plan Mode for a new feature or bug fix, use the specialized agent workflow:**
+
+### Workflow Overview
+
+1. **Architect Agent** → Plans and breaks down the work
+2. **Developer Agents** → Implement the code (can run in parallel for independent packages)
+3. **Maintainer Agent** → Reviews code quality, security, and consistency
+4. **DevOps-Engineer Agent** → Handles benchmarks, CI/CD verification
+
+### Step-by-Step Process
+
+**Phase 1: Architecture & Planning**
+```
+1. User enters Plan Mode with feature/bug request
+2. Spawn `architect` agent to:
+   - Explore the codebase to understand scope
+   - Design implementation approach
+   - Create detailed specifications for each phase
+   - Identify files to create/modify
+   - Define test requirements
+3. Write plan to the plan file for user approval
+```
+
+**Phase 2: Implementation**
+```
+1. After plan approval, spawn `developer` agents
+2. Run independent phases IN PARALLEL when possible:
+   - Different packages can be implemented concurrently
+   - Dependent phases must be sequential
+3. Each developer agent receives:
+   - Specific files to create/modify
+   - Detailed implementation requirements
+   - Test coverage expectations
+4. Track progress with TodoWrite tool
+```
+
+**Phase 3: Quality Assurance**
+```
+1. Spawn `maintainer` agent to review:
+   - Code quality and consistency
+   - Security vulnerabilities
+   - Error handling patterns
+   - Test coverage
+2. Address any issues found
+```
+
+**Phase 4: Finalization**
+```
+1. Spawn `devops-engineer` agent for:
+   - Benchmark updates (if performance-related)
+   - CI/CD verification
+   - Release preparation (if applicable)
+2. Run `make check` to verify all tests pass
+3. Create PR with comprehensive description
+```
+
+### Agent Capabilities
+
+| Agent | Use For | Tools Available |
+|-------|---------|-----------------|
+| `architect` | Planning features, designing APIs, architectural decisions | Read, Grep, Glob, Bash |
+| `developer` | Implementing code, writing tests, fixing bugs | Read, Edit, Write, Grep, Glob, Bash |
+| `maintainer` | Code review, security audit, consistency checks | Read, Grep, Glob, Bash |
+| `devops-engineer` | Releases, CI/CD, benchmarks, tooling | Read, Bash, Grep, Glob |
+
+### Parallelization Guidelines
+
+**Can run in parallel:**
+- Implementation of independent packages (e.g., validator and converter)
+- Test file creation alongside implementation
+- Documentation updates
+
+**Must run sequentially:**
+- Core infrastructure before consuming packages
+- Struct changes before methods using those structs
+- Phase N before Phase N+1 when there are dependencies
+
+### Example: Feature Implementation
+
+```
+User: "Add source map line tracking to all packages"
+
+1. Architect creates plan:
+   - Phase 1: Core types (parser/sourcemap.go)
+   - Phase 2: Issue struct enhancement (internal/issues)
+   - Phase 3: Validator integration
+   - Phase 4: Other packages (parallel: converter, differ, fixer, generator)
+   - Phase 5: CLI integration
+
+2. Implementation:
+   - Developer A: Phase 1 + Phase 2 (sequential - Phase 2 depends on 1)
+   - Developer B: Phase 3 (after Phase 1+2 complete)
+   - Developer C: Phase 4 packages (parallel, after Phase 1+2)
+   - Developer D: Phase 5 (after Phase 3+4)
+
+3. Review:
+   - Maintainer reviews all changes
+   - DevOps verifies benchmarks and CI
+```
+
 ## Release Process
 
 For detailed release procedures, see the **PR-to-Release Workflow** section in [WORKFLOW.md](WORKFLOW.md).

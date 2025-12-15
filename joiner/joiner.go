@@ -117,6 +117,9 @@ func DefaultConfig() JoinerConfig {
 // Create separate Joiner instances for concurrent operations.
 type Joiner struct {
 	config JoinerConfig
+	// SourceMaps maps source file paths to their SourceMaps for location lookup.
+	// When populated, collision errors and events include line/column information.
+	SourceMaps map[string]*parser.SourceMap
 }
 
 // New creates a new Joiner instance with the provided configuration
@@ -182,6 +185,9 @@ type joinConfig struct {
 	collisionReport       *bool
 	semanticDeduplication *bool
 
+	// Source location tracking
+	sourceMaps map[string]*parser.SourceMap // Maps file paths to their SourceMaps
+
 	// Overlay integration options
 	preJoinOverlays     []*overlay.Overlay          // Applied to all specs before joining
 	preJoinOverlayFiles []string                    // File paths for pre-join overlays
@@ -234,6 +240,11 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 	}
 
 	j := New(joinerCfg)
+
+	// Set SourceMaps if provided
+	if cfg.sourceMaps != nil {
+		j.SourceMaps = cfg.sourceMaps
+	}
 
 	// Check if any overlays are configured
 	hasOverlays := len(cfg.preJoinOverlays) > 0 ||
@@ -619,6 +630,17 @@ func WithSemanticDeduplication(enabled bool) Option {
 	}
 }
 
+// WithSourceMaps provides SourceMaps for all input documents.
+// The map keys should match the file paths used when parsing (e.g., ParseResult.SourcePath).
+// When provided, collision errors and events include line/column information
+// for both sides of the collision, enabling precise error reporting.
+func WithSourceMaps(maps map[string]*parser.SourceMap) Option {
+	return func(cfg *joinConfig) error {
+		cfg.sourceMaps = maps
+		return nil
+	}
+}
+
 func (j *Joiner) JoinParsed(parsedDocs []parser.ParseResult) (*JoinResult, error) {
 	if len(parsedDocs) < 2 {
 		return nil, fmt.Errorf("joiner: at least 2 specification documents are required for joining, got %d", len(parsedDocs))
@@ -808,23 +830,35 @@ func (j *Joiner) getEffectiveStrategy(specificStrategy CollisionStrategy) Collis
 
 // CollisionError provides detailed information about a collision
 type CollisionError struct {
-	Section    string
-	Key        string
-	FirstFile  string
-	FirstPath  string
-	SecondFile string
-	SecondPath string
-	Strategy   CollisionStrategy
+	Section      string
+	Key          string
+	FirstFile    string
+	FirstPath    string
+	FirstLine    int // 1-based line number in first file (0 if unknown)
+	FirstColumn  int // 1-based column number in first file (0 if unknown)
+	SecondFile   string
+	SecondPath   string
+	SecondLine   int // 1-based line number in second file (0 if unknown)
+	SecondColumn int // 1-based column number in second file (0 if unknown)
+	Strategy     CollisionStrategy
 }
 
 func (e *CollisionError) Error() string {
+	firstLoc := ""
+	if e.FirstLine > 0 {
+		firstLoc = fmt.Sprintf(" (line %d)", e.FirstLine)
+	}
+	secondLoc := ""
+	if e.SecondLine > 0 {
+		secondLoc = fmt.Sprintf(" (line %d)", e.SecondLine)
+	}
 	return fmt.Sprintf("joiner: collision in %s: '%s'\n"+
-		"  First defined in:  %s at %s\n"+
-		"  Also defined in:   %s at %s\n"+
+		"  First defined in:  %s%s at %s\n"+
+		"  Also defined in:   %s%s at %s\n"+
 		"  Strategy: %s (set --%s-strategy to 'accept-left' or 'accept-right' to resolve)",
 		e.Section, e.Key,
-		e.FirstFile, e.FirstPath,
-		e.SecondFile, e.SecondPath,
+		e.FirstFile, firstLoc, e.FirstPath,
+		e.SecondFile, secondLoc, e.SecondPath,
 		e.Strategy, getSectionStrategyFlag(e.Section))
 }
 
@@ -848,27 +882,43 @@ func (j *Joiner) handleCollision(name, section string, strategy CollisionStrateg
 	}
 	secondPath := firstPath
 
+	// Look up line/column for both sides if SourceMaps are available
+	var firstLine, firstCol, secondLine, secondCol int
+	if j.SourceMaps != nil {
+		jsonPath := "$." + firstPath
+		firstLine, firstCol = j.getLocation(firstFile, jsonPath)
+		secondLine, secondCol = j.getLocation(secondFile, jsonPath)
+	}
+
 	switch strategy {
 	case StrategyFailOnCollision:
 		return &CollisionError{
-			Section:    section,
-			Key:        name,
-			FirstFile:  firstFile,
-			FirstPath:  firstPath,
-			SecondFile: secondFile,
-			SecondPath: secondPath,
-			Strategy:   strategy,
+			Section:      section,
+			Key:          name,
+			FirstFile:    firstFile,
+			FirstPath:    firstPath,
+			FirstLine:    firstLine,
+			FirstColumn:  firstCol,
+			SecondFile:   secondFile,
+			SecondPath:   secondPath,
+			SecondLine:   secondLine,
+			SecondColumn: secondCol,
+			Strategy:     strategy,
 		}
 	case StrategyFailOnPaths:
 		if section == "paths" || section == "webhooks" {
 			return &CollisionError{
-				Section:    section,
-				Key:        name,
-				FirstFile:  firstFile,
-				FirstPath:  firstPath,
-				SecondFile: secondFile,
-				SecondPath: secondPath,
-				Strategy:   strategy,
+				Section:      section,
+				Key:          name,
+				FirstFile:    firstFile,
+				FirstPath:    firstPath,
+				FirstLine:    firstLine,
+				FirstColumn:  firstCol,
+				SecondFile:   secondFile,
+				SecondPath:   secondPath,
+				SecondLine:   secondLine,
+				SecondColumn: secondCol,
+				Strategy:     strategy,
 			}
 		}
 		return nil
@@ -938,10 +988,32 @@ func (j *Joiner) recordCollisionEvent(result *JoinResult, schemaName, leftSource
 	if result.CollisionDetails == nil {
 		return
 	}
+
+	// Look up line/column for both sides if SourceMaps are available
+	// The JSON path for OAS 3.x schemas is $.components.schemas.<name>
+	// The JSON path for OAS 2.0 definitions is $.definitions.<name>
+	var leftLine, leftCol, rightLine, rightCol int
+	if j.SourceMaps != nil {
+		// Try OAS 3.x path first
+		leftLine, leftCol = j.getLocation(leftSource, "$.components.schemas."+schemaName)
+		if leftLine == 0 {
+			// Fall back to OAS 2.0 path
+			leftLine, leftCol = j.getLocation(leftSource, "$.definitions."+schemaName)
+		}
+		rightLine, rightCol = j.getLocation(rightSource, "$.components.schemas."+schemaName)
+		if rightLine == 0 {
+			rightLine, rightCol = j.getLocation(rightSource, "$.definitions."+schemaName)
+		}
+	}
+
 	result.CollisionDetails.AddEvent(CollisionEvent{
 		SchemaName:  schemaName,
 		LeftSource:  leftSource,
+		LeftLine:    leftLine,
+		LeftColumn:  leftCol,
 		RightSource: rightSource,
+		RightLine:   rightLine,
+		RightColumn: rightCol,
 		Strategy:    strategy,
 		Resolution:  resolution,
 		NewName:     newName,
@@ -964,4 +1036,19 @@ func (j *Joiner) getNamespacePrefix(sourcePath string) string {
 		return ""
 	}
 	return j.config.NamespacePrefix[sourcePath]
+}
+
+// getLocation looks up the source location for a JSON path in a specific file.
+// Returns line and column (both 0 if no SourceMap is available or path not found).
+// The jsonPath should use $ prefix (e.g., "$.components.schemas.Pet").
+func (j *Joiner) getLocation(filePath, jsonPath string) (line, col int) {
+	if j.SourceMaps == nil {
+		return 0, 0
+	}
+	sm := j.SourceMaps[filePath]
+	if sm == nil {
+		return 0, 0
+	}
+	loc := sm.Get(jsonPath)
+	return loc.Line, loc.Column
 }

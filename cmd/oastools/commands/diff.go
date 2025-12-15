@@ -15,9 +15,10 @@ import (
 
 // DiffFlags contains flags for the diff command
 type DiffFlags struct {
-	Breaking bool
-	NoInfo   bool
-	Format   string
+	Breaking  bool
+	NoInfo    bool
+	Format    string
+	SourceMap bool
 }
 
 // SetupDiffFlags creates and configures a FlagSet for the diff command.
@@ -29,6 +30,8 @@ func SetupDiffFlags() (*flag.FlagSet, *DiffFlags) {
 	fs.BoolVar(&flags.Breaking, "breaking", false, "enable breaking change detection and categorization")
 	fs.BoolVar(&flags.NoInfo, "no-info", false, "exclude informational changes from output")
 	fs.StringVar(&flags.Format, "format", FormatText, "output format: text, json, or yaml")
+	fs.BoolVar(&flags.SourceMap, "source-map", false, "include line numbers in diff output (IDE-friendly format)")
+	fs.BoolVar(&flags.SourceMap, "s", false, "include line numbers in diff output (IDE-friendly format)")
 
 	fs.Usage = func() {
 		cliutil.Writef(fs.Output(), "Usage: oastools diff [flags] <source> <target>\n\n")
@@ -55,6 +58,7 @@ func SetupDiffFlags() (*flag.FlagSet, *DiffFlags) {
 		cliutil.Writef(fs.Output(), "  oastools diff --breaking --no-info old.yaml new.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools diff --format json --breaking api-v1.yaml api-v2.yaml | jq '.HasBreakingChanges'\n")
 		cliutil.Writef(fs.Output(), "  oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools diff -s api-v1.yaml api-v2.yaml  # Include line numbers in changes\n")
 		cliutil.Writef(fs.Output(), "\nExit Status:\n")
 		cliutil.Writef(fs.Output(), "  0    No differences found (or no breaking changes in --breaking mode)\n")
 		cliutil.Writef(fs.Output(), "  1    Differences found (or breaking changes found in --breaking mode)\n")
@@ -91,18 +95,54 @@ func HandleDiff(args []string) error {
 		return err
 	}
 
-	// Create differ with options
-	d := differ.New()
-	if flags.Breaking {
-		d.Mode = differ.ModeBreaking
-	} else {
-		d.Mode = differ.ModeSimple
-	}
-	d.IncludeInfo = !flags.NoInfo
-
 	// Diff the files with timing
 	startTime := time.Now()
-	result, err := d.Diff(sourcePath, targetPath)
+	var result *differ.DiffResult
+	var err error
+
+	// Build diff mode
+	mode := differ.ModeSimple
+	if flags.Breaking {
+		mode = differ.ModeBreaking
+	}
+
+	if flags.SourceMap {
+		// Parse both files with source maps
+		sourceResult, sourceErr := parser.ParseWithOptions(
+			parser.WithFilePath(sourcePath),
+			parser.WithSourceMap(true),
+		)
+		if sourceErr != nil {
+			return fmt.Errorf("parsing source: %w", sourceErr)
+		}
+		targetResult, targetErr := parser.ParseWithOptions(
+			parser.WithFilePath(targetPath),
+			parser.WithSourceMap(true),
+		)
+		if targetErr != nil {
+			return fmt.Errorf("parsing target: %w", targetErr)
+		}
+
+		diffOpts := []differ.Option{
+			differ.WithSourceParsed(*sourceResult),
+			differ.WithTargetParsed(*targetResult),
+			differ.WithMode(mode),
+			differ.WithIncludeInfo(!flags.NoInfo),
+		}
+		if sourceResult.SourceMap != nil {
+			diffOpts = append(diffOpts, differ.WithSourceMap(sourceResult.SourceMap))
+		}
+		if targetResult.SourceMap != nil {
+			diffOpts = append(diffOpts, differ.WithTargetMap(targetResult.SourceMap))
+		}
+
+		result, err = differ.DiffWithOptions(diffOpts...)
+	} else {
+		d := differ.New()
+		d.Mode = mode
+		d.IncludeInfo = !flags.NoInfo
+		result, err = d.Diff(sourcePath, targetPath)
+	}
 	totalTime := time.Since(startTime)
 	if err != nil {
 		return fmt.Errorf("comparing specifications: %w", err)
@@ -202,7 +242,12 @@ func HandleDiff(args []string) error {
 
 			fmt.Printf("%s Changes (%d):\n", category, len(changes))
 			for _, change := range changes {
-				fmt.Printf("  %s\n", change.String())
+				if flags.SourceMap && change.HasLocation() {
+					// IDE-friendly format: file:line:column: path: message
+					fmt.Printf("  %s: %s: %s\n", change.Location(), change.Path, change.Message)
+				} else {
+					fmt.Printf("  %s\n", change.String())
+				}
 			}
 			fmt.Println()
 		}
@@ -216,7 +261,7 @@ func HandleDiff(args []string) error {
 			fmt.Printf("  ✓ Breaking changes: 0\n")
 		}
 		fmt.Printf("  Warnings: %d\n", result.WarningCount)
-		if d.IncludeInfo {
+		if !flags.NoInfo {
 			fmt.Printf("  Info: %d\n", result.InfoCount)
 		}
 
@@ -228,7 +273,12 @@ func HandleDiff(args []string) error {
 		// Simple mode - just print all changes
 		fmt.Printf("Changes (%d):\n", len(result.Changes))
 		for _, change := range result.Changes {
-			fmt.Printf("  %s\n", change.String())
+			if flags.SourceMap && change.HasLocation() {
+				// IDE-friendly format: file:line:column: path: message
+				fmt.Printf("  %s: %s: %s\n", change.Location(), change.Path, change.Message)
+			} else {
+				fmt.Printf("  %s\n", change.String())
+			}
 		}
 	}
 
