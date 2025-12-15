@@ -10,6 +10,7 @@
 - [Practical Examples](#practical-examples)
 - [Schema Comparison Details](#schema-comparison-details)
 - [Extension (x-*) Field Coverage](#extension-x--field-coverage)
+- [Source Map Integration](#source-map-integration)
 - [Integration with Other Packages](#integration-with-other-packages)
 - [Best Practices](#best-practices)
 - [DiffResult Structure](#diffresult-structure)
@@ -503,6 +504,29 @@ The differ tracks changes to custom extension fields at commonly-used locations:
 All extension changes are reported with `SeverityInfo` since extensions are non-normative.
 
 [↑ Back to top](#top)
+
+## Source Map Integration
+
+For IDE-friendly output with line numbers, pass source maps for both documents using `WithSourceMap` and `WithTargetMap`:
+
+```go
+source, _ := parser.ParseWithOptions(
+    parser.WithFilePath("api-v1.yaml"),
+    parser.WithSourceMap(true),
+)
+target, _ := parser.ParseWithOptions(
+    parser.WithFilePath("api-v2.yaml"),
+    parser.WithSourceMap(true),
+)
+result, _ := differ.DiffWithOptions(
+    differ.WithSourceParsed(*source),
+    differ.WithTargetParsed(*target),
+    differ.WithSourceMap(source.SourceMap),
+    differ.WithTargetMap(target.SourceMap),
+)
+```
+
+[Back to top](#top)
 
 ## Integration with Other Packages
 

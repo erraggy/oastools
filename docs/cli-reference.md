@@ -39,6 +39,7 @@ oastools validate [flags] <file|url|->
 |------|-------------|
 | `--strict` | Enable stricter validation beyond spec requirements |
 | `--no-warnings` | Suppress warning messages (only show errors) |
+| `-s, --source-map` | Include line numbers in output (IDE-friendly format) |
 | `-q, --quiet` | Quiet mode: only output validation result, no diagnostic messages |
 | `--format` | Output format: text, json, or yaml (default: "text") |
 | `-h, --help` | Display help for validate command |
@@ -152,6 +153,7 @@ The fix command automatically corrects common validation errors in OpenAPI speci
 | Flag | Description |
 |------|-------------|
 | `--infer` | Infer parameter types from naming conventions (e.g., `userId` → integer) |
+| `-s, --source-map` | Include line numbers in output (IDE-friendly format) |
 | `-o, --output` | Output file path (default: stdout) |
 | `-q, --quiet` | Quiet mode: only output the fixed document, no diagnostic messages |
 | `-h, --help` | Display help for fix command |
@@ -360,6 +362,7 @@ oastools convert [flags] <file|url|->
 | `--output` | `-o` | Output file path (default: stdout) |
 | `--strict` | | Fail on any conversion issues (even warnings) |
 | `--no-warnings` | | Suppress warning and info messages |
+| `--source-map` | `-s` | Include line numbers in output (IDE-friendly format) |
 | `-q, --quiet` | | Quiet mode: only output the document, no diagnostic messages |
 | `-h, --help` | | Display help for convert command |
 
@@ -477,6 +480,7 @@ oastools join [flags] <file1> <file2> [file3...]
 | `--semantic-dedup` | | Enable semantic deduplication to consolidate identical schemas |
 | `--no-merge-arrays` | | Don't merge arrays (servers, security, etc.) |
 | `--no-dedup-tags` | | Don't deduplicate tags by name |
+| `--source-map` | `-s` | Include line numbers in output (IDE-friendly format) |
 | `-h, --help` | | Display help for join command |
 
 ### Collision Strategies
@@ -590,6 +594,7 @@ oastools diff [flags] <source> <target>
 |------|-------------|
 | `--breaking` | Enable breaking change detection and categorization |
 | `--no-info` | Exclude informational changes from output |
+| `-s, --source-map` | Include line numbers in output (IDE-friendly format) |
 | `--format` | Output format: text, json, or yaml (default: "text") |
 | `-h, --help` | Display help for diff command |
 
@@ -738,6 +743,7 @@ Generated code follows Go idioms, includes proper error handling, and is suitabl
 | `--types` | Generate type definitions from schemas (default: true) |
 | `--no-pointers` | Don't use pointer types for optional fields |
 | `--no-validation` | Don't include validation tags in generated code |
+| `-s, --source-map` | Include line numbers in output (IDE-friendly format) |
 | `--strict` | Fail on any generation issues (even warnings) |
 | `--no-warnings` | Suppress warning and info messages |
 | `-h, --help` | Display help for generate command |

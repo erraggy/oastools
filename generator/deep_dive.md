@@ -9,6 +9,7 @@
 - [Key Features](#key-features)
 - [API Styles](#api-styles)
 - [Practical Examples](#practical-examples)
+- [Source Map Integration](#source-map-integration)
 - [Configuration Reference](#configuration-reference)
 - [GenerateResult Structure](#generateresult-structure)
 - [Best Practices](#best-practices)
@@ -970,6 +971,25 @@ func main() {
 ```
 
 [↑ Back to top](#top)
+
+## Source Map Integration
+
+For IDE-friendly output with line numbers in generation issues, enable source maps during parsing:
+
+```go
+parseResult, _ := parser.ParseWithOptions(
+    parser.WithFilePath("openapi.yaml"),
+    parser.WithSourceMap(true),
+)
+result, _ := generator.GenerateWithOptions(
+    generator.WithParsed(*parseResult),
+    generator.WithSourceMap(parseResult.SourceMap),
+    generator.WithPackageName("api"),
+    generator.WithClient(true),
+)
+```
+
+[Back to top](#top)
 
 ## Configuration Reference
 

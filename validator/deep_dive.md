@@ -11,6 +11,7 @@
 - [Validation Coverage](#validation-coverage)
 - [Validation Result Structure](#validation-result-structure)
 - [Configuration Reference](#configuration-reference)
+- [Source Map Integration](#source-map-integration)
 - [Best Practices](#best-practices)
 
 ---
@@ -663,6 +664,26 @@ type Validator struct {
 | `WithUserAgent(string)` | Custom User-Agent for HTTP requests |
 
 [↑ Back to top](#top)
+
+## Source Map Integration
+
+When you need line numbers for IDE-friendly error reporting, enable source maps during parsing and pass them to the validator:
+
+```go
+parseResult, _ := parser.ParseWithOptions(
+    parser.WithFilePath("openapi.yaml"),
+    parser.WithSourceMap(true),
+)
+result, _ := validator.ValidateWithOptions(
+    validator.WithParsed(*parseResult),
+    validator.WithSourceMap(parseResult.SourceMap),
+)
+for _, err := range result.Errors {
+    fmt.Printf("%s: %s\n", err.Location(), err.Message)
+}
+```
+
+[Back to top](#top)
 
 ## Best Practices
 

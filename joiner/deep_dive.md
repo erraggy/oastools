@@ -10,6 +10,7 @@
 - [Practical Examples](#practical-examples)
 - [Configuration Reference](#configuration-reference)
 - [JoinResult Structure](#joinresult-structure)
+- [Source Map Integration](#source-map-integration)
 - [Best Practices](#best-practices)
 - [Common Patterns](#common-patterns)
 
@@ -732,6 +733,28 @@ type JoinResult struct {
 ```
 
 [↑ Back to top](#top)
+
+## Source Map Integration
+
+When joining multiple files with source map support, use `WithSourceMaps` (plural) to pass source maps for all input documents:
+
+```go
+sourceMaps := make(map[string]*parser.SourceMap)
+for _, path := range filePaths {
+    p, _ := parser.ParseWithOptions(
+        parser.WithFilePath(path),
+        parser.WithSourceMap(true),
+    )
+    sourceMaps[path] = p.SourceMap
+    docs = append(docs, *p)
+}
+result, _ := joiner.JoinWithOptions(
+    joiner.WithParsed(docs...),
+    joiner.WithSourceMaps(sourceMaps),
+)
+```
+
+[Back to top](#top)
 
 ## Best Practices
 
