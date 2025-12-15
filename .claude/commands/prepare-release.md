@@ -20,7 +20,7 @@ Launch these agents **in parallel** to maximize efficiency:
 2. **Architect** - Review documentation:
    - Check if CLAUDE.md needs updates for new features
    - Check if README.md needs updates
-	   - Be sure to verify accuracy of all details stated. We mention things like number of packages, dependencies, etc.
+     - Be sure to verify accuracy of all details stated. We mention things like number of packages, dependencies, etc.
    - Check if any `doc.go` files need updates
    - Check if `docs/developer-guide.md` needs updates
 
