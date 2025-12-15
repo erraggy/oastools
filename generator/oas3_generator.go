@@ -288,7 +288,7 @@ func (cg *oas3CodeGenerator) getArrayItemType(schema *parser.Schema) string {
 			return cg.resolveRef(items.Ref)
 		}
 		return cg.schemaToGoType(items, true)
-	case map[string]interface{}:
+	case map[string]any:
 		// Handle inline schema as map
 		if ref, ok := items["$ref"].(string); ok {
 			return cg.resolveRef(ref)
@@ -307,7 +307,7 @@ func (cg *oas3CodeGenerator) getAdditionalPropertiesType(schema *parser.Schema) 
 	switch addProps := schema.AdditionalProperties.(type) {
 	case *parser.Schema:
 		return cg.schemaToGoType(addProps, true)
-	case map[string]interface{}:
+	case map[string]any:
 		return schemaTypeFromMap(addProps)
 	case bool:
 		if addProps {

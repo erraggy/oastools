@@ -274,13 +274,17 @@ func HandleJoin(args []string) error {
 
 	// Write output
 	if flags.Output != "" {
-		// Write to file - use a new joiner for writing or marshal directly
+		// Write to file with restrictive permissions (matching joiner.WriteResult behavior)
 		data, dataErr := MarshalDocument(result.Document, result.SourceFormat)
 		if dataErr != nil {
 			return fmt.Errorf("marshaling joined document: %w", dataErr)
 		}
 		if writeErr := os.WriteFile(flags.Output, data, 0600); writeErr != nil {
 			return fmt.Errorf("writing output file: %w", writeErr)
+		}
+		// Ensure correct permissions even if file pre-existed with different permissions
+		if chmodErr := os.Chmod(flags.Output, 0600); chmodErr != nil {
+			return fmt.Errorf("setting output file permissions: %w", chmodErr)
 		}
 		if !flags.Quiet {
 			cliutil.Writef(os.Stderr, "\nOutput written to: %s\n", flags.Output)

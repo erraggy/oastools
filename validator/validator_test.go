@@ -1453,7 +1453,7 @@ func TestQueryMethodValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var doc interface{}
+			var doc any
 
 			if tt.version == parser.OASVersion20 {
 				doc = &parser.OAS2Document{
@@ -1566,7 +1566,7 @@ func TestTraceMethodValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var doc interface{}
+			var doc any
 
 			if tt.version == parser.OASVersion20 {
 				doc = &parser.OAS2Document{

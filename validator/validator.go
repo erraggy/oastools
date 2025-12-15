@@ -227,14 +227,22 @@ func (v *Validator) populateIssueLocation(issue *ValidationError) {
 	if v.SourceMap == nil {
 		return
 	}
-	// Convert validation path to JSON path format (add $ prefix)
-	jsonPath := "$." + issue.Path
+	// Convert validation path to JSON path format (add $ prefix if needed)
+	jsonPath := issue.Path
+	if !hasJSONPathPrefix(jsonPath) {
+		jsonPath = "$." + issue.Path
+	}
 	loc := v.SourceMap.Get(jsonPath)
 	if loc.IsKnown() {
 		issue.Line = loc.Line
 		issue.Column = loc.Column
 		issue.File = loc.File
 	}
+}
+
+// hasJSONPathPrefix returns true if the path already has a JSON path prefix.
+func hasJSONPathPrefix(path string) bool {
+	return len(path) > 0 && path[0] == '$'
 }
 
 // addError appends a validation error and populates its source location.

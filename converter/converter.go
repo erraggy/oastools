@@ -473,11 +473,7 @@ func (c *Converter) convertOAS3ToOAS3(parseResult parser.ParseResult, targetVers
 	result.Document = converted
 
 	// Add informational message about version update
-	c.addIssueWithContext(result, "openapi", fmt.Sprintf("Updated version from %s to %s", parseResult.Version, result.TargetVersion), "OAS 3.x versions are generally compatible, but verify features are supported")
-	// Override severity to Info (addIssueWithContext defaults to Warning)
-	if len(result.Issues) > 0 {
-		result.Issues[len(result.Issues)-1].Severity = SeverityInfo
-	}
+	c.addInfoWithContext(result, "openapi", fmt.Sprintf("Updated version from %s to %s", parseResult.Version, result.TargetVersion), "OAS 3.x versions are generally compatible, but verify features are supported")
 
 	// Check for nullable deprecation when converting 3.0.x to 3.1.x
 	if c.isOAS30(parseResult.OASVersion) && c.isOAS31OrLater(targetVersion) {
@@ -628,6 +624,18 @@ func (c *Converter) addIssueWithContext(result *ConversionResult, path, message,
 		Path:     path,
 		Message:  message,
 		Severity: SeverityWarning,
+		Context:  context,
+	}
+	c.populateIssueLocation(&issue, path)
+	result.Issues = append(result.Issues, issue)
+}
+
+// addInfoWithContext is a helper to add an informational conversion issue with context
+func (c *Converter) addInfoWithContext(result *ConversionResult, path, message, context string) {
+	issue := ConversionIssue{
+		Path:     path,
+		Message:  message,
+		Severity: SeverityInfo,
 		Context:  context,
 	}
 	c.populateIssueLocation(&issue, path)
