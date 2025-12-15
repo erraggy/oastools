@@ -19,7 +19,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 - **Performance Optimized** - 130+ benchmarks; pre-parsed workflows 9-150x faster
 - **Type-Safe Cloning** - Generated `DeepCopy()` methods preserve types across OAS versions (no JSON marshal hacks)
 - **Enterprise Ready** - Structured errors with `errors.Is()`/`errors.As()`, pluggable logging, configurable resource limits
-- **Well Documented** - Every package has godoc and runnable examples on [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools)
+- **Well Documented** - Every package has godoc, runnable examples, and [deep dive guides](#deep-dive-guides) for advanced usage
 - **Semantic Deduplication** - Automatically consolidate structurally identical schemas, reducing document size
 
 ## Package Ecosystem
@@ -38,6 +38,18 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 | [oaserrors](https://pkg.go.dev/github.com/erraggy/oastools/oaserrors) | Structured error types for programmatic handling       |
 
 All packages include comprehensive documentation with runnable examples. See individual package pages on [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) for API details.
+
+## Deep Dive Guides
+
+For comprehensive examples and advanced usage patterns:
+
+| Package | Deep Dive |
+|---------|-----------|
+| builder | [Programmatic API Construction](builder/deep_dive.md) |
+| differ | [Breaking Change Detection](differ/deep_dive.md) |
+| generator | [Code Generation (Client/Server/Types)](generator/deep_dive.md) |
+| joiner | [Multi-Document Merging](joiner/deep_dive.md) |
+| validator | [Specification Validation](validator/deep_dive.md) |
 
 ## Installation
 
