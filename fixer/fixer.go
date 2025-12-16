@@ -95,6 +95,8 @@ type Fixer struct {
 	// EnabledFixes specifies which fix types to apply.
 	// Defaults to only FixTypeMissingPathParameter for performance.
 	// Set to include other FixType values to enable additional fixes.
+	// Set to empty slice ([]FixType{}) or nil to enable all fix types
+	// (for backward compatibility with pre-v1.28.1 behavior).
 	EnabledFixes []FixType
 	// UserAgent is the User-Agent string used when fetching URLs.
 	// Defaults to "oastools" if not set.

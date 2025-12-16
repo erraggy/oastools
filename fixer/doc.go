@@ -45,6 +45,34 @@
 //   - Empty paths (FixTypePrunedEmptyPath): Removes path items that have no HTTP
 //     operations defined (e.g., paths with only parameters but no get/post/etc).
 //
+// # Default Behavior
+//
+// For performance, only FixTypeMissingPathParameter is enabled by default.
+// The schema renaming and pruning fixes involve expensive operations (walking
+// all references, computing unused schemas) that can significantly slow down
+// processing of large specifications.
+//
+// To enable additional fixes:
+//
+//	// Enable specific fixes via CLI flags
+//	oastools fix --prune-unused api.yaml
+//	oastools fix --rename-generics --prune-unused api.yaml
+//
+//	// Enable specific fixes programmatically
+//	result, err := fixer.FixWithOptions(
+//		fixer.WithFilePath("api.yaml"),
+//		fixer.WithEnabledFixes(
+//			fixer.FixTypeMissingPathParameter,
+//			fixer.FixTypeRenamedGenericSchema,
+//			fixer.FixTypePrunedUnusedSchema,
+//		),
+//	)
+//
+//	// Enable ALL fixes (backward compatible with pre-v1.28.1)
+//	f := fixer.New()
+//	f.EnabledFixes = []fixer.FixType{} // empty slice enables all
+//	result, _ := f.Fix("api.yaml")
+//
 // # Generic Naming Strategies
 //
 // When fixing invalid schema names, the following strategies are available:
