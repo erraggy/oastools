@@ -249,6 +249,7 @@ components:
 	// Fix using the "Of" naming strategy: Response[User] -> ResponseOfUser
 	result, err := fixer.FixWithOptions(
 		fixer.WithParsed(*parseResult),
+		fixer.WithEnabledFixes(fixer.FixTypeRenamedGenericSchema),
 		fixer.WithGenericNaming(fixer.GenericNamingOf),
 	)
 	if err != nil {
@@ -309,6 +310,7 @@ components:
 
 	result, err := fixer.FixWithOptions(
 		fixer.WithParsed(*parseResult),
+		fixer.WithEnabledFixes(fixer.FixTypeRenamedGenericSchema),
 		fixer.WithGenericNamingConfig(config),
 	)
 	if err != nil {

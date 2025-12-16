@@ -339,11 +339,14 @@ case *parser.OAS3Document:
 
 **Fixing Invalid Schema Names:**
 
+> **Note:** Schema renaming is not enabled by default. You must use `WithEnabledFixes()` to opt-in.
+
 ```go
 // Fix schemas with invalid names (e.g., Response[User])
 result, err := fixer.FixWithOptions(
     fixer.WithFilePath("openapi.yaml"),
-    fixer.WithGenericNaming(fixer.GenericNamingOf), // Response[User] → ResponseOfUser
+    fixer.WithEnabledFixes(fixer.FixTypeRenamedGenericSchema), // Enable schema renaming
+    fixer.WithGenericNaming(fixer.GenericNamingOf),            // Response[User] → ResponseOfUser
 )
 
 // Available naming strategies:
