@@ -19,6 +19,21 @@ type FixFlags struct {
 	Infer     bool
 	Quiet     bool
 	SourceMap bool
+
+	// Schema name fixing flags
+	FixSchemaNames        bool
+	GenericNaming         string
+	GenericSeparator      string
+	GenericParamSeparator string
+	PreserveCasing        bool
+
+	// Pruning flags
+	PruneSchemas bool
+	PrunePaths   bool
+	PruneAll     bool
+
+	// Dry run flag
+	DryRun bool
 }
 
 // SetupFixFlags creates and configures a FlagSet for the fix command.
@@ -35,6 +50,22 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 	fs.BoolVar(&flags.SourceMap, "source-map", false, "include line numbers in fix output (IDE-friendly format)")
 	fs.BoolVar(&flags.SourceMap, "s", false, "include line numbers in fix output (IDE-friendly format)")
 
+	// Schema name fixing flags
+	fs.BoolVar(&flags.FixSchemaNames, "fix-schema-names", false, "fix invalid schema names (brackets, special characters)")
+	fs.StringVar(&flags.GenericNaming, "generic-naming", "underscore", "strategy for renaming generic types: underscore, of, for, flat, dot")
+	fs.StringVar(&flags.GenericSeparator, "generic-separator", "_", "separator for underscore strategy")
+	fs.StringVar(&flags.GenericParamSeparator, "generic-param-separator", "_", "separator between multiple type parameters")
+	fs.BoolVar(&flags.PreserveCasing, "preserve-casing", false, "preserve original casing of type parameters")
+
+	// Pruning flags
+	fs.BoolVar(&flags.PruneSchemas, "prune-schemas", false, "remove unreferenced schema definitions")
+	fs.BoolVar(&flags.PrunePaths, "prune-paths", false, "remove paths with no operations")
+	fs.BoolVar(&flags.PruneAll, "prune-all", false, "apply all pruning fixes (schemas, paths)")
+	fs.BoolVar(&flags.PruneAll, "prune", false, "apply all pruning fixes (alias for --prune-all)")
+
+	// Dry run flag
+	fs.BoolVar(&flags.DryRun, "dry-run", false, "preview changes without modifying the document")
+
 	fs.Usage = func() {
 		cliutil.Writef(fs.Output(), "Usage: oastools fix [flags] <file|url|->\n\n")
 		cliutil.Writef(fs.Output(), "Apply automatic fixes to common OpenAPI specification issues.\n\n")
@@ -44,14 +75,27 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 		cliutil.Writef(fs.Output(), "  - Missing path parameters: Adds Parameter objects for path template\n")
 		cliutil.Writef(fs.Output(), "    variables that are not declared in the operation's parameters list.\n")
 		cliutil.Writef(fs.Output(), "    Default type is 'string'. Use --infer for smart type inference.\n")
+		cliutil.Writef(fs.Output(), "  - Invalid schema names (--fix-schema-names): Renames schemas with\n")
+		cliutil.Writef(fs.Output(), "    invalid characters (brackets, etc.) using configurable strategies.\n")
+		cliutil.Writef(fs.Output(), "  - Prune schemas (--prune-schemas): Removes unreferenced schemas.\n")
+		cliutil.Writef(fs.Output(), "  - Prune paths (--prune-paths): Removes paths with no operations.\n")
 		cliutil.Writef(fs.Output(), "\nType Inference (--infer):\n")
 		cliutil.Writef(fs.Output(), "  - Names ending in 'id', 'Id', 'ID' -> integer\n")
 		cliutil.Writef(fs.Output(), "  - Names containing 'uuid', 'guid' -> string with format uuid\n")
 		cliutil.Writef(fs.Output(), "  - All other names -> string\n")
+		cliutil.Writef(fs.Output(), "\nGeneric Naming Strategies (--generic-naming):\n")
+		cliutil.Writef(fs.Output(), "  underscore: Response[User] → Response_User_\n")
+		cliutil.Writef(fs.Output(), "  of:         Response[User] → ResponseOfUser\n")
+		cliutil.Writef(fs.Output(), "  for:        Response[User] → ResponseForUser\n")
+		cliutil.Writef(fs.Output(), "  flat:       Response[User] → ResponseUser\n")
+		cliutil.Writef(fs.Output(), "  dot:        Response[User] → Response.User\n")
 		cliutil.Writef(fs.Output(), "\nExamples:\n")
 		cliutil.Writef(fs.Output(), "  oastools fix openapi.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools fix -o fixed.yaml openapi.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools fix --infer openapi.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools fix --fix-schema-names --generic-naming of api.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools fix --prune-all api.yaml\n")
+		cliutil.Writef(fs.Output(), "  oastools fix --dry-run --prune-schemas api.yaml\n")
 		cliutil.Writef(fs.Output(), "  cat openapi.yaml | oastools fix -q - > fixed.yaml\n")
 		cliutil.Writef(fs.Output(), "  oastools fix -s openapi.yaml  # Include line numbers in fixes\n")
 		cliutil.Writef(fs.Output(), "\nPipelining:\n")
@@ -59,7 +103,8 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 		cliutil.Writef(fs.Output(), "  oastools fix -q --infer api.yaml | oastools convert -q -t 3.1.0 -\n")
 		cliutil.Writef(fs.Output(), "\nNotes:\n")
 		cliutil.Writef(fs.Output(), "  - Use 'oastools validate' to see validation errors before fixing\n")
-		cliutil.Writef(fs.Output(), "  - The fix command always applies all available fixes\n")
+		cliutil.Writef(fs.Output(), "  - Pruning fixes only run when explicitly requested via flags\n")
+		cliutil.Writef(fs.Output(), "  - Use --dry-run to preview what would be changed\n")
 		cliutil.Writef(fs.Output(), "  - Output preserves the original format (JSON or YAML)\n")
 		cliutil.Writef(fs.Output(), "\nExit Codes:\n")
 		cliutil.Writef(fs.Output(), "  0    Fixes applied successfully (or no fixes needed)\n")
@@ -87,6 +132,37 @@ func HandleFix(args []string) error {
 
 	specPath := fs.Arg(0)
 
+	// Parse generic naming strategy
+	strategy, stratErr := fixer.ParseGenericNamingStrategy(flags.GenericNaming)
+	if stratErr != nil {
+		return fmt.Errorf("invalid generic naming strategy: %w", stratErr)
+	}
+
+	// Build generic naming config
+	genericConfig := fixer.GenericNamingConfig{
+		Strategy:       strategy,
+		Separator:      flags.GenericSeparator,
+		ParamSeparator: flags.GenericParamSeparator,
+		PreserveCasing: flags.PreserveCasing,
+	}
+
+	// Build enabled fixes list based on flags
+	var enabledFixes []fixer.FixType
+
+	// Always enable missing path parameters (default behavior)
+	enabledFixes = append(enabledFixes, fixer.FixTypeMissingPathParameter)
+
+	// Add explicit fixes based on flags
+	if flags.FixSchemaNames {
+		enabledFixes = append(enabledFixes, fixer.FixTypeRenamedGenericSchema)
+	}
+	if flags.PruneSchemas || flags.PruneAll {
+		enabledFixes = append(enabledFixes, fixer.FixTypePrunedUnusedSchema)
+	}
+	if flags.PrunePaths || flags.PruneAll {
+		enabledFixes = append(enabledFixes, fixer.FixTypePrunedEmptyPath)
+	}
+
 	// Fix the file, URL, or stdin with timing
 	startTime := time.Now()
 	var result *fixer.FixResult
@@ -101,6 +177,9 @@ func HandleFix(args []string) error {
 		}
 		f := fixer.New()
 		f.InferTypes = flags.Infer
+		f.EnabledFixes = enabledFixes
+		f.GenericNamingConfig = genericConfig
+		f.DryRun = flags.DryRun
 		result, err = f.FixParsed(*parseResult)
 		if err != nil {
 			return fmt.Errorf("fixing from stdin: %w", err)
@@ -110,6 +189,9 @@ func HandleFix(args []string) error {
 		fixOpts := []fixer.Option{
 			fixer.WithFilePath(specPath),
 			fixer.WithInferTypes(flags.Infer),
+			fixer.WithEnabledFixes(enabledFixes...),
+			fixer.WithGenericNamingConfig(genericConfig),
+			fixer.WithDryRun(flags.DryRun),
 		}
 
 		// If source map requested, parse with source map first
@@ -124,6 +206,9 @@ func HandleFix(args []string) error {
 			fixOpts = []fixer.Option{
 				fixer.WithParsed(*parseResult),
 				fixer.WithInferTypes(flags.Infer),
+				fixer.WithEnabledFixes(enabledFixes...),
+				fixer.WithGenericNamingConfig(genericConfig),
+				fixer.WithDryRun(flags.DryRun),
 			}
 			if parseResult.SourceMap != nil {
 				fixOpts = append(fixOpts, fixer.WithSourceMap(parseResult.SourceMap))
@@ -155,7 +240,11 @@ func HandleFix(args []string) error {
 
 		// Print fixes applied
 		if result.HasFixes() {
-			cliutil.Writef(os.Stderr, "Fixes Applied (%d):\n", result.FixCount)
+			if flags.DryRun {
+				cliutil.Writef(os.Stderr, "Fixes That Would Be Applied (%d):\n", result.FixCount)
+			} else {
+				cliutil.Writef(os.Stderr, "Fixes Applied (%d):\n", result.FixCount)
+			}
 			for _, fix := range result.Fixes {
 				if flags.SourceMap && fix.HasLocation() {
 					// IDE-friendly format: file:line:column: path: description
@@ -169,10 +258,19 @@ func HandleFix(args []string) error {
 
 		// Print summary
 		if result.HasFixes() {
-			cliutil.Writef(os.Stderr, "✓ Applied %d fix(es)\n", result.FixCount)
+			if flags.DryRun {
+				cliutil.Writef(os.Stderr, "⚡ Would apply %d fix(es) (dry-run mode)\n", result.FixCount)
+			} else {
+				cliutil.Writef(os.Stderr, "✓ Applied %d fix(es)\n", result.FixCount)
+			}
 		} else {
 			cliutil.Writef(os.Stderr, "✓ No fixes needed - specification is already valid\n")
 		}
+	}
+
+	// In dry-run mode, don't output the document
+	if flags.DryRun {
+		return nil
 	}
 
 	// Write output
