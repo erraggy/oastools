@@ -479,4 +479,9 @@ func (f *Fixer) pruneUnusedSchemasOAS3(doc *parser.OAS3Document, result *FixResu
 	if len(schemas) == 0 {
 		doc.Components.Schemas = nil
 	}
+
+	// Set components to nil if all fields are empty after pruning
+	if isComponentsEmpty(doc.Components) {
+		doc.Components = nil
+	}
 }

@@ -1572,7 +1572,7 @@ paths:
 	assert.NotContains(t, doc.Paths, "/empty-path")
 }
 
-// TestPruneAllSchemasWhenNoneReferenced tests that schemas map becomes nil when all pruned
+// TestPruneAllSchemasWhenNoneReferenced tests that components becomes nil when all schemas are pruned
 func TestPruneAllSchemasWhenNoneReferenced(t *testing.T) {
 	spec := `
 openapi: "3.0.3"
@@ -1604,8 +1604,59 @@ components:
 	doc := result.Document.(*parser.OAS3Document)
 	assert.Equal(t, 1, result.FixCount)
 
-	// Schemas should be nil when all are pruned
-	assert.Nil(t, doc.Components.Schemas)
+	// Components should be nil when all schemas are pruned (and no other components exist)
+	assert.Nil(t, doc.Components)
+}
+
+// TestPrunePartialSchemasKeepsComponents tests that components is retained when some schemas remain
+func TestPrunePartialSchemasKeepsComponents(t *testing.T) {
+	spec := `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+    UnusedSchema:
+      type: object
+      properties:
+        unused:
+          type: string
+`
+	// Parse
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	// Fix
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Assert
+	doc := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, 1, result.FixCount)
+
+	// Components should still exist with the User schema
+	require.NotNil(t, doc.Components)
+	require.NotNil(t, doc.Components.Schemas)
+	assert.Contains(t, doc.Components.Schemas, "User")
+	assert.NotContains(t, doc.Components.Schemas, "UnusedSchema")
 }
 
 // TestPruneWithNilComponents tests pruning when components is nil

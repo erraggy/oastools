@@ -289,3 +289,21 @@ func isNameAvailable(name string, schemas map[string]*parser.Schema, pendingRena
 
 	return false
 }
+
+// isComponentsEmpty returns true if all component fields are nil or empty.
+// This is used to determine if the entire components object should be removed.
+func isComponentsEmpty(comp *parser.Components) bool {
+	if comp == nil {
+		return true
+	}
+	return len(comp.Schemas) == 0 &&
+		len(comp.Responses) == 0 &&
+		len(comp.Parameters) == 0 &&
+		len(comp.Examples) == 0 &&
+		len(comp.RequestBodies) == 0 &&
+		len(comp.Headers) == 0 &&
+		len(comp.SecuritySchemes) == 0 &&
+		len(comp.Links) == 0 &&
+		len(comp.Callbacks) == 0 &&
+		len(comp.PathItems) == 0
+}
