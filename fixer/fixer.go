@@ -93,7 +93,8 @@ type Fixer struct {
 	// and all others become string type.
 	InferTypes bool
 	// EnabledFixes specifies which fix types to apply.
-	// If nil or empty, all fix types are enabled.
+	// Defaults to only FixTypeMissingPathParameter for performance.
+	// Set to include other FixType values to enable additional fixes.
 	EnabledFixes []FixType
 	// UserAgent is the User-Agent string used when fetching URLs.
 	// Defaults to "oastools" if not set.
@@ -113,7 +114,7 @@ type Fixer struct {
 func New() *Fixer {
 	return &Fixer{
 		InferTypes:          false,
-		EnabledFixes:        nil, // all fixes enabled
+		EnabledFixes:        []FixType{FixTypeMissingPathParameter}, // only missing params by default
 		GenericNamingConfig: DefaultGenericNamingConfig(),
 		DryRun:              false,
 	}
@@ -181,7 +182,7 @@ func applyOptions(opts ...Option) (*fixConfig, error) {
 	cfg := &fixConfig{
 		// Set defaults
 		inferTypes:          false,
-		enabledFixes:        nil,
+		enabledFixes:        []FixType{FixTypeMissingPathParameter}, // only missing params by default
 		userAgent:           "",
 		genericNamingConfig: DefaultGenericNamingConfig(),
 		dryRun:              false,
@@ -341,7 +342,7 @@ func (f *Fixer) FixParsed(parseResult parser.ParseResult) (*FixResult, error) {
 //nolint:unparam // fixType is parameterized for future extensibility
 func (f *Fixer) isFixEnabled(fixType FixType) bool {
 	if len(f.EnabledFixes) == 0 {
-		return true // all fixes enabled by default
+		return true // if explicitly set to empty/nil, enable all fixes
 	}
 	for _, ft := range f.EnabledFixes {
 		if ft == fixType {

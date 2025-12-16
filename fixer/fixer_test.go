@@ -16,7 +16,7 @@ func TestNew(t *testing.T) {
 	f := New()
 	require.NotNil(t, f)
 	assert.False(t, f.InferTypes)
-	assert.Nil(t, f.EnabledFixes)
+	assert.Equal(t, []FixType{FixTypeMissingPathParameter}, f.EnabledFixes)
 }
 
 // TestFixWithOptions_NoInput tests that FixWithOptions fails with no input
@@ -402,16 +402,18 @@ func TestDeepCopyOAS2Document(t *testing.T) {
 func TestIsFixEnabled(t *testing.T) {
 	f := New()
 
-	// By default, all fixes are enabled
+	// By default, only missing params fix is enabled
 	assert.True(t, f.isFixEnabled(FixTypeMissingPathParameter))
+	assert.False(t, f.isFixEnabled(FixTypePrunedUnusedSchema))
 
 	// When specific fixes are set, only those are enabled
 	f.EnabledFixes = []FixType{FixTypeMissingPathParameter}
 	assert.True(t, f.isFixEnabled(FixTypeMissingPathParameter))
 
-	// Other fix types would be disabled (if they existed)
+	// Empty slice enables all fixes (backwards compatibility)
 	f.EnabledFixes = []FixType{}
 	assert.True(t, f.isFixEnabled(FixTypeMissingPathParameter)) // empty = all enabled
+	assert.True(t, f.isFixEnabled(FixTypePrunedUnusedSchema))   // empty = all enabled
 }
 
 // TestFixResult_HasFixes tests the HasFixes helper method
@@ -1689,11 +1691,11 @@ func TestWithEnabledFixes(t *testing.T) {
 func TestIsFixEnabled_MultipleTypes(t *testing.T) {
 	f := New()
 
-	// All enabled by default (nil EnabledFixes)
+	// By default, only missing path parameter fix is enabled
 	assert.True(t, f.isFixEnabled(FixTypeMissingPathParameter))
-	assert.True(t, f.isFixEnabled(FixTypePrunedUnusedSchema))
-	assert.True(t, f.isFixEnabled(FixTypeRenamedGenericSchema))
-	assert.True(t, f.isFixEnabled(FixTypePrunedEmptyPath))
+	assert.False(t, f.isFixEnabled(FixTypePrunedUnusedSchema))
+	assert.False(t, f.isFixEnabled(FixTypeRenamedGenericSchema))
+	assert.False(t, f.isFixEnabled(FixTypePrunedEmptyPath))
 
 	// Restrict to specific fixes
 	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema, FixTypeRenamedGenericSchema}
