@@ -14,8 +14,8 @@ import (
 // for detecting code-level performance regressions.
 //
 // For accurate performance comparison, use these I/O-free benchmarks:
-//   - BenchmarkParseBytes - Pre-loads file data, benchmarks only parsing logic
-//   - BenchmarkParseCore - Pre-loads all sizes, benchmarks core parsing (recommended for CI)
+//   - BenchmarkParseCore - Pre-loads all sizes, benchmarks core parsing (RECOMMENDED for CI)
+//   - BenchmarkParseBytes - Pre-loads file data, benchmarks parsing (subset of sizes)
 //   - BenchmarkDeepCopy - Benchmarks only document copying
 //
 // Note on b.Fatalf usage: Using b.Fatalf for errors in benchmark setup or execution is acceptable.

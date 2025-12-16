@@ -22,26 +22,29 @@ When investigating a suspected regression, **always use these benchmarks**:
 
 ```bash
 # Run ONLY reliable benchmarks (no file I/O in measurement loop)
-go test -bench='Core|Parsed|Bytes' -benchmem ./parser ./joiner ./validator ./fixer ./converter ./differ
+go test -bench='ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|DiffParsed' -benchmem ./...
 ```
 
-| Benchmark Pattern | What It Measures | Reliable? |
-|-------------------|------------------|-----------|
-| `*Core` | Core logic with pre-loaded data | ✅ Yes |
-| `*Parsed` | Processing pre-parsed documents | ✅ Yes |
-| `*Bytes` | Parsing pre-loaded byte slices | ✅ Yes |
-| `BenchmarkParse`, `BenchmarkJoin`, etc. | End-to-end including file I/O | ❌ No |
+| Package | Recommended Benchmark | Reliable? |
+|---------|----------------------|-----------|
+| parser | `BenchmarkParseCore` | ✅ Yes |
+| joiner | `BenchmarkJoinParsed` | ✅ Yes |
+| validator | `BenchmarkValidateParsed` | ✅ Yes |
+| fixer | `BenchmarkFixParsed` | ✅ Yes |
+| converter | `BenchmarkConvertParsed` | ✅ Yes |
+| differ | `BenchmarkDiffParsed` | ✅ Yes |
+| (all) | `BenchmarkParse`, `BenchmarkJoin`, etc. | ❌ No (I/O variance) |
 
 ### Quick Regression Check Workflow
 
 ```bash
 # 1. Checkout the suspected "slow" version
 git checkout v1.X.Y
-go test -bench='Core|Parsed' -benchmem ./parser ./joiner > /tmp/old.txt
+go test -bench='ParseCore|JoinParsed' -benchmem ./parser ./joiner > /tmp/old.txt
 
 # 2. Checkout the current version
 git checkout main
-go test -bench='Core|Parsed' -benchmem ./parser ./joiner > /tmp/new.txt
+go test -bench='ParseCore|JoinParsed' -benchmem ./parser ./joiner > /tmp/new.txt
 
 # 3. Compare with benchstat
 benchstat /tmp/old.txt /tmp/new.txt

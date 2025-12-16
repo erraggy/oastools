@@ -335,9 +335,7 @@ Investigation in v1.28.1 revealed that saved benchmark files showed apparent reg
 | Package | Reliable Benchmark | Description |
 |---------|-------------------|-------------|
 | parser | `BenchmarkParseCore` | Pre-loads all test files, benchmarks only parsing logic |
-| parser | `BenchmarkParseBytes` | Pre-loads file data, benchmarks only parsing |
-| joiner | `BenchmarkJoinCore` | Pre-parses all documents, benchmarks only joining logic |
-| joiner | `BenchmarkJoinParsed` | Pre-parsed documents, no I/O in loop |
+| joiner | `BenchmarkJoinParsed` | Pre-parses all documents, benchmarks only joining logic |
 | validator | `BenchmarkValidateParsed` | Pre-parsed, benchmarks only validation |
 | fixer | `BenchmarkFixParsed` | Pre-parsed, benchmarks only fixing |
 | converter | `BenchmarkConvertParsed` | Pre-parsed, benchmarks only conversion |

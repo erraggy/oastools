@@ -34,11 +34,11 @@ As of v1.18.0, oastools includes comprehensive performance benchmarking infrastr
 # Parser: Use BenchmarkParseCore (not BenchmarkParse)
 go test -bench=BenchmarkParseCore -benchmem ./parser
 
-# Joiner: Use BenchmarkJoinCore or BenchmarkJoinParsed (not BenchmarkJoin)
-go test -bench='JoinCore|JoinParsed' -benchmem ./joiner
+# Joiner: Use BenchmarkJoinParsed (not BenchmarkJoin)
+go test -bench=BenchmarkJoinParsed -benchmem ./joiner
 
 # All packages: Filter to reliable benchmarks only
-go test -bench='Core|Parsed|Bytes' -benchmem ./...
+go test -bench='ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|DiffParsed' -benchmem ./...
 ```
 
 See [CLAUDE.md](CLAUDE.md#-benchmark-reliability-and-performance-regression-detection) and [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md#-important-detecting-performance-regressions) for detailed guidance on investigating suspected regressions.
