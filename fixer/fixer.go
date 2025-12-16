@@ -12,6 +12,12 @@ type FixType string
 const (
 	// FixTypeMissingPathParameter indicates a missing path parameter was added
 	FixTypeMissingPathParameter FixType = "missing-path-parameter"
+	// FixTypePrunedEmptyPath indicates an empty path item was removed
+	FixTypePrunedEmptyPath FixType = "pruned-empty-path"
+	// FixTypePrunedUnusedSchema indicates an orphaned schema was removed
+	FixTypePrunedUnusedSchema FixType = "pruned-unused-schema"
+	// FixTypeRenamedGenericSchema indicates a generic type name was simplified
+	FixTypeRenamedGenericSchema FixType = "renamed-generic-schema"
 )
 
 // Fix represents a single fix applied to the document
@@ -95,13 +101,21 @@ type Fixer struct {
 	// SourceMap provides source location lookup for fix issues.
 	// When set, fixes will include Line, Column, and File information.
 	SourceMap *parser.SourceMap
+	// GenericNamingConfig configures how generic type names are transformed
+	// when fixing invalid schema names (e.g., Response[User] → ResponseOfUser).
+	GenericNamingConfig GenericNamingConfig
+	// DryRun when true, collects fixes without modifying the document.
+	// Useful for previewing what would be changed.
+	DryRun bool
 }
 
 // New creates a new Fixer instance with default settings
 func New() *Fixer {
 	return &Fixer{
-		InferTypes:   false,
-		EnabledFixes: nil, // all fixes enabled
+		InferTypes:          false,
+		EnabledFixes:        nil, // all fixes enabled
+		GenericNamingConfig: DefaultGenericNamingConfig(),
+		DryRun:              false,
 	}
 }
 
@@ -115,9 +129,11 @@ type fixConfig struct {
 	parsed   *parser.ParseResult
 
 	// Configuration options
-	inferTypes   bool
-	enabledFixes []FixType
-	userAgent    string
+	inferTypes          bool
+	enabledFixes        []FixType
+	userAgent           string
+	genericNamingConfig GenericNamingConfig
+	dryRun              bool
 
 	// Source map for line/column tracking
 	sourceMap *parser.SourceMap
@@ -140,10 +156,12 @@ func FixWithOptions(opts ...Option) (*FixResult, error) {
 	}
 
 	f := &Fixer{
-		InferTypes:   cfg.inferTypes,
-		EnabledFixes: cfg.enabledFixes,
-		UserAgent:    cfg.userAgent,
-		SourceMap:    cfg.sourceMap,
+		InferTypes:          cfg.inferTypes,
+		EnabledFixes:        cfg.enabledFixes,
+		UserAgent:           cfg.userAgent,
+		SourceMap:           cfg.sourceMap,
+		GenericNamingConfig: cfg.genericNamingConfig,
+		DryRun:              cfg.dryRun,
 	}
 
 	// Route to appropriate fix method based on input source
@@ -162,9 +180,11 @@ func FixWithOptions(opts ...Option) (*FixResult, error) {
 func applyOptions(opts ...Option) (*fixConfig, error) {
 	cfg := &fixConfig{
 		// Set defaults
-		inferTypes:   false,
-		enabledFixes: nil,
-		userAgent:    "",
+		inferTypes:          false,
+		enabledFixes:        nil,
+		userAgent:           "",
+		genericNamingConfig: DefaultGenericNamingConfig(),
+		dryRun:              false,
 	}
 
 	for _, opt := range opts {
@@ -245,6 +265,33 @@ func WithSourceMap(sm *parser.SourceMap) Option {
 	}
 }
 
+// WithGenericNaming sets the naming strategy for fixing invalid schema names.
+// This applies to schemas with names like "Response[User]" that contain
+// characters requiring URL encoding in $ref values.
+func WithGenericNaming(strategy GenericNamingStrategy) Option {
+	return func(cfg *fixConfig) error {
+		cfg.genericNamingConfig.Strategy = strategy
+		return nil
+	}
+}
+
+// WithGenericNamingConfig sets the full generic naming configuration.
+func WithGenericNamingConfig(config GenericNamingConfig) Option {
+	return func(cfg *fixConfig) error {
+		cfg.genericNamingConfig = config
+		return nil
+	}
+}
+
+// WithDryRun enables dry-run mode, which collects fixes without
+// actually modifying the document. Useful for previewing changes.
+func WithDryRun(dryRun bool) Option {
+	return func(cfg *fixConfig) error {
+		cfg.dryRun = dryRun
+		return nil
+	}
+}
+
 // Fix fixes an OpenAPI specification file and returns the result
 func (f *Fixer) Fix(specPath string) (*FixResult, error) {
 	// Parse the specification
@@ -302,58 +349,6 @@ func (f *Fixer) isFixEnabled(fixType FixType) bool {
 		}
 	}
 	return false
-}
-
-// fixOAS2 applies fixes to an OAS 2.0 document
-func (f *Fixer) fixOAS2(parseResult parser.ParseResult, result *FixResult) (*FixResult, error) {
-	// Extract the OAS 2.0 document from the generic Document field
-	srcDoc, ok := parseResult.OAS2Document()
-	if !ok {
-		return nil, fmt.Errorf("fixer: expected *parser.OAS2Document, got %T", parseResult.Document)
-	}
-
-	// Deep copy the document to avoid mutating the original
-	doc, err := deepCopyOAS2Document(srcDoc)
-	if err != nil {
-		return nil, fmt.Errorf("fixer: failed to copy document: %w", err)
-	}
-
-	// Apply enabled fixes
-	if f.isFixEnabled(FixTypeMissingPathParameter) {
-		f.fixMissingPathParametersOAS2(doc, result)
-	}
-
-	// Update result
-	result.Document = doc
-	result.FixCount = len(result.Fixes)
-
-	return result, nil
-}
-
-// fixOAS3 applies fixes to an OAS 3.x document
-func (f *Fixer) fixOAS3(parseResult parser.ParseResult, result *FixResult) (*FixResult, error) {
-	// Extract the OAS 3.x document from the generic Document field
-	srcDoc, ok := parseResult.OAS3Document()
-	if !ok {
-		return nil, fmt.Errorf("fixer: expected *parser.OAS3Document, got %T", parseResult.Document)
-	}
-
-	// Deep copy the document to avoid mutating the original
-	doc, err := deepCopyOAS3Document(srcDoc)
-	if err != nil {
-		return nil, fmt.Errorf("fixer: failed to copy document: %w", err)
-	}
-
-	// Apply enabled fixes
-	if f.isFixEnabled(FixTypeMissingPathParameter) {
-		f.fixMissingPathParametersOAS3(doc, result)
-	}
-
-	// Update result
-	result.Document = doc
-	result.FixCount = len(result.Fixes)
-
-	return result, nil
 }
 
 // populateFixLocation fills in Line/Column/File from the SourceMap if available.

@@ -731,6 +731,978 @@ func TestWithSourceMap_Fixer(t *testing.T) {
 	assert.Equal(t, sm, cfg.sourceMap)
 }
 
+// =============================================================================
+// Generic Schema Name Fixing Tests
+// =============================================================================
+
+// TestFixInvalidSchemaNamesOAS3 tests renaming schemas with invalid characters in OAS 3.x
+func TestFixInvalidSchemaNamesOAS3(t *testing.T) {
+	tests := []struct {
+		name           string
+		spec           string
+		strategy       GenericNamingStrategy
+		expectedSchema string
+		expectedRef    string
+		expectFix      bool
+	}{
+		{
+			name: "brackets renamed with underscore strategy",
+			spec: `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response[User]"
+components:
+  schemas:
+    Response[User]:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/User"
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+`,
+			strategy:       GenericNamingUnderscore,
+			expectedSchema: "Response_User_",
+			expectedRef:    "#/components/schemas/Response_User_",
+			expectFix:      true,
+		},
+		{
+			name: "brackets renamed with of strategy",
+			spec: `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response[User]"
+components:
+  schemas:
+    Response[User]:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/User"
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+`,
+			strategy:       GenericNamingOf,
+			expectedSchema: "ResponseOfUser",
+			expectedRef:    "#/components/schemas/ResponseOfUser",
+			expectFix:      true,
+		},
+		{
+			name: "brackets renamed with for strategy",
+			spec: `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/List[Item]"
+components:
+  schemas:
+    List[Item]:
+      type: array
+      items:
+        $ref: "#/components/schemas/Item"
+    Item:
+      type: object
+`,
+			strategy:       GenericNamingFor,
+			expectedSchema: "ListForItem",
+			expectedRef:    "#/components/schemas/ListForItem",
+			expectFix:      true,
+		},
+		{
+			name: "brackets renamed with flattened strategy",
+			spec: `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /data:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Container[Value]"
+components:
+  schemas:
+    Container[Value]:
+      type: object
+    Value:
+      type: string
+`,
+			strategy:       GenericNamingFlattened,
+			expectedSchema: "ContainerValue",
+			expectedRef:    "#/components/schemas/ContainerValue",
+			expectFix:      true,
+		},
+		{
+			name: "brackets renamed with dot strategy",
+			spec: `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /data:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wrapper[Data]"
+components:
+  schemas:
+    Wrapper[Data]:
+      type: object
+    Data:
+      type: string
+`,
+			strategy:       GenericNamingDot,
+			expectedSchema: "Wrapper.Data",
+			expectedRef:    "#/components/schemas/Wrapper.Data",
+			expectFix:      true,
+		},
+		{
+			name: "valid schema names not modified",
+			spec: `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+components:
+  schemas:
+    UserResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/User"
+    User:
+      type: object
+`,
+			strategy:       GenericNamingOf,
+			expectedSchema: "UserResponse",
+			expectedRef:    "#/components/schemas/UserResponse",
+			expectFix:      false,
+		},
+		{
+			name: "angle brackets renamed",
+			spec: `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /data:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/List<Item>"
+components:
+  schemas:
+    List<Item>:
+      type: array
+    Item:
+      type: object
+`,
+			strategy:       GenericNamingOf,
+			expectedSchema: "ListOfItem",
+			expectedRef:    "#/components/schemas/ListOfItem",
+			expectFix:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Parse
+			parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(tt.spec)))
+			require.NoError(t, err)
+
+			// Fix with specific strategy
+			f := New()
+			f.EnabledFixes = []FixType{FixTypeRenamedGenericSchema}
+			f.GenericNamingConfig.Strategy = tt.strategy
+			result, err := f.FixParsed(*parseResult)
+			require.NoError(t, err)
+
+			// Assert
+			doc := result.Document.(*parser.OAS3Document)
+
+			if tt.expectFix {
+				assert.True(t, result.HasFixes(), "expected fixes to be applied")
+				assert.Contains(t, doc.Components.Schemas, tt.expectedSchema,
+					"expected schema %s to exist", tt.expectedSchema)
+
+				// Verify the ref was rewritten in paths
+				pathItem := doc.Paths["/users"]
+				if pathItem == nil {
+					pathItem = doc.Paths["/data"]
+				}
+				require.NotNil(t, pathItem)
+				require.NotNil(t, pathItem.Get)
+				respContent := pathItem.Get.Responses.Codes["200"].Content["application/json"]
+				assert.Equal(t, tt.expectedRef, respContent.Schema.Ref)
+			} else {
+				assert.False(t, result.HasFixes(), "expected no fixes to be applied")
+				assert.Contains(t, doc.Components.Schemas, tt.expectedSchema)
+			}
+		})
+	}
+}
+
+// TestFixInvalidSchemaNamesOAS2 tests renaming schemas with brackets in OAS 2.0
+func TestFixInvalidSchemaNamesOAS2(t *testing.T) {
+	tests := []struct {
+		name           string
+		spec           string
+		strategy       GenericNamingStrategy
+		expectedSchema string
+		expectedRef    string
+		expectFix      bool
+	}{
+		{
+			name: "brackets renamed with underscore strategy",
+			spec: `
+swagger: "2.0"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      operationId: getUsers
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: "#/definitions/Response[User]"
+definitions:
+  Response[User]:
+    type: object
+    properties:
+      data:
+        $ref: "#/definitions/User"
+  User:
+    type: object
+    properties:
+      id:
+        type: integer
+`,
+			strategy:       GenericNamingUnderscore,
+			expectedSchema: "Response_User_",
+			expectedRef:    "#/definitions/Response_User_",
+			expectFix:      true,
+		},
+		{
+			name: "brackets renamed with of strategy",
+			spec: `
+swagger: "2.0"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /items:
+    get:
+      operationId: getItems
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: "#/definitions/List[Item]"
+definitions:
+  List[Item]:
+    type: array
+    items:
+      $ref: "#/definitions/Item"
+  Item:
+    type: object
+`,
+			strategy:       GenericNamingOf,
+			expectedSchema: "ListOfItem",
+			expectedRef:    "#/definitions/ListOfItem",
+			expectFix:      true,
+		},
+		{
+			name: "valid schema names not modified",
+			spec: `
+swagger: "2.0"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      operationId: getUsers
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: "#/definitions/UserList"
+definitions:
+  UserList:
+    type: array
+    items:
+      $ref: "#/definitions/User"
+  User:
+    type: object
+`,
+			strategy:       GenericNamingOf,
+			expectedSchema: "UserList",
+			expectedRef:    "#/definitions/UserList",
+			expectFix:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Parse
+			parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(tt.spec)))
+			require.NoError(t, err)
+
+			// Fix with specific strategy
+			f := New()
+			f.EnabledFixes = []FixType{FixTypeRenamedGenericSchema}
+			f.GenericNamingConfig.Strategy = tt.strategy
+			result, err := f.FixParsed(*parseResult)
+			require.NoError(t, err)
+
+			// Assert
+			doc := result.Document.(*parser.OAS2Document)
+
+			if tt.expectFix {
+				assert.True(t, result.HasFixes(), "expected fixes to be applied")
+				assert.Contains(t, doc.Definitions, tt.expectedSchema,
+					"expected definition %s to exist", tt.expectedSchema)
+
+				// Verify the ref was rewritten in responses
+				pathItem := doc.Paths["/users"]
+				if pathItem == nil {
+					pathItem = doc.Paths["/items"]
+				}
+				require.NotNil(t, pathItem)
+				require.NotNil(t, pathItem.Get)
+				assert.Equal(t, tt.expectedRef, pathItem.Get.Responses.Codes["200"].Schema.Ref)
+			} else {
+				assert.False(t, result.HasFixes(), "expected no fixes to be applied")
+				assert.Contains(t, doc.Definitions, tt.expectedSchema)
+			}
+		})
+	}
+}
+
+// TestFixNestedGenericTypesOAS3 tests renaming nested generic types
+func TestFixNestedGenericTypesOAS3(t *testing.T) {
+	spec := `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /data:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response[List[User]]"
+components:
+  schemas:
+    Response[List[User]]:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/List[User]"
+    List[User]:
+      type: array
+      items:
+        $ref: "#/components/schemas/User"
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+`
+	// Parse
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	// Fix with "of" strategy
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeRenamedGenericSchema}
+	f.GenericNamingConfig.Strategy = GenericNamingOf
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Assert - nested generics should be transformed recursively
+	doc := result.Document.(*parser.OAS3Document)
+
+	// Should have 2 fixes (Response[List[User]] and List[User])
+	assert.Equal(t, 2, result.FixCount)
+
+	// Check the transformed names exist
+	assert.Contains(t, doc.Components.Schemas, "ResponseOfListOfUser")
+	assert.Contains(t, doc.Components.Schemas, "ListOfUser")
+	assert.Contains(t, doc.Components.Schemas, "User") // unchanged
+
+	// Verify refs were rewritten
+	responseSchema := doc.Components.Schemas["ResponseOfListOfUser"]
+	assert.Equal(t, "#/components/schemas/ListOfUser", responseSchema.Properties["data"].Ref)
+}
+
+// TestFixGenericSchemaNameCollision tests that name collisions are handled
+func TestFixGenericSchemaNameCollision(t *testing.T) {
+	spec := `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /data:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response[User]"
+components:
+  schemas:
+    Response[User]:
+      type: object
+      properties:
+        data:
+          type: string
+    ResponseOfUser:
+      type: object
+      properties:
+        existing:
+          type: boolean
+`
+	// Parse
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	// Fix - should avoid collision with existing ResponseOfUser
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeRenamedGenericSchema}
+	f.GenericNamingConfig.Strategy = GenericNamingOf
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Assert
+	doc := result.Document.(*parser.OAS3Document)
+	assert.True(t, result.HasFixes())
+
+	// Original ResponseOfUser should still exist
+	assert.Contains(t, doc.Components.Schemas, "ResponseOfUser")
+
+	// Renamed schema should have numeric suffix to avoid collision
+	assert.Contains(t, doc.Components.Schemas, "ResponseOfUser2")
+
+	// Response[User] should be gone
+	assert.NotContains(t, doc.Components.Schemas, "Response[User]")
+}
+
+// =============================================================================
+// Pruning Tests
+// =============================================================================
+
+// TestPruneUnusedSchemasOAS3 tests removing orphaned schemas in OAS 3.x
+func TestPruneUnusedSchemasOAS3(t *testing.T) {
+	spec := `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+    OrphanedSchema:
+      type: object
+      properties:
+        unused:
+          type: string
+    AnotherOrphan:
+      type: string
+`
+	// Parse
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	// Fix with pruning enabled
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Assert
+	doc := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, 2, result.FixCount) // 2 orphaned schemas removed
+
+	// User should remain (referenced)
+	assert.Contains(t, doc.Components.Schemas, "User")
+
+	// Orphaned schemas should be removed
+	assert.NotContains(t, doc.Components.Schemas, "OrphanedSchema")
+	assert.NotContains(t, doc.Components.Schemas, "AnotherOrphan")
+}
+
+// TestPruneUnusedSchemasOAS2 tests removing orphaned schemas in OAS 2.0
+func TestPruneUnusedSchemasOAS2(t *testing.T) {
+	spec := `
+swagger: "2.0"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      operationId: getUsers
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: "#/definitions/User"
+definitions:
+  User:
+    type: object
+    properties:
+      id:
+        type: integer
+  UnusedDefinition:
+    type: object
+    properties:
+      orphan:
+        type: string
+`
+	// Parse
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	// Fix with pruning enabled
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Assert
+	doc := result.Document.(*parser.OAS2Document)
+	assert.Equal(t, 1, result.FixCount)
+
+	// User should remain (referenced)
+	assert.Contains(t, doc.Definitions, "User")
+
+	// Orphaned definition should be removed
+	assert.NotContains(t, doc.Definitions, "UnusedDefinition")
+}
+
+// TestPruneTransitiveReferencesPreserved tests that transitive refs are preserved
+func TestPruneTransitiveReferencesPreserved(t *testing.T) {
+	spec := `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+components:
+  schemas:
+    UserResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+    User:
+      type: object
+      properties:
+        address:
+          $ref: "#/components/schemas/Address"
+    Address:
+      type: object
+      properties:
+        city:
+          type: string
+    Orphan:
+      type: object
+`
+	// Parse
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	// Fix with pruning enabled
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Assert
+	doc := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, 1, result.FixCount) // Only Orphan removed
+
+	// All transitively referenced schemas should remain
+	assert.Contains(t, doc.Components.Schemas, "UserResponse")
+	assert.Contains(t, doc.Components.Schemas, "User")
+	assert.Contains(t, doc.Components.Schemas, "Address")
+
+	// Orphan should be removed
+	assert.NotContains(t, doc.Components.Schemas, "Orphan")
+}
+
+// TestPruneCircularReferencesHandled tests that circular refs don't cause infinite loops
+func TestPruneCircularReferencesHandled(t *testing.T) {
+	spec := `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /nodes:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Node"
+components:
+  schemas:
+    Node:
+      type: object
+      properties:
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+        parent:
+          $ref: "#/components/schemas/Node"
+    Orphan:
+      type: object
+`
+	// Parse
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	// Fix with pruning enabled - should not hang on circular refs
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Assert
+	doc := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, 1, result.FixCount) // Only Orphan removed
+
+	// Node (with circular refs) should remain
+	assert.Contains(t, doc.Components.Schemas, "Node")
+
+	// Orphan should be removed
+	assert.NotContains(t, doc.Components.Schemas, "Orphan")
+}
+
+// TestPruneEmptyPaths tests removing paths with no operations
+func TestPruneEmptyPaths(t *testing.T) {
+	spec := `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      responses:
+        "200":
+          description: Success
+  /empty:
+    parameters:
+      - name: id
+        in: query
+        schema:
+          type: string
+  /also-empty: {}
+`
+	// Parse
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	// Fix with path pruning enabled
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedEmptyPath}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Assert
+	doc := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, 2, result.FixCount) // Two empty paths removed
+
+	// /users should remain (has operations)
+	assert.Contains(t, doc.Paths, "/users")
+
+	// Empty paths should be removed
+	assert.NotContains(t, doc.Paths, "/empty")
+	assert.NotContains(t, doc.Paths, "/also-empty")
+}
+
+// TestPruneEmptyPathsOAS2 tests removing empty paths in OAS 2.0
+func TestPruneEmptyPathsOAS2(t *testing.T) {
+	spec := `
+swagger: "2.0"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /items:
+    get:
+      operationId: getItems
+      responses:
+        "200":
+          description: Success
+  /empty-path:
+    parameters:
+      - name: filter
+        in: query
+        type: string
+`
+	// Parse
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	// Fix with path pruning enabled
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedEmptyPath}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Assert
+	doc := result.Document.(*parser.OAS2Document)
+	assert.Equal(t, 1, result.FixCount)
+
+	// /items should remain
+	assert.Contains(t, doc.Paths, "/items")
+
+	// Empty path should be removed
+	assert.NotContains(t, doc.Paths, "/empty-path")
+}
+
+// TestPruneAllSchemasWhenNoneReferenced tests that schemas map becomes nil when all pruned
+func TestPruneAllSchemasWhenNoneReferenced(t *testing.T) {
+	spec := `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /health:
+    get:
+      responses:
+        "200":
+          description: OK
+components:
+  schemas:
+    UnusedSchema:
+      type: object
+`
+	// Parse
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	// Fix
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Assert
+	doc := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, 1, result.FixCount)
+
+	// Schemas should be nil when all are pruned
+	assert.Nil(t, doc.Components.Schemas)
+}
+
+// TestPruneWithNilComponents tests pruning when components is nil
+func TestPruneWithNilComponents(t *testing.T) {
+	spec := `
+openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /health:
+    get:
+      responses:
+        "200":
+          description: OK
+`
+	// Parse
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	// Fix - should not panic with nil components
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Assert - no fixes since no schemas
+	assert.Equal(t, 0, result.FixCount)
+}
+
+// =============================================================================
+// Option Function Tests
+// =============================================================================
+
+// TestWithGenericNaming tests the WithGenericNaming option
+func TestWithGenericNaming(t *testing.T) {
+	cfg := &fixConfig{}
+	opt := WithGenericNaming(GenericNamingOf)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, GenericNamingOf, cfg.genericNamingConfig.Strategy)
+}
+
+// TestWithGenericNamingConfig tests the WithGenericNamingConfig option
+func TestWithGenericNamingConfig(t *testing.T) {
+	customConfig := GenericNamingConfig{
+		Strategy:       GenericNamingFor,
+		Separator:      "-",
+		ParamSeparator: "-",
+		PreserveCasing: true,
+	}
+
+	cfg := &fixConfig{}
+	opt := WithGenericNamingConfig(customConfig)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, customConfig, cfg.genericNamingConfig)
+}
+
+// TestWithDryRun tests the WithDryRun option
+func TestWithDryRun(t *testing.T) {
+	cfg := &fixConfig{}
+	opt := WithDryRun(true)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.True(t, cfg.dryRun)
+}
+
+// TestWithEnabledFixes tests the WithEnabledFixes option
+func TestWithEnabledFixes(t *testing.T) {
+	cfg := &fixConfig{}
+	opt := WithEnabledFixes(FixTypePrunedUnusedSchema, FixTypeRenamedGenericSchema)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, []FixType{FixTypePrunedUnusedSchema, FixTypeRenamedGenericSchema}, cfg.enabledFixes)
+}
+
+// TestIsFixEnabled_MultipleTypes tests isFixEnabled with multiple fix types
+func TestIsFixEnabled_MultipleTypes(t *testing.T) {
+	f := New()
+
+	// All enabled by default (nil EnabledFixes)
+	assert.True(t, f.isFixEnabled(FixTypeMissingPathParameter))
+	assert.True(t, f.isFixEnabled(FixTypePrunedUnusedSchema))
+	assert.True(t, f.isFixEnabled(FixTypeRenamedGenericSchema))
+	assert.True(t, f.isFixEnabled(FixTypePrunedEmptyPath))
+
+	// Restrict to specific fixes
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema, FixTypeRenamedGenericSchema}
+	assert.False(t, f.isFixEnabled(FixTypeMissingPathParameter))
+	assert.True(t, f.isFixEnabled(FixTypePrunedUnusedSchema))
+	assert.True(t, f.isFixEnabled(FixTypeRenamedGenericSchema))
+	assert.False(t, f.isFixEnabled(FixTypePrunedEmptyPath))
+}
+
 // TestFixer_SourceMapPassedThrough tests that source map is passed to the Fixer
 func TestFixer_SourceMapPassedThrough(t *testing.T) {
 	sm := parser.NewSourceMap()
