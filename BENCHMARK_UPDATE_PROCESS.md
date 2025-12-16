@@ -22,7 +22,7 @@ When investigating a suspected regression, **always use these benchmarks**:
 
 ```bash
 # Run ONLY reliable benchmarks (no file I/O in measurement loop)
-go test -bench='ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|DiffParsed' -benchmem ./...
+go test -bench='ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|Diff/Parsed' -benchmem ./...
 ```
 
 | Package | Recommended Benchmark | Reliable? |
@@ -31,8 +31,8 @@ go test -bench='ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|Diff
 | joiner | `BenchmarkJoinParsed` | ✅ Yes |
 | validator | `BenchmarkValidateParsed` | ✅ Yes |
 | fixer | `BenchmarkFixParsed` | ✅ Yes |
-| converter | `BenchmarkConvertParsed` | ✅ Yes |
-| differ | `BenchmarkDiffParsed` | ✅ Yes |
+| converter | `BenchmarkConvertParsed*` | ✅ Yes |
+| differ | `BenchmarkDiff/Parsed` | ✅ Yes |
 | (all) | `BenchmarkParse`, `BenchmarkJoin`, etc. | ❌ No (I/O variance) |
 
 ### Quick Regression Check Workflow

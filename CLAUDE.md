@@ -338,8 +338,8 @@ Investigation in v1.28.1 revealed that saved benchmark files showed apparent reg
 | joiner | `BenchmarkJoinParsed` | Pre-parses all documents, benchmarks only joining logic |
 | validator | `BenchmarkValidateParsed` | Pre-parsed, benchmarks only validation |
 | fixer | `BenchmarkFixParsed` | Pre-parsed, benchmarks only fixing |
-| converter | `BenchmarkConvertParsed` | Pre-parsed, benchmarks only conversion |
-| differ | `BenchmarkDiffParsed` | Pre-parsed, benchmarks only diffing |
+| converter | `BenchmarkConvertParsed*` | Pre-parsed, benchmarks only conversion (OAS2ToOAS3, OAS3ToOAS2) |
+| differ | `BenchmarkDiff/Parsed` | Pre-parsed sub-benchmark, benchmarks only diffing |
 
 **❌ UNRELIABLE: File-based benchmarks are for informational purposes only:**
 - `BenchmarkParse` - Includes file I/O variance
@@ -355,10 +355,10 @@ To check for actual performance regressions:
 
 ```bash
 # 1. Run ONLY the I/O-isolated benchmarks
-go test -bench='Core|Parsed|Bytes' -benchmem ./parser ./joiner ./validator ./fixer ./converter ./differ
+go test -bench='ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|Diff/Parsed' -benchmem ./...
 
 # 2. Save results with a version tag
-go test -bench='Core|Parsed|Bytes' -benchmem ./... > benchmarks/benchmark-v1.X.Y-core.txt
+go test -bench='ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|Diff/Parsed' -benchmem ./... > benchmarks/benchmark-v1.X.Y-core.txt
 
 # 3. Compare with previous version using benchstat
 benchstat benchmarks/benchmark-v1.OLD.Y-core.txt benchmarks/benchmark-v1.X.Y-core.txt

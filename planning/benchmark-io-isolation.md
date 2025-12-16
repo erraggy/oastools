@@ -31,7 +31,7 @@ The saved v1.25.0 benchmark was recorded under optimal I/O conditions (cached fi
    - Benchmarks only parsing logic (no file I/O in loop)
    - Covers: SmallOAS3, MediumOAS3, LargeOAS3, SmallOAS2, MediumOAS2
 
-2. **`BenchmarkJoinCore`** (joiner/joiner_bench_test.go)
+2. **`BenchmarkJoinParsed`** (joiner/joiner_bench_test.go)
    - Pre-parses all documents in setup
    - Benchmarks only joining logic
    - Covers: TwoDocs, ThreeDocs, FiveDocs
@@ -41,7 +41,7 @@ The saved v1.25.0 benchmark was recorded under optimal I/O conditions (cached fi
 Both benchmark files now include detailed comments explaining:
 - I/O variance can be +/- 50%
 - Which benchmarks are reliable for regression detection
-- Recommendation to use `*Core` or `*Parsed` benchmarks for CI
+- Recommendation to use I/O-isolated benchmarks (`BenchmarkParseCore`, `BenchmarkJoinParsed`) for CI
 
 ## Verification
 
@@ -49,17 +49,17 @@ All tests pass: `make check` ✓
 
 New benchmark results (I/O-free):
 ```
-BenchmarkParseCore/SmallOAS3    122 µs
-BenchmarkParseCore/MediumOAS3   1.1 ms
-BenchmarkJoinCore/TwoDocs       778 ns
-BenchmarkJoinCore/ThreeDocs     982 ns
+BenchmarkParseCore/SmallOAS3     122 µs
+BenchmarkParseCore/MediumOAS3    1.1 ms
+BenchmarkJoinParsed/TwoDocs      778 ns
+BenchmarkJoinParsed/ThreeDocs    982 ns
 ```
 
 ## Remaining Work
 
 - [x] Create feature branch
 - [x] Add BenchmarkParseCore
-- [x] Add BenchmarkJoinCore
+- [x] Add FiveDocs case to BenchmarkJoinParsed
 - [x] Add documentation to benchmark files
 - [x] Run make check
 - [x] Commit changes
