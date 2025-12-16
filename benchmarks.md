@@ -8,6 +8,41 @@ As of v1.18.0, oastools includes comprehensive performance benchmarking infrastr
 
 **Platform**: Apple M4, darwin/arm64, Go 1.24
 
+## ⚠️ Benchmark Reliability Notice
+
+### I/O Variance Can Mask Reality
+
+**IMPORTANT:** File-based benchmarks (e.g., `BenchmarkParse`, `BenchmarkJoin`) include file I/O in every iteration. This makes them **unreliable for detecting code-level performance regressions** because:
+
+- Filesystem caching state varies between benchmark runs
+- System load affects disk access times
+- I/O variance can be **+/- 50%** or more
+
+**Example:** An investigation in v1.28.1 found that comparing saved benchmarks showed apparent 51-82% regressions. However, running both versions live on the same machine showed **0% actual code performance difference**.
+
+### Which Benchmarks to Trust
+
+| Benchmark Type | Pattern | Use For | Reliable? |
+|----------------|---------|---------|-----------|
+| I/O-Isolated | `*Core`, `*Bytes` | Regression detection | ✅ Yes |
+| Pre-Parsed | `*Parsed` | Regression detection | ✅ Yes |
+| End-to-End | `BenchmarkParse`, `BenchmarkJoin`, etc. | User documentation | ⚠️ Informational only |
+
+### Recommended Benchmarks for Regression Detection
+
+```bash
+# Parser: Use BenchmarkParseCore (not BenchmarkParse)
+go test -bench=BenchmarkParseCore -benchmem ./parser
+
+# Joiner: Use BenchmarkJoinParsed (not BenchmarkJoin)
+go test -bench=BenchmarkJoinParsed -benchmem ./joiner
+
+# All packages: Filter to reliable benchmarks only
+go test -bench='ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|Diff/Parsed' -benchmem ./...
+```
+
+See [CLAUDE.md](CLAUDE.md#-benchmark-reliability-and-performance-regression-detection) and [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md#-important-detecting-performance-regressions) for detailed guidance on investigating suspected regressions.
+
 ## Key Performance Achievements
 
 ### Phase 2 Optimization: JSON Marshaling (v1.7.0)

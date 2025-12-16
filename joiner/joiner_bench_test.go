@@ -7,10 +7,20 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// Note on b.Fatalf usage in benchmarks:
-// Using b.Fatalf for errors in benchmark setup or execution is an acceptable pattern.
-// These operations (join, parse) should never fail with valid test fixtures.
-// If they do fail, it indicates a bug that should halt the benchmark immediately.
+// Benchmark Design Notes:
+//
+// File I/O Variance: Benchmarks involving file reads (BenchmarkJoin, BenchmarkJoinStrategy,
+// BenchmarkJoinOptions, BenchmarkJoinWithOptions/FilePaths) can vary significantly (+/- 50%)
+// depending on filesystem caching, system load, and disk performance. These benchmarks measure
+// end-to-end performance but are NOT reliable for detecting code-level performance regressions.
+//
+// For accurate performance comparison, use these I/O-free benchmarks:
+//   - BenchmarkJoinParsed - Pre-parses documents, benchmarks only joining logic (RECOMMENDED for CI)
+//   - BenchmarkJoinWithOptions/Parsed - Functional options API without I/O
+//   - BenchmarkJoinHelpers - Benchmarks helper functions only
+//
+// Note on b.Fatalf usage: Using b.Fatalf for errors in benchmark setup or execution is acceptable.
+// These operations should never fail with valid test fixtures. If they fail, it indicates a bug.
 
 // Benchmark fixtures
 const (
@@ -63,7 +73,9 @@ func BenchmarkJoin(b *testing.B) {
 	})
 }
 
-// BenchmarkJoinParsed benchmarks joining already-parsed documents
+// BenchmarkJoinParsed benchmarks joining already-parsed documents.
+// This is the RECOMMENDED benchmark for detecting performance regressions
+// as it eliminates filesystem variance and measures only joining logic.
 func BenchmarkJoinParsed(b *testing.B) {
 	doc1, err := parser.ParseWithOptions(parser.WithFilePath(joinBaseOAS3Path))
 	if err != nil {
@@ -97,6 +109,16 @@ func BenchmarkJoinParsed(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
 			_, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2, *doc3})
+			if err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
+		}
+	})
+
+	b.Run("FiveDocs", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2, *doc3, *doc1, *doc2})
 			if err != nil {
 				b.Fatalf("Failed to join: %v", err)
 			}

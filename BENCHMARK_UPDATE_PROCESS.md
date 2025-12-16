@@ -2,6 +2,60 @@
 
 This document describes the process for updating benchmark results after making changes to the codebase. Follow this process before each release to ensure performance metrics are current.
 
+## ⚠️ IMPORTANT: Detecting Performance Regressions
+
+> **TL;DR:** File-based benchmarks can vary +/- 50% due to I/O. Use `*Core` or `*Parsed` benchmarks for reliable regression detection.
+
+### The Problem
+
+Saved benchmark files capture I/O conditions at the time of recording. Comparing saved benchmarks across versions can show **phantom regressions of 50%+** that are actually just I/O variance, not real code changes.
+
+**Example from v1.28.1 investigation:**
+| Benchmark | Saved v1.25.0 | Saved v1.28.1 | Live Comparison |
+|-----------|---------------|---------------|-----------------|
+| Parse/SmallOAS3 | 143 µs | 217 µs (+51%) | **0% actual change** |
+| Join/TwoDocs | 103 µs | 188 µs (+82%) | **0% actual change** |
+
+### The Solution: Use I/O-Isolated Benchmarks
+
+When investigating a suspected regression, **always use these benchmarks**:
+
+```bash
+# Run ONLY reliable benchmarks (no file I/O in measurement loop)
+go test -bench='ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|Diff/Parsed' -benchmem ./...
+```
+
+| Package | Recommended Benchmark | Reliable? |
+|---------|----------------------|-----------|
+| parser | `BenchmarkParseCore` | ✅ Yes |
+| joiner | `BenchmarkJoinParsed` | ✅ Yes |
+| validator | `BenchmarkValidateParsed` | ✅ Yes |
+| fixer | `BenchmarkFixParsed` | ✅ Yes |
+| converter | `BenchmarkConvertParsed*` | ✅ Yes |
+| differ | `BenchmarkDiff/Parsed` | ✅ Yes |
+| (all) | `BenchmarkParse`, `BenchmarkJoin`, etc. | ❌ No (I/O variance) |
+
+### Quick Regression Check Workflow
+
+```bash
+# 1. Checkout the suspected "slow" version
+git checkout v1.X.Y
+go test -bench='ParseCore|JoinParsed' -benchmem ./parser ./joiner > /tmp/old.txt
+
+# 2. Checkout the current version
+git checkout main
+go test -bench='ParseCore|JoinParsed' -benchmem ./parser ./joiner > /tmp/new.txt
+
+# 3. Compare with benchstat
+benchstat /tmp/old.txt /tmp/new.txt
+```
+
+**If benchstat shows no significant change, there is no regression—regardless of what saved benchmark files show.**
+
+See [CLAUDE.md](CLAUDE.md#-benchmark-reliability-and-performance-regression-detection) for detailed guidance.
+
+---
+
 ## When to Update Benchmarks
 
 Update benchmarks in the following situations:

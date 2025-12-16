@@ -309,6 +309,79 @@ func BenchmarkOperation(b *testing.B) {
 - Call `b.ReportAllocs()` manually (handled by `b.Loop()`)
 - Call `b.ResetTimer()` for trivial setup
 
+### ⚠️ Benchmark Reliability and Performance Regression Detection
+
+**CRITICAL: File-based benchmarks are NOT reliable for detecting performance regressions.**
+
+#### The I/O Variance Problem
+
+Investigation in v1.28.1 revealed that saved benchmark files showed apparent regressions of 51-82% compared to earlier versions. However, when running both versions back-to-back on the same machine:
+
+| Benchmark | Saved v1.25.0 | Saved v1.28.1 | Live v1.25.0 | Live HEAD |
+|-----------|---------------|---------------|--------------|-----------|
+| Parse/SmallOAS3 | 143 µs | 217 µs | **176 µs** | **173 µs** |
+| Join/TwoDocs | 103 µs | 188 µs | **185 µs** | **186 µs** |
+
+**Conclusion:** The "regressions" were **not real code changes**—they were artifacts of I/O variance in saved benchmarks. File I/O can vary **+/- 50%** depending on:
+- Filesystem caching state
+- System load during benchmark capture
+- Disk performance and fragmentation
+- Background processes
+
+#### Reliable Benchmarks for Regression Detection
+
+**✅ RECOMMENDED: Use I/O-isolated benchmarks for detecting performance regressions:**
+
+| Package | Reliable Benchmark | Description |
+|---------|-------------------|-------------|
+| parser | `BenchmarkParseCore` | Pre-loads all test files, benchmarks only parsing logic |
+| joiner | `BenchmarkJoinParsed` | Pre-parses all documents, benchmarks only joining logic |
+| validator | `BenchmarkValidateParsed` | Pre-parsed, benchmarks only validation |
+| fixer | `BenchmarkFixParsed` | Pre-parsed, benchmarks only fixing |
+| converter | `BenchmarkConvertParsed*` | Pre-parsed, benchmarks only conversion (OAS2ToOAS3, OAS3ToOAS2) |
+| differ | `BenchmarkDiff/Parsed` | Pre-parsed sub-benchmark, benchmarks only diffing |
+
+**❌ UNRELIABLE: File-based benchmarks are for informational purposes only:**
+- `BenchmarkParse` - Includes file I/O variance
+- `BenchmarkJoin` - Includes file I/O variance
+- `BenchmarkValidate` - Includes file I/O variance
+- `BenchmarkFix` - Includes file I/O variance
+- `BenchmarkConvert` - Includes file I/O variance
+- `BenchmarkDiff` - Includes file I/O variance
+
+#### Detecting Real Performance Regressions
+
+To check for actual performance regressions:
+
+```bash
+# 1. Run ONLY the I/O-isolated benchmarks
+go test -bench='ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|Diff/Parsed' -benchmem ./...
+
+# 2. Save results with a version tag
+go test -bench='ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|Diff/Parsed' -benchmem ./... > benchmarks/benchmark-v1.X.Y-core.txt
+
+# 3. Compare with previous version using benchstat
+benchstat benchmarks/benchmark-v1.OLD.Y-core.txt benchmarks/benchmark-v1.X.Y-core.txt
+```
+
+**What counts as a regression:**
+- A statistically significant slowdown (benchstat shows `+X%` with `p < 0.05`)
+- Consistent across multiple runs
+- Observed in I/O-isolated benchmarks
+
+**What does NOT count as a regression:**
+- File-based benchmark variance (even 50%+ changes may be noise)
+- One-off measurements without statistical validation
+- Changes only in `BenchmarkParse`, `BenchmarkJoin`, etc. (file I/O benchmarks)
+
+#### Key Takeaway
+
+**If you suspect a performance regression, always verify by:**
+1. Running the specific benchmark multiple times
+2. Using only `*Core`, `*Parsed`, or `*Bytes` benchmarks
+3. Comparing with `benchstat` for statistical significance
+4. Running both versions back-to-back on the same machine if needed
+
 ## Security
 
 ### Checking for Security Vulnerabilities

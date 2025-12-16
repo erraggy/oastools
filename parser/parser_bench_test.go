@@ -6,10 +6,20 @@ import (
 	"testing"
 )
 
-// Note on b.Fatalf usage in benchmarks:
-// Using b.Fatalf for errors in benchmark setup or execution is an acceptable pattern.
-// These operations (parse, unmarshal, etc.) should never fail with valid test fixtures.
-// If they do fail, it indicates a bug that should halt the benchmark immediately.
+// Benchmark Design Notes:
+//
+// File I/O Variance: Benchmarks involving file reads (BenchmarkParse, BenchmarkParseWithOptions
+// with file paths) can vary significantly (+/- 50%) depending on filesystem caching, system load,
+// and disk performance. These benchmarks measure end-to-end performance but are NOT reliable
+// for detecting code-level performance regressions.
+//
+// For accurate performance comparison, use these I/O-free benchmarks:
+//   - BenchmarkParseCore - Pre-loads all sizes, benchmarks core parsing (RECOMMENDED for CI)
+//   - BenchmarkParseBytes - Pre-loads file data, benchmarks parsing (subset of sizes)
+//   - BenchmarkDeepCopy - Benchmarks only document copying
+//
+// Note on b.Fatalf usage: Using b.Fatalf for errors in benchmark setup or execution is acceptable.
+// These operations should never fail with valid test fixtures. If they fail, it indicates a bug.
 
 // Benchmark fixtures
 const (
@@ -101,6 +111,60 @@ func BenchmarkParseBytes(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				_, err := p.ParseBytes(data)
+				if err != nil {
+					b.Fatalf("Failed to parse: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// BenchmarkParseCore benchmarks core parsing performance without file I/O.
+// This is the RECOMMENDED benchmark for detecting performance regressions
+// as it eliminates filesystem variance and measures only parsing logic.
+func BenchmarkParseCore(b *testing.B) {
+	// Pre-load all test files in setup
+	smallOAS3Data, err := os.ReadFile(smallOAS3Path)
+	if err != nil {
+		b.Fatalf("Failed to read small OAS3 file: %v", err)
+	}
+	mediumOAS3Data, err := os.ReadFile(mediumOAS3Path)
+	if err != nil {
+		b.Fatalf("Failed to read medium OAS3 file: %v", err)
+	}
+	largeOAS3Data, err := os.ReadFile(largeOAS3Path)
+	if err != nil {
+		b.Fatalf("Failed to read large OAS3 file: %v", err)
+	}
+	smallOAS2Data, err := os.ReadFile(smallOAS2Path)
+	if err != nil {
+		b.Fatalf("Failed to read small OAS2 file: %v", err)
+	}
+	mediumOAS2Data, err := os.ReadFile(mediumOAS2Path)
+	if err != nil {
+		b.Fatalf("Failed to read medium OAS2 file: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		data []byte
+	}{
+		{"SmallOAS3", smallOAS3Data},
+		{"MediumOAS3", mediumOAS3Data},
+		{"LargeOAS3", largeOAS3Data},
+		{"SmallOAS2", smallOAS2Data},
+		{"MediumOAS2", mediumOAS2Data},
+	}
+
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			p := New()
+			p.ResolveRefs = false
+			p.ValidateStructure = true
+
+			b.ReportAllocs()
+			for b.Loop() {
+				_, err := p.ParseBytes(tt.data)
 				if err != nil {
 					b.Fatalf("Failed to parse: %v", err)
 				}
