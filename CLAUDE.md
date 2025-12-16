@@ -630,7 +630,10 @@ Use struct-based API for: multiple files, reusable instances, advanced configura
 **Fixer Package:**
 - Functional options: `fixer.FixWithOptions(fixer.WithFilePath(...), fixer.WithInferTypes(...), ...)`
 - Struct-based: `fixer.New()`, `Fixer.Fix()`, `Fixer.FixParsed()`
-- Configuration: `InferTypes` (infer parameter types from naming conventions)
+- Configuration: `InferTypes`, `EnabledFixes`, `GenericNamingConfig`, `DryRun`
+- Fix types: `FixTypeMissingPathParameter`, `FixTypeRenamedGenericSchema`, `FixTypePrunedUnusedSchema`, `FixTypePrunedEmptyPath`
+- Generic naming: `GenericNamingUnderscore`, `GenericNamingOf`, `GenericNamingFor`, `GenericNamingFlattened`, `GenericNamingDot`
+- Options: `WithGenericNaming(strategy)`, `WithGenericNamingConfig(config)`, `WithEnabledFixes(fixes...)`, `WithDryRun(bool)`
 - Returns FixResult with list of applied fixes and fixed document
 
 **Overlay Package:**

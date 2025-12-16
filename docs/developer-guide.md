@@ -337,6 +337,52 @@ case *parser.OAS3Document:
 }
 ```
 
+**Fixing Invalid Schema Names:**
+
+```go
+// Fix schemas with invalid names (e.g., Response[User])
+result, err := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithGenericNaming(fixer.GenericNamingOf), // Response[User] → ResponseOfUser
+)
+
+// Available naming strategies:
+// - fixer.GenericNamingUnderscore: Response[User] → Response_User_
+// - fixer.GenericNamingOf:         Response[User] → ResponseOfUser
+// - fixer.GenericNamingFor:        Response[User] → ResponseForUser
+// - fixer.GenericNamingFlattened:  Response[User] → ResponseUser
+// - fixer.GenericNamingDot:        Response[User] → Response.User
+```
+
+**Pruning Unused Schemas:**
+
+```go
+// Remove unreferenced schemas
+result, err := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithEnabledFixes(fixer.FixTypePrunedUnusedSchema),
+)
+
+for _, fix := range result.Fixes {
+    fmt.Printf("Removed unused schema: %s\n", fix.Before)
+}
+```
+
+**Dry-Run Mode:**
+
+```go
+// Preview changes without applying
+result, err := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithDryRun(true),
+)
+
+fmt.Printf("Would apply %d fix(es)\n", result.FixCount)
+for _, fix := range result.Fixes {
+    fmt.Printf("  %s: %s\n", fix.Type, fix.Description)
+}
+```
+
 ### Converter Package
 
 The converter package provides version conversion for OpenAPI Specification documents.

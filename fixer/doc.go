@@ -28,10 +28,34 @@
 //
 // The fixer currently supports the following automatic fixes:
 //
-//   - Missing path parameters: Adds Parameter objects for path template variables
-//     that are not declared in the operation's parameters list. For example, if a
-//     path is "/users/{userId}" but the operation doesn't declare a "userId" path
-//     parameter, the fixer adds one with type "string" (or inferred type if enabled).
+//   - Missing path parameters (FixTypeMissingPathParameter): Adds Parameter objects
+//     for path template variables that are not declared in the operation's parameters
+//     list. For example, if a path is "/users/{userId}" but the operation doesn't
+//     declare a "userId" path parameter, the fixer adds one with type "string" (or
+//     inferred type if enabled).
+//
+//   - Invalid schema names (FixTypeRenamedGenericSchema): Renames schemas with names
+//     containing characters that require URL encoding in $ref values. This commonly
+//     occurs with code generators that produce generic type names like "Response[User]".
+//     The fixer transforms these using configurable naming strategies.
+//
+//   - Unused schemas (FixTypePrunedUnusedSchema): Removes schema definitions that are
+//     not referenced anywhere in the document. Useful for cleaning up orphaned schemas.
+//
+//   - Empty paths (FixTypePrunedEmptyPath): Removes path items that have no HTTP
+//     operations defined (e.g., paths with only parameters but no get/post/etc).
+//
+// # Generic Naming Strategies
+//
+// When fixing invalid schema names, the following strategies are available:
+//
+//   - GenericNamingUnderscore: Response[User] → Response_User_
+//   - GenericNamingOf: Response[User] → ResponseOfUser
+//   - GenericNamingFor: Response[User] → ResponseForUser
+//   - GenericNamingFlattened: Response[User] → ResponseUser
+//   - GenericNamingDot: Response[User] → Response.User
+//
+// Configure using WithGenericNaming() or WithGenericNamingConfig() options.
 //
 // # Type Inference
 //
