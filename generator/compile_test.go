@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/erraggy/oastools/fixer"
+	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -556,4 +558,149 @@ go 1.24
 	cmd.Dir = outputDir
 	output, err := cmd.CombinedOutput()
 	assert.NoError(t, err, "generated OAS 2.0 server code should compile without errors.\nCompiler output:\n%s", string(output))
+}
+
+// TestFixerToGeneratorIntegration verifies the full pipeline from fixer to generator.
+// This reproduces the exact use case from issue #149:
+// OAS 2.0 in JSON format with --infer, --prune-all, generic naming, and missing path params.
+func TestFixerToGeneratorIntegration(t *testing.T) {
+	// Import fixer package for this integration test
+	// This is the EXACT use case from issue #149
+	specJSON := `{
+  "swagger": "2.0",
+  "info": {
+    "title": "Test API",
+    "version": "1.0"
+  },
+  "paths": {
+    "/users/{userId}/posts/{postId}": {
+      "get": {
+        "operationId": "getUserPost",
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Response[Post]"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Response[Post]": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/Post"
+        }
+      }
+    },
+    "Post": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "UnusedSchema": {
+      "type": "object",
+      "properties": {
+        "orphan": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}`
+
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "swagger.json")
+	err := os.WriteFile(tmpFile, []byte(specJSON), 0644)
+	require.NoError(t, err)
+
+	// Step 1: Parse the original document
+	parseResult, err := parser.ParseWithOptions(parser.WithFilePath(tmpFile))
+	require.NoError(t, err)
+	require.Equal(t, parser.FormatJSON, parseResult.SourceFormat, "should detect JSON format")
+
+	// Step 2: Run fixer with ALL options (matching issue #149 use case)
+	f := fixer.New()
+	f.InferTypes = true // --infer flag
+	f.EnabledFixes = []fixer.FixType{
+		fixer.FixTypeMissingPathParameter, // fix missing params
+		fixer.FixTypeRenamedGenericSchema, // generic naming
+		fixer.FixTypePrunedUnusedSchema,   // --prune-all
+		fixer.FixTypePrunedEmptyPath,      // --prune-all
+	}
+	f.GenericNamingConfig.Strategy = fixer.GenericNamingOf // _of_ strategy
+
+	fixResult, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+	require.True(t, fixResult.HasFixes(), "should have applied fixes")
+
+	// Verify the fixes that were applied
+	t.Logf("Applied %d fixes to the document", fixResult.FixCount)
+
+	// Step 3: Write the fixed document to a temp file
+	fixedFile := filepath.Join(tmpDir, "fixed-swagger.json")
+	err = parser.WriteDocument(fixedFile, fixResult.Document, fixResult.SourceFormat)
+	require.NoError(t, err)
+
+	// Step 4: Validate the fixed document is valid (even with --strict)
+	validateResult, err := parser.ParseWithOptions(
+		parser.WithFilePath(fixedFile),
+		parser.WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+	require.Empty(t, validateResult.Errors, "fixed document should be valid")
+
+	// Step 5: Generate client and server code from the fixed document
+	genResult, err := GenerateWithOptions(
+		WithFilePath(fixedFile),
+		WithPackageName("testapi"),
+		WithClient(true),
+		WithServer(true),
+		WithTypes(true),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, genResult)
+	require.NotEmpty(t, genResult.Files, "should generate files")
+
+	// Step 6: Write generated files to output directory
+	outputDir := filepath.Join(tmpDir, "testapi")
+	err = os.MkdirAll(outputDir, 0755)
+	require.NoError(t, err)
+
+	for _, file := range genResult.Files {
+		filePath := filepath.Join(outputDir, file.Name)
+		err = os.WriteFile(filePath, file.Content, 0644)
+		require.NoError(t, err, "failed to write %s", file.Name)
+		t.Logf("Generated file: %s", file.Name)
+	}
+
+	// Step 7: Create go.mod for the test package
+	goModContent := `module testapi
+
+go 1.24
+`
+	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
+	require.NoError(t, err)
+
+	// Step 8: Try to compile the generated code
+	// This is the CRITICAL test - the generated code MUST compile without errors
+	cmd := exec.Command("go", "build", "./...")
+	cmd.Dir = outputDir
+	output, err := cmd.CombinedOutput()
+	assert.NoError(t, err, "generated code from fixed document should compile without errors.\n"+
+		"This validates the fix for issue #149.\nCompiler output:\n%s", string(output))
+
+	if err == nil {
+		t.Logf("✅ SUCCESS: Generated code compiles successfully after fixer with --infer and --prune-all")
+	}
 }
