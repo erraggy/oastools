@@ -260,7 +260,10 @@ func (f *Fixer) rewriteAllRefsOAS3(doc *parser.OAS3Document, refRenames map[stri
 
 		// Parameters
 		for _, param := range doc.Components.Parameters {
-			if param != nil && param.Schema != nil {
+			if param == nil {
+				continue
+			}
+			if param.Schema != nil {
 				rewriteSchemaRefs(param.Schema, refRenames)
 			}
 			// Content schemas
@@ -283,7 +286,10 @@ func (f *Fixer) rewriteAllRefsOAS3(doc *parser.OAS3Document, refRenames map[stri
 
 		// Headers
 		for _, header := range doc.Components.Headers {
-			if header != nil && header.Schema != nil {
+			if header == nil {
+				continue
+			}
+			if header.Schema != nil {
 				rewriteSchemaRefs(header.Schema, refRenames)
 			}
 			for _, mt := range header.Content {

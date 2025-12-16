@@ -87,9 +87,16 @@ func extractSchemaName(ref, prefix string) string {
 // This is used to find transitive references (schemas referencing other schemas).
 // prefix should be "#/definitions/" for OAS 2.0 or "#/components/schemas/" for OAS 3.x
 func collectSchemaRefs(schema *parser.Schema, prefix string) []string {
-	if schema == nil {
+	visited := make(map[*parser.Schema]bool)
+	return collectSchemaRefsRecursive(schema, prefix, visited)
+}
+
+// collectSchemaRefsRecursive is the internal implementation with circular reference protection.
+func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited map[*parser.Schema]bool) []string {
+	if schema == nil || visited[schema] {
 		return nil
 	}
+	visited[schema] = true
 
 	var refs []string
 
@@ -100,77 +107,77 @@ func collectSchemaRefs(schema *parser.Schema, prefix string) []string {
 
 	// Properties
 	for _, propSchema := range schema.Properties {
-		refs = append(refs, collectSchemaRefs(propSchema, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(propSchema, prefix, visited)...)
 	}
 
 	// AdditionalProperties (can be *Schema or bool)
 	if schema.AdditionalProperties != nil {
 		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-			refs = append(refs, collectSchemaRefs(addProps, prefix)...)
+			refs = append(refs, collectSchemaRefsRecursive(addProps, prefix, visited)...)
 		}
 	}
 
 	// Items (can be *Schema or bool in OAS 3.1+)
 	if schema.Items != nil {
 		if items, ok := schema.Items.(*parser.Schema); ok {
-			refs = append(refs, collectSchemaRefs(items, prefix)...)
+			refs = append(refs, collectSchemaRefsRecursive(items, prefix, visited)...)
 		}
 	}
 
 	// AdditionalItems (can be *Schema or bool)
 	if schema.AdditionalItems != nil {
 		if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
-			refs = append(refs, collectSchemaRefs(addItems, prefix)...)
+			refs = append(refs, collectSchemaRefsRecursive(addItems, prefix, visited)...)
 		}
 	}
 
 	// Schema composition
 	for _, s := range schema.AllOf {
-		refs = append(refs, collectSchemaRefs(s, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(s, prefix, visited)...)
 	}
 	for _, s := range schema.AnyOf {
-		refs = append(refs, collectSchemaRefs(s, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(s, prefix, visited)...)
 	}
 	for _, s := range schema.OneOf {
-		refs = append(refs, collectSchemaRefs(s, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(s, prefix, visited)...)
 	}
 	if schema.Not != nil {
-		refs = append(refs, collectSchemaRefs(schema.Not, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(schema.Not, prefix, visited)...)
 	}
 
 	// OAS 3.1+ / JSON Schema Draft 2020-12 fields
 	for _, s := range schema.PrefixItems {
-		refs = append(refs, collectSchemaRefs(s, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(s, prefix, visited)...)
 	}
 	if schema.Contains != nil {
-		refs = append(refs, collectSchemaRefs(schema.Contains, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(schema.Contains, prefix, visited)...)
 	}
 	if schema.PropertyNames != nil {
-		refs = append(refs, collectSchemaRefs(schema.PropertyNames, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(schema.PropertyNames, prefix, visited)...)
 	}
 	for _, depSchema := range schema.DependentSchemas {
-		refs = append(refs, collectSchemaRefs(depSchema, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(depSchema, prefix, visited)...)
 	}
 
 	// Conditional schemas (OAS 3.1+)
 	if schema.If != nil {
-		refs = append(refs, collectSchemaRefs(schema.If, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(schema.If, prefix, visited)...)
 	}
 	if schema.Then != nil {
-		refs = append(refs, collectSchemaRefs(schema.Then, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(schema.Then, prefix, visited)...)
 	}
 	if schema.Else != nil {
-		refs = append(refs, collectSchemaRefs(schema.Else, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(schema.Else, prefix, visited)...)
 	}
 
 	// $defs (OAS 3.1+)
 	for _, defSchema := range schema.Defs {
-		refs = append(refs, collectSchemaRefs(defSchema, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(defSchema, prefix, visited)...)
 	}
 
 	// Pattern properties
 	for _, propSchema := range schema.PatternProperties {
-		refs = append(refs, collectSchemaRefs(propSchema, prefix)...)
+		refs = append(refs, collectSchemaRefsRecursive(propSchema, prefix, visited)...)
 	}
 
 	// Discriminator mapping values are references
@@ -241,7 +248,6 @@ func (f *Fixer) pruneEmptyPaths(paths parser.Paths, result *FixResult, version p
 			}
 			f.populateFixLocation(&fix)
 			result.Fixes = append(result.Fixes, fix)
-			result.FixCount++
 		}
 	}
 }
