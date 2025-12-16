@@ -147,6 +147,9 @@ oastools fix [flags] <file|url|->
 The fix command automatically corrects common validation errors in OpenAPI specifications. Currently supported fixes:
 
 - **Missing path parameters**: Adds missing path parameters (e.g., `{userId}`) that are referenced in the path but not declared in the parameters list
+- **Invalid schema names** (`--fix-schema-names`): Renames schemas with invalid characters (brackets, special characters) using configurable naming strategies
+- **Prune unused schemas** (`--prune-schemas`): Removes schema definitions that are not referenced anywhere in the document
+- **Prune empty paths** (`--prune-paths`): Removes path items that have no HTTP operations defined
 
 ### Flags
 
@@ -156,6 +159,15 @@ The fix command automatically corrects common validation errors in OpenAPI speci
 | `-s, --source-map` | Include line numbers in output (IDE-friendly format) |
 | `-o, --output` | Output file path (default: stdout) |
 | `-q, --quiet` | Quiet mode: only output the fixed document, no diagnostic messages |
+| `--fix-schema-names` | Fix invalid schema names (brackets, special characters) |
+| `--generic-naming` | Strategy for renaming generic types: `underscore`, `of`, `for`, `flat`, `dot` (default: underscore) |
+| `--generic-separator` | Separator for underscore strategy (default: `_`) |
+| `--generic-param-separator` | Separator between multiple type parameters (default: `_`) |
+| `--preserve-casing` | Preserve original casing of type parameters |
+| `--prune-schemas` | Remove unreferenced schema definitions |
+| `--prune-paths` | Remove paths with no operations |
+| `--prune-all, --prune` | Apply all pruning fixes (schemas, paths) |
+| `--dry-run` | Preview changes without modifying the document |
 | `-h, --help` | Display help for fix command |
 
 ### Type Inference
@@ -167,6 +179,22 @@ When `--infer` is enabled, parameter types are inferred from naming conventions:
 | Names ending in `id`, `Id`, `ID` | `integer` | - |
 | Names containing `uuid`, `guid` | `string` | `uuid` |
 | All other names | `string` | - |
+
+### Generic Naming Strategies
+
+When `--fix-schema-names` is enabled, schemas with invalid names (containing brackets or special characters) are renamed using the selected strategy:
+
+| Strategy | Example Input | Output |
+|----------|---------------|--------|
+| `underscore` (default) | `Response[User]` | `Response_User_` |
+| `of` | `Response[User]` | `ResponseOfUser` |
+| `for` | `Response[User]` | `ResponseForUser` |
+| `flat` | `Response[User]` | `ResponseUser` |
+| `dot` | `Response[User]` | `Response.User` |
+
+For multi-parameter types like `Map[string,int]`:
+- `underscore`: `Map_String_Int_`
+- `of`: `MapOfStringOfInt`
 
 ### Examples
 
@@ -182,6 +210,15 @@ oastools fix --infer openapi.yaml -o fixed.yaml
 
 # Fix from a URL
 oastools fix https://example.com/api/openapi.yaml -o fixed.yaml
+
+# Fix invalid schema names with "Of" strategy
+oastools fix --fix-schema-names --generic-naming of api.yaml
+
+# Remove unused schemas and empty paths
+oastools fix --prune-all api.yaml
+
+# Preview changes without modifying (dry run)
+oastools fix --dry-run --prune-schemas api.yaml
 
 # Fix from stdin (for pipelines)
 cat openapi.yaml | oastools fix - > fixed.yaml

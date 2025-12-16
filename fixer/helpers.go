@@ -10,7 +10,7 @@ import (
 // Uses generated DeepCopy methods for type-safe, efficient copying.
 func deepCopyOAS2Document(doc *parser.OAS2Document) (*parser.OAS2Document, error) {
 	if doc == nil {
-		return nil, fmt.Errorf("cannot copy nil document")
+		return nil, fmt.Errorf("fixer: cannot copy nil document")
 	}
 
 	cp := doc.DeepCopy()
@@ -22,7 +22,7 @@ func deepCopyOAS2Document(doc *parser.OAS2Document) (*parser.OAS2Document, error
 // Uses generated DeepCopy methods for type-safe, efficient copying.
 func deepCopyOAS3Document(doc *parser.OAS3Document) (*parser.OAS3Document, error) {
 	if doc == nil {
-		return nil, fmt.Errorf("cannot copy nil document")
+		return nil, fmt.Errorf("fixer: cannot copy nil document")
 	}
 
 	cp := doc.DeepCopy()

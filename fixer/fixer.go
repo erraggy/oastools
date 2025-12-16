@@ -203,10 +203,10 @@ func applyOptions(opts ...Option) (*fixConfig, error) {
 	}
 
 	if sources == 0 {
-		return nil, fmt.Errorf("no input source specified: use WithFilePath or WithParsed")
+		return nil, fmt.Errorf("fixer: no input source specified: use WithFilePath or WithParsed")
 	}
 	if sources > 1 {
-		return nil, fmt.Errorf("multiple input sources specified: use only one of WithFilePath or WithParsed")
+		return nil, fmt.Errorf("fixer: multiple input sources specified: use only one of WithFilePath or WithParsed")
 	}
 
 	return cfg, nil
@@ -216,7 +216,7 @@ func applyOptions(opts ...Option) (*fixConfig, error) {
 func WithFilePath(path string) Option {
 	return func(cfg *fixConfig) error {
 		if path == "" {
-			return fmt.Errorf("file path cannot be empty")
+			return fmt.Errorf("fixer: file path cannot be empty")
 		}
 		cfg.filePath = &path
 		return nil
