@@ -1794,16 +1794,16 @@ func TestOAS2JsonWithAllFixerOptions(t *testing.T) {
 	// Parse JSON
 	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(specJSON)))
 	require.NoError(t, err)
-	assert.Equal(t, parser.FormatJSON, parseResult.SourceFormat, "should detect JSON format")
+	assert.Equal(t, parser.SourceFormatJSON, parseResult.SourceFormat, "should detect JSON format")
 
 	// Fix with ALL options enabled (matching the user's use case)
 	f := New()
 	f.InferTypes = true // --infer flag
 	f.EnabledFixes = []FixType{
-		FixTypeMissingPathParameter,  // fix missing params
-		FixTypeRenamedGenericSchema,  // generic naming
-		FixTypePrunedUnusedSchema,    // --prune-all
-		FixTypePrunedEmptyPath,       // --prune-all
+		FixTypeMissingPathParameter, // fix missing params
+		FixTypeRenamedGenericSchema, // generic naming
+		FixTypePrunedUnusedSchema,   // --prune-all
+		FixTypePrunedEmptyPath,      // --prune-all
 	}
 	f.GenericNamingConfig.Strategy = GenericNamingOf // _of_ strategy
 
@@ -1872,7 +1872,7 @@ func TestOAS2JsonWithAllFixerOptions(t *testing.T) {
 		"ref should be rewritten to new schema name")
 
 	// Verify the output would be JSON (not YAML)
-	assert.Equal(t, parser.FormatJSON, result.SourceFormat,
+	assert.Equal(t, parser.SourceFormatJSON, result.SourceFormat,
 		"should preserve JSON format for output")
 }
 

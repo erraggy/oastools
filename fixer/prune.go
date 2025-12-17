@@ -115,13 +115,7 @@ func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited ma
 		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
 			refs = append(refs, collectSchemaRefsRecursive(addProps, prefix, visited)...)
 		} else if addPropsMap, ok := schema.AdditionalProperties.(map[string]interface{}); ok {
-			// Fallback: extract $ref from raw map (parser unmarshaling issue)
-			if refStr, ok := addPropsMap["$ref"].(string); ok {
-				if name := extractSchemaName(refStr, prefix); name != "" {
-					refs = append(refs, name)
-				}
-			}
-			// Recursively check for nested refs in the map
+			// Fallback: extract refs from raw map (polymorphic field may remain as map)
 			refs = append(refs, collectRefsFromMap(addPropsMap, prefix)...)
 		}
 	}
@@ -131,13 +125,7 @@ func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited ma
 		if items, ok := schema.Items.(*parser.Schema); ok {
 			refs = append(refs, collectSchemaRefsRecursive(items, prefix, visited)...)
 		} else if itemsMap, ok := schema.Items.(map[string]interface{}); ok {
-			// Fallback: extract $ref from raw map (parser unmarshaling issue)
-			if refStr, ok := itemsMap["$ref"].(string); ok {
-				if name := extractSchemaName(refStr, prefix); name != "" {
-					refs = append(refs, name)
-				}
-			}
-			// Recursively check for nested refs in the map
+			// Fallback: extract refs from raw map (polymorphic field may remain as map)
 			refs = append(refs, collectRefsFromMap(itemsMap, prefix)...)
 		}
 	}
@@ -147,13 +135,7 @@ func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited ma
 		if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
 			refs = append(refs, collectSchemaRefsRecursive(addItems, prefix, visited)...)
 		} else if addItemsMap, ok := schema.AdditionalItems.(map[string]interface{}); ok {
-			// Fallback: extract $ref from raw map (parser unmarshaling issue)
-			if refStr, ok := addItemsMap["$ref"].(string); ok {
-				if name := extractSchemaName(refStr, prefix); name != "" {
-					refs = append(refs, name)
-				}
-			}
-			// Recursively check for nested refs in the map
+			// Fallback: extract refs from raw map (polymorphic field may remain as map)
 			refs = append(refs, collectRefsFromMap(addItemsMap, prefix)...)
 		}
 	}
@@ -319,6 +301,8 @@ func isNameAvailable(name string, schemas map[string]*parser.Schema, pendingRena
 
 // isComponentsEmpty returns true if all component fields are nil or empty.
 // This is used to determine if the entire components object should be removed.
+// Specification extensions (x-* fields in Extra) are also checked to preserve
+// any custom extensions that users may have added to the components object.
 func isComponentsEmpty(comp *parser.Components) bool {
 	if comp == nil {
 		return true
@@ -332,12 +316,14 @@ func isComponentsEmpty(comp *parser.Components) bool {
 		len(comp.SecuritySchemes) == 0 &&
 		len(comp.Links) == 0 &&
 		len(comp.Callbacks) == 0 &&
-		len(comp.PathItems) == 0
+		len(comp.PathItems) == 0 &&
+		len(comp.Extra) == 0
 }
 
 // collectRefsFromMap extracts schema references from a raw map[string]interface{}.
-// This is a fallback for when the parser unmarshals schema fields (Items, AdditionalProperties, etc.)
-// as maps instead of *parser.Schema objects.
+// This handles polymorphic schema fields (Items, AdditionalProperties, etc.) that may
+// remain as untyped maps after YAML/JSON unmarshaling. These fields are declared as
+// `any` in parser.Schema to support both *Schema and bool values per the OAS spec.
 func collectRefsFromMap(m map[string]interface{}, prefix string) []string {
 	var refs []string
 

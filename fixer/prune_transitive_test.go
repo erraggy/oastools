@@ -516,3 +516,251 @@ definitions:
 		t.Logf("BUG CONFIRMED: Ref %q was NOT collected from WombatList.wombats.items", wombatRef)
 	}
 }
+
+// TestPruneOAS2_AnyOfOneOfRefs verifies that schemas referenced via anyOf/oneOf
+// composition are not pruned when they appear as map[string]interface{}.
+func TestPruneOAS2_AnyOfOneOfRefs(t *testing.T) {
+	// Note: OAS 2.0 doesn't officially support anyOf/oneOf, but many parsers allow it
+	// and the pruning logic should handle it correctly regardless
+	spec := `openapi: "3.0.3"
+info:
+  title: Shape API
+  version: "1.0.0"
+paths:
+  /shapes:
+    get:
+      operationId: getShapes
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShapeUnion'
+components:
+  schemas:
+    ShapeUnion:
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+        - $ref: '#/components/schemas/Square'
+      anyOf:
+        - $ref: '#/components/schemas/Triangle'
+    Circle:
+      type: object
+      properties:
+        radius:
+          type: number
+    Square:
+      type: object
+      properties:
+        side:
+          type: number
+    Triangle:
+      type: object
+      properties:
+        base:
+          type: number
+        height:
+          type: number
+    OrphanedHexagon:
+      type: object
+      description: Not referenced anywhere
+      properties:
+        sides:
+          type: integer
+`
+
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	fixedDoc, ok := result.Document.(*parser.OAS3Document)
+	require.True(t, ok)
+	require.NotNil(t, fixedDoc.Components)
+	require.NotNil(t, fixedDoc.Components.Schemas)
+
+	// These schemas should NOT be pruned - they are referenced via oneOf/anyOf
+	expectedSchemas := []string{
+		"ShapeUnion", // directly referenced in operation response
+		"Circle",     // referenced via ShapeUnion.oneOf
+		"Square",     // referenced via ShapeUnion.oneOf
+		"Triangle",   // referenced via ShapeUnion.anyOf
+	}
+
+	for _, name := range expectedSchemas {
+		_, exists := fixedDoc.Components.Schemas[name]
+		assert.True(t, exists, "schema %q should NOT have been pruned - it is transitively referenced", name)
+	}
+
+	// OrphanedHexagon SHOULD be pruned
+	_, orphanExists := fixedDoc.Components.Schemas["OrphanedHexagon"]
+	assert.False(t, orphanExists, "schema OrphanedHexagon SHOULD have been pruned")
+}
+
+// TestIsComponentsEmpty verifies the isComponentsEmpty helper function.
+func TestIsComponentsEmpty(t *testing.T) {
+	tests := []struct {
+		name     string
+		comp     *parser.Components
+		expected bool
+	}{
+		{
+			name:     "nil components",
+			comp:     nil,
+			expected: true,
+		},
+		{
+			name:     "empty components",
+			comp:     &parser.Components{},
+			expected: true,
+		},
+		{
+			name: "only schemas",
+			comp: &parser.Components{
+				Schemas: map[string]*parser.Schema{"A": {}},
+			},
+			expected: false,
+		},
+		{
+			name: "only responses",
+			comp: &parser.Components{
+				Responses: map[string]*parser.Response{"R": {}},
+			},
+			expected: false,
+		},
+		{
+			name: "only parameters",
+			comp: &parser.Components{
+				Parameters: map[string]*parser.Parameter{"P": {}},
+			},
+			expected: false,
+		},
+		{
+			name: "only examples",
+			comp: &parser.Components{
+				Examples: map[string]*parser.Example{"E": {}},
+			},
+			expected: false,
+		},
+		{
+			name: "only requestBodies",
+			comp: &parser.Components{
+				RequestBodies: map[string]*parser.RequestBody{"RB": {}},
+			},
+			expected: false,
+		},
+		{
+			name: "only headers",
+			comp: &parser.Components{
+				Headers: map[string]*parser.Header{"H": {}},
+			},
+			expected: false,
+		},
+		{
+			name: "only securitySchemes",
+			comp: &parser.Components{
+				SecuritySchemes: map[string]*parser.SecurityScheme{"SS": {}},
+			},
+			expected: false,
+		},
+		{
+			name: "only links",
+			comp: &parser.Components{
+				Links: map[string]*parser.Link{"L": {}},
+			},
+			expected: false,
+		},
+		{
+			name: "only callbacks",
+			comp: &parser.Components{
+				Callbacks: map[string]*parser.Callback{"CB": {}},
+			},
+			expected: false,
+		},
+		{
+			name: "only pathItems (OAS 3.1+)",
+			comp: &parser.Components{
+				PathItems: map[string]*parser.PathItem{"PI": {}},
+			},
+			expected: false,
+		},
+		{
+			name: "only extra (specification extensions)",
+			comp: &parser.Components{
+				Extra: map[string]any{"x-custom": "value"},
+			},
+			expected: false,
+		},
+		{
+			name: "multiple fields populated",
+			comp: &parser.Components{
+				Schemas:         map[string]*parser.Schema{"A": {}},
+				SecuritySchemes: map[string]*parser.SecurityScheme{"SS": {}},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isComponentsEmpty(tt.comp)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestPrunePreservesExtensionsInComponents verifies that specification extensions
+// (x-* fields) in components prevent the components object from being removed.
+func TestPrunePreservesExtensionsInComponents(t *testing.T) {
+	spec := `openapi: "3.0.3"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /health:
+    get:
+      responses:
+        "200":
+          description: OK
+components:
+  x-custom-extension: "important-value"
+  schemas:
+    UnusedSchema:
+      type: object
+`
+
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	// Manually add the extension to components since YAML parsing may not preserve it
+	doc, ok := parseResult.OAS3Document()
+	require.True(t, ok)
+	if doc.Components.Extra == nil {
+		doc.Components.Extra = make(map[string]any)
+	}
+	doc.Components.Extra["x-custom-extension"] = "important-value"
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	fixedDoc, ok := result.Document.(*parser.OAS3Document)
+	require.True(t, ok)
+
+	// Components should be retained because of the x-* extension
+	require.NotNil(t, fixedDoc.Components, "components should be retained when x-* extensions exist")
+	assert.NotNil(t, fixedDoc.Components.Extra, "Extra field should be preserved")
+	assert.Equal(t, "important-value", fixedDoc.Components.Extra["x-custom-extension"])
+
+	// But the unused schema should still be pruned
+	assert.Nil(t, fixedDoc.Components.Schemas, "schemas should be nil after pruning all")
+}

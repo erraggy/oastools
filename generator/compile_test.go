@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -627,7 +628,7 @@ func TestFixerToGeneratorIntegration(t *testing.T) {
 	// Step 1: Parse the original document
 	parseResult, err := parser.ParseWithOptions(parser.WithFilePath(tmpFile))
 	require.NoError(t, err)
-	require.Equal(t, parser.FormatJSON, parseResult.SourceFormat, "should detect JSON format")
+	require.Equal(t, parser.SourceFormatJSON, parseResult.SourceFormat, "should detect JSON format")
 
 	// Step 2: Run fixer with ALL options (matching issue #149 use case)
 	f := fixer.New()
@@ -649,7 +650,9 @@ func TestFixerToGeneratorIntegration(t *testing.T) {
 
 	// Step 3: Write the fixed document to a temp file
 	fixedFile := filepath.Join(tmpDir, "fixed-swagger.json")
-	err = parser.WriteDocument(fixedFile, fixResult.Document, fixResult.SourceFormat)
+	fixedData, err := json.MarshalIndent(fixResult.Document, "", "  ")
+	require.NoError(t, err)
+	err = os.WriteFile(fixedFile, fixedData, 0644)
 	require.NoError(t, err)
 
 	// Step 4: Validate the fixed document is valid (even with --strict)
