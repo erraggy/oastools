@@ -1,4 +1,10 @@
-# Bug Report: Transitive Schema References Not Followed During Pruning
+# [RESOLVED] Transitive Schema References Not Followed During Pruning
+
+> **Status:** ✅ Fixed in v1.28.2 (PR #150)
+> **Fixed:** 2025-12-16
+> **Commit:** `e711ed0` - fix(fixer): handle map[string]interface{} in transitive reference tracking
+
+---
 
 ## Summary
 
@@ -168,6 +174,16 @@ Fix the parser for correctness, and add the fixer fallback for defense-in-depth.
 - `fixer/prune.go` - `collectSchemaRefsRecursive()` with failing type assertions
 - `fixer/refs.go` - `RefCollector.collectSchemaRefs()` with same issue
 
-## Related Issues
+## Resolution
 
-This bug affects any code that relies on type assertions for `Schema.Items`, `Schema.AdditionalProperties`, etc. The generator may have similar issues.
+The fix implemented **Option 2** (fix the fixer) by adding `collectRefsFromMap()` helper function in `fixer/prune.go`. This function recursively traverses `map[string]interface{}` to extract all `$ref` strings, handling:
+
+- Direct `$ref` fields
+- Nested objects (`properties`, `allOf`, `anyOf`, `oneOf`)
+- Arrays of schemas
+
+The fix was applied to both `Items` and `AdditionalProperties` handling in `collectSchemaRefsRecursive()`.
+
+---
+
+*This document is preserved for historical reference. The bug has been fully resolved.*
