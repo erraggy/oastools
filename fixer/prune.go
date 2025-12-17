@@ -114,7 +114,7 @@ func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited ma
 	if schema.AdditionalProperties != nil {
 		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
 			refs = append(refs, collectSchemaRefsRecursive(addProps, prefix, visited)...)
-		} else if addPropsMap, ok := schema.AdditionalProperties.(map[string]interface{}); ok {
+		} else if addPropsMap, ok := schema.AdditionalProperties.(map[string]any); ok {
 			// Fallback: extract refs from raw map (polymorphic field may remain as map)
 			refs = append(refs, collectRefsFromMap(addPropsMap, prefix)...)
 		}
@@ -124,7 +124,7 @@ func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited ma
 	if schema.Items != nil {
 		if items, ok := schema.Items.(*parser.Schema); ok {
 			refs = append(refs, collectSchemaRefsRecursive(items, prefix, visited)...)
-		} else if itemsMap, ok := schema.Items.(map[string]interface{}); ok {
+		} else if itemsMap, ok := schema.Items.(map[string]any); ok {
 			// Fallback: extract refs from raw map (polymorphic field may remain as map)
 			refs = append(refs, collectRefsFromMap(itemsMap, prefix)...)
 		}
@@ -134,7 +134,7 @@ func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited ma
 	if schema.AdditionalItems != nil {
 		if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
 			refs = append(refs, collectSchemaRefsRecursive(addItems, prefix, visited)...)
-		} else if addItemsMap, ok := schema.AdditionalItems.(map[string]interface{}); ok {
+		} else if addItemsMap, ok := schema.AdditionalItems.(map[string]any); ok {
 			// Fallback: extract refs from raw map (polymorphic field may remain as map)
 			refs = append(refs, collectRefsFromMap(addItemsMap, prefix)...)
 		}
@@ -320,11 +320,11 @@ func isComponentsEmpty(comp *parser.Components) bool {
 		len(comp.Extra) == 0
 }
 
-// collectRefsFromMap extracts schema references from a raw map[string]interface{}.
+// collectRefsFromMap extracts schema references from a raw map[string]any.
 // This handles polymorphic schema fields (Items, AdditionalProperties, etc.) that may
 // remain as untyped maps after YAML/JSON unmarshaling. These fields are declared as
 // `any` in parser.Schema to support both *Schema and bool values per the OAS spec.
-func collectRefsFromMap(m map[string]interface{}, prefix string) []string {
+func collectRefsFromMap(m map[string]any, prefix string) []string {
 	var refs []string
 
 	// Check for direct $ref
@@ -335,29 +335,29 @@ func collectRefsFromMap(m map[string]interface{}, prefix string) []string {
 	}
 
 	// Check nested properties
-	if props, ok := m["properties"].(map[string]interface{}); ok {
+	if props, ok := m["properties"].(map[string]any); ok {
 		for _, propVal := range props {
-			if propMap, ok := propVal.(map[string]interface{}); ok {
+			if propMap, ok := propVal.(map[string]any); ok {
 				refs = append(refs, collectRefsFromMap(propMap, prefix)...)
 			}
 		}
 	}
 
 	// Check items
-	if items, ok := m["items"].(map[string]interface{}); ok {
+	if items, ok := m["items"].(map[string]any); ok {
 		refs = append(refs, collectRefsFromMap(items, prefix)...)
 	}
 
 	// Check additionalProperties
-	if addProps, ok := m["additionalProperties"].(map[string]interface{}); ok {
+	if addProps, ok := m["additionalProperties"].(map[string]any); ok {
 		refs = append(refs, collectRefsFromMap(addProps, prefix)...)
 	}
 
 	// Check allOf, anyOf, oneOf
 	for _, key := range []string{"allOf", "anyOf", "oneOf"} {
-		if arr, ok := m[key].([]interface{}); ok {
+		if arr, ok := m[key].([]any); ok {
 			for _, item := range arr {
-				if itemMap, ok := item.(map[string]interface{}); ok {
+				if itemMap, ok := item.(map[string]any); ok {
 					refs = append(refs, collectRefsFromMap(itemMap, prefix)...)
 				}
 			}

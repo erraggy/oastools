@@ -502,6 +502,9 @@ func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 	if schema.AdditionalProperties != nil {
 		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
 			c.collectSchemaRefs(addProps, fmt.Sprintf("%s.additionalProperties", path))
+		} else if addPropsMap, ok := schema.AdditionalProperties.(map[string]any); ok {
+			// Fallback: extract refs from raw map (polymorphic field may remain as map)
+			c.collectRefsFromMap(addPropsMap, fmt.Sprintf("%s.additionalProperties", path))
 		}
 	}
 
@@ -509,6 +512,9 @@ func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 	if schema.Items != nil {
 		if items, ok := schema.Items.(*parser.Schema); ok {
 			c.collectSchemaRefs(items, fmt.Sprintf("%s.items", path))
+		} else if itemsMap, ok := schema.Items.(map[string]any); ok {
+			// Fallback: extract refs from raw map (polymorphic field may remain as map)
+			c.collectRefsFromMap(itemsMap, fmt.Sprintf("%s.items", path))
 		}
 	}
 
@@ -516,6 +522,9 @@ func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 	if schema.AdditionalItems != nil {
 		if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
 			c.collectSchemaRefs(addItems, fmt.Sprintf("%s.additionalItems", path))
+		} else if addItemsMap, ok := schema.AdditionalItems.(map[string]any); ok {
+			// Fallback: extract refs from raw map (polymorphic field may remain as map)
+			c.collectRefsFromMap(addItemsMap, fmt.Sprintf("%s.additionalItems", path))
 		}
 	}
 
@@ -572,6 +581,135 @@ func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 	if schema.Discriminator != nil {
 		for key, ref := range schema.Discriminator.Mapping {
 			c.addRef(ref, fmt.Sprintf("%s.discriminator.mapping.%s", path, key), RefTypeSchema)
+		}
+	}
+}
+
+// maxRefCollectionDepth is the maximum recursion depth for collectRefsFromMap.
+// This prevents stack overflow from malformed or circular map structures.
+const maxRefCollectionDepth = 100
+
+// collectRefsFromMap extracts schema references from a raw map[string]any.
+// This handles polymorphic schema fields (Items, AdditionalProperties, etc.) that may
+// remain as untyped maps after YAML/JSON unmarshaling. These fields are declared as
+// `any` in parser.Schema to support both *Schema and bool values per the OAS spec.
+func (c *RefCollector) collectRefsFromMap(m map[string]any, path string) {
+	c.collectRefsFromMapWithDepth(m, path, 0)
+}
+
+// collectRefsFromMapWithDepth is the internal implementation with depth tracking.
+func (c *RefCollector) collectRefsFromMapWithDepth(m map[string]any, path string, depth int) {
+	if depth > maxRefCollectionDepth {
+		// Extremely deep nesting or circular structure - stop to prevent stack overflow
+		return
+	}
+
+	// Check for direct $ref
+	if refStr, ok := m["$ref"].(string); ok && refStr != "" {
+		c.addRef(refStr, path, RefTypeSchema)
+	}
+
+	// Check nested properties
+	if props, ok := m["properties"].(map[string]any); ok {
+		for propName, propVal := range props {
+			if propMap, ok := propVal.(map[string]any); ok {
+				c.collectRefsFromMapWithDepth(propMap, fmt.Sprintf("%s.properties.%s", path, propName), depth+1)
+			}
+		}
+	}
+
+	// Check items
+	if items, ok := m["items"].(map[string]any); ok {
+		c.collectRefsFromMapWithDepth(items, fmt.Sprintf("%s.items", path), depth+1)
+	}
+
+	// Check additionalProperties
+	if addProps, ok := m["additionalProperties"].(map[string]any); ok {
+		c.collectRefsFromMapWithDepth(addProps, fmt.Sprintf("%s.additionalProperties", path), depth+1)
+	}
+
+	// Check additionalItems
+	if addItems, ok := m["additionalItems"].(map[string]any); ok {
+		c.collectRefsFromMapWithDepth(addItems, fmt.Sprintf("%s.additionalItems", path), depth+1)
+	}
+
+	// Check allOf, anyOf, oneOf
+	for _, key := range []string{"allOf", "anyOf", "oneOf"} {
+		if arr, ok := m[key].([]any); ok {
+			for i, item := range arr {
+				if itemMap, ok := item.(map[string]any); ok {
+					c.collectRefsFromMapWithDepth(itemMap, fmt.Sprintf("%s.%s[%d]", path, key, i), depth+1)
+				}
+			}
+		}
+	}
+
+	// Check not
+	if notSchema, ok := m["not"].(map[string]any); ok {
+		c.collectRefsFromMapWithDepth(notSchema, fmt.Sprintf("%s.not", path), depth+1)
+	}
+
+	// Check conditional schemas (OAS 3.1+)
+	for _, key := range []string{"if", "then", "else"} {
+		if condSchema, ok := m[key].(map[string]any); ok {
+			c.collectRefsFromMapWithDepth(condSchema, fmt.Sprintf("%s.%s", path, key), depth+1)
+		}
+	}
+
+	// Check prefixItems (OAS 3.1+)
+	if prefixItems, ok := m["prefixItems"].([]any); ok {
+		for i, item := range prefixItems {
+			if itemMap, ok := item.(map[string]any); ok {
+				c.collectRefsFromMapWithDepth(itemMap, fmt.Sprintf("%s.prefixItems[%d]", path, i), depth+1)
+			}
+		}
+	}
+
+	// Check contains (OAS 3.1+)
+	if contains, ok := m["contains"].(map[string]any); ok {
+		c.collectRefsFromMapWithDepth(contains, fmt.Sprintf("%s.contains", path), depth+1)
+	}
+
+	// Check propertyNames (OAS 3.1+)
+	if propNames, ok := m["propertyNames"].(map[string]any); ok {
+		c.collectRefsFromMapWithDepth(propNames, fmt.Sprintf("%s.propertyNames", path), depth+1)
+	}
+
+	// Check dependentSchemas (OAS 3.1+)
+	if depSchemas, ok := m["dependentSchemas"].(map[string]any); ok {
+		for name, schemaVal := range depSchemas {
+			if schemaMap, ok := schemaVal.(map[string]any); ok {
+				c.collectRefsFromMapWithDepth(schemaMap, fmt.Sprintf("%s.dependentSchemas.%s", path, name), depth+1)
+			}
+		}
+	}
+
+	// Check patternProperties
+	if patternProps, ok := m["patternProperties"].(map[string]any); ok {
+		for pattern, propVal := range patternProps {
+			if propMap, ok := propVal.(map[string]any); ok {
+				c.collectRefsFromMapWithDepth(propMap, fmt.Sprintf("%s.patternProperties.%s", path, pattern), depth+1)
+			}
+		}
+	}
+
+	// Check $defs (OAS 3.1+)
+	if defs, ok := m["$defs"].(map[string]any); ok {
+		for name, defVal := range defs {
+			if defMap, ok := defVal.(map[string]any); ok {
+				c.collectRefsFromMapWithDepth(defMap, fmt.Sprintf("%s.$defs.%s", path, name), depth+1)
+			}
+		}
+	}
+
+	// Check discriminator.mapping
+	if disc, ok := m["discriminator"].(map[string]any); ok {
+		if mapping, ok := disc["mapping"].(map[string]any); ok {
+			for key, ref := range mapping {
+				if refStr, ok := ref.(string); ok && refStr != "" {
+					c.addRef(refStr, fmt.Sprintf("%s.discriminator.mapping.%s", path, key), RefTypeSchema)
+				}
+			}
 		}
 	}
 }
