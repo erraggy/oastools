@@ -764,3 +764,263 @@ components:
 	// But the unused schema should still be pruned
 	assert.Nil(t, fixedDoc.Components.Schemas, "schemas should be nil after pruning all")
 }
+
+// TestPruneOAS2_NestedPropertiesRefs verifies that schemas referenced via nested
+// properties within a map[string]interface{} are not pruned.
+func TestPruneOAS2_NestedPropertiesRefs(t *testing.T) {
+	spec := `swagger: "2.0"
+info:
+  title: Nested Properties API
+  version: "1.0.0"
+basePath: /v1
+paths:
+  /containers:
+    get:
+      operationId: getContainers
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/Container'
+definitions:
+  Container:
+    type: object
+    properties:
+      metadata:
+        type: object
+        properties:
+          owner:
+            $ref: '#/definitions/Owner'
+          tags:
+            type: array
+            items:
+              $ref: '#/definitions/Tag'
+  Owner:
+    type: object
+    properties:
+      name:
+        type: string
+  Tag:
+    type: object
+    properties:
+      key:
+        type: string
+      value:
+        type: string
+  OrphanedType:
+    type: object
+    description: Not referenced anywhere
+`
+
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	fixedDoc, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok)
+	require.NotNil(t, fixedDoc.Definitions)
+
+	// These schemas should NOT be pruned - they are referenced via nested properties
+	expectedSchemas := []string{
+		"Container", // directly referenced
+		"Owner",     // referenced via Container.metadata.properties.owner.$ref
+		"Tag",       // referenced via Container.metadata.properties.tags.items.$ref
+	}
+
+	for _, name := range expectedSchemas {
+		_, exists := fixedDoc.Definitions[name]
+		assert.True(t, exists, "schema %q should NOT have been pruned - it is transitively referenced via nested properties", name)
+	}
+
+	// OrphanedType SHOULD be pruned
+	_, orphanExists := fixedDoc.Definitions["OrphanedType"]
+	assert.False(t, orphanExists, "schema OrphanedType SHOULD have been pruned")
+}
+
+// TestPruneOAS2_AdditionalItemsRefs verifies that schemas referenced via additionalItems
+// are not pruned when additionalItems is parsed as map[string]interface{}.
+func TestPruneOAS2_AdditionalItemsRefs(t *testing.T) {
+	spec := `swagger: "2.0"
+info:
+  title: AdditionalItems API
+  version: "1.0.0"
+basePath: /v1
+paths:
+  /tuples:
+    get:
+      operationId: getTuples
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/TupleList'
+definitions:
+  TupleList:
+    type: object
+    properties:
+      tuples:
+        type: array
+        additionalItems:
+          $ref: '#/definitions/ExtraItem'
+  ExtraItem:
+    type: object
+    properties:
+      value:
+        type: string
+  OrphanedSchema:
+    type: object
+    description: Not referenced
+`
+
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	fixedDoc, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok)
+	require.NotNil(t, fixedDoc.Definitions)
+
+	// These schemas should NOT be pruned
+	expectedSchemas := []string{
+		"TupleList", // directly referenced
+		"ExtraItem", // referenced via TupleList.tuples.additionalItems.$ref
+	}
+
+	for _, name := range expectedSchemas {
+		_, exists := fixedDoc.Definitions[name]
+		assert.True(t, exists, "schema %q should NOT have been pruned - it is referenced via additionalItems", name)
+	}
+
+	// OrphanedSchema SHOULD be pruned
+	_, orphanExists := fixedDoc.Definitions["OrphanedSchema"]
+	assert.False(t, orphanExists, "schema OrphanedSchema SHOULD have been pruned")
+}
+
+// TestCollectRefsFromMap_AllPaths exercises all code paths in collectRefsFromMap directly.
+func TestCollectRefsFromMap_AllPaths(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]interface{}
+		prefix   string
+		expected []string
+	}{
+		{
+			name: "direct $ref",
+			input: map[string]interface{}{
+				"$ref": "#/definitions/User",
+			},
+			prefix:   "#/definitions/",
+			expected: []string{"User"},
+		},
+		{
+			name: "nested properties with $ref",
+			input: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"owner": map[string]interface{}{
+						"$ref": "#/definitions/Owner",
+					},
+					"metadata": map[string]interface{}{
+						"type": "string",
+					},
+				},
+			},
+			prefix:   "#/definitions/",
+			expected: []string{"Owner"},
+		},
+		{
+			name: "items with $ref",
+			input: map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"$ref": "#/definitions/Item",
+				},
+			},
+			prefix:   "#/definitions/",
+			expected: []string{"Item"},
+		},
+		{
+			name: "additionalProperties with $ref",
+			input: map[string]interface{}{
+				"type": "object",
+				"additionalProperties": map[string]interface{}{
+					"$ref": "#/definitions/Value",
+				},
+			},
+			prefix:   "#/definitions/",
+			expected: []string{"Value"},
+		},
+		{
+			name: "allOf with $refs",
+			input: map[string]interface{}{
+				"allOf": []interface{}{
+					map[string]interface{}{"$ref": "#/definitions/Base"},
+					map[string]interface{}{"$ref": "#/definitions/Extension"},
+				},
+			},
+			prefix:   "#/definitions/",
+			expected: []string{"Base", "Extension"},
+		},
+		{
+			name: "anyOf with $refs",
+			input: map[string]interface{}{
+				"anyOf": []interface{}{
+					map[string]interface{}{"$ref": "#/definitions/TypeA"},
+					map[string]interface{}{"$ref": "#/definitions/TypeB"},
+				},
+			},
+			prefix:   "#/definitions/",
+			expected: []string{"TypeA", "TypeB"},
+		},
+		{
+			name: "oneOf with $refs",
+			input: map[string]interface{}{
+				"oneOf": []interface{}{
+					map[string]interface{}{"$ref": "#/definitions/Option1"},
+					map[string]interface{}{"$ref": "#/definitions/Option2"},
+				},
+			},
+			prefix:   "#/definitions/",
+			expected: []string{"Option1", "Option2"},
+		},
+		{
+			name: "no refs",
+			input: map[string]interface{}{
+				"type": "string",
+			},
+			prefix:   "#/definitions/",
+			expected: nil,
+		},
+		{
+			name: "OAS3 prefix",
+			input: map[string]interface{}{
+				"$ref": "#/components/schemas/Pet",
+			},
+			prefix:   "#/components/schemas/",
+			expected: []string{"Pet"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := collectRefsFromMap(tt.input, tt.prefix)
+			if tt.expected == nil {
+				assert.Empty(t, result)
+			} else {
+				assert.ElementsMatch(t, tt.expected, result)
+			}
+		})
+	}
+}
