@@ -1,8 +1,8 @@
-# [OPEN] Transitive Schema References Not Followed During Pruning - Part 2
+# [FIXED] Transitive Schema References Not Followed During Pruning - Part 2
 
-> **Status:** 🔴 REOPENED - Incomplete fix in v1.28.2
-> **Original Fix:** v1.28.2 (PR #150) - `e711ed0`
-> **Issue:** Fix was incomplete - only `prune.go` was updated, `refs.go` was missed
+> **Status:** ✅ FIXED - Complete fix in v1.28.3
+> **Original Fix:** v1.28.2 (PR #150) - `e711ed0` - INCOMPLETE
+> **Complete Fix:** v1.28.3 - Updated `refs.go` to match `prune.go` fallback handling
 
 ---
 
@@ -320,4 +320,4 @@ func TestPruneOAS2_InlineParameterItemsRefs(t *testing.T) {
 ## Timeline
 
 - **v1.28.2** (2025-12-16): Partial fix - `prune.go` updated, `refs.go` missed
-- **v1.28.3** (TBD): Complete fix - `refs.go` updated to match `prune.go`
+- **v1.28.3** (2025-12-16): Complete fix - `refs.go` updated with `collectRefsFromMap` method and fallback handling for `Items`, `AdditionalProperties`, and `AdditionalItems`

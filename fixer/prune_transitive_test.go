@@ -908,17 +908,260 @@ definitions:
 	assert.False(t, orphanExists, "schema OrphanedSchema SHOULD have been pruned")
 }
 
+// TestPruneOAS2_InlineParameterItemsRefs verifies that schemas referenced via
+// inline parameter schemas with array items are not pruned.
+// This is a regression test for the incomplete v1.28.2 fix.
+//
+// BUG SCENARIO: The v1.28.2 fix only updated prune.go's collectSchemaRefsRecursive()
+// to handle map[string]any fallback for Items/AdditionalProperties. However, the
+// initial reference collection in refs.go's RefCollector.collectSchemaRefs() was NOT
+// updated, causing refs in inline parameter schemas to be missed.
+//
+// The key difference from other tests is that the schema reference appears in an
+// INLINE schema (inside a parameter body), not in a top-level definition. The
+// RefCollector traverses inline schemas via collectSchemaRefs(), which was broken.
+func TestPruneOAS2_InlineParameterItemsRefs(t *testing.T) {
+	spec := `swagger: "2.0"
+info:
+  title: Walrus API
+  version: "1.0.0"
+basePath: /v1
+paths:
+  /walrus/aggregates:
+    post:
+      operationId: QueryWalrusAggregate
+      parameters:
+        - name: body
+          in: body
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/WalrusAggregateQueryRequest'
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/WalrusAggregatesResponse'
+definitions:
+  WalrusAggregateQueryRequest:
+    type: object
+    properties:
+      date_ranges:
+        type: array
+        items:
+          $ref: '#/definitions/WalrusDateRangeSpec'
+      field:
+        type: string
+  WalrusDateRangeSpec:
+    type: object
+    properties:
+      from:
+        type: string
+      to:
+        type: string
+  WalrusAggregatesResponse:
+    type: object
+    properties:
+      resources:
+        type: array
+        items:
+          $ref: '#/definitions/PelicanAggregatesResponse'
+  PelicanAggregatesResponse:
+    type: object
+    properties:
+      count:
+        type: integer
+  OrphanedSchema:
+    type: object
+    description: Not referenced anywhere
+`
+
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	doc, ok := parseResult.OAS2Document()
+	require.True(t, ok, "expected OAS 2.0 document")
+
+	// First, verify the bug scenario exists:
+	// The inline parameter schema has items as map[string]any, not *parser.Schema
+	op := doc.Paths["/walrus/aggregates"].Post
+	require.NotNil(t, op)
+	require.Len(t, op.Parameters, 1)
+
+	bodyParam := op.Parameters[0]
+	require.NotNil(t, bodyParam.Schema, "body parameter should have inline schema")
+
+	// This is the bug: items in inline schema is map[string]any, not *parser.Schema
+	_, isMap := bodyParam.Schema.Items.(map[string]any)
+	t.Logf("Inline parameter schema Items type: %T (is map: %v)", bodyParam.Schema.Items, isMap)
+
+	// Now verify the fix: RefCollector should find refs in map[string]any items
+	collector := NewRefCollector()
+	collector.CollectOAS2(doc)
+
+	schemaRefs := collector.RefsByType[RefTypeSchema]
+	t.Logf("Schema refs collected: %v", schemaRefs)
+
+	// The ref to WalrusAggregateQueryRequest via inline items MUST be collected
+	walrusRef := "#/definitions/WalrusAggregateQueryRequest"
+	require.True(t, schemaRefs[walrusRef],
+		"RefCollector MUST find refs in inline parameter schema items (map[string]any) - ref: %s", walrusRef)
+
+	// Apply pruning
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	fixedDoc, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok)
+	require.NotNil(t, fixedDoc.Definitions)
+
+	// These schemas should NOT be pruned - they are transitively referenced
+	// via the INLINE parameter schema's items.$ref
+	expectedSchemas := []string{
+		"WalrusAggregateQueryRequest", // referenced via inline parameter items.$ref
+		"WalrusDateRangeSpec",         // referenced via WalrusAggregateQueryRequest.date_ranges.items.$ref
+		"WalrusAggregatesResponse",    // directly referenced in response
+		"PelicanAggregatesResponse",   // referenced via WalrusAggregatesResponse.resources.items.$ref
+	}
+
+	for _, name := range expectedSchemas {
+		_, exists := fixedDoc.Definitions[name]
+		assert.True(t, exists, "schema %q should NOT have been pruned - it is transitively referenced via inline parameter schema", name)
+	}
+
+	// OrphanedSchema SHOULD be pruned
+	_, orphanExists := fixedDoc.Definitions["OrphanedSchema"]
+	assert.False(t, orphanExists, "schema OrphanedSchema SHOULD have been pruned - it is not referenced")
+}
+
+// TestRefCollector_CollectRefsFromMap_AllPaths exercises the RefCollector's
+// collectRefsFromMap method directly for coverage.
+func TestRefCollector_CollectRefsFromMap_AllPaths(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]any
+		expected []string
+	}{
+		{
+			name: "direct $ref",
+			input: map[string]any{
+				"$ref": "#/definitions/User",
+			},
+			expected: []string{"#/definitions/User"},
+		},
+		{
+			name: "nested properties with $ref",
+			input: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"owner": map[string]any{
+						"$ref": "#/definitions/Owner",
+					},
+					"metadata": map[string]any{
+						"type": "string",
+					},
+				},
+			},
+			expected: []string{"#/definitions/Owner"},
+		},
+		{
+			name: "items with $ref",
+			input: map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"$ref": "#/definitions/Item",
+				},
+			},
+			expected: []string{"#/definitions/Item"},
+		},
+		{
+			name: "additionalProperties with $ref",
+			input: map[string]any{
+				"type": "object",
+				"additionalProperties": map[string]any{
+					"$ref": "#/definitions/Value",
+				},
+			},
+			expected: []string{"#/definitions/Value"},
+		},
+		{
+			name: "allOf with $refs",
+			input: map[string]any{
+				"allOf": []any{
+					map[string]any{"$ref": "#/definitions/Base"},
+					map[string]any{"$ref": "#/definitions/Extension"},
+				},
+			},
+			expected: []string{"#/definitions/Base", "#/definitions/Extension"},
+		},
+		{
+			name: "anyOf with $refs",
+			input: map[string]any{
+				"anyOf": []any{
+					map[string]any{"$ref": "#/definitions/TypeA"},
+					map[string]any{"$ref": "#/definitions/TypeB"},
+				},
+			},
+			expected: []string{"#/definitions/TypeA", "#/definitions/TypeB"},
+		},
+		{
+			name: "oneOf with $refs",
+			input: map[string]any{
+				"oneOf": []any{
+					map[string]any{"$ref": "#/definitions/Option1"},
+					map[string]any{"$ref": "#/definitions/Option2"},
+				},
+			},
+			expected: []string{"#/definitions/Option1", "#/definitions/Option2"},
+		},
+		{
+			name: "no refs",
+			input: map[string]any{
+				"type": "string",
+			},
+			expected: nil,
+		},
+		{
+			name: "empty $ref is ignored",
+			input: map[string]any{
+				"$ref": "",
+			},
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			collector := NewRefCollector()
+			collector.collectRefsFromMap(tt.input, "test.path")
+
+			schemaRefs := collector.RefsByType[RefTypeSchema]
+			if tt.expected == nil {
+				assert.Empty(t, schemaRefs)
+			} else {
+				for _, expectedRef := range tt.expected {
+					assert.True(t, schemaRefs[expectedRef], "expected ref %q to be collected", expectedRef)
+				}
+			}
+		})
+	}
+}
+
 // TestCollectRefsFromMap_AllPaths exercises all code paths in collectRefsFromMap directly.
 func TestCollectRefsFromMap_AllPaths(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    map[string]interface{}
+		input    map[string]any
 		prefix   string
 		expected []string
 	}{
 		{
 			name: "direct $ref",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"$ref": "#/definitions/User",
 			},
 			prefix:   "#/definitions/",
@@ -926,13 +1169,13 @@ func TestCollectRefsFromMap_AllPaths(t *testing.T) {
 		},
 		{
 			name: "nested properties with $ref",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"owner": map[string]interface{}{
+				"properties": map[string]any{
+					"owner": map[string]any{
 						"$ref": "#/definitions/Owner",
 					},
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"type": "string",
 					},
 				},
@@ -942,9 +1185,9 @@ func TestCollectRefsFromMap_AllPaths(t *testing.T) {
 		},
 		{
 			name: "items with $ref",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"type": "array",
-				"items": map[string]interface{}{
+				"items": map[string]any{
 					"$ref": "#/definitions/Item",
 				},
 			},
@@ -953,9 +1196,9 @@ func TestCollectRefsFromMap_AllPaths(t *testing.T) {
 		},
 		{
 			name: "additionalProperties with $ref",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"type": "object",
-				"additionalProperties": map[string]interface{}{
+				"additionalProperties": map[string]any{
 					"$ref": "#/definitions/Value",
 				},
 			},
@@ -964,10 +1207,10 @@ func TestCollectRefsFromMap_AllPaths(t *testing.T) {
 		},
 		{
 			name: "allOf with $refs",
-			input: map[string]interface{}{
-				"allOf": []interface{}{
-					map[string]interface{}{"$ref": "#/definitions/Base"},
-					map[string]interface{}{"$ref": "#/definitions/Extension"},
+			input: map[string]any{
+				"allOf": []any{
+					map[string]any{"$ref": "#/definitions/Base"},
+					map[string]any{"$ref": "#/definitions/Extension"},
 				},
 			},
 			prefix:   "#/definitions/",
@@ -975,10 +1218,10 @@ func TestCollectRefsFromMap_AllPaths(t *testing.T) {
 		},
 		{
 			name: "anyOf with $refs",
-			input: map[string]interface{}{
-				"anyOf": []interface{}{
-					map[string]interface{}{"$ref": "#/definitions/TypeA"},
-					map[string]interface{}{"$ref": "#/definitions/TypeB"},
+			input: map[string]any{
+				"anyOf": []any{
+					map[string]any{"$ref": "#/definitions/TypeA"},
+					map[string]any{"$ref": "#/definitions/TypeB"},
 				},
 			},
 			prefix:   "#/definitions/",
@@ -986,10 +1229,10 @@ func TestCollectRefsFromMap_AllPaths(t *testing.T) {
 		},
 		{
 			name: "oneOf with $refs",
-			input: map[string]interface{}{
-				"oneOf": []interface{}{
-					map[string]interface{}{"$ref": "#/definitions/Option1"},
-					map[string]interface{}{"$ref": "#/definitions/Option2"},
+			input: map[string]any{
+				"oneOf": []any{
+					map[string]any{"$ref": "#/definitions/Option1"},
+					map[string]any{"$ref": "#/definitions/Option2"},
 				},
 			},
 			prefix:   "#/definitions/",
@@ -997,7 +1240,7 @@ func TestCollectRefsFromMap_AllPaths(t *testing.T) {
 		},
 		{
 			name: "no refs",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"type": "string",
 			},
 			prefix:   "#/definitions/",
@@ -1005,7 +1248,7 @@ func TestCollectRefsFromMap_AllPaths(t *testing.T) {
 		},
 		{
 			name: "OAS3 prefix",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"$ref": "#/components/schemas/Pet",
 			},
 			prefix:   "#/components/schemas/",

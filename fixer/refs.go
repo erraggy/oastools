@@ -502,6 +502,9 @@ func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 	if schema.AdditionalProperties != nil {
 		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
 			c.collectSchemaRefs(addProps, fmt.Sprintf("%s.additionalProperties", path))
+		} else if addPropsMap, ok := schema.AdditionalProperties.(map[string]any); ok {
+			// Fallback: extract refs from raw map (polymorphic field may remain as map)
+			c.collectRefsFromMap(addPropsMap, fmt.Sprintf("%s.additionalProperties", path))
 		}
 	}
 
@@ -509,6 +512,9 @@ func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 	if schema.Items != nil {
 		if items, ok := schema.Items.(*parser.Schema); ok {
 			c.collectSchemaRefs(items, fmt.Sprintf("%s.items", path))
+		} else if itemsMap, ok := schema.Items.(map[string]any); ok {
+			// Fallback: extract refs from raw map (polymorphic field may remain as map)
+			c.collectRefsFromMap(itemsMap, fmt.Sprintf("%s.items", path))
 		}
 	}
 
@@ -516,6 +522,9 @@ func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 	if schema.AdditionalItems != nil {
 		if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
 			c.collectSchemaRefs(addItems, fmt.Sprintf("%s.additionalItems", path))
+		} else if addItemsMap, ok := schema.AdditionalItems.(map[string]any); ok {
+			// Fallback: extract refs from raw map (polymorphic field may remain as map)
+			c.collectRefsFromMap(addItemsMap, fmt.Sprintf("%s.additionalItems", path))
 		}
 	}
 
@@ -572,6 +581,47 @@ func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 	if schema.Discriminator != nil {
 		for key, ref := range schema.Discriminator.Mapping {
 			c.addRef(ref, fmt.Sprintf("%s.discriminator.mapping.%s", path, key), RefTypeSchema)
+		}
+	}
+}
+
+// collectRefsFromMap extracts schema references from a raw map[string]any.
+// This handles polymorphic schema fields (Items, AdditionalProperties, etc.) that may
+// remain as untyped maps after YAML/JSON unmarshaling. These fields are declared as
+// `any` in parser.Schema to support both *Schema and bool values per the OAS spec.
+func (c *RefCollector) collectRefsFromMap(m map[string]any, path string) {
+	// Check for direct $ref
+	if refStr, ok := m["$ref"].(string); ok && refStr != "" {
+		c.addRef(refStr, path, RefTypeSchema)
+	}
+
+	// Check nested properties
+	if props, ok := m["properties"].(map[string]any); ok {
+		for propName, propVal := range props {
+			if propMap, ok := propVal.(map[string]any); ok {
+				c.collectRefsFromMap(propMap, fmt.Sprintf("%s.properties.%s", path, propName))
+			}
+		}
+	}
+
+	// Check items
+	if items, ok := m["items"].(map[string]any); ok {
+		c.collectRefsFromMap(items, fmt.Sprintf("%s.items", path))
+	}
+
+	// Check additionalProperties
+	if addProps, ok := m["additionalProperties"].(map[string]any); ok {
+		c.collectRefsFromMap(addProps, fmt.Sprintf("%s.additionalProperties", path))
+	}
+
+	// Check allOf, anyOf, oneOf
+	for _, key := range []string{"allOf", "anyOf", "oneOf"} {
+		if arr, ok := m[key].([]any); ok {
+			for i, item := range arr {
+				if itemMap, ok := item.(map[string]any); ok {
+					c.collectRefsFromMap(itemMap, fmt.Sprintf("%s.%s[%d]", path, key, i))
+				}
+			}
 		}
 	}
 }
