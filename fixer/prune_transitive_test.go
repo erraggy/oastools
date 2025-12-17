@@ -1038,6 +1038,119 @@ definitions:
 	assert.False(t, orphanExists, "schema OrphanedSchema SHOULD have been pruned - it is not referenced")
 }
 
+// TestPruneOAS3_InlineRequestBodyItemsRefs verifies that schemas referenced via
+// inline request body schemas with array items are not pruned.
+// This is the OAS 3.x counterpart to TestPruneOAS2_InlineParameterItemsRefs.
+func TestPruneOAS3_InlineRequestBodyItemsRefs(t *testing.T) {
+	spec := `openapi: "3.0.3"
+info:
+  title: Otter Batch API
+  version: "1.0.0"
+paths:
+  /otters/batch:
+    post:
+      operationId: BatchCreateOtters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/OtterCreateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtterBatchResponse'
+components:
+  schemas:
+    OtterCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        habitat:
+          $ref: '#/components/schemas/Habitat'
+    Habitat:
+      type: object
+      properties:
+        location:
+          type: string
+        waterType:
+          type: string
+    OtterBatchResponse:
+      type: object
+      properties:
+        created:
+          type: array
+          items:
+            $ref: '#/components/schemas/Otter'
+    Otter:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    OrphanedSchema:
+      type: object
+      description: Not referenced anywhere
+`
+
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	doc, ok := parseResult.OAS3Document()
+	require.True(t, ok, "expected OAS 3.x document")
+	require.NotNil(t, doc.Components)
+
+	// Verify the inline request body schema has items as map[string]any
+	op := doc.Paths["/otters/batch"].Post
+	require.NotNil(t, op)
+	require.NotNil(t, op.RequestBody)
+	require.NotNil(t, op.RequestBody.Content)
+
+	jsonContent := op.RequestBody.Content["application/json"]
+	require.NotNil(t, jsonContent)
+	require.NotNil(t, jsonContent.Schema)
+
+	_, isMap := jsonContent.Schema.Items.(map[string]any)
+	t.Logf("Inline request body schema Items type: %T (is map: %v)", jsonContent.Schema.Items, isMap)
+
+	// Apply pruning
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	fixedDoc, ok := result.Document.(*parser.OAS3Document)
+	require.True(t, ok)
+	require.NotNil(t, fixedDoc.Components)
+	require.NotNil(t, fixedDoc.Components.Schemas)
+
+	// These schemas should NOT be pruned
+	expectedSchemas := []string{
+		"OtterCreateRequest", // referenced via inline request body items.$ref
+		"Habitat",            // referenced via OtterCreateRequest.habitat.$ref
+		"OtterBatchResponse", // directly referenced in response
+		"Otter",              // referenced via OtterBatchResponse.created.items.$ref
+	}
+
+	for _, name := range expectedSchemas {
+		_, exists := fixedDoc.Components.Schemas[name]
+		assert.True(t, exists, "schema %q should NOT have been pruned - it is transitively referenced via inline request body schema", name)
+	}
+
+	// OrphanedSchema SHOULD be pruned
+	_, orphanExists := fixedDoc.Components.Schemas["OrphanedSchema"]
+	assert.False(t, orphanExists, "schema OrphanedSchema SHOULD have been pruned")
+}
+
 // TestRefCollector_CollectRefsFromMap_AllPaths exercises the RefCollector's
 // collectRefsFromMap method directly for coverage.
 func TestRefCollector_CollectRefsFromMap_AllPaths(t *testing.T) {
@@ -1131,6 +1244,132 @@ func TestRefCollector_CollectRefsFromMap_AllPaths(t *testing.T) {
 				"$ref": "",
 			},
 			expected: nil,
+		},
+		{
+			name: "additionalItems with $ref",
+			input: map[string]any{
+				"type": "array",
+				"additionalItems": map[string]any{
+					"$ref": "#/definitions/ExtraItem",
+				},
+			},
+			expected: []string{"#/definitions/ExtraItem"},
+		},
+		{
+			name: "not with $ref",
+			input: map[string]any{
+				"not": map[string]any{
+					"$ref": "#/definitions/Excluded",
+				},
+			},
+			expected: []string{"#/definitions/Excluded"},
+		},
+		{
+			name: "if/then/else with $refs (OAS 3.1+)",
+			input: map[string]any{
+				"if": map[string]any{
+					"$ref": "#/definitions/Condition",
+				},
+				"then": map[string]any{
+					"$ref": "#/definitions/ThenSchema",
+				},
+				"else": map[string]any{
+					"$ref": "#/definitions/ElseSchema",
+				},
+			},
+			expected: []string{"#/definitions/Condition", "#/definitions/ThenSchema", "#/definitions/ElseSchema"},
+		},
+		{
+			name: "prefixItems with $refs (OAS 3.1+)",
+			input: map[string]any{
+				"prefixItems": []any{
+					map[string]any{"$ref": "#/definitions/FirstItem"},
+					map[string]any{"$ref": "#/definitions/SecondItem"},
+				},
+			},
+			expected: []string{"#/definitions/FirstItem", "#/definitions/SecondItem"},
+		},
+		{
+			name: "contains with $ref (OAS 3.1+)",
+			input: map[string]any{
+				"contains": map[string]any{
+					"$ref": "#/definitions/ContainedType",
+				},
+			},
+			expected: []string{"#/definitions/ContainedType"},
+		},
+		{
+			name: "propertyNames with $ref (OAS 3.1+)",
+			input: map[string]any{
+				"propertyNames": map[string]any{
+					"$ref": "#/definitions/PropertyNameSchema",
+				},
+			},
+			expected: []string{"#/definitions/PropertyNameSchema"},
+		},
+		{
+			name: "dependentSchemas with $refs (OAS 3.1+)",
+			input: map[string]any{
+				"dependentSchemas": map[string]any{
+					"name": map[string]any{
+						"$ref": "#/definitions/NameDependent",
+					},
+					"age": map[string]any{
+						"$ref": "#/definitions/AgeDependent",
+					},
+				},
+			},
+			expected: []string{"#/definitions/NameDependent", "#/definitions/AgeDependent"},
+		},
+		{
+			name: "patternProperties with $refs",
+			input: map[string]any{
+				"patternProperties": map[string]any{
+					"^x-": map[string]any{
+						"$ref": "#/definitions/ExtensionValue",
+					},
+				},
+			},
+			expected: []string{"#/definitions/ExtensionValue"},
+		},
+		{
+			name: "$defs with $refs (OAS 3.1+)",
+			input: map[string]any{
+				"$defs": map[string]any{
+					"LocalType": map[string]any{
+						"$ref": "#/definitions/SharedType",
+					},
+				},
+			},
+			expected: []string{"#/definitions/SharedType"},
+		},
+		{
+			name: "discriminator.mapping with $refs",
+			input: map[string]any{
+				"discriminator": map[string]any{
+					"propertyName": "type",
+					"mapping": map[string]any{
+						"cat": "#/definitions/Cat",
+						"dog": "#/definitions/Dog",
+					},
+				},
+			},
+			expected: []string{"#/definitions/Cat", "#/definitions/Dog"},
+		},
+		{
+			name: "deeply nested structures",
+			input: map[string]any{
+				"properties": map[string]any{
+					"nested": map[string]any{
+						"items": map[string]any{
+							"allOf": []any{
+								map[string]any{"$ref": "#/definitions/DeepRef"},
+							},
+						},
+					},
+				},
+			},
+			expected: []string{"#/definitions/DeepRef"},
 		},
 	}
 
