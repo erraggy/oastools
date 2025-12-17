@@ -449,6 +449,7 @@ git checkout -b <type>/<description>  # e.g., feat/add-feature, fix/bug-name, ch
 - **Commit format:** Conventional commits (e.g., `feat(parser): add feature`)
 - **Local review:** `./scripts/local-code-review.sh branch`
 - **Creating PR:** Use `gh pr create` with detailed description
+- **Merging PR:** Use `gh pr merge <PR_NUMBER> --squash --admin` (branch protections require `--admin`; auto-delete branch is enabled)
 - **Release process:** Tag → CI builds draft → Review → Publish
 
 ## Agent-Based Development Workflow
