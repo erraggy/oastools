@@ -65,6 +65,7 @@ testdata/corpus/*.yml
 
 # Generated Documentation
 site/
+.tmp/
 docs/index.md
 docs/LICENSE.md
 docs/CONTRIBUTORS.md

@@ -17,7 +17,7 @@ cp README.md "$DOCS_DIR/index.md"
 # Fix links in index.md
 # 1. Change docs/filename.md to filename.md (since index.md is now in docs/)
 # 2. Change package/deep_dive.md to packages/package.md
-sed 's|](docs/|](/g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
+sed 's|](docs/|](|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
 sed 's|\([a-z]*\)/deep_dive.md|packages/\1.md|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
 
 # 2. Copy root level docs
