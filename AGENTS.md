@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides quick, actionable guidance for AI coding agents working on the oastools project. For comprehensive details, see [.github/copilot-instructions.md](.github/copilot-instructions.md).
+This file provides quick, actionable guidance for AI coding agents working on the oastools project. For comprehensive details, see [CLAUDE.md](CLAUDE.md).
 
 > ⚠️ **BRANCH PROTECTION**: The `main` branch has push protections. Before making ANY changes, verify you're on a feature branch (`git branch --show-current`). If on main, create a branch first: `git checkout -b <type>/<description>`
 
@@ -238,7 +238,7 @@ Located in `.claude/agents/`:
 
 ## Resources
 
-- Full instructions: [.github/copilot-instructions.md](.github/copilot-instructions.md)
+- Full instructions: [CLAUDE.md](CLAUDE.md)
 - OAS 2.0 Spec: https://spec.openapis.org/oas/v2.0.html
 - OAS 3.0 Spec: https://spec.openapis.org/oas/v3.0.0.html
 - OAS 3.1 Spec: https://spec.openapis.org/oas/v3.1.0.html

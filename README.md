@@ -1,4 +1,6 @@
-# oastools
+<p align="center">
+  <img src="docs/img/banner.svg" alt="oastools - for validating, parsing, fixing, converting, diffing, joining, and building specs" width="100%">
+</p>
 
 A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 
@@ -46,9 +48,13 @@ For comprehensive examples and advanced usage patterns:
 | Package | Deep Dive |
 |---------|-----------|
 | builder | [Programmatic API Construction](builder/deep_dive.md) |
+| converter | [Version Conversion](converter/deep_dive.md) |
 | differ | [Breaking Change Detection](differ/deep_dive.md) |
+| fixer | [Automatic Fixes](fixer/deep_dive.md) |
 | generator | [Code Generation (Client/Server/Types)](generator/deep_dive.md) |
 | joiner | [Multi-Document Merging](joiner/deep_dive.md) |
+| overlay | [Overlay Transformations](overlay/deep_dive.md) |
+| parser | [Parsing & Reference Resolution](parser/deep_dive.md) |
 | validator | [Specification Validation](validator/deep_dive.md) |
 
 ## Installation
@@ -119,6 +125,8 @@ import (
     "github.com/erraggy/oastools/validator"
     "github.com/erraggy/oastools/differ"
     "github.com/erraggy/oastools/overlay"
+    "github.com/erraggy/oastools/generator"
+    "github.com/erraggy/oastools/builder"
 )
 
 // Parse
@@ -138,9 +146,20 @@ oResult, _ := overlay.DryRunWithOptions(
     overlay.WithSpecFilePath("api.yaml"),
     overlay.WithOverlayFilePath("changes.yaml"),
 )
-for _, change := range oResult.Changes {
-    fmt.Printf("Would %s %d nodes at %s\n", change.Operation, change.MatchCount, change.Target)
-}
+
+// Generate Go client code
+gResult, _ := generator.GenerateWithOptions(
+    generator.WithFilePath("api.yaml"),
+    generator.WithPackageName("api"),
+    generator.WithClient(true),
+)
+
+// Build a spec programmatically
+spec := builder.New(parser.OASVersion300).
+    SetTitle("My API").
+    SetVersion("1.0.0").
+    AddServer("https://api.example.com", "Production")
+doc, _ := spec.BuildOAS3()
 ```
 
 For complete API documentation and examples, see [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) or the [Developer Guide](docs/developer-guide.md).
@@ -178,12 +197,14 @@ This corpus spans OAS 2.0 through 3.1, JSON and YAML formats, and document sizes
 
 Pre-parsed workflows eliminate redundant parsing when processing multiple operations:
 
-| Method             | Speedup     |
-|--------------------|-------------|
-| `ValidateParsed()` | 31x faster  |
-| `ConvertParsed()`  | 9x faster   |
-| `JoinParsed()`     | 150x faster |
-| `DiffParsed()`     | 81x faster  |
+| Method             | Speedup      |
+|--------------------|--------------|
+| `ValidateParsed()` | 31x faster   |
+| `ConvertParsed()`  | 9x faster    |
+| `JoinParsed()`     | 150x faster  |
+| `DiffParsed()`     | 81x faster   |
+| `FixParsed()`      | ~10x faster  |
+| `ApplyParsed()`    | ~15x faster  |
 
 JSON marshaling is optimized for 25-32% better performance with 29-37% fewer allocations. See [benchmarks.md](benchmarks.md) for detailed analysis.
 
@@ -286,7 +307,7 @@ make docs-build  # Build static site to site/
 
 The documentation site is automatically deployed to [GitHub Pages](https://erraggy.github.io/oastools/) on every push to `main`.
 
-See [WORKFLOW.md](WORKFLOW.md) for the complete development process.
+See [WORKFLOW.md](https://github.com/erraggy/oastools/blob/main/WORKFLOW.md) for the complete development process.
 
 ## Contributing
 
@@ -295,7 +316,7 @@ See [WORKFLOW.md](WORKFLOW.md) for the complete development process.
 3. Follow [conventional commits](https://conventionalcommits.org) (e.g., `feat(parser): add feature`)
 4. Submit a PR with testing checklist
 
-See [WORKFLOW.md](WORKFLOW.md) for guidelines and [AGENTS.md](AGENTS.md) for AI agent setup.
+See [WORKFLOW.md](https://github.com/erraggy/oastools/blob/main/WORKFLOW.md) for guidelines and [AGENTS.md](https://github.com/erraggy/oastools/blob/main/AGENTS.md) for AI agent setup.
 
 ## License
 

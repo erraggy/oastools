@@ -2,7 +2,7 @@
 
 This document describes the process for updating benchmark results after making changes to the codebase. Follow this process before each release to ensure performance metrics are current.
 
-## ⚠️ IMPORTANT: Detecting Performance Regressions
+## IMPORTANT: Detecting Performance Regressions
 
 > **TL;DR:** File-based benchmarks can vary +/- 50% due to I/O. Use `*Core` or `*Parsed` benchmarks for reliable regression detection.
 
@@ -52,7 +52,7 @@ benchstat /tmp/old.txt /tmp/new.txt
 
 **If benchstat shows no significant change, there is no regression—regardless of what saved benchmark files show.**
 
-See [CLAUDE.md](CLAUDE.md#-benchmark-reliability-and-performance-regression-detection) for detailed guidance.
+See [CLAUDE.md](CLAUDE.md#benchmark-reliability-and-performance-regression-detection) for detailed guidance.
 
 ---
 
@@ -343,5 +343,4 @@ cpu: Apple M4
 ## Related Documentation
 
 - [benchmarks.md](benchmarks.md) - Detailed performance analysis
-- [README.md](README.md) - Project overview with performance highlights
 - [CLAUDE.md](CLAUDE.md) - Development guidelines

@@ -53,6 +53,7 @@ nav:
     - Validator: packages/validator.md
     - Fixer: packages/fixer.md
     - Converter: packages/converter.md
+    - Overlay: packages/overlay.md
     - Joiner: packages/joiner.md
     - Differ: packages/differ.md
     - Generator: packages/generator.md
