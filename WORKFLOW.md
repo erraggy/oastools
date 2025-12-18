@@ -95,6 +95,13 @@ Before committing code changes, ensure:
    - Avoid over-engineering (only implement what's requested)
    - No backwards-compatibility hacks for unused code
 
+6. **Documentation previewed (if applicable):**
+   ```bash
+   make docs-serve  # Preview docs if README.md, deep_dive.md, or docs/ changed
+   ```
+   - Verify links work correctly
+   - Check formatting renders properly
+
 ### Step 3: Commit Message Format
 
 **Structure:**
@@ -610,3 +617,14 @@ gh run view <RUN_ID>                    # View workflow details
 gh run watch <RUN_ID>                   # Watch workflow
 gh pr checks <NUMBER>                   # Check PR status
 ```
+
+**Documentation:**
+```bash
+make docs-serve                         # Preview docs locally (blocking)
+make docs-start                         # Start docs server in background
+make docs-stop                          # Stop background server
+make docs-build                         # Build static site to site/
+make docs-clean                         # Clean generated doc artifacts
+```
+
+Documentation is automatically deployed to GitHub Pages on every push to `main`. See [CLAUDE.md](CLAUDE.md#documentation-website) for details.

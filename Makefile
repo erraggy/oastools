@@ -33,6 +33,8 @@ clean:
 	@rm -rf dist/
 	@rm -f coverage.txt coverage.html
 	@rm -f benchmark-*.txt
+	@rm -rf site/
+	@rm -rf .tmp/
 
 # =============================================================================
 # Test Targets
@@ -415,6 +417,82 @@ bench-corpus:
 	@go test -tags=corpus -bench='BenchmarkCorpus' -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./fixer ./differ
 
 # =============================================================================
+# Documentation Targets
+# =============================================================================
+
+## docs-prepare: Prepare documentation files
+.PHONY: docs-prepare
+docs-prepare:
+	@chmod +x scripts/prepare-docs.sh
+	@./scripts/prepare-docs.sh
+
+## docs-build: Build static documentation site
+.PHONY: docs-build
+docs-build: docs-prepare
+	@echo "Building documentation..."
+	@if command -v mkdocs >/dev/null 2>&1; then \
+		mkdocs build; \
+	elif [ -f "$(HOME)/Library/Python/3.9/bin/mkdocs" ]; then \
+		"$(HOME)/Library/Python/3.9/bin/mkdocs" build; \
+	else \
+		echo "Error: mkdocs not found. Please install it or add it to your PATH."; \
+		exit 1; \
+	fi
+
+## docs-serve: Serve documentation locally (blocking)
+.PHONY: docs-serve
+docs-serve: docs-prepare
+	@echo "Serving documentation at http://127.0.0.1:8000/oastools/ ..."
+	@if command -v mkdocs >/dev/null 2>&1; then \
+		mkdocs serve --dev-addr 127.0.0.1:8000; \
+	elif [ -f "$(HOME)/Library/Python/3.9/bin/mkdocs" ]; then \
+		"$(HOME)/Library/Python/3.9/bin/mkdocs" serve --dev-addr 127.0.0.1:8000; \
+	else \
+		echo "Error: mkdocs not found."; \
+		exit 1; \
+	fi
+
+## docs-start: Start documentation server in background
+.PHONY: docs-start
+docs-start: docs-prepare
+	@echo "Starting documentation server in background..."
+	@mkdir -p .tmp
+	@if command -v mkdocs >/dev/null 2>&1; then \
+		nohup mkdocs serve --dev-addr 127.0.0.1:8000 > .tmp/mkdocs.log 2>&1 & echo $$! > .tmp/mkdocs.pid; \
+	elif [ -f "$(HOME)/Library/Python/3.9/bin/mkdocs" ]; then \
+		nohup "$(HOME)/Library/Python/3.9/bin/mkdocs" serve --dev-addr 127.0.0.1:8000 > .tmp/mkdocs.log 2>&1 & echo $$! > .tmp/mkdocs.pid; \
+	else \
+		echo "Error: mkdocs not found."; \
+		exit 1; \
+	fi
+	@echo "Server started. Logs: .tmp/mkdocs.log"
+	@echo "Stop with: make docs-stop"
+
+## docs-stop: Stop background documentation server
+.PHONY: docs-stop
+docs-stop:
+	@if [ -f .tmp/mkdocs.pid ]; then \
+		kill $$(cat .tmp/mkdocs.pid) 2>/dev/null || true; \
+		rm .tmp/mkdocs.pid; \
+		echo "Server stopped."; \
+	else \
+		echo "No PID file found. Trying pkill mkdocs..."; \
+		pkill -f "mkdocs serve" || echo "No mkdocs server found."; \
+	fi
+
+## docs-clean: Clean documentation artifacts
+.PHONY: docs-clean
+docs-clean:
+	@echo "Cleaning documentation..."
+	@rm -rf site/
+	@rm -rf .tmp/
+	@rm -f mkdocs.log mkdocs_error.log
+	@rm -f docs/index.md docs/index.md.tmp
+	@rm -f docs/CONTRIBUTORS.md docs/LICENSE.md docs/benchmarks.md
+	@rm -f docs/AGENTS.md docs/WORKFLOW.md docs/CLAUDE.md docs/RELEASES.md docs/BENCHMARK_UPDATE_PROCESS.md
+	@rm -rf docs/packages
+
+# =============================================================================
 # Help Target
 # =============================================================================
 
@@ -434,3 +512,9 @@ help:
 	@echo "  1. make corpus-download    # Download all specs (one-time)"
 	@echo "  2. make test-corpus-short  # Run tests (excludes large specs)"
 	@echo "  3. make test-corpus        # Run all corpus tests"
+	@echo ""
+	@echo "Documentation:"
+	@echo "  make docs-serve    # Serve docs locally (blocking)"
+	@echo "  make docs-start    # Start docs server in background"
+	@echo "  make docs-stop     # Stop docs server"
+	@echo "  make docs-build    # Build static site"
