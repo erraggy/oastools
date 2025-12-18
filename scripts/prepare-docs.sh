@@ -14,11 +14,23 @@ mkdir -p "$DOCS_DIR/packages"
 echo "Copying README.md to $DOCS_DIR/index.md"
 cp README.md "$DOCS_DIR/index.md"
 
+# Fix links in index.md
+# 1. Change docs/filename.md to filename.md (since index.md is now in docs/)
+# 2. Change package/deep_dive.md to packages/package.md
+sed 's|docs/||g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
+sed 's|\([a-z]*\)/deep_dive.md|packages/\1.md|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
+
 # 2. Copy root level docs
 echo "Copying root level markdown files..."
 cp CONTRIBUTING.md "$DOCS_DIR/" || true # Optional if it doesn't exist
+cp CONTRIBUTORS.md "$DOCS_DIR/" || true
 cp LICENSE "$DOCS_DIR/LICENSE.md" || true
 cp benchmarks.md "$DOCS_DIR/" || true
+cp AGENTS.md "$DOCS_DIR/" || true
+cp WORKFLOW.md "$DOCS_DIR/" || true
+cp CLAUDE.md "$DOCS_DIR/" || true
+cp RELEASES.md "$DOCS_DIR/" || true
+cp BENCHMARK_UPDATE_PROCESS.md "$DOCS_DIR/" || true
 
 # 3. Gather Deep Dive documentation from subdirectories
 # We look for folders containing a 'deep_dive.md' and copy it to docs/packages/<dirname>.md

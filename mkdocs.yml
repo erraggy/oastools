@@ -58,6 +58,6 @@ nav:
     - Generator: packages/generator.md
     - Builder: packages/builder.md
   - Project Info:
-    - Contributing: CONTRIBUTING.md
+    - Contributing: CONTRIBUTORS.md
     - License: LICENSE.md
   - API Documentation: https://pkg.go.dev/github.com/erraggy/oastools
