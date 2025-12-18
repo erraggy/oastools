@@ -544,8 +544,8 @@ When working with conversions, these differences matter!
 
 ### Resources
 
-- **Documentation**: See [CLAUDE.md](./CLAUDE.md) for technical details
-- **Release Process**: See [RELEASES.md](./RELEASES.md) for release workflow
+- **Documentation**: See [CLAUDE.md](https://github.com/erraggy/oastools/blob/main/CLAUDE.md) for technical details
+- **Release Process**: See [RELEASES.md](https://github.com/erraggy/oastools/blob/main/RELEASES.md) for release workflow
 - **Issues**: [GitHub Issues](https://github.com/erraggy/oastools/issues)
 - **Pull Requests**: [GitHub PRs](https://github.com/erraggy/oastools/pulls)
 

@@ -259,7 +259,7 @@ for _, err := range result.Errors {
 }
 ```
 
-> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Validator Deep Dive](../validator/deep_dive.md).
+> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Validator Deep Dive](packages/validator.md).
 
 ### Fixer Package
 
@@ -574,7 +574,7 @@ if err != nil {
 // - Warnings indicate how many duplicates were consolidated
 ```
 
-> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Joiner Deep Dive](../joiner/deep_dive.md).
+> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Joiner Deep Dive](packages/joiner.md).
 
 ### Differ Package
 
@@ -679,7 +679,7 @@ for _, category := range categoryOrder {
 }
 ```
 
-> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Differ Deep Dive](../differ/deep_dive.md).
+> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Differ Deep Dive](packages/differ.md).
 
 ### Generator Package
 
@@ -916,7 +916,7 @@ result, err := generator.GenerateWithOptions(
 // - Regeneration command
 ```
 
-> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Generator Deep Dive](../generator/deep_dive.md).
+> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Generator Deep Dive](packages/generator.md).
 
 ### Builder Package
 
@@ -1048,7 +1048,7 @@ doc, err := spec.BuildOAS3()
 // Result: Only 1 schema instead of 2, with $refs automatically rewritten
 ```
 
-> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Builder Deep Dive](../builder/deep_dive.md).
+> 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Builder Deep Dive](packages/builder.md).
 
 ### Overlay Package
 
@@ -1333,4 +1333,4 @@ Two documents define the same path. Choose a collision strategy:
 - **API Documentation**: [pkg.go.dev/github.com/erraggy/oastools](https://pkg.go.dev/github.com/erraggy/oastools)
 - **GitHub Issues**: [https://github.com/erraggy/oastools/issues](https://github.com/erraggy/oastools/issues)
 - **Breaking Change Semantics**: See [breaking-changes.md](breaking-changes.md)
-- **Performance Details**: See [benchmarks.md](../benchmarks.md)
+- **Performance Details**: See [benchmarks.md](benchmarks.md)

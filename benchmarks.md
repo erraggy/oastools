@@ -41,7 +41,7 @@ go test -bench=BenchmarkJoinParsed -benchmem ./joiner
 go test -bench='ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|Diff/Parsed' -benchmem ./...
 ```
 
-See [CLAUDE.md](CLAUDE.md#-benchmark-reliability-and-performance-regression-detection) and [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md#-important-detecting-performance-regressions) for detailed guidance on investigating suspected regressions.
+See [CLAUDE.md](https://github.com/erraggy/oastools/blob/main/CLAUDE.md#benchmark-reliability-and-performance-regression-detection) and [BENCHMARK_UPDATE_PROCESS.md](https://github.com/erraggy/oastools/blob/main/BENCHMARK_UPDATE_PROCESS.md#important-detecting-performance-regressions) for detailed guidance on investigating suspected regressions.
 
 ## Key Performance Achievements
 
@@ -514,9 +514,8 @@ These optimizations are **on hold** pending real-world performance feedback. The
 
 ## Related Documentation
 
-- [Performance Planning](planning/archive/improve-performance.md) - Detailed optimization strategy and analysis
-- [CLAUDE.md](CLAUDE.md) - Development guidelines and architecture
-- [README.md](README.md) - Project overview and usage
+- [CLAUDE.md](https://github.com/erraggy/oastools/blob/main/CLAUDE.md) - Development guidelines and architecture
+- [BENCHMARK_UPDATE_PROCESS.md](https://github.com/erraggy/oastools/blob/main/BENCHMARK_UPDATE_PROCESS.md) - How to update benchmarks for releases
 
 ## Questions and Feedback
 

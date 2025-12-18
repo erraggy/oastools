@@ -380,7 +380,7 @@ func BenchmarkOperation(b *testing.B) {
 - Call `b.ReportAllocs()` manually (handled by `b.Loop()`)
 - Call `b.ResetTimer()` for trivial setup
 
-### ⚠️ Benchmark Reliability and Performance Regression Detection
+### Benchmark Reliability and Performance Regression Detection
 
 **CRITICAL: File-based benchmarks are NOT reliable for detecting performance regressions.**
 

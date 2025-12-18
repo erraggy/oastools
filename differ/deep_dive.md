@@ -9,7 +9,7 @@
 - [API Styles](#api-styles)
 - [Practical Examples](#practical-examples)
 - [Schema Comparison Details](#schema-comparison-details)
-- [Extension (x-*) Field Coverage](#extension-x--field-coverage)
+- [Extension Field Coverage](#extension-field-coverage)
 - [Source Map Integration](#source-map-integration)
 - [Integration with Other Packages](#integration-with-other-packages)
 - [Best Practices](#best-practices)
@@ -493,7 +493,7 @@ INFO severity (relaxations = non-breaking):
 
 [↑ Back to top](#top)
 
-## Extension (x-*) Field Coverage
+## Extension Field Coverage
 
 The differ tracks changes to custom extension fields at commonly-used locations:
 
