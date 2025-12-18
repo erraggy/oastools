@@ -128,6 +128,77 @@ make deps  # Download and tidy dependencies
 make clean # Remove build artifacts
 ```
 
+## Documentation Website
+
+The project documentation is hosted on GitHub Pages at https://erraggy.github.io/oastools/
+
+### Local Development
+
+```bash
+# Preview documentation locally (blocking - Ctrl+C to stop)
+make docs-serve
+
+# Or run in background
+make docs-start   # Start server at http://127.0.0.1:8000/oastools/
+make docs-stop    # Stop background server
+
+# Build static site (outputs to site/)
+make docs-build
+
+# Clean generated documentation artifacts
+make docs-clean
+```
+
+### CI Deployment
+
+Documentation is automatically deployed on every push to `main` via the `.github/workflows/docs.yml` workflow:
+
+1. **Trigger**: Push to `main` branch or manual workflow dispatch
+2. **Build**: `scripts/prepare-docs.sh` prepares content, then MkDocs builds the site
+3. **Deploy**: `mkdocs gh-deploy --force` pushes to `gh-pages` branch
+
+### Documentation Structure
+
+The documentation system uses [MkDocs](https://www.mkdocs.org/) with the [Material theme](https://squidfunk.github.io/mkdocs-material/).
+
+**Source files:**
+- `mkdocs.yml` - MkDocs configuration (navigation, theme, extensions)
+- `docs/` - Static documentation files (developer-guide.md, cli-reference.md, etc.)
+- `<package>/deep_dive.md` - Package-specific deep dive guides (copied to `docs/packages/`)
+- `scripts/prepare-docs.sh` - Prepares documentation by copying and transforming files
+
+**Generated files (gitignored):**
+- `site/` - Built static site
+- `docs/index.md` - Generated from README.md
+- `docs/packages/*.md` - Copied from `<package>/deep_dive.md` files
+- `.tmp/` - Temporary files for background server
+
+### Deep Dive Files
+
+Each feature-rich package should have a `deep_dive.md` file in its directory. These are automatically included in the documentation site:
+
+```
+parser/deep_dive.md      → docs/packages/parser.md
+validator/deep_dive.md   → docs/packages/validator.md
+converter/deep_dive.md   → docs/packages/converter.md
+...
+```
+
+**Deep dive requirements:**
+- Comprehensive API coverage with practical examples
+- All functional options documented
+- Common patterns and best practices
+- Integration examples with other packages
+
+### Adding Documentation
+
+When adding new documentation:
+
+1. **For new packages**: Create `<package>/deep_dive.md` - it will be auto-included
+2. **For new guides**: Add to `docs/` and update `mkdocs.yml` navigation
+3. **Preview locally**: Run `make docs-serve` before committing
+4. **Verify links**: Check that internal links work after deployment
+
 ## Architecture
 
 ### Directory Structure

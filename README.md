@@ -277,6 +277,15 @@ make test   # Run tests with coverage
 make build  # Build CLI binary
 ```
 
+### Documentation
+
+```bash
+make docs-serve  # Preview docs locally at http://127.0.0.1:8000/oastools/
+make docs-build  # Build static site to site/
+```
+
+The documentation site is automatically deployed to [GitHub Pages](https://erraggy.github.io/oastools/) on every push to `main`.
+
 See [WORKFLOW.md](WORKFLOW.md) for the complete development process.
 
 ## Contributing
