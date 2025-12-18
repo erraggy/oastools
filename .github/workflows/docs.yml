@@ -28,6 +28,9 @@ jobs:
       - name: Install MkDocs and Material Theme
         run: pip install mkdocs-material
 
+      - name: Make prepare-docs executable
+        run: chmod +x scripts/prepare-docs.sh
+
       - name: Prepare Documentation
         run: ./scripts/prepare-docs.sh
 
