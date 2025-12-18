@@ -1,3 +1,68 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.txt
+coverage.html
+coverage.*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# Build output
+/bin/
+/dist/
+
+# IDE
+.idea/
+.vscode/
+.junie/
+.obsidian/
+*.swp
+*.swo
+*~
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude local
+.claude/settings.local.json
+
+# Local release notes (not tracked in git)
+releases/
+
+# Benchmark outputs (timestamped files not tracked - kept locally for comparison)
+benchmark-baseline.txt
+benchmark-[0-9]*.txt
+benchmark-comparison-*.txt
+
+# Legacy benchmark directory (replaced by benchmarks/)
+backfilled-benchmarks/
+
+# Profiling outputs
+cpu-profile-*.prof
+mem-profile-*.prof
+
+# Fuzz test logs (timestamped files not tracked)
+fuzz-parse-*.log
+
+# Corpus files (downloaded on demand, not committed)
+testdata/corpus/*.json
+testdata/corpus/*.yaml
+testdata/corpus/*.yml
+!testdata/corpus/README.md
+
 # Generated Documentation
 docs/index.md
 docs/LICENSE.md
