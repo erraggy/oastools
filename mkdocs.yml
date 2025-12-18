@@ -1,0 +1,63 @@
+site_name: oastools
+site_description: High-performance Go library and CLI for working with OpenAPI Specifications (OAS 2.0, 3.0, 3.1).
+site_url: https://erraggy.github.io/oastools/
+repo_url: https://github.com/erraggy/oastools
+repo_name: erraggy/oastools
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - scheme: default
+      primary: teal
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: teal
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - tables
+  - attr_list
+
+nav:
+  - Home: index.md
+  - Guides:
+    - Developer Guide: developer-guide.md
+    - CLI Reference: cli-reference.md
+    - Breaking Changes: breaking-changes.md
+    - Benchmarks: benchmarks.md
+  - Package Deep Dives:
+    - Parser: packages/parser.md
+    - Validator: packages/validator.md
+    - Fixer: packages/fixer.md
+    - Converter: packages/converter.md
+    - Joiner: packages/joiner.md
+    - Differ: packages/differ.md
+    - Generator: packages/generator.md
+    - Builder: packages/builder.md
+  - Project Info:
+    - Contributing: CONTRIBUTING.md
+    - License: LICENSE.md
+  - API Documentation: https://pkg.go.dev/github.com/erraggy/oastools
