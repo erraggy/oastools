@@ -31,26 +31,28 @@ type Schema struct {
 	Pattern   string `yaml:"pattern,omitempty" json:"pattern,omitempty"`
 
 	// Array validation
-	Items           any       `yaml:"items,omitempty" json:"items,omitempty"`                     // *Schema or bool (OAS 3.1+)
-	PrefixItems     []*Schema `yaml:"prefixItems,omitempty" json:"prefixItems,omitempty"`         // JSON Schema Draft 2020-12
-	AdditionalItems any       `yaml:"additionalItems,omitempty" json:"additionalItems,omitempty"` // *Schema or bool
-	MaxItems        *int      `yaml:"maxItems,omitempty" json:"maxItems,omitempty"`
-	MinItems        *int      `yaml:"minItems,omitempty" json:"minItems,omitempty"`
-	UniqueItems     bool      `yaml:"uniqueItems,omitempty" json:"uniqueItems,omitempty"`
-	Contains        *Schema   `yaml:"contains,omitempty" json:"contains,omitempty"`       // JSON Schema Draft 2020-12
-	MaxContains     *int      `yaml:"maxContains,omitempty" json:"maxContains,omitempty"` // JSON Schema Draft 2020-12
-	MinContains     *int      `yaml:"minContains,omitempty" json:"minContains,omitempty"` // JSON Schema Draft 2020-12
+	Items            any       `yaml:"items,omitempty" json:"items,omitempty"`                       // *Schema or bool (OAS 3.1+)
+	PrefixItems      []*Schema `yaml:"prefixItems,omitempty" json:"prefixItems,omitempty"`           // JSON Schema Draft 2020-12
+	AdditionalItems  any       `yaml:"additionalItems,omitempty" json:"additionalItems,omitempty"`   // *Schema or bool
+	UnevaluatedItems any       `yaml:"unevaluatedItems,omitempty" json:"unevaluatedItems,omitempty"` // JSON Schema Draft 2020-12: *Schema or bool
+	MaxItems         *int      `yaml:"maxItems,omitempty" json:"maxItems,omitempty"`
+	MinItems         *int      `yaml:"minItems,omitempty" json:"minItems,omitempty"`
+	UniqueItems      bool      `yaml:"uniqueItems,omitempty" json:"uniqueItems,omitempty"`
+	Contains         *Schema   `yaml:"contains,omitempty" json:"contains,omitempty"`       // JSON Schema Draft 2020-12
+	MaxContains      *int      `yaml:"maxContains,omitempty" json:"maxContains,omitempty"` // JSON Schema Draft 2020-12
+	MinContains      *int      `yaml:"minContains,omitempty" json:"minContains,omitempty"` // JSON Schema Draft 2020-12
 
 	// Object validation
-	Properties           map[string]*Schema  `yaml:"properties,omitempty" json:"properties,omitempty"`
-	PatternProperties    map[string]*Schema  `yaml:"patternProperties,omitempty" json:"patternProperties,omitempty"`
-	AdditionalProperties any                 `yaml:"additionalProperties,omitempty" json:"additionalProperties,omitempty"` // *Schema or bool
-	Required             []string            `yaml:"required,omitempty" json:"required,omitempty"`
-	PropertyNames        *Schema             `yaml:"propertyNames,omitempty" json:"propertyNames,omitempty"` // JSON Schema Draft 2020-12
-	MaxProperties        *int                `yaml:"maxProperties,omitempty" json:"maxProperties,omitempty"`
-	MinProperties        *int                `yaml:"minProperties,omitempty" json:"minProperties,omitempty"`
-	DependentRequired    map[string][]string `yaml:"dependentRequired,omitempty" json:"dependentRequired,omitempty"` // JSON Schema Draft 2020-12
-	DependentSchemas     map[string]*Schema  `yaml:"dependentSchemas,omitempty" json:"dependentSchemas,omitempty"`   // JSON Schema Draft 2020-12
+	Properties            map[string]*Schema  `yaml:"properties,omitempty" json:"properties,omitempty"`
+	PatternProperties     map[string]*Schema  `yaml:"patternProperties,omitempty" json:"patternProperties,omitempty"`
+	AdditionalProperties  any                 `yaml:"additionalProperties,omitempty" json:"additionalProperties,omitempty"`   // *Schema or bool
+	UnevaluatedProperties any                 `yaml:"unevaluatedProperties,omitempty" json:"unevaluatedProperties,omitempty"` // JSON Schema Draft 2020-12: *Schema or bool
+	Required              []string            `yaml:"required,omitempty" json:"required,omitempty"`
+	PropertyNames         *Schema             `yaml:"propertyNames,omitempty" json:"propertyNames,omitempty"` // JSON Schema Draft 2020-12
+	MaxProperties         *int                `yaml:"maxProperties,omitempty" json:"maxProperties,omitempty"`
+	MinProperties         *int                `yaml:"minProperties,omitempty" json:"minProperties,omitempty"`
+	DependentRequired     map[string][]string `yaml:"dependentRequired,omitempty" json:"dependentRequired,omitempty"` // JSON Schema Draft 2020-12
+	DependentSchemas      map[string]*Schema  `yaml:"dependentSchemas,omitempty" json:"dependentSchemas,omitempty"`   // JSON Schema Draft 2020-12
 
 	// Conditional schemas
 	If   *Schema `yaml:"if,omitempty" json:"if,omitempty"`     // JSON Schema Draft 2020-12, OAS 3.1+
@@ -75,6 +77,11 @@ type Schema struct {
 
 	// Format
 	Format string `yaml:"format,omitempty" json:"format,omitempty"` // e.g., "date-time", "email", "uri", etc.
+
+	// Content keywords (JSON Schema Draft 2020-12)
+	ContentEncoding  string  `yaml:"contentEncoding,omitempty" json:"contentEncoding,omitempty"`   // e.g., "base64", "base32"
+	ContentMediaType string  `yaml:"contentMediaType,omitempty" json:"contentMediaType,omitempty"` // e.g., "application/json"
+	ContentSchema    *Schema `yaml:"contentSchema,omitempty" json:"contentSchema,omitempty"`       // Schema for decoded content
 
 	// OAS 2.0 specific
 	CollectionFormat string `yaml:"collectionFormat,omitempty" json:"collectionFormat,omitempty"` // OAS 2.0

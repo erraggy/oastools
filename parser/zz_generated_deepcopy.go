@@ -106,6 +106,15 @@ func (in *Components) DeepCopyInto(out *Components) {
 		}
 	}
 
+	if in.MediaTypes != nil {
+		out.MediaTypes = make(map[string]*MediaType, len(in.MediaTypes))
+		for k, v := range in.MediaTypes {
+			if v != nil {
+				out.MediaTypes[k] = v.DeepCopy()
+			}
+		}
+	}
+
 	out.Extra = deepCopyExtensions(in.Extra)
 }
 
@@ -898,6 +907,15 @@ func (in *PathItem) DeepCopyInto(out *PathItem) {
 		}
 	}
 
+	if in.AdditionalOperations != nil {
+		out.AdditionalOperations = make(map[string]*Operation, len(in.AdditionalOperations))
+		for k, v := range in.AdditionalOperations {
+			if v != nil {
+				out.AdditionalOperations[k] = v.DeepCopy()
+			}
+		}
+	}
+
 	out.Extra = deepCopyExtensions(in.Extra)
 }
 
@@ -1044,6 +1062,10 @@ func (in *Schema) DeepCopyInto(out *Schema) {
 
 	out.AdditionalItems = deepCopySchemaOrBool(in.AdditionalItems)
 
+	out.UnevaluatedProperties = deepCopySchemaOrBool(in.UnevaluatedProperties)
+
+	out.UnevaluatedItems = deepCopySchemaOrBool(in.UnevaluatedItems)
+
 	out.ExclusiveMinimum = deepCopyBoolOrNumber(in.ExclusiveMinimum)
 
 	out.ExclusiveMaximum = deepCopyBoolOrNumber(in.ExclusiveMaximum)
@@ -1147,6 +1169,10 @@ func (in *Schema) DeepCopyInto(out *Schema) {
 
 	if in.Not != nil {
 		out.Not = in.Not.DeepCopy()
+	}
+
+	if in.ContentSchema != nil {
+		out.ContentSchema = in.ContentSchema.DeepCopy()
 	}
 
 	if in.Required != nil {

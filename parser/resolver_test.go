@@ -632,3 +632,177 @@ paths:
 	}
 	assert.True(t, foundCircularWarning, "Expected a warning about circular references being detected")
 }
+
+// TestArrayIndexResolution tests RFC 6901 JSON Pointer array index support
+func TestArrayIndexResolution(t *testing.T) {
+	tests := []struct {
+		name        string
+		doc         map[string]any
+		ref         string
+		expectError bool
+		errorMsg    string
+		expected    any
+	}{
+		{
+			name: "valid first array element",
+			doc: map[string]any{
+				"items": []any{
+					map[string]any{"name": "first"},
+					map[string]any{"name": "second"},
+				},
+			},
+			ref:      "#/items/0",
+			expected: map[string]any{"name": "first"},
+		},
+		{
+			name: "valid second array element",
+			doc: map[string]any{
+				"items": []any{
+					map[string]any{"name": "first"},
+					map[string]any{"name": "second"},
+				},
+			},
+			ref:      "#/items/1",
+			expected: map[string]any{"name": "second"},
+		},
+		{
+			name: "nested array access",
+			doc: map[string]any{
+				"paths": map[string]any{
+					"/users": map[string]any{
+						"get": map[string]any{
+							"parameters": []any{
+								map[string]any{"name": "limit", "in": "query"},
+								map[string]any{"name": "offset", "in": "query"},
+							},
+						},
+					},
+				},
+			},
+			ref:      "#/paths/~1users/get/parameters/0",
+			expected: map[string]any{"name": "limit", "in": "query"},
+		},
+		{
+			name: "array index out of bounds",
+			doc: map[string]any{
+				"items": []any{
+					map[string]any{"name": "only"},
+				},
+			},
+			ref:         "#/items/5",
+			expectError: true,
+			errorMsg:    "out of bounds",
+		},
+		{
+			name: "negative array index",
+			doc: map[string]any{
+				"items": []any{
+					map[string]any{"name": "item"},
+				},
+			},
+			ref:         "#/items/-1",
+			expectError: true,
+			errorMsg:    "out of bounds", // -1 parses as valid integer but fails bounds check
+		},
+		{
+			name: "non-numeric array index",
+			doc: map[string]any{
+				"items": []any{
+					map[string]any{"name": "item"},
+				},
+			},
+			ref:         "#/items/abc",
+			expectError: true,
+			errorMsg:    "invalid array index",
+		},
+		{
+			name: "empty array access",
+			doc: map[string]any{
+				"items": []any{},
+			},
+			ref:         "#/items/0",
+			expectError: true,
+			errorMsg:    "out of bounds",
+		},
+		{
+			name: "deeply nested array access",
+			doc: map[string]any{
+				"components": map[string]any{
+					"schemas": map[string]any{
+						"Response": map[string]any{
+							"oneOf": []any{
+								map[string]any{"type": "object"},
+								map[string]any{"type": "array"},
+							},
+						},
+					},
+				},
+			},
+			ref:      "#/components/schemas/Response/oneOf/1",
+			expected: map[string]any{"type": "array"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver := NewRefResolver("")
+			result, err := resolver.Resolve(tt.doc, tt.ref)
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
+// TestArrayIndexInParsedSpec tests array index refs in actual OpenAPI specs
+func TestArrayIndexInParsedSpec(t *testing.T) {
+	spec := `
+openapi: "3.0.0"
+info:
+  title: Array Index Test
+  version: "1.0.0"
+paths:
+  /users:
+    get:
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/paths/~1users/get/parameters/0/schema'
+`
+	result, err := ParseWithOptions(
+		WithBytes([]byte(spec)),
+		WithResolveRefs(true),
+		WithValidateStructure(true),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// The ref should have been resolved correctly using array index
+	doc, ok := result.OAS3Document()
+	require.True(t, ok)
+
+	response := doc.Paths["/users"].Get.Responses.Codes["200"]
+	require.NotNil(t, response)
+	schema := response.Content["application/json"].Schema
+	require.NotNil(t, schema)
+
+	// The resolved schema should have type: integer
+	assert.Equal(t, "integer", schema.Type)
+}

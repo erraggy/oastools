@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/erraggy/oastools/oaserrors"
@@ -120,8 +121,15 @@ func (r *RefResolver) ResolveLocal(doc map[string]any, ref string) (any, error) 
 			current = next
 
 		case []any:
-			// Handle array indexing (not common in OAS but valid JSON Pointer)
-			return nil, fmt.Errorf("array indexing not supported in reference: #/%s", strings.Join(parts, "/"))
+			// Handle array indexing per RFC 6901 (JSON Pointer)
+			index, err := strconv.Atoi(part)
+			if err != nil {
+				return nil, fmt.Errorf("invalid array index '%s' in reference: #/%s (must be a non-negative integer)", part, strings.Join(parts[:i+1], "/"))
+			}
+			if index < 0 || index >= len(v) {
+				return nil, fmt.Errorf("array index %d out of bounds (length %d) in reference: #/%s", index, len(v), strings.Join(parts[:i+1], "/"))
+			}
+			current = v[index]
 
 		default:
 			return nil, fmt.Errorf("cannot traverse into type %T at #/%s", v, strings.Join(parts[:i], "/"))

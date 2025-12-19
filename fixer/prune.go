@@ -169,6 +169,27 @@ func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited ma
 		refs = append(refs, collectSchemaRefsRecursive(depSchema, prefix, visited)...)
 	}
 
+	// JSON Schema 2020-12 unevaluated keywords (can be *Schema or bool)
+	if schema.UnevaluatedProperties != nil {
+		if unevalProps, ok := schema.UnevaluatedProperties.(*parser.Schema); ok {
+			refs = append(refs, collectSchemaRefsRecursive(unevalProps, prefix, visited)...)
+		} else if unevalPropsMap, ok := schema.UnevaluatedProperties.(map[string]any); ok {
+			refs = append(refs, collectRefsFromMap(unevalPropsMap, prefix)...)
+		}
+	}
+	if schema.UnevaluatedItems != nil {
+		if unevalItems, ok := schema.UnevaluatedItems.(*parser.Schema); ok {
+			refs = append(refs, collectSchemaRefsRecursive(unevalItems, prefix, visited)...)
+		} else if unevalItemsMap, ok := schema.UnevaluatedItems.(map[string]any); ok {
+			refs = append(refs, collectRefsFromMap(unevalItemsMap, prefix)...)
+		}
+	}
+
+	// JSON Schema 2020-12 content keywords
+	if schema.ContentSchema != nil {
+		refs = append(refs, collectSchemaRefsRecursive(schema.ContentSchema, prefix, visited)...)
+	}
+
 	// Conditional schemas (OAS 3.1+)
 	if schema.If != nil {
 		refs = append(refs, collectSchemaRefsRecursive(schema.If, prefix, visited)...)
@@ -233,6 +254,11 @@ func isPathItemEmpty(pathItem *parser.PathItem, version parser.OASVersion) bool 
 
 	// QUERY method is OAS 3.2+
 	if version >= parser.OASVersion320 && pathItem.Query != nil {
+		return false
+	}
+
+	// AdditionalOperations (custom HTTP methods) are OAS 3.2+
+	if version >= parser.OASVersion320 && len(pathItem.AdditionalOperations) > 0 {
 		return false
 	}
 

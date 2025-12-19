@@ -1,9 +1,5 @@
 package parser
 
-import (
-	"fmt"
-)
-
 // OASVersion represents each canonical version of the OpenAPI Specification that may be found at:
 // https://github.com/OAI/OpenAPI-Specification/releases
 type OASVersion int
@@ -33,6 +29,15 @@ const (
 	OASVersion320
 )
 
+// seriesInfo pre-computed info for a major.minor version series
+type seriesInfo struct {
+	// patches maps patch version -> OASVersion for this series
+	// e.g., for 3.0.x series: {0: OASVersion300, 1: OASVersion301, ...}
+	patches map[int]OASVersion
+	// maxPatch is the highest known patch version in this series
+	maxPatch int
+}
+
 var (
 	versionToString = map[OASVersion]string{
 		OASVersion20:  "2.0",
@@ -54,7 +59,53 @@ var (
 		}
 		return m
 	}()
+
+	// versionSeriesLookup maps "major.minor" -> seriesInfo for O(1) future version lookups
+	// e.g., "3.0" -> {patches: {0: 300, 1: 301, 2: 302, 3: 303, 4: 304}, maxPatch: 4}
+	versionSeriesLookup = func() map[string]seriesInfo {
+		m := make(map[string]seriesInfo)
+		for oasVer, verStr := range versionToString {
+			if oasVer == OASVersion20 {
+				continue // 2.0 is special case
+			}
+
+			v, err := parseVersion(verStr)
+			if err != nil {
+				continue
+			}
+
+			segs := v.segments()
+			if len(segs) < 3 {
+				continue
+			}
+
+			key := seriesKey(segs[0], segs[1])
+			info, exists := m[key]
+			if !exists {
+				info = seriesInfo{patches: make(map[int]OASVersion), maxPatch: -1}
+			}
+			info.patches[segs[2]] = oasVer
+			if segs[2] > info.maxPatch {
+				info.maxPatch = segs[2]
+			}
+			m[key] = info
+		}
+		return m
+	}()
 )
+
+// seriesKey returns a string key for major.minor lookup (e.g., "3.0", "3.1")
+func seriesKey(major, minor int) string {
+	// Pre-allocate for common case of single-digit numbers
+	buf := make([]byte, 0, 4)
+	buf = append(buf, byte('0'+major))
+	buf = append(buf, '.')
+	if minor >= 10 {
+		buf = append(buf, byte('0'+minor/10))
+	}
+	buf = append(buf, byte('0'+minor%10))
+	return string(buf)
+}
 
 func (v OASVersion) String() string {
 	if s, ok := versionToString[v]; ok {
@@ -80,14 +131,9 @@ func (v OASVersion) IsValid() bool {
 // - "3.0.0-rc0" maps to OASVersion300 (3.0.0) - the base version
 // - "3.0.5-rc1" maps to OASVersion304 (3.0.4) - closest without exceeding 3.0.5
 func ParseVersion(s string) (OASVersion, bool) {
-	// First try exact match
+	// First try exact match (handles all known versions including "2.0")
 	if v, ok := stringToVersion[s]; ok {
-		return v, ok
-	}
-
-	// Special case: "2.0" doesn't need patch version handling
-	if s == "2.0" {
-		return OASVersion20, true
+		return v, true
 	}
 
 	// Try to parse as semver and map to known major.minor series
@@ -110,17 +156,8 @@ func ParseVersion(s string) (OASVersion, bool) {
 		return Unknown, false
 	}
 
-	// Handle 3.x versions - find closest match without exceeding the base version
+	// Handle 3.x versions - find closest match using pre-computed lookup
 	if segments[0] == 3 {
-		// Get the base version string (without pre-release suffix)
-		baseVersion := fmt.Sprintf("%d.%d.%d", segments[0], segments[1], segments[2])
-
-		// Try exact match on base version first (handles RC of known versions)
-		if v, ok := stringToVersion[baseVersion]; ok {
-			return v, true
-		}
-
-		// Find the closest version in this major.minor series that doesn't exceed baseVersion
 		return findClosestVersion(segments[0], segments[1], segments[2])
 	}
 
@@ -128,56 +165,30 @@ func ParseVersion(s string) (OASVersion, bool) {
 }
 
 // findClosestVersion finds the closest known version that doesn't exceed major.minor.patch
+// Uses pre-computed versionSeriesLookup for O(1) lookups
 func findClosestVersion(major, minor, patch int) (OASVersion, bool) {
-	// Iterate through all known versions in descending order
-	// and find the highest one that doesn't exceed the target version
-	var candidates []struct {
-		version OASVersion
-		major   int
-		minor   int
-		patch   int
+	key := seriesKey(major, minor)
+	info, exists := versionSeriesLookup[key]
+	if !exists {
+		return Unknown, false
 	}
 
-	for oasVer, verStr := range versionToString {
-		if oasVer == OASVersion20 {
-			continue // Skip 2.0
-		}
+	// If exact patch exists, return it
+	if v, ok := info.patches[patch]; ok {
+		return v, true
+	}
 
-		// Parse the version string
-		v, err := parseVersion(verStr)
-		if err != nil {
-			continue
-		}
-
-		segs := v.segments()
-		if len(segs) < 3 {
-			continue
-		}
-
-		// Only consider versions in the same major.minor series
-		if segs[0] == major && segs[1] == minor {
-			candidates = append(candidates, struct {
-				version OASVersion
-				major   int
-				minor   int
-				patch   int
-			}{oasVer, segs[0], segs[1], segs[2]})
-		}
+	// If requested patch exceeds our max, return the max
+	if patch > info.maxPatch {
+		return info.patches[info.maxPatch], true
 	}
 
 	// Find the highest patch version that doesn't exceed the target
-	var bestMatch OASVersion
-	bestPatch := -1
-
-	for _, cand := range candidates {
-		if cand.patch <= patch && cand.patch > bestPatch {
-			bestMatch = cand.version
-			bestPatch = cand.patch
+	// This handles cases like requesting 3.0.3 when we have 0, 1, 2, 4 (skip 3)
+	for p := patch; p >= 0; p-- {
+		if v, ok := info.patches[p]; ok {
+			return v, true
 		}
-	}
-
-	if bestPatch >= 0 {
-		return bestMatch, true
 	}
 
 	return Unknown, false

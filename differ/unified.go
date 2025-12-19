@@ -745,6 +745,15 @@ func (d *Differ) diffSchemaRecursiveUnified(source, target *parser.Schema, path 
 	// Compare conditional schemas
 	d.diffSchemaConditionalUnified(source.If, source.Then, source.Else, target.If, target.Then, target.Else, path, visited, result)
 
+	// JSON Schema 2020-12 fields
+	d.diffSchemaUnevaluatedPropertiesUnified(source.UnevaluatedProperties, target.UnevaluatedProperties, path, visited, result)
+	d.diffSchemaUnevaluatedItemsUnified(source.UnevaluatedItems, target.UnevaluatedItems, path, visited, result)
+	d.diffSchemaContentFieldsUnified(source, target, path, visited, result)
+	d.diffSchemaPrefixItemsUnified(source.PrefixItems, target.PrefixItems, path, visited, result)
+	d.diffSchemaContainsUnified(source.Contains, target.Contains, path, visited, result)
+	d.diffSchemaPropertyNamesUnified(source.PropertyNames, target.PropertyNames, path, visited, result)
+	d.diffSchemaDependentSchemasUnified(source.DependentSchemas, target.DependentSchemas, path, visited, result)
+
 	// Compare extensions
 	d.diffExtrasUnified(source.Extra, target.Extra, path, result)
 }
@@ -1364,6 +1373,282 @@ func (d *Differ) diffSchemaConditionalUnified(sourceIf, sourceThen, sourceElse, 
 	}
 }
 
+// diffSchemaUnevaluatedPropertiesUnified compares unevaluatedProperties (JSON Schema 2020-12)
+func (d *Differ) diffSchemaUnevaluatedPropertiesUnified(source, target any, path string, visited *schemaVisited, result *DiffResult) {
+	sourceType := getSchemaAdditionalPropsType(source)
+	targetType := getSchemaAdditionalPropsType(target)
+	fieldPath := path + ".unevaluatedProperties"
+
+	// Both nil - no change
+	if sourceType == schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
+		return
+	}
+
+	// Added
+	if sourceType == schemaAdditionalPropsTypeNil && targetType != schemaAdditionalPropsTypeNil {
+		severity := SeverityInfo
+		if d.Mode == ModeBreaking && targetType == schemaAdditionalPropsTypeBool && !target.(bool) {
+			severity = SeverityError
+		}
+		d.addChange(result, fieldPath, ChangeTypeAdded, CategorySchema,
+			severity, nil, target, "unevaluatedProperties constraint added")
+		return
+	}
+
+	// Removed
+	if sourceType != schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
+		d.addChange(result, fieldPath, ChangeTypeRemoved, CategorySchema,
+			SeverityWarning, source, nil, "unevaluatedProperties constraint removed")
+		return
+	}
+
+	// Type changed
+	if sourceType != targetType {
+		d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
+			SeverityWarning, source, target, "unevaluatedProperties type changed")
+		return
+	}
+
+	// Both same type - compare
+	switch sourceType {
+	case schemaAdditionalPropsTypeSchema:
+		d.diffSchemaRecursiveUnified(source.(*parser.Schema), target.(*parser.Schema), fieldPath, visited, result)
+	case schemaAdditionalPropsTypeBool:
+		if source.(bool) != target.(bool) {
+			severity := SeverityInfo
+			if d.Mode == ModeBreaking && source.(bool) && !target.(bool) {
+				severity = SeverityError
+			}
+			d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
+				severity, source, target, fmt.Sprintf("unevaluatedProperties changed from %v to %v", source, target))
+		}
+	}
+}
+
+// diffSchemaUnevaluatedItemsUnified compares unevaluatedItems (JSON Schema 2020-12)
+func (d *Differ) diffSchemaUnevaluatedItemsUnified(source, target any, path string, visited *schemaVisited, result *DiffResult) {
+	sourceType := getSchemaAdditionalPropsType(source)
+	targetType := getSchemaAdditionalPropsType(target)
+	fieldPath := path + ".unevaluatedItems"
+
+	// Both nil - no change
+	if sourceType == schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
+		return
+	}
+
+	// Added
+	if sourceType == schemaAdditionalPropsTypeNil && targetType != schemaAdditionalPropsTypeNil {
+		severity := SeverityInfo
+		if d.Mode == ModeBreaking && targetType == schemaAdditionalPropsTypeBool && !target.(bool) {
+			severity = SeverityError
+		}
+		d.addChange(result, fieldPath, ChangeTypeAdded, CategorySchema,
+			severity, nil, target, "unevaluatedItems constraint added")
+		return
+	}
+
+	// Removed
+	if sourceType != schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
+		d.addChange(result, fieldPath, ChangeTypeRemoved, CategorySchema,
+			SeverityWarning, source, nil, "unevaluatedItems constraint removed")
+		return
+	}
+
+	// Type changed
+	if sourceType != targetType {
+		d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
+			SeverityWarning, source, target, "unevaluatedItems type changed")
+		return
+	}
+
+	// Both same type - compare
+	switch sourceType {
+	case schemaAdditionalPropsTypeSchema:
+		d.diffSchemaRecursiveUnified(source.(*parser.Schema), target.(*parser.Schema), fieldPath, visited, result)
+	case schemaAdditionalPropsTypeBool:
+		if source.(bool) != target.(bool) {
+			severity := SeverityInfo
+			if d.Mode == ModeBreaking && source.(bool) && !target.(bool) {
+				severity = SeverityError
+			}
+			d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
+				severity, source, target, fmt.Sprintf("unevaluatedItems changed from %v to %v", source, target))
+		}
+	}
+}
+
+// diffSchemaContentFieldsUnified compares content keywords (JSON Schema 2020-12)
+func (d *Differ) diffSchemaContentFieldsUnified(source, target *parser.Schema, path string, visited *schemaVisited, result *DiffResult) {
+	// ContentEncoding
+	if source.ContentEncoding != target.ContentEncoding {
+		if source.ContentEncoding == "" {
+			d.addChange(result, path+".contentEncoding", ChangeTypeAdded, CategorySchema,
+				SeverityInfo, nil, target.ContentEncoding, "contentEncoding added")
+		} else if target.ContentEncoding == "" {
+			d.addChange(result, path+".contentEncoding", ChangeTypeRemoved, CategorySchema,
+				SeverityWarning, source.ContentEncoding, nil, "contentEncoding removed")
+		} else {
+			d.addChange(result, path+".contentEncoding", ChangeTypeModified, CategorySchema,
+				SeverityWarning, source.ContentEncoding, target.ContentEncoding,
+				fmt.Sprintf("contentEncoding changed from %q to %q", source.ContentEncoding, target.ContentEncoding))
+		}
+	}
+
+	// ContentMediaType
+	if source.ContentMediaType != target.ContentMediaType {
+		if source.ContentMediaType == "" {
+			d.addChange(result, path+".contentMediaType", ChangeTypeAdded, CategorySchema,
+				SeverityInfo, nil, target.ContentMediaType, "contentMediaType added")
+		} else if target.ContentMediaType == "" {
+			d.addChange(result, path+".contentMediaType", ChangeTypeRemoved, CategorySchema,
+				SeverityWarning, source.ContentMediaType, nil, "contentMediaType removed")
+		} else {
+			d.addChange(result, path+".contentMediaType", ChangeTypeModified, CategorySchema,
+				SeverityWarning, source.ContentMediaType, target.ContentMediaType,
+				fmt.Sprintf("contentMediaType changed from %q to %q", source.ContentMediaType, target.ContentMediaType))
+		}
+	}
+
+	// ContentSchema
+	if source.ContentSchema != nil || target.ContentSchema != nil {
+		contentSchemaPath := path + ".contentSchema"
+		if source.ContentSchema == nil {
+			d.addChange(result, contentSchemaPath, ChangeTypeAdded, CategorySchema,
+				SeverityInfo, nil, target.ContentSchema, "contentSchema added")
+		} else if target.ContentSchema == nil {
+			d.addChange(result, contentSchemaPath, ChangeTypeRemoved, CategorySchema,
+				SeverityWarning, source.ContentSchema, nil, "contentSchema removed")
+		} else {
+			d.diffSchemaRecursiveUnified(source.ContentSchema, target.ContentSchema, contentSchemaPath, visited, result)
+		}
+	}
+}
+
+// diffSchemaPrefixItemsUnified compares prefixItems arrays (JSON Schema 2020-12)
+func (d *Differ) diffSchemaPrefixItemsUnified(source, target []*parser.Schema, path string, visited *schemaVisited, result *DiffResult) {
+	prefixPath := path + ".prefixItems"
+
+	// Both nil/empty
+	if len(source) == 0 && len(target) == 0 {
+		return
+	}
+
+	// Added
+	if len(source) == 0 && len(target) > 0 {
+		d.addChange(result, prefixPath, ChangeTypeAdded, CategorySchema,
+			SeverityInfo, nil, target, "prefixItems added")
+		return
+	}
+
+	// Removed
+	if len(source) > 0 && len(target) == 0 {
+		d.addChange(result, prefixPath, ChangeTypeRemoved, CategorySchema,
+			SeverityWarning, source, nil, "prefixItems removed")
+		return
+	}
+
+	// Compare each item
+	maxLen := len(source)
+	if len(target) > maxLen {
+		maxLen = len(target)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		itemPath := fmt.Sprintf("%s[%d]", prefixPath, i)
+		if i >= len(source) {
+			d.addChange(result, itemPath, ChangeTypeAdded, CategorySchema,
+				SeverityInfo, nil, target[i], "prefixItem added")
+		} else if i >= len(target) {
+			d.addChange(result, itemPath, ChangeTypeRemoved, CategorySchema,
+				SeverityWarning, source[i], nil, "prefixItem removed")
+		} else {
+			d.diffSchemaRecursiveUnified(source[i], target[i], itemPath, visited, result)
+		}
+	}
+}
+
+// diffSchemaContainsUnified compares contains schema (JSON Schema 2020-12)
+func (d *Differ) diffSchemaContainsUnified(source, target *parser.Schema, path string, visited *schemaVisited, result *DiffResult) {
+	containsPath := path + ".contains"
+
+	if source == nil && target == nil {
+		return
+	}
+
+	if source == nil {
+		d.addChange(result, containsPath, ChangeTypeAdded, CategorySchema,
+			SeverityInfo, nil, target, "contains constraint added")
+		return
+	}
+
+	if target == nil {
+		d.addChange(result, containsPath, ChangeTypeRemoved, CategorySchema,
+			SeverityWarning, source, nil, "contains constraint removed")
+		return
+	}
+
+	d.diffSchemaRecursiveUnified(source, target, containsPath, visited, result)
+}
+
+// diffSchemaPropertyNamesUnified compares propertyNames schema (JSON Schema 2020-12)
+func (d *Differ) diffSchemaPropertyNamesUnified(source, target *parser.Schema, path string, visited *schemaVisited, result *DiffResult) {
+	propNamesPath := path + ".propertyNames"
+
+	if source == nil && target == nil {
+		return
+	}
+
+	if source == nil {
+		d.addChange(result, propNamesPath, ChangeTypeAdded, CategorySchema,
+			SeverityError, nil, target, "propertyNames constraint added")
+		return
+	}
+
+	if target == nil {
+		d.addChange(result, propNamesPath, ChangeTypeRemoved, CategorySchema,
+			SeverityWarning, source, nil, "propertyNames constraint removed")
+		return
+	}
+
+	d.diffSchemaRecursiveUnified(source, target, propNamesPath, visited, result)
+}
+
+// diffSchemaDependentSchemasUnified compares dependentSchemas (JSON Schema 2020-12)
+func (d *Differ) diffSchemaDependentSchemasUnified(source, target map[string]*parser.Schema, path string, visited *schemaVisited, result *DiffResult) {
+	depPath := path + ".dependentSchemas"
+
+	// Build sets for comparison
+	sourceKeys := make(map[string]bool)
+	targetKeys := make(map[string]bool)
+	for k := range source {
+		sourceKeys[k] = true
+	}
+	for k := range target {
+		targetKeys[k] = true
+	}
+
+	// Check for added/removed keys
+	for key := range sourceKeys {
+		if !targetKeys[key] {
+			d.addChange(result, depPath+"."+key, ChangeTypeRemoved, CategorySchema,
+				SeverityWarning, source[key], nil, fmt.Sprintf("dependentSchema %q removed", key))
+		}
+	}
+	for key := range targetKeys {
+		if !sourceKeys[key] {
+			d.addChange(result, depPath+"."+key, ChangeTypeAdded, CategorySchema,
+				SeverityError, nil, target[key], fmt.Sprintf("dependentSchema %q added", key))
+		}
+	}
+
+	// Compare existing keys
+	for key := range sourceKeys {
+		if targetKeys[key] {
+			d.diffSchemaRecursiveUnified(source[key], target[key], depPath+"."+key, visited, result)
+		}
+	}
+}
+
 // ============================================================================
 // Phase 5: Operation functions (unified implementations)
 // ============================================================================
@@ -1661,8 +1946,47 @@ func (d *Differ) diffComponentsUnified(source, target *parser.Components, path s
 	// Compare security schemes
 	d.diffSecuritySchemesUnified(source.SecuritySchemes, target.SecuritySchemes, path+".securitySchemes", result)
 
+	// Compare mediaTypes (OAS 3.2+)
+	d.diffMediaTypesUnified(source.MediaTypes, target.MediaTypes, path+".mediaTypes", result)
+
 	// Compare Components extensions
 	d.diffExtrasUnified(source.Extra, target.Extra, path, result)
+}
+
+// diffMediaTypesUnified compares reusable MediaType definitions (OAS 3.2+)
+func (d *Differ) diffMediaTypesUnified(source, target map[string]*parser.MediaType, path string, result *DiffResult) {
+	// Build key sets
+	sourceKeys := make(map[string]bool)
+	targetKeys := make(map[string]bool)
+	for k := range source {
+		sourceKeys[k] = true
+	}
+	for k := range target {
+		targetKeys[k] = true
+	}
+
+	// Check for removed media types
+	for key := range sourceKeys {
+		if !targetKeys[key] {
+			d.addChange(result, path+"."+key, ChangeTypeRemoved, CategorySchema,
+				SeverityWarning, source[key], nil, fmt.Sprintf("mediaType %q removed", key))
+		}
+	}
+
+	// Check for added media types
+	for key := range targetKeys {
+		if !sourceKeys[key] {
+			d.addChange(result, path+"."+key, ChangeTypeAdded, CategorySchema,
+				SeverityInfo, nil, target[key], fmt.Sprintf("mediaType %q added", key))
+		}
+	}
+
+	// Compare existing media types
+	for key := range sourceKeys {
+		if targetKeys[key] {
+			d.diffMediaTypeUnified(source[key], target[key], path+"."+key, result)
+		}
+	}
 }
 
 // ============================================================================

@@ -186,6 +186,12 @@ func (c *Converter) convertOAS3PathItemToOAS2(src *parser.PathItem, doc *parser.
 			"QUERY method is OAS 3.2+ only and cannot be converted to OAS 2.0", SeverityCritical)
 	}
 
+	// AdditionalOperations (custom HTTP methods) are OAS 3.2+ only
+	for method := range src.AdditionalOperations {
+		c.addIssue(result, fmt.Sprintf("%s.additionalOperations.%s", pathPrefix, method),
+			fmt.Sprintf("Custom HTTP method %s is OAS 3.2+ only and cannot be converted to OAS 2.0", method), SeverityCritical)
+	}
+
 	return dst
 }
 

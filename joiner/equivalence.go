@@ -333,6 +333,88 @@ func compareDeep(left, right *parser.Schema, path string, result *EquivalenceRes
 	} else if left.Not != nil && right.Not != nil {
 		compareDeep(left.Not, right.Not, pathJoin(path, "not"), result, visited)
 	}
+
+	// JSON Schema 2020-12 fields
+
+	// Compare unevaluatedProperties (can be bool or *Schema)
+	comparePolymorphicSchemas(left.UnevaluatedProperties, right.UnevaluatedProperties, pathJoin(path, "unevaluatedProperties"), result, visited)
+
+	// Compare unevaluatedItems (can be bool or *Schema)
+	comparePolymorphicSchemas(left.UnevaluatedItems, right.UnevaluatedItems, pathJoin(path, "unevaluatedItems"), result, visited)
+
+	// Compare contentEncoding
+	if left.ContentEncoding != right.ContentEncoding {
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        pathJoin(path, "contentEncoding"),
+			LeftValue:   left.ContentEncoding,
+			RightValue:  right.ContentEncoding,
+			Description: "contentEncoding mismatch",
+		})
+	}
+
+	// Compare contentMediaType
+	if left.ContentMediaType != right.ContentMediaType {
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        pathJoin(path, "contentMediaType"),
+			LeftValue:   left.ContentMediaType,
+			RightValue:  right.ContentMediaType,
+			Description: "contentMediaType mismatch",
+		})
+	}
+
+	// Compare contentSchema
+	if (left.ContentSchema == nil) != (right.ContentSchema == nil) {
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        pathJoin(path, "contentSchema"),
+			LeftValue:   left.ContentSchema != nil,
+			RightValue:  right.ContentSchema != nil,
+			Description: "contentSchema presence mismatch",
+		})
+	} else if left.ContentSchema != nil && right.ContentSchema != nil {
+		compareDeep(left.ContentSchema, right.ContentSchema, pathJoin(path, "contentSchema"), result, visited)
+	}
+
+	// Compare prefixItems
+	compareSchemaArrays(left.PrefixItems, right.PrefixItems, pathJoin(path, "prefixItems"), result, visited)
+
+	// Compare contains
+	if (left.Contains == nil) != (right.Contains == nil) {
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        pathJoin(path, "contains"),
+			LeftValue:   left.Contains != nil,
+			RightValue:  right.Contains != nil,
+			Description: "contains schema presence mismatch",
+		})
+	} else if left.Contains != nil && right.Contains != nil {
+		compareDeep(left.Contains, right.Contains, pathJoin(path, "contains"), result, visited)
+	}
+
+	// Compare propertyNames
+	if (left.PropertyNames == nil) != (right.PropertyNames == nil) {
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        pathJoin(path, "propertyNames"),
+			LeftValue:   left.PropertyNames != nil,
+			RightValue:  right.PropertyNames != nil,
+			Description: "propertyNames schema presence mismatch",
+		})
+	} else if left.PropertyNames != nil && right.PropertyNames != nil {
+		compareDeep(left.PropertyNames, right.PropertyNames, pathJoin(path, "propertyNames"), result, visited)
+	}
+
+	// Compare dependentSchemas
+	if !equalPropertyNames(left.DependentSchemas, right.DependentSchemas) {
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        pathJoin(path, "dependentSchemas"),
+			LeftValue:   getPropertyNames(left.DependentSchemas),
+			RightValue:  getPropertyNames(right.DependentSchemas),
+			Description: "dependentSchemas keys mismatch",
+		})
+	} else if left.DependentSchemas != nil && right.DependentSchemas != nil {
+		for name, leftSchema := range left.DependentSchemas {
+			rightSchema := right.DependentSchemas[name]
+			compareDeep(leftSchema, rightSchema, pathJoin(path, fmt.Sprintf("dependentSchemas.%s", name)), result, visited)
+		}
+	}
 }
 
 // Helper functions
@@ -543,6 +625,55 @@ func compareAdditionalPropertiesSchemas(left, right any, path string, result *Eq
 		LeftValue:   fmt.Sprintf("%T", left),
 		RightValue:  fmt.Sprintf("%T", right),
 		Description: "additionalProperties type mismatch",
+	})
+}
+
+// comparePolymorphicSchemas compares schema fields that can be bool or *Schema (e.g., unevaluatedProperties, unevaluatedItems)
+func comparePolymorphicSchemas(left, right any, path string, result *EquivalenceResult, visited map[pointerPair]bool) {
+	// Both nil
+	if left == nil && right == nil {
+		return
+	}
+	// One nil
+	if left == nil || right == nil {
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        path,
+			LeftValue:   left != nil,
+			RightValue:  right != nil,
+			Description: "schema presence mismatch",
+		})
+		return
+	}
+
+	// Both schemas
+	leftSchema, leftIsSchema := left.(*parser.Schema)
+	rightSchema, rightIsSchema := right.(*parser.Schema)
+	if leftIsSchema && rightIsSchema {
+		compareDeep(leftSchema, rightSchema, path, result, visited)
+		return
+	}
+
+	// Both booleans
+	leftBool, leftIsBool := left.(bool)
+	rightBool, rightIsBool := right.(bool)
+	if leftIsBool && rightIsBool {
+		if leftBool != rightBool {
+			result.Differences = append(result.Differences, SchemaDifference{
+				Path:        path,
+				LeftValue:   leftBool,
+				RightValue:  rightBool,
+				Description: "boolean value mismatch",
+			})
+		}
+		return
+	}
+
+	// Type mismatch
+	result.Differences = append(result.Differences, SchemaDifference{
+		Path:        path,
+		LeftValue:   fmt.Sprintf("%T", left),
+		RightValue:  fmt.Sprintf("%T", right),
+		Description: "type mismatch",
 	})
 }
 

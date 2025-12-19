@@ -403,6 +403,18 @@ func walkSchemaRefs(schema *parser.Schema, rewrite refRewriter) {
 		walkSchemaRefs(depSchema, rewrite)
 	}
 
+	// JSON Schema 2020-12 unevaluated keywords (can be bool or *Schema)
+	if unevalProps, ok := schema.UnevaluatedProperties.(*parser.Schema); ok {
+		walkSchemaRefs(unevalProps, rewrite)
+	}
+
+	if unevalItems, ok := schema.UnevaluatedItems.(*parser.Schema); ok {
+		walkSchemaRefs(unevalItems, rewrite)
+	}
+
+	// JSON Schema 2020-12 content keywords
+	walkSchemaRefs(schema.ContentSchema, rewrite)
+
 	// Conditional keywords
 	walkSchemaRefs(schema.If, rewrite)
 	walkSchemaRefs(schema.Then, rewrite)

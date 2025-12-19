@@ -142,6 +142,7 @@ var typeConfigs = []TypeConfig{
 			{Name: "Links", Type: "map[string]*Link", CopyMethod: "map", KeyType: "string", ElemType: "*Link"},
 			{Name: "Callbacks", Type: "map[string]*Callback", CopyMethod: "helper", Helper: "deepCopyCallbacks"},
 			{Name: "PathItems", Type: "map[string]*PathItem", CopyMethod: "map", KeyType: "string", ElemType: "*PathItem"},
+			{Name: "MediaTypes", Type: "map[string]*MediaType", CopyMethod: "map", KeyType: "string", ElemType: "*MediaType"}, // OAS 3.2+
 			{Name: "Extra", Type: "map[string]any", CopyMethod: "helper", Helper: "deepCopyExtensions"},
 		},
 	},
@@ -153,6 +154,8 @@ var typeConfigs = []TypeConfig{
 			{Name: "Items", Type: "any", CopyMethod: "helper", Helper: "deepCopySchemaOrBool"},
 			{Name: "AdditionalProperties", Type: "any", CopyMethod: "helper", Helper: "deepCopySchemaOrBool"},
 			{Name: "AdditionalItems", Type: "any", CopyMethod: "helper", Helper: "deepCopySchemaOrBool"},
+			{Name: "UnevaluatedProperties", Type: "any", CopyMethod: "helper", Helper: "deepCopySchemaOrBool"}, // JSON Schema 2020-12
+			{Name: "UnevaluatedItems", Type: "any", CopyMethod: "helper", Helper: "deepCopySchemaOrBool"},      // JSON Schema 2020-12
 			{Name: "ExclusiveMinimum", Type: "any", CopyMethod: "helper", Helper: "deepCopyBoolOrNumber"},
 			{Name: "ExclusiveMaximum", Type: "any", CopyMethod: "helper", Helper: "deepCopyBoolOrNumber"},
 			{Name: "Default", Type: "any", CopyMethod: "helper", Helper: "deepCopyJSONValue"},
@@ -182,6 +185,7 @@ var typeConfigs = []TypeConfig{
 			{Name: "Then", Type: "*Schema", CopyMethod: "pointer"},
 			{Name: "Else", Type: "*Schema", CopyMethod: "pointer"},
 			{Name: "Not", Type: "*Schema", CopyMethod: "pointer"},
+			{Name: "ContentSchema", Type: "*Schema", CopyMethod: "pointer"}, // JSON Schema 2020-12
 			// Slice fields
 			{Name: "Required", Type: "[]string", CopyMethod: "slice", ElemType: "string"},
 			{Name: "PrefixItems", Type: "[]*Schema", CopyMethod: "slice", ElemType: "*Schema"},
@@ -225,6 +229,7 @@ var typeConfigs = []TypeConfig{
 			{Name: "Query", Type: "*Operation", CopyMethod: "pointer"},
 			{Name: "Servers", Type: "[]*Server", CopyMethod: "slice", ElemType: "*Server"},
 			{Name: "Parameters", Type: "[]*Parameter", CopyMethod: "slice", ElemType: "*Parameter"},
+			{Name: "AdditionalOperations", Type: "map[string]*Operation", CopyMethod: "map", KeyType: "string", ElemType: "*Operation"}, // OAS 3.2+
 			{Name: "Extra", Type: "map[string]any", CopyMethod: "helper", Helper: "deepCopyExtensions"},
 		},
 	},
