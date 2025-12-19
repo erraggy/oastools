@@ -2,6 +2,9 @@ package parser
 
 import (
 	"encoding/json"
+	"maps"
+
+	"github.com/erraggy/oastools/parser/internal/jsonhelpers"
 )
 
 // MarshalJSON implements custom JSON marshaling for OAS3Document.
@@ -48,9 +51,7 @@ func (d *OAS3Document) MarshalJSON() ([]byte, error) {
 	}
 
 	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range d.Extra {
-		m[k] = v
-	}
+	maps.Copy(m, d.Extra)
 
 	return json.Marshal(m)
 }
@@ -59,29 +60,10 @@ func (d *OAS3Document) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (d *OAS3Document) UnmarshalJSON(data []byte) error {
 	type Alias OAS3Document
-	aux := (*Alias)(d)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(d)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		d.Extra = extra
-	}
-
+	d.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }
 
@@ -132,9 +114,7 @@ func (c *Components) MarshalJSON() ([]byte, error) {
 	}
 
 	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range c.Extra {
-		m[k] = v
-	}
+	maps.Copy(m, c.Extra)
 
 	return json.Marshal(m)
 }
@@ -143,28 +123,9 @@ func (c *Components) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (c *Components) UnmarshalJSON(data []byte) error {
 	type Alias Components
-	aux := (*Alias)(c)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(c)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		c.Extra = extra
-	}
-
+	c.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }

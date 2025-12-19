@@ -918,7 +918,7 @@ security:
 
 	for _, filename := range expectedFiles {
 		file := result.GetFile(filename)
-		assert.NotNil(t, file, "%s should be generated", filename)
+		require.NotNil(t, file, "%s should be generated", filename)
 
 		// Verify Go files compile
 		if strings.HasSuffix(filename, ".go") {

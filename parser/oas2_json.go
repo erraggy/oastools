@@ -2,6 +2,9 @@ package parser
 
 import (
 	"encoding/json"
+	"maps"
+
+	"github.com/erraggy/oastools/parser/internal/jsonhelpers"
 )
 
 // MarshalJSON implements custom JSON marshaling for OAS2Document.
@@ -63,41 +66,18 @@ func (d *OAS2Document) MarshalJSON() ([]byte, error) {
 	}
 
 	// Add Extra fields (spec extensions must start with "x-")
-	for k, v := range d.Extra {
-		m[k] = v
-	}
+	maps.Copy(m, d.Extra)
 
 	return json.Marshal(m)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for OAS2Document.
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
-// It unmarshals known fields using the standard decoder, then identifies and stores
-// any fields not defined in the OAS 2.0 specification in the Extra map.
 func (d *OAS2Document) UnmarshalJSON(data []byte) error {
 	type Alias OAS2Document
-	aux := (*Alias)(d)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(d)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		d.Extra = extra
-	}
-
+	d.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }

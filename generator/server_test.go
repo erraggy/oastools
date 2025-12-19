@@ -159,6 +159,7 @@ paths:
 	require.NoError(t, err)
 
 	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
 	content := string(serverFile.Content)
 
 	assert.Contains(t, content, "GetItemRequest")
@@ -204,6 +205,7 @@ paths:
 	require.NoError(t, err)
 
 	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
 	content := string(serverFile.Content)
 
 	assert.Contains(t, content, "CreateItem")
@@ -276,6 +278,7 @@ paths:
 	require.NoError(t, err)
 
 	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
 	content := string(serverFile.Content)
 
 	assert.Contains(t, content, "ListUsers")
@@ -343,6 +346,7 @@ components:
 	require.NoError(t, err)
 
 	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
 	content := string(serverFile.Content)
 
 	assert.Contains(t, content, "GetItem")
@@ -388,6 +392,7 @@ paths:
 	require.NoError(t, err)
 
 	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
 	content := string(serverFile.Content)
 
 	assert.Contains(t, content, "Search")
@@ -422,6 +427,7 @@ paths:
 	require.NoError(t, err)
 
 	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
 	content := string(serverFile.Content)
 
 	assert.Contains(t, content, "UnimplementedServer")
@@ -456,6 +462,7 @@ paths:
 	require.NoError(t, err)
 
 	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
 	content := string(serverFile.Content)
 
 	assert.Contains(t, content, "Deprecated:")
@@ -549,6 +556,7 @@ paths:
 	require.NoError(t, err)
 
 	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
 	content := string(serverFile.Content)
 
 	// Should generate method names from path + method
@@ -596,6 +604,7 @@ paths:
 	require.NoError(t, err)
 
 	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
 	content := string(serverFile.Content)
 
 	assert.Contains(t, content, "ListItemsRequest")
@@ -641,6 +650,7 @@ paths:
 	require.NoError(t, err)
 
 	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
 	content := string(serverFile.Content)
 
 	assert.Contains(t, content, "ListItemsRequest")

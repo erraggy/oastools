@@ -12,25 +12,15 @@ import (
 
 // oas2CodeGenerator handles code generation for OAS 2.0 documents
 type oas2CodeGenerator struct {
-	g      *Generator
-	doc    *parser.OAS2Document
-	result *GenerateResult
-	// schemaNames maps schema references to generated type names
-	schemaNames map[string]string
-	// generatedTypes tracks which type names have been generated (for deduplication)
-	generatedTypes map[string]bool
-	// splitPlan contains the file splitting plan for large APIs
-	splitPlan *SplitPlan
+	baseCodeGenerator
+	doc *parser.OAS2Document
 }
 
 func newOAS2CodeGenerator(g *Generator, doc *parser.OAS2Document, result *GenerateResult) *oas2CodeGenerator {
 	cg := &oas2CodeGenerator{
-		g:              g,
-		doc:            doc,
-		result:         result,
-		schemaNames:    make(map[string]string),
-		generatedTypes: make(map[string]bool),
+		doc: doc,
 	}
+	cg.initBase(g, result)
 
 	// Analyze document for file splitting
 	splitter := &FileSplitter{
@@ -435,136 +425,13 @@ func (cg *oas2CodeGenerator) generateAllOfType(typeName string, schema *parser.S
 
 // schemaToGoType converts a schema to a Go type string
 func (cg *oas2CodeGenerator) schemaToGoType(schema *parser.Schema, required bool) string {
-	if schema == nil {
-		return "any"
-	}
-
-	// Handle $ref
-	if schema.Ref != "" {
-		refType := cg.resolveRef(schema.Ref)
-		if !required && cg.g.UsePointers {
-			return "*" + refType
-		}
-		return refType
-	}
-
-	schemaType := getSchemaType(schema)
-	var goType string
-
-	switch schemaType {
-	case "string":
-		goType = stringFormatToGoType(schema.Format)
-	case "integer":
-		goType = integerFormatToGoType(schema.Format)
-	case "number":
-		goType = numberFormatToGoType(schema.Format)
-	case "boolean":
-		goType = "bool"
-	case "array":
-		goType = "[]" + cg.getArrayItemType(schema)
-	case "object":
-		if schema.Properties == nil && schema.AdditionalProperties != nil {
-			// Map type
-			goType = "map[string]" + cg.getAdditionalPropertiesType(schema)
-		} else {
-			goType = "map[string]any"
-		}
-	default:
-		goType = "any"
-	}
-
-	if !required && cg.g.UsePointers && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map") {
-		return "*" + goType
-	}
-
-	return goType
+	// OAS 2.0 doesn't have nullable, so isNullable is always false
+	return cg.schemaToGoTypeBase(schema, required, false, cg.schemaToGoType)
 }
 
 // getArrayItemType extracts the Go type for array items, handling $ref properly
 func (cg *oas2CodeGenerator) getArrayItemType(schema *parser.Schema) string {
-	if schema.Items == nil {
-		return "any"
-	}
-
-	switch items := schema.Items.(type) {
-	case *parser.Schema:
-		if items.Ref != "" {
-			return cg.resolveRef(items.Ref)
-		}
-		return cg.schemaToGoType(items, true)
-	case map[string]any:
-		if ref, ok := items["$ref"].(string); ok {
-			return cg.resolveRef(ref)
-		}
-		return schemaTypeFromMap(items)
-	}
-	return "any"
-}
-
-// getAdditionalPropertiesType extracts the Go type for additionalProperties
-func (cg *oas2CodeGenerator) getAdditionalPropertiesType(schema *parser.Schema) string {
-	if schema.AdditionalProperties == nil {
-		return "any"
-	}
-
-	switch addProps := schema.AdditionalProperties.(type) {
-	case *parser.Schema:
-		return cg.schemaToGoType(addProps, true)
-	case map[string]any:
-		return schemaTypeFromMap(addProps)
-	case bool:
-		if addProps {
-			return "any"
-		}
-	}
-	return "any"
-}
-
-// resolveRef resolves a $ref to a Go type name
-func (cg *oas2CodeGenerator) resolveRef(ref string) string {
-	if typeName, ok := cg.schemaNames[ref]; ok {
-		return typeName
-	}
-	// Extract name from ref path
-	parts := strings.Split(ref, "/")
-	if len(parts) > 0 {
-		return toTypeName(parts[len(parts)-1])
-	}
-	return "any"
-}
-
-// addIssue adds a generation issue
-//
-//nolint:unparam // severity parameter kept for API consistency and future extensibility
-func (cg *oas2CodeGenerator) addIssue(path, message string, severity Severity) {
-	issue := GenerateIssue{
-		Path:     path,
-		Message:  message,
-		Severity: severity,
-	}
-	cg.populateIssueLocation(&issue, path)
-	cg.result.Issues = append(cg.result.Issues, issue)
-}
-
-// populateIssueLocation fills in Line/Column/File from the SourceMap if available.
-func (cg *oas2CodeGenerator) populateIssueLocation(issue *GenerateIssue, path string) {
-	if cg.g.SourceMap == nil {
-		return
-	}
-
-	// Convert path format if needed (generator uses dotted paths like "definitions.Pet",
-	// while SourceMap uses JSON path notation like "$.definitions.Pet")
-	jsonPath := path
-	if len(jsonPath) == 0 || jsonPath[0] != '$' {
-		jsonPath = "$." + path
-	}
-
-	loc := cg.g.SourceMap.Get(jsonPath)
-	if loc.IsKnown() {
-		issue.Line = loc.Line
-		issue.Column = loc.Column
-		issue.File = loc.File
-	}
+	return cg.baseCodeGenerator.getArrayItemType(schema, cg.schemaToGoType)
 }
 
 // generateClient generates HTTP client code for OAS 2.0
@@ -597,67 +464,8 @@ func (cg *oas2CodeGenerator) generateSingleClient() error {
 	buf.WriteString("\t\"strings\"\n")
 	buf.WriteString(")\n\n")
 
-	// Write client struct
-	buf.WriteString("// Client is the API client.\n")
-	buf.WriteString("type Client struct {\n")
-	buf.WriteString("\t// BaseURL is the base URL for API requests.\n")
-	buf.WriteString("\tBaseURL string\n")
-	buf.WriteString("\t// HTTPClient is the HTTP client to use for requests.\n")
-	buf.WriteString("\tHTTPClient *http.Client\n")
-	buf.WriteString("\t// UserAgent is the User-Agent header value for requests.\n")
-	buf.WriteString("\tUserAgent string\n")
-	buf.WriteString("\t// RequestEditors are functions that can modify requests before sending.\n")
-	buf.WriteString("\tRequestEditors []RequestEditorFn\n")
-	buf.WriteString("}\n\n")
-
-	// Write types
-	buf.WriteString("// RequestEditorFn is a function that can modify an HTTP request.\n")
-	buf.WriteString("type RequestEditorFn func(ctx context.Context, req *http.Request) error\n\n")
-
-	buf.WriteString("// ClientOption is a function that configures a Client.\n")
-	buf.WriteString("type ClientOption func(*Client) error\n\n")
-
-	// Write constructor
-	defaultUserAgent := buildDefaultUserAgent(cg.doc.Info)
-	buf.WriteString("// NewClient creates a new API client.\n")
-	buf.WriteString("func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {\n")
-	buf.WriteString("\tc := &Client{\n")
-	buf.WriteString("\t\tBaseURL:    strings.TrimSuffix(baseURL, \"/\"),\n")
-	buf.WriteString("\t\tHTTPClient: http.DefaultClient,\n")
-	buf.WriteString(fmt.Sprintf("\t\tUserAgent:  %q,\n", defaultUserAgent))
-	buf.WriteString("\t}\n")
-	buf.WriteString("\tfor _, opt := range opts {\n")
-	buf.WriteString("\t\tif err := opt(c); err != nil {\n")
-	buf.WriteString("\t\t\treturn nil, err\n")
-	buf.WriteString("\t\t}\n")
-	buf.WriteString("\t}\n")
-	buf.WriteString("\treturn c, nil\n")
-	buf.WriteString("}\n\n")
-
-	// Write client options
-	buf.WriteString("// WithHTTPClient sets the HTTP client.\n")
-	buf.WriteString("func WithHTTPClient(client *http.Client) ClientOption {\n")
-	buf.WriteString("\treturn func(c *Client) error {\n")
-	buf.WriteString("\t\tc.HTTPClient = client\n")
-	buf.WriteString("\t\treturn nil\n")
-	buf.WriteString("\t}\n")
-	buf.WriteString("}\n\n")
-
-	buf.WriteString("// WithRequestEditor adds a request editor function.\n")
-	buf.WriteString("func WithRequestEditor(fn RequestEditorFn) ClientOption {\n")
-	buf.WriteString("\treturn func(c *Client) error {\n")
-	buf.WriteString("\t\tc.RequestEditors = append(c.RequestEditors, fn)\n")
-	buf.WriteString("\t\treturn nil\n")
-	buf.WriteString("\t}\n")
-	buf.WriteString("}\n\n")
-
-	buf.WriteString("// WithUserAgent sets the User-Agent header value.\n")
-	buf.WriteString("func WithUserAgent(ua string) ClientOption {\n")
-	buf.WriteString("\treturn func(c *Client) error {\n")
-	buf.WriteString("\t\tc.UserAgent = ua\n")
-	buf.WriteString("\t\treturn nil\n")
-	buf.WriteString("\t}\n")
-	buf.WriteString("}\n\n")
+	// Write client struct, types, constructor, and options using shared boilerplate
+	writeClientBoilerplate(&buf, cg.doc.Info)
 
 	// Generate methods for each operation
 	if cg.doc.Paths != nil {
@@ -779,67 +587,8 @@ func (cg *oas2CodeGenerator) generateOAS2BaseClient() error {
 	buf.WriteString("\t\"strings\"\n")
 	buf.WriteString(")\n\n")
 
-	// Write client struct
-	buf.WriteString("// Client is the API client.\n")
-	buf.WriteString("type Client struct {\n")
-	buf.WriteString("\t// BaseURL is the base URL for API requests.\n")
-	buf.WriteString("\tBaseURL string\n")
-	buf.WriteString("\t// HTTPClient is the HTTP client to use for requests.\n")
-	buf.WriteString("\tHTTPClient *http.Client\n")
-	buf.WriteString("\t// UserAgent is the User-Agent header value for requests.\n")
-	buf.WriteString("\tUserAgent string\n")
-	buf.WriteString("\t// RequestEditors are functions that can modify requests before sending.\n")
-	buf.WriteString("\tRequestEditors []RequestEditorFn\n")
-	buf.WriteString("}\n\n")
-
-	// Write types
-	buf.WriteString("// RequestEditorFn is a function that can modify an HTTP request.\n")
-	buf.WriteString("type RequestEditorFn func(ctx context.Context, req *http.Request) error\n\n")
-
-	buf.WriteString("// ClientOption is a function that configures a Client.\n")
-	buf.WriteString("type ClientOption func(*Client) error\n\n")
-
-	// Write constructor
-	defaultUserAgent := buildDefaultUserAgent(cg.doc.Info)
-	buf.WriteString("// NewClient creates a new API client.\n")
-	buf.WriteString("func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {\n")
-	buf.WriteString("\tc := &Client{\n")
-	buf.WriteString("\t\tBaseURL:    strings.TrimSuffix(baseURL, \"/\"),\n")
-	buf.WriteString("\t\tHTTPClient: http.DefaultClient,\n")
-	buf.WriteString(fmt.Sprintf("\t\tUserAgent:  %q,\n", defaultUserAgent))
-	buf.WriteString("\t}\n")
-	buf.WriteString("\tfor _, opt := range opts {\n")
-	buf.WriteString("\t\tif err := opt(c); err != nil {\n")
-	buf.WriteString("\t\t\treturn nil, err\n")
-	buf.WriteString("\t\t}\n")
-	buf.WriteString("\t}\n")
-	buf.WriteString("\treturn c, nil\n")
-	buf.WriteString("}\n\n")
-
-	// Write client options
-	buf.WriteString("// WithHTTPClient sets the HTTP client.\n")
-	buf.WriteString("func WithHTTPClient(client *http.Client) ClientOption {\n")
-	buf.WriteString("\treturn func(c *Client) error {\n")
-	buf.WriteString("\t\tc.HTTPClient = client\n")
-	buf.WriteString("\t\treturn nil\n")
-	buf.WriteString("\t}\n")
-	buf.WriteString("}\n\n")
-
-	buf.WriteString("// WithRequestEditor adds a request editor function.\n")
-	buf.WriteString("func WithRequestEditor(fn RequestEditorFn) ClientOption {\n")
-	buf.WriteString("\treturn func(c *Client) error {\n")
-	buf.WriteString("\t\tc.RequestEditors = append(c.RequestEditors, fn)\n")
-	buf.WriteString("\t\treturn nil\n")
-	buf.WriteString("\t}\n")
-	buf.WriteString("}\n\n")
-
-	buf.WriteString("// WithUserAgent sets the User-Agent header value.\n")
-	buf.WriteString("func WithUserAgent(ua string) ClientOption {\n")
-	buf.WriteString("\treturn func(c *Client) error {\n")
-	buf.WriteString("\t\tc.UserAgent = ua\n")
-	buf.WriteString("\t\treturn nil\n")
-	buf.WriteString("\t}\n")
-	buf.WriteString("}\n\n")
+	// Write client struct, types, constructor, and options using shared boilerplate
+	writeClientBoilerplate(&buf, cg.doc.Info)
 
 	// Write helper functions
 	buf.WriteString(clientHelpers)

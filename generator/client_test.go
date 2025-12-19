@@ -246,6 +246,7 @@ paths:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	assert.Contains(t, content, "Deprecated:")
@@ -363,6 +364,7 @@ paths:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	assert.Contains(t, content, "GetUserPost")
@@ -408,6 +410,7 @@ paths:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	assert.Contains(t, content, "GetProtected")
@@ -461,6 +464,7 @@ paths:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	assert.Contains(t, content, "GetResource")
@@ -515,6 +519,7 @@ paths:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	assert.Contains(t, content, "Search")
@@ -560,6 +565,7 @@ paths:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	assert.Contains(t, content, "CreateItem")
@@ -624,6 +630,7 @@ components:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	assert.Contains(t, content, "GetItem")
@@ -668,6 +675,7 @@ paths:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	// Should generate method names from path + method
@@ -708,6 +716,7 @@ paths:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	assert.Contains(t, content, `"time"`, "client.go should import time package")
@@ -753,6 +762,7 @@ paths:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	// The generated client uses map[string]any for request body, not typed structs.
@@ -798,6 +808,7 @@ paths:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	// The generated client uses map[string]any for responses, not typed structs.
@@ -845,6 +856,7 @@ paths:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	// The generated client uses map[string]any for responses, not typed structs.
@@ -892,6 +904,7 @@ paths:
 	require.NoError(t, err)
 
 	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
 	assert.NotContains(t, content, `"time"`, "client.go should NOT import time package")
@@ -930,6 +943,7 @@ paths:
 	require.NoError(t, err)
 
 	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
 	content := string(serverFile.Content)
 
 	assert.Contains(t, content, `"time"`, "server.go should import time package")
@@ -962,6 +976,7 @@ paths:
 	require.NoError(t, err)
 
 	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
 	content := string(serverFile.Content)
 
 	assert.NotContains(t, content, `"time"`, "server.go should NOT import time package")

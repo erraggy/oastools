@@ -4,8 +4,6 @@ package fixer
 
 import (
 	"fmt"
-	"net/url"
-	"sort"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -55,120 +53,7 @@ func (f *Fixer) fixOAS3(parseResult parser.ParseResult, result *FixResult) (*Fix
 // fixMissingPathParametersOAS3 adds missing path parameters to an OAS 3.x document.
 // Fixes are applied in sorted order (by path, method, parameter name) for deterministic output.
 func (f *Fixer) fixMissingPathParametersOAS3(doc *parser.OAS3Document, result *FixResult) {
-	if doc.Paths == nil {
-		return
-	}
-
-	// Sort path patterns for deterministic order
-	pathPatterns := make([]string, 0, len(doc.Paths))
-	for pathPattern := range doc.Paths {
-		pathPatterns = append(pathPatterns, pathPattern)
-	}
-	sort.Strings(pathPatterns)
-
-	for _, pathPattern := range pathPatterns {
-		pathItem := doc.Paths[pathPattern]
-		if pathItem == nil {
-			continue
-		}
-
-		// Extract parameters from path template
-		pathParams := extractPathParameters(pathPattern)
-		if len(pathParams) == 0 {
-			continue
-		}
-
-		// Get operations for this path
-		operations := parser.GetOperations(pathItem, doc.OASVersion)
-
-		// Sort methods for deterministic order
-		methods := make([]string, 0, len(operations))
-		for method := range operations {
-			methods = append(methods, method)
-		}
-		sort.Strings(methods)
-
-		for _, method := range methods {
-			op := operations[method]
-			if op == nil {
-				continue
-			}
-
-			// Collect declared path parameters from PathItem and Operation
-			declaredParams := make(map[string]bool)
-
-			// PathItem-level parameters
-			for _, param := range pathItem.Parameters {
-				if param != nil && param.In == parser.ParamInPath {
-					declaredParams[param.Name] = true
-				}
-			}
-
-			// Operation-level parameters (override PathItem params)
-			for _, param := range op.Parameters {
-				if param != nil && param.In == parser.ParamInPath {
-					declaredParams[param.Name] = true
-				}
-			}
-
-			// Sort parameter names for deterministic order
-			paramNames := make([]string, 0, len(pathParams))
-			for paramName := range pathParams {
-				paramNames = append(paramNames, paramName)
-			}
-			sort.Strings(paramNames)
-
-			// Find missing parameters
-			for _, paramName := range paramNames {
-				if declaredParams[paramName] {
-					continue
-				}
-
-				// Create the missing parameter
-				paramType := "string"
-				paramFormat := ""
-				if f.InferTypes {
-					paramType, paramFormat = inferParameterType(paramName)
-				}
-
-				// OAS 3.x uses Schema for type definition
-				schema := &parser.Schema{
-					Type: paramType,
-				}
-				if paramFormat != "" {
-					schema.Format = paramFormat
-				}
-
-				newParam := &parser.Parameter{
-					Name:     paramName,
-					In:       parser.ParamInPath,
-					Required: true, // Path parameters are always required
-					Schema:   schema,
-				}
-
-				// Add to operation parameters
-				op.Parameters = append(op.Parameters, newParam)
-
-				// Record the fix
-				jsonPath := fmt.Sprintf("paths.%s.%s.parameters", pathPattern, method)
-				description := fmt.Sprintf("Added missing path parameter '%s' (type: %s", paramName, paramType)
-				if paramFormat != "" {
-					description += fmt.Sprintf(", format: %s", paramFormat)
-				}
-				description += ")"
-
-				fix := Fix{
-					Type:        FixTypeMissingPathParameter,
-					Path:        jsonPath,
-					Description: description,
-					Before:      nil,
-					After:       newParam,
-				}
-				f.populateFixLocation(&fix)
-				result.Fixes = append(result.Fixes, fix)
-			}
-		}
-	}
+	f.fixMissingPathParameters(doc.Paths, doc.OASVersion, result)
 }
 
 // fixInvalidSchemaNamesOAS3 renames schemas with invalid characters (like generic types)
@@ -179,66 +64,10 @@ func (f *Fixer) fixInvalidSchemaNamesOAS3(doc *parser.OAS3Document, result *FixR
 		return
 	}
 
-	schemas := doc.Components.Schemas
-
-	// Build rename map: old name -> new name
-	// Only include schemas that have invalid characters
-	pendingRenames := make(map[string]string)
-	for name := range schemas {
-		if hasInvalidSchemaNameChars(name) {
-			newName := transformSchemaName(name, f.GenericNamingConfig)
-			newName = resolveNameCollision(newName, schemas, pendingRenames)
-			pendingRenames[name] = newName
-		}
-	}
-
-	if len(pendingRenames) == 0 {
+	// Rename invalid schemas and get the ref rename map
+	refRenames := f.renameInvalidSchemas(doc.Components.Schemas, doc.OASVersion, result)
+	if len(refRenames) == 0 {
 		return
-	}
-
-	// Build ref renames map with both encoded and non-encoded refs
-	// Key: old ref path, Value: new ref path
-	refRenames := make(map[string]string)
-	const prefix = "#/components/schemas/"
-
-	for oldName, newName := range pendingRenames {
-		oldRef := prefix + oldName
-		newRef := prefix + newName
-
-		// Add non-encoded ref
-		refRenames[oldRef] = newRef
-
-		// Add URL-encoded ref (for names with special characters)
-		encodedOldRef := prefix + url.PathEscape(oldName)
-		if encodedOldRef != oldRef {
-			refRenames[encodedOldRef] = newRef
-		}
-	}
-
-	// Sort old names for deterministic processing order
-	oldNames := make([]string, 0, len(pendingRenames))
-	for oldName := range pendingRenames {
-		oldNames = append(oldNames, oldName)
-	}
-	sort.Strings(oldNames)
-
-	// Apply renames to schemas map
-	for _, oldName := range oldNames {
-		newName := pendingRenames[oldName]
-		schema := schemas[oldName]
-		delete(schemas, oldName)
-		schemas[newName] = schema
-
-		// Record fix
-		fix := Fix{
-			Type:        FixTypeRenamedGenericSchema,
-			Path:        fmt.Sprintf("components.schemas.%s", oldName),
-			Description: fmt.Sprintf("renamed schema '%s' to '%s'", oldName, newName),
-			Before:      oldName,
-			After:       newName,
-		}
-		f.populateFixLocation(&fix)
-		result.Fixes = append(result.Fixes, fix)
 	}
 
 	// Rewrite all $refs in the document
@@ -333,7 +162,10 @@ func (f *Fixer) rewritePathItemRefs(pathItem *parser.PathItem, refRenames map[st
 
 	// Path-level parameters
 	for _, param := range pathItem.Parameters {
-		if param != nil && param.Schema != nil {
+		if param == nil {
+			continue
+		}
+		if param.Schema != nil {
 			rewriteSchemaRefs(param.Schema, refRenames)
 		}
 		for _, mt := range param.Content {
@@ -362,7 +194,10 @@ func (f *Fixer) rewriteOperationRefs(op *parser.Operation, refRenames map[string
 
 	// Parameters
 	for _, param := range op.Parameters {
-		if param != nil && param.Schema != nil {
+		if param == nil {
+			continue
+		}
+		if param.Schema != nil {
 			rewriteSchemaRefs(param.Schema, refRenames)
 		}
 		for _, mt := range param.Content {
@@ -423,7 +258,10 @@ func (f *Fixer) rewriteResponseRefs(resp *parser.Response, refRenames map[string
 
 	// Header schemas
 	for _, header := range resp.Headers {
-		if header != nil && header.Schema != nil {
+		if header == nil {
+			continue
+		}
+		if header.Schema != nil {
 			rewriteSchemaRefs(header.Schema, refRenames)
 		}
 		for _, mt := range header.Content {
@@ -442,41 +280,15 @@ func (f *Fixer) pruneUnusedSchemasOAS3(doc *parser.OAS3Document, result *FixResu
 		return
 	}
 
-	schemas := doc.Components.Schemas
-
 	// Collect all refs in the document
 	collector := NewRefCollector()
 	collector.CollectOAS3(doc)
 
-	// Build the set of transitively referenced schemas
-	referenced := buildReferencedSchemaSet(collector, schemas, doc.OASVersion)
-
-	// Sort schema names for deterministic output
-	schemaNames := make([]string, 0, len(schemas))
-	for name := range schemas {
-		schemaNames = append(schemaNames, name)
-	}
-	sort.Strings(schemaNames)
-
-	// Remove unreferenced schemas
-	for _, name := range schemaNames {
-		if !referenced[name] {
-			delete(schemas, name)
-
-			fix := Fix{
-				Type:        FixTypePrunedUnusedSchema,
-				Path:        fmt.Sprintf("components.schemas.%s", name),
-				Description: fmt.Sprintf("removed unused schema '%s'", name),
-				Before:      name,
-				After:       nil,
-			}
-			f.populateFixLocation(&fix)
-			result.Fixes = append(result.Fixes, fix)
-		}
-	}
+	// Prune unreferenced schemas
+	f.pruneSchemas(doc.Components.Schemas, collector, doc.OASVersion, result)
 
 	// Set schemas to nil if all were pruned
-	if len(schemas) == 0 {
+	if len(doc.Components.Schemas) == 0 {
 		doc.Components.Schemas = nil
 	}
 

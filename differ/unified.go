@@ -1127,6 +1127,8 @@ func (d *Differ) diffSchemaItemsUnified(source, target any, path string, visited
 			d.addChange(result, itemsPath, ChangeTypeModified, CategorySchema,
 				severity, sourceBool, targetBool, fmt.Sprintf("items changed from %v to %v", sourceBool, targetBool))
 		}
+	case schemaItemsTypeNil, schemaItemsTypeUnknown:
+		// Already handled above before the switch
 	}
 }
 
@@ -1202,6 +1204,8 @@ func (d *Differ) diffSchemaAdditionalPropertiesUnified(source, target any, path 
 			d.addChange(result, addPropsPath, ChangeTypeModified, CategorySchema,
 				severity, sourceBool, targetBool, fmt.Sprintf("additionalProperties changed from %v to %v", sourceBool, targetBool))
 		}
+	case schemaAdditionalPropsTypeNil, schemaAdditionalPropsTypeUnknown:
+		// Already handled above before the switch
 	}
 }
 

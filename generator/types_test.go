@@ -175,6 +175,7 @@ components:
 	require.NoError(t, err)
 
 	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
 	content := string(typesFile.Content)
 
 	assert.Contains(t, content, "type Pet struct")
@@ -209,6 +210,7 @@ components:
 	require.NoError(t, err)
 
 	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
 	content := string(typesFile.Content)
 
 	assert.Contains(t, content, "type Status string")
@@ -247,6 +249,7 @@ components:
 	require.NoError(t, err)
 
 	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
 	content := string(typesFile.Content)
 
 	assert.Contains(t, content, "type Pets []")
@@ -279,6 +282,7 @@ components:
 	require.NoError(t, err)
 
 	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
 	content := string(typesFile.Content)
 
 	assert.Contains(t, content, "type Metadata struct")
@@ -313,6 +317,7 @@ components:
 	require.NoError(t, err)
 
 	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
 	content := string(typesFile.Content)
 
 	assert.Contains(t, content, "*string")
@@ -360,6 +365,7 @@ components:
 	require.NoError(t, err)
 
 	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
 	content := string(typesFile.Content)
 
 	assert.Contains(t, content, "time.Time")
@@ -399,6 +405,7 @@ components:
 	require.NoError(t, err)
 
 	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
 	content := string(typesFile.Content)
 
 	assert.NotContains(t, content, "*string `json:\"tag")
@@ -434,7 +441,9 @@ components:
 	result, err := g.Generate(tmpFile)
 	require.NoError(t, err)
 
-	content := string(result.GetFile("types.go").Content)
+	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
+	content := string(typesFile.Content)
 	assert.Contains(t, content, "map[string]string")
 }
 
@@ -480,7 +489,9 @@ components:
 	result, err := g.Generate(tmpFile)
 	require.NoError(t, err)
 
-	content := string(result.GetFile("types.go").Content)
+	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
+	content := string(typesFile.Content)
 	assert.Contains(t, content, "UnmarshalJSON")
 	assert.Contains(t, content, "petType")
 	assert.Contains(t, content, "switch")
@@ -532,7 +543,9 @@ components:
 	result, err := g.Generate(tmpFile)
 	require.NoError(t, err)
 
-	content := string(result.GetFile("types.go").Content)
+	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
+	content := string(typesFile.Content)
 	assert.Contains(t, content, "validate:")
 	assert.Contains(t, content, "required")
 	assert.Contains(t, content, "email")
@@ -571,7 +584,9 @@ definitions:
 	result, err := g.Generate(tmpFile)
 	require.NoError(t, err)
 
-	content := string(result.GetFile("types.go").Content)
+	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
+	content := string(typesFile.Content)
 	assert.Contains(t, content, "type Dog struct")
 	assert.Contains(t, content, "Pet")
 }
@@ -618,7 +633,9 @@ components:
 	result, err := g.Generate(tmpFile)
 	require.NoError(t, err)
 
-	content := string(result.GetFile("client.go").Content)
+	clientFile := result.GetFile("client.go")
+	require.NotNil(t, clientFile, "expected client.go to be generated")
+	content := string(clientFile.Content)
 	assert.Contains(t, content, "application/xml")
 }
 
@@ -666,7 +683,9 @@ components:
 	result, err := g.Generate(tmpFile)
 	require.NoError(t, err)
 
-	content := string(result.GetFile("server.go").Content)
+	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "expected server.go to be generated")
+	content := string(serverFile.Content)
 	assert.Contains(t, content, "SessionId")
 }
 
@@ -743,6 +762,7 @@ components:
 	require.NoError(t, err)
 
 	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
 	content := string(typesFile.Content)
 
 	assert.Contains(t, content, "map[string]string")
@@ -780,6 +800,7 @@ components:
 	require.NoError(t, err)
 
 	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
 	content := string(typesFile.Content)
 
 	// OAS 3.1 type array with null should be handled as nullable
@@ -817,6 +838,7 @@ components:
 	require.NoError(t, err)
 
 	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
 	content := string(typesFile.Content)
 
 	assert.Contains(t, content, "A pet in the store")
@@ -854,6 +876,7 @@ components:
 	require.NoError(t, err)
 
 	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
 	content := string(typesFile.Content)
 
 	assert.Contains(t, content, "Enabled")
@@ -895,7 +918,9 @@ components:
 	result, err := g.Generate(tmpFile)
 	require.NoError(t, err)
 
-	content := string(result.GetFile("types.go").Content)
+	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "expected types.go to be generated")
+	content := string(typesFile.Content)
 
 	// Check for validation tags
 	assert.True(t, strings.Contains(content, "min=") || strings.Contains(content, "validate:"))

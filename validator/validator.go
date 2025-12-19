@@ -127,11 +127,12 @@ func ValidateWithOptions(opts ...Option) (*ValidationResult, error) {
 	}
 
 	// Route to appropriate validation method based on input source
-	if cfg.filePath != nil {
-		return v.Validate(*cfg.filePath)
+	// Parsed input is checked first as it's the preferred high-performance path
+	if cfg.parsed != nil {
+		return v.ValidateParsed(*cfg.parsed)
 	}
-	// cfg.parsed must be non-nil here (validated by applyOptions)
-	return v.ValidateParsed(*cfg.parsed)
+	// cfg.filePath must be non-nil here (validated by applyOptions)
+	return v.Validate(*cfg.filePath)
 }
 
 // applyOptions applies option functions and validates configuration

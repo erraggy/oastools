@@ -484,7 +484,7 @@ func convertRefToJSONPath(ref string) string {
 	}
 
 	parts := strings.Split(trimmed, "/")
-	path := "$"
+	jsonPath := "$"
 	for _, part := range parts {
 		// URL-decode the part (handles %2F -> / etc)
 		decoded, err := url.PathUnescape(part)
@@ -493,9 +493,9 @@ func convertRefToJSONPath(ref string) string {
 		}
 		// Unescape JSON Pointer tokens (~0 -> ~, ~1 -> /)
 		decoded = unescapeJSONPointer(decoded)
-		path = buildChildPath(path, decoded)
+		jsonPath = buildChildPath(jsonPath, decoded)
 	}
-	return path
+	return jsonPath
 }
 
 // buildExternalSourceMap builds a source map for an external document.
@@ -553,7 +553,7 @@ func (r *RefResolver) updateAllRefTargets() {
 		return
 	}
 
-	for path, refLoc := range r.SourceMap.refs {
+	for refPath, refLoc := range r.SourceMap.refs {
 		// Skip if target is already set or no target ref
 		if refLoc.Target.IsKnown() || refLoc.TargetRef == "" {
 			continue
@@ -569,7 +569,7 @@ func (r *RefResolver) updateAllRefTargets() {
 		targetLoc := r.SourceMap.Get(targetPath)
 		if targetLoc.IsKnown() {
 			refLoc.Target = targetLoc
-			r.SourceMap.refs[path] = refLoc
+			r.SourceMap.refs[refPath] = refLoc
 		}
 	}
 }

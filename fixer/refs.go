@@ -1,6 +1,7 @@
-// refs.go implements reference collection and analysis for the fixer package.
+// This file implements reference collection and analysis for the fixer package.
 // It provides utilities to traverse OpenAPI documents and collect all $ref values,
 // which is needed for both generic schema name fixing and schema/component pruning.
+
 package fixer
 
 import (

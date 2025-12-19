@@ -7,6 +7,7 @@ package jsonhelpers
 
 import (
 	"encoding/json"
+	"maps"
 )
 
 // MarshalWithExtras marshals a base map while merging in extension fields.
@@ -23,9 +24,7 @@ import (
 //	    return jsonhelpers.MarshalWithExtras(base, s.Extra)
 //	}
 func MarshalWithExtras(base map[string]any, extras map[string]any) ([]byte, error) {
-	for k, v := range extras {
-		base[k] = v
-	}
+	maps.Copy(base, extras)
 	return json.Marshal(base)
 }
 
@@ -212,4 +211,39 @@ func SetIfMapNotEmpty[K comparable, V any](m map[string]any, key string, value m
 	if len(value) > 0 {
 		m[key] = value
 	}
+}
+
+// ExtractExtensions extracts specification extension fields (x-* properties)
+// from JSON data. This is the common pattern used in all UnmarshalJSON methods
+// to capture extension fields.
+//
+// Returns nil if no extensions are found or if the data cannot be parsed.
+// This function never returns an error - parsing failures result in nil extensions.
+//
+// Example:
+//
+//	func (c *Contact) UnmarshalJSON(data []byte) error {
+//	    type Alias Contact
+//	    if err := json.Unmarshal(data, (*Alias)(c)); err != nil {
+//	        return err
+//	    }
+//	    c.Extra = jsonhelpers.ExtractExtensions(data)
+//	    return nil
+//	}
+func ExtractExtensions(data []byte) map[string]any {
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil
+	}
+
+	var extra map[string]any
+	for k, v := range m {
+		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
+			if extra == nil {
+				extra = make(map[string]any)
+			}
+			extra[k] = v
+		}
+	}
+	return extra
 }

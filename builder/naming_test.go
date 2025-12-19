@@ -261,7 +261,7 @@ func TestNewSchemaNamer(t *testing.T) {
 		t.Errorf("template = %v, want nil", namer.template)
 	}
 	if namer.fn != nil {
-		t.Errorf("fn = %v, want nil", namer.fn)
+		t.Errorf("fn = %p, want nil", namer.fn)
 	}
 }
 
