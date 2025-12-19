@@ -97,6 +97,27 @@
 //		parser.WithMaxFileSize(20*1024*1024), // 20MB limit
 //	)
 //
+// # OAS 3.2.0 Features
+//
+// OAS 3.2.0 introduces several new capabilities:
+//   - $self: Document identity/base URI (OAS3Document.Self)
+//   - Query method: New HTTP method (PathItem.Query)
+//   - additionalOperations: Custom HTTP methods (PathItem.AdditionalOperations)
+//   - mediaTypes: Reusable media type definitions (Components.MediaTypes)
+//
+// # JSON Schema 2020-12 Keywords
+//
+// The parser supports JSON Schema Draft 2020-12 keywords for OAS 3.1+:
+//   - unevaluatedProperties/unevaluatedItems: Strict validation (can be bool, *Schema, or map)
+//   - contentEncoding/contentMediaType/contentSchema: Encoded content validation
+//   - prefixItems, contains, propertyNames, dependentSchemas, $defs: Advanced schema features
+//
+// # Array Index References
+//
+// JSON Pointer references support array indices per RFC 6901:
+//
+//	$ref: '#/paths/~1users/get/parameters/0/schema'
+//
 // # ParseResult Fields
 //
 // ParseResult includes the detected Version, OASVersion, SourceFormat (JSON or YAML),

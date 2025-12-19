@@ -500,6 +500,28 @@ These optimizations are **on hold** pending real-world performance feedback. The
 
 ## Historical Performance
 
+### v1.29.0 - OAS 3.2.0 and JSON Schema 2020-12 Support
+
+**Parser Performance** (I/O-Isolated):
+
+| Benchmark | Time | Memory | Allocations |
+|-----------|------|--------|-------------|
+| ParseCore/SmallOAS3 | 134 µs | 196 KB | 2,065 |
+| ParseCore/MediumOAS3 | 1.18 ms | 1.4 MB | 17,384 |
+| ParseCore/LargeOAS3 | 14.0 ms | 16.4 MB | 194,707 |
+
+**Pre-Parsed Benchmarks** (Core Operations):
+
+| Package | Benchmark | Time | Memory | Allocations |
+|---------|-----------|------|--------|-------------|
+| Validator | ValidateParsed | 4.8 µs | 5.8 KB | 90 |
+| Fixer | FixParsed | 2.8 µs | 9.1 KB | 54 |
+| Converter | ConvertParsed | 3.3 µs | 11.1 KB | 83 |
+| Joiner | JoinParsed/TwoDocs | 803 ns | 1.9 KB | 22 |
+| Differ | Diff/Parsed | 12.7 µs | 21.7 KB | 369 |
+
+**Changes from v1.28.4**: Added support for OAS 3.2.0 fields (`$self`, `Query`, `additionalOperations`, `mediaTypes`) and JSON Schema 2020-12 keywords (`unevaluatedProperties`, `unevaluatedItems`, `contentEncoding`, `contentMediaType`, `contentSchema`). Performance impact: ~0% (new fields are only processed when present).
+
 ### Baseline (Pre-Optimization)
 
 **JSON Marshaling** (before v1.7.0):

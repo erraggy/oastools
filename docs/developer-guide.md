@@ -192,6 +192,42 @@ result, err := parser.ParseWithOptions(
 // HTTP(S) references are NOT supported for security reasons
 ```
 
+**OAS 3.2.0 and JSON Schema 2020-12 Features:**
+
+```go
+// Access OAS 3.2.0 specific fields
+if doc, ok := result.OAS3Document(); ok {
+    // Document identity ($self)
+    if doc.Self != "" {
+        fmt.Printf("Document identity: %s\n", doc.Self)
+    }
+
+    // QUERY method and custom HTTP methods
+    for path, pathItem := range doc.Paths {
+        if pathItem.Query != nil {
+            fmt.Printf("QUERY at %s\n", path)
+        }
+        for method := range pathItem.AdditionalOperations {
+            fmt.Printf("Custom %s at %s\n", method, path)
+        }
+    }
+
+    // JSON Schema 2020-12 keywords (polymorphic types)
+    if doc.Components != nil && doc.Components.Schemas != nil {
+        if schema, ok := doc.Components.Schemas["Example"]; ok {
+            switch v := schema.UnevaluatedProperties.(type) {
+            case *parser.Schema:
+                fmt.Println("Unevaluated props must match schema")
+            case bool:
+                fmt.Printf("Unevaluated props allowed: %v\n", v)
+            }
+        }
+    }
+}
+```
+
+For comprehensive coverage of these features, see [Parser Deep Dive](packages/parser.md).
+
 ### Validator Package
 
 The validator package provides validation for OpenAPI Specification documents.

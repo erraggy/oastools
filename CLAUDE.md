@@ -87,6 +87,13 @@ if typeStr, ok := schema.Type.(string); ok {
 **OAS 3.1+ Only:**
 - `webhooks`, JSON Schema 2020-12 alignment, `type` as array, `license.identifier`
 
+**OAS 3.2+ Only:**
+- `$self` (document identity), `Query` method, `additionalOperations`, `components.mediaTypes`
+
+**JSON Schema 2020-12 Keywords (OAS 3.1+):**
+- `unevaluatedProperties`, `unevaluatedItems` - strict validation of uncovered properties/items
+- `contentEncoding`, `contentMediaType`, `contentSchema` - encoded content validation
+
 ### Common Pitfalls and Solutions
 
 1. **Assuming schema.Type is always a string** - Use type assertions and handle both string and []string cases
