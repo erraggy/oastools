@@ -213,12 +213,15 @@ if doc, ok := result.OAS3Document(); ok {
     }
 
     // JSON Schema 2020-12 keywords (polymorphic types)
-    schema := doc.Components.Schemas["Example"]
-    switch v := schema.UnevaluatedProperties.(type) {
-    case *parser.Schema:
-        fmt.Println("Unevaluated props must match schema")
-    case bool:
-        fmt.Printf("Unevaluated props allowed: %v\n", v)
+    if doc.Components != nil && doc.Components.Schemas != nil {
+        if schema, ok := doc.Components.Schemas["Example"]; ok {
+            switch v := schema.UnevaluatedProperties.(type) {
+            case *parser.Schema:
+                fmt.Println("Unevaluated props must match schema")
+            case bool:
+                fmt.Printf("Unevaluated props allowed: %v\n", v)
+            }
+        }
     }
 }
 ```

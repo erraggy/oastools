@@ -506,17 +506,17 @@ These optimizations are **on hold** pending real-world performance feedback. The
 
 | Benchmark | Time | Memory | Allocations |
 |-----------|------|--------|-------------|
-| ParseCore/SmallOAS3 | 188 µs | 139 KB | 1,587 |
-| ParseCore/MediumOAS3 | 843 µs | 793 KB | 7,792 |
-| ParseCore/LargeOAS3 | 8.7 ms | 6.9 MB | 61,827 |
+| ParseCore/SmallOAS3 | 134 µs | 196 KB | 2,065 |
+| ParseCore/MediumOAS3 | 1.18 ms | 1.4 MB | 17,384 |
+| ParseCore/LargeOAS3 | 14.0 ms | 16.4 MB | 194,707 |
 
 **Pre-Parsed Benchmarks** (Core Operations):
 
 | Package | Benchmark | Time | Memory | Allocations |
 |---------|-----------|------|--------|-------------|
-| Validator | ValidateParsed | 3.7 µs | 2.6 KB | 17 |
-| Fixer | FixParsed | 1.2 µs | 336 B | 5 |
-| Converter | ConvertParsed | 3.4 µs | 11.4 KB | 87 |
+| Validator | ValidateParsed | 4.8 µs | 5.8 KB | 90 |
+| Fixer | FixParsed | 2.8 µs | 9.1 KB | 54 |
+| Converter | ConvertParsed | 3.3 µs | 11.1 KB | 83 |
 | Joiner | JoinParsed/TwoDocs | 803 ns | 1.9 KB | 22 |
 | Differ | Diff/Parsed | 12.7 µs | 21.7 KB | 369 |
 
