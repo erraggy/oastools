@@ -276,6 +276,8 @@ result, err := parser.ParseWithOptions(
 **Features:**
 - Automatic format detection and preservation (JSON/YAML)
 - External reference resolution (local files; HTTP with opt-in flag)
+- JSON Pointer array index support (`#/paths/~1users/get/parameters/0`)
+- Full JSON Schema Draft 2020-12 compliance for OAS 3.1+ (including `unevaluatedProperties`, `unevaluatedItems`, content keywords)
 - Path traversal protection for security
 
 ## Documentation

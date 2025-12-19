@@ -488,3 +488,290 @@ func TestIsValidEquivalenceMode(t *testing.T) {
 		})
 	}
 }
+
+// TestCompareSchemas_JSONSchema2020_12 tests JSON Schema Draft 2020-12 fields
+func TestCompareSchemas_JSONSchema2020_12(t *testing.T) {
+	t.Run("contentEncoding mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "string", ContentEncoding: "base64"}
+		right := &parser.Schema{Type: "string", ContentEncoding: "quoted-printable"}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("contentMediaType mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "string", ContentMediaType: "application/json"}
+		right := &parser.Schema{Type: "string", ContentMediaType: "text/plain"}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("contentSchema mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "string", ContentSchema: &parser.Schema{Type: "object"}}
+		right := &parser.Schema{Type: "string", ContentSchema: &parser.Schema{Type: "array"}}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("contentSchema presence mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "string", ContentSchema: &parser.Schema{Type: "object"}}
+		right := &parser.Schema{Type: "string"}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("content fields same", func(t *testing.T) {
+		left := &parser.Schema{
+			Type:             "string",
+			ContentEncoding:  "base64",
+			ContentMediaType: "application/json",
+			ContentSchema:    &parser.Schema{Type: "object"},
+		}
+		right := &parser.Schema{
+			Type:             "string",
+			ContentEncoding:  "base64",
+			ContentMediaType: "application/json",
+			ContentSchema:    &parser.Schema{Type: "object"},
+		}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.True(t, result.Equivalent)
+	})
+}
+
+// TestCompareSchemas_PrefixItems tests prefixItems comparison
+func TestCompareSchemas_PrefixItems(t *testing.T) {
+	t.Run("prefixItems length mismatch", func(t *testing.T) {
+		left := &parser.Schema{
+			Type:        "array",
+			PrefixItems: []*parser.Schema{{Type: "string"}},
+		}
+		right := &parser.Schema{
+			Type:        "array",
+			PrefixItems: []*parser.Schema{{Type: "string"}, {Type: "integer"}},
+		}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("prefixItems content mismatch", func(t *testing.T) {
+		left := &parser.Schema{
+			Type:        "array",
+			PrefixItems: []*parser.Schema{{Type: "string"}},
+		}
+		right := &parser.Schema{
+			Type:        "array",
+			PrefixItems: []*parser.Schema{{Type: "integer"}},
+		}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("prefixItems same", func(t *testing.T) {
+		left := &parser.Schema{
+			Type:        "array",
+			PrefixItems: []*parser.Schema{{Type: "string"}, {Type: "integer"}},
+		}
+		right := &parser.Schema{
+			Type:        "array",
+			PrefixItems: []*parser.Schema{{Type: "string"}, {Type: "integer"}},
+		}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.True(t, result.Equivalent)
+	})
+}
+
+// TestCompareSchemas_Contains tests contains comparison
+func TestCompareSchemas_Contains(t *testing.T) {
+	t.Run("contains presence mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "array", Contains: &parser.Schema{Type: "string"}}
+		right := &parser.Schema{Type: "array"}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("contains content mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "array", Contains: &parser.Schema{Type: "string"}}
+		right := &parser.Schema{Type: "array", Contains: &parser.Schema{Type: "integer"}}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("contains same", func(t *testing.T) {
+		left := &parser.Schema{Type: "array", Contains: &parser.Schema{Type: "string"}}
+		right := &parser.Schema{Type: "array", Contains: &parser.Schema{Type: "string"}}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.True(t, result.Equivalent)
+	})
+}
+
+// TestCompareSchemas_PropertyNames tests propertyNames comparison
+func TestCompareSchemas_PropertyNames(t *testing.T) {
+	t.Run("propertyNames presence mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "object", PropertyNames: &parser.Schema{Pattern: "^[a-z]+$"}}
+		right := &parser.Schema{Type: "object"}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("propertyNames content mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "object", PropertyNames: &parser.Schema{Pattern: "^[a-z]+$"}}
+		right := &parser.Schema{Type: "object", PropertyNames: &parser.Schema{Pattern: "^[A-Z]+$"}}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("propertyNames same", func(t *testing.T) {
+		left := &parser.Schema{Type: "object", PropertyNames: &parser.Schema{Pattern: "^[a-z]+$"}}
+		right := &parser.Schema{Type: "object", PropertyNames: &parser.Schema{Pattern: "^[a-z]+$"}}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.True(t, result.Equivalent)
+	})
+}
+
+// TestCompareSchemas_DependentSchemas tests dependentSchemas comparison
+func TestCompareSchemas_DependentSchemas(t *testing.T) {
+	t.Run("dependentSchemas keys mismatch", func(t *testing.T) {
+		left := &parser.Schema{
+			Type: "object",
+			DependentSchemas: map[string]*parser.Schema{
+				"name": {Type: "object"},
+			},
+		}
+		right := &parser.Schema{
+			Type: "object",
+			DependentSchemas: map[string]*parser.Schema{
+				"email": {Type: "object"},
+			},
+		}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("dependentSchemas content mismatch", func(t *testing.T) {
+		left := &parser.Schema{
+			Type: "object",
+			DependentSchemas: map[string]*parser.Schema{
+				"name": {Type: "object"},
+			},
+		}
+		right := &parser.Schema{
+			Type: "object",
+			DependentSchemas: map[string]*parser.Schema{
+				"name": {Type: "array"},
+			},
+		}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("dependentSchemas same", func(t *testing.T) {
+		left := &parser.Schema{
+			Type: "object",
+			DependentSchemas: map[string]*parser.Schema{
+				"name": {Type: "object"},
+			},
+		}
+		right := &parser.Schema{
+			Type: "object",
+			DependentSchemas: map[string]*parser.Schema{
+				"name": {Type: "object"},
+			},
+		}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.True(t, result.Equivalent)
+	})
+}
+
+// TestCompareSchemas_UnevaluatedProperties tests unevaluatedProperties comparison
+func TestCompareSchemas_UnevaluatedProperties(t *testing.T) {
+	t.Run("unevaluatedProperties bool mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "object", UnevaluatedProperties: true}
+		right := &parser.Schema{Type: "object", UnevaluatedProperties: false}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("unevaluatedProperties type mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "object", UnevaluatedProperties: true}
+		right := &parser.Schema{Type: "object", UnevaluatedProperties: &parser.Schema{Type: "string"}}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("unevaluatedProperties presence mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "object", UnevaluatedProperties: false}
+		right := &parser.Schema{Type: "object"}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("unevaluatedProperties schema mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "object", UnevaluatedProperties: &parser.Schema{Type: "string"}}
+		right := &parser.Schema{Type: "object", UnevaluatedProperties: &parser.Schema{Type: "integer"}}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("unevaluatedProperties same bool", func(t *testing.T) {
+		left := &parser.Schema{Type: "object", UnevaluatedProperties: false}
+		right := &parser.Schema{Type: "object", UnevaluatedProperties: false}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.True(t, result.Equivalent)
+	})
+
+	t.Run("unevaluatedProperties same schema", func(t *testing.T) {
+		left := &parser.Schema{Type: "object", UnevaluatedProperties: &parser.Schema{Type: "string"}}
+		right := &parser.Schema{Type: "object", UnevaluatedProperties: &parser.Schema{Type: "string"}}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.True(t, result.Equivalent)
+	})
+}
+
+// TestCompareSchemas_UnevaluatedItems tests unevaluatedItems comparison
+func TestCompareSchemas_UnevaluatedItems(t *testing.T) {
+	t.Run("unevaluatedItems bool mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "array", UnevaluatedItems: true}
+		right := &parser.Schema{Type: "array", UnevaluatedItems: false}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("unevaluatedItems presence mismatch", func(t *testing.T) {
+		left := &parser.Schema{Type: "array", UnevaluatedItems: true}
+		right := &parser.Schema{Type: "array"}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent)
+	})
+
+	t.Run("unevaluatedItems same", func(t *testing.T) {
+		left := &parser.Schema{Type: "array", UnevaluatedItems: &parser.Schema{Type: "string"}}
+		right := &parser.Schema{Type: "array", UnevaluatedItems: &parser.Schema{Type: "string"}}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.True(t, result.Equivalent)
+	})
+}

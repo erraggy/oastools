@@ -7,7 +7,7 @@ import "github.com/erraggy/oastools/internal/httputil"
 // The returned map includes methods supported by the specified OAS version:
 //   - OAS 2.0: get, put, post, delete, options, head, patch
 //   - OAS 3.0-3.1: get, put, post, delete, options, head, patch, trace
-//   - OAS 3.2+: get, put, post, delete, options, head, patch, trace, query
+//   - OAS 3.2+: get, put, post, delete, options, head, patch, trace, query, plus any additionalOperations
 func GetOperations(pathItem *PathItem, version OASVersion) map[string]*Operation {
 	ops := map[string]*Operation{
 		httputil.MethodGet:     pathItem.Get,
@@ -24,9 +24,14 @@ func GetOperations(pathItem *PathItem, version OASVersion) map[string]*Operation
 		ops[httputil.MethodTrace] = pathItem.Trace
 	}
 
-	// QUERY method is OAS 3.2+
+	// QUERY method and additionalOperations are OAS 3.2+
 	if version >= OASVersion320 {
 		ops[httputil.MethodQuery] = pathItem.Query
+
+		// Include any custom methods from additionalOperations
+		for method, op := range pathItem.AdditionalOperations {
+			ops[method] = op
+		}
 	}
 
 	return ops

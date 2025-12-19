@@ -8,6 +8,8 @@ The parser package provides parsing for OpenAPI Specification documents, support
 
 - [Overview](#overview)
 - [Key Concepts](#key-concepts)
+- [OAS 3.2.0 Features](#oas-320-features)
+- [JSON Schema 2020-12 Support](#json-schema-2020-12-support)
 - [API Styles](#api-styles)
 - [Practical Examples](#practical-examples)
 - [Configuration Reference](#configuration-reference)
@@ -68,6 +70,132 @@ Detection triggers:
 | `MaxRefDepth` | 100 | Maximum nested `$ref` resolution depth |
 | `MaxCachedDocuments` | 100 | Maximum external documents to cache |
 | `MaxFileSize` | 10MB | Maximum file size for external references |
+
+[Back to top](#top)
+
+---
+
+## OAS 3.2.0 Features
+
+OAS 3.2.0 introduces several new capabilities that the parser fully supports:
+
+### Document Identity ($self)
+
+The `$self` field provides a canonical URL for the document:
+
+```go
+result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
+doc, _ := result.OAS3Document()
+
+if doc.Self != "" {
+    fmt.Printf("Document identity: %s\n", doc.Self)
+}
+```
+
+### Additional HTTP Methods (additionalOperations)
+
+Custom HTTP methods beyond the standard set can be defined via `additionalOperations`:
+
+```go
+pathItem := doc.Paths["/resource"]
+for method, op := range pathItem.AdditionalOperations {
+    fmt.Printf("Custom method %s: %s\n", method, op.OperationID)
+}
+
+// Use GetOperations to get all operations including custom methods
+allOps := parser.GetOperations(pathItem, parser.OASVersion320)
+```
+
+### Reusable Media Types (components/mediaTypes)
+
+Media type definitions can be defined once and referenced:
+
+```go
+if doc.Components != nil && doc.Components.MediaTypes != nil {
+    for name, mediaType := range doc.Components.MediaTypes {
+        fmt.Printf("Media type %s: %v\n", name, mediaType.Schema)
+    }
+}
+```
+
+### QUERY Method
+
+OAS 3.2.0 adds native support for the QUERY HTTP method:
+
+```go
+if pathItem.Query != nil {
+    fmt.Printf("QUERY operation: %s\n", pathItem.Query.OperationID)
+}
+```
+
+[Back to top](#top)
+
+---
+
+## JSON Schema 2020-12 Support
+
+The parser supports all JSON Schema Draft 2020-12 keywords used in OAS 3.1+:
+
+### Content Keywords
+
+For schemas representing encoded content:
+
+| Keyword | Type | Description |
+|---------|------|-------------|
+| `contentEncoding` | `string` | Encoding (e.g., "base64", "base32") |
+| `contentMediaType` | `string` | Media type of decoded content |
+| `contentSchema` | `*Schema` | Schema for decoded content |
+
+```go
+schema := doc.Components.Schemas["EncodedData"]
+if schema.ContentEncoding != "" {
+    fmt.Printf("Encoding: %s, Media type: %s\n",
+        schema.ContentEncoding, schema.ContentMediaType)
+}
+```
+
+### Unevaluated Keywords
+
+For strict validation of object and array schemas:
+
+| Keyword | Type | Description |
+|---------|------|-------------|
+| `unevaluatedProperties` | `any` | `*Schema`, `bool`, or `map[string]any` for uncovered properties |
+| `unevaluatedItems` | `any` | `*Schema`, `bool`, or `map[string]any` for uncovered array items |
+
+```go
+schema := doc.Components.Schemas["StrictObject"]
+switch v := schema.UnevaluatedProperties.(type) {
+case *parser.Schema:
+    // Typed schema - most common after parsing
+    fmt.Printf("Unevaluated properties must match: %s\n", v.Ref)
+case bool:
+    // Boolean value - false disallows, true allows any
+    fmt.Printf("Unevaluated properties allowed: %v\n", v)
+case map[string]any:
+    // Raw map - when schema wasn't typed during parsing
+    if ref, ok := v["$ref"].(string); ok {
+        fmt.Printf("Raw ref to: %s\n", ref)
+    }
+default:
+    // nil or unexpected type
+    fmt.Println("No unevaluatedProperties constraint")
+}
+```
+
+### Array Index References
+
+JSON Pointer references now support array indices per RFC 6901:
+
+```yaml
+# Example: Reference the first parameter's schema
+$ref: '#/paths/~1users/get/parameters/0/schema'
+```
+
+The resolver handles:
+- Valid indices: `0`, `1`, `2`, etc.
+- Out-of-bounds errors with descriptive messages
+- Non-numeric index errors
 
 [Back to top](#top)
 
