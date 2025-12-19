@@ -377,9 +377,11 @@ func TestGenerateSchemaFromType(t *testing.T) {
 	b := New(parser.OASVersion320)
 
 	schema := b.generateSchemaFromType(reflect.TypeOf(""))
+	require.NotNil(t, schema, "schema for string should not be nil")
 	assert.Equal(t, "string", schema.Type)
 
 	schema = b.generateSchemaFromType(reflect.TypeOf(int64(0)))
+	require.NotNil(t, schema, "schema for int64 should not be nil")
 	assert.Equal(t, "integer", schema.Type)
 	assert.Equal(t, "int64", schema.Format)
 }

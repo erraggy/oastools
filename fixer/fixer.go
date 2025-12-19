@@ -168,11 +168,12 @@ func FixWithOptions(opts ...Option) (*FixResult, error) {
 	}
 
 	// Route to appropriate fix method based on input source
-	if cfg.filePath != nil {
-		return f.Fix(*cfg.filePath)
-	}
+	// Parsed input is checked first as it's the preferred high-performance path
 	if cfg.parsed != nil {
 		return f.FixParsed(*cfg.parsed)
+	}
+	if cfg.filePath != nil {
+		return f.Fix(*cfg.filePath)
 	}
 
 	// Should never reach here due to validation in applyOptions

@@ -225,7 +225,7 @@ func createBenchmarkDoc() map[string]any {
 func createLargeBenchmarkDoc() map[string]any {
 	paths := make(map[string]any)
 	for i := range 50 {
-		pathName := "/resource" + string(rune('A'+i%26)) + string(rune('0'+i/26))
+		pathName := "/resource" + string('A'+rune(i%26)) + string('0'+rune(i/26))
 		paths[pathName] = map[string]any{
 			"deprecated": i%5 == 0,
 			"get": map[string]any{

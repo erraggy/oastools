@@ -110,7 +110,7 @@ var GlobalSecurity = []SecurityRequirement{
 // GenerateSecurityEnforceGroupFile generates a security_enforce_{group}.go file.
 // This file contains an init() function that populates the shared OperationSecurity map
 // with the security requirements for operations in this group.
-func (g *SecurityEnforceGenerator) GenerateSecurityEnforceGroupFile(groupName, groupDisplayName string, groupOpSecurity OperationSecurityRequirements) string {
+func (g *SecurityEnforceGenerator) GenerateSecurityEnforceGroupFile(_, groupDisplayName string, groupOpSecurity OperationSecurityRequirements) string {
 	var buf bytes.Buffer
 
 	// Header (no imports needed - init() just populates the map)

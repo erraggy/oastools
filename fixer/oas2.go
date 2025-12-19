@@ -4,7 +4,6 @@ package fixer
 
 import (
 	"fmt"
-	"net/url"
 	"sort"
 
 	"github.com/erraggy/oastools/parser"
@@ -55,31 +54,30 @@ func (f *Fixer) fixOAS2(parseResult parser.ParseResult, result *FixResult) (*Fix
 // fixMissingPathParametersOAS2 adds missing path parameters to an OAS 2.0 document.
 // Fixes are applied in sorted order (by path, method, parameter name) for deterministic output.
 func (f *Fixer) fixMissingPathParametersOAS2(doc *parser.OAS2Document, result *FixResult) {
-	if doc.Paths == nil {
+	f.fixMissingPathParameters(doc.Paths, parser.OASVersion20, result)
+}
+
+// fixMissingPathParameters is the shared implementation for both OAS versions.
+func (f *Fixer) fixMissingPathParameters(paths map[string]*parser.PathItem, version parser.OASVersion, result *FixResult) {
+	if paths == nil {
 		return
 	}
 
 	// Sort path patterns for deterministic order
-	pathPatterns := make([]string, 0, len(doc.Paths))
-	for pathPattern := range doc.Paths {
+	pathPatterns := make([]string, 0, len(paths))
+	for pathPattern := range paths {
 		pathPatterns = append(pathPatterns, pathPattern)
 	}
 	sort.Strings(pathPatterns)
 
 	for _, pathPattern := range pathPatterns {
-		pathItem := doc.Paths[pathPattern]
+		pathItem := paths[pathPattern]
 		if pathItem == nil {
 			continue
 		}
 
-		// Extract parameters from path template
-		pathParams := extractPathParameters(pathPattern)
-		if len(pathParams) == 0 {
-			continue
-		}
-
 		// Get operations for this path
-		operations := parser.GetOperations(pathItem, parser.OASVersion20)
+		operations := parser.GetOperations(pathItem, version)
 
 		// Sort methods for deterministic order
 		methods := make([]string, 0, len(operations))
@@ -94,68 +92,25 @@ func (f *Fixer) fixMissingPathParametersOAS2(doc *parser.OAS2Document, result *F
 				continue
 			}
 
-			// Collect declared path parameters from PathItem and Operation
-			declaredParams := make(map[string]bool)
-
-			// PathItem-level parameters
-			for _, param := range pathItem.Parameters {
-				if param != nil && param.In == parser.ParamInPath {
-					declaredParams[param.Name] = true
-				}
-			}
-
-			// Operation-level parameters (override PathItem params)
-			for _, param := range op.Parameters {
-				if param != nil && param.In == parser.ParamInPath {
-					declaredParams[param.Name] = true
-				}
-			}
-
-			// Sort parameter names for deterministic order
-			paramNames := make([]string, 0, len(pathParams))
-			for paramName := range pathParams {
-				paramNames = append(paramNames, paramName)
-			}
-			sort.Strings(paramNames)
-
 			// Find missing parameters
-			for _, paramName := range paramNames {
-				if declaredParams[paramName] {
-					continue
-				}
-
-				// Create the missing parameter
+			missingParams := findMissingPathParams(pathPattern, pathItem, op)
+			for _, paramName := range missingParams {
+				// Determine type
 				paramType := "string"
 				paramFormat := ""
 				if f.InferTypes {
 					paramType, paramFormat = inferParameterType(paramName)
 				}
 
-				newParam := &parser.Parameter{
-					Name:     paramName,
-					In:       parser.ParamInPath,
-					Required: true, // Path parameters are always required
-					Type:     paramType,
-				}
-				if paramFormat != "" {
-					newParam.Format = paramFormat
-				}
-
-				// Add to operation parameters
+				// Create and add the parameter
+				newParam := createMissingPathParameter(paramName, paramType, paramFormat, version == parser.OASVersion20)
 				op.Parameters = append(op.Parameters, newParam)
 
 				// Record the fix
-				jsonPath := fmt.Sprintf("paths.%s.%s.parameters", pathPattern, method)
-				description := fmt.Sprintf("Added missing path parameter '%s' (type: %s", paramName, paramType)
-				if paramFormat != "" {
-					description += fmt.Sprintf(", format: %s", paramFormat)
-				}
-				description += ")"
-
 				fix := Fix{
 					Type:        FixTypeMissingPathParameter,
-					Path:        jsonPath,
-					Description: description,
+					Path:        fmt.Sprintf("paths.%s.%s.parameters", pathPattern, method),
+					Description: buildMissingParamDescription(paramName, paramType, paramFormat),
 					Before:      nil,
 					After:       newParam,
 				}
@@ -174,51 +129,10 @@ func (f *Fixer) fixInvalidSchemaNamesOAS2(doc *parser.OAS2Document, result *FixR
 		return
 	}
 
-	// Build rename map: old name -> new name
-	renames := make(map[string]string)
-	for name := range doc.Definitions {
-		if hasInvalidSchemaNameChars(name) {
-			newName := transformSchemaName(name, f.GenericNamingConfig)
-			newName = resolveNameCollision(newName, doc.Definitions, renames)
-			renames[name] = newName
-		}
-	}
-
-	if len(renames) == 0 {
+	// Rename invalid schemas and get the ref rename map
+	refRenames := f.renameInvalidSchemas(doc.Definitions, parser.OASVersion20, result)
+	if len(refRenames) == 0 {
 		return
-	}
-
-	// Build ref renames map for rewriting $refs
-	// OAS 2.0 uses #/definitions/ prefix
-	refRenames := make(map[string]string)
-	for oldName, newName := range renames {
-		oldRef := "#/definitions/" + oldName
-		newRef := "#/definitions/" + newName
-		refRenames[oldRef] = newRef
-
-		// Also add URL-encoded version for refs that might be encoded
-		encodedOldRef := "#/definitions/" + url.PathEscape(oldName)
-		if encodedOldRef != oldRef {
-			refRenames[encodedOldRef] = newRef
-		}
-	}
-
-	// Apply renames to definitions map
-	for oldName, newName := range renames {
-		schema := doc.Definitions[oldName]
-		delete(doc.Definitions, oldName)
-		doc.Definitions[newName] = schema
-
-		// Record the fix
-		fix := Fix{
-			Type:        FixTypeRenamedGenericSchema,
-			Path:        fmt.Sprintf("definitions.%s", oldName),
-			Description: fmt.Sprintf("renamed schema '%s' to '%s'", oldName, newName),
-			Before:      oldName,
-			After:       newName,
-		}
-		f.populateFixLocation(&fix)
-		result.Fixes = append(result.Fixes, fix)
 	}
 
 	// Rewrite all $refs in definitions
@@ -293,32 +207,8 @@ func (f *Fixer) pruneUnusedSchemasOAS2(doc *parser.OAS2Document, result *FixResu
 	collector := NewRefCollector()
 	collector.CollectOAS2(doc)
 
-	// Build the set of referenced schemas (including transitive refs)
-	referenced := buildReferencedSchemaSet(collector, doc.Definitions, parser.OASVersion20)
-
-	// Sort schema names for deterministic order
-	schemaNames := make([]string, 0, len(doc.Definitions))
-	for name := range doc.Definitions {
-		schemaNames = append(schemaNames, name)
-	}
-	sort.Strings(schemaNames)
-
-	// Delete unreferenced schemas
-	for _, name := range schemaNames {
-		if !referenced[name] {
-			delete(doc.Definitions, name)
-
-			fix := Fix{
-				Type:        FixTypePrunedUnusedSchema,
-				Path:        fmt.Sprintf("definitions.%s", name),
-				Description: fmt.Sprintf("removed unreferenced schema '%s'", name),
-				Before:      name,
-				After:       nil,
-			}
-			f.populateFixLocation(&fix)
-			result.Fixes = append(result.Fixes, fix)
-		}
-	}
+	// Prune unreferenced schemas
+	f.pruneSchemas(doc.Definitions, collector, parser.OASVersion20, result)
 
 	// Set definitions to nil if empty after pruning
 	if len(doc.Definitions) == 0 {

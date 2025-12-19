@@ -89,29 +89,10 @@ func (s *Schema) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (s *Schema) UnmarshalJSON(data []byte) error {
 	type Alias Schema
-	aux := (*Alias)(s)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(s)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		s.Extra = extra
-	}
-
+	s.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }
 
@@ -140,29 +121,10 @@ func (d *Discriminator) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (d *Discriminator) UnmarshalJSON(data []byte) error {
 	type Alias Discriminator
-	aux := (*Alias)(d)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(d)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		d.Extra = extra
-	}
-
+	d.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }
 
@@ -193,28 +155,9 @@ func (x *XML) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (x *XML) UnmarshalJSON(data []byte) error {
 	type Alias XML
-	aux := (*Alias)(x)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(x)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		x.Extra = extra
-	}
-
+	x.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }

@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestCircularReferenceDetection tests that circular references are properly detected and rejected
@@ -48,18 +51,14 @@ components:
           $ref: "#/components/schemas/A"
 `
 	err := os.WriteFile(specFile, []byte(specContent), 0644)
-	if err != nil {
-		t.Fatalf("Failed to write spec file: %v", err)
-	}
+	require.NoError(t, err, "Failed to write spec file")
 
 	// Parse with ref resolution enabled
 	parser := New()
 	parser.ResolveRefs = true
 
 	result, err := parser.Parse(specFile)
-	if err != nil {
-		t.Fatalf("Parse failed: %v", err)
-	}
+	require.NoError(t, err, "Parse failed")
 
 	// Should have a warning about circular references
 	hasCircularWarning := false
@@ -133,9 +132,7 @@ func TestRefResolver_HasCircularRefs(t *testing.T) {
 			resolver := NewRefResolver("")
 			_ = resolver.ResolveAllRefs(tt.doc)
 
-			if got := resolver.HasCircularRefs(); got != tt.wantCircular {
-				t.Errorf("HasCircularRefs() = %v, want %v", got, tt.wantCircular)
-			}
+			assert.Equal(t, tt.wantCircular, resolver.HasCircularRefs(), "HasCircularRefs() mismatch")
 		})
 	}
 }
@@ -149,9 +146,7 @@ func TestRefResolver_HasCircularRefs_Reset(t *testing.T) {
 		"schema": map[string]any{"$ref": "#"},
 	}
 	_ = resolver.ResolveAllRefs(docWithCircular)
-	if !resolver.HasCircularRefs() {
-		t.Error("expected HasCircularRefs() = true after resolving circular doc")
-	}
+	assert.True(t, resolver.HasCircularRefs(), "expected HasCircularRefs() = true after resolving circular doc")
 
 	// Second: resolve a doc without circular refs - flag should reset
 	docWithoutCircular := map[string]any{
@@ -162,9 +157,7 @@ func TestRefResolver_HasCircularRefs_Reset(t *testing.T) {
 		},
 	}
 	_ = resolver.ResolveAllRefs(docWithoutCircular)
-	if resolver.HasCircularRefs() {
-		t.Error("expected HasCircularRefs() = false after resolving non-circular doc")
-	}
+	assert.False(t, resolver.HasCircularRefs(), "expected HasCircularRefs() = false after resolving non-circular doc")
 }
 
 // TestMaxDepthExceeded tests that deeply nested references are rejected
@@ -220,18 +213,14 @@ components:
 
 	specFile := filepath.Join(tmpDir, "deep.yaml")
 	err := os.WriteFile(specFile, []byte(specContent), 0644)
-	if err != nil {
-		t.Fatalf("Failed to write spec file: %v", err)
-	}
+	require.NoError(t, err, "Failed to write spec file")
 
 	// Parse with ref resolution enabled
 	parser := New()
 	parser.ResolveRefs = true
 
 	result, err := parser.Parse(specFile)
-	if err != nil {
-		t.Fatalf("Parse failed: %v", err)
-	}
+	require.NoError(t, err, "Parse failed")
 
 	// Should have a warning about exceeding max depth
 	hasDepthWarning := false
@@ -283,9 +272,7 @@ properties:
     type: string
 `
 		err := os.WriteFile(extFile, []byte(extContent), 0644)
-		if err != nil {
-			t.Fatalf("Failed to write external file %d: %v", i, err)
-		}
+		require.NoError(t, err, "Failed to write external file %d", i)
 
 		// Add reference to main spec
 		refsBuilder.WriteString("    Schema")
@@ -299,18 +286,14 @@ properties:
 
 	specFile := filepath.Join(tmpDir, "main.yaml")
 	err := os.WriteFile(specFile, []byte(refsBuilder.String()), 0644)
-	if err != nil {
-		t.Fatalf("Failed to write main spec: %v", err)
-	}
+	require.NoError(t, err, "Failed to write main spec")
 
 	// Parse with ref resolution enabled
 	parser := New()
 	parser.ResolveRefs = true
 
 	result, err := parser.Parse(specFile)
-	if err != nil {
-		t.Fatalf("Parse failed: %v", err)
-	}
+	require.NoError(t, err, "Parse failed")
 
 	// Should have a warning about exceeding cache limit
 	hasCacheWarning := false
@@ -344,9 +327,7 @@ func TestFileSizeLimit(t *testing.T) {
 	// Create content larger than MaxFileSize
 	// Write a simple YAML with a large string value
 	f, err := os.Create(largeFile)
-	if err != nil {
-		t.Fatalf("Failed to create large file: %v", err)
-	}
+	require.NoError(t, err, "Failed to create large file")
 	defer func() {
 		if closeErr := f.Close(); closeErr != nil {
 			t.Logf("Failed to close file: %v", closeErr)
@@ -355,9 +336,7 @@ func TestFileSizeLimit(t *testing.T) {
 
 	// Write basic YAML header
 	_, err = f.WriteString("type: object\nproperties:\n  data:\n    type: string\n    default: \"")
-	if err != nil {
-		t.Fatalf("Failed to write to large file: %v", err)
-	}
+	require.NoError(t, err, "Failed to write to large file")
 
 	// Write more than MaxFileSize bytes of data
 	chunkSize := 1024 * 1024 // 1MB chunks
@@ -366,16 +345,12 @@ func TestFileSizeLimit(t *testing.T) {
 
 	for totalSize < MaxFileSize+1 {
 		n, err := f.WriteString(chunk)
-		if err != nil {
-			t.Fatalf("Failed to write chunk: %v", err)
-		}
+		require.NoError(t, err, "Failed to write chunk")
 		totalSize += int64(n)
 	}
 
 	_, err = f.WriteString("\"\n")
-	if err != nil {
-		t.Fatalf("Failed to write file footer: %v", err)
-	}
+	require.NoError(t, err, "Failed to write file footer")
 
 	// Create a main spec that references the large file
 	mainSpec := filepath.Join(tmpDir, "main.yaml")
@@ -391,18 +366,14 @@ components:
       $ref: "./large.yaml"
 `
 	err = os.WriteFile(mainSpec, []byte(mainContent), 0644)
-	if err != nil {
-		t.Fatalf("Failed to write main spec: %v", err)
-	}
+	require.NoError(t, err, "Failed to write main spec")
 
 	// Parse with ref resolution enabled
 	parser := New()
 	parser.ResolveRefs = true
 
 	result, err := parser.Parse(mainSpec)
-	if err != nil {
-		t.Fatalf("Parse failed: %v", err)
-	}
+	require.NoError(t, err, "Parse failed")
 
 	// Should have a warning about file size limit
 	hasSizeWarning := false
@@ -413,9 +384,7 @@ components:
 		}
 	}
 
-	if !hasSizeWarning {
-		t.Errorf("Expected warning about file size limit, got warnings: %v", result.Warnings)
-	}
+	assert.True(t, hasSizeWarning, "Expected warning about file size limit, got warnings: %v", result.Warnings)
 }
 
 // TestLocalRefResolution tests basic local reference resolution
@@ -439,18 +408,12 @@ func TestLocalRefResolution(t *testing.T) {
 
 	// Test resolving a local reference
 	result, err := resolver.ResolveLocal(doc, "#/components/schemas/Pet")
-	if err != nil {
-		t.Fatalf("Failed to resolve local ref: %v", err)
-	}
+	require.NoError(t, err, "Failed to resolve local ref")
 
 	petSchema, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map result, got %T", result)
-	}
+	require.True(t, ok, "Expected map result, got %T", result)
 
-	if petSchema["type"] != "object" {
-		t.Errorf("Expected type 'object', got %v", petSchema["type"])
-	}
+	assert.Equal(t, "object", petSchema["type"], "Expected type 'object'")
 }
 
 // TestLocalRefNotFound tests that missing local references return appropriate errors
@@ -465,13 +428,8 @@ func TestLocalRefNotFound(t *testing.T) {
 
 	// Test resolving a non-existent local reference
 	_, err := resolver.ResolveLocal(doc, "#/components/schemas/NonExistent")
-	if err == nil {
-		t.Error("Expected error for non-existent reference")
-	}
-
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("Expected 'not found' error, got: %v", err)
-	}
+	require.Error(t, err, "Expected error for non-existent reference")
+	assert.Contains(t, err.Error(), "not found")
 }
 
 // TestJSONPointerEscaping tests that JSON Pointer special characters are properly escaped
@@ -518,18 +476,12 @@ func TestJSONPointerEscaping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := resolver.ResolveLocal(doc, tt.ref)
-			if err != nil {
-				t.Fatalf("Failed to resolve ref %s: %v", tt.ref, err)
-			}
+			require.NoError(t, err, "Failed to resolve ref %s", tt.ref)
 
 			schema, ok := result.(map[string]any)
-			if !ok {
-				t.Fatalf("Expected map result, got %T", result)
-			}
+			require.True(t, ok, "Expected map result, got %T", result)
 
-			if schema["type"] != tt.wantType {
-				t.Errorf("Expected type %s, got %v", tt.wantType, schema["type"])
-			}
+			assert.Equal(t, tt.wantType, schema["type"], "Expected type %s", tt.wantType)
 		})
 	}
 }
@@ -550,13 +502,8 @@ func TestHTTPReferencesRequireFetcher(t *testing.T) {
 	for _, ref := range refs {
 		t.Run(ref, func(t *testing.T) {
 			_, err := resolver.Resolve(doc, ref)
-			if err == nil {
-				t.Error("Expected error for HTTP(S) reference without fetcher")
-			}
-
-			if !strings.Contains(err.Error(), "HTTP references require HTTP fetcher") {
-				t.Errorf("Expected 'HTTP references require HTTP fetcher' error, got: %v", err)
-			}
+			require.Error(t, err, "Expected error for HTTP(S) reference without fetcher")
+			assert.Contains(t, err.Error(), "HTTP references require HTTP fetcher")
 		})
 	}
 }
@@ -606,19 +553,13 @@ components:
 	)
 
 	// Should parse successfully without hanging
-	if err != nil {
-		t.Fatalf("ParseBytes failed: %v", err)
-	}
+	require.NoError(t, err, "ParseBytes failed")
 
 	// Should have parsed the document
-	if result.Document == nil {
-		t.Fatal("Expected document to be parsed")
-	}
+	require.NotNil(t, result.Document, "Expected document to be parsed")
 
 	// Verify it's OAS 3.0
-	if result.Version != "3.0.0" {
-		t.Errorf("Expected version 3.0.0, got %v", result.Version)
-	}
+	assert.Equal(t, "3.0.0", result.Version, "Expected version 3.0.0")
 }
 
 // TestRefToDocumentRoot tests that a $ref pointing to the document root ("#")
@@ -656,37 +597,30 @@ paths:
 	)
 
 	// Should parse successfully without hanging
-	if err != nil {
-		t.Fatalf("ParseBytes failed: %v", err)
-	}
+	require.NoError(t, err, "ParseBytes failed")
 
 	// Should have parsed the document
-	if result.Document == nil {
-		t.Fatal("Expected document to be parsed")
-	}
+	require.NotNil(t, result.Document, "Expected document to be parsed")
 
 	// Verify it's OAS 3.0
-	if result.Version != "3.0.0" {
-		t.Errorf("Expected version 3.0.0, got %v", result.Version)
-	}
+	assert.Equal(t, "3.0.0", result.Version, "Expected version 3.0.0")
 
 	// Verify the $ref was preserved (not resolved to prevent infinite loop)
 	doc, ok := result.Document.(*OAS3Document)
-	if !ok || doc.Paths == nil || doc.Paths["/test"] == nil ||
-		doc.Paths["/test"].Get == nil || doc.Paths["/test"].Get.Responses == nil {
-		t.Fatal("Expected valid document structure with /test GET operation")
-	}
+	require.True(t, ok, "Expected OAS3Document")
+	require.NotNil(t, doc.Paths, "Expected paths")
+	require.NotNil(t, doc.Paths["/test"], "Expected /test path")
+	require.NotNil(t, doc.Paths["/test"].Get, "Expected GET operation")
+	require.NotNil(t, doc.Paths["/test"].Get.Responses, "Expected responses")
 
 	response := doc.Paths["/test"].Get.Responses.Codes["200"]
-	if response == nil || response.Content == nil || response.Content["application/json"] == nil ||
-		response.Content["application/json"].Schema == nil {
-		t.Fatal("Expected 200 response with application/json schema")
-	}
+	require.NotNil(t, response, "Expected 200 response")
+	require.NotNil(t, response.Content, "Expected content")
+	require.NotNil(t, response.Content["application/json"], "Expected application/json")
+	require.NotNil(t, response.Content["application/json"].Schema, "Expected schema")
 
 	schema := response.Content["application/json"].Schema
-	if schema.Ref != "#" {
-		t.Errorf("Expected $ref to be preserved as '#', got %q", schema.Ref)
-	}
+	assert.Equal(t, "#", schema.Ref, "Expected $ref to be preserved as '#'")
 
 	// Verify that a circular reference warning was added
 	foundCircularWarning := false
@@ -696,7 +630,5 @@ paths:
 			break
 		}
 	}
-	if !foundCircularWarning {
-		t.Error("Expected a warning about circular references being detected")
-	}
+	assert.True(t, foundCircularWarning, "Expected a warning about circular references being detected")
 }

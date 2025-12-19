@@ -1,6 +1,7 @@
-// prune.go implements shared pruning logic for removing orphaned content
+// This file implements shared pruning logic for removing orphaned content
 // from OpenAPI documents. These helpers are version-agnostic and used by
 // both OAS 2.0 and OAS 3.x implementations.
+
 package fixer
 
 import (

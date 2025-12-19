@@ -4,10 +4,11 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/oaserrors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestResolveHTTPBasic tests basic HTTP ref resolution
@@ -47,28 +48,19 @@ func TestResolveHTTPBasic(t *testing.T) {
 
 	// Test resolving the whole document
 	result, err := resolver.Resolve(doc, server.URL)
-	if err != nil {
-		t.Fatalf("Failed to resolve HTTP ref: %v", err)
-	}
+	require.NoError(t, err, "Failed to resolve HTTP ref")
 
 	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map[string]any, got %T", result)
-	}
+	require.True(t, ok, "Expected map[string]any, got %T", result)
 
 	components, ok := resultMap["components"].(map[string]any)
-	if !ok {
-		t.Fatal("Expected components in result")
-	}
+	require.True(t, ok, "Expected components in result")
 
 	schemas, ok := components["schemas"].(map[string]any)
-	if !ok {
-		t.Fatal("Expected schemas in components")
-	}
+	require.True(t, ok, "Expected schemas in components")
 
-	if _, ok := schemas["Pet"]; !ok {
-		t.Error("Expected Pet schema in result")
-	}
+	_, ok = schemas["Pet"]
+	assert.True(t, ok, "Expected Pet schema in result")
 }
 
 // TestResolveHTTPWithFragment tests HTTP ref resolution with JSON pointer fragment
@@ -106,30 +98,20 @@ components:
 	// Test resolving with fragment
 	ref := server.URL + "#/components/schemas/Pet"
 	result, err := resolver.Resolve(doc, ref)
-	if err != nil {
-		t.Fatalf("Failed to resolve HTTP ref with fragment: %v", err)
-	}
+	require.NoError(t, err, "Failed to resolve HTTP ref with fragment")
 
 	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map[string]any, got %T", result)
-	}
+	require.True(t, ok, "Expected map[string]any, got %T", result)
 
-	if resultMap["type"] != "object" {
-		t.Errorf("Expected type: object, got: %v", resultMap["type"])
-	}
+	assert.Equal(t, "object", resultMap["type"], "Expected type: object")
 
 	props, ok := resultMap["properties"].(map[string]any)
-	if !ok {
-		t.Fatal("Expected properties in Pet schema")
-	}
+	require.True(t, ok, "Expected properties in Pet schema")
 
-	if _, ok := props["name"]; !ok {
-		t.Error("Expected name property in Pet schema")
-	}
-	if _, ok := props["age"]; !ok {
-		t.Error("Expected age property in Pet schema")
-	}
+	_, ok = props["name"]
+	assert.True(t, ok, "Expected name property in Pet schema")
+	_, ok = props["age"]
+	assert.True(t, ok, "Expected age property in Pet schema")
 }
 
 // TestResolveHTTPCaching tests that HTTP documents are cached
@@ -159,15 +141,11 @@ func TestResolveHTTPCaching(t *testing.T) {
 	// Resolve the same URL multiple times
 	for i := 0; i < 3; i++ {
 		_, err := resolver.Resolve(doc, server.URL)
-		if err != nil {
-			t.Fatalf("Failed to resolve on attempt %d: %v", i, err)
-		}
+		require.NoError(t, err, "Failed to resolve on attempt %d", i)
 	}
 
 	// Should only have fetched once due to caching
-	if callCount != 1 {
-		t.Errorf("Expected 1 HTTP call due to caching, got %d", callCount)
-	}
+	assert.Equal(t, 1, callCount, "Expected 1 HTTP call due to caching")
 }
 
 // TestResolveHTTPCircularDetection tests that circular HTTP refs are detected
@@ -194,33 +172,21 @@ func TestResolveHTTPCircularDetection(t *testing.T) {
 
 	// First resolution should work
 	_, err := resolver.Resolve(doc, server.URL)
-	if err != nil {
-		t.Fatalf("First resolution should succeed: %v", err)
-	}
+	require.NoError(t, err, "First resolution should succeed")
 
 	// Simulating visiting the same ref again (circular) - mark as visited
 	resolver.visited[server.URL] = true
 	_, err = resolver.Resolve(doc, server.URL)
-	if err == nil {
-		t.Error("Expected circular reference error")
-		return
-	}
+	require.Error(t, err, "Expected circular reference error")
+
 	// Use errors.Is for sentinel error check
-	if !errors.Is(err, oaserrors.ErrCircularReference) {
-		t.Errorf("Expected ErrCircularReference, got: %v", err)
-	}
+	assert.True(t, errors.Is(err, oaserrors.ErrCircularReference), "Expected ErrCircularReference, got: %v", err)
+
 	// Use errors.As to verify error type and fields
 	var refErr *oaserrors.ReferenceError
-	if !errors.As(err, &refErr) {
-		t.Errorf("Expected *oaserrors.ReferenceError, got %T", err)
-	} else {
-		if !refErr.IsCircular {
-			t.Errorf("Expected IsCircular=true, got false")
-		}
-		if refErr.RefType != "http" {
-			t.Errorf("Expected RefType='http', got %q", refErr.RefType)
-		}
-	}
+	require.True(t, errors.As(err, &refErr), "Expected *oaserrors.ReferenceError, got %T", err)
+	assert.True(t, refErr.IsCircular, "Expected IsCircular=true")
+	assert.Equal(t, "http", refErr.RefType, "Expected RefType='http'")
 }
 
 // TestResolveHTTPMaxSizeLimit tests that HTTP responses are size-limited
@@ -253,12 +219,8 @@ func TestResolveHTTPMaxSizeLimit(t *testing.T) {
 	doc := map[string]any{}
 
 	_, err := resolver.Resolve(doc, server.URL)
-	if err == nil {
-		t.Error("Expected error for oversized HTTP response")
-	}
-	if !strings.Contains(err.Error(), "exceeds maximum size limit") {
-		t.Errorf("Expected 'exceeds maximum size limit' error, got: %v", err)
-	}
+	require.Error(t, err, "Expected error for oversized HTTP response")
+	assert.Contains(t, err.Error(), "exceeds maximum size limit")
 }
 
 // TestResolveHTTPFetchError tests handling of HTTP fetch errors
@@ -271,12 +233,8 @@ func TestResolveHTTPFetchError(t *testing.T) {
 	doc := map[string]any{}
 
 	_, err := resolver.Resolve(doc, "http://example.com/api.yaml")
-	if err == nil {
-		t.Error("Expected error when fetcher fails")
-	}
-	if !strings.Contains(err.Error(), "failed to fetch HTTP reference") {
-		t.Errorf("Expected 'failed to fetch HTTP reference' error, got: %v", err)
-	}
+	require.Error(t, err, "Expected error when fetcher fails")
+	assert.Contains(t, err.Error(), "failed to fetch HTTP reference")
 }
 
 // TestResolveHTTPInvalidContent tests handling of invalid YAML/JSON content
@@ -302,12 +260,8 @@ func TestResolveHTTPInvalidContent(t *testing.T) {
 	doc := map[string]any{}
 
 	_, err := resolver.Resolve(doc, server.URL)
-	if err == nil {
-		t.Error("Expected error for invalid content")
-	}
-	if !strings.Contains(err.Error(), "failed to parse HTTP reference") {
-		t.Errorf("Expected 'failed to parse HTTP reference' error, got: %v", err)
-	}
+	require.Error(t, err, "Expected error for invalid content")
+	assert.Contains(t, err.Error(), "failed to parse HTTP reference")
 }
 
 // TestResolveRelativeURL tests relative URL resolution
@@ -348,12 +302,8 @@ func TestResolveRelativeURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resolver := NewRefResolverWithHTTP(".", tt.baseURL, nil)
 			result, err := resolver.resolveRelativeURL(tt.ref)
-			if err != nil {
-				t.Fatalf("Failed to resolve relative URL: %v", err)
-			}
-			if result != tt.expected {
-				t.Errorf("Expected %s, got %s", tt.expected, result)
-			}
+			require.NoError(t, err, "Failed to resolve relative URL")
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -366,29 +316,12 @@ func TestNewRefResolverWithHTTP(t *testing.T) {
 
 	resolver := NewRefResolverWithHTTP("/base/dir", "https://example.com/api.yaml", fetcher)
 
-	if resolver.baseDir != "/base/dir" {
-		t.Errorf("Expected baseDir '/base/dir', got '%s'", resolver.baseDir)
-	}
-
-	if resolver.baseURL != "https://example.com/api.yaml" {
-		t.Errorf("Expected baseURL 'https://example.com/api.yaml', got '%s'", resolver.baseURL)
-	}
-
-	if resolver.httpFetch == nil {
-		t.Error("Expected httpFetch to be set")
-	}
-
-	if resolver.visited == nil {
-		t.Error("Expected visited map to be initialized")
-	}
-
-	if resolver.resolving == nil {
-		t.Error("Expected resolving map to be initialized")
-	}
-
-	if resolver.documents == nil {
-		t.Error("Expected documents map to be initialized")
-	}
+	assert.Equal(t, "/base/dir", resolver.baseDir, "Expected baseDir '/base/dir'")
+	assert.Equal(t, "https://example.com/api.yaml", resolver.baseURL, "Expected baseURL 'https://example.com/api.yaml'")
+	assert.NotNil(t, resolver.httpFetch, "Expected httpFetch to be set")
+	assert.NotNil(t, resolver.visited, "Expected visited map to be initialized")
+	assert.NotNil(t, resolver.resolving, "Expected resolving map to be initialized")
+	assert.NotNil(t, resolver.documents, "Expected documents map to be initialized")
 }
 
 // TestResolveHTTPRelativeRefFromHTTPSource tests that relative refs are resolved against baseURL
@@ -427,28 +360,13 @@ func TestResolveHTTPRelativeRefFromHTTPSource(t *testing.T) {
 	// Resolve a relative reference - should resolve against baseURL
 	ref := "schemas/pet.yaml"
 	result, err := resolver.Resolve(doc, ref)
-	if err != nil {
-		t.Fatalf("Failed to resolve relative ref: %v", err)
-	}
+	require.NoError(t, err, "Failed to resolve relative ref")
 
 	resultMap, ok := result.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected map[string]any, got %T", result)
-	}
+	require.True(t, ok, "Expected map[string]any, got %T", result)
 
-	if resultMap["type"] != "pet" {
-		t.Errorf("Expected type 'pet', got '%v'", resultMap["type"])
-	}
+	assert.Equal(t, "pet", resultMap["type"], "Expected type 'pet'")
 
 	// Verify the correct path was called
-	found := false
-	for _, path := range callPaths {
-		if path == "/api/schemas/pet.yaml" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("Expected call to /api/schemas/pet.yaml, got calls to: %v", callPaths)
-	}
+	assert.Contains(t, callPaths, "/api/schemas/pet.yaml", "Expected call to /api/schemas/pet.yaml")
 }

@@ -1,7 +1,8 @@
-// generic_names.go implements detection and transformation of invalid schema names.
+// This file implements detection and transformation of invalid schema names.
 // Third-party code generators often produce OpenAPI specs with schema names containing
 // unencoded special characters (like Response[User] for generic types). This file provides
 // detection, parsing, and transformation of such names into valid schema names.
+
 package fixer
 
 import (

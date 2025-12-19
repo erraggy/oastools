@@ -295,11 +295,12 @@ func GenerateWithOptions(opts ...Option) (*GenerateResult, error) {
 	}
 
 	// Route to appropriate generation method based on input source
-	if cfg.filePath != nil {
-		return g.Generate(*cfg.filePath)
-	}
+	// Parsed input is checked first as it's the preferred high-performance path
 	if cfg.parsed != nil {
 		return g.GenerateParsed(*cfg.parsed)
+	}
+	if cfg.filePath != nil {
+		return g.Generate(*cfg.filePath)
 	}
 
 	// Should never reach here due to validation in applyOptions

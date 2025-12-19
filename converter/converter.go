@@ -156,11 +156,12 @@ func ConvertWithOptions(opts ...Option) (*ConversionResult, error) {
 		cfg.postConversionOverlayFile != nil
 
 	// Fast path: no overlays configured, use original logic
+	// Parsed input is checked first as it's the preferred high-performance path
 	if !hasOverlays {
-		if cfg.filePath != nil {
-			return c.Convert(*cfg.filePath, cfg.targetVersion)
+		if cfg.parsed != nil {
+			return c.ConvertParsed(*cfg.parsed, cfg.targetVersion)
 		}
-		return c.ConvertParsed(*cfg.parsed, cfg.targetVersion)
+		return c.Convert(*cfg.filePath, cfg.targetVersion)
 	}
 
 	// Slow path: overlays require us to parse, transform, convert, transform

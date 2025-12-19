@@ -2,6 +2,8 @@ package parser
 
 import (
 	"encoding/json"
+
+	"github.com/erraggy/oastools/parser/internal/jsonhelpers"
 )
 
 // MarshalJSON implements custom JSON marshaling for SecurityScheme.
@@ -70,29 +72,10 @@ func (ss *SecurityScheme) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (ss *SecurityScheme) UnmarshalJSON(data []byte) error {
 	type Alias SecurityScheme
-	aux := (*Alias)(ss)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(ss)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		ss.Extra = extra
-	}
-
+	ss.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }
 
@@ -136,29 +119,10 @@ func (of *OAuthFlows) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (of *OAuthFlows) UnmarshalJSON(data []byte) error {
 	type Alias OAuthFlows
-	aux := (*Alias)(of)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(of)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		of.Extra = extra
-	}
-
+	of.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }
 
@@ -201,28 +165,9 @@ func (of *OAuthFlow) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (of *OAuthFlow) UnmarshalJSON(data []byte) error {
 	type Alias OAuthFlow
-	aux := (*Alias)(of)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(of)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		of.Extra = extra
-	}
-
+	of.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }

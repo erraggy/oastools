@@ -43,29 +43,10 @@ func (p *PathItem) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (p *PathItem) UnmarshalJSON(data []byte) error {
 	type Alias PathItem
-	aux := (*Alias)(p)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(p)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		p.Extra = extra
-	}
-
+	p.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }
 
@@ -107,29 +88,10 @@ func (o *Operation) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (o *Operation) UnmarshalJSON(data []byte) error {
 	type Alias Operation
-	aux := (*Alias)(o)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(o)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		o.Extra = extra
-	}
-
+	o.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }
 
@@ -163,29 +125,10 @@ func (r *Response) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (r *Response) UnmarshalJSON(data []byte) error {
 	type Alias Response
-	aux := (*Alias)(r)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(r)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		r.Extra = extra
-	}
-
+	r.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }
 
@@ -218,29 +161,10 @@ func (l *Link) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (l *Link) UnmarshalJSON(data []byte) error {
 	type Alias Link
-	aux := (*Alias)(l)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(l)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		l.Extra = extra
-	}
-
+	l.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }
 
@@ -270,29 +194,10 @@ func (mt *MediaType) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (mt *MediaType) UnmarshalJSON(data []byte) error {
 	type Alias MediaType
-	aux := (*Alias)(mt)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(mt)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		mt.Extra = extra
-	}
-
+	mt.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }
 
@@ -323,29 +228,10 @@ func (e *Example) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (e *Example) UnmarshalJSON(data []byte) error {
 	type Alias Example
-	aux := (*Alias)(e)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(e)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		e.Extra = extra
-	}
-
+	e.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }
 
@@ -376,29 +262,10 @@ func (e *Encoding) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (e *Encoding) UnmarshalJSON(data []byte) error {
 	type Alias Encoding
-	aux := (*Alias)(e)
-
-	if err := json.Unmarshal(data, aux); err != nil {
+	if err := json.Unmarshal(data, (*Alias)(e)); err != nil {
 		return err
 	}
-
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-
-	// Extract specification extensions (fields starting with "x-")
-	extra := make(map[string]any)
-	for k, v := range m {
-		if len(k) >= 2 && k[0] == 'x' && k[1] == '-' {
-			extra[k] = v
-		}
-	}
-
-	if len(extra) > 0 {
-		e.Extra = extra
-	}
-
+	e.Extra = jsonhelpers.ExtractExtensions(data)
 	return nil
 }
 
