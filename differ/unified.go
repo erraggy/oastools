@@ -1379,6 +1379,21 @@ func (d *Differ) diffSchemaUnevaluatedPropertiesUnified(source, target any, path
 	targetType := getSchemaAdditionalPropsType(target)
 	fieldPath := path + ".unevaluatedProperties"
 
+	// Handle unknown types
+	if sourceType == schemaAdditionalPropsTypeUnknown && targetType == schemaAdditionalPropsTypeUnknown {
+		return
+	}
+	if sourceType == schemaAdditionalPropsTypeUnknown {
+		d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
+			SeverityWarning, source, nil, fmt.Sprintf("unevaluatedProperties has unexpected type in source: %T", source))
+		return
+	}
+	if targetType == schemaAdditionalPropsTypeUnknown {
+		d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
+			SeverityWarning, nil, target, fmt.Sprintf("unevaluatedProperties has unexpected type in target: %T", target))
+		return
+	}
+
 	// Both nil - no change
 	if sourceType == schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
 		return
@@ -1430,6 +1445,21 @@ func (d *Differ) diffSchemaUnevaluatedItemsUnified(source, target any, path stri
 	sourceType := getSchemaAdditionalPropsType(source)
 	targetType := getSchemaAdditionalPropsType(target)
 	fieldPath := path + ".unevaluatedItems"
+
+	// Handle unknown types
+	if sourceType == schemaAdditionalPropsTypeUnknown && targetType == schemaAdditionalPropsTypeUnknown {
+		return
+	}
+	if sourceType == schemaAdditionalPropsTypeUnknown {
+		d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
+			SeverityWarning, source, nil, fmt.Sprintf("unevaluatedItems has unexpected type in source: %T", source))
+		return
+	}
+	if targetType == schemaAdditionalPropsTypeUnknown {
+		d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
+			SeverityWarning, nil, target, fmt.Sprintf("unevaluatedItems has unexpected type in target: %T", target))
+		return
+	}
 
 	// Both nil - no change
 	if sourceType == schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {

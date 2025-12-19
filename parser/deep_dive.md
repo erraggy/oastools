@@ -160,16 +160,26 @@ For strict validation of object and array schemas:
 
 | Keyword | Type | Description |
 |---------|------|-------------|
-| `unevaluatedProperties` | `any` | `*Schema` or `bool` for uncovered properties |
-| `unevaluatedItems` | `any` | `*Schema` or `bool` for uncovered array items |
+| `unevaluatedProperties` | `any` | `*Schema`, `bool`, or `map[string]any` for uncovered properties |
+| `unevaluatedItems` | `any` | `*Schema`, `bool`, or `map[string]any` for uncovered array items |
 
 ```go
 schema := doc.Components.Schemas["StrictObject"]
 switch v := schema.UnevaluatedProperties.(type) {
+case *parser.Schema:
+    // Typed schema - most common after parsing
+    fmt.Printf("Unevaluated properties must match: %s\n", v.Ref)
 case bool:
+    // Boolean value - false disallows, true allows any
     fmt.Printf("Unevaluated properties allowed: %v\n", v)
 case map[string]any:
-    fmt.Println("Unevaluated properties must match schema")
+    // Raw map - when schema wasn't typed during parsing
+    if ref, ok := v["$ref"].(string); ok {
+        fmt.Printf("Raw ref to: %s\n", ref)
+    }
+default:
+    // nil or unexpected type
+    fmt.Println("No unevaluatedProperties constraint")
 }
 ```
 

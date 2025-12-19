@@ -97,8 +97,11 @@ var (
 // seriesKey returns a string key for major.minor lookup (e.g., "3.0", "3.1")
 func seriesKey(major, minor int) string {
 	// Pre-allocate for common case of single-digit numbers
-	buf := make([]byte, 0, 4)
-	buf = append(buf, byte('0'+major))
+	buf := make([]byte, 0, 5)
+	if major >= 10 {
+		buf = append(buf, byte('0'+major/10))
+	}
+	buf = append(buf, byte('0'+major%10))
 	buf = append(buf, '.')
 	if minor >= 10 {
 		buf = append(buf, byte('0'+minor/10))
