@@ -903,14 +903,29 @@ func main() {
 | `WithCookieParam(name, type, ...opts)` | Cookie parameter |
 | `WithParamDescription(string)` | Parameter description |
 | `WithParamRequired(bool)` | Required flag |
+| `WithParamExtension(key, value)` | Add vendor extension (x-*) |
+| `WithParamAllowEmptyValue(bool)` | Allow empty values (OAS 2.0) |
+| `WithParamCollectionFormat(string)` | Array serialization: csv, ssv, tsv, pipes, multi (OAS 2.0) |
 
 ### Body and Response Options
 
 | Option | Description |
 |--------|-------------|
 | `WithRequestBody(mediaType, type)` | Request body with schema |
+| `WithRequestBodyContentTypes([]string, type)` | Request body with multiple content types |
+| `WithRequestBodyExtension(key, value)` | Add vendor extension (x-*) |
 | `WithResponse(status, type)` | Response with schema |
+| `WithResponseContentTypes(status, []string, type)` | Response with multiple content types |
 | `WithResponseDescription(string)` | Response description |
+| `WithResponseExtension(key, value)` | Add vendor extension (x-*) |
+
+### Operation Options
+
+| Option | Description |
+|--------|-------------|
+| `WithOperationExtension(key, value)` | Add vendor extension (x-*) |
+| `WithConsumes(...string)` | Operation consumes MIME types (OAS 2.0) |
+| `WithProduces(...string)` | Operation produces MIME types (OAS 2.0) |
 
 ### Security Options
 

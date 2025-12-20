@@ -823,6 +823,9 @@ Use struct-based API for: multiple files, reusable instances, advanced configura
 - Generic strategies: `GenericNamingUnderscore`, `GenericNamingOf`, `GenericNamingFor`, `GenericNamingAngleBrackets`, `GenericNamingFlattened`
 - Template functions: `pascal`, `camel`, `snake`, `kebab`, `upper`, `lower`, `title`, `sanitize`, `trimPrefix`, `trimSuffix`, `replace`, `join`
 - `RegisterTypeAs` always takes precedence over any naming strategy
+- Vendor extensions: `WithOperationExtension`, `WithParamExtension`, `WithResponseExtension`, `WithRequestBodyExtension`
+- OAS 2.0 options: `WithConsumes`, `WithProduces`, `WithParamAllowEmptyValue`, `WithParamCollectionFormat`
+- Multi-content-type: `WithRequestBodyContentTypes`, `WithResponseContentTypes`
 
 ### Usage Examples
 

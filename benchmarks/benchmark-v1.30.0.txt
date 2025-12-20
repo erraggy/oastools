@@ -1,0 +1,89 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/parser
+cpu: Apple M4
+BenchmarkMarshalInfo/NoExtra-10    	12948967	       450.1 ns/op	     192 B/op	       2 allocs/op
+BenchmarkMarshalInfo/Extra1-10     	 4896732	      1241 ns/op	    1105 B/op	      20 allocs/op
+BenchmarkMarshalInfo/Extra5-10     	 2661358	      2253 ns/op	    2218 B/op	      31 allocs/op
+BenchmarkMarshalInfo/Extra10-10    	 1499632	      3948 ns/op	    4077 B/op	      43 allocs/op
+BenchmarkMarshalInfo/Extra20-10    	  936297	      6405 ns/op	    5424 B/op	      63 allocs/op
+BenchmarkMarshalContact/NoExtra-10 	13335936	       450.0 ns/op	     192 B/op	       2 allocs/op
+BenchmarkMarshalContact/WithExtra-10         	 3516144	      1703 ns/op	    1377 B/op	      24 allocs/op
+BenchmarkMarshalServer/NoExtra-10            	16176964	       370.3 ns/op	     160 B/op	       2 allocs/op
+BenchmarkMarshalServer/WithExtra-10          	 2490135	      2407 ns/op	    2299 B/op	      30 allocs/op
+BenchmarkMarshalOAS3Document/Small-10        	  296275	     20198 ns/op	    7004 B/op	      66 allocs/op
+BenchmarkMarshalOAS3Document/Medium-10       	   26691	    224603 ns/op	   65830 B/op	     471 allocs/op
+BenchmarkMarshalOAS3Document/Large-10        	    2200	   2753911 ns/op	  844204 B/op	    5336 allocs/op
+BenchmarkMarshalOAS2Document/Small-10        	  338736	     17509 ns/op	    6371 B/op	      58 allocs/op
+BenchmarkMarshalOAS2Document/Medium-10       	   33430	    179334 ns/op	   53636 B/op	     396 allocs/op
+BenchmarkUnmarshalInfo/NoExtra-10            	 4031247	      1494 ns/op	    1176 B/op	      28 allocs/op
+BenchmarkUnmarshalInfo/WithExtra-10          	 1717614	      3492 ns/op	    1736 B/op	      46 allocs/op
+BenchmarkParse/SmallOAS3-10                  	   25651	    233891 ns/op	  197774 B/op	    2070 allocs/op
+BenchmarkParse/MediumOAS3-10                 	    4628	   1300000 ns/op	 1460339 B/op	   17388 allocs/op
+BenchmarkParse/LargeOAS3-10                  	     420	  14248581 ns/op	16574674 B/op	  194712 allocs/op
+BenchmarkParse/SmallOAS2-10                  	   28147	    195876 ns/op	  174624 B/op	    2059 allocs/op
+BenchmarkParse/MediumOAS2-10                 	    5212	   1167122 ns/op	 1241547 B/op	   16027 allocs/op
+BenchmarkParseNoValidation/SmallOAS3-10      	   25779	    227845 ns/op	  196875 B/op	    2047 allocs/op
+BenchmarkParseNoValidation/MediumOAS3-10     	    4807	   1290295 ns/op	 1455413 B/op	   17296 allocs/op
+BenchmarkParseBytes/SmallOAS3-10             	   45321	    132447 ns/op	  196007 B/op	    2065 allocs/op
+BenchmarkParseBytes/MediumOAS3-10            	    5157	   1134532 ns/op	 1446426 B/op	   17383 allocs/op
+BenchmarkParseCore/SmallOAS3-10              	   44883	    133464 ns/op	  196025 B/op	    2065 allocs/op
+BenchmarkParseCore/MediumOAS3-10             	    5059	   1176197 ns/op	 1446867 B/op	   17384 allocs/op
+BenchmarkParseCore/LargeOAS3-10              	     429	  13940572 ns/op	16410477 B/op	  194707 allocs/op
+BenchmarkParseCore/SmallOAS2-10              	   46898	    128024 ns/op	  173001 B/op	    2054 allocs/op
+BenchmarkParseCore/MediumOAS2-10             	    5839	   1030044 ns/op	 1228923 B/op	   16022 allocs/op
+BenchmarkParseWithOptions/FilePath/SmallOAS3-10         	   27205	    229802 ns/op	  198066 B/op	    2077 allocs/op
+BenchmarkParseWithOptions/Bytes/SmallOAS3-10            	   45114	    133238 ns/op	  196297 B/op	    2071 allocs/op
+BenchmarkParseWithOptions/ResolveRefs/SmallOAS3-10      	   19377	    309908 ns/op	  365617 B/op	    2455 allocs/op
+BenchmarkParseReader/MediumOAS3-10                      	    4980	   1221864 ns/op	 1509519 B/op	   17397 allocs/op
+BenchmarkParseResultCopy/SmallOAS3-10                   	 1000000	      5789 ns/op	   18648 B/op	     113 allocs/op
+BenchmarkParseResolveRefs/MediumOAS3-10                 	    1454	   4089071 ns/op	 6841585 B/op	   42014 allocs/op
+BenchmarkFormatBytes-10                                 	17543778	       343.8 ns/op	      64 B/op	       8 allocs/op
+BenchmarkDeepCopy/SmallOAS3-10                          	 3246637	      1844 ns/op	    7936 B/op	      44 allocs/op
+BenchmarkDeepCopy/MediumOAS3-10                         	  226314	     26686 ns/op	  121601 B/op	     466 allocs/op
+BenchmarkDeepCopy/LargeOAS3-10                          	   16134	    369012 ns/op	 1313680 B/op	    4877 allocs/op
+BenchmarkDeepCopy/SmallOAS2-10                          	 3867740	      1547 ns/op	    6768 B/op	      38 allocs/op
+BenchmarkDeepCopy/MediumOAS2-10                         	  265250	     22548 ns/op	  106257 B/op	     387 allocs/op
+BenchmarkSourceMapOverhead/Small/Default-10             	   26252	    235102 ns/op	  198068 B/op	    2077 allocs/op
+BenchmarkSourceMapOverhead/Small/SourceMapDisabled-10   	   27634	    227366 ns/op	  198083 B/op	    2078 allocs/op
+BenchmarkSourceMapOverhead/Small/SourceMapEnabled-10    	   19561	    313969 ns/op	  263952 B/op	    2713 allocs/op
+BenchmarkSourceMapOverhead/Medium/Default-10            	    4615	   1305682 ns/op	 1460686 B/op	   17395 allocs/op
+BenchmarkSourceMapOverhead/Medium/SourceMapDisabled-10  	    4500	   1310337 ns/op	 1460747 B/op	   17396 allocs/op
+BenchmarkSourceMapOverhead/Medium/SourceMapEnabled-10   	    3325	   1824462 ns/op	 1994126 B/op	   22875 allocs/op
+BenchmarkSourceMapOverhead/Large/Default-10             	     416	  14461234 ns/op	16574983 B/op	  194719 allocs/op
+BenchmarkSourceMapOverhead/Large/SourceMapDisabled-10   	     415	  14413707 ns/op	16575014 B/op	  194720 allocs/op
+BenchmarkSourceMapOverhead/Large/SourceMapEnabled-10    	     306	  19601350 ns/op	21929817 B/op	  255419 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/parser	315.377s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/validator
+cpu: Apple M4
+BenchmarkValidate/SmallOAS3-10     	   26983	    230367 ns/op	  205749 B/op	    2164 allocs/op
+BenchmarkValidate/MediumOAS3-10    	    4723	   1299907 ns/op	 1503560 B/op	   18310 allocs/op
+BenchmarkValidate/LargeOAS3-10     	     405	  14711162 ns/op	16987196 B/op	  205019 allocs/op
+BenchmarkValidate/SmallOAS2-10     	   26144	    218092 ns/op	  181812 B/op	    2136 allocs/op
+BenchmarkValidate/MediumOAS2-10    	    5196	   1184171 ns/op	 1281557 B/op	   16853 allocs/op
+BenchmarkValidateNoWarnings/SmallOAS3-10         	   26074	    208022 ns/op	  205767 B/op	    2164 allocs/op
+BenchmarkValidateNoWarnings/MediumOAS3-10        	    4675	   1285143 ns/op	 1504022 B/op	   18310 allocs/op
+BenchmarkValidateNoWarnings/LargeOAS3-10         	     415	  14429725 ns/op	16988411 B/op	  205020 allocs/op
+BenchmarkValidateParsed/SmallOAS3-10             	 1284872	      4664 ns/op	    5820 B/op	      90 allocs/op
+BenchmarkValidateParsed/MediumOAS3-10            	  149306	     40312 ns/op	   34471 B/op	     917 allocs/op
+BenchmarkValidateParsed/LargeOAS3-10             	   13222	    453912 ns/op	  377183 B/op	   10297 allocs/op
+BenchmarkValidateStrictMode/SmallOAS3-10         	   27356	    225034 ns/op	  205870 B/op	    2164 allocs/op
+BenchmarkValidateStrictMode/MediumOAS3-10        	    4773	   1279291 ns/op	 1503230 B/op	   18310 allocs/op
+BenchmarkValidateStrictMode/LargeOAS3-10         	     417	  14604948 ns/op	16988396 B/op	  205020 allocs/op
+BenchmarkValidateWithOptions/FilePath/SmallOAS3-10         	   25256	    234576 ns/op	  205959 B/op	    2168 allocs/op
+BenchmarkValidateWithOptions/Parsed/SmallOAS3-10           	 1236805	      4846 ns/op	    6062 B/op	      93 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/validator	103.915s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/fixer
+cpu: Apple M4
+BenchmarkFixDocuments/SmallOAS3-10         	   25863	    216258 ns/op	  208937 B/op	    2127 allocs/op
+BenchmarkFixDocuments/MediumOAS3-10        	    4959	   1308004 ns/op	 1608114 B/op	   17966 allocs/op
+BenchmarkFixDocuments/LargeOAS3-10         	     414	  14634116 ns/op	17987237 B/op	  200084 allocs/op
+BenchmarkFixDocuments/SmallOAS2-10         	   29077	    209091 ns/op	  184243 B/op	    2110 allocs/op
+BenchmarkFixDocuments/MediumOAS2-10        	    5354	   1155030 ns/op	 1367583 B/op	   16519 allocs/op
+BenchmarkFixWithInferTypes/SmallOAS3-10    	   25585	    218000 ns/op	  208733 B/op	    2127 allocs/op
