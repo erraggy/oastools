@@ -371,6 +371,52 @@
 //		),
 //	)
 //
+// For multiple content types, use WithRequestBodyContentTypes or WithResponseContentTypes:
+//
+//	spec.AddOperation(http.MethodPost, "/users",
+//		builder.WithRequestBodyContentTypes(
+//			[]string{"application/json", "application/xml"},
+//			User{},
+//		),
+//		builder.WithResponseContentTypes(http.StatusOK,
+//			[]string{"application/json", "application/xml"},
+//			User{},
+//		),
+//	)
+//
+// # Vendor Extensions
+//
+// Add vendor extensions (x-* fields) to operations, parameters, responses, and request bodies:
+//
+//	spec.AddOperation(http.MethodGet, "/users",
+//		builder.WithOperationExtension("x-rate-limit", 100),
+//		builder.WithQueryParam("limit", int32(0),
+//			builder.WithParamExtension("x-ui-widget", "slider"),
+//		),
+//		builder.WithResponse(http.StatusOK, []User{},
+//			builder.WithResponseExtension("x-cache-ttl", 3600),
+//		),
+//	)
+//
+//	spec.AddOperation(http.MethodPost, "/users",
+//		builder.WithRequestBody("application/json", User{},
+//			builder.WithRequestBodyExtension("x-codegen-request-body-name", "user"),
+//		),
+//	)
+//
+// # OAS 2.0 Specific Options
+//
+// For OAS 2.0 specifications, additional options are available:
+//
+//	spec.AddOperation(http.MethodPost, "/users",
+//		builder.WithConsumes("application/json", "application/xml"),
+//		builder.WithProduces("application/json"),
+//		builder.WithQueryParam("tags", []string{},
+//			builder.WithParamCollectionFormat("csv"),  // csv, ssv, tsv, pipes, multi
+//			builder.WithParamAllowEmptyValue(true),
+//		),
+//	)
+//
 // See the examples in example_test.go for more patterns.
 //
 // # Semantic Schema Deduplication
