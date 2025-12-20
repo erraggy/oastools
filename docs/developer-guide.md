@@ -1084,6 +1084,62 @@ doc, err := spec.BuildOAS3()
 // Result: Only 1 schema instead of 2, with $refs automatically rewritten
 ```
 
+**Vendor Extensions:**
+
+```go
+// Add vendor extensions (x-* fields) to operations, parameters, responses, and request bodies
+spec.AddOperation(http.MethodGet, "/users",
+    builder.WithOperationExtension("x-rate-limit", 100),
+    builder.WithQueryParam("limit", int32(0),
+        builder.WithParamExtension("x-ui-widget", "slider"),
+    ),
+    builder.WithResponse(http.StatusOK, []User{},
+        builder.WithResponseExtension("x-cache-ttl", 3600),
+    ),
+)
+
+spec.AddOperation(http.MethodPost, "/users",
+    builder.WithRequestBody("application/json", User{},
+        builder.WithRequestBodyExtension("x-codegen-request-body-name", "user"),
+    ),
+)
+```
+
+**OAS 2.0 Specific Options:**
+
+```go
+// OAS 2.0 supports operation-level consumes/produces and special parameter options
+spec := builder.New(parser.OASVersion20).
+    SetTitle("API").
+    SetVersion("1.0.0").
+    AddOperation(http.MethodPost, "/users",
+        builder.WithConsumes("application/json", "application/xml"),
+        builder.WithProduces("application/json"),
+        builder.WithQueryParam("tags", []string{},
+            builder.WithParamCollectionFormat("csv"),  // csv, ssv, tsv, pipes, multi
+            builder.WithParamAllowEmptyValue(true),
+        ),
+        builder.WithRequestBody("application/json", User{}),
+        builder.WithResponse(http.StatusOK, User{}),
+    )
+```
+
+**Multiple Content Types:**
+
+```go
+// OAS 3.x: Multiple content types for request body and responses
+spec.AddOperation(http.MethodPost, "/users",
+    builder.WithRequestBodyContentTypes(
+        []string{"application/json", "application/xml"},
+        User{},
+    ),
+    builder.WithResponseContentTypes(http.StatusOK,
+        []string{"application/json", "application/xml"},
+        User{},
+    ),
+)
+```
+
 > 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Builder Deep Dive](packages/builder.md).
 
 ### Overlay Package
