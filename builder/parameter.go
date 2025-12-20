@@ -39,6 +39,13 @@ type paramConfig struct {
 	uniqueItems      bool
 	enum             []any
 	defaultValue     any
+
+	// OAS 2.0 specific fields
+	allowEmptyValue  bool
+	collectionFormat string
+
+	// Extension fields
+	extensions map[string]any
 }
 
 // ParamOption configures a parameter.
@@ -163,6 +170,60 @@ func WithParamDefault(value any) ParamOption {
 	}
 }
 
+// WithParamAllowEmptyValue sets whether the parameter allows empty values.
+// This is only applicable to OAS 2.0 specifications for query and formData parameters.
+// Setting this to true allows sending a parameter with an empty value.
+//
+// Example:
+//
+//	builder.WithQueryParam("filter", "",
+//	    builder.WithParamAllowEmptyValue(true),
+//	)
+func WithParamAllowEmptyValue(allow bool) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.allowEmptyValue = allow
+	}
+}
+
+// WithParamCollectionFormat sets the collection format for array parameters.
+// This is only applicable to OAS 2.0 specifications.
+//
+// Valid values are:
+//   - "csv": comma separated values (default) - foo,bar
+//   - "ssv": space separated values - foo bar
+//   - "tsv": tab separated values - foo\tbar
+//   - "pipes": pipe separated values - foo|bar
+//   - "multi": corresponds to multiple parameter instances - foo=bar&foo=baz
+//
+// Example:
+//
+//	builder.WithQueryParam("tags", []string{},
+//	    builder.WithParamCollectionFormat("csv"),
+//	)
+func WithParamCollectionFormat(format string) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.collectionFormat = format
+	}
+}
+
+// WithParamExtension adds a vendor extension (x-* field) to the parameter.
+// The key must start with "x-" as per the OpenAPI specification.
+// Extensions are preserved in both OAS 2.0 and OAS 3.x output.
+//
+// Example:
+//
+//	builder.WithQueryParam("limit", 0,
+//	    builder.WithParamExtension("x-example-values", []int{10, 25, 50}),
+//	)
+func WithParamExtension(key string, value any) ParamOption {
+	return func(cfg *paramConfig) {
+		if cfg.extensions == nil {
+			cfg.extensions = make(map[string]any)
+		}
+		cfg.extensions[key] = value
+	}
+}
+
 // AddParameter adds a reusable parameter to components.parameters (OAS 3.x)
 // or parameters (OAS 2.0).
 //
@@ -206,6 +267,11 @@ func (b *Builder) AddParameter(name string, in string, paramName string, paramTy
 	// Apply constraints directly to parameter for OAS 2.0
 	if b.version == parser.OASVersion20 {
 		applyParamConstraintsToParam(param, pCfg)
+	} else {
+		// OAS 3.x: Extensions are still applied to the parameter (not schema)
+		if len(pCfg.extensions) > 0 {
+			param.Extra = pCfg.extensions
+		}
 	}
 
 	b.parameters[name] = param
@@ -419,6 +485,19 @@ func applyParamConstraintsToParam(param *parser.Parameter, cfg *paramConfig) {
 	}
 	if cfg.defaultValue != nil {
 		param.Default = cfg.defaultValue
+	}
+
+	// OAS 2.0 specific fields
+	if cfg.allowEmptyValue {
+		param.AllowEmptyValue = cfg.allowEmptyValue
+	}
+	if cfg.collectionFormat != "" {
+		param.CollectionFormat = cfg.collectionFormat
+	}
+
+	// Extensions (applicable to all OAS versions)
+	if len(cfg.extensions) > 0 {
+		param.Extra = cfg.extensions
 	}
 }
 

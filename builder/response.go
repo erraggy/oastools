@@ -10,6 +10,7 @@ type responseConfig struct {
 	contentType string
 	example     any
 	headers     map[string]*parser.Header
+	extensions  map[string]any
 }
 
 // ResponseOption configures a response.
@@ -47,6 +48,24 @@ func WithResponseHeader(name string, header *parser.Header) ResponseOption {
 	}
 }
 
+// WithResponseExtension adds a vendor extension (x-* field) to the response.
+// The key must start with "x-" as per the OpenAPI specification.
+// Extensions are preserved in both OAS 2.0 and OAS 3.x output.
+//
+// Example:
+//
+//	builder.WithResponse(200, User{},
+//	    builder.WithResponseExtension("x-cache-ttl", 3600),
+//	)
+func WithResponseExtension(key string, value any) ResponseOption {
+	return func(cfg *responseConfig) {
+		if cfg.extensions == nil {
+			cfg.extensions = make(map[string]any)
+		}
+		cfg.extensions[key] = value
+	}
+}
+
 // AddResponse adds a reusable response to components.responses (OAS 3.x)
 // or responses (OAS 2.0).
 // Use WithResponseContentType to specify a content type other than "application/json".
@@ -70,6 +89,7 @@ func (b *Builder) AddResponse(name string, description string, responseType any,
 				Example: rCfg.example,
 			},
 		},
+		Extra: rCfg.extensions,
 	}
 
 	b.responses[name] = resp

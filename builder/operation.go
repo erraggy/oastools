@@ -42,6 +42,9 @@ type operationConfig struct {
 	responses   map[string]*responseBuilder
 	security    []parser.SecurityRequirement
 	noSecurity  bool
+	consumes    []string // OAS 2.0 operation-level consumes
+	produces    []string // OAS 2.0 operation-level produces
+	extensions  map[string]any
 }
 
 // OperationOption configures an operation.
@@ -105,11 +108,63 @@ func WithNoSecurity() OperationOption {
 	}
 }
 
+// WithConsumes sets the consumes MIME types for the operation.
+// This is only applicable to OAS 2.0 specifications. For OAS 3.x,
+// use WithRequestBodyContentTypes instead to specify multiple content types.
+//
+// Example:
+//
+//	builder.AddOperation("POST", "/users",
+//	    builder.WithConsumes("application/json", "application/xml"),
+//	    builder.WithRequestBody("application/json", User{}),
+//	)
+func WithConsumes(mimeTypes ...string) OperationOption {
+	return func(cfg *operationConfig) {
+		cfg.consumes = mimeTypes
+	}
+}
+
+// WithProduces sets the produces MIME types for the operation.
+// This is only applicable to OAS 2.0 specifications. For OAS 3.x,
+// use WithResponseContentTypes instead to specify multiple content types.
+//
+// Example:
+//
+//	builder.AddOperation("GET", "/users/{id}",
+//	    builder.WithProduces("application/json", "application/xml"),
+//	    builder.WithResponse(200, User{}),
+//	)
+func WithProduces(mimeTypes ...string) OperationOption {
+	return func(cfg *operationConfig) {
+		cfg.produces = mimeTypes
+	}
+}
+
+// WithOperationExtension adds a vendor extension (x-* field) to the operation.
+// The key must start with "x-" as per the OpenAPI specification.
+// Extensions are preserved in both OAS 2.0 and OAS 3.x output.
+//
+// Example:
+//
+//	builder.AddOperation("GET", "/users",
+//	    builder.WithOperationExtension("x-rate-limit", 100),
+//	    builder.WithOperationExtension("x-internal", true),
+//	)
+func WithOperationExtension(key string, value any) OperationOption {
+	return func(cfg *operationConfig) {
+		if cfg.extensions == nil {
+			cfg.extensions = make(map[string]any)
+		}
+		cfg.extensions[key] = value
+	}
+}
+
 // requestBodyConfig holds configuration for request body building.
 type requestBodyConfig struct {
 	description string
 	required    bool
 	example     any
+	extensions  map[string]any
 }
 
 // RequestBodyOption configures a request body.
@@ -136,6 +191,27 @@ func WithRequestExample(example any) RequestBodyOption {
 	}
 }
 
+// WithRequestBodyExtension adds a vendor extension (x-* field) to the request body.
+// The key must start with "x-" as per the OpenAPI specification.
+// Extensions are preserved in OAS 3.x output. For OAS 2.0, request bodies are converted
+// to body parameters, and extensions will be applied to the body parameter.
+//
+// Example:
+//
+//	builder.AddOperation("POST", "/users",
+//	    builder.WithRequestBody("application/json", User{},
+//	        builder.WithRequestBodyExtension("x-codegen-request-body-name", "user"),
+//	    ),
+//	)
+func WithRequestBodyExtension(key string, value any) RequestBodyOption {
+	return func(cfg *requestBodyConfig) {
+		if cfg.extensions == nil {
+			cfg.extensions = make(map[string]any)
+		}
+		cfg.extensions[key] = value
+	}
+}
+
 // WithRequestBody sets the request body for the operation.
 // The bodyType is reflected to generate the schema.
 func WithRequestBody(contentType string, bodyType any, opts ...RequestBodyOption) OperationOption {
@@ -158,6 +234,7 @@ func WithRequestBody(contentType string, bodyType any, opts ...RequestBodyOption
 						Example: rbCfg.example,
 					},
 				},
+				Extra: rbCfg.extensions,
 			},
 			bType: bodyType,
 		}
@@ -195,8 +272,57 @@ func WithRequestBodyRawSchema(contentType string, schema *parser.Schema, opts ..
 						Example: rbCfg.example,
 					},
 				},
+				Extra: rbCfg.extensions,
 			},
 			bType: nil, // No type reflection needed
+		}
+	}
+}
+
+// WithRequestBodyContentTypes sets the request body for the operation with multiple content types.
+// All content types share the same schema. This is primarily useful for OAS 3.x specifications
+// where the request body content map can contain multiple media types.
+//
+// For OAS 2.0, only the first content type is used for the body parameter schema,
+// and you should set the consumes array separately using WithConsumes.
+//
+// Example:
+//
+//	builder.AddOperation("POST", "/users",
+//	    builder.WithRequestBodyContentTypes(
+//	        []string{"application/json", "application/xml"},
+//	        User{},
+//	        builder.WithRequired(true),
+//	    ),
+//	)
+func WithRequestBodyContentTypes(contentTypes []string, bodyType any, opts ...RequestBodyOption) OperationOption {
+	return func(cfg *operationConfig) {
+		if len(contentTypes) == 0 {
+			return
+		}
+
+		rbCfg := &requestBodyConfig{
+			required: false, // Default to false
+		}
+		for _, opt := range opts {
+			opt(rbCfg)
+		}
+
+		content := make(map[string]*parser.MediaType, len(contentTypes))
+		for _, ct := range contentTypes {
+			content[ct] = &parser.MediaType{
+				Example: rbCfg.example,
+			}
+		}
+
+		cfg.requestBody = &requestBodyBuilder{
+			body: &parser.RequestBody{
+				Description: rbCfg.description,
+				Required:    rbCfg.required,
+				Content:     content,
+				Extra:       rbCfg.extensions,
+			},
+			bType: bodyType,
 		}
 	}
 }
@@ -214,10 +340,6 @@ func WithResponse(statusCode int, responseType any, opts ...ResponseOption) Oper
 			opt(rCfg)
 		}
 
-		if cfg.responses == nil {
-			cfg.responses = make(map[string]*responseBuilder)
-		}
-
 		code := strconv.Itoa(statusCode)
 		cfg.responses[code] = &responseBuilder{
 			response: &parser.Response{
@@ -229,6 +351,7 @@ func WithResponse(statusCode int, responseType any, opts ...ResponseOption) Oper
 						Example: rCfg.example,
 					},
 				},
+				Extra: rCfg.extensions,
 			},
 			rType: responseType,
 		}
@@ -257,10 +380,6 @@ func WithResponseRawSchema(statusCode int, contentType string, schema *parser.Sc
 			opt(rCfg)
 		}
 
-		if cfg.responses == nil {
-			cfg.responses = make(map[string]*responseBuilder)
-		}
-
 		code := strconv.Itoa(statusCode)
 		cfg.responses[code] = &responseBuilder{
 			response: &parser.Response{
@@ -272,6 +391,7 @@ func WithResponseRawSchema(statusCode int, contentType string, schema *parser.Sc
 						Example: rCfg.example,
 					},
 				},
+				Extra: rCfg.extensions,
 			},
 			rType: nil, // No type reflection needed
 		}
@@ -281,10 +401,6 @@ func WithResponseRawSchema(statusCode int, contentType string, schema *parser.Sc
 // WithResponseRef adds a response reference to the operation.
 func WithResponseRef(statusCode int, ref string) OperationOption {
 	return func(cfg *operationConfig) {
-		if cfg.responses == nil {
-			cfg.responses = make(map[string]*responseBuilder)
-		}
-
 		code := strconv.Itoa(statusCode)
 		cfg.responses[code] = &responseBuilder{
 			response: &parser.Response{
@@ -306,10 +422,6 @@ func WithDefaultResponse(responseType any, opts ...ResponseOption) OperationOpti
 			opt(rCfg)
 		}
 
-		if cfg.responses == nil {
-			cfg.responses = make(map[string]*responseBuilder)
-		}
-
 		cfg.responses["default"] = &responseBuilder{
 			response: &parser.Response{
 				Description: rCfg.description,
@@ -319,6 +431,58 @@ func WithDefaultResponse(responseType any, opts ...ResponseOption) OperationOpti
 						Example: rCfg.example,
 					},
 				},
+				Extra: rCfg.extensions,
+			},
+			rType: responseType,
+		}
+	}
+}
+
+// WithResponseContentTypes adds a response with multiple content types to the operation.
+// All content types share the same schema. This is primarily useful for OAS 3.x specifications
+// where the response content map can contain multiple media types.
+//
+// For OAS 2.0, only the first content type is used for the response schema,
+// and you should set the produces array separately using WithProduces.
+//
+// Example:
+//
+//	builder.AddOperation("GET", "/users/{id}",
+//	    builder.WithResponseContentTypes(
+//	        200,
+//	        []string{"application/json", "application/xml"},
+//	        User{},
+//	        builder.WithResponseDescription("User found"),
+//	    ),
+//	)
+func WithResponseContentTypes(statusCode int, contentTypes []string, responseType any, opts ...ResponseOption) OperationOption {
+	return func(cfg *operationConfig) {
+		if len(contentTypes) == 0 {
+			return
+		}
+
+		rCfg := &responseConfig{
+			description: fmt.Sprintf("%d response", statusCode),
+			contentType: contentTypes[0], // For compatibility with existing code
+		}
+		for _, opt := range opts {
+			opt(rCfg)
+		}
+
+		content := make(map[string]*parser.MediaType, len(contentTypes))
+		for _, ct := range contentTypes {
+			content[ct] = &parser.MediaType{
+				Example: rCfg.example,
+			}
+		}
+
+		code := strconv.Itoa(statusCode)
+		cfg.responses[code] = &responseBuilder{
+			response: &parser.Response{
+				Description: rCfg.description,
+				Headers:     rCfg.headers,
+				Content:     content,
+				Extra:       rCfg.extensions,
 			},
 			rType: responseType,
 		}
@@ -557,6 +721,7 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 				Description: requestBody.Description,
 				Required:    requestBody.Required,
 				Schema:      bodySchema,
+				Extra:       requestBody.Extra, // Transfer extensions to body parameter
 			}
 
 			// Clear requestBody for OAS 2.0 (will be set to nil in Operation struct)
@@ -618,6 +783,10 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 			if b.version != parser.OASVersion20 {
 				// OAS 3.x: Apply constraints to schema
 				param.Schema = applyParamConstraintsToSchema(param.Schema, pCfg)
+				// Extensions are still applied to the parameter (not schema)
+				if len(pCfg.extensions) > 0 {
+					param.Extra = pCfg.extensions
+				}
 			} else {
 				// OAS 2.0: Apply constraints directly to parameter
 				applyParamConstraintsToParam(param, pCfg)
@@ -715,6 +884,9 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 		Responses:   responses,
 		Security:    security,
 		Deprecated:  cfg.deprecated,
+		Consumes:    cfg.consumes, // OAS 2.0 only (omitted via omitempty for OAS 3.x)
+		Produces:    cfg.produces, // OAS 2.0 only (omitted via omitempty for OAS 3.x)
+		Extra:       cfg.extensions,
 	}
 
 	// Get or create PathItem

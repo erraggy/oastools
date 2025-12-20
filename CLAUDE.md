@@ -530,6 +530,20 @@ git checkout -b <type>/<description>  # e.g., feat/add-feature, fix/bug-name, ch
 - **Merging PR:** Use `gh pr merge <PR_NUMBER> --squash --admin` (branch protections require `--admin`; auto-delete branch is enabled)
 - **Release process:** Tag → CI builds draft → Review → Publish
 
+### Addressing Issues When Found
+
+**Favor fixing issues immediately over deferring them.** When working on a feature or bug fix, if you discover related issues or technical debt:
+
+1. **Add findings to the todo list** - Track what you discovered
+2. **Address them in the current work** - Fix dead code, improve coverage, clean up patterns
+3. **Only defer if explicitly requested** - The user can ask to defer, but the default is to fix now
+
+This prevents accumulation of technical debt and ensures the codebase improves continuously. Examples of issues to address immediately:
+- Dead code or unreachable branches
+- Missing test coverage for new code paths
+- Inconsistent patterns that should be unified
+- Documentation that's out of sync with code
+
 ## Agent-Based Development Workflow
 
 **When the user enters Plan Mode for a new feature or bug fix, use the specialized agent workflow:**
