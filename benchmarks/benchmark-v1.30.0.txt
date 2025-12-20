@@ -1,89 +1,1622 @@
+Benchmarks started in background with PID 
+PASS
+ok  	github.com/erraggy/oastools	0.329s
 goos: darwin
 goarch: arm64
-pkg: github.com/erraggy/oastools/parser
+pkg: github.com/erraggy/oastools/builder
 cpu: Apple M4
-BenchmarkMarshalInfo/NoExtra-10    	12948967	       450.1 ns/op	     192 B/op	       2 allocs/op
-BenchmarkMarshalInfo/Extra1-10     	 4896732	      1241 ns/op	    1105 B/op	      20 allocs/op
-BenchmarkMarshalInfo/Extra5-10     	 2661358	      2253 ns/op	    2218 B/op	      31 allocs/op
-BenchmarkMarshalInfo/Extra10-10    	 1499632	      3948 ns/op	    4077 B/op	      43 allocs/op
-BenchmarkMarshalInfo/Extra20-10    	  936297	      6405 ns/op	    5424 B/op	      63 allocs/op
-BenchmarkMarshalContact/NoExtra-10 	13335936	       450.0 ns/op	     192 B/op	       2 allocs/op
-BenchmarkMarshalContact/WithExtra-10         	 3516144	      1703 ns/op	    1377 B/op	      24 allocs/op
-BenchmarkMarshalServer/NoExtra-10            	16176964	       370.3 ns/op	     160 B/op	       2 allocs/op
-BenchmarkMarshalServer/WithExtra-10          	 2490135	      2407 ns/op	    2299 B/op	      30 allocs/op
-BenchmarkMarshalOAS3Document/Small-10        	  296275	     20198 ns/op	    7004 B/op	      66 allocs/op
-BenchmarkMarshalOAS3Document/Medium-10       	   26691	    224603 ns/op	   65830 B/op	     471 allocs/op
-BenchmarkMarshalOAS3Document/Large-10        	    2200	   2753911 ns/op	  844204 B/op	    5336 allocs/op
-BenchmarkMarshalOAS2Document/Small-10        	  338736	     17509 ns/op	    6371 B/op	      58 allocs/op
-BenchmarkMarshalOAS2Document/Medium-10       	   33430	    179334 ns/op	   53636 B/op	     396 allocs/op
-BenchmarkUnmarshalInfo/NoExtra-10            	 4031247	      1494 ns/op	    1176 B/op	      28 allocs/op
-BenchmarkUnmarshalInfo/WithExtra-10          	 1717614	      3492 ns/op	    1736 B/op	      46 allocs/op
-BenchmarkParse/SmallOAS3-10                  	   25651	    233891 ns/op	  197774 B/op	    2070 allocs/op
-BenchmarkParse/MediumOAS3-10                 	    4628	   1300000 ns/op	 1460339 B/op	   17388 allocs/op
-BenchmarkParse/LargeOAS3-10                  	     420	  14248581 ns/op	16574674 B/op	  194712 allocs/op
-BenchmarkParse/SmallOAS2-10                  	   28147	    195876 ns/op	  174624 B/op	    2059 allocs/op
-BenchmarkParse/MediumOAS2-10                 	    5212	   1167122 ns/op	 1241547 B/op	   16027 allocs/op
-BenchmarkParseNoValidation/SmallOAS3-10      	   25779	    227845 ns/op	  196875 B/op	    2047 allocs/op
-BenchmarkParseNoValidation/MediumOAS3-10     	    4807	   1290295 ns/op	 1455413 B/op	   17296 allocs/op
-BenchmarkParseBytes/SmallOAS3-10             	   45321	    132447 ns/op	  196007 B/op	    2065 allocs/op
-BenchmarkParseBytes/MediumOAS3-10            	    5157	   1134532 ns/op	 1446426 B/op	   17383 allocs/op
-BenchmarkParseCore/SmallOAS3-10              	   44883	    133464 ns/op	  196025 B/op	    2065 allocs/op
-BenchmarkParseCore/MediumOAS3-10             	    5059	   1176197 ns/op	 1446867 B/op	   17384 allocs/op
-BenchmarkParseCore/LargeOAS3-10              	     429	  13940572 ns/op	16410477 B/op	  194707 allocs/op
-BenchmarkParseCore/SmallOAS2-10              	   46898	    128024 ns/op	  173001 B/op	    2054 allocs/op
-BenchmarkParseCore/MediumOAS2-10             	    5839	   1030044 ns/op	 1228923 B/op	   16022 allocs/op
-BenchmarkParseWithOptions/FilePath/SmallOAS3-10         	   27205	    229802 ns/op	  198066 B/op	    2077 allocs/op
-BenchmarkParseWithOptions/Bytes/SmallOAS3-10            	   45114	    133238 ns/op	  196297 B/op	    2071 allocs/op
-BenchmarkParseWithOptions/ResolveRefs/SmallOAS3-10      	   19377	    309908 ns/op	  365617 B/op	    2455 allocs/op
-BenchmarkParseReader/MediumOAS3-10                      	    4980	   1221864 ns/op	 1509519 B/op	   17397 allocs/op
-BenchmarkParseResultCopy/SmallOAS3-10                   	 1000000	      5789 ns/op	   18648 B/op	     113 allocs/op
-BenchmarkParseResolveRefs/MediumOAS3-10                 	    1454	   4089071 ns/op	 6841585 B/op	   42014 allocs/op
-BenchmarkFormatBytes-10                                 	17543778	       343.8 ns/op	      64 B/op	       8 allocs/op
-BenchmarkDeepCopy/SmallOAS3-10                          	 3246637	      1844 ns/op	    7936 B/op	      44 allocs/op
-BenchmarkDeepCopy/MediumOAS3-10                         	  226314	     26686 ns/op	  121601 B/op	     466 allocs/op
-BenchmarkDeepCopy/LargeOAS3-10                          	   16134	    369012 ns/op	 1313680 B/op	    4877 allocs/op
-BenchmarkDeepCopy/SmallOAS2-10                          	 3867740	      1547 ns/op	    6768 B/op	      38 allocs/op
-BenchmarkDeepCopy/MediumOAS2-10                         	  265250	     22548 ns/op	  106257 B/op	     387 allocs/op
-BenchmarkSourceMapOverhead/Small/Default-10             	   26252	    235102 ns/op	  198068 B/op	    2077 allocs/op
-BenchmarkSourceMapOverhead/Small/SourceMapDisabled-10   	   27634	    227366 ns/op	  198083 B/op	    2078 allocs/op
-BenchmarkSourceMapOverhead/Small/SourceMapEnabled-10    	   19561	    313969 ns/op	  263952 B/op	    2713 allocs/op
-BenchmarkSourceMapOverhead/Medium/Default-10            	    4615	   1305682 ns/op	 1460686 B/op	   17395 allocs/op
-BenchmarkSourceMapOverhead/Medium/SourceMapDisabled-10  	    4500	   1310337 ns/op	 1460747 B/op	   17396 allocs/op
-BenchmarkSourceMapOverhead/Medium/SourceMapEnabled-10   	    3325	   1824462 ns/op	 1994126 B/op	   22875 allocs/op
-BenchmarkSourceMapOverhead/Large/Default-10             	     416	  14461234 ns/op	16574983 B/op	  194719 allocs/op
-BenchmarkSourceMapOverhead/Large/SourceMapDisabled-10   	     415	  14413707 ns/op	16575014 B/op	  194720 allocs/op
-BenchmarkSourceMapOverhead/Large/SourceMapEnabled-10    	     306	  19601350 ns/op	21929817 B/op	  255419 allocs/op
+BenchmarkBuilderNew-10                    	 4151641	       280.0 ns/op	    1072 B/op	      17 allocs/op
+BenchmarkBuilderSetInfo-10                	 4019991	       297.2 ns/op	    1184 B/op	      18 allocs/op
+BenchmarkSchemaFrom/Primitive-10          	 3219298	       373.7 ns/op	    1968 B/op	      18 allocs/op
+BenchmarkSchemaFrom/Struct-10             	  338670	      3513 ns/op	   17000 B/op	      71 allocs/op
+BenchmarkSchemaFrom/NestedStruct-10       	  215616	      5502 ns/op	   26392 B/op	     101 allocs/op
+BenchmarkSchemaFrom/Slice-10              	  330979	      3634 ns/op	   17896 B/op	      72 allocs/op
+BenchmarkSchemaFrom/Map-10                	  330427	      3633 ns/op	   17896 B/op	      72 allocs/op
+BenchmarkBuilderAddOperation/Simple-10    	  270880	      4399 ns/op	   20282 B/op	      94 allocs/op
+BenchmarkBuilderAddOperation/WithParams-10         	  198938	      6078 ns/op	   28711 B/op	     134 allocs/op
+BenchmarkBuilderAddOperation/WithRequestBody-10    	  158114	      7492 ns/op	   34842 B/op	     156 allocs/op
+BenchmarkBuilderBuild-10                           	  145982	      8431 ns/op	   37076 B/op	     203 allocs/op
+BenchmarkBuilderMarshal/YAML-10                    	   36037	     33211 ns/op	   95225 B/op	     499 allocs/op
+BenchmarkBuilderMarshal/JSON-10                    	   60852	     19593 ns/op	    8492 B/op	      38 allocs/op
+BenchmarkOASTag/Apply-10                           	 4540116	       264.0 ns/op	    1248 B/op	       5 allocs/op
+BenchmarkOASTag/Parse-10                           	 7724289	       155.3 ns/op	     336 B/op	       2 allocs/op
+BenchmarkBuilderFormParams/OAS2-10                 	  527022	      2221 ns/op	   11462 B/op	      78 allocs/op
+BenchmarkBuilderFormParams/OAS3-10                 	  473602	      2796 ns/op	   14624 B/op	      84 allocs/op
+BenchmarkSchemaNaming/default-10                   	  538898	      2196 ns/op	   10622 B/op	      62 allocs/op
+BenchmarkSchemaNaming/pascal-10                    	  526849	      2265 ns/op	   10645 B/op	      65 allocs/op
+BenchmarkSchemaNaming/camel-10                     	  521220	      2296 ns/op	   10661 B/op	      66 allocs/op
+BenchmarkSchemaNaming/snake-10                     	  518352	      2277 ns/op	   10654 B/op	      65 allocs/op
+BenchmarkSchemaNaming/kebab-10                     	  499372	      2327 ns/op	   10670 B/op	      66 allocs/op
+BenchmarkSchemaNaming/type_only-10                 	  547255	      2180 ns/op	   10582 B/op	      61 allocs/op
+BenchmarkSchemaNaming/full_path-10                 	  543559	      2198 ns/op	   10678 B/op	      62 allocs/op
+BenchmarkGenericNaming/underscore-10               	  382443	      3130 ns/op	   13055 B/op	      79 allocs/op
+BenchmarkGenericNaming/of-10                       	  373779	      3144 ns/op	   13055 B/op	      79 allocs/op
+BenchmarkGenericNaming/for-10                      	  377500	      3141 ns/op	   13079 B/op	      79 allocs/op
+BenchmarkGenericNaming/flat-10                     	  381196	      3110 ns/op	   13039 B/op	      78 allocs/op
+BenchmarkGenericNaming/angle_brackets-10           	  378630	      3144 ns/op	   13055 B/op	      79 allocs/op
+BenchmarkSchemaNameTemplate/simple-10              	  193353	      6064 ns/op	   19763 B/op	     133 allocs/op
+BenchmarkSchemaNameTemplate/pascal-10              	  141588	      8330 ns/op	   20715 B/op	     170 allocs/op
+BenchmarkSchemaNameTemplate/complex-10             	  126558	      9400 ns/op	   21347 B/op	     186 allocs/op
+BenchmarkSchemaNameTemplate/generic_aware-10       	  142452	      8293 ns/op	   20891 B/op	     169 allocs/op
+BenchmarkCaseConversions/toPascalCase-10           	14920964	        79.57 ns/op	      56 B/op	       3 allocs/op
+BenchmarkCaseConversions/toCamelCase-10            	 8205876	       145.1 ns/op	      80 B/op	       4 allocs/op
+BenchmarkCaseConversions/toSnakeCase-10            	12853515	        91.02 ns/op	      56 B/op	       3 allocs/op
+BenchmarkCaseConversions/toKebabCase-10            	 9320740	       128.8 ns/op	      80 B/op	       4 allocs/op
+BenchmarkCaseConversions_Separators/toPascalCase-10         	12917433	        91.66 ns/op	      56 B/op	       3 allocs/op
+BenchmarkCaseConversions_Separators/toCamelCase-10          	 6971769	       172.4 ns/op	      88 B/op	       4 allocs/op
+BenchmarkCaseConversions_Separators/toSnakeCase-10          	11619354	       104.3 ns/op	      56 B/op	       3 allocs/op
+BenchmarkCaseConversions_Separators/toKebabCase-10          	 7694962	       154.2 ns/op	      88 B/op	       4 allocs/op
+BenchmarkExtractGenericParams/simple-10                     	31629964	        38.02 ns/op	      24 B/op	       2 allocs/op
+BenchmarkExtractGenericParams/multi-10                      	15393890	        78.84 ns/op	      64 B/op	       4 allocs/op
+BenchmarkExtractGenericParams/nested-10                     	17861428	        66.95 ns/op	      40 B/op	       3 allocs/op
+BenchmarkExtractGenericParams/triple-10                     	13187893	        91.21 ns/op	     136 B/op	       6 allocs/op
+BenchmarkExtractGenericParams/deeply_nested-10              	10555160	       113.1 ns/op	      72 B/op	       4 allocs/op
+BenchmarkExtractGenericParams/none-10                       	183886426	         6.516 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExtractBaseTypeName/generic-10                     	481524264	         2.512 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExtractBaseTypeName/non_generic-10                 	401143648	         2.965 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExtractBaseTypeName/nested-10                      	480684253	         2.499 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSanitizeSchemaName/clean-10                        	36387894	        31.00 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSanitizeSchemaName/brackets-10                     	15043484	        78.68 ns/op	      32 B/op	       2 allocs/op
+BenchmarkSanitizeSchemaName/complex-10                      	 5561029	       214.8 ns/op	      96 B/op	       4 allocs/op
+BenchmarkSanitizeSchemaName/spaces-10                       	18244476	        64.52 ns/op	      16 B/op	       1 allocs/op
+BenchmarkSchemaNamer_Name/default_simple-10                 	11828918	       100.7 ns/op	      72 B/op	       2 allocs/op
+BenchmarkSchemaNamer_Name/default_generic-10                	 2839903	       425.0 ns/op	     272 B/op	      10 allocs/op
+BenchmarkSchemaNamer_Name/pascal_simple-10                  	 7298566	       163.8 ns/op	      96 B/op	       5 allocs/op
+BenchmarkSchemaNamer_Name/pascal_generic-10                 	 2247217	       531.9 ns/op	     336 B/op	      14 allocs/op
+BenchmarkSchemaNamer_Name/snake_nested-10                   	 6554552	       181.0 ns/op	     104 B/op	       5 allocs/op
+BenchmarkSchemaNamer_BuildContext/simple-10                 	16205110	        73.05 ns/op	      48 B/op	       1 allocs/op
+BenchmarkSchemaNamer_BuildContext/generic-10                	 3035407	       396.0 ns/op	     240 B/op	       9 allocs/op
+BenchmarkSchemaNamer_BuildContext/nested_generic-10         	 3010486	       398.2 ns/op	     240 B/op	       9 allocs/op
+BenchmarkGenericNamingConfig/default-10                     	  365200	      3254 ns/op	   13103 B/op	      79 allocs/op
+BenchmarkGenericNamingConfig/of_strategy-10                 	  361420	      3273 ns/op	   13103 B/op	      79 allocs/op
+BenchmarkGenericNamingConfig/include_package-10             	  349814	      3370 ns/op	   13303 B/op	      80 allocs/op
+BenchmarkGenericNamingConfig/apply_casing-10                	  370080	      3241 ns/op	   13103 B/op	      79 allocs/op
+BenchmarkGenericNamingConfig/custom_separators-10           	  362754	      3246 ns/op	   13127 B/op	      79 allocs/op
+BenchmarkBuilderWithNamingOptions/default-10                	  194246	      6139 ns/op	   26254 B/op	     137 allocs/op
+BenchmarkBuilderWithNamingOptions/with_pascal_naming-10     	  187932	      6442 ns/op	   26390 B/op	     148 allocs/op
+BenchmarkBuilderWithNamingOptions/with_template-10          	   95740	     12418 ns/op	   34427 B/op	     241 allocs/op
+BenchmarkBuilderWithNamingOptions/with_custom_func-10       	  176074	      6473 ns/op	   26391 B/op	     148 allocs/op
+BenchmarkBuilderWithNamingOptions/combined_pascal_of-10     	  187084	      6443 ns/op	   26407 B/op	     149 allocs/op
+BenchmarkSchemaNameFunc/simple_func_non_generic-10          	14443032	        80.68 ns/op	      48 B/op	       1 allocs/op
+BenchmarkSchemaNameFunc/simple_func_generic-10              	 2978461	       403.4 ns/op	     240 B/op	       9 allocs/op
+BenchmarkSchemaNameFunc/complex_func_non_generic-10         	 9143848	       130.0 ns/op	      80 B/op	       3 allocs/op
+BenchmarkSchemaNameFunc/complex_func_generic-10             	 2845521	       420.4 ns/op	     264 B/op	      10 allocs/op
+BenchmarkFormatGenericSuffix/underscore-10                  	32761262	        35.65 ns/op	      32 B/op	       2 allocs/op
+BenchmarkFormatGenericSuffix/of-10                          	34421967	        35.42 ns/op	      32 B/op	       2 allocs/op
+BenchmarkFormatGenericSuffix/for-10                         	34858345	        34.79 ns/op	      32 B/op	       2 allocs/op
+BenchmarkFormatGenericSuffix/flat-10                        	67161828	        17.45 ns/op	      16 B/op	       1 allocs/op
+BenchmarkFormatGenericSuffix/angle-10                       	33555404	        35.10 ns/op	      32 B/op	       2 allocs/op
+BenchmarkSanitizeGenericParams/exclude_package-10           	11636946	       102.4 ns/op	      48 B/op	       1 allocs/op
+BenchmarkSanitizeGenericParams/include_package-10           	 5805733	       206.5 ns/op	      96 B/op	       4 allocs/op
+BenchmarkSanitizeGenericParams/apply_casing-10              	 6856022	       175.9 ns/op	      72 B/op	       4 allocs/op
+BenchmarkTemplateParsing/simple-10                          	  490464	      2416 ns/op	    5851 B/op	      44 allocs/op
+BenchmarkTemplateParsing/pascal-10                          	  343108	      3519 ns/op	    6435 B/op	      63 allocs/op
+BenchmarkTemplateParsing/complex-10                         	  274357	      4360 ns/op	    6995 B/op	      78 allocs/op
+BenchmarkTemplateParsing/full-10                            	  290404	      4146 ns/op	    7059 B/op	      76 allocs/op
+BenchmarkSanitizePath/short-10                              	217127859	         5.357 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSanitizePath/medium-10                             	34099546	        34.08 ns/op	      24 B/op	       1 allocs/op
+BenchmarkSanitizePath/long-10                               	18075044	        65.54 ns/op	      64 B/op	       1 allocs/op
 PASS
-ok  	github.com/erraggy/oastools/parser	315.377s
+ok  	github.com/erraggy/oastools/builder	108.761s
+?   	github.com/erraggy/oastools/cmd/oastools	[no test files]
+Usage: oastools convert [flags] <file|url|->
+
+Convert an OpenAPI specification from one version to another.
+
+Flags:
+  -no-warnings
+    	suppress warning and info messages
+  -o string
+    	output file path (default: stdout)
+  -output string
+    	output file path (default: stdout)
+  -q	quiet mode: only output the document, no diagnostic messages
+  -quiet
+    	quiet mode: only output the document, no diagnostic messages
+  -s	include line numbers in conversion issues (IDE-friendly format)
+  -source-map
+    	include line numbers in conversion issues (IDE-friendly format)
+  -strict
+    	fail on any conversion issues (even warnings)
+  -t string
+    	target OAS version (e.g., "3.0.3", "2.0", "3.1.0") (required)
+  -target string
+    	target OAS version (e.g., "3.0.3", "2.0", "3.1.0") (required)
+
+Supported Conversions:
+  - OAS 2.0 → OAS 3.x (3.0.0 through 3.2.0)
+  - OAS 3.x → OAS 2.0
+  - OAS 3.x → OAS 3.y (version updates)
+
+Examples:
+  oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
+  oastools convert -t 3.0.3 https://example.com/swagger.yaml -o openapi.yaml
+  oastools convert -t 2.0 openapi-v3.yaml
+  oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml
+  cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
+  oastools convert -s -t 3.0.3 swagger.yaml  # Include line numbers in issues
+
+Pipelining:
+  - Use '-' as the file path to read from stdin
+  - Use --quiet/-q to suppress diagnostic output for pipelining
+
+Notes:
+  - Critical issues indicate features that cannot be converted (data loss)
+  - Warnings indicate lossy conversions or best-effort transformations
+  - Info messages provide context about conversion choices
+  - Always validate converted documents before deployment
+
+Exit Codes:
+  0    Conversion successful
+  1    Conversion failed or critical issues found (in --strict mode)
+Usage: oastools convert [flags] <file|url|->
+
+Convert an OpenAPI specification from one version to another.
+
+Flags:
+  -no-warnings
+    	suppress warning and info messages
+  -o string
+    	output file path (default: stdout)
+  -output string
+    	output file path (default: stdout)
+  -q	quiet mode: only output the document, no diagnostic messages
+  -quiet
+    	quiet mode: only output the document, no diagnostic messages
+  -s	include line numbers in conversion issues (IDE-friendly format)
+  -source-map
+    	include line numbers in conversion issues (IDE-friendly format)
+  -strict
+    	fail on any conversion issues (even warnings)
+  -t string
+    	target OAS version (e.g., "3.0.3", "2.0", "3.1.0") (required)
+  -target string
+    	target OAS version (e.g., "3.0.3", "2.0", "3.1.0") (required)
+
+Supported Conversions:
+  - OAS 2.0 → OAS 3.x (3.0.0 through 3.2.0)
+  - OAS 3.x → OAS 2.0
+  - OAS 3.x → OAS 3.y (version updates)
+
+Examples:
+  oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
+  oastools convert -t 3.0.3 https://example.com/swagger.yaml -o openapi.yaml
+  oastools convert -t 2.0 openapi-v3.yaml
+  oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml
+  cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
+  oastools convert -s -t 3.0.3 swagger.yaml  # Include line numbers in issues
+
+Pipelining:
+  - Use '-' as the file path to read from stdin
+  - Use --quiet/-q to suppress diagnostic output for pipelining
+
+Notes:
+  - Critical issues indicate features that cannot be converted (data loss)
+  - Warnings indicate lossy conversions or best-effort transformations
+  - Info messages provide context about conversion choices
+  - Always validate converted documents before deployment
+
+Exit Codes:
+  0    Conversion successful
+  1    Conversion failed or critical issues found (in --strict mode)
+Usage: oastools convert [flags] <file|url|->
+
+Convert an OpenAPI specification from one version to another.
+
+Flags:
+  -no-warnings
+    	suppress warning and info messages
+  -o string
+    	output file path (default: stdout)
+  -output string
+    	output file path (default: stdout)
+  -q	quiet mode: only output the document, no diagnostic messages
+  -quiet
+    	quiet mode: only output the document, no diagnostic messages
+  -s	include line numbers in conversion issues (IDE-friendly format)
+  -source-map
+    	include line numbers in conversion issues (IDE-friendly format)
+  -strict
+    	fail on any conversion issues (even warnings)
+  -t string
+    	target OAS version (e.g., "3.0.3", "2.0", "3.1.0") (required)
+  -target string
+    	target OAS version (e.g., "3.0.3", "2.0", "3.1.0") (required)
+
+Supported Conversions:
+  - OAS 2.0 → OAS 3.x (3.0.0 through 3.2.0)
+  - OAS 3.x → OAS 2.0
+  - OAS 3.x → OAS 3.y (version updates)
+
+Examples:
+  oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml
+  oastools convert -t 3.0.3 https://example.com/swagger.yaml -o openapi.yaml
+  oastools convert -t 2.0 openapi-v3.yaml
+  oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml
+  cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
+  oastools convert -s -t 3.0.3 swagger.yaml  # Include line numbers in issues
+
+Pipelining:
+  - Use '-' as the file path to read from stdin
+  - Use --quiet/-q to suppress diagnostic output for pipelining
+
+Notes:
+  - Critical issues indicate features that cannot be converted (data loss)
+  - Warnings indicate lossy conversions or best-effort transformations
+  - Info messages provide context about conversion choices
+  - Always validate converted documents before deployment
+
+Exit Codes:
+  0    Conversion successful
+  1    Conversion failed or critical issues found (in --strict mode)
+Usage: oastools diff [flags] <source> <target>
+
+Compare two OpenAPI specification files or URLs and report differences.
+
+Flags:
+  -breaking
+    	enable breaking change detection and categorization
+  -format string
+    	output format: text, json, or yaml (default "text")
+  -no-info
+    	exclude informational changes from output
+  -s	include line numbers in diff output (IDE-friendly format)
+  -source-map
+    	include line numbers in diff output (IDE-friendly format)
+
+Output Formats:
+  text (default)  Human-readable text output
+  json            JSON format for programmatic processing
+  yaml            YAML format for programmatic processing
+
+Modes:
+  Default (Simple):
+    Reports all semantic differences between specifications without
+    categorizing them by severity or breaking change impact.
+
+  --breaking (Breaking Change Detection):
+    Categorizes changes by severity and identifies breaking API changes:
+    - Critical: Removed endpoints or operations
+    - Error:    Removed required parameters, incompatible type changes
+    - Warning:  Deprecated operations, added required fields
+    - Info:     Additions, relaxed constraints, documentation updates
+
+Examples:
+  oastools diff api-v1.yaml api-v2.yaml
+  oastools diff --breaking api-v1.yaml api-v2.yaml
+  oastools diff --breaking --no-info old.yaml new.yaml
+  oastools diff --format json --breaking api-v1.yaml api-v2.yaml | jq '.HasBreakingChanges'
+  oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml
+  oastools diff -s api-v1.yaml api-v2.yaml  # Include line numbers in changes
+
+Exit Status:
+  0    No differences found (or no breaking changes in --breaking mode)
+  1    Differences found (or breaking changes found in --breaking mode)
+
+Notes:
+  - Both specifications must be valid OpenAPI documents
+  - Cross-version comparison (2.0 vs 3.x) is supported with limitations
+  - Breaking change detection helps identify backward compatibility issues
+Usage: oastools diff [flags] <source> <target>
+
+Compare two OpenAPI specification files or URLs and report differences.
+
+Flags:
+  -breaking
+    	enable breaking change detection and categorization
+  -format string
+    	output format: text, json, or yaml (default "text")
+  -no-info
+    	exclude informational changes from output
+  -s	include line numbers in diff output (IDE-friendly format)
+  -source-map
+    	include line numbers in diff output (IDE-friendly format)
+
+Output Formats:
+  text (default)  Human-readable text output
+  json            JSON format for programmatic processing
+  yaml            YAML format for programmatic processing
+
+Modes:
+  Default (Simple):
+    Reports all semantic differences between specifications without
+    categorizing them by severity or breaking change impact.
+
+  --breaking (Breaking Change Detection):
+    Categorizes changes by severity and identifies breaking API changes:
+    - Critical: Removed endpoints or operations
+    - Error:    Removed required parameters, incompatible type changes
+    - Warning:  Deprecated operations, added required fields
+    - Info:     Additions, relaxed constraints, documentation updates
+
+Examples:
+  oastools diff api-v1.yaml api-v2.yaml
+  oastools diff --breaking api-v1.yaml api-v2.yaml
+  oastools diff --breaking --no-info old.yaml new.yaml
+  oastools diff --format json --breaking api-v1.yaml api-v2.yaml | jq '.HasBreakingChanges'
+  oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml
+  oastools diff -s api-v1.yaml api-v2.yaml  # Include line numbers in changes
+
+Exit Status:
+  0    No differences found (or no breaking changes in --breaking mode)
+  1    Differences found (or breaking changes found in --breaking mode)
+
+Notes:
+  - Both specifications must be valid OpenAPI documents
+  - Cross-version comparison (2.0 vs 3.x) is supported with limitations
+  - Breaking change detection helps identify backward compatibility issues
+Usage: oastools diff [flags] <source> <target>
+
+Compare two OpenAPI specification files or URLs and report differences.
+
+Flags:
+  -breaking
+    	enable breaking change detection and categorization
+  -format string
+    	output format: text, json, or yaml (default "text")
+  -no-info
+    	exclude informational changes from output
+  -s	include line numbers in diff output (IDE-friendly format)
+  -source-map
+    	include line numbers in diff output (IDE-friendly format)
+
+Output Formats:
+  text (default)  Human-readable text output
+  json            JSON format for programmatic processing
+  yaml            YAML format for programmatic processing
+
+Modes:
+  Default (Simple):
+    Reports all semantic differences between specifications without
+    categorizing them by severity or breaking change impact.
+
+  --breaking (Breaking Change Detection):
+    Categorizes changes by severity and identifies breaking API changes:
+    - Critical: Removed endpoints or operations
+    - Error:    Removed required parameters, incompatible type changes
+    - Warning:  Deprecated operations, added required fields
+    - Info:     Additions, relaxed constraints, documentation updates
+
+Examples:
+  oastools diff api-v1.yaml api-v2.yaml
+  oastools diff --breaking api-v1.yaml api-v2.yaml
+  oastools diff --breaking --no-info old.yaml new.yaml
+  oastools diff --format json --breaking api-v1.yaml api-v2.yaml | jq '.HasBreakingChanges'
+  oastools diff https://example.com/api/v1.yaml https://example.com/api/v2.yaml
+  oastools diff -s api-v1.yaml api-v2.yaml  # Include line numbers in changes
+
+Exit Status:
+  0    No differences found (or no breaking changes in --breaking mode)
+  1    Differences found (or breaking changes found in --breaking mode)
+
+Notes:
+  - Both specifications must be valid OpenAPI documents
+  - Cross-version comparison (2.0 vs 3.x) is supported with limitations
+  - Breaking change detection helps identify backward compatibility issues
+Usage: oastools fix [flags] <file|url|->
+
+Apply automatic fixes to common OpenAPI specification issues.
+
+Flags:
+  -dry-run
+    	preview changes without modifying the document
+  -fix-schema-names
+    	fix invalid schema names (brackets, special characters)
+  -generic-naming string
+    	strategy for renaming generic types: underscore, of, for, flat, dot (default "underscore")
+  -generic-param-separator string
+    	separator between multiple type parameters (default "_")
+  -generic-separator string
+    	separator for underscore strategy (default "_")
+  -infer
+    	infer parameter types from naming conventions
+  -o string
+    	output file path (default: stdout)
+  -output string
+    	output file path (default: stdout)
+  -preserve-casing
+    	preserve original casing of type parameters
+  -prune
+    	apply all pruning fixes (alias for --prune-all)
+  -prune-all
+    	apply all pruning fixes (schemas, paths)
+  -prune-paths
+    	remove paths with no operations
+  -prune-schemas
+    	remove unreferenced schema definitions
+  -q	quiet mode: only output the document, no diagnostic messages
+  -quiet
+    	quiet mode: only output the document, no diagnostic messages
+  -s	include line numbers in fix output (IDE-friendly format)
+  -source-map
+    	include line numbers in fix output (IDE-friendly format)
+
+Supported Fixes:
+  - Missing path parameters: Adds Parameter objects for path template
+    variables that are not declared in the operation's parameters list.
+    Default type is 'string'. Use --infer for smart type inference.
+  - Invalid schema names (--fix-schema-names): Renames schemas with
+    invalid characters (brackets, etc.) using configurable strategies.
+  - Prune schemas (--prune-schemas): Removes unreferenced schemas.
+  - Prune paths (--prune-paths): Removes paths with no operations.
+
+Type Inference (--infer):
+  - Names ending in 'id', 'Id', 'ID' -> integer
+  - Names containing 'uuid', 'guid' -> string with format uuid
+  - All other names -> string
+
+Generic Naming Strategies (--generic-naming):
+  underscore: Response[User] → Response_User_
+  of:         Response[User] → ResponseOfUser
+  for:        Response[User] → ResponseForUser
+  flat:       Response[User] → ResponseUser
+  dot:        Response[User] → Response.User
+
+Examples:
+  oastools fix openapi.yaml
+  oastools fix -o fixed.yaml openapi.yaml
+  oastools fix --infer openapi.yaml
+  oastools fix --fix-schema-names --generic-naming of api.yaml
+  oastools fix --prune-all api.yaml
+  oastools fix --dry-run --prune-schemas api.yaml
+  cat openapi.yaml | oastools fix -q - > fixed.yaml
+  oastools fix -s openapi.yaml  # Include line numbers in fixes
+
+Pipelining:
+  oastools fix -q api.yaml | oastools validate -q -
+  oastools fix -q --infer api.yaml | oastools convert -q -t 3.1.0 -
+
+Notes:
+  - Use 'oastools validate' to see validation errors before fixing
+  - Pruning fixes only run when explicitly requested via flags
+  - Use --dry-run to preview what would be changed
+  - Output preserves the original format (JSON or YAML)
+
+Exit Codes:
+  0    Fixes applied successfully (or no fixes needed)
+  1    Failed to parse or fix the specification
+Usage: oastools fix [flags] <file|url|->
+
+Apply automatic fixes to common OpenAPI specification issues.
+
+Flags:
+  -dry-run
+    	preview changes without modifying the document
+  -fix-schema-names
+    	fix invalid schema names (brackets, special characters)
+  -generic-naming string
+    	strategy for renaming generic types: underscore, of, for, flat, dot (default "underscore")
+  -generic-param-separator string
+    	separator between multiple type parameters (default "_")
+  -generic-separator string
+    	separator for underscore strategy (default "_")
+  -infer
+    	infer parameter types from naming conventions
+  -o string
+    	output file path (default: stdout)
+  -output string
+    	output file path (default: stdout)
+  -preserve-casing
+    	preserve original casing of type parameters
+  -prune
+    	apply all pruning fixes (alias for --prune-all)
+  -prune-all
+    	apply all pruning fixes (schemas, paths)
+  -prune-paths
+    	remove paths with no operations
+  -prune-schemas
+    	remove unreferenced schema definitions
+  -q	quiet mode: only output the document, no diagnostic messages
+  -quiet
+    	quiet mode: only output the document, no diagnostic messages
+  -s	include line numbers in fix output (IDE-friendly format)
+  -source-map
+    	include line numbers in fix output (IDE-friendly format)
+
+Supported Fixes:
+  - Missing path parameters: Adds Parameter objects for path template
+    variables that are not declared in the operation's parameters list.
+    Default type is 'string'. Use --infer for smart type inference.
+  - Invalid schema names (--fix-schema-names): Renames schemas with
+    invalid characters (brackets, etc.) using configurable strategies.
+  - Prune schemas (--prune-schemas): Removes unreferenced schemas.
+  - Prune paths (--prune-paths): Removes paths with no operations.
+
+Type Inference (--infer):
+  - Names ending in 'id', 'Id', 'ID' -> integer
+  - Names containing 'uuid', 'guid' -> string with format uuid
+  - All other names -> string
+
+Generic Naming Strategies (--generic-naming):
+  underscore: Response[User] → Response_User_
+  of:         Response[User] → ResponseOfUser
+  for:        Response[User] → ResponseForUser
+  flat:       Response[User] → ResponseUser
+  dot:        Response[User] → Response.User
+
+Examples:
+  oastools fix openapi.yaml
+  oastools fix -o fixed.yaml openapi.yaml
+  oastools fix --infer openapi.yaml
+  oastools fix --fix-schema-names --generic-naming of api.yaml
+  oastools fix --prune-all api.yaml
+  oastools fix --dry-run --prune-schemas api.yaml
+  cat openapi.yaml | oastools fix -q - > fixed.yaml
+  oastools fix -s openapi.yaml  # Include line numbers in fixes
+
+Pipelining:
+  oastools fix -q api.yaml | oastools validate -q -
+  oastools fix -q --infer api.yaml | oastools convert -q -t 3.1.0 -
+
+Notes:
+  - Use 'oastools validate' to see validation errors before fixing
+  - Pruning fixes only run when explicitly requested via flags
+  - Use --dry-run to preview what would be changed
+  - Output preserves the original format (JSON or YAML)
+
+Exit Codes:
+  0    Fixes applied successfully (or no fixes needed)
+  1    Failed to parse or fix the specification
+Usage: oastools generate [flags] <file|url|->
+
+Generate Go code from an OpenAPI specification.
+
+Flags:
+  -client
+    	generate HTTP client code
+  -credential-mgmt
+    	generate credential management interfaces
+  -max-lines-per-file int
+    	maximum lines per generated file (0 = no limit) (default 2000)
+  -max-ops-per-file int
+    	maximum operations per generated file (0 = no limit) (default 100)
+  -max-types-per-file int
+    	maximum types per generated file (0 = no limit) (default 200)
+  -no-pointers
+    	don't use pointer types for optional fields
+  -no-readme
+    	don't generate README.md file
+  -no-security
+    	don't generate security helper functions
+  -no-split-by-path
+    	don't split files by path prefix
+  -no-split-by-tag
+    	don't split files by operation tag
+  -no-validation
+    	don't include validation tags
+  -no-warnings
+    	suppress warning and info messages
+  -o string
+    	output directory for generated files (required)
+  -oauth2-flows
+    	generate OAuth2 token flow helpers
+  -oidc-discovery
+    	generate OpenID Connect discovery client
+  -output string
+    	output directory for generated files (required)
+  -p string
+    	Go package name for generated code (default "api")
+  -package string
+    	Go package name for generated code (default "api")
+  -s	include line numbers in generation issues (IDE-friendly format)
+  -security-enforce
+    	generate security enforcement middleware
+  -server
+    	generate server interface code
+  -source-map
+    	include line numbers in generation issues (IDE-friendly format)
+  -strict
+    	fail on any generation issues (even warnings)
+  -types
+    	generate type definitions from schemas (default true)
+
+Examples:
+  oastools generate --client -o ./client openapi.yaml
+  oastools generate --server -o ./server -p myapi openapi.yaml
+  oastools generate --client --server -o ./api petstore.yaml
+  oastools generate --types -o ./models https://example.com/api/openapi.yaml
+  oastools generate --client --oauth2-flows -o ./client openapi.yaml
+  oastools generate --client --credential-mgmt --security-enforce -o ./api openapi.yaml
+  oastools generate --client --max-lines-per-file 1500 -o ./client large-api.yaml
+  cat openapi.yaml | oastools generate --client -o ./client -
+  oastools generate -s --client -o ./client openapi.yaml  # Include line numbers in issues
+
+Pipelining:
+  Use '-' as the file path to read the OpenAPI specification from stdin.
+  Example: oastools convert -t 3.0.3 swagger.yaml | oastools generate --client -o ./client -
+
+Notes:
+  - At least one of --client, --server, or --types must be enabled
+  - Types are always generated when --client or --server is enabled
+  - Security helpers are generated by default when --client is enabled
+  - Generated code uses Go idioms and best practices
+  - Server interface is framework-agnostic
+Usage: oastools generate [flags] <file|url|->
+
+Generate Go code from an OpenAPI specification.
+
+Flags:
+  -client
+    	generate HTTP client code
+  -credential-mgmt
+    	generate credential management interfaces
+  -max-lines-per-file int
+    	maximum lines per generated file (0 = no limit) (default 2000)
+  -max-ops-per-file int
+    	maximum operations per generated file (0 = no limit) (default 100)
+  -max-types-per-file int
+    	maximum types per generated file (0 = no limit) (default 200)
+  -no-pointers
+    	don't use pointer types for optional fields
+  -no-readme
+    	don't generate README.md file
+  -no-security
+    	don't generate security helper functions
+  -no-split-by-path
+    	don't split files by path prefix
+  -no-split-by-tag
+    	don't split files by operation tag
+  -no-validation
+    	don't include validation tags
+  -no-warnings
+    	suppress warning and info messages
+  -o string
+    	output directory for generated files (required)
+  -oauth2-flows
+    	generate OAuth2 token flow helpers
+  -oidc-discovery
+    	generate OpenID Connect discovery client
+  -output string
+    	output directory for generated files (required)
+  -p string
+    	Go package name for generated code (default "api")
+  -package string
+    	Go package name for generated code (default "api")
+  -s	include line numbers in generation issues (IDE-friendly format)
+  -security-enforce
+    	generate security enforcement middleware
+  -server
+    	generate server interface code
+  -source-map
+    	include line numbers in generation issues (IDE-friendly format)
+  -strict
+    	fail on any generation issues (even warnings)
+  -types
+    	generate type definitions from schemas (default true)
+
+Examples:
+  oastools generate --client -o ./client openapi.yaml
+  oastools generate --server -o ./server -p myapi openapi.yaml
+  oastools generate --client --server -o ./api petstore.yaml
+  oastools generate --types -o ./models https://example.com/api/openapi.yaml
+  oastools generate --client --oauth2-flows -o ./client openapi.yaml
+  oastools generate --client --credential-mgmt --security-enforce -o ./api openapi.yaml
+  oastools generate --client --max-lines-per-file 1500 -o ./client large-api.yaml
+  cat openapi.yaml | oastools generate --client -o ./client -
+  oastools generate -s --client -o ./client openapi.yaml  # Include line numbers in issues
+
+Pipelining:
+  Use '-' as the file path to read the OpenAPI specification from stdin.
+  Example: oastools convert -t 3.0.3 swagger.yaml | oastools generate --client -o ./client -
+
+Notes:
+  - At least one of --client, --server, or --types must be enabled
+  - Types are always generated when --client or --server is enabled
+  - Security helpers are generated by default when --client is enabled
+  - Generated code uses Go idioms and best practices
+  - Server interface is framework-agnostic
+Usage: oastools generate [flags] <file|url|->
+
+Generate Go code from an OpenAPI specification.
+
+Flags:
+  -client
+    	generate HTTP client code
+  -credential-mgmt
+    	generate credential management interfaces
+  -max-lines-per-file int
+    	maximum lines per generated file (0 = no limit) (default 2000)
+  -max-ops-per-file int
+    	maximum operations per generated file (0 = no limit) (default 100)
+  -max-types-per-file int
+    	maximum types per generated file (0 = no limit) (default 200)
+  -no-pointers
+    	don't use pointer types for optional fields
+  -no-readme
+    	don't generate README.md file
+  -no-security
+    	don't generate security helper functions
+  -no-split-by-path
+    	don't split files by path prefix
+  -no-split-by-tag
+    	don't split files by operation tag
+  -no-validation
+    	don't include validation tags
+  -no-warnings
+    	suppress warning and info messages
+  -o string
+    	output directory for generated files (required)
+  -oauth2-flows
+    	generate OAuth2 token flow helpers
+  -oidc-discovery
+    	generate OpenID Connect discovery client
+  -output string
+    	output directory for generated files (required)
+  -p string
+    	Go package name for generated code (default "api")
+  -package string
+    	Go package name for generated code (default "api")
+  -s	include line numbers in generation issues (IDE-friendly format)
+  -security-enforce
+    	generate security enforcement middleware
+  -server
+    	generate server interface code
+  -source-map
+    	include line numbers in generation issues (IDE-friendly format)
+  -strict
+    	fail on any generation issues (even warnings)
+  -types
+    	generate type definitions from schemas (default true)
+
+Examples:
+  oastools generate --client -o ./client openapi.yaml
+  oastools generate --server -o ./server -p myapi openapi.yaml
+  oastools generate --client --server -o ./api petstore.yaml
+  oastools generate --types -o ./models https://example.com/api/openapi.yaml
+  oastools generate --client --oauth2-flows -o ./client openapi.yaml
+  oastools generate --client --credential-mgmt --security-enforce -o ./api openapi.yaml
+  oastools generate --client --max-lines-per-file 1500 -o ./client large-api.yaml
+  cat openapi.yaml | oastools generate --client -o ./client -
+  oastools generate -s --client -o ./client openapi.yaml  # Include line numbers in issues
+
+Pipelining:
+  Use '-' as the file path to read the OpenAPI specification from stdin.
+  Example: oastools convert -t 3.0.3 swagger.yaml | oastools generate --client -o ./client -
+
+Notes:
+  - At least one of --client, --server, or --types must be enabled
+  - Types are always generated when --client or --server is enabled
+  - Security helpers are generated by default when --client is enabled
+  - Generated code uses Go idioms and best practices
+  - Server interface is framework-agnostic
+Usage: oastools generate [flags] <file|url|->
+
+Generate Go code from an OpenAPI specification.
+
+Flags:
+  -client
+    	generate HTTP client code
+  -credential-mgmt
+    	generate credential management interfaces
+  -max-lines-per-file int
+    	maximum lines per generated file (0 = no limit) (default 2000)
+  -max-ops-per-file int
+    	maximum operations per generated file (0 = no limit) (default 100)
+  -max-types-per-file int
+    	maximum types per generated file (0 = no limit) (default 200)
+  -no-pointers
+    	don't use pointer types for optional fields
+  -no-readme
+    	don't generate README.md file
+  -no-security
+    	don't generate security helper functions
+  -no-split-by-path
+    	don't split files by path prefix
+  -no-split-by-tag
+    	don't split files by operation tag
+  -no-validation
+    	don't include validation tags
+  -no-warnings
+    	suppress warning and info messages
+  -o string
+    	output directory for generated files (required)
+  -oauth2-flows
+    	generate OAuth2 token flow helpers
+  -oidc-discovery
+    	generate OpenID Connect discovery client
+  -output string
+    	output directory for generated files (required)
+  -p string
+    	Go package name for generated code (default "api")
+  -package string
+    	Go package name for generated code (default "api")
+  -s	include line numbers in generation issues (IDE-friendly format)
+  -security-enforce
+    	generate security enforcement middleware
+  -server
+    	generate server interface code
+  -source-map
+    	include line numbers in generation issues (IDE-friendly format)
+  -strict
+    	fail on any generation issues (even warnings)
+  -types
+    	generate type definitions from schemas (default true)
+
+Examples:
+  oastools generate --client -o ./client openapi.yaml
+  oastools generate --server -o ./server -p myapi openapi.yaml
+  oastools generate --client --server -o ./api petstore.yaml
+  oastools generate --types -o ./models https://example.com/api/openapi.yaml
+  oastools generate --client --oauth2-flows -o ./client openapi.yaml
+  oastools generate --client --credential-mgmt --security-enforce -o ./api openapi.yaml
+  oastools generate --client --max-lines-per-file 1500 -o ./client large-api.yaml
+  cat openapi.yaml | oastools generate --client -o ./client -
+  oastools generate -s --client -o ./client openapi.yaml  # Include line numbers in issues
+
+Pipelining:
+  Use '-' as the file path to read the OpenAPI specification from stdin.
+  Example: oastools convert -t 3.0.3 swagger.yaml | oastools generate --client -o ./client -
+
+Notes:
+  - At least one of --client, --server, or --types must be enabled
+  - Types are always generated when --client or --server is enabled
+  - Security helpers are generated by default when --client is enabled
+  - Generated code uses Go idioms and best practices
+  - Server interface is framework-agnostic
+Usage: oastools join [flags] <file1> <file2> [file3...]
+
+Join multiple OpenAPI specification files into a single document.
+
+Flags:
+  -always-prefix
+    	apply namespace prefix to all schemas, not just on collision
+  -collision-report
+    	generate detailed collision analysis report
+  -component-strategy string
+    	collision strategy for other components
+  -equivalence-mode string
+    	schema comparison mode for deduplication (none, shallow, deep) (default "none")
+  -namespace-prefix value
+    	namespace prefix for source file (format: source=prefix, can be repeated)
+  -no-dedup-tags
+    	don't deduplicate tags by name
+  -no-merge-arrays
+    	don't merge arrays (servers, security, etc.)
+  -o string
+    	output file path (default: stdout)
+  -output string
+    	output file path (default: stdout)
+  -path-strategy string
+    	collision strategy for paths (accept-left, accept-right, fail, fail-on-paths)
+  -q	quiet mode: suppress diagnostic messages (for pipelining)
+  -quiet
+    	quiet mode: suppress diagnostic messages (for pipelining)
+  -rename-template string
+    	template for renamed schema names (default "{{.Name}}_{{.Source}}")
+  -s	include line numbers in collision warnings (IDE-friendly format)
+  -schema-strategy string
+    	collision strategy for schemas (accept-left, accept-right, rename-left, rename-right, deduplicate, fail)
+  -semantic-dedup
+    	enable semantic deduplication to consolidate identical schemas
+  -source-map
+    	include line numbers in collision warnings (IDE-friendly format)
+
+Collision Strategies:
+  accept-left      Keep the first value when collisions occur
+  accept-right     Keep the last value when collisions occur (overwrite)
+  rename-left      Rename left schema, keep right under original name
+  rename-right     Rename right schema, keep left under original name
+  deduplicate      Merge structurally identical schemas (requires equivalence-mode)
+  fail             Fail with an error on any collision
+  fail-on-paths    Fail only on path collisions, allow schema collisions
+
+Namespace Prefixes:
+  Use --namespace-prefix to add source-based prefixes to schema names.
+  Format: source=prefix (can be specified multiple times)
+  By default, prefix is only applied on collision. Use --always-prefix to
+  apply namespace prefixes to all schemas from the configured sources.
+
+Examples:
+  oastools join -o merged.yaml base.yaml extensions.yaml
+  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml
+  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml
+  oastools join --namespace-prefix users.yaml=Users --namespace-prefix billing.yaml=Billing -o merged.yaml users.yaml billing.yaml
+  oastools join --namespace-prefix api2.yaml=V2 --always-prefix -o merged.yaml api1.yaml api2.yaml
+  oastools join -s -o merged.yaml api1.yaml api2.yaml  # Include line numbers in warnings
+
+Pipelining:
+  oastools join -q base.yaml ext.yaml | oastools validate -q -
+  oastools join -q spec1.yaml spec2.yaml | oastools convert -q -t 3.1.0 -
+
+Notes:
+  - All input files must be the same major OAS version (2.0 or 3.x)
+  - The output will use the version of the first input file
+  - Info section is taken from the first document by default
+  - When -o is specified, file is written with restrictive permissions (0600)
+Usage: oastools join [flags] <file1> <file2> [file3...]
+
+Join multiple OpenAPI specification files into a single document.
+
+Flags:
+  -always-prefix
+    	apply namespace prefix to all schemas, not just on collision
+  -collision-report
+    	generate detailed collision analysis report
+  -component-strategy string
+    	collision strategy for other components
+  -equivalence-mode string
+    	schema comparison mode for deduplication (none, shallow, deep) (default "none")
+  -namespace-prefix value
+    	namespace prefix for source file (format: source=prefix, can be repeated)
+  -no-dedup-tags
+    	don't deduplicate tags by name
+  -no-merge-arrays
+    	don't merge arrays (servers, security, etc.)
+  -o string
+    	output file path (default: stdout)
+  -output string
+    	output file path (default: stdout)
+  -path-strategy string
+    	collision strategy for paths (accept-left, accept-right, fail, fail-on-paths)
+  -q	quiet mode: suppress diagnostic messages (for pipelining)
+  -quiet
+    	quiet mode: suppress diagnostic messages (for pipelining)
+  -rename-template string
+    	template for renamed schema names (default "{{.Name}}_{{.Source}}")
+  -s	include line numbers in collision warnings (IDE-friendly format)
+  -schema-strategy string
+    	collision strategy for schemas (accept-left, accept-right, rename-left, rename-right, deduplicate, fail)
+  -semantic-dedup
+    	enable semantic deduplication to consolidate identical schemas
+  -source-map
+    	include line numbers in collision warnings (IDE-friendly format)
+
+Collision Strategies:
+  accept-left      Keep the first value when collisions occur
+  accept-right     Keep the last value when collisions occur (overwrite)
+  rename-left      Rename left schema, keep right under original name
+  rename-right     Rename right schema, keep left under original name
+  deduplicate      Merge structurally identical schemas (requires equivalence-mode)
+  fail             Fail with an error on any collision
+  fail-on-paths    Fail only on path collisions, allow schema collisions
+
+Namespace Prefixes:
+  Use --namespace-prefix to add source-based prefixes to schema names.
+  Format: source=prefix (can be specified multiple times)
+  By default, prefix is only applied on collision. Use --always-prefix to
+  apply namespace prefixes to all schemas from the configured sources.
+
+Examples:
+  oastools join -o merged.yaml base.yaml extensions.yaml
+  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml
+  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml
+  oastools join --namespace-prefix users.yaml=Users --namespace-prefix billing.yaml=Billing -o merged.yaml users.yaml billing.yaml
+  oastools join --namespace-prefix api2.yaml=V2 --always-prefix -o merged.yaml api1.yaml api2.yaml
+  oastools join -s -o merged.yaml api1.yaml api2.yaml  # Include line numbers in warnings
+
+Pipelining:
+  oastools join -q base.yaml ext.yaml | oastools validate -q -
+  oastools join -q spec1.yaml spec2.yaml | oastools convert -q -t 3.1.0 -
+
+Notes:
+  - All input files must be the same major OAS version (2.0 or 3.x)
+  - The output will use the version of the first input file
+  - Info section is taken from the first document by default
+  - When -o is specified, file is written with restrictive permissions (0600)
+invalid value "invalid" for flag -namespace-prefix: invalid namespace prefix format: "invalid" (expected source=prefix)
+Usage: oastools join [flags] <file1> <file2> [file3...]
+
+Join multiple OpenAPI specification files into a single document.
+
+Flags:
+  -always-prefix
+    	apply namespace prefix to all schemas, not just on collision
+  -collision-report
+    	generate detailed collision analysis report
+  -component-strategy string
+    	collision strategy for other components
+  -equivalence-mode string
+    	schema comparison mode for deduplication (none, shallow, deep) (default "none")
+  -namespace-prefix value
+    	namespace prefix for source file (format: source=prefix, can be repeated)
+  -no-dedup-tags
+    	don't deduplicate tags by name
+  -no-merge-arrays
+    	don't merge arrays (servers, security, etc.)
+  -o string
+    	output file path (default: stdout)
+  -output string
+    	output file path (default: stdout)
+  -path-strategy string
+    	collision strategy for paths (accept-left, accept-right, fail, fail-on-paths)
+  -q	quiet mode: suppress diagnostic messages (for pipelining)
+  -quiet
+    	quiet mode: suppress diagnostic messages (for pipelining)
+  -rename-template string
+    	template for renamed schema names (default "{{.Name}}_{{.Source}}")
+  -s	include line numbers in collision warnings (IDE-friendly format)
+  -schema-strategy string
+    	collision strategy for schemas (accept-left, accept-right, rename-left, rename-right, deduplicate, fail)
+  -semantic-dedup
+    	enable semantic deduplication to consolidate identical schemas
+  -source-map
+    	include line numbers in collision warnings (IDE-friendly format)
+
+Collision Strategies:
+  accept-left      Keep the first value when collisions occur
+  accept-right     Keep the last value when collisions occur (overwrite)
+  rename-left      Rename left schema, keep right under original name
+  rename-right     Rename right schema, keep left under original name
+  deduplicate      Merge structurally identical schemas (requires equivalence-mode)
+  fail             Fail with an error on any collision
+  fail-on-paths    Fail only on path collisions, allow schema collisions
+
+Namespace Prefixes:
+  Use --namespace-prefix to add source-based prefixes to schema names.
+  Format: source=prefix (can be specified multiple times)
+  By default, prefix is only applied on collision. Use --always-prefix to
+  apply namespace prefixes to all schemas from the configured sources.
+
+Examples:
+  oastools join -o merged.yaml base.yaml extensions.yaml
+  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml
+  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml
+  oastools join --namespace-prefix users.yaml=Users --namespace-prefix billing.yaml=Billing -o merged.yaml users.yaml billing.yaml
+  oastools join --namespace-prefix api2.yaml=V2 --always-prefix -o merged.yaml api1.yaml api2.yaml
+  oastools join -s -o merged.yaml api1.yaml api2.yaml  # Include line numbers in warnings
+
+Pipelining:
+  oastools join -q base.yaml ext.yaml | oastools validate -q -
+  oastools join -q spec1.yaml spec2.yaml | oastools convert -q -t 3.1.0 -
+
+Notes:
+  - All input files must be the same major OAS version (2.0 or 3.x)
+  - The output will use the version of the first input file
+  - Info section is taken from the first document by default
+  - When -o is specified, file is written with restrictive permissions (0600)
+invalid value "=Prefix" for flag -namespace-prefix: namespace prefix requires non-empty source and prefix: "=Prefix"
+Usage: oastools join [flags] <file1> <file2> [file3...]
+
+Join multiple OpenAPI specification files into a single document.
+
+Flags:
+  -always-prefix
+    	apply namespace prefix to all schemas, not just on collision
+  -collision-report
+    	generate detailed collision analysis report
+  -component-strategy string
+    	collision strategy for other components
+  -equivalence-mode string
+    	schema comparison mode for deduplication (none, shallow, deep) (default "none")
+  -namespace-prefix value
+    	namespace prefix for source file (format: source=prefix, can be repeated)
+  -no-dedup-tags
+    	don't deduplicate tags by name
+  -no-merge-arrays
+    	don't merge arrays (servers, security, etc.)
+  -o string
+    	output file path (default: stdout)
+  -output string
+    	output file path (default: stdout)
+  -path-strategy string
+    	collision strategy for paths (accept-left, accept-right, fail, fail-on-paths)
+  -q	quiet mode: suppress diagnostic messages (for pipelining)
+  -quiet
+    	quiet mode: suppress diagnostic messages (for pipelining)
+  -rename-template string
+    	template for renamed schema names (default "{{.Name}}_{{.Source}}")
+  -s	include line numbers in collision warnings (IDE-friendly format)
+  -schema-strategy string
+    	collision strategy for schemas (accept-left, accept-right, rename-left, rename-right, deduplicate, fail)
+  -semantic-dedup
+    	enable semantic deduplication to consolidate identical schemas
+  -source-map
+    	include line numbers in collision warnings (IDE-friendly format)
+
+Collision Strategies:
+  accept-left      Keep the first value when collisions occur
+  accept-right     Keep the last value when collisions occur (overwrite)
+  rename-left      Rename left schema, keep right under original name
+  rename-right     Rename right schema, keep left under original name
+  deduplicate      Merge structurally identical schemas (requires equivalence-mode)
+  fail             Fail with an error on any collision
+  fail-on-paths    Fail only on path collisions, allow schema collisions
+
+Namespace Prefixes:
+  Use --namespace-prefix to add source-based prefixes to schema names.
+  Format: source=prefix (can be specified multiple times)
+  By default, prefix is only applied on collision. Use --always-prefix to
+  apply namespace prefixes to all schemas from the configured sources.
+
+Examples:
+  oastools join -o merged.yaml base.yaml extensions.yaml
+  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml
+  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml
+  oastools join --namespace-prefix users.yaml=Users --namespace-prefix billing.yaml=Billing -o merged.yaml users.yaml billing.yaml
+  oastools join --namespace-prefix api2.yaml=V2 --always-prefix -o merged.yaml api1.yaml api2.yaml
+  oastools join -s -o merged.yaml api1.yaml api2.yaml  # Include line numbers in warnings
+
+Pipelining:
+  oastools join -q base.yaml ext.yaml | oastools validate -q -
+  oastools join -q spec1.yaml spec2.yaml | oastools convert -q -t 3.1.0 -
+
+Notes:
+  - All input files must be the same major OAS version (2.0 or 3.x)
+  - The output will use the version of the first input file
+  - Info section is taken from the first document by default
+  - When -o is specified, file is written with restrictive permissions (0600)
+invalid value "api.yaml=" for flag -namespace-prefix: namespace prefix requires non-empty source and prefix: "api.yaml="
+Usage: oastools join [flags] <file1> <file2> [file3...]
+
+Join multiple OpenAPI specification files into a single document.
+
+Flags:
+  -always-prefix
+    	apply namespace prefix to all schemas, not just on collision
+  -collision-report
+    	generate detailed collision analysis report
+  -component-strategy string
+    	collision strategy for other components
+  -equivalence-mode string
+    	schema comparison mode for deduplication (none, shallow, deep) (default "none")
+  -namespace-prefix value
+    	namespace prefix for source file (format: source=prefix, can be repeated)
+  -no-dedup-tags
+    	don't deduplicate tags by name
+  -no-merge-arrays
+    	don't merge arrays (servers, security, etc.)
+  -o string
+    	output file path (default: stdout)
+  -output string
+    	output file path (default: stdout)
+  -path-strategy string
+    	collision strategy for paths (accept-left, accept-right, fail, fail-on-paths)
+  -q	quiet mode: suppress diagnostic messages (for pipelining)
+  -quiet
+    	quiet mode: suppress diagnostic messages (for pipelining)
+  -rename-template string
+    	template for renamed schema names (default "{{.Name}}_{{.Source}}")
+  -s	include line numbers in collision warnings (IDE-friendly format)
+  -schema-strategy string
+    	collision strategy for schemas (accept-left, accept-right, rename-left, rename-right, deduplicate, fail)
+  -semantic-dedup
+    	enable semantic deduplication to consolidate identical schemas
+  -source-map
+    	include line numbers in collision warnings (IDE-friendly format)
+
+Collision Strategies:
+  accept-left      Keep the first value when collisions occur
+  accept-right     Keep the last value when collisions occur (overwrite)
+  rename-left      Rename left schema, keep right under original name
+  rename-right     Rename right schema, keep left under original name
+  deduplicate      Merge structurally identical schemas (requires equivalence-mode)
+  fail             Fail with an error on any collision
+  fail-on-paths    Fail only on path collisions, allow schema collisions
+
+Namespace Prefixes:
+  Use --namespace-prefix to add source-based prefixes to schema names.
+  Format: source=prefix (can be specified multiple times)
+  By default, prefix is only applied on collision. Use --always-prefix to
+  apply namespace prefixes to all schemas from the configured sources.
+
+Examples:
+  oastools join -o merged.yaml base.yaml extensions.yaml
+  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml
+  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml
+  oastools join --namespace-prefix users.yaml=Users --namespace-prefix billing.yaml=Billing -o merged.yaml users.yaml billing.yaml
+  oastools join --namespace-prefix api2.yaml=V2 --always-prefix -o merged.yaml api1.yaml api2.yaml
+  oastools join -s -o merged.yaml api1.yaml api2.yaml  # Include line numbers in warnings
+
+Pipelining:
+  oastools join -q base.yaml ext.yaml | oastools validate -q -
+  oastools join -q spec1.yaml spec2.yaml | oastools convert -q -t 3.1.0 -
+
+Notes:
+  - All input files must be the same major OAS version (2.0 or 3.x)
+  - The output will use the version of the first input file
+  - Info section is taken from the first document by default
+  - When -o is specified, file is written with restrictive permissions (0600)
+Usage: oastools parse [flags] <file|url|->
+
+Parse and output OpenAPI document structure.
+
+Flags:
+  -insecure
+    	disable TLS certificate verification for HTTPS refs
+  -q	quiet mode: only output the document, no diagnostic messages
+  -quiet
+    	quiet mode: only output the document, no diagnostic messages
+  -resolve-http-refs
+    	resolve HTTP/HTTPS $ref URLs (requires --resolve-refs)
+  -resolve-refs
+    	resolve external $ref references
+  -validate-structure
+    	validate document structure during parsing
+
+Examples:
+  oastools parse openapi.yaml
+  oastools parse --resolve-refs openapi.yaml
+  oastools parse --resolve-refs --resolve-http-refs https://example.com/api/openapi.yaml
+  oastools parse --resolve-refs --resolve-http-refs --insecure https://internal-server/api.yaml
+  oastools parse --validate-structure https://example.com/api/openapi.yaml
+  cat openapi.yaml | oastools parse -q -
+
+HTTP Reference Resolution:
+  --resolve-http-refs enables fetching and resolving $refs that point to HTTP/HTTPS URLs.
+  This is disabled by default for security (SSRF protection).
+  Use --insecure to skip TLS certificate verification for self-signed certs.
+
+Pipelining:
+  - Use '-' as the file path to read from stdin
+  - Use --quiet/-q to suppress diagnostic output for pipelining
+
+Exit Codes:
+  0    Parsing successful
+  1    Parsing failed or validation errors found (with --validate-structure)
+Usage: oastools parse [flags] <file|url|->
+
+Parse and output OpenAPI document structure.
+
+Flags:
+  -insecure
+    	disable TLS certificate verification for HTTPS refs
+  -q	quiet mode: only output the document, no diagnostic messages
+  -quiet
+    	quiet mode: only output the document, no diagnostic messages
+  -resolve-http-refs
+    	resolve HTTP/HTTPS $ref URLs (requires --resolve-refs)
+  -resolve-refs
+    	resolve external $ref references
+  -validate-structure
+    	validate document structure during parsing
+
+Examples:
+  oastools parse openapi.yaml
+  oastools parse --resolve-refs openapi.yaml
+  oastools parse --resolve-refs --resolve-http-refs https://example.com/api/openapi.yaml
+  oastools parse --resolve-refs --resolve-http-refs --insecure https://internal-server/api.yaml
+  oastools parse --validate-structure https://example.com/api/openapi.yaml
+  cat openapi.yaml | oastools parse -q -
+
+HTTP Reference Resolution:
+  --resolve-http-refs enables fetching and resolving $refs that point to HTTP/HTTPS URLs.
+  This is disabled by default for security (SSRF protection).
+  Use --insecure to skip TLS certificate verification for self-signed certs.
+
+Pipelining:
+  - Use '-' as the file path to read from stdin
+  - Use --quiet/-q to suppress diagnostic output for pipelining
+
+Exit Codes:
+  0    Parsing successful
+  1    Parsing failed or validation errors found (with --validate-structure)
+Usage: oastools validate [flags] <file|url|->
+
+Validate an OpenAPI specification file, URL, or stdin against the specification version it declares.
+
+Flags:
+  -format string
+    	output format: text, json, or yaml (default "text")
+  -no-warnings
+    	suppress warning messages (only show errors)
+  -q	quiet mode: only output validation result, no diagnostic messages
+  -quiet
+    	quiet mode: only output validation result, no diagnostic messages
+  -s	include line numbers in validation errors (IDE-friendly format)
+  -source-map
+    	include line numbers in validation errors (IDE-friendly format)
+  -strict
+    	enable stricter validation beyond spec requirements
+
+Output Formats:
+  text (default)  Human-readable text output
+  json            JSON format for programmatic processing
+  yaml            YAML format for programmatic processing
+
+Examples:
+  oastools validate openapi.yaml
+  oastools validate https://example.com/api/openapi.yaml
+  oastools validate --strict api-spec.yaml
+  oastools validate --no-warnings openapi.json
+  cat openapi.yaml | oastools validate -q -
+  oastools validate --format json openapi.yaml | jq '.valid'
+  oastools validate -s openapi.yaml  # Include line numbers in errors
+
+Pipelining:
+  - Use '-' as the file path to read from stdin
+  - Use --quiet/-q to suppress diagnostic output for pipelining
+  - Use --format json/yaml for structured output that can be parsed
+
+Exit Codes:
+  0    Validation successful
+  1    Validation failed with errors
+Usage: oastools validate [flags] <file|url|->
+
+Validate an OpenAPI specification file, URL, or stdin against the specification version it declares.
+
+Flags:
+  -format string
+    	output format: text, json, or yaml (default "text")
+  -no-warnings
+    	suppress warning messages (only show errors)
+  -q	quiet mode: only output validation result, no diagnostic messages
+  -quiet
+    	quiet mode: only output validation result, no diagnostic messages
+  -s	include line numbers in validation errors (IDE-friendly format)
+  -source-map
+    	include line numbers in validation errors (IDE-friendly format)
+  -strict
+    	enable stricter validation beyond spec requirements
+
+Output Formats:
+  text (default)  Human-readable text output
+  json            JSON format for programmatic processing
+  yaml            YAML format for programmatic processing
+
+Examples:
+  oastools validate openapi.yaml
+  oastools validate https://example.com/api/openapi.yaml
+  oastools validate --strict api-spec.yaml
+  oastools validate --no-warnings openapi.json
+  cat openapi.yaml | oastools validate -q -
+  oastools validate --format json openapi.yaml | jq '.valid'
+  oastools validate -s openapi.yaml  # Include line numbers in errors
+
+Pipelining:
+  - Use '-' as the file path to read from stdin
+  - Use --quiet/-q to suppress diagnostic output for pipelining
+  - Use --format json/yaml for structured output that can be parsed
+
+Exit Codes:
+  0    Validation successful
+  1    Validation failed with errors
+PASS
+ok  	github.com/erraggy/oastools/cmd/oastools/commands	0.373s
 goos: darwin
 goarch: arm64
-pkg: github.com/erraggy/oastools/validator
+pkg: github.com/erraggy/oastools/converter
 cpu: Apple M4
-BenchmarkValidate/SmallOAS3-10     	   26983	    230367 ns/op	  205749 B/op	    2164 allocs/op
-BenchmarkValidate/MediumOAS3-10    	    4723	   1299907 ns/op	 1503560 B/op	   18310 allocs/op
-BenchmarkValidate/LargeOAS3-10     	     405	  14711162 ns/op	16987196 B/op	  205019 allocs/op
-BenchmarkValidate/SmallOAS2-10     	   26144	    218092 ns/op	  181812 B/op	    2136 allocs/op
-BenchmarkValidate/MediumOAS2-10    	    5196	   1184171 ns/op	 1281557 B/op	   16853 allocs/op
-BenchmarkValidateNoWarnings/SmallOAS3-10         	   26074	    208022 ns/op	  205767 B/op	    2164 allocs/op
-BenchmarkValidateNoWarnings/MediumOAS3-10        	    4675	   1285143 ns/op	 1504022 B/op	   18310 allocs/op
-BenchmarkValidateNoWarnings/LargeOAS3-10         	     415	  14429725 ns/op	16988411 B/op	  205020 allocs/op
-BenchmarkValidateParsed/SmallOAS3-10             	 1284872	      4664 ns/op	    5820 B/op	      90 allocs/op
-BenchmarkValidateParsed/MediumOAS3-10            	  149306	     40312 ns/op	   34471 B/op	     917 allocs/op
-BenchmarkValidateParsed/LargeOAS3-10             	   13222	    453912 ns/op	  377183 B/op	   10297 allocs/op
-BenchmarkValidateStrictMode/SmallOAS3-10         	   27356	    225034 ns/op	  205870 B/op	    2164 allocs/op
-BenchmarkValidateStrictMode/MediumOAS3-10        	    4773	   1279291 ns/op	 1503230 B/op	   18310 allocs/op
-BenchmarkValidateStrictMode/LargeOAS3-10         	     417	  14604948 ns/op	16988396 B/op	  205020 allocs/op
-BenchmarkValidateWithOptions/FilePath/SmallOAS3-10         	   25256	    234576 ns/op	  205959 B/op	    2168 allocs/op
-BenchmarkValidateWithOptions/Parsed/SmallOAS3-10           	 1236805	      4846 ns/op	    6062 B/op	      93 allocs/op
+BenchmarkConvertOAS2ToOAS3/Small-10    	    4947	    211303 ns/op	  185811 B/op	    2145 allocs/op
+BenchmarkConvertOAS2ToOAS3/Medium-10   	    1066	   1149438 ns/op	 1376745 B/op	   16717 allocs/op
+BenchmarkConvertOAS3ToOAS2/Small-10    	    4698	    231586 ns/op	  208415 B/op	    2162 allocs/op
+BenchmarkConvertOAS3ToOAS2/Medium-10   	     958	   1280986 ns/op	 1600082 B/op	   18215 allocs/op
+BenchmarkConvertParsedOAS2ToOAS3/Small-10         	  364490	      3248 ns/op	   11094 B/op	      83 allocs/op
+BenchmarkConvertParsedOAS2ToOAS3/Medium-10        	   30524	     39436 ns/op	  135279 B/op	     687 allocs/op
+BenchmarkConvertParsedOAS3ToOAS2/Small-10         	  332920	      3652 ns/op	    9150 B/op	      89 allocs/op
+BenchmarkConvertParsedOAS3ToOAS2/Medium-10        	   25543	     46721 ns/op	  130157 B/op	     821 allocs/op
+BenchmarkConvertNoInfo/Small-10                   	    4530	    233175 ns/op	  185819 B/op	    2145 allocs/op
+BenchmarkConvertNoInfo/Medium-10                  	    1039	   1172080 ns/op	 1376840 B/op	   16718 allocs/op
+BenchmarkConvertWithOptions/FilePath/Small-10     	    5892	    198038 ns/op	  185975 B/op	    2149 allocs/op
+BenchmarkConvertWithOptions/Parsed/Small-10       	  357351	      3460 ns/op	   11406 B/op	      87 allocs/op
+BenchmarkConvertOAS30ToOAS31/Small-10             	    4555	    228477 ns/op	  206772 B/op	    2145 allocs/op
 PASS
-ok  	github.com/erraggy/oastools/validator	103.915s
+ok  	github.com/erraggy/oastools/converter	15.604s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/differ
+cpu: Apple M4
+BenchmarkDiff/FilePath-10      	    1608	    723499 ns/op	  614032 B/op	    7273 allocs/op
+BenchmarkDiff/Parsed-10        	   93742	     12796 ns/op	   21682 B/op	     369 allocs/op
+BenchmarkDiffMode/Simple-10    	   94826	     12615 ns/op	   21682 B/op	     369 allocs/op
+BenchmarkDiffMode/Breaking-10  	   93460	     12686 ns/op	   21682 B/op	     369 allocs/op
+BenchmarkDiffIncludeInfo/WithInfo-10         	   94681	     12697 ns/op	   21682 B/op	     369 allocs/op
+BenchmarkDiffIncludeInfo/WithoutInfo-10      	   92638	     12908 ns/op	   23475 B/op	     370 allocs/op
+BenchmarkDiffIdentical-10                    	  115200	     10523 ns/op	   16663 B/op	     325 allocs/op
+BenchmarkDiffWithOptions/FilePath-10         	    1615	    699234 ns/op	  614300 B/op	    7281 allocs/op
+BenchmarkChangeString-10                     	 2970384	       404.3 ns/op	     400 B/op	      15 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/differ	11.600s
 goos: darwin
 goarch: arm64
 pkg: github.com/erraggy/oastools/fixer
 cpu: Apple M4
-BenchmarkFixDocuments/SmallOAS3-10         	   25863	    216258 ns/op	  208937 B/op	    2127 allocs/op
-BenchmarkFixDocuments/MediumOAS3-10        	    4959	   1308004 ns/op	 1608114 B/op	   17966 allocs/op
-BenchmarkFixDocuments/LargeOAS3-10         	     414	  14634116 ns/op	17987237 B/op	  200084 allocs/op
-BenchmarkFixDocuments/SmallOAS2-10         	   29077	    209091 ns/op	  184243 B/op	    2110 allocs/op
-BenchmarkFixDocuments/MediumOAS2-10        	    5354	   1155030 ns/op	 1367583 B/op	   16519 allocs/op
-BenchmarkFixWithInferTypes/SmallOAS3-10    	   25585	    218000 ns/op	  208733 B/op	    2127 allocs/op
+BenchmarkFixDocuments/SmallOAS3-10         	    4612	    234518 ns/op	  208703 B/op	    2127 allocs/op
+BenchmarkFixDocuments/MediumOAS3-10        	     981	   1271396 ns/op	 1609845 B/op	   17967 allocs/op
+BenchmarkFixDocuments/LargeOAS3-10         	      84	  14500237 ns/op	17983180 B/op	  200084 allocs/op
+BenchmarkFixDocuments/SmallOAS2-10         	    5493	    216046 ns/op	  184356 B/op	    2110 allocs/op
+BenchmarkFixDocuments/MediumOAS2-10        	    1058	   1150556 ns/op	 1369789 B/op	   16520 allocs/op
+BenchmarkFixWithInferTypes/SmallOAS3-10    	    5834	    210591 ns/op	  208739 B/op	    2127 allocs/op
+BenchmarkFixWithInferTypes/MediumOAS3-10   	     960	   1275259 ns/op	 1605284 B/op	   17968 allocs/op
+BenchmarkFixWithInferTypes/LargeOAS3-10    	      85	  14504470 ns/op	17984883 B/op	  200084 allocs/op
+BenchmarkFixParsed/SmallOAS3-10            	  428898	      2748 ns/op	    9104 B/op	      54 allocs/op
+BenchmarkFixParsed/MediumOAS3-10           	   36081	     33305 ns/op	  136059 B/op	     572 allocs/op
+BenchmarkFixParsed/LargeOAS3-10            	    3030	    391235 ns/op	 1376226 B/op	    5361 allocs/op
+BenchmarkFixWithOptions/FilePath/SmallOAS3-10         	    4347	    235700 ns/op	  209064 B/op	    2132 allocs/op
+BenchmarkFixWithOptions/Parsed/SmallOAS3-10           	  416349	      2860 ns/op	    9454 B/op	      58 allocs/op
+BenchmarkFix-10                                       	  248869	      4757 ns/op	   14948 B/op	     109 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/fixer	18.271s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/generator
+cpu: Apple M4
+BenchmarkGenerate/Types-10         	     230	   5182495 ns/op	   70034 B/op	    1318 allocs/op
+BenchmarkGenerate/Client-10        	      93	  11253141 ns/op	  405177 B/op	    8552 allocs/op
+BenchmarkGenerate/Server-10        	     100	  10271341 ns/op	  143463 B/op	    2470 allocs/op
+BenchmarkGenerate/All-10           	      66	  16295227 ns/op	  437110 B/op	    8264 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/generator	18.067s
+write error: simulated write error
+PASS
+ok  	github.com/erraggy/oastools/internal/cliutil	0.254s
+?   	github.com/erraggy/oastools/internal/codegen/deepcopy	[no test files]
+PASS
+ok  	github.com/erraggy/oastools/internal/corpusutil	0.225s
+PASS
+ok  	github.com/erraggy/oastools/internal/httputil	0.223s
+PASS
+ok  	github.com/erraggy/oastools/internal/issues	0.233s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/internal/jsonpath
+cpu: Apple M4
+BenchmarkParse/Simple-10           	12062326	        87.00 ns/op	     192 B/op	       6 allocs/op
+BenchmarkParse/Bracket-10          	10125973	       119.1 ns/op	     216 B/op	       8 allocs/op
+BenchmarkParse/Wildcard-10         	 9351981	       128.5 ns/op	     336 B/op	       8 allocs/op
+BenchmarkParse/Filter-10           	10828288	       111.1 ns/op	     256 B/op	       6 allocs/op
+BenchmarkParse/CompoundFilter-10   	 7238158	       165.1 ns/op	     416 B/op	       8 allocs/op
+BenchmarkParse/RecursiveDescent-10 	17671551	        68.59 ns/op	     128 B/op	       5 allocs/op
+BenchmarkParse/Complex-10          	 6837522	       173.1 ns/op	     416 B/op	       9 allocs/op
+BenchmarkGet/Simple-10             	23144148	        51.23 ns/op	      48 B/op	       3 allocs/op
+BenchmarkGet/Nested-10             	12605538	        95.23 ns/op	      80 B/op	       5 allocs/op
+BenchmarkGet/Wildcard-10           	10318530	       114.8 ns/op	     144 B/op	       5 allocs/op
+BenchmarkGet/DeepWildcard-10       	 2668746	       450.0 ns/op	     752 B/op	      13 allocs/op
+BenchmarkGet/Filter-10             	 4073438	       295.0 ns/op	     144 B/op	       5 allocs/op
+BenchmarkGet/RecursiveDescent-10   	  837152	      1433 ns/op	     458 B/op	      17 allocs/op
+BenchmarkModify/Simple-10          	  847734	      1342 ns/op	    7424 B/op	      46 allocs/op
+BenchmarkModify/Wildcard-10        	  823621	      1417 ns/op	    7424 B/op	      46 allocs/op
+BenchmarkModify/Filter-10          	  735717	      1607 ns/op	    7536 B/op	      49 allocs/op
+BenchmarkRecursiveDescentGet/AllSummary-10         	   31519	     38115 ns/op	   42297 B/op	     860 allocs/op
+BenchmarkRecursiveDescentGet/AllDescription-10     	   31213	     38487 ns/op	   42342 B/op	     862 allocs/op
+BenchmarkRecursiveDescentGet/AllDeprecated-10      	   39272	     30504 ns/op	   22496 B/op	     410 allocs/op
+BenchmarkRecursiveDescentGet/WildcardDescendant-10 	   16323	     73680 ns/op	  169547 B/op	    1666 allocs/op
+BenchmarkCompoundFilter/SimpleFilter-10            	 4059756	       295.9 ns/op	     144 B/op	       5 allocs/op
+BenchmarkCompoundFilter/AndFilter-10               	 3243074	       370.0 ns/op	     144 B/op	       5 allocs/op
+BenchmarkCompoundFilter/OrFilter-10                	 3252828	       368.2 ns/op	     144 B/op	       5 allocs/op
+BenchmarkCompoundFilter/ChainedAnd-10              	 2700228	       443.0 ns/op	     144 B/op	       5 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/internal/jsonpath	28.731s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/internal/schemautil
+cpu: Apple M4
+BenchmarkSchemaDeduplicator_Deduplicate/10Schemas_NoDupes-10         	  268452	      4456 ns/op	    6752 B/op	     162 allocs/op
+BenchmarkSchemaDeduplicator_Deduplicate/10Schemas_50%Dupes-10        	  219840	      5464 ns/op	    5760 B/op	     218 allocs/op
+BenchmarkSchemaDeduplicator_Deduplicate/100Schemas_NoDupes-10        	   26377	     45368 ns/op	   65841 B/op	    1443 allocs/op
+BenchmarkSchemaDeduplicator_Deduplicate/100Schemas_50%Dupes-10       	   20307	     59065 ns/op	   61576 B/op	    2094 allocs/op
+BenchmarkSchemaDeduplicator_Deduplicate/100Schemas_90%Dupes-10       	   21778	     55086 ns/op	   56496 B/op	    1931 allocs/op
+BenchmarkSchemaDeduplicator_Deduplicate/1000Schemas_NoDupes-10       	    2115	    564495 ns/op	  831799 B/op	   14079 allocs/op
+BenchmarkSchemaDeduplicator_Deduplicate/1000Schemas_50%Dupes-10      	    1710	    667972 ns/op	  739812 B/op	   20579 allocs/op
+BenchmarkSchemaHasher_Hash/Simple-10                                 	 9081798	       131.8 ns/op	     232 B/op	       7 allocs/op
+BenchmarkSchemaHasher_Hash/Object-10                                 	 2608270	       460.0 ns/op	     360 B/op	      21 allocs/op
+BenchmarkSchemaHasher_Hash/ComplexObject-10                          	  659906	      1806 ns/op	    1328 B/op	      74 allocs/op
+BenchmarkSchemaHasher_Hash/NestedObject-10                           	  644613	      1838 ns/op	    1200 B/op	      73 allocs/op
+BenchmarkSchemaHasher_Hash/Composition-10                            	 2756244	       437.4 ns/op	     360 B/op	      19 allocs/op
+BenchmarkSchemaHasher_GroupByHash/10Schemas-10                       	  363718	      3287 ns/op	    3536 B/op	     142 allocs/op
+BenchmarkSchemaHasher_GroupByHash/100Schemas-10                      	   38028	     31412 ns/op	   33168 B/op	    1326 allocs/op
+BenchmarkSchemaHasher_GroupByHash/1000Schemas-10                     	    3612	    333920 ns/op	  325655 B/op	   13038 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/internal/schemautil	18.175s
+PASS
+ok  	github.com/erraggy/oastools/internal/severity	0.351s
+PASS
+ok  	github.com/erraggy/oastools/internal/testutil	0.257s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/joiner
+cpu: Apple M4
+BenchmarkJoin/TwoDocs-10       	    6294	    189236 ns/op	  136781 B/op	    1495 allocs/op
+BenchmarkJoin/ThreeDocs-10     	    4370	    276022 ns/op	  202973 B/op	    2202 allocs/op
+BenchmarkJoin/FiveDocs-10      	    2578	    463920 ns/op	  339403 B/op	    3714 allocs/op
+BenchmarkJoinParsed/TwoDocs-10 	 1525177	       786.6 ns/op	    1928 B/op	      22 allocs/op
+BenchmarkJoinParsed/ThreeDocs-10         	 1202695	       997.0 ns/op	    2104 B/op	      23 allocs/op
+BenchmarkJoinParsed/FiveDocs-10          	  515900	      2299 ns/op	    3682 B/op	      62 allocs/op
+BenchmarkJoinStrategy/AcceptLeft-10      	    6331	    187185 ns/op	  136781 B/op	    1495 allocs/op
+BenchmarkJoinStrategy/AcceptRight-10     	    6853	    185057 ns/op	  136783 B/op	    1495 allocs/op
+BenchmarkJoinOptions/MergeArrays-10      	    6553	    185976 ns/op	  136782 B/op	    1495 allocs/op
+BenchmarkJoinOptions/DeduplicateTags-10  	    6538	    186835 ns/op	  136781 B/op	    1495 allocs/op
+BenchmarkJoinWithOptions/FilePaths-10    	    6576	    185924 ns/op	  137309 B/op	    1502 allocs/op
+BenchmarkJoinWithOptions/Parsed-10       	 1000000	      1016 ns/op	    3096 B/op	      29 allocs/op
+BenchmarkJoinWriteResult-10              	    3888	    302529 ns/op	   91292 B/op	     417 allocs/op
+BenchmarkJoinHelpers/DefaultConfig-10    	65918220	        17.78 ns/op	      48 B/op	       1 allocs/op
+BenchmarkJoinHelpers/IsValidStrategy-10  	199844384	         6.132 ns/op	       0 B/op	       0 allocs/op
+BenchmarkJoinHelpers/ValidStrategies-10  	64339426	        17.59 ns/op	     112 B/op	       1 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/joiner	19.695s
+PASS
+ok  	github.com/erraggy/oastools/oaserrors	0.268s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/overlay
+cpu: Apple M4
+BenchmarkApply/SmallOAS3-10     	    3321	    333318 ns/op	  238366 B/op	    2669 allocs/op
+BenchmarkApply/MediumOAS3-10    	     732	   1702058 ns/op	 1658000 B/op	   19958 allocs/op
+BenchmarkApply/LargeOAS3-10     	      66	  18349317 ns/op	19112301 B/op	  220064 allocs/op
+BenchmarkApply/SmallOAS3/InMemoryOverlay-10         	   38644	     30901 ns/op	   20800 B/op	     303 allocs/op
+BenchmarkApply/MediumOAS3/InMemoryOverlay-10        	    3778	    315528 ns/op	  172253 B/op	    2269 allocs/op
+BenchmarkApply/LargeOAS3/InMemoryOverlay-10         	     313	   3817324 ns/op	 1989450 B/op	   24972 allocs/op
+BenchmarkApplyParsed/SmallOAS3-10                   	   41977	     28650 ns/op	   20367 B/op	     287 allocs/op
+BenchmarkApplyParsed/MediumOAS3-10                  	    3919	    299232 ns/op	  172071 B/op	    2253 allocs/op
+BenchmarkApplyParsed/LargeOAS3-10                   	     326	   3643360 ns/op	 2001363 B/op	   24957 allocs/op
+BenchmarkApplyWithOptions/FilePaths-10              	    4668	    254983 ns/op	  192132 B/op	    2349 allocs/op
+BenchmarkApplyWithOptions/Parsed-10                 	   44624	     26856 ns/op	   20852 B/op	     312 allocs/op
+BenchmarkDryRun/SmallOAS3-10                        	   39241	     30730 ns/op	   20995 B/op	     300 allocs/op
+BenchmarkDryRun/MediumOAS3-10                       	    3794	    316157 ns/op	  172618 B/op	    2266 allocs/op
+BenchmarkDryRun/LargeOAS3-10                        	     312	   3820431 ns/op	 1991026 B/op	   24969 allocs/op
+BenchmarkRecursiveDescent/LargeOAS3-10              	     294	   4077647 ns/op	 2127872 B/op	   27316 allocs/op
+BenchmarkCompoundFilters/LargeOAS3-10               	     327	   3653825 ns/op	 2008337 B/op	   24951 allocs/op
+BenchmarkValidate-10                                	 3193646	       377.5 ns/op	     528 B/op	      18 allocs/op
+BenchmarkParseOverlay/FromFile-10                   	   17334	     67749 ns/op	   19273 B/op	     292 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/overlay	21.799s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/parser
+cpu: Apple M4
+BenchmarkMarshalInfo/NoExtra-10    	 2716006	       440.2 ns/op	     192 B/op	       2 allocs/op
+BenchmarkMarshalInfo/Extra1-10     	  992473	      1216 ns/op	    1105 B/op	      20 allocs/op
+BenchmarkMarshalInfo/Extra5-10     	  542067	      2219 ns/op	    2218 B/op	      31 allocs/op
+BenchmarkMarshalInfo/Extra10-10    	  317157	      3774 ns/op	    4077 B/op	      43 allocs/op
+BenchmarkMarshalInfo/Extra20-10    	  191838	      6228 ns/op	    5423 B/op	      63 allocs/op
+BenchmarkMarshalContact/NoExtra-10 	 2693337	       446.6 ns/op	     192 B/op	       2 allocs/op
+BenchmarkMarshalContact/WithExtra-10         	  709683	      1684 ns/op	    1377 B/op	      24 allocs/op
+BenchmarkMarshalServer/NoExtra-10            	 3242115	       370.2 ns/op	     160 B/op	       2 allocs/op
+BenchmarkMarshalServer/WithExtra-10          	  506120	      2365 ns/op	    2299 B/op	      30 allocs/op
+BenchmarkMarshalOAS3Document/Small-10        	   59925	     20044 ns/op	    7005 B/op	      66 allocs/op
+BenchmarkMarshalOAS3Document/Medium-10       	    5413	    223360 ns/op	   65846 B/op	     471 allocs/op
+BenchmarkMarshalOAS3Document/Large-10        	     438	   2728392 ns/op	  846821 B/op	    5337 allocs/op
+BenchmarkMarshalOAS2Document/Small-10        	   68739	     17394 ns/op	    6371 B/op	      58 allocs/op
+BenchmarkMarshalOAS2Document/Medium-10       	    6670	    178093 ns/op	   53674 B/op	     396 allocs/op
+BenchmarkUnmarshalInfo/NoExtra-10            	  815380	      1467 ns/op	    1176 B/op	      28 allocs/op
+BenchmarkUnmarshalInfo/WithExtra-10          	  346639	      3433 ns/op	    1736 B/op	      46 allocs/op
+BenchmarkParse/SmallOAS3-10                  	    4408	    237453 ns/op	  197776 B/op	    2070 allocs/op
+BenchmarkParse/MediumOAS3-10                 	     931	   1284808 ns/op	 1460316 B/op	   17388 allocs/op
+BenchmarkParse/LargeOAS3-10                  	      85	  14191058 ns/op	16574707 B/op	  194712 allocs/op
+BenchmarkParse/SmallOAS2-10                  	    5400	    214895 ns/op	  174624 B/op	    2059 allocs/op
+BenchmarkParse/MediumOAS2-10                 	    1070	   1151732 ns/op	 1241550 B/op	   16027 allocs/op
+BenchmarkParseNoValidation/SmallOAS3-10      	    4699	    232988 ns/op	  196876 B/op	    2047 allocs/op
+BenchmarkParseNoValidation/MediumOAS3-10     	     964	   1276277 ns/op	 1455400 B/op	   17296 allocs/op
+BenchmarkParseBytes/SmallOAS3-10             	    8940	    131839 ns/op	  196007 B/op	    2065 allocs/op
+BenchmarkParseBytes/MediumOAS3-10            	    1057	   1122662 ns/op	 1446390 B/op	   17383 allocs/op
+BenchmarkParseCore/SmallOAS3-10              	    8887	    132952 ns/op	  196023 B/op	    2065 allocs/op
+BenchmarkParseCore/MediumOAS3-10             	    1012	   1167851 ns/op	 1446830 B/op	   17384 allocs/op
+BenchmarkParseCore/LargeOAS3-10              	      86	  13841685 ns/op	16410463 B/op	  194707 allocs/op
+BenchmarkParseCore/SmallOAS2-10              	    9102	    127247 ns/op	  172999 B/op	    2054 allocs/op
+BenchmarkParseCore/MediumOAS2-10             	    1174	   1019299 ns/op	 1228912 B/op	   16022 allocs/op
+BenchmarkParseWithOptions/FilePath/SmallOAS3-10         	    4580	    233685 ns/op	  198070 B/op	    2077 allocs/op
+BenchmarkParseWithOptions/Bytes/SmallOAS3-10            	    8931	    132231 ns/op	  196299 B/op	    2071 allocs/op
+BenchmarkParseWithOptions/ResolveRefs/SmallOAS3-10      	    3832	    324975 ns/op	  365615 B/op	    2455 allocs/op
+BenchmarkParseReader/MediumOAS3-10                      	    1008	   1183266 ns/op	 1509455 B/op	   17397 allocs/op
+BenchmarkParseResultCopy/SmallOAS3-10                   	  197102	      5928 ns/op	   18648 B/op	     113 allocs/op
+BenchmarkParseResolveRefs/MediumOAS3-10                 	     297	   4038010 ns/op	 6841546 B/op	   42013 allocs/op
+BenchmarkFormatBytes-10                                 	 3529724	       339.2 ns/op	      64 B/op	       8 allocs/op
+BenchmarkDeepCopy/SmallOAS3-10                          	  625408	      1834 ns/op	    7936 B/op	      44 allocs/op
+BenchmarkDeepCopy/MediumOAS3-10                         	   45136	     26469 ns/op	  121601 B/op	     466 allocs/op
+BenchmarkDeepCopy/LargeOAS3-10                          	    3237	    360567 ns/op	 1313681 B/op	    4877 allocs/op
+BenchmarkDeepCopy/SmallOAS2-10                          	  773785	      1532 ns/op	    6768 B/op	      38 allocs/op
+BenchmarkDeepCopy/MediumOAS2-10                         	   53718	     22268 ns/op	  106257 B/op	     387 allocs/op
+BenchmarkSourceMapOverhead/Small/Default-10             	    5166	    229539 ns/op	  198068 B/op	    2077 allocs/op
+BenchmarkSourceMapOverhead/Small/SourceMapDisabled-10   	    6614	    221821 ns/op	  198083 B/op	    2078 allocs/op
+BenchmarkSourceMapOverhead/Small/SourceMapEnabled-10    	    4447	    292576 ns/op	  263944 B/op	    2713 allocs/op
+BenchmarkSourceMapOverhead/Medium/Default-10            	     930	   1289147 ns/op	 1460664 B/op	   17395 allocs/op
+BenchmarkSourceMapOverhead/Medium/SourceMapDisabled-10  	     924	   1287784 ns/op	 1460662 B/op	   17396 allocs/op
+BenchmarkSourceMapOverhead/Medium/SourceMapEnabled-10   	     664	   1818519 ns/op	 1994114 B/op	   22875 allocs/op
+BenchmarkSourceMapOverhead/Large/Default-10             	      84	  14297058 ns/op	16575066 B/op	  194719 allocs/op
+BenchmarkSourceMapOverhead/Large/SourceMapDisabled-10   	      86	  14238186 ns/op	16575035 B/op	  194720 allocs/op
+BenchmarkSourceMapOverhead/Large/SourceMapEnabled-10    	      61	  19423038 ns/op	21927298 B/op	  255419 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/parser	69.962s
+PASS
+ok  	github.com/erraggy/oastools/parser/internal/jsonhelpers	0.318s
+goos: darwin
+goarch: arm64
+pkg: github.com/erraggy/oastools/validator
+cpu: Apple M4
+BenchmarkValidate/SmallOAS3-10     	    4652	    232352 ns/op	  205710 B/op	    2164 allocs/op
+BenchmarkValidate/MediumOAS3-10    	     945	   1281360 ns/op	 1504016 B/op	   18310 allocs/op
+BenchmarkValidate/LargeOAS3-10     	      81	  14667330 ns/op	16989236 B/op	  205020 allocs/op
+BenchmarkValidate/SmallOAS2-10     	    5864	    199373 ns/op	  181699 B/op	    2136 allocs/op
+BenchmarkValidate/MediumOAS2-10    	    1045	   1167065 ns/op	 1281370 B/op	   16853 allocs/op
+BenchmarkValidateNoWarnings/SmallOAS3-10         	    4729	    239788 ns/op	  205847 B/op	    2164 allocs/op
+BenchmarkValidateNoWarnings/MediumOAS3-10        	     951	   1278089 ns/op	 1504164 B/op	   18311 allocs/op
+BenchmarkValidateNoWarnings/LargeOAS3-10         	      84	  14930366 ns/op	16988597 B/op	  205020 allocs/op
+BenchmarkValidateParsed/SmallOAS3-10             	  247972	      4808 ns/op	    5824 B/op	      90 allocs/op
+BenchmarkValidateParsed/MediumOAS3-10            	   29450	     40561 ns/op	   34515 B/op	     917 allocs/op
+BenchmarkValidateParsed/LargeOAS3-10             	    2646	    454607 ns/op	  377648 B/op	   10297 allocs/op
+BenchmarkValidateStrictMode/SmallOAS3-10         	    4286	    239018 ns/op	  206029 B/op	    2164 allocs/op
+BenchmarkValidateStrictMode/MediumOAS3-10        	     948	   1306821 ns/op	 1503103 B/op	   18310 allocs/op
+BenchmarkValidateStrictMode/LargeOAS3-10         	      82	  14605814 ns/op	16987904 B/op	  205020 allocs/op
+BenchmarkValidateWithOptions/FilePath/SmallOAS3-10         	    4641	    244652 ns/op	  205957 B/op	    2168 allocs/op
+BenchmarkValidateWithOptions/Parsed/SmallOAS3-10           	  230437	      4889 ns/op	    6061 B/op	      93 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/validator	26.770s
