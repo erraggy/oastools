@@ -6,6 +6,7 @@ repo_name: erraggy/oastools
 
 theme:
   name: material
+  custom_dir: overrides
   palette:
     # Light mode
     - scheme: default

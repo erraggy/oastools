@@ -206,6 +206,23 @@ When adding new documentation:
 3. **Preview locally**: Run `make docs-serve` before committing
 4. **Verify links**: Check that internal links work after deployment
 
+### Theme Customization
+
+The `overrides/` directory contains customizations to the MkDocs Material theme using the official [theme extension](https://squidfunk.github.io/mkdocs-material/customization/#extending-the-theme) mechanism.
+
+**Current customizations:**
+- `overrides/main.html` - Adds TTL-based cache expiration (1 hour) for GitHub repository facts (stars, forks, version) which MkDocs Material caches indefinitely in sessionStorage
+
+**How it works:**
+- `custom_dir: overrides` in `mkdocs.yml` enables theme extension
+- Files in `overrides/` mirror the theme structure and override/extend templates
+- Template blocks can be overridden by extending `base.html`
+
+**References:**
+- [MkDocs Material Customization](https://squidfunk.github.io/mkdocs-material/customization/)
+- [Theme Extension Guide](https://squidfunk.github.io/mkdocs-material/customization/#extending-the-theme)
+- `overrides/README.md` - Detailed documentation of our customizations
+
 ## Architecture
 
 ### Directory Structure

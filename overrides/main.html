@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block scripts %}
+<script>
+// Clear stale repository facts cache (TTL: 1 hour)
+// MkDocs Material caches GitHub repo stats in sessionStorage indefinitely.
+// This override adds TTL expiration so users see updated release versions.
+(function() {
+  var TTL_MS = 60 * 60 * 1000; // 1 hour
+  var scope = new URL("{{ config.extra.scope | d(base_url) }}", location);
+  var key = scope.pathname + ".__source";
+  var ttlKey = key + "_ts";
+
+  var timestamp = sessionStorage.getItem(ttlKey);
+  if (timestamp && (Date.now() - parseInt(timestamp, 10)) > TTL_MS) {
+    sessionStorage.removeItem(key);
+    sessionStorage.removeItem(ttlKey);
+  }
+
+  // Patch __md_set to track timestamps for __source
+  var originalSet = window.__md_set;
+  if (originalSet) {
+    window.__md_set = function(k, v, storage, s) {
+      originalSet(k, v, storage, s);
+      if (k === "__source" && storage === sessionStorage) {
+        sessionStorage.setItem(ttlKey, Date.now().toString());
+      }
+    };
+  }
+})();
+</script>
+{{ super() }}
+{% endblock %}
