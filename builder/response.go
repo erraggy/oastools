@@ -110,3 +110,23 @@ func (b *Builder) responseRefPrefix() string {
 func (b *Builder) ResponseRef(name string) string {
 	return b.responseRefPrefix() + name
 }
+
+// buildResponsesFromMap converts a map of status codes to responses into
+// a parser.Responses object. The "default" key is treated specially and
+// assigned to the Default field.
+func buildResponsesFromMap(responseMap map[string]*parser.Response) *parser.Responses {
+	if len(responseMap) == 0 {
+		return nil
+	}
+	responses := &parser.Responses{
+		Codes: make(map[string]*parser.Response),
+	}
+	for code, resp := range responseMap {
+		if code == "default" {
+			responses.Default = resp
+		} else {
+			responses.Codes[code] = resp
+		}
+	}
+	return responses
+}

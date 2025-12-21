@@ -25,6 +25,16 @@ func NewSecurityEnforceGenerator(packageName string) *SecurityEnforceGenerator {
 // OperationSecurityRequirements maps operation IDs to their security requirements.
 type OperationSecurityRequirements map[string][]parser.SecurityRequirement
 
+// writeSecurityRequirement writes a single security requirement entry to the buffer.
+// The indent parameter controls the leading tabs (e.g., "\t\t" for nested entries).
+func writeSecurityRequirement(buf *bytes.Buffer, schemeName string, scopes []string, indent string) {
+	_, _ = fmt.Fprintf(buf, "%s{Scheme: %q", indent, schemeName)
+	if len(scopes) > 0 {
+		_, _ = fmt.Fprintf(buf, ", Scopes: []string{%s}", quotedStrings(scopes))
+	}
+	buf.WriteString("},\n")
+}
+
 // GenerateSecurityEnforceFile generates the security_enforce.go file.
 func (g *SecurityEnforceGenerator) GenerateSecurityEnforceFile(opSecurity OperationSecurityRequirements, globalSecurity []parser.SecurityRequirement) string {
 	var buf bytes.Buffer
@@ -89,11 +99,7 @@ var GlobalSecurity = []SecurityRequirement{
 `)
 		for _, req := range globalSecurity {
 			for schemeName, scopes := range req {
-				buf.WriteString(fmt.Sprintf("\t{Scheme: %q", schemeName))
-				if len(scopes) > 0 {
-					buf.WriteString(fmt.Sprintf(", Scopes: []string{%s}", quotedStrings(scopes)))
-				}
-				buf.WriteString("},\n")
+				writeSecurityRequirement(&buf, schemeName, scopes, "\t")
 			}
 		}
 		buf.WriteString(`}
@@ -140,11 +146,7 @@ package %s
 		buf.WriteString(fmt.Sprintf("\tOperationSecurity[%q] = []SecurityRequirement{\n", opID))
 		for _, req := range reqs {
 			for schemeName, scopes := range req {
-				buf.WriteString(fmt.Sprintf("\t\t{Scheme: %q", schemeName))
-				if len(scopes) > 0 {
-					buf.WriteString(fmt.Sprintf(", Scopes: []string{%s}", quotedStrings(scopes)))
-				}
-				buf.WriteString("},\n")
+				writeSecurityRequirement(&buf, schemeName, scopes, "\t\t")
 			}
 		}
 		buf.WriteString("\t}\n")
@@ -194,11 +196,7 @@ var OperationSecurity = map[string][]SecurityRequirement{
 		buf.WriteString(fmt.Sprintf("\t%q: {\n", opID))
 		for _, req := range reqs {
 			for schemeName, scopes := range req {
-				buf.WriteString(fmt.Sprintf("\t\t{Scheme: %q", schemeName))
-				if len(scopes) > 0 {
-					buf.WriteString(fmt.Sprintf(", Scopes: []string{%s}", quotedStrings(scopes)))
-				}
-				buf.WriteString("},\n")
+				writeSecurityRequirement(&buf, schemeName, scopes, "\t\t")
 			}
 		}
 		buf.WriteString("\t},\n")
@@ -216,11 +214,7 @@ var GlobalSecurity = []SecurityRequirement{
 `)
 		for _, req := range globalSecurity {
 			for schemeName, scopes := range req {
-				buf.WriteString(fmt.Sprintf("\t{Scheme: %q", schemeName))
-				if len(scopes) > 0 {
-					buf.WriteString(fmt.Sprintf(", Scopes: []string{%s}", quotedStrings(scopes)))
-				}
-				buf.WriteString("},\n")
+				writeSecurityRequirement(&buf, schemeName, scopes, "\t")
 			}
 		}
 		buf.WriteString(`}

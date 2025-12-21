@@ -1437,6 +1437,8 @@ func (d *Differ) diffSchemaUnevaluatedPropertiesUnified(source, target any, path
 			d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
 				severity, source, target, fmt.Sprintf("unevaluatedProperties changed from %v to %v", source, target))
 		}
+	case schemaAdditionalPropsTypeNil, schemaAdditionalPropsTypeUnknown:
+		// Already handled above
 	}
 }
 
@@ -1504,6 +1506,8 @@ func (d *Differ) diffSchemaUnevaluatedItemsUnified(source, target any, path stri
 			d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
 				severity, source, target, fmt.Sprintf("unevaluatedItems changed from %v to %v", source, target))
 		}
+	case schemaAdditionalPropsTypeNil, schemaAdditionalPropsTypeUnknown:
+		// Already handled above
 	}
 }
 
@@ -1578,12 +1582,9 @@ func (d *Differ) diffSchemaPrefixItemsUnified(source, target []*parser.Schema, p
 	}
 
 	// Compare each item
-	maxLen := len(source)
-	if len(target) > maxLen {
-		maxLen = len(target)
-	}
+	maxLen := max(len(source), len(target))
 
-	for i := 0; i < maxLen; i++ {
+	for i := range maxLen {
 		itemPath := fmt.Sprintf("%s[%d]", prefixPath, i)
 		if i >= len(source) {
 			d.addChange(result, itemPath, ChangeTypeAdded, CategorySchema,

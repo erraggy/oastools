@@ -5,6 +5,7 @@ import (
 	"mime"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -569,45 +570,53 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 	}
 }
 
-// validateOAS2Operation validates an operation in OAS 2.0
-func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, result *ValidationResult, baseURL string) {
-	// Validate that at least one successful response exists
-	if op.Responses != nil && op.Responses.Codes != nil {
-		hasSuccess := false
-		for code := range op.Responses.Codes {
-			// Validate HTTP status code format
-			if !httputil.ValidateStatusCode(code) {
-				result.Errors = append(result.Errors, ValidationError{
-					Path:     fmt.Sprintf("%s.responses.%s", path, code),
-					Message:  fmt.Sprintf("Invalid HTTP status code: %s", code),
-					SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
-					Severity: SeverityError,
-					Value:    code,
-				})
-			} else if v.StrictMode && !httputil.IsStandardStatusCode(code) {
-				// In strict mode, warn about non-standard status codes
-				result.Warnings = append(result.Warnings, ValidationError{
-					Path:     fmt.Sprintf("%s.responses.%s", path, code),
-					Message:  fmt.Sprintf("Non-standard HTTP status code: %s (not defined in HTTP RFCs)", code),
-					SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
-					Severity: SeverityWarning,
-					Value:    code,
-				})
-			}
+// validateResponseStatusCodes validates HTTP status codes in an operation's responses.
+// This helper is shared by both OAS 2.0 and OAS 3.x operation validators.
+func (v *Validator) validateResponseStatusCodes(responses *parser.Responses, path string, result *ValidationResult, baseURL string) {
+	if responses == nil || responses.Codes == nil {
+		return
+	}
 
-			if strings.HasPrefix(code, "2") || code == "default" {
-				hasSuccess = true
-			}
-		}
-		if !hasSuccess && v.StrictMode {
+	hasSuccess := false
+	for code := range responses.Codes {
+		// Validate HTTP status code format
+		if !httputil.ValidateStatusCode(code) {
+			result.Errors = append(result.Errors, ValidationError{
+				Path:     fmt.Sprintf("%s.responses.%s", path, code),
+				Message:  fmt.Sprintf("Invalid HTTP status code: %s", code),
+				SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
+				Severity: SeverityError,
+				Value:    code,
+			})
+		} else if v.StrictMode && !httputil.IsStandardStatusCode(code) {
+			// In strict mode, warn about non-standard status codes
 			result.Warnings = append(result.Warnings, ValidationError{
-				Path:     fmt.Sprintf("%s.responses", path),
-				Message:  "Operation should define at least one successful response (2XX or default)",
+				Path:     fmt.Sprintf("%s.responses.%s", path, code),
+				Message:  fmt.Sprintf("Non-standard HTTP status code: %s (not defined in HTTP RFCs)", code),
 				SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
 				Severity: SeverityWarning,
+				Value:    code,
 			})
 		}
+
+		if strings.HasPrefix(code, "2") || code == "default" {
+			hasSuccess = true
+		}
 	}
+	if !hasSuccess && v.StrictMode {
+		result.Warnings = append(result.Warnings, ValidationError{
+			Path:     fmt.Sprintf("%s.responses", path),
+			Message:  "Operation should define at least one successful response (2XX or default)",
+			SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
+			Severity: SeverityWarning,
+		})
+	}
+}
+
+// validateOAS2Operation validates an operation in OAS 2.0
+func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, result *ValidationResult, baseURL string) {
+	// Validate response status codes
+	v.validateResponseStatusCodes(op.Responses, path, result, baseURL)
 
 	// Validate consumes/produces media types
 	for i, mediaType := range op.Consumes {
@@ -1048,24 +1057,15 @@ func (v *Validator) validateOAS3Servers(doc *parser.OAS3Document, result *Valida
 			}
 
 			// If enum is specified, default must be in enum
-			if len(varObj.Enum) > 0 {
-				found := false
-				for _, enumVal := range varObj.Enum {
-					if enumVal == varObj.Default {
-						found = true
-						break
-					}
-				}
-				if !found {
-					result.Errors = append(result.Errors, ValidationError{
-						Path:     varPath,
-						Message:  fmt.Sprintf("Server variable default value '%s' must be one of the enum values", varObj.Default),
-						SpecRef:  fmt.Sprintf("%s#server-variable-object", baseURL),
-						Severity: SeverityError,
-						Field:    "default",
-						Value:    varObj.Default,
-					})
-				}
+			if len(varObj.Enum) > 0 && !slices.Contains(varObj.Enum, varObj.Default) {
+				result.Errors = append(result.Errors, ValidationError{
+					Path:     varPath,
+					Message:  fmt.Sprintf("Server variable default value '%s' must be one of the enum values", varObj.Default),
+					SpecRef:  fmt.Sprintf("%s#server-variable-object", baseURL),
+					Severity: SeverityError,
+					Field:    "default",
+					Value:    varObj.Default,
+				})
 			}
 		}
 	}
@@ -1141,43 +1141,8 @@ func (v *Validator) validateOAS3Operation(op *parser.Operation, path string, res
 		v.validateOAS3RequestBody(op.RequestBody, fmt.Sprintf("%s.requestBody", path), result, baseURL)
 	}
 
-	// Validate that at least one successful response exists
-	if op.Responses != nil && op.Responses.Codes != nil {
-		hasSuccess := false
-		for code := range op.Responses.Codes {
-			// Validate HTTP status code format
-			if !httputil.ValidateStatusCode(code) {
-				result.Errors = append(result.Errors, ValidationError{
-					Path:     fmt.Sprintf("%s.responses.%s", path, code),
-					Message:  fmt.Sprintf("Invalid HTTP status code: %s", code),
-					SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
-					Severity: SeverityError,
-					Value:    code,
-				})
-			} else if v.StrictMode && !httputil.IsStandardStatusCode(code) {
-				// In strict mode, warn about non-standard status codes
-				result.Warnings = append(result.Warnings, ValidationError{
-					Path:     fmt.Sprintf("%s.responses.%s", path, code),
-					Message:  fmt.Sprintf("Non-standard HTTP status code: %s (not defined in HTTP RFCs)", code),
-					SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
-					Severity: SeverityWarning,
-					Value:    code,
-				})
-			}
-
-			if strings.HasPrefix(code, "2") || code == "default" {
-				hasSuccess = true
-			}
-		}
-		if !hasSuccess && v.StrictMode {
-			result.Warnings = append(result.Warnings, ValidationError{
-				Path:     fmt.Sprintf("%s.responses", path),
-				Message:  "Operation should define at least one successful response (2XX or default)",
-				SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
-				Severity: SeverityWarning,
-			})
-		}
-	}
+	// Validate response status codes
+	v.validateResponseStatusCodes(op.Responses, path, result, baseURL)
 }
 
 // validateOAS3RequestBody validates a request body in OAS 3.x
@@ -2598,43 +2563,7 @@ func (v *Validator) validateOAS3Refs(doc *parser.OAS3Document, result *Validatio
 			}
 
 			// Validate each operation
-			operations := parser.GetOperations(pathItem, doc.OASVersion)
-			for method, op := range operations {
-				if op == nil {
-					continue
-				}
-
-				opPath := fmt.Sprintf("%s.%s", pathPrefix, method)
-
-				// Validate operation parameters
-				for i, param := range op.Parameters {
-					if param != nil {
-						paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, i)
-						v.validateParameterRef(param, paramPath, validRefs, result, baseURL)
-					}
-				}
-
-				// Validate request body
-				if op.RequestBody != nil {
-					requestBodyPath := fmt.Sprintf("%s.requestBody", opPath)
-					v.validateRequestBodyRef(op.RequestBody, requestBodyPath, validRefs, result, baseURL)
-				}
-
-				// Validate operation responses
-				if op.Responses != nil {
-					if op.Responses.Default != nil {
-						responsePath := fmt.Sprintf("%s.responses.default", opPath)
-						v.validateResponseRef(op.Responses.Default, responsePath, validRefs, result, baseURL)
-					}
-
-					for code, response := range op.Responses.Codes {
-						if response != nil {
-							responsePath := fmt.Sprintf("%s.responses.%s", opPath, code)
-							v.validateResponseRef(response, responsePath, validRefs, result, baseURL)
-						}
-					}
-				}
-			}
+			v.validatePathItemOperationRefs(pathItem, pathPrefix, doc.OASVersion, validRefs, result, baseURL)
 		}
 	}
 
@@ -2652,40 +2581,46 @@ func (v *Validator) validateOAS3Refs(doc *parser.OAS3Document, result *Validatio
 		}
 
 		// Validate webhook operations
-		operations := parser.GetOperations(pathItem, doc.OASVersion)
-		for method, op := range operations {
-			if op == nil {
-				continue
+		v.validatePathItemOperationRefs(pathItem, pathPrefix, doc.OASVersion, validRefs, result, baseURL)
+	}
+}
+
+// validatePathItemOperationRefs validates $ref values within all operations of a PathItem.
+// This is used by both paths and webhooks validation to avoid code duplication.
+func (v *Validator) validatePathItemOperationRefs(pathItem *parser.PathItem, pathPrefix string, version parser.OASVersion, validRefs map[string]bool, result *ValidationResult, baseURL string) {
+	operations := parser.GetOperations(pathItem, version)
+	for method, op := range operations {
+		if op == nil {
+			continue
+		}
+
+		opPath := fmt.Sprintf("%s.%s", pathPrefix, method)
+
+		// Validate operation parameters
+		for i, param := range op.Parameters {
+			if param != nil {
+				paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, i)
+				v.validateParameterRef(param, paramPath, validRefs, result, baseURL)
+			}
+		}
+
+		// Validate request body
+		if op.RequestBody != nil {
+			requestBodyPath := fmt.Sprintf("%s.requestBody", opPath)
+			v.validateRequestBodyRef(op.RequestBody, requestBodyPath, validRefs, result, baseURL)
+		}
+
+		// Validate operation responses
+		if op.Responses != nil {
+			if op.Responses.Default != nil {
+				responsePath := fmt.Sprintf("%s.responses.default", opPath)
+				v.validateResponseRef(op.Responses.Default, responsePath, validRefs, result, baseURL)
 			}
 
-			opPath := fmt.Sprintf("%s.%s", pathPrefix, method)
-
-			// Validate operation parameters
-			for i, param := range op.Parameters {
-				if param != nil {
-					paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, i)
-					v.validateParameterRef(param, paramPath, validRefs, result, baseURL)
-				}
-			}
-
-			// Validate request body
-			if op.RequestBody != nil {
-				requestBodyPath := fmt.Sprintf("%s.requestBody", opPath)
-				v.validateRequestBodyRef(op.RequestBody, requestBodyPath, validRefs, result, baseURL)
-			}
-
-			// Validate operation responses
-			if op.Responses != nil {
-				if op.Responses.Default != nil {
-					responsePath := fmt.Sprintf("%s.responses.default", opPath)
-					v.validateResponseRef(op.Responses.Default, responsePath, validRefs, result, baseURL)
-				}
-
-				for code, response := range op.Responses.Codes {
-					if response != nil {
-						responsePath := fmt.Sprintf("%s.responses.%s", opPath, code)
-						v.validateResponseRef(response, responsePath, validRefs, result, baseURL)
-					}
+			for code, response := range op.Responses.Codes {
+				if response != nil {
+					responsePath := fmt.Sprintf("%s.responses.%s", opPath, code)
+					v.validateResponseRef(response, responsePath, validRefs, result, baseURL)
 				}
 			}
 		}

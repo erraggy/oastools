@@ -118,11 +118,7 @@ func HandleParse(args []string) error {
 		cliutil.Writef(os.Stderr, "OpenAPI Specification Parser\n")
 		cliutil.Writef(os.Stderr, "============================\n\n")
 		cliutil.Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
-		if specPath == StdinFilePath {
-			cliutil.Writef(os.Stderr, "Specification: <stdin>\n")
-		} else {
-			cliutil.Writef(os.Stderr, "Specification: %s\n", specPath)
-		}
+		cliutil.Writef(os.Stderr, "Specification: %s\n", FormatSpecPath(specPath))
 		cliutil.Writef(os.Stderr, "OAS Version: %s\n", result.Version)
 		cliutil.Writef(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
 		cliutil.Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)

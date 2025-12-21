@@ -12,6 +12,23 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// collectPolymorphicSchemaRefs handles collecting refs from interface{} schema fields
+// that can be *parser.Schema, bool, or map[string]any. This helper reduces duplication
+// in collectSchemaRefsRecursive for AdditionalProperties, Items, AdditionalItems,
+// UnevaluatedProperties, and UnevaluatedItems.
+func collectPolymorphicSchemaRefs(field any, prefix string, visited map[*parser.Schema]bool) []string {
+	if field == nil {
+		return nil
+	}
+	if schema, ok := field.(*parser.Schema); ok {
+		return collectSchemaRefsRecursive(schema, prefix, visited)
+	}
+	if mapField, ok := field.(map[string]any); ok {
+		return collectRefsFromMap(mapField, prefix)
+	}
+	return nil
+}
+
 // buildReferencedSchemaSet builds the transitive closure of referenced schemas.
 // Starting from refs collected by RefCollector, it follows schema-to-schema references
 // to ensure schemas that are indirectly referenced are not pruned.
@@ -71,14 +88,16 @@ func schemaRefPrefix(version parser.OASVersion) string {
 // Handles both URL-encoded and non-encoded refs.
 func extractSchemaName(ref, prefix string) string {
 	// Try direct prefix match first
-	if strings.HasPrefix(ref, prefix) {
-		return strings.TrimPrefix(ref, prefix)
+	if name, found := strings.CutPrefix(ref, prefix); found {
+		return name
 	}
 
 	// Try URL-decoded version
 	decoded, err := url.PathUnescape(ref)
-	if err == nil && strings.HasPrefix(decoded, prefix) {
-		return strings.TrimPrefix(decoded, prefix)
+	if err == nil {
+		if name, found := strings.CutPrefix(decoded, prefix); found {
+			return name
+		}
 	}
 
 	return ""
@@ -111,35 +130,10 @@ func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited ma
 		refs = append(refs, collectSchemaRefsRecursive(propSchema, prefix, visited)...)
 	}
 
-	// AdditionalProperties (can be *Schema or bool)
-	if schema.AdditionalProperties != nil {
-		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-			refs = append(refs, collectSchemaRefsRecursive(addProps, prefix, visited)...)
-		} else if addPropsMap, ok := schema.AdditionalProperties.(map[string]any); ok {
-			// Fallback: extract refs from raw map (polymorphic field may remain as map)
-			refs = append(refs, collectRefsFromMap(addPropsMap, prefix)...)
-		}
-	}
-
-	// Items (can be *Schema or bool in OAS 3.1+)
-	if schema.Items != nil {
-		if items, ok := schema.Items.(*parser.Schema); ok {
-			refs = append(refs, collectSchemaRefsRecursive(items, prefix, visited)...)
-		} else if itemsMap, ok := schema.Items.(map[string]any); ok {
-			// Fallback: extract refs from raw map (polymorphic field may remain as map)
-			refs = append(refs, collectRefsFromMap(itemsMap, prefix)...)
-		}
-	}
-
-	// AdditionalItems (can be *Schema or bool)
-	if schema.AdditionalItems != nil {
-		if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
-			refs = append(refs, collectSchemaRefsRecursive(addItems, prefix, visited)...)
-		} else if addItemsMap, ok := schema.AdditionalItems.(map[string]any); ok {
-			// Fallback: extract refs from raw map (polymorphic field may remain as map)
-			refs = append(refs, collectRefsFromMap(addItemsMap, prefix)...)
-		}
-	}
+	// Polymorphic fields (can be *Schema, bool, or map[string]any)
+	refs = append(refs, collectPolymorphicSchemaRefs(schema.AdditionalProperties, prefix, visited)...)
+	refs = append(refs, collectPolymorphicSchemaRefs(schema.Items, prefix, visited)...)
+	refs = append(refs, collectPolymorphicSchemaRefs(schema.AdditionalItems, prefix, visited)...)
 
 	// Schema composition
 	for _, s := range schema.AllOf {
@@ -169,21 +163,9 @@ func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited ma
 		refs = append(refs, collectSchemaRefsRecursive(depSchema, prefix, visited)...)
 	}
 
-	// JSON Schema 2020-12 unevaluated keywords (can be *Schema or bool)
-	if schema.UnevaluatedProperties != nil {
-		if unevalProps, ok := schema.UnevaluatedProperties.(*parser.Schema); ok {
-			refs = append(refs, collectSchemaRefsRecursive(unevalProps, prefix, visited)...)
-		} else if unevalPropsMap, ok := schema.UnevaluatedProperties.(map[string]any); ok {
-			refs = append(refs, collectRefsFromMap(unevalPropsMap, prefix)...)
-		}
-	}
-	if schema.UnevaluatedItems != nil {
-		if unevalItems, ok := schema.UnevaluatedItems.(*parser.Schema); ok {
-			refs = append(refs, collectSchemaRefsRecursive(unevalItems, prefix, visited)...)
-		} else if unevalItemsMap, ok := schema.UnevaluatedItems.(map[string]any); ok {
-			refs = append(refs, collectRefsFromMap(unevalItemsMap, prefix)...)
-		}
-	}
+	// JSON Schema 2020-12 unevaluated keywords (polymorphic: *Schema or bool)
+	refs = append(refs, collectPolymorphicSchemaRefs(schema.UnevaluatedProperties, prefix, visited)...)
+	refs = append(refs, collectPolymorphicSchemaRefs(schema.UnevaluatedItems, prefix, visited)...)
 
 	// JSON Schema 2020-12 content keywords
 	if schema.ContentSchema != nil {

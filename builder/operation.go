@@ -851,19 +851,7 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 	}
 
 	// Build responses object
-	var responses *parser.Responses
-	if len(responseMap) > 0 {
-		responses = &parser.Responses{
-			Codes: make(map[string]*parser.Response),
-		}
-		for code, resp := range responseMap {
-			if code == "default" {
-				responses.Default = resp
-			} else {
-				responses.Codes[code] = resp
-			}
-		}
-	}
+	responses := buildResponsesFromMap(responseMap)
 
 	// Build Operation struct
 	var security []parser.SecurityRequirement
