@@ -88,7 +88,7 @@ After merging this change:
 
 ## Why This Works
 
-1. **Release Event Trigger**: The `release: published` event fires when you run `gh release edit v1.X.Y --draft=false` (your current final publish step)
+1. **Release Event Trigger**: The `release: published` event fires when GoReleaser publishes a release (triggered by pushing a version tag like `git push origin v1.X.Y`)
 
 2. **MkDocs Material Version Fetch**: The theme makes a client-side request to GitHub's API for the latest release. By redeploying after each release, we ensure:
    - The site reflects the latest content
@@ -103,9 +103,9 @@ After merging this change:
 
 After deploying this change:
 
-1. Publish your next release as usual:
+1. Publish your next release as usual (push a version tag, which triggers GoReleaser):
    ```bash
-   gh release edit v1.31.0 --draft=false
+   git tag v1.31.0 && git push origin v1.31.0
    ```
 
 2. Watch for the docs workflow to trigger:
@@ -137,7 +137,7 @@ Or via the GitHub UI: Actions → Publish Docs → Run workflow
 
 ---
 
-## Execution Commands for Claude Code
+## Execution Commands
 
 ```bash
 # 1. Edit the docs workflow file
@@ -146,13 +146,16 @@ Or via the GitHub UI: Actions → Publish Docs → Run workflow
 
 # 2. Commit the change
 git add .github/workflows/docs.yml
-git commit -m "ci(docs): trigger docs deployment on release publish
+git commit -m "$(cat <<'EOF'
+ci(docs): trigger docs deployment on release publish
 
 Add release:published event trigger to docs workflow so the GitHub Pages
 site automatically redeploys when a release is published. This ensures
 the version display in the header stays current with the latest release.
 
-Fixes stale version display (was stuck at v1.28.3 despite newer releases)."
+Fixes stale version display (was stuck at v1.28.3 despite newer releases).
+EOF
+)"
 
 # 3. Push to main (or create PR if preferred)
 git push origin main
