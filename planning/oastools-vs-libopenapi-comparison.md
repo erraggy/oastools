@@ -34,7 +34,7 @@ This document identifies features present in libopenapi (github.com/pb33f/libope
 | **External $ref (file)** | ✅ | ✅ | Both support local file refs |
 | **External $ref (HTTP)** | ✅ | ✅ | Both support remote refs |
 | **Spec validation** | ✅ Severity levels | ✅ Via libopenapi-validator | oastools has Error/Warning/Info |
-| **HTTP request/response validation** | ❌ | ✅ Via libopenapi-validator | libopenapi has separate module |
+| **HTTP request/response validation** | ✅ Via httpvalidator | ✅ Via libopenapi-validator | Both provide runtime HTTP validation |
 | **Auto-fixing** | ✅ Dedicated fixer package | ⚠️ Via vacuum --fix | oastools integrated, libopenapi external |
 | **Version conversion (2.0 ↔ 3.x)** | ✅ Bidirectional | ❌ Not available | oastools feature |
 | **Multi-spec merging** | ✅ With collision strategies | ⚠️ Basic bundler | oastools has Accept/Rename/Error strategies |
@@ -285,7 +285,19 @@ oastools offers optional source maps via `WithSourceMap(true)` but with less gra
 
 **2. HTTP Request/Response Validation**
 
-Via libopenapi-validator:
+**oastools**: Via httpvalidator package (as of this PR):
+
+```go
+v, _ := httpvalidator.New(parsed)
+
+// Validate incoming requests
+result, _ := v.ValidateRequest(request)
+
+// Validate responses (middleware-friendly)
+result, _ := v.ValidateResponseData(request, statusCode, headers, body)
+```
+
+**libopenapi**: Via libopenapi-validator:
 
 ```go
 validator, _ := validator.NewValidator(document)
@@ -296,8 +308,6 @@ valid, errs := validator.ValidateHttpRequest(request)
 // Validate responses
 valid, errs := validator.ValidateHttpResponse(request, response)
 ```
-
-oastools validates the specification document itself but not HTTP traffic.
 
 **3. RenderAndReload Pattern**
 
@@ -642,10 +652,10 @@ BenchmarkParse_libopenapi_Petstore-10    5421   223456 ns/op    79.8 MB/s   3124
 
 Based on this analysis, the following libopenapi features are candidates for oastools implementation:
 
-### High Priority (Gap in oastools)
+### High Priority (Gap in oastools) - ADDRESSED IN THIS PR
 
-1. **HTTP request/response validation** - libopenapi-validator provides this; oastools currently only validates the spec itself
-2. **Configurable breaking change rules** - libopenapi allows customizing what constitutes a breaking change
+1. ~~**HTTP request/response validation**~~ - ✅ Implemented via `httpvalidator` package in this PR
+2. ~~**Configurable breaking change rules**~~ - ✅ Implemented via `differ` rules configuration in this PR
 
 ### Lower Priority (Different design trade-offs)
 
@@ -675,9 +685,9 @@ The pb33f ecosystem is more fragmented (multiple repositories) but offers specia
 
 ## Summary
 
-This analysis identified two features present in libopenapi that oastools lacks:
+This analysis originally identified two features present in libopenapi that oastools lacked:
 
-1. **HTTP request/response validation** - Implemented via libopenapi-validator
-2. **Configurable breaking change rules** - Built into libopenapi's diff engine
+1. ~~**HTTP request/response validation**~~ - ✅ **NOW IMPLEMENTED** via `httpvalidator` package (this PR)
+2. ~~**Configurable breaking change rules**~~ - ✅ **NOW IMPLEMENTED** via `differ` rules configuration (this PR)
 
-These represent opportunities for oastools enhancement. The architectural differences (lossless parsing, RenderAndReload) reflect different design priorities rather than missing features.
+**Update**: Both identified gaps have been addressed in this PR. The remaining architectural differences (lossless parsing, RenderAndReload) reflect different design priorities rather than missing features.

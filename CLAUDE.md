@@ -852,6 +852,17 @@ Use struct-based API for: multiple files, reusable instances, advanced configura
 - Options: `WithGenericNaming(strategy)`, `WithGenericNamingConfig(config)`, `WithEnabledFixes(fixes...)`, `WithDryRun(bool)`
 - Returns FixResult with list of applied fixes and fixed document
 
+**HTTP Validator Package:**
+- Functional options: `httpvalidator.ValidateRequestWithOptions(req, httpvalidator.WithFilePath(...), httpvalidator.WithStrictMode(...), ...)`
+- Struct-based: `httpvalidator.New(parsed)`, `Validator.ValidateRequest(req)`, `Validator.ValidateResponseData(req, statusCode, headers, body)`
+- Configuration: `StrictMode`, `IncludeWarnings`
+- Request validation: Path params, query params, headers, cookies, request body
+- Response validation: Status codes, headers, response body
+- Parameter deserialization: All OAS serialization styles (simple, form, matrix, label, deepObject, spaceDelimited, pipeDelimited)
+- Schema validation: Type checking, constraints (min/max, pattern, enum), composition (allOf/anyOf/oneOf)
+- Returns ValidationResult with Valid flag, Errors, Warnings, and deserialized parameter maps (PathParams, QueryParams, HeaderParams, CookieParams)
+- Middleware-friendly: `ValidateResponseData()` accepts captured response parts for middleware use
+
 **Overlay Package:**
 - Functional options: `overlay.ApplyWithOptions(overlay.WithSpecFilePath(...), overlay.WithOverlayFilePath(...), ...)`
 - Struct-based: `overlay.NewApplier()`, `Applier.Apply()`, `Applier.ApplyParsed()`, `Applier.DryRun()`
