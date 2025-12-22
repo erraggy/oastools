@@ -531,6 +531,176 @@ paths:
 	})
 }
 
+// =============================================================================
+// Validator Helper Method Tests
+// =============================================================================
+
+func TestValidator_IsOAS3(t *testing.T) {
+	t.Run("returns true for OAS 3.x", func(t *testing.T) {
+		parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths: {}
+`)
+		v, _ := New(parsed)
+		assert.True(t, v.IsOAS3())
+		assert.False(t, v.IsOAS2())
+	})
+}
+
+func TestValidator_IsOAS2(t *testing.T) {
+	t.Run("returns true for OAS 2.0", func(t *testing.T) {
+		parsed := mustParse(t, `
+swagger: "2.0"
+info:
+  title: Test
+  version: "1.0"
+paths: {}
+`)
+		v, _ := New(parsed)
+		assert.True(t, v.IsOAS2())
+		assert.False(t, v.IsOAS3())
+	})
+}
+
+func TestValidator_GetOperation_AllMethods(t *testing.T) {
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /test:
+    get:
+      responses:
+        "200":
+          description: OK
+    post:
+      responses:
+        "201":
+          description: Created
+    put:
+      responses:
+        "200":
+          description: OK
+    delete:
+      responses:
+        "204":
+          description: No Content
+    patch:
+      responses:
+        "200":
+          description: OK
+    head:
+      responses:
+        "200":
+          description: OK
+    options:
+      responses:
+        "200":
+          description: OK
+    trace:
+      responses:
+        "200":
+          description: OK
+`)
+
+	v, _ := New(parsed)
+
+	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "TRACE"}
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			op := v.getOperation("/test", method)
+			assert.NotNil(t, op, "operation for %s should exist", method)
+		})
+	}
+
+	t.Run("unknown method returns nil", func(t *testing.T) {
+		op := v.getOperation("/test", "CUSTOM")
+		assert.Nil(t, op)
+	})
+
+	t.Run("lowercase method works", func(t *testing.T) {
+		op := v.getOperation("/test", "get")
+		assert.NotNil(t, op)
+	})
+}
+
+func TestValidator_GetParameters_Merging(t *testing.T) {
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /items/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: version
+        in: header
+        schema:
+          type: string
+    get:
+      parameters:
+        - name: version
+          in: header
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+`)
+
+	v, _ := New(parsed)
+
+	t.Run("merges path-level and operation-level parameters", func(t *testing.T) {
+		op := v.getOperation("/items/{id}", "GET")
+		params := v.getParameters("/items/{id}", op)
+
+		// Should have 2 params: id (from path level) and version (operation overrides path)
+		assert.Len(t, params, 2)
+
+		// Find the version param - it should have integer type from operation level
+		var versionParam *parser.Parameter
+		for _, p := range params {
+			if p.Name == "version" {
+				versionParam = p
+				break
+			}
+		}
+		require.NotNil(t, versionParam)
+		assert.Equal(t, "integer", versionParam.Schema.Type)
+	})
+
+	t.Run("returns operation params when no path item", func(t *testing.T) {
+		op := &parser.Operation{
+			Parameters: []*parser.Parameter{
+				{Name: "test", In: "query"},
+			},
+		}
+		params := v.getParameters("/nonexistent", op)
+		assert.Len(t, params, 1)
+		assert.Equal(t, "test", params[0].Name)
+	})
+}
+
+func TestValidator_MatchPath_NilMatcherSet(t *testing.T) {
+	v := &Validator{
+		pathMatcherSet: nil,
+	}
+
+	template, params, found := v.matchPath("/any/path")
+	assert.False(t, found)
+	assert.Empty(t, template)
+	assert.Nil(t, params)
+}
+
 // Helper to create an io.ReadCloser from a string
 type stringReadCloser struct {
 	*bytes.Reader

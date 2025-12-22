@@ -371,7 +371,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	// Validate based on media type
 	switch {
 	case strings.HasPrefix(mediaType, "application/json") || strings.HasSuffix(mediaType, "+json"):
-		v.validateJSONBody(body, bodySchema, "requestBody", result)
+		v.validateJSONBody(body, bodySchema, result)
 
 	case mediaType == "application/x-www-form-urlencoded":
 		v.validateFormBody(body, bodySchema, pathTemplate, operation, result)
@@ -432,7 +432,8 @@ func matchMediaType(pattern, mediaType string) bool {
 }
 
 // validateJSONBody validates a JSON request body against a schema.
-func (v *Validator) validateJSONBody(body []byte, schema *parser.Schema, path string, result *RequestValidationResult) {
+func (v *Validator) validateJSONBody(body []byte, schema *parser.Schema, result *RequestValidationResult) {
+	const path = "requestBody"
 	if len(body) == 0 {
 		result.addError(path, "request body is empty", SeverityError)
 		return

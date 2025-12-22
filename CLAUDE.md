@@ -371,9 +371,17 @@ Coverage types:
 
 ### Codecov Patch Coverage Requirements
 
-**IMPORTANT: Codecov enforces 70% patch coverage on all PRs.**
+**CRITICAL: Write tests to meet 70% patch coverage BEFORE creating PRs.**
 
-The `.codecov.yml` configuration requires:
+The `.codecov.yml` configuration requires 70% patch coverage on all PRs. This is a blocking requirement—PRs will fail the codecov/patch check if new/modified code doesn't have adequate test coverage.
+
+**Workflow requirement:**
+1. Implement the feature or fix
+2. Write comprehensive tests for all new code paths
+3. Verify coverage locally before pushing
+4. Create PR only after coverage requirements are met
+
+The `.codecov.yml` configuration:
 - **Project coverage**: auto target with 1% threshold (overall project)
 - **Patch coverage**: 70% target with 5% threshold (new/modified lines only)
 
@@ -385,8 +393,12 @@ The `.codecov.yml` configuration requires:
 
 3. **Check coverage locally before pushing:**
    ```bash
+   # Check coverage for a specific package
    go test -coverprofile=cover.out ./package/
    go tool cover -func=cover.out | grep "function_name"
+
+   # For new packages, aim for 70%+ on each file
+   go tool cover -func=cover.out | tail -1  # Shows total
    ```
 
 4. **For functions with many nil-check branches**, consider adding targeted unit tests that construct scenarios to hit each branch, rather than relying solely on integration tests.
@@ -395,6 +407,7 @@ The `.codecov.yml` configuration requires:
 - New helper functions with multiple conditional paths
 - Error handling branches that require specific error conditions
 - Nil checks for optional struct fields that are rarely nil in tests
+- Functional options that aren't exercised in tests
 
 ### Benchmark Test Requirements
 
