@@ -709,6 +709,31 @@ func (c *Converter) rewriteAllRefsOAS2ToOAS3(doc *parser.OAS3Document) {
 	}
 }
 
+// paramConvertFunc is the signature for parameter conversion functions.
+type paramConvertFunc func(param *parser.Parameter, result *ConversionResult, path string) *parser.Parameter
+
+// convertParameterSlice converts a slice of parameters using the provided conversion function.
+// This helper reduces duplication between OAS2→OAS3 and OAS3→OAS2 parameter list conversion.
+func (c *Converter) convertParameterSlice(params []*parser.Parameter, result *ConversionResult, path string, convert paramConvertFunc) []*parser.Parameter {
+	if len(params) == 0 {
+		return nil
+	}
+
+	converted := make([]*parser.Parameter, 0, len(params))
+	for i, param := range params {
+		if param == nil {
+			continue
+		}
+		paramPath := fmt.Sprintf("%s[%d]", path, i)
+		convertedParam := convert(param, result, paramPath)
+		if convertedParam != nil {
+			converted = append(converted, convertedParam)
+		}
+	}
+
+	return converted
+}
+
 // rewriteAllRefsOAS3ToOAS2 rewrites all $ref values in an OAS 2.0 document from OAS 3.x to OAS 2.0 format
 func (c *Converter) rewriteAllRefsOAS3ToOAS2(doc *parser.OAS2Document) {
 	if doc == nil {

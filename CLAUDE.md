@@ -102,6 +102,25 @@ if typeStr, ok := schema.Type.(string); ok {
 4. **Mutating source documents** - Always deep copy before modification (use JSON marshal/unmarshal)
 5. **Not handling operation-level consumes/produces** - Check operation-level first, then fall back to document-level
 6. **Ignoring version-specific features during conversion** - Explicitly check and warn about features that don't convert
+7. **Confusing Version (string) with OASVersion (enum)** - `ParseResult` has TWO version fields:
+   - `Version` (string): The literal version string from the document (e.g., `"3.0.3"`, `"2.0"`)
+   - `OASVersion` (parser.OASVersion enum): Our canonical enum for each published spec version
+
+   **OASVersion constants** (see `parser/versions.go`):
+   - `OASVersion20` - OpenAPI 2.0 (Swagger)
+   - `OASVersion300`, `OASVersion301`, `OASVersion302`, `OASVersion303`, `OASVersion304` - OpenAPI 3.0.x
+   - `OASVersion310`, `OASVersion311`, `OASVersion312` - OpenAPI 3.1.x
+   - `OASVersion320` - OpenAPI 3.2.0
+
+   **When constructing ParseResult in tests, ALWAYS set both fields:**
+   ```go
+   parseResult := parser.ParseResult{
+       Version:    "3.0.0",               // String from document
+       OASVersion: parser.OASVersion300,  // Our enum - REQUIRED for validation
+       Document:   &parser.OAS3Document{...},
+   }
+   ```
+   The validator uses `OASVersion` to determine which validation rules to apply. Setting only `Version` will cause "unsupported OAS version: unknown" errors.
 
 ## Development Commands
 

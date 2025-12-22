@@ -317,19 +317,7 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 	}
 
 	// Build responses object
-	var responses *parser.Responses
-	if len(responseMap) > 0 {
-		responses = &parser.Responses{
-			Codes: make(map[string]*parser.Response),
-		}
-		for code, resp := range responseMap {
-			if code == "default" {
-				responses.Default = resp
-			} else {
-				responses.Codes[code] = resp
-			}
-		}
-	}
+	responses := buildResponsesFromMap(responseMap)
 
 	// Build security
 	var security []parser.SecurityRequirement

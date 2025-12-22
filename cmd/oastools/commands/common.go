@@ -106,3 +106,12 @@ func MarshalDocument(doc any, format parser.SourceFormat) ([]byte, error) {
 	}
 	return yaml.Marshal(doc)
 }
+
+// FormatSpecPath returns a display-friendly path for the specification.
+// Returns "<stdin>" if the path is StdinFilePath, otherwise returns the path as-is.
+func FormatSpecPath(specPath string) string {
+	if specPath == StdinFilePath {
+		return "<stdin>"
+	}
+	return specPath
+}

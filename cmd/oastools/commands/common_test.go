@@ -111,3 +111,25 @@ func TestOutputStructured(t *testing.T) {
 		}
 	})
 }
+
+func TestFormatSpecPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		specPath string
+		want     string
+	}{
+		{"stdin path", StdinFilePath, "<stdin>"},
+		{"normal file path", "/path/to/openapi.yaml", "/path/to/openapi.yaml"},
+		{"relative path", "api/spec.json", "api/spec.json"},
+		{"empty path", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FormatSpecPath(tt.specPath)
+			if got != tt.want {
+				t.Errorf("FormatSpecPath(%q) = %q, want %q", tt.specPath, got, tt.want)
+			}
+		})
+	}
+}

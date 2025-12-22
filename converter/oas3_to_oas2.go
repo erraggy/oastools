@@ -296,25 +296,9 @@ func (c *Converter) convertOAS3RequestBodyToOAS2(requestBody *parser.RequestBody
 	return bodyParam, consumes
 }
 
-// convertParametersToOAS2 converts a list of parameters to OAS 2.0
+// convertParametersToOAS2 converts a list of parameters from OAS 3.x to OAS 2.0
 func (c *Converter) convertParametersToOAS2(params []*parser.Parameter, result *ConversionResult, path string) []*parser.Parameter {
-	if len(params) == 0 {
-		return nil
-	}
-
-	converted := make([]*parser.Parameter, 0, len(params))
-	for i, param := range params {
-		if param == nil {
-			continue
-		}
-		paramPath := fmt.Sprintf("%s[%d]", path, i)
-		convertedParam := c.convertOAS3ParameterToOAS2(param, result, paramPath)
-		if convertedParam != nil {
-			converted = append(converted, convertedParam)
-		}
-	}
-
-	return converted
+	return c.convertParameterSlice(params, result, path, c.convertOAS3ParameterToOAS2)
 }
 
 // convertSecuritySchemes converts OAS 3.x components.securitySchemes to OAS 2.0 securityDefinitions
