@@ -72,35 +72,49 @@ func anyToString(v any) string {
 // - Phase 6: Top-level functions - PENDING
 // - Phase 7: Cleanup - PENDING
 
-// severity returns the appropriate severity based on diff mode.
-// In simple mode, severity is always 0 (unset).
-// In breaking mode, the provided breaking severity is used.
-func (d *Differ) severity(breakingSeverity Severity) Severity {
-	if d.Mode == ModeBreaking {
-		return breakingSeverity
+// severityWithRule returns severity based on diff mode and breaking rules.
+// If a rule is configured for the given key, it may override the default severity.
+// Returns the severity and whether the change should be ignored.
+func (d *Differ) severityWithRule(defaultSeverity Severity, key RuleKey) (Severity, bool) {
+	if d.Mode != ModeBreaking {
+		return 0, false
 	}
-	return 0
+	rule := d.BreakingRules.getRule(key)
+	return rule.ApplyRule(defaultSeverity)
 }
 
-// severityConditional returns severity based on mode and a condition.
-// This is useful when the severity depends on the nature of the change.
-func (d *Differ) severityConditional(condition bool, severityIfTrue, severityIfFalse Severity) Severity {
+// severityConditionalWithRule returns severity based on mode, condition, and breaking rules.
+func (d *Differ) severityConditionalWithRule(condition bool, severityIfTrue, severityIfFalse Severity, key RuleKey) (Severity, bool) {
 	if d.Mode != ModeBreaking {
-		return 0
+		return 0, false
 	}
+	defaultSeverity := severityIfFalse
 	if condition {
-		return severityIfTrue
+		defaultSeverity = severityIfTrue
 	}
-	return severityIfFalse
+	rule := d.BreakingRules.getRule(key)
+	return rule.ApplyRule(defaultSeverity)
 }
 
 // addChange is a helper to append a change with mode-appropriate severity.
 func (d *Differ) addChange(result *DiffResult, path string, changeType ChangeType, category ChangeCategory, breakingSeverity Severity, oldValue, newValue any, message string) {
+	d.addChangeWithKey(result, path, changeType, category, breakingSeverity, oldValue, newValue, message, "")
+}
+
+// addChangeWithKey is like addChange but allows specifying a subtype for rule lookup.
+// The subType provides additional context (e.g., "operationId", "required") for
+// fine-grained rule matching.
+func (d *Differ) addChangeWithKey(result *DiffResult, path string, changeType ChangeType, category ChangeCategory, breakingSeverity Severity, oldValue, newValue any, message string, subType string) {
+	key := RuleKey{Category: category, ChangeType: changeType, SubType: subType}
+	sev, ignore := d.severityWithRule(breakingSeverity, key)
+	if ignore {
+		return
+	}
 	change := Change{
 		Path:     path,
 		Type:     changeType,
 		Category: category,
-		Severity: d.severity(breakingSeverity),
+		Severity: sev,
 		OldValue: oldValue,
 		NewValue: newValue,
 		Message:  message,
@@ -111,11 +125,21 @@ func (d *Differ) addChange(result *DiffResult, path string, changeType ChangeTyp
 
 // addChangeConditional is a helper that picks severity based on a condition.
 func (d *Differ) addChangeConditional(result *DiffResult, path string, changeType ChangeType, category ChangeCategory, condition bool, severityIfTrue, severityIfFalse Severity, oldValue, newValue any, message string) {
+	d.addChangeConditionalWithKey(result, path, changeType, category, condition, severityIfTrue, severityIfFalse, oldValue, newValue, message, "")
+}
+
+// addChangeConditionalWithKey is like addChangeConditional but allows specifying a subtype.
+func (d *Differ) addChangeConditionalWithKey(result *DiffResult, path string, changeType ChangeType, category ChangeCategory, condition bool, severityIfTrue, severityIfFalse Severity, oldValue, newValue any, message string, subType string) {
+	key := RuleKey{Category: category, ChangeType: changeType, SubType: subType}
+	sev, ignore := d.severityConditionalWithRule(condition, severityIfTrue, severityIfFalse, key)
+	if ignore {
+		return
+	}
 	change := Change{
 		Path:     path,
 		Type:     changeType,
 		Category: category,
-		Severity: d.severityConditional(condition, severityIfTrue, severityIfFalse),
+		Severity: sev,
 		OldValue: oldValue,
 		NewValue: newValue,
 		Message:  message,
@@ -1861,6 +1885,14 @@ func (d *Differ) diffRequestBodyMediaTypeUnified(source, target *parser.MediaTyp
 
 // diffOperationUnified compares Operation objects
 func (d *Differ) diffOperationUnified(source, target *parser.Operation, path string, result *DiffResult) {
+	// Compare operationId - important for code generation, considered a breaking change when modified
+	if source.OperationID != target.OperationID {
+		d.addChangeWithKey(result, path+".operationId", ChangeTypeModified, CategoryOperation,
+			SeverityWarning, source.OperationID, target.OperationID,
+			fmt.Sprintf("operationId changed from %q to %q", source.OperationID, target.OperationID),
+			"operationId")
+	}
+
 	// Compare deprecated flag
 	if source.Deprecated != target.Deprecated {
 		severity := SeverityInfo

@@ -185,6 +185,10 @@ type Differ struct {
 	// When set, changes will include Line, Column, and File information
 	// for elements in the target document (used for additions).
 	TargetMap *parser.SourceMap
+	// BreakingRules configures which changes are considered breaking
+	// and their severity levels. When nil, default rules are used.
+	// See BreakingRulesConfig for configuration options.
+	BreakingRules *BreakingRulesConfig
 }
 
 // New creates a new Differ instance with default settings
@@ -207,9 +211,10 @@ type diffConfig struct {
 	targetParsed   *parser.ParseResult
 
 	// Configuration options
-	mode        DiffMode
-	includeInfo bool
-	userAgent   string
+	mode          DiffMode
+	includeInfo   bool
+	userAgent     string
+	breakingRules *BreakingRulesConfig
 
 	// Source maps for line/column tracking
 	sourceMap *parser.SourceMap
@@ -234,11 +239,12 @@ func DiffWithOptions(opts ...Option) (*DiffResult, error) {
 	}
 
 	d := &Differ{
-		Mode:        cfg.mode,
-		IncludeInfo: cfg.includeInfo,
-		UserAgent:   cfg.userAgent,
-		SourceMap:   cfg.sourceMap,
-		TargetMap:   cfg.targetMap,
+		Mode:          cfg.mode,
+		IncludeInfo:   cfg.includeInfo,
+		UserAgent:     cfg.userAgent,
+		SourceMap:     cfg.sourceMap,
+		TargetMap:     cfg.targetMap,
+		BreakingRules: cfg.breakingRules,
 	}
 
 	// Determine source
@@ -407,6 +413,31 @@ func WithSourceMap(sm *parser.SourceMap) Option {
 func WithTargetMap(sm *parser.SourceMap) Option {
 	return func(cfg *diffConfig) error {
 		cfg.targetMap = sm
+		return nil
+	}
+}
+
+// WithBreakingRules configures which changes are considered breaking
+// and their severity levels. This allows customizing breaking change
+// detection based on your organization's API compatibility policies.
+//
+// Example:
+//
+//	result, _ := differ.DiffWithOptions(
+//	    differ.WithSourceFilePath("v1.yaml"),
+//	    differ.WithTargetFilePath("v2.yaml"),
+//	    differ.WithMode(differ.ModeBreaking),
+//	    differ.WithBreakingRules(&differ.BreakingRulesConfig{
+//	        Operation: &differ.OperationRules{
+//	            OperationIDModified: &differ.BreakingChangeRule{
+//	                Severity: differ.SeverityPtr(differ.SeverityInfo),
+//	            },
+//	        },
+//	    }),
+//	)
+func WithBreakingRules(rules *BreakingRulesConfig) Option {
+	return func(cfg *diffConfig) error {
+		cfg.breakingRules = rules
 		return nil
 	}
 }

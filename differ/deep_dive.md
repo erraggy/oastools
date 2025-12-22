@@ -13,6 +13,7 @@
 - [Source Map Integration](#source-map-integration)
 - [Integration with Other Packages](#integration-with-other-packages)
 - [Best Practices](#best-practices)
+- [Configurable Breaking Change Rules](#configurable-breaking-change-rules)
 - [DiffResult Structure](#diffresult-structure)
 
 ---
@@ -593,6 +594,87 @@ result, _ := differ.DiffWithOptions(
 **Pin to specific major versions** based on severity levels—Critical and Error changes warrant major version bumps.
 
 **Use the parse-once pattern** when comparing multiple documents or integrating with other packages for 81x performance improvement.
+
+[↑ Back to top](#top)
+
+## Configurable Breaking Change Rules
+
+Organizations often have custom policies for what constitutes a breaking change. The differ supports configurable rules that let you override default severity levels or completely ignore certain change types.
+
+### Rule Configuration
+
+Use `BreakingRulesConfig` to customize breaking change detection:
+
+```go
+rules := &differ.BreakingRulesConfig{
+    Operation: &differ.OperationRules{
+        // Downgrade operationId changes to Info (not breaking for us)
+        OperationIDModified: &differ.BreakingChangeRule{
+            Severity: differ.SeverityPtr(differ.SeverityInfo),
+        },
+    },
+    Schema: &differ.SchemaRules{
+        // Completely ignore property removal (we handle this differently)
+        PropertyRemoved: &differ.BreakingChangeRule{Ignore: true},
+    },
+}
+
+result, err := differ.DiffWithOptions(
+    differ.WithSourceFilePath("api-v1.yaml"),
+    differ.WithTargetFilePath("api-v2.yaml"),
+    differ.WithMode(differ.ModeBreaking),
+    differ.WithBreakingRules(rules),
+)
+```
+
+### Preset Rule Configurations
+
+Three preset configurations are available for common use cases:
+
+```go
+// DefaultRules - uses built-in severity defaults
+rules := differ.DefaultRules()
+
+// StrictRules - elevates warnings to errors (stricter)
+rules := differ.StrictRules()
+
+// LenientRules - downgrades some errors to warnings (more permissive)
+rules := differ.LenientRules()
+```
+
+### Available Rule Categories
+
+| Category | Description | Key Rules |
+|----------|-------------|-----------|
+| `OperationRules` | Operation-level changes | `Removed`, `OperationIDModified`, `DeprecatedChanged`, `SummaryModified`, `DescriptionModified` |
+| `ParameterRules` | Parameter changes | `Added`, `Removed`, `RequiredChanged`, `TypeChanged`, `LocationChanged`, `DescriptionModified` |
+| `RequestBodyRules` | Request body changes | `Added`, `Removed`, `RequiredChanged`, `ContentTypeAdded`, `ContentTypeRemoved`, `DescriptionModified` |
+| `ResponseRules` | Response changes | `Added`, `Removed`, `StatusCodeAdded`, `StatusCodeRemoved`, `ContentTypeAdded`, `ContentTypeRemoved`, `DescriptionModified` |
+| `SchemaRules` | Schema changes | `TypeChanged`, `PropertyAdded`, `PropertyRemoved`, `RequiredAdded`, `RequiredRemoved`, `EnumValueAdded`, `EnumValueRemoved`, `DescriptionModified` |
+| `SecurityRules` | Security scheme changes | `Added`, `Removed`, `TypeChanged`, `DescriptionModified` |
+| `ServerRules` | Server changes | `Added`, `Removed`, `URLChanged`, `DescriptionModified` |
+| `EndpointRules` | Endpoint changes | `Added`, `Removed`, `DescriptionModified` |
+| `InfoRules` | Info object changes | `TitleChanged`, `VersionChanged`, `DescriptionModified` |
+| `ExtensionRules` | Extension field changes | `Added`, `Removed`, `Modified` |
+
+### Struct-Based Configuration
+
+For reusable differ instances:
+
+```go
+d := differ.New()
+d.Mode = differ.ModeBreaking
+d.BreakingRules = &differ.BreakingRulesConfig{
+    Operation: &differ.OperationRules{
+        OperationIDModified: &differ.BreakingChangeRule{
+            Severity: differ.SeverityPtr(differ.SeverityError), // Upgrade to error
+        },
+    },
+}
+
+result1, _ := d.Diff("api-v1.yaml", "api-v2.yaml")
+result2, _ := d.Diff("api-v2.yaml", "api-v3.yaml")
+```
 
 [↑ Back to top](#top)
 
