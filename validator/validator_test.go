@@ -409,6 +409,70 @@ func TestValidateHTTPStatusCode(t *testing.T) {
 	}
 }
 
+// TestValidateNonStandardStatusCodeStrictMode tests that non-standard status codes
+// generate warnings in strict mode but not in non-strict mode.
+func TestValidateNonStandardStatusCodeStrictMode(t *testing.T) {
+	// Create a minimal OAS 3.0 document with a non-standard status code (299)
+	// 299 is valid (in 100-599 range) but not a standard HTTP status code
+	parseResult := parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document: &parser.OAS3Document{
+			OpenAPI: "3.0.0",
+			Info:    &parser.Info{Title: "Test API", Version: "1.0.0"},
+			Paths: map[string]*parser.PathItem{
+				"/test": {
+					Get: &parser.Operation{
+						OperationID: "getTest",
+						Responses: &parser.Responses{
+							Codes: map[string]*parser.Response{
+								"299": {Description: "Non-standard success"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Test with strict mode enabled - should generate a warning
+	t.Run("strict mode warns on non-standard code", func(t *testing.T) {
+		v := New()
+		v.StrictMode = true
+		v.IncludeWarnings = true
+
+		result, err := v.ValidateParsed(parseResult)
+		require.NoError(t, err)
+
+		// Should have a warning about non-standard status code
+		hasNonStandardWarning := false
+		for _, w := range result.Warnings {
+			if strings.Contains(w.Message, "Non-standard HTTP status code: 299") {
+				hasNonStandardWarning = true
+				break
+			}
+		}
+		assert.True(t, hasNonStandardWarning, "Expected warning about non-standard status code 299")
+	})
+
+	// Test with strict mode disabled - should NOT generate a warning
+	t.Run("non-strict mode allows non-standard code", func(t *testing.T) {
+		v := New()
+		v.StrictMode = false
+		v.IncludeWarnings = true
+
+		result, err := v.ValidateParsed(parseResult)
+		require.NoError(t, err)
+
+		// Should NOT have a warning about non-standard status code
+		for _, w := range result.Warnings {
+			if strings.Contains(w.Message, "Non-standard HTTP status code: 299") {
+				t.Errorf("Did not expect warning about non-standard status code in non-strict mode")
+			}
+		}
+	})
+}
+
 // TestValidateSPDXLicense tests the validateSPDXLicense helper
 func TestValidateSPDXLicense(t *testing.T) {
 	testCases := []struct {
