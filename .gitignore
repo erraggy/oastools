@@ -47,6 +47,9 @@ benchmark-baseline.txt
 benchmark-[0-9]*.txt
 benchmark-comparison-*.txt
 
+# Comparative benchmark module (external dependencies, temporary)
+planning/libopenapi-benchmark/
+
 # Legacy benchmark directory (replaced by benchmarks/)
 backfilled-benchmarks/
 
