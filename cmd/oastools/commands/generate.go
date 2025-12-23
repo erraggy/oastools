@@ -42,6 +42,15 @@ type GenerateFlags struct {
 	NoSplitByTag    bool
 	SplitByPath     bool
 	NoSplitByPath   bool
+
+	// Server generation options
+	ServerRouter     string
+	ServerMiddleware bool
+	ServerBinder     bool
+	ServerResponses  bool
+	ServerStubs      bool
+	ServerEmbedSpec  bool
+	ServerAll        bool
 }
 
 // SetupGenerateFlags creates and configures a FlagSet for the generate command.
@@ -79,6 +88,15 @@ func SetupGenerateFlags() (*flag.FlagSet, *GenerateFlags) {
 	fs.BoolVar(&flags.NoSplitByTag, "no-split-by-tag", false, "don't split files by operation tag")
 	fs.BoolVar(&flags.NoSplitByPath, "no-split-by-path", false, "don't split files by path prefix")
 
+	// Server generation flags
+	fs.StringVar(&flags.ServerRouter, "server-router", "", "generate HTTP router (stdlib, chi)")
+	fs.BoolVar(&flags.ServerMiddleware, "server-middleware", false, "generate validation middleware using httpvalidator")
+	fs.BoolVar(&flags.ServerBinder, "server-binder", false, "generate parameter binding from validation results")
+	fs.BoolVar(&flags.ServerResponses, "server-responses", false, "generate typed response writers and error types")
+	fs.BoolVar(&flags.ServerStubs, "server-stubs", false, "generate stub implementations for testing")
+	fs.BoolVar(&flags.ServerEmbedSpec, "server-embed-spec", false, "embed OpenAPI spec in generated code")
+	fs.BoolVar(&flags.ServerAll, "server-all", false, "enable all server generation options")
+
 	fs.Usage = func() {
 		cliutil.Writef(fs.Output(), "Usage: oastools generate [flags] <file|url|->\n\n")
 		cliutil.Writef(fs.Output(), "Generate Go code from an OpenAPI specification.\n\n")
@@ -94,6 +112,10 @@ func SetupGenerateFlags() (*flag.FlagSet, *GenerateFlags) {
 		cliutil.Writef(fs.Output(), "  oastools generate --client --max-lines-per-file 1500 -o ./client large-api.yaml\n")
 		cliutil.Writef(fs.Output(), "  cat openapi.yaml | oastools generate --client -o ./client -\n")
 		cliutil.Writef(fs.Output(), "  oastools generate -s --client -o ./client openapi.yaml  # Include line numbers in issues\n")
+		cliutil.Writef(fs.Output(), "\nServer Generation Examples:\n")
+		cliutil.Writef(fs.Output(), "  oastools generate --server --server-all -o ./server openapi.yaml  # Full server with validation\n")
+		cliutil.Writef(fs.Output(), "  oastools generate --server --server-router=chi -o ./server openapi.yaml  # Chi router\n")
+		cliutil.Writef(fs.Output(), "  oastools generate --server --server-middleware --server-binder -o ./server openapi.yaml\n")
 		cliutil.Writef(fs.Output(), "\nPipelining:\n")
 		cliutil.Writef(fs.Output(), "  Use '-' as the file path to read the OpenAPI specification from stdin.\n")
 		cliutil.Writef(fs.Output(), "  Example: oastools convert -t 3.0.3 swagger.yaml | oastools generate --client -o ./client -\n")
@@ -169,6 +191,21 @@ func HandleGenerate(args []string) error {
 		g.MaxOperationsPerFile = flags.MaxOpsPerFile
 		g.SplitByTag = !flags.NoSplitByTag
 		g.SplitByPathPrefix = !flags.NoSplitByPath
+		// Server generation options
+		if flags.ServerAll {
+			g.ServerRouter = "stdlib"
+			g.ServerMiddleware = true
+			g.ServerBinder = true
+			g.ServerResponses = true
+			g.ServerStubs = true
+		} else {
+			g.ServerRouter = flags.ServerRouter
+			g.ServerMiddleware = flags.ServerMiddleware
+			g.ServerBinder = flags.ServerBinder
+			g.ServerResponses = flags.ServerResponses
+			g.ServerStubs = flags.ServerStubs
+		}
+		g.ServerEmbedSpec = flags.ServerEmbedSpec
 		result, err = g.GenerateParsed(*parseResult)
 	} else {
 		// Build generator options
@@ -180,6 +217,30 @@ func HandleGenerate(args []string) error {
 			generator.WithTypes(flags.Types || flags.Client || flags.Server),
 			generator.WithStrictMode(flags.Strict),
 			generator.WithIncludeInfo(!flags.NoWarnings),
+		}
+
+		// Add server generation options
+		if flags.ServerAll {
+			genOpts = append(genOpts, generator.WithServerAll())
+		} else {
+			if flags.ServerRouter != "" {
+				genOpts = append(genOpts, generator.WithServerRouter(flags.ServerRouter))
+			}
+			if flags.ServerMiddleware {
+				genOpts = append(genOpts, generator.WithServerMiddleware(true))
+			}
+			if flags.ServerBinder {
+				genOpts = append(genOpts, generator.WithServerBinder(true))
+			}
+			if flags.ServerResponses {
+				genOpts = append(genOpts, generator.WithServerResponses(true))
+			}
+			if flags.ServerStubs {
+				genOpts = append(genOpts, generator.WithServerStubs(true))
+			}
+		}
+		if flags.ServerEmbedSpec {
+			genOpts = append(genOpts, generator.WithServerEmbedSpec(true))
 		}
 
 		// If source map requested, parse with source map first
@@ -199,6 +260,29 @@ func HandleGenerate(args []string) error {
 				generator.WithTypes(flags.Types || flags.Client || flags.Server),
 				generator.WithStrictMode(flags.Strict),
 				generator.WithIncludeInfo(!flags.NoWarnings),
+			}
+			// Add server generation options
+			if flags.ServerAll {
+				genOpts = append(genOpts, generator.WithServerAll())
+			} else {
+				if flags.ServerRouter != "" {
+					genOpts = append(genOpts, generator.WithServerRouter(flags.ServerRouter))
+				}
+				if flags.ServerMiddleware {
+					genOpts = append(genOpts, generator.WithServerMiddleware(true))
+				}
+				if flags.ServerBinder {
+					genOpts = append(genOpts, generator.WithServerBinder(true))
+				}
+				if flags.ServerResponses {
+					genOpts = append(genOpts, generator.WithServerResponses(true))
+				}
+				if flags.ServerStubs {
+					genOpts = append(genOpts, generator.WithServerStubs(true))
+				}
+			}
+			if flags.ServerEmbedSpec {
+				genOpts = append(genOpts, generator.WithServerEmbedSpec(true))
 			}
 			if parseResult.SourceMap != nil {
 				genOpts = append(genOpts, generator.WithSourceMap(parseResult.SourceMap))

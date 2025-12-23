@@ -179,6 +179,38 @@ type Generator struct {
 	// Default: true
 	GenerateReadme bool
 
+	// Server generation options
+
+	// ServerRouter enables HTTP router generation with path matching and handler dispatch.
+	// Valid values: "" (disabled), "stdlib" (net/http), "chi" (go-chi/chi)
+	// Default: "" (disabled)
+	ServerRouter string
+
+	// ServerMiddleware enables validation middleware generation using httpvalidator.
+	// Generates request and response validation middleware.
+	// Default: false
+	ServerMiddleware bool
+
+	// ServerBinder enables parameter binding generation from httpvalidator results.
+	// Generates type-safe binding from map[string]any to {Op}Request structs.
+	// Default: false
+	ServerBinder bool
+
+	// ServerResponses enables typed response writer generation.
+	// Generates per-operation response types and WriteJSON/WriteError helpers.
+	// Default: false
+	ServerResponses bool
+
+	// ServerStubs enables stub implementation generation for testing.
+	// Generates testable stub implementations with configurable defaults.
+	// Default: false
+	ServerStubs bool
+
+	// ServerEmbedSpec enables embedding the OpenAPI spec in generated code.
+	// When true, the spec is embedded using go:embed; when false, loaded at runtime.
+	// Default: false
+	ServerEmbedSpec bool
+
 	// SourceMap provides source location lookup for generation issues.
 	// When set, issues will include Line, Column, and File information.
 	SourceMap *parser.SourceMap
@@ -208,6 +240,13 @@ func New() *Generator {
 		GenerateSecurityEnforce: false,
 		GenerateOIDCDiscovery:   false,
 		GenerateReadme:          true,
+		// Server generation defaults
+		ServerRouter:     "",
+		ServerMiddleware: false,
+		ServerBinder:     false,
+		ServerResponses:  false,
+		ServerStubs:      false,
+		ServerEmbedSpec:  false,
 	}
 }
 
@@ -245,6 +284,14 @@ type generateConfig struct {
 	generateSecurityEnforce bool
 	generateOIDCDiscovery   bool
 	generateReadme          bool
+
+	// Server generation options
+	serverRouter     string
+	serverMiddleware bool
+	serverBinder     bool
+	serverResponses  bool
+	serverStubs      bool
+	serverEmbedSpec  bool
 
 	// Source map for line/column tracking
 	sourceMap *parser.SourceMap
@@ -290,6 +337,13 @@ func GenerateWithOptions(opts ...Option) (*GenerateResult, error) {
 		GenerateSecurityEnforce: cfg.generateSecurityEnforce,
 		GenerateOIDCDiscovery:   cfg.generateOIDCDiscovery,
 		GenerateReadme:          cfg.generateReadme,
+		// Server generation
+		ServerRouter:     cfg.serverRouter,
+		ServerMiddleware: cfg.serverMiddleware,
+		ServerBinder:     cfg.serverBinder,
+		ServerResponses:  cfg.serverResponses,
+		ServerStubs:      cfg.serverStubs,
+		ServerEmbedSpec:  cfg.serverEmbedSpec,
 		// Source map
 		SourceMap: cfg.sourceMap,
 	}
@@ -333,6 +387,13 @@ func applyOptions(opts ...Option) (*generateConfig, error) {
 		generateSecurityEnforce: false,
 		generateOIDCDiscovery:   false,
 		generateReadme:          true,
+		// Server generation defaults
+		serverRouter:     "",
+		serverMiddleware: false,
+		serverBinder:     false,
+		serverResponses:  false,
+		serverStubs:      false,
+		serverEmbedSpec:  false,
 	}
 
 	for _, opt := range opts {
@@ -357,9 +418,20 @@ func applyOptions(opts ...Option) (*generateConfig, error) {
 		return nil, fmt.Errorf("generator: must specify exactly one input source")
 	}
 
+	// Auto-enable server generation if any server option is used
+	if cfg.serverRouter != "" || cfg.serverMiddleware || cfg.serverBinder ||
+		cfg.serverResponses || cfg.serverStubs {
+		cfg.generateServer = true
+	}
+
 	// Ensure types are generated if client or server is enabled
 	if cfg.generateClient || cfg.generateServer {
 		cfg.generateTypes = true
+	}
+
+	// Validate server router value
+	if cfg.serverRouter != "" && cfg.serverRouter != "stdlib" && cfg.serverRouter != "chi" {
+		return nil, fmt.Errorf("generator: invalid server router %q (valid values: stdlib, chi)", cfg.serverRouter)
 	}
 
 	return cfg, nil
@@ -616,6 +688,81 @@ func WithSourceMap(sm *parser.SourceMap) Option {
 	}
 }
 
+// Server generation options
+
+// WithServerRouter enables HTTP router generation with path matching and handler dispatch.
+// Valid values: "stdlib" (net/http), "chi" (go-chi/chi)
+// Default: "" (disabled)
+func WithServerRouter(framework string) Option {
+	return func(cfg *generateConfig) error {
+		cfg.serverRouter = framework
+		return nil
+	}
+}
+
+// WithServerMiddleware enables validation middleware generation using httpvalidator.
+// Generates request and response validation middleware.
+// Default: false
+func WithServerMiddleware(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.serverMiddleware = enabled
+		return nil
+	}
+}
+
+// WithServerBinder enables parameter binding generation from httpvalidator results.
+// Generates type-safe binding from map[string]any to {Op}Request structs.
+// Default: false
+func WithServerBinder(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.serverBinder = enabled
+		return nil
+	}
+}
+
+// WithServerResponses enables typed response writer generation.
+// Generates per-operation response types and WriteJSON/WriteError helpers.
+// Default: false
+func WithServerResponses(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.serverResponses = enabled
+		return nil
+	}
+}
+
+// WithServerStubs enables stub implementation generation for testing.
+// Generates testable stub implementations with configurable defaults.
+// Default: false
+func WithServerStubs(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.serverStubs = enabled
+		return nil
+	}
+}
+
+// WithServerEmbedSpec enables embedding the OpenAPI spec in generated code.
+// When true, the spec is embedded using go:embed; when false, loaded at runtime.
+// Default: false
+func WithServerEmbedSpec(enabled bool) Option {
+	return func(cfg *generateConfig) error {
+		cfg.serverEmbedSpec = enabled
+		return nil
+	}
+}
+
+// WithServerAll enables all server generation options with stdlib router.
+// This is a convenience option for generating a complete server implementation.
+func WithServerAll() Option {
+	return func(cfg *generateConfig) error {
+		cfg.serverRouter = "stdlib"
+		cfg.serverMiddleware = true
+		cfg.serverBinder = true
+		cfg.serverResponses = true
+		cfg.serverStubs = true
+		return nil
+	}
+}
+
 // Generate generates code from an OpenAPI specification file or URL
 func (g *Generator) Generate(specPath string) (*GenerateResult, error) {
 	// Create parser and set UserAgent if specified
@@ -689,6 +836,33 @@ func (g *Generator) GenerateParsed(parseResult parser.ParseResult) (*GenerateRes
 		if err := cg.generateServer(); err != nil {
 			return nil, fmt.Errorf("generator: failed to generate server: %w", err)
 		}
+
+		// Generate additional server files based on options
+		if g.ServerResponses {
+			if err := cg.generateServerResponses(); err != nil {
+				return nil, fmt.Errorf("generator: failed to generate server responses: %w", err)
+			}
+		}
+		if g.ServerBinder {
+			if err := cg.generateServerBinder(); err != nil {
+				return nil, fmt.Errorf("generator: failed to generate server binder: %w", err)
+			}
+		}
+		if g.ServerMiddleware {
+			if err := cg.generateServerMiddleware(); err != nil {
+				return nil, fmt.Errorf("generator: failed to generate server middleware: %w", err)
+			}
+		}
+		if g.ServerRouter != "" {
+			if err := cg.generateServerRouter(); err != nil {
+				return nil, fmt.Errorf("generator: failed to generate server router: %w", err)
+			}
+		}
+		if g.ServerStubs {
+			if err := cg.generateServerStubs(); err != nil {
+				return nil, fmt.Errorf("generator: failed to generate server stubs: %w", err)
+			}
+		}
 	}
 
 	// Generate security helpers and related files
@@ -746,4 +920,10 @@ type codeGenerator interface {
 	generateClient() error
 	generateServer() error
 	generateSecurityHelpers() error
+	// Server generation extensions
+	generateServerResponses() error
+	generateServerBinder() error
+	generateServerMiddleware() error
+	generateServerRouter() error
+	generateServerStubs() error
 }

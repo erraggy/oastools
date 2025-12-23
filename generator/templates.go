@@ -39,6 +39,12 @@ var templateFuncs = template.FuncMap{
 	"toTypeName":  toTypeName,
 	"toFieldName": toFieldName,
 	"toParamName": toParamName,
+	"trimPointer": trimPointer,
+}
+
+// trimPointer removes the leading * from a pointer type string
+func trimPointer(s string) string {
+	return strings.TrimPrefix(s, "*")
 }
 
 // executeTemplate executes a template by name and returns the formatted bytes

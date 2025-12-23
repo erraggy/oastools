@@ -105,6 +105,9 @@ oastools generate --client --server -o ./generated -p api openapi.yaml
 # Generate client with full OAuth2 support
 oastools generate --client --oauth2-flows --readme -o ./client -p api openapi.yaml
 
+# Generate server with router, validation middleware, and request binding
+oastools generate --server --server-all -o ./server -p api openapi.yaml
+
 # Merge multiple specs
 oastools join -o merged.yaml base.yaml extensions.yaml
 

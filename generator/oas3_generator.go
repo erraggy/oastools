@@ -1392,37 +1392,25 @@ func (cg *oas3CodeGenerator) generateRequestType(path, method string, op *parser
 		buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
 	}
 
-	// Query parameters
+	// Query parameters - paramToGoType already handles pointer for optional params
 	for _, param := range queryParams {
 		goType := cg.paramToGoType(param)
 		fieldName := toFieldName(param.Name)
-		if !param.Required {
-			buf.WriteString(fmt.Sprintf("\t%s *%s\n", fieldName, goType))
-		} else {
-			buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
-		}
+		buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
 	}
 
-	// Header parameters
+	// Header parameters - paramToGoType already handles pointer for optional params
 	for _, param := range headerParams {
 		goType := cg.paramToGoType(param)
 		fieldName := toFieldName(param.Name)
-		if !param.Required {
-			buf.WriteString(fmt.Sprintf("\t%s *%s\n", fieldName, goType))
-		} else {
-			buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
-		}
+		buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
 	}
 
-	// Cookie parameters
+	// Cookie parameters - paramToGoType already handles pointer for optional params
 	for _, param := range cookieParams {
 		goType := cg.paramToGoType(param)
 		fieldName := toFieldName(param.Name)
-		if !param.Required {
-			buf.WriteString(fmt.Sprintf("\t%s *%s\n", fieldName, goType))
-		} else {
-			buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
-		}
+		buf.WriteString(fmt.Sprintf("\t%s %s\n", fieldName, goType))
 	}
 
 	// Request body
@@ -1963,4 +1951,476 @@ func convertFlows(flows *parser.OAuthFlows) *OAuthFlows {
 	}
 
 	return result
+}
+
+// generateServerResponses generates typed response helpers for each operation
+func (cg *oas3CodeGenerator) generateServerResponses() error {
+	if len(cg.doc.Paths) == 0 {
+		return nil
+	}
+
+	// Build template data
+	data := ServerResponsesFileData{
+		Header: HeaderData{
+			PackageName: cg.result.PackageName,
+		},
+		Operations: make([]ResponseOperationData, 0),
+	}
+
+	// Track generated methods to avoid duplicates
+	generatedMethods := make(map[string]bool)
+
+	// Sort paths for deterministic output
+	pathKeys := make([]string, 0, len(cg.doc.Paths))
+	for path := range cg.doc.Paths {
+		pathKeys = append(pathKeys, path)
+	}
+	sort.Strings(pathKeys)
+
+	for _, path := range pathKeys {
+		pathItem := cg.doc.Paths[path]
+		if pathItem == nil {
+			continue
+		}
+
+		operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
+		for _, method := range httpMethods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+
+			methodName := operationToMethodName(op, path, method)
+			if generatedMethods[methodName] {
+				continue
+			}
+			generatedMethods[methodName] = true
+
+			// Build response operation data
+			opData := ResponseOperationData{
+				MethodName:   methodName,
+				ResponseType: methodName + "Response",
+				StatusCodes:  cg.buildStatusCodes(op),
+			}
+
+			data.Operations = append(data.Operations, opData)
+		}
+	}
+
+	// Execute template
+	formatted, err := executeTemplate("responses.go.tmpl", data)
+	if err != nil {
+		cg.addIssue("server_responses.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	cg.result.Files = append(cg.result.Files, GeneratedFile{
+		Name:    "server_responses.go",
+		Content: formatted,
+	})
+
+	return nil
+}
+
+// buildStatusCodes builds status code data for an operation's responses
+func (cg *oas3CodeGenerator) buildStatusCodes(op *parser.Operation) []StatusCodeData {
+	if op.Responses == nil {
+		return nil
+	}
+
+	// Pre-allocate: 1 for default + status codes
+	codes := make([]StatusCodeData, 0, 1+len(op.Responses.Codes))
+
+	// Process default response first
+	if op.Responses.Default != nil {
+		statusData := cg.buildStatusCodeData("default", op.Responses.Default)
+		codes = append(codes, statusData)
+	}
+
+	// Get sorted status codes from Codes map
+	statusKeys := make([]string, 0, len(op.Responses.Codes))
+	for code := range op.Responses.Codes {
+		statusKeys = append(statusKeys, code)
+	}
+	sort.Strings(statusKeys)
+
+	for _, code := range statusKeys {
+		resp := op.Responses.Codes[code]
+		if resp == nil {
+			continue
+		}
+		statusData := cg.buildStatusCodeData(code, resp)
+		codes = append(codes, statusData)
+	}
+
+	return codes
+}
+
+// generateServerBinder generates parameter binding code for each operation
+func (cg *oas3CodeGenerator) generateServerBinder() error {
+	if len(cg.doc.Paths) == 0 {
+		return nil
+	}
+
+	// Build template data
+	data := ServerBinderFileData{
+		Header: HeaderData{
+			PackageName: cg.result.PackageName,
+		},
+		Operations: make([]BinderOperationData, 0),
+	}
+
+	// Track generated methods to avoid duplicates
+	generatedMethods := make(map[string]bool)
+
+	// Sort paths for deterministic output
+	pathKeys := make([]string, 0, len(cg.doc.Paths))
+	for path := range cg.doc.Paths {
+		pathKeys = append(pathKeys, path)
+	}
+	sort.Strings(pathKeys)
+
+	for _, path := range pathKeys {
+		pathItem := cg.doc.Paths[path]
+		if pathItem == nil {
+			continue
+		}
+
+		operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
+		for _, method := range httpMethods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+
+			methodName := operationToMethodName(op, path, method)
+			if generatedMethods[methodName] {
+				continue
+			}
+			generatedMethods[methodName] = true
+
+			// Build binder operation data
+			opData := cg.buildBinderOperationData(methodName, op)
+			data.Operations = append(data.Operations, opData)
+		}
+	}
+
+	// Execute template
+	formatted, err := executeTemplate("binder.go.tmpl", data)
+	if err != nil {
+		cg.addIssue("server_binder.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	cg.result.Files = append(cg.result.Files, GeneratedFile{
+		Name:    "server_binder.go",
+		Content: formatted,
+	})
+
+	return nil
+}
+
+// buildBinderOperationData builds binding data for a single operation
+func (cg *oas3CodeGenerator) buildBinderOperationData(methodName string, op *parser.Operation) BinderOperationData {
+	opData := BinderOperationData{
+		MethodName:  methodName,
+		RequestType: methodName + "Request",
+	}
+
+	// Process parameters
+	for _, param := range op.Parameters {
+		if param == nil {
+			continue
+		}
+
+		paramData := ParamBindData{
+			Name:      param.Name,
+			FieldName: toFieldName(param.Name),
+			GoType:    cg.paramToGoType(param),
+			Required:  param.Required,
+			IsPointer: !param.Required && param.In != parser.ParamInPath,
+		}
+
+		// Determine schema type
+		if param.Schema != nil {
+			paramData.SchemaType = cg.getSchemaType(param.Schema)
+		}
+
+		switch param.In {
+		case parser.ParamInPath:
+			opData.PathParams = append(opData.PathParams, paramData)
+		case parser.ParamInQuery:
+			opData.QueryParams = append(opData.QueryParams, paramData)
+		case parser.ParamInHeader:
+			opData.HeaderParams = append(opData.HeaderParams, paramData)
+		case parser.ParamInCookie:
+			opData.CookieParams = append(opData.CookieParams, paramData)
+		}
+	}
+
+	// Check for request body
+	if op.RequestBody != nil {
+		opData.HasBody = true
+		if op.RequestBody.Content != nil {
+			for _, mediaType := range op.RequestBody.Content {
+				if mediaType != nil && mediaType.Schema != nil {
+					opData.BodyType = cg.schemaToGoType(mediaType.Schema, true)
+					break
+				}
+			}
+		}
+	}
+
+	return opData
+}
+
+// getSchemaType returns the basic schema type string
+func (cg *oas3CodeGenerator) getSchemaType(schema *parser.Schema) string {
+	if schema == nil {
+		return "string"
+	}
+
+	// Handle type as string or array
+	switch t := schema.Type.(type) {
+	case string:
+		return t
+	case []any:
+		if len(t) > 0 {
+			if s, ok := t[0].(string); ok {
+				return s
+			}
+		}
+	case []string:
+		if len(t) > 0 {
+			return t[0]
+		}
+	}
+
+	return "string"
+}
+
+// buildStatusCodeData builds data for a single status code response
+func (cg *oas3CodeGenerator) buildStatusCodeData(code string, resp *parser.Response) StatusCodeData {
+	statusData := StatusCodeData{
+		Code:        code,
+		Description: resp.Description,
+	}
+
+	// Determine method name and code type
+	switch {
+	case code == "default":
+		statusData.MethodName = "StatusDefault"
+		statusData.IsDefault = true
+		statusData.StatusCodeInt = 500 // Use 500 as default status
+	case len(code) == 3 && strings.HasSuffix(code, "XX"):
+		// Wildcard like 2XX, 4XX, 5XX
+		statusData.IsWildcard = true
+		statusData.MethodName = "Status" + code
+		// Use first code in range
+		switch code[0] {
+		case '2':
+			statusData.StatusCodeInt = 200
+			statusData.IsSuccess = true
+		case '3':
+			statusData.StatusCodeInt = 300
+		case '4':
+			statusData.StatusCodeInt = 400
+		case '5':
+			statusData.StatusCodeInt = 500
+		}
+	default:
+		// Specific status code
+		statusData.MethodName = "Status" + code
+		var statusInt int
+		if _, err := fmt.Sscanf(code, "%d", &statusInt); err == nil {
+			statusData.StatusCodeInt = statusInt
+			statusData.IsSuccess = statusInt >= 200 && statusInt < 300
+		}
+	}
+
+	// Determine body type from response content
+	if resp.Content != nil {
+		for contentType, mediaType := range resp.Content {
+			if mediaType != nil && mediaType.Schema != nil {
+				statusData.HasBody = true
+				statusData.ContentType = contentType
+				statusData.BodyType = cg.schemaToGoType(mediaType.Schema, true)
+				break // Use first content type
+			}
+		}
+	}
+
+	return statusData
+}
+
+// generateServerMiddleware generates validation middleware
+func (cg *oas3CodeGenerator) generateServerMiddleware() error {
+	// The middleware template is static - it uses httpvalidator for validation
+	// No per-operation data needed since it validates dynamically
+	data := ServerMiddlewareFileData{
+		Header: HeaderData{
+			PackageName: cg.result.PackageName,
+		},
+	}
+
+	formatted, err := executeTemplate("middleware.go.tmpl", data)
+	if err != nil {
+		cg.addIssue("server_middleware.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	cg.result.Files = append(cg.result.Files, GeneratedFile{
+		Name:    "server_middleware.go",
+		Content: formatted,
+	})
+	return nil
+}
+
+// generateServerRouter generates HTTP router code
+func (cg *oas3CodeGenerator) generateServerRouter() error {
+	if len(cg.doc.Paths) == 0 {
+		return nil
+	}
+
+	// Track generated methods to avoid duplicates
+	generatedMethods := make(map[string]bool)
+
+	// Sort paths for deterministic output
+	pathKeys := make([]string, 0, len(cg.doc.Paths))
+	for path := range cg.doc.Paths {
+		pathKeys = append(pathKeys, path)
+	}
+	sort.Strings(pathKeys)
+
+	// Build router data
+	data := ServerRouterFileData{
+		Header: HeaderData{
+			PackageName: cg.result.PackageName,
+		},
+		Operations: make([]RouterOperationData, 0),
+	}
+
+	for _, path := range pathKeys {
+		pathItem := cg.doc.Paths[path]
+		if pathItem == nil {
+			continue
+		}
+
+		operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
+		for _, method := range httpMethods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+
+			methodName := operationToMethodName(op, path, method)
+			if generatedMethods[methodName] {
+				continue
+			}
+			generatedMethods[methodName] = true
+
+			opData := RouterOperationData{
+				Path:        path,
+				Method:      strings.ToUpper(method),
+				MethodName:  methodName,
+				RequestType: methodName + "Request",
+			}
+
+			// Collect path parameters
+			for _, param := range op.Parameters {
+				if param != nil && param.In == parser.ParamInPath {
+					opData.PathParams = append(opData.PathParams, ParamBindData{
+						Name:      param.Name,
+						FieldName: toFieldName(param.Name),
+					})
+				}
+			}
+
+			data.Operations = append(data.Operations, opData)
+		}
+	}
+
+	formatted, err := executeTemplate("router.go.tmpl", data)
+	if err != nil {
+		cg.addIssue("server_router.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	cg.result.Files = append(cg.result.Files, GeneratedFile{
+		Name:    "server_router.go",
+		Content: formatted,
+	})
+	return nil
+}
+
+// generateServerStubs generates testable stub implementations
+func (cg *oas3CodeGenerator) generateServerStubs() error {
+	if len(cg.doc.Paths) == 0 {
+		return nil
+	}
+
+	// Track generated methods to avoid duplicates
+	generatedMethods := make(map[string]bool)
+
+	// Sort paths for deterministic output
+	pathKeys := make([]string, 0, len(cg.doc.Paths))
+	for path := range cg.doc.Paths {
+		pathKeys = append(pathKeys, path)
+	}
+	sort.Strings(pathKeys)
+
+	// Build stubs data
+	data := ServerStubsFileData{
+		Header: HeaderData{
+			PackageName: cg.result.PackageName,
+		},
+		Operations: make([]StubOperationData, 0),
+	}
+
+	for _, path := range pathKeys {
+		pathItem := cg.doc.Paths[path]
+		if pathItem == nil {
+			continue
+		}
+
+		operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
+		for _, method := range httpMethods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+
+			methodName := operationToMethodName(op, path, method)
+			if generatedMethods[methodName] {
+				continue
+			}
+			generatedMethods[methodName] = true
+
+			// Determine response type
+			responseType := "*" + methodName + "Response"
+			if !cg.g.ServerResponses {
+				responseType = "any"
+			}
+
+			opData := StubOperationData{
+				MethodName:   methodName,
+				RequestType:  methodName + "Request",
+				ResponseType: responseType,
+			}
+
+			data.Operations = append(data.Operations, opData)
+		}
+	}
+
+	formatted, err := executeTemplate("stubs.go.tmpl", data)
+	if err != nil {
+		cg.addIssue("server_stubs.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	cg.result.Files = append(cg.result.Files, GeneratedFile{
+		Name:    "server_stubs.go",
+		Content: formatted,
+	})
+	return nil
 }

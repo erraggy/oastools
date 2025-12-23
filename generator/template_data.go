@@ -146,3 +146,105 @@ type RequestTypeData struct {
 	MethodName string
 	Fields     []FieldData
 }
+
+// ServerResponsesFileData contains data for server_responses.go
+type ServerResponsesFileData struct {
+	Header     HeaderData
+	Operations []ResponseOperationData
+}
+
+// ResponseOperationData contains response data for a single operation
+type ResponseOperationData struct {
+	MethodName   string // e.g., "ListPets"
+	ResponseType string // e.g., "ListPetsResponse"
+	StatusCodes  []StatusCodeData
+}
+
+// StatusCodeData contains data for a single status code response
+type StatusCodeData struct {
+	Code          string // e.g., "200", "4XX", "default"
+	MethodName    string // e.g., "Status200"
+	BodyType      string // e.g., "[]Pet", "*Error"
+	HasBody       bool
+	IsSuccess     bool   // true for 2XX codes
+	Description   string // From OpenAPI description
+	ContentType   string // e.g., "application/json"
+	IsDefault     bool   // true for "default" response
+	IsWildcard    bool   // true for "2XX", "4XX", etc.
+	StatusCodeInt int    // numeric value for non-wildcard codes (0 for wildcard/default)
+}
+
+// ServerBinderFileData contains data for server_binder.go
+type ServerBinderFileData struct {
+	Header     HeaderData
+	Operations []BinderOperationData
+}
+
+// BinderOperationData contains binding data for a single operation
+type BinderOperationData struct {
+	MethodName   string
+	RequestType  string // e.g., "ListPetsRequest"
+	PathParams   []ParamBindData
+	QueryParams  []ParamBindData
+	HeaderParams []ParamBindData
+	CookieParams []ParamBindData
+	HasBody      bool
+	BodyType     string
+}
+
+// ParamBindData contains data for binding a single parameter
+type ParamBindData struct {
+	Name       string // original name from spec
+	FieldName  string // Go field name
+	GoType     string // Go type
+	Required   bool
+	IsPointer  bool
+	SchemaType string // "integer", "string", "array", etc.
+}
+
+// ServerMiddlewareFileData contains data for server_middleware.go
+type ServerMiddlewareFileData struct {
+	Header HeaderData
+}
+
+// ServerRouterFileData contains data for server_router.go
+type ServerRouterFileData struct {
+	Header     HeaderData
+	Framework  string // "stdlib" or "chi"
+	Routes     []RouteData
+	Operations []RouterOperationData
+}
+
+// RouteData contains data for a single route
+type RouteData struct {
+	PathTemplate string   // OpenAPI path template e.g., "/pets/{petId}"
+	GoPath       string   // Go path pattern e.g., "/pets/{petId}"
+	Methods      []string // HTTP methods for this path
+	ParamNames   []string // Path parameter names
+}
+
+// RouterOperationData contains operation data for routing
+type RouterOperationData struct {
+	MethodName   string          // e.g., "ListPets"
+	HTTPMethod   string          // e.g., "GET"
+	Method       string          // e.g., "GET" (alias for template compatibility)
+	PathTemplate string          // e.g., "/pets/{petId}"
+	Path         string          // e.g., "/pets/{petId}" (alias for template compatibility)
+	RequestType  string          // e.g., "ListPetsRequest"
+	OperationID  string          // original operationId from spec
+	PathParams   []ParamBindData // path parameters for this operation
+}
+
+// ServerStubsFileData contains data for server_stubs.go
+type ServerStubsFileData struct {
+	Header     HeaderData
+	Operations []StubOperationData
+}
+
+// StubOperationData contains data for a single stub method
+type StubOperationData struct {
+	MethodName   string
+	RequestType  string
+	ResponseType string
+	ZeroValue    string // zero value for ResponseType
+}

@@ -6,6 +6,7 @@
 
 - [Overview](#overview)
 - [Generation Modes](#generation-modes)
+- [Server Extensions](#server-extensions)
 - [Key Features](#key-features)
 - [API Styles](#api-styles)
 - [Practical Examples](#practical-examples)
@@ -35,6 +36,230 @@ The generator supports three complementary modes that can be combined:
 **Server Mode** generates interface definitions that your server code must implement. This provides a clean contract between your API specification and your implementation, ensuring type safety at compile time.
 
 **Types Mode** generates Go structs from your schema definitions. This mode is automatically enabled when generating clients or servers, but can be used standalone when you only need the model types.
+
+[↑ Back to top](#top)
+
+## Server Extensions
+
+When generating server code (`--server` or `WithServer(true)`), additional extensions provide a complete server framework with runtime validation, request binding, routing, and testing support.
+
+### Available Server Extensions
+
+| Flag / Option | Generated File | Description |
+|---------------|----------------|-------------|
+| `--server-responses` / `WithServerResponses(true)` | `server_responses.go` | Typed response writers and error helpers |
+| `--server-binder` / `WithServerBinder(true)` | `server_binder.go` | Type-safe parameter binding from HTTP requests |
+| `--server-middleware` / `WithServerMiddleware(true)` | `server_middleware.go` | Validation middleware using httpvalidator |
+| `--server-router` / `WithServerRouter("stdlib")` | `server_router.go` | HTTP router with path matching and handler dispatch |
+| `--server-stubs` / `WithServerStubs(true)` | `server_stubs.go` | Configurable stub implementations for testing |
+| `--server-all` / `WithServerAll()` | All above | Enable all server extensions |
+
+### Response Helpers (`server_responses.go`)
+
+Response helpers provide type-safe response writing with per-operation response types:
+
+```go
+// Generated for each operation
+type ListPetsResponse struct {
+    statusCode int
+    body       any
+}
+
+func (ListPetsResponse) Status200(pets []Pet) ListPetsResponse { ... }
+func (ListPetsResponse) StatusDefault(err Error) ListPetsResponse { ... }
+func (r ListPetsResponse) WriteTo(w http.ResponseWriter) error { ... }
+
+// Common helpers
+func WriteJSON(w http.ResponseWriter, statusCode int, body any) { ... }
+func WriteError(w http.ResponseWriter, statusCode int, message string) { ... }
+func WriteNoContent(w http.ResponseWriter) { ... }
+```
+
+**Usage:**
+```go
+func (s *MyServer) ListPets(ctx context.Context, req *ListPetsRequest) (ListPetsResponse, error) {
+    pets, err := s.db.GetPets(req.Limit)
+    if err != nil {
+        return ListPetsResponse{}.StatusDefault(Error{Message: err.Error()}), nil
+    }
+    return ListPetsResponse{}.Status200(pets), nil
+}
+```
+
+### Request Binder (`server_binder.go`)
+
+The request binder extracts and validates parameters from HTTP requests, converting them to typed request structs:
+
+```go
+type RequestBinder struct {
+    validator *httpvalidator.Validator
+}
+
+func NewRequestBinder(parsed *parser.ParseResult) (*RequestBinder, error) { ... }
+func NewRequestBinderFromValidator(v *httpvalidator.Validator) *RequestBinder { ... }
+
+// Per-operation binding methods
+func (b *RequestBinder) BindListPetsRequest(r *http.Request) (*ListPetsRequest, *BindingError) { ... }
+func (b *RequestBinder) BindCreatePetRequest(r *http.Request) (*CreatePetRequest, *BindingError) { ... }
+```
+
+**Usage:**
+```go
+binder, _ := NewRequestBinder(parsed)
+
+http.HandleFunc("/pets", func(w http.ResponseWriter, r *http.Request) {
+    req, bindErr := binder.BindListPetsRequest(r)
+    if bindErr != nil {
+        WriteError(w, 400, bindErr.Error())
+        return
+    }
+    // req is now a typed *ListPetsRequest with validated parameters
+})
+```
+
+### Validation Middleware (`server_middleware.go`)
+
+Validation middleware integrates with `httpvalidator` for request/response validation:
+
+```go
+type ValidationConfig struct {
+    IncludeRequestValidation  bool
+    IncludeResponseValidation bool
+    StrictMode                bool
+    OnValidationError         func(w http.ResponseWriter, r *http.Request, err error)
+}
+
+func DefaultValidationConfig() ValidationConfig { ... }
+func ValidationMiddleware(parsed *parser.ParseResult) func(http.Handler) http.Handler { ... }
+func ValidationMiddlewareWithConfig(parsed *parser.ParseResult, cfg ValidationConfig) func(http.Handler) http.Handler { ... }
+```
+
+**Usage:**
+```go
+parsed, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
+
+// Wrap your handler with validation
+handler := ValidationMiddleware(parsed)(myHandler)
+
+// Or with custom configuration
+cfg := DefaultValidationConfig()
+cfg.StrictMode = true
+cfg.OnValidationError = func(w http.ResponseWriter, r *http.Request, err error) {
+    WriteError(w, 422, err.Error())
+}
+handler = ValidationMiddlewareWithConfig(parsed, cfg)(myHandler)
+```
+
+### Router (`server_router.go`)
+
+The router dispatches HTTP requests to your `ServerInterface` implementation:
+
+```go
+type ServerRouter struct {
+    server     ServerInterface
+    validator  *httpvalidator.Validator
+    middleware []func(http.Handler) http.Handler
+}
+
+func NewServerRouter(server ServerInterface, parsed *parser.ParseResult, opts ...RouterOption) (*ServerRouter, error) { ... }
+func (r *ServerRouter) Handler() http.Handler { ... }
+func (r *ServerRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) { ... }
+
+// Router options
+func WithMiddleware(mw ...func(http.Handler) http.Handler) RouterOption { ... }
+
+// Path parameter helper
+func PathParam(r *http.Request, name string) string { ... }
+```
+
+**Usage:**
+```go
+server := NewMyPetStoreServer()
+parsed, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
+
+router, err := NewServerRouter(server, parsed,
+    WithMiddleware(loggingMiddleware),
+    WithMiddleware(ValidationMiddleware(parsed)),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+http.ListenAndServe(":8080", router)
+```
+
+### Stub Server (`server_stubs.go`)
+
+The stub server is a configurable mock implementation for testing:
+
+```go
+type StubServer struct {
+    ListPetsFunc   func(ctx context.Context, req *ListPetsRequest) (ListPetsResponse, error)
+    CreatePetFunc  func(ctx context.Context, req *CreatePetRequest) (CreatePetResponse, error)
+    ShowPetByIdFunc func(ctx context.Context, req *ShowPetByIdRequest) (ShowPetByIdResponse, error)
+}
+
+func NewStubServer() *StubServer { ... }
+func NewStubServerWithOptions(opts ...StubServerOption) *StubServer { ... }
+func (s *StubServer) Reset() { ... }
+
+// Per-operation options
+func WithListPets(fn func(ctx context.Context, req *ListPetsRequest) (ListPetsResponse, error)) StubServerOption { ... }
+```
+
+**Usage in tests:**
+```go
+func TestPetAPI(t *testing.T) {
+    stub := NewStubServerWithOptions(
+        WithListPets(func(ctx context.Context, req *ListPetsRequest) (ListPetsResponse, error) {
+            return ListPetsResponse{}.Status200([]Pet{{ID: 1, Name: "Fluffy"}}), nil
+        }),
+    )
+
+    parsed, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
+    router, _ := NewServerRouter(stub, parsed)
+
+    req := httptest.NewRequest("GET", "/pets", nil)
+    rec := httptest.NewRecorder()
+    router.ServeHTTP(rec, req)
+
+    assert.Equal(t, 200, rec.Code)
+}
+```
+
+### Full Server Generation Example
+
+Generate a complete server with all extensions:
+
+```go
+result, err := generator.GenerateWithOptions(
+    generator.WithFilePath("petstore.yaml"),
+    generator.WithPackageName("petstore"),
+    generator.WithServer(true),
+    generator.WithServerAll(),  // Enable all extensions
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Generated files:
+// - types.go           (schema types)
+// - server.go          (ServerInterface, request types, UnimplementedServer)
+// - server_responses.go (response types and helpers)
+// - server_binder.go   (request binding)
+// - server_middleware.go (validation middleware)
+// - server_router.go   (HTTP routing)
+// - server_stubs.go    (test stubs)
+
+if err := result.WriteFiles("./generated/petstore"); err != nil {
+    log.Fatal(err)
+}
+```
+
+**CLI equivalent:**
+```bash
+oastools generate --server --server-all -o ./generated/petstore -p petstore petstore.yaml
+```
 
 [↑ Back to top](#top)
 
@@ -1074,6 +1299,12 @@ type Generator struct {
 | `WithMaxLinesPerFile(int)` | File splitting threshold |
 | `WithSplitByTag(bool)` | Group operations by tag |
 | `WithReadme(bool)` | Generate README.md |
+| `WithServerResponses(bool)` | Generate typed response writers |
+| `WithServerBinder(bool)` | Generate request parameter binding |
+| `WithServerMiddleware(bool)` | Generate validation middleware |
+| `WithServerRouter(string)` | Generate HTTP router ("stdlib" or "chi") |
+| `WithServerStubs(bool)` | Generate stub server for testing |
+| `WithServerAll()` | Enable all server extensions |
 
 [↑ Back to top](#top)
 
