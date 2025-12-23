@@ -168,6 +168,43 @@
 //   - Security configuration examples
 //   - Regeneration command
 //
+// # Server Extensions
+//
+// When generating server code, additional extensions provide a complete server
+// framework with runtime validation, request binding, routing, and testing support:
+//
+//	result, err := generator.GenerateWithOptions(
+//		generator.WithFilePath("openapi.yaml"),
+//		generator.WithPackageName("api"),
+//		generator.WithServer(true),
+//		generator.WithServerAll(), // Enable all server extensions
+//	)
+//
+// Server extension options:
+//   - WithServerResponses(bool): Typed response writers with Status*() methods
+//   - WithServerBinder(bool): Request parameter binding using httpvalidator
+//   - WithServerMiddleware(bool): Validation middleware for request/response validation
+//   - WithServerRouter(string): HTTP router generation ("stdlib")
+//   - WithServerStubs(bool): Configurable stub implementations for testing
+//   - WithServerAll(): Enable all server extensions at once
+//
+// Generated server extension files:
+//   - server_responses.go: Per-operation response types with WriteTo() methods
+//   - server_binder.go: RequestBinder with Bind{Operation}Request() methods
+//   - server_middleware.go: ValidationMiddleware with configurable error handling
+//   - server_router.go: ServerRouter implementing http.Handler
+//   - server_stubs.go: StubServer with configurable function fields for testing
+//
+// Example router setup with error logging:
+//
+//	router, _ := NewServerRouter(server, parsed,
+//		WithMiddleware(ValidationMiddleware(parsed)),
+//		WithErrorHandler(func(r *http.Request, err error) {
+//			log.Printf("Error: %s %s: %v", r.Method, r.URL.Path, err)
+//		}),
+//	)
+//	http.ListenAndServe(":8080", router)
+//
 // # Type Mapping
 //
 // OpenAPI types are mapped to Go types as follows:
@@ -193,6 +230,11 @@
 //   - security_enforce.go: Security validation (when GenerateSecurityEnforce is true)
 //   - oidc_discovery.go: OIDC discovery client (when GenerateOIDCDiscovery is true)
 //   - README.md: Documentation (when GenerateReadme is true)
+//   - server_responses.go: Response types (when ServerResponses or ServerAll is set)
+//   - server_binder.go: Request binding (when ServerBinder or ServerAll is set)
+//   - server_middleware.go: Validation middleware (when ServerMiddleware or ServerAll is set)
+//   - server_router.go: HTTP router (when ServerRouter or ServerAll is set)
+//   - server_stubs.go: Test stubs (when ServerStubs or ServerAll is set)
 //
 // See the exported GenerateResult and GenerateIssue types for complete details.
 //
