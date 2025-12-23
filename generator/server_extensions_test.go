@@ -586,6 +586,43 @@ func TestGenerateServerRouterChiWithErrorHandler(t *testing.T) {
 	assert.Contains(t, content, `"internal server error"`)
 }
 
+func TestGenerateServerRouterChiQueryMethod(t *testing.T) {
+	// OAS 3.2+ spec with QUERY method
+	spec := `openapi: "3.2.0"
+info:
+  title: Query API
+  version: "1.0.0"
+paths:
+  /search:
+    query:
+      operationId: searchData
+      responses:
+        '200':
+          description: Success
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "query.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("queryapi"),
+		WithServer(true),
+		WithServerRouter("chi"),
+	)
+	require.NoError(t, err)
+
+	routerFile := result.GetFile("server_router.go")
+	require.NotNil(t, routerFile, "server_router.go not generated")
+
+	content := string(routerFile.Content)
+
+	// Check that QUERY method uses chi's generic Method() function
+	assert.Contains(t, content, `r.Method("QUERY", "/search"`)
+	assert.Contains(t, content, "handleSearchDataChi")
+}
+
 func TestGenerateServerInvalidRouter(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "petstore.yaml")

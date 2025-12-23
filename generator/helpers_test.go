@@ -554,6 +554,8 @@ func TestMethodToChiFunc(t *testing.T) {
 		// Lower case inputs should work too
 		{"get", "Get"},
 		{"post", "Post"},
+		// Non-standard methods (OAS 3.2+) should return empty string
+		{"QUERY", ""},
 		// Empty string
 		{"", ""},
 	}

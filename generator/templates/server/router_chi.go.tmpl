@@ -24,9 +24,16 @@ func NewChiRouter(server ServerInterface, opts ...RouterOption) chi.Router {
 
 	// Register routes
 {{range .Operations}}
-	r.{{.Method | methodToChiFunc}}("{{.Path}}", func(w http.ResponseWriter, req *http.Request) {
+	{{- $chiMethod := .Method | methodToChiFunc}}
+	{{- if $chiMethod}}
+	r.{{$chiMethod}}("{{.Path}}", func(w http.ResponseWriter, req *http.Request) {
 		handle{{.MethodName}}Chi(server, w, req)
 	})
+	{{- else}}
+	r.Method("{{.Method | upper}}", "{{.Path}}", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		handle{{.MethodName}}Chi(server, w, req)
+	}))
+	{{- end}}
 {{end}}
 
 	return r

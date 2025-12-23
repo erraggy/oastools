@@ -49,14 +49,41 @@ func trimPointer(s string) string {
 }
 
 // methodToChiFunc converts an HTTP method to its chi router function name.
-// Example: "GET" -> "Get", "POST" -> "Post"
+// Example: "GET" -> "Get", "POST" -> "Post".
+// For non-standard methods like "QUERY" (OAS 3.2+), returns an empty string
+// to signal the template to use chi's generic Method() function.
 func methodToChiFunc(method string) string {
-	// Chi methods are title-cased (Get, Post, Put, Delete, etc.)
 	method = strings.ToUpper(method)
 	if len(method) == 0 {
 		return ""
 	}
-	return strings.ToUpper(method[:1]) + strings.ToLower(method[1:])
+
+	// Map standard HTTP methods to their chi router counterparts.
+	// For non-standard methods (like QUERY), return empty string to signal
+	// the template to use chi.Method() instead.
+	switch method {
+	case "GET":
+		return "Get"
+	case "POST":
+		return "Post"
+	case "PUT":
+		return "Put"
+	case "DELETE":
+		return "Delete"
+	case "PATCH":
+		return "Patch"
+	case "HEAD":
+		return "Head"
+	case "OPTIONS":
+		return "Options"
+	case "CONNECT":
+		return "Connect"
+	case "TRACE":
+		return "Trace"
+	default:
+		// Non-standard method (like QUERY) - return empty to signal template
+		return ""
+	}
 }
 
 // executeTemplate executes a template by name and returns the formatted bytes
