@@ -253,6 +253,7 @@ The `overrides/` directory contains customizations to the MkDocs Material theme 
 - **joiner/** - Join multiple OAS files with flexible collision resolution
 - **converter/** - Convert between OAS versions (2.0 ↔ 3.x) with issue tracking
 - **differ/** - Compare OAS files, detect breaking changes by severity
+- **httpvalidator/** - Validate HTTP requests/responses against OAS at runtime
 - **internal/** - Shared utilities (httputil, severity, issues, testutil)
 - **testdata/** - Test fixtures including sample OAS files
 
@@ -804,6 +805,7 @@ All core packages are public:
 - `github.com/erraggy/oastools/converter` - Convert between OpenAPI specification versions
 - `github.com/erraggy/oastools/overlay` - Apply OpenAPI Overlay transformations
 - `github.com/erraggy/oastools/differ` - Compare and diff OpenAPI specifications
+- `github.com/erraggy/oastools/httpvalidator` - Validate HTTP requests/responses at runtime
 - `github.com/erraggy/oastools/builder` - Build OpenAPI specifications programmatically
 
 ### API Design Philosophy
@@ -840,6 +842,9 @@ Use struct-based API for: multiple files, reusable instances, advanced configura
 **Differ Package:**
 - Functional options: `differ.DiffWithOptions(differ.WithSourceFilePath(...), differ.WithTargetFilePath(...), differ.WithMode(...), ...)`
 - Struct-based: `differ.New()`, `Differ.Diff()`, `Differ.DiffParsed()`
+- Configuration: `BreakingRules` (BreakingRulesConfig) for customizing breaking change detection
+- Presets: `DefaultRules()`, `StrictRules()`, `LenientRules()` for common rule configurations
+- Options: `WithBreakingRules(rules)` for custom breaking change policies
 - Returns DiffResult with changes categorized by severity (Critical, Error, Warning, Info)
 
 **Fixer Package:**
@@ -932,6 +937,13 @@ result, _ := overlay.ApplyWithOptions(
     overlay.WithSpecFilePath("openapi.yaml"),
     overlay.WithOverlayFilePath("production.yaml"),
 )
+
+// HTTP Validator (runtime request validation)
+result, _ := httpvalidator.ValidateRequestWithOptions(
+    req, // *http.Request
+    httpvalidator.WithFilePath("openapi.yaml"),
+    httpvalidator.WithStrictMode(true),
+)
 ```
 
 **Reusable instances:**
@@ -972,4 +984,11 @@ a := overlay.NewApplier()
 a.StrictTargets = true
 result1, _ := a.Apply("api1.yaml", "overlay1.yaml")
 result2, _ := a.Apply("api2.yaml", "overlay2.yaml")
+
+// HTTP Validator for multiple requests
+parsed, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
+hv, _ := httpvalidator.New(parsed)
+hv.StrictMode = true
+result1, _ := hv.ValidateRequest(req1)
+result2, _ := hv.ValidateRequest(req2)
 ```

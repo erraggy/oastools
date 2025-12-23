@@ -787,6 +787,37 @@ for _, category := range categoryOrder {
 }
 ```
 
+**Configurable Breaking Change Rules:**
+
+```go
+// Customize which changes are considered breaking
+rules := &differ.BreakingRulesConfig{
+    Operation: &differ.OperationRules{
+        // Downgrade operationId changes from error to info
+        OperationIDModified: &differ.BreakingChangeRule{
+            Severity: differ.SeverityPtr(differ.SeverityInfo),
+        },
+    },
+    Schema: &differ.SchemaRules{
+        // Ignore type changes entirely
+        TypeModified: &differ.BreakingChangeRule{
+            Ignore: true,
+        },
+    },
+}
+
+result, err := differ.DiffWithOptions(
+    differ.WithSourceFilePath("v1.yaml"),
+    differ.WithTargetFilePath("v2.yaml"),
+    differ.WithBreakingRules(rules),
+)
+
+// Or use preset configurations:
+// - differ.DefaultRules() - built-in defaults
+// - differ.StrictRules() - elevates warnings to errors
+// - differ.LenientRules() - downgrades some errors to warnings
+```
+
 > 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Differ Deep Dive](packages/differ.md).
 
 ### Generator Package

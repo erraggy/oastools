@@ -397,11 +397,41 @@ The benchmark suite includes **130+ benchmarks** across nine main packages:
 
 **Observation**: Builder provides efficient programmatic construction of OAS documents. Schema generation from reflection is ~3-5μs for typical structs, making it suitable for runtime use. JSON marshaling is ~2x faster than YAML marshaling (18.7μs vs 32.8μs). Tag parsing is highly optimized at ~181ns per tag.
 
+### HTTP Validator Performance
+
+**Request Validation (Pre-parsed)**:
+
+| Document Size | Time (ns) | Memory (bytes) | Allocations |
+|---------------|-----------|----------------|-------------|
+| Small (3 paths) | 210 | 528 | 8 |
+| Medium (20 paths) | 268 | 528 | 8 |
+| Large (100+ paths) | 502 | 528 | 8 |
+
+**Validation Components**:
+
+| Component | Time (ns) | Memory (bytes) | Allocations |
+|-----------|-----------|----------------|-------------|
+| Path matching only | 210-1017 | 528 | 8 |
+| With parameters | 212 | 528 | 8 |
+| With JSON body | 455 | 1,521 | 16 |
+| Response validation | 110 | 256 | 2 |
+| Strict mode | 212 | 528 | 8 |
+
+**API Comparison**:
+
+| API | Time (ns) | Memory (bytes) | Allocations |
+|-----|-----------|----------------|-------------|
+| ValidateRequestWithOptions (file path) | 217,277 | 207,185 | 2,203 |
+| ValidateRequestWithOptions (parsed) | 3,250 | 9,153 | 127 |
+| Validator.ValidateRequest | 210 | 528 | 8 |
+
+**Observation**: HTTP validation is extremely fast when using a pre-created Validator instance (~210ns per request). The functional options API with file path includes parsing overhead (217μs), while using pre-parsed results is ~67x faster (3.2μs). Path matching scales sub-linearly with path count. Response validation is even faster at ~110ns. This makes the httpvalidator package suitable for high-throughput API gateway use cases.
+
 ## Performance Best Practices
 
 ### For Library Users
 
-1. **Reuse parser/validator/fixer/converter/joiner/differ instances** when processing multiple files with the same configuration
+1. **Reuse parser/validator/fixer/converter/joiner/differ/httpvalidator instances** when processing multiple files with the same configuration
 2. **Use ParseOnce workflows**: For operations on the same document (validate, fix, convert, join, diff), parse once and pass the `ParseResult` to subsequent operations:
    ```go
    result, _ := parser.Parse("spec.yaml", false, true)

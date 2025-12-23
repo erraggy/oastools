@@ -259,7 +259,7 @@ bench-release:
 		exit 1; \
 	fi
 	@echo "Running benchmarks for $(VERSION)..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder 2>&1 | tee "$(BENCH_DIR)/benchmark-$(VERSION).txt"
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder ./overlay ./httpvalidator 2>&1 | tee "$(BENCH_DIR)/benchmark-$(VERSION).txt"
 	@echo ""
 	@echo "Benchmark saved to: $(BENCH_DIR)/benchmark-$(VERSION).txt"
 	@echo ""
