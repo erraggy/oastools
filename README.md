@@ -17,7 +17,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 
 - **Minimal Dependencies** - Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4) and [`golang.org/x/tools`](https://pkg.go.dev/golang.org/x/tools) at runtime
 - **Battle-Tested** - 3000+ tests against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
-- **Complete Toolset** - 10 packages covering the full OpenAPI lifecycle
+- **Complete Toolset** - 11 packages covering the full OpenAPI lifecycle
 - **Performance Optimized** - 90+ benchmarks; pre-parsed workflows 9-150x faster
 - **Type-Safe Cloning** - Generated `DeepCopy()` methods preserve types across OAS versions (no JSON marshal hacks)
 - **Enterprise Ready** - Structured errors with `errors.Is()`/`errors.As()`, pluggable logging, configurable resource limits
@@ -31,6 +31,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 | [parser](https://pkg.go.dev/github.com/erraggy/oastools/parser)       | Parse & analyze OAS files from files, URLs, or readers |
 | [validator](https://pkg.go.dev/github.com/erraggy/oastools/validator) | Validate specs with structural & semantic checks       |
 | [fixer](https://pkg.go.dev/github.com/erraggy/oastools/fixer)         | Auto-fix common validation errors                      |
+| [httpvalidator](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator) | Validate HTTP requests/responses against OAS at runtime |
 | [converter](https://pkg.go.dev/github.com/erraggy/oastools/converter) | Convert between OAS 2.0 and 3.x                        |
 | [joiner](https://pkg.go.dev/github.com/erraggy/oastools/joiner)       | Merge multiple OAS documents with schema deduplication |
 | [overlay](https://pkg.go.dev/github.com/erraggy/oastools/overlay)     | Apply OpenAPI Overlay v1.0.0 with JSONPath targeting   |
@@ -52,6 +53,7 @@ For comprehensive examples and advanced usage patterns:
 | differ | [Breaking Change Detection](differ/deep_dive.md) |
 | fixer | [Automatic Fixes](fixer/deep_dive.md) |
 | generator | [Code Generation (Client/Server/Types)](generator/deep_dive.md) |
+| httpvalidator | [HTTP Request/Response Validation](httpvalidator/deep_dive.md) |
 | joiner | [Multi-Document Merging](joiner/deep_dive.md) |
 | overlay | [Overlay Transformations](overlay/deep_dive.md) |
 | parser | [Parsing & Reference Resolution](parser/deep_dive.md) |
@@ -123,6 +125,7 @@ oastools validate --format json openapi.yaml | jq '.valid'
 import (
     "github.com/erraggy/oastools/parser"
     "github.com/erraggy/oastools/validator"
+    "github.com/erraggy/oastools/httpvalidator"
     "github.com/erraggy/oastools/differ"
     "github.com/erraggy/oastools/overlay"
     "github.com/erraggy/oastools/generator"
@@ -132,8 +135,15 @@ import (
 // Parse
 result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
 
-// Validate
+// Validate specification
 vResult, _ := validator.ValidateWithOptions(validator.WithFilePath("api.yaml"))
+
+// Validate HTTP request/response at runtime
+hvResult, _ := httpvalidator.ValidateRequestWithOptions(
+    req,
+    httpvalidator.WithFilePath("api.yaml"),
+    httpvalidator.WithStrictMode(true),
+)
 
 // Diff
 dResult, _ := differ.DiffWithOptions(

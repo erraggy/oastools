@@ -12,6 +12,7 @@ This guide provides comprehensive documentation for developers using oastools as
   - [Parser Package](#parser-package)
   - [Validator Package](#validator-package)
   - [Fixer Package](#fixer-package)
+  - [HTTP Validator Package](#http-validator-package)
   - [Converter Package](#converter-package)
   - [Joiner Package](#joiner-package)
   - [Differ Package](#differ-package)
@@ -421,6 +422,77 @@ for _, fix := range result.Fixes {
     fmt.Printf("  %s: %s\n", fix.Type, fix.Description)
 }
 ```
+
+### HTTP Validator Package
+
+The httpvalidator package validates HTTP requests and responses against OpenAPI specifications at runtime, enabling API gateways, middleware, and testing frameworks to enforce API contracts.
+
+**Basic Request Validation:**
+
+```go
+import (
+    "net/http"
+    "github.com/erraggy/oastools/httpvalidator"
+    "github.com/erraggy/oastools/parser"
+)
+
+// Parse specification once at startup
+parsed, _ := parser.ParseWithOptions(
+    parser.WithFilePath("openapi.yaml"),
+)
+
+// Create validator instance
+v, _ := httpvalidator.New(parsed)
+
+// Validate incoming request
+req, _ := http.NewRequest("GET", "/users/123?page=1", nil)
+result, err := v.ValidateRequest(req)
+
+if result.Valid {
+    // Access deserialized parameters
+    userID := result.PathParams["userId"]   // "123"
+    page := result.QueryParams["page"]      // 1 (int)
+}
+```
+
+**Response Validation (for middleware):**
+
+```go
+// Validate response using captured response data
+result, _ := v.ValidateResponseData(
+    req,
+    statusCode,
+    responseHeaders,
+    responseBody,
+)
+
+if !result.Valid {
+    log.Printf("Response validation failed: %v", result.Errors)
+}
+```
+
+**Strict Mode:**
+
+```go
+// Enable strict validation
+v.StrictMode = true  // Reject unknown parameters and undocumented responses
+
+result, _ := v.ValidateRequest(req)
+// Unknown query parameters will cause validation errors
+```
+
+**Functional Options API:**
+
+```go
+// One-off validation without creating a validator instance
+result, err := httpvalidator.ValidateRequestWithOptions(
+    req,
+    httpvalidator.WithFilePath("openapi.yaml"),
+    httpvalidator.WithStrictMode(true),
+)
+```
+
+For comprehensive httpvalidator usage patterns, see the [HTTP Validator Deep Dive](../httpvalidator/deep_dive.md).
 
 ### Converter Package
 

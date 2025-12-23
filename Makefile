@@ -168,7 +168,7 @@ tidy:
 .PHONY: bench
 bench:
 	@echo "Running all benchmarks ($(BENCH_TIME) per benchmark)..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./httpvalidator ./converter ./joiner ./differ ./generator ./builder
 
 ## bench-parser: Run parser benchmarks only
 .PHONY: bench-parser
@@ -187,6 +187,12 @@ bench-validator:
 bench-fixer:
 	@echo "Running fixer benchmarks..."
 	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./fixer
+
+## bench-httpvalidator: Run httpvalidator benchmarks only
+.PHONY: bench-httpvalidator
+bench-httpvalidator:
+	@echo "Running httpvalidator benchmarks..."
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./httpvalidator
 
 ## bench-converter: Run converter benchmarks only
 .PHONY: bench-converter
@@ -230,7 +236,7 @@ bench-save:
 	@echo "Running benchmarks and saving results..."
 	@TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
 	OUTPUT_FILE="benchmark-$${TIMESTAMP}.txt"; \
-	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder ./overlay ./internal/jsonpath 2>&1 | tee "$${OUTPUT_FILE}"; \
+	go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./httpvalidator ./converter ./joiner ./differ ./generator ./builder ./overlay ./internal/jsonpath 2>&1 | tee "$${OUTPUT_FILE}"; \
 	echo ""; \
 	echo "Benchmark results saved to: $${OUTPUT_FILE}"
 
@@ -238,7 +244,7 @@ bench-save:
 .PHONY: bench-baseline
 bench-baseline:
 	@echo "Running benchmarks and updating baseline..."
-	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder ./overlay ./internal/jsonpath 2>&1 | tee benchmark-baseline.txt
+	@go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./parser ./validator ./fixer ./httpvalidator ./converter ./joiner ./differ ./generator ./builder ./overlay ./internal/jsonpath 2>&1 | tee benchmark-baseline.txt
 	@echo ""
 	@echo "Baseline updated: benchmark-baseline.txt"
 
