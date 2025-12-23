@@ -471,3 +471,133 @@ func TestServerRouterWithValidation(t *testing.T) {
 	mwContent := string(result.GetFile("server_middleware.go").Content)
 	assert.Contains(t, mwContent, "v.ValidateRequest(r)")
 }
+
+func TestGenerateServerExtensionsOAS2(t *testing.T) {
+	// OAS 2.0 spec - server extensions are stubs but should not error
+	spec := `swagger: "2.0"
+info:
+  title: OAS2 API
+  version: "1.0.0"
+basePath: /api
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        200:
+          description: OK
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "oas2.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	// Enable all server extensions - should succeed without error
+	// even though OAS2 stubs don't generate output
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("oas2api"),
+		WithServer(true),
+		WithServerAll(),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+
+	// Server.go should still be generated
+	assert.NotNil(t, result.GetFile("server.go"))
+
+	// Extension files won't be generated for OAS2 (stubs return nil)
+	// This is expected behavior - no error, just no output
+}
+
+func TestGenerateServerInvalidRouter(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "petstore.yaml")
+	err := os.WriteFile(tmpFile, []byte(testPetstoreSpec), 0600)
+	require.NoError(t, err)
+
+	// Invalid router value should error
+	_, err = GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+		WithServerRouter("invalid"),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid server router")
+}
+
+func TestGenerateServerRouterEmptyPaths(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Empty API
+  version: "1.0.0"
+paths: {}
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "empty.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("emptyapi"),
+		WithServer(true),
+		WithServerRouter("stdlib"),
+	)
+	require.NoError(t, err)
+
+	// Router should not be generated for empty paths
+	routerFile := result.GetFile("server_router.go")
+	assert.Nil(t, routerFile, "server_router.go should not be generated for empty paths")
+}
+
+func TestGenerateServerStubsEmptyPaths(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Empty API
+  version: "1.0.0"
+paths: {}
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "empty.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("emptyapi"),
+		WithServer(true),
+		WithServerStubs(true),
+	)
+	require.NoError(t, err)
+
+	// Stubs should not be generated for empty paths
+	stubsFile := result.GetFile("server_stubs.go")
+	assert.Nil(t, stubsFile, "server_stubs.go should not be generated for empty paths")
+}
+
+func TestGenerateServerBinderEmptyPaths(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Empty API
+  version: "1.0.0"
+paths: {}
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "empty.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("emptyapi"),
+		WithServer(true),
+		WithServerBinder(true),
+	)
+	require.NoError(t, err)
+
+	// Binder should not be generated for empty paths
+	binderFile := result.GetFile("server_binder.go")
+	assert.Nil(t, binderFile, "server_binder.go should not be generated for empty paths")
+}

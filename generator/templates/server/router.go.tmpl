@@ -141,7 +141,10 @@ func (r *ServerRouter) handle{{.MethodName}}(w http.ResponseWriter, req *http.Re
 	// Call the server implementation
 	resp, err := r.server.{{.MethodName}}(ctx, srvReq)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, err.Error())
+		// Return a generic error to avoid exposing internal details.
+		// For custom error handling, implement error mapping in your ServerInterface
+		// or use middleware to intercept and transform errors.
+		WriteError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 
