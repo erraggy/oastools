@@ -492,7 +492,7 @@ result, err := httpvalidator.ValidateRequestWithOptions(
 )
 ```
 
-For comprehensive httpvalidator usage patterns, see the [HTTP Validator Deep Dive](../httpvalidator/deep_dive.md).
+For comprehensive httpvalidator usage patterns, see the [HTTP Validator Deep Dive](packages/httpvalidator.md).
 
 ### Converter Package
 

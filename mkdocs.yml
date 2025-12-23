@@ -57,6 +57,7 @@ nav:
     - Overlay: packages/overlay.md
     - Joiner: packages/joiner.md
     - Differ: packages/differ.md
+    - HTTP Validator: packages/httpvalidator.md
     - Generator: packages/generator.md
     - Builder: packages/builder.md
   - Project Info:
