@@ -180,6 +180,10 @@ parsed, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
 router, err := NewServerRouter(server, parsed,
     WithMiddleware(loggingMiddleware),
     WithMiddleware(ValidationMiddleware(parsed)),
+    WithErrorHandler(func(r *http.Request, err error) {
+        // Log errors server-side without exposing to clients
+        log.Printf("Handler error: %s %s: %v", r.Method, r.URL.Path, err)
+    }),
 )
 if err != nil {
     log.Fatal(err)
@@ -187,6 +191,8 @@ if err != nil {
 
 http.ListenAndServe(":8080", router)
 ```
+
+**Error Handling:** The router returns a generic "internal server error" message to clients to prevent information disclosure. Use `WithErrorHandler` to log the actual error for debugging.
 
 ### Stub Server (`server_stubs.go`)
 

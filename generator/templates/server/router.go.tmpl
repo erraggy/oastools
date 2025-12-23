@@ -12,9 +12,10 @@ import (
 
 // ServerRouter routes HTTP requests to ServerInterface handlers.
 type ServerRouter struct {
-	server      ServerInterface
-	pathMatcher *httpvalidator.PathMatcherSet
-	middleware  []func(http.Handler) http.Handler
+	server       ServerInterface
+	pathMatcher  *httpvalidator.PathMatcherSet
+	middleware   []func(http.Handler) http.Handler
+	errorHandler func(r *http.Request, err error) // called when handler returns error
 }
 
 // RouterOption configures the ServerRouter.
@@ -59,6 +60,16 @@ func NewServerRouter(server ServerInterface, parsed *parser.ParseResult, opts ..
 func WithMiddleware(mw ...func(http.Handler) http.Handler) RouterOption {
 	return func(r *ServerRouter) error {
 		r.middleware = append(r.middleware, mw...)
+		return nil
+	}
+}
+
+// WithErrorHandler sets a callback for logging handler errors.
+// The callback receives the request and error for logging purposes.
+// The error is NOT sent to the client - a generic message is returned instead.
+func WithErrorHandler(handler func(r *http.Request, err error)) RouterOption {
+	return func(r *ServerRouter) error {
+		r.errorHandler = handler
 		return nil
 	}
 }
@@ -141,9 +152,12 @@ func (r *ServerRouter) handle{{.MethodName}}(w http.ResponseWriter, req *http.Re
 	// Call the server implementation
 	resp, err := r.server.{{.MethodName}}(ctx, srvReq)
 	if err != nil {
+		// Log the error if a handler is configured
+		if r.errorHandler != nil {
+			r.errorHandler(req, err)
+		}
 		// Return a generic error to avoid exposing internal details.
-		// For custom error handling, implement error mapping in your ServerInterface
-		// or use middleware to intercept and transform errors.
+		// Use WithErrorHandler to log the actual error for debugging.
 		WriteError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}

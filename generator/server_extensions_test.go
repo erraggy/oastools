@@ -601,3 +601,34 @@ paths: {}
 	binderFile := result.GetFile("server_binder.go")
 	assert.Nil(t, binderFile, "server_binder.go should not be generated for empty paths")
 }
+
+func TestGenerateServerRouterWithErrorHandler(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "petstore.yaml")
+	err := os.WriteFile(tmpFile, []byte(testPetstoreSpec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+		WithServerRouter("stdlib"),
+	)
+	require.NoError(t, err)
+
+	routerFile := result.GetFile("server_router.go")
+	require.NotNil(t, routerFile)
+
+	content := string(routerFile.Content)
+
+	// Check WithErrorHandler option is generated
+	assert.Contains(t, content, "WithErrorHandler")
+	assert.Contains(t, content, "func(r *http.Request, err error)")
+	assert.Contains(t, content, "errorHandler")
+
+	// Check error handler is called in handlers
+	assert.Contains(t, content, "r.errorHandler(req, err)")
+
+	// Verify generic error message is used
+	assert.Contains(t, content, `"internal server error"`)
+}
