@@ -823,7 +823,7 @@ Generated code follows Go idioms, includes proper error handling, and is suitabl
 | `--server-responses` | Generate typed response writers and helpers (`server_responses.go`) |
 | `--server-binder` | Generate request parameter binding (`server_binder.go`) |
 | `--server-middleware` | Generate validation middleware using httpvalidator (`server_middleware.go`) |
-| `--server-router string` | Generate HTTP router: `stdlib` or `chi` (`server_router.go`) |
+| `--server-router string` | Generate HTTP router: `stdlib` (`server_router.go`) |
 | `--server-stubs` | Generate stub server for testing (`server_stubs.go`) |
 | `--server-embed-spec` | Embed OpenAPI spec in generated code |
 | `--server-all` | Enable all server extensions (responses, binder, middleware, router=stdlib, stubs) |

@@ -89,7 +89,7 @@ func SetupGenerateFlags() (*flag.FlagSet, *GenerateFlags) {
 	fs.BoolVar(&flags.NoSplitByPath, "no-split-by-path", false, "don't split files by path prefix")
 
 	// Server generation flags
-	fs.StringVar(&flags.ServerRouter, "server-router", "", "generate HTTP router (stdlib, chi)")
+	fs.StringVar(&flags.ServerRouter, "server-router", "", "generate HTTP router (stdlib)")
 	fs.BoolVar(&flags.ServerMiddleware, "server-middleware", false, "generate validation middleware using httpvalidator")
 	fs.BoolVar(&flags.ServerBinder, "server-binder", false, "generate parameter binding from validation results")
 	fs.BoolVar(&flags.ServerResponses, "server-responses", false, "generate typed response writers and error types")
@@ -114,7 +114,7 @@ func SetupGenerateFlags() (*flag.FlagSet, *GenerateFlags) {
 		cliutil.Writef(fs.Output(), "  oastools generate -s --client -o ./client openapi.yaml  # Include line numbers in issues\n")
 		cliutil.Writef(fs.Output(), "\nServer Generation Examples:\n")
 		cliutil.Writef(fs.Output(), "  oastools generate --server --server-all -o ./server openapi.yaml  # Full server with validation\n")
-		cliutil.Writef(fs.Output(), "  oastools generate --server --server-router=chi -o ./server openapi.yaml  # Chi router\n")
+		cliutil.Writef(fs.Output(), "  oastools generate --server --server-router=stdlib -o ./server openapi.yaml  # With router\n")
 		cliutil.Writef(fs.Output(), "  oastools generate --server --server-middleware --server-binder -o ./server openapi.yaml\n")
 		cliutil.Writef(fs.Output(), "\nPipelining:\n")
 		cliutil.Writef(fs.Output(), "  Use '-' as the file path to read the OpenAPI specification from stdin.\n")

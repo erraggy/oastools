@@ -1302,7 +1302,7 @@ type Generator struct {
 | `WithServerResponses(bool)` | Generate typed response writers |
 | `WithServerBinder(bool)` | Generate request parameter binding |
 | `WithServerMiddleware(bool)` | Generate validation middleware |
-| `WithServerRouter(string)` | Generate HTTP router ("stdlib" or "chi") |
+| `WithServerRouter(string)` | Generate HTTP router ("stdlib") |
 | `WithServerStubs(bool)` | Generate stub server for testing |
 | `WithServerAll()` | Enable all server extensions |
 

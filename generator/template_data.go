@@ -210,7 +210,7 @@ type ServerMiddlewareFileData struct {
 // ServerRouterFileData contains data for server_router.go
 type ServerRouterFileData struct {
 	Header     HeaderData
-	Framework  string // "stdlib" or "chi"
+	Framework  string // "stdlib"
 	Routes     []RouteData
 	Operations []RouterOperationData
 }
