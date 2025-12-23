@@ -510,6 +510,82 @@ paths:
 	// This is expected behavior - no error, just no output
 }
 
+func TestGenerateServerRouterChi(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "petstore.yaml")
+	err := os.WriteFile(tmpFile, []byte(testPetstoreSpec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+		WithServerRouter("chi"),
+	)
+	require.NoError(t, err)
+
+	// Check server_router.go was generated
+	routerFile := result.GetFile("server_router.go")
+	require.NotNil(t, routerFile, "server_router.go not generated")
+
+	content := string(routerFile.Content)
+
+	// Check chi imports
+	assert.Contains(t, content, `"github.com/go-chi/chi/v5"`)
+
+	// Check NewChiRouter function
+	assert.Contains(t, content, "func NewChiRouter(server ServerInterface, opts ...RouterOption) chi.Router")
+
+	// Check RouterOption type for chi
+	assert.Contains(t, content, "type RouterOption func(chi.Router)")
+	assert.Contains(t, content, "func WithMiddleware(mw ...func(http.Handler) http.Handler)")
+
+	// Check chi route registration
+	assert.Contains(t, content, `r.Get("/pets"`)
+	assert.Contains(t, content, `r.Post("/pets"`)
+	assert.Contains(t, content, `r.Get("/pets/{petId}"`)
+
+	// Check handler functions for operations (chi uses Chi suffix)
+	assert.Contains(t, content, "func handleListPetsChi(")
+	assert.Contains(t, content, "func handleCreatePetChi(")
+	assert.Contains(t, content, "func handleShowPetByIdChi(")
+
+	// Check chi.URLParam usage for path params
+	assert.Contains(t, content, `chi.URLParam(req, "petId")`)
+
+	// Check error handler support
+	assert.Contains(t, content, "type ErrorHandler func(r *http.Request, err error)")
+	assert.Contains(t, content, "func WithErrorHandler(handler ErrorHandler)")
+}
+
+func TestGenerateServerRouterChiWithErrorHandler(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "petstore.yaml")
+	err := os.WriteFile(tmpFile, []byte(testPetstoreSpec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+		WithServerRouter("chi"),
+	)
+	require.NoError(t, err)
+
+	routerFile := result.GetFile("server_router.go")
+	require.NotNil(t, routerFile)
+
+	content := string(routerFile.Content)
+
+	// Check error handler middleware pattern
+	assert.Contains(t, content, "context.WithValue")
+	assert.Contains(t, content, "errorHandlerKey{}")
+	assert.Contains(t, content, "getErrorHandler(req)")
+
+	// Check generic error message is used
+	assert.Contains(t, content, `"internal server error"`)
+}
+
 func TestGenerateServerInvalidRouter(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "petstore.yaml")
@@ -550,6 +626,31 @@ paths: {}
 	// Router should not be generated for empty paths
 	routerFile := result.GetFile("server_router.go")
 	assert.Nil(t, routerFile, "server_router.go should not be generated for empty paths")
+}
+
+func TestGenerateServerRouterChiEmptyPaths(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Empty API
+  version: "1.0.0"
+paths: {}
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "empty.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("emptyapi"),
+		WithServer(true),
+		WithServerRouter("chi"),
+	)
+	require.NoError(t, err)
+
+	// Chi router should not be generated for empty paths
+	routerFile := result.GetFile("server_router.go")
+	assert.Nil(t, routerFile, "server_router.go should not be generated for empty paths with chi router")
 }
 
 func TestGenerateServerStubsEmptyPaths(t *testing.T) {

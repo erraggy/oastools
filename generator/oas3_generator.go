@@ -2340,7 +2340,13 @@ func (cg *oas3CodeGenerator) generateServerRouter() error {
 		}
 	}
 
-	formatted, err := executeTemplate("router.go.tmpl", data)
+	// Select template based on router type
+	templateName := "router.go.tmpl"
+	if cg.g.ServerRouter == "chi" {
+		templateName = "router_chi.go.tmpl"
+	}
+
+	formatted, err := executeTemplate(templateName, data)
 	if err != nil {
 		cg.addIssue("server_router.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
 		return err

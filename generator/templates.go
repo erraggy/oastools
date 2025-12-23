@@ -34,17 +34,29 @@ var templateFuncs = template.FuncMap{
 	"hasPrefix": strings.HasPrefix,
 
 	// Custom helpers
-	"zeroValue":   zeroValue,
-	"cleanDesc":   cleanDescription,
-	"toTypeName":  toTypeName,
-	"toFieldName": toFieldName,
-	"toParamName": toParamName,
-	"trimPointer": trimPointer,
+	"zeroValue":       zeroValue,
+	"cleanDesc":       cleanDescription,
+	"toTypeName":      toTypeName,
+	"toFieldName":     toFieldName,
+	"toParamName":     toParamName,
+	"trimPointer":     trimPointer,
+	"methodToChiFunc": methodToChiFunc,
 }
 
 // trimPointer removes the leading * from a pointer type string
 func trimPointer(s string) string {
 	return strings.TrimPrefix(s, "*")
+}
+
+// methodToChiFunc converts an HTTP method to its chi router function name.
+// Example: "GET" -> "Get", "POST" -> "Post"
+func methodToChiFunc(method string) string {
+	// Chi methods are title-cased (Get, Post, Put, Delete, etc.)
+	method = strings.ToUpper(method)
+	if len(method) == 0 {
+		return ""
+	}
+	return strings.ToUpper(method[:1]) + strings.ToLower(method[1:])
 }
 
 // executeTemplate executes a template by name and returns the formatted bytes

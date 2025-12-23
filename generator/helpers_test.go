@@ -536,3 +536,32 @@ func foo() {
 		assert.NotContains(t, string(result), `"strings"`)
 	})
 }
+
+func TestMethodToChiFunc(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"GET", "Get"},
+		{"POST", "Post"},
+		{"PUT", "Put"},
+		{"DELETE", "Delete"},
+		{"PATCH", "Patch"},
+		{"OPTIONS", "Options"},
+		{"HEAD", "Head"},
+		{"TRACE", "Trace"},
+		{"CONNECT", "Connect"},
+		// Lower case inputs should work too
+		{"get", "Get"},
+		{"post", "Post"},
+		// Empty string
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := methodToChiFunc(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
