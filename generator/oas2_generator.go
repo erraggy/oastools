@@ -1780,3 +1780,38 @@ func (cg *oas2CodeGenerator) generateReadmeFile(schemes map[string]*parser.Secur
 
 	return nil
 }
+
+// generateServerResponses generates typed response helpers for OAS 2.0
+// TODO: Implement for OAS 2.0 - currently a no-op
+func (cg *oas2CodeGenerator) generateServerResponses() error {
+	// OAS 2.0 server responses generation not yet implemented
+	return nil
+}
+
+// generateServerBinder generates parameter binding helpers for OAS 2.0
+// TODO: Implement for OAS 2.0 - currently a no-op
+func (cg *oas2CodeGenerator) generateServerBinder() error {
+	// OAS 2.0 server binder generation not yet implemented
+	return nil
+}
+
+// generateServerMiddleware generates validation middleware for OAS 2.0
+// TODO: Implement for OAS 2.0 - currently a no-op
+func (cg *oas2CodeGenerator) generateServerMiddleware() error {
+	// OAS 2.0 server middleware generation not yet implemented
+	return nil
+}
+
+// generateServerRouter generates HTTP router code for OAS 2.0
+// TODO: Implement for OAS 2.0 - currently a no-op
+func (cg *oas2CodeGenerator) generateServerRouter() error {
+	// OAS 2.0 server router generation not yet implemented
+	return nil
+}
+
+// generateServerStubs generates testable stub implementations for OAS 2.0
+// TODO: Implement for OAS 2.0 - currently a no-op
+func (cg *oas2CodeGenerator) generateServerStubs() error {
+	// OAS 2.0 server stubs generation not yet implemented
+	return nil
+}
