@@ -177,6 +177,10 @@ For CI deployment and documentation structure, see [WORKFLOW.md](WORKFLOW.md).
 - **converter/** - Convert between OAS versions (2.0 ↔ 3.x) with issue tracking
 - **differ/** - Compare OAS files, detect breaking changes by severity
 - **httpvalidator/** - Validate HTTP requests/responses against OAS at runtime
+- **generator/** - Generate Go client/server code with security and server extensions
+- **builder/** - Programmatically construct OpenAPI specifications
+- **overlay/** - Apply OpenAPI Overlay transformations
+- **oaserrors/** - Sentinel errors for programmatic error handling
 - **internal/** - Shared utilities (httputil, severity, issues, testutil)
 - **testdata/** - Test fixtures including sample OAS files
 
@@ -392,6 +396,7 @@ All core packages are public:
 - `github.com/erraggy/oastools/overlay` - Apply OpenAPI Overlay transformations
 - `github.com/erraggy/oastools/differ` - Compare and diff OpenAPI specifications
 - `github.com/erraggy/oastools/httpvalidator` - Validate HTTP requests/responses at runtime
+- `github.com/erraggy/oastools/generator` - Generate Go client/server code with server extensions
 - `github.com/erraggy/oastools/builder` - Build OpenAPI specifications programmatically
 
 ### API Design Philosophy

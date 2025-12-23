@@ -198,3 +198,108 @@ func Example_withFileSplitting() {
 		fmt.Printf("  - %s\n", file.Name)
 	}
 }
+
+// Example_withServerExtensions demonstrates generating server code with all extensions
+func Example_withServerExtensions() {
+	// Generate a complete server framework with validation, routing, and testing support
+	result, err := generator.GenerateWithOptions(
+		generator.WithFilePath("openapi.yaml"),
+		generator.WithPackageName("api"),
+		generator.WithServer(true),
+		generator.WithServerAll(), // Enable all server extensions at once
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// WithServerAll() enables:
+	// - WithServerResponses(true): Typed response writers with Status*() methods
+	// - WithServerBinder(true): Request parameter binding via httpvalidator
+	// - WithServerMiddleware(true): Validation middleware for request/response
+	// - WithServerRouter("stdlib"): HTTP router with path matching
+	// - WithServerStubs(true): Stub implementations for testing
+
+	fmt.Printf("Generated %d files with server extensions\n", len(result.Files))
+
+	// Generated files include:
+	// - server.go: ServerInterface and request types
+	// - server_responses.go: Per-operation response types
+	// - server_binder.go: RequestBinder with Bind{Op}Request() methods
+	// - server_middleware.go: ValidationMiddleware configuration
+	// - server_router.go: ServerRouter implementing http.Handler
+	// - server_stubs.go: StubServer for testing
+
+	for _, file := range result.Files {
+		if file.Name[:7] == "server_" {
+			fmt.Printf("  - %s\n", file.Name)
+		}
+	}
+}
+
+// Example_withServerRouter demonstrates generating a server router with custom options
+func Example_withServerRouter() {
+	// Generate server with just the router extension
+	result, err := generator.GenerateWithOptions(
+		generator.WithFilePath("openapi.yaml"),
+		generator.WithPackageName("api"),
+		generator.WithServer(true),
+		generator.WithServerRouter("stdlib"), // Generate stdlib-based router
+		generator.WithServerResponses(true),  // Include typed response writers
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// The generated server_router.go provides:
+	// - NewServerRouter(server ServerInterface, parsed *parser.ParseResult, opts ...RouterOption)
+	// - WithMiddleware(mw ...func(http.Handler) http.Handler) for adding middleware
+	// - WithErrorHandler(func(r *http.Request, err error)) for logging handler errors
+	// - PathParam(r *http.Request, name string) for accessing path parameters
+
+	// Example usage of generated router:
+	//
+	//   parsed, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
+	//   middleware, _ := ValidationMiddleware(parsed)
+	//   router, _ := NewServerRouter(myServer, parsed,
+	//       WithMiddleware(middleware),
+	//       WithErrorHandler(func(r *http.Request, err error) {
+	//           log.Printf("Error: %s %s: %v", r.Method, r.URL.Path, err)
+	//       }),
+	//   )
+	//   http.ListenAndServe(":8080", router)
+
+	if routerFile := result.GetFile("server_router.go"); routerFile != nil {
+		fmt.Printf("Generated server_router.go: %d bytes\n", len(routerFile.Content))
+	}
+}
+
+// Example_withServerStubs demonstrates generating stub implementations for testing
+func Example_withServerStubs() {
+	// Generate server with stub implementations for unit testing
+	result, err := generator.GenerateWithOptions(
+		generator.WithFilePath("openapi.yaml"),
+		generator.WithPackageName("api"),
+		generator.WithServer(true),
+		generator.WithServerStubs(true),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// The generated server_stubs.go provides:
+	// - StubServer struct with configurable function fields
+	// - Each operation has a field: Get{Op}Func, Create{Op}Func, etc.
+	// - Set fields to custom handlers for testing specific scenarios
+
+	// Example usage of generated stubs:
+	//
+	//   stub := &StubServer{}
+	//   stub.ListPetsFunc = func(ctx context.Context, req *ListPetsRequest) (*ListPetsResponse, error) {
+	//       return &ListPetsResponse{...}, nil
+	//   }
+	//   // Use stub as ServerInterface in tests
+
+	if stubsFile := result.GetFile("server_stubs.go"); stubsFile != nil {
+		fmt.Printf("Generated server_stubs.go: %d bytes\n", len(stubsFile.Content))
+	}
+}

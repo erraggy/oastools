@@ -1057,6 +1057,49 @@ result, err := generator.GenerateWithOptions(
 
 > 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Generator Deep Dive](packages/generator.md).
 
+**Server Extensions:**
+
+Generate a complete server framework with validation, routing, and testing support:
+
+```go
+// Generate server with all extensions
+result, err := generator.GenerateWithOptions(
+    generator.WithFilePath("openapi.yaml"),
+    generator.WithPackageName("api"),
+    generator.WithServer(true),
+    generator.WithServerAll(), // Enable all server extensions
+)
+```
+
+Server extension options:
+- `WithServerResponses(true)`: Typed response writers with `Status*()` methods
+- `WithServerBinder(true)`: Request parameter binding using httpvalidator
+- `WithServerMiddleware(true)`: Validation middleware for request/response validation
+- `WithServerRouter("stdlib")`: HTTP router generation with path matching
+- `WithServerStubs(true)`: Configurable stub implementations for testing
+- `WithServerEmbedSpec(true)`: Embed OpenAPI spec for runtime validation
+
+Generated server extension files:
+- `server_responses.go`: Per-operation response types with `WriteTo()` methods
+- `server_binder.go`: `RequestBinder` with `Bind{Operation}Request()` methods
+- `server_middleware.go`: `ValidationMiddleware` with configurable error handling
+- `server_router.go`: `ServerRouter` implementing `http.Handler`
+- `server_stubs.go`: `StubServer` with configurable function fields for testing
+
+Example router setup with error logging:
+
+```go
+// Create router with validation middleware and error logging
+middleware, _ := ValidationMiddleware(parsed)
+router, _ := NewServerRouter(server, parsed,
+    WithMiddleware(middleware),
+    WithErrorHandler(func(r *http.Request, err error) {
+        log.Printf("Handler error: %s %s: %v", r.Method, r.URL.Path, err)
+    }),
+)
+http.ListenAndServe(":8080", router)
+```
+
 ### Builder Package
 
 The builder package enables programmatic construction of OpenAPI specifications with reflection-based schema generation from Go types.
