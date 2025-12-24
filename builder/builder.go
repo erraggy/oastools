@@ -307,17 +307,7 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 				}
 			} else {
 				// OAS 2.0: Apply type/format to parameter-level fields
-				if pCfg.schemaOverride != nil {
-					param.Type = pCfg.schemaOverride.Type
-					param.Format = pCfg.schemaOverride.Format
-				} else {
-					if pCfg.typeOverride != "" {
-						param.Type = pCfg.typeOverride
-					}
-					if pCfg.formatOverride != "" {
-						param.Format = pCfg.formatOverride
-					}
-				}
+				applyTypeFormatOverridesToOAS2Param(param, param.Schema, pCfg)
 				// Apply constraints directly to parameter
 				applyParamConstraintsToParam(param, pCfg)
 			}

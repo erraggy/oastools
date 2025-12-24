@@ -793,17 +793,7 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 				}
 			} else {
 				// OAS 2.0: Apply type/format to parameter-level fields
-				if pCfg.schemaOverride != nil {
-					param.Type = pCfg.schemaOverride.Type
-					param.Format = pCfg.schemaOverride.Format
-				} else {
-					if pCfg.typeOverride != "" {
-						param.Type = pCfg.typeOverride
-					}
-					if pCfg.formatOverride != "" {
-						param.Format = pCfg.formatOverride
-					}
-				}
+				applyTypeFormatOverridesToOAS2Param(param, param.Schema, pCfg)
 				// Apply constraints directly to parameter
 				applyParamConstraintsToParam(param, pCfg)
 			}
@@ -847,6 +837,9 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 					if formParam.pType != nil {
 						param.Schema = b.generateSchema(formParam.pType)
 					}
+
+					// Apply type/format to parameter level (OAS 2.0 requires these at parameter level)
+					applyTypeFormatOverridesToOAS2Param(param, param.Schema, formParam.config)
 
 					// Apply constraints directly to parameter for OAS 2.0
 					applyParamConstraintsToParam(param, formParam.config)
@@ -965,6 +958,23 @@ func (b *Builder) buildFormParamSchema(formParams []*formParamBuilder) *parser.S
 
 			// Apply constraints to the property schema
 			propSchema = applyParamConstraintsToSchema(propSchema, formParam.config)
+
+			// Apply type/format overrides (schemaOverride takes precedence)
+			if formParam.config.schemaOverride != nil {
+				if typeStr, ok := formParam.config.schemaOverride.Type.(string); ok {
+					propSchema.Type = typeStr
+				}
+				if formParam.config.schemaOverride.Format != "" {
+					propSchema.Format = formParam.config.schemaOverride.Format
+				}
+			} else {
+				if formParam.config.typeOverride != "" {
+					propSchema.Type = formParam.config.typeOverride
+				}
+				if formParam.config.formatOverride != "" {
+					propSchema.Format = formParam.config.formatOverride
+				}
+			}
 		}
 
 		// Set description if provided

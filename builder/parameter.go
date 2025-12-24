@@ -333,19 +333,7 @@ func (b *Builder) AddParameter(name string, in string, paramName string, paramTy
 	// Apply constraints directly to parameter for OAS 2.0
 	if b.version == parser.OASVersion20 {
 		// Apply type/format to parameter-level fields for OAS 2.0
-		if pCfg.schemaOverride != nil {
-			// For full schema override in OAS 2.0, use schema type/format
-			param.Type = pCfg.schemaOverride.Type
-			param.Format = pCfg.schemaOverride.Format
-		} else {
-			// Apply individual overrides
-			if pCfg.typeOverride != "" {
-				param.Type = pCfg.typeOverride
-			}
-			if pCfg.formatOverride != "" {
-				param.Format = pCfg.formatOverride
-			}
-		}
+		applyTypeFormatOverridesToOAS2Param(param, schema, pCfg)
 		applyParamConstraintsToParam(param, pCfg)
 	} else {
 		// OAS 3.x: Extensions are still applied to the parameter (not schema)
@@ -561,9 +549,42 @@ func applyTypeFormatOverrides(schema *parser.Schema, cfg *paramConfig) *parser.S
 	return result
 }
 
-// hasTypeFormatOverrides checks if any type/format override is set.
-func hasTypeFormatOverrides(cfg *paramConfig) bool {
-	return cfg.schemaOverride != nil || cfg.typeOverride != "" || cfg.formatOverride != ""
+// applyTypeFormatOverridesToOAS2Param applies type/format to an OAS 2.0 parameter.
+// In OAS 2.0, type and format are top-level parameter fields (not nested in schema).
+// This function copies type/format from the schema and applies any overrides.
+//
+// Precedence:
+//  1. schemaOverride.Type/Format takes highest precedence
+//  2. typeOverride/formatOverride replace the inferred values
+//  3. schema.Type/Format (inferred from Go type) is the default
+//
+// The schema parameter provides the inferred type/format from Go type reflection.
+// For Schema.Type, we perform type assertion since it may be interface{} in OAS 3.1+.
+func applyTypeFormatOverridesToOAS2Param(param *parser.Parameter, schema *parser.Schema, cfg *paramConfig) {
+	// Start with inferred type/format from schema
+	if schema != nil {
+		if typeStr, ok := schema.Type.(string); ok {
+			param.Type = typeStr
+		}
+		param.Format = schema.Format
+	}
+
+	// Apply overrides (schemaOverride takes precedence over individual overrides)
+	if cfg.schemaOverride != nil {
+		// Schema.Type is interface{} to support OAS 3.1 array types
+		// For OAS 2.0, we only support string types
+		if typeStr, ok := cfg.schemaOverride.Type.(string); ok {
+			param.Type = typeStr
+		}
+		param.Format = cfg.schemaOverride.Format
+	} else {
+		if cfg.typeOverride != "" {
+			param.Type = cfg.typeOverride
+		}
+		if cfg.formatOverride != "" {
+			param.Format = cfg.formatOverride
+		}
+	}
 }
 
 // applyParamConstraintsToParam applies parameter constraints directly to a parameter.
