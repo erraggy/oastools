@@ -25,6 +25,11 @@ install:
 	@echo "Installing $(BINARY_NAME)..."
 	go install $(MAIN_PATH)
 
+## run: Run the CLI with arguments (usage: make run ARGS="generate -server ...")
+.PHONY: run
+run:
+	@go run $(MAIN_PATH) $(ARGS)
+
 ## clean: Clean build artifacts and benchmark outputs
 .PHONY: clean
 clean:
