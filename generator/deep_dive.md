@@ -1427,6 +1427,6 @@ For additional examples and complete API documentation:
 
 ### Full Working Examples
 
-The [`examples/`](../examples/) directory contains complete, generated modules you can browse:
+The [`examples/`](https://github.com/erraggy/oastools/tree/main/examples) directory contains complete, generated modules you can browse:
 
-- **[examples/petstore/](../examples/petstore/)** - Full client/server with OAuth2 flows, OIDC discovery, credential management, security enforcement, and all server extensions generated from the [Swagger Petstore API](https://petstore.swagger.io/)
+- **[examples/petstore/](https://github.com/erraggy/oastools/tree/main/examples/petstore)** - Full client/server with OAuth2 flows, OIDC discovery, credential management, security enforcement, and all server extensions generated from the [Swagger Petstore API](https://petstore.swagger.io/)
