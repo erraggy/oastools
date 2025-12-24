@@ -1283,6 +1283,31 @@ spec := builder.New(parser.OASVersion20).
     )
 ```
 
+**Explicit Type and Format Overrides:**
+
+```go
+// Override inferred type/format when Go types don't map directly to desired OpenAPI schema
+spec.AddOperation(http.MethodGet, "/users/{user_id}",
+    builder.WithPathParam("user_id", "",
+        builder.WithParamFormat("uuid"),  // String with UUID format
+    ),
+    builder.WithQueryParam("version", 0,
+        builder.WithParamType("integer"),
+        builder.WithParamFormat("int64"),
+    ),
+)
+
+// Full schema override for complex types
+spec.AddOperation(http.MethodGet, "/items",
+    builder.WithQueryParam("ids", nil,
+        builder.WithParamSchema(&parser.Schema{
+            Type:  "array",
+            Items: &parser.Schema{Type: "string", Format: "uuid"},
+        }),
+    ),
+)
+```
+
 **Multiple Content Types:**
 
 ```go
