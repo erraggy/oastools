@@ -2,7 +2,7 @@
 
 # Overlay Package Deep Dive
 
-The overlay package implements the [OpenAPI Overlay Specification v1.0.0](https://github.com/OAI/Overlay-Specification), providing a standardized mechanism for augmenting OpenAPI documents through targeted transformations.
+The [`overlay`](https://pkg.go.dev/github.com/erraggy/oastools/overlay) package implements the [OpenAPI Overlay Specification v1.0.0](https://github.com/OAI/Overlay-Specification), providing a standardized mechanism for augmenting OpenAPI documents through targeted transformations.
 
 ## Table of Contents
 
@@ -59,6 +59,8 @@ actions:
 
 ### Dry-Run Mode
 
+See also: [Dry-run example](https://pkg.go.dev/github.com/erraggy/oastools/overlay#example-package-DryRun) on pkg.go.dev
+
 Preview changes without modifying the document:
 
 ```go
@@ -77,6 +79,8 @@ for _, change := range result.Changes {
 ---
 
 ## API Styles
+
+See also: [Basic example](https://pkg.go.dev/github.com/erraggy/oastools/overlay#example-package), [Validate example](https://pkg.go.dev/github.com/erraggy/oastools/overlay#example-package-Validate), [Parse overlay example](https://pkg.go.dev/github.com/erraggy/oastools/overlay#example-package-ParseOverlay) on pkg.go.dev
 
 ### Functional Options (Recommended)
 
@@ -120,6 +124,8 @@ result, _ := overlay.ApplyWithOptions(
 ---
 
 ## Practical Examples
+
+See also: [Remove action example](https://pkg.go.dev/github.com/erraggy/oastools/overlay#example-package-RemoveAction), [Recursive descent example](https://pkg.go.dev/github.com/erraggy/oastools/overlay#example-package-RecursiveDescent), [Compound filter example](https://pkg.go.dev/github.com/erraggy/oastools/overlay#example-package-CompoundFilter) on pkg.go.dev
 
 ### Remove Internal Endpoints
 
@@ -242,3 +248,15 @@ if errs := overlay.Validate(o); len(errs) > 0 {
 5. **Combine with converter** - Use `WithPreConversionOverlayFile` and `WithPostConversionOverlayFile` for version migrations
 
 [Back to top](#top)
+
+---
+
+## Learn More
+
+For additional examples and complete API documentation:
+
+- 📦 [API Reference on pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/overlay) - Complete API documentation with all examples
+- 🔍 [Dry-run example](https://pkg.go.dev/github.com/erraggy/oastools/overlay#example-package-DryRun) - Preview changes without applying
+- ❌ [Remove action example](https://pkg.go.dev/github.com/erraggy/oastools/overlay#example-package-RemoveAction) - Remove nodes from documents
+- 🔄 [Recursive descent example](https://pkg.go.dev/github.com/erraggy/oastools/overlay#example-package-RecursiveDescent) - Find fields at any depth
+- 🧪 [Compound filter example](https://pkg.go.dev/github.com/erraggy/oastools/overlay#example-package-CompoundFilter) - Complex filter expressions

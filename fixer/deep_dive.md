@@ -2,7 +2,7 @@
 
 # Fixer Package Deep Dive
 
-The fixer package provides automatic fixes for common OpenAPI Specification validation errors, supporting both OAS 2.0 and OAS 3.x documents.
+The [`fixer`](https://pkg.go.dev/github.com/erraggy/oastools/fixer) package provides automatic fixes for common OpenAPI Specification validation errors, supporting both OAS 2.0 and OAS 3.x documents.
 
 ## Table of Contents
 
@@ -98,6 +98,8 @@ result, _ := f.Fix("api.yaml")
 
 ## Practical Examples
 
+See also: [Basic example](https://pkg.go.dev/github.com/erraggy/oastools/fixer#example-package), [Functional options](https://pkg.go.dev/github.com/erraggy/oastools/fixer#example-FixWithOptions) on pkg.go.dev
+
 ### Basic Fixing
 
 ```go
@@ -113,6 +115,8 @@ for _, fix := range result.Fixes {
 ```
 
 ### Type Inference
+
+See also: [Type inference example](https://pkg.go.dev/github.com/erraggy/oastools/fixer#example-Fixer_InferTypes) on pkg.go.dev
 
 When enabled, the fixer infers parameter types from naming conventions:
 
@@ -131,6 +135,8 @@ result, err := fixer.FixWithOptions(
 
 ### Dry-Run Mode
 
+See also: [Dry-run example](https://pkg.go.dev/github.com/erraggy/oastools/fixer#example-WithDryRun) on pkg.go.dev
+
 Preview fixes without applying them:
 
 ```go
@@ -143,6 +149,8 @@ fmt.Printf("Would apply %d fixes\n", result.FixCount)
 ```
 
 ### Generic Schema Renaming
+
+See also: [Generic naming example](https://pkg.go.dev/github.com/erraggy/oastools/fixer#example-FixWithOptions-GenericNaming) on pkg.go.dev
 
 ```go
 result, err := fixer.FixWithOptions(
@@ -158,6 +166,8 @@ result, err := fixer.FixWithOptions(
 ---
 
 ## Generic Naming Strategies
+
+See also: [Naming config example](https://pkg.go.dev/github.com/erraggy/oastools/fixer#example-WithGenericNamingConfig), [Strategy example](https://pkg.go.dev/github.com/erraggy/oastools/fixer#example-GenericNamingStrategy) on pkg.go.dev
 
 When fixing invalid schema names like `Response[User]`:
 
@@ -220,3 +230,15 @@ Configure with `WithGenericNaming()` or `WithGenericNamingConfig()`.
 5. **Pipeline usage** - `oastools fix api.yaml | oastools validate -q -`
 
 [Back to top](#top)
+
+---
+
+## Learn More
+
+For additional examples and complete API documentation:
+
+- 📦 [API Reference on pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/fixer) - Complete API documentation with all examples
+- 🔧 [Selective fixes example](https://pkg.go.dev/github.com/erraggy/oastools/fixer#example-WithEnabledFixes) - Enable specific fix types
+- 🗑️ [Prune unused schemas](https://pkg.go.dev/github.com/erraggy/oastools/fixer#example-package-PruneUnusedSchemas) - Remove unreferenced definitions
+- 📁 [Prune empty paths](https://pkg.go.dev/github.com/erraggy/oastools/fixer#example-package-PruneEmptyPaths) - Clean up empty path items
+- ✅ [Check results example](https://pkg.go.dev/github.com/erraggy/oastools/fixer#example-FixResult_HasFixes) - Inspect applied fixes

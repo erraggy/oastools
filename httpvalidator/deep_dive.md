@@ -17,7 +17,7 @@
 
 ---
 
-The `httpvalidator` package validates HTTP requests and responses against OpenAPI Specification documents at runtime. It enables API gateways, middleware, and testing frameworks to enforce API contracts, ensuring that HTTP traffic conforms to the declared specification.
+The [`httpvalidator`](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator) package validates HTTP requests and responses against OpenAPI Specification documents at runtime. It enables API gateways, middleware, and testing frameworks to enforce API contracts, ensuring that HTTP traffic conforms to the declared specification.
 
 ## Overview
 
@@ -75,6 +75,8 @@ Use strict mode when you need exact contract enforcement, such as in testing sce
 
 ### Path Matching Specificity
 
+See also: [PathMatcher example](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator#example-PathMatcher), [PathMatcherSet example](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator#example-PathMatcherSet) on pkg.go.dev
+
 When multiple path templates could match a request (e.g., `/users/123` could match both `/users/{id}` and `/users/new`), the validator uses specificity-based ordering following OpenAPI best practices:
 
 1. Static paths (no parameters) have highest priority
@@ -101,6 +103,8 @@ result, err := httpvalidator.ValidateRequestWithOptions(
 
 ### Struct-Based API
 
+See also: [New validator example](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator#example-New) on pkg.go.dev
+
 Best for reusable validators in middleware or long-running services:
 
 ```go
@@ -121,6 +125,8 @@ result2, _ := v.ValidateRequest(req2)
 [↑ Back to top](#top)
 
 ## Practical Examples
+
+See also: [Request validation example](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator#example-Validator_ValidateRequest), [Invalid request example](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator#example-Validator_ValidateRequest_invalid), [Response validation example](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator#example-Validator_ValidateResponseData) on pkg.go.dev
 
 ### Basic Request Validation
 
@@ -423,6 +429,8 @@ func main() {
 ```
 
 ### Functional Options for One-Off Validation
+
+See also: [Functional options example](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator#example-ValidateRequestWithOptions) on pkg.go.dev
 
 Use functional options when you don't need a reusable validator:
 
@@ -1077,3 +1085,15 @@ result, _ := v.ValidateRequest(req)
 **Update validators when specifications change.** If your specification is updated at runtime (dynamic API configurations), recreate the Validator with the new specification. Validators are immutable once created.
 
 [↑ Back to top](#top)
+
+---
+
+## Learn More
+
+For additional examples and complete API documentation:
+
+- 📦 [API Reference on pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator) - Complete API documentation with all examples
+- ✅ [Request validation example](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator#example-Validator_ValidateRequest) - Validate incoming requests
+- ❌ [Invalid request example](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator#example-Validator_ValidateRequest_invalid) - Handle validation errors
+- 📤 [Response validation example](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator#example-Validator_ValidateResponseData) - Validate outgoing responses
+- 🔀 [Path matching examples](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator#example-PathMatcherSet) - Path template matching
