@@ -17,6 +17,7 @@ ignore:
   - "cmd/**/*"
   - "internal/codegen/**/*"
   - "**/zz_generated_*.go"
+  - "examples/**/*"  # Generated example code
 
 comment:
   layout: "diff, flags, files"

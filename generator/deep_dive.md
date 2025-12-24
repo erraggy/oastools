@@ -1424,3 +1424,9 @@ For additional examples and complete API documentation:
 - 🔀 [Server router example](https://pkg.go.dev/github.com/erraggy/oastools/generator#example-package-WithServerRouter) - HTTP routing generation
 - 🦊 [Chi router example](https://pkg.go.dev/github.com/erraggy/oastools/generator#example-package-WithChiRouter) - Chi framework support
 - 🧪 [Server stubs example](https://pkg.go.dev/github.com/erraggy/oastools/generator#example-package-WithServerStubs) - Test stub generation
+
+### Full Working Examples
+
+The [`examples/`](../examples/) directory contains complete, generated modules you can browse:
+
+- **[examples/petstore/](../examples/petstore/)** - Full client/server with OAuth2 flows, OIDC discovery, credential management, security enforcement, and all server extensions generated from the [Swagger Petstore API](https://petstore.swagger.io/)
