@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/erraggy/oastools/internal/httputil"
 )
 
 //go:embed templates/*.tmpl templates/*/*.tmpl
@@ -53,32 +55,32 @@ func trimPointer(s string) string {
 // For non-standard methods like "QUERY" (OAS 3.2+), returns an empty string
 // to signal the template to use chi's generic Method() function.
 func methodToChiFunc(method string) string {
-	method = strings.ToUpper(method)
 	if len(method) == 0 {
 		return ""
 	}
 
 	// Map standard HTTP methods to their chi router counterparts.
+	// Uses httputil constants for consistency with the rest of the codebase.
 	// For non-standard methods (like QUERY), return empty string to signal
 	// the template to use chi.Method() instead.
-	switch method {
-	case "GET":
+	switch {
+	case strings.EqualFold(method, httputil.MethodGet):
 		return "Get"
-	case "POST":
+	case strings.EqualFold(method, httputil.MethodPost):
 		return "Post"
-	case "PUT":
+	case strings.EqualFold(method, httputil.MethodPut):
 		return "Put"
-	case "DELETE":
+	case strings.EqualFold(method, httputil.MethodDelete):
 		return "Delete"
-	case "PATCH":
+	case strings.EqualFold(method, httputil.MethodPatch):
 		return "Patch"
-	case "HEAD":
+	case strings.EqualFold(method, httputil.MethodHead):
 		return "Head"
-	case "OPTIONS":
+	case strings.EqualFold(method, httputil.MethodOptions):
 		return "Options"
-	case "CONNECT":
+	case strings.EqualFold(method, httputil.MethodConnect):
 		return "Connect"
-	case "TRACE":
+	case strings.EqualFold(method, httputil.MethodTrace):
 		return "Trace"
 	default:
 		// Non-standard method (like QUERY) - return empty to signal template

@@ -24,8 +24,9 @@ const (
 	MethodOptions = "options"
 	MethodHead    = "head"
 	MethodPatch   = "patch"
-	MethodTrace   = "trace" // OAS 3.0+ only
-	MethodQuery   = "query" // OAS 3.2+ only
+	MethodTrace   = "trace"   // OAS 3.0+ only
+	MethodConnect = "connect" // Standard HTTP method, rarely used in APIs
+	MethodQuery   = "query"   // OAS 3.2+ only
 )
 
 // Wildcard boundary characters for validation
