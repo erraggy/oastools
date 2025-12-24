@@ -314,8 +314,8 @@ exit 0
 
 ## Additional Resources
 
-- **OpenAPI Specification:** https://spec.openapis.org/
-- **Semantic Versioning:** https://semver.org/
-- **oastools differ package:** `go doc github.com/erraggy/oastools/differ`
+- **OpenAPI Specification:** [spec.openapis.org/oas](https://spec.openapis.org/oas/)
+- **Semantic Versioning:** [semver.org](https://semver.org/)
+- **oastools differ package:** [pkg.go.dev/github.com/erraggy/oastools/differ](https://pkg.go.dev/github.com/erraggy/oastools/differ)
 
-For questions or issues, please open an issue at https://github.com/erraggy/oastools/issues.
+For questions or issues, please [open an issue](https://github.com/erraggy/oastools/issues).
