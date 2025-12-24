@@ -770,3 +770,344 @@ func TestGenerateServerRouterWithErrorHandler(t *testing.T) {
 	// Verify generic error message is used
 	assert.Contains(t, content, `"internal server error"`)
 }
+
+// OAS 2.0 Petstore test spec
+const testPetstoreOAS2Spec = `swagger: "2.0"
+info:
+  title: Petstore API
+  version: "1.0.0"
+host: api.example.com
+basePath: /v1
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List all pets
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          type: integer
+          format: int32
+      responses:
+        '200':
+          description: A list of pets
+          schema:
+            $ref: '#/definitions/Pets'
+        default:
+          description: unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      operationId: createPet
+      summary: Create a pet
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/NewPet'
+      responses:
+        '201':
+          description: Pet created
+          schema:
+            $ref: '#/definitions/Pet'
+        default:
+          description: unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /pets/{petId}:
+    get:
+      operationId: showPetById
+      summary: Info for a specific pet
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Expected response to a valid request
+          schema:
+            $ref: '#/definitions/Pet'
+        default:
+          description: unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+definitions:
+  Pet:
+    type: object
+    required:
+      - id
+      - name
+    properties:
+      id:
+        type: integer
+        format: int64
+      name:
+        type: string
+      tag:
+        type: string
+  NewPet:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+      tag:
+        type: string
+  Pets:
+    type: array
+    items:
+      $ref: '#/definitions/Pet'
+  Error:
+    type: object
+    required:
+      - code
+      - message
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+`
+
+func TestGenerateServerResponses_OAS2(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "petstore.json")
+	err := os.WriteFile(tmpFile, []byte(testPetstoreOAS2Spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+		WithServerResponses(true),
+	)
+	require.NoError(t, err)
+
+	// Check server_responses.go was generated
+	respFile := result.GetFile("server_responses.go")
+	require.NotNil(t, respFile, "server_responses.go not generated for OAS 2.0")
+
+	content := string(respFile.Content)
+
+	// Check helper functions
+	assert.Contains(t, content, "func WriteJSON(w http.ResponseWriter, statusCode int, body any)")
+	assert.Contains(t, content, "func WriteError(w http.ResponseWriter, statusCode int, message string)")
+
+	// Check response types for each operation
+	assert.Contains(t, content, "type ListPetsResponse struct")
+	assert.Contains(t, content, "type CreatePetResponse struct")
+	assert.Contains(t, content, "type ShowPetByIdResponse struct")
+
+	// Check status methods
+	assert.Contains(t, content, "func (ListPetsResponse) Status200(")
+	assert.Contains(t, content, "func (ListPetsResponse) StatusDefault(")
+	assert.Contains(t, content, "func (CreatePetResponse) Status201(")
+}
+
+func TestGenerateServerBinder_OAS2(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "petstore.json")
+	err := os.WriteFile(tmpFile, []byte(testPetstoreOAS2Spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+		WithServerBinder(true),
+	)
+	require.NoError(t, err)
+
+	// Check server_binder.go was generated
+	binderFile := result.GetFile("server_binder.go")
+	require.NotNil(t, binderFile, "server_binder.go not generated for OAS 2.0")
+
+	content := string(binderFile.Content)
+
+	// Check RequestBinder type
+	assert.Contains(t, content, "type RequestBinder struct")
+	assert.Contains(t, content, "func NewRequestBinder(parsed *parser.ParseResult)")
+
+	// Check bind methods for each operation
+	assert.Contains(t, content, "func (b *RequestBinder) BindListPetsRequest(r *http.Request)")
+	assert.Contains(t, content, "func (b *RequestBinder) BindCreatePetRequest(r *http.Request)")
+	assert.Contains(t, content, "func (b *RequestBinder) BindShowPetByIdRequest(r *http.Request)")
+
+	// Check parameter binding
+	assert.Contains(t, content, `result.QueryParams["limit"]`)
+	assert.Contains(t, content, `result.PathParams["petId"]`)
+}
+
+func TestGenerateServerMiddleware_OAS2(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "petstore.json")
+	err := os.WriteFile(tmpFile, []byte(testPetstoreOAS2Spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+		WithServerMiddleware(true),
+	)
+	require.NoError(t, err)
+
+	// Check server_middleware.go was generated
+	mwFile := result.GetFile("server_middleware.go")
+	require.NotNil(t, mwFile, "server_middleware.go not generated for OAS 2.0")
+
+	content := string(mwFile.Content)
+
+	// Check middleware functions
+	assert.Contains(t, content, "func ValidationMiddleware(parsed *parser.ParseResult)")
+	assert.Contains(t, content, "func ValidationMiddlewareWithConfig(parsed *parser.ParseResult, cfg ValidationConfig)")
+
+	// Check ValidationConfig type
+	assert.Contains(t, content, "type ValidationConfig struct")
+}
+
+func TestGenerateServerRouter_OAS2(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "petstore.json")
+	err := os.WriteFile(tmpFile, []byte(testPetstoreOAS2Spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+		WithServerRouter("stdlib"),
+	)
+	require.NoError(t, err)
+
+	// Check server_router.go was generated
+	routerFile := result.GetFile("server_router.go")
+	require.NotNil(t, routerFile, "server_router.go not generated for OAS 2.0")
+
+	content := string(routerFile.Content)
+
+	// Check ServerRouter type
+	assert.Contains(t, content, "type ServerRouter struct")
+	assert.Contains(t, content, "func NewServerRouter(server ServerInterface, parsed *parser.ParseResult")
+
+	// Check route handling
+	assert.Contains(t, content, `case "/pets:GET"`)
+	assert.Contains(t, content, `case "/pets:POST"`)
+	assert.Contains(t, content, `case "/pets/{petId}:GET"`)
+
+	// Check handler methods for operations
+	assert.Contains(t, content, "func (r *ServerRouter) handleListPets(")
+	assert.Contains(t, content, "func (r *ServerRouter) handleCreatePet(")
+	assert.Contains(t, content, "func (r *ServerRouter) handleShowPetById(")
+}
+
+func TestGenerateServerRouter_OAS2_Chi(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "petstore.json")
+	err := os.WriteFile(tmpFile, []byte(testPetstoreOAS2Spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+		WithServerRouter("chi"),
+	)
+	require.NoError(t, err)
+
+	// Check server_router.go was generated
+	routerFile := result.GetFile("server_router.go")
+	require.NotNil(t, routerFile, "server_router.go not generated for OAS 2.0 with chi")
+
+	content := string(routerFile.Content)
+
+	// Check chi-specific imports and functions
+	assert.Contains(t, content, `"github.com/go-chi/chi/v5"`)
+	assert.Contains(t, content, "func NewChiRouter(server ServerInterface")
+
+	// Check chi route registration
+	assert.Contains(t, content, `r.Get("/pets"`)
+	assert.Contains(t, content, `r.Post("/pets"`)
+
+	// Check chi path parameter extraction
+	assert.Contains(t, content, `chi.URLParam(req, "petId")`)
+}
+
+func TestGenerateServerStubs_OAS2(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "petstore.json")
+	err := os.WriteFile(tmpFile, []byte(testPetstoreOAS2Spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+		WithServerStubs(true),
+		WithServerResponses(true), // Stubs reference response types
+	)
+	require.NoError(t, err)
+
+	// Check server_stubs.go was generated
+	stubsFile := result.GetFile("server_stubs.go")
+	require.NotNil(t, stubsFile, "server_stubs.go not generated for OAS 2.0")
+
+	content := string(stubsFile.Content)
+
+	// Check StubServer type
+	assert.Contains(t, content, "type StubServer struct")
+	assert.Contains(t, content, "func NewStubServer() *StubServer")
+
+	// Check function fields for each operation
+	assert.Contains(t, content, "ListPetsFunc func(ctx context.Context, req *ListPetsRequest)")
+	assert.Contains(t, content, "CreatePetFunc func(ctx context.Context, req *CreatePetRequest)")
+	assert.Contains(t, content, "ShowPetByIdFunc func(ctx context.Context, req *ShowPetByIdRequest)")
+
+	// Check method implementations
+	assert.Contains(t, content, "func (s *StubServer) ListPets(ctx context.Context, req *ListPetsRequest)")
+	assert.Contains(t, content, "func (s *StubServer) CreatePet(ctx context.Context, req *CreatePetRequest)")
+	assert.Contains(t, content, "func (s *StubServer) ShowPetById(ctx context.Context, req *ShowPetByIdRequest)")
+}
+
+func TestGenerateServerAll_OAS2(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "petstore.json")
+	err := os.WriteFile(tmpFile, []byte(testPetstoreOAS2Spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+		WithServerAll(), // Enable all server extensions
+	)
+	require.NoError(t, err)
+
+	// Check all server extension files are generated
+	assert.NotNil(t, result.GetFile("server.go"), "server.go not generated for OAS 2.0")
+	assert.NotNil(t, result.GetFile("server_responses.go"), "server_responses.go not generated for OAS 2.0")
+	assert.NotNil(t, result.GetFile("server_binder.go"), "server_binder.go not generated for OAS 2.0")
+	assert.NotNil(t, result.GetFile("server_middleware.go"), "server_middleware.go not generated for OAS 2.0")
+	assert.NotNil(t, result.GetFile("server_router.go"), "server_router.go not generated for OAS 2.0")
+	assert.NotNil(t, result.GetFile("server_stubs.go"), "server_stubs.go not generated for OAS 2.0")
+
+	// Verify we have at least 7 files (types + server + 5 extensions)
+	var goFileCount int
+	for _, f := range result.Files {
+		if strings.HasSuffix(f.Name, ".go") {
+			goFileCount++
+		}
+	}
+	assert.GreaterOrEqual(t, goFileCount, 7, "Expected at least 7 .go files for OAS 2.0")
+}
