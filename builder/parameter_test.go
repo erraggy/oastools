@@ -1578,3 +1578,557 @@ func TestWithFormParam_DeprecatedField(t *testing.T) {
 		assert.True(t, oldFieldProp.Deprecated)
 	})
 }
+
+// TestWithParamType tests the WithParamType option.
+func TestWithParamType(t *testing.T) {
+	cfg := &paramConfig{}
+	WithParamType("string")(cfg)
+	assert.Equal(t, "string", cfg.typeOverride)
+}
+
+// TestWithParamFormat tests the WithParamFormat option.
+func TestWithParamFormat(t *testing.T) {
+	cfg := &paramConfig{}
+	WithParamFormat("uuid")(cfg)
+	assert.Equal(t, "uuid", cfg.formatOverride)
+}
+
+// TestWithParamSchema tests the WithParamSchema option.
+func TestWithParamSchema(t *testing.T) {
+	schema := &parser.Schema{Type: "array", Items: &parser.Schema{Type: "string"}}
+	cfg := &paramConfig{}
+	WithParamSchema(schema)(cfg)
+	assert.Same(t, schema, cfg.schemaOverride)
+}
+
+// TestApplyTypeFormatOverrides tests the applyTypeFormatOverrides helper.
+func TestApplyTypeFormatOverrides(t *testing.T) {
+	t.Run("no overrides returns original", func(t *testing.T) {
+		schema := &parser.Schema{Type: "string"}
+		cfg := &paramConfig{}
+		result := applyTypeFormatOverrides(schema, cfg)
+		assert.Same(t, schema, result)
+	})
+
+	t.Run("type override only", func(t *testing.T) {
+		schema := &parser.Schema{Type: "integer", Format: "int32"}
+		cfg := &paramConfig{typeOverride: "string"}
+		result := applyTypeFormatOverrides(schema, cfg)
+		assert.Equal(t, "string", result.Type)
+		assert.Equal(t, "int32", result.Format) // Format preserved
+	})
+
+	t.Run("format override only", func(t *testing.T) {
+		schema := &parser.Schema{Type: "string"}
+		cfg := &paramConfig{formatOverride: "uuid"}
+		result := applyTypeFormatOverrides(schema, cfg)
+		assert.Equal(t, "string", result.Type) // Type preserved
+		assert.Equal(t, "uuid", result.Format)
+	})
+
+	t.Run("both type and format override", func(t *testing.T) {
+		schema := &parser.Schema{Type: "integer", Format: "int32"}
+		cfg := &paramConfig{
+			typeOverride:   "string",
+			formatOverride: "byte",
+		}
+		result := applyTypeFormatOverrides(schema, cfg)
+		assert.Equal(t, "string", result.Type)
+		assert.Equal(t, "byte", result.Format)
+	})
+
+	t.Run("schema override takes precedence", func(t *testing.T) {
+		schema := &parser.Schema{Type: "integer", Format: "int32"}
+		overrideSchema := &parser.Schema{Type: "number", Format: "decimal"}
+		cfg := &paramConfig{
+			typeOverride:   "string",      // Should be ignored
+			formatOverride: "uuid",        // Should be ignored
+			schemaOverride: overrideSchema, // Should be used
+		}
+		result := applyTypeFormatOverrides(schema, cfg)
+		assert.Same(t, overrideSchema, result)
+	})
+
+	t.Run("nil schema with overrides", func(t *testing.T) {
+		cfg := &paramConfig{
+			typeOverride:   "string",
+			formatOverride: "uuid",
+		}
+		result := applyTypeFormatOverrides(nil, cfg)
+		assert.Equal(t, "string", result.Type)
+		assert.Equal(t, "uuid", result.Format)
+	})
+
+	t.Run("nil schema with schema override", func(t *testing.T) {
+		overrideSchema := &parser.Schema{Type: "array", Items: &parser.Schema{Type: "string"}}
+		cfg := &paramConfig{schemaOverride: overrideSchema}
+		result := applyTypeFormatOverrides(nil, cfg)
+		assert.Same(t, overrideSchema, result)
+	})
+}
+
+// TestHasTypeFormatOverrides tests the hasTypeFormatOverrides helper.
+func TestHasTypeFormatOverrides(t *testing.T) {
+	tests := []struct {
+		name     string
+		cfg      *paramConfig
+		expected bool
+	}{
+		{
+			name:     "no overrides",
+			cfg:      &paramConfig{},
+			expected: false,
+		},
+		{
+			name:     "with type override",
+			cfg:      &paramConfig{typeOverride: "string"},
+			expected: true,
+		},
+		{
+			name:     "with format override",
+			cfg:      &paramConfig{formatOverride: "uuid"},
+			expected: true,
+		},
+		{
+			name:     "with schema override",
+			cfg:      &paramConfig{schemaOverride: &parser.Schema{Type: "string"}},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, hasTypeFormatOverrides(tt.cfg))
+		})
+	}
+}
+
+// TestExplicitFormat_OAS3 tests explicit format overrides for OAS 3.x.
+func TestExplicitFormat_OAS3(t *testing.T) {
+	t.Run("path param with uuid format", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/users/{user_id}",
+				WithPathParam("user_id", "",
+					WithParamFormat("uuid"),
+					WithParamDescription("User UUID"),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS3()
+		require.NoError(t, err)
+
+		params := doc.Paths["/users/{user_id}"].Get.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		require.NotNil(t, param.Schema)
+		assert.Equal(t, "string", param.Schema.Type)
+		assert.Equal(t, "uuid", param.Schema.Format)
+		assert.Equal(t, "User UUID", param.Description)
+	})
+
+	t.Run("query param with email format", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/users",
+				WithQueryParam("email", "",
+					WithParamFormat("email"),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS3()
+		require.NoError(t, err)
+
+		params := doc.Paths["/users"].Get.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		require.NotNil(t, param.Schema)
+		assert.Equal(t, "string", param.Schema.Type)
+		assert.Equal(t, "email", param.Schema.Format)
+	})
+
+	t.Run("query param with date format (overrides time.Time inference)", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/users",
+				WithQueryParam("birth_date", "",
+					WithParamFormat("date"),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS3()
+		require.NoError(t, err)
+
+		params := doc.Paths["/users"].Get.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		require.NotNil(t, param.Schema)
+		assert.Equal(t, "string", param.Schema.Type)
+		assert.Equal(t, "date", param.Schema.Format)
+	})
+}
+
+// TestExplicitType_OAS3 tests explicit type overrides for OAS 3.x.
+func TestExplicitType_OAS3(t *testing.T) {
+	t.Run("byte data type override", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodPost, "/upload",
+				WithQueryParam("data", []byte{},
+					WithParamType("string"),
+					WithParamFormat("byte"),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS3()
+		require.NoError(t, err)
+
+		params := doc.Paths["/upload"].Post.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		require.NotNil(t, param.Schema)
+		assert.Equal(t, "string", param.Schema.Type)
+		assert.Equal(t, "byte", param.Schema.Format)
+	})
+}
+
+// TestSchemaOverride_OAS3 tests full schema override for OAS 3.x.
+func TestSchemaOverride_OAS3(t *testing.T) {
+	t.Run("array schema override", func(t *testing.T) {
+		schema := &parser.Schema{
+			Type:     "array",
+			Items:    &parser.Schema{Type: "string", Format: "uuid"},
+			MinItems: ptrInt(1),
+			MaxItems: ptrInt(10),
+		}
+
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/items",
+				WithQueryParam("ids", nil,
+					WithParamSchema(schema),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS3()
+		require.NoError(t, err)
+
+		params := doc.Paths["/items"].Get.Parameters
+		require.Len(t, params, 1)
+		idsParam := params[0]
+		require.NotNil(t, idsParam.Schema)
+		assert.Equal(t, "array", idsParam.Schema.Type)
+		require.NotNil(t, idsParam.Schema.Items)
+		items := idsParam.Schema.Items.(*parser.Schema)
+		assert.Equal(t, "string", items.Type)
+		assert.Equal(t, "uuid", items.Format)
+		require.NotNil(t, idsParam.Schema.MinItems)
+		assert.Equal(t, 1, *idsParam.Schema.MinItems)
+		require.NotNil(t, idsParam.Schema.MaxItems)
+		assert.Equal(t, 10, *idsParam.Schema.MaxItems)
+	})
+}
+
+// TestExplicitFormat_OAS2 tests explicit format overrides for OAS 2.0.
+func TestExplicitFormat_OAS2(t *testing.T) {
+	t.Run("path param with uuid format", func(t *testing.T) {
+		b := New(parser.OASVersion20).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/users/{user_id}",
+				WithPathParam("user_id", "",
+					WithParamFormat("uuid"),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS2()
+		require.NoError(t, err)
+
+		params := doc.Paths["/users/{user_id}"].Get.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		// OAS 2.0: type/format are top-level parameter fields
+		assert.Equal(t, "string", param.Type)
+		assert.Equal(t, "uuid", param.Format)
+	})
+
+	t.Run("query param with email format", func(t *testing.T) {
+		b := New(parser.OASVersion20).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/users",
+				WithQueryParam("email", "",
+					WithParamFormat("email"),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS2()
+		require.NoError(t, err)
+
+		params := doc.Paths["/users"].Get.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		assert.Equal(t, "string", param.Type)
+		assert.Equal(t, "email", param.Format)
+	})
+}
+
+// TestExplicitType_OAS2 tests explicit type overrides for OAS 2.0.
+func TestExplicitType_OAS2(t *testing.T) {
+	t.Run("byte data type override", func(t *testing.T) {
+		b := New(parser.OASVersion20).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodPost, "/upload",
+				WithQueryParam("data", []byte{},
+					WithParamType("string"),
+					WithParamFormat("byte"),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS2()
+		require.NoError(t, err)
+
+		params := doc.Paths["/upload"].Post.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		assert.Equal(t, "string", param.Type)
+		assert.Equal(t, "byte", param.Format)
+	})
+}
+
+// TestSchemaOverride_OAS2 tests full schema override for OAS 2.0.
+func TestSchemaOverride_OAS2(t *testing.T) {
+	t.Run("schema override uses type and format", func(t *testing.T) {
+		schema := &parser.Schema{
+			Type:   "number",
+			Format: "decimal",
+		}
+
+		b := New(parser.OASVersion20).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/products",
+				WithQueryParam("price", nil,
+					WithParamSchema(schema),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS2()
+		require.NoError(t, err)
+
+		params := doc.Paths["/products"].Get.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		assert.Equal(t, "number", param.Type)
+		assert.Equal(t, "decimal", param.Format)
+	})
+}
+
+// TestPrecedenceRules tests the precedence of schema override over type/format overrides.
+func TestPrecedenceRules(t *testing.T) {
+	t.Run("schema takes precedence over type and format OAS3", func(t *testing.T) {
+		schema := &parser.Schema{Type: "number", Format: "decimal"}
+
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/test",
+				WithQueryParam("amount", int64(0),
+					WithParamType("string"),      // Should be ignored
+					WithParamFormat("currency"),  // Should be ignored
+					WithParamSchema(schema),      // Should win
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS3()
+		require.NoError(t, err)
+
+		params := doc.Paths["/test"].Get.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		assert.Equal(t, "number", param.Schema.Type)
+		assert.Equal(t, "decimal", param.Schema.Format)
+	})
+
+	t.Run("format without type uses inferred type OAS3", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/test",
+				WithQueryParam("id", "", // Inferred type: string
+					WithParamFormat("uuid"),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS3()
+		require.NoError(t, err)
+
+		params := doc.Paths["/test"].Get.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		assert.Equal(t, "string", param.Schema.Type) // Preserved from inference
+		assert.Equal(t, "uuid", param.Schema.Format) // From override
+	})
+
+	t.Run("format override clears existing format OAS3", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/test",
+				WithQueryParam("count", int64(0), // Inferred: integer, int64
+					WithParamFormat("int32"), // Override format
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS3()
+		require.NoError(t, err)
+
+		params := doc.Paths["/test"].Get.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		assert.Equal(t, "integer", param.Schema.Type) // Preserved
+		assert.Equal(t, "int32", param.Schema.Format) // Overridden
+	})
+}
+
+// TestAddParameterWithTypeFormatOverride tests AddParameter with type/format overrides.
+func TestAddParameterWithTypeFormatOverride(t *testing.T) {
+	t.Run("OAS3 component parameter with format override", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddParameter("UserID", "path", "user_id", "",
+				WithParamFormat("uuid"),
+				WithParamDescription("User identifier"),
+			)
+
+		doc, err := b.BuildOAS3()
+		require.NoError(t, err)
+
+		require.NotNil(t, doc.Components.Parameters)
+		param := doc.Components.Parameters["UserID"]
+		require.NotNil(t, param)
+		require.NotNil(t, param.Schema)
+		assert.Equal(t, "string", param.Schema.Type)
+		assert.Equal(t, "uuid", param.Schema.Format)
+	})
+
+	t.Run("OAS2 component parameter with format override", func(t *testing.T) {
+		b := New(parser.OASVersion20).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddParameter("UserID", "path", "user_id", "",
+				WithParamFormat("uuid"),
+				WithParamDescription("User identifier"),
+			)
+
+		doc, err := b.BuildOAS2()
+		require.NoError(t, err)
+
+		require.NotNil(t, doc.Parameters)
+		param := doc.Parameters["UserID"]
+		require.NotNil(t, param)
+		assert.Equal(t, "string", param.Type)
+		assert.Equal(t, "uuid", param.Format)
+	})
+}
+
+// TestWebhookWithTypeFormatOverride tests webhooks with type/format overrides.
+func TestWebhookWithTypeFormatOverride(t *testing.T) {
+	b := New(parser.OASVersion310).
+		SetTitle("Webhook API").
+		SetVersion("1.0.0").
+		AddWebhook("user-created", http.MethodPost,
+			WithQueryParam("user_id", "",
+				WithParamFormat("uuid"),
+				WithParamRequired(true),
+			),
+			WithResponse(http.StatusOK, struct{}{}),
+		)
+
+	doc, err := b.BuildOAS3()
+	require.NoError(t, err)
+
+	require.NotNil(t, doc.Webhooks)
+	require.Contains(t, doc.Webhooks, "user-created")
+	params := doc.Webhooks["user-created"].Post.Parameters
+	require.Len(t, params, 1)
+	param := params[0]
+	require.NotNil(t, param.Schema)
+	assert.Equal(t, "string", param.Schema.Type)
+	assert.Equal(t, "uuid", param.Schema.Format)
+}
+
+// TestCombinedOverridesAndConstraints tests combining overrides with constraints.
+func TestCombinedOverridesAndConstraints(t *testing.T) {
+	t.Run("format override with pattern constraint OAS3", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/test",
+				WithQueryParam("id", "",
+					WithParamFormat("uuid"),
+					WithParamPattern("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS3()
+		require.NoError(t, err)
+
+		params := doc.Paths["/test"].Get.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		require.NotNil(t, param.Schema)
+		assert.Equal(t, "string", param.Schema.Type)
+		assert.Equal(t, "uuid", param.Schema.Format)
+		assert.Equal(t, "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", param.Schema.Pattern)
+	})
+
+	t.Run("type override with min/max constraints OAS3", func(t *testing.T) {
+		b := New(parser.OASVersion320).
+			SetTitle("Test API").
+			SetVersion("1.0.0").
+			AddOperation(http.MethodGet, "/test",
+				WithQueryParam("amount", "",
+					WithParamType("number"),
+					WithParamFormat("decimal"),
+					WithParamMinimum(0),
+					WithParamMaximum(1000),
+				),
+				WithResponse(http.StatusOK, struct{}{}),
+			)
+
+		doc, err := b.BuildOAS3()
+		require.NoError(t, err)
+
+		params := doc.Paths["/test"].Get.Parameters
+		require.Len(t, params, 1)
+		param := params[0]
+		require.NotNil(t, param.Schema)
+		assert.Equal(t, "number", param.Schema.Type)
+		assert.Equal(t, "decimal", param.Schema.Format)
+		require.NotNil(t, param.Schema.Minimum)
+		assert.Equal(t, 0.0, *param.Schema.Minimum)
+		require.NotNil(t, param.Schema.Maximum)
+		assert.Equal(t, 1000.0, *param.Schema.Maximum)
+	})
+}
