@@ -22,6 +22,7 @@ go mod tidy
 ```
 
 **Features demonstrated:**
+
 | Flag | Feature |
 |------|---------|
 | `-client` | HTTP client with typed methods for all operations |
