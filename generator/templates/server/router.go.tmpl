@@ -148,15 +148,24 @@ func (r *ServerRouter) handle{{.MethodName}}(w http.ResponseWriter, req *http.Re
 {{range .PathParams}}
 	// Extract path parameter: {{.Name}}
 	{{- if eq .SchemaType "integer"}}
-	if v, err := strconv.ParseInt(PathParam(req, "{{.Name}}"), 10, 64); err == nil {
+	if v, err := strconv.ParseInt(PathParam(req, "{{.Name}}"), 10, 64); err != nil {
+		WriteError(w, http.StatusBadRequest, "invalid path parameter: {{.Name}}")
+		return
+	} else {
 		srvReq.{{.FieldName}} = {{.GoType}}(v)
 	}
 	{{- else if eq .SchemaType "number"}}
-	if v, err := strconv.ParseFloat(PathParam(req, "{{.Name}}"), 64); err == nil {
+	if v, err := strconv.ParseFloat(PathParam(req, "{{.Name}}"), 64); err != nil {
+		WriteError(w, http.StatusBadRequest, "invalid path parameter: {{.Name}}")
+		return
+	} else {
 		srvReq.{{.FieldName}} = {{.GoType}}(v)
 	}
 	{{- else if eq .SchemaType "boolean"}}
-	if v, err := strconv.ParseBool(PathParam(req, "{{.Name}}")); err == nil {
+	if v, err := strconv.ParseBool(PathParam(req, "{{.Name}}")); err != nil {
+		WriteError(w, http.StatusBadRequest, "invalid path parameter: {{.Name}}")
+		return
+	} else {
 		srvReq.{{.FieldName}} = v
 	}
 	{{- else}}
@@ -180,7 +189,10 @@ func (r *ServerRouter) handle{{.MethodName}}(w http.ResponseWriter, req *http.Re
 	// Write response
 	if respWriter, ok := any(resp).(interface{ WriteTo(http.ResponseWriter) error }); ok {
 		if err := respWriter.WriteTo(w); err != nil {
-			// Response already started, can't write error
+			// Response already started, can't write error - but log it
+			if r.errorHandler != nil {
+				r.errorHandler(req, err)
+			}
 			return
 		}
 		return

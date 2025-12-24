@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1110,4 +1111,393 @@ func TestGenerateServerAll_OAS2(t *testing.T) {
 		}
 	}
 	assert.GreaterOrEqual(t, goFileCount, 7, "Expected at least 7 .go files for OAS 2.0")
+}
+
+// Test spec with typed path parameters (integer, number, boolean)
+const testTypedPathParamsSpec = `openapi: "3.0.3"
+info:
+  title: Typed Params API
+  version: "1.0.0"
+paths:
+  /items/{itemId}:
+    get:
+      operationId: getItem
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Item found
+  /products/{price}:
+    get:
+      operationId: getProductByPrice
+      parameters:
+        - name: price
+          in: path
+          required: true
+          schema:
+            type: number
+            format: float
+      responses:
+        '200':
+          description: Product found
+  /flags/{enabled}:
+    get:
+      operationId: getFlag
+      parameters:
+        - name: enabled
+          in: path
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Flag found
+`
+
+func TestServerRouterTypedPathParams(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "api.yaml")
+	err := os.WriteFile(tmpFile, []byte(testTypedPathParamsSpec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("api"),
+		WithServer(true),
+		WithServerRouter("stdlib"),
+	)
+	require.NoError(t, err)
+
+	routerFile := result.GetFile("server_router.go")
+	require.NotNil(t, routerFile, "server_router.go not generated")
+	content := string(routerFile.Content)
+
+	// Check integer path parameter with error handling
+	assert.Contains(t, content, `strconv.ParseInt(PathParam(req, "itemId"), 10, 64)`)
+	assert.Contains(t, content, `WriteError(w, http.StatusBadRequest, "invalid path parameter: itemId")`)
+
+	// Check number path parameter with error handling
+	assert.Contains(t, content, `strconv.ParseFloat(PathParam(req, "price"), 64)`)
+	assert.Contains(t, content, `WriteError(w, http.StatusBadRequest, "invalid path parameter: price")`)
+
+	// Check boolean path parameter with error handling
+	assert.Contains(t, content, `strconv.ParseBool(PathParam(req, "enabled"))`)
+	assert.Contains(t, content, `WriteError(w, http.StatusBadRequest, "invalid path parameter: enabled")`)
+}
+
+func TestServerRouterTypedPathParams_Chi(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "api.yaml")
+	err := os.WriteFile(tmpFile, []byte(testTypedPathParamsSpec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("api"),
+		WithServer(true),
+		WithServerRouter("chi"),
+	)
+	require.NoError(t, err)
+
+	routerFile := result.GetFile("server_router.go")
+	require.NotNil(t, routerFile, "server_router.go not generated")
+	content := string(routerFile.Content)
+
+	// Check chi-specific integer path parameter with error handling
+	assert.Contains(t, content, `strconv.ParseInt(chi.URLParam(req, "itemId"), 10, 64)`)
+	assert.Contains(t, content, `WriteError(w, http.StatusBadRequest, "invalid path parameter: itemId")`)
+
+	// Check chi-specific number path parameter with error handling
+	assert.Contains(t, content, `strconv.ParseFloat(chi.URLParam(req, "price"), 64)`)
+	assert.Contains(t, content, `WriteError(w, http.StatusBadRequest, "invalid path parameter: price")`)
+
+	// Check chi-specific boolean path parameter with error handling
+	assert.Contains(t, content, `strconv.ParseBool(chi.URLParam(req, "enabled"))`)
+	assert.Contains(t, content, `WriteError(w, http.StatusBadRequest, "invalid path parameter: enabled")`)
+}
+
+// OAS 2.0 spec with typed path parameters
+const testTypedPathParamsOAS2Spec = `swagger: "2.0"
+info:
+  title: Typed Params API
+  version: "1.0.0"
+basePath: /v1
+paths:
+  /items/{itemId}:
+    get:
+      operationId: getItem
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: Item found
+  /products/{price}:
+    get:
+      operationId: getProductByPrice
+      parameters:
+        - name: price
+          in: path
+          required: true
+          type: number
+          format: float
+      responses:
+        '200':
+          description: Product found
+  /flags/{enabled}:
+    get:
+      operationId: getFlag
+      parameters:
+        - name: enabled
+          in: path
+          required: true
+          type: boolean
+      responses:
+        '200':
+          description: Flag found
+`
+
+func TestServerRouterTypedPathParams_OAS2(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "api.json")
+	err := os.WriteFile(tmpFile, []byte(testTypedPathParamsOAS2Spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("api"),
+		WithServer(true),
+		WithServerRouter("stdlib"),
+	)
+	require.NoError(t, err)
+
+	routerFile := result.GetFile("server_router.go")
+	require.NotNil(t, routerFile, "server_router.go not generated for OAS 2.0")
+	content := string(routerFile.Content)
+
+	// Check integer path parameter with error handling
+	assert.Contains(t, content, `strconv.ParseInt(PathParam(req, "itemId"), 10, 64)`)
+	assert.Contains(t, content, `WriteError(w, http.StatusBadRequest, "invalid path parameter: itemId")`)
+
+	// Check number path parameter with error handling
+	assert.Contains(t, content, `strconv.ParseFloat(PathParam(req, "price"), 64)`)
+	assert.Contains(t, content, `WriteError(w, http.StatusBadRequest, "invalid path parameter: price")`)
+
+	// Check boolean path parameter with error handling
+	assert.Contains(t, content, `strconv.ParseBool(PathParam(req, "enabled"))`)
+	assert.Contains(t, content, `WriteError(w, http.StatusBadRequest, "invalid path parameter: enabled")`)
+}
+
+func TestServerRouterTypedPathParams_OAS2_Chi(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "api.json")
+	err := os.WriteFile(tmpFile, []byte(testTypedPathParamsOAS2Spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("api"),
+		WithServer(true),
+		WithServerRouter("chi"),
+	)
+	require.NoError(t, err)
+
+	routerFile := result.GetFile("server_router.go")
+	require.NotNil(t, routerFile, "server_router.go not generated for OAS 2.0")
+	content := string(routerFile.Content)
+
+	// Check chi-specific integer path parameter with error handling
+	assert.Contains(t, content, `strconv.ParseInt(chi.URLParam(req, "itemId"), 10, 64)`)
+	assert.Contains(t, content, `WriteError(w, http.StatusBadRequest, "invalid path parameter: itemId")`)
+
+	// Check chi-specific number path parameter with error handling
+	assert.Contains(t, content, `strconv.ParseFloat(chi.URLParam(req, "price"), 64)`)
+	assert.Contains(t, content, `WriteError(w, http.StatusBadRequest, "invalid path parameter: price")`)
+
+	// Check chi-specific boolean path parameter with error handling
+	assert.Contains(t, content, `strconv.ParseBool(chi.URLParam(req, "enabled"))`)
+	assert.Contains(t, content, `WriteError(w, http.StatusBadRequest, "invalid path parameter: enabled")`)
+}
+
+// OAS 2.0 spec with header parameters
+const testHeaderParamsOAS2Spec = `swagger: "2.0"
+info:
+  title: Header Params API
+  version: "1.0.0"
+basePath: /v1
+paths:
+  /resources:
+    get:
+      operationId: listResources
+      parameters:
+        - name: X-Request-ID
+          in: header
+          required: true
+          type: string
+        - name: X-Page-Size
+          in: header
+          required: false
+          type: integer
+      responses:
+        '200':
+          description: Resources found
+`
+
+func TestServerBinder_OAS2_HeaderParams(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "api.json")
+	err := os.WriteFile(tmpFile, []byte(testHeaderParamsOAS2Spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("api"),
+		WithServer(true),
+		WithServerBinder(true),
+	)
+	require.NoError(t, err)
+
+	binderFile := result.GetFile("server_binder.go")
+	require.NotNil(t, binderFile, "server_binder.go not generated for OAS 2.0")
+	content := string(binderFile.Content)
+
+	// Check header parameter binding
+	assert.Contains(t, content, `result.HeaderParams["X-Request-ID"]`)
+	assert.Contains(t, content, `result.HeaderParams["X-Page-Size"]`)
+}
+
+// OAS 2.0 spec with wildcard responses (2XX, 4XX, 5XX)
+const testWildcardResponsesOAS2Spec = `swagger: "2.0"
+info:
+  title: Wildcard Responses API
+  version: "1.0.0"
+basePath: /v1
+paths:
+  /resources:
+    get:
+      operationId: listResources
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: object
+        '2XX':
+          description: Other success
+          schema:
+            type: object
+        '4XX':
+          description: Client error
+          schema:
+            type: object
+        '5XX':
+          description: Server error
+          schema:
+            type: object
+`
+
+func TestServerResponses_OAS2_WildcardCodes(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "api.json")
+	err := os.WriteFile(tmpFile, []byte(testWildcardResponsesOAS2Spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("api"),
+		WithServer(true),
+		WithServerResponses(true),
+	)
+	require.NoError(t, err)
+
+	respFile := result.GetFile("server_responses.go")
+	require.NotNil(t, respFile, "server_responses.go not generated for OAS 2.0")
+	content := string(respFile.Content)
+
+	// Check that wildcard response codes are handled
+	// Note: The implementation may convert 2XX/4XX/5XX to StatusDefault or skip them
+	// This test validates the generator doesn't crash on wildcard codes
+	assert.Contains(t, content, "type ListResourcesResponse struct")
+	assert.Contains(t, content, "func (ListResourcesResponse) Status200(")
+}
+
+func TestGetOAS2ParamSchemaType(t *testing.T) {
+	// Create a minimal oas2CodeGenerator for testing
+	cg := &oas2CodeGenerator{}
+
+	tests := []struct {
+		name     string
+		param    *parser.Parameter
+		expected string
+	}{
+		{
+			name:     "nil parameter",
+			param:    nil,
+			expected: "string",
+		},
+		{
+			name:     "direct Type field",
+			param:    &parser.Parameter{Type: "integer"},
+			expected: "integer",
+		},
+		{
+			name:     "direct Type field - number",
+			param:    &parser.Parameter{Type: "number"},
+			expected: "number",
+		},
+		{
+			name:     "direct Type field - boolean",
+			param:    &parser.Parameter{Type: "boolean"},
+			expected: "boolean",
+		},
+		{
+			name:     "schema with string type",
+			param:    &parser.Parameter{Schema: &parser.Schema{Type: "integer"}},
+			expected: "integer",
+		},
+		{
+			name:     "schema with []any type",
+			param:    &parser.Parameter{Schema: &parser.Schema{Type: []any{"string", "null"}}},
+			expected: "string",
+		},
+		{
+			name:     "schema with []string type",
+			param:    &parser.Parameter{Schema: &parser.Schema{Type: []string{"number", "null"}}},
+			expected: "number",
+		},
+		{
+			name:     "schema with empty []any type",
+			param:    &parser.Parameter{Schema: &parser.Schema{Type: []any{}}},
+			expected: "string",
+		},
+		{
+			name:     "schema with empty []string type",
+			param:    &parser.Parameter{Schema: &parser.Schema{Type: []string{}}},
+			expected: "string",
+		},
+		{
+			name:     "empty parameter",
+			param:    &parser.Parameter{},
+			expected: "string",
+		},
+		{
+			name:     "schema with nil type",
+			param:    &parser.Parameter{Schema: &parser.Schema{}},
+			expected: "string",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := cg.getOAS2ParamSchemaType(tt.param)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
