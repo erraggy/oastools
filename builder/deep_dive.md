@@ -916,6 +916,9 @@ func main() {
 | `WithParamExtension(key, value)` | Add vendor extension (x-*) |
 | `WithParamAllowEmptyValue(bool)` | Allow empty values (OAS 2.0) |
 | `WithParamCollectionFormat(string)` | Array serialization: csv, ssv, tsv, pipes, multi (OAS 2.0) |
+| `WithParamType(string)` | Override inferred OpenAPI type |
+| `WithParamFormat(string)` | Override inferred OpenAPI format |
+| `WithParamSchema(*parser.Schema)` | Full schema override (highest precedence) |
 
 ### Body and Response Options
 

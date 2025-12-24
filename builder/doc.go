@@ -280,6 +280,31 @@
 //   - WithParamEnum(values ...any) - Allowed enumeration values
 //   - WithParamDefault(value any) - Default value for the parameter
 //
+// # Explicit Type and Format Overrides
+//
+// Override the inferred OpenAPI type or format when the Go type doesn't map directly
+// to your desired schema:
+//
+//	spec.AddOperation(http.MethodGet, "/users/{user_id}",
+//		builder.WithPathParam("user_id", "",
+//			builder.WithParamFormat("uuid"),
+//		),
+//		builder.WithQueryParam("version", 0,
+//			builder.WithParamType("integer"),
+//			builder.WithParamFormat("int64"),
+//		),
+//	)
+//
+// Available type/format override options:
+//   - WithParamType(typeName string) - Override inferred type (string, integer, number, boolean, array, object)
+//   - WithParamFormat(format string) - Override inferred format (uuid, email, date-time, byte, binary, etc.)
+//   - WithParamSchema(schema *parser.Schema) - Full schema override (highest precedence)
+//
+// Precedence rules:
+//   - WithParamSchema takes highest precedence (complete replacement)
+//   - WithParamType replaces the inferred type
+//   - WithParamFormat replaces the inferred format
+//
 // Constraint validation is performed when building the document. The following rules are enforced:
 //   - minimum must be <= maximum (if both are set)
 //   - minLength must be <= maxLength (if both are set)

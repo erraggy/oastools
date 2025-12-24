@@ -363,6 +363,48 @@ func Example_withParameterConstraints() {
 	// name pattern: ^[a-zA-Z]+$
 }
 
+// Example_withParamTypeFormatOverride demonstrates explicit type and format overrides.
+// Use WithParamType and WithParamFormat when the Go type doesn't map directly to the
+// desired OpenAPI type/format, such as using a string for UUID identifiers or
+// representing binary data as base64.
+func Example_withParamTypeFormatOverride() {
+	spec := builder.New(parser.OASVersion320).
+		SetTitle("ID API").
+		SetVersion("1.0.0")
+
+	spec.AddOperation(http.MethodGet, "/users/{user_id}",
+		builder.WithOperationID("getUser"),
+		// String with UUID format (inferred type is string, explicit format)
+		builder.WithPathParam("user_id", "",
+			builder.WithParamFormat("uuid"),
+			builder.WithParamDescription("User UUID identifier"),
+		),
+		// Override type to integer with int64 format
+		builder.WithQueryParam("version", 0,
+			builder.WithParamType("integer"),
+			builder.WithParamFormat("int64"),
+			builder.WithParamDescription("API version number"),
+		),
+		builder.WithResponse(http.StatusOK, struct {
+			ID string `json:"id"`
+		}{}),
+	)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	params := doc.Paths["/users/{user_id}"].Get.Parameters
+	fmt.Printf("user_id format: %s\n", params[0].Schema.Format)
+	fmt.Printf("version type: %s\n", params[1].Schema.Type)
+	fmt.Printf("version format: %s\n", params[1].Schema.Format)
+	// Output:
+	// user_id format: uuid
+	// version type: integer
+	// version format: int64
+}
+
 // Example_withFormParameters demonstrates using form parameters.
 // Form parameters work differently in OAS 2.0 vs 3.x:
 //   - OAS 2.0: parameters with in="formData"
