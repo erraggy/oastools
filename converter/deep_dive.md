@@ -2,7 +2,7 @@
 
 # Converter Package Deep Dive
 
-The converter package provides version conversion for OpenAPI Specification documents, supporting bidirectional conversion between OAS 2.0 and OAS 3.x.
+The [`converter`](https://pkg.go.dev/github.com/erraggy/oastools/converter) package provides version conversion for OpenAPI Specification documents, supporting bidirectional conversion between OAS 2.0 and OAS 3.x.
 
 ## Table of Contents
 
@@ -57,6 +57,8 @@ The converter performs best-effort conversion with detailed issue tracking. Feat
 ---
 
 ## API Styles
+
+See also: [Basic example](https://pkg.go.dev/github.com/erraggy/oastools/converter#example-package), [Handling issues example](https://pkg.go.dev/github.com/erraggy/oastools/converter#example-package-HandleConversionIssues), [Complex conversion example](https://pkg.go.dev/github.com/erraggy/oastools/converter#example-package-ComplexConversion) on pkg.go.dev
 
 ### Functional Options (Recommended)
 
@@ -243,3 +245,14 @@ result, err := converter.ConvertWithOptions(
 5. **Preserve format** - Use `result.Marshal()` to maintain JSON/YAML consistency
 
 [Back to top](#top)
+
+---
+
+## Learn More
+
+For additional examples and complete API documentation:
+
+- 📦 [API Reference on pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/converter) - Complete API documentation with all examples
+- 🔄 [Basic example](https://pkg.go.dev/github.com/erraggy/oastools/converter#example-package) - Convert OAS 2.0 to OAS 3.x
+- ⚠️ [Handling issues example](https://pkg.go.dev/github.com/erraggy/oastools/converter#example-package-HandleConversionIssues) - Process conversion issues by severity
+- 🔧 [Complex conversion example](https://pkg.go.dev/github.com/erraggy/oastools/converter#example-package-ComplexConversion) - Advanced conversion scenarios

@@ -18,7 +18,7 @@
 
 ---
 
-The `differ` package provides OpenAPI specification comparison and breaking change detection. It enables you to identify differences between API versions, categorize changes by severity, and detect backward-incompatible modifications that could break existing clients.
+The [`differ`](https://pkg.go.dev/github.com/erraggy/oastools/differ) package provides OpenAPI specification comparison and breaking change detection. It enables you to identify differences between API versions, categorize changes by severity, and detect backward-incompatible modifications that could break existing clients.
 
 ## Overview
 
@@ -30,9 +30,9 @@ The differ supports comparing OAS 2.0 and OAS 3.x documents, offering two operat
 
 The differ operates in two modes that determine how changes are analyzed and reported:
 
-**ModeSimple** reports all semantic differences between documents without categorization. Use this mode when you need a comprehensive list of what changed without severity assessment.
+**ModeSimple** reports all semantic differences between documents without categorization. Use this mode when you need a comprehensive list of what changed without severity assessment. See also: [Simple diff example](https://pkg.go.dev/github.com/erraggy/oastools/differ#example-package-Simple) on pkg.go.dev
 
-**ModeBreaking** categorizes every change by both category (what part of the spec changed) and severity (how impactful the change is). This mode is essential for CI/CD pipelines that need to gate releases based on API compatibility.
+**ModeBreaking** categorizes every change by both category (what part of the spec changed) and severity (how impactful the change is). This mode is essential for CI/CD pipelines that need to gate releases based on API compatibility. See also: [Breaking change detection example](https://pkg.go.dev/github.com/erraggy/oastools/differ#example-package-Breaking) on pkg.go.dev
 
 ### Change Categories
 
@@ -97,6 +97,8 @@ result2, _ := d.Diff("api-v2.yaml", "api-v3.yaml")
 [↑ Back to top](#top)
 
 ## Practical Examples
+
+See also: [Basic example](https://pkg.go.dev/github.com/erraggy/oastools/differ#example-package), [Breaking changes](https://pkg.go.dev/github.com/erraggy/oastools/differ#example-package-BreakingChanges) on pkg.go.dev
 
 ### Basic Difference Detection
 
@@ -241,6 +243,8 @@ Summary: 2 breaking, 1 warnings, 3 info
 
 ### High-Performance Diffing with Pre-Parsed Documents
 
+See also: [Parsed documents example](https://pkg.go.dev/github.com/erraggy/oastools/differ#example-package-Parsed) on pkg.go.dev
+
 When processing multiple comparisons or integrating with other oastools packages, use pre-parsed documents for 81x faster performance:
 
 ```go
@@ -292,6 +296,8 @@ func main() {
 ```
 
 ### Grouping Changes by Category
+
+See also: [Change analysis example](https://pkg.go.dev/github.com/erraggy/oastools/differ#example-package-ChangeAnalysis) on pkg.go.dev
 
 Organize diff results for better reporting:
 
@@ -359,6 +365,8 @@ schema Changes (1):
 
 ### Filtering Changes by Severity
 
+See also: [Filter by severity example](https://pkg.go.dev/github.com/erraggy/oastools/differ#example-package-FilterBySeverity) on pkg.go.dev
+
 Focus on specific severity levels:
 
 ```go
@@ -404,6 +412,8 @@ func main() {
 ```
 
 ### Comparing Multiple API Version Pairs
+
+See also: [Reusable differ example](https://pkg.go.dev/github.com/erraggy/oastools/differ#example-package-ReusableDiffer) on pkg.go.dev
 
 When you need to analyze an API's evolution across multiple versions:
 
@@ -708,3 +718,15 @@ type Change struct {
     NewValue    any            // New value (for modifications)
 }
 ```
+
+---
+
+## Learn More
+
+For additional examples and complete API documentation:
+
+- 📦 [API Reference on pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/differ) - Complete API documentation with all examples
+- 🔍 [Simple diff example](https://pkg.go.dev/github.com/erraggy/oastools/differ#example-package-Simple) - Basic semantic diffing
+- ⚠️ [Breaking changes example](https://pkg.go.dev/github.com/erraggy/oastools/differ#example-package-BreakingChanges) - Comprehensive breaking change detection
+- 📊 [Change analysis example](https://pkg.go.dev/github.com/erraggy/oastools/differ#example-package-ChangeAnalysis) - Grouping changes by category
+- 🔧 [Reusable differ example](https://pkg.go.dev/github.com/erraggy/oastools/differ#example-package-ReusableDiffer) - Comparing multiple API versions

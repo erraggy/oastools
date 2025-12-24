@@ -13,7 +13,7 @@
 
 ---
 
-The `builder` package enables programmatic construction of OpenAPI Specification documents using a fluent Go API. Instead of writing YAML or JSON by hand, you define your API specification in Go code with automatic reflection-based schema generation from your Go types.
+The [`builder`](https://pkg.go.dev/github.com/erraggy/oastools/builder) package enables programmatic construction of OpenAPI Specification documents using a fluent Go API. Instead of writing YAML or JSON by hand, you define your API specification in Go code with automatic reflection-based schema generation from your Go types.
 
 ## Overview
 
@@ -112,6 +112,8 @@ spec.AddOperation(http.MethodPost, "/users",
 ## Practical Examples
 
 ### Building a Simple API Specification
+
+See also: [Complete API example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-CompleteAPI) on pkg.go.dev
 
 The most straightforward use case constructs an API from Go types:
 
@@ -430,6 +432,8 @@ func main() {
 
 ### Custom Schema Naming Strategies
 
+See also: [PascalCase example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-SchemaNamingPascalCase), [Template example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-SchemaNamingTemplate), [Custom function example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-SchemaNamingCustomFunc) on pkg.go.dev
+
 When the default `package.TypeName` naming doesn't fit your needs, use custom naming strategies:
 
 ```go
@@ -514,6 +518,8 @@ spec := builder.New(parser.OASVersion320,
 [↑ Back to top](#top)
 
 ### Modifying Existing Documents
+
+See also: [FromDocument example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-FromDocument) on pkg.go.dev
 
 The builder can extend existing OAS documents rather than creating from scratch:
 
@@ -617,6 +623,8 @@ func main() {
 ```
 
 ### Adding Security Schemes
+
+See also: [Security example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-WithSecurity) on pkg.go.dev
 
 Define authentication methods for your API:
 
@@ -723,6 +731,8 @@ func main() {
 ```
 
 ### Semantic Schema Deduplication
+
+See also: [Deduplication example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-SemanticDeduplication) on pkg.go.dev
 
 When building complex APIs, you might create equivalent schemas through different paths. Enable deduplication to consolidate them:
 
@@ -952,3 +962,15 @@ func main() {
 **Consider OAS 3.1+ for new APIs** to take advantage of features like webhooks and full JSON Schema compatibility.
 
 **Use `BuildResult()` for integration** with other oastools packages, providing a bridge from the builder to validation, conversion, or code generation workflows.
+
+---
+
+## Learn More
+
+For additional examples and complete API documentation:
+
+- 📦 [API Reference on pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/builder) - Complete API documentation with all examples
+- 🔧 [Parameters example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-WithParameters) - Path, query, and header parameters
+- 📤 [File upload example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-WithFileUpload) - Multipart file uploads
+- 📝 [Form parameters example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-WithFormParameters) - Form data handling
+- 🔒 [Parameter constraints example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-WithParameterConstraints) - Validation rules

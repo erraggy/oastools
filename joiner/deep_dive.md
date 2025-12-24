@@ -16,7 +16,7 @@
 
 ---
 
-The `joiner` package merges multiple OpenAPI Specification documents into a single unified document. It provides sophisticated collision handling strategies, automatic reference rewriting, and semantic deduplication for large-scale API consolidation scenarios.
+The [`joiner`](https://pkg.go.dev/github.com/erraggy/oastools/joiner) package merges multiple OpenAPI Specification documents into a single unified document. It provides sophisticated collision handling strategies, automatic reference rewriting, and semantic deduplication for large-scale API consolidation scenarios.
 
 ## Overview
 
@@ -55,6 +55,8 @@ When schemas are renamed or deduplicated, all `$ref` references throughout the m
 [↑ Back to top](#top)
 
 ## API Styles
+
+See also: [Basic example](https://pkg.go.dev/github.com/erraggy/oastools/joiner#example-package), [Custom strategies example](https://pkg.go.dev/github.com/erraggy/oastools/joiner#example-package-CustomStrategies), [Semantic deduplication example](https://pkg.go.dev/github.com/erraggy/oastools/joiner#example-package-SemanticDeduplication) on pkg.go.dev
 
 ### Functional Options API
 
@@ -845,3 +847,14 @@ result, _ := j.Join([]string{
     "custom-extension.yaml", // Customer-specific additions
 })
 ```
+
+---
+
+## Learn More
+
+For additional examples and complete API documentation:
+
+- 📦 [API Reference on pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/joiner) - Complete API documentation with all examples
+- 🔗 [Basic example](https://pkg.go.dev/github.com/erraggy/oastools/joiner#example-package) - Merge two OpenAPI specifications
+- ⚙️ [Custom strategies example](https://pkg.go.dev/github.com/erraggy/oastools/joiner#example-package-CustomStrategies) - Configure collision handling per component type
+- 🧹 [Semantic deduplication example](https://pkg.go.dev/github.com/erraggy/oastools/joiner#example-package-SemanticDeduplication) - Consolidate identical schemas

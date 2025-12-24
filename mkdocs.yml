@@ -47,6 +47,7 @@ nav:
   - Guides:
     - Developer Guide: developer-guide.md
     - CLI Reference: cli-reference.md
+    - Generator Features: generator_beyond_boilerplate.md
     - Breaking Changes: breaking-changes.md
     - Benchmarks: benchmarks.md
   - Package Deep Dives:

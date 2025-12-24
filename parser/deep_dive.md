@@ -2,7 +2,7 @@
 
 # Parser Package Deep Dive
 
-The parser package provides parsing for OpenAPI Specification documents, supporting OAS 2.0 through OAS 3.2.0 in YAML and JSON formats.
+The [`parser`](https://pkg.go.dev/github.com/erraggy/oastools/parser) package provides parsing for OpenAPI Specification documents, supporting OAS 2.0 through OAS 3.2.0 in YAML and JSON formats.
 
 ## Table of Contents
 
@@ -203,6 +203,8 @@ The resolver handles:
 
 ## API Styles
 
+See also: [Basic example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package), [Functional options example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-FunctionalOptions), [Reusable parser example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-ReusableParser) on pkg.go.dev
+
 ### Functional Options (Recommended)
 
 ```go
@@ -265,6 +267,8 @@ fmt.Printf("Parsed %s v%s\n", result.Version, result.OASVersion)
 
 ### HTTP Reference Resolution
 
+See also: [HTTP refs example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-ParseWithHTTPRefs), [Parse from URL example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-ParseFromURL) on pkg.go.dev
+
 ```go
 result, err := parser.ParseWithOptions(
     parser.WithFilePath("openapi.yaml"),
@@ -285,6 +289,8 @@ result, err := parser.ParseWithOptions(
 ```
 
 ### Safe Document Mutation with DeepCopy
+
+See also: [DeepCopy example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-DeepCopy) on pkg.go.dev
 
 ```go
 result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
@@ -334,6 +340,8 @@ fmt.Println(result.OAS3Document.Info.Title) // Original title
 
 ## Document Type Helpers
 
+See also: [Document type helpers example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-DocumentTypeHelpers) on pkg.go.dev
+
 ParseResult provides convenient methods for version checking and type assertion:
 
 ```go
@@ -369,3 +377,15 @@ if doc, ok := result.OAS2Document(); ok {
 5. **Use DeepCopy for mutations** - Never modify the original parsed document
 
 [Back to top](#top)
+
+---
+
+## Learn More
+
+For additional examples and complete API documentation:
+
+- 📦 [API Reference on pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/parser) - Complete API documentation with all examples
+- 🔧 [Functional options example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-FunctionalOptions) - Configure parsing with options
+- 🌐 [HTTP refs example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-ParseWithHTTPRefs) - Resolve external HTTP references
+- 📋 [DeepCopy example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-DeepCopy) - Safe document mutation
+- 🔍 [Type helpers example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-DocumentTypeHelpers) - Version checking and type assertions

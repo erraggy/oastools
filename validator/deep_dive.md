@@ -16,7 +16,7 @@
 
 ---
 
-The `validator` package performs comprehensive validation of OpenAPI Specification documents against their declared version. It checks structural correctness, semantic constraints, format compliance, and best practices, producing detailed error reports with specification references for every issue found.
+The [`validator`](https://pkg.go.dev/github.com/erraggy/oastools/validator) package performs comprehensive validation of OpenAPI Specification documents against their declared version. It checks structural correctness, semantic constraints, format compliance, and best practices, producing detailed error reports with specification references for every issue found.
 
 ## Overview
 
@@ -55,6 +55,8 @@ Use strict mode in CI/CD pipelines where you want to enforce best practices, not
 [↑ Back to top](#top)
 
 ## API Styles
+
+See also: [Basic example](https://pkg.go.dev/github.com/erraggy/oastools/validator#example-Validator_Validate), [Strict mode example](https://pkg.go.dev/github.com/erraggy/oastools/validator#example-Validator_Validate_strictMode), [Custom validation example](https://pkg.go.dev/github.com/erraggy/oastools/validator#example-package-CustomValidation) on pkg.go.dev
 
 ### Functional Options API
 
@@ -700,3 +702,14 @@ for _, err := range result.Errors {
 **Consider validation as part of your API design workflow.** Validating specifications early catches issues before they propagate to generated code, documentation, or runtime systems.
 
 **Use warnings as guidance, not just rules.** The best practice warnings reflect common patterns that improve API usability and tooling compatibility. Understanding why something is flagged helps you make informed decisions about whether to address it.
+
+---
+
+## Learn More
+
+For additional examples and complete API documentation:
+
+- 📦 [API Reference on pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/validator) - Complete API documentation with all examples
+- ✅ [Basic example](https://pkg.go.dev/github.com/erraggy/oastools/validator#example-Validator_Validate) - Validate an OpenAPI specification
+- 🔒 [Strict mode example](https://pkg.go.dev/github.com/erraggy/oastools/validator#example-Validator_Validate_strictMode) - Enforce best practices
+- ⚙️ [Custom validation example](https://pkg.go.dev/github.com/erraggy/oastools/validator#example-package-CustomValidation) - Process validation issues by severity
