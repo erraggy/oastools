@@ -5,6 +5,7 @@ package {{.Header.PackageName}}
 import (
 	"context"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -87,7 +88,21 @@ func handle{{.MethodName}}Chi(server ServerInterface, w http.ResponseWriter, req
 
 {{range .PathParams}}
 	// Extract path parameter: {{.Name}}
+	{{- if eq .SchemaType "integer"}}
+	if v, err := strconv.ParseInt(chi.URLParam(req, "{{.Name}}"), 10, 64); err == nil {
+		srvReq.{{.FieldName}} = {{.GoType}}(v)
+	}
+	{{- else if eq .SchemaType "number"}}
+	if v, err := strconv.ParseFloat(chi.URLParam(req, "{{.Name}}"), 64); err == nil {
+		srvReq.{{.FieldName}} = {{.GoType}}(v)
+	}
+	{{- else if eq .SchemaType "boolean"}}
+	if v, err := strconv.ParseBool(chi.URLParam(req, "{{.Name}}")); err == nil {
+		srvReq.{{.FieldName}} = v
+	}
+	{{- else}}
 	srvReq.{{.FieldName}} = chi.URLParam(req, "{{.Name}}")
+	{{- end}}
 {{end}}
 
 	// Call the server implementation

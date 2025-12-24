@@ -2163,12 +2163,15 @@ func (cg *oas2CodeGenerator) generateServerRouter() error {
 				RequestType: methodName + "Request",
 			}
 
-			// Collect path parameters
+			// Collect path parameters with type info for proper conversion in templates
 			for _, param := range op.Parameters {
 				if param != nil && param.In == parser.ParamInPath {
 					opData.PathParams = append(opData.PathParams, ParamBindData{
-						Name:      param.Name,
-						FieldName: toFieldName(param.Name),
+						Name:       param.Name,
+						FieldName:  toFieldName(param.Name),
+						GoType:     cg.paramToGoType(param),
+						Required:   param.Required,
+						SchemaType: cg.getOAS2ParamSchemaType(param),
 					})
 				}
 			}
