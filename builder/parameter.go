@@ -25,6 +25,11 @@ type paramConfig struct {
 	deprecated  bool
 	example     any
 
+	// Type/Format override fields
+	typeOverride   string         // Explicit type override (e.g., "string", "integer")
+	formatOverride string         // Explicit format override (e.g., "uuid", "email", "date")
+	schemaOverride *parser.Schema // Complete schema override (takes precedence)
+
 	// Constraint fields
 	minimum          *float64
 	maximum          *float64
@@ -76,6 +81,63 @@ func WithParamExample(example any) ParamOption {
 func WithParamDeprecated(deprecated bool) ParamOption {
 	return func(cfg *paramConfig) {
 		cfg.deprecated = deprecated
+	}
+}
+
+// WithParamType sets an explicit OpenAPI type for the parameter.
+// This overrides the type that would be inferred from the Go type.
+//
+// Valid types per OpenAPI specification: "string", "integer", "number",
+// "boolean", "array", "object".
+//
+// Example:
+//
+//	builder.WithQueryParam("data", []byte{},
+//	    builder.WithParamType("string"),
+//	    builder.WithParamFormat("byte"),
+//	)
+func WithParamType(typeName string) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.typeOverride = typeName
+	}
+}
+
+// WithParamFormat sets an explicit OpenAPI format for the parameter.
+// This overrides the format that would be inferred from the Go type.
+//
+// Common formats include: "int32", "int64", "float", "double", "byte",
+// "binary", "date", "date-time", "password", "email", "uri", "uuid",
+// "hostname", "ipv4", "ipv6".
+//
+// Example:
+//
+//	builder.WithQueryParam("user_id", "",
+//	    builder.WithParamFormat("uuid"),
+//	)
+func WithParamFormat(format string) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.formatOverride = format
+	}
+}
+
+// WithParamSchema sets a complete schema for the parameter.
+// This takes precedence over type/format inference and the
+// WithParamType/WithParamFormat options.
+//
+// Use this for complex schemas that cannot be easily represented
+// with Go types (e.g., oneOf, arrays with specific item constraints).
+//
+// Example:
+//
+//	builder.WithQueryParam("ids", nil,
+//	    builder.WithParamSchema(&parser.Schema{
+//	        Type:  "array",
+//	        Items: &parser.Schema{Type: "string", Format: "uuid"},
+//	    }),
+//	)
+func WithParamSchema(schema *parser.Schema) ParamOption {
+	return func(cfg *paramConfig) {
+		cfg.schemaOverride = schema
 	}
 }
 
@@ -247,7 +309,11 @@ func (b *Builder) AddParameter(name string, in string, paramName string, paramTy
 		required = true
 	}
 
+	// Generate schema from Go type
 	schema := b.generateSchema(paramType)
+
+	// Apply type/format overrides (schemaOverride takes precedence)
+	schema = applyTypeFormatOverrides(schema, pCfg)
 
 	// Apply constraints to schema for OAS 3.x
 	if b.version != parser.OASVersion20 {
@@ -266,6 +332,8 @@ func (b *Builder) AddParameter(name string, in string, paramName string, paramTy
 
 	// Apply constraints directly to parameter for OAS 2.0
 	if b.version == parser.OASVersion20 {
+		// Apply type/format to parameter-level fields for OAS 2.0
+		applyTypeFormatOverridesToOAS2Param(param, schema, pCfg)
 		applyParamConstraintsToParam(param, pCfg)
 	} else {
 		// OAS 3.x: Extensions are still applied to the parameter (not schema)
@@ -433,6 +501,90 @@ func applyParamConstraintsToSchema(schema *parser.Schema, cfg *paramConfig) *par
 	}
 
 	return result
+}
+
+// applyTypeFormatOverrides applies explicit type and format overrides to a schema.
+// This function handles the precedence rules:
+//  1. schemaOverride takes highest precedence (returns as-is)
+//  2. typeOverride replaces the inferred type
+//  3. formatOverride replaces the inferred format
+//
+// The function creates a copy of the schema to avoid mutating shared references.
+// If no overrides are set, the original schema is returned unchanged.
+//
+// Parameters:
+//   - schema: The schema to apply overrides to (may be nil)
+//   - cfg: The parameter configuration containing override values
+//
+// Returns the schema with overrides applied, or the schemaOverride if set.
+func applyTypeFormatOverrides(schema *parser.Schema, cfg *paramConfig) *parser.Schema {
+	// Schema override takes highest precedence
+	if cfg.schemaOverride != nil {
+		return cfg.schemaOverride
+	}
+
+	// If no type/format overrides, return original
+	if cfg.typeOverride == "" && cfg.formatOverride == "" {
+		return schema
+	}
+
+	// Handle nil schema (for cases like WithQueryParam("x", nil, WithParamSchema(...)))
+	if schema == nil {
+		schema = &parser.Schema{}
+	}
+
+	// Create a copy to avoid mutating shared references
+	result := copySchema(schema)
+
+	// Apply type override
+	if cfg.typeOverride != "" {
+		result.Type = cfg.typeOverride
+	}
+
+	// Apply format override
+	if cfg.formatOverride != "" {
+		result.Format = cfg.formatOverride
+	}
+
+	return result
+}
+
+// applyTypeFormatOverridesToOAS2Param applies type/format to an OAS 2.0 parameter.
+// In OAS 2.0, type and format are top-level parameter fields (not nested in schema).
+// This function copies type/format from the schema and applies any overrides.
+//
+// Precedence:
+//  1. schemaOverride.Type/Format takes highest precedence
+//  2. typeOverride/formatOverride replace the inferred values
+//  3. schema.Type/Format (inferred from Go type) is the default
+//
+// The schema parameter provides the inferred type/format from Go type reflection.
+// For Schema.Type, we perform type assertion since it may be interface{} in OAS 3.1+.
+func applyTypeFormatOverridesToOAS2Param(param *parser.Parameter, schema *parser.Schema, cfg *paramConfig) {
+	// Start with inferred type/format from schema
+	if schema != nil {
+		if typeStr, ok := schema.Type.(string); ok {
+			param.Type = typeStr
+		}
+		param.Format = schema.Format
+	}
+
+	// Apply overrides (schemaOverride takes precedence over individual overrides)
+	if cfg.schemaOverride != nil {
+		// Schema.Type is interface{} to support OAS 3.1 array types
+		// For OAS 2.0, we only support string types
+		if typeStr, ok := cfg.schemaOverride.Type.(string); ok {
+			param.Type = typeStr
+		}
+		param.Format = cfg.schemaOverride.Format
+	} else {
+		if cfg.typeOverride != "" {
+			param.Type = cfg.typeOverride
+		}
+		if cfg.formatOverride != "" {
+			param.Format = cfg.formatOverride
+		}
+	}
 }
 
 // applyParamConstraintsToParam applies parameter constraints directly to a parameter.

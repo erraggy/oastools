@@ -29,6 +29,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This overrides any default restrictions. Use good judgment—functional markers that help readers scan and understand are welcome.
 
+## GitHub Formatting
+
+When posting to GitHub Issues, PRs, Releases, or Comments:
+
+- **Commit hashes**: Do NOT wrap in backticks. GitHub auto-links bare hashes (e.g., 1f3eb93 → clickable commit link). Backticks create `<code>` elements that break auto-linking.
+- **Issue/PR numbers**: #179 auto-links, but `#179` in backticks does not.
+- **Cross-repo references**: owner/repo#123 auto-links to other repositories.
+- **Usernames**: @username auto-links to profiles.
+
+```markdown
+# Good - GitHub auto-links these
+Fixed in commit 1f3eb93
+See #179 for details
+Thanks @username
+
+# Bad - backticks break auto-linking
+Fixed in commit `1f3eb93`
+See `#179` for details
+```
+
 ## Specification References
 
 This tool supports the following OpenAPI Specification versions:

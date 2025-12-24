@@ -780,6 +780,10 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 				b.errors = append(b.errors, err)
 				continue
 			}
+
+			// Apply type/format overrides (schemaOverride takes precedence)
+			param.Schema = applyTypeFormatOverrides(param.Schema, pCfg)
+
 			if b.version != parser.OASVersion20 {
 				// OAS 3.x: Apply constraints to schema
 				param.Schema = applyParamConstraintsToSchema(param.Schema, pCfg)
@@ -788,7 +792,9 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 					param.Extra = pCfg.extensions
 				}
 			} else {
-				// OAS 2.0: Apply constraints directly to parameter
+				// OAS 2.0: Apply type/format to parameter-level fields
+				applyTypeFormatOverridesToOAS2Param(param, param.Schema, pCfg)
+				// Apply constraints directly to parameter
 				applyParamConstraintsToParam(param, pCfg)
 			}
 		}
@@ -831,6 +837,9 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 					if formParam.pType != nil {
 						param.Schema = b.generateSchema(formParam.pType)
 					}
+
+					// Apply type/format to parameter level (OAS 2.0 requires these at parameter level)
+					applyTypeFormatOverridesToOAS2Param(param, param.Schema, formParam.config)
 
 					// Apply constraints directly to parameter for OAS 2.0
 					applyParamConstraintsToParam(param, formParam.config)
@@ -949,6 +958,23 @@ func (b *Builder) buildFormParamSchema(formParams []*formParamBuilder) *parser.S
 
 			// Apply constraints to the property schema
 			propSchema = applyParamConstraintsToSchema(propSchema, formParam.config)
+
+			// Apply type/format overrides (schemaOverride takes precedence)
+			if formParam.config.schemaOverride != nil {
+				if typeStr, ok := formParam.config.schemaOverride.Type.(string); ok {
+					propSchema.Type = typeStr
+				}
+				if formParam.config.schemaOverride.Format != "" {
+					propSchema.Format = formParam.config.schemaOverride.Format
+				}
+			} else {
+				if formParam.config.typeOverride != "" {
+					propSchema.Type = formParam.config.typeOverride
+				}
+				if formParam.config.formatOverride != "" {
+					propSchema.Format = formParam.config.formatOverride
+				}
+			}
 		}
 
 		// Set description if provided
