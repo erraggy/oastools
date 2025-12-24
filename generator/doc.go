@@ -184,7 +184,7 @@
 //   - WithServerResponses(bool): Typed response writers with Status*() methods
 //   - WithServerBinder(bool): Request parameter binding using httpvalidator
 //   - WithServerMiddleware(bool): Validation middleware for request/response validation
-//   - WithServerRouter(string): HTTP router generation ("stdlib")
+//   - WithServerRouter(string): HTTP router generation ("stdlib", "chi")
 //   - WithServerStubs(bool): Configurable stub implementations for testing
 //   - WithServerAll(): Enable all server extensions at once
 //

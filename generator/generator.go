@@ -182,7 +182,7 @@ type Generator struct {
 	// Server generation options
 
 	// ServerRouter enables HTTP router generation with path matching and handler dispatch.
-	// Valid values: "" (disabled), "stdlib" (net/http)
+	// Valid values: "" (disabled), "stdlib" (net/http), "chi" (go-chi/chi)
 	// Default: "" (disabled)
 	ServerRouter string
 
@@ -430,8 +430,8 @@ func applyOptions(opts ...Option) (*generateConfig, error) {
 	}
 
 	// Validate server router value
-	if cfg.serverRouter != "" && cfg.serverRouter != "stdlib" {
-		return nil, fmt.Errorf("generator: invalid server router %q (valid values: stdlib)", cfg.serverRouter)
+	if cfg.serverRouter != "" && cfg.serverRouter != "stdlib" && cfg.serverRouter != "chi" {
+		return nil, fmt.Errorf("generator: invalid server router %q (valid values: stdlib, chi)", cfg.serverRouter)
 	}
 
 	return cfg, nil
@@ -691,7 +691,7 @@ func WithSourceMap(sm *parser.SourceMap) Option {
 // Server generation options
 
 // WithServerRouter enables HTTP router generation with path matching and handler dispatch.
-// Valid values: "stdlib" (net/http)
+// Valid values: "stdlib" (net/http), "chi" (go-chi/chi)
 // Default: "" (disabled)
 func WithServerRouter(framework string) Option {
 	return func(cfg *generateConfig) error {

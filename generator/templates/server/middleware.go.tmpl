@@ -101,7 +101,10 @@ func validationMiddleware(v *httpvalidator.Validator, cfg ValidationConfig) func
 					// Create a dummy response writer that discards writes since
 					// the real response is already sent. This allows OnValidationError
 					// to log the issue without affecting the client.
-					cfg.OnValidationError(&discardResponseWriter{}, r, result.Errors[0])
+					// Wrap response errors in a RequestValidationResult for the callback.
+					cfg.OnValidationError(&discardResponseWriter{}, r, &httpvalidator.RequestValidationResult{
+						Errors: result.Errors,
+					})
 				}
 				return
 			}

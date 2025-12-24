@@ -2326,13 +2326,19 @@ func (cg *oas3CodeGenerator) generateServerRouter() error {
 				RequestType: methodName + "Request",
 			}
 
-			// Collect path parameters
+			// Collect path parameters with type info for proper conversion in templates
 			for _, param := range op.Parameters {
 				if param != nil && param.In == parser.ParamInPath {
-					opData.PathParams = append(opData.PathParams, ParamBindData{
+					paramData := ParamBindData{
 						Name:      param.Name,
 						FieldName: toFieldName(param.Name),
-					})
+						GoType:    cg.paramToGoType(param),
+						Required:  param.Required,
+					}
+					if param.Schema != nil {
+						paramData.SchemaType = cg.getSchemaType(param.Schema)
+					}
+					opData.PathParams = append(opData.PathParams, paramData)
 				}
 			}
 
@@ -2340,7 +2346,13 @@ func (cg *oas3CodeGenerator) generateServerRouter() error {
 		}
 	}
 
-	formatted, err := executeTemplate("router.go.tmpl", data)
+	// Select template based on router type
+	templateName := "router.go.tmpl"
+	if cg.g.ServerRouter == "chi" {
+		templateName = "router_chi.go.tmpl"
+	}
+
+	formatted, err := executeTemplate(templateName, data)
 	if err != nil {
 		cg.addIssue("server_router.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
 		return err

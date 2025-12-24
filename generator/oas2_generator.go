@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -1781,37 +1782,491 @@ func (cg *oas2CodeGenerator) generateReadmeFile(schemes map[string]*parser.Secur
 	return nil
 }
 
+// oas2HttpMethods defines the HTTP methods supported in OAS 2.0.
+// Unlike OAS 3.0+, OAS 2.0 does not support Trace or Query methods.
+var oas2HttpMethods = []string{
+	httputil.MethodGet,
+	httputil.MethodPut,
+	httputil.MethodPost,
+	httputil.MethodDelete,
+	httputil.MethodOptions,
+	httputil.MethodHead,
+	httputil.MethodPatch,
+}
+
 // generateServerResponses generates typed response helpers for OAS 2.0
-// TODO: Implement for OAS 2.0 - currently a no-op
 func (cg *oas2CodeGenerator) generateServerResponses() error {
-	// OAS 2.0 server responses generation not yet implemented
+	if len(cg.doc.Paths) == 0 {
+		return nil
+	}
+
+	// Build template data
+	data := ServerResponsesFileData{
+		Header: HeaderData{
+			PackageName: cg.result.PackageName,
+		},
+		Operations: make([]ResponseOperationData, 0),
+	}
+
+	// Track generated methods to avoid duplicates
+	generatedMethods := make(map[string]bool)
+
+	// Sort paths for deterministic output
+	pathKeys := make([]string, 0, len(cg.doc.Paths))
+	for path := range cg.doc.Paths {
+		pathKeys = append(pathKeys, path)
+	}
+	sort.Strings(pathKeys)
+
+	for _, path := range pathKeys {
+		pathItem := cg.doc.Paths[path]
+		if pathItem == nil {
+			continue
+		}
+
+		operations := parser.GetOperations(pathItem, parser.OASVersion20)
+		for _, method := range oas2HttpMethods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+
+			methodName := operationToMethodName(op, path, method)
+			if generatedMethods[methodName] {
+				continue
+			}
+			generatedMethods[methodName] = true
+
+			// Build response operation data
+			opData := ResponseOperationData{
+				MethodName:   methodName,
+				ResponseType: methodName + "Response",
+				StatusCodes:  cg.buildStatusCodes(op),
+			}
+
+			data.Operations = append(data.Operations, opData)
+		}
+	}
+
+	// Execute template
+	formatted, err := executeTemplate("responses.go.tmpl", data)
+	if err != nil {
+		cg.addIssue("server_responses.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	cg.result.Files = append(cg.result.Files, GeneratedFile{
+		Name:    "server_responses.go",
+		Content: formatted,
+	})
+
 	return nil
+}
+
+// buildStatusCodes builds status code data for an operation's responses (OAS 2.0)
+func (cg *oas2CodeGenerator) buildStatusCodes(op *parser.Operation) []StatusCodeData {
+	if op.Responses == nil {
+		return nil
+	}
+
+	// Pre-allocate: 1 for default + status codes
+	codes := make([]StatusCodeData, 0, 1+len(op.Responses.Codes))
+
+	// Process default response first
+	if op.Responses.Default != nil {
+		statusData := cg.buildStatusCodeData("default", op.Responses.Default)
+		codes = append(codes, statusData)
+	}
+
+	// Get sorted status codes from Codes map
+	statusKeys := make([]string, 0, len(op.Responses.Codes))
+	for code := range op.Responses.Codes {
+		statusKeys = append(statusKeys, code)
+	}
+	sort.Strings(statusKeys)
+
+	for _, code := range statusKeys {
+		resp := op.Responses.Codes[code]
+		if resp == nil {
+			continue
+		}
+		statusData := cg.buildStatusCodeData(code, resp)
+		codes = append(codes, statusData)
+	}
+
+	return codes
+}
+
+// buildStatusCodeData builds data for a single status code response (OAS 2.0)
+func (cg *oas2CodeGenerator) buildStatusCodeData(code string, resp *parser.Response) StatusCodeData {
+	statusData := StatusCodeData{
+		Code:        code,
+		Description: resp.Description,
+	}
+
+	// Determine method name and code type
+	switch {
+	case code == "default":
+		statusData.MethodName = "StatusDefault"
+		statusData.IsDefault = true
+		statusData.StatusCodeInt = 500 // Use 500 as default status
+	case len(code) == 3 && strings.HasSuffix(code, "XX"):
+		// Wildcard like 2XX, 4XX, 5XX
+		statusData.IsWildcard = true
+		statusData.MethodName = "Status" + code
+		// Use first code in range
+		switch code[0] {
+		case '2':
+			statusData.StatusCodeInt = 200
+			statusData.IsSuccess = true
+		case '3':
+			statusData.StatusCodeInt = 300
+		case '4':
+			statusData.StatusCodeInt = 400
+		case '5':
+			statusData.StatusCodeInt = 500
+		}
+	default:
+		// Specific status code
+		statusData.MethodName = "Status" + code
+		var statusInt int
+		if _, err := fmt.Sscanf(code, "%d", &statusInt); err == nil {
+			statusData.StatusCodeInt = statusInt
+			statusData.IsSuccess = statusInt >= 200 && statusInt < 300
+		}
+	}
+
+	// OAS 2.0: Response has direct Schema field (not Content map)
+	if resp.Schema != nil {
+		statusData.HasBody = true
+		statusData.ContentType = "application/json" // Default for OAS 2.0
+		statusData.BodyType = cg.schemaToGoType(resp.Schema, true)
+	}
+
+	return statusData
 }
 
 // generateServerBinder generates parameter binding helpers for OAS 2.0
-// TODO: Implement for OAS 2.0 - currently a no-op
 func (cg *oas2CodeGenerator) generateServerBinder() error {
-	// OAS 2.0 server binder generation not yet implemented
+	if len(cg.doc.Paths) == 0 {
+		return nil
+	}
+
+	// Build template data
+	data := ServerBinderFileData{
+		Header: HeaderData{
+			PackageName: cg.result.PackageName,
+		},
+		Operations: make([]BinderOperationData, 0),
+	}
+
+	// Track generated methods to avoid duplicates
+	generatedMethods := make(map[string]bool)
+
+	// Sort paths for deterministic output
+	pathKeys := make([]string, 0, len(cg.doc.Paths))
+	for path := range cg.doc.Paths {
+		pathKeys = append(pathKeys, path)
+	}
+	sort.Strings(pathKeys)
+
+	for _, path := range pathKeys {
+		pathItem := cg.doc.Paths[path]
+		if pathItem == nil {
+			continue
+		}
+
+		operations := parser.GetOperations(pathItem, parser.OASVersion20)
+		for _, method := range oas2HttpMethods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+
+			methodName := operationToMethodName(op, path, method)
+			if generatedMethods[methodName] {
+				continue
+			}
+			generatedMethods[methodName] = true
+
+			// Build binder operation data
+			opData := cg.buildBinderOperationData(methodName, op)
+			data.Operations = append(data.Operations, opData)
+		}
+	}
+
+	// Execute template
+	formatted, err := executeTemplate("binder.go.tmpl", data)
+	if err != nil {
+		cg.addIssue("server_binder.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	cg.result.Files = append(cg.result.Files, GeneratedFile{
+		Name:    "server_binder.go",
+		Content: formatted,
+	})
+
 	return nil
 }
 
+// buildBinderOperationData builds binding data for a single operation (OAS 2.0)
+func (cg *oas2CodeGenerator) buildBinderOperationData(methodName string, op *parser.Operation) BinderOperationData {
+	opData := BinderOperationData{
+		MethodName:  methodName,
+		RequestType: methodName + "Request",
+	}
+
+	// Process parameters
+	for _, param := range op.Parameters {
+		if param == nil {
+			continue
+		}
+
+		// OAS 2.0: Body parameter is handled separately
+		if param.In == parser.ParamInBody {
+			if param.Schema != nil {
+				opData.HasBody = true
+				opData.BodyType = cg.schemaToGoType(param.Schema, true)
+			}
+			continue
+		}
+
+		paramData := ParamBindData{
+			Name:      param.Name,
+			FieldName: toFieldName(param.Name),
+			GoType:    cg.paramToGoType(param),
+			Required:  param.Required,
+			IsPointer: !param.Required && param.In != parser.ParamInPath,
+		}
+
+		// OAS 2.0: Type is directly on the parameter (not in Schema)
+		paramData.SchemaType = cg.getOAS2ParamSchemaType(param)
+
+		switch param.In {
+		case parser.ParamInPath:
+			opData.PathParams = append(opData.PathParams, paramData)
+		case parser.ParamInQuery:
+			opData.QueryParams = append(opData.QueryParams, paramData)
+		case parser.ParamInHeader:
+			opData.HeaderParams = append(opData.HeaderParams, paramData)
+			// Note: OAS 2.0 does not support cookie parameters
+		}
+	}
+
+	return opData
+}
+
+// getOAS2ParamSchemaType returns the schema type for an OAS 2.0 parameter.
+// OAS 2.0 parameters have direct Type field instead of Schema.Type.
+func (cg *oas2CodeGenerator) getOAS2ParamSchemaType(param *parser.Parameter) string {
+	if param == nil {
+		return "string"
+	}
+
+	// OAS 2.0: Type is directly on the parameter
+	if param.Type != "" {
+		return param.Type
+	}
+
+	// Fall back to schema type if present (for body parameters)
+	if param.Schema != nil {
+		switch t := param.Schema.Type.(type) {
+		case string:
+			return t
+		case []any:
+			if len(t) > 0 {
+				if s, ok := t[0].(string); ok {
+					return s
+				}
+			}
+		case []string:
+			if len(t) > 0 {
+				return t[0]
+			}
+		}
+	}
+
+	return "string"
+}
+
 // generateServerMiddleware generates validation middleware for OAS 2.0
-// TODO: Implement for OAS 2.0 - currently a no-op
 func (cg *oas2CodeGenerator) generateServerMiddleware() error {
-	// OAS 2.0 server middleware generation not yet implemented
+	// The middleware template is static - it uses httpvalidator for validation
+	// No per-operation data needed since it validates dynamically
+	data := ServerMiddlewareFileData{
+		Header: HeaderData{
+			PackageName: cg.result.PackageName,
+		},
+	}
+
+	formatted, err := executeTemplate("middleware.go.tmpl", data)
+	if err != nil {
+		cg.addIssue("server_middleware.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	cg.result.Files = append(cg.result.Files, GeneratedFile{
+		Name:    "server_middleware.go",
+		Content: formatted,
+	})
 	return nil
 }
 
 // generateServerRouter generates HTTP router code for OAS 2.0
-// TODO: Implement for OAS 2.0 - currently a no-op
 func (cg *oas2CodeGenerator) generateServerRouter() error {
-	// OAS 2.0 server router generation not yet implemented
+	if len(cg.doc.Paths) == 0 {
+		return nil
+	}
+
+	// Track generated methods to avoid duplicates
+	generatedMethods := make(map[string]bool)
+
+	// Sort paths for deterministic output
+	pathKeys := make([]string, 0, len(cg.doc.Paths))
+	for path := range cg.doc.Paths {
+		pathKeys = append(pathKeys, path)
+	}
+	sort.Strings(pathKeys)
+
+	// Build router data
+	data := ServerRouterFileData{
+		Header: HeaderData{
+			PackageName: cg.result.PackageName,
+		},
+		Operations: make([]RouterOperationData, 0),
+	}
+
+	for _, path := range pathKeys {
+		pathItem := cg.doc.Paths[path]
+		if pathItem == nil {
+			continue
+		}
+
+		operations := parser.GetOperations(pathItem, parser.OASVersion20)
+		for _, method := range oas2HttpMethods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+
+			methodName := operationToMethodName(op, path, method)
+			if generatedMethods[methodName] {
+				continue
+			}
+			generatedMethods[methodName] = true
+
+			opData := RouterOperationData{
+				Path:        path,
+				Method:      strings.ToUpper(method),
+				MethodName:  methodName,
+				RequestType: methodName + "Request",
+			}
+
+			// Collect path parameters with type info for proper conversion in templates
+			for _, param := range op.Parameters {
+				if param != nil && param.In == parser.ParamInPath {
+					opData.PathParams = append(opData.PathParams, ParamBindData{
+						Name:       param.Name,
+						FieldName:  toFieldName(param.Name),
+						GoType:     cg.paramToGoType(param),
+						Required:   param.Required,
+						SchemaType: cg.getOAS2ParamSchemaType(param),
+					})
+				}
+			}
+
+			data.Operations = append(data.Operations, opData)
+		}
+	}
+
+	// Select template based on router type
+	templateName := "router.go.tmpl"
+	if cg.g.ServerRouter == "chi" {
+		templateName = "router_chi.go.tmpl"
+	}
+
+	formatted, err := executeTemplate(templateName, data)
+	if err != nil {
+		cg.addIssue("server_router.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	cg.result.Files = append(cg.result.Files, GeneratedFile{
+		Name:    "server_router.go",
+		Content: formatted,
+	})
 	return nil
 }
 
 // generateServerStubs generates testable stub implementations for OAS 2.0
-// TODO: Implement for OAS 2.0 - currently a no-op
 func (cg *oas2CodeGenerator) generateServerStubs() error {
-	// OAS 2.0 server stubs generation not yet implemented
+	if len(cg.doc.Paths) == 0 {
+		return nil
+	}
+
+	// Track generated methods to avoid duplicates
+	generatedMethods := make(map[string]bool)
+
+	// Sort paths for deterministic output
+	pathKeys := make([]string, 0, len(cg.doc.Paths))
+	for path := range cg.doc.Paths {
+		pathKeys = append(pathKeys, path)
+	}
+	sort.Strings(pathKeys)
+
+	// Build stubs data
+	data := ServerStubsFileData{
+		Header: HeaderData{
+			PackageName: cg.result.PackageName,
+		},
+		Operations: make([]StubOperationData, 0),
+	}
+
+	for _, path := range pathKeys {
+		pathItem := cg.doc.Paths[path]
+		if pathItem == nil {
+			continue
+		}
+
+		operations := parser.GetOperations(pathItem, parser.OASVersion20)
+		for _, method := range oas2HttpMethods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+
+			methodName := operationToMethodName(op, path, method)
+			if generatedMethods[methodName] {
+				continue
+			}
+			generatedMethods[methodName] = true
+
+			// Determine response type
+			responseType := "*" + methodName + "Response"
+			if !cg.g.ServerResponses {
+				responseType = "any"
+			}
+
+			opData := StubOperationData{
+				MethodName:   methodName,
+				RequestType:  methodName + "Request",
+				ResponseType: responseType,
+			}
+
+			data.Operations = append(data.Operations, opData)
+		}
+	}
+
+	formatted, err := executeTemplate("stubs.go.tmpl", data)
+	if err != nil {
+		cg.addIssue("server_stubs.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	cg.result.Files = append(cg.result.Files, GeneratedFile{
+		Name:    "server_stubs.go",
+		Content: formatted,
+	})
 	return nil
 }

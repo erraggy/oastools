@@ -126,7 +126,7 @@ type ValidationConfig struct {
     IncludeRequestValidation  bool
     IncludeResponseValidation bool
     StrictMode                bool
-    OnValidationError         func(w http.ResponseWriter, r *http.Request, err error)
+    OnValidationError         func(w http.ResponseWriter, r *http.Request, result *httpvalidator.RequestValidationResult)
 }
 
 func DefaultValidationConfig() ValidationConfig { ... }
@@ -144,8 +144,9 @@ handler := ValidationMiddleware(parsed)(myHandler)
 // Or with custom configuration
 cfg := DefaultValidationConfig()
 cfg.StrictMode = true
-cfg.OnValidationError = func(w http.ResponseWriter, r *http.Request, err error) {
-    WriteError(w, 422, err.Error())
+cfg.OnValidationError = func(w http.ResponseWriter, r *http.Request, result *httpvalidator.RequestValidationResult) {
+    // result.Errors contains detailed validation errors
+    WriteError(w, 422, "validation failed")
 }
 handler = ValidationMiddlewareWithConfig(parsed, cfg)(myHandler)
 ```
@@ -193,6 +194,40 @@ http.ListenAndServe(":8080", router)
 ```
 
 **Error Handling:** The router returns a generic "internal server error" message to clients to prevent information disclosure. Use `WithErrorHandler` to log the actual error for debugging.
+
+### Chi Router (`server_router_chi.go`)
+
+For projects using [chi](https://github.com/go-chi/chi), enable the chi router with `--server-router chi`:
+
+```bash
+oastools generate server -i openapi.yaml -o petstore --server-router chi
+```
+
+```go
+import (
+    "github.com/go-chi/chi/v5"
+    "github.com/go-chi/chi/v5/middleware"
+)
+
+server := NewMyPetStoreServer()
+
+// Create chi router with built-in path parameter extraction
+router := NewChiRouter(server,
+    WithMiddleware(middleware.Logger),
+    WithMiddleware(middleware.Recoverer),
+    WithErrorHandler(func(r *http.Request, err error) {
+        log.Printf("Handler error: %s %s: %v", r.Method, r.URL.Path, err)
+    }),
+)
+
+http.ListenAndServe(":8080", router)
+```
+
+**Key differences from stdlib router:**
+- Chi handles path parameter extraction natively via `chi.URLParam()`
+- No need for the `PathParam()` helper function
+- Compatible with chi's ecosystem of middleware
+- `NewChiRouter()` returns `chi.Router` directly (no error return)
 
 ### Stub Server (`server_stubs.go`)
 
@@ -1308,7 +1343,7 @@ type Generator struct {
 | `WithServerResponses(bool)` | Generate typed response writers |
 | `WithServerBinder(bool)` | Generate request parameter binding |
 | `WithServerMiddleware(bool)` | Generate validation middleware |
-| `WithServerRouter(string)` | Generate HTTP router ("stdlib") |
+| `WithServerRouter(string)` | Generate HTTP router ("stdlib", "chi") |
 | `WithServerStubs(bool)` | Generate stub server for testing |
 | `WithServerAll()` | Enable all server extensions |
 

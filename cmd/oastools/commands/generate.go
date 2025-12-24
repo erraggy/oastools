@@ -215,8 +215,23 @@ func HandleGenerate(args []string) error {
 			generator.WithClient(flags.Client),
 			generator.WithServer(flags.Server),
 			generator.WithTypes(flags.Types || flags.Client || flags.Server),
+			generator.WithPointers(!flags.NoPointers),
+			generator.WithValidation(!flags.NoValidation),
 			generator.WithStrictMode(flags.Strict),
 			generator.WithIncludeInfo(!flags.NoWarnings),
+			// Security options
+			generator.WithSecurity(!flags.NoSecurity),
+			generator.WithOAuth2Flows(flags.OAuth2Flows),
+			generator.WithCredentialMgmt(flags.CredentialMgmt),
+			generator.WithSecurityEnforce(flags.SecurityEnforce),
+			generator.WithOIDCDiscovery(flags.OIDCDiscovery),
+			generator.WithReadme(!flags.NoReadme),
+			// File splitting options
+			generator.WithMaxLinesPerFile(flags.MaxLinesPerFile),
+			generator.WithMaxTypesPerFile(flags.MaxTypesPerFile),
+			generator.WithMaxOperationsPerFile(flags.MaxOpsPerFile),
+			generator.WithSplitByTag(!flags.NoSplitByTag),
+			generator.WithSplitByPathPrefix(!flags.NoSplitByPath),
 		}
 
 		// Add server generation options
@@ -258,8 +273,23 @@ func HandleGenerate(args []string) error {
 				generator.WithClient(flags.Client),
 				generator.WithServer(flags.Server),
 				generator.WithTypes(flags.Types || flags.Client || flags.Server),
+				generator.WithPointers(!flags.NoPointers),
+				generator.WithValidation(!flags.NoValidation),
 				generator.WithStrictMode(flags.Strict),
 				generator.WithIncludeInfo(!flags.NoWarnings),
+				// Security options
+				generator.WithSecurity(!flags.NoSecurity),
+				generator.WithOAuth2Flows(flags.OAuth2Flows),
+				generator.WithCredentialMgmt(flags.CredentialMgmt),
+				generator.WithSecurityEnforce(flags.SecurityEnforce),
+				generator.WithOIDCDiscovery(flags.OIDCDiscovery),
+				generator.WithReadme(!flags.NoReadme),
+				// File splitting options
+				generator.WithMaxLinesPerFile(flags.MaxLinesPerFile),
+				generator.WithMaxTypesPerFile(flags.MaxTypesPerFile),
+				generator.WithMaxOperationsPerFile(flags.MaxOpsPerFile),
+				generator.WithSplitByTag(!flags.NoSplitByTag),
+				generator.WithSplitByPathPrefix(!flags.NoSplitByPath),
 			}
 			// Add server generation options
 			if flags.ServerAll {

@@ -273,6 +273,45 @@ func Example_withServerRouter() {
 	}
 }
 
+// Example_withChiRouter demonstrates generating a server with chi router
+func Example_withChiRouter() {
+	// Generate server with chi router for better path parameter handling
+	result, err := generator.GenerateWithOptions(
+		generator.WithFilePath("openapi.yaml"),
+		generator.WithPackageName("api"),
+		generator.WithServer(true),
+		generator.WithServerRouter("chi"), // Generate chi-based router
+		generator.WithServerResponses(true),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// The chi router provides:
+	// - Native path parameter extraction via chi.URLParam()
+	// - Middleware chaining with chi.Use()
+	// - Direct OpenAPI path pattern support ({param} syntax)
+	// - Better integration with existing chi-based applications
+
+	// Example usage of generated chi router:
+	//
+	//   import "github.com/go-chi/chi/v5"
+	//
+	//   parsed, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
+	//   middleware, _ := ValidationMiddleware(parsed)
+	//   router, _ := NewChiRouter(myServer, parsed,
+	//       WithMiddleware(middleware),
+	//       WithErrorHandler(func(r *http.Request, err error) {
+	//           log.Printf("Error: %s %s: %v", r.Method, r.URL.Path, err)
+	//       }),
+	//   )
+	//   http.ListenAndServe(":8080", router)
+
+	if routerFile := result.GetFile("server_router.go"); routerFile != nil {
+		fmt.Printf("Generated server_router.go with chi: %d bytes\n", len(routerFile.Content))
+	}
+}
+
 // Example_withServerStubs demonstrates generating stub implementations for testing
 func Example_withServerStubs() {
 	// Generate server with stub implementations for unit testing
