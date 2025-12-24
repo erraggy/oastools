@@ -1075,7 +1075,7 @@ Server extension options:
 - `WithServerResponses(true)`: Typed response writers with `Status*()` methods
 - `WithServerBinder(true)`: Request parameter binding using httpvalidator
 - `WithServerMiddleware(true)`: Validation middleware for request/response validation
-- `WithServerRouter("stdlib")`: HTTP router generation with path matching
+- `WithServerRouter("stdlib")` or `WithServerRouter("chi")`: HTTP router generation with path matching
 - `WithServerStubs(true)`: Configurable stub implementations for testing
 - `WithServerEmbedSpec(true)`: Embed OpenAPI spec for runtime validation
 
@@ -1099,6 +1099,19 @@ router, _ := NewServerRouter(server, parsed,
 )
 http.ListenAndServe(":8080", router)
 ```
+
+**Chi router alternative:** For projects using [chi](https://github.com/go-chi/chi), use `WithServerRouter("chi")`:
+
+```go
+result, _ := generator.GenerateWithOptions(
+    generator.WithFilePath("openapi.yaml"),
+    generator.WithPackageName("api"),
+    generator.WithServer(true),
+    generator.WithServerRouter("chi"), // Generate chi-based router
+)
+```
+
+The chi router provides native path parameter extraction via `chi.URLParam()` and integrates with chi's middleware ecosystem.
 
 ### Builder Package
 
