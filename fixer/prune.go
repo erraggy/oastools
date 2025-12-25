@@ -34,12 +34,11 @@ func collectPolymorphicSchemaRefs(field any, prefix string, visited map[*parser.
 // to ensure schemas that are indirectly referenced are not pruned.
 //
 // Example: If operation refs A, and A refs B, and B refs C, all three are "referenced".
-func buildReferencedSchemaSet(collector *RefCollector, schemas map[string]*parser.Schema, version parser.OASVersion) map[string]bool {
+func buildReferencedSchemaSet(collector *RefCollector, schemas map[string]*parser.Schema, accessor parser.DocumentAccessor) map[string]bool {
 	referenced := make(map[string]bool)
 	queue := make([]string, 0)
 
-	// Determine the appropriate prefix based on version
-	prefix := schemaRefPrefix(version)
+	prefix := accessor.SchemaRefPrefix()
 
 	// 1. Get directly referenced schemas from collector
 	for ref := range collector.RefsByType[RefTypeSchema] {
@@ -74,14 +73,6 @@ func buildReferencedSchemaSet(collector *RefCollector, schemas map[string]*parse
 	}
 
 	return referenced
-}
-
-// schemaRefPrefix returns the reference prefix for schemas based on OAS version.
-func schemaRefPrefix(version parser.OASVersion) string {
-	if version == parser.OASVersion20 {
-		return "#/definitions/"
-	}
-	return "#/components/schemas/"
 }
 
 // extractSchemaName extracts the schema name from a reference path.

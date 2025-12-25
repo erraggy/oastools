@@ -93,14 +93,8 @@ func (v *Validator) initPathMatchers() error {
 
 // getPaths returns the paths map from the parsed specification.
 func (v *Validator) getPaths() map[string]*parser.PathItem {
-	if v.parsed.IsOAS3() {
-		if doc, ok := v.parsed.OAS3Document(); ok && doc.Paths != nil {
-			return doc.Paths
-		}
-	} else if v.parsed.IsOAS2() {
-		if doc, ok := v.parsed.OAS2Document(); ok && doc.Paths != nil {
-			return doc.Paths
-		}
+	if accessor := v.parsed.AsAccessor(); accessor != nil {
+		return accessor.GetPaths()
 	}
 	return nil
 }

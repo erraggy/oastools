@@ -20,8 +20,8 @@ func schemaPathPrefix(version parser.OASVersion) string {
 
 // buildRefRenameMap creates a map of old refs to new refs for schema renames.
 // It handles both URL-encoded and non-encoded refs.
-func buildRefRenameMap(renames map[string]string, version parser.OASVersion) map[string]string {
-	prefix := schemaRefPrefix(version)
+func buildRefRenameMap(renames map[string]string, accessor parser.DocumentAccessor) map[string]string {
+	prefix := accessor.SchemaRefPrefix()
 	refRenames := make(map[string]string, len(renames)*2)
 
 	for oldName, newName := range renames {
@@ -120,10 +120,11 @@ func findMissingPathParams(pathPattern string, pathItem *parser.PathItem, op *pa
 
 // pruneSchemas removes unreferenced schemas from a schema map and returns the fixes.
 // The schemas map is modified in place.
+// The accessor parameter provides version-agnostic access to schema reference prefixes.
 func (f *Fixer) pruneSchemas(
 	schemas map[string]*parser.Schema,
 	collector *RefCollector,
-	version parser.OASVersion,
+	accessor parser.DocumentAccessor,
 	result *FixResult,
 ) {
 	if len(schemas) == 0 {
@@ -131,7 +132,7 @@ func (f *Fixer) pruneSchemas(
 	}
 
 	// Build the set of transitively referenced schemas
-	referenced := buildReferencedSchemaSet(collector, schemas, version)
+	referenced := buildReferencedSchemaSet(collector, schemas, accessor)
 
 	// Sort schema names for deterministic output
 	schemaNames := make([]string, 0, len(schemas))
@@ -141,7 +142,7 @@ func (f *Fixer) pruneSchemas(
 	sort.Strings(schemaNames)
 
 	// Remove unreferenced schemas
-	pathPrefix := schemaPathPrefix(version)
+	pathPrefix := schemaPathPrefix(accessor.GetVersion())
 	for _, name := range schemaNames {
 		if !referenced[name] {
 			delete(schemas, name)
@@ -161,9 +162,10 @@ func (f *Fixer) pruneSchemas(
 
 // renameInvalidSchemas renames schemas with invalid characters and returns the ref rename map.
 // The schemas map is modified in place.
+// The accessor parameter provides version-agnostic access to schema reference prefixes.
 func (f *Fixer) renameInvalidSchemas(
 	schemas map[string]*parser.Schema,
-	version parser.OASVersion,
+	accessor parser.DocumentAccessor,
 	result *FixResult,
 ) map[string]string {
 	if len(schemas) == 0 {
@@ -192,7 +194,7 @@ func (f *Fixer) renameInvalidSchemas(
 	sort.Strings(oldNames)
 
 	// Apply renames to schemas map and record fixes
-	pathPrefix := schemaPathPrefix(version)
+	pathPrefix := schemaPathPrefix(accessor.GetVersion())
 	for _, oldName := range oldNames {
 		newName := renames[oldName]
 		schema := schemas[oldName]
@@ -211,5 +213,5 @@ func (f *Fixer) renameInvalidSchemas(
 	}
 
 	// Build and return ref renames map
-	return buildRefRenameMap(renames, version)
+	return buildRefRenameMap(renames, accessor)
 }

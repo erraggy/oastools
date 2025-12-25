@@ -70,7 +70,7 @@ The v1.7.0 release includes a major optimization to JSON marshaling that elimina
 
 ## Benchmark Suite
 
-The benchmark suite includes **130+ benchmarks** across nine main packages:
+The benchmark suite includes **240+ benchmark runs** across ten packages:
 
 ### Parser Package (38 benchmarks)
 
@@ -185,6 +185,17 @@ The benchmark suite includes **130+ benchmarks** across nine main packages:
 - Full document building (Build)
 - Serialization (MarshalYAML, MarshalJSON)
 - OAS tag parsing and application
+
+### HTTP Validator Package (9 benchmarks)
+
+**Request/Response Validation**:
+- Request validation (path, query, header, body)
+- Response validation (status code, headers, body)
+- Path matching performance (single path, multiple paths)
+- Schema validation for request/response bodies
+- Parameter deserialization benchmarks
+- Strict mode validation overhead
+- Pre-parsed validator reuse performance
 
 ## Current Performance Metrics
 
