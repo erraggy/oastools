@@ -127,12 +127,18 @@ if err != nil {
     log.Fatal(err)
 }
 
-// Access parsed document
+// Access parsed document (version-specific)
 switch doc := result.Document.(type) {
 case *parser.OAS2Document:
     fmt.Printf("Swagger %s: %s\n", doc.Swagger, doc.Info.Title)
 case *parser.OAS3Document:
     fmt.Printf("OpenAPI %s: %s\n", doc.OpenAPI, doc.Info.Title)
+}
+
+// Or use version-agnostic access with DocumentAccessor
+if accessor := result.AsAccessor(); accessor != nil {
+    fmt.Printf("API: %s\n", accessor.GetInfo().Title)
+    fmt.Printf("Schemas: %d\n", len(accessor.GetSchemas()))
 }
 ```
 

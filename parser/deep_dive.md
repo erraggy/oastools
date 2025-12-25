@@ -14,6 +14,7 @@ The [`parser`](https://pkg.go.dev/github.com/erraggy/oastools/parser) package pr
 - [Practical Examples](#practical-examples)
 - [Configuration Reference](#configuration-reference)
 - [Document Type Helpers](#document-type-helpers)
+- [Version-Agnostic Access (DocumentAccessor)](#version-agnostic-access-documentaccessor)
 - [Best Practices](#best-practices)
 
 ---
@@ -368,6 +369,48 @@ if doc, ok := result.OAS2Document(); ok {
 
 ---
 
+## Version-Agnostic Access (DocumentAccessor)
+
+See also: [DocumentAccessor example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-DocumentAccessor) on pkg.go.dev
+
+For code that needs to work uniformly across both OAS 2.0 and 3.x documents without type switches, use the `DocumentAccessor` interface:
+
+```go
+result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
+if accessor := result.AsAccessor(); accessor != nil {
+    // These methods work identically for both versions
+    for path := range accessor.GetPaths() {
+        fmt.Println("Path:", path)
+    }
+
+    // GetSchemas() abstracts the difference:
+    // - OAS 2.0: returns doc.Definitions
+    // - OAS 3.x: returns doc.Components.Schemas
+    for name := range accessor.GetSchemas() {
+        fmt.Println("Schema:", name)
+    }
+
+    // Get the $ref prefix for schema references
+    fmt.Println("Prefix:", accessor.SchemaRefPrefix())
+}
+```
+
+### DocumentAccessor Methods
+
+| Method | OAS 2.0 Source | OAS 3.x Source |
+|--------|---------------|----------------|
+| `GetInfo()` | `doc.Info` | `doc.Info` |
+| `GetPaths()` | `doc.Paths` | `doc.Paths` |
+| `GetSchemas()` | `doc.Definitions` | `doc.Components.Schemas` |
+| `GetSecuritySchemes()` | `doc.SecurityDefinitions` | `doc.Components.SecuritySchemes` |
+| `GetParameters()` | `doc.Parameters` | `doc.Components.Parameters` |
+| `GetResponses()` | `doc.Responses` | `doc.Components.Responses` |
+| `SchemaRefPrefix()` | `#/definitions/` | `#/components/schemas/` |
+
+[Back to top](#top)
+
+---
+
 ## Best Practices
 
 1. **Parse once, use many** - Cache ParseResult for operations like validate, convert, diff
@@ -389,3 +432,4 @@ For additional examples and complete API documentation:
 - 🌐 [HTTP refs example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-ParseWithHTTPRefs) - Resolve external HTTP references
 - 📋 [DeepCopy example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-DeepCopy) - Safe document mutation
 - 🔍 [Type helpers example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-DocumentTypeHelpers) - Version checking and type assertions
+- 🔀 [DocumentAccessor example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-DocumentAccessor) - Version-agnostic document access
