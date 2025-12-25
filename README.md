@@ -305,6 +305,8 @@ result, err := parser.ParseWithOptions(
 
 ## Documentation
 
+📄 **[White Paper](https://erraggy.github.io/oastools/whitepaper/)** - Comprehensive technical exploration of oastools architecture and design
+
 📚 **[Developer Guide](docs/developer-guide.md)** - Complete library usage with examples for all 10 packages
 
 📖 **[CLI Reference](docs/cli-reference.md)** - Full command documentation with all flags, options, and output formats
