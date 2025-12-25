@@ -150,6 +150,29 @@
 //
 // These helpers eliminate the need for manual type switches on the Document field.
 //
+// # Version-Agnostic Access
+//
+// For code that needs to work uniformly across OAS 2.0 and 3.x documents without
+// version-specific type switches, use the [DocumentAccessor] interface:
+//
+//	result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
+//	if accessor := result.AsAccessor(); accessor != nil {
+//	    // Unified access to paths, schemas, etc.
+//	    for path := range accessor.GetPaths() {
+//	        fmt.Println("Path:", path)
+//	    }
+//	    for name := range accessor.GetSchemas() {
+//	        // Returns Definitions (2.0) or Components.Schemas (3.x)
+//	        fmt.Println("Schema:", name)
+//	    }
+//	    // Get the schema $ref prefix for this version
+//	    fmt.Println("Prefix:", accessor.SchemaRefPrefix())
+//	}
+//
+// DocumentAccessor provides methods like GetPaths, GetSchemas, GetSecuritySchemes,
+// GetParameters, and GetResponses that automatically map to the correct location
+// for each OAS version.
+//
 // # Related Packages
 //
 // After parsing, use these packages for additional operations:

@@ -144,6 +144,35 @@ func Example_deepCopy() {
 	// Copy title: Modified Petstore API
 }
 
+// Example_documentAccessor demonstrates using the DocumentAccessor interface
+// for version-agnostic access to OpenAPI documents. This allows writing code
+// that works identically for both OAS 2.0 and OAS 3.x without type switches.
+func Example_documentAccessor() {
+	result, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Get version-agnostic accessor
+	accessor := result.AsAccessor()
+	if accessor == nil {
+		log.Fatal("unsupported document type")
+	}
+
+	// Works identically for both OAS 2.0 and OAS 3.x
+	fmt.Printf("API: %s\n", accessor.GetInfo().Title)
+	fmt.Printf("Paths: %d\n", len(accessor.GetPaths()))
+	fmt.Printf("Schemas: %d\n", len(accessor.GetSchemas()))
+	fmt.Printf("Schema ref prefix: %s\n", accessor.SchemaRefPrefix())
+	// Output:
+	// API: Petstore API
+	// Paths: 2
+	// Schemas: 4
+	// Schema ref prefix: #/components/schemas/
+}
+
 // Example_documentTypeHelpers demonstrates using the type assertion helper methods
 // to safely extract version-specific documents and check document versions.
 func Example_documentTypeHelpers() {
