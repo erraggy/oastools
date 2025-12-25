@@ -34,7 +34,11 @@ theme:
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -44,6 +48,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - "📄 White Paper": whitepaper.md
   - Guides:
     - Developer Guide: developer-guide.md
     - CLI Reference: cli-reference.md
