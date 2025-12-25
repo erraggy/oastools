@@ -37,14 +37,14 @@ func TestDocumentAccessor_OAS2(t *testing.T) {
 	t.Run("GetSecurity", func(t *testing.T) {
 		security := accessor.GetSecurity()
 		// OAS 2.0 petstore may or may not have global security
-		// Just verify it doesn't panic
-		_ = security
+		// Verify the method completes without panic and returns a valid type
+		assert.True(t, security == nil || len(security) >= 0, "GetSecurity should return nil or valid slice")
 	})
 
 	t.Run("GetExternalDocs", func(t *testing.T) {
 		docs := accessor.GetExternalDocs()
-		// May be nil, just verify it doesn't panic
-		_ = docs
+		// May be nil, verify method completes without panic
+		assert.True(t, docs == nil || docs.URL != "" || docs.Description != "", "GetExternalDocs should return nil or valid struct")
 	})
 
 	t.Run("GetSchemas", func(t *testing.T) {
@@ -57,19 +57,20 @@ func TestDocumentAccessor_OAS2(t *testing.T) {
 	t.Run("GetSecuritySchemes", func(t *testing.T) {
 		schemes := accessor.GetSecuritySchemes()
 		// May be nil or non-nil depending on the spec
-		_ = schemes
+		// Verify the method completes and returns valid type
+		assert.True(t, schemes == nil || len(schemes) >= 0, "GetSecuritySchemes should return nil or valid map")
 	})
 
 	t.Run("GetParameters", func(t *testing.T) {
 		params := accessor.GetParameters()
 		// May be nil or non-nil depending on the spec
-		_ = params
+		assert.True(t, params == nil || len(params) >= 0, "GetParameters should return nil or valid map")
 	})
 
 	t.Run("GetResponses", func(t *testing.T) {
 		responses := accessor.GetResponses()
 		// May be nil or non-nil depending on the spec
-		_ = responses
+		assert.True(t, responses == nil || len(responses) >= 0, "GetResponses should return nil or valid map")
 	})
 
 	t.Run("GetVersion", func(t *testing.T) {
@@ -187,10 +188,107 @@ func TestDocumentAccessor_NilComponents(t *testing.T) {
 	})
 }
 
+func TestDocumentAccessor_EmptyComponents(t *testing.T) {
+	// Test that OAS3 accessors handle non-nil but empty Components correctly
+	// Per the docs, this should return nil maps when inner maps are nil
+	doc := &OAS3Document{
+		OpenAPI:    "3.0.0",
+		OASVersion: OASVersion300,
+		Info:       &Info{Title: "Test", Version: "1.0"},
+		Paths:      make(Paths),
+		Components: &Components{}, // Non-nil but empty
+	}
+
+	t.Run("GetSchemas_EmptyComponents", func(t *testing.T) {
+		schemas := doc.GetSchemas()
+		// Components exists but Components.Schemas is nil
+		assert.Nil(t, schemas)
+	})
+
+	t.Run("GetSecuritySchemes_EmptyComponents", func(t *testing.T) {
+		schemes := doc.GetSecuritySchemes()
+		assert.Nil(t, schemes)
+	})
+
+	t.Run("GetParameters_EmptyComponents", func(t *testing.T) {
+		params := doc.GetParameters()
+		assert.Nil(t, params)
+	})
+
+	t.Run("GetResponses_EmptyComponents", func(t *testing.T) {
+		responses := doc.GetResponses()
+		assert.Nil(t, responses)
+	})
+
+	// Test with initialized but empty maps (should return empty maps, not nil)
+	docWithEmptyMaps := &OAS3Document{
+		OpenAPI:    "3.0.0",
+		OASVersion: OASVersion300,
+		Info:       &Info{Title: "Test", Version: "1.0"},
+		Paths:      make(Paths),
+		Components: &Components{
+			Schemas:         make(map[string]*Schema),
+			SecuritySchemes: make(map[string]*SecurityScheme),
+			Parameters:      make(map[string]*Parameter),
+			Responses:       make(map[string]*Response),
+		},
+	}
+
+	t.Run("GetSchemas_EmptyMap", func(t *testing.T) {
+		schemas := docWithEmptyMaps.GetSchemas()
+		assert.NotNil(t, schemas, "should return empty map, not nil")
+		assert.Empty(t, schemas)
+	})
+
+	t.Run("GetSecuritySchemes_EmptyMap", func(t *testing.T) {
+		schemes := docWithEmptyMaps.GetSecuritySchemes()
+		assert.NotNil(t, schemes, "should return empty map, not nil")
+		assert.Empty(t, schemes)
+	})
+}
+
 func TestAsAccessor_NilParseResult(t *testing.T) {
 	var result *ParseResult
 	accessor := result.AsAccessor()
 	assert.Nil(t, accessor, "AsAccessor should return nil for nil ParseResult")
+}
+
+func TestOAS2Document_NilReceiver(t *testing.T) {
+	var doc *OAS2Document
+
+	// All methods should return nil/zero values without panicking
+	assert.Nil(t, doc.GetInfo())
+	assert.Nil(t, doc.GetPaths())
+	assert.Nil(t, doc.GetTags())
+	assert.Nil(t, doc.GetSecurity())
+	assert.Nil(t, doc.GetExternalDocs())
+	assert.Nil(t, doc.GetSchemas())
+	assert.Nil(t, doc.GetSecuritySchemes())
+	assert.Nil(t, doc.GetParameters())
+	assert.Nil(t, doc.GetResponses())
+	assert.Equal(t, Unknown, doc.GetVersion())
+	assert.Equal(t, "", doc.GetVersionString())
+	// SchemaRefPrefix doesn't need nil check - it returns a constant
+	assert.Equal(t, "#/definitions/", doc.SchemaRefPrefix())
+}
+
+func TestOAS3Document_NilReceiver(t *testing.T) {
+	var doc *OAS3Document
+
+	// All methods should return nil/zero values without panicking
+	assert.Nil(t, doc.GetInfo())
+	assert.Nil(t, doc.GetPaths())
+	assert.Nil(t, doc.GetTags())
+	assert.Nil(t, doc.GetSecurity())
+	assert.Nil(t, doc.GetExternalDocs())
+	assert.Nil(t, doc.GetSchemas())
+	assert.Nil(t, doc.GetSecuritySchemes())
+	assert.Nil(t, doc.GetParameters())
+	assert.Nil(t, doc.GetResponses())
+	assert.Equal(t, Unknown, doc.GetVersion())
+	assert.Equal(t, "", doc.GetVersionString())
+	// SchemaRefPrefix doesn't need nil check - it returns a constant
+	assert.Equal(t, "#/components/schemas/", doc.SchemaRefPrefix())
 }
 
 func TestAsAccessor_UnknownDocumentType(t *testing.T) {

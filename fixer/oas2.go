@@ -130,7 +130,6 @@ func (f *Fixer) fixInvalidSchemaNamesOAS2(doc *parser.OAS2Document, result *FixR
 	}
 
 	// Rename invalid schemas and get the ref rename map
-	// doc implements parser.DocumentAccessor for version-agnostic access
 	refRenames := f.renameInvalidSchemas(doc.Definitions, doc, result)
 	if len(refRenames) == 0 {
 		return
@@ -209,7 +208,6 @@ func (f *Fixer) pruneUnusedSchemasOAS2(doc *parser.OAS2Document, result *FixResu
 	collector.CollectOAS2(doc)
 
 	// Prune unreferenced schemas
-	// doc implements parser.DocumentAccessor for version-agnostic access
 	f.pruneSchemas(doc.Definitions, collector, doc, result)
 
 	// Set definitions to nil if empty after pruning
