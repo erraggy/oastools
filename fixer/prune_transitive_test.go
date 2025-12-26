@@ -491,18 +491,20 @@ definitions:
 	_, isSchema := wombatsProperty.Items.(*parser.Schema)
 	_, isMap := wombatsProperty.Items.(map[string]interface{})
 
-	// Document the current (buggy) behavior
+	// Document the parsing behavior: Items with $ref is parsed as map[string]interface{}
+	// instead of *parser.Schema. This is a parser quirk that we handle via fallback.
 	t.Logf("Items type: %T", wombatsProperty.Items)
 	t.Logf("Items is *parser.Schema: %v", isSchema)
 	t.Logf("Items is map[string]interface{}: %v", isMap)
 
-	// This assertion documents the bug - when fixed, this should change
+	// NOTE: The parsing quirk (Items as map) still exists, but ref collection now handles it.
+	// The collectRefsFromMap fallback in refs.go correctly extracts $ref from map types.
 	if isMap && !isSchema {
-		t.Log("BUG CONFIRMED: Items with $ref is parsed as map[string]interface{} instead of *parser.Schema")
-		t.Log("This causes collectSchemaRefsRecursive to miss nested refs")
+		t.Log("EXPECTED: Items with $ref is parsed as map[string]interface{} (parser behavior)")
+		t.Log("This is handled by collectRefsFromMap fallback in RefCollector")
 	}
 
-	// Now verify the pruning behavior is broken
+	// Verify that ref collection works correctly despite the parsing quirk
 	collector := NewRefCollector()
 	collector.CollectOAS2(doc)
 
@@ -510,10 +512,10 @@ definitions:
 	schemaRefs := collector.RefsByType[RefTypeSchema]
 	t.Logf("Schema refs collected: %v", schemaRefs)
 
-	// The ref to Wombat via items should be collected, but isn't due to the bug
+	// The ref to Wombat via items SHOULD be collected (fixed via collectRefsFromMap fallback)
 	wombatRef := "#/definitions/Wombat"
 	if !schemaRefs[wombatRef] {
-		t.Logf("BUG CONFIRMED: Ref %q was NOT collected from WombatList.wombats.items", wombatRef)
+		t.Errorf("REGRESSION: Ref %q was NOT collected from WombatList.wombats.items - fallback not working", wombatRef)
 	}
 }
 
