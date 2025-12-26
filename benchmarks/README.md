@@ -4,97 +4,136 @@ This directory contains versioned benchmark results for the oastools project.
 
 ## Directory Structure
 
-- **`benchmark-v{VERSION}.txt`** - Benchmark results for a specific release (committed to repo)
-  - Example: `benchmark-v1.9.10.txt`, `benchmark-v1.9.12.txt`
-  - These files are generated using `make bench-save` and committed for historical tracking
+```
+benchmarks/
+├── benchmark-v1.28.0.txt           # CI-generated benchmarks (linux/amd64)
+├── benchmark-v1.28.1.txt           # Consistent, reproducible results
+├── ... (new releases)
+├── local/                          # Historical local Mac benchmarks (darwin/arm64)
+│   ├── benchmark-v1.9.10.txt
+│   ├── benchmark-v1.10.0.txt
+│   └── ... (52 files, v1.9.10 – v1.33.1)
+└── README.md
+```
 
-- **`benchmark-comparison-v{VERSION}.txt`** - Comparison reports between versions (git ignored)
-  - Example: `benchmark-comparison-v1.10.0.txt`
-  - Generated using `./scripts/generate-benchmark-comparison.sh`
-  - Not committed to reduce repository size
+### CI Benchmarks (Recommended for Comparisons)
+
+- **Location:** `benchmarks/benchmark-v*.txt`
+- **Platform:** linux/amd64 (GitHub Actions runner, AMD EPYC 7763)
+- **Generated:** Automatically when version tags are pushed
+- **Use for:** Cross-version performance comparisons (consistent environment)
+
+### Local Benchmarks (Historical Reference)
+
+- **Location:** `benchmarks/local/benchmark-v*.txt`
+- **Platform:** darwin/arm64 (Apple Silicon Macs)
+- **Generated:** Manually via `make bench-release`
+- **Use for:** Historical reference only (±50% I/O variance between runs)
 
 ## Generating Benchmarks
 
-### For a New Release (Recommended)
+### Automatic (CI) - Recommended
 
-Use the streamlined release benchmark command:
-
-```bash
-# Run benchmarks and save directly to versioned file
-make bench-release VERSION=v1.19.1
-
-# Commit the results
-git add benchmarks/benchmark-v1.19.1.txt
-git commit -m "chore: add benchmark results for v1.19.1"
-```
-
-This command:
-- Runs all package benchmarks with proper timeout handling
-- Saves results directly to `benchmarks/benchmark-v1.19.1.txt`
-- Automatically compares with the previous version (if `benchstat` is installed)
-
-### Manual Approach
-
-If you prefer manual control:
-
-1. Run all benchmarks and save the results:
-   ```bash
-   make bench-save
-   ```
-
-2. Copy the timestamped file to a version-tagged file:
-   ```bash
-   cp benchmark-YYYYMMDD-HHMMSS.txt benchmarks/benchmark-v1.10.0.txt
-   ```
-
-3. Commit the version-tagged file:
-   ```bash
-   git add benchmarks/benchmark-v1.10.0.txt
-   git commit -m "chore: add benchmark results for v1.10.0"
-   ```
-
-### Back-filling Historical Versions
-
-Use the automated script to generate benchmarks for previous releases:
+Benchmarks are **automatically generated** when you push a version tag:
 
 ```bash
-# Back-fill specific versions
-./scripts/backfill-benchmarks.sh v1.9.12 v1.9.11 v1.9.10
-
-# Back-fill last N releases
-./scripts/backfill-benchmarks.sh --last 5
-
-# Back-fill all releases (use with caution!)
-./scripts/backfill-benchmarks.sh --all
+git tag v1.X.Y
+git push origin v1.X.Y
 ```
 
-The script automatically:
-- Checks out each version
-- Runs benchmarks
-- Saves results to `benchmarks/benchmark-v{VERSION}.txt`
-- Cleans up temporary log files
-- Returns to your original branch
+The CI workflow:
+- Runs 9 packages in parallel (~5 min wall time)
+- Commits results to `benchmarks/benchmark-v1.X.Y.txt`
+- Compares with the previous version using benchstat
+
+### Pre-Release Workflow
+
+For capturing benchmarks before tagging (included in release PR):
+
+```bash
+# Trigger benchmark workflow on a pre-release branch
+gh workflow run benchmark.yml \
+  -f version="v1.X.Y" \
+  -f ref="chore/v1.X.Y-prep" \
+  -f output_mode=commit
+```
+
+The `/prepare-release` skill automates this process.
+
+### Backfilling Historical Versions (CI)
+
+Use the CI backfill script for consistent results:
+
+```bash
+# Backfill default versions (v1.28.0+)
+./scripts/backfill-ci-benchmarks.sh
+
+# Backfill specific versions
+./scripts/backfill-ci-benchmarks.sh v1.25.0 v1.26.0 v1.27.0
+```
+
+The script:
+- Triggers the benchmark workflow for each version
+- Waits for completion (~5 min per version)
+- Downloads artifacts and creates a single PR
+
+### Local Development Benchmarks
+
+For quick validation during development:
+
+```bash
+# Quick check - I/O-isolated benchmarks only (~2 min)
+make bench-quick
+
+# Fast full check - all benchmarks with 1s iterations (~5-7 min)
+make bench-fast
+
+# Parallel execution - faster wall time but interleaved output
+make bench-parallel
+```
+
+### Manual Release Benchmarks (Legacy)
+
+If you need to capture benchmarks manually:
+
+```bash
+make bench-release VERSION=v1.X.Y
+```
+
+Results are saved to `benchmarks/local/benchmark-v1.X.Y.txt` (requires manual move to `local/` subdirectory).
 
 ### Comparing Versions
 
-Generate a comparison report between two versions:
-
 ```bash
-./scripts/generate-benchmark-comparison.sh v1.9.12 v1.10.0
-```
+# Using benchstat directly
+benchstat benchmarks/benchmark-v1.32.0.txt benchmarks/benchmark-v1.33.0.txt
 
-This creates `benchmarks/benchmark-comparison-v1.10.0.txt` showing performance differences.
+# Using comparison script
+./scripts/generate-benchmark-comparison.sh v1.32.0 v1.33.0
+```
 
 ## File Organization
 
 ### Committed Files (tracked in git)
-- Version-tagged benchmarks: `benchmarks/benchmark-v*.txt`
-- These provide historical performance data
+- CI benchmarks: `benchmarks/benchmark-v*.txt`
+- Local benchmarks: `benchmarks/local/benchmark-v*.txt`
 
 ### Ignored Files (not tracked)
 - Timestamped benchmarks in root: `benchmark-YYYYMMDD-HHMMSS.txt`
 - Comparison reports: `benchmarks/benchmark-comparison-*.txt`
 - Baseline file in root: `benchmark-baseline.txt`
+
+## CI vs Local Benchmarks
+
+| Aspect | CI Benchmarks | Local Benchmarks |
+|--------|---------------|------------------|
+| Platform | linux/amd64 | darwin/arm64 (Mac) |
+| Location | `benchmarks/` | `benchmarks/local/` |
+| Consistency | ✅ Reproducible | ❌ ±50% I/O variance |
+| Comparison | ✅ Apples-to-apples | ❌ Cross-platform variance |
+| Creation | Automatic on tag push | Manual |
+
+**Best Practice:** Use CI benchmarks for cross-version comparisons. Local benchmarks are useful for quick regression checks during development.
 
 ## Related Documentation
 
