@@ -60,19 +60,17 @@ components:
 	result, err := parser.Parse(specFile)
 	require.NoError(t, err, "Parse failed")
 
-	// Should have a warning about circular references
+	// Should have a warning about circular references (case-insensitive match)
 	hasCircularWarning := false
 	for _, warning := range result.Warnings {
-		if strings.Contains(warning, "circular") {
+		if strings.Contains(strings.ToLower(warning), "circular") {
 			hasCircularWarning = true
 			break
 		}
 	}
 
 	if !hasCircularWarning {
-		t.Logf("Warnings: %v", result.Warnings)
-		// This is expected behavior - circular refs may not always be detected
-		// depending on the resolution order
+		t.Errorf("expected circular reference warning, got: %v", result.Warnings)
 	}
 }
 
@@ -222,18 +220,18 @@ components:
 	result, err := parser.Parse(specFile)
 	require.NoError(t, err, "Parse failed")
 
-	// Should have a warning about exceeding max depth
+	// Should have a warning about exceeding max depth (case-insensitive match)
 	hasDepthWarning := false
 	for _, warning := range result.Warnings {
-		if strings.Contains(warning, "depth") || strings.Contains(warning, "nested") {
+		lowered := strings.ToLower(warning)
+		if strings.Contains(lowered, "depth") || strings.Contains(lowered, "nested") || strings.Contains(lowered, "circular") {
 			hasDepthWarning = true
 			break
 		}
 	}
 
 	if !hasDepthWarning {
-		t.Logf("Warnings: %v", result.Warnings)
-		// This may or may not trigger depending on implementation
+		t.Errorf("expected depth/nesting warning, got: %v", result.Warnings)
 	}
 }
 
@@ -295,18 +293,18 @@ properties:
 	result, err := parser.Parse(specFile)
 	require.NoError(t, err, "Parse failed")
 
-	// Should have a warning about exceeding cache limit
+	// Should have a warning about exceeding cache limit (case-insensitive match)
 	hasCacheWarning := false
 	for _, warning := range result.Warnings {
-		if strings.Contains(warning, "cache") || strings.Contains(warning, "maximum cached documents") {
+		lowered := strings.ToLower(warning)
+		if strings.Contains(lowered, "cache") || strings.Contains(lowered, "maximum cached documents") {
 			hasCacheWarning = true
 			break
 		}
 	}
 
 	if !hasCacheWarning {
-		t.Logf("Expected warning about cache limit, got warnings: %v", result.Warnings)
-		// May not always trigger depending on implementation
+		t.Errorf("expected warning about cache limit, got: %v", result.Warnings)
 	}
 }
 
