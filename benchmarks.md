@@ -6,7 +6,10 @@ This document provides detailed performance analysis and benchmark results for t
 
 As of v1.18.0, oastools includes comprehensive performance benchmarking infrastructure covering all major operations across the parser, validator, fixer, converter, joiner, differ, generator, builder, and overlay packages. The library has undergone targeted optimizations to achieve significant performance improvements while maintaining correctness and code quality.
 
-**Platform**: Apple M4, darwin/arm64, Go 1.24
+**CI Platform (for cross-version comparisons)**: linux/amd64, AMD EPYC 7763, Go 1.24
+**Local Platform (historical reference)**: darwin/arm64, Apple M4, Go 1.24
+
+> **Note:** CI-generated benchmarks (`benchmarks/benchmark-v*.txt`) provide consistent, reproducible results for cross-version comparisons. Local benchmarks (`benchmarks/local/`) are preserved for historical reference but have ±50% I/O variance.
 
 ## ⚠️ Benchmark Reliability Notice
 

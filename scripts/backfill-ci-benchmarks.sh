@@ -80,56 +80,46 @@ set_status() {
     mv "$STATUS_FILE.tmp" "$STATUS_FILE"
 }
 
-# Phase 1: Trigger all workflows
+# Process each version sequentially
+# (Trigger, wait, download - one at a time to reliably track run IDs)
 echo ""
 echo "========================================"
-echo "Phase 1: Triggering workflows"
+echo "Processing versions (trigger → wait → download)"
 echo "========================================"
 
 for VERSION in $VERSIONS; do
-    echo "Triggering workflow for $VERSION..."
+    echo ""
+    echo "----------------------------------------"
+    echo "Processing $VERSION..."
+    echo "----------------------------------------"
 
-    # Trigger the workflow with artifact-only mode (no commit/PR)
-    if gh workflow run benchmark.yml -f version="$VERSION" -f output_mode=artifact; then
-        echo "  ✓ Triggered $VERSION"
-        set_status "$VERSION" "TRIGGERED"
-    else
-        echo "  ✗ Failed to trigger $VERSION"
+    # Get the latest run ID before triggering (to detect new run)
+    BEFORE_RUN_ID=$(gh run list --workflow=benchmark.yml --limit=1 --json databaseId -q '.[0].databaseId' 2>/dev/null || echo "0")
+
+    # Trigger the workflow
+    echo "  Triggering workflow..."
+    if ! gh workflow run benchmark.yml -f version="$VERSION" -f output_mode=artifact; then
+        echo "  ✗ Failed to trigger workflow"
         set_status "$VERSION" "FAILED (trigger)"
         FAILED=$((FAILED + 1))
-    fi
-
-    # Small delay between triggers to avoid rate limiting
-    sleep 2
-done
-
-# Wait for workflows to appear
-echo ""
-echo "Waiting for workflows to start..."
-sleep 15
-
-# Phase 2: Wait for all workflows and download artifacts
-echo ""
-echo "========================================"
-echo "Phase 2: Waiting for workflows"
-echo "========================================"
-
-for VERSION in $VERSIONS; do
-    # Skip if already failed
-    STATUS=$(get_status "$VERSION")
-    if [[ "$STATUS" == "FAILED"* ]]; then
         continue
     fi
+    echo "  ✓ Workflow triggered"
 
-    echo ""
-    echo "Processing $VERSION..."
-
-    # Find the run for this version
-    RUN_ID=$(gh run list --workflow=benchmark.yml --limit=20 --json databaseId,displayTitle \
-        -q ".[] | select(.displayTitle | contains(\"$VERSION\")) | .databaseId" | head -1)
+    # Wait for the new run to appear
+    echo "  Waiting for run to start..."
+    RUN_ID=""
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        sleep 3
+        NEW_RUN_ID=$(gh run list --workflow=benchmark.yml --limit=1 --json databaseId -q '.[0].databaseId' 2>/dev/null || echo "0")
+        if [[ "$NEW_RUN_ID" != "$BEFORE_RUN_ID" && "$NEW_RUN_ID" != "0" ]]; then
+            RUN_ID="$NEW_RUN_ID"
+            break
+        fi
+    done
 
     if [[ -z "$RUN_ID" ]]; then
-        echo "  ✗ Could not find run ID for $VERSION"
+        echo "  ✗ Could not find new run ID"
         set_status "$VERSION" "FAILED (no run)"
         FAILED=$((FAILED + 1))
         continue
@@ -138,7 +128,7 @@ for VERSION in $VERSIONS; do
     echo "  Run ID: $RUN_ID"
 
     # Wait for the run to complete
-    echo "  Waiting for completion..."
+    echo "  Waiting for completion (~5 min)..."
     if gh run watch "$RUN_ID" --exit-status; then
         echo "  ✓ Workflow completed successfully"
 
@@ -175,7 +165,7 @@ done
 # Phase 3: Create single PR with all benchmarks
 echo ""
 echo "========================================"
-echo "Phase 3: Creating PR"
+echo "Creating PR"
 echo "========================================"
 
 # Check if we have any successful benchmarks
