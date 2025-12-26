@@ -1,6 +1,48 @@
 package generator
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+// TestExecuteTemplate tests the template execution with formatting.
+func TestExecuteTemplate(t *testing.T) {
+	// Test with a simple template that produces valid Go code
+	data := &TypesFileData{
+		Header: HeaderData{
+			PackageName: "testpkg",
+		},
+		Types: []TypeDefinition{
+			{
+				Kind: "alias",
+				Alias: &AliasData{
+					TypeName:   "TestType",
+					TargetType: "string",
+					Comment:    "TestType is a test type",
+					IsDefined:  true,
+				},
+			},
+		},
+	}
+
+	content, formatOK, err := executeTemplate("types.go.tmpl", data)
+	if err != nil {
+		t.Fatalf("executeTemplate failed: %v", err)
+	}
+
+	// Verify formatOK is true (formatting succeeded)
+	if !formatOK {
+		t.Error("expected formatOK to be true for valid Go code")
+	}
+
+	// Verify the output contains expected content
+	if !strings.Contains(string(content), "package testpkg") {
+		t.Error("expected output to contain 'package testpkg'")
+	}
+	if !strings.Contains(string(content), "TestType") {
+		t.Error("expected output to contain 'TestType'")
+	}
+}
 
 // TestGetTemplates tests the lazy template loading functionality.
 func TestGetTemplates(t *testing.T) {
