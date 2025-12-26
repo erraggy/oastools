@@ -9,7 +9,6 @@ import (
 
 	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/converter"
-	"github.com/erraggy/oastools/internal/cliutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -41,32 +40,32 @@ func SetupConvertFlags() (*flag.FlagSet, *ConvertFlags) {
 	fs.BoolVar(&flags.SourceMap, "s", false, "include line numbers in conversion issues (IDE-friendly format)")
 
 	fs.Usage = func() {
-		cliutil.Writef(fs.Output(), "Usage: oastools convert [flags] <file|url|->\n\n")
-		cliutil.Writef(fs.Output(), "Convert an OpenAPI specification from one version to another.\n\n")
-		cliutil.Writef(fs.Output(), "Flags:\n")
+		Writef(fs.Output(), "Usage: oastools convert [flags] <file|url|->\n\n")
+		Writef(fs.Output(), "Convert an OpenAPI specification from one version to another.\n\n")
+		Writef(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
-		cliutil.Writef(fs.Output(), "\nSupported Conversions:\n")
-		cliutil.Writef(fs.Output(), "  - OAS 2.0 → OAS 3.x (3.0.0 through 3.2.0)\n")
-		cliutil.Writef(fs.Output(), "  - OAS 3.x → OAS 2.0\n")
-		cliutil.Writef(fs.Output(), "  - OAS 3.x → OAS 3.y (version updates)\n")
-		cliutil.Writef(fs.Output(), "\nExamples:\n")
-		cliutil.Writef(fs.Output(), "  oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools convert -t 3.0.3 https://example.com/swagger.yaml -o openapi.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools convert -t 2.0 openapi-v3.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml\n")
-		cliutil.Writef(fs.Output(), "  cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools convert -s -t 3.0.3 swagger.yaml  # Include line numbers in issues\n")
-		cliutil.Writef(fs.Output(), "\nPipelining:\n")
-		cliutil.Writef(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
-		cliutil.Writef(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
-		cliutil.Writef(fs.Output(), "\nNotes:\n")
-		cliutil.Writef(fs.Output(), "  - Critical issues indicate features that cannot be converted (data loss)\n")
-		cliutil.Writef(fs.Output(), "  - Warnings indicate lossy conversions or best-effort transformations\n")
-		cliutil.Writef(fs.Output(), "  - Info messages provide context about conversion choices\n")
-		cliutil.Writef(fs.Output(), "  - Always validate converted documents before deployment\n")
-		cliutil.Writef(fs.Output(), "\nExit Codes:\n")
-		cliutil.Writef(fs.Output(), "  0    Conversion successful\n")
-		cliutil.Writef(fs.Output(), "  1    Conversion failed or critical issues found (in --strict mode)\n")
+		Writef(fs.Output(), "\nSupported Conversions:\n")
+		Writef(fs.Output(), "  - OAS 2.0 → OAS 3.x (3.0.0 through 3.2.0)\n")
+		Writef(fs.Output(), "  - OAS 3.x → OAS 2.0\n")
+		Writef(fs.Output(), "  - OAS 3.x → OAS 3.y (version updates)\n")
+		Writef(fs.Output(), "\nExamples:\n")
+		Writef(fs.Output(), "  oastools convert -t 3.0.3 swagger.yaml -o openapi.yaml\n")
+		Writef(fs.Output(), "  oastools convert -t 3.0.3 https://example.com/swagger.yaml -o openapi.yaml\n")
+		Writef(fs.Output(), "  oastools convert -t 2.0 openapi-v3.yaml\n")
+		Writef(fs.Output(), "  oastools convert --strict -t 3.1.0 swagger.yaml -o openapi-v3.yaml\n")
+		Writef(fs.Output(), "  cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml\n")
+		Writef(fs.Output(), "  oastools convert -s -t 3.0.3 swagger.yaml  # Include line numbers in issues\n")
+		Writef(fs.Output(), "\nPipelining:\n")
+		Writef(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
+		Writef(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
+		Writef(fs.Output(), "\nNotes:\n")
+		Writef(fs.Output(), "  - Critical issues indicate features that cannot be converted (data loss)\n")
+		Writef(fs.Output(), "  - Warnings indicate lossy conversions or best-effort transformations\n")
+		Writef(fs.Output(), "  - Info messages provide context about conversion choices\n")
+		Writef(fs.Output(), "  - Always validate converted documents before deployment\n")
+		Writef(fs.Output(), "\nExit Codes:\n")
+		Writef(fs.Output(), "  0    Conversion successful\n")
+		Writef(fs.Output(), "  1    Conversion failed or critical issues found (in --strict mode)\n")
 	}
 
 	return fs, flags
@@ -152,46 +151,46 @@ func HandleConvert(args []string) error {
 
 	// Print results (to stderr in quiet mode)
 	if !flags.Quiet {
-		cliutil.Writef(os.Stderr, "OpenAPI Specification Converter\n")
-		cliutil.Writef(os.Stderr, "===============================\n\n")
-		cliutil.Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
-		cliutil.Writef(os.Stderr, "Specification: %s\n", FormatSpecPath(specPath))
-		cliutil.Writef(os.Stderr, "Source Version: %s\n", result.SourceVersion)
-		cliutil.Writef(os.Stderr, "Target Version: %s\n", result.TargetVersion)
-		cliutil.Writef(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
-		cliutil.Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
-		cliutil.Writef(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
-		cliutil.Writef(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
-		cliutil.Writef(os.Stderr, "Load Time: %v\n", result.LoadTime)
-		cliutil.Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
+		Writef(os.Stderr, "OpenAPI Specification Converter\n")
+		Writef(os.Stderr, "===============================\n\n")
+		Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
+		Writef(os.Stderr, "Specification: %s\n", FormatSpecPath(specPath))
+		Writef(os.Stderr, "Source Version: %s\n", result.SourceVersion)
+		Writef(os.Stderr, "Target Version: %s\n", result.TargetVersion)
+		Writef(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
+		Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
+		Writef(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
+		Writef(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
+		Writef(os.Stderr, "Load Time: %v\n", result.LoadTime)
+		Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
 
 		// Print issues
 		if len(result.Issues) > 0 {
-			cliutil.Writef(os.Stderr, "Conversion Issues (%d):\n", len(result.Issues))
+			Writef(os.Stderr, "Conversion Issues (%d):\n", len(result.Issues))
 			for _, issue := range result.Issues {
 				if flags.SourceMap && issue.HasLocation() {
 					// IDE-friendly format: file:line:column: path: message
-					cliutil.Writef(os.Stderr, "  %s: %s: %s\n", issue.Location(), issue.Path, issue.Message)
+					Writef(os.Stderr, "  %s: %s: %s\n", issue.Location(), issue.Path, issue.Message)
 				} else {
-					cliutil.Writef(os.Stderr, "  %s\n", issue.String())
+					Writef(os.Stderr, "  %s\n", issue.String())
 				}
 			}
-			cliutil.Writef(os.Stderr, "\n")
+			Writef(os.Stderr, "\n")
 		}
 
 		// Print summary
 		if result.Success {
-			cliutil.Writef(os.Stderr, "✓ Conversion successful")
+			Writef(os.Stderr, "✓ Conversion successful")
 			if result.InfoCount > 0 || result.WarningCount > 0 {
-				cliutil.Writef(os.Stderr, " (%d info, %d warnings)", result.InfoCount, result.WarningCount)
+				Writef(os.Stderr, " (%d info, %d warnings)", result.InfoCount, result.WarningCount)
 			}
-			cliutil.Writef(os.Stderr, "\n")
+			Writef(os.Stderr, "\n")
 		} else {
-			cliutil.Writef(os.Stderr, "✗ Conversion completed with %d critical issue(s)", result.CriticalCount)
+			Writef(os.Stderr, "✗ Conversion completed with %d critical issue(s)", result.CriticalCount)
 			if result.WarningCount > 0 {
-				cliutil.Writef(os.Stderr, ", %d warning(s)", result.WarningCount)
+				Writef(os.Stderr, ", %d warning(s)", result.WarningCount)
 			}
-			cliutil.Writef(os.Stderr, "\n")
+			Writef(os.Stderr, "\n")
 		}
 	}
 
@@ -206,7 +205,7 @@ func HandleConvert(args []string) error {
 			return fmt.Errorf("writing output file: %w", err)
 		}
 		if !flags.Quiet {
-			cliutil.Writef(os.Stderr, "\nOutput written to: %s\n", flags.Output)
+			Writef(os.Stderr, "\nOutput written to: %s\n", flags.Output)
 		}
 	} else {
 		// Write to stdout

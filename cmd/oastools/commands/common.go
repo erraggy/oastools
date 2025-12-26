@@ -4,10 +4,10 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
-	"github.com/erraggy/oastools/internal/cliutil"
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
 	"go.yaml.in/yaml/v4"
@@ -93,7 +93,7 @@ func ValidateOutputPath(outputPath string, inputPaths []string) error {
 
 	// Check if output file already exists and warn (but don't error)
 	if _, err := os.Stat(outputPath); err == nil {
-		cliutil.Writef(os.Stderr, "Warning: output file %s already exists and will be overwritten\n", outputPath)
+		Writef(os.Stderr, "Warning: output file %s already exists and will be overwritten\n", outputPath)
 	}
 
 	return nil
@@ -114,4 +114,12 @@ func FormatSpecPath(specPath string) string {
 		return "<stdin>"
 	}
 	return specPath
+}
+
+// Writef writes formatted output to the writer.
+// If the write fails, it logs to stderr (useful for debugging).
+func Writef(w io.Writer, format string, args ...any) {
+	if _, err := fmt.Fprintf(w, format, args...); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "write error: %v\n", err)
+	}
 }
