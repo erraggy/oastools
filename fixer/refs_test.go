@@ -893,3 +893,86 @@ components:
 	assert.True(t, collector.IsPathItemReferenced("UsersPath"))
 	assert.False(t, collector.IsPathItemReferenced("UnusedPath"))
 }
+
+// TestRefCollector_JSONSchema202012 tests ref collection from JSON Schema Draft 2020-12 keywords
+// like unevaluatedProperties, unevaluatedItems, and contentSchema.
+func TestRefCollector_JSONSchema202012(t *testing.T) {
+	spec := `
+openapi: "3.1.0"
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /items:
+    get:
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MainSchema"
+components:
+  schemas:
+    MainSchema:
+      type: object
+      properties:
+        name:
+          type: string
+      unevaluatedProperties:
+        $ref: "#/components/schemas/UnevaluatedPropsSchema"
+    UnevaluatedPropsSchema:
+      type: string
+    UnevaluatedItemsSchema:
+      type: integer
+    ContentSchemaType:
+      type: object
+    ArrayWithUnevaluated:
+      type: array
+      items:
+        type: string
+      unevaluatedItems:
+        $ref: "#/components/schemas/UnevaluatedItemsSchema"
+    EncodedContent:
+      type: string
+      contentMediaType: application/json
+      contentEncoding: base64
+      contentSchema:
+        $ref: "#/components/schemas/ContentSchemaType"
+    Unused:
+      type: string
+`
+	// Parse
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	doc, ok := parseResult.OAS3Document()
+	require.True(t, ok)
+
+	// Add the ArrayWithUnevaluated and EncodedContent to a response so they're referenced
+	doc.Components.Schemas["MainSchema"].AdditionalProperties = &parser.Schema{
+		AllOf: []*parser.Schema{
+			{Ref: "#/components/schemas/ArrayWithUnevaluated"},
+			{Ref: "#/components/schemas/EncodedContent"},
+		},
+	}
+
+	// Collect refs
+	collector := NewRefCollector()
+	collector.CollectOAS3(doc)
+
+	// MainSchema is directly referenced
+	assert.True(t, collector.IsSchemaReferenced("MainSchema", parser.OASVersion310))
+	// UnevaluatedPropsSchema is referenced via unevaluatedProperties
+	assert.True(t, collector.IsSchemaReferenced("UnevaluatedPropsSchema", parser.OASVersion310))
+	// ArrayWithUnevaluated is referenced via additionalProperties.allOf
+	assert.True(t, collector.IsSchemaReferenced("ArrayWithUnevaluated", parser.OASVersion310))
+	// UnevaluatedItemsSchema is referenced via unevaluatedItems in ArrayWithUnevaluated
+	assert.True(t, collector.IsSchemaReferenced("UnevaluatedItemsSchema", parser.OASVersion310))
+	// EncodedContent is referenced via additionalProperties.allOf
+	assert.True(t, collector.IsSchemaReferenced("EncodedContent", parser.OASVersion310))
+	// ContentSchemaType is referenced via contentSchema in EncodedContent
+	assert.True(t, collector.IsSchemaReferenced("ContentSchemaType", parser.OASVersion310))
+	// Unused should not be referenced
+	assert.False(t, collector.IsSchemaReferenced("Unused", parser.OASVersion310))
+}

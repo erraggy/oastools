@@ -1373,6 +1373,33 @@ func TestRefCollector_CollectRefsFromMap_AllPaths(t *testing.T) {
 			},
 			expected: []string{"#/definitions/DeepRef"},
 		},
+		{
+			name: "unevaluatedProperties with $ref (JSON Schema Draft 2020-12)",
+			input: map[string]any{
+				"unevaluatedProperties": map[string]any{
+					"$ref": "#/definitions/UnevaluatedSchema",
+				},
+			},
+			expected: []string{"#/definitions/UnevaluatedSchema"},
+		},
+		{
+			name: "unevaluatedItems with $ref (JSON Schema Draft 2020-12)",
+			input: map[string]any{
+				"unevaluatedItems": map[string]any{
+					"$ref": "#/definitions/UnevaluatedItemSchema",
+				},
+			},
+			expected: []string{"#/definitions/UnevaluatedItemSchema"},
+		},
+		{
+			name: "contentSchema with $ref (JSON Schema Draft 2020-12)",
+			input: map[string]any{
+				"contentSchema": map[string]any{
+					"$ref": "#/definitions/ContentSchemaType",
+				},
+			},
+			expected: []string{"#/definitions/ContentSchemaType"},
+		},
 	}
 
 	for _, tt := range tests {
