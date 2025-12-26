@@ -5,9 +5,15 @@
 #   - Manual dispatch - for backfilling historical versions
 #
 # Strategy:
-#   - Matrix strategy runs 8 packages in parallel (~5 min wall time)
+#   - Matrix strategy runs 9 packages in parallel (~5 min wall time)
 #   - Results collected and committed to benchmarks/ directory
 #   - Benchmark files available for next release comparison
+#
+# SETUP REQUIRED:
+#   This workflow commits directly to main. To allow this with branch protections:
+#   1. Go to Settings → Branches → main protection rules
+#   2. Under "Allow specified actors to bypass required pull requests"
+#   3. Add "github-actions[bot]" to the bypass list
 
 name: Benchmarks
 
