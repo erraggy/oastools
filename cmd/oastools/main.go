@@ -9,6 +9,64 @@ import (
 	"github.com/erraggy/oastools/internal/cliutil"
 )
 
+// validCommands lists all valid command names for typo suggestions
+var validCommands = []string{
+	"validate", "fix", "convert", "diff", "generate", "join", "overlay", "parse", "version", "help",
+}
+
+// levenshteinDistance calculates the minimum edit distance between two strings
+func levenshteinDistance(a, b string) int {
+	if len(a) == 0 {
+		return len(b)
+	}
+	if len(b) == 0 {
+		return len(a)
+	}
+
+	// Create matrix
+	matrix := make([][]int, len(a)+1)
+	for i := range matrix {
+		matrix[i] = make([]int, len(b)+1)
+		matrix[i][0] = i
+	}
+	for j := range len(b) + 1 {
+		matrix[0][j] = j
+	}
+
+	// Fill matrix
+	for i := 1; i <= len(a); i++ {
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			matrix[i][j] = min(
+				matrix[i-1][j]+1,      // deletion
+				matrix[i][j-1]+1,      // insertion
+				matrix[i-1][j-1]+cost, // substitution
+			)
+		}
+	}
+
+	return matrix[len(a)][len(b)]
+}
+
+// suggestCommand returns the closest matching command if the edit distance is <= 2
+func suggestCommand(input string) string {
+	var bestMatch string
+	bestDistance := 3 // Only suggest if distance <= 2
+
+	for _, cmd := range validCommands {
+		dist := levenshteinDistance(input, cmd)
+		if dist < bestDistance {
+			bestDistance = dist
+			bestMatch = cmd
+		}
+	}
+
+	return bestMatch
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -66,7 +124,11 @@ func main() {
 			os.Exit(1)
 		}
 	default:
-		cliutil.Writef(os.Stderr, "Unknown command: %s\n\n", command)
+		cliutil.Writef(os.Stderr, "Unknown command: %s\n", command)
+		if suggestion := suggestCommand(command); suggestion != "" {
+			cliutil.Writef(os.Stderr, "Did you mean: %s?\n", suggestion)
+		}
+		cliutil.Writef(os.Stderr, "\n")
 		printUsage()
 		os.Exit(1)
 	}
