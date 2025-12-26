@@ -110,7 +110,7 @@ Create release notes with this structure:
    - Benchmark workflow: `gh run list --workflow=benchmark.yml --limit=1`
    - Watch with: `gh run watch <RUN_ID>`
 3. Verify draft release is created with all assets
-4. Verify benchmark workflow commits results to `benchmarks/benchmark-<version>.txt`
+4. Verify benchmark workflow creates PR with results (merge the PR)
 5. Edit release notes and publish: `gh release edit <version> --draft=false`
 
 ## Important Notes
@@ -118,5 +118,5 @@ Create release notes with this structure:
 - Always run on `main` branch (after merging any prep changes)
 - Use `--admin` flag for PR merge if branch protection blocks
 - Full benchmarks run automatically in CI when tag is pushed (~5 min parallel vs ~20 min local)
-- Benchmark file for v1.X.Y is committed to main after the tag, available for v1.X.(Y+1) comparison
+- Benchmark workflow creates a PR that needs to be merged after release
 - Document all new public API in CLAUDE.md

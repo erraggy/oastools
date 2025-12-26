@@ -431,7 +431,7 @@ The **release workflow** will:
 The **benchmark workflow** will:
 - Run 9 packages in parallel (parser, validator, fixer, etc.)
 - Combine results into `benchmarks/benchmark-v1.X.Y.txt`
-- Commit the benchmark file to the main branch
+- Create a PR to add the benchmark file to main
 - Compare with the previous version using benchstat
 
 **Step 4: Verify the draft release**

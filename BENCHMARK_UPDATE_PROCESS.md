@@ -95,7 +95,7 @@ git push origin v1.X.Y
 The CI workflow handles everything:
 1. Runs 9 packages in parallel (~5 min wall time)
 2. Combines and saves results to `benchmarks/benchmark-v1.X.Y.txt`
-3. Commits the file to main
+3. Creates a PR to add the file to main
 4. Compares with the previous version
 
 Monitor the workflow:
@@ -357,7 +357,7 @@ Benchmarks are stored in the `benchmarks/` directory:
 
 The benchmark scripts and CI workflow automatically handle file organization and cleanup of temporary files.
 
-**Note on CI benchmarks:** Since CI commits benchmark files after the tag is created, the benchmark file for v1.X.Y won't be in the tagged commit itself. However, it will be available on main for comparison with v1.X.(Y+1).
+**Note on CI benchmarks:** The CI workflow creates a PR with benchmark results. After merging, the benchmark file for v1.X.Y will be available on main for comparison with v1.X.(Y+1).
 
 ## Platform Information
 
