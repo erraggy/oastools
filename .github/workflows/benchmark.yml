@@ -1,23 +1,24 @@
 # Benchmark workflow - runs benchmarks and handles results flexibly
 #
 # Triggers:
-#   - Tag push (v*) - runs benchmarks, creates PR to add results to main
-#   - Manual dispatch - for pre-release branches or backfilling historical versions
+#   - Manual dispatch only (during release prep)
 #
 # Output modes:
-#   - pr: Create PR to main (default for tag push)
+#   - pr: Create PR to main
 #   - commit: Commit directly to the ref (for pre-release branches)
 #   - artifact: Upload only, no commit (for batch backfill)
 #
 # Strategy:
 #   - Matrix runs 9 packages in parallel (~5 min wall time)
 #   - Results combined into benchmarks/benchmark-v1.X.Y.txt
+#
+# Usage:
+#   During release prep, run with output_mode=commit on the pre-release branch.
+#   The benchmark file will be included in the release PR before tagging.
 
 name: Benchmarks
 
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
@@ -145,7 +146,7 @@ jobs:
           echo "Benchmark committed directly to ${REF}"
 
       - name: Create PR with benchmark results
-        if: ${{ inputs.output_mode == 'pr' || (!inputs.output_mode && github.event_name == 'push') }}
+        if: ${{ inputs.output_mode == 'pr' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
