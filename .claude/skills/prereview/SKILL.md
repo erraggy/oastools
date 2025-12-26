@@ -1,8 +1,11 @@
+---
+name: prereview
+description: Review unpushed commits before pushing for code quality, bugs, security issues, and error handling. Use when preparing to push commits, want pre-push code review, or need to validate changes before pushing. Runs comprehensive analysis using specialized review agents.
+---
+
 # prereview
 
 Review unpushed commits before pushing, using the same comprehensive analysis as PR reviews.
-
----
 
 You are performing a pre-push code review. The user has commits ready to push but wants them reviewed first.
 
