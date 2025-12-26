@@ -83,20 +83,47 @@ Update benchmarks manually in these situations:
 
 ## Quick Start: Release Benchmarks
 
-### CI Workflow (Recommended)
+### Pre-Release Workflow (Recommended)
 
-Benchmarks are captured automatically when you push a version tag:
+Benchmarks should be captured as part of the pre-release process, before tagging. This ensures the benchmark is included in the release PR.
+
+```bash
+# 1. Create and push pre-release branch with all changes
+git checkout -b chore/v1.X.Y-release-prep
+# ... make changes ...
+git push -u origin chore/v1.X.Y-release-prep
+
+# 2. Trigger benchmark workflow on the branch
+gh workflow run benchmark.yml \
+  -f version="v1.X.Y" \
+  -f ref="chore/v1.X.Y-release-prep" \
+  -f output_mode=commit
+
+# 3. Wait for completion (~5 min)
+sleep 15
+RUN_ID=$(gh run list --workflow=benchmark.yml --limit=1 --json databaseId -q '.[0].databaseId')
+gh run watch "$RUN_ID" --exit-status
+
+# 4. Pull the benchmark commit
+git pull origin chore/v1.X.Y-release-prep
+
+# 5. Create PR (benchmark file is included)
+gh pr create --title "chore: prepare v1.X.Y release" ...
+```
+
+The `/prepare-release` skill automates this entire process.
+
+### Post-Tag Workflow (Fallback)
+
+If you push a tag without running benchmarks first, the CI workflow will:
+1. Run benchmarks on the tagged version
+2. Create a separate PR to add the benchmark file
 
 ```bash
 git tag v1.X.Y
 git push origin v1.X.Y
+# Workflow creates PR automatically
 ```
-
-The CI workflow handles everything:
-1. Runs 9 packages in parallel (~5 min wall time)
-2. Combines and saves results to `benchmarks/benchmark-v1.X.Y.txt`
-3. Creates a PR to add the file to main
-4. Compares with the previous version
 
 Monitor the workflow:
 ```bash
@@ -349,30 +376,100 @@ git commit -m "docs: update benchmark results for v1.x.x release"
 
 ## Benchmark Storage
 
-Benchmarks are stored in the `benchmarks/` directory:
-- **Version-tagged benchmarks**: `benchmarks/benchmark-v1.9.10.txt` (committed to repo)
-- **CI-generated benchmarks**: Same location, committed automatically by GitHub Actions
-- **Comparison reports**: `benchmarks/benchmark-comparison-v1.10.0.txt` (ignored by git)
+### Directory Structure
+
+```
+benchmarks/
+├── local/                          # Historical local Mac benchmarks (darwin/arm64)
+│   ├── benchmark-v1.9.10.txt
+│   ├── benchmark-v1.10.0.txt
+│   └── ... (52 files, v1.9.10 – v1.33.1)
+├── benchmark-v1.28.0.txt           # CI-generated benchmarks (linux/amd64)
+├── benchmark-v1.28.1.txt
+└── ... (new releases)
+```
+
+### File Locations
+
+- **CI-generated benchmarks**: `benchmarks/benchmark-v1.X.Y.txt` (committed via PR)
+- **Historical local benchmarks**: `benchmarks/local/benchmark-v1.X.Y.txt` (preserved for reference)
+- **Comparison reports**: `benchmarks/benchmark-comparison-v1.X.Y.txt` (ignored by git)
 - **Timestamped benchmarks**: `benchmark-YYYYMMDD-HHMMSS.txt` (root, ignored by git)
+
+### CI vs Local Benchmarks
+
+| Aspect | CI Benchmarks | Local Benchmarks |
+|--------|---------------|------------------|
+| Platform | linux/amd64 | darwin/arm64 (Mac) |
+| Location | `benchmarks/` | `benchmarks/local/` |
+| Consistency | ✅ Reproducible | ❌ Varies with system load |
+| Comparison | ✅ Apples-to-apples | ❌ Cross-platform variance |
+| Creation | Pre-release workflow or tag push | Manual via `make bench-release` |
+
+**Best Practice:** Use CI benchmarks for cross-version comparisons. Local benchmarks are useful for quick regression checks during development but should not be used for official release comparisons.
 
 The benchmark scripts and CI workflow automatically handle file organization and cleanup of temporary files.
 
-**Note on CI benchmarks:** The CI workflow creates a PR with benchmark results. After merging, the benchmark file for v1.X.Y will be available on main for comparison with v1.X.(Y+1).
+## Workflow Output Modes
+
+The benchmark workflow supports three output modes via the `output_mode` parameter:
+
+| Mode | Use Case | Behavior |
+|------|----------|----------|
+| `pr` | Tag push (default) | Creates PR to add benchmark to main |
+| `commit` | Pre-release branch | Commits directly to the specified ref |
+| `artifact` | Batch backfill | Uploads artifact only, no commit |
+
+Example usage:
+```bash
+# Pre-release: commit to branch
+gh workflow run benchmark.yml -f version="v1.34.0" -f ref="chore/v1.34.0-prep" -f output_mode=commit
+
+# Backfill: artifact only
+gh workflow run benchmark.yml -f version="v1.28.0" -f output_mode=artifact
+```
+
+## Backfilling Historical Benchmarks
+
+To generate CI benchmarks for historical versions, use the backfill script:
+
+```bash
+# Backfill default versions (v1.28.0 onwards, ~10 versions)
+./scripts/backfill-ci-benchmarks.sh
+
+# Backfill specific versions
+./scripts/backfill-ci-benchmarks.sh v1.30.0 v1.31.0 v1.32.0
+```
+
+The script:
+1. Triggers the benchmark workflow with `output_mode=artifact` for each version
+2. Waits for each workflow run to complete
+3. Downloads the combined artifact from each run
+4. Creates a single PR with all backfilled benchmarks
+
+**Note:** Each version takes ~5 minutes in CI. Backfilling 10 versions takes ~50 minutes (sequential).
 
 ## Platform Information
 
-Always include the platform information in benchmarks.md:
-- CPU model (e.g., "Apple M4")
-- Operating system (e.g., "darwin/arm64")
-- Go version (e.g., "Go 1.24")
+Benchmark files include platform information at the top of each output:
 
-This can be found at the top of each benchmark output:
+**CI Benchmarks (linux/amd64):**
+```
+goos: linux
+goarch: amd64
+pkg: github.com/erraggy/oastools/parser
+cpu: AMD EPYC 7763 64-Core Processor
+```
+
+**Local Benchmarks (darwin/arm64):**
 ```
 goos: darwin
 goarch: arm64
 pkg: github.com/erraggy/oastools/parser
 cpu: Apple M4
 ```
+
+When updating `benchmarks.md`, note the platform used for the measurements.
 
 ## Troubleshooting
 

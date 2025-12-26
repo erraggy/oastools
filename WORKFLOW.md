@@ -339,17 +339,17 @@ Before creating a release:
    make check
    ```
 
-3. **Benchmarks (automatic via CI):**
+3. **Benchmarks (included in pre-release PR):**
 
-   Benchmarks are now automatically captured when you push a version tag. The CI workflow:
-   - Runs 9 packages in parallel (~5 min wall time vs ~20 min sequential)
-   - Commits results to `benchmarks/benchmark-v1.X.Y.txt`
-   - Compares with the previous version
+   Benchmarks are captured during the pre-release process, before tagging. The `/prepare-release` skill:
+   - Triggers the CI benchmark workflow on the pre-release branch
+   - Waits for completion (~5 min)
+   - Pulls the benchmark commit (CI commits directly to the branch)
+   - Includes the benchmark in the pre-release PR
 
-   **Optional local validation before release:**
+   **Quick local validation:**
    ```bash
    make bench-quick  # Fast I/O-isolated benchmarks (~2 min)
-   make bench-fast   # Full benchmarks with 1s iterations (~5-7 min)
    ```
 
    See [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md) for details.
@@ -408,18 +408,11 @@ git tag v1.X.Y
 git push origin v1.X.Y
 ```
 
-**Step 3: Monitor the workflows**
-
-Two workflows run in parallel when you push a tag:
+**Step 3: Monitor the release workflow**
 
 ```bash
-# Monitor release workflow
 gh run list --workflow=release.yml --limit=1
-gh run watch <RELEASE_RUN_ID>
-
-# Monitor benchmark workflow (runs in parallel)
-gh run list --workflow=benchmark.yml --limit=1
-gh run watch <BENCHMARK_RUN_ID>
+gh run watch <RUN_ID>
 ```
 
 The **release workflow** will:
@@ -428,11 +421,7 @@ The **release workflow** will:
 - Upload all binary assets to the draft (8 files total)
 - Push the Homebrew formula to `erraggy/homebrew-oastools`
 
-The **benchmark workflow** will:
-- Run 9 packages in parallel (parser, validator, fixer, etc.)
-- Combine results into `benchmarks/benchmark-v1.X.Y.txt`
-- Create a PR to add the benchmark file to main
-- Compare with the previous version using benchstat
+**Note:** If you used `/prepare-release`, the benchmark is already in the tagged commit. If you pushed a tag without the pre-release process, a benchmark workflow will also run and create a separate PR.
 
 **Step 4: Verify the draft release**
 ```bash
