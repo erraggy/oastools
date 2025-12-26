@@ -545,7 +545,11 @@ func (r *RefResolver) buildExternalSourceMap(path string, data []byte) {
 
 	var node yaml.Node
 	if err := yaml.Unmarshal(data, &node); err != nil {
-		// Silently skip - don't fail resolution just because source map failed
+		// Skip source map building for this document - don't fail resolution.
+		// This can happen with valid JSON that doesn't parse as YAML nodes,
+		// or with encoding issues. Source maps are optional for debugging.
+		// If source map issues are suspected, the document can still be
+		// validated - only source location information will be missing.
 		return
 	}
 

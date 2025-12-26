@@ -499,51 +499,76 @@ func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 		c.collectSchemaRefs(propSchema, fmt.Sprintf("%s.properties.%s", path, propName))
 	}
 
-	// AdditionalProperties (can be *Schema or bool)
+	// AdditionalProperties (can be *Schema, map[string]any, or bool)
 	if schema.AdditionalProperties != nil {
-		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-			c.collectSchemaRefs(addProps, fmt.Sprintf("%s.additionalProperties", path))
-		} else if addPropsMap, ok := schema.AdditionalProperties.(map[string]any); ok {
+		switch v := schema.AdditionalProperties.(type) {
+		case *parser.Schema:
+			c.collectSchemaRefs(v, fmt.Sprintf("%s.additionalProperties", path))
+		case map[string]any:
 			// Fallback: extract refs from raw map (polymorphic field may remain as map)
-			c.collectRefsFromMap(addPropsMap, fmt.Sprintf("%s.additionalProperties", path))
+			c.collectRefsFromMap(v, fmt.Sprintf("%s.additionalProperties", path))
+		case bool:
+			// Boolean additionalProperties has no refs to collect
+		default:
+			// Unexpected type - should not happen with valid OAS documents
 		}
 	}
 
-	// Items (can be *Schema or bool in OAS 3.1+)
+	// Items (can be *Schema, map[string]any, or bool in OAS 3.1+)
 	if schema.Items != nil {
-		if items, ok := schema.Items.(*parser.Schema); ok {
-			c.collectSchemaRefs(items, fmt.Sprintf("%s.items", path))
-		} else if itemsMap, ok := schema.Items.(map[string]any); ok {
+		switch v := schema.Items.(type) {
+		case *parser.Schema:
+			c.collectSchemaRefs(v, fmt.Sprintf("%s.items", path))
+		case map[string]any:
 			// Fallback: extract refs from raw map (polymorphic field may remain as map)
-			c.collectRefsFromMap(itemsMap, fmt.Sprintf("%s.items", path))
+			c.collectRefsFromMap(v, fmt.Sprintf("%s.items", path))
+		case bool:
+			// Boolean items has no refs to collect
+		default:
+			// Unexpected type - should not happen with valid OAS documents
 		}
 	}
 
-	// AdditionalItems (can be *Schema or bool)
+	// AdditionalItems (can be *Schema, map[string]any, or bool)
 	if schema.AdditionalItems != nil {
-		if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
-			c.collectSchemaRefs(addItems, fmt.Sprintf("%s.additionalItems", path))
-		} else if addItemsMap, ok := schema.AdditionalItems.(map[string]any); ok {
+		switch v := schema.AdditionalItems.(type) {
+		case *parser.Schema:
+			c.collectSchemaRefs(v, fmt.Sprintf("%s.additionalItems", path))
+		case map[string]any:
 			// Fallback: extract refs from raw map (polymorphic field may remain as map)
-			c.collectRefsFromMap(addItemsMap, fmt.Sprintf("%s.additionalItems", path))
+			c.collectRefsFromMap(v, fmt.Sprintf("%s.additionalItems", path))
+		case bool:
+			// Boolean additionalItems has no refs to collect
+		default:
+			// Unexpected type - should not happen with valid OAS documents
 		}
 	}
 
-	// UnevaluatedProperties (JSON Schema Draft 2020-12: *Schema or bool)
+	// UnevaluatedProperties (JSON Schema Draft 2020-12: *Schema, map[string]any, or bool)
 	if schema.UnevaluatedProperties != nil {
-		if unevalProps, ok := schema.UnevaluatedProperties.(*parser.Schema); ok {
-			c.collectSchemaRefs(unevalProps, fmt.Sprintf("%s.unevaluatedProperties", path))
-		} else if unevalPropsMap, ok := schema.UnevaluatedProperties.(map[string]any); ok {
-			c.collectRefsFromMap(unevalPropsMap, fmt.Sprintf("%s.unevaluatedProperties", path))
+		switch v := schema.UnevaluatedProperties.(type) {
+		case *parser.Schema:
+			c.collectSchemaRefs(v, fmt.Sprintf("%s.unevaluatedProperties", path))
+		case map[string]any:
+			c.collectRefsFromMap(v, fmt.Sprintf("%s.unevaluatedProperties", path))
+		case bool:
+			// Boolean unevaluatedProperties has no refs to collect
+		default:
+			// Unexpected type - should not happen with valid OAS documents
 		}
 	}
 
-	// UnevaluatedItems (JSON Schema Draft 2020-12: *Schema or bool)
+	// UnevaluatedItems (JSON Schema Draft 2020-12: *Schema, map[string]any, or bool)
 	if schema.UnevaluatedItems != nil {
-		if unevalItems, ok := schema.UnevaluatedItems.(*parser.Schema); ok {
-			c.collectSchemaRefs(unevalItems, fmt.Sprintf("%s.unevaluatedItems", path))
-		} else if unevalItemsMap, ok := schema.UnevaluatedItems.(map[string]any); ok {
-			c.collectRefsFromMap(unevalItemsMap, fmt.Sprintf("%s.unevaluatedItems", path))
+		switch v := schema.UnevaluatedItems.(type) {
+		case *parser.Schema:
+			c.collectSchemaRefs(v, fmt.Sprintf("%s.unevaluatedItems", path))
+		case map[string]any:
+			c.collectRefsFromMap(v, fmt.Sprintf("%s.unevaluatedItems", path))
+		case bool:
+			// Boolean unevaluatedItems has no refs to collect
+		default:
+			// Unexpected type - should not happen with valid OAS documents
 		}
 	}
 

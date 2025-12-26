@@ -853,3 +853,82 @@ func TestCacheEntryExpiration(t *testing.T) {
 		t.Error("expected cache entry to still be valid")
 	}
 }
+
+// TestResolveHTTP_TTLExpiration tests that HTTP cache entries are refetched after TTL expires.
+func TestResolveHTTP_TTLExpiration(t *testing.T) {
+	fetchCount := 0
+	fetcher := func(url string) ([]byte, string, error) {
+		fetchCount++
+		return []byte(`{"type": "object", "properties": {"name": {"type": "string"}}}`), "application/json", nil
+	}
+
+	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher)
+	resolver.SetCacheTTL(50 * time.Millisecond) // Very short TTL for testing
+
+	doc := map[string]any{}
+
+	// First fetch
+	_, err := resolver.Resolve(doc, "http://example.com/schema.json")
+	require.NoError(t, err)
+	assert.Equal(t, 1, fetchCount, "first call should fetch")
+
+	// Second fetch - should use cache
+	_, err = resolver.Resolve(doc, "http://example.com/schema.json")
+	require.NoError(t, err)
+	assert.Equal(t, 1, fetchCount, "second call should use cache")
+
+	// Wait for TTL expiration
+	time.Sleep(60 * time.Millisecond)
+
+	// Third fetch - cache expired, should refetch
+	_, err = resolver.Resolve(doc, "http://example.com/schema.json")
+	require.NoError(t, err)
+	assert.Equal(t, 2, fetchCount, "third call after TTL should refetch")
+
+	// Fourth fetch - should use new cache
+	_, err = resolver.Resolve(doc, "http://example.com/schema.json")
+	require.NoError(t, err)
+	assert.Equal(t, 2, fetchCount, "fourth call should use new cache")
+}
+
+// TestResolveHTTP_NegativeTTLDisablesCache tests that negative TTL disables caching.
+func TestResolveHTTP_NegativeTTLDisablesCache(t *testing.T) {
+	fetchCount := 0
+	fetcher := func(url string) ([]byte, string, error) {
+		fetchCount++
+		return []byte(`{"type": "string"}`), "application/json", nil
+	}
+
+	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher)
+	resolver.SetCacheTTL(-1) // Disable caching
+
+	doc := map[string]any{}
+
+	// Each call should fetch, since caching is disabled
+	for i := 1; i <= 3; i++ {
+		_, err := resolver.Resolve(doc, "http://example.com/schema.json")
+		require.NoError(t, err)
+		assert.Equal(t, i, fetchCount, "call %d should fetch", i)
+	}
+}
+
+// TestResolveHTTP_ZeroTTLCachesForever tests that zero TTL caches forever (default).
+func TestResolveHTTP_ZeroTTLCachesForever(t *testing.T) {
+	fetchCount := 0
+	fetcher := func(url string) ([]byte, string, error) {
+		fetchCount++
+		return []byte(`{"type": "boolean"}`), "application/json", nil
+	}
+
+	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher)
+	// Default TTL is 0 (cache forever)
+
+	doc := map[string]any{}
+
+	// All calls should use cache after first fetch
+	for i := 0; i < 5; i++ {
+		_, err := resolver.Resolve(doc, "http://example.com/schema.json")
+		require.NoError(t, err)
+	}
+	assert.Equal(t, 1, fetchCount, "all calls should use cache with zero TTL")
+}

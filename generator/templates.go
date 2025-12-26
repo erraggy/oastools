@@ -98,24 +98,27 @@ func methodToChiFunc(method string) string {
 	}
 }
 
-// executeTemplate executes a template by name and returns the formatted bytes
-func executeTemplate(name string, data any) ([]byte, error) {
+// executeTemplate executes a template by name and returns the formatted bytes.
+// The second return value indicates whether formatting succeeded (true) or failed (false).
+// When formatting fails, unformatted but valid Go code is returned.
+func executeTemplate(name string, data any) ([]byte, bool, error) {
 	tmpl, err := getTemplates()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
-		return nil, fmt.Errorf("generator: failed to execute template %s: %w", name, err)
+		return nil, false, fmt.Errorf("generator: failed to execute template %s: %w", name, err)
 	}
 
 	// Format the output and fix imports using goimports-equivalent processing
 	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
 	if err != nil {
-		// If formatting fails, return unformatted but don't fail the generation
-		// nolint:nilerr // intentional: formatting is optional, unformatted code is acceptable
-		return buf.Bytes(), nil
+		// If formatting fails, return unformatted but don't fail the generation.
+		// Return false to indicate formatting failed so callers can warn users.
+		//nolint:nilerr // intentional: generation succeeds, only formatting failed
+		return buf.Bytes(), false, nil
 	}
-	return formatted, nil
+	return formatted, true, nil
 }
