@@ -270,6 +270,31 @@ bench-release:
 	@echo ""
 	@./scripts/compare-with-previous.sh "$(VERSION)" || true
 
+## bench-quick: Run I/O-isolated benchmarks only (~2 min)
+## Use for quick regression checks during development. Matches *Core, *Parsed, *Bytes benchmarks.
+.PHONY: bench-quick
+bench-quick:
+	@echo "Running quick benchmarks (I/O-isolated only, 2s per benchmark)..."
+	@go test -bench='Core|Parsed|Bytes' -benchmem -benchtime=2s -timeout=10m ./parser ./validator ./fixer ./converter ./joiner ./differ ./generator ./builder
+
+## bench-fast: Run full benchmarks with reduced iteration time (~5-7 min)
+## Faster than default but covers all benchmarks.
+.PHONY: bench-fast
+bench-fast:
+	@echo "Running fast benchmarks (1s per benchmark)..."
+	@$(MAKE) bench BENCH_TIME=1s
+
+## bench-parallel: Run benchmarks in parallel across packages (local only)
+## Faster wall-clock time but may have CPU contention. Results are interleaved.
+.PHONY: bench-parallel
+bench-parallel:
+	@echo "Running benchmarks in parallel ($(BENCH_TIME) per benchmark)..."
+	@for pkg in parser validator fixer httpvalidator converter joiner differ generator builder; do \
+		go test -bench=. -benchmem -benchtime=$(BENCH_TIME) -timeout=15m ./$$pkg & \
+	done; wait
+	@echo ""
+	@echo "Parallel benchmark run complete."
+
 ## bench-compare: Compare two benchmark files (usage: make bench-compare OLD=file1.txt NEW=file2.txt)
 .PHONY: bench-compare
 bench-compare:

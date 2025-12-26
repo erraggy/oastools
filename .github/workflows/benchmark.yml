@@ -1,0 +1,141 @@
+# Benchmark workflow - runs benchmarks on tag push and collects results
+#
+# Triggers:
+#   - Tag push (v*) - runs benchmarks for the tagged version
+#   - Manual dispatch - for backfilling historical versions
+#
+# Strategy:
+#   - Matrix strategy runs 8 packages in parallel (~5 min wall time)
+#   - Results collected and committed to benchmarks/ directory
+#   - Benchmark files available for next release comparison
+
+name: Benchmarks
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.33.0)'
+        required: true
+      backfill:
+        description: 'Backfill mode - checkout specific tag before running'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write  # Required to commit benchmark results
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false  # Continue other packages if one fails
+      matrix:
+        package: [parser, validator, fixer, httpvalidator, converter, joiner, differ, generator, builder]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.backfill && inputs.version || github.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Run benchmarks for ${{ matrix.package }}
+        run: |
+          go test -bench=. -benchmem -benchtime=5s -timeout=15m \
+            ./${{ matrix.package }} > bench-${{ matrix.package }}.txt 2>&1 || true
+          # Show output for debugging
+          cat bench-${{ matrix.package }}.txt
+
+      - name: Upload benchmark artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.package }}
+          path: bench-${{ matrix.package }}.txt
+          retention-days: 7
+
+  collect:
+    needs: benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download all benchmark artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: bench-results
+
+      - name: Combine benchmark results
+        run: |
+          VERSION="${GITHUB_REF_NAME:-${{ inputs.version }}}"
+          echo "Combining benchmarks for version: $VERSION"
+
+          # Create benchmarks directory if it doesn't exist
+          mkdir -p benchmarks
+
+          # Combine all benchmark files in consistent order
+          cat bench-results/bench-parser/bench-parser.txt \
+              bench-results/bench-validator/bench-validator.txt \
+              bench-results/bench-fixer/bench-fixer.txt \
+              bench-results/bench-httpvalidator/bench-httpvalidator.txt \
+              bench-results/bench-converter/bench-converter.txt \
+              bench-results/bench-joiner/bench-joiner.txt \
+              bench-results/bench-differ/bench-differ.txt \
+              bench-results/bench-generator/bench-generator.txt \
+              bench-results/bench-builder/bench-builder.txt \
+              > benchmarks/benchmark-${VERSION}.txt
+
+          echo "Combined benchmark file:"
+          wc -l benchmarks/benchmark-${VERSION}.txt
+          head -50 benchmarks/benchmark-${VERSION}.txt
+
+      - name: Commit benchmark results
+        run: |
+          VERSION="${GITHUB_REF_NAME:-${{ inputs.version }}}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add benchmarks/
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: add benchmark results for ${VERSION}"
+            git push origin HEAD:main
+            echo "Benchmark results committed and pushed"
+          fi
+
+      - name: Compare with previous version (if available)
+        run: |
+          VERSION="${GITHUB_REF_NAME:-${{ inputs.version }}}"
+
+          # Find previous benchmark file
+          PREV_FILE=$(ls -1 benchmarks/benchmark-v*.txt 2>/dev/null | grep -v "${VERSION}" | sort -V | tail -1 || true)
+
+          if [ -n "$PREV_FILE" ] && [ -f "$PREV_FILE" ]; then
+            echo "Comparing with previous: $PREV_FILE"
+
+            # Install benchstat if available
+            go install golang.org/x/perf/cmd/benchstat@latest 2>/dev/null || true
+
+            if command -v benchstat >/dev/null 2>&1; then
+              benchstat "$PREV_FILE" "benchmarks/benchmark-${VERSION}.txt" || true
+            else
+              echo "benchstat not available, skipping comparison"
+            fi
+          else
+            echo "No previous benchmark file found for comparison"
+          fi

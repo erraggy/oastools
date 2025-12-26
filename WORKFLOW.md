@@ -339,12 +339,20 @@ Before creating a release:
    make check
    ```
 
-3. **Benchmarks captured for this release:**
+3. **Benchmarks (automatic via CI):**
+
+   Benchmarks are now automatically captured when you push a version tag. The CI workflow:
+   - Runs 9 packages in parallel (~5 min wall time vs ~20 min sequential)
+   - Commits results to `benchmarks/benchmark-v1.X.Y.txt`
+   - Compares with the previous version
+
+   **Optional local validation before release:**
    ```bash
-   # Run benchmarks and save to versioned file (replace with your version)
-   make bench-release VERSION=v1.X.Y
+   make bench-quick  # Fast I/O-isolated benchmarks (~2 min)
+   make bench-fast   # Full benchmarks with 1s iterations (~5-7 min)
    ```
-   This runs all benchmarks, saves to `benchmarks/benchmark-v1.X.Y.txt`, and automatically compares with the previous version. See [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md) for details.
+
+   See [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md) for details.
 
 4. **Review merged PRs:**
    ```bash
@@ -400,20 +408,31 @@ git tag v1.X.Y
 git push origin v1.X.Y
 ```
 
-**Step 3: Monitor the workflow**
-```bash
-# Watch the workflow run
-gh run list --workflow=release.yml --limit=1
+**Step 3: Monitor the workflows**
 
-# Get the run ID and monitor progress
-gh run watch <RUN_ID>
+Two workflows run in parallel when you push a tag:
+
+```bash
+# Monitor release workflow
+gh run list --workflow=release.yml --limit=1
+gh run watch <RELEASE_RUN_ID>
+
+# Monitor benchmark workflow (runs in parallel)
+gh run list --workflow=benchmark.yml --limit=1
+gh run watch <BENCHMARK_RUN_ID>
 ```
 
-The workflow will:
+The **release workflow** will:
 - Build binaries for all platforms (Darwin, Linux, Windows)
 - Create a **draft** release on GitHub
 - Upload all binary assets to the draft (8 files total)
 - Push the Homebrew formula to `erraggy/homebrew-oastools`
+
+The **benchmark workflow** will:
+- Run 9 packages in parallel (parser, validator, fixer, etc.)
+- Combine results into `benchmarks/benchmark-v1.X.Y.txt`
+- Commit the benchmark file to the main branch
+- Compare with the previous version using benchstat
 
 **Step 4: Verify the draft release**
 ```bash
@@ -577,7 +596,9 @@ go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 ```bash
 make check                                              # Run all quality checks
 make test-coverage                                      # View test coverage
-make bench-save                                         # Update benchmarks
+make bench-quick                                        # Quick I/O-isolated benchmarks (~2 min)
+make bench-fast                                         # Full benchmarks, 1s iterations (~5-7 min)
+make bench-parallel                                     # Run packages in parallel locally
 go run golang.org/x/vuln/cmd/govulncheck@latest ./...  # Check for vulnerabilities
 ```
 
@@ -613,6 +634,7 @@ gh release edit v1.X.Y --draft=false    # Publish
 **Monitoring:**
 ```bash
 gh run list --workflow=release.yml      # List release workflows
+gh run list --workflow=benchmark.yml    # List benchmark workflows
 gh run view <RUN_ID>                    # View workflow details
 gh run watch <RUN_ID>                   # Watch workflow
 gh pr checks <NUMBER>                   # Check PR status

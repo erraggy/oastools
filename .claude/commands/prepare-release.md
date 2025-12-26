@@ -12,10 +12,11 @@ You are the DevOps Engineer coordinating a release. Execute the following steps:
 
 Launch these agents **in background mode** (`run_in_background: true`) to run concurrently:
 
-1. **DevOps Engineer** - Update benchmarks:
+1. **DevOps Engineer** - Pre-release validation:
    - Check commits since last release tag
-   - Run `make bench-release VERSION=<version>` and update `benchmarks.md`
+   - Run `make bench-quick` for quick local regression check (~2 min)
    - Create feature branch `chore/<version>-release-prep`
+   - Note: Full benchmarks run automatically via CI when tag is pushed
 
 2. **Architect** - Review documentation:
    - Check if CLAUDE.md needs updates for new features
@@ -51,16 +52,15 @@ Launch these agents **in background mode** (`run_in_background: true`) to run co
    ```
    | Agent | Status | Key Findings |
    |-------|--------|--------------|
-   | DevOps | ✅ Done | Benchmarks updated, +5% parser perf |
+   | DevOps | ✅ Done | Quick benchmarks clean, no regressions |
    | Architect | 🔄 Running | - |
    | Maintainer | ✅ Done | All tests pass, no vulns |
    | Developer | ✅ Done | 2 examples added |
    ```
 
-5. **Benchmark focus**: Keep user informed of benchmark progress specifically:
-   - When benchmark agent starts running benchmarks
-   - When benchmarks complete with summary of changes
-   - Any performance regressions (flag these prominently ⚠️)
+5. **Quick benchmark check**: If `make bench-quick` shows regressions:
+   - Flag prominently ⚠️ and investigate before proceeding
+   - Full benchmarks will run in CI after tag push
 
 ### Phase 3: Consolidate & Fix
 
@@ -105,13 +105,18 @@ Create release notes with this structure:
 ### Phase 6: Tag and Publish
 
 1. Tag the release: `git tag <version> && git push origin <version>`
-2. Monitor the release workflow: `gh run watch`
-3. Verify draft release is created
-4. Edit release notes and publish: `gh release edit <version> --draft=false`
+2. Monitor both workflows (they run in parallel):
+   - Release workflow: `gh run list --workflow=release.yml --limit=1`
+   - Benchmark workflow: `gh run list --workflow=benchmark.yml --limit=1`
+   - Watch with: `gh run watch <RUN_ID>`
+3. Verify draft release is created with all assets
+4. Verify benchmark workflow commits results to `benchmarks/benchmark-<version>.txt`
+5. Edit release notes and publish: `gh release edit <version> --draft=false`
 
 ## Important Notes
 
 - Always run on `main` branch (after merging any prep changes)
 - Use `--admin` flag for PR merge if branch protection blocks
-- Benchmark updates are required for MINOR/MAJOR releases
+- Full benchmarks run automatically in CI when tag is pushed (~5 min parallel vs ~20 min local)
+- Benchmark file for v1.X.Y is committed to main after the tag, available for v1.X.(Y+1) comparison
 - Document all new public API in CLAUDE.md

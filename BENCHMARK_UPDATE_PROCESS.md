@@ -58,9 +58,19 @@ See [CLAUDE.md](CLAUDE.md#benchmark-reliability-and-performance-regression-detec
 
 ## When to Update Benchmarks
 
-Update benchmarks in the following situations:
-- Before creating a new release
-- After making performance-related changes
+### Automatic (CI)
+
+Benchmarks are **automatically captured** when you push a version tag. The CI workflow:
+- Runs 9 packages in parallel (~5 min wall time vs ~20 min sequential)
+- Commits results to `benchmarks/benchmark-v1.X.Y.txt`
+- Compares with the previous version using benchstat
+
+**No manual action required for releases.**
+
+### Manual (Development)
+
+Update benchmarks manually in these situations:
+- After making performance-related changes (to verify no regression)
 - After adding new functionality that may affect performance
 - When significant changes are made to core packages (parser, validator, fixer, converter, joiner, overlay, differ, generator, builder)
 
@@ -73,7 +83,45 @@ Update benchmarks in the following situations:
 
 ## Quick Start: Release Benchmarks
 
-For capturing benchmarks as part of a release, use the streamlined command:
+### CI Workflow (Recommended)
+
+Benchmarks are captured automatically when you push a version tag:
+
+```bash
+git tag v1.X.Y
+git push origin v1.X.Y
+```
+
+The CI workflow handles everything:
+1. Runs 9 packages in parallel (~5 min wall time)
+2. Combines and saves results to `benchmarks/benchmark-v1.X.Y.txt`
+3. Commits the file to main
+4. Compares with the previous version
+
+Monitor the workflow:
+```bash
+gh run list --workflow=benchmark.yml --limit=1
+gh run watch <RUN_ID>
+```
+
+### Local Development Benchmarks
+
+For validating performance locally before a release:
+
+```bash
+# Quick check - I/O-isolated benchmarks only (~2 min)
+make bench-quick
+
+# Fast full check - all benchmarks with 1s iterations (~5-7 min)
+make bench-fast
+
+# Parallel execution - faster wall time but interleaved output
+make bench-parallel
+```
+
+### Manual Release Benchmarks (Legacy)
+
+If you need to capture benchmarks manually:
 
 ```bash
 # Capture benchmarks for upcoming release (e.g., v1.19.1)
@@ -303,10 +351,13 @@ git commit -m "docs: update benchmark results for v1.x.x release"
 
 Benchmarks are stored in the `benchmarks/` directory:
 - **Version-tagged benchmarks**: `benchmarks/benchmark-v1.9.10.txt` (committed to repo)
+- **CI-generated benchmarks**: Same location, committed automatically by GitHub Actions
 - **Comparison reports**: `benchmarks/benchmark-comparison-v1.10.0.txt` (ignored by git)
 - **Timestamped benchmarks**: `benchmark-YYYYMMDD-HHMMSS.txt` (root, ignored by git)
 
-The benchmark scripts automatically handle file organization and cleanup of temporary files.
+The benchmark scripts and CI workflow automatically handle file organization and cleanup of temporary files.
+
+**Note on CI benchmarks:** Since CI commits benchmark files after the tag is created, the benchmark file for v1.X.Y won't be in the tagged commit itself. However, it will be available on main for comparison with v1.X.(Y+1).
 
 ## Platform Information
 
