@@ -12,13 +12,13 @@ func TestLevenshteinDistance(t *testing.T) {
 		{"abc", "", 3},
 		{"abc", "abc", 0},
 		{"abc", "abd", 1},
-		{"validate", "valiate", 1},   // missing 'd'
-		{"validate", "validaet", 2},  // transposition
-		{"convert", "conert", 1},     // missing 'v'
-		{"generate", "genrate", 1},   // missing 'e'
-		{"diff", "dif", 1},           // missing 'f'
-		{"parse", "prase", 2},        // transposition
-		{"kitten", "sitting", 3},     // classic example
+		{"validate", "valiate", 1},  // missing 'd'
+		{"validate", "validaet", 2}, // transposition
+		{"convert", "conert", 1},    // missing 'v'
+		{"generate", "genrate", 1},  // missing 'e'
+		{"diff", "dif", 1},          // missing 'f'
+		{"parse", "prase", 2},       // transposition
+		{"kitten", "sitting", 3},    // classic example
 	}
 
 	for _, tt := range tests {
