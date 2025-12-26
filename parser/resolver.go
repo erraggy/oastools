@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/erraggy/oastools/oaserrors"
 	"go.yaml.in/yaml/v4"
@@ -32,14 +33,24 @@ const (
 // Returns the response body, content-type header, and any error
 type HTTPFetcher func(url string) ([]byte, string, error)
 
+// cacheEntry stores a cached document with its fetch timestamp for TTL-based expiration.
+type cacheEntry struct {
+	doc       map[string]any
+	fetchTime time.Time
+}
+
 // RefResolver handles $ref resolution in OpenAPI documents
 type RefResolver struct {
 	// visited tracks visited refs to prevent circular reference loops
 	visited map[string]bool
 	// resolving tracks refs currently being resolved in the recursion stack
 	resolving map[string]bool
-	// documents caches loaded external documents
-	documents map[string]map[string]any
+	// documents caches loaded external documents with timestamps for TTL expiration
+	documents map[string]*cacheEntry
+	// cacheTTL is the time-to-live for cached HTTP documents.
+	// Zero means cache forever (default for backward compatibility).
+	// Negative values disable caching entirely.
+	cacheTTL time.Duration
 	// baseDir is the base directory for resolving relative file paths
 	baseDir string
 	// baseURL is the base URL for resolving relative HTTP references
@@ -63,7 +74,7 @@ func NewRefResolver(baseDir string) *RefResolver {
 	return &RefResolver{
 		visited:   make(map[string]bool),
 		resolving: make(map[string]bool),
-		documents: make(map[string]map[string]any),
+		documents: make(map[string]*cacheEntry),
 		baseDir:   baseDir,
 	}
 }
@@ -75,11 +86,19 @@ func NewRefResolverWithHTTP(baseDir, baseURL string, fetcher HTTPFetcher) *RefRe
 	return &RefResolver{
 		visited:   make(map[string]bool),
 		resolving: make(map[string]bool),
-		documents: make(map[string]map[string]any),
+		documents: make(map[string]*cacheEntry),
 		baseDir:   baseDir,
 		baseURL:   baseURL,
 		httpFetch: fetcher,
 	}
+}
+
+// SetCacheTTL sets the time-to-live for cached HTTP documents.
+// A positive duration enables TTL-based cache expiration.
+// Zero (default) caches forever for backward compatibility.
+// A negative duration disables caching entirely.
+func (r *RefResolver) SetCacheTTL(ttl time.Duration) {
+	r.cacheTTL = ttl
 }
 
 // ResolveLocal resolves local references within a document
@@ -188,9 +207,11 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 		}
 	}
 
-	// Check if document is already loaded
-	doc, ok := r.documents[filePath]
-	if !ok {
+	// Check if document is already loaded (file refs are always cached - no TTL)
+	var doc map[string]any
+	if entry, ok := r.documents[filePath]; ok {
+		doc = entry.doc
+	} else {
 		// Enforce cache size limit to prevent memory exhaustion
 		if len(r.documents) >= MaxCachedDocuments {
 			return nil, &oaserrors.ResourceLimitError{
@@ -201,20 +222,15 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 			}
 		}
 
-		// Check file size to prevent resource exhaustion
-		fileInfo, err := os.Stat(filePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to stat external file %s: %w", filePath, err)
-		}
-		if fileInfo.Size() > MaxFileSize {
-			return nil, fmt.Errorf("external file %s exceeds maximum size limit (%d bytes): file is %d bytes",
-				filePath, MaxFileSize, fileInfo.Size())
-		}
-
-		// Load the external document
+		// Load the external document and check size after reading
+		// (combines stat + read into a single ReadFile syscall)
 		data, err := os.ReadFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read external file %s: %w", filePath, err)
+		}
+		if int64(len(data)) > MaxFileSize {
+			return nil, fmt.Errorf("external file %s exceeds maximum size limit (%d bytes): file is %d bytes",
+				filePath, MaxFileSize, len(data))
 		}
 
 		// Parse the external document
@@ -226,7 +242,8 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 		// Build source map for external document if enabled
 		r.buildExternalSourceMap(filePath, data)
 
-		r.documents[filePath] = extDoc
+		// File refs don't expire - use zero time to indicate permanent cache
+		r.documents[filePath] = &cacheEntry{doc: extDoc, fetchTime: time.Time{}}
 		doc = extDoc
 	}
 
@@ -261,9 +278,16 @@ func (r *RefResolver) ResolveHTTP(ref string) (any, error) {
 		internalPath = parts[1]
 	}
 
-	// Check if document is already cached
-	doc, ok := r.documents[urlStr]
-	if !ok {
+	// Check if document is already cached and not expired
+	var doc map[string]any
+	entry, ok := r.documents[urlStr]
+	cacheValid := ok && (r.cacheTTL == 0 || time.Since(entry.fetchTime) < r.cacheTTL)
+	if r.cacheTTL < 0 {
+		// Negative TTL: caching disabled entirely
+		cacheValid = false
+	}
+
+	if !cacheValid {
 		// Enforce cache size limit to prevent memory exhaustion
 		if len(r.documents) >= MaxCachedDocuments {
 			return nil, &oaserrors.ResourceLimitError{
@@ -295,8 +319,14 @@ func (r *RefResolver) ResolveHTTP(ref string) (any, error) {
 		// Build source map for HTTP document if enabled
 		r.buildExternalSourceMap(urlStr, data)
 
-		r.documents[urlStr] = extDoc
+		// Store in cache with timestamp (unless caching disabled)
+		if r.cacheTTL >= 0 {
+			r.documents[urlStr] = &cacheEntry{doc: extDoc, fetchTime: time.Now()}
+		}
 		doc = extDoc
+	} else {
+		// Use cached document
+		doc = entry.doc
 	}
 
 	// If there's no internal path, return the whole document
@@ -515,7 +545,11 @@ func (r *RefResolver) buildExternalSourceMap(path string, data []byte) {
 
 	var node yaml.Node
 	if err := yaml.Unmarshal(data, &node); err != nil {
-		// Silently skip - don't fail resolution just because source map failed
+		// Skip source map building for this document - don't fail resolution.
+		// This can happen with valid JSON that doesn't parse as YAML nodes,
+		// or with encoding issues. Source maps are optional for debugging.
+		// If source map issues are suspected, the document can still be
+		// validated - only source location information will be missing.
 		return
 	}
 

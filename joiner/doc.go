@@ -6,6 +6,26 @@
 // from the first document as the result version and format, ensuring format consistency
 // when writing output with WriteResult.
 //
+// # Configuration
+//
+// Always use [DefaultConfig] to create a [JoinerConfig] instance. Direct struct
+// instantiation (e.g., JoinerConfig{}) is not recommended as it leaves required
+// fields at their zero values, which may cause unexpected behavior:
+//
+//   - NamespacePrefix will be nil (causes nil map panics if accessed)
+//   - RenameTemplate will be empty (falls back to default, but unclear intent)
+//   - All strategies default to empty string (treated as StrategyFailOnCollision)
+//
+// Correct usage:
+//
+//	config := joiner.DefaultConfig()           // Always start with defaults
+//	config.PathStrategy = joiner.StrategyAcceptLeft  // Then customize as needed
+//
+// Incorrect usage:
+//
+//	config := joiner.JoinerConfig{}            // Zero values - avoid this!
+//	config.PathStrategy = joiner.StrategyAcceptLeft
+//
 // # Quick Start
 //
 // Join files using functional options:

@@ -625,10 +625,10 @@ func applyOptions(opts ...Option) (*parseConfig, error) {
 	}
 
 	if sourceCount == 0 {
-		return nil, fmt.Errorf("must specify an input source (use WithFilePath, WithReader, or WithBytes)")
+		return nil, fmt.Errorf("parser: must specify an input source (use WithFilePath, WithReader, or WithBytes)")
 	}
 	if sourceCount > 1 {
-		return nil, fmt.Errorf("must specify exactly one input source")
+		return nil, fmt.Errorf("parser: must specify exactly one input source")
 	}
 
 	return cfg, nil
@@ -646,7 +646,7 @@ func WithFilePath(path string) Option {
 func WithReader(r io.Reader) Option {
 	return func(cfg *parseConfig) error {
 		if r == nil {
-			return fmt.Errorf("reader cannot be nil")
+			return fmt.Errorf("parser: reader cannot be nil")
 		}
 		cfg.reader = r
 		return nil
@@ -657,7 +657,7 @@ func WithReader(r io.Reader) Option {
 func WithBytes(data []byte) Option {
 	return func(cfg *parseConfig) error {
 		if data == nil {
-			return fmt.Errorf("bytes cannot be nil")
+			return fmt.Errorf("parser: bytes cannot be nil")
 		}
 		cfg.bytes = data
 		return nil
@@ -739,7 +739,7 @@ func WithLogger(l Logger) Option {
 func WithMaxRefDepth(depth int) Option {
 	return func(cfg *parseConfig) error {
 		if depth < 0 {
-			return fmt.Errorf("maxRefDepth cannot be negative")
+			return fmt.Errorf("parser: maxRefDepth cannot be negative")
 		}
 		cfg.maxRefDepth = depth
 		return nil
@@ -754,7 +754,7 @@ func WithMaxRefDepth(depth int) Option {
 func WithMaxCachedDocuments(count int) Option {
 	return func(cfg *parseConfig) error {
 		if count < 0 {
-			return fmt.Errorf("maxCachedDocuments cannot be negative")
+			return fmt.Errorf("parser: maxCachedDocuments cannot be negative")
 		}
 		cfg.maxCachedDocuments = count
 		return nil
@@ -768,7 +768,7 @@ func WithMaxCachedDocuments(count int) Option {
 func WithMaxFileSize(size int64) Option {
 	return func(cfg *parseConfig) error {
 		if size < 0 {
-			return fmt.Errorf("maxFileSize cannot be negative")
+			return fmt.Errorf("parser: maxFileSize cannot be negative")
 		}
 		cfg.maxFileSize = size
 		return nil

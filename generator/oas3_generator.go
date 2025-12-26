@@ -88,7 +88,11 @@ func (cg *oas3CodeGenerator) generateSplitTypes() error {
 	}
 
 	// Get all schemas (with deduplication)
-	var allSchemas []schemaEntry
+	schemaCount := 0
+	if cg.doc.Components != nil && cg.doc.Components.Schemas != nil {
+		schemaCount = len(cg.doc.Components.Schemas)
+	}
+	allSchemas := make([]schemaEntry, 0, schemaCount)
 	if cg.doc.Components != nil && cg.doc.Components.Schemas != nil {
 		for name, schema := range cg.doc.Components.Schemas {
 			if schema == nil {
@@ -139,8 +143,8 @@ func (cg *oas3CodeGenerator) generateSplitTypes() error {
 
 // generateTypesFile generates a types file with only the specified types
 func (cg *oas3CodeGenerator) generateTypesFile(fileName, comment string, allSchemas []schemaEntry, includeTypes map[string]bool) error {
-	// Build filtered types list
-	var filteredSchemas []schemaEntry
+	// Build filtered types list (pre-allocate with reasonable capacity)
+	filteredSchemas := make([]schemaEntry, 0, len(includeTypes))
 	for _, entry := range allSchemas {
 		typeName := toTypeName(entry.name)
 		if includeTypes[typeName] || includeTypes[entry.name] {

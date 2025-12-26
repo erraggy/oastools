@@ -105,8 +105,8 @@ func findMissingPathParams(pathPattern string, pathItem *parser.PathItem, op *pa
 
 	declaredParams := collectDeclaredPathParams(pathItem, op)
 
-	// Collect missing params
-	var missing []string
+	// Collect missing params (pre-allocate with max possible capacity)
+	missing := make([]string, 0, len(pathParams))
 	for paramName := range pathParams {
 		if !declaredParams[paramName] {
 			missing = append(missing, paramName)

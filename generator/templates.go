@@ -3,8 +3,10 @@ package generator
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 
 	"github.com/erraggy/oastools/internal/httputil"
@@ -13,16 +15,24 @@ import (
 //go:embed templates/*.tmpl templates/*/*.tmpl
 var templateFS embed.FS
 
-var templates *template.Template
+var (
+	templates     *template.Template
+	templatesOnce sync.Once
+	templatesErr  error
+)
 
-func init() {
-	var err error
-	templates, err = template.New("").
-		Funcs(templateFuncs).
-		ParseFS(templateFS, "templates/*.tmpl", "templates/*/*.tmpl")
-	if err != nil {
-		panic(err)
-	}
+// getTemplates returns the parsed templates, initializing them lazily on first call.
+// This avoids panicking in init() and allows errors to be propagated to callers.
+func getTemplates() (*template.Template, error) {
+	templatesOnce.Do(func() {
+		templates, templatesErr = template.New("").
+			Funcs(templateFuncs).
+			ParseFS(templateFS, "templates/*.tmpl", "templates/*/*.tmpl")
+		if templatesErr != nil {
+			templatesErr = fmt.Errorf("generator: failed to parse templates: %w", templatesErr)
+		}
+	})
+	return templates, templatesErr
 }
 
 // templateFuncs provides custom functions for templates
@@ -88,18 +98,28 @@ func methodToChiFunc(method string) string {
 	}
 }
 
-// executeTemplate executes a template by name and returns the formatted bytes
+// executeTemplate executes a template by name and returns the formatted bytes.
+// If goimports-style formatting fails, unformatted but valid Go code is returned.
+// This is a graceful degradation - the code will compile but may need manual formatting.
+// In practice, formatting rarely fails because templates produce valid Go code.
 func executeTemplate(name string, data any) ([]byte, error) {
-	var buf bytes.Buffer
-	if err := templates.ExecuteTemplate(&buf, name, data); err != nil {
+	tmpl, err := getTemplates()
+	if err != nil {
 		return nil, err
 	}
 
-	// Format the output and fix imports using goimports-equivalent processing
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
+		return nil, fmt.Errorf("generator: failed to execute template %s: %w", name, err)
+	}
+
+	// Format the output and fix imports using goimports-equivalent processing.
+	// If formatting fails (rare with valid templates), return unformatted code.
 	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
 	if err != nil {
-		// If formatting fails, return unformatted but don't fail the generation
-		// nolint:nilerr // intentional: formatting is optional, unformatted code is acceptable
+		// Graceful degradation: return unformatted but compilable code.
+		// This path is rarely exercised since templates produce valid Go.
+		//nolint:nilerr // intentional: generation succeeds, code just needs manual formatting
 		return buf.Bytes(), nil
 	}
 	return formatted, nil

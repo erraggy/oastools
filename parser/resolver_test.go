@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,19 +61,17 @@ components:
 	result, err := parser.Parse(specFile)
 	require.NoError(t, err, "Parse failed")
 
-	// Should have a warning about circular references
+	// Should have a warning about circular references (case-insensitive match)
 	hasCircularWarning := false
 	for _, warning := range result.Warnings {
-		if strings.Contains(warning, "circular") {
+		if strings.Contains(strings.ToLower(warning), "circular") {
 			hasCircularWarning = true
 			break
 		}
 	}
 
 	if !hasCircularWarning {
-		t.Logf("Warnings: %v", result.Warnings)
-		// This is expected behavior - circular refs may not always be detected
-		// depending on the resolution order
+		t.Errorf("expected circular reference warning, got: %v", result.Warnings)
 	}
 }
 
@@ -222,18 +221,18 @@ components:
 	result, err := parser.Parse(specFile)
 	require.NoError(t, err, "Parse failed")
 
-	// Should have a warning about exceeding max depth
+	// Should have a warning about exceeding max depth (case-insensitive match)
 	hasDepthWarning := false
 	for _, warning := range result.Warnings {
-		if strings.Contains(warning, "depth") || strings.Contains(warning, "nested") {
+		lowered := strings.ToLower(warning)
+		if strings.Contains(lowered, "depth") || strings.Contains(lowered, "nested") || strings.Contains(lowered, "circular") {
 			hasDepthWarning = true
 			break
 		}
 	}
 
 	if !hasDepthWarning {
-		t.Logf("Warnings: %v", result.Warnings)
-		// This may or may not trigger depending on implementation
+		t.Errorf("expected depth/nesting warning, got: %v", result.Warnings)
 	}
 }
 
@@ -295,18 +294,18 @@ properties:
 	result, err := parser.Parse(specFile)
 	require.NoError(t, err, "Parse failed")
 
-	// Should have a warning about exceeding cache limit
+	// Should have a warning about exceeding cache limit (case-insensitive match)
 	hasCacheWarning := false
 	for _, warning := range result.Warnings {
-		if strings.Contains(warning, "cache") || strings.Contains(warning, "maximum cached documents") {
+		lowered := strings.ToLower(warning)
+		if strings.Contains(lowered, "cache") || strings.Contains(lowered, "maximum cached documents") {
 			hasCacheWarning = true
 			break
 		}
 	}
 
 	if !hasCacheWarning {
-		t.Logf("Expected warning about cache limit, got warnings: %v", result.Warnings)
-		// May not always trigger depending on implementation
+		t.Errorf("expected warning about cache limit, got: %v", result.Warnings)
 	}
 }
 
@@ -805,4 +804,131 @@ paths:
 
 	// The resolved schema should have type: integer
 	assert.Equal(t, "integer", schema.Type)
+}
+
+// TestSetCacheTTL tests the TTL-based cache expiration functionality.
+func TestSetCacheTTL(t *testing.T) {
+	t.Run("default zero TTL caches forever", func(t *testing.T) {
+		r := NewRefResolver(".")
+		// Default cacheTTL is zero, meaning cache forever
+		if r.cacheTTL != 0 {
+			t.Errorf("expected default cacheTTL to be 0, got %v", r.cacheTTL)
+		}
+	})
+
+	t.Run("SetCacheTTL sets positive TTL", func(t *testing.T) {
+		r := NewRefResolver(".")
+		r.SetCacheTTL(5 * time.Minute)
+		if r.cacheTTL != 5*time.Minute {
+			t.Errorf("expected cacheTTL to be 5m, got %v", r.cacheTTL)
+		}
+	})
+
+	t.Run("SetCacheTTL sets negative TTL to disable caching", func(t *testing.T) {
+		r := NewRefResolver(".")
+		r.SetCacheTTL(-1)
+		if r.cacheTTL >= 0 {
+			t.Errorf("expected negative cacheTTL, got %v", r.cacheTTL)
+		}
+	})
+}
+
+// TestCacheEntryExpiration tests that cache entries expire correctly.
+func TestCacheEntryExpiration(t *testing.T) {
+	// Create a cache entry with a very short TTL
+	entry := &cacheEntry{
+		doc:       map[string]any{"test": "data"},
+		fetchTime: time.Now().Add(-2 * time.Second),
+	}
+
+	// With 1 second TTL, the entry should be expired
+	ttl := 1 * time.Second
+	if time.Since(entry.fetchTime) < ttl {
+		t.Error("expected cache entry to be expired")
+	}
+
+	// With 5 second TTL, the entry should still be valid
+	ttl = 5 * time.Second
+	if time.Since(entry.fetchTime) >= ttl {
+		t.Error("expected cache entry to still be valid")
+	}
+}
+
+// TestResolveHTTP_TTLExpiration tests that HTTP cache entries are refetched after TTL expires.
+func TestResolveHTTP_TTLExpiration(t *testing.T) {
+	fetchCount := 0
+	fetcher := func(url string) ([]byte, string, error) {
+		fetchCount++
+		return []byte(`{"type": "object", "properties": {"name": {"type": "string"}}}`), "application/json", nil
+	}
+
+	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher)
+	resolver.SetCacheTTL(50 * time.Millisecond) // Very short TTL for testing
+
+	doc := map[string]any{}
+
+	// First fetch
+	_, err := resolver.Resolve(doc, "http://example.com/schema.json")
+	require.NoError(t, err)
+	assert.Equal(t, 1, fetchCount, "first call should fetch")
+
+	// Second fetch - should use cache
+	_, err = resolver.Resolve(doc, "http://example.com/schema.json")
+	require.NoError(t, err)
+	assert.Equal(t, 1, fetchCount, "second call should use cache")
+
+	// Wait for TTL expiration
+	time.Sleep(60 * time.Millisecond)
+
+	// Third fetch - cache expired, should refetch
+	_, err = resolver.Resolve(doc, "http://example.com/schema.json")
+	require.NoError(t, err)
+	assert.Equal(t, 2, fetchCount, "third call after TTL should refetch")
+
+	// Fourth fetch - should use new cache
+	_, err = resolver.Resolve(doc, "http://example.com/schema.json")
+	require.NoError(t, err)
+	assert.Equal(t, 2, fetchCount, "fourth call should use new cache")
+}
+
+// TestResolveHTTP_NegativeTTLDisablesCache tests that negative TTL disables caching.
+func TestResolveHTTP_NegativeTTLDisablesCache(t *testing.T) {
+	fetchCount := 0
+	fetcher := func(url string) ([]byte, string, error) {
+		fetchCount++
+		return []byte(`{"type": "string"}`), "application/json", nil
+	}
+
+	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher)
+	resolver.SetCacheTTL(-1) // Disable caching
+
+	doc := map[string]any{}
+
+	// Each call should fetch, since caching is disabled
+	for i := 1; i <= 3; i++ {
+		_, err := resolver.Resolve(doc, "http://example.com/schema.json")
+		require.NoError(t, err)
+		assert.Equal(t, i, fetchCount, "call %d should fetch", i)
+	}
+}
+
+// TestResolveHTTP_ZeroTTLCachesForever tests that zero TTL caches forever (default).
+func TestResolveHTTP_ZeroTTLCachesForever(t *testing.T) {
+	fetchCount := 0
+	fetcher := func(url string) ([]byte, string, error) {
+		fetchCount++
+		return []byte(`{"type": "boolean"}`), "application/json", nil
+	}
+
+	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher)
+	// Default TTL is 0 (cache forever)
+
+	doc := map[string]any{}
+
+	// All calls should use cache after first fetch
+	for i := 0; i < 5; i++ {
+		_, err := resolver.Resolve(doc, "http://example.com/schema.json")
+		require.NoError(t, err)
+	}
+	assert.Equal(t, 1, fetchCount, "all calls should use cache with zero TTL")
 }
