@@ -193,8 +193,8 @@ func (cg *oas2CodeGenerator) generateSplitTypes() error {
 
 // generateOAS2TypesFile generates a types file with only the specified types
 func (cg *oas2CodeGenerator) generateOAS2TypesFile(fileName, comment string, allSchemas []oas2SchemaEntry, includeTypes map[string]bool) error {
-	// Build filtered types list
-	var filteredSchemas []oas2SchemaEntry
+	// Build filtered types list (pre-allocate with reasonable capacity)
+	filteredSchemas := make([]oas2SchemaEntry, 0, len(includeTypes))
 	for _, entry := range allSchemas {
 		typeName := toTypeName(entry.name)
 		if includeTypes[typeName] || includeTypes[entry.name] {
