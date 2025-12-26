@@ -529,6 +529,29 @@ func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 		}
 	}
 
+	// UnevaluatedProperties (JSON Schema Draft 2020-12: *Schema or bool)
+	if schema.UnevaluatedProperties != nil {
+		if unevalProps, ok := schema.UnevaluatedProperties.(*parser.Schema); ok {
+			c.collectSchemaRefs(unevalProps, fmt.Sprintf("%s.unevaluatedProperties", path))
+		} else if unevalPropsMap, ok := schema.UnevaluatedProperties.(map[string]any); ok {
+			c.collectRefsFromMap(unevalPropsMap, fmt.Sprintf("%s.unevaluatedProperties", path))
+		}
+	}
+
+	// UnevaluatedItems (JSON Schema Draft 2020-12: *Schema or bool)
+	if schema.UnevaluatedItems != nil {
+		if unevalItems, ok := schema.UnevaluatedItems.(*parser.Schema); ok {
+			c.collectSchemaRefs(unevalItems, fmt.Sprintf("%s.unevaluatedItems", path))
+		} else if unevalItemsMap, ok := schema.UnevaluatedItems.(map[string]any); ok {
+			c.collectRefsFromMap(unevalItemsMap, fmt.Sprintf("%s.unevaluatedItems", path))
+		}
+	}
+
+	// ContentSchema (JSON Schema Draft 2020-12)
+	if schema.ContentSchema != nil {
+		c.collectSchemaRefs(schema.ContentSchema, fmt.Sprintf("%s.contentSchema", path))
+	}
+
 	// Schema composition
 	for i, s := range schema.AllOf {
 		c.collectSchemaRefs(s, fmt.Sprintf("%s.allOf[%d]", path, i))
@@ -632,6 +655,21 @@ func (c *RefCollector) collectRefsFromMapWithDepth(m map[string]any, path string
 	// Check additionalItems
 	if addItems, ok := m["additionalItems"].(map[string]any); ok {
 		c.collectRefsFromMapWithDepth(addItems, fmt.Sprintf("%s.additionalItems", path), depth+1)
+	}
+
+	// Check unevaluatedProperties (JSON Schema Draft 2020-12)
+	if unevalProps, ok := m["unevaluatedProperties"].(map[string]any); ok {
+		c.collectRefsFromMapWithDepth(unevalProps, fmt.Sprintf("%s.unevaluatedProperties", path), depth+1)
+	}
+
+	// Check unevaluatedItems (JSON Schema Draft 2020-12)
+	if unevalItems, ok := m["unevaluatedItems"].(map[string]any); ok {
+		c.collectRefsFromMapWithDepth(unevalItems, fmt.Sprintf("%s.unevaluatedItems", path), depth+1)
+	}
+
+	// Check contentSchema (JSON Schema Draft 2020-12)
+	if contentSchema, ok := m["contentSchema"].(map[string]any); ok {
+		c.collectRefsFromMapWithDepth(contentSchema, fmt.Sprintf("%s.contentSchema", path), depth+1)
 	}
 
 	// Check allOf, anyOf, oneOf
