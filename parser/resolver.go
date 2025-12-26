@@ -201,20 +201,15 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 			}
 		}
 
-		// Check file size to prevent resource exhaustion
-		fileInfo, err := os.Stat(filePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to stat external file %s: %w", filePath, err)
-		}
-		if fileInfo.Size() > MaxFileSize {
-			return nil, fmt.Errorf("external file %s exceeds maximum size limit (%d bytes): file is %d bytes",
-				filePath, MaxFileSize, fileInfo.Size())
-		}
-
-		// Load the external document
+		// Load the external document and check size after reading
+		// (combines stat + read into a single ReadFile syscall)
 		data, err := os.ReadFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read external file %s: %w", filePath, err)
+		}
+		if int64(len(data)) > MaxFileSize {
+			return nil, fmt.Errorf("external file %s exceeds maximum size limit (%d bytes): file is %d bytes",
+				filePath, MaxFileSize, len(data))
 		}
 
 		// Parse the external document
