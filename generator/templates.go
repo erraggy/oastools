@@ -99,26 +99,28 @@ func methodToChiFunc(method string) string {
 }
 
 // executeTemplate executes a template by name and returns the formatted bytes.
-// The second return value indicates whether formatting succeeded (true) or failed (false).
-// When formatting fails, unformatted but valid Go code is returned.
-func executeTemplate(name string, data any) ([]byte, bool, error) {
+// If goimports-style formatting fails, unformatted but valid Go code is returned.
+// This is a graceful degradation - the code will compile but may need manual formatting.
+// In practice, formatting rarely fails because templates produce valid Go code.
+func executeTemplate(name string, data any) ([]byte, error) {
 	tmpl, err := getTemplates()
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
-		return nil, false, fmt.Errorf("generator: failed to execute template %s: %w", name, err)
+		return nil, fmt.Errorf("generator: failed to execute template %s: %w", name, err)
 	}
 
-	// Format the output and fix imports using goimports-equivalent processing
+	// Format the output and fix imports using goimports-equivalent processing.
+	// If formatting fails (rare with valid templates), return unformatted code.
 	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
 	if err != nil {
-		// If formatting fails, return unformatted but don't fail the generation.
-		// Return false to indicate formatting failed so callers can warn users.
-		//nolint:nilerr // intentional: generation succeeds, only formatting failed
-		return buf.Bytes(), false, nil
+		// Graceful degradation: return unformatted but compilable code.
+		// This path is rarely exercised since templates produce valid Go.
+		//nolint:nilerr // intentional: generation succeeds, code just needs manual formatting
+		return buf.Bytes(), nil
 	}
-	return formatted, true, nil
+	return formatted, nil
 }

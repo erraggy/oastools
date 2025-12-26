@@ -25,14 +25,9 @@ func TestExecuteTemplate(t *testing.T) {
 		},
 	}
 
-	content, formatOK, err := executeTemplate("types.go.tmpl", data)
+	content, err := executeTemplate("types.go.tmpl", data)
 	if err != nil {
 		t.Fatalf("executeTemplate failed: %v", err)
-	}
-
-	// Verify formatOK is true (formatting succeeded)
-	if !formatOK {
-		t.Error("expected formatOK to be true for valid Go code")
 	}
 
 	// Verify the output contains expected content

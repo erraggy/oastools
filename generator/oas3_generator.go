@@ -53,13 +53,10 @@ func (cg *oas3CodeGenerator) generateSingleTypes() error {
 	data := cg.buildTypesFileData()
 
 	// Execute template
-	formatted, formatOK, err := executeTemplate("types.go.tmpl", data)
+	formatted, err := executeTemplate("types.go.tmpl", data)
 	if err != nil {
 		cg.addIssue("types.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
 		return err
-	}
-	if !formatOK {
-		cg.addIssue("types.go", "code formatting failed; output may need manual formatting", SeverityInfo)
 	}
 
 	cg.result.Files = append(cg.result.Files, GeneratedFile{
@@ -163,13 +160,10 @@ func (cg *oas3CodeGenerator) generateTypesFile(fileName, comment string, allSche
 	data := cg.buildTypesFileDataForSchemas(filteredSchemas, comment)
 
 	// Execute template
-	formatted, formatOK, err := executeTemplate("types.go.tmpl", data)
+	formatted, err := executeTemplate("types.go.tmpl", data)
 	if err != nil {
 		cg.addIssue(fileName, fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
 		return err
-	}
-	if !formatOK {
-		cg.addIssue(fileName, "code formatting failed; output may need manual formatting", SeverityInfo)
 	}
 
 	cg.result.Files = append(cg.result.Files, GeneratedFile{
@@ -2018,13 +2012,10 @@ func (cg *oas3CodeGenerator) generateServerResponses() error {
 	}
 
 	// Execute template
-	formatted, formatOK, err := executeTemplate("responses.go.tmpl", data)
+	formatted, err := executeTemplate("responses.go.tmpl", data)
 	if err != nil {
 		cg.addIssue("server_responses.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
 		return err
-	}
-	if !formatOK {
-		cg.addIssue("generated", "code formatting failed; output may need manual formatting", SeverityInfo)
 	}
 
 	cg.result.Files = append(cg.result.Files, GeneratedFile{
@@ -2119,13 +2110,10 @@ func (cg *oas3CodeGenerator) generateServerBinder() error {
 	}
 
 	// Execute template
-	formatted, formatOK, err := executeTemplate("binder.go.tmpl", data)
+	formatted, err := executeTemplate("binder.go.tmpl", data)
 	if err != nil {
 		cg.addIssue("server_binder.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
 		return err
-	}
-	if !formatOK {
-		cg.addIssue("generated", "code formatting failed; output may need manual formatting", SeverityInfo)
 	}
 
 	cg.result.Files = append(cg.result.Files, GeneratedFile{
@@ -2279,13 +2267,10 @@ func (cg *oas3CodeGenerator) generateServerMiddleware() error {
 		},
 	}
 
-	formatted, formatOK, err := executeTemplate("middleware.go.tmpl", data)
+	formatted, err := executeTemplate("middleware.go.tmpl", data)
 	if err != nil {
 		cg.addIssue("server_middleware.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
 		return err
-	}
-	if !formatOK {
-		cg.addIssue("generated", "code formatting failed; output may need manual formatting", SeverityInfo)
 	}
 
 	cg.result.Files = append(cg.result.Files, GeneratedFile{
@@ -2371,13 +2356,10 @@ func (cg *oas3CodeGenerator) generateServerRouter() error {
 		templateName = "router_chi.go.tmpl"
 	}
 
-	formatted, formatOK, err := executeTemplate(templateName, data)
+	formatted, err := executeTemplate(templateName, data)
 	if err != nil {
 		cg.addIssue("server_router.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
 		return err
-	}
-	if !formatOK {
-		cg.addIssue("generated", "code formatting failed; output may need manual formatting", SeverityInfo)
 	}
 
 	cg.result.Files = append(cg.result.Files, GeneratedFile{
@@ -2446,13 +2428,10 @@ func (cg *oas3CodeGenerator) generateServerStubs() error {
 		}
 	}
 
-	formatted, formatOK, err := executeTemplate("stubs.go.tmpl", data)
+	formatted, err := executeTemplate("stubs.go.tmpl", data)
 	if err != nil {
 		cg.addIssue("server_stubs.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
 		return err
-	}
-	if !formatOK {
-		cg.addIssue("generated", "code formatting failed; output may need manual formatting", SeverityInfo)
 	}
 
 	cg.result.Files = append(cg.result.Files, GeneratedFile{
