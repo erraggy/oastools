@@ -15,37 +15,29 @@
 #   - gh CLI installed and authenticated
 #   - Push access to the repository
 #   - On main branch with clean working directory
+#
+# Note: This script is compatible with bash 3.2 (macOS default)
 
 set -euo pipefail
 
 # Default versions to backfill (v1.28.0 onwards - ~10 versions)
-DEFAULT_VERSIONS=(
-    "v1.28.0"
-    "v1.28.1"
-    "v1.29.0"
-    "v1.30.0"
-    "v1.30.1"
-    "v1.31.0"
-    "v1.32.0"
-    "v1.32.1"
-    "v1.33.0"
-    "v1.33.1"
-)
+DEFAULT_VERSIONS="v1.28.0 v1.28.1 v1.29.0 v1.30.0 v1.30.1 v1.31.0 v1.32.0 v1.32.1 v1.33.0 v1.33.1"
 
 # Use provided versions or defaults
 if [[ $# -gt 0 ]]; then
-    VERSIONS=("$@")
+    VERSIONS="$*"
 else
-    VERSIONS=("${DEFAULT_VERSIONS[@]}")
+    VERSIONS="$DEFAULT_VERSIONS"
 fi
 
 # Configuration
 BRANCH="chore/benchmark-backfill-ci"
 TEMP_DIR=$(mktemp -d)
+STATUS_FILE="$TEMP_DIR/status.txt"
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
 echo "=== CI Benchmark Backfill ==="
-echo "Versions to backfill: ${VERSIONS[*]}"
+echo "Versions to backfill: $VERSIONS"
 echo "Temp directory: $TEMP_DIR"
 echo ""
 
@@ -65,11 +57,28 @@ fi
 echo "Creating branch: $BRANCH"
 git checkout -b "$BRANCH"
 
-# Track results
-declare -A RESULTS
-declare -A RUN_IDS
+# Initialize counters
 FAILED=0
 SUCCEEDED=0
+
+# Initialize status file
+touch "$STATUS_FILE"
+
+# Helper to get status
+get_status() {
+    local version="$1"
+    grep "^$version:" "$STATUS_FILE" 2>/dev/null | cut -d: -f2 || echo "PENDING"
+}
+
+# Helper to set status
+set_status() {
+    local version="$1"
+    local status="$2"
+    # Remove old status and add new
+    grep -v "^$version:" "$STATUS_FILE" > "$STATUS_FILE.tmp" 2>/dev/null || true
+    echo "$version:$status" >> "$STATUS_FILE.tmp"
+    mv "$STATUS_FILE.tmp" "$STATUS_FILE"
+}
 
 # Phase 1: Trigger all workflows
 echo ""
@@ -77,16 +86,17 @@ echo "========================================"
 echo "Phase 1: Triggering workflows"
 echo "========================================"
 
-for VERSION in "${VERSIONS[@]}"; do
+for VERSION in $VERSIONS; do
     echo "Triggering workflow for $VERSION..."
 
     # Trigger the workflow with artifact-only mode (no commit/PR)
     if gh workflow run benchmark.yml -f version="$VERSION" -f output_mode=artifact; then
         echo "  ✓ Triggered $VERSION"
+        set_status "$VERSION" "TRIGGERED"
     else
         echo "  ✗ Failed to trigger $VERSION"
-        RESULTS[$VERSION]="FAILED (trigger)"
-        ((FAILED++))
+        set_status "$VERSION" "FAILED (trigger)"
+        FAILED=$((FAILED + 1))
     fi
 
     # Small delay between triggers to avoid rate limiting
@@ -104,9 +114,10 @@ echo "========================================"
 echo "Phase 2: Waiting for workflows"
 echo "========================================"
 
-for VERSION in "${VERSIONS[@]}"; do
+for VERSION in $VERSIONS; do
     # Skip if already failed
-    if [[ "${RESULTS[$VERSION]:-}" == "FAILED"* ]]; then
+    STATUS=$(get_status "$VERSION")
+    if [[ "$STATUS" == "FAILED"* ]]; then
         continue
     fi
 
@@ -119,12 +130,11 @@ for VERSION in "${VERSIONS[@]}"; do
 
     if [[ -z "$RUN_ID" ]]; then
         echo "  ✗ Could not find run ID for $VERSION"
-        RESULTS[$VERSION]="FAILED (no run)"
-        ((FAILED++))
+        set_status "$VERSION" "FAILED (no run)"
+        FAILED=$((FAILED + 1))
         continue
     fi
 
-    RUN_IDS[$VERSION]=$RUN_ID
     echo "  Run ID: $RUN_ID"
 
     # Wait for the run to complete
@@ -143,22 +153,22 @@ for VERSION in "${VERSIONS[@]}"; do
             if [[ -n "$BENCH_FILE" ]]; then
                 cp "$BENCH_FILE" "benchmarks/"
                 echo "  ✓ Downloaded and added: $(basename "$BENCH_FILE")"
-                RESULTS[$VERSION]="SUCCESS"
-                ((SUCCEEDED++))
+                set_status "$VERSION" "SUCCESS"
+                SUCCEEDED=$((SUCCEEDED + 1))
             else
                 echo "  ✗ No benchmark file in artifact"
-                RESULTS[$VERSION]="FAILED (no file)"
-                ((FAILED++))
+                set_status "$VERSION" "FAILED (no file)"
+                FAILED=$((FAILED + 1))
             fi
         else
             echo "  ✗ Failed to download artifact"
-            RESULTS[$VERSION]="FAILED (download)"
-            ((FAILED++))
+            set_status "$VERSION" "FAILED (download)"
+            FAILED=$((FAILED + 1))
         fi
     else
         echo "  ✗ Workflow failed"
-        RESULTS[$VERSION]="FAILED (workflow)"
-        ((FAILED++))
+        set_status "$VERSION" "FAILED (workflow)"
+        FAILED=$((FAILED + 1))
     fi
 done
 
@@ -185,20 +195,21 @@ if git diff --staged --quiet; then
     exit 0
 fi
 
-# Create commit with all versions
-VERSIONS_LIST=$(printf '%s, ' "${VERSIONS[@]}")
-VERSIONS_LIST=${VERSIONS_LIST%, }  # Remove trailing comma
+# Build success list for commit message
+SUCCESS_LIST=""
+for v in $VERSIONS; do
+    status=$(get_status "$v")
+    if [[ "$status" == "SUCCESS" ]]; then
+        SUCCESS_LIST="$SUCCESS_LIST  - $v ✓
+"
+    fi
+done
 
-git commit -m "chore: add CI benchmarks for ${VERSIONS_LIST}
+# Create commit
+git commit -m "chore: add CI benchmarks for multiple versions
 
 Backfilled CI-generated benchmarks (linux/amd64) for:
-$(for v in "${VERSIONS[@]}"; do
-    status="${RESULTS[$v]:-UNKNOWN}"
-    if [[ "$status" == "SUCCESS" ]]; then
-        echo "  - $v ✓"
-    fi
-done)
-
+$SUCCESS_LIST
 Generated via scripts/backfill-ci-benchmarks.sh
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
@@ -208,26 +219,35 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
 # Push and create PR
 git push -u origin "$BRANCH"
 
-gh pr create \
-    --title "chore: add CI benchmarks for ${VERSIONS[0]}–${VERSIONS[-1]}" \
-    --body "$(cat <<EOF
-## Summary
+# Build version table for PR body
+VERSION_TABLE=""
+for v in $VERSIONS; do
+    status=$(get_status "$v")
+    if [[ "$status" == "SUCCESS" ]]; then
+        VERSION_TABLE="$VERSION_TABLE| $v | ✅ Success |
+"
+    else
+        VERSION_TABLE="$VERSION_TABLE| $v | ❌ $status |
+"
+    fi
+done
 
-Backfilled CI-generated benchmarks (linux/amd64) for ${#VERSIONS[@]} versions.
+# Get first and last version for title
+FIRST_VERSION=$(echo "$VERSIONS" | awk '{print $1}')
+LAST_VERSION=$(echo "$VERSIONS" | awk '{print $NF}')
+VERSION_COUNT=$(echo "$VERSIONS" | wc -w | tr -d ' ')
+
+gh pr create \
+    --title "chore: add CI benchmarks for ${FIRST_VERSION}–${LAST_VERSION}" \
+    --body "## Summary
+
+Backfilled CI-generated benchmarks (linux/amd64) for $VERSION_COUNT versions.
 
 ## Versions
 
 | Version | Status |
 |---------|--------|
-$(for v in "${VERSIONS[@]}"; do
-    status="${RESULTS[$v]:-UNKNOWN}"
-    if [[ "$status" == "SUCCESS" ]]; then
-        echo "| $v | ✅ Success |"
-    else
-        echo "| $v | ❌ $status |"
-    fi
-done)
-
+$VERSION_TABLE
 ## Details
 
 - **Succeeded:** $SUCCEEDED
@@ -237,9 +257,7 @@ done)
 These CI-generated benchmarks provide consistent, reproducible results for cross-version comparisons.
 
 ---
-🤖 Generated via \`scripts/backfill-ci-benchmarks.sh\`
-EOF
-)" \
+🤖 Generated via \`scripts/backfill-ci-benchmarks.sh\`" \
     --base main \
     --head "$BRANCH"
 
@@ -251,8 +269,8 @@ echo ""
 echo "========================================"
 echo "=== Backfill Summary ==="
 echo "========================================"
-for VERSION in "${VERSIONS[@]}"; do
-    STATUS="${RESULTS[$VERSION]:-UNKNOWN}"
+for VERSION in $VERSIONS; do
+    STATUS=$(get_status "$VERSION")
     if [[ "$STATUS" == "SUCCESS" ]]; then
         echo "  ✅ $VERSION"
     else
@@ -260,7 +278,7 @@ for VERSION in "${VERSIONS[@]}"; do
     fi
 done
 echo ""
-echo "Succeeded: $SUCCEEDED / ${#VERSIONS[@]}"
+echo "Succeeded: $SUCCEEDED / $VERSION_COUNT"
 echo ""
 
 if [[ $FAILED -gt 0 ]]; then
