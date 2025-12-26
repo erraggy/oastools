@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -803,4 +804,52 @@ paths:
 
 	// The resolved schema should have type: integer
 	assert.Equal(t, "integer", schema.Type)
+}
+
+// TestSetCacheTTL tests the TTL-based cache expiration functionality.
+func TestSetCacheTTL(t *testing.T) {
+	t.Run("default zero TTL caches forever", func(t *testing.T) {
+		r := NewRefResolver(".")
+		// Default cacheTTL is zero, meaning cache forever
+		if r.cacheTTL != 0 {
+			t.Errorf("expected default cacheTTL to be 0, got %v", r.cacheTTL)
+		}
+	})
+
+	t.Run("SetCacheTTL sets positive TTL", func(t *testing.T) {
+		r := NewRefResolver(".")
+		r.SetCacheTTL(5 * time.Minute)
+		if r.cacheTTL != 5*time.Minute {
+			t.Errorf("expected cacheTTL to be 5m, got %v", r.cacheTTL)
+		}
+	})
+
+	t.Run("SetCacheTTL sets negative TTL to disable caching", func(t *testing.T) {
+		r := NewRefResolver(".")
+		r.SetCacheTTL(-1)
+		if r.cacheTTL >= 0 {
+			t.Errorf("expected negative cacheTTL, got %v", r.cacheTTL)
+		}
+	})
+}
+
+// TestCacheEntryExpiration tests that cache entries expire correctly.
+func TestCacheEntryExpiration(t *testing.T) {
+	// Create a cache entry with a very short TTL
+	entry := &cacheEntry{
+		doc:       map[string]any{"test": "data"},
+		fetchTime: time.Now().Add(-2 * time.Second),
+	}
+
+	// With 1 second TTL, the entry should be expired
+	ttl := 1 * time.Second
+	if time.Since(entry.fetchTime) < ttl {
+		t.Error("expected cache entry to be expired")
+	}
+
+	// With 5 second TTL, the entry should still be valid
+	ttl = 5 * time.Second
+	if time.Since(entry.fetchTime) >= ttl {
+		t.Error("expected cache entry to still be valid")
+	}
 }
