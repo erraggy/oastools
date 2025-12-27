@@ -391,18 +391,27 @@ For the specialized agent workflow (Architect → Developer → Maintainer → D
 Use Serena's memory system to persist progress across Claude Code sessions. This is invaluable for multi-session work like large refactorings, feature implementations, or debugging sessions.
 
 **Saving Progress:**
-```
-# Before ending a session with incomplete work, save state to memory:
-mcp__plugin_serena_serena__write_memory(
-  memory_file_name: "task_description",
-  content: "## Status: IN PROGRESS\n\n## Completed\n- Step 1\n- Step 2\n\n## Remaining\n- Step 3\n\n## Resume Command\n\"Continue the X task - read the memory task_description\""
-)
+```markdown
+# Before ending a session with incomplete work, use write_memory tool:
+# memory_file_name: "refactoring_auth_flow"
+# content:
+## Status: IN PROGRESS
+
+## Completed
+- Step 1: Updated auth middleware
+- Step 2: Added token validation
+
+## Remaining
+- Step 3: Update tests
+
+## Resume Command
+"Continue the auth refactoring - read the memory refactoring_auth_flow"
 ```
 
 **Resuming Work:**
 ```
 # User prompt to resume:
-"Continue the refactoring - read the memory refactoring_cliutil_to_common"
+"Continue the auth refactoring - read the memory refactoring_auth_flow"
 
 # Claude reads memory and picks up exactly where it left off
 ```
