@@ -122,37 +122,19 @@ if !result.Valid {
 
 ### Secure Error Logging
 
-Validation error messages may contain sensitive header values like `Authorization` or `X-API-Key`. Use an **allowlist** of safe headers rather than trying to block known sensitive ones:
+The httpvalidator package automatically redacts values in error messages for potentially sensitive parameters (headers and cookies). This means validation error messages are safe to log without additional sanitization:
 
 ```go
-// safeHeaders whose values are safe to log
-var safeHeaders = map[string]bool{
-    "content-type":   true,
-    "accept":         true,
-    "content-length": true,
-    "cache-control":  true,
-}
-
-func safeErrorMessage(path, message string) string {
-    pathLower := strings.ToLower(path)
-
-    // Non-header paths are always safe
-    if !strings.HasPrefix(pathLower, "header.") {
-        return message
-    }
-
-    // Check header against allowlist
-    headerName := strings.TrimPrefix(pathLower, "header.")
-    if safeHeaders[headerName] {
-        return message
-    }
-
-    // Redact sensitive header errors
-    return "validation failed (details redacted)"
+// Headers like Authorization, X-API-Key, Cookie automatically have
+// their values redacted from error messages
+result, _ := v.ValidateRequest(req)
+for _, err := range result.Errors {
+    // Safe to log - sensitive values are already redacted
+    log.Printf("[%s] %s", err.Path, err.Message)
 }
 ```
 
-This allowlist approach is more secure than blocklisting because new sensitive headers are automatically protected.
+For non-sensitive parameters (query params, path params, body), error messages include values to aid debugging. For headers and cookies, messages describe the validation failure without exposing the actual values.
 
 ### Middleware Integration
 

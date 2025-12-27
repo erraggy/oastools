@@ -20,20 +20,6 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// safeHeaders lists HTTP headers whose values are safe to log.
-// Only validation errors for these headers will include the full message.
-// All other headers (Authorization, Cookie, X-API-Key, etc.) are redacted.
-var safeHeaders = map[string]bool{
-	"content-type":     true,
-	"accept":           true,
-	"content-length":   true,
-	"content-encoding": true,
-	"accept-encoding":  true,
-	"accept-language":  true,
-	"cache-control":    true,
-	"user-agent":       true,
-}
-
 func main() {
 	specPath := findSpecPath("specs/api.yaml")
 
@@ -134,9 +120,9 @@ func main() {
 	fmt.Println("HTTP Validation examples complete")
 }
 
-// printRequestResult displays validation results with sanitized error messages.
-// This demonstrates best practices for logging validation errors without
-// exposing sensitive header values or request body content.
+// printRequestResult displays validation results.
+// Error messages are safe to log because the httpvalidator package automatically
+// redacts values from potentially sensitive parameters (headers, cookies).
 func printRequestResult(r *httpvalidator.RequestValidationResult) {
 	fmt.Printf("      Valid: %t\n", r.Valid)
 	if r.MatchedPath != "" {
@@ -149,44 +135,9 @@ func printRequestResult(r *httpvalidator.RequestValidationResult) {
 			if path == "" {
 				path = "(request)"
 			}
-			// Use allowlist-based filtering: only log full messages for
-			// non-sensitive headers. Sensitive headers are redacted.
-			msg := safeErrorMessage(e.Path, e.Message)
-			fmt.Printf("        - [%s] %s\n", path, msg)
+			fmt.Printf("        - [%s] %s\n", path, e.Message)
 		}
 	}
-}
-
-// isSafeToLog checks if a validation error path is safe to log with full details.
-// Non-header paths (query, path, body) are always safe.
-// Header paths are only safe if they're in the safeHeaders allowlist.
-func isSafeToLog(path string) bool {
-	pathLower := strings.ToLower(path)
-
-	// Non-header paths are always safe to log
-	if !strings.HasPrefix(pathLower, "header.") && !strings.HasPrefix(pathLower, "header[") {
-		return true
-	}
-
-	// For headers, check against allowlist
-	// Path format: "header.Content-Type" or "header[Content-Type]"
-	headerName := strings.TrimPrefix(pathLower, "header.")
-	headerName = strings.TrimPrefix(headerName, "header[")
-	headerName = strings.TrimSuffix(headerName, "]")
-	headerName = strings.ToLower(headerName)
-
-	return safeHeaders[headerName]
-}
-
-// safeErrorMessage returns a log-safe version of a validation error.
-// For non-header errors and safe headers, returns the full message.
-// For sensitive headers (Authorization, Cookie, etc.), redacts details.
-func safeErrorMessage(path, message string) string {
-	if isSafeToLog(path) {
-		return message
-	}
-	// Redact details for sensitive headers to prevent credential leakage
-	return "validation failed (details redacted for security)"
 }
 
 // findSpecPath locates a file relative to the source file location.

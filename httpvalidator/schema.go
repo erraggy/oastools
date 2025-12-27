@@ -15,12 +15,27 @@ import (
 type SchemaValidator struct {
 	// patternCache caches compiled regex patterns
 	patternCache map[string]*regexp.Regexp
+
+	// redactValues controls whether actual values appear in error messages.
+	// When true, error messages describe the violation without exposing the value.
+	// This should be enabled when validating potentially sensitive data like headers.
+	redactValues bool
 }
 
 // NewSchemaValidator creates a new SchemaValidator.
 func NewSchemaValidator() *SchemaValidator {
 	return &SchemaValidator{
 		patternCache: make(map[string]*regexp.Regexp),
+	}
+}
+
+// NewRedactingSchemaValidator creates a SchemaValidator that omits actual values
+// from error messages. Use this when validating potentially sensitive data like
+// HTTP headers that may contain credentials.
+func NewRedactingSchemaValidator() *SchemaValidator {
+	return &SchemaValidator{
+		patternCache: make(map[string]*regexp.Regexp),
+		redactValues: true,
 	}
 }
 
@@ -118,9 +133,13 @@ func (v *SchemaValidator) validateType(data any, schema *parser.Schema, path str
 			if schemaType == "integer" && dataType == "number" {
 				if f, ok := data.(float64); ok {
 					if f != float64(int64(f)) {
+						msg := "value must be an integer"
+						if !v.redactValues {
+							msg = fmt.Sprintf("value must be an integer, got %v", f)
+						}
 						return []ValidationError{{
 							Path:     path,
-							Message:  fmt.Sprintf("value must be an integer, got %v", f),
+							Message:  msg,
 							Severity: SeverityError,
 						}}
 					}
@@ -335,9 +354,14 @@ func (v *SchemaValidator) validateEnum(data any, schema *parser.Schema, path str
 		}
 	}
 
+	msg := "value is not one of the allowed values"
+	if !v.redactValues {
+		msg = fmt.Sprintf("value %v is not one of the allowed values", data)
+	}
+
 	return []ValidationError{{
 		Path:     path,
-		Message:  fmt.Sprintf("value %v is not one of the allowed values", data),
+		Message:  msg,
 		Severity: SeverityError,
 	}}
 }
@@ -410,41 +434,61 @@ func (v *SchemaValidator) validateFormat(s, format, path string) []ValidationErr
 	switch format {
 	case "email":
 		if !isValidEmail(s) {
+			msg := "value is not a valid email address"
+			if !v.redactValues {
+				msg = fmt.Sprintf("%q is not a valid email address", s)
+			}
 			return []ValidationError{{
 				Path:     path,
-				Message:  fmt.Sprintf("%q is not a valid email address", s),
+				Message:  msg,
 				Severity: SeverityWarning, // Format validation is typically a warning
 			}}
 		}
 	case "uri", "uri-reference":
 		if !isValidURI(s) {
+			msg := "value is not a valid URI"
+			if !v.redactValues {
+				msg = fmt.Sprintf("%q is not a valid URI", s)
+			}
 			return []ValidationError{{
 				Path:     path,
-				Message:  fmt.Sprintf("%q is not a valid URI", s),
+				Message:  msg,
 				Severity: SeverityWarning,
 			}}
 		}
 	case "date":
 		if !isValidDate(s) {
+			msg := "value is not a valid date (expected YYYY-MM-DD)"
+			if !v.redactValues {
+				msg = fmt.Sprintf("%q is not a valid date (expected YYYY-MM-DD)", s)
+			}
 			return []ValidationError{{
 				Path:     path,
-				Message:  fmt.Sprintf("%q is not a valid date (expected YYYY-MM-DD)", s),
+				Message:  msg,
 				Severity: SeverityWarning,
 			}}
 		}
 	case "date-time":
 		if !isValidDateTime(s) {
+			msg := "value is not a valid date-time (expected RFC 3339)"
+			if !v.redactValues {
+				msg = fmt.Sprintf("%q is not a valid date-time (expected RFC 3339)", s)
+			}
 			return []ValidationError{{
 				Path:     path,
-				Message:  fmt.Sprintf("%q is not a valid date-time (expected RFC 3339)", s),
+				Message:  msg,
 				Severity: SeverityWarning,
 			}}
 		}
 	case "uuid":
 		if !isValidUUID(s) {
+			msg := "value is not a valid UUID"
+			if !v.redactValues {
+				msg = fmt.Sprintf("%q is not a valid UUID", s)
+			}
 			return []ValidationError{{
 				Path:     path,
-				Message:  fmt.Sprintf("%q is not a valid UUID", s),
+				Message:  msg,
 				Severity: SeverityWarning,
 			}}
 		}
