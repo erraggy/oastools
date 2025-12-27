@@ -1,6 +1,7 @@
 package builder_test
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -805,4 +806,328 @@ func Example_semanticDeduplication() {
 	// Title: ID API
 	// Schemas: 1
 	// Operations: 3
+}
+
+// Example_serverBuilder demonstrates building a runnable HTTP server from an OpenAPI spec.
+// ServerBuilder extends Builder to create an http.Handler with automatic routing,
+// request validation, and typed request/response handling.
+func Example_serverBuilder() {
+	type Message struct {
+		Text string `json:"text"`
+	}
+
+	// Create a server builder (extends Builder with server capabilities)
+	srv := builder.NewServerBuilder(parser.OASVersion320, builder.WithoutValidation()).
+		SetTitle("Message API").
+		SetVersion("1.0.0")
+
+	// Add operation and register handler
+	srv.AddOperation(http.MethodGet, "/message",
+		builder.WithOperationID("getMessage"),
+		builder.WithResponse(http.StatusOK, Message{}),
+	)
+
+	srv.Handle(http.MethodGet, "/message", func(_ context.Context, _ *builder.Request) builder.Response {
+		return builder.JSON(http.StatusOK, Message{Text: "Hello, World!"})
+	})
+
+	// Build the server
+	result, err := srv.BuildServer()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// result.Handler is a standard http.Handler ready to serve
+	// result.Spec contains the generated OpenAPI document
+	fmt.Printf("Handler type: %T\n", result.Handler)
+	fmt.Printf("Has spec: %v\n", result.Spec != nil)
+	// Output:
+	// Handler type: http.HandlerFunc
+	// Has spec: true
+}
+
+// Example_serverBuilderCRUD demonstrates a complete CRUD API with ServerBuilder.
+// This shows the typical pattern of defining operations, registering handlers,
+// and building a production-ready HTTP server.
+func Example_serverBuilderCRUD() {
+	// Create server with validation disabled for this example
+	srv := builder.NewServerBuilder(parser.OASVersion320, builder.WithoutValidation()).
+		SetTitle("Pet Store API").
+		SetVersion("1.0.0")
+
+	// Define CRUD operations
+	srv.AddOperation(http.MethodGet, "/pets",
+		builder.WithOperationID("listPets"),
+		builder.WithResponse(http.StatusOK, []Pet{}),
+	)
+
+	srv.AddOperation(http.MethodPost, "/pets",
+		builder.WithOperationID("createPet"),
+		builder.WithRequestBody("application/json", Pet{}),
+		builder.WithResponse(http.StatusCreated, Pet{}),
+	)
+
+	srv.AddOperation(http.MethodGet, "/pets/{petId}",
+		builder.WithOperationID("getPet"),
+		builder.WithPathParam("petId", int64(0)),
+		builder.WithResponse(http.StatusOK, Pet{}),
+	)
+
+	srv.AddOperation(http.MethodDelete, "/pets/{petId}",
+		builder.WithOperationID("deletePet"),
+		builder.WithPathParam("petId", int64(0)),
+		builder.WithResponse(http.StatusNoContent, nil),
+	)
+
+	// Register handlers for each operation
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *builder.Request) builder.Response {
+		return builder.JSON(http.StatusOK, []Pet{{ID: 1, Name: "Fluffy"}})
+	})
+
+	srv.Handle(http.MethodPost, "/pets", func(_ context.Context, req *builder.Request) builder.Response {
+		// req.Body contains the parsed request body
+		return builder.JSON(http.StatusCreated, req.Body)
+	})
+
+	srv.Handle(http.MethodGet, "/pets/{petId}", func(_ context.Context, req *builder.Request) builder.Response {
+		// req.PathParams contains typed path parameters
+		_ = req.PathParams["petId"]
+		return builder.JSON(http.StatusOK, Pet{ID: 1, Name: "Fluffy"})
+	})
+
+	srv.Handle(http.MethodDelete, "/pets/{petId}", func(_ context.Context, _ *builder.Request) builder.Response {
+		return builder.NoContent()
+	})
+
+	result := srv.MustBuildServer()
+
+	// Verify the spec was generated correctly
+	doc := result.Spec.(*parser.OAS3Document)
+	fmt.Printf("Paths: %d\n", len(doc.Paths))
+	fmt.Printf("Operations: listPets=%v, createPet=%v, getPet=%v, deletePet=%v\n",
+		doc.Paths["/pets"].Get != nil,
+		doc.Paths["/pets"].Post != nil,
+		doc.Paths["/pets/{petId}"].Get != nil,
+		doc.Paths["/pets/{petId}"].Delete != nil,
+	)
+	// Output:
+	// Paths: 2
+	// Operations: listPets=true, createPet=true, getPet=true, deletePet=true
+}
+
+// Example_serverBuilderResponses demonstrates the various response helpers available.
+// ServerBuilder provides convenience functions for common HTTP response patterns.
+func Example_serverBuilderResponses() {
+	srv := builder.NewServerBuilder(parser.OASVersion320, builder.WithoutValidation()).
+		SetTitle("Response Demo API").
+		SetVersion("1.0.0")
+
+	srv.AddOperation(http.MethodGet, "/json",
+		builder.WithOperationID("jsonResponse"),
+		builder.WithResponse(http.StatusOK, map[string]string{}),
+	)
+	srv.AddOperation(http.MethodGet, "/error",
+		builder.WithOperationID("errorResponse"),
+		builder.WithResponse(http.StatusBadRequest, map[string]string{}),
+	)
+	srv.AddOperation(http.MethodGet, "/redirect",
+		builder.WithOperationID("redirectResponse"),
+		builder.WithResponse(http.StatusFound, nil),
+	)
+	srv.AddOperation(http.MethodDelete, "/resource",
+		builder.WithOperationID("noContent"),
+		builder.WithResponse(http.StatusNoContent, nil),
+	)
+
+	// JSON response with status code
+	srv.Handle(http.MethodGet, "/json", func(_ context.Context, _ *builder.Request) builder.Response {
+		return builder.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
+
+	// Error response with message
+	srv.Handle(http.MethodGet, "/error", func(_ context.Context, _ *builder.Request) builder.Response {
+		return builder.Error(http.StatusBadRequest, "invalid request")
+	})
+
+	// Redirect response
+	srv.Handle(http.MethodGet, "/redirect", func(_ context.Context, _ *builder.Request) builder.Response {
+		return builder.Redirect(http.StatusFound, "/new-location")
+	})
+
+	// No content response (204)
+	srv.Handle(http.MethodDelete, "/resource", func(_ context.Context, _ *builder.Request) builder.Response {
+		return builder.NoContent()
+	})
+
+	result := srv.MustBuildServer()
+	doc := result.Spec.(*parser.OAS3Document)
+	fmt.Printf("Operations defined: %d\n", len(doc.Paths))
+	// Output:
+	// Operations defined: 4
+}
+
+// Example_serverBuilderResponseBuilder demonstrates the fluent ResponseBuilder
+// for constructing complex responses with headers and custom content types.
+func Example_serverBuilderResponseBuilder() {
+	srv := builder.NewServerBuilder(parser.OASVersion320, builder.WithoutValidation()).
+		SetTitle("Custom Response API").
+		SetVersion("1.0.0")
+
+	srv.AddOperation(http.MethodGet, "/custom",
+		builder.WithOperationID("customResponse"),
+		builder.WithResponse(http.StatusOK, nil),
+	)
+
+	// Use ResponseBuilder for complex responses
+	srv.Handle(http.MethodGet, "/custom", func(_ context.Context, _ *builder.Request) builder.Response {
+		return builder.NewResponse(http.StatusOK).
+			Header("X-Custom-Header", "custom-value").
+			Header("X-Request-ID", "12345").
+			JSON(map[string]string{"message": "hello"})
+	})
+
+	result := srv.MustBuildServer()
+	fmt.Printf("Server built: %v\n", result.Handler != nil)
+	// Output:
+	// Server built: true
+}
+
+// Example_serverBuilderMiddleware demonstrates adding middleware to the server.
+// Middleware is applied in order: first added = outermost (executes first).
+func Example_serverBuilderMiddleware() {
+	srv := builder.NewServerBuilder(parser.OASVersion320, builder.WithoutValidation()).
+		SetTitle("Middleware Demo API").
+		SetVersion("1.0.0")
+
+	srv.AddOperation(http.MethodGet, "/hello",
+		builder.WithOperationID("hello"),
+		builder.WithResponse(http.StatusOK, map[string]string{}),
+	)
+
+	srv.Handle(http.MethodGet, "/hello", func(_ context.Context, _ *builder.Request) builder.Response {
+		return builder.JSON(http.StatusOK, map[string]string{"message": "hello"})
+	})
+
+	// Add logging middleware
+	srv.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Log before handling (would use real logger in production)
+			_ = fmt.Sprintf("Request: %s %s", r.Method, r.URL.Path)
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// Add CORS middleware
+	srv.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	result := srv.MustBuildServer()
+	fmt.Printf("Server with middleware: %v\n", result.Handler != nil)
+	// Output:
+	// Server with middleware: true
+}
+
+// Example_serverBuilderTesting demonstrates the testing utilities for ServerBuilder.
+// These helpers simplify writing tests for API handlers without starting a real server.
+func Example_serverBuilderTesting() {
+	srv := builder.NewServerBuilder(parser.OASVersion320, builder.WithoutValidation()).
+		SetTitle("Test API").
+		SetVersion("1.0.0")
+
+	srv.AddOperation(http.MethodGet, "/pets",
+		builder.WithOperationID("listPets"),
+		builder.WithResponse(http.StatusOK, []Pet{}),
+	)
+
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *builder.Request) builder.Response {
+		return builder.JSON(http.StatusOK, []Pet{{ID: 1, Name: "Fluffy"}})
+	})
+
+	result := srv.MustBuildServer()
+
+	// Create a test helper
+	test := builder.NewServerTest(result)
+
+	// Use GetJSON for simple GET requests with JSON response
+	var pets []Pet
+	rec, err := test.GetJSON("/pets", &pets)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Status: %d\n", rec.Code)
+	fmt.Printf("Pets returned: %d\n", len(pets))
+	fmt.Printf("First pet: %s\n", pets[0].Name)
+	// Output:
+	// Status: 200
+	// Pets returned: 1
+	// First pet: Fluffy
+}
+
+// Example_serverBuilderFromBuilder demonstrates creating a ServerBuilder from
+// an existing Builder. This allows converting a specification into a runnable server.
+func Example_serverBuilderFromBuilder() {
+	// First create a specification with Builder
+	spec := builder.New(parser.OASVersion320).
+		SetTitle("Converted API").
+		SetVersion("1.0.0")
+
+	spec.AddOperation(http.MethodGet, "/status",
+		builder.WithOperationID("getStatus"),
+		builder.WithResponse(http.StatusOK, map[string]string{}),
+	)
+
+	// Convert to ServerBuilder to add handlers
+	srv := builder.FromBuilder(spec, builder.WithoutValidation())
+
+	srv.Handle(http.MethodGet, "/status", func(_ context.Context, _ *builder.Request) builder.Response {
+		return builder.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
+
+	result := srv.MustBuildServer()
+	doc := result.Spec.(*parser.OAS3Document)
+
+	fmt.Printf("Title: %s\n", doc.Info.Title)
+	fmt.Printf("Has handler: %v\n", result.Handler != nil)
+	// Output:
+	// Title: Converted API
+	// Has handler: true
+}
+
+// Example_serverBuilderWithValidation demonstrates enabling request validation.
+// When validation is enabled, requests are validated against the OpenAPI spec
+// before reaching the handler.
+func Example_serverBuilderWithValidation() {
+	srv := builder.NewServerBuilder(parser.OASVersion320,
+		builder.WithValidationConfig(builder.ValidationConfig{
+			IncludeRequestValidation: true,
+			StrictMode:               false,
+		}),
+	).
+		SetTitle("Validated API").
+		SetVersion("1.0.0")
+
+	srv.AddOperation(http.MethodPost, "/pets",
+		builder.WithOperationID("createPet"),
+		builder.WithRequestBody("application/json", Pet{}),
+		builder.WithResponse(http.StatusCreated, Pet{}),
+	)
+
+	srv.Handle(http.MethodPost, "/pets", func(_ context.Context, req *builder.Request) builder.Response {
+		// Request has already been validated at this point
+		return builder.JSON(http.StatusCreated, req.Body)
+	})
+
+	result, err := srv.BuildServer()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Validation enabled: %v\n", result.Validator != nil)
+	// Output:
+	// Validation enabled: true
 }

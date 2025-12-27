@@ -475,6 +475,123 @@
 // example, deprecated). When duplicates are found, the alphabetically first name becomes
 // canonical, and all references are automatically rewritten.
 //
+// # Server Builder
+//
+// The ServerBuilder extends Builder to produce runnable HTTP servers directly from the fluent API.
+// This enables a "code-first" development workflow where developers define API operations and their
+// implementations in a single fluent API.
+//
+// Create a server builder:
+//
+//	srv := builder.NewServerBuilder(parser.OASVersion320).
+//		SetTitle("Pet Store API").
+//		SetVersion("1.0.0")
+//
+//	srv.AddOperation(http.MethodGet, "/pets",
+//		builder.WithHandler(listPetsHandler),  // Inline handler registration
+//		builder.WithResponse(http.StatusOK, []Pet{}),
+//	)
+//
+//	result, err := srv.BuildServer()
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	http.ListenAndServe(":8080", result.Handler)
+//
+// The ServerBuilder provides:
+//   - Automatic request validation using the httpvalidator package
+//   - Type-safe response construction with response helpers (JSON, NoContent, Error, Redirect, Stream)
+//   - Middleware support via the Use method
+//   - Flexible routing using the stdlib net/http router
+//   - Recovery middleware for panic handling
+//   - Request logging middleware
+//
+// # Handler Registration
+//
+// Register handlers inline using WithHandler in AddOperation:
+//
+//	srv.AddOperation(http.MethodGet, "/pets",
+//		builder.WithHandler(func(ctx context.Context, req *builder.Request) builder.Response {
+//			// req.PathParams, req.QueryParams contain validated parameters
+//			// req.Body contains the unmarshaled request body
+//			return builder.JSON(http.StatusOK, pets)
+//		}),
+//		builder.WithResponse(http.StatusOK, []Pet{}),
+//	)
+//
+// Or register handlers dynamically using Handle or HandleFunc:
+//
+//	// Using the typed handler signature with method and path
+//	srv.Handle(http.MethodGet, "/pets", listPetsHandler)
+//
+//	// Using standard http.HandlerFunc for simpler operations
+//	srv.HandleFunc(http.MethodGet, "/health", func(w http.ResponseWriter, r *http.Request) {
+//		w.WriteHeader(http.StatusOK)
+//		w.Write([]byte("OK"))
+//	})
+//
+// Operations without registered handlers return 501 Not Implemented at runtime.
+//
+// # Response Helpers
+//
+// The builder provides convenient response constructors:
+//
+//	// JSON response
+//	return builder.JSON(http.StatusOK, data)
+//
+//	// No content response
+//	return builder.NoContent()
+//
+//	// Error response
+//	return builder.Error(http.StatusNotFound, "not found")
+//
+//	// Redirect response
+//	return builder.Redirect(http.StatusMovedPermanently, "/new-location")
+//
+//	// Streaming response
+//	return builder.Stream(http.StatusOK, "application/octet-stream", reader)
+//
+//	// Fluent response builder
+//	return builder.NewResponse(http.StatusOK).
+//		Header("X-Custom", "value").
+//		JSON(data)
+//
+// # Server Configuration
+//
+// Configure the server builder with options:
+//
+//	srv := builder.NewServerBuilder(parser.OASVersion320,
+//		builder.WithoutValidation(),                    // Disable request validation
+//		builder.WithRecovery(),                         // Enable panic recovery
+//		builder.WithRequestLogging(loggingFunc),        // Enable request logging
+//		builder.WithErrorHandler(customErrorHandler),   // Custom error handler
+//		builder.WithNotFoundHandler(custom404Handler),  // Custom 404 handler
+//	)
+//
+// # Middleware
+//
+// Add middleware to the server. Middleware is applied in order: first added = outermost.
+//
+//	srv.Use(corsMiddleware, authMiddleware, loggingMiddleware)
+//
+// # Testing
+//
+// The package provides testing utilities:
+//
+//	result := srv.MustBuildServer()
+//	test := builder.NewServerTest(result)
+//
+//	// Execute requests
+//	rec := test.Execute(builder.NewTestRequest(http.MethodGet, "/pets"))
+//
+//	// JSON helpers
+//	var pets []Pet
+//	rec, err := test.GetJSON("/pets", &pets)
+//	rec, err := test.PostJSON("/pets", newPet, &created)
+//
+//	// Stub handlers for testing
+//	srv.Handle(http.MethodGet, "/pets", builder.StubHandler(builder.JSON(http.StatusOK, mockPets)))
+//
 // # Related Packages
 //
 // The builder integrates with other oastools packages:
@@ -485,4 +602,5 @@
 //   - [github.com/erraggy/oastools/joiner] - Join built specs with existing documents
 //   - [github.com/erraggy/oastools/differ] - Compare built specs with other specifications
 //   - [github.com/erraggy/oastools/generator] - Generate code from built specifications
+//   - [github.com/erraggy/oastools/httpvalidator] - Runtime request/response validation
 package builder

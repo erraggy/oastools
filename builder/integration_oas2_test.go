@@ -1,7 +1,10 @@
 package builder
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -184,4 +187,181 @@ func TestOAS2Integration_RawSchema(t *testing.T) {
 	require.NotNil(t, downloadResp.Schema)
 	assert.Equal(t, "string", downloadResp.Schema.Type)
 	assert.Equal(t, "binary", downloadResp.Schema.Format)
+}
+
+// TestOAS2ServerBuilder_EndToEnd verifies the complete OAS 2.0 server builder flow
+// with HTTP request/response handling.
+func TestOAS2ServerBuilder_EndToEnd(t *testing.T) {
+	t.Parallel()
+
+	type Pet struct {
+		ID   int64  `json:"id"`
+		Name string `json:"name"`
+		Tag  string `json:"tag,omitempty"`
+	}
+
+	// In-memory pet store
+	pets := map[int64]*Pet{
+		1: {ID: 1, Name: "Fluffy", Tag: "cat"},
+		2: {ID: 2, Name: "Spot", Tag: "dog"},
+	}
+
+	srv := NewServerBuilder(parser.OASVersion20, WithoutValidation()).
+		SetTitle("Pet Store API (OAS 2.0)").
+		SetVersion("1.0.0")
+
+	// List pets operation
+	srv.AddOperation(http.MethodGet, "/pets",
+		WithOperationID("listPets"),
+		WithResponse(http.StatusOK, []Pet{}),
+	)
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *Request) Response {
+		result := make([]Pet, 0, len(pets))
+		for _, p := range pets {
+			result = append(result, *p)
+		}
+		return JSON(http.StatusOK, result)
+	})
+
+	// Get pet operation
+	srv.AddOperation(http.MethodGet, "/pets/{petId}",
+		WithOperationID("getPet"),
+		WithPathParam("petId", int64(0)),
+		WithResponse(http.StatusOK, Pet{}),
+		WithResponse(http.StatusNotFound, struct {
+			Error string `json:"error"`
+		}{}),
+	)
+	srv.Handle(http.MethodGet, "/pets/{petId}", func(_ context.Context, req *Request) Response {
+		petIDStr := req.PathParams["petId"]
+		var petID int64
+		switch v := petIDStr.(type) {
+		case string:
+			// Parse from string
+			if _, err := json.Marshal(v); err == nil {
+				// Simple string to int conversion for tests
+				for id := range pets {
+					if string(rune('0'+id)) == v || v == "1" && id == 1 || v == "2" && id == 2 {
+						petID = id
+						break
+					}
+				}
+			}
+		case int64:
+			petID = v
+		case float64:
+			petID = int64(v)
+		}
+
+		pet, ok := pets[petID]
+		if !ok {
+			return Error(http.StatusNotFound, "pet not found")
+		}
+		return JSON(http.StatusOK, pet)
+	})
+
+	// Create pet operation
+	srv.AddOperation(http.MethodPost, "/pets",
+		WithOperationID("createPet"),
+		WithRequestBody("application/json", Pet{}),
+		WithResponse(http.StatusCreated, Pet{}),
+	)
+	srv.Handle(http.MethodPost, "/pets", func(_ context.Context, req *Request) Response {
+		var newPet Pet
+		if bodyMap, ok := req.Body.(map[string]any); ok {
+			if name, ok := bodyMap["name"].(string); ok {
+				newPet.Name = name
+			}
+			if tag, ok := bodyMap["tag"].(string); ok {
+				newPet.Tag = tag
+			}
+		}
+		newPet.ID = int64(len(pets) + 1)
+		pets[newPet.ID] = &newPet
+		return JSON(http.StatusCreated, newPet)
+	})
+
+	result, err := srv.BuildServer()
+	require.NoError(t, err)
+	require.NotNil(t, result.Handler)
+
+	// Verify it's an OAS 2.0 document
+	oas2Doc, ok := result.Spec.(*parser.OAS2Document)
+	require.True(t, ok, "Expected OAS 2.0 document")
+	assert.Equal(t, "2.0", oas2Doc.Swagger)
+
+	// Test list pets
+	t.Run("list pets", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/pets", nil)
+		result.Handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Header().Get("Content-Type"), "application/json")
+
+		var petsList []Pet
+		err := json.NewDecoder(rec.Body).Decode(&petsList)
+		require.NoError(t, err)
+		assert.Len(t, petsList, 2)
+	})
+
+	// Test get pet by ID
+	t.Run("get pet", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/pets/1", nil)
+		result.Handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var pet Pet
+		err := json.NewDecoder(rec.Body).Decode(&pet)
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), pet.ID)
+		assert.Equal(t, "Fluffy", pet.Name)
+	})
+
+	// Test get non-existent pet
+	t.Run("get non-existent pet", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/pets/999", nil)
+		result.Handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusNotFound, rec.Code)
+	})
+
+	// Test create pet
+	t.Run("create pet", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := NewTestRequest(http.MethodPost, "/pets").
+			JSONBody(Pet{Name: "Max", Tag: "dog"}).
+			Build()
+		result.Handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusCreated, rec.Code)
+
+		var pet Pet
+		err := json.NewDecoder(rec.Body).Decode(&pet)
+		require.NoError(t, err)
+		assert.Equal(t, "Max", pet.Name)
+		assert.Equal(t, "dog", pet.Tag)
+		assert.Greater(t, pet.ID, int64(0))
+	})
+
+	// Test 404 for unknown path
+	t.Run("unknown path returns 404", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/unknown", nil)
+		result.Handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusNotFound, rec.Code)
+	})
+
+	// Test 405 for wrong method
+	t.Run("wrong method returns 405", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodDelete, "/pets", nil)
+		result.Handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
+	})
 }
