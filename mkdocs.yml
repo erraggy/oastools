@@ -56,21 +56,25 @@ nav:
     - Breaking Changes: breaking-changes.md
     - Benchmarks: benchmarks.md
   - Examples:
-    - Overview: https://github.com/erraggy/oastools/tree/main/examples#readme
+    - Overview: examples/index.md
     - Getting Started:
-      - Quickstart: https://github.com/erraggy/oastools/tree/main/examples/quickstart#readme
-      - Validation Pipeline: https://github.com/erraggy/oastools/tree/main/examples/validation-pipeline#readme
+      - Quickstart: examples/quickstart.md
+      - Validation Pipeline: examples/validation-pipeline.md
     - Workflows:
-      - Validate and Fix: https://github.com/erraggy/oastools/tree/main/examples/workflows/validate-and-fix#readme
-      - Version Conversion: https://github.com/erraggy/oastools/tree/main/examples/workflows/version-conversion#readme
-      - Multi-API Merge: https://github.com/erraggy/oastools/tree/main/examples/workflows/multi-api-merge#readme
-      - Breaking Change Detection: https://github.com/erraggy/oastools/tree/main/examples/workflows/breaking-change-detection#readme
-      - Overlay Transformations: https://github.com/erraggy/oastools/tree/main/examples/workflows/overlay-transformations#readme
-      - HTTP Validation: https://github.com/erraggy/oastools/tree/main/examples/workflows/http-validation#readme
+      - Overview: examples/workflows/index.md
+      - Validate and Fix: examples/workflows/validate-and-fix.md
+      - Version Conversion: examples/workflows/version-conversion.md
+      - Multi-API Merge: examples/workflows/multi-api-merge.md
+      - Breaking Change Detection: examples/workflows/breaking-change-detection.md
+      - Overlay Transformations: examples/workflows/overlay-transformations.md
+      - HTTP Validation: examples/workflows/http-validation.md
     - Programmatic API:
-      - Builder: https://github.com/erraggy/oastools/tree/main/examples/programmatic-api/builder#readme
+      - Overview: examples/programmatic-api/index.md
+      - Builder: examples/programmatic-api/builder.md
     - Code Generation:
-      - Petstore: https://github.com/erraggy/oastools/tree/main/examples/petstore#readme
+      - Overview: examples/petstore/index.md
+      - Standard Library: examples/petstore/stdlib.md
+      - Chi Router: examples/petstore/chi.md
   - Package Deep Dives:
     - Parser: packages/parser.md
     - Validator: packages/validator.md
