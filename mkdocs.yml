@@ -55,6 +55,22 @@ nav:
     - Generator Features: generator_beyond_boilerplate.md
     - Breaking Changes: breaking-changes.md
     - Benchmarks: benchmarks.md
+  - Examples:
+    - Overview: https://github.com/erraggy/oastools/tree/main/examples#readme
+    - Getting Started:
+      - Quickstart: https://github.com/erraggy/oastools/tree/main/examples/quickstart#readme
+      - Validation Pipeline: https://github.com/erraggy/oastools/tree/main/examples/validation-pipeline#readme
+    - Workflows:
+      - Validate and Fix: https://github.com/erraggy/oastools/tree/main/examples/workflows/validate-and-fix#readme
+      - Version Conversion: https://github.com/erraggy/oastools/tree/main/examples/workflows/version-conversion#readme
+      - Multi-API Merge: https://github.com/erraggy/oastools/tree/main/examples/workflows/multi-api-merge#readme
+      - Breaking Change Detection: https://github.com/erraggy/oastools/tree/main/examples/workflows/breaking-change-detection#readme
+      - Overlay Transformations: https://github.com/erraggy/oastools/tree/main/examples/workflows/overlay-transformations#readme
+      - HTTP Validation: https://github.com/erraggy/oastools/tree/main/examples/workflows/http-validation#readme
+    - Programmatic API:
+      - Builder: https://github.com/erraggy/oastools/tree/main/examples/programmatic-api/builder#readme
+    - Code Generation:
+      - Petstore: https://github.com/erraggy/oastools/tree/main/examples/petstore#readme
   - Package Deep Dives:
     - Parser: packages/parser.md
     - Validator: packages/validator.md

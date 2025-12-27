@@ -1,0 +1,35 @@
+overlay: "1.0.0"
+info:
+  title: Production Environment Overlay
+  version: "1.0.0"
+actions:
+  # Update info for production
+  - target: $.info
+    update:
+      title: Payment API (Production)
+      x-environment: production
+      x-rate-limits:
+        requests-per-minute: 1000
+        burst-limit: 50
+
+  # Update server to production URL
+  - target: $.servers[0]
+    update:
+      url: https://api.payments.example.com/v1
+      description: Production server
+
+  # Remove internal endpoints (x-internal: true)
+  - target: $.paths['/internal/metrics']
+    remove: true
+
+  - target: $.paths['/internal/health']
+    remove: true
+
+  # Add cache headers to all GET responses
+  - target: $.paths.*.get.responses.200
+    update:
+      headers:
+        X-Cache-TTL:
+          schema:
+            type: integer
+          description: Cache time-to-live in seconds

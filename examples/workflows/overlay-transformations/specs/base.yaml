@@ -1,0 +1,106 @@
+openapi: "3.0.3"
+info:
+  title: Payment API
+  version: "1.0.0"
+  description: Payment processing API
+servers:
+  - url: https://dev.payments.example.com/v1
+    description: Development server
+paths:
+  /payments:
+    get:
+      operationId: listPayments
+      summary: List all payments
+      x-internal: false
+      responses:
+        "200":
+          description: Payment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payment"
+    post:
+      operationId: createPayment
+      summary: Create a payment
+      x-internal: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentRequest"
+      responses:
+        "201":
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+  /payments/{paymentId}:
+    get:
+      operationId: getPayment
+      summary: Get payment by ID
+      x-internal: false
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Payment details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+  /internal/metrics:
+    get:
+      operationId: getMetrics
+      summary: Get internal metrics
+      x-internal: true
+      responses:
+        "200":
+          description: Metrics data
+          content:
+            application/json:
+              schema:
+                type: object
+  /internal/health:
+    get:
+      operationId: healthCheck
+      summary: Health check endpoint
+      x-internal: true
+      responses:
+        "200":
+          description: Health status
+components:
+  schemas:
+    Payment:
+      type: object
+      required: [id, amount, currency]
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        status:
+          type: string
+          enum: [pending, completed, failed]
+    CreatePaymentRequest:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string

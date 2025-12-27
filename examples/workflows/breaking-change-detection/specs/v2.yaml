@@ -1,0 +1,100 @@
+openapi: "3.0.3"
+info:
+  title: Product API
+  version: "2.0.0"
+  description: Product catalog API - Version 2 (with breaking changes)
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      summary: List all products
+      parameters:
+        - name: category
+          in: query
+          required: true              # BREAKING: Made required
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50               # BREAKING: Reduced maximum
+      responses:
+        "200":
+          description: Product list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+  /products/{productId}:
+    get:
+      operationId: getProduct
+      summary: Get product by ID
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string             # BREAKING: Changed type from integer to string
+      responses:
+        "200":
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    # BREAKING: DELETE operation removed
+  /products/{productId}/reviews:      # Non-breaking: New endpoint added
+    get:
+      operationId: getProductReviews
+      summary: Get product reviews
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Review list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+components:
+  schemas:
+    Product:
+      type: object
+      required: [id, name, price, sku]  # BREAKING: Added required field 'sku'
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: double
+        sku:                           # BREAKING: New required field
+          type: string
+        category:
+          type: string
+        # BREAKING: Removed 'inStock' field
+    Review:                            # Non-breaking: New schema
+      type: object
+      properties:
+        id:
+          type: integer
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
