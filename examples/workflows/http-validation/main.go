@@ -121,8 +121,9 @@ func main() {
 }
 
 // printRequestResult displays validation results.
-// Error messages are safe to log because the httpvalidator package automatically
-// redacts values from potentially sensitive parameters (headers, cookies).
+// Note: In production code, you can safely log e.Message because httpvalidator
+// automatically redacts values from sensitive parameters (headers, cookies).
+// This example only prints paths to satisfy static analysis tools.
 func printRequestResult(r *httpvalidator.RequestValidationResult) {
 	fmt.Printf("      Valid: %t\n", r.Valid)
 	if r.MatchedPath != "" {
@@ -131,24 +132,15 @@ func printRequestResult(r *httpvalidator.RequestValidationResult) {
 	if len(r.Errors) > 0 {
 		fmt.Printf("      Errors (%d):\n", len(r.Errors))
 		for _, e := range r.Errors {
-			// Error messages from httpvalidator are safe to log - sensitive
-			// values (headers, cookies) are automatically redacted at source.
-			// We use a helper to format the output for this example.
-			printValidationError(e)
+			path := e.Path
+			if path == "" {
+				path = "(request)"
+			}
+			// In production, e.Message is safe to log - httpvalidator redacts
+			// sensitive values at source. See README for details.
+			fmt.Printf("        - [%s] validation failed\n", path)
 		}
 	}
-}
-
-// printValidationError formats and prints a single validation error.
-// This is separated to demonstrate that error messages can be safely logged.
-func printValidationError(e httpvalidator.ValidationError) {
-	path := e.Path
-	if path == "" {
-		path = "(request)"
-	}
-	// The message is safe because httpvalidator redacts sensitive values
-	// from header/cookie validation errors at construction time.
-	fmt.Printf("        - [%s] %s\n", path, e.Message)
 }
 
 // findSpecPath locates a file relative to the source file location.

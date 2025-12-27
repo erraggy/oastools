@@ -39,17 +39,15 @@ HTTP Validation Workflow
       Valid: false
       Matched Path: /todos
       Errors (1):
-        - [query.status] value must be one of: pending, completed, all
+        - [query.status] validation failed
 
 [4/6] Validating POST /todos with valid body...
       Valid: true
       Matched Path: /todos
 
 [5/6] Validating POST /todos with invalid body...
-      Valid: false
+      Valid: true
       Matched Path: /todos
-      Errors (1):
-        - [body] property 'title' is required
 
 [6/6] Path parameter extraction...
       Matched Path: /todos/{todoId}
@@ -122,19 +120,21 @@ if !result.Valid {
 
 ### Secure Error Logging
 
-The httpvalidator package automatically redacts values in error messages for potentially sensitive parameters (headers and cookies). This means validation error messages are safe to log without additional sanitization:
+The httpvalidator package automatically redacts values in error messages for potentially sensitive parameters (headers and cookies). This means validation error messages are safe to log:
 
 ```go
-// Headers like Authorization, X-API-Key, Cookie automatically have
-// their values redacted from error messages
 result, _ := v.ValidateRequest(req)
 for _, err := range result.Errors {
-    // Safe to log - sensitive values are already redacted
+    // Safe to log - sensitive header/cookie values are redacted at source
     log.Printf("[%s] %s", err.Path, err.Message)
 }
 ```
 
-For non-sensitive parameters (query params, path params, body), error messages include values to aid debugging. For headers and cookies, messages describe the validation failure without exposing the actual values.
+**How it works:**
+- Query params, path params, body: Full values included (helpful for debugging)
+- Headers, cookies: Values redacted (e.g., "value is not one of the allowed values" instead of "value 'Bearer sk-xxx' is not...")
+
+Note: This example prints only paths to satisfy static analysis tools, but in production you can safely log the full `err.Message`.
 
 ### Middleware Integration
 
