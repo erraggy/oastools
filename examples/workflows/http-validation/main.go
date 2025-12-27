@@ -120,6 +120,11 @@ func main() {
 	fmt.Println("HTTP Validation examples complete")
 }
 
+// printRequestResult displays validation results.
+//
+// NOTE: This example uses synthetic test data. In production, validation error
+// messages may contain sensitive information from headers or request bodies.
+// Consider sanitizing or redacting error messages before logging.
 func printRequestResult(r *httpvalidator.RequestValidationResult) {
 	fmt.Printf("      Valid: %t\n", r.Valid)
 	if r.MatchedPath != "" {
@@ -132,7 +137,9 @@ func printRequestResult(r *httpvalidator.RequestValidationResult) {
 			if path == "" {
 				path = "(request)"
 			}
-			fmt.Printf("        - [%s] %s\n", path, e.Message)
+			// In production, consider sanitizing e.Message to avoid
+			// logging sensitive header values or request body content.
+			fmt.Printf("        - [%s] %s\n", path, e.Message) //nolint:G104 // Example uses synthetic data only
 		}
 	}
 }
