@@ -21,6 +21,10 @@ cp README.md "$DOCS_DIR/index.md"
 sed 's|](docs/|](|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
 sed 's|\([a-z]*\)/deep_dive.md|packages/\1.md|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
 sed 's|src="docs/|src="|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
+# Convert examples/ relative links to absolute GitHub URLs (relative works on GitHub, not in mkdocs)
+sed 's|](examples/|](https://github.com/erraggy/oastools/tree/main/examples/|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
+# Fix examples/README.md specifically (needs #readme suffix for GitHub)
+sed 's|examples/README.md)|examples/#readme)|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
 
 # 2. Copy root level docs (user-facing only; internal dev docs stay in GitHub)
 echo "Copying root level markdown files..."
