@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/erraggy/oastools"
-	"github.com/erraggy/oastools/internal/cliutil"
 	"github.com/erraggy/oastools/overlay"
 	"github.com/erraggy/oastools/parser"
 )
@@ -41,26 +40,26 @@ func SetupOverlayApplyFlags() (*flag.FlagSet, *OverlayApplyFlags) {
 	fs.BoolVar(&flags.Quiet, "quiet", false, "quiet mode: only output the document, no diagnostic messages")
 
 	fs.Usage = func() {
-		cliutil.Writef(fs.Output(), "Usage: oastools overlay apply [flags] <overlay-file>\n\n")
-		cliutil.Writef(fs.Output(), "Apply an overlay document to an OpenAPI specification.\n\n")
-		cliutil.Writef(fs.Output(), "Flags:\n")
+		Writef(fs.Output(), "Usage: oastools overlay apply [flags] <overlay-file>\n\n")
+		Writef(fs.Output(), "Apply an overlay document to an OpenAPI specification.\n\n")
+		Writef(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
-		cliutil.Writef(fs.Output(), "\nExamples:\n")
-		cliutil.Writef(fs.Output(), "  oastools overlay apply --spec openapi.yaml changes.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools overlay apply -s openapi.yaml -o production.yaml changes.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools overlay apply --strict -s api.yaml changes.yaml\n")
-		cliutil.Writef(fs.Output(), "  cat openapi.yaml | oastools overlay apply -s - changes.yaml\n")
-		cliutil.Writef(fs.Output(), "\nPipelining:\n")
-		cliutil.Writef(fs.Output(), "  - Use '-' as the spec path to read from stdin\n")
-		cliutil.Writef(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
-		cliutil.Writef(fs.Output(), "\nNotes:\n")
-		cliutil.Writef(fs.Output(), "  - Actions are applied sequentially in order\n")
-		cliutil.Writef(fs.Output(), "  - Update actions merge content, remove actions delete matched nodes\n")
-		cliutil.Writef(fs.Output(), "  - When both update and remove are specified, remove takes precedence\n")
-		cliutil.Writef(fs.Output(), "  - Use --strict to fail if any target matches nothing\n")
-		cliutil.Writef(fs.Output(), "\nExit Codes:\n")
-		cliutil.Writef(fs.Output(), "  0    Overlay applied successfully\n")
-		cliutil.Writef(fs.Output(), "  1    Overlay application failed\n")
+		Writef(fs.Output(), "\nExamples:\n")
+		Writef(fs.Output(), "  oastools overlay apply --spec openapi.yaml changes.yaml\n")
+		Writef(fs.Output(), "  oastools overlay apply -s openapi.yaml -o production.yaml changes.yaml\n")
+		Writef(fs.Output(), "  oastools overlay apply --strict -s api.yaml changes.yaml\n")
+		Writef(fs.Output(), "  cat openapi.yaml | oastools overlay apply -s - changes.yaml\n")
+		Writef(fs.Output(), "\nPipelining:\n")
+		Writef(fs.Output(), "  - Use '-' as the spec path to read from stdin\n")
+		Writef(fs.Output(), "  - Use --quiet/-q to suppress diagnostic output for pipelining\n")
+		Writef(fs.Output(), "\nNotes:\n")
+		Writef(fs.Output(), "  - Actions are applied sequentially in order\n")
+		Writef(fs.Output(), "  - Update actions merge content, remove actions delete matched nodes\n")
+		Writef(fs.Output(), "  - When both update and remove are specified, remove takes precedence\n")
+		Writef(fs.Output(), "  - Use --strict to fail if any target matches nothing\n")
+		Writef(fs.Output(), "\nExit Codes:\n")
+		Writef(fs.Output(), "  0    Overlay applied successfully\n")
+		Writef(fs.Output(), "  1    Overlay application failed\n")
 	}
 
 	return fs, flags
@@ -76,22 +75,22 @@ func SetupOverlayValidateFlags() (*flag.FlagSet, *OverlayValidateFlags) {
 	fs.BoolVar(&flags.Quiet, "quiet", false, "quiet mode: only output validation result, no diagnostic messages")
 
 	fs.Usage = func() {
-		cliutil.Writef(fs.Output(), "Usage: oastools overlay validate [flags] <overlay-file>\n\n")
-		cliutil.Writef(fs.Output(), "Validate an OpenAPI overlay document.\n\n")
-		cliutil.Writef(fs.Output(), "Flags:\n")
+		Writef(fs.Output(), "Usage: oastools overlay validate [flags] <overlay-file>\n\n")
+		Writef(fs.Output(), "Validate an OpenAPI overlay document.\n\n")
+		Writef(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
-		cliutil.Writef(fs.Output(), "\nExamples:\n")
-		cliutil.Writef(fs.Output(), "  oastools overlay validate changes.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools overlay validate --quiet production-overlay.yaml\n")
-		cliutil.Writef(fs.Output(), "\nValidation Checks:\n")
-		cliutil.Writef(fs.Output(), "  - overlay version is present and supported (1.0.0)\n")
-		cliutil.Writef(fs.Output(), "  - info.title and info.version are present\n")
-		cliutil.Writef(fs.Output(), "  - at least one action is defined\n")
-		cliutil.Writef(fs.Output(), "  - each action has a target with valid JSONPath syntax\n")
-		cliutil.Writef(fs.Output(), "  - each action has update or remove (or both)\n")
-		cliutil.Writef(fs.Output(), "\nExit Codes:\n")
-		cliutil.Writef(fs.Output(), "  0    Overlay is valid\n")
-		cliutil.Writef(fs.Output(), "  1    Overlay has validation errors\n")
+		Writef(fs.Output(), "\nExamples:\n")
+		Writef(fs.Output(), "  oastools overlay validate changes.yaml\n")
+		Writef(fs.Output(), "  oastools overlay validate --quiet production-overlay.yaml\n")
+		Writef(fs.Output(), "\nValidation Checks:\n")
+		Writef(fs.Output(), "  - overlay version is present and supported (1.0.0)\n")
+		Writef(fs.Output(), "  - info.title and info.version are present\n")
+		Writef(fs.Output(), "  - at least one action is defined\n")
+		Writef(fs.Output(), "  - each action has a target with valid JSONPath syntax\n")
+		Writef(fs.Output(), "  - each action has update or remove (or both)\n")
+		Writef(fs.Output(), "\nExit Codes:\n")
+		Writef(fs.Output(), "  0    Overlay is valid\n")
+		Writef(fs.Output(), "  1    Overlay has validation errors\n")
 	}
 
 	return fs, flags
@@ -119,7 +118,7 @@ func HandleOverlay(args []string) error {
 }
 
 func printOverlayUsage() {
-	cliutil.Writef(os.Stderr, `Usage: oastools overlay <subcommand> [options]
+	Writef(os.Stderr, `Usage: oastools overlay <subcommand> [options]
 
 Apply or validate OpenAPI Overlay documents (v1.0.0).
 
@@ -188,42 +187,42 @@ func handleOverlayApply(args []string) error {
 
 	// Print results to stderr
 	if !flags.Quiet {
-		cliutil.Writef(os.Stderr, "OpenAPI Overlay Application\n")
-		cliutil.Writef(os.Stderr, "============================\n\n")
-		cliutil.Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
+		Writef(os.Stderr, "OpenAPI Overlay Application\n")
+		Writef(os.Stderr, "============================\n\n")
+		Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
 		if flags.Spec == StdinFilePath {
-			cliutil.Writef(os.Stderr, "Specification: <stdin>\n")
+			Writef(os.Stderr, "Specification: <stdin>\n")
 		} else {
-			cliutil.Writef(os.Stderr, "Specification: %s\n", flags.Spec)
+			Writef(os.Stderr, "Specification: %s\n", flags.Spec)
 		}
-		cliutil.Writef(os.Stderr, "Overlay: %s\n", overlayPath)
-		cliutil.Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
+		Writef(os.Stderr, "Overlay: %s\n", overlayPath)
+		Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
 
-		cliutil.Writef(os.Stderr, "Actions applied: %d\n", result.ActionsApplied)
-		cliutil.Writef(os.Stderr, "Actions skipped: %d\n", result.ActionsSkipped)
+		Writef(os.Stderr, "Actions applied: %d\n", result.ActionsApplied)
+		Writef(os.Stderr, "Actions skipped: %d\n", result.ActionsSkipped)
 
 		// Print warnings
 		if len(result.Warnings) > 0 {
-			cliutil.Writef(os.Stderr, "\nWarnings:\n")
+			Writef(os.Stderr, "\nWarnings:\n")
 			for _, warning := range result.Warnings {
-				cliutil.Writef(os.Stderr, "  - %s\n", warning)
+				Writef(os.Stderr, "  - %s\n", warning)
 			}
 		}
 
 		// Print changes
 		if len(result.Changes) > 0 {
-			cliutil.Writef(os.Stderr, "\nChanges:\n")
+			Writef(os.Stderr, "\nChanges:\n")
 			for _, change := range result.Changes {
-				cliutil.Writef(os.Stderr, "  [%d] %s: %s (%d match(es))\n",
+				Writef(os.Stderr, "  [%d] %s: %s (%d match(es))\n",
 					change.ActionIndex, change.Operation, change.Target, change.MatchCount)
 			}
 		}
 
-		cliutil.Writef(os.Stderr, "\n")
+		Writef(os.Stderr, "\n")
 		if result.ActionsSkipped == 0 {
-			cliutil.Writef(os.Stderr, "✓ Overlay applied successfully\n")
+			Writef(os.Stderr, "✓ Overlay applied successfully\n")
 		} else {
-			cliutil.Writef(os.Stderr, "✓ Overlay applied with %d skipped action(s)\n", result.ActionsSkipped)
+			Writef(os.Stderr, "✓ Overlay applied with %d skipped action(s)\n", result.ActionsSkipped)
 		}
 	}
 
@@ -238,7 +237,7 @@ func handleOverlayApply(args []string) error {
 			return fmt.Errorf("writing output file: %w", err)
 		}
 		if !flags.Quiet {
-			cliutil.Writef(os.Stderr, "\nOutput written to: %s\n", flags.Output)
+			Writef(os.Stderr, "\nOutput written to: %s\n", flags.Output)
 		}
 	} else {
 		// Write to stdout
@@ -279,35 +278,35 @@ func handleOverlayValidate(args []string) error {
 	totalTime := time.Since(startTime)
 
 	if !flags.Quiet {
-		cliutil.Writef(os.Stderr, "OpenAPI Overlay Validation\n")
-		cliutil.Writef(os.Stderr, "===========================\n\n")
-		cliutil.Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
-		cliutil.Writef(os.Stderr, "Overlay: %s\n", overlayPath)
-		cliutil.Writef(os.Stderr, "Parse Time: %v\n", parseTime)
-		cliutil.Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
+		Writef(os.Stderr, "OpenAPI Overlay Validation\n")
+		Writef(os.Stderr, "===========================\n\n")
+		Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
+		Writef(os.Stderr, "Overlay: %s\n", overlayPath)
+		Writef(os.Stderr, "Parse Time: %v\n", parseTime)
+		Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
 
-		cliutil.Writef(os.Stderr, "Overlay Version: %s\n", o.Version)
-		cliutil.Writef(os.Stderr, "Overlay Title: %s\n", o.Info.Title)
-		cliutil.Writef(os.Stderr, "Actions: %d\n", len(o.Actions))
+		Writef(os.Stderr, "Overlay Version: %s\n", o.Version)
+		Writef(os.Stderr, "Overlay Title: %s\n", o.Info.Title)
+		Writef(os.Stderr, "Actions: %d\n", len(o.Actions))
 		if o.Extends != "" {
-			cliutil.Writef(os.Stderr, "Extends: %s\n", o.Extends)
+			Writef(os.Stderr, "Extends: %s\n", o.Extends)
 		}
-		cliutil.Writef(os.Stderr, "\n")
+		Writef(os.Stderr, "\n")
 	}
 
 	if len(errs) > 0 {
 		if !flags.Quiet {
-			cliutil.Writef(os.Stderr, "Validation Errors (%d):\n", len(errs))
+			Writef(os.Stderr, "Validation Errors (%d):\n", len(errs))
 			for _, ve := range errs {
-				cliutil.Writef(os.Stderr, "  - %s\n", ve.Message)
+				Writef(os.Stderr, "  - %s\n", ve.Message)
 			}
-			cliutil.Writef(os.Stderr, "\n✗ Overlay is invalid\n")
+			Writef(os.Stderr, "\n✗ Overlay is invalid\n")
 		}
 		os.Exit(1)
 	}
 
 	if !flags.Quiet {
-		cliutil.Writef(os.Stderr, "✓ Overlay is valid\n")
+		Writef(os.Stderr, "✓ Overlay is valid\n")
 	}
 
 	return nil

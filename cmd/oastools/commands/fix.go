@@ -9,7 +9,6 @@ import (
 
 	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/fixer"
-	"github.com/erraggy/oastools/internal/cliutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -67,48 +66,48 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 	fs.BoolVar(&flags.DryRun, "dry-run", false, "preview changes without modifying the document")
 
 	fs.Usage = func() {
-		cliutil.Writef(fs.Output(), "Usage: oastools fix [flags] <file|url|->\n\n")
-		cliutil.Writef(fs.Output(), "Apply automatic fixes to common OpenAPI specification issues.\n\n")
-		cliutil.Writef(fs.Output(), "Flags:\n")
+		Writef(fs.Output(), "Usage: oastools fix [flags] <file|url|->\n\n")
+		Writef(fs.Output(), "Apply automatic fixes to common OpenAPI specification issues.\n\n")
+		Writef(fs.Output(), "Flags:\n")
 		fs.PrintDefaults()
-		cliutil.Writef(fs.Output(), "\nSupported Fixes:\n")
-		cliutil.Writef(fs.Output(), "  - Missing path parameters: Adds Parameter objects for path template\n")
-		cliutil.Writef(fs.Output(), "    variables that are not declared in the operation's parameters list.\n")
-		cliutil.Writef(fs.Output(), "    Default type is 'string'. Use --infer for smart type inference.\n")
-		cliutil.Writef(fs.Output(), "  - Invalid schema names (--fix-schema-names): Renames schemas with\n")
-		cliutil.Writef(fs.Output(), "    invalid characters (brackets, etc.) using configurable strategies.\n")
-		cliutil.Writef(fs.Output(), "  - Prune schemas (--prune-schemas): Removes unreferenced schemas.\n")
-		cliutil.Writef(fs.Output(), "  - Prune paths (--prune-paths): Removes paths with no operations.\n")
-		cliutil.Writef(fs.Output(), "\nType Inference (--infer):\n")
-		cliutil.Writef(fs.Output(), "  - Names ending in 'id', 'Id', 'ID' -> integer\n")
-		cliutil.Writef(fs.Output(), "  - Names containing 'uuid', 'guid' -> string with format uuid\n")
-		cliutil.Writef(fs.Output(), "  - All other names -> string\n")
-		cliutil.Writef(fs.Output(), "\nGeneric Naming Strategies (--generic-naming):\n")
-		cliutil.Writef(fs.Output(), "  underscore: Response[User] → Response_User_\n")
-		cliutil.Writef(fs.Output(), "  of:         Response[User] → ResponseOfUser\n")
-		cliutil.Writef(fs.Output(), "  for:        Response[User] → ResponseForUser\n")
-		cliutil.Writef(fs.Output(), "  flat:       Response[User] → ResponseUser\n")
-		cliutil.Writef(fs.Output(), "  dot:        Response[User] → Response.User\n")
-		cliutil.Writef(fs.Output(), "\nExamples:\n")
-		cliutil.Writef(fs.Output(), "  oastools fix openapi.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools fix -o fixed.yaml openapi.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools fix --infer openapi.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools fix --fix-schema-names --generic-naming of api.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools fix --prune-all api.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools fix --dry-run --prune-schemas api.yaml\n")
-		cliutil.Writef(fs.Output(), "  cat openapi.yaml | oastools fix -q - > fixed.yaml\n")
-		cliutil.Writef(fs.Output(), "  oastools fix -s openapi.yaml  # Include line numbers in fixes\n")
-		cliutil.Writef(fs.Output(), "\nPipelining:\n")
-		cliutil.Writef(fs.Output(), "  oastools fix -q api.yaml | oastools validate -q -\n")
-		cliutil.Writef(fs.Output(), "  oastools fix -q --infer api.yaml | oastools convert -q -t 3.1.0 -\n")
-		cliutil.Writef(fs.Output(), "\nNotes:\n")
-		cliutil.Writef(fs.Output(), "  - Use 'oastools validate' to see validation errors before fixing\n")
-		cliutil.Writef(fs.Output(), "  - Pruning fixes only run when explicitly requested via flags\n")
-		cliutil.Writef(fs.Output(), "  - Use --dry-run to preview what would be changed\n")
-		cliutil.Writef(fs.Output(), "  - Output preserves the original format (JSON or YAML)\n")
-		cliutil.Writef(fs.Output(), "\nExit Codes:\n")
-		cliutil.Writef(fs.Output(), "  0    Fixes applied successfully (or no fixes needed)\n")
-		cliutil.Writef(fs.Output(), "  1    Failed to parse or fix the specification\n")
+		Writef(fs.Output(), "\nSupported Fixes:\n")
+		Writef(fs.Output(), "  - Missing path parameters: Adds Parameter objects for path template\n")
+		Writef(fs.Output(), "    variables that are not declared in the operation's parameters list.\n")
+		Writef(fs.Output(), "    Default type is 'string'. Use --infer for smart type inference.\n")
+		Writef(fs.Output(), "  - Invalid schema names (--fix-schema-names): Renames schemas with\n")
+		Writef(fs.Output(), "    invalid characters (brackets, etc.) using configurable strategies.\n")
+		Writef(fs.Output(), "  - Prune schemas (--prune-schemas): Removes unreferenced schemas.\n")
+		Writef(fs.Output(), "  - Prune paths (--prune-paths): Removes paths with no operations.\n")
+		Writef(fs.Output(), "\nType Inference (--infer):\n")
+		Writef(fs.Output(), "  - Names ending in 'id', 'Id', 'ID' -> integer\n")
+		Writef(fs.Output(), "  - Names containing 'uuid', 'guid' -> string with format uuid\n")
+		Writef(fs.Output(), "  - All other names -> string\n")
+		Writef(fs.Output(), "\nGeneric Naming Strategies (--generic-naming):\n")
+		Writef(fs.Output(), "  underscore: Response[User] → Response_User_\n")
+		Writef(fs.Output(), "  of:         Response[User] → ResponseOfUser\n")
+		Writef(fs.Output(), "  for:        Response[User] → ResponseForUser\n")
+		Writef(fs.Output(), "  flat:       Response[User] → ResponseUser\n")
+		Writef(fs.Output(), "  dot:        Response[User] → Response.User\n")
+		Writef(fs.Output(), "\nExamples:\n")
+		Writef(fs.Output(), "  oastools fix openapi.yaml\n")
+		Writef(fs.Output(), "  oastools fix -o fixed.yaml openapi.yaml\n")
+		Writef(fs.Output(), "  oastools fix --infer openapi.yaml\n")
+		Writef(fs.Output(), "  oastools fix --fix-schema-names --generic-naming of api.yaml\n")
+		Writef(fs.Output(), "  oastools fix --prune-all api.yaml\n")
+		Writef(fs.Output(), "  oastools fix --dry-run --prune-schemas api.yaml\n")
+		Writef(fs.Output(), "  cat openapi.yaml | oastools fix -q - > fixed.yaml\n")
+		Writef(fs.Output(), "  oastools fix -s openapi.yaml  # Include line numbers in fixes\n")
+		Writef(fs.Output(), "\nPipelining:\n")
+		Writef(fs.Output(), "  oastools fix -q api.yaml | oastools validate -q -\n")
+		Writef(fs.Output(), "  oastools fix -q --infer api.yaml | oastools convert -q -t 3.1.0 -\n")
+		Writef(fs.Output(), "\nNotes:\n")
+		Writef(fs.Output(), "  - Use 'oastools validate' to see validation errors before fixing\n")
+		Writef(fs.Output(), "  - Pruning fixes only run when explicitly requested via flags\n")
+		Writef(fs.Output(), "  - Use --dry-run to preview what would be changed\n")
+		Writef(fs.Output(), "  - Output preserves the original format (JSON or YAML)\n")
+		Writef(fs.Output(), "\nExit Codes:\n")
+		Writef(fs.Output(), "  0    Fixes applied successfully (or no fixes needed)\n")
+		Writef(fs.Output(), "  1    Failed to parse or fix the specification\n")
 	}
 
 	return fs, flags
@@ -224,47 +223,47 @@ func HandleFix(args []string) error {
 
 	// Print diagnostic messages (to stderr to keep stdout clean for pipelining)
 	if !flags.Quiet {
-		cliutil.Writef(os.Stderr, "OpenAPI Specification Fixer\n")
-		cliutil.Writef(os.Stderr, "===========================\n\n")
-		cliutil.Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
+		Writef(os.Stderr, "OpenAPI Specification Fixer\n")
+		Writef(os.Stderr, "===========================\n\n")
+		Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
 		if specPath == StdinFilePath {
-			cliutil.Writef(os.Stderr, "Specification: <stdin>\n")
+			Writef(os.Stderr, "Specification: <stdin>\n")
 		} else {
-			cliutil.Writef(os.Stderr, "Specification: %s\n", specPath)
+			Writef(os.Stderr, "Specification: %s\n", specPath)
 		}
-		cliutil.Writef(os.Stderr, "OAS Version: %s\n", result.SourceVersion)
-		cliutil.Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
-		cliutil.Writef(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
-		cliutil.Writef(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
-		cliutil.Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
+		Writef(os.Stderr, "OAS Version: %s\n", result.SourceVersion)
+		Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
+		Writef(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
+		Writef(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
+		Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
 
 		// Print fixes applied
 		if result.HasFixes() {
 			if flags.DryRun {
-				cliutil.Writef(os.Stderr, "Fixes That Would Be Applied (%d):\n", result.FixCount)
+				Writef(os.Stderr, "Fixes That Would Be Applied (%d):\n", result.FixCount)
 			} else {
-				cliutil.Writef(os.Stderr, "Fixes Applied (%d):\n", result.FixCount)
+				Writef(os.Stderr, "Fixes Applied (%d):\n", result.FixCount)
 			}
 			for _, fix := range result.Fixes {
 				if flags.SourceMap && fix.HasLocation() {
 					// IDE-friendly format: file:line:column: path: description
-					cliutil.Writef(os.Stderr, "  - %s: [%s] %s: %s\n", fix.Location(), fix.Type, fix.Path, fix.Description)
+					Writef(os.Stderr, "  - %s: [%s] %s: %s\n", fix.Location(), fix.Type, fix.Path, fix.Description)
 				} else {
-					cliutil.Writef(os.Stderr, "  - [%s] %s: %s\n", fix.Type, fix.Path, fix.Description)
+					Writef(os.Stderr, "  - [%s] %s: %s\n", fix.Type, fix.Path, fix.Description)
 				}
 			}
-			cliutil.Writef(os.Stderr, "\n")
+			Writef(os.Stderr, "\n")
 		}
 
 		// Print summary
 		if result.HasFixes() {
 			if flags.DryRun {
-				cliutil.Writef(os.Stderr, "⚡ Would apply %d fix(es) (dry-run mode)\n", result.FixCount)
+				Writef(os.Stderr, "⚡ Would apply %d fix(es) (dry-run mode)\n", result.FixCount)
 			} else {
-				cliutil.Writef(os.Stderr, "✓ Applied %d fix(es)\n", result.FixCount)
+				Writef(os.Stderr, "✓ Applied %d fix(es)\n", result.FixCount)
 			}
 		} else {
-			cliutil.Writef(os.Stderr, "✓ No fixes needed - specification is already valid\n")
+			Writef(os.Stderr, "✓ No fixes needed - specification is already valid\n")
 		}
 	}
 
@@ -284,7 +283,7 @@ func HandleFix(args []string) error {
 			return fmt.Errorf("writing output file: %w", err)
 		}
 		if !flags.Quiet {
-			cliutil.Writef(os.Stderr, "\nOutput written to: %s\n", flags.Output)
+			Writef(os.Stderr, "\nOutput written to: %s\n", flags.Output)
 		}
 	} else {
 		// Write to stdout

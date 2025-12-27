@@ -6,7 +6,6 @@ import (
 
 	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/cmd/oastools/commands"
-	"github.com/erraggy/oastools/internal/cliutil"
 )
 
 // validCommands lists all valid command names for typo suggestions
@@ -85,50 +84,50 @@ func main() {
 		printUsage()
 	case "validate":
 		if err := commands.HandleValidate(os.Args[2:]); err != nil {
-			cliutil.Writef(os.Stderr, "Error: %v\n", err)
+			commands.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "parse":
 		if err := commands.HandleParse(os.Args[2:]); err != nil {
-			cliutil.Writef(os.Stderr, "Error: %v\n", err)
+			commands.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "join":
 		if err := commands.HandleJoin(os.Args[2:]); err != nil {
-			cliutil.Writef(os.Stderr, "Error: %v\n", err)
+			commands.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "convert":
 		if err := commands.HandleConvert(os.Args[2:]); err != nil {
-			cliutil.Writef(os.Stderr, "Error: %v\n", err)
+			commands.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "diff":
 		if err := commands.HandleDiff(os.Args[2:]); err != nil {
-			cliutil.Writef(os.Stderr, "Error: %v\n", err)
+			commands.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "generate":
 		if err := commands.HandleGenerate(os.Args[2:]); err != nil {
-			cliutil.Writef(os.Stderr, "Error: %v\n", err)
+			commands.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "fix":
 		if err := commands.HandleFix(os.Args[2:]); err != nil {
-			cliutil.Writef(os.Stderr, "Error: %v\n", err)
+			commands.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "overlay":
 		if err := commands.HandleOverlay(os.Args[2:]); err != nil {
-			cliutil.Writef(os.Stderr, "Error: %v\n", err)
+			commands.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	default:
-		cliutil.Writef(os.Stderr, "Unknown command: %s\n", command)
+		commands.Writef(os.Stderr, "Unknown command: %s\n", command)
 		if suggestion := suggestCommand(command); suggestion != "" {
-			cliutil.Writef(os.Stderr, "Did you mean: %s?\n", suggestion)
+			commands.Writef(os.Stderr, "Did you mean: %s?\n", suggestion)
 		}
-		cliutil.Writef(os.Stderr, "\n")
+		commands.Writef(os.Stderr, "\n")
 		printUsage()
 		os.Exit(1)
 	}

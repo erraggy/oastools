@@ -386,6 +386,48 @@ For the complete workflow from commit to PR to release, see [WORKFLOW.md](WORKFL
 
 For the specialized agent workflow (Architect → Developer → Maintainer → DevOps), see [AGENTS.md](AGENTS.md).
 
+## Session Continuity with Serena
+
+Use Serena's memory system to persist progress across Claude Code sessions. This is invaluable for multi-session work like large refactorings, feature implementations, or debugging sessions.
+
+**Saving Progress:**
+```markdown
+# Before ending a session with incomplete work, use write_memory tool:
+# memory_file_name: "refactoring_auth_flow"
+# content:
+## Status: IN PROGRESS
+
+## Completed
+- Step 1: Updated auth middleware
+- Step 2: Added token validation
+
+## Remaining
+- Step 3: Update tests
+
+## Resume Command
+"Continue the auth refactoring - read the memory refactoring_auth_flow"
+```
+
+**Resuming Work:**
+```
+# User prompt to resume:
+"Continue the auth refactoring - read the memory refactoring_auth_flow"
+
+# Claude reads memory and picks up exactly where it left off
+```
+
+**Best Practices:**
+- Use descriptive memory names: `refactoring_<what>`, `feature_<name>`, `debugging_<issue>`
+- Include a "Resume Command" in the memory so you know exactly what to tell Claude
+- Update memory status when complete (IN PROGRESS → ✅ COMPLETED)
+- List available memories with `mcp__plugin_serena_serena__list_memories`
+
+**When to Use:**
+- Multi-step refactorings that may span sessions
+- Complex debugging requiring context preservation
+- Feature implementations with many files to modify
+- Any work interrupted by restarts, context limits, or breaks
+
 ## Release Process
 
 See [WORKFLOW.md](WORKFLOW.md#pr-to-release-workflow) for detailed release procedures.
