@@ -9,6 +9,7 @@ Demonstrates runtime HTTP request/response validation using the httpvalidator pa
 - Validating request bodies against schema
 - Extracting typed path parameters
 - Validating responses for contract compliance
+- Securely logging validation errors without exposing credentials
 
 ## Prerequisites
 
@@ -118,6 +119,32 @@ if !result.Valid {
 | Query parameters | Type, enum values, constraints |
 | Request body | Required fields, schema validation |
 | Response body | Schema compliance check |
+
+### Secure Error Logging
+
+Validation error messages may contain sensitive data from headers like `Authorization` or `X-API-Key`. Always sanitize before logging:
+
+```go
+// sensitiveHeaders that should never have values logged
+var sensitiveHeaders = map[string]bool{
+    "authorization": true,
+    "x-api-key":     true,
+    "cookie":        true,
+}
+
+func sanitizeErrorMessage(path, message string) string {
+    for header := range sensitiveHeaders {
+        if strings.Contains(strings.ToLower(path), header) {
+            // Redact quoted values: value 'secret' → value '[REDACTED]'
+            return regexp.MustCompile(`(value\s+)'[^']*'`).
+                ReplaceAllString(message, "${1}'[REDACTED]'")
+        }
+    }
+    return message
+}
+```
+
+This prevents credential exposure in logs when validation fails for sensitive headers.
 
 ### Middleware Integration
 

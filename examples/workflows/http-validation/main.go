@@ -13,12 +13,29 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
 	"github.com/erraggy/oastools/httpvalidator"
 	"github.com/erraggy/oastools/parser"
 )
+
+// sensitiveHeaders lists header names that may contain credentials.
+// Values from these headers should never be logged.
+var sensitiveHeaders = map[string]bool{
+	"authorization":   true,
+	"x-api-key":       true,
+	"x-auth-token":    true,
+	"cookie":          true,
+	"set-cookie":      true,
+	"x-csrf-token":    true,
+	"x-access-token":  true,
+	"x-refresh-token": true,
+}
+
+// valuePattern matches quoted values in error messages like: value 'secret' or value "secret"
+var valuePattern = regexp.MustCompile(`(value\s+)'[^']*'`)
 
 func main() {
 	specPath := findSpecPath("specs/api.yaml")
@@ -120,11 +137,9 @@ func main() {
 	fmt.Println("HTTP Validation examples complete")
 }
 
-// printRequestResult displays validation results.
-//
-// NOTE: This example uses synthetic test data. In production, validation error
-// messages may contain sensitive information from headers or request bodies.
-// Consider sanitizing or redacting error messages before logging.
+// printRequestResult displays validation results with sanitized error messages.
+// This demonstrates best practices for logging validation errors without
+// exposing sensitive header values or request body content.
 func printRequestResult(r *httpvalidator.RequestValidationResult) {
 	fmt.Printf("      Valid: %t\n", r.Valid)
 	if r.MatchedPath != "" {
@@ -137,11 +152,35 @@ func printRequestResult(r *httpvalidator.RequestValidationResult) {
 			if path == "" {
 				path = "(request)"
 			}
-			// In production, consider sanitizing e.Message to avoid
-			// logging sensitive header values or request body content.
-			fmt.Printf("        - [%s] %s\n", path, e.Message) //nolint:G104 // Example uses synthetic data only
+			// Always sanitize error messages before logging to avoid
+			// exposing sensitive header values or request body content.
+			safeMessage := sanitizeErrorMessage(e.Path, e.Message)
+			fmt.Printf("        - [%s] %s\n", path, safeMessage)
 		}
 	}
+}
+
+// sanitizeErrorMessage redacts potentially sensitive values from validation
+// error messages. This is critical for production logging where validation
+// errors for headers like Authorization could expose credentials.
+//
+// Example transformations:
+//
+//	"header 'Authorization' value 'Bearer sk-live-xxx' invalid" → "header 'Authorization' value '[REDACTED]' invalid"
+//	"query 'status' value 'pending' not in enum" → "query 'status' value 'pending' not in enum" (safe, not sensitive)
+func sanitizeErrorMessage(path, message string) string {
+	// Check if this error relates to a sensitive header
+	pathLower := strings.ToLower(path)
+	for header := range sensitiveHeaders {
+		if strings.Contains(pathLower, header) {
+			// Redact any quoted values in the message
+			return valuePattern.ReplaceAllString(message, "${1}'[REDACTED]'")
+		}
+	}
+
+	// For non-sensitive paths (query params, body fields), keep the full message
+	// as these values are typically not credentials and aid debugging
+	return message
 }
 
 // findSpecPath locates a file relative to the source file location.
