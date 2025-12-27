@@ -8,6 +8,7 @@
 - [Key Concepts](#key-concepts)
 - [API Styles](#api-styles)
 - [Practical Examples](#practical-examples)
+- [Building Runnable HTTP Servers](#building-runnable-http-servers)
 - [Configuration Reference](#configuration-reference)
 - [Best Practices](#best-practices)
 
@@ -880,6 +881,236 @@ func main() {
 }
 ```
 
+### Building Runnable HTTP Servers
+
+See also: [ServerBuilder example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-ServerBuilder), [CRUD example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-ServerBuilderCRUD), [Testing example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-ServerBuilderTesting) on pkg.go.dev
+
+The `ServerBuilder` extends `Builder` to create a complete HTTP server from your OpenAPI specification. Instead of just generating the spec, you can define handlers and build a production-ready `http.Handler`:
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "net/http"
+
+    "github.com/erraggy/oastools/builder"
+    "github.com/erraggy/oastools/parser"
+)
+
+type Pet struct {
+    ID   int64  `json:"id"`
+    Name string `json:"name"`
+}
+
+func main() {
+    // Create a ServerBuilder (extends Builder with server capabilities)
+    srv := builder.NewServerBuilder(parser.OASVersion320).
+        SetTitle("Pet Store API").
+        SetVersion("1.0.0")
+
+    // Define operations (same API as Builder)
+    srv.AddOperation(http.MethodGet, "/pets",
+        builder.WithOperationID("listPets"),
+        builder.WithResponse(http.StatusOK, []Pet{}),
+    )
+
+    srv.AddOperation(http.MethodPost, "/pets",
+        builder.WithOperationID("createPet"),
+        builder.WithRequestBody("application/json", Pet{}),
+        builder.WithResponse(http.StatusCreated, Pet{}),
+    )
+
+    srv.AddOperation(http.MethodGet, "/pets/{petId}",
+        builder.WithOperationID("getPet"),
+        builder.WithPathParam("petId", int64(0)),
+        builder.WithResponse(http.StatusOK, Pet{}),
+    )
+
+    // Register handlers for each operation
+    srv.Handle("listPets", func(_ context.Context, _ *builder.Request) builder.Response {
+        pets := []Pet{{ID: 1, Name: "Fluffy"}, {ID: 2, Name: "Buddy"}}
+        return builder.JSON(http.StatusOK, pets)
+    })
+
+    srv.Handle("createPet", func(_ context.Context, req *builder.Request) builder.Response {
+        // req.Body contains the parsed request body
+        return builder.JSON(http.StatusCreated, req.Body)
+    })
+
+    srv.Handle("getPet", func(_ context.Context, req *builder.Request) builder.Response {
+        // req.PathParams contains typed path parameters
+        petID := req.PathParams["petId"]
+        return builder.JSON(http.StatusOK, Pet{ID: petID.(int64), Name: "Fluffy"})
+    })
+
+    // Build the server
+    result, err := srv.BuildServer()
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // result.Handler is a standard http.Handler
+    // result.Spec contains the generated OpenAPI document
+    // result.Validator is available if validation was enabled
+
+    log.Println("Starting server on :8080")
+    log.Fatal(http.ListenAndServe(":8080", result.Handler))
+}
+```
+
+**Response Helpers:**
+
+The ServerBuilder provides convenience functions for common response patterns:
+
+```go
+// JSON response
+builder.JSON(http.StatusOK, data)
+
+// Error response with message
+builder.Error(http.StatusBadRequest, "invalid request")
+
+// Error with additional details
+builder.ErrorWithDetails(http.StatusBadRequest, "validation failed", map[string]any{
+    "field": "email",
+    "error": "invalid format",
+})
+
+// 204 No Content
+builder.NoContent()
+
+// Redirect
+builder.Redirect(http.StatusFound, "/new-location")
+
+// Stream binary data
+builder.Stream(http.StatusOK, "application/octet-stream", reader)
+
+// Complex responses with ResponseBuilder
+builder.NewResponse(http.StatusOK).
+    Header("X-Request-ID", "12345").
+    Header("Cache-Control", "no-store").
+    JSON(data)
+```
+
+**Middleware:**
+
+Add middleware for cross-cutting concerns:
+
+```go
+srv := builder.NewServerBuilder(parser.OASVersion320)
+
+// Add logging middleware
+srv.Use(func(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        log.Printf("%s %s", r.Method, r.URL.Path)
+        next.ServeHTTP(w, r)
+    })
+})
+
+// Add CORS middleware
+srv.Use(func(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        next.ServeHTTP(w, r)
+    })
+})
+```
+
+Middleware is applied in order: first added = outermost (executes first on request).
+
+**Request Validation:**
+
+Enable automatic request validation against the OpenAPI specification:
+
+```go
+srv := builder.NewServerBuilder(parser.OASVersion320,
+    builder.WithValidationConfig(builder.ValidationConfig{
+        IncludeRequestValidation: true,  // Validate incoming requests
+        StrictMode:               false, // Treat warnings as errors
+    }),
+)
+```
+
+Invalid requests are rejected before reaching your handlers, ensuring your handlers receive only valid data.
+
+**Testing Utilities:**
+
+The package provides testing helpers for writing handler tests without starting a real server:
+
+```go
+func TestListPets(t *testing.T) {
+    srv := builder.NewServerBuilder(parser.OASVersion320, builder.WithoutValidation())
+
+    srv.AddOperation(http.MethodGet, "/pets",
+        builder.WithOperationID("listPets"),
+        builder.WithResponse(http.StatusOK, []Pet{}),
+    )
+
+    srv.Handle("listPets", listPetsHandler)
+
+    result := srv.MustBuildServer()
+    test := builder.NewServerTest(result)
+
+    // GetJSON makes a GET request and decodes the JSON response
+    var pets []Pet
+    rec, err := test.GetJSON("/pets", &pets)
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    if rec.Code != http.StatusOK {
+        t.Errorf("Expected 200, got %d", rec.Code)
+    }
+
+    if len(pets) == 0 {
+        t.Error("Expected pets")
+    }
+}
+```
+
+Available test methods:
+- `GetJSON(path, target)` - GET with JSON response
+- `PostJSON(path, body, target)` - POST JSON with response
+- `PutJSON(path, body, target)` - PUT JSON with response
+- `Delete(path)` - DELETE request
+- `Request(method, path)` - Create a TestRequest for custom requests
+
+**Converting Builder to ServerBuilder:**
+
+If you have an existing `Builder`, convert it to a `ServerBuilder`:
+
+```go
+// Create specification with Builder
+spec := builder.New(parser.OASVersion320).
+    SetTitle("My API").
+    SetVersion("1.0.0")
+
+spec.AddOperation(http.MethodGet, "/status",
+    builder.WithOperationID("getStatus"),
+    builder.WithResponse(http.StatusOK, StatusResponse{}),
+)
+
+// Convert to ServerBuilder to add handlers
+srv := builder.FromBuilder(spec, builder.WithoutValidation())
+
+srv.Handle("getStatus", statusHandler)
+
+result := srv.MustBuildServer()
+```
+
+**Configuration Options:**
+
+| Option | Description |
+|--------|-------------|
+| `WithoutValidation()` | Disable request validation |
+| `WithValidationConfig(cfg)` | Configure validation behavior |
+| `WithRecovery()` | Enable panic recovery middleware |
+| `WithRequestLogger(fn)` | Add request logging |
+| `WithErrorHandler(fn)` | Custom error handler |
+| `WithNotFoundHandler(h)` | Custom 404 handler |
+| `WithMethodNotAllowedHandler(h)` | Custom 405 handler |
+
 [↑ Back to top](#top)
 
 ## Configuration Reference
@@ -977,3 +1208,5 @@ For additional examples and complete API documentation:
 - 📤 [File upload example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-WithFileUpload) - Multipart file uploads
 - 📝 [Form parameters example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-WithFormParameters) - Form data handling
 - 🔒 [Parameter constraints example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-WithParameterConstraints) - Validation rules
+- 🖥️ [ServerBuilder example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-ServerBuilder) - Building HTTP servers
+- 🧪 [Server testing example](https://pkg.go.dev/github.com/erraggy/oastools/builder#example-package-ServerBuilderTesting) - Testing server handlers
