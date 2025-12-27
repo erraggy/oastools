@@ -1,0 +1,27 @@
+openapi: "3.0.3"
+info:
+  title: Quickstart API
+  version: "1.0.0"
+  description: A minimal API for learning oastools
+paths:
+  /hello:
+    get:
+      operationId: sayHello
+      summary: Returns a greeting
+      responses:
+        "200":
+          description: A greeting message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Greeting"
+components:
+  schemas:
+    Greeting:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: The greeting message
