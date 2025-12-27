@@ -38,8 +38,7 @@ HTTP Validation Workflow
 [3/6] Validating GET /todos?status=invalid...
       Valid: false
       Matched Path: /todos
-      Errors (1):
-        - [query.status] validation failed
+      Errors: 1 validation issue(s) found
 
 [4/6] Validating POST /todos with valid body...
       Valid: true

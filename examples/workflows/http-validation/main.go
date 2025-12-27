@@ -121,25 +121,19 @@ func main() {
 }
 
 // printRequestResult displays validation results.
-// Note: In production code, you can safely log e.Message because httpvalidator
-// automatically redacts values from sensitive parameters (headers, cookies).
-// This example only prints paths to satisfy static analysis tools.
+// Note: In production code, you can safely log both e.Path and e.Message
+// because httpvalidator redacts sensitive values from header/cookie errors.
+// This example uses minimal output to satisfy static analysis tools.
 func printRequestResult(r *httpvalidator.RequestValidationResult) {
 	fmt.Printf("      Valid: %t\n", r.Valid)
 	if r.MatchedPath != "" {
 		fmt.Printf("      Matched Path: %s\n", r.MatchedPath)
 	}
 	if len(r.Errors) > 0 {
-		fmt.Printf("      Errors (%d):\n", len(r.Errors))
-		for _, e := range r.Errors {
-			path := e.Path
-			if path == "" {
-				path = "(request)"
-			}
-			// In production, e.Message is safe to log - httpvalidator redacts
-			// sensitive values at source. See README for details.
-			fmt.Printf("        - [%s] validation failed\n", path)
-		}
+		// Just print the count - static analyzers flag any data from
+		// HTTP request validation, even non-sensitive header names.
+		// In production, you can safely log e.Path and e.Message.
+		fmt.Printf("      Errors: %d validation issue(s) found\n", len(r.Errors))
 	}
 }
 
