@@ -722,7 +722,7 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 	// Check for duplicate operation ID
 	if cfg.operationID != "" {
 		if b.operationIDs[cfg.operationID] {
-			b.errors = append(b.errors, fmt.Errorf("duplicate operation ID: %s", cfg.operationID))
+			b.errors = append(b.errors, fmt.Errorf("builder: duplicate operation ID: %s", cfg.operationID))
 		}
 		b.operationIDs[cfg.operationID] = true
 	}
@@ -952,16 +952,16 @@ func (b *Builder) setOperation(pathItem *parser.PathItem, method string, op *par
 		if b.version >= parser.OASVersion300 {
 			pathItem.Trace = op
 		} else {
-			b.errors = append(b.errors, fmt.Errorf("TRACE method is only supported in OAS 3.0+"))
+			b.errors = append(b.errors, fmt.Errorf("builder: TRACE method is only supported in OAS 3.0+"))
 		}
 	case httputil.MethodQuery, "QUERY":
 		if b.version >= parser.OASVersion320 {
 			pathItem.Query = op
 		} else {
-			b.errors = append(b.errors, fmt.Errorf("QUERY method is only supported in OAS 3.2.0+"))
+			b.errors = append(b.errors, fmt.Errorf("builder: QUERY method is only supported in OAS 3.2.0+"))
 		}
 	default:
-		b.errors = append(b.errors, fmt.Errorf("unsupported HTTP method: %s", method))
+		b.errors = append(b.errors, fmt.Errorf("builder: unsupported HTTP method: %s", method))
 	}
 }
 

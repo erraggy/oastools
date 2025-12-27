@@ -11,11 +11,11 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 [![Go Reference](https://pkg.go.dev/badge/github.com/erraggy/oastools.svg)](https://pkg.go.dev/github.com/erraggy/oastools)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Parse, validate, fix, convert, diff, join, generate, and build OpenAPI specs (2.0-3.2.0) with zero runtime dependencies beyond YAML for parsing and x/tools for generating.**
+**Parse, validate, fix, convert, diff, join, generate, and build OpenAPI specs (2.0-3.2.0) with zero runtime dependencies beyond YAML for parsing, x/tools for generating, and x/text for title casing.**
 
 ## Highlights
 
-- **Minimal Dependencies** - Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4) and [`golang.org/x/tools`](https://pkg.go.dev/golang.org/x/tools) at runtime
+- **Minimal Dependencies** - Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4), [`golang.org/x/tools`](https://pkg.go.dev/golang.org/x/tools), and [`golang.org/x/text`](https://pkg.go.dev/golang.org/x/text) at runtime
 - **Battle-Tested** - 4600+ tests against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
 - **Complete Toolset** - 11 packages covering the full OpenAPI lifecycle
 - **Performance Optimized** - 240+ benchmarks; pre-parsed workflows 9-150x faster
