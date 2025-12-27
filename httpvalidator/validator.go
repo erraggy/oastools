@@ -33,6 +33,10 @@ type Validator struct {
 	// schemaValidator handles JSON Schema validation of data
 	schemaValidator *SchemaValidator
 
+	// sensitiveSchemaValidator handles validation of potentially sensitive data
+	// (headers, cookies) with value redaction in error messages
+	sensitiveSchemaValidator *SchemaValidator
+
 	// IncludeWarnings determines whether to include best practice warnings
 	// in validation results. Default is true.
 	IncludeWarnings bool
@@ -54,10 +58,11 @@ func New(parsed *parser.ParseResult) (*Validator, error) {
 	}
 
 	v := &Validator{
-		parsed:          parsed,
-		schemaValidator: NewSchemaValidator(),
-		IncludeWarnings: true,
-		StrictMode:      false,
+		parsed:                   parsed,
+		schemaValidator:          NewSchemaValidator(),
+		sensitiveSchemaValidator: NewRedactingSchemaValidator(),
+		IncludeWarnings:          true,
+		StrictMode:               false,
 	}
 
 	// Pre-compile all path matchers

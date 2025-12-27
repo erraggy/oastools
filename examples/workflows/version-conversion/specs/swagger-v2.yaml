@@ -1,0 +1,111 @@
+swagger: "2.0"
+info:
+  title: Legacy User API
+  version: "1.0.0"
+  description: A Swagger 2.0 API to convert to OpenAPI 3.x
+host: api.example.com
+basePath: /v1
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+securityDefinitions:
+  api_key:
+    type: apiKey
+    name: X-API-Key
+    in: header
+  oauth2:
+    type: oauth2
+    flow: accessCode
+    authorizationUrl: https://auth.example.com/authorize
+    tokenUrl: https://auth.example.com/token
+    scopes:
+      read:users: Read user data
+      write:users: Modify user data
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      summary: List all users
+      security:
+        - api_key: []
+      parameters:
+        - name: limit
+          in: query
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        - name: status
+          in: query
+          type: string
+          enum: [active, inactive, pending]
+      responses:
+        200:
+          description: User list
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/User"
+    post:
+      operationId: createUser
+      summary: Create a user
+      security:
+        - oauth2: [write:users]
+      consumes:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/CreateUserRequest"
+      responses:
+        201:
+          description: User created
+          schema:
+            $ref: "#/definitions/User"
+  /users/{userId}:
+    get:
+      operationId: getUser
+      summary: Get user by ID
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          type: integer
+          format: int64
+      responses:
+        200:
+          description: User details
+          schema:
+            $ref: "#/definitions/User"
+        404:
+          description: User not found
+definitions:
+  User:
+    type: object
+    required: [id, email]
+    properties:
+      id:
+        type: integer
+        format: int64
+      email:
+        type: string
+        format: email
+      name:
+        type: string
+      status:
+        type: string
+        enum: [active, inactive, pending]
+  CreateUserRequest:
+    type: object
+    required: [email]
+    properties:
+      email:
+        type: string
+        format: email
+      name:
+        type: string

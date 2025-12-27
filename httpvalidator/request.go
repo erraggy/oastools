@@ -193,9 +193,10 @@ func (v *Validator) validateHeaderParams(req *http.Request, pathTemplate string,
 		deserializedValue := deserializer.DeserializeHeaderParam(value, param)
 		result.HeaderParams[param.Name] = deserializedValue
 
-		// Validate against schema
+		// Validate against schema using redacting validator to prevent
+		// credential leakage in error messages (headers may contain Authorization, etc.)
 		if param.Schema != nil {
-			errors := v.schemaValidator.Validate(deserializedValue, param.Schema, fmt.Sprintf("header.%s", param.Name))
+			errors := v.sensitiveSchemaValidator.Validate(deserializedValue, param.Schema, fmt.Sprintf("header.%s", param.Name))
 			for _, err := range errors {
 				result.addError(err.Path, err.Message, err.Severity)
 			}
@@ -261,10 +262,11 @@ func (v *Validator) validateCookieParams(req *http.Request, pathTemplate string,
 		value := deserializer.DeserializeCookieParam(cookie.Value, param)
 		result.CookieParams[name] = value
 
-		// Validate against schema
+		// Validate against schema using redacting validator to prevent
+		// credential leakage in error messages (cookies may contain session tokens, etc.)
 		if param.Schema != nil {
-			errors := v.schemaValidator.Validate(value, param.Schema, fmt.Sprintf("cookie.%s", name))
-			for _, err := range errors {
+			errs := v.sensitiveSchemaValidator.Validate(value, param.Schema, fmt.Sprintf("cookie.%s", name))
+			for _, err := range errs {
 				result.addError(err.Path, err.Message, err.Severity)
 			}
 		}

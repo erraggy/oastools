@@ -1,0 +1,48 @@
+openapi: "3.0.3"
+info:
+  title: Tasks API
+  version: "1.0.0"
+  description: A task management API with fixable validation issues
+paths:
+  /tasks/{taskId}:
+    get:
+      operationId: getTask
+      summary: Get a task by ID
+      # Missing path parameter declaration - fixer will add it
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+  /projects/{projectId}/tasks/{taskId}:
+    get:
+      operationId: getProjectTask
+      summary: Get task within a project
+      # Missing two path parameters - fixer will add both
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+components:
+  schemas:
+    Task:
+      type: object
+      required: [id, title]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+    UnusedModel:
+      type: object
+      description: This schema is never referenced
+      properties:
+        orphan:
+          type: string

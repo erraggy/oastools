@@ -1,96 +1,151 @@
 # oastools Examples
 
-Working examples demonstrating oastools capabilities across parsing, validation, and code generation.
+Complete, runnable examples demonstrating the full oastools ecosystem across parsing, validation, transformation, and code generation.
 
 ## Quick Start
 
-| Time | Example | Description |
-|------|---------|-------------|
-| 2 min | [quickstart/](quickstart/) | Parse and validate a minimal spec |
-| 5 min | [validation-pipeline/](validation-pipeline/) | Complete validation with error reporting |
-| 10 min | [petstore/](petstore/) | Full code generation with multiple router variants |
+| Time | Category | Example | Description |
+|------|----------|---------|-------------|
+| 2 min | Getting Started | [quickstart/](quickstart/) | Parse and validate a minimal spec |
+| 5 min | Getting Started | [validation-pipeline/](validation-pipeline/) | Complete validation with error reporting |
+| 3 min | Workflows | [validate-and-fix/](workflows/validate-and-fix/) | Auto-fix common spec errors |
+| 3 min | Workflows | [version-conversion/](workflows/version-conversion/) | Convert OAS 2.0 → 3.0.3 |
+| 4 min | Workflows | [multi-api-merge/](workflows/multi-api-merge/) | Merge microservice specs |
+| 4 min | Workflows | [breaking-change-detection/](workflows/breaking-change-detection/) | CI/CD breaking change gates |
+| 3 min | Workflows | [overlay-transformations/](workflows/overlay-transformations/) | Environment-specific customizations |
+| 5 min | Workflows | [http-validation/](workflows/http-validation/) | Runtime request/response validation |
+| 5 min | Programmatic API | [builder/](programmatic-api/builder/) | Build specs from Go code + ServerBuilder |
+| 10 min | Code Generation | [petstore/](petstore/) | Full client/server generation |
 
-## Examples Overview
+## Examples by Category
 
-### [quickstart/](quickstart/)
+### Getting Started
 
-**Best for:** First-time users learning oastools
+Best for first-time users learning oastools.
 
-A minimal example with a 27-line OpenAPI 3.0.3 specification demonstrating the core parse → validate workflow in about 100 lines of Go code.
+| Example | Description |
+|---------|-------------|
+| [quickstart/](quickstart/) | 100-line example demonstrating parse → validate workflow |
+| [validation-pipeline/](validation-pipeline/) | Complete validation with source maps and severity classification |
 
-```bash
-cd examples/quickstart && go run main.go
-```
+### [Workflow Examples](workflows/)
 
-### [validation-pipeline/](validation-pipeline/)
+Common OpenAPI transformation patterns covering 6 packages.
 
-**Best for:** CI/CD integration and API governance
+| Example | Package | Description |
+|---------|---------|-------------|
+| [validate-and-fix/](workflows/validate-and-fix/) | fixer | Parse, validate, auto-fix common errors |
+| [version-conversion/](workflows/version-conversion/) | converter | Convert OAS 2.0 (Swagger) → OAS 3.0.3 |
+| [multi-api-merge/](workflows/multi-api-merge/) | joiner | Merge specs with collision resolution |
+| [breaking-change-detection/](workflows/breaking-change-detection/) | differ | Detect breaking changes between versions |
+| [overlay-transformations/](workflows/overlay-transformations/) | overlay | Apply JSONPath-based transformations |
+| [http-validation/](workflows/http-validation/) | httpvalidator | Runtime HTTP request/response validation |
 
-Demonstrates a complete validation pipeline with source map integration for line numbers, severity classification, and detailed error reporting.
+### [Programmatic API](programmatic-api/)
 
-```bash
-cd examples/validation-pipeline
-go run main.go ../petstore/spec/petstore-v2.json
-```
+Build OpenAPI specifications from Go code.
 
-### [petstore/](petstore/)
+| Example | Package | Description |
+|---------|---------|-------------|
+| [builder/](programmatic-api/builder/) | builder | Fluent API + ServerBuilder for runnable servers |
 
-**Best for:** Users interested in code generation
+### Code Generation
 
-Complete client and server generation from the Swagger Petstore API (OAS 2.0), including:
+Generate production-ready Go client and server code.
 
-| Variant | Router | Location |
-|---------|--------|----------|
-| stdlib | net/http | [petstore/stdlib/](petstore/stdlib/) |
-| chi | go-chi/chi | [petstore/chi/](petstore/chi/) |
-
-Both variants include OAuth2 flows, OIDC discovery, credential management, and security enforcement.
+| Example | Description |
+|---------|-------------|
+| [petstore/](petstore/) | Complete code generation with OAuth2, OIDC, chi router |
 
 ## Feature Matrix
 
-| Feature | quickstart | validation-pipeline | petstore |
-|---------|:----------:|:-------------------:|:--------:|
-| Parser API | ✓ | ✓ | |
-| Validator API | ✓ | ✓ | |
-| Source Maps | | ✓ | |
-| Code Generation | | | ✓ |
-| Client Generation | | | ✓ |
-| Server Generation | | | ✓ |
-| OAuth2 Flows | | | ✓ |
-| OIDC Discovery | | | ✓ |
-| Chi Router | | | ✓ |
+| Feature | quickstart | validation-pipeline | workflows | builder | petstore |
+|---------|:----------:|:-------------------:|:---------:|:-------:|:--------:|
+| Parser API | ✓ | ✓ | ✓ | ✓ | |
+| Validator API | ✓ | ✓ | ✓ | ✓ | |
+| Fixer API | | | ✓ | | |
+| Converter API | | | ✓ | | |
+| Joiner API | | | ✓ | | |
+| Differ API | | | ✓ | | |
+| Overlay API | | | ✓ | | |
+| HTTPValidator API | | | ✓ | | |
+| Builder API | | | | ✓ | |
+| ServerBuilder | | | | ✓ | |
+| Source Maps | | ✓ | | | |
+| Code Generation | | | | | ✓ |
+| Client Generation | | | | | ✓ |
+| Server Generation | | | | | ✓ |
+| OAuth2 Flows | | | | | ✓ |
+| OIDC Discovery | | | | | ✓ |
+
+**Package Coverage:** 10/10 packages demonstrated
 
 ## OAS Version Coverage
 
-| Version | Example |
-|---------|---------|
-| OAS 2.0 (Swagger) | petstore |
-| OAS 3.0.3 | quickstart |
-| Any version | validation-pipeline (accepts any OAS file as input) |
+| Version | Examples |
+|---------|----------|
+| OAS 2.0 (Swagger) | petstore, version-conversion |
+| OAS 3.0.x | quickstart, all workflows |
+| OAS 3.2.0 | builder |
+| Any version | validation-pipeline (accepts any OAS file) |
 
 ## Running Examples
 
 Each example is a standalone Go module. To run any example:
 
 ```bash
-cd examples/<example-name>
+cd examples/<category>/<example-name>
 go run main.go
 ```
 
 Or build and run:
 
 ```bash
-cd examples/<example-name>
+cd examples/<category>/<example-name>
 go build -o example .
 ./example
+```
+
+## Common Patterns
+
+### Parse-Once Optimization
+
+All workflow examples demonstrate the parse-once pattern:
+
+```go
+parsed, _ := parser.ParseWithOptions(parser.WithFilePath("spec.yaml"))
+
+// Reuse for multiple operations (9-154x faster)
+fixer.FixWithOptions(fixer.WithParsed(parsed))
+validator.ValidateWithOptions(validator.WithParsed(parsed))
+```
+
+### Functional Options
+
+All packages use the functional options pattern:
+
+```go
+result, err := converter.ConvertWithOptions(
+    converter.WithFilePath("swagger.yaml"),
+    converter.WithTargetVersion("3.0.3"),
+)
 ```
 
 ## Learn More
 
 - [CLI Reference](https://erraggy.github.io/oastools/cli-reference/)
-- [Parser Documentation](https://erraggy.github.io/oastools/packages/parser/)
-- [Validator Documentation](https://erraggy.github.io/oastools/packages/validator/)
-- [Generator Documentation](https://erraggy.github.io/oastools/packages/generator/)
+- [Developer Guide](https://erraggy.github.io/oastools/developer-guide/)
+- Package Documentation:
+  - [parser](https://erraggy.github.io/oastools/packages/parser/)
+  - [validator](https://erraggy.github.io/oastools/packages/validator/)
+  - [fixer](https://erraggy.github.io/oastools/packages/fixer/)
+  - [converter](https://erraggy.github.io/oastools/packages/converter/)
+  - [joiner](https://erraggy.github.io/oastools/packages/joiner/)
+  - [differ](https://erraggy.github.io/oastools/packages/differ/)
+  - [overlay](https://erraggy.github.io/oastools/packages/overlay/)
+  - [httpvalidator](https://erraggy.github.io/oastools/packages/httpvalidator/)
+  - [builder](https://erraggy.github.io/oastools/packages/builder/)
+  - [generator](https://erraggy.github.io/oastools/packages/generator/)
 
 ---
 

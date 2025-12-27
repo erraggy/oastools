@@ -55,6 +55,26 @@ nav:
     - Generator Features: generator_beyond_boilerplate.md
     - Breaking Changes: breaking-changes.md
     - Benchmarks: benchmarks.md
+  - Examples:
+    - Overview: examples/index.md
+    - Getting Started:
+      - Quickstart: examples/quickstart.md
+      - Validation Pipeline: examples/validation-pipeline.md
+    - Workflows:
+      - Overview: examples/workflows/index.md
+      - Validate and Fix: examples/workflows/validate-and-fix.md
+      - Version Conversion: examples/workflows/version-conversion.md
+      - Multi-API Merge: examples/workflows/multi-api-merge.md
+      - Breaking Change Detection: examples/workflows/breaking-change-detection.md
+      - Overlay Transformations: examples/workflows/overlay-transformations.md
+      - HTTP Validation: examples/workflows/http-validation.md
+    - Programmatic API:
+      - Overview: examples/programmatic-api/index.md
+      - Builder: examples/programmatic-api/builder.md
+    - Code Generation:
+      - Overview: examples/petstore/index.md
+      - Standard Library: examples/petstore/stdlib.md
+      - Chi Router: examples/petstore/chi.md
   - Package Deep Dives:
     - Parser: packages/parser.md
     - Validator: packages/validator.md
