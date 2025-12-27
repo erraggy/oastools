@@ -23,7 +23,10 @@ func TestStdlibRouter_Build(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := router.Build(routes, dispatcher)
+	handler, err := router.Build(routes, dispatcher)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
 
 	tests := []struct {
 		name         string
@@ -62,7 +65,10 @@ func TestStdlibRouter_NotFound(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := router.Build(routes, dispatcher)
+	handler, err := router.Build(routes, dispatcher)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/unknown", nil)
@@ -91,7 +97,10 @@ func TestStdlibRouter_CustomNotFoundHandler(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := router.Build(routes, dispatcher)
+	handler, err := router.Build(routes, dispatcher)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/unknown", nil)
@@ -120,7 +129,10 @@ func TestStdlibRouter_PathParam(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := router.Build(routes, dispatcher)
+	handler, err := router.Build(routes, dispatcher)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/pets/123", nil)
@@ -147,7 +159,10 @@ func TestStdlibRouter_MultiplePathParams(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := router.Build(routes, dispatcher)
+	handler, err := router.Build(routes, dispatcher)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/users/42/pets/99", nil)
@@ -176,7 +191,10 @@ func TestStdlibRouter_PathParamNotFound(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := router.Build(routes, dispatcher)
+	handler, err := router.Build(routes, dispatcher)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/pets/123", nil)
@@ -202,7 +220,10 @@ func TestPathParam(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := router.Build(routes, dispatcher)
+	handler, err := router.Build(routes, dispatcher)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/pets/abc", nil)
@@ -228,7 +249,10 @@ func TestMatchedPath(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := router.Build(routes, dispatcher)
+	handler, err := router.Build(routes, dispatcher)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/pets/123", nil)
@@ -279,7 +303,10 @@ func TestStdlibRouter_DuplicatePaths(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := router.Build(routes, dispatcher)
+	handler, err := router.Build(routes, dispatcher)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
 
 	// Test that path matching still works
 	rec := httptest.NewRecorder()
@@ -302,7 +329,10 @@ func TestStdlibRouter_EmptyRoutes(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := router.Build(routes, dispatcher)
+	handler, err := router.Build(routes, dispatcher)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/anything", nil)

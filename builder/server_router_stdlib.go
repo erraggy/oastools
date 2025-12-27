@@ -2,6 +2,7 @@ package builder
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/erraggy/oastools/httpvalidator"
@@ -10,12 +11,12 @@ import (
 // stdlibRouter implements RouterStrategy using net/http and PathMatcherSet.
 // This is the default router that adds no dependencies.
 type stdlibRouter struct {
-	notFound         http.Handler
-	methodNotAllowed http.Handler
+	notFound http.Handler
 }
 
 // Build creates an http.Handler that routes requests using PathMatcherSet.
-func (r *stdlibRouter) Build(routes []operationRoute, dispatcher http.Handler) http.Handler {
+// Returns an error if the path patterns cannot be compiled (e.g., invalid path syntax).
+func (r *stdlibRouter) Build(routes []operationRoute, dispatcher http.Handler) (http.Handler, error) {
 	// Build PathMatcherSet from routes
 	patterns := make([]string, 0, len(routes))
 	seen := make(map[string]bool)
@@ -28,13 +29,10 @@ func (r *stdlibRouter) Build(routes []operationRoute, dispatcher http.Handler) h
 
 	matcher, err := httpvalidator.NewPathMatcherSet(patterns)
 	if err != nil {
-		// If we can't create the matcher, return a handler that always 500s
-		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			http.Error(w, "failed to initialize path matcher", http.StatusInternalServerError)
-		})
+		return nil, fmt.Errorf("builder: failed to create path matcher: %w", err)
 	}
 
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// Match path
 		matched, params, found := matcher.Match(req.URL.Path)
 		if !found {
@@ -53,6 +51,8 @@ func (r *stdlibRouter) Build(routes []operationRoute, dispatcher http.Handler) h
 
 		dispatcher.ServeHTTP(w, req.WithContext(ctx))
 	})
+
+	return handler, nil
 }
 
 // PathParam extracts a path parameter from the request context.

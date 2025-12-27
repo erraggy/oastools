@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -48,8 +49,12 @@ func (r *TestRequest) Query(key, value string) *TestRequest {
 }
 
 // JSONBody sets a JSON request body.
+// Panics if the body cannot be marshaled to JSON, indicating a test setup error.
 func (r *TestRequest) JSONBody(body any) *TestRequest {
-	data, _ := json.Marshal(body)
+	data, err := json.Marshal(body)
+	if err != nil {
+		panic(fmt.Sprintf("builder: JSONBody failed to marshal body: %v", err))
+	}
 	r.body = bytes.NewReader(data)
 	r.headers.Set("Content-Type", "application/json")
 	return r
@@ -125,6 +130,7 @@ type ServerTest struct {
 }
 
 // NewServerTest creates a ServerTest from a ServerResult.
+// Panics if result is nil or result.Handler is nil, indicating a test setup error.
 //
 // Example:
 //
@@ -132,6 +138,12 @@ type ServerTest struct {
 //	test := builder.NewServerTest(result)
 //	rec := test.Execute(builder.NewTestRequest(http.MethodGet, "/pets"))
 func NewServerTest(result *ServerResult) *ServerTest {
+	if result == nil {
+		panic("builder: NewServerTest called with nil result")
+	}
+	if result.Handler == nil {
+		panic("builder: NewServerTest called with nil Handler in result")
+	}
 	return &ServerTest{Result: result}
 }
 

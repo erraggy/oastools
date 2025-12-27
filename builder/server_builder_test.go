@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -221,7 +222,7 @@ func TestServerBuilder_MustBuildServer_Panics(t *testing.T) {
 
 	// Create a builder with a config error
 	srv := NewServerBuilder(parser.OASVersion320)
-	srv.Builder.configError = http.ErrAbortHandler // Force an error
+	srv.configError = http.ErrAbortHandler // Force an error
 
 	_ = srv.MustBuildServer()
 }
@@ -682,4 +683,120 @@ func TestCapturedResponse(t *testing.T) {
 			t.Errorf("Expected body 'response body', got '%s'", rec.Body.String())
 		}
 	})
+}
+
+func TestRecoveryMiddleware_ErrorPanic(t *testing.T) {
+	t.Parallel()
+
+	srv := NewServerBuilder(parser.OASVersion320, WithoutValidation(), WithRecovery()).
+		SetTitle("Test API").
+		SetVersion("1.0.0")
+
+	srv.AddOperation(http.MethodGet, "/panic-error",
+		WithOperationID("panicError"),
+		WithResponse(http.StatusOK, struct{}{}),
+	)
+
+	// Test panic with error type
+	srv.Handle("panicError", func(_ context.Context, _ *Request) Response {
+		panic(fmt.Errorf("test error panic"))
+	})
+
+	result, err := srv.BuildServer()
+	if err != nil {
+		t.Fatalf("BuildServer failed: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/panic-error", nil)
+
+	// Should not panic - recovery middleware should catch it
+	result.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status 500 after error panic, got %d", rec.Code)
+	}
+}
+
+func TestRecoveryMiddleware_OtherTypePanic(t *testing.T) {
+	t.Parallel()
+
+	srv := NewServerBuilder(parser.OASVersion320, WithoutValidation(), WithRecovery()).
+		SetTitle("Test API").
+		SetVersion("1.0.0")
+
+	srv.AddOperation(http.MethodGet, "/panic-other",
+		WithOperationID("panicOther"),
+		WithResponse(http.StatusOK, struct{}{}),
+	)
+
+	// Test panic with non-string, non-error type (int)
+	srv.Handle("panicOther", func(_ context.Context, _ *Request) Response {
+		panic(42)
+	})
+
+	result, err := srv.BuildServer()
+	if err != nil {
+		t.Fatalf("BuildServer failed: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/panic-other", nil)
+
+	// Should not panic - recovery middleware should catch it
+	result.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status 500 after other-type panic, got %d", rec.Code)
+	}
+}
+
+func TestRecoveryMiddleware_WithCustomErrorHandler(t *testing.T) {
+	t.Parallel()
+
+	var capturedErr error
+	customErrorHandler := func(w http.ResponseWriter, _ *http.Request, err error) {
+		capturedErr = err
+		w.WriteHeader(http.StatusServiceUnavailable) // Custom status
+	}
+
+	srv := NewServerBuilder(parser.OASVersion320,
+		WithoutValidation(),
+		WithRecovery(),
+		WithErrorHandler(customErrorHandler),
+	).
+		SetTitle("Test API").
+		SetVersion("1.0.0")
+
+	srv.AddOperation(http.MethodGet, "/panic-custom",
+		WithOperationID("panicCustom"),
+		WithResponse(http.StatusOK, struct{}{}),
+	)
+
+	srv.Handle("panicCustom", func(_ context.Context, _ *Request) Response {
+		panic("custom error test")
+	})
+
+	result, err := srv.BuildServer()
+	if err != nil {
+		t.Fatalf("BuildServer failed: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/panic-custom", nil)
+
+	result.Handler.ServeHTTP(rec, req)
+
+	// Should use custom error handler's status code
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("Expected custom status 503, got %d", rec.Code)
+	}
+
+	// Verify error was captured
+	if capturedErr == nil {
+		t.Error("Expected error to be captured by custom error handler")
+	}
+	if capturedErr != nil && !strings.Contains(capturedErr.Error(), "builder: panic recovered") {
+		t.Errorf("Expected error to contain 'builder: panic recovered', got: %v", capturedErr)
+	}
 }

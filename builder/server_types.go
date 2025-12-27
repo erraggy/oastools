@@ -80,10 +80,12 @@ type ServerResult struct {
 type Middleware func(http.Handler) http.Handler
 
 // RouterStrategy defines how paths are matched to handlers.
-// The stdlib router and chi router both implement this interface.
+// The stdlib router implements this interface. Additional router implementations
+// (e.g., chi, gorilla/mux) can implement this interface for custom routing.
 type RouterStrategy interface {
 	// Build creates an http.Handler that routes requests to the dispatcher.
-	Build(routes []operationRoute, dispatcher http.Handler) http.Handler
+	// Returns an error if the routes cannot be configured (e.g., invalid path patterns).
+	Build(routes []operationRoute, dispatcher http.Handler) (http.Handler, error)
 
 	// PathParam extracts a path parameter from the request context.
 	PathParam(r *http.Request, name string) string
@@ -131,14 +133,14 @@ func DefaultValidationConfig() ValidationConfig {
 
 // serverBuilderConfig holds configuration for the ServerBuilder.
 type serverBuilderConfig struct {
-	router               RouterStrategy
-	errorHandler         ErrorHandler
-	enableValidation     bool
-	validationConfig     ValidationConfig
-	notFoundHandler      http.Handler
-	methodNotAllowed     http.Handler
-	enableRecovery       bool
-	requestLogger        func(method, path string, status int, duration time.Duration)
+	router           RouterStrategy
+	errorHandler     ErrorHandler
+	enableValidation bool
+	validationConfig ValidationConfig
+	notFoundHandler  http.Handler
+	methodNotAllowed http.Handler
+	enableRecovery   bool
+	requestLogger    func(method, path string, status int, duration time.Duration)
 }
 
 // defaultServerBuilderConfig returns default server builder configuration.
@@ -152,6 +154,9 @@ func defaultServerBuilderConfig() serverBuilderConfig {
 }
 
 // defaultErrorHandler is the default error handler for the server.
-func defaultErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
-	http.Error(w, err.Error(), http.StatusInternalServerError)
+// Note: This handler intentionally does not expose internal error details to clients.
+// For debugging purposes, configure a custom error handler via WithErrorHandler that
+// logs the error internally while returning a safe message to clients.
+func defaultErrorHandler(w http.ResponseWriter, _ *http.Request, _ error) {
+	http.Error(w, "internal server error", http.StatusInternalServerError)
 }

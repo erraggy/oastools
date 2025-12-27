@@ -59,15 +59,21 @@ func validationResultFromContext(ctx context.Context) *httpvalidator.RequestVali
 }
 
 // writeValidationError writes a simple validation error response.
+// Note: Encoding errors are intentionally not returned since the response headers
+// and status have already been written. Any encoding failure would result in a
+// partial/empty body, but there's no recovery path available.
 func writeValidationError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{ //nolint:errcheck // Cannot recover after headers written
 		"error": message,
 	})
 }
 
 // writeValidationResult writes a detailed validation result response.
+// Note: Encoding errors are intentionally not returned since the response headers
+// and status have already been written. Any encoding failure would result in a
+// partial/empty body, but there's no recovery path available.
 func writeValidationResult(w http.ResponseWriter, result *httpvalidator.RequestValidationResult) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadRequest)
@@ -87,14 +93,14 @@ func writeValidationResult(w http.ResponseWriter, result *httpvalidator.RequestV
 
 	if len(result.Warnings) > 0 {
 		warnings := make([]map[string]string, 0, len(result.Warnings))
-		for _, w := range result.Warnings {
+		for _, warn := range result.Warnings {
 			warnings = append(warnings, map[string]string{
-				"path":    w.Path,
-				"message": w.Message,
+				"path":    warn.Path,
+				"message": warn.Message,
 			})
 		}
 		response["warnings"] = warnings
 	}
 
-	_ = json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response) //nolint:errcheck // Cannot recover after headers written
 }

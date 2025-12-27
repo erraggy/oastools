@@ -7,6 +7,13 @@ import (
 	"net/http"
 )
 
+// Content type constants.
+const (
+	contentTypeJSON = "application/json"
+	contentTypeXML  = "application/xml"
+	contentTypeText = "text/plain"
+)
+
 // jsonResponse implements Response for JSON bodies.
 type jsonResponse struct {
 	status  int
@@ -35,7 +42,7 @@ func (r *jsonResponse) WriteTo(w http.ResponseWriter) error {
 	for k, v := range r.headers {
 		w.Header()[k] = v
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", contentTypeJSON)
 	w.WriteHeader(r.status)
 
 	if r.body == nil {
@@ -103,7 +110,7 @@ func (r *errorResponse) Body() any {
 }
 
 func (r *errorResponse) WriteTo(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", contentTypeJSON)
 	w.WriteHeader(r.status)
 	return json.NewEncoder(w).Encode(r.Body())
 }
@@ -194,7 +201,7 @@ func (b *ResponseBuilder) Header(key, value string) *ResponseBuilder {
 // JSON sets a JSON body.
 func (b *ResponseBuilder) JSON(body any) Response {
 	b.body = body
-	b.contentType = "application/json"
+	b.contentType = contentTypeJSON
 	b.encoder = func(w io.Writer, v any) error {
 		return json.NewEncoder(w).Encode(v)
 	}
@@ -204,7 +211,7 @@ func (b *ResponseBuilder) JSON(body any) Response {
 // XML sets an XML body.
 func (b *ResponseBuilder) XML(body any) Response {
 	b.body = body
-	b.contentType = "application/xml"
+	b.contentType = contentTypeXML
 	b.encoder = func(w io.Writer, v any) error {
 		return xml.NewEncoder(w).Encode(v)
 	}
@@ -214,7 +221,7 @@ func (b *ResponseBuilder) XML(body any) Response {
 // Text sets a plain text body.
 func (b *ResponseBuilder) Text(body string) Response {
 	b.body = body
-	b.contentType = "text/plain"
+	b.contentType = contentTypeText
 	b.encoder = func(w io.Writer, v any) error {
 		_, err := w.Write([]byte(v.(string)))
 		return err

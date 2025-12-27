@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -79,6 +80,62 @@ func FromBuilder(b *Builder, opts ...ServerBuilderOption) *ServerBuilder {
 	}
 }
 
+// SetTitle sets the API title. Overrides Builder.SetTitle to maintain fluent chaining.
+func (s *ServerBuilder) SetTitle(title string) *ServerBuilder {
+	s.Builder.SetTitle(title)
+	return s
+}
+
+// SetVersion sets the API version. Overrides Builder.SetVersion to maintain fluent chaining.
+func (s *ServerBuilder) SetVersion(version string) *ServerBuilder {
+	s.Builder.SetVersion(version)
+	return s
+}
+
+// SetDescription sets the API description. Overrides Builder.SetDescription to maintain fluent chaining.
+func (s *ServerBuilder) SetDescription(desc string) *ServerBuilder {
+	s.Builder.SetDescription(desc)
+	return s
+}
+
+// AddServer adds a server definition. Overrides Builder.AddServer to maintain fluent chaining.
+func (s *ServerBuilder) AddServer(url string, opts ...ServerOption) *ServerBuilder {
+	s.Builder.AddServer(url, opts...)
+	return s
+}
+
+// AddOperation adds an operation and returns the ServerBuilder for chaining.
+// Overrides Builder.AddOperation to maintain fluent chaining with Handle.
+//
+// Example:
+//
+//	srv.AddOperation(http.MethodGet, "/pets",
+//		builder.WithOperationID("listPets"),
+//		builder.WithResponse(http.StatusOK, []Pet{}),
+//	).Handle("listPets", listPetsHandler)
+func (s *ServerBuilder) AddOperation(method, path string, opts ...OperationOption) *ServerBuilder {
+	s.Builder.AddOperation(method, path, opts...)
+	return s
+}
+
+// AddTag adds a tag definition. Overrides Builder.AddTag to maintain fluent chaining.
+func (s *ServerBuilder) AddTag(name string, opts ...TagOption) *ServerBuilder {
+	s.Builder.AddTag(name, opts...)
+	return s
+}
+
+// AddSecurityScheme adds a security scheme. Overrides Builder.AddSecurityScheme to maintain fluent chaining.
+func (s *ServerBuilder) AddSecurityScheme(name string, scheme *parser.SecurityScheme) *ServerBuilder {
+	s.Builder.AddSecurityScheme(name, scheme)
+	return s
+}
+
+// SetSecurity sets global security requirements. Overrides Builder.SetSecurity to maintain fluent chaining.
+func (s *ServerBuilder) SetSecurity(requirements ...parser.SecurityRequirement) *ServerBuilder {
+	s.Builder.SetSecurity(requirements...)
+	return s
+}
+
 // Handle registers a handler for an operation by operationID.
 // The operation must have been added via AddOperation with an operationID.
 //
@@ -121,7 +178,8 @@ func (s *ServerBuilder) HandleFunc(operationID string, handler http.HandlerFunc)
 }
 
 // Use adds middleware to the server.
-// Middleware is applied in order: first added = outermost.
+// Middleware is applied in order: first added = outermost (executes first on request).
+// For example, Use(A, B) results in: A(B(handler)), so A runs first.
 //
 // Example:
 //
@@ -134,7 +192,10 @@ func (s *ServerBuilder) Use(mw ...Middleware) *ServerBuilder {
 }
 
 // BuildServer constructs the http.Handler and related artifacts.
-// Returns an error if required handlers are missing or the spec is invalid.
+// Returns an error if the OAS document is invalid or the router cannot be configured.
+//
+// Operations without registered handlers will return 501 Not Implemented at runtime.
+// To enforce that all operations have handlers, check the handlers map before calling BuildServer.
 //
 // Example:
 //
@@ -151,10 +212,7 @@ func (s *ServerBuilder) BuildServer() (*ServerResult, error) {
 	}
 
 	// Create ParseResult for httpvalidator
-	parseResult, err := s.createParseResult(doc)
-	if err != nil {
-		return nil, fmt.Errorf("builder: failed to create parse result: %w", err)
-	}
+	parseResult := s.createParseResult(doc)
 
 	// Create validator if enabled
 	var validator *httpvalidator.Validator
@@ -166,16 +224,16 @@ func (s *ServerBuilder) BuildServer() (*ServerResult, error) {
 	}
 
 	// Build route table
-	routes, err := s.buildRoutes()
-	if err != nil {
-		return nil, fmt.Errorf("builder: failed to build routes: %w", err)
-	}
+	routes := s.buildRoutes()
 
 	// Create dispatcher
 	dispatcher := s.buildDispatcher(routes, validator)
 
 	// Build router
-	handler := s.router.Build(routes, dispatcher)
+	handler, err := s.router.Build(routes, dispatcher)
+	if err != nil {
+		return nil, fmt.Errorf("builder: failed to build router: %w", err)
+	}
 
 	// Add validation middleware if enabled
 	if s.config.enableValidation && validator != nil {
@@ -225,7 +283,7 @@ func (s *ServerBuilder) buildDocument() (any, error) {
 }
 
 // createParseResult creates a ParseResult for compatibility with httpvalidator.
-func (s *ServerBuilder) createParseResult(doc any) (*parser.ParseResult, error) {
+func (s *ServerBuilder) createParseResult(doc any) *parser.ParseResult {
 	return &parser.ParseResult{
 		SourcePath:   "builder",
 		SourceFormat: parser.SourceFormatYAML,
@@ -234,18 +292,18 @@ func (s *ServerBuilder) createParseResult(doc any) (*parser.ParseResult, error) 
 		Document:     doc,
 		Errors:       make([]error, 0),
 		Warnings:     make([]string, 0),
-	}, nil
+	}
 }
 
 // buildRoutes builds the route table from the builder's path definitions.
-func (s *ServerBuilder) buildRoutes() ([]operationRoute, error) {
+func (s *ServerBuilder) buildRoutes() []operationRoute {
 	routes := make([]operationRoute, 0)
 
 	for path, pathItem := range s.paths {
 		routes = append(routes, s.routesFromPathItem(path, pathItem)...)
 	}
 
-	return routes, nil
+	return routes
 }
 
 // routesFromPathItem extracts routes from a PathItem.
@@ -350,16 +408,17 @@ func recoveryMiddleware(errorHandler ErrorHandler) Middleware {
 					var err error
 					switch v := rec.(type) {
 					case error:
-						err = v
+						err = fmt.Errorf("builder: panic recovered: %w", v)
 					case string:
-						err = fmt.Errorf("%s", v)
+						err = fmt.Errorf("builder: panic recovered: %s", v)
 					default:
-						err = fmt.Errorf("panic: %v", v)
+						err = fmt.Errorf("builder: panic recovered: %v", v)
 					}
 					if errorHandler != nil {
 						errorHandler(w, r, err)
 					} else {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
+						// Don't expose internal error details to clients
+						http.Error(w, "internal server error", http.StatusInternalServerError)
 					}
 				}
 			}()

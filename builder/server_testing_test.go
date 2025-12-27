@@ -319,7 +319,7 @@ func TestServerTest_GetJSON_NonSuccessStatus(t *testing.T) {
 	}
 
 	// Target should not be populated on error status
-	if target != nil && len(target) > 0 {
+	if len(target) > 0 {
 		t.Error("Target should not be populated on error status")
 	}
 }

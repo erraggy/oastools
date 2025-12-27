@@ -19,6 +19,7 @@ type dispatcher struct {
 }
 
 // buildDispatcher creates the dispatcher that routes requests to handlers.
+// The validator parameter is reserved for future response validation integration.
 func (s *ServerBuilder) buildDispatcher(routes []operationRoute, _ *httpvalidator.Validator) http.Handler {
 	d := &dispatcher{
 		routes:       make(map[string]map[string]operationRoute),
@@ -75,8 +76,10 @@ func (s *ServerBuilder) buildDispatcher(routes []operationRoute, _ *httpvalidato
 		// Write response
 		if err := resp.WriteTo(w); err != nil {
 			if d.errorHandler != nil {
-				d.errorHandler(w, r, err)
+				d.errorHandler(w, r, fmt.Errorf("builder: failed to write response: %w", err))
 			}
+			// When error handler is nil or doesn't write a response,
+			// there's nothing more we can do - the response may be partially written
 		}
 	})
 }
@@ -119,14 +122,24 @@ func (d *dispatcher) buildRequest(r *http.Request, route operationRoute) *Reques
 	}
 
 	// Read and unmarshal body if present
-	if r.Body != nil && r.ContentLength > 0 {
+	// Note: We check for ContentLength != 0 to handle chunked encoding (ContentLength == -1)
+	if r.Body != nil && r.ContentLength != 0 {
 		body, err := io.ReadAll(r.Body)
-		if err == nil {
+		if err != nil {
+			// Store the error for handlers that want to check it
+			// The handler can inspect RawBody == nil to detect read failure
+			req.RawBody = nil
+			req.Body = nil
+		} else {
 			req.RawBody = body
-			// Attempt JSON unmarshal
-			var parsed any
-			if json.Unmarshal(body, &parsed) == nil {
-				req.Body = parsed
+			// Attempt JSON unmarshal if content type suggests JSON
+			contentType := r.Header.Get("Content-Type")
+			if len(body) > 0 && (contentType == "" || strings.Contains(contentType, "json")) {
+				var parsed any
+				if json.Unmarshal(body, &parsed) == nil {
+					req.Body = parsed
+				}
+				// If unmarshal fails, Body remains nil but RawBody has the bytes
 			}
 		}
 	}
