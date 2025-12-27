@@ -215,7 +215,7 @@ func TestOAS2ServerBuilder_EndToEnd(t *testing.T) {
 		WithOperationID("listPets"),
 		WithResponse(http.StatusOK, []Pet{}),
 	)
-	srv.Handle("listPets", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *Request) Response {
 		result := make([]Pet, 0, len(pets))
 		for _, p := range pets {
 			result = append(result, *p)
@@ -232,7 +232,7 @@ func TestOAS2ServerBuilder_EndToEnd(t *testing.T) {
 			Error string `json:"error"`
 		}{}),
 	)
-	srv.Handle("getPet", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodGet, "/pets/{petId}", func(_ context.Context, req *Request) Response {
 		petIDStr := req.PathParams["petId"]
 		var petID int64
 		switch v := petIDStr.(type) {
@@ -266,7 +266,7 @@ func TestOAS2ServerBuilder_EndToEnd(t *testing.T) {
 		WithRequestBody("application/json", Pet{}),
 		WithResponse(http.StatusCreated, Pet{}),
 	)
-	srv.Handle("createPet", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodPost, "/pets", func(_ context.Context, req *Request) Response {
 		var newPet Pet
 		if bodyMap, ok := req.Body.(map[string]any); ok {
 			if name, ok := bodyMap["name"].(string); ok {

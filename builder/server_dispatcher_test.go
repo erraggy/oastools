@@ -32,12 +32,12 @@ func TestDispatcher_RouteToCorrectHandler(t *testing.T) {
 
 	var listCalled, createCalled bool
 
-	srv.Handle("listPets", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *Request) Response {
 		listCalled = true
 		return JSON(http.StatusOK, []string{"pet1"})
 	})
 
-	srv.Handle("createPet", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodPost, "/pets", func(_ context.Context, _ *Request) Response {
 		createCalled = true
 		return JSON(http.StatusCreated, map[string]string{"id": "1"})
 	})
@@ -90,7 +90,7 @@ func TestDispatcher_PathParamsExtracted(t *testing.T) {
 
 	var capturedUserId, capturedPetId string
 
-	srv.Handle("getUserPet", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodGet, "/users/{userId}/pets/{petId}", func(_ context.Context, req *Request) Response {
 		capturedUserId, _ = req.PathParams["userId"].(string)
 		capturedPetId, _ = req.PathParams["petId"].(string)
 		return JSON(http.StatusOK, nil)
@@ -127,7 +127,7 @@ func TestDispatcher_QueryParamsExtracted(t *testing.T) {
 	var capturedQ string
 	var capturedPage any
 
-	srv.Handle("search", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodGet, "/search", func(_ context.Context, req *Request) Response {
 		capturedQ, _ = req.QueryParams["q"].(string)
 		capturedPage = req.QueryParams["page"]
 		return JSON(http.StatusOK, nil)
@@ -163,7 +163,7 @@ func TestDispatcher_RequestBodyParsed(t *testing.T) {
 	var capturedBody any
 	var capturedRawBody []byte
 
-	srv.Handle("postData", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodPost, "/data", func(_ context.Context, req *Request) Response {
 		capturedBody = req.Body
 		capturedRawBody = req.RawBody
 		return JSON(http.StatusOK, nil)
@@ -205,7 +205,7 @@ func TestDispatcher_MethodNotAllowed(t *testing.T) {
 		WithResponse(http.StatusOK, []string{}),
 	)
 
-	srv.Handle("listPets", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusOK, nil)
 	})
 
@@ -264,7 +264,7 @@ func TestDispatcher_OperationIDInRequest(t *testing.T) {
 
 	var capturedOperationID string
 
-	srv.Handle("myOperation", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodGet, "/test", func(_ context.Context, req *Request) Response {
 		capturedOperationID = req.OperationID
 		return JSON(http.StatusOK, nil)
 	})
@@ -295,7 +295,7 @@ func TestDispatcher_MatchedPathInRequest(t *testing.T) {
 
 	var capturedMatchedPath string
 
-	srv.Handle("getPet", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodGet, "/pets/{petId}", func(_ context.Context, req *Request) Response {
 		capturedMatchedPath = req.MatchedPath
 		return JSON(http.StatusOK, nil)
 	})
@@ -385,7 +385,7 @@ func TestDispatcher_ErrorHandler(t *testing.T) {
 		WithResponse(http.StatusOK, struct{}{}),
 	)
 
-	srv.Handle("test", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/test", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusOK, nil)
 	})
 
@@ -415,7 +415,7 @@ func TestDispatcher_HTTPRequestAccessible(t *testing.T) {
 
 	var capturedHTTPRequest *http.Request
 
-	srv.Handle("test", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodGet, "/test", func(_ context.Context, req *Request) Response {
 		capturedHTTPRequest = req.HTTPRequest
 		return JSON(http.StatusOK, nil)
 	})
@@ -458,13 +458,13 @@ func TestDispatcher_AllowedMethodsForMultipleMethods(t *testing.T) {
 		WithResponse(http.StatusOK, struct{}{}),
 	)
 
-	srv.Handle("getResource", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/resource", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusOK, nil)
 	})
-	srv.Handle("createResource", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodPost, "/resource", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusCreated, nil)
 	})
-	srv.Handle("updateResource", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodPut, "/resource", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusOK, nil)
 	})
 
@@ -500,7 +500,7 @@ func TestDispatcher_EmptyBody(t *testing.T) {
 	var capturedBody any
 	var capturedRawBody []byte
 
-	srv.Handle("postEmpty", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodPost, "/empty", func(_ context.Context, req *Request) Response {
 		capturedBody = req.Body
 		capturedRawBody = req.RawBody
 		return JSON(http.StatusOK, nil)
@@ -535,7 +535,7 @@ func TestDispatcher_NonJSONBody(t *testing.T) {
 	var capturedBody any
 	var capturedRawBody []byte
 
-	srv.Handle("postText", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodPost, "/text", func(_ context.Context, req *Request) Response {
 		capturedBody = req.Body
 		capturedRawBody = req.RawBody
 		return JSON(http.StatusOK, nil)
@@ -573,7 +573,7 @@ func TestDispatcher_ContextPropagation(t *testing.T) {
 
 	var capturedCtx context.Context
 
-	srv.Handle("testCtx", func(ctx context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/ctx", func(ctx context.Context, _ *Request) Response {
 		capturedCtx = ctx
 		return JSON(http.StatusOK, nil)
 	})
@@ -601,7 +601,7 @@ func TestDispatcher_ResponseJSON(t *testing.T) {
 		WithResponse(http.StatusOK, struct{}{}),
 	)
 
-	srv.Handle("getJSON", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/json", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusOK, map[string]string{"message": "hello"})
 	})
 

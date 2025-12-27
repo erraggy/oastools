@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"sync"
 
@@ -18,7 +19,7 @@ import (
 type ServerBuilder struct {
 	*Builder
 	mu           sync.RWMutex
-	handlers     map[string]HandlerFunc
+	handlers     map[string]map[string]HandlerFunc // path -> method -> handler
 	middleware   []Middleware
 	router       RouterStrategy
 	errorHandler ErrorHandler
@@ -35,9 +36,9 @@ type ServerBuilder struct {
 //		SetVersion("1.0.0")
 //
 //	srv.AddOperation(http.MethodGet, "/pets",
-//		builder.WithOperationID("listPets"),
+//		builder.WithHandler(listPetsHandler),
 //		builder.WithResponse(http.StatusOK, []Pet{}),
-//	).Handle("listPets", listPetsHandler)
+//	)
 //
 //	result, err := srv.BuildServer()
 func NewServerBuilder(version parser.OASVersion, opts ...ServerBuilderOption) *ServerBuilder {
@@ -48,7 +49,7 @@ func NewServerBuilder(version parser.OASVersion, opts ...ServerBuilderOption) *S
 
 	return &ServerBuilder{
 		Builder:      New(version),
-		handlers:     make(map[string]HandlerFunc),
+		handlers:     make(map[string]map[string]HandlerFunc),
 		middleware:   make([]Middleware, 0),
 		router:       cfg.router,
 		errorHandler: cfg.errorHandler,
@@ -63,7 +64,7 @@ func NewServerBuilder(version parser.OASVersion, opts ...ServerBuilderOption) *S
 //
 //	b := builder.New(parser.OASVersion320).SetTitle("My API")
 //	srv := builder.FromBuilder(b)
-//	srv.Handle("listUsers", listUsersHandler)
+//	srv.Handle(http.MethodGet, "/users", listUsersHandler)
 func FromBuilder(b *Builder, opts ...ServerBuilderOption) *ServerBuilder {
 	cfg := defaultServerBuilderConfig()
 	for _, opt := range opts {
@@ -72,7 +73,7 @@ func FromBuilder(b *Builder, opts ...ServerBuilderOption) *ServerBuilder {
 
 	return &ServerBuilder{
 		Builder:      b,
-		handlers:     make(map[string]HandlerFunc),
+		handlers:     make(map[string]map[string]HandlerFunc),
 		middleware:   make([]Middleware, 0),
 		router:       cfg.router,
 		errorHandler: cfg.errorHandler,
@@ -105,17 +106,42 @@ func (s *ServerBuilder) AddServer(url string, opts ...ServerOption) *ServerBuild
 }
 
 // AddOperation adds an operation and returns the ServerBuilder for chaining.
-// Overrides Builder.AddOperation to maintain fluent chaining with Handle.
+// Overrides Builder.AddOperation to support inline handler registration via WithHandler.
 //
 // Example:
 //
 //	srv.AddOperation(http.MethodGet, "/pets",
-//		builder.WithOperationID("listPets"),
+//		builder.WithHandler(listPetsHandler),
 //		builder.WithResponse(http.StatusOK, []Pet{}),
-//	).Handle("listPets", listPetsHandler)
+//	)
 func (s *ServerBuilder) AddOperation(method, path string, opts ...OperationOption) *ServerBuilder {
+	// Extract handler from options before passing to Builder
+	// Initialize responses map since WithResponse writes directly to it
+	cfg := &operationConfig{
+		responses: make(map[string]*responseBuilder),
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	// Register handler if provided (keyed by method+path)
+	if cfg.handler != nil {
+		s.registerHandler(method, path, cfg.handler)
+	}
+
+	// Call parent to build the operation
 	s.Builder.AddOperation(method, path, opts...)
 	return s
+}
+
+// registerHandler stores a handler for the given method and path.
+func (s *ServerBuilder) registerHandler(method, path string, handler HandlerFunc) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.handlers[path] == nil {
+		s.handlers[path] = make(map[string]HandlerFunc)
+	}
+	s.handlers[path][method] = handler
 }
 
 // AddTag adds a tag definition. Overrides Builder.AddTag to maintain fluent chaining.
@@ -136,22 +162,17 @@ func (s *ServerBuilder) SetSecurity(requirements ...parser.SecurityRequirement) 
 	return s
 }
 
-// Handle registers a handler for an operation by operationID.
-// The operation must have been added via AddOperation with an operationID.
+// Handle registers a handler for an operation by method and path.
+// This is an alternative to using WithHandler in AddOperation, useful for
+// dynamic handler registration or when the handler isn't known at definition time.
 //
 // Example:
 //
-//	srv.AddOperation(http.MethodGet, "/pets",
-//		builder.WithOperationID("listPets"),
-//		builder.WithResponse(http.StatusOK, []Pet{}),
-//	)
-//	srv.Handle("listPets", func(ctx context.Context, req *builder.Request) builder.Response {
+//	srv.Handle(http.MethodGet, "/pets", func(ctx context.Context, req *builder.Request) builder.Response {
 //		return builder.JSON(http.StatusOK, pets)
 //	})
-func (s *ServerBuilder) Handle(operationID string, handler HandlerFunc) *ServerBuilder {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.handlers[operationID] = handler
+func (s *ServerBuilder) Handle(method, path string, handler HandlerFunc) *ServerBuilder {
+	s.registerHandler(method, path, handler)
 	return s
 }
 
@@ -160,13 +181,17 @@ func (s *ServerBuilder) Handle(operationID string, handler HandlerFunc) *ServerB
 //
 // Example:
 //
-//	srv.HandleFunc("healthCheck", func(w http.ResponseWriter, r *http.Request) {
+//	srv.HandleFunc(http.MethodGet, "/health", func(w http.ResponseWriter, r *http.Request) {
 //		w.WriteHeader(http.StatusOK)
 //		w.Write([]byte("OK"))
 //	})
-func (s *ServerBuilder) HandleFunc(operationID string, handler http.HandlerFunc) *ServerBuilder {
-	return s.Handle(operationID, func(_ context.Context, req *Request) Response {
-		// Create a response recorder to capture the http.HandlerFunc output
+func (s *ServerBuilder) HandleFunc(method, path string, handler http.HandlerFunc) *ServerBuilder {
+	return s.Handle(method, path, wrapHTTPHandler(handler))
+}
+
+// wrapHTTPHandler converts an http.HandlerFunc to a HandlerFunc.
+func wrapHTTPHandler(handler http.HandlerFunc) HandlerFunc {
+	return func(_ context.Context, req *Request) Response {
 		rec := &responseCapture{header: make(http.Header)}
 		handler(rec, req.HTTPRequest)
 		return &capturedResponse{
@@ -174,7 +199,7 @@ func (s *ServerBuilder) HandleFunc(operationID string, handler http.HandlerFunc)
 			headers: rec.header,
 			body:    rec.body,
 		}
-	})
+	}
 }
 
 // Use adds middleware to the server.
@@ -327,11 +352,11 @@ func (s *ServerBuilder) routesFromPathItem(path string, pathItem *parser.PathIte
 	for _, mo := range methodOps {
 		if mo.op != nil {
 			var handler HandlerFunc
-			if mo.op.OperationID != "" {
-				s.mu.RLock()
-				handler = s.handlers[mo.op.OperationID]
-				s.mu.RUnlock()
+			s.mu.RLock()
+			if methodHandlers, ok := s.handlers[path]; ok {
+				handler = methodHandlers[mo.method]
 			}
+			s.mu.RUnlock()
 
 			routes = append(routes, operationRoute{
 				Method:      mo.method,
@@ -388,9 +413,7 @@ func (r *capturedResponse) Body() any {
 }
 
 func (r *capturedResponse) WriteTo(w http.ResponseWriter) error {
-	for k, v := range r.headers {
-		w.Header()[k] = v
-	}
+	maps.Copy(w.Header(), r.headers)
 	w.WriteHeader(r.StatusCode())
 	if len(r.body) > 0 {
 		_, err := w.Write(r.body)

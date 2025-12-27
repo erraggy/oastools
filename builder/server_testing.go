@@ -92,7 +92,7 @@ func (r *TestRequest) Execute(handler http.Handler) *httptest.ResponseRecorder {
 //
 // Example:
 //
-//	srv.Handle("listPets", builder.StubHandler(builder.JSON(http.StatusOK, pets)))
+//	srv.Handle(http.MethodGet, "/pets", builder.StubHandler(builder.JSON(http.StatusOK, pets)))
 func StubHandler(response Response) HandlerFunc {
 	return func(_ context.Context, _ *Request) Response {
 		return response
@@ -104,7 +104,7 @@ func StubHandler(response Response) HandlerFunc {
 //
 // Example:
 //
-//	srv.Handle("getPet", builder.StubHandlerFunc(func(req *builder.Request) builder.Response {
+//	srv.Handle(http.MethodGet, "/pets/{petId}", builder.StubHandlerFunc(func(req *builder.Request) builder.Response {
 //		petID := req.PathParams["petId"]
 //		// assertions on petID
 //		return builder.JSON(http.StatusOK, pet)
@@ -119,7 +119,7 @@ func StubHandlerFunc(fn func(req *Request) Response) HandlerFunc {
 //
 // Example:
 //
-//	srv.Handle("deletePet", builder.ErrorStubHandler(http.StatusNotFound, "pet not found"))
+//	srv.Handle(http.MethodDelete, "/pets/{petId}", builder.ErrorStubHandler(http.StatusNotFound, "pet not found"))
 func ErrorStubHandler(status int, message string) HandlerFunc {
 	return StubHandler(Error(status, message))
 }

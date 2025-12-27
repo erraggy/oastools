@@ -2,6 +2,7 @@ package builder
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"github.com/erraggy/oastools/internal/httputil"
@@ -45,6 +46,7 @@ type operationConfig struct {
 	consumes    []string // OAS 2.0 operation-level consumes
 	produces    []string // OAS 2.0 operation-level produces
 	extensions  map[string]any
+	handler     HandlerFunc // Handler for ServerBuilder (keyed by method+path)
 }
 
 // OperationOption configures an operation.
@@ -105,6 +107,40 @@ func WithSecurity(requirements ...parser.SecurityRequirement) OperationOption {
 func WithNoSecurity() OperationOption {
 	return func(cfg *operationConfig) {
 		cfg.noSecurity = true
+	}
+}
+
+// WithHandler registers a handler for this operation.
+// The handler is keyed by the operation's method and path.
+// This option only has effect when used with ServerBuilder.AddOperation.
+//
+// Example:
+//
+//	srv.AddOperation(http.MethodGet, "/pets",
+//	    builder.WithHandler(listPetsHandler),
+//	    builder.WithResponse(http.StatusOK, []Pet{}),
+//	)
+func WithHandler(handler HandlerFunc) OperationOption {
+	return func(cfg *operationConfig) {
+		cfg.handler = handler
+	}
+}
+
+// WithHandlerFunc registers an http.HandlerFunc for this operation.
+// This is a convenience option for handlers that don't need typed request/response handling.
+// The handler is keyed by the operation's method and path.
+// This option only has effect when used with ServerBuilder.AddOperation.
+//
+// Example:
+//
+//	srv.AddOperation(http.MethodGet, "/health",
+//	    builder.WithHandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+//	        w.WriteHeader(http.StatusOK)
+//	    }),
+//	)
+func WithHandlerFunc(handler http.HandlerFunc) OperationOption {
+	return func(cfg *operationConfig) {
+		cfg.handler = wrapHTTPHandler(handler)
 	}
 }
 

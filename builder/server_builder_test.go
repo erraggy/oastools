@@ -72,15 +72,19 @@ func TestServerBuilder_Handle(t *testing.T) {
 		return JSON(http.StatusOK, nil)
 	}
 
-	result := srv.Handle("testOp", handler)
+	result := srv.Handle(http.MethodGet, "/test", handler)
 
 	if result != srv {
 		t.Error("Handle did not return the same ServerBuilder for chaining")
 	}
 
 	srv.mu.RLock()
-	if _, ok := srv.handlers["testOp"]; !ok {
-		t.Error("Handler was not registered")
+	methodHandlers, pathOk := srv.handlers["/test"]
+	if !pathOk {
+		t.Error("Handler was not registered for path")
+	}
+	if _, methodOk := methodHandlers[http.MethodGet]; !methodOk {
+		t.Error("Handler was not registered for method")
 	}
 	srv.mu.RUnlock()
 }
@@ -95,15 +99,19 @@ func TestServerBuilder_HandleFunc(t *testing.T) {
 		_, _ = w.Write([]byte("OK"))
 	}
 
-	result := srv.HandleFunc("testOp", handler)
+	result := srv.HandleFunc(http.MethodGet, "/test", handler)
 
 	if result != srv {
 		t.Error("HandleFunc did not return the same ServerBuilder for chaining")
 	}
 
 	srv.mu.RLock()
-	if _, ok := srv.handlers["testOp"]; !ok {
-		t.Error("Handler was not registered")
+	methodHandlers, pathOk := srv.handlers["/test"]
+	if !pathOk {
+		t.Error("Handler was not registered for path")
+	}
+	if _, methodOk := methodHandlers[http.MethodGet]; !methodOk {
+		t.Error("Handler was not registered for method")
 	}
 	srv.mu.RUnlock()
 }
@@ -139,7 +147,7 @@ func TestServerBuilder_BuildServer(t *testing.T) {
 		WithResponse(http.StatusOK, []string{}),
 	)
 
-	srv.Handle("listPets", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusOK, []string{"dog", "cat"})
 	})
 
@@ -174,7 +182,7 @@ func TestServerBuilder_BuildServer_WithValidation(t *testing.T) {
 		WithResponse(http.StatusOK, []string{}),
 	)
 
-	srv.Handle("listPets", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusOK, []string{"dog", "cat"})
 	})
 
@@ -200,7 +208,7 @@ func TestServerBuilder_MustBuildServer(t *testing.T) {
 		WithResponse(http.StatusOK, struct{}{}),
 	)
 
-	srv.Handle("healthCheck", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/health", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
@@ -259,11 +267,11 @@ func TestServerBuilder_EndToEnd(t *testing.T) {
 
 	pets := []Pet{{ID: 1, Name: "Fluffy"}, {ID: 2, Name: "Spot"}}
 
-	srv.Handle("listPets", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusOK, pets)
 	})
 
-	srv.Handle("getPet", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodGet, "/pets/{petId}", func(_ context.Context, req *Request) Response {
 		petID, ok := req.PathParams["petId"].(string)
 		if !ok || petID != "1" {
 			return Error(http.StatusNotFound, "pet not found")
@@ -271,7 +279,7 @@ func TestServerBuilder_EndToEnd(t *testing.T) {
 		return JSON(http.StatusOK, pets[0])
 	})
 
-	srv.Handle("createPet", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodPost, "/pets", func(_ context.Context, req *Request) Response {
 		// Body is already parsed as map
 		return JSON(http.StatusCreated, req.Body)
 	})
@@ -401,7 +409,7 @@ func TestServerBuilder_WithMiddleware(t *testing.T) {
 		WithResponse(http.StatusOK, struct{}{}),
 	)
 
-	srv.Handle("test", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/test", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusOK, nil)
 	})
 
@@ -438,7 +446,7 @@ func TestServerBuilder_WithRecovery(t *testing.T) {
 		WithResponse(http.StatusOK, struct{}{}),
 	)
 
-	srv.Handle("panic", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/panic", func(_ context.Context, _ *Request) Response {
 		panic("test panic")
 	})
 
@@ -480,7 +488,7 @@ func TestServerBuilder_WithLogging(t *testing.T) {
 		WithResponse(http.StatusOK, struct{}{}),
 	)
 
-	srv.Handle("logged", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/logged", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusOK, nil)
 	})
 
@@ -698,7 +706,7 @@ func TestRecoveryMiddleware_ErrorPanic(t *testing.T) {
 	)
 
 	// Test panic with error type
-	srv.Handle("panicError", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/panic-error", func(_ context.Context, _ *Request) Response {
 		panic(fmt.Errorf("test error panic"))
 	})
 
@@ -731,7 +739,7 @@ func TestRecoveryMiddleware_OtherTypePanic(t *testing.T) {
 	)
 
 	// Test panic with non-string, non-error type (int)
-	srv.Handle("panicOther", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/panic-other", func(_ context.Context, _ *Request) Response {
 		panic(42)
 	})
 
@@ -773,7 +781,7 @@ func TestRecoveryMiddleware_WithCustomErrorHandler(t *testing.T) {
 		WithResponse(http.StatusOK, struct{}{}),
 	)
 
-	srv.Handle("panicCustom", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/panic-custom", func(_ context.Context, _ *Request) Response {
 		panic("custom error test")
 	})
 

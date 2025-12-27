@@ -928,18 +928,18 @@ func main() {
         builder.WithResponse(http.StatusOK, Pet{}),
     )
 
-    // Register handlers for each operation
-    srv.Handle("listPets", func(_ context.Context, _ *builder.Request) builder.Response {
+    // Register handlers for each operation using method + path
+    srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *builder.Request) builder.Response {
         pets := []Pet{{ID: 1, Name: "Fluffy"}, {ID: 2, Name: "Buddy"}}
         return builder.JSON(http.StatusOK, pets)
     })
 
-    srv.Handle("createPet", func(_ context.Context, req *builder.Request) builder.Response {
+    srv.Handle(http.MethodPost, "/pets", func(_ context.Context, req *builder.Request) builder.Response {
         // req.Body contains the parsed request body
         return builder.JSON(http.StatusCreated, req.Body)
     })
 
-    srv.Handle("getPet", func(_ context.Context, req *builder.Request) builder.Response {
+    srv.Handle(http.MethodGet, "/pets/{petId}", func(_ context.Context, req *builder.Request) builder.Response {
         // req.PathParams contains typed path parameters
         petID := req.PathParams["petId"]
         return builder.JSON(http.StatusOK, Pet{ID: petID.(int64), Name: "Fluffy"})
@@ -1047,7 +1047,7 @@ func TestListPets(t *testing.T) {
         builder.WithResponse(http.StatusOK, []Pet{}),
     )
 
-    srv.Handle("listPets", listPetsHandler)
+    srv.Handle(http.MethodGet, "/pets", listPetsHandler)
 
     result := srv.MustBuildServer()
     test := builder.NewServerTest(result)
@@ -1094,7 +1094,7 @@ spec.AddOperation(http.MethodGet, "/status",
 // Convert to ServerBuilder to add handlers
 srv := builder.FromBuilder(spec, builder.WithoutValidation())
 
-srv.Handle("getStatus", statusHandler)
+srv.Handle(http.MethodGet, "/status", statusHandler)
 
 result := srv.MustBuildServer()
 ```

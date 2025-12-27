@@ -209,19 +209,19 @@ func TestServerTest(t *testing.T) {
 
 	pets := []Pet{{ID: 1, Name: "Fluffy"}}
 
-	srv.Handle("listPets", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *Request) Response {
 		return JSON(http.StatusOK, pets)
 	})
 
-	srv.Handle("createPet", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodPost, "/pets", func(_ context.Context, req *Request) Response {
 		return JSON(http.StatusCreated, req.Body)
 	})
 
-	srv.Handle("updatePet", func(_ context.Context, req *Request) Response {
+	srv.Handle(http.MethodPut, "/pets/{id}", func(_ context.Context, req *Request) Response {
 		return JSON(http.StatusOK, req.Body)
 	})
 
-	srv.Handle("deletePet", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodDelete, "/pets/{id}", func(_ context.Context, _ *Request) Response {
 		return NoContent()
 	})
 
@@ -301,7 +301,7 @@ func TestServerTest_GetJSON_NonSuccessStatus(t *testing.T) {
 		WithResponse(http.StatusInternalServerError, map[string]string{}),
 	)
 
-	srv.Handle("getError", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodGet, "/error", func(_ context.Context, _ *Request) Response {
 		return Error(http.StatusInternalServerError, "something went wrong")
 	})
 
@@ -336,7 +336,7 @@ func TestServerTest_PostJSON_DecodeError(t *testing.T) {
 		WithResponse(http.StatusOK, nil),
 	)
 
-	srv.Handle("postText", func(_ context.Context, _ *Request) Response {
+	srv.Handle(http.MethodPost, "/text", func(_ context.Context, _ *Request) Response {
 		return NewResponse(http.StatusOK).Text("plain text response")
 	})
 

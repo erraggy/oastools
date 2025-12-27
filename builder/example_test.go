@@ -827,7 +827,7 @@ func Example_serverBuilder() {
 		builder.WithResponse(http.StatusOK, Message{}),
 	)
 
-	srv.Handle("getMessage", func(_ context.Context, _ *builder.Request) builder.Response {
+	srv.Handle(http.MethodGet, "/message", func(_ context.Context, _ *builder.Request) builder.Response {
 		return builder.JSON(http.StatusOK, Message{Text: "Hello, World!"})
 	})
 
@@ -880,22 +880,22 @@ func Example_serverBuilderCRUD() {
 	)
 
 	// Register handlers for each operation
-	srv.Handle("listPets", func(_ context.Context, _ *builder.Request) builder.Response {
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *builder.Request) builder.Response {
 		return builder.JSON(http.StatusOK, []Pet{{ID: 1, Name: "Fluffy"}})
 	})
 
-	srv.Handle("createPet", func(_ context.Context, req *builder.Request) builder.Response {
+	srv.Handle(http.MethodPost, "/pets", func(_ context.Context, req *builder.Request) builder.Response {
 		// req.Body contains the parsed request body
 		return builder.JSON(http.StatusCreated, req.Body)
 	})
 
-	srv.Handle("getPet", func(_ context.Context, req *builder.Request) builder.Response {
+	srv.Handle(http.MethodGet, "/pets/{petId}", func(_ context.Context, req *builder.Request) builder.Response {
 		// req.PathParams contains typed path parameters
 		_ = req.PathParams["petId"]
 		return builder.JSON(http.StatusOK, Pet{ID: 1, Name: "Fluffy"})
 	})
 
-	srv.Handle("deletePet", func(_ context.Context, _ *builder.Request) builder.Response {
+	srv.Handle(http.MethodDelete, "/pets/{petId}", func(_ context.Context, _ *builder.Request) builder.Response {
 		return builder.NoContent()
 	})
 
@@ -940,22 +940,22 @@ func Example_serverBuilderResponses() {
 	)
 
 	// JSON response with status code
-	srv.Handle("jsonResponse", func(_ context.Context, _ *builder.Request) builder.Response {
+	srv.Handle(http.MethodGet, "/json", func(_ context.Context, _ *builder.Request) builder.Response {
 		return builder.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	// Error response with message
-	srv.Handle("errorResponse", func(_ context.Context, _ *builder.Request) builder.Response {
+	srv.Handle(http.MethodGet, "/error", func(_ context.Context, _ *builder.Request) builder.Response {
 		return builder.Error(http.StatusBadRequest, "invalid request")
 	})
 
 	// Redirect response
-	srv.Handle("redirectResponse", func(_ context.Context, _ *builder.Request) builder.Response {
+	srv.Handle(http.MethodGet, "/redirect", func(_ context.Context, _ *builder.Request) builder.Response {
 		return builder.Redirect(http.StatusFound, "/new-location")
 	})
 
 	// No content response (204)
-	srv.Handle("noContent", func(_ context.Context, _ *builder.Request) builder.Response {
+	srv.Handle(http.MethodDelete, "/resource", func(_ context.Context, _ *builder.Request) builder.Response {
 		return builder.NoContent()
 	})
 
@@ -979,7 +979,7 @@ func Example_serverBuilderResponseBuilder() {
 	)
 
 	// Use ResponseBuilder for complex responses
-	srv.Handle("customResponse", func(_ context.Context, _ *builder.Request) builder.Response {
+	srv.Handle(http.MethodGet, "/custom", func(_ context.Context, _ *builder.Request) builder.Response {
 		return builder.NewResponse(http.StatusOK).
 			Header("X-Custom-Header", "custom-value").
 			Header("X-Request-ID", "12345").
@@ -1004,7 +1004,7 @@ func Example_serverBuilderMiddleware() {
 		builder.WithResponse(http.StatusOK, map[string]string{}),
 	)
 
-	srv.Handle("hello", func(_ context.Context, _ *builder.Request) builder.Response {
+	srv.Handle(http.MethodGet, "/hello", func(_ context.Context, _ *builder.Request) builder.Response {
 		return builder.JSON(http.StatusOK, map[string]string{"message": "hello"})
 	})
 
@@ -1043,7 +1043,7 @@ func Example_serverBuilderTesting() {
 		builder.WithResponse(http.StatusOK, []Pet{}),
 	)
 
-	srv.Handle("listPets", func(_ context.Context, _ *builder.Request) builder.Response {
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *builder.Request) builder.Response {
 		return builder.JSON(http.StatusOK, []Pet{{ID: 1, Name: "Fluffy"}})
 	})
 
@@ -1084,7 +1084,7 @@ func Example_serverBuilderFromBuilder() {
 	// Convert to ServerBuilder to add handlers
 	srv := builder.FromBuilder(spec, builder.WithoutValidation())
 
-	srv.Handle("getStatus", func(_ context.Context, _ *builder.Request) builder.Response {
+	srv.Handle(http.MethodGet, "/status", func(_ context.Context, _ *builder.Request) builder.Response {
 		return builder.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
@@ -1117,7 +1117,7 @@ func Example_serverBuilderWithValidation() {
 		builder.WithResponse(http.StatusCreated, Pet{}),
 	)
 
-	srv.Handle("createPet", func(_ context.Context, req *builder.Request) builder.Response {
+	srv.Handle(http.MethodPost, "/pets", func(_ context.Context, req *builder.Request) builder.Response {
 		// Request has already been validated at this point
 		return builder.JSON(http.StatusCreated, req.Body)
 	})

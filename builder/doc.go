@@ -488,11 +488,9 @@
 //		SetVersion("1.0.0")
 //
 //	srv.AddOperation(http.MethodGet, "/pets",
-//		builder.WithOperationID("listPets"),
+//		builder.WithHandler(listPetsHandler),  // Inline handler registration
 //		builder.WithResponse(http.StatusOK, []Pet{}),
-//	).Handle("listPets", func(ctx context.Context, req *builder.Request) builder.Response {
-//		return builder.JSON(http.StatusOK, pets)
-//	})
+//	)
 //
 //	result, err := srv.BuildServer()
 //	if err != nil {
@@ -510,17 +508,24 @@
 //
 // # Handler Registration
 //
-// Register handlers by operation ID using Handle or HandleFunc:
+// Register handlers inline using WithHandler in AddOperation:
 //
-//	// Using the typed handler signature
-//	srv.Handle("listPets", func(ctx context.Context, req *builder.Request) builder.Response {
-//		// req.PathParams, req.QueryParams contain validated parameters
-//		// req.Body contains the unmarshaled request body
-//		return builder.JSON(http.StatusOK, pets)
-//	})
+//	srv.AddOperation(http.MethodGet, "/pets",
+//		builder.WithHandler(func(ctx context.Context, req *builder.Request) builder.Response {
+//			// req.PathParams, req.QueryParams contain validated parameters
+//			// req.Body contains the unmarshaled request body
+//			return builder.JSON(http.StatusOK, pets)
+//		}),
+//		builder.WithResponse(http.StatusOK, []Pet{}),
+//	)
+//
+// Or register handlers dynamically using Handle or HandleFunc:
+//
+//	// Using the typed handler signature with method and path
+//	srv.Handle(http.MethodGet, "/pets", listPetsHandler)
 //
 //	// Using standard http.HandlerFunc for simpler operations
-//	srv.HandleFunc("healthCheck", func(w http.ResponseWriter, r *http.Request) {
+//	srv.HandleFunc(http.MethodGet, "/health", func(w http.ResponseWriter, r *http.Request) {
 //		w.WriteHeader(http.StatusOK)
 //		w.Write([]byte("OK"))
 //	})
@@ -585,7 +590,7 @@
 //	rec, err := test.PostJSON("/pets", newPet, &created)
 //
 //	// Stub handlers for testing
-//	srv.Handle("listPets", builder.StubHandler(builder.JSON(http.StatusOK, mockPets)))
+//	srv.Handle(http.MethodGet, "/pets", builder.StubHandler(builder.JSON(http.StatusOK, mockPets)))
 //
 // # Related Packages
 //
