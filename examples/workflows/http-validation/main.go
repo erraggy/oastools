@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 
@@ -21,21 +20,19 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// sensitiveHeaders lists header names that may contain credentials.
-// Values from these headers should never be logged.
-var sensitiveHeaders = map[string]bool{
-	"authorization":   true,
-	"x-api-key":       true,
-	"x-auth-token":    true,
-	"cookie":          true,
-	"set-cookie":      true,
-	"x-csrf-token":    true,
-	"x-access-token":  true,
-	"x-refresh-token": true,
+// safeHeaders lists HTTP headers whose values are safe to log.
+// Only validation errors for these headers will include the full message.
+// All other headers (Authorization, Cookie, X-API-Key, etc.) are redacted.
+var safeHeaders = map[string]bool{
+	"content-type":     true,
+	"accept":           true,
+	"content-length":   true,
+	"content-encoding": true,
+	"accept-encoding":  true,
+	"accept-language":  true,
+	"cache-control":    true,
+	"user-agent":       true,
 }
-
-// valuePattern matches quoted values in error messages like: value 'secret' or value "secret"
-var valuePattern = regexp.MustCompile(`(value\s+)'[^']*'`)
 
 func main() {
 	specPath := findSpecPath("specs/api.yaml")
@@ -152,35 +149,44 @@ func printRequestResult(r *httpvalidator.RequestValidationResult) {
 			if path == "" {
 				path = "(request)"
 			}
-			// Always sanitize error messages before logging to avoid
-			// exposing sensitive header values or request body content.
-			safeMessage := sanitizeErrorMessage(e.Path, e.Message)
-			fmt.Printf("        - [%s] %s\n", path, safeMessage)
+			// Use allowlist-based filtering: only log full messages for
+			// non-sensitive headers. Sensitive headers are redacted.
+			msg := safeErrorMessage(e.Path, e.Message)
+			fmt.Printf("        - [%s] %s\n", path, msg)
 		}
 	}
 }
 
-// sanitizeErrorMessage redacts potentially sensitive values from validation
-// error messages. This is critical for production logging where validation
-// errors for headers like Authorization could expose credentials.
-//
-// Example transformations:
-//
-//	"header 'Authorization' value 'Bearer sk-live-xxx' invalid" → "header 'Authorization' value '[REDACTED]' invalid"
-//	"query 'status' value 'pending' not in enum" → "query 'status' value 'pending' not in enum" (safe, not sensitive)
-func sanitizeErrorMessage(path, message string) string {
-	// Check if this error relates to a sensitive header
+// isSafeToLog checks if a validation error path is safe to log with full details.
+// Non-header paths (query, path, body) are always safe.
+// Header paths are only safe if they're in the safeHeaders allowlist.
+func isSafeToLog(path string) bool {
 	pathLower := strings.ToLower(path)
-	for header := range sensitiveHeaders {
-		if strings.Contains(pathLower, header) {
-			// Redact any quoted values in the message
-			return valuePattern.ReplaceAllString(message, "${1}'[REDACTED]'")
-		}
+
+	// Non-header paths are always safe to log
+	if !strings.HasPrefix(pathLower, "header.") && !strings.HasPrefix(pathLower, "header[") {
+		return true
 	}
 
-	// For non-sensitive paths (query params, body fields), keep the full message
-	// as these values are typically not credentials and aid debugging
-	return message
+	// For headers, check against allowlist
+	// Path format: "header.Content-Type" or "header[Content-Type]"
+	headerName := strings.TrimPrefix(pathLower, "header.")
+	headerName = strings.TrimPrefix(headerName, "header[")
+	headerName = strings.TrimSuffix(headerName, "]")
+	headerName = strings.ToLower(headerName)
+
+	return safeHeaders[headerName]
+}
+
+// safeErrorMessage returns a log-safe version of a validation error.
+// For non-header errors and safe headers, returns the full message.
+// For sensitive headers (Authorization, Cookie, etc.), redacts details.
+func safeErrorMessage(path, message string) string {
+	if isSafeToLog(path) {
+		return message
+	}
+	// Redact details for sensitive headers to prevent credential leakage
+	return "validation failed (details redacted for security)"
 }
 
 // findSpecPath locates a file relative to the source file location.

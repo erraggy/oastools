@@ -122,29 +122,37 @@ if !result.Valid {
 
 ### Secure Error Logging
 
-Validation error messages may contain sensitive data from headers like `Authorization` or `X-API-Key`. Always sanitize before logging:
+Validation error messages may contain sensitive header values like `Authorization` or `X-API-Key`. Use an **allowlist** of safe headers rather than trying to block known sensitive ones:
 
 ```go
-// sensitiveHeaders that should never have values logged
-var sensitiveHeaders = map[string]bool{
-    "authorization": true,
-    "x-api-key":     true,
-    "cookie":        true,
+// safeHeaders whose values are safe to log
+var safeHeaders = map[string]bool{
+    "content-type":   true,
+    "accept":         true,
+    "content-length": true,
+    "cache-control":  true,
 }
 
-func sanitizeErrorMessage(path, message string) string {
-    for header := range sensitiveHeaders {
-        if strings.Contains(strings.ToLower(path), header) {
-            // Redact quoted values: value 'secret' → value '[REDACTED]'
-            return regexp.MustCompile(`(value\s+)'[^']*'`).
-                ReplaceAllString(message, "${1}'[REDACTED]'")
-        }
+func safeErrorMessage(path, message string) string {
+    pathLower := strings.ToLower(path)
+
+    // Non-header paths are always safe
+    if !strings.HasPrefix(pathLower, "header.") {
+        return message
     }
-    return message
+
+    // Check header against allowlist
+    headerName := strings.TrimPrefix(pathLower, "header.")
+    if safeHeaders[headerName] {
+        return message
+    }
+
+    // Redact sensitive header errors
+    return "validation failed (details redacted)"
 }
 ```
 
-This prevents credential exposure in logs when validation fails for sensitive headers.
+This allowlist approach is more secure than blocklisting because new sensitive headers are automatically protected.
 
 ### Middleware Integration
 
