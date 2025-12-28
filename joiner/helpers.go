@@ -1,6 +1,10 @@
 package joiner
 
-import "github.com/erraggy/oastools/parser"
+import (
+	"fmt"
+
+	"github.com/erraggy/oastools/parser"
+)
 
 // copyInfo creates a shallow copy of an Info object
 func copyInfo(info *parser.Info) *parser.Info {
@@ -138,4 +142,33 @@ func (j *Joiner) mergeTags(existing, new []*parser.Tag) []*parser.Tag {
 	}
 
 	return result
+}
+
+// mergePathsMap merges paths from source into target, handling collisions according to strategy.
+// This is the shared implementation for both OAS 2.0 and OAS 3.x path merging.
+func (j *Joiner) mergePathsMap(
+	target, source parser.Paths,
+	strategy CollisionStrategy,
+	ctx documentContext,
+	result *JoinResult,
+) error {
+	for path, pathItem := range source {
+		if _, exists := target[path]; exists {
+			if err := j.handleCollision(path, "paths", strategy, result.firstFilePath, ctx.filePath); err != nil {
+				return err
+			}
+			result.CollisionCount++
+			if j.shouldOverwrite(strategy) {
+				target[path] = pathItem
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
+				result.AddWarning(NewPathCollisionWarning(path, "overwritten", result.firstFilePath, ctx.filePath, line, col))
+			} else {
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
+				result.AddWarning(NewPathCollisionWarning(path, "kept from first document", result.firstFilePath, ctx.filePath, line, col))
+			}
+		} else {
+			target[path] = pathItem
+		}
+	}
+	return nil
 }

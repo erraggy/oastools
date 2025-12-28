@@ -134,25 +134,7 @@ func (j *Joiner) mergeOAS2Document(joined *parser.OAS2Document, oas2Doc *parser.
 // mergeOAS2Paths merges paths from source document
 func (j *Joiner) mergeOAS2Paths(joined, source *parser.OAS2Document, ctx documentContext, result *JoinResult) error {
 	pathStrategy := j.getEffectiveStrategy(j.config.PathStrategy)
-	for path, pathItem := range source.Paths {
-		if _, exists := joined.Paths[path]; exists {
-			if err := j.handleCollision(path, "paths", pathStrategy, result.firstFilePath, ctx.filePath); err != nil {
-				return err
-			}
-			result.CollisionCount++
-			if j.shouldOverwrite(pathStrategy) {
-				joined.Paths[path] = pathItem
-				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
-				result.AddWarning(NewPathCollisionWarning(path, "overwritten", result.firstFilePath, ctx.filePath, line, col))
-			} else {
-				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
-				result.AddWarning(NewPathCollisionWarning(path, "kept from first document", result.firstFilePath, ctx.filePath, line, col))
-			}
-		} else {
-			joined.Paths[path] = pathItem
-		}
-	}
-	return nil
+	return j.mergePathsMap(joined.Paths, source.Paths, pathStrategy, ctx, result)
 }
 
 // mergeOAS2Definitions merges definitions (schemas) from source document

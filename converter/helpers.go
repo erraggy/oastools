@@ -709,6 +709,37 @@ func (c *Converter) rewriteAllRefsOAS2ToOAS3(doc *parser.OAS3Document) {
 	}
 }
 
+// httpMethod defines an HTTP method with accessors for a PathItem.
+// This enables table-driven operation conversion without repetitive if-statements.
+type httpMethod struct {
+	name   string
+	getter func(*parser.PathItem) *parser.Operation
+	setter func(*parser.PathItem, *parser.Operation)
+}
+
+// standardHTTPMethods are HTTP methods common to OAS 2.0 and OAS 3.x.
+// TRACE (OAS 3.0+), QUERY (OAS 3.2+), and AdditionalOperations are handled separately.
+var standardHTTPMethods = []httpMethod{
+	{"get", func(p *parser.PathItem) *parser.Operation { return p.Get }, func(p *parser.PathItem, op *parser.Operation) { p.Get = op }},
+	{"put", func(p *parser.PathItem) *parser.Operation { return p.Put }, func(p *parser.PathItem, op *parser.Operation) { p.Put = op }},
+	{"post", func(p *parser.PathItem) *parser.Operation { return p.Post }, func(p *parser.PathItem, op *parser.Operation) { p.Post = op }},
+	{"delete", func(p *parser.PathItem) *parser.Operation { return p.Delete }, func(p *parser.PathItem, op *parser.Operation) { p.Delete = op }},
+	{"options", func(p *parser.PathItem) *parser.Operation { return p.Options }, func(p *parser.PathItem, op *parser.Operation) { p.Options = op }},
+	{"head", func(p *parser.PathItem) *parser.Operation { return p.Head }, func(p *parser.PathItem, op *parser.Operation) { p.Head = op }},
+	{"patch", func(p *parser.PathItem) *parser.Operation { return p.Patch }, func(p *parser.PathItem, op *parser.Operation) { p.Patch = op }},
+}
+
+// convertStandardOperations converts all standard HTTP method operations from src to dst.
+// The convert function is called for each non-nil operation with its path prefix.
+// This is the shared implementation for both OAS2→OAS3 and OAS3→OAS2 path item conversion.
+func convertStandardOperations(src, dst *parser.PathItem, pathPrefix string, convert func(*parser.Operation, string) *parser.Operation) {
+	for _, method := range standardHTTPMethods {
+		if op := method.getter(src); op != nil {
+			method.setter(dst, convert(op, fmt.Sprintf("%s.%s", pathPrefix, method.name)))
+		}
+	}
+}
+
 // paramConvertFunc is the signature for parameter conversion functions.
 type paramConvertFunc func(param *parser.Parameter, result *ConversionResult, path string) *parser.Parameter
 

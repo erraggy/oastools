@@ -102,6 +102,15 @@ func collectSchemaRefs(schema *parser.Schema, prefix string) []string {
 	return collectSchemaRefsRecursive(schema, prefix, visited)
 }
 
+// appendOptionalSchemaRefs appends refs from an optional schema field if non-nil.
+// This helper reduces duplication in collectSchemaRefsRecursive.
+func appendOptionalSchemaRefs(refs []string, s *parser.Schema, prefix string, visited map[*parser.Schema]bool) []string {
+	if s != nil {
+		refs = append(refs, collectSchemaRefsRecursive(s, prefix, visited)...)
+	}
+	return refs
+}
+
 // collectSchemaRefsRecursive is the internal implementation with circular reference protection.
 func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited map[*parser.Schema]bool) []string {
 	if schema == nil || visited[schema] {
@@ -136,20 +145,14 @@ func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited ma
 	for _, s := range schema.OneOf {
 		refs = append(refs, collectSchemaRefsRecursive(s, prefix, visited)...)
 	}
-	if schema.Not != nil {
-		refs = append(refs, collectSchemaRefsRecursive(schema.Not, prefix, visited)...)
-	}
+	refs = appendOptionalSchemaRefs(refs, schema.Not, prefix, visited)
 
 	// OAS 3.1+ / JSON Schema Draft 2020-12 fields
 	for _, s := range schema.PrefixItems {
 		refs = append(refs, collectSchemaRefsRecursive(s, prefix, visited)...)
 	}
-	if schema.Contains != nil {
-		refs = append(refs, collectSchemaRefsRecursive(schema.Contains, prefix, visited)...)
-	}
-	if schema.PropertyNames != nil {
-		refs = append(refs, collectSchemaRefsRecursive(schema.PropertyNames, prefix, visited)...)
-	}
+	refs = appendOptionalSchemaRefs(refs, schema.Contains, prefix, visited)
+	refs = appendOptionalSchemaRefs(refs, schema.PropertyNames, prefix, visited)
 	for _, depSchema := range schema.DependentSchemas {
 		refs = append(refs, collectSchemaRefsRecursive(depSchema, prefix, visited)...)
 	}
@@ -159,20 +162,12 @@ func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited ma
 	refs = append(refs, collectPolymorphicSchemaRefs(schema.UnevaluatedItems, prefix, visited)...)
 
 	// JSON Schema 2020-12 content keywords
-	if schema.ContentSchema != nil {
-		refs = append(refs, collectSchemaRefsRecursive(schema.ContentSchema, prefix, visited)...)
-	}
+	refs = appendOptionalSchemaRefs(refs, schema.ContentSchema, prefix, visited)
 
 	// Conditional schemas (OAS 3.1+)
-	if schema.If != nil {
-		refs = append(refs, collectSchemaRefsRecursive(schema.If, prefix, visited)...)
-	}
-	if schema.Then != nil {
-		refs = append(refs, collectSchemaRefsRecursive(schema.Then, prefix, visited)...)
-	}
-	if schema.Else != nil {
-		refs = append(refs, collectSchemaRefsRecursive(schema.Else, prefix, visited)...)
-	}
+	refs = appendOptionalSchemaRefs(refs, schema.If, prefix, visited)
+	refs = appendOptionalSchemaRefs(refs, schema.Then, prefix, visited)
+	refs = appendOptionalSchemaRefs(refs, schema.Else, prefix, visited)
 
 	// $defs (OAS 3.1+)
 	for _, defSchema := range schema.Defs {
