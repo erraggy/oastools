@@ -493,7 +493,7 @@ func TestBuilder_AddOperation_DuplicateOperationID(t *testing.T) {
 		AddOperation(http.MethodGet, "/posts", WithOperationID("getUsers"))
 
 	assert.Len(t, b.errors, 1)
-	assert.Contains(t, b.errors[0].Error(), "duplicate operation ID")
+	assert.Contains(t, b.errors[0].Error(), "duplicate operationId")
 }
 
 func TestBuilder_AddOperation_WithRequestBody(t *testing.T) {

@@ -139,8 +139,10 @@ type JoinResult struct {
 	OASVersion parser.OASVersion
 	// SourceFormat is the format of the first source file (JSON or YAML)
 	SourceFormat parser.SourceFormat
-	// Warnings contains non-fatal issues encountered during joining
+	// Warnings contains non-fatal issues encountered during joining (for backward compatibility)
 	Warnings []string
+	// StructuredWarnings contains detailed warning information with context
+	StructuredWarnings JoinWarnings
 	// CollisionCount tracks the number of collisions resolved
 	CollisionCount int
 	// Stats contains statistical information about the joined document
@@ -151,6 +153,21 @@ type JoinResult struct {
 	firstFilePath string
 	// rewriter accumulates schema renames for reference rewriting
 	rewriter *SchemaRewriter
+}
+
+// AddWarning adds a structured warning and populates the legacy Warnings slice.
+func (r *JoinResult) AddWarning(w *JoinWarning) {
+	r.StructuredWarnings = append(r.StructuredWarnings, w)
+	r.Warnings = append(r.Warnings, w.String())
+}
+
+// WarningStrings returns warning messages for backward compatibility.
+// Deprecated: Use StructuredWarnings directly for detailed information.
+func (r *JoinResult) WarningStrings() []string {
+	if len(r.StructuredWarnings) > 0 {
+		return r.StructuredWarnings.Strings()
+	}
+	return r.Warnings
 }
 
 // documentContext tracks the source file and document for error reporting
@@ -657,7 +674,7 @@ func (j *Joiner) JoinParsed(parsedDocs []parser.ParseResult) (*JoinResult, error
 
 	// Verify all documents are the same major version
 	baseVersion := parsedDocs[0].OASVersion
-	var warnings []string
+	var versionWarnings JoinWarnings
 	for i, doc := range parsedDocs[1:] {
 		if !j.versionsCompatible(baseVersion, doc.OASVersion) {
 			return nil, fmt.Errorf("joiner: incompatible versions: %s (%s) and %s (%s) cannot be joined",
@@ -666,11 +683,10 @@ func (j *Joiner) JoinParsed(parsedDocs []parser.ParseResult) (*JoinResult, error
 
 		// Warn about minor version mismatches (e.g., 3.0.x with 3.1.x)
 		if baseVersion != doc.OASVersion && j.hasMinorVersionMismatch(baseVersion, doc.OASVersion) {
-			warnings = append(warnings, fmt.Sprintf(
-				"joining documents with different minor versions: %s (%s) and %s (%s). "+
-					"This may result in an invalid specification if features from the later version are used. "+
-					"Joined document will use version %s.",
-				parsedDocs[0].SourcePath, parsedDocs[0].Version, parsedDocs[i+1].SourcePath, doc.Version, parsedDocs[0].Version))
+			versionWarnings = append(versionWarnings, NewVersionMismatchWarning(
+				parsedDocs[0].SourcePath, parsedDocs[0].Version,
+				parsedDocs[i+1].SourcePath, doc.Version,
+				parsedDocs[0].Version))
 		}
 	}
 
@@ -686,9 +702,12 @@ func (j *Joiner) JoinParsed(parsedDocs []parser.ParseResult) (*JoinResult, error
 		return nil, fmt.Errorf("joiner: unsupported OpenAPI version: %s", parsedDocs[0].Version)
 	}
 
-	// Add version mismatch warnings to result
-	if result != nil {
-		result.Warnings = append(warnings, result.Warnings...)
+	// Add version mismatch warnings to result (prepend so they appear first)
+	if result != nil && len(versionWarnings) > 0 {
+		// Prepend version warnings to structured warnings
+		result.StructuredWarnings = append(versionWarnings, result.StructuredWarnings...)
+		// Rebuild legacy Warnings slice from StructuredWarnings for consistency
+		result.Warnings = result.StructuredWarnings.Strings()
 	}
 
 	return result, err

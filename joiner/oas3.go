@@ -80,9 +80,11 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 				result.CollisionCount++
 				if j.shouldOverwrite(pathStrategy) {
 					joined.Paths[path] = pathItem
-					result.Warnings = append(result.Warnings, fmt.Sprintf("path '%s' overwritten: %s -> %s", path, result.firstFilePath, ctx.filePath))
+					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
+					result.AddWarning(NewPathCollisionWarning(path, "overwritten", result.firstFilePath, ctx.filePath, line, col))
 				} else {
-					result.Warnings = append(result.Warnings, fmt.Sprintf("path '%s' kept from %s (collision with %s)", path, result.firstFilePath, ctx.filePath))
+					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
+					result.AddWarning(NewPathCollisionWarning(path, "kept from first document", result.firstFilePath, ctx.filePath, line, col))
 				}
 			} else {
 				joined.Paths[path] = pathItem
@@ -98,9 +100,11 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 				result.CollisionCount++
 				if j.shouldOverwrite(pathStrategy) {
 					joined.Webhooks[name] = webhook
-					result.Warnings = append(result.Warnings, fmt.Sprintf("webhook '%s' overwritten: %s -> %s", name, result.firstFilePath, ctx.filePath))
+					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.webhooks.%s", name))
+					result.AddWarning(NewWebhookCollisionWarning(name, "overwritten", result.firstFilePath, ctx.filePath, line, col))
 				} else {
-					result.Warnings = append(result.Warnings, fmt.Sprintf("webhook '%s' kept from %s (collision with %s)", name, result.firstFilePath, ctx.filePath))
+					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.webhooks.%s", name))
+					result.AddWarning(NewWebhookCollisionWarning(name, "kept from first document", result.firstFilePath, ctx.filePath, line, col))
 				}
 			} else {
 				joined.Webhooks[name] = webhook
@@ -159,8 +163,7 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 			for alias, canonical := range dedupeResult.Aliases {
 				result.rewriter.RegisterRename(alias, canonical, joined.OASVersion)
 			}
-			result.Warnings = append(result.Warnings,
-				fmt.Sprintf("semantic deduplication: consolidated %d duplicate schema(s)", dedupeResult.RemovedCount))
+			result.AddWarning(NewSemanticDedupSummaryWarning(dedupeResult.RemovedCount, "schema"))
 		}
 	}
 
@@ -237,7 +240,8 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 			}
 			result.rewriter.RegisterRename(name, effectiveName, result.OASVersion)
 
-			result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' prefixed to '%s' (namespace prefix from %s)", name, effectiveName, ctx.filePath))
+			line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", name))
+			result.AddWarning(NewNamespacePrefixWarning(name, effectiveName, "schema", ctx.filePath, line, col))
 		}
 
 		if _, exists := target[effectiveName]; exists {
@@ -259,7 +263,8 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 					eqResult := CompareSchemas(target[effectiveName], schema, mode)
 					if eqResult.Equivalent {
 						// Schemas are equivalent, keep existing and skip
-						result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' deduplicated (structurally equivalent): %s", effectiveName, ctx.filePath))
+						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
+						result.AddWarning(NewSchemaDedupWarning(effectiveName, "schema", ctx.filePath, line, col))
 						j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "deduplicated", "")
 						continue
 					}
@@ -291,7 +296,8 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				}
 				result.rewriter.RegisterRename(effectiveName, newName, result.OASVersion)
 
-				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' renamed to '%s' (kept from %s), new schema '%s' from %s", effectiveName, newName, result.firstFilePath, effectiveName, ctx.filePath))
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
+				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "schema", ctx.filePath, line, col, true))
 				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "renamed", newName)
 
 			case StrategyRenameRight:
@@ -316,7 +322,8 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				}
 				result.rewriter.RegisterRename(effectiveName, newName, result.OASVersion)
 
-				result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' from %s renamed to '%s', kept original '%s' from %s", effectiveName, ctx.filePath, newName, effectiveName, result.firstFilePath))
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
+				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "schema", ctx.filePath, line, col, false))
 				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "renamed", newName)
 
 			default:
@@ -326,10 +333,12 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				}
 				if j.shouldOverwrite(strategy) {
 					target[effectiveName] = schema
-					result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' at components.schemas.%s overwritten: source %s", effectiveName, effectiveName, ctx.filePath))
+					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
+					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "overwritten", "components.schemas", result.firstFilePath, ctx.filePath, line, col))
 					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "kept-right", "")
 				} else {
-					result.Warnings = append(result.Warnings, fmt.Sprintf("schema '%s' at components.schemas.%s kept from %s (collision with %s)", effectiveName, effectiveName, result.firstFilePath, ctx.filePath))
+					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
+					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept from first document", "components.schemas", result.firstFilePath, ctx.filePath, line, col))
 					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "kept-left", "")
 				}
 			}

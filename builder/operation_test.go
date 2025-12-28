@@ -400,7 +400,8 @@ func TestBuilder_AddOperation_QueryMethod_OAS31_Error(t *testing.T) {
 		)
 
 	require.Len(t, b.errors, 1, "QUERY method should not be supported in OAS 3.1")
-	assert.Contains(t, b.errors[0].Error(), "QUERY method is only supported in OAS 3.2.0+")
+	assert.Contains(t, b.errors[0].Error(), "QUERY")
+	assert.Contains(t, b.errors[0].Error(), "3.2.0")
 }
 
 func TestBuilder_AddOperation_QueryMethod_OAS20_Error(t *testing.T) {
@@ -414,7 +415,8 @@ func TestBuilder_AddOperation_QueryMethod_OAS20_Error(t *testing.T) {
 		)
 
 	require.Len(t, b.errors, 1, "QUERY method should not be supported in OAS 2.0")
-	assert.Contains(t, b.errors[0].Error(), "QUERY method is only supported in OAS 3.2.0+")
+	assert.Contains(t, b.errors[0].Error(), "QUERY")
+	assert.Contains(t, b.errors[0].Error(), "3.2.0")
 }
 
 func TestBuilder_AddOperation_WithNoSecurity(t *testing.T) {

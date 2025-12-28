@@ -92,8 +92,7 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 			for alias, canonical := range dedupeResult.Aliases {
 				result.rewriter.RegisterRename(alias, canonical, joined.OASVersion)
 			}
-			result.Warnings = append(result.Warnings,
-				fmt.Sprintf("semantic deduplication: consolidated %d duplicate definition(s)", dedupeResult.RemovedCount))
+			result.AddWarning(NewSemanticDedupSummaryWarning(dedupeResult.RemovedCount, "definition"))
 		}
 	}
 
@@ -143,9 +142,11 @@ func (j *Joiner) mergeOAS2Paths(joined, source *parser.OAS2Document, ctx documen
 			result.CollisionCount++
 			if j.shouldOverwrite(pathStrategy) {
 				joined.Paths[path] = pathItem
-				result.Warnings = append(result.Warnings, fmt.Sprintf("path '%s' at paths.%s overwritten: source %s", path, path, ctx.filePath))
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
+				result.AddWarning(NewPathCollisionWarning(path, "overwritten", result.firstFilePath, ctx.filePath, line, col))
 			} else {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("path '%s' at paths.%s kept from %s (collision with %s)", path, path, result.firstFilePath, ctx.filePath))
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
+				result.AddWarning(NewPathCollisionWarning(path, "kept from first document", result.firstFilePath, ctx.filePath, line, col))
 			}
 		} else {
 			joined.Paths[path] = pathItem
@@ -175,7 +176,8 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 			}
 			result.rewriter.RegisterRename(name, effectiveName, result.OASVersion)
 
-			result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' prefixed to '%s' (namespace prefix from %s)", name, effectiveName, ctx.filePath))
+			line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", name))
+			result.AddWarning(NewNamespacePrefixWarning(name, effectiveName, "definition", ctx.filePath, line, col))
 		}
 
 		if _, exists := joined.Definitions[effectiveName]; exists {
@@ -197,7 +199,8 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 					eqResult := CompareSchemas(joined.Definitions[effectiveName], schema, mode)
 					if eqResult.Equivalent {
 						// Schemas are equivalent, keep existing and skip
-						result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' deduplicated (structurally equivalent): %s", effectiveName, ctx.filePath))
+						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
+						result.AddWarning(NewSchemaDedupWarning(effectiveName, "definition", ctx.filePath, line, col))
 						j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, "deduplicated", "")
 						continue
 					}
@@ -229,7 +232,8 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				}
 				result.rewriter.RegisterRename(effectiveName, newName, result.OASVersion)
 
-				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' renamed to '%s' (kept from %s), new definition '%s' from %s", effectiveName, newName, result.firstFilePath, effectiveName, ctx.filePath))
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
+				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "definition", ctx.filePath, line, col, true))
 				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, "renamed", newName)
 
 			case StrategyRenameRight:
@@ -254,7 +258,8 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				}
 				result.rewriter.RegisterRename(effectiveName, newName, result.OASVersion)
 
-				result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' from %s renamed to '%s', kept original '%s' from %s", effectiveName, ctx.filePath, newName, effectiveName, result.firstFilePath))
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
+				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "definition", ctx.filePath, line, col, false))
 				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, "renamed", newName)
 
 			default:
@@ -262,12 +267,13 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				if err := j.handleCollision(effectiveName, "definitions", schemaStrategy, result.firstFilePath, ctx.filePath); err != nil {
 					return err
 				}
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
 				if j.shouldOverwrite(schemaStrategy) {
 					joined.Definitions[effectiveName] = schema
-					result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' at definitions.%s overwritten: source %s", effectiveName, effectiveName, ctx.filePath))
+					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "overwritten", "definitions", result.firstFilePath, ctx.filePath, line, col))
 					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, "kept-right", "")
 				} else {
-					result.Warnings = append(result.Warnings, fmt.Sprintf("definition '%s' at definitions.%s kept from %s (collision with %s)", effectiveName, effectiveName, result.firstFilePath, ctx.filePath))
+					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept from first document", "definitions", result.firstFilePath, ctx.filePath, line, col))
 					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, "kept-left", "")
 				}
 			}
@@ -307,10 +313,10 @@ func (j *Joiner) mergeOAS2Arrays(joined, source *parser.OAS2Document, ctx docume
 		joined.Tags = j.mergeTags(joined.Tags, source.Tags)
 
 		if source.Host != "" && source.Host != joined.Host {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("host '%s' from %s ignored (using first document's host: '%s')", source.Host, ctx.filePath, joined.Host))
+			result.AddWarning(NewMetadataOverrideWarning("host", joined.Host, source.Host, ctx.filePath))
 		}
 		if source.BasePath != "" && source.BasePath != joined.BasePath {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("basePath '%s' from %s ignored (using first document's basePath: '%s')", source.BasePath, ctx.filePath, joined.BasePath))
+			result.AddWarning(NewMetadataOverrideWarning("basePath", joined.BasePath, source.BasePath, ctx.filePath))
 		}
 
 		// Info object is always taken from the first document
