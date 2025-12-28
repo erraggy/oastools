@@ -2343,6 +2343,24 @@ func (v *Validator) validateParameterRef(param *parser.Parameter, path string, v
 	}
 }
 
+// validateOperationResponses validates all responses for an operation.
+// This handles both default and status code responses.
+func (v *Validator) validateOperationResponses(op *parser.Operation, opPath string, validRefs map[string]bool, result *ValidationResult, baseURL string) {
+	if op.Responses == nil {
+		return
+	}
+	if op.Responses.Default != nil {
+		responsePath := fmt.Sprintf("%s.responses.default", opPath)
+		v.validateResponseRef(op.Responses.Default, responsePath, validRefs, result, baseURL)
+	}
+	for code, response := range op.Responses.Codes {
+		if response != nil {
+			responsePath := fmt.Sprintf("%s.responses.%s", opPath, code)
+			v.validateResponseRef(response, responsePath, validRefs, result, baseURL)
+		}
+	}
+}
+
 // validateResponseRef validates a response's $ref if present
 func (v *Validator) validateResponseRef(response *parser.Response, path string, validRefs map[string]bool, result *ValidationResult, baseURL string) {
 	if response == nil {
@@ -2470,19 +2488,7 @@ func (v *Validator) validateOAS2Refs(doc *parser.OAS2Document, result *Validatio
 			}
 
 			// Validate operation responses
-			if op.Responses != nil {
-				if op.Responses.Default != nil {
-					responsePath := fmt.Sprintf("%s.responses.default", opPath)
-					v.validateResponseRef(op.Responses.Default, responsePath, validRefs, result, baseURL)
-				}
-
-				for code, response := range op.Responses.Codes {
-					if response != nil {
-						responsePath := fmt.Sprintf("%s.responses.%s", opPath, code)
-						v.validateResponseRef(response, responsePath, validRefs, result, baseURL)
-					}
-				}
-			}
+			v.validateOperationResponses(op, opPath, validRefs, result, baseURL)
 		}
 	}
 }
@@ -2611,18 +2617,6 @@ func (v *Validator) validatePathItemOperationRefs(pathItem *parser.PathItem, pat
 		}
 
 		// Validate operation responses
-		if op.Responses != nil {
-			if op.Responses.Default != nil {
-				responsePath := fmt.Sprintf("%s.responses.default", opPath)
-				v.validateResponseRef(op.Responses.Default, responsePath, validRefs, result, baseURL)
-			}
-
-			for code, response := range op.Responses.Codes {
-				if response != nil {
-					responsePath := fmt.Sprintf("%s.responses.%s", opPath, code)
-					v.validateResponseRef(response, responsePath, validRefs, result, baseURL)
-				}
-			}
-		}
+		v.validateOperationResponses(op, opPath, validRefs, result, baseURL)
 	}
 }

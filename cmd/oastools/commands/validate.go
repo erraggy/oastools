@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/validator"
 )
@@ -159,14 +158,8 @@ func HandleValidate(args []string) error {
 	if !flags.Quiet {
 		Writef(os.Stderr, "OpenAPI Specification Validator\n")
 		Writef(os.Stderr, "================================\n\n")
-		Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
-		Writef(os.Stderr, "Specification: %s\n", FormatSpecPath(specPath))
-		Writef(os.Stderr, "OAS Version: %s\n", result.Version)
-		Writef(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
-		Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
-		Writef(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
-		Writef(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
-		Writef(os.Stderr, "Load Time: %v\n", result.LoadTime)
+		OutputSpecHeader(specPath, result.Version)
+		OutputSpecStats(result.SourceSize, result.Stats, result.LoadTime)
 		Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
 
 		// Print errors

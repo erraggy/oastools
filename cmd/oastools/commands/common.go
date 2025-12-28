@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	oastools "github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
 	"go.yaml.in/yaml/v4"
@@ -122,4 +123,22 @@ func Writef(w io.Writer, format string, args ...any) {
 	if _, err := fmt.Fprintf(w, format, args...); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "write error: %v\n", err)
 	}
+}
+
+// OutputSpecHeader outputs the common specification header to stderr.
+// This includes oastools version, specification path, and OAS version.
+func OutputSpecHeader(specPath, version string) {
+	Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
+	Writef(os.Stderr, "Specification: %s\n", FormatSpecPath(specPath))
+	Writef(os.Stderr, "OAS Version: %s\n", version)
+}
+
+// OutputSpecStats outputs the common specification statistics to stderr.
+// This includes source size, path count, operation count, schema count, and load time.
+func OutputSpecStats(sourceSize int64, stats parser.DocumentStats, loadTime any) {
+	Writef(os.Stderr, "Source Size: %s\n", parser.FormatBytes(sourceSize))
+	Writef(os.Stderr, "Paths: %d\n", stats.PathCount)
+	Writef(os.Stderr, "Operations: %d\n", stats.OperationCount)
+	Writef(os.Stderr, "Schemas: %d\n", stats.SchemaCount)
+	Writef(os.Stderr, "Load Time: %v\n", loadTime)
 }

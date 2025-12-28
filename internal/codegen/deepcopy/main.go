@@ -42,6 +42,27 @@ type TypeConfig struct {
 	Fields []FieldConfig // Fields requiring special handling
 }
 
+// commonSchemaValidationFields contains fields shared between Parameter and Header
+// types for JSON Schema validation keywords (minimum, maximum, enum, etc.)
+var commonSchemaValidationFields = []FieldConfig{
+	{Name: "Explode", Type: "*bool", CopyMethod: "prim_pointer"},
+	{Name: "Schema", Type: "*Schema", CopyMethod: "pointer"},
+	{Name: "Example", Type: "any", CopyMethod: "helper", Helper: "deepCopyJSONValue"},
+	{Name: "Examples", Type: "map[string]*Example", CopyMethod: "map", KeyType: "string", ElemType: "*Example"},
+	{Name: "Content", Type: "map[string]*MediaType", CopyMethod: "map", KeyType: "string", ElemType: "*MediaType"},
+	{Name: "Items", Type: "*Items", CopyMethod: "pointer"},
+	{Name: "Default", Type: "any", CopyMethod: "helper", Helper: "deepCopyJSONValue"},
+	{Name: "Maximum", Type: "*float64", CopyMethod: "prim_pointer"},
+	{Name: "Minimum", Type: "*float64", CopyMethod: "prim_pointer"},
+	{Name: "MaxLength", Type: "*int", CopyMethod: "prim_pointer"},
+	{Name: "MinLength", Type: "*int", CopyMethod: "prim_pointer"},
+	{Name: "MaxItems", Type: "*int", CopyMethod: "prim_pointer"},
+	{Name: "MinItems", Type: "*int", CopyMethod: "prim_pointer"},
+	{Name: "Enum", Type: "[]any", CopyMethod: "helper", Helper: "deepCopyEnumSlice"},
+	{Name: "MultipleOf", Type: "*float64", CopyMethod: "prim_pointer"},
+	{Name: "Extra", Type: "map[string]any", CopyMethod: "helper", Helper: "deepCopyExtensions"},
+}
+
 // Configuration for all parser types
 var typeConfigs = []TypeConfig{
 	{
@@ -251,46 +272,12 @@ var typeConfigs = []TypeConfig{
 		},
 	},
 	{
-		Name: "Parameter",
-		Fields: []FieldConfig{
-			{Name: "Explode", Type: "*bool", CopyMethod: "prim_pointer"},
-			{Name: "Schema", Type: "*Schema", CopyMethod: "pointer"},
-			{Name: "Example", Type: "any", CopyMethod: "helper", Helper: "deepCopyJSONValue"},
-			{Name: "Examples", Type: "map[string]*Example", CopyMethod: "map", KeyType: "string", ElemType: "*Example"},
-			{Name: "Content", Type: "map[string]*MediaType", CopyMethod: "map", KeyType: "string", ElemType: "*MediaType"},
-			{Name: "Items", Type: "*Items", CopyMethod: "pointer"},
-			{Name: "Default", Type: "any", CopyMethod: "helper", Helper: "deepCopyJSONValue"},
-			{Name: "Maximum", Type: "*float64", CopyMethod: "prim_pointer"},
-			{Name: "Minimum", Type: "*float64", CopyMethod: "prim_pointer"},
-			{Name: "MaxLength", Type: "*int", CopyMethod: "prim_pointer"},
-			{Name: "MinLength", Type: "*int", CopyMethod: "prim_pointer"},
-			{Name: "MaxItems", Type: "*int", CopyMethod: "prim_pointer"},
-			{Name: "MinItems", Type: "*int", CopyMethod: "prim_pointer"},
-			{Name: "Enum", Type: "[]any", CopyMethod: "helper", Helper: "deepCopyEnumSlice"},
-			{Name: "MultipleOf", Type: "*float64", CopyMethod: "prim_pointer"},
-			{Name: "Extra", Type: "map[string]any", CopyMethod: "helper", Helper: "deepCopyExtensions"},
-		},
+		Name:   "Parameter",
+		Fields: commonSchemaValidationFields,
 	},
 	{
-		Name: "Header",
-		Fields: []FieldConfig{
-			{Name: "Explode", Type: "*bool", CopyMethod: "prim_pointer"},
-			{Name: "Schema", Type: "*Schema", CopyMethod: "pointer"},
-			{Name: "Example", Type: "any", CopyMethod: "helper", Helper: "deepCopyJSONValue"},
-			{Name: "Examples", Type: "map[string]*Example", CopyMethod: "map", KeyType: "string", ElemType: "*Example"},
-			{Name: "Content", Type: "map[string]*MediaType", CopyMethod: "map", KeyType: "string", ElemType: "*MediaType"},
-			{Name: "Items", Type: "*Items", CopyMethod: "pointer"},
-			{Name: "Default", Type: "any", CopyMethod: "helper", Helper: "deepCopyJSONValue"},
-			{Name: "Maximum", Type: "*float64", CopyMethod: "prim_pointer"},
-			{Name: "Minimum", Type: "*float64", CopyMethod: "prim_pointer"},
-			{Name: "MaxLength", Type: "*int", CopyMethod: "prim_pointer"},
-			{Name: "MinLength", Type: "*int", CopyMethod: "prim_pointer"},
-			{Name: "MaxItems", Type: "*int", CopyMethod: "prim_pointer"},
-			{Name: "MinItems", Type: "*int", CopyMethod: "prim_pointer"},
-			{Name: "Enum", Type: "[]any", CopyMethod: "helper", Helper: "deepCopyEnumSlice"},
-			{Name: "MultipleOf", Type: "*float64", CopyMethod: "prim_pointer"},
-			{Name: "Extra", Type: "map[string]any", CopyMethod: "helper", Helper: "deepCopyExtensions"},
-		},
+		Name:   "Header",
+		Fields: commonSchemaValidationFields,
 	},
 	{
 		Name: "RequestBody",

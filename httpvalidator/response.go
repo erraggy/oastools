@@ -31,26 +31,13 @@ func (v *Validator) ValidateResponseData(req *http.Request, statusCode int, head
 	result.ContentType = headers.Get("Content-Type")
 
 	// Find matching path and operation from the original request
-	matchedPath, _, found := v.matchPath(req.URL.Path)
-	if !found {
-		result.addError(req.URL.Path, "no matching path found for request", SeverityError)
-		return result, nil
-	}
-	result.MatchedPath = matchedPath
-	result.MatchedMethod = req.Method
-
-	operation := v.getOperation(matchedPath, req.Method)
+	operation := v.findMatchedOperation(req, result)
 	if operation == nil {
-		result.addError(
-			fmt.Sprintf("%s.%s", matchedPath, strings.ToLower(req.Method)),
-			fmt.Sprintf("no operation found for %s %s", req.Method, matchedPath),
-			SeverityError,
-		)
 		return result, nil
 	}
 
 	// Validate response
-	v.validateResponseParts(statusCode, headers, body, matchedPath, operation, result)
+	v.validateResponseParts(statusCode, headers, body, result.MatchedPath, operation, result)
 
 	return result, nil
 }

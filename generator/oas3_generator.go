@@ -356,11 +356,7 @@ func (cg *oas3CodeGenerator) generateSingleClient() error {
 	// Generate methods for each operation
 	if cg.doc.Paths != nil {
 		// Sort paths for deterministic output
-		var pathKeys []string
-		for path := range cg.doc.Paths {
-			pathKeys = append(pathKeys, path)
-		}
-		sort.Strings(pathKeys)
+		pathKeys := sortedPathKeys(cg.doc.Paths)
 
 		for _, path := range pathKeys {
 			pathItem := cg.doc.Paths[path]
@@ -412,31 +408,7 @@ func (cg *oas3CodeGenerator) generateSplitClient() error {
 	}
 
 	// Build a map of operation ID to path/method for quick lookup
-	opToPathMethod := make(map[string]struct {
-		path   string
-		method string
-		op     *parser.Operation
-	})
-
-	if cg.doc.Paths != nil {
-		for path, pathItem := range cg.doc.Paths {
-			if pathItem == nil {
-				continue
-			}
-			operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
-			for method, op := range operations {
-				if op == nil {
-					continue
-				}
-				opID := operationToMethodName(op, path, method)
-				opToPathMethod[opID] = struct {
-					path   string
-					method string
-					op     *parser.Operation
-				}{path, method, op}
-			}
-		}
-	}
+	opToPathMethod := buildOperationMap(cg.doc.Paths, cg.doc.OASVersion)
 
 	// Generate a client file for each group
 	for _, group := range cg.splitPlan.Groups {
@@ -460,11 +432,7 @@ func (cg *oas3CodeGenerator) generateBaseClient() error {
 // generateClientGroupFile generates a client_{group}.go file with operations for a specific group
 //
 //nolint:unparam // error return kept for API consistency with other generate methods
-func (cg *oas3CodeGenerator) generateClientGroupFile(group FileGroup, opToPathMethod map[string]struct {
-	path   string
-	method string
-	op     *parser.Operation
-}) error {
+func (cg *oas3CodeGenerator) generateClientGroupFile(group FileGroup, opToPathMethod map[string]OperationMapping) error {
 	var buf bytes.Buffer
 
 	// Write header with comment about the group
@@ -483,7 +451,7 @@ func (cg *oas3CodeGenerator) generateClientGroupFile(group FileGroup, opToPathMe
 		if !ok {
 			continue
 		}
-		op := info.op
+		op := info.Op
 
 		// Check if any parameters need time
 		for _, param := range op.Parameters {
@@ -541,9 +509,9 @@ func (cg *oas3CodeGenerator) generateClientGroupFile(group FileGroup, opToPathMe
 			continue
 		}
 
-		code, err := cg.generateClientMethod(info.path, info.method, info.op)
+		code, err := cg.generateClientMethod(info.Path, info.Method, info.Op)
 		if err != nil {
-			cg.addIssue(fmt.Sprintf("paths.%s.%s", info.path, info.method), fmt.Sprintf("failed to generate client method: %v", err), SeverityWarning)
+			cg.addIssue(fmt.Sprintf("paths.%s.%s", info.Path, info.Method), fmt.Sprintf("failed to generate client method: %v", err), SeverityWarning)
 			continue
 		}
 		buf.WriteString(code)
@@ -883,11 +851,7 @@ func (cg *oas3CodeGenerator) generateSingleServer() error {
 
 	if cg.doc.Paths != nil {
 		// Sort paths for deterministic output
-		var pathKeys []string
-		for path := range cg.doc.Paths {
-			pathKeys = append(pathKeys, path)
-		}
-		sort.Strings(pathKeys)
+		pathKeys := sortedPathKeys(cg.doc.Paths)
 
 		for _, path := range pathKeys {
 			pathItem := cg.doc.Paths[path]
@@ -919,16 +883,7 @@ func (cg *oas3CodeGenerator) generateSingleServer() error {
 	buf.WriteString("}\n\n")
 
 	// Generate request types (use same tracking map since request types are named after methods)
-	for _, path := range func() []string {
-		var keys []string
-		if cg.doc.Paths != nil {
-			for k := range cg.doc.Paths {
-				keys = append(keys, k)
-			}
-		}
-		sort.Strings(keys)
-		return keys
-	}() {
+	for _, path := range sortedPathKeys(cg.doc.Paths) {
 		pathItem := cg.doc.Paths[path]
 		if pathItem == nil {
 			continue
@@ -965,11 +920,7 @@ func (cg *oas3CodeGenerator) generateSingleServer() error {
 
 	// Generate unimplemented methods (methods already tracked from interface generation)
 	if cg.doc.Paths != nil {
-		var pathKeys []string
-		for path := range cg.doc.Paths {
-			pathKeys = append(pathKeys, path)
-		}
-		sort.Strings(pathKeys)
+		pathKeys := sortedPathKeys(cg.doc.Paths)
 
 		for _, path := range pathKeys {
 			pathItem := cg.doc.Paths[path]
@@ -1037,31 +988,7 @@ func (cg *oas3CodeGenerator) generateSplitServer() error {
 	}
 
 	// Build a map of operation ID to path/method for quick lookup
-	opToPathMethod := make(map[string]struct {
-		path   string
-		method string
-		op     *parser.Operation
-	})
-
-	if cg.doc.Paths != nil {
-		for path, pathItem := range cg.doc.Paths {
-			if pathItem == nil {
-				continue
-			}
-			operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
-			for method, op := range operations {
-				if op == nil {
-					continue
-				}
-				opID := operationToMethodName(op, path, method)
-				opToPathMethod[opID] = struct {
-					path   string
-					method string
-					op     *parser.Operation
-				}{path, method, op}
-			}
-		}
-	}
+	opToPathMethod := buildOperationMap(cg.doc.Paths, cg.doc.OASVersion)
 
 	// Generate a server file for each group (request types only)
 	for _, group := range cg.splitPlan.Groups {
@@ -1099,11 +1026,7 @@ func (cg *oas3CodeGenerator) generateBaseServer() (map[string]bool, error) {
 // The generatedMethods map indicates which methods were added to the interface (duplicates excluded).
 //
 //nolint:unparam // error return kept for API consistency with other generate methods
-func (cg *oas3CodeGenerator) generateServerGroupFile(group FileGroup, opToPathMethod map[string]struct {
-	path   string
-	method string
-	op     *parser.Operation
-}, generatedMethods map[string]bool) error {
+func (cg *oas3CodeGenerator) generateServerGroupFile(group FileGroup, opToPathMethod map[string]OperationMapping, generatedMethods map[string]bool) error {
 	var buf bytes.Buffer
 
 	// Write header with comment about the group
@@ -1125,7 +1048,7 @@ func (cg *oas3CodeGenerator) generateServerGroupFile(group FileGroup, opToPathMe
 		if !ok {
 			continue
 		}
-		op := info.op
+		op := info.Op
 
 		// Check if any parameters need time
 		for _, param := range op.Parameters {
@@ -1162,7 +1085,7 @@ func (cg *oas3CodeGenerator) generateServerGroupFile(group FileGroup, opToPathMe
 			continue
 		}
 
-		reqType := cg.generateRequestType(info.path, info.method, info.op)
+		reqType := cg.generateRequestType(info.Path, info.Method, info.Op)
 		if reqType != "" {
 			buf.WriteString(reqType)
 		}
@@ -1600,11 +1523,7 @@ func (cg *oas3CodeGenerator) generateServerResponses() error {
 	generatedMethods := make(map[string]bool)
 
 	// Sort paths for deterministic output
-	pathKeys := make([]string, 0, len(cg.doc.Paths))
-	for path := range cg.doc.Paths {
-		pathKeys = append(pathKeys, path)
-	}
-	sort.Strings(pathKeys)
+	pathKeys := sortedPathKeys(cg.doc.Paths)
 
 	for _, path := range pathKeys {
 		pathItem := cg.doc.Paths[path]
@@ -1703,11 +1622,7 @@ func (cg *oas3CodeGenerator) generateServerBinder() error {
 	generatedMethods := make(map[string]bool)
 
 	// Sort paths for deterministic output
-	pathKeys := make([]string, 0, len(cg.doc.Paths))
-	for path := range cg.doc.Paths {
-		pathKeys = append(pathKeys, path)
-	}
-	sort.Strings(pathKeys)
+	pathKeys := sortedPathKeys(cg.doc.Paths)
 
 	for _, path := range pathKeys {
 		pathItem := cg.doc.Paths[path]

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -116,14 +115,9 @@ func HandleParse(args []string) error {
 	if !flags.Quiet {
 		Writef(os.Stderr, "OpenAPI Specification Parser\n")
 		Writef(os.Stderr, "============================\n\n")
-		Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
-		Writef(os.Stderr, "Specification: %s\n", FormatSpecPath(specPath))
-		Writef(os.Stderr, "OAS Version: %s\n", result.Version)
-		Writef(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
-		Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
-		Writef(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
-		Writef(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
-		Writef(os.Stderr, "Load Time: %v\n\n", result.LoadTime)
+		OutputSpecHeader(specPath, result.Version)
+		OutputSpecStats(result.SourceSize, result.Stats, result.LoadTime)
+		Writef(os.Stderr, "\n")
 
 		// Print warnings
 		if len(result.Warnings) > 0 {

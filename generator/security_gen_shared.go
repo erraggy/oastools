@@ -11,6 +11,59 @@ import (
 )
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Operation Mapping Helpers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// OperationMapping holds the path, method, and operation for quick lookup by operation ID.
+type OperationMapping struct {
+	Path   string
+	Method string
+	Op     *parser.Operation
+}
+
+// buildOperationMap builds a map of operation IDs to their path/method/operation info.
+// This uses parser.GetOperations which is version-aware and only returns methods valid
+// for the given OAS version (e.g., TRACE for OAS 3.0+, QUERY for OAS 3.2+).
+func buildOperationMap(paths parser.Paths, version parser.OASVersion) map[string]OperationMapping {
+	result := make(map[string]OperationMapping)
+
+	if paths == nil {
+		return result
+	}
+
+	for path, pathItem := range paths {
+		if pathItem == nil {
+			continue
+		}
+		operations := parser.GetOperations(pathItem, version)
+		for method, op := range operations {
+			if op == nil {
+				continue
+			}
+			opID := operationToMethodName(op, path, method)
+			result[opID] = OperationMapping{
+				Path:   path,
+				Method: method,
+				Op:     op,
+			}
+		}
+	}
+
+	return result
+}
+
+// sortedPathKeys returns the keys of a Paths map in sorted order.
+// This is used to ensure deterministic iteration order over API paths.
+func sortedPathKeys(paths parser.Paths) []string {
+	keys := make([]string, 0, len(paths))
+	for k := range paths {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Server Generation Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -60,11 +113,7 @@ func generateServerRouterShared(ctx *serverRouterContext) error {
 	generatedMethods := make(map[string]bool)
 
 	// Sort paths for deterministic output
-	pathKeys := make([]string, 0, len(ctx.paths))
-	for path := range ctx.paths {
-		pathKeys = append(pathKeys, path)
-	}
-	sort.Strings(pathKeys)
+	pathKeys := sortedPathKeys(ctx.paths)
 
 	// Build router data
 	data := ServerRouterFileData{
@@ -153,11 +202,7 @@ func generateServerStubsShared(ctx *serverStubsContext) error {
 	generatedMethods := make(map[string]bool)
 
 	// Sort paths for deterministic output
-	pathKeys := make([]string, 0, len(ctx.paths))
-	for path := range ctx.paths {
-		pathKeys = append(pathKeys, path)
-	}
-	sort.Strings(pathKeys)
+	pathKeys := sortedPathKeys(ctx.paths)
 
 	// Build stubs data
 	data := ServerStubsFileData{
@@ -250,13 +295,7 @@ func generateBaseServerShared(ctx *baseServerContext) (map[string]bool, error) {
 	buf.WriteString("type ServerInterface interface {\n")
 
 	if ctx.paths != nil {
-		var pathKeys []string
-		for path := range ctx.paths {
-			pathKeys = append(pathKeys, path)
-		}
-		sort.Strings(pathKeys)
-
-		for _, path := range pathKeys {
+		for _, path := range sortedPathKeys(ctx.paths) {
 			pathItem := ctx.paths[path]
 			if pathItem == nil {
 				continue
@@ -295,13 +334,7 @@ func generateBaseServerShared(ctx *baseServerContext) (map[string]bool, error) {
 	generatedUnimplemented := make(map[string]bool)
 
 	if ctx.paths != nil {
-		var pathKeys []string
-		for path := range ctx.paths {
-			pathKeys = append(pathKeys, path)
-		}
-		sort.Strings(pathKeys)
-
-		for _, path := range pathKeys {
+		for _, path := range sortedPathKeys(ctx.paths) {
 			pathItem := ctx.paths[path]
 			if pathItem == nil {
 				continue
