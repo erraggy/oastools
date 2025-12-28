@@ -575,149 +575,22 @@ func (cg *oas3CodeGenerator) generateClientMethod(path, method string, op *parse
 		contentType = cg.getRequestBodyContentType(op.RequestBody)
 	}
 
-	// Write method documentation - handle multiline descriptions properly
-	if op.Summary != "" {
-		buf.WriteString(formatMultilineComment(op.Summary, methodName, ""))
-	} else if op.Description != "" {
-		buf.WriteString(formatMultilineComment(op.Description, methodName, ""))
-	} else {
-		buf.WriteString(fmt.Sprintf("// %s calls %s %s\n", methodName, strings.ToUpper(method), path))
-	}
-	if op.Deprecated {
-		buf.WriteString("// Deprecated: This operation is deprecated.\n")
-	}
-
-	// Write method signature
+	// Generate method using shared helpers
 	responseType := cg.getResponseType(op)
-	buf.WriteString(fmt.Sprintf("func (c *Client) %s(%s) (%s, error) {\n", methodName, strings.Join(params, ", "), responseType))
 
-	// Build URL
-	buf.WriteString("\tpath := ")
-	if len(pathParams) > 0 {
-		buf.WriteString("fmt.Sprintf(\"")
-		pathTemplate := path
-		for _, pp := range pathParams {
-			pathTemplate = strings.ReplaceAll(pathTemplate, "{"+pp.name+"}", "%v")
-		}
-		buf.WriteString(pathTemplate)
-		buf.WriteString("\"")
-		for _, pp := range pathParams {
-			buf.WriteString(", " + pp.varName)
-		}
-		buf.WriteString(")\n")
-	} else {
-		buf.WriteString(fmt.Sprintf("%q\n", path))
-	}
-
-	// Build query string
-	if len(queryParams) > 0 {
-		buf.WriteString("\tquery := make(url.Values)\n")
-		buf.WriteString("\tif params != nil {\n")
-		for _, param := range queryParams {
-			paramName := toFieldName(param.Name)
-			if param.Required {
-				buf.WriteString(fmt.Sprintf("\t\tquery.Set(%q, fmt.Sprintf(\"%%v\", params.%s))\n", param.Name, paramName))
-			} else {
-				buf.WriteString(fmt.Sprintf("\t\tif params.%s != nil {\n", paramName))
-				buf.WriteString(fmt.Sprintf("\t\t\tquery.Set(%q, fmt.Sprintf(\"%%v\", *params.%s))\n", param.Name, paramName))
-				buf.WriteString("\t\t}\n")
-			}
-		}
-		buf.WriteString("\t}\n")
-		buf.WriteString("\tif len(query) > 0 {\n")
-		buf.WriteString("\t\tpath += \"?\" + query.Encode()\n")
-		buf.WriteString("\t}\n")
-	}
-
-	// Create request
-	if hasBody {
-		buf.WriteString("\tbodyData, err := json.Marshal(body)\n")
-		buf.WriteString("\tif err != nil {\n")
-		buf.WriteString(fmt.Sprintf("\t\treturn %s, fmt.Errorf(\"marshal request body: %%w\", err)\n", zeroValue(responseType)))
-		buf.WriteString("\t}\n")
-		buf.WriteString(fmt.Sprintf("\treq, err := http.NewRequestWithContext(ctx, %q, c.BaseURL+path, bytes.NewReader(bodyData))\n", strings.ToUpper(method)))
-	} else {
-		buf.WriteString(fmt.Sprintf("\treq, err := http.NewRequestWithContext(ctx, %q, c.BaseURL+path, nil)\n", strings.ToUpper(method)))
-	}
-	buf.WriteString("\tif err != nil {\n")
-	buf.WriteString(fmt.Sprintf("\t\treturn %s, fmt.Errorf(\"create request: %%w\", err)\n", zeroValue(responseType)))
-	buf.WriteString("\t}\n")
-
-	// Set content type for requests with body
-	if hasBody {
-		buf.WriteString(fmt.Sprintf("\treq.Header.Set(\"Content-Type\", %q)\n", contentType))
-	}
-	buf.WriteString("\treq.Header.Set(\"Accept\", \"application/json\")\n")
-	buf.WriteString("\tif c.UserAgent != \"\" {\n")
-	buf.WriteString("\t\treq.Header.Set(\"User-Agent\", c.UserAgent)\n")
-	buf.WriteString("\t}\n")
-
-	// Apply request editors
-	buf.WriteString("\tfor _, editor := range c.RequestEditors {\n")
-	buf.WriteString("\t\tif err := editor(ctx, req); err != nil {\n")
-	buf.WriteString(fmt.Sprintf("\t\t\treturn %s, fmt.Errorf(\"request editor: %%w\", err)\n", zeroValue(responseType)))
-	buf.WriteString("\t\t}\n")
-	buf.WriteString("\t}\n")
-
-	// Execute request
-	buf.WriteString("\tresp, err := c.HTTPClient.Do(req)\n")
-	buf.WriteString("\tif err != nil {\n")
-	buf.WriteString(fmt.Sprintf("\t\treturn %s, fmt.Errorf(\"execute request: %%w\", err)\n", zeroValue(responseType)))
-	buf.WriteString("\t}\n")
-	buf.WriteString("\tdefer resp.Body.Close()\n")
-
-	// Handle response
-	buf.WriteString("\tif resp.StatusCode >= 400 {\n")
-	buf.WriteString("\t\tbody, _ := io.ReadAll(resp.Body)\n")
-	buf.WriteString(fmt.Sprintf("\t\treturn %s, &APIError{StatusCode: resp.StatusCode, Body: body}\n", zeroValue(responseType)))
-	buf.WriteString("\t}\n")
-
-	// Parse response body
-	if responseType != "" && responseType != httpResponseType {
-		if strings.HasPrefix(responseType, "*") {
-			buf.WriteString(fmt.Sprintf("\tvar result %s\n", responseType[1:]))
-			buf.WriteString("\tif err := json.NewDecoder(resp.Body).Decode(&result); err != nil {\n")
-			buf.WriteString(fmt.Sprintf("\t\treturn %s, fmt.Errorf(\"decode response: %%w\", err)\n", zeroValue(responseType)))
-			buf.WriteString("\t}\n")
-			buf.WriteString("\treturn &result, nil\n")
-		} else {
-			buf.WriteString(fmt.Sprintf("\tvar result %s\n", responseType))
-			buf.WriteString("\tif err := json.NewDecoder(resp.Body).Decode(&result); err != nil {\n")
-			buf.WriteString(fmt.Sprintf("\t\treturn %s, fmt.Errorf(\"decode response: %%w\", err)\n", zeroValue(responseType)))
-			buf.WriteString("\t}\n")
-			buf.WriteString("\treturn result, nil\n")
-		}
-	} else {
-		buf.WriteString("\treturn resp, nil\n")
-	}
-
-	buf.WriteString("}\n\n")
-
-	// Generate params struct if needed
-	if len(queryParams) > 0 {
-		buf.WriteString(fmt.Sprintf("// %sParams contains query parameters for %s.\n", methodName, methodName))
-		buf.WriteString(fmt.Sprintf("type %sParams struct {\n", methodName))
-		for _, param := range queryParams {
-			goType := cg.paramToGoType(param)
-			fieldName := toFieldName(param.Name)
-			if param.Description != "" {
-				buf.WriteString(fmt.Sprintf("\t// %s\n", cleanDescription(param.Description)))
-			}
-			if !param.Required {
-				buf.WriteString(fmt.Sprintf("\t%s *%s `json:%q`\n", fieldName, goType, param.Name+",omitempty"))
-			} else {
-				buf.WriteString(fmt.Sprintf("\t%s %s `json:%q`\n", fieldName, goType, param.Name))
-			}
-		}
-		buf.WriteString("}\n\n")
-	}
+	writeMethodDoc(&buf, op, methodName, method, path)
+	writeMethodSignature(&buf, methodName, params, responseType)
+	writeURLBuilding(&buf, path, pathParams)
+	writeQueryStringBuilding(&buf, queryParams)
+	writeRequestCreation(&buf, hasBody, method, responseType)
+	writeRequestHeaders(&buf, hasBody, contentType)
+	writeRequestEditors(&buf, responseType)
+	writeRequestExecution(&buf, responseType)
+	writeErrorResponseHandling(&buf, responseType)
+	writeResponseParsing(&buf, responseType)
+	writeParamsStruct(&buf, methodName, queryParams, cg.paramToGoType)
 
 	return buf.String(), nil
-}
-
-type pathParam struct {
-	name    string
-	varName string
 }
 
 // paramToGoType converts a parameter to its Go type
@@ -957,11 +830,7 @@ func (cg *oas3CodeGenerator) generateSingleServer() error {
 	}
 
 	// Write error type
-	buf.WriteString("// ErrNotImplemented is returned by UnimplementedServer methods.\n")
-	buf.WriteString("var ErrNotImplemented = &NotImplementedError{}\n\n")
-	buf.WriteString("// NotImplementedError indicates an operation is not implemented.\n")
-	buf.WriteString("type NotImplementedError struct{}\n\n")
-	buf.WriteString("func (e *NotImplementedError) Error() string { return \"not implemented\" }\n\n")
+	writeNotImplementedError(&buf)
 
 	// Format the code
 	formatted, err := formatAndFixImports("generated.go", buf.Bytes())

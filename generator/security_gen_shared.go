@@ -67,6 +67,16 @@ func sortedPathKeys(paths parser.Paths) []string {
 // Server Generation Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// writeNotImplementedError writes the ErrNotImplemented variable and NotImplementedError type.
+// This is identical across OAS 2.0, OAS 3.x, and split-file generation.
+func writeNotImplementedError(buf *bytes.Buffer) {
+	buf.WriteString("// ErrNotImplemented is returned by UnimplementedServer methods.\n")
+	buf.WriteString("var ErrNotImplemented = &NotImplementedError{}\n\n")
+	buf.WriteString("// NotImplementedError indicates an operation is not implemented.\n")
+	buf.WriteString("type NotImplementedError struct{}\n\n")
+	buf.WriteString("func (e *NotImplementedError) Error() string { return \"not implemented\" }\n\n")
+}
+
 // generateServerMiddlewareShared generates the server middleware file.
 // This is 100% identical between OAS 2.0 and OAS 3.x.
 func generateServerMiddlewareShared(result *GenerateResult, addIssue issueAdder) error {
@@ -369,11 +379,7 @@ func generateBaseServerShared(ctx *baseServerContext) (map[string]bool, error) {
 	}
 
 	// Write error type
-	buf.WriteString("// ErrNotImplemented is returned by UnimplementedServer methods.\n")
-	buf.WriteString("var ErrNotImplemented = &NotImplementedError{}\n\n")
-	buf.WriteString("// NotImplementedError indicates an operation is not implemented.\n")
-	buf.WriteString("type NotImplementedError struct{}\n\n")
-	buf.WriteString("func (e *NotImplementedError) Error() string { return \"not implemented\" }\n\n")
+	writeNotImplementedError(&buf)
 
 	// Format the code
 	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
