@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/parser"
@@ -1477,77 +1476,21 @@ func (cg *oas2CodeGenerator) generateSecurityHelpers() error {
 //
 //nolint:unparam // error return kept for API consistency and future extensibility
 func (cg *oas2CodeGenerator) generateSecurityHelpersFile(schemes map[string]*parser.SecurityScheme) error {
-	g := NewSecurityHelperGenerator(cg.result.PackageName)
-	code := g.GenerateSecurityHelpers(schemes)
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", []byte(code))
-	if err != nil {
-		cg.addIssue("security_helpers.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = []byte(code)
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "security_helpers.go",
-		Content: formatted,
-	})
-
-	return nil
+	return generateSecurityHelpersFileShared(cg.securityContext(), schemes)
 }
 
 // generateOAuth2Files generates OAuth2 flow files for each OAuth2 security scheme
 //
 //nolint:unparam // error return kept for API consistency and future extensibility
 func (cg *oas2CodeGenerator) generateOAuth2Files(schemes map[string]*parser.SecurityScheme) error {
-	for name, scheme := range schemes {
-		if scheme == nil || scheme.Type != schemeTypeOAuth2 {
-			continue
-		}
-
-		g := NewOAuth2Generator(name, scheme)
-		if g == nil || !g.HasAnyFlow() {
-			continue
-		}
-
-		code := g.GenerateOAuth2File(cg.result.PackageName)
-
-		// Format the code
-		formatted, err := formatAndFixImports("generated.go", []byte(code))
-		if err != nil {
-			cg.addIssue(fmt.Sprintf("oauth2_%s.go", name), fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-			formatted = []byte(code)
-		}
-
-		fileName := fmt.Sprintf("oauth2_%s.go", toFileName(name))
-		cg.result.Files = append(cg.result.Files, GeneratedFile{
-			Name:    fileName,
-			Content: formatted,
-		})
-	}
-
-	return nil
+	return generateOAuth2FilesShared(cg.securityContext(), schemes)
 }
 
 // generateCredentialsFile generates the credentials.go file
 //
 //nolint:unparam // error return kept for API consistency and future extensibility
 func (cg *oas2CodeGenerator) generateCredentialsFile() error {
-	g := NewCredentialGenerator(cg.result.PackageName)
-	code := g.GenerateCredentialsFile()
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", []byte(code))
-	if err != nil {
-		cg.addIssue("credentials.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = []byte(code)
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "credentials.go",
-		Content: formatted,
-	})
-
-	return nil
+	return generateCredentialsFileShared(cg.securityContext())
 }
 
 // generateSecurityEnforceFile generates security enforcement code.
@@ -1564,81 +1507,14 @@ func (cg *oas2CodeGenerator) generateSecurityEnforceFile() error {
 
 // generateSingleSecurityEnforce generates all security enforcement in a single file.
 func (cg *oas2CodeGenerator) generateSingleSecurityEnforce() error {
-	g := NewSecurityEnforceGenerator(cg.result.PackageName)
-
-	// Extract operation security requirements for OAS 2.0
 	opSecurity := ExtractOperationSecurityOAS2(cg.doc)
-
-	code := g.GenerateSecurityEnforceFile(opSecurity, cg.doc.Security)
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", []byte(code))
-	if err != nil {
-		cg.addIssue("security_enforce.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = []byte(code)
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "security_enforce.go",
-		Content: formatted,
-	})
-
-	return nil
+	return generateSingleSecurityEnforceShared(cg.securityContext(), opSecurity, cg.doc.Security)
 }
 
 // generateSplitSecurityEnforce generates security enforcement split across multiple files.
 func (cg *oas2CodeGenerator) generateSplitSecurityEnforce() error {
-	g := NewSecurityEnforceGenerator(cg.result.PackageName)
-
-	// Generate base file with shared types and empty map
-	baseCode := g.GenerateBaseSecurityEnforceFile(cg.doc.Security)
-	formatted, err := formatAndFixImports("generated.go", []byte(baseCode))
-	if err != nil {
-		cg.addIssue("security_enforce.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = []byte(baseCode)
-	}
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "security_enforce.go",
-		Content: formatted,
-	})
-
-	// Extract all operation security
-	allOpSecurity := ExtractOperationSecurityOAS2(cg.doc)
-
-	// Group operations by their file group
-	for _, group := range cg.splitPlan.Groups {
-		if group.IsShared {
-			continue
-		}
-
-		// Filter operation security for this group
-		groupOpSecurity := make(OperationSecurityRequirements)
-		for _, opID := range group.Operations {
-			if sec, ok := allOpSecurity[opID]; ok {
-				groupOpSecurity[opID] = sec
-			}
-		}
-
-		if len(groupOpSecurity) == 0 {
-			continue
-		}
-
-		// Generate group file
-		groupCode := g.GenerateSecurityEnforceGroupFile(group.Name, group.DisplayName, groupOpSecurity)
-		formatted, err := formatAndFixImports("generated.go", []byte(groupCode))
-		if err != nil {
-			cg.addIssue(fmt.Sprintf("security_enforce_%s.go", group.Name),
-				fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-			formatted = []byte(groupCode)
-		}
-
-		cg.result.Files = append(cg.result.Files, GeneratedFile{
-			Name:    fmt.Sprintf("security_enforce_%s.go", group.Name),
-			Content: formatted,
-		})
-	}
-
-	return nil
+	opSecurity := ExtractOperationSecurityOAS2(cg.doc)
+	return generateSplitSecurityEnforceShared(cg.securityContext(), opSecurity, cg.doc.Security)
 }
 
 // generateOIDCDiscoveryFile generates the oidc_discovery.go file
@@ -1646,31 +1522,7 @@ func (cg *oas2CodeGenerator) generateSplitSecurityEnforce() error {
 //
 //nolint:unparam // error return kept for API consistency and future extensibility
 func (cg *oas2CodeGenerator) generateOIDCDiscoveryFile(schemes map[string]*parser.SecurityScheme) error {
-	// Find the first OpenID Connect scheme to get the discovery URL
-	var discoveryURL string
-	for _, scheme := range schemes {
-		if scheme != nil && scheme.Type == "openIdConnect" && scheme.OpenIDConnectURL != "" {
-			discoveryURL = scheme.OpenIDConnectURL
-			break
-		}
-	}
-
-	g := NewOIDCDiscoveryGenerator(cg.result.PackageName)
-	code := g.GenerateOIDCDiscoveryFile(discoveryURL)
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", []byte(code))
-	if err != nil {
-		cg.addIssue("oidc_discovery.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = []byte(code)
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "oidc_discovery.go",
-		Content: formatted,
-	})
-
-	return nil
+	return generateOIDCDiscoveryFileShared(cg.securityContext(), schemes)
 }
 
 // generateReadmeFile generates the README.md file
@@ -1679,98 +1531,19 @@ func (cg *oas2CodeGenerator) generateOIDCDiscoveryFile(schemes map[string]*parse
 func (cg *oas2CodeGenerator) generateReadmeFile(schemes map[string]*parser.SecurityScheme) error {
 	g := NewReadmeGenerator()
 
-	// Build security scheme summaries
-	var secSummaries []SecuritySchemeSummary
-	if len(schemes) > 0 {
-		// Sort scheme names for deterministic output
-		names := make([]string, 0, len(schemes))
-		for name := range schemes {
-			names = append(names, name)
-		}
-		sort.Strings(names)
+	// Build version-specific security scheme summaries
+	secSummaries := buildSecuritySchemeSummariesOAS2(schemes)
 
-		for _, name := range names {
-			scheme := schemes[name]
-			if scheme == nil {
-				continue
-			}
-
-			summary := SecuritySchemeSummary{
-				Name:        name,
-				Type:        scheme.Type,
-				Description: scheme.Description,
-			}
-
-			switch scheme.Type {
-			case schemeTypeAPIKey:
-				summary.Location = scheme.In
-			case schemeTypeBasic:
-				summary.Type = schemeTypeHTTP
-				summary.Scheme = schemeTypeBasic
-			case schemeTypeOAuth2:
-				summary.Flows = extractOAuth2FlowNames(nil, scheme.Flow)
-			}
-
-			secSummaries = append(secSummaries, summary)
-		}
-	}
-
-	// Build generated file summaries
-	fileSummaries := make([]GeneratedFileSummary, 0, len(cg.result.Files))
-	for _, f := range cg.result.Files {
-		lineCount := strings.Count(string(f.Content), "\n")
-		desc := getFileDescription(f.Name)
-		fileSummaries = append(fileSummaries, GeneratedFileSummary{
-			FileName:    f.Name,
-			Description: desc,
-			LineCount:   lineCount,
-		})
-	}
-
-	// Build split summary if applicable
-	var splitSummary *SplitSummary
-	if cg.splitPlan != nil && cg.splitPlan.NeedsSplit {
-		strategy := "by tag"
-		if !cg.g.SplitByTag {
-			strategy = "by path prefix"
-		}
-		groups := make([]string, 0, len(cg.splitPlan.Groups))
-		for _, grp := range cg.splitPlan.Groups {
-			groups = append(groups, grp.DisplayName)
-		}
-		splitSummary = &SplitSummary{
-			WasSplit:        true,
-			Strategy:        strategy,
-			Groups:          groups,
-			SharedTypesFile: "types.go",
-		}
-	}
-
-	// Build context
-	ctx := &ReadmeContext{
-		Timestamp:   time.Now(),
+	// Build context using shared helper
+	builder := &readmeContextBuilder{
 		PackageName: cg.result.PackageName,
 		OASVersion:  "2.0",
-		Config: &GeneratorConfigSummary{
-			GenerateTypes:           cg.g.GenerateTypes,
-			GenerateClient:          cg.g.GenerateClient,
-			GenerateSecurity:        cg.g.GenerateSecurity,
-			GenerateOAuth2Flows:     cg.g.GenerateOAuth2Flows,
-			GenerateCredentialMgmt:  cg.g.GenerateCredentialMgmt,
-			GenerateSecurityEnforce: cg.g.GenerateSecurityEnforce,
-			GenerateOIDCDiscovery:   cg.g.GenerateOIDCDiscovery,
-		},
-		GeneratedFiles:  fileSummaries,
-		SecuritySchemes: secSummaries,
-		SplitInfo:       splitSummary,
+		Config:      cg.g,
+		SplitPlan:   cg.splitPlan,
+		Files:       cg.result.Files,
+		Info:        cg.doc.Info,
 	}
-
-	// Extract API info
-	if cg.doc.Info != nil {
-		ctx.APITitle = cg.doc.Info.Title
-		ctx.APIVersion = cg.doc.Info.Version
-		ctx.APIDescription = cg.doc.Info.Description
-	}
+	ctx := buildReadmeContextShared(builder, secSummaries)
 
 	content := g.GenerateReadme(ctx)
 
@@ -1780,6 +1553,15 @@ func (cg *oas2CodeGenerator) generateReadmeFile(schemes map[string]*parser.Secur
 	})
 
 	return nil
+}
+
+// securityContext returns a securityGenerationContext for shared security generation functions.
+func (cg *oas2CodeGenerator) securityContext() *securityGenerationContext {
+	return &securityGenerationContext{
+		result:    cg.result,
+		splitPlan: cg.splitPlan,
+		addIssue:  cg.addIssue,
+	}
 }
 
 // oas2HttpMethods defines the HTTP methods supported in OAS 2.0.
@@ -2092,25 +1874,7 @@ func (cg *oas2CodeGenerator) getOAS2ParamSchemaType(param *parser.Parameter) str
 
 // generateServerMiddleware generates validation middleware for OAS 2.0
 func (cg *oas2CodeGenerator) generateServerMiddleware() error {
-	// The middleware template is static - it uses httpvalidator for validation
-	// No per-operation data needed since it validates dynamically
-	data := ServerMiddlewareFileData{
-		Header: HeaderData{
-			PackageName: cg.result.PackageName,
-		},
-	}
-
-	formatted, err := executeTemplate("middleware.go.tmpl", data)
-	if err != nil {
-		cg.addIssue("server_middleware.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
-		return err
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "server_middleware.go",
-		Content: formatted,
-	})
-	return nil
+	return generateServerMiddlewareShared(cg.result, cg.addIssue)
 }
 
 // generateServerRouter generates HTTP router code for OAS 2.0
