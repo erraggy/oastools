@@ -17,30 +17,7 @@ func (cg *oas3CodeGenerator) buildTypesFileData() *TypesFileData {
 	data.Header = cg.buildHeaderData()
 
 	// Process schemas from components
-	var schemas []schemaEntry
-	if cg.doc.Components != nil && cg.doc.Components.Schemas != nil {
-		for name, schema := range cg.doc.Components.Schemas {
-			if schema == nil {
-				continue
-			}
-			// Check for duplicate type names (e.g., "user_profile" and "UserProfile" both become "UserProfile")
-			typeName := toTypeName(name)
-			if cg.generatedTypes[typeName] {
-				cg.addIssue(fmt.Sprintf("components.schemas.%s", name),
-					fmt.Sprintf("duplicate type name %s - skipping", typeName), SeverityWarning)
-				continue
-			}
-			cg.generatedTypes[typeName] = true
-
-			schemas = append(schemas, schemaEntry{name: name, schema: schema})
-			cg.schemaNames["#/components/schemas/"+name] = typeName
-		}
-	}
-
-	// Sort schemas for deterministic output
-	sort.Slice(schemas, func(i, j int) bool {
-		return schemas[i].name < schemas[j].name
-	})
+	schemas := cg.collectSchemas()
 
 	// Build type definitions
 	for _, entry := range schemas {

@@ -221,6 +221,24 @@ Format detection:
 - HTTP Status Codes: `httputil.ValidateStatusCode()`, `httputil.StandardHTTPStatusCodes`
 - Severity Levels: `severity.SeverityError`, `severity.SeverityWarning`, etc.
 
+### Import Management
+
+**Use Go tooling for imports and formatting instead of manual management.**
+
+After editing Go source files:
+```bash
+goimports -w <file>   # Auto-organizes imports and formats
+gofmt -w <file>       # Formats code (goimports includes this)
+```
+
+`goimports` automatically:
+- Adds missing imports
+- Removes unused imports
+- Groups imports (stdlib, external, internal)
+- Applies `gofmt` formatting
+
+When refactoring, don't manually adjust import blocks - run `goimports` and let Go's tooling handle it.
+
 ### gopls Diagnostics
 
 **CRITICAL: Always run `go_diagnostics` on modified files and address ALL findings, including hints.**

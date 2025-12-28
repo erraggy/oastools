@@ -33,24 +33,18 @@ func (p *Parameter) MarshalJSON() ([]byte, error) {
 	jsonhelpers.SetIfNotNil(m, "example", p.Example)
 	jsonhelpers.SetIfMapNotEmpty(m, "examples", p.Examples)
 	jsonhelpers.SetIfMapNotEmpty(m, "content", p.Content)
-	jsonhelpers.SetIfNotEmpty(m, "type", p.Type)
-	jsonhelpers.SetIfNotEmpty(m, "format", p.Format)
 	jsonhelpers.SetIfTrue(m, "allowEmptyValue", p.AllowEmptyValue)
-	jsonhelpers.SetIfNotNil(m, "items", p.Items)
-	jsonhelpers.SetIfNotEmpty(m, "collectionFormat", p.CollectionFormat)
-	jsonhelpers.SetIfNotNil(m, "default", p.Default)
-	jsonhelpers.SetIfNotNil(m, "maximum", p.Maximum)
-	jsonhelpers.SetIfTrue(m, "exclusiveMaximum", p.ExclusiveMaximum)
-	jsonhelpers.SetIfNotNil(m, "minimum", p.Minimum)
-	jsonhelpers.SetIfTrue(m, "exclusiveMinimum", p.ExclusiveMinimum)
-	jsonhelpers.SetIfNotNil(m, "maxLength", p.MaxLength)
-	jsonhelpers.SetIfNotNil(m, "minLength", p.MinLength)
-	jsonhelpers.SetIfNotEmpty(m, "pattern", p.Pattern)
-	jsonhelpers.SetIfNotNil(m, "maxItems", p.MaxItems)
-	jsonhelpers.SetIfNotNil(m, "minItems", p.MinItems)
-	jsonhelpers.SetIfTrue(m, "uniqueItems", p.UniqueItems)
-	jsonhelpers.SetIfNotNil(m, "enum", p.Enum)
-	jsonhelpers.SetIfNotNil(m, "multipleOf", p.MultipleOf)
+	jsonhelpers.SetOAS2PrimitiveFields(m, jsonhelpers.OAS2PrimitiveFields{
+		Type: p.Type, Format: p.Format, Items: p.Items,
+		CollectionFormat: p.CollectionFormat, Default: p.Default,
+	})
+	jsonhelpers.SetSchemaConstraints(m, jsonhelpers.SchemaConstraints{
+		Maximum: p.Maximum, ExclusiveMaximum: p.ExclusiveMaximum,
+		Minimum: p.Minimum, ExclusiveMinimum: p.ExclusiveMinimum,
+		MaxLength: p.MaxLength, MinLength: p.MinLength, Pattern: p.Pattern,
+		MaxItems: p.MaxItems, MinItems: p.MinItems, UniqueItems: p.UniqueItems,
+		Enum: p.Enum, MultipleOf: p.MultipleOf,
+	})
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, p.Extra)
@@ -82,22 +76,17 @@ func (i *Items) MarshalJSON() ([]byte, error) {
 	m := map[string]any{
 		"type": i.Type, // Required field, always include
 	}
-	jsonhelpers.SetIfNotEmpty(m, "format", i.Format)
-	jsonhelpers.SetIfNotNil(m, "items", i.Items)
-	jsonhelpers.SetIfNotEmpty(m, "collectionFormat", i.CollectionFormat)
-	jsonhelpers.SetIfNotNil(m, "default", i.Default)
-	jsonhelpers.SetIfNotNil(m, "maximum", i.Maximum)
-	jsonhelpers.SetIfTrue(m, "exclusiveMaximum", i.ExclusiveMaximum)
-	jsonhelpers.SetIfNotNil(m, "minimum", i.Minimum)
-	jsonhelpers.SetIfTrue(m, "exclusiveMinimum", i.ExclusiveMinimum)
-	jsonhelpers.SetIfNotNil(m, "maxLength", i.MaxLength)
-	jsonhelpers.SetIfNotNil(m, "minLength", i.MinLength)
-	jsonhelpers.SetIfNotEmpty(m, "pattern", i.Pattern)
-	jsonhelpers.SetIfNotNil(m, "maxItems", i.MaxItems)
-	jsonhelpers.SetIfNotNil(m, "minItems", i.MinItems)
-	jsonhelpers.SetIfTrue(m, "uniqueItems", i.UniqueItems)
-	jsonhelpers.SetIfNotNil(m, "enum", i.Enum)
-	jsonhelpers.SetIfNotNil(m, "multipleOf", i.MultipleOf)
+	jsonhelpers.SetOAS2PrimitiveFields(m, jsonhelpers.OAS2PrimitiveFields{
+		Format: i.Format, Items: i.Items,
+		CollectionFormat: i.CollectionFormat, Default: i.Default,
+	})
+	jsonhelpers.SetSchemaConstraints(m, jsonhelpers.SchemaConstraints{
+		Maximum: i.Maximum, ExclusiveMaximum: i.ExclusiveMaximum,
+		Minimum: i.Minimum, ExclusiveMinimum: i.ExclusiveMinimum,
+		MaxLength: i.MaxLength, MinLength: i.MinLength, Pattern: i.Pattern,
+		MaxItems: i.MaxItems, MinItems: i.MinItems, UniqueItems: i.UniqueItems,
+		Enum: i.Enum, MultipleOf: i.MultipleOf,
+	})
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, i.Extra)
@@ -171,23 +160,17 @@ func (h *Header) MarshalJSON() ([]byte, error) {
 	jsonhelpers.SetIfNotNil(m, "example", h.Example)
 	jsonhelpers.SetIfMapNotEmpty(m, "examples", h.Examples)
 	jsonhelpers.SetIfMapNotEmpty(m, "content", h.Content)
-	jsonhelpers.SetIfNotEmpty(m, "type", h.Type)
-	jsonhelpers.SetIfNotEmpty(m, "format", h.Format)
-	jsonhelpers.SetIfNotNil(m, "items", h.Items)
-	jsonhelpers.SetIfNotEmpty(m, "collectionFormat", h.CollectionFormat)
-	jsonhelpers.SetIfNotNil(m, "default", h.Default)
-	jsonhelpers.SetIfNotNil(m, "maximum", h.Maximum)
-	jsonhelpers.SetIfTrue(m, "exclusiveMaximum", h.ExclusiveMaximum)
-	jsonhelpers.SetIfNotNil(m, "minimum", h.Minimum)
-	jsonhelpers.SetIfTrue(m, "exclusiveMinimum", h.ExclusiveMinimum)
-	jsonhelpers.SetIfNotNil(m, "maxLength", h.MaxLength)
-	jsonhelpers.SetIfNotNil(m, "minLength", h.MinLength)
-	jsonhelpers.SetIfNotEmpty(m, "pattern", h.Pattern)
-	jsonhelpers.SetIfNotNil(m, "maxItems", h.MaxItems)
-	jsonhelpers.SetIfNotNil(m, "minItems", h.MinItems)
-	jsonhelpers.SetIfTrue(m, "uniqueItems", h.UniqueItems)
-	jsonhelpers.SetIfNotNil(m, "enum", h.Enum)
-	jsonhelpers.SetIfNotNil(m, "multipleOf", h.MultipleOf)
+	jsonhelpers.SetOAS2PrimitiveFields(m, jsonhelpers.OAS2PrimitiveFields{
+		Type: h.Type, Format: h.Format, Items: h.Items,
+		CollectionFormat: h.CollectionFormat, Default: h.Default,
+	})
+	jsonhelpers.SetSchemaConstraints(m, jsonhelpers.SchemaConstraints{
+		Maximum: h.Maximum, ExclusiveMaximum: h.ExclusiveMaximum,
+		Minimum: h.Minimum, ExclusiveMinimum: h.ExclusiveMinimum,
+		MaxLength: h.MaxLength, MinLength: h.MinLength, Pattern: h.Pattern,
+		MaxItems: h.MaxItems, MinItems: h.MinItems, UniqueItems: h.UniqueItems,
+		Enum: h.Enum, MultipleOf: h.MultipleOf,
+	})
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, h.Extra)

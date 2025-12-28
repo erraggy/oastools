@@ -145,22 +145,8 @@ func (fs *FileSplitter) AnalyzeOAS3(doc *parser.OAS3Document) *SplitPlan {
 		plan.TotalTypes = len(doc.Components.Schemas)
 	}
 
-	// Estimate lines (rough heuristic: 30 lines per operation, 15 lines per type)
-	plan.EstimatedLines = plan.TotalOperations*30 + plan.TotalTypes*15
-
-	// Determine if splitting is needed
-	plan.NeedsSplit = fs.needsSplit(plan.TotalOperations, plan.TotalTypes, plan.EstimatedLines)
-
-	if !plan.NeedsSplit {
-		// No splitting needed - create single group
-		plan.Groups = []FileGroup{{
-			Name:           "",
-			DisplayName:    "All",
-			Operations:     fs.getOperationIDs(operations),
-			Types:          fs.getSchemaNames(doc),
-			IsShared:       false,
-			EstimatedLines: plan.EstimatedLines,
-		}}
+	// Check if splitting is needed; if not, create single group and return
+	if fs.finalizePlanIfNoSplit(plan, operations, func() []string { return fs.getSchemaNames(doc) }) {
 		return plan
 	}
 
@@ -188,22 +174,8 @@ func (fs *FileSplitter) AnalyzeOAS2(doc *parser.OAS2Document) *SplitPlan {
 		plan.TotalTypes = len(doc.Definitions)
 	}
 
-	// Estimate lines
-	plan.EstimatedLines = plan.TotalOperations*30 + plan.TotalTypes*15
-
-	// Determine if splitting is needed
-	plan.NeedsSplit = fs.needsSplit(plan.TotalOperations, plan.TotalTypes, plan.EstimatedLines)
-
-	if !plan.NeedsSplit {
-		// No splitting needed - create single group
-		plan.Groups = []FileGroup{{
-			Name:           "",
-			DisplayName:    "All",
-			Operations:     fs.getOperationIDs(operations),
-			Types:          fs.getOAS2SchemaNames(doc),
-			IsShared:       false,
-			EstimatedLines: plan.EstimatedLines,
-		}}
+	// Check if splitting is needed; if not, create single group and return
+	if fs.finalizePlanIfNoSplit(plan, operations, func() []string { return fs.getOAS2SchemaNames(doc) }) {
 		return plan
 	}
 
@@ -224,6 +196,31 @@ func (fs *FileSplitter) needsSplit(operations, types, lines int) bool {
 		return true
 	}
 	if fs.MaxLinesPerFile > 0 && lines > fs.MaxLinesPerFile {
+		return true
+	}
+	return false
+}
+
+// finalizePlanIfNoSplit estimates lines, checks if splitting is needed, and creates
+// a single group if not. Returns true if no split is needed (plan is complete).
+// This is shared between OAS 2.0 and OAS 3.x analysis.
+func (fs *FileSplitter) finalizePlanIfNoSplit(plan *SplitPlan, operations []*OperationInfo, getSchemaNames func() []string) bool {
+	// Estimate lines (rough heuristic: 30 lines per operation, 15 lines per type)
+	plan.EstimatedLines = plan.TotalOperations*30 + plan.TotalTypes*15
+
+	// Determine if splitting is needed
+	plan.NeedsSplit = fs.needsSplit(plan.TotalOperations, plan.TotalTypes, plan.EstimatedLines)
+
+	if !plan.NeedsSplit {
+		// No splitting needed - create single group
+		plan.Groups = []FileGroup{{
+			Name:           "",
+			DisplayName:    "All",
+			Operations:     fs.getOperationIDs(operations),
+			Types:          getSchemaNames(),
+			IsShared:       false,
+			EstimatedLines: plan.EstimatedLines,
+		}}
 		return true
 	}
 	return false
@@ -543,6 +540,40 @@ func (fs *FileSplitter) getOperationByMethod(pathItem *parser.PathItem, method s
 	}
 }
 
+// operationTypeCollector is a callback for collecting type references from an operation.
+type operationTypeCollector func(op *parser.Operation, usedTypes map[string]bool)
+
+// collectGroupTypeUsage iterates over operation groups and tracks which types each group uses.
+// This is shared between OAS 2.0 and OAS 3.x analysis.
+func (fs *FileSplitter) collectGroupTypeUsage(groups map[string][]*OperationInfo, usage map[string]*typeUsageInfo, paths parser.Paths, collector operationTypeCollector) {
+	for groupName, ops := range groups {
+		usedTypes := make(map[string]bool)
+
+		for _, op := range ops {
+			if paths == nil {
+				continue
+			}
+			pathItem, ok := paths[op.Path]
+			if !ok || pathItem == nil {
+				continue
+			}
+
+			opObj := fs.getOperationByMethod(pathItem, op.Method)
+			if opObj == nil {
+				continue
+			}
+
+			collector(opObj, usedTypes)
+		}
+
+		for typeName := range usedTypes {
+			if info, ok := usage[typeName]; ok {
+				info.groups = append(info.groups, groupName)
+			}
+		}
+	}
+}
+
 // analyzeTypeUsage analyzes which groups use which types.
 func (fs *FileSplitter) analyzeTypeUsage(doc *parser.OAS3Document, groups map[string][]*OperationInfo) map[string]*typeUsageInfo {
 	usage := make(map[string]*typeUsageInfo)
@@ -556,36 +587,8 @@ func (fs *FileSplitter) analyzeTypeUsage(doc *parser.OAS3Document, groups map[st
 		usage[typeName] = &typeUsageInfo{groups: make([]string, 0)}
 	}
 
-	// For each group, find which types are used by operations in that group
-	for groupName, ops := range groups {
-		usedTypes := make(map[string]bool)
-
-		for _, op := range ops {
-			// Find the actual operation in the document
-			if doc.Paths == nil {
-				continue
-			}
-			pathItem, ok := doc.Paths[op.Path]
-			if !ok || pathItem == nil {
-				continue
-			}
-
-			opObj := fs.getOperationByMethod(pathItem, op.Method)
-			if opObj == nil {
-				continue
-			}
-
-			// Collect types from request body, responses, and parameters
-			fs.collectOAS3OperationTypes(opObj, usedTypes)
-		}
-
-		// Mark types as used by this group
-		for typeName := range usedTypes {
-			if info, ok := usage[typeName]; ok {
-				info.groups = append(info.groups, groupName)
-			}
-		}
-	}
+	// Collect type usage per group using shared helper
+	fs.collectGroupTypeUsage(groups, usage, doc.Paths, fs.collectOAS3OperationTypes)
 
 	return usage
 }
@@ -703,33 +706,8 @@ func (fs *FileSplitter) analyzeOAS2TypeUsage(doc *parser.OAS2Document, groups ma
 		usage[typeName] = &typeUsageInfo{groups: make([]string, 0)}
 	}
 
-	// For each group, find which types are used
-	for groupName, ops := range groups {
-		usedTypes := make(map[string]bool)
-
-		for _, op := range ops {
-			if doc.Paths == nil {
-				continue
-			}
-			pathItem, ok := doc.Paths[op.Path]
-			if !ok || pathItem == nil {
-				continue
-			}
-
-			opObj := fs.getOperationByMethod(pathItem, op.Method)
-			if opObj == nil {
-				continue
-			}
-
-			fs.collectOAS2OperationTypes(opObj, usedTypes)
-		}
-
-		for typeName := range usedTypes {
-			if info, ok := usage[typeName]; ok {
-				info.groups = append(info.groups, groupName)
-			}
-		}
-	}
+	// Collect type usage per group using shared helper
+	fs.collectGroupTypeUsage(groups, usage, doc.Paths, fs.collectOAS2OperationTypes)
 
 	return usage
 }

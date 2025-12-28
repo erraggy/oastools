@@ -126,40 +126,16 @@ func (cg *oas2CodeGenerator) generateSingleTypes() error {
 		cg.result.GeneratedTypes++
 	}
 
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
-	if err != nil {
-		cg.addIssue("types.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = buf.Bytes()
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "types.go",
-		Content: formatted,
-	})
+	// Format and append the file
+	appendFormattedFile(cg.result, "types.go", &buf, cg.addIssue)
 
 	return nil
 }
 
 // generateSplitTypes generates types split across multiple files
 func (cg *oas2CodeGenerator) generateSplitTypes() error {
-	// Build set of shared types
-	sharedTypes := make(map[string]bool)
-	for _, typeName := range cg.splitPlan.SharedTypes {
-		sharedTypes[typeName] = true
-	}
-
-	// Build set of types per group
-	groupTypes := make(map[string]map[string]bool)
-	for _, group := range cg.splitPlan.Groups {
-		if group.IsShared {
-			continue
-		}
-		groupTypes[group.Name] = make(map[string]bool)
-		for _, typeName := range group.Types {
-			groupTypes[group.Name][typeName] = true
-		}
-	}
+	// Build type maps from split plan
+	sharedTypes, groupTypes := buildTypeGroupMaps(cg.splitPlan)
 
 	// Get all schemas
 	allSchemas := cg.collectSchemas()
@@ -243,17 +219,8 @@ func (cg *oas2CodeGenerator) generateOAS2TypesFile(fileName, comment string, all
 		cg.result.GeneratedTypes++
 	}
 
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
-	if err != nil {
-		cg.addIssue(fileName, fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = buf.Bytes()
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    fileName,
-		Content: formatted,
-	})
+	// Format and append the file
+	appendFormattedFile(cg.result, fileName, &buf, cg.addIssue)
 
 	return nil
 }
@@ -293,42 +260,7 @@ func (cg *oas2CodeGenerator) generateSchemaType(name string, schema *parser.Sche
 		// Generate struct
 		buf.WriteString(fmt.Sprintf("type %s struct {\n", typeName))
 		if schema.Properties != nil {
-			// Sort properties for deterministic output
-			var propNames []string
-			for propName := range schema.Properties {
-				propNames = append(propNames, propName)
-			}
-			sort.Strings(propNames)
-
-			for _, propName := range propNames {
-				propSchema := schema.Properties[propName]
-				if propSchema == nil {
-					continue
-				}
-
-				goType := cg.schemaToGoType(propSchema, isRequired(schema.Required, propName))
-
-				// Check for self-reference (recursive type) - needs pointer indirection
-				// e.g., type UserGroup struct { Children UserGroup } is invalid, needs *UserGroup
-				if isSelfReference(propSchema, typeName) &&
-					!strings.HasPrefix(goType, "*") &&
-					!strings.HasPrefix(goType, "[]") {
-					goType = "*" + goType
-				}
-
-				fieldName := toFieldName(propName)
-				jsonTag := propName
-				if !isRequired(schema.Required, propName) {
-					jsonTag += ",omitempty"
-				}
-
-				// Add field comment
-				if propSchema.Description != "" {
-					buf.WriteString(fmt.Sprintf("\t// %s\n", cleanDescription(propSchema.Description)))
-				}
-
-				buf.WriteString(fmt.Sprintf("\t%s %s `json:%q`\n", fieldName, goType, jsonTag))
-			}
+			cg.writeStructFields(&buf, schema, typeName, true)
 		}
 		buf.WriteString("}\n")
 
@@ -388,39 +320,51 @@ func (cg *oas2CodeGenerator) generateAllOfType(typeName string, schema *parser.S
 			refType := cg.resolveRef(subSchema.Ref)
 			buf.WriteString(fmt.Sprintf("\t%s\n", refType))
 		} else if subSchema.Properties != nil {
-			// Inline properties
-			var propNames []string
-			for propName := range subSchema.Properties {
-				propNames = append(propNames, propName)
-			}
-			sort.Strings(propNames)
-
-			for _, propName := range propNames {
-				propSchema := subSchema.Properties[propName]
-				if propSchema == nil {
-					continue
-				}
-				goType := cg.schemaToGoType(propSchema, isRequired(subSchema.Required, propName))
-
-				// Check for self-reference (recursive type) - needs pointer indirection
-				if isSelfReference(propSchema, typeName) &&
-					!strings.HasPrefix(goType, "*") &&
-					!strings.HasPrefix(goType, "[]") {
-					goType = "*" + goType
-				}
-
-				fieldName := toFieldName(propName)
-				jsonTag := propName
-				if !isRequired(subSchema.Required, propName) {
-					jsonTag += ",omitempty"
-				}
-				buf.WriteString(fmt.Sprintf("\t%s %s `json:%q`\n", fieldName, goType, jsonTag))
-			}
+			// Inline properties (no description comments for allOf inline properties)
+			cg.writeStructFields(&buf, subSchema, typeName, false)
 		}
 	}
 
 	buf.WriteString("}\n")
 	return buf.String(), nil
+}
+
+// writeStructFields writes struct fields for properties in sorted order.
+// includeDescription controls whether to emit field description comments.
+func (cg *oas2CodeGenerator) writeStructFields(buf *bytes.Buffer, schema *parser.Schema, typeName string, includeDescription bool) {
+	propNames := make([]string, 0, len(schema.Properties))
+	for propName := range schema.Properties {
+		propNames = append(propNames, propName)
+	}
+	sort.Strings(propNames)
+
+	for _, propName := range propNames {
+		propSchema := schema.Properties[propName]
+		if propSchema == nil {
+			continue
+		}
+
+		goType := cg.schemaToGoType(propSchema, isRequired(schema.Required, propName))
+
+		// Check for self-reference (recursive type) - needs pointer indirection
+		if isSelfReference(propSchema, typeName) &&
+			!strings.HasPrefix(goType, "*") &&
+			!strings.HasPrefix(goType, "[]") {
+			goType = "*" + goType
+		}
+
+		fieldName := toFieldName(propName)
+		jsonTag := propName
+		if !isRequired(schema.Required, propName) {
+			jsonTag += ",omitempty"
+		}
+
+		if includeDescription && propSchema.Description != "" {
+			fmt.Fprintf(buf, "\t// %s\n", cleanDescription(propSchema.Description))
+		}
+
+		fmt.Fprintf(buf, "\t%s %s `json:%q`\n", fieldName, goType, jsonTag)
+	}
 }
 
 // schemaToGoType converts a schema to a Go type string
@@ -499,17 +443,8 @@ func (cg *oas2CodeGenerator) generateSingleClient() error {
 	// Write helper functions
 	buf.WriteString(clientHelpers)
 
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
-	if err != nil {
-		cg.addIssue("client.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = buf.Bytes()
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "client.go",
-		Content: formatted,
-	})
+	// Format and append the file
+	appendFormattedFile(cg.result, "client.go", &buf, cg.addIssue)
 
 	return nil
 }
@@ -566,33 +501,12 @@ func (cg *oas2CodeGenerator) generateOAS2ClientGroupFile(group FileGroup, opToPa
 	buf.WriteString("\t\"strings\"\n")
 	buf.WriteString(")\n\n")
 
-	// Generate each operation in this group
-	for _, opID := range group.Operations {
-		info, ok := opToPathMethod[opID]
-		if !ok {
-			continue
-		}
+	// Generate each operation in this group using shared helper
+	generateGroupClientMethods(&buf, group, opToPathMethod, cg.result, cg.addIssue, cg.generateClientMethod)
 
-		code, err := cg.generateClientMethod(info.Path, info.Method, info.Op)
-		if err != nil {
-			cg.addIssue(fmt.Sprintf("paths.%s.%s", info.Path, info.Method), fmt.Sprintf("failed to generate client method: %v", err), SeverityWarning)
-			continue
-		}
-		buf.WriteString(code)
-		cg.result.GeneratedOperations++
-	}
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
-	if err != nil {
-		cg.addIssue(fmt.Sprintf("client_%s.go", group.Name), fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = buf.Bytes()
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    fmt.Sprintf("client_%s.go", group.Name),
-		Content: formatted,
-	})
+	// Format and append the file
+	fileName := fmt.Sprintf("client_%s.go", group.Name)
+	appendFormattedFile(cg.result, fileName, &buf, cg.addIssue)
 
 	return nil
 }
@@ -648,17 +562,8 @@ func (cg *oas2CodeGenerator) generateClientMethod(path, method string, op *parse
 	responseType := cg.getResponseType(op)
 	contentType := "application/json" // OAS 2.0 always uses JSON for body params
 
-	writeMethodDoc(&buf, op, methodName, method, path)
-	writeMethodSignature(&buf, methodName, params, responseType)
-	writeURLBuilding(&buf, path, pathParams)
-	writeQueryStringBuilding(&buf, queryParams)
-	writeRequestCreation(&buf, hasBody, method, responseType)
-	writeRequestHeaders(&buf, hasBody, contentType)
-	writeRequestEditors(&buf, responseType)
-	writeRequestExecution(&buf, responseType)
-	writeErrorResponseHandling(&buf, responseType)
-	writeResponseParsing(&buf, responseType)
-	writeParamsStruct(&buf, methodName, queryParams, cg.paramToGoType)
+	writeClientMethod(&buf, op, methodName, method, path, params, pathParams, queryParams,
+		hasBody, contentType, responseType, cg.paramToGoType)
 
 	return buf.String(), nil
 }
@@ -666,20 +571,7 @@ func (cg *oas2CodeGenerator) generateClientMethod(path, method string, op *parse
 // paramToGoType converts a parameter to its Go type
 func (cg *oas2CodeGenerator) paramToGoType(param *parser.Parameter) string {
 	// OAS 2.0 uses type directly on parameter
-	switch param.Type {
-	case "string":
-		return stringFormatToGoType(param.Format)
-	case "integer":
-		return integerFormatToGoType(param.Format)
-	case "number":
-		return numberFormatToGoType(param.Format)
-	case "boolean":
-		return "bool"
-	case "array":
-		return "[]string"
-	default:
-		return "string"
-	}
+	return paramTypeToGoType(param.Type, param.Format)
 }
 
 // getResponseType determines the Go type for the success response
@@ -726,60 +618,25 @@ func (cg *oas2CodeGenerator) generateServer() error {
 
 // generateSingleServer generates all server code in a single file (original behavior)
 func (cg *oas2CodeGenerator) generateSingleServer() error {
-	var buf bytes.Buffer
+	// Use shared function with request type callback for single-file mode
+	_, err := generateBaseServerShared(&baseServerContext{
+		paths:                   cg.doc.Paths,
+		oasVersion:              parser.OASVersion20,
+		httpMethods:             oas2HttpMethods,
+		packageName:             cg.result.PackageName,
+		needsTime:               false, // OAS 2.0 doesn't support date-time in the same way
+		result:                  cg.result,
+		addIssue:                cg.addIssue,
+		generateMethodSignature: cg.generateServerMethodSignature,
+		getResponseType:         cg.getResponseType,
+		generateRequestTypes:    cg.writeRequestTypes,
+	})
+	return err
+}
 
-	// Write header
-	buf.WriteString("// Code generated by oastools. DO NOT EDIT.\n\n")
-	buf.WriteString(fmt.Sprintf("package %s\n\n", cg.result.PackageName))
-
-	// Write imports
-	buf.WriteString("import (\n")
-	buf.WriteString("\t\"context\"\n")
-	buf.WriteString("\t\"net/http\"\n")
-	buf.WriteString(")\n\n")
-
-	// Track generated methods to avoid duplicates (can happen with duplicate operationIds).
-	// NOTE: This map must be local per file generation to avoid stale data in split mode.
-	generatedMethods := make(map[string]bool)
-
-	// Generate server interface
-	buf.WriteString("// ServerInterface represents the server API.\n")
-	buf.WriteString("type ServerInterface interface {\n")
-
-	if cg.doc.Paths != nil {
-		// Sort paths for deterministic output
-		pathKeys := sortedPathKeys(cg.doc.Paths)
-
-		for _, path := range pathKeys {
-			pathItem := cg.doc.Paths[path]
-			if pathItem == nil {
-				continue
-			}
-
-			operations := parser.GetOperations(pathItem, parser.OASVersion20)
-			for _, method := range httpMethods {
-				op := operations[method]
-				if op == nil {
-					continue
-				}
-
-				methodName := operationToMethodName(op, path, method)
-				if generatedMethods[methodName] {
-					cg.addIssue(fmt.Sprintf("paths.%s.%s", path, method),
-						fmt.Sprintf("duplicate method name %s - skipping", methodName), SeverityWarning)
-					continue
-				}
-				generatedMethods[methodName] = true
-
-				sig := cg.generateServerMethodSignature(path, method, op)
-				buf.WriteString(sig)
-			}
-		}
-	}
-
-	buf.WriteString("}\n\n")
-
-	// Generate request types (use same tracking map since request types are named after methods)
+// writeRequestTypes generates request types for all operations.
+// This is used as a callback for single-file server generation.
+func (cg *oas2CodeGenerator) writeRequestTypes(buf *bytes.Buffer, generatedMethods map[string]bool) {
 	for _, path := range sortedPathKeys(cg.doc.Paths) {
 		pathItem := cg.doc.Paths[path]
 		if pathItem == nil {
@@ -805,96 +662,19 @@ func (cg *oas2CodeGenerator) generateSingleServer() error {
 			}
 		}
 	}
-
-	// Write unimplemented server
-	buf.WriteString("// UnimplementedServer provides default implementations that return errors.\n")
-	buf.WriteString("type UnimplementedServer struct{}\n\n")
-
-	// Track generated UnimplementedServer methods separately to avoid duplicates.
-	// We can't reuse generatedMethods because it's used to check if a method was
-	// added to the interface (i.e., wasn't filtered as duplicate).
-	generatedUnimplemented := make(map[string]bool)
-
-	// Generate unimplemented methods (methods already tracked from interface generation)
-	if cg.doc.Paths != nil {
-		pathKeys := sortedPathKeys(cg.doc.Paths)
-
-		for _, path := range pathKeys {
-			pathItem := cg.doc.Paths[path]
-			if pathItem == nil {
-				continue
-			}
-
-			operations := parser.GetOperations(pathItem, parser.OASVersion20)
-			for _, method := range httpMethods {
-				op := operations[method]
-				if op == nil {
-					continue
-				}
-
-				methodName := operationToMethodName(op, path, method)
-				// Skip if not in generated methods (was a duplicate in interface)
-				if !generatedMethods[methodName] {
-					continue
-				}
-				// Skip if already generated for UnimplementedServer
-				if generatedUnimplemented[methodName] {
-					continue
-				}
-				generatedUnimplemented[methodName] = true
-
-				responseType := cg.getResponseType(op)
-
-				buf.WriteString(fmt.Sprintf("func (s *UnimplementedServer) %s(ctx context.Context, req *%sRequest) (%s, error) {\n",
-					methodName, methodName, responseType))
-				buf.WriteString(fmt.Sprintf("\treturn %s, ErrNotImplemented\n", zeroValue(responseType)))
-				buf.WriteString("}\n\n")
-			}
-		}
-	}
-
-	// Write error type
-	writeNotImplementedError(&buf)
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
-	if err != nil {
-		cg.addIssue("server.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = buf.Bytes()
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "server.go",
-		Content: formatted,
-	})
-
-	return nil
 }
 
 // generateSplitServer generates server code split across multiple files
 func (cg *oas2CodeGenerator) generateSplitServer() error {
-	// Generate the base server.go (interface, unimplemented, error types)
-	// Returns the set of methods that were actually generated (excludes duplicates)
-	generatedMethods, err := cg.generateOAS2BaseServer()
-	if err != nil {
-		return err
-	}
-
-	// Build a map of operation ID to path/method for quick lookup
-	opToPathMethod := buildOperationMap(cg.doc.Paths, parser.OASVersion20)
-
-	// Generate a server file for each group (request types only)
-	for _, group := range cg.splitPlan.Groups {
-		if group.IsShared {
-			continue // Skip shared types group
-		}
-
-		if err := cg.generateOAS2ServerGroupFile(group, opToPathMethod, generatedMethods); err != nil {
-			cg.addIssue(fmt.Sprintf("server_%s.go", group.Name), fmt.Sprintf("failed to generate: %v", err), SeverityWarning)
-		}
-	}
-
-	return nil
+	return generateSplitServerShared(&splitServerContext{
+		paths:               cg.doc.Paths,
+		oasVersion:          parser.OASVersion20,
+		splitPlan:           cg.splitPlan,
+		result:              cg.result,
+		addIssue:            cg.addIssue,
+		generateBaseServer:  cg.generateOAS2BaseServer,
+		generateRequestType: cg.generateRequestType,
+	})
 }
 
 // generateOAS2BaseServer generates the base server.go with interface and unimplemented struct.
@@ -915,76 +695,9 @@ func (cg *oas2CodeGenerator) generateOAS2BaseServer() (map[string]bool, error) {
 	})
 }
 
-// generateOAS2ServerGroupFile generates a server_{group}.go file with request types for a specific group.
-// The generatedMethods map indicates which methods were added to the interface (duplicates excluded).
-//
-//nolint:unparam // error return kept for API consistency with other generate methods
-func (cg *oas2CodeGenerator) generateOAS2ServerGroupFile(group FileGroup, opToPathMethod map[string]OperationMapping, generatedMethods map[string]bool) error {
-	var buf bytes.Buffer
-
-	// Write header with comment about the group
-	buf.WriteString("// Code generated by oastools. DO NOT EDIT.\n")
-	buf.WriteString(fmt.Sprintf("// This file contains %s server request types.\n\n", group.DisplayName))
-	buf.WriteString(fmt.Sprintf("package %s\n\n", cg.result.PackageName))
-
-	// Write imports
-	buf.WriteString("import (\n")
-	buf.WriteString("\t\"net/http\"\n")
-	buf.WriteString(")\n\n")
-
-	// Generate request types for each operation in this group
-	for _, opID := range group.Operations {
-		// Skip if method was not added to interface (was filtered as duplicate)
-		if !generatedMethods[opID] {
-			continue
-		}
-
-		info, ok := opToPathMethod[opID]
-		if !ok {
-			continue
-		}
-
-		reqType := cg.generateRequestType(info.Path, info.Method, info.Op)
-		if reqType != "" {
-			buf.WriteString(reqType)
-		}
-	}
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
-	if err != nil {
-		cg.addIssue(fmt.Sprintf("server_%s.go", group.Name), fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = buf.Bytes()
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    fmt.Sprintf("server_%s.go", group.Name),
-		Content: formatted,
-	})
-
-	return nil
-}
-
 // generateServerMethodSignature generates the interface method signature
 func (cg *oas2CodeGenerator) generateServerMethodSignature(path, method string, op *parser.Operation) string {
-	var buf bytes.Buffer
-
-	methodName := operationToMethodName(op, path, method)
-	responseType := cg.getResponseType(op)
-
-	// Write comment - handle multiline descriptions properly
-	if op.Summary != "" {
-		buf.WriteString(formatMultilineComment(op.Summary, methodName, "\t"))
-	} else if op.Description != "" {
-		buf.WriteString(formatMultilineComment(op.Description, methodName, "\t"))
-	}
-	if op.Deprecated {
-		buf.WriteString("\t// Deprecated: This operation is deprecated.\n")
-	}
-
-	buf.WriteString(fmt.Sprintf("\t%s(ctx context.Context, req *%sRequest) (%s, error)\n", methodName, methodName, responseType))
-
-	return buf.String()
+	return buildServerMethodSignature(path, method, op, cg.getResponseType(op))
 }
 
 // generateRequestType generates a request struct for an operation
@@ -1065,57 +778,14 @@ func (cg *oas2CodeGenerator) generateRequestType(path, method string, op *parser
 
 // generateSecurityHelpers generates security helper code based on configuration
 func (cg *oas2CodeGenerator) generateSecurityHelpers() error {
-	// Check if client generation is enabled
-	if !cg.g.GenerateClient {
-		return nil
-	}
-
-	// Get security definitions from OAS 2.0 document
-	schemes := cg.doc.SecurityDefinitions
-
-	// Generate security helpers if enabled
-	if cg.g.GenerateSecurity && len(schemes) > 0 {
-		if err := cg.generateSecurityHelpersFile(schemes); err != nil {
-			return fmt.Errorf("failed to generate security helpers: %w", err)
-		}
-	}
-
-	// Generate OAuth2 flows if enabled
-	if cg.g.GenerateOAuth2Flows && len(schemes) > 0 {
-		if err := cg.generateOAuth2Files(schemes); err != nil {
-			return fmt.Errorf("failed to generate OAuth2 flows: %w", err)
-		}
-	}
-
-	// Generate credential management if enabled
-	if cg.g.GenerateCredentialMgmt {
-		if err := cg.generateCredentialsFile(); err != nil {
-			return fmt.Errorf("failed to generate credentials: %w", err)
-		}
-	}
-
-	// Generate security enforcement if enabled
-	if cg.g.GenerateSecurityEnforce {
-		if err := cg.generateSecurityEnforceFile(); err != nil {
-			return fmt.Errorf("failed to generate security enforcement: %w", err)
-		}
-	}
-
-	// Generate OIDC discovery if enabled (rare in OAS 2.0 but still possible)
-	if cg.g.GenerateOIDCDiscovery && len(schemes) > 0 {
-		if err := cg.generateOIDCDiscoveryFile(schemes); err != nil {
-			return fmt.Errorf("failed to generate OIDC discovery: %w", err)
-		}
-	}
-
-	// Generate README if enabled
-	if cg.g.GenerateReadme {
-		if err := cg.generateReadmeFile(schemes); err != nil {
-			return fmt.Errorf("failed to generate README: %w", err)
-		}
-	}
-
-	return nil
+	return generateAllSecurityHelpers(cg.g, cg.doc.SecurityDefinitions, fullSecurityCallbacks{
+		generateSecurityHelpersFile: cg.generateSecurityHelpersFile,
+		generateOAuth2Files:         cg.generateOAuth2Files,
+		generateCredentials:         cg.generateCredentialsFile,
+		generateSecurityEnforce:     cg.generateSecurityEnforceFile,
+		generateOIDCDiscovery:       cg.generateOIDCDiscoveryFile,
+		generateReadme:              cg.generateReadmeFile,
+	})
 }
 
 // generateSecurityHelpersFile generates the security_helpers.go file for OAS 2.0
@@ -1289,76 +959,14 @@ func (cg *oas2CodeGenerator) generateServerResponses() error {
 
 // buildStatusCodes builds status code data for an operation's responses (OAS 2.0)
 func (cg *oas2CodeGenerator) buildStatusCodes(op *parser.Operation) []StatusCodeData {
-	if op.Responses == nil {
-		return nil
-	}
-
-	// Pre-allocate: 1 for default + status codes
-	codes := make([]StatusCodeData, 0, 1+len(op.Responses.Codes))
-
-	// Process default response first
-	if op.Responses.Default != nil {
-		statusData := cg.buildStatusCodeData("default", op.Responses.Default)
-		codes = append(codes, statusData)
-	}
-
-	// Get sorted status codes from Codes map
-	statusKeys := make([]string, 0, len(op.Responses.Codes))
-	for code := range op.Responses.Codes {
-		statusKeys = append(statusKeys, code)
-	}
-	sort.Strings(statusKeys)
-
-	for _, code := range statusKeys {
-		resp := op.Responses.Codes[code]
-		if resp == nil {
-			continue
-		}
-		statusData := cg.buildStatusCodeData(code, resp)
-		codes = append(codes, statusData)
-	}
-
-	return codes
+	return buildStatusCodesShared(op, cg.buildStatusCodeData)
 }
 
 // buildStatusCodeData builds data for a single status code response (OAS 2.0)
 func (cg *oas2CodeGenerator) buildStatusCodeData(code string, resp *parser.Response) StatusCodeData {
-	statusData := StatusCodeData{
-		Code:        code,
-		Description: resp.Description,
-	}
-
-	// Determine method name and code type
-	switch {
-	case code == "default":
-		statusData.MethodName = "StatusDefault"
-		statusData.IsDefault = true
-		statusData.StatusCodeInt = 500 // Use 500 as default status
-	case len(code) == 3 && strings.HasSuffix(code, "XX"):
-		// Wildcard like 2XX, 4XX, 5XX
-		statusData.IsWildcard = true
-		statusData.MethodName = "Status" + code
-		// Use first code in range
-		switch code[0] {
-		case '2':
-			statusData.StatusCodeInt = 200
-			statusData.IsSuccess = true
-		case '3':
-			statusData.StatusCodeInt = 300
-		case '4':
-			statusData.StatusCodeInt = 400
-		case '5':
-			statusData.StatusCodeInt = 500
-		}
-	default:
-		// Specific status code
-		statusData.MethodName = "Status" + code
-		var statusInt int
-		if _, err := fmt.Sscanf(code, "%d", &statusInt); err == nil {
-			statusData.StatusCodeInt = statusInt
-			statusData.IsSuccess = statusInt >= 200 && statusInt < 300
-		}
-	}
+	// Parse status code metadata using shared helper
+	statusData := parseStatusCodeMetadata(code)
+	statusData.Description = resp.Description
 
 	// OAS 2.0: Response has direct Schema field (not Content map)
 	if resp.Schema != nil {

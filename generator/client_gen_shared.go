@@ -177,3 +177,21 @@ func writeParamsStruct(buf *bytes.Buffer, methodName string, queryParams []*pars
 	}
 	buf.WriteString("}\n\n")
 }
+
+// writeClientMethod writes all the shared client method code.
+// This is identical between OAS 2.0 and OAS 3.x generators.
+func writeClientMethod(buf *bytes.Buffer, op *parser.Operation, methodName, method, path string,
+	params []string, pathParams []pathParam, queryParams []*parser.Parameter,
+	hasBody bool, contentType, responseType string, paramToGoType func(*parser.Parameter) string) {
+	writeMethodDoc(buf, op, methodName, method, path)
+	writeMethodSignature(buf, methodName, params, responseType)
+	writeURLBuilding(buf, path, pathParams)
+	writeQueryStringBuilding(buf, queryParams)
+	writeRequestCreation(buf, hasBody, method, responseType)
+	writeRequestHeaders(buf, hasBody, contentType)
+	writeRequestEditors(buf, responseType)
+	writeRequestExecution(buf, responseType)
+	writeErrorResponseHandling(buf, responseType)
+	writeResponseParsing(buf, responseType)
+	writeParamsStruct(buf, methodName, queryParams, paramToGoType)
+}

@@ -39,40 +39,56 @@ func (f *Fixer) applyFixPipeline(doc any, result *FixResult, pipeline fixPipelin
 	result.FixCount = len(result.Fixes)
 }
 
+// mustOAS2 asserts that doc is an OAS 2.0 document, panicking with a clear message if not.
+func mustOAS2(doc any) *parser.OAS2Document {
+	if d, ok := doc.(*parser.OAS2Document); ok {
+		return d
+	}
+	panic("fixer: expected *parser.OAS2Document, got different type (wrong pipeline?)")
+}
+
 // oas2Pipeline is the fix pipeline for OAS 2.0 documents.
 var oas2Pipeline = fixPipeline{
 	fixMissingPathParams: func(f *Fixer, doc any, result *FixResult) {
-		f.fixMissingPathParametersOAS2(doc.(*parser.OAS2Document), result)
+		f.fixMissingPathParametersOAS2(mustOAS2(doc), result)
 	},
 	fixInvalidSchemas: func(f *Fixer, doc any, result *FixResult) {
-		f.fixInvalidSchemaNamesOAS2(doc.(*parser.OAS2Document), result)
+		f.fixInvalidSchemaNamesOAS2(mustOAS2(doc), result)
 	},
 	pruneUnusedSchemas: func(f *Fixer, doc any, result *FixResult) {
-		f.pruneUnusedSchemasOAS2(doc.(*parser.OAS2Document), result)
+		f.pruneUnusedSchemasOAS2(mustOAS2(doc), result)
 	},
 	getPaths: func(doc any) parser.Paths {
-		return doc.(*parser.OAS2Document).Paths
+		return mustOAS2(doc).Paths
 	},
 	getVersion: func(doc any) parser.OASVersion {
 		return parser.OASVersion20
 	},
 }
 
+// mustOAS3 asserts that doc is an OAS 3.x document, panicking with a clear message if not.
+func mustOAS3(doc any) *parser.OAS3Document {
+	if d, ok := doc.(*parser.OAS3Document); ok {
+		return d
+	}
+	panic("fixer: expected *parser.OAS3Document, got different type (wrong pipeline?)")
+}
+
 // oas3Pipeline is the fix pipeline for OAS 3.x documents.
 var oas3Pipeline = fixPipeline{
 	fixMissingPathParams: func(f *Fixer, doc any, result *FixResult) {
-		f.fixMissingPathParametersOAS3(doc.(*parser.OAS3Document), result)
+		f.fixMissingPathParametersOAS3(mustOAS3(doc), result)
 	},
 	fixInvalidSchemas: func(f *Fixer, doc any, result *FixResult) {
-		f.fixInvalidSchemaNamesOAS3(doc.(*parser.OAS3Document), result)
+		f.fixInvalidSchemaNamesOAS3(mustOAS3(doc), result)
 	},
 	pruneUnusedSchemas: func(f *Fixer, doc any, result *FixResult) {
-		f.pruneUnusedSchemasOAS3(doc.(*parser.OAS3Document), result)
+		f.pruneUnusedSchemasOAS3(mustOAS3(doc), result)
 	},
 	getPaths: func(doc any) parser.Paths {
-		return doc.(*parser.OAS3Document).Paths
+		return mustOAS3(doc).Paths
 	},
 	getVersion: func(doc any) parser.OASVersion {
-		return doc.(*parser.OAS3Document).OASVersion
+		return mustOAS3(doc).OASVersion
 	},
 }

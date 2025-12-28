@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/erraggy/oastools/internal/issues"
+	"github.com/erraggy/oastools/internal/options"
 	"github.com/erraggy/oastools/internal/severity"
 	"github.com/erraggy/oastools/overlay"
 	"github.com/erraggy/oastools/parser"
@@ -247,19 +248,12 @@ func applyOptions(opts ...Option) (*convertConfig, error) {
 	}
 
 	// Validate exactly one input source is specified
-	sourceCount := 0
-	if cfg.filePath != nil {
-		sourceCount++
-	}
-	if cfg.parsed != nil {
-		sourceCount++
-	}
-
-	if sourceCount == 0 {
-		return nil, fmt.Errorf("must specify an input source (use WithFilePath or WithParsed)")
-	}
-	if sourceCount > 1 {
-		return nil, fmt.Errorf("must specify exactly one input source")
+	if err := options.ValidateSingleInputSource(
+		"must specify an input source (use WithFilePath or WithParsed)",
+		"must specify exactly one input source",
+		cfg.filePath != nil, cfg.parsed != nil,
+	); err != nil {
+		return nil, err
 	}
 
 	// Validate target version is specified
