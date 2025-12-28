@@ -293,43 +293,7 @@ func (g *SecurityHelperGenerator) generateOAuth2Helper(name string, scheme *pars
 
 // collectOAuth2Scopes collects all scopes from OAuth2 flows.
 func (g *SecurityHelperGenerator) collectOAuth2Scopes(scheme *parser.SecurityScheme) []string {
-	scopeSet := make(map[string]bool)
-
-	// OAS 2.0 style
-	for scope := range scheme.Scopes {
-		scopeSet[scope] = true
-	}
-
-	// OAS 3.0+ style
-	if scheme.Flows != nil {
-		if scheme.Flows.Implicit != nil {
-			for scope := range scheme.Flows.Implicit.Scopes {
-				scopeSet[scope] = true
-			}
-		}
-		if scheme.Flows.Password != nil {
-			for scope := range scheme.Flows.Password.Scopes {
-				scopeSet[scope] = true
-			}
-		}
-		if scheme.Flows.ClientCredentials != nil {
-			for scope := range scheme.Flows.ClientCredentials.Scopes {
-				scopeSet[scope] = true
-			}
-		}
-		if scheme.Flows.AuthorizationCode != nil {
-			for scope := range scheme.Flows.AuthorizationCode.Scopes {
-				scopeSet[scope] = true
-			}
-		}
-	}
-
-	scopes := make([]string, 0, len(scopeSet))
-	for scope := range scopeSet {
-		scopes = append(scopes, scope)
-	}
-	sort.Strings(scopes)
-	return scopes
+	return collectScopesFromFlows(scheme.Scopes, scheme.Flows)
 }
 
 // generateOpenIDConnectHelper generates a ClientOption for OpenID Connect authentication.

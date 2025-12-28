@@ -3,7 +3,6 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/erraggy/oastools/parser"
@@ -383,43 +382,7 @@ func (g *OAuth2Generator) getURLs() (authURL, tokenURL string) {
 
 // collectScopes collects all unique scopes from the OAuth2 configuration.
 func (g *OAuth2Generator) collectScopes() []string {
-	scopeSet := make(map[string]bool)
-
-	// OAS 2.0 style
-	for scope := range g.OAS2Scopes {
-		scopeSet[scope] = true
-	}
-
-	// OAS 3.0+ style
-	if g.Flows != nil {
-		if g.Flows.Implicit != nil {
-			for scope := range g.Flows.Implicit.Scopes {
-				scopeSet[scope] = true
-			}
-		}
-		if g.Flows.Password != nil {
-			for scope := range g.Flows.Password.Scopes {
-				scopeSet[scope] = true
-			}
-		}
-		if g.Flows.ClientCredentials != nil {
-			for scope := range g.Flows.ClientCredentials.Scopes {
-				scopeSet[scope] = true
-			}
-		}
-		if g.Flows.AuthorizationCode != nil {
-			for scope := range g.Flows.AuthorizationCode.Scopes {
-				scopeSet[scope] = true
-			}
-		}
-	}
-
-	scopes := make([]string, 0, len(scopeSet))
-	for scope := range scopeSet {
-		scopes = append(scopes, scope)
-	}
-	sort.Strings(scopes)
-	return scopes
+	return collectScopesFromFlows(g.OAS2Scopes, g.Flows)
 }
 
 // Flow detection methods

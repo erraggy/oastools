@@ -397,6 +397,46 @@ func generateBaseServerShared(ctx *baseServerContext) (map[string]bool, error) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// OAuth2 Helpers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// collectScopesFromFlows collects all unique scopes from OAS2 scopes map and OAS3 flows.
+// This is shared between OAuth2Generator and SecurityHelperGenerator.
+func collectScopesFromFlows(oas2Scopes map[string]string, flows *parser.OAuthFlows) []string {
+	scopeSet := make(map[string]bool)
+
+	// OAS 2.0 style
+	for scope := range oas2Scopes {
+		scopeSet[scope] = true
+	}
+
+	// OAS 3.0+ style
+	if flows != nil {
+		addScopesFromFlow(scopeSet, flows.Implicit)
+		addScopesFromFlow(scopeSet, flows.Password)
+		addScopesFromFlow(scopeSet, flows.ClientCredentials)
+		addScopesFromFlow(scopeSet, flows.AuthorizationCode)
+	}
+
+	scopes := make([]string, 0, len(scopeSet))
+	for scope := range scopeSet {
+		scopes = append(scopes, scope)
+	}
+	sort.Strings(scopes)
+	return scopes
+}
+
+// addScopesFromFlow adds scopes from an OAuth flow to the scope set.
+func addScopesFromFlow(scopeSet map[string]bool, flow *parser.OAuthFlow) {
+	if flow == nil {
+		return
+	}
+	for scope := range flow.Scopes {
+		scopeSet[scope] = true
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Client Generation Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 
