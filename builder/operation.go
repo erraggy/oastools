@@ -721,8 +721,13 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 
 	// Check for duplicate operation ID
 	if cfg.operationID != "" {
-		if b.operationIDs[cfg.operationID] {
-			b.errors = append(b.errors, fmt.Errorf("builder: duplicate operation ID: %s", cfg.operationID))
+		if first, exists := b.operationIDLocations[cfg.operationID]; exists {
+			b.errors = append(b.errors, NewDuplicateOperationIDError(cfg.operationID, method, path, &first))
+		} else {
+			b.operationIDLocations[cfg.operationID] = operationLocation{
+				Method: method,
+				Path:   path,
+			}
 		}
 		b.operationIDs[cfg.operationID] = true
 	}
@@ -926,13 +931,14 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 	pathItem := b.getOrCreatePathItem(path)
 
 	// Assign operation to method
-	b.setOperation(pathItem, method, op)
+	b.setOperation(pathItem, method, path, op)
 
 	return b
 }
 
 // setOperation assigns an operation to a path item based on HTTP method.
-func (b *Builder) setOperation(pathItem *parser.PathItem, method string, op *parser.Operation) {
+// The path parameter provides error locality context (API path or webhook name).
+func (b *Builder) setOperation(pathItem *parser.PathItem, method, path string, op *parser.Operation) {
 	switch method {
 	case httputil.MethodGet, "GET":
 		pathItem.Get = op
@@ -952,16 +958,16 @@ func (b *Builder) setOperation(pathItem *parser.PathItem, method string, op *par
 		if b.version >= parser.OASVersion300 {
 			pathItem.Trace = op
 		} else {
-			b.errors = append(b.errors, fmt.Errorf("builder: TRACE method is only supported in OAS 3.0+"))
+			b.errors = append(b.errors, NewUnsupportedMethodError("TRACE", path, "3.0.0"))
 		}
 	case httputil.MethodQuery, "QUERY":
 		if b.version >= parser.OASVersion320 {
 			pathItem.Query = op
 		} else {
-			b.errors = append(b.errors, fmt.Errorf("builder: QUERY method is only supported in OAS 3.2.0+"))
+			b.errors = append(b.errors, NewUnsupportedMethodError("QUERY", path, "3.2.0"))
 		}
 	default:
-		b.errors = append(b.errors, fmt.Errorf("builder: unsupported HTTP method: %s", method))
+		b.errors = append(b.errors, NewInvalidMethodError(method, path))
 	}
 }
 

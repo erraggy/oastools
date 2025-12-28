@@ -1,6 +1,8 @@
 package overlay
 
 import (
+	"fmt"
+
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -77,8 +79,17 @@ type ApplyResult struct {
 	// Changes records details of each applied change.
 	Changes []ChangeRecord
 
-	// Warnings contains non-fatal issues encountered during application.
+	// Warnings contains non-fatal issues encountered during application (for backward compatibility).
 	Warnings []string
+
+	// StructuredWarnings contains detailed warning information with context.
+	StructuredWarnings ApplyWarnings
+}
+
+// AddWarning adds a structured warning and populates the legacy Warnings slice.
+func (r *ApplyResult) AddWarning(w *ApplyWarning) {
+	r.StructuredWarnings = append(r.StructuredWarnings, w)
+	r.Warnings = append(r.Warnings, w.String())
 }
 
 // ChangeRecord describes a single change made during overlay application.
@@ -120,8 +131,17 @@ type DryRunResult struct {
 	// Changes lists the proposed changes that would be made.
 	Changes []ProposedChange
 
-	// Warnings contains non-fatal issues that would occur during application.
+	// Warnings contains non-fatal issues that would occur during application (for backward compatibility).
 	Warnings []string
+
+	// StructuredWarnings contains detailed warning information with context.
+	StructuredWarnings ApplyWarnings
+}
+
+// AddWarning adds a structured warning and populates the legacy Warnings slice.
+func (r *DryRunResult) AddWarning(w *ApplyWarning) {
+	r.StructuredWarnings = append(r.StructuredWarnings, w)
+	r.Warnings = append(r.Warnings, w.String())
 }
 
 // ProposedChange describes a change that would be made during overlay application.
@@ -153,4 +173,104 @@ func (r *DryRunResult) HasChanges() bool {
 // HasWarnings returns true if any warnings would occur.
 func (r *DryRunResult) HasWarnings() bool {
 	return len(r.Warnings) > 0
+}
+
+// OverlayWarningCategory identifies the type of overlay warning.
+// This type is distinct from joiner.WarningCategory to avoid confusion when
+// both packages are imported.
+type OverlayWarningCategory string
+
+const (
+	// WarnNoMatch indicates an action target matched no nodes.
+	WarnNoMatch OverlayWarningCategory = "no_match"
+	// WarnActionError indicates an error executing an action.
+	WarnActionError OverlayWarningCategory = "action_error"
+)
+
+// ApplyWarning represents a structured warning from overlay application.
+// It provides detailed context about non-fatal issues encountered during application.
+type ApplyWarning struct {
+	// Category identifies the type of warning.
+	Category OverlayWarningCategory
+	// ActionIndex is the zero-based index of the action.
+	ActionIndex int
+	// Target is the JSONPath expression.
+	Target string
+	// Message describes the warning.
+	Message string
+	// Cause is the underlying error, if applicable.
+	Cause error
+}
+
+// String returns a formatted warning message.
+func (w *ApplyWarning) String() string {
+	if w.Cause != nil {
+		return fmt.Sprintf("action[%d] target %q: %v", w.ActionIndex, w.Target, w.Cause)
+	}
+	if w.Message != "" {
+		return fmt.Sprintf("action[%d] target %q: %s", w.ActionIndex, w.Target, w.Message)
+	}
+	return fmt.Sprintf("action[%d] target %q: %s", w.ActionIndex, w.Target, w.Category)
+}
+
+// Unwrap returns the underlying error for errors.Is/As support.
+func (w *ApplyWarning) Unwrap() error {
+	return w.Cause
+}
+
+// HasLocation returns true if this warning has valid action context.
+// An ActionIndex of -1 indicates no location context is available.
+func (w *ApplyWarning) HasLocation() bool {
+	return w.ActionIndex >= 0
+}
+
+// Location returns the action location.
+func (w *ApplyWarning) Location() string {
+	return fmt.Sprintf("action[%d]", w.ActionIndex)
+}
+
+// NewNoMatchWarning creates a warning when an action target matches no nodes.
+func NewNoMatchWarning(actionIndex int, target string) *ApplyWarning {
+	return &ApplyWarning{
+		Category:    WarnNoMatch,
+		ActionIndex: actionIndex,
+		Target:      target,
+		Message:     "target matched 0 nodes",
+	}
+}
+
+// NewActionErrorWarning creates a warning when an action execution fails.
+func NewActionErrorWarning(actionIndex int, target string, cause error) *ApplyWarning {
+	return &ApplyWarning{
+		Category:    WarnActionError,
+		ActionIndex: actionIndex,
+		Target:      target,
+		Cause:       cause,
+	}
+}
+
+// ApplyWarnings is a collection of ApplyWarning.
+type ApplyWarnings []*ApplyWarning
+
+// Strings returns warning messages for backward compatibility.
+func (ws ApplyWarnings) Strings() []string {
+	result := make([]string, len(ws))
+	for i, w := range ws {
+		if w == nil {
+			continue
+		}
+		result[i] = w.String()
+	}
+	return result
+}
+
+// ByCategory filters warnings by category.
+func (ws ApplyWarnings) ByCategory(cat OverlayWarningCategory) ApplyWarnings {
+	var result ApplyWarnings
+	for _, w := range ws {
+		if w != nil && w.Category == cat {
+			result = append(result, w)
+		}
+	}
+	return result
 }

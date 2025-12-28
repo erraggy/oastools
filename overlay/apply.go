@@ -68,7 +68,13 @@ func (a *Applier) ApplyParsed(spec *parser.ParseResult, o *Overlay) (*ApplyResul
 			if a.StrictTargets {
 				return nil, err
 			}
-			result.Warnings = append(result.Warnings, err.Error())
+			result.AddWarning(&ApplyWarning{
+				Category:    WarnActionError,
+				ActionIndex: i,
+				Target:      action.Target,
+				Message:     "action execution failed",
+				Cause:       err,
+			})
 			result.ActionsSkipped++
 			continue
 		}
@@ -77,7 +83,12 @@ func (a *Applier) ApplyParsed(spec *parser.ParseResult, o *Overlay) (*ApplyResul
 			if a.StrictTargets {
 				return nil, fmt.Errorf("overlay: action[%d] target %q matched no nodes", i, action.Target)
 			}
-			result.Warnings = append(result.Warnings, fmt.Sprintf("action[%d] target %q matched no nodes", i, action.Target))
+			result.AddWarning(&ApplyWarning{
+				Category:    WarnNoMatch,
+				ActionIndex: i,
+				Target:      action.Target,
+				Message:     "target matched no nodes",
+			})
 			result.ActionsSkipped++
 			continue
 		}
@@ -108,13 +119,24 @@ func (a *Applier) DryRun(spec *parser.ParseResult, o *Overlay) (*DryRunResult, e
 	for i, action := range o.Actions {
 		change, err := a.previewAction(doc, action, i)
 		if err != nil {
-			result.Warnings = append(result.Warnings, err.Error())
+			result.AddWarning(&ApplyWarning{
+				Category:    WarnActionError,
+				ActionIndex: i,
+				Target:      action.Target,
+				Message:     "action preview failed",
+				Cause:       err,
+			})
 			result.WouldSkip++
 			continue
 		}
 
 		if change.MatchCount == 0 {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("action[%d] target %q would match no nodes", i, action.Target))
+			result.AddWarning(&ApplyWarning{
+				Category:    WarnNoMatch,
+				ActionIndex: i,
+				Target:      action.Target,
+				Message:     "target would match no nodes",
+			})
 			result.WouldSkip++
 			continue
 		}

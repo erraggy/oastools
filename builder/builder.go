@@ -2,6 +2,7 @@ package builder
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -42,8 +43,9 @@ type Builder struct {
 	schemaCache *schemaCache
 
 	// Tracking
-	operationIDs map[string]bool // Track used operation IDs for uniqueness
-	errors       []error         // Accumulated errors
+	operationIDs         map[string]bool              // Track used operation IDs for uniqueness
+	operationIDLocations map[string]operationLocation // Track where each operationID was first defined
+	errors               []error                      // Accumulated errors
 
 	// Schema naming configuration
 	namer       *schemaNamer
@@ -88,21 +90,22 @@ func New(version parser.OASVersion, opts ...BuilderOption) *Builder {
 	namer.fn = cfg.namingFunc
 
 	return &Builder{
-		version:         version,
-		paths:           make(parser.Paths),
-		webhooks:        make(map[string]*parser.PathItem),
-		schemas:         make(map[string]*parser.Schema),
-		responses:       make(map[string]*parser.Response),
-		parameters:      make(map[string]*parser.Parameter),
-		requestBodies:   make(map[string]*parser.RequestBody),
-		securitySchemes: make(map[string]*parser.SecurityScheme),
-		schemaCache:     newSchemaCache(),
-		operationIDs:    make(map[string]bool),
-		errors:          make([]error, 0),
-		namer:           namer,
-		configError:     cfg.templateError,
-		dedupeEnabled:   cfg.semanticDeduplication,
-		schemaAliases:   make(map[string]string),
+		version:              version,
+		paths:                make(parser.Paths),
+		webhooks:             make(map[string]*parser.PathItem),
+		schemas:              make(map[string]*parser.Schema),
+		responses:            make(map[string]*parser.Response),
+		parameters:           make(map[string]*parser.Parameter),
+		requestBodies:        make(map[string]*parser.RequestBody),
+		securitySchemes:      make(map[string]*parser.SecurityScheme),
+		schemaCache:          newSchemaCache(),
+		operationIDs:         make(map[string]bool),
+		operationIDLocations: make(map[string]operationLocation),
+		errors:               make([]error, 0),
+		namer:                namer,
+		configError:          cfg.templateError,
+		dedupeEnabled:        cfg.semanticDeduplication,
+		schemaAliases:        make(map[string]string),
 	}
 }
 
@@ -251,6 +254,20 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 		opt(cfg)
 	}
 
+	// Check for duplicate operation ID (shared namespace with operations)
+	if cfg.operationID != "" {
+		if first, exists := b.operationIDLocations[cfg.operationID]; exists {
+			b.errors = append(b.errors, NewDuplicateWebhookOperationIDError(cfg.operationID, name, method, &first))
+		} else {
+			b.operationIDLocations[cfg.operationID] = operationLocation{
+				Method:    method,
+				Path:      name,
+				IsWebhook: true,
+			}
+		}
+		b.operationIDs[cfg.operationID] = true
+	}
+
 	// Unwrap and process request body
 	var requestBody *parser.RequestBody
 	if cfg.requestBody != nil {
@@ -358,7 +375,7 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 	}
 
 	// Assign operation to method
-	b.setOperation(pathItem, method, op)
+	b.setOperation(pathItem, method, name, op)
 
 	return b
 }
@@ -541,17 +558,31 @@ func (b *Builder) BuildOAS3() (*parser.OAS3Document, error) {
 // checkErrors checks for accumulated errors during building.
 // The builder does not perform OAS specification validation.
 // Use the validator package to validate built documents.
+//
+// Returns a BuilderErrors collection if there are errors, which provides
+// detailed locality information for each error including component type,
+// HTTP method, path, and operationID context.
 func (b *Builder) checkErrors() error {
-	// Check accumulated errors (like duplicate operation IDs)
-	if len(b.errors) > 0 {
-		var errMsgs []string
-		for _, err := range b.errors {
-			errMsgs = append(errMsgs, err.Error())
-		}
-		return fmt.Errorf("builder: %d error(s): %s", len(b.errors), strings.Join(errMsgs, "; "))
+	if len(b.errors) == 0 {
+		return nil
 	}
 
-	return nil
+	// Convert to BuilderErrors for structured output
+	builderErrs := make(BuilderErrors, 0, len(b.errors))
+	for _, err := range b.errors {
+		var be *BuilderError
+		if errors.As(err, &be) {
+			builderErrs = append(builderErrs, be)
+		} else {
+			// Wrap legacy errors (e.g., from ConstraintError)
+			// Set only Cause to preserve the error chain for errors.Unwrap()
+			// The Message is derived from Cause.Error() in BuilderError.Error()
+			builderErrs = append(builderErrs, &BuilderError{
+				Cause: err,
+			})
+		}
+	}
+	return builderErrs
 }
 
 // BuildResult creates a ParseResult for compatibility with other packages.

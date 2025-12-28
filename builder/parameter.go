@@ -5,17 +5,60 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/erraggy/oastools/oaserrors"
 	"github.com/erraggy/oastools/parser"
 )
 
 // ConstraintError represents an invalid constraint configuration.
+// It provides context about which field failed validation and why.
 type ConstraintError struct {
-	Field   string
+	// Field is the constraint field that failed (e.g., "minimum", "pattern").
+	Field string
+	// Message describes the constraint violation.
 	Message string
+	// ParamName is the parameter name where this constraint was applied (optional).
+	ParamName string
+	// OperationContext describes the operation context (e.g., "POST /users").
+	OperationContext string
 }
 
+// Error implements the error interface.
 func (e *ConstraintError) Error() string {
+	if e.ParamName != "" {
+		return fmt.Sprintf("constraint error on parameter %q field %s: %s", e.ParamName, e.Field, e.Message)
+	}
 	return fmt.Sprintf("constraint error on %s: %s", e.Field, e.Message)
+}
+
+// HasLocation returns true if this error has location context.
+func (e *ConstraintError) HasLocation() bool {
+	return e.ParamName != "" || e.OperationContext != ""
+}
+
+// Location returns a descriptive location string.
+func (e *ConstraintError) Location() string {
+	if e.OperationContext != "" && e.ParamName != "" {
+		return fmt.Sprintf("%s parameter %q", e.OperationContext, e.ParamName)
+	}
+	if e.ParamName != "" {
+		return fmt.Sprintf("parameter %q", e.ParamName)
+	}
+	if e.OperationContext != "" {
+		return e.OperationContext
+	}
+	return e.Field
+}
+
+// Unwrap returns nil as ConstraintError has no underlying cause.
+// This method exists for interface consistency with BuilderError.
+func (e *ConstraintError) Unwrap() error {
+	return nil
+}
+
+// Is reports whether target matches this error type.
+// ConstraintError matches oaserrors.ErrConfig for programmatic error handling.
+func (e *ConstraintError) Is(target error) bool {
+	return target == oaserrors.ErrConfig
 }
 
 // paramConfig holds configuration for parameter building.
