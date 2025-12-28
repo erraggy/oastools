@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -32,6 +33,373 @@ func generateServerMiddlewareShared(result *GenerateResult, addIssue issueAdder)
 		Name:    "server_middleware.go",
 		Content: formatted,
 	})
+	return nil
+}
+
+// serverRouterContext holds the context for generating server router code.
+type serverRouterContext struct {
+	paths        parser.Paths
+	oasVersion   parser.OASVersion
+	httpMethods  []string
+	packageName  string
+	serverRouter string
+	result       *GenerateResult
+	addIssue     issueAdder
+	// paramToBindData converts a parameter to ParamBindData (version-specific)
+	paramToBindData func(param *parser.Parameter) ParamBindData
+}
+
+// generateServerRouterShared generates HTTP router code.
+// This is shared between OAS 2.0 and OAS 3.x generators.
+func generateServerRouterShared(ctx *serverRouterContext) error {
+	if len(ctx.paths) == 0 {
+		return nil
+	}
+
+	// Track generated methods to avoid duplicates
+	generatedMethods := make(map[string]bool)
+
+	// Sort paths for deterministic output
+	pathKeys := make([]string, 0, len(ctx.paths))
+	for path := range ctx.paths {
+		pathKeys = append(pathKeys, path)
+	}
+	sort.Strings(pathKeys)
+
+	// Build router data
+	data := ServerRouterFileData{
+		Header: HeaderData{
+			PackageName: ctx.packageName,
+		},
+		Operations: make([]RouterOperationData, 0),
+	}
+
+	for _, path := range pathKeys {
+		pathItem := ctx.paths[path]
+		if pathItem == nil {
+			continue
+		}
+
+		operations := parser.GetOperations(pathItem, ctx.oasVersion)
+		for _, method := range ctx.httpMethods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+
+			methodName := operationToMethodName(op, path, method)
+			if generatedMethods[methodName] {
+				continue
+			}
+			generatedMethods[methodName] = true
+
+			opData := RouterOperationData{
+				Path:        path,
+				Method:      strings.ToUpper(method),
+				MethodName:  methodName,
+				RequestType: methodName + "Request",
+			}
+
+			// Collect path parameters with type info for proper conversion in templates
+			for _, param := range op.Parameters {
+				if param != nil && param.In == parser.ParamInPath {
+					opData.PathParams = append(opData.PathParams, ctx.paramToBindData(param))
+				}
+			}
+
+			data.Operations = append(data.Operations, opData)
+		}
+	}
+
+	// Select template based on router type
+	templateName := "router.go.tmpl"
+	if ctx.serverRouter == "chi" {
+		templateName = "router_chi.go.tmpl"
+	}
+
+	formatted, err := executeTemplate(templateName, data)
+	if err != nil {
+		ctx.addIssue("server_router.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	ctx.result.Files = append(ctx.result.Files, GeneratedFile{
+		Name:    "server_router.go",
+		Content: formatted,
+	})
+	return nil
+}
+
+// serverStubsContext holds the context for generating server stubs.
+type serverStubsContext struct {
+	paths       parser.Paths
+	oasVersion  parser.OASVersion
+	httpMethods []string
+	packageName string
+	result      *GenerateResult
+	addIssue    issueAdder
+	// getResponseType returns the Go type for the operation's response given the method name
+	getResponseType func(methodName string) string
+}
+
+// generateServerStubsShared generates testable stub implementations.
+// This is shared between OAS 2.0 and OAS 3.x generators.
+func generateServerStubsShared(ctx *serverStubsContext) error {
+	if len(ctx.paths) == 0 {
+		return nil
+	}
+
+	// Track generated methods to avoid duplicates
+	generatedMethods := make(map[string]bool)
+
+	// Sort paths for deterministic output
+	pathKeys := make([]string, 0, len(ctx.paths))
+	for path := range ctx.paths {
+		pathKeys = append(pathKeys, path)
+	}
+	sort.Strings(pathKeys)
+
+	// Build stubs data
+	data := ServerStubsFileData{
+		Header: HeaderData{
+			PackageName: ctx.packageName,
+		},
+		Operations: make([]StubOperationData, 0),
+	}
+
+	for _, path := range pathKeys {
+		pathItem := ctx.paths[path]
+		if pathItem == nil {
+			continue
+		}
+
+		operations := parser.GetOperations(pathItem, ctx.oasVersion)
+		for _, method := range ctx.httpMethods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+
+			methodName := operationToMethodName(op, path, method)
+			if generatedMethods[methodName] {
+				continue
+			}
+			generatedMethods[methodName] = true
+
+			opData := StubOperationData{
+				MethodName:   methodName,
+				RequestType:  methodName + "Request",
+				ResponseType: ctx.getResponseType(methodName),
+			}
+
+			data.Operations = append(data.Operations, opData)
+		}
+	}
+
+	formatted, err := executeTemplate("stubs.go.tmpl", data)
+	if err != nil {
+		ctx.addIssue("server_stubs.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	ctx.result.Files = append(ctx.result.Files, GeneratedFile{
+		Name:    "server_stubs.go",
+		Content: formatted,
+	})
+	return nil
+}
+
+// baseServerContext holds the context for generating base server code.
+type baseServerContext struct {
+	paths       parser.Paths
+	oasVersion  parser.OASVersion
+	httpMethods []string
+	packageName string
+	needsTime   bool // Whether the time import is needed
+	result      *GenerateResult
+	addIssue    issueAdder
+	// generateMethodSignature generates a server method signature for the interface
+	generateMethodSignature func(path, method string, op *parser.Operation) string
+	// getResponseType returns the Go type for the operation's response
+	getResponseType func(op *parser.Operation) string
+}
+
+// generateBaseServerShared generates the base server.go with interface and unimplemented server.
+// Returns a map of generated method names (for use by group file generation).
+func generateBaseServerShared(ctx *baseServerContext) (map[string]bool, error) {
+	var buf bytes.Buffer
+
+	// Write header
+	buf.WriteString("// Code generated by oastools. DO NOT EDIT.\n\n")
+	buf.WriteString(fmt.Sprintf("package %s\n\n", ctx.packageName))
+
+	// Write imports
+	buf.WriteString("import (\n")
+	buf.WriteString("\t\"context\"\n")
+	if ctx.needsTime {
+		buf.WriteString("\t\"time\"\n")
+	}
+	buf.WriteString(")\n\n")
+
+	// Track generated methods to avoid duplicates (can happen with duplicate operationIds).
+	// NOTE: This map must be local per file generation to avoid stale data in split mode.
+	generatedMethods := make(map[string]bool)
+
+	// Generate server interface (must be complete)
+	buf.WriteString("// ServerInterface represents the server API.\n")
+	buf.WriteString("type ServerInterface interface {\n")
+
+	if ctx.paths != nil {
+		var pathKeys []string
+		for path := range ctx.paths {
+			pathKeys = append(pathKeys, path)
+		}
+		sort.Strings(pathKeys)
+
+		for _, path := range pathKeys {
+			pathItem := ctx.paths[path]
+			if pathItem == nil {
+				continue
+			}
+
+			operations := parser.GetOperations(pathItem, ctx.oasVersion)
+			for _, method := range ctx.httpMethods {
+				op := operations[method]
+				if op == nil {
+					continue
+				}
+
+				methodName := operationToMethodName(op, path, method)
+				if generatedMethods[methodName] {
+					ctx.addIssue(fmt.Sprintf("paths.%s.%s", path, method),
+						fmt.Sprintf("duplicate method name %s - skipping", methodName), SeverityWarning)
+					continue
+				}
+				generatedMethods[methodName] = true
+
+				sig := ctx.generateMethodSignature(path, method, op)
+				buf.WriteString(sig)
+			}
+		}
+	}
+
+	buf.WriteString("}\n\n")
+
+	// Write unimplemented server (must be complete)
+	buf.WriteString("// UnimplementedServer provides default implementations that return errors.\n")
+	buf.WriteString("type UnimplementedServer struct{}\n\n")
+
+	// Track generated UnimplementedServer methods separately to avoid duplicates.
+	// We can't reuse generatedMethods because it's used to check if a method was
+	// added to the interface (i.e., wasn't filtered as duplicate).
+	generatedUnimplemented := make(map[string]bool)
+
+	if ctx.paths != nil {
+		var pathKeys []string
+		for path := range ctx.paths {
+			pathKeys = append(pathKeys, path)
+		}
+		sort.Strings(pathKeys)
+
+		for _, path := range pathKeys {
+			pathItem := ctx.paths[path]
+			if pathItem == nil {
+				continue
+			}
+
+			operations := parser.GetOperations(pathItem, ctx.oasVersion)
+			for _, method := range ctx.httpMethods {
+				op := operations[method]
+				if op == nil {
+					continue
+				}
+
+				methodName := operationToMethodName(op, path, method)
+				// Only generate if the method was added to the interface (not a duplicate)
+				if !generatedMethods[methodName] {
+					continue
+				}
+				// Skip if already generated for UnimplementedServer
+				if generatedUnimplemented[methodName] {
+					continue
+				}
+				generatedUnimplemented[methodName] = true
+
+				responseType := ctx.getResponseType(op)
+
+				buf.WriteString(fmt.Sprintf("func (s *UnimplementedServer) %s(ctx context.Context, req *%sRequest) (%s, error) {\n",
+					methodName, methodName, responseType))
+				buf.WriteString(fmt.Sprintf("\treturn %s, ErrNotImplemented\n", zeroValue(responseType)))
+				buf.WriteString("}\n\n")
+			}
+		}
+	}
+
+	// Write error type
+	buf.WriteString("// ErrNotImplemented is returned by UnimplementedServer methods.\n")
+	buf.WriteString("var ErrNotImplemented = &NotImplementedError{}\n\n")
+	buf.WriteString("// NotImplementedError indicates an operation is not implemented.\n")
+	buf.WriteString("type NotImplementedError struct{}\n\n")
+	buf.WriteString("func (e *NotImplementedError) Error() string { return \"not implemented\" }\n\n")
+
+	// Format the code
+	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
+	if err != nil {
+		ctx.addIssue("server.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
+		formatted = buf.Bytes()
+	}
+
+	ctx.result.Files = append(ctx.result.Files, GeneratedFile{
+		Name:    "server.go",
+		Content: formatted,
+	})
+
+	return generatedMethods, nil
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Client Generation Helpers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// generateBaseClientShared generates the base client.go with struct, constructor, and options.
+// This is 100% identical between OAS 2.0 and OAS 3.x.
+func generateBaseClientShared(packageName string, info *parser.Info, result *GenerateResult, addIssue issueAdder) error {
+	var buf bytes.Buffer
+
+	// Write header
+	buf.WriteString("// Code generated by oastools. DO NOT EDIT.\n\n")
+	buf.WriteString(fmt.Sprintf("package %s\n\n", packageName))
+
+	// Write imports (base client needs these imports for clientHelpers)
+	buf.WriteString("import (\n")
+	buf.WriteString("\t\"bytes\"\n")
+	buf.WriteString("\t\"context\"\n")
+	buf.WriteString("\t\"encoding/json\"\n")
+	buf.WriteString("\t\"fmt\"\n")
+	buf.WriteString("\t\"io\"\n")
+	buf.WriteString("\t\"net/http\"\n")
+	buf.WriteString("\t\"net/url\"\n")
+	buf.WriteString("\t\"strings\"\n")
+	buf.WriteString(")\n\n")
+
+	// Write client struct, types, constructor, and options using shared boilerplate
+	writeClientBoilerplate(&buf, info)
+
+	// Write helper functions
+	buf.WriteString(clientHelpers)
+
+	// Format the code
+	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
+	if err != nil {
+		addIssue("client.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
+		formatted = buf.Bytes()
+	}
+
+	result.Files = append(result.Files, GeneratedFile{
+		Name:    "client.go",
+		Content: formatted,
+	})
+
 	return nil
 }
 
