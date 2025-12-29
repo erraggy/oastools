@@ -79,8 +79,8 @@ A minimal 5-minute introduction to oastools, demonstrating the parse and validat
 
 - [Validation Pipeline Example](../validation-pipeline/) - Detailed validation workflow with source maps
 - [PetStore Generator Example](../petstore/) - Generate Go client/server code
-- [Parser Deep Dive](https://erraggy.github.io/oastools/packages/parser/)
-- [Validator Deep Dive](https://erraggy.github.io/oastools/packages/validator/)
+- [Parser Deep Dive](../packages/parser/)
+- [Validator Deep Dive](../packages/validator/)
 
 ---
 

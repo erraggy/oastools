@@ -91,7 +91,7 @@ Use `WithDryRun(true)` to preview what fixes would be applied without modifying 
 
 ## Next Steps
 
-- [Fixer Deep Dive](https://erraggy.github.io/oastools/packages/fixer/) - Complete fixer documentation
+- [Fixer Deep Dive](../../packages/fixer/) - Complete fixer documentation
 - [Validation Pipeline](../../validation-pipeline/) - Validation with severity reporting
 - [Version Conversion](../version-conversion/) - Convert between OAS versions
 

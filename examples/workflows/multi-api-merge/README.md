@@ -114,7 +114,7 @@ When `MergeArrays: true`:
 
 ## Next Steps
 
-- [Joiner Deep Dive](https://erraggy.github.io/oastools/packages/joiner/) - Complete joiner documentation
+- [Joiner Deep Dive](../../packages/joiner/) - Complete joiner documentation
 - [Breaking Change Detection](../breaking-change-detection/) - Compare merged versions
 - [Overlay Transformations](../overlay-transformations/) - Apply post-merge customizations
 

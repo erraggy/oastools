@@ -154,7 +154,7 @@ func validationMiddleware(next http.Handler) http.Handler {
 
 ## Next Steps
 
-- [HTTPValidator Deep Dive](https://erraggy.github.io/oastools/packages/httpvalidator/) - Complete documentation
+- [HTTPValidator Deep Dive](../../packages/httpvalidator/) - Complete documentation
 - [Validate and Fix](../validate-and-fix/) - Fix spec validation errors
 - [Builder](../../programmatic-api/builder/) - Build specs programmatically
 

@@ -139,8 +139,8 @@ Use the exit code for pipeline gates:
 
 ## Next Steps
 
-- [Differ Deep Dive](https://erraggy.github.io/oastools/packages/differ/) - Complete differ documentation
-- [Breaking Changes Guide](https://erraggy.github.io/oastools/breaking-changes/) - Detailed explanation
+- [Differ Deep Dive](../../packages/differ/) - Complete differ documentation
+- [Breaking Changes Guide](../../breaking-changes/) - Detailed explanation
 - [Multi-API Merge](../multi-api-merge/) - Merge API versions
 
 ---

@@ -66,7 +66,7 @@ oastools generate --server --server-all --server-router chi --client \
 
 ## Next Steps
 
-- [Generator Documentation](https://erraggy.github.io/oastools/packages/generator/)
+- [Generator Documentation](../../packages/generator/)
 - [Quickstart Example](../quickstart/) - Minimal introduction
 - [Validation Pipeline Example](../validation-pipeline/) - Parse and validate workflow
 

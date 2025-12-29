@@ -133,19 +133,19 @@ result, err := converter.ConvertWithOptions(
 
 ## Learn More
 
-- [CLI Reference](https://erraggy.github.io/oastools/cli-reference/)
-- [Developer Guide](https://erraggy.github.io/oastools/developer-guide/)
+- [CLI Reference](../cli-reference/)
+- [Developer Guide](../developer-guide/)
 - Package Documentation:
-  - [parser](https://erraggy.github.io/oastools/packages/parser/)
-  - [validator](https://erraggy.github.io/oastools/packages/validator/)
-  - [fixer](https://erraggy.github.io/oastools/packages/fixer/)
-  - [converter](https://erraggy.github.io/oastools/packages/converter/)
-  - [joiner](https://erraggy.github.io/oastools/packages/joiner/)
-  - [differ](https://erraggy.github.io/oastools/packages/differ/)
-  - [overlay](https://erraggy.github.io/oastools/packages/overlay/)
-  - [httpvalidator](https://erraggy.github.io/oastools/packages/httpvalidator/)
-  - [builder](https://erraggy.github.io/oastools/packages/builder/)
-  - [generator](https://erraggy.github.io/oastools/packages/generator/)
+  - [parser](../packages/parser/)
+  - [validator](../packages/validator/)
+  - [fixer](../packages/fixer/)
+  - [converter](../packages/converter/)
+  - [joiner](../packages/joiner/)
+  - [differ](../packages/differ/)
+  - [overlay](../packages/overlay/)
+  - [httpvalidator](../packages/httpvalidator/)
+  - [builder](../packages/builder/)
+  - [generator](../packages/generator/)
 
 ---
 

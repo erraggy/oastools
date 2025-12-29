@@ -119,7 +119,7 @@ http.ListenAndServe(":8080", result.Handler)
 
 ## Next Steps
 
-- [Builder Deep Dive](https://erraggy.github.io/oastools/packages/builder/) - Complete documentation
+- [Builder Deep Dive](../../packages/builder/) - Complete documentation
 - [Workflow Examples](../workflows/) - Common API transformation patterns
 - [HTTP Validation](../workflows/http-validation/) - Validate requests against specs
 
