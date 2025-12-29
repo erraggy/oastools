@@ -1249,6 +1249,31 @@ doc, err := spec.BuildOAS3()
 // Result: Only 1 schema instead of 2, with $refs automatically rewritten
 ```
 
+**Custom Field Processors:**
+
+For libraries that need to support custom struct tag conventions (e.g., migrating from other OpenAPI libraries), use `WithSchemaFieldProcessor`:
+
+```go
+// Support legacy standalone tags like `description:"..."`
+processor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+    if desc := field.Tag.Get("description"); desc != "" {
+        schema.Description = desc
+    }
+    return schema
+}
+
+spec := builder.New(parser.OASVersion320,
+    builder.WithSchemaFieldProcessor(processor),
+)
+```
+
+Multiple processors can be composed:
+
+```go
+composed := builder.ComposeSchemaFieldProcessors(descProcessor, enumProcessor)
+spec := builder.New(parser.OASVersion320, builder.WithSchemaFieldProcessor(composed))
+```
+
 **Vendor Extensions:**
 
 ```go
