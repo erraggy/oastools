@@ -89,6 +89,35 @@
 //	    }
 //	}
 //
+// # Structured Warnings
+//
+// The overlay package provides structured warnings through the [ApplyWarning] type, which
+// includes detailed context about non-fatal issues encountered during overlay application.
+// Each warning has a category, action index, and target JSONPath for programmatic handling.
+//
+// Access structured warnings from the result:
+//
+//	result, _ := overlay.ApplyWithOptions(
+//	    overlay.WithSpecFilePath("openapi.yaml"),
+//	    overlay.WithOverlayFilePath("changes.yaml"),
+//	)
+//	for _, w := range result.StructuredWarnings {
+//	    fmt.Printf("[%s] %s\n", w.Category, w.Message)
+//	    if w.HasLocation() {
+//	        fmt.Printf("  at %s\n", w.Location())
+//	    }
+//	}
+//
+// Filter warnings by category:
+//
+//	noMatches := result.StructuredWarnings.ByCategory(overlay.WarnNoMatch)
+//
+// Warning categories include:
+//   - WarnNoMatch: Action target matched no nodes in the document
+//   - WarnActionError: Error executing an action (with cause)
+//
+// For backward compatibility, warnings are also available as []string via result.Warnings.
+//
 // # Related Packages
 //
 // The overlay package integrates with other oastools packages:

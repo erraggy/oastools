@@ -1061,28 +1061,28 @@ func generateSecurityFilesOrchestrated(g *Generator, schemes map[string]*parser.
 	// Generate credential management if enabled
 	if g.GenerateCredentialMgmt {
 		if err := cb.generateCredentials(); err != nil {
-			return fmt.Errorf("failed to generate credentials: %w", err)
+			return fmt.Errorf("generator: failed to generate credentials: %w", err)
 		}
 	}
 
 	// Generate security enforcement if enabled
 	if g.GenerateSecurityEnforce {
 		if err := cb.generateSecurityEnforce(); err != nil {
-			return fmt.Errorf("failed to generate security enforcement: %w", err)
+			return fmt.Errorf("generator: failed to generate security enforcement: %w", err)
 		}
 	}
 
 	// Generate OIDC discovery if enabled
 	if g.GenerateOIDCDiscovery && len(schemes) > 0 {
 		if err := cb.generateOIDCDiscovery(schemes); err != nil {
-			return fmt.Errorf("failed to generate OIDC discovery: %w", err)
+			return fmt.Errorf("generator: failed to generate OIDC discovery: %w", err)
 		}
 	}
 
 	// Generate README if enabled
 	if g.GenerateReadme {
 		if err := cb.generateReadme(schemes); err != nil {
-			return fmt.Errorf("failed to generate README: %w", err)
+			return fmt.Errorf("generator: failed to generate README: %w", err)
 		}
 	}
 
@@ -1110,14 +1110,14 @@ func generateAllSecurityHelpers(g *Generator, schemes map[string]*parser.Securit
 	// Generate security helpers if enabled
 	if g.GenerateSecurity && len(schemes) > 0 {
 		if err := cb.generateSecurityHelpersFile(schemes); err != nil {
-			return fmt.Errorf("failed to generate security helpers: %w", err)
+			return fmt.Errorf("generator: failed to generate security helpers: %w", err)
 		}
 	}
 
 	// Generate OAuth2 flows if enabled
 	if g.GenerateOAuth2Flows && len(schemes) > 0 {
 		if err := cb.generateOAuth2Files(schemes); err != nil {
-			return fmt.Errorf("failed to generate OAuth2 flows: %w", err)
+			return fmt.Errorf("generator: failed to generate OAuth2 flows: %w", err)
 		}
 	}
 
