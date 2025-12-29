@@ -338,7 +338,7 @@ srv.Use(func(next http.Handler) http.Handler {
 
 ## Next Steps
 
-- [Builder Deep Dive](https://erraggy.github.io/oastools/packages/builder/) - Complete documentation
+- [Builder Deep Dive](../../packages/builder/) - Complete documentation
 - [HTTPValidator](../../workflows/http-validation/) - Validate requests against your spec
 - [Code Generation](../../petstore/) - Generate server code from specs
 

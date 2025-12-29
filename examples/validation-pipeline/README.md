@@ -83,7 +83,7 @@ oastools validate --source-map openapi.yaml
 
 - [Quickstart Example](../quickstart/) - Minimal introduction
 - [PetStore Example](../petstore/) - Code generation
-- [Validator Deep Dive](https://erraggy.github.io/oastools/packages/validator/)
+- [Validator Deep Dive](../packages/validator/)
 
 ---
 

@@ -2,6 +2,7 @@
 
 **White Paper**
 
+**Current as of:** v1.35.0<br>
 **Repository:** [github.com/erraggy/oastools](https://github.com/erraggy/oastools)<br>
 **Documentation:** [pkg.go.dev/github.com/erraggy/oastools](https://pkg.go.dev/github.com/erraggy/oastools)<br>
 **License:** MIT
@@ -12,7 +13,7 @@
 
 oastools is a comprehensive, high-performance toolkit for working with [OpenAPI Specification](https://spec.openapis.org/) (OAS) documents in Go. It provides a complete solution for parsing, validating, fixing, converting, joining, diffing, and generating code from API specifications spanning [OAS 2.0](https://spec.openapis.org/oas/v2.0.html) (Swagger) through [OAS 3.2.0](https://spec.openapis.org/oas/v3.2.0.html). The toolkit distinguishes itself through minimal dependencies, battle-tested quality against production APIs, significant performance optimizations, and native support for the [OpenAPI Overlay Specification v1.0.0](https://spec.openapis.org/overlay/v1.0.0.html).
 
-This white paper provides an in-depth exploration of oastools as of v1.33.0, covering its architecture, package ecosystem, integration with external specifications, real-world validation, and practical usage patterns. It serves as both a technical reference and an evaluation guide for teams considering adoption.
+This white paper provides an in-depth exploration of oastools, covering its architecture, package ecosystem, integration with external specifications, real-world validation, and practical usage patterns. It serves as both a technical reference and an evaluation guide for teams considering adoption.
 
 ---
 
@@ -303,6 +304,39 @@ copy.Info.Title = "Modified API"
 ```
 
 Unlike JSON marshal/unmarshal approaches, `DeepCopy()` preserves type information for polymorphic fields like `Schema.Type` (which may be `string` or `[]string` in [OAS 3.1+](https://spec.openapis.org/oas/v3.1.0.html)), version-specific semantics such as `ExclusiveMinimum` representation, and all `x-*` extension fields.
+
+### 4.7 DocumentAccessor Interface
+
+The `DocumentAccessor` interface provides version-agnostic access to common document fields across [OAS 2.0](https://spec.openapis.org/oas/v2.0.html) and [OAS 3.x](https://spec.openapis.org/oas/v3.0.0.html) documents, eliminating the need for version-specific type switches.
+
+```go
+result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
+accessor := result.AsAccessor()
+
+// Works identically for OAS 2.0 and 3.x
+for path := range accessor.GetPaths() {
+    fmt.Println("Path:", path)
+}
+for name := range accessor.GetSchemas() {
+    fmt.Println("Schema:", name)
+}
+fmt.Println("Ref prefix:", accessor.SchemaRefPrefix())
+```
+
+**Available Methods:**
+
+| Method | OAS 2.0 Source | OAS 3.x Source |
+|--------|---------------|----------------|
+| `GetInfo()` | `doc.Info` | `doc.Info` |
+| `GetPaths()` | `doc.Paths` | `doc.Paths` |
+| `GetSchemas()` | `doc.Definitions` | `doc.Components.Schemas` |
+| `GetSecuritySchemes()` | `doc.SecurityDefinitions` | `doc.Components.SecuritySchemes` |
+| `GetParameters()` | `doc.Parameters` | `doc.Components.Parameters` |
+| `GetResponses()` | `doc.Responses` | `doc.Components.Responses` |
+| `GetVersion()` | `doc.OASVersion` | `doc.OASVersion` |
+| `SchemaRefPrefix()` | `#/definitions/` | `#/components/schemas/` |
+
+This abstraction is particularly useful for tooling that needs to operate on documents regardless of their OAS version.
 
 ---
 
@@ -1006,7 +1040,55 @@ Configurable naming strategies handle generic types and package prefixes.
 | `GenericOf` | `Response[User]` | `ResponseOfUser` |
 | Custom | User-defined | Via `WithSchemaNamingFunc` |
 
-### 12.5 Semantic Deduplication
+### 12.5 Server Builder
+
+The `ServerBuilder` extends the standard builder to produce runnable HTTP servers directly from the fluent API. This enables a "spec-first" development workflow where OpenAPI documentation and implementation stay synchronized. Request validation is performed automatically using the [httpvalidator](#13-http-validator-package) package.
+
+**Creating a Server:**
+
+```go
+srv := builder.NewServerBuilder(parser.OASVersion320).
+    SetTitle("Pet Store API").
+    SetVersion("1.0.0")
+
+srv.AddOperation(http.MethodGet, "/pets",
+    builder.WithHandler(func(ctx context.Context, req *builder.Request) builder.Response {
+        return builder.JSON(http.StatusOK, pets)
+    }),
+    builder.WithResponse(http.StatusOK, []Pet{}),
+)
+
+result, _ := srv.BuildServer()
+http.ListenAndServe(":8080", result.Handler)
+```
+
+**Key Capabilities:**
+
+| Capability | Description |
+|------------|-------------|
+| Request Validation | Automatic validation of path/query/header parameters and request bodies |
+| Response Helpers | `JSON()`, `NoContent()`, `Error()`, `Redirect()`, `Stream()` for consistent responses |
+| Middleware Support | Chain middleware functions for auth, logging, etc. |
+| Testing Utilities | `NewTestRequest()`, `ServerTest()`, `StubHandler()` for easy testing |
+| Fluent ResponseBuilder | Set headers, cookies, and streaming responses |
+
+**Handler Registration:**
+
+```go
+// Inline registration
+srv.AddOperation(http.MethodGet, "/pets",
+    builder.WithHandler(listPetsHandler),
+    builder.WithResponse(http.StatusOK, []Pet{}),
+)
+
+// Dynamic registration
+srv.Handle(http.MethodGet, "/pets", listPetsHandler)
+srv.HandleFunc(http.MethodGet, "/health", healthHandler)
+```
+
+Operations without registered handlers return 501 Not Implemented at runtime.
+
+### 12.6 Semantic Deduplication
 
 When multiple types generate identical schemas, the builder consolidates them.
 
@@ -1188,6 +1270,44 @@ var refErr *oaserrors.ReferenceError
 if errors.As(err, &refErr) {
     if errors.Is(refErr.Cause, os.ErrNotExist) {
         fmt.Println("Referenced file does not exist")
+    }
+}
+```
+
+### 14.6 Structured Error Locality
+
+Error and warning types in the [builder](#12-builder-package), [joiner](#8-joiner-package), and [overlay](#9-overlay-package) packages implement the `HasLocation()` and `Location()` methods for programmatic error handling with source context. This enables IDE-friendly error reporting and structured handling of non-fatal issues.
+
+**BuilderError:**
+
+```go
+var builderErr *builder.BuilderError
+if errors.As(err, &builderErr) {
+    if builderErr.HasLocation() {
+        fmt.Printf("Error at %s: %s\n", builderErr.Location(), builderErr.Message)
+        // Output: Error at POST /users: duplicate operationId "createUser"
+    }
+}
+```
+
+**JoinWarning:**
+
+```go
+for _, w := range result.StructuredWarnings {
+    if w.HasLocation() {
+        fmt.Printf("%s: %s\n", w.Location(), w.Message)
+        // Output: users.yaml:42:5: schema 'User' collision resolved
+    }
+}
+```
+
+**ApplyWarning (Overlay):**
+
+```go
+for _, w := range result.StructuredWarnings {
+    if w.HasLocation() {
+        fmt.Printf("%s: %s\n", w.Location(), w.Message)
+        // Output: action[2]: target matched no nodes
     }
 }
 ```
@@ -1543,7 +1663,7 @@ provider := NewCredentialChain(
 
 ## 20. Conclusion
 
-oastools v1.33.0 represents a comprehensive solution for OpenAPI tooling in the Go ecosystem. Its strengths lie in several key areas.
+oastools represents a comprehensive solution for OpenAPI tooling in the Go ecosystem. Its strengths lie in several key areas.
 
 **Complete OAS Coverage:** Supporting versions [2.0](https://spec.openapis.org/oas/v2.0.html) through [3.2.0](https://spec.openapis.org/oas/v3.2.0.html) ensures compatibility with both legacy and cutting-edge specifications, including the latest [JSON Schema 2020-12](https://json-schema.org/draft/2020-12/json-schema-core.html) alignment and streaming capabilities.
 
