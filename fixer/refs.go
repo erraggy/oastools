@@ -11,6 +11,71 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// refFieldSource is implemented by types that can provide ref-related fields for collection.
+// Both parser.Parameter and parser.Header have these fields.
+type refFieldSource interface {
+	getRef() string
+	getSchema() *parser.Schema
+	getContent() map[string]*parser.MediaType
+	getExamples() map[string]*parser.Example
+	getItems() *parser.Items
+}
+
+// parameterRefAdapter wraps *parser.Parameter to implement refFieldSource.
+type parameterRefAdapter struct {
+	p *parser.Parameter
+}
+
+func (a *parameterRefAdapter) getRef() string                           { return a.p.Ref }
+func (a *parameterRefAdapter) getSchema() *parser.Schema                { return a.p.Schema }
+func (a *parameterRefAdapter) getContent() map[string]*parser.MediaType { return a.p.Content }
+func (a *parameterRefAdapter) getExamples() map[string]*parser.Example  { return a.p.Examples }
+func (a *parameterRefAdapter) getItems() *parser.Items                  { return a.p.Items }
+
+// headerRefAdapter wraps *parser.Header to implement refFieldSource.
+type headerRefAdapter struct {
+	h *parser.Header
+}
+
+func (a *headerRefAdapter) getRef() string                           { return a.h.Ref }
+func (a *headerRefAdapter) getSchema() *parser.Schema                { return a.h.Schema }
+func (a *headerRefAdapter) getContent() map[string]*parser.MediaType { return a.h.Content }
+func (a *headerRefAdapter) getExamples() map[string]*parser.Example  { return a.h.Examples }
+func (a *headerRefAdapter) getItems() *parser.Items                  { return a.h.Items }
+
+// collectRefFieldSourceRefs is the shared implementation for collecting refs from
+// Parameter and Header types, which have identical ref field structures.
+func (c *RefCollector) collectRefFieldSourceRefs(source refFieldSource, path string, refType RefType, version parser.OASVersion) {
+	// Check $ref
+	if ref := source.getRef(); ref != "" {
+		c.addRef(ref, path, refType)
+	}
+
+	// Schema (OAS 3.x)
+	if schema := source.getSchema(); schema != nil {
+		c.collectSchemaRefs(schema, fmt.Sprintf("%s.schema", path))
+	}
+
+	// Content (OAS 3.x)
+	for mediaType, mt := range source.getContent() {
+		c.collectMediaTypeRefs(mt, fmt.Sprintf("%s.content.%s", path, mediaType))
+	}
+
+	// Examples (OAS 3.x)
+	for name, example := range source.getExamples() {
+		if example != nil && example.Ref != "" {
+			c.addRef(example.Ref, fmt.Sprintf("%s.examples.%s", path, name), RefTypeExample)
+		}
+	}
+
+	// Items for OAS 2.0
+	if version == parser.OASVersion20 {
+		if items := source.getItems(); items != nil {
+			c.collectItemsRefs(items, fmt.Sprintf("%s.items", path))
+		}
+	}
+}
+
 // RefType categorizes reference targets by their component type.
 type RefType int
 
@@ -330,33 +395,7 @@ func (c *RefCollector) collectParameterRefs(param *parser.Parameter, path string
 	if param == nil {
 		return
 	}
-
-	// Parameter can have $ref
-	if param.Ref != "" {
-		c.addRef(param.Ref, path, RefTypeParameter)
-	}
-
-	// Schema (OAS 3.x)
-	if param.Schema != nil {
-		c.collectSchemaRefs(param.Schema, fmt.Sprintf("%s.schema", path))
-	}
-
-	// Content (OAS 3.x)
-	for mediaType, mt := range param.Content {
-		c.collectMediaTypeRefs(mt, fmt.Sprintf("%s.content.%s", path, mediaType))
-	}
-
-	// Examples (OAS 3.x)
-	for name, example := range param.Examples {
-		if example != nil && example.Ref != "" {
-			c.addRef(example.Ref, fmt.Sprintf("%s.examples.%s", path, name), RefTypeExample)
-		}
-	}
-
-	// Items for OAS 2.0 array parameters
-	if version == parser.OASVersion20 && param.Items != nil {
-		c.collectItemsRefs(param.Items, fmt.Sprintf("%s.items", path))
-	}
+	c.collectRefFieldSourceRefs(&parameterRefAdapter{param}, path, RefTypeParameter, version)
 }
 
 // collectItemsRefs collects references from OAS 2.0 Items.
@@ -392,33 +431,7 @@ func (c *RefCollector) collectHeaderRefs(header *parser.Header, path string, ver
 	if header == nil {
 		return
 	}
-
-	// Header can have $ref
-	if header.Ref != "" {
-		c.addRef(header.Ref, path, RefTypeHeader)
-	}
-
-	// Schema (OAS 3.x)
-	if header.Schema != nil {
-		c.collectSchemaRefs(header.Schema, fmt.Sprintf("%s.schema", path))
-	}
-
-	// Content (OAS 3.x)
-	for mediaType, mt := range header.Content {
-		c.collectMediaTypeRefs(mt, fmt.Sprintf("%s.content.%s", path, mediaType))
-	}
-
-	// Examples (OAS 3.x)
-	for name, example := range header.Examples {
-		if example != nil && example.Ref != "" {
-			c.addRef(example.Ref, fmt.Sprintf("%s.examples.%s", path, name), RefTypeExample)
-		}
-	}
-
-	// Items for OAS 2.0 headers
-	if version == parser.OASVersion20 && header.Items != nil {
-		c.collectItemsRefs(header.Items, fmt.Sprintf("%s.items", path))
-	}
+	c.collectRefFieldSourceRefs(&headerRefAdapter{header}, path, RefTypeHeader, version)
 }
 
 // collectMediaTypeRefs collects references from a media type.
@@ -946,8 +959,8 @@ func ExtractSchemaNameFromRef(ref string, version parser.OASVersion) string {
 		prefix = "#/components/schemas/"
 	}
 
-	if strings.HasPrefix(ref, prefix) {
-		return strings.TrimPrefix(ref, prefix)
+	if name, found := strings.CutPrefix(ref, prefix); found {
+		return name
 	}
 	return ""
 }
@@ -979,15 +992,15 @@ func ExtractComponentNameFromRef(ref string) (componentType, name string) {
 
 	// Try OAS 3.x patterns first (more specific)
 	for prefix, compType := range oas3Prefixes {
-		if strings.HasPrefix(ref, prefix) {
-			return compType, strings.TrimPrefix(ref, prefix)
+		if n, found := strings.CutPrefix(ref, prefix); found {
+			return compType, n
 		}
 	}
 
 	// Try OAS 2.0 patterns
 	for prefix, compType := range oas2Prefixes {
-		if strings.HasPrefix(ref, prefix) {
-			return compType, strings.TrimPrefix(ref, prefix)
+		if n, found := strings.CutPrefix(ref, prefix); found {
+			return compType, n
 		}
 	}
 

@@ -22,30 +22,8 @@ func (f *Fixer) fixOAS3(parseResult parser.ParseResult, result *FixResult) (*Fix
 		return nil, fmt.Errorf("fixer: failed to copy document: %w", err)
 	}
 
-	// Apply enabled fixes in order:
-	// 1. Missing path parameters (existing)
-	if f.isFixEnabled(FixTypeMissingPathParameter) {
-		f.fixMissingPathParametersOAS3(doc, result)
-	}
-
-	// 2. Rename invalid schema names (must happen BEFORE pruning)
-	if f.isFixEnabled(FixTypeRenamedGenericSchema) {
-		f.fixInvalidSchemaNamesOAS3(doc, result)
-	}
-
-	// 3. Prune unused schemas
-	if f.isFixEnabled(FixTypePrunedUnusedSchema) {
-		f.pruneUnusedSchemasOAS3(doc, result)
-	}
-
-	// 4. Prune empty paths
-	if f.isFixEnabled(FixTypePrunedEmptyPath) {
-		f.pruneEmptyPaths(doc.Paths, result, doc.OASVersion)
-	}
-
-	// Update result
-	result.Document = doc
-	result.FixCount = len(result.Fixes)
+	// Apply fixes using shared pipeline
+	f.applyFixPipeline(doc, result, oas3Pipeline)
 
 	return result, nil
 }

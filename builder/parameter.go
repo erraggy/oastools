@@ -503,45 +503,8 @@ func applyParamConstraintsToSchema(schema *parser.Schema, cfg *paramConfig) *par
 	// Create a copy if we're modifying a referenced schema
 	result := copySchema(schema)
 
-	if cfg.minimum != nil {
-		result.Minimum = cfg.minimum
-	}
-	if cfg.maximum != nil {
-		result.Maximum = cfg.maximum
-	}
-	if cfg.exclusiveMinimum {
-		result.ExclusiveMinimum = cfg.exclusiveMinimum
-	}
-	if cfg.exclusiveMaximum {
-		result.ExclusiveMaximum = cfg.exclusiveMaximum
-	}
-	if cfg.multipleOf != nil {
-		result.MultipleOf = cfg.multipleOf
-	}
-	if cfg.minLength != nil {
-		result.MinLength = cfg.minLength
-	}
-	if cfg.maxLength != nil {
-		result.MaxLength = cfg.maxLength
-	}
-	if cfg.pattern != "" {
-		result.Pattern = cfg.pattern
-	}
-	if cfg.minItems != nil {
-		result.MinItems = cfg.minItems
-	}
-	if cfg.maxItems != nil {
-		result.MaxItems = cfg.maxItems
-	}
-	if cfg.uniqueItems {
-		result.UniqueItems = cfg.uniqueItems
-	}
-	if len(cfg.enum) > 0 {
-		result.Enum = cfg.enum
-	}
-	if cfg.defaultValue != nil {
-		result.Default = cfg.defaultValue
-	}
+	// Apply constraints using shared implementation
+	applyConstraintsToTarget(&schemaConstraintAdapter{result}, cfg)
 
 	return result
 }
@@ -642,45 +605,8 @@ func applyTypeFormatOverridesToOAS2Param(param *parser.Parameter, schema *parser
 //   - param: The parameter to apply constraints to
 //   - cfg: The parameter configuration containing constraint values
 func applyParamConstraintsToParam(param *parser.Parameter, cfg *paramConfig) {
-	if cfg.minimum != nil {
-		param.Minimum = cfg.minimum
-	}
-	if cfg.maximum != nil {
-		param.Maximum = cfg.maximum
-	}
-	if cfg.exclusiveMinimum {
-		param.ExclusiveMinimum = cfg.exclusiveMinimum
-	}
-	if cfg.exclusiveMaximum {
-		param.ExclusiveMaximum = cfg.exclusiveMaximum
-	}
-	if cfg.multipleOf != nil {
-		param.MultipleOf = cfg.multipleOf
-	}
-	if cfg.minLength != nil {
-		param.MinLength = cfg.minLength
-	}
-	if cfg.maxLength != nil {
-		param.MaxLength = cfg.maxLength
-	}
-	if cfg.pattern != "" {
-		param.Pattern = cfg.pattern
-	}
-	if cfg.minItems != nil {
-		param.MinItems = cfg.minItems
-	}
-	if cfg.maxItems != nil {
-		param.MaxItems = cfg.maxItems
-	}
-	if cfg.uniqueItems {
-		param.UniqueItems = cfg.uniqueItems
-	}
-	if len(cfg.enum) > 0 {
-		param.Enum = cfg.enum
-	}
-	if cfg.defaultValue != nil {
-		param.Default = cfg.defaultValue
-	}
+	// Apply shared constraints using shared implementation
+	applyConstraintsToTarget(&paramConstraintAdapter{param}, cfg)
 
 	// OAS 2.0 specific fields
 	if cfg.allowEmptyValue {

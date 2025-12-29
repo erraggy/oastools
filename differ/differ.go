@@ -3,6 +3,7 @@ package differ
 import (
 	"fmt"
 
+	"github.com/erraggy/oastools/internal/options"
 	"github.com/erraggy/oastools/internal/severity"
 	"github.com/erraggy/oastools/parser"
 )
@@ -304,35 +305,21 @@ func applyOptions(opts ...Option) (*diffConfig, error) {
 	}
 
 	// Validate exactly one source is specified
-	sourceCount := 0
-	if cfg.sourceFilePath != nil {
-		sourceCount++
-	}
-	if cfg.sourceParsed != nil {
-		sourceCount++
-	}
-
-	if sourceCount == 0 {
-		return nil, fmt.Errorf("must specify a source (use WithSourceFilePath or WithSourceParsed)")
-	}
-	if sourceCount > 1 {
-		return nil, fmt.Errorf("must specify exactly one source")
+	if err := options.ValidateSingleInputSource(
+		"must specify a source (use WithSourceFilePath or WithSourceParsed)",
+		"must specify exactly one source",
+		cfg.sourceFilePath != nil, cfg.sourceParsed != nil,
+	); err != nil {
+		return nil, err
 	}
 
 	// Validate exactly one target is specified
-	targetCount := 0
-	if cfg.targetFilePath != nil {
-		targetCount++
-	}
-	if cfg.targetParsed != nil {
-		targetCount++
-	}
-
-	if targetCount == 0 {
-		return nil, fmt.Errorf("must specify a target (use WithTargetFilePath or WithTargetParsed)")
-	}
-	if targetCount > 1 {
-		return nil, fmt.Errorf("must specify exactly one target")
+	if err := options.ValidateSingleInputSource(
+		"must specify a target (use WithTargetFilePath or WithTargetParsed)",
+		"must specify exactly one target",
+		cfg.targetFilePath != nil, cfg.targetParsed != nil,
+	); err != nil {
+		return nil, err
 	}
 
 	return cfg, nil

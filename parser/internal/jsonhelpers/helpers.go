@@ -8,6 +8,7 @@ package jsonhelpers
 import (
 	"encoding/json"
 	"maps"
+	"reflect"
 )
 
 // MarshalWithExtras marshals a base map while merging in extension fields.
@@ -174,9 +175,19 @@ func SetIfNotEmpty(m map[string]any, key string, value string) {
 // SetIfNotNil sets a field in the map only if the value is not nil.
 // This is useful for MarshalJSON to avoid adding nil fields to JSON output.
 func SetIfNotNil(m map[string]any, key string, value any) {
-	if value != nil {
-		m[key] = value
+	if value == nil {
+		return
 	}
+	// Handle typed nil values (e.g., (*int)(nil) wrapped in any is NOT equal to nil)
+	// We must use reflection to detect these cases
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func, reflect.Interface:
+		if v.IsNil() {
+			return
+		}
+	}
+	m[key] = value
 }
 
 // SetIfNotZero sets a field in the map only if the value is not zero.
@@ -211,6 +222,62 @@ func SetIfMapNotEmpty[K comparable, V any](m map[string]any, key string, value m
 	if len(value) > 0 {
 		m[key] = value
 	}
+}
+
+// OAS2PrimitiveFields holds OAS 2.0 primitive type fields shared across
+// Parameter, Items, and Header types in Swagger 2.0 specifications.
+type OAS2PrimitiveFields struct {
+	Type             string
+	Format           string
+	Items            any
+	CollectionFormat string
+	Default          any
+}
+
+// SetOAS2PrimitiveFields adds OAS 2.0 primitive type fields to a map.
+// This is used by Parameter, Items, and Header MarshalJSON to reduce duplication.
+// Note: For Items, Type should be set separately as a required field.
+func SetOAS2PrimitiveFields(m map[string]any, f OAS2PrimitiveFields) {
+	SetIfNotEmpty(m, "type", f.Type)
+	SetIfNotEmpty(m, "format", f.Format)
+	SetIfNotNil(m, "items", f.Items)
+	SetIfNotEmpty(m, "collectionFormat", f.CollectionFormat)
+	SetIfNotNil(m, "default", f.Default)
+}
+
+// SchemaConstraints holds JSON Schema validation constraint fields.
+// This is used for shared marshaling of constraint fields across
+// Parameter, Items, and Header types.
+type SchemaConstraints struct {
+	Maximum          *float64
+	ExclusiveMaximum bool
+	Minimum          *float64
+	ExclusiveMinimum bool
+	MaxLength        *int
+	MinLength        *int
+	Pattern          string
+	MaxItems         *int
+	MinItems         *int
+	UniqueItems      bool
+	Enum             []any
+	MultipleOf       *float64
+}
+
+// SetSchemaConstraints adds JSON Schema validation constraint fields to a map.
+// This is used by Parameter, Items, and Header MarshalJSON to reduce duplication.
+func SetSchemaConstraints(m map[string]any, c SchemaConstraints) {
+	SetIfNotNil(m, "maximum", c.Maximum)
+	SetIfTrue(m, "exclusiveMaximum", c.ExclusiveMaximum)
+	SetIfNotNil(m, "minimum", c.Minimum)
+	SetIfTrue(m, "exclusiveMinimum", c.ExclusiveMinimum)
+	SetIfNotNil(m, "maxLength", c.MaxLength)
+	SetIfNotNil(m, "minLength", c.MinLength)
+	SetIfNotEmpty(m, "pattern", c.Pattern)
+	SetIfNotNil(m, "maxItems", c.MaxItems)
+	SetIfNotNil(m, "minItems", c.MinItems)
+	SetIfTrue(m, "uniqueItems", c.UniqueItems)
+	SetIfNotNil(m, "enum", c.Enum)
+	SetIfNotNil(m, "multipleOf", c.MultipleOf)
 }
 
 // ExtractExtensions extracts specification extension fields (x-* properties)

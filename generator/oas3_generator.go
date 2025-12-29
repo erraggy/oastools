@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/internal/schemautil"
@@ -69,51 +68,11 @@ func (cg *oas3CodeGenerator) generateSingleTypes() error {
 
 // generateSplitTypes generates types split across multiple files
 func (cg *oas3CodeGenerator) generateSplitTypes() error {
-	// Build set of shared types
-	sharedTypes := make(map[string]bool)
-	for _, typeName := range cg.splitPlan.SharedTypes {
-		sharedTypes[typeName] = true
-	}
-
-	// Build set of types per group
-	groupTypes := make(map[string]map[string]bool)
-	for _, group := range cg.splitPlan.Groups {
-		if group.IsShared {
-			continue
-		}
-		groupTypes[group.Name] = make(map[string]bool)
-		for _, typeName := range group.Types {
-			groupTypes[group.Name][typeName] = true
-		}
-	}
+	// Build type maps from split plan
+	sharedTypes, groupTypes := buildTypeGroupMaps(cg.splitPlan)
 
 	// Get all schemas (with deduplication)
-	schemaCount := 0
-	if cg.doc.Components != nil && cg.doc.Components.Schemas != nil {
-		schemaCount = len(cg.doc.Components.Schemas)
-	}
-	allSchemas := make([]schemaEntry, 0, schemaCount)
-	if cg.doc.Components != nil && cg.doc.Components.Schemas != nil {
-		for name, schema := range cg.doc.Components.Schemas {
-			if schema == nil {
-				continue
-			}
-			// Check for duplicate type names (e.g., "user_profile" and "UserProfile" both become "UserProfile")
-			typeName := toTypeName(name)
-			if cg.generatedTypes[typeName] {
-				cg.addIssue(fmt.Sprintf("components.schemas.%s", name),
-					fmt.Sprintf("duplicate type name %s - skipping", typeName), SeverityWarning)
-				continue
-			}
-			cg.generatedTypes[typeName] = true
-
-			allSchemas = append(allSchemas, schemaEntry{name: name, schema: schema})
-			cg.schemaNames["#/components/schemas/"+name] = typeName
-		}
-	}
-	sort.Slice(allSchemas, func(i, j int) bool {
-		return allSchemas[i].name < allSchemas[j].name
-	})
+	allSchemas := cg.collectSchemas()
 
 	// Generate shared types file (types.go)
 	if err := cg.generateTypesFile("types.go", "Shared types used across multiple operations", allSchemas, sharedTypes); err != nil {
@@ -215,6 +174,39 @@ func (cg *oas3CodeGenerator) buildTypesFileDataForSchemas(schemas []schemaEntry,
 type schemaEntry struct {
 	name   string
 	schema *parser.Schema
+}
+
+// collectSchemas collects and deduplicates schemas from components.
+// It tracks generated types to avoid duplicates and populates schemaNames map.
+func (cg *oas3CodeGenerator) collectSchemas() []schemaEntry {
+	if cg.doc.Components == nil || cg.doc.Components.Schemas == nil {
+		return nil
+	}
+
+	schemas := make([]schemaEntry, 0, len(cg.doc.Components.Schemas))
+	for name, schema := range cg.doc.Components.Schemas {
+		if schema == nil {
+			continue
+		}
+		// Check for duplicate type names (e.g., "user_profile" and "UserProfile" both become "UserProfile")
+		typeName := toTypeName(name)
+		if cg.generatedTypes[typeName] {
+			cg.addIssue(fmt.Sprintf("components.schemas.%s", name),
+				fmt.Sprintf("duplicate type name %s - skipping", typeName), SeverityWarning)
+			continue
+		}
+		cg.generatedTypes[typeName] = true
+
+		schemas = append(schemas, schemaEntry{name: name, schema: schema})
+		cg.schemaNames["#/components/schemas/"+name] = typeName
+	}
+
+	// Sort for deterministic output
+	sort.Slice(schemas, func(i, j int) bool {
+		return schemas[i].name < schemas[j].name
+	})
+
+	return schemas
 }
 
 // schemaToGoType converts a schema to a Go type string
@@ -357,11 +349,7 @@ func (cg *oas3CodeGenerator) generateSingleClient() error {
 	// Generate methods for each operation
 	if cg.doc.Paths != nil {
 		// Sort paths for deterministic output
-		var pathKeys []string
-		for path := range cg.doc.Paths {
-			pathKeys = append(pathKeys, path)
-		}
-		sort.Strings(pathKeys)
+		pathKeys := sortedPathKeys(cg.doc.Paths)
 
 		for _, path := range pathKeys {
 			pathItem := cg.doc.Paths[path]
@@ -390,17 +378,8 @@ func (cg *oas3CodeGenerator) generateSingleClient() error {
 	// Write helper functions
 	buf.WriteString(clientHelpers)
 
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
-	if err != nil {
-		cg.addIssue("client.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = buf.Bytes()
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "client.go",
-		Content: formatted,
-	})
+	// Format and append the file
+	appendFormattedFile(cg.result, "client.go", &buf, cg.addIssue)
 
 	return nil
 }
@@ -413,31 +392,7 @@ func (cg *oas3CodeGenerator) generateSplitClient() error {
 	}
 
 	// Build a map of operation ID to path/method for quick lookup
-	opToPathMethod := make(map[string]struct {
-		path   string
-		method string
-		op     *parser.Operation
-	})
-
-	if cg.doc.Paths != nil {
-		for path, pathItem := range cg.doc.Paths {
-			if pathItem == nil {
-				continue
-			}
-			operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
-			for method, op := range operations {
-				if op == nil {
-					continue
-				}
-				opID := operationToMethodName(op, path, method)
-				opToPathMethod[opID] = struct {
-					path   string
-					method string
-					op     *parser.Operation
-				}{path, method, op}
-			}
-		}
-	}
+	opToPathMethod := buildOperationMap(cg.doc.Paths, cg.doc.OASVersion)
 
 	// Generate a client file for each group
 	for _, group := range cg.splitPlan.Groups {
@@ -455,53 +410,13 @@ func (cg *oas3CodeGenerator) generateSplitClient() error {
 
 // generateBaseClient generates the base client.go with struct, constructor, and options (no operations)
 func (cg *oas3CodeGenerator) generateBaseClient() error {
-	var buf bytes.Buffer
-
-	// Write header
-	buf.WriteString("// Code generated by oastools. DO NOT EDIT.\n\n")
-	buf.WriteString(fmt.Sprintf("package %s\n\n", cg.result.PackageName))
-
-	// Write imports (base client needs these imports for clientHelpers)
-	buf.WriteString("import (\n")
-	buf.WriteString("\t\"bytes\"\n")
-	buf.WriteString("\t\"context\"\n")
-	buf.WriteString("\t\"encoding/json\"\n")
-	buf.WriteString("\t\"fmt\"\n")
-	buf.WriteString("\t\"io\"\n")
-	buf.WriteString("\t\"net/http\"\n")
-	buf.WriteString("\t\"net/url\"\n")
-	buf.WriteString("\t\"strings\"\n")
-	buf.WriteString(")\n\n")
-
-	// Write client struct, types, constructor, and options using shared boilerplate
-	writeClientBoilerplate(&buf, cg.doc.Info)
-
-	// Write helper functions
-	buf.WriteString(clientHelpers)
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
-	if err != nil {
-		cg.addIssue("client.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = buf.Bytes()
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "client.go",
-		Content: formatted,
-	})
-
-	return nil
+	return generateBaseClientShared(cg.result.PackageName, cg.doc.Info, cg.result, cg.addIssue)
 }
 
 // generateClientGroupFile generates a client_{group}.go file with operations for a specific group
 //
 //nolint:unparam // error return kept for API consistency with other generate methods
-func (cg *oas3CodeGenerator) generateClientGroupFile(group FileGroup, opToPathMethod map[string]struct {
-	path   string
-	method string
-	op     *parser.Operation
-}) error {
+func (cg *oas3CodeGenerator) generateClientGroupFile(group FileGroup, opToPathMethod map[string]OperationMapping) error {
 	var buf bytes.Buffer
 
 	// Write header with comment about the group
@@ -520,7 +435,7 @@ func (cg *oas3CodeGenerator) generateClientGroupFile(group FileGroup, opToPathMe
 		if !ok {
 			continue
 		}
-		op := info.op
+		op := info.Op
 
 		// Check if any parameters need time
 		for _, param := range op.Parameters {
@@ -571,33 +486,12 @@ func (cg *oas3CodeGenerator) generateClientGroupFile(group FileGroup, opToPathMe
 	}
 	buf.WriteString(")\n\n")
 
-	// Generate each operation in this group
-	for _, opID := range group.Operations {
-		info, ok := opToPathMethod[opID]
-		if !ok {
-			continue
-		}
+	// Generate each operation in this group using shared helper
+	generateGroupClientMethods(&buf, group, opToPathMethod, cg.result, cg.addIssue, cg.generateClientMethod)
 
-		code, err := cg.generateClientMethod(info.path, info.method, info.op)
-		if err != nil {
-			cg.addIssue(fmt.Sprintf("paths.%s.%s", info.path, info.method), fmt.Sprintf("failed to generate client method: %v", err), SeverityWarning)
-			continue
-		}
-		buf.WriteString(code)
-		cg.result.GeneratedOperations++
-	}
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
-	if err != nil {
-		cg.addIssue(fmt.Sprintf("client_%s.go", group.Name), fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = buf.Bytes()
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    fmt.Sprintf("client_%s.go", group.Name),
-		Content: formatted,
-	})
+	// Format and append the file
+	fileName := fmt.Sprintf("client_%s.go", group.Name)
+	appendFormattedFile(cg.result, fileName, &buf, cg.addIssue)
 
 	return nil
 }
@@ -644,149 +538,13 @@ func (cg *oas3CodeGenerator) generateClientMethod(path, method string, op *parse
 		contentType = cg.getRequestBodyContentType(op.RequestBody)
 	}
 
-	// Write method documentation - handle multiline descriptions properly
-	if op.Summary != "" {
-		buf.WriteString(formatMultilineComment(op.Summary, methodName, ""))
-	} else if op.Description != "" {
-		buf.WriteString(formatMultilineComment(op.Description, methodName, ""))
-	} else {
-		buf.WriteString(fmt.Sprintf("// %s calls %s %s\n", methodName, strings.ToUpper(method), path))
-	}
-	if op.Deprecated {
-		buf.WriteString("// Deprecated: This operation is deprecated.\n")
-	}
-
-	// Write method signature
+	// Generate method using shared helpers
 	responseType := cg.getResponseType(op)
-	buf.WriteString(fmt.Sprintf("func (c *Client) %s(%s) (%s, error) {\n", methodName, strings.Join(params, ", "), responseType))
 
-	// Build URL
-	buf.WriteString("\tpath := ")
-	if len(pathParams) > 0 {
-		buf.WriteString("fmt.Sprintf(\"")
-		pathTemplate := path
-		for _, pp := range pathParams {
-			pathTemplate = strings.ReplaceAll(pathTemplate, "{"+pp.name+"}", "%v")
-		}
-		buf.WriteString(pathTemplate)
-		buf.WriteString("\"")
-		for _, pp := range pathParams {
-			buf.WriteString(", " + pp.varName)
-		}
-		buf.WriteString(")\n")
-	} else {
-		buf.WriteString(fmt.Sprintf("%q\n", path))
-	}
-
-	// Build query string
-	if len(queryParams) > 0 {
-		buf.WriteString("\tquery := make(url.Values)\n")
-		buf.WriteString("\tif params != nil {\n")
-		for _, param := range queryParams {
-			paramName := toFieldName(param.Name)
-			if param.Required {
-				buf.WriteString(fmt.Sprintf("\t\tquery.Set(%q, fmt.Sprintf(\"%%v\", params.%s))\n", param.Name, paramName))
-			} else {
-				buf.WriteString(fmt.Sprintf("\t\tif params.%s != nil {\n", paramName))
-				buf.WriteString(fmt.Sprintf("\t\t\tquery.Set(%q, fmt.Sprintf(\"%%v\", *params.%s))\n", param.Name, paramName))
-				buf.WriteString("\t\t}\n")
-			}
-		}
-		buf.WriteString("\t}\n")
-		buf.WriteString("\tif len(query) > 0 {\n")
-		buf.WriteString("\t\tpath += \"?\" + query.Encode()\n")
-		buf.WriteString("\t}\n")
-	}
-
-	// Create request
-	if hasBody {
-		buf.WriteString("\tbodyData, err := json.Marshal(body)\n")
-		buf.WriteString("\tif err != nil {\n")
-		buf.WriteString(fmt.Sprintf("\t\treturn %s, fmt.Errorf(\"marshal request body: %%w\", err)\n", zeroValue(responseType)))
-		buf.WriteString("\t}\n")
-		buf.WriteString(fmt.Sprintf("\treq, err := http.NewRequestWithContext(ctx, %q, c.BaseURL+path, bytes.NewReader(bodyData))\n", strings.ToUpper(method)))
-	} else {
-		buf.WriteString(fmt.Sprintf("\treq, err := http.NewRequestWithContext(ctx, %q, c.BaseURL+path, nil)\n", strings.ToUpper(method)))
-	}
-	buf.WriteString("\tif err != nil {\n")
-	buf.WriteString(fmt.Sprintf("\t\treturn %s, fmt.Errorf(\"create request: %%w\", err)\n", zeroValue(responseType)))
-	buf.WriteString("\t}\n")
-
-	// Set content type for requests with body
-	if hasBody {
-		buf.WriteString(fmt.Sprintf("\treq.Header.Set(\"Content-Type\", %q)\n", contentType))
-	}
-	buf.WriteString("\treq.Header.Set(\"Accept\", \"application/json\")\n")
-	buf.WriteString("\tif c.UserAgent != \"\" {\n")
-	buf.WriteString("\t\treq.Header.Set(\"User-Agent\", c.UserAgent)\n")
-	buf.WriteString("\t}\n")
-
-	// Apply request editors
-	buf.WriteString("\tfor _, editor := range c.RequestEditors {\n")
-	buf.WriteString("\t\tif err := editor(ctx, req); err != nil {\n")
-	buf.WriteString(fmt.Sprintf("\t\t\treturn %s, fmt.Errorf(\"request editor: %%w\", err)\n", zeroValue(responseType)))
-	buf.WriteString("\t\t}\n")
-	buf.WriteString("\t}\n")
-
-	// Execute request
-	buf.WriteString("\tresp, err := c.HTTPClient.Do(req)\n")
-	buf.WriteString("\tif err != nil {\n")
-	buf.WriteString(fmt.Sprintf("\t\treturn %s, fmt.Errorf(\"execute request: %%w\", err)\n", zeroValue(responseType)))
-	buf.WriteString("\t}\n")
-	buf.WriteString("\tdefer resp.Body.Close()\n")
-
-	// Handle response
-	buf.WriteString("\tif resp.StatusCode >= 400 {\n")
-	buf.WriteString("\t\tbody, _ := io.ReadAll(resp.Body)\n")
-	buf.WriteString(fmt.Sprintf("\t\treturn %s, &APIError{StatusCode: resp.StatusCode, Body: body}\n", zeroValue(responseType)))
-	buf.WriteString("\t}\n")
-
-	// Parse response body
-	if responseType != "" && responseType != httpResponseType {
-		if strings.HasPrefix(responseType, "*") {
-			buf.WriteString(fmt.Sprintf("\tvar result %s\n", responseType[1:]))
-			buf.WriteString("\tif err := json.NewDecoder(resp.Body).Decode(&result); err != nil {\n")
-			buf.WriteString(fmt.Sprintf("\t\treturn %s, fmt.Errorf(\"decode response: %%w\", err)\n", zeroValue(responseType)))
-			buf.WriteString("\t}\n")
-			buf.WriteString("\treturn &result, nil\n")
-		} else {
-			buf.WriteString(fmt.Sprintf("\tvar result %s\n", responseType))
-			buf.WriteString("\tif err := json.NewDecoder(resp.Body).Decode(&result); err != nil {\n")
-			buf.WriteString(fmt.Sprintf("\t\treturn %s, fmt.Errorf(\"decode response: %%w\", err)\n", zeroValue(responseType)))
-			buf.WriteString("\t}\n")
-			buf.WriteString("\treturn result, nil\n")
-		}
-	} else {
-		buf.WriteString("\treturn resp, nil\n")
-	}
-
-	buf.WriteString("}\n\n")
-
-	// Generate params struct if needed
-	if len(queryParams) > 0 {
-		buf.WriteString(fmt.Sprintf("// %sParams contains query parameters for %s.\n", methodName, methodName))
-		buf.WriteString(fmt.Sprintf("type %sParams struct {\n", methodName))
-		for _, param := range queryParams {
-			goType := cg.paramToGoType(param)
-			fieldName := toFieldName(param.Name)
-			if param.Description != "" {
-				buf.WriteString(fmt.Sprintf("\t// %s\n", cleanDescription(param.Description)))
-			}
-			if !param.Required {
-				buf.WriteString(fmt.Sprintf("\t%s *%s `json:%q`\n", fieldName, goType, param.Name+",omitempty"))
-			} else {
-				buf.WriteString(fmt.Sprintf("\t%s %s `json:%q`\n", fieldName, goType, param.Name))
-			}
-		}
-		buf.WriteString("}\n\n")
-	}
+	writeClientMethod(&buf, op, methodName, method, path, params, pathParams, queryParams,
+		hasBody, contentType, responseType, cg.paramToGoType)
 
 	return buf.String(), nil
-}
-
-type pathParam struct {
-	name    string
-	varName string
 }
 
 // paramToGoType converts a parameter to its Go type
@@ -795,20 +553,7 @@ func (cg *oas3CodeGenerator) paramToGoType(param *parser.Parameter) string {
 		return cg.schemaToGoType(param.Schema, param.Required)
 	}
 	// Fallback for OAS 2.0 style parameters
-	switch param.Type {
-	case "string":
-		return stringFormatToGoType(param.Format)
-	case "integer":
-		return integerFormatToGoType(param.Format)
-	case "number":
-		return numberFormatToGoType(param.Format)
-	case "boolean":
-		return "bool"
-	case "array":
-		return "[]string"
-	default:
-		return "string"
-	}
+	return paramTypeToGoType(param.Type, param.Format)
 }
 
 // getRequestBodyType determines the Go type for a request body
@@ -843,6 +588,21 @@ func (cg *oas3CodeGenerator) getRequestBodyContentType(rb *parser.RequestBody) s
 	return "application/json"
 }
 
+// findJSONSchemaType searches a content map for a JSON schema and returns its Go type.
+// Returns the type string and true if found, or empty string and false if not found.
+func (cg *oas3CodeGenerator) findJSONSchemaType(content map[string]*parser.MediaType) (string, bool) {
+	for contentType, mediaType := range content {
+		if strings.Contains(contentType, "json") && mediaType != nil && mediaType.Schema != nil {
+			goType := cg.schemaToGoType(mediaType.Schema, true)
+			if !strings.HasPrefix(goType, "*") && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map") {
+				return "*" + goType, true
+			}
+			return goType, true
+		}
+	}
+	return "", false
+}
+
 // getResponseType determines the Go type for the success response
 func (cg *oas3CodeGenerator) getResponseType(op *parser.Operation) string {
 	if op.Responses == nil {
@@ -852,28 +612,16 @@ func (cg *oas3CodeGenerator) getResponseType(op *parser.Operation) string {
 	// Check for 200, 201, 2XX responses
 	for _, code := range []string{"200", "201", "2XX"} {
 		if resp := op.Responses.Codes[code]; resp != nil {
-			for contentType, mediaType := range resp.Content {
-				if strings.Contains(contentType, "json") && mediaType != nil && mediaType.Schema != nil {
-					goType := cg.schemaToGoType(mediaType.Schema, true)
-					if !strings.HasPrefix(goType, "*") && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map") {
-						return "*" + goType
-					}
-					return goType
-				}
+			if goType, found := cg.findJSONSchemaType(resp.Content); found {
+				return goType
 			}
 		}
 	}
 
 	// Check default response
 	if op.Responses.Default != nil {
-		for contentType, mediaType := range op.Responses.Default.Content {
-			if strings.Contains(contentType, "json") && mediaType != nil && mediaType.Schema != nil {
-				goType := cg.schemaToGoType(mediaType.Schema, true)
-				if !strings.HasPrefix(goType, "*") && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map") {
-					return "*" + goType
-				}
-				return goType
-			}
+		if goType, found := cg.findJSONSchemaType(op.Responses.Default.Content); found {
+			return goType
 		}
 	}
 
@@ -892,80 +640,26 @@ func (cg *oas3CodeGenerator) generateServer() error {
 
 // generateSingleServer generates all server code in a single file (original behavior)
 func (cg *oas3CodeGenerator) generateSingleServer() error {
-	var buf bytes.Buffer
+	// Use shared function with request type callback for single-file mode
+	_, err := generateBaseServerShared(&baseServerContext{
+		paths:                   cg.doc.Paths,
+		oasVersion:              cg.doc.OASVersion,
+		httpMethods:             httpMethods,
+		packageName:             cg.result.PackageName,
+		needsTime:               cg.operationsNeedTimeImport(),
+		result:                  cg.result,
+		addIssue:                cg.addIssue,
+		generateMethodSignature: cg.generateServerMethodSignature,
+		getResponseType:         cg.getResponseType,
+		generateRequestTypes:    cg.writeRequestTypes,
+	})
+	return err
+}
 
-	// Check if we need the time import
-	needsTime := cg.operationsNeedTimeImport()
-
-	// Write header
-	buf.WriteString("// Code generated by oastools. DO NOT EDIT.\n\n")
-	buf.WriteString(fmt.Sprintf("package %s\n\n", cg.result.PackageName))
-
-	// Write imports
-	buf.WriteString("import (\n")
-	buf.WriteString("\t\"context\"\n")
-	buf.WriteString("\t\"net/http\"\n")
-	if needsTime {
-		buf.WriteString("\t\"time\"\n")
-	}
-	buf.WriteString(")\n\n")
-
-	// Track generated methods to avoid duplicates (can happen with duplicate operationIds).
-	// NOTE: This map must be local per file generation to avoid stale data in split mode.
-	generatedMethods := make(map[string]bool)
-
-	// Generate server interface
-	buf.WriteString("// ServerInterface represents the server API.\n")
-	buf.WriteString("type ServerInterface interface {\n")
-
-	if cg.doc.Paths != nil {
-		// Sort paths for deterministic output
-		var pathKeys []string
-		for path := range cg.doc.Paths {
-			pathKeys = append(pathKeys, path)
-		}
-		sort.Strings(pathKeys)
-
-		for _, path := range pathKeys {
-			pathItem := cg.doc.Paths[path]
-			if pathItem == nil {
-				continue
-			}
-
-			operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
-			for _, method := range httpMethods {
-				op := operations[method]
-				if op == nil {
-					continue
-				}
-
-				methodName := operationToMethodName(op, path, method)
-				if generatedMethods[methodName] {
-					cg.addIssue(fmt.Sprintf("paths.%s.%s", path, method),
-						fmt.Sprintf("duplicate method name %s - skipping", methodName), SeverityWarning)
-					continue
-				}
-				generatedMethods[methodName] = true
-
-				sig := cg.generateServerMethodSignature(path, method, op)
-				buf.WriteString(sig)
-			}
-		}
-	}
-
-	buf.WriteString("}\n\n")
-
-	// Generate request types (use same tracking map since request types are named after methods)
-	for _, path := range func() []string {
-		var keys []string
-		if cg.doc.Paths != nil {
-			for k := range cg.doc.Paths {
-				keys = append(keys, k)
-			}
-		}
-		sort.Strings(keys)
-		return keys
-	}() {
+// writeRequestTypes generates request types for all operations.
+// This is used as a callback for single-file server generation.
+func (cg *oas3CodeGenerator) writeRequestTypes(buf *bytes.Buffer, generatedMethods map[string]bool) {
+	for _, path := range sortedPathKeys(cg.doc.Paths) {
 		pathItem := cg.doc.Paths[path]
 		if pathItem == nil {
 			continue
@@ -990,128 +684,19 @@ func (cg *oas3CodeGenerator) generateSingleServer() error {
 			}
 		}
 	}
-
-	// Write unimplemented server
-	buf.WriteString("// UnimplementedServer provides default implementations that return errors.\n")
-	buf.WriteString("type UnimplementedServer struct{}\n\n")
-
-	// Track generated UnimplementedServer methods separately to avoid duplicates.
-	// We can't reuse generatedMethods because it's used to check if a method was
-	// added to the interface (i.e., wasn't filtered as duplicate).
-	generatedUnimplemented := make(map[string]bool)
-
-	// Generate unimplemented methods (methods already tracked from interface generation)
-	if cg.doc.Paths != nil {
-		var pathKeys []string
-		for path := range cg.doc.Paths {
-			pathKeys = append(pathKeys, path)
-		}
-		sort.Strings(pathKeys)
-
-		for _, path := range pathKeys {
-			pathItem := cg.doc.Paths[path]
-			if pathItem == nil {
-				continue
-			}
-
-			operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
-			for _, method := range httpMethods {
-				op := operations[method]
-				if op == nil {
-					continue
-				}
-
-				methodName := operationToMethodName(op, path, method)
-				// Skip if not in generated methods (was a duplicate in interface)
-				if !generatedMethods[methodName] {
-					continue
-				}
-				// Skip if already generated for UnimplementedServer
-				if generatedUnimplemented[methodName] {
-					continue
-				}
-				generatedUnimplemented[methodName] = true
-
-				responseType := cg.getResponseType(op)
-
-				buf.WriteString(fmt.Sprintf("func (s *UnimplementedServer) %s(ctx context.Context, req *%sRequest) (%s, error) {\n",
-					methodName, methodName, responseType))
-				buf.WriteString(fmt.Sprintf("\treturn %s, ErrNotImplemented\n", zeroValue(responseType)))
-				buf.WriteString("}\n\n")
-			}
-		}
-	}
-
-	// Write error type
-	buf.WriteString("// ErrNotImplemented is returned by UnimplementedServer methods.\n")
-	buf.WriteString("var ErrNotImplemented = &NotImplementedError{}\n\n")
-	buf.WriteString("// NotImplementedError indicates an operation is not implemented.\n")
-	buf.WriteString("type NotImplementedError struct{}\n\n")
-	buf.WriteString("func (e *NotImplementedError) Error() string { return \"not implemented\" }\n\n")
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
-	if err != nil {
-		cg.addIssue("server.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = buf.Bytes()
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "server.go",
-		Content: formatted,
-	})
-
-	return nil
 }
 
 // generateSplitServer generates server code split across multiple files
 func (cg *oas3CodeGenerator) generateSplitServer() error {
-	// Generate the base server.go (interface, unimplemented, error types - but no request types)
-	// Returns the set of methods that were actually generated (excludes duplicates)
-	generatedMethods, err := cg.generateBaseServer()
-	if err != nil {
-		return err
-	}
-
-	// Build a map of operation ID to path/method for quick lookup
-	opToPathMethod := make(map[string]struct {
-		path   string
-		method string
-		op     *parser.Operation
+	return generateSplitServerShared(&splitServerContext{
+		paths:               cg.doc.Paths,
+		oasVersion:          cg.doc.OASVersion,
+		splitPlan:           cg.splitPlan,
+		result:              cg.result,
+		addIssue:            cg.addIssue,
+		generateBaseServer:  cg.generateBaseServer,
+		generateRequestType: cg.generateRequestType,
 	})
-
-	if cg.doc.Paths != nil {
-		for path, pathItem := range cg.doc.Paths {
-			if pathItem == nil {
-				continue
-			}
-			operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
-			for method, op := range operations {
-				if op == nil {
-					continue
-				}
-				opID := operationToMethodName(op, path, method)
-				opToPathMethod[opID] = struct {
-					path   string
-					method string
-					op     *parser.Operation
-				}{path, method, op}
-			}
-		}
-	}
-
-	// Generate a server file for each group (request types only)
-	for _, group := range cg.splitPlan.Groups {
-		if group.IsShared {
-			continue // Skip shared types group
-		}
-
-		if err := cg.generateServerGroupFile(group, opToPathMethod, generatedMethods); err != nil {
-			cg.addIssue(fmt.Sprintf("server_%s.go", group.Name), fmt.Sprintf("failed to generate: %v", err), SeverityWarning)
-		}
-	}
-
-	return nil
 }
 
 // generateBaseServer generates the base server.go with interface and unimplemented struct.
@@ -1119,247 +704,22 @@ func (cg *oas3CodeGenerator) generateSplitServer() error {
 //
 //nolint:unparam // error return kept for API consistency and future extensibility
 func (cg *oas3CodeGenerator) generateBaseServer() (map[string]bool, error) {
-	var buf bytes.Buffer
-
-	// Check if we need the time import
-	needsTime := cg.operationsNeedTimeImport()
-
-	// Write header
-	buf.WriteString("// Code generated by oastools. DO NOT EDIT.\n\n")
-	buf.WriteString(fmt.Sprintf("package %s\n\n", cg.result.PackageName))
-
-	// Write imports
-	buf.WriteString("import (\n")
-	buf.WriteString("\t\"context\"\n")
-	if needsTime {
-		buf.WriteString("\t\"time\"\n")
-	}
-	buf.WriteString(")\n\n")
-
-	// Track generated methods to avoid duplicates (can happen with duplicate operationIds).
-	// NOTE: This map must be local per file generation to avoid stale data in split mode.
-	generatedMethods := make(map[string]bool)
-
-	// Generate server interface (must be complete)
-	buf.WriteString("// ServerInterface represents the server API.\n")
-	buf.WriteString("type ServerInterface interface {\n")
-
-	if cg.doc.Paths != nil {
-		var pathKeys []string
-		for path := range cg.doc.Paths {
-			pathKeys = append(pathKeys, path)
-		}
-		sort.Strings(pathKeys)
-
-		for _, path := range pathKeys {
-			pathItem := cg.doc.Paths[path]
-			if pathItem == nil {
-				continue
-			}
-
-			operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
-			for _, method := range httpMethods {
-				op := operations[method]
-				if op == nil {
-					continue
-				}
-
-				methodName := operationToMethodName(op, path, method)
-				if generatedMethods[methodName] {
-					cg.addIssue(fmt.Sprintf("paths.%s.%s", path, method),
-						fmt.Sprintf("duplicate method name %s - skipping", methodName), SeverityWarning)
-					continue
-				}
-				generatedMethods[methodName] = true
-
-				sig := cg.generateServerMethodSignature(path, method, op)
-				buf.WriteString(sig)
-			}
-		}
-	}
-
-	buf.WriteString("}\n\n")
-
-	// Write unimplemented server (must be complete)
-	buf.WriteString("// UnimplementedServer provides default implementations that return errors.\n")
-	buf.WriteString("type UnimplementedServer struct{}\n\n")
-
-	// Track generated UnimplementedServer methods separately to avoid duplicates.
-	// We can't reuse generatedMethods because it's used to check if a method was
-	// added to the interface (i.e., wasn't filtered as duplicate).
-	generatedUnimplemented := make(map[string]bool)
-
-	if cg.doc.Paths != nil {
-		var pathKeys []string
-		for path := range cg.doc.Paths {
-			pathKeys = append(pathKeys, path)
-		}
-		sort.Strings(pathKeys)
-
-		for _, path := range pathKeys {
-			pathItem := cg.doc.Paths[path]
-			if pathItem == nil {
-				continue
-			}
-
-			operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
-			for _, method := range httpMethods {
-				op := operations[method]
-				if op == nil {
-					continue
-				}
-
-				methodName := operationToMethodName(op, path, method)
-				// Only generate if the method was added to the interface (not a duplicate)
-				if !generatedMethods[methodName] {
-					continue
-				}
-				// Skip if already generated for UnimplementedServer
-				if generatedUnimplemented[methodName] {
-					continue
-				}
-				generatedUnimplemented[methodName] = true
-
-				responseType := cg.getResponseType(op)
-
-				buf.WriteString(fmt.Sprintf("func (s *UnimplementedServer) %s(ctx context.Context, req *%sRequest) (%s, error) {\n",
-					methodName, methodName, responseType))
-				buf.WriteString(fmt.Sprintf("\treturn %s, ErrNotImplemented\n", zeroValue(responseType)))
-				buf.WriteString("}\n\n")
-			}
-		}
-	}
-
-	// Write error type
-	buf.WriteString("// ErrNotImplemented is returned by UnimplementedServer methods.\n")
-	buf.WriteString("var ErrNotImplemented = &NotImplementedError{}\n\n")
-	buf.WriteString("// NotImplementedError indicates an operation is not implemented.\n")
-	buf.WriteString("type NotImplementedError struct{}\n\n")
-	buf.WriteString("func (e *NotImplementedError) Error() string { return \"not implemented\" }\n\n")
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
-	if err != nil {
-		cg.addIssue("server.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = buf.Bytes()
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "server.go",
-		Content: formatted,
+	return generateBaseServerShared(&baseServerContext{
+		paths:                   cg.doc.Paths,
+		oasVersion:              cg.doc.OASVersion,
+		httpMethods:             httpMethods,
+		packageName:             cg.result.PackageName,
+		needsTime:               cg.operationsNeedTimeImport(),
+		result:                  cg.result,
+		addIssue:                cg.addIssue,
+		generateMethodSignature: cg.generateServerMethodSignature,
+		getResponseType:         cg.getResponseType,
 	})
-
-	return generatedMethods, nil
-}
-
-// generateServerGroupFile generates a server_{group}.go file with request types for a specific group.
-// The generatedMethods map indicates which methods were added to the interface (duplicates excluded).
-//
-//nolint:unparam // error return kept for API consistency with other generate methods
-func (cg *oas3CodeGenerator) generateServerGroupFile(group FileGroup, opToPathMethod map[string]struct {
-	path   string
-	method string
-	op     *parser.Operation
-}, generatedMethods map[string]bool) error {
-	var buf bytes.Buffer
-
-	// Write header with comment about the group
-	buf.WriteString("// Code generated by oastools. DO NOT EDIT.\n")
-	buf.WriteString(fmt.Sprintf("// This file contains %s server request types.\n\n", group.DisplayName))
-	buf.WriteString(fmt.Sprintf("package %s\n\n", cg.result.PackageName))
-
-	// Determine needed imports based on operations (only for non-duplicate methods)
-	needsTime := false
-	needsHTTP := false
-
-	for _, opID := range group.Operations {
-		// Skip if method was not added to interface (was filtered as duplicate)
-		if !generatedMethods[opID] {
-			continue
-		}
-
-		info, ok := opToPathMethod[opID]
-		if !ok {
-			continue
-		}
-		op := info.op
-
-		// Check if any parameters need time
-		for _, param := range op.Parameters {
-			if param != nil && param.Schema != nil {
-				if param.Schema.Format == "date-time" || param.Schema.Format == "date" {
-					needsTime = true
-				}
-			}
-		}
-
-		// Request types might reference http
-		needsHTTP = true
-	}
-
-	// Write imports
-	buf.WriteString("import (\n")
-	if needsHTTP {
-		buf.WriteString("\t\"net/http\"\n")
-	}
-	if needsTime {
-		buf.WriteString("\t\"time\"\n")
-	}
-	buf.WriteString(")\n\n")
-
-	// Generate request types for each operation in this group
-	for _, opID := range group.Operations {
-		// Skip if method was not added to interface (was filtered as duplicate)
-		if !generatedMethods[opID] {
-			continue
-		}
-
-		info, ok := opToPathMethod[opID]
-		if !ok {
-			continue
-		}
-
-		reqType := cg.generateRequestType(info.path, info.method, info.op)
-		if reqType != "" {
-			buf.WriteString(reqType)
-		}
-	}
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
-	if err != nil {
-		cg.addIssue(fmt.Sprintf("server_%s.go", group.Name), fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = buf.Bytes()
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    fmt.Sprintf("server_%s.go", group.Name),
-		Content: formatted,
-	})
-
-	return nil
 }
 
 // generateServerMethodSignature generates the interface method signature
 func (cg *oas3CodeGenerator) generateServerMethodSignature(path, method string, op *parser.Operation) string {
-	var buf bytes.Buffer
-
-	methodName := operationToMethodName(op, path, method)
-	responseType := cg.getResponseType(op)
-
-	// Write comment - handle multiline descriptions properly
-	if op.Summary != "" {
-		buf.WriteString(formatMultilineComment(op.Summary, methodName, "\t"))
-	} else if op.Description != "" {
-		buf.WriteString(formatMultilineComment(op.Description, methodName, "\t"))
-	}
-	if op.Deprecated {
-		buf.WriteString("\t// Deprecated: This operation is deprecated.\n")
-	}
-
-	buf.WriteString(fmt.Sprintf("\t%s(ctx context.Context, req *%sRequest) (%s, error)\n", methodName, methodName, responseType))
-
-	return buf.String()
+	return buildServerMethodSignature(path, method, op, cg.getResponseType(op))
 }
 
 // generateRequestType generates a request struct for an operation
@@ -1521,137 +881,39 @@ func (e *APIError) Error() string {
 
 // generateSecurityHelpers generates security helper code based on configuration
 func (cg *oas3CodeGenerator) generateSecurityHelpers() error {
-	// Check if client generation is enabled and we have security schemes
-	if !cg.g.GenerateClient {
-		return nil
-	}
-
-	// Get security schemes
 	var schemes map[string]*parser.SecurityScheme
 	if cg.doc.Components != nil {
 		schemes = cg.doc.Components.SecuritySchemes
 	}
-
-	// Generate security helpers if enabled
-	if cg.g.GenerateSecurity && len(schemes) > 0 {
-		if err := cg.generateSecurityHelpersFile(schemes); err != nil {
-			return fmt.Errorf("failed to generate security helpers: %w", err)
-		}
-	}
-
-	// Generate OAuth2 flows if enabled
-	if cg.g.GenerateOAuth2Flows && len(schemes) > 0 {
-		if err := cg.generateOAuth2Files(schemes); err != nil {
-			return fmt.Errorf("failed to generate OAuth2 flows: %w", err)
-		}
-	}
-
-	// Generate credential management if enabled
-	if cg.g.GenerateCredentialMgmt {
-		if err := cg.generateCredentialsFile(); err != nil {
-			return fmt.Errorf("failed to generate credentials: %w", err)
-		}
-	}
-
-	// Generate security enforcement if enabled
-	if cg.g.GenerateSecurityEnforce {
-		if err := cg.generateSecurityEnforceFile(); err != nil {
-			return fmt.Errorf("failed to generate security enforcement: %w", err)
-		}
-	}
-
-	// Generate OIDC discovery if enabled
-	if cg.g.GenerateOIDCDiscovery && len(schemes) > 0 {
-		if err := cg.generateOIDCDiscoveryFile(schemes); err != nil {
-			return fmt.Errorf("failed to generate OIDC discovery: %w", err)
-		}
-	}
-
-	// Generate README if enabled
-	if cg.g.GenerateReadme {
-		if err := cg.generateReadmeFile(schemes); err != nil {
-			return fmt.Errorf("failed to generate README: %w", err)
-		}
-	}
-
-	return nil
+	return generateAllSecurityHelpers(cg.g, schemes, fullSecurityCallbacks{
+		generateSecurityHelpersFile: cg.generateSecurityHelpersFile,
+		generateOAuth2Files:         cg.generateOAuth2Files,
+		generateCredentials:         cg.generateCredentialsFile,
+		generateSecurityEnforce:     cg.generateSecurityEnforceFile,
+		generateOIDCDiscovery:       cg.generateOIDCDiscoveryFile,
+		generateReadme:              cg.generateReadmeFile,
+	})
 }
 
 // generateSecurityHelpersFile generates the security_helpers.go file
 //
 //nolint:unparam // error return kept for API consistency and future extensibility
 func (cg *oas3CodeGenerator) generateSecurityHelpersFile(schemes map[string]*parser.SecurityScheme) error {
-	g := NewSecurityHelperGenerator(cg.result.PackageName)
-	code := g.GenerateSecurityHelpers(schemes)
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", []byte(code))
-	if err != nil {
-		cg.addIssue("security_helpers.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = []byte(code)
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "security_helpers.go",
-		Content: formatted,
-	})
-
-	return nil
+	return generateSecurityHelpersFileShared(cg.securityContext(), schemes)
 }
 
 // generateOAuth2Files generates OAuth2 flow files for each OAuth2 security scheme
 //
 //nolint:unparam // error return kept for API consistency and future extensibility
 func (cg *oas3CodeGenerator) generateOAuth2Files(schemes map[string]*parser.SecurityScheme) error {
-	for name, scheme := range schemes {
-		if scheme == nil || scheme.Type != "oauth2" {
-			continue
-		}
-
-		g := NewOAuth2Generator(name, scheme)
-		if g == nil || !g.HasAnyFlow() {
-			continue
-		}
-
-		code := g.GenerateOAuth2File(cg.result.PackageName)
-
-		// Format the code
-		formatted, err := formatAndFixImports("generated.go", []byte(code))
-		if err != nil {
-			cg.addIssue(fmt.Sprintf("oauth2_%s.go", name), fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-			formatted = []byte(code)
-		}
-
-		fileName := fmt.Sprintf("oauth2_%s.go", toFileName(name))
-		cg.result.Files = append(cg.result.Files, GeneratedFile{
-			Name:    fileName,
-			Content: formatted,
-		})
-	}
-
-	return nil
+	return generateOAuth2FilesShared(cg.securityContext(), schemes)
 }
 
 // generateCredentialsFile generates the credentials.go file
 //
 //nolint:unparam // error return kept for API consistency and future extensibility
 func (cg *oas3CodeGenerator) generateCredentialsFile() error {
-	g := NewCredentialGenerator(cg.result.PackageName)
-	code := g.GenerateCredentialsFile()
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", []byte(code))
-	if err != nil {
-		cg.addIssue("credentials.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = []byte(code)
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "credentials.go",
-		Content: formatted,
-	})
-
-	return nil
+	return generateCredentialsFileShared(cg.securityContext())
 }
 
 // generateSecurityEnforceFile generates security enforcement code.
@@ -1668,112 +930,21 @@ func (cg *oas3CodeGenerator) generateSecurityEnforceFile() error {
 
 // generateSingleSecurityEnforce generates all security enforcement in a single file.
 func (cg *oas3CodeGenerator) generateSingleSecurityEnforce() error {
-	g := NewSecurityEnforceGenerator(cg.result.PackageName)
-
-	// Extract operation security requirements
 	opSecurity := ExtractOperationSecurityOAS3(cg.doc)
-
-	code := g.GenerateSecurityEnforceFile(opSecurity, cg.doc.Security)
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", []byte(code))
-	if err != nil {
-		cg.addIssue("security_enforce.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = []byte(code)
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "security_enforce.go",
-		Content: formatted,
-	})
-
-	return nil
+	return generateSingleSecurityEnforceShared(cg.securityContext(), opSecurity, cg.doc.Security)
 }
 
 // generateSplitSecurityEnforce generates security enforcement split across multiple files.
 func (cg *oas3CodeGenerator) generateSplitSecurityEnforce() error {
-	g := NewSecurityEnforceGenerator(cg.result.PackageName)
-
-	// Generate base file with shared types and empty map
-	baseCode := g.GenerateBaseSecurityEnforceFile(cg.doc.Security)
-	formatted, err := formatAndFixImports("generated.go", []byte(baseCode))
-	if err != nil {
-		cg.addIssue("security_enforce.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = []byte(baseCode)
-	}
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "security_enforce.go",
-		Content: formatted,
-	})
-
-	// Extract all operation security
-	allOpSecurity := ExtractOperationSecurityOAS3(cg.doc)
-
-	// Group operations by their file group
-	for _, group := range cg.splitPlan.Groups {
-		if group.IsShared {
-			continue
-		}
-
-		// Filter operation security for this group
-		groupOpSecurity := make(OperationSecurityRequirements)
-		for _, opID := range group.Operations {
-			if sec, ok := allOpSecurity[opID]; ok {
-				groupOpSecurity[opID] = sec
-			}
-		}
-
-		if len(groupOpSecurity) == 0 {
-			continue
-		}
-
-		// Generate group file
-		groupCode := g.GenerateSecurityEnforceGroupFile(group.Name, group.DisplayName, groupOpSecurity)
-		formatted, err := formatAndFixImports("generated.go", []byte(groupCode))
-		if err != nil {
-			cg.addIssue(fmt.Sprintf("security_enforce_%s.go", group.Name),
-				fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-			formatted = []byte(groupCode)
-		}
-
-		cg.result.Files = append(cg.result.Files, GeneratedFile{
-			Name:    fmt.Sprintf("security_enforce_%s.go", group.Name),
-			Content: formatted,
-		})
-	}
-
-	return nil
+	opSecurity := ExtractOperationSecurityOAS3(cg.doc)
+	return generateSplitSecurityEnforceShared(cg.securityContext(), opSecurity, cg.doc.Security)
 }
 
 // generateOIDCDiscoveryFile generates the oidc_discovery.go file
 //
 //nolint:unparam // error return kept for API consistency and future extensibility
 func (cg *oas3CodeGenerator) generateOIDCDiscoveryFile(schemes map[string]*parser.SecurityScheme) error {
-	// Find the first OpenID Connect scheme to get the discovery URL
-	var discoveryURL string
-	for _, scheme := range schemes {
-		if scheme != nil && scheme.Type == "openIdConnect" && scheme.OpenIDConnectURL != "" {
-			discoveryURL = scheme.OpenIDConnectURL
-			break
-		}
-	}
-
-	g := NewOIDCDiscoveryGenerator(cg.result.PackageName)
-	code := g.GenerateOIDCDiscoveryFile(discoveryURL)
-
-	// Format the code
-	formatted, err := formatAndFixImports("generated.go", []byte(code))
-	if err != nil {
-		cg.addIssue("oidc_discovery.go", fmt.Sprintf("failed to format generated code: %v", err), SeverityWarning)
-		formatted = []byte(code)
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "oidc_discovery.go",
-		Content: formatted,
-	})
-
-	return nil
+	return generateOIDCDiscoveryFileShared(cg.securityContext(), schemes)
 }
 
 // generateReadmeFile generates the README.md file
@@ -1782,99 +953,19 @@ func (cg *oas3CodeGenerator) generateOIDCDiscoveryFile(schemes map[string]*parse
 func (cg *oas3CodeGenerator) generateReadmeFile(schemes map[string]*parser.SecurityScheme) error {
 	g := NewReadmeGenerator()
 
-	// Build security scheme summaries
-	var secSummaries []SecuritySchemeSummary
-	if len(schemes) > 0 {
-		// Sort scheme names for deterministic output
-		names := make([]string, 0, len(schemes))
-		for name := range schemes {
-			names = append(names, name)
-		}
-		sort.Strings(names)
+	// Build version-specific security scheme summaries
+	secSummaries := buildSecuritySchemeSummariesOAS3(schemes)
 
-		for _, name := range names {
-			scheme := schemes[name]
-			if scheme == nil {
-				continue
-			}
-
-			summary := SecuritySchemeSummary{
-				Name:        name,
-				Type:        scheme.Type,
-				Description: scheme.Description,
-			}
-
-			switch scheme.Type {
-			case "apiKey":
-				summary.Location = scheme.In
-			case "http":
-				summary.Scheme = scheme.Scheme
-			case "oauth2":
-				summary.Flows = extractOAuth2FlowNames(convertFlows(scheme.Flows), scheme.Flow)
-			case "openIdConnect":
-				summary.OpenIDConnectURL = scheme.OpenIDConnectURL
-			}
-
-			secSummaries = append(secSummaries, summary)
-		}
-	}
-
-	// Build generated file summaries
-	fileSummaries := make([]GeneratedFileSummary, 0, len(cg.result.Files))
-	for _, f := range cg.result.Files {
-		lineCount := strings.Count(string(f.Content), "\n")
-		desc := getFileDescription(f.Name)
-		fileSummaries = append(fileSummaries, GeneratedFileSummary{
-			FileName:    f.Name,
-			Description: desc,
-			LineCount:   lineCount,
-		})
-	}
-
-	// Build split summary if applicable
-	var splitSummary *SplitSummary
-	if cg.splitPlan != nil && cg.splitPlan.NeedsSplit {
-		strategy := "by tag"
-		if !cg.g.SplitByTag {
-			strategy = "by path prefix"
-		}
-		groups := make([]string, 0, len(cg.splitPlan.Groups))
-		for _, g := range cg.splitPlan.Groups {
-			groups = append(groups, g.DisplayName)
-		}
-		splitSummary = &SplitSummary{
-			WasSplit:        true,
-			Strategy:        strategy,
-			Groups:          groups,
-			SharedTypesFile: "types.go",
-		}
-	}
-
-	// Build context
-	ctx := &ReadmeContext{
-		Timestamp:   time.Now(),
+	// Build context using shared helper
+	builder := &readmeContextBuilder{
 		PackageName: cg.result.PackageName,
 		OASVersion:  cg.doc.OpenAPI, // Use the OpenAPI version string field
-		Config: &GeneratorConfigSummary{
-			GenerateTypes:           cg.g.GenerateTypes,
-			GenerateClient:          cg.g.GenerateClient,
-			GenerateSecurity:        cg.g.GenerateSecurity,
-			GenerateOAuth2Flows:     cg.g.GenerateOAuth2Flows,
-			GenerateCredentialMgmt:  cg.g.GenerateCredentialMgmt,
-			GenerateSecurityEnforce: cg.g.GenerateSecurityEnforce,
-			GenerateOIDCDiscovery:   cg.g.GenerateOIDCDiscovery,
-		},
-		GeneratedFiles:  fileSummaries,
-		SecuritySchemes: secSummaries,
-		SplitInfo:       splitSummary,
+		Config:      cg.g,
+		SplitPlan:   cg.splitPlan,
+		Files:       cg.result.Files,
+		Info:        cg.doc.Info,
 	}
-
-	// Extract API info
-	if cg.doc.Info != nil {
-		ctx.APITitle = cg.doc.Info.Title
-		ctx.APIVersion = cg.doc.Info.Version
-		ctx.APIDescription = cg.doc.Info.Description
-	}
+	ctx := buildReadmeContextShared(builder, secSummaries)
 
 	content := g.GenerateReadme(ctx)
 
@@ -1884,6 +975,15 @@ func (cg *oas3CodeGenerator) generateReadmeFile(schemes map[string]*parser.Secur
 	})
 
 	return nil
+}
+
+// securityContext returns a securityGenerationContext for shared security generation functions.
+func (cg *oas3CodeGenerator) securityContext() *securityGenerationContext {
+	return &securityGenerationContext{
+		result:    cg.result,
+		splitPlan: cg.splitPlan,
+		addIssue:  cg.addIssue,
+	}
 }
 
 // getFileDescription returns a description for a generated file
@@ -1975,11 +1075,7 @@ func (cg *oas3CodeGenerator) generateServerResponses() error {
 	generatedMethods := make(map[string]bool)
 
 	// Sort paths for deterministic output
-	pathKeys := make([]string, 0, len(cg.doc.Paths))
-	for path := range cg.doc.Paths {
-		pathKeys = append(pathKeys, path)
-	}
-	sort.Strings(pathKeys)
+	pathKeys := sortedPathKeys(cg.doc.Paths)
 
 	for _, path := range pathKeys {
 		pathItem := cg.doc.Paths[path]
@@ -2028,36 +1124,7 @@ func (cg *oas3CodeGenerator) generateServerResponses() error {
 
 // buildStatusCodes builds status code data for an operation's responses
 func (cg *oas3CodeGenerator) buildStatusCodes(op *parser.Operation) []StatusCodeData {
-	if op.Responses == nil {
-		return nil
-	}
-
-	// Pre-allocate: 1 for default + status codes
-	codes := make([]StatusCodeData, 0, 1+len(op.Responses.Codes))
-
-	// Process default response first
-	if op.Responses.Default != nil {
-		statusData := cg.buildStatusCodeData("default", op.Responses.Default)
-		codes = append(codes, statusData)
-	}
-
-	// Get sorted status codes from Codes map
-	statusKeys := make([]string, 0, len(op.Responses.Codes))
-	for code := range op.Responses.Codes {
-		statusKeys = append(statusKeys, code)
-	}
-	sort.Strings(statusKeys)
-
-	for _, code := range statusKeys {
-		resp := op.Responses.Codes[code]
-		if resp == nil {
-			continue
-		}
-		statusData := cg.buildStatusCodeData(code, resp)
-		codes = append(codes, statusData)
-	}
-
-	return codes
+	return buildStatusCodesShared(op, cg.buildStatusCodeData)
 }
 
 // generateServerBinder generates parameter binding code for each operation
@@ -2078,11 +1145,7 @@ func (cg *oas3CodeGenerator) generateServerBinder() error {
 	generatedMethods := make(map[string]bool)
 
 	// Sort paths for deterministic output
-	pathKeys := make([]string, 0, len(cg.doc.Paths))
-	for path := range cg.doc.Paths {
-		pathKeys = append(pathKeys, path)
-	}
-	sort.Strings(pathKeys)
+	pathKeys := sortedPathKeys(cg.doc.Paths)
 
 	for _, path := range pathKeys {
 		pathItem := cg.doc.Paths[path]
@@ -2205,44 +1268,11 @@ func (cg *oas3CodeGenerator) getSchemaType(schema *parser.Schema) string {
 
 // buildStatusCodeData builds data for a single status code response
 func (cg *oas3CodeGenerator) buildStatusCodeData(code string, resp *parser.Response) StatusCodeData {
-	statusData := StatusCodeData{
-		Code:        code,
-		Description: resp.Description,
-	}
+	// Parse status code metadata using shared helper
+	statusData := parseStatusCodeMetadata(code)
+	statusData.Description = resp.Description
 
-	// Determine method name and code type
-	switch {
-	case code == "default":
-		statusData.MethodName = "StatusDefault"
-		statusData.IsDefault = true
-		statusData.StatusCodeInt = 500 // Use 500 as default status
-	case len(code) == 3 && strings.HasSuffix(code, "XX"):
-		// Wildcard like 2XX, 4XX, 5XX
-		statusData.IsWildcard = true
-		statusData.MethodName = "Status" + code
-		// Use first code in range
-		switch code[0] {
-		case '2':
-			statusData.StatusCodeInt = 200
-			statusData.IsSuccess = true
-		case '3':
-			statusData.StatusCodeInt = 300
-		case '4':
-			statusData.StatusCodeInt = 400
-		case '5':
-			statusData.StatusCodeInt = 500
-		}
-	default:
-		// Specific status code
-		statusData.MethodName = "Status" + code
-		var statusInt int
-		if _, err := fmt.Sscanf(code, "%d", &statusInt); err == nil {
-			statusData.StatusCodeInt = statusInt
-			statusData.IsSuccess = statusInt >= 200 && statusInt < 300
-		}
-	}
-
-	// Determine body type from response content
+	// OAS 3.x: Determine body type from response content map
 	if resp.Content != nil {
 		for contentType, mediaType := range resp.Content {
 			if mediaType != nil && mediaType.Schema != nil {
@@ -2259,184 +1289,48 @@ func (cg *oas3CodeGenerator) buildStatusCodeData(code string, resp *parser.Respo
 
 // generateServerMiddleware generates validation middleware
 func (cg *oas3CodeGenerator) generateServerMiddleware() error {
-	// The middleware template is static - it uses httpvalidator for validation
-	// No per-operation data needed since it validates dynamically
-	data := ServerMiddlewareFileData{
-		Header: HeaderData{
-			PackageName: cg.result.PackageName,
-		},
-	}
-
-	formatted, err := executeTemplate("middleware.go.tmpl", data)
-	if err != nil {
-		cg.addIssue("server_middleware.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
-		return err
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "server_middleware.go",
-		Content: formatted,
-	})
-	return nil
+	return generateServerMiddlewareShared(cg.result, cg.addIssue)
 }
 
 // generateServerRouter generates HTTP router code
 func (cg *oas3CodeGenerator) generateServerRouter() error {
-	if len(cg.doc.Paths) == 0 {
-		return nil
-	}
-
-	// Track generated methods to avoid duplicates
-	generatedMethods := make(map[string]bool)
-
-	// Sort paths for deterministic output
-	pathKeys := make([]string, 0, len(cg.doc.Paths))
-	for path := range cg.doc.Paths {
-		pathKeys = append(pathKeys, path)
-	}
-	sort.Strings(pathKeys)
-
-	// Build router data
-	data := ServerRouterFileData{
-		Header: HeaderData{
-			PackageName: cg.result.PackageName,
+	return generateServerRouterShared(&serverRouterContext{
+		paths:        cg.doc.Paths,
+		oasVersion:   cg.doc.OASVersion,
+		httpMethods:  httpMethods,
+		packageName:  cg.result.PackageName,
+		serverRouter: cg.g.ServerRouter,
+		result:       cg.result,
+		addIssue:     cg.addIssue,
+		paramToBindData: func(param *parser.Parameter) ParamBindData {
+			data := ParamBindData{
+				Name:      param.Name,
+				FieldName: toFieldName(param.Name),
+				GoType:    cg.paramToGoType(param),
+				Required:  param.Required,
+			}
+			if param.Schema != nil {
+				data.SchemaType = cg.getSchemaType(param.Schema)
+			}
+			return data
 		},
-		Operations: make([]RouterOperationData, 0),
-	}
-
-	for _, path := range pathKeys {
-		pathItem := cg.doc.Paths[path]
-		if pathItem == nil {
-			continue
-		}
-
-		operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
-		for _, method := range httpMethods {
-			op := operations[method]
-			if op == nil {
-				continue
-			}
-
-			methodName := operationToMethodName(op, path, method)
-			if generatedMethods[methodName] {
-				continue
-			}
-			generatedMethods[methodName] = true
-
-			opData := RouterOperationData{
-				Path:        path,
-				Method:      strings.ToUpper(method),
-				MethodName:  methodName,
-				RequestType: methodName + "Request",
-			}
-
-			// Collect path parameters with type info for proper conversion in templates
-			for _, param := range op.Parameters {
-				if param != nil && param.In == parser.ParamInPath {
-					paramData := ParamBindData{
-						Name:      param.Name,
-						FieldName: toFieldName(param.Name),
-						GoType:    cg.paramToGoType(param),
-						Required:  param.Required,
-					}
-					if param.Schema != nil {
-						paramData.SchemaType = cg.getSchemaType(param.Schema)
-					}
-					opData.PathParams = append(opData.PathParams, paramData)
-				}
-			}
-
-			data.Operations = append(data.Operations, opData)
-		}
-	}
-
-	// Select template based on router type
-	templateName := "router.go.tmpl"
-	if cg.g.ServerRouter == "chi" {
-		templateName = "router_chi.go.tmpl"
-	}
-
-	formatted, err := executeTemplate(templateName, data)
-	if err != nil {
-		cg.addIssue("server_router.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
-		return err
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "server_router.go",
-		Content: formatted,
 	})
-	return nil
 }
 
 // generateServerStubs generates testable stub implementations
 func (cg *oas3CodeGenerator) generateServerStubs() error {
-	if len(cg.doc.Paths) == 0 {
-		return nil
-	}
-
-	// Track generated methods to avoid duplicates
-	generatedMethods := make(map[string]bool)
-
-	// Sort paths for deterministic output
-	pathKeys := make([]string, 0, len(cg.doc.Paths))
-	for path := range cg.doc.Paths {
-		pathKeys = append(pathKeys, path)
-	}
-	sort.Strings(pathKeys)
-
-	// Build stubs data
-	data := ServerStubsFileData{
-		Header: HeaderData{
-			PackageName: cg.result.PackageName,
-		},
-		Operations: make([]StubOperationData, 0),
-	}
-
-	for _, path := range pathKeys {
-		pathItem := cg.doc.Paths[path]
-		if pathItem == nil {
-			continue
-		}
-
-		operations := parser.GetOperations(pathItem, cg.doc.OASVersion)
-		for _, method := range httpMethods {
-			op := operations[method]
-			if op == nil {
-				continue
-			}
-
-			methodName := operationToMethodName(op, path, method)
-			if generatedMethods[methodName] {
-				continue
-			}
-			generatedMethods[methodName] = true
-
-			// Determine response type
-			responseType := "*" + methodName + "Response"
+	return generateServerStubsShared(&serverStubsContext{
+		paths:       cg.doc.Paths,
+		oasVersion:  cg.doc.OASVersion,
+		httpMethods: httpMethods,
+		packageName: cg.result.PackageName,
+		result:      cg.result,
+		addIssue:    cg.addIssue,
+		getResponseType: func(methodName string) string {
 			if !cg.g.ServerResponses {
-				responseType = "any"
+				return "any"
 			}
-
-			opData := StubOperationData{
-				MethodName:   methodName,
-				RequestType:  methodName + "Request",
-				ResponseType: responseType,
-			}
-
-			data.Operations = append(data.Operations, opData)
-		}
-	}
-
-	formatted, err := executeTemplate("stubs.go.tmpl", data)
-	if err != nil {
-		cg.addIssue("server_stubs.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
-		return err
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "server_stubs.go",
-		Content: formatted,
+			return "*" + methodName + "Response"
+		},
 	})
-	return nil
 }

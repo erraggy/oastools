@@ -11,6 +11,7 @@ import (
 
 	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/internal/issues"
+	"github.com/erraggy/oastools/internal/options"
 	"github.com/erraggy/oastools/internal/severity"
 	"github.com/erraggy/oastools/parser"
 )
@@ -152,19 +153,12 @@ func applyOptions(opts ...Option) (*validateConfig, error) {
 	}
 
 	// Validate exactly one input source is specified
-	sourceCount := 0
-	if cfg.filePath != nil {
-		sourceCount++
-	}
-	if cfg.parsed != nil {
-		sourceCount++
-	}
-
-	if sourceCount == 0 {
-		return nil, fmt.Errorf("must specify an input source (use WithFilePath or WithParsed)")
-	}
-	if sourceCount > 1 {
-		return nil, fmt.Errorf("must specify exactly one input source")
+	if err := options.ValidateSingleInputSource(
+		"must specify an input source (use WithFilePath or WithParsed)",
+		"must specify exactly one input source",
+		cfg.filePath != nil, cfg.parsed != nil,
+	); err != nil {
+		return nil, err
 	}
 
 	return cfg, nil
@@ -402,76 +396,71 @@ func (v *Validator) validateOAS2(doc *parser.OAS2Document, result *ValidationRes
 	v.validateOAS2Refs(doc, result, baseURL)
 }
 
-// validateOAS2Info validates the info object in OAS 2.0
-func (v *Validator) validateOAS2Info(doc *parser.OAS2Document, result *ValidationResult, baseURL string) {
-	if doc.Info == nil {
-		result.Errors = append(result.Errors, ValidationError{
-			Path:     "info",
-			Message:  "Document must have an info object",
-			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
-			Severity: SeverityError,
-			Field:    "info",
-		})
-		return
+// validateInfoObject validates the info object fields shared between OAS 2.0 and 3.x.
+// Set validateSPDX to true for OAS 3.1+ to validate the SPDX license identifier.
+func (v *Validator) validateInfoObject(info *parser.Info, result *ValidationResult, baseURL string, validateSPDX bool) {
+	if info.Title == "" {
+		v.addError(result, "info.title", "Info object must have a title",
+			withSpecRef(fmt.Sprintf("%s#info-object", baseURL)),
+			withField("title"),
+		)
 	}
 
-	if doc.Info.Title == "" {
-		result.Errors = append(result.Errors, ValidationError{
-			Path:     "info.title",
-			Message:  "Info object must have a title",
-			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
-			Severity: SeverityError,
-			Field:    "title",
-		})
-	}
-
-	if doc.Info.Version == "" {
-		result.Errors = append(result.Errors, ValidationError{
-			Path:     "info.version",
-			Message:  "Info object must have a version",
-			SpecRef:  fmt.Sprintf("%s#info-object", baseURL),
-			Severity: SeverityError,
-			Field:    "version",
-		})
+	if info.Version == "" {
+		v.addError(result, "info.version", "Info object must have a version",
+			withSpecRef(fmt.Sprintf("%s#info-object", baseURL)),
+			withField("version"),
+		)
 	}
 
 	// Validate contact information if present
-	if doc.Info.Contact != nil {
-		if doc.Info.Contact.URL != "" && !isValidURL(doc.Info.Contact.URL) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     "info.contact.url",
-				Message:  fmt.Sprintf("Invalid URL format: %s", doc.Info.Contact.URL),
-				SpecRef:  fmt.Sprintf("%s#contact-object", baseURL),
-				Severity: SeverityError,
-				Field:    "url",
-				Value:    doc.Info.Contact.URL,
-			})
+	if info.Contact != nil {
+		if info.Contact.URL != "" && !isValidURL(info.Contact.URL) {
+			v.addError(result, "info.contact.url", fmt.Sprintf("Invalid URL format: %s", info.Contact.URL),
+				withSpecRef(fmt.Sprintf("%s#contact-object", baseURL)),
+				withField("url"),
+				withValue(info.Contact.URL),
+			)
 		}
-		if doc.Info.Contact.Email != "" && !isValidEmail(doc.Info.Contact.Email) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     "info.contact.email",
-				Message:  fmt.Sprintf("Invalid email format: %s", doc.Info.Contact.Email),
-				SpecRef:  fmt.Sprintf("%s#contact-object", baseURL),
-				Severity: SeverityError,
-				Field:    "email",
-				Value:    doc.Info.Contact.Email,
-			})
+		if info.Contact.Email != "" && !isValidEmail(info.Contact.Email) {
+			v.addError(result, "info.contact.email", fmt.Sprintf("Invalid email format: %s", info.Contact.Email),
+				withSpecRef(fmt.Sprintf("%s#contact-object", baseURL)),
+				withField("email"),
+				withValue(info.Contact.Email),
+			)
 		}
 	}
 
 	// Validate license information if present
-	if doc.Info.License != nil {
-		if doc.Info.License.URL != "" && !isValidURL(doc.Info.License.URL) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     "info.license.url",
-				Message:  fmt.Sprintf("Invalid URL format: %s", doc.Info.License.URL),
-				SpecRef:  fmt.Sprintf("%s#license-object", baseURL),
-				Severity: SeverityError,
-				Field:    "url",
-				Value:    doc.Info.License.URL,
-			})
+	if info.License != nil {
+		if info.License.URL != "" && !isValidURL(info.License.URL) {
+			v.addError(result, "info.license.url", fmt.Sprintf("Invalid URL format: %s", info.License.URL),
+				withSpecRef(fmt.Sprintf("%s#license-object", baseURL)),
+				withField("url"),
+				withValue(info.License.URL),
+			)
+		}
+		// SPDX license identifier validation (OAS 3.1+)
+		if validateSPDX && info.License.Identifier != "" && !validateSPDXLicense(info.License.Identifier) {
+			v.addError(result, "info.license.identifier", fmt.Sprintf("Invalid SPDX license identifier format: %s", info.License.Identifier),
+				withSpecRef(fmt.Sprintf("%s#license-object", baseURL)),
+				withField("identifier"),
+				withValue(info.License.Identifier),
+			)
 		}
 	}
+}
+
+// validateOAS2Info validates the info object in OAS 2.0
+func (v *Validator) validateOAS2Info(doc *parser.OAS2Document, result *ValidationResult, baseURL string) {
+	if doc.Info == nil {
+		v.addError(result, "info", "Document must have an info object",
+			withSpecRef(fmt.Sprintf("%s#info-object", baseURL)),
+			withField("info"),
+		)
+		return
+	}
+	v.validateInfoObject(doc.Info, result, baseURL, false)
 }
 
 // validateOAS2OperationIds validates that operationIds are unique across the document
@@ -945,57 +934,7 @@ func (v *Validator) validateOAS3Info(doc *parser.OAS3Document, result *Validatio
 		)
 		return
 	}
-
-	if doc.Info.Title == "" {
-		v.addError(result, "info.title", "Info object must have a title",
-			withSpecRef(fmt.Sprintf("%s#info-object", baseURL)),
-			withField("title"),
-		)
-	}
-
-	if doc.Info.Version == "" {
-		v.addError(result, "info.version", "Info object must have a version",
-			withSpecRef(fmt.Sprintf("%s#info-object", baseURL)),
-			withField("version"),
-		)
-	}
-
-	// Validate contact information if present
-	if doc.Info.Contact != nil {
-		if doc.Info.Contact.URL != "" && !isValidURL(doc.Info.Contact.URL) {
-			v.addError(result, "info.contact.url", fmt.Sprintf("Invalid URL format: %s", doc.Info.Contact.URL),
-				withSpecRef(fmt.Sprintf("%s#contact-object", baseURL)),
-				withField("url"),
-				withValue(doc.Info.Contact.URL),
-			)
-		}
-		if doc.Info.Contact.Email != "" && !isValidEmail(doc.Info.Contact.Email) {
-			v.addError(result, "info.contact.email", fmt.Sprintf("Invalid email format: %s", doc.Info.Contact.Email),
-				withSpecRef(fmt.Sprintf("%s#contact-object", baseURL)),
-				withField("email"),
-				withValue(doc.Info.Contact.Email),
-			)
-		}
-	}
-
-	// Validate license information if present
-	if doc.Info.License != nil {
-		if doc.Info.License.URL != "" && !isValidURL(doc.Info.License.URL) {
-			v.addError(result, "info.license.url", fmt.Sprintf("Invalid URL format: %s", doc.Info.License.URL),
-				withSpecRef(fmt.Sprintf("%s#license-object", baseURL)),
-				withField("url"),
-				withValue(doc.Info.License.URL),
-			)
-		}
-		// SPDX license identifier validation (OAS 3.1+)
-		if doc.Info.License.Identifier != "" && !validateSPDXLicense(doc.Info.License.Identifier) {
-			v.addError(result, "info.license.identifier", fmt.Sprintf("Invalid SPDX license identifier format: %s", doc.Info.License.Identifier),
-				withSpecRef(fmt.Sprintf("%s#license-object", baseURL)),
-				withField("identifier"),
-				withValue(doc.Info.License.Identifier),
-			)
-		}
-	}
+	v.validateInfoObject(doc.Info, result, baseURL, true)
 }
 
 // validateOAS3OperationIds validates that operationIds are unique across the document
@@ -2343,6 +2282,24 @@ func (v *Validator) validateParameterRef(param *parser.Parameter, path string, v
 	}
 }
 
+// validateOperationResponses validates all responses for an operation.
+// This handles both default and status code responses.
+func (v *Validator) validateOperationResponses(op *parser.Operation, opPath string, validRefs map[string]bool, result *ValidationResult, baseURL string) {
+	if op.Responses == nil {
+		return
+	}
+	if op.Responses.Default != nil {
+		responsePath := fmt.Sprintf("%s.responses.default", opPath)
+		v.validateResponseRef(op.Responses.Default, responsePath, validRefs, result, baseURL)
+	}
+	for code, response := range op.Responses.Codes {
+		if response != nil {
+			responsePath := fmt.Sprintf("%s.responses.%s", opPath, code)
+			v.validateResponseRef(response, responsePath, validRefs, result, baseURL)
+		}
+	}
+}
+
 // validateResponseRef validates a response's $ref if present
 func (v *Validator) validateResponseRef(response *parser.Response, path string, validRefs map[string]bool, result *ValidationResult, baseURL string) {
 	if response == nil {
@@ -2470,19 +2427,7 @@ func (v *Validator) validateOAS2Refs(doc *parser.OAS2Document, result *Validatio
 			}
 
 			// Validate operation responses
-			if op.Responses != nil {
-				if op.Responses.Default != nil {
-					responsePath := fmt.Sprintf("%s.responses.default", opPath)
-					v.validateResponseRef(op.Responses.Default, responsePath, validRefs, result, baseURL)
-				}
-
-				for code, response := range op.Responses.Codes {
-					if response != nil {
-						responsePath := fmt.Sprintf("%s.responses.%s", opPath, code)
-						v.validateResponseRef(response, responsePath, validRefs, result, baseURL)
-					}
-				}
-			}
+			v.validateOperationResponses(op, opPath, validRefs, result, baseURL)
 		}
 	}
 }
@@ -2611,18 +2556,6 @@ func (v *Validator) validatePathItemOperationRefs(pathItem *parser.PathItem, pat
 		}
 
 		// Validate operation responses
-		if op.Responses != nil {
-			if op.Responses.Default != nil {
-				responsePath := fmt.Sprintf("%s.responses.default", opPath)
-				v.validateResponseRef(op.Responses.Default, responsePath, validRefs, result, baseURL)
-			}
-
-			for code, response := range op.Responses.Codes {
-				if response != nil {
-					responsePath := fmt.Sprintf("%s.responses.%s", opPath, code)
-					v.validateResponseRef(response, responsePath, validRefs, result, baseURL)
-				}
-			}
-		}
+		v.validateOperationResponses(op, opPath, validRefs, result, baseURL)
 	}
 }

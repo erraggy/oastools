@@ -34,6 +34,16 @@ func WithTagExternalDocs(url, description string) TagOption {
 	}
 }
 
+// copyPtr creates a copy of a pointer value.
+// Returns nil if src is nil, otherwise returns a new pointer to a copy of the value.
+func copyPtr[T any](src *T) *T {
+	if src == nil {
+		return nil
+	}
+	v := *src
+	return &v
+}
+
 // parseJSONTag parses a struct field's json tag.
 // Returns the field name and options (like "omitempty").
 func parseJSONTag(tag string) (name string, opts []string) {
@@ -218,49 +228,18 @@ func copySchema(s *parser.Schema) *parser.Schema {
 		UniqueItems: s.UniqueItems,
 	}
 
-	// Deep copy pointer fields
-	if s.Minimum != nil {
-		minCopy := *s.Minimum
-		result.Minimum = &minCopy
-	}
-	if s.Maximum != nil {
-		maxCopy := *s.Maximum
-		result.Maximum = &maxCopy
-	}
-	if s.MinLength != nil {
-		minLenCopy := *s.MinLength
-		result.MinLength = &minLenCopy
-	}
-	if s.MaxLength != nil {
-		maxLenCopy := *s.MaxLength
-		result.MaxLength = &maxLenCopy
-	}
-	if s.MinItems != nil {
-		minItemsCopy := *s.MinItems
-		result.MinItems = &minItemsCopy
-	}
-	if s.MaxItems != nil {
-		maxItemsCopy := *s.MaxItems
-		result.MaxItems = &maxItemsCopy
-	}
-	if s.MinProperties != nil {
-		minPropsCopy := *s.MinProperties
-		result.MinProperties = &minPropsCopy
-	}
-	if s.MaxProperties != nil {
-		maxPropsCopy := *s.MaxProperties
-		result.MaxProperties = &maxPropsCopy
-	}
-	if s.MultipleOf != nil {
-		multOfCopy := *s.MultipleOf
-		result.MultipleOf = &multOfCopy
-	}
-	if s.ExclusiveMaximum != nil {
-		result.ExclusiveMaximum = s.ExclusiveMaximum
-	}
-	if s.ExclusiveMinimum != nil {
-		result.ExclusiveMinimum = s.ExclusiveMinimum
-	}
+	// Deep copy pointer fields using generic helper
+	result.Minimum = copyPtr(s.Minimum)
+	result.Maximum = copyPtr(s.Maximum)
+	result.MinLength = copyPtr(s.MinLength)
+	result.MaxLength = copyPtr(s.MaxLength)
+	result.MinItems = copyPtr(s.MinItems)
+	result.MaxItems = copyPtr(s.MaxItems)
+	result.MinProperties = copyPtr(s.MinProperties)
+	result.MaxProperties = copyPtr(s.MaxProperties)
+	result.MultipleOf = copyPtr(s.MultipleOf)
+	result.ExclusiveMaximum = s.ExclusiveMaximum
+	result.ExclusiveMinimum = s.ExclusiveMinimum
 
 	// Deep copy slices that might be modified
 	if s.Enum != nil {

@@ -150,6 +150,30 @@ func (v *Validator) matchPath(requestPath string) (template string, params map[s
 	return v.pathMatcherSet.Match(requestPath)
 }
 
+// findMatchedOperation finds the matching path and operation for a request.
+// It updates the result with matched path/method and adds errors if not found.
+// Returns the operation or nil if not found.
+func (v *Validator) findMatchedOperation(req *http.Request, result *ResponseValidationResult) *parser.Operation {
+	matchedPath, _, found := v.matchPath(req.URL.Path)
+	if !found {
+		result.addError(req.URL.Path, "no matching path found for request", SeverityError)
+		return nil
+	}
+	result.MatchedPath = matchedPath
+	result.MatchedMethod = req.Method
+
+	operation := v.getOperation(matchedPath, req.Method)
+	if operation == nil {
+		result.addError(
+			fmt.Sprintf("%s.%s", matchedPath, strings.ToLower(req.Method)),
+			fmt.Sprintf("no operation found for %s %s", req.Method, matchedPath),
+			SeverityError,
+		)
+		return nil
+	}
+	return operation
+}
+
 // getParameters returns all parameters for an operation, including path-level parameters.
 // Operation-level parameters override path-level parameters with the same name and location.
 func (v *Validator) getParameters(pathTemplate string, operation *parser.Operation) []*parser.Parameter {
@@ -264,26 +288,13 @@ func (v *Validator) ValidateResponse(req *http.Request, resp *http.Response) (*R
 	result.ContentType = resp.Header.Get("Content-Type")
 
 	// Find matching path and operation from the original request
-	matchedPath, _, found := v.matchPath(req.URL.Path)
-	if !found {
-		result.addError(req.URL.Path, "no matching path found for request", SeverityError)
-		return result, nil
-	}
-	result.MatchedPath = matchedPath
-	result.MatchedMethod = req.Method
-
-	operation := v.getOperation(matchedPath, req.Method)
+	operation := v.findMatchedOperation(req, result)
 	if operation == nil {
-		result.addError(
-			fmt.Sprintf("%s.%s", matchedPath, strings.ToLower(req.Method)),
-			fmt.Sprintf("no operation found for %s %s", req.Method, matchedPath),
-			SeverityError,
-		)
 		return result, nil
 	}
 
 	// Validate response
-	v.validateResponse(resp, matchedPath, operation, result)
+	v.validateResponse(resp, result.MatchedPath, operation, result)
 
 	return result, nil
 }

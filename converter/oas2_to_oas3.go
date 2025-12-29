@@ -133,28 +133,10 @@ func (c *Converter) convertOAS2PathItemToOAS3(src *parser.PathItem, doc *parser.
 		Parameters:  c.convertParameters(src.Parameters, result, fmt.Sprintf("%s.parameters", pathPrefix)),
 	}
 
-	// Convert each operation
-	if src.Get != nil {
-		dst.Get = c.convertOAS2OperationToOAS3(src.Get, doc, result, fmt.Sprintf("%s.get", pathPrefix))
-	}
-	if src.Put != nil {
-		dst.Put = c.convertOAS2OperationToOAS3(src.Put, doc, result, fmt.Sprintf("%s.put", pathPrefix))
-	}
-	if src.Post != nil {
-		dst.Post = c.convertOAS2OperationToOAS3(src.Post, doc, result, fmt.Sprintf("%s.post", pathPrefix))
-	}
-	if src.Delete != nil {
-		dst.Delete = c.convertOAS2OperationToOAS3(src.Delete, doc, result, fmt.Sprintf("%s.delete", pathPrefix))
-	}
-	if src.Options != nil {
-		dst.Options = c.convertOAS2OperationToOAS3(src.Options, doc, result, fmt.Sprintf("%s.options", pathPrefix))
-	}
-	if src.Head != nil {
-		dst.Head = c.convertOAS2OperationToOAS3(src.Head, doc, result, fmt.Sprintf("%s.head", pathPrefix))
-	}
-	if src.Patch != nil {
-		dst.Patch = c.convertOAS2OperationToOAS3(src.Patch, doc, result, fmt.Sprintf("%s.patch", pathPrefix))
-	}
+	// Convert each standard operation using the shared helper
+	convertStandardOperations(src, dst, pathPrefix, func(op *parser.Operation, path string) *parser.Operation {
+		return c.convertOAS2OperationToOAS3(op, doc, result, path)
+	})
 
 	return dst
 }

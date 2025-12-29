@@ -52,6 +52,34 @@ type GenerateFlags struct {
 	ServerAll        bool
 }
 
+// serverOptions returns generator options for server generation based on flags.
+func serverOptions(flags *GenerateFlags) []generator.Option {
+	var opts []generator.Option
+	if flags.ServerAll {
+		opts = append(opts, generator.WithServerAll())
+	} else {
+		if flags.ServerRouter != "" {
+			opts = append(opts, generator.WithServerRouter(flags.ServerRouter))
+		}
+		if flags.ServerMiddleware {
+			opts = append(opts, generator.WithServerMiddleware(true))
+		}
+		if flags.ServerBinder {
+			opts = append(opts, generator.WithServerBinder(true))
+		}
+		if flags.ServerResponses {
+			opts = append(opts, generator.WithServerResponses(true))
+		}
+		if flags.ServerStubs {
+			opts = append(opts, generator.WithServerStubs(true))
+		}
+	}
+	if flags.ServerEmbedSpec {
+		opts = append(opts, generator.WithServerEmbedSpec(true))
+	}
+	return opts
+}
+
 // SetupGenerateFlags creates and configures a FlagSet for the generate command.
 // Returns the FlagSet and a GenerateFlags struct with bound flag variables.
 func SetupGenerateFlags() (*flag.FlagSet, *GenerateFlags) {
@@ -234,28 +262,7 @@ func HandleGenerate(args []string) error {
 		}
 
 		// Add server generation options
-		if flags.ServerAll {
-			genOpts = append(genOpts, generator.WithServerAll())
-		} else {
-			if flags.ServerRouter != "" {
-				genOpts = append(genOpts, generator.WithServerRouter(flags.ServerRouter))
-			}
-			if flags.ServerMiddleware {
-				genOpts = append(genOpts, generator.WithServerMiddleware(true))
-			}
-			if flags.ServerBinder {
-				genOpts = append(genOpts, generator.WithServerBinder(true))
-			}
-			if flags.ServerResponses {
-				genOpts = append(genOpts, generator.WithServerResponses(true))
-			}
-			if flags.ServerStubs {
-				genOpts = append(genOpts, generator.WithServerStubs(true))
-			}
-		}
-		if flags.ServerEmbedSpec {
-			genOpts = append(genOpts, generator.WithServerEmbedSpec(true))
-		}
+		genOpts = append(genOpts, serverOptions(flags)...)
 
 		// If source map requested, parse with source map first
 		if flags.SourceMap {
@@ -291,28 +298,7 @@ func HandleGenerate(args []string) error {
 				generator.WithSplitByPathPrefix(!flags.NoSplitByPath),
 			}
 			// Add server generation options
-			if flags.ServerAll {
-				genOpts = append(genOpts, generator.WithServerAll())
-			} else {
-				if flags.ServerRouter != "" {
-					genOpts = append(genOpts, generator.WithServerRouter(flags.ServerRouter))
-				}
-				if flags.ServerMiddleware {
-					genOpts = append(genOpts, generator.WithServerMiddleware(true))
-				}
-				if flags.ServerBinder {
-					genOpts = append(genOpts, generator.WithServerBinder(true))
-				}
-				if flags.ServerResponses {
-					genOpts = append(genOpts, generator.WithServerResponses(true))
-				}
-				if flags.ServerStubs {
-					genOpts = append(genOpts, generator.WithServerStubs(true))
-				}
-			}
-			if flags.ServerEmbedSpec {
-				genOpts = append(genOpts, generator.WithServerEmbedSpec(true))
-			}
+			genOpts = append(genOpts, serverOptions(flags)...)
 			if parseResult.SourceMap != nil {
 				genOpts = append(genOpts, generator.WithSourceMap(parseResult.SourceMap))
 			}

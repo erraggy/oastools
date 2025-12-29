@@ -18,6 +18,7 @@ import (
 	"go.yaml.in/yaml/v4"
 
 	"github.com/erraggy/oastools/internal/httputil"
+	"github.com/erraggy/oastools/internal/options"
 )
 
 // Parser handles OpenAPI specification parsing
@@ -613,22 +614,12 @@ func applyOptions(opts ...Option) (*parseConfig, error) {
 	}
 
 	// Validate exactly one input source is specified
-	sourceCount := 0
-	if cfg.filePath != nil {
-		sourceCount++
-	}
-	if cfg.reader != nil {
-		sourceCount++
-	}
-	if cfg.bytes != nil {
-		sourceCount++
-	}
-
-	if sourceCount == 0 {
-		return nil, fmt.Errorf("parser: must specify an input source (use WithFilePath, WithReader, or WithBytes)")
-	}
-	if sourceCount > 1 {
-		return nil, fmt.Errorf("parser: must specify exactly one input source")
+	if err := options.ValidateSingleInputSource(
+		"parser: must specify an input source (use WithFilePath, WithReader, or WithBytes)",
+		"parser: must specify exactly one input source",
+		cfg.filePath != nil, cfg.reader != nil, cfg.bytes != nil,
+	); err != nil {
+		return nil, err
 	}
 
 	return cfg, nil

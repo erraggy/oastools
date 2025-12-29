@@ -157,11 +157,7 @@ func HandleConvert(args []string) error {
 		Writef(os.Stderr, "Specification: %s\n", FormatSpecPath(specPath))
 		Writef(os.Stderr, "Source Version: %s\n", result.SourceVersion)
 		Writef(os.Stderr, "Target Version: %s\n", result.TargetVersion)
-		Writef(os.Stderr, "Source Size: %s\n", parser.FormatBytes(result.SourceSize))
-		Writef(os.Stderr, "Paths: %d\n", result.Stats.PathCount)
-		Writef(os.Stderr, "Operations: %d\n", result.Stats.OperationCount)
-		Writef(os.Stderr, "Schemas: %d\n", result.Stats.SchemaCount)
-		Writef(os.Stderr, "Load Time: %v\n", result.LoadTime)
+		OutputSpecStats(result.SourceSize, result.Stats, result.LoadTime)
 		Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
 
 		// Print issues

@@ -91,8 +91,9 @@ type pointerPair struct {
 	right uintptr
 }
 
-// compareShallow compares only the top-level properties of schemas
-func compareShallow(left, right *parser.Schema, path string, result *EquivalenceResult) {
+// compareCommonFields compares schema fields common to both shallow and deep comparison.
+// This helper eliminates duplication between compareShallow and compareDeep.
+func compareCommonFields(left, right *parser.Schema, path string, result *EquivalenceResult) {
 	// Compare type
 	if !equalTypes(left.Type, right.Type) {
 		result.Differences = append(result.Differences, SchemaDifference{
@@ -144,6 +145,11 @@ func compareShallow(left, right *parser.Schema, path string, result *Equivalence
 	}
 }
 
+// compareShallow compares only the top-level properties of schemas
+func compareShallow(left, right *parser.Schema, path string, result *EquivalenceResult) {
+	compareCommonFields(left, right, path, result)
+}
+
 // compareDeep recursively compares all schema properties
 func compareDeep(left, right *parser.Schema, path string, result *EquivalenceResult, visited map[pointerPair]bool) {
 	// Check for circular references
@@ -156,53 +162,16 @@ func compareDeep(left, right *parser.Schema, path string, result *EquivalenceRes
 	}
 	visited[pair] = true
 
-	// Compare type
-	if !equalTypes(left.Type, right.Type) {
-		result.Differences = append(result.Differences, SchemaDifference{
-			Path:        pathJoin(path, "type"),
-			LeftValue:   left.Type,
-			RightValue:  right.Type,
-			Description: "type mismatch",
-		})
-	}
+	// Compare common fields (type, format, required, enum, propertyNames)
+	compareCommonFields(left, right, path, result)
 
-	// Compare format
-	if left.Format != right.Format {
-		result.Differences = append(result.Differences, SchemaDifference{
-			Path:        pathJoin(path, "format"),
-			LeftValue:   left.Format,
-			RightValue:  right.Format,
-			Description: "format mismatch",
-		})
-	}
-
-	// Compare pattern
+	// Compare pattern (deep only)
 	if left.Pattern != right.Pattern {
 		result.Differences = append(result.Differences, SchemaDifference{
 			Path:        pathJoin(path, "pattern"),
 			LeftValue:   left.Pattern,
 			RightValue:  right.Pattern,
 			Description: "pattern mismatch",
-		})
-	}
-
-	// Compare required arrays (order-independent)
-	if !equalStringSlices(left.Required, right.Required) {
-		result.Differences = append(result.Differences, SchemaDifference{
-			Path:        pathJoin(path, "required"),
-			LeftValue:   left.Required,
-			RightValue:  right.Required,
-			Description: "required fields mismatch",
-		})
-	}
-
-	// Compare enum
-	if !reflect.DeepEqual(left.Enum, right.Enum) {
-		result.Differences = append(result.Differences, SchemaDifference{
-			Path:        pathJoin(path, "enum"),
-			LeftValue:   left.Enum,
-			RightValue:  right.Enum,
-			Description: "enum values mismatch",
 		})
 	}
 
@@ -296,15 +265,8 @@ func compareDeep(left, right *parser.Schema, path string, result *EquivalenceRes
 		})
 	}
 
-	// Compare properties recursively
-	if !equalPropertyNames(left.Properties, right.Properties) {
-		result.Differences = append(result.Differences, SchemaDifference{
-			Path:        pathJoin(path, "properties"),
-			LeftValue:   getPropertyNames(left.Properties),
-			RightValue:  getPropertyNames(right.Properties),
-			Description: "property names mismatch",
-		})
-	} else if left.Properties != nil && right.Properties != nil {
+	// Compare properties recursively (property names already checked by compareCommonFields)
+	if equalPropertyNames(left.Properties, right.Properties) && left.Properties != nil {
 		for name, leftProp := range left.Properties {
 			rightProp := right.Properties[name]
 			compareDeep(leftProp, rightProp, pathJoin(path, fmt.Sprintf("properties.%s", name)), result, visited)
@@ -442,9 +404,9 @@ func equalTypes(left, right any) bool {
 		return equalStringSlices(leftArr, rightArr)
 	}
 
-	// Handle interface{} slice that might contain strings
-	leftIface, leftIsIface := left.([]interface{})
-	rightIface, rightIsIface := right.([]interface{})
+	// Handle any slice that might contain strings
+	leftIface, leftIsIface := left.([]any)
+	rightIface, rightIsIface := right.([]any)
 	if leftIsIface && rightIsIface {
 		if len(leftIface) != len(rightIface) {
 			return false

@@ -269,6 +269,25 @@ func numberFormatToGoType(format string) string {
 	}
 }
 
+// paramTypeToGoType converts an OAS parameter type/format to a Go type.
+// This is shared between OAS 2.0 and OAS 3.x for parameters without schemas.
+func paramTypeToGoType(paramType, format string) string {
+	switch paramType {
+	case "string":
+		return stringFormatToGoType(format)
+	case "integer":
+		return integerFormatToGoType(format)
+	case "number":
+		return numberFormatToGoType(format)
+	case "boolean":
+		return "bool"
+	case "array":
+		return "[]string"
+	default:
+		return "string"
+	}
+}
+
 // needsTimeImport recursively checks if a schema requires the "time" package.
 func needsTimeImport(schema *parser.Schema) bool {
 	if schema == nil {
@@ -387,4 +406,26 @@ func isSelfReference(propSchema *parser.Schema, parentTypeName string) bool {
 	}
 
 	return false
+}
+
+// buildTypeGroupMaps builds the shared types set and per-group types map from a split plan.
+// This is shared between OAS 2.0 and OAS 3.x generators for split type generation.
+func buildTypeGroupMaps(splitPlan *SplitPlan) (sharedTypes map[string]bool, groupTypes map[string]map[string]bool) {
+	sharedTypes = make(map[string]bool)
+	for _, typeName := range splitPlan.SharedTypes {
+		sharedTypes[typeName] = true
+	}
+
+	groupTypes = make(map[string]map[string]bool)
+	for _, group := range splitPlan.Groups {
+		if group.IsShared {
+			continue
+		}
+		groupTypes[group.Name] = make(map[string]bool)
+		for _, typeName := range group.Types {
+			groupTypes[group.Name][typeName] = true
+		}
+	}
+
+	return sharedTypes, groupTypes
 }

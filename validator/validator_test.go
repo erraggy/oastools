@@ -2116,3 +2116,49 @@ func TestValidateEnumEmptyArray(t *testing.T) {
 		}
 	}
 }
+
+// TestOAS2InfoValidationErrorsHaveLocation is a regression test to ensure OAS2 info
+// validation errors have Location (Line/Column) populated when SourceMap is available.
+// Prior to the fix, validateOAS2Info used direct result.Errors = append(...) which
+// skipped populateIssueLocation, causing Line/Column to always be 0.
+func TestOAS2InfoValidationErrorsHaveLocation(t *testing.T) {
+	// Create an OAS2 document with an invalid contact email
+	// The contact.email field exists and will trigger a validation error
+	oas2Doc := `swagger: "2.0"
+info:
+  title: Test API
+  version: "1.0"
+  contact:
+    email: not-a-valid-email
+paths: {}`
+
+	parseResult, err := parser.ParseWithOptions(
+		parser.WithBytes([]byte(oas2Doc)),
+		parser.WithSourceMap(true),
+	)
+	require.NoError(t, err)
+
+	// Validate with the source map to enable location tracking
+	v := New()
+	v.SourceMap = parseResult.SourceMap
+
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Find the contact.email error
+	var emailError *ValidationError
+	for i := range result.Errors {
+		if strings.Contains(result.Errors[i].Path, "contact.email") {
+			emailError = &result.Errors[i]
+			break
+		}
+	}
+
+	require.NotNil(t, emailError, "Should have an error for invalid contact email")
+
+	// The key assertion: Location should be populated (Line > 0)
+	// This was the bug: OAS2 info errors had Line=0 because populateIssueLocation wasn't called
+	assert.Greater(t, emailError.Line, 0,
+		"OAS2 info validation errors should have Line populated when SourceMap is available; got Line=%d",
+		emailError.Line)
+}

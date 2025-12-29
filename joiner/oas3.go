@@ -72,23 +72,8 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 		// Merge paths
 		pathStrategy := j.getEffectiveStrategy(j.config.PathStrategy)
-		for path, pathItem := range oas3Doc.Paths {
-			if _, exists := joined.Paths[path]; exists {
-				if err := j.handleCollision(path, "paths", pathStrategy, result.firstFilePath, ctx.filePath); err != nil {
-					return nil, err
-				}
-				result.CollisionCount++
-				if j.shouldOverwrite(pathStrategy) {
-					joined.Paths[path] = pathItem
-					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
-					result.AddWarning(NewPathCollisionWarning(path, "overwritten", result.firstFilePath, ctx.filePath, line, col))
-				} else {
-					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
-					result.AddWarning(NewPathCollisionWarning(path, "kept from first document", result.firstFilePath, ctx.filePath, line, col))
-				}
-			} else {
-				joined.Paths[path] = pathItem
-			}
+		if err := j.mergePathsMap(joined.Paths, oas3Doc.Paths, pathStrategy, ctx, result); err != nil {
+			return nil, err
 		}
 
 		// Merge webhooks (OAS 3.1+)
