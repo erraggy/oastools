@@ -231,6 +231,33 @@
 //   - nullable=true - Explicitly nullable
 //   - deprecated=true - Mark as deprecated
 //
+// # Custom Field Processors
+//
+// For libraries that need to support custom struct tag conventions alongside
+// the standard oas:"..." tags, use WithSchemaFieldProcessor:
+//
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithSchemaFieldProcessor(func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+//	        if desc := field.Tag.Get("description"); desc != "" {
+//	            schema.Description = desc
+//	        }
+//	        return schema
+//	    }),
+//	)
+//
+// The processor is called for each struct field after the base schema is generated
+// and after any oas:"..." tags are applied. This enables:
+//
+//   - Migration support from other OpenAPI libraries with different tag formats
+//   - Custom validation tag integration (e.g., reading from validator tags)
+//   - Documentation generators pulling from godoc-style comments
+//   - Framework integration with existing struct tag conventions
+//
+// Multiple processors can be composed using ComposeSchemaFieldProcessors:
+//
+//	composed := builder.ComposeSchemaFieldProcessors(descProcessor, enumProcessor)
+//	spec := builder.New(parser.OASVersion320, builder.WithSchemaFieldProcessor(composed))
+//
 // # Required Fields
 //
 // Required fields are determined by:
