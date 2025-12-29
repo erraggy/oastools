@@ -99,7 +99,7 @@ The converter supports both directions:
 
 ## Next Steps
 
-- [Converter Deep Dive](../../packages/converter/) - Complete converter documentation
+- [Converter Deep Dive](../../../packages/converter/) - Complete converter documentation
 - [Breaking Change Detection](../breaking-change-detection/) - Compare API versions
 - [Multi-API Merge](../multi-api-merge/) - Merge multiple specifications
 
