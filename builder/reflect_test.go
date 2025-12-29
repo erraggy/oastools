@@ -2,6 +2,7 @@ package builder
 
 import (
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -597,4 +598,252 @@ func TestBuilder_refToSchema_WithGenericTypes(t *testing.T) {
 			assert.NotContains(t, schema.Ref, " ")
 		})
 	}
+}
+
+func TestWithSchemaFieldProcessor(t *testing.T) {
+	t.Run("basic description tag", func(t *testing.T) {
+		type User struct {
+			Name string `json:"name" description:"User's full name"`
+		}
+
+		processor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			if desc := field.Tag.Get("description"); desc != "" {
+				schema.Description = desc
+			}
+			return schema
+		}
+
+		b := New(parser.OASVersion320, WithSchemaFieldProcessor(processor))
+		b.generateSchema(User{})
+
+		require.Contains(t, b.schemas, "builder.User")
+		schema := b.schemas["builder.User"]
+		require.Contains(t, schema.Properties, "name")
+		assert.Equal(t, "User's full name", schema.Properties["name"].Description)
+	})
+
+	t.Run("enum tag with pipe separator", func(t *testing.T) {
+		type Status struct {
+			Value string `json:"value" enum:"active|inactive|pending"`
+		}
+
+		processor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			if enumStr := field.Tag.Get("enum"); enumStr != "" {
+				values := strings.Split(enumStr, "|")
+				schema.Enum = make([]any, len(values))
+				for i, v := range values {
+					schema.Enum[i] = strings.TrimSpace(v)
+				}
+			}
+			return schema
+		}
+
+		b := New(parser.OASVersion320, WithSchemaFieldProcessor(processor))
+		b.generateSchema(Status{})
+
+		require.Contains(t, b.schemas, "builder.Status")
+		schema := b.schemas["builder.Status"]
+		require.Contains(t, schema.Properties, "value")
+		assert.Equal(t, []any{"active", "inactive", "pending"}, schema.Properties["value"].Enum)
+	})
+
+	t.Run("numeric constraints", func(t *testing.T) {
+		type Person struct {
+			Age int `json:"age" minimum:"0" maximum:"150"`
+		}
+
+		processor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			if minStr := field.Tag.Get("minimum"); minStr != "" {
+				if min, err := strconv.ParseFloat(minStr, 64); err == nil {
+					schema.Minimum = &min
+				}
+			}
+			if maxStr := field.Tag.Get("maximum"); maxStr != "" {
+				if max, err := strconv.ParseFloat(maxStr, 64); err == nil {
+					schema.Maximum = &max
+				}
+			}
+			return schema
+		}
+
+		b := New(parser.OASVersion320, WithSchemaFieldProcessor(processor))
+		b.generateSchema(Person{})
+
+		require.Contains(t, b.schemas, "builder.Person")
+		schema := b.schemas["builder.Person"]
+		require.Contains(t, schema.Properties, "age")
+		require.NotNil(t, schema.Properties["age"].Minimum)
+		require.NotNil(t, schema.Properties["age"].Maximum)
+		assert.Equal(t, 0.0, *schema.Properties["age"].Minimum)
+		assert.Equal(t, 150.0, *schema.Properties["age"].Maximum)
+	})
+
+	t.Run("oas tag takes precedence when skipped", func(t *testing.T) {
+		type Product struct {
+			Name string `json:"name" description:"Legacy desc" oas:"description=OAS description"`
+		}
+
+		// Processor that skips when oas tag is present
+		processor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			if field.Tag.Get("oas") != "" {
+				return schema
+			}
+			if desc := field.Tag.Get("description"); desc != "" {
+				schema.Description = desc
+			}
+			return schema
+		}
+
+		b := New(parser.OASVersion320, WithSchemaFieldProcessor(processor))
+		b.generateSchema(Product{})
+
+		require.Contains(t, b.schemas, "builder.Product")
+		schema := b.schemas["builder.Product"]
+		require.Contains(t, schema.Properties, "name")
+		// Should have OAS description, not legacy description
+		assert.Equal(t, "OAS description", schema.Properties["name"].Description)
+	})
+
+	t.Run("processor can override oas tag", func(t *testing.T) {
+		type Item struct {
+			Code string `json:"code" oas:"description=OAS description" description:"Override description"`
+		}
+
+		// Processor that always applies, overriding oas tag
+		processor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			if desc := field.Tag.Get("description"); desc != "" {
+				schema.Description = desc
+			}
+			return schema
+		}
+
+		b := New(parser.OASVersion320, WithSchemaFieldProcessor(processor))
+		b.generateSchema(Item{})
+
+		require.Contains(t, b.schemas, "builder.Item")
+		schema := b.schemas["builder.Item"]
+		require.Contains(t, schema.Properties, "code")
+		// Should have processor description (called after oas tag)
+		assert.Equal(t, "Override description", schema.Properties["code"].Description)
+	})
+
+	t.Run("nil processor is handled", func(t *testing.T) {
+		type Simple struct {
+			Field string `json:"field"`
+		}
+
+		// No processor set
+		b := New(parser.OASVersion320)
+		b.generateSchema(Simple{})
+
+		require.Contains(t, b.schemas, "builder.Simple")
+		schema := b.schemas["builder.Simple"]
+		require.Contains(t, schema.Properties, "field")
+		assert.Equal(t, "string", schema.Properties["field"].Type)
+	})
+
+	t.Run("multiple fields processed", func(t *testing.T) {
+		type Config struct {
+			Host    string `json:"host" description:"Server hostname"`
+			Port    int    `json:"port" description:"Server port" minimum:"1" maximum:"65535"`
+			Enabled bool   `json:"enabled" description:"Enable feature"`
+		}
+
+		processor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			if desc := field.Tag.Get("description"); desc != "" {
+				schema.Description = desc
+			}
+			if minStr := field.Tag.Get("minimum"); minStr != "" {
+				if min, err := strconv.ParseFloat(minStr, 64); err == nil {
+					schema.Minimum = &min
+				}
+			}
+			if maxStr := field.Tag.Get("maximum"); maxStr != "" {
+				if max, err := strconv.ParseFloat(maxStr, 64); err == nil {
+					schema.Maximum = &max
+				}
+			}
+			return schema
+		}
+
+		b := New(parser.OASVersion320, WithSchemaFieldProcessor(processor))
+		b.generateSchema(Config{})
+
+		require.Contains(t, b.schemas, "builder.Config")
+		schema := b.schemas["builder.Config"]
+
+		// Check host
+		require.Contains(t, schema.Properties, "host")
+		assert.Equal(t, "Server hostname", schema.Properties["host"].Description)
+
+		// Check port
+		require.Contains(t, schema.Properties, "port")
+		assert.Equal(t, "Server port", schema.Properties["port"].Description)
+		require.NotNil(t, schema.Properties["port"].Minimum)
+		require.NotNil(t, schema.Properties["port"].Maximum)
+		assert.Equal(t, 1.0, *schema.Properties["port"].Minimum)
+		assert.Equal(t, 65535.0, *schema.Properties["port"].Maximum)
+
+		// Check enabled
+		require.Contains(t, schema.Properties, "enabled")
+		assert.Equal(t, "Enable feature", schema.Properties["enabled"].Description)
+	})
+
+	t.Run("nested struct fields processed", func(t *testing.T) {
+		type Address struct {
+			Street string `json:"street" description:"Street address"`
+			City   string `json:"city" description:"City name"`
+		}
+
+		type Company struct {
+			Name    string  `json:"name" description:"Company name"`
+			Address Address `json:"address"`
+		}
+
+		processor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			if desc := field.Tag.Get("description"); desc != "" {
+				schema.Description = desc
+			}
+			return schema
+		}
+
+		b := New(parser.OASVersion320, WithSchemaFieldProcessor(processor))
+		b.generateSchema(Company{})
+
+		// Check Company schema
+		require.Contains(t, b.schemas, "builder.Company")
+		companySchema := b.schemas["builder.Company"]
+		require.Contains(t, companySchema.Properties, "name")
+		assert.Equal(t, "Company name", companySchema.Properties["name"].Description)
+
+		// Check Address schema
+		require.Contains(t, b.schemas, "builder.Address")
+		addressSchema := b.schemas["builder.Address"]
+		require.Contains(t, addressSchema.Properties, "street")
+		assert.Equal(t, "Street address", addressSchema.Properties["street"].Description)
+		require.Contains(t, addressSchema.Properties, "city")
+		assert.Equal(t, "City name", addressSchema.Properties["city"].Description)
+	})
+
+	t.Run("processor with OAS 2.0", func(t *testing.T) {
+		type LegacyUser struct {
+			ID   int    `json:"id" description:"User ID"`
+			Name string `json:"name" description:"User name"`
+		}
+
+		processor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			if desc := field.Tag.Get("description"); desc != "" {
+				schema.Description = desc
+			}
+			return schema
+		}
+
+		b := New(parser.OASVersion20, WithSchemaFieldProcessor(processor))
+		b.generateSchema(LegacyUser{})
+
+		require.Contains(t, b.schemas, "builder.LegacyUser")
+		schema := b.schemas["builder.LegacyUser"]
+		require.Contains(t, schema.Properties, "id")
+		assert.Equal(t, "User ID", schema.Properties["id"].Description)
+	})
 }

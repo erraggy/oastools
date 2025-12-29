@@ -54,6 +54,9 @@ type Builder struct {
 	// Semantic deduplication
 	dedupeEnabled bool              // Whether deduplication is enabled
 	schemaAliases map[string]string // Maps alias names to canonical names
+
+	// Schema field processing hook
+	schemaFieldProcessor SchemaFieldProcessor
 }
 
 // New creates a new Builder instance for the specified OAS version.
@@ -106,6 +109,7 @@ func New(version parser.OASVersion, opts ...BuilderOption) *Builder {
 		configError:          cfg.templateError,
 		dedupeEnabled:        cfg.semanticDeduplication,
 		schemaAliases:        make(map[string]string),
+		schemaFieldProcessor: cfg.schemaFieldProcessor,
 	}
 }
 

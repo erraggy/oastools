@@ -207,6 +207,11 @@ func (b *Builder) generateStructSchema(t reflect.Type) *parser.Schema {
 			fieldSchema = applyOASTag(fieldSchema, oasTag)
 		}
 
+		// Apply custom field processor if set
+		if b.schemaFieldProcessor != nil {
+			fieldSchema = b.schemaFieldProcessor(fieldSchema, field)
+		}
+
 		properties[name] = fieldSchema
 
 		// Determine if required
