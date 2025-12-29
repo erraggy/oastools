@@ -402,6 +402,73 @@ func TestSetIfNotNil(t *testing.T) {
 		SetIfNotNil(m, "field", 0)
 		assert.Equal(t, 0, m["field"])
 	})
+
+	// Typed nil edge cases - these are wrapped in interface{} and are NOT equal to nil
+	t.Run("typed nil pointer", func(t *testing.T) {
+		m := map[string]any{}
+		var nilPtr *int = nil
+		SetIfNotNil(m, "ptr", nilPtr)
+		assert.NotContains(t, m, "ptr", "typed nil pointer should not be added")
+	})
+
+	t.Run("typed nil slice", func(t *testing.T) {
+		m := map[string]any{}
+		var nilSlice []string = nil
+		SetIfNotNil(m, "slice", nilSlice)
+		assert.NotContains(t, m, "slice", "typed nil slice should not be added")
+	})
+
+	t.Run("typed nil map", func(t *testing.T) {
+		m := map[string]any{}
+		var nilMap map[string]int = nil
+		SetIfNotNil(m, "map", nilMap)
+		assert.NotContains(t, m, "map", "typed nil map should not be added")
+	})
+
+	t.Run("typed nil chan", func(t *testing.T) {
+		m := map[string]any{}
+		var nilChan chan int = nil
+		SetIfNotNil(m, "chan", nilChan)
+		assert.NotContains(t, m, "chan", "typed nil channel should not be added")
+	})
+
+	t.Run("typed nil func", func(t *testing.T) {
+		m := map[string]any{}
+		var nilFunc func() = nil
+		SetIfNotNil(m, "func", nilFunc)
+		assert.NotContains(t, m, "func", "typed nil function should not be added")
+	})
+
+	t.Run("typed nil interface", func(t *testing.T) {
+		m := map[string]any{}
+		var nilInterface error = nil
+		SetIfNotNil(m, "iface", nilInterface)
+		assert.NotContains(t, m, "iface", "typed nil interface should not be added")
+	})
+
+	// Non-nil typed values should still be added
+	t.Run("non-nil pointer", func(t *testing.T) {
+		m := map[string]any{}
+		val := 42
+		SetIfNotNil(m, "ptr", &val)
+		assert.Contains(t, m, "ptr")
+		assert.Equal(t, &val, m["ptr"])
+	})
+
+	t.Run("non-nil slice", func(t *testing.T) {
+		m := map[string]any{}
+		slice := []string{"a", "b"}
+		SetIfNotNil(m, "slice", slice)
+		assert.Contains(t, m, "slice")
+		assert.Equal(t, []string{"a", "b"}, m["slice"])
+	})
+
+	t.Run("empty but non-nil slice", func(t *testing.T) {
+		m := map[string]any{}
+		slice := []string{}
+		SetIfNotNil(m, "slice", slice)
+		assert.Contains(t, m, "slice", "empty but allocated slice should be added")
+	})
 }
 
 func TestSetIfNotZero(t *testing.T) {

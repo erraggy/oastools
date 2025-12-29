@@ -8,6 +8,7 @@ package jsonhelpers
 import (
 	"encoding/json"
 	"maps"
+	"reflect"
 )
 
 // MarshalWithExtras marshals a base map while merging in extension fields.
@@ -174,9 +175,19 @@ func SetIfNotEmpty(m map[string]any, key string, value string) {
 // SetIfNotNil sets a field in the map only if the value is not nil.
 // This is useful for MarshalJSON to avoid adding nil fields to JSON output.
 func SetIfNotNil(m map[string]any, key string, value any) {
-	if value != nil {
-		m[key] = value
+	if value == nil {
+		return
 	}
+	// Handle typed nil values (e.g., (*int)(nil) wrapped in any is NOT equal to nil)
+	// We must use reflection to detect these cases
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func, reflect.Interface:
+		if v.IsNil() {
+			return
+		}
+	}
+	m[key] = value
 }
 
 // SetIfNotZero sets a field in the map only if the value is not zero.
