@@ -286,3 +286,61 @@ func WithSchemaFieldProcessor(fn SchemaFieldProcessor) BuilderOption {
 		cfg.schemaFieldProcessor = fn
 	}
 }
+
+// ComposeSchemaFieldProcessors chains multiple processors into a single processor.
+// Processors are executed in order, with each receiving the schema returned by the previous.
+// This enables composing multiple independent tag processors into a single pipeline.
+//
+// If no processors are provided, returns nil.
+// If only one processor is provided, returns that processor directly.
+// Nil processors in the list are skipped.
+//
+// Example - combining legacy tag support with custom validation:
+//
+//	descriptionProcessor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+//	    if desc := field.Tag.Get("description"); desc != "" {
+//	        schema.Description = desc
+//	    }
+//	    return schema
+//	}
+//
+//	enumProcessor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+//	    if enumStr := field.Tag.Get("enum"); enumStr != "" {
+//	        values := strings.Split(enumStr, "|")
+//	        schema.Enum = make([]any, len(values))
+//	        for i, v := range values {
+//	            schema.Enum[i] = strings.TrimSpace(v)
+//	        }
+//	    }
+//	    return schema
+//	}
+//
+//	// Combine both processors
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithSchemaFieldProcessor(
+//	        builder.ComposeSchemaFieldProcessors(descriptionProcessor, enumProcessor),
+//	    ),
+//	)
+func ComposeSchemaFieldProcessors(processors ...SchemaFieldProcessor) SchemaFieldProcessor {
+	// Filter out nil processors
+	var nonNil []SchemaFieldProcessor
+	for _, p := range processors {
+		if p != nil {
+			nonNil = append(nonNil, p)
+		}
+	}
+
+	switch len(nonNil) {
+	case 0:
+		return nil
+	case 1:
+		return nonNil[0]
+	default:
+		return func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			for _, p := range nonNil {
+				schema = p(schema, field)
+			}
+			return schema
+		}
+	}
+}

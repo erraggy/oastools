@@ -847,3 +847,179 @@ func TestWithSchemaFieldProcessor(t *testing.T) {
 		assert.Equal(t, "User ID", schema.Properties["id"].Description)
 	})
 }
+
+func TestComposeSchemaFieldProcessors(t *testing.T) {
+	t.Run("no processors returns nil", func(t *testing.T) {
+		composed := ComposeSchemaFieldProcessors()
+		assert.Nil(t, composed)
+	})
+
+	t.Run("single processor returns same processor", func(t *testing.T) {
+		called := false
+		processor := func(schema *parser.Schema, _ reflect.StructField) *parser.Schema {
+			called = true
+			return schema
+		}
+
+		composed := ComposeSchemaFieldProcessors(processor)
+		require.NotNil(t, composed)
+
+		// Call the composed processor
+		composed(&parser.Schema{}, reflect.StructField{})
+		assert.True(t, called)
+	})
+
+	t.Run("nil processors are filtered out", func(t *testing.T) {
+		called := false
+		processor := func(schema *parser.Schema, _ reflect.StructField) *parser.Schema {
+			called = true
+			return schema
+		}
+
+		// Mix of nil and non-nil
+		composed := ComposeSchemaFieldProcessors(nil, processor, nil)
+		require.NotNil(t, composed)
+
+		composed(&parser.Schema{}, reflect.StructField{})
+		assert.True(t, called)
+	})
+
+	t.Run("all nil processors returns nil", func(t *testing.T) {
+		composed := ComposeSchemaFieldProcessors(nil, nil, nil)
+		assert.Nil(t, composed)
+	})
+
+	t.Run("multiple processors execute in order", func(t *testing.T) {
+		var order []int
+
+		p1 := func(schema *parser.Schema, _ reflect.StructField) *parser.Schema {
+			order = append(order, 1)
+			return schema
+		}
+		p2 := func(schema *parser.Schema, _ reflect.StructField) *parser.Schema {
+			order = append(order, 2)
+			return schema
+		}
+		p3 := func(schema *parser.Schema, _ reflect.StructField) *parser.Schema {
+			order = append(order, 3)
+			return schema
+		}
+
+		composed := ComposeSchemaFieldProcessors(p1, p2, p3)
+		require.NotNil(t, composed)
+
+		composed(&parser.Schema{}, reflect.StructField{})
+		assert.Equal(t, []int{1, 2, 3}, order)
+	})
+
+	t.Run("processors chain schema modifications", func(t *testing.T) {
+		descProcessor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			if desc := field.Tag.Get("description"); desc != "" {
+				schema.Description = desc
+			}
+			return schema
+		}
+
+		enumProcessor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			if enumStr := field.Tag.Get("enum"); enumStr != "" {
+				values := strings.Split(enumStr, "|")
+				schema.Enum = make([]any, len(values))
+				for i, v := range values {
+					schema.Enum[i] = strings.TrimSpace(v)
+				}
+			}
+			return schema
+		}
+
+		minMaxProcessor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			if minStr := field.Tag.Get("minimum"); minStr != "" {
+				if min, err := strconv.ParseFloat(minStr, 64); err == nil {
+					schema.Minimum = &min
+				}
+			}
+			if maxStr := field.Tag.Get("maximum"); maxStr != "" {
+				if max, err := strconv.ParseFloat(maxStr, 64); err == nil {
+					schema.Maximum = &max
+				}
+			}
+			return schema
+		}
+
+		composed := ComposeSchemaFieldProcessors(descProcessor, enumProcessor, minMaxProcessor)
+
+		type TestStruct struct {
+			Status string `json:"status" description:"Status field" enum:"active|pending"`
+			Count  int    `json:"count" description:"Count field" minimum:"1" maximum:"100"`
+		}
+
+		b := New(parser.OASVersion320, WithSchemaFieldProcessor(composed))
+		b.generateSchema(TestStruct{})
+
+		require.Contains(t, b.schemas, "builder.TestStruct")
+		schema := b.schemas["builder.TestStruct"]
+
+		// Check status field has both description and enum
+		require.Contains(t, schema.Properties, "status")
+		assert.Equal(t, "Status field", schema.Properties["status"].Description)
+		assert.Equal(t, []any{"active", "pending"}, schema.Properties["status"].Enum)
+
+		// Check count field has description and min/max
+		require.Contains(t, schema.Properties, "count")
+		assert.Equal(t, "Count field", schema.Properties["count"].Description)
+		require.NotNil(t, schema.Properties["count"].Minimum)
+		require.NotNil(t, schema.Properties["count"].Maximum)
+		assert.Equal(t, 1.0, *schema.Properties["count"].Minimum)
+		assert.Equal(t, 100.0, *schema.Properties["count"].Maximum)
+	})
+
+	t.Run("later processor can modify earlier processor output", func(t *testing.T) {
+		firstProcessor := func(schema *parser.Schema, _ reflect.StructField) *parser.Schema {
+			schema.Description = "first"
+			return schema
+		}
+
+		secondProcessor := func(schema *parser.Schema, _ reflect.StructField) *parser.Schema {
+			schema.Description = schema.Description + " then second"
+			return schema
+		}
+
+		composed := ComposeSchemaFieldProcessors(firstProcessor, secondProcessor)
+
+		type Simple struct {
+			Field string `json:"field"`
+		}
+
+		b := New(parser.OASVersion320, WithSchemaFieldProcessor(composed))
+		b.generateSchema(Simple{})
+
+		require.Contains(t, b.schemas, "builder.Simple")
+		schema := b.schemas["builder.Simple"]
+		require.Contains(t, schema.Properties, "field")
+		assert.Equal(t, "first then second", schema.Properties["field"].Description)
+	})
+
+	t.Run("composed with nil in middle still works", func(t *testing.T) {
+		p1 := func(schema *parser.Schema, _ reflect.StructField) *parser.Schema {
+			schema.Description = "p1"
+			return schema
+		}
+		p2 := func(schema *parser.Schema, _ reflect.StructField) *parser.Schema {
+			schema.Description = schema.Description + " p2"
+			return schema
+		}
+
+		composed := ComposeSchemaFieldProcessors(p1, nil, p2)
+
+		type Simple struct {
+			Field string `json:"field"`
+		}
+
+		b := New(parser.OASVersion320, WithSchemaFieldProcessor(composed))
+		b.generateSchema(Simple{})
+
+		require.Contains(t, b.schemas, "builder.Simple")
+		schema := b.schemas["builder.Simple"]
+		require.Contains(t, schema.Properties, "field")
+		assert.Equal(t, "p1 p2", schema.Properties["field"].Description)
+	})
+}
