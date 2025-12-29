@@ -181,6 +181,41 @@
 //	// After joining, both $ref values are preserved in the merged document.
 //	// Use parser.WithResolveRefs(true) to resolve them if needed.
 //
+// # Structured Warnings
+//
+// The joiner provides structured warnings through the [JoinWarning] type, which includes
+// detailed context about non-fatal issues encountered during document joining. Each warning
+// has a category, source location, and optional context data for programmatic handling.
+//
+// Access structured warnings from the result:
+//
+//	result, _ := joiner.JoinWithOptions(
+//	    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+//	)
+//	for _, w := range result.StructuredWarnings {
+//	    fmt.Printf("[%s] %s\n", w.Category, w.Message)
+//	    if w.HasLocation() {
+//	        fmt.Printf("  at %s\n", w.Location())
+//	    }
+//	}
+//
+// Filter warnings by category or severity:
+//
+//	pathCollisions := result.StructuredWarnings.ByCategory(joiner.WarnPathCollision)
+//	criticalWarnings := result.StructuredWarnings.BySeverity(severity.SeverityWarning)
+//
+// Warning categories include:
+//   - WarnVersionMismatch: Documents have different minor versions
+//   - WarnPathCollision: Path collision was resolved by strategy
+//   - WarnSchemaCollision: Schema/definition collision was resolved
+//   - WarnWebhookCollision: Webhook collision was resolved
+//   - WarnSchemaRenamed: Schema was renamed due to collision
+//   - WarnSchemaDeduplicated: Schema was deduplicated (structurally equivalent)
+//   - WarnNamespacePrefixed: Namespace prefix was applied
+//   - WarnMetadataOverride: Metadata was overridden (host, basePath)
+//
+// For backward compatibility, warnings are also available as []string via result.Warnings.
+//
 // # Related Packages
 //
 // The joiner integrates with other oastools packages:
