@@ -1,10 +1,36 @@
 package builder
 
-import "text/template"
+import (
+	"reflect"
+	"text/template"
+
+	"github.com/erraggy/oastools/parser"
+)
 
 // BuilderOption configures a Builder instance.
 // Options are applied when creating a new Builder with New().
 type BuilderOption func(*builderConfig)
+
+// SchemaFieldProcessor is called for each struct field during schema generation.
+// It receives the generated schema and the struct field, and returns a potentially
+// modified schema. The processor is called after oastools applies any oas:"..." tags.
+//
+// This hook enables libraries to support custom tag formats alongside the standard
+// oas:"..." tags. For example, a library could support legacy standalone tags:
+//
+//	type User struct {
+//	    Name string `json:"name" description:"User's full name"`
+//	}
+//
+// The processor can read these tags and apply them to the schema:
+//
+//	func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+//	    if desc := field.Tag.Get("description"); desc != "" {
+//	        schema.Description = desc
+//	    }
+//	    return schema
+//	}
+type SchemaFieldProcessor func(schema *parser.Schema, field reflect.StructField) *parser.Schema
 
 // builderConfig holds builder configuration applied via options.
 type builderConfig struct {
@@ -14,6 +40,7 @@ type builderConfig struct {
 	genericConfig         GenericNamingConfig
 	templateError         error // Stores template parse errors for Build() to return
 	semanticDeduplication bool  // Enable semantic schema deduplication
+	schemaFieldProcessor  SchemaFieldProcessor
 }
 
 // defaultBuilderConfig returns a new builderConfig with default values.
@@ -215,5 +242,105 @@ func WithGenericApplyBaseCasing(apply bool) BuilderOption {
 func WithSemanticDeduplication(enabled bool) BuilderOption {
 	return func(cfg *builderConfig) {
 		cfg.semanticDeduplication = enabled
+	}
+}
+
+// WithSchemaFieldProcessor sets a custom function for processing struct field tags.
+// This enables libraries to support custom tag formats alongside the standard oas:"..." tags.
+//
+// The processor is called for each struct field after the base schema is generated
+// and after any oas:"..." tags are applied. It receives the generated schema and
+// the reflect.StructField, allowing access to all struct tags.
+//
+// Example - supporting legacy standalone tags:
+//
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithSchemaFieldProcessor(func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+//	        // Skip if oas tag is present (already processed)
+//	        if field.Tag.Get("oas") != "" {
+//	            return schema
+//	        }
+//	        // Apply legacy description tag
+//	        if desc := field.Tag.Get("description"); desc != "" {
+//	            schema.Description = desc
+//	        }
+//	        // Apply legacy enum tag
+//	        if enumStr := field.Tag.Get("enum"); enumStr != "" {
+//	            values := strings.Split(enumStr, "|")
+//	            schema.Enum = make([]any, len(values))
+//	            for i, v := range values {
+//	                schema.Enum[i] = strings.TrimSpace(v)
+//	            }
+//	        }
+//	        return schema
+//	    }),
+//	)
+//
+// Use cases:
+//   - Migration support from other OpenAPI libraries with different tag formats
+//   - Custom validation tag integration (e.g., reading from validator tags)
+//   - Documentation generators pulling from godoc-style comments or other sources
+//   - Framework integration with existing struct tag conventions
+func WithSchemaFieldProcessor(fn SchemaFieldProcessor) BuilderOption {
+	return func(cfg *builderConfig) {
+		cfg.schemaFieldProcessor = fn
+	}
+}
+
+// ComposeSchemaFieldProcessors chains multiple processors into a single processor.
+// Processors are executed in order, with each receiving the schema returned by the previous.
+// This enables composing multiple independent tag processors into a single pipeline.
+//
+// If no processors are provided, returns nil.
+// If only one processor is provided, returns that processor directly.
+// Nil processors in the list are skipped.
+//
+// Example - combining legacy tag support with custom validation:
+//
+//	descriptionProcessor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+//	    if desc := field.Tag.Get("description"); desc != "" {
+//	        schema.Description = desc
+//	    }
+//	    return schema
+//	}
+//
+//	enumProcessor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+//	    if enumStr := field.Tag.Get("enum"); enumStr != "" {
+//	        values := strings.Split(enumStr, "|")
+//	        schema.Enum = make([]any, len(values))
+//	        for i, v := range values {
+//	            schema.Enum[i] = strings.TrimSpace(v)
+//	        }
+//	    }
+//	    return schema
+//	}
+//
+//	// Combine both processors
+//	spec := builder.New(parser.OASVersion320,
+//	    builder.WithSchemaFieldProcessor(
+//	        builder.ComposeSchemaFieldProcessors(descriptionProcessor, enumProcessor),
+//	    ),
+//	)
+func ComposeSchemaFieldProcessors(processors ...SchemaFieldProcessor) SchemaFieldProcessor {
+	// Filter out nil processors
+	var nonNil []SchemaFieldProcessor
+	for _, p := range processors {
+		if p != nil {
+			nonNil = append(nonNil, p)
+		}
+	}
+
+	switch len(nonNil) {
+	case 0:
+		return nil
+	case 1:
+		return nonNil[0]
+	default:
+		return func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+			for _, p := range nonNil {
+				schema = p(schema, field)
+			}
+			return schema
+		}
 	}
 }

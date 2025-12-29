@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/erraggy/oastools/builder"
@@ -1130,4 +1133,177 @@ func Example_serverBuilderWithValidation() {
 	fmt.Printf("Validation enabled: %v\n", result.Validator != nil)
 	// Output:
 	// Validation enabled: true
+}
+
+// Example_withSchemaFieldProcessor demonstrates custom struct tag processing.
+// This allows libraries to support their own tag formats alongside the standard oas:"..." tags.
+// Common use cases include:
+//   - Migration support from other OpenAPI libraries with different tag formats
+//   - Custom validation tag integration
+//   - Framework integration with existing struct tag conventions
+func Example_withSchemaFieldProcessor() {
+	// Define a struct using standalone tags (legacy format from other libraries)
+	type LegacyUser struct {
+		Name   string `json:"name" description:"User's full name"`
+		Status string `json:"status" enum:"active|inactive|pending"`
+		Age    int    `json:"age" minimum:"0" maximum:"150"`
+	}
+
+	// Create a processor that handles legacy standalone tags
+	legacyTagProcessor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+		// Skip if oas tag is present (already processed by oastools)
+		if field.Tag.Get("oas") != "" {
+			return schema
+		}
+
+		// Apply description tag
+		if desc := field.Tag.Get("description"); desc != "" {
+			schema.Description = desc
+		}
+
+		// Apply enum tag (pipe-separated values)
+		if enumStr := field.Tag.Get("enum"); enumStr != "" {
+			values := strings.Split(enumStr, "|")
+			schema.Enum = make([]any, len(values))
+			for i, v := range values {
+				schema.Enum[i] = strings.TrimSpace(v)
+			}
+		}
+
+		// Apply numeric constraints
+		if minStr := field.Tag.Get("minimum"); minStr != "" {
+			if min, err := strconv.ParseFloat(minStr, 64); err == nil {
+				schema.Minimum = &min
+			}
+		}
+		if maxStr := field.Tag.Get("maximum"); maxStr != "" {
+			if max, err := strconv.ParseFloat(maxStr, 64); err == nil {
+				schema.Maximum = &max
+			}
+		}
+
+		return schema
+	}
+
+	// Build specification with the custom processor
+	spec := builder.New(parser.OASVersion320,
+		builder.WithSchemaFieldProcessor(legacyTagProcessor),
+	).
+		SetTitle("Legacy API").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodGet, "/users",
+			builder.WithResponse(http.StatusOK, LegacyUser{}),
+		)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Access the generated schema
+	userSchema := doc.Components.Schemas["builder_test.LegacyUser"]
+	nameSchema := userSchema.Properties["name"]
+	statusSchema := userSchema.Properties["status"]
+	ageSchema := userSchema.Properties["age"]
+
+	fmt.Printf("Name description: %s\n", nameSchema.Description)
+	fmt.Printf("Status enum: %v\n", statusSchema.Enum)
+	fmt.Printf("Age minimum: %.0f\n", *ageSchema.Minimum)
+	fmt.Printf("Age maximum: %.0f\n", *ageSchema.Maximum)
+	// Output:
+	// Name description: User's full name
+	// Status enum: [active inactive pending]
+	// Age minimum: 0
+	// Age maximum: 150
+}
+
+// Example_composeSchemaFieldProcessors demonstrates composing multiple field processors.
+// This is useful when you have separate concerns that each need to process struct tags,
+// such as description handling, enum parsing, and numeric constraint validation.
+// Processors execute in order, with each receiving the schema from the previous processor.
+func Example_composeSchemaFieldProcessors() {
+	// Define a struct with various legacy tags
+	type ServerConfig struct {
+		Host    string `json:"host" description:"Server hostname"`
+		Port    int    `json:"port" description:"Server port" minimum:"1" maximum:"65535"`
+		Timeout int    `json:"timeout" description:"Request timeout in seconds" minimum:"1"`
+		Mode    string `json:"mode" description:"Operating mode" enum:"development|staging|production"`
+	}
+
+	// Processor for description tags
+	descriptionProcessor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+		if desc := field.Tag.Get("description"); desc != "" {
+			schema.Description = desc
+		}
+		return schema
+	}
+
+	// Processor for enum tags (pipe-separated)
+	enumProcessor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+		if enumStr := field.Tag.Get("enum"); enumStr != "" {
+			values := strings.Split(enumStr, "|")
+			schema.Enum = make([]any, len(values))
+			for i, v := range values {
+				schema.Enum[i] = strings.TrimSpace(v)
+			}
+		}
+		return schema
+	}
+
+	// Processor for numeric constraint tags
+	numericProcessor := func(schema *parser.Schema, field reflect.StructField) *parser.Schema {
+		if minStr := field.Tag.Get("minimum"); minStr != "" {
+			if min, err := strconv.ParseFloat(minStr, 64); err == nil {
+				schema.Minimum = &min
+			}
+		}
+		if maxStr := field.Tag.Get("maximum"); maxStr != "" {
+			if max, err := strconv.ParseFloat(maxStr, 64); err == nil {
+				schema.Maximum = &max
+			}
+		}
+		return schema
+	}
+
+	// Compose all processors into a single processor
+	composedProcessor := builder.ComposeSchemaFieldProcessors(
+		descriptionProcessor,
+		enumProcessor,
+		numericProcessor,
+	)
+
+	// Build specification with the composed processor
+	spec := builder.New(parser.OASVersion320,
+		builder.WithSchemaFieldProcessor(composedProcessor),
+	).
+		SetTitle("Server Config API").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodGet, "/config",
+			builder.WithResponse(http.StatusOK, ServerConfig{}),
+		)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Access the generated schema
+	configSchema := doc.Components.Schemas["builder_test.ServerConfig"]
+	hostSchema := configSchema.Properties["host"]
+	portSchema := configSchema.Properties["port"]
+	modeSchema := configSchema.Properties["mode"]
+
+	fmt.Printf("Host description: %s\n", hostSchema.Description)
+	fmt.Printf("Port description: %s\n", portSchema.Description)
+	fmt.Printf("Port minimum: %.0f\n", *portSchema.Minimum)
+	fmt.Printf("Port maximum: %.0f\n", *portSchema.Maximum)
+	fmt.Printf("Mode description: %s\n", modeSchema.Description)
+	fmt.Printf("Mode enum: %v\n", modeSchema.Enum)
+	// Output:
+	// Host description: Server hostname
+	// Port description: Server port
+	// Port minimum: 1
+	// Port maximum: 65535
+	// Mode description: Operating mode
+	// Mode enum: [development staging production]
 }
