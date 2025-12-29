@@ -118,7 +118,7 @@ actions:
 
 ## Next Steps
 
-- [Overlay Deep Dive](../../packages/overlay/) - Complete overlay documentation
+- [Overlay Deep Dive](../../../packages/overlay/) - Complete overlay documentation
 - [OpenAPI Overlay Spec](https://spec.openapis.org/overlay/v1.0.0.html) - Official specification
 - [HTTP Validation](../http-validation/) - Validate requests against the spec
 
