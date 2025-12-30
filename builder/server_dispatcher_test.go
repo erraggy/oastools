@@ -1,8 +1,10 @@
 package builder
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -625,5 +627,157 @@ func TestDispatcher_ResponseJSON(t *testing.T) {
 	}
 	if body["message"] != "hello" {
 		t.Errorf("Expected message 'hello', got '%s'", body["message"])
+	}
+}
+
+func TestDispatcher_MultipartBodyNotConsumed(t *testing.T) {
+	t.Parallel()
+
+	srv := NewServerBuilder(parser.OASVersion320, WithoutValidation()).
+		SetTitle("Test API").
+		SetVersion("1.0.0")
+
+	srv.AddOperation(http.MethodPost, "/upload",
+		WithOperationID("uploadFile"),
+		WithFileParam("spec", WithParamRequired(true)),
+		WithResponse(http.StatusOK, struct{}{}),
+	)
+
+	var formFileErr error
+	var formFileName string
+	var formFileContent string
+
+	srv.Handle(http.MethodPost, "/upload", func(_ context.Context, req *Request) Response {
+		// This should work - the body should NOT be consumed by buildRequest
+		file, header, err := req.HTTPRequest.FormFile("spec")
+		formFileErr = err
+		if err == nil {
+			formFileName = header.Filename
+			buf := new(bytes.Buffer)
+			_, _ = buf.ReadFrom(file)
+			formFileContent = buf.String()
+			_ = file.Close()
+		}
+		return JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
+
+	result := srv.MustBuildServer()
+
+	// Create multipart form data
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, err := writer.CreateFormFile("spec", "test.yaml")
+	if err != nil {
+		t.Fatalf("Failed to create form file: %v", err)
+	}
+	_, _ = part.Write([]byte("openapi: 3.0.0\ninfo:\n  title: Test\n  version: 1.0.0"))
+	_ = writer.Close()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/upload", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	result.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rec.Code)
+	}
+
+	if formFileErr != nil {
+		t.Errorf("FormFile should work for multipart requests, got error: %v", formFileErr)
+	}
+
+	if formFileName != "test.yaml" {
+		t.Errorf("Expected filename 'test.yaml', got '%s'", formFileName)
+	}
+
+	if !strings.Contains(formFileContent, "openapi: 3.0.0") {
+		t.Errorf("Expected file content to contain 'openapi: 3.0.0', got '%s'", formFileContent)
+	}
+}
+
+func TestDispatcher_MultipartBodyAndRawBodyNil(t *testing.T) {
+	t.Parallel()
+
+	srv := NewServerBuilder(parser.OASVersion320, WithoutValidation()).
+		SetTitle("Test API").
+		SetVersion("1.0.0")
+
+	srv.AddOperation(http.MethodPost, "/upload",
+		WithOperationID("uploadFile"),
+		WithFileParam("file"),
+		WithResponse(http.StatusOK, struct{}{}),
+	)
+
+	var capturedBody any
+	var capturedRawBody []byte
+
+	srv.Handle(http.MethodPost, "/upload", func(_ context.Context, req *Request) Response {
+		capturedBody = req.Body
+		capturedRawBody = req.RawBody
+		return JSON(http.StatusOK, nil)
+	})
+
+	result := srv.MustBuildServer()
+
+	// Create multipart form data
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, _ := writer.CreateFormFile("file", "test.txt")
+	_, _ = part.Write([]byte("file content"))
+	_ = writer.Close()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/upload", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	result.Handler.ServeHTTP(rec, req)
+
+	// For multipart requests, Body and RawBody should be nil since we skip reading
+	if capturedBody != nil {
+		t.Errorf("Body should be nil for multipart requests, got %v", capturedBody)
+	}
+	if capturedRawBody != nil {
+		t.Errorf("RawBody should be nil for multipart requests, got %v", capturedRawBody)
+	}
+}
+
+func TestDispatcher_MultipartCaseInsensitive(t *testing.T) {
+	t.Parallel()
+
+	srv := NewServerBuilder(parser.OASVersion320, WithoutValidation()).
+		SetTitle("Test API").
+		SetVersion("1.0.0")
+
+	srv.AddOperation(http.MethodPost, "/upload",
+		WithOperationID("uploadFile"),
+		WithFileParam("file"),
+		WithResponse(http.StatusOK, struct{}{}),
+	)
+
+	var formFileErr error
+
+	srv.Handle(http.MethodPost, "/upload", func(_ context.Context, req *Request) Response {
+		// FormFile should work even with uppercase Content-Type
+		_, _, err := req.HTTPRequest.FormFile("file")
+		formFileErr = err
+		return JSON(http.StatusOK, nil)
+	})
+
+	result := srv.MustBuildServer()
+
+	// Test with uppercase MULTIPART - per RFC 1521, media types are case-insensitive
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, _ := writer.CreateFormFile("file", "test.txt")
+	_, _ = part.Write([]byte("content"))
+	_ = writer.Close()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/upload", &buf)
+	// Deliberately use uppercase to test case-insensitivity
+	req.Header.Set("Content-Type", "MULTIPART/FORM-DATA; boundary="+writer.Boundary())
+	result.Handler.ServeHTTP(rec, req)
+
+	if formFileErr != nil {
+		t.Errorf("FormFile should work with uppercase Content-Type, got error: %v", formFileErr)
 	}
 }

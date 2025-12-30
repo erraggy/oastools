@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
+	"mime"
 	"net/http"
 	"slices"
 	"strings"
@@ -99,10 +101,10 @@ func (d *dispatcher) buildRequest(r *http.Request, route operationRoute) *Reques
 	// Get validation result from context (if validation is enabled)
 	if result := validationResultFromContext(r.Context()); result != nil {
 		// Use validated/deserialized params from httpvalidator
-		copyParams(req.PathParams, result.PathParams)
-		copyParams(req.QueryParams, result.QueryParams)
-		copyParams(req.HeaderParams, result.HeaderParams)
-		copyParams(req.CookieParams, result.CookieParams)
+		maps.Copy(req.PathParams, result.PathParams)
+		maps.Copy(req.QueryParams, result.QueryParams)
+		maps.Copy(req.HeaderParams, result.HeaderParams)
+		maps.Copy(req.CookieParams, result.CookieParams)
 	} else {
 		// Fallback: extract raw path params from context
 		if params, ok := r.Context().Value(pathParamsKey{}).(map[string]string); ok {
@@ -123,7 +125,12 @@ func (d *dispatcher) buildRequest(r *http.Request, route operationRoute) *Reques
 
 	// Read and unmarshal body if present
 	// Note: We check for ContentLength != 0 to handle chunked encoding (ContentLength == -1)
-	if r.Body != nil && r.ContentLength != 0 {
+	// Skip reading for multipart requests to allow handlers to use FormFile()
+	// Use mime.ParseMediaType for case-insensitive handling per RFC 1521
+	contentType := r.Header.Get("Content-Type")
+	mediaType, _, _ := mime.ParseMediaType(contentType)
+	isMultipart := strings.HasPrefix(mediaType, "multipart/")
+	if r.Body != nil && r.ContentLength != 0 && !isMultipart {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			// Store the error for handlers that want to check it
@@ -133,8 +140,7 @@ func (d *dispatcher) buildRequest(r *http.Request, route operationRoute) *Reques
 		} else {
 			req.RawBody = body
 			// Attempt JSON unmarshal if content type suggests JSON
-			contentType := r.Header.Get("Content-Type")
-			if len(body) > 0 && (contentType == "" || strings.Contains(contentType, "json")) {
+			if len(body) > 0 && (mediaType == "" || strings.Contains(mediaType, "json")) {
 				var parsed any
 				if json.Unmarshal(body, &parsed) == nil {
 					req.Body = parsed
@@ -145,13 +151,6 @@ func (d *dispatcher) buildRequest(r *http.Request, route operationRoute) *Reques
 	}
 
 	return req
-}
-
-// copyParams copies values from source to destination map.
-func copyParams(dst, src map[string]any) {
-	for k, v := range src {
-		dst[k] = v
-	}
 }
 
 // allowedMethods returns a sorted list of allowed methods for a path.
