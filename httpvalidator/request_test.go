@@ -2,6 +2,7 @@ package httpvalidator
 
 import (
 	"bytes"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -1032,6 +1033,128 @@ paths:
 		// Should have multiple errors: invalid path param type, missing header, missing cookie, missing required field
 		assert.GreaterOrEqual(t, len(result.Errors), 3, "errors: %v", result.Errors)
 	})
+}
+
+// =============================================================================
+// Multipart Body Preservation Tests
+// =============================================================================
+
+func TestValidateRequestBody_MultipartBodyNotConsumed(t *testing.T) {
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /upload:
+    post:
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: OK
+`)
+
+	v, err := New(parsed)
+	require.NoError(t, err)
+	v.IncludeWarnings = true
+
+	// Create a multipart request
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, err := writer.CreateFormFile("file", "test.txt")
+	require.NoError(t, err)
+	_, err = part.Write([]byte("file content here"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest("POST", "/upload", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// Validate the request
+	result, err := v.ValidateRequest(req)
+	require.NoError(t, err)
+
+	// The validation should succeed (with a warning about limited multipart validation)
+	assert.True(t, result.Valid, "errors: %v", result.Errors)
+
+	// Crucially, the body should NOT be consumed - FormFile should work
+	file, header, err := req.FormFile("file")
+	if err != nil {
+		t.Errorf("FormFile should work after validation, but got error: %v", err)
+	} else {
+		defer func() { _ = file.Close() }()
+		assert.Equal(t, "test.txt", header.Filename)
+
+		content := new(bytes.Buffer)
+		_, _ = content.ReadFrom(file)
+		assert.Equal(t, "file content here", content.String())
+	}
+}
+
+func TestValidateRequestBody_MultipartMixedNotConsumed(t *testing.T) {
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /upload:
+    post:
+      requestBody:
+        content:
+          multipart/mixed:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+`)
+
+	v, err := New(parsed)
+	require.NoError(t, err)
+	v.IncludeWarnings = true
+
+	// Create a simple multipart/mixed request
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, _ := writer.CreateFormField("field1")
+	_, _ = part.Write([]byte("value1"))
+	_ = writer.Close()
+
+	req := httptest.NewRequest("POST", "/upload", &buf)
+	req.Header.Set("Content-Type", "multipart/mixed; boundary="+writer.Boundary())
+
+	result, err := v.ValidateRequest(req)
+	require.NoError(t, err)
+
+	// Check the warning is emitted
+	hasMultipartWarning := false
+	for _, w := range result.Warnings {
+		if containsSubstring(w.Message, "multipart") {
+			hasMultipartWarning = true
+			break
+		}
+	}
+	assert.True(t, hasMultipartWarning, "expected multipart warning")
+
+	// Body should still be readable (not consumed)
+	// We can't use ParseMultipartForm for multipart/mixed, but we can verify
+	// the body stream hasn't been consumed by reading from it
+	reader := multipart.NewReader(req.Body, writer.Boundary())
+	part2, err := reader.NextPart()
+	assert.NoError(t, err, "should be able to read multipart body after validation")
+	if part2 != nil {
+		_ = part2.Close()
+	}
 }
 
 // =============================================================================

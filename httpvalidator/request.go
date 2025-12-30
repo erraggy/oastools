@@ -359,6 +359,16 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 		return
 	}
 
+	// Skip reading body for multipart requests to allow handlers to use FormFile()
+	// Multipart validation would require parsing the form data ourselves, which is
+	// beyond the scope of basic request validation.
+	if strings.HasPrefix(mediaType, "multipart/") {
+		if v.IncludeWarnings {
+			result.addWarning("requestBody", "multipart/form-data validation is limited")
+		}
+		return
+	}
+
 	// Read and parse body based on content type
 	body, readErr := io.ReadAll(req.Body)
 	if readErr != nil {
@@ -377,12 +387,6 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 
 	case mediaType == "application/x-www-form-urlencoded":
 		v.validateFormBody(body, bodySchema, pathTemplate, operation, result)
-
-	case strings.HasPrefix(mediaType, "multipart/form-data"):
-		// Multipart forms require special handling
-		if v.IncludeWarnings {
-			result.addWarning("requestBody", "multipart/form-data validation is limited")
-		}
 
 	case strings.HasPrefix(mediaType, "text/"):
 		// Text body - validate as string
