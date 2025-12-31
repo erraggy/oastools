@@ -2,6 +2,9 @@
 
 # Differ Package Deep Dive
 
+!!! tip "Try it Online"
+    No installation required! [Try the differ in your browser →](https://oastools.robnrob.com/diff)
+
 ## Table of Contents
 
 - [Overview](#overview)

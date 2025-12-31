@@ -185,6 +185,25 @@ make docs-build   # Build static site to site/
 
 For CI deployment and documentation structure, see [WORKFLOW.md](WORKFLOW.md).
 
+### ⚠️ Source vs Generated Documentation Files
+
+**CRITICAL: The `docs/packages/` directory contains GENERATED files. Do NOT edit them directly.**
+
+The documentation build process (`scripts/prepare-docs.sh`) copies files from source locations:
+
+| Source | Generated | Description |
+|--------|-----------|-------------|
+| `README.md` | `docs/index.md` | Home page |
+| `{package}/deep_dive.md` | `docs/packages/{package}.md` | Package deep dives |
+| `examples/*/README.md` | `docs/examples/*.md` | Example documentation |
+
+**Always edit the SOURCE files:**
+- To update the home page → edit `README.md`
+- To update package docs → edit `{package}/deep_dive.md` (e.g., `validator/deep_dive.md`)
+- To update examples → edit `examples/*/README.md`
+
+The `docs/packages/` directory is in `.gitignore` and gets regenerated on every `make docs-build` or `make docs-serve`.
+
 ## Architecture
 
 ### Directory Structure
