@@ -2,6 +2,9 @@
 
 # Fixer Package Deep Dive
 
+!!! tip "Try it Online"
+    No installation required! [Try the fixer in your browser →](https://oastools.robnrob.com/fix)
+
 The [`fixer`](https://pkg.go.dev/github.com/erraggy/oastools/fixer) package provides automatic fixes for common OpenAPI Specification validation errors, supporting both OAS 2.0 and OAS 3.x documents.
 
 ## Table of Contents

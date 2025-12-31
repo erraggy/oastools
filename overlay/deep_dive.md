@@ -2,6 +2,9 @@
 
 # Overlay Package Deep Dive
 
+!!! tip "Try it Online"
+    No installation required! [Try the overlay tool in your browser →](https://oastools.robnrob.com/overlay)
+
 The [`overlay`](https://pkg.go.dev/github.com/erraggy/oastools/overlay) package implements the [OpenAPI Overlay Specification v1.0.0](https://github.com/OAI/Overlay-Specification), providing a standardized mechanism for augmenting OpenAPI documents through targeted transformations.
 
 ## Table of Contents

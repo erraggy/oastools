@@ -10,6 +10,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 [![codecov](https://codecov.io/gh/erraggy/oastools/graph/badge.svg?token=T8768QXQAX)](https://codecov.io/gh/erraggy/oastools)
 [![Go Reference](https://pkg.go.dev/badge/github.com/erraggy/oastools.svg)](https://pkg.go.dev/github.com/erraggy/oastools)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Try it Online](https://img.shields.io/badge/Try_it-Online-blue)](https://oastools.robnrob.com)
 
 **Parse, validate, fix, convert, diff, join, generate, and build OpenAPI specs (2.0-3.2.0) with zero runtime dependencies beyond YAML for parsing, x/tools for generating, and x/text for title casing.**
 
@@ -26,19 +27,19 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 
 ## Package Ecosystem
 
-| Package                                                               | Description                                            |
-|-----------------------------------------------------------------------|--------------------------------------------------------|
-| [parser](https://pkg.go.dev/github.com/erraggy/oastools/parser)       | Parse & analyze OAS files from files, URLs, or readers |
-| [validator](https://pkg.go.dev/github.com/erraggy/oastools/validator) | Validate specs with structural & semantic checks       |
-| [fixer](https://pkg.go.dev/github.com/erraggy/oastools/fixer)         | Auto-fix common validation errors                      |
-| [httpvalidator](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator) | Validate HTTP requests/responses against OAS at runtime |
-| [converter](https://pkg.go.dev/github.com/erraggy/oastools/converter) | Convert between OAS 2.0 and 3.x                        |
-| [joiner](https://pkg.go.dev/github.com/erraggy/oastools/joiner)       | Merge multiple OAS documents with schema deduplication |
-| [overlay](https://pkg.go.dev/github.com/erraggy/oastools/overlay)     | Apply OpenAPI Overlay v1.0.0 with JSONPath targeting   |
-| [differ](https://pkg.go.dev/github.com/erraggy/oastools/differ)       | Detect breaking changes between versions               |
-| [generator](https://pkg.go.dev/github.com/erraggy/oastools/generator) | Generate Go client/server code with security support   |
-| [builder](https://pkg.go.dev/github.com/erraggy/oastools/builder)     | Programmatically construct OAS documents with deduplication |
-| [oaserrors](https://pkg.go.dev/github.com/erraggy/oastools/oaserrors) | Structured error types for programmatic handling       |
+| Package | Description | Try |
+|---------|-------------|:---:|
+| [parser](https://pkg.go.dev/github.com/erraggy/oastools/parser) | Parse & analyze OAS files from files, URLs, or readers | |
+| [validator](https://pkg.go.dev/github.com/erraggy/oastools/validator) | Validate specs with structural & semantic checks | [🌐](https://oastools.robnrob.com/validate) |
+| [fixer](https://pkg.go.dev/github.com/erraggy/oastools/fixer) | Auto-fix common validation errors | [🌐](https://oastools.robnrob.com/fix) |
+| [httpvalidator](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator) | Validate HTTP requests/responses against OAS at runtime | |
+| [converter](https://pkg.go.dev/github.com/erraggy/oastools/converter) | Convert between OAS 2.0 and 3.x | [🌐](https://oastools.robnrob.com/convert) |
+| [joiner](https://pkg.go.dev/github.com/erraggy/oastools/joiner) | Merge multiple OAS documents with schema deduplication | [🌐](https://oastools.robnrob.com/join) |
+| [overlay](https://pkg.go.dev/github.com/erraggy/oastools/overlay) | Apply OpenAPI Overlay v1.0.0 with JSONPath targeting | [🌐](https://oastools.robnrob.com/overlay) |
+| [differ](https://pkg.go.dev/github.com/erraggy/oastools/differ) | Detect breaking changes between versions | [🌐](https://oastools.robnrob.com/diff) |
+| [generator](https://pkg.go.dev/github.com/erraggy/oastools/generator) | Generate Go client/server code with security support | |
+| [builder](https://pkg.go.dev/github.com/erraggy/oastools/builder) | Programmatically construct OAS documents with deduplication | |
+| [oaserrors](https://pkg.go.dev/github.com/erraggy/oastools/oaserrors) | Structured error types for programmatic handling | |
 
 All packages include comprehensive documentation with runnable examples. See individual package pages on [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) for API details.
 
@@ -93,6 +94,12 @@ go get github.com/erraggy/oastools@latest
 ```
 
 Requires Go 1.24 or higher.
+
+## Try it Online
+
+No installation required! Use oastools directly in your browser:
+
+🌐 **[oastools.robnrob.com](https://oastools.robnrob.com)** — Validate, convert, diff, fix, join, and apply overlays without installing anything.
 
 ## Quick Start
 

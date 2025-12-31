@@ -2,6 +2,9 @@
 
 # Converter Package Deep Dive
 
+!!! tip "Try it Online"
+    No installation required! [Try the converter in your browser →](https://oastools.robnrob.com/convert)
+
 The [`converter`](https://pkg.go.dev/github.com/erraggy/oastools/converter) package provides version conversion for OpenAPI Specification documents, supporting bidirectional conversion between OAS 2.0 and OAS 3.x.
 
 ## Table of Contents

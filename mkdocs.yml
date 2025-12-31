@@ -48,6 +48,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - "🌐 Try Online": https://oastools.robnrob.com
   - "📄 White Paper": whitepaper.md
   - Guides:
     - Developer Guide: developer-guide.md
