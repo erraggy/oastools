@@ -72,6 +72,14 @@ nav:
     - Programmatic API:
       - Overview: examples/programmatic-api/index.md
       - Builder: examples/programmatic-api/builder.md
+    - Walker:
+      - examples/walker/index.md
+      - examples/walker/api-statistics.md
+      - examples/walker/security-audit.md
+      - examples/walker/vendor-extensions.md
+      - examples/walker/public-api-filter.md
+      - examples/walker/api-documentation.md
+      - examples/walker/reference-collector.md
     - Code Generation:
       - Overview: examples/petstore/index.md
       - Standard Library: examples/petstore/stdlib.md

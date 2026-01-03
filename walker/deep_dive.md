@@ -653,3 +653,18 @@ The walker supports OAS 3.2 features:
 - `PathItem.Query` operation (QUERY method)
 - `PathItem.AdditionalOperations` for custom methods
 - `Components.MediaTypes` for reusable media types
+
+## Examples
+
+The `examples/walker/` directory contains runnable examples demonstrating walker patterns:
+
+| Example | Category | Description |
+|---------|----------|-------------|
+| [api-statistics](../examples/walker/api-statistics/) | Analysis | Collect API statistics in single pass |
+| [security-audit](../examples/walker/security-audit/) | Validation | Audit for security issues |
+| [vendor-extensions](../examples/walker/vendor-extensions/) | Mutation | Add vendor extensions |
+| [public-api-filter](../examples/walker/public-api-filter/) | Filtering | Extract public API only |
+| [api-documentation](../examples/walker/api-documentation/) | Reporting | Generate Markdown docs |
+| [reference-collector](../examples/walker/reference-collector/) | Integration | Analyze schema references |
+
+Each example includes a README with detailed explanations and expected output.
