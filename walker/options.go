@@ -36,7 +36,8 @@ type walkConfig struct {
 	maxSchemaDepth int
 }
 
-// WalkInputOption configures WalkWithOptions.
+// WalkInputOption configures the WalkWithOptions function.
+// Options may return an error for invalid configuration values (e.g., non-positive maxSchemaDepth).
 type WalkInputOption func(*walkConfig) error
 
 // WithFilePath specifies a file path to parse and walk.
@@ -56,8 +57,12 @@ func WithParsed(result *parser.ParseResult) WalkInputOption {
 }
 
 // WithMaxSchemaDepthOption sets the maximum schema recursion depth.
+// Returns an error if depth is not positive.
 func WithMaxSchemaDepthOption(depth int) WalkInputOption {
 	return func(cfg *walkConfig) error {
+		if depth <= 0 {
+			return fmt.Errorf("maxSchemaDepth must be positive, got %d", depth)
+		}
 		cfg.maxSchemaDepth = depth
 		return nil
 	}

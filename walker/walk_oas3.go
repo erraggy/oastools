@@ -82,7 +82,7 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document) error {
 
 // walkOAS3Paths walks all paths in sorted order.
 func (w *Walker) walkOAS3Paths(paths parser.Paths, basePath string) error {
-	pathKeys := sortedKeys(paths)
+	pathKeys := sortedMapKeys(paths)
 	for _, pathTemplate := range pathKeys {
 		if w.stopped {
 			return nil

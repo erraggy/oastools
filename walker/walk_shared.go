@@ -7,16 +7,6 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// sortedKeys returns sorted keys from a Paths map.
-func sortedKeys(paths parser.Paths) []string {
-	keys := make([]string, 0, len(paths))
-	for k := range paths {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
 // sortedMapKeys returns sorted keys from any map with string keys.
 func sortedMapKeys[V any](m map[string]V) []string {
 	keys := make([]string, 0, len(m))
@@ -71,13 +61,7 @@ func (w *Walker) walkParameter(param *parser.Parameter, basePath string) error {
 
 // walkHeaders walks a map of Headers.
 func (w *Walker) walkHeaders(headers map[string]*parser.Header, basePath string) error {
-	headerKeys := make([]string, 0, len(headers))
-	for k := range headers {
-		headerKeys = append(headerKeys, k)
-	}
-	sort.Strings(headerKeys)
-
-	for _, name := range headerKeys {
+	for _, name := range sortedMapKeys(headers) {
 		if w.stopped {
 			return nil
 		}
@@ -131,13 +115,7 @@ func (w *Walker) walkHeader(name string, header *parser.Header, basePath string)
 
 // walkContent walks a map of MediaTypes.
 func (w *Walker) walkContent(content map[string]*parser.MediaType, basePath string) error {
-	mediaTypeKeys := make([]string, 0, len(content))
-	for k := range content {
-		mediaTypeKeys = append(mediaTypeKeys, k)
-	}
-	sort.Strings(mediaTypeKeys)
-
-	for _, mtName := range mediaTypeKeys {
+	for _, mtName := range sortedMapKeys(content) {
 		if w.stopped {
 			return nil
 		}
@@ -184,13 +162,7 @@ func (w *Walker) walkMediaType(name string, mt *parser.MediaType, basePath strin
 
 // walkExamples walks a map of Examples.
 func (w *Walker) walkExamples(examples map[string]*parser.Example, basePath string) error {
-	exKeys := make([]string, 0, len(examples))
-	for k := range examples {
-		exKeys = append(exKeys, k)
-	}
-	sort.Strings(exKeys)
-
-	for _, name := range exKeys {
+	for _, name := range sortedMapKeys(examples) {
 		if w.stopped {
 			return nil
 		}

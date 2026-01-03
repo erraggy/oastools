@@ -140,7 +140,7 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
 
 // walkOAS2Paths walks all paths in sorted order.
 func (w *Walker) walkOAS2Paths(paths parser.Paths, basePath string) error {
-	pathKeys := sortedKeys(paths)
+	pathKeys := sortedMapKeys(paths)
 	for _, pathTemplate := range pathKeys {
 		if w.stopped {
 			return nil

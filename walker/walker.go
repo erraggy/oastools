@@ -20,6 +20,25 @@ const (
 	Stop
 )
 
+// IsValid returns true if the action is one of the defined constants.
+func (a Action) IsValid() bool {
+	return a >= Continue && a <= Stop
+}
+
+// String returns a string representation of the action.
+func (a Action) String() string {
+	switch a {
+	case Continue:
+		return "Continue"
+	case SkipChildren:
+		return "SkipChildren"
+	case Stop:
+		return "Stop"
+	default:
+		return fmt.Sprintf("Action(%d)", a)
+	}
+}
+
 // Handler types for each OAS node type.
 // Each handler receives the node and its JSON path, and returns an Action.
 
@@ -208,9 +227,14 @@ func WithExternalDocsHandler(fn ExternalDocsHandler) Option {
 }
 
 // WithMaxSchemaDepth sets the maximum recursion depth for schema traversal.
-// Default is 100.
+// Default is 100. If depth is <= 0, the default is kept.
 func WithMaxSchemaDepth(depth int) Option {
-	return func(w *Walker) { w.maxSchemaDepth = depth }
+	return func(w *Walker) {
+		if depth > 0 {
+			w.maxSchemaDepth = depth
+		}
+		// If depth <= 0, keep the default (100)
+	}
 }
 
 // Walk traverses the parsed document and calls registered handlers for each node.
