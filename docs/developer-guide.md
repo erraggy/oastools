@@ -19,6 +19,7 @@ This guide provides comprehensive documentation for developers using oastools as
   - [Generator Package](#generator-package)
   - [Builder Package](#builder-package)
   - [Overlay Package](#overlay-package)
+  - [Walker Package](#walker-package)
 - [Advanced Patterns](#advanced-patterns)
   - [Parse-Once Pattern](#parse-once-pattern)
   - [Error Handling](#error-handling)
@@ -1461,6 +1462,74 @@ if len(errs) > 0 {
 // Wildcard selectors
 {Target: "$.paths.*.get", Update: map[string]any{"x-cached": true}}
 ```
+
+### Walker Package
+
+The walker package provides document traversal with typed handlers for OpenAPI specifications.
+
+**Basic Traversal:**
+
+```go
+import (
+    "github.com/erraggy/oastools/parser"
+    "github.com/erraggy/oastools/walker"
+)
+
+// Parse document once
+result, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
+
+// Walk with handlers
+var operationCount int
+err := walker.Walk(result,
+    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+        operationCount++
+        return walker.Continue
+    }),
+)
+```
+
+**Flow Control:**
+
+```go
+// Skip internal paths
+walker.Walk(result,
+    walker.WithPathHandler(func(pathTemplate string, pi *parser.PathItem, path string) walker.Action {
+        if strings.HasPrefix(pathTemplate, "/internal") {
+            return walker.SkipChildren
+        }
+        return walker.Continue
+    }),
+)
+
+// Stop on first match
+var found *parser.Schema
+walker.Walk(result,
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        if schema.Title == "Target" {
+            found = schema
+            return walker.Stop
+        }
+        return walker.Continue
+    }),
+)
+```
+
+**Mutation Support:**
+
+```go
+// Handlers receive pointers for in-place modification
+walker.Walk(result,
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        if schema.Extra == nil {
+            schema.Extra = make(map[string]any)
+        }
+        schema.Extra["x-processed"] = true
+        return walker.Continue
+    }),
+)
+```
+
+> **Deep Dive:** For comprehensive examples including cycle detection, depth limiting, and all handler types, see the [Walker Deep Dive](packages/walker.md).
 
 ## Advanced Patterns
 

@@ -219,6 +219,7 @@ The `docs/packages/` directory is in `.gitignore` and gets regenerated on every 
 - **generator/** - Generate Go client/server code with security and server extensions
 - **builder/** - Programmatically construct OpenAPI specifications
 - **overlay/** - Apply OpenAPI Overlay transformations
+- **walker/** - Traverse OAS documents with typed handlers and flow control
 - **oaserrors/** - Sentinel errors for programmatic error handling
 - **internal/** - Shared utilities (httputil, severity, issues, testutil)
 - **testdata/** - Test fixtures including sample OAS files
@@ -396,6 +397,7 @@ func BenchmarkOperation(b *testing.B) {
 | fixer | `BenchmarkFixParsed` |
 | converter | `BenchmarkConvertParsed*` |
 | differ | `BenchmarkDiff/Parsed` |
+| walker | `BenchmarkWalk/Parsed` |
 
 See [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md) for detailed guidance.
 
@@ -455,6 +457,7 @@ All core packages are public:
 - `github.com/erraggy/oastools/httpvalidator` - Validate HTTP requests/responses at runtime
 - `github.com/erraggy/oastools/generator` - Generate Go client/server code with server extensions
 - `github.com/erraggy/oastools/builder` - Build OpenAPI specifications programmatically
+- `github.com/erraggy/oastools/walker` - Traverse OpenAPI documents with typed handlers
 
 ### API Design Philosophy
 

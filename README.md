@@ -17,8 +17,8 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 ## Highlights
 
 - **Minimal Dependencies** - Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4), [`golang.org/x/tools`](https://pkg.go.dev/golang.org/x/tools), and [`golang.org/x/text`](https://pkg.go.dev/golang.org/x/text) at runtime
-- **Battle-Tested** - 4600+ tests against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
-- **Complete Toolset** - 11 packages covering the full OpenAPI lifecycle
+- **Battle-Tested** - 5100+ tests against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
+- **Complete Toolset** - 12 packages covering the full OpenAPI lifecycle
 - **Performance Optimized** - 240+ benchmarks; pre-parsed workflows 9-150x faster
 - **Type-Safe Cloning** - Generated `DeepCopy()` methods preserve types across OAS versions (no JSON marshal hacks)
 - **Enterprise Ready** - Structured errors with `errors.Is()`/`errors.As()`, pluggable logging, configurable resource limits
@@ -39,6 +39,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 | [differ](https://pkg.go.dev/github.com/erraggy/oastools/differ) | Detect breaking changes between versions | [🌐](https://oastools.robnrob.com/diff) |
 | [generator](https://pkg.go.dev/github.com/erraggy/oastools/generator) | Generate Go client/server code with security support | |
 | [builder](https://pkg.go.dev/github.com/erraggy/oastools/builder) | Programmatically construct OAS documents with deduplication | |
+| [walker](https://pkg.go.dev/github.com/erraggy/oastools/walker) | Traverse OAS documents with typed handlers and flow control | |
 | [oaserrors](https://pkg.go.dev/github.com/erraggy/oastools/oaserrors) | Structured error types for programmatic handling | |
 
 All packages include comprehensive documentation with runnable examples. See individual package pages on [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools) for API details.
@@ -59,6 +60,7 @@ For comprehensive examples and advanced usage patterns:
 | overlay | [Overlay Transformations](overlay/deep_dive.md) |
 | parser | [Parsing & Reference Resolution](parser/deep_dive.md) |
 | validator | [Specification Validation](validator/deep_dive.md) |
+| walker | [Document Traversal](walker/deep_dive.md) |
 
 ## Examples
 
@@ -71,7 +73,7 @@ The [`examples/`](examples/) directory contains complete, runnable examples demo
 | **Programmatic API** | [builder](examples/programmatic-api/builder/) with ServerBuilder | 5 min |
 | **Code Generation** | [petstore](examples/petstore/) (stdlib & chi router variants) | 10 min |
 
-Each example is a standalone Go module with its own README, covering all 10 packages in the ecosystem. See [`examples/README.md`](examples/README.md) for the full feature matrix.
+Each example is a standalone Go module with its own README, covering all 11 public packages in the ecosystem. See [`examples/README.md`](examples/README.md) for the full feature matrix.
 
 ## Installation
 
@@ -317,7 +319,7 @@ result, err := parser.ParseWithOptions(
 
 📄 **[White Paper](https://erraggy.github.io/oastools/whitepaper/)** - Comprehensive technical exploration of oastools architecture and design
 
-📚 **[Developer Guide](docs/developer-guide.md)** - Complete library usage with examples for all 10 packages
+📚 **[Developer Guide](docs/developer-guide.md)** - Complete library usage with examples for all 11 public packages
 
 📖 **[CLI Reference](docs/cli-reference.md)** - Full command documentation with all flags, options, and output formats
 

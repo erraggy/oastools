@@ -87,6 +87,7 @@ nav:
     - HTTP Validator: packages/httpvalidator.md
     - Generator: packages/generator.md
     - Builder: packages/builder.md
+    - Walker: packages/walker.md
   - Project Info:
     - Contributing: CONTRIBUTORS.md
     - License: LICENSE.md
