@@ -1,0 +1,481 @@
+# Walker Package Deep Dive
+
+The `walker` package provides a document traversal API for OpenAPI specifications, enabling single-pass traversal with typed handlers for analysis and mutation.
+
+## Overview
+
+The walker visits all nodes in an OpenAPI document in a consistent order, calling registered handlers for each node type. This is useful for:
+
+- **Analysis**: Collecting statistics, finding patterns, validating custom rules
+- **Transformation**: Adding vendor extensions, modifying descriptions, normalizing formats
+- **Code Generation**: Gathering type information across the document
+
+## Core Concepts
+
+### Action-Based Flow Control
+
+Handlers return an `Action` to control traversal:
+
+```go
+type Action int
+
+const (
+    Continue     Action = iota  // Continue to children and siblings
+    SkipChildren                // Skip children, continue to siblings
+    Stop                        // Stop walking entirely
+)
+```
+
+This provides cleaner flow control than error-based approaches.
+
+#### Continue
+
+`Continue` tells the walker to proceed normally—descend into children, then continue to siblings. This is the default behavior for most handlers.
+
+```go
+// Count all schemas in the document
+var schemaCount int
+walker.Walk(result,
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        schemaCount++
+        return walker.Continue  // Visit nested schemas too
+    }),
+)
+```
+
+Use `Continue` when you want to:
+- **Visit every matching node** in the document
+- **Collect comprehensive information** (all operations, all schemas, etc.)
+- **Apply transformations uniformly** across the entire document
+
+#### SkipChildren
+
+`SkipChildren` tells the walker to skip the current node's descendants but continue to siblings. The walker moves horizontally rather than descending.
+
+```go
+// Find schemas but don't descend into their nested properties
+var topLevelSchemas []string
+walker.Walk(result,
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        // Only capture component-level schemas, not nested ones
+        if strings.HasPrefix(path, "$.components.schemas") &&
+           !strings.Contains(path, ".properties") {
+            topLevelSchemas = append(topLevelSchemas, path)
+        }
+        return walker.SkipChildren  // Don't walk into properties/items/etc.
+    }),
+)
+```
+
+Common use cases for `SkipChildren`:
+
+**1. Skipping internal/private paths:**
+```go
+walker.Walk(result,
+    walker.WithPathHandler(func(pathTemplate string, pi *parser.PathItem, path string) walker.Action {
+        if strings.HasPrefix(pathTemplate, "/internal") ||
+           strings.HasPrefix(pathTemplate, "/_") {
+            return walker.SkipChildren  // Don't process internal endpoints
+        }
+        return walker.Continue
+    }),
+)
+```
+
+**2. Processing only top-level schemas (ignoring nested):**
+```go
+walker.Walk(result,
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        // Process this schema...
+        processSchema(schema)
+        // But don't recurse into properties, items, allOf, etc.
+        return walker.SkipChildren
+    }),
+)
+```
+
+**3. Conditional depth limiting:**
+```go
+walker.Walk(result,
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        depth := strings.Count(path, ".properties")
+        if depth >= 3 {
+            return walker.SkipChildren  // Stop at 3 levels of nesting
+        }
+        return walker.Continue
+    }),
+)
+```
+
+**4. Skipping deprecated operations:**
+```go
+walker.Walk(result,
+    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+        if op.Deprecated {
+            return walker.SkipChildren  // Skip parameters, responses of deprecated ops
+        }
+        return walker.Continue
+    }),
+)
+```
+
+#### Stop
+
+`Stop` immediately terminates the entire walk. No more nodes are visited—the walker returns immediately.
+
+```go
+// Find the first schema with a specific title
+var targetSchema *parser.Schema
+walker.Walk(result,
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        if schema.Title == "UserProfile" {
+            targetSchema = schema
+            return walker.Stop  // Found it, no need to continue
+        }
+        return walker.Continue
+    }),
+)
+```
+
+Common use cases for `Stop`:
+
+**1. Search with early termination:**
+```go
+// Check if any operation uses a specific security scheme
+var usesOAuth bool
+walker.Walk(result,
+    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+        for _, req := range op.Security {
+            if _, ok := req["oauth2"]; ok {
+                usesOAuth = true
+                return walker.Stop  // Found one, that's enough
+            }
+        }
+        return walker.Continue
+    }),
+)
+```
+
+**2. Validation with fail-fast:**
+```go
+// Stop on first validation error
+var firstError error
+walker.Walk(result,
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        if err := validateCustomRule(schema); err != nil {
+            firstError = fmt.Errorf("%s: %w", path, err)
+            return walker.Stop  // Fail fast
+        }
+        return walker.Continue
+    }),
+)
+```
+
+**3. Finding a specific node by path:**
+```go
+// Find operation at a specific path and method
+var targetOp *parser.Operation
+walker.Walk(result,
+    walker.WithOperationHandler(func(method string, op *parser.Operation, jsonPath string) walker.Action {
+        if jsonPath == "$.paths['/users/{id}'].get" {
+            targetOp = op
+            return walker.Stop
+        }
+        return walker.Continue
+    }),
+)
+```
+
+**4. Resource limits:**
+```go
+// Process at most N schemas
+const maxSchemas = 1000
+var processed int
+walker.Walk(result,
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        processed++
+        if processed >= maxSchemas {
+            return walker.Stop  // Resource limit reached
+        }
+        // Process schema...
+        return walker.Continue
+    }),
+)
+```
+
+#### Combining Actions Across Handlers
+
+Different handlers can return different actions to create sophisticated traversal patterns:
+
+```go
+// Analyze public APIs only, stop if we find a critical issue
+var criticalIssue error
+walker.Walk(result,
+    walker.WithPathHandler(func(pathTemplate string, pi *parser.PathItem, path string) walker.Action {
+        if strings.HasPrefix(pathTemplate, "/internal") {
+            return walker.SkipChildren  // Skip internal paths
+        }
+        return walker.Continue
+    }),
+    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+        if op.Deprecated {
+            return walker.SkipChildren  // Skip deprecated operations
+        }
+        return walker.Continue
+    }),
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        if hasCriticalVulnerability(schema) {
+            criticalIssue = fmt.Errorf("critical issue at %s", path)
+            return walker.Stop  // Halt everything
+        }
+        return walker.Continue
+    }),
+)
+```
+
+### Handler Types
+
+Each OAS node type has a corresponding handler type:
+
+| Handler | Called For | OAS Version |
+|---------|-----------|-------------|
+| `DocumentHandler` | Root document | All |
+| `InfoHandler` | API metadata | All |
+| `ServerHandler` | Server definitions | 3.x only |
+| `TagHandler` | Tag definitions | All |
+| `PathHandler` | Path entries | All |
+| `PathItemHandler` | Path items | All |
+| `OperationHandler` | Operations | All |
+| `ParameterHandler` | Parameters | All |
+| `RequestBodyHandler` | Request bodies | 3.x only |
+| `ResponseHandler` | Responses | All |
+| `SchemaHandler` | Schemas (including nested) | All |
+| `SecuritySchemeHandler` | Security schemes | All |
+| `HeaderHandler` | Headers | All |
+| `MediaTypeHandler` | Media types | 3.x only |
+| `LinkHandler` | Links | 3.x only |
+| `CallbackHandler` | Callbacks | 3.x only |
+| `ExampleHandler` | Examples | All |
+| `ExternalDocsHandler` | External docs | All |
+
+### JSON Path Context
+
+Each handler receives a JSON path string indicating the node's location:
+
+```
+$                                    # Document root
+$.info                               # Info object
+$.paths['/pets/{petId}']             # Path entry
+$.paths['/pets'].get                 # Operation
+$.paths['/pets'].get.parameters[0]   # Parameter
+$.components.schemas['Pet']          # Schema
+$.components.schemas['Pet'].properties['name']  # Nested schema
+```
+
+## API Reference
+
+### Primary Functions
+
+```go
+// Walk traverses a parsed document with registered handlers
+func Walk(result *parser.ParseResult, opts ...Option) error
+
+// WalkWithOptions provides functional options for input and configuration
+func WalkWithOptions(opts ...WalkInputOption) error
+```
+
+### Walk Options
+
+```go
+// Handler registration
+WithDocumentHandler(fn DocumentHandler)
+WithInfoHandler(fn InfoHandler)
+WithServerHandler(fn ServerHandler)
+WithTagHandler(fn TagHandler)
+WithPathHandler(fn PathHandler)
+WithPathItemHandler(fn PathItemHandler)
+WithOperationHandler(fn OperationHandler)
+WithParameterHandler(fn ParameterHandler)
+WithRequestBodyHandler(fn RequestBodyHandler)
+WithResponseHandler(fn ResponseHandler)
+WithSchemaHandler(fn SchemaHandler)
+WithSecuritySchemeHandler(fn SecuritySchemeHandler)
+WithHeaderHandler(fn HeaderHandler)
+WithMediaTypeHandler(fn MediaTypeHandler)
+WithLinkHandler(fn LinkHandler)
+WithCallbackHandler(fn CallbackHandler)
+WithExampleHandler(fn ExampleHandler)
+WithExternalDocsHandler(fn ExternalDocsHandler)
+
+// Configuration
+WithMaxSchemaDepth(depth int)  // Default: 100
+```
+
+### WalkWithOptions Input Options
+
+```go
+WithFilePath(path string)           // Parse and walk a file
+WithParsed(result *parser.ParseResult)  // Walk pre-parsed document
+WithMaxSchemaDepthOption(depth int)
+
+// On* variants for handler registration
+OnDocument(fn DocumentHandler)
+OnInfo(fn InfoHandler)
+// ... etc
+```
+
+## Walk Order
+
+### OAS 3.x Documents
+
+1. Document root
+2. Info
+3. ExternalDocs (root level)
+4. Servers
+5. Paths → PathItems → Operations → Parameters, RequestBody, Responses, Callbacks
+6. Webhooks (OAS 3.1+)
+7. Components (schemas, responses, parameters, requestBodies, headers, securitySchemes, links, callbacks, examples, pathItems)
+8. Tags
+
+### OAS 2.0 Documents
+
+1. Document root
+2. Info
+3. ExternalDocs (root level)
+4. Paths → PathItems → Operations → Parameters, Responses
+5. Definitions (schemas)
+6. Parameters (reusable)
+7. Responses (reusable)
+8. SecurityDefinitions
+9. Tags
+
+## Schema Walking
+
+The walker recursively visits all nested schemas:
+
+- `properties`, `patternProperties`, `dependentSchemas`, `$defs` (maps)
+- `allOf`, `anyOf`, `oneOf`, `prefixItems` (slices)
+- `items`, `additionalProperties`, `additionalItems`, `unevaluatedItems`, `unevaluatedProperties` (polymorphic)
+- `not`, `contains`, `propertyNames`, `contentSchema`, `if`, `then`, `else` (single)
+
+### Cycle Detection
+
+The walker uses pointer-based cycle detection to prevent infinite loops in circular schema references. Visited schemas are tracked and skipped on subsequent encounters.
+
+### Depth Limiting
+
+Use `WithMaxSchemaDepth(n)` to limit schema recursion depth (default: 100).
+
+## Usage Patterns
+
+### Mutation
+
+Handlers receive pointers to the actual document nodes, allowing in-place modification:
+
+```go
+walker.Walk(result,
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        // Add vendor extension to all schemas
+        if schema.Extra == nil {
+            schema.Extra = make(map[string]any)
+        }
+        schema.Extra["x-visited"] = true
+        return walker.Continue
+    }),
+)
+```
+
+### Version-Specific Handling
+
+The document handler receives `any` to support both OAS 2.0 and 3.x documents:
+
+```go
+walker.Walk(result,
+    walker.WithDocumentHandler(func(doc any, path string) walker.Action {
+        switch d := doc.(type) {
+        case *parser.OAS2Document:
+            fmt.Printf("OAS 2.0: %s\n", d.Info.Title)
+        case *parser.OAS3Document:
+            fmt.Printf("OAS 3.x: %s\n", d.Info.Title)
+        }
+        return walker.Continue
+    }),
+)
+```
+
+### Multiple Handlers
+
+Register multiple handlers to build up analysis in a single pass:
+
+```go
+var (
+    pathCount      int
+    operationCount int
+    schemaCount    int
+)
+
+walker.Walk(result,
+    walker.WithPathHandler(func(pathTemplate string, pi *parser.PathItem, path string) walker.Action {
+        pathCount++
+        return walker.Continue
+    }),
+    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+        operationCount++
+        return walker.Continue
+    }),
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        schemaCount++
+        return walker.Continue
+    }),
+)
+```
+
+### Using JSON Paths
+
+The path parameter enables location-aware processing:
+
+```go
+walker.Walk(result,
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        // Different handling based on location
+        switch {
+        case strings.HasPrefix(path, "$.components.schemas"):
+            // Component schema
+        case strings.Contains(path, ".requestBody"):
+            // Request body schema
+        case strings.Contains(path, ".responses"):
+            // Response schema
+        }
+        return walker.Continue
+    }),
+)
+```
+
+### WalkWithOptions API
+
+For parsing and walking in one call:
+
+```go
+err := walker.WalkWithOptions(
+    walker.WithFilePath("openapi.yaml"),
+    walker.OnSchema(func(schema *parser.Schema, path string) walker.Action {
+        fmt.Println(path)
+        return walker.Continue
+    }),
+)
+```
+
+## Performance
+
+- **Parse-Once Pattern**: Pass pre-parsed `ParseResult` instead of file paths
+- **Minimal Allocations**: Handler function calls have minimal overhead
+- **Deterministic Order**: Map keys are sorted for consistent traversal
+- **Early Exit**: Use `Stop` to terminate as soon as you find what you need
+
+## OAS 3.2 Support
+
+The walker supports OAS 3.2 features:
+
+- `PathItem.Query` operation (QUERY method)
+- `PathItem.AdditionalOperations` for custom methods
+- `Components.MediaTypes` for reusable media types

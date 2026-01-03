@@ -1,0 +1,108 @@
+// Package walker provides a document traversal API for OpenAPI specifications.
+//
+// The walker enables single-pass traversal of OAS 2.0, 3.0.x, 3.1.x, and 3.2.0 documents,
+// allowing handlers to receive and optionally mutate nodes. This is useful for analysis,
+// transformation, and validation tasks that need to inspect or modify multiple parts
+// of a specification in a consistent way.
+//
+// # Quick Start
+//
+// Walk a document and collect all operation IDs:
+//
+//	result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
+//
+//	var operationIDs []string
+//	err := walker.Walk(result,
+//	    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+//	        operationIDs = append(operationIDs, op.OperationID)
+//	        return walker.Continue
+//	    }),
+//	)
+//
+// # Flow Control
+//
+// Handlers return an [Action] to control traversal:
+//
+//   - [Continue]: continue traversing children and siblings normally
+//   - [SkipChildren]: skip all children of the current node, continue with siblings
+//   - [Stop]: stop the entire walk immediately
+//
+// Example using SkipChildren to avoid internal paths:
+//
+//	walker.Walk(result,
+//	    walker.WithPathHandler(func(pathTemplate string, pathItem *parser.PathItem, path string) walker.Action {
+//	        if strings.HasPrefix(pathTemplate, "/internal") {
+//	            return walker.SkipChildren
+//	        }
+//	        return walker.Continue
+//	    }),
+//	)
+//
+// # Handler Types
+//
+// The walker provides typed handlers for all major OAS node types:
+//
+//   - [DocumentHandler]: root OAS2Document or OAS3Document
+//   - [InfoHandler]: API metadata
+//   - [ServerHandler]: server definitions (OAS 3.x only)
+//   - [TagHandler]: tag definitions
+//   - [PathHandler]: path entries with template string
+//   - [PathItemHandler]: path item containing operations
+//   - [OperationHandler]: individual HTTP operations
+//   - [ParameterHandler]: parameters at path or operation level
+//   - [RequestBodyHandler]: request body definitions (OAS 3.x only)
+//   - [ResponseHandler]: response definitions
+//   - [SchemaHandler]: all schemas including nested schemas
+//   - [SecuritySchemeHandler]: security scheme definitions
+//   - [HeaderHandler]: header definitions
+//   - [MediaTypeHandler]: media type definitions (OAS 3.x only)
+//   - [LinkHandler]: link definitions (OAS 3.x only)
+//   - [CallbackHandler]: callback definitions (OAS 3.x only)
+//   - [ExampleHandler]: example definitions
+//   - [ExternalDocsHandler]: external documentation references
+//
+// # Mutation Support
+//
+// Handlers receive pointers to the actual nodes, so mutations are applied directly:
+//
+//	walker.Walk(result,
+//	    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+//	        if schema.Extra == nil {
+//	            schema.Extra = make(map[string]any)
+//	        }
+//	        schema.Extra["x-processed"] = true
+//	        return walker.Continue
+//	    }),
+//	)
+//
+// # JSON Path Context
+//
+// Each handler receives a JSON path string indicating the node's location:
+//
+//	$.info                              // Info object
+//	$.paths['/pets/{petId}']            // Path entry
+//	$.paths['/pets'].get                // Operation
+//	$.components.schemas['Pet']         // Schema
+//
+// # Performance Considerations
+//
+// The walker uses the Parse-Once pattern. Always prefer passing a pre-parsed
+// [parser.ParseResult] rather than re-parsing:
+//
+//	// Good: parse once, walk multiple times
+//	result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
+//	walker.Walk(result, handlers1...)
+//	walker.Walk(result, handlers2...)
+//
+// # Schema Cycle Detection
+//
+// The walker automatically detects circular schema references and avoids infinite loops.
+// Use [WithMaxSchemaDepth] to limit recursion depth for deeply nested schemas (default: 100).
+//
+// # Related Packages
+//
+//   - [github.com/erraggy/oastools/parser] - Parse specifications before walking
+//   - [github.com/erraggy/oastools/validator] - Validate OAS documents
+//   - [github.com/erraggy/oastools/fixer] - Automatically fix common issues
+//   - [github.com/erraggy/oastools/converter] - Convert between OAS versions
+package walker
