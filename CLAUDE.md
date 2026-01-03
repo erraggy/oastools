@@ -439,6 +439,27 @@ When adding a new package, ensure:
 4. **Documentation**: Update README.md, benchmarks.md, developer-guide.md, mkdocs.yml, CLAUDE.md (Public API list)
 5. **Verification**: Run `make check`, `make bench-<package>`, verify `go doc` works
 
+### Adding Examples Checklist
+
+When adding new examples under `examples/`, you must update **both**:
+
+1. **`mkdocs.yml`**: Add nav entries with explicit titles (not just file paths)
+   ```yaml
+   # Good - with titles
+   - Overview: examples/myexample/index.md
+   - Feature One: examples/myexample/feature-one.md
+
+   # Bad - will show "None" in nav
+   - examples/myexample/index.md
+   ```
+
+2. **`scripts/prepare-docs.sh`**: Add copy commands for new example READMEs
+   - Create target directory: `mkdir -p "$DOCS_DIR/examples/myexample"`
+   - Copy and fix links for each README
+   - Add any new sibling link patterns to `fix_example_links()`
+
+⚠️ **Common mistake**: Updating only `mkdocs.yml` without updating `prepare-docs.sh` causes 404 errors and "None" nav entries on the docs site.
+
 ## Go Module
 
 - Module path: `github.com/erraggy/oastools`
