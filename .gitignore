@@ -79,3 +79,7 @@ docs/CLAUDE.md
 docs/RELEASES.md
 docs/BENCHMARK_UPDATE_PROCESS.md
 docs/packages/
+docs/examples/
+
+# Playwright MCP (browser automation screenshots/data)
+.playwright-mcp/
