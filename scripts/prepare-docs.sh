@@ -140,6 +140,20 @@ fix_example_links() {
     sed -i.bak 's|](stdlib/)|](stdlib.md)|g' "$file"
     sed -i.bak 's|](chi/)|](chi.md)|g' "$file"
 
+    # Walker examples: ../sibling/ -> sibling.md
+    sed -i.bak 's|](\.\./api-statistics/)|](api-statistics.md)|g' "$file"
+    sed -i.bak 's|](\.\./security-audit/)|](security-audit.md)|g' "$file"
+    sed -i.bak 's|](\.\./vendor-extensions/)|](vendor-extensions.md)|g' "$file"
+    sed -i.bak 's|](\.\./public-api-filter/)|](public-api-filter.md)|g' "$file"
+    sed -i.bak 's|](\.\./api-documentation/)|](api-documentation.md)|g' "$file"
+    sed -i.bak 's|](\.\./reference-collector/)|](reference-collector.md)|g' "$file"
+    # Walker deep dive link: various depths -> ../../packages/walker.md (from examples/walker/)
+    sed -i.bak 's|](\.\./\.\./\.\./walker/deep_dive\.md)|](../../packages/walker.md)|g' "$file"
+    sed -i.bak 's|](\.\./\.\./walker/deep_dive\.md)|](../../packages/walker.md)|g' "$file"
+    # Walker directory links
+    sed -i.bak 's|](walker/)|](walker/index.md)|g' "$file"
+    sed -i.bak 's|](\.\./walker/)|](walker/index.md)|g' "$file"
+
     rm -f "$file.bak"
 }
 
@@ -205,5 +219,20 @@ copy_example_readme "examples/petstore/chi/README.md" "$DOCS_DIR/examples/petsto
 fix_example_links "$DOCS_DIR/examples/petstore/chi.md"
 fix_subdir_links "$DOCS_DIR/examples/petstore/chi.md"
 echo "  - examples/petstore/chi/README.md -> $DOCS_DIR/examples/petstore/chi.md"
+
+# Walker examples
+mkdir -p "$DOCS_DIR/examples/walker"
+copy_example_readme "examples/walker/README.md" "$DOCS_DIR/examples/walker/index.md"
+fix_example_links "$DOCS_DIR/examples/walker/index.md"
+fix_subdir_links "$DOCS_DIR/examples/walker/index.md"
+echo "  - examples/walker/README.md -> $DOCS_DIR/examples/walker/index.md"
+for walker_example in api-statistics security-audit vendor-extensions public-api-filter api-documentation reference-collector; do
+    if [ -f "examples/walker/$walker_example/README.md" ]; then
+        copy_example_readme "examples/walker/$walker_example/README.md" "$DOCS_DIR/examples/walker/$walker_example.md"
+        fix_example_links "$DOCS_DIR/examples/walker/$walker_example.md"
+        fix_subdir_links "$DOCS_DIR/examples/walker/$walker_example.md"
+        echo "  - examples/walker/$walker_example/README.md -> $DOCS_DIR/examples/walker/$walker_example.md"
+    fi
+done
 
 echo "Documentation preparation complete."

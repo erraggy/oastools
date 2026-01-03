@@ -73,13 +73,13 @@ nav:
       - Overview: examples/programmatic-api/index.md
       - Builder: examples/programmatic-api/builder.md
     - Walker:
-      - examples/walker/index.md
-      - examples/walker/api-statistics.md
-      - examples/walker/security-audit.md
-      - examples/walker/vendor-extensions.md
-      - examples/walker/public-api-filter.md
-      - examples/walker/api-documentation.md
-      - examples/walker/reference-collector.md
+      - Overview: examples/walker/index.md
+      - API Statistics: examples/walker/api-statistics.md
+      - Security Audit: examples/walker/security-audit.md
+      - Vendor Extensions: examples/walker/vendor-extensions.md
+      - Public API Filter: examples/walker/public-api-filter.md
+      - API Documentation: examples/walker/api-documentation.md
+      - Reference Collector: examples/walker/reference-collector.md
     - Code Generation:
       - Overview: examples/petstore/index.md
       - Standard Library: examples/petstore/stdlib.md
