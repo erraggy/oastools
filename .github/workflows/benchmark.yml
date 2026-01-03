@@ -9,7 +9,7 @@
 #   - artifact: Upload only, no commit (for batch backfill)
 #
 # Strategy:
-#   - Matrix runs 9 packages in parallel (~5 min wall time)
+#   - Matrix runs 10 packages in parallel (~5 min wall time)
 #   - Results combined into benchmarks/benchmark-v1.X.Y.txt
 #
 # Usage:
@@ -47,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [parser, validator, fixer, httpvalidator, converter, joiner, differ, generator, builder]
+        package: [parser, validator, fixer, httpvalidator, converter, joiner, differ, generator, builder, walker]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -108,6 +108,7 @@ jobs:
               bench-results/bench-differ/bench-differ.txt \
               bench-results/bench-generator/bench-generator.txt \
               bench-results/bench-builder/bench-builder.txt \
+              bench-results/bench-walker/bench-walker.txt \
               > benchmarks/benchmark-${VERSION}.txt
 
           echo "Combined benchmark file:"
