@@ -9,13 +9,30 @@ import (
 
 // walkOAS3 traverses an OAS 3.x document.
 func (w *Walker) walkOAS3(doc *parser.OAS3Document) error {
-	// Document root
+	// Document root - typed handler first, then generic
+	// Track whether to continue to children separately from stopping
+	continueToChildren := true
+	if w.onOAS3Document != nil {
+		if !w.handleAction(w.onOAS3Document(doc, "$")) {
+			if w.stopped {
+				return nil
+			}
+			continueToChildren = false
+		}
+	}
+	// Generic handler is called even if typed handler returned SkipChildren
+	// but not if it returned Stop
 	if w.onDocument != nil {
 		if !w.handleAction(w.onDocument(doc, "$")) {
 			if w.stopped {
 				return nil
 			}
+			continueToChildren = false
 		}
+	}
+
+	if !continueToChildren {
+		return nil
 	}
 
 	// Info

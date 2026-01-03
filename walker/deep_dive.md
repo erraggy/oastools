@@ -239,7 +239,9 @@ Each OAS node type has a corresponding handler type:
 
 | Handler | Called For | OAS Version |
 |---------|-----------|-------------|
-| `DocumentHandler` | Root document | All |
+| `DocumentHandler` | Root document (any type) | All |
+| `OAS2DocumentHandler` | OAS 2.0 documents only | 2.0 only |
+| `OAS3DocumentHandler` | OAS 3.x documents only | 3.x only |
 | `InfoHandler` | API metadata | All |
 | `ServerHandler` | Server definitions | 3.x only |
 | `TagHandler` | Tag definitions | All |
@@ -257,6 +259,7 @@ Each OAS node type has a corresponding handler type:
 | `CallbackHandler` | Callbacks | 3.x only |
 | `ExampleHandler` | Examples | All |
 | `ExternalDocsHandler` | External docs | All |
+| `SchemaSkippedHandler` | Skipped schemas (depth/cycle) | All |
 
 ### JSON Path Context
 
@@ -293,7 +296,7 @@ The walker package provides two complementary APIs:
 result, _ := parser.New().Parse("openapi.yaml")
 walker.Walk(result,
     walker.WithSchemaHandler(handler),
-    walker.WithMaxSchemaDepth(50),
+    walker.WithMaxDepth(50),
 )
 ```
 
@@ -307,7 +310,7 @@ walker.Walk(result,
 err := walker.WalkWithOptions(
     walker.WithFilePath("openapi.yaml"),
     walker.OnSchema(handler),
-    walker.WithMaxSchemaDepthOption(50),  // Returns error if invalid
+    walker.WithMaxSchemaDepth(50),  // Returns error if invalid
 )
 ```
 
@@ -343,9 +346,10 @@ WithLinkHandler(fn LinkHandler)
 WithCallbackHandler(fn CallbackHandler)
 WithExampleHandler(fn ExampleHandler)
 WithExternalDocsHandler(fn ExternalDocsHandler)
+WithSchemaSkippedHandler(fn SchemaSkippedHandler)
 
 // Configuration
-WithMaxSchemaDepth(depth int)  // Default: 100
+WithMaxDepth(depth int)  // Default: 100
 ```
 
 ### WalkWithOptions Input Options
@@ -353,11 +357,12 @@ WithMaxSchemaDepth(depth int)  // Default: 100
 ```go
 WithFilePath(path string)           // Parse and walk a file
 WithParsed(result *parser.ParseResult)  // Walk pre-parsed document
-WithMaxSchemaDepthOption(depth int)
+WithMaxSchemaDepth(depth int)       // Returns error if not positive
 
 // On* variants for handler registration
 OnDocument(fn DocumentHandler)
 OnInfo(fn InfoHandler)
+OnSchemaSkipped(fn SchemaSkippedHandler)
 // ... etc
 ```
 
@@ -409,27 +414,62 @@ schema.Properties = map[string]*parser.Schema{
 // since it's already been visited
 ```
 
-**Note:** Cycles are detected silently—the handler is simply not called again for already-visited schemas. If you need to know when a cycle is encountered, use path-based detection in your handler.
-
 ### Depth Limiting
 
-Use `WithMaxSchemaDepth(n)` to limit schema recursion depth (default: 100).
+Use `WithMaxDepth(n)` to limit schema recursion depth (default: 100).
 
 ```go
 // Limit to 10 levels of nesting
 walker.Walk(result,
     walker.WithSchemaHandler(handler),
-    walker.WithMaxSchemaDepth(10),
+    walker.WithMaxDepth(10),
 )
 ```
 
 **Behavior:**
 - The depth counter starts at 0 for component/definition schemas
 - Each nested schema (properties, items, allOf, etc.) increments the depth
-- When depth reaches the limit, nested schemas are silently skipped
+- When depth reaches the limit, nested schemas are skipped
 - The handler is not called for schemas beyond the depth limit
 
-**Note:** Depth limiting is silent—there's no callback when the limit is reached. If you need to detect when schemas are skipped due to depth, track depth manually in your handler using the JSON path.
+### Schema Skipped Callbacks
+
+Use `WithSchemaSkippedHandler` to receive notifications when schemas are skipped due to depth limits or cycle detection:
+
+```go
+walker.Walk(result,
+    walker.WithMaxDepth(10),
+    walker.WithSchemaSkippedHandler(func(reason string, schema *parser.Schema, path string) {
+        switch reason {
+        case "depth":
+            fmt.Printf("Skipped due to depth limit: %s\n", path)
+        case "cycle":
+            fmt.Printf("Skipped due to circular reference: %s\n", path)
+        }
+    }),
+)
+```
+
+**Reason values:**
+- `"depth"` - Schema exceeded the configured `maxDepth` limit
+- `"cycle"` - Schema was already visited (circular reference detected)
+
+This is useful for:
+- **Debugging**: Understanding why certain schemas weren't processed
+- **Logging**: Recording when circular references are encountered
+- **Validation**: Detecting overly deep or circular schema structures
+
+For `WalkWithOptions`, use `OnSchemaSkipped`:
+
+```go
+walker.WalkWithOptions(
+    walker.WithFilePath("openapi.yaml"),
+    walker.WithMaxSchemaDepth(10),
+    walker.OnSchemaSkipped(func(reason string, schema *parser.Schema, path string) {
+        log.Printf("Schema skipped (%s): %s", reason, path)
+    }),
+)
+```
 
 ## Usage Patterns
 
@@ -452,7 +492,29 @@ walker.Walk(result,
 
 ### Version-Specific Handling
 
-The document handler receives `any` to support both OAS 2.0 and 3.x documents:
+For type-safe version-specific handling, use the typed document handlers:
+
+```go
+walker.Walk(result,
+    walker.WithOAS2DocumentHandler(func(doc *parser.OAS2Document, path string) walker.Action {
+        // Called only for OAS 2.0 documents - doc is already typed
+        fmt.Printf("OAS 2.0: %s (host: %s)\n", doc.Info.Title, doc.Host)
+        return walker.Continue
+    }),
+    walker.WithOAS3DocumentHandler(func(doc *parser.OAS3Document, path string) walker.Action {
+        // Called only for OAS 3.x documents - doc is already typed
+        fmt.Printf("OAS 3.x: %s (servers: %d)\n", doc.Info.Title, len(doc.Servers))
+        return walker.Continue
+    }),
+)
+```
+
+**Handler Order:** When both typed and generic handlers are registered:
+1. The typed handler (`OAS2DocumentHandler` or `OAS3DocumentHandler`) is called first
+2. If it returns `Continue` or `SkipChildren`, the generic `DocumentHandler` is called
+3. If it returns `Stop`, the generic handler is skipped and the walk stops
+
+Alternatively, use a type switch with the generic handler:
 
 ```go
 walker.Walk(result,

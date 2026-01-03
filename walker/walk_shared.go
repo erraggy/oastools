@@ -176,7 +176,23 @@ func (w *Walker) walkExamples(examples map[string]*parser.Example, basePath stri
 
 // walkSchema walks a Schema and all its nested schemas.
 func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int) error {
-	if schema == nil || depth > w.maxSchemaDepth || w.visitedSchemas[schema] {
+	if schema == nil {
+		return nil
+	}
+
+	// Check depth limit
+	if depth > w.maxDepth {
+		if w.onSchemaSkipped != nil {
+			w.onSchemaSkipped("depth", schema, basePath)
+		}
+		return nil
+	}
+
+	// Check for cycle
+	if w.visitedSchemas[schema] {
+		if w.onSchemaSkipped != nil {
+			w.onSchemaSkipped("cycle", schema, basePath)
+		}
 		return nil
 	}
 

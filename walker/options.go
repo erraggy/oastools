@@ -14,6 +14,8 @@ type walkConfig struct {
 
 	// Handlers
 	onDocument       DocumentHandler
+	onOAS2Document   OAS2DocumentHandler
+	onOAS3Document   OAS3DocumentHandler
 	onInfo           InfoHandler
 	onServer         ServerHandler
 	onTag            TagHandler
@@ -31,13 +33,14 @@ type walkConfig struct {
 	onCallback       CallbackHandler
 	onExample        ExampleHandler
 	onExternalDocs   ExternalDocsHandler
+	onSchemaSkipped  SchemaSkippedHandler
 
 	// Configuration
-	maxSchemaDepth int
+	maxDepth int
 }
 
 // WalkInputOption configures the WalkWithOptions function.
-// Options may return an error for invalid configuration values (e.g., non-positive maxSchemaDepth).
+// Options may return an error for invalid configuration values (e.g., non-positive maxDepth).
 type WalkInputOption func(*walkConfig) error
 
 // WithFilePath specifies a file path to parse and walk.
@@ -56,14 +59,14 @@ func WithParsed(result *parser.ParseResult) WalkInputOption {
 	}
 }
 
-// WithMaxSchemaDepthOption sets the maximum schema recursion depth.
+// WithMaxSchemaDepth sets the maximum schema recursion depth.
 // Returns an error if depth is not positive.
-func WithMaxSchemaDepthOption(depth int) WalkInputOption {
+func WithMaxSchemaDepth(depth int) WalkInputOption {
 	return func(cfg *walkConfig) error {
 		if depth <= 0 {
-			return fmt.Errorf("maxSchemaDepth must be positive, got %d", depth)
+			return fmt.Errorf("maxDepth must be positive, got %d", depth)
 		}
-		cfg.maxSchemaDepth = depth
+		cfg.maxDepth = depth
 		return nil
 	}
 }
@@ -72,6 +75,24 @@ func WithMaxSchemaDepthOption(depth int) WalkInputOption {
 func OnDocument(fn DocumentHandler) WalkInputOption {
 	return func(cfg *walkConfig) error {
 		cfg.onDocument = fn
+		return nil
+	}
+}
+
+// OnOAS2Document registers a handler for OAS 2.0 (Swagger) documents.
+// This handler is called before the generic DocumentHandler.
+func OnOAS2Document(fn OAS2DocumentHandler) WalkInputOption {
+	return func(cfg *walkConfig) error {
+		cfg.onOAS2Document = fn
+		return nil
+	}
+}
+
+// OnOAS3Document registers a handler for OAS 3.x documents.
+// This handler is called before the generic DocumentHandler.
+func OnOAS3Document(fn OAS3DocumentHandler) WalkInputOption {
+	return func(cfg *walkConfig) error {
+		cfg.onOAS3Document = fn
 		return nil
 	}
 }
@@ -212,10 +233,19 @@ func OnExternalDocs(fn ExternalDocsHandler) WalkInputOption {
 	}
 }
 
+// OnSchemaSkipped registers a handler called when schemas are skipped.
+// The handler receives the reason ("depth" or "cycle"), the skipped schema, and its path.
+func OnSchemaSkipped(fn SchemaSkippedHandler) WalkInputOption {
+	return func(cfg *walkConfig) error {
+		cfg.onSchemaSkipped = fn
+		return nil
+	}
+}
+
 // WalkWithOptions walks a document using functional options for input and handlers.
 func WalkWithOptions(opts ...WalkInputOption) error {
 	cfg := &walkConfig{
-		maxSchemaDepth: 100,
+		maxDepth: 100,
 	}
 
 	for _, opt := range opts {
@@ -248,6 +278,8 @@ func WalkWithOptions(opts ...WalkInputOption) error {
 	// Build walker with handlers
 	w := &Walker{
 		onDocument:       cfg.onDocument,
+		onOAS2Document:   cfg.onOAS2Document,
+		onOAS3Document:   cfg.onOAS3Document,
 		onInfo:           cfg.onInfo,
 		onServer:         cfg.onServer,
 		onTag:            cfg.onTag,
@@ -265,7 +297,8 @@ func WalkWithOptions(opts ...WalkInputOption) error {
 		onCallback:       cfg.onCallback,
 		onExample:        cfg.onExample,
 		onExternalDocs:   cfg.onExternalDocs,
-		maxSchemaDepth:   cfg.maxSchemaDepth,
+		onSchemaSkipped:  cfg.onSchemaSkipped,
+		maxDepth:         cfg.maxDepth,
 	}
 
 	return w.walk(result)

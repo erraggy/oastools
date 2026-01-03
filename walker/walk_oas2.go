@@ -9,13 +9,30 @@ import (
 
 // walkOAS2 traverses an OAS 2.0 document.
 func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
-	// Document root
+	// Document root - typed handler first, then generic
+	// Track whether to continue to children separately from stopping
+	continueToChildren := true
+	if w.onOAS2Document != nil {
+		if !w.handleAction(w.onOAS2Document(doc, "$")) {
+			if w.stopped {
+				return nil
+			}
+			continueToChildren = false
+		}
+	}
+	// Generic handler is called even if typed handler returned SkipChildren
+	// but not if it returned Stop
 	if w.onDocument != nil {
 		if !w.handleAction(w.onDocument(doc, "$")) {
 			if w.stopped {
 				return nil
 			}
+			continueToChildren = false
 		}
+	}
+
+	if !continueToChildren {
+		return nil
 	}
 
 	// Info

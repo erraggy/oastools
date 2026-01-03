@@ -45,6 +45,12 @@ func (a Action) String() string {
 // DocumentHandler is called for the root document (OAS2Document or OAS3Document).
 type DocumentHandler func(doc any, path string) Action
 
+// OAS2DocumentHandler is called for OAS 2.0 (Swagger) documents.
+type OAS2DocumentHandler func(doc *parser.OAS2Document, path string) Action
+
+// OAS3DocumentHandler is called for OAS 3.x documents.
+type OAS3DocumentHandler func(doc *parser.OAS3Document, path string) Action
+
 // InfoHandler is called for the Info object.
 type InfoHandler func(info *parser.Info, path string) Action
 
@@ -96,10 +102,18 @@ type ExampleHandler func(name string, example *parser.Example, path string) Acti
 // ExternalDocsHandler is called for each ExternalDocs.
 type ExternalDocsHandler func(extDocs *parser.ExternalDocs, path string) Action
 
+// SchemaSkippedHandler is called when a schema is skipped due to depth limit or cycle detection.
+// The reason parameter is either "depth" when the schema exceeds maxDepth,
+// or "cycle" when the schema was already visited (circular reference detected).
+// The schema parameter is the schema that was skipped, and path is its JSON path.
+type SchemaSkippedHandler func(reason string, schema *parser.Schema, path string)
+
 // Walker traverses OpenAPI documents and calls handlers for each node type.
 type Walker struct {
 	// Handlers
 	onDocument       DocumentHandler
+	onOAS2Document   OAS2DocumentHandler
+	onOAS3Document   OAS3DocumentHandler
 	onInfo           InfoHandler
 	onServer         ServerHandler
 	onTag            TagHandler
@@ -117,9 +131,10 @@ type Walker struct {
 	onCallback       CallbackHandler
 	onExample        ExampleHandler
 	onExternalDocs   ExternalDocsHandler
+	onSchemaSkipped  SchemaSkippedHandler
 
 	// Configuration
-	maxSchemaDepth int
+	maxDepth int
 
 	// Internal state
 	visitedSchemas map[*parser.Schema]bool
@@ -129,7 +144,7 @@ type Walker struct {
 // New creates a new Walker with default settings.
 func New() *Walker {
 	return &Walker{
-		maxSchemaDepth: 100,
+		maxDepth: 100,
 	}
 }
 
@@ -139,6 +154,18 @@ type Option func(*Walker)
 // WithDocumentHandler sets the handler for the root document.
 func WithDocumentHandler(fn DocumentHandler) Option {
 	return func(w *Walker) { w.onDocument = fn }
+}
+
+// WithOAS2DocumentHandler sets the handler for OAS 2.0 (Swagger) documents.
+// This handler is called before the generic DocumentHandler.
+func WithOAS2DocumentHandler(fn OAS2DocumentHandler) Option {
+	return func(w *Walker) { w.onOAS2Document = fn }
+}
+
+// WithOAS3DocumentHandler sets the handler for OAS 3.x documents.
+// This handler is called before the generic DocumentHandler.
+func WithOAS3DocumentHandler(fn OAS3DocumentHandler) Option {
+	return func(w *Walker) { w.onOAS3Document = fn }
 }
 
 // WithInfoHandler sets the handler for Info objects.
@@ -226,12 +253,19 @@ func WithExternalDocsHandler(fn ExternalDocsHandler) Option {
 	return func(w *Walker) { w.onExternalDocs = fn }
 }
 
-// WithMaxSchemaDepth sets the maximum recursion depth for schema traversal.
+// WithSchemaSkippedHandler sets the handler called when schemas are skipped.
+// This handler is invoked when a schema is skipped due to depth limit ("depth")
+// or cycle detection ("cycle").
+func WithSchemaSkippedHandler(fn SchemaSkippedHandler) Option {
+	return func(w *Walker) { w.onSchemaSkipped = fn }
+}
+
+// WithMaxDepth sets the maximum recursion depth for schema traversal.
 // Default is 100. If depth is <= 0, the default is kept.
-func WithMaxSchemaDepth(depth int) Option {
+func WithMaxDepth(depth int) Option {
 	return func(w *Walker) {
 		if depth > 0 {
-			w.maxSchemaDepth = depth
+			w.maxDepth = depth
 		}
 		// If depth <= 0, keep the default (100)
 	}
