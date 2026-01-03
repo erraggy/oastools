@@ -64,7 +64,7 @@ func WithParsed(result *parser.ParseResult) WalkInputOption {
 func WithMaxSchemaDepth(depth int) WalkInputOption {
 	return func(cfg *walkConfig) error {
 		if depth <= 0 {
-			return fmt.Errorf("maxDepth must be positive, got %d", depth)
+			return fmt.Errorf("walker: maxDepth must be positive, got %d", depth)
 		}
 		cfg.maxDepth = depth
 		return nil
