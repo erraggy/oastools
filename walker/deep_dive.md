@@ -274,6 +274,43 @@ $.components.schemas['Pet'].properties['name']  # Nested schema
 
 ## API Reference
 
+### Choosing an API: Walk vs WalkWithOptions
+
+The walker package provides two complementary APIs:
+
+| API | Best For | Input | Error Handling |
+|-----|----------|-------|----------------|
+| `Walk` | Pre-parsed documents | `*parser.ParseResult` | Handler registration never fails |
+| `WalkWithOptions` | File paths or parsed documents | Via options | Option functions can return errors |
+
+**Use `Walk` when:**
+- You already have a `ParseResult` from parsing
+- You're walking multiple documents with the same handlers
+- You want simpler handler registration (no error checking)
+
+```go
+// Walk: Direct and simple
+result, _ := parser.New().Parse("openapi.yaml")
+walker.Walk(result,
+    walker.WithSchemaHandler(handler),
+    walker.WithMaxSchemaDepth(50),
+)
+```
+
+**Use `WalkWithOptions` when:**
+- You want to parse and walk in a single call
+- You need error handling for configuration (e.g., invalid depth)
+- You prefer the `On*` naming convention for handlers
+
+```go
+// WalkWithOptions: Parse and walk in one call
+err := walker.WalkWithOptions(
+    walker.WithFilePath("openapi.yaml"),
+    walker.OnSchema(handler),
+    walker.WithMaxSchemaDepthOption(50),  // Returns error if invalid
+)
+```
+
 ### Primary Functions
 
 ```go
@@ -362,9 +399,37 @@ The walker recursively visits all nested schemas:
 
 The walker uses pointer-based cycle detection to prevent infinite loops in circular schema references. Visited schemas are tracked and skipped on subsequent encounters.
 
+```go
+// Circular reference example
+schema := &parser.Schema{Type: "object"}
+schema.Properties = map[string]*parser.Schema{
+    "self": schema,  // Points back to itself
+}
+// The walker will visit 'schema' once, then skip 'self'
+// since it's already been visited
+```
+
+**Note:** Cycles are detected silently—the handler is simply not called again for already-visited schemas. If you need to know when a cycle is encountered, use path-based detection in your handler.
+
 ### Depth Limiting
 
 Use `WithMaxSchemaDepth(n)` to limit schema recursion depth (default: 100).
+
+```go
+// Limit to 10 levels of nesting
+walker.Walk(result,
+    walker.WithSchemaHandler(handler),
+    walker.WithMaxSchemaDepth(10),
+)
+```
+
+**Behavior:**
+- The depth counter starts at 0 for component/definition schemas
+- Each nested schema (properties, items, allOf, etc.) increments the depth
+- When depth reaches the limit, nested schemas are silently skipped
+- The handler is not called for schemas beyond the depth limit
+
+**Note:** Depth limiting is silent—there's no callback when the limit is reached. If you need to detect when schemas are skipped due to depth, track depth manually in your handler using the JSON path.
 
 ## Usage Patterns
 
@@ -471,6 +536,53 @@ err := walker.WalkWithOptions(
 - **Minimal Allocations**: Handler function calls have minimal overhead
 - **Deterministic Order**: Map keys are sorted for consistent traversal
 - **Early Exit**: Use `Stop` to terminate as soon as you find what you need
+
+## Thread Safety
+
+⚠️ **The Walker is NOT thread-safe.** Each walk maintains internal state (visited schemas, stopped flag) that is not protected by locks.
+
+**Safe patterns:**
+
+```go
+// ✅ Sequential walks (same or different documents)
+walker.Walk(result1, opts...)
+walker.Walk(result2, opts...)
+
+// ✅ Parallel walks with separate documents
+var wg sync.WaitGroup
+for _, doc := range documents {
+    wg.Add(1)
+    go func(d *parser.ParseResult) {
+        defer wg.Done()
+        walker.Walk(d, opts...)  // Each goroutine has its own walk state
+    }(doc)
+}
+wg.Wait()
+```
+
+**Unsafe patterns:**
+
+```go
+// ❌ Shared mutable state in handlers without synchronization
+var count int  // Race condition!
+walker.Walk(result,
+    walker.WithSchemaHandler(func(s *parser.Schema, path string) walker.Action {
+        count++  // Not thread-safe
+        return walker.Continue
+    }),
+)
+
+// ✅ Use atomic operations or mutexes for shared state
+var count atomic.Int64
+walker.Walk(result,
+    walker.WithSchemaHandler(func(s *parser.Schema, path string) walker.Action {
+        count.Add(1)  // Thread-safe
+        return walker.Continue
+    }),
+)
+```
+
+**Document mutation:** If handlers modify the document, ensure the document is not shared across concurrent walks.
 
 ## OAS 3.2 Support
 
