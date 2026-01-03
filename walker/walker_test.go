@@ -2694,3 +2694,2421 @@ func TestWalkWithOptions_OnOAS3Document(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, oas3Called, "OnOAS3Document should be called for OAS 3.x document")
 }
+
+// Tests for walkOAS3PathItemOperations - Coverage for all HTTP methods
+
+func TestWalk_OAS3AllHTTPMethods(t *testing.T) {
+	// Test that all HTTP methods including TRACE are visited
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/resource": &parser.PathItem{
+				Get:     &parser.Operation{OperationID: "getResource"},
+				Put:     &parser.Operation{OperationID: "putResource"},
+				Post:    &parser.Operation{OperationID: "postResource"},
+				Delete:  &parser.Operation{OperationID: "deleteResource"},
+				Options: &parser.Operation{OperationID: "optionsResource"},
+				Head:    &parser.Operation{OperationID: "headResource"},
+				Patch:   &parser.Operation{OperationID: "patchResource"},
+				Trace:   &parser.Operation{OperationID: "traceResource"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	visitedMethods := make(map[string]bool)
+	visitedOpIDs := make(map[string]bool)
+	err := Walk(result,
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedMethods[method] = true
+			visitedOpIDs[op.OperationID] = true
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+
+	// All 8 HTTP methods should be visited
+	expectedMethods := []string{"get", "put", "post", "delete", "options", "head", "patch", "trace"}
+	for _, method := range expectedMethods {
+		assert.True(t, visitedMethods[method], "expected %s method to be visited", method)
+	}
+
+	// All operation IDs should be visited
+	expectedOpIDs := []string{
+		"getResource", "putResource", "postResource", "deleteResource",
+		"optionsResource", "headResource", "patchResource", "traceResource",
+	}
+	for _, opID := range expectedOpIDs {
+		assert.True(t, visitedOpIDs[opID], "expected operation %s to be visited", opID)
+	}
+}
+
+func TestWalk_OAS3OperationSkipChildren(t *testing.T) {
+	// Test that SkipChildren from operation handler skips operation's children
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/resource": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getResource",
+					Parameters: []*parser.Parameter{
+						{Name: "id", In: "query"},
+					},
+					RequestBody: &parser.RequestBody{
+						Content: map[string]*parser.MediaType{
+							"application/json": {Schema: &parser.Schema{Type: "object"}},
+						},
+					},
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {Description: "OK"},
+						},
+					},
+				},
+				Post: &parser.Operation{
+					OperationID: "postResource",
+					Parameters: []*parser.Parameter{
+						{Name: "body", In: "body"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	var visitedParams []string
+	var visitedResponses []string
+	var visitedRequestBodies int
+	err := Walk(result,
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			if method == "get" {
+				return SkipChildren // Skip GET operation's children
+			}
+			return Continue
+		}),
+		WithParameterHandler(func(param *parser.Parameter, path string) Action {
+			visitedParams = append(visitedParams, param.Name)
+			return Continue
+		}),
+		WithRequestBodyHandler(func(reqBody *parser.RequestBody, path string) Action {
+			visitedRequestBodies++
+			return Continue
+		}),
+		WithResponseHandler(func(statusCode string, resp *parser.Response, path string) Action {
+			visitedResponses = append(visitedResponses, statusCode)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+
+	// Only POST's parameters should be visited (GET's were skipped)
+	assert.Equal(t, []string{"body"}, visitedParams)
+
+	// GET's responses and request body should be skipped
+	assert.Empty(t, visitedResponses)
+	assert.Equal(t, 0, visitedRequestBodies)
+}
+
+func TestWalk_OAS3OperationStop(t *testing.T) {
+	// Test that Stop from operation handler stops the entire walk
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/a": &parser.PathItem{
+				Get:  &parser.Operation{OperationID: "getA"},
+				Post: &parser.Operation{OperationID: "postA"},
+			},
+			"/b": &parser.PathItem{
+				Get: &parser.Operation{OperationID: "getB"},
+			},
+			"/c": &parser.PathItem{
+				Get: &parser.Operation{OperationID: "getC"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	var visitedOps []string
+	err := Walk(result,
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedOps = append(visitedOps, op.OperationID)
+			// Stop after visiting first operation
+			return Stop
+		}),
+	)
+
+	require.NoError(t, err)
+	// Only one operation should be visited due to Stop
+	assert.Len(t, visitedOps, 1)
+}
+
+func TestWalk_OAS3TRACEMethod(t *testing.T) {
+	// Specifically test TRACE method handling
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/debug": &parser.PathItem{
+				Trace: &parser.Operation{
+					OperationID: "traceDebug",
+					Summary:     "Debug trace endpoint",
+					Parameters: []*parser.Parameter{
+						{Name: "X-Trace-ID", In: "header"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	var traceVisited bool
+	var tracePath string
+	err := Walk(result,
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			if method == "trace" {
+				traceVisited = true
+				tracePath = path
+			}
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.True(t, traceVisited, "TRACE operation should be visited")
+	assert.Contains(t, tracePath, ".trace", "path should contain .trace")
+}
+
+// Tests for walkOAS3Components - Coverage for component types
+
+func TestWalk_OAS3ComponentParametersWithStop(t *testing.T) {
+	// Test Stop action from component parameters
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Parameters: map[string]*parser.Parameter{
+				"aParam": {Name: "a", In: "query"},
+				"bParam": {Name: "b", In: "query"},
+				"cParam": {Name: "c", In: "query"},
+			},
+			Schemas: map[string]*parser.Schema{
+				"ShouldNotVisit": {Type: "object"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	var visitedParams []string
+	var schemaVisited bool
+	err := Walk(result,
+		WithParameterHandler(func(param *parser.Parameter, path string) Action {
+			visitedParams = append(visitedParams, param.Name)
+			return Stop // Stop after first parameter
+		}),
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			schemaVisited = true
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	// Only one parameter should be visited due to Stop
+	assert.Len(t, visitedParams, 1)
+	// Schemas should still be visited since they come before parameters
+	// (component order is schemas, responses, parameters, ...)
+	assert.True(t, schemaVisited)
+}
+
+func TestWalk_OAS3ComponentRequestBodiesWithContent(t *testing.T) {
+	// Test request bodies in components with nested content
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			RequestBodies: map[string]*parser.RequestBody{
+				"CreateUser": {
+					Description: "Create user request",
+					Required:    true,
+					Content: map[string]*parser.MediaType{
+						"application/json": {
+							Schema: &parser.Schema{
+								Type: "object",
+								Properties: map[string]*parser.Schema{
+									"name":  {Type: "string"},
+									"email": {Type: "string"},
+								},
+							},
+						},
+						"application/xml": {
+							Schema: &parser.Schema{Type: "object"},
+						},
+					},
+				},
+				"UpdateUser": {
+					Description: "Update user request",
+					Content: map[string]*parser.MediaType{
+						"application/json": {
+							Schema: &parser.Schema{Type: "object"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	var visitedRequestBodies []string
+	var visitedMediaTypes []string
+	var schemaCount int
+	err := Walk(result,
+		WithRequestBodyHandler(func(reqBody *parser.RequestBody, path string) Action {
+			visitedRequestBodies = append(visitedRequestBodies, reqBody.Description)
+			return Continue
+		}),
+		WithMediaTypeHandler(func(mtName string, mt *parser.MediaType, path string) Action {
+			visitedMediaTypes = append(visitedMediaTypes, mtName)
+			return Continue
+		}),
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			schemaCount++
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Len(t, visitedRequestBodies, 2)
+	assert.GreaterOrEqual(t, len(visitedMediaTypes), 3) // At least 3 media types
+	assert.GreaterOrEqual(t, schemaCount, 4)            // Multiple schemas
+}
+
+func TestWalk_OAS3ComponentLinksWithStop(t *testing.T) {
+	// Test Stop action from component links
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Links: map[string]*parser.Link{
+				"GetUserByID": {
+					OperationID: "getUser",
+					Description: "Link to get user by ID",
+				},
+				"GetOrderByID": {
+					OperationID: "getOrder",
+					Description: "Link to get order by ID",
+				},
+				"GetProductByID": {
+					OperationID: "getProduct",
+					Description: "Link to get product by ID",
+				},
+			},
+			// These should not be visited after Stop
+			Examples: map[string]*parser.Example{
+				"UserExample": {Summary: "User example"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	var visitedLinks []string
+	var examplesVisited bool
+	err := Walk(result,
+		WithLinkHandler(func(name string, link *parser.Link, path string) Action {
+			visitedLinks = append(visitedLinks, name)
+			return Stop // Stop after first link
+		}),
+		WithExampleHandler(func(name string, example *parser.Example, path string) Action {
+			examplesVisited = true
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	// Only one link should be visited due to Stop
+	assert.Len(t, visitedLinks, 1)
+	// Examples should NOT be visited since they come after links and Stop was called
+	assert.False(t, examplesVisited)
+}
+
+func TestWalk_OAS3ComponentCallbacksWithSkipChildren(t *testing.T) {
+	// Test SkipChildren action from component callbacks
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Callbacks: map[string]*parser.Callback{
+				"onPaymentComplete": {
+					"{$request.body#/callbackUrl}": &parser.PathItem{
+						Post: &parser.Operation{
+							OperationID: "paymentCallback",
+							Summary:     "Payment callback endpoint",
+							Parameters: []*parser.Parameter{
+								{Name: "X-Signature", In: "header"},
+							},
+						},
+					},
+				},
+				"onShipmentUpdate": {
+					"{$request.body#/shipmentCallback}": &parser.PathItem{
+						Post: &parser.Operation{
+							OperationID: "shipmentCallback",
+							Summary:     "Shipment callback endpoint",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	var visitedCallbacks []string
+	var visitedOperations []string
+	err := Walk(result,
+		WithCallbackHandler(func(name string, callback parser.Callback, path string) Action {
+			visitedCallbacks = append(visitedCallbacks, name)
+			if name == "onPaymentComplete" {
+				return SkipChildren // Skip children of first callback
+			}
+			return Continue
+		}),
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedOperations = append(visitedOperations, op.OperationID)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	// Both callbacks should be visited
+	assert.Len(t, visitedCallbacks, 2)
+	assert.Contains(t, visitedCallbacks, "onPaymentComplete")
+	assert.Contains(t, visitedCallbacks, "onShipmentUpdate")
+	// Only the second callback's operations should be visited
+	assert.Len(t, visitedOperations, 1)
+	assert.Contains(t, visitedOperations, "shipmentCallback")
+}
+
+func TestWalk_OAS3ComponentPathItemsWithOperations(t *testing.T) {
+	// Test component path items (OAS 3.1+) with full operation traversal
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			PathItems: map[string]*parser.PathItem{
+				"SharedHealthCheck": {
+					Get: &parser.Operation{
+						OperationID: "healthCheck",
+						Summary:     "Health check endpoint",
+						Responses: &parser.Responses{
+							Codes: map[string]*parser.Response{
+								"200": {Description: "OK"},
+							},
+						},
+					},
+				},
+				"SharedCRUD": {
+					Get: &parser.Operation{
+						OperationID: "listItems",
+						Summary:     "List items",
+					},
+					Post: &parser.Operation{
+						OperationID: "createItem",
+						Summary:     "Create item",
+						RequestBody: &parser.RequestBody{
+							Content: map[string]*parser.MediaType{
+								"application/json": {
+									Schema: &parser.Schema{Type: "object"},
+								},
+							},
+						},
+					},
+					Put: &parser.Operation{
+						OperationID: "updateItem",
+						Summary:     "Update item",
+					},
+					Delete: &parser.Operation{
+						OperationID: "deleteItem",
+						Summary:     "Delete item",
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Document:   doc,
+	}
+
+	var visitedPathItems []string
+	var visitedOperations []string
+	var requestBodyCount int
+	err := Walk(result,
+		WithPathItemHandler(func(pathItem *parser.PathItem, path string) Action {
+			visitedPathItems = append(visitedPathItems, path)
+			return Continue
+		}),
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedOperations = append(visitedOperations, op.OperationID)
+			return Continue
+		}),
+		WithRequestBodyHandler(func(reqBody *parser.RequestBody, path string) Action {
+			requestBodyCount++
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	// Both component path items should be visited
+	assert.Len(t, visitedPathItems, 2)
+	// All 5 operations should be visited
+	assert.Len(t, visitedOperations, 5)
+	assert.Contains(t, visitedOperations, "healthCheck")
+	assert.Contains(t, visitedOperations, "listItems")
+	assert.Contains(t, visitedOperations, "createItem")
+	assert.Contains(t, visitedOperations, "updateItem")
+	assert.Contains(t, visitedOperations, "deleteItem")
+	// One request body should be visited
+	assert.Equal(t, 1, requestBodyCount)
+}
+
+// Tests for walkOAS3Webhooks - Coverage improvements
+
+func TestWalk_OAS3WebhooksWithOperations(t *testing.T) {
+	// Test webhooks with full operation traversal
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Webhooks: map[string]*parser.PathItem{
+			"newOrder": {
+				Post: &parser.Operation{
+					OperationID: "newOrderWebhook",
+					Summary:     "New order webhook",
+					RequestBody: &parser.RequestBody{
+						Content: map[string]*parser.MediaType{
+							"application/json": {
+								Schema: &parser.Schema{
+									Type: "object",
+									Properties: map[string]*parser.Schema{
+										"orderId": {Type: "string"},
+										"amount":  {Type: "number"},
+									},
+								},
+							},
+						},
+					},
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {Description: "Webhook received"},
+						},
+					},
+				},
+			},
+			"orderCancelled": {
+				Post: &parser.Operation{
+					OperationID: "orderCancelledWebhook",
+					Summary:     "Order cancelled webhook",
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Document:   doc,
+	}
+
+	var visitedWebhooks []string
+	var visitedOperations []string
+	var requestBodyCount int
+	var responseCount int
+	err := Walk(result,
+		WithPathItemHandler(func(pathItem *parser.PathItem, path string) Action {
+			if strings.Contains(path, "webhooks") {
+				visitedWebhooks = append(visitedWebhooks, path)
+			}
+			return Continue
+		}),
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedOperations = append(visitedOperations, op.OperationID)
+			return Continue
+		}),
+		WithRequestBodyHandler(func(reqBody *parser.RequestBody, path string) Action {
+			requestBodyCount++
+			return Continue
+		}),
+		WithResponseHandler(func(statusCode string, resp *parser.Response, path string) Action {
+			responseCount++
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	// Both webhooks should be visited
+	assert.Len(t, visitedWebhooks, 2)
+	// Both operations should be visited
+	assert.Len(t, visitedOperations, 2)
+	assert.Contains(t, visitedOperations, "newOrderWebhook")
+	assert.Contains(t, visitedOperations, "orderCancelledWebhook")
+	// One request body from newOrder webhook
+	assert.Equal(t, 1, requestBodyCount)
+	// One response from newOrder webhook
+	assert.Equal(t, 1, responseCount)
+}
+
+func TestWalk_OAS3WebhooksSkipChildren(t *testing.T) {
+	// Test SkipChildren from webhook's PathItem handler
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Webhooks: map[string]*parser.PathItem{
+			"aWebhook": {
+				Post: &parser.Operation{
+					OperationID: "aWebhookOp",
+					Parameters: []*parser.Parameter{
+						{Name: "X-Signature", In: "header"},
+					},
+				},
+			},
+			"bWebhook": {
+				Post: &parser.Operation{
+					OperationID: "bWebhookOp",
+					Parameters: []*parser.Parameter{
+						{Name: "X-Timestamp", In: "header"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Document:   doc,
+	}
+
+	var visitedWebhooks []string
+	var visitedOperations []string
+	err := Walk(result,
+		WithPathItemHandler(func(pathItem *parser.PathItem, path string) Action {
+			if strings.Contains(path, "webhooks") {
+				visitedWebhooks = append(visitedWebhooks, path)
+				if strings.Contains(path, "aWebhook") {
+					return SkipChildren // Skip first webhook's operations
+				}
+			}
+			return Continue
+		}),
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedOperations = append(visitedOperations, op.OperationID)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	// Both webhooks should be visited
+	assert.Len(t, visitedWebhooks, 2)
+	// Only second webhook's operation should be visited
+	assert.Len(t, visitedOperations, 1)
+	assert.Contains(t, visitedOperations, "bWebhookOp")
+}
+
+func TestWalk_OAS3WebhooksStop(t *testing.T) {
+	// Test Stop from webhook handler
+	// Order in walkOAS3: Paths -> Webhooks -> Components -> Tags
+	// So stopping at webhooks should prevent components from being visited
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Webhooks: map[string]*parser.PathItem{
+			"aWebhook": {
+				Post: &parser.Operation{OperationID: "aOp"},
+			},
+			"bWebhook": {
+				Post: &parser.Operation{OperationID: "bOp"},
+			},
+			"cWebhook": {
+				Post: &parser.Operation{OperationID: "cOp"},
+			},
+		},
+		// Components should NOT be visited after Stop in webhooks
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"ShouldNotVisit": {Type: "object"},
+			},
+		},
+		// Tags should NOT be visited either
+		Tags: []*parser.Tag{
+			{Name: "shouldNotVisit"},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Document:   doc,
+	}
+
+	var visitedWebhooks []string
+	var schemaVisited bool
+	var tagVisited bool
+	err := Walk(result,
+		WithPathItemHandler(func(pathItem *parser.PathItem, path string) Action {
+			if strings.Contains(path, "webhooks") {
+				visitedWebhooks = append(visitedWebhooks, path)
+				return Stop // Stop after first webhook
+			}
+			return Continue
+		}),
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			schemaVisited = true
+			return Continue
+		}),
+		WithTagHandler(func(tag *parser.Tag, path string) Action {
+			tagVisited = true
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	// Only one webhook should be visited due to Stop
+	assert.Len(t, visitedWebhooks, 1)
+	// Components and Tags come after webhooks in the traversal order, so they should NOT be visited
+	assert.False(t, schemaVisited, "schemas should not be visited after Stop in webhooks")
+	assert.False(t, tagVisited, "tags should not be visited after Stop in webhooks")
+}
+
+// Additional tests for walkOAS3PathItemOperations edge cases
+
+func TestWalk_OAS3QueryMethod(t *testing.T) {
+	// Test OAS 3.2+ Query method
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/search": &parser.PathItem{
+				Query: &parser.Operation{
+					OperationID: "searchQuery",
+					Summary:     "Search using QUERY method",
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.2.0",
+		OASVersion: parser.OASVersion320,
+		Document:   doc,
+	}
+
+	var visitedMethods []string
+	err := Walk(result,
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedMethods = append(visitedMethods, method)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Contains(t, visitedMethods, "query")
+}
+
+func TestWalk_OAS3AdditionalOperations(t *testing.T) {
+	// Test OAS 3.2+ AdditionalOperations
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/custom": &parser.PathItem{
+				Get: &parser.Operation{OperationID: "getCustom"},
+				AdditionalOperations: map[string]*parser.Operation{
+					"customMethod1": {OperationID: "customOp1"},
+					"customMethod2": {OperationID: "customOp2"},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.2.0",
+		OASVersion: parser.OASVersion320,
+		Document:   doc,
+	}
+
+	var visitedMethods []string
+	var visitedOpIDs []string
+	err := Walk(result,
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedMethods = append(visitedMethods, method)
+			visitedOpIDs = append(visitedOpIDs, op.OperationID)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	// Standard GET plus 2 additional operations
+	assert.Len(t, visitedMethods, 3)
+	assert.Contains(t, visitedMethods, "get")
+	assert.Contains(t, visitedMethods, "customMethod1")
+	assert.Contains(t, visitedMethods, "customMethod2")
+	assert.Contains(t, visitedOpIDs, "getCustom")
+	assert.Contains(t, visitedOpIDs, "customOp1")
+	assert.Contains(t, visitedOpIDs, "customOp2")
+}
+
+func TestWalk_OAS3AdditionalOperationsStop(t *testing.T) {
+	// Test Stop during AdditionalOperations traversal
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/custom": &parser.PathItem{
+				AdditionalOperations: map[string]*parser.Operation{
+					"aMethod": {OperationID: "aOp"},
+					"bMethod": {OperationID: "bOp"},
+					"cMethod": {OperationID: "cOp"},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.2.0",
+		OASVersion: parser.OASVersion320,
+		Document:   doc,
+	}
+
+	var visitedOpIDs []string
+	err := Walk(result,
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedOpIDs = append(visitedOpIDs, op.OperationID)
+			return Stop // Stop after first additional operation
+		}),
+	)
+
+	require.NoError(t, err)
+	// Only one operation should be visited due to Stop
+	assert.Len(t, visitedOpIDs, 1)
+}
+
+func TestWalk_OAS3StopDuringOperationLoop(t *testing.T) {
+	// Test that Stop during the operation loop (w.stopped check) prevents visiting remaining methods
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/resource": &parser.PathItem{
+				Get:    &parser.Operation{OperationID: "getOp"},
+				Put:    &parser.Operation{OperationID: "putOp"},
+				Post:   &parser.Operation{OperationID: "postOp"},
+				Delete: &parser.Operation{OperationID: "deleteOp"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	var visitedMethods []string
+	err := Walk(result,
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedMethods = append(visitedMethods, method)
+			// Stop after the first operation to exercise the w.stopped check in the loop
+			return Stop
+		}),
+	)
+
+	require.NoError(t, err)
+	// Only one method should be visited due to Stop
+	assert.Len(t, visitedMethods, 1)
+}
+
+// OAS 2.0 PathItem Walking Tests
+
+func TestWalk_OAS2PathItemAllMethods(t *testing.T) {
+	// Test walking a PathItem with all HTTP methods defined
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/resource": &parser.PathItem{
+				Get:     &parser.Operation{OperationID: "getResource"},
+				Put:     &parser.Operation{OperationID: "putResource"},
+				Post:    &parser.Operation{OperationID: "postResource"},
+				Delete:  &parser.Operation{OperationID: "deleteResource"},
+				Options: &parser.Operation{OperationID: "optionsResource"},
+				Head:    &parser.Operation{OperationID: "headResource"},
+				Patch:   &parser.Operation{OperationID: "patchResource"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var visitedMethods []string
+	err := Walk(result,
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedMethods = append(visitedMethods, method)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Len(t, visitedMethods, 7, "expected 7 HTTP methods")
+	assert.Contains(t, visitedMethods, "get")
+	assert.Contains(t, visitedMethods, "put")
+	assert.Contains(t, visitedMethods, "post")
+	assert.Contains(t, visitedMethods, "delete")
+	assert.Contains(t, visitedMethods, "options")
+	assert.Contains(t, visitedMethods, "head")
+	assert.Contains(t, visitedMethods, "patch")
+}
+
+func TestWalk_OAS2PathItemWithPathLevelParameters(t *testing.T) {
+	// Test walking a PathItem with path-level parameters
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/users/{userId}/posts/{postId}": &parser.PathItem{
+				Parameters: []*parser.Parameter{
+					{Name: "userId", In: "path", Type: "string", Required: true},
+					{Name: "postId", In: "path", Type: "integer", Required: true},
+				},
+				Get: &parser.Operation{
+					OperationID: "getPost",
+					Parameters: []*parser.Parameter{
+						{Name: "includeComments", In: "query", Type: "boolean"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var visitedParams []string
+	var paramPaths []string
+	err := Walk(result,
+		WithParameterHandler(func(param *parser.Parameter, path string) Action {
+			visitedParams = append(visitedParams, param.Name)
+			paramPaths = append(paramPaths, path)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Len(t, visitedParams, 3, "expected 3 parameters (2 path-level + 1 operation-level)")
+	assert.Contains(t, visitedParams, "userId")
+	assert.Contains(t, visitedParams, "postId")
+	assert.Contains(t, visitedParams, "includeComments")
+
+	// Verify path-level parameters have correct path format
+	pathLevelCount := 0
+	for _, p := range paramPaths {
+		if strings.Contains(p, "parameters[0]") || strings.Contains(p, "parameters[1]") {
+			if strings.Contains(p, ".get.") {
+				continue
+			}
+			pathLevelCount++
+		}
+	}
+	assert.GreaterOrEqual(t, pathLevelCount, 2, "expected at least 2 path-level parameters")
+}
+
+func TestWalk_OAS2PathItemSkipChildren(t *testing.T) {
+	// Test that SkipChildren from PathItem handler skips operations
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/public": &parser.PathItem{
+				Get: &parser.Operation{OperationID: "publicGet"},
+			},
+			"/internal": &parser.PathItem{
+				Get:  &parser.Operation{OperationID: "internalGet"},
+				Post: &parser.Operation{OperationID: "internalPost"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var visitedOps []string
+	err := Walk(result,
+		WithPathItemHandler(func(pathItem *parser.PathItem, path string) Action {
+			if strings.Contains(path, "/internal") {
+				return SkipChildren
+			}
+			return Continue
+		}),
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedOps = append(visitedOps, op.OperationID)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Len(t, visitedOps, 1, "expected only 1 operation (internal ones should be skipped)")
+	assert.Equal(t, "publicGet", visitedOps[0])
+}
+
+func TestWalk_OAS2PathItemStop(t *testing.T) {
+	// Test that Stop from PathItem handler stops the entire walk
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/a": &parser.PathItem{Get: &parser.Operation{OperationID: "opA"}},
+			"/b": &parser.PathItem{Get: &parser.Operation{OperationID: "opB"}},
+			"/c": &parser.PathItem{Get: &parser.Operation{OperationID: "opC"}},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var visitedPathItems int
+	err := Walk(result,
+		WithPathItemHandler(func(pathItem *parser.PathItem, path string) Action {
+			visitedPathItems++
+			return Stop // Stop immediately on first PathItem
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, visitedPathItems, "expected only 1 PathItem to be visited before Stop")
+}
+
+// OAS 2.0 Operation Walking Tests
+
+func TestWalk_OAS2OperationWithExternalDocs(t *testing.T) {
+	// Test walking an operation with ExternalDocs
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					ExternalDocs: &parser.ExternalDocs{
+						Description: "More information about listing pets",
+						URL:         "https://example.com/docs/list-pets",
+					},
+				},
+				Post: &parser.Operation{
+					OperationID: "createPet",
+					ExternalDocs: &parser.ExternalDocs{
+						URL: "https://example.com/docs/create-pet",
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var externalDocsURLs []string
+	var externalDocsPaths []string
+	err := Walk(result,
+		WithExternalDocsHandler(func(extDocs *parser.ExternalDocs, path string) Action {
+			externalDocsURLs = append(externalDocsURLs, extDocs.URL)
+			externalDocsPaths = append(externalDocsPaths, path)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Len(t, externalDocsURLs, 2, "expected 2 ExternalDocs")
+	assert.Contains(t, externalDocsURLs, "https://example.com/docs/list-pets")
+	assert.Contains(t, externalDocsURLs, "https://example.com/docs/create-pet")
+
+	// Verify paths are correct for operation-level external docs
+	for _, p := range externalDocsPaths {
+		assert.Contains(t, p, ".externalDocs", "path should include .externalDocs")
+	}
+}
+
+func TestWalk_OAS2OperationWithParameters(t *testing.T) {
+	// Test walking an operation with multiple parameters
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/search": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "search",
+					Parameters: []*parser.Parameter{
+						{Name: "q", In: "query", Type: "string", Required: true},
+						{Name: "page", In: "query", Type: "integer"},
+						{Name: "limit", In: "query", Type: "integer"},
+						{Name: "sort", In: "query", Type: "string"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var visitedParams []string
+	err := Walk(result,
+		WithParameterHandler(func(param *parser.Parameter, path string) Action {
+			visitedParams = append(visitedParams, param.Name)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Len(t, visitedParams, 4)
+	assert.Contains(t, visitedParams, "q")
+	assert.Contains(t, visitedParams, "page")
+	assert.Contains(t, visitedParams, "limit")
+	assert.Contains(t, visitedParams, "sort")
+}
+
+func TestWalk_OAS2OperationWithResponses(t *testing.T) {
+	// Test walking an operation with multiple responses
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Responses: &parser.Responses{
+						Default: &parser.Response{
+							Description: "Unexpected error",
+						},
+						Codes: map[string]*parser.Response{
+							"200": {Description: "OK"},
+							"400": {Description: "Bad Request"},
+							"404": {Description: "Not Found"},
+							"500": {Description: "Internal Server Error"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var visitedResponses []string
+	err := Walk(result,
+		WithResponseHandler(func(statusCode string, resp *parser.Response, path string) Action {
+			visitedResponses = append(visitedResponses, statusCode)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Len(t, visitedResponses, 5, "expected 5 responses (1 default + 4 status codes)")
+	assert.Contains(t, visitedResponses, "default")
+	assert.Contains(t, visitedResponses, "200")
+	assert.Contains(t, visitedResponses, "400")
+	assert.Contains(t, visitedResponses, "404")
+	assert.Contains(t, visitedResponses, "500")
+}
+
+func TestWalk_OAS2OperationSkipChildren(t *testing.T) {
+	// Test that SkipChildren from Operation handler skips parameters/responses
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Parameters: []*parser.Parameter{
+						{Name: "limit", In: "query", Type: "integer"},
+					},
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {Description: "OK"},
+						},
+					},
+				},
+				Post: &parser.Operation{
+					OperationID: "createPet",
+					Parameters: []*parser.Parameter{
+						{Name: "body", In: "body"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var visitedParams []string
+	var visitedResponses []string
+	err := Walk(result,
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			if op.OperationID == "listPets" {
+				return SkipChildren // Skip children for listPets
+			}
+			return Continue
+		}),
+		WithParameterHandler(func(param *parser.Parameter, path string) Action {
+			visitedParams = append(visitedParams, param.Name)
+			return Continue
+		}),
+		WithResponseHandler(func(statusCode string, resp *parser.Response, path string) Action {
+			visitedResponses = append(visitedResponses, statusCode)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	// Only createPet's parameter should be visited
+	assert.Equal(t, []string{"body"}, visitedParams, "only createPet parameter should be visited")
+	// listPets responses should be skipped
+	assert.Empty(t, visitedResponses, "no responses should be visited due to SkipChildren")
+}
+
+func TestWalk_OAS2OperationStop(t *testing.T) {
+	// Test that Stop from Operation handler stops the entire walk
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/a": &parser.PathItem{
+				Get:  &parser.Operation{OperationID: "getA"},
+				Post: &parser.Operation{OperationID: "postA"},
+			},
+			"/b": &parser.PathItem{
+				Get: &parser.Operation{OperationID: "getB"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var visitedOps []string
+	err := Walk(result,
+		WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			visitedOps = append(visitedOps, op.OperationID)
+			if len(visitedOps) >= 2 {
+				return Stop // Stop after visiting 2 operations
+			}
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Len(t, visitedOps, 2, "expected walk to stop after 2 operations")
+}
+
+// OAS 2.0 Response Walking Tests
+
+func TestWalk_OAS2ResponseWithHeaders(t *testing.T) {
+	// Test walking a response with headers
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {
+								Description: "OK",
+								Headers: map[string]*parser.Header{
+									"X-Rate-Limit":     {Type: "integer", Description: "Rate limit"},
+									"X-Rate-Remaining": {Type: "integer", Description: "Remaining requests"},
+									"X-Request-ID":     {Type: "string", Description: "Request ID"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var visitedHeaders []string
+	err := Walk(result,
+		WithHeaderHandler(func(name string, header *parser.Header, path string) Action {
+			visitedHeaders = append(visitedHeaders, name)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Len(t, visitedHeaders, 3, "expected 3 headers")
+	assert.Contains(t, visitedHeaders, "X-Rate-Limit")
+	assert.Contains(t, visitedHeaders, "X-Rate-Remaining")
+	assert.Contains(t, visitedHeaders, "X-Request-ID")
+}
+
+func TestWalk_OAS2ResponseWithSchema(t *testing.T) {
+	// Test walking a response with a schema
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {
+								Description: "OK",
+								Schema: &parser.Schema{
+									Type: "array",
+									Items: &parser.Schema{
+										Type: "object",
+										Properties: map[string]*parser.Schema{
+											"id":   {Type: "integer"},
+											"name": {Type: "string"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var schemaPaths []string
+	err := Walk(result,
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			schemaPaths = append(schemaPaths, path)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	// Should visit: response schema, items schema, id property, name property
+	assert.GreaterOrEqual(t, len(schemaPaths), 4, "expected at least 4 schemas")
+
+	// Verify response schema path
+	foundResponseSchema := false
+	for _, p := range schemaPaths {
+		if strings.Contains(p, "responses['200'].schema") {
+			foundResponseSchema = true
+			break
+		}
+	}
+	assert.True(t, foundResponseSchema, "should visit response schema")
+}
+
+func TestWalk_OAS2ResponseSkipChildren(t *testing.T) {
+	// Test that SkipChildren from Response handler skips headers and schema
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {
+								Description: "OK - skip this one",
+								Headers: map[string]*parser.Header{
+									"X-Skip": {Type: "string"},
+								},
+								Schema: &parser.Schema{Type: "object"},
+							},
+							"400": {
+								Description: "Bad Request - visit this one",
+								Headers: map[string]*parser.Header{
+									"X-Error": {Type: "string"},
+								},
+								Schema: &parser.Schema{Type: "object"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var visitedHeaders []string
+	var visitedSchemas []string
+	err := Walk(result,
+		WithResponseHandler(func(statusCode string, resp *parser.Response, path string) Action {
+			if statusCode == "200" {
+				return SkipChildren
+			}
+			return Continue
+		}),
+		WithHeaderHandler(func(name string, header *parser.Header, path string) Action {
+			visitedHeaders = append(visitedHeaders, name)
+			return Continue
+		}),
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			visitedSchemas = append(visitedSchemas, path)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	// Only 400 response's children should be visited
+	assert.Equal(t, []string{"X-Error"}, visitedHeaders, "only X-Error header should be visited")
+	assert.Len(t, visitedSchemas, 1, "only 400 response schema should be visited")
+	for _, p := range visitedSchemas {
+		assert.Contains(t, p, "400", "visited schema should be from 400 response")
+	}
+}
+
+// walkParameter Coverage Tests
+
+func TestWalk_ParameterWithSchema(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets/{id}": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getPet",
+					Parameters: []*parser.Parameter{
+						{
+							Name:   "id",
+							In:     "path",
+							Schema: &parser.Schema{Type: "integer"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	var schemaPaths []string
+	err := Walk(result,
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			schemaPaths = append(schemaPaths, path)
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	found := false
+	for _, p := range schemaPaths {
+		if strings.Contains(p, "parameters[0].schema") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "should visit parameter schema")
+}
+
+func TestWalk_ParameterWithContent(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Parameters: []*parser.Parameter{
+						{
+							Name: "filter",
+							In:   "query",
+							Content: map[string]*parser.MediaType{
+								"application/json": {
+									Schema: &parser.Schema{Type: "object"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	var mediaTypePaths []string
+	err := Walk(result,
+		WithMediaTypeHandler(func(name string, mt *parser.MediaType, path string) Action {
+			mediaTypePaths = append(mediaTypePaths, path)
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	found := false
+	for _, p := range mediaTypePaths {
+		if strings.Contains(p, "parameters[0].content") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "should visit parameter content media type")
+}
+
+func TestWalk_ParameterWithExamples(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets/{id}": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getPet",
+					Parameters: []*parser.Parameter{
+						{
+							Name: "id",
+							In:   "path",
+							Examples: map[string]*parser.Example{
+								"petId1": {Summary: "First pet", Value: 1},
+								"petId2": {Summary: "Second pet", Value: 2},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	var exampleNames []string
+	err := Walk(result,
+		WithExampleHandler(func(name string, example *parser.Example, path string) Action {
+			exampleNames = append(exampleNames, name)
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	assert.Len(t, exampleNames, 2)
+	assert.Contains(t, exampleNames, "petId1")
+	assert.Contains(t, exampleNames, "petId2")
+}
+
+func TestWalk_ParameterSkipChildren(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets/{id}": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getPet",
+					Parameters: []*parser.Parameter{
+						{
+							Name:   "id",
+							In:     "path",
+							Schema: &parser.Schema{Type: "integer"},
+							Examples: map[string]*parser.Example{
+								"example1": {Summary: "Example"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	schemaVisited := false
+	exampleVisited := false
+	err := Walk(result,
+		WithParameterHandler(func(param *parser.Parameter, path string) Action {
+			return SkipChildren
+		}),
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			if strings.Contains(path, "parameters") {
+				schemaVisited = true
+			}
+			return Continue
+		}),
+		WithExampleHandler(func(name string, example *parser.Example, path string) Action {
+			if strings.Contains(path, "parameters") {
+				exampleVisited = true
+			}
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	assert.False(t, schemaVisited, "schema should not be visited when parameter handler returns SkipChildren")
+	assert.False(t, exampleVisited, "example should not be visited when parameter handler returns SkipChildren")
+}
+
+func TestWalk_ParameterStop(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Parameters: []*parser.Parameter{
+						{Name: "limit", In: "query"},
+						{Name: "offset", In: "query"},
+						{Name: "filter", In: "query"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	var visitedParams []string
+	err := Walk(result,
+		WithParameterHandler(func(param *parser.Parameter, path string) Action {
+			visitedParams = append(visitedParams, param.Name)
+			if param.Name == "limit" {
+				return Stop
+			}
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	assert.Len(t, visitedParams, 1, "should stop after first parameter")
+	assert.Equal(t, "limit", visitedParams[0])
+}
+
+// walkHeader Coverage Tests
+
+func TestWalk_HeaderWithContent(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Headers: map[string]*parser.Header{
+				"X-Custom-Header": {
+					Description: "Custom header with content",
+					Content: map[string]*parser.MediaType{
+						"application/json": {
+							Schema: &parser.Schema{Type: "object"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	var mediaTypePaths []string
+	err := Walk(result,
+		WithMediaTypeHandler(func(name string, mt *parser.MediaType, path string) Action {
+			mediaTypePaths = append(mediaTypePaths, path)
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	found := false
+	for _, p := range mediaTypePaths {
+		if strings.Contains(p, "headers") && strings.Contains(p, "content") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "should visit header content media type")
+}
+
+func TestWalk_HeaderWithExamples(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Headers: map[string]*parser.Header{
+				"X-Request-ID": {
+					Description: "Request ID header",
+					Schema:      &parser.Schema{Type: "string"},
+					Examples: map[string]*parser.Example{
+						"uuid1": {Summary: "UUID example", Value: "123e4567-e89b-12d3-a456-426614174000"},
+						"uuid2": {Summary: "Another UUID", Value: "987fcdeb-51a2-43e6-b7c8-123456789abc"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	var exampleNames []string
+	err := Walk(result,
+		WithExampleHandler(func(name string, example *parser.Example, path string) Action {
+			exampleNames = append(exampleNames, name)
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	assert.Len(t, exampleNames, 2)
+	assert.Contains(t, exampleNames, "uuid1")
+	assert.Contains(t, exampleNames, "uuid2")
+}
+
+func TestWalk_HeaderSkipChildren(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Headers: map[string]*parser.Header{
+				"X-Rate-Limit": {
+					Description: "Rate limit header",
+					Schema:      &parser.Schema{Type: "integer"},
+					Examples: map[string]*parser.Example{
+						"example1": {Summary: "Example"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	schemaVisited := false
+	exampleVisited := false
+	err := Walk(result,
+		WithHeaderHandler(func(name string, header *parser.Header, path string) Action {
+			return SkipChildren
+		}),
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			if strings.Contains(path, "headers") {
+				schemaVisited = true
+			}
+			return Continue
+		}),
+		WithExampleHandler(func(name string, example *parser.Example, path string) Action {
+			if strings.Contains(path, "headers") {
+				exampleVisited = true
+			}
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	assert.False(t, schemaVisited, "schema should not be visited when header handler returns SkipChildren")
+	assert.False(t, exampleVisited, "example should not be visited when header handler returns SkipChildren")
+}
+
+// walkSchemaProperties Coverage Tests
+
+func TestWalk_SchemaDependentSchemas(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"ConditionalObject": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"name":    {Type: "string"},
+						"address": {Type: "string"},
+					},
+					DependentSchemas: map[string]*parser.Schema{
+						"name": {
+							Properties: map[string]*parser.Schema{
+								"firstName": {Type: "string"},
+								"lastName":  {Type: "string"},
+							},
+						},
+						"address": {
+							Properties: map[string]*parser.Schema{
+								"street": {Type: "string"},
+								"city":   {Type: "string"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Document:   doc,
+	}
+
+	var schemaPaths []string
+	err := Walk(result,
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			schemaPaths = append(schemaPaths, path)
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	// Count dependentSchemas entries
+	dependentSchemaCount := 0
+	for _, p := range schemaPaths {
+		if strings.Contains(p, "dependentSchemas") {
+			dependentSchemaCount++
+		}
+	}
+	// Should have 2 dependentSchemas (name and address) plus their nested properties
+	assert.GreaterOrEqual(t, dependentSchemaCount, 2, "should visit dependentSchemas")
+}
+
+func TestWalk_SchemaPropertiesSkipChildren(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Object": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"nested": {
+							Type: "object",
+							Properties: map[string]*parser.Schema{
+								"deep": {Type: "string"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	var visitedPaths []string
+	err := Walk(result,
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			visitedPaths = append(visitedPaths, path)
+			// Skip children of the nested schema
+			if strings.Contains(path, "nested") && !strings.Contains(path, "deep") {
+				return SkipChildren
+			}
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	// Should visit Object and nested, but not deep
+	deepVisited := false
+	for _, p := range visitedPaths {
+		if strings.Contains(p, "deep") {
+			deepVisited = true
+		}
+	}
+	assert.False(t, deepVisited, "deep schema should not be visited when parent returns SkipChildren")
+}
+
+func TestWalk_SchemaPropertiesStop(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Object": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"a": {Type: "string"},
+						"b": {Type: "string"},
+						"c": {Type: "string"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	visitCount := 0
+	err := Walk(result,
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			visitCount++
+			// Stop after visiting 2 schemas (Object + first property)
+			if visitCount >= 2 {
+				return Stop
+			}
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, 2, visitCount, "should stop after 2 schemas")
+}
+
+// walkSchemaArrayKeywords Coverage Tests
+
+func TestWalk_SchemaItemsAsSchema(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"StringArray": {
+					Type:  "array",
+					Items: &parser.Schema{Type: "string"},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	var schemaPaths []string
+	err := Walk(result,
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			schemaPaths = append(schemaPaths, path)
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	found := false
+	for _, p := range schemaPaths {
+		if strings.Contains(p, ".items") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "should visit items schema")
+}
+
+func TestWalk_SchemaAdditionalItems(t *testing.T) {
+	// AdditionalItems is a JSON Schema draft-07 keyword still sometimes used
+	additionalItemsSchema := &parser.Schema{Type: "number"}
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"TupleWithExtra": {
+					Type: "array",
+					PrefixItems: []*parser.Schema{
+						{Type: "string"},
+						{Type: "integer"},
+					},
+					AdditionalItems: additionalItemsSchema,
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Document:   doc,
+	}
+
+	var schemaPaths []string
+	err := Walk(result,
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			schemaPaths = append(schemaPaths, path)
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	found := false
+	for _, p := range schemaPaths {
+		if strings.Contains(p, "additionalItems") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "should visit additionalItems schema")
+}
+
+func TestWalk_SchemaUnevaluatedItems(t *testing.T) {
+	unevaluatedItemsSchema := &parser.Schema{Type: "boolean"}
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"StrictArray": {
+					Type: "array",
+					PrefixItems: []*parser.Schema{
+						{Type: "string"},
+					},
+					UnevaluatedItems: unevaluatedItemsSchema,
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Document:   doc,
+	}
+
+	var schemaPaths []string
+	err := Walk(result,
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			schemaPaths = append(schemaPaths, path)
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	found := false
+	for _, p := range schemaPaths {
+		if strings.Contains(p, "unevaluatedItems") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "should visit unevaluatedItems schema")
+}
+
+func TestWalk_SchemaArrayKeywordsSkipChildren(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Array": {
+					Type: "array",
+					Items: &parser.Schema{
+						Type: "object",
+						Properties: map[string]*parser.Schema{
+							"nested": {Type: "string"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Document:   doc,
+	}
+
+	var visitedPaths []string
+	err := Walk(result,
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			visitedPaths = append(visitedPaths, path)
+			// Skip children of items schema
+			if strings.Contains(path, ".items") {
+				return SkipChildren
+			}
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	nestedVisited := false
+	for _, p := range visitedPaths {
+		if strings.Contains(p, "nested") {
+			nestedVisited = true
+		}
+	}
+	assert.False(t, nestedVisited, "nested property should not be visited when items returns SkipChildren")
+}
+
+// walkSchemaMisc Coverage Tests
+
+func TestWalk_SchemaContentSchema(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"EncodedContent": {
+					Type:             "string",
+					ContentEncoding:  "base64",
+					ContentMediaType: "application/json",
+					ContentSchema: &parser.Schema{
+						Type: "object",
+						Properties: map[string]*parser.Schema{
+							"data": {Type: "string"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Document:   doc,
+	}
+
+	var schemaPaths []string
+	err := Walk(result,
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			schemaPaths = append(schemaPaths, path)
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	found := false
+	for _, p := range schemaPaths {
+		if strings.Contains(p, "contentSchema") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "should visit contentSchema")
+}
+
+func TestWalk_SchemaMiscSkipChildren(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"WithContentSchema": {
+					Type:            "string",
+					ContentEncoding: "base64",
+					ContentSchema: &parser.Schema{
+						Type: "object",
+						Properties: map[string]*parser.Schema{
+							"nested": {Type: "string"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Document:   doc,
+	}
+
+	var visitedPaths []string
+	err := Walk(result,
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			visitedPaths = append(visitedPaths, path)
+			// Skip children of the root schema (which has contentSchema)
+			if strings.HasSuffix(path, "['WithContentSchema']") {
+				return SkipChildren
+			}
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	contentSchemaVisited := false
+	for _, p := range visitedPaths {
+		if strings.Contains(p, "contentSchema") {
+			contentSchemaVisited = true
+		}
+	}
+	assert.False(t, contentSchemaVisited, "contentSchema should not be visited when parent returns SkipChildren")
+}
+
+func TestWalk_SchemaNotKeyword(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"NotNull": {
+					Not: &parser.Schema{Type: "null"},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	var schemaPaths []string
+	err := Walk(result,
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			schemaPaths = append(schemaPaths, path)
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	found := false
+	for _, p := range schemaPaths {
+		if strings.Contains(p, ".not") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "should visit not schema")
+}
+
+// Additional edge case tests for better coverage
+
+func TestWalk_HeaderStop(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Headers: map[string]*parser.Header{
+				"A-Header": {Description: "First header"},
+				"B-Header": {Description: "Second header"},
+				"C-Header": {Description: "Third header"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	var visitedHeaders []string
+	err := Walk(result,
+		WithHeaderHandler(func(name string, header *parser.Header, path string) Action {
+			visitedHeaders = append(visitedHeaders, name)
+			// Stop after first header
+			return Stop
+		}),
+	)
+	require.NoError(t, err)
+
+	assert.Len(t, visitedHeaders, 1, "should stop after first header")
+}
+
+func TestWalk_NilParameterInSlice(t *testing.T) {
+	// Test that nil parameters in a slice are handled gracefully
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Parameters: []*parser.Parameter{
+						{Name: "valid", In: "query"},
+						nil, // nil parameter
+						{Name: "another", In: "query"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	var visitedParams []string
+	err := Walk(result,
+		WithParameterHandler(func(param *parser.Parameter, path string) Action {
+			visitedParams = append(visitedParams, param.Name)
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	// Should visit only non-nil parameters
+	assert.Len(t, visitedParams, 2)
+	assert.Contains(t, visitedParams, "valid")
+	assert.Contains(t, visitedParams, "another")
+}
+
+func TestWalk_MediaTypeSkipChildren(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {
+								Description: "OK",
+								Content: map[string]*parser.MediaType{
+									"application/json": {
+										Schema: &parser.Schema{Type: "object"},
+										Examples: map[string]*parser.Example{
+											"example1": {Summary: "Test"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	schemaVisited := false
+	exampleVisited := false
+	err := Walk(result,
+		WithMediaTypeHandler(func(name string, mt *parser.MediaType, path string) Action {
+			return SkipChildren
+		}),
+		WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			if strings.Contains(path, "content") {
+				schemaVisited = true
+			}
+			return Continue
+		}),
+		WithExampleHandler(func(name string, example *parser.Example, path string) Action {
+			if strings.Contains(path, "content") {
+				exampleVisited = true
+			}
+			return Continue
+		}),
+	)
+	require.NoError(t, err)
+
+	assert.False(t, schemaVisited, "schema should not be visited when mediaType returns SkipChildren")
+	assert.False(t, exampleVisited, "example should not be visited when mediaType returns SkipChildren")
+}
