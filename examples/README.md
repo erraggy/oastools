@@ -15,6 +15,12 @@ Complete, runnable examples demonstrating the full oastools ecosystem across par
 | 3 min | Workflows | [overlay-transformations/](workflows/overlay-transformations/) | Environment-specific customizations |
 | 5 min | Workflows | [http-validation/](workflows/http-validation/) | Runtime request/response validation |
 | 5 min | Programmatic API | [builder/](programmatic-api/builder/) | Build specs from Go code + ServerBuilder |
+| 3 min | Walker | [api-statistics/](walker/api-statistics/) | Collect API statistics in single pass |
+| 4 min | Walker | [security-audit/](walker/security-audit/) | Audit API for security issues |
+| 3 min | Walker | [vendor-extensions/](walker/vendor-extensions/) | Add vendor extensions for tooling |
+| 3 min | Walker | [public-api-filter/](walker/public-api-filter/) | Filter internal endpoints |
+| 4 min | Walker | [api-documentation/](walker/api-documentation/) | Generate Markdown documentation |
+| 4 min | Walker | [reference-collector/](walker/reference-collector/) | Analyze schema references |
 | 10 min | Code Generation | [petstore/](petstore/) | Full client/server generation |
 
 ## Examples by Category
@@ -49,6 +55,19 @@ Build OpenAPI specifications from Go code.
 |---------|---------|-------------|
 | [builder/](programmatic-api/builder/) | builder | Fluent API + ServerBuilder for runnable servers |
 
+### [Walker Examples](walker/)
+
+Document traversal patterns for analysis, mutation, and filtering.
+
+| Example | Category | Description |
+|---------|----------|-------------|
+| [api-statistics/](walker/api-statistics/) | Analysis | Collect API statistics in a single traversal pass |
+| [security-audit/](walker/security-audit/) | Validation | Audit API for security issues and compliance |
+| [vendor-extensions/](walker/vendor-extensions/) | Mutation | Add vendor extensions for downstream tooling |
+| [public-api-filter/](walker/public-api-filter/) | Filtering | Extract public API, filter internal endpoints |
+| [api-documentation/](walker/api-documentation/) | Reporting | Generate Markdown documentation from spec |
+| [reference-collector/](walker/reference-collector/) | Integration | Collect schema references and detect cycles |
+
 ### Code Generation
 
 Generate production-ready Go client and server code.
@@ -59,26 +78,27 @@ Generate production-ready Go client and server code.
 
 ## Feature Matrix
 
-| Feature | quickstart | validation-pipeline | workflows | builder | petstore |
-|---------|:----------:|:-------------------:|:---------:|:-------:|:--------:|
-| Parser API | ✓ | ✓ | ✓ | ✓ | |
-| Validator API | ✓ | ✓ | ✓ | ✓ | |
-| Fixer API | | | ✓ | | |
-| Converter API | | | ✓ | | |
-| Joiner API | | | ✓ | | |
-| Differ API | | | ✓ | | |
-| Overlay API | | | ✓ | | |
-| HTTPValidator API | | | ✓ | | |
-| Builder API | | | | ✓ | |
-| ServerBuilder | | | | ✓ | |
-| Source Maps | | ✓ | | | |
-| Code Generation | | | | | ✓ |
-| Client Generation | | | | | ✓ |
-| Server Generation | | | | | ✓ |
-| OAuth2 Flows | | | | | ✓ |
-| OIDC Discovery | | | | | ✓ |
+| Feature | quickstart | validation-pipeline | workflows | builder | walker | petstore |
+|---------|:----------:|:-------------------:|:---------:|:-------:|:------:|:--------:|
+| Parser API | ✓ | ✓ | ✓ | ✓ | | |
+| Validator API | ✓ | ✓ | ✓ | ✓ | | |
+| Fixer API | | | ✓ | | | |
+| Converter API | | | ✓ | | | |
+| Joiner API | | | ✓ | | | |
+| Differ API | | | ✓ | | | |
+| Overlay API | | | ✓ | | | |
+| HTTPValidator API | | | ✓ | | | |
+| Builder API | | | | ✓ | | |
+| ServerBuilder | | | | ✓ | | |
+| Walker API | | | | | ✓ | |
+| Source Maps | | ✓ | | | | |
+| Code Generation | | | | | | ✓ |
+| Client Generation | | | | | | ✓ |
+| Server Generation | | | | | | ✓ |
+| OAuth2 Flows | | | | | | ✓ |
+| OIDC Discovery | | | | | | ✓ |
 
-**Package Coverage:** 10/10 packages demonstrated
+**Package Coverage:** 11/11 packages demonstrated
 
 ## OAS Version Coverage
 
@@ -145,6 +165,7 @@ result, err := converter.ConvertWithOptions(
   - [overlay](../packages/overlay/)
   - [httpvalidator](../packages/httpvalidator/)
   - [builder](../packages/builder/)
+  - [walker](../packages/walker/)
   - [generator](../packages/generator/)
 
 ---

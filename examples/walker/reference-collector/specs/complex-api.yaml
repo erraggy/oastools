@@ -1,0 +1,263 @@
+openapi: "3.0.3"
+info:
+  title: Complex API
+  version: "1.0.0"
+  description: API with circular references, unused schemas, and deep nesting
+
+servers:
+  - url: https://api.example.com/v1
+
+tags:
+  - name: pets
+    description: Pet operations
+  - name: nodes
+    description: Node tree operations
+
+paths:
+  /pets:
+    get:
+      tags:
+        - pets
+      summary: List all pets
+      operationId: listPets
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of pets to return
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: A list of pets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pet"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags:
+        - pets
+      summary: Create a new pet
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPet"
+      responses:
+        "201":
+          description: Pet created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /pets/{petId}:
+    get:
+      tags:
+        - pets
+      summary: Get a pet by ID
+      operationId: getPetById
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          description: ID of the pet
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pet details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /nodes:
+    get:
+      tags:
+        - nodes
+      summary: List all nodes (tree structure)
+      operationId: listNodes
+      responses:
+        "200":
+          description: A list of nodes (may contain circular references)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Node"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    # Used schema - referenced by Pet
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+
+    # Used schema - referenced in error responses
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+
+    # Used schema - referenced in POST /pets request body
+    NewPet:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        tag:
+          type: string
+        categoryId:
+          type: integer
+          format: int64
+
+    # Used schema - referenced in multiple responses
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        tag:
+          type: string
+        category:
+          $ref: "#/components/schemas/Category"
+
+    # Circular reference - Node references itself
+    Node:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+
+    # Unused schema - not referenced anywhere
+    LegacyModel:
+      type: object
+      deprecated: true
+      description: Legacy model from old API version
+      properties:
+        legacyId:
+          type: string
+        legacyData:
+          type: object
+          additionalProperties:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    # Unused schema - not referenced anywhere
+    InternalConfig:
+      type: object
+      description: Internal configuration that should not be exposed
+      properties:
+        debugMode:
+          type: boolean
+        internalEndpoint:
+          type: string
+        secretToken:
+          type: string
+
+    # Deep nesting example (5+ levels via allOf composition)
+    DeepSchema:
+      allOf:
+        - $ref: "#/components/schemas/DeepLevel1"
+        - type: object
+          properties:
+            deepField:
+              type: string
+
+    DeepLevel1:
+      allOf:
+        - $ref: "#/components/schemas/DeepLevel2"
+        - type: object
+          properties:
+            level1Field:
+              type: string
+
+    DeepLevel2:
+      allOf:
+        - $ref: "#/components/schemas/DeepLevel3"
+        - type: object
+          properties:
+            level2Field:
+              type: string
+
+    DeepLevel3:
+      allOf:
+        - $ref: "#/components/schemas/DeepLevel4"
+        - type: object
+          properties:
+            level3Field:
+              type: string
+
+    DeepLevel4:
+      allOf:
+        - $ref: "#/components/schemas/DeepLevel5"
+        - type: object
+          properties:
+            level4Field:
+              type: string
+
+    DeepLevel5:
+      type: object
+      properties:
+        level5Field:
+          type: string
+        baseValue:
+          type: integer

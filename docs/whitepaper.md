@@ -2,7 +2,7 @@
 
 **White Paper**
 
-**Current as of:** v1.35.0<br>
+**Current as of:** v1.37.0<br>
 **Repository:** [github.com/erraggy/oastools](https://github.com/erraggy/oastools)<br>
 **Documentation:** [pkg.go.dev/github.com/erraggy/oastools](https://pkg.go.dev/github.com/erraggy/oastools)<br>
 **License:** MIT
@@ -32,14 +32,15 @@ This white paper provides an in-depth exploration of oastools, covering its arch
 11. [Generator Package](#11-generator-package)
 12. [Builder Package](#12-builder-package)
 13. [HTTP Validator Package](#13-http-validator-package)
-14. [Error Handling with oaserrors](#14-error-handling-with-oaserrors)
-15. [Performance Analysis](#15-performance-analysis)
-16. [Real-World Validation](#16-real-world-validation)
-17. [CLI Reference](#17-cli-reference)
-18. [API Design Patterns](#18-api-design-patterns)
-19. [Security Considerations](#19-security-considerations)
-20. [Conclusion](#20-conclusion)
-21. [References](#21-references)
+14. [Walker Package](#14-walker-package)
+15. [Error Handling with oaserrors](#15-error-handling-with-oaserrors)
+16. [Performance Analysis](#16-performance-analysis)
+17. [Real-World Validation](#17-real-world-validation)
+18. [CLI Reference](#18-cli-reference)
+19. [API Design Patterns](#19-api-design-patterns)
+20. [Security Considerations](#20-security-considerations)
+21. [Conclusion](#21-conclusion)
+22. [References](#22-references)
 
 ---
 
@@ -49,7 +50,7 @@ The [OpenAPI Specification](https://spec.openapis.org/) has become the de facto 
 
 oastools was created to fill this gap, addressing several key pain points. First, existing Go libraries often lack support for newer OAS versions, particularly [OAS 3.1.x](https://spec.openapis.org/oas/v3.1.0.html) with its [JSON Schema 2020-12](https://json-schema.org/draft/2020-12/json-schema-core.html) alignment, and the recently released [OAS 3.2.0](https://spec.openapis.org/oas/v3.2.0.html) with streaming and QUERY method support. Second, many OpenAPI tools bring extensive dependency trees, complicating builds, increasing binary sizes, and introducing potential security vulnerabilities. Third, repeatedly parsing the same document across validation, conversion, and generation pipelines creates unnecessary overhead at scale. Finally, generating idiomatic Go code that properly handles [OAuth2](https://datatracker.ietf.org/doc/html/rfc6749) flows, Proof Key for Code Exchange ([PKCE](https://datatracker.ietf.org/doc/html/rfc7636)), and OpenID Connect (OIDC) discovery remains challenging with existing tools.
 
-oastools addresses these challenges through a modular eleven-package architecture, each package designed to excel at a specific task while integrating seamlessly with others. The toolkit emphasizes correctness, performance, and developer experience.
+oastools addresses these challenges through a modular twelve-package architecture, each package designed to excel at a specific task while integrating seamlessly with others. The toolkit emphasizes correctness, performance, and developer experience.
 
 ### Design Philosophy
 
@@ -120,7 +121,7 @@ The toolkit implements or references several IETF RFCs. [RFC 9535](https://datat
 
 ## 3. Package Architecture
 
-oastools comprises eleven public packages, each with a focused responsibility and clear integration points.
+oastools comprises twelve public packages, each with a focused responsibility and clear integration points.
 
 ```
 oastools/
@@ -134,6 +135,7 @@ oastools/
 ├── differ/         # Compare documents, detect breaking changes
 ├── generator/      # Generate Go client/server code with security support
 ├── builder/        # Programmatically construct OAS documents
+├── walker/         # Traverse OAS documents with typed handlers and flow control
 ├── oaserrors/      # Structured error types for programmatic handling
 └── internal/       # Internal utilities (not public API)
     ├── httputil/   # HTTP constants and validation
@@ -167,6 +169,7 @@ flowchart TB
         Joiner[joiner]
         Overlay[overlay]
         Differ[differ]
+        Walker[walker]
     end
 
     subgraph Output["📤 Output"]
@@ -190,6 +193,7 @@ flowchart TB
     Parser --> Joiner
     Parser --> Overlay
     Parser --> Differ
+    Parser --> Walker
     Parser --> Generator
     Parser --> HTTPValidator
 
@@ -203,7 +207,7 @@ flowchart TB
     style OASErrors fill:#ff8a65,color:#000
 ```
 
-The packages form a coherent processing pipeline. The [parser](#4-parser-package) sits at the foundation, providing `ParseResult` structures consumed by all other packages. The [validator](#5-validator-package) depends on parser output for structural and semantic validation. The [fixer](#6-fixer-package) uses parser output and can optionally leverage validator feedback for targeted fixes. The [converter](#7-converter-package) transforms parser output between OAS versions. The [joiner](#8-joiner-package) combines multiple `ParseResult` instances into a unified document. The [overlay](#9-overlay-package) applies transformations to parser output using [JSONPath](https://datatracker.ietf.org/doc/html/rfc9535) targeting. The [differ](#10-differ-package) compares two `ParseResult` instances to detect changes. The [generator](#11-generator-package) produces Go code from parser output. The [builder](#12-builder-package) constructs documents programmatically, producing output compatible with parser structures. The [httpvalidator](#13-http-validator-package) uses parser output to validate runtime HTTP traffic. The [oaserrors](#14-error-handling-with-oaserrors) package provides error types used throughout all other packages.
+The packages form a coherent processing pipeline. The [parser](#4-parser-package) sits at the foundation, providing `ParseResult` structures consumed by all other packages. The [validator](#5-validator-package) depends on parser output for structural and semantic validation. The [fixer](#6-fixer-package) uses parser output and can optionally leverage validator feedback for targeted fixes. The [converter](#7-converter-package) transforms parser output between OAS versions. The [joiner](#8-joiner-package) combines multiple `ParseResult` instances into a unified document. The [overlay](#9-overlay-package) applies transformations to parser output using [JSONPath](https://datatracker.ietf.org/doc/html/rfc9535) targeting. The [differ](#10-differ-package) compares two `ParseResult` instances to detect changes. The [walker](#14-walker-package) traverses parser output with typed handlers for analysis, mutation, and filtering. The [generator](#11-generator-package) produces Go code from parser output. The [builder](#12-builder-package) constructs documents programmatically, producing output compatible with parser structures. The [httpvalidator](#13-http-validator-package) uses parser output to validate runtime HTTP traffic. The [oaserrors](#15-error-handling-with-oaserrors) package provides error types used throughout all other packages.
 
 ### Format Preservation
 
@@ -1199,13 +1203,138 @@ In strict mode, unknown query parameters cause validation errors, unknown header
 
 ---
 
-## 14. Error Handling with oaserrors
+## 14. Walker Package
+
+> **Links:** [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/walker) | [Deep Dive](packages/walker.md)
+
+The walker package provides typed, handler-based traversal of OpenAPI documents, enabling analysis, mutation, validation, and filtering patterns.
+
+### 14.1 Core Concepts
+
+The walker uses a handler-based approach where you register callbacks for specific node types. Each handler receives a pointer to the node (enabling mutation) and the JSON path to that node.
+
+**Flow Control:**
+
+| Action | Behavior |
+|--------|----------|
+| `Continue` | Process children and continue to siblings |
+| `SkipChildren` | Skip descendants, continue to siblings |
+| `Stop` | Halt traversal immediately |
+
+### 14.2 Handler Types
+
+The walker provides 19 typed handlers covering all OAS node types:
+
+| Handler | Description |
+|---------|-------------|
+| `WithDocumentHandler` | Root document (version-agnostic) |
+| `WithOAS2DocumentHandler` | OAS 2.0 document |
+| `WithOAS3DocumentHandler` | OAS 3.x document |
+| `WithInfoHandler` | API metadata |
+| `WithServerHandler` | Server definitions (3.x only) |
+| `WithPathHandler` | Path entries with template |
+| `WithOperationHandler` | HTTP operations |
+| `WithParameterHandler` | Parameters |
+| `WithRequestBodyHandler` | Request bodies (3.x only) |
+| `WithResponseHandler` | Responses |
+| `WithSchemaHandler` | All schemas (including nested) |
+| `WithSecuritySchemeHandler` | Security schemes |
+| `WithTagHandler` | Tags |
+| `WithHeaderHandler` | Headers |
+| `WithMediaTypeHandler` | Media types (3.x only) |
+| `WithLinkHandler` | Links (3.x only) |
+| `WithCallbackHandler` | Callbacks (3.x only) |
+| `WithExampleHandler` | Examples |
+| `WithExternalDocsHandler` | External documentation |
+
+### 14.3 API Usage
+
+**Analysis Pattern:**
+
+```go
+var stats struct {
+    Operations int
+    Schemas    int
+}
+
+walker.Walk(result,
+    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+        stats.Operations++
+        return walker.Continue
+    }),
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        stats.Schemas++
+        return walker.Continue
+    }),
+)
+
+fmt.Printf("Operations: %d, Schemas: %d\n", stats.Operations, stats.Schemas)
+```
+
+**Mutation Pattern:**
+
+```go
+walker.Walk(result,
+    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+        if schema.Extra == nil {
+            schema.Extra = make(map[string]any)
+        }
+        schema.Extra["x-processed"] = true
+        return walker.Continue
+    }),
+)
+```
+
+**Filtering Pattern:**
+
+```go
+walker.Walk(result,
+    walker.WithPathHandler(func(pathTemplate string, pi *parser.PathItem, path string) walker.Action {
+        if strings.HasPrefix(pathTemplate, "/internal") {
+            return walker.SkipChildren  // Skip internal endpoints
+        }
+        return walker.Continue
+    }),
+)
+```
+
+### 14.4 Cycle Detection
+
+The walker automatically detects circular schema references and provides notifications via `WithSchemaSkippedHandler`:
+
+```go
+walker.Walk(result,
+    walker.WithMaxDepth(50),
+    walker.WithSchemaSkippedHandler(func(reason string, schema *parser.Schema, path string) {
+        if reason == "cycle" {
+            fmt.Printf("Circular reference at: %s\n", path)
+        }
+    }),
+)
+```
+
+### 14.5 Use Cases
+
+The walker package enables several common patterns:
+
+| Use Case | Handlers | Flow Control |
+|----------|----------|--------------|
+| API Statistics | Operation, Schema, Parameter | Continue |
+| Security Audit | Operation, Schema, Path | Continue, Stop |
+| Vendor Extensions | Schema, Operation, Path | Continue, SkipChildren |
+| Public API Filter | Path, Operation | SkipChildren |
+| Documentation Gen | Info, Server, Operation, Response | Continue |
+| Reference Analysis | Schema, SchemaSkipped | Continue |
+
+---
+
+## 15. Error Handling with oaserrors
 
 > **Links:** [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/oaserrors)
 
 The oaserrors package provides structured error types that integrate with Go's standard error handling mechanisms.
 
-### 14.1 Error Types
+### 15.1 Error Types
 
 | Type | Description | Sentinel |
 |------|-------------|----------|
@@ -1216,14 +1345,14 @@ The oaserrors package provides structured error types that integrate with Go's s
 | `ConversionError` | Version conversion failures | `ErrConversion` |
 | `ConfigError` | Invalid configuration | `ErrConfig` |
 
-### 14.2 Specialized Sentinels
+### 15.2 Specialized Sentinels
 
 | Sentinel | Matches | Condition |
 |----------|---------|-----------|
 | `ErrCircularReference` | `ReferenceError` | `IsCircular == true` |
 | `ErrPathTraversal` | `ReferenceError` | `IsPathTraversal == true` |
 
-### 14.3 Usage with errors.Is
+### 15.3 Usage with errors.Is
 
 ```go
 result, err := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
@@ -1241,7 +1370,7 @@ if err != nil {
 }
 ```
 
-### 14.4 Usage with errors.As
+### 15.4 Usage with errors.As
 
 ```go
 var refErr *oaserrors.ReferenceError
@@ -1261,7 +1390,7 @@ if errors.As(err, &valErr) {
 }
 ```
 
-### 14.5 Error Chaining
+### 15.5 Error Chaining
 
 All error types support chaining via the `Cause` field and `Unwrap()` method.
 
@@ -1274,7 +1403,7 @@ if errors.As(err, &refErr) {
 }
 ```
 
-### 14.6 Structured Error Locality
+### 15.6 Structured Error Locality
 
 Error and warning types in the [builder](#12-builder-package), [joiner](#8-joiner-package), and [overlay](#9-overlay-package) packages implement the `HasLocation()` and `Location()` methods for programmatic error handling with source context. This enables IDE-friendly error reporting and structured handling of non-fatal issues.
 
@@ -1314,11 +1443,11 @@ for _, w := range result.StructuredWarnings {
 
 ---
 
-## 15. Performance Analysis
+## 16. Performance Analysis
 
 oastools includes comprehensive benchmarking infrastructure and has undergone targeted optimization to achieve significant performance improvements.
 
-### 15.1 Pre-Parsed Workflow Optimization
+### 16.1 Pre-Parsed Workflow Optimization
 
 The most significant performance gain comes from the parse-once pattern. When the same document undergoes multiple operations, parsing once and passing the result to subsequent operations eliminates redundant work.
 
@@ -1346,7 +1475,7 @@ convResult, _ := converter.ConvertWithOptions(
 )
 ```
 
-### 15.2 JSON Marshaling Optimization
+### 16.2 JSON Marshaling Optimization
 
 Version 1.7.0 introduced optimized JSON marshaling that eliminates double-marshal patterns across all 29 custom JSON marshalers in the [parser package](#4-parser-package).
 
@@ -1355,7 +1484,7 @@ Version 1.7.0 introduced optimized JSON marshaling that eliminates double-marsha
 | Performance | Baseline | 25-32% faster |
 | Allocations | Baseline | 29-37% fewer |
 
-### 15.3 DeepCopy Optimization
+### 16.3 DeepCopy Optimization
 
 Version 1.20.0 replaced JSON marshal/unmarshal with code-generated `DeepCopy()` methods.
 
@@ -1365,7 +1494,7 @@ Version 1.20.0 replaced JSON marshal/unmarshal with code-generated `DeepCopy()` 
 | Type preservation | No | Yes |
 | Memory efficiency | Baseline | Significantly better |
 
-### 15.4 HTTP Validator Performance
+### 16.4 HTTP Validator Performance
 
 The [httpvalidator package](#13-http-validator-package) is optimized for high-throughput scenarios.
 
@@ -1376,7 +1505,7 @@ The [httpvalidator package](#13-http-validator-package) is optimized for high-th
 | With JSON body | 455 ns | 1.5 KB | 16 |
 | Response validation | 110 ns | 256 B | 2 |
 
-### 15.5 Benchmark Reliability
+### 16.5 Benchmark Reliability
 
 File-based benchmarks can vary ±50% due to I/O variance. For reliable regression detection, use I/O-isolated benchmarks.
 
@@ -1390,14 +1519,15 @@ File-based benchmarks can vary ±50% due to I/O variance. For reliable regressio
 | [fixer](#6-fixer-package) | `BenchmarkFixParsed` | Fixing logic only |
 | [converter](#7-converter-package) | `BenchmarkConvertParsed*` | Conversion logic only |
 | [differ](#10-differ-package) | `BenchmarkDiff/Parsed` | Diffing logic only |
+| [walker](#14-walker-package) | `BenchmarkWalk/Parsed` | Walking logic only |
 
 ---
 
-## 16. Real-World Validation
+## 17. Real-World Validation
 
 The oastools test suite validates against a corpus of ten production APIs spanning diverse domains, sizes, and OAS versions.
 
-### 16.1 Test Corpus
+### 17.1 Test Corpus
 
 | API | OAS Version | Size | Domain | Key Testing Focus |
 |-----|-------------|------|--------|-------------------|
@@ -1412,7 +1542,7 @@ The oastools test suite validates against a corpus of ten production APIs spanni
 | Petstore | [2.0](https://spec.openapis.org/oas/v2.0.html) | 20 KB | Reference | Baseline OAS 2.0 compatibility |
 | Asana | [3.0.0](https://spec.openapis.org/oas/v3.0.0.html) | 405 KB | Productivity | OAuth2, clean YAML structure |
 
-### 16.2 Corpus Access
+### 17.2 Corpus Access
 
 The test corpus can be downloaded for local testing.
 
@@ -1422,17 +1552,17 @@ make corpus-download
 
 Specifications are stored in `testdata/corpus/` with consistent naming.
 
-### 16.3 Testing Coverage
+### 17.3 Testing Coverage
 
 The corpus exercises key functionality across packages. [Parser](#4-parser-package) testing covers format detection (JSON and YAML), reference resolution (local and external), version detection ([2.0](https://spec.openapis.org/oas/v2.0.html) through [3.1](https://spec.openapis.org/oas/v3.1.0.html)), large document handling, and circular reference detection. [Validator](#5-validator-package) testing covers structural validation, semantic validation, strict mode validation, and source map integration. [Converter](#7-converter-package) testing covers OAS 2.0 to 3.x upgrade, OAS 3.x to 2.0 downgrade, and issue tracking. [Joiner](#8-joiner-package) testing covers multi-document merging, collision handling, and reference rewriting. [Differ](#10-differ-package) testing covers breaking change detection and change categorization. [Generator](#11-generator-package) testing covers client generation, server generation, security code generation, and OAuth2 flow generation.
 
 ---
 
-## 17. CLI Reference
+## 18. CLI Reference
 
 oastools provides a comprehensive command-line interface for all major operations.
 
-### 17.1 Installation
+### 18.1 Installation
 
 **Homebrew:**
 
@@ -1447,7 +1577,7 @@ brew install oastools
 go install github.com/erraggy/oastools/cmd/oastools@latest
 ```
 
-### 17.2 Commands
+### 18.2 Commands
 
 **Parse:**
 
@@ -1515,7 +1645,7 @@ oastools generate -client -server -oauth2-flows -p petstore openapi.yaml
 oastools generate -client -security-enforce -credential-mgmt -p petstore openapi.yaml
 ```
 
-### 17.3 Global Flags
+### 18.3 Global Flags
 
 | Flag | Description |
 |------|-------------|
@@ -1526,11 +1656,11 @@ oastools generate -client -security-enforce -credential-mgmt -p petstore openapi
 
 ---
 
-## 18. API Design Patterns
+## 19. API Design Patterns
 
 oastools provides two complementary API styles for different use cases.
 
-### 18.1 Functional Options Pattern
+### 19.1 Functional Options Pattern
 
 Best for one-off operations with explicit configuration.
 
@@ -1544,7 +1674,7 @@ result, err := parser.ParseWithOptions(
 
 **Advantages:** Self-documenting, compile-time safety, easy to extend.
 
-### 18.2 Struct-Based Pattern
+### 19.2 Struct-Based Pattern
 
 Best for batch processing with shared configuration.
 
@@ -1561,7 +1691,7 @@ for _, file := range files {
 
 **Advantages:** Reusable configuration, lower allocation overhead for multiple operations.
 
-### 18.3 Pre-Parsed Pattern
+### 19.3 Pre-Parsed Pattern
 
 Best for pipeline processing where multiple operations apply to the same document.
 
@@ -1577,9 +1707,9 @@ genResult, _ := generator.GenerateWithOptions(
 )
 ```
 
-### 18.4 Error Handling Pattern
+### 19.4 Error Handling Pattern
 
-Consistent error handling across all packages using [oaserrors](#14-error-handling-with-oaserrors).
+Consistent error handling across all packages using [oaserrors](#15-error-handling-with-oaserrors).
 
 ```go
 result, err := someOperation()
@@ -1601,11 +1731,11 @@ if err != nil {
 
 ---
 
-## 19. Security Considerations
+## 20. Security Considerations
 
 oastools incorporates several security measures to protect against common vulnerabilities.
 
-### 19.1 Path Traversal Protection
+### 20.1 Path Traversal Protection
 
 External file references are validated to prevent path traversal attacks.
 
@@ -1616,7 +1746,7 @@ resolver := parser.NewRefResolver("/base/path")
 
 The resolver ensures resolved paths remain within the allowed base directory, even on Windows with path variations.
 
-### 19.2 HTTP Reference Control
+### 20.2 HTTP Reference Control
 
 Remote URL resolution is disabled by default and requires explicit opt-in.
 
@@ -1627,7 +1757,7 @@ result, err := parser.ParseWithOptions(
 )
 ```
 
-### 19.3 Resource Limits
+### 20.3 Resource Limits
 
 Configurable limits prevent resource exhaustion.
 
@@ -1637,7 +1767,7 @@ Configurable limits prevent resource exhaustion.
 | `MaxCachedDocuments` | 100 | Limits memory usage for external docs |
 | `MaxFileSize` | 10 MB | Prevents memory exhaustion from large files |
 
-### 19.4 PKCE for OAuth2
+### 20.4 PKCE for OAuth2
 
 Generated OAuth2 code uses [PKCE (RFC 7636)](https://datatracker.ietf.org/doc/html/rfc7636) for authorization code flows, preventing authorization code interception attacks.
 
@@ -1647,7 +1777,7 @@ verifier, challenge := GeneratePKCE()
 authURL := oauth2Client.GetAuthorizationURLWithPKCE(state, challenge)
 ```
 
-### 19.5 Credential Management
+### 20.5 Credential Management
 
 Generated credential management systems avoid hardcoding secrets.
 
@@ -1661,7 +1791,7 @@ provider := NewCredentialChain(
 
 ---
 
-## 20. Conclusion
+## 21. Conclusion
 
 oastools represents a comprehensive solution for OpenAPI tooling in the Go ecosystem. Its strengths lie in several key areas.
 
@@ -1681,7 +1811,7 @@ The modular architecture allows teams to adopt individual packages as needed whi
 
 ---
 
-## 21. References
+## 22. References
 
 ### OpenAPI Initiative Specifications
 
@@ -1745,6 +1875,7 @@ The modular architecture allows teams to adopt individual packages as needed whi
 | generator | [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/generator) | [Deep Dive](packages/generator.md) |
 | builder | [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/builder) | [Deep Dive](packages/builder.md) |
 | httpvalidator | [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator) | [Deep Dive](packages/httpvalidator.md) |
+| walker | [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/walker) | [Deep Dive](packages/walker.md) |
 | oaserrors | [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/oaserrors) | — |
 
 ---
