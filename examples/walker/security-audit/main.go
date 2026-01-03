@@ -61,21 +61,21 @@ func main() {
 	// Walk the document with security audit handlers
 	err = walker.Walk(parseResult,
 		// Inventory security schemes
-		walker.WithSecuritySchemeHandler(func(name string, scheme *parser.SecurityScheme, path string) walker.Action {
+		walker.WithSecuritySchemeHandler(func(wc *walker.WalkContext, scheme *parser.SecurityScheme) walker.Action {
 			securitySchemes = append(securitySchemes, SecuritySchemeInfo{
-				Name: name,
+				Name: wc.Name,
 				Type: scheme.Type,
 			})
 			return walker.Continue
 		}),
 
 		// Detect internal endpoints
-		walker.WithPathHandler(func(pathTemplate string, pathItem *parser.PathItem, path string) walker.Action {
-			currentPathTemplate = pathTemplate
-			if strings.Contains(pathTemplate, "internal") || strings.HasPrefix(pathTemplate, "/_") {
+		walker.WithPathHandler(func(wc *walker.WalkContext, pathItem *parser.PathItem) walker.Action {
+			currentPathTemplate = wc.PathTemplate
+			if strings.Contains(wc.PathTemplate, "internal") || strings.HasPrefix(wc.PathTemplate, "/_") {
 				findings = append(findings, Finding{
 					Severity: "INFO",
-					Path:     path,
+					Path:     wc.JSONPath,
 					Message:  "Internal endpoint detected - verify access controls",
 				})
 			}
@@ -83,12 +83,12 @@ func main() {
 		}),
 
 		// Check for missing security requirements
-		walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+		walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
 			// Check if operation has no security requirements and is not on an internal path
 			if len(op.Security) == 0 && !isInternalPath(currentPathTemplate) {
 				findings = append(findings, Finding{
 					Severity: "WARNING",
-					Path:     path,
+					Path:     wc.JSONPath,
 					Message:  "Operation has no security requirements",
 				})
 			}
@@ -96,14 +96,14 @@ func main() {
 		}),
 
 		// Find sensitive field names in schemas
-		walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+		walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
 			for propName := range schema.Properties {
 				propNameLower := strings.ToLower(propName)
 				for _, pattern := range sensitivePatterns {
 					if strings.Contains(propNameLower, pattern) {
 						findings = append(findings, Finding{
 							Severity: "ERROR",
-							Path:     path,
+							Path:     wc.JSONPath,
 							Message:  fmt.Sprintf("Sensitive field '%s' found - ensure proper handling", propName),
 						})
 						break

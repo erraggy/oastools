@@ -31,10 +31,10 @@ func BenchmarkWalkSmallDocument(b *testing.B) {
 
 	for b.Loop() {
 		_ = Walk(result,
-			WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action {
 				return Continue
 			}),
-			WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			WithSchemaHandler(func(wc *WalkContext, schema *parser.Schema) Action {
 				return Continue
 			}),
 		)
@@ -83,10 +83,10 @@ func BenchmarkWalkMediumDocument(b *testing.B) {
 
 	for b.Loop() {
 		_ = Walk(result,
-			WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action {
 				return Continue
 			}),
-			WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			WithSchemaHandler(func(wc *WalkContext, schema *parser.Schema) Action {
 				return Continue
 			}),
 		)
@@ -151,17 +151,17 @@ func BenchmarkWalkAllHandlers(b *testing.B) {
 
 	for b.Loop() {
 		_ = Walk(result,
-			WithDocumentHandler(func(doc any, path string) Action { return Continue }),
-			WithInfoHandler(func(info *parser.Info, path string) Action { return Continue }),
-			WithServerHandler(func(server *parser.Server, path string) Action { return Continue }),
-			WithTagHandler(func(tag *parser.Tag, path string) Action { return Continue }),
-			WithPathHandler(func(pathTemplate string, pathItem *parser.PathItem, path string) Action { return Continue }),
-			WithPathItemHandler(func(pathItem *parser.PathItem, path string) Action { return Continue }),
-			WithOperationHandler(func(method string, op *parser.Operation, path string) Action { return Continue }),
-			WithParameterHandler(func(param *parser.Parameter, path string) Action { return Continue }),
-			WithResponseHandler(func(statusCode string, resp *parser.Response, path string) Action { return Continue }),
-			WithSchemaHandler(func(schema *parser.Schema, path string) Action { return Continue }),
-			WithSecuritySchemeHandler(func(name string, scheme *parser.SecurityScheme, path string) Action { return Continue }),
+			WithDocumentHandler(func(wc *WalkContext, doc any) Action { return Continue }),
+			WithInfoHandler(func(wc *WalkContext, info *parser.Info) Action { return Continue }),
+			WithServerHandler(func(wc *WalkContext, server *parser.Server) Action { return Continue }),
+			WithTagHandler(func(wc *WalkContext, tag *parser.Tag) Action { return Continue }),
+			WithPathHandler(func(wc *WalkContext, pathItem *parser.PathItem) Action { return Continue }),
+			WithPathItemHandler(func(wc *WalkContext, pathItem *parser.PathItem) Action { return Continue }),
+			WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action { return Continue }),
+			WithParameterHandler(func(wc *WalkContext, param *parser.Parameter) Action { return Continue }),
+			WithResponseHandler(func(wc *WalkContext, resp *parser.Response) Action { return Continue }),
+			WithSchemaHandler(func(wc *WalkContext, schema *parser.Schema) Action { return Continue }),
+			WithSecuritySchemeHandler(func(wc *WalkContext, scheme *parser.SecurityScheme) Action { return Continue }),
 		)
 	}
 }
@@ -200,7 +200,7 @@ func BenchmarkWalkSchemaOnly(b *testing.B) {
 
 	for b.Loop() {
 		_ = Walk(result,
-			WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			WithSchemaHandler(func(wc *WalkContext, schema *parser.Schema) Action {
 				return Continue
 			}),
 		)
@@ -230,7 +230,7 @@ func BenchmarkWalkWithStop(b *testing.B) {
 
 	for b.Loop() {
 		_ = Walk(result,
-			WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action {
 				return Stop // Stop immediately
 			}),
 		)
@@ -266,10 +266,10 @@ func BenchmarkWalkOAS2(b *testing.B) {
 
 	for b.Loop() {
 		_ = Walk(result,
-			WithOperationHandler(func(method string, op *parser.Operation, path string) Action {
+			WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action {
 				return Continue
 			}),
-			WithSchemaHandler(func(schema *parser.Schema, path string) Action {
+			WithSchemaHandler(func(wc *WalkContext, schema *parser.Schema) Action {
 				return Continue
 			}),
 		)

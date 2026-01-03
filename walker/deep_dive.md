@@ -36,7 +36,7 @@ This provides cleaner flow control than error-based approaches.
 // Count all schemas in the document
 var schemaCount int
 walker.Walk(result,
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         schemaCount++
         return walker.Continue  // Visit nested schemas too
     }),
@@ -56,11 +56,10 @@ Use `Continue` when you want to:
 // Find schemas but don't descend into their nested properties
 var topLevelSchemas []string
 walker.Walk(result,
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         // Only capture component-level schemas, not nested ones
-        if strings.HasPrefix(path, "$.components.schemas") &&
-           !strings.Contains(path, ".properties") {
-            topLevelSchemas = append(topLevelSchemas, path)
+        if wc.IsComponent && wc.Name != "" {
+            topLevelSchemas = append(topLevelSchemas, wc.JSONPath)
         }
         return walker.SkipChildren  // Don't walk into properties/items/etc.
     }),
@@ -72,9 +71,9 @@ Common use cases for `SkipChildren`:
 **1. Skipping internal/private paths:**
 ```go
 walker.Walk(result,
-    walker.WithPathHandler(func(pathTemplate string, pi *parser.PathItem, path string) walker.Action {
-        if strings.HasPrefix(pathTemplate, "/internal") ||
-           strings.HasPrefix(pathTemplate, "/_") {
+    walker.WithPathHandler(func(wc *walker.WalkContext, pi *parser.PathItem) walker.Action {
+        if strings.HasPrefix(wc.PathTemplate, "/internal") ||
+           strings.HasPrefix(wc.PathTemplate, "/_") {
             return walker.SkipChildren  // Don't process internal endpoints
         }
         return walker.Continue
@@ -85,7 +84,7 @@ walker.Walk(result,
 **2. Processing only top-level schemas (ignoring nested):**
 ```go
 walker.Walk(result,
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         // Process this schema...
         processSchema(schema)
         // But don't recurse into properties, items, allOf, etc.
@@ -97,8 +96,8 @@ walker.Walk(result,
 **3. Conditional depth limiting:**
 ```go
 walker.Walk(result,
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
-        depth := strings.Count(path, ".properties")
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+        depth := strings.Count(wc.JSONPath, ".properties")
         if depth >= 3 {
             return walker.SkipChildren  // Stop at 3 levels of nesting
         }
@@ -110,7 +109,7 @@ walker.Walk(result,
 **4. Skipping deprecated operations:**
 ```go
 walker.Walk(result,
-    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
         if op.Deprecated {
             return walker.SkipChildren  // Skip parameters, responses of deprecated ops
         }
@@ -127,7 +126,7 @@ walker.Walk(result,
 // Find the first schema with a specific title
 var targetSchema *parser.Schema
 walker.Walk(result,
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         if schema.Title == "UserProfile" {
             targetSchema = schema
             return walker.Stop  // Found it, no need to continue
@@ -144,7 +143,7 @@ Common use cases for `Stop`:
 // Check if any operation uses a specific security scheme
 var usesOAuth bool
 walker.Walk(result,
-    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
         for _, req := range op.Security {
             if _, ok := req["oauth2"]; ok {
                 usesOAuth = true
@@ -161,9 +160,9 @@ walker.Walk(result,
 // Stop on first validation error
 var firstError error
 walker.Walk(result,
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         if err := validateCustomRule(schema); err != nil {
-            firstError = fmt.Errorf("%s: %w", path, err)
+            firstError = fmt.Errorf("%s: %w", wc.JSONPath, err)
             return walker.Stop  // Fail fast
         }
         return walker.Continue
@@ -176,8 +175,8 @@ walker.Walk(result,
 // Find operation at a specific path and method
 var targetOp *parser.Operation
 walker.Walk(result,
-    walker.WithOperationHandler(func(method string, op *parser.Operation, jsonPath string) walker.Action {
-        if jsonPath == "$.paths['/users/{id}'].get" {
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
+        if wc.JSONPath == "$.paths['/users/{id}'].get" {
             targetOp = op
             return walker.Stop
         }
@@ -192,7 +191,7 @@ walker.Walk(result,
 const maxSchemas = 1000
 var processed int
 walker.Walk(result,
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         processed++
         if processed >= maxSchemas {
             return walker.Stop  // Resource limit reached
@@ -211,21 +210,21 @@ Different handlers can return different actions to create sophisticated traversa
 // Analyze public APIs only, stop if we find a critical issue
 var criticalIssue error
 walker.Walk(result,
-    walker.WithPathHandler(func(pathTemplate string, pi *parser.PathItem, path string) walker.Action {
-        if strings.HasPrefix(pathTemplate, "/internal") {
+    walker.WithPathHandler(func(wc *walker.WalkContext, pi *parser.PathItem) walker.Action {
+        if strings.HasPrefix(wc.PathTemplate, "/internal") {
             return walker.SkipChildren  // Skip internal paths
         }
         return walker.Continue
     }),
-    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
         if op.Deprecated {
             return walker.SkipChildren  // Skip deprecated operations
         }
         return walker.Continue
     }),
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         if hasCriticalVulnerability(schema) {
-            criticalIssue = fmt.Errorf("critical issue at %s", path)
+            criticalIssue = fmt.Errorf("critical issue at %s", wc.JSONPath)
             return walker.Stop  // Halt everything
         }
         return walker.Continue
@@ -261,9 +260,20 @@ Each OAS node type has a corresponding handler type:
 | `ExternalDocsHandler` | External docs | All |
 | `SchemaSkippedHandler` | Skipped schemas (depth/cycle) | All |
 
-### JSON Path Context
+### WalkContext
 
-Each handler receives a JSON path string indicating the node's location:
+Every handler receives a `*WalkContext` as its first parameter, providing contextual information about the current node:
+
+| Field | Description |
+|-------|-------------|
+| `JSONPath` | Full JSON path to the node (always populated) |
+| `PathTemplate` | URL path template when in $.paths scope |
+| `Method` | HTTP method when in operation scope (e.g., "get", "post") |
+| `StatusCode` | Status code when in response scope (e.g., "200", "default") |
+| `Name` | Map key for named items (headers, schemas, etc.) |
+| `IsComponent` | True when in components/definitions section |
+
+#### JSON Path Examples
 
 ```
 $                                    # Document root
@@ -273,6 +283,49 @@ $.paths['/pets'].get                 # Operation
 $.paths['/pets'].get.parameters[0]   # Parameter
 $.components.schemas['Pet']          # Schema
 $.components.schemas['Pet'].properties['name']  # Nested schema
+```
+
+#### Accessing Context
+
+```go
+walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+    if wc.IsComponent {
+        fmt.Printf("Component schema: %s\n", wc.Name)
+    } else if wc.InOperationScope() {
+        fmt.Printf("Inline schema in %s %s operation\n", wc.Method, wc.PathTemplate)
+    }
+    return walker.Continue
+})
+```
+
+#### Scope Helper Methods
+
+The `WalkContext` provides helper methods to check the current scope:
+
+```go
+wc.InPathsScope()     // true when PathTemplate is set
+wc.InOperationScope() // true when Method is set
+wc.InResponseScope()  // true when StatusCode is set
+```
+
+#### Cancellation Support
+
+Pass a `context.Context` for cancellation and timeout support:
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+walker.Walk(result,
+    walker.WithContext(ctx),
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+        // Check if cancelled
+        if wc.Context().Err() != nil {
+            return walker.Stop
+        }
+        return walker.Continue
+    }),
+)
 ```
 
 ## API Reference
@@ -303,14 +356,13 @@ walker.Walk(result,
 **Use `WalkWithOptions` when:**
 - You want to parse and walk in a single call
 - You need error handling for configuration (e.g., invalid depth)
-- You prefer the `On*` naming convention for handlers
 
 ```go
 // WalkWithOptions: Parse and walk in one call
 err := walker.WalkWithOptions(
     walker.WithFilePath("openapi.yaml"),
-    walker.OnSchema(handler),
-    walker.WithMaxSchemaDepth(50),  // Returns error if invalid
+    walker.WithSchemaHandler(handler),
+    walker.WithMaxSchemaDepth(50),  // Uses default (100) if not positive
 )
 ```
 
@@ -321,7 +373,7 @@ err := walker.WalkWithOptions(
 func Walk(result *parser.ParseResult, opts ...Option) error
 
 // WalkWithOptions provides functional options for input and configuration
-func WalkWithOptions(opts ...WalkInputOption) error
+func WalkWithOptions(opts ...Option) error
 ```
 
 ### Walk Options
@@ -355,16 +407,13 @@ WithMaxDepth(depth int)  // Default: 100
 ### WalkWithOptions Input Options
 
 ```go
-WithFilePath(path string)           // Parse and walk a file
+WithFilePath(path string)               // Parse and walk a file
 WithParsed(result *parser.ParseResult)  // Walk pre-parsed document
-WithMaxSchemaDepth(depth int)       // Returns error if not positive
-
-// On* variants for handler registration
-OnDocument(fn DocumentHandler)
-OnInfo(fn InfoHandler)
-OnSchemaSkipped(fn SchemaSkippedHandler)
-// ... etc
+WithMaxSchemaDepth(depth int)           // Silently ignored if not positive (uses default 100)
+WithUserContext(ctx context.Context)    // Context for cancellation
 ```
+
+All handler options (e.g., `WithSchemaHandler`, `WithOperationHandler`) work directly with both `Walk` and `WalkWithOptions`.
 
 ## Walk Order
 
@@ -439,12 +488,12 @@ Use `WithSchemaSkippedHandler` to receive notifications when schemas are skipped
 ```go
 walker.Walk(result,
     walker.WithMaxDepth(10),
-    walker.WithSchemaSkippedHandler(func(reason string, schema *parser.Schema, path string) {
+    walker.WithSchemaSkippedHandler(func(wc *walker.WalkContext, reason string, schema *parser.Schema) {
         switch reason {
         case "depth":
-            fmt.Printf("Skipped due to depth limit: %s\n", path)
+            fmt.Printf("Skipped due to depth limit: %s\n", wc.JSONPath)
         case "cycle":
-            fmt.Printf("Skipped due to circular reference: %s\n", path)
+            fmt.Printf("Skipped due to circular reference: %s\n", wc.JSONPath)
         }
     }),
 )
@@ -459,14 +508,14 @@ This is useful for:
 - **Logging**: Recording when circular references are encountered
 - **Validation**: Detecting overly deep or circular schema structures
 
-For `WalkWithOptions`, use `OnSchemaSkipped`:
+With `WalkWithOptions`:
 
 ```go
 walker.WalkWithOptions(
     walker.WithFilePath("openapi.yaml"),
     walker.WithMaxSchemaDepth(10),
-    walker.OnSchemaSkipped(func(reason string, schema *parser.Schema, path string) {
-        log.Printf("Schema skipped (%s): %s", reason, path)
+    walker.WithSchemaSkippedHandler(func(wc *walker.WalkContext, reason string, schema *parser.Schema) {
+        log.Printf("Schema skipped (%s): %s", reason, wc.JSONPath)
     }),
 )
 ```
@@ -479,7 +528,7 @@ Handlers receive pointers to the actual document nodes, allowing in-place modifi
 
 ```go
 walker.Walk(result,
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         // Add vendor extension to all schemas
         if schema.Extra == nil {
             schema.Extra = make(map[string]any)
@@ -496,12 +545,12 @@ For type-safe version-specific handling, use the typed document handlers:
 
 ```go
 walker.Walk(result,
-    walker.WithOAS2DocumentHandler(func(doc *parser.OAS2Document, path string) walker.Action {
+    walker.WithOAS2DocumentHandler(func(wc *walker.WalkContext, doc *parser.OAS2Document) walker.Action {
         // Called only for OAS 2.0 documents - doc is already typed
         fmt.Printf("OAS 2.0: %s (host: %s)\n", doc.Info.Title, doc.Host)
         return walker.Continue
     }),
-    walker.WithOAS3DocumentHandler(func(doc *parser.OAS3Document, path string) walker.Action {
+    walker.WithOAS3DocumentHandler(func(wc *walker.WalkContext, doc *parser.OAS3Document) walker.Action {
         // Called only for OAS 3.x documents - doc is already typed
         fmt.Printf("OAS 3.x: %s (servers: %d)\n", doc.Info.Title, len(doc.Servers))
         return walker.Continue
@@ -518,7 +567,7 @@ Alternatively, use a type switch with the generic handler:
 
 ```go
 walker.Walk(result,
-    walker.WithDocumentHandler(func(doc any, path string) walker.Action {
+    walker.WithDocumentHandler(func(wc *walker.WalkContext, doc any) walker.Action {
         switch d := doc.(type) {
         case *parser.OAS2Document:
             fmt.Printf("OAS 2.0: %s\n", d.Info.Title)
@@ -542,35 +591,44 @@ var (
 )
 
 walker.Walk(result,
-    walker.WithPathHandler(func(pathTemplate string, pi *parser.PathItem, path string) walker.Action {
+    walker.WithPathHandler(func(wc *walker.WalkContext, pi *parser.PathItem) walker.Action {
         pathCount++
         return walker.Continue
     }),
-    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
         operationCount++
         return walker.Continue
     }),
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         schemaCount++
         return walker.Continue
     }),
 )
 ```
 
-### Using JSON Paths
+### Using WalkContext for Location-Aware Processing
 
-The path parameter enables location-aware processing:
+The `WalkContext` enables location-aware processing using both structured fields and the JSON path:
 
 ```go
 walker.Walk(result,
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
-        // Different handling based on location
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+        // Use structured fields for cleaner logic
+        if wc.IsComponent {
+            // Component schema - wc.Name has the schema name
+            fmt.Printf("Component: %s\n", wc.Name)
+        } else if wc.InOperationScope() {
+            // Inline schema in an operation
+            fmt.Printf("Inline in %s %s\n", wc.Method, wc.PathTemplate)
+        }
+
+        // Or use JSON path for more specific matching
         switch {
-        case strings.HasPrefix(path, "$.components.schemas"):
+        case strings.HasPrefix(wc.JSONPath, "$.components.schemas"):
             // Component schema
-        case strings.Contains(path, ".requestBody"):
+        case strings.Contains(wc.JSONPath, ".requestBody"):
             // Request body schema
-        case strings.Contains(path, ".responses"):
+        case strings.Contains(wc.JSONPath, ".responses"):
             // Response schema
         }
         return walker.Continue
@@ -585,8 +643,8 @@ For parsing and walking in one call:
 ```go
 err := walker.WalkWithOptions(
     walker.WithFilePath("openapi.yaml"),
-    walker.OnSchema(func(schema *parser.Schema, path string) walker.Action {
-        fmt.Println(path)
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+        fmt.Println(wc.JSONPath)
         return walker.Continue
     }),
 )
@@ -628,7 +686,7 @@ wg.Wait()
 // ❌ Shared mutable state in handlers without synchronization
 var count int  // Race condition!
 walker.Walk(result,
-    walker.WithSchemaHandler(func(s *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, s *parser.Schema) walker.Action {
         count++  // Not thread-safe
         return walker.Continue
     }),
@@ -637,7 +695,7 @@ walker.Walk(result,
 // ✅ Use atomic operations or mutexes for shared state
 var count atomic.Int64
 walker.Walk(result,
-    walker.WithSchemaHandler(func(s *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, s *parser.Schema) walker.Action {
         count.Add(1)  // Thread-safe
         return walker.Continue
     }),

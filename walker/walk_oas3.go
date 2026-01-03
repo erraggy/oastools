@@ -8,12 +8,13 @@ import (
 )
 
 // walkOAS3 traverses an OAS 3.x document.
-func (w *Walker) walkOAS3(doc *parser.OAS3Document) error {
+func (w *Walker) walkOAS3(doc *parser.OAS3Document, state *walkState) error {
 	// Document root - typed handler first, then generic
 	// Track whether to continue to children separately from stopping
 	continueToChildren := true
 	if w.onOAS3Document != nil {
-		if !w.handleAction(w.onOAS3Document(doc, "$")) {
+		wc := state.buildContext("$")
+		if !w.handleAction(w.onOAS3Document(wc, doc)) {
 			if w.stopped {
 				return nil
 			}
@@ -23,7 +24,8 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document) error {
 	// Generic handler is called even if typed handler returned SkipChildren
 	// but not if it returned Stop
 	if w.onDocument != nil {
-		if !w.handleAction(w.onDocument(doc, "$")) {
+		wc := state.buildContext("$")
+		if !w.handleAction(w.onDocument(wc, doc)) {
 			if w.stopped {
 				return nil
 			}
@@ -37,7 +39,8 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document) error {
 
 	// Info
 	if doc.Info != nil && w.onInfo != nil {
-		if !w.handleAction(w.onInfo(doc.Info, "$.info")) {
+		wc := state.buildContext("$.info")
+		if !w.handleAction(w.onInfo(wc, doc.Info)) {
 			if w.stopped {
 				return nil
 			}
@@ -46,7 +49,8 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document) error {
 
 	// ExternalDocs (root level)
 	if doc.ExternalDocs != nil && w.onExternalDocs != nil {
-		if !w.handleAction(w.onExternalDocs(doc.ExternalDocs, "$.externalDocs")) {
+		wc := state.buildContext("$.externalDocs")
+		if !w.handleAction(w.onExternalDocs(wc, doc.ExternalDocs)) {
 			if w.stopped {
 				return nil
 			}
@@ -59,27 +63,30 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document) error {
 			return nil
 		}
 		if server != nil && w.onServer != nil {
-			w.handleAction(w.onServer(server, fmt.Sprintf("$.servers[%d]", i)))
+			wc := state.buildContext(fmt.Sprintf("$.servers[%d]", i))
+			w.handleAction(w.onServer(wc, server))
 		}
 	}
 
 	// Paths
 	if doc.Paths != nil {
-		if err := w.walkOAS3Paths(doc.Paths, "$.paths"); err != nil {
+		if err := w.walkOAS3Paths(doc.Paths, "$.paths", state); err != nil {
 			return err
 		}
 	}
 
 	// Webhooks (OAS 3.1+)
 	if doc.Webhooks != nil {
-		if err := w.walkOAS3Webhooks(doc.Webhooks, "$.webhooks"); err != nil {
+		if err := w.walkOAS3Webhooks(doc.Webhooks, "$.webhooks", state); err != nil {
 			return err
 		}
 	}
 
 	// Components
 	if doc.Components != nil {
-		if err := w.walkOAS3Components(doc.Components, "$.components"); err != nil {
+		compState := state.clone()
+		compState.isComponent = true
+		if err := w.walkOAS3Components(doc.Components, "$.components", compState); err != nil {
 			return err
 		}
 	}
@@ -90,7 +97,8 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document) error {
 			return nil
 		}
 		if tag != nil && w.onTag != nil {
-			w.handleAction(w.onTag(tag, fmt.Sprintf("$.tags[%d]", i)))
+			wc := state.buildContext(fmt.Sprintf("$.tags[%d]", i))
+			w.handleAction(w.onTag(wc, tag))
 		}
 	}
 
@@ -98,7 +106,7 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document) error {
 }
 
 // walkOAS3Paths walks all paths in sorted order.
-func (w *Walker) walkOAS3Paths(paths parser.Paths, basePath string) error {
+func (w *Walker) walkOAS3Paths(paths parser.Paths, basePath string, state *walkState) error {
 	pathKeys := sortedMapKeys(paths)
 	for _, pathTemplate := range pathKeys {
 		if w.stopped {
@@ -111,17 +119,22 @@ func (w *Walker) walkOAS3Paths(paths parser.Paths, basePath string) error {
 
 		itemPath := basePath + "['" + pathTemplate + "']"
 
+		// Create state with pathTemplate set
+		pathState := state.clone()
+		pathState.pathTemplate = pathTemplate
+
 		// Path handler
 		continueToChildren := true
 		if w.onPath != nil {
-			continueToChildren = w.handleAction(w.onPath(pathTemplate, pathItem, itemPath))
+			wc := pathState.buildContext(itemPath)
+			continueToChildren = w.handleAction(w.onPath(wc, pathItem))
 			if w.stopped {
 				return nil
 			}
 		}
 
 		if continueToChildren {
-			if err := w.walkOAS3PathItem(pathItem, itemPath); err != nil {
+			if err := w.walkOAS3PathItem(pathItem, itemPath, pathState); err != nil {
 				return err
 			}
 		}
@@ -130,7 +143,7 @@ func (w *Walker) walkOAS3Paths(paths parser.Paths, basePath string) error {
 }
 
 // walkOAS3Webhooks walks webhooks (OAS 3.1+).
-func (w *Walker) walkOAS3Webhooks(webhooks map[string]*parser.PathItem, basePath string) error {
+func (w *Walker) walkOAS3Webhooks(webhooks map[string]*parser.PathItem, basePath string, state *walkState) error {
 	webhookKeys := make([]string, 0, len(webhooks))
 	for k := range webhooks {
 		webhookKeys = append(webhookKeys, k)
@@ -148,17 +161,22 @@ func (w *Walker) walkOAS3Webhooks(webhooks map[string]*parser.PathItem, basePath
 
 		itemPath := basePath + "['" + name + "']"
 
+		// Webhook name goes in pathTemplate (it's the event name, similar to a path)
+		webhookState := state.clone()
+		webhookState.pathTemplate = name
+
 		// PathItem handler for webhook
 		continueToChildren := true
 		if w.onPathItem != nil {
-			continueToChildren = w.handleAction(w.onPathItem(pathItem, itemPath))
+			wc := webhookState.buildContext(itemPath)
+			continueToChildren = w.handleAction(w.onPathItem(wc, pathItem))
 			if w.stopped {
 				return nil
 			}
 		}
 
 		if continueToChildren {
-			if err := w.walkOAS3PathItemOperations(pathItem, itemPath); err != nil {
+			if err := w.walkOAS3PathItemOperations(pathItem, itemPath, webhookState); err != nil {
 				return err
 			}
 		}
@@ -167,11 +185,12 @@ func (w *Walker) walkOAS3Webhooks(webhooks map[string]*parser.PathItem, basePath
 }
 
 // walkOAS3PathItem walks a single PathItem.
-func (w *Walker) walkOAS3PathItem(pathItem *parser.PathItem, basePath string) error {
+func (w *Walker) walkOAS3PathItem(pathItem *parser.PathItem, basePath string, state *walkState) error {
 	// PathItem handler
 	continueToChildren := true
 	if w.onPathItem != nil {
-		continueToChildren = w.handleAction(w.onPathItem(pathItem, basePath))
+		wc := state.buildContext(basePath)
+		continueToChildren = w.handleAction(w.onPathItem(wc, pathItem))
 		if w.stopped {
 			return nil
 		}
@@ -186,17 +205,17 @@ func (w *Walker) walkOAS3PathItem(pathItem *parser.PathItem, basePath string) er
 		if w.stopped {
 			return nil
 		}
-		if err := w.walkParameter(param, fmt.Sprintf("%s.parameters[%d]", basePath, i)); err != nil {
+		if err := w.walkParameter(param, fmt.Sprintf("%s.parameters[%d]", basePath, i), state); err != nil {
 			return err
 		}
 	}
 
 	// Operations
-	return w.walkOAS3PathItemOperations(pathItem, basePath)
+	return w.walkOAS3PathItemOperations(pathItem, basePath, state)
 }
 
 // walkOAS3PathItemOperations walks all operations in a PathItem.
-func (w *Walker) walkOAS3PathItemOperations(pathItem *parser.PathItem, basePath string) error {
+func (w *Walker) walkOAS3PathItemOperations(pathItem *parser.PathItem, basePath string, state *walkState) error {
 	// Standard HTTP methods
 	ops := []struct {
 		method string
@@ -218,7 +237,9 @@ func (w *Walker) walkOAS3PathItemOperations(pathItem *parser.PathItem, basePath 
 			return nil
 		}
 		if item.op != nil {
-			if err := w.walkOAS3Operation(item.method, item.op, basePath+"."+item.method); err != nil {
+			opState := state.clone()
+			opState.method = item.method
+			if err := w.walkOAS3Operation(item.op, basePath+"."+item.method, opState); err != nil {
 				return err
 			}
 		}
@@ -238,7 +259,9 @@ func (w *Walker) walkOAS3PathItemOperations(pathItem *parser.PathItem, basePath 
 			}
 			op := pathItem.AdditionalOperations[method]
 			if op != nil {
-				if err := w.walkOAS3Operation(method, op, basePath+".additionalOperations."+method); err != nil {
+				opState := state.clone()
+				opState.method = method
+				if err := w.walkOAS3Operation(op, basePath+".additionalOperations."+method, opState); err != nil {
 					return err
 				}
 			}
@@ -249,11 +272,12 @@ func (w *Walker) walkOAS3PathItemOperations(pathItem *parser.PathItem, basePath 
 }
 
 // walkOAS3Operation walks a single Operation.
-func (w *Walker) walkOAS3Operation(method string, op *parser.Operation, basePath string) error {
+func (w *Walker) walkOAS3Operation(op *parser.Operation, basePath string, state *walkState) error {
 	// Operation handler
 	continueToChildren := true
 	if w.onOperation != nil {
-		continueToChildren = w.handleAction(w.onOperation(method, op, basePath))
+		wc := state.buildContext(basePath)
+		continueToChildren = w.handleAction(w.onOperation(wc, op))
 		if w.stopped {
 			return nil
 		}
@@ -265,7 +289,8 @@ func (w *Walker) walkOAS3Operation(method string, op *parser.Operation, basePath
 
 	// ExternalDocs
 	if op.ExternalDocs != nil && w.onExternalDocs != nil {
-		w.handleAction(w.onExternalDocs(op.ExternalDocs, basePath+".externalDocs"))
+		wc := state.buildContext(basePath + ".externalDocs")
+		w.handleAction(w.onExternalDocs(wc, op.ExternalDocs))
 		if w.stopped {
 			return nil
 		}
@@ -276,21 +301,21 @@ func (w *Walker) walkOAS3Operation(method string, op *parser.Operation, basePath
 		if w.stopped {
 			return nil
 		}
-		if err := w.walkParameter(param, fmt.Sprintf("%s.parameters[%d]", basePath, i)); err != nil {
+		if err := w.walkParameter(param, fmt.Sprintf("%s.parameters[%d]", basePath, i), state); err != nil {
 			return err
 		}
 	}
 
 	// RequestBody
 	if op.RequestBody != nil {
-		if err := w.walkOAS3RequestBody(op.RequestBody, basePath+".requestBody"); err != nil {
+		if err := w.walkOAS3RequestBody(op.RequestBody, basePath+".requestBody", state); err != nil {
 			return err
 		}
 	}
 
 	// Responses
 	if op.Responses != nil {
-		if err := w.walkOAS3Responses(op.Responses, basePath+".responses"); err != nil {
+		if err := w.walkOAS3Responses(op.Responses, basePath+".responses", state); err != nil {
 			return err
 		}
 	}
@@ -309,7 +334,7 @@ func (w *Walker) walkOAS3Operation(method string, op *parser.Operation, basePath
 			}
 			callback := op.Callbacks[name]
 			if callback != nil {
-				if err := w.walkOAS3Callback(name, *callback, basePath+".callbacks['"+name+"']"); err != nil {
+				if err := w.walkOAS3Callback(name, *callback, basePath+".callbacks['"+name+"']", state); err != nil {
 					return err
 				}
 			}
@@ -320,10 +345,11 @@ func (w *Walker) walkOAS3Operation(method string, op *parser.Operation, basePath
 }
 
 // walkOAS3RequestBody walks a RequestBody.
-func (w *Walker) walkOAS3RequestBody(reqBody *parser.RequestBody, basePath string) error {
+func (w *Walker) walkOAS3RequestBody(reqBody *parser.RequestBody, basePath string, state *walkState) error {
 	continueToChildren := true
 	if w.onRequestBody != nil {
-		continueToChildren = w.handleAction(w.onRequestBody(reqBody, basePath))
+		wc := state.buildContext(basePath)
+		continueToChildren = w.handleAction(w.onRequestBody(wc, reqBody))
 		if w.stopped {
 			return nil
 		}
@@ -334,14 +360,16 @@ func (w *Walker) walkOAS3RequestBody(reqBody *parser.RequestBody, basePath strin
 	}
 
 	// Content
-	return w.walkContent(reqBody.Content, basePath+".content")
+	return w.walkContent(reqBody.Content, basePath+".content", state)
 }
 
 // walkOAS3Responses walks Responses.
-func (w *Walker) walkOAS3Responses(responses *parser.Responses, basePath string) error {
+func (w *Walker) walkOAS3Responses(responses *parser.Responses, basePath string, state *walkState) error {
 	// Default response
 	if responses.Default != nil {
-		if err := w.walkOAS3Response("default", responses.Default, basePath+".default"); err != nil {
+		respState := state.clone()
+		respState.statusCode = "default"
+		if err := w.walkOAS3Response(responses.Default, basePath+".default", respState); err != nil {
 			return err
 		}
 	}
@@ -360,7 +388,9 @@ func (w *Walker) walkOAS3Responses(responses *parser.Responses, basePath string)
 			}
 			resp := responses.Codes[code]
 			if resp != nil {
-				if err := w.walkOAS3Response(code, resp, basePath+"['"+code+"']"); err != nil {
+				respState := state.clone()
+				respState.statusCode = code
+				if err := w.walkOAS3Response(resp, basePath+"['"+code+"']", respState); err != nil {
 					return err
 				}
 			}
@@ -371,10 +401,11 @@ func (w *Walker) walkOAS3Responses(responses *parser.Responses, basePath string)
 }
 
 // walkOAS3Response walks a single Response.
-func (w *Walker) walkOAS3Response(statusCode string, resp *parser.Response, basePath string) error {
+func (w *Walker) walkOAS3Response(resp *parser.Response, basePath string, state *walkState) error {
 	continueToChildren := true
 	if w.onResponse != nil {
-		continueToChildren = w.handleAction(w.onResponse(statusCode, resp, basePath))
+		wc := state.buildContext(basePath)
+		continueToChildren = w.handleAction(w.onResponse(wc, resp))
 		if w.stopped {
 			return nil
 		}
@@ -386,14 +417,14 @@ func (w *Walker) walkOAS3Response(statusCode string, resp *parser.Response, base
 
 	// Headers
 	if resp.Headers != nil {
-		if err := w.walkHeaders(resp.Headers, basePath+".headers"); err != nil {
+		if err := w.walkHeaders(resp.Headers, basePath+".headers", state); err != nil {
 			return err
 		}
 	}
 
 	// Content
 	if resp.Content != nil {
-		if err := w.walkContent(resp.Content, basePath+".content"); err != nil {
+		if err := w.walkContent(resp.Content, basePath+".content", state); err != nil {
 			return err
 		}
 	}
@@ -412,7 +443,10 @@ func (w *Walker) walkOAS3Response(statusCode string, resp *parser.Response, base
 			}
 			link := resp.Links[name]
 			if link != nil && w.onLink != nil {
-				w.handleAction(w.onLink(name, link, basePath+".links['"+name+"']"))
+				linkState := state.clone()
+				linkState.name = name
+				wc := linkState.buildContext(basePath + ".links['" + name + "']")
+				w.handleAction(w.onLink(wc, link))
 			}
 		}
 	}
@@ -421,11 +455,15 @@ func (w *Walker) walkOAS3Response(statusCode string, resp *parser.Response, base
 }
 
 // walkOAS3Callback walks a Callback.
-func (w *Walker) walkOAS3Callback(name string, callback parser.Callback, basePath string) error {
+func (w *Walker) walkOAS3Callback(name string, callback parser.Callback, basePath string, state *walkState) error {
 	// Callback handler
+	cbState := state.clone()
+	cbState.name = name
+
 	continueToChildren := true
 	if w.onCallback != nil {
-		continueToChildren = w.handleAction(w.onCallback(name, callback, basePath))
+		wc := cbState.buildContext(basePath)
+		continueToChildren = w.handleAction(w.onCallback(wc, callback))
 		if w.stopped {
 			return nil
 		}
@@ -448,7 +486,10 @@ func (w *Walker) walkOAS3Callback(name string, callback parser.Callback, basePat
 		}
 		pathItem := callback[expr]
 		if pathItem != nil {
-			if err := w.walkOAS3PathItem(pathItem, basePath+"['"+expr+"']"); err != nil {
+			// Expression becomes the pathTemplate within the callback
+			exprState := cbState.clone()
+			exprState.pathTemplate = expr
+			if err := w.walkOAS3PathItem(pathItem, basePath+"['"+expr+"']", exprState); err != nil {
 				return err
 			}
 		}
@@ -458,38 +499,38 @@ func (w *Walker) walkOAS3Callback(name string, callback parser.Callback, basePat
 }
 
 // walkOAS3Components walks Components.
-func (w *Walker) walkOAS3Components(components *parser.Components, basePath string) error {
-	if err := w.walkComponentSchemas(components, basePath); err != nil {
+func (w *Walker) walkOAS3Components(components *parser.Components, basePath string, state *walkState) error {
+	if err := w.walkComponentSchemas(components, basePath, state); err != nil {
 		return err
 	}
-	if err := w.walkComponentResponses(components, basePath); err != nil {
+	if err := w.walkComponentResponses(components, basePath, state); err != nil {
 		return err
 	}
-	if err := w.walkComponentParameters(components, basePath); err != nil {
+	if err := w.walkComponentParameters(components, basePath, state); err != nil {
 		return err
 	}
-	if err := w.walkComponentRequestBodies(components, basePath); err != nil {
+	if err := w.walkComponentRequestBodies(components, basePath, state); err != nil {
 		return err
 	}
-	if err := w.walkComponentHeaders(components, basePath); err != nil {
+	if err := w.walkComponentHeaders(components, basePath, state); err != nil {
 		return err
 	}
-	if err := w.walkComponentSecuritySchemes(components, basePath); err != nil {
+	if err := w.walkComponentSecuritySchemes(components, basePath, state); err != nil {
 		return err
 	}
-	if err := w.walkComponentLinks(components, basePath); err != nil {
+	if err := w.walkComponentLinks(components, basePath, state); err != nil {
 		return err
 	}
-	if err := w.walkComponentCallbacks(components, basePath); err != nil {
+	if err := w.walkComponentCallbacks(components, basePath, state); err != nil {
 		return err
 	}
-	if err := w.walkComponentExamples(components, basePath); err != nil {
+	if err := w.walkComponentExamples(components, basePath, state); err != nil {
 		return err
 	}
-	return w.walkComponentPathItems(components, basePath)
+	return w.walkComponentPathItems(components, basePath, state)
 }
 
-func (w *Walker) walkComponentSchemas(components *parser.Components, basePath string) error {
+func (w *Walker) walkComponentSchemas(components *parser.Components, basePath string, state *walkState) error {
 	if components.Schemas == nil {
 		return nil
 	}
@@ -498,7 +539,9 @@ func (w *Walker) walkComponentSchemas(components *parser.Components, basePath st
 			return nil
 		}
 		if schema := components.Schemas[name]; schema != nil {
-			if err := w.walkSchema(schema, basePath+".schemas['"+name+"']", 0); err != nil {
+			schemaState := state.clone()
+			schemaState.name = name
+			if err := w.walkSchema(schema, basePath+".schemas['"+name+"']", 0, schemaState); err != nil {
 				return err
 			}
 		}
@@ -506,7 +549,7 @@ func (w *Walker) walkComponentSchemas(components *parser.Components, basePath st
 	return nil
 }
 
-func (w *Walker) walkComponentResponses(components *parser.Components, basePath string) error {
+func (w *Walker) walkComponentResponses(components *parser.Components, basePath string, state *walkState) error {
 	if components.Responses == nil {
 		return nil
 	}
@@ -515,7 +558,10 @@ func (w *Walker) walkComponentResponses(components *parser.Components, basePath 
 			return nil
 		}
 		if resp := components.Responses[name]; resp != nil {
-			if err := w.walkOAS3Response(name, resp, basePath+".responses['"+name+"']"); err != nil {
+			respState := state.clone()
+			respState.name = name
+			// For component responses, statusCode is not set (it's a reusable response)
+			if err := w.walkOAS3Response(resp, basePath+".responses['"+name+"']", respState); err != nil {
 				return err
 			}
 		}
@@ -523,7 +569,7 @@ func (w *Walker) walkComponentResponses(components *parser.Components, basePath 
 	return nil
 }
 
-func (w *Walker) walkComponentParameters(components *parser.Components, basePath string) error {
+func (w *Walker) walkComponentParameters(components *parser.Components, basePath string, state *walkState) error {
 	if components.Parameters == nil {
 		return nil
 	}
@@ -532,7 +578,9 @@ func (w *Walker) walkComponentParameters(components *parser.Components, basePath
 			return nil
 		}
 		if param := components.Parameters[name]; param != nil {
-			if err := w.walkParameter(param, basePath+".parameters['"+name+"']"); err != nil {
+			paramState := state.clone()
+			paramState.name = name
+			if err := w.walkParameter(param, basePath+".parameters['"+name+"']", paramState); err != nil {
 				return err
 			}
 		}
@@ -540,7 +588,7 @@ func (w *Walker) walkComponentParameters(components *parser.Components, basePath
 	return nil
 }
 
-func (w *Walker) walkComponentRequestBodies(components *parser.Components, basePath string) error {
+func (w *Walker) walkComponentRequestBodies(components *parser.Components, basePath string, state *walkState) error {
 	if components.RequestBodies == nil {
 		return nil
 	}
@@ -549,7 +597,9 @@ func (w *Walker) walkComponentRequestBodies(components *parser.Components, baseP
 			return nil
 		}
 		if rb := components.RequestBodies[name]; rb != nil {
-			if err := w.walkOAS3RequestBody(rb, basePath+".requestBodies['"+name+"']"); err != nil {
+			rbState := state.clone()
+			rbState.name = name
+			if err := w.walkOAS3RequestBody(rb, basePath+".requestBodies['"+name+"']", rbState); err != nil {
 				return err
 			}
 		}
@@ -557,14 +607,14 @@ func (w *Walker) walkComponentRequestBodies(components *parser.Components, baseP
 	return nil
 }
 
-func (w *Walker) walkComponentHeaders(components *parser.Components, basePath string) error {
+func (w *Walker) walkComponentHeaders(components *parser.Components, basePath string, state *walkState) error {
 	if components.Headers == nil {
 		return nil
 	}
-	return w.walkHeaders(components.Headers, basePath+".headers")
+	return w.walkHeaders(components.Headers, basePath+".headers", state)
 }
 
-func (w *Walker) walkComponentSecuritySchemes(components *parser.Components, basePath string) error {
+func (w *Walker) walkComponentSecuritySchemes(components *parser.Components, basePath string, state *walkState) error {
 	if components.SecuritySchemes == nil {
 		return nil
 	}
@@ -573,13 +623,16 @@ func (w *Walker) walkComponentSecuritySchemes(components *parser.Components, bas
 			return nil
 		}
 		if ss := components.SecuritySchemes[name]; ss != nil && w.onSecurityScheme != nil {
-			w.handleAction(w.onSecurityScheme(name, ss, basePath+".securitySchemes['"+name+"']"))
+			ssState := state.clone()
+			ssState.name = name
+			wc := ssState.buildContext(basePath + ".securitySchemes['" + name + "']")
+			w.handleAction(w.onSecurityScheme(wc, ss))
 		}
 	}
 	return nil
 }
 
-func (w *Walker) walkComponentLinks(components *parser.Components, basePath string) error {
+func (w *Walker) walkComponentLinks(components *parser.Components, basePath string, state *walkState) error {
 	if components.Links == nil {
 		return nil
 	}
@@ -588,13 +641,16 @@ func (w *Walker) walkComponentLinks(components *parser.Components, basePath stri
 			return nil
 		}
 		if link := components.Links[name]; link != nil && w.onLink != nil {
-			w.handleAction(w.onLink(name, link, basePath+".links['"+name+"']"))
+			linkState := state.clone()
+			linkState.name = name
+			wc := linkState.buildContext(basePath + ".links['" + name + "']")
+			w.handleAction(w.onLink(wc, link))
 		}
 	}
 	return nil
 }
 
-func (w *Walker) walkComponentCallbacks(components *parser.Components, basePath string) error {
+func (w *Walker) walkComponentCallbacks(components *parser.Components, basePath string, state *walkState) error {
 	if components.Callbacks == nil {
 		return nil
 	}
@@ -603,7 +659,7 @@ func (w *Walker) walkComponentCallbacks(components *parser.Components, basePath 
 			return nil
 		}
 		if cb := components.Callbacks[name]; cb != nil {
-			if err := w.walkOAS3Callback(name, *cb, basePath+".callbacks['"+name+"']"); err != nil {
+			if err := w.walkOAS3Callback(name, *cb, basePath+".callbacks['"+name+"']", state); err != nil {
 				return err
 			}
 		}
@@ -611,7 +667,7 @@ func (w *Walker) walkComponentCallbacks(components *parser.Components, basePath 
 	return nil
 }
 
-func (w *Walker) walkComponentExamples(components *parser.Components, basePath string) error {
+func (w *Walker) walkComponentExamples(components *parser.Components, basePath string, state *walkState) error {
 	if components.Examples == nil {
 		return nil
 	}
@@ -620,13 +676,16 @@ func (w *Walker) walkComponentExamples(components *parser.Components, basePath s
 			return nil
 		}
 		if ex := components.Examples[name]; ex != nil && w.onExample != nil {
-			w.handleAction(w.onExample(name, ex, basePath+".examples['"+name+"']"))
+			exState := state.clone()
+			exState.name = name
+			wc := exState.buildContext(basePath + ".examples['" + name + "']")
+			w.handleAction(w.onExample(wc, ex))
 		}
 	}
 	return nil
 }
 
-func (w *Walker) walkComponentPathItems(components *parser.Components, basePath string) error {
+func (w *Walker) walkComponentPathItems(components *parser.Components, basePath string, state *walkState) error {
 	if components.PathItems == nil {
 		return nil
 	}
@@ -635,7 +694,9 @@ func (w *Walker) walkComponentPathItems(components *parser.Components, basePath 
 			return nil
 		}
 		if pi := components.PathItems[name]; pi != nil {
-			if err := w.walkOAS3PathItem(pi, basePath+".pathItems['"+name+"']"); err != nil {
+			piState := state.clone()
+			piState.name = name
+			if err := w.walkOAS3PathItem(pi, basePath+".pathItems['"+name+"']", piState); err != nil {
 				return err
 			}
 		}

@@ -66,12 +66,12 @@ func main() {
 		walker.WithMaxDepth(50),
 
 		// Track schema references
-		walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+		walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
 			// Track direct $ref
 			if schema.Ref != "" {
 				schemaName := extractSchemaName(schema.Ref)
 				if schemaName != "" {
-					collector.SchemaRefs[schemaName] = append(collector.SchemaRefs[schemaName], path)
+					collector.SchemaRefs[schemaName] = append(collector.SchemaRefs[schemaName], wc.JSONPath)
 				}
 			}
 
@@ -80,7 +80,7 @@ func main() {
 				if ref, ok := items["$ref"].(string); ok {
 					schemaName := extractSchemaName(ref)
 					if schemaName != "" {
-						collector.SchemaRefs[schemaName] = append(collector.SchemaRefs[schemaName], path+".items")
+						collector.SchemaRefs[schemaName] = append(collector.SchemaRefs[schemaName], wc.JSONPath+".items")
 					}
 				}
 			}
@@ -89,12 +89,12 @@ func main() {
 		}),
 
 		// Track skipped schemas (cycles and depth limits)
-		walker.WithSchemaSkippedHandler(func(reason string, schema *parser.Schema, path string) {
+		walker.WithSchemaSkippedHandler(func(wc *walker.WalkContext, reason string, schema *parser.Schema) {
 			switch reason {
 			case "cycle":
-				collector.Cycles = append(collector.Cycles, path)
+				collector.Cycles = append(collector.Cycles, wc.JSONPath)
 			case "depth":
-				collector.DepthLimited = append(collector.DepthLimited, path)
+				collector.DepthLimited = append(collector.DepthLimited, wc.JSONPath)
 			}
 		}),
 	)

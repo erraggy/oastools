@@ -60,21 +60,21 @@ func main() {
 	// Walk the document with multiple handlers
 	err = walker.Walk(parseResult,
 		// Extract API info
-		walker.WithInfoHandler(func(info *parser.Info, path string) walker.Action {
+		walker.WithInfoHandler(func(wc *walker.WalkContext, info *parser.Info) walker.Action {
 			stats.Title = info.Title
 			stats.Version = info.Version
 			return walker.Continue
 		}),
 
 		// Count operations by HTTP method
-		walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+		walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
 			stats.TotalOperations++
-			stats.OperationsByMethod[strings.ToUpper(method)]++
+			stats.OperationsByMethod[strings.ToUpper(wc.Method)]++
 			return walker.Continue
 		}),
 
 		// Count schemas by type
-		walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+		walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
 			stats.TotalSchemas++
 			// Handle type as string or []string (OAS 3.1 compatibility)
 			switch t := schema.Type.(type) {
@@ -97,7 +97,7 @@ func main() {
 		}),
 
 		// Count parameters by location
-		walker.WithParameterHandler(func(param *parser.Parameter, path string) walker.Action {
+		walker.WithParameterHandler(func(wc *walker.WalkContext, param *parser.Parameter) walker.Action {
 			stats.TotalParameters++
 			if param.In != "" {
 				stats.ParametersByIn[param.In]++
@@ -106,7 +106,7 @@ func main() {
 		}),
 
 		// Collect tag names
-		walker.WithTagHandler(func(tag *parser.Tag, path string) walker.Action {
+		walker.WithTagHandler(func(wc *walker.WalkContext, tag *parser.Tag) walker.Action {
 			stats.Tags = append(stats.Tags, tag.Name)
 			return walker.Continue
 		}),

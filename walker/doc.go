@@ -13,7 +13,7 @@
 //
 //	var operationIDs []string
 //	err := walker.Walk(result,
-//	    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+//	    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
 //	        operationIDs = append(operationIDs, op.OperationID)
 //	        return walker.Continue
 //	    }),
@@ -30,8 +30,8 @@
 // Example using SkipChildren to avoid internal paths:
 //
 //	walker.Walk(result,
-//	    walker.WithPathHandler(func(pathTemplate string, pathItem *parser.PathItem, path string) walker.Action {
-//	        if strings.HasPrefix(pathTemplate, "/internal") {
+//	    walker.WithPathHandler(func(wc *walker.WalkContext, pathItem *parser.PathItem) walker.Action {
+//	        if strings.HasPrefix(wc.PathTemplate, "/internal") {
 //	            return walker.SkipChildren
 //	        }
 //	        return walker.Continue
@@ -66,7 +66,7 @@
 // Handlers receive pointers to the actual nodes, so mutations are applied directly:
 //
 //	walker.Walk(result,
-//	    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+//	    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
 //	        if schema.Extra == nil {
 //	            schema.Extra = make(map[string]any)
 //	        }
@@ -75,14 +75,44 @@
 //	    }),
 //	)
 //
-// # JSON Path Context
+// # WalkContext
 //
-// Each handler receives a JSON path string indicating the node's location:
+// Every handler receives a [WalkContext] as its first parameter, providing
+// contextual information about the current node:
+//
+//   - JSONPath: Full JSON path to the node (always populated)
+//   - PathTemplate: URL path template when in $.paths scope
+//   - Method: HTTP method when in operation scope (e.g., "get", "post")
+//   - StatusCode: Status code when in response scope (e.g., "200", "default")
+//   - Name: Map key for named items (headers, schemas, etc.)
+//   - IsComponent: True when in components/definitions section
+//
+// Example JSON paths:
 //
 //	$.info                              // Info object
 //	$.paths['/pets/{petId}']            // Path entry
 //	$.paths['/pets'].get                // Operation
 //	$.components.schemas['Pet']         // Schema
+//
+// Use helper methods like [WalkContext.InOperationScope] and
+// [WalkContext.InResponseScope] for scope checks.
+//
+// # Context Propagation
+//
+// Pass a [context.Context] for cancellation and timeout support:
+//
+//	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+//	defer cancel()
+//
+//	walker.Walk(result,
+//	    walker.WithContext(ctx),
+//	    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+//	        if wc.Context().Err() != nil {
+//	            return walker.Stop
+//	        }
+//	        return walker.Continue
+//	    }),
+//	)
 //
 // # Performance Considerations
 //

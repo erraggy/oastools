@@ -8,12 +8,13 @@ import (
 )
 
 // walkOAS2 traverses an OAS 2.0 document.
-func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
+func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 	// Document root - typed handler first, then generic
 	// Track whether to continue to children separately from stopping
 	continueToChildren := true
 	if w.onOAS2Document != nil {
-		if !w.handleAction(w.onOAS2Document(doc, "$")) {
+		wc := state.buildContext("$")
+		if !w.handleAction(w.onOAS2Document(wc, doc)) {
 			if w.stopped {
 				return nil
 			}
@@ -23,7 +24,8 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
 	// Generic handler is called even if typed handler returned SkipChildren
 	// but not if it returned Stop
 	if w.onDocument != nil {
-		if !w.handleAction(w.onDocument(doc, "$")) {
+		wc := state.buildContext("$")
+		if !w.handleAction(w.onDocument(wc, doc)) {
 			if w.stopped {
 				return nil
 			}
@@ -37,7 +39,8 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
 
 	// Info
 	if doc.Info != nil && w.onInfo != nil {
-		if !w.handleAction(w.onInfo(doc.Info, "$.info")) {
+		wc := state.buildContext("$.info")
+		if !w.handleAction(w.onInfo(wc, doc.Info)) {
 			if w.stopped {
 				return nil
 			}
@@ -46,7 +49,8 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
 
 	// ExternalDocs (root level)
 	if doc.ExternalDocs != nil && w.onExternalDocs != nil {
-		if !w.handleAction(w.onExternalDocs(doc.ExternalDocs, "$.externalDocs")) {
+		wc := state.buildContext("$.externalDocs")
+		if !w.handleAction(w.onExternalDocs(wc, doc.ExternalDocs)) {
 			if w.stopped {
 				return nil
 			}
@@ -55,13 +59,16 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
 
 	// Paths
 	if doc.Paths != nil {
-		if err := w.walkOAS2Paths(doc.Paths, "$.paths"); err != nil {
+		if err := w.walkOAS2Paths(doc.Paths, "$.paths", state); err != nil {
 			return err
 		}
 	}
 
-	// Definitions (schemas)
+	// Definitions (schemas) - these are components in OAS 2.0
 	if doc.Definitions != nil {
+		defState := state.clone()
+		defState.isComponent = true
+
 		defKeys := make([]string, 0, len(doc.Definitions))
 		for k := range doc.Definitions {
 			defKeys = append(defKeys, k)
@@ -74,15 +81,20 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
 			}
 			schema := doc.Definitions[name]
 			if schema != nil {
-				if err := w.walkSchema(schema, "$.definitions['"+name+"']", 0); err != nil {
+				schemaState := defState.clone()
+				schemaState.name = name
+				if err := w.walkSchema(schema, "$.definitions['"+name+"']", 0, schemaState); err != nil {
 					return err
 				}
 			}
 		}
 	}
 
-	// Parameters (reusable)
+	// Parameters (reusable) - these are components in OAS 2.0
 	if doc.Parameters != nil {
+		paramState := state.clone()
+		paramState.isComponent = true
+
 		paramKeys := make([]string, 0, len(doc.Parameters))
 		for k := range doc.Parameters {
 			paramKeys = append(paramKeys, k)
@@ -95,15 +107,20 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
 			}
 			param := doc.Parameters[name]
 			if param != nil {
-				if err := w.walkParameter(param, "$.parameters['"+name+"']"); err != nil {
+				pState := paramState.clone()
+				pState.name = name
+				if err := w.walkParameter(param, "$.parameters['"+name+"']", pState); err != nil {
 					return err
 				}
 			}
 		}
 	}
 
-	// Responses (reusable)
+	// Responses (reusable) - these are components in OAS 2.0
 	if doc.Responses != nil {
+		respState := state.clone()
+		respState.isComponent = true
+
 		respKeys := make([]string, 0, len(doc.Responses))
 		for k := range doc.Responses {
 			respKeys = append(respKeys, k)
@@ -116,15 +133,20 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
 			}
 			resp := doc.Responses[name]
 			if resp != nil {
-				if err := w.walkOAS2Response(name, resp, "$.responses['"+name+"']"); err != nil {
+				rState := respState.clone()
+				rState.name = name
+				if err := w.walkOAS2Response(resp, "$.responses['"+name+"']", rState); err != nil {
 					return err
 				}
 			}
 		}
 	}
 
-	// SecurityDefinitions
+	// SecurityDefinitions - these are components in OAS 2.0
 	if doc.SecurityDefinitions != nil {
+		ssState := state.clone()
+		ssState.isComponent = true
+
 		ssKeys := make([]string, 0, len(doc.SecurityDefinitions))
 		for k := range doc.SecurityDefinitions {
 			ssKeys = append(ssKeys, k)
@@ -137,7 +159,10 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
 			}
 			ss := doc.SecurityDefinitions[name]
 			if ss != nil && w.onSecurityScheme != nil {
-				w.handleAction(w.onSecurityScheme(name, ss, "$.securityDefinitions['"+name+"']"))
+				sState := ssState.clone()
+				sState.name = name
+				wc := sState.buildContext("$.securityDefinitions['" + name + "']")
+				w.handleAction(w.onSecurityScheme(wc, ss))
 			}
 		}
 	}
@@ -148,7 +173,8 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
 			return nil
 		}
 		if tag != nil && w.onTag != nil {
-			w.handleAction(w.onTag(tag, fmt.Sprintf("$.tags[%d]", i)))
+			wc := state.buildContext(fmt.Sprintf("$.tags[%d]", i))
+			w.handleAction(w.onTag(wc, tag))
 		}
 	}
 
@@ -156,7 +182,7 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document) error {
 }
 
 // walkOAS2Paths walks all paths in sorted order.
-func (w *Walker) walkOAS2Paths(paths parser.Paths, basePath string) error {
+func (w *Walker) walkOAS2Paths(paths parser.Paths, basePath string, state *walkState) error {
 	pathKeys := sortedMapKeys(paths)
 	for _, pathTemplate := range pathKeys {
 		if w.stopped {
@@ -169,17 +195,22 @@ func (w *Walker) walkOAS2Paths(paths parser.Paths, basePath string) error {
 
 		itemPath := basePath + "['" + pathTemplate + "']"
 
+		// Create state with pathTemplate set
+		pathState := state.clone()
+		pathState.pathTemplate = pathTemplate
+
 		// Path handler
 		continueToChildren := true
 		if w.onPath != nil {
-			continueToChildren = w.handleAction(w.onPath(pathTemplate, pathItem, itemPath))
+			wc := pathState.buildContext(itemPath)
+			continueToChildren = w.handleAction(w.onPath(wc, pathItem))
 			if w.stopped {
 				return nil
 			}
 		}
 
 		if continueToChildren {
-			if err := w.walkOAS2PathItem(pathItem, itemPath); err != nil {
+			if err := w.walkOAS2PathItem(pathItem, itemPath, pathState); err != nil {
 				return err
 			}
 		}
@@ -188,11 +219,12 @@ func (w *Walker) walkOAS2Paths(paths parser.Paths, basePath string) error {
 }
 
 // walkOAS2PathItem walks a single PathItem.
-func (w *Walker) walkOAS2PathItem(pathItem *parser.PathItem, basePath string) error {
+func (w *Walker) walkOAS2PathItem(pathItem *parser.PathItem, basePath string, state *walkState) error {
 	// PathItem handler
 	continueToChildren := true
 	if w.onPathItem != nil {
-		continueToChildren = w.handleAction(w.onPathItem(pathItem, basePath))
+		wc := state.buildContext(basePath)
+		continueToChildren = w.handleAction(w.onPathItem(wc, pathItem))
 		if w.stopped {
 			return nil
 		}
@@ -207,7 +239,7 @@ func (w *Walker) walkOAS2PathItem(pathItem *parser.PathItem, basePath string) er
 		if w.stopped {
 			return nil
 		}
-		if err := w.walkParameter(param, fmt.Sprintf("%s.parameters[%d]", basePath, i)); err != nil {
+		if err := w.walkParameter(param, fmt.Sprintf("%s.parameters[%d]", basePath, i), state); err != nil {
 			return err
 		}
 	}
@@ -231,7 +263,9 @@ func (w *Walker) walkOAS2PathItem(pathItem *parser.PathItem, basePath string) er
 			return nil
 		}
 		if item.op != nil {
-			if err := w.walkOAS2Operation(item.method, item.op, basePath+"."+item.method); err != nil {
+			opState := state.clone()
+			opState.method = item.method
+			if err := w.walkOAS2Operation(item.op, basePath+"."+item.method, opState); err != nil {
 				return err
 			}
 		}
@@ -241,11 +275,12 @@ func (w *Walker) walkOAS2PathItem(pathItem *parser.PathItem, basePath string) er
 }
 
 // walkOAS2Operation walks a single Operation.
-func (w *Walker) walkOAS2Operation(method string, op *parser.Operation, basePath string) error {
+func (w *Walker) walkOAS2Operation(op *parser.Operation, basePath string, state *walkState) error {
 	// Operation handler
 	continueToChildren := true
 	if w.onOperation != nil {
-		continueToChildren = w.handleAction(w.onOperation(method, op, basePath))
+		wc := state.buildContext(basePath)
+		continueToChildren = w.handleAction(w.onOperation(wc, op))
 		if w.stopped {
 			return nil
 		}
@@ -257,7 +292,8 @@ func (w *Walker) walkOAS2Operation(method string, op *parser.Operation, basePath
 
 	// ExternalDocs
 	if op.ExternalDocs != nil && w.onExternalDocs != nil {
-		w.handleAction(w.onExternalDocs(op.ExternalDocs, basePath+".externalDocs"))
+		wc := state.buildContext(basePath + ".externalDocs")
+		w.handleAction(w.onExternalDocs(wc, op.ExternalDocs))
 		if w.stopped {
 			return nil
 		}
@@ -268,14 +304,14 @@ func (w *Walker) walkOAS2Operation(method string, op *parser.Operation, basePath
 		if w.stopped {
 			return nil
 		}
-		if err := w.walkParameter(param, fmt.Sprintf("%s.parameters[%d]", basePath, i)); err != nil {
+		if err := w.walkParameter(param, fmt.Sprintf("%s.parameters[%d]", basePath, i), state); err != nil {
 			return err
 		}
 	}
 
 	// Responses
 	if op.Responses != nil {
-		if err := w.walkOAS2Responses(op.Responses, basePath+".responses"); err != nil {
+		if err := w.walkOAS2Responses(op.Responses, basePath+".responses", state); err != nil {
 			return err
 		}
 	}
@@ -284,10 +320,12 @@ func (w *Walker) walkOAS2Operation(method string, op *parser.Operation, basePath
 }
 
 // walkOAS2Responses walks Responses.
-func (w *Walker) walkOAS2Responses(responses *parser.Responses, basePath string) error {
+func (w *Walker) walkOAS2Responses(responses *parser.Responses, basePath string, state *walkState) error {
 	// Default response
 	if responses.Default != nil {
-		if err := w.walkOAS2Response("default", responses.Default, basePath+".default"); err != nil {
+		respState := state.clone()
+		respState.statusCode = "default"
+		if err := w.walkOAS2Response(responses.Default, basePath+".default", respState); err != nil {
 			return err
 		}
 	}
@@ -306,7 +344,9 @@ func (w *Walker) walkOAS2Responses(responses *parser.Responses, basePath string)
 			}
 			resp := responses.Codes[code]
 			if resp != nil {
-				if err := w.walkOAS2Response(code, resp, basePath+"['"+code+"']"); err != nil {
+				respState := state.clone()
+				respState.statusCode = code
+				if err := w.walkOAS2Response(resp, basePath+"['"+code+"']", respState); err != nil {
 					return err
 				}
 			}
@@ -317,10 +357,11 @@ func (w *Walker) walkOAS2Responses(responses *parser.Responses, basePath string)
 }
 
 // walkOAS2Response walks a single Response (OAS 2.0 style).
-func (w *Walker) walkOAS2Response(statusCode string, resp *parser.Response, basePath string) error {
+func (w *Walker) walkOAS2Response(resp *parser.Response, basePath string, state *walkState) error {
 	continueToChildren := true
 	if w.onResponse != nil {
-		continueToChildren = w.handleAction(w.onResponse(statusCode, resp, basePath))
+		wc := state.buildContext(basePath)
+		continueToChildren = w.handleAction(w.onResponse(wc, resp))
 		if w.stopped {
 			return nil
 		}
@@ -332,14 +373,16 @@ func (w *Walker) walkOAS2Response(statusCode string, resp *parser.Response, base
 
 	// Headers
 	if resp.Headers != nil {
-		if err := w.walkHeaders(resp.Headers, basePath+".headers"); err != nil {
+		if err := w.walkHeaders(resp.Headers, basePath+".headers", state); err != nil {
 			return err
 		}
 	}
 
 	// Schema (OAS 2.0 uses schema directly, not content)
 	if resp.Schema != nil {
-		if err := w.walkSchema(resp.Schema, basePath+".schema", 0); err != nil {
+		schemaState := state.clone()
+		schemaState.name = "" // Clear name for nested schemas
+		if err := w.walkSchema(resp.Schema, basePath+".schema", 0, schemaState); err != nil {
 			return err
 		}
 	}
