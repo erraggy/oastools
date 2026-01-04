@@ -1478,10 +1478,12 @@ import (
 // Parse document once
 result, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
 
-// Walk with handlers
+// Walk with handlers - WalkContext provides method, path template, etc.
 var operationCount int
 err := walker.Walk(result,
-    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
+        // wc.Method contains HTTP method (GET, POST, etc.)
+        // wc.PathTemplate contains the URL path template
         operationCount++
         return walker.Continue
     }),
@@ -1491,20 +1493,20 @@ err := walker.Walk(result,
 **Flow Control:**
 
 ```go
-// Skip internal paths
+// Skip internal paths - WalkContext.PathTemplate available in path handlers
 walker.Walk(result,
-    walker.WithPathHandler(func(pathTemplate string, pi *parser.PathItem, path string) walker.Action {
-        if strings.HasPrefix(pathTemplate, "/internal") {
+    walker.WithPathHandler(func(wc *walker.WalkContext, pi *parser.PathItem) walker.Action {
+        if strings.HasPrefix(wc.PathTemplate, "/internal") {
             return walker.SkipChildren
         }
         return walker.Continue
     }),
 )
 
-// Stop on first match
+// Stop on first match - WalkContext.JSONPath shows location in document
 var found *parser.Schema
 walker.Walk(result,
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         if schema.Title == "Target" {
             found = schema
             return walker.Stop
@@ -1519,7 +1521,7 @@ walker.Walk(result,
 ```go
 // Handlers receive pointers for in-place modification
 walker.Walk(result,
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         if schema.Extra == nil {
             schema.Extra = make(map[string]any)
         }
