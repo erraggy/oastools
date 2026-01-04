@@ -62,13 +62,13 @@ The walker uses the functional options pattern for handler registration:
 
 ```go
 walker.Walk(parseResult,
-    walker.WithInfoHandler(func(info *parser.Info, path string) walker.Action { ... }),
-    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action { ... }),
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action { ... }),
+    walker.WithInfoHandler(func(wc *walker.WalkContext, info *parser.Info) walker.Action { ... }),
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action { ... }),
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action { ... }),
 )
 ```
 
-Each handler receives the typed node and its JSON path (e.g., `$.paths['/pets'].get`).
+Each handler receives a `WalkContext` (with JSON path via `wc.JSONPath`) and the typed node.
 
 ### Traversal Order
 
@@ -92,7 +92,7 @@ Handlers share state through closures:
 stats := &APIStats{...}  // Shared state
 
 walker.Walk(parseResult,
-    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
         stats.TotalOperations++  // Update shared state
         return walker.Continue
     }),

@@ -92,12 +92,12 @@ The walker uses functional options to register typed handlers:
 
 ```go
 err := walker.Walk(parseResult,
-    walker.WithPathHandler(func(pathTemplate string, pathItem *parser.PathItem, path string) walker.Action {
-        fmt.Printf("Path: %s\n", pathTemplate)
+    walker.WithPathHandler(func(wc *walker.WalkContext, pathItem *parser.PathItem) walker.Action {
+        fmt.Printf("Path: %s\n", wc.PathTemplate)
         return walker.Continue
     }),
-    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
-        fmt.Printf("  %s %s\n", method, path)
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
+        fmt.Printf("  %s %s\n", wc.Method, wc.PathTemplate)
         return walker.Continue
     }),
 )
@@ -108,11 +108,11 @@ err := walker.Walk(parseResult,
 Control traversal with return values:
 
 ```go
-walker.WithPathHandler(func(pathTemplate string, pathItem *parser.PathItem, path string) walker.Action {
-    if strings.HasPrefix(pathTemplate, "/internal") {
+walker.WithPathHandler(func(wc *walker.WalkContext, pathItem *parser.PathItem) walker.Action {
+    if strings.HasPrefix(wc.PathTemplate, "/internal") {
         return walker.SkipChildren  // Skip operations under this path
     }
-    if pathTemplate == "/admin" {
+    if wc.PathTemplate == "/admin" {
         return walker.Stop  // Stop entire traversal
     }
     return walker.Continue  // Process children normally
@@ -130,7 +130,7 @@ walker.WithPathHandler(func(pathTemplate string, pathItem *parser.PathItem, path
 Handlers receive pointers, enabling in-place modification:
 
 ```go
-walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
     if op.Extra == nil {
         op.Extra = make(map[string]any)
     }

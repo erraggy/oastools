@@ -82,21 +82,20 @@ A sample API for a pet store
 The walker visits nodes in document order. To associate parameters and responses with their parent operation, we track the current context:
 
 ```go
-var currentPath string
 var currentEndpoint *EndpointDoc
 
 walker.Walk(parseResult,
-    walker.WithPathHandler(func(pathTemplate string, pathItem *parser.PathItem, path string) walker.Action {
-        currentPath = pathTemplate  // Track current path
+    walker.WithPathHandler(func(wc *walker.WalkContext, pathItem *parser.PathItem) walker.Action {
+        // wc.PathTemplate available in context
         return walker.Continue
     }),
-    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
-        endpoint := EndpointDoc{Path: currentPath, Method: method, ...}
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
+        endpoint := EndpointDoc{Path: wc.PathTemplate, Method: wc.Method, ...}
         doc.Endpoints = append(doc.Endpoints, endpoint)
         currentEndpoint = &doc.Endpoints[len(doc.Endpoints)-1]  // Track current endpoint
         return walker.Continue
     }),
-    walker.WithParameterHandler(func(param *parser.Parameter, path string) walker.Action {
+    walker.WithParameterHandler(func(wc *walker.WalkContext, param *parser.Parameter) walker.Action {
         currentEndpoint.Parameters = append(currentEndpoint.Parameters, ...)  // Add to current
         return walker.Continue
     }),

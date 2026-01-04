@@ -101,10 +101,10 @@ walker.WithSchemaSkippedHandler(func(reason string, schema *parser.Schema, path 
 Track where each schema is referenced by extracting the name from `$ref`:
 
 ```go
-walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
     if schema.Ref != "" {
         schemaName := extractSchemaName(schema.Ref)
-        refs[schemaName] = append(refs[schemaName], path)
+        refs[schemaName] = append(refs[schemaName], wc.JSONPath)
     }
     return walker.Continue
 })

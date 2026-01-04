@@ -71,7 +71,7 @@ Paths marked internal: 0
 Walker handlers receive pointers to nodes, enabling in-place mutation:
 
 ```go
-walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
     if schema.Extra == nil {
         schema.Extra = make(map[string]any)
     }
@@ -101,7 +101,7 @@ When marshaled, these become `x-rate-limit: 100` and `x-cache-ttl: 60` in the ou
 Use `SkipChildren` to exclude entire subtrees from processing:
 
 ```go
-walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
     if op.Deprecated {
         return walker.SkipChildren  // Don't process children of deprecated operations
     }
