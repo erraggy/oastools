@@ -77,11 +77,11 @@ The walker enables validation rules that go beyond structural schema validation:
 
 ```go
 // Check for operations missing security requirements
-walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
-    if len(op.Security) == 0 && !isInternalPath(currentPath) {
+walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
+    if len(op.Security) == 0 && !isInternalPath(wc.PathTemplate) {
         findings = append(findings, Finding{
             Severity: "WARNING",
-            Path:     path,
+            Path:     wc.JSONPath,
             Message:  "Operation has no security requirements",
         })
     }
@@ -106,7 +106,7 @@ Pattern matching identifies potentially sensitive fields:
 ```go
 sensitivePatterns := []string{"password", "secret", "token", "apikey", "credential", "key"}
 
-walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
     for propName := range schema.Properties {
         for _, pattern := range sensitivePatterns {
             if strings.Contains(strings.ToLower(propName), pattern) {

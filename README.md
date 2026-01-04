@@ -73,7 +73,7 @@ The [`examples/`](examples/) directory contains complete, runnable examples demo
 | **Programmatic API** | [builder](examples/programmatic-api/builder/) with ServerBuilder | 5 min |
 | **Code Generation** | [petstore](examples/petstore/) (stdlib & chi router variants) | 10 min |
 
-Each example is a standalone Go module with its own README, covering all 11 public packages in the ecosystem. See [`examples/README.md`](examples/README.md) for the full feature matrix.
+Each example is a standalone Go module with its own README, covering all 12 public packages in the ecosystem. See [`examples/README.md`](examples/README.md) for the full feature matrix.
 
 ## Installation
 
@@ -319,7 +319,7 @@ result, err := parser.ParseWithOptions(
 
 📄 **[White Paper](https://erraggy.github.io/oastools/whitepaper/)** - Comprehensive technical exploration of oastools architecture and design
 
-📚 **[Developer Guide](docs/developer-guide.md)** - Complete library usage with examples for all 11 public packages
+📚 **[Developer Guide](docs/developer-guide.md)** - Complete library usage with examples for all 12 public packages
 
 📖 **[CLI Reference](docs/cli-reference.md)** - Full command documentation with all flags, options, and output formats
 

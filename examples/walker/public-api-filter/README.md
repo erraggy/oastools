@@ -80,32 +80,30 @@ When a PathHandler returns SkipChildren, none of the operations, parameters, or 
 Handlers use closure variables to share context:
 
 ```go
-var currentPath string
 var skipCurrentPath bool
 
 walker.Walk(parseResult,
-    walker.WithPathHandler(func(pathTemplate string, pathItem *parser.PathItem, path string) walker.Action {
-        if isInternalPath(pathTemplate) {
+    walker.WithPathHandler(func(wc *walker.WalkContext, pathItem *parser.PathItem) walker.Action {
+        if isInternalPath(wc.PathTemplate) {
             skipCurrentPath = true
             return walker.SkipChildren
         }
-        currentPath = pathTemplate
         skipCurrentPath = false
         return walker.Continue
     }),
 
-    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
-        // Access currentPath from the enclosing scope
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
+        // Access wc.PathTemplate directly from context
         if skipCurrentPath {
             return walker.SkipChildren
         }
-        // Use currentPath to associate operation with its path
+        // wc.PathTemplate contains the current path
         ...
     }),
 )
 ```
 
-This pattern enables operations to know which path they belong to.
+The `WalkContext` provides the path template directly via `wc.PathTemplate`.
 
 ### Filter Criteria Composition
 

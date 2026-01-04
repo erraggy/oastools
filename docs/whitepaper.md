@@ -1258,11 +1258,11 @@ var stats struct {
 }
 
 walker.Walk(result,
-    walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
         stats.Operations++
         return walker.Continue
     }),
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         stats.Schemas++
         return walker.Continue
     }),
@@ -1275,7 +1275,7 @@ fmt.Printf("Operations: %d, Schemas: %d\n", stats.Operations, stats.Schemas)
 
 ```go
 walker.Walk(result,
-    walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         if schema.Extra == nil {
             schema.Extra = make(map[string]any)
         }
@@ -1289,8 +1289,8 @@ walker.Walk(result,
 
 ```go
 walker.Walk(result,
-    walker.WithPathHandler(func(pathTemplate string, pi *parser.PathItem, path string) walker.Action {
-        if strings.HasPrefix(pathTemplate, "/internal") {
+    walker.WithPathHandler(func(wc *walker.WalkContext, pi *parser.PathItem) walker.Action {
+        if strings.HasPrefix(wc.PathTemplate, "/internal") {
             return walker.SkipChildren  // Skip internal endpoints
         }
         return walker.Continue
