@@ -89,7 +89,7 @@ func main() {
 	// Walk the document with comprehensive handlers
 	err = walker.Walk(parseResult,
 		// Extract API info (title, description, version)
-		walker.WithInfoHandler(func(info *parser.Info, path string) walker.Action {
+		walker.WithInfoHandler(func(wc *walker.WalkContext, info *parser.Info) walker.Action {
 			doc.Title = info.Title
 			doc.Description = info.Description
 			doc.Version = info.Version
@@ -97,7 +97,7 @@ func main() {
 		}),
 
 		// Collect server URLs and descriptions
-		walker.WithServerHandler(func(server *parser.Server, path string) walker.Action {
+		walker.WithServerHandler(func(wc *walker.WalkContext, server *parser.Server) walker.Action {
 			doc.Servers = append(doc.Servers, ServerDoc{
 				URL:         server.URL,
 				Description: server.Description,
@@ -106,7 +106,7 @@ func main() {
 		}),
 
 		// Collect tags with descriptions
-		walker.WithTagHandler(func(tag *parser.Tag, path string) walker.Action {
+		walker.WithTagHandler(func(wc *walker.WalkContext, tag *parser.Tag) walker.Action {
 			doc.Tags = append(doc.Tags, TagDoc{
 				Name:        tag.Name,
 				Description: tag.Description,
@@ -115,15 +115,15 @@ func main() {
 		}),
 
 		// Track current path for operation context
-		walker.WithPathHandler(func(pathTemplate string, pathItem *parser.PathItem, path string) walker.Action {
-			currentPath = pathTemplate
+		walker.WithPathHandler(func(wc *walker.WalkContext, pathItem *parser.PathItem) walker.Action {
+			currentPath = wc.PathTemplate
 			return walker.Continue
 		}),
 
 		// Collect operation details, create new EndpointDoc
-		walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+		walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
 			endpoint := EndpointDoc{
-				Method:      strings.ToUpper(method),
+				Method:      strings.ToUpper(wc.Method),
 				Path:        currentPath,
 				OperationID: op.OperationID,
 				Summary:     op.Summary,
@@ -138,8 +138,8 @@ func main() {
 		}),
 
 		// Add parameter to current endpoint
-		walker.WithParameterHandler(func(param *parser.Parameter, path string) walker.Action {
-			if currentEndpoint != nil && strings.Contains(path, ".parameters[") {
+		walker.WithParameterHandler(func(wc *walker.WalkContext, param *parser.Parameter) walker.Action {
+			if currentEndpoint != nil && strings.Contains(wc.JSONPath, ".parameters[") {
 				// Only add parameters that are part of operations (not path-level duplicates)
 				currentEndpoint.Parameters = append(currentEndpoint.Parameters, ParamDoc{
 					Name:        param.Name,
@@ -152,10 +152,10 @@ func main() {
 		}),
 
 		// Add response to current endpoint
-		walker.WithResponseHandler(func(statusCode string, resp *parser.Response, path string) walker.Action {
+		walker.WithResponseHandler(func(wc *walker.WalkContext, resp *parser.Response) walker.Action {
 			if currentEndpoint != nil {
 				currentEndpoint.Responses = append(currentEndpoint.Responses, ResponseDoc{
-					StatusCode:  statusCode,
+					StatusCode:  wc.StatusCode,
 					Description: resp.Description,
 				})
 			}

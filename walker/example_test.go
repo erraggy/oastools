@@ -35,7 +35,7 @@ func ExampleWalk() {
 
 	var operationIDs []string
 	_ = walker.Walk(result,
-		walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+		walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
 			operationIDs = append(operationIDs, op.OperationID)
 			return walker.Continue
 		}),
@@ -73,7 +73,7 @@ func ExampleWalk_collectSchemas() {
 
 	typeCounts := make(map[string]int)
 	_ = walker.Walk(result,
-		walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+		walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
 			if schemaType, ok := schema.Type.(string); ok && schemaType != "" {
 				typeCounts[schemaType]++
 			}
@@ -107,7 +107,7 @@ func ExampleWalk_mutation() {
 	}
 
 	_ = walker.Walk(result,
-		walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+		walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
 			if schema.Extra == nil {
 				schema.Extra = make(map[string]any)
 			}
@@ -142,13 +142,13 @@ func ExampleWalk_skipChildren() {
 
 	var visitedOps []string
 	_ = walker.Walk(result,
-		walker.WithPathHandler(func(pathTemplate string, pathItem *parser.PathItem, path string) walker.Action {
-			if pathTemplate == "/internal" {
+		walker.WithPathHandler(func(wc *walker.WalkContext, pathItem *parser.PathItem) walker.Action {
+			if wc.PathTemplate == "/internal" {
 				return walker.SkipChildren
 			}
 			return walker.Continue
 		}),
-		walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+		walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
 			visitedOps = append(visitedOps, op.OperationID)
 			return walker.Continue
 		}),
@@ -177,7 +177,7 @@ func ExampleWalk_stop() {
 
 	var firstOp string
 	_ = walker.Walk(result,
-		walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+		walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
 			firstOp = op.OperationID
 			return walker.Stop
 		}),
@@ -205,8 +205,8 @@ func ExampleWalk_jsonPaths() {
 	}
 
 	_ = walker.Walk(result,
-		walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
-			fmt.Printf("Operation %s at: %s\n", op.OperationID, path)
+		walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
+			fmt.Printf("Operation %s at: %s\n", op.OperationID, wc.JSONPath)
 			return walker.Continue
 		}),
 	)
@@ -233,7 +233,7 @@ func ExampleWalkWithOptions() {
 	var schemaCount int
 	_ = walker.WalkWithOptions(
 		walker.WithParsed(result),
-		walker.OnSchema(func(schema *parser.Schema, path string) walker.Action {
+		walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
 			schemaCount++
 			return walker.Continue
 		}),
@@ -256,7 +256,7 @@ func ExampleWalk_documentTypeSwitch() {
 	}
 
 	_ = walker.Walk(result,
-		walker.WithDocumentHandler(func(doc any, path string) walker.Action {
+		walker.WithDocumentHandler(func(wc *walker.WalkContext, doc any) walker.Action {
 			switch d := doc.(type) {
 			case *parser.OAS2Document:
 				fmt.Println("OAS 2.0:", d.Info.Title)

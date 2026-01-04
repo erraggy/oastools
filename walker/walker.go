@@ -1,6 +1,7 @@
 package walker
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/erraggy/oastools/parser"
@@ -40,76 +41,101 @@ func (a Action) String() string {
 }
 
 // Handler types for each OAS node type.
-// Each handler receives the node and its JSON path, and returns an Action.
+// Each handler receives a WalkContext with contextual information and the node,
+// and returns an Action to control traversal.
 
 // DocumentHandler is called for the root document (OAS2Document or OAS3Document).
-type DocumentHandler func(doc any, path string) Action
+// The JSON path is available in wc.JSONPath.
+type DocumentHandler func(wc *WalkContext, doc any) Action
 
 // OAS2DocumentHandler is called for OAS 2.0 (Swagger) documents.
-type OAS2DocumentHandler func(doc *parser.OAS2Document, path string) Action
+// The JSON path is available in wc.JSONPath.
+type OAS2DocumentHandler func(wc *WalkContext, doc *parser.OAS2Document) Action
 
 // OAS3DocumentHandler is called for OAS 3.x documents.
-type OAS3DocumentHandler func(doc *parser.OAS3Document, path string) Action
+// The JSON path is available in wc.JSONPath.
+type OAS3DocumentHandler func(wc *WalkContext, doc *parser.OAS3Document) Action
 
 // InfoHandler is called for the Info object.
-type InfoHandler func(info *parser.Info, path string) Action
+// The JSON path is available in wc.JSONPath.
+type InfoHandler func(wc *WalkContext, info *parser.Info) Action
 
 // ServerHandler is called for each Server (OAS 3.x only).
-type ServerHandler func(server *parser.Server, path string) Action
+// The JSON path is available in wc.JSONPath.
+type ServerHandler func(wc *WalkContext, server *parser.Server) Action
 
 // TagHandler is called for each Tag.
-type TagHandler func(tag *parser.Tag, path string) Action
+// The JSON path is available in wc.JSONPath.
+type TagHandler func(wc *WalkContext, tag *parser.Tag) Action
 
-// PathHandler is called for each path entry with the path template string.
-type PathHandler func(pathTemplate string, pathItem *parser.PathItem, path string) Action
+// PathHandler is called for each path entry.
+// The path template is available in wc.PathTemplate. The JSON path is in wc.JSONPath.
+type PathHandler func(wc *WalkContext, pathItem *parser.PathItem) Action
 
 // PathItemHandler is called for each PathItem.
-type PathItemHandler func(pathItem *parser.PathItem, path string) Action
+// The path template is available in wc.PathTemplate. The JSON path is in wc.JSONPath.
+type PathItemHandler func(wc *WalkContext, pathItem *parser.PathItem) Action
 
 // OperationHandler is called for each Operation.
-type OperationHandler func(method string, op *parser.Operation, path string) Action
+// The HTTP method is available in wc.Method. The JSON path is in wc.JSONPath.
+type OperationHandler func(wc *WalkContext, op *parser.Operation) Action
 
 // ParameterHandler is called for each Parameter.
-type ParameterHandler func(param *parser.Parameter, path string) Action
+// The JSON path is available in wc.JSONPath.
+type ParameterHandler func(wc *WalkContext, param *parser.Parameter) Action
 
 // RequestBodyHandler is called for each RequestBody (OAS 3.x only).
-type RequestBodyHandler func(reqBody *parser.RequestBody, path string) Action
+// The JSON path is available in wc.JSONPath.
+type RequestBodyHandler func(wc *WalkContext, reqBody *parser.RequestBody) Action
 
 // ResponseHandler is called for each Response.
-type ResponseHandler func(statusCode string, resp *parser.Response, path string) Action
+// The status code is available in wc.StatusCode. The JSON path is in wc.JSONPath.
+type ResponseHandler func(wc *WalkContext, resp *parser.Response) Action
 
 // SchemaHandler is called for each Schema, including nested schemas.
-type SchemaHandler func(schema *parser.Schema, path string) Action
+// The JSON path is available in wc.JSONPath. For named schemas, wc.Name contains the name.
+type SchemaHandler func(wc *WalkContext, schema *parser.Schema) Action
 
 // SecuritySchemeHandler is called for each SecurityScheme.
-type SecuritySchemeHandler func(name string, scheme *parser.SecurityScheme, path string) Action
+// The scheme name is available in wc.Name. The JSON path is in wc.JSONPath.
+type SecuritySchemeHandler func(wc *WalkContext, scheme *parser.SecurityScheme) Action
 
 // HeaderHandler is called for each Header.
-type HeaderHandler func(name string, header *parser.Header, path string) Action
+// The header name is available in wc.Name. The JSON path is in wc.JSONPath.
+type HeaderHandler func(wc *WalkContext, header *parser.Header) Action
 
 // MediaTypeHandler is called for each MediaType (OAS 3.x only).
-type MediaTypeHandler func(mediaTypeName string, mt *parser.MediaType, path string) Action
+// The media type name is available in wc.Name. The JSON path is in wc.JSONPath.
+type MediaTypeHandler func(wc *WalkContext, mt *parser.MediaType) Action
 
 // LinkHandler is called for each Link (OAS 3.x only).
-type LinkHandler func(name string, link *parser.Link, path string) Action
+// The link name is available in wc.Name. The JSON path is in wc.JSONPath.
+type LinkHandler func(wc *WalkContext, link *parser.Link) Action
 
 // CallbackHandler is called for each Callback (OAS 3.x only).
-type CallbackHandler func(name string, callback parser.Callback, path string) Action
+// The callback name is available in wc.Name. The JSON path is in wc.JSONPath.
+type CallbackHandler func(wc *WalkContext, callback parser.Callback) Action
 
 // ExampleHandler is called for each Example.
-type ExampleHandler func(name string, example *parser.Example, path string) Action
+// The example name is available in wc.Name. The JSON path is in wc.JSONPath.
+type ExampleHandler func(wc *WalkContext, example *parser.Example) Action
 
 // ExternalDocsHandler is called for each ExternalDocs.
-type ExternalDocsHandler func(extDocs *parser.ExternalDocs, path string) Action
+// The JSON path is available in wc.JSONPath.
+type ExternalDocsHandler func(wc *WalkContext, extDocs *parser.ExternalDocs) Action
 
 // SchemaSkippedHandler is called when a schema is skipped due to depth limit or cycle detection.
 // The reason parameter is either "depth" when the schema exceeds maxDepth,
 // or "cycle" when the schema was already visited (circular reference detected).
-// The schema parameter is the schema that was skipped, and path is its JSON path.
-type SchemaSkippedHandler func(reason string, schema *parser.Schema, path string)
+// The schema parameter is the schema that was skipped. The JSON path is in wc.JSONPath.
+type SchemaSkippedHandler func(wc *WalkContext, reason string, schema *parser.Schema)
 
 // Walker traverses OpenAPI documents and calls handlers for each node type.
 type Walker struct {
+	// Input sources (mutually exclusive)
+	filePath *string
+	parsed   *parser.ParseResult
+
 	// Handlers
 	onDocument       DocumentHandler
 	onOAS2Document   OAS2DocumentHandler
@@ -135,6 +161,7 @@ type Walker struct {
 
 	// Configuration
 	maxDepth int
+	userCtx  context.Context
 
 	// Internal state
 	visitedSchemas map[*parser.Schema]bool
@@ -260,14 +287,22 @@ func WithSchemaSkippedHandler(fn SchemaSkippedHandler) Option {
 	return func(w *Walker) { w.onSchemaSkipped = fn }
 }
 
-// WithMaxDepth sets the maximum recursion depth for schema traversal.
-// Default is 100. If depth is <= 0, the default is kept.
+// WithMaxDepth sets the maximum schema recursion depth.
+// If depth is not positive, it is silently ignored and the default (100) is kept.
 func WithMaxDepth(depth int) Option {
 	return func(w *Walker) {
 		if depth > 0 {
 			w.maxDepth = depth
 		}
 		// If depth <= 0, keep the default (100)
+	}
+}
+
+// WithContext sets the context for cancellation and deadline propagation.
+// The context is available to handlers via wc.Context().
+func WithContext(ctx context.Context) Option {
+	return func(w *Walker) {
+		w.userCtx = ctx
 	}
 }
 
@@ -293,11 +328,16 @@ func (w *Walker) walk(result *parser.ParseResult) error {
 	w.visitedSchemas = make(map[*parser.Schema]bool)
 	w.stopped = false
 
+	// Create initial walk state with user context
+	state := &walkState{
+		ctx: w.userCtx,
+	}
+
 	switch doc := result.Document.(type) {
 	case *parser.OAS2Document:
-		return w.walkOAS2(doc)
+		return w.walkOAS2(doc, state)
 	case *parser.OAS3Document:
-		return w.walkOAS3(doc)
+		return w.walkOAS3(doc, state)
 	default:
 		return fmt.Errorf("walker: unsupported document type: %T", result.Document)
 	}

@@ -18,14 +18,15 @@ func sortedMapKeys[V any](m map[string]V) []string {
 }
 
 // walkParameter walks a Parameter.
-func (w *Walker) walkParameter(param *parser.Parameter, basePath string) error {
+func (w *Walker) walkParameter(param *parser.Parameter, basePath string, state *walkState) error {
 	if param == nil {
 		return nil
 	}
 
 	continueToChildren := true
 	if w.onParameter != nil {
-		continueToChildren = w.handleAction(w.onParameter(param, basePath))
+		wc := state.buildContext(basePath)
+		continueToChildren = w.handleAction(w.onParameter(wc, param))
 		if w.stopped {
 			return nil
 		}
@@ -37,21 +38,23 @@ func (w *Walker) walkParameter(param *parser.Parameter, basePath string) error {
 
 	// Schema (OAS 3.x)
 	if param.Schema != nil {
-		if err := w.walkSchema(param.Schema, basePath+".schema", 0); err != nil {
+		schemaState := state.clone()
+		schemaState.name = "" // Clear name for nested schemas
+		if err := w.walkSchema(param.Schema, basePath+".schema", 0, schemaState); err != nil {
 			return err
 		}
 	}
 
 	// Content (OAS 3.x)
 	if param.Content != nil {
-		if err := w.walkContent(param.Content, basePath+".content"); err != nil {
+		if err := w.walkContent(param.Content, basePath+".content", state); err != nil {
 			return err
 		}
 	}
 
 	// Examples
 	if param.Examples != nil {
-		if err := w.walkExamples(param.Examples, basePath+".examples"); err != nil {
+		if err := w.walkExamples(param.Examples, basePath+".examples", state); err != nil {
 			return err
 		}
 	}
@@ -60,14 +63,14 @@ func (w *Walker) walkParameter(param *parser.Parameter, basePath string) error {
 }
 
 // walkHeaders walks a map of Headers.
-func (w *Walker) walkHeaders(headers map[string]*parser.Header, basePath string) error {
+func (w *Walker) walkHeaders(headers map[string]*parser.Header, basePath string, state *walkState) error {
 	for _, name := range sortedMapKeys(headers) {
 		if w.stopped {
 			return nil
 		}
 		header := headers[name]
 		if header != nil {
-			if err := w.walkHeader(name, header, basePath+"['"+name+"']"); err != nil {
+			if err := w.walkHeader(name, header, basePath+"['"+name+"']", state); err != nil {
 				return err
 			}
 		}
@@ -76,10 +79,14 @@ func (w *Walker) walkHeaders(headers map[string]*parser.Header, basePath string)
 }
 
 // walkHeader walks a single Header.
-func (w *Walker) walkHeader(name string, header *parser.Header, basePath string) error {
+func (w *Walker) walkHeader(name string, header *parser.Header, basePath string, state *walkState) error {
+	headerState := state.clone()
+	headerState.name = name
+
 	continueToChildren := true
 	if w.onHeader != nil {
-		continueToChildren = w.handleAction(w.onHeader(name, header, basePath))
+		wc := headerState.buildContext(basePath)
+		continueToChildren = w.handleAction(w.onHeader(wc, header))
 		if w.stopped {
 			return nil
 		}
@@ -91,21 +98,23 @@ func (w *Walker) walkHeader(name string, header *parser.Header, basePath string)
 
 	// Schema
 	if header.Schema != nil {
-		if err := w.walkSchema(header.Schema, basePath+".schema", 0); err != nil {
+		schemaState := headerState.clone()
+		schemaState.name = "" // Clear name for nested schemas
+		if err := w.walkSchema(header.Schema, basePath+".schema", 0, schemaState); err != nil {
 			return err
 		}
 	}
 
 	// Content
 	if header.Content != nil {
-		if err := w.walkContent(header.Content, basePath+".content"); err != nil {
+		if err := w.walkContent(header.Content, basePath+".content", headerState); err != nil {
 			return err
 		}
 	}
 
 	// Examples
 	if header.Examples != nil {
-		if err := w.walkExamples(header.Examples, basePath+".examples"); err != nil {
+		if err := w.walkExamples(header.Examples, basePath+".examples", headerState); err != nil {
 			return err
 		}
 	}
@@ -114,14 +123,14 @@ func (w *Walker) walkHeader(name string, header *parser.Header, basePath string)
 }
 
 // walkContent walks a map of MediaTypes.
-func (w *Walker) walkContent(content map[string]*parser.MediaType, basePath string) error {
+func (w *Walker) walkContent(content map[string]*parser.MediaType, basePath string, state *walkState) error {
 	for _, mtName := range sortedMapKeys(content) {
 		if w.stopped {
 			return nil
 		}
 		mt := content[mtName]
 		if mt != nil {
-			if err := w.walkMediaType(mtName, mt, basePath+"['"+mtName+"']"); err != nil {
+			if err := w.walkMediaType(mtName, mt, basePath+"['"+mtName+"']", state); err != nil {
 				return err
 			}
 		}
@@ -130,10 +139,14 @@ func (w *Walker) walkContent(content map[string]*parser.MediaType, basePath stri
 }
 
 // walkMediaType walks a single MediaType.
-func (w *Walker) walkMediaType(name string, mt *parser.MediaType, basePath string) error {
+func (w *Walker) walkMediaType(name string, mt *parser.MediaType, basePath string, state *walkState) error {
+	mtState := state.clone()
+	mtState.name = name
+
 	continueToChildren := true
 	if w.onMediaType != nil {
-		continueToChildren = w.handleAction(w.onMediaType(name, mt, basePath))
+		wc := mtState.buildContext(basePath)
+		continueToChildren = w.handleAction(w.onMediaType(wc, mt))
 		if w.stopped {
 			return nil
 		}
@@ -145,14 +158,16 @@ func (w *Walker) walkMediaType(name string, mt *parser.MediaType, basePath strin
 
 	// Schema
 	if mt.Schema != nil {
-		if err := w.walkSchema(mt.Schema, basePath+".schema", 0); err != nil {
+		schemaState := mtState.clone()
+		schemaState.name = "" // Clear name for nested schemas
+		if err := w.walkSchema(mt.Schema, basePath+".schema", 0, schemaState); err != nil {
 			return err
 		}
 	}
 
 	// Examples
 	if mt.Examples != nil {
-		if err := w.walkExamples(mt.Examples, basePath+".examples"); err != nil {
+		if err := w.walkExamples(mt.Examples, basePath+".examples", mtState); err != nil {
 			return err
 		}
 	}
@@ -161,21 +176,24 @@ func (w *Walker) walkMediaType(name string, mt *parser.MediaType, basePath strin
 }
 
 // walkExamples walks a map of Examples.
-func (w *Walker) walkExamples(examples map[string]*parser.Example, basePath string) error {
+func (w *Walker) walkExamples(examples map[string]*parser.Example, basePath string, state *walkState) error {
 	for _, name := range sortedMapKeys(examples) {
 		if w.stopped {
 			return nil
 		}
 		ex := examples[name]
 		if ex != nil && w.onExample != nil {
-			w.handleAction(w.onExample(name, ex, basePath+"['"+name+"']"))
+			exState := state.clone()
+			exState.name = name
+			wc := exState.buildContext(basePath + "['" + name + "']")
+			w.handleAction(w.onExample(wc, ex))
 		}
 	}
 	return nil
 }
 
 // walkSchema walks a Schema and all its nested schemas.
-func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int) error {
+func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int, state *walkState) error {
 	if schema == nil {
 		return nil
 	}
@@ -183,7 +201,8 @@ func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int) e
 	// Check depth limit
 	if depth > w.maxDepth {
 		if w.onSchemaSkipped != nil {
-			w.onSchemaSkipped("depth", schema, basePath)
+			wc := state.buildContext(basePath)
+			w.onSchemaSkipped(wc, "depth", schema)
 		}
 		return nil
 	}
@@ -191,7 +210,8 @@ func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int) e
 	// Check for cycle
 	if w.visitedSchemas[schema] {
 		if w.onSchemaSkipped != nil {
-			w.onSchemaSkipped("cycle", schema, basePath)
+			wc := state.buildContext(basePath)
+			w.onSchemaSkipped(wc, "cycle", schema)
 		}
 		return nil
 	}
@@ -201,7 +221,8 @@ func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int) e
 
 	// Call handler
 	if w.onSchema != nil {
-		if !w.handleAction(w.onSchema(schema, basePath)) {
+		wc := state.buildContext(basePath)
+		if !w.handleAction(w.onSchema(wc, schema)) {
 			if w.stopped {
 				return nil
 			}
@@ -209,31 +230,36 @@ func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int) e
 		}
 	}
 
-	// Walk nested schemas in groups
-	if err := w.walkSchemaProperties(schema, basePath, depth); err != nil {
+	// Walk nested schemas in groups - clear name for nested schemas
+	nestedState := state.clone()
+	nestedState.name = ""
+
+	if err := w.walkSchemaProperties(schema, basePath, depth, nestedState); err != nil {
 		return err
 	}
-	if err := w.walkSchemaArrayKeywords(schema, basePath, depth); err != nil {
+	if err := w.walkSchemaArrayKeywords(schema, basePath, depth, nestedState); err != nil {
 		return err
 	}
-	if err := w.walkSchemaComposition(schema, basePath, depth); err != nil {
+	if err := w.walkSchemaComposition(schema, basePath, depth, nestedState); err != nil {
 		return err
 	}
-	if err := w.walkSchemaConditionals(schema, basePath, depth); err != nil {
+	if err := w.walkSchemaConditionals(schema, basePath, depth, nestedState); err != nil {
 		return err
 	}
-	return w.walkSchemaMisc(schema, basePath, depth)
+	return w.walkSchemaMisc(schema, basePath, depth, nestedState)
 }
 
 // walkSchemaProperties walks object-related schema keywords.
-func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, depth int) error {
+func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, depth int, state *walkState) error {
 	// Properties
 	for _, name := range sortedMapKeys(schema.Properties) {
 		if w.stopped {
 			return nil
 		}
 		if prop := schema.Properties[name]; prop != nil {
-			if err := w.walkSchema(prop, basePath+".properties['"+name+"']", depth+1); err != nil {
+			propState := state.clone()
+			propState.name = name
+			if err := w.walkSchema(prop, basePath+".properties['"+name+"']", depth+1, propState); err != nil {
 				return err
 			}
 		}
@@ -245,7 +271,7 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 			return nil
 		}
 		if prop := schema.PatternProperties[pattern]; prop != nil {
-			if err := w.walkSchema(prop, basePath+".patternProperties['"+pattern+"']", depth+1); err != nil {
+			if err := w.walkSchema(prop, basePath+".patternProperties['"+pattern+"']", depth+1, state); err != nil {
 				return err
 			}
 		}
@@ -253,21 +279,21 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 
 	// AdditionalProperties (can be *Schema or bool)
 	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-		if err := w.walkSchema(addProps, basePath+".additionalProperties", depth+1); err != nil {
+		if err := w.walkSchema(addProps, basePath+".additionalProperties", depth+1, state); err != nil {
 			return err
 		}
 	}
 
 	// UnevaluatedProperties (can be *Schema or bool)
 	if uProps, ok := schema.UnevaluatedProperties.(*parser.Schema); ok {
-		if err := w.walkSchema(uProps, basePath+".unevaluatedProperties", depth+1); err != nil {
+		if err := w.walkSchema(uProps, basePath+".unevaluatedProperties", depth+1, state); err != nil {
 			return err
 		}
 	}
 
 	// PropertyNames
 	if schema.PropertyNames != nil {
-		if err := w.walkSchema(schema.PropertyNames, basePath+".propertyNames", depth+1); err != nil {
+		if err := w.walkSchema(schema.PropertyNames, basePath+".propertyNames", depth+1, state); err != nil {
 			return err
 		}
 	}
@@ -278,7 +304,7 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 			return nil
 		}
 		if ds := schema.DependentSchemas[name]; ds != nil {
-			if err := w.walkSchema(ds, basePath+".dependentSchemas['"+name+"']", depth+1); err != nil {
+			if err := w.walkSchema(ds, basePath+".dependentSchemas['"+name+"']", depth+1, state); err != nil {
 				return err
 			}
 		}
@@ -288,17 +314,17 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 }
 
 // walkSchemaArrayKeywords walks array-related schema keywords.
-func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string, depth int) error {
+func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string, depth int, state *walkState) error {
 	// Items (can be *Schema or bool)
 	if items, ok := schema.Items.(*parser.Schema); ok {
-		if err := w.walkSchema(items, basePath+".items", depth+1); err != nil {
+		if err := w.walkSchema(items, basePath+".items", depth+1, state); err != nil {
 			return err
 		}
 	}
 
 	// AdditionalItems (can be *Schema or bool)
 	if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
-		if err := w.walkSchema(addItems, basePath+".additionalItems", depth+1); err != nil {
+		if err := w.walkSchema(addItems, basePath+".additionalItems", depth+1, state); err != nil {
 			return err
 		}
 	}
@@ -309,7 +335,7 @@ func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string,
 			return nil
 		}
 		if prefixItem != nil {
-			if err := w.walkSchema(prefixItem, fmt.Sprintf("%s.prefixItems[%d]", basePath, i), depth+1); err != nil {
+			if err := w.walkSchema(prefixItem, fmt.Sprintf("%s.prefixItems[%d]", basePath, i), depth+1, state); err != nil {
 				return err
 			}
 		}
@@ -317,14 +343,14 @@ func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string,
 
 	// UnevaluatedItems (can be *Schema or bool)
 	if uItems, ok := schema.UnevaluatedItems.(*parser.Schema); ok {
-		if err := w.walkSchema(uItems, basePath+".unevaluatedItems", depth+1); err != nil {
+		if err := w.walkSchema(uItems, basePath+".unevaluatedItems", depth+1, state); err != nil {
 			return err
 		}
 	}
 
 	// Contains
 	if schema.Contains != nil {
-		if err := w.walkSchema(schema.Contains, basePath+".contains", depth+1); err != nil {
+		if err := w.walkSchema(schema.Contains, basePath+".contains", depth+1, state); err != nil {
 			return err
 		}
 	}
@@ -333,14 +359,14 @@ func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string,
 }
 
 // walkSchemaComposition walks allOf/anyOf/oneOf/not keywords.
-func (w *Walker) walkSchemaComposition(schema *parser.Schema, basePath string, depth int) error {
+func (w *Walker) walkSchemaComposition(schema *parser.Schema, basePath string, depth int, state *walkState) error {
 	// AllOf
 	for i, sub := range schema.AllOf {
 		if w.stopped {
 			return nil
 		}
 		if sub != nil {
-			if err := w.walkSchema(sub, fmt.Sprintf("%s.allOf[%d]", basePath, i), depth+1); err != nil {
+			if err := w.walkSchema(sub, fmt.Sprintf("%s.allOf[%d]", basePath, i), depth+1, state); err != nil {
 				return err
 			}
 		}
@@ -352,7 +378,7 @@ func (w *Walker) walkSchemaComposition(schema *parser.Schema, basePath string, d
 			return nil
 		}
 		if sub != nil {
-			if err := w.walkSchema(sub, fmt.Sprintf("%s.anyOf[%d]", basePath, i), depth+1); err != nil {
+			if err := w.walkSchema(sub, fmt.Sprintf("%s.anyOf[%d]", basePath, i), depth+1, state); err != nil {
 				return err
 			}
 		}
@@ -364,7 +390,7 @@ func (w *Walker) walkSchemaComposition(schema *parser.Schema, basePath string, d
 			return nil
 		}
 		if sub != nil {
-			if err := w.walkSchema(sub, fmt.Sprintf("%s.oneOf[%d]", basePath, i), depth+1); err != nil {
+			if err := w.walkSchema(sub, fmt.Sprintf("%s.oneOf[%d]", basePath, i), depth+1, state); err != nil {
 				return err
 			}
 		}
@@ -372,7 +398,7 @@ func (w *Walker) walkSchemaComposition(schema *parser.Schema, basePath string, d
 
 	// Not
 	if schema.Not != nil {
-		if err := w.walkSchema(schema.Not, basePath+".not", depth+1); err != nil {
+		if err := w.walkSchema(schema.Not, basePath+".not", depth+1, state); err != nil {
 			return err
 		}
 	}
@@ -381,19 +407,19 @@ func (w *Walker) walkSchemaComposition(schema *parser.Schema, basePath string, d
 }
 
 // walkSchemaConditionals walks if/then/else keywords.
-func (w *Walker) walkSchemaConditionals(schema *parser.Schema, basePath string, depth int) error {
+func (w *Walker) walkSchemaConditionals(schema *parser.Schema, basePath string, depth int, state *walkState) error {
 	if schema.If != nil {
-		if err := w.walkSchema(schema.If, basePath+".if", depth+1); err != nil {
+		if err := w.walkSchema(schema.If, basePath+".if", depth+1, state); err != nil {
 			return err
 		}
 	}
 	if schema.Then != nil {
-		if err := w.walkSchema(schema.Then, basePath+".then", depth+1); err != nil {
+		if err := w.walkSchema(schema.Then, basePath+".then", depth+1, state); err != nil {
 			return err
 		}
 	}
 	if schema.Else != nil {
-		if err := w.walkSchema(schema.Else, basePath+".else", depth+1); err != nil {
+		if err := w.walkSchema(schema.Else, basePath+".else", depth+1, state); err != nil {
 			return err
 		}
 	}
@@ -401,10 +427,10 @@ func (w *Walker) walkSchemaConditionals(schema *parser.Schema, basePath string, 
 }
 
 // walkSchemaMisc walks miscellaneous schema keywords.
-func (w *Walker) walkSchemaMisc(schema *parser.Schema, basePath string, depth int) error {
+func (w *Walker) walkSchemaMisc(schema *parser.Schema, basePath string, depth int, state *walkState) error {
 	// ContentSchema
 	if schema.ContentSchema != nil {
-		if err := w.walkSchema(schema.ContentSchema, basePath+".contentSchema", depth+1); err != nil {
+		if err := w.walkSchema(schema.ContentSchema, basePath+".contentSchema", depth+1, state); err != nil {
 			return err
 		}
 	}
@@ -415,7 +441,9 @@ func (w *Walker) walkSchemaMisc(schema *parser.Schema, basePath string, depth in
 			return nil
 		}
 		if def := schema.Defs[name]; def != nil {
-			if err := w.walkSchema(def, basePath+".$defs['"+name+"']", depth+1); err != nil {
+			defState := state.clone()
+			defState.name = name
+			if err := w.walkSchema(def, basePath+".$defs['"+name+"']", depth+1, defState); err != nil {
 				return err
 			}
 		}

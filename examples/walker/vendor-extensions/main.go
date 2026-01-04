@@ -52,7 +52,7 @@ func main() {
 	// Walk the document with mutation handlers
 	err = walker.Walk(result,
 		// Add vendor extensions to ALL schemas
-		walker.WithSchemaHandler(func(schema *parser.Schema, path string) walker.Action {
+		walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
 			if schema.Extra == nil {
 				schema.Extra = make(map[string]any)
 			}
@@ -63,7 +63,7 @@ func main() {
 		}),
 
 		// Add rate limiting based on HTTP method; skip deprecated operations
-		walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+		walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
 			// Skip deprecated operations - don't enhance them
 			if op.Deprecated {
 				stats.OperationsSkipped++
@@ -75,7 +75,7 @@ func main() {
 			}
 
 			// Apply rate limits based on HTTP method
-			switch strings.ToUpper(method) {
+			switch strings.ToUpper(wc.Method) {
 			case "GET":
 				op.Extra["x-rate-limit"] = 100
 				op.Extra["x-cache-ttl"] = 60
@@ -90,9 +90,9 @@ func main() {
 		}),
 
 		// Mark internal paths
-		walker.WithPathHandler(func(pathTemplate string, pi *parser.PathItem, path string) walker.Action {
+		walker.WithPathHandler(func(wc *walker.WalkContext, pi *parser.PathItem) walker.Action {
 			// Mark paths starting with /admin or /_ as internal
-			if strings.HasPrefix(pathTemplate, "/admin") || strings.HasPrefix(pathTemplate, "/_") {
+			if strings.HasPrefix(wc.PathTemplate, "/admin") || strings.HasPrefix(wc.PathTemplate, "/_") {
 				if pi.Extra == nil {
 					pi.Extra = make(map[string]any)
 				}

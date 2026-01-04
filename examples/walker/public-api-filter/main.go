@@ -59,30 +59,30 @@ func main() {
 		DeprecatedOps:      make([]string, 0),
 	}
 
-	// Track current path for the operation handler
+	// Track state for the operation handler
 	var currentPath string
 	var skipCurrentPath bool
 
 	// Walk the document with filtering handlers
 	err = walker.Walk(parseResult,
 		// Filter paths based on prefix
-		walker.WithPathHandler(func(pathTemplate string, pathItem *parser.PathItem, path string) walker.Action {
+		walker.WithPathHandler(func(wc *walker.WalkContext, pathItem *parser.PathItem) walker.Action {
 			// Check if this is an internal/admin path
-			if isInternalPath(pathTemplate) {
-				result.SkippedPaths = append(result.SkippedPaths, pathTemplate)
+			if isInternalPath(wc.PathTemplate) {
+				result.SkippedPaths = append(result.SkippedPaths, wc.PathTemplate)
 				skipCurrentPath = true
 				return walker.SkipChildren
 			}
 
 			// Include this path
-			result.IncludedPaths = append(result.IncludedPaths, pathTemplate)
-			currentPath = pathTemplate
+			result.IncludedPaths = append(result.IncludedPaths, wc.PathTemplate)
+			currentPath = wc.PathTemplate
 			skipCurrentPath = false
 			return walker.Continue
 		}),
 
 		// Process operations on included paths
-		walker.WithOperationHandler(func(method string, op *parser.Operation, path string) walker.Action {
+		walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
 			// Skip if the current path was filtered out
 			if skipCurrentPath {
 				return walker.SkipChildren
@@ -91,13 +91,13 @@ func main() {
 			// Check if operation is deprecated
 			if op.Deprecated {
 				result.DeprecatedOps = append(result.DeprecatedOps,
-					fmt.Sprintf("%s %s", strings.ToUpper(method), currentPath))
+					fmt.Sprintf("%s %s", strings.ToUpper(wc.Method), currentPath))
 				return walker.SkipChildren
 			}
 
 			// Include this operation
 			result.IncludedOperations = append(result.IncludedOperations, OperationInfo{
-				Method:      strings.ToUpper(method),
+				Method:      strings.ToUpper(wc.Method),
 				Path:        currentPath,
 				OperationID: op.OperationID,
 				Summary:     op.Summary,
