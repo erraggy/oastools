@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
-	"strings"
 	"text/template"
 
 	"github.com/erraggy/oastools/overlay"
@@ -92,6 +92,17 @@ type JoinerConfig struct {
 	// When enabled, semantically identical schemas are consolidated to a single
 	// canonical schema (alphabetically first), and all references are rewritten.
 	SemanticDeduplication bool
+
+	// OperationContext enables operation-aware context in rename templates.
+	// When true, builds a reference graph to populate Path, Method, OperationID,
+	// Tags, and other operation-derived fields in the rename context.
+	// Default: false.
+	OperationContext bool
+
+	// PrimaryOperationPolicy determines which operation provides primary context
+	// when a schema is referenced by multiple operations.
+	// Default: PolicyFirstEncountered.
+	PrimaryOperationPolicy PrimaryOperationPolicy
 }
 
 // DefaultConfig returns a sensible default configuration
@@ -195,12 +206,14 @@ type joinConfig struct {
 	mergeArrays       *bool
 
 	// Advanced collision strategies configuration
-	renameTemplate        *string
-	namespacePrefix       map[string]string
-	alwaysApplyPrefix     *bool
-	equivalenceMode       *string
-	collisionReport       *bool
-	semanticDeduplication *bool
+	renameTemplate         *string
+	namespacePrefix        map[string]string
+	alwaysApplyPrefix      *bool
+	equivalenceMode        *string
+	collisionReport        *bool
+	semanticDeduplication  *bool
+	operationContext       *bool
+	primaryOperationPolicy *PrimaryOperationPolicy
 
 	// Source location tracking
 	sourceMaps map[string]*parser.SourceMap // Maps file paths to their SourceMaps
@@ -254,6 +267,12 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 		EquivalenceMode:       stringValueOrDefault(cfg.equivalenceMode, defaults.EquivalenceMode),
 		CollisionReport:       boolValueOrDefault(cfg.collisionReport, defaults.CollisionReport),
 		SemanticDeduplication: boolValueOrDefault(cfg.semanticDeduplication, defaults.SemanticDeduplication),
+	}
+	if cfg.operationContext != nil {
+		joinerCfg.OperationContext = *cfg.operationContext
+	}
+	if cfg.primaryOperationPolicy != nil {
+		joinerCfg.PrimaryOperationPolicy = *cfg.primaryOperationPolicy
 	}
 
 	j := New(joinerCfg)
@@ -528,6 +547,8 @@ func WithConfig(config JoinerConfig) Option {
 		cfg.equivalenceMode = &config.EquivalenceMode
 		cfg.collisionReport = &config.CollisionReport
 		cfg.semanticDeduplication = &config.SemanticDeduplication
+		cfg.operationContext = &config.OperationContext
+		cfg.primaryOperationPolicy = &config.PrimaryOperationPolicy
 		return nil
 	}
 }
@@ -643,6 +664,33 @@ func WithCollisionReport(enabled bool) Option {
 func WithSemanticDeduplication(enabled bool) Option {
 	return func(cfg *joinConfig) error {
 		cfg.semanticDeduplication = &enabled
+		return nil
+	}
+}
+
+// WithOperationContext enables operation-aware context in rename templates.
+// When enabled, the joiner builds a reference graph for each document to
+// populate operation-derived fields like Path, Method, OperationID, and Tags.
+// This enables templates like "{{.OperationID | pascalCase}}{{.Name}}".
+//
+// Limitation: Only schemas from the RIGHT (incoming) document receive operation
+// context. The LEFT (base) document's schemas do not have their references traced,
+// so RenameContext fields like Path, Method, OperationID, and Tags will be empty
+// for base document schemas.
+func WithOperationContext(enabled bool) Option {
+	return func(cfg *joinConfig) error {
+		cfg.operationContext = &enabled
+		return nil
+	}
+}
+
+// WithPrimaryOperationPolicy sets the policy for selecting the primary operation
+// when a schema is referenced by multiple operations. The primary operation's
+// context is used for the single-value fields (Path, Method, OperationID, Tags).
+// Aggregate fields (AllPaths, AllMethods, etc.) always contain all references.
+func WithPrimaryOperationPolicy(policy PrimaryOperationPolicy) Option {
+	return func(cfg *joinConfig) error {
+		cfg.primaryOperationPolicy = &policy
 		return nil
 	}
 }
@@ -953,27 +1001,10 @@ func (j *Joiner) shouldOverwrite(strategy CollisionStrategy) bool {
 	return strategy == StrategyAcceptRight
 }
 
-// renameTemplateData provides the context for rename template execution
-type renameTemplateData struct {
-	Name   string // Original schema name
-	Source string // Source file name (without path/extension, sanitized)
-	Index  int    // Document index (0-based)
-}
-
 // generateRenamedSchemaName generates a new name for a renamed schema based on the template
-func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docIndex int) string {
-	// Extract base filename without extension for source
-	source := sourcePath
-	if idx := strings.LastIndex(source, "/"); idx >= 0 {
-		source = source[idx+1:]
-	}
-	if idx := strings.LastIndex(source, "."); idx >= 0 {
-		source = source[:idx]
-	}
-
-	// Clean source name for use in schema name (replace invalid characters)
-	source = strings.ReplaceAll(source, "-", "_")
-	source = strings.ReplaceAll(source, " ", "_")
+func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docIndex int, graph *RefGraph) string {
+	// Build the rename context (handles both basic and operation-aware modes)
+	ctx := buildRenameContext(originalName, sourcePath, docIndex, graph, j.config.PrimaryOperationPolicy)
 
 	// Use template if configured
 	tmplStr := j.config.RenameTemplate
@@ -981,22 +1012,19 @@ func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docI
 		tmplStr = "{{.Name}}_{{.Source}}"
 	}
 
-	tmpl, err := template.New("rename").Parse(tmplStr)
+	// Parse template with extended function map
+	tmpl, err := template.New("rename").Funcs(renameFuncs()).Parse(tmplStr)
 	if err != nil {
 		// Fall back to default pattern on template parse error
-		return fmt.Sprintf("%s_%s", originalName, source)
-	}
-
-	data := renameTemplateData{
-		Name:   originalName,
-		Source: source,
-		Index:  docIndex,
+		log.Printf("joiner: template parse error for schema %q: template %q: %v", originalName, tmplStr, err)
+		return fmt.Sprintf("%s_%s", originalName, ctx.Source)
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
+	if err := tmpl.Execute(&buf, ctx); err != nil {
 		// Fall back to default pattern on template execution error
-		return fmt.Sprintf("%s_%s", originalName, source)
+		log.Printf("joiner: template execution error for schema %q: template %q: %v", originalName, tmplStr, err)
+		return fmt.Sprintf("%s_%s", originalName, ctx.Source)
 	}
 
 	return buf.String()

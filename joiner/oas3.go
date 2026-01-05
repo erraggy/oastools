@@ -98,7 +98,13 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 		// Merge components
 		if oas3Doc.Components != nil {
-			if err := j.mergeOAS3Components(joined.Components, oas3Doc.Components, ctx, result); err != nil {
+			// Build reference graph if operation context is enabled
+			var sourceGraph *RefGraph
+			if j.config.OperationContext {
+				sourceGraph = buildRefGraphOAS3(oas3Doc, oas3Doc.OASVersion)
+			}
+
+			if err := j.mergeOAS3Components(joined.Components, oas3Doc.Components, ctx, result, sourceGraph); err != nil {
 				return nil, err
 			}
 		}
@@ -165,12 +171,12 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 }
 
 // mergeOAS3Components merges components from source into target
-func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx documentContext, result *JoinResult) error {
+func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx documentContext, result *JoinResult, sourceGraph *RefGraph) error {
 	schemaStrategy := j.getEffectiveStrategy(j.config.SchemaStrategy)
 	componentStrategy := j.getEffectiveStrategy(j.config.ComponentStrategy)
 
 	// Merge schemas with detailed warnings
-	if err := j.mergeSchemas(target.Schemas, source.Schemas, schemaStrategy, ctx, result); err != nil {
+	if err := j.mergeSchemas(target.Schemas, source.Schemas, schemaStrategy, ctx, result, sourceGraph); err != nil {
 		return err
 	}
 
@@ -207,7 +213,7 @@ func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx docu
 }
 
 // mergeSchemas is a specialized merger for schemas with detailed warnings
-func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
+func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy CollisionStrategy, ctx documentContext, result *JoinResult, sourceGraph *RefGraph) error {
 	// Get namespace prefix for this source (if configured)
 	sourcePrefix := j.getNamespacePrefix(ctx.filePath)
 
@@ -266,7 +272,8 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				if leftPrefix != "" {
 					newName = j.generatePrefixedSchemaName(effectiveName, leftPrefix)
 				} else {
-					newName = j.generateRenamedSchemaName(effectiveName, result.firstFilePath, 0)
+					// Pass nil for graph since we don't have the original document's graph readily available
+					newName = j.generateRenamedSchemaName(effectiveName, result.firstFilePath, 0, nil)
 				}
 
 				// Move existing schema to new name
@@ -293,7 +300,8 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 					// Source has prefix but AlwaysApplyPrefix is false - apply prefix now on collision
 					newName = j.generatePrefixedSchemaName(name, sourcePrefix)
 				} else {
-					newName = j.generateRenamedSchemaName(effectiveName, ctx.filePath, ctx.docIndex)
+					// Pass sourceGraph for operation-aware renaming of the right/new schema
+					newName = j.generateRenamedSchemaName(effectiveName, ctx.filePath, ctx.docIndex, sourceGraph)
 				}
 
 				// Add new schema under renamed name

@@ -115,8 +115,14 @@ func (j *Joiner) mergeOAS2Document(joined *parser.OAS2Document, oas2Doc *parser.
 		return err
 	}
 
+	// Build reference graph if operation context is enabled
+	var sourceGraph *RefGraph
+	if j.config.OperationContext {
+		sourceGraph = buildRefGraphOAS2(oas2Doc)
+	}
+
 	// Merge definitions (schemas)
-	if err := j.mergeOAS2Definitions(joined, oas2Doc, ctx, result); err != nil {
+	if err := j.mergeOAS2Definitions(joined, oas2Doc, ctx, result, sourceGraph); err != nil {
 		return err
 	}
 
@@ -138,7 +144,7 @@ func (j *Joiner) mergeOAS2Paths(joined, source *parser.OAS2Document, ctx documen
 }
 
 // mergeOAS2Definitions merges definitions (schemas) from source document
-func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx documentContext, result *JoinResult) error {
+func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx documentContext, result *JoinResult, sourceGraph *RefGraph) error {
 	schemaStrategy := j.getEffectiveStrategy(j.config.SchemaStrategy)
 
 	// Get namespace prefix for this source (if configured)
@@ -199,7 +205,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				if leftPrefix != "" {
 					newName = j.generatePrefixedSchemaName(effectiveName, leftPrefix)
 				} else {
-					newName = j.generateRenamedSchemaName(effectiveName, result.firstFilePath, 0)
+					newName = j.generateRenamedSchemaName(effectiveName, result.firstFilePath, 0, nil)
 				}
 
 				// Move existing definition to new name
@@ -226,7 +232,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 					// Source has prefix but AlwaysApplyPrefix is false - apply prefix now on collision
 					newName = j.generatePrefixedSchemaName(name, sourcePrefix)
 				} else {
-					newName = j.generateRenamedSchemaName(effectiveName, ctx.filePath, ctx.docIndex)
+					newName = j.generateRenamedSchemaName(effectiveName, ctx.filePath, ctx.docIndex, sourceGraph)
 				}
 
 				// Add new definition under renamed name

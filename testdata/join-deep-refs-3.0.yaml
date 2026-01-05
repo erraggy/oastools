@@ -1,0 +1,38 @@
+openapi: "3.0.0"
+info:
+  title: Deep Refs API
+  version: "1.0.0"
+paths:
+  /items:
+    get:
+      operationId: listItems
+      tags:
+        - Items
+      responses:
+        '200':
+          description: List of items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemList'
+components:
+  schemas:
+    ItemList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+    Item:
+      type: object
+      properties:
+        details:
+          $ref: '#/components/schemas/ItemDetails'
+    ItemDetails:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string

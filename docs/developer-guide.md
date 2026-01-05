@@ -689,6 +689,36 @@ if err != nil {
 // - Warnings indicate how many duplicates were consolidated
 ```
 
+**Operation-Aware Schema Renaming:**
+
+When joining programmatically generated specs (e.g., from frameworks like Huma), schemas often have generic names like "Response" or "Request". Operation-aware renaming uses API structure context to generate meaningful names:
+
+```go
+// Enable operation context for rich rename templates
+config := joiner.DefaultConfig()
+config.SchemaStrategy = joiner.StrategyRenameRight
+config.OperationContext = true  // Build reference graph
+config.RenameTemplate = "{{.OperationID | pascalCase}}{{.Name}}"
+
+j := joiner.New(config)
+result, err := j.Join([]string{"users-api.yaml", "orders-api.yaml"})
+
+// Colliding "Response" schemas become:
+// - Response (from users-api, kept)
+// - CreateOrderResponse (from orders-api, renamed using operationId)
+```
+
+Template functions available:
+- **Path extraction**: `pathResource` (last non-parameter segment), `pathLast` (final segment)
+- **Case conversion**: `pascalCase`, `camelCase`, `snakeCase`, `kebabCase`
+- **Conditionals**: `default` (fallback value), `coalesce` (first non-empty)
+
+Example template using path context:
+```go
+config.RenameTemplate = "{{.Path | pathResource | pascalCase}}{{.Name}}"
+// /orders/{id} + "Response" → OrdersResponse
+```
+
 > 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Joiner Deep Dive](packages/joiner.md).
 
 ### Differ Package
@@ -1483,7 +1513,7 @@ var operationCount int
 err := walker.Walk(result,
     walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
         // wc.Method contains HTTP method (GET, POST, etc.)
-        // wc.PathTemplate contains the URL path template
+        // wc.Path contains the URL path template
         operationCount++
         return walker.Continue
     }),
@@ -1493,10 +1523,10 @@ err := walker.Walk(result,
 **Flow Control:**
 
 ```go
-// Skip internal paths - WalkContext.PathTemplate available in path handlers
+// Skip internal paths - WalkContext.Path available in path handlers
 walker.Walk(result,
     walker.WithPathHandler(func(wc *walker.WalkContext, pi *parser.PathItem) walker.Action {
-        if strings.HasPrefix(wc.PathTemplate, "/internal") {
+        if strings.HasPrefix(wc.Path, "/internal") {
             return walker.SkipChildren
         }
         return walker.Continue

@@ -104,3 +104,94 @@ func Example_semanticDeduplication() {
 	// Joined successfully
 	// Version: 3.0.3
 }
+
+// Example_operationContext demonstrates operation-aware schema renaming.
+// When OperationContext is enabled, the joiner traces schemas back to their
+// originating operations, allowing rename templates to use fields like
+// OperationID, Path, Method, and Tags.
+func Example_operationContext() {
+	// Join two specs that both define a "Response" schema.
+	// Without operation context, collisions are resolved using Source/Index.
+	// With operation context, we can use operationId for meaningful names.
+	result, err := joiner.JoinWithOptions(
+		joiner.WithFilePaths(
+			"../testdata/join-operation-context-users-3.0.yaml",
+			"../testdata/join-operation-context-orders-3.0.yaml",
+		),
+		joiner.WithOperationContext(true),
+		joiner.WithSchemaStrategy(joiner.StrategyRenameRight),
+		// Template uses OperationID with PascalCase conversion
+		joiner.WithRenameTemplate("{{.OperationID | pascalCase}}{{.Name}}"),
+	)
+	if err != nil {
+		log.Fatalf("failed to join: %v", err)
+	}
+
+	// The colliding "Response" schema from the orders API is renamed using
+	// the operationId "createOrder" -> "CreateOrderResponse"
+	fmt.Printf("Collisions resolved: %d\n", result.CollisionCount)
+	fmt.Printf("Version: %s\n", result.Version)
+	// Output:
+	// Collisions resolved: 1
+	// Version: 3.0.0
+}
+
+// Example_templateFunctions demonstrates the template functions available
+// for operation-aware renaming: pathResource, pathClean, case conversions,
+// and fallback functions like default and coalesce.
+func Example_templateFunctions() {
+	// Template using pathResource to extract "orders" from "/orders"
+	// and pascalCase to convert it to "Orders"
+	result, err := joiner.JoinWithOptions(
+		joiner.WithFilePaths(
+			"../testdata/join-operation-context-users-3.0.yaml",
+			"../testdata/join-operation-context-orders-3.0.yaml",
+		),
+		joiner.WithOperationContext(true),
+		joiner.WithSchemaStrategy(joiner.StrategyRenameRight),
+		// pathResource extracts the first path segment (e.g., "/orders" -> "orders")
+		// pascalCase converts to PascalCase (e.g., "orders" -> "Orders")
+		joiner.WithRenameTemplate("{{pathResource .Path | pascalCase}}{{.Name}}"),
+	)
+	if err != nil {
+		log.Fatalf("failed to join: %v", err)
+	}
+
+	// The colliding "Response" schema from /orders becomes "OrdersResponse"
+	fmt.Printf("Collisions resolved: %d\n", result.CollisionCount)
+	fmt.Printf("Version: %s\n", result.Version)
+	// Output:
+	// Collisions resolved: 1
+	// Version: 3.0.0
+}
+
+// Example_primaryOperationPolicy demonstrates how to select which operation
+// provides the primary context when a schema is referenced by multiple operations.
+// PolicyMostSpecific prefers operations with operationId over those without.
+func Example_primaryOperationPolicy() {
+	// When a schema is referenced by multiple operations, the policy determines
+	// which operation's context is used for the primary fields (Path, Method,
+	// OperationID). PolicyMostSpecific chooses the operation with the richest
+	// metadata: first preferring those with operationId, then those with tags.
+	result, err := joiner.JoinWithOptions(
+		joiner.WithFilePaths(
+			"../testdata/join-operation-context-users-3.0.yaml",
+			"../testdata/join-operation-context-orders-3.0.yaml",
+		),
+		joiner.WithOperationContext(true),
+		joiner.WithPrimaryOperationPolicy(joiner.PolicyMostSpecific),
+		joiner.WithSchemaStrategy(joiner.StrategyRenameRight),
+		// Use operationId if available; fallback to path resource
+		joiner.WithRenameTemplate("{{coalesce .OperationID (pathResource .Path) .Source | pascalCase}}{{.Name}}"),
+	)
+	if err != nil {
+		log.Fatalf("failed to join: %v", err)
+	}
+
+	// With PolicyMostSpecific, operations with operationId are preferred
+	fmt.Printf("Collisions resolved: %d\n", result.CollisionCount)
+	fmt.Printf("Version: %s\n", result.Version)
+	// Output:
+	// Collisions resolved: 1
+	// Version: 3.0.0
+}

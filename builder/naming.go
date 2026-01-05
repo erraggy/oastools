@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"strings"
 	"text/template"
-	"unicode"
 
+	"github.com/erraggy/oastools/internal/naming"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -496,77 +496,25 @@ func sanitizeSchemaName(name string) string {
 // Separators (underscore, hyphen, dot, slash) trigger capitalization of the next letter.
 // Example: "user_profile" -> "UserProfile"
 // Example: "api-client" -> "ApiClient"
-func toPascalCase(s string) string {
-	if s == "" {
-		return ""
-	}
-
-	var result strings.Builder
-	capitalizeNext := true
-
-	for _, r := range s {
-		if r == '_' || r == '-' || r == '.' || r == '/' {
-			capitalizeNext = true
-			continue
-		}
-		if capitalizeNext {
-			result.WriteRune(unicode.ToUpper(r))
-			capitalizeNext = false
-		} else {
-			result.WriteRune(r)
-		}
-	}
-
-	return result.String()
-}
+func toPascalCase(s string) string { return naming.ToPascalCase(s) }
 
 // toCamelCase converts a string to camelCase.
 // Like PascalCase but with the first letter lowercase.
 // Example: "user_profile" -> "userProfile"
 // Example: "UserProfile" -> "userProfile"
-func toCamelCase(s string) string {
-	pascal := toPascalCase(s)
-	if pascal == "" {
-		return ""
-	}
-	runes := []rune(pascal)
-	runes[0] = unicode.ToLower(runes[0])
-	return string(runes)
-}
+func toCamelCase(s string) string { return naming.ToCamelCase(s) }
 
 // toSnakeCase converts a string to snake_case.
 // Uppercase letters are prefixed with underscore and lowercased.
 // Existing separators (hyphen, dot, slash) are converted to underscores.
 // Example: "UserProfile" -> "user_profile"
 // Example: "APIClient" -> "api_client"
-func toSnakeCase(s string) string {
-	if s == "" {
-		return ""
-	}
-
-	var result strings.Builder
-	for i, r := range s {
-		if unicode.IsUpper(r) {
-			if i > 0 {
-				result.WriteRune('_')
-			}
-			result.WriteRune(unicode.ToLower(r))
-		} else if r == '-' || r == '.' || r == '/' {
-			result.WriteRune('_')
-		} else {
-			result.WriteRune(r)
-		}
-	}
-
-	return result.String()
-}
+func toSnakeCase(s string) string { return naming.ToSnakeCase(s) }
 
 // toKebabCase converts a string to kebab-case.
 // Like snake_case but with hyphens instead of underscores.
 // Example: "UserProfile" -> "user-profile"
-func toKebabCase(s string) string {
-	return strings.ReplaceAll(toSnakeCase(s), "_", "-")
-}
+func toKebabCase(s string) string { return naming.ToKebabCase(s) }
 
 // templateFuncs returns the function map for schema name templates.
 // These functions are available in templates passed to WithSchemaNameTemplate.
