@@ -1122,6 +1122,8 @@ Post-visit handlers fire after a node's children have been processed, enabling b
 | `WithResponsePostHandler` | Response's children (headers, content, links) processed |
 | `WithRequestBodyPostHandler` | Request body's children (content) processed |
 | `WithCallbackPostHandler` | Callback's children (path items) processed |
+| `WithOAS2DocumentPostHandler` | OAS 2.0 document's children (all nodes) processed |
+| `WithOAS3DocumentPostHandler` | OAS 3.x document's children (all nodes) processed |
 
 ### When Post Handlers Are Called
 
@@ -1245,6 +1247,87 @@ walker.Walk(result,
     }),
 )
 ```
+
+### Document Post Handlers: Single-Walk Aggregation
+
+Document post handlers (`WithOAS2DocumentPostHandler`, `WithOAS3DocumentPostHandler`) enable single-walk patterns where you collect information from child nodes and then modify the document root based on that collection.
+
+**Use case: Adding security definitions based on operation analysis**
+
+Without document post handlers, you'd need two walks:
+
+```go
+// Old approach: Two walks required
+needsOAuth2 := false
+needsAPIKey := false
+
+// Walk 1: Collect security requirements from operations
+err := walker.Walk(result,
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
+        authType := getAuthType(op)
+        if authType == "oauth2" {
+            needsOAuth2 = true
+        } else if authType == "apiKey" {
+            needsAPIKey = true
+        }
+        return walker.Continue
+    }),
+)
+
+// Walk 2: Add security definitions based on collected info
+err = walker.Walk(result,
+    walker.WithOAS3DocumentHandler(func(_ *walker.WalkContext, doc *parser.OAS3Document) walker.Action {
+        if needsOAuth2 {
+            doc.Components.SecuritySchemes["oauth2"] = &parser.SecurityScheme{...}
+        }
+        return walker.Continue
+    }),
+)
+```
+
+**With document post handlers (single walk):**
+
+```go
+// New approach: Single walk with document post handler
+needsOAuth2 := false
+needsAPIKey := false
+scopes := make(map[string][]string)
+
+err := walker.Walk(result,
+    walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
+        authType := getAuthType(op)
+        if authType == "oauth2" {
+            needsOAuth2 = true
+            scopes[op.OperationID] = buildScopes(op)
+        } else if authType == "apiKey" {
+            needsAPIKey = true
+        }
+        return walker.Continue
+    }),
+    walker.WithOAS3DocumentPostHandler(func(_ *walker.WalkContext, doc *parser.OAS3Document) {
+        // Called AFTER all operations have been visited
+        if needsOAuth2 {
+            doc.Components.SecuritySchemes["oauth2"] = &parser.SecurityScheme{
+                Type:  "oauth2",
+                Flows: buildOAuthFlows(scopes),
+            }
+        }
+        if needsAPIKey {
+            doc.Components.SecuritySchemes["api_key"] = &parser.SecurityScheme{
+                Type: "apiKey",
+                In:   "header",
+                Name: "X-API-Key",
+            }
+        }
+    }),
+)
+```
+
+This pattern is useful for:
+- Adding security schemes based on operation requirements
+- Generating documentation tags from operation tags
+- Adding components discovered during traversal
+- Validating document-wide constraints after seeing all nodes
 
 ### Performance Considerations
 

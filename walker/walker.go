@@ -153,6 +153,16 @@ type RequestBodyPostHandler func(wc *WalkContext, reqBody *parser.RequestBody)
 // CallbackPostHandler is called after a callback's children have been processed.
 type CallbackPostHandler func(wc *WalkContext, callback parser.Callback)
 
+// OAS2DocumentPostHandler is called after all children of an OAS 2.0 document have been processed.
+// This enables single-walk patterns where you collect information from operations/schemas
+// and then modify the document based on that collection.
+type OAS2DocumentPostHandler func(wc *WalkContext, doc *parser.OAS2Document)
+
+// OAS3DocumentPostHandler is called after all children of an OAS 3.x document have been processed.
+// This enables single-walk patterns where you collect information from operations/schemas
+// and then modify the document based on that collection.
+type OAS3DocumentPostHandler func(wc *WalkContext, doc *parser.OAS3Document)
+
 // Walker traverses OpenAPI documents and calls handlers for each node type.
 type Walker struct {
 	// Input sources (mutually exclusive)
@@ -184,12 +194,14 @@ type Walker struct {
 	onRef            RefHandler
 
 	// Post-visit handlers
-	onSchemaPost      SchemaPostHandler
-	onOperationPost   OperationPostHandler
-	onPathItemPost    PathItemPostHandler
-	onResponsePost    ResponsePostHandler
-	onRequestBodyPost RequestBodyPostHandler
-	onCallbackPost    CallbackPostHandler
+	onSchemaPost       SchemaPostHandler
+	onOperationPost    OperationPostHandler
+	onPathItemPost     PathItemPostHandler
+	onResponsePost     ResponsePostHandler
+	onRequestBodyPost  RequestBodyPostHandler
+	onCallbackPost     CallbackPostHandler
+	onOAS2DocumentPost OAS2DocumentPostHandler
+	onOAS3DocumentPost OAS3DocumentPostHandler
 
 	// Configuration
 	maxDepth    int
@@ -359,6 +371,22 @@ func WithRequestBodyPostHandler(fn RequestBodyPostHandler) Option {
 // Not called if the pre-visit handler returns SkipChildren or Stop.
 func WithCallbackPostHandler(fn CallbackPostHandler) Option {
 	return func(w *Walker) { w.onCallbackPost = fn }
+}
+
+// WithOAS2DocumentPostHandler sets a handler called after all children of an OAS 2.0 document
+// have been processed. This enables single-walk patterns where you collect information from
+// operations, schemas, or other children and then modify the document based on that collection.
+// Not called if the document pre-visit handler returns SkipChildren or Stop.
+func WithOAS2DocumentPostHandler(fn OAS2DocumentPostHandler) Option {
+	return func(w *Walker) { w.onOAS2DocumentPost = fn }
+}
+
+// WithOAS3DocumentPostHandler sets a handler called after all children of an OAS 3.x document
+// have been processed. This enables single-walk patterns where you collect information from
+// operations, schemas, or other children and then modify the document based on that collection.
+// Not called if the document pre-visit handler returns SkipChildren or Stop.
+func WithOAS3DocumentPostHandler(fn OAS3DocumentPostHandler) Option {
+	return func(w *Walker) { w.onOAS3DocumentPost = fn }
 }
 
 // WithMaxDepth sets the maximum schema recursion depth.
