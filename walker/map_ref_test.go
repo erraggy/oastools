@@ -604,6 +604,154 @@ func TestMapRefTracking_BoolValue(t *testing.T) {
 	assert.Empty(t, refs, "Bool values should not trigger ref handler")
 }
 
+func TestMapRefTracking_SkipChildren(t *testing.T) {
+	// Test that SkipChildren allows the walk to continue processing other schemas
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"FirstSchema": {
+					Type: "array",
+					Items: map[string]any{
+						"$ref": "#/components/schemas/FirstRef",
+					},
+				},
+				"SecondSchema": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"name": {Type: "string"},
+					},
+				},
+				"ThirdSchema": {
+					Type: "array",
+					Items: map[string]any{
+						"$ref": "#/components/schemas/ThirdRef",
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion310,
+	}
+
+	var refs []*RefInfo
+	var schemaCount int
+	err := Walk(result,
+		WithMapRefTracking(),
+		WithSchemaHandler(func(wc *WalkContext, schema *parser.Schema) Action {
+			schemaCount++
+			return Continue
+		}),
+		WithRefHandler(func(wc *WalkContext, ref *RefInfo) Action {
+			refs = append(refs, ref)
+			return SkipChildren // Skip children but continue walking
+		}),
+	)
+
+	require.NoError(t, err)
+
+	// SkipChildren should not prevent other schemas from being visited
+	// All three top-level schemas plus the nested property schema should be visited
+	assert.GreaterOrEqual(t, schemaCount, 3, "Multiple schemas should be visited despite SkipChildren")
+
+	// Both map refs should be found (SkipChildren doesn't stop sibling processing)
+	assert.Len(t, refs, 2, "Both map refs should be visited")
+}
+
+func TestMapRefTracking_NilPolymorphicFields(t *testing.T) {
+	// Test that explicit nil values in polymorphic fields don't cause panics
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"NilFieldsSchema": {
+					Type:                  "object",
+					Items:                 nil, // Explicit nil
+					AdditionalItems:       nil, // Explicit nil
+					UnevaluatedItems:      nil, // Explicit nil
+					AdditionalProperties:  nil, // Explicit nil
+					UnevaluatedProperties: nil, // Explicit nil
+					Properties: map[string]*parser.Schema{
+						"name": {Type: "string"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion310,
+	}
+
+	var refs []*RefInfo
+	err := Walk(result,
+		WithMapRefTracking(),
+		WithRefHandler(func(wc *WalkContext, ref *RefInfo) Action {
+			refs = append(refs, ref)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Empty(t, refs, "Nil polymorphic fields should not produce refs")
+}
+
+func TestMapRefTracking_OAS303(t *testing.T) {
+	// Test map ref tracking with OAS 3.0.3 documents
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Pet": {
+					Type: "array",
+					Items: map[string]any{
+						"$ref": "#/components/schemas/Animal",
+					},
+				},
+				"Container": {
+					Type: "object",
+					AdditionalProperties: map[string]any{
+						"$ref": "#/components/schemas/Value",
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	var refs []*RefInfo
+	err := Walk(result,
+		WithMapRefTracking(),
+		WithRefHandler(func(wc *WalkContext, ref *RefInfo) Action {
+			refs = append(refs, ref)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	require.Len(t, refs, 2)
+
+	// Collect refs by their target
+	refTargets := make(map[string]bool)
+	for _, r := range refs {
+		refTargets[r.Ref] = true
+	}
+
+	assert.True(t, refTargets["#/components/schemas/Animal"], "Items ref should be tracked")
+	assert.True(t, refTargets["#/components/schemas/Value"], "AdditionalProperties ref should be tracked")
+}
+
 func BenchmarkWalk_WithMapRefTracking(b *testing.B) {
 	doc := &parser.OAS3Document{
 		OpenAPI: "3.1.0",
