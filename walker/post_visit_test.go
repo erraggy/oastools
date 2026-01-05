@@ -640,3 +640,372 @@ func BenchmarkWalk_WithPostHandler(b *testing.B) {
 		)
 	}
 }
+
+// TestPostVisit_OAS3DocumentPostHandler tests that the OAS3 document post handler
+// is called after all children have been processed.
+func TestPostVisit_OAS3DocumentPostHandler(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getPets",
+				},
+			},
+		},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Pet": {Type: "object"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	var events []string
+
+	err := Walk(result,
+		WithOAS3DocumentHandler(func(wc *WalkContext, doc *parser.OAS3Document) Action {
+			events = append(events, "pre:document")
+			return Continue
+		}),
+		WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action {
+			events = append(events, "visit:operation:"+op.OperationID)
+			return Continue
+		}),
+		WithSchemaHandler(func(wc *WalkContext, schema *parser.Schema) Action {
+			events = append(events, "visit:schema:"+wc.Name)
+			return Continue
+		}),
+		WithOAS3DocumentPostHandler(func(wc *WalkContext, doc *parser.OAS3Document) {
+			events = append(events, "post:document")
+		}),
+	)
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Document post should be called after all other visits
+	if len(events) < 2 {
+		t.Fatalf("Expected at least 2 events, got %d: %v", len(events), events)
+	}
+
+	// Pre-document should be first
+	if events[0] != "pre:document" {
+		t.Errorf("First event should be pre:document, got %q", events[0])
+	}
+
+	// Post-document should be last
+	if events[len(events)-1] != "post:document" {
+		t.Errorf("Last event should be post:document, got %q", events[len(events)-1])
+	}
+}
+
+// TestPostVisit_OAS2DocumentPostHandler tests that the OAS2 document post handler
+// is called after all children have been processed.
+func TestPostVisit_OAS2DocumentPostHandler(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getPets",
+				},
+			},
+		},
+		Definitions: map[string]*parser.Schema{
+			"Pet": {Type: "object"},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion20,
+	}
+
+	var events []string
+
+	err := Walk(result,
+		WithOAS2DocumentHandler(func(wc *WalkContext, doc *parser.OAS2Document) Action {
+			events = append(events, "pre:document")
+			return Continue
+		}),
+		WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action {
+			events = append(events, "visit:operation:"+op.OperationID)
+			return Continue
+		}),
+		WithSchemaHandler(func(wc *WalkContext, schema *parser.Schema) Action {
+			events = append(events, "visit:schema:"+wc.Name)
+			return Continue
+		}),
+		WithOAS2DocumentPostHandler(func(wc *WalkContext, doc *parser.OAS2Document) {
+			events = append(events, "post:document")
+		}),
+	)
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Document post should be called after all other visits
+	if len(events) < 2 {
+		t.Fatalf("Expected at least 2 events, got %d: %v", len(events), events)
+	}
+
+	// Pre-document should be first
+	if events[0] != "pre:document" {
+		t.Errorf("First event should be pre:document, got %q", events[0])
+	}
+
+	// Post-document should be last
+	if events[len(events)-1] != "post:document" {
+		t.Errorf("Last event should be post:document, got %q", events[len(events)-1])
+	}
+}
+
+// TestPostVisit_DocumentPostSkipChildren tests that document post handlers are NOT called
+// when the document pre-handler returns SkipChildren.
+func TestPostVisit_DocumentPostSkipChildren(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getPets",
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	var postCalled bool
+
+	err := Walk(result,
+		WithOAS3DocumentHandler(func(wc *WalkContext, doc *parser.OAS3Document) Action {
+			return SkipChildren
+		}),
+		WithOAS3DocumentPostHandler(func(wc *WalkContext, doc *parser.OAS3Document) {
+			postCalled = true
+		}),
+	)
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	if postCalled {
+		t.Error("Document post handler should NOT be called when SkipChildren is returned")
+	}
+}
+
+// TestPostVisit_DocumentPostStop tests that document post handlers are NOT called
+// when Stop is returned during child traversal.
+func TestPostVisit_DocumentPostStop(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getPets",
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	var postCalled bool
+
+	err := Walk(result,
+		WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action {
+			return Stop // Stop during child traversal
+		}),
+		WithOAS3DocumentPostHandler(func(wc *WalkContext, doc *parser.OAS3Document) {
+			postCalled = true
+		}),
+	)
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	if postCalled {
+		t.Error("Document post handler should NOT be called when Stop is returned during children")
+	}
+}
+
+// TestPostVisit_DocumentPostAggregation demonstrates the primary use case:
+// collecting information from children and using it in the post handler.
+func TestPostVisit_DocumentPostAggregation(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getPets",
+					Tags:        []string{"pets"},
+				},
+				Post: &parser.Operation{
+					OperationID: "createPet",
+					Tags:        []string{"pets"},
+				},
+			},
+			"/users": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getUsers",
+					Tags:        []string{"users"},
+				},
+			},
+		},
+		Components: &parser.Components{
+			SecuritySchemes: make(map[string]*parser.SecurityScheme),
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	// Simulate the use case from the issue: collect info from operations,
+	// then modify document in post handler
+	var operationCount int
+	usedTags := make(map[string]bool)
+
+	err := Walk(result,
+		WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action {
+			operationCount++
+			for _, tag := range op.Tags {
+				usedTags[tag] = true
+			}
+			return Continue
+		}),
+		WithOAS3DocumentPostHandler(func(wc *WalkContext, doc *parser.OAS3Document) {
+			// In post handler, we have complete information from children
+			// For this test, we'll add security scheme based on operation count
+			if operationCount > 2 {
+				doc.Components.SecuritySchemes["api_key"] = &parser.SecurityScheme{
+					Type: "apiKey",
+					In:   "header",
+					Name: "X-API-Key",
+				}
+			}
+		}),
+	)
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Verify operation count is correct
+	if operationCount != 3 {
+		t.Errorf("Expected 3 operations, got %d", operationCount)
+	}
+
+	// Verify tags were collected
+	if !usedTags["pets"] || !usedTags["users"] {
+		t.Errorf("Expected pets and users tags, got %v", usedTags)
+	}
+
+	// Verify document was modified in post handler
+	if doc.Components.SecuritySchemes["api_key"] == nil {
+		t.Error("Expected api_key security scheme to be added in post handler")
+	}
+}
+
+// TestPostVisit_DocumentPostHandlerOnlyPost tests that document post handler
+// can be registered without a pre-handler.
+func TestPostVisit_DocumentPostHandlerOnlyPost(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	var postCalled bool
+
+	err := Walk(result,
+		// No pre-handler, only post handler
+		WithOAS3DocumentPostHandler(func(wc *WalkContext, doc *parser.OAS3Document) {
+			postCalled = true
+			// Verify WalkContext is properly set
+			if wc.JSONPath != "$" {
+				t.Errorf("Expected JSONPath '$', got %q", wc.JSONPath)
+			}
+		}),
+	)
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	if !postCalled {
+		t.Error("Document post handler should be called even without pre handler")
+	}
+}
+
+// TestPostVisit_DocumentPostWithGenericHandler tests interaction between
+// typed document handlers and generic document handlers.
+func TestPostVisit_DocumentPostWithGenericHandler(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	var events []string
+
+	err := Walk(result,
+		WithDocumentHandler(func(wc *WalkContext, doc any) Action {
+			events = append(events, "generic:pre")
+			return Continue
+		}),
+		WithOAS3DocumentHandler(func(wc *WalkContext, doc *parser.OAS3Document) Action {
+			events = append(events, "typed:pre")
+			return Continue
+		}),
+		WithOAS3DocumentPostHandler(func(wc *WalkContext, doc *parser.OAS3Document) {
+			events = append(events, "typed:post")
+		}),
+	)
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Order: typed pre, generic pre, typed post
+	expected := []string{"typed:pre", "generic:pre", "typed:post"}
+	if len(events) != len(expected) {
+		t.Fatalf("Expected %d events, got %d: %v", len(expected), len(events), events)
+	}
+
+	for i, exp := range expected {
+		if events[i] != exp {
+			t.Errorf("Event %d: expected %q, got %q", i, exp, events[i])
+		}
+	}
+}

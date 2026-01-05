@@ -112,6 +112,13 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document, state *walkState) error {
 		}
 	}
 
+	// Call document post handler after all children have been processed
+	if w.onOAS3DocumentPost != nil && !w.stopped {
+		wc := state.buildContext("$")
+		w.onOAS3DocumentPost(wc, doc)
+		releaseContext(wc)
+	}
+
 	return nil
 }
 
