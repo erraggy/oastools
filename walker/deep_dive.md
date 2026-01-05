@@ -845,6 +845,80 @@ walker.Walk(result,
 )
 ```
 
+### Map Reference Tracking
+
+Some polymorphic schema fields (`Items`, `AdditionalItems`, `AdditionalProperties`, `UnevaluatedItems`, `UnevaluatedProperties`) can contain either `*parser.Schema` or `map[string]any`. When a document is parsed with certain configurations or when schemas aren't fully resolved, these fields may contain raw maps with `$ref` values that the standard ref tracking wouldn't detect.
+
+Use `WithMapRefTracking()` to enable detection of `$ref` values stored in these map structures:
+
+```go
+walker.Walk(result,
+    walker.WithMapRefTracking(),
+    walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+        fmt.Printf("Found ref: %s at %s\n", ref.Ref, ref.SourcePath)
+        return walker.Continue
+    }),
+)
+```
+
+**Key behaviors:**
+- `WithMapRefTracking()` implicitly enables standard ref tracking
+- The walker checks for `$ref` keys in `map[string]any` values in polymorphic fields
+- Empty strings and non-string `$ref` values are ignored
+- Map-stored refs receive `RefNodeSchema` as their node type
+
+**Affected fields:**
+| Field | Description |
+|-------|-------------|
+| `Items` | Array items schema |
+| `AdditionalItems` | Additional array items schema |
+| `UnevaluatedItems` | Unevaluated array items schema (OAS 3.1+) |
+| `AdditionalProperties` | Additional object properties schema |
+| `UnevaluatedProperties` | Unevaluated object properties schema (OAS 3.1+) |
+
+**Example with mixed schemas:**
+
+```go
+// Schema with both *Schema and map refs
+doc := &parser.OAS3Document{
+    Components: &parser.Components{
+        Schemas: map[string]*parser.Schema{
+            "Container": {
+                Type: "object",
+                Properties: map[string]*parser.Schema{
+                    "items": {
+                        Type: "array",
+                        Items: map[string]any{
+                            "$ref": "#/components/schemas/Item",
+                        },
+                    },
+                    "regular": {Ref: "#/components/schemas/Regular"},
+                },
+            },
+        },
+    },
+}
+
+// Wrap in ParseResult for walking
+result := &parser.ParseResult{Document: doc, OASVersion: parser.OASVersion310}
+
+// Both refs will be tracked with WithMapRefTracking()
+walker.Walk(result,
+    walker.WithMapRefTracking(),
+    walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+        // Called for both the map-stored ref and the regular ref
+        return walker.Continue
+    }),
+)
+```
+
+**When to use:**
+- Parsing documents where polymorphic fields weren't fully resolved
+- Working with documents from external sources that use map representations
+- Comprehensive reference analysis that needs to catch all `$ref` values
+
+**Performance note:** Map ref tracking adds a small overhead for type assertions on polymorphic fields. Only enable when needed.
+
 ## Examples
 
 The `examples/walker/` directory contains runnable examples demonstrating walker patterns:
