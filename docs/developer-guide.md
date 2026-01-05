@@ -1569,7 +1569,7 @@ The walker package also supports:
 
 - **Parent Tracking**: Access ancestor nodes with `WithParentTracking()` and helper methods like `ParentSchema()`, `ParentOperation()`
 - **Post-Visit Handlers**: Process nodes after their children with `WithSchemaPostHandler()`, `WithOperationPostHandler()`, etc.
-- **Reference Tracking**: Track `$ref` values with `WithRefHandler()` for reference analysis
+- **Reference Tracking**: Track `$ref` values with `WithRefHandler()` for reference analysis. Use `WithMapRefTracking()` to also detect refs in `map[string]any` structures within polymorphic schema fields
 
 ## Advanced Patterns
 
