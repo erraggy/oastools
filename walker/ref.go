@@ -11,7 +11,6 @@ const (
 	RefNodeRequestBody    RefNodeType = "requestBody"
 	RefNodeHeader         RefNodeType = "header"
 	RefNodeLink           RefNodeType = "link"
-	RefNodeCallback       RefNodeType = "callback"
 	RefNodeExample        RefNodeType = "example"
 	RefNodePathItem       RefNodeType = "pathItem"
 	RefNodeSecurityScheme RefNodeType = "securityScheme"

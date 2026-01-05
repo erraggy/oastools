@@ -1,7 +1,6 @@
 package walker
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/erraggy/oastools/parser"
@@ -39,16 +38,10 @@ func WithMaxSchemaDepth(depth int) Option {
 	}
 }
 
-// WithUserContext sets the context for cancellation and deadline propagation.
-// The context is available to handlers via wc.Context().
-func WithUserContext(ctx context.Context) Option {
-	return func(w *Walker) {
-		w.userCtx = ctx
-	}
-}
-
 // WithRefTracking enables tracking of $ref values during traversal.
-// When enabled, WalkContext.CurrentRef is populated for nodes with refs.
+// When enabled, the walker tracks reference information internally.
+// To receive the CurrentRef value, use WithRefHandler to register a callback
+// that is invoked with the populated WalkContext.CurrentRef for each $ref.
 func WithRefTracking() Option {
 	return func(w *Walker) {
 		w.trackRefs = true
