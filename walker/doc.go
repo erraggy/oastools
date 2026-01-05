@@ -106,6 +106,11 @@
 //	    }),
 //	)
 //
+// For polymorphic schema fields that may contain map[string]any instead of *Schema
+// (such as Items, AdditionalItems, AdditionalProperties, UnevaluatedItems, and
+// UnevaluatedProperties), use [WithMapRefTracking] to also detect $ref values in
+// those map structures.
+//
 // # Mutation Support
 //
 // Handlers receive pointers to the actual nodes, so mutations are applied directly:

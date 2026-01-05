@@ -489,6 +489,51 @@ func ExampleWithRefHandler() {
 	// #/components/schemas/User
 }
 
+func ExampleWithMapRefTracking() {
+	// Some polymorphic schema fields (Items, AdditionalItems, AdditionalProperties,
+	// UnevaluatedItems, UnevaluatedProperties) can contain map[string]any instead of
+	// *parser.Schema in certain parsing scenarios. WithMapRefTracking enables
+	// detection of $ref values stored in these map structures.
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Container": {
+					Type: "array",
+					// Simulating Items as map[string]any with a $ref (can occur in some parsing scenarios)
+					Items: map[string]any{
+						"$ref": "#/components/schemas/Item",
+					},
+				},
+				"Item": {Type: "string"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion310,
+	}
+
+	var refs []string
+	_ = walker.Walk(result,
+		walker.WithMapRefTracking(), // Enable detection of refs in map structures
+		walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+			refs = append(refs, ref.Ref)
+			return walker.Continue
+		}),
+	)
+
+	fmt.Printf("Found %d reference(s)\n", len(refs))
+	for _, ref := range refs {
+		fmt.Println(ref)
+	}
+	// Output:
+	// Found 1 reference(s)
+	// #/components/schemas/Item
+}
+
 func ExampleWithOAS3DocumentPostHandler() {
 	doc := &parser.OAS3Document{
 		OpenAPI: "3.0.3",
