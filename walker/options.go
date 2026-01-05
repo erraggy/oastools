@@ -22,13 +22,20 @@ func WithParsed(result *parser.ParseResult) Option {
 }
 
 // WithMaxSchemaDepth sets the maximum schema recursion depth.
-// If depth is not positive, it is silently ignored and the default (100) is kept.
+// The default depth is 100.
+//
+// Depth must be a positive integer (>= 1). Values of 0 or negative are
+// silently ignored and the default of 100 is kept. There is no "unlimited"
+// depth option to prevent infinite recursion in circular schemas.
+//
+// When the depth limit is reached, the walker skips the schema and calls
+// the schema-skipped handler (if registered) with reason "depth".
 func WithMaxSchemaDepth(depth int) Option {
 	return func(w *Walker) {
 		if depth > 0 {
 			w.maxDepth = depth
 		}
-		// If depth <= 0, keep the default (100)
+		// Values <= 0 are ignored; keep the default (100)
 	}
 }
 

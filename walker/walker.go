@@ -362,13 +362,22 @@ func WithCallbackPostHandler(fn CallbackPostHandler) Option {
 }
 
 // WithMaxDepth sets the maximum schema recursion depth.
-// If depth is not positive, it is silently ignored and the default (100) is kept.
+// The default depth is 100.
+//
+// Depth must be a positive integer (>= 1). Values of 0 or negative are
+// silently ignored and the default of 100 is kept. There is no "unlimited"
+// depth option to prevent infinite recursion in circular schemas.
+//
+// When the depth limit is reached, the walker skips the schema and calls
+// the schema-skipped handler (if registered) with reason "depth".
+//
+// Deprecated: Use WithMaxSchemaDepth instead for clarity.
 func WithMaxDepth(depth int) Option {
 	return func(w *Walker) {
 		if depth > 0 {
 			w.maxDepth = depth
 		}
-		// If depth <= 0, keep the default (100)
+		// Values <= 0 are ignored; keep the default (100)
 	}
 }
 
@@ -426,6 +435,16 @@ func (w *Walker) walk(result *parser.ParseResult) error {
 
 // handleAction processes the action returned by a handler.
 // Returns true if walking should continue to children.
+//
+// Action values are handled as follows:
+//   - Continue (0): continue walking to children and siblings
+//   - SkipChildren (1): skip children but continue with siblings
+//   - Stop (2): halt traversal immediately
+//   - Any other value: treated as Continue (this includes the zero value,
+//     which is intentionally Continue for ergonomic default behavior)
+//
+// Invalid Action values (e.g., Action(42)) are treated as Continue.
+// Use Action.IsValid() to check if an action is one of the defined constants.
 func (w *Walker) handleAction(action Action) bool {
 	switch action {
 	case Stop:
@@ -434,6 +453,8 @@ func (w *Walker) handleAction(action Action) bool {
 	case SkipChildren:
 		return false
 	default:
+		// Continue and any invalid action values continue walking.
+		// The zero value of Action is Continue (intentional design).
 		return true
 	}
 }
