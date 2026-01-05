@@ -34,7 +34,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 | [fixer](https://pkg.go.dev/github.com/erraggy/oastools/fixer) | Auto-fix common validation errors | [🌐](https://oastools.robnrob.com/fix) |
 | [httpvalidator](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator) | Validate HTTP requests/responses against OAS at runtime | |
 | [converter](https://pkg.go.dev/github.com/erraggy/oastools/converter) | Convert between OAS 2.0 and 3.x | [🌐](https://oastools.robnrob.com/convert) |
-| [joiner](https://pkg.go.dev/github.com/erraggy/oastools/joiner) | Merge multiple OAS documents with schema deduplication | [🌐](https://oastools.robnrob.com/join) |
+| [joiner](https://pkg.go.dev/github.com/erraggy/oastools/joiner) | Merge multiple OAS documents with schema deduplication and operation-aware renaming | [🌐](https://oastools.robnrob.com/join) |
 | [overlay](https://pkg.go.dev/github.com/erraggy/oastools/overlay) | Apply OpenAPI Overlay v1.0.0 with JSONPath targeting | [🌐](https://oastools.robnrob.com/overlay) |
 | [differ](https://pkg.go.dev/github.com/erraggy/oastools/differ) | Detect breaking changes between versions | [🌐](https://oastools.robnrob.com/diff) |
 | [generator](https://pkg.go.dev/github.com/erraggy/oastools/generator) | Generate Go client/server code with security support | |

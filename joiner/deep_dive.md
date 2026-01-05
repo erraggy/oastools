@@ -11,6 +11,8 @@
 - [Key Concepts](#key-concepts)
 - [API Styles](#api-styles)
 - [Practical Examples](#practical-examples)
+- [Operation-Aware Schema Renaming](#operation-aware-schema-renaming)
+- [Limitations](#limitations)
 - [Configuration Reference](#configuration-reference)
 - [JoinResult Structure](#joinresult-structure)
 - [Source Map Integration](#source-map-integration)
@@ -293,6 +295,536 @@ func main() {
 Collisions resolved: 1
   schema 'User' collision: right renamed to 'User_orders-api'
 ```
+
+[Back to top](#top)
+
+## Operation-Aware Schema Renaming
+
+### The Problem
+
+When joining OpenAPI specifications from different services, you often encounter generic schema names that collide. Consider two microservices:
+
+**users-service.yaml:**
+```yaml
+openapi: 3.0.3
+info:
+  title: Users Service
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        total:
+          type: integer
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+```
+
+**orders-service.yaml:**
+```yaml
+openapi: 3.0.3
+info:
+  title: Orders Service
+  version: 1.0.0
+paths:
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        count:
+          type: integer
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+```
+
+Both services define a `Response` schema with different structures. A basic rename template like `{{.Name}}_{{.Source}}` would produce `Response_orders_service`—functional but not descriptive. For programmatically generated specs or code generation, you want names like `ListUsersResponse` and `ListOrdersResponse`.
+
+### The Solution
+
+Operation-aware renaming traces schemas back to their originating operations, enabling semantic names based on paths, methods, operation IDs, and tags:
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+
+    "github.com/erraggy/oastools/joiner"
+)
+
+func main() {
+    config := joiner.DefaultConfig()
+    config.SchemaStrategy = joiner.StrategyRenameRight
+
+    // Enable operation context for rich rename templates
+    config.OperationContext = true
+
+    // Use operation-derived naming
+    config.RenameTemplate = "{{pascalCase .OperationID}}{{.Name}}"
+
+    // Select how to pick the primary operation when a schema
+    // is referenced by multiple operations
+    config.PrimaryOperationPolicy = joiner.PolicyMostSpecific
+
+    j := joiner.New(config)
+
+    result, err := j.Join([]string{
+        "users-service.yaml",
+        "orders-service.yaml",
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Result will have:
+    // - Response (from users-service, kept original)
+    // - ListOrdersResponse (from orders-service, renamed with context)
+
+    fmt.Printf("Schemas renamed with operation context\n")
+    fmt.Printf("Collisions: %d\n", result.CollisionCount)
+}
+```
+
+### How It Works
+
+The joiner builds a **reference graph** that maps each schema to the operations that use it. This graph captures both direct references (operation → schema) and indirect references (operation → schema → nested schema).
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   GET /users    │────▶│    Response     │────▶│      User       │
+│   listUsers     │     │   (schema)      │     │   (schema)      │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │                       ▲                       ▲
+        │                       │                       │
+        └───────────────────────┴───────────────────────┘
+                      Reference Graph
+```
+
+The reference graph construction:
+
+1. **Traverses all paths and operations** - Records which schemas are referenced in request bodies, responses, parameters, and headers
+2. **Tracks schema-to-schema references** - Records `$ref` chains through properties, items, allOf/anyOf/oneOf, and other composition keywords
+3. **Resolves lineage** - For any schema, walks up the reference chain to find all operations that ultimately use it
+4. **Caches results** - Lineage is computed once and cached for efficient template evaluation
+
+When a collision occurs and renaming is needed, the joiner:
+1. Retrieves the operation lineage for the schema
+2. Selects a primary operation based on the configured policy
+3. Builds a `RenameContext` with all available operation metadata
+4. Executes the rename template with this rich context
+
+### RenameContext Reference
+
+The `RenameContext` provides comprehensive metadata for rename template evaluation:
+
+#### Core Fields (Always Available)
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `Name` | string | Original schema name | `"Response"` |
+| `Source` | string | Source file name (sanitized, no extension) | `"orders_service"` |
+| `Index` | int | Document index (0-based) | `1` |
+
+#### Operation Context Fields (When `OperationContext` is true)
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `Path` | string | API path from primary operation | `"/orders"` |
+| `Method` | string | HTTP method (lowercase) | `"get"` |
+| `OperationID` | string | Operation ID if defined | `"listOrders"` |
+| `Tags` | []string | Tags from primary operation | `["orders"]` |
+| `UsageType` | string | Where schema is used | `"response"` |
+| `StatusCode` | string | Response status code | `"200"` |
+| `ParamName` | string | Parameter name (for parameter usage) | `"filter"` |
+| `MediaType` | string | Content media type | `"application/json"` |
+| `PrimaryResource` | string | First path segment (resource name) | `"orders"` |
+
+#### Aggregate Context Fields (Multi-Operation Schemas)
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `AllPaths` | []string | All paths referencing this schema | `["/orders", "/orders/{id}"]` |
+| `AllMethods` | []string | All HTTP methods (deduplicated) | `["get", "post"]` |
+| `AllOperationIDs` | []string | All operation IDs (non-empty only) | `["listOrders", "getOrder"]` |
+| `AllTags` | []string | All tags (deduplicated, sorted) | `["admin", "orders"]` |
+| `RefCount` | int | Total operation references | `3` |
+| `IsShared` | bool | True if used by multiple operations | `true` |
+
+#### UsageType Values
+
+| Value | Description |
+|-------|-------------|
+| `"request"` | Schema used in request body |
+| `"response"` | Schema used in response body |
+| `"parameter"` | Schema used in parameter definition |
+| `"header"` | Schema used in header definition |
+| `"callback"` | Schema used in callback definition |
+
+### Template Functions Reference
+
+The joiner provides built-in template functions for transforming context values:
+
+#### Path Functions
+
+| Function | Description | Example Input | Example Output |
+|----------|-------------|---------------|----------------|
+| `pathSegment` | Extract nth segment (0-indexed, negative from end) | `pathSegment "/users/{id}/orders" 0` | `"users"` |
+| `pathSegment` | Negative index | `pathSegment "/users/{id}/orders" -1` | `"orders"` |
+| `pathResource` | First non-parameter segment | `pathResource "/users/{id}/orders"` | `"users"` |
+| `pathLast` | Last non-parameter segment | `pathLast "/users/{id}/orders"` | `"orders"` |
+| `pathClean` | Sanitize path for naming | `pathClean "/users/{id}"` | `"users_id"` |
+
+Path functions automatically skip path parameters (segments like `{id}` or `{userId}`).
+
+#### Tag Functions
+
+| Function | Description | Example Input | Example Output |
+|----------|-------------|---------------|----------------|
+| `firstTag` | First tag or empty string | `firstTag .Tags` | `"orders"` |
+| `joinTags` | Join tags with separator | `joinTags .Tags "_"` | `"admin_orders"` |
+| `hasTag` | Check if tag exists | `hasTag .Tags "admin"` | `true` |
+
+#### Case Functions
+
+| Function | Description | Example Input | Example Output |
+|----------|-------------|---------------|----------------|
+| `pascalCase` | PascalCase conversion | `pascalCase "list_orders"` | `"ListOrders"` |
+| `camelCase` | camelCase conversion | `camelCase "list_orders"` | `"listOrders"` |
+| `snakeCase` | snake_case conversion | `snakeCase "ListOrders"` | `"list_orders"` |
+| `kebabCase` | kebab-case conversion | `kebabCase "ListOrders"` | `"list-orders"` |
+
+Case functions handle various input formats: `snake_case`, `kebab-case`, `camelCase`, `PascalCase`, and space-separated words.
+
+#### Conditional Helpers
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `default` | Return fallback if value empty | `default .OperationID "Unknown"` |
+| `coalesce` | First non-empty value | `coalesce .OperationID .Path .Name` |
+
+### Primary Operation Policy
+
+When a schema is referenced by multiple operations, the joiner must select one as the "primary" operation for template context. Three policies are available:
+
+| Policy | Behavior | Best For |
+|--------|----------|----------|
+| `PolicyFirstEncountered` | Uses the first operation found during graph traversal | Deterministic results based on document order |
+| `PolicyMostSpecific` | Prefers operations with operationId, then those with tags | Well-documented APIs with operation IDs |
+| `PolicyAlphabetical` | Sorts by path+method, uses alphabetically first | Reproducible builds regardless of traversal order |
+
+**Example: Policy behavior with a shared schema**
+
+Consider an `Address` schema used by three operations:
+
+```yaml
+paths:
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+  /orders:
+    post:
+      operationId: createOrder
+      tags: [orders]
+  /shipping:
+    get:
+      # No operationId
+      tags: [shipping]
+```
+
+| Policy | Selected Operation | Reason |
+|--------|-------------------|--------|
+| `PolicyFirstEncountered` | GET /users/{id} | First in document order |
+| `PolicyMostSpecific` | GET /users/{id} | Has operationId (both GET /users and POST /orders do, but GET comes first) |
+| `PolicyAlphabetical` | POST /orders | "/orders" + "post" comes before "/shipping" + "get" and "/users/{id}" + "get" |
+
+Configure the policy in your joiner config:
+
+```go
+config := joiner.DefaultConfig()
+config.OperationContext = true
+config.PrimaryOperationPolicy = joiner.PolicyMostSpecific
+```
+
+### Example Template Patterns
+
+Common rename template patterns for different scenarios:
+
+| Scenario | Template | Example Output |
+|----------|----------|----------------|
+| Operation ID prefix | `{{pascalCase .OperationID}}{{.Name}}` | `ListOrdersResponse` |
+| Resource-based | `{{pascalCase (pathResource .Path)}}{{.Name}}` | `OrdersResponse` |
+| Tag-based | `{{pascalCase (firstTag .Tags)}}{{.Name}}` | `OrdersResponse` |
+| Method + resource | `{{pascalCase .Method}}{{pascalCase (pathResource .Path)}}{{.Name}}` | `GetOrdersResponse` |
+| Full path | `{{pascalCase (pathClean .Path)}}{{.Name}}` | `OrdersIdResponse` |
+| With fallback | `{{pascalCase (coalesce .OperationID (pathResource .Path) .Source)}}{{.Name}}` | `ListOrdersResponse` |
+| Versioned API | `{{.Name}}_{{pathSegment .Path 0}}_{{.Source}}` | `Response_v2_orders` |
+| Response codes | `{{pascalCase .OperationID}}{{.StatusCode}}{{.Name}}` | `ListOrders200Response` |
+| Shared indicator | `{{if .IsShared}}Shared{{end}}{{.Name}}_{{.Source}}` | `SharedResponse_orders` |
+
+### Handling Shared Schemas
+
+Schemas referenced by multiple operations require special consideration. Use the `IsShared` field to detect and handle these cases:
+
+```go
+// Template that indicates shared schemas
+config.RenameTemplate = `{{if .IsShared}}Common{{else}}{{pascalCase .OperationID}}{{end}}{{.Name}}`
+
+// Results:
+// - Schema used by one operation: "ListOrdersResponse"
+// - Schema used by multiple operations: "CommonResponse"
+```
+
+For more granular control, use aggregate fields:
+
+```go
+// Use all operation IDs for shared schemas
+config.RenameTemplate = `{{if .IsShared}}{{range $i, $id := .AllOperationIDs}}{{if $i}}_{{end}}{{$id}}{{end}}_{{.Name}}{{else}}{{.OperationID}}_{{.Name}}{{end}}`
+
+// Shared schema used by listOrders and getOrder: "listOrders_getOrder_Response"
+// Single-use schema: "listOrders_Response"
+```
+
+## Limitations
+
+### Operation Context for Base Document Schemas
+
+When using `WithOperationContext(true)`, only schemas from the RIGHT (incoming) documents receive operation-derived context. The LEFT (base) document's schemas do not have their operation references traced.
+
+This means for base document schemas, the following `RenameContext` fields will be empty:
+- `Path`, `Method`, `OperationID`, `Tags`
+- `UsageType`, `StatusCode`, `ParamName`, `MediaType`
+- `AllPaths`, `AllMethods`, `AllOperationIDs`, `AllTags`
+- `RefCount`, `PrimaryResource`, `IsShared`
+
+Only the core fields (`Name`, `Source`, `Index`) are populated for base document schemas.
+
+**Workaround**: If you need operation context for all schemas, consider restructuring your join order so the document with schemas requiring operation context is joined as the RIGHT document.
+
+### OAS 2.0 Support
+
+Operation-aware renaming works with both OAS 2.0 and OAS 3.x documents. The reference graph construction adapts to each version's structure:
+
+| OAS Version | Request Body Detection | Schema Reference Path |
+|-------------|----------------------|----------------------|
+| OAS 2.0 | Body parameter with `in: body` | `#/definitions/SchemaName` |
+| OAS 3.x | `requestBody.content.*.schema` | `#/components/schemas/SchemaName` |
+
+For OAS 2.0 documents:
+
+```go
+config := joiner.DefaultConfig()
+config.SchemaStrategy = joiner.StrategyRenameRight
+config.OperationContext = true
+config.RenameTemplate = "{{pascalCase .OperationID}}{{.Name}}"
+
+j := joiner.New(config)
+
+// Works with OAS 2.0 (Swagger) documents
+result, err := j.Join([]string{
+    "swagger-users.yaml",  // OAS 2.0
+    "swagger-orders.yaml", // OAS 2.0
+})
+```
+
+### Webhook Support (OAS 3.1+)
+
+For OAS 3.1+ documents with webhooks, the reference graph includes webhook operations:
+
+```yaml
+webhooks:
+  orderCreated:
+    post:
+      operationId: handleOrderCreated
+      tags: [webhooks]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderEvent'
+```
+
+The `Path` field for webhook operations uses the format `webhook:<name>`:
+
+| Template | Webhook Path | Result |
+|----------|--------------|--------|
+| `{{.Path}}` | orderCreated webhook | `webhook:orderCreated` |
+| `{{pathResource .Path}}` | orderCreated webhook | `webhook` |
+
+### Callback Support
+
+Callbacks in OAS 3.0+ are also tracked in the reference graph. The path includes the parent operation and callback name:
+
+```yaml
+paths:
+  /orders:
+    post:
+      operationId: createOrder
+      callbacks:
+        orderStatus:
+          '{$request.body#/callbackUrl}':
+            post:
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/StatusUpdate'
+```
+
+For callback operations, the `Path` field uses the format `<parent_path>-><callback_name>:<callback_path>`:
+
+```
+/orders->orderStatus:{$request.body#/callbackUrl}
+```
+
+The `UsageType` will be `"callback"` for schemas referenced within callbacks.
+
+### Debugging Rename Templates
+
+To debug rename templates, use a template that outputs all available fields:
+
+```go
+// Debug template that shows all context
+config.RenameTemplate = `DEBUG_{{.Name}}_path={{.Path}}_method={{.Method}}_op={{.OperationID}}_usage={{.UsageType}}_shared={{.IsShared}}`
+```
+
+This produces names like:
+```
+DEBUG_Response_path=/orders_method=get_op=listOrders_usage=response_shared=false
+```
+
+Once you've identified the available fields, simplify to your production template.
+
+### Performance Considerations
+
+Building the reference graph adds a traversal pass over the document. For most specifications, this overhead is negligible:
+
+| Document Size | Typical Overhead |
+|---------------|-----------------|
+| Small (< 50 paths) | < 1ms |
+| Medium (50-500 paths) | 1-5ms |
+| Large (500+ paths) | 5-20ms |
+
+The reference graph is built once per document and cached. Lineage resolution is also cached, so multiple schema renames reuse the same graph traversal results.
+
+To minimize overhead when operation context is not needed:
+
+```go
+config := joiner.DefaultConfig()
+config.OperationContext = false  // Default - skip graph building
+config.RenameTemplate = "{{.Name}}_{{.Source}}"  // Core fields only
+```
+
+### Integration with Semantic Deduplication
+
+Operation-aware renaming and semantic deduplication are complementary features:
+
+| Feature | Purpose | When to Use |
+|---------|---------|-------------|
+| **Semantic Deduplication** | Consolidates structurally identical schemas | When schemas are duplicated across services |
+| **Operation-Aware Renaming** | Creates meaningful names for colliding schemas | When schemas have the same name but different structures |
+
+Use both together for comprehensive schema management:
+
+```go
+config := joiner.DefaultConfig()
+
+// Consolidate identical schemas first
+config.SemanticDeduplication = true
+
+// For remaining collisions (same name, different structure),
+// use operation-aware renaming
+config.SchemaStrategy = joiner.StrategyRenameRight
+config.OperationContext = true
+config.RenameTemplate = "{{pascalCase .OperationID}}{{.Name}}"
+config.PrimaryOperationPolicy = joiner.PolicyMostSpecific
+
+j := joiner.New(config)
+result, err := j.Join(files)
+```
+
+With this configuration:
+1. Structurally identical schemas (e.g., `Address` in users and orders) are consolidated
+2. Structurally different schemas with the same name (e.g., different `Response` schemas) are renamed with operation context
+
+### Common Pitfalls
+
+**Empty OperationID:** Not all APIs define operation IDs. Use fallbacks:
+
+```go
+// Bad - empty OperationID produces "Response"
+config.RenameTemplate = "{{.OperationID}}{{.Name}}"
+
+// Good - falls back to path resource
+config.RenameTemplate = "{{pascalCase (coalesce .OperationID (pathResource .Path) .Source)}}{{.Name}}"
+```
+
+**Orphaned Schemas:** Schemas not referenced by any operation will have empty operation context. These typically include:
+
+- Base schemas used only via `allOf`/`anyOf`/`oneOf`
+- Schemas defined but never referenced
+- Nested `$defs` schemas
+
+For orphaned schemas, the template receives only core fields (`Name`, `Source`, `Index`). Design templates with fallbacks:
+
+```go
+// Handles orphaned schemas gracefully
+config.RenameTemplate = `{{if .Path}}{{pascalCase .OperationID}}{{.Name}}{{else}}{{.Name}}_{{.Source}}{{end}}`
+```
+
+**Path Parameters in Templates:** Path functions skip parameters, but `pathClean` converts them:
+
+```go
+pathClean("/users/{id}")       // "users_id" - includes parameter name
+pathResource("/users/{id}")    // "users" - excludes parameter
+pathLast("/users/{id}/orders") // "orders" - excludes parameter
+```
+
+[Back to top](#top)
 
 ### Namespace Prefixes for Team-Based APIs
 

@@ -596,7 +596,70 @@ result, err := joiner.JoinWithOptions(
 )
 ```
 
-### 8.6 API Usage
+### 8.6 Operation-Aware Renaming
+
+When schemas collide during joining, simple source-based renaming (e.g., `User_users`) can produce unclear names that obscure the schema's purpose. Operation-aware renaming traces schemas back to their originating operations, enabling semantic names like `CreateUserRequest` or `GetPetResponse` that reflect how schemas are actually used.
+
+**Enabling Operation Context:**
+
+```go
+result, err := joiner.JoinWithOptions(
+    joiner.WithFilePaths("users.yaml", "orders.yaml"),
+    joiner.WithSchemaStrategy(joiner.StrategyRenameRight),
+    joiner.WithOperationContext(true),
+    joiner.WithRenameTemplate("{{.OperationID | pascalCase}}{{.Name}}"),
+)
+```
+
+**Reference Graph Building:**
+
+When `WithOperationContext(true)` is enabled, the joiner builds a reference graph that traces schema relationships:
+
+1. **Direct references** - Schemas referenced directly by operations (request bodies, responses, parameters)
+2. **Indirect references** - Schemas referenced through intermediate schemas (e.g., `Order` references `Address`)
+3. **Lineage resolution** - Traverses the graph to find all operations that ultimately use each schema
+
+This graph enables rename templates to access operation context even for deeply nested schemas.
+
+**Template Functions:**
+
+| Category | Functions | Description |
+|----------|-----------|-------------|
+| Path | `pathSegment`, `pathResource`, `pathLast`, `pathClean` | Extract and transform API path components |
+| Case | `pascalCase`, `camelCase`, `snakeCase`, `kebabCase` | Transform string casing |
+| Tag | `firstTag`, `joinTags`, `hasTag` | Work with operation tags |
+| Conditional | `default`, `coalesce` | Fallback value selection |
+
+**Template Examples:**
+
+```go
+// Use operationId when available, fall back to path resource
+"{{coalesce .OperationID (pathResource .Path) .Source | pascalCase}}{{.Name}}"
+
+// Include usage type for clarity
+"{{.OperationID | pascalCase}}{{.UsageType | pascalCase}}{{.Name}}"
+
+// Path-based naming when operationIds are inconsistent
+"{{pathResource .Path | pascalCase}}{{.Name}}"
+```
+
+**Primary Operation Policy:**
+
+When a schema is referenced by multiple operations, the `PrimaryOperationPolicy` determines which operation provides context:
+
+| Policy | Behavior |
+|--------|----------|
+| `PolicyFirstEncountered` | Uses the first operation found during traversal (default) |
+| `PolicyMostSpecific` | Prefers operations with `operationId`, then tags |
+| `PolicyAlphabetical` | Sorts by path+method and uses first alphabetically |
+
+```go
+joiner.WithPrimaryOperationPolicy(joiner.PolicyMostSpecific)
+```
+
+> **Deep Dive:** For comprehensive `RenameContext` documentation including all available fields, aggregate context for shared schemas, and advanced template patterns, see the [Joiner Deep Dive](packages/joiner.md).
+
+### 8.7 API Usage
 
 ```go
 result, err := joiner.JoinWithOptions(

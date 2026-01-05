@@ -97,6 +97,119 @@
 //
 // See the examples in example_test.go for more configuration patterns.
 //
+// # Operation-Aware Renaming
+//
+// When renaming schemas to resolve collisions, you can enable operation context
+// to trace schemas back to their originating operations. This provides rich context
+// (Path, Method, OperationID, Tags, UsageType) for generating meaningful names.
+//
+// Enable via option:
+//
+//	result, err := joiner.JoinWithOptions(
+//	    joiner.WithFilePaths([]string{"users-api.yaml", "billing-api.yaml"}),
+//	    joiner.WithSchemaStrategy(joiner.StrategyRenameRight),
+//	    joiner.WithRenameTemplate("{{.Name}}_{{.OperationID}}"),
+//	    joiner.WithOperationContext(true),
+//	)
+//
+// Or via config:
+//
+//	config := joiner.DefaultConfig()
+//	config.SchemaStrategy = joiner.StrategyRenameRight
+//	config.OperationContext = true
+//	config.RenameTemplate = "{{.Name}}_{{pathResource .Path | pascalCase}}"
+//
+// # RenameContext Fields
+//
+// The [RenameContext] struct provides comprehensive context for rename templates.
+//
+// Core fields (always available):
+//
+//	Name    string  // Original schema name
+//	Source  string  // Source file name (sanitized, no extension)
+//	Index   int     // Document index (0-based)
+//
+// Operation context (requires WithOperationContext(true)):
+//
+//	Path        string    // API path: "/users/{id}"
+//	Method      string    // HTTP method: "get", "post"
+//	OperationID string    // Operation ID if defined
+//	Tags        []string  // Tags from primary operation
+//	UsageType   string    // "request", "response", "parameter", "header", "callback"
+//	StatusCode  string    // Response status code (for response usage)
+//	ParamName   string    // Parameter name (for parameter usage)
+//	MediaType   string    // Media type: "application/json"
+//
+// Aggregate context (for schemas referenced by multiple operations):
+//
+//	AllPaths        []string  // All referencing paths
+//	AllMethods      []string  // All methods (deduplicated)
+//	AllOperationIDs []string  // All operation IDs (non-empty only)
+//	AllTags         []string  // All tags (deduplicated)
+//	RefCount        int       // Total operation references
+//	PrimaryResource string    // Extracted resource name from path
+//	IsShared        bool      // True if referenced by multiple operations
+//
+// # Template Functions
+//
+// The following template functions are available in rename templates.
+//
+// Path functions:
+//
+//	pathSegment(path, index)  // Extract nth segment (negative = from end)
+//	pathResource(path)        // First non-parameter segment
+//	pathLast(path)            // Last non-parameter segment
+//	pathClean(path)           // Sanitize for naming: "/users/{id}" -> "users_id"
+//
+// Tag functions:
+//
+//	firstTag(tags)            // First tag or empty string
+//	joinTags(tags, sep)       // Join tags with separator
+//	hasTag(tags, tag)         // Check if tag is present
+//
+// Case transformation functions:
+//
+//	pascalCase(s)             // "user_name" -> "UserName"
+//	camelCase(s)              // "user_name" -> "userName"
+//	snakeCase(s)              // "UserName" -> "user_name"
+//	kebabCase(s)              // "UserName" -> "user-name"
+//
+// Conditional helpers:
+//
+//	default(value, fallback)  // Return fallback if value is empty
+//	coalesce(values...)       // Return first non-empty value
+//
+// Example templates:
+//
+//	// Use operation ID or fall back to source file
+//	"{{.Name}}_{{coalesce .OperationID .Source}}"
+//
+//	// Use primary resource in PascalCase
+//	"{{.Name}}_{{pathResource .Path | pascalCase}}"
+//
+//	// Include first tag if available
+//	"{{.Name}}_{{default (firstTag .Tags) .Source}}"
+//
+//	// Clean path for naming
+//	"{{.Name}}_{{pathClean .Path}}"
+//
+// # Primary Operation Policy
+//
+// When a schema is referenced by multiple operations, the policy determines
+// which operation provides the primary context values (Path, Method, etc.).
+//
+//	config := joiner.DefaultConfig()
+//	config.PrimaryOperationPolicy = joiner.PolicyMostSpecific
+//
+// Or via option:
+//
+//	joiner.WithPrimaryOperationPolicy(joiner.PolicyMostSpecific)
+//
+// Available policies:
+//   - PolicyFirstEncountered: Use the first operation found during traversal (default)
+//   - PolicyMostSpecific: Prefer operations with operationId, then those with tags
+//   - PolicyAlphabetical: Sort by path+method and use alphabetically first
+//
 // # Overlay Integration
 //
 // Apply overlays during the join process for pre-processing inputs or post-processing results:
