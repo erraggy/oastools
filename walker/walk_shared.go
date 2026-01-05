@@ -358,17 +358,35 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 		}
 	}
 
-	// AdditionalProperties (can be *Schema or bool)
-	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
+	// AdditionalProperties (can be *Schema, bool, or map[string]any with $ref)
+	switch addProps := schema.AdditionalProperties.(type) {
+	case *parser.Schema:
 		if err := w.walkSchema(addProps, basePath+".additionalProperties", depth+1, state); err != nil {
 			return err
 		}
+	case map[string]any:
+		if w.trackMapRefs {
+			if ref, ok := addProps["$ref"].(string); ok && ref != "" {
+				if w.handleRef(ref, basePath+".additionalProperties", RefNodeSchema, state) == Stop {
+					return nil
+				}
+			}
+		}
 	}
 
-	// UnevaluatedProperties (can be *Schema or bool)
-	if uProps, ok := schema.UnevaluatedProperties.(*parser.Schema); ok {
+	// UnevaluatedProperties (can be *Schema, bool, or map[string]any with $ref)
+	switch uProps := schema.UnevaluatedProperties.(type) {
+	case *parser.Schema:
 		if err := w.walkSchema(uProps, basePath+".unevaluatedProperties", depth+1, state); err != nil {
 			return err
+		}
+	case map[string]any:
+		if w.trackMapRefs {
+			if ref, ok := uProps["$ref"].(string); ok && ref != "" {
+				if w.handleRef(ref, basePath+".unevaluatedProperties", RefNodeSchema, state) == Stop {
+					return nil
+				}
+			}
 		}
 	}
 
@@ -396,17 +414,35 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 
 // walkSchemaArrayKeywords walks array-related schema keywords.
 func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string, depth int, state *walkState) error {
-	// Items (can be *Schema or bool)
-	if items, ok := schema.Items.(*parser.Schema); ok {
+	// Items (can be *Schema, bool, or map[string]any with $ref)
+	switch items := schema.Items.(type) {
+	case *parser.Schema:
 		if err := w.walkSchema(items, basePath+".items", depth+1, state); err != nil {
 			return err
 		}
+	case map[string]any:
+		if w.trackMapRefs {
+			if ref, ok := items["$ref"].(string); ok && ref != "" {
+				if w.handleRef(ref, basePath+".items", RefNodeSchema, state) == Stop {
+					return nil
+				}
+			}
+		}
 	}
 
-	// AdditionalItems (can be *Schema or bool)
-	if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
+	// AdditionalItems (can be *Schema, bool, or map[string]any with $ref)
+	switch addItems := schema.AdditionalItems.(type) {
+	case *parser.Schema:
 		if err := w.walkSchema(addItems, basePath+".additionalItems", depth+1, state); err != nil {
 			return err
+		}
+	case map[string]any:
+		if w.trackMapRefs {
+			if ref, ok := addItems["$ref"].(string); ok && ref != "" {
+				if w.handleRef(ref, basePath+".additionalItems", RefNodeSchema, state) == Stop {
+					return nil
+				}
+			}
 		}
 	}
 
@@ -422,10 +458,19 @@ func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string,
 		}
 	}
 
-	// UnevaluatedItems (can be *Schema or bool)
-	if uItems, ok := schema.UnevaluatedItems.(*parser.Schema); ok {
+	// UnevaluatedItems (can be *Schema, bool, or map[string]any with $ref)
+	switch uItems := schema.UnevaluatedItems.(type) {
+	case *parser.Schema:
 		if err := w.walkSchema(uItems, basePath+".unevaluatedItems", depth+1, state); err != nil {
 			return err
+		}
+	case map[string]any:
+		if w.trackMapRefs {
+			if ref, ok := uItems["$ref"].(string); ok && ref != "" {
+				if w.handleRef(ref, basePath+".unevaluatedItems", RefNodeSchema, state) == Stop {
+					return nil
+				}
+			}
 		}
 	}
 

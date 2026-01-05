@@ -204,10 +204,11 @@ type Walker struct {
 	onOAS3DocumentPost OAS3DocumentPostHandler
 
 	// Configuration
-	maxDepth    int
-	trackRefs   bool
-	trackParent bool
-	userCtx     context.Context
+	maxDepth     int
+	trackRefs    bool
+	trackMapRefs bool
+	trackParent  bool
+	userCtx      context.Context
 
 	// Internal state
 	visitedSchemas map[*parser.Schema]bool

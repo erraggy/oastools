@@ -70,6 +70,21 @@ func WithParentTracking() Option {
 	}
 }
 
+// WithMapRefTracking enables tracking of $ref values stored in map[string]any structures.
+// When enabled, the walker will detect refs in polymorphic schema fields (Items, AdditionalItems,
+// AdditionalProperties, UnevaluatedItems, UnevaluatedProperties) that were not parsed as *Schema.
+// Implicitly enables ref tracking.
+//
+// This is useful when parsing documents where some schema fields remain as raw maps
+// rather than being fully resolved to *Schema types. The walker will call the ref handler
+// for any $ref values found in these map structures.
+func WithMapRefTracking() Option {
+	return func(w *Walker) {
+		w.trackRefs = true
+		w.trackMapRefs = true
+	}
+}
+
 // WalkWithOptions walks a document using functional options for input, handlers, and configuration.
 // All options use the unified Option type - no adapter is needed.
 //
