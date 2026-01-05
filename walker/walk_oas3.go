@@ -199,7 +199,7 @@ func (w *Walker) walkOAS3Webhooks(webhooks map[string]*parser.PathItem, basePath
 // walkOAS3PathItem walks a single PathItem.
 func (w *Walker) walkOAS3PathItem(pathItem *parser.PathItem, basePath string, state *walkState) error {
 	// Check for $ref
-	if w.handleRef(pathItem.Ref, basePath, "pathItem", state) == Stop {
+	if w.handleRef(pathItem.Ref, basePath, RefNodePathItem, state) == Stop {
 		return nil
 	}
 
@@ -241,6 +241,7 @@ func (w *Walker) walkOAS3PathItem(pathItem *parser.PathItem, basePath string, st
 	if w.onPathItemPost != nil && !w.stopped {
 		wc := state.buildContext(basePath)
 		w.onPathItemPost(wc, pathItem)
+		releaseContext(wc)
 	}
 
 	return nil
@@ -383,6 +384,7 @@ func (w *Walker) walkOAS3Operation(op *parser.Operation, basePath string, state 
 	if w.onOperationPost != nil && !w.stopped {
 		wc := state.buildContext(basePath)
 		w.onOperationPost(wc, op)
+		releaseContext(wc)
 	}
 
 	return nil
@@ -391,7 +393,7 @@ func (w *Walker) walkOAS3Operation(op *parser.Operation, basePath string, state 
 // walkOAS3RequestBody walks a RequestBody.
 func (w *Walker) walkOAS3RequestBody(reqBody *parser.RequestBody, basePath string, state *walkState) error {
 	// Check for $ref
-	if w.handleRef(reqBody.Ref, basePath, "requestBody", state) == Stop {
+	if w.handleRef(reqBody.Ref, basePath, RefNodeRequestBody, state) == Stop {
 		return nil
 	}
 
@@ -423,6 +425,7 @@ func (w *Walker) walkOAS3RequestBody(reqBody *parser.RequestBody, basePath strin
 	if w.onRequestBodyPost != nil && !w.stopped {
 		wc := state.buildContext(basePath)
 		w.onRequestBodyPost(wc, reqBody)
+		releaseContext(wc)
 	}
 
 	return nil
@@ -468,7 +471,7 @@ func (w *Walker) walkOAS3Responses(responses *parser.Responses, basePath string,
 // walkOAS3Response walks a single Response.
 func (w *Walker) walkOAS3Response(resp *parser.Response, basePath string, state *walkState) error {
 	// Check for $ref
-	if w.handleRef(resp.Ref, basePath, "response", state) == Stop {
+	if w.handleRef(resp.Ref, basePath, RefNodeResponse, state) == Stop {
 		return nil
 	}
 
@@ -527,7 +530,7 @@ func (w *Walker) walkOAS3Response(resp *parser.Response, basePath string, state 
 			linkState.name = name
 
 			// Check for $ref
-			if w.handleRef(link.Ref, linkPath, "link", linkState) == Stop {
+			if w.handleRef(link.Ref, linkPath, RefNodeLink, linkState) == Stop {
 				return nil
 			}
 
@@ -543,6 +546,7 @@ func (w *Walker) walkOAS3Response(resp *parser.Response, basePath string, state 
 	if w.onResponsePost != nil && !w.stopped {
 		wc := state.buildContext(basePath)
 		w.onResponsePost(wc, resp)
+		releaseContext(wc)
 	}
 
 	return nil
@@ -597,6 +601,7 @@ func (w *Walker) walkOAS3Callback(name string, callback parser.Callback, basePat
 	if w.onCallbackPost != nil && !w.stopped {
 		wc := cbState.buildContext(basePath)
 		w.onCallbackPost(wc, callback)
+		releaseContext(wc)
 	}
 
 	return nil
@@ -736,7 +741,7 @@ func (w *Walker) walkComponentSecuritySchemes(components *parser.Components, bas
 		ssState.name = name
 
 		// Check for $ref
-		if w.handleRef(ss.Ref, ssPath, "securityScheme", ssState) == Stop {
+		if w.handleRef(ss.Ref, ssPath, RefNodeSecurityScheme, ssState) == Stop {
 			return nil
 		}
 
@@ -767,7 +772,7 @@ func (w *Walker) walkComponentLinks(components *parser.Components, basePath stri
 		linkState.name = name
 
 		// Check for $ref
-		if w.handleRef(link.Ref, linkPath, "link", linkState) == Stop {
+		if w.handleRef(link.Ref, linkPath, RefNodeLink, linkState) == Stop {
 			return nil
 		}
 
@@ -815,7 +820,7 @@ func (w *Walker) walkComponentExamples(components *parser.Components, basePath s
 		exState.name = name
 
 		// Check for $ref
-		if w.handleRef(ex.Ref, exPath, "example", exState) == Stop {
+		if w.handleRef(ex.Ref, exPath, RefNodeExample, exState) == Stop {
 			return nil
 		}
 

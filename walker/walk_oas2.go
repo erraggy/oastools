@@ -175,7 +175,7 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 			sState.name = name
 
 			// Check for $ref
-			if w.handleRef(ss.Ref, ssPath, "securityScheme", sState) == Stop {
+			if w.handleRef(ss.Ref, ssPath, RefNodeSecurityScheme, sState) == Stop {
 				return nil
 			}
 
@@ -243,7 +243,7 @@ func (w *Walker) walkOAS2Paths(paths parser.Paths, basePath string, state *walkS
 // walkOAS2PathItem walks a single PathItem.
 func (w *Walker) walkOAS2PathItem(pathItem *parser.PathItem, basePath string, state *walkState) error {
 	// Check for $ref
-	if w.handleRef(pathItem.Ref, basePath, "pathItem", state) == Stop {
+	if w.handleRef(pathItem.Ref, basePath, RefNodePathItem, state) == Stop {
 		return nil
 	}
 
@@ -307,6 +307,7 @@ func (w *Walker) walkOAS2PathItem(pathItem *parser.PathItem, basePath string, st
 	if w.onPathItemPost != nil && !w.stopped {
 		wc := state.buildContext(basePath)
 		w.onPathItemPost(wc, pathItem)
+		releaseContext(wc)
 	}
 
 	return nil
@@ -364,6 +365,7 @@ func (w *Walker) walkOAS2Operation(op *parser.Operation, basePath string, state 
 	if w.onOperationPost != nil && !w.stopped {
 		wc := state.buildContext(basePath)
 		w.onOperationPost(wc, op)
+		releaseContext(wc)
 	}
 
 	return nil
@@ -409,7 +411,7 @@ func (w *Walker) walkOAS2Responses(responses *parser.Responses, basePath string,
 // walkOAS2Response walks a single Response (OAS 2.0 style).
 func (w *Walker) walkOAS2Response(resp *parser.Response, basePath string, state *walkState) error {
 	// Check for $ref
-	if w.handleRef(resp.Ref, basePath, "response", state) == Stop {
+	if w.handleRef(resp.Ref, basePath, RefNodeResponse, state) == Stop {
 		return nil
 	}
 
@@ -452,6 +454,7 @@ func (w *Walker) walkOAS2Response(resp *parser.Response, basePath string, state 
 	if w.onResponsePost != nil && !w.stopped {
 		wc := state.buildContext(basePath)
 		w.onResponsePost(wc, resp)
+		releaseContext(wc)
 	}
 
 	return nil

@@ -19,7 +19,7 @@ func sortedMapKeys[V any](m map[string]V) []string {
 
 // handleRef processes a $ref if ref tracking is enabled.
 // It calls the ref handler if set, and returns Stop if the handler requests it.
-func (w *Walker) handleRef(ref string, jsonPath string, nodeType string, state *walkState) Action {
+func (w *Walker) handleRef(ref string, jsonPath string, nodeType RefNodeType, state *walkState) Action {
 	if !w.trackRefs || ref == "" {
 		return Continue
 	}
@@ -34,6 +34,7 @@ func (w *Walker) handleRef(ref string, jsonPath string, nodeType string, state *
 		wc := state.buildContext(jsonPath)
 		wc.CurrentRef = refInfo
 		action := w.onRef(wc, refInfo)
+		releaseContext(wc)
 		if action == Stop {
 			w.stopped = true
 			return Stop
@@ -50,7 +51,7 @@ func (w *Walker) walkParameter(param *parser.Parameter, basePath string, state *
 	}
 
 	// Check for $ref
-	if w.handleRef(param.Ref, basePath, "parameter", state) == Stop {
+	if w.handleRef(param.Ref, basePath, RefNodeParameter, state) == Stop {
 		return nil
 	}
 
@@ -118,7 +119,7 @@ func (w *Walker) walkHeader(name string, header *parser.Header, basePath string,
 	headerState.name = name
 
 	// Check for $ref
-	if w.handleRef(header.Ref, basePath, "header", headerState) == Stop {
+	if w.handleRef(header.Ref, basePath, RefNodeHeader, headerState) == Stop {
 		return nil
 	}
 
@@ -236,7 +237,7 @@ func (w *Walker) walkExamples(examples map[string]*parser.Example, basePath stri
 		exState.name = name
 
 		// Check for $ref
-		if w.handleRef(ex.Ref, exPath, "example", exState) == Stop {
+		if w.handleRef(ex.Ref, exPath, RefNodeExample, exState) == Stop {
 			return
 		}
 
@@ -255,7 +256,7 @@ func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int, s
 	}
 
 	// Check for $ref before anything else
-	if w.handleRef(schema.Ref, basePath, "schema", state) == Stop {
+	if w.handleRef(schema.Ref, basePath, RefNodeSchema, state) == Stop {
 		return nil
 	}
 
@@ -323,6 +324,7 @@ func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int, s
 	if w.onSchemaPost != nil && !w.stopped {
 		wc := state.buildContext(basePath)
 		w.onSchemaPost(wc, schema)
+		releaseContext(wc)
 	}
 
 	return nil

@@ -65,7 +65,7 @@ func TestRefTracking_SchemaRef(t *testing.T) {
 	require.Len(t, refs, 1)
 	assert.Equal(t, "#/components/schemas/Animal", refs[0].Ref)
 	assert.Equal(t, "$.components.schemas['Pet']", refs[0].SourcePath)
-	assert.Equal(t, "schema", refs[0].NodeType)
+	assert.Equal(t, RefNodeSchema, refs[0].NodeType)
 }
 
 func TestRefTracking_ParameterRef(t *testing.T) {
@@ -105,7 +105,7 @@ func TestRefTracking_ParameterRef(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, refs, 1)
 	assert.Equal(t, "#/components/parameters/LimitParam", refs[0].Ref)
-	assert.Equal(t, "parameter", refs[0].NodeType)
+	assert.Equal(t, RefNodeParameter, refs[0].NodeType)
 }
 
 func TestRefTracking_ResponseRef(t *testing.T) {
@@ -140,7 +140,7 @@ func TestRefTracking_ResponseRef(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, refs, 1)
 	assert.Equal(t, "#/components/responses/Error", refs[0].Ref)
-	assert.Equal(t, "response", refs[0].NodeType)
+	assert.Equal(t, RefNodeResponse, refs[0].NodeType)
 }
 
 func TestRefTracking_AllRefs(t *testing.T) {
@@ -205,21 +205,21 @@ func TestRefTracking_AllRefs(t *testing.T) {
 	require.NoError(t, err)
 
 	// Collect ref values and node types
-	refValues := make(map[string]string)
+	refValues := make(map[string]RefNodeType)
 	for _, r := range refs {
 		refValues[r.Ref] = r.NodeType
 	}
 
 	// Verify all expected refs were found
-	assert.Equal(t, "pathItem", refValues["#/components/pathItems/PetsPath"])
-	assert.Equal(t, "parameter", refValues["#/components/parameters/LimitParam"])
-	assert.Equal(t, "requestBody", refValues["#/components/requestBodies/PetBody"])
-	assert.Equal(t, "response", refValues["#/components/responses/Error"])
-	assert.Equal(t, "header", refValues["#/components/headers/RateLimit"])
-	assert.Equal(t, "link", refValues["#/components/links/NextPage"])
-	assert.Equal(t, "schema", refValues["#/components/schemas/Animal"])
-	assert.Equal(t, "example", refValues["#/components/examples/AnimalExample"])
-	assert.Equal(t, "securityScheme", refValues["#/components/securitySchemes/oauth"])
+	assert.Equal(t, RefNodePathItem, refValues["#/components/pathItems/PetsPath"])
+	assert.Equal(t, RefNodeParameter, refValues["#/components/parameters/LimitParam"])
+	assert.Equal(t, RefNodeRequestBody, refValues["#/components/requestBodies/PetBody"])
+	assert.Equal(t, RefNodeResponse, refValues["#/components/responses/Error"])
+	assert.Equal(t, RefNodeHeader, refValues["#/components/headers/RateLimit"])
+	assert.Equal(t, RefNodeLink, refValues["#/components/links/NextPage"])
+	assert.Equal(t, RefNodeSchema, refValues["#/components/schemas/Animal"])
+	assert.Equal(t, RefNodeExample, refValues["#/components/examples/AnimalExample"])
+	assert.Equal(t, RefNodeSecurityScheme, refValues["#/components/securitySchemes/oauth"])
 }
 
 func TestRefTracking_RefHandler(t *testing.T) {
@@ -244,14 +244,17 @@ func TestRefTracking_RefHandler(t *testing.T) {
 	}
 
 	var handlerCalled bool
-	var receivedContext *WalkContext
+	var receivedJSONPath string
 	var receivedRef *RefInfo
+	var hadCurrentRef bool
 
 	err := Walk(result,
 		WithRefHandler(func(wc *WalkContext, ref *RefInfo) Action {
 			handlerCalled = true
-			receivedContext = wc
+			// Copy values from the context before it's released back to the pool
+			receivedJSONPath = wc.JSONPath
 			receivedRef = ref
+			hadCurrentRef = wc.CurrentRef != nil
 			return Continue
 		}),
 	)
@@ -259,9 +262,8 @@ func TestRefTracking_RefHandler(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, handlerCalled)
 	assert.Equal(t, "#/components/schemas/User", receivedRef.Ref)
-	assert.Equal(t, "$.components.schemas['Pet'].properties['owner']", receivedContext.JSONPath)
-	assert.NotNil(t, receivedContext.CurrentRef)
-	assert.Equal(t, receivedRef, receivedContext.CurrentRef)
+	assert.Equal(t, "$.components.schemas['Pet'].properties['owner']", receivedJSONPath)
+	assert.True(t, hadCurrentRef, "CurrentRef should be set during handler call")
 }
 
 func TestRefTracking_StopOnRef(t *testing.T) {
@@ -336,16 +338,16 @@ func TestRefTracking_OAS2(t *testing.T) {
 	require.NoError(t, err)
 
 	// Collect ref values
-	refValues := make(map[string]string)
+	refValues := make(map[string]RefNodeType)
 	for _, r := range refs {
 		refValues[r.Ref] = r.NodeType
 	}
 
-	assert.Equal(t, "pathItem", refValues["#/pathItems/PetsPath"])
-	assert.Equal(t, "parameter", refValues["#/parameters/LimitParam"])
-	assert.Equal(t, "response", refValues["#/responses/Error"])
-	assert.Equal(t, "schema", refValues["#/definitions/Animal"])
-	assert.Equal(t, "securityScheme", refValues["#/securityDefinitions/oauth"])
+	assert.Equal(t, RefNodePathItem, refValues["#/pathItems/PetsPath"])
+	assert.Equal(t, RefNodeParameter, refValues["#/parameters/LimitParam"])
+	assert.Equal(t, RefNodeResponse, refValues["#/responses/Error"])
+	assert.Equal(t, RefNodeSchema, refValues["#/definitions/Animal"])
+	assert.Equal(t, RefNodeSecurityScheme, refValues["#/securityDefinitions/oauth"])
 }
 
 func TestRefTracking_OAS3(t *testing.T) {
@@ -378,13 +380,13 @@ func TestRefTracking_OAS3(t *testing.T) {
 	require.NoError(t, err)
 
 	// Collect ref values
-	refValues := make(map[string]string)
+	refValues := make(map[string]RefNodeType)
 	for _, r := range refs {
 		refValues[r.Ref] = r.NodeType
 	}
 
-	assert.Equal(t, "schema", refValues["#/components/schemas/Animal"])
-	assert.Equal(t, "requestBody", refValues["#/components/requestBodies/AnimalBody"])
+	assert.Equal(t, RefNodeSchema, refValues["#/components/schemas/Animal"])
+	assert.Equal(t, RefNodeRequestBody, refValues["#/components/requestBodies/AnimalBody"])
 }
 
 func TestRefTracking_WithRefTrackingOnly(t *testing.T) {
