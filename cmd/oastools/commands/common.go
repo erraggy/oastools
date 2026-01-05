@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 
 	oastools "github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/joiner"
@@ -70,6 +71,30 @@ func ValidateEquivalenceMode(value string) error {
 		return fmt.Errorf("invalid equivalence-mode '%s'. Valid modes: %v", value, joiner.ValidEquivalenceModes())
 	}
 	return nil
+}
+
+// ValidatePrimaryOperationPolicy validates the primary operation policy flag value.
+func ValidatePrimaryOperationPolicy(policy string) error {
+	if policy == "" {
+		return nil
+	}
+	valid := []string{"first", "most-specific", "alphabetical"}
+	if slices.Contains(valid, policy) {
+		return nil
+	}
+	return fmt.Errorf("commands: invalid primary-operation-policy %q: must be one of: first, most-specific, alphabetical", policy)
+}
+
+// MapPrimaryOperationPolicy maps a string policy to the joiner enum.
+func MapPrimaryOperationPolicy(policy string) joiner.PrimaryOperationPolicy {
+	switch policy {
+	case "most-specific":
+		return joiner.PolicyMostSpecific
+	case "alphabetical":
+		return joiner.PolicyAlphabetical
+	default:
+		return joiner.PolicyFirstEncountered
+	}
 }
 
 // ValidateOutputPath checks if the output path is safe to write to

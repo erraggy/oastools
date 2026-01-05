@@ -18,6 +18,7 @@
 - [Source Map Integration](#source-map-integration)
 - [Best Practices](#best-practices)
 - [Common Patterns](#common-patterns)
+- [CLI Usage](#cli-usage)
 
 ---
 
@@ -1382,6 +1383,163 @@ result, _ := j.Join([]string{
     "custom-extension.yaml", // Customer-specific additions
 })
 ```
+
+---
+
+## CLI Usage
+
+The joiner's operation-aware schema renaming and overlay integration features are fully accessible from the command line.
+
+### Basic Schema Renaming
+
+```bash
+# Rename colliding schemas with source file suffix
+oastools join --schema-strategy rename-right \
+  --rename-template "{{.Name}}_{{.Source}}" \
+  -o merged.yaml users-api.yaml orders-api.yaml
+```
+
+### Operation-Aware Renaming
+
+Enable `--operation-context` to access path, method, operation ID, and tag information in templates:
+
+```bash
+# Use operation ID as prefix (e.g., "ListUsersResponse")
+oastools join --schema-strategy rename-right --operation-context \
+  --rename-template "{{.OperationID | pascalCase}}{{.Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Use path resource as prefix (e.g., "OrdersResponse")
+oastools join --schema-strategy rename-right --operation-context \
+  --rename-template "{{pathResource .Path | pascalCase}}{{.Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Full method + resource naming (e.g., "GetOrdersResponse")
+oastools join --schema-strategy rename-right --operation-context \
+  --rename-template "{{.Method | pascalCase}}{{pathResource .Path | pascalCase}}{{.Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+```
+
+### Primary Operation Policy
+
+Control which operation provides context when a schema is used by multiple operations:
+
+```bash
+# Prefer operations with operationId defined
+oastools join --schema-strategy rename-right --operation-context \
+  --primary-operation-policy most-specific \
+  --rename-template "{{.OperationID | default .Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Alphabetical for reproducible builds
+oastools join --schema-strategy rename-right --operation-context \
+  --primary-operation-policy alphabetical \
+  --rename-template "{{.OperationID | pascalCase}}{{.Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+```
+
+### Template Patterns
+
+Common template patterns for different use cases:
+
+```bash
+# With fallback for schemas without operationId
+oastools join --schema-strategy rename-right --operation-context \
+  --rename-template "{{coalesce .OperationID (pathResource .Path) .Source | pascalCase}}{{.Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Different handling for shared vs single-use schemas
+oastools join --schema-strategy rename-right --operation-context \
+  --rename-template "{{if .IsShared}}Shared{{else}}{{.OperationID | pascalCase}}{{end}}{{.Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Include response status code
+oastools join --schema-strategy rename-right --operation-context \
+  --rename-template "{{.OperationID | pascalCase}}{{.StatusCode}}{{.Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Tag-based naming
+oastools join --schema-strategy rename-right --operation-context \
+  --rename-template "{{firstTag .Tags | pascalCase}}{{.Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+```
+
+### Overlay Integration
+
+Apply overlays during the join process:
+
+```bash
+# Pre-overlay: applied to each input before merging
+# Post-overlay: applied to the final merged result
+oastools join \
+  --pre-overlay normalize.yaml \
+  --post-overlay enhance.yaml \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Multiple overlays (applied in order)
+oastools join \
+  --pre-overlay strip-internal.yaml \
+  --pre-overlay standardize-responses.yaml \
+  --post-overlay add-security.yaml \
+  --post-overlay add-metadata.yaml \
+  -o merged.yaml api1.yaml api2.yaml
+```
+
+**Example pre-overlay (normalize.yaml):**
+```yaml
+overlay: 1.0.0
+info:
+  title: Normalization Overlay
+  version: 1.0.0
+actions:
+  - target: $..description
+    update:
+      description: ""  # Clear all descriptions before merge
+```
+
+**Example post-overlay (enhance.yaml):**
+```yaml
+overlay: 1.0.0
+info:
+  title: Enhancement Overlay
+  version: 1.0.0
+actions:
+  - target: $.info
+    update:
+      title: "Unified API"
+      version: "1.0.0"
+  - target: $.servers
+    update:
+      - url: https://api.example.com/v1
+        description: Production
+```
+
+### Combined Features
+
+Use multiple features together for comprehensive join operations:
+
+```bash
+# Full-featured join with all options
+oastools join \
+  --schema-strategy rename-right \
+  --operation-context \
+  --primary-operation-policy most-specific \
+  --rename-template "{{coalesce .OperationID (pathResource .Path) | pascalCase}}{{.Name}}" \
+  --semantic-dedup \
+  --pre-overlay normalize.yaml \
+  --post-overlay finalize.yaml \
+  -o merged.yaml \
+  users-service.yaml orders-service.yaml billing-service.yaml
+```
+
+This command:
+1. Applies `normalize.yaml` to each input document
+2. Joins the documents with semantic deduplication
+3. Renames colliding schemas using operation context
+4. Uses the most-specific operation policy for context selection
+5. Applies `finalize.yaml` to the merged result
+
+For complete API documentation and programmatic usage, see the sections above or the [Go package documentation](https://pkg.go.dev/github.com/erraggy/oastools/joiner).
 
 ---
 

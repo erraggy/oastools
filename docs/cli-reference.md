@@ -534,9 +534,14 @@ oastools join [flags] <file1> <file2> [file3...]
 | `--path-strategy` | | Collision strategy for paths |
 | `--schema-strategy` | | Collision strategy for schemas/definitions |
 | `--component-strategy` | | Collision strategy for other components |
+| `--rename-template` | | Go template for renamed schemas (default: `{{.Name}}_{{.Source}}`) |
+| `--operation-context` | | Enable operation-aware schema renaming |
+| `--primary-operation-policy` | | Policy for selecting primary operation: `first`, `most-specific`, `alphabetical` (default: `first`) |
 | `--semantic-dedup` | | Enable semantic deduplication to consolidate identical schemas |
 | `--no-merge-arrays` | | Don't merge arrays (servers, security, etc.) |
 | `--no-dedup-tags` | | Don't deduplicate tags by name |
+| `--pre-overlay` | | Overlay file to apply before joining (can be repeated) |
+| `--post-overlay` | | Overlay file to apply to merged result |
 | `--source-map` | `-s` | Include line numbers in output (IDE-friendly format) |
 | `-h, --help` | | Display help for join command |
 
@@ -548,6 +553,95 @@ oastools join [flags] <file1> <file2> [file3...]
 | `accept-right` | Keep the last value when collisions occur (overwrite) |
 | `fail` | Fail with an error on any collision |
 | `fail-on-paths` | Fail only on path collisions, allow schema collisions |
+| `rename-left` | Rename left schema, keep right under original name |
+| `rename-right` | Rename right schema, keep left under original name |
+| `dedup-equivalent` | Merge structurally identical schemas |
+
+### Schema Renaming
+
+When using `rename-left` or `rename-right` strategies, schemas are renamed using Go templates. The `--rename-template` flag controls the naming pattern.
+
+#### Basic Template Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{.Name}}` | Original schema name | `Response` |
+| `{{.Source}}` | Source file name (sanitized) | `orders_service` |
+| `{{.Index}}` | Document index (0-based) | `1` |
+
+#### Operation Context Variables
+
+When `--operation-context` is enabled, additional variables become available based on the operations that reference each schema:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{.Path}}` | API path from primary operation | `/orders` |
+| `{{.Method}}` | HTTP method (lowercase) | `get` |
+| `{{.OperationID}}` | Operation ID if defined | `listOrders` |
+| `{{.Tags}}` | Tags from primary operation | `["orders"]` |
+| `{{.UsageType}}` | Where schema is used | `response` |
+| `{{.StatusCode}}` | Response status code | `200` |
+| `{{.ParamName}}` | Parameter name (for parameter usage) | `filter` |
+| `{{.MediaType}}` | Content media type | `application/json` |
+| `{{.PrimaryResource}}` | First path segment | `orders` |
+
+#### Aggregate Variables (Multi-Operation Schemas)
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{.AllPaths}}` | All paths referencing this schema | `["/orders", "/orders/{id}"]` |
+| `{{.AllMethods}}` | All HTTP methods (deduplicated) | `["get", "post"]` |
+| `{{.AllOperationIDs}}` | All operation IDs | `["listOrders", "getOrder"]` |
+| `{{.AllTags}}` | All tags (deduplicated, sorted) | `["admin", "orders"]` |
+| `{{.RefCount}}` | Total operation references | `3` |
+| `{{.IsShared}}` | True if used by multiple operations | `true` |
+
+### Template Functions
+
+The following functions are available in rename templates:
+
+#### Path Functions
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `pathSegment` | Extract nth segment (0-indexed, negative from end) | `{{pathSegment .Path 0}}` -> `users` |
+| `pathResource` | First non-parameter segment | `{{pathResource .Path}}` -> `users` |
+| `pathLast` | Last non-parameter segment | `{{pathLast .Path}}` -> `orders` |
+| `pathClean` | Sanitize path for naming | `{{pathClean .Path}}` -> `users_id` |
+
+#### Case Functions
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `pascalCase` | PascalCase conversion | `{{pascalCase "list_orders"}}` -> `ListOrders` |
+| `camelCase` | camelCase conversion | `{{camelCase "list_orders"}}` -> `listOrders` |
+| `snakeCase` | snake_case conversion | `{{snakeCase "ListOrders"}}` -> `list_orders` |
+| `kebabCase` | kebab-case conversion | `{{kebabCase "ListOrders"}}` -> `list-orders` |
+
+#### Tag Functions
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `firstTag` | First tag or empty string | `{{firstTag .Tags}}` -> `orders` |
+| `joinTags` | Join tags with separator | `{{joinTags .Tags "_"}}` -> `admin_orders` |
+| `hasTag` | Check if tag exists | `{{if hasTag .Tags "admin"}}...{{end}}` |
+
+#### Conditional Helpers
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `default` | Return fallback if value empty | `{{.OperationID \| default "Unknown"}}` |
+| `coalesce` | First non-empty value | `{{coalesce .OperationID .Path .Name}}` |
+
+### Primary Operation Policy
+
+When a schema is referenced by multiple operations, the `--primary-operation-policy` flag determines which operation provides the context variables:
+
+| Policy | Behavior |
+|--------|----------|
+| `first` | Uses the first operation found during graph traversal (default) |
+| `most-specific` | Prefers operations with operationId, then those with tags |
+| `alphabetical` | Sorts by path+method, uses alphabetically first |
 
 ### Examples
 
@@ -582,6 +676,48 @@ oastools join --no-dedup-tags -o merged.yaml base.yaml ext.yaml
 
 # Enable semantic deduplication to consolidate identical schemas
 oastools join --semantic-dedup -o merged.yaml api1.yaml api2.yaml
+
+# Rename colliding schemas with source file suffix
+oastools join --schema-strategy rename-right \
+  --rename-template "{{.Name}}_{{.Source}}" \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Operation-aware renaming with OperationID
+oastools join --schema-strategy rename-right --operation-context \
+  --rename-template "{{.OperationID | pascalCase}}{{.Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Path-based renaming (uses first path segment as prefix)
+oastools join --schema-strategy rename-right --operation-context \
+  --rename-template "{{pathResource .Path | pascalCase}}{{.Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Most specific operation policy (prefers operations with operationId)
+oastools join --schema-strategy rename-right --operation-context \
+  --primary-operation-policy most-specific \
+  --rename-template "{{.OperationID | default .Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Apply overlays for pre/post processing
+oastools join --pre-overlay normalize.yaml --post-overlay enhance.yaml \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Multiple pre-overlays (applied in order)
+oastools join \
+  --pre-overlay strip-internal.yaml \
+  --pre-overlay standardize-responses.yaml \
+  --post-overlay add-metadata.yaml \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Complex template with fallbacks
+oastools join --schema-strategy rename-right --operation-context \
+  --rename-template "{{coalesce .OperationID (pathResource .Path) .Source | pascalCase}}{{.Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
+
+# Handle shared schemas differently
+oastools join --schema-strategy rename-right --operation-context \
+  --rename-template "{{if .IsShared}}Shared{{else}}{{.OperationID | pascalCase}}{{end}}{{.Name}}" \
+  -o merged.yaml api1.yaml api2.yaml
 ```
 
 ### Output Format
@@ -632,6 +768,9 @@ Warnings (2):
 - Output file is written with restrictive permissions (0600) for security
 - Warning is displayed if output file already exists (will be overwritten)
 - Semantic deduplication identifies structurally identical schemas and consolidates them, reducing document size
+- Operation-aware renaming traces schemas back to their originating operations for semantic naming
+- Pre-overlays are applied to each input document before merging; post-overlays are applied to the final result
+- For detailed template function documentation, see the [joiner deep dive](packages/joiner.md#template-functions-reference)
 
 ---
 

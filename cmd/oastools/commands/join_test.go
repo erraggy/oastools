@@ -25,6 +25,20 @@ func TestSetupJoinFlags(t *testing.T) {
 		if flags.Quiet {
 			t.Error("expected Quiet to be false by default")
 		}
+		// Operation context flags
+		if flags.OperationContext {
+			t.Error("expected OperationContext to be false by default")
+		}
+		if flags.PrimaryOperationPolicy != "" {
+			t.Errorf("expected PrimaryOperationPolicy to be empty by default, got '%s'", flags.PrimaryOperationPolicy)
+		}
+		// Overlay flags
+		if len(flags.PreOverlays) != 0 {
+			t.Errorf("expected PreOverlays to be empty by default, got %v", flags.PreOverlays)
+		}
+		if flags.PostOverlay != "" {
+			t.Errorf("expected PostOverlay to be empty by default, got '%s'", flags.PostOverlay)
+		}
 	})
 
 	t.Run("parse flags", func(t *testing.T) {
@@ -223,4 +237,206 @@ func TestNamespacePrefixFlag_Set(t *testing.T) {
 			t.Errorf("expected 'Users', got '%s'", npf["users.yaml"])
 		}
 	})
+}
+
+func TestJoinFlags_OperationContext(t *testing.T) {
+	fs, flags := SetupJoinFlags()
+	err := fs.Parse([]string{"--operation-context", "api1.yaml", "api2.yaml"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if !flags.OperationContext {
+		t.Error("expected OperationContext to be true")
+	}
+}
+
+func TestJoinFlags_PrimaryOperationPolicy(t *testing.T) {
+	tests := []struct {
+		name   string
+		args   []string
+		policy string
+	}{
+		{"first", []string{"--primary-operation-policy", "first", "a.yaml", "b.yaml"}, "first"},
+		{"most-specific", []string{"--primary-operation-policy", "most-specific", "a.yaml", "b.yaml"}, "most-specific"},
+		{"alphabetical", []string{"--primary-operation-policy", "alphabetical", "a.yaml", "b.yaml"}, "alphabetical"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs, flags := SetupJoinFlags()
+			err := fs.Parse(tt.args)
+			if err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+			if flags.PrimaryOperationPolicy != tt.policy {
+				t.Errorf("expected policy %q, got %q", tt.policy, flags.PrimaryOperationPolicy)
+			}
+		})
+	}
+}
+
+func TestJoinFlags_PreOverlay_Repeatable(t *testing.T) {
+	fs, flags := SetupJoinFlags()
+	err := fs.Parse([]string{
+		"--pre-overlay", "overlay1.yaml",
+		"--pre-overlay", "overlay2.yaml",
+		"api1.yaml", "api2.yaml",
+	})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if len(flags.PreOverlays) != 2 {
+		t.Fatalf("expected 2 pre-overlays, got %d", len(flags.PreOverlays))
+	}
+	if flags.PreOverlays[0] != "overlay1.yaml" {
+		t.Errorf("expected first overlay 'overlay1.yaml', got %q", flags.PreOverlays[0])
+	}
+	if flags.PreOverlays[1] != "overlay2.yaml" {
+		t.Errorf("expected second overlay 'overlay2.yaml', got %q", flags.PreOverlays[1])
+	}
+}
+
+func TestJoinFlags_PostOverlay(t *testing.T) {
+	fs, flags := SetupJoinFlags()
+	err := fs.Parse([]string{"--post-overlay", "final.yaml", "api1.yaml", "api2.yaml"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if flags.PostOverlay != "final.yaml" {
+		t.Errorf("expected PostOverlay 'final.yaml', got %q", flags.PostOverlay)
+	}
+}
+
+func TestValidatePrimaryOperationPolicy(t *testing.T) {
+	tests := []struct {
+		policy  string
+		wantErr bool
+	}{
+		{"", false},              // empty is valid (uses default)
+		{"first", false},         // valid policy
+		{"most-specific", false}, // valid policy
+		{"alphabetical", false},  // valid policy
+		{"invalid", true},        // invalid value
+		{"FIRST", true},          // case sensitive
+	}
+	for _, tt := range tests {
+		t.Run(tt.policy, func(t *testing.T) {
+			err := ValidatePrimaryOperationPolicy(tt.policy)
+			if tt.wantErr && err == nil {
+				t.Error("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestMapPrimaryOperationPolicy(t *testing.T) {
+	tests := []struct {
+		policy string
+		want   joiner.PrimaryOperationPolicy
+	}{
+		{"", joiner.PolicyFirstEncountered},      // empty defaults to first
+		{"first", joiner.PolicyFirstEncountered}, // explicit first
+		{"most-specific", joiner.PolicyMostSpecific},
+		{"alphabetical", joiner.PolicyAlphabetical},
+		{"unknown", joiner.PolicyFirstEncountered}, // unknown defaults to first
+	}
+	for _, tt := range tests {
+		t.Run(tt.policy, func(t *testing.T) {
+			got := MapPrimaryOperationPolicy(tt.policy)
+			if got != tt.want {
+				t.Errorf("expected %v, got %v", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestStringSliceFlag(t *testing.T) {
+	t.Run("empty string representation", func(t *testing.T) {
+		var flag stringSliceFlag
+		if flag.String() != "" {
+			t.Errorf("expected empty string, got %q", flag.String())
+		}
+	})
+
+	t.Run("nil string representation", func(t *testing.T) {
+		var flag *stringSliceFlag
+		if flag.String() != "" {
+			t.Errorf("expected empty string for nil, got %q", flag.String())
+		}
+	})
+
+	t.Run("set and string", func(t *testing.T) {
+		var flag stringSliceFlag
+		if err := flag.Set("value1"); err != nil {
+			t.Fatalf("unexpected error on first Set: %v", err)
+		}
+		if err := flag.Set("value2"); err != nil {
+			t.Fatalf("unexpected error on second Set: %v", err)
+		}
+		if len(flag) != 2 {
+			t.Errorf("expected length 2, got %d", len(flag))
+		}
+		expected := "value1,value2"
+		if flag.String() != expected {
+			t.Errorf("expected %q, got %q", expected, flag.String())
+		}
+	})
+}
+
+func TestHandleJoin_InvalidPrimaryOperationPolicy(t *testing.T) {
+	err := HandleJoin([]string{"--primary-operation-policy", "invalid", "f1.yaml", "f2.yaml"})
+	if err == nil {
+		t.Error("expected error for invalid primary operation policy")
+	}
+}
+
+func TestJoinFlags_CombinedNewFlags(t *testing.T) {
+	fs, flags := SetupJoinFlags()
+	err := fs.Parse([]string{
+		"--operation-context",
+		"--primary-operation-policy", "most-specific",
+		"--pre-overlay", "pre1.yaml",
+		"--pre-overlay", "pre2.yaml",
+		"--post-overlay", "post.yaml",
+		"api1.yaml", "api2.yaml",
+	})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if !flags.OperationContext {
+		t.Error("expected OperationContext to be true")
+	}
+	if flags.PrimaryOperationPolicy != "most-specific" {
+		t.Errorf("expected policy 'most-specific', got %q", flags.PrimaryOperationPolicy)
+	}
+	if len(flags.PreOverlays) != 2 {
+		t.Errorf("expected 2 pre-overlays, got %d", len(flags.PreOverlays))
+	}
+	if flags.PostOverlay != "post.yaml" {
+		t.Errorf("expected PostOverlay 'post.yaml', got %q", flags.PostOverlay)
+	}
+}
+
+func TestHandleJoin_NonexistentPreOverlay(t *testing.T) {
+	err := HandleJoin([]string{
+		"--pre-overlay", "/nonexistent/path/overlay.yaml",
+		"../../testdata/oas3/petstore.yaml",
+		"../../testdata/oas3/petstore.yaml",
+	})
+	if err == nil {
+		t.Error("expected error for nonexistent pre-overlay file")
+	}
+}
+
+func TestHandleJoin_NonexistentPostOverlay(t *testing.T) {
+	err := HandleJoin([]string{
+		"--post-overlay", "/nonexistent/path/overlay.yaml",
+		"../../testdata/oas3/petstore.yaml",
+		"../../testdata/oas3/petstore.yaml",
+	})
+	if err == nil {
+		t.Error("expected error for nonexistent post-overlay file")
+	}
 }
