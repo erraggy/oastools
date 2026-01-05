@@ -1009,3 +1009,83 @@ func TestPostVisit_DocumentPostWithGenericHandler(t *testing.T) {
 		}
 	}
 }
+
+// TestPostVisit_OAS2DocumentPostSkipChildren tests that OAS2 document post handlers
+// are NOT called when the document pre-handler returns SkipChildren.
+func TestPostVisit_OAS2DocumentPostSkipChildren(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getPets",
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion20,
+	}
+
+	var postCalled bool
+
+	err := Walk(result,
+		WithOAS2DocumentHandler(func(wc *WalkContext, doc *parser.OAS2Document) Action {
+			return SkipChildren
+		}),
+		WithOAS2DocumentPostHandler(func(wc *WalkContext, doc *parser.OAS2Document) {
+			postCalled = true
+		}),
+	)
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	if postCalled {
+		t.Error("OAS2 document post handler should NOT be called when SkipChildren is returned")
+	}
+}
+
+// TestPostVisit_OAS2DocumentPostStop tests that OAS2 document post handlers are NOT called
+// when Stop is returned during child traversal.
+func TestPostVisit_OAS2DocumentPostStop(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getPets",
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion20,
+	}
+
+	var postCalled bool
+
+	err := Walk(result,
+		WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action {
+			return Stop // Stop during child traversal
+		}),
+		WithOAS2DocumentPostHandler(func(wc *WalkContext, doc *parser.OAS2Document) {
+			postCalled = true
+		}),
+	)
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	if postCalled {
+		t.Error("OAS2 document post handler should NOT be called when Stop is returned during children")
+	}
+}
