@@ -109,14 +109,14 @@ type RenameContext struct {
 	Index  int    // Document index (0-based)
 
 	// Operation context (from primary operation reference)
-	Path        string   // API path: "/users/{id}"
-	Method      string   // HTTP method: "get", "post"
-	OperationID string   // Operation ID if defined
-	Tags        []string // Tags from primary operation
+	Path        string    // API path: "/users/{id}"
+	Method      string    // HTTP method: "get", "post"
+	OperationID string    // Operation ID if defined
+	Tags        []string  // Tags from primary operation
 	UsageType   UsageType // request, response, parameter, header, callback
-	StatusCode  string   // Response status code
-	ParamName   string   // Parameter name
-	MediaType   string   // Media type
+	StatusCode  string    // Response status code
+	ParamName   string    // Parameter name
+	MediaType   string    // Media type
 
 	// Aggregate context (when schema has multiple operation references)
 	AllPaths        []string // All referencing paths
