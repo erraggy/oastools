@@ -1,6 +1,7 @@
 package walker
 
 import (
+	"context"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -304,5 +305,130 @@ func BenchmarkWalk_WithPooling(b *testing.B) {
 				return Continue
 			}),
 		)
+	}
+}
+
+// TestWalkContext_WithContext verifies that WalkContext.WithContext creates a
+// copy with the new context while preserving all other fields.
+func TestWalkContext_WithContext(t *testing.T) {
+	wc := &WalkContext{
+		JSONPath:     "$.test",
+		PathTemplate: "/pets",
+		Method:       "get",
+		StatusCode:   "200",
+		Name:         "TestSchema",
+		IsComponent:  true,
+	}
+
+	type ctxKey string
+	ctx := context.WithValue(context.Background(), ctxKey("testKey"), "testValue")
+	wc2 := wc.WithContext(ctx)
+
+	// Should be a different instance
+	if wc == wc2 {
+		t.Error("WithContext should return a new instance")
+	}
+
+	// Should copy all fields
+	if wc.JSONPath != wc2.JSONPath {
+		t.Errorf("JSONPath mismatch: got %s, want %s", wc2.JSONPath, wc.JSONPath)
+	}
+	if wc.PathTemplate != wc2.PathTemplate {
+		t.Errorf("PathTemplate mismatch: got %s, want %s", wc2.PathTemplate, wc.PathTemplate)
+	}
+
+	// Should have new context
+	if wc2.Context() != ctx {
+		t.Error("new WalkContext should have the provided context")
+	}
+	if wc2.Context().Value(ctxKey("testKey")) != "testValue" {
+		t.Error("context value not preserved")
+	}
+}
+
+// TestWithContext_Propagation verifies that WithContext option propagates
+// the context to handlers via WalkContext.Context().
+func TestWithContext_Propagation(t *testing.T) {
+	type ctxKey string
+	ctx := context.WithValue(context.Background(), ctxKey("testKey"), "testValue")
+
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Test": {Type: "string"},
+			},
+		},
+	}
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	var receivedCtx context.Context
+	err := Walk(result,
+		WithContext(ctx),
+		WithSchemaHandler(func(wc *WalkContext, _ *parser.Schema) Action {
+			receivedCtx = wc.Context()
+			return Continue
+		}),
+	)
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+	if receivedCtx != ctx {
+		t.Error("handler did not receive the provided context")
+	}
+}
+
+// TestWithContext_Cancellation verifies cancelled context is accessible in handlers.
+func TestWithContext_Cancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Test": {Type: "string"},
+			},
+		},
+	}
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	var ctxErr error
+	err := Walk(result,
+		WithContext(ctx),
+		WithSchemaHandler(func(wc *WalkContext, _ *parser.Schema) Action {
+			ctxErr = wc.Context().Err()
+			return Continue
+		}),
+	)
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+	if ctxErr != context.Canceled {
+		t.Errorf("expected context.Canceled, got %v", ctxErr)
+	}
+}
+
+// TestWalkContext_Context_NilReturnsBackground verifies Context() returns
+// context.Background() when no context is set.
+func TestWalkContext_Context_NilReturnsBackground(t *testing.T) {
+	wc := &WalkContext{JSONPath: "$.test"}
+
+	ctx := wc.Context()
+	if ctx == nil {
+		t.Error("Context() should not return nil")
+	}
+	if ctx != context.Background() {
+		t.Error("Context() should return context.Background() when no context is set")
 	}
 }
