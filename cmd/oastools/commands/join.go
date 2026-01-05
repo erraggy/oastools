@@ -14,6 +14,24 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// stringSliceFlag is a custom flag type for collecting multiple string values.
+// It allows the flag to be specified multiple times, each adding to the slice.
+type stringSliceFlag []string
+
+// String returns the string representation of the flag value.
+func (s *stringSliceFlag) String() string {
+	if s == nil {
+		return ""
+	}
+	return strings.Join(*s, ",")
+}
+
+// Set parses a value and adds it to the slice.
+func (s *stringSliceFlag) Set(value string) error {
+	*s = append(*s, value)
+	return nil
+}
+
 // namespacePrefixFlag is a custom flag type for collecting namespace prefix mappings.
 // It allows the flag to be specified multiple times, each with "source=prefix" format.
 type namespacePrefixFlag map[string]string
@@ -63,6 +81,12 @@ type JoinFlags struct {
 	// Namespace prefix configuration
 	NamespacePrefix namespacePrefixFlag
 	AlwaysPrefix    bool
+	// Operation context configuration
+	OperationContext       bool
+	PrimaryOperationPolicy string
+	// Overlay configuration
+	PreOverlays stringSliceFlag
+	PostOverlay string
 }
 
 // SetupJoinFlags creates and configures a FlagSet for the join command.
@@ -95,6 +119,18 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 	fs.Var(flags.NamespacePrefix, "namespace-prefix", "namespace prefix for source file (format: source=prefix, can be repeated)")
 	fs.BoolVar(&flags.AlwaysPrefix, "always-prefix", false, "apply namespace prefix to all schemas, not just on collision")
 
+	// Operation context configuration
+	fs.BoolVar(&flags.OperationContext, "operation-context", false,
+		"enable operation-aware schema renaming (adds Path, Method, OperationID, Tags to templates)")
+	fs.StringVar(&flags.PrimaryOperationPolicy, "primary-operation-policy", "",
+		"policy for selecting primary operation context: first (default), most-specific, alphabetical")
+
+	// Overlay configuration
+	fs.Var(&flags.PreOverlays, "pre-overlay",
+		"overlay file to apply before joining (can be repeated)")
+	fs.StringVar(&flags.PostOverlay, "post-overlay", "",
+		"overlay file to apply to the merged result")
+
 	fs.Usage = func() {
 		Writef(fs.Output(), "Usage: oastools join [flags] <file1> <file2> [file3...]\n\n")
 		Writef(fs.Output(), "Join multiple OpenAPI specification files into a single document.\n\n")
@@ -113,13 +149,59 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 		Writef(fs.Output(), "  Format: source=prefix (can be specified multiple times)\n")
 		Writef(fs.Output(), "  By default, prefix is only applied on collision. Use --always-prefix to\n")
 		Writef(fs.Output(), "  apply namespace prefixes to all schemas from the configured sources.\n")
+		Writef(fs.Output(), "\nOperation Context:\n")
+		Writef(fs.Output(), "  When --operation-context is enabled, rename templates gain access to:\n")
+		Writef(fs.Output(), "  - {{.Path}}, {{.Method}}, {{.OperationID}}, {{.Tags}}\n")
+		Writef(fs.Output(), "  - {{.UsageType}}, {{.StatusCode}}, {{.ParamName}}, {{.MediaType}}\n")
+		Writef(fs.Output(), "  - Aggregate: {{.AllPaths}}, {{.AllMethods}}, {{.IsShared}}, {{.RefCount}}\n")
+		Writef(fs.Output(), "\n")
+		Writef(fs.Output(), "  Note: Only affects RIGHT (incoming) document schemas.\n")
+		Writef(fs.Output(), "\n")
+		Writef(fs.Output(), "  Primary operation policies:\n")
+		Writef(fs.Output(), "    first         Use the first operation found (default)\n")
+		Writef(fs.Output(), "    most-specific Prefer operations with operationId, then tags\n")
+		Writef(fs.Output(), "    alphabetical  Sort by path+method, use alphabetically first\n")
+		Writef(fs.Output(), "\nTemplate Functions (for use with --rename-template):\n")
+		Writef(fs.Output(), "  Path:    pathSegment, pathResource, pathLast, pathClean\n")
+		Writef(fs.Output(), "  Case:    pascalCase, camelCase, snakeCase, kebabCase\n")
+		Writef(fs.Output(), "  Tags:    firstTag, joinTags, hasTag\n")
+		Writef(fs.Output(), "  Logic:   default, coalesce\n")
+		Writef(fs.Output(), "\n")
+		Writef(fs.Output(), "  See joiner package documentation for full details.\n")
+		Writef(fs.Output(), "\nOverlays:\n")
+		Writef(fs.Output(), "  Use --pre-overlay to apply overlays to input specs before joining.\n")
+		Writef(fs.Output(), "  Use --post-overlay to apply an overlay to the merged result.\n")
+		Writef(fs.Output(), "  Pre-overlays can be specified multiple times.\n")
 		Writef(fs.Output(), "\nExamples:\n")
+		Writef(fs.Output(), "  # Basic joining\n")
 		Writef(fs.Output(), "  oastools join -o merged.yaml base.yaml extensions.yaml\n")
 		Writef(fs.Output(), "  oastools join --path-strategy accept-left -o api.yaml spec1.yaml spec2.yaml\n")
-		Writef(fs.Output(), "  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml api3.yaml\n")
-		Writef(fs.Output(), "  oastools join --namespace-prefix users.yaml=Users --namespace-prefix billing.yaml=Billing -o merged.yaml users.yaml billing.yaml\n")
-		Writef(fs.Output(), "  oastools join --namespace-prefix api2.yaml=V2 --always-prefix -o merged.yaml api1.yaml api2.yaml\n")
-		Writef(fs.Output(), "  oastools join -s -o merged.yaml api1.yaml api2.yaml  # Include line numbers in warnings\n")
+		Writef(fs.Output(), "  oastools join --schema-strategy accept-right -o output.yaml api1.yaml api2.yaml\n")
+		Writef(fs.Output(), "\n")
+		Writef(fs.Output(), "  # Namespace prefixes\n")
+		Writef(fs.Output(), "  oastools join --namespace-prefix users.yaml=Users \\\n")
+		Writef(fs.Output(), "    --namespace-prefix billing.yaml=Billing -o merged.yaml users.yaml billing.yaml\n")
+		Writef(fs.Output(), "  oastools join --namespace-prefix api2.yaml=V2 --always-prefix \\\n")
+		Writef(fs.Output(), "    -o merged.yaml api1.yaml api2.yaml\n")
+		Writef(fs.Output(), "\n")
+		Writef(fs.Output(), "  # Operation-aware renaming with OperationID\n")
+		Writef(fs.Output(), "  oastools join --schema-strategy rename-right --operation-context \\\n")
+		Writef(fs.Output(), "    --rename-template \"{{.OperationID | pascalCase}}{{.Name}}\" api1.yaml api2.yaml\n")
+		Writef(fs.Output(), "\n")
+		Writef(fs.Output(), "  # Path-based renaming\n")
+		Writef(fs.Output(), "  oastools join --schema-strategy rename-right --operation-context \\\n")
+		Writef(fs.Output(), "    --rename-template \"{{pathResource .Path | pascalCase}}{{.Name}}\" api1.yaml api2.yaml\n")
+		Writef(fs.Output(), "\n")
+		Writef(fs.Output(), "  # With overlays for pre/post processing\n")
+		Writef(fs.Output(), "  oastools join --pre-overlay normalize.yaml --post-overlay enhance.yaml \\\n")
+		Writef(fs.Output(), "    -o merged.yaml api1.yaml api2.yaml\n")
+		Writef(fs.Output(), "\n")
+		Writef(fs.Output(), "  # Multiple pre-overlays\n")
+		Writef(fs.Output(), "  oastools join --pre-overlay step1.yaml --pre-overlay step2.yaml \\\n")
+		Writef(fs.Output(), "    --post-overlay final.yaml -o merged.yaml api1.yaml api2.yaml\n")
+		Writef(fs.Output(), "\n")
+		Writef(fs.Output(), "  # Source mapping for IDE-friendly warnings\n")
+		Writef(fs.Output(), "  oastools join -s -o merged.yaml api1.yaml api2.yaml\n")
 		Writef(fs.Output(), "\nPipelining:\n")
 		Writef(fs.Output(), "  oastools join -q base.yaml ext.yaml | oastools validate -q -\n")
 		Writef(fs.Output(), "  oastools join -q spec1.yaml spec2.yaml | oastools convert -q -t 3.1.0 -\n")
@@ -182,6 +264,9 @@ func HandleJoin(args []string) error {
 	if err := ValidateEquivalenceMode(flags.EquivalenceMode); err != nil {
 		return err
 	}
+	if err := ValidatePrimaryOperationPolicy(flags.PrimaryOperationPolicy); err != nil {
+		return err
+	}
 
 	// Apply validated strategies to config
 	if flags.PathStrategy != "" {
@@ -203,11 +288,15 @@ func HandleJoin(args []string) error {
 
 	// Create joiner and execute with timing
 	startTime := time.Now()
-	var result *joiner.JoinResult
-	var err error
 
+	// Build joiner options - always use JoinWithOptions for consistency
+	joinOpts := []joiner.Option{
+		joiner.WithFilePaths(filePaths...),
+		joiner.WithConfig(config),
+	}
+
+	// Add source map support if requested
 	if flags.SourceMap {
-		// Parse all files with source maps
 		parsedDocs := make([]parser.ParseResult, 0, len(filePaths))
 		sourceMaps := make(map[string]*parser.SourceMap)
 		for _, path := range filePaths {
@@ -223,17 +312,33 @@ func HandleJoin(args []string) error {
 				sourceMaps[path] = parseResult.SourceMap
 			}
 		}
-
-		joinOpts := []joiner.Option{
+		// Replace WithFiles with WithParsed when using source maps
+		joinOpts = []joiner.Option{
 			joiner.WithParsed(parsedDocs...),
 			joiner.WithConfig(config),
 			joiner.WithSourceMaps(sourceMaps),
 		}
-		result, err = joiner.JoinWithOptions(joinOpts...)
-	} else {
-		j := joiner.New(config)
-		result, err = j.Join(filePaths)
 	}
+
+	// Add operation context options
+	if flags.OperationContext {
+		joinOpts = append(joinOpts, joiner.WithOperationContext(true))
+	}
+	if flags.PrimaryOperationPolicy != "" {
+		joinOpts = append(joinOpts, joiner.WithPrimaryOperationPolicy(
+			MapPrimaryOperationPolicy(flags.PrimaryOperationPolicy),
+		))
+	}
+
+	// Add overlay options
+	for _, preOverlay := range flags.PreOverlays {
+		joinOpts = append(joinOpts, joiner.WithPreJoinOverlayFile(preOverlay))
+	}
+	if flags.PostOverlay != "" {
+		joinOpts = append(joinOpts, joiner.WithPostJoinOverlayFile(flags.PostOverlay))
+	}
+
+	result, err := joiner.JoinWithOptions(joinOpts...)
 	if err != nil {
 		return fmt.Errorf("joining specifications: %w", err)
 	}

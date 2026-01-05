@@ -72,6 +72,32 @@ func ValidateEquivalenceMode(value string) error {
 	return nil
 }
 
+// ValidatePrimaryOperationPolicy validates the primary operation policy flag value.
+func ValidatePrimaryOperationPolicy(policy string) error {
+	if policy == "" {
+		return nil
+	}
+	valid := []string{"first", "most-specific", "alphabetical"}
+	for _, v := range valid {
+		if policy == v {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid primary-operation-policy %q: must be one of: first, most-specific, alphabetical", policy)
+}
+
+// MapPrimaryOperationPolicy maps a string policy to the joiner enum.
+func MapPrimaryOperationPolicy(policy string) joiner.PrimaryOperationPolicy {
+	switch policy {
+	case "most-specific":
+		return joiner.PolicyMostSpecific
+	case "alphabetical":
+		return joiner.PolicyAlphabetical
+	default:
+		return joiner.PolicyFirstEncountered
+	}
+}
+
 // ValidateOutputPath checks if the output path is safe to write to
 func ValidateOutputPath(outputPath string, inputPaths []string) error {
 	// Get absolute path of output file
