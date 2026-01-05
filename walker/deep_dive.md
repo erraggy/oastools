@@ -899,6 +899,9 @@ doc := &parser.OAS3Document{
     },
 }
 
+// Wrap in ParseResult for walking
+result := &parser.ParseResult{Document: doc, OASVersion: parser.OASVersion310}
+
 // Both refs will be tracked with WithMapRefTracking()
 walker.Walk(result,
     walker.WithMapRefTracking(),

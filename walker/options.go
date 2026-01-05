@@ -75,9 +75,12 @@ func WithParentTracking() Option {
 // AdditionalProperties, UnevaluatedItems, UnevaluatedProperties) that were not parsed as *Schema.
 // Implicitly enables ref tracking.
 //
-// This is useful when parsing documents where some schema fields remain as raw maps
-// rather than being fully resolved to *Schema types. The walker will call the ref handler
-// for any $ref values found in these map structures.
+// Polymorphic fields may contain map[string]any instead of *Schema when:
+//   - Documents are parsed from raw YAML/JSON without full schema resolution
+//   - Manually constructing documents with map literals (e.g., in tests)
+//   - Using external tooling that produces partially resolved documents
+//
+// The walker will call the ref handler for any $ref values found in these map structures.
 func WithMapRefTracking() Option {
 	return func(w *Walker) {
 		w.trackRefs = true

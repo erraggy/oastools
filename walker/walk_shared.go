@@ -358,7 +358,7 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 		}
 	}
 
-	// AdditionalProperties (can be *Schema, bool, or map[string]any with $ref)
+	// AdditionalProperties (can be *Schema, bool, or map[string]any (which may contain a $ref key))
 	switch addProps := schema.AdditionalProperties.(type) {
 	case *parser.Schema:
 		if err := w.walkSchema(addProps, basePath+".additionalProperties", depth+1, state); err != nil {
@@ -374,7 +374,7 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 		}
 	}
 
-	// UnevaluatedProperties (can be *Schema, bool, or map[string]any with $ref)
+	// UnevaluatedProperties (can be *Schema, bool, or map[string]any (which may contain a $ref key))
 	switch uProps := schema.UnevaluatedProperties.(type) {
 	case *parser.Schema:
 		if err := w.walkSchema(uProps, basePath+".unevaluatedProperties", depth+1, state); err != nil {
@@ -414,7 +414,7 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 
 // walkSchemaArrayKeywords walks array-related schema keywords.
 func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string, depth int, state *walkState) error {
-	// Items (can be *Schema, bool, or map[string]any with $ref)
+	// Items (can be *Schema, bool, or map[string]any (which may contain a $ref key))
 	switch items := schema.Items.(type) {
 	case *parser.Schema:
 		if err := w.walkSchema(items, basePath+".items", depth+1, state); err != nil {
@@ -430,7 +430,7 @@ func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string,
 		}
 	}
 
-	// AdditionalItems (can be *Schema, bool, or map[string]any with $ref)
+	// AdditionalItems (can be *Schema, bool, or map[string]any (which may contain a $ref key))
 	switch addItems := schema.AdditionalItems.(type) {
 	case *parser.Schema:
 		if err := w.walkSchema(addItems, basePath+".additionalItems", depth+1, state); err != nil {
@@ -458,7 +458,7 @@ func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string,
 		}
 	}
 
-	// UnevaluatedItems (can be *Schema, bool, or map[string]any with $ref)
+	// UnevaluatedItems (can be *Schema, bool, or map[string]any (which may contain a $ref key))
 	switch uItems := schema.UnevaluatedItems.(type) {
 	case *parser.Schema:
 		if err := w.walkSchema(uItems, basePath+".unevaluatedItems", depth+1, state); err != nil {
