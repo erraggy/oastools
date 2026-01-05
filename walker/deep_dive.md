@@ -262,7 +262,28 @@ Each OAS node type has a corresponding handler type:
 
 ### WalkContext
 
-Every handler receives a `*WalkContext` as its first parameter, providing contextual information about the current node:
+Every handler receives a `*WalkContext` as its first parameter, providing contextual information about the current node.
+
+> **Important: WalkContext Pooling**
+>
+> WalkContext instances are reused via `sync.Pool` for performance. Handlers **must not** retain references to WalkContext after returning. If you need to preserve context information, copy the needed fields:
+>
+> ```go
+> // Wrong - retaining WalkContext reference
+> var saved []*WalkContext
+> WithSchemaHandler(func(wc *WalkContext, s *parser.Schema) Action {
+>     saved = append(saved, wc) // Don't do this!
+>     return Continue
+> })
+>
+> // Correct - copy needed fields
+> type Info struct { JSONPath, Name string }
+> var saved []Info
+> WithSchemaHandler(func(wc *WalkContext, s *parser.Schema) Action {
+>     saved = append(saved, Info{wc.JSONPath, wc.Name})
+>     return Continue
+> })
+> ```
 
 | Field | Description |
 |-------|-------------|
@@ -796,15 +817,29 @@ walker.Walk(result,
 
 ### WithRefTracking Option
 
-Use `WithRefTracking()` to enable reference tracking without setting a handler. This is useful when you want to track refs but process them in node handlers:
+`WithRefTracking()` enables internal reference tracking for statistics and debugging purposes, but it does **not** populate `CurrentRef` in node handlers. The `CurrentRef` field is only set when you register a `RefHandler` via `WithRefHandler()`.
+
+To check for references in node handlers, examine the node's `Ref` field directly:
 
 ```go
 walker.Walk(result,
-    walker.WithRefTracking(),
     walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
         if schema.Ref != "" {
-            // Process schema with ref
+            // This schema is a $ref - check schema.Ref directly
+            fmt.Printf("Schema ref at %s: %s\n", wc.JSONPath, schema.Ref)
         }
+        return walker.Continue
+    }),
+)
+```
+
+If you need the dedicated `RefInfo` structure with `NodeType` classification, use `WithRefHandler()` instead:
+
+```go
+walker.Walk(result,
+    walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+        // RefInfo provides: Ref, SourcePath, NodeType
+        fmt.Printf("Ref %s at %s (type: %s)\n", ref.Ref, ref.SourcePath, ref.NodeType)
         return walker.Continue
     }),
 )

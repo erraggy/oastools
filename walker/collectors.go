@@ -34,7 +34,10 @@ type SchemaCollector struct {
 	// ByPath provides lookup by JSON path.
 	ByPath map[string]*SchemaInfo
 
-	// ByName provides lookup by component name (components only).
+	// ByName provides lookup by name for schemas in the components section.
+	// For top-level component schemas, this is the schema name (e.g., "Pet").
+	// For nested property schemas within components, this is the property name.
+	// Note: If multiple schemas have the same name, only the last one is stored.
 	ByName map[string]*SchemaInfo
 }
 
