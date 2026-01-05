@@ -40,6 +40,36 @@ func WithUserContext(ctx context.Context) Option {
 	}
 }
 
+// WithRefTracking enables tracking of $ref values during traversal.
+// When enabled, WalkContext.CurrentRef is populated for nodes with refs.
+func WithRefTracking() Option {
+	return func(w *Walker) {
+		w.trackRefs = true
+	}
+}
+
+// WithRefHandler sets a handler called when a $ref is encountered.
+// Implicitly enables ref tracking.
+func WithRefHandler(fn RefHandler) Option {
+	return func(w *Walker) {
+		w.trackRefs = true
+		w.onRef = fn
+	}
+}
+
+// WithParentTracking enables tracking of parent nodes during traversal.
+// When enabled, WalkContext.Parent provides access to ancestor nodes,
+// and helper methods like ParentSchema(), ParentOperation(), ParentPathItem(),
+// ParentResponse(), ParentRequestBody(), Ancestors(), and Depth() become available.
+//
+// This adds some overhead (parent stack management), so only enable when needed.
+// By default, parent tracking is disabled for optimal performance.
+func WithParentTracking() Option {
+	return func(w *Walker) {
+		w.trackParent = true
+	}
+}
+
 // WalkWithOptions walks a document using functional options for input, handlers, and configuration.
 // All options use the unified Option type - no adapter is needed.
 //

@@ -130,6 +130,29 @@ type ExternalDocsHandler func(wc *WalkContext, extDocs *parser.ExternalDocs) Act
 // The schema parameter is the schema that was skipped. The JSON path is in wc.JSONPath.
 type SchemaSkippedHandler func(wc *WalkContext, reason string, schema *parser.Schema)
 
+// Post-visit handler types.
+// These handlers are called after a node's children have been processed.
+// They do not return an Action since children are already visited.
+// Post handlers are not called if the pre-visit handler returned SkipChildren or Stop.
+
+// SchemaPostHandler is called after a schema's children have been processed.
+type SchemaPostHandler func(wc *WalkContext, schema *parser.Schema)
+
+// OperationPostHandler is called after an operation's children have been processed.
+type OperationPostHandler func(wc *WalkContext, op *parser.Operation)
+
+// PathItemPostHandler is called after a path item's children have been processed.
+type PathItemPostHandler func(wc *WalkContext, pathItem *parser.PathItem)
+
+// ResponsePostHandler is called after a response's children have been processed.
+type ResponsePostHandler func(wc *WalkContext, resp *parser.Response)
+
+// RequestBodyPostHandler is called after a request body's children have been processed.
+type RequestBodyPostHandler func(wc *WalkContext, reqBody *parser.RequestBody)
+
+// CallbackPostHandler is called after a callback's children have been processed.
+type CallbackPostHandler func(wc *WalkContext, callback parser.Callback)
+
 // Walker traverses OpenAPI documents and calls handlers for each node type.
 type Walker struct {
 	// Input sources (mutually exclusive)
@@ -158,10 +181,21 @@ type Walker struct {
 	onExample        ExampleHandler
 	onExternalDocs   ExternalDocsHandler
 	onSchemaSkipped  SchemaSkippedHandler
+	onRef            RefHandler
+
+	// Post-visit handlers
+	onSchemaPost      SchemaPostHandler
+	onOperationPost   OperationPostHandler
+	onPathItemPost    PathItemPostHandler
+	onResponsePost    ResponsePostHandler
+	onRequestBodyPost RequestBodyPostHandler
+	onCallbackPost    CallbackPostHandler
 
 	// Configuration
-	maxDepth int
-	userCtx  context.Context
+	maxDepth    int
+	trackRefs   bool
+	trackParent bool
+	userCtx     context.Context
 
 	// Internal state
 	visitedSchemas map[*parser.Schema]bool
@@ -287,6 +321,46 @@ func WithSchemaSkippedHandler(fn SchemaSkippedHandler) Option {
 	return func(w *Walker) { w.onSchemaSkipped = fn }
 }
 
+// Post-visit handler options.
+// These handlers are called after a node's children have been processed,
+// enabling bottom-up processing patterns like aggregation.
+
+// WithSchemaPostHandler sets a handler called after a schema's children are processed.
+// Not called if the pre-visit handler returns SkipChildren or Stop.
+func WithSchemaPostHandler(fn SchemaPostHandler) Option {
+	return func(w *Walker) { w.onSchemaPost = fn }
+}
+
+// WithOperationPostHandler sets a handler called after an operation's children are processed.
+// Not called if the pre-visit handler returns SkipChildren or Stop.
+func WithOperationPostHandler(fn OperationPostHandler) Option {
+	return func(w *Walker) { w.onOperationPost = fn }
+}
+
+// WithPathItemPostHandler sets a handler called after a path item's children are processed.
+// Not called if the pre-visit handler returns SkipChildren or Stop.
+func WithPathItemPostHandler(fn PathItemPostHandler) Option {
+	return func(w *Walker) { w.onPathItemPost = fn }
+}
+
+// WithResponsePostHandler sets a handler called after a response's children are processed.
+// Not called if the pre-visit handler returns SkipChildren or Stop.
+func WithResponsePostHandler(fn ResponsePostHandler) Option {
+	return func(w *Walker) { w.onResponsePost = fn }
+}
+
+// WithRequestBodyPostHandler sets a handler called after a request body's children are processed.
+// Not called if the pre-visit handler returns SkipChildren or Stop.
+func WithRequestBodyPostHandler(fn RequestBodyPostHandler) Option {
+	return func(w *Walker) { w.onRequestBodyPost = fn }
+}
+
+// WithCallbackPostHandler sets a handler called after a callback's children are processed.
+// Not called if the pre-visit handler returns SkipChildren or Stop.
+func WithCallbackPostHandler(fn CallbackPostHandler) Option {
+	return func(w *Walker) { w.onCallbackPost = fn }
+}
+
 // WithMaxDepth sets the maximum schema recursion depth.
 // If depth is not positive, it is silently ignored and the default (100) is kept.
 func WithMaxDepth(depth int) Option {
@@ -328,9 +402,16 @@ func (w *Walker) walk(result *parser.ParseResult) error {
 	w.visitedSchemas = make(map[*parser.Schema]bool)
 	w.stopped = false
 
-	// Create initial walk state with user context
+	// Create initial walk state with user context and walker reference
 	state := &walkState{
-		ctx: w.userCtx,
+		ctx:    w.userCtx,
+		walker: w,
+	}
+
+	// Initialize parent stack if tracking is enabled
+	if w.trackParent {
+		stack := make([]*ParentInfo, 0, 16)
+		state.parentStack = &stack
 	}
 
 	switch doc := result.Document.(type) {

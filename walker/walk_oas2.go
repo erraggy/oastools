@@ -14,7 +14,9 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 	continueToChildren := true
 	if w.onOAS2Document != nil {
 		wc := state.buildContext("$")
-		if !w.handleAction(w.onOAS2Document(wc, doc)) {
+		result := w.handleAction(w.onOAS2Document(wc, doc))
+		releaseContext(wc)
+		if !result {
 			if w.stopped {
 				return nil
 			}
@@ -25,7 +27,9 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 	// but not if it returned Stop
 	if w.onDocument != nil {
 		wc := state.buildContext("$")
-		if !w.handleAction(w.onDocument(wc, doc)) {
+		result := w.handleAction(w.onDocument(wc, doc))
+		releaseContext(wc)
+		if !result {
 			if w.stopped {
 				return nil
 			}
@@ -40,7 +44,9 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 	// Info
 	if doc.Info != nil && w.onInfo != nil {
 		wc := state.buildContext("$.info")
-		if !w.handleAction(w.onInfo(wc, doc.Info)) {
+		result := w.handleAction(w.onInfo(wc, doc.Info))
+		releaseContext(wc)
+		if !result {
 			if w.stopped {
 				return nil
 			}
@@ -50,7 +56,9 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 	// ExternalDocs (root level)
 	if doc.ExternalDocs != nil && w.onExternalDocs != nil {
 		wc := state.buildContext("$.externalDocs")
-		if !w.handleAction(w.onExternalDocs(wc, doc.ExternalDocs)) {
+		result := w.handleAction(w.onExternalDocs(wc, doc.ExternalDocs))
+		releaseContext(wc)
+		if !result {
 			if w.stopped {
 				return nil
 			}
@@ -158,11 +166,23 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 				return nil
 			}
 			ss := doc.SecurityDefinitions[name]
-			if ss != nil && w.onSecurityScheme != nil {
-				sState := ssState.clone()
-				sState.name = name
-				wc := sState.buildContext("$.securityDefinitions['" + name + "']")
+			if ss == nil {
+				continue
+			}
+
+			ssPath := "$.securityDefinitions['" + name + "']"
+			sState := ssState.clone()
+			sState.name = name
+
+			// Check for $ref
+			if w.handleRef(ss.Ref, ssPath, "securityScheme", sState) == Stop {
+				return nil
+			}
+
+			if w.onSecurityScheme != nil {
+				wc := sState.buildContext(ssPath)
 				w.handleAction(w.onSecurityScheme(wc, ss))
+				releaseContext(wc)
 			}
 		}
 	}
@@ -175,6 +195,7 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 		if tag != nil && w.onTag != nil {
 			wc := state.buildContext(fmt.Sprintf("$.tags[%d]", i))
 			w.handleAction(w.onTag(wc, tag))
+			releaseContext(wc)
 		}
 	}
 
@@ -204,6 +225,7 @@ func (w *Walker) walkOAS2Paths(paths parser.Paths, basePath string, state *walkS
 		if w.onPath != nil {
 			wc := pathState.buildContext(itemPath)
 			continueToChildren = w.handleAction(w.onPath(wc, pathItem))
+			releaseContext(wc)
 			if w.stopped {
 				return nil
 			}
@@ -220,19 +242,29 @@ func (w *Walker) walkOAS2Paths(paths parser.Paths, basePath string, state *walkS
 
 // walkOAS2PathItem walks a single PathItem.
 func (w *Walker) walkOAS2PathItem(pathItem *parser.PathItem, basePath string, state *walkState) error {
-	// PathItem handler
+	// Check for $ref
+	if w.handleRef(pathItem.Ref, basePath, "pathItem", state) == Stop {
+		return nil
+	}
+
+	// PathItem pre-visit handler
 	continueToChildren := true
 	if w.onPathItem != nil {
 		wc := state.buildContext(basePath)
 		continueToChildren = w.handleAction(w.onPathItem(wc, pathItem))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
 	}
 
 	if !continueToChildren {
-		return nil
+		return nil // SkipChildren - don't call post handler
 	}
+
+	// Push path item as parent for nested nodes
+	state.pushParent(pathItem, basePath)
+	defer state.popParent()
 
 	// PathItem-level parameters
 	for i, param := range pathItem.Parameters {
@@ -271,29 +303,41 @@ func (w *Walker) walkOAS2PathItem(pathItem *parser.PathItem, basePath string, st
 		}
 	}
 
+	// Call post-visit handler after children (but before popParent)
+	if w.onPathItemPost != nil && !w.stopped {
+		wc := state.buildContext(basePath)
+		w.onPathItemPost(wc, pathItem)
+	}
+
 	return nil
 }
 
 // walkOAS2Operation walks a single Operation.
 func (w *Walker) walkOAS2Operation(op *parser.Operation, basePath string, state *walkState) error {
-	// Operation handler
+	// Operation pre-visit handler
 	continueToChildren := true
 	if w.onOperation != nil {
 		wc := state.buildContext(basePath)
 		continueToChildren = w.handleAction(w.onOperation(wc, op))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
 	}
 
 	if !continueToChildren {
-		return nil
+		return nil // SkipChildren - don't call post handler
 	}
+
+	// Push operation as parent for nested nodes
+	state.pushParent(op, basePath)
+	defer state.popParent()
 
 	// ExternalDocs
 	if op.ExternalDocs != nil && w.onExternalDocs != nil {
 		wc := state.buildContext(basePath + ".externalDocs")
 		w.handleAction(w.onExternalDocs(wc, op.ExternalDocs))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
@@ -314,6 +358,12 @@ func (w *Walker) walkOAS2Operation(op *parser.Operation, basePath string, state 
 		if err := w.walkOAS2Responses(op.Responses, basePath+".responses", state); err != nil {
 			return err
 		}
+	}
+
+	// Call post-visit handler after children (but before popParent)
+	if w.onOperationPost != nil && !w.stopped {
+		wc := state.buildContext(basePath)
+		w.onOperationPost(wc, op)
 	}
 
 	return nil
@@ -358,18 +408,29 @@ func (w *Walker) walkOAS2Responses(responses *parser.Responses, basePath string,
 
 // walkOAS2Response walks a single Response (OAS 2.0 style).
 func (w *Walker) walkOAS2Response(resp *parser.Response, basePath string, state *walkState) error {
+	// Check for $ref
+	if w.handleRef(resp.Ref, basePath, "response", state) == Stop {
+		return nil
+	}
+
+	// Response pre-visit handler
 	continueToChildren := true
 	if w.onResponse != nil {
 		wc := state.buildContext(basePath)
 		continueToChildren = w.handleAction(w.onResponse(wc, resp))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
 	}
 
 	if !continueToChildren {
-		return nil
+		return nil // SkipChildren - don't call post handler
 	}
+
+	// Push response as parent for nested nodes
+	state.pushParent(resp, basePath)
+	defer state.popParent()
 
 	// Headers
 	if resp.Headers != nil {
@@ -385,6 +446,12 @@ func (w *Walker) walkOAS2Response(resp *parser.Response, basePath string, state 
 		if err := w.walkSchema(resp.Schema, basePath+".schema", 0, schemaState); err != nil {
 			return err
 		}
+	}
+
+	// Call post-visit handler after children (but before popParent)
+	if w.onResponsePost != nil && !w.stopped {
+		wc := state.buildContext(basePath)
+		w.onResponsePost(wc, resp)
 	}
 
 	return nil

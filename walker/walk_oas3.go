@@ -14,7 +14,9 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document, state *walkState) error {
 	continueToChildren := true
 	if w.onOAS3Document != nil {
 		wc := state.buildContext("$")
-		if !w.handleAction(w.onOAS3Document(wc, doc)) {
+		result := w.handleAction(w.onOAS3Document(wc, doc))
+		releaseContext(wc)
+		if !result {
 			if w.stopped {
 				return nil
 			}
@@ -25,7 +27,9 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document, state *walkState) error {
 	// but not if it returned Stop
 	if w.onDocument != nil {
 		wc := state.buildContext("$")
-		if !w.handleAction(w.onDocument(wc, doc)) {
+		result := w.handleAction(w.onDocument(wc, doc))
+		releaseContext(wc)
+		if !result {
 			if w.stopped {
 				return nil
 			}
@@ -40,7 +44,9 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document, state *walkState) error {
 	// Info
 	if doc.Info != nil && w.onInfo != nil {
 		wc := state.buildContext("$.info")
-		if !w.handleAction(w.onInfo(wc, doc.Info)) {
+		result := w.handleAction(w.onInfo(wc, doc.Info))
+		releaseContext(wc)
+		if !result {
 			if w.stopped {
 				return nil
 			}
@@ -50,7 +56,9 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document, state *walkState) error {
 	// ExternalDocs (root level)
 	if doc.ExternalDocs != nil && w.onExternalDocs != nil {
 		wc := state.buildContext("$.externalDocs")
-		if !w.handleAction(w.onExternalDocs(wc, doc.ExternalDocs)) {
+		result := w.handleAction(w.onExternalDocs(wc, doc.ExternalDocs))
+		releaseContext(wc)
+		if !result {
 			if w.stopped {
 				return nil
 			}
@@ -65,6 +73,7 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document, state *walkState) error {
 		if server != nil && w.onServer != nil {
 			wc := state.buildContext(fmt.Sprintf("$.servers[%d]", i))
 			w.handleAction(w.onServer(wc, server))
+			releaseContext(wc)
 		}
 	}
 
@@ -99,6 +108,7 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document, state *walkState) error {
 		if tag != nil && w.onTag != nil {
 			wc := state.buildContext(fmt.Sprintf("$.tags[%d]", i))
 			w.handleAction(w.onTag(wc, tag))
+			releaseContext(wc)
 		}
 	}
 
@@ -128,6 +138,7 @@ func (w *Walker) walkOAS3Paths(paths parser.Paths, basePath string, state *walkS
 		if w.onPath != nil {
 			wc := pathState.buildContext(itemPath)
 			continueToChildren = w.handleAction(w.onPath(wc, pathItem))
+			releaseContext(wc)
 			if w.stopped {
 				return nil
 			}
@@ -170,6 +181,7 @@ func (w *Walker) walkOAS3Webhooks(webhooks map[string]*parser.PathItem, basePath
 		if w.onPathItem != nil {
 			wc := webhookState.buildContext(itemPath)
 			continueToChildren = w.handleAction(w.onPathItem(wc, pathItem))
+			releaseContext(wc)
 			if w.stopped {
 				return nil
 			}
@@ -186,19 +198,29 @@ func (w *Walker) walkOAS3Webhooks(webhooks map[string]*parser.PathItem, basePath
 
 // walkOAS3PathItem walks a single PathItem.
 func (w *Walker) walkOAS3PathItem(pathItem *parser.PathItem, basePath string, state *walkState) error {
-	// PathItem handler
+	// Check for $ref
+	if w.handleRef(pathItem.Ref, basePath, "pathItem", state) == Stop {
+		return nil
+	}
+
+	// PathItem pre-visit handler
 	continueToChildren := true
 	if w.onPathItem != nil {
 		wc := state.buildContext(basePath)
 		continueToChildren = w.handleAction(w.onPathItem(wc, pathItem))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
 	}
 
 	if !continueToChildren {
-		return nil
+		return nil // SkipChildren - don't call post handler
 	}
+
+	// Push path item as parent for nested nodes
+	state.pushParent(pathItem, basePath)
+	defer state.popParent()
 
 	// PathItem-level parameters
 	for i, param := range pathItem.Parameters {
@@ -211,7 +233,17 @@ func (w *Walker) walkOAS3PathItem(pathItem *parser.PathItem, basePath string, st
 	}
 
 	// Operations
-	return w.walkOAS3PathItemOperations(pathItem, basePath, state)
+	if err := w.walkOAS3PathItemOperations(pathItem, basePath, state); err != nil {
+		return err
+	}
+
+	// Call post-visit handler after children (but before popParent)
+	if w.onPathItemPost != nil && !w.stopped {
+		wc := state.buildContext(basePath)
+		w.onPathItemPost(wc, pathItem)
+	}
+
+	return nil
 }
 
 // walkOAS3PathItemOperations walks all operations in a PathItem.
@@ -273,24 +305,30 @@ func (w *Walker) walkOAS3PathItemOperations(pathItem *parser.PathItem, basePath 
 
 // walkOAS3Operation walks a single Operation.
 func (w *Walker) walkOAS3Operation(op *parser.Operation, basePath string, state *walkState) error {
-	// Operation handler
+	// Operation pre-visit handler
 	continueToChildren := true
 	if w.onOperation != nil {
 		wc := state.buildContext(basePath)
 		continueToChildren = w.handleAction(w.onOperation(wc, op))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
 	}
 
 	if !continueToChildren {
-		return nil
+		return nil // SkipChildren - don't call post handler
 	}
+
+	// Push operation as parent for nested nodes
+	state.pushParent(op, basePath)
+	defer state.popParent()
 
 	// ExternalDocs
 	if op.ExternalDocs != nil && w.onExternalDocs != nil {
 		wc := state.buildContext(basePath + ".externalDocs")
 		w.handleAction(w.onExternalDocs(wc, op.ExternalDocs))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
@@ -341,26 +379,53 @@ func (w *Walker) walkOAS3Operation(op *parser.Operation, basePath string, state 
 		}
 	}
 
+	// Call post-visit handler after children (but before popParent)
+	if w.onOperationPost != nil && !w.stopped {
+		wc := state.buildContext(basePath)
+		w.onOperationPost(wc, op)
+	}
+
 	return nil
 }
 
 // walkOAS3RequestBody walks a RequestBody.
 func (w *Walker) walkOAS3RequestBody(reqBody *parser.RequestBody, basePath string, state *walkState) error {
+	// Check for $ref
+	if w.handleRef(reqBody.Ref, basePath, "requestBody", state) == Stop {
+		return nil
+	}
+
+	// RequestBody pre-visit handler
 	continueToChildren := true
 	if w.onRequestBody != nil {
 		wc := state.buildContext(basePath)
 		continueToChildren = w.handleAction(w.onRequestBody(wc, reqBody))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
 	}
 
 	if !continueToChildren {
-		return nil
+		return nil // SkipChildren - don't call post handler
 	}
 
+	// Push request body as parent for nested nodes
+	state.pushParent(reqBody, basePath)
+	defer state.popParent()
+
 	// Content
-	return w.walkContent(reqBody.Content, basePath+".content", state)
+	if err := w.walkContent(reqBody.Content, basePath+".content", state); err != nil {
+		return err
+	}
+
+	// Call post-visit handler after children (but before popParent)
+	if w.onRequestBodyPost != nil && !w.stopped {
+		wc := state.buildContext(basePath)
+		w.onRequestBodyPost(wc, reqBody)
+	}
+
+	return nil
 }
 
 // walkOAS3Responses walks Responses.
@@ -402,18 +467,29 @@ func (w *Walker) walkOAS3Responses(responses *parser.Responses, basePath string,
 
 // walkOAS3Response walks a single Response.
 func (w *Walker) walkOAS3Response(resp *parser.Response, basePath string, state *walkState) error {
+	// Check for $ref
+	if w.handleRef(resp.Ref, basePath, "response", state) == Stop {
+		return nil
+	}
+
+	// Response pre-visit handler
 	continueToChildren := true
 	if w.onResponse != nil {
 		wc := state.buildContext(basePath)
 		continueToChildren = w.handleAction(w.onResponse(wc, resp))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
 	}
 
 	if !continueToChildren {
-		return nil
+		return nil // SkipChildren - don't call post handler
 	}
+
+	// Push response as parent for nested nodes
+	state.pushParent(resp, basePath)
+	defer state.popParent()
 
 	// Headers
 	if resp.Headers != nil {
@@ -442,13 +518,31 @@ func (w *Walker) walkOAS3Response(resp *parser.Response, basePath string, state 
 				return nil
 			}
 			link := resp.Links[name]
-			if link != nil && w.onLink != nil {
-				linkState := state.clone()
-				linkState.name = name
-				wc := linkState.buildContext(basePath + ".links['" + name + "']")
+			if link == nil {
+				continue
+			}
+
+			linkPath := basePath + ".links['" + name + "']"
+			linkState := state.clone()
+			linkState.name = name
+
+			// Check for $ref
+			if w.handleRef(link.Ref, linkPath, "link", linkState) == Stop {
+				return nil
+			}
+
+			if w.onLink != nil {
+				wc := linkState.buildContext(linkPath)
 				w.handleAction(w.onLink(wc, link))
+				releaseContext(wc)
 			}
 		}
+	}
+
+	// Call post-visit handler after children (but before popParent)
+	if w.onResponsePost != nil && !w.stopped {
+		wc := state.buildContext(basePath)
+		w.onResponsePost(wc, resp)
 	}
 
 	return nil
@@ -456,7 +550,7 @@ func (w *Walker) walkOAS3Response(resp *parser.Response, basePath string, state 
 
 // walkOAS3Callback walks a Callback.
 func (w *Walker) walkOAS3Callback(name string, callback parser.Callback, basePath string, state *walkState) error {
-	// Callback handler
+	// Callback pre-visit handler
 	cbState := state.clone()
 	cbState.name = name
 
@@ -464,14 +558,18 @@ func (w *Walker) walkOAS3Callback(name string, callback parser.Callback, basePat
 	if w.onCallback != nil {
 		wc := cbState.buildContext(basePath)
 		continueToChildren = w.handleAction(w.onCallback(wc, callback))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
 	}
 
 	if !continueToChildren {
-		return nil
+		return nil // SkipChildren - don't call post handler
 	}
+
+	// Note: We don't push callback as parent since it's a map type, not a struct pointer.
+	// The PathItems within the callback will have their own parent tracking.
 
 	// Callback is map[string]*PathItem
 	exprKeys := make([]string, 0, len(callback))
@@ -493,6 +591,12 @@ func (w *Walker) walkOAS3Callback(name string, callback parser.Callback, basePat
 				return err
 			}
 		}
+	}
+
+	// Call post-visit handler after children
+	if w.onCallbackPost != nil && !w.stopped {
+		wc := cbState.buildContext(basePath)
+		w.onCallbackPost(wc, callback)
 	}
 
 	return nil
@@ -622,11 +726,24 @@ func (w *Walker) walkComponentSecuritySchemes(components *parser.Components, bas
 		if w.stopped {
 			return nil
 		}
-		if ss := components.SecuritySchemes[name]; ss != nil && w.onSecurityScheme != nil {
-			ssState := state.clone()
-			ssState.name = name
-			wc := ssState.buildContext(basePath + ".securitySchemes['" + name + "']")
+		ss := components.SecuritySchemes[name]
+		if ss == nil {
+			continue
+		}
+
+		ssPath := basePath + ".securitySchemes['" + name + "']"
+		ssState := state.clone()
+		ssState.name = name
+
+		// Check for $ref
+		if w.handleRef(ss.Ref, ssPath, "securityScheme", ssState) == Stop {
+			return nil
+		}
+
+		if w.onSecurityScheme != nil {
+			wc := ssState.buildContext(ssPath)
 			w.handleAction(w.onSecurityScheme(wc, ss))
+			releaseContext(wc)
 		}
 	}
 	return nil
@@ -640,11 +757,24 @@ func (w *Walker) walkComponentLinks(components *parser.Components, basePath stri
 		if w.stopped {
 			return nil
 		}
-		if link := components.Links[name]; link != nil && w.onLink != nil {
-			linkState := state.clone()
-			linkState.name = name
-			wc := linkState.buildContext(basePath + ".links['" + name + "']")
+		link := components.Links[name]
+		if link == nil {
+			continue
+		}
+
+		linkPath := basePath + ".links['" + name + "']"
+		linkState := state.clone()
+		linkState.name = name
+
+		// Check for $ref
+		if w.handleRef(link.Ref, linkPath, "link", linkState) == Stop {
+			return nil
+		}
+
+		if w.onLink != nil {
+			wc := linkState.buildContext(linkPath)
 			w.handleAction(w.onLink(wc, link))
+			releaseContext(wc)
 		}
 	}
 	return nil
@@ -675,11 +805,24 @@ func (w *Walker) walkComponentExamples(components *parser.Components, basePath s
 		if w.stopped {
 			return nil
 		}
-		if ex := components.Examples[name]; ex != nil && w.onExample != nil {
-			exState := state.clone()
-			exState.name = name
-			wc := exState.buildContext(basePath + ".examples['" + name + "']")
+		ex := components.Examples[name]
+		if ex == nil {
+			continue
+		}
+
+		exPath := basePath + ".examples['" + name + "']"
+		exState := state.clone()
+		exState.name = name
+
+		// Check for $ref
+		if w.handleRef(ex.Ref, exPath, "example", exState) == Stop {
+			return nil
+		}
+
+		if w.onExample != nil {
+			wc := exState.buildContext(exPath)
 			w.handleAction(w.onExample(wc, ex))
+			releaseContext(wc)
 		}
 	}
 	return nil
