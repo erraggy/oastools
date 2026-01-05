@@ -911,3 +911,180 @@ func TestWalk_OAS2ResponseSkipChildren(t *testing.T) {
 		assert.Contains(t, p, "400", "visited schema should be from 400 response")
 	}
 }
+
+// OAS 2.0 Paths Edge Case Tests
+
+func TestWalk_OAS2EmptyPaths(t *testing.T) {
+	// Test walking a document with empty paths map
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths:   parser.Paths{}, // Empty paths
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var pathHandlerCalled bool
+	var operationHandlerCalled bool
+	err := Walk(result,
+		WithPathHandler(func(wc *WalkContext, pathItem *parser.PathItem) Action {
+			pathHandlerCalled = true
+			return Continue
+		}),
+		WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action {
+			operationHandlerCalled = true
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.False(t, pathHandlerCalled, "path handler should not be called for empty paths")
+	assert.False(t, operationHandlerCalled, "operation handler should not be called for empty paths")
+}
+
+func TestWalk_OAS2NilPaths(t *testing.T) {
+	// Test walking a document with nil paths
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths:   nil,
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var pathHandlerCalled bool
+	err := Walk(result,
+		WithPathHandler(func(wc *WalkContext, pathItem *parser.PathItem) Action {
+			pathHandlerCalled = true
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.False(t, pathHandlerCalled, "path handler should not be called for nil paths")
+}
+
+func TestWalk_OAS2StopDuringPathsIteration(t *testing.T) {
+	// Test that Stop during paths iteration halts the walk correctly
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/a": &parser.PathItem{Get: &parser.Operation{OperationID: "getA"}},
+			"/b": &parser.PathItem{Get: &parser.Operation{OperationID: "getB"}},
+			"/c": &parser.PathItem{Get: &parser.Operation{OperationID: "getC"}},
+			"/d": &parser.PathItem{Get: &parser.Operation{OperationID: "getD"}},
+			"/e": &parser.PathItem{Get: &parser.Operation{OperationID: "getE"}},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var visitedPaths []string
+	err := Walk(result,
+		WithPathHandler(func(wc *WalkContext, pathItem *parser.PathItem) Action {
+			visitedPaths = append(visitedPaths, wc.PathTemplate)
+			if len(visitedPaths) >= 2 {
+				return Stop
+			}
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Len(t, visitedPaths, 2, "expected exactly 2 paths visited before Stop")
+}
+
+func TestWalk_OAS2PathItemWithRef(t *testing.T) {
+	// Test walking a PathItem that has a $ref
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Ref: "#/x-path-items/PetsPath",
+				Get: &parser.Operation{OperationID: "listPets"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var refCalled bool
+	var capturedRef string
+	var capturedNodeType RefNodeType
+	err := Walk(result,
+		WithRefTracking(),
+		WithRefHandler(func(wc *WalkContext, ref *RefInfo) Action {
+			refCalled = true
+			capturedRef = ref.Ref
+			capturedNodeType = ref.NodeType
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.True(t, refCalled, "ref handler should be called for PathItem with $ref")
+	assert.Equal(t, "#/x-path-items/PetsPath", capturedRef)
+	assert.Equal(t, RefNodePathItem, capturedNodeType)
+}
+
+func TestWalk_OAS2PathItemWithRefStopsWalk(t *testing.T) {
+	// Test that returning Stop from ref handler stops the walk
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/a": &parser.PathItem{
+				Ref: "#/x-path-items/PathA",
+				Get: &parser.Operation{OperationID: "getA"},
+			},
+			"/b": &parser.PathItem{
+				Get: &parser.Operation{OperationID: "getB"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	var visitedPaths int
+	var visitedOps []string
+	err := Walk(result,
+		WithRefTracking(),
+		WithRefHandler(func(wc *WalkContext, ref *RefInfo) Action {
+			return Stop // Stop on first ref
+		}),
+		WithPathHandler(func(wc *WalkContext, pathItem *parser.PathItem) Action {
+			visitedPaths++
+			return Continue
+		}),
+		WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action {
+			visitedOps = append(visitedOps, op.OperationID)
+			return Continue
+		}),
+	)
+
+	require.NoError(t, err)
+	// The ref on /a should stop the walk before PathItem handler is called
+	assert.LessOrEqual(t, visitedPaths, 1, "walk should stop early due to ref handler returning Stop")
+}

@@ -2,6 +2,7 @@ package walker_test
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/walker"
@@ -268,4 +269,222 @@ func ExampleWalk_documentTypeSwitch() {
 	)
 	// Output:
 	// OAS 3.x: OAS 3.x API
+}
+
+func ExampleCollectSchemas() {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Pet Store", Version: "1.0.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Pet": {
+					Type:        "object",
+					Description: "A pet in the store",
+					Properties: map[string]*parser.Schema{
+						"name": {Type: "string"},
+					},
+				},
+				"Error": {
+					Type:        "object",
+					Description: "An error response",
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	// Collect all schemas
+	schemas, _ := walker.CollectSchemas(result)
+
+	// Print component schema count
+	fmt.Printf("Total schemas: %d\n", len(schemas.All))
+	fmt.Printf("Component schemas: %d\n", len(schemas.Components))
+
+	// Look up by name
+	if pet, ok := schemas.ByName["Pet"]; ok {
+		fmt.Printf("Found Pet: %s\n", pet.Schema.Description)
+	}
+	// Output:
+	// Total schemas: 3
+	// Component schemas: 3
+	// Found Pet: A pet in the store
+}
+
+func ExampleCollectOperations() {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Pet Store", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Tags:        []string{"pets"},
+				},
+				Post: &parser.Operation{
+					OperationID: "createPet",
+					Tags:        []string{"pets"},
+				},
+			},
+			"/pets/{petId}": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "getPet",
+					Tags:        []string{"pets"},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	// Collect all operations
+	ops, _ := walker.CollectOperations(result)
+
+	// Print operation counts
+	fmt.Printf("Total operations: %d\n", len(ops.All))
+
+	// Group by tag
+	for tag, tagOps := range ops.ByTag {
+		fmt.Printf("Tag '%s' has %d operations\n", tag, len(tagOps))
+	}
+	// Output:
+	// Total operations: 3
+	// Tag 'pets' has 3 operations
+}
+
+func ExampleWithParentTracking() {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Pet Store", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {
+								Description: "Success",
+								Content: map[string]*parser.MediaType{
+									"application/json": {
+										Schema: &parser.Schema{Type: "array"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	_ = walker.Walk(result,
+		walker.WithParentTracking(),
+		walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+			// Find which operation this schema belongs to
+			if op, ok := wc.ParentOperation(); ok {
+				fmt.Printf("Schema in operation: %s\n", op.OperationID)
+			}
+			// Check ancestor depth
+			fmt.Printf("Ancestor depth: %d\n", wc.Depth())
+			return walker.Continue
+		}),
+	)
+	// Output:
+	// Schema in operation: listPets
+	// Ancestor depth: 4
+}
+
+func ExampleWithSchemaPostHandler() {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Pet Store", Version: "1.0.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Pet": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"name":   {Type: "string"},
+						"age":    {Type: "integer"},
+						"status": {Type: "string"},
+					},
+				},
+				"Error": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"code":    {Type: "integer"},
+						"message": {Type: "string"},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	// Count properties in each top-level component schema after children are processed
+	// Use strings.HasPrefix to identify top-level component schemas by their JSON path
+	_ = walker.Walk(result,
+		walker.WithSchemaPostHandler(func(wc *walker.WalkContext, schema *parser.Schema) {
+			// Only count top-level component schemas (not nested properties)
+			if wc.IsComponent && wc.Name != "" && !strings.Contains(wc.JSONPath, ".properties") {
+				fmt.Printf("%s has %d properties\n", wc.Name, len(schema.Properties))
+			}
+		}),
+	)
+	// Output:
+	// Error has 2 properties
+	// Pet has 3 properties
+}
+
+func ExampleWithRefHandler() {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Pet": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"owner": {Ref: "#/components/schemas/User"},
+					},
+				},
+				"User": {Type: "object"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	var refs []string
+	_ = walker.Walk(result,
+		walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+			refs = append(refs, ref.Ref)
+			return walker.Continue
+		}),
+	)
+
+	fmt.Printf("Found %d reference(s)\n", len(refs))
+	for _, ref := range refs {
+		fmt.Println(ref)
+	}
+	// Output:
+	// Found 1 reference(s)
+	// #/components/schemas/User
 }

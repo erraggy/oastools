@@ -1,7 +1,6 @@
 package walker
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/erraggy/oastools/parser"
@@ -22,21 +21,52 @@ func WithParsed(result *parser.ParseResult) Option {
 }
 
 // WithMaxSchemaDepth sets the maximum schema recursion depth.
-// If depth is not positive, it is silently ignored and the default (100) is kept.
+// The default depth is 100.
+//
+// Depth must be a positive integer (>= 1). Values of 0 or negative are
+// silently ignored and the default of 100 is kept. There is no "unlimited"
+// depth option to prevent infinite recursion in circular schemas.
+//
+// When the depth limit is reached, the walker skips the schema and calls
+// the schema-skipped handler (if registered) with reason "depth".
 func WithMaxSchemaDepth(depth int) Option {
 	return func(w *Walker) {
 		if depth > 0 {
 			w.maxDepth = depth
 		}
-		// If depth <= 0, keep the default (100)
+		// Values <= 0 are ignored; keep the default (100)
 	}
 }
 
-// WithUserContext sets the context for cancellation and deadline propagation.
-// The context is available to handlers via wc.Context().
-func WithUserContext(ctx context.Context) Option {
+// WithRefTracking enables tracking of $ref values during traversal.
+// When enabled, the walker tracks reference information internally.
+// To receive the CurrentRef value, use WithRefHandler to register a callback
+// that is invoked with the populated WalkContext.CurrentRef for each $ref.
+func WithRefTracking() Option {
 	return func(w *Walker) {
-		w.userCtx = ctx
+		w.trackRefs = true
+	}
+}
+
+// WithRefHandler sets a handler called when a $ref is encountered.
+// Implicitly enables ref tracking.
+func WithRefHandler(fn RefHandler) Option {
+	return func(w *Walker) {
+		w.trackRefs = true
+		w.onRef = fn
+	}
+}
+
+// WithParentTracking enables tracking of parent nodes during traversal.
+// When enabled, WalkContext.Parent provides access to ancestor nodes,
+// and helper methods like ParentSchema(), ParentOperation(), ParentPathItem(),
+// ParentResponse(), ParentRequestBody(), Ancestors(), and Depth() become available.
+//
+// This adds some overhead (parent stack management), so only enable when needed.
+// By default, parent tracking is disabled for optimal performance.
+func WithParentTracking() Option {
+	return func(w *Walker) {
+		w.trackParent = true
 	}
 }
 

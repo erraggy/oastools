@@ -262,7 +262,28 @@ Each OAS node type has a corresponding handler type:
 
 ### WalkContext
 
-Every handler receives a `*WalkContext` as its first parameter, providing contextual information about the current node:
+Every handler receives a `*WalkContext` as its first parameter, providing contextual information about the current node.
+
+> **Important: WalkContext Pooling**
+>
+> WalkContext instances are reused via `sync.Pool` for performance. Handlers **must not** retain references to WalkContext after returning. If you need to preserve context information, copy the needed fields:
+>
+> ```go
+> // Wrong - retaining WalkContext reference
+> var saved []*WalkContext
+> WithSchemaHandler(func(wc *WalkContext, s *parser.Schema) Action {
+>     saved = append(saved, wc) // Don't do this!
+>     return Continue
+> })
+>
+> // Correct - copy needed fields
+> type Info struct { JSONPath, Name string }
+> var saved []Info
+> WithSchemaHandler(func(wc *WalkContext, s *parser.Schema) Action {
+>     saved = append(saved, Info{wc.JSONPath, wc.Name})
+>     return Continue
+> })
+> ```
 
 | Field | Description |
 |-------|-------------|
@@ -712,6 +733,118 @@ The walker supports OAS 3.2 features:
 - `PathItem.AdditionalOperations` for custom methods
 - `Components.MediaTypes` for reusable media types
 
+## Reference Tracking
+
+The walker provides optional `$ref` tracking to detect and process references during traversal without separate passes.
+
+### Enabling Reference Tracking
+
+Use `WithRefHandler` to receive callbacks when references are encountered:
+
+```go
+walker.Walk(result,
+    walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+        fmt.Printf("Found ref: %s at %s (type: %s)\n", ref.Ref, ref.SourcePath, ref.NodeType)
+        return walker.Continue
+    }),
+)
+```
+
+### RefInfo Structure
+
+The `RefInfo` struct contains:
+
+| Field | Description |
+|-------|-------------|
+| `Ref` | The $ref value (e.g., `#/components/schemas/User`) |
+| `SourcePath` | JSON path where the ref was encountered |
+| `NodeType` | Type of node containing the ref |
+
+### Supported Node Types
+
+References are tracked in:
+
+| Node Type | Description |
+|-----------|-------------|
+| `schema` | Schema references |
+| `parameter` | Parameter references |
+| `response` | Response references |
+| `requestBody` | Request body references |
+| `header` | Header references |
+| `pathItem` | Path item references |
+| `link` | Link references |
+| `example` | Example references |
+| `securityScheme` | Security scheme references |
+
+### Use Cases
+
+**Collecting all references:**
+```go
+var refs []string
+walker.Walk(result,
+    walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+        refs = append(refs, ref.Ref)
+        return walker.Continue
+    }),
+)
+```
+
+**Finding broken references:**
+```go
+walker.Walk(result,
+    walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+        if !isValidRef(ref.Ref) {
+            fmt.Printf("Broken ref at %s: %s\n", ref.SourcePath, ref.Ref)
+        }
+        return walker.Continue
+    }),
+)
+```
+
+**Stop on first external reference:**
+```go
+var hasExternal bool
+walker.Walk(result,
+    walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+        if strings.HasPrefix(ref.Ref, "http") {
+            hasExternal = true
+            return walker.Stop
+        }
+        return walker.Continue
+    }),
+)
+```
+
+### WithRefTracking Option
+
+`WithRefTracking()` enables internal reference tracking for statistics and debugging purposes, but it does **not** populate `CurrentRef` in node handlers. The `CurrentRef` field is only set when you register a `RefHandler` via `WithRefHandler()`.
+
+To check for references in node handlers, examine the node's `Ref` field directly:
+
+```go
+walker.Walk(result,
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+        if schema.Ref != "" {
+            // This schema is a $ref - check schema.Ref directly
+            fmt.Printf("Schema ref at %s: %s\n", wc.JSONPath, schema.Ref)
+        }
+        return walker.Continue
+    }),
+)
+```
+
+If you need the dedicated `RefInfo` structure with `NodeType` classification, use `WithRefHandler()` instead:
+
+```go
+walker.Walk(result,
+    walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+        // RefInfo provides: Ref, SourcePath, NodeType
+        fmt.Printf("Ref %s at %s (type: %s)\n", ref.Ref, ref.SourcePath, ref.NodeType)
+        return walker.Continue
+    }),
+)
+```
+
 ## Examples
 
 The `examples/walker/` directory contains runnable examples demonstrating walker patterns:
@@ -726,3 +859,393 @@ The `examples/walker/` directory contains runnable examples demonstrating walker
 | [reference-collector](../examples/walker/reference-collector/) | Integration | Analyze schema references |
 
 Each example includes a README with detailed explanations and expected output.
+
+## Built-in Collectors
+
+The walker package provides convenience functions for common collection patterns, reducing boilerplate when you need to gather schemas or operations.
+
+### When to Use Collectors vs Custom Handlers
+
+**Use built-in collectors when:**
+- You need all schemas or operations in one pass
+- You want ready-made lookup maps (by name, path, method, tag)
+- The standard collection fields meet your needs
+
+**Use custom handlers when:**
+- You need to filter during collection (e.g., only deprecated operations)
+- You want to collect multiple node types in a single pass
+- You need custom organization or aggregation logic
+
+### SchemaCollector
+
+`CollectSchemas` walks a document and collects all schemas:
+
+```go
+collector, err := walker.CollectSchemas(result)
+if err != nil {
+    return err
+}
+
+// All schemas in traversal order
+for _, info := range collector.All {
+    fmt.Printf("%s: %s\n", info.JSONPath, info.Schema.Type)
+}
+
+// Component schemas only
+for _, info := range collector.Components {
+    fmt.Printf("Component %s at %s\n", info.Name, info.JSONPath)
+}
+
+// Inline schemas only (not in components)
+for _, info := range collector.Inline {
+    fmt.Printf("Inline schema at %s\n", info.JSONPath)
+}
+
+// Lookup by JSON path
+if schema, ok := collector.ByPath["$.components.schemas['Pet']"]; ok {
+    fmt.Printf("Pet: %v\n", schema.Schema.Type)
+}
+
+// Lookup by component name
+if schema, ok := collector.ByName["Pet"]; ok {
+    fmt.Printf("Found Pet schema\n")
+}
+```
+
+**SchemaInfo fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Schema` | `*parser.Schema` | The collected schema |
+| `Name` | `string` | Component name (empty for inline schemas) |
+| `JSONPath` | `string` | Full JSON path to the schema |
+| `IsComponent` | `bool` | True when in components/definitions section |
+
+### OperationCollector
+
+`CollectOperations` walks a document and collects all operations:
+
+```go
+collector, err := walker.CollectOperations(result)
+if err != nil {
+    return err
+}
+
+// All operations in traversal order
+for _, info := range collector.All {
+    fmt.Printf("%s %s (%s)\n", info.Method, info.PathTemplate, info.Operation.OperationID)
+}
+
+// Group by path template
+for path, ops := range collector.ByPath {
+    fmt.Printf("%s has %d operations\n", path, len(ops))
+}
+
+// Group by HTTP method
+for method, ops := range collector.ByMethod {
+    fmt.Printf("%s: %d operations\n", method, len(ops))
+}
+
+// Group by tag
+for tag, ops := range collector.ByTag {
+    fmt.Printf("Tag '%s': %d operations\n", tag, len(ops))
+}
+```
+
+**OperationInfo fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Operation` | `*parser.Operation` | The collected operation |
+| `PathTemplate` | `string` | URL path template (e.g., "/pets/{petId}") |
+| `Method` | `string` | HTTP method (e.g., "get", "post") |
+| `JSONPath` | `string` | Full JSON path to the operation |
+
+### Example: API Coverage Report
+
+```go
+func generateCoverageReport(result *parser.ParseResult) {
+    schemas, _ := walker.CollectSchemas(result)
+    ops, _ := walker.CollectOperations(result)
+
+    fmt.Printf("API Coverage Report\n")
+    fmt.Printf("==================\n\n")
+
+    fmt.Printf("Schemas: %d total (%d component, %d inline)\n",
+        len(schemas.All), len(schemas.Components), len(schemas.Inline))
+
+    fmt.Printf("Operations: %d total\n", len(ops.All))
+
+    fmt.Printf("\nOperations by Method:\n")
+    for method, methodOps := range ops.ByMethod {
+        fmt.Printf("  %s: %d\n", strings.ToUpper(method), len(methodOps))
+    }
+
+    fmt.Printf("\nOperations by Tag:\n")
+    for tag, tagOps := range ops.ByTag {
+        fmt.Printf("  %s: %d\n", tag, len(tagOps))
+    }
+}
+```
+
+## Parent Tracking
+
+The walker supports optional parent/ancestor tracking, providing type-safe access to ancestor nodes during traversal. This is useful for context-aware processing where you need to know what contains the current node.
+
+### Enabling Parent Tracking
+
+Use `WithParentTracking()` to enable ancestor tracking:
+
+```go
+walker.Walk(result,
+    walker.WithParentTracking(),
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+        // wc.Parent is now populated
+        return walker.Continue
+    }),
+)
+```
+
+**Note:** Parent tracking is disabled by default to avoid overhead when not needed. Enable it only when you need ancestor access.
+
+### ParentInfo Structure
+
+The `wc.Parent` field provides a linked list of ancestors:
+
+```go
+type ParentInfo struct {
+    Node     any         // The parent node (*parser.Schema, *parser.Operation, etc.)
+    JSONPath string      // JSON path to this parent
+    Parent   *ParentInfo // Grandparent (or nil at root)
+}
+```
+
+### Helper Methods
+
+Type-safe helper methods make ancestor access convenient:
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `ParentSchema()` | `(*parser.Schema, bool)` | Nearest ancestor schema |
+| `ParentOperation()` | `(*parser.Operation, bool)` | Nearest ancestor operation |
+| `ParentPathItem()` | `(*parser.PathItem, bool)` | Nearest ancestor path item |
+| `ParentResponse()` | `(*parser.Response, bool)` | Nearest ancestor response |
+| `ParentRequestBody()` | `(*parser.RequestBody, bool)` | Nearest ancestor request body |
+| `Ancestors()` | `[]*ParentInfo` | All ancestors (parent to root) |
+| `Depth()` | `int` | Number of ancestors |
+
+### Use Cases
+
+**1. Determining schema context:**
+
+```go
+walker.Walk(result,
+    walker.WithParentTracking(),
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+        // Is this schema in a request or response?
+        if _, ok := wc.ParentRequestBody(); ok {
+            fmt.Printf("Request schema: %s\n", wc.JSONPath)
+        } else if _, ok := wc.ParentResponse(); ok {
+            fmt.Printf("Response schema: %s\n", wc.JSONPath)
+        }
+        return walker.Continue
+    }),
+)
+```
+
+**2. Finding the containing operation:**
+
+```go
+walker.Walk(result,
+    walker.WithParentTracking(),
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+        if op, ok := wc.ParentOperation(); ok {
+            fmt.Printf("Schema in %s: %s\n", op.OperationID, wc.JSONPath)
+        }
+        return walker.Continue
+    }),
+)
+```
+
+**3. Detecting nested schemas:**
+
+```go
+walker.Walk(result,
+    walker.WithParentTracking(),
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+        if parentSchema, ok := wc.ParentSchema(); ok {
+            // This schema is nested within another schema
+            fmt.Printf("Nested in type: %v\n", parentSchema.Type)
+        } else if wc.IsComponent {
+            // This is a top-level component schema
+            fmt.Printf("Component schema: %s\n", wc.Name)
+        }
+        return walker.Continue
+    }),
+)
+```
+
+**4. Limiting depth based on ancestor count:**
+
+```go
+walker.Walk(result,
+    walker.WithParentTracking(),
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+        if wc.Depth() > 5 {
+            // Skip deeply nested schemas
+            return walker.SkipChildren
+        }
+        return walker.Continue
+    }),
+)
+```
+
+### Performance Considerations
+
+Parent tracking adds overhead:
+- ~15-20% increase in traversal time
+- Additional allocations for ParentInfo structs
+
+Only enable `WithParentTracking()` when you need ancestor access. If you only need the current node's context (JSONPath, Method, PathTemplate, etc.), the standard `WalkContext` fields are sufficient without parent tracking.
+
+## Post-Visit Hooks
+
+Post-visit handlers fire after a node's children have been processed, enabling bottom-up processing patterns like aggregation and validation.
+
+### Available Post-Visit Handlers
+
+| Option | Called After |
+|--------|-------------|
+| `WithSchemaPostHandler` | Schema's children (properties, items, allOf, etc.) processed |
+| `WithOperationPostHandler` | Operation's children (parameters, requestBody, responses, callbacks) processed |
+| `WithPathItemPostHandler` | Path item's children (parameters, operations) processed |
+| `WithResponsePostHandler` | Response's children (headers, content, links) processed |
+| `WithRequestBodyPostHandler` | Request body's children (content) processed |
+| `WithCallbackPostHandler` | Callback's children (path items) processed |
+
+### When Post Handlers Are Called
+
+Post handlers are called:
+- **AFTER** all children are walked
+- **BEFORE** the parent is popped (if parent tracking is enabled)
+- **NOT** called if the pre-visit handler returned `SkipChildren` or `Stop`
+
+### Execution Order
+
+For nested schemas:
+```
+Pre-visit A (parent)
+  Pre-visit B (child)
+    Pre-visit C (grandchild)
+    Post-visit C
+  Post-visit B
+Post-visit A
+```
+
+### Use Cases
+
+**1. Counting child nodes:**
+
+```go
+propertyCounts := make(map[string]int)
+
+walker.Walk(result,
+    walker.WithSchemaPostHandler(func(wc *walker.WalkContext, schema *parser.Schema) {
+        if wc.IsComponent && wc.Name != "" {
+            propertyCounts[wc.Name] = len(schema.Properties)
+        }
+    }),
+)
+```
+
+**2. Bottom-up validation:**
+
+```go
+var issues []string
+
+walker.Walk(result,
+    walker.WithOperationPostHandler(func(wc *walker.WalkContext, op *parser.Operation) {
+        // Validate after all parameters and responses are processed
+        if op.OperationID == "" {
+            issues = append(issues, fmt.Sprintf("%s: missing operationId", wc.JSONPath))
+        }
+    }),
+)
+```
+
+**3. Aggregating statistics:**
+
+```go
+schemaStats := make(map[string]struct {
+    PropertyCount int
+    RequiredCount int
+})
+
+walker.Walk(result,
+    walker.WithSchemaPostHandler(func(wc *walker.WalkContext, schema *parser.Schema) {
+        if wc.IsComponent && wc.Name != "" && !strings.Contains(wc.JSONPath, ".properties") {
+            schemaStats[wc.Name] = struct {
+                PropertyCount int
+                RequiredCount int
+            }{
+                PropertyCount: len(schema.Properties),
+                RequiredCount: len(schema.Required),
+            }
+        }
+    }),
+)
+```
+
+**4. Building summary data after traversal:**
+
+```go
+var operationsByPath = make(map[string]int)
+
+walker.Walk(result,
+    walker.WithPathItemPostHandler(func(wc *walker.WalkContext, pathItem *parser.PathItem) {
+        // Count operations in this path item
+        count := 0
+        if pathItem.Get != nil { count++ }
+        if pathItem.Post != nil { count++ }
+        if pathItem.Put != nil { count++ }
+        if pathItem.Delete != nil { count++ }
+        if pathItem.Patch != nil { count++ }
+        operationsByPath[wc.PathTemplate] = count
+    }),
+)
+```
+
+### Combining Pre and Post Handlers
+
+You can use both pre and post handlers together:
+
+```go
+walker.Walk(result,
+    walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+        // Pre-visit: mark schema as being processed
+        fmt.Printf("Entering %s\n", wc.JSONPath)
+        return walker.Continue
+    }),
+    walker.WithSchemaPostHandler(func(wc *walker.WalkContext, schema *parser.Schema) {
+        // Post-visit: mark schema as complete
+        fmt.Printf("Leaving %s\n", wc.JSONPath)
+    }),
+)
+```
+
+### Using Post Handlers Alone
+
+Post handlers work without pre-handlers:
+
+```go
+// Only register post handler
+walker.Walk(result,
+    walker.WithSchemaPostHandler(func(wc *walker.WalkContext, schema *parser.Schema) {
+        // Called for every schema after its children are processed
+    }),
+)
+```
+
+### Performance Considerations
+
+Post handlers add minimal overhead since they reuse the existing WalkContext. The primary cost is the function call itself.

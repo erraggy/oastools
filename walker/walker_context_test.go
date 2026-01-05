@@ -138,7 +138,7 @@ func TestWalk_WithContext(t *testing.T) {
 
 	err := WalkWithOptions(
 		WithParsed(result),
-		WithUserContext(ctx),
+		WithContext(ctx),
 		WithOperationHandler(func(wc *WalkContext, op *parser.Operation) Action {
 			if wc.Context() != nil {
 				if v, ok := wc.Context().Value(ctxKey("test")).(string); ok {

@@ -17,9 +17,41 @@ func sortedMapKeys[V any](m map[string]V) []string {
 	return keys
 }
 
+// handleRef processes a $ref if ref tracking is enabled.
+// It calls the ref handler if set, and returns Stop if the handler requests it.
+func (w *Walker) handleRef(ref string, jsonPath string, nodeType RefNodeType, state *walkState) Action {
+	if !w.trackRefs || ref == "" {
+		return Continue
+	}
+
+	refInfo := &RefInfo{
+		Ref:        ref,
+		SourcePath: jsonPath,
+		NodeType:   nodeType,
+	}
+
+	if w.onRef != nil {
+		wc := state.buildContext(jsonPath)
+		wc.CurrentRef = refInfo
+		action := w.onRef(wc, refInfo)
+		releaseContext(wc)
+		if action == Stop {
+			w.stopped = true
+			return Stop
+		}
+	}
+
+	return Continue
+}
+
 // walkParameter walks a Parameter.
 func (w *Walker) walkParameter(param *parser.Parameter, basePath string, state *walkState) error {
 	if param == nil {
+		return nil
+	}
+
+	// Check for $ref
+	if w.handleRef(param.Ref, basePath, RefNodeParameter, state) == Stop {
 		return nil
 	}
 
@@ -27,6 +59,7 @@ func (w *Walker) walkParameter(param *parser.Parameter, basePath string, state *
 	if w.onParameter != nil {
 		wc := state.buildContext(basePath)
 		continueToChildren = w.handleAction(w.onParameter(wc, param))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
@@ -35,6 +68,10 @@ func (w *Walker) walkParameter(param *parser.Parameter, basePath string, state *
 	if !continueToChildren {
 		return nil
 	}
+
+	// Push parameter as parent for nested nodes
+	state.pushParent(param, basePath)
+	defer state.popParent()
 
 	// Schema (OAS 3.x)
 	if param.Schema != nil {
@@ -54,9 +91,7 @@ func (w *Walker) walkParameter(param *parser.Parameter, basePath string, state *
 
 	// Examples
 	if param.Examples != nil {
-		if err := w.walkExamples(param.Examples, basePath+".examples", state); err != nil {
-			return err
-		}
+		w.walkExamples(param.Examples, basePath+".examples", state)
 	}
 
 	return nil
@@ -83,10 +118,16 @@ func (w *Walker) walkHeader(name string, header *parser.Header, basePath string,
 	headerState := state.clone()
 	headerState.name = name
 
+	// Check for $ref
+	if w.handleRef(header.Ref, basePath, RefNodeHeader, headerState) == Stop {
+		return nil
+	}
+
 	continueToChildren := true
 	if w.onHeader != nil {
 		wc := headerState.buildContext(basePath)
 		continueToChildren = w.handleAction(w.onHeader(wc, header))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
@@ -95,6 +136,10 @@ func (w *Walker) walkHeader(name string, header *parser.Header, basePath string,
 	if !continueToChildren {
 		return nil
 	}
+
+	// Push header as parent for nested nodes
+	headerState.pushParent(header, basePath)
+	defer headerState.popParent()
 
 	// Schema
 	if header.Schema != nil {
@@ -114,9 +159,7 @@ func (w *Walker) walkHeader(name string, header *parser.Header, basePath string,
 
 	// Examples
 	if header.Examples != nil {
-		if err := w.walkExamples(header.Examples, basePath+".examples", headerState); err != nil {
-			return err
-		}
+		w.walkExamples(header.Examples, basePath+".examples", headerState)
 	}
 
 	return nil
@@ -147,6 +190,7 @@ func (w *Walker) walkMediaType(name string, mt *parser.MediaType, basePath strin
 	if w.onMediaType != nil {
 		wc := mtState.buildContext(basePath)
 		continueToChildren = w.handleAction(w.onMediaType(wc, mt))
+		releaseContext(wc)
 		if w.stopped {
 			return nil
 		}
@@ -155,6 +199,10 @@ func (w *Walker) walkMediaType(name string, mt *parser.MediaType, basePath strin
 	if !continueToChildren {
 		return nil
 	}
+
+	// Push media type as parent for nested nodes
+	mtState.pushParent(mt, basePath)
+	defer mtState.popParent()
 
 	// Schema
 	if mt.Schema != nil {
@@ -167,29 +215,38 @@ func (w *Walker) walkMediaType(name string, mt *parser.MediaType, basePath strin
 
 	// Examples
 	if mt.Examples != nil {
-		if err := w.walkExamples(mt.Examples, basePath+".examples", mtState); err != nil {
-			return err
-		}
+		w.walkExamples(mt.Examples, basePath+".examples", mtState)
 	}
 
 	return nil
 }
 
 // walkExamples walks a map of Examples.
-func (w *Walker) walkExamples(examples map[string]*parser.Example, basePath string, state *walkState) error {
+func (w *Walker) walkExamples(examples map[string]*parser.Example, basePath string, state *walkState) {
 	for _, name := range sortedMapKeys(examples) {
 		if w.stopped {
-			return nil
+			return
 		}
 		ex := examples[name]
-		if ex != nil && w.onExample != nil {
-			exState := state.clone()
-			exState.name = name
-			wc := exState.buildContext(basePath + "['" + name + "']")
+		if ex == nil {
+			continue
+		}
+
+		exPath := basePath + "['" + name + "']"
+		exState := state.clone()
+		exState.name = name
+
+		// Check for $ref
+		if w.handleRef(ex.Ref, exPath, RefNodeExample, exState) == Stop {
+			return
+		}
+
+		if w.onExample != nil {
+			wc := exState.buildContext(exPath)
 			w.handleAction(w.onExample(wc, ex))
+			releaseContext(wc)
 		}
 	}
-	return nil
 }
 
 // walkSchema walks a Schema and all its nested schemas.
@@ -198,11 +255,17 @@ func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int, s
 		return nil
 	}
 
+	// Check for $ref before anything else
+	if w.handleRef(schema.Ref, basePath, RefNodeSchema, state) == Stop {
+		return nil
+	}
+
 	// Check depth limit
 	if depth > w.maxDepth {
 		if w.onSchemaSkipped != nil {
 			wc := state.buildContext(basePath)
 			w.onSchemaSkipped(wc, "depth", schema)
+			releaseContext(wc)
 		}
 		return nil
 	}
@@ -212,6 +275,7 @@ func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int, s
 		if w.onSchemaSkipped != nil {
 			wc := state.buildContext(basePath)
 			w.onSchemaSkipped(wc, "cycle", schema)
+			releaseContext(wc)
 		}
 		return nil
 	}
@@ -219,16 +283,22 @@ func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int, s
 	w.visitedSchemas[schema] = true
 	defer delete(w.visitedSchemas, schema)
 
-	// Call handler
+	// Call pre-visit handler
 	if w.onSchema != nil {
 		wc := state.buildContext(basePath)
-		if !w.handleAction(w.onSchema(wc, schema)) {
+		continueToChildren := w.handleAction(w.onSchema(wc, schema))
+		releaseContext(wc)
+		if !continueToChildren {
 			if w.stopped {
 				return nil
 			}
-			return nil // SkipChildren
+			return nil // SkipChildren - don't call post handler
 		}
 	}
+
+	// Push schema as parent for nested schemas
+	state.pushParent(schema, basePath)
+	defer state.popParent()
 
 	// Walk nested schemas in groups - clear name for nested schemas
 	nestedState := state.clone()
@@ -246,7 +316,18 @@ func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int, s
 	if err := w.walkSchemaConditionals(schema, basePath, depth, nestedState); err != nil {
 		return err
 	}
-	return w.walkSchemaMisc(schema, basePath, depth, nestedState)
+	if err := w.walkSchemaMisc(schema, basePath, depth, nestedState); err != nil {
+		return err
+	}
+
+	// Call post-visit handler after children (but before popParent)
+	if w.onSchemaPost != nil && !w.stopped {
+		wc := state.buildContext(basePath)
+		w.onSchemaPost(wc, schema)
+		releaseContext(wc)
+	}
+
+	return nil
 }
 
 // walkSchemaProperties walks object-related schema keywords.
