@@ -25,6 +25,20 @@ func TestSetupJoinFlags(t *testing.T) {
 		if flags.Quiet {
 			t.Error("expected Quiet to be false by default")
 		}
+		// Operation context flags
+		if flags.OperationContext {
+			t.Error("expected OperationContext to be false by default")
+		}
+		if flags.PrimaryOperationPolicy != "" {
+			t.Errorf("expected PrimaryOperationPolicy to be empty by default, got '%s'", flags.PrimaryOperationPolicy)
+		}
+		// Overlay flags
+		if len(flags.PreOverlays) != 0 {
+			t.Errorf("expected PreOverlays to be empty by default, got %v", flags.PreOverlays)
+		}
+		if flags.PostOverlay != "" {
+			t.Errorf("expected PostOverlay to be empty by default, got '%s'", flags.PostOverlay)
+		}
 	})
 
 	t.Run("parse flags", func(t *testing.T) {
@@ -375,5 +389,54 @@ func TestHandleJoin_InvalidPrimaryOperationPolicy(t *testing.T) {
 	err := HandleJoin([]string{"--primary-operation-policy", "invalid", "f1.yaml", "f2.yaml"})
 	if err == nil {
 		t.Error("expected error for invalid primary operation policy")
+	}
+}
+
+func TestJoinFlags_CombinedNewFlags(t *testing.T) {
+	fs, flags := SetupJoinFlags()
+	err := fs.Parse([]string{
+		"--operation-context",
+		"--primary-operation-policy", "most-specific",
+		"--pre-overlay", "pre1.yaml",
+		"--pre-overlay", "pre2.yaml",
+		"--post-overlay", "post.yaml",
+		"api1.yaml", "api2.yaml",
+	})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if !flags.OperationContext {
+		t.Error("expected OperationContext to be true")
+	}
+	if flags.PrimaryOperationPolicy != "most-specific" {
+		t.Errorf("expected policy 'most-specific', got %q", flags.PrimaryOperationPolicy)
+	}
+	if len(flags.PreOverlays) != 2 {
+		t.Errorf("expected 2 pre-overlays, got %d", len(flags.PreOverlays))
+	}
+	if flags.PostOverlay != "post.yaml" {
+		t.Errorf("expected PostOverlay 'post.yaml', got %q", flags.PostOverlay)
+	}
+}
+
+func TestHandleJoin_NonexistentPreOverlay(t *testing.T) {
+	err := HandleJoin([]string{
+		"--pre-overlay", "/nonexistent/path/overlay.yaml",
+		"../../testdata/oas3/petstore.yaml",
+		"../../testdata/oas3/petstore.yaml",
+	})
+	if err == nil {
+		t.Error("expected error for nonexistent pre-overlay file")
+	}
+}
+
+func TestHandleJoin_NonexistentPostOverlay(t *testing.T) {
+	err := HandleJoin([]string{
+		"--post-overlay", "/nonexistent/path/overlay.yaml",
+		"../../testdata/oas3/petstore.yaml",
+		"../../testdata/oas3/petstore.yaml",
+	})
+	if err == nil {
+		t.Error("expected error for nonexistent post-overlay file")
 	}
 }

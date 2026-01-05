@@ -541,7 +541,7 @@ oastools join [flags] <file1> <file2> [file3...]
 | `--no-merge-arrays` | | Don't merge arrays (servers, security, etc.) |
 | `--no-dedup-tags` | | Don't deduplicate tags by name |
 | `--pre-overlay` | | Overlay file to apply before joining (can be repeated) |
-| `--post-overlay` | | Overlay file to apply to merged result (can be repeated) |
+| `--post-overlay` | | Overlay file to apply to merged result |
 | `--source-map` | `-s` | Include line numbers in output (IDE-friendly format) |
 | `-h, --help` | | Display help for join command |
 

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 
 	oastools "github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/joiner"
@@ -78,12 +79,10 @@ func ValidatePrimaryOperationPolicy(policy string) error {
 		return nil
 	}
 	valid := []string{"first", "most-specific", "alphabetical"}
-	for _, v := range valid {
-		if policy == v {
-			return nil
-		}
+	if slices.Contains(valid, policy) {
+		return nil
 	}
-	return fmt.Errorf("invalid primary-operation-policy %q: must be one of: first, most-specific, alphabetical", policy)
+	return fmt.Errorf("commands: invalid primary-operation-policy %q: must be one of: first, most-specific, alphabetical", policy)
 }
 
 // MapPrimaryOperationPolicy maps a string policy to the joiner enum.
