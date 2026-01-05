@@ -72,6 +72,8 @@
 //   - [WithResponsePostHandler]: Called after response children processed
 //   - [WithRequestBodyPostHandler]: Called after request body children processed
 //   - [WithCallbackPostHandler]: Called after callback children processed
+//   - [WithOAS2DocumentPostHandler]: Called after all OAS 2.0 document children processed
+//   - [WithOAS3DocumentPostHandler]: Called after all OAS 3.x document children processed
 //
 // Post handlers are not called if the pre-visit handler returned SkipChildren or Stop.
 //

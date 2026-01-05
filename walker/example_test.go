@@ -488,3 +488,94 @@ func ExampleWithRefHandler() {
 	// Found 1 reference(s)
 	// #/components/schemas/User
 }
+
+func ExampleWithOAS3DocumentPostHandler() {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Pet Store", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get:  &parser.Operation{OperationID: "listPets", Tags: []string{"pets"}},
+				Post: &parser.Operation{OperationID: "createPet", Tags: []string{"pets"}},
+			},
+			"/users": &parser.PathItem{
+				Get: &parser.Operation{OperationID: "listUsers", Tags: []string{"users"}},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	// Collect operations during walk, then use the document post handler
+	// to add a summary based on collected data. This is the "single-walk" pattern.
+	var operationCount int
+	tagCounts := make(map[string]int)
+
+	_ = walker.Walk(result,
+		walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
+			operationCount++
+			for _, tag := range op.Tags {
+				tagCounts[tag]++
+			}
+			return walker.Continue
+		}),
+		walker.WithOAS3DocumentPostHandler(func(wc *walker.WalkContext, d *parser.OAS3Document) {
+			// Called after ALL children have been processed
+			// Perfect for aggregating collected data
+			fmt.Printf("Document: %s\n", d.Info.Title)
+			fmt.Printf("Total operations: %d\n", operationCount)
+			fmt.Printf("Operations by tag: pets=%d, users=%d\n", tagCounts["pets"], tagCounts["users"])
+		}),
+	)
+	// Output:
+	// Document: Pet Store
+	// Total operations: 3
+	// Operations by tag: pets=2, users=1
+}
+
+func ExampleWithOAS2DocumentPostHandler() {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Legacy API", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/items": &parser.PathItem{
+				Get: &parser.Operation{OperationID: "listItems"},
+				Put: &parser.Operation{OperationID: "updateItems"},
+			},
+		},
+		Definitions: map[string]*parser.Schema{
+			"Item":  {Type: "object"},
+			"Error": {Type: "object"},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion20,
+	}
+
+	// Collect statistics during walk, then summarize in post handler
+	var schemaCount, operationCount int
+
+	_ = walker.Walk(result,
+		walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
+			schemaCount++
+			return walker.Continue
+		}),
+		walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
+			operationCount++
+			return walker.Continue
+		}),
+		walker.WithOAS2DocumentPostHandler(func(wc *walker.WalkContext, d *parser.OAS2Document) {
+			// Called after ALL children have been processed
+			fmt.Printf("Swagger %s: %s\n", d.Swagger, d.Info.Title)
+			fmt.Printf("Schemas: %d, Operations: %d\n", schemaCount, operationCount)
+		}),
+	)
+	// Output:
+	// Swagger 2.0: Legacy API
+	// Schemas: 2, Operations: 2
+}
