@@ -1563,6 +1563,14 @@ walker.Walk(result,
 
 > **Deep Dive:** For comprehensive examples including cycle detection, depth limiting, and all handler types, see the [Walker Deep Dive](packages/walker.md).
 
+**Advanced Features:**
+
+The walker package also supports:
+
+- **Parent Tracking**: Access ancestor nodes with `WithParentTracking()` and helper methods like `ParentSchema()`, `ParentOperation()`
+- **Post-Visit Handlers**: Process nodes after their children with `WithSchemaPostHandler()`, `WithOperationPostHandler()`, etc.
+- **Reference Tracking**: Track `$ref` values with `WithRefHandler()` for reference analysis
+
 ## Advanced Patterns
 
 ### Parse-Once Pattern

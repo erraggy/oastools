@@ -61,6 +61,49 @@
 //   - [ExampleHandler]: example definitions
 //   - [ExternalDocsHandler]: external documentation references
 //
+// # Post-Visit Handlers
+//
+// Post-visit handlers are called after a node's children have been processed,
+// enabling bottom-up processing patterns like aggregation:
+//
+//   - [WithSchemaPostHandler]: Called after schema children processed
+//   - [WithOperationPostHandler]: Called after operation children processed
+//   - [WithPathItemPostHandler]: Called after path item children processed
+//   - [WithResponsePostHandler]: Called after response children processed
+//   - [WithRequestBodyPostHandler]: Called after request body children processed
+//   - [WithCallbackPostHandler]: Called after callback children processed
+//
+// Post handlers are not called if the pre-visit handler returned SkipChildren or Stop.
+//
+// # Parent Tracking
+//
+// Enable parent tracking to access ancestor nodes during traversal:
+//
+//	walker.Walk(result,
+//	    walker.WithParentTracking(),
+//	    walker.WithSchemaHandler(func(wc *walker.WalkContext, s *parser.Schema) walker.Action {
+//	        if op, ok := wc.ParentOperation(); ok {
+//	            // Access containing operation
+//	        }
+//	        return walker.Continue
+//	    }),
+//	)
+//
+// Helper methods: [WalkContext.ParentSchema], [WalkContext.ParentOperation],
+// [WalkContext.ParentPathItem], [WalkContext.ParentResponse], [WalkContext.ParentRequestBody],
+// [WalkContext.Ancestors], [WalkContext.Depth].
+//
+// # Reference Tracking
+//
+// Use [WithRefHandler] to receive callbacks when $ref values are encountered:
+//
+//	walker.Walk(result,
+//	    walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+//	        fmt.Printf("Found ref: %s at %s\n", ref.Ref, ref.SourcePath)
+//	        return walker.Continue
+//	    }),
+//	)
+//
 // # Mutation Support
 //
 // Handlers receive pointers to the actual nodes, so mutations are applied directly:
