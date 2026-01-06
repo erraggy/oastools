@@ -326,8 +326,44 @@
 //   - WarnSchemaDeduplicated: Schema was deduplicated (structurally equivalent)
 //   - WarnNamespacePrefixed: Namespace prefix was applied
 //   - WarnMetadataOverride: Metadata was overridden (host, basePath)
+//   - WarnGenericSourceName: Document has a generic source name (e.g., "ParseBytes.yaml")
 //
 // For backward compatibility, warnings are also available as []string via result.Warnings.
+//
+// # Pre-Parsed Documents and Source Names
+//
+// When using [Joiner.JoinParsed] with pre-parsed documents (the recommended path
+// for high performance), ensure each document has a meaningful SourcePath set.
+// The joiner uses SourcePath in collision reports and warnings. Without meaningful
+// names, collision reports show unhelpful text like "ParseBytes.yaml vs ParseBytes.yaml".
+//
+// Set meaningful source names before joining:
+//
+//	// Fetch and parse specs from your services
+//	specs := make([]parser.ParseResult, 0, len(services))
+//	for name, data := range serviceSpecs {
+//	    result, _ := parser.ParseWithOptions(parser.WithBytes(data))
+//	    result.SourcePath = name  // Set meaningful name for collision reports
+//	    specs = append(specs, *result)
+//	}
+//
+//	// Collision reports now show "users-api vs billing-api"
+//	joined, _ := joiner.JoinParsed(specs)
+//
+// Alternatively, use parser.WithSourceName when parsing:
+//
+//	result, _ := parser.ParseWithOptions(
+//	    parser.WithBytes(data),
+//	    parser.WithSourceName("users-api"),
+//	)
+//
+// The joiner emits an info-level [WarnGenericSourceName] warning when documents have
+// generic source names (empty, "ParseBytes.*", "ParseReader.*") to help identify this issue.
+// These warnings are:
+//   - Emitted for each affected document at the start of joining
+//   - Info-level (non-blocking) - joining proceeds normally
+//   - Available via result.StructuredWarnings.ByCategory(WarnGenericSourceName)
+//   - Also included in result.Warnings string slice for backward compatibility
 //
 // # Related Packages
 //

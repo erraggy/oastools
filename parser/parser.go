@@ -552,6 +552,9 @@ type parseConfig struct {
 
 	// Source map building
 	buildSourceMap bool
+
+	// Source identification
+	sourceName *string // Override SourcePath in the result
 }
 
 // ParseWithOptions parses an OpenAPI specification using functional options.
@@ -584,18 +587,30 @@ func ParseWithOptions(opts ...Option) (*ParseResult, error) {
 	}
 
 	// Route to appropriate parsing method based on input source
-	if cfg.filePath != nil {
-		return p.Parse(*cfg.filePath)
-	}
-	if cfg.reader != nil {
-		return p.ParseReader(cfg.reader)
-	}
-	if cfg.bytes != nil {
-		return p.ParseBytes(cfg.bytes)
+	var result *ParseResult
+	var parseErr error
+	switch {
+	case cfg.filePath != nil:
+		result, parseErr = p.Parse(*cfg.filePath)
+	case cfg.reader != nil:
+		result, parseErr = p.ParseReader(cfg.reader)
+	case cfg.bytes != nil:
+		result, parseErr = p.ParseBytes(cfg.bytes)
+	default:
+		// Should never reach here due to validation in applyOptions
+		return nil, fmt.Errorf("parser: no input source specified")
 	}
 
-	// Should never reach here due to validation in applyOptions
-	return nil, fmt.Errorf("parser: no input source specified")
+	if parseErr != nil {
+		return result, parseErr
+	}
+
+	// Apply source name override if specified
+	if result != nil && cfg.sourceName != nil {
+		result.SourcePath = *cfg.sourceName
+	}
+
+	return result, nil
 }
 
 // applyOptions applies option functions and validates configuration
@@ -773,6 +788,33 @@ func WithMaxFileSize(size int64) Option {
 func WithSourceMap(enabled bool) Option {
 	return func(cfg *parseConfig) error {
 		cfg.buildSourceMap = enabled
+		return nil
+	}
+}
+
+// WithSourceName specifies a meaningful name for the source document.
+// This is particularly useful when parsing from bytes or reader, where
+// the default names ("ParseBytes.yaml", "ParseReader.yaml") are not descriptive.
+// The name is used in error messages, collision reports when joining, and other
+// diagnostic output.
+//
+// Example:
+//
+//	result, err := parser.ParseWithOptions(
+//	    parser.WithBytes(data),
+//	    parser.WithSourceName("users-api"),
+//	)
+//
+// This helps when joining multiple pre-parsed documents:
+//
+//	// Without WithSourceName, collision reports show "ParseBytes.yaml vs ParseBytes.yaml"
+//	// With WithSourceName, collision reports show "users-api vs billing-api"
+func WithSourceName(name string) Option {
+	return func(cfg *parseConfig) error {
+		if name == "" {
+			return fmt.Errorf("parser: source name cannot be empty")
+		}
+		cfg.sourceName = &name
 		return nil
 	}
 }

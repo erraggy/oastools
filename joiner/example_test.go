@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/erraggy/oastools/joiner"
+	"github.com/erraggy/oastools/parser"
 )
 
 // Example demonstrates basic usage of the joiner to combine two OpenAPI specifications.
@@ -163,6 +164,74 @@ func Example_templateFunctions() {
 	// Output:
 	// Collisions resolved: 1
 	// Version: 3.0.0
+}
+
+// Example_preParsedSourceNames demonstrates setting meaningful source names
+// when joining pre-parsed documents. This is the recommended workflow for
+// high-performance joining (150x faster than file-based joining) while
+// maintaining clear collision reports.
+func Example_preParsedSourceNames() {
+	// Simulate fetching API specs from multiple microservices
+	// In practice, these would come from HTTP endpoints or a database
+	usersSpec := []byte(`openapi: "3.0.0"
+info:
+  title: Users API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      summary: List users
+      responses:
+        '200':
+          description: OK
+`)
+
+	ordersSpec := []byte(`openapi: "3.0.0"
+info:
+  title: Orders API
+  version: "1.0"
+paths:
+  /orders:
+    get:
+      summary: List orders
+      responses:
+        '200':
+          description: OK
+`)
+
+	// Parse each spec with a meaningful source name
+	usersResult, err := parser.ParseWithOptions(
+		parser.WithBytes(usersSpec),
+		parser.WithSourceName("users-api"), // Set meaningful name
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ordersResult, err := parser.ParseWithOptions(
+		parser.WithBytes(ordersSpec),
+		parser.WithSourceName("orders-api"), // Set meaningful name
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Join pre-parsed documents (150x faster than file-based)
+	j := joiner.New(joiner.DefaultConfig())
+	result, err := j.JoinParsed([]parser.ParseResult{*usersResult, *ordersResult})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Collision reports now show "users-api vs orders-api" instead of
+	// "ParseBytes.yaml vs ParseBytes.yaml"
+	fmt.Printf("Joined successfully\n")
+	fmt.Printf("Version: %s\n", result.Version)
+	fmt.Printf("Warnings: %d\n", len(result.Warnings))
+	// Output:
+	// Joined successfully
+	// Version: 3.0.0
+	// Warnings: 0
 }
 
 // Example_primaryOperationPolicy demonstrates how to select which operation

@@ -29,6 +29,9 @@ const (
 	WarnMetadataOverride WarningCategory = "metadata_override"
 	// WarnSemanticDedup indicates semantic deduplication summary.
 	WarnSemanticDedup WarningCategory = "semantic_dedup"
+	// WarnGenericSourceName indicates a document has a generic or empty source name.
+	// This makes collision reports less useful for identifying which document caused the collision.
+	WarnGenericSourceName WarningCategory = "generic_source_name"
 )
 
 // JoinWarning represents a structured warning from the joiner package.
@@ -241,6 +244,49 @@ func NewSemanticDedupSummaryWarning(count int, section string) *JoinWarning {
 		Context: map[string]any{
 			"count":   count,
 			"section": section,
+		},
+	}
+}
+
+// IsGenericSourceName returns true if the source path appears to be a generic
+// parser-generated name rather than a meaningful identifier.
+// Generic names include empty strings and default names like "ParseBytes.yaml".
+func IsGenericSourceName(sourcePath string) bool {
+	if sourcePath == "" {
+		return true
+	}
+	genericPrefixes := []string{
+		"ParseBytes.",
+		"ParseReader.",
+	}
+	for _, prefix := range genericPrefixes {
+		if strings.HasPrefix(sourcePath, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// NewGenericSourceNameWarning creates a warning when a document has a generic source name.
+// This helps users identify that collision reports may be unclear and guides them to set
+// meaningful source names using ParseResult.SourcePath.
+func NewGenericSourceNameWarning(sourcePath string, docIndex int) *JoinWarning {
+	var msg string
+	if sourcePath == "" {
+		msg = fmt.Sprintf("document %d has empty source name - collision reports will be unclear. "+
+			"Set ParseResult.SourcePath to a meaningful identifier before joining", docIndex)
+	} else {
+		msg = fmt.Sprintf("document %d has generic source name '%s' - collision reports may be unclear. "+
+			"Set ParseResult.SourcePath to a meaningful identifier (e.g., service name) before joining", docIndex, sourcePath)
+	}
+	return &JoinWarning{
+		Category:   WarnGenericSourceName,
+		Message:    msg,
+		SourceFile: sourcePath,
+		Severity:   severity.SeverityInfo,
+		Context: map[string]any{
+			"doc_index":   docIndex,
+			"source_path": sourcePath,
 		},
 	}
 }

@@ -398,3 +398,79 @@ func TestJoinWarnings_Strings_WithNil(t *testing.T) {
 		t.Errorf("Strings()[2] = %q, want %q", got[2], "third")
 	}
 }
+
+func TestIsGenericSourceName(t *testing.T) {
+	tests := []struct {
+		name       string
+		sourcePath string
+		want       bool
+	}{
+		// Generic names (should return true)
+		{"empty string", "", true},
+		{"ParseBytes.yaml", "ParseBytes.yaml", true},
+		{"ParseBytes.json", "ParseBytes.json", true},
+		{"ParseReader.yaml", "ParseReader.yaml", true},
+		{"ParseReader.json", "ParseReader.json", true},
+
+		// Meaningful names (should return false)
+		{"real file path", "api.yaml", false},
+		{"service name", "users-api", false},
+		{"path with directory", "/path/to/spec.yaml", false},
+		{"URL-like", "https://example.com/api.yaml", false},
+		{"service identifier", "billing-service-v2", false},
+		{"contains ParseBytes but not prefix", "my-ParseBytes.yaml", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsGenericSourceName(tt.sourcePath); got != tt.want {
+				t.Errorf("IsGenericSourceName(%q) = %v, want %v", tt.sourcePath, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewGenericSourceNameWarning(t *testing.T) {
+	t.Run("empty source path", func(t *testing.T) {
+		w := NewGenericSourceNameWarning("", 0)
+
+		if w.Category != WarnGenericSourceName {
+			t.Errorf("Category = %v, want %v", w.Category, WarnGenericSourceName)
+		}
+		if w.Severity != severity.SeverityInfo {
+			t.Errorf("Severity = %v, want %v", w.Severity, severity.SeverityInfo)
+		}
+		if !strings.Contains(w.Message, "empty source name") {
+			t.Errorf("Message should mention 'empty source name': %q", w.Message)
+		}
+		if !strings.Contains(w.Message, "ParseResult.SourcePath") {
+			t.Errorf("Message should guide users to set SourcePath: %q", w.Message)
+		}
+		if w.Context["doc_index"] != 0 {
+			t.Errorf("Context[doc_index] = %v, want 0", w.Context["doc_index"])
+		}
+	})
+
+	t.Run("generic source path", func(t *testing.T) {
+		w := NewGenericSourceNameWarning("ParseBytes.yaml", 5)
+
+		if w.Category != WarnGenericSourceName {
+			t.Errorf("Category = %v, want %v", w.Category, WarnGenericSourceName)
+		}
+		if !strings.Contains(w.Message, "generic source name") {
+			t.Errorf("Message should mention 'generic source name': %q", w.Message)
+		}
+		if !strings.Contains(w.Message, "ParseBytes.yaml") {
+			t.Errorf("Message should include the source path: %q", w.Message)
+		}
+		if w.Context["doc_index"] != 5 {
+			t.Errorf("Context[doc_index] = %v, want 5", w.Context["doc_index"])
+		}
+		if w.Context["source_path"] != "ParseBytes.yaml" {
+			t.Errorf("Context[source_path] = %v, want %q", w.Context["source_path"], "ParseBytes.yaml")
+		}
+		if w.SourceFile != "ParseBytes.yaml" {
+			t.Errorf("SourceFile = %q, want %q", w.SourceFile, "ParseBytes.yaml")
+		}
+	})
+}

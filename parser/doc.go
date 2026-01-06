@@ -97,6 +97,27 @@
 //		parser.WithMaxFileSize(20*1024*1024), // 20MB limit
 //	)
 //
+// # Source Naming for Pre-Parsed Documents
+//
+// When parsing from bytes or io.Reader (common when fetching specs from HTTP
+// or databases), the default SourcePath is generic ("ParseBytes.yaml" or
+// "ParseReader.yaml"). Use WithSourceName to set a meaningful identifier:
+//
+//	result, err := parser.ParseWithOptions(
+//		parser.WithBytes(specData),
+//		parser.WithSourceName("users-api"),
+//	)
+//
+// This is especially important when joining multiple pre-parsed documents, as
+// the joiner uses SourcePath in collision reports. Without meaningful names,
+// collision reports show unhelpful text like "ParseBytes.yaml vs ParseBytes.yaml".
+// The joiner will emit info-level warnings for documents with generic source names.
+//
+// Alternatively, you can set SourcePath directly on the ParseResult after parsing:
+//
+//	result, err := parser.ParseWithOptions(parser.WithBytes(specData))
+//	result.SourcePath = "users-api"
+//
 // # OAS 3.2.0 Features
 //
 // OAS 3.2.0 introduces several new capabilities:

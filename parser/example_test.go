@@ -173,6 +173,42 @@ func Example_documentAccessor() {
 	// Schema ref prefix: #/components/schemas/
 }
 
+// Example_withSourceName demonstrates setting a meaningful source name when parsing
+// from bytes or io.Reader. This is important when later joining documents, as the
+// source name appears in collision reports and warnings.
+func Example_withSourceName() {
+	// When parsing from bytes (e.g., fetched from HTTP), the default source name
+	// is "ParseBytes.yaml" which isn't helpful for collision reports.
+	specData := []byte(`openapi: "3.0.0"
+info:
+  title: Users API
+  version: "1.0"
+paths:
+  /users:
+    get:
+      summary: List users
+      responses:
+        '200':
+          description: OK
+`)
+
+	// Use WithSourceName to set a meaningful identifier
+	result, err := parser.ParseWithOptions(
+		parser.WithBytes(specData),
+		parser.WithSourceName("users-api"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// The source name is now "users-api" instead of "ParseBytes.yaml"
+	fmt.Printf("Source: %s\n", result.SourcePath)
+	fmt.Printf("Version: %s\n", result.Version)
+	// Output:
+	// Source: users-api
+	// Version: 3.0.0
+}
+
 // Example_documentTypeHelpers demonstrates using the type assertion helper methods
 // to safely extract version-specific documents and check document versions.
 func Example_documentTypeHelpers() {
