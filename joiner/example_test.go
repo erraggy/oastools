@@ -234,6 +234,38 @@ paths:
 	// Warnings: 0
 }
 
+// Example_toParseResult demonstrates using ToParseResult() to chain joiner
+// output with other packages like validator, fixer, converter, or differ.
+func Example_toParseResult() {
+	// Join two OpenAPI specifications
+	joinResult, err := joiner.JoinWithOptions(
+		joiner.WithFilePaths(
+			"../testdata/join-base-3.0.yaml",
+			"../testdata/join-extension-3.0.yaml",
+		),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Convert to ParseResult for use with validator, fixer, differ, etc.
+	parseResult := joinResult.ToParseResult()
+
+	// The ParseResult can now be used with other packages:
+	// - validator.ValidateParsed(*parseResult)
+	// - fixer.FixParsed(*parseResult)
+	// - differ.DiffParsed(*baseResult, *parseResult)
+	// - converter.ConvertParsed(*parseResult, "3.1.0")
+
+	fmt.Printf("Source: %s\n", parseResult.SourcePath)
+	fmt.Printf("Version: %s\n", parseResult.Version)
+	fmt.Printf("Has document: %v\n", parseResult.Document != nil)
+	// Output:
+	// Source: ../testdata/join-base-3.0.yaml
+	// Version: 3.0.3
+	// Has document: true
+}
+
 // Example_primaryOperationPolicy demonstrates how to select which operation
 // provides the primary context when a schema is referenced by multiple operations.
 // PolicyMostSpecific prefers operations with operationId over those without.

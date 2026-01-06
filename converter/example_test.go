@@ -58,6 +58,35 @@ func Example_handleConversionIssues() {
 		result.CriticalCount, result.WarningCount, result.InfoCount)
 }
 
+// Example_toParseResult demonstrates using ToParseResult() to chain converter
+// output with other packages like validator, fixer, or differ.
+func Example_toParseResult() {
+	// Convert an OAS 2.0 specification to OAS 3.0.3
+	convResult, err := converter.ConvertWithOptions(
+		converter.WithFilePath("../testdata/petstore-2.0.yaml"),
+		converter.WithTargetVersion("3.0.3"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Convert to ParseResult for use with validator, fixer, differ, etc.
+	parseResult := convResult.ToParseResult()
+
+	// The ParseResult can now be used with other packages:
+	// - validator.ValidateParsed(*parseResult)
+	// - fixer.FixParsed(*parseResult)
+	// - differ.DiffParsed(*baseResult, *parseResult)
+
+	fmt.Printf("Source: %s\n", parseResult.SourcePath)
+	fmt.Printf("Version: %s\n", parseResult.Version)
+	fmt.Printf("Has document: %v\n", parseResult.Document != nil)
+	// Output:
+	// Source: converter
+	// Version: 3.0.3
+	// Has document: true
+}
+
 // Example_complexConversion demonstrates converting a complex OAS 2.0 document
 // with OAuth2 flows, custom security schemes, and polymorphic schemas to OAS 3.0.
 func Example_complexConversion() {
