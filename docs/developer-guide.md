@@ -22,6 +22,7 @@ This guide provides comprehensive documentation for developers using oastools as
   - [Walker Package](#walker-package)
 - [Advanced Patterns](#advanced-patterns)
   - [Parse-Once Pattern](#parse-once-pattern)
+  - [Package Chaining](#package-chaining)
   - [Error Handling](#error-handling)
   - [Working with Different OAS Versions](#working-with-different-oas-versions)
 - [Troubleshooting](#troubleshooting)
@@ -1605,6 +1606,83 @@ diffResult, _ := differ.DiffWithOptions(
     differ.WithSourceParsed(*parseResult),
     differ.WithTargetParsed(*targetResult),
 )
+```
+
+### Package Chaining
+
+After converting or joining documents, use `ToParseResult()` to chain the output with other packages:
+
+**Converter to Validator/Joiner/Differ:**
+
+```go
+// Convert OAS 2.0 to OAS 3.1
+convResult, err := converter.ConvertWithOptions(
+    converter.WithFilePath("swagger.yaml"),
+    converter.WithTargetVersion("3.1.0"),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Chain to validator
+v := validator.New()
+valResult, _ := v.ValidateParsed(*convResult.ToParseResult())
+
+// Or chain to joiner
+j := joiner.New(joiner.DefaultConfig())
+joinResult, _ := j.JoinParsed([]parser.ParseResult{
+    *convResult.ToParseResult(),
+    otherSpec,
+})
+
+// Or chain to differ
+diffResult, _ := differ.DiffWithOptions(
+    differ.WithSourceParsed(baseSpec),
+    differ.WithTargetParsed(*convResult.ToParseResult()),
+)
+```
+
+**Joiner to Validator/Converter/Differ:**
+
+```go
+// Join multiple documents
+joinResult, err := joiner.JoinWithOptions(
+    joiner.WithFilePaths([]string{"users-api.yaml", "orders-api.yaml"}),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Chain to validator
+v := validator.New()
+valResult, _ := v.ValidateParsed(*joinResult.ToParseResult())
+
+// Or chain to converter
+c := converter.New()
+convResult, _ := c.ConvertParsed(*joinResult.ToParseResult(), "3.1.0")
+
+// Or chain to fixer
+fixResult, _ := fixer.FixWithOptions(
+    fixer.WithParsed(*joinResult.ToParseResult()),
+)
+```
+
+**Source Naming for Pre-Parsed Documents:**
+
+When joining pre-parsed documents, set meaningful `SourcePath` values for better collision reports:
+
+```go
+// Set meaningful names when parsing from bytes/readers
+result, _ := parser.ParseWithOptions(
+    parser.WithBytes(specData),
+    parser.WithSourceName("users-api"),
+)
+
+// Or set SourcePath after parsing
+result.SourcePath = "users-api"
+
+// The joiner emits info-level warnings for documents with generic source names
+// to help identify when source naming is needed for clear collision reports
 ```
 
 ### Error Handling
