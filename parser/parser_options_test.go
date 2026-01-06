@@ -499,3 +499,64 @@ func TestParseWithOptions_ResourceLimits(t *testing.T) {
 		assert.Equal(t, int64(5*1024*1024), cfg.maxFileSize)
 	})
 }
+
+func TestWithSourceName(t *testing.T) {
+	t.Run("sets source name in config", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithSourceName("users-api")
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		require.NotNil(t, cfg.sourceName)
+		assert.Equal(t, "users-api", *cfg.sourceName)
+	})
+
+	t.Run("rejects empty name", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithSourceName("")
+		err := opt(cfg)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot be empty")
+	})
+}
+
+func TestWithSourceName_AppliedToResult(t *testing.T) {
+	minimalOAS := []byte(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0"
+paths: {}
+`)
+
+	t.Run("overrides ParseBytes default source name", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithBytes(minimalOAS),
+			WithSourceName("billing-service"),
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, "billing-service", result.SourcePath)
+	})
+
+	t.Run("without WithSourceName uses default", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithBytes(minimalOAS),
+		)
+
+		require.NoError(t, err)
+		// Default name from ParseBytes
+		assert.Equal(t, "ParseBytes.yaml", result.SourcePath)
+	})
+
+	t.Run("overrides file path source name", func(t *testing.T) {
+		result, err := ParseWithOptions(
+			WithFilePath("../testdata/petstore-3.0.yaml"),
+			WithSourceName("pet-service"),
+		)
+
+		require.NoError(t, err)
+		// Should use the override, not the file path
+		assert.Equal(t, "pet-service", result.SourcePath)
+	})
+}

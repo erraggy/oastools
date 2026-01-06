@@ -710,13 +710,18 @@ func (j *Joiner) JoinParsed(parsedDocs []parser.ParseResult) (*JoinResult, error
 	if len(parsedDocs) < 2 {
 		return nil, fmt.Errorf("joiner: at least 2 specification documents are required for joining, got %d", len(parsedDocs))
 	}
-	// Validate inputs
+	// Validate inputs and check for generic source names
+	var genericNameWarnings JoinWarnings
 	for i, doc := range parsedDocs {
 		if doc.Document == nil {
 			return nil, fmt.Errorf("joiner: parsedDocs[%d].Document is nil", i)
 		}
 		if len(doc.Errors) > 0 {
 			return nil, fmt.Errorf("joiner: parsedDocs[%d].Errors is not empty: %d errors found", i, len(doc.Errors))
+		}
+		// Warn about generic source names that make collision reports less useful
+		if IsGenericSourceName(doc.SourcePath) {
+			genericNameWarnings = append(genericNameWarnings, NewGenericSourceNameWarning(doc.SourcePath, i))
 		}
 	}
 
@@ -750,12 +755,16 @@ func (j *Joiner) JoinParsed(parsedDocs []parser.ParseResult) (*JoinResult, error
 		return nil, fmt.Errorf("joiner: unsupported OpenAPI version: %s", parsedDocs[0].Version)
 	}
 
-	// Add version mismatch warnings to result (prepend so they appear first)
-	if result != nil && len(versionWarnings) > 0 {
-		// Prepend version warnings to structured warnings
-		result.StructuredWarnings = append(versionWarnings, result.StructuredWarnings...)
-		// Rebuild legacy Warnings slice from StructuredWarnings for consistency
-		result.Warnings = result.StructuredWarnings.Strings()
+	// Add early warnings to result (prepend so they appear first)
+	if result != nil {
+		var prependWarnings JoinWarnings
+		prependWarnings = append(prependWarnings, genericNameWarnings...)
+		prependWarnings = append(prependWarnings, versionWarnings...)
+		if len(prependWarnings) > 0 {
+			result.StructuredWarnings = append(prependWarnings, result.StructuredWarnings...)
+			// Rebuild legacy Warnings slice from StructuredWarnings for consistency
+			result.Warnings = result.StructuredWarnings.Strings()
+		}
 	}
 
 	return result, err

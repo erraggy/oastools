@@ -560,6 +560,77 @@ func TestJoinParsed(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
+func TestJoinParsed_GenericSourceNameWarning(t *testing.T) {
+	p := parser.New()
+	p.ValidateStructure = true
+
+	t.Run("warns for generic ParseBytes source names", func(t *testing.T) {
+		doc1, err := p.Parse("../testdata/join-base-3.0.yaml")
+		require.NoError(t, err)
+		doc2, err := p.Parse("../testdata/join-extension-3.0.yaml")
+		require.NoError(t, err)
+
+		// Simulate documents parsed from bytes (generic source names)
+		doc1.SourcePath = "ParseBytes.yaml"
+		doc2.SourcePath = "ParseBytes.yaml"
+
+		j := New(DefaultConfig())
+		result, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2})
+		require.NoError(t, err)
+
+		// Should have warnings for both documents
+		genericWarnings := result.StructuredWarnings.ByCategory(WarnGenericSourceName)
+		assert.Len(t, genericWarnings, 2, "expected 2 generic source name warnings")
+
+		// Verify warning content
+		if len(genericWarnings) >= 2 {
+			assert.Contains(t, genericWarnings[0].Message, "document 0")
+			assert.Contains(t, genericWarnings[1].Message, "document 1")
+			assert.Contains(t, genericWarnings[0].Message, "ParseResult.SourcePath")
+		}
+	})
+
+	t.Run("warns for empty source names", func(t *testing.T) {
+		doc1, err := p.Parse("../testdata/join-base-3.0.yaml")
+		require.NoError(t, err)
+		doc2, err := p.Parse("../testdata/join-extension-3.0.yaml")
+		require.NoError(t, err)
+
+		// Simulate documents with empty source names
+		doc1.SourcePath = ""
+		doc2.SourcePath = ""
+
+		j := New(DefaultConfig())
+		result, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2})
+		require.NoError(t, err)
+
+		genericWarnings := result.StructuredWarnings.ByCategory(WarnGenericSourceName)
+		assert.Len(t, genericWarnings, 2)
+		if len(genericWarnings) >= 1 {
+			assert.Contains(t, genericWarnings[0].Message, "empty source name")
+		}
+	})
+
+	t.Run("no warning when SourcePath is set to meaningful name", func(t *testing.T) {
+		doc1, err := p.Parse("../testdata/join-base-3.0.yaml")
+		require.NoError(t, err)
+		doc2, err := p.Parse("../testdata/join-extension-3.0.yaml")
+		require.NoError(t, err)
+
+		// Set meaningful source names (as recommended for JoinParsed)
+		doc1.SourcePath = "users-api"
+		doc2.SourcePath = "billing-api"
+
+		j := New(DefaultConfig())
+		result, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2})
+		require.NoError(t, err)
+
+		// Should have no generic source name warnings
+		genericWarnings := result.StructuredWarnings.ByCategory(WarnGenericSourceName)
+		assert.Empty(t, genericWarnings, "no warnings expected when SourcePath is meaningful")
+	})
+}
+
 // TestJSONFormatPreservation tests that JSON input produces JSON output
 func TestJSONFormatPreservation(t *testing.T) {
 	testdataDir := filepath.Join("..", "testdata")
