@@ -365,6 +365,33 @@
 //   - Available via result.StructuredWarnings.ByCategory(WarnGenericSourceName)
 //   - Also included in result.Warnings string slice for backward compatibility
 //
+// # Chaining with Other Packages
+//
+// Use [JoinResult.ToParseResult] to convert the join result for use with other packages:
+//
+//	// Join documents
+//	joinResult, _ := joiner.JoinWithOptions(
+//	    joiner.WithFilePaths([]string{"users-api.yaml", "orders-api.yaml"}),
+//	)
+//
+//	// Validate the joined result
+//	v := validator.New()
+//	validationResult, _ := v.ValidateParsed(*joinResult.ToParseResult())
+//
+//	// Or convert to a different version
+//	c := converter.New()
+//	convResult, _ := c.ConvertParsed(*joinResult.ToParseResult(), "3.1.0")
+//
+//	// Or diff against another document
+//	diffResult, _ := differ.DiffWithOptions(
+//	    differ.WithSourceParsed(*joinResult.ToParseResult()),
+//	    differ.WithTargetFilePath("production.yaml"),
+//	)
+//
+// The returned [parser.ParseResult] has Document populated (the typed OAS document)
+// and all metadata fields (Version, OASVersion, SourceFormat, Stats, Warnings).
+// The Data field is nil as downstream consumers use Document, not Data.
+//
 // # Related Packages
 //
 // The joiner integrates with other oastools packages:

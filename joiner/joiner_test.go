@@ -1917,3 +1917,123 @@ func TestCollisionError_StructFields(t *testing.T) {
 	assert.Equal(t, 6, err.SecondColumn)
 	assert.Equal(t, StrategyFailOnPaths, err.Strategy)
 }
+
+func TestJoinResult_ToParseResult(t *testing.T) {
+	t.Run("OAS3 result converts correctly", func(t *testing.T) {
+		// Create a JoinResult with OAS3 document
+		joinResult := &JoinResult{
+			Document:      &parser.OAS3Document{OpenAPI: "3.0.3", Info: &parser.Info{Title: "Test API", Version: "1.0"}},
+			Version:       "3.0.3",
+			OASVersion:    parser.OASVersion303,
+			SourceFormat:  parser.SourceFormatYAML,
+			Warnings:      []string{"warning1", "warning2"},
+			Stats:         parser.DocumentStats{PathCount: 5, OperationCount: 10},
+			firstFilePath: "/path/to/first.yaml",
+		}
+
+		parseResult := joinResult.ToParseResult()
+
+		assert.Equal(t, "/path/to/first.yaml", parseResult.SourcePath)
+		assert.Equal(t, parser.SourceFormatYAML, parseResult.SourceFormat)
+		assert.Equal(t, "3.0.3", parseResult.Version)
+		assert.Equal(t, parser.OASVersion303, parseResult.OASVersion)
+		assert.NotNil(t, parseResult.Document)
+		assert.Empty(t, parseResult.Errors)
+		assert.Equal(t, []string{"warning1", "warning2"}, parseResult.Warnings)
+		assert.Equal(t, 5, parseResult.Stats.PathCount)
+		assert.Equal(t, 10, parseResult.Stats.OperationCount)
+
+		// Verify Document type assertion works
+		doc, ok := parseResult.Document.(*parser.OAS3Document)
+		assert.True(t, ok)
+		assert.Equal(t, "Test API", doc.Info.Title)
+	})
+
+	t.Run("OAS2 result converts correctly", func(t *testing.T) {
+		joinResult := &JoinResult{
+			Document:      &parser.OAS2Document{Swagger: "2.0", Info: &parser.Info{Title: "Swagger API", Version: "1.0"}},
+			Version:       "2.0",
+			OASVersion:    parser.OASVersion20,
+			SourceFormat:  parser.SourceFormatJSON,
+			Stats:         parser.DocumentStats{PathCount: 3},
+			firstFilePath: "/api/swagger.json",
+		}
+
+		parseResult := joinResult.ToParseResult()
+
+		assert.Equal(t, "/api/swagger.json", parseResult.SourcePath)
+		assert.Equal(t, parser.SourceFormatJSON, parseResult.SourceFormat)
+		assert.Equal(t, "2.0", parseResult.Version)
+		assert.Equal(t, parser.OASVersion20, parseResult.OASVersion)
+
+		doc, ok := parseResult.Document.(*parser.OAS2Document)
+		assert.True(t, ok)
+		assert.Equal(t, "Swagger API", doc.Info.Title)
+	})
+
+	t.Run("empty firstFilePath uses default", func(t *testing.T) {
+		joinResult := &JoinResult{
+			Document:      &parser.OAS3Document{OpenAPI: "3.1.0"},
+			Version:       "3.1.0",
+			OASVersion:    parser.OASVersion310,
+			SourceFormat:  parser.SourceFormatYAML,
+			firstFilePath: "", // Empty
+		}
+
+		parseResult := joinResult.ToParseResult()
+
+		assert.Equal(t, "joiner", parseResult.SourcePath)
+	})
+
+	t.Run("structured warnings are converted", func(t *testing.T) {
+		joinResult := &JoinResult{
+			Document:     &parser.OAS3Document{OpenAPI: "3.0.0"},
+			Version:      "3.0.0",
+			OASVersion:   parser.OASVersion300,
+			SourceFormat: parser.SourceFormatYAML,
+			StructuredWarnings: JoinWarnings{
+				{Category: WarnSchemaCollision, Message: "collision warning"},
+				{Category: WarnGenericSourceName, Message: "source name warning"},
+			},
+		}
+
+		parseResult := joinResult.ToParseResult()
+
+		// StructuredWarnings should be converted via WarningStrings()
+		assert.Len(t, parseResult.Warnings, 2)
+	})
+
+	t.Run("legacy Warnings slice is used when StructuredWarnings is empty", func(t *testing.T) {
+		joinResult := &JoinResult{
+			Document:           &parser.OAS3Document{OpenAPI: "3.0.0"},
+			Version:            "3.0.0",
+			OASVersion:         parser.OASVersion300,
+			SourceFormat:       parser.SourceFormatYAML,
+			Warnings:           []string{"legacy warning 1", "legacy warning 2"},
+			StructuredWarnings: nil, // Empty - should fall back to Warnings
+		}
+
+		parseResult := joinResult.ToParseResult()
+
+		assert.Len(t, parseResult.Warnings, 2)
+		assert.Equal(t, "legacy warning 1", parseResult.Warnings[0])
+		assert.Equal(t, "legacy warning 2", parseResult.Warnings[1])
+	})
+
+	t.Run("Data field is nil and LoadTime/SourceSize are zero", func(t *testing.T) {
+		// JoinResult aggregates multiple sources, so individual LoadTime/SourceSize
+		// are not meaningful - they should be zero. Data is also not populated.
+		joinResult := &JoinResult{
+			Document:     &parser.OAS3Document{OpenAPI: "3.0.0"},
+			Version:      "3.0.0",
+			OASVersion:   parser.OASVersion300,
+			SourceFormat: parser.SourceFormatYAML,
+		}
+
+		parseResult := joinResult.ToParseResult()
+
+		assert.Nil(t, parseResult.Data)
+		assert.Zero(t, parseResult.LoadTime)
+		assert.Zero(t, parseResult.SourceSize)
+	})
+}

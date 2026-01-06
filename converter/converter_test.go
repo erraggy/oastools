@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
@@ -1261,4 +1262,119 @@ func TestNullableDeprecationNotTriggeredFor30To30(t *testing.T) {
 			t.Errorf("Unexpected nullable warning when converting 3.0.x to 3.0.x: %s", issue.Message)
 		}
 	}
+}
+
+func TestConversionResult_ToParseResult(t *testing.T) {
+	t.Run("OAS3 result converts correctly", func(t *testing.T) {
+		result := &ConversionResult{
+			Document:         &parser.OAS3Document{OpenAPI: "3.1.0", Info: &parser.Info{Title: "Test API", Version: "1.0"}},
+			SourceVersion:    "3.0.3",
+			SourceOASVersion: parser.OASVersion303,
+			SourceFormat:     parser.SourceFormatYAML,
+			TargetVersion:    "3.1.0",
+			TargetOASVersion: parser.OASVersion310,
+			Issues: []ConversionIssue{
+				{Path: "components.schemas.User", Message: "test issue", Severity: SeverityWarning},
+			},
+			LoadTime:   100 * time.Millisecond,
+			SourceSize: 1024,
+			Stats:      parser.DocumentStats{PathCount: 5, OperationCount: 10},
+		}
+
+		parseResult := result.ToParseResult()
+
+		assert.Equal(t, "converter", parseResult.SourcePath)
+		assert.Equal(t, parser.SourceFormatYAML, parseResult.SourceFormat)
+		assert.Equal(t, "3.1.0", parseResult.Version) // Uses target version
+		assert.Equal(t, parser.OASVersion310, parseResult.OASVersion)
+		assert.NotNil(t, parseResult.Document)
+		assert.Empty(t, parseResult.Errors)
+		assert.Len(t, parseResult.Warnings, 1)
+		assert.Contains(t, parseResult.Warnings[0], "test issue")
+		assert.Equal(t, 100*time.Millisecond, parseResult.LoadTime)
+		assert.Equal(t, int64(1024), parseResult.SourceSize)
+		assert.Equal(t, 5, parseResult.Stats.PathCount)
+
+		// Verify Document type assertion works
+		doc, ok := parseResult.Document.(*parser.OAS3Document)
+		assert.True(t, ok)
+		assert.Equal(t, "Test API", doc.Info.Title)
+	})
+
+	t.Run("OAS2 result converts correctly", func(t *testing.T) {
+		result := &ConversionResult{
+			Document:         &parser.OAS2Document{Swagger: "2.0", Info: &parser.Info{Title: "Swagger API", Version: "1.0"}},
+			SourceVersion:    "3.0.0",
+			SourceOASVersion: parser.OASVersion300,
+			SourceFormat:     parser.SourceFormatJSON,
+			TargetVersion:    "2.0",
+			TargetOASVersion: parser.OASVersion20,
+			Stats:            parser.DocumentStats{PathCount: 3},
+		}
+
+		parseResult := result.ToParseResult()
+
+		assert.Equal(t, "converter", parseResult.SourcePath)
+		assert.Equal(t, parser.SourceFormatJSON, parseResult.SourceFormat)
+		assert.Equal(t, "2.0", parseResult.Version)
+		assert.Equal(t, parser.OASVersion20, parseResult.OASVersion)
+
+		doc, ok := parseResult.Document.(*parser.OAS2Document)
+		assert.True(t, ok)
+		assert.Equal(t, "Swagger API", doc.Info.Title)
+	})
+
+	t.Run("multiple issues are converted to warnings", func(t *testing.T) {
+		result := &ConversionResult{
+			Document:         &parser.OAS3Document{OpenAPI: "3.0.0"},
+			TargetVersion:    "3.0.0",
+			TargetOASVersion: parser.OASVersion300,
+			SourceFormat:     parser.SourceFormatYAML,
+			Issues: []ConversionIssue{
+				{Path: "path1", Message: "issue 1", Severity: SeverityWarning},
+				{Path: "path2", Message: "issue 2", Severity: SeverityInfo},
+				{Path: "path3", Message: "issue 3", Severity: SeverityCritical},
+			},
+		}
+
+		parseResult := result.ToParseResult()
+
+		assert.Len(t, parseResult.Warnings, 3)
+		// Verify severity prefix is included for programmatic filtering
+		assert.Contains(t, parseResult.Warnings[0], "[warning]")
+		assert.Contains(t, parseResult.Warnings[0], "issue 1")
+		assert.Contains(t, parseResult.Warnings[1], "[info]")
+		assert.Contains(t, parseResult.Warnings[1], "issue 2")
+		assert.Contains(t, parseResult.Warnings[2], "[critical]")
+		assert.Contains(t, parseResult.Warnings[2], "issue 3")
+	})
+
+	t.Run("empty issues results in empty warnings", func(t *testing.T) {
+		result := &ConversionResult{
+			Document:         &parser.OAS3Document{OpenAPI: "3.1.0"},
+			TargetVersion:    "3.1.0",
+			TargetOASVersion: parser.OASVersion310,
+			SourceFormat:     parser.SourceFormatYAML,
+			Issues:           []ConversionIssue{},
+		}
+
+		parseResult := result.ToParseResult()
+
+		assert.Empty(t, parseResult.Warnings)
+		assert.NotNil(t, parseResult.Warnings) // Should be initialized, not nil
+	})
+
+	t.Run("Data field is nil (not populated by ToParseResult)", func(t *testing.T) {
+		result := &ConversionResult{
+			Document:         &parser.OAS3Document{OpenAPI: "3.1.0"},
+			TargetVersion:    "3.1.0",
+			TargetOASVersion: parser.OASVersion310,
+			SourceFormat:     parser.SourceFormatYAML,
+		}
+
+		parseResult := result.ToParseResult()
+
+		// ToParseResult does not populate Data - consumers use Document instead
+		assert.Nil(t, parseResult.Data)
+	})
 }

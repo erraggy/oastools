@@ -70,6 +70,35 @@ func (r *ConversionResult) HasWarnings() bool {
 	return r.WarningCount > 0
 }
 
+// ToParseResult converts the ConversionResult to a ParseResult for use with
+// other packages like validator, fixer, and differ.
+// Uses the target version (post-conversion) for version fields.
+// The returned ParseResult has Document populated but Data is nil
+// (consumers use Document, not Data).
+// Conversion issues are formatted with severity prefix for filtering:
+// "[critical] ✗ path: message", "[warning] ⚠ path: message", etc.
+func (r *ConversionResult) ToParseResult() *parser.ParseResult {
+	// Convert issues to warnings with severity prefix for filtering
+	warnings := make([]string, 0, len(r.Issues))
+	for _, issue := range r.Issues {
+		// Prepend severity label for programmatic filtering (e.g., grep for "[critical]")
+		warnings = append(warnings, "["+issue.Severity.String()+"] "+issue.String())
+	}
+
+	return &parser.ParseResult{
+		SourcePath:   "converter",
+		SourceFormat: r.SourceFormat,
+		Version:      r.TargetVersion,
+		OASVersion:   r.TargetOASVersion,
+		Document:     r.Document,
+		Errors:       make([]error, 0),
+		Warnings:     warnings,
+		LoadTime:     r.LoadTime,
+		SourceSize:   r.SourceSize,
+		Stats:        r.Stats,
+	}
+}
+
 // Converter handles OpenAPI specification version conversion
 type Converter struct {
 	// StrictMode causes conversion to fail on any issues (even warnings)
