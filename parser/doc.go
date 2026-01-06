@@ -111,6 +111,7 @@
 // This is especially important when joining multiple pre-parsed documents, as
 // the joiner uses SourcePath in collision reports. Without meaningful names,
 // collision reports show unhelpful text like "ParseBytes.yaml vs ParseBytes.yaml".
+// The joiner will emit info-level warnings for documents with generic source names.
 //
 // Alternatively, you can set SourcePath directly on the ParseResult after parsing:
 //

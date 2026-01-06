@@ -629,6 +629,35 @@ func TestJoinParsed_GenericSourceNameWarning(t *testing.T) {
 		genericWarnings := result.StructuredWarnings.ByCategory(WarnGenericSourceName)
 		assert.Empty(t, genericWarnings, "no warnings expected when SourcePath is meaningful")
 	})
+
+	t.Run("warning appears in both StructuredWarnings and Warnings string slice", func(t *testing.T) {
+		doc1, err := p.Parse("../testdata/join-base-3.0.yaml")
+		require.NoError(t, err)
+		doc2, err := p.Parse("../testdata/join-extension-3.0.yaml")
+		require.NoError(t, err)
+
+		// Set generic source name to trigger warning
+		doc1.SourcePath = "ParseBytes.yaml"
+		doc2.SourcePath = "users-api" // This one is fine
+
+		j := New(DefaultConfig())
+		result, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2})
+		require.NoError(t, err)
+
+		// Verify structured warning exists
+		genericWarnings := result.StructuredWarnings.ByCategory(WarnGenericSourceName)
+		require.Len(t, genericWarnings, 1, "expected 1 generic source name warning")
+
+		// Verify warning message is also in the string slice for backward compatibility
+		found := false
+		for _, w := range result.Warnings {
+			if strings.Contains(w, "document 0") && strings.Contains(w, "ParseBytes.yaml") {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "expected warning message in result.Warnings string slice")
+	})
 }
 
 // TestJSONFormatPreservation tests that JSON input produces JSON output

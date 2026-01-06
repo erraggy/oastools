@@ -359,6 +359,11 @@
 //
 // The joiner emits an info-level [WarnGenericSourceName] warning when documents have
 // generic source names (empty, "ParseBytes.*", "ParseReader.*") to help identify this issue.
+// These warnings are:
+//   - Emitted for each affected document at the start of joining
+//   - Info-level (non-blocking) - joining proceeds normally
+//   - Available via result.StructuredWarnings.ByCategory(WarnGenericSourceName)
+//   - Also included in result.Warnings string slice for backward compatibility
 //
 // # Related Packages
 //
