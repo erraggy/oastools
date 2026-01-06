@@ -181,6 +181,27 @@ func (r *JoinResult) WarningStrings() []string {
 	return r.Warnings
 }
 
+// ToParseResult converts the JoinResult to a ParseResult for use with
+// other packages like validator, fixer, converter, and differ.
+// The returned ParseResult has Document populated but Data is nil
+// (consumers use Document, not Data).
+func (r *JoinResult) ToParseResult() *parser.ParseResult {
+	sourcePath := r.firstFilePath
+	if sourcePath == "" {
+		sourcePath = "joiner"
+	}
+	return &parser.ParseResult{
+		SourcePath:   sourcePath,
+		SourceFormat: r.SourceFormat,
+		Version:      r.Version,
+		OASVersion:   r.OASVersion,
+		Document:     r.Document,
+		Errors:       make([]error, 0),
+		Warnings:     r.WarningStrings(),
+		Stats:        r.Stats,
+	}
+}
+
 // documentContext tracks the source file and document for error reporting
 type documentContext struct {
 	filePath string

@@ -71,6 +71,36 @@
 // Pre-conversion overlays are useful for normalizing or fixing the source document.
 // Post-conversion overlays can add version-specific extensions to the result.
 //
+// # Chaining with Other Packages
+//
+// Use [ConversionResult.ToParseResult] to convert the result for use with other packages:
+//
+//	// Convert to OAS 3.1
+//	convResult, _ := converter.ConvertWithOptions(
+//	    converter.WithFilePath("swagger.yaml"),
+//	    converter.WithTargetVersion("3.1.0"),
+//	)
+//
+//	// Validate the converted result
+//	v := validator.New()
+//	validationResult, _ := v.ValidateParsed(*convResult.ToParseResult())
+//
+//	// Or join with other specifications
+//	j := joiner.New(joiner.DefaultConfig())
+//	joinResult, _ := j.JoinParsed([]parser.ParseResult{
+//	    *convResult.ToParseResult(),
+//	    otherSpec,
+//	})
+//
+//	// Or diff against the original
+//	diffResult, _ := differ.DiffWithOptions(
+//	    differ.WithSourceFilePath("swagger.yaml"),
+//	    differ.WithTargetParsed(*convResult.ToParseResult()),
+//	)
+//
+// The returned [parser.ParseResult] uses the target version (post-conversion) for
+// version fields and converts all conversion issues to warnings.
+//
 // # Related Packages
 //
 // Conversion integrates with other oastools packages:
