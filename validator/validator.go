@@ -406,7 +406,7 @@ func (v *Validator) Validate(specPath string) (*ValidationResult, error) {
 	// Parse the document
 	parseResult, err := p.Parse(specPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse specification: %w", err)
+		return nil, fmt.Errorf("validator: failed to parse specification: %w", err)
 	}
 
 	return v.ValidateParsed(*parseResult)

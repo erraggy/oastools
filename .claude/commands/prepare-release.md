@@ -110,29 +110,76 @@ The benchmark file is now included in the pre-release branch.
 
 ### Phase 6: Generate Release Notes
 
-Create release notes with this structure:
+Generate comprehensive release notes that include PRs and Issues:
+
+#### Step 1: Get GitHub's Auto-Generated Notes
+
+```bash
+# Get auto-generated release notes from GitHub API
+PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
+gh api repos/erraggy/oastools/releases/generate-notes \
+  -f tag_name="<version>" \
+  -f previous_tag_name="$PREV_TAG" \
+  --jq '.body'
+```
+
+This produces PR links like:
+```
+* feat(api): add ToParseResult() by @erraggy in https://github.com/erraggy/oastools/pull/235
+```
+
+#### Step 2: Extract Linked Issues
+
+```bash
+# Get Issues fixed by PRs since last release
+LAST_TAG_DATE=$(git log -1 --format=%cI "$PREV_TAG")
+gh pr list --state merged --base main --limit 50 \
+  --json number,title,mergedAt,closingIssuesReferences | \
+  jq -r --arg since "$LAST_TAG_DATE" '
+    [.[] | select(.mergedAt > $since and (.closingIssuesReferences | length > 0))] |
+    if length == 0 then "None"
+    else .[] | "- #\(.closingIssuesReferences[0].number) - Fixed by PR #\(.number)"
+    end'
+```
+
+#### Step 3: Combine into Final Release Notes
+
+Use this enhanced structure:
 
 ```markdown
-## What's New
+## What's Changed
+
+<!-- Copy the auto-generated PR list from Step 1 -->
+
+## Issues Fixed
+
+<!-- List issues from Step 2, or "None" if no linked issues -->
+- #233 - Fixed by PR #234
+- #227 - Fixed by PR #228
+
+## Highlights
 
 ### Features
-- List new features with brief descriptions
-
-### Improvements
-- List improvements and enhancements
+- Brief description of major new features
 
 ### Bug Fixes
-- List bug fixes
+- Brief description of significant fixes
 
-### Documentation
-- List documentation updates
+### Performance
+- Any performance improvements (reference benchmark data if available)
 
 ## Breaking Changes
 - List any breaking changes (or "None" if backward compatible)
 
 ## Upgrade Notes
 - Any notes for users upgrading from previous version
+
+**Full Changelog**: https://github.com/erraggy/oastools/compare/<prev_version>...<version>
 ```
+
+**Important:**
+- Do NOT wrap PR numbers, issue numbers, or commit hashes in backticks - GitHub auto-links them
+- Always include the "Full Changelog" link for complete diff view
 
 ### Phase 7: Tag and Publish
 
