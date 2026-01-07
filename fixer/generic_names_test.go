@@ -1,10 +1,12 @@
 package fixer
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // =============================================================================
@@ -389,6 +391,43 @@ func TestTransformSchemaName(t *testing.T) {
 			},
 			expected: "ListOfItem",
 		},
+
+		// Package-qualified type parameters (Issue #233 fix)
+		{
+			name:  "of with package param",
+			input: "Response[common.Pet]",
+			config: GenericNamingConfig{
+				Strategy: GenericNamingOf,
+			},
+			expected: "ResponseOfcommon.Pet",
+		},
+		{
+			name:  "of with pointer package param",
+			input: "Response[*common.Pet]",
+			config: GenericNamingConfig{
+				Strategy: GenericNamingOf,
+			},
+			expected: "ResponseOfcommon.Pet",
+		},
+		{
+			name:  "of with slice pointer package param",
+			input: "Response[[]*common.Pet]",
+			config: GenericNamingConfig{
+				Strategy: GenericNamingOf,
+			},
+			// Note: []*common.Pet contains brackets so isPackageQualifiedName returns false,
+			// leading to sanitization which strips the slice notation and PascalCases
+			expected: "ResponseOfCommonPet",
+		},
+		{
+			name:  "underscore with package param",
+			input: "Response[common.Pet]",
+			config: GenericNamingConfig{
+				Strategy:  GenericNamingUnderscore,
+				Separator: "_",
+			},
+			expected: "Response_common.Pet_",
+		},
 	}
 
 	for _, tt := range tests {
@@ -725,4 +764,229 @@ func TestIsValidSchemaNameChar(t *testing.T) {
 	assert.False(t, isValidSchemaNameChar(' '))
 	assert.False(t, isValidSchemaNameChar(','))
 	assert.False(t, isValidSchemaNameChar('|'))
+}
+
+// =============================================================================
+// Issue #233 Fix Tests - Package-Qualified Names
+// =============================================================================
+
+// TestIsPackageQualifiedName tests detection of package-qualified schema names
+func TestIsPackageQualifiedName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		// Package-qualified names (should return true)
+		{name: "simple package name", input: "common.Pet", expected: true},
+		{name: "nested package", input: "api.v1.User", expected: true},
+		{name: "single char package", input: "a.B", expected: true},
+
+		// Non-package names (should return false)
+		{name: "simple name no dot", input: "Pet", expected: false},
+		{name: "generic with brackets", input: "Response[User]", expected: false},
+		{name: "package in generic", input: "Response[common.Pet]", expected: false},
+		{name: "angle brackets", input: "List<Item>", expected: false},
+		{name: "underscore name", input: "user_profile", expected: false},
+		{name: "empty string", input: "", expected: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isPackageQualifiedName(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestTransformTypeParam tests type parameter transformation with pointer stripping and package preservation
+func TestTransformTypeParam(t *testing.T) {
+	tests := []struct {
+		name     string
+		param    string
+		config   GenericNamingConfig
+		expected string
+	}{
+		// Pointer stripping
+		{
+			name:     "strip single pointer",
+			param:    "*User",
+			config:   GenericNamingConfig{Strategy: GenericNamingOf},
+			expected: "User",
+		},
+		{
+			name:     "strip double pointer",
+			param:    "**User",
+			config:   GenericNamingConfig{Strategy: GenericNamingOf},
+			expected: "User",
+		},
+
+		// Package-qualified names preserved
+		{
+			name:     "preserve package name",
+			param:    "common.Pet",
+			config:   GenericNamingConfig{Strategy: GenericNamingOf},
+			expected: "common.Pet",
+		},
+		{
+			name:     "strip pointer preserve package",
+			param:    "*common.Pet",
+			config:   GenericNamingConfig{Strategy: GenericNamingOf},
+			expected: "common.Pet",
+		},
+		{
+			name:     "strip double pointer preserve package",
+			param:    "**common.Pet",
+			config:   GenericNamingConfig{Strategy: GenericNamingOf},
+			expected: "common.Pet",
+		},
+		{
+			name:     "nested package preserved",
+			param:    "api.v1.User",
+			config:   GenericNamingConfig{Strategy: GenericNamingOf},
+			expected: "api.v1.User",
+		},
+
+		// Simple names get PascalCased
+		{
+			name:     "simple name pascalcased",
+			param:    "user",
+			config:   GenericNamingConfig{Strategy: GenericNamingOf},
+			expected: "User",
+		},
+		{
+			name:     "preserve casing flag",
+			param:    "user",
+			config:   GenericNamingConfig{Strategy: GenericNamingOf, PreserveCasing: true},
+			expected: "user",
+		},
+
+		// Nested generics still work
+		{
+			name:     "nested generic",
+			param:    "List[User]",
+			config:   GenericNamingConfig{Strategy: GenericNamingOf},
+			expected: "ListOfUser",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := transformTypeParam(tt.param, tt.config)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestGenericSchemaFixerRefCorruption tests that package-qualified refs are not corrupted
+// This is the integration test from issue #233
+func TestGenericSchemaFixerRefCorruption(t *testing.T) {
+	spec := []byte(`{
+        "swagger": "2.0",
+        "info": {"title": "Test", "version": "1.0.0"},
+        "paths": {
+            "/test": {
+                "get": {
+                    "operationId": "test",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "schema": {"$ref": "#/definitions/Response[[]*common.Pet]"}
+                        },
+                        "403": {
+                            "description": "Forbidden",
+                            "schema": {"$ref": "#/definitions/common.Error"}
+                        }
+                    }
+                }
+            }
+        },
+        "definitions": {
+            "Response[[]*common.Pet]": {
+                "type": "object",
+                "properties": {
+                    "data": {"type": "array", "items": {"$ref": "#/definitions/common.Pet"}},
+                    "meta": {"$ref": "#/definitions/common.MetaInfo"}
+                }
+            },
+            "common.Pet": {"type": "object", "properties": {"id": {"type": "integer"}}},
+            "common.Error": {"type": "object", "properties": {"code": {"type": "integer"}}},
+            "common.MetaInfo": {
+                "type": "object",
+                "properties": {
+                    "pagination": {"$ref": "#/definitions/common.Pagination"}
+                }
+            },
+            "common.Pagination": {"type": "object", "properties": {"offset": {"type": "integer"}}}
+        }
+    }`)
+
+	pr, err := parser.ParseWithOptions(parser.WithBytes(spec))
+	require.NoError(t, err)
+
+	result, err := FixWithOptions(
+		WithParsed(*pr),
+		WithEnabledFixes(FixTypeRenamedGenericSchema),
+		WithGenericNamingConfig(GenericNamingConfig{
+			Strategy: GenericNamingOf,
+		}),
+	)
+	require.NoError(t, err)
+
+	doc := result.Document.(*parser.OAS2Document)
+
+	// The generic schema should be renamed
+	assert.NotContains(t, doc.Definitions, "Response[[]*common.Pet]",
+		"generic schema should be renamed")
+
+	// Package-qualified schemas should be UNCHANGED
+	assert.Contains(t, doc.Definitions, "common.Pet",
+		"non-generic schema should not be renamed")
+	assert.Contains(t, doc.Definitions, "common.Error",
+		"non-generic schema should not be renamed")
+	assert.Contains(t, doc.Definitions, "common.MetaInfo",
+		"non-generic schema should not be renamed")
+	assert.Contains(t, doc.Definitions, "common.Pagination",
+		"non-generic schema should not be renamed")
+
+	// Critical: Refs to package-qualified schemas should be UNCHANGED
+	metaInfo := doc.Definitions["common.MetaInfo"]
+	require.NotNil(t, metaInfo)
+	paginationRef := metaInfo.Properties["pagination"].Ref
+
+	// THESE ARE THE BUG ASSERTIONS - refs should NOT be corrupted
+	assert.NotEqual(t, "#/definitions/.common.Pagination", paginationRef,
+		"ref should NOT have leading dot")
+	assert.NotEqual(t, "#/definitions/*common.Pagination", paginationRef,
+		"ref should NOT have asterisk prefix")
+	assert.NotContains(t, paginationRef, "_0",
+		"ref should NOT have _0 suffix mismatch")
+
+	// Correct behavior - ref unchanged
+	assert.Equal(t, "#/definitions/common.Pagination", paginationRef,
+		"ref should be unchanged")
+
+	// Verify the renamed schema has correct refs
+	// Find the renamed schema (should be something like ResponseOfcommon.Pet)
+	var renamedSchema *parser.Schema
+	var renamedName string
+	for name, schema := range doc.Definitions {
+		if strings.HasPrefix(name, "Response") && name != "Response[[]*common.Pet]" {
+			renamedSchema = schema
+			renamedName = name
+			break
+		}
+	}
+	require.NotNil(t, renamedSchema, "should find renamed schema")
+	t.Logf("Generic schema renamed to: %s", renamedName)
+
+	// Check the data property ref
+	if dataItems, ok := renamedSchema.Properties["data"].Items.(*parser.Schema); ok {
+		assert.Equal(t, "#/definitions/common.Pet", dataItems.Ref,
+			"data items ref should point to common.Pet")
+	}
+
+	// Check the meta property ref
+	assert.Equal(t, "#/definitions/common.MetaInfo", renamedSchema.Properties["meta"].Ref,
+		"meta ref should point to common.MetaInfo")
 }
