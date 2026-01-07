@@ -142,6 +142,13 @@ func isGenericStyleName(name string) bool {
 	return strings.ContainsAny(name, "[]<>")
 }
 
+// isPackageQualifiedName returns true if name appears to be a package-qualified
+// schema name (contains a dot but no brackets indicating generics).
+// Examples: "common.Pet" → true, "Response[User]" → false, "Pet" → false
+func isPackageQualifiedName(name string) bool {
+	return strings.Contains(name, ".") && !strings.ContainsAny(name, "[]<>")
+}
+
 // parseGenericName extracts the base name and type parameters from a generic-style name.
 // Returns the base name, list of type parameters, and the bracket style used.
 // If the name is not generic-style, returns the name as base with empty params.
@@ -250,15 +257,7 @@ func transformSchemaName(name string, config GenericNamingConfig) string {
 	// Recursively transform nested generic types in parameters
 	transformedParams := make([]string, len(params))
 	for i, param := range params {
-		// Recursively transform nested generics
-		transformed := transformSchemaName(param, config)
-
-		// Apply casing if not preserving
-		if !config.PreserveCasing {
-			transformed = toPascalCase(transformed)
-		}
-
-		transformedParams[i] = transformed
+		transformedParams[i] = transformTypeParam(param, config)
 	}
 
 	// Apply strategy
@@ -286,6 +285,35 @@ func transformSchemaName(name string, config GenericNamingConfig) string {
 		}
 		return base + sep + strings.Join(transformedParams, paramSep) + sep
 	}
+}
+
+// transformTypeParam transforms a type parameter while preserving package qualification.
+// It strips leading pointer asterisks and preserves package-qualified names.
+// Examples:
+//
+//	"*common.Pet" → "common.Pet" (pointer stripped, package preserved)
+//	"common.Pet" → "common.Pet" (package preserved)
+//	"*User" → "User" (pointer stripped, then PascalCased if configured)
+//	"List[User]" → recursively transformed
+func transformTypeParam(param string, config GenericNamingConfig) string {
+	// Strip leading pointer asterisks (Go pointer syntax leaking from code generators)
+	param = strings.TrimLeft(param, "*")
+
+	// If it's a package-qualified name (like common.Pet), preserve it as-is
+	// to avoid corrupting the reference
+	if isPackageQualifiedName(param) {
+		return param
+	}
+
+	// For generic types or simple names, apply normal transformation
+	transformed := transformSchemaName(param, config)
+
+	// Apply PascalCase if not preserving casing (for non-package names)
+	if !config.PreserveCasing {
+		transformed = toPascalCase(transformed)
+	}
+
+	return transformed
 }
 
 // sanitizeSchemaName removes or replaces invalid characters with underscores.
