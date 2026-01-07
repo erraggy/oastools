@@ -297,10 +297,10 @@ func DiffWithOptions(opts ...Option) (*DiffResult, error) {
 		}
 		sourceResult, err := p.Parse(*cfg.sourceFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse source: %w", err)
+			return nil, fmt.Errorf("differ: failed to parse source: %w", err)
 		}
 		if len(sourceResult.Errors) > 0 {
-			return nil, fmt.Errorf("source document has %d parse error(s)", len(sourceResult.Errors))
+			return nil, fmt.Errorf("differ: source document has %d parse error(s)", len(sourceResult.Errors))
 		}
 		source = *sourceResult
 	} else {
@@ -316,10 +316,10 @@ func DiffWithOptions(opts ...Option) (*DiffResult, error) {
 		}
 		targetResult, err := p.Parse(*cfg.targetFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse target: %w", err)
+			return nil, fmt.Errorf("differ: failed to parse target: %w", err)
 		}
 		if len(targetResult.Errors) > 0 {
-			return nil, fmt.Errorf("target document has %d parse error(s)", len(targetResult.Errors))
+			return nil, fmt.Errorf("differ: target document has %d parse error(s)", len(targetResult.Errors))
 		}
 		target = *targetResult
 	} else {
@@ -480,19 +480,19 @@ func (d *Differ) Diff(sourcePath, targetPath string) (*DiffResult, error) {
 	// Parse source document
 	sourceResult, err := p.Parse(sourcePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse source specification: %w", err)
+		return nil, fmt.Errorf("differ: failed to parse source specification: %w", err)
 	}
 	if len(sourceResult.Errors) > 0 {
-		return nil, fmt.Errorf("source document has %d parse error(s), cannot diff", len(sourceResult.Errors))
+		return nil, fmt.Errorf("differ: source document has %d parse error(s), cannot diff", len(sourceResult.Errors))
 	}
 
 	// Parse target document
 	targetResult, err := p.Parse(targetPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse target specification: %w", err)
+		return nil, fmt.Errorf("differ: failed to parse target specification: %w", err)
 	}
 	if len(targetResult.Errors) > 0 {
-		return nil, fmt.Errorf("target document has %d parse error(s), cannot diff", len(targetResult.Errors))
+		return nil, fmt.Errorf("differ: target document has %d parse error(s), cannot diff", len(targetResult.Errors))
 	}
 
 	return d.DiffParsed(*sourceResult, *targetResult)
