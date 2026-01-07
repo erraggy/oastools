@@ -789,6 +789,11 @@ func TestIsPackageQualifiedName(t *testing.T) {
 		{name: "angle brackets", input: "List<Item>", expected: false},
 		{name: "underscore name", input: "user_profile", expected: false},
 		{name: "empty string", input: "", expected: false},
+
+		// Edge cases - document current behavior for malformed names
+		{name: "trailing dot", input: "common.", expected: true},
+		{name: "leading dot", input: ".Pet", expected: true},
+		{name: "only dot", input: ".", expected: true},
 	}
 
 	for _, tt := range tests {
@@ -867,6 +872,14 @@ func TestTransformTypeParam(t *testing.T) {
 			param:    "List[User]",
 			config:   GenericNamingConfig{Strategy: GenericNamingOf},
 			expected: "ListOfUser",
+		},
+
+		// Edge case: only asterisks returns empty
+		{
+			name:     "only asterisks returns empty",
+			param:    "***",
+			config:   GenericNamingConfig{Strategy: GenericNamingOf},
+			expected: "",
 		},
 	}
 
@@ -988,5 +1001,128 @@ func TestGenericSchemaFixerRefCorruption(t *testing.T) {
 
 	// Check the meta property ref
 	assert.Equal(t, "#/definitions/common.MetaInfo", renamedSchema.Properties["meta"].Ref,
+		"meta ref should point to common.MetaInfo")
+}
+
+// TestGenericSchemaFixerRefCorruption_OAS3 tests that package-qualified refs are not corrupted in OAS 3.x
+// This is the OAS 3.x version of the integration test from issue #233
+func TestGenericSchemaFixerRefCorruption_OAS3(t *testing.T) {
+	spec := []byte(`{
+        "openapi": "3.0.3",
+        "info": {"title": "Test", "version": "1.0.0"},
+        "paths": {
+            "/test": {
+                "get": {
+                    "operationId": "test",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Response[[]*common.Pet]"}
+                                }
+                            }
+                        },
+                        "403": {
+                            "description": "Forbidden",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/common.Error"}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "components": {
+            "schemas": {
+                "Response[[]*common.Pet]": {
+                    "type": "object",
+                    "properties": {
+                        "data": {"type": "array", "items": {"$ref": "#/components/schemas/common.Pet"}},
+                        "meta": {"$ref": "#/components/schemas/common.MetaInfo"}
+                    }
+                },
+                "common.Pet": {"type": "object", "properties": {"id": {"type": "integer"}}},
+                "common.Error": {"type": "object", "properties": {"code": {"type": "integer"}}},
+                "common.MetaInfo": {
+                    "type": "object",
+                    "properties": {
+                        "pagination": {"$ref": "#/components/schemas/common.Pagination"}
+                    }
+                },
+                "common.Pagination": {"type": "object", "properties": {"offset": {"type": "integer"}}}
+            }
+        }
+    }`)
+
+	pr, err := parser.ParseWithOptions(parser.WithBytes(spec))
+	require.NoError(t, err)
+
+	result, err := FixWithOptions(
+		WithParsed(*pr),
+		WithEnabledFixes(FixTypeRenamedGenericSchema),
+		WithGenericNamingConfig(GenericNamingConfig{
+			Strategy: GenericNamingOf,
+		}),
+	)
+	require.NoError(t, err)
+
+	doc := result.Document.(*parser.OAS3Document)
+
+	// The generic schema should be renamed
+	assert.NotContains(t, doc.Components.Schemas, "Response[[]*common.Pet]",
+		"generic schema should be renamed")
+
+	// Package-qualified schemas should be UNCHANGED
+	assert.Contains(t, doc.Components.Schemas, "common.Pet",
+		"non-generic schema should not be renamed")
+	assert.Contains(t, doc.Components.Schemas, "common.Error",
+		"non-generic schema should not be renamed")
+	assert.Contains(t, doc.Components.Schemas, "common.MetaInfo",
+		"non-generic schema should not be renamed")
+	assert.Contains(t, doc.Components.Schemas, "common.Pagination",
+		"non-generic schema should not be renamed")
+
+	// Critical: Refs to package-qualified schemas should be UNCHANGED
+	metaInfo := doc.Components.Schemas["common.MetaInfo"]
+	require.NotNil(t, metaInfo)
+	paginationRef := metaInfo.Properties["pagination"].Ref
+
+	// THESE ARE THE BUG ASSERTIONS - refs should NOT be corrupted
+	assert.NotEqual(t, "#/components/schemas/.common.Pagination", paginationRef,
+		"ref should NOT have leading dot")
+	assert.NotEqual(t, "#/components/schemas/*common.Pagination", paginationRef,
+		"ref should NOT have asterisk prefix")
+	assert.NotContains(t, paginationRef, "_0",
+		"ref should NOT have _0 suffix mismatch")
+
+	// Correct behavior - ref unchanged
+	assert.Equal(t, "#/components/schemas/common.Pagination", paginationRef,
+		"ref should be unchanged")
+
+	// Verify the renamed schema has correct refs
+	// Find the renamed schema (should be something like ResponseOfCommonPet)
+	var renamedSchema *parser.Schema
+	var renamedName string
+	for name, schema := range doc.Components.Schemas {
+		if strings.HasPrefix(name, "Response") && name != "Response[[]*common.Pet]" {
+			renamedSchema = schema
+			renamedName = name
+			break
+		}
+	}
+	require.NotNil(t, renamedSchema, "should find renamed schema")
+	t.Logf("Generic schema renamed to: %s", renamedName)
+
+	// Check the data property ref
+	if dataItems, ok := renamedSchema.Properties["data"].Items.(*parser.Schema); ok {
+		assert.Equal(t, "#/components/schemas/common.Pet", dataItems.Ref,
+			"data items ref should point to common.Pet")
+	}
+
+	// Check the meta property ref
+	assert.Equal(t, "#/components/schemas/common.MetaInfo", renamedSchema.Properties["meta"].Ref,
 		"meta ref should point to common.MetaInfo")
 }
