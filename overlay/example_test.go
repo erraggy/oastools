@@ -351,3 +351,66 @@ func Example_compoundFilter() {
 	// Output:
 	// Compound filter (deprecated && internal) matched: 1 path(s)
 }
+
+// Example_toParseResult demonstrates converting an ApplyResult to a ParseResult
+// for chaining with other oastools packages like validator.
+func Example_toParseResult() {
+	// Create a document as a raw map (simulating overlay's internal representation)
+	doc := map[string]any{
+		"openapi": "3.0.3",
+		"info": map[string]any{
+			"title":   "My API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]any{},
+	}
+
+	// Create an overlay
+	o := &overlay.Overlay{
+		Version: "1.0.0",
+		Info: overlay.Info{
+			Title:   "Add Environment Extension",
+			Version: "1.0.0",
+		},
+		Actions: []overlay.Action{
+			{
+				Target: "$.info",
+				Update: map[string]any{
+					"x-environment": "production",
+				},
+			},
+		},
+	}
+
+	// Create a mock parse result
+	parseResult := &parser.ParseResult{
+		Document:     doc,
+		SourceFormat: parser.SourceFormatYAML,
+	}
+
+	// Apply the overlay
+	result, err := overlay.ApplyWithOptions(
+		overlay.WithSpecParsed(*parseResult),
+		overlay.WithOverlayParsed(o),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Convert to ParseResult for chaining
+	chainedResult := result.ToParseResult()
+
+	// The chained result can be used with other packages
+	// Note: Version info is empty because overlay works with raw maps.
+	// For full version tracking, re-parse the result or use typed documents.
+	fmt.Printf("Source: %s\n", chainedResult.SourcePath)
+	fmt.Printf("Format: %s\n", chainedResult.SourceFormat)
+	fmt.Printf("Has Document: %t\n", chainedResult.Document != nil)
+	fmt.Printf("Actions applied: %d\n", result.ActionsApplied)
+
+	// Output:
+	// Source: overlay
+	// Format: yaml
+	// Has Document: true
+	// Actions applied: 1
+}

@@ -209,6 +209,66 @@ The Change struct provides detailed information about each difference:
 		}
 	}
 
+# Pipeline Workflows with ToParseResult
+
+The DiffResult.ToParseResult() method enables pipeline workflows where the target
+(newer) document continues through the processing chain. In a diff comparison,
+the "right" side is the target document - the one being compared against the
+baseline. ToParseResult returns this target document as a ParseResult.
+
+This design supports workflows like: diff(v1, v2) → validate(v2) → publish
+
+	package main
+
+	import (
+		"fmt"
+		"log"
+
+		"github.com/erraggy/oastools/differ"
+		"github.com/erraggy/oastools/parser"
+		"github.com/erraggy/oastools/validator"
+	)
+
+	func main() {
+		// Parse both versions
+		v1, _ := parser.ParseWithOptions(parser.WithFilePath("api-v1.yaml"))
+		v2, _ := parser.ParseWithOptions(parser.WithFilePath("api-v2.yaml"))
+
+		// Compare and detect breaking changes
+		diffResult, _ := differ.DiffWithOptions(
+			differ.WithSourceParsed(*v1),
+			differ.WithTargetParsed(*v2),
+			differ.WithMode(differ.ModeBreaking),
+		)
+
+		if diffResult.HasBreakingChanges {
+			fmt.Printf("WARNING: %d breaking changes detected\n", diffResult.BreakingCount)
+		}
+
+		// Continue pipeline with the target (v2) document
+		parseResult := diffResult.ToParseResult()
+
+		// Validate the new version before publishing
+		validationResult, err := validator.ValidateWithOptions(
+			validator.WithParsed(*parseResult),
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if !validationResult.Valid {
+			log.Fatal("v2 has validation errors")
+		}
+
+		// Changes from diff are included as warnings for visibility
+		fmt.Printf("Diff detected %d changes (now in warnings)\n", len(parseResult.Warnings))
+	}
+
+Key points about ToParseResult:
+  - Returns the TARGET document (the newer version in a comparison)
+  - Changes are converted to warnings with severity prefixes for filtering
+  - Falls back to "differ" as SourcePath if target had no path
+  - Preserves all target document metadata (version, stats, format)
+
 # Breaking Change Examples
 
 Common breaking changes detected in ModeBreaking:

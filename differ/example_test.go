@@ -223,3 +223,48 @@ func Example_breakingChanges() {
 		fmt.Println("\n✓ Changes are backward compatible")
 	}
 }
+
+// Example_pipeline demonstrates the diff → validate pipeline workflow
+// using ToParseResult to chain operations on the target document.
+func Example_pipeline() {
+	// Parse both API versions
+	v1, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v1.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	v2, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-v2.yaml"),
+		parser.WithValidateStructure(true),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Step 1: Compare versions and detect breaking changes
+	diffResult, err := differ.DiffWithOptions(
+		differ.WithSourceParsed(*v1),
+		differ.WithTargetParsed(*v2),
+		differ.WithMode(differ.ModeBreaking),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Comparing %s → %s\n", diffResult.SourceVersion, diffResult.TargetVersion)
+	fmt.Printf("Found %d changes (%d breaking)\n", len(diffResult.Changes), diffResult.BreakingCount)
+
+	// Step 2: Convert to ParseResult for pipeline continuation
+	// ToParseResult returns the TARGET (v2) document, enabling workflows like:
+	// diff(v1, v2) → validate(v2) → publish
+	parseResult := diffResult.ToParseResult()
+
+	// The target document is ready for downstream operations
+	fmt.Printf("Target document ready for processing: %s\n", parseResult.Version)
+
+	// Changes from diff are preserved as warnings for visibility
+	fmt.Printf("Diff changes preserved as %d warnings\n", len(parseResult.Warnings))
+}

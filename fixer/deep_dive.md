@@ -15,6 +15,7 @@ The [`fixer`](https://pkg.go.dev/github.com/erraggy/oastools/fixer) package prov
 - [Practical Examples](#practical-examples)
 - [Generic Naming Strategies](#generic-naming-strategies)
 - [Configuration Reference](#configuration-reference)
+- [Package Chaining](#package-chaining)
 - [Best Practices](#best-practices)
 
 ---
@@ -219,6 +220,37 @@ Configure with `WithGenericNaming()` or `WithGenericNamingConfig()`.
 | `Fixes` | `[]Fix` | Applied fixes with details |
 | `FixCount` | `int` | Total fixes applied |
 | `SourceFormat` | `SourceFormat` | Preserved format |
+| `ToParseResult()` | `*parser.ParseResult` | Converts result for package chaining |
+
+[Back to top](#top)
+
+---
+
+## Package Chaining
+
+The `ToParseResult()` method enables seamless chaining with other oastools packages by converting `FixResult` to a `parser.ParseResult`:
+
+```go
+// Fix then validate
+fixResult, err := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithInferTypes(true),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Chain to validator
+v := validator.New()
+valResult, _ := v.ValidateParsed(*fixResult.ToParseResult())
+fmt.Printf("Valid: %v\n", valResult.Valid)
+
+// Or chain to converter
+c := converter.New()
+convResult, _ := c.ConvertParsed(*fixResult.ToParseResult(), "3.1.0")
+```
+
+This enables workflows like: `parse → fix → validate → convert → join`
 
 [Back to top](#top)
 

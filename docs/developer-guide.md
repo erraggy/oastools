@@ -1667,6 +1667,100 @@ fixResult, _ := fixer.FixWithOptions(
 )
 ```
 
+**Fixer to Validator/Converter/Joiner:**
+
+```go
+// Fix document
+fixResult, err := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithInferTypes(true),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Chain to validator
+v := validator.New()
+valResult, _ := v.ValidateParsed(*fixResult.ToParseResult())
+
+// Or chain to converter
+c := converter.New()
+convResult, _ := c.ConvertParsed(*fixResult.ToParseResult(), "3.1.0")
+
+// Or chain to joiner with other specs
+j := joiner.New(joiner.DefaultConfig())
+joinResult, _ := j.JoinParsed([]parser.ParseResult{
+    *fixResult.ToParseResult(),
+    otherSpec,
+})
+```
+
+**Overlay to Validator/Converter:**
+
+```go
+// Apply overlay transformations
+applyResult, err := overlay.ApplyWithOptions(
+    overlay.WithSpecFilePath("openapi.yaml"),
+    overlay.WithOverlayFilePath("production.yaml"),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Chain to validator
+v := validator.New()
+valResult, _ := v.ValidateParsed(*applyResult.ToParseResult())
+
+// Or chain to converter
+c := converter.New()
+convResult, _ := c.ConvertParsed(*applyResult.ToParseResult(), "3.1.0")
+```
+
+**Validator to Converter/Differ (pass-through document):**
+
+```go
+// Validate document
+valResult, err := validator.ValidateWithOptions(
+    validator.WithFilePath("openapi.yaml"),
+    validator.WithIncludeWarnings(true),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+if valResult.Valid {
+    // Chain validated document to converter
+    c := converter.New()
+    convResult, _ := c.ConvertParsed(*valResult.ToParseResult(), "3.1.0")
+}
+```
+
+**Differ to Validator/Converter (target document):**
+
+```go
+// Compare API versions
+diffResult, err := differ.DiffWithOptions(
+    differ.WithSourceFilePath("api-v1.yaml"),
+    differ.WithTargetFilePath("api-v2.yaml"),
+    differ.WithMode(differ.ModeBreaking),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Report breaking changes, then continue with target (new version)
+if diffResult.HasBreakingChanges {
+    fmt.Printf("⚠️  %d breaking changes\n", diffResult.BreakingCount)
+}
+
+// Chain the target (v2) to validator
+v := validator.New()
+valResult, _ := v.ValidateParsed(*diffResult.ToParseResult())
+
+// ToParseResult() returns the TARGET document, enabling pipelines like:
+// diff(v1, v2) → validate(v2) → convert(v2) → publish
+```
+
 **Source Naming for Pre-Parsed Documents:**
 
 When joining pre-parsed documents, set meaningful `SourcePath` values for better collision reports:

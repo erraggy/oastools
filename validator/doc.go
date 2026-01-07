@@ -43,8 +43,28 @@
 //   - Errors: Validation errors with JSON path locations
 //   - Warnings: Best practice warnings (if IncludeWarnings is true)
 //   - ErrorCount, WarningCount: Issue counts
+//   - Document: The validated document for chaining with other packages
 //
 // See the exported ValidationError and ValidationResult types for complete details.
+//
+// # Package Chaining with ToParseResult
+//
+// The ValidationResult.ToParseResult() method enables chaining validation with other
+// oastools packages. This converts the validation result back to a ParseResult that
+// can be passed to fixer, converter, joiner, or differ:
+//
+//	// Parse and validate, then fix any issues
+//	parseResult, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
+//	valResult, _ := validator.ValidateWithOptions(validator.WithParsed(*parseResult))
+//	if !valResult.Valid {
+//	    fixResult, _ := fixer.FixWithOptions(fixer.WithParsed(*valResult.ToParseResult()))
+//	    // Use fixResult...
+//	}
+//
+// Validation errors and warnings are converted to string warnings in the ParseResult
+// with severity prefixes for programmatic filtering:
+//   - "[error] path: message" for validation errors
+//   - "[warning] path: message" for validation warnings
 //
 // # Related Packages
 //

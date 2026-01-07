@@ -157,6 +157,14 @@ type DiffResult struct {
 	TargetStats parser.DocumentStats
 	// TargetSize is the size of the target document in bytes
 	TargetSize int64
+	// TargetDocument contains the target/right document for ToParseResult() chaining.
+	// In a pipeline model, returning the target enables workflows like:
+	// diff(v1, v2) → validate(v2) → publish
+	TargetDocument any
+	// TargetSourcePath is the target document's source path
+	TargetSourcePath string
+	// TargetSourceFormat is the target document's format (JSON or YAML)
+	TargetSourceFormat parser.SourceFormat
 	// Changes contains all detected changes
 	Changes []Change
 	// BreakingCount is the number of breaking changes (Critical + Error severity)
@@ -167,6 +175,38 @@ type DiffResult struct {
 	InfoCount int
 	// HasBreakingChanges is true if any breaking changes were detected
 	HasBreakingChanges bool
+}
+
+// ToParseResult converts the DiffResult to a ParseResult representing the target document.
+// This enables pipeline workflows where the "right" (newer) document continues through
+// the processing chain (e.g., diff → validate → publish).
+// Changes are converted to string warnings with severity prefixes for filtering.
+func (r *DiffResult) ToParseResult() *parser.ParseResult {
+	sourcePath := r.TargetSourcePath
+	if sourcePath == "" {
+		sourcePath = "differ"
+	}
+
+	// Convert changes to warnings for visibility in downstream processing
+	warnings := make([]string, 0, len(r.Changes))
+	if r.TargetDocument == nil {
+		warnings = append(warnings, "differ: ToParseResult: TargetDocument is nil, downstream operations may fail")
+	}
+	for _, c := range r.Changes {
+		warnings = append(warnings, fmt.Sprintf("[%s] %s: %s", c.Severity, c.Path, c.Message))
+	}
+
+	return &parser.ParseResult{
+		SourcePath:   sourcePath,
+		SourceFormat: r.TargetSourceFormat,
+		Version:      r.TargetVersion,
+		OASVersion:   r.TargetOASVersion,
+		Document:     r.TargetDocument,
+		Errors:       make([]error, 0),
+		Warnings:     warnings,
+		Stats:        r.TargetStats,
+		SourceSize:   r.TargetSize,
+	}
 }
 
 // Differ handles OpenAPI specification comparison
@@ -462,15 +502,18 @@ func (d *Differ) Diff(sourcePath, targetPath string) (*DiffResult, error) {
 func (d *Differ) DiffParsed(source, target parser.ParseResult) (*DiffResult, error) {
 	// Initialize result
 	result := &DiffResult{
-		SourceVersion:    source.Version,
-		SourceOASVersion: source.OASVersion,
-		SourceStats:      source.Stats,
-		SourceSize:       source.SourceSize,
-		TargetVersion:    target.Version,
-		TargetOASVersion: target.OASVersion,
-		TargetStats:      target.Stats,
-		TargetSize:       target.SourceSize,
-		Changes:          make([]Change, 0),
+		SourceVersion:      source.Version,
+		SourceOASVersion:   source.OASVersion,
+		SourceStats:        source.Stats,
+		SourceSize:         source.SourceSize,
+		TargetVersion:      target.Version,
+		TargetOASVersion:   target.OASVersion,
+		TargetStats:        target.Stats,
+		TargetSize:         target.SourceSize,
+		TargetDocument:     target.Document,
+		TargetSourcePath:   target.SourcePath,
+		TargetSourceFormat: target.SourceFormat,
+		Changes:            make([]Change, 0),
 	}
 
 	// Perform unified diff (handles both ModeSimple and ModeBreaking)

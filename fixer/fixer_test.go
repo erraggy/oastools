@@ -425,6 +425,131 @@ func TestFixResult_HasFixes(t *testing.T) {
 	assert.True(t, result.HasFixes())
 }
 
+func TestFixResult_ToParseResult(t *testing.T) {
+	t.Run("OAS3 result converts correctly", func(t *testing.T) {
+		fixResult := &FixResult{
+			Document:         &parser.OAS3Document{OpenAPI: "3.0.3", Info: &parser.Info{Title: "Test API", Version: "1.0"}},
+			SourceVersion:    "3.0.3",
+			SourceOASVersion: parser.OASVersion303,
+			SourceFormat:     parser.SourceFormatYAML,
+			SourcePath:       "/path/to/api.yaml",
+			Fixes: []Fix{
+				{Type: FixTypeMissingPathParameter, Path: "paths./users.get", Description: "Added userId"},
+			},
+			FixCount: 1,
+			Success:  true,
+			Stats:    parser.DocumentStats{PathCount: 5, OperationCount: 10},
+		}
+
+		parseResult := fixResult.ToParseResult()
+
+		assert.Equal(t, "/path/to/api.yaml", parseResult.SourcePath)
+		assert.Equal(t, parser.SourceFormatYAML, parseResult.SourceFormat)
+		assert.Equal(t, "3.0.3", parseResult.Version)
+		assert.Equal(t, parser.OASVersion303, parseResult.OASVersion)
+		assert.NotNil(t, parseResult.Document)
+		assert.Empty(t, parseResult.Errors)
+		assert.Empty(t, parseResult.Warnings) // Fixes are not errors/warnings
+		assert.Equal(t, 5, parseResult.Stats.PathCount)
+		assert.Equal(t, 10, parseResult.Stats.OperationCount)
+
+		// Verify Document type assertion works
+		doc, ok := parseResult.Document.(*parser.OAS3Document)
+		assert.True(t, ok)
+		assert.Equal(t, "Test API", doc.Info.Title)
+	})
+
+	t.Run("OAS2 result converts correctly", func(t *testing.T) {
+		fixResult := &FixResult{
+			Document:         &parser.OAS2Document{Swagger: "2.0", Info: &parser.Info{Title: "Swagger API", Version: "1.0"}},
+			SourceVersion:    "2.0",
+			SourceOASVersion: parser.OASVersion20,
+			SourceFormat:     parser.SourceFormatJSON,
+			SourcePath:       "/api/swagger.json",
+			Stats:            parser.DocumentStats{PathCount: 3},
+		}
+
+		parseResult := fixResult.ToParseResult()
+
+		assert.Equal(t, "/api/swagger.json", parseResult.SourcePath)
+		assert.Equal(t, parser.SourceFormatJSON, parseResult.SourceFormat)
+		assert.Equal(t, "2.0", parseResult.Version)
+		assert.Equal(t, parser.OASVersion20, parseResult.OASVersion)
+
+		doc, ok := parseResult.Document.(*parser.OAS2Document)
+		assert.True(t, ok)
+		assert.Equal(t, "Swagger API", doc.Info.Title)
+	})
+
+	t.Run("empty SourcePath uses default", func(t *testing.T) {
+		fixResult := &FixResult{
+			Document:         &parser.OAS3Document{OpenAPI: "3.1.0"},
+			SourceVersion:    "3.1.0",
+			SourceOASVersion: parser.OASVersion310,
+			SourceFormat:     parser.SourceFormatYAML,
+			SourcePath:       "", // Empty
+		}
+
+		parseResult := fixResult.ToParseResult()
+
+		assert.Equal(t, "fixer", parseResult.SourcePath)
+	})
+
+	t.Run("Errors and Warnings are empty slices", func(t *testing.T) {
+		// Fixes are informational, not errors/warnings
+		fixResult := &FixResult{
+			Document:         &parser.OAS3Document{OpenAPI: "3.0.0"},
+			SourceVersion:    "3.0.0",
+			SourceOASVersion: parser.OASVersion300,
+			SourceFormat:     parser.SourceFormatYAML,
+			Fixes: []Fix{
+				{Type: FixTypeMissingPathParameter},
+				{Type: FixTypeRenamedGenericSchema},
+			},
+			FixCount: 2,
+		}
+
+		parseResult := fixResult.ToParseResult()
+
+		assert.NotNil(t, parseResult.Errors)
+		assert.Empty(t, parseResult.Errors)
+		assert.NotNil(t, parseResult.Warnings)
+		assert.Empty(t, parseResult.Warnings)
+	})
+
+	t.Run("Data field is nil and LoadTime/SourceSize are zero", func(t *testing.T) {
+		// FixResult doesn't track LoadTime/SourceSize, so they should be zero
+		fixResult := &FixResult{
+			Document:         &parser.OAS3Document{OpenAPI: "3.0.0"},
+			SourceVersion:    "3.0.0",
+			SourceOASVersion: parser.OASVersion300,
+			SourceFormat:     parser.SourceFormatYAML,
+		}
+
+		parseResult := fixResult.ToParseResult()
+
+		assert.Nil(t, parseResult.Data)
+		assert.Zero(t, parseResult.LoadTime)
+		assert.Zero(t, parseResult.SourceSize)
+	})
+
+	t.Run("nil Document produces warning", func(t *testing.T) {
+		fixResult := &FixResult{
+			Document:         nil, // Nil document should produce warning
+			SourceVersion:    "3.0.0",
+			SourceOASVersion: parser.OASVersion300,
+			SourceFormat:     parser.SourceFormatYAML,
+			SourcePath:       "/path/to/api.yaml",
+		}
+
+		parseResult := fixResult.ToParseResult()
+
+		require.Len(t, parseResult.Warnings, 1, "Should have one warning for nil document")
+		assert.Contains(t, parseResult.Warnings[0], "Document is nil", "Warning should mention nil document")
+		assert.Contains(t, parseResult.Warnings[0], "downstream operations may fail", "Warning should mention downstream impact")
+	})
+}
+
 // TestFix_HasLocation tests the HasLocation helper method
 func TestFix_HasLocation(t *testing.T) {
 	tests := []struct {

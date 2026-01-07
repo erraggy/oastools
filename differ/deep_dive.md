@@ -18,6 +18,7 @@
 - [Best Practices](#best-practices)
 - [Configurable Breaking Change Rules](#configurable-breaking-change-rules)
 - [DiffResult Structure](#diffresult-structure)
+- [Package Chaining](#package-chaining)
 
 ---
 
@@ -709,7 +710,17 @@ type DiffResult struct {
     InfoCount int
     // HasBreakingChanges is true if any breaking changes were detected
     HasBreakingChanges bool
+
+    // TargetDocument is the target/right document for ToParseResult() chaining
+    TargetDocument any
+    // TargetSourcePath is the path of the target document
+    TargetSourcePath string
+    // TargetSourceFormat is the format of the target document
+    TargetSourceFormat parser.SourceFormat
 }
+
+// ToParseResult() converts the DiffResult to a ParseResult representing
+// the target document, enabling pipeline workflows.
 
 type Change struct {
     Type        ChangeType     // added, removed, modified
@@ -721,6 +732,43 @@ type Change struct {
     NewValue    any            // New value (for modifications)
 }
 ```
+
+[↑ Back to top](#top)
+
+## Package Chaining
+
+The `ToParseResult()` method enables seamless chaining with other oastools packages by converting `DiffResult` to a `parser.ParseResult`. The method returns the **target (right) document**, which fits the pipeline model where you compare old vs new, then continue processing the newer version:
+
+```go
+// Diff then validate the new version
+diffResult, err := differ.DiffWithOptions(
+    differ.WithSourceFilePath("api-v1.yaml"),
+    differ.WithTargetFilePath("api-v2.yaml"),
+    differ.WithMode(differ.ModeBreaking),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Report breaking changes
+if diffResult.HasBreakingChanges {
+    fmt.Printf("⚠️  %d breaking changes detected\n", diffResult.BreakingCount)
+}
+
+// Chain the target (new version) to validator
+v := validator.New()
+valResult, _ := v.ValidateParsed(*diffResult.ToParseResult())
+
+// Or chain to converter for version upgrade
+c := converter.New()
+convResult, _ := c.ConvertParsed(*diffResult.ToParseResult(), "3.1.0")
+```
+
+This enables workflows like: `diff(v1, v2) → validate(v2) → convert(v2) → publish`
+
+Note: Diff changes are converted to string warnings in the resulting ParseResult, preserving severity and path information in the format `[severity] path: message`.
+
+[↑ Back to top](#top)
 
 ---
 

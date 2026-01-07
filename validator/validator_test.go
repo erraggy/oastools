@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/parser"
@@ -2161,4 +2162,336 @@ paths: {}`
 	assert.Greater(t, emailError.Line, 0,
 		"OAS2 info validation errors should have Line populated when SourceMap is available; got Line=%d",
 		emailError.Line)
+}
+
+// ========================================
+// Tests for ToParseResult
+// ========================================
+
+// TestToParseResult_OAS3Document tests ToParseResult with an OAS3 document
+func TestToParseResult_OAS3Document(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: make(map[string]*parser.PathItem),
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:      "3.0.3",
+		OASVersion:   parser.OASVersion303,
+		Document:     doc,
+		SourceFormat: parser.SourceFormatYAML,
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Convert to ParseResult
+	pr := result.ToParseResult()
+	require.NotNil(t, pr)
+
+	// Verify fields are correctly populated
+	assert.Equal(t, "validator", pr.SourcePath)
+	assert.Equal(t, "3.0.3", pr.Version)
+	assert.Equal(t, parser.OASVersion303, pr.OASVersion)
+	assert.Equal(t, parser.SourceFormatYAML, pr.SourceFormat)
+	assert.Same(t, doc, pr.Document, "Document should be the same pointer")
+	assert.Empty(t, pr.Errors)
+}
+
+// TestToParseResult_OAS2Document tests ToParseResult with an OAS2 document
+func TestToParseResult_OAS2Document(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: make(map[string]*parser.PathItem),
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:      "2.0",
+		OASVersion:   parser.OASVersion20,
+		Document:     doc,
+		SourceFormat: parser.SourceFormatJSON,
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Convert to ParseResult
+	pr := result.ToParseResult()
+	require.NotNil(t, pr)
+
+	// Verify fields are correctly populated
+	assert.Equal(t, "validator", pr.SourcePath)
+	assert.Equal(t, "2.0", pr.Version)
+	assert.Equal(t, parser.OASVersion20, pr.OASVersion)
+	assert.Equal(t, parser.SourceFormatJSON, pr.SourceFormat)
+	assert.Same(t, doc, pr.Document, "Document should be the same pointer")
+	assert.Empty(t, pr.Errors)
+}
+
+// TestToParseResult_DocumentFieldPopulated tests that Document is populated from ValidateParsed
+func TestToParseResult_DocumentFieldPopulated(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: make(map[string]*parser.PathItem),
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Document:   doc,
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Verify Document is populated in ValidationResult
+	assert.NotNil(t, result.Document)
+	assert.Same(t, doc, result.Document, "ValidationResult.Document should be the same as parseResult.Document")
+
+	// Verify it's also passed through to ParseResult
+	pr := result.ToParseResult()
+	assert.Same(t, doc, pr.Document)
+}
+
+// TestToParseResult_ErrorsAndWarningsConverted tests that errors and warnings are converted to strings with prefixes
+func TestToParseResult_ErrorsAndWarningsConverted(t *testing.T) {
+	// Create a document that will generate validation errors
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info: &parser.Info{
+			Title:   "", // Missing required field
+			Version: "1.0.0",
+		},
+		Paths: map[string]*parser.PathItem{
+			"/users/": { // Trailing slash - will generate warning
+				Get: &parser.Operation{
+					OperationID: "getUsers",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {Description: "Success"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	v := New()
+	v.IncludeWarnings = true
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Should have at least one error (missing title)
+	require.NotEmpty(t, result.Errors, "Should have validation errors")
+
+	// Convert to ParseResult
+	pr := result.ToParseResult()
+	require.NotNil(t, pr)
+
+	// Warnings in ParseResult should contain converted errors/warnings with severity prefixes
+	require.NotEmpty(t, pr.Warnings, "ParseResult.Warnings should contain converted errors")
+
+	// Check that at least one warning has "[error]" prefix
+	hasErrorPrefix := false
+	for _, w := range pr.Warnings {
+		if strings.HasPrefix(w, "[error]") {
+			hasErrorPrefix = true
+			break
+		}
+	}
+	assert.True(t, hasErrorPrefix, "Should have at least one warning with [error] prefix")
+}
+
+// TestToParseResult_EmptyErrorsAndWarnings tests ToParseResult with no errors or warnings
+func TestToParseResult_EmptyErrorsAndWarnings(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: make(map[string]*parser.PathItem),
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Should be valid with no errors
+	assert.True(t, result.Valid)
+	assert.Empty(t, result.Errors)
+
+	// Convert to ParseResult
+	pr := result.ToParseResult()
+	require.NotNil(t, pr)
+
+	// Warnings should be empty
+	assert.Empty(t, pr.Warnings)
+	assert.Empty(t, pr.Errors)
+}
+
+// TestToParseResult_MetricsPreserved tests that LoadTime, SourceSize, and Stats are preserved
+func TestToParseResult_MetricsPreserved(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: make(map[string]*parser.PathItem),
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+		LoadTime:   500 * time.Millisecond,
+		SourceSize: 1024,
+		Stats: parser.DocumentStats{
+			PathCount: 5,
+		},
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Convert to ParseResult
+	pr := result.ToParseResult()
+	require.NotNil(t, pr)
+
+	// Verify metrics are preserved
+	assert.Equal(t, 500*time.Millisecond, pr.LoadTime)
+	assert.Equal(t, int64(1024), pr.SourceSize)
+	assert.Equal(t, 5, pr.Stats.PathCount)
+}
+
+// TestToParseResult_SourceFormatPreserved tests that SourceFormat is preserved through validation
+func TestToParseResult_SourceFormatPreserved(t *testing.T) {
+	tests := []struct {
+		name   string
+		format parser.SourceFormat
+	}{
+		{"YAML format", parser.SourceFormatYAML},
+		{"JSON format", parser.SourceFormatJSON},
+		{"Unknown format", parser.SourceFormatUnknown},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info: &parser.Info{
+					Title:   "Test API",
+					Version: "1.0.0",
+				},
+				Paths: make(map[string]*parser.PathItem),
+			}
+
+			parseResult := &parser.ParseResult{
+				Version:      "3.0.3",
+				OASVersion:   parser.OASVersion303,
+				Document:     doc,
+				SourceFormat: tt.format,
+			}
+
+			v := New()
+			result, err := v.ValidateParsed(*parseResult)
+			require.NoError(t, err)
+
+			// Verify SourceFormat is preserved in ValidationResult
+			assert.Equal(t, tt.format, result.SourceFormat)
+
+			// Verify SourceFormat is passed through to ParseResult
+			pr := result.ToParseResult()
+			assert.Equal(t, tt.format, pr.SourceFormat)
+		})
+	}
+}
+
+// TestToParseResult_SourcePathPreserved tests that SourcePath is preserved through validation
+func TestToParseResult_SourcePathPreserved(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: make(map[string]*parser.PathItem),
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+		SourcePath: "api/openapi.yaml",
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Verify SourcePath is preserved in ValidationResult
+	assert.Equal(t, "api/openapi.yaml", result.SourcePath)
+
+	// Verify SourcePath is passed through to ParseResult
+	pr := result.ToParseResult()
+	assert.Equal(t, "api/openapi.yaml", pr.SourcePath, "SourcePath should be preserved from original parse result")
+}
+
+// TestToParseResult_SourcePathFallback tests that empty SourcePath falls back to "validator"
+func TestToParseResult_SourcePathFallback(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: make(map[string]*parser.PathItem),
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+		SourcePath: "", // Empty path should fall back to "validator"
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Verify empty SourcePath is preserved in ValidationResult
+	assert.Equal(t, "", result.SourcePath)
+
+	// Verify ToParseResult falls back to "validator"
+	pr := result.ToParseResult()
+	assert.Equal(t, "validator", pr.SourcePath, "Should fall back to 'validator' when source path is empty")
 }
