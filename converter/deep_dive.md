@@ -19,6 +19,7 @@ The [`converter`](https://pkg.go.dev/github.com/erraggy/oastools/converter) pack
 - [Loss of Fidelity](#loss-of-fidelity)
 - [Overlay Integration](#overlay-integration)
 - [Configuration Reference](#configuration-reference)
+- [Package Chaining](#package-chaining)
 - [Best Practices](#best-practices)
 
 ---
@@ -889,6 +890,7 @@ actions:
 | `WarningCount` | `int` | Number of warnings |
 | `InfoCount` | `int` | Number of info items |
 | `SourceFormat` | `SourceFormat` | Original format (JSON/YAML) |
+| `ToParseResult()` | `*parser.ParseResult` | Converts result for package chaining |
 
 ### ConversionIssue Fields
 
@@ -898,6 +900,47 @@ actions:
 | `Location` | `string` | JSON path to affected element |
 | `Message` | `string` | Human-readable description |
 | `Code` | `string` | Machine-readable issue code |
+
+[Back to top](#top)
+
+---
+
+## Package Chaining
+
+The `ToParseResult()` method enables seamless chaining with other oastools packages by converting `ConversionResult` to a `parser.ParseResult`:
+
+```go
+// Convert then validate
+convResult, err := converter.ConvertWithOptions(
+    converter.WithFilePath("swagger.yaml"),
+    converter.WithTargetVersion("3.1.0"),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Chain to validator
+v := validator.New()
+valResult, _ := v.ValidateParsed(*convResult.ToParseResult())
+fmt.Printf("Valid: %v\n", valResult.Valid)
+
+// Or chain to joiner with other specs
+j := joiner.New(joiner.DefaultConfig())
+joinResult, _ := j.JoinParsed([]parser.ParseResult{
+    *convResult.ToParseResult(),
+    otherSpec,
+})
+
+// Or chain to differ
+diffResult, _ := differ.DiffWithOptions(
+    differ.WithSourceParsed(baseSpec),
+    differ.WithTargetParsed(*convResult.ToParseResult()),
+)
+```
+
+This enables workflows like: `parse -> convert -> validate -> join -> diff`
+
+Note: Conversion issues are converted to string warnings in the resulting ParseResult.
 
 [Back to top](#top)
 

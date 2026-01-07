@@ -81,3 +81,27 @@ func Example_customValidation() {
 	// StrictMode treats warnings as errors for result.Valid
 	// IncludeWarnings populates result.Errors with warning-level issues
 }
+
+// Example_toParseResult demonstrates using ToParseResult for package chaining.
+// This pattern allows validated documents to be passed to other oastools packages.
+func Example_toParseResult() {
+	// Validate a specification
+	v := validator.New()
+	testFile := filepath.Join("testdata", "petstore-3.0.yaml")
+	result, err := v.Validate(testFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Valid: %v\n", result.Valid)
+
+	// Convert to ParseResult for use with other packages
+	parseResult := result.ToParseResult()
+	fmt.Printf("SourcePath: %s\n", parseResult.SourcePath)
+	fmt.Printf("Version: %s\n", parseResult.Version)
+
+	// The ParseResult can now be passed to fixer, converter, joiner, etc.
+	// For example:
+	//   fixResult, _ := fixer.FixWithOptions(fixer.WithParsed(*parseResult))
+	//   convertResult, _ := converter.ConvertWithOptions(converter.WithParsed(*parseResult), ...)
+}

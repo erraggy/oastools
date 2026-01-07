@@ -85,6 +85,33 @@ func (r *FixResult) HasFixes() bool {
 	return r.FixCount > 0
 }
 
+// ToParseResult converts the FixResult to a ParseResult for use with
+// other packages like validator, converter, joiner, and differ.
+// The returned ParseResult has Document populated but Data is nil
+// (consumers use Document, not Data).
+// Errors and Warnings are empty slices since fixes are informational,
+// not validation errors.
+func (r *FixResult) ToParseResult() *parser.ParseResult {
+	sourcePath := r.SourcePath
+	if sourcePath == "" {
+		sourcePath = "fixer"
+	}
+	warnings := make([]string, 0)
+	if r.Document == nil {
+		warnings = append(warnings, "fixer: ToParseResult: Document is nil, downstream operations may fail")
+	}
+	return &parser.ParseResult{
+		SourcePath:   sourcePath,
+		SourceFormat: r.SourceFormat,
+		Version:      r.SourceVersion,
+		OASVersion:   r.SourceOASVersion,
+		Document:     r.Document,
+		Errors:       make([]error, 0),
+		Warnings:     warnings,
+		Stats:        r.Stats,
+	}
+}
+
 // Fixer handles automatic fixing of OAS validation issues
 type Fixer struct {
 	// InferTypes enables type inference for path parameters based on naming conventions.

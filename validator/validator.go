@@ -65,6 +65,51 @@ type ValidationResult struct {
 	SourceSize int64
 	// Stats contains statistical information about the document
 	Stats parser.DocumentStats
+	// Document contains the validated document (*parser.OAS2Document or *parser.OAS3Document).
+	// Added to enable ToParseResult() for package chaining.
+	Document any
+	// SourceFormat is the format of the source file (JSON or YAML)
+	SourceFormat parser.SourceFormat
+	// SourcePath is the original source path from the parsed document.
+	// Used by ToParseResult() to preserve the original path for package chaining.
+	SourcePath string
+}
+
+// ToParseResult converts the ValidationResult to a ParseResult for use with
+// other packages like fixer, converter, joiner, and differ.
+// The returned ParseResult has Document populated but Data is nil
+// (consumers use Document, not Data).
+// Validation errors and warnings are converted to string warnings with
+// severity prefixes for programmatic filtering:
+// "[error] path: message", "[warning] path: message", etc.
+func (r *ValidationResult) ToParseResult() *parser.ParseResult {
+	// Convert validation errors/warnings to string warnings with severity prefix
+	warnings := make([]string, 0, len(r.Errors)+len(r.Warnings))
+	for _, e := range r.Errors {
+		warnings = append(warnings, "["+e.Severity.String()+"] "+e.String())
+	}
+	for _, w := range r.Warnings {
+		warnings = append(warnings, "["+w.Severity.String()+"] "+w.String())
+	}
+
+	// Use original source path, falling back to "validator" if not set
+	sourcePath := r.SourcePath
+	if sourcePath == "" {
+		sourcePath = "validator"
+	}
+
+	return &parser.ParseResult{
+		SourcePath:   sourcePath,
+		SourceFormat: r.SourceFormat,
+		Version:      r.Version,
+		OASVersion:   r.OASVersion,
+		Document:     r.Document,
+		Errors:       make([]error, 0),
+		Warnings:     warnings,
+		Stats:        r.Stats,
+		LoadTime:     r.LoadTime,
+		SourceSize:   r.SourceSize,
+	}
 }
 
 // Validator handles OpenAPI specification validation
@@ -287,13 +332,16 @@ func withSpecRef(ref string) func(*ValidationError) {
 // ValidateParsed validates an already parsed OpenAPI specification
 func (v *Validator) ValidateParsed(parseResult parser.ParseResult) (*ValidationResult, error) {
 	result := &ValidationResult{
-		Version:    parseResult.Version,
-		OASVersion: parseResult.OASVersion,
-		Errors:     make([]ValidationError, 0, defaultErrorCapacity),
-		Warnings:   make([]ValidationError, 0, defaultWarningCapacity),
-		LoadTime:   parseResult.LoadTime,
-		SourceSize: parseResult.SourceSize,
-		Stats:      parseResult.Stats,
+		Version:      parseResult.Version,
+		OASVersion:   parseResult.OASVersion,
+		Errors:       make([]ValidationError, 0, defaultErrorCapacity),
+		Warnings:     make([]ValidationError, 0, defaultWarningCapacity),
+		LoadTime:     parseResult.LoadTime,
+		SourceSize:   parseResult.SourceSize,
+		Stats:        parseResult.Stats,
+		Document:     parseResult.Document,
+		SourceFormat: parseResult.SourceFormat,
+		SourcePath:   parseResult.SourcePath,
 	}
 
 	// Add parser errors to validation result

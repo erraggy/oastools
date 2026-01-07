@@ -118,6 +118,24 @@
 //
 // For backward compatibility, warnings are also available as []string via result.Warnings.
 //
+// # Package Chaining with ToParseResult
+//
+// The overlay package supports chaining with other oastools packages through
+// the [ApplyResult.ToParseResult] method. This enables workflows like:
+//
+//	// Parse → Apply Overlay → Validate
+//	parsed, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
+//	result, _ := overlay.ApplyWithOptions(
+//	    overlay.WithSpecParsed(*parsed),
+//	    overlay.WithOverlayFilePath("changes.yaml"),
+//	)
+//	issues, _ := validator.ValidateWithOptions(validator.WithParsed(*result.ToParseResult()))
+//
+// Note that when the overlay is applied to a raw map[string]any document (rather than
+// a typed *parser.OAS3Document or *parser.OAS2Document), the version information in
+// the resulting ParseResult will be empty. For full version tracking, ensure the input
+// document is a typed document obtained from parsing.
+//
 // # Related Packages
 //
 // The overlay package integrates with other oastools packages:

@@ -16,6 +16,7 @@
 - [Configuration Reference](#configuration-reference)
 - [JoinResult Structure](#joinresult-structure)
 - [Source Map Integration](#source-map-integration)
+- [Package Chaining](#package-chaining)
 - [Best Practices](#best-practices)
 - [Common Patterns](#common-patterns)
 - [CLI Usage](#cli-usage)
@@ -1270,6 +1271,12 @@ type JoinResult struct {
 }
 ```
 
+### JoinResult Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `ToParseResult()` | `*parser.ParseResult` | Converts result for package chaining |
+
 [↑ Back to top](#top)
 
 ## Source Map Integration
@@ -1313,6 +1320,40 @@ for _, warning := range result.Warnings {
 ```
 
 The joiner uses `WithSourceMaps` (plural, with a map) because it needs source maps from multiple input files to track collision locations across documents.
+
+[Back to top](#top)
+
+## Package Chaining
+
+The `ToParseResult()` method enables seamless chaining with other oastools packages by converting `JoinResult` to a `parser.ParseResult`:
+
+```go
+// Join then validate
+joinResult, err := joiner.JoinWithOptions(
+    joiner.WithFilePaths([]string{"users-api.yaml", "orders-api.yaml"}),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Chain to validator
+v := validator.New()
+valResult, _ := v.ValidateParsed(*joinResult.ToParseResult())
+fmt.Printf("Valid: %v\n", valResult.Valid)
+
+// Or chain to converter
+c := converter.New()
+convResult, _ := c.ConvertParsed(*joinResult.ToParseResult(), "3.1.0")
+
+// Or chain to fixer
+fixResult, _ := fixer.FixWithOptions(
+    fixer.WithParsed(*joinResult.ToParseResult()),
+)
+```
+
+This enables workflows like: `parse → join → validate → convert → diff`
+
+Note: Join warnings are converted to string warnings in the resulting ParseResult.
 
 [Back to top](#top)
 

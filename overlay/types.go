@@ -117,6 +117,52 @@ func (r *ApplyResult) HasWarnings() bool {
 	return len(r.Warnings) > 0
 }
 
+// WarningStrings returns warnings as a string slice for ParseResult compatibility.
+// It prefers StructuredWarnings if available, otherwise falls back to the Warnings field.
+func (r *ApplyResult) WarningStrings() []string {
+	if len(r.StructuredWarnings) > 0 {
+		return r.StructuredWarnings.Strings()
+	}
+	return r.Warnings
+}
+
+// ToParseResult converts the ApplyResult to a ParseResult for chaining with other packages.
+// The version is extracted from the Document field using the DocumentAccessor interface.
+// Stats, LoadTime, and SourceSize remain zero as they are not tracked by the overlay package.
+//
+// Warnings are added if Document is nil or an unrecognized type. These warnings are
+// appended to any existing warnings from overlay application.
+func (r *ApplyResult) ToParseResult() *parser.ParseResult {
+	var version string
+	var oasVersion parser.OASVersion
+	warnings := r.WarningStrings()
+
+	// Extract version from document using type switch
+	switch doc := r.Document.(type) {
+	case nil:
+		warnings = append(warnings, "overlay: ToParseResult: Document is nil, downstream operations may fail")
+	case *parser.OAS3Document:
+		version = doc.GetVersionString()
+		oasVersion = doc.GetVersion()
+	case *parser.OAS2Document:
+		version = doc.GetVersionString()
+		oasVersion = doc.GetVersion()
+	default:
+		warnings = append(warnings, fmt.Sprintf("overlay: ToParseResult: unrecognized document type %T, version will be empty", r.Document))
+	}
+
+	return &parser.ParseResult{
+		SourcePath:   "overlay",
+		SourceFormat: r.SourceFormat,
+		Version:      version,
+		OASVersion:   oasVersion,
+		Document:     r.Document,
+		Errors:       make([]error, 0),
+		Warnings:     warnings,
+		Stats:        parser.DocumentStats{},
+	}
+}
+
 // DryRunResult contains the result of a dry-run overlay preview.
 //
 // A dry-run evaluates the overlay without modifying the document,

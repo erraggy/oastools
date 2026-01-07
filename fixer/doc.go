@@ -104,6 +104,33 @@
 //	# Fix and save
 //	oastools fix api.yaml -o fixed.yaml
 //
+// # Chaining with Other Packages
+//
+// Use [FixResult.ToParseResult] to convert the fix result for use with other packages:
+//
+//	// Fix a specification
+//	fixResult, _ := fixer.FixWithOptions(
+//	    fixer.WithFilePath("api.yaml"),
+//	)
+//
+//	// Validate the fixed result
+//	v := validator.New()
+//	validationResult, _ := v.ValidateParsed(*fixResult.ToParseResult())
+//
+//	// Or convert to a different version
+//	c := converter.New()
+//	convResult, _ := c.ConvertParsed(*fixResult.ToParseResult(), "3.1.0")
+//
+//	// Or diff against another document
+//	diffResult, _ := differ.DiffWithOptions(
+//	    differ.WithSourceParsed(*fixResult.ToParseResult()),
+//	    differ.WithTargetFilePath("production.yaml"),
+//	)
+//
+// The returned [parser.ParseResult] uses the source version (the version of the
+// fixed document). Errors and Warnings are empty slices since fixes are
+// informational, not validation errors.
+//
 // # Related Packages
 //
 // The fixer integrates with other oastools packages:

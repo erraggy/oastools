@@ -566,3 +566,52 @@ func ExampleGenericNamingStrategy() {
 	//   flattened
 	//   dot
 }
+
+// Example_toParseResult demonstrates using ToParseResult() to chain fixer
+// output with other packages like validator, converter, or differ.
+func Example_toParseResult() {
+	// Fix a spec with missing path parameters
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+`
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fixResult, err := fixer.FixWithOptions(
+		fixer.WithParsed(*parseResult),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Convert to ParseResult for use with validator, converter, differ, etc.
+	result := fixResult.ToParseResult()
+
+	// The ParseResult can now be used with other packages:
+	// - validator.ValidateParsed(*result)
+	// - converter.ConvertParsed(*result, "3.1.0")
+	// - differ.DiffParsed(*baseResult, *result)
+
+	// SourcePath comes from the original parse (defaults to "ParseBytes.yaml" for bytes)
+	fmt.Printf("Has source: %v\n", result.SourcePath != "")
+	fmt.Printf("Version: %s\n", result.Version)
+	fmt.Printf("Has document: %v\n", result.Document != nil)
+	fmt.Printf("Fixes applied: %d\n", fixResult.FixCount)
+	// Output:
+	// Has source: true
+	// Version: 3.0.0
+	// Has document: true
+	// Fixes applied: 1
+}

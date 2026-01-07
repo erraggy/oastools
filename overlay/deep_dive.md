@@ -15,6 +15,7 @@ The [`overlay`](https://pkg.go.dev/github.com/erraggy/oastools/overlay) package 
 - [Practical Examples](#practical-examples)
 - [JSONPath Reference](#jsonpath-reference)
 - [Configuration Reference](#configuration-reference)
+- [Package Chaining](#package-chaining)
 - [Best Practices](#best-practices)
 
 ---
@@ -237,6 +238,37 @@ if errs := overlay.Validate(o); len(errs) > 0 {
 | `Changes` | `[]Change` | Details of each change (for dry-run) |
 | `Warnings` | `[]string` | Non-fatal warnings during application |
 | `Document` | `any` | The modified document |
+| `ToParseResult()` | `*parser.ParseResult` | Converts result for package chaining |
+
+[Back to top](#top)
+
+---
+
+## Package Chaining
+
+The `ToParseResult()` method enables seamless chaining with other oastools packages by converting `ApplyResult` to a `parser.ParseResult`:
+
+```go
+// Apply overlay then validate
+applyResult, err := overlay.ApplyWithOptions(
+    overlay.WithSpecFilePath("openapi.yaml"),
+    overlay.WithOverlayFilePath("changes.yaml"),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Chain to validator
+v := validator.New()
+valResult, _ := v.ValidateParsed(*applyResult.ToParseResult())
+fmt.Printf("Valid: %v\n", valResult.Valid)
+
+// Or chain to converter
+c := converter.New()
+convResult, _ := c.ConvertParsed(*applyResult.ToParseResult(), "3.1.0")
+```
+
+This enables workflows like: `parse → overlay → validate → convert`
 
 [Back to top](#top)
 

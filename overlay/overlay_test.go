@@ -2,6 +2,7 @@ package overlay
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -289,6 +290,202 @@ func TestApplyResult(t *testing.T) {
 		r.Warnings = []string{"warning"}
 		if !r.HasWarnings() {
 			t.Error("Expected warnings")
+		}
+	})
+
+	t.Run("WarningStrings prefers StructuredWarnings", func(t *testing.T) {
+		r := &ApplyResult{
+			Warnings: []string{"legacy warning"},
+			StructuredWarnings: ApplyWarnings{
+				NewNoMatchWarning(0, "$.test"),
+			},
+		}
+		warnings := r.WarningStrings()
+		if len(warnings) != 1 {
+			t.Errorf("Expected 1 warning, got %d", len(warnings))
+		}
+		if warnings[0] == "legacy warning" {
+			t.Error("Expected StructuredWarnings to take precedence")
+		}
+	})
+
+	t.Run("WarningStrings falls back to Warnings", func(t *testing.T) {
+		r := &ApplyResult{
+			Warnings: []string{"legacy warning"},
+		}
+		warnings := r.WarningStrings()
+		if len(warnings) != 1 {
+			t.Errorf("Expected 1 warning, got %d", len(warnings))
+		}
+		if warnings[0] != "legacy warning" {
+			t.Errorf("Expected 'legacy warning', got %q", warnings[0])
+		}
+	})
+
+	t.Run("WarningStrings with empty result", func(t *testing.T) {
+		r := &ApplyResult{}
+		warnings := r.WarningStrings()
+		if warnings != nil {
+			t.Error("Expected nil for empty result")
+		}
+	})
+}
+
+// TestApplyResult_ToParseResult tests the ToParseResult method.
+func TestApplyResult_ToParseResult(t *testing.T) {
+	t.Run("OAS3 result converts correctly", func(t *testing.T) {
+		applyResult := &ApplyResult{
+			Document:       &parser.OAS3Document{OpenAPI: "3.0.3", OASVersion: parser.OASVersion303, Info: &parser.Info{Title: "Test API", Version: "1.0"}},
+			SourceFormat:   parser.SourceFormatYAML,
+			ActionsApplied: 2,
+			Warnings:       []string{"warning1", "warning2"},
+		}
+
+		parseResult := applyResult.ToParseResult()
+
+		if parseResult.SourcePath != "overlay" {
+			t.Errorf("SourcePath = %q, want 'overlay'", parseResult.SourcePath)
+		}
+		if parseResult.SourceFormat != parser.SourceFormatYAML {
+			t.Errorf("SourceFormat = %v, want YAML", parseResult.SourceFormat)
+		}
+		if parseResult.Version != "3.0.3" {
+			t.Errorf("Version = %q, want '3.0.3'", parseResult.Version)
+		}
+		if parseResult.OASVersion != parser.OASVersion303 {
+			t.Errorf("OASVersion = %v, want OASVersion303", parseResult.OASVersion)
+		}
+		if parseResult.Document == nil {
+			t.Error("Document should not be nil")
+		}
+		if len(parseResult.Errors) != 0 {
+			t.Errorf("Expected 0 errors, got %d", len(parseResult.Errors))
+		}
+		if len(parseResult.Warnings) != 2 {
+			t.Errorf("Expected 2 warnings, got %d", len(parseResult.Warnings))
+		}
+
+		// Verify Document type assertion works
+		doc, ok := parseResult.Document.(*parser.OAS3Document)
+		if !ok {
+			t.Error("Document should be *parser.OAS3Document")
+		}
+		if doc.Info.Title != "Test API" {
+			t.Errorf("Info.Title = %q, want 'Test API'", doc.Info.Title)
+		}
+	})
+
+	t.Run("OAS2 result converts correctly", func(t *testing.T) {
+		applyResult := &ApplyResult{
+			Document:       &parser.OAS2Document{Swagger: "2.0", OASVersion: parser.OASVersion20, Info: &parser.Info{Title: "Swagger API", Version: "1.0"}},
+			SourceFormat:   parser.SourceFormatJSON,
+			ActionsApplied: 1,
+		}
+
+		parseResult := applyResult.ToParseResult()
+
+		if parseResult.SourcePath != "overlay" {
+			t.Errorf("SourcePath = %q, want 'overlay'", parseResult.SourcePath)
+		}
+		if parseResult.SourceFormat != parser.SourceFormatJSON {
+			t.Errorf("SourceFormat = %v, want JSON", parseResult.SourceFormat)
+		}
+		if parseResult.Version != "2.0" {
+			t.Errorf("Version = %q, want '2.0'", parseResult.Version)
+		}
+		if parseResult.OASVersion != parser.OASVersion20 {
+			t.Errorf("OASVersion = %v, want OASVersion20", parseResult.OASVersion)
+		}
+
+		// Verify Document type assertion works
+		doc, ok := parseResult.Document.(*parser.OAS2Document)
+		if !ok {
+			t.Error("Document should be *parser.OAS2Document")
+		}
+		if doc.Info.Title != "Swagger API" {
+			t.Errorf("Info.Title = %q, want 'Swagger API'", doc.Info.Title)
+		}
+	})
+
+	t.Run("StructuredWarnings converted to strings", func(t *testing.T) {
+		applyResult := &ApplyResult{
+			Document:     &parser.OAS3Document{OpenAPI: "3.1.0", OASVersion: parser.OASVersion310},
+			SourceFormat: parser.SourceFormatYAML,
+			StructuredWarnings: ApplyWarnings{
+				NewNoMatchWarning(0, "$.nonexistent"),
+				NewNoMatchWarning(1, "$.missing"),
+			},
+		}
+
+		parseResult := applyResult.ToParseResult()
+
+		if len(parseResult.Warnings) != 2 {
+			t.Errorf("Expected 2 warnings, got %d", len(parseResult.Warnings))
+		}
+	})
+
+	t.Run("empty warnings", func(t *testing.T) {
+		applyResult := &ApplyResult{
+			Document:     &parser.OAS3Document{OpenAPI: "3.0.0", OASVersion: parser.OASVersion300},
+			SourceFormat: parser.SourceFormatYAML,
+		}
+
+		parseResult := applyResult.ToParseResult()
+
+		if len(parseResult.Warnings) != 0 {
+			t.Errorf("Expected 0 warnings for valid document, got %d", len(parseResult.Warnings))
+		}
+	})
+
+	t.Run("nil Document returns empty version with warning", func(t *testing.T) {
+		applyResult := &ApplyResult{
+			Document:     nil,
+			SourceFormat: parser.SourceFormatYAML,
+		}
+
+		parseResult := applyResult.ToParseResult()
+
+		if parseResult.Version != "" {
+			t.Errorf("Version should be empty for nil document, got %q", parseResult.Version)
+		}
+		if parseResult.OASVersion != parser.Unknown {
+			t.Errorf("OASVersion should be Unknown for nil document, got %v", parseResult.OASVersion)
+		}
+		// Verify warning is added for nil document
+		if len(parseResult.Warnings) != 1 {
+			t.Errorf("Expected 1 warning for nil document, got %d", len(parseResult.Warnings))
+		}
+		if len(parseResult.Warnings) > 0 && parseResult.Warnings[0] != "overlay: ToParseResult: Document is nil, downstream operations may fail" {
+			t.Errorf("Unexpected warning message: %q", parseResult.Warnings[0])
+		}
+	})
+
+	t.Run("map[string]any document returns empty version with warning", func(t *testing.T) {
+		// When overlay is applied to a raw map (not a typed document)
+		applyResult := &ApplyResult{
+			Document: map[string]any{
+				"openapi": "3.0.3",
+				"info":    map[string]any{"title": "Test"},
+			},
+			SourceFormat: parser.SourceFormatYAML,
+		}
+
+		parseResult := applyResult.ToParseResult()
+
+		// Raw maps don't implement DocumentAccessor, so version is empty
+		if parseResult.Version != "" {
+			t.Errorf("Version should be empty for raw map, got %q", parseResult.Version)
+		}
+		if parseResult.OASVersion != parser.Unknown {
+			t.Errorf("OASVersion should be Unknown for raw map, got %v", parseResult.OASVersion)
+		}
+		// Verify warning is added for unrecognized document type
+		if len(parseResult.Warnings) != 1 {
+			t.Errorf("Expected 1 warning for unknown document type, got %d", len(parseResult.Warnings))
+		}
+		expectedWarningPrefix := "overlay: ToParseResult: unrecognized document type"
+		if len(parseResult.Warnings) > 0 && !strings.HasPrefix(parseResult.Warnings[0], expectedWarningPrefix) {
+			t.Errorf("Warning should start with %q, got %q", expectedWarningPrefix, parseResult.Warnings[0])
 		}
 	})
 }

@@ -15,6 +15,7 @@
 - [Validation Result Structure](#validation-result-structure)
 - [Configuration Reference](#configuration-reference)
 - [Source Map Integration](#source-map-integration)
+- [Package Chaining](#package-chaining)
 - [Best Practices](#best-practices)
 
 ---
@@ -593,30 +594,39 @@ Server objects are checked for correct structure.
 type ValidationResult struct {
     // Valid is true if no errors were found (warnings allowed)
     Valid bool
-    
+
     // Version is the detected OAS version string (e.g., "3.0.3")
     Version string
-    
+
     // OASVersion is the enumerated version
     OASVersion parser.OASVersion
-    
+
+    // Document contains the validated document (*parser.OAS2Document or *parser.OAS3Document)
+    Document any
+
+    // SourceFormat preserves the original document format for output
+    SourceFormat parser.SourceFormat
+
     // Errors contains all validation errors
     Errors []ValidationError
-    
+
     // Warnings contains all validation warnings (if IncludeWarnings is true)
     Warnings []ValidationError
-    
+
     // Counts
     ErrorCount   int
     WarningCount int
-    
+
     // Performance metrics
     LoadTime   time.Duration
     SourceSize int64
-    
+
     // Document statistics
     Stats parser.DocumentStats
 }
+
+// ToParseResult converts the validation result to a ParseResult for use with other packages.
+func (r *ValidationResult) ToParseResult() *parser.ParseResult
 
 type ValidationError struct {
     // Path is the JSON path to the issue location
@@ -688,7 +698,38 @@ for _, err := range result.Errors {
 }
 ```
 
-[Back to top](#top)
+[↑ Back to top](#top)
+
+## Package Chaining
+
+The `ToParseResult()` method enables seamless chaining with other oastools packages by converting `ValidationResult` to a `parser.ParseResult`:
+
+```go
+// Validate then convert
+valResult, err := validator.ValidateWithOptions(
+    validator.WithFilePath("openapi.yaml"),
+    validator.WithIncludeWarnings(true),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+if valResult.Valid {
+    // Chain to converter
+    c := converter.New()
+    convResult, _ := c.ConvertParsed(*valResult.ToParseResult(), "3.1.0")
+
+    // Or chain to differ
+    diffResult, _ := differ.DiffWithOptions(
+        differ.WithSourceParsed(baseSpec),
+        differ.WithTargetParsed(*valResult.ToParseResult()),
+    )
+}
+```
+
+Note: Validation errors and warnings are converted to string warnings in the resulting ParseResult, preserving severity information in the format `[severity] message`.
+
+[↑ Back to top](#top)
 
 ## Best Practices
 
