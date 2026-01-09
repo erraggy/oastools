@@ -6,6 +6,7 @@ import "github.com/erraggy/oastools/parser"
 type fixPipeline struct {
 	fixMissingPathParams func(*Fixer, any, *FixResult)
 	fixInvalidSchemas    func(*Fixer, any, *FixResult)
+	fixCSVEnums          func(*Fixer, any, *FixResult)
 	pruneUnusedSchemas   func(*Fixer, any, *FixResult)
 	getPaths             func(any) parser.Paths
 	getVersion           func(any) parser.OASVersion
@@ -24,12 +25,17 @@ func (f *Fixer) applyFixPipeline(doc any, result *FixResult, pipeline fixPipelin
 		pipeline.fixInvalidSchemas(f, doc, result)
 	}
 
-	// 3. Prune unused schemas
+	// 3. Expand CSV enums
+	if f.isFixEnabled(FixTypeEnumCSVExpanded) {
+		pipeline.fixCSVEnums(f, doc, result)
+	}
+
+	// 4. Prune unused schemas
 	if f.isFixEnabled(FixTypePrunedUnusedSchema) {
 		pipeline.pruneUnusedSchemas(f, doc, result)
 	}
 
-	// 4. Prune empty paths
+	// 5. Prune empty paths
 	if f.isFixEnabled(FixTypePrunedEmptyPath) {
 		f.pruneEmptyPaths(pipeline.getPaths(doc), result, pipeline.getVersion(doc))
 	}
@@ -54,6 +60,9 @@ var oas2Pipeline = fixPipeline{
 	},
 	fixInvalidSchemas: func(f *Fixer, doc any, result *FixResult) {
 		f.fixInvalidSchemaNamesOAS2(mustOAS2(doc), result)
+	},
+	fixCSVEnums: func(f *Fixer, doc any, result *FixResult) {
+		f.fixCSVEnumsOAS2(mustOAS2(doc), result)
 	},
 	pruneUnusedSchemas: func(f *Fixer, doc any, result *FixResult) {
 		f.pruneUnusedSchemasOAS2(mustOAS2(doc), result)
@@ -81,6 +90,9 @@ var oas3Pipeline = fixPipeline{
 	},
 	fixInvalidSchemas: func(f *Fixer, doc any, result *FixResult) {
 		f.fixInvalidSchemaNamesOAS3(mustOAS3(doc), result)
+	},
+	fixCSVEnums: func(f *Fixer, doc any, result *FixResult) {
+		f.fixCSVEnumsOAS3(mustOAS3(doc), result)
 	},
 	pruneUnusedSchemas: func(f *Fixer, doc any, result *FixResult) {
 		f.pruneUnusedSchemasOAS3(mustOAS3(doc), result)

@@ -18,6 +18,8 @@ const (
 	FixTypePrunedUnusedSchema FixType = "pruned-unused-schema"
 	// FixTypeRenamedGenericSchema indicates a generic type name was simplified
 	FixTypeRenamedGenericSchema FixType = "renamed-generic-schema"
+	// FixTypeEnumCSVExpanded indicates a CSV enum string was expanded to individual values
+	FixTypeEnumCSVExpanded FixType = "enum-csv-expanded"
 )
 
 // Fix represents a single fix applied to the document
