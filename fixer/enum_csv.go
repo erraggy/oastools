@@ -198,15 +198,21 @@ func (f *Fixer) fixSchemaCSVEnums(schema *parser.Schema, path string, result *Fi
 
 	// Check if this schema has CSV enums
 	if isCSVEnumCandidate(schema) {
-		expanded, hadExpansion := expandCSVEnumValues(schema)
-		if hadExpansion {
+		expanded, skippedParts, hadExpansion := expandCSVEnumValues(schema)
+		if hadExpansion && len(expanded) > 0 {
 			before := schema.Enum
 			schema.Enum = expanded
+
+			description := fmt.Sprintf("expanded CSV enum string to %d individual values", len(expanded))
+			if len(skippedParts) > 0 {
+				description = fmt.Sprintf("expanded CSV enum string to %d values (skipped %d invalid: %s)",
+					len(expanded), len(skippedParts), strings.Join(skippedParts, ", "))
+			}
 
 			fix := Fix{
 				Type:        FixTypeEnumCSVExpanded,
 				Path:        path,
-				Description: fmt.Sprintf("expanded CSV enum string to %d individual values", len(expanded)),
+				Description: description,
 				Before:      before,
 				After:       expanded,
 			}
@@ -288,22 +294,21 @@ func getSchemaType(schema *parser.Schema) string {
 }
 
 // expandCSVEnumValues expands CSV strings in enum values to individual values.
-// Returns the expanded enum and whether any expansion occurred.
-func expandCSVEnumValues(schema *parser.Schema) ([]any, bool) {
+// Returns the expanded enum, any parts that were skipped due to parse errors,
+// and whether any expansion occurred. Invalid values within a CSV string
+// (e.g., non-numeric strings for integer type) are tracked in skippedParts.
+func expandCSVEnumValues(schema *parser.Schema) (expanded []any, skippedParts []string, hadExpansion bool) {
 	if schema == nil {
-		return nil, false
+		return nil, nil, false
 	}
 	if len(schema.Enum) == 0 {
-		return schema.Enum, false
+		return schema.Enum, nil, false
 	}
 
 	schemaType := getSchemaType(schema)
 	if schemaType != "integer" && schemaType != "number" {
-		return schema.Enum, false
+		return schema.Enum, nil, false
 	}
-
-	var expanded []any
-	hadExpansion := false
 
 	for _, v := range schema.Enum {
 		switch val := v.(type) {
@@ -311,8 +316,7 @@ func expandCSVEnumValues(schema *parser.Schema) ([]any, bool) {
 			if strings.Contains(val, ",") {
 				// This is a CSV string - expand it
 				hadExpansion = true
-				parts := strings.Split(val, ",")
-				for _, part := range parts {
+				for part := range strings.SplitSeq(val, ",") {
 					part = strings.TrimSpace(part)
 					if part == "" {
 						continue
@@ -320,8 +324,10 @@ func expandCSVEnumValues(schema *parser.Schema) ([]any, bool) {
 					parsed, err := parseNumericValue(part, schemaType)
 					if err == nil {
 						expanded = append(expanded, parsed)
+					} else {
+						// Track skipped parts for reporting
+						skippedParts = append(skippedParts, part)
 					}
-					// Skip invalid parts silently
 				}
 			} else {
 				// Single value string - keep as-is
@@ -333,7 +339,7 @@ func expandCSVEnumValues(schema *parser.Schema) ([]any, bool) {
 		}
 	}
 
-	return expanded, hadExpansion
+	return expanded, skippedParts, hadExpansion
 }
 
 // parseNumericValue parses a string into the appropriate numeric type.

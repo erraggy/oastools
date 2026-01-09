@@ -2355,3 +2355,212 @@ func TestFix_CSVEnumExpansion_FixDescriptionContainsCount(t *testing.T) {
 	require.Len(t, result.Fixes, 1)
 	assert.Contains(t, result.Fixes[0].Description, "5 individual values")
 }
+
+// TestFix_CSVEnumExpansion_OAS2PathParameter tests CSV enum expansion in OAS 2.0 path parameters
+func TestFix_CSVEnumExpansion_OAS2PathParameter(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: map[string]*parser.PathItem{
+			"/items/{status}": {
+				Get: &parser.Operation{
+					OperationID: "getItems",
+					Parameters: []*parser.Parameter{
+						{
+							Name: "status",
+							In:   "path",
+							Schema: &parser.Schema{
+								Type: "integer",
+								Enum: []any{"1,2,3"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	parseResult := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	fixed := result.Document.(*parser.OAS2Document)
+	param := fixed.Paths["/items/{status}"].Get.Parameters[0]
+	assert.Equal(t, []any{int64(1), int64(2), int64(3)}, param.Schema.Enum)
+	assert.Len(t, result.Fixes, 1)
+}
+
+// TestFix_CSVEnumExpansion_OAS3PathParameter tests CSV enum expansion in OAS 3.x path parameters
+func TestFix_CSVEnumExpansion_OAS3PathParameter(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: map[string]*parser.PathItem{
+			"/items/{status}": {
+				Get: &parser.Operation{
+					OperationID: "getItems",
+					Parameters: []*parser.Parameter{
+						{
+							Name: "status",
+							In:   "path",
+							Schema: &parser.Schema{
+								Type: "integer",
+								Enum: []any{"1,2,3"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	fixed := result.Document.(*parser.OAS3Document)
+	param := fixed.Paths["/items/{status}"].Get.Parameters[0]
+	assert.Equal(t, []any{int64(1), int64(2), int64(3)}, param.Schema.Enum)
+	assert.Len(t, result.Fixes, 1)
+}
+
+// TestFix_CSVEnumExpansion_OAS3RequestBody tests CSV enum expansion in OAS 3.x request bodies
+func TestFix_CSVEnumExpansion_OAS3RequestBody(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: map[string]*parser.PathItem{
+			"/items": {
+				Post: &parser.Operation{
+					OperationID: "createItem",
+					RequestBody: &parser.RequestBody{
+						Content: map[string]*parser.MediaType{
+							"application/json": {
+								Schema: &parser.Schema{
+									Type: "object",
+									Properties: map[string]*parser.Schema{
+										"priority": {
+											Type: "integer",
+											Enum: []any{"1,2,3,4,5"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	fixed := result.Document.(*parser.OAS3Document)
+	schema := fixed.Paths["/items"].Post.RequestBody.Content["application/json"].Schema
+	assert.Equal(t, []any{int64(1), int64(2), int64(3), int64(4), int64(5)}, schema.Properties["priority"].Enum)
+	assert.Len(t, result.Fixes, 1)
+}
+
+// TestFix_CSVEnumExpansion_OAS3Response tests CSV enum expansion in OAS 3.x responses
+func TestFix_CSVEnumExpansion_OAS3Response(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: map[string]*parser.PathItem{
+			"/items": {
+				Get: &parser.Operation{
+					OperationID: "getItems",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {
+								Description: "Success",
+								Content: map[string]*parser.MediaType{
+									"application/json": {
+										Schema: &parser.Schema{
+											Type: "object",
+											Properties: map[string]*parser.Schema{
+												"status": {
+													Type: "integer",
+													Enum: []any{"0,1,2"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	fixed := result.Document.(*parser.OAS3Document)
+	schema := fixed.Paths["/items"].Get.Responses.Codes["200"].Content["application/json"].Schema
+	assert.Equal(t, []any{int64(0), int64(1), int64(2)}, schema.Properties["status"].Enum)
+	assert.Len(t, result.Fixes, 1)
+}
+
+// TestFix_CSVEnumExpansion_AllInvalidPartsNoFix tests that when all CSV parts are invalid,
+// no fix is applied (the empty expansion guard)
+func TestFix_CSVEnumExpansion_AllInvalidPartsNoFix(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"BadEnum": {
+					Type: "integer",
+					Enum: []any{"abc,def,ghi"}, // All invalid
+				},
+			},
+		},
+	}
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	// Should NOT apply a fix since all parts are invalid
+	assert.Empty(t, result.Fixes, "should not apply fix when all CSV parts are invalid")
+
+	// Enum should remain unchanged
+	fixed := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, []any{"abc,def,ghi"}, fixed.Components.Schemas["BadEnum"].Enum)
+}
