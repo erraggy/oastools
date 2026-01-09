@@ -461,6 +461,14 @@ func TestTransformSchemaName(t *testing.T) {
 			},
 			expected: "Response_common.Pet_",
 		},
+		{
+			name:  "only invalid characters returns UnnamedSchema",
+			input: "!!!",
+			config: GenericNamingConfig{
+				Strategy: GenericNamingOf,
+			},
+			expected: "UnnamedSchema",
+		},
 	}
 
 	for _, tt := range tests {
@@ -767,6 +775,16 @@ func TestExtractSchemaNameFromRefPath(t *testing.T) {
 		{
 			name:     "external ref",
 			ref:      "external.yaml#/components/schemas/User",
+			expected: "",
+		},
+		{
+			name:     "OAS 3.x ref ending with slash",
+			ref:      "#/components/schemas/",
+			expected: "",
+		},
+		{
+			name:     "OAS 2.0 ref ending with slash",
+			ref:      "#/definitions/",
 			expected: "",
 		},
 	}

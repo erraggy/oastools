@@ -235,7 +235,7 @@ func HandleGenerate(args []string) error {
 		g.ServerEmbedSpec = flags.ServerEmbedSpec
 		result, err = g.GenerateParsed(*parseResult)
 	} else {
-		// Build generator options (23 base options + server options appended below)
+		// Build generator options (server options appended below)
 		genOpts := make([]generator.Option, 0, 30)
 		genOpts = append(genOpts,
 			generator.WithFilePath(specPath),

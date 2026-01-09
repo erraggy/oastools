@@ -261,7 +261,11 @@ func transformSchemaName(name string, config GenericNamingConfig) string {
 
 	// If no type parameters, just sanitize and return
 	if len(params) == 0 {
-		return sanitizeSchemaName(name)
+		sanitized := sanitizeSchemaName(name)
+		if sanitized == "" {
+			return "UnnamedSchema"
+		}
+		return sanitized
 	}
 
 	// Recursively transform nested generic types in parameters
