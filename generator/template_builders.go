@@ -136,7 +136,7 @@ func (cg *oas3CodeGenerator) buildStructTypeDefinition(typeName, originalName st
 
 	// Build fields from properties
 	if schema.Properties != nil {
-		var propNames []string
+		propNames := make([]string, 0, len(schema.Properties))
 		for propName := range schema.Properties {
 			propNames = append(propNames, propName)
 		}
@@ -405,7 +405,7 @@ func (cg *oas3CodeGenerator) buildAllOfTypeDefinition(typeName string, schema *p
 			allOfData.EmbeddedTypes = append(allOfData.EmbeddedTypes, refType)
 		} else if subSchema.Properties != nil {
 			// Inline properties
-			var propNames []string
+			propNames := make([]string, 0, len(subSchema.Properties))
 			for propName := range subSchema.Properties {
 				propNames = append(propNames, propName)
 			}

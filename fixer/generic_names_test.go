@@ -29,6 +29,13 @@ func TestHasInvalidSchemaNameChars(t *testing.T) {
 		{name: "PascalCase", input: "UserProfileData", expected: false},
 		{name: "camelCase", input: "userProfileData", expected: false},
 
+		// Invalid names (empty or whitespace)
+		{name: "empty string", input: "", expected: true},
+		{name: "whitespace only", input: "   ", expected: true},
+		{name: "tabs only", input: "\t\t", expected: true},
+		{name: "newline only", input: "\n", expected: true},
+		{name: "mixed whitespace", input: " \t\n ", expected: true},
+
 		// Invalid names (generic type syntax)
 		{name: "square brackets", input: "Response[User]", expected: true},
 		{name: "angle brackets", input: "List<Item>", expected: true},
@@ -392,6 +399,32 @@ func TestTransformSchemaName(t *testing.T) {
 			expected: "ListOfItem",
 		},
 
+		// Empty and whitespace names (Issue #237 fix)
+		{
+			name:  "empty string returns UnnamedSchema",
+			input: "",
+			config: GenericNamingConfig{
+				Strategy: GenericNamingOf,
+			},
+			expected: "UnnamedSchema",
+		},
+		{
+			name:  "whitespace only returns UnnamedSchema",
+			input: "   ",
+			config: GenericNamingConfig{
+				Strategy: GenericNamingOf,
+			},
+			expected: "UnnamedSchema",
+		},
+		{
+			name:  "tabs only returns UnnamedSchema",
+			input: "\t\t",
+			config: GenericNamingConfig{
+				Strategy: GenericNamingUnderscore,
+			},
+			expected: "UnnamedSchema",
+		},
+
 		// Package-qualified type parameters (Issue #233 fix)
 		{
 			name:  "of with package param",
@@ -427,6 +460,14 @@ func TestTransformSchemaName(t *testing.T) {
 				Separator: "_",
 			},
 			expected: "Response_common.Pet_",
+		},
+		{
+			name:  "only invalid characters returns UnnamedSchema",
+			input: "!!!",
+			config: GenericNamingConfig{
+				Strategy: GenericNamingOf,
+			},
+			expected: "UnnamedSchema",
 		},
 	}
 
@@ -736,6 +777,16 @@ func TestExtractSchemaNameFromRefPath(t *testing.T) {
 			ref:      "external.yaml#/components/schemas/User",
 			expected: "",
 		},
+		{
+			name:     "OAS 3.x ref ending with slash",
+			ref:      "#/components/schemas/",
+			expected: "",
+		},
+		{
+			name:     "OAS 2.0 ref ending with slash",
+			ref:      "#/definitions/",
+			expected: "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -874,12 +925,12 @@ func TestTransformTypeParam(t *testing.T) {
 			expected: "ListOfUser",
 		},
 
-		// Edge case: only asterisks returns empty
+		// Edge case: only asterisks results in UnnamedSchema (Issue #237 fix)
 		{
-			name:     "only asterisks returns empty",
+			name:     "only asterisks returns UnnamedSchema",
 			param:    "***",
 			config:   GenericNamingConfig{Strategy: GenericNamingOf},
-			expected: "",
+			expected: "UnnamedSchema",
 		},
 	}
 

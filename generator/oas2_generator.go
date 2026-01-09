@@ -103,7 +103,7 @@ func (cg *oas2CodeGenerator) generateSingleTypes() error {
 	// Write imports
 	if len(imports) > 0 {
 		buf.WriteString("import (\n")
-		var importList []string
+		importList := make([]string, 0, len(imports))
 		for imp := range imports {
 			importList = append(importList, imp)
 		}

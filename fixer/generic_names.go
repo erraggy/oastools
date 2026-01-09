@@ -128,6 +128,11 @@ var invalidSchemaNameChars = []rune{
 // hasInvalidSchemaNameChars returns true if name contains characters that are
 // problematic in schema names (require URL encoding in $ref values).
 func hasInvalidSchemaNameChars(name string) bool {
+	// Empty or whitespace-only names are invalid
+	if strings.TrimSpace(name) == "" {
+		return true
+	}
+
 	for _, c := range name {
 		if slices.Contains(invalidSchemaNameChars, c) {
 			return true
@@ -247,11 +252,20 @@ func splitTypeParams(s string) []string {
 //	"Map[string,int]" -> "MapOfStringOfInt"
 //	"Response[List[User]]" -> "ResponseOfListOfUser"
 func transformSchemaName(name string, config GenericNamingConfig) string {
+	// Handle empty or whitespace-only names
+	if strings.TrimSpace(name) == "" {
+		return "UnnamedSchema"
+	}
+
 	base, params, _ := parseGenericName(name)
 
 	// If no type parameters, just sanitize and return
 	if len(params) == 0 {
-		return sanitizeSchemaName(name)
+		sanitized := sanitizeSchemaName(name)
+		if sanitized == "" {
+			return "UnnamedSchema"
+		}
+		return sanitized
 	}
 
 	// Recursively transform nested generic types in parameters
@@ -537,12 +551,12 @@ func rewriteSchemaRefsRecursive(schema *parser.Schema, renames map[string]string
 // Returns empty string if not a schema reference.
 func extractSchemaNameFromRefPath(ref string) string {
 	// OAS 3.x style
-	if strings.HasPrefix(ref, "#/components/schemas/") {
-		return strings.TrimPrefix(ref, "#/components/schemas/")
+	if name, found := strings.CutPrefix(ref, "#/components/schemas/"); found {
+		return name
 	}
 	// OAS 2.0 style
-	if strings.HasPrefix(ref, "#/definitions/") {
-		return strings.TrimPrefix(ref, "#/definitions/")
+	if name, found := strings.CutPrefix(ref, "#/definitions/"); found {
+		return name
 	}
 	return ""
 }
