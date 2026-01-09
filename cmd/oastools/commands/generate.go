@@ -235,8 +235,9 @@ func HandleGenerate(args []string) error {
 		g.ServerEmbedSpec = flags.ServerEmbedSpec
 		result, err = g.GenerateParsed(*parseResult)
 	} else {
-		// Build generator options
-		genOpts := []generator.Option{
+		// Build generator options (23 base options + server options appended below)
+		genOpts := make([]generator.Option, 0, 30)
+		genOpts = append(genOpts,
 			generator.WithFilePath(specPath),
 			generator.WithPackageName(flags.PackageName),
 			generator.WithClient(flags.Client),
@@ -259,7 +260,7 @@ func HandleGenerate(args []string) error {
 			generator.WithMaxOperationsPerFile(flags.MaxOpsPerFile),
 			generator.WithSplitByTag(!flags.NoSplitByTag),
 			generator.WithSplitByPathPrefix(!flags.NoSplitByPath),
-		}
+		)
 
 		// Add server generation options
 		genOpts = append(genOpts, serverOptions(flags)...)

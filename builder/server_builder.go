@@ -322,7 +322,7 @@ func (s *ServerBuilder) createParseResult(doc any) *parser.ParseResult {
 
 // buildRoutes builds the route table from the builder's path definitions.
 func (s *ServerBuilder) buildRoutes() []operationRoute {
-	routes := make([]operationRoute, 0)
+	routes := make([]operationRoute, 0, len(s.paths)*4) // Estimate 4 operations per path
 
 	for path, pathItem := range s.paths {
 		routes = append(routes, s.routesFromPathItem(path, pathItem)...)
