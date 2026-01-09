@@ -11,6 +11,9 @@ func TestSetupValidateFlags(t *testing.T) {
 		if flags.Strict {
 			t.Error("expected Strict to be false by default")
 		}
+		if !flags.ValidateStructure {
+			t.Error("expected ValidateStructure to be true by default")
+		}
 		if flags.NoWarnings {
 			t.Error("expected NoWarnings to be false by default")
 		}
@@ -42,6 +45,19 @@ func TestSetupValidateFlags(t *testing.T) {
 		}
 		if fs.Arg(0) != "test.yaml" {
 			t.Errorf("expected file arg 'test.yaml', got '%s'", fs.Arg(0))
+		}
+	})
+
+	t.Run("validate-structure flag", func(t *testing.T) {
+		// Create fresh flagset to test validate-structure flag
+		fs2, flags2 := SetupValidateFlags()
+		args := []string{"--validate-structure=false", "test.yaml"}
+		if err := fs2.Parse(args); err != nil {
+			t.Fatalf("unexpected parse error: %v", err)
+		}
+
+		if flags2.ValidateStructure {
+			t.Error("expected ValidateStructure to be false when --validate-structure=false")
 		}
 	})
 }

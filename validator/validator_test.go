@@ -1305,6 +1305,37 @@ func TestValidateWithOptions_StrictMode(t *testing.T) {
 	// Strict mode may generate additional warnings
 }
 
+// TestValidateWithOptions_ValidateStructure tests that structure validation can be controlled
+func TestValidateWithOptions_ValidateStructure(t *testing.T) {
+	t.Run("default enabled", func(t *testing.T) {
+		result, err := ValidateWithOptions(
+			WithFilePath("../testdata/petstore-3.0.yaml"),
+			// Not specifying WithValidateStructure to test default (true)
+		)
+		require.NoError(t, err)
+		assert.True(t, result.Valid)
+	})
+
+	t.Run("explicitly enabled", func(t *testing.T) {
+		result, err := ValidateWithOptions(
+			WithFilePath("../testdata/petstore-3.0.yaml"),
+			WithValidateStructure(true),
+		)
+		require.NoError(t, err)
+		assert.True(t, result.Valid)
+	})
+
+	t.Run("explicitly disabled", func(t *testing.T) {
+		result, err := ValidateWithOptions(
+			WithFilePath("../testdata/petstore-3.0.yaml"),
+			WithValidateStructure(false),
+		)
+		require.NoError(t, err)
+		assert.True(t, result.Valid)
+		// With a valid file, both enabled and disabled should pass
+	})
+}
+
 // TestValidateWithOptions_DisableWarnings tests that warnings can be disabled
 func TestValidateWithOptions_DisableWarnings(t *testing.T) {
 	result, err := ValidateWithOptions(
@@ -1469,6 +1500,7 @@ func TestApplyOptions_Defaults_Validator(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, cfg.includeWarnings, "default includeWarnings should be true")
 	assert.False(t, cfg.strictMode, "default strictMode should be false")
+	assert.True(t, cfg.validateStructure, "default validateStructure should be true")
 	assert.Equal(t, "", cfg.userAgent, "default userAgent should be empty")
 }
 
@@ -1478,12 +1510,14 @@ func TestApplyOptions_OverrideDefaults_Validator(t *testing.T) {
 		WithFilePath("test.yaml"),
 		WithIncludeWarnings(false),
 		WithStrictMode(true),
+		WithValidateStructure(false),
 		WithUserAgent("custom/1.0"),
 	)
 
 	require.NoError(t, err)
 	assert.False(t, cfg.includeWarnings)
 	assert.True(t, cfg.strictMode)
+	assert.False(t, cfg.validateStructure)
 	assert.Equal(t, "custom/1.0", cfg.userAgent)
 }
 
