@@ -45,6 +45,12 @@
 //   - Empty paths (FixTypePrunedEmptyPath): Removes path items that have no HTTP
 //     operations defined (e.g., paths with only parameters but no get/post/etc).
 //
+//   - CSV enum expansion (FixTypeEnumCSVExpanded): Expands CSV-formatted enum strings
+//     to properly-typed arrays. This handles a common pattern from go-restful-openapi
+//     where enum values for integer/number types are stored as comma-separated strings
+//     (e.g., "1,2,3" instead of [1, 2, 3]). This fix is opt-in and must be explicitly
+//     enabled.
+//
 // # Default Behavior
 //
 // For performance, only FixTypeMissingPathParameter is enabled by default.
