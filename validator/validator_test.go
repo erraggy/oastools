@@ -2495,3 +2495,336 @@ func TestToParseResult_SourcePathFallback(t *testing.T) {
 	pr := result.ToParseResult()
 	assert.Equal(t, "validator", pr.SourcePath, "Should fall back to 'validator' when source path is empty")
 }
+
+// TestValidate_EmptySchemaName_OAS2 tests that empty schema names in definitions report an error
+func TestValidate_EmptySchemaName_OAS2(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: map[string]*parser.PathItem{},
+		Definitions: map[string]*parser.Schema{
+			"": { // Empty schema name
+				Type: "object",
+			},
+		},
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	assert.False(t, result.Valid, "Document should be invalid with empty schema name")
+	assert.NotEmpty(t, result.Errors, "Should have validation errors")
+
+	// Check for empty schema name error
+	foundError := false
+	for _, e := range result.Errors {
+		if e.Path == "definitions" && strings.Contains(e.Message, "schema name cannot be empty") {
+			foundError = true
+			break
+		}
+	}
+	assert.True(t, foundError, "Should have error about empty schema name")
+}
+
+// TestValidate_WhitespaceSchemaName_OAS2 tests that whitespace-only schema names report an error
+func TestValidate_WhitespaceSchemaName_OAS2(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: map[string]*parser.PathItem{},
+		Definitions: map[string]*parser.Schema{
+			"   ": { // Whitespace-only schema name
+				Type: "object",
+			},
+		},
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	assert.False(t, result.Valid, "Document should be invalid with whitespace-only schema name")
+	assert.NotEmpty(t, result.Errors, "Should have validation errors")
+
+	// Check for whitespace schema name error
+	foundError := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Path, "definitions") && strings.Contains(e.Message, "whitespace-only") {
+			foundError = true
+			break
+		}
+	}
+	assert.True(t, foundError, "Should have error about whitespace-only schema name")
+}
+
+// TestValidate_RefEndingWithSlash_OAS2 tests that $ref ending with / reports an error
+func TestValidate_RefEndingWithSlash_OAS2(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: map[string]*parser.PathItem{
+			"/test": {
+				Get: &parser.Operation{
+					OperationID: "getTest",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {
+								Description: "OK",
+								Schema: &parser.Schema{
+									Ref: "#/definitions/", // Ref ending with /
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Definitions: map[string]*parser.Schema{
+			"ValidSchema": {
+				Type: "object",
+			},
+		},
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	assert.False(t, result.Valid, "Document should be invalid with $ref ending in /")
+	assert.NotEmpty(t, result.Errors, "Should have validation errors")
+
+	// Check for ref ending with / error
+	foundError := false
+	for _, e := range result.Errors {
+		if e.Field == "$ref" && strings.Contains(e.Message, "references an empty schema name") {
+			foundError = true
+			break
+		}
+	}
+	assert.True(t, foundError, "Should have error about $ref referencing empty schema name")
+}
+
+// TestValidate_EmptySchemaName_OAS3 tests that empty schema names in components.schemas report an error
+func TestValidate_EmptySchemaName_OAS3(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: map[string]*parser.PathItem{},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"": { // Empty schema name
+					Type: "object",
+				},
+			},
+		},
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	assert.False(t, result.Valid, "Document should be invalid with empty schema name")
+	assert.NotEmpty(t, result.Errors, "Should have validation errors")
+
+	// Check for empty schema name error
+	foundError := false
+	for _, e := range result.Errors {
+		if e.Path == "components.schemas" && strings.Contains(e.Message, "schema name cannot be empty") {
+			foundError = true
+			break
+		}
+	}
+	assert.True(t, foundError, "Should have error about empty schema name")
+}
+
+// TestValidate_WhitespaceSchemaName_OAS3 tests that whitespace-only schema names report an error
+func TestValidate_WhitespaceSchemaName_OAS3(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: map[string]*parser.PathItem{},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"\t": { // Whitespace-only schema name (tab)
+					Type: "object",
+				},
+			},
+		},
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	assert.False(t, result.Valid, "Document should be invalid with whitespace-only schema name")
+	assert.NotEmpty(t, result.Errors, "Should have validation errors")
+
+	// Check for whitespace schema name error
+	foundError := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Path, "components.schemas") && strings.Contains(e.Message, "whitespace-only") {
+			foundError = true
+			break
+		}
+	}
+	assert.True(t, foundError, "Should have error about whitespace-only schema name")
+}
+
+// TestValidate_RefEndingWithSlash_OAS3 tests that $ref ending with / reports an error in OAS 3.x
+func TestValidate_RefEndingWithSlash_OAS3(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: map[string]*parser.PathItem{
+			"/test": {
+				Get: &parser.Operation{
+					OperationID: "getTest",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {
+								Description: "OK",
+								Content: map[string]*parser.MediaType{
+									"application/json": {
+										Schema: &parser.Schema{
+											Ref: "#/components/schemas/", // Ref ending with /
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"ValidSchema": {
+					Type: "object",
+				},
+			},
+		},
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	assert.False(t, result.Valid, "Document should be invalid with $ref ending in /")
+	assert.NotEmpty(t, result.Errors, "Should have validation errors")
+
+	// Check for ref ending with / error
+	foundError := false
+	for _, e := range result.Errors {
+		if e.Field == "$ref" && strings.Contains(e.Message, "references an empty schema name") {
+			foundError = true
+			break
+		}
+	}
+	assert.True(t, foundError, "Should have error about $ref referencing empty schema name")
+}
+
+// TestValidate_ValidSchemaNames tests that valid schema names pass validation
+func TestValidate_ValidSchemaNames(t *testing.T) {
+	tests := []struct {
+		name       string
+		schemaName string
+	}{
+		{"simple", "Pet"},
+		{"with underscore", "Pet_Model"},
+		{"with numbers", "Pet123"},
+		{"camelCase", "petModel"},
+		{"snake_case", "pet_model"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := &parser.OAS3Document{
+				OpenAPI: "3.0.3",
+				Info: &parser.Info{
+					Title:   "Test API",
+					Version: "1.0.0",
+				},
+				Paths: map[string]*parser.PathItem{},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						tt.schemaName: {
+							Type: "object",
+						},
+					},
+				},
+			}
+
+			parseResult := &parser.ParseResult{
+				Version:    "3.0.3",
+				OASVersion: parser.OASVersion303,
+				Document:   doc,
+			}
+
+			v := New()
+			result, err := v.ValidateParsed(*parseResult)
+			require.NoError(t, err)
+
+			// Should not have schema name errors
+			for _, e := range result.Errors {
+				if strings.Contains(e.Message, "schema name") {
+					t.Errorf("Unexpected schema name error for %q: %s", tt.schemaName, e.Message)
+				}
+			}
+		})
+	}
+}

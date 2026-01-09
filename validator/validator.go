@@ -681,9 +681,33 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 	}
 }
 
+// validateSchemaName checks if a schema name is valid (non-empty, non-whitespace).
+func (v *Validator) validateSchemaName(name, pathPrefix string, result *ValidationResult) {
+	if name == "" {
+		result.Errors = append(result.Errors, ValidationError{
+			Path:     pathPrefix,
+			Message:  "schema name cannot be empty",
+			Severity: SeverityError,
+			Field:    "name",
+			Value:    "",
+		})
+		return
+	}
+	if strings.TrimSpace(name) == "" {
+		result.Errors = append(result.Errors, ValidationError{
+			Path:     fmt.Sprintf("%s.%s", pathPrefix, name),
+			Message:  fmt.Sprintf("schema name cannot be whitespace-only: %q", name),
+			Severity: SeverityError,
+			Field:    "name",
+			Value:    name,
+		})
+	}
+}
+
 // validateOAS2Definitions validates schema definitions in OAS 2.0
 func (v *Validator) validateOAS2Definitions(doc *parser.OAS2Document, result *ValidationResult, _ string) {
 	for name, schema := range doc.Definitions {
+		v.validateSchemaName(name, "definitions", result)
 		if schema == nil {
 			continue
 		}
@@ -1180,6 +1204,7 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 
 	// Validate schemas
 	for name, schema := range doc.Components.Schemas {
+		v.validateSchemaName(name, "components.schemas", result)
 		if schema == nil {
 			continue
 		}
@@ -2078,6 +2103,19 @@ func validateSPDXLicense(identifier string) bool {
 // validateRef validates that a $ref string points to a valid location in the document
 func (v *Validator) validateRef(ref, path string, validRefs map[string]bool, result *ValidationResult, baseURL string) {
 	if ref == "" {
+		return
+	}
+
+	// Check for refs that reference empty schema names (end with /)
+	if strings.HasSuffix(ref, "/") {
+		result.Errors = append(result.Errors, ValidationError{
+			Path:     path,
+			Message:  fmt.Sprintf("$ref %q references an empty schema name", ref),
+			Severity: SeverityError,
+			Field:    "$ref",
+			Value:    ref,
+			SpecRef:  baseURL,
+		})
 		return
 	}
 
