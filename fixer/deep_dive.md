@@ -42,6 +42,7 @@ The fixer analyzes OAS documents and applies fixes for issues that would cause v
 | `FixTypeRenamedGenericSchema` | ❌ Disabled | Renames schemas containing URL-unsafe characters |
 | `FixTypePrunedUnusedSchema` | ❌ Disabled | Removes unreferenced schema definitions |
 | `FixTypePrunedEmptyPath` | ❌ Disabled | Removes paths with no HTTP operations |
+| `FixTypeEnumCSVExpanded` | ❌ Disabled | Expands CSV enum strings to typed arrays (e.g., "1,2,3" → [1, 2, 3]) |
 
 **Why are some fixes disabled by default?**
 

@@ -567,6 +567,56 @@ func ExampleGenericNamingStrategy() {
 	//   dot
 }
 
+// Example_csvEnumExpansion demonstrates fixing CSV-formatted enum values.
+// Some tools incorrectly represent integer/number enums as comma-separated strings
+// (e.g., "1,2,3" instead of [1, 2, 3]). This fix expands them to proper arrays.
+func Example_csvEnumExpansion() {
+	// A spec with CSV enum values (common mistake in generated specs)
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /items:
+    get:
+      operationId: getItems
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: integer
+            enum:
+              - "1,2,3"
+      responses:
+        '200':
+          description: Success
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Enable the CSV enum expansion fix (not enabled by default)
+	result, err := fixer.FixWithOptions(
+		fixer.WithParsed(*parseResult),
+		fixer.WithEnabledFixes(fixer.FixTypeEnumCSVExpanded),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Applied %d fix(es)\n", result.FixCount)
+	for _, fix := range result.Fixes {
+		fmt.Printf("  %s: %s\n", fix.Type, fix.Description)
+	}
+
+	// Output:
+	// Applied 1 fix(es)
+	//   enum-csv-expanded: expanded CSV enum string to 3 individual values
+}
+
 // Example_toParseResult demonstrates using ToParseResult() to chain fixer
 // output with other packages like validator, converter, or differ.
 func Example_toParseResult() {
