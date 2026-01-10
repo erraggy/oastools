@@ -23,6 +23,9 @@ func TestSetupValidateFlags(t *testing.T) {
 		if flags.Format != FormatText {
 			t.Errorf("expected Format to be '%s' by default, got '%s'", FormatText, flags.Format)
 		}
+		if flags.IncludeDocument {
+			t.Error("expected IncludeDocument to be false by default")
+		}
 	})
 
 	t.Run("parse flags", func(t *testing.T) {

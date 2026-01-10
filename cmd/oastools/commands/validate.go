@@ -54,6 +54,7 @@ func SetupValidateFlags() (*flag.FlagSet, *ValidateFlags) {
 		Writef(fs.Output(), "  oastools validate --no-warnings openapi.json\n")
 		Writef(fs.Output(), "  cat openapi.yaml | oastools validate -q -\n")
 		Writef(fs.Output(), "  oastools validate --format json openapi.yaml | jq '.valid'\n")
+		Writef(fs.Output(), "  oastools validate --format json --include-document openapi.yaml\n")
 		Writef(fs.Output(), "  oastools validate -s openapi.yaml  # Include line numbers in errors\n")
 		Writef(fs.Output(), "\nPipelining:\n")
 		Writef(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
