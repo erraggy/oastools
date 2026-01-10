@@ -1,0 +1,80 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/format-go.sh \"${file_path}\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-branch.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(make:*)",
+      "Bash(make check:*)",
+      "Bash(make test:*)",
+      "Bash(make build:*)",
+      "Bash(make lint:*)",
+      "Bash(make fmt:*)",
+      "Bash(make bench-*:*)",
+      "Bash(go test:*)",
+      "Bash(go build:*)",
+      "Bash(go run:*)",
+      "Bash(go fmt:*)",
+      "Bash(go vet:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(go mod download:*)",
+      "Bash(go get:*)",
+      "Bash(go doc:*)",
+      "Bash(go list:*)",
+      "Bash(go version:*)",
+      "Bash(gofmt:*)",
+      "Bash(goimports:*)",
+      "Bash(golangci-lint:*)",
+      "Bash(git status:*)",
+      "Bash(git branch:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git describe:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(git cat-file:*)",
+      "Bash(git symbolic-ref:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(wc:*)",
+      "Bash(tree:*)",
+      "mcp__gopls-mcp__go_workspace",
+      "mcp__gopls-mcp__go_diagnostics",
+      "mcp__gopls-mcp__go_package_api",
+      "mcp__gopls-mcp__go_file_context",
+      "mcp__gopls-mcp__go_search",
+      "mcp__gopls-mcp__go_symbol_references",
+      "WebFetch(domain:spec.openapis.org)",
+      "WebFetch(domain:pkg.go.dev)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:code.claude.com)",
+      "WebSearch"
+    ],
+    "deny": []
+  },
+  "enableAllProjectMcpServers": true,
+  "outputStyle": "Explanatory"
+}
