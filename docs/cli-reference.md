@@ -59,6 +59,7 @@ oastools validate [flags] <file|url|->
 |------|-------------|
 | `--strict` | Enable stricter validation beyond spec requirements |
 | `--no-warnings` | Suppress warning messages (only show errors) |
+| `--validate-structure` | Perform basic structure validation during parsing (default: true) |
 | `-s, --source-map` | Include line numbers in output (IDE-friendly format) |
 | `-q, --quiet` | Quiet mode: only output validation result, no diagnostic messages |
 | `--format` | Output format: text, json, or yaml (default: "text") |
@@ -84,6 +85,9 @@ oastools validate --no-warnings openapi.yaml
 
 # Combine flags
 oastools validate --strict --no-warnings openapi.yaml
+
+# Skip parser structure validation (useful for examining partially valid specs)
+oastools validate --validate-structure=false openapi.yaml
 
 # Output as JSON for programmatic processing
 oastools validate --format json openapi.yaml | jq '.valid'

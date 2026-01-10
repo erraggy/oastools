@@ -5,6 +5,7 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/validator"
 )
 
@@ -104,4 +105,89 @@ func Example_toParseResult() {
 	// For example:
 	//   fixResult, _ := fixer.FixWithOptions(fixer.WithParsed(*parseResult))
 	//   convertResult, _ := converter.ConvertWithOptions(converter.WithParsed(*parseResult), ...)
+}
+
+// ExampleValidator_ValidateStructure demonstrates controlling parser
+// structure validation. When disabled, the parser is more lenient about malformed
+// documents, allowing the validator to focus on semantic validation only.
+func ExampleValidator_ValidateStructure() {
+	// A valid OpenAPI spec to test with
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      responses:
+        '200':
+          description: Success
+`
+	// Parse the spec first
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	if err != nil {
+		log.Fatalf("Parse failed: %v", err)
+	}
+
+	// Using the struct-based API to control ValidateStructure
+	// Validate with structure validation enabled (default)
+	v1 := validator.New()
+	v1.ValidateStructure = true // This is the default
+	result, err := v1.ValidateParsed(*parseResult)
+	if err != nil {
+		log.Fatalf("Validation failed: %v", err)
+	}
+	fmt.Printf("With structure validation: Valid=%v\n", result.Valid)
+
+	// Validate with structure validation disabled (more lenient parsing)
+	v2 := validator.New()
+	v2.ValidateStructure = false
+	result2, err := v2.ValidateParsed(*parseResult)
+	if err != nil {
+		log.Fatalf("Validation failed: %v", err)
+	}
+	fmt.Printf("Without structure validation: Valid=%v\n", result2.Valid)
+
+	// Output:
+	// With structure validation: Valid=true
+	// Without structure validation: Valid=true
+}
+
+// ExampleValidateWithOptions_validateStructure demonstrates the functional option
+// for controlling parser structure validation.
+func ExampleValidateWithOptions_validateStructure() {
+	// A valid OpenAPI spec to test with
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      responses:
+        '200':
+          description: Success
+`
+	// Parse the spec first
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Validate with structure validation disabled using functional options
+	result, err := validator.ValidateWithOptions(
+		validator.WithParsed(*parseResult),
+		validator.WithValidateStructure(false),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Valid: %v\n", result.Valid)
+
+	// Output:
+	// Valid: true
 }

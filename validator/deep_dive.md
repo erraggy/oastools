@@ -659,10 +659,13 @@ type ValidationError struct {
 type Validator struct {
     // IncludeWarnings determines whether to include best practice warnings
     IncludeWarnings bool  // Default: true
-    
+
     // StrictMode treats warnings as errors
     StrictMode bool  // Default: false
-    
+
+    // ValidateStructure controls whether the parser performs basic structure validation
+    ValidateStructure bool  // Default: true
+
     // UserAgent for HTTP requests when fetching URLs
     UserAgent string
 }
@@ -676,6 +679,7 @@ type Validator struct {
 | `WithParsed(ParseResult)` | Pre-parsed document (30x faster) |
 | `WithIncludeWarnings(bool)` | Include best practice warnings |
 | `WithStrictMode(bool)` | Treat warnings as errors |
+| `WithValidateStructure(bool)` | Enable/disable parser structure validation (default: true) |
 | `WithUserAgent(string)` | Custom User-Agent for HTTP requests |
 
 [↑ Back to top](#top)
