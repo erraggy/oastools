@@ -13,11 +13,12 @@ import (
 
 // ValidateFlags contains flags for the validate command
 type ValidateFlags struct {
-	Strict     bool
-	NoWarnings bool
-	Quiet      bool
-	Format     string
-	SourceMap  bool
+	Strict            bool
+	ValidateStructure bool
+	NoWarnings        bool
+	Quiet             bool
+	Format            string
+	SourceMap         bool
 }
 
 // SetupValidateFlags creates and configures a FlagSet for the validate command.
@@ -27,6 +28,7 @@ func SetupValidateFlags() (*flag.FlagSet, *ValidateFlags) {
 	flags := &ValidateFlags{}
 
 	fs.BoolVar(&flags.Strict, "strict", false, "enable stricter validation beyond spec requirements")
+	fs.BoolVar(&flags.ValidateStructure, "validate-structure", true, "perform basic structure validation during parsing")
 	fs.BoolVar(&flags.NoWarnings, "no-warnings", false, "suppress warning messages (only show errors)")
 	fs.BoolVar(&flags.Quiet, "q", false, "quiet mode: only output validation result, no diagnostic messages")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "quiet mode: only output validation result, no diagnostic messages")
@@ -94,6 +96,7 @@ func HandleValidate(args []string) error {
 	if specPath == StdinFilePath {
 		// Read from stdin - source map not supported for stdin
 		p := parser.New()
+		p.ValidateStructure = flags.ValidateStructure
 		parseResult, parseErr := p.ParseReader(os.Stdin)
 		if parseErr != nil {
 			return fmt.Errorf("parsing stdin: %w", parseErr)
@@ -110,6 +113,7 @@ func HandleValidate(args []string) error {
 		validateOpts := []validator.Option{
 			validator.WithFilePath(specPath),
 			validator.WithStrictMode(flags.Strict),
+			validator.WithValidateStructure(flags.ValidateStructure),
 			validator.WithIncludeWarnings(!flags.NoWarnings),
 		}
 
@@ -118,6 +122,7 @@ func HandleValidate(args []string) error {
 			parseResult, parseErr := parser.ParseWithOptions(
 				parser.WithFilePath(specPath),
 				parser.WithSourceMap(true),
+				parser.WithValidateStructure(flags.ValidateStructure),
 			)
 			if parseErr != nil {
 				return fmt.Errorf("parsing file: %w", parseErr)
@@ -125,6 +130,7 @@ func HandleValidate(args []string) error {
 			validateOpts = []validator.Option{
 				validator.WithParsed(*parseResult),
 				validator.WithStrictMode(flags.Strict),
+				validator.WithValidateStructure(flags.ValidateStructure),
 				validator.WithIncludeWarnings(!flags.NoWarnings),
 			}
 			if parseResult.SourceMap != nil {

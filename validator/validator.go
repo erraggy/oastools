@@ -118,6 +118,10 @@ type Validator struct {
 	IncludeWarnings bool
 	// StrictMode enables stricter validation beyond the spec requirements
 	StrictMode bool
+	// ValidateStructure controls whether the parser performs basic structure validation.
+	// When true (default), the parser validates required fields and correct types.
+	// When false, parsing is more lenient and skips structure validation.
+	ValidateStructure bool
 	// UserAgent is the User-Agent string used when fetching URLs
 	// Defaults to "oastools" if not set
 	UserAgent string
@@ -129,8 +133,9 @@ type Validator struct {
 // New creates a new Validator instance with default settings
 func New() *Validator {
 	return &Validator{
-		IncludeWarnings: true,
-		StrictMode:      false,
+		IncludeWarnings:   true,
+		StrictMode:        false,
+		ValidateStructure: true,
 	}
 }
 
@@ -144,10 +149,11 @@ type validateConfig struct {
 	parsed   *parser.ParseResult
 
 	// Configuration options
-	includeWarnings bool
-	strictMode      bool
-	userAgent       string
-	sourceMap       *parser.SourceMap
+	includeWarnings   bool
+	strictMode        bool
+	validateStructure bool
+	userAgent         string
+	sourceMap         *parser.SourceMap
 }
 
 // ValidateWithOptions validates an OpenAPI specification using functional options.
@@ -167,10 +173,11 @@ func ValidateWithOptions(opts ...Option) (*ValidationResult, error) {
 	}
 
 	v := &Validator{
-		IncludeWarnings: cfg.includeWarnings,
-		StrictMode:      cfg.strictMode,
-		UserAgent:       cfg.userAgent,
-		SourceMap:       cfg.sourceMap,
+		IncludeWarnings:   cfg.includeWarnings,
+		StrictMode:        cfg.strictMode,
+		ValidateStructure: cfg.validateStructure,
+		UserAgent:         cfg.userAgent,
+		SourceMap:         cfg.sourceMap,
 	}
 
 	// Route to appropriate validation method based on input source
@@ -186,9 +193,10 @@ func ValidateWithOptions(opts ...Option) (*ValidationResult, error) {
 func applyOptions(opts ...Option) (*validateConfig, error) {
 	cfg := &validateConfig{
 		// Set defaults to match existing behavior
-		includeWarnings: true,
-		strictMode:      false,
-		userAgent:       "",
+		includeWarnings:   true,
+		strictMode:        false,
+		validateStructure: true,
+		userAgent:         "",
 	}
 
 	for _, opt := range opts {
@@ -239,6 +247,17 @@ func WithIncludeWarnings(enabled bool) Option {
 func WithStrictMode(enabled bool) Option {
 	return func(cfg *validateConfig) error {
 		cfg.strictMode = enabled
+		return nil
+	}
+}
+
+// WithValidateStructure enables or disables parser structure validation.
+// When enabled (default), the parser validates required fields and correct types.
+// When disabled, parsing is more lenient and skips structure validation.
+// Default: true
+func WithValidateStructure(enabled bool) Option {
+	return func(cfg *validateConfig) error {
+		cfg.validateStructure = enabled
 		return nil
 	}
 }
@@ -397,8 +416,9 @@ func (v *Validator) ValidateParsed(parseResult parser.ParseResult) (*ValidationR
 
 // Validate validates an OpenAPI specification file
 func (v *Validator) Validate(specPath string) (*ValidationResult, error) {
-	// Create parser and set UserAgent if specified
+	// Create parser and configure it
 	p := parser.New()
+	p.ValidateStructure = v.ValidateStructure
 	if v.UserAgent != "" {
 		p.UserAgent = v.UserAgent
 	}
