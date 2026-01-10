@@ -617,6 +617,119 @@ paths:
 	//   enum-csv-expanded: expanded CSV enum string to 3 individual values
 }
 
+// Example_duplicateOperationId demonstrates fixing duplicate operationId values.
+// When multiple operations share the same operationId, subsequent occurrences
+// are renamed using a configurable template.
+func Example_duplicateOperationId() {
+	// A spec with duplicate operationIds
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      operationId: getResource
+      responses:
+        '200':
+          description: Success
+  /posts:
+    get:
+      operationId: getResource
+      responses:
+        '200':
+          description: Success
+  /comments:
+    get:
+      operationId: getResource
+      responses:
+        '200':
+          description: Success
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Enable duplicate operationId fixing (not enabled by default)
+	result, err := fixer.FixWithOptions(
+		fixer.WithParsed(*parseResult),
+		fixer.WithEnabledFixes(fixer.FixTypeDuplicateOperationId),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Applied %d fix(es)\n", result.FixCount)
+	for _, fix := range result.Fixes {
+		fmt.Printf("  %s -> %s\n", fix.Before, fix.After)
+	}
+
+	// Output:
+	// Applied 2 fix(es)
+	//   getResource -> getResource2
+	//   getResource -> getResource3
+}
+
+// Example_duplicateOperationIdCustomTemplate demonstrates using a custom
+// template for renaming duplicate operationId values.
+func Example_duplicateOperationIdCustomTemplate() {
+	// A spec with duplicate operationIds
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /posts:
+    get:
+      operationId: list
+      tags:
+        - posts
+      responses:
+        '200':
+          description: Success
+  /users:
+    get:
+      operationId: list
+      tags:
+        - users
+      responses:
+        '200':
+          description: Success
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Use a custom template that incorporates the tag name
+	// Template placeholders: {operationId}, {method}, {path}, {tag}, {tags}, {n}
+	// Modifiers: :pascal, :camel, :snake, :kebab, :upper, :lower
+	result, err := fixer.FixWithOptions(
+		fixer.WithParsed(*parseResult),
+		fixer.WithEnabledFixes(fixer.FixTypeDuplicateOperationId),
+		fixer.WithOperationIdNamingConfig(fixer.OperationIdNamingConfig{
+			Template: "{tag:pascal}{operationId:pascal}",
+		}),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Applied %d fix(es)\n", result.FixCount)
+	for _, fix := range result.Fixes {
+		fmt.Printf("  %s -> %s\n", fix.Before, fix.After)
+	}
+
+	// Output:
+	// Applied 1 fix(es)
+	//   list -> UsersList
+}
+
 // Example_toParseResult demonstrates using ToParseResult() to chain fixer
 // output with other packages like validator, converter, or differ.
 func Example_toParseResult() {

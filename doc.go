@@ -1,7 +1,7 @@
 // Package oastools provides tools for parsing, validating, fixing, converting, joining,
 // comparing, generating code from, and building OpenAPI Specification (OAS) documents from OAS 2.0 through OAS 3.2.0.
 //
-// The library consists of ten packages:
+// The library consists of twelve packages:
 //
 //   - [github.com/erraggy/oastools/parser] - Parse OpenAPI specifications from YAML or JSON
 //   - [github.com/erraggy/oastools/validator] - Validate OpenAPI specifications against their declared version
@@ -12,6 +12,8 @@
 //   - [github.com/erraggy/oastools/differ] - Compare OpenAPI specifications and detect breaking changes
 //   - [github.com/erraggy/oastools/generator] - Generate idiomatic Go code for API clients and server stubs
 //   - [github.com/erraggy/oastools/builder] - Programmatically construct OpenAPI specifications with reflection-based schema generation
+//   - [github.com/erraggy/oastools/httpvalidator] - Validate HTTP requests and responses at runtime against OAS
+//   - [github.com/erraggy/oastools/walker] - Traverse OAS documents with typed handlers and post-visit callbacks
 //   - [github.com/erraggy/oastools/oaserrors] - Structured error types for programmatic handling
 //
 // For installation, CLI usage, and examples, see: https://github.com/erraggy/oastools
