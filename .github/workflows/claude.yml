@@ -54,9 +54,6 @@ jobs:
           additional_permissions: |
             actions: read
 
-          # DEBUG: Enable full output to diagnose bot failures
-          show_full_output: true
-
           # Model and tool configuration
           # Custom instructions are read from CLAUDE.md and AGENTS.md in the repo
           claude_args: |
