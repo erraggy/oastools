@@ -1,4 +1,9 @@
-# Prepare Release
+---
+name: prepare-release
+description: Prepare a new release by running comprehensive pre-release checks, CI benchmarks, and publishing. Use when creating a new version release (e.g., "prepare release v1.44.0"). Coordinates DevOps, Architect, Maintainer, and Developer agents.
+---
+
+# prepare-release
 
 Prepare a new release by running comprehensive pre-release checks and updates.
 
@@ -183,14 +188,53 @@ Use this enhanced structure:
 
 ### Phase 7: Tag and Publish
 
-1. Tag the release: `git tag <version> && git push origin <version>`
-2. Monitor the release workflow:
+> ⚠️ **CRITICAL:** Do NOT use `gh release create`. Goreleaser creates the draft release
+> automatically when the tag is pushed. Using `gh release create` will make the release
+> immutable before assets can be uploaded, breaking brew/installer distribution.
+
+1. **Tag the release** (on main, after PR merged):
    ```bash
-   gh run list --workflow=release.yml --limit=1
-   gh run watch <RUN_ID>
+   git checkout main && git pull
+   git tag -a <version> -m "Release <version>"
+   git push origin <version>
    ```
-3. Verify draft release is created with all assets
-4. Edit release notes and publish: `gh release edit <version> --draft=false`
+
+2. **Monitor the release workflow** (~2-3 min):
+   ```bash
+   sleep 15
+   RUN_ID=$(gh run list --workflow=release.yml --limit=1 --json databaseId -q '.[0].databaseId')
+   gh run watch "$RUN_ID" --exit-status
+   ```
+
+3. **Verify draft release has all assets** (8 files expected):
+   ```bash
+   gh release view <version> --json isDraft,assets \
+     --jq '{isDraft, assetCount: (.assets | length), assets: [.assets[].name]}'
+   ```
+
+   ✅ **Expected:** `isDraft: true`, `assetCount: 8`
+
+   🛑 **If `isDraft: false` or `assetCount < 8`** - STOP. The release is broken.
+   Do NOT proceed. Investigate the goreleaser workflow failure.
+
+4. **Generate notes and publish the DRAFT** (NOT `gh release create`!):
+   ```bash
+   # Generate notes from GitHub API
+   PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
+   NOTES=$(gh api repos/erraggy/oastools/releases/generate-notes \
+     -f tag_name="<version>" \
+     -f previous_tag_name="$PREV_TAG" \
+     --jq '.body')
+
+   # Publish the existing draft release
+   gh release edit <version> --notes "$NOTES" --draft=false
+   ```
+
+5. **Verify published release**:
+   ```bash
+   gh release view <version>
+   ```
+   Should show the release with all 8 binary assets.
 
 ## Important Notes
 
@@ -199,3 +243,4 @@ Use this enhanced structure:
 - CI benchmarks run on the pre-release branch and are included in the PR
 - No separate benchmark PR needed after tagging
 - Document all new public API in CLAUDE.md
+- **NEVER use `gh release create`** - always let goreleaser create the draft, then use `gh release edit --draft=false`
