@@ -174,6 +174,7 @@ The fix command automatically corrects common validation errors in OpenAPI speci
 - **Invalid schema names** (`--fix-schema-names`): Renames schemas with invalid characters (brackets, special characters) using configurable naming strategies
 - **Prune unused schemas** (`--prune-schemas`): Removes schema definitions that are not referenced anywhere in the document
 - **Prune empty paths** (`--prune-paths`): Removes path items that have no HTTP operations defined
+- **Duplicate operationIds** (`--fix-duplicate-operationids`): Renames duplicate operationId values using a configurable template
 
 ### Flags
 
@@ -191,6 +192,8 @@ The fix command automatically corrects common validation errors in OpenAPI speci
 | `--prune-schemas` | Remove unreferenced schema definitions |
 | `--prune-paths` | Remove paths with no operations |
 | `--prune-all, --prune` | Apply all pruning fixes (schemas, paths) |
+| `--fix-duplicate-operationids` | Rename duplicate operationId values |
+| `--operationid-template` | Template for renamed operationIds (default: `{operationId}{n}`) |
 | `--dry-run` | Preview changes without modifying the document |
 | `-h, --help` | Display help for fix command |
 
@@ -220,6 +223,36 @@ For multi-parameter types like `Map[string,int]`:
 - `underscore`: `Map_String_Int_`
 - `of`: `MapOfStringOfInt`
 
+### Duplicate OperationId Templates
+
+When `--fix-duplicate-operationids` is enabled, duplicate operationId values are renamed using a configurable template. The template supports placeholders and modifiers:
+
+**Placeholders:**
+
+| Placeholder | Description | Example |
+|-------------|-------------|---------|
+| `{operationId}` | Original operationId | `getUser` |
+| `{method}` | HTTP method (lowercase) | `get` |
+| `{path}` | URL path (sanitized) | `users_id` |
+| `{tag}` | First operation tag | `users` |
+| `{tags}` | All tags joined | `users_admin` |
+| `{n}` | Collision counter (2, 3, ...) | `2` |
+
+**Modifiers:**
+
+Append to placeholders with colon syntax: `{operationId:pascal}`, `{path:camel}`, etc.
+
+| Modifier | Effect | Example Input | Example Output |
+|----------|--------|---------------|----------------|
+| `:pascal` | PascalCase | `get_user` | `GetUser` |
+| `:camel` | camelCase | `GetUser` | `getUser` |
+| `:snake` | snake_case | `GetUser` | `get_user` |
+| `:kebab` | kebab-case | `GetUser` | `get-user` |
+| `:upper` | UPPERCASE | `getUser` | `GETUSER` |
+| `:lower` | lowercase | `GetUser` | `getuser` |
+
+**Default template:** `{operationId}{n}` produces `getUser`, `getUser2`, `getUser3`, etc.
+
 ### Examples
 
 ```bash
@@ -243,6 +276,12 @@ oastools fix --prune-all api.yaml
 
 # Preview changes without modifying (dry run)
 oastools fix --dry-run --prune-schemas api.yaml
+
+# Fix duplicate operationIds (default template: {operationId}{n})
+oastools fix --fix-duplicate-operationids api.yaml
+
+# Fix duplicate operationIds with custom template
+oastools fix --fix-duplicate-operationids --operationid-template "{method:pascal}{path:pascal}" api.yaml
 
 # Fix from stdin (for pipelines)
 cat openapi.yaml | oastools fix - > fixed.yaml

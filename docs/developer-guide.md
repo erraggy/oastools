@@ -416,6 +416,29 @@ for _, fix := range result.Fixes {
 }
 ```
 
+**Fixing Duplicate OperationIds:**
+
+```go
+// Fix duplicate operationId values with default template
+result, err := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithEnabledFixes(fixer.FixTypeDuplicateOperationId),
+)
+
+// With custom naming template
+result, err := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithEnabledFixes(fixer.FixTypeDuplicateOperationId),
+    fixer.WithOperationIdNamingConfig(fixer.OperationIdNamingConfig{
+        Template: "{method:pascal}{path:pascal}",
+    }),
+)
+
+// Template placeholders: {operationId}, {method}, {path}, {tag}, {tags}, {n}
+// Modifiers: :pascal, :camel, :snake, :kebab, :upper, :lower
+// Default template: {operationId}{n} produces getUser, getUser2, getUser3, etc.
+```
+
 **Dry-Run Mode:**
 
 ```go

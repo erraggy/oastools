@@ -51,6 +51,14 @@
 //     (e.g., "1,2,3" instead of [1, 2, 3]). This fix is opt-in and must be explicitly
 //     enabled.
 //
+//   - Duplicate operationIds (FixTypeDuplicateOperationId): Renames duplicate
+//     operationId values within a document. When multiple operations share the same
+//     operationId, subsequent occurrences are renamed using a configurable template.
+//     The default template "{operationId}{n}" produces names like getUser, getUser2,
+//     getUser3. Supports placeholders ({operationId}, {method}, {path}, {tag}, {tags},
+//     {n}) and modifiers (:pascal, :camel, :snake, :kebab, :upper, :lower). This fix
+//     is opt-in and must be explicitly enabled.
+//
 // # Default Behavior
 //
 // For performance, only FixTypeMissingPathParameter is enabled by default.
