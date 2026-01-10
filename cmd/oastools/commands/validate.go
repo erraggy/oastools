@@ -19,6 +19,7 @@ type ValidateFlags struct {
 	Quiet             bool
 	Format            string
 	SourceMap         bool
+	IncludeDocument   bool
 }
 
 // SetupValidateFlags creates and configures a FlagSet for the validate command.
@@ -35,6 +36,7 @@ func SetupValidateFlags() (*flag.FlagSet, *ValidateFlags) {
 	fs.StringVar(&flags.Format, "format", FormatText, "output format: text, json, or yaml")
 	fs.BoolVar(&flags.SourceMap, "source-map", false, "include line numbers in validation errors (IDE-friendly format)")
 	fs.BoolVar(&flags.SourceMap, "s", false, "include line numbers in validation errors (IDE-friendly format)")
+	fs.BoolVar(&flags.IncludeDocument, "include-document", false, "include the full OAS document in JSON/YAML output")
 
 	fs.Usage = func() {
 		Writef(fs.Output(), "Usage: oastools validate [flags] <file|url|->\n\n")
@@ -52,6 +54,7 @@ func SetupValidateFlags() (*flag.FlagSet, *ValidateFlags) {
 		Writef(fs.Output(), "  oastools validate --no-warnings openapi.json\n")
 		Writef(fs.Output(), "  cat openapi.yaml | oastools validate -q -\n")
 		Writef(fs.Output(), "  oastools validate --format json openapi.yaml | jq '.valid'\n")
+		Writef(fs.Output(), "  oastools validate --format json --include-document openapi.yaml\n")
 		Writef(fs.Output(), "  oastools validate -s openapi.yaml  # Include line numbers in errors\n")
 		Writef(fs.Output(), "\nPipelining:\n")
 		Writef(fs.Output(), "  - Use '-' as the file path to read from stdin\n")
@@ -147,6 +150,10 @@ func HandleValidate(args []string) error {
 
 	// Handle structured output formats
 	if flags.Format == FormatJSON || flags.Format == FormatYAML {
+		// Exclude the full document from output unless explicitly requested
+		if !flags.IncludeDocument {
+			result.Document = nil
+		}
 		if err := OutputStructured(result, flags.Format); err != nil {
 			return err
 		}
