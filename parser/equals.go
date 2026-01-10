@@ -5,7 +5,10 @@ package parser
 // interface{}/any types but have well-defined possible types per the spec.
 // The functions mirror the patterns in deepcopy_helpers.go.
 
-import "reflect"
+import (
+	"log/slog"
+	"reflect"
+)
 
 // equalFloat64Ptr compares two *float64 pointers for equality.
 // Both nil returns true, both non-nil with equal values returns true.
@@ -415,29 +418,12 @@ func equalDocument(a, b any) bool {
 		}
 		return docA.Equals(docB)
 	default:
-		// WARNING: Unknown document type encountered!
-		// This fallback uses reflect.DeepEqual which may not match semantic equality.
-		// If you see this in logs/debugging, add an explicit case above.
-		if equalDocumentDebug {
-			// Use fmt.Printf for simple debug visibility without requiring logger threading
-			debugLogUnknownDocumentType(a, b)
-		}
+		// Unknown document type - log warning and fall back to reflect.DeepEqual.
+		// This should only happen with future OAS versions (e.g., OAS4).
+		// When adding support for new versions, add an explicit case above.
+		slog.Warn("equalDocument: unknown document type, using reflect.DeepEqual fallback",
+			"type_a", reflect.TypeOf(a).String(),
+			"type_b", reflect.TypeOf(b).String())
 		return reflect.DeepEqual(a, b)
 	}
-}
-
-// equalDocumentDebug enables debug logging for unknown document type fallbacks.
-// Set to true during development or testing to identify when fallback is triggered.
-var equalDocumentDebug = false
-
-// debugLogUnknownDocumentType logs when equalDocument encounters an unknown type.
-// This is a simple visibility mechanism for development/debugging.
-func debugLogUnknownDocumentType(a, b any) {
-	// Import is only used when debug is enabled
-	// Using simple Printf to avoid logger threading through pure functions
-	_ = a // Placeholder - actual logging deferred to avoid import in production
-	_ = b
-	// In debug mode, this could print:
-	// fmt.Printf("WARNING: equalDocument fallback for unknown types: %T, %T\n",
-	//     reflect.TypeOf(a), reflect.TypeOf(b))
 }

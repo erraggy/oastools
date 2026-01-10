@@ -478,80 +478,49 @@ func TestEqualDocument(t *testing.T) {
 }
 
 // =============================================================================
-// debugLogUnknownDocumentType tests
+// equalDocument unknown type fallback tests
 // =============================================================================
 
-func TestDebugLogUnknownDocumentType(t *testing.T) {
-	// This function is a placeholder that does nothing - just verify it doesn't panic
-	// when called with various types
-
+// TestEqualDocumentUnknownTypeFallback tests the reflect.DeepEqual fallback
+// for unknown document types (e.g., future OAS versions).
+func TestEqualDocumentUnknownTypeFallback(t *testing.T) {
 	tests := []struct {
 		name string
 		a    any
 		b    any
+		want bool
 	}{
 		{
-			name: "both nil",
-			a:    nil,
-			b:    nil,
-		},
-		{
-			name: "map types",
+			name: "equal maps - fallback returns true",
 			a:    map[string]any{"key": "value"},
+			b:    map[string]any{"key": "value"},
+			want: true,
+		},
+		{
+			name: "different maps - fallback returns false",
+			a:    map[string]any{"key": "value1"},
 			b:    map[string]any{"key": "value2"},
+			want: false,
 		},
 		{
-			name: "string types",
-			a:    "string1",
-			b:    "string2",
-		},
-		{
-			name: "custom struct types",
+			name: "equal custom structs",
 			a:    struct{ X int }{X: 1},
-			b:    struct{ Y int }{Y: 2},
+			b:    struct{ X int }{X: 1},
+			want: true,
 		},
 		{
-			name: "mixed types",
-			a:    "string",
-			b:    42,
-		},
-		{
-			name: "pointer types",
-			a:    &OAS3Document{Info: &Info{Title: "Test"}},
-			b:    &OAS2Document{Info: &Info{Title: "Test"}},
+			name: "different custom structs",
+			a:    struct{ X int }{X: 1},
+			b:    struct{ X int }{X: 2},
+			want: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Should not panic
-			assert.NotPanics(t, func() {
-				debugLogUnknownDocumentType(tt.a, tt.b)
-			})
+			// The fallback uses reflect.DeepEqual and logs a warning via slog
+			result := equalDocument(tt.a, tt.b)
+			assert.Equal(t, tt.want, result)
 		})
 	}
-}
-
-// TestEqualDocumentWithDebugFlag tests equalDocument with debug flag enabled
-func TestEqualDocumentWithDebugFlag(t *testing.T) {
-	// Save original flag value and restore after test
-	originalDebug := equalDocumentDebug
-	defer func() { equalDocumentDebug = originalDebug }()
-
-	// Enable debug mode
-	equalDocumentDebug = true
-
-	// Test with unknown type - should still work correctly
-	a := map[string]any{"key": "value"}
-	b := map[string]any{"key": "value"}
-
-	result := equalDocument(a, b)
-	assert.True(t, result, "equal maps should return true even with debug enabled")
-
-	// Test with different unknown types
-	a2 := map[string]any{"key": "value1"}
-	b2 := map[string]any{"key": "value2"}
-
-	result2 := equalDocument(a2, b2)
-	assert.False(t, result2, "different maps should return false even with debug enabled")
 }
