@@ -31,6 +31,12 @@ type FixFlags struct {
 	PrunePaths   bool
 	PruneAll     bool
 
+	// Duplicate operationId fixing flags
+	FixDuplicateOperationIds bool
+	OperationIdTemplate      string
+	OperationIdPathSep       string
+	OperationIdTagSep        string
+
 	// Dry run flag
 	DryRun bool
 }
@@ -62,6 +68,12 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 	fs.BoolVar(&flags.PruneAll, "prune-all", false, "apply all pruning fixes (schemas, paths)")
 	fs.BoolVar(&flags.PruneAll, "prune", false, "apply all pruning fixes (alias for --prune-all)")
 
+	// Duplicate operationId fixing flags
+	fs.BoolVar(&flags.FixDuplicateOperationIds, "fix-duplicate-operationids", false, "fix duplicate operationId values by renaming")
+	fs.StringVar(&flags.OperationIdTemplate, "operationid-template", "{operationId}{n}", "template for renaming duplicate operationIds")
+	fs.StringVar(&flags.OperationIdPathSep, "operationid-path-sep", "_", "separator for path segments in operationId template")
+	fs.StringVar(&flags.OperationIdTagSep, "operationid-tag-sep", "_", "separator for tags in operationId template")
+
 	// Dry run flag
 	fs.BoolVar(&flags.DryRun, "dry-run", false, "preview changes without modifying the document")
 
@@ -76,6 +88,8 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 		Writef(fs.Output(), "    Default type is 'string'. Use --infer for smart type inference.\n")
 		Writef(fs.Output(), "  - Invalid schema names (--fix-schema-names): Renames schemas with\n")
 		Writef(fs.Output(), "    invalid characters (brackets, etc.) using configurable strategies.\n")
+		Writef(fs.Output(), "  - Duplicate operationIds (--fix-duplicate-operationids): Renames\n")
+		Writef(fs.Output(), "    duplicate operationId values using configurable templates.\n")
 		Writef(fs.Output(), "  - Prune schemas (--prune-schemas): Removes unreferenced schemas.\n")
 		Writef(fs.Output(), "  - Prune paths (--prune-paths): Removes paths with no operations.\n")
 		Writef(fs.Output(), "\nType Inference (--infer):\n")
@@ -88,11 +102,20 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 		Writef(fs.Output(), "  for:        Response[User] → ResponseForUser\n")
 		Writef(fs.Output(), "  flat:       Response[User] → ResponseUser\n")
 		Writef(fs.Output(), "  dot:        Response[User] → Response.User\n")
+		Writef(fs.Output(), "\nOperationId Templates (--operationid-template):\n")
+		Writef(fs.Output(), "  Placeholders: {operationId}, {method}, {path}, {tag}, {tags}, {n}\n")
+		Writef(fs.Output(), "  Modifiers: :pascal, :camel, :snake, :kebab, :upper, :lower\n")
+		Writef(fs.Output(), "  {operationId}{n}             First: getUser, duplicates: getUser2, getUser3 (default)\n")
+		Writef(fs.Output(), "  {operationId}_{method}       getUser -> getUser, getUser_post\n")
+		Writef(fs.Output(), "  {operationId:pascal}_{method:upper} get_user -> GetUser_POST\n")
+		Writef(fs.Output(), "  {method}_{path:snake}        /users/{id} -> get_users_id\n")
 		Writef(fs.Output(), "\nExamples:\n")
 		Writef(fs.Output(), "  oastools fix openapi.yaml\n")
 		Writef(fs.Output(), "  oastools fix -o fixed.yaml openapi.yaml\n")
 		Writef(fs.Output(), "  oastools fix --infer openapi.yaml\n")
 		Writef(fs.Output(), "  oastools fix --fix-schema-names --generic-naming of api.yaml\n")
+		Writef(fs.Output(), "  oastools fix --fix-duplicate-operationids api.yaml\n")
+		Writef(fs.Output(), "  oastools fix --fix-duplicate-operationids --operationid-template '{operationId:pascal}_{method:upper}' api.yaml\n")
 		Writef(fs.Output(), "  oastools fix --prune-all api.yaml\n")
 		Writef(fs.Output(), "  oastools fix --dry-run --prune-schemas api.yaml\n")
 		Writef(fs.Output(), "  cat openapi.yaml | oastools fix -q - > fixed.yaml\n")
@@ -145,6 +168,14 @@ func HandleFix(args []string) error {
 		PreserveCasing: flags.PreserveCasing,
 	}
 
+	// Build operationId naming config
+	// Note: Template validation happens in WithOperationIdNamingConfig option
+	operationIdConfig := fixer.OperationIdNamingConfig{
+		Template:      flags.OperationIdTemplate,
+		PathSeparator: flags.OperationIdPathSep,
+		TagSeparator:  flags.OperationIdTagSep,
+	}
+
 	// Build enabled fixes list based on flags
 	var enabledFixes []fixer.FixType
 
@@ -154,6 +185,9 @@ func HandleFix(args []string) error {
 	// Add explicit fixes based on flags
 	if flags.FixSchemaNames {
 		enabledFixes = append(enabledFixes, fixer.FixTypeRenamedGenericSchema)
+	}
+	if flags.FixDuplicateOperationIds {
+		enabledFixes = append(enabledFixes, fixer.FixTypeDuplicateOperationId)
 	}
 	if flags.PruneSchemas || flags.PruneAll {
 		enabledFixes = append(enabledFixes, fixer.FixTypePrunedUnusedSchema)
@@ -178,6 +212,7 @@ func HandleFix(args []string) error {
 		f.InferTypes = flags.Infer
 		f.EnabledFixes = enabledFixes
 		f.GenericNamingConfig = genericConfig
+		f.OperationIdNamingConfig = operationIdConfig
 		f.DryRun = flags.DryRun
 		result, err = f.FixParsed(*parseResult)
 		if err != nil {
@@ -190,6 +225,7 @@ func HandleFix(args []string) error {
 			fixer.WithInferTypes(flags.Infer),
 			fixer.WithEnabledFixes(enabledFixes...),
 			fixer.WithGenericNamingConfig(genericConfig),
+			fixer.WithOperationIdNamingConfig(operationIdConfig),
 			fixer.WithDryRun(flags.DryRun),
 		}
 
@@ -207,6 +243,7 @@ func HandleFix(args []string) error {
 				fixer.WithInferTypes(flags.Infer),
 				fixer.WithEnabledFixes(enabledFixes...),
 				fixer.WithGenericNamingConfig(genericConfig),
+				fixer.WithOperationIdNamingConfig(operationIdConfig),
 				fixer.WithDryRun(flags.DryRun),
 			}
 			if parseResult.SourceMap != nil {
