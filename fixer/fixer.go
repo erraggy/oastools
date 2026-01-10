@@ -20,6 +20,8 @@ const (
 	FixTypeRenamedGenericSchema FixType = "renamed-generic-schema"
 	// FixTypeEnumCSVExpanded indicates a CSV enum string was expanded to individual values
 	FixTypeEnumCSVExpanded FixType = "enum-csv-expanded"
+	// FixTypeDuplicateOperationId indicates a duplicate operationId was renamed
+	FixTypeDuplicateOperationId FixType = "duplicate-operation-id"
 )
 
 // Fix represents a single fix applied to the document
@@ -136,6 +138,9 @@ type Fixer struct {
 	// GenericNamingConfig configures how generic type names are transformed
 	// when fixing invalid schema names (e.g., Response[User] → ResponseOfUser).
 	GenericNamingConfig GenericNamingConfig
+	// OperationIdNamingConfig configures how duplicate operationId values are renamed.
+	// Uses template-based naming with placeholders like {operationId}, {method}, {path}, {n}.
+	OperationIdNamingConfig OperationIdNamingConfig
 	// DryRun when true, collects fixes without modifying the document.
 	// Useful for previewing what would be changed.
 	DryRun bool
@@ -144,10 +149,11 @@ type Fixer struct {
 // New creates a new Fixer instance with default settings
 func New() *Fixer {
 	return &Fixer{
-		InferTypes:          false,
-		EnabledFixes:        []FixType{FixTypeMissingPathParameter}, // only missing params by default
-		GenericNamingConfig: DefaultGenericNamingConfig(),
-		DryRun:              false,
+		InferTypes:              false,
+		EnabledFixes:            []FixType{FixTypeMissingPathParameter}, // only missing params by default
+		GenericNamingConfig:     DefaultGenericNamingConfig(),
+		OperationIdNamingConfig: DefaultOperationIdNamingConfig(),
+		DryRun:                  false,
 	}
 }
 
@@ -161,11 +167,12 @@ type fixConfig struct {
 	parsed   *parser.ParseResult
 
 	// Configuration options
-	inferTypes          bool
-	enabledFixes        []FixType
-	userAgent           string
-	genericNamingConfig GenericNamingConfig
-	dryRun              bool
+	inferTypes              bool
+	enabledFixes            []FixType
+	userAgent               string
+	genericNamingConfig     GenericNamingConfig
+	operationIdNamingConfig OperationIdNamingConfig
+	dryRun                  bool
 
 	// Source map for line/column tracking
 	sourceMap *parser.SourceMap
@@ -188,12 +195,13 @@ func FixWithOptions(opts ...Option) (*FixResult, error) {
 	}
 
 	f := &Fixer{
-		InferTypes:          cfg.inferTypes,
-		EnabledFixes:        cfg.enabledFixes,
-		UserAgent:           cfg.userAgent,
-		SourceMap:           cfg.sourceMap,
-		GenericNamingConfig: cfg.genericNamingConfig,
-		DryRun:              cfg.dryRun,
+		InferTypes:              cfg.inferTypes,
+		EnabledFixes:            cfg.enabledFixes,
+		UserAgent:               cfg.userAgent,
+		SourceMap:               cfg.sourceMap,
+		GenericNamingConfig:     cfg.genericNamingConfig,
+		OperationIdNamingConfig: cfg.operationIdNamingConfig,
+		DryRun:                  cfg.dryRun,
 	}
 
 	// Route to appropriate fix method based on input source
@@ -213,11 +221,12 @@ func FixWithOptions(opts ...Option) (*FixResult, error) {
 func applyOptions(opts ...Option) (*fixConfig, error) {
 	cfg := &fixConfig{
 		// Set defaults
-		inferTypes:          false,
-		enabledFixes:        []FixType{FixTypeMissingPathParameter}, // only missing params by default
-		userAgent:           "",
-		genericNamingConfig: DefaultGenericNamingConfig(),
-		dryRun:              false,
+		inferTypes:              false,
+		enabledFixes:            []FixType{FixTypeMissingPathParameter}, // only missing params by default
+		userAgent:               "",
+		genericNamingConfig:     DefaultGenericNamingConfig(),
+		operationIdNamingConfig: DefaultOperationIdNamingConfig(),
+		dryRun:                  false,
 	}
 
 	for _, opt := range opts {
@@ -312,6 +321,18 @@ func WithGenericNaming(strategy GenericNamingStrategy) Option {
 func WithGenericNamingConfig(config GenericNamingConfig) Option {
 	return func(cfg *fixConfig) error {
 		cfg.genericNamingConfig = config
+		return nil
+	}
+}
+
+// WithOperationIdNamingConfig sets the configuration for renaming duplicate operationIds.
+// The config includes a template with placeholders: {operationId}, {method}, {path}, {tag}, {tags}, {n}.
+func WithOperationIdNamingConfig(config OperationIdNamingConfig) Option {
+	return func(cfg *fixConfig) error {
+		if err := ParseOperationIdNamingTemplate(config.Template); err != nil {
+			return err
+		}
+		cfg.operationIdNamingConfig = config
 		return nil
 	}
 }
