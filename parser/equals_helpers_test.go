@@ -1337,4 +1337,146 @@ func TestEqualJSONValue(t *testing.T) {
 	}
 }
 
+// =============================================================================
+// equalMapStringString tests
+// =============================================================================
+
+func TestEqualMapStringString(t *testing.T) {
+	tests := []struct {
+		name string
+		a    map[string]string
+		b    map[string]string
+		want bool
+	}{
+		// Nil and empty handling
+		{
+			name: "both nil",
+			a:    nil,
+			b:    nil,
+			want: true,
+		},
+		{
+			name: "both empty",
+			a:    map[string]string{},
+			b:    map[string]string{},
+			want: true,
+		},
+		{
+			name: "nil vs empty",
+			a:    nil,
+			b:    map[string]string{},
+			want: true,
+		},
+		{
+			name: "empty vs nil",
+			a:    map[string]string{},
+			b:    nil,
+			want: true,
+		},
+		// Same entries
+		{
+			name: "same single entry",
+			a:    map[string]string{"key": "value"},
+			b:    map[string]string{"key": "value"},
+			want: true,
+		},
+		{
+			name: "same multiple entries",
+			a:    map[string]string{"key1": "value1", "key2": "value2"},
+			b:    map[string]string{"key1": "value1", "key2": "value2"},
+			want: true,
+		},
+		{
+			name: "same entries - OAuth scopes",
+			a: map[string]string{
+				"read:users":  "Read user data",
+				"write:users": "Modify user data",
+				"admin":       "Full administrative access",
+			},
+			b: map[string]string{
+				"read:users":  "Read user data",
+				"write:users": "Modify user data",
+				"admin":       "Full administrative access",
+			},
+			want: true,
+		},
+		// Different entries
+		{
+			name: "different values same key",
+			a:    map[string]string{"key": "value1"},
+			b:    map[string]string{"key": "value2"},
+			want: false,
+		},
+		{
+			name: "different keys same value",
+			a:    map[string]string{"key1": "value"},
+			b:    map[string]string{"key2": "value"},
+			want: false,
+		},
+		{
+			name: "a has extra key",
+			a:    map[string]string{"key1": "value1", "key2": "value2"},
+			b:    map[string]string{"key1": "value1"},
+			want: false,
+		},
+		{
+			name: "b has extra key",
+			a:    map[string]string{"key1": "value1"},
+			b:    map[string]string{"key1": "value1", "key2": "value2"},
+			want: false,
+		},
+		// Edge cases
+		{
+			name: "empty string key",
+			a:    map[string]string{"": "value"},
+			b:    map[string]string{"": "value"},
+			want: true,
+		},
+		{
+			name: "empty string value",
+			a:    map[string]string{"key": ""},
+			b:    map[string]string{"key": ""},
+			want: true,
+		},
+		{
+			name: "empty string value vs non-empty",
+			a:    map[string]string{"key": ""},
+			b:    map[string]string{"key": "value"},
+			want: false,
+		},
+		// Discriminator mapping use case
+		{
+			name: "discriminator mapping - same",
+			a: map[string]string{
+				"dog":  "#/components/schemas/Dog",
+				"cat":  "#/components/schemas/Cat",
+				"bird": "#/components/schemas/Bird",
+			},
+			b: map[string]string{
+				"dog":  "#/components/schemas/Dog",
+				"cat":  "#/components/schemas/Cat",
+				"bird": "#/components/schemas/Bird",
+			},
+			want: true,
+		},
+		{
+			name: "discriminator mapping - different ref",
+			a: map[string]string{
+				"dog": "#/components/schemas/Dog",
+			},
+			b: map[string]string{
+				"dog": "#/components/schemas/Canine",
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := equalMapStringString(tt.a, tt.b)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 // Note: ptr, intPtr, and boolPtr helper functions are defined in schema_test_helpers.go

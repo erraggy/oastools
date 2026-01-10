@@ -476,3 +476,82 @@ func TestEqualDocument(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// debugLogUnknownDocumentType tests
+// =============================================================================
+
+func TestDebugLogUnknownDocumentType(t *testing.T) {
+	// This function is a placeholder that does nothing - just verify it doesn't panic
+	// when called with various types
+
+	tests := []struct {
+		name string
+		a    any
+		b    any
+	}{
+		{
+			name: "both nil",
+			a:    nil,
+			b:    nil,
+		},
+		{
+			name: "map types",
+			a:    map[string]any{"key": "value"},
+			b:    map[string]any{"key": "value2"},
+		},
+		{
+			name: "string types",
+			a:    "string1",
+			b:    "string2",
+		},
+		{
+			name: "custom struct types",
+			a:    struct{ X int }{X: 1},
+			b:    struct{ Y int }{Y: 2},
+		},
+		{
+			name: "mixed types",
+			a:    "string",
+			b:    42,
+		},
+		{
+			name: "pointer types",
+			a:    &OAS3Document{Info: &Info{Title: "Test"}},
+			b:    &OAS2Document{Info: &Info{Title: "Test"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Should not panic
+			assert.NotPanics(t, func() {
+				debugLogUnknownDocumentType(tt.a, tt.b)
+			})
+		})
+	}
+}
+
+// TestEqualDocumentWithDebugFlag tests equalDocument with debug flag enabled
+func TestEqualDocumentWithDebugFlag(t *testing.T) {
+	// Save original flag value and restore after test
+	originalDebug := equalDocumentDebug
+	defer func() { equalDocumentDebug = originalDebug }()
+
+	// Enable debug mode
+	equalDocumentDebug = true
+
+	// Test with unknown type - should still work correctly
+	a := map[string]any{"key": "value"}
+	b := map[string]any{"key": "value"}
+
+	result := equalDocument(a, b)
+	assert.True(t, result, "equal maps should return true even with debug enabled")
+
+	// Test with different unknown types
+	a2 := map[string]any{"key": "value1"}
+	b2 := map[string]any{"key": "value2"}
+
+	result2 := equalDocument(a2, b2)
+	assert.False(t, result2, "different maps should return false even with debug enabled")
+}
