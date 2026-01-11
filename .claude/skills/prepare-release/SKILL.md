@@ -188,53 +188,26 @@ Use this enhanced structure:
 
 ### Phase 7: Tag and Publish
 
-> ⚠️ **CRITICAL:** Do NOT use `gh release create`. Goreleaser creates the draft release
-> automatically when the tag is pushed. Using `gh release create` will make the release
-> immutable before assets can be uploaded, breaking brew/installer distribution.
+> ⚠️ **CRITICAL:** Use the publish script. Do NOT run release commands manually.
+>
+> This script exists because Claude cannot be trusted to follow skill instructions
+> in fresh sessions (Claude Code v2.1.3+ bug). The script is deterministic and
+> will fail-fast if anything goes wrong.
 
-1. **Tag the release** (on main, after PR merged):
-   ```bash
-   git checkout main && git pull
-   git tag -a <version> -m "Release <version>"
-   git push origin <version>
-   ```
+**Run the publish script:**
+```bash
+.claude/scripts/publish-release.sh <version>
+```
 
-2. **Monitor the release workflow** (~2-3 min):
-   ```bash
-   sleep 15
-   RUN_ID=$(gh run list --workflow=release.yml --limit=1 --json databaseId -q '.[0].databaseId')
-   gh run watch "$RUN_ID" --exit-status
-   ```
+The script handles all release steps:
+1. Verifies on main branch
+2. Creates and pushes annotated tag
+3. Waits for goreleaser workflow
+4. Verifies draft has 8 assets
+5. Publishes with `gh release edit --draft=false`
+6. Verifies published release
 
-3. **Verify draft release has all assets** (8 files expected):
-   ```bash
-   gh release view <version> --json isDraft,assets \
-     --jq '{isDraft, assetCount: (.assets | length), assets: [.assets[].name]}'
-   ```
-
-   ✅ **Expected:** `isDraft: true`, `assetCount: 8`
-
-   🛑 **If `isDraft: false` or `assetCount < 8`** - STOP. The release is broken.
-   Do NOT proceed. Investigate the goreleaser workflow failure.
-
-4. **Generate notes and publish the DRAFT** (NOT `gh release create`!):
-   ```bash
-   # Generate notes from GitHub API
-   PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
-   NOTES=$(gh api repos/erraggy/oastools/releases/generate-notes \
-     -f tag_name="<version>" \
-     -f previous_tag_name="$PREV_TAG" \
-     --jq '.body')
-
-   # Publish the existing draft release
-   gh release edit <version> --notes "$NOTES" --draft=false
-   ```
-
-5. **Verify published release**:
-   ```bash
-   gh release view <version>
-   ```
-   Should show the release with all 8 binary assets.
+Do NOT improvise or run individual commands. The script enforces the correct process.
 
 ## Important Notes
 
@@ -243,4 +216,4 @@ Use this enhanced structure:
 - CI benchmarks run on the pre-release branch and are included in the PR
 - No separate benchmark PR needed after tagging
 - Document all new public API in CLAUDE.md
-- **NEVER use `gh release create`** - always let goreleaser create the draft, then use `gh release edit --draft=false`
+- **ALWAYS use `.claude/scripts/publish-release.sh`** for Phase 7 - never run release commands manually
