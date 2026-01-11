@@ -73,9 +73,9 @@ The v1.7.0 release includes a major optimization to JSON marshaling that elimina
 
 ## Benchmark Suite
 
-The benchmark suite includes **240+ benchmark runs** across ten packages:
+The benchmark suite includes **250+ benchmark runs** across ten packages:
 
-### Parser Package (38 benchmarks)
+### Parser Package (44 benchmarks)
 
 **Marshaling Operations**:
 - Info marshaling: no extra fields, with extra fields, varying extra field counts (1, 5, 10, 20)
@@ -101,6 +101,13 @@ The benchmark suite includes **240+ benchmark runs** across ten packages:
 
 **Unmarshaling Operations**:
 - Info unmarshaling: no extra fields, with extra fields
+
+**Order-Preserving Marshaling**:
+- MarshalOrderedJSON: small, medium, and large OAS 3.x documents
+- MarshalOrderedYAML: small, medium, and large OAS 3.x documents
+- MarshalOrderedJSONIndent: indented JSON output
+- Order-preserving vs standard marshaling comparison
+- PreserveOrder parsing overhead measurement
 
 ### Validator Package (16 benchmarks)
 
@@ -243,6 +250,34 @@ The benchmark suite includes **240+ benchmark runs** across ten packages:
 | Medium OAS2   | 20,699    | 92.5        | 387         |
 
 **Observation**: DeepCopy uses code-generated methods that are type-aware, preserving nil vs empty distinction and handling OAS-specific polymorphic fields (Schema.Type, AdditionalProperties, etc.) correctly. This replaces the previous JSON marshal/unmarshal approach which was ~20-40x slower and corrupted `$ref` parameters.
+
+**Order-Preserving Marshaling** (pre-parsed with PreserveOrder=true):
+
+| Format | Document Size | Time | Memory | Allocations |
+|--------|---------------|------|--------|-------------|
+| JSON   | Small OAS3    | 9.0 us | 4.7 KB | 160 |
+| JSON   | Medium OAS3   | 98.8 us | 63.4 KB | 1,532 |
+| JSON   | Large OAS3    | 1.08 ms | 631 KB | 17,433 |
+| YAML   | Small OAS3    | 46.1 us | 187 KB | 390 |
+| YAML   | Medium OAS3   | 544 us | 1.79 MB | 3,495 |
+| YAML   | Large OAS3    | 5.11 ms | 22.1 MB | 38,850 |
+| JSON Indent | Medium OAS3 | 148 us | 148 KB | 1,535 |
+
+**Order-Preserving vs Standard Marshaling** (Medium OAS3):
+
+| Method | Time | Memory | Allocations |
+|--------|------|--------|-------------|
+| Order-Preserving JSON | 99.5 us | 63.4 KB | 1,532 |
+| Standard JSON | 222 us | 65.9 KB | 471 |
+
+**PreserveOrder Parsing Overhead** (Medium OAS3):
+
+| Mode | Time | Memory | Allocations |
+|------|------|--------|-------------|
+| With PreserveOrder | 1.50 ms | 1.71 MB | 22,119 |
+| Without PreserveOrder | 1.10 ms | 1.45 MB | 17,389 |
+
+**Observation**: Order-preserving JSON marshaling is **2.2x faster** than standard JSON marshaling (99.5us vs 222us) because it writes directly to a buffer using the source node order, avoiding the overhead of reflection-based encoding. YAML marshaling requires building an intermediate node tree, making it ~5.5x slower than JSON. Enabling PreserveOrder during parsing adds ~37% overhead (storing the yaml.Node tree) but this is amortized when the document is marshaled multiple times with consistent field ordering.
 
 ### Validator Performance
 

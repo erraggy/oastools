@@ -57,6 +57,13 @@ type Parser struct {
 	// information for each JSON path in the document.
 	// Default: false
 	BuildSourceMap bool
+	// PreserveOrder enables order-preserving marshaling.
+	// When enabled, ParseResult stores the original yaml.Node structure,
+	// allowing MarshalOrderedJSON/MarshalOrderedYAML to emit fields
+	// in the same order as the source document.
+	// This is useful for hash-based caching where roundtrip identity matters.
+	// Default: false
+	PreserveOrder bool
 }
 
 // New creates a new Parser instance with default settings
@@ -138,6 +145,10 @@ type ParseResult struct {
 	// SourceMap contains JSON path to source location mappings.
 	// Only populated when Parser.BuildSourceMap is true.
 	SourceMap *SourceMap
+	// sourceNode holds the original yaml.Node tree for order-preserving marshaling.
+	// Only populated when Parser.PreserveOrder is true.
+	// Use MarshalOrderedJSON/MarshalOrderedYAML to marshal with preserved order.
+	sourceNode *yaml.Node
 }
 
 // OAS2Document returns the parsed document as an OAS2Document if the specification
@@ -553,6 +564,9 @@ type parseConfig struct {
 	// Source map building
 	buildSourceMap bool
 
+	// Order preservation
+	preserveOrder bool
+
 	// Source identification
 	sourceName *string // Override SourcePath in the result
 }
@@ -584,6 +598,7 @@ func ParseWithOptions(opts ...Option) (*ParseResult, error) {
 		MaxCachedDocuments: cfg.maxCachedDocuments,
 		MaxFileSize:        cfg.maxFileSize,
 		BuildSourceMap:     cfg.buildSourceMap,
+		PreserveOrder:      cfg.preserveOrder,
 	}
 
 	// Route to appropriate parsing method based on input source
@@ -792,6 +807,32 @@ func WithSourceMap(enabled bool) Option {
 	}
 }
 
+// WithPreserveOrder enables order-preserving marshaling.
+// When enabled, ParseResult stores the original yaml.Node structure,
+// allowing MarshalOrderedJSON/MarshalOrderedYAML to emit fields
+// in the same order as the source document.
+//
+// This is useful for:
+//   - Hash-based caching where roundtrip identity matters
+//   - Minimizing diffs when editing and re-serializing specs
+//   - Maintaining human-friendly key ordering
+//
+// Default: false
+//
+// Example:
+//
+//	result, err := parser.ParseWithOptions(
+//	    parser.WithFilePath("api.yaml"),
+//	    parser.WithPreserveOrder(true),
+//	)
+//	orderedJSON, _ := result.MarshalOrderedJSON()
+func WithPreserveOrder(enabled bool) Option {
+	return func(cfg *parseConfig) error {
+		cfg.preserveOrder = enabled
+		return nil
+	}
+}
+
 // WithSourceName specifies a meaningful name for the source document.
 // This is particularly useful when parsing from bytes or reader, where
 // the default names ("ParseBytes.yaml", "ParseReader.yaml") are not descriptive.
@@ -831,15 +872,21 @@ func (p *Parser) parseBytesWithBaseDirAndURL(data []byte, baseDir, baseURL strin
 		Warnings: make([]string, 0),
 	}
 
-	// Build source map if enabled (requires parsing to yaml.Node first)
-	if p.BuildSourceMap {
+	// Build source map and/or preserve order if enabled (both require parsing to yaml.Node first)
+	if p.BuildSourceMap || p.PreserveOrder {
 		var rootNode yaml.Node
 		if err := yaml.Unmarshal(data, &rootNode); err != nil {
 			// Don't fail parsing, just add a warning
-			result.Warnings = append(result.Warnings, fmt.Sprintf("source map: failed to parse YAML nodes: %v", err))
+			result.Warnings = append(result.Warnings, fmt.Sprintf("yaml node parsing: failed to parse YAML nodes: %v", err))
 		} else {
 			// Build the source map with empty source path (will be updated later)
-			result.SourceMap = buildSourceMap(&rootNode, "")
+			if p.BuildSourceMap {
+				result.SourceMap = buildSourceMap(&rootNode, "")
+			}
+			// Store node tree for order-preserving marshaling
+			if p.PreserveOrder {
+				result.sourceNode = &rootNode
+			}
 		}
 	}
 

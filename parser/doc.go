@@ -97,6 +97,43 @@
 //		parser.WithMaxFileSize(20*1024*1024), // 20MB limit
 //	)
 //
+// # Order-Preserving Marshaling
+//
+// The parser can preserve the original field ordering from source documents,
+// enabling deterministic output for hash-based caching and diff-friendly
+// serialization.
+//
+// Enable order preservation during parsing:
+//
+//	result, err := parser.ParseWithOptions(
+//		parser.WithFilePath("openapi.yaml"),
+//		parser.WithPreserveOrder(true),
+//	)
+//
+// Then use the ordered marshal methods:
+//
+//	jsonBytes, _ := result.MarshalOrderedJSON()
+//	yamlBytes, _ := result.MarshalOrderedYAML()
+//
+// For indented JSON output:
+//
+//	indentedJSON, _ := result.MarshalOrderedJSONIndent("", "  ")
+//
+// Use cases for order-preserving marshaling:
+//   - Hash-based caching where roundtrip identity matters
+//   - Minimizing diffs when editing and re-serializing specs
+//   - Maintaining human-friendly key ordering
+//   - CI pipelines that compare serialized output
+//
+// When PreserveOrder is not enabled, the ordered marshal methods fall back
+// to standard marshaling, which sorts map keys alphabetically for determinism.
+//
+// Check if order was preserved after parsing:
+//
+//	if result.HasPreservedOrder() {
+//		// Order information is available
+//	}
+//
 // # Source Naming for Pre-Parsed Documents
 //
 // When parsing from bytes or io.Reader (common when fetching specs from HTTP
