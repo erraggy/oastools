@@ -378,3 +378,34 @@ func ExampleOAS2Document_Equals() {
 	// Copy equals original: true
 	// After modification: false
 }
+
+// Example_preserveOrder demonstrates order-preserving marshaling.
+// When WithPreserveOrder is enabled, the output maintains the original
+// field order from the source document.
+func Example_preserveOrder() {
+	// A simple spec with fields in a specific order
+	spec := `{"openapi":"3.1.0","info":{"title":"Test","version":"1.0"},"paths":{}}`
+
+	result, err := parser.ParseWithOptions(
+		parser.WithBytes([]byte(spec)),
+		parser.WithPreserveOrder(true),
+	)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	// Check if order was preserved
+	fmt.Printf("Order preserved: %v\n", result.HasPreservedOrder())
+
+	// Marshal back to JSON - order is maintained
+	output, err := result.MarshalOrderedJSON()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Println(string(output))
+	// Output:
+	// Order preserved: true
+	// {"openapi":"3.1.0","info":{"title":"Test","version":"1.0"},"paths":{}}
+}

@@ -15,6 +15,7 @@ The [`parser`](https://pkg.go.dev/github.com/erraggy/oastools/parser) package pr
 - [Configuration Reference](#configuration-reference)
 - [Document Type Helpers](#document-type-helpers)
 - [Version-Agnostic Access (DocumentAccessor)](#version-agnostic-access-documentaccessor)
+- [Order-Preserving Marshaling](#order-preserving-marshaling)
 - [Best Practices](#best-practices)
 
 ---
@@ -406,6 +407,103 @@ if accessor := result.AsAccessor(); accessor != nil {
 | `GetParameters()` | `doc.Parameters` | `doc.Components.Parameters` |
 | `GetResponses()` | `doc.Responses` | `doc.Components.Responses` |
 | `SchemaRefPrefix()` | `#/definitions/` | `#/components/schemas/` |
+
+[Back to top](#top)
+
+---
+
+## Order-Preserving Marshaling
+
+The parser can preserve original field ordering from source documents, enabling deterministic output for hash-based caching and diff-friendly serialization.
+
+### Why It Matters
+
+1. **Hash stability**: When caching parsed specs by content hash, roundtrip through parse-then-marshal should produce identical output. Without preserved order, map iteration order causes non-deterministic output.
+
+2. **Diff-friendly**: Editing and re-serializing specs should minimize diffs. Alphabetical reordering of all keys makes diffs noisy and hard to review.
+
+3. **Human readability**: Authors typically place important fields like `openapi`, `info`, and `paths` at the top. Preserving this order maintains the document's logical structure.
+
+### How It Works
+
+When `WithPreserveOrder(true)` is enabled:
+
+1. **Source tree storage**: The parser stores the original `yaml.Node` tree alongside the typed document
+2. **Key order extraction**: During marshal, keys are extracted from source nodes in original order
+3. **Extra key handling**: Keys added during processing (not in source) are sorted alphabetically and appended
+4. **Performance**: O(n) with hash-based indexing for child node lookup
+
+### When to Use It
+
+| Use Case | Recommendation |
+|----------|----------------|
+| Hash-based caching | Enable - ensures roundtrip identity |
+| CI pipelines comparing output | Enable - deterministic output |
+| Version control of specs | Enable - cleaner diffs |
+| One-off validation | Disable - lower memory overhead |
+| Programmatic construction | N/A - no source order available |
+
+### Code Examples
+
+**Parsing with order preservation:**
+
+```go
+result, err := parser.ParseWithOptions(
+    parser.WithFilePath("openapi.yaml"),
+    parser.WithPreserveOrder(true),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Check if order information is available
+if result.HasPreservedOrder() {
+    fmt.Println("Order was preserved from source")
+}
+```
+
+**JSON output with preserved order:**
+
+```go
+// Compact JSON
+jsonBytes, err := result.MarshalOrderedJSON()
+
+// Indented JSON
+jsonIndented, err := result.MarshalOrderedJSONIndent("", "  ")
+```
+
+**YAML output with preserved order:**
+
+```go
+yamlBytes, err := result.MarshalOrderedYAML()
+```
+
+### Fallback Behavior
+
+When `PreserveOrder` is not enabled (or for programmatically constructed documents), the ordered marshal methods fall back to standard marshaling:
+
+- **JSON**: Uses `encoding/json` which sorts map keys alphabetically
+- **YAML**: Uses `go.yaml.in/yaml/v4` which also sorts keys alphabetically
+
+This ensures deterministic output in all cases, just without preserving the original order.
+
+### Memory Overhead
+
+Enabling `PreserveOrder` stores an additional `*yaml.Node` tree in the `ParseResult`. For typical API specs:
+
+| Spec Size | Approximate Overhead |
+|-----------|---------------------|
+| Small (<1KB) | ~2-5KB |
+| Medium (10-50KB) | ~20-100KB |
+| Large (>100KB) | ~200KB+ |
+
+For most use cases, this overhead is negligible compared to the benefits of deterministic output.
+
+### Limitations
+
+- Only works when parsing from source (file, bytes, reader)
+- Not available for documents constructed programmatically via the builder package
+- Source node structure must match parsed document structure for correct ordering
 
 [Back to top](#top)
 

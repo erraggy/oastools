@@ -201,6 +201,22 @@ result, err := parser.ParseWithOptions(
 // HTTP(S) references are NOT supported for security reasons
 ```
 
+**Order-Preserving Marshaling:**
+
+```go
+// Enable order preservation for deterministic output
+result, err := parser.ParseWithOptions(
+    parser.WithFilePath("openapi.yaml"),
+    parser.WithPreserveOrder(true),
+)
+
+// Marshal with original field order preserved
+jsonBytes, _ := result.MarshalOrderedJSON()
+yamlBytes, _ := result.MarshalOrderedYAML()
+```
+
+This is useful for hash-based caching, minimizing diffs, and CI pipelines that compare serialized output.
+
 **OAS 3.2.0 and JSON Schema 2020-12 Features:**
 
 ```go
