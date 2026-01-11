@@ -233,3 +233,148 @@ func Example_documentTypeHelpers() {
 	// Is OAS 3.x: true
 	// API Title: Petstore API
 }
+
+// ExampleParseResult_Equals demonstrates comparing two ParseResults for semantic equality.
+// This is useful for testing, caching, or detecting specification changes.
+func ExampleParseResult_Equals() {
+	// Parse the same specification twice
+	result1, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result2, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Compare for semantic equality (ignores metadata like LoadTime, SourcePath)
+	fmt.Printf("Same content: %v\n", result1.Equals(result2))
+
+	// Parse a different specification
+	result3, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-2.0.yaml"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Different specs: %v\n", result1.Equals(result3))
+	// Output:
+	// Same content: true
+	// Different specs: false
+}
+
+// ExampleParseResult_DocumentEquals demonstrates comparing documents ignoring version metadata.
+// This is useful when comparing specifications that may have been converted between versions.
+func ExampleParseResult_DocumentEquals() {
+	result1, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create a copy with the same document
+	result2, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// DocumentEquals compares only the document content
+	fmt.Printf("Documents equal: %v\n", result1.DocumentEquals(result2))
+	// Output:
+	// Documents equal: true
+}
+
+// ExampleSchema_Equals demonstrates comparing two Schema objects for structural equality.
+// This is useful for detecting schema changes or deduplicating identical schemas.
+func ExampleSchema_Equals() {
+	// Create two identical schemas
+	schema1 := &parser.Schema{
+		Type:        "object",
+		Description: "A pet in the store",
+		Properties: map[string]*parser.Schema{
+			"id":   {Type: "integer", Format: "int64"},
+			"name": {Type: "string"},
+		},
+		Required: []string{"id", "name"},
+	}
+
+	schema2 := &parser.Schema{
+		Type:        "object",
+		Description: "A pet in the store",
+		Properties: map[string]*parser.Schema{
+			"id":   {Type: "integer", Format: "int64"},
+			"name": {Type: "string"},
+		},
+		Required: []string{"id", "name"},
+	}
+
+	fmt.Printf("Schemas equal: %v\n", schema1.Equals(schema2))
+
+	// Modify one schema
+	schema2.Description = "A different description"
+	fmt.Printf("After modification: %v\n", schema1.Equals(schema2))
+	// Output:
+	// Schemas equal: true
+	// After modification: false
+}
+
+// ExampleOAS3Document_Equals demonstrates comparing two OAS 3.x documents for equality.
+func ExampleOAS3Document_Equals() {
+	result, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	doc, ok := result.OAS3Document()
+	if !ok {
+		log.Fatal("expected OAS3 document")
+	}
+
+	// DeepCopy creates an identical document
+	docCopy := doc.DeepCopy()
+	fmt.Printf("Copy equals original: %v\n", doc.Equals(docCopy))
+
+	// Modify the copy
+	docCopy.Info.Title = "Modified API"
+	fmt.Printf("After modification: %v\n", doc.Equals(docCopy))
+	// Output:
+	// Copy equals original: true
+	// After modification: false
+}
+
+// ExampleOAS2Document_Equals demonstrates comparing two OAS 2.0 (Swagger) documents for equality.
+func ExampleOAS2Document_Equals() {
+	result, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-2.0.yaml"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	doc, ok := result.OAS2Document()
+	if !ok {
+		log.Fatal("expected OAS2 document")
+	}
+
+	// DeepCopy creates an identical document
+	docCopy := doc.DeepCopy()
+	fmt.Printf("Copy equals original: %v\n", doc.Equals(docCopy))
+
+	// Modify the copy
+	docCopy.Info.Title = "Modified Swagger API"
+	fmt.Printf("After modification: %v\n", doc.Equals(docCopy))
+	// Output:
+	// Copy equals original: true
+	// After modification: false
+}
