@@ -1,5 +1,10 @@
 package parser
 
+import (
+	"maps"
+	"slices"
+)
+
 // This file contains equality comparison functions for security-related OpenAPI types.
 //
 // Includes: SecurityRequirement, SecurityScheme, OAuthFlows, and OAuthFlow types.
@@ -14,33 +19,13 @@ package parser
 // equalSecurityRequirement compares two SecurityRequirement values for equality.
 // SecurityRequirement is map[string][]string.
 func equalSecurityRequirement(a, b SecurityRequirement) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalStringSlice(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, slices.Equal)
 }
 
 // equalSecurityRequirementSlice compares two []SecurityRequirement slices for equality.
 // Order-sensitive comparison. Nil and empty slices are considered equal.
 func equalSecurityRequirementSlice(a, b []SecurityRequirement) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if !equalSecurityRequirement(a[i], b[i]) {
-			return false
-		}
-	}
-	return true
+	return slices.EqualFunc(a, b, equalSecurityRequirement)
 }
 
 // =============================================================================
@@ -112,19 +97,7 @@ func equalSecurityScheme(a, b *SecurityScheme) bool {
 // equalSecuritySchemeMap compares two map[string]*SecurityScheme maps for equality.
 // Nil and empty maps are considered equal.
 func equalSecuritySchemeMap(a, b map[string]*SecurityScheme) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalSecurityScheme(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalSecurityScheme)
 }
 
 // =============================================================================

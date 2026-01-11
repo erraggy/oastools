@@ -1,5 +1,7 @@
 package parser
 
+import "maps"
+
 // This file contains equality comparison functions for path-related OpenAPI types.
 //
 // Includes: Paths, PathItem, Operation, Response, Callback, Link, MediaType,
@@ -15,19 +17,7 @@ package parser
 // equalPaths compares two Paths (map[string]*PathItem) for equality.
 // Nil and empty maps are considered equal.
 func equalPaths(a, b Paths) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalPathItem(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalPathItem)
 }
 
 // equalPathItem compares two *PathItem for equality.
@@ -104,19 +94,7 @@ func equalPathItem(a, b *PathItem) bool {
 // Used for Webhooks and Components.PathItems.
 // Nil and empty maps are considered equal.
 func equalPathItemMap(a, b map[string]*PathItem) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalPathItem(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalPathItem)
 }
 
 // =============================================================================
@@ -201,19 +179,7 @@ func equalOperation(a, b *Operation) bool {
 // Used for PathItem.AdditionalOperations.
 // Nil and empty maps are considered equal.
 func equalOperationMap(a, b map[string]*Operation) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalOperation(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalOperation)
 }
 
 // =============================================================================
@@ -284,19 +250,7 @@ func equalResponse(a, b *Response) bool {
 // equalResponseMap compares two map[string]*Response maps for equality.
 // Nil and empty maps are considered equal.
 func equalResponseMap(a, b map[string]*Response) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalResponse(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalResponse)
 }
 
 // =============================================================================
@@ -318,19 +272,7 @@ func equalCallback(a, b *Callback) bool {
 // equalCallbackMap compares two map[string]*Callback maps for equality.
 // Nil and empty maps are considered equal.
 func equalCallbackMap(a, b map[string]*Callback) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalCallback(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalCallback)
 }
 
 // =============================================================================
@@ -386,19 +328,7 @@ func equalLink(a, b *Link) bool {
 // equalLinkMap compares two map[string]*Link maps for equality.
 // Nil and empty maps are considered equal.
 func equalLinkMap(a, b map[string]*Link) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalLink(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalLink)
 }
 
 // =============================================================================
@@ -443,19 +373,7 @@ func equalMediaType(a, b *MediaType) bool {
 // equalMediaTypeMap compares two map[string]*MediaType maps for equality.
 // Nil and empty maps are considered equal.
 func equalMediaTypeMap(a, b map[string]*MediaType) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalMediaType(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalMediaType)
 }
 
 // =============================================================================
@@ -501,19 +419,7 @@ func equalExample(a, b *Example) bool {
 // equalExampleMap compares two map[string]*Example maps for equality.
 // Nil and empty maps are considered equal.
 func equalExampleMap(a, b map[string]*Example) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalExample(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalExample)
 }
 
 // =============================================================================
@@ -563,17 +469,5 @@ func equalEncoding(a, b *Encoding) bool {
 // equalEncodingMap compares two map[string]*Encoding maps for equality.
 // Nil and empty maps are considered equal.
 func equalEncodingMap(a, b map[string]*Encoding) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalEncoding(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalEncoding)
 }
