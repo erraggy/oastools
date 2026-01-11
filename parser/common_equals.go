@@ -1,5 +1,10 @@
 package parser
 
+import (
+	"maps"
+	"slices"
+)
+
 // This file contains equality comparison functions for common OpenAPI types
 // that are shared between OAS 2.0 and OAS 3.x specifications.
 //
@@ -123,15 +128,7 @@ func equalTag(a, b *Tag) bool {
 // equalTagSlice compares two []*Tag slices for equality.
 // Order-sensitive comparison. Nil and empty slices are considered equal.
 func equalTagSlice(a, b []*Tag) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if !equalTag(a[i], b[i]) {
-			return false
-		}
-	}
-	return true
+	return slices.EqualFunc(a, b, equalTag)
 }
 
 // =============================================================================
@@ -164,34 +161,14 @@ func equalServer(a, b *Server) bool {
 // equalServerSlice compares two []*Server slices for equality.
 // Order-sensitive comparison. Nil and empty slices are considered equal.
 func equalServerSlice(a, b []*Server) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if !equalServer(a[i], b[i]) {
-			return false
-		}
-	}
-	return true
+	return slices.EqualFunc(a, b, equalServer)
 }
 
 // equalServerVariableMap compares two map[string]ServerVariable maps for equality.
 // Note: ServerVariable is a VALUE type, not a pointer type.
 // Nil and empty maps are considered equal.
 func equalServerVariableMap(a, b map[string]ServerVariable) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalServerVariable(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalServerVariable)
 }
 
 // equalServerVariable compares two ServerVariable values for equality.

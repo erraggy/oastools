@@ -1,5 +1,10 @@
 package parser
 
+import (
+	"maps"
+	"slices"
+)
+
 // This file contains equality comparison functions for parameter-related OpenAPI types.
 //
 // Includes: Parameter, Header, RequestBody, and Items (OAS 2.0) types.
@@ -136,33 +141,13 @@ func equalParameter(a, b *Parameter) bool {
 // equalParameterSlice compares two []*Parameter slices for equality.
 // Order-sensitive comparison. Nil and empty slices are considered equal.
 func equalParameterSlice(a, b []*Parameter) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if !equalParameter(a[i], b[i]) {
-			return false
-		}
-	}
-	return true
+	return slices.EqualFunc(a, b, equalParameter)
 }
 
 // equalParameterMap compares two map[string]*Parameter maps for equality.
 // Nil and empty maps are considered equal.
 func equalParameterMap(a, b map[string]*Parameter) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalParameter(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalParameter)
 }
 
 // =============================================================================
@@ -282,19 +267,7 @@ func equalHeader(a, b *Header) bool {
 // equalHeaderMap compares two map[string]*Header maps for equality.
 // Nil and empty maps are considered equal.
 func equalHeaderMap(a, b map[string]*Header) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalHeader(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalHeader)
 }
 
 // =============================================================================
@@ -339,19 +312,7 @@ func equalRequestBody(a, b *RequestBody) bool {
 // equalRequestBodyMap compares two map[string]*RequestBody maps for equality.
 // Nil and empty maps are considered equal.
 func equalRequestBodyMap(a, b map[string]*RequestBody) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalRequestBody(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, equalRequestBody)
 }
 
 // =============================================================================

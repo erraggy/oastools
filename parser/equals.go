@@ -7,7 +7,9 @@ package parser
 
 import (
 	"log/slog"
+	"maps"
 	"reflect"
+	"slices"
 )
 
 // equalFloat64Ptr compares two *float64 pointers for equality.
@@ -49,83 +51,31 @@ func equalBoolPtr(a, b *bool) bool {
 // equalStringSlice compares two string slices for equality.
 // Order-sensitive comparison. Nil and empty slices are considered equal.
 func equalStringSlice(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
+	return slices.Equal(a, b)
 }
 
 // equalAnySlice compares two []any slices for equality.
 // Uses reflect.DeepEqual for element comparison. Nil and empty slices are considered equal.
 func equalAnySlice(a, b []any) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if !reflect.DeepEqual(a[i], b[i]) {
-			return false
-		}
-	}
-	return true
+	return slices.EqualFunc(a, b, reflect.DeepEqual)
 }
 
 // equalMapStringAny compares two map[string]any maps for equality.
 // Uses reflect.DeepEqual for value comparison. Nil and empty maps are considered equal.
 func equalMapStringAny(a, b map[string]any) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !reflect.DeepEqual(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, reflect.DeepEqual)
 }
 
 // equalMapStringBool compares two map[string]bool maps for equality.
 // Used for Schema.Vocabulary field. Nil and empty maps are considered equal.
 func equalMapStringBool(a, b map[string]bool) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if va != vb {
-			return false
-		}
-	}
-	return true
+	return maps.Equal(a, b)
 }
 
 // equalMapStringStringSlice compares two map[string][]string maps for equality.
 // Used for Schema.DependentRequired field. Nil and empty maps are considered equal.
 func equalMapStringStringSlice(a, b map[string][]string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if !equalStringSlice(va, vb) {
-			return false
-		}
-	}
-	return true
+	return maps.EqualFunc(a, b, slices.Equal)
 }
 
 // equalSchemaType handles Schema.Type which can be:

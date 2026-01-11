@@ -1,5 +1,7 @@
 package parser
 
+import "maps"
+
 // This file contains the Equals method for Schema equality comparison.
 // The comparison is optimized for early exit by checking cheaper fields first.
 
@@ -323,19 +325,7 @@ func equalDiscriminator(a, b *Discriminator) bool {
 // equalMapStringString compares two map[string]string maps for equality.
 // Nil and empty maps are considered equal.
 func equalMapStringString(a, b map[string]string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		vb, ok := b[k]
-		if !ok {
-			return false
-		}
-		if va != vb {
-			return false
-		}
-	}
-	return true
+	return maps.Equal(a, b)
 }
 
 // equalXML compares two *XML for equality.
