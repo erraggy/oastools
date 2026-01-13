@@ -146,3 +146,27 @@ func (r *ResponseValidationResult) addWarning(path, message string) {
 		Severity: SeverityWarning,
 	})
 }
+
+// reset clears the result for reuse from pool.
+func (r *RequestValidationResult) reset() {
+	r.Valid = true
+	r.MatchedPath = ""
+	r.MatchedMethod = ""
+	r.Errors = r.Errors[:0]
+	r.Warnings = r.Warnings[:0]
+	clear(r.PathParams)
+	clear(r.QueryParams)
+	clear(r.HeaderParams)
+	clear(r.CookieParams)
+}
+
+// reset clears the result for reuse from pool.
+func (r *ResponseValidationResult) reset() {
+	r.Valid = true
+	r.MatchedPath = ""
+	r.MatchedMethod = ""
+	r.StatusCode = 0
+	r.ContentType = ""
+	r.Errors = r.Errors[:0]
+	r.Warnings = r.Warnings[:0]
+}
