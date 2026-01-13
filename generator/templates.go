@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"bytes"
 	"embed"
 	"fmt"
 	"strconv"
@@ -108,19 +107,29 @@ func executeTemplate(name string, data any) ([]byte, error) {
 		return nil, err
 	}
 
-	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
+	// Use a pooled medium buffer - templates typically generate 10-50KB of code
+	// The tiered pool uses opCount to select size, but we don't have that context here.
+	// Medium (32KB) is a reasonable default for template output.
+	const defaultOpCount = 25 // selects medium buffer tier
+	buf := getTemplateBuffer(defaultOpCount)
+	defer putTemplateBuffer(buf, defaultOpCount)
+
+	if err := tmpl.ExecuteTemplate(buf, name, data); err != nil {
 		return nil, fmt.Errorf("generator: failed to execute template %s: %w", name, err)
 	}
 
+	// Copy the result before returning buffer to pool
+	result := make([]byte, buf.Len())
+	copy(result, buf.Bytes())
+
 	// Format the output and fix imports using goimports-equivalent processing.
 	// If formatting fails (rare with valid templates), return unformatted code.
-	formatted, err := formatAndFixImports("generated.go", buf.Bytes())
+	formatted, err := formatAndFixImports("generated.go", result)
 	if err != nil {
 		// Graceful degradation: return unformatted but compilable code.
 		// This path is rarely exercised since templates produce valid Go.
 		//nolint:nilerr // intentional: generation succeeds, code just needs manual formatting
-		return buf.Bytes(), nil
+		return result, nil
 	}
 	return formatted, nil
 }

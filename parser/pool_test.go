@@ -381,3 +381,108 @@ func BenchmarkDeepCopyWork_WithoutPool(b *testing.B) {
 		_ = s
 	}
 }
+
+// marshalToJSON tests
+
+func TestMarshalToJSON(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   any
+		want    string
+		wantErr bool
+	}{
+		{
+			name:  "simple object",
+			input: map[string]string{"key": "value"},
+			want:  `{"key":"value"}`,
+		},
+		{
+			name:  "nested object",
+			input: map[string]any{"outer": map[string]string{"inner": "value"}},
+			want:  `{"outer":{"inner":"value"}}`,
+		},
+		{
+			name:  "array",
+			input: []int{1, 2, 3},
+			want:  `[1,2,3]`,
+		},
+		{
+			name:  "string",
+			input: "hello",
+			want:  `"hello"`,
+		},
+		{
+			name:  "number",
+			input: 42,
+			want:  `42`,
+		},
+		{
+			name:  "boolean",
+			input: true,
+			want:  `true`,
+		},
+		{
+			name:  "null",
+			input: nil,
+			want:  `null`,
+		},
+		{
+			name:    "unmarshalable channel",
+			input:   make(chan int),
+			wantErr: true,
+		},
+		{
+			name:    "unmarshalable function",
+			input:   func() {},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := marshalToJSON(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("marshalToJSON() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+			if string(got) != tt.want {
+				t.Errorf("marshalToJSON() = %q, want %q", string(got), tt.want)
+			}
+		})
+	}
+}
+
+func TestMarshalToJSON_NoTrailingNewline(t *testing.T) {
+	// json.Encoder adds a trailing newline, but marshalToJSON should strip it
+	got, err := marshalToJSON(map[string]string{"test": "value"})
+	if err != nil {
+		t.Fatalf("marshalToJSON() error = %v", err)
+	}
+	if len(got) > 0 && got[len(got)-1] == '\n' {
+		t.Error("marshalToJSON() output should not have trailing newline")
+	}
+	// Compare with json.Marshal behavior
+	want := `{"test":"value"}`
+	if string(got) != want {
+		t.Errorf("marshalToJSON() = %q, want %q", string(got), want)
+	}
+}
+
+func BenchmarkMarshalToJSON(b *testing.B) {
+	input := map[string]any{
+		"openapi": "3.0.0",
+		"info": map[string]string{
+			"title":   "Test API",
+			"version": "1.0.0",
+		},
+	}
+	for b.Loop() {
+		_, err := marshalToJSON(input)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
