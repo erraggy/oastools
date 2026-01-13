@@ -36,14 +36,14 @@ func (pr *ParseResult) MarshalOrderedJSON() ([]byte, error) {
 	}
 
 	buf := getMarshalBuffer()
+	defer putMarshalBuffer(buf) // Ensure buffer is returned even on panic
+
 	if err := marshalNodeAsJSON(buf, pr.sourceNode, pr.Data); err != nil {
-		putMarshalBuffer(buf)
 		return nil, err
 	}
 	// Copy result before returning buffer to pool
 	result := make([]byte, buf.Len())
 	copy(result, buf.Bytes())
-	putMarshalBuffer(buf)
 	return result, nil
 }
 
@@ -59,14 +59,14 @@ func (pr *ParseResult) MarshalOrderedJSONIndent(prefix, indent string) ([]byte, 
 	}
 
 	buf := getMarshalBuffer()
+	defer putMarshalBuffer(buf) // Ensure buffer is returned even on panic
+
 	if err := json.Indent(buf, data, prefix, indent); err != nil {
-		putMarshalBuffer(buf)
 		return nil, err
 	}
 	// Copy result before returning buffer to pool
 	result := make([]byte, buf.Len())
 	copy(result, buf.Bytes())
-	putMarshalBuffer(buf)
 	return result, nil
 }
 

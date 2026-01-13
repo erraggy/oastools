@@ -302,3 +302,82 @@ func TestSlicePoolConstants(t *testing.T) {
 		t.Errorf("stringSliceCap should be 2, got %d", stringSliceCap)
 	}
 }
+
+// DeepCopy work pool tests
+
+func TestGetDeepCopyWork(t *testing.T) {
+	s := getDeepCopyWork()
+	if s == nil {
+		t.Fatal("getDeepCopyWork returned nil")
+	}
+	if len(*s) != 0 {
+		t.Errorf("slice should be empty, got len=%d", len(*s))
+	}
+	if cap(*s) < deepCopyWorkCap {
+		t.Errorf("slice capacity should be at least %d, got %d", deepCopyWorkCap, cap(*s))
+	}
+	putDeepCopyWork(s)
+}
+
+func TestPutDeepCopyWork_Nil(t *testing.T) {
+	// Should not panic
+	putDeepCopyWork(nil)
+}
+
+func TestDeepCopyWorkPool_Reset(t *testing.T) {
+	s := getDeepCopyWork()
+	*s = append(*s, "item1", "item2")
+	putDeepCopyWork(s)
+
+	s2 := getDeepCopyWork()
+	if len(*s2) != 0 {
+		t.Errorf("expected empty slice, got len=%d", len(*s2))
+	}
+	putDeepCopyWork(s2)
+}
+
+func TestPutDeepCopyWork_Oversized(t *testing.T) {
+	// Create an oversized slice
+	large := make([]any, 0, deepCopyWorkMaxCap+1)
+	putDeepCopyWork(&large)
+
+	// Get a new slice - it should have the standard capacity
+	s := getDeepCopyWork()
+	if cap(*s) > deepCopyWorkMaxCap {
+		t.Errorf("pool returned oversized slice with cap=%d", cap(*s))
+	}
+	putDeepCopyWork(s)
+}
+
+func TestDeepCopyWorkPoolConstants(t *testing.T) {
+	// Verify constants are reasonable
+	if deepCopyWorkCap != 16 {
+		t.Errorf("deepCopyWorkCap should be 16, got %d", deepCopyWorkCap)
+	}
+	if deepCopyWorkMaxCap != 256 {
+		t.Errorf("deepCopyWorkMaxCap should be 256, got %d", deepCopyWorkMaxCap)
+	}
+	if deepCopyWorkCap >= deepCopyWorkMaxCap {
+		t.Error("initial capacity should be less than max capacity")
+	}
+}
+
+func BenchmarkDeepCopyWork_WithPool(b *testing.B) {
+	for b.Loop() {
+		s := getDeepCopyWork()
+		for i := range 10 {
+			*s = append(*s, i)
+		}
+		putDeepCopyWork(s)
+	}
+}
+
+func BenchmarkDeepCopyWork_WithoutPool(b *testing.B) {
+	for b.Loop() {
+		s := make([]any, 0, deepCopyWorkCap)
+		for i := range 10 {
+			s = append(s, i)
+		}
+		_ = s
+	}
+}

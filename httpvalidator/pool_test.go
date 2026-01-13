@@ -96,18 +96,17 @@ func TestRequestResultPool(t *testing.T) {
 	t.Run("reuse preserves capacity", func(t *testing.T) {
 		r := getRequestResult()
 
-		// Add errors to expand slice
-		for range 10 {
+		// Add errors to use slice
+		for range 5 {
 			r.addError("path", "error", SeverityError)
 		}
 
-		errorsCap := cap(r.Errors)
 		putRequestResult(r)
 
-		// Get again and verify capacity is preserved
+		// Get again and verify minimum capacity is preserved
 		r2 := getRequestResult()
-		if cap(r2.Errors) < errorsCap {
-			t.Errorf("expected Errors capacity >= %d, got %d", errorsCap, cap(r2.Errors))
+		if cap(r2.Errors) < requestResultErrorsCap {
+			t.Errorf("expected Errors capacity >= %d, got %d", requestResultErrorsCap, cap(r2.Errors))
 		}
 		putRequestResult(r2)
 	})

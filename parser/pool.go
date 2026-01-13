@@ -18,6 +18,12 @@ const (
 	stringSliceCap    = 2 // p99=1 (tags)
 )
 
+// DeepCopy pool capacities (corpus: P99=3, max=9 schema depth)
+const (
+	deepCopyWorkCap    = 16
+	deepCopyWorkMaxCap = 256
+)
+
 var marshalBufferPool = sync.Pool{
 	New: func() any {
 		return bytes.NewBuffer(make([]byte, 0, marshalBufferInitialSize))
@@ -109,4 +115,27 @@ func putStringSlice(s *[]string) {
 		return
 	}
 	stringSlicePool.Put(s)
+}
+
+// deepCopyWorkPool provides reusable work slices for DeepCopy traversal.
+var deepCopyWorkPool = sync.Pool{
+	New: func() any {
+		s := make([]any, 0, deepCopyWorkCap)
+		return &s
+	},
+}
+
+// getDeepCopyWork retrieves a work slice from the pool and resets it.
+func getDeepCopyWork() *[]any {
+	s := deepCopyWorkPool.Get().(*[]any)
+	*s = (*s)[:0]
+	return s
+}
+
+// putDeepCopyWork returns a work slice to the pool if not oversized.
+func putDeepCopyWork(s *[]any) {
+	if s == nil || cap(*s) > deepCopyWorkMaxCap {
+		return
+	}
+	deepCopyWorkPool.Put(s)
 }
