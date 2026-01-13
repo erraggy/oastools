@@ -14,7 +14,7 @@ func (ss *SecurityScheme) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(ss.Extra) == 0 {
 		type Alias SecurityScheme
-		return json.Marshal((*Alias)(ss))
+		return marshalToJSON((*Alias)(ss))
 	}
 
 	// Build map directly to avoid double-marshal pattern
@@ -65,7 +65,7 @@ func (ss *SecurityScheme) MarshalJSON() ([]byte, error) {
 		m[k] = v
 	}
 
-	return json.Marshal(m)
+	return marshalToJSON(m)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for SecurityScheme.
@@ -87,7 +87,7 @@ func (of *OAuthFlows) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(of.Extra) == 0 {
 		type Alias OAuthFlows
-		return json.Marshal((*Alias)(of))
+		return marshalToJSON((*Alias)(of))
 	}
 
 	// Build map directly to avoid double-marshal pattern
@@ -112,7 +112,7 @@ func (of *OAuthFlows) MarshalJSON() ([]byte, error) {
 		m[k] = v
 	}
 
-	return json.Marshal(m)
+	return marshalToJSON(m)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for OAuthFlows.
@@ -134,7 +134,7 @@ func (of *OAuthFlow) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(of.Extra) == 0 {
 		type Alias OAuthFlow
-		return json.Marshal((*Alias)(of))
+		return marshalToJSON((*Alias)(of))
 	}
 
 	// Build map directly to avoid double-marshal pattern
@@ -158,7 +158,7 @@ func (of *OAuthFlow) MarshalJSON() ([]byte, error) {
 		m[k] = v
 	}
 
-	return json.Marshal(m)
+	return marshalToJSON(m)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for OAuthFlow.

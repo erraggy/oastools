@@ -16,7 +16,7 @@ func (p *PathItem) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(p.Extra) == 0 {
 		type Alias PathItem
-		return json.Marshal((*Alias)(p))
+		return marshalToJSON((*Alias)(p))
 	}
 
 	// Build map with known fields
@@ -58,7 +58,7 @@ func (o *Operation) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(o.Extra) == 0 {
 		type Alias Operation
-		return json.Marshal((*Alias)(o))
+		return marshalToJSON((*Alias)(o))
 	}
 
 	// Build map with known fields
@@ -103,7 +103,7 @@ func (r *Response) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(r.Extra) == 0 {
 		type Alias Response
-		return json.Marshal((*Alias)(r))
+		return marshalToJSON((*Alias)(r))
 	}
 
 	// Build map with known fields
@@ -140,7 +140,7 @@ func (l *Link) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(l.Extra) == 0 {
 		type Alias Link
-		return json.Marshal((*Alias)(l))
+		return marshalToJSON((*Alias)(l))
 	}
 
 	// Build map with known fields
@@ -176,7 +176,7 @@ func (mt *MediaType) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(mt.Extra) == 0 {
 		type Alias MediaType
-		return json.Marshal((*Alias)(mt))
+		return marshalToJSON((*Alias)(mt))
 	}
 
 	// Build map with known fields
@@ -209,7 +209,7 @@ func (e *Example) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(e.Extra) == 0 {
 		type Alias Example
-		return json.Marshal((*Alias)(e))
+		return marshalToJSON((*Alias)(e))
 	}
 
 	// Build map with known fields
@@ -243,7 +243,7 @@ func (e *Encoding) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(e.Extra) == 0 {
 		type Alias Encoding
-		return json.Marshal((*Alias)(e))
+		return marshalToJSON((*Alias)(e))
 	}
 
 	// Build map with known fields
@@ -287,7 +287,7 @@ func (r *Responses) MarshalJSON() ([]byte, error) {
 		m[code] = response
 	}
 
-	return json.Marshal(m)
+	return marshalToJSON(m)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Responses.

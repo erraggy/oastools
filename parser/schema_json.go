@@ -14,7 +14,7 @@ func (s *Schema) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(s.Extra) == 0 {
 		type Alias Schema
-		return json.Marshal((*Alias)(s))
+		return marshalToJSON((*Alias)(s))
 	}
 
 	// Build map with known fields
@@ -104,7 +104,7 @@ func (d *Discriminator) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(d.Extra) == 0 {
 		type Alias Discriminator
-		return json.Marshal((*Alias)(d))
+		return marshalToJSON((*Alias)(d))
 	}
 
 	// Build map with known fields
@@ -136,7 +136,7 @@ func (x *XML) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(x.Extra) == 0 {
 		type Alias XML
-		return json.Marshal((*Alias)(x))
+		return marshalToJSON((*Alias)(x))
 	}
 
 	// Build map with known fields

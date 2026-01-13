@@ -14,7 +14,7 @@ func (p *Parameter) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(p.Extra) == 0 {
 		type Alias Parameter
-		return json.Marshal((*Alias)(p))
+		return marshalToJSON((*Alias)(p))
 	}
 
 	// Build map with known fields
@@ -69,7 +69,7 @@ func (i *Items) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(i.Extra) == 0 {
 		type Alias Items
-		return json.Marshal((*Alias)(i))
+		return marshalToJSON((*Alias)(i))
 	}
 
 	// Build map with known fields
@@ -111,7 +111,7 @@ func (rb *RequestBody) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(rb.Extra) == 0 {
 		type Alias RequestBody
-		return json.Marshal((*Alias)(rb))
+		return marshalToJSON((*Alias)(rb))
 	}
 
 	// Build map with known fields
@@ -145,7 +145,7 @@ func (h *Header) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(h.Extra) == 0 {
 		type Alias Header
-		return json.Marshal((*Alias)(h))
+		return marshalToJSON((*Alias)(h))
 	}
 
 	// Build map with known fields

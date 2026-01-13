@@ -16,7 +16,7 @@ func (d *OAS2Document) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields, use standard marshaling
 	if len(d.Extra) == 0 {
 		type Alias OAS2Document
-		return json.Marshal((*Alias)(d))
+		return marshalToJSON((*Alias)(d))
 	}
 
 	// Build map directly to avoid double-marshal pattern
@@ -68,7 +68,7 @@ func (d *OAS2Document) MarshalJSON() ([]byte, error) {
 	// Add Extra fields (spec extensions must start with "x-")
 	maps.Copy(m, d.Extra)
 
-	return json.Marshal(m)
+	return marshalToJSON(m)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for OAS2Document.

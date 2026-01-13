@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bytes"
+	"encoding/json"
 	"sync"
 )
 
@@ -46,6 +47,27 @@ func putMarshalBuffer(buf *bytes.Buffer) {
 		return // Let GC collect oversized buffers
 	}
 	marshalBufferPool.Put(buf)
+}
+
+// marshalToJSON marshals a value to JSON using pooled buffers.
+// This replaces json.Marshal calls to reduce allocations.
+// Note: json.Encoder.Encode adds a trailing newline which we strip.
+func marshalToJSON(v any) ([]byte, error) {
+	buf := getMarshalBuffer()
+	defer putMarshalBuffer(buf)
+
+	enc := json.NewEncoder(buf)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	// Strip trailing newline added by Encoder (json.Marshal doesn't add one)
+	n := buf.Len()
+	if n > 0 && buf.Bytes()[n-1] == '\n' {
+		n--
+	}
+	result := make([]byte, n)
+	copy(result, buf.Bytes())
+	return result, nil
 }
 
 // parameterSlicePool provides reusable slices for Parameter pointers.
