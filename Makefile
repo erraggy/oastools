@@ -115,6 +115,18 @@ test-fuzz-parse:
 	@echo "To re-run a specific failing input: go test ./parser -run=FuzzParseBytes/<hash>"
 	@echo "To save fuzz output to a log file: FUZZ_LOG=1 make test-fuzz-parse"
 
+## count-tests: Count all test runs including subtests
+.PHONY: count-tests
+count-tests:
+	@echo "Counting test runs (includes table-driven subtests)..."
+	@go test -v ./... 2>&1 | grep -c "=== RUN" || echo "0"
+
+## count-benchmarks: Count all benchmark runs including sub-benchmarks
+.PHONY: count-benchmarks
+count-benchmarks:
+	@echo "Counting benchmark runs (includes parameterized cases)..."
+	@go test -bench=. -benchtime=1x ./... 2>&1 | grep -c "^Benchmark" || echo "0"
+
 # =============================================================================
 # Code Quality Targets
 # =============================================================================

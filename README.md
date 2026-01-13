@@ -17,13 +17,17 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 ## Highlights
 
 - **Minimal Dependencies** - Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4), [`golang.org/x/tools`](https://pkg.go.dev/golang.org/x/tools), and [`golang.org/x/text`](https://pkg.go.dev/golang.org/x/text) at runtime
-- **Battle-Tested** - 7,300+ tests against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
+- **Battle-Tested** - 7,400+ tests<sup>†</sup> against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
 - **Complete Toolset** - 12 packages covering the full OpenAPI lifecycle
-- **Performance Optimized** - 140+ benchmarks; pre-parsed workflows 9-150x faster
+- **Performance Optimized** - 340+ benchmarks<sup>†</sup>; pre-parsed workflows 11-150x faster
 - **Type-Safe Cloning** - Generated `DeepCopy()` methods preserve types across OAS versions (no JSON marshal hacks)
 - **Enterprise Ready** - Structured errors with `errors.Is()`/`errors.As()`, pluggable logging, configurable resource limits
 - **Well Documented** - Every package has godoc, runnable examples, and [deep dive guides](#deep-dive-guides) for advanced usage
 - **Semantic Deduplication** - Automatically consolidate structurally identical schemas, reducing document size
+- **Optimized Memory Usage** — sync.Pool reduces GC pressure up to 36% fewer allocations in marshal operations
+- **Deterministic Output** — Order-preserving marshal for reproducible JSON/YAML output
+
+<sup>†</sup> Test count includes table-driven subtests. Benchmark count includes parameterized sub-benchmarks. Run `make count-tests` and `make count-benchmarks` to verify.
 
 ## Package Ecosystem
 
@@ -235,11 +239,11 @@ Pre-parsed workflows eliminate redundant parsing when processing multiple operat
 | Method             | Speedup      |
 |--------------------|--------------|
 | `ValidateParsed()` | 31x faster   |
-| `ConvertParsed()`  | 9x faster    |
+| `ConvertParsed()`  | ~50x faster  |
 | `JoinParsed()`     | 150x faster  |
 | `DiffParsed()`     | 81x faster   |
-| `FixParsed()`      | ~10x faster  |
-| `ApplyParsed()`    | ~15x faster  |
+| `FixParsed()`      | ~60x faster  |
+| `ApplyParsed()`    | ~11x faster  |
 
 JSON marshaling is optimized for 25-32% better performance with 29-37% fewer allocations. See [benchmarks.md](benchmarks.md) for detailed analysis.
 
@@ -257,6 +261,8 @@ All parser types include generated `DeepCopy()` methods for safe document mutati
 copy := result.OAS3Document.DeepCopy()
 copy.Info.Title = "Modified API"
 ```
+
+All OAS types also provide `Equals()` methods for structural comparison.
 
 ### Enterprise-Grade Error Handling
 
