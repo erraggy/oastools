@@ -1591,8 +1591,8 @@ The most significant performance gain comes from the parse-once pattern. When th
 | [Convert](#7-converter-package) | 152 μs | 3.2 μs | 47x |
 | [Join](#8-joiner-package) (2 docs) | 110 μs | 732 ns | 150x |
 | [Diff](#10-differ-package) | 280 μs | 12.7 μs | 81x |
-| [Fix](#6-fixer-package) | 140 μs | 2.8 μs | ~50x |
-| [Apply](#9-overlay-package) (overlay) | 120 μs | ~8 μs | ~15x |
+| [Fix](#6-fixer-package) | 140 μs | 2.8 μs | ~60x |
+| [Apply](#9-overlay-package) (overlay) | 120 μs | ~8 μs | ~11x |
 
 **Usage Pattern:**
 
