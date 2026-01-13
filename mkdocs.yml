@@ -31,6 +31,12 @@ theme:
     - toc.follow
     - content.code.copy
 
+plugins:
+  - search
+  - exclude:
+      glob:
+        - plans/*
+
 markdown_extensions:
   - admonition
   - pymdownx.details

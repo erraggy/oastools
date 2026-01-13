@@ -35,11 +35,16 @@ func (pr *ParseResult) MarshalOrderedJSON() ([]byte, error) {
 		return json.Marshal(pr.Document)
 	}
 
-	var buf bytes.Buffer
-	if err := marshalNodeAsJSON(&buf, pr.sourceNode, pr.Data); err != nil {
+	buf := getMarshalBuffer()
+	defer putMarshalBuffer(buf) // Ensure buffer is returned even on panic
+
+	if err := marshalNodeAsJSON(buf, pr.sourceNode, pr.Data); err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+	// Copy result before returning buffer to pool
+	result := make([]byte, buf.Len())
+	copy(result, buf.Bytes())
+	return result, nil
 }
 
 // MarshalOrderedJSONIndent marshals the parsed document to indented JSON
@@ -53,11 +58,16 @@ func (pr *ParseResult) MarshalOrderedJSONIndent(prefix, indent string) ([]byte, 
 		return nil, err
 	}
 
-	var buf bytes.Buffer
-	if err := json.Indent(&buf, data, prefix, indent); err != nil {
+	buf := getMarshalBuffer()
+	defer putMarshalBuffer(buf) // Ensure buffer is returned even on panic
+
+	if err := json.Indent(buf, data, prefix, indent); err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+	// Copy result before returning buffer to pool
+	result := make([]byte, buf.Len())
+	copy(result, buf.Bytes())
+	return result, nil
 }
 
 // MarshalOrderedYAML marshals the parsed document to YAML with fields
