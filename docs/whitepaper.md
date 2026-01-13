@@ -408,14 +408,14 @@ The validator package ensures OpenAPI documents conform to their declared specif
 // Functional options with file path
 result, err := validator.ValidateWithOptions(
     validator.WithFilePath("api.yaml"),
-    validator.WithStrict(true),
+    validator.WithStrictMode(true),
 )
 
 // Pre-parsed for performance (31x faster)
 parsed, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
 result, err := validator.ValidateWithOptions(
     validator.WithParsed(*parsed),
-    validator.WithStrict(true),
+    validator.WithStrictMode(true),
 )
 
 if !result.Valid {
@@ -1116,9 +1116,9 @@ Generate OpenAPI schemas from Go types automatically.
 type User struct {
     ID        int64     `json:"id"`
     Name      string    `json:"name" oas:"required"`
-    Email     string    `json:"email" oas:"format:email"`
+    Email     string    `json:"email" oas:"format=email"`
     CreatedAt time.Time `json:"created_at"`
-    Role      string    `json:"role" oas:"enum:admin,user,guest"`
+    Role      string    `json:"role" oas:"enum=admin|user|guest"`
 }
 
 spec := builder.NewSpec()
