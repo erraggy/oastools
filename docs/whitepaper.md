@@ -1115,10 +1115,10 @@ Generate OpenAPI schemas from Go types automatically.
 ```go
 type User struct {
     ID        int64     `json:"id"`
-    Name      string    `json:"name" oastools:"required"`
-    Email     string    `json:"email" oastools:"format:email"`
+    Name      string    `json:"name" oas:"required"`
+    Email     string    `json:"email" oas:"format:email"`
     CreatedAt time.Time `json:"created_at"`
-    Role      string    `json:"role" oastools:"enum:admin,user,guest"`
+    Role      string    `json:"role" oas:"enum:admin,user,guest"`
 }
 
 spec := builder.NewSpec()
