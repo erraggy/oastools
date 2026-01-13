@@ -2,7 +2,7 @@
 
 **White Paper**
 
-**Current as of:** v1.37.0<br>
+**Current as of:** v1.45.1<br>
 **Repository:** [github.com/erraggy/oastools](https://github.com/erraggy/oastools)<br>
 **Documentation:** [pkg.go.dev/github.com/erraggy/oastools](https://pkg.go.dev/github.com/erraggy/oastools)<br>
 **License:** MIT
@@ -215,6 +215,31 @@ A critical feature is format preservation across the pipeline. The [parser](#4-p
 
 ---
 
+## Package Chaining
+
+oastools packages are designed for seamless composition. Each package's result type provides a `ToParseResult()` method, enabling fluid pipelines without manual rewrapping:
+
+```go
+result, _ := parser.Parse("spec.yaml", false, true)
+
+// Chain through the entire toolchain without losing context
+validated := validator.ValidateParsed(result, true, false)
+fixed := fixer.FixParsed(validated.ToParseResult())
+converted := converter.ConvertParsed(fixed.ToParseResult(), "3.1.0")
+joined := joiner.JoinParsed(converted.ToParseResult(), other.ToParseResult())
+```
+
+| Package | Result Type | Provides ToParseResult() |
+|---------|-------------|-------------------------|
+| validator | `ValidationResult` | v1.41.0 |
+| fixer | `FixResult` | v1.41.0 |
+| converter | `ConvertResult` | v1.40.0 |
+| joiner | `JoinResult` | v1.40.0 |
+
+This pattern eliminates boilerplate and preserves metadata (source path, OAS version, parse options) throughout the pipeline.
+
+---
+
 ## 4. Parser Package
 
 > **Links:** [pkg.go.dev](https://pkg.go.dev/github.com/erraggy/oastools/parser) | [Deep Dive](packages/parser.md)
@@ -342,6 +367,25 @@ fmt.Println("Ref prefix:", accessor.SchemaRefPrefix())
 
 This abstraction is particularly useful for tooling that needs to operate on documents regardless of their OAS version.
 
+### Structural Comparison
+
+All OAS types provide `Equals()` methods for deep structural comparison:
+
+```go
+if doc1.Equals(doc2) {
+    fmt.Println("Documents are structurally identical")
+}
+```
+
+This is useful for detecting changes, caching decisions, and test assertions.
+
+### Deterministic Output
+
+The `MarshalOrderedJSON()` and `MarshalOrderedYAML()` functions produce deterministic output by preserving key order. This ensures:
+- Reproducible diffs between versions
+- Consistent output for CI/CD pipelines
+- Predictable test snapshots
+
 ---
 
 ## 5. Validator Package
@@ -423,6 +467,10 @@ for _, e := range result.Errors {
 }
 ```
 
+### 5.5 CLI Integration
+
+The `--validate-structure` CLI flag controls parser validation behavior, enabling strict structural validation during parsing.
+
 ---
 
 ## 6. Fixer Package
@@ -487,6 +535,14 @@ for _, fix := range result.Fixes {
     fmt.Printf("  %s at %s\n", fix.Type, fix.Path)
 }
 ```
+
+### 6.6 Duplicate OperationId Detection
+
+The fixer detects duplicate `operationId` values and automatically generates unique replacements, preventing spec validation failures.
+
+### 6.7 CSV Enum Expansion
+
+Enum values specified as comma-separated strings are automatically expanded to proper typed arrays.
 
 ---
 
@@ -671,6 +727,10 @@ result, err := joiner.JoinWithOptions(
 fmt.Printf("Joined %d documents into %d paths\n",
     result.DocumentCount, result.PathCount)
 ```
+
+### 8.8 Source Name Warnings
+
+Collision messages now include source file names for easier debugging when joining multiple specs.
 
 ---
 
@@ -1389,6 +1449,17 @@ The walker package enables several common patterns:
 | Documentation Gen | Info, Server, Operation, Response | Continue |
 | Reference Analysis | Schema, SchemaSkipped | Continue |
 
+### 14.6 Recent Enhancements (v1.38-v1.45)
+
+The walker has gained several powerful features:
+
+- **Reference Tracking** - `WithRefHandler()` and `WithMapRefTracking()` for comprehensive `$ref` detection
+- **Parent Tracking** - `WithParentTracking()` provides type-safe ancestor access via `ParentInfo`
+- **Post-Visit Hooks** - `WithSchemaPostHandler()`, `WithOperationPostHandler()`, etc. for bottom-up processing
+- **Built-in Collectors** - `CollectSchemas()` and `CollectOperations()` reduce boilerplate
+
+For comprehensive documentation, examples, and performance considerations, see the [Walker Deep Dive](packages/walker.md).
+
 ---
 
 ## 15. Error Handling with oaserrors
@@ -1583,6 +1654,27 @@ File-based benchmarks can vary ±50% due to I/O variance. For reliable regressio
 | [converter](#7-converter-package) | `BenchmarkConvertParsed*` | Conversion logic only |
 | [differ](#10-differ-package) | `BenchmarkDiff/Parsed` | Diffing logic only |
 | [walker](#14-walker-package) | `BenchmarkWalk/Parsed` | Walking logic only |
+
+### 16.6 Memory Optimization: sync.Pool (v1.45.0)
+
+The parser and generator packages use `sync.Pool` to reduce GC pressure:
+
+**Marshal Buffer Pool** (parser):
+- Reuses `bytes.Buffer` for JSON/YAML marshaling
+- Up to 36% fewer allocations for large documents
+- 78x faster buffer acquisition vs allocation
+
+**Template Buffer Pool** (generator):
+- Tiered pools (8KB/32KB/64KB) based on operation count
+- Prevents oversized allocations during code generation
+
+**Design Decisions:**
+- All pools are internal (package-private)
+- Reset-on-get pattern ensures clean state
+- Size guards prevent memory leaks from oversized objects
+- 7 planned pools were cut (YAGNI) due to use-after-put risks
+
+Capacity decisions are data-driven from corpus analysis of 10 real-world OpenAPI specs (19,147 operations, 360,577 schemas).
 
 ---
 
