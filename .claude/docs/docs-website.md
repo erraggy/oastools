@@ -2,6 +2,14 @@
 
 The project documentation is hosted on GitHub Pages at https://erraggy.github.io/oastools/
 
+## Dependencies
+
+```bash
+pip install mkdocs mkdocs-material mkdocs-exclude
+```
+
+The `mkdocs-exclude` plugin is required to exclude the `docs/plans/` directory from builds (used by superpowers plugin for implementation plans).
+
 ## Commands
 
 ```bash
