@@ -417,4 +417,3 @@ paths:
 	// Verify fix was applied (missing userId parameter)
 	assert.True(t, result.HasFixes())
 }
-
