@@ -83,3 +83,6 @@ docs/examples/
 
 # Playwright MCP (browser automation screenshots/data)
 .playwright-mcp/
+
+# Git worktrees for isolated development
+.worktrees/
