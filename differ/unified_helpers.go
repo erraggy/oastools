@@ -109,6 +109,8 @@ func (d *Differ) addChangeWithKey(result *DiffResult, path string, changeType Ch
 }
 
 // addChangeConditional is a helper that picks severity based on a condition.
+//
+//nolint:unparam // changeType is always ChangeTypeModified for now but kept for API consistency
 func (d *Differ) addChangeConditional(result *DiffResult, path string, changeType ChangeType, category ChangeCategory, condition bool, severityIfTrue, severityIfFalse Severity, oldValue, newValue any, message string) {
 	d.addChangeConditionalWithKey(result, path, changeType, category, condition, severityIfTrue, severityIfFalse, oldValue, newValue, message, "")
 }
