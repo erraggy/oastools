@@ -1996,6 +1996,11 @@ result2, _ := parser.ParseWithOptions(parser.WithFilePath(url2), parser.WithHTTP
 When a custom client is provided, the `InsecureSkipVerify` option is ignored. Configure TLS on your client's transport instead:
 
 ```go
+import (
+    "crypto/tls"
+    "net/http"
+)
+
 // Instead of WithInsecureSkipVerify(true), do:
 client := &http.Client{
     Transport: &http.Transport{
