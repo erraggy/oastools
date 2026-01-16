@@ -753,5 +753,5 @@ func (m *mockTestLogger) Warn(msg string, args ...any) {
 		m.warnFunc(msg, args...)
 	}
 }
-func (m *mockTestLogger) Error(msg string, args ...any)  {}
-func (m *mockTestLogger) With(attrs ...any) Logger       { return m }
+func (m *mockTestLogger) Error(msg string, args ...any) {}
+func (m *mockTestLogger) With(attrs ...any) Logger      { return m }
