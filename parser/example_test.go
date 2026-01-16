@@ -3,6 +3,8 @@ package parser_test
 import (
 	"fmt"
 	"log"
+	"net/http"
+	"time"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -408,4 +410,45 @@ func Example_preserveOrder() {
 	// Output:
 	// Order preserved: true
 	// {"openapi":"3.1.0","info":{"title":"Test","version":"1.0"},"paths":{}}
+}
+
+// ExampleWithHTTPClient demonstrates using a custom HTTP client with a longer timeout.
+func ExampleWithHTTPClient() {
+	// Create a custom HTTP client with longer timeout for slow networks
+	client := &http.Client{
+		Timeout: 60 * time.Second,
+	}
+
+	result, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+		parser.WithHTTPClient(client),
+	)
+	if err != nil {
+		log.Fatalf("failed to parse: %v", err)
+	}
+
+	fmt.Printf("Version: %s\n", result.Version)
+	// Output:
+	// Version: 3.0.3
+}
+
+// ExampleWithHTTPClient_proxy demonstrates configuring a proxy for corporate environments.
+func ExampleWithHTTPClient_proxy() {
+	// This example shows the configuration pattern for corporate proxies.
+	// In a real scenario, you would use an actual proxy URL.
+
+	// For this example, we use a direct client
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	result, err := parser.ParseWithOptions(
+		parser.WithFilePath("../testdata/petstore-3.0.yaml"),
+		parser.WithHTTPClient(client),
+	)
+	if err != nil {
+		log.Fatalf("failed to parse: %v", err)
+	}
+
+	fmt.Printf("Parsed: %s\n", result.Version)
+	// Output:
+	// Parsed: 3.0.3
 }
