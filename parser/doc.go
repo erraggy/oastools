@@ -49,6 +49,32 @@
 // responses are cached, size-limited, and protected against circular references.
 // See the examples in example_test.go for more details.
 //
+// # HTTP Client Configuration
+//
+// By default, the parser creates an HTTP client with a 30-second timeout for
+// fetching remote specifications. For advanced use cases, provide a custom
+// HTTP client:
+//
+//	// Custom timeout for slow networks
+//	client := &http.Client{Timeout: 60 * time.Second}
+//	result, err := parser.ParseWithOptions(
+//	    parser.WithFilePath("https://api.example.com/openapi.yaml"),
+//	    parser.WithHTTPClient(client),
+//	)
+//
+//	// Corporate proxy
+//	proxyURL, _ := url.Parse("http://proxy.corp.internal:8080")
+//	client := &http.Client{
+//	    Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)},
+//	}
+//	result, err := parser.ParseWithOptions(
+//	    parser.WithFilePath("https://internal-api.corp/spec.yaml"),
+//	    parser.WithHTTPClient(client),
+//	)
+//
+// When a custom client is provided, the InsecureSkipVerify option is ignored.
+// Configure TLS settings directly on your client's transport instead.
+//
 // # Circular Reference Handling
 //
 // When the parser detects circular references during $ref resolution, it uses a
