@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -633,5 +634,72 @@ paths: {}`))
 		require.Error(t, err)
 		// Error message varies by Go version, just check it's a timeout-related error
 		assert.True(t, strings.Contains(err.Error(), "deadline") || strings.Contains(err.Error(), "timeout"))
+	})
+}
+
+// roundTripperFunc is a helper for testing custom transports
+type roundTripperFunc struct {
+	fn func(*http.Request) (*http.Response, error)
+}
+
+func (r *roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return r.fn(req)
+}
+
+func TestParseWithOptions_HTTPClient_CustomTransport(t *testing.T) {
+	t.Run("custom transport is used", func(t *testing.T) {
+		transportUsed := false
+		customTransport := &roundTripperFunc{
+			fn: func(req *http.Request) (*http.Response, error) {
+				transportUsed = true
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(strings.NewReader(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`)),
+					Header: make(http.Header),
+				}, nil
+			},
+		}
+		customClient := &http.Client{Transport: customTransport}
+
+		result, err := ParseWithOptions(
+			WithFilePath("https://example.com/api.yaml"),
+			WithHTTPClient(customClient),
+		)
+
+		require.NoError(t, err)
+		assert.True(t, transportUsed, "Custom transport should have been used")
+		assert.Equal(t, "3.0.0", result.Version)
+	})
+
+	t.Run("user agent still applied with custom client", func(t *testing.T) {
+		var receivedUA string
+		customTransport := &roundTripperFunc{
+			fn: func(req *http.Request) (*http.Response, error) {
+				receivedUA = req.Header.Get("User-Agent")
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(strings.NewReader(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`)),
+					Header: make(http.Header),
+				}, nil
+			},
+		}
+		customClient := &http.Client{Transport: customTransport}
+
+		_, err := ParseWithOptions(
+			WithFilePath("https://example.com/api.yaml"),
+			WithHTTPClient(customClient),
+			WithUserAgent("custom-agent/1.0"),
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, "custom-agent/1.0", receivedUA)
 	})
 }
