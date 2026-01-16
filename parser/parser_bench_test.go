@@ -2,8 +2,11 @@ package parser
 
 import (
 	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 )
 
 // Benchmark Design Notes:
@@ -397,5 +400,68 @@ func BenchmarkSourceMapOverhead(b *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+// BenchmarkParseURL_CustomClient benchmarks URL parsing with a custom HTTP client.
+// This simulates real-world usage with connection pooling and optimized timeouts.
+func BenchmarkParseURL_CustomClient(b *testing.B) {
+	// Load test data for the mock server
+	petstoreData, err := os.ReadFile("../testdata/petstore-3.0.yaml")
+	if err != nil {
+		b.Fatalf("Failed to read petstore file: %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(petstoreData)
+	}))
+	defer server.Close()
+
+	// Reusable client (simulates real-world usage with connection pooling)
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 100,
+			IdleConnTimeout:     90 * time.Second,
+		},
+	}
+
+	b.ResetTimer()
+	for b.Loop() {
+		_, err := ParseWithOptions(
+			WithFilePath(server.URL),
+			WithHTTPClient(client),
+		)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkParseURL_DefaultClient benchmarks URL parsing with the default HTTP client.
+// Compare with BenchmarkParseURL_CustomClient to see the benefit of client reuse.
+func BenchmarkParseURL_DefaultClient(b *testing.B) {
+	// Load test data for the mock server
+	petstoreData, err := os.ReadFile("../testdata/petstore-3.0.yaml")
+	if err != nil {
+		b.Fatalf("Failed to read petstore file: %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(petstoreData)
+	}))
+	defer server.Close()
+
+	b.ResetTimer()
+	for b.Loop() {
+		_, err := ParseWithOptions(
+			WithFilePath(server.URL),
+		)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }
