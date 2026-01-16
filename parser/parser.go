@@ -598,6 +598,7 @@ func ParseWithOptions(opts ...Option) (*ParseResult, error) {
 		InsecureSkipVerify: cfg.insecureSkipVerify,
 		ValidateStructure:  cfg.validateStructure,
 		UserAgent:          cfg.userAgent,
+		HTTPClient:         cfg.httpClient,
 		Logger:             cfg.logger,
 		MaxRefDepth:        cfg.maxRefDepth,
 		MaxCachedDocuments: cfg.maxCachedDocuments,
