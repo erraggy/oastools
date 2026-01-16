@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -558,5 +559,27 @@ paths: {}
 		require.NoError(t, err)
 		// Should use the override, not the file path
 		assert.Equal(t, "pet-service", result.SourcePath)
+	})
+}
+
+// TestWithHTTPClient tests the WithHTTPClient option
+func TestWithHTTPClient(t *testing.T) {
+	t.Run("sets client in config", func(t *testing.T) {
+		customClient := &http.Client{Timeout: 60 * time.Second}
+		cfg := &parseConfig{}
+		opt := WithHTTPClient(customClient)
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Same(t, customClient, cfg.httpClient)
+	})
+
+	t.Run("accepts nil client", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithHTTPClient(nil)
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Nil(t, cfg.httpClient)
 	})
 }

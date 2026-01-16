@@ -557,9 +557,9 @@ type parseConfig struct {
 	resolveHTTPRefs    bool
 	insecureSkipVerify bool
 	validateStructure  bool
-	userAgent  string
-	httpClient *http.Client
-	logger     Logger
+	userAgent          string
+	httpClient         *http.Client
+	logger             Logger
 
 	// Resource limits (0 means use default)
 	maxRefDepth        int
@@ -713,6 +713,38 @@ func WithValidateStructure(enabled bool) Option {
 func WithUserAgent(ua string) Option {
 	return func(cfg *parseConfig) error {
 		cfg.userAgent = ua
+		return nil
+	}
+}
+
+// WithHTTPClient sets a custom HTTP client for fetching URLs.
+// When set, the client is used as-is for all HTTP requests.
+// The InsecureSkipVerify option is ignored when a custom client is provided
+// (configure TLS settings on your client's transport instead).
+//
+// If the client is nil, this option has no effect (default client is used).
+//
+// Example with custom timeout:
+//
+//	client := &http.Client{Timeout: 60 * time.Second}
+//	result, err := parser.ParseWithOptions(
+//	    parser.WithFilePath("https://example.com/api.yaml"),
+//	    parser.WithHTTPClient(client),
+//	)
+//
+// Example with proxy:
+//
+//	proxyURL, _ := url.Parse("http://proxy.example.com:8080")
+//	client := &http.Client{
+//	    Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)},
+//	}
+//	result, err := parser.ParseWithOptions(
+//	    parser.WithFilePath("https://internal.corp/api.yaml"),
+//	    parser.WithHTTPClient(client),
+//	)
+func WithHTTPClient(client *http.Client) Option {
+	return func(cfg *parseConfig) error {
+		cfg.httpClient = client
 		return nil
 	}
 }
