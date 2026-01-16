@@ -703,3 +703,55 @@ paths: {}`)),
 		assert.Equal(t, "custom-agent/1.0", receivedUA)
 	})
 }
+
+func TestParseWithOptions_HTTPClient_InsecureInteraction(t *testing.T) {
+	t.Run("warns when both HTTPClient and InsecureSkipVerify set", func(t *testing.T) {
+		var logMessages []string
+		mockLogger := &mockTestLogger{
+			warnFunc: func(msg string, args ...any) {
+				logMessages = append(logMessages, msg)
+			},
+		}
+
+		customTransport := &roundTripperFunc{
+			fn: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(strings.NewReader(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`)),
+					Header: make(http.Header),
+				}, nil
+			},
+		}
+		customClient := &http.Client{Transport: customTransport}
+
+		_, err := ParseWithOptions(
+			WithFilePath("https://example.com/api.yaml"),
+			WithHTTPClient(customClient),
+			WithInsecureSkipVerify(true),
+			WithLogger(mockLogger),
+		)
+
+		require.NoError(t, err)
+		require.Len(t, logMessages, 1)
+		assert.Contains(t, logMessages[0], "InsecureSkipVerify ignored")
+	})
+}
+
+// mockTestLogger implements Logger for testing
+type mockTestLogger struct {
+	warnFunc func(msg string, args ...any)
+}
+
+func (m *mockTestLogger) Debug(msg string, args ...any) {}
+func (m *mockTestLogger) Info(msg string, args ...any)  {}
+func (m *mockTestLogger) Warn(msg string, args ...any) {
+	if m.warnFunc != nil {
+		m.warnFunc(msg, args...)
+	}
+}
+func (m *mockTestLogger) Error(msg string, args ...any)  {}
+func (m *mockTestLogger) With(attrs ...any) Logger       { return m }
