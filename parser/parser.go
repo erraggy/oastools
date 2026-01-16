@@ -553,8 +553,9 @@ type parseConfig struct {
 	resolveHTTPRefs    bool
 	insecureSkipVerify bool
 	validateStructure  bool
-	userAgent          string
-	logger             Logger
+	userAgent  string
+	httpClient *http.Client
+	logger     Logger
 
 	// Resource limits (0 means use default)
 	maxRefDepth        int
