@@ -1922,6 +1922,93 @@ result, _ := validator.ValidateWithOptions(
 // OAS 3.x: validates against OpenAPI 3.x specification
 ```
 
+### HTTP Client Configuration
+
+The parser supports custom HTTP clients for advanced use cases:
+
+**Custom Timeout:**
+
+```go
+client := &http.Client{Timeout: 120 * time.Second}
+result, err := parser.ParseWithOptions(
+    parser.WithFilePath("https://api.example.com/openapi.yaml"),
+    parser.WithHTTPClient(client),
+)
+```
+
+**Corporate Proxy:**
+
+```go
+proxyURL, _ := url.Parse("http://proxy.corp.internal:8080")
+client := &http.Client{
+    Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)},
+}
+result, err := parser.ParseWithOptions(
+    parser.WithFilePath("https://internal-api.corp/spec.yaml"),
+    parser.WithHTTPClient(client),
+)
+```
+
+**Authentication via Custom Transport:**
+
+```go
+type authTransport struct {
+    token string
+    base  http.RoundTripper
+}
+
+func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+    req.Header.Set("Authorization", "Bearer "+t.token)
+    return t.base.RoundTrip(req)
+}
+
+client := &http.Client{
+    Transport: &authTransport{token: "secret", base: http.DefaultTransport},
+}
+result, err := parser.ParseWithOptions(
+    parser.WithFilePath("https://api.example.com/openapi.yaml"),
+    parser.WithHTTPClient(client),
+)
+```
+
+**Connection Pooling:**
+
+Reusing an HTTP client across multiple parse operations improves performance through connection pooling:
+
+```go
+// Create once, reuse many times
+client := &http.Client{
+    Timeout: 30 * time.Second,
+    Transport: &http.Transport{
+        MaxIdleConns:        100,
+        MaxIdleConnsPerHost: 10,
+        IdleConnTimeout:     90 * time.Second,
+    },
+}
+
+// Use for multiple parses
+result1, _ := parser.ParseWithOptions(parser.WithFilePath(url1), parser.WithHTTPClient(client))
+result2, _ := parser.ParseWithOptions(parser.WithFilePath(url2), parser.WithHTTPClient(client))
+```
+
+**InsecureSkipVerify Interaction:**
+
+When a custom client is provided, the `InsecureSkipVerify` option is ignored. Configure TLS on your client's transport instead:
+
+```go
+import (
+    "crypto/tls"
+    "net/http"
+)
+
+// Instead of WithInsecureSkipVerify(true), do:
+client := &http.Client{
+    Transport: &http.Transport{
+        TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+    },
+}
+```
+
 ## Troubleshooting
 
 ### Common Issues

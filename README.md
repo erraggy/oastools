@@ -305,6 +305,31 @@ result, err := parser.ParseWithOptions(
 )
 ```
 
+### HTTP Client Configuration
+
+For advanced scenarios like custom timeouts, proxies, or authentication:
+
+```go
+// Custom timeout for slow networks
+client := &http.Client{Timeout: 120 * time.Second}
+result, _ := parser.ParseWithOptions(
+    parser.WithFilePath("https://api.example.com/openapi.yaml"),
+    parser.WithHTTPClient(client),
+)
+
+// Corporate proxy
+proxyURL, _ := url.Parse("http://proxy.corp:8080")
+client := &http.Client{
+    Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)},
+}
+result, _ := parser.ParseWithOptions(
+    parser.WithFilePath("https://internal-api.corp/spec.yaml"),
+    parser.WithHTTPClient(client),
+)
+```
+
+When a custom client is provided, `InsecureSkipVerify` is ignored—configure TLS on your client's transport instead.
+
 ## Supported OpenAPI Versions
 
 | Version       | Specification                                     |

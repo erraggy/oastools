@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -521,4 +522,29 @@ paths: {}`
 	doc2, ok := urlResult.Document.(*OAS3Document)
 	require.True(t, ok)
 	assert.Equal(t, "URL Test API", doc2.Info.Title)
+}
+
+func TestParser_Parse_WithHTTPClient(t *testing.T) {
+	t.Run("struct API uses HTTPClient field", func(t *testing.T) {
+		requestReceived := false
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestReceived = true
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`))
+		}))
+		defer server.Close()
+
+		p := New()
+		p.HTTPClient = &http.Client{Timeout: 5 * time.Second}
+
+		result, err := p.Parse(server.URL)
+
+		require.NoError(t, err)
+		assert.True(t, requestReceived)
+		assert.Equal(t, "3.0.0", result.Version)
+	})
 }

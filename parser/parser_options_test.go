@@ -1,11 +1,13 @@
 package parser
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -560,3 +562,196 @@ paths: {}
 		assert.Equal(t, "pet-service", result.SourcePath)
 	})
 }
+
+// TestWithHTTPClient tests the WithHTTPClient option
+func TestWithHTTPClient(t *testing.T) {
+	t.Run("sets client in config", func(t *testing.T) {
+		customClient := &http.Client{Timeout: 60 * time.Second}
+		cfg := &parseConfig{}
+		opt := WithHTTPClient(customClient)
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Same(t, customClient, cfg.httpClient)
+	})
+
+	t.Run("accepts nil client", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithHTTPClient(nil)
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Nil(t, cfg.httpClient)
+	})
+}
+
+// TestParseWithOptions_HTTPClient tests custom HTTP client integration
+func TestParseWithOptions_HTTPClient(t *testing.T) {
+	t.Run("uses custom client for URL parsing", func(t *testing.T) {
+		requestReceived := false
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestReceived = true
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`))
+		}))
+		defer server.Close()
+
+		customClient := &http.Client{Timeout: 5 * time.Second}
+		result, err := ParseWithOptions(
+			WithFilePath(server.URL),
+			WithHTTPClient(customClient),
+		)
+
+		require.NoError(t, err)
+		assert.True(t, requestReceived)
+		assert.Equal(t, "3.0.0", result.Version)
+	})
+
+	t.Run("custom client timeout is respected", func(t *testing.T) {
+		// Server that delays response longer than client timeout
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(200 * time.Millisecond)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`))
+		}))
+		defer server.Close()
+
+		// Client with very short timeout
+		shortTimeoutClient := &http.Client{Timeout: 50 * time.Millisecond}
+		_, err := ParseWithOptions(
+			WithFilePath(server.URL),
+			WithHTTPClient(shortTimeoutClient),
+		)
+
+		require.Error(t, err)
+		// Error message varies by Go version, just check it's a timeout-related error
+		assert.True(t, strings.Contains(err.Error(), "deadline") || strings.Contains(err.Error(), "timeout"))
+	})
+}
+
+// roundTripperFunc is a helper for testing custom transports
+type roundTripperFunc struct {
+	fn func(*http.Request) (*http.Response, error)
+}
+
+func (r *roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return r.fn(req)
+}
+
+func TestParseWithOptions_HTTPClient_CustomTransport(t *testing.T) {
+	t.Run("custom transport is used", func(t *testing.T) {
+		transportUsed := false
+		customTransport := &roundTripperFunc{
+			fn: func(req *http.Request) (*http.Response, error) {
+				transportUsed = true
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(strings.NewReader(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`)),
+					Header: make(http.Header),
+				}, nil
+			},
+		}
+		customClient := &http.Client{Transport: customTransport}
+
+		result, err := ParseWithOptions(
+			WithFilePath("https://example.com/api.yaml"),
+			WithHTTPClient(customClient),
+		)
+
+		require.NoError(t, err)
+		assert.True(t, transportUsed, "Custom transport should have been used")
+		assert.Equal(t, "3.0.0", result.Version)
+	})
+
+	t.Run("user agent still applied with custom client", func(t *testing.T) {
+		var receivedUA string
+		customTransport := &roundTripperFunc{
+			fn: func(req *http.Request) (*http.Response, error) {
+				receivedUA = req.Header.Get("User-Agent")
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(strings.NewReader(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`)),
+					Header: make(http.Header),
+				}, nil
+			},
+		}
+		customClient := &http.Client{Transport: customTransport}
+
+		_, err := ParseWithOptions(
+			WithFilePath("https://example.com/api.yaml"),
+			WithHTTPClient(customClient),
+			WithUserAgent("custom-agent/1.0"),
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, "custom-agent/1.0", receivedUA)
+	})
+}
+
+func TestParseWithOptions_HTTPClient_InsecureInteraction(t *testing.T) {
+	t.Run("warns when both HTTPClient and InsecureSkipVerify set", func(t *testing.T) {
+		var logMessages []string
+		mockLogger := &mockTestLogger{
+			warnFunc: func(msg string, args ...any) {
+				logMessages = append(logMessages, msg)
+			},
+		}
+
+		customTransport := &roundTripperFunc{
+			fn: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(strings.NewReader(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`)),
+					Header: make(http.Header),
+				}, nil
+			},
+		}
+		customClient := &http.Client{Transport: customTransport}
+
+		_, err := ParseWithOptions(
+			WithFilePath("https://example.com/api.yaml"),
+			WithHTTPClient(customClient),
+			WithInsecureSkipVerify(true),
+			WithLogger(mockLogger),
+		)
+
+		require.NoError(t, err)
+		require.Len(t, logMessages, 1)
+		assert.Contains(t, logMessages[0], "InsecureSkipVerify ignored")
+	})
+}
+
+// mockTestLogger implements Logger for testing
+type mockTestLogger struct {
+	warnFunc func(msg string, args ...any)
+}
+
+func (m *mockTestLogger) Debug(msg string, args ...any) {}
+func (m *mockTestLogger) Info(msg string, args ...any)  {}
+func (m *mockTestLogger) Warn(msg string, args ...any) {
+	if m.warnFunc != nil {
+		m.warnFunc(msg, args...)
+	}
+}
+func (m *mockTestLogger) Error(msg string, args ...any) {}
+func (m *mockTestLogger) With(attrs ...any) Logger      { return m }
