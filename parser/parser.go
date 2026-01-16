@@ -37,6 +37,10 @@ type Parser struct {
 	// UserAgent is the User-Agent string used when fetching URLs
 	// Defaults to "oastools" if not set
 	UserAgent string
+	// HTTPClient is the HTTP client used for fetching URLs.
+	// If nil, a default client with 30-second timeout is created.
+	// When set, InsecureSkipVerify is ignored (configure TLS on your client's transport).
+	HTTPClient *http.Client
 	// Logger is the structured logger for debug output
 	// If nil, logging is disabled (default)
 	Logger Logger
