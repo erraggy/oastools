@@ -583,3 +583,55 @@ func TestWithHTTPClient(t *testing.T) {
 		assert.Nil(t, cfg.httpClient)
 	})
 }
+
+// TestParseWithOptions_HTTPClient tests custom HTTP client integration
+func TestParseWithOptions_HTTPClient(t *testing.T) {
+	t.Run("uses custom client for URL parsing", func(t *testing.T) {
+		requestReceived := false
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestReceived = true
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`))
+		}))
+		defer server.Close()
+
+		customClient := &http.Client{Timeout: 5 * time.Second}
+		result, err := ParseWithOptions(
+			WithFilePath(server.URL),
+			WithHTTPClient(customClient),
+		)
+
+		require.NoError(t, err)
+		assert.True(t, requestReceived)
+		assert.Equal(t, "3.0.0", result.Version)
+	})
+
+	t.Run("custom client timeout is respected", func(t *testing.T) {
+		// Server that delays response longer than client timeout
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(200 * time.Millisecond)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`openapi: "3.0.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}`))
+		}))
+		defer server.Close()
+
+		// Client with very short timeout
+		shortTimeoutClient := &http.Client{Timeout: 50 * time.Millisecond}
+		_, err := ParseWithOptions(
+			WithFilePath(server.URL),
+			WithHTTPClient(shortTimeoutClient),
+		)
+
+		require.Error(t, err)
+		// Error message varies by Go version, just check it's a timeout-related error
+		assert.True(t, strings.Contains(err.Error(), "deadline") || strings.Contains(err.Error(), "timeout"))
+	})
+}

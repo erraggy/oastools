@@ -332,9 +332,14 @@ func isURL(path string) bool {
 // fetchURL fetches content from a URL and returns the bytes and Content-Type header
 func (p *Parser) fetchURL(urlStr string) ([]byte, string, error) {
 	// Create HTTP client with timeout
-	// Configure TLS if InsecureSkipVerify is enabled
+	// Use custom client if provided, otherwise create default
 	var client *http.Client
-	if p.InsecureSkipVerify {
+	if p.HTTPClient != nil {
+		client = p.HTTPClient
+		if p.InsecureSkipVerify {
+			p.log().Warn("InsecureSkipVerify ignored when HTTPClient provided; configure TLS on your client's transport")
+		}
+	} else if p.InsecureSkipVerify {
 		transport := &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true, //nolint:gosec // User explicitly requested insecure mode
