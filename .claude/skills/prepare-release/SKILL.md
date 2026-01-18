@@ -26,7 +26,7 @@ git log "$LAST_TAG"..HEAD --oneline
 ### Step 2: Determine Version Bump
 
 Parse conventional commit prefixes:
-- Any `BREAKING CHANGE:` in footer or `!` after type (e.g., `feat!:`, `fix!:`) → **MAJOR** bump
+- Any `BREAKING CHANGE:` footer or type with exclamation suffix (e.g., `feat!:`, `fix!:`) → **MAJOR** bump
 - Any `feat:` or `feat(scope):` → **MINOR** bump
 - Only `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `perf:` → **PATCH** bump
 
