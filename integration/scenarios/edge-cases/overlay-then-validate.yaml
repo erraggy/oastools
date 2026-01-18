@@ -1,0 +1,15 @@
+name: "Overlay then validate pipeline"
+description: "Tests applying an overlay and then validating the result"
+
+base: petstore-oas30
+
+pipeline:
+  - step: parse
+  - step: overlay
+    config:
+      overlay-file: "../../overlays/add-schema.yaml"
+  - step: validate
+    expect: valid
+    assertions:
+      - schemas-exist:
+          - Error

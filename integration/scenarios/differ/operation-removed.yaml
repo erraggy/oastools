@@ -1,0 +1,22 @@
+name: "Detect removed operation"
+description: "Tests that removing an HTTP operation is detected as breaking"
+
+inputs:
+  - base: petstore-oas30
+    as: "v1"
+  - base: petstore-oas30
+    as: "v2"
+    problems:
+      # Remove GET /pets - this is a breaking change
+      remove-operation:
+        - path: /pets
+          method: get
+
+pipeline:
+  - step: parse-all
+  - step: diff
+    config:
+      source: 0
+      target: 1
+    assertions:
+      - breaking-changes: true

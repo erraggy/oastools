@@ -1,0 +1,13 @@
+name: "Parse OAS 2.0 (Swagger) document"
+description: "Verifies basic OAS 2.0 parsing works correctly"
+
+base: petstore-oas2
+
+pipeline:
+  - step: parse
+  - step: validate
+    expect: valid
+    assertions:
+      - schemas-exist:
+          - Pet
+          - NewPet

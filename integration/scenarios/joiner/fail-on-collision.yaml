@@ -1,0 +1,19 @@
+name: "Join with fail-on-collision strategy"
+description: "Tests that join fails when schemas collide with fail strategy"
+
+inputs:
+  - base: petstore-oas30
+    as: "service-a"
+  - base: petstore-oas30
+    as: "service-b"
+    problems:
+      duplicate-schema-different:
+        - name: Pet
+
+pipeline:
+  - step: parse-all
+  - step: join
+    config:
+      schema-strategy: fail
+    expect: error
+    error-contains: "collision"

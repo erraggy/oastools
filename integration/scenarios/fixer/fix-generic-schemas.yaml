@@ -1,0 +1,24 @@
+name: "Fix generic schema names"
+description: "Verifies that schemas with bracket syntax are renamed to valid names"
+
+base: petstore-oas30
+
+problems:
+  generic-schemas:
+    - "Response[Pet]"
+    - "PagedList[Pet,Cursor]"
+
+pipeline:
+  - step: parse
+  - step: fix
+    config:
+      enabled:
+        - generic-schemas
+  - step: validate
+    expect: valid
+    assertions:
+      - fixes-applied:
+          generic-schemas: 2
+      - schemas-not-exist:
+          - "Response[Pet]"
+          - "PagedList[Pet,Cursor]"

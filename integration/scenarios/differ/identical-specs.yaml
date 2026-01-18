@@ -1,0 +1,19 @@
+name: "Identical specs have no changes"
+description: "Tests that comparing identical specs reports no changes"
+
+inputs:
+  - base: petstore-oas30
+    as: "v1"
+  - base: petstore-oas30
+    as: "v2"
+
+pipeline:
+  - step: parse-all
+  - step: diff
+    config:
+      source: 0
+      target: 1
+    assertions:
+      - breaking-changes: false
+      - breaking-change-count: 0
+      - change-count: 0

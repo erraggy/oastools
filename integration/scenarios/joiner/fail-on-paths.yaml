@@ -1,0 +1,20 @@
+name: "Join with fail-on-paths strategy"
+description: "Tests that fail-on-paths fails on path collisions but allows schema collisions"
+
+inputs:
+  - base: petstore-oas30
+    as: "service-a"
+  - base: petstore-oas30
+    as: "service-b"
+    problems:
+      duplicate-path:
+        - path: "/pets"
+          method: get
+
+pipeline:
+  - step: parse-all
+  - step: join
+    config:
+      strategy: fail-on-paths
+    expect: error
+    error-contains: "collision"

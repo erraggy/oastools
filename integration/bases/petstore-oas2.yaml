@@ -1,0 +1,94 @@
+# Petstore OAS 2.0 (Swagger) - Minimal test fixture
+swagger: "2.0"
+info:
+  title: Petstore API
+  description: A minimal OAS 2.0 API for testing
+  version: "1.0.0"
+host: api.petstore.example.com
+basePath: /v1
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+
+paths:
+  /pets:
+    get:
+      summary: List all pets
+      operationId: listPets
+      parameters:
+        - name: limit
+          in: query
+          type: integer
+          format: int32
+          description: Maximum number of pets to return
+      responses:
+        "200":
+          description: A list of pets
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/Pet"
+    post:
+      summary: Create a pet
+      operationId: createPet
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/NewPet"
+      responses:
+        "201":
+          description: Pet created
+          schema:
+            $ref: "#/definitions/Pet"
+
+  /pets/{petId}:
+    get:
+      summary: Get a pet by ID
+      operationId: getPet
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          type: string
+      responses:
+        "200":
+          description: A pet
+          schema:
+            $ref: "#/definitions/Pet"
+        "404":
+          description: Pet not found
+
+definitions:
+  Pet:
+    type: object
+    required:
+      - id
+      - name
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      tag:
+        type: string
+      status:
+        type: string
+        enum:
+          - available
+          - pending
+          - sold
+
+  NewPet:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+      tag:
+        type: string

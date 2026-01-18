@@ -1,0 +1,24 @@
+name: "Join with rename-right strategy"
+description: "Tests that rename-right renames the right schema and keeps left unchanged"
+
+inputs:
+  - base: petstore-oas30
+    as: "service-a"
+  - base: petstore-oas30
+    as: "service-b"
+    problems:
+      duplicate-schema-different:
+        - name: Pet
+
+pipeline:
+  - step: parse-all
+  - step: join
+    config:
+      schema-strategy: rename-right
+      path-strategy: accept-left
+  - step: validate
+    expect: valid
+    assertions:
+      - schemas-exist:
+          - Pet
+          - NewPet

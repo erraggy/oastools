@@ -1,0 +1,15 @@
+name: "Apply overlay to add server"
+description: "Tests overlay application to add a production server"
+
+base: petstore-oas30
+
+pipeline:
+  - step: parse
+  - step: overlay
+    config:
+      overlay-file: "../../overlays/add-server.yaml"
+    assertions:
+      - actions-applied: 1
+      - actions-skipped: 0
+  - step: validate
+    expect: valid

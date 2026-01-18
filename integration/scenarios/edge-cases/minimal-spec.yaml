@@ -1,0 +1,14 @@
+name: "Minimal valid spec"
+description: "Tests handling of a minimal but valid OpenAPI specification"
+
+base: petstore-oas30
+
+pipeline:
+  - step: parse
+  - step: validate
+    expect: valid
+    assertions:
+      # Petstore has 2 paths: /pets and /pets/{petId}
+      - schemas-exist:
+          - Pet
+          - NewPet

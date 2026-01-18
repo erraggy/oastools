@@ -1,0 +1,31 @@
+name: "Join with semantic deduplication"
+description: "Tests cross-document deduplication of structurally identical schemas with different names"
+
+inputs:
+  - base: petstore-oas30
+    as: "service-a"
+    problems:
+      semantic-duplicate:
+        - original: Pet
+          duplicate-name: Animal
+  - base: petstore-oas30
+    as: "service-b"
+
+pipeline:
+  - step: parse-all
+  - step: join
+    config:
+      semantic-deduplication: true
+      schema-strategy: accept-left
+      path-strategy: accept-left
+  - step: validate
+    expect: valid
+    assertions:
+      # After semantic deduplication, Animal and Pet are consolidated.
+      # Since "Animal" < "Pet" alphabetically, Animal is kept as the canonical name.
+      - schemas-exist:
+          - Animal
+          - NewPet
+      # Pet should not exist since it was deduplicated to Animal
+      - schemas-not-exist:
+          - Pet

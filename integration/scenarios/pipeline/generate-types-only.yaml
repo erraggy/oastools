@@ -1,0 +1,17 @@
+name: "Generate types only"
+description: "Tests generating only types (no client/server) from an OAS 3.0 spec"
+
+base: petstore-oas30
+
+pipeline:
+  - step: parse
+  - step: validate
+    expect: valid
+  - step: generate
+    config:
+      types: true
+      client: false
+      server: false
+      package: "models"
+  - step: build
+    expect: success

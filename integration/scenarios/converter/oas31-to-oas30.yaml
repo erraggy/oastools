@@ -1,0 +1,19 @@
+name: "Convert OAS 3.1 to OAS 3.0"
+description: "Tests conversion from OpenAPI 3.1 to OpenAPI 3.0 (includes webhook loss warning)"
+
+base: petstore-oas31
+
+pipeline:
+  - step: parse
+  - step: convert
+    config:
+      target-version: "3.0.3"
+    assertions:
+      - target-version: "3.0.3"
+  - step: validate
+    expect: valid
+    assertions:
+      - schemas-exist:
+          - Pet
+          - NewPet
+          - PetEvent

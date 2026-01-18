@@ -92,6 +92,17 @@ test-coverage: test
 	go tool cover -html=coverage.txt -o coverage.html
 	@echo "Coverage report generated at coverage.html"
 
+## integration-test: Run integration tests (scenario-driven, uses build tags)
+.PHONY: integration-test
+integration-test:
+	@echo "Running integration tests..."
+	go test -tags=integration ./integration/... -v -count=1 -timeout=10m
+
+## integration-test-debug: Run integration tests with debug output
+.PHONY: integration-test-debug
+integration-test-debug:
+	INTEGRATION_DEBUG=1 go test -tags=integration ./integration/... -v -count=1 -timeout=10m
+
 ## test-fuzz-parse: Run fuzz tests for parser (default: 1m30s, override with FUZZ_TIME, optionally set FUZZ_LOG=1 to save output)
 .PHONY: test-fuzz-parse
 test-fuzz-parse:

@@ -1,0 +1,18 @@
+name: "Parse all OAS versions"
+description: "Verifies that all supported OAS versions can be parsed"
+skip: "Multi-input parsing not yet implemented - use TestParseAllVersions instead"
+
+inputs:
+  - base: petstore-oas2
+    as: "OAS 2.0"
+  - base: petstore-oas30
+    as: "OAS 3.0"
+  - base: petstore-oas31
+    as: "OAS 3.1"
+  - base: petstore-oas32
+    as: "OAS 3.2"
+
+pipeline:
+  - step: parse-all
+  - step: validate
+    expect: valid

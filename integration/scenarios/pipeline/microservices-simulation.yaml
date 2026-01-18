@@ -1,0 +1,28 @@
+name: "Microservices simulation"
+description: "Joins multiple service specs and generates a unified client"
+
+inputs:
+  - base: petstore-oas30
+    as: "pets-service"
+  - base: petstore-oas31
+    as: "orders-service"
+    problems:
+      # Add a schema that collides to test rename strategy
+      duplicate-schema-different:
+        - name: Pet
+          copy-from: NewPet
+
+pipeline:
+  - step: parse-all
+  - step: join
+    config:
+      schema-strategy: rename-right
+      path-strategy: accept-left
+  - step: validate
+    expect: valid
+  - step: generate
+    config:
+      client: true
+      package: "unified"
+  - step: build
+    expect: success

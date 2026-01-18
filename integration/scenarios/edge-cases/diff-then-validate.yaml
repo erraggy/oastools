@@ -1,0 +1,24 @@
+name: "Diff then validate pipeline"
+description: "Tests diffing two specs then validating the result"
+
+inputs:
+  - base: petstore-oas30
+    as: "v1"
+  - base: petstore-oas30
+    as: "v2"
+    problems:
+      add-endpoint:
+        - path: /health
+          method: get
+
+pipeline:
+  - step: parse-all
+  - step: diff
+    config:
+      source: 0
+      target: 1
+    assertions:
+      - breaking-changes: false
+  # The diff result should allow chaining to validation
+  - step: validate
+    expect: valid

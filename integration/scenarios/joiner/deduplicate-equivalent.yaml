@@ -1,0 +1,26 @@
+name: "Join with deduplicate-equivalent strategy"
+description: "Tests that identical schemas are deduplicated (merged into one)"
+
+inputs:
+  - base: petstore-oas30
+    as: "service-a"
+  - base: petstore-oas30
+    as: "service-b"
+    problems:
+      duplicate-schema-identical:
+        - name: Pet
+          copy-from: Pet
+
+pipeline:
+  - step: parse-all
+  - step: join
+    config:
+      schema-strategy: deduplicate
+      path-strategy: accept-left
+      equivalence-mode: deep
+  - step: validate
+    expect: valid
+    assertions:
+      - schemas-exist:
+          - Pet
+          - NewPet

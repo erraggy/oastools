@@ -1,0 +1,15 @@
+name: "Parse OAS 3.2 with QUERY method"
+description: "Verifies that OAS 3.2 documents with QUERY method can be parsed"
+
+base: petstore-oas32
+
+pipeline:
+  - step: parse
+  - step: validate
+    expect: valid
+    assertions:
+      - schemas-exist:
+          - Pet
+          - NewPet
+          - PetEvent
+          - PetSearchCriteria

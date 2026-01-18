@@ -1,0 +1,23 @@
+name: "Fix unused schemas"
+description: "Verifies that unreferenced schemas are removed from the document"
+
+base: petstore-oas30
+
+problems:
+  unused-schemas:
+    - "OrphanedLegacyType"
+
+pipeline:
+  - step: parse
+  - step: fix
+    config:
+      enabled:
+        - unused-schemas
+  - step: validate
+    expect: valid
+    assertions:
+      - schemas-not-exist:
+          - "OrphanedLegacyType"
+      - schemas-exist:
+          - "Pet"
+          - "NewPet"

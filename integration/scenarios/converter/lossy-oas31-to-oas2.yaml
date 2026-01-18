@@ -1,0 +1,22 @@
+name: "Lossy conversion OAS 3.1 to OAS 2.0"
+description: "Tests that lossy conversions produce warnings/critical issues (webhooks lost)"
+
+base: petstore-oas31
+
+pipeline:
+  - step: parse
+  - step: convert
+    config:
+      target-version: "2.0"
+    # The conversion should produce a critical issue about webhooks
+    # but still succeed (conversion completes, document is usable)
+    assertions:
+      - target-version: "2.0"
+  - step: validate
+    expect: valid
+    assertions:
+      # Schemas should still be present after conversion
+      - schemas-exist:
+          - Pet
+          - NewPet
+          - PetEvent

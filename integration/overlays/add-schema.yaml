@@ -1,0 +1,18 @@
+overlay: 1.0.0
+info:
+  title: Add new schema
+  version: 1.0.0
+actions:
+  - target: "$.components.schemas"
+    description: Add Error schema for error responses
+    update:
+      Error:
+        type: object
+        required:
+          - code
+          - message
+        properties:
+          code:
+            type: integer
+          message:
+            type: string

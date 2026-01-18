@@ -1,0 +1,24 @@
+name: "Full pipeline: parse, fix, validate, generate, build"
+description: "Tests the complete oastools pipeline from parse to compiled code"
+
+base: petstore-oas30
+
+problems:
+  duplicate-operationids:
+    - id: "getPet"
+      count: 2
+
+pipeline:
+  - step: parse
+  - step: fix
+    config:
+      enabled: all
+  - step: validate
+    expect: valid
+  - step: generate
+    config:
+      client: true
+      server: true
+      package: "petstore"
+  - step: build
+    expect: success

@@ -1,0 +1,21 @@
+name: "Fix missing path parameters"
+description: "Verifies that missing path parameter declarations are added"
+
+base: petstore-oas30
+
+problems:
+  missing-path-params:
+    - path: "/pets/{petId}/photos/{photoId}"
+      method: get
+
+pipeline:
+  - step: parse
+  - step: fix
+    config:
+      enabled:
+        - missing-path-params
+  - step: validate
+    expect: valid
+    assertions:
+      - fixes-applied:
+          missing-path-params: 2

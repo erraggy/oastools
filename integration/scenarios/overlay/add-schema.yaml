@@ -1,0 +1,19 @@
+name: "Apply overlay to add schema"
+description: "Tests overlay application to add a new schema"
+
+base: petstore-oas30
+
+pipeline:
+  - step: parse
+  - step: overlay
+    config:
+      overlay-file: "../../overlays/add-schema.yaml"
+    assertions:
+      - actions-applied: 1
+  - step: validate
+    expect: valid
+    assertions:
+      - schemas-exist:
+          - Pet
+          - NewPet
+          - Error
