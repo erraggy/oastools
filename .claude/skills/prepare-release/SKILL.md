@@ -173,4 +173,4 @@ If user chooses "Yes", from the repository root run:
 - Use `--admin` flag for PR merge if branch protection blocks
 - CI benchmarks run on the pre-release branch and are included in the PR
 - Document all new public API in CLAUDE.md
-- **ALWAYS use scripts** for phases 4-7 - never run release commands manually
+- **ALWAYS use scripts** for phases 4-6 - never run release commands manually
