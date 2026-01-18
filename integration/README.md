@@ -32,7 +32,7 @@ integration/
 │   ├── loader.go             # YAML scenario loader
 │   ├── pipeline.go           # Pipeline step execution
 │   ├── assertions.go         # Result validation helpers
-│   ├── problems.go           # Problem injectors (stub)
+│   ├── problems.go           # Problem injectors for test scenarios
 │   └── report.go             # Human-readable output
 ├── bases/                    # Minimal OAS fixtures
 │   ├── petstore-oas2.yaml    # OAS 2.0 baseline
@@ -108,10 +108,13 @@ debug:
 | Step | Description | Phase |
 |------|-------------|-------|
 | `parse` | Parse the base document | 1 |
+| `parse-all` | Parse multiple input documents | 1 |
 | `validate` | Validate the parsed document | 1 |
 | `fix` | Apply fixes to the document | 2 |
+| `fix-all` | Apply fixes to all documents | 2 |
 | `join` | Join multiple documents | 3 |
 | `convert` | Convert between OAS versions | 4 |
+| `convert-all` | Convert all documents to target version | 4 |
 | `generate` | Generate client/server code | 5 |
 | `build` | Compile generated code | 5 |
 | `diff` | Compare two documents | 6 |

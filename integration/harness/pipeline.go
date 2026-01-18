@@ -534,13 +534,6 @@ func executeConvertAll(t *testing.T, pc *PipelineContext, step *Step, result *St
 	return nil
 }
 
-// executeNotImplemented returns a not-implemented error for steps that are not yet implemented.
-func executeNotImplemented(t *testing.T, pc *PipelineContext, step *Step, result *StepResult) error {
-	t.Helper()
-	_ = pc // unused in stub
-	return fmt.Errorf("step '%s' is not yet implemented", step.Name)
-}
-
 // containsSubstring checks if s contains substr (case-insensitive would be nice but keeping simple).
 func containsSubstring(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||

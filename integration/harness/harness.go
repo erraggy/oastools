@@ -354,7 +354,9 @@ func RunScenario(t *testing.T, scenario *Scenario, basesDir string) *PipelineRes
 	// Ensure temporary directories are cleaned up when done
 	defer func() {
 		for _, dir := range pc.TempDirs {
-			_ = os.RemoveAll(dir)
+			if err := os.RemoveAll(dir); err != nil {
+				t.Logf("warning: failed to clean up temp directory %s: %v", dir, err)
+			}
 		}
 	}()
 

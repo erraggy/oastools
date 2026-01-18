@@ -444,22 +444,6 @@ func generateOperationID(path, method string) string {
 	return strings.ToLower(method) + "_" + cleanPath
 }
 
-// ProblemInjector is an interface for problem injection strategies.
-type ProblemInjector interface {
-	// Name returns the name of the problem type
-	Name() string
-	// Inject modifies the document to add the problem
-	Inject(doc *parser.ParseResult, config any) error
-}
-
-// ProblemRegistry holds all registered problem injectors.
-var ProblemRegistry = make(map[string]ProblemInjector)
-
-// RegisterProblem registers a problem injector.
-func RegisterProblem(injector ProblemInjector) {
-	ProblemRegistry[injector.Name()] = injector
-}
-
 // --- Joiner Problem Injectors ---
 
 // injectDuplicateSchemaIdentical adds a schema with the same name and identical structure.
@@ -625,6 +609,7 @@ func setSchema(doc *parser.ParseResult, name string, schema *parser.Schema) erro
 // --- Differ Problem Injectors ---
 
 // injectRemoveEndpoint removes an existing path from the document.
+// Returns an error if the path does not exist (likely a configuration error).
 func injectRemoveEndpoint(doc *parser.ParseResult, path string) error {
 	if doc.IsOAS3() {
 		oas3Doc, ok := doc.OAS3Document()
@@ -632,7 +617,10 @@ func injectRemoveEndpoint(doc *parser.ParseResult, path string) error {
 			return fmt.Errorf("expected OAS3 document")
 		}
 		if oas3Doc.Paths == nil {
-			return nil // nothing to remove
+			return fmt.Errorf("cannot remove endpoint %q: no paths defined in document", path)
+		}
+		if _, exists := oas3Doc.Paths[path]; !exists {
+			return fmt.Errorf("cannot remove endpoint %q: path does not exist", path)
 		}
 		delete(oas3Doc.Paths, path)
 	} else {
@@ -641,7 +629,10 @@ func injectRemoveEndpoint(doc *parser.ParseResult, path string) error {
 			return fmt.Errorf("expected OAS2 document")
 		}
 		if oas2Doc.Paths == nil {
-			return nil
+			return fmt.Errorf("cannot remove endpoint %q: no paths defined in document", path)
+		}
+		if _, exists := oas2Doc.Paths[path]; !exists {
+			return fmt.Errorf("cannot remove endpoint %q: path does not exist", path)
 		}
 		delete(oas2Doc.Paths, path)
 	}
@@ -649,6 +640,7 @@ func injectRemoveEndpoint(doc *parser.ParseResult, path string) error {
 }
 
 // injectRemoveOperation removes an operation from a path.
+// Returns an error if the path or operation does not exist (likely a configuration error).
 func injectRemoveOperation(doc *parser.ParseResult, op RemoveOperationConfig) error {
 	var pathItem *parser.PathItem
 
@@ -658,7 +650,7 @@ func injectRemoveOperation(doc *parser.ParseResult, op RemoveOperationConfig) er
 			return fmt.Errorf("expected OAS3 document")
 		}
 		if oas3Doc.Paths == nil {
-			return nil
+			return fmt.Errorf("cannot remove operation %s %s: no paths defined in document", op.Method, op.Path)
 		}
 		pathItem = oas3Doc.Paths[op.Path]
 	} else {
@@ -667,33 +659,49 @@ func injectRemoveOperation(doc *parser.ParseResult, op RemoveOperationConfig) er
 			return fmt.Errorf("expected OAS2 document")
 		}
 		if oas2Doc.Paths == nil {
-			return nil
+			return fmt.Errorf("cannot remove operation %s %s: no paths defined in document", op.Method, op.Path)
 		}
 		pathItem = oas2Doc.Paths[op.Path]
 	}
 
 	if pathItem == nil {
-		return nil
+		return fmt.Errorf("cannot remove operation %s %s: path does not exist", op.Method, op.Path)
 	}
 
-	// Remove the operation
-	switch strings.ToLower(op.Method) {
+	// Remove the operation (check it exists first)
+	method := strings.ToLower(op.Method)
+	var exists bool
+	switch method {
 	case "get":
+		exists = pathItem.Get != nil
 		pathItem.Get = nil
 	case "post":
+		exists = pathItem.Post != nil
 		pathItem.Post = nil
 	case "put":
+		exists = pathItem.Put != nil
 		pathItem.Put = nil
 	case "delete":
+		exists = pathItem.Delete != nil
 		pathItem.Delete = nil
 	case "patch":
+		exists = pathItem.Patch != nil
 		pathItem.Patch = nil
 	case "options":
+		exists = pathItem.Options != nil
 		pathItem.Options = nil
 	case "head":
+		exists = pathItem.Head != nil
 		pathItem.Head = nil
 	case "trace":
+		exists = pathItem.Trace != nil
 		pathItem.Trace = nil
+	default:
+		return fmt.Errorf("cannot remove operation %s %s: unknown HTTP method", op.Method, op.Path)
+	}
+
+	if !exists {
+		return fmt.Errorf("cannot remove operation %s %s: operation does not exist", op.Method, op.Path)
 	}
 
 	return nil

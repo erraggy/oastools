@@ -1,6 +1,6 @@
 # Integration Test Pipeline Design
 
-> **Status:** Draft - Pending Implementation
+> **Status:** Implemented
 > **Created:** 2026-01-17
 > **Author:** Claude (with Robbie)
 
@@ -212,7 +212,7 @@ A JSON Schema or comprehensive docs for the scenario format should be included i
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                           harness/problems.go                           │
 │  • InjectProblems(doc, problems) → modified doc                         │
-│  • Registry of problem injectors by type                                │
+│  • Direct function calls for each problem type                          │
 │  • Uses walker for traversal, direct manipulation for additions         │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -323,14 +323,10 @@ assertions:
       - InventoryPet
   - error-count: 1
   - error-contains: "NonExistent"
-  - error-path: "$.paths./pets"
-  - files-generated:
-      - client.go
-      - types.go
-  - file-contains:
-      file: client.go
-      patterns:
-        - "func.*ListPets"
+  # Planned (not yet implemented):
+  # - error-path: "$.paths./pets"
+  # - files-generated: [client.go, types.go]
+  # - file-contains: {file: client.go, patterns: ["func.*ListPets"]}
 ```
 
 ### Failure Output
@@ -576,48 +572,48 @@ Minimal, valid OAS documents serving as starting points.
 
 Summary of all claims that need test coverage:
 
-### Fixer (6 fix types)
+### Fixer (6 fix types) ✅
 
-- [ ] `missing-path-params` - Adds missing path parameter declarations
-- [ ] `generic-schemas` - Renames schemas with special characters
-- [ ] `duplicate-operationids` - Renames duplicate operation IDs
-- [ ] `csv-enums` - Expands CSV enum strings to arrays
-- [ ] `unused-schemas` - Removes unreferenced schemas
-- [ ] `empty-paths` - Removes paths with no operations
+- [x] `missing-path-params` - Adds missing path parameter declarations
+- [x] `generic-schemas` - Renames schemas with special characters
+- [x] `duplicate-operationids` - Renames duplicate operation IDs
+- [x] `csv-enums` - Expands CSV enum strings to arrays
+- [x] `unused-schemas` - Removes unreferenced schemas
+- [x] `empty-paths` - Removes paths with no operations
 
-### Joiner (7 strategies + features)
+### Joiner (7 strategies + features) ✅
 
-- [ ] `fail-on-collision` - Errors on any collision
-- [ ] `accept-left` - Keeps left document's value
-- [ ] `accept-right` - Keeps right document's value
-- [ ] `fail-on-paths` - Fails only on path collisions
-- [ ] `rename-left` - Renames left schema
-- [ ] `rename-right` - Renames right schema
-- [ ] `deduplicate-equivalent` - Merges identical schemas
-- [ ] Semantic deduplication across documents
-- [ ] Operation-aware renaming
-- [ ] Namespace prefixes
+- [x] `fail-on-collision` - Errors on any collision
+- [x] `accept-left` - Keeps left document's value
+- [x] `accept-right` - Keeps right document's value
+- [x] `fail-on-paths` - Fails only on path collisions
+- [x] `rename-left` - Renames left schema
+- [x] `rename-right` - Renames right schema
+- [x] `deduplicate-equivalent` - Merges identical schemas
+- [x] Semantic deduplication across documents
+- [ ] Operation-aware renaming (future)
+- [ ] Namespace prefixes (future)
 
-### Converter
+### Converter ✅
 
-- [ ] OAS 2.0 → 3.0.x
-- [ ] OAS 3.0.x → 2.0
-- [ ] OAS 3.0.x → 3.1.x
-- [ ] OAS 3.1.x → 3.0.x
-- [ ] OAS 3.x → 3.2.0
-- [ ] Lossy conversion warnings
-- [ ] Converted docs can be joined
+- [x] OAS 2.0 → 3.0.x
+- [x] OAS 3.0.x → 2.0
+- [x] OAS 3.0.x → 3.1.x
+- [x] OAS 3.1.x → 3.0.x
+- [x] OAS 3.x → 3.2.0
+- [x] Lossy conversion warnings
+- [x] Converted docs can be joined
 
 ### Other Packages
 
-- [ ] Parser: multi-version, $ref resolution, circular refs, resource limits
-- [ ] Validator: structure, semantic, JSON Schema validation
-- [ ] Differ: breaking change detection with severity
-- [ ] Generator: client/server generation, security helpers, OAuth2, file splitting
-- [ ] Builder: Go type reflection, generic support (optional)
-- [ ] Overlay: JSONPath targeting, update/remove actions (optional)
-- [ ] Walker: typed handlers, flow control (implicitly tested via others)
-- [ ] HTTPValidator: parameter deserialization, schema validation (optional)
+- [x] Parser: multi-version parsing (all 4 versions)
+- [x] Validator: structure validation
+- [x] Differ: breaking change detection with severity
+- [x] Generator: client/server generation, build verification
+- [ ] Builder: Go type reflection, generic support (future)
+- [x] Overlay: JSONPath targeting, update actions
+- [x] Walker: implicitly tested via other packages
+- [ ] HTTPValidator: parameter deserialization (future)
 
 ---
 
