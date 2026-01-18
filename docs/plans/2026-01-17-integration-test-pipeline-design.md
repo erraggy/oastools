@@ -625,4 +625,170 @@ None currently - design approved.
 
 ## Appendix: Scenario Schema Reference
 
-(To be completed in Phase 1 - will include full JSON Schema or detailed field documentation)
+### Scenario (root)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | ✅ | Short, descriptive name for the scenario |
+| `description` | string | | Additional context about what the scenario tests |
+| `base` | string | | Base document from `bases/` directory (without `.yaml`) |
+| `inputs` | Input[] | | Multi-document scenarios (e.g., join tests) |
+| `problems` | Problems | | Issues to inject into the base document |
+| `pipeline` | Step[] | ✅ | Sequence of steps to execute |
+| `debug` | DebugConfig | | Debug settings |
+| `skip` | string | | Reason to skip this scenario (if set, scenario is skipped) |
+| `expected-failure` | string | | Marks this as a known failing case |
+
+### Input
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `base` | string | ✅ | Base document from `bases/` directory |
+| `as` | string | | Alias for this input (for error messages) |
+| `problems` | Problems | | Issues to inject into this specific input |
+
+### Step
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `step` | string | ✅ | Step type: `parse`, `parse-all`, `validate`, `fix`, `fix-all`, `join`, `convert`, `convert-all`, `generate`, `build`, `diff`, `overlay` |
+| `config` | map | | Step-specific configuration |
+| `expect` | string | | Expected outcome: `valid`, `invalid`, `error`, `success` |
+| `assertions` | Assertion[] | | Detailed checks to perform after the step |
+| `error-contains` | string | | Check that error message contains this substring |
+
+### Assertion
+
+Only one assertion field should be set per assertion object.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `schema-count` | int | Expected number of schemas |
+| `schemas-exist` | string[] | Schemas that must exist |
+| `schemas-not-exist` | string[] | Schemas that must not exist |
+| `error-count` | int | Expected number of errors |
+| `error-contains` | string | Error message must contain this |
+| `fixes-applied` | map[string]int | Expected fix counts by type |
+| `no-fixes-applied` | string[] | Fix types that should not be applied |
+| `collision-count` | int | Expected schema collision count |
+| `target-version` | string | Expected OAS version after conversion |
+| `warning-count` | int | Expected warning count |
+| `warning-contains` | string | Warning message must contain this |
+| `breaking-changes` | bool | Whether breaking changes are expected |
+| `breaking-change-count` | int | Expected number of breaking changes |
+| `change-count` | int | Expected total change count |
+| `actions-applied` | int | Expected overlay actions applied |
+| `actions-skipped` | int | Expected overlay actions skipped |
+
+### Problems
+
+#### Fixer Problems
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `missing-path-params` | MissingPathParam[] | Paths with missing parameter declarations |
+| `generic-schemas` | string[] | Schema names with bracket syntax (e.g., `Response[Pet]`) |
+| `duplicate-operationids` | DuplicateOperationID[] | Operations with duplicate IDs |
+| `csv-enums` | CSVEnum[] | Schemas with CSV enum values |
+| `unused-schemas` | string[] | Schema names not referenced anywhere |
+| `empty-paths` | string[] | Paths with no operations |
+
+#### Joiner Problems
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `duplicate-schema-identical` | DuplicateSchema[] | Schema with same name and structure |
+| `duplicate-schema-different` | DuplicateSchema[] | Schema with same name but different structure |
+| `duplicate-path` | DuplicatePathConfig[] | Path that already exists |
+| `semantic-duplicate` | SemanticDuplicateConfig[] | Schema with different name but identical structure |
+
+#### Differ Problems
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `remove-endpoint` | string[] | Paths to remove |
+| `remove-operation` | RemoveOperationConfig[] | Operations to remove |
+| `add-required-param` | AddRequiredParamConfig[] | Required parameters to add |
+| `remove-response-code` | RemoveResponseCodeConfig[] | Response codes to remove |
+| `add-endpoint` | AddEndpointConfig[] | Endpoints to add (non-breaking) |
+| `add-optional-param` | AddOptionalParamConfig[] | Optional parameters to add (non-breaking) |
+
+### Config Types
+
+#### MissingPathParam
+```yaml
+path: "/pets/{petId}"
+method: GET
+```
+
+#### DuplicateOperationID
+```yaml
+id: "getPet"
+count: 3
+```
+
+#### CSVEnum
+```yaml
+schema: "PetStatus"
+values: "available,pending,sold"
+```
+
+#### DuplicateSchema
+```yaml
+name: "Pet"
+copy-from: "Animal"  # optional
+```
+
+#### DuplicatePathConfig
+```yaml
+path: "/pets"
+method: GET  # optional, defaults to GET
+```
+
+#### SemanticDuplicateConfig
+```yaml
+original: "Pet"
+duplicate-name: "Animal"
+```
+
+#### RemoveOperationConfig
+```yaml
+path: "/pets/{petId}"
+method: DELETE
+```
+
+#### AddRequiredParamConfig
+```yaml
+path: "/pets"
+method: GET
+param-name: "apiKey"
+in: query  # query, header, path, cookie
+```
+
+#### RemoveResponseCodeConfig
+```yaml
+path: "/pets/{petId}"
+method: GET
+code: "404"
+```
+
+#### AddEndpointConfig
+```yaml
+path: "/pets/search"
+method: POST
+```
+
+#### AddOptionalParamConfig
+```yaml
+path: "/pets"
+method: GET
+param-name: "limit"
+in: query
+```
+
+### DebugConfig
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `dump-after` | string[] | Steps that should dump their output |
+| `verbose` | bool | Enable verbose logging |
