@@ -26,7 +26,7 @@ git log "$LAST_TAG"..HEAD --oneline
 ### Step 2: Determine Version Bump
 
 Parse conventional commit prefixes:
-- Any `BREAKING CHANGE:` or `!:` in commit message → **MAJOR** bump
+- Any `BREAKING CHANGE:` in footer or `!` after type (e.g., `feat!:`, `fix!:`) → **MAJOR** bump
 - Any `feat:` or `feat(scope):` → **MINOR** bump
 - Only `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `perf:` → **PATCH** bump
 
@@ -142,12 +142,13 @@ The script handles:
 - **Phase 5:** Create PR, wait for CI checks, merge with `--admin`, switch to main
 - **Phase 6:** Generate release notes, save to temp file, display for review
 
-If the script fails partway through, check the error message. You can re-run with:
+If the script fails partway through, check the error message. You can re-run safely:
 - `--skip-benchmarks` flag if benchmarks already completed
+- The script auto-detects already-merged PRs and skips to checkout
 
 ### Phase 6.3: Prompt for Publishing
 
-After the script completes successfully, use the **AskUserQuestion** tool to prompt the user:
+After the script completes successfully, prompt the user:
 
 ```
 ✅ Release preparation complete!
