@@ -1,0 +1,18 @@
+name: "Overlay with no matching targets"
+description: "Tests that overlay gracefully handles targets that match nothing"
+
+base: petstore-oas30
+
+pipeline:
+  - step: parse
+  - step: overlay
+    config:
+      overlay-file: "../../overlays/remove-deprecated.yaml"
+      # Don't use strict targets - should succeed with warnings
+      strict-targets: false
+    assertions:
+      # The target path doesn't exist, so action should be skipped
+      - actions-applied: 0
+      - actions-skipped: 1
+  - step: validate
+    expect: valid

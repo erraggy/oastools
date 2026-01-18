@@ -1,0 +1,14 @@
+name: "Validate a valid document"
+description: "Verifies that a valid OAS document passes validation"
+
+base: petstore-oas31
+
+pipeline:
+  - step: parse
+  - step: validate
+    expect: valid
+    assertions:
+      - schemas-exist:
+          - Pet
+          - NewPet
+          - PetEvent

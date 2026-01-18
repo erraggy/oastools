@@ -1,0 +1,26 @@
+name: "Detect added required parameter"
+description: "Tests that adding a required parameter creates a change (may not be breaking)"
+
+inputs:
+  - base: petstore-oas30
+    as: "v1"
+  - base: petstore-oas30
+    as: "v2"
+    problems:
+      # Add a required query parameter to an existing operation
+      add-required-param:
+        - path: /pets
+          method: get
+          param-name: requiredFilter
+          in: query
+
+pipeline:
+  - step: parse-all
+  - step: diff
+    config:
+      source: 0
+      target: 1
+      include-info: true
+    # Adding a required parameter creates at least one change
+    # Note: Whether this is "breaking" depends on differ's rule configuration
+    # The parameter addition itself is detected as a change

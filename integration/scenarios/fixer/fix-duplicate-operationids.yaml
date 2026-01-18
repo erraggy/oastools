@@ -1,0 +1,21 @@
+name: "Fix duplicate operationIds"
+description: "Verifies that duplicate operationId values are renamed to unique values"
+
+base: petstore-oas30
+
+problems:
+  duplicate-operationids:
+    - id: "duplicateOp"
+      count: 3
+
+pipeline:
+  - step: parse
+  - step: fix
+    config:
+      enabled:
+        - duplicate-operationids
+  - step: validate
+    expect: valid
+    assertions:
+      - fixes-applied:
+          duplicate-operationids: 2

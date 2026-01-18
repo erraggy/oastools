@@ -1,0 +1,18 @@
+name: "Convert OAS 3.0 to OAS 3.2"
+description: "Tests conversion from OpenAPI 3.0 to OpenAPI 3.2"
+
+base: petstore-oas30
+
+pipeline:
+  - step: parse
+  - step: convert
+    config:
+      target-version: "3.2.0"
+    assertions:
+      - target-version: "3.2.0"
+  - step: validate
+    expect: valid
+    assertions:
+      - schemas-exist:
+          - Pet
+          - NewPet

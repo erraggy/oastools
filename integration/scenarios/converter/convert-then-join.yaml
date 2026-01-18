@@ -1,0 +1,28 @@
+name: "Convert and join mixed versions"
+description: "Converts OAS 2.0 and 3.1 documents to 3.0, then joins them"
+
+inputs:
+  - base: petstore-oas2
+    as: "legacy-api"
+  - base: petstore-oas31
+    as: "modern-api"
+
+pipeline:
+  - step: parse-all
+  - step: convert-all
+    config:
+      target-version: "3.0.3"
+  - step: join
+    config:
+      schema-strategy: accept-left
+      path-strategy: accept-left
+  - step: validate
+    expect: valid
+    assertions:
+      # Both documents have Pet and NewPet schemas
+      - schemas-exist:
+          - Pet
+          - NewPet
+      # PetEvent only exists in the modern API (OAS 3.1)
+      - schemas-exist:
+          - PetEvent

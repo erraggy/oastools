@@ -1,0 +1,24 @@
+name: "Join with accept-left strategy"
+description: "Tests that accept-left keeps the first document's schema on collision"
+
+inputs:
+  - base: petstore-oas30
+    as: "service-a"
+  - base: petstore-oas30
+    as: "service-b"
+    problems:
+      duplicate-schema-different:
+        - name: Pet
+
+pipeline:
+  - step: parse-all
+  - step: join
+    config:
+      schema-strategy: accept-left
+      path-strategy: accept-left
+  - step: validate
+    expect: valid
+    assertions:
+      - schemas-exist:
+          - Pet
+          - NewPet

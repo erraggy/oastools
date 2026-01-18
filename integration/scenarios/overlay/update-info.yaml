@@ -1,0 +1,14 @@
+name: "Apply overlay to update info"
+description: "Tests overlay application to update API metadata"
+
+base: petstore-oas30
+
+pipeline:
+  - step: parse
+  - step: overlay
+    config:
+      overlay-file: "../../overlays/update-info.yaml"
+    assertions:
+      - actions-applied: 1
+  - step: validate
+    expect: valid

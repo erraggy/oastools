@@ -1,0 +1,9 @@
+name: "Parse OAS 3.0 document"
+description: "Verifies basic OAS 3.0 parsing works correctly"
+
+base: petstore-oas30
+
+pipeline:
+  - step: parse
+  - step: validate
+    expect: valid

@@ -1,0 +1,23 @@
+name: "Detect breaking changes"
+description: "Tests that differ detects breaking changes between API versions"
+
+inputs:
+  - base: petstore-oas30
+    as: "v1"
+  - base: petstore-oas30
+    as: "v2"
+    problems:
+      # Remove an existing endpoint - this is a breaking change
+      remove-endpoint:
+        - /pets/{petId}
+
+pipeline:
+  - step: parse-all
+  - step: diff
+    config:
+      source: 0
+      target: 1
+    assertions:
+      - breaking-changes: true
+      # Removing an endpoint should result in at least one breaking change
+      - breaking-change-count: 1

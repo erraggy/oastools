@@ -1,0 +1,28 @@
+name: "Non-breaking changes pass"
+description: "Tests that adding optional fields and endpoints is not breaking"
+
+inputs:
+  - base: petstore-oas30
+    as: "v1"
+  - base: petstore-oas30
+    as: "v2"
+    problems:
+      # Add a new endpoint - not breaking
+      add-endpoint:
+        - path: /health
+          method: get
+      # Add an optional parameter - not breaking
+      add-optional-param:
+        - path: /pets
+          method: get
+          param-name: optionalFilter
+          in: query
+
+pipeline:
+  - step: parse-all
+  - step: diff
+    config:
+      source: 0
+      target: 1
+    assertions:
+      - breaking-changes: false

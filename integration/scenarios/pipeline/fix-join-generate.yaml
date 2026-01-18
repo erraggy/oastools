@@ -1,0 +1,33 @@
+name: "Fix, join, and generate"
+description: "Fixes issues in multiple specs before joining and generating"
+
+inputs:
+  - base: petstore-oas30
+    as: "api-v1"
+    problems:
+      generic-schemas:
+        - "Response[Pet]"
+  - base: petstore-oas30
+    as: "api-v2"
+    problems:
+      unused-schemas:
+        - "LegacyType"
+
+pipeline:
+  - step: parse-all
+  - step: fix-all
+    config:
+      enabled: all
+  - step: join
+    config:
+      schema-strategy: deduplicate
+      path-strategy: accept-left
+      equivalence-mode: shallow
+  - step: validate
+    expect: valid
+  - step: generate
+    config:
+      client: true
+      package: "mergedapi"
+  - step: build
+    expect: success

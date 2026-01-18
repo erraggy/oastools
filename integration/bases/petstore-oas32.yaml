@@ -1,0 +1,182 @@
+# Petstore OAS 3.2.0 - Minimal test fixture with QUERY method
+openapi: "3.2.0"
+info:
+  title: Petstore API
+  summary: A minimal OAS 3.2 API with QUERY method
+  description: A minimal OAS 3.2 API for testing, including the QUERY HTTP method
+  version: "1.0.0"
+
+servers:
+  - url: https://api.petstore.example.com/v1
+    description: Production server
+
+paths:
+  /pets:
+    get:
+      summary: List all pets
+      operationId: listPets
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          description: Maximum number of pets to return
+      responses:
+        "200":
+          description: A list of pets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pet"
+    post:
+      summary: Create a pet
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPet"
+      responses:
+        "201":
+          description: Pet created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+
+  /pets/{petId}:
+    get:
+      summary: Get a pet by ID
+      operationId: getPet
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+        "404":
+          description: Pet not found
+
+  /pets/search:
+    query:
+      summary: Search pets with complex criteria
+      description: Uses the QUERY HTTP method (OAS 3.2+) for complex search requests
+      operationId: searchPets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PetSearchCriteria"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pet"
+
+webhooks:
+  petCreated:
+    post:
+      summary: Notification when a pet is created
+      operationId: onPetCreated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PetEvent"
+      responses:
+        "200":
+          description: Webhook processed successfully
+
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        tag:
+          type:
+            - string
+            - "null"
+        status:
+          type: string
+          enum:
+            - available
+            - pending
+            - sold
+
+    NewPet:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        tag:
+          type:
+            - string
+            - "null"
+
+    PetEvent:
+      type: object
+      required:
+        - eventType
+        - pet
+      properties:
+        eventType:
+          type: string
+          enum:
+            - created
+            - updated
+            - deleted
+        pet:
+          $ref: "#/components/schemas/Pet"
+        timestamp:
+          type: string
+          format: date-time
+
+    PetSearchCriteria:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Filter by pet name (partial match)
+        status:
+          type: array
+          items:
+            type: string
+            enum:
+              - available
+              - pending
+              - sold
+          description: Filter by status values
+        tags:
+          type: array
+          items:
+            type: string
+          description: Filter by tags (OR logic)
+        createdAfter:
+          type: string
+          format: date-time
+          description: Filter pets created after this timestamp

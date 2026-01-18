@@ -1,0 +1,21 @@
+name: "Fix empty paths"
+description: "Verifies that paths with no HTTP operations are removed"
+
+base: petstore-oas30
+
+problems:
+  empty-paths:
+    - "/deprecated/endpoint"
+    - "/placeholder"
+
+pipeline:
+  - step: parse
+  - step: fix
+    config:
+      enabled:
+        - empty-paths
+  - step: validate
+    expect: valid
+    assertions:
+      - fixes-applied:
+          empty-paths: 2

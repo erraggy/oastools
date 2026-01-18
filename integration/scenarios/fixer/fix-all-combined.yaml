@@ -1,0 +1,29 @@
+name: "All fix types applied together"
+description: "Proves all 6 fix types work correctly when applied simultaneously"
+
+base: petstore-oas30
+
+problems:
+  missing-path-params:
+    - path: "/pets/{petId}/photos/{photoId}"
+      method: get
+  generic-schemas:
+    - "Response[Pet]"
+  duplicate-operationids:
+    - id: "combinedOp"
+      count: 2
+  csv-enums:
+    - schema: "StatusCode"
+      values: "1,2,3"
+  unused-schemas:
+    - "OrphanedSchema"
+  empty-paths:
+    - "/empty-endpoint"
+
+pipeline:
+  - step: parse
+  - step: fix
+    config:
+      enabled: all
+  - step: validate
+    expect: valid

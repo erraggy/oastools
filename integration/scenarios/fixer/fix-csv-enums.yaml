@@ -1,0 +1,21 @@
+name: "Fix CSV enum values"
+description: "Verifies that CSV-encoded integer enum strings are expanded to arrays"
+
+base: petstore-oas30
+
+problems:
+  csv-enums:
+    - schema: "StatusCode"
+      values: "1,2,3,4,5"
+
+pipeline:
+  - step: parse
+  - step: fix
+    config:
+      enabled:
+        - csv-enums
+  - step: validate
+    expect: valid
+    assertions:
+      - fixes-applied:
+          csv-enums: 1

@@ -1,0 +1,19 @@
+name: "Convert OAS 2.0 then generate"
+description: "Converts an OAS 2.0 spec to 3.0 then generates code"
+
+base: petstore-oas2
+
+pipeline:
+  - step: parse
+  - step: convert
+    config:
+      target-version: "3.0.3"
+  - step: validate
+    expect: valid
+  - step: generate
+    config:
+      client: true
+      server: true
+      package: "legacypet"
+  - step: build
+    expect: success

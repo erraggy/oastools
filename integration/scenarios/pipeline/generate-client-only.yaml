@@ -1,0 +1,16 @@
+name: "Generate client only"
+description: "Tests generating an HTTP client from an OAS 3.1 spec"
+
+base: petstore-oas31
+
+pipeline:
+  - step: parse
+  - step: validate
+    expect: valid
+  - step: generate
+    config:
+      client: true
+      server: false
+      package: "petclient"
+  - step: build
+    expect: success

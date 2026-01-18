@@ -1,0 +1,15 @@
+name: "Generate from all OAS versions"
+description: "Tests generation works across OAS 2.0, 3.0, 3.1, and 3.2"
+
+base: petstore-oas32
+
+pipeline:
+  - step: parse
+  - step: validate
+    expect: valid
+  - step: generate
+    config:
+      client: true
+      package: "oas32client"
+  - step: build
+    expect: success
