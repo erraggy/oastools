@@ -29,9 +29,15 @@ Usage: /publish-release <version>
 Example: /publish-release v1.46.0
 ```
 
+If the version doesn't match the `vX.Y.Z` pattern, reject it:
+```
+Error: Version must match vX.Y.Z pattern (e.g., v1.46.0)
+Got: <invalid-version>
+```
+
 ### Step 2: Confirm with User
 
-Before proceeding, confirm:
+Use the **AskUserQuestion** tool to confirm before proceeding:
 ```
 Ready to publish release **<version>**?
 
@@ -45,6 +51,8 @@ Proceed? [Yes / Cancel]
 ```
 
 ### Step 3: Run the Publish Script
+
+From the repository root, run:
 
 ```bash
 .claude/scripts/publish-release.sh <version>
