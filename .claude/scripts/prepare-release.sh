@@ -85,7 +85,7 @@ else
 
     echo "Step 4.3: Waiting for benchmark workflow..."
     sleep 15  # Wait for run to appear
-    RUN_ID=$(gh run list --workflow=benchmark.yml --limit=1 --json databaseId -q '.[0].databaseId')
+    RUN_ID=$(gh run list --workflow=benchmark.yml --branch="$BRANCH" --limit=1 --json databaseId -q '.[0].databaseId')
     echo "  Watching run $RUN_ID..."
     if ! gh run watch "$RUN_ID" --exit-status; then
         echo "Error: Benchmark workflow failed" >&2
@@ -119,11 +119,21 @@ echo ""
 
 # Step 5.2: Create PR if it doesn't exist
 echo "Step 5.2: Creating PR..."
-EXISTING_PR=$(gh pr list --head "$BRANCH" --json number -q '.[0].number // empty')
 
-if [[ -n "$EXISTING_PR" ]]; then
-    echo "  PR #$EXISTING_PR already exists"
-    PR_NUMBER="$EXISTING_PR"
+# Get PR info including state to handle already-merged PRs on re-run
+PR_INFO=$(gh pr list --head "$BRANCH" --state all --json number,state -q '.[0] // empty')
+SKIP_TO_CHECKOUT=false
+
+if [[ -n "$PR_INFO" ]]; then
+    PR_STATE=$(echo "$PR_INFO" | jq -r '.state')
+    PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
+
+    if [[ "$PR_STATE" == "MERGED" ]]; then
+        echo "  PR #$PR_NUMBER already merged, skipping to checkout"
+        SKIP_TO_CHECKOUT=true
+    else
+        echo "  PR #$PR_NUMBER already exists (state: $PR_STATE)"
+    fi
 else
     PR_URL=$(gh pr create \
         --title "chore: prepare $VERSION release" \
@@ -147,22 +157,24 @@ else
 fi
 echo ""
 
-# Step 5.3: Wait for CI and merge
-echo "Step 5.3: Waiting for CI checks..."
-if ! gh pr checks "$PR_NUMBER" --watch --fail-fast; then
-    echo "Error: CI checks failed for PR #$PR_NUMBER" >&2
-    exit 3
-fi
-echo "  ✓ CI checks passed"
-echo ""
+if [[ "$SKIP_TO_CHECKOUT" == "false" ]]; then
+    # Step 5.3: Wait for CI and merge
+    echo "Step 5.3: Waiting for CI checks..."
+    if ! gh pr checks "$PR_NUMBER" --watch --fail-fast; then
+        echo "Error: CI checks failed for PR #$PR_NUMBER" >&2
+        exit 3
+    fi
+    echo "  ✓ CI checks passed"
+    echo ""
 
-echo "Step 5.4: Merging PR..."
-if ! gh pr merge "$PR_NUMBER" --squash --admin --delete-branch; then
-    echo "Error: Failed to merge PR #$PR_NUMBER" >&2
-    exit 3
+    echo "Step 5.4: Merging PR..."
+    if ! gh pr merge "$PR_NUMBER" --squash --admin --delete-branch; then
+        echo "Error: Failed to merge PR #$PR_NUMBER" >&2
+        exit 3
+    fi
+    echo "  ✓ PR merged"
+    echo ""
 fi
-echo "  ✓ PR merged"
-echo ""
 
 # Switch to main and pull
 echo "Step 5.5: Switching to main..."
@@ -179,7 +191,10 @@ echo "=== Phase 6: Generate Release Notes ==="
 
 # Step 6.1: Generate notes via GitHub API
 echo "Step 6.1: Generating release notes..."
-PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
+if ! PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null); then
+    echo "Error: Could not find previous tag. Is this the first release?" >&2
+    exit 4
+fi
 echo "  Previous tag: $PREV_TAG"
 
 NOTES_FILE="/tmp/release-notes-${VERSION}.md"
