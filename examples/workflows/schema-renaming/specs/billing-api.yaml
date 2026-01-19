@@ -1,0 +1,68 @@
+openapi: "3.0.3"
+info:
+  title: Billing API
+  version: "1.0.0"
+paths:
+  /accounts:
+    get:
+      operationId: listAccounts
+      tags: [billing]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+  /accounts/{accountId}/invoices:
+    get:
+      operationId: getInvoices
+      tags: [billing]
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invoice"
+components:
+  schemas:
+    Account:
+      type: object
+      required: [accountId, balance]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        balance:
+          type: number
+          format: double
+        creditLimit:
+          type: number
+          format: double
+        paymentTerms:
+          type: string
+          enum: [net_30, net_60, net_90]
+        lastPaymentDate:
+          type: string
+          format: date
+    Invoice:
+      type: object
+      properties:
+        invoiceId:
+          type: string
+        amount:
+          type: number
+        dueDate:
+          type: string
+          format: date

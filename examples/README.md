@@ -8,9 +8,15 @@ Complete, runnable examples demonstrating the full oastools ecosystem across par
 |------|----------|---------|-------------|
 | 2 min | Getting Started | [quickstart/](quickstart/) | Parse and validate a minimal spec |
 | 5 min | Getting Started | [validation-pipeline/](validation-pipeline/) | Complete validation with error reporting |
+| 5 min | Workflows | [pipeline-compositions/](workflows/pipeline-compositions/) | Chain multiple oastools operations |
+| 5 min | Workflows | [fixer-showcase/](workflows/fixer-showcase/) | All available fix types demonstrated |
 | 3 min | Workflows | [validate-and-fix/](workflows/validate-and-fix/) | Auto-fix common spec errors |
 | 3 min | Workflows | [version-conversion/](workflows/version-conversion/) | Convert OAS 2.0 → 3.0.3 |
+| 4 min | Workflows | [version-migration/](workflows/version-migration/) | OAS 3.1/3.2 upgrades and downgrades |
 | 4 min | Workflows | [multi-api-merge/](workflows/multi-api-merge/) | Merge microservice specs |
+| 3 min | Workflows | [collision-resolution/](workflows/collision-resolution/) | Handle schema collisions |
+| 3 min | Workflows | [schema-deduplication/](workflows/schema-deduplication/) | Consolidate identical schemas |
+| 4 min | Workflows | [schema-renaming/](workflows/schema-renaming/) | Preserve both schemas with renaming |
 | 4 min | Workflows | [breaking-change-detection/](workflows/breaking-change-detection/) | CI/CD breaking change gates |
 | 3 min | Workflows | [overlay-transformations/](workflows/overlay-transformations/) | Environment-specific customizations |
 | 5 min | Workflows | [http-validation/](workflows/http-validation/) | Runtime request/response validation |
@@ -40,9 +46,15 @@ Common OpenAPI transformation patterns covering 6 packages.
 
 | Example | Package | Description |
 |---------|---------|-------------|
+| [pipeline-compositions/](workflows/pipeline-compositions/) | multiple | Chain convert→fix→join→generate pipelines |
+| [fixer-showcase/](workflows/fixer-showcase/) | fixer | All 6 fix types with before/after |
 | [validate-and-fix/](workflows/validate-and-fix/) | fixer | Parse, validate, auto-fix common errors |
 | [version-conversion/](workflows/version-conversion/) | converter | Convert OAS 2.0 (Swagger) → OAS 3.0.3 |
+| [version-migration/](workflows/version-migration/) | converter | OAS 3.1/3.2 upgrades, lossy downgrades |
 | [multi-api-merge/](workflows/multi-api-merge/) | joiner | Merge specs with collision resolution |
+| [collision-resolution/](workflows/collision-resolution/) | joiner | fail-on-collision, accept-left, accept-right |
+| [schema-deduplication/](workflows/schema-deduplication/) | joiner | deduplicate-equivalent, semantic-dedup |
+| [schema-renaming/](workflows/schema-renaming/) | joiner | rename-left/right, templates, namespaces |
 | [breaking-change-detection/](workflows/breaking-change-detection/) | differ | Detect breaking changes between versions |
 | [overlay-transformations/](workflows/overlay-transformations/) | overlay | Apply JSONPath-based transformations |
 | [http-validation/](workflows/http-validation/) | httpvalidator | Runtime HTTP request/response validation |

@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: Orders API
+  version: 1.0.0
+paths:
+  /order-transactions:
+    get:
+      operationId: listTransactions
+      tags: [transactions]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+components:
+  schemas:
+    Transaction:
+      type: object
+      required: [orderId, items, total]
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+        total:
+          type: number
+          format: double
+        createdAt:
+          type: string
+          format: date-time

@@ -15,7 +15,6 @@ import (
 	"runtime"
 
 	"github.com/erraggy/oastools/joiner"
-	"github.com/erraggy/oastools/parser"
 )
 
 func main() {
@@ -83,37 +82,51 @@ func main() {
 	fmt.Println()
 	fmt.Println("--- Merged API Summary ---")
 
-	// Access the merged document (using safe type assertion)
-	doc, ok := result.Document.(*parser.OAS3Document)
-	if !ok {
-		log.Fatalf("Unexpected document type: %T (expected *parser.OAS3Document)", result.Document)
+	// Access the merged document using DocumentAccessor for version-agnostic access
+	parseResult := result.ToParseResult()
+	accessor := parseResult.AsAccessor()
+	if accessor == nil {
+		log.Fatalf("Could not access merged document")
 	}
 
-	fmt.Printf("Title: %s\n", doc.Info.Title)
-	fmt.Printf("Version: %s\n", doc.Info.Version)
-	fmt.Println()
-
-	fmt.Printf("Servers: %d\n", len(doc.Servers))
-	for _, srv := range doc.Servers {
-		fmt.Printf("  - %s\n", srv.URL)
+	// Display Info
+	info := accessor.GetInfo()
+	if info != nil {
+		fmt.Printf("Title: %s\n", info.Title)
+		fmt.Printf("Version: %s\n", info.Version)
 	}
 	fmt.Println()
 
-	fmt.Printf("Tags: %d\n", len(doc.Tags))
-	for _, tag := range doc.Tags {
+	// Servers are OAS3-specific, use OAS3Document() for this
+	if doc, ok := parseResult.OAS3Document(); ok {
+		fmt.Printf("Servers: %d\n", len(doc.Servers))
+		for _, srv := range doc.Servers {
+			fmt.Printf("  - %s\n", srv.URL)
+		}
+		fmt.Println()
+	}
+
+	// Display Tags using accessor
+	tags := accessor.GetTags()
+	fmt.Printf("Tags: %d\n", len(tags))
+	for _, tag := range tags {
 		fmt.Printf("  - %s\n", tag.Name)
 	}
 	fmt.Println()
 
-	fmt.Printf("Paths: %d\n", len(doc.Paths))
-	for path := range doc.Paths {
+	// Display Paths using accessor
+	paths := accessor.GetPaths()
+	fmt.Printf("Paths: %d\n", len(paths))
+	for path := range paths {
 		fmt.Printf("  - %s\n", path)
 	}
 	fmt.Println()
 
-	if doc.Components != nil {
-		fmt.Printf("Schemas: %d\n", len(doc.Components.Schemas))
-		for name := range doc.Components.Schemas {
+	// Display Schemas using accessor
+	schemas := accessor.GetSchemas()
+	if schemas != nil {
+		fmt.Printf("Schemas: %d\n", len(schemas))
+		for name := range schemas {
 			fmt.Printf("  - %s\n", name)
 		}
 	} else {

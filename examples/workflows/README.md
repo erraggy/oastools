@@ -6,9 +6,15 @@ This directory contains examples demonstrating common OpenAPI workflows using th
 
 | Workflow | Package | Description | Time |
 |----------|---------|-------------|------|
+| [pipeline-compositions](pipeline-compositions/) | multiple | Chain multiple oastools operations together | 5 min |
+| [fixer-showcase](fixer-showcase/) | fixer | Demonstrate all available fix types | 5 min |
 | [validate-and-fix](validate-and-fix/) | fixer | Parse, validate, auto-fix common errors | 3 min |
 | [version-conversion](version-conversion/) | converter | Convert OAS 2.0 (Swagger) → OAS 3.0.3 | 3 min |
+| [version-migration](version-migration/) | converter | OAS 3.1/3.2 upgrades and lossy downgrades | 4 min |
 | [multi-api-merge](multi-api-merge/) | joiner | Merge multiple specs with collision resolution | 4 min |
+| [collision-resolution](collision-resolution/) | joiner | Handle schema collisions: fail, accept-left, accept-right | 3 min |
+| [schema-deduplication](schema-deduplication/) | joiner | Consolidate identical schemas across documents | 3 min |
+| [schema-renaming](schema-renaming/) | joiner | Preserve both schemas with rename strategies | 4 min |
 | [breaking-change-detection](breaking-change-detection/) | differ | Detect breaking changes between API versions | 4 min |
 | [overlay-transformations](overlay-transformations/) | overlay | Apply environment-specific customizations | 3 min |
 | [http-validation](http-validation/) | httpvalidator | Runtime HTTP request/response validation | 5 min |
@@ -23,6 +29,29 @@ go run main.go
 ```
 
 ## Workflow Overview
+
+### Pipeline Compositions
+
+The [pipeline-compositions](pipeline-compositions/) workflow demonstrates multi-step oastools operations:
+
+1. Convert Legacy → Validate → Generate (OAS 2.0 to Go code)
+2. Fix → Validate (repair and confirm)
+3. Fix All → Join → Validate → Generate (microservices consolidation)
+
+**Use cases:** CI/CD pipelines, legacy migration, microservice consolidation
+
+### Fixer Showcase
+
+The [fixer-showcase](fixer-showcase/) workflow demonstrates all available fix types:
+
+1. CSV enum expansion (go-restful-openapi pattern)
+2. Duplicate operationId renaming
+3. Empty path item removal
+4. Generic schema name sanitization
+5. Missing path parameter injection
+6. Unused schema pruning
+
+**Use cases:** Understanding all fixer capabilities, comparing fix types, learning the API
 
 ### Validate and Fix
 
@@ -47,6 +76,17 @@ The [version-conversion](version-conversion/) workflow demonstrates OAS version 
 
 **Use cases:** Legacy API migration, spec modernization
 
+### Version Migration
+
+The [version-migration](version-migration/) workflow demonstrates modern OAS version handling:
+
+1. Upgrade OAS 3.0 → 3.1 (gains webhooks, type arrays)
+2. Upgrade OAS 3.0 → 3.2 (latest features)
+3. Downgrade OAS 3.1 → 3.0 (potential feature loss)
+4. Downgrade OAS 3.1 → 2.0 (lossy - webhooks lost!)
+
+**Use cases:** Tool compatibility, spec modernization, understanding version differences
+
 ### Multi-API Merge
 
 The [multi-api-merge](multi-api-merge/) workflow shows how to combine microservice specs:
@@ -57,6 +97,39 @@ The [multi-api-merge](multi-api-merge/) workflow shows how to combine microservi
 4. Handle path and schema conflicts
 
 **Use cases:** API gateway specs, unified documentation, monorepo builds
+
+### Collision Resolution
+
+The [collision-resolution](collision-resolution/) workflow demonstrates what happens when schemas collide:
+
+1. Load specs with same-named but different schemas
+2. See fail-on-collision behavior (default - safest)
+3. Use accept-left to keep first document's schema
+4. Use accept-right to keep second document's schema
+
+**Use cases:** Understanding merge conflicts, choosing resolution strategies
+
+### Schema Deduplication
+
+The [schema-deduplication](schema-deduplication/) workflow consolidates identical schemas:
+
+1. Identify structurally equivalent schemas across documents
+2. Use deduplicate-equivalent for same-named collisions
+3. Use semantic-deduplication for different-named equivalents
+4. Automatic $ref rewriting to canonical name
+
+**Use cases:** Reducing spec size, consolidating shared types like Error
+
+### Schema Renaming
+
+The [schema-renaming](schema-renaming/) workflow preserves both conflicting schemas:
+
+1. Use rename-right/rename-left strategies
+2. Customize names with RenameTemplate
+3. Apply namespace prefixes for consistent naming
+4. Automatic $ref rewriting throughout document
+
+**Use cases:** Merging APIs with legitimately different same-named types
 
 ### Breaking Change Detection
 
