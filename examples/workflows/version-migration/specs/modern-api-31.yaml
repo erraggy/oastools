@@ -1,0 +1,100 @@
+openapi: 3.1.0
+info:
+  title: Modern API (OAS 3.1)
+  version: 2.0.0
+  summary: Demonstrates OAS 3.1 features
+  license:
+    name: MIT
+    identifier: MIT
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+webhooks:
+  petAdopted:
+    post:
+      operationId: onPetAdopted
+      summary: Notification when a pet is adopted
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PetEvent'
+      responses:
+        '200':
+          description: Webhook received
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List pets with modern schema features
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+                prefixItems:
+                  - $ref: '#/components/schemas/Pet'
+  /pets/{petId}:
+    get:
+      operationId: getPet
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type:
+              - string
+              - integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type:
+            - string
+            - integer
+        name:
+          type: string
+          contentMediaType: text/plain
+        metadata:
+          type: object
+          unevaluatedProperties: false
+          properties:
+            tags:
+              type: array
+              items:
+                type: string
+              contains:
+                const: featured
+        adoptedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+    PetEvent:
+      type: object
+      required:
+        - eventType
+        - pet
+      properties:
+        eventType:
+          const: pet_adopted
+        pet:
+          $ref: '#/components/schemas/Pet'
+        timestamp:
+          type: string
+          format: date-time

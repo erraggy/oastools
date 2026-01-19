@@ -1,0 +1,96 @@
+openapi: 3.0.3
+info:
+  title: Problematic API (for fixer demo)
+  version: 1.0.0
+  description: This spec intentionally contains fixable issues
+paths:
+  /pets:
+    get:
+      operationId: getPets
+      tags: [pets]
+      parameters:
+        - name: priority
+          in: query
+          schema:
+            # CSV enum fix: go-restful-openapi pattern where numeric enums
+            # are stored as comma-separated strings instead of arrays
+            type: integer
+            enum:
+              - "1,2,3,4,5"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response[Pet]'
+  /pets/{petId}:
+    get:
+      # Duplicate operationId fix: same ID used on different operations
+      operationId: getPets
+      tags: [pets]
+      # Missing path parameter fix: {petId} is in path but not declared
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+  /users/{userId}/pets/{petId}:
+    get:
+      operationId: getUserPet
+      tags: [users]
+      parameters:
+        # Only userId is declared, petId is missing
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+  # Empty path fix: path item with no operations
+  /empty: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+    # Generic schema name fix: brackets require URL encoding in $ref
+    Response[Pet]:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pet'
+        total:
+          type: integer
+    # Unused schema fix: never referenced anywhere
+    UnusedModel:
+      type: object
+      description: This schema is never referenced
+      properties:
+        field1:
+          type: string
+        field2:
+          type: integer
+    # Another unused schema
+    AnotherUnused:
+      type: object
+      properties:
+        unused:
+          type: boolean

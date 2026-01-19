@@ -1,0 +1,54 @@
+openapi: 3.0.3
+info:
+  title: Service B
+  version: 1.0.0
+paths:
+  /orders:
+    get:
+      operationId: getOrders
+      tags: [orders]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+    post:
+      operationId: createOrder
+      tags: [orders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewOrder'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+components:
+  schemas:
+    Order:
+      type: object
+      required: [id, itemId]
+      properties:
+        id:
+          type: string
+        itemId:
+          type: string
+        quantity:
+          type: integer
+    NewOrder:
+      type: object
+      required: [itemId, quantity]
+      properties:
+        itemId:
+          type: string
+        quantity:
+          type: integer
