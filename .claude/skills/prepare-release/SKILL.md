@@ -1,6 +1,6 @@
 ---
 name: prepare-release
-description: Prepare a release (phases 1-6). Usage: /prepare-release [version]. If version omitted, infers from conventional commits. Coordinates agents for review, then runs prepare-release.sh for deterministic steps.
+description: Prepare a release (phases 1-6). Usage: /prepare-release [version]. If version omitted, infers from conventional commits. Coordinates agents for review, runs prepare-release.sh, then enhances release notes with rich formatting.
 ---
 
 # prepare-release
@@ -146,9 +146,86 @@ If the script fails partway through, check the error message. You can re-run saf
 - `--skip-benchmarks` flag if benchmarks already completed
 - The script auto-detects already-merged PRs and skips to checkout
 
+### Phase 6.2: Enhance Release Notes
+
+After the script completes, enhance the auto-generated release notes with richer content:
+
+#### Step 1: Analyze the Release
+
+1. Read the auto-generated notes at `/tmp/release-notes-<version>.md`
+2. Get commits since the previous tag:
+   ```bash
+   PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
+   git log "$PREV_TAG"..HEAD --oneline
+   ```
+3. For each significant commit, understand what changed by reading relevant files
+
+#### Step 2: Reference Previous Releases
+
+Look at 1-2 previous releases for style consistency:
+```bash
+gh release view --json body | jq -r '.body' | head -100
+```
+
+#### Step 3: Create Enhanced Notes
+
+Structure the enhanced notes following this format:
+
+```markdown
+## [Emoji] [Theme]: [Headline Summary]
+
+[1-2 sentence overview of what this release accomplishes and its impact]
+
+### [Feature/Change Category 1]
+
+[Context about why this matters]
+
+- **[Benefit 1]**: [Specific detail]
+- **[Benefit 2]**: [Specific detail]
+- **[Benefit 3]**: [Specific detail]
+
+[Optional: Code example if helpful]
+
+### [Feature/Change Category 2]
+
+[Similar structure...]
+
+### 🔒 [User Impact Section]
+
+- [Breaking changes if any, or "No breaking changes"]
+- [API changes if any, or "No public API changes"]
+- [Dependency changes if any]
+- [Backward compatibility statement]
+
+### 📊 Quality Metrics
+
+- ✅ All tests passing ([count]+ unit tests, [other suites])
+- ✅ Zero vulnerabilities (`govulncheck` clean)
+- ✅ All benchmarks passing with no regressions
+- ✅ Documentation verified accurate
+
+## What's Changed
+
+[Keep the auto-generated PR list from original notes]
+
+**Full Changelog**: [Keep the auto-generated link]
+```
+
+#### Guidelines for Enhancement
+
+1. **Headline emoji + theme**: Match the release character (🚀 Features, 🐛 Bug Fixes, 🔧 Infrastructure, ⚡ Performance)
+2. **User-focused language**: Explain benefits, not just what changed
+3. **Code examples**: Include for new features when they clarify usage
+4. **Honest impact assessment**: Clearly state if there are no user-facing changes
+5. **Preserve auto-generated content**: Keep the "What's Changed" PR list and changelog link at the bottom
+
+#### Step 4: Update the Notes File
+
+Write the enhanced notes back to `/tmp/release-notes-<version>.md`, then display them for user review.
+
 ### Phase 6.3: Prompt for Publishing
 
-After the script completes successfully, prompt the user:
+After the enhanced notes are ready, prompt the user:
 
 ```
 ✅ Release preparation complete!
@@ -175,3 +252,4 @@ If user chooses "Yes", from the repository root run:
 - CI benchmarks run on the pre-release branch and are included in the PR
 - Document all new public API in CLAUDE.md
 - **ALWAYS use scripts** for phases 4-6 - never run release commands manually
+- **ALWAYS enhance release notes** (Phase 6.2) - never skip to publishing with auto-generated notes only
