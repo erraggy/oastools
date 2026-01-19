@@ -71,7 +71,13 @@ nav:
       - Overview: examples/workflows/index.md
       - Validate and Fix: examples/workflows/validate-and-fix.md
       - Version Conversion: examples/workflows/version-conversion.md
+      - Version Migration: examples/workflows/version-migration.md
       - Multi-API Merge: examples/workflows/multi-api-merge.md
+      - Collision Resolution: examples/workflows/collision-resolution.md
+      - Schema Deduplication: examples/workflows/schema-deduplication.md
+      - Schema Renaming: examples/workflows/schema-renaming.md
+      - Fixer Showcase: examples/workflows/fixer-showcase.md
+      - Pipeline Compositions: examples/workflows/pipeline-compositions.md
       - Breaking Change Detection: examples/workflows/breaking-change-detection.md
       - Overlay Transformations: examples/workflows/overlay-transformations.md
       - HTTP Validation: examples/workflows/http-validation.md

@@ -117,6 +117,12 @@ fix_example_links() {
     sed -i.bak 's|](\.\./breaking-change-detection/)|](breaking-change-detection.md)|g' "$file"
     sed -i.bak 's|](\.\./overlay-transformations/)|](overlay-transformations.md)|g' "$file"
     sed -i.bak 's|](\.\./http-validation/)|](http-validation.md)|g' "$file"
+    sed -i.bak 's|](\.\./collision-resolution/)|](collision-resolution.md)|g' "$file"
+    sed -i.bak 's|](\.\./schema-deduplication/)|](schema-deduplication.md)|g' "$file"
+    sed -i.bak 's|](\.\./schema-renaming/)|](schema-renaming.md)|g' "$file"
+    sed -i.bak 's|](\.\./fixer-showcase/)|](fixer-showcase.md)|g' "$file"
+    sed -i.bak 's|](\.\./pipeline-compositions/)|](pipeline-compositions.md)|g' "$file"
+    sed -i.bak 's|](\.\./version-migration/)|](version-migration.md)|g' "$file"
 
     # Nested paths like ../workflows/http-validation/ -> workflows/http-validation.md
     sed -i.bak 's|](\.\./workflows/\([a-z-]*\)/)|](workflows/\1.md)|g' "$file"
@@ -135,6 +141,12 @@ fix_example_links() {
     sed -i.bak 's|](breaking-change-detection/)|](breaking-change-detection.md)|g' "$file"
     sed -i.bak 's|](overlay-transformations/)|](overlay-transformations.md)|g' "$file"
     sed -i.bak 's|](http-validation/)|](http-validation.md)|g' "$file"
+    sed -i.bak 's|](collision-resolution/)|](collision-resolution.md)|g' "$file"
+    sed -i.bak 's|](schema-deduplication/)|](schema-deduplication.md)|g' "$file"
+    sed -i.bak 's|](schema-renaming/)|](schema-renaming.md)|g' "$file"
+    sed -i.bak 's|](fixer-showcase/)|](fixer-showcase.md)|g' "$file"
+    sed -i.bak 's|](pipeline-compositions/)|](pipeline-compositions.md)|g' "$file"
+    sed -i.bak 's|](version-migration/)|](version-migration.md)|g' "$file"
     sed -i.bak 's|](quickstart/)|](quickstart.md)|g' "$file"
     sed -i.bak 's|](validation-pipeline/)|](validation-pipeline.md)|g' "$file"
     sed -i.bak 's|](stdlib/)|](stdlib.md)|g' "$file"
@@ -187,7 +199,7 @@ copy_example_readme "examples/workflows/README.md" "$DOCS_DIR/examples/workflows
 fix_example_links "$DOCS_DIR/examples/workflows/index.md"
 fix_subdir_links "$DOCS_DIR/examples/workflows/index.md"
 echo "  - examples/workflows/README.md -> $DOCS_DIR/examples/workflows/index.md"
-for workflow in validate-and-fix version-conversion multi-api-merge breaking-change-detection overlay-transformations http-validation; do
+for workflow in validate-and-fix version-conversion multi-api-merge breaking-change-detection overlay-transformations http-validation collision-resolution schema-deduplication schema-renaming fixer-showcase pipeline-compositions version-migration; do
     if [ -f "examples/workflows/$workflow/README.md" ]; then
         copy_example_readme "examples/workflows/$workflow/README.md" "$DOCS_DIR/examples/workflows/$workflow.md"
         fix_example_links "$DOCS_DIR/examples/workflows/$workflow.md"
