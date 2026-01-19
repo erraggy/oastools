@@ -1,0 +1,43 @@
+openapi: 3.0.3
+info:
+  title: Payments API
+  version: 1.0.0
+paths:
+  /transactions:
+    post:
+      operationId: createTransaction
+      tags: [transactions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Transaction'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+components:
+  schemas:
+    Transaction:
+      type: object
+      required: [amount, currency, paymentMethod]
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          enum: [USD, EUR, GBP]
+        paymentMethod:
+          type: string
+          enum: [credit_card, bank_transfer, paypal]
+        processedAt:
+          type: string
+          format: date-time

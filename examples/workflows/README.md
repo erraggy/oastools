@@ -9,6 +9,9 @@ This directory contains examples demonstrating common OpenAPI workflows using th
 | [validate-and-fix](validate-and-fix/) | fixer | Parse, validate, auto-fix common errors | 3 min |
 | [version-conversion](version-conversion/) | converter | Convert OAS 2.0 (Swagger) → OAS 3.0.3 | 3 min |
 | [multi-api-merge](multi-api-merge/) | joiner | Merge multiple specs with collision resolution | 4 min |
+| [collision-resolution](collision-resolution/) | joiner | Handle schema collisions: fail, accept-left, accept-right | 3 min |
+| [schema-deduplication](schema-deduplication/) | joiner | Consolidate identical schemas across documents | 3 min |
+| [schema-renaming](schema-renaming/) | joiner | Preserve both schemas with rename strategies | 4 min |
 | [breaking-change-detection](breaking-change-detection/) | differ | Detect breaking changes between API versions | 4 min |
 | [overlay-transformations](overlay-transformations/) | overlay | Apply environment-specific customizations | 3 min |
 | [http-validation](http-validation/) | httpvalidator | Runtime HTTP request/response validation | 5 min |
@@ -57,6 +60,39 @@ The [multi-api-merge](multi-api-merge/) workflow shows how to combine microservi
 4. Handle path and schema conflicts
 
 **Use cases:** API gateway specs, unified documentation, monorepo builds
+
+### Collision Resolution
+
+The [collision-resolution](collision-resolution/) workflow demonstrates what happens when schemas collide:
+
+1. Load specs with same-named but different schemas
+2. See fail-on-collision behavior (default - safest)
+3. Use accept-left to keep first document's schema
+4. Use accept-right to keep second document's schema
+
+**Use cases:** Understanding merge conflicts, choosing resolution strategies
+
+### Schema Deduplication
+
+The [schema-deduplication](schema-deduplication/) workflow consolidates identical schemas:
+
+1. Identify structurally equivalent schemas across documents
+2. Use deduplicate-equivalent for same-named collisions
+3. Use semantic-deduplication for different-named equivalents
+4. Automatic $ref rewriting to canonical name
+
+**Use cases:** Reducing spec size, consolidating shared types like Error
+
+### Schema Renaming
+
+The [schema-renaming](schema-renaming/) workflow preserves both conflicting schemas:
+
+1. Use rename-right/rename-left strategies
+2. Customize names with RenameTemplate
+3. Apply namespace prefixes for consistent naming
+4. Automatic $ref rewriting throughout document
+
+**Use cases:** Merging APIs with legitimately different same-named types
 
 ### Breaking Change Detection
 
