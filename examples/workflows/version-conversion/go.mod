@@ -2,8 +2,9 @@ module version-conversion
 
 go 1.24.0
 
-require github.com/erraggy/oastools v1.33.2
+require (
+	github.com/erraggy/oastools v1.45.3
+	go.yaml.in/yaml/v4 v4.0.0-rc.3
+)
 
-require go.yaml.in/yaml/v4 v4.0.0-rc.3
-
-replace github.com/erraggy/oastools => ../../..
+replace github.com/erraggy/oastools => ../../../
