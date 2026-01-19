@@ -226,18 +226,23 @@ func demonstrateAllFixes(specPath string) {
 		fmt.Printf("  [X] Still have %d errors (may need manual fixes)\n", len(validation.Errors))
 	}
 
-	// Show schema count change
-	doc := fixed.Document.(*parser.OAS3Document)
+	// Show schema count change using accessor pattern
+	accessor := fixed.ToParseResult().AsAccessor()
+	if accessor == nil {
+		log.Printf("  Could not access document")
+		return
+	}
+	schemas := accessor.GetSchemas()
 	schemaCount := 0
-	if doc.Components != nil && doc.Components.Schemas != nil {
-		schemaCount = len(doc.Components.Schemas)
+	if schemas != nil {
+		schemaCount = len(schemas)
 	}
 	fmt.Printf("  -> Final schema count: %d\n", schemaCount)
 
 	// List remaining schemas
-	if doc.Components != nil && doc.Components.Schemas != nil {
+	if schemas != nil {
 		var names []string
-		for name := range doc.Components.Schemas {
+		for name := range schemas {
 			names = append(names, name)
 		}
 		slices.Sort(names)

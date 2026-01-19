@@ -83,9 +83,11 @@ func demonstrateConversion(specPath, targetVersion string, expectLossy bool) {
 	fmt.Println()
 
 	// Show source features if it's the modern spec
+	// Note: Webhooks and JSONSchemaDialect are OAS 3.1-specific fields not available
+	// through DocumentAccessor, so direct type assertion is required here.
 	if parsed.Version == "3.1.0" {
 		doc, ok := parsed.Document.(*parser.OAS3Document)
-		if ok {
+		if ok && doc != nil {
 			if doc.Webhooks != nil && len(doc.Webhooks) > 0 {
 				fmt.Printf("  Source has %d webhook(s)\n", len(doc.Webhooks))
 			}
@@ -186,9 +188,10 @@ func demonstrateConversion(specPath, targetVersion string, expectLossy bool) {
 }
 
 func checkFeatureLoss(source *parser.ParseResult, result *converter.ConversionResult) {
-	// Check for webhook loss
+	// Check for webhook loss - need direct OAS3Document access since Webhooks
+	// is a version-specific field not available through DocumentAccessor.
 	sourceDoc, ok := source.Document.(*parser.OAS3Document)
-	if !ok {
+	if !ok || sourceDoc == nil {
 		return
 	}
 
@@ -206,9 +209,9 @@ func checkFeatureLoss(source *parser.ParseResult, result *converter.ConversionRe
 		return
 	}
 
-	// For 3.x targets
+	// For 3.x targets - also need direct OAS3Document access for Webhooks
 	targetDoc, ok := result.Document.(*parser.OAS3Document)
-	if !ok {
+	if !ok || targetDoc == nil {
 		return
 	}
 

@@ -90,8 +90,13 @@ func demonstrateAcceptLeft(paymentsPath, ordersPath string) {
 	fmt.Printf("  Collisions resolved: %d\n", result.CollisionCount)
 
 	// Show which Transaction schema won
-	doc := result.Document.(*parser.OAS3Document)
-	if schema, ok := doc.Components.Schemas["Transaction"]; ok {
+	accessor := result.ToParseResult().AsAccessor()
+	if accessor == nil {
+		log.Printf("  Could not access document")
+		return
+	}
+	schemas := accessor.GetSchemas()
+	if schema, ok := schemas["Transaction"]; ok {
 		props := getPropertyNames(schema)
 		fmt.Printf("  Transaction schema kept: payments-api (left)\n")
 		fmt.Printf("  Properties: %v\n", props)
@@ -125,8 +130,13 @@ func demonstrateAcceptRight(paymentsPath, ordersPath string) {
 	fmt.Printf("  Collisions resolved: %d\n", result.CollisionCount)
 
 	// Show which Transaction schema won
-	doc := result.Document.(*parser.OAS3Document)
-	if schema, ok := doc.Components.Schemas["Transaction"]; ok {
+	accessor := result.ToParseResult().AsAccessor()
+	if accessor == nil {
+		log.Printf("  Could not access document")
+		return
+	}
+	schemas := accessor.GetSchemas()
+	if schema, ok := schemas["Transaction"]; ok {
 		props := getPropertyNames(schema)
 		fmt.Printf("  Transaction schema kept: orders-api (right)\n")
 		fmt.Printf("  Properties: %v\n", props)

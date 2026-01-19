@@ -74,8 +74,12 @@ func demonstrateRenameRight(billingPath, crmPath string) {
 		return
 	}
 
-	doc := result.Document.(*parser.OAS3Document)
-	schemas := getSortedSchemaNames(doc)
+	accessor := result.ToParseResult().AsAccessor()
+	if accessor == nil {
+		log.Printf("  Could not access document")
+		return
+	}
+	schemas := getSortedSchemaNames(accessor)
 
 	fmt.Println("  Result: Success")
 	fmt.Printf("  Schemas: %v\n", schemas)
@@ -86,7 +90,7 @@ func demonstrateRenameRight(billingPath, crmPath string) {
 	fmt.Println()
 	fmt.Println("  All $refs in crm-api paths now point to Account_crm_api")
 
-	showAccountSchemas(doc)
+	showAccountSchemas(accessor)
 }
 
 func demonstrateRenameLeft(billingPath, crmPath string) {
@@ -101,8 +105,12 @@ func demonstrateRenameLeft(billingPath, crmPath string) {
 		return
 	}
 
-	doc := result.Document.(*parser.OAS3Document)
-	schemas := getSortedSchemaNames(doc)
+	accessor := result.ToParseResult().AsAccessor()
+	if accessor == nil {
+		log.Printf("  Could not access document")
+		return
+	}
+	schemas := getSortedSchemaNames(accessor)
 
 	fmt.Println("  Result: Success")
 	fmt.Printf("  Schemas: %v\n", schemas)
@@ -113,7 +121,7 @@ func demonstrateRenameLeft(billingPath, crmPath string) {
 	fmt.Println()
 	fmt.Println("  All $refs in billing-api paths now point to Account_billing_api")
 
-	showAccountSchemas(doc)
+	showAccountSchemas(accessor)
 }
 
 func demonstrateCustomTemplate(billingPath, crmPath string) {
@@ -129,8 +137,12 @@ func demonstrateCustomTemplate(billingPath, crmPath string) {
 		return
 	}
 
-	doc := result.Document.(*parser.OAS3Document)
-	schemas := getSortedSchemaNames(doc)
+	accessor := result.ToParseResult().AsAccessor()
+	if accessor == nil {
+		log.Printf("  Could not access document")
+		return
+	}
+	schemas := getSortedSchemaNames(accessor)
 
 	fmt.Println("  Result: Success")
 	fmt.Printf("  Schemas: %v\n", schemas)
@@ -167,8 +179,12 @@ func demonstrateNamespacePrefixes(billingPath, crmPath string) {
 		return
 	}
 
-	doc := result.Document.(*parser.OAS3Document)
-	schemas := getSortedSchemaNames(doc)
+	accessor := result.ToParseResult().AsAccessor()
+	if accessor == nil {
+		log.Printf("  Could not access document")
+		return
+	}
+	schemas := getSortedSchemaNames(accessor)
 
 	fmt.Println("  Result: Success")
 	fmt.Printf("  Schemas: %v\n", schemas)
@@ -187,10 +203,14 @@ func demonstrateNamespacePrefixes(billingPath, crmPath string) {
 	fmt.Println("       useful for consistent naming across large merges.")
 }
 
-func showAccountSchemas(doc *parser.OAS3Document) {
+func showAccountSchemas(accessor parser.DocumentAccessor) {
 	fmt.Println()
 	fmt.Println("  Schema properties comparison:")
-	for name, schema := range doc.Components.Schemas {
+	schemas := accessor.GetSchemas()
+	if schemas == nil {
+		return
+	}
+	for name, schema := range schemas {
 		if len(name) >= 7 && name[:7] == "Account" || name == "Account" {
 			props := getPropertyNames(schema)
 			fmt.Printf("    %s: %v\n", name, props)
@@ -210,12 +230,13 @@ func getPropertyNames(schema *parser.Schema) []string {
 	return names
 }
 
-func getSortedSchemaNames(doc *parser.OAS3Document) []string {
-	if doc.Components == nil || doc.Components.Schemas == nil {
+func getSortedSchemaNames(accessor parser.DocumentAccessor) []string {
+	schemas := accessor.GetSchemas()
+	if schemas == nil {
 		return nil
 	}
-	names := make([]string, 0, len(doc.Components.Schemas))
-	for name := range doc.Components.Schemas {
+	names := make([]string, 0, len(schemas))
+	for name := range schemas {
 		names = append(names, name)
 	}
 	sort.Strings(names)

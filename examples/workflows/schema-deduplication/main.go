@@ -68,8 +68,12 @@ func demonstrateNoDedup(usersPath, productsPath string) {
 		return
 	}
 
-	doc := result.Document.(*parser.OAS3Document)
-	schemas := getSortedSchemaNames(doc)
+	accessor := result.ToParseResult().AsAccessor()
+	if accessor == nil {
+		log.Printf("  Could not access document")
+		return
+	}
+	schemas := getSortedSchemaNames(accessor)
 
 	fmt.Println("  Result: Success")
 	fmt.Printf("  Schemas in merged doc: %v\n", schemas)
@@ -110,8 +114,12 @@ func demonstrateSemanticDedup(usersPath, productsPath string) {
 		return
 	}
 
-	doc := result.Document.(*parser.OAS3Document)
-	schemas := getSortedSchemaNames(doc)
+	accessor := result.ToParseResult().AsAccessor()
+	if accessor == nil {
+		log.Printf("  Could not access document")
+		return
+	}
+	schemas := getSortedSchemaNames(accessor)
 
 	fmt.Println("  Result: Success")
 	fmt.Printf("  Schemas in merged doc: %v\n", schemas)
@@ -155,12 +163,13 @@ func demonstrateSemanticDedup(usersPath, productsPath string) {
 	fmt.Println("  and consolidated them. All $refs are automatically rewritten.")
 }
 
-func getSortedSchemaNames(doc *parser.OAS3Document) []string {
-	if doc.Components == nil || doc.Components.Schemas == nil {
+func getSortedSchemaNames(accessor parser.DocumentAccessor) []string {
+	schemas := accessor.GetSchemas()
+	if schemas == nil {
 		return nil
 	}
-	names := make([]string, 0, len(doc.Components.Schemas))
-	for name := range doc.Components.Schemas {
+	names := make([]string, 0, len(schemas))
+	for name := range schemas {
 		names = append(names, name)
 	}
 	sort.Strings(names)
