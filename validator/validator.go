@@ -121,6 +121,9 @@ type Validator struct {
 	// SourceMap provides source location lookup for validation errors.
 	// When set, validation errors will include Line, Column, and File fields.
 	SourceMap *parser.SourceMap
+	// refTracker tracks which operations reference which components.
+	// Built during ValidateParsed for populating OperationContext on issues.
+	refTracker *refTracker
 }
 
 // New creates a new Validator instance with default settings
@@ -189,6 +192,14 @@ func hasJSONPathPrefix(path string) bool {
 	return len(path) > 0 && path[0] == '$'
 }
 
+// populateOperationContext attaches operation context to an issue if applicable.
+func (v *Validator) populateOperationContext(issue *ValidationError, doc any) {
+	if v.refTracker == nil {
+		return
+	}
+	issue.OperationContext = v.refTracker.getOperationContext(issue.Path, doc)
+}
+
 // addError appends a validation error and populates its source location.
 func (v *Validator) addError(result *ValidationResult, path, message string, opts ...func(*ValidationError)) {
 	err := ValidationError{
@@ -200,6 +211,7 @@ func (v *Validator) addError(result *ValidationResult, path, message string, opt
 		opt(&err)
 	}
 	v.populateIssueLocation(&err)
+	v.populateOperationContext(&err, result.Document)
 	result.Errors = append(result.Errors, err)
 }
 
@@ -214,6 +226,7 @@ func (v *Validator) addWarning(result *ValidationResult, path, message string, o
 		opt(&warn)
 	}
 	v.populateIssueLocation(&warn)
+	v.populateOperationContext(&warn, result.Document)
 	result.Warnings = append(result.Warnings, warn)
 }
 
@@ -245,6 +258,14 @@ func (v *Validator) ValidateParsed(parseResult parser.ParseResult) (*ValidationR
 		Document:     parseResult.Document,
 		SourceFormat: parseResult.SourceFormat,
 		SourcePath:   parseResult.SourcePath,
+	}
+
+	// Build reference tracker for operation context
+	switch doc := parseResult.Document.(type) {
+	case *parser.OAS3Document:
+		v.refTracker = buildRefTrackerOAS3(doc)
+	case *parser.OAS2Document:
+		v.refTracker = buildRefTrackerOAS2(doc)
 	}
 
 	// Add parser errors to validation result
