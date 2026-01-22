@@ -83,22 +83,18 @@ func (v *Validator) validateResponseStatusCodes(responses *parser.Responses, pat
 	for code := range responses.Codes {
 		// Validate HTTP status code format
 		if !httputil.ValidateStatusCode(code) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     fmt.Sprintf("%s.responses.%s", path, code),
-				Message:  fmt.Sprintf("Invalid HTTP status code: %s", code),
-				SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
-				Severity: SeverityError,
-				Value:    code,
-			})
+			v.addError(result, fmt.Sprintf("%s.responses.%s", path, code),
+				fmt.Sprintf("Invalid HTTP status code: %s", code),
+				withSpecRef(fmt.Sprintf("%s#responses-object", baseURL)),
+				withValue(code),
+			)
 		} else if v.StrictMode && !httputil.IsStandardStatusCode(code) {
 			// In strict mode, warn about non-standard status codes
-			result.Warnings = append(result.Warnings, ValidationError{
-				Path:     fmt.Sprintf("%s.responses.%s", path, code),
-				Message:  fmt.Sprintf("Non-standard HTTP status code: %s (not defined in HTTP RFCs)", code),
-				SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
-				Severity: SeverityWarning,
-				Value:    code,
-			})
+			v.addWarning(result, fmt.Sprintf("%s.responses.%s", path, code),
+				fmt.Sprintf("Non-standard HTTP status code: %s (not defined in HTTP RFCs)", code),
+				withSpecRef(fmt.Sprintf("%s#responses-object", baseURL)),
+				withValue(code),
+			)
 		}
 
 		if strings.HasPrefix(code, "2") || code == "default" {
@@ -106,12 +102,10 @@ func (v *Validator) validateResponseStatusCodes(responses *parser.Responses, pat
 		}
 	}
 	if !hasSuccess && v.StrictMode {
-		result.Warnings = append(result.Warnings, ValidationError{
-			Path:     fmt.Sprintf("%s.responses", path),
-			Message:  "Operation should define at least one successful response (2XX or default)",
-			SpecRef:  fmt.Sprintf("%s#responses-object", baseURL),
-			Severity: SeverityWarning,
-		})
+		v.addWarning(result, fmt.Sprintf("%s.responses", path),
+			"Operation should define at least one successful response (2XX or default)",
+			withSpecRef(fmt.Sprintf("%s#responses-object", baseURL)),
+		)
 	}
 }
 
@@ -139,14 +133,12 @@ func (v *Validator) checkDuplicateOperationIds(
 				specRef = fmt.Sprintf("%s#operation-object", baseURL)
 			}
 
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     opPath,
-				Message:  fmt.Sprintf("Duplicate operationId '%s' (first seen at %s)", op.OperationID, firstSeenAt),
-				SpecRef:  specRef,
-				Severity: SeverityError,
-				Field:    "operationId",
-				Value:    op.OperationID,
-			})
+			v.addError(result, opPath,
+				fmt.Sprintf("Duplicate operationId '%s' (first seen at %s)", op.OperationID, firstSeenAt),
+				withSpecRef(specRef),
+				withField("operationId"),
+				withValue(op.OperationID),
+			)
 		} else {
 			operationIds[op.OperationID] = opPath
 		}
@@ -225,13 +217,11 @@ func validatePathTemplate(pathPattern string) error {
 // Trailing slashes are discouraged by REST best practices but not forbidden by OAS spec
 func checkTrailingSlash(v *Validator, pathPattern string, result *ValidationResult, baseURL string) {
 	if v.IncludeWarnings && len(pathPattern) > 1 && strings.HasSuffix(pathPattern, "/") {
-		result.Warnings = append(result.Warnings, ValidationError{
-			Path:     fmt.Sprintf("paths.%s", pathPattern),
-			Message:  "Path has trailing slash, which is discouraged by REST best practices",
-			SpecRef:  fmt.Sprintf("%s#paths-object", baseURL),
-			Severity: SeverityWarning,
-			Value:    pathPattern,
-		})
+		v.addWarning(result, fmt.Sprintf("paths.%s", pathPattern),
+			"Path has trailing slash, which is discouraged by REST best practices",
+			withSpecRef(fmt.Sprintf("%s#paths-object", baseURL)),
+			withValue(pathPattern),
+		)
 	}
 }
 
