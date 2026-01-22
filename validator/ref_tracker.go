@@ -384,7 +384,12 @@ func (rt *refTracker) getOperationsForComponent(componentPath string) []operatio
 func (rt *refTracker) getOperationContext(issuePath string, doc any) *issues.OperationContext {
 	// Check if this is under paths.*
 	if strings.HasPrefix(issuePath, "paths.") {
-		return rt.getPathOperationContext(issuePath, doc)
+		return rt.getPathOrWebhookOperationContext(issuePath, "paths.", false, doc)
+	}
+
+	// Check if this is under webhooks.* (OAS 3.1+)
+	if strings.HasPrefix(issuePath, "webhooks.") {
+		return rt.getPathOrWebhookOperationContext(issuePath, "webhooks.", true, doc)
 	}
 
 	// Check if this is a reusable component
@@ -395,18 +400,21 @@ func (rt *refTracker) getOperationContext(issuePath string, doc any) *issues.Ope
 	return nil
 }
 
-// getPathOperationContext extracts operation context from a paths.* issue path.
-func (rt *refTracker) getPathOperationContext(issuePath string, doc any) *issues.OperationContext {
+// getPathOrWebhookOperationContext extracts operation context from a paths.* or webhooks.* issue path.
+// The prefix parameter specifies which prefix to strip ("paths." or "webhooks.").
+// The isWebhook parameter indicates whether this is a webhook (affects operationId lookup and context).
+func (rt *refTracker) getPathOrWebhookOperationContext(issuePath, prefix string, isWebhook bool, doc any) *issues.OperationContext {
 	// Parse: paths./users/{id}.get.parameters[0] -> path=/users/{id}, method=get
-	parts := strings.SplitN(strings.TrimPrefix(issuePath, "paths."), ".", 2)
+	// Parse: webhooks.orderCreated.post.requestBody -> path=orderCreated, method=post
+	parts := strings.SplitN(strings.TrimPrefix(issuePath, prefix), ".", 2)
 	if len(parts) == 0 {
 		return nil
 	}
 
-	apiPath := parts[0]
+	pathOrName := parts[0]
 	if len(parts) == 1 {
-		// Just the path itself, no method
-		return &issues.OperationContext{Path: apiPath}
+		// Just the path/webhook name itself, no method
+		return &issues.OperationContext{Path: pathOrName, IsWebhook: isWebhook}
 	}
 
 	remainder := parts[1]
@@ -415,17 +423,23 @@ func (rt *refTracker) getPathOperationContext(issuePath string, doc any) *issues
 	method := parseMethod(methodPart)
 
 	if method == "" {
-		// Path-level (e.g., paths./users.parameters)
-		return &issues.OperationContext{Path: apiPath}
+		// Path-level (e.g., paths./users.parameters, webhooks.orderCreated.parameters)
+		return &issues.OperationContext{Path: pathOrName, IsWebhook: isWebhook}
 	}
 
-	// Get operationId from document
-	operationID := getOperationID(doc, apiPath, method)
+	// Get operationId from document (only for paths, not webhooks - webhooks use different lookup)
+	var operationID string
+	if !isWebhook {
+		operationID = getOperationID(doc, pathOrName, method)
+	} else {
+		operationID = getWebhookOperationID(doc, pathOrName, method)
+	}
 
 	return &issues.OperationContext{
 		Method:      method,
-		Path:        apiPath,
+		Path:        pathOrName,
 		OperationID: operationID,
+		IsWebhook:   isWebhook,
 	}
 }
 
@@ -526,6 +540,18 @@ func getOperationID(doc any, apiPath, method string) string {
 			return getOperationIDFromPathItem(pathItem, method)
 		}
 	}
+	return ""
+}
+
+// getWebhookOperationID looks up operationId for a webhook operation.
+// Webhooks are only available in OAS 3.1+.
+func getWebhookOperationID(doc any, webhookName, method string) string {
+	if d, ok := doc.(*parser.OAS3Document); ok {
+		if pathItem, ok := d.Webhooks[webhookName]; ok && pathItem != nil {
+			return getOperationIDFromPathItem(pathItem, method)
+		}
+	}
+	// OAS2 doesn't have webhooks
 	return ""
 }
 

@@ -135,10 +135,12 @@ When creating a `ValidationError`, the validator:
 |------|---------|
 | `internal/issues/operation_context.go` | `OperationContext` struct, `String()` method, formatting helpers |
 | `internal/issues/issue.go` | Add `OperationContext` field, update `Issue.String()` |
-| `validator/ref_tracker.go` | `refTracker` struct, `buildRefMap()`, `lookupOperationContext()` |
-| `validator/validator.go` | Initialize tracker, pass to validation functions |
-| `validator/context_helpers.go` | `attachOperationContext()`, path parsing helpers |
+| `validator/ref_tracker.go` | `refTracker` struct, `buildRefTrackerOAS3/OAS2()`, `getOperationContext()`, path parsing helpers |
+| `validator/validator.go` | Initialize tracker, `populateOperationContext()` method |
+| `validator/helpers.go` | `addError()`/`addWarning()` helpers that attach operation context |
 | `validator/deep_dive.md` | Documentation update with examples |
+
+> **Implementation Note:** The originally planned `context_helpers.go` was not created. Instead, context attachment was integrated directly into `validator.go` via the `populateOperationContext` method, and path parsing helpers were added to `ref_tracker.go`.
 
 ## Edge Cases
 
@@ -147,7 +149,7 @@ When creating a `ValidationError`, the validator:
 | Circular `$ref` chains | `refTracker` uses visited set to avoid infinite loops |
 | External `$ref` (file/URL) | Track as separate component; context shows "external ref" if not resolvable |
 | Component referenced by 0 operations | Show `(unused component)` — helpful for detecting dead schemas |
-| Component referenced by 100+ operations | Cap display at `+99 operations` to avoid clutter |
+| Component referenced by 100+ operations | Shows actual count (e.g., `+150 operations`) — no artificial cap |
 | Deeply nested `$ref` (A→B→C) | Track transitive references — if op uses A, and A refs B, B gets that op context |
 | OAS2 `definitions` vs OAS3 `components` | Normalize both to same tracking logic; path prefix differs but structure is same |
 | Webhooks (OAS 3.1+) | Treat like operations — `webhooks.orderCreated.post` gets context `(webhook: orderCreated)` |
