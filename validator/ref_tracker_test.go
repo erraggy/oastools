@@ -273,6 +273,3 @@ func TestRefTrackerCircularRefs(t *testing.T) {
 	assert.Len(t, opsA, 1)
 	assert.Len(t, opsB, 1)
 }
-
-// Helper
-func boolPtr(b bool) *bool { return &b }
