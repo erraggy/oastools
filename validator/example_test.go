@@ -191,3 +191,61 @@ paths:
 	// Output:
 	// Valid: true
 }
+
+// Example_operationContext demonstrates how validation errors include
+// operation context to help identify which API operation an error relates to.
+// This is especially useful for errors in shared components (schemas, responses)
+// that are referenced by multiple operations.
+func Example_operationContext() {
+	// A spec with a validation error in an operation
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      parameters:
+        - name: wrongName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+`
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := validator.ValidateWithOptions(
+		validator.WithParsed(*parseResult),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Validation errors include operation context
+	for _, e := range result.Errors {
+		// The String() method includes operation context automatically
+		fmt.Println(e.String())
+
+		// You can also access the OperationContext programmatically
+		if e.OperationContext != nil {
+			fmt.Printf("  Operation: %s %s\n", e.OperationContext.Method, e.OperationContext.Path)
+			if e.OperationContext.OperationID != "" {
+				fmt.Printf("  OperationId: %s\n", e.OperationContext.OperationID)
+			}
+		}
+	}
+
+	// Output:
+	// ✗ paths./users/{userId}.get (operationId: getUser): Path template references parameter '{userId}' but it is not declared in parameters
+	//     Spec: https://spec.openapis.org/oas/v3.0.0.html#path-item-object
+	//   Operation: GET /users/{userId}
+	//   OperationId: getUser
+}

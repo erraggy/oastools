@@ -778,3 +778,94 @@ paths:
 	// Has document: true
 	// Fixes applied: 1
 }
+
+// Example_stubMissingRefs demonstrates creating stub definitions for
+// unresolved local $ref pointers. This is useful when tools generate
+// refs to schemas that don't exist (e.g., from Go interface{} types).
+func Example_stubMissingRefs() {
+	// A spec with references to schemas that don't exist
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /items:
+    get:
+      operationId: listItems
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemList'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  schemas: {}
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Enable the stub-missing-refs fixer
+	result, err := fixer.FixWithOptions(
+		fixer.WithParsed(*parseResult),
+		fixer.WithEnabledFixes(fixer.FixTypeStubMissingRef),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Created %d stub(s)\n", result.FixCount)
+	for _, fix := range result.Fixes {
+		fmt.Printf("  %s: %s\n", fix.Path, fix.Description)
+	}
+
+	// Output:
+	// Created 2 stub(s)
+	//   components.schemas.ItemList: Created stub schema for missing reference #/components/schemas/ItemList
+	//   components.responses.NotFound: Created stub response for missing reference #/components/responses/NotFound
+}
+
+// Example_stubMissingRefsCustomDescription demonstrates customizing the
+// description for stub responses created by the stub-missing-refs fixer.
+func Example_stubMissingRefsCustomDescription() {
+	// A spec with a missing response reference
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /items:
+    get:
+      operationId: listItems
+      responses:
+        '500':
+          $ref: '#/components/responses/InternalError'
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Use a custom description for stub responses
+	result, err := fixer.FixWithOptions(
+		fixer.WithParsed(*parseResult),
+		fixer.WithEnabledFixes(fixer.FixTypeStubMissingRef),
+		fixer.WithStubResponseDescription("TODO: Define this response"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Created %d stub(s)\n", result.FixCount)
+
+	// Output:
+	// Created 1 stub(s)
+}
