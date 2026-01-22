@@ -59,6 +59,14 @@
 //     {n}) and modifiers (:pascal, :camel, :snake, :kebab, :upper, :lower). This fix
 //     is opt-in and must be explicitly enabled.
 //
+//   - Stub missing references (FixTypeStubMissingRef): Creates stub definitions for
+//     unresolved local $ref pointers to schemas and responses. When a specification references a schema or
+//     response that doesn't exist (e.g., "$ref": "#/definitions/MissingType"), this
+//     fix creates an empty stub definition to make the document structurally valid.
+//     Schemas are stubbed with {} (any value allowed), responses are stubbed with
+//     {"description": "<configurable>"}. Only processes local refs (#/...), not
+//     external file refs. This fix is opt-in and must be explicitly enabled.
+//
 // # Default Behavior
 //
 // For performance, only FixTypeMissingPathParameter is enabled by default.
@@ -98,6 +106,32 @@
 //   - GenericNamingDot: Response[User] → Response.User
 //
 // Configure using WithGenericNaming() or WithGenericNamingConfig() options.
+//
+// # Stub Missing References
+//
+// When FixTypeStubMissingRef is enabled, the fixer creates empty definitions for
+// unresolved local $ref pointers. This is useful when working with incomplete
+// specifications or when references point to definitions that haven't been
+// created yet.
+//
+// Enable via CLI:
+//
+//	oastools fix --stub-missing-refs api.yaml
+//	oastools fix --stub-missing-refs --stub-response-desc "TODO: implement" api.yaml
+//
+// Enable programmatically:
+//
+//	result, err := fixer.FixWithOptions(
+//		fixer.WithFilePath("api.yaml"),
+//		fixer.WithEnabledFixes(fixer.FixTypeStubMissingRef),
+//		fixer.WithStubResponseDescription("Stub response - needs implementation"),
+//	)
+//
+// Supported stub types:
+//   - Schemas: Created as {} (empty object, allows any value)
+//   - Responses: Created with {"description": "<configurable>"} (description is required by spec)
+//
+// Configure using WithStubConfig() or WithStubResponseDescription() options.
 //
 // # Type Inference
 //
