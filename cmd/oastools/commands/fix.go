@@ -37,6 +37,10 @@ type FixFlags struct {
 	OperationIdPathSep       string
 	OperationIdTagSep        string
 
+	// Stub missing refs flags
+	StubMissingRefs  bool
+	StubResponseDesc string
+
 	// Dry run flag
 	DryRun bool
 }
@@ -74,6 +78,10 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 	fs.StringVar(&flags.OperationIdPathSep, "operationid-path-sep", "_", "separator for path segments in operationId template")
 	fs.StringVar(&flags.OperationIdTagSep, "operationid-tag-sep", "_", "separator for tags in operationId template")
 
+	// Stub missing refs flags
+	fs.BoolVar(&flags.StubMissingRefs, "stub-missing-refs", false, "create stubs for unresolved local $ref pointers")
+	fs.StringVar(&flags.StubResponseDesc, "stub-response-desc", "", "description text for stub responses (default: auto-generated message)")
+
 	// Dry run flag
 	fs.BoolVar(&flags.DryRun, "dry-run", false, "preview changes without modifying the document")
 
@@ -90,6 +98,9 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 		Writef(fs.Output(), "    invalid characters (brackets, etc.) using configurable strategies.\n")
 		Writef(fs.Output(), "  - Duplicate operationIds (--fix-duplicate-operationids): Renames\n")
 		Writef(fs.Output(), "    duplicate operationId values using configurable templates.\n")
+		Writef(fs.Output(), "  - Stub missing refs (--stub-missing-refs): Creates stub definitions\n")
+		Writef(fs.Output(), "    for unresolved local $ref pointers. Schemas get empty {} stubs,\n")
+		Writef(fs.Output(), "    responses get stubs with configurable descriptions.\n")
 		Writef(fs.Output(), "  - Prune schemas (--prune-schemas): Removes unreferenced schemas.\n")
 		Writef(fs.Output(), "  - Prune paths (--prune-paths): Removes paths with no operations.\n")
 		Writef(fs.Output(), "\nType Inference (--infer):\n")
@@ -116,6 +127,8 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 		Writef(fs.Output(), "  oastools fix --fix-schema-names --generic-naming of api.yaml\n")
 		Writef(fs.Output(), "  oastools fix --fix-duplicate-operationids api.yaml\n")
 		Writef(fs.Output(), "  oastools fix --fix-duplicate-operationids --operationid-template '{operationId:pascal}_{method:upper}' api.yaml\n")
+		Writef(fs.Output(), "  oastools fix --stub-missing-refs api.yaml\n")
+		Writef(fs.Output(), "  oastools fix --stub-missing-refs --stub-response-desc 'TODO: implement' api.yaml\n")
 		Writef(fs.Output(), "  oastools fix --prune-all api.yaml\n")
 		Writef(fs.Output(), "  oastools fix --dry-run --prune-schemas api.yaml\n")
 		Writef(fs.Output(), "  cat openapi.yaml | oastools fix -q - > fixed.yaml\n")
@@ -189,6 +202,9 @@ func HandleFix(args []string) error {
 	if flags.FixDuplicateOperationIds {
 		enabledFixes = append(enabledFixes, fixer.FixTypeDuplicateOperationId)
 	}
+	if flags.StubMissingRefs {
+		enabledFixes = append(enabledFixes, fixer.FixTypeStubMissingRef)
+	}
 	if flags.PruneSchemas || flags.PruneAll {
 		enabledFixes = append(enabledFixes, fixer.FixTypePrunedUnusedSchema)
 	}
@@ -214,6 +230,9 @@ func HandleFix(args []string) error {
 		f.GenericNamingConfig = genericConfig
 		f.OperationIdNamingConfig = operationIdConfig
 		f.DryRun = flags.DryRun
+		if flags.StubResponseDesc != "" {
+			f.StubConfig.ResponseDescription = flags.StubResponseDesc
+		}
 		result, err = f.FixParsed(*parseResult)
 		if err != nil {
 			return fmt.Errorf("fixing from stdin: %w", err)
@@ -249,6 +268,11 @@ func HandleFix(args []string) error {
 			if parseResult.SourceMap != nil {
 				fixOpts = append(fixOpts, fixer.WithSourceMap(parseResult.SourceMap))
 			}
+		}
+
+		// Add stub response description if specified (after potential SourceMap rebuild)
+		if flags.StubResponseDesc != "" {
+			fixOpts = append(fixOpts, fixer.WithStubResponseDescription(flags.StubResponseDesc))
 		}
 
 		result, err = fixer.FixWithOptions(fixOpts...)

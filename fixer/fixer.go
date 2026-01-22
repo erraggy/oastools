@@ -22,6 +22,8 @@ const (
 	FixTypeEnumCSVExpanded FixType = "enum-csv-expanded"
 	// FixTypeDuplicateOperationId indicates a duplicate operationId was renamed
 	FixTypeDuplicateOperationId FixType = "duplicate-operation-id"
+	// FixTypeStubMissingRef indicates a stub was created for an unresolved reference
+	FixTypeStubMissingRef FixType = "stub-missing-ref"
 )
 
 // Fix represents a single fix applied to the document
@@ -144,6 +146,8 @@ type Fixer struct {
 	// DryRun when true, collects fixes without modifying the document.
 	// Useful for previewing what would be changed.
 	DryRun bool
+	// StubConfig configures how missing reference stubs are created.
+	StubConfig StubConfig
 }
 
 // New creates a new Fixer instance with default settings
@@ -154,6 +158,7 @@ func New() *Fixer {
 		GenericNamingConfig:     DefaultGenericNamingConfig(),
 		OperationIdNamingConfig: DefaultOperationIdNamingConfig(),
 		DryRun:                  false,
+		StubConfig:              DefaultStubConfig(),
 	}
 }
 
@@ -173,6 +178,7 @@ type fixConfig struct {
 	genericNamingConfig     GenericNamingConfig
 	operationIdNamingConfig OperationIdNamingConfig
 	dryRun                  bool
+	stubConfig              StubConfig
 
 	// Source map for line/column tracking
 	sourceMap *parser.SourceMap
@@ -202,6 +208,7 @@ func FixWithOptions(opts ...Option) (*FixResult, error) {
 		GenericNamingConfig:     cfg.genericNamingConfig,
 		OperationIdNamingConfig: cfg.operationIdNamingConfig,
 		DryRun:                  cfg.dryRun,
+		StubConfig:              cfg.stubConfig,
 	}
 
 	// Route to appropriate fix method based on input source
@@ -227,6 +234,7 @@ func applyOptions(opts ...Option) (*fixConfig, error) {
 		genericNamingConfig:     DefaultGenericNamingConfig(),
 		operationIdNamingConfig: DefaultOperationIdNamingConfig(),
 		dryRun:                  false,
+		stubConfig:              DefaultStubConfig(),
 	}
 
 	for _, opt := range opts {
@@ -342,6 +350,22 @@ func WithOperationIdNamingConfig(config OperationIdNamingConfig) Option {
 func WithDryRun(dryRun bool) Option {
 	return func(cfg *fixConfig) error {
 		cfg.dryRun = dryRun
+		return nil
+	}
+}
+
+// WithStubConfig sets the configuration for missing reference stubs.
+func WithStubConfig(config StubConfig) Option {
+	return func(cfg *fixConfig) error {
+		cfg.stubConfig = config
+		return nil
+	}
+}
+
+// WithStubResponseDescription sets the description for stub responses.
+func WithStubResponseDescription(desc string) Option {
+	return func(cfg *fixConfig) error {
+		cfg.stubConfig.ResponseDescription = desc
 		return nil
 	}
 }

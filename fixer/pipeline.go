@@ -4,6 +4,7 @@ import "github.com/erraggy/oastools/parser"
 
 // fixPipeline defines version-specific callbacks for the fix pipeline.
 type fixPipeline struct {
+	stubMissingRefs          func(*Fixer, any, *FixResult)
 	fixMissingPathParams     func(*Fixer, any, *FixResult)
 	fixDuplicateOperationIds func(*Fixer, any, *FixResult)
 	fixInvalidSchemas        func(*Fixer, any, *FixResult)
@@ -16,6 +17,11 @@ type fixPipeline struct {
 // applyFixPipeline runs the shared fix pipeline on a document.
 func (f *Fixer) applyFixPipeline(doc any, result *FixResult, pipeline fixPipeline) {
 	// Apply enabled fixes in order:
+	// 0. Stub missing refs (must happen FIRST, before other fixes traverse refs)
+	if f.isFixEnabled(FixTypeStubMissingRef) && !f.DryRun {
+		pipeline.stubMissingRefs(f, doc, result)
+	}
+
 	// 1. Missing path parameters
 	if f.isFixEnabled(FixTypeMissingPathParameter) {
 		pipeline.fixMissingPathParams(f, doc, result)
@@ -61,6 +67,9 @@ func mustOAS2(doc any) *parser.OAS2Document {
 
 // oas2Pipeline is the fix pipeline for OAS 2.0 documents.
 var oas2Pipeline = fixPipeline{
+	stubMissingRefs: func(f *Fixer, doc any, result *FixResult) {
+		f.stubMissingRefsOAS2(mustOAS2(doc), result)
+	},
 	fixMissingPathParams: func(f *Fixer, doc any, result *FixResult) {
 		f.fixMissingPathParametersOAS2(mustOAS2(doc), result)
 	},
@@ -94,6 +103,9 @@ func mustOAS3(doc any) *parser.OAS3Document {
 
 // oas3Pipeline is the fix pipeline for OAS 3.x documents.
 var oas3Pipeline = fixPipeline{
+	stubMissingRefs: func(f *Fixer, doc any, result *FixResult) {
+		f.stubMissingRefsOAS3(mustOAS3(doc), result)
+	},
 	fixMissingPathParams: func(f *Fixer, doc any, result *FixResult) {
 		f.fixMissingPathParametersOAS3(mustOAS3(doc), result)
 	},
