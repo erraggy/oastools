@@ -477,3 +477,115 @@ func TestIssueLocationFields(t *testing.T) {
 	// Verify HasLocation() returns true
 	assert.True(t, issue.HasLocation())
 }
+
+func TestIssueStringWithOperationContext(t *testing.T) {
+	tests := []struct {
+		name     string
+		issue    Issue
+		contains []string
+	}{
+		{
+			name: "error with operation context (operationId)",
+			issue: Issue{
+				Path:     "paths./users/{id}.get.parameters[0]",
+				Message:  "Path parameters must have required: true",
+				Severity: severity.SeverityError,
+				OperationContext: &OperationContext{
+					Method:      "GET",
+					Path:        "/users/{id}",
+					OperationID: "getUser",
+				},
+			},
+			contains: []string{
+				"✗ paths./users/{id}.get.parameters[0] (operationId: getUser):",
+				"Path parameters must have required: true",
+			},
+		},
+		{
+			name: "error with operation context (no operationId)",
+			issue: Issue{
+				Path:     "paths./users/{id}.get.parameters[0]",
+				Message:  "Path parameters must have required: true",
+				Severity: severity.SeverityError,
+				OperationContext: &OperationContext{
+					Method: "GET",
+					Path:   "/users/{id}",
+				},
+			},
+			contains: []string{
+				"✗ paths./users/{id}.get.parameters[0] (GET /users/{id}):",
+				"Path parameters must have required: true",
+			},
+		},
+		{
+			name: "error with path-level context",
+			issue: Issue{
+				Path:     "paths./users/{id}.parameters[0]",
+				Message:  "Parameter missing schema",
+				Severity: severity.SeverityError,
+				OperationContext: &OperationContext{
+					Path: "/users/{id}",
+				},
+			},
+			contains: []string{
+				"✗ paths./users/{id}.parameters[0] (path: /users/{id}):",
+			},
+		},
+		{
+			name: "error with reusable component context",
+			issue: Issue{
+				Path:     "components.schemas.User.properties.email",
+				Message:  "Invalid email format",
+				Severity: severity.SeverityError,
+				OperationContext: &OperationContext{
+					Method:              "GET",
+					Path:                "/users",
+					OperationID:         "listUsers",
+					IsReusableComponent: true,
+					AdditionalRefs:      3,
+				},
+			},
+			contains: []string{
+				"✗ components.schemas.User.properties.email (operationId: listUsers, +3 operations):",
+			},
+		},
+		{
+			name: "error with nil operation context",
+			issue: Issue{
+				Path:     "info.version",
+				Message:  "Version is required",
+				Severity: severity.SeverityError,
+			},
+			contains: []string{
+				"✗ info.version: Version is required",
+			},
+		},
+		{
+			name: "warning with operation context and SpecRef",
+			issue: Issue{
+				Path:     "paths./users.get",
+				Message:  "Operation should have description",
+				Severity: severity.SeverityWarning,
+				OperationContext: &OperationContext{
+					Method:      "GET",
+					Path:        "/users",
+					OperationID: "listUsers",
+				},
+				SpecRef: "https://spec.openapis.org/oas/v3.0.3.html#operation-object",
+			},
+			contains: []string{
+				"⚠ paths./users.get (operationId: listUsers):",
+				"Spec: https://spec.openapis.org/oas/v3.0.3.html#operation-object",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.issue.String()
+			for _, substr := range tt.contains {
+				assert.Contains(t, result, substr)
+			}
+		})
+	}
+}

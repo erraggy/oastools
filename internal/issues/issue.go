@@ -29,6 +29,9 @@ type Issue struct {
 	Column int
 	// File is the source file path (empty for main document)
 	File string
+	// OperationContext provides API operation context when the issue relates to
+	// an operation or a component referenced by operations. Nil when not applicable.
+	OperationContext *OperationContext
 }
 
 // String returns a formatted string representation of the issue.
@@ -50,10 +53,15 @@ func (i Issue) String() string {
 	}
 
 	var result string
+	pathWithContext := i.Path
+	if i.OperationContext != nil && !i.OperationContext.IsEmpty() {
+		pathWithContext = fmt.Sprintf("%s %s", i.Path, i.OperationContext.String())
+	}
+
 	if i.Line > 0 {
-		result = fmt.Sprintf("%s %s (line %d, col %d): %s", symbol, i.Path, i.Line, i.Column, i.Message)
+		result = fmt.Sprintf("%s %s (line %d, col %d): %s", symbol, pathWithContext, i.Line, i.Column, i.Message)
 	} else {
-		result = fmt.Sprintf("%s %s: %s", symbol, i.Path, i.Message)
+		result = fmt.Sprintf("%s %s: %s", symbol, pathWithContext, i.Message)
 	}
 
 	// Add SpecRef if present (validation use case)

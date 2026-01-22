@@ -15,14 +15,12 @@ func (v *Validator) validateRef(ref, path string, validRefs map[string]bool, res
 
 	// Check for refs that reference empty schema names (end with /)
 	if strings.HasSuffix(ref, "/") {
-		result.Errors = append(result.Errors, ValidationError{
-			Path:     path,
-			Message:  fmt.Sprintf("$ref %q references an empty schema name", ref),
-			Severity: SeverityError,
-			Field:    "$ref",
-			Value:    ref,
-			SpecRef:  baseURL,
-		})
+		v.addError(result, path,
+			fmt.Sprintf("$ref %q references an empty schema name", ref),
+			withSpecRef(baseURL),
+			withField("$ref"),
+			withValue(ref),
+		)
 		return
 	}
 
@@ -35,14 +33,12 @@ func (v *Validator) validateRef(ref, path string, validRefs map[string]bool, res
 
 	// Check if the reference exists in the valid refs map
 	if !validRefs[ref] {
-		result.Errors = append(result.Errors, ValidationError{
-			Path:     path,
-			Message:  fmt.Sprintf("$ref '%s' does not resolve to a valid component in the document", ref),
-			SpecRef:  baseURL,
-			Severity: SeverityError,
-			Field:    "$ref",
-			Value:    ref,
-		})
+		v.addError(result, path,
+			fmt.Sprintf("$ref '%s' does not resolve to a valid component in the document", ref),
+			withSpecRef(baseURL),
+			withField("$ref"),
+			withValue(ref),
+		)
 	}
 }
 

@@ -13,6 +13,7 @@
 - [Practical Examples](#practical-examples)
 - [Validation Coverage](#validation-coverage)
 - [Validation Result Structure](#validation-result-structure)
+  - [Operation Context](#operation-context)
 - [Configuration Reference](#configuration-reference)
 - [Source Map Integration](#source-map-integration)
 - [Package Chaining](#package-chaining)
@@ -646,6 +647,54 @@ type ValidationError struct {
     
     // Value is the problematic value (optional)
     Value string
+
+    // OperationContext provides API operation context (optional)
+    OperationContext *issues.OperationContext
+}
+```
+
+### Operation Context
+
+Validation errors now include operation context to help identify which API endpoint is affected. This makes debugging significantly easier, especially for errors in shared components where the connection to a specific endpoint isn't obvious from the error path alone.
+
+```go
+// Operation-level errors include method, path, and operationId
+err.OperationContext = &issues.OperationContext{
+    Method:      "GET",
+    Path:        "/users/{id}",
+    OperationID: "getUser",
+}
+// Renders as: paths./users/{id}.get.parameters[0] (operationId: getUser): ...
+
+// Path-level errors show only the path
+err.OperationContext = &issues.OperationContext{
+    Path: "/users/{id}",
+}
+// Renders as: paths./users/{id}.parameters[0] (path: /users/{id}): ...
+
+// Shared component errors show referencing operations
+err.OperationContext = &issues.OperationContext{
+    Method:              "GET",
+    Path:                "/users",
+    OperationID:         "listUsers",
+    IsReusableComponent: true,
+    AdditionalRefs:      3,
+}
+// Renders as: components.schemas.User.properties.email (operationId: listUsers, +3 operations): ...
+```
+
+The operation context is automatically populated during validation. For programmatic access:
+
+```go
+result, _ := validator.ValidateWithOptions(
+    validator.WithFilePath("api.yaml"),
+)
+for _, err := range result.Errors {
+    if err.OperationContext != nil {
+        fmt.Printf("Affected operation: %s %s\n",
+            err.OperationContext.Method,
+            err.OperationContext.Path)
+    }
 }
 ```
 

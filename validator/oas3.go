@@ -112,13 +112,10 @@ func (v *Validator) validateOAS3Servers(doc *parser.OAS3Document, result *Valida
 		path := fmt.Sprintf("servers[%d]", i)
 
 		if server.URL == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "Server must have a url",
-				SpecRef:  fmt.Sprintf("%s#server-object", baseURL),
-				Severity: SeverityError,
-				Field:    "url",
-			})
+			v.addError(result, path, "Server must have a url",
+				withSpecRef(fmt.Sprintf("%s#server-object", baseURL)),
+				withField("url"),
+			)
 		}
 
 		// Validate server variables
@@ -126,25 +123,20 @@ func (v *Validator) validateOAS3Servers(doc *parser.OAS3Document, result *Valida
 			varPath := fmt.Sprintf("%s.variables.%s", path, varName)
 
 			if varObj.Default == "" {
-				result.Errors = append(result.Errors, ValidationError{
-					Path:     varPath,
-					Message:  "Server variable must have a default value",
-					SpecRef:  fmt.Sprintf("%s#server-variable-object", baseURL),
-					Severity: SeverityError,
-					Field:    "default",
-				})
+				v.addError(result, varPath, "Server variable must have a default value",
+					withSpecRef(fmt.Sprintf("%s#server-variable-object", baseURL)),
+					withField("default"),
+				)
 			}
 
 			// If enum is specified, default must be in enum
 			if len(varObj.Enum) > 0 && !slices.Contains(varObj.Enum, varObj.Default) {
-				result.Errors = append(result.Errors, ValidationError{
-					Path:     varPath,
-					Message:  fmt.Sprintf("Server variable default value '%s' must be one of the enum values", varObj.Default),
-					SpecRef:  fmt.Sprintf("%s#server-variable-object", baseURL),
-					Severity: SeverityError,
-					Field:    "default",
-					Value:    varObj.Default,
-				})
+				v.addError(result, varPath,
+					fmt.Sprintf("Server variable default value '%s' must be one of the enum values", varObj.Default),
+					withSpecRef(fmt.Sprintf("%s#server-variable-object", baseURL)),
+					withField("default"),
+					withValue(varObj.Default),
+				)
 			}
 		}
 	}
@@ -288,13 +280,10 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 		path := fmt.Sprintf("components.responses.%s", name)
 
 		if response.Description == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "Response must have a description",
-				SpecRef:  fmt.Sprintf("%s#response-object", baseURL),
-				Severity: SeverityError,
-				Field:    "description",
-			})
+			v.addError(result, path, "Response must have a description",
+				withSpecRef(fmt.Sprintf("%s#response-object", baseURL)),
+				withField("description"),
+			)
 		}
 	}
 
@@ -319,32 +308,23 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 		hasContent := len(param.Content) > 0
 
 		if !hasSchema && !hasContent {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "Parameter must have either a schema or content",
-				SpecRef:  fmt.Sprintf("%s#parameter-object", baseURL),
-				Severity: SeverityError,
-			})
+			v.addError(result, path, "Parameter must have either a schema or content",
+				withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+			)
 		}
 
 		if hasSchema && hasContent {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "Parameter must not have both schema and content",
-				SpecRef:  fmt.Sprintf("%s#parameter-object", baseURL),
-				Severity: SeverityError,
-			})
+			v.addError(result, path, "Parameter must not have both schema and content",
+				withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+			)
 		}
 
 		// Path parameters must have required: true
 		if param.In == "path" && !param.Required {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "Path parameters must have required: true",
-				SpecRef:  fmt.Sprintf("%s#parameter-object", baseURL),
-				Severity: SeverityError,
-				Field:    "required",
-			})
+			v.addError(result, path, "Path parameters must have required: true",
+				withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+				withField("required"),
+			)
 		}
 	}
 
@@ -361,67 +341,49 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 // validateOAS3SecurityScheme validates a security scheme in OAS 3.x
 func (v *Validator) validateOAS3SecurityScheme(scheme *parser.SecurityScheme, path string, result *ValidationResult, baseURL string) {
 	if scheme.Type == "" {
-		result.Errors = append(result.Errors, ValidationError{
-			Path:     path,
-			Message:  "Security scheme must have a type",
-			SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-			Severity: SeverityError,
-			Field:    "type",
-		})
+		v.addError(result, path, "Security scheme must have a type",
+			withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+			withField("type"),
+		)
 		return
 	}
 
 	switch scheme.Type {
 	case "apiKey":
 		if scheme.Name == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "API key security scheme must have a name",
-				SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-				Severity: SeverityError,
-				Field:    "name",
-			})
+			v.addError(result, path, "API key security scheme must have a name",
+				withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+				withField("name"),
+			)
 		}
 		if scheme.In == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "API key security scheme must specify 'in' (query, header, or cookie)",
-				SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-				Severity: SeverityError,
-				Field:    "in",
-			})
+			v.addError(result, path, "API key security scheme must specify 'in' (query, header, or cookie)",
+				withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+				withField("in"),
+			)
 		}
 	case "http":
 		if scheme.Scheme == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "HTTP security scheme must have a scheme (e.g., 'basic', 'bearer')",
-				SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-				Severity: SeverityError,
-				Field:    "scheme",
-			})
+			v.addError(result, path, "HTTP security scheme must have a scheme (e.g., 'basic', 'bearer')",
+				withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+				withField("scheme"),
+			)
 		}
 	case "oauth2":
 		if scheme.Flows == nil {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "OAuth2 security scheme must have flows",
-				SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-				Severity: SeverityError,
-				Field:    "flows",
-			})
+			v.addError(result, path, "OAuth2 security scheme must have flows",
+				withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+				withField("flows"),
+			)
 		} else {
 			v.validateOAuth2Flows(scheme.Flows, path, result, baseURL)
 		}
 	case "openIdConnect":
 		if scheme.OpenIDConnectURL == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "OpenID Connect security scheme must have openIdConnectUrl",
-				SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-				Severity: SeverityError,
-				Field:    "openIdConnectUrl",
-			})
+			v.addError(result, path, "OpenID Connect security scheme must have openIdConnectUrl",
+				withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+				withField("openIdConnectUrl"),
+			)
 		}
 	}
 }
@@ -432,22 +394,17 @@ func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, r
 	if flows.Implicit != nil {
 		flowPath := fmt.Sprintf("%s.flows.implicit", path)
 		if flows.Implicit.AuthorizationURL == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     flowPath,
-				Message:  "Implicit flow must have authorizationUrl",
-				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
-				Severity: SeverityError,
-				Field:    "authorizationUrl",
-			})
+			v.addError(result, flowPath, "Implicit flow must have authorizationUrl",
+				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
+				withField("authorizationUrl"),
+			)
 		} else if !isValidURL(flows.Implicit.AuthorizationURL) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     flowPath,
-				Message:  fmt.Sprintf("Invalid URL format for authorizationUrl: %s", flows.Implicit.AuthorizationURL),
-				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
-				Severity: SeverityError,
-				Field:    "authorizationUrl",
-				Value:    flows.Implicit.AuthorizationURL,
-			})
+			v.addError(result, flowPath,
+				fmt.Sprintf("Invalid URL format for authorizationUrl: %s", flows.Implicit.AuthorizationURL),
+				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
+				withField("authorizationUrl"),
+				withValue(flows.Implicit.AuthorizationURL),
+			)
 		}
 	}
 
@@ -455,22 +412,17 @@ func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, r
 	if flows.Password != nil {
 		flowPath := fmt.Sprintf("%s.flows.password", path)
 		if flows.Password.TokenURL == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     flowPath,
-				Message:  "Password flow must have tokenUrl",
-				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
-				Severity: SeverityError,
-				Field:    "tokenUrl",
-			})
+			v.addError(result, flowPath, "Password flow must have tokenUrl",
+				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
+				withField("tokenUrl"),
+			)
 		} else if !isValidURL(flows.Password.TokenURL) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     flowPath,
-				Message:  fmt.Sprintf("Invalid URL format for tokenUrl: %s", flows.Password.TokenURL),
-				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
-				Severity: SeverityError,
-				Field:    "tokenUrl",
-				Value:    flows.Password.TokenURL,
-			})
+			v.addError(result, flowPath,
+				fmt.Sprintf("Invalid URL format for tokenUrl: %s", flows.Password.TokenURL),
+				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
+				withField("tokenUrl"),
+				withValue(flows.Password.TokenURL),
+			)
 		}
 	}
 
@@ -478,22 +430,17 @@ func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, r
 	if flows.ClientCredentials != nil {
 		flowPath := fmt.Sprintf("%s.flows.clientCredentials", path)
 		if flows.ClientCredentials.TokenURL == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     flowPath,
-				Message:  "Client credentials flow must have tokenUrl",
-				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
-				Severity: SeverityError,
-				Field:    "tokenUrl",
-			})
+			v.addError(result, flowPath, "Client credentials flow must have tokenUrl",
+				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
+				withField("tokenUrl"),
+			)
 		} else if !isValidURL(flows.ClientCredentials.TokenURL) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     flowPath,
-				Message:  fmt.Sprintf("Invalid URL format for tokenUrl: %s", flows.ClientCredentials.TokenURL),
-				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
-				Severity: SeverityError,
-				Field:    "tokenUrl",
-				Value:    flows.ClientCredentials.TokenURL,
-			})
+			v.addError(result, flowPath,
+				fmt.Sprintf("Invalid URL format for tokenUrl: %s", flows.ClientCredentials.TokenURL),
+				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
+				withField("tokenUrl"),
+				withValue(flows.ClientCredentials.TokenURL),
+			)
 		}
 	}
 
@@ -501,40 +448,30 @@ func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, r
 	if flows.AuthorizationCode != nil {
 		flowPath := fmt.Sprintf("%s.flows.authorizationCode", path)
 		if flows.AuthorizationCode.AuthorizationURL == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     flowPath,
-				Message:  "Authorization code flow must have authorizationUrl",
-				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
-				Severity: SeverityError,
-				Field:    "authorizationUrl",
-			})
+			v.addError(result, flowPath, "Authorization code flow must have authorizationUrl",
+				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
+				withField("authorizationUrl"),
+			)
 		} else if !isValidURL(flows.AuthorizationCode.AuthorizationURL) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     flowPath,
-				Message:  fmt.Sprintf("Invalid URL format for authorizationUrl: %s", flows.AuthorizationCode.AuthorizationURL),
-				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
-				Severity: SeverityError,
-				Field:    "authorizationUrl",
-				Value:    flows.AuthorizationCode.AuthorizationURL,
-			})
+			v.addError(result, flowPath,
+				fmt.Sprintf("Invalid URL format for authorizationUrl: %s", flows.AuthorizationCode.AuthorizationURL),
+				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
+				withField("authorizationUrl"),
+				withValue(flows.AuthorizationCode.AuthorizationURL),
+			)
 		}
 		if flows.AuthorizationCode.TokenURL == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     flowPath,
-				Message:  "Authorization code flow must have tokenUrl",
-				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
-				Severity: SeverityError,
-				Field:    "tokenUrl",
-			})
+			v.addError(result, flowPath, "Authorization code flow must have tokenUrl",
+				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
+				withField("tokenUrl"),
+			)
 		} else if !isValidURL(flows.AuthorizationCode.TokenURL) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     flowPath,
-				Message:  fmt.Sprintf("Invalid URL format for tokenUrl: %s", flows.AuthorizationCode.TokenURL),
-				SpecRef:  fmt.Sprintf("%s#oauth-flows-object", baseURL),
-				Severity: SeverityError,
-				Field:    "tokenUrl",
-				Value:    flows.AuthorizationCode.TokenURL,
-			})
+			v.addError(result, flowPath,
+				fmt.Sprintf("Invalid URL format for tokenUrl: %s", flows.AuthorizationCode.TokenURL),
+				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
+				withField("tokenUrl"),
+				withValue(flows.AuthorizationCode.TokenURL),
+			)
 		}
 	}
 }
@@ -662,13 +599,11 @@ func (v *Validator) validateOAS3SecurityRequirements(doc *parser.OAS3Document, r
 	for i, secReq := range doc.Security {
 		for schemeName := range secReq {
 			if !availableSchemes[schemeName] {
-				result.Errors = append(result.Errors, ValidationError{
-					Path:     fmt.Sprintf("security[%d].%s", i, schemeName),
-					Message:  fmt.Sprintf("Security requirement references undefined security scheme: %s", schemeName),
-					SpecRef:  fmt.Sprintf("%s#security-requirement-object", baseURL),
-					Severity: SeverityError,
-					Value:    schemeName,
-				})
+				v.addError(result, fmt.Sprintf("security[%d].%s", i, schemeName),
+					fmt.Sprintf("Security requirement references undefined security scheme: %s", schemeName),
+					withSpecRef(fmt.Sprintf("%s#security-requirement-object", baseURL)),
+					withValue(schemeName),
+				)
 			}
 		}
 	}
@@ -690,13 +625,11 @@ func (v *Validator) validateOAS3SecurityRequirements(doc *parser.OAS3Document, r
 				for i, secReq := range op.Security {
 					for schemeName := range secReq {
 						if !availableSchemes[schemeName] {
-							result.Errors = append(result.Errors, ValidationError{
-								Path:     fmt.Sprintf("paths.%s.%s.security[%d].%s", pathPattern, method, i, schemeName),
-								Message:  fmt.Sprintf("Security requirement references undefined security scheme: %s", schemeName),
-								SpecRef:  fmt.Sprintf("%s#security-requirement-object", baseURL),
-								Severity: SeverityError,
-								Value:    schemeName,
-							})
+							v.addError(result, fmt.Sprintf("paths.%s.%s.security[%d].%s", pathPattern, method, i, schemeName),
+								fmt.Sprintf("Security requirement references undefined security scheme: %s", schemeName),
+								withSpecRef(fmt.Sprintf("%s#security-requirement-object", baseURL)),
+								withValue(schemeName),
+							)
 						}
 					}
 				}

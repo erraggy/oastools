@@ -75,24 +75,20 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 
 		// Validate path pattern starts with "/"
 		if !strings.HasPrefix(pathPattern, "/") {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     fmt.Sprintf("paths.%s", pathPattern),
-				Message:  "Path must start with '/'",
-				SpecRef:  fmt.Sprintf("%s#paths-object", baseURL),
-				Severity: SeverityError,
-				Value:    pathPattern,
-			})
+			v.addError(result, fmt.Sprintf("paths.%s", pathPattern),
+				"Path must start with '/'",
+				withSpecRef(fmt.Sprintf("%s#paths-object", baseURL)),
+				withValue(pathPattern),
+			)
 		}
 
 		// Validate path template is well-formed
 		if err := validatePathTemplate(pathPattern); err != nil {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     fmt.Sprintf("paths.%s", pathPattern),
-				Message:  fmt.Sprintf("Invalid path template: %s", err),
-				SpecRef:  fmt.Sprintf("%s#paths-object", baseURL),
-				Severity: SeverityError,
-				Value:    pathPattern,
-			})
+			v.addError(result, fmt.Sprintf("paths.%s", pathPattern),
+				fmt.Sprintf("Invalid path template: %s", err),
+				withSpecRef(fmt.Sprintf("%s#paths-object", baseURL)),
+				withValue(pathPattern),
+			)
 		}
 
 		// Warning: trailing slash in path (REST best practice)
@@ -102,24 +98,20 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 
 		// Validate QUERY method is not used in OAS 2.0
 		if pathItem.Query != nil {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     fmt.Sprintf("%s.query", pathPrefix),
-				Message:  "QUERY method is only supported in OAS 3.2+, not in OAS 2.0",
-				SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
-				Severity: SeverityError,
-				Field:    "query",
-			})
+			v.addError(result, fmt.Sprintf("%s.query", pathPrefix),
+				"QUERY method is only supported in OAS 3.2+, not in OAS 2.0",
+				withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
+				withField("query"),
+			)
 		}
 
 		// Validate TRACE method is not used in OAS 2.0
 		if pathItem.Trace != nil {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     fmt.Sprintf("%s.trace", pathPrefix),
-				Message:  "TRACE method is only supported in OAS 3.0+, not in OAS 2.0",
-				SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
-				Severity: SeverityError,
-				Field:    "trace",
-			})
+			v.addError(result, fmt.Sprintf("%s.trace", pathPrefix),
+				"TRACE method is only supported in OAS 3.0+, not in OAS 2.0",
+				withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
+				withField("trace"),
+			)
 		}
 
 		// Validate each operation
@@ -135,13 +127,11 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 
 			// Warning: recommend description
 			if v.IncludeWarnings && op.Description == "" && op.Summary == "" {
-				result.Warnings = append(result.Warnings, ValidationError{
-					Path:     opPath,
-					Message:  "Operation should have a description or summary for better documentation",
-					SpecRef:  fmt.Sprintf("%s#operation-object", baseURL),
-					Severity: SeverityWarning,
-					Field:    "description",
-				})
+				v.addWarning(result, opPath,
+					"Operation should have a description or summary for better documentation",
+					withSpecRef(fmt.Sprintf("%s#operation-object", baseURL)),
+					withField("description"),
+				)
 			}
 		}
 	}
@@ -155,25 +145,21 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 	// Validate consumes/produces media types
 	for i, mediaType := range op.Consumes {
 		if !isValidMediaType(mediaType) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     fmt.Sprintf("%s.consumes[%d]", path, i),
-				Message:  fmt.Sprintf("Invalid media type: %s", mediaType),
-				SpecRef:  fmt.Sprintf("%s#operation-object", baseURL),
-				Severity: SeverityError,
-				Value:    mediaType,
-			})
+			v.addError(result, fmt.Sprintf("%s.consumes[%d]", path, i),
+				fmt.Sprintf("Invalid media type: %s", mediaType),
+				withSpecRef(fmt.Sprintf("%s#operation-object", baseURL)),
+				withValue(mediaType),
+			)
 		}
 	}
 
 	for i, mediaType := range op.Produces {
 		if !isValidMediaType(mediaType) {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     fmt.Sprintf("%s.produces[%d]", path, i),
-				Message:  fmt.Sprintf("Invalid media type: %s", mediaType),
-				SpecRef:  fmt.Sprintf("%s#operation-object", baseURL),
-				Severity: SeverityError,
-				Value:    mediaType,
-			})
+			v.addError(result, fmt.Sprintf("%s.produces[%d]", path, i),
+				fmt.Sprintf("Invalid media type: %s", mediaType),
+				withSpecRef(fmt.Sprintf("%s#operation-object", baseURL)),
+				withValue(mediaType),
+			)
 		}
 	}
 }
@@ -200,24 +186,20 @@ func (v *Validator) validateOAS2Parameters(doc *parser.OAS2Document, result *Val
 
 		// Body parameters must have a schema
 		if param.In == "body" && param.Schema == nil {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "Body parameter must have a schema",
-				SpecRef:  fmt.Sprintf("%s#parameter-object", baseURL),
-				Severity: SeverityError,
-				Field:    "schema",
-			})
+			v.addError(result, path,
+				"Body parameter must have a schema",
+				withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+				withField("schema"),
+			)
 		}
 
 		// Non-body parameters must have a type
 		if param.In != "body" && param.Type == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "Non-body parameter must have a type",
-				SpecRef:  fmt.Sprintf("%s#parameter-object", baseURL),
-				Severity: SeverityError,
-				Field:    "type",
-			})
+			v.addError(result, path,
+				"Non-body parameter must have a type",
+				withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+				withField("type"),
+			)
 		}
 	}
 }
@@ -231,13 +213,11 @@ func (v *Validator) validateOAS2Responses(doc *parser.OAS2Document, result *Vali
 		path := fmt.Sprintf("responses.%s", name)
 
 		if response.Description == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "Response must have a description",
-				SpecRef:  fmt.Sprintf("%s#response-object", baseURL),
-				Severity: SeverityError,
-				Field:    "description",
-			})
+			v.addError(result, path,
+				"Response must have a description",
+				withSpecRef(fmt.Sprintf("%s#response-object", baseURL)),
+				withField("description"),
+			)
 		}
 	}
 }
@@ -248,13 +228,11 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 	for i, secReq := range doc.Security {
 		for schemeName := range secReq {
 			if _, exists := doc.SecurityDefinitions[schemeName]; !exists {
-				result.Errors = append(result.Errors, ValidationError{
-					Path:     fmt.Sprintf("security[%d].%s", i, schemeName),
-					Message:  fmt.Sprintf("Security requirement references undefined security scheme: %s", schemeName),
-					SpecRef:  fmt.Sprintf("%s#security-requirement-object", baseURL),
-					Severity: SeverityError,
-					Value:    schemeName,
-				})
+				v.addError(result, fmt.Sprintf("security[%d].%s", i, schemeName),
+					fmt.Sprintf("Security requirement references undefined security scheme: %s", schemeName),
+					withSpecRef(fmt.Sprintf("%s#security-requirement-object", baseURL)),
+					withValue(schemeName),
+				)
 			}
 		}
 	}
@@ -264,86 +242,70 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 		path := fmt.Sprintf("securityDefinitions.%s", name)
 
 		if secDef.Type == "" {
-			result.Errors = append(result.Errors, ValidationError{
-				Path:     path,
-				Message:  "Security scheme must have a type",
-				SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-				Severity: SeverityError,
-				Field:    "type",
-			})
+			v.addError(result, path,
+				"Security scheme must have a type",
+				withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+				withField("type"),
+			)
 		}
 
 		// Validate type-specific requirements
 		switch secDef.Type {
 		case "apiKey":
 			if secDef.Name == "" {
-				result.Errors = append(result.Errors, ValidationError{
-					Path:     path,
-					Message:  "API key security scheme must have a name",
-					SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-					Severity: SeverityError,
-					Field:    "name",
-				})
+				v.addError(result, path,
+					"API key security scheme must have a name",
+					withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+					withField("name"),
+				)
 			}
 			if secDef.In == "" {
-				result.Errors = append(result.Errors, ValidationError{
-					Path:     path,
-					Message:  "API key security scheme must specify 'in' (query or header)",
-					SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-					Severity: SeverityError,
-					Field:    "in",
-				})
+				v.addError(result, path,
+					"API key security scheme must specify 'in' (query or header)",
+					withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+					withField("in"),
+				)
 			}
 		case "oauth2":
 			if secDef.Flow == "" {
-				result.Errors = append(result.Errors, ValidationError{
-					Path:     path,
-					Message:  "OAuth2 security scheme must have a flow",
-					SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-					Severity: SeverityError,
-					Field:    "flow",
-				})
+				v.addError(result, path,
+					"OAuth2 security scheme must have a flow",
+					withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+					withField("flow"),
+				)
 			}
 			// Validate flow-specific requirements
 			switch secDef.Flow {
 			case "implicit", "accessCode":
 				if secDef.AuthorizationURL == "" {
-					result.Errors = append(result.Errors, ValidationError{
-						Path:     path,
-						Message:  fmt.Sprintf("OAuth2 flow '%s' requires authorizationUrl", secDef.Flow),
-						SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-						Severity: SeverityError,
-						Field:    "authorizationUrl",
-					})
+					v.addError(result, path,
+						fmt.Sprintf("OAuth2 flow '%s' requires authorizationUrl", secDef.Flow),
+						withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+						withField("authorizationUrl"),
+					)
 				} else if !isValidURL(secDef.AuthorizationURL) {
-					result.Errors = append(result.Errors, ValidationError{
-						Path:     path,
-						Message:  fmt.Sprintf("Invalid URL format for authorizationUrl: %s", secDef.AuthorizationURL),
-						SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-						Severity: SeverityError,
-						Field:    "authorizationUrl",
-						Value:    secDef.AuthorizationURL,
-					})
+					v.addError(result, path,
+						fmt.Sprintf("Invalid URL format for authorizationUrl: %s", secDef.AuthorizationURL),
+						withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+						withField("authorizationUrl"),
+						withValue(secDef.AuthorizationURL),
+					)
 				}
 			}
 			if secDef.Flow == "password" || secDef.Flow == "application" || secDef.Flow == "accessCode" {
 				if secDef.TokenURL == "" {
-					result.Errors = append(result.Errors, ValidationError{
-						Path:     path,
-						Message:  fmt.Sprintf("OAuth2 flow '%s' requires tokenUrl", secDef.Flow),
-						SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-						Severity: SeverityError,
-						Field:    "tokenUrl",
-					})
+					v.addError(result, path,
+						fmt.Sprintf("OAuth2 flow '%s' requires tokenUrl", secDef.Flow),
+						withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+						withField("tokenUrl"),
+					)
 				} else if !isValidURL(secDef.TokenURL) {
-					result.Errors = append(result.Errors, ValidationError{
-						Path:     path,
-						Message:  fmt.Sprintf("Invalid URL format for tokenUrl: %s", secDef.TokenURL),
-						SpecRef:  fmt.Sprintf("%s#security-scheme-object", baseURL),
-						Severity: SeverityError,
-						Field:    "tokenUrl",
-						Value:    secDef.TokenURL,
-					})
+					v.addError(result, path,
+						fmt.Sprintf("Invalid URL format for tokenUrl: %s", secDef.TokenURL),
+						withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
+						withField("tokenUrl"),
+						withValue(secDef.TokenURL),
+					)
 				}
 			}
 		}
@@ -388,26 +350,22 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 			// Verify all path template parameters are declared
 			for paramName := range pathParams {
 				if !declaredParams[paramName] {
-					result.Errors = append(result.Errors, ValidationError{
-						Path:     fmt.Sprintf("paths.%s.%s", pathPattern, method),
-						Message:  fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
-						SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
-						Severity: SeverityError,
-						Value:    paramName,
-					})
+					v.addError(result, fmt.Sprintf("paths.%s.%s", pathPattern, method),
+						fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
+						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
+						withValue(paramName),
+					)
 				}
 			}
 
 			// Warn about declared path parameters not in template
 			for paramName := range declaredParams {
 				if !pathParams[paramName] {
-					result.Warnings = append(result.Warnings, ValidationError{
-						Path:     fmt.Sprintf("paths.%s.%s", pathPattern, method),
-						Message:  fmt.Sprintf("Parameter '%s' is declared as path parameter but not used in path template", paramName),
-						SpecRef:  fmt.Sprintf("%s#path-item-object", baseURL),
-						Severity: SeverityWarning,
-						Value:    paramName,
-					})
+					v.addWarning(result, fmt.Sprintf("paths.%s.%s", pathPattern, method),
+						fmt.Sprintf("Parameter '%s' is declared as path parameter but not used in path template", paramName),
+						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
+						withValue(paramName),
+					)
 				}
 			}
 		}
