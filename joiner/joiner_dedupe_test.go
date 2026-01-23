@@ -725,3 +725,361 @@ func TestJoiner_SemanticDeduplication_MetadataIgnored(t *testing.T) {
 		t.Errorf("Expected 1 schema (metadata ignored), got %d", len(oas3Doc.Components.Schemas))
 	}
 }
+
+func TestJoiner_SemanticDeduplication_EmptySchemasPreserved(t *testing.T) {
+	// Create two documents with empty schemas (no constraints).
+	// Empty schemas serve different semantic purposes and should NOT be consolidated.
+	doc1 := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "API 1", Version: "1.0.0"},
+		Paths:   make(parser.Paths),
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				// Empty schema used as a placeholder
+				"AnyPayload": {},
+				// Non-empty schema with a real type
+				"User": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"name": {Type: "string"},
+					},
+				},
+			},
+		},
+		OASVersion: parser.OASVersion303,
+	}
+
+	doc2 := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "API 2", Version: "1.0.0"},
+		Paths:   make(parser.Paths),
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				// Another empty schema used as a wildcard type
+				"DynamicData": {},
+				// Schema identical to User - should be deduplicated
+				"Person": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"name": {Type: "string"},
+					},
+				},
+			},
+		},
+		OASVersion: parser.OASVersion303,
+	}
+
+	results := []parser.ParseResult{
+		{
+			Document:     doc1,
+			Version:      "3.0.3",
+			OASVersion:   parser.OASVersion303,
+			SourcePath:   "api1.yaml",
+			SourceFormat: "yaml",
+		},
+		{
+			Document:     doc2,
+			Version:      "3.0.3",
+			OASVersion:   parser.OASVersion303,
+			SourcePath:   "api2.yaml",
+			SourceFormat: "yaml",
+		},
+	}
+
+	config := DefaultConfig()
+	config.SemanticDeduplication = true
+	j := New(config)
+
+	joinResult, err := j.JoinParsed(results)
+	if err != nil {
+		t.Fatalf("JoinParsed failed: %v", err)
+	}
+
+	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
+	if !ok {
+		t.Fatal("Expected OAS3Document")
+	}
+
+	// Should have 3 schemas:
+	// - AnyPayload (empty, preserved)
+	// - DynamicData (empty, preserved - NOT deduplicated with AnyPayload)
+	// - Person (canonical for Person/User group - alphabetically first)
+	// User should be deduplicated into Person
+	if len(oas3Doc.Components.Schemas) != 3 {
+		names := make([]string, 0, len(oas3Doc.Components.Schemas))
+		for name := range oas3Doc.Components.Schemas {
+			names = append(names, name)
+		}
+		t.Errorf("Expected 3 schemas (empty schemas preserved), got %d: %v", len(oas3Doc.Components.Schemas), names)
+	}
+
+	// Verify empty schemas are preserved
+	if _, ok := oas3Doc.Components.Schemas["AnyPayload"]; !ok {
+		t.Error("Expected AnyPayload empty schema to be preserved")
+	}
+	if _, ok := oas3Doc.Components.Schemas["DynamicData"]; !ok {
+		t.Error("Expected DynamicData empty schema to be preserved")
+	}
+
+	// Verify non-empty schema deduplication still works
+	// Person is canonical (alphabetically first: "Person" < "User")
+	if _, ok := oas3Doc.Components.Schemas["Person"]; !ok {
+		t.Error("Expected Person to be canonical (alphabetically first vs User)")
+	}
+	if _, ok := oas3Doc.Components.Schemas["User"]; ok {
+		t.Error("Expected User to be removed (duplicate of Person)")
+	}
+}
+
+func TestJoiner_SemanticDeduplication_EmptySchemasPreserved_OAS2(t *testing.T) {
+	// Same test for OAS 2.0 documents
+	doc1 := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "API 1", Version: "1.0.0"},
+		Paths:   make(parser.Paths),
+		Definitions: map[string]*parser.Schema{
+			"AnyPayload": {},
+			"User": {
+				Type: "object",
+				Properties: map[string]*parser.Schema{
+					"name": {Type: "string"},
+				},
+			},
+		},
+		OASVersion: parser.OASVersion20,
+	}
+
+	doc2 := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "API 2", Version: "1.0.0"},
+		Paths:   make(parser.Paths),
+		Definitions: map[string]*parser.Schema{
+			"DynamicData": {},
+			"Person": {
+				Type: "object",
+				Properties: map[string]*parser.Schema{
+					"name": {Type: "string"},
+				},
+			},
+		},
+		OASVersion: parser.OASVersion20,
+	}
+
+	results := []parser.ParseResult{
+		{
+			Document:     doc1,
+			Version:      "2.0",
+			OASVersion:   parser.OASVersion20,
+			SourcePath:   "api1.yaml",
+			SourceFormat: "yaml",
+		},
+		{
+			Document:     doc2,
+			Version:      "2.0",
+			OASVersion:   parser.OASVersion20,
+			SourcePath:   "api2.yaml",
+			SourceFormat: "yaml",
+		},
+	}
+
+	config := DefaultConfig()
+	config.SemanticDeduplication = true
+	j := New(config)
+
+	joinResult, err := j.JoinParsed(results)
+	if err != nil {
+		t.Fatalf("JoinParsed failed: %v", err)
+	}
+
+	oas2Doc, ok := joinResult.Document.(*parser.OAS2Document)
+	if !ok {
+		t.Fatal("Expected OAS2Document")
+	}
+
+	// Should have 3 definitions: both empty schemas preserved, User deduplicated into Person
+	if len(oas2Doc.Definitions) != 3 {
+		names := make([]string, 0, len(oas2Doc.Definitions))
+		for name := range oas2Doc.Definitions {
+			names = append(names, name)
+		}
+		t.Errorf("Expected 3 definitions (empty schemas preserved), got %d: %v", len(oas2Doc.Definitions), names)
+	}
+
+	if _, ok := oas2Doc.Definitions["AnyPayload"]; !ok {
+		t.Error("Expected AnyPayload empty schema to be preserved")
+	}
+	if _, ok := oas2Doc.Definitions["DynamicData"]; !ok {
+		t.Error("Expected DynamicData empty schema to be preserved")
+	}
+	// Person is canonical (alphabetically first: "Person" < "User")
+	if _, ok := oas2Doc.Definitions["Person"]; !ok {
+		t.Error("Expected Person to be canonical")
+	}
+	if _, ok := oas2Doc.Definitions["User"]; ok {
+		t.Error("Expected User to be removed (duplicate of Person)")
+	}
+}
+
+func TestJoiner_SemanticDeduplication_EmptySchemaReferenceRewriting(t *testing.T) {
+	// Verify that references to empty schemas are NOT rewritten during deduplication.
+	// Empty schemas are preserved as-is, so references should remain unchanged.
+	doc1 := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "API 1", Version: "1.0.0"},
+		Paths:   make(parser.Paths),
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				// Empty placeholder schema
+				"EmptyPlaceholder": {},
+			},
+		},
+		OASVersion: parser.OASVersion303,
+	}
+
+	doc2 := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "API 2", Version: "1.0.0"},
+		Paths:   make(parser.Paths),
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				// Another empty schema
+				"AnotherEmpty": {},
+				// Order schema that references AnotherEmpty
+				"Order": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"payload": {Ref: "#/components/schemas/AnotherEmpty"},
+					},
+				},
+			},
+		},
+		OASVersion: parser.OASVersion303,
+	}
+
+	results := []parser.ParseResult{
+		{
+			Document:     doc1,
+			Version:      "3.0.3",
+			OASVersion:   parser.OASVersion303,
+			SourcePath:   "api1.yaml",
+			SourceFormat: "yaml",
+		},
+		{
+			Document:     doc2,
+			Version:      "3.0.3",
+			OASVersion:   parser.OASVersion303,
+			SourcePath:   "api2.yaml",
+			SourceFormat: "yaml",
+		},
+	}
+
+	config := DefaultConfig()
+	config.SemanticDeduplication = true
+	j := New(config)
+
+	joinResult, err := j.JoinParsed(results)
+	if err != nil {
+		t.Fatalf("JoinParsed failed: %v", err)
+	}
+
+	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
+	if !ok {
+		t.Fatal("Expected OAS3Document")
+	}
+
+	// Both empty schemas should be preserved (not deduplicated)
+	if _, ok := oas3Doc.Components.Schemas["EmptyPlaceholder"]; !ok {
+		t.Error("Expected EmptyPlaceholder to be preserved")
+	}
+	if _, ok := oas3Doc.Components.Schemas["AnotherEmpty"]; !ok {
+		t.Error("Expected AnotherEmpty to be preserved")
+	}
+
+	// Order's reference to AnotherEmpty should remain unchanged
+	orderSchema := oas3Doc.Components.Schemas["Order"]
+	if orderSchema == nil {
+		t.Fatal("Expected Order schema to exist")
+	}
+
+	payloadRef := orderSchema.Properties["payload"].Ref
+	expectedRef := "#/components/schemas/AnotherEmpty"
+	if payloadRef != expectedRef {
+		t.Errorf("Expected payload.$ref = %s, got %s (reference should NOT be rewritten for empty schemas)", expectedRef, payloadRef)
+	}
+}
+
+func TestJoiner_SemanticDeduplication_EmptyWithMetadataPreserved(t *testing.T) {
+	// Empty schemas with metadata (title, description) should also be preserved
+	doc1 := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "API 1", Version: "1.0.0"},
+		Paths:   make(parser.Paths),
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Wildcard": {
+					Title:       "Any Type",
+					Description: "Accepts any value",
+				},
+			},
+		},
+		OASVersion: parser.OASVersion303,
+	}
+
+	doc2 := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "API 2", Version: "1.0.0"},
+		Paths:   make(parser.Paths),
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Placeholder": {
+					Title:       "Placeholder",
+					Description: "To be defined later",
+				},
+			},
+		},
+		OASVersion: parser.OASVersion303,
+	}
+
+	results := []parser.ParseResult{
+		{
+			Document:     doc1,
+			Version:      "3.0.3",
+			OASVersion:   parser.OASVersion303,
+			SourcePath:   "api1.yaml",
+			SourceFormat: "yaml",
+		},
+		{
+			Document:     doc2,
+			Version:      "3.0.3",
+			OASVersion:   parser.OASVersion303,
+			SourcePath:   "api2.yaml",
+			SourceFormat: "yaml",
+		},
+	}
+
+	config := DefaultConfig()
+	config.SemanticDeduplication = true
+	j := New(config)
+
+	joinResult, err := j.JoinParsed(results)
+	if err != nil {
+		t.Fatalf("JoinParsed failed: %v", err)
+	}
+
+	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
+	if !ok {
+		t.Fatal("Expected OAS3Document")
+	}
+
+	// Both schemas should be preserved since they are empty (metadata-only)
+	if len(oas3Doc.Components.Schemas) != 2 {
+		t.Errorf("Expected 2 schemas (empty schemas with metadata preserved), got %d", len(oas3Doc.Components.Schemas))
+	}
+
+	if _, ok := oas3Doc.Components.Schemas["Wildcard"]; !ok {
+		t.Error("Expected Wildcard empty schema to be preserved")
+	}
+	if _, ok := oas3Doc.Components.Schemas["Placeholder"]; !ok {
+		t.Error("Expected Placeholder empty schema to be preserved")
+	}
+}

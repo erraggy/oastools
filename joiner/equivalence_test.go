@@ -422,7 +422,11 @@ func TestCompareSchemas_EmptySchemas(t *testing.T) {
 
 	result := CompareSchemas(left, right, EquivalenceModeDeep)
 
-	assert.True(t, result.Equivalent, "empty schemas should be equivalent")
+	// Empty schemas are semantically distinct - never equivalent.
+	// They serve different purposes depending on context (placeholders,
+	// "any type" markers, context-specific wildcards).
+	assert.False(t, result.Equivalent, "empty schemas should NOT be equivalent")
+	assert.Empty(t, result.Differences, "no structural differences for empty schemas")
 }
 
 func TestCompareSchemas_NilSchemas(t *testing.T) {
@@ -774,4 +778,493 @@ func TestCompareSchemas_UnevaluatedItems(t *testing.T) {
 		result := CompareSchemas(left, right, EquivalenceModeDeep)
 		assert.True(t, result.Equivalent)
 	})
+}
+
+func TestIsEmptySchema(t *testing.T) {
+	minVal := 1.0
+	minLen := 1
+	minItems := 0
+
+	tests := []struct {
+		name   string
+		schema *parser.Schema
+		want   bool
+	}{
+		{
+			name:   "nil schema",
+			schema: nil,
+			want:   false,
+		},
+		{
+			name:   "truly empty schema",
+			schema: &parser.Schema{},
+			want:   true,
+		},
+		{
+			name:   "with title only (metadata, not a constraint)",
+			schema: &parser.Schema{Title: "My Schema"},
+			want:   true,
+		},
+		{
+			name:   "with description only (metadata, not a constraint)",
+			schema: &parser.Schema{Description: "A description"},
+			want:   true,
+		},
+		{
+			name:   "with both title and description",
+			schema: &parser.Schema{Title: "Title", Description: "Desc"},
+			want:   true,
+		},
+		{
+			name:   "with example (metadata, not a constraint)",
+			schema: &parser.Schema{Example: "sample"},
+			want:   true,
+		},
+		{
+			name:   "with deprecated (metadata, not a constraint)",
+			schema: &parser.Schema{Deprecated: true},
+			want:   true,
+		},
+		{
+			name:   "with type string",
+			schema: &parser.Schema{Type: "string"},
+			want:   false,
+		},
+		{
+			name:   "with type object",
+			schema: &parser.Schema{Type: "object"},
+			want:   false,
+		},
+		{
+			name:   "with type array ([]string)",
+			schema: &parser.Schema{Type: []string{"string", "null"}},
+			want:   false,
+		},
+		{
+			name:   "with format",
+			schema: &parser.Schema{Format: "date-time"},
+			want:   false,
+		},
+		{
+			name:   "with enum",
+			schema: &parser.Schema{Enum: []any{"a", "b"}},
+			want:   false,
+		},
+		{
+			name:   "with const",
+			schema: &parser.Schema{Const: "fixed"},
+			want:   false,
+		},
+		{
+			name:   "with pattern",
+			schema: &parser.Schema{Pattern: "^[a-z]+$"},
+			want:   false,
+		},
+		{
+			name:   "with required",
+			schema: &parser.Schema{Required: []string{"name"}},
+			want:   false,
+		},
+		{
+			name:   "with properties",
+			schema: &parser.Schema{Properties: map[string]*parser.Schema{"name": {Type: "string"}}},
+			want:   false,
+		},
+		{
+			name:   "with additionalProperties bool",
+			schema: &parser.Schema{AdditionalProperties: false},
+			want:   false,
+		},
+		{
+			name:   "with additionalProperties schema",
+			schema: &parser.Schema{AdditionalProperties: &parser.Schema{Type: "string"}},
+			want:   false,
+		},
+		{
+			name:   "with items",
+			schema: &parser.Schema{Items: &parser.Schema{Type: "string"}},
+			want:   false,
+		},
+		{
+			name:   "with minimum",
+			schema: &parser.Schema{Minimum: &minVal},
+			want:   false,
+		},
+		{
+			name:   "with maximum",
+			schema: &parser.Schema{Maximum: &minVal},
+			want:   false,
+		},
+		{
+			name:   "with minLength",
+			schema: &parser.Schema{MinLength: &minLen},
+			want:   false,
+		},
+		{
+			name:   "with maxLength",
+			schema: &parser.Schema{MaxLength: &minLen},
+			want:   false,
+		},
+		{
+			name:   "with minItems",
+			schema: &parser.Schema{MinItems: &minItems},
+			want:   false,
+		},
+		{
+			name:   "with maxItems",
+			schema: &parser.Schema{MaxItems: &minItems},
+			want:   false,
+		},
+		{
+			name:   "with uniqueItems",
+			schema: &parser.Schema{UniqueItems: true},
+			want:   false,
+		},
+		{
+			name:   "with minProperties",
+			schema: &parser.Schema{MinProperties: &minLen},
+			want:   false,
+		},
+		{
+			name:   "with maxProperties",
+			schema: &parser.Schema{MaxProperties: &minLen},
+			want:   false,
+		},
+		{
+			name:   "with allOf",
+			schema: &parser.Schema{AllOf: []*parser.Schema{{Type: "object"}}},
+			want:   false,
+		},
+		{
+			name:   "with anyOf",
+			schema: &parser.Schema{AnyOf: []*parser.Schema{{Type: "string"}}},
+			want:   false,
+		},
+		{
+			name:   "with oneOf",
+			schema: &parser.Schema{OneOf: []*parser.Schema{{Type: "string"}}},
+			want:   false,
+		},
+		{
+			name:   "with not",
+			schema: &parser.Schema{Not: &parser.Schema{Type: "null"}},
+			want:   false,
+		},
+		{
+			name:   "with unevaluatedProperties",
+			schema: &parser.Schema{UnevaluatedProperties: false},
+			want:   false,
+		},
+		{
+			name:   "with unevaluatedItems",
+			schema: &parser.Schema{UnevaluatedItems: &parser.Schema{Type: "string"}},
+			want:   false,
+		},
+		{
+			name:   "with contentEncoding",
+			schema: &parser.Schema{ContentEncoding: "base64"},
+			want:   false,
+		},
+		{
+			name:   "with contentMediaType",
+			schema: &parser.Schema{ContentMediaType: "application/json"},
+			want:   false,
+		},
+		{
+			name:   "with contentSchema",
+			schema: &parser.Schema{ContentSchema: &parser.Schema{Type: "object"}},
+			want:   false,
+		},
+		{
+			name:   "with prefixItems",
+			schema: &parser.Schema{PrefixItems: []*parser.Schema{{Type: "string"}}},
+			want:   false,
+		},
+		{
+			name:   "with contains",
+			schema: &parser.Schema{Contains: &parser.Schema{Type: "string"}},
+			want:   false,
+		},
+		{
+			name:   "with propertyNames",
+			schema: &parser.Schema{PropertyNames: &parser.Schema{Pattern: "^[a-z]+$"}},
+			want:   false,
+		},
+		{
+			name:   "with dependentSchemas",
+			schema: &parser.Schema{DependentSchemas: map[string]*parser.Schema{"name": {Type: "object"}}},
+			want:   false,
+		},
+		{
+			name:   "with multipleOf",
+			schema: &parser.Schema{MultipleOf: &minVal},
+			want:   false,
+		},
+		{
+			name:   "with exclusiveMinimum",
+			schema: &parser.Schema{ExclusiveMinimum: 1.0},
+			want:   false,
+		},
+		{
+			name:   "with exclusiveMaximum",
+			schema: &parser.Schema{ExclusiveMaximum: 100.0},
+			want:   false,
+		},
+		{
+			name:   "with additionalItems",
+			schema: &parser.Schema{AdditionalItems: &parser.Schema{Type: "string"}},
+			want:   false,
+		},
+		{
+			name:   "with maxContains",
+			schema: &parser.Schema{MaxContains: &minLen},
+			want:   false,
+		},
+		{
+			name:   "with minContains",
+			schema: &parser.Schema{MinContains: &minLen},
+			want:   false,
+		},
+		{
+			name:   "with patternProperties",
+			schema: &parser.Schema{PatternProperties: map[string]*parser.Schema{"^x-": {Type: "string"}}},
+			want:   false,
+		},
+		{
+			name:   "with dependentRequired",
+			schema: &parser.Schema{DependentRequired: map[string][]string{"name": {"email"}}},
+			want:   false,
+		},
+		{
+			name:   "with if",
+			schema: &parser.Schema{If: &parser.Schema{Type: "object"}},
+			want:   false,
+		},
+		{
+			name:   "with then",
+			schema: &parser.Schema{Then: &parser.Schema{Type: "object"}},
+			want:   false,
+		},
+		{
+			name:   "with else",
+			schema: &parser.Schema{Else: &parser.Schema{Type: "object"}},
+			want:   false,
+		},
+		{
+			name:   "with nullable true",
+			schema: &parser.Schema{Nullable: true},
+			want:   false,
+		},
+		{
+			name:   "with readOnly true",
+			schema: &parser.Schema{ReadOnly: true},
+			want:   false,
+		},
+		{
+			name:   "with writeOnly true",
+			schema: &parser.Schema{WriteOnly: true},
+			want:   false,
+		},
+		{
+			name:   "with collectionFormat",
+			schema: &parser.Schema{CollectionFormat: "csv"},
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isEmptySchema(tt.schema)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCompareSchemas_EmptySchemasNonEquivalent(t *testing.T) {
+	tests := []struct {
+		name  string
+		left  *parser.Schema
+		right *parser.Schema
+	}{
+		{
+			name:  "both empty",
+			left:  &parser.Schema{},
+			right: &parser.Schema{},
+		},
+		{
+			name:  "left empty right has title",
+			left:  &parser.Schema{},
+			right: &parser.Schema{Title: "Any"},
+		},
+		{
+			name:  "left has description right empty",
+			left:  &parser.Schema{Description: "placeholder"},
+			right: &parser.Schema{},
+		},
+		{
+			name:  "both have metadata but no constraints",
+			left:  &parser.Schema{Title: "Schema A"},
+			right: &parser.Schema{Title: "Schema B"},
+		},
+		{
+			name:  "left empty right has type",
+			left:  &parser.Schema{},
+			right: &parser.Schema{Type: "string"},
+		},
+		{
+			name:  "left has type right empty",
+			left:  &parser.Schema{Type: "object"},
+			right: &parser.Schema{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CompareSchemas(tt.left, tt.right, EquivalenceModeDeep)
+			assert.False(t, result.Equivalent, "empty schemas should never be equivalent")
+			assert.Empty(t, result.Differences, "no structural differences for empty schema short-circuit")
+		})
+	}
+}
+
+func TestCompareSchemas_EmptySchemaShallowMode(t *testing.T) {
+	left := &parser.Schema{}
+	right := &parser.Schema{}
+
+	result := CompareSchemas(left, right, EquivalenceModeShallow)
+
+	assert.False(t, result.Equivalent, "empty schemas should not be equivalent in shallow mode")
+	assert.Empty(t, result.Differences)
+}
+
+func TestEquivalenceResult_String(t *testing.T) {
+	tests := []struct {
+		name     string
+		result   EquivalenceResult
+		contains string
+	}{
+		{
+			name:     "equivalent",
+			result:   EquivalenceResult{Equivalent: true},
+			contains: "Schemas are equivalent",
+		},
+		{
+			name: "non-equivalent with no differences (empty schema)",
+			result: EquivalenceResult{
+				Equivalent:  false,
+				Differences: []SchemaDifference{},
+			},
+			contains: "empty schemas are semantically distinct",
+		},
+		{
+			name: "non-equivalent with differences",
+			result: EquivalenceResult{
+				Equivalent: false,
+				Differences: []SchemaDifference{
+					{Path: "type", Description: "type mismatch"},
+					{Path: "format", Description: "format mismatch"},
+				},
+			},
+			contains: "Schemas differ:",
+		},
+		{
+			name: "non-equivalent with nil differences (from EquivalenceModeNone)",
+			result: EquivalenceResult{
+				Equivalent:  false,
+				Differences: nil,
+			},
+			contains: "Schemas differ:",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.result.String()
+			assert.Contains(t, got, tt.contains)
+		})
+	}
+}
+
+func TestCompareSchemas_EmptySchemasInCompositions(t *testing.T) {
+	t.Run("empty schema in allOf", func(t *testing.T) {
+		left := &parser.Schema{
+			AllOf: []*parser.Schema{
+				{}, // empty schema
+				{Type: "object"},
+			},
+		}
+		right := &parser.Schema{
+			AllOf: []*parser.Schema{
+				{Type: "string"}, // non-empty schema
+				{Type: "object"},
+			},
+		}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent, "schemas with different allOf children should not be equivalent")
+	})
+
+	t.Run("empty schema in anyOf", func(t *testing.T) {
+		left := &parser.Schema{
+			AnyOf: []*parser.Schema{
+				{}, // empty schema
+				{Type: "integer"},
+			},
+		}
+		right := &parser.Schema{
+			AnyOf: []*parser.Schema{
+				{Type: "string"}, // non-empty schema
+				{Type: "integer"},
+			},
+		}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent, "schemas with different anyOf children should not be equivalent")
+	})
+
+	t.Run("empty schema as items", func(t *testing.T) {
+		left := &parser.Schema{
+			Type:  "array",
+			Items: &parser.Schema{}, // empty schema as items
+		}
+		right := &parser.Schema{
+			Type:  "array",
+			Items: &parser.Schema{Type: "string"}, // non-empty items
+		}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent, "schemas with different items (empty vs non-empty) should not be equivalent")
+	})
+
+	t.Run("parent schemas with different empty children are non-equivalent", func(t *testing.T) {
+		// Both parents have allOf with empty schemas in different positions
+		left := &parser.Schema{
+			AllOf: []*parser.Schema{
+				{}, // empty
+				{Type: "object", Properties: map[string]*parser.Schema{"name": {Type: "string"}}},
+			},
+		}
+		right := &parser.Schema{
+			AllOf: []*parser.Schema{
+				{Type: "object", Properties: map[string]*parser.Schema{"name": {Type: "string"}}},
+				{}, // empty in different position
+			},
+		}
+
+		result := CompareSchemas(left, right, EquivalenceModeDeep)
+		assert.False(t, result.Equivalent, "schemas with empty children in different positions should not be equivalent")
+	})
+}
+
+func TestEquivalenceResult_String_WithDifferences(t *testing.T) {
+	result := EquivalenceResult{
+		Equivalent: false,
+		Differences: []SchemaDifference{
+			{Path: "type", Description: "type mismatch"},
+		},
+	}
+
+	s := result.String()
+	assert.Contains(t, s, "type")
+	assert.Contains(t, s, "type mismatch")
 }

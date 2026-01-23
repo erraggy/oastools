@@ -953,6 +953,42 @@ Schema count after deduplication: 1
   semantic deduplication: consolidated 3 duplicate definition(s)
 ```
 
+#### Empty Schemas Are Preserved
+
+Empty schemas (those with no structural constraints) are automatically excluded from deduplication, even when they appear structurally identical. This is because empty schemas serve different semantic purposes depending on context:
+
+- **Placeholders** for schemas to be defined later
+- **"Any type" markers** that accept any value
+- **Context-specific wildcards** with meaning derived from their name or position
+
+A schema is considered "empty" if it has no type, format, properties, validation rules, or composition keywords. Metadata fields (title, description, example, deprecated) are NOT considered constraints.
+
+```yaml
+# users-api.yaml
+components:
+  schemas:
+    AnyPayload: {}           # "Accept any request body"
+    User:
+      type: object
+      properties:
+        name:
+          type: string
+
+# events-api.yaml
+components:
+  schemas:
+    DynamicData: {}           # "Event data can be anything"
+    User:                     # Identical to users-api User
+      type: object
+      properties:
+        name:
+          type: string
+```
+
+After joining with semantic deduplication enabled:
+- `AnyPayload` and `DynamicData` are **both preserved** (empty schemas are never consolidated)
+- The two `User` schemas are consolidated into one (structurally identical, non-empty)
+
 ### Schema Equivalence Detection
 
 For collision handling with `StrategyDeduplicateEquivalent`, configure the depth of structural comparison:
