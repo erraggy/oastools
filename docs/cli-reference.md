@@ -172,6 +172,7 @@ The fix command automatically corrects common validation errors in OpenAPI speci
 
 - **Missing path parameters**: Adds missing path parameters (e.g., `{userId}`) that are referenced in the path but not declared in the parameters list
 - **Invalid schema names** (`--fix-schema-names`): Renames schemas with invalid characters (brackets, special characters) using configurable naming strategies
+- **Stub missing references** (`--stub-missing-refs`): Creates stub definitions for unresolved local `$ref` pointers. Schemas get empty `{}` stubs, responses get stubs with configurable descriptions
 - **Prune unused schemas** (`--prune-schemas`): Removes schema definitions that are not referenced anywhere in the document
 - **Prune empty paths** (`--prune-paths`): Removes path items that have no HTTP operations defined
 - **Duplicate operationIds** (`--fix-duplicate-operationids`): Renames duplicate operationId values using a configurable template
@@ -189,6 +190,8 @@ The fix command automatically corrects common validation errors in OpenAPI speci
 | `--generic-separator` | Separator for underscore strategy (default: `_`) |
 | `--generic-param-separator` | Separator between multiple type parameters (default: `_`) |
 | `--preserve-casing` | Preserve original casing of type parameters |
+| `--stub-missing-refs` | Create stubs for unresolved local $ref pointers |
+| `--stub-response-desc` | Description text for stub responses (default: auto-generated message) |
 | `--prune-schemas` | Remove unreferenced schema definitions |
 | `--prune-paths` | Remove paths with no operations |
 | `--prune-all, --prune` | Apply all pruning fixes (schemas, paths) |
@@ -276,6 +279,12 @@ oastools fix --prune-all api.yaml
 
 # Preview changes without modifying (dry run)
 oastools fix --dry-run --prune-schemas api.yaml
+
+# Create stubs for missing $ref targets
+oastools fix --stub-missing-refs api.yaml
+
+# Create stubs with custom response description
+oastools fix --stub-missing-refs --stub-response-desc "TODO: implement" api.yaml
 
 # Fix duplicate operationIds (default template: {operationId}{n})
 oastools fix --fix-duplicate-operationids api.yaml

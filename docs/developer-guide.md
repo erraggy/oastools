@@ -320,6 +320,24 @@ for _, err := range result.Errors {
 }
 ```
 
+**Accessing Operation Context:**
+
+```go
+// Each validation error includes operation context when applicable
+for _, err := range result.Errors {
+    if err.OperationContext != nil {
+        fmt.Printf("Operation: %s %s\n", err.OperationContext.Method, err.OperationContext.Path)
+        if err.OperationContext.OperationID != "" {
+            fmt.Printf("OperationId: %s\n", err.OperationContext.OperationID)
+        }
+    }
+    fmt.Printf("Error: %s\n", err.Message)
+}
+
+// The String() method automatically includes operation context
+fmt.Println(err.String()) // "GET /users/{id} (getUser): parameter 'id' is required"
+```
+
 > 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Validator Deep Dive](packages/validator.md).
 
 ### Fixer Package
@@ -453,6 +471,26 @@ result, err := fixer.FixWithOptions(
 // Template placeholders: {operationId}, {method}, {path}, {tag}, {tags}, {n}
 // Modifiers: :pascal, :camel, :snake, :kebab, :upper, :lower
 // Default template: {operationId}{n} produces getUser, getUser2, getUser3, etc.
+```
+
+**Stubbing Missing References:**
+
+```go
+// Create stubs for unresolved local $ref pointers
+result, err := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithEnabledFixes(fixer.FixTypeStubMissingRef),
+)
+
+// With custom response description
+result, err := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithEnabledFixes(fixer.FixTypeStubMissingRef),
+    fixer.WithStubResponseDescription("TODO: implement"),
+)
+
+// Missing schema references get empty {} stubs
+// Missing response references get stub responses with configurable descriptions
 ```
 
 **Dry-Run Mode:**

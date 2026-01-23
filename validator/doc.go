@@ -40,10 +40,14 @@
 // ValidationResult contains:
 //   - Valid: Boolean indicating if document is valid
 //   - Version: Detected OpenAPI version (e.g., "3.0.3")
-//   - Errors: Validation errors with JSON path locations
+//   - Errors: Validation errors with JSON path locations and optional OperationContext
 //   - Warnings: Best practice warnings (if IncludeWarnings is true)
 //   - ErrorCount, WarningCount: Issue counts
 //   - Document: The validated document for chaining with other packages
+//
+// Each ValidationError includes an OperationContext field that identifies the affected
+// API operation (HTTP method, path, operationId). This helps pinpoint which endpoint
+// contains the error. See Example_operationContext for usage.
 //
 // See the exported ValidationError and ValidationResult types for complete details.
 //
