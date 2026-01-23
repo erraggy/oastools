@@ -247,6 +247,13 @@
 // constraints), they are consolidated into a single canonical schema (alphabetically first
 // name). All $ref references throughout the merged document are automatically rewritten.
 //
+// Empty schemas (those with no structural constraints like type, properties, format, or
+// validation rules) are automatically excluded from deduplication. Empty schemas serve
+// different semantic purposes depending on context -- as placeholders, "any type" markers,
+// or context-specific wildcards -- and should remain distinct even when structurally
+// identical. Metadata fields (title, description, example, deprecated) are not considered
+// constraints, so a schema with only metadata is still treated as empty.
+//
 // This differs from the StrategyDeduplicateEquivalent collision strategy which only
 // handles same-named collisions. Semantic deduplication works across all schemas
 // regardless of their original names.

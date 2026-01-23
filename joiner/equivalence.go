@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -45,6 +46,212 @@ type EquivalenceResult struct {
 	Differences []SchemaDifference
 }
 
+// isEmptySchema reports whether a schema has no structural constraints.
+// A schema is considered "empty" if it has no type, format, properties,
+// validation rules, or composition keywords. Metadata fields (title,
+// description, example, deprecated, extensions) are NOT considered constraints.
+//
+// Constraint fields checked:
+//   - Basic: Type, Format, Enum, Const, Pattern, Required
+//   - OAS-specific: Nullable, ReadOnly, WriteOnly, CollectionFormat
+//   - Object: Properties, AdditionalProperties, MinProperties, MaxProperties,
+//     PatternProperties, DependentRequired
+//   - Array: Items, MinItems, MaxItems, UniqueItems, AdditionalItems,
+//     MaxContains, MinContains
+//   - Numeric: Minimum, Maximum, MultipleOf, ExclusiveMinimum, ExclusiveMaximum
+//   - String: MinLength, MaxLength
+//   - Composition: AllOf, AnyOf, OneOf, Not
+//   - Conditional: If, Then, Else
+//   - JSON Schema 2020-12: UnevaluatedProperties, UnevaluatedItems,
+//     ContentEncoding, ContentMediaType, ContentSchema, PrefixItems,
+//     Contains, PropertyNames, DependentSchemas
+//
+// Empty schemas are semantically distinct even when structurally identical,
+// because they serve different purposes depending on context (placeholders,
+// "any type" markers, context-specific wildcards). Returning false for nil
+// schemas prevents nil-pointer panics in callers.
+func isEmptySchema(s *parser.Schema) bool {
+	if s == nil {
+		return false
+	}
+
+	// Basic type constraints
+	if s.Type != nil {
+		return false
+	}
+	if s.Format != "" {
+		return false
+	}
+	if len(s.Enum) > 0 {
+		return false
+	}
+	if s.Const != nil {
+		return false
+	}
+	if s.Pattern != "" {
+		return false
+	}
+	if len(s.Required) > 0 {
+		return false
+	}
+
+	// OAS-specific constraints
+	if s.Nullable {
+		return false
+	}
+	if s.ReadOnly {
+		return false
+	}
+	if s.WriteOnly {
+		return false
+	}
+	if s.CollectionFormat != "" {
+		return false
+	}
+
+	// Properties and object constraints
+	if len(s.Properties) > 0 {
+		return false
+	}
+	if s.AdditionalProperties != nil {
+		return false
+	}
+	if s.MinProperties != nil {
+		return false
+	}
+	if s.MaxProperties != nil {
+		return false
+	}
+	if len(s.PatternProperties) > 0 {
+		return false
+	}
+	if len(s.DependentRequired) > 0 {
+		return false
+	}
+
+	// Array constraints
+	if s.Items != nil {
+		return false
+	}
+	if s.MinItems != nil {
+		return false
+	}
+	if s.MaxItems != nil {
+		return false
+	}
+	if s.UniqueItems {
+		return false
+	}
+	if s.AdditionalItems != nil {
+		return false
+	}
+	if s.MaxContains != nil {
+		return false
+	}
+	if s.MinContains != nil {
+		return false
+	}
+
+	// Numeric constraints
+	if s.Minimum != nil {
+		return false
+	}
+	if s.Maximum != nil {
+		return false
+	}
+	if s.MultipleOf != nil {
+		return false
+	}
+	if s.ExclusiveMinimum != nil {
+		return false
+	}
+	if s.ExclusiveMaximum != nil {
+		return false
+	}
+
+	// String constraints
+	if s.MinLength != nil {
+		return false
+	}
+	if s.MaxLength != nil {
+		return false
+	}
+
+	// Composition
+	if len(s.AllOf) > 0 {
+		return false
+	}
+	if len(s.AnyOf) > 0 {
+		return false
+	}
+	if len(s.OneOf) > 0 {
+		return false
+	}
+	if s.Not != nil {
+		return false
+	}
+
+	// Conditional composition
+	if s.If != nil {
+		return false
+	}
+	if s.Then != nil {
+		return false
+	}
+	if s.Else != nil {
+		return false
+	}
+
+	// JSON Schema 2020-12 fields
+	if s.UnevaluatedProperties != nil {
+		return false
+	}
+	if s.UnevaluatedItems != nil {
+		return false
+	}
+	if s.ContentEncoding != "" {
+		return false
+	}
+	if s.ContentMediaType != "" {
+		return false
+	}
+	if s.ContentSchema != nil {
+		return false
+	}
+	if len(s.PrefixItems) > 0 {
+		return false
+	}
+	if s.Contains != nil {
+		return false
+	}
+	if s.PropertyNames != nil {
+		return false
+	}
+	if len(s.DependentSchemas) > 0 {
+		return false
+	}
+
+	return true
+}
+
+// String returns a human-readable representation of the equivalence result.
+// Special case: When Equivalent is false but Differences is non-nil and empty,
+// this indicates empty schemas that are structurally identical but semantically distinct.
+func (r EquivalenceResult) String() string {
+	if r.Equivalent {
+		return "Schemas are equivalent"
+	}
+	if r.Differences != nil && len(r.Differences) == 0 {
+		return "Schemas are non-equivalent (empty schemas are semantically distinct)"
+	}
+	var b strings.Builder
+	b.WriteString("Schemas differ:\n")
+	for _, d := range r.Differences {
+		fmt.Fprintf(&b, "  - %s: %s\n", d.Path, d.Description)
+	}
+	return b.String()
+}
+
 // CompareSchemas compares two schemas for structural equivalence
 // Ignores: description, title, example, deprecated, and extension fields (x-*)
 func CompareSchemas(left, right *parser.Schema, mode EquivalenceMode) EquivalenceResult {
@@ -70,6 +277,17 @@ func CompareSchemas(left, right *parser.Schema, mode EquivalenceMode) Equivalenc
 		})
 		result.Equivalent = false
 		return result
+	}
+
+	// Empty schemas are semantically distinct - never equivalent.
+	// They serve different purposes depending on context (placeholders,
+	// "any type" markers, context-specific wildcards) and should not be
+	// consolidated during deduplication.
+	if isEmptySchema(left) || isEmptySchema(right) {
+		return EquivalenceResult{
+			Equivalent:  false,
+			Differences: []SchemaDifference{},
+		}
 	}
 
 	// Track visited pointers to handle circular references
