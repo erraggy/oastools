@@ -84,8 +84,20 @@ else
     echo ""
 
     echo "Step 4.3: Waiting for benchmark workflow..."
-    sleep 15  # Wait for run to appear
-    RUN_ID=$(gh run list --workflow=benchmark.yml --branch="$BRANCH" --limit=1 --json databaseId -q '.[0].databaseId')
+    RUN_ID=""
+    for i in 1 2 3 4 5 6; do
+        sleep $((i * 10))  # Progressive backoff: 10s, 20s, 30s, 40s, 50s, 60s
+        RUN_ID=$(gh run list --workflow=benchmark.yml --branch="$BRANCH" --limit=1 --json databaseId -q '.[0].databaseId')
+        if [ -n "$RUN_ID" ]; then
+            break
+        fi
+        echo "  Waiting for run to appear (attempt $i/6)..."
+    done
+    if [ -z "$RUN_ID" ]; then
+        echo "Error: Benchmark workflow run not found after 210s" >&2
+        echo "Check manually: https://github.com/$REPO/actions" >&2
+        exit 3
+    fi
     echo "  Watching run $RUN_ID..."
     if ! gh run watch "$RUN_ID" --exit-status; then
         echo "Error: Benchmark workflow failed" >&2
