@@ -1490,7 +1490,7 @@ Examples:
   oastools diff --breaking api-v1.yaml api-v2.yaml
   oastools generate --client -o ./client openapi.yaml
   oastools join -o merged.yaml base.yaml extensions.yaml
-  oastools overlay apply --spec openapi.yaml --overlay changes.yaml -o result.yaml
+  oastools overlay apply -s openapi.yaml -o result.yaml changes.yaml
   oastools parse https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.yaml
 
 Run 'oastools <command> --help' for more information on a command.

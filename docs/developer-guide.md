@@ -87,9 +87,9 @@ oastools generate --client -o ./client -p petstore openapi.yaml
 oastools generate --server -o ./server -p petstore openapi.yaml
 
 # Apply overlay transformations
-oastools overlay apply --spec openapi.yaml --overlay changes.yaml -o result.yaml
+oastools overlay apply -s openapi.yaml -o result.yaml changes.yaml
 oastools overlay validate overlay.yaml
-oastools overlay apply --spec openapi.yaml --overlay changes.yaml --dry-run
+oastools overlay apply --dry-run -s openapi.yaml changes.yaml
 ```
 
 ### Pipeline Support
@@ -1590,8 +1590,8 @@ result, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
 var operationCount int
 err := walker.Walk(result,
     walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
-        // wc.Method contains HTTP method (GET, POST, etc.)
-        // wc.Path contains the URL path template
+        // wc.Method contains HTTP method (get, post, etc.)
+        // wc.PathTemplate contains the URL path template
         operationCount++
         return walker.Continue
     }),
@@ -1601,10 +1601,10 @@ err := walker.Walk(result,
 **Flow Control:**
 
 ```go
-// Skip internal paths - WalkContext.Path available in path handlers
+// Skip internal paths - WalkContext.PathTemplate available in path handlers
 walker.Walk(result,
     walker.WithPathHandler(func(wc *walker.WalkContext, pi *parser.PathItem) walker.Action {
-        if strings.HasPrefix(wc.Path, "/internal") {
+        if strings.HasPrefix(wc.PathTemplate, "/internal") {
             return walker.SkipChildren
         }
         return walker.Continue
