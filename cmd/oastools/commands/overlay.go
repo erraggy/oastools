@@ -18,6 +18,7 @@ type OverlayApplyFlags struct {
 	Output string
 	Strict bool
 	Quiet  bool
+	DryRun bool
 }
 
 // OverlayValidateFlags contains flags for the overlay validate command
@@ -36,6 +37,8 @@ func SetupOverlayApplyFlags() (*flag.FlagSet, *OverlayApplyFlags) {
 	fs.StringVar(&flags.Output, "o", "", "output file path (default: stdout)")
 	fs.StringVar(&flags.Output, "output", "", "output file path (default: stdout)")
 	fs.BoolVar(&flags.Strict, "strict", false, "fail if any action target matches no nodes")
+	fs.BoolVar(&flags.DryRun, "dry-run", false, "preview changes without applying")
+	fs.BoolVar(&flags.DryRun, "n", false, "preview changes without applying")
 	fs.BoolVar(&flags.Quiet, "q", false, "quiet mode: only output the document, no diagnostic messages")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "quiet mode: only output the document, no diagnostic messages")
 
@@ -47,6 +50,7 @@ func SetupOverlayApplyFlags() (*flag.FlagSet, *OverlayApplyFlags) {
 		Writef(fs.Output(), "\nExamples:\n")
 		Writef(fs.Output(), "  oastools overlay apply --spec openapi.yaml changes.yaml\n")
 		Writef(fs.Output(), "  oastools overlay apply -s openapi.yaml -o production.yaml changes.yaml\n")
+		Writef(fs.Output(), "  oastools overlay apply --dry-run -s api.yaml changes.yaml\n")
 		Writef(fs.Output(), "  oastools overlay apply --strict -s api.yaml changes.yaml\n")
 		Writef(fs.Output(), "  cat openapi.yaml | oastools overlay apply -s - changes.yaml\n")
 		Writef(fs.Output(), "\nPipelining:\n")
@@ -153,35 +157,33 @@ func handleOverlayApply(args []string) error {
 		return fmt.Errorf("specification is required (use -s or --spec)")
 	}
 
-	// Apply overlay with timing
+	// Build common options
 	startTime := time.Now()
-	var result *overlay.ApplyResult
-	var err error
-
+	var opts []overlay.Option
 	if flags.Spec == StdinFilePath {
-		// Read spec from stdin
 		p := parser.New()
 		parseResult, err := p.ParseReader(os.Stdin)
 		if err != nil {
 			return fmt.Errorf("parsing stdin: %w", err)
 		}
-		result, err = overlay.ApplyWithOptions(
-			overlay.WithSpecParsed(*parseResult),
-			overlay.WithOverlayFilePath(overlayPath),
-			overlay.WithStrictTargets(flags.Strict),
-		)
-		if err != nil {
-			return fmt.Errorf("applying overlay: %w", err)
-		}
+		opts = append(opts, overlay.WithSpecParsed(*parseResult))
 	} else {
-		result, err = overlay.ApplyWithOptions(
-			overlay.WithSpecFilePath(flags.Spec),
-			overlay.WithOverlayFilePath(overlayPath),
-			overlay.WithStrictTargets(flags.Strict),
-		)
-		if err != nil {
-			return fmt.Errorf("applying overlay: %w", err)
-		}
+		opts = append(opts, overlay.WithSpecFilePath(flags.Spec))
+	}
+	opts = append(opts,
+		overlay.WithOverlayFilePath(overlayPath),
+		overlay.WithStrictTargets(flags.Strict),
+	)
+
+	// Dry-run mode: preview changes without applying
+	if flags.DryRun {
+		return handleOverlayDryRun(opts, flags, overlayPath, startTime)
+	}
+
+	// Apply overlay
+	result, err := overlay.ApplyWithOptions(opts...)
+	if err != nil {
+		return fmt.Errorf("applying overlay: %w", err)
 	}
 	totalTime := time.Since(startTime)
 
@@ -243,6 +245,61 @@ func handleOverlayApply(args []string) error {
 		// Write to stdout
 		if _, err = os.Stdout.Write(data); err != nil {
 			return fmt.Errorf("writing result to stdout: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func handleOverlayDryRun(opts []overlay.Option, flags *OverlayApplyFlags, overlayPath string, startTime time.Time) error {
+	dryResult, err := overlay.DryRunWithOptions(opts...)
+	if err != nil {
+		return fmt.Errorf("dry-run overlay: %w", err)
+	}
+	totalTime := time.Since(startTime)
+
+	if !flags.Quiet {
+		Writef(os.Stderr, "OpenAPI Overlay Dry Run\n")
+		Writef(os.Stderr, "=======================\n\n")
+		Writef(os.Stderr, "oastools version: %s\n", oastools.Version())
+		if flags.Spec == StdinFilePath {
+			Writef(os.Stderr, "Specification: <stdin>\n")
+		} else {
+			Writef(os.Stderr, "Specification: %s\n", flags.Spec)
+		}
+		Writef(os.Stderr, "Overlay: %s\n", overlayPath)
+		Writef(os.Stderr, "Total Time: %v\n\n", totalTime)
+
+		Writef(os.Stderr, "Would apply: %d action(s)\n", dryResult.WouldApply)
+		Writef(os.Stderr, "Would skip:  %d action(s)\n", dryResult.WouldSkip)
+
+		if len(dryResult.Changes) > 0 {
+			Writef(os.Stderr, "\nProposed Changes:\n")
+			for _, change := range dryResult.Changes {
+				desc := change.Description
+				if desc == "" {
+					desc = change.Target
+				}
+				Writef(os.Stderr, "  [%d] %s: %s (%d match(es))\n",
+					change.ActionIndex, change.Operation, desc, change.MatchCount)
+				for _, path := range change.MatchedPaths {
+					Writef(os.Stderr, "       → %s\n", path)
+				}
+			}
+		}
+
+		if len(dryResult.Warnings) > 0 {
+			Writef(os.Stderr, "\nWarnings:\n")
+			for _, warning := range dryResult.Warnings {
+				Writef(os.Stderr, "  - %s\n", warning)
+			}
+		}
+
+		Writef(os.Stderr, "\n")
+		if dryResult.HasChanges() {
+			Writef(os.Stderr, "ℹ️  No changes were made (dry-run mode)\n")
+		} else {
+			Writef(os.Stderr, "ℹ️  No changes would be made\n")
 		}
 	}
 

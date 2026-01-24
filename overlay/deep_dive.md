@@ -276,7 +276,7 @@ This enables workflows like: `parse → overlay → validate → convert`
 
 ## Best Practices
 
-1. **Use dry-run first** - Preview changes before applying to production specs
+1. **Use dry-run first** - Preview changes before applying to production specs (`oastools overlay apply --dry-run -s spec.yaml overlay.yaml`)
 2. **Validate overlays** - Call `overlay.Validate()` before application
 3. **Order actions carefully** - Actions are applied in order; earlier actions affect later ones
 4. **Use StrictTargets in CI** - Catch typos in JSONPath expressions

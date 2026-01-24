@@ -3,6 +3,7 @@ site_description: High-performance Go library and CLI for working with OpenAPI S
 site_url: https://erraggy.github.io/oastools/
 repo_url: https://github.com/erraggy/oastools
 repo_name: erraggy/oastools
+edit_uri: ""
 
 theme:
   name: material

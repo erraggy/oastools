@@ -174,6 +174,29 @@
 //	walker.Walk(result, handlers1...)
 //	walker.Walk(result, handlers2...)
 //
+// # Built-in Collectors
+//
+// For common collection patterns, the walker provides pre-built helpers that
+// reduce boilerplate:
+//
+//   - [CollectSchemas]: Returns a [SchemaCollector] with all schemas indexed by name
+//   - [CollectOperations]: Returns an [OperationCollector] with all operations indexed by operationId
+//
+// Example:
+//
+//	schemas, err := walker.CollectSchemas(result)
+//	for name, info := range schemas.ByName {
+//	    fmt.Printf("Schema %s: %d properties\n", name, len(info.Schema.Properties))
+//	}
+//
+//	ops, err := walker.CollectOperations(result)
+//	for _, info := range ops.All {
+//	    fmt.Printf("%s %s -> %s\n", info.Method, info.PathTemplate, info.Operation.OperationID)
+//	}
+//
+// Each [OperationInfo] provides Method, PathTemplate, JSONPath, and the full [parser.Operation].
+// Each [SchemaInfo] provides Name, JSONPath, IsComponent, and the full [parser.Schema].
+//
 // # Schema Cycle Detection
 //
 // The walker automatically detects circular schema references and avoids infinite loops.

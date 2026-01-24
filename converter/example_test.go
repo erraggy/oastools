@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/erraggy/oastools/converter"
+	"github.com/erraggy/oastools/parser"
 )
 
 // Example demonstrates basic conversion using functional options
@@ -85,6 +86,54 @@ func Example_toParseResult() {
 	// Source: converter
 	// Version: 3.0.3
 	// Has document: true
+}
+
+// Example_convertParsed demonstrates converting an already-parsed document.
+// This is useful when you need to parse once and convert multiple times,
+// or when integrating with other oastools packages in a pipeline.
+func Example_convertParsed() {
+	// First, parse the document using the parser package
+	parsed, err := parser.ParseWithOptions(parser.WithFilePath("../testdata/petstore-2.0.yaml"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Convert using the parsed result — no re-parsing needed
+	result, err := converter.ConvertWithOptions(
+		converter.WithParsed(*parsed),
+		converter.WithTargetVersion("3.0.3"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Converted from %s to %s\n", result.SourceVersion, result.TargetVersion)
+	fmt.Printf("Success: %v\n", result.Success)
+	// Output:
+	// Converted from 2.0 to 3.0.3
+	// Success: true
+}
+
+// Example_upgradeOAS3 demonstrates upgrading from OAS 3.0 to OAS 3.1.
+// This is useful for modernizing specifications to take advantage of newer
+// features like webhooks, JSON Schema compatibility, and type arrays.
+func Example_upgradeOAS3() {
+	// Convert OAS 3.0 specification to OAS 3.1
+	result, err := converter.ConvertWithOptions(
+		converter.WithFilePath("../testdata/petstore-3.0.yaml"),
+		converter.WithTargetVersion("3.1.0"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Upgraded from %s to %s\n", result.SourceVersion, result.TargetVersion)
+	fmt.Printf("Success: %v\n", result.Success)
+	fmt.Printf("Critical issues: %d\n", result.CriticalCount)
+	// Output:
+	// Upgraded from 3.0.3 to 3.1.0
+	// Success: true
+	// Critical issues: 0
 }
 
 // Example_complexConversion demonstrates converting a complex OAS 2.0 document

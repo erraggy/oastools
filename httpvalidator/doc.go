@@ -94,6 +94,31 @@
 //	result.HeaderParams["X-API"] // Deserialized header parameter
 //	result.CookieParams["token"] // Deserialized cookie parameter
 //
+// # Path Matching
+//
+// [PathMatcher] matches incoming request paths against OAS path templates,
+// extracting path parameters. [PathMatcherSet] manages multiple matchers
+// for efficient routing:
+//
+//	matcher, _ := httpvalidator.NewPathMatcher("/users/{userId}/posts/{postId}")
+//	ok, params := matcher.Match("/users/42/posts/101")
+//	// ok: true, params: {"userId": "42", "postId": "101"}
+//
+//	templates := []string{"/users", "/users/{userId}", "/users/{userId}/posts/{postId}"}
+//	set, _ := httpvalidator.NewPathMatcherSet(templates)
+//	template, params, found := set.Match("/users/42")
+//	// template: "/users/{userId}", params: {"userId": "42"}, found: true
+//
+// # Response Validation
+//
+// For middleware scenarios where you've already captured the response,
+// use [Validator.ValidateResponseData] instead of ValidateResponse:
+//
+//	result, _ := v.ValidateResponseData(req, statusCode, headers, body)
+//
+// This avoids needing a full *http.Response and works naturally with
+// httptest.ResponseRecorder patterns.
+//
 // # Schema Validation
 //
 // The validator performs JSON Schema validation on request/response bodies including:

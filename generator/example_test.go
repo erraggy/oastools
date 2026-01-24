@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/erraggy/oastools/generator"
+	"github.com/erraggy/oastools/parser"
 )
 
 // Example demonstrates basic code generation using functional options
@@ -102,23 +103,29 @@ func Example_handleIssues() {
 		result.CriticalCount, result.WarningCount, result.InfoCount)
 }
 
-// Example_withParsedDocument demonstrates using a pre-parsed document
+// Example_withParsedDocument demonstrates using a pre-parsed document.
+// This is the recommended pattern for pipelines that parse once and generate
+// multiple outputs (types, client, server) from the same specification.
 func Example_withParsedDocument() {
-	// This example shows how to use a pre-parsed document
-	// Useful when you need to parse once and generate multiple times
-	// or when integrating with other oastools packages
-
 	// First, parse the document using the parser package
-	// parsed, _ := parser.ParseWithOptions(parser.WithFilePath("openapi.yaml"))
+	parsed, err := parser.ParseWithOptions(parser.WithFilePath("../testdata/petstore-3.0.yaml"))
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// Then generate using the parsed result
-	// result, _ := generator.GenerateWithOptions(
-	//     generator.WithParsed(*parsed),
-	//     generator.WithPackageName("api"),
-	//     generator.WithClient(true),
-	// )
+	// Generate using the parsed result — avoids re-parsing
+	result, err := generator.GenerateWithOptions(
+		generator.WithParsed(*parsed),
+		generator.WithPackageName("petstore"),
+		generator.WithClient(true),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	fmt.Println("Pre-parsed document can be used with WithParsed option")
+	fmt.Printf("Generated %d files from pre-parsed document\n", len(result.Files))
+	fmt.Printf("Source version: %s\n", result.SourceVersion)
+	fmt.Printf("Types: %d, Operations: %d\n", result.GeneratedTypes, result.GeneratedOperations)
 }
 
 // Example_withSecurityHelpers demonstrates generating security authentication helpers
