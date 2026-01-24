@@ -18,6 +18,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/check-branch.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/block-release-create.sh"
           }
         ]
       }
@@ -62,6 +66,7 @@
       "Bash(wc:*)",
       "Bash(tree:*)",
       "Bash(.claude/hooks/check-branch.sh :*)",
+      "Bash(.claude/hooks/block-release-create.sh :*)",
       "Bash(.claude/hooks/format-go.sh :*)",
       "Bash(.claude/scripts/publish-release.sh :*)",
       "mcp__gopls-mcp__go_workspace",
