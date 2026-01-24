@@ -41,6 +41,7 @@ Thumbs.db
 
 # Local release notes (not tracked in git)
 releases/
+.release/
 
 # Benchmark outputs (timestamped files not tracked - kept locally for comparison)
 benchmark-baseline.txt

@@ -82,16 +82,21 @@ fi
 echo "✓ Draft release verified: $ASSET_COUNT assets"
 echo ""
 
-# Step 5: Generate notes and publish
+# Step 5: Apply prepared notes and publish
 echo "Step 5: Publishing release..."
-PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
-NOTES=$(gh api repos/erraggy/oastools/releases/generate-notes \
-    -f tag_name="$VERSION" \
-    -f previous_tag_name="$PREV_TAG" \
-    --jq '.body')
-
-gh release edit "$VERSION" --notes "$NOTES" --draft=false
-echo "✓ Release published"
+NOTES_FILE=".release/notes-${VERSION}.md"
+if [[ ! -f "$NOTES_FILE" ]]; then
+    echo "❌ Error: Prepared release notes not found: $NOTES_FILE" >&2
+    echo "   Run /prepare-release $VERSION first to generate release notes." >&2
+    exit 4
+fi
+if [[ ! -s "$NOTES_FILE" ]]; then
+    echo "❌ Error: Release notes file is empty: $NOTES_FILE" >&2
+    echo "   Re-run /prepare-release $VERSION to regenerate." >&2
+    exit 4
+fi
+gh release edit "$VERSION" --notes-file "$NOTES_FILE" --draft=false
+echo "✓ Release published with prepared notes from $NOTES_FILE"
 echo ""
 
 # Step 6: Verify

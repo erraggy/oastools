@@ -152,7 +152,7 @@ After the script completes, enhance the auto-generated release notes with richer
 
 #### Step 1: Analyze the Release
 
-1. Read the auto-generated notes at `/tmp/release-notes-<version>.md`
+1. Read the auto-generated notes at `.release/notes-<version>.md`
 2. Get commits since the previous tag:
    ```bash
    PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
@@ -221,7 +221,7 @@ Structure the enhanced notes following this format:
 
 #### Step 4: Update the Notes File
 
-Write the enhanced notes back to `/tmp/release-notes-<version>.md`, then display them for user review.
+Write the enhanced notes back to `.release/notes-<version>.md`, then display them for user review.
 
 ### Phase 6.3: Prompt for Publishing
 
@@ -231,7 +231,7 @@ After the enhanced notes are ready, prompt the user:
 ✅ Release preparation complete!
 
 Version: <version>
-Release notes saved to: /tmp/release-notes-<version>.md
+Release notes saved to: .release/notes-<version>.md
 
 Ready to publish <version>?
 - [Yes, publish now] → Runs publish-release.sh <version>

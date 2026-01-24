@@ -197,7 +197,8 @@ if ! PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null); then
 fi
 echo "  Previous tag: $PREV_TAG"
 
-NOTES_FILE="/tmp/release-notes-${VERSION}.md"
+mkdir -p .release
+NOTES_FILE=".release/notes-${VERSION}.md"
 
 # Get auto-generated notes
 AUTO_NOTES=$(gh api "repos/$REPO/releases/generate-notes" \

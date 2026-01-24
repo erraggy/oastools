@@ -13,8 +13,9 @@ Publish a prepared release to GitHub. This is phase 7 of the release process.
 
 Before running this skill:
 1. Run `/prepare-release <version>` to complete phases 1-6
-2. Review the generated release notes
-3. Ensure you're ready to publish (this is irreversible)
+2. Verify prepared notes exist at `.release/notes-<version>.md`
+3. Review the release notes in that file
+4. Ensure you're ready to publish (this is irreversible)
 
 ## Process
 
@@ -63,7 +64,7 @@ The script handles:
 2. Creates and pushes annotated tag
 3. Waits for goreleaser workflow
 4. Verifies draft has 8 assets (binaries + checksums)
-5. Generates release notes
+5. Reads prepared notes from `.release/notes-<version>.md` (fails if missing)
 6. Publishes with `gh release edit --draft=false`
 7. Verifies published release
 
@@ -77,7 +78,7 @@ View release: https://github.com/erraggy/oastools/releases/tag/<version>
 
 The release includes:
 - 8 binary assets for all platforms
-- Auto-generated release notes
+- Enhanced release notes (from prepare step)
 - Homebrew formula will update automatically
 ```
 
