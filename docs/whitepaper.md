@@ -1802,9 +1802,9 @@ oastools join -o combined.yaml users.yaml orders.yaml
 **Overlay:**
 
 ```bash
-oastools overlay apply openapi.yaml changes.yaml
-oastools overlay apply --dry-run openapi.yaml changes.yaml
-oastools overlay apply --strict openapi.yaml changes.yaml
+oastools overlay apply -s openapi.yaml changes.yaml
+oastools overlay apply --dry-run -s openapi.yaml changes.yaml
+oastools overlay apply --strict -s openapi.yaml changes.yaml
 ```
 
 **Diff:**
