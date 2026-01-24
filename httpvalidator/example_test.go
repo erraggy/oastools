@@ -236,6 +236,88 @@ func ExamplePathMatcher() {
 	// postId: 101
 }
 
+func ExampleParamDeserializer() {
+	d := httpvalidator.NewParamDeserializer()
+
+	// Deserialize a matrix-style path parameter: ;color=blue
+	// Explode is nil (uses default: false for path params)
+	pathParam := &parser.Parameter{
+		Name:   "color",
+		In:     "path",
+		Style:  "matrix",
+		Schema: &parser.Schema{Type: "string"},
+	}
+	result := d.DeserializePathParam(";color=blue", pathParam)
+	fmt.Println("Matrix path param:", result)
+
+	// Deserialize a pipe-delimited query parameter: red|green|blue
+	// Explode nil uses default (true for form, false for others)
+	queryParam := &parser.Parameter{
+		Name:   "colors",
+		In:     "query",
+		Style:  "pipeDelimited",
+		Schema: &parser.Schema{Type: "array", Items: &parser.Schema{Type: "string"}},
+	}
+	queryResult := d.DeserializeQueryParam([]string{"red|green|blue"}, queryParam)
+	fmt.Println("Pipe-delimited query param:", queryResult)
+
+	// Deserialize a simple header parameter: X-Rate-Limit: 100
+	headerParam := &parser.Parameter{
+		Name:   "X-Rate-Limit",
+		In:     "header",
+		Schema: &parser.Schema{Type: "integer"},
+	}
+	headerResult := d.DeserializeHeaderParam("100", headerParam)
+	fmt.Println("Header param:", headerResult)
+	// Output:
+	// Matrix path param: blue
+	// Pipe-delimited query param: [red green blue]
+	// Header param: 100
+}
+
+func ExampleValidator_ValidateRequest_strictMode() {
+	specYAML := `
+openapi: "3.0.0"
+info:
+  title: Pet Store
+  version: "1.0"
+paths:
+  /pets:
+    get:
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Success
+`
+	parsed, _ := parser.ParseWithOptions(parser.WithBytes([]byte(specYAML)))
+	v, _ := httpvalidator.New(parsed)
+
+	// Enable strict mode: unknown parameters cause errors
+	v.StrictMode = true
+
+	// Request with an unknown query parameter "color"
+	req := httptest.NewRequest("GET", "/pets?limit=10&color=red", nil)
+	result, _ := v.ValidateRequest(req)
+
+	fmt.Println("Strict mode valid:", result.Valid)
+	if len(result.Errors) > 0 {
+		fmt.Println("Error:", result.Errors[0].Message)
+	}
+
+	// Now with strict mode off (default)
+	v.StrictMode = false
+	result2, _ := v.ValidateRequest(req)
+	fmt.Println("Lenient mode valid:", result2.Valid)
+	// Output:
+	// Strict mode valid: false
+	// Error: unknown query parameter "color"
+	// Lenient mode valid: true
+}
+
 func ExamplePathMatcherSet() {
 	// Create matchers for multiple paths
 	templates := []string{

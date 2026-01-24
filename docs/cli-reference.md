@@ -1250,7 +1250,7 @@ oastools overlay <subcommand> [flags]
 Apply an overlay transformation to an OpenAPI specification.
 
 ```bash
-oastools overlay apply [flags]
+oastools overlay apply [flags] <overlay-file>
 ```
 
 #### Flags
@@ -1258,10 +1258,9 @@ oastools overlay apply [flags]
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--spec` | `-s` | Path to the OpenAPI specification file (required) |
-| `--overlay` | | Path to the overlay file (or positional argument) |
 | `--output` | `-o` | Output file path (default: stdout) |
 | `--strict` | | Fail if any target matches nothing |
-| `--dry-run` | | Preview changes without applying |
+| `--dry-run` | `-n` | Preview changes without applying |
 | `--quiet` | `-q` | Suppress diagnostic output |
 | `-h, --help` | | Display help |
 
@@ -1269,22 +1268,22 @@ oastools overlay apply [flags]
 
 ```bash
 # Apply overlay and write to file
-oastools overlay apply --spec openapi.yaml --overlay changes.yaml -o result.yaml
+oastools overlay apply --spec openapi.yaml -o result.yaml changes.yaml
 
 # Apply overlay to stdout
-oastools overlay apply --spec openapi.yaml --overlay changes.yaml
+oastools overlay apply -s openapi.yaml changes.yaml
 
 # Preview changes without applying
-oastools overlay apply --spec openapi.yaml --overlay changes.yaml --dry-run
+oastools overlay apply --dry-run -s openapi.yaml changes.yaml
 
 # Strict mode (fail if targets don't match)
-oastools overlay apply --spec openapi.yaml --overlay changes.yaml --strict
+oastools overlay apply --strict -s openapi.yaml changes.yaml
 
 # From stdin
-cat openapi.yaml | oastools overlay apply --spec - --overlay changes.yaml
+cat openapi.yaml | oastools overlay apply -s - changes.yaml
 
 # Quiet mode for pipelines
-oastools overlay apply -q --spec openapi.yaml --overlay changes.yaml > result.yaml
+oastools overlay apply -q -s openapi.yaml changes.yaml > result.yaml
 ```
 
 #### Output Format
@@ -1293,40 +1292,51 @@ oastools overlay apply -q --spec openapi.yaml --overlay changes.yaml > result.ya
 OpenAPI Overlay Application
 ============================
 
-oastools version: v1.24.0
+oastools version: v1.46.2
+Specification: openapi.yaml
 Overlay: changes.yaml
-Spec: openapi.yaml
-OAS Version: 3.0.3
+Total Time: 1.2ms
 
 Actions applied: 3
 Actions skipped: 0
 
 Changes:
-  - update 1 nodes at $.info
-  - update 5 nodes at $.paths.*.get
-  - remove 2 nodes at $.paths[?@.x-internal==true]
+  [0] update: $.info (1 match(es))
+  [1] update: $.paths.*.get (5 match(es))
+  [2] remove: $.paths[?@.x-internal==true] (2 match(es))
 
 ✓ Overlay applied successfully
 ```
 
 #### Dry-Run Output
 
+When using `--dry-run` / `-n`, no changes are made to the document.
+The output shows what *would* happen:
+
 ```
 OpenAPI Overlay Dry Run
 =======================
 
-oastools version: v1.24.0
+oastools version: v1.46.2
+Specification: openapi.yaml
 Overlay: changes.yaml
-Spec: openapi.yaml
-OAS Version: 3.0.3
+Total Time: 1.1ms
 
-Would apply: 3 actions
-Would skip: 0 actions
+Would apply: 3 action(s)
+Would skip:  0 action(s)
 
-Proposed changes:
-  - update 1 nodes at $.info
-  - update 5 nodes at $.paths.*.get
-  - remove 2 nodes at $.paths[?@.x-internal==true]
+Proposed Changes:
+  [0] update: Update API info (1 match(es))
+       → $.info
+  [1] update: Add headers to all GET operations (5 match(es))
+       → $.paths./pets.get
+       → $.paths./users.get
+       ...
+  [2] remove: Remove internal endpoints (2 match(es))
+       → $.paths./internal/health
+       → $.paths./internal/metrics
+
+ℹ️  No changes were made (dry-run mode)
 ```
 
 ### overlay validate

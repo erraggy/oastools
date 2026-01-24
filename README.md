@@ -138,7 +138,10 @@ oastools generate --server --server-all -o ./server -p api openapi.yaml
 oastools join -o merged.yaml base.yaml extensions.yaml
 
 # Apply overlays for environment-specific customizations
-oastools overlay apply -s openapi.yaml production.yaml -o production-api.yaml
+oastools overlay apply -s openapi.yaml -o production-api.yaml production.yaml
+
+# Preview overlay changes without applying
+oastools overlay apply --dry-run -s openapi.yaml production.yaml
 
 # Validate an overlay document
 oastools overlay validate changes.yaml

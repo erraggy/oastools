@@ -2,7 +2,7 @@
 
 **White Paper**
 
-**Current as of:** v1.45.1<br>
+**Current as of:** v1.46.2<br>
 **Repository:** [github.com/erraggy/oastools](https://github.com/erraggy/oastools)<br>
 **Documentation:** [pkg.go.dev/github.com/erraggy/oastools](https://pkg.go.dev/github.com/erraggy/oastools)<br>
 **License:** MIT
@@ -54,7 +54,7 @@ oastools addresses these challenges through a modular twelve-package architectur
 
 ### Design Philosophy
 
-The development of oastools follows several guiding principles. The toolkit maintains minimal dependencies, relying only on `go.yaml.in/yaml/v4` for YAML parsing and `golang.org/x/tools` for import analysis during code generation. The parse-once pattern ensures documents flow through multiple operations without redundant parsing. All [parser](#4-parser-package) types include generated `DeepCopy()` methods for safe document mutation without serialization overhead. The toolkit supports [OAS 2.0](https://spec.openapis.org/oas/v2.0.html) through [OAS 3.2.0](https://spec.openapis.org/oas/v3.2.0.html) comprehensively, adapting behavior for version-specific features. Both functional options for one-off operations and reusable struct instances for batch processing are supported.
+The development of oastools follows several guiding principles. The toolkit maintains minimal dependencies, relying only on `go.yaml.in/yaml/v4` for YAML parsing, `golang.org/x/text` for Unicode handling, and `golang.org/x/tools` for import analysis during code generation. The parse-once pattern ensures documents flow through multiple operations without redundant parsing. All [parser](#4-parser-package) types include generated `DeepCopy()` methods for safe document mutation without serialization overhead. The toolkit supports [OAS 2.0](https://spec.openapis.org/oas/v2.0.html) through [OAS 3.2.0](https://spec.openapis.org/oas/v3.2.0.html) comprehensively, adapting behavior for version-specific features. Both functional options for one-off operations and reusable struct instances for batch processing are supported.
 
 ### Practical Examples
 
@@ -306,9 +306,9 @@ type ParseResult struct {
     // Document contains the parsed document (version-specific type)
     Document any
     
-    // Version-specific accessors
-    OAS2Document *OAS2Document  // Non-nil for OAS 2.0
-    OAS3Document *OAS3Document  // Non-nil for OAS 3.x
+    // Version-specific accessors (methods, not fields)
+    // doc2, ok := result.OAS2Document()  // Returns (*OAS2Document, bool)
+    // doc3, ok := result.OAS3Document()  // Returns (*OAS3Document, bool)
     
     // Metadata
     Version      OASVersion     // Detected version (e.g., "3.1.0")
@@ -439,13 +439,14 @@ type ValidationResult struct {
 }
 
 type ValidationError struct {
-    Path        string         // JSON path to error location
-    Message     string         // Human-readable description
-    Severity    severity.Level // Error, Warning, or Info
-    SpecRef     string         // URL to relevant spec section
-    Line        int            // Line number (if source map enabled)
-    Column      int            // Column number (if source map enabled)
-    File        string         // File path (if source map enabled)
+    Path             string                   // JSON path to error location
+    Message          string                   // Human-readable description
+    Severity         severity.Level           // Error, Warning, or Info
+    SpecRef          string                   // URL to relevant spec section
+    Line             int                      // Line number (if source map enabled)
+    Column           int                      // Column number (if source map enabled)
+    File             string                   // File path (if source map enabled)
+    OperationContext *issues.OperationContext // API operation context (v1.46.0+)
 }
 ```
 
@@ -471,6 +472,27 @@ for _, e := range result.Errors {
 
 The `--validate-structure` CLI flag controls parser validation behavior, enabling strict structural validation during parsing.
 
+### 5.6 Operation Context (v1.46.0+)
+
+Validation errors now include operation context, making it easy to identify which API endpoint triggered each error. The `OperationContext` field provides the HTTP method, path, and operationId.
+
+```go
+result, _ := validator.ValidateWithOptions(
+    validator.WithParsed(*parsed),
+)
+
+for _, e := range result.Errors {
+    if e.OperationContext != nil {
+        fmt.Printf("%s %s (%s): %s\n",
+            e.OperationContext.Method,
+            e.OperationContext.Path,
+            e.OperationContext.OperationID,
+            e.Message)
+    }
+}
+// Output: GET /users/{userId} (getUser): missing path parameter "userId"
+```
+
 ---
 
 ## 6. Fixer Package
@@ -488,6 +510,8 @@ The fixer package automatically corrects common validation errors, reducing manu
 **Unused Schemas (FixTypePrunedUnusedSchema):** Schema definitions not referenced anywhere in the document are removed, cleaning up orphaned definitions.
 
 **Empty Paths (FixTypePrunedEmptyPath):** Path items with no HTTP operations (only parameters or extensions) are removed.
+
+**Missing Reference Targets (FixTypeStubMissingRefs, v1.46.0+):** When a `$ref` points to a non-existent schema or response definition, the fixer creates a stub placeholder to prevent validation errors. Stub descriptions are configurable via `WithStubConfig()` or `WithStubResponseDescription()`.
 
 ### 6.2 Default Behavior
 
@@ -619,7 +643,7 @@ When joining documents, name collisions may occur in schemas, paths, or other co
 
 ### 8.2 Semantic Deduplication
 
-The `StrategyDeduplicateEquivalent` strategy performs deep structural comparison. Two schemas are considered equivalent if they have identical types, properties, required fields, and constraints. When equivalent schemas are found, one is kept and all references are updated to point to the surviving definition.
+The `StrategyDeduplicateEquivalent` strategy performs deep structural comparison. Two schemas are considered equivalent if they have identical types, properties, required fields, and constraints. When equivalent schemas are found, one is kept and all references are updated to point to the surviving definition. Empty schemas (those with no properties, type, or constraints) are correctly preserved during deduplication rather than being collapsed (fixed in v1.46.2).
 
 ### 8.3 Reference Rewriting
 
@@ -1449,7 +1473,7 @@ The walker package enables several common patterns:
 | Documentation Gen | Info, Server, Operation, Response | Continue |
 | Reference Analysis | Schema, SchemaSkipped | Continue |
 
-### 14.6 Recent Enhancements (v1.38-v1.45)
+### 14.6 Recent Enhancements (v1.38-v1.46)
 
 The walker has gained several powerful features:
 
@@ -1958,7 +1982,7 @@ oastools represents a comprehensive solution for OpenAPI tooling in the Go ecosy
 
 **Security-First Code Generation:** Comprehensive [OAuth2](https://datatracker.ietf.org/doc/html/rfc6749), [PKCE](https://datatracker.ietf.org/doc/html/rfc7636), and OIDC support addresses real security requirements for generated clients.
 
-**Minimal Dependencies:** Only `go.yaml.in/yaml/v4` and `golang.org/x/tools` are required, minimizing attack surface and build complexity.
+**Minimal Dependencies:** Only `go.yaml.in/yaml/v4`, `golang.org/x/text`, and `golang.org/x/tools` are required, minimizing attack surface and build complexity.
 
 **Battle-Tested Quality:** Validation against ten production APIs from Microsoft Graph to Petstore ensures real-world reliability.
 

@@ -4,6 +4,17 @@ set -e
 # Directory where mkdocs expects the documentation
 DOCS_DIR="docs"
 
+# copy_if_exists copies a file to destination, warning if source is missing
+copy_if_exists() {
+    local src="$1"
+    local dest="$2"
+    if [ -f "$src" ]; then
+        cp "$src" "$dest"
+    else
+        echo "⚠️  WARNING: $src not found, skipping" >&2
+    fi
+}
+
 echo "Preparing documentation in $DOCS_DIR..."
 
 # Ensure the target directories exist
@@ -33,6 +44,12 @@ sed 's|](examples/\([^/)]*\)/)|](examples/\1.md)|g' "$DOCS_DIR/index.md" > "$DOC
 sed 's|examples/README.md)|examples/index.md)|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
 # Fix examples/ directory link -> examples/index.md
 sed 's|](examples/)|](examples/index.md)|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
+# Transform absolute GitHub links to relative paths for docs site
+# Only transform links to docs/ files (which exist in the docs structure)
+sed 's|https://github.com/erraggy/oastools/blob/main/docs/|./|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
+# Transform links to root-level .md files that are part of the docs site (benchmarks.md)
+# Note: WORKFLOW.md and AGENTS.md are NOT in the docs structure, so they stay as GitHub links
+sed 's|https://github.com/erraggy/oastools/blob/main/benchmarks\.md|benchmarks.md|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
 
 # 2. Copy root level docs (user-facing only; internal dev docs stay in GitHub)
 echo "Copying root level markdown files..."
@@ -66,7 +83,11 @@ mkdir -p "$DOCS_DIR/examples/workflows" "$DOCS_DIR/examples/programmatic-api" "$
 copy_example_readme() {
     local src="$1"
     local dest="$2"
-    cp "$src" "$dest"
+    copy_if_exists "$src" "$dest"
+    # Only apply fixes if the file was copied
+    if [ ! -f "$dest" ]; then
+        return
+    fi
     # Fix relative links to specs/ files - point to GitHub since we don't copy specs
     sed -i.bak 's|](specs/|](https://github.com/erraggy/oastools/blob/main/'"$(dirname "$src" | sed 's|^\./||')"'/specs/|g' "$dest"
     # Fix relative links to main.go - point to GitHub
@@ -81,6 +102,7 @@ copy_example_readme() {
 # README.md is flattened to sibling.md
 fix_example_links() {
     local file="$1"
+    [ -f "$file" ] || return 0
 
     # From top-level examples (quickstart.md, validation-pipeline.md):
     # ../sibling/ -> sibling.md (was going up from quickstart/README.md, now same level)
@@ -172,6 +194,7 @@ fix_example_links() {
 # Fix links specifically for subdirectory context (workflows/, petstore/, programmatic-api/)
 fix_subdir_links() {
     local file="$1"
+    [ -f "$file" ] || return 0
     # From a subdirectory, sibling directories need ../
     sed -i.bak 's|](quickstart\.md)|](../quickstart.md)|g' "$file"
     sed -i.bak 's|](validation-pipeline\.md)|](../validation-pipeline.md)|g' "$file"
@@ -182,7 +205,7 @@ fix_subdir_links() {
 }
 
 # Root examples README
-cp examples/README.md "$DOCS_DIR/examples/index.md"
+copy_if_exists "examples/README.md" "$DOCS_DIR/examples/index.md"
 fix_example_links "$DOCS_DIR/examples/index.md"
 echo "  - examples/README.md -> $DOCS_DIR/examples/index.md"
 
