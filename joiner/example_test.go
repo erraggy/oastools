@@ -296,3 +296,164 @@ func Example_primaryOperationPolicy() {
 	// Collisions resolved: 1
 	// Version: 3.0.0
 }
+
+// Example_collisionHandler demonstrates using a collision handler callback
+// for custom collision resolution. The handler is called for each collision,
+// allowing you to observe collisions, override the configured strategy, or
+// provide custom merged values.
+func Example_collisionHandler() {
+	// Track collisions for logging or metrics
+	var collisionCount int
+
+	// Define a handler that logs collisions and defers to the configured strategy
+	handler := func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+		collisionCount++
+		fmt.Printf("Collision detected: %s %q (%s vs %s)\n",
+			collision.Type, collision.Name, collision.LeftSource, collision.RightSource)
+		// Defer to the configured strategy
+		return joiner.ContinueWithStrategy(), nil
+	}
+
+	result, err := joiner.JoinWithOptions(
+		joiner.WithFilePaths(
+			"../testdata/join-collision-rename-base-3.0.yaml",
+			"../testdata/join-collision-rename-ext-3.0.yaml",
+		),
+		joiner.WithSchemaStrategy(joiner.StrategyAcceptLeft),
+		joiner.WithCollisionHandler(handler),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Total collisions: %d\n", collisionCount)
+	fmt.Printf("Version: %s\n", result.Version)
+	// Output:
+	// Collision detected: schema "User" (../testdata/join-collision-rename-base-3.0.yaml vs ../testdata/join-collision-rename-ext-3.0.yaml)
+	// Total collisions: 1
+	// Version: 3.0.3
+}
+
+// Example_collisionHandlerDecision demonstrates a collision handler that
+// makes decisions based on the collision context. This allows overriding
+// the configured strategy on a per-collision basis.
+func Example_collisionHandlerDecision() {
+	// Handler that accepts the right (newer) schema for User, left for others
+	handler := func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+		if collision.Type == joiner.CollisionTypeSchema && collision.Name == "User" {
+			// Accept the newer schema definition
+			return joiner.AcceptRightWithMessage("preferring newer User schema"), nil
+		}
+		// For all other collisions, defer to configured strategy
+		return joiner.ContinueWithStrategy(), nil
+	}
+
+	result, err := joiner.JoinWithOptions(
+		joiner.WithFilePaths(
+			"../testdata/join-collision-rename-base-3.0.yaml",
+			"../testdata/join-collision-rename-ext-3.0.yaml",
+		),
+		joiner.WithSchemaStrategy(joiner.StrategyAcceptLeft), // Default: keep left
+		joiner.WithCollisionHandler(handler),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Check which User schema was kept (right has "username" field)
+	doc := result.Document.(*parser.OAS3Document)
+	_, hasUsername := doc.Components.Schemas["User"].Properties["username"]
+	fmt.Printf("Has username field (from right): %v\n", hasUsername)
+	fmt.Printf("Version: %s\n", result.Version)
+	// Output:
+	// Has username field (from right): true
+	// Version: 3.0.3
+}
+
+// Example_collisionHandlerForType demonstrates using WithCollisionHandlerFor
+// to handle only specific collision types. This is useful when you want custom
+// logic for schemas but default behavior for paths and other components.
+func Example_collisionHandlerForType() {
+	var schemaCollisions []string
+
+	// Handler that only processes schema collisions
+	handler := func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+		schemaCollisions = append(schemaCollisions, collision.Name)
+		return joiner.AcceptLeft(), nil
+	}
+
+	result, err := joiner.JoinWithOptions(
+		joiner.WithFilePaths(
+			"../testdata/join-collision-rename-base-3.0.yaml",
+			"../testdata/join-collision-rename-ext-3.0.yaml",
+		),
+		// Handler only called for schema collisions
+		joiner.WithCollisionHandlerFor(handler, joiner.CollisionTypeSchema),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Schema collisions handled: %v\n", schemaCollisions)
+	fmt.Printf("Version: %s\n", result.Version)
+	// Output:
+	// Schema collisions handled: [User]
+	// Version: 3.0.3
+}
+
+// Example_collisionHandlerCustomMerge demonstrates using a collision handler
+// to provide a custom merged schema. This is useful when you want to combine
+// properties from both schemas rather than choosing one.
+func Example_collisionHandlerCustomMerge() {
+	// Handler that merges properties from both User schemas
+	handler := func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+		if collision.Type != joiner.CollisionTypeSchema {
+			return joiner.ContinueWithStrategy(), nil
+		}
+
+		leftSchema := collision.LeftValue.(*parser.Schema)
+		rightSchema := collision.RightValue.(*parser.Schema)
+
+		// Create a merged schema with properties from both
+		mergedSchema := &parser.Schema{
+			Type:        "object",
+			Description: "Merged User schema",
+			Properties:  make(map[string]*parser.Schema),
+		}
+
+		// Copy properties from left schema
+		for name, prop := range leftSchema.Properties {
+			mergedSchema.Properties[name] = prop
+		}
+		// Add properties from right schema (may override)
+		for name, prop := range rightSchema.Properties {
+			mergedSchema.Properties[name] = prop
+		}
+
+		return joiner.UseCustomValueWithMessage(mergedSchema, "merged User schemas"), nil
+	}
+
+	result, err := joiner.JoinWithOptions(
+		joiner.WithFilePaths(
+			"../testdata/join-collision-rename-base-3.0.yaml",
+			"../testdata/join-collision-rename-ext-3.0.yaml",
+		),
+		joiner.WithCollisionHandler(handler),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Check merged schema has properties from both
+	doc := result.Document.(*parser.OAS3Document)
+	user := doc.Components.Schemas["User"]
+	_, hasEmail := user.Properties["email"]       // from left
+	_, hasUsername := user.Properties["username"] // from right
+	fmt.Printf("Has email (from left): %v\n", hasEmail)
+	fmt.Printf("Has username (from right): %v\n", hasUsername)
+	fmt.Printf("Description: %s\n", user.Description)
+	// Output:
+	// Has email (from left): true
+	// Has username (from right): true
+	// Description: Merged User schema
+}
