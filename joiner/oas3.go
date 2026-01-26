@@ -239,6 +239,45 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 			// Handle collision based on strategy
 			result.CollisionCount++
 
+			// Invoke collision handler if configured
+			if j.shouldInvokeHandler(CollisionTypeSchema) {
+				collision := CollisionContext{
+					Type:               CollisionTypeSchema,
+					Name:               effectiveName,
+					JSONPath:           fmt.Sprintf("$.components.schemas.%s", effectiveName),
+					LeftSource:         result.firstFilePath,
+					LeftLocation:       j.getLocationPtr(result.firstFilePath, fmt.Sprintf("$.components.schemas.%s", effectiveName)),
+					LeftValue:          target[effectiveName],
+					RightSource:        ctx.filePath,
+					RightLocation:      j.getLocationPtr(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", name)),
+					RightValue:         schema,
+					RenameInfo:         buildRenameContextPtr(effectiveName, ctx.filePath, ctx.docIndex, sourceGraph, j.config.PrimaryOperationPolicy),
+					ConfiguredStrategy: strategy,
+				}
+
+				resolution, handlerErr := j.collisionHandler(collision)
+				if handlerErr != nil {
+					// Log warning and fall back to configured strategy
+					line, col := j.getLocation(ctx.filePath, collision.JSONPath)
+					result.AddWarning(NewHandlerErrorWarning(
+						collision.JSONPath,
+						fmt.Sprintf("collision handler error: %v; using %s strategy", handlerErr, strategy),
+						ctx.filePath, line, col,
+					))
+					// Fall through to strategy switch below
+				} else {
+					// Apply the resolution
+					applied, err := j.applySchemaResolution(collision, resolution, target, result, ctx, sourceGraph)
+					if err != nil {
+						return err
+					}
+					if applied {
+						continue // Resolution handled, skip strategy switch
+					}
+					// ResolutionContinue falls through to strategy switch
+				}
+			}
+
 			switch strategy {
 			case StrategyDeduplicateEquivalent:
 				// Use semantic equivalence to determine if schemas are identical
@@ -340,6 +379,80 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 		}
 	}
 	return nil
+}
+
+// applySchemaResolution applies a CollisionResolution to a schema collision.
+// Returns true if the resolution was fully handled, false if strategy should still be applied.
+func (j *Joiner) applySchemaResolution(
+	collision CollisionContext,
+	resolution CollisionResolution,
+	target map[string]*parser.Schema,
+	result *JoinResult,
+	ctx documentContext,
+	sourceGraph *RefGraph,
+) (bool, error) {
+	// Record message as warning if provided
+	if resolution.Message != "" {
+		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
+		result.AddWarning(NewHandlerResolutionWarning(collision.JSONPath, resolution.Message, ctx.filePath, line, col))
+	}
+
+	schema, ok := collision.RightValue.(*parser.Schema)
+	if !ok {
+		return false, fmt.Errorf("collision handler: RightValue is not a *parser.Schema")
+	}
+
+	switch resolution.Action {
+	case ResolutionContinue:
+		// Delegate to configured strategy
+		return false, nil
+
+	case ResolutionAcceptLeft:
+		// Keep existing (left), discard incoming (right)
+		j.recordCollisionEvent(result, collision.Name, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "kept-left", "")
+		return true, nil
+
+	case ResolutionAcceptRight:
+		// Replace with incoming (right)
+		target[collision.Name] = schema
+		j.recordCollisionEvent(result, collision.Name, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "kept-right", "")
+		return true, nil
+
+	case ResolutionRename:
+		// Rename right schema
+		newName := j.generateRenamedSchemaName(collision.Name, ctx.filePath, ctx.docIndex, sourceGraph)
+		target[newName] = schema
+		if result.rewriter == nil {
+			result.rewriter = NewSchemaRewriter()
+		}
+		result.rewriter.RegisterRename(collision.Name, newName, result.OASVersion)
+		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
+		result.AddWarning(NewSchemaRenamedWarning(collision.Name, newName, "schema", ctx.filePath, line, col, false))
+		j.recordCollisionEvent(result, collision.Name, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "renamed", newName)
+		return true, nil
+
+	case ResolutionDeduplicate:
+		// Keep left, discard right (treat as equivalent)
+		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
+		result.AddWarning(NewSchemaDedupWarning(collision.Name, "schema", ctx.filePath, line, col))
+		j.recordCollisionEvent(result, collision.Name, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "deduplicated", "")
+		return true, nil
+
+	case ResolutionFail:
+		// Return error with handler's message
+		msg := resolution.Message
+		if msg == "" {
+			msg = fmt.Sprintf("schema collision on %q rejected by handler", collision.Name)
+		}
+		return true, fmt.Errorf("collision handler: %s", msg)
+
+	case ResolutionCustom:
+		// Use custom value (defer to Task 9)
+		return false, fmt.Errorf("ResolutionCustom for schemas not yet implemented")
+
+	default:
+		return false, fmt.Errorf("unknown resolution action: %d", resolution.Action)
+	}
 }
 
 // Helper functions for merging specific component types

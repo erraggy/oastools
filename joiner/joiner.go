@@ -1192,3 +1192,13 @@ func (j *Joiner) getLocation(filePath, jsonPath string) (line, col int) {
 	loc := sm.Get(jsonPath)
 	return loc.Line, loc.Column
 }
+
+// getLocationPtr returns a *SourceLocation for the given file and JSON path.
+// Returns nil if no SourceMap is available or path not found.
+func (j *Joiner) getLocationPtr(filePath, jsonPath string) *SourceLocation {
+	line, col := j.getLocation(filePath, jsonPath)
+	if line == 0 {
+		return nil
+	}
+	return &SourceLocation{Line: line, Column: col}
+}

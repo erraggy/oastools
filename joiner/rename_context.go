@@ -428,3 +428,16 @@ func sortedMapKeys(m map[string]bool) []string {
 	sort.Strings(keys)
 	return keys
 }
+
+// buildRenameContextPtr is like buildRenameContext but returns a pointer.
+// Returns nil if the context would have no useful information.
+func buildRenameContextPtr(
+	schemaName string,
+	sourcePath string,
+	docIndex int,
+	graph *RefGraph,
+	policy PrimaryOperationPolicy,
+) *RenameContext {
+	ctx := buildRenameContext(schemaName, sourcePath, docIndex, graph, policy)
+	return &ctx
+}

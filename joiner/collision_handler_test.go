@@ -1,8 +1,10 @@
 package joiner
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -252,4 +254,265 @@ func TestUseCustomValue(t *testing.T) {
 	assert.Equal(t, ResolutionCustom, gotWithMsg.Action)
 	assert.Equal(t, customSchema, gotWithMsg.CustomValue)
 	assert.Equal(t, "custom merge", gotWithMsg.Message)
+}
+
+// createTestOAS3Doc creates a test OAS 3.0 document with the given schemas.
+// Each schema map entry creates a schema with that name and description.
+func createTestOAS3Doc(sourcePath string, schemas map[string]string) parser.ParseResult {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: make(parser.Paths),
+		Components: &parser.Components{
+			Schemas: make(map[string]*parser.Schema),
+		},
+	}
+	for name, desc := range schemas {
+		doc.Components.Schemas[name] = &parser.Schema{
+			Type:        "object",
+			Description: desc,
+		}
+	}
+	return parser.ParseResult{
+		SourcePath: sourcePath,
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+}
+
+func TestCollisionHandler_InvokedOnSchemaCollision(t *testing.T) {
+	var receivedCollision CollisionContext
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		receivedCollision = collision
+		return AcceptLeft(), nil
+	}
+
+	base := createTestOAS3Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS3Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, CollisionTypeSchema, receivedCollision.Type)
+	assert.Equal(t, "User", receivedCollision.Name)
+	assert.Equal(t, "$.components.schemas.User", receivedCollision.JSONPath)
+	assert.Equal(t, "base.yaml", receivedCollision.LeftSource)
+	assert.Equal(t, "overlay.yaml", receivedCollision.RightSource)
+	assert.NotNil(t, receivedCollision.LeftValue)
+	assert.NotNil(t, receivedCollision.RightValue)
+	assert.Equal(t, StrategyAcceptLeft, receivedCollision.ConfiguredStrategy)
+
+	// Verify the resolution was applied (left was kept)
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "base-user", oas3Doc.Components.Schemas["User"].Description)
+}
+
+func TestCollisionHandler_AcceptRightResolution(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return AcceptRight(), nil
+	}
+
+	base := createTestOAS3Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS3Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft), // Would keep left, but handler overrides
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "overlay-user", oas3Doc.Components.Schemas["User"].Description)
+}
+
+func TestCollisionHandler_ContinueWithStrategy(t *testing.T) {
+	handlerCalled := false
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		handlerCalled = true
+		return ContinueWithStrategy(), nil // Defer to configured strategy
+	}
+
+	base := createTestOAS3Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS3Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithSchemaStrategy(StrategyAcceptRight), // Should take effect for schemas
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	assert.True(t, handlerCalled)
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "overlay-user", oas3Doc.Components.Schemas["User"].Description)
+}
+
+func TestCollisionHandler_ErrorFallsBackToStrategy(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return CollisionResolution{}, fmt.Errorf("simulated handler error")
+	}
+
+	base := createTestOAS3Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS3Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft), // Fallback
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err, "join should succeed despite handler error")
+
+	// Verify fallback to AcceptLeft occurred
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "base-user", oas3Doc.Components.Schemas["User"].Description)
+
+	// Verify warning was recorded
+	var foundWarning bool
+	for _, warn := range result.StructuredWarnings {
+		if warn.Category == WarnHandlerError {
+			foundWarning = true
+			assert.Contains(t, warn.Message, "simulated handler error")
+		}
+	}
+	assert.True(t, foundWarning, "should have handler error warning")
+}
+
+func TestCollisionHandler_FailResolution(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return FailWithMessage("intentional failure from handler"), nil
+	}
+
+	base := createTestOAS3Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS3Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "intentional failure from handler")
+}
+
+func TestCollisionHandler_RenameResolution(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return Rename(), nil
+	}
+
+	base := createTestOAS3Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS3Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+
+	// Original should be kept
+	assert.Equal(t, "base-user", oas3Doc.Components.Schemas["User"].Description)
+
+	// Renamed schema should exist
+	var foundRenamed bool
+	for name, schema := range oas3Doc.Components.Schemas {
+		if name != "User" && schema.Description == "overlay-user" {
+			foundRenamed = true
+			break
+		}
+	}
+	assert.True(t, foundRenamed, "should have a renamed schema with overlay-user description")
+}
+
+func TestCollisionHandler_DeduplicateResolution(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return Deduplicate(), nil
+	}
+
+	base := createTestOAS3Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS3Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+
+	// Only one User schema should exist (deduplicated keeps left)
+	assert.Len(t, oas3Doc.Components.Schemas, 1)
+	assert.Equal(t, "base-user", oas3Doc.Components.Schemas["User"].Description)
+
+	// Should have a dedup warning
+	var foundDedup bool
+	for _, warn := range result.StructuredWarnings {
+		if warn.Category == WarnSchemaDeduplicated {
+			foundDedup = true
+			break
+		}
+	}
+	assert.True(t, foundDedup, "should have schema deduplicated warning")
+}
+
+func TestCollisionHandler_NotInvokedForNonCollision(t *testing.T) {
+	handlerCalled := false
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		handlerCalled = true
+		return AcceptLeft(), nil
+	}
+
+	// Different schema names, no collision
+	base := createTestOAS3Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS3Doc("overlay.yaml", map[string]string{"Pet": "overlay-pet"})
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	assert.False(t, handlerCalled, "handler should not be called when there's no collision")
+}
+
+func TestCollisionHandler_WithMessageResolution(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return AcceptLeftWithMessage("keeping base schema due to policy"), nil
+	}
+
+	base := createTestOAS3Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS3Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+
+	// Should have a handler resolution warning with the message
+	var foundResolution bool
+	for _, warn := range result.StructuredWarnings {
+		if warn.Category == WarnHandlerResolution {
+			foundResolution = true
+			assert.Contains(t, warn.Message, "keeping base schema due to policy")
+			break
+		}
+	}
+	assert.True(t, foundResolution, "should have handler resolution warning with message")
 }
