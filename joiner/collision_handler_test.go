@@ -806,12 +806,60 @@ func TestCollisionHandler_PathRenameNotSupported(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ResolutionRename not supported for paths")
+	assert.Contains(t, err.Error(), "ResolutionRename is not supported for path collisions")
 }
 
-func TestCollisionHandler_PathCustomNotSupported(t *testing.T) {
+func TestCollisionHandler_PathCustomValue(t *testing.T) {
+	// Create a custom merged PathItem that combines operations from both
+	mergedPathItem := &parser.PathItem{
+		Get: &parser.Operation{
+			OperationID: "getUsers-merged",
+			Summary:     "Merged from both documents",
+			Responses:   &parser.Responses{Codes: make(map[string]*parser.Response)},
+		},
+		Post: &parser.Operation{
+			OperationID: "createUser-merged",
+			Summary:     "Added via merge",
+			Responses:   &parser.Responses{Codes: make(map[string]*parser.Response)},
+		},
+	}
+
 	handler := func(collision CollisionContext) (CollisionResolution, error) {
-		return UseCustomValue(&parser.PathItem{}), nil
+		return UseCustomValueWithMessage(mergedPathItem, "merged operations from both paths"), nil
+	}
+
+	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+
+	// Verify the custom PathItem was used
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "getUsers-merged", oas3Doc.Paths["/users"].Get.OperationID)
+	assert.NotNil(t, oas3Doc.Paths["/users"].Post, "should have POST from merged path")
+	assert.Equal(t, "createUser-merged", oas3Doc.Paths["/users"].Post.OperationID)
+
+	// Verify warning was recorded
+	var foundWarning bool
+	for _, warn := range result.StructuredWarnings {
+		if warn.Category == WarnHandlerResolution && warn.Message == "merged operations from both paths" {
+			foundWarning = true
+			break
+		}
+	}
+	assert.True(t, foundWarning, "should have handler resolution warning")
+}
+
+func TestCollisionHandler_PathCustomValueWrongType(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		// Wrong type - should be *parser.PathItem, not *parser.Schema
+		return UseCustomValue(&parser.Schema{Type: "object"}), nil
 	}
 
 	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
@@ -824,7 +872,25 @@ func TestCollisionHandler_PathCustomNotSupported(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ResolutionCustom for paths not yet implemented")
+	assert.Contains(t, err.Error(), "expected *parser.PathItem")
+}
+
+func TestCollisionHandler_PathCustomValueNil(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return CollisionResolution{Action: ResolutionCustom, CustomValue: nil}, nil
+	}
+
+	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ResolutionCustom requires CustomValue")
 }
 
 func TestCollisionHandler_PathWithMessage(t *testing.T) {
@@ -853,6 +919,89 @@ func TestCollisionHandler_PathWithMessage(t *testing.T) {
 		}
 	}
 	assert.True(t, foundResolution, "should have handler resolution warning with message")
+}
+
+func TestCollisionHandler_PathCollisionEventRecording(t *testing.T) {
+	// Test that path collisions are recorded in CollisionDetails when reporting is enabled
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return AcceptRight(), nil
+	}
+
+	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users", "/orders"})
+	overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"}) // Only /users collides
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+		WithCollisionReport(true), // Enable collision reporting
+	)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result.CollisionDetails, "should have collision details when reporting enabled")
+
+	// Verify the collision event was recorded
+	events := result.CollisionDetails.Events
+	assert.Len(t, events, 1, "should have one collision event for /users")
+
+	event := events[0]
+	assert.Equal(t, "/users", event.SchemaName) // SchemaName field is reused for item name
+	assert.Equal(t, "base.yaml", event.LeftSource)
+	assert.Equal(t, "overlay.yaml", event.RightSource)
+	assert.Equal(t, "kept-right", event.Resolution) // AcceptRight results in "kept-right"
+}
+
+func TestCollisionHandler_PathCollisionEventRecording_AllResolutions(t *testing.T) {
+	// Test that all path resolution types record events correctly
+	tests := []struct {
+		name       string
+		resolution func(CollisionContext) (CollisionResolution, error)
+		expected   string
+	}{
+		{
+			name:       "AcceptLeft",
+			resolution: func(c CollisionContext) (CollisionResolution, error) { return AcceptLeft(), nil },
+			expected:   "kept-left",
+		},
+		{
+			name:       "AcceptRight",
+			resolution: func(c CollisionContext) (CollisionResolution, error) { return AcceptRight(), nil },
+			expected:   "kept-right",
+		},
+		{
+			name:       "Deduplicate",
+			resolution: func(c CollisionContext) (CollisionResolution, error) { return Deduplicate(), nil },
+			expected:   "deduplicated",
+		},
+		{
+			name: "Custom",
+			resolution: func(c CollisionContext) (CollisionResolution, error) {
+				return UseCustomValue(&parser.PathItem{
+					Get: &parser.Operation{OperationID: "custom", Responses: &parser.Responses{}},
+				}), nil
+			},
+			expected: "custom",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
+			overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+			result, err := JoinWithOptions(
+				WithParsed(base, overlay),
+				WithPathStrategy(StrategyAcceptLeft),
+				WithCollisionHandler(tt.resolution),
+				WithCollisionReport(true),
+			)
+
+			assert.NoError(t, err)
+			assert.NotNil(t, result.CollisionDetails)
+			assert.Len(t, result.CollisionDetails.Events, 1)
+			assert.Equal(t, tt.expected, result.CollisionDetails.Events[0].Resolution)
+		})
+	}
 }
 
 // =============================================================================

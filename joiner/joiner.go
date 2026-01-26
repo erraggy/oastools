@@ -1149,6 +1149,34 @@ func (j *Joiner) recordCollisionEvent(result *JoinResult, schemaName, leftSource
 	})
 }
 
+// recordCollisionEventWithPath records a collision event using explicit JSON paths for location lookup.
+// This is used for non-schema collisions (paths, webhooks, etc.) where the JSON path format differs.
+// Note: NewName is always empty for these collisions since paths/webhooks don't support renaming.
+func (j *Joiner) recordCollisionEventWithPath(result *JoinResult, name, jsonPath, leftSource, rightSource string, strategy CollisionStrategy, resolution string) {
+	if result.CollisionDetails == nil {
+		return
+	}
+
+	var leftLine, leftCol, rightLine, rightCol int
+	if j.SourceMaps != nil {
+		leftLine, leftCol = j.getLocation(leftSource, jsonPath)
+		rightLine, rightCol = j.getLocation(rightSource, jsonPath)
+	}
+
+	result.CollisionDetails.AddEvent(CollisionEvent{
+		SchemaName:  name, // Reusing SchemaName field for the collision item name
+		LeftSource:  leftSource,
+		LeftLine:    leftLine,
+		LeftColumn:  leftCol,
+		RightSource: rightSource,
+		RightLine:   rightLine,
+		RightColumn: rightCol,
+		Strategy:    strategy,
+		Resolution:  resolution,
+		NewName:     "", // Paths don't support renaming
+	})
+}
+
 // generatePrefixedSchemaName generates a schema name with a namespace prefix.
 // The format is: Prefix_OriginalName (e.g., "Users_User", "Billing_Invoice")
 func (j *Joiner) generatePrefixedSchemaName(originalName, prefix string) string {

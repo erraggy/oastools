@@ -1038,12 +1038,12 @@ joiner.WithCollisionHandlerFor(
 
 ### Supported Collision Types
 
-| Type | Description | Custom Value Support |
-|------|-------------|---------------------|
-| `CollisionTypeSchema` | Schema in components.schemas (OAS3) or definitions (OAS2) | ✅ Yes |
-| `CollisionTypePath` | Path in paths section | ❌ No |
+| Type | Description | Custom Value Support | Rename Support |
+|------|-------------|---------------------|----------------|
+| `CollisionTypeSchema` | Schema in components.schemas (OAS3) or definitions (OAS2) | ✅ Yes | ✅ Yes |
+| `CollisionTypePath` | Path in paths section | ✅ Yes | ❌ No |
 
-Note: `Rename()` and `UseCustomValue()` are not supported for path collisions. Paths are URL endpoints that cannot be renamed without breaking API contracts.
+Note: `Rename()` is not supported for path collisions because paths are URL endpoints that cannot be renamed without breaking API contracts. However, `UseCustomValue()` is supported for paths, allowing you to provide a merged `*parser.PathItem` that combines operations from both colliding paths.
 
 ### Error Handling
 

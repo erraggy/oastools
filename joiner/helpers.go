@@ -231,7 +231,7 @@ func (j *Joiner) applyPathResolution(
 
 	pathItem, ok := collision.RightValue.(*parser.PathItem)
 	if !ok {
-		return false, fmt.Errorf("collision handler: RightValue is not a *parser.PathItem")
+		return false, fmt.Errorf("collision handler: RightValue is %T, expected *parser.PathItem", collision.RightValue)
 	}
 
 	switch resolution.Action {
@@ -241,6 +241,7 @@ func (j *Joiner) applyPathResolution(
 
 	case ResolutionAcceptLeft:
 		// Keep existing (left), discard incoming (right) - no action needed
+		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "kept-left")
 		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
 		result.AddWarning(NewPathCollisionWarning(collision.Name, "kept from first document", collision.LeftSource, ctx.filePath, line, col))
 		return true, nil
@@ -248,16 +249,18 @@ func (j *Joiner) applyPathResolution(
 	case ResolutionAcceptRight:
 		// Replace with incoming (right)
 		target[collision.Name] = pathItem
+		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "kept-right")
 		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
 		result.AddWarning(NewPathCollisionWarning(collision.Name, "overwritten", collision.LeftSource, ctx.filePath, line, col))
 		return true, nil
 
 	case ResolutionRename:
 		// Rename is not supported for paths - paths are URLs and cannot be renamed
-		return false, fmt.Errorf("collision handler: ResolutionRename not supported for paths")
+		return true, fmt.Errorf("collision handler: ResolutionRename is not supported for path collisions (paths are URL endpoints)")
 
 	case ResolutionDeduplicate:
 		// Keep left, discard right (treat as equivalent)
+		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "deduplicated")
 		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
 		result.AddWarning(NewPathCollisionWarning(collision.Name, "deduplicated (kept from first document)", collision.LeftSource, ctx.filePath, line, col))
 		return true, nil
@@ -271,8 +274,17 @@ func (j *Joiner) applyPathResolution(
 		return true, fmt.Errorf("collision handler: %s", msg)
 
 	case ResolutionCustom:
-		// Custom value for paths not yet implemented
-		return false, fmt.Errorf("ResolutionCustom for paths not yet implemented")
+		// Custom PathItem allows merging operations from both path items
+		if resolution.CustomValue == nil {
+			return true, fmt.Errorf("collision handler: ResolutionCustom requires CustomValue")
+		}
+		customPathItem, ok := resolution.CustomValue.(*parser.PathItem)
+		if !ok {
+			return true, fmt.Errorf("collision handler: CustomValue is %T, expected *parser.PathItem for path collisions", resolution.CustomValue)
+		}
+		target[collision.Name] = customPathItem
+		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "custom")
+		return true, nil
 
 	default:
 		return false, fmt.Errorf("unknown resolution action: %d", resolution.Action)
