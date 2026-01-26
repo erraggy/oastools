@@ -1189,3 +1189,148 @@ func TestCollisionHandler_OAS2TypeFiltering(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, schemaCallCount, "should only call for schema collision, not path")
 }
+
+// =============================================================================
+// Custom Value Tests (ResolutionCustom)
+// =============================================================================
+
+func TestCollisionHandler_CustomValue(t *testing.T) {
+	customSchema := &parser.Schema{
+		Type:        "object",
+		Description: "custom-merged-schema",
+		Properties: map[string]*parser.Schema{
+			"merged": {Type: "boolean"},
+		},
+	}
+
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return UseCustomValueWithMessage(customSchema, "merged both schemas"), nil
+	}
+
+	base := createTestOAS3Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS3Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "custom-merged-schema", oas3Doc.Components.Schemas["User"].Description)
+	assert.Contains(t, oas3Doc.Components.Schemas["User"].Properties, "merged")
+
+	// Verify warning was recorded
+	var foundWarning bool
+	for _, warn := range result.StructuredWarnings {
+		if warn.Category == WarnHandlerResolution && warn.Message == "merged both schemas" {
+			foundWarning = true
+		}
+	}
+	assert.True(t, foundWarning)
+}
+
+func TestCollisionHandler_CustomValueWrongType(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return UseCustomValue("not a schema"), nil // Wrong type
+	}
+
+	base := createTestOAS3Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS3Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithCollisionHandler(handler),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "CustomValue must be *parser.Schema")
+}
+
+func TestCollisionHandler_CustomValueNil(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return CollisionResolution{Action: ResolutionCustom, CustomValue: nil}, nil
+	}
+
+	base := createTestOAS3Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS3Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithCollisionHandler(handler),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ResolutionCustom requires CustomValue")
+}
+
+func TestCollisionHandler_OAS2CustomValue(t *testing.T) {
+	customSchema := &parser.Schema{
+		Type:        "object",
+		Description: "custom-merged-definition",
+		Properties: map[string]*parser.Schema{
+			"merged": {Type: "boolean"},
+		},
+	}
+
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return UseCustomValueWithMessage(customSchema, "merged both definitions"), nil
+	}
+
+	base := createTestOAS2Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS2Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	oas2Doc, ok := result.Document.(*parser.OAS2Document)
+	assert.True(t, ok, "document should be OAS2")
+	assert.Equal(t, "custom-merged-definition", oas2Doc.Definitions["User"].Description)
+	assert.Contains(t, oas2Doc.Definitions["User"].Properties, "merged")
+
+	// Verify warning was recorded
+	var foundWarning bool
+	for _, warn := range result.StructuredWarnings {
+		if warn.Category == WarnHandlerResolution && warn.Message == "merged both definitions" {
+			foundWarning = true
+		}
+	}
+	assert.True(t, foundWarning)
+}
+
+func TestCollisionHandler_OAS2CustomValueWrongType(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return UseCustomValue("not a schema"), nil // Wrong type
+	}
+
+	base := createTestOAS2Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS2Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithCollisionHandler(handler),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "CustomValue must be *parser.Schema")
+}
+
+func TestCollisionHandler_OAS2CustomValueNil(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return CollisionResolution{Action: ResolutionCustom, CustomValue: nil}, nil
+	}
+
+	base := createTestOAS2Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS2Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithCollisionHandler(handler),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ResolutionCustom requires CustomValue")
+}

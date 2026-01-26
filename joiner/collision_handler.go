@@ -1,5 +1,45 @@
 package joiner
 
+/*
+Collision Handler Support
+
+The joiner package supports collision handlers for custom collision resolution.
+A collision handler is called when two documents being joined have conflicting
+components (schemas, paths, webhooks, etc.).
+
+Basic usage:
+
+	result, err := joiner.JoinWithOptions(
+	    joiner.WithFilePaths("base.yaml", "overlay.yaml"),
+	    joiner.WithCollisionHandler(func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+	        // Log all collisions
+	        log.Printf("Collision: %s %s", collision.Type, collision.Name)
+	        // Defer to configured strategy
+	        return joiner.ContinueWithStrategy(), nil
+	    }),
+	)
+
+Handler capabilities:
+
+ 1. Observe-only: Return ContinueWithStrategy() to log/observe and defer to strategy
+ 2. Decision-only: Return AcceptLeft(), AcceptRight(), Rename(), etc. to override strategy
+ 3. Custom resolution: Return UseCustomValue(mergedSchema) to provide a custom merged value
+
+Error handling:
+
+If the handler returns an error, the joiner logs a warning and falls back to the
+configured strategy. This ensures handlers cannot break the join operation.
+
+Type filtering:
+
+Use WithCollisionHandlerFor to handle only specific collision types:
+
+	joiner.WithCollisionHandlerFor(handler, joiner.CollisionTypeSchema, joiner.CollisionTypePath)
+
+See the CollisionContext, CollisionResolution, and helper function documentation
+for complete details.
+*/
+
 // CollisionType identifies what kind of component collided.
 type CollisionType string
 

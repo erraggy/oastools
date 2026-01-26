@@ -447,8 +447,16 @@ func (j *Joiner) applySchemaResolution(
 		return true, fmt.Errorf("collision handler: %s", msg)
 
 	case ResolutionCustom:
-		// Use custom value (defer to Task 9)
-		return false, fmt.Errorf("ResolutionCustom for schemas not yet implemented")
+		if resolution.CustomValue == nil {
+			return true, fmt.Errorf("collision handler: ResolutionCustom requires CustomValue")
+		}
+		customSchema, ok := resolution.CustomValue.(*parser.Schema)
+		if !ok {
+			return true, fmt.Errorf("collision handler: CustomValue must be *parser.Schema for schema collisions")
+		}
+		target[collision.Name] = customSchema
+		j.recordCollisionEvent(result, collision.Name, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "custom", "")
+		return true, nil
 
 	default:
 		return false, fmt.Errorf("unknown resolution action: %d", resolution.Action)
