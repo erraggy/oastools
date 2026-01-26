@@ -131,6 +131,11 @@ type Joiner struct {
 	// SourceMaps maps source file paths to their SourceMaps for location lookup.
 	// When populated, collision errors and events include line/column information.
 	SourceMaps map[string]*parser.SourceMap
+	// collisionHandler is called when collisions are detected (nil if not configured).
+	collisionHandler CollisionHandler
+	// collisionHandlerTypes specifies which collision types invoke the handler.
+	// Empty map means all types.
+	collisionHandlerTypes map[CollisionType]bool
 }
 
 // New creates a new Joiner instance with the provided configuration
@@ -305,6 +310,12 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 	// Set SourceMaps if provided
 	if cfg.sourceMaps != nil {
 		j.SourceMaps = cfg.sourceMaps
+	}
+
+	// Set collision handler if provided
+	if cfg.collisionHandler != nil {
+		j.collisionHandler = cfg.collisionHandler
+		j.collisionHandlerTypes = cfg.collisionHandlerTypes
 	}
 
 	// Check if any overlays are configured
@@ -1154,6 +1165,17 @@ func (j *Joiner) getNamespacePrefix(sourcePath string) string {
 		return ""
 	}
 	return j.config.NamespacePrefix[sourcePath]
+}
+
+// shouldInvokeHandler checks if the handler wants this collision type.
+func (j *Joiner) shouldInvokeHandler(collisionType CollisionType) bool {
+	if j.collisionHandler == nil {
+		return false
+	}
+	if len(j.collisionHandlerTypes) == 0 {
+		return true // empty means all types
+	}
+	return j.collisionHandlerTypes[collisionType]
 }
 
 // getLocation looks up the source location for a JSON path in a specific file.
