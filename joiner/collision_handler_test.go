@@ -155,3 +155,101 @@ func TestCollisionContext_WithLocations(t *testing.T) {
 	assert.Equal(t, "User", ctx.RenameInfo.Name)
 	assert.Equal(t, "api", ctx.RenameInfo.Source)
 }
+
+func TestResolutionHelpers(t *testing.T) {
+	tests := []struct {
+		name     string
+		fn       func() CollisionResolution
+		expected CollisionResolution
+	}{
+		{
+			name: "ContinueWithStrategy",
+			fn:   ContinueWithStrategy,
+			expected: CollisionResolution{
+				Action: ResolutionContinue,
+			},
+		},
+		{
+			name: "AcceptLeft",
+			fn:   AcceptLeft,
+			expected: CollisionResolution{
+				Action: ResolutionAcceptLeft,
+			},
+		},
+		{
+			name: "AcceptRight",
+			fn:   AcceptRight,
+			expected: CollisionResolution{
+				Action: ResolutionAcceptRight,
+			},
+		},
+		{
+			name: "Rename",
+			fn:   Rename,
+			expected: CollisionResolution{
+				Action: ResolutionRename,
+			},
+		},
+		{
+			name: "Deduplicate",
+			fn:   Deduplicate,
+			expected: CollisionResolution{
+				Action: ResolutionDeduplicate,
+			},
+		},
+		{
+			name: "Fail",
+			fn:   Fail,
+			expected: CollisionResolution{
+				Action: ResolutionFail,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.fn()
+			assert.Equal(t, tt.expected.Action, got.Action)
+			assert.Empty(t, got.Message)
+			assert.Nil(t, got.CustomValue)
+		})
+	}
+}
+
+func TestResolutionHelpersWithMessage(t *testing.T) {
+	tests := []struct {
+		name     string
+		fn       func(string) CollisionResolution
+		message  string
+		expected ResolutionAction
+	}{
+		{"ContinueWithStrategyWithMessage", ContinueWithStrategyWithMessage, "observed collision", ResolutionContinue},
+		{"AcceptLeftWithMessage", AcceptLeftWithMessage, "kept base", ResolutionAcceptLeft},
+		{"AcceptRightWithMessage", AcceptRightWithMessage, "overlay wins", ResolutionAcceptRight},
+		{"RenameWithMessage", RenameWithMessage, "renamed to avoid conflict", ResolutionRename},
+		{"DeduplicateWithMessage", DeduplicateWithMessage, "schemas are equivalent", ResolutionDeduplicate},
+		{"FailWithMessage", FailWithMessage, "intentional failure", ResolutionFail},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.fn(tt.message)
+			assert.Equal(t, tt.expected, got.Action)
+			assert.Equal(t, tt.message, got.Message)
+		})
+	}
+}
+
+func TestUseCustomValue(t *testing.T) {
+	customSchema := map[string]string{"type": "merged"}
+
+	got := UseCustomValue(customSchema)
+	assert.Equal(t, ResolutionCustom, got.Action)
+	assert.Equal(t, customSchema, got.CustomValue)
+	assert.Empty(t, got.Message)
+
+	gotWithMsg := UseCustomValueWithMessage(customSchema, "custom merge")
+	assert.Equal(t, ResolutionCustom, gotWithMsg.Action)
+	assert.Equal(t, customSchema, gotWithMsg.CustomValue)
+	assert.Equal(t, "custom merge", gotWithMsg.Message)
+}

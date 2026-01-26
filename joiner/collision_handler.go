@@ -122,3 +122,74 @@ type CollisionResolution struct {
 // CollisionHandler is called when a collision is detected.
 // Return an error to log a warning and fall back to configured strategy.
 type CollisionHandler func(collision CollisionContext) (CollisionResolution, error)
+
+// ContinueWithStrategy returns a resolution that defers to the configured strategy.
+// Use this for observe-only handlers that just want to log collisions.
+func ContinueWithStrategy() CollisionResolution {
+	return CollisionResolution{Action: ResolutionContinue}
+}
+
+// ContinueWithStrategyWithMessage returns a resolution that defers to strategy with a log message.
+func ContinueWithStrategyWithMessage(message string) CollisionResolution {
+	return CollisionResolution{Action: ResolutionContinue, Message: message}
+}
+
+// AcceptLeft returns a resolution that keeps the left (base) value.
+func AcceptLeft() CollisionResolution {
+	return CollisionResolution{Action: ResolutionAcceptLeft}
+}
+
+// AcceptLeftWithMessage returns a resolution that keeps the left value with a log message.
+func AcceptLeftWithMessage(message string) CollisionResolution {
+	return CollisionResolution{Action: ResolutionAcceptLeft, Message: message}
+}
+
+// AcceptRight returns a resolution that keeps the right (incoming) value.
+func AcceptRight() CollisionResolution {
+	return CollisionResolution{Action: ResolutionAcceptRight}
+}
+
+// AcceptRightWithMessage returns a resolution that keeps the right value with a log message.
+func AcceptRightWithMessage(message string) CollisionResolution {
+	return CollisionResolution{Action: ResolutionAcceptRight, Message: message}
+}
+
+// Rename returns a resolution that renames the right value to avoid collision.
+func Rename() CollisionResolution {
+	return CollisionResolution{Action: ResolutionRename}
+}
+
+// RenameWithMessage returns a resolution that renames with a log message.
+func RenameWithMessage(message string) CollisionResolution {
+	return CollisionResolution{Action: ResolutionRename, Message: message}
+}
+
+// Deduplicate returns a resolution that treats colliding values as equivalent.
+func Deduplicate() CollisionResolution {
+	return CollisionResolution{Action: ResolutionDeduplicate}
+}
+
+// DeduplicateWithMessage returns a resolution that deduplicates with a log message.
+func DeduplicateWithMessage(message string) CollisionResolution {
+	return CollisionResolution{Action: ResolutionDeduplicate, Message: message}
+}
+
+// Fail returns a resolution that aborts the join with an error.
+func Fail() CollisionResolution {
+	return CollisionResolution{Action: ResolutionFail}
+}
+
+// FailWithMessage returns a resolution that aborts with a custom error message.
+func FailWithMessage(message string) CollisionResolution {
+	return CollisionResolution{Action: ResolutionFail, Message: message}
+}
+
+// UseCustomValue returns a resolution that uses a caller-provided merged value.
+func UseCustomValue(value any) CollisionResolution {
+	return CollisionResolution{Action: ResolutionCustom, CustomValue: value}
+}
+
+// UseCustomValueWithMessage returns a resolution with custom value and log message.
+func UseCustomValueWithMessage(value any, message string) CollisionResolution {
+	return CollisionResolution{Action: ResolutionCustom, CustomValue: value, Message: message}
+}
