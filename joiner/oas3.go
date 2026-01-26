@@ -78,17 +78,67 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 		// Merge webhooks (OAS 3.1+)
 		for name, webhook := range oas3Doc.Webhooks {
-			if _, exists := joined.Webhooks[name]; exists {
+			existingWebhook, exists := joined.Webhooks[name]
+			if exists {
+				jsonPath := fmt.Sprintf("$.webhooks.%s", name)
+				result.CollisionCount++
+
+				// Invoke collision handler if registered and applicable
+				if j.collisionHandler != nil && j.shouldInvokeHandler(CollisionTypeWebhook) {
+					collision := CollisionContext{
+						Type:               CollisionTypeWebhook,
+						Name:               name,
+						JSONPath:           jsonPath,
+						LeftSource:         result.firstFilePath,
+						LeftLocation:       j.getLocationPtr(result.firstFilePath, jsonPath),
+						LeftValue:          existingWebhook,
+						RightSource:        ctx.filePath,
+						RightLocation:      j.getLocationPtr(ctx.filePath, jsonPath),
+						RightValue:         webhook,
+						ConfiguredStrategy: pathStrategy,
+					}
+
+					resolution, handlerErr := j.collisionHandler(collision)
+					if handlerErr != nil {
+						// Log warning and fall back to configured strategy
+						line, col := j.getLocation(ctx.filePath, jsonPath)
+						result.AddWarning(NewHandlerErrorWarning(
+							jsonPath,
+							fmt.Sprintf("collision handler error: %v; using %s strategy", handlerErr, pathStrategy),
+							ctx.filePath, line, col,
+						))
+						// Fall through to strategy handling below
+					} else {
+						// Apply the resolution
+						handled, shouldOverwrite, err := j.applyComponentResolution(componentResolutionParams{
+							collision:  collision,
+							resolution: resolution,
+							result:     result,
+							ctx:        ctx,
+						})
+						if err != nil {
+							return nil, err
+						}
+						if handled {
+							if shouldOverwrite {
+								joined.Webhooks[name] = webhook
+							}
+							continue // Resolution handled, skip strategy handling
+						}
+						// ResolutionContinue falls through to strategy handling
+					}
+				}
+
+				// Default strategy handling (or fallback from handler)
 				if err := j.handleCollision(name, "webhooks", pathStrategy, result.firstFilePath, ctx.filePath); err != nil {
 					return nil, err
 				}
-				result.CollisionCount++
 				if j.shouldOverwrite(pathStrategy) {
 					joined.Webhooks[name] = webhook
-					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.webhooks.%s", name))
+					line, col := j.getLocation(ctx.filePath, jsonPath)
 					result.AddWarning(NewWebhookCollisionWarning(name, "overwritten", result.firstFilePath, ctx.filePath, line, col))
 				} else {
-					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.webhooks.%s", name))
+					line, col := j.getLocation(ctx.filePath, jsonPath)
 					result.AddWarning(NewWebhookCollisionWarning(name, "kept from first document", result.firstFilePath, ctx.filePath, line, col))
 				}
 			} else {
@@ -239,6 +289,53 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 			// Handle collision based on strategy
 			result.CollisionCount++
 
+			// Invoke collision handler if configured
+			if j.shouldInvokeHandler(CollisionTypeSchema) {
+				collision := CollisionContext{
+					Type:               CollisionTypeSchema,
+					Name:               effectiveName,
+					JSONPath:           fmt.Sprintf("$.components.schemas.%s", effectiveName),
+					LeftSource:         result.firstFilePath,
+					LeftLocation:       j.getLocationPtr(result.firstFilePath, fmt.Sprintf("$.components.schemas.%s", effectiveName)),
+					LeftValue:          target[effectiveName],
+					RightSource:        ctx.filePath,
+					RightLocation:      j.getLocationPtr(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", name)),
+					RightValue:         schema,
+					RenameInfo:         buildRenameContextPtr(effectiveName, ctx.filePath, ctx.docIndex, sourceGraph, j.config.PrimaryOperationPolicy),
+					ConfiguredStrategy: strategy,
+				}
+
+				resolution, handlerErr := j.collisionHandler(collision)
+				if handlerErr != nil {
+					// Log warning and fall back to configured strategy
+					line, col := j.getLocation(ctx.filePath, collision.JSONPath)
+					result.AddWarning(NewHandlerErrorWarning(
+						collision.JSONPath,
+						fmt.Sprintf("collision handler error: %v; using %s strategy", handlerErr, strategy),
+						ctx.filePath, line, col,
+					))
+					// Fall through to strategy switch below
+				} else {
+					// Apply the resolution
+					applied, err := j.applySchemaResolution(schemaResolutionParams{
+						collision:   collision,
+						resolution:  resolution,
+						target:      target,
+						result:      result,
+						ctx:         ctx,
+						sourceGraph: sourceGraph,
+						label:       "schema",
+					})
+					if err != nil {
+						return err
+					}
+					if applied {
+						continue // Resolution handled, skip strategy switch
+					}
+					// ResolutionContinue falls through to strategy switch
+				}
+			}
+
 			switch strategy {
 			case StrategyDeduplicateEquivalent:
 				// Use semantic equivalence to determine if schemas are identical
@@ -344,49 +441,101 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 
 // Helper functions for merging specific component types
 func (j *Joiner) mergeResponses(target, source map[string]*parser.Response, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
-	return mergeMap(j, target, source, "components.responses", strategy, ctx, result)
+	return mergeMap(j, target, source, "components.responses", CollisionTypeResponse, strategy, ctx, result)
 }
 
 func (j *Joiner) mergeParameters(target, source map[string]*parser.Parameter, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
-	return mergeMap(j, target, source, "components.parameters", strategy, ctx, result)
+	return mergeMap(j, target, source, "components.parameters", CollisionTypeParameter, strategy, ctx, result)
 }
 
 func (j *Joiner) mergeExamples(target, source map[string]*parser.Example, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
-	return mergeMap(j, target, source, "components.examples", strategy, ctx, result)
+	return mergeMap(j, target, source, "components.examples", CollisionTypeExample, strategy, ctx, result)
 }
 
 func (j *Joiner) mergeRequestBodies(target, source map[string]*parser.RequestBody, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
-	return mergeMap(j, target, source, "components.requestBodies", strategy, ctx, result)
+	return mergeMap(j, target, source, "components.requestBodies", CollisionTypeRequestBody, strategy, ctx, result)
 }
 
 func (j *Joiner) mergeHeaders(target, source map[string]*parser.Header, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
-	return mergeMap(j, target, source, "components.headers", strategy, ctx, result)
+	return mergeMap(j, target, source, "components.headers", CollisionTypeHeader, strategy, ctx, result)
 }
 
 func (j *Joiner) mergeSecuritySchemes(target, source map[string]*parser.SecurityScheme, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
-	return mergeMap(j, target, source, "components.securitySchemes", strategy, ctx, result)
+	return mergeMap(j, target, source, "components.securitySchemes", CollisionTypeSecurityScheme, strategy, ctx, result)
 }
 
 func (j *Joiner) mergeLinks(target, source map[string]*parser.Link, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
-	return mergeMap(j, target, source, "components.links", strategy, ctx, result)
+	return mergeMap(j, target, source, "components.links", CollisionTypeLink, strategy, ctx, result)
 }
 
 func (j *Joiner) mergeCallbacks(target, source map[string]*parser.Callback, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
-	return mergeMap(j, target, source, "components.callbacks", strategy, ctx, result)
+	return mergeMap(j, target, source, "components.callbacks", CollisionTypeCallback, strategy, ctx, result)
 }
 
 func (j *Joiner) mergePathItems(target, source map[string]*parser.PathItem, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
-	return mergeMap(j, target, source, "components.pathItems", strategy, ctx, result)
+	// Note: pathItems in components is distinct from paths at the document root
+	// We don't have a specific collision type for pathItems, so we treat them like paths
+	return mergeMap(j, target, source, "components.pathItems", CollisionTypePath, strategy, ctx, result)
 }
 
-// mergeMap is a generic helper function to merge component maps
-func mergeMap[T any](j *Joiner, target, source map[string]T, section string, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
+// mergeMap is a generic helper function to merge component maps with collision handler support.
+func mergeMap[T any](j *Joiner, target, source map[string]T, section string, collisionType CollisionType, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
 	for name, item := range source {
-		if _, exists := target[name]; exists {
+		existing, exists := target[name]
+		if exists {
+			jsonPath := fmt.Sprintf("$.%s.%s", section, name)
+			result.CollisionCount++
+
+			// Invoke collision handler if registered and applicable
+			if j.collisionHandler != nil && j.shouldInvokeHandler(collisionType) {
+				collision := CollisionContext{
+					Type:               collisionType,
+					Name:               name,
+					JSONPath:           jsonPath,
+					LeftSource:         result.firstFilePath,
+					LeftLocation:       j.getLocationPtr(result.firstFilePath, jsonPath),
+					LeftValue:          existing,
+					RightSource:        ctx.filePath,
+					RightLocation:      j.getLocationPtr(ctx.filePath, jsonPath),
+					RightValue:         item,
+					ConfiguredStrategy: strategy,
+				}
+
+				resolution, handlerErr := j.collisionHandler(collision)
+				if handlerErr != nil {
+					// Log warning and fall back to configured strategy
+					line, col := j.getLocation(ctx.filePath, jsonPath)
+					result.AddWarning(NewHandlerErrorWarning(
+						jsonPath,
+						fmt.Sprintf("collision handler error: %v; using %s strategy", handlerErr, strategy),
+						ctx.filePath, line, col,
+					))
+					// Fall through to strategy handling below
+				} else {
+					// Apply the resolution
+					handled, shouldOverwrite, err := j.applyComponentResolution(componentResolutionParams{
+						collision:  collision,
+						resolution: resolution,
+						result:     result,
+						ctx:        ctx,
+					})
+					if err != nil {
+						return err
+					}
+					if handled {
+						if shouldOverwrite {
+							target[name] = item
+						}
+						continue // Resolution handled, skip strategy handling
+					}
+					// ResolutionContinue falls through to strategy handling
+				}
+			}
+
+			// Default strategy handling (or fallback from handler)
 			if err := j.handleCollision(name, section, strategy, result.firstFilePath, ctx.filePath); err != nil {
 				return err
 			}
-			result.CollisionCount++
 			if j.shouldOverwrite(strategy) {
 				target[name] = item
 			}

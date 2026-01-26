@@ -172,6 +172,53 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 			// Handle collision based on strategy
 			result.CollisionCount++
 
+			// Invoke collision handler if configured for schemas
+			if j.shouldInvokeHandler(CollisionTypeSchema) {
+				collision := CollisionContext{
+					Type:               CollisionTypeSchema,
+					Name:               effectiveName,
+					JSONPath:           fmt.Sprintf("$.definitions.%s", effectiveName),
+					LeftSource:         result.firstFilePath,
+					LeftLocation:       j.getLocationPtr(result.firstFilePath, fmt.Sprintf("$.definitions.%s", effectiveName)),
+					LeftValue:          joined.Definitions[effectiveName],
+					RightSource:        ctx.filePath,
+					RightLocation:      j.getLocationPtr(ctx.filePath, fmt.Sprintf("$.definitions.%s", name)),
+					RightValue:         schema,
+					RenameInfo:         buildRenameContextPtr(effectiveName, ctx.filePath, ctx.docIndex, sourceGraph, j.config.PrimaryOperationPolicy),
+					ConfiguredStrategy: schemaStrategy,
+				}
+
+				resolution, handlerErr := j.collisionHandler(collision)
+				if handlerErr != nil {
+					// Log warning and fall back to configured strategy
+					line, col := j.getLocation(ctx.filePath, collision.JSONPath)
+					result.AddWarning(NewHandlerErrorWarning(
+						collision.JSONPath,
+						fmt.Sprintf("collision handler error: %v; using %s strategy", handlerErr, schemaStrategy),
+						ctx.filePath, line, col,
+					))
+					// Fall through to strategy switch below
+				} else {
+					// Apply the resolution
+					applied, err := j.applySchemaResolution(schemaResolutionParams{
+						collision:   collision,
+						resolution:  resolution,
+						target:      joined.Definitions,
+						result:      result,
+						ctx:         ctx,
+						sourceGraph: sourceGraph,
+						label:       "definition",
+					})
+					if err != nil {
+						return err
+					}
+					if applied {
+						continue // Resolution handled, skip strategy switch
+					}
+					// ResolutionContinue falls through to strategy switch
+				}
+			}
+
 			switch schemaStrategy {
 			case StrategyDeduplicateEquivalent:
 				// Use semantic equivalence to determine if schemas are identical
@@ -276,13 +323,13 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 func (j *Joiner) mergeOAS2Components(joined, source *parser.OAS2Document, ctx documentContext, result *JoinResult) error {
 	componentStrategy := j.getEffectiveStrategy(j.config.ComponentStrategy)
 
-	if err := mergeMap(j, joined.Parameters, source.Parameters, "parameters", componentStrategy, ctx, result); err != nil {
+	if err := mergeMap(j, joined.Parameters, source.Parameters, "parameters", CollisionTypeParameter, componentStrategy, ctx, result); err != nil {
 		return err
 	}
-	if err := mergeMap(j, joined.Responses, source.Responses, "responses", componentStrategy, ctx, result); err != nil {
+	if err := mergeMap(j, joined.Responses, source.Responses, "responses", CollisionTypeResponse, componentStrategy, ctx, result); err != nil {
 		return err
 	}
-	if err := mergeMap(j, joined.SecurityDefinitions, source.SecurityDefinitions, "securityDefinitions", componentStrategy, ctx, result); err != nil {
+	if err := mergeMap(j, joined.SecurityDefinitions, source.SecurityDefinitions, "securityDefinitions", CollisionTypeSecurityScheme, componentStrategy, ctx, result); err != nil {
 		return err
 	}
 	return nil

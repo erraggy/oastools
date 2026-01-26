@@ -131,6 +131,11 @@ type Joiner struct {
 	// SourceMaps maps source file paths to their SourceMaps for location lookup.
 	// When populated, collision errors and events include line/column information.
 	SourceMaps map[string]*parser.SourceMap
+	// collisionHandler is called when collisions are detected (nil if not configured).
+	collisionHandler CollisionHandler
+	// collisionHandlerTypes specifies which collision types invoke the handler.
+	// Empty map means all types.
+	collisionHandlerTypes map[CollisionType]bool
 }
 
 // New creates a new Joiner instance with the provided configuration
@@ -239,6 +244,10 @@ type joinConfig struct {
 	// Source location tracking
 	sourceMaps map[string]*parser.SourceMap // Maps file paths to their SourceMaps
 
+	// Collision handler configuration
+	collisionHandler      CollisionHandler       // Handler called on collisions (nil if not configured)
+	collisionHandlerTypes map[CollisionType]bool // Which collision types invoke the handler (nil/empty means all)
+
 	// Overlay integration options
 	preJoinOverlays     []*overlay.Overlay          // Applied to all specs before joining
 	preJoinOverlayFiles []string                    // File paths for pre-join overlays
@@ -301,6 +310,12 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 	// Set SourceMaps if provided
 	if cfg.sourceMaps != nil {
 		j.SourceMaps = cfg.sourceMaps
+	}
+
+	// Set collision handler if provided
+	if cfg.collisionHandler != nil {
+		j.collisionHandler = cfg.collisionHandler
+		j.collisionHandlerTypes = cfg.collisionHandlerTypes
 	}
 
 	// Check if any overlays are configured
@@ -727,6 +742,43 @@ func WithSourceMaps(maps map[string]*parser.SourceMap) Option {
 	}
 }
 
+// WithCollisionHandler registers a handler called when collisions are detected.
+// The handler receives full context and can resolve, observe, or delegate.
+// If the handler returns an error, it's logged as a warning and the configured
+// strategy is used instead.
+//
+// By default, the handler is called for all collision types. Use
+// WithCollisionHandlerFor to handle specific types only.
+func WithCollisionHandler(handler CollisionHandler) Option {
+	return func(cfg *joinConfig) error {
+		if handler == nil {
+			return fmt.Errorf("collision handler cannot be nil")
+		}
+		cfg.collisionHandler = handler
+		cfg.collisionHandlerTypes = nil // nil/empty means all types
+		return nil
+	}
+}
+
+// WithCollisionHandlerFor registers a handler for specific collision types only.
+// Collisions of other types use the configured strategy without invoking the handler.
+func WithCollisionHandlerFor(handler CollisionHandler, types ...CollisionType) Option {
+	return func(cfg *joinConfig) error {
+		if handler == nil {
+			return fmt.Errorf("collision handler cannot be nil")
+		}
+		if len(types) == 0 {
+			return fmt.Errorf("at least one collision type must be specified")
+		}
+		cfg.collisionHandler = handler
+		cfg.collisionHandlerTypes = make(map[CollisionType]bool, len(types))
+		for _, t := range types {
+			cfg.collisionHandlerTypes[t] = true
+		}
+		return nil
+	}
+}
+
 func (j *Joiner) JoinParsed(parsedDocs []parser.ParseResult) (*JoinResult, error) {
 	if len(parsedDocs) < 2 {
 		return nil, fmt.Errorf("joiner: at least 2 specification documents are required for joining, got %d", len(parsedDocs))
@@ -1097,6 +1149,34 @@ func (j *Joiner) recordCollisionEvent(result *JoinResult, schemaName, leftSource
 	})
 }
 
+// recordCollisionEventWithPath records a collision event using explicit JSON paths for location lookup.
+// This is used for non-schema collisions (paths, webhooks, etc.) where the JSON path format differs.
+// Note: NewName is always empty for these collisions since paths/webhooks don't support renaming.
+func (j *Joiner) recordCollisionEventWithPath(result *JoinResult, name, jsonPath, leftSource, rightSource string, strategy CollisionStrategy, resolution string) {
+	if result.CollisionDetails == nil {
+		return
+	}
+
+	var leftLine, leftCol, rightLine, rightCol int
+	if j.SourceMaps != nil {
+		leftLine, leftCol = j.getLocation(leftSource, jsonPath)
+		rightLine, rightCol = j.getLocation(rightSource, jsonPath)
+	}
+
+	result.CollisionDetails.AddEvent(CollisionEvent{
+		SchemaName:  name, // Reusing SchemaName field for the collision item name
+		LeftSource:  leftSource,
+		LeftLine:    leftLine,
+		LeftColumn:  leftCol,
+		RightSource: rightSource,
+		RightLine:   rightLine,
+		RightColumn: rightCol,
+		Strategy:    strategy,
+		Resolution:  resolution,
+		NewName:     "", // Paths don't support renaming
+	})
+}
+
 // generatePrefixedSchemaName generates a schema name with a namespace prefix.
 // The format is: Prefix_OriginalName (e.g., "Users_User", "Billing_Invoice")
 func (j *Joiner) generatePrefixedSchemaName(originalName, prefix string) string {
@@ -1115,6 +1195,17 @@ func (j *Joiner) getNamespacePrefix(sourcePath string) string {
 	return j.config.NamespacePrefix[sourcePath]
 }
 
+// shouldInvokeHandler checks if the handler wants this collision type.
+func (j *Joiner) shouldInvokeHandler(collisionType CollisionType) bool {
+	if j.collisionHandler == nil {
+		return false
+	}
+	if len(j.collisionHandlerTypes) == 0 {
+		return true // empty means all types
+	}
+	return j.collisionHandlerTypes[collisionType]
+}
+
 // getLocation looks up the source location for a JSON path in a specific file.
 // Returns line and column (both 0 if no SourceMap is available or path not found).
 // The jsonPath should use $ prefix (e.g., "$.components.schemas.Pet").
@@ -1128,4 +1219,14 @@ func (j *Joiner) getLocation(filePath, jsonPath string) (line, col int) {
 	}
 	loc := sm.Get(jsonPath)
 	return loc.Line, loc.Column
+}
+
+// getLocationPtr returns a *SourceLocation for the given file and JSON path.
+// Returns nil if no SourceMap is available or path not found.
+func (j *Joiner) getLocationPtr(filePath, jsonPath string) *SourceLocation {
+	line, col := j.getLocation(filePath, jsonPath)
+	if line == 0 {
+		return nil
+	}
+	return &SourceLocation{Line: line, Column: col}
 }
