@@ -12,6 +12,7 @@
 - [API Styles](#api-styles)
 - [Practical Examples](#practical-examples)
 - [Operation-Aware Schema Renaming](#operation-aware-schema-renaming)
+- [Custom Collision Handlers](#custom-collision-handlers)
 - [Limitations](#limitations)
 - [Configuration Reference](#configuration-reference)
 - [JoinResult Structure](#joinresult-structure)
@@ -50,6 +51,18 @@ When merging multiple documents, name collisions are inevitable—two documents 
 | `StrategyDeduplicateEquivalent` | Merge structurally identical schemas |
 
 Strategies can be set globally or per-component type (paths, schemas, other components), giving fine-grained control over merge behavior.
+
+### Collision Handlers
+
+For advanced collision handling beyond the built-in strategies, you can register a **collision handler** callback. The handler is invoked when a collision is detected, receiving full context about both values and their sources. Handlers can:
+
+1. **Observe and log** - Return `ContinueWithStrategy()` to log collisions while deferring to the configured strategy
+2. **Make decisions** - Return `AcceptLeft()`, `AcceptRight()`, `Rename()`, `Deduplicate()`, or `Fail()` to override the strategy
+3. **Provide custom values** - Return `UseCustomValue(mergedSchema)` to supply a custom merged result
+
+If a handler returns an error, the joiner logs a warning and falls back to the configured strategy, ensuring handlers cannot break join operations.
+
+See [Custom Collision Handlers](#custom-collision-handlers) for complete documentation and examples.
 
 ### Semantic Deduplication
 
@@ -828,6 +841,325 @@ pathLast("/users/{id}/orders") // "orders" - excludes parameter
 
 [Back to top](#top)
 
+## Custom Collision Handlers
+
+While the built-in collision strategies (`StrategyAcceptLeft`, `StrategyRenameRight`, etc.) handle most use cases, some scenarios require custom logic. **Collision handlers** provide a callback mechanism for fine-grained collision control.
+
+### When to Use Collision Handlers
+
+Use collision handlers when you need to:
+
+- **Log all collisions** for audit trails or debugging
+- **Apply conditional logic** - different decisions based on schema names, sources, or content
+- **Implement custom merging** - combine properties from both schemas
+- **Integrate with external systems** - validate decisions against a schema registry
+- **Fail selectively** - reject specific collisions while allowing others
+
+### Basic Usage
+
+Register a collision handler using `WithCollisionHandler`:
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+
+    "github.com/erraggy/oastools/joiner"
+)
+
+func main() {
+    result, err := joiner.JoinWithOptions(
+        joiner.WithFilePaths([]string{"base.yaml", "overlay.yaml"}),
+        joiner.WithSchemaStrategy(joiner.StrategyAcceptLeft), // Default strategy
+        joiner.WithCollisionHandler(func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+            // Log all collisions
+            log.Printf("Collision: %s %s at %s", collision.Type, collision.Name, collision.JSONPath)
+
+            // Custom logic: always accept right for "Response" schemas
+            if collision.Name == "Response" {
+                return joiner.AcceptRightWithMessage("Response schemas always use overlay version"), nil
+            }
+
+            // Defer to configured strategy for everything else
+            return joiner.ContinueWithStrategy(), nil
+        }),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Printf("Collisions resolved: %d\n", result.CollisionCount)
+}
+```
+
+### CollisionContext Reference
+
+The handler receives a `CollisionContext` with complete information about the collision:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Type` | `CollisionType` | What collided: `CollisionTypeSchema`, `CollisionTypePath`, etc. |
+| `Name` | `string` | The colliding name (e.g., "User", "/pets") |
+| `JSONPath` | `string` | Full JSON path (e.g., "$.components.schemas.User") |
+| `LeftSource` | `string` | Source file/identifier for the left (base) document |
+| `LeftLocation` | `*SourceLocation` | Line/column in left document (nil if unknown) |
+| `LeftValue` | `any` | The left component (`*parser.Schema`, `*parser.PathItem`, etc.) |
+| `RightSource` | `string` | Source file/identifier for the right (incoming) document |
+| `RightLocation` | `*SourceLocation` | Line/column in right document (nil if unknown) |
+| `RightValue` | `any` | The right component |
+| `RenameInfo` | `*RenameContext` | Operation context for rename templates (nil for paths) |
+| `ConfiguredStrategy` | `CollisionStrategy` | The strategy that would apply without handler |
+
+### Resolution Actions
+
+Return one of these resolution helpers from your handler:
+
+| Helper | Description |
+|--------|-------------|
+| `ContinueWithStrategy()` | Defer to the configured strategy (observe-only mode) |
+| `AcceptLeft()` | Keep the left (base) value |
+| `AcceptRight()` | Keep the right (incoming) value |
+| `Rename()` | Rename the right value using the rename template |
+| `Deduplicate()` | Treat colliding values as equivalent (skip the right) |
+| `Fail()` | Abort the join with an error |
+| `UseCustomValue(value)` | Use a custom merged value (schemas only) |
+
+All helpers have `WithMessage(string)` variants for logging:
+
+```go
+return joiner.AcceptLeftWithMessage("Keeping base schema per policy"), nil
+```
+
+### Handler Patterns
+
+#### Observe-Only (Logging)
+
+Log all collisions without affecting behavior:
+
+```go
+joiner.WithCollisionHandler(func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+    log.Printf("[COLLISION] %s: %s (%s vs %s)",
+        collision.Type,
+        collision.Name,
+        collision.LeftSource,
+        collision.RightSource,
+    )
+    return joiner.ContinueWithStrategy(), nil
+})
+```
+
+#### Conditional Decisions
+
+Apply different resolutions based on collision attributes:
+
+```go
+joiner.WithCollisionHandler(func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+    // Fail on path collisions (strict)
+    if collision.Type == joiner.CollisionTypePath {
+        return joiner.FailWithMessage("Path collisions not allowed"), nil
+    }
+
+    // Accept right for "Error" schemas (overlay overrides)
+    if collision.Name == "Error" || collision.Name == "ErrorResponse" {
+        return joiner.AcceptRight(), nil
+    }
+
+    // Use deduplication for common schemas
+    if collision.Name == "Pagination" || collision.Name == "Links" {
+        return joiner.Deduplicate(), nil
+    }
+
+    // Default to configured strategy
+    return joiner.ContinueWithStrategy(), nil
+})
+```
+
+#### Custom Schema Merging
+
+Provide a merged schema that combines properties from both:
+
+```go
+joiner.WithCollisionHandler(func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+    if collision.Type != joiner.CollisionTypeSchema {
+        return joiner.ContinueWithStrategy(), nil
+    }
+
+    leftSchema := collision.LeftValue.(*parser.Schema)
+    rightSchema := collision.RightValue.(*parser.Schema)
+
+    // Create merged schema with properties from both
+    merged := &parser.Schema{
+        Type:        leftSchema.Type,
+        Description: rightSchema.Description, // Prefer right description
+        Properties:  make(map[string]*parser.Schema),
+    }
+
+    // Copy all properties from left
+    for name, prop := range leftSchema.Properties {
+        merged.Properties[name] = prop
+    }
+
+    // Add/override with properties from right
+    for name, prop := range rightSchema.Properties {
+        merged.Properties[name] = prop
+    }
+
+    return joiner.UseCustomValueWithMessage(merged, "Merged properties from both schemas"), nil
+})
+```
+
+### Type-Filtered Handlers
+
+Use `WithCollisionHandlerFor` to handle only specific collision types:
+
+```go
+// Only handle schema collisions - paths use configured strategy
+joiner.WithCollisionHandlerFor(
+    func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+        // This handler only receives schema collisions
+        log.Printf("Schema collision: %s", collision.Name)
+        return joiner.ContinueWithStrategy(), nil
+    },
+    joiner.CollisionTypeSchema,
+)
+```
+
+Filter for multiple types:
+
+```go
+joiner.WithCollisionHandlerFor(
+    handler,
+    joiner.CollisionTypeSchema,
+    joiner.CollisionTypePath,
+)
+```
+
+### Supported Collision Types
+
+| Type | Description | Custom Value Support |
+|------|-------------|---------------------|
+| `CollisionTypeSchema` | Schema in components.schemas (OAS3) or definitions (OAS2) | ✅ Yes |
+| `CollisionTypePath` | Path in paths section | ❌ No |
+
+Note: `Rename()` and `UseCustomValue()` are not supported for path collisions. Paths are URL endpoints that cannot be renamed without breaking API contracts.
+
+### Error Handling
+
+If your handler returns an error, the joiner:
+
+1. Logs a warning with the error message
+2. Falls back to the configured strategy
+3. Continues the join operation
+
+This ensures handlers cannot break the join:
+
+```go
+joiner.WithCollisionHandler(func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+    // If validation fails, error triggers fallback to strategy
+    if err := validateCollision(collision); err != nil {
+        return joiner.CollisionResolution{}, err
+    }
+    return joiner.AcceptLeft(), nil
+})
+```
+
+### Warnings
+
+Handler-related events appear in `JoinResult.StructuredWarnings`:
+
+| Category | When |
+|----------|------|
+| `WarnHandlerError` | Handler returned an error (fell back to strategy) |
+| `WarnHandlerResolution` | Handler provided a resolution with a message |
+
+```go
+for _, warning := range result.StructuredWarnings {
+    if warning.Category == joiner.WarnHandlerError {
+        log.Printf("Handler error at %s: %s", warning.Path, warning.Message)
+    }
+}
+```
+
+### Complete Example
+
+A production-ready handler that implements a schema governance policy:
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+    "strings"
+
+    "github.com/erraggy/oastools/joiner"
+    "github.com/erraggy/oastools/parser"
+)
+
+// governanceHandler implements organization schema policies
+func governanceHandler(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+    // Only handle schemas
+    if collision.Type != joiner.CollisionTypeSchema {
+        return joiner.ContinueWithStrategy(), nil
+    }
+
+    name := collision.Name
+
+    // Policy 1: Common schemas must be deduplicated
+    commonSchemas := []string{"Error", "Pagination", "Links", "Meta"}
+    for _, common := range commonSchemas {
+        if name == common {
+            return joiner.DeduplicateWithMessage(
+                fmt.Sprintf("%s is a common schema - deduplicating", name),
+            ), nil
+        }
+    }
+
+    // Policy 2: Response schemas always come from the service (right)
+    if strings.HasSuffix(name, "Response") {
+        return joiner.AcceptRightWithMessage("Service-specific response schema"), nil
+    }
+
+    // Policy 3: Request schemas always come from the base (left)
+    if strings.HasSuffix(name, "Request") {
+        return joiner.AcceptLeftWithMessage("Base request schema takes precedence"), nil
+    }
+
+    // Policy 4: Fail on unexpected collisions
+    return joiner.FailWithMessage(
+        fmt.Sprintf("Unexpected schema collision: %s - review governance policy", name),
+    ), nil
+}
+
+func main() {
+    result, err := joiner.JoinWithOptions(
+        joiner.WithFilePaths([]string{
+            "base-api.yaml",
+            "users-service.yaml",
+            "orders-service.yaml",
+        }),
+        joiner.WithSchemaStrategy(joiner.StrategyFailOnCollision),
+        joiner.WithCollisionHandler(governanceHandler),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Printf("Join completed with %d collisions resolved\n", result.CollisionCount)
+
+    // Review any governance decisions
+    for _, warning := range result.StructuredWarnings {
+        if warning.Category == joiner.WarnHandlerResolution {
+            fmt.Printf("  Policy applied at %s: %s\n", warning.Path, warning.Message)
+        }
+    }
+}
+```
+
+[↑ Back to top](#top)
+
 ### Namespace Prefixes for Team-Based APIs
 
 When consolidating APIs from different teams, namespace prefixes prevent collisions while maintaining clarity about schema origins:
@@ -1270,6 +1602,8 @@ type JoinerConfig struct {
 | `WithSchemaStrategy(CollisionStrategy)` | Strategy for schema collisions |
 | `WithComponentStrategy(CollisionStrategy)` | Strategy for other components |
 | `WithSemanticDeduplication(bool)` | Enable cross-document deduplication |
+| `WithCollisionHandler(handler)` | Register collision handler callback |
+| `WithCollisionHandlerFor(handler, types...)` | Register handler for specific collision types |
 | `WithPreJoinOverlayFile(string)` | Overlay applied to each input |
 | `WithPostJoinOverlayFile(string)` | Overlay applied to merged result |
 
@@ -1410,6 +1744,8 @@ Note: Join warnings are converted to string warnings in the resulting ParseResul
 **Enable semantic deduplication** when consolidating APIs that likely share common schemas (addresses, pagination, error responses).
 
 **Use the parse-once pattern** when integrating with validation or other processing for 154x performance improvement.
+
+**Use collision handlers** when you need conditional logic, audit logging, or custom schema merging beyond what built-in strategies provide. Start with observe-only handlers (`ContinueWithStrategy()`) to understand collision patterns before implementing custom resolution logic.
 
 [↑ Back to top](#top)
 
