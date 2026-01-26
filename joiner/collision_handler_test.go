@@ -1244,7 +1244,7 @@ func TestCollisionHandler_CustomValueWrongType(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "CustomValue must be *parser.Schema")
+	assert.Contains(t, err.Error(), "expected *parser.Schema")
 }
 
 func TestCollisionHandler_CustomValueNil(t *testing.T) {
@@ -1315,7 +1315,7 @@ func TestCollisionHandler_OAS2CustomValueWrongType(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "CustomValue must be *parser.Schema")
+	assert.Contains(t, err.Error(), "expected *parser.Schema")
 }
 
 func TestCollisionHandler_OAS2CustomValueNil(t *testing.T) {
@@ -1333,4 +1333,295 @@ func TestCollisionHandler_OAS2CustomValueNil(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "ResolutionCustom requires CustomValue")
+}
+
+// Tests for other collision types (responses, parameters, webhooks, etc.)
+
+func createTestOAS3DocWithResponses(sourcePath string, responses map[string]string) parser.ParseResult {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: make(parser.Paths),
+		Components: &parser.Components{
+			Responses: make(map[string]*parser.Response),
+		},
+	}
+
+	for name, description := range responses {
+		doc.Components.Responses[name] = &parser.Response{
+			Description: description,
+		}
+	}
+
+	return parser.ParseResult{
+		SourcePath:   sourcePath,
+		Version:      "3.0.3",
+		OASVersion:   parser.OASVersion303,
+		SourceFormat: parser.SourceFormatYAML,
+		Document:     doc,
+	}
+}
+
+func createTestOAS3DocWithWebhooks(sourcePath string, webhooks []string) parser.ParseResult {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths:    make(parser.Paths),
+		Webhooks: make(map[string]*parser.PathItem),
+	}
+
+	for _, name := range webhooks {
+		doc.Webhooks[name] = &parser.PathItem{
+			Post: &parser.Operation{
+				OperationID: "webhook_" + name + "_" + sourcePath,
+			},
+		}
+	}
+
+	return parser.ParseResult{
+		SourcePath:   sourcePath,
+		Version:      "3.1.0",
+		OASVersion:   parser.OASVersion310,
+		SourceFormat: parser.SourceFormatYAML,
+		Document:     doc,
+	}
+}
+
+func TestCollisionHandler_ResponseCollision(t *testing.T) {
+	var receivedCollision CollisionContext
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		receivedCollision = collision
+		return AcceptRight(), nil
+	}
+
+	base := createTestOAS3DocWithResponses("base.yaml", map[string]string{"NotFound": "Base not found"})
+	overlay := createTestOAS3DocWithResponses("overlay.yaml", map[string]string{"NotFound": "Overlay not found"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithComponentStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, CollisionTypeResponse, receivedCollision.Type)
+	assert.Equal(t, "NotFound", receivedCollision.Name)
+	assert.Contains(t, receivedCollision.JSONPath, "responses")
+
+	// Verify overlay response was used (AcceptRight)
+	oas3Doc := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "Overlay not found", oas3Doc.Components.Responses["NotFound"].Description)
+}
+
+func TestCollisionHandler_ResponseAcceptLeft(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return AcceptLeft(), nil
+	}
+
+	base := createTestOAS3DocWithResponses("base.yaml", map[string]string{"NotFound": "Base not found"})
+	overlay := createTestOAS3DocWithResponses("overlay.yaml", map[string]string{"NotFound": "Overlay not found"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithComponentStrategy(StrategyAcceptRight), // Strategy says right, but handler overrides
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+
+	// Verify base response was kept (handler's AcceptLeft overrides strategy)
+	oas3Doc := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "Base not found", oas3Doc.Components.Responses["NotFound"].Description)
+}
+
+func TestCollisionHandler_ResponseRenameNotSupported(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return Rename(), nil
+	}
+
+	base := createTestOAS3DocWithResponses("base.yaml", map[string]string{"NotFound": "Base not found"})
+	overlay := createTestOAS3DocWithResponses("overlay.yaml", map[string]string{"NotFound": "Overlay not found"})
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithCollisionHandler(handler),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ResolutionRename is not supported for response collisions")
+}
+
+func TestCollisionHandler_WebhookCollision(t *testing.T) {
+	var receivedCollision CollisionContext
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		receivedCollision = collision
+		return AcceptRight(), nil
+	}
+
+	base := createTestOAS3DocWithWebhooks("base.yaml", []string{"orderCreated"})
+	overlay := createTestOAS3DocWithWebhooks("overlay.yaml", []string{"orderCreated"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, CollisionTypeWebhook, receivedCollision.Type)
+	assert.Equal(t, "orderCreated", receivedCollision.Name)
+	assert.Contains(t, receivedCollision.JSONPath, "webhooks")
+
+	// Verify overlay webhook was used (AcceptRight)
+	oas3Doc := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "webhook_orderCreated_overlay.yaml", oas3Doc.Webhooks["orderCreated"].Post.OperationID)
+}
+
+func TestCollisionHandler_WebhookAcceptLeft(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return AcceptLeft(), nil
+	}
+
+	base := createTestOAS3DocWithWebhooks("base.yaml", []string{"orderCreated"})
+	overlay := createTestOAS3DocWithWebhooks("overlay.yaml", []string{"orderCreated"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptRight), // Strategy says right, but handler overrides
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+
+	// Verify base webhook was kept (handler's AcceptLeft overrides strategy)
+	oas3Doc := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "webhook_orderCreated_base.yaml", oas3Doc.Webhooks["orderCreated"].Post.OperationID)
+}
+
+func TestCollisionHandler_TypeFilteringResponseOnly(t *testing.T) {
+	var handlerCalls int
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		handlerCalls++
+		return ContinueWithStrategy(), nil
+	}
+
+	base := createTestOAS3DocWithResponses("base.yaml", map[string]string{"NotFound": "Base"})
+	overlay := createTestOAS3DocWithResponses("overlay.yaml", map[string]string{"NotFound": "Overlay"})
+
+	// Add schemas to both
+	base.Document.(*parser.OAS3Document).Components.Schemas = map[string]*parser.Schema{
+		"User": {Type: "object"},
+	}
+	overlay.Document.(*parser.OAS3Document).Components.Schemas = map[string]*parser.Schema{
+		"User": {Type: "object"},
+	}
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithCollisionHandlerFor(handler, CollisionTypeResponse), // Only responses
+	)
+
+	assert.NoError(t, err)
+	// Should only be called for response collision, not schema collision
+	assert.Equal(t, 1, handlerCalls)
+}
+
+func TestCollisionHandler_AllComponentTypes(t *testing.T) {
+	// Test that all collision types are captured correctly
+	collisionTypes := make(map[CollisionType]bool)
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		collisionTypes[collision.Type] = true
+		return ContinueWithStrategy(), nil
+	}
+
+	// Create doc with multiple component types
+	base := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Base", Version: "1.0.0"},
+		Paths:   make(map[string]*parser.PathItem),
+		Webhooks: map[string]*parser.PathItem{
+			"hook1": {Post: &parser.Operation{OperationID: "base_hook"}},
+		},
+		Components: &parser.Components{
+			Schemas:   map[string]*parser.Schema{"Schema1": {Type: "object"}},
+			Responses: map[string]*parser.Response{"Resp1": {Description: "base"}},
+			Parameters: map[string]*parser.Parameter{
+				"Param1": {Name: "param", In: "query"},
+			},
+			Examples: map[string]*parser.Example{"Ex1": {Summary: "base"}},
+			RequestBodies: map[string]*parser.RequestBody{
+				"Body1": {Description: "base"},
+			},
+			Headers: map[string]*parser.Header{"Head1": {Description: "base"}},
+			SecuritySchemes: map[string]*parser.SecurityScheme{
+				"Sec1": {Type: "apiKey"},
+			},
+			Links:     map[string]*parser.Link{"Link1": {Description: "base"}},
+			Callbacks: map[string]*parser.Callback{"Cb1": {}},
+		},
+	}
+
+	overlay := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Overlay", Version: "1.0.0"},
+		Paths:   make(map[string]*parser.PathItem),
+		Webhooks: map[string]*parser.PathItem{
+			"hook1": {Post: &parser.Operation{OperationID: "overlay_hook"}},
+		},
+		Components: &parser.Components{
+			Schemas:   map[string]*parser.Schema{"Schema1": {Type: "string"}},
+			Responses: map[string]*parser.Response{"Resp1": {Description: "overlay"}},
+			Parameters: map[string]*parser.Parameter{
+				"Param1": {Name: "param", In: "header"},
+			},
+			Examples: map[string]*parser.Example{"Ex1": {Summary: "overlay"}},
+			RequestBodies: map[string]*parser.RequestBody{
+				"Body1": {Description: "overlay"},
+			},
+			Headers: map[string]*parser.Header{"Head1": {Description: "overlay"}},
+			SecuritySchemes: map[string]*parser.SecurityScheme{
+				"Sec1": {Type: "http"},
+			},
+			Links:     map[string]*parser.Link{"Link1": {Description: "overlay"}},
+			Callbacks: map[string]*parser.Callback{"Cb1": {}},
+		},
+	}
+
+	basePR := parser.ParseResult{Document: base, OASVersion: parser.OASVersion310, SourcePath: "base.yaml", Version: "3.1.0"}
+	overlayPR := parser.ParseResult{Document: overlay, OASVersion: parser.OASVersion310, SourcePath: "overlay.yaml", Version: "3.1.0"}
+
+	_, err := JoinWithOptions(
+		WithParsed(basePR, overlayPR),
+		WithDefaultStrategy(StrategyAcceptLeft),   // Use non-failing strategy
+		WithPathStrategy(StrategyAcceptLeft),      // Webhooks use path strategy
+		WithSchemaStrategy(StrategyAcceptLeft),    // Schemas
+		WithComponentStrategy(StrategyAcceptLeft), // Other components
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+
+	// Verify all expected collision types were captured
+	expectedTypes := []CollisionType{
+		CollisionTypeSchema,
+		CollisionTypeWebhook,
+		CollisionTypeResponse,
+		CollisionTypeParameter,
+		CollisionTypeExample,
+		CollisionTypeRequestBody,
+		CollisionTypeHeader,
+		CollisionTypeSecurityScheme,
+		CollisionTypeLink,
+		CollisionTypeCallback,
+	}
+
+	for _, ct := range expectedTypes {
+		assert.True(t, collisionTypes[ct], "expected collision type %s to be captured", ct)
+	}
 }

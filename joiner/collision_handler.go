@@ -1,5 +1,11 @@
 package joiner
 
+import (
+	"fmt"
+
+	"github.com/erraggy/oastools/parser"
+)
+
 /*
 Collision Handler Support
 
@@ -232,4 +238,155 @@ func UseCustomValue(value any) CollisionResolution {
 // UseCustomValueWithMessage returns a resolution with custom value and log message.
 func UseCustomValueWithMessage(value any, message string) CollisionResolution {
 	return CollisionResolution{Action: ResolutionCustom, CustomValue: value, Message: message}
+}
+
+// schemaResolutionParams contains parameters for applySchemaResolution.
+// This allows sharing the resolution logic between OAS2 definitions and OAS3 schemas.
+type schemaResolutionParams struct {
+	collision   CollisionContext
+	resolution  CollisionResolution
+	target      map[string]*parser.Schema
+	result      *JoinResult
+	ctx         documentContext
+	sourceGraph *RefGraph
+	label       string // "schema" for OAS3, "definition" for OAS2
+}
+
+// applySchemaResolution applies a CollisionResolution to a schema/definition collision.
+// Returns true if the resolution was fully handled, false if strategy should still be applied.
+// This is shared by both OAS2 (definitions) and OAS3 (schemas) collision handling.
+func (j *Joiner) applySchemaResolution(p schemaResolutionParams) (bool, error) {
+	// Record message as warning if provided
+	if p.resolution.Message != "" {
+		line, col := j.getLocation(p.ctx.filePath, p.collision.JSONPath)
+		p.result.AddWarning(NewHandlerResolutionWarning(p.collision.JSONPath, p.resolution.Message, p.ctx.filePath, line, col))
+	}
+
+	schema, ok := p.collision.RightValue.(*parser.Schema)
+	if !ok {
+		return false, fmt.Errorf("collision handler: RightValue is %T, expected *parser.Schema", p.collision.RightValue)
+	}
+
+	switch p.resolution.Action {
+	case ResolutionContinue:
+		// Delegate to configured strategy
+		return false, nil
+
+	case ResolutionAcceptLeft:
+		// Keep existing (left), discard incoming (right)
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "kept-left", "")
+		return true, nil
+
+	case ResolutionAcceptRight:
+		// Replace with incoming (right)
+		p.target[p.collision.Name] = schema
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "kept-right", "")
+		return true, nil
+
+	case ResolutionRename:
+		// Rename right schema/definition
+		newName := j.generateRenamedSchemaName(p.collision.Name, p.ctx.filePath, p.ctx.docIndex, p.sourceGraph)
+		p.target[newName] = schema
+		if p.result.rewriter == nil {
+			p.result.rewriter = NewSchemaRewriter()
+		}
+		p.result.rewriter.RegisterRename(p.collision.Name, newName, p.result.OASVersion)
+		line, col := j.getLocation(p.ctx.filePath, p.collision.JSONPath)
+		p.result.AddWarning(NewSchemaRenamedWarning(p.collision.Name, newName, p.label, p.ctx.filePath, line, col, false))
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "renamed", newName)
+		return true, nil
+
+	case ResolutionDeduplicate:
+		// Keep left, discard right (treat as equivalent)
+		line, col := j.getLocation(p.ctx.filePath, p.collision.JSONPath)
+		p.result.AddWarning(NewSchemaDedupWarning(p.collision.Name, p.label, p.ctx.filePath, line, col))
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "deduplicated", "")
+		return true, nil
+
+	case ResolutionFail:
+		// Return error with handler's message
+		msg := p.resolution.Message
+		if msg == "" {
+			msg = fmt.Sprintf("%s collision on %q rejected by handler", p.label, p.collision.Name)
+		}
+		return true, fmt.Errorf("collision handler: %s", msg)
+
+	case ResolutionCustom:
+		if p.resolution.CustomValue == nil {
+			return true, fmt.Errorf("collision handler: ResolutionCustom requires CustomValue")
+		}
+		customSchema, ok := p.resolution.CustomValue.(*parser.Schema)
+		if !ok {
+			return true, fmt.Errorf("collision handler: CustomValue is %T, expected *parser.Schema for %s collisions", p.resolution.CustomValue, p.label)
+		}
+		p.target[p.collision.Name] = customSchema
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "custom", "")
+		return true, nil
+
+	default:
+		return false, fmt.Errorf("unknown resolution action: %d", p.resolution.Action)
+	}
+}
+
+// componentResolutionParams contains parameters for applyComponentResolution.
+// This is used for non-schema components (responses, parameters, etc.) that
+// don't support Rename or Custom resolutions.
+type componentResolutionParams struct {
+	collision  CollisionContext
+	resolution CollisionResolution
+	result     *JoinResult
+	ctx        documentContext
+}
+
+// applyComponentResolution applies a CollisionResolution to a generic component collision.
+// Returns (handled, shouldOverwrite, error).
+// - handled=true means the resolution was fully handled, no further action needed
+// - shouldOverwrite=true means the target should be overwritten with source value
+// This is for components that don't support Rename or Custom resolutions.
+func (j *Joiner) applyComponentResolution(p componentResolutionParams) (handled bool, shouldOverwrite bool, err error) {
+	// Record message as warning if provided
+	if p.resolution.Message != "" {
+		line, col := j.getLocation(p.ctx.filePath, p.collision.JSONPath)
+		p.result.AddWarning(NewHandlerResolutionWarning(p.collision.JSONPath, p.resolution.Message, p.ctx.filePath, line, col))
+	}
+
+	switch p.resolution.Action {
+	case ResolutionContinue:
+		// Delegate to configured strategy
+		return false, false, nil
+
+	case ResolutionAcceptLeft:
+		// Keep existing (left), discard incoming (right)
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "kept-left", "")
+		return true, false, nil
+
+	case ResolutionAcceptRight:
+		// Replace with incoming (right)
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "kept-right", "")
+		return true, true, nil
+
+	case ResolutionDeduplicate:
+		// Keep left, discard right (treat as equivalent)
+		line, col := j.getLocation(p.ctx.filePath, p.collision.JSONPath)
+		p.result.AddWarning(NewSchemaDedupWarning(p.collision.Name, string(p.collision.Type), p.ctx.filePath, line, col))
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "deduplicated", "")
+		return true, false, nil
+
+	case ResolutionFail:
+		// Return error with handler's message
+		msg := p.resolution.Message
+		if msg == "" {
+			msg = fmt.Sprintf("%s collision on %q rejected by handler", p.collision.Type, p.collision.Name)
+		}
+		return true, false, fmt.Errorf("collision handler: %s", msg)
+
+	case ResolutionRename:
+		return true, false, fmt.Errorf("collision handler: ResolutionRename is not supported for %s collisions", p.collision.Type)
+
+	case ResolutionCustom:
+		return true, false, fmt.Errorf("collision handler: ResolutionCustom is not supported for %s collisions", p.collision.Type)
+
+	default:
+		return false, false, fmt.Errorf("unknown resolution action: %d", p.resolution.Action)
+	}
 }

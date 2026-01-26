@@ -200,7 +200,15 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 					// Fall through to strategy switch below
 				} else {
 					// Apply the resolution
-					applied, err := j.applyDefinitionResolution(collision, resolution, joined.Definitions, result, ctx, sourceGraph)
+					applied, err := j.applySchemaResolution(schemaResolutionParams{
+						collision:   collision,
+						resolution:  resolution,
+						target:      joined.Definitions,
+						result:      result,
+						ctx:         ctx,
+						sourceGraph: sourceGraph,
+						label:       "definition",
+					})
 					if err != nil {
 						return err
 					}
@@ -315,13 +323,13 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 func (j *Joiner) mergeOAS2Components(joined, source *parser.OAS2Document, ctx documentContext, result *JoinResult) error {
 	componentStrategy := j.getEffectiveStrategy(j.config.ComponentStrategy)
 
-	if err := mergeMap(j, joined.Parameters, source.Parameters, "parameters", componentStrategy, ctx, result); err != nil {
+	if err := mergeMap(j, joined.Parameters, source.Parameters, "parameters", CollisionTypeParameter, componentStrategy, ctx, result); err != nil {
 		return err
 	}
-	if err := mergeMap(j, joined.Responses, source.Responses, "responses", componentStrategy, ctx, result); err != nil {
+	if err := mergeMap(j, joined.Responses, source.Responses, "responses", CollisionTypeResponse, componentStrategy, ctx, result); err != nil {
 		return err
 	}
-	if err := mergeMap(j, joined.SecurityDefinitions, source.SecurityDefinitions, "securityDefinitions", componentStrategy, ctx, result); err != nil {
+	if err := mergeMap(j, joined.SecurityDefinitions, source.SecurityDefinitions, "securityDefinitions", CollisionTypeSecurityScheme, componentStrategy, ctx, result); err != nil {
 		return err
 	}
 	return nil
@@ -378,86 +386,4 @@ func (j *Joiner) mergeUniqueStrings(a, b []string) []string {
 	}
 
 	return result
-}
-
-// applyDefinitionResolution applies a CollisionResolution to an OAS2 definition collision.
-// Returns true if the resolution was fully handled, false if strategy should still be applied.
-func (j *Joiner) applyDefinitionResolution(
-	collision CollisionContext,
-	resolution CollisionResolution,
-	target map[string]*parser.Schema,
-	result *JoinResult,
-	ctx documentContext,
-	sourceGraph *RefGraph,
-) (bool, error) {
-	// Record message as warning if provided
-	if resolution.Message != "" {
-		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
-		result.AddWarning(NewHandlerResolutionWarning(collision.JSONPath, resolution.Message, ctx.filePath, line, col))
-	}
-
-	schema, ok := collision.RightValue.(*parser.Schema)
-	if !ok {
-		return false, fmt.Errorf("collision handler: RightValue is not a *parser.Schema")
-	}
-
-	switch resolution.Action {
-	case ResolutionContinue:
-		// Delegate to configured strategy
-		return false, nil
-
-	case ResolutionAcceptLeft:
-		// Keep existing (left), discard incoming (right)
-		j.recordCollisionEvent(result, collision.Name, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "kept-left", "")
-		return true, nil
-
-	case ResolutionAcceptRight:
-		// Replace with incoming (right)
-		target[collision.Name] = schema
-		j.recordCollisionEvent(result, collision.Name, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "kept-right", "")
-		return true, nil
-
-	case ResolutionRename:
-		// Rename right definition
-		newName := j.generateRenamedSchemaName(collision.Name, ctx.filePath, ctx.docIndex, sourceGraph)
-		target[newName] = schema
-		if result.rewriter == nil {
-			result.rewriter = NewSchemaRewriter()
-		}
-		result.rewriter.RegisterRename(collision.Name, newName, result.OASVersion)
-		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
-		result.AddWarning(NewSchemaRenamedWarning(collision.Name, newName, "definition", ctx.filePath, line, col, false))
-		j.recordCollisionEvent(result, collision.Name, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "renamed", newName)
-		return true, nil
-
-	case ResolutionDeduplicate:
-		// Keep left, discard right (treat as equivalent)
-		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
-		result.AddWarning(NewSchemaDedupWarning(collision.Name, "definition", ctx.filePath, line, col))
-		j.recordCollisionEvent(result, collision.Name, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "deduplicated", "")
-		return true, nil
-
-	case ResolutionFail:
-		// Return error with handler's message
-		msg := resolution.Message
-		if msg == "" {
-			msg = fmt.Sprintf("definition collision on %q rejected by handler", collision.Name)
-		}
-		return true, fmt.Errorf("collision handler: %s", msg)
-
-	case ResolutionCustom:
-		if resolution.CustomValue == nil {
-			return true, fmt.Errorf("collision handler: ResolutionCustom requires CustomValue")
-		}
-		customSchema, ok := resolution.CustomValue.(*parser.Schema)
-		if !ok {
-			return true, fmt.Errorf("collision handler: CustomValue must be *parser.Schema for schema collisions")
-		}
-		target[collision.Name] = customSchema
-		j.recordCollisionEvent(result, collision.Name, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "custom", "")
-		return true, nil
-
-	default:
-		return false, fmt.Errorf("unknown resolution action: %d", resolution.Action)
-	}
 }
