@@ -193,6 +193,61 @@
 //	// Clean path for naming
 //	"{{.Name}}_{{pathClean .Path}}"
 //
+// # Collision Handlers
+//
+// For fine-grained control over collision resolution, register a collision handler
+// callback. The handler is invoked for each collision with full context about both
+// colliding values, allowing custom decisions or observation.
+//
+// Register a handler via option:
+//
+//	result, err := joiner.JoinWithOptions(
+//	    joiner.WithFilePaths([]string{"users-api.yaml", "billing-api.yaml"}),
+//	    joiner.WithCollisionHandler(func(c joiner.CollisionContext) (joiner.CollisionResolution, error) {
+//	        fmt.Printf("Collision: %s %q\n", c.Type, c.Name)
+//	        return joiner.ContinueWithStrategy(), nil  // Defer to configured strategy
+//	    }),
+//	)
+//
+// Or handle only specific collision types:
+//
+//	result, err := joiner.JoinWithOptions(
+//	    joiner.WithFilePaths([]string{"users-api.yaml", "billing-api.yaml"}),
+//	    joiner.WithCollisionHandlerFor(joiner.CollisionTypeSchema, func(c joiner.CollisionContext) (joiner.CollisionResolution, error) {
+//	        if c.Name == "Error" {
+//	            return joiner.AcceptLeft(), nil  // Always keep left Error schema
+//	        }
+//	        return joiner.ContinueWithStrategy(), nil
+//	    }),
+//	)
+//
+// Available resolution actions:
+//   - [ContinueWithStrategy]: Defer to the configured collision strategy
+//   - [AcceptLeft]: Keep the value from the left (earlier) document
+//   - [AcceptRight]: Keep the value from the right (later) document
+//   - [Rename]: Rename the right value using the configured template
+//   - [Deduplicate]: Merge if structurally equivalent, fail otherwise
+//   - [Fail]: Fail the join operation with an error
+//   - [UseCustomValue]: Use a custom-provided value
+//
+// The [CollisionContext] provides full details:
+//   - Type, Name, JSONPath: What collided and where
+//   - LeftSource, RightSource: Source file names
+//   - LeftValue, RightValue: The actual colliding values
+//   - LeftHash, RightHash: Semantic hashes for quick equivalence checks
+//   - AreEquivalent: True if values are structurally identical
+//
+// Example with custom merge logic:
+//
+//	handler := func(c joiner.CollisionContext) (joiner.CollisionResolution, error) {
+//	    if c.AreEquivalent {
+//	        return joiner.Deduplicate(), nil
+//	    }
+//	    // Custom merge: combine descriptions from both schemas
+//	    merged := mergeSchemas(c.LeftValue, c.RightValue)
+//	    return joiner.UseCustomValue(merged), nil
+//	}
+//
 // # Primary Operation Policy
 //
 // When a schema is referenced by multiple operations, the policy determines

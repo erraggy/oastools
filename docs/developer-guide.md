@@ -797,6 +797,48 @@ config.RenameTemplate = "{{.Path | pathResource | pascalCase}}{{.Name}}"
 // /orders/{id} + "Response" → OrdersResponse
 ```
 
+**Collision Handler Callbacks:**
+
+For fine-grained control over collision resolution, register a collision handler callback. The handler is invoked for each collision with full context, allowing custom decisions or observation:
+
+```go
+// Observe-only handler: log collisions but use configured strategy
+result, err := joiner.JoinWithOptions(
+    joiner.WithFilePaths([]string{"users-api.yaml", "billing-api.yaml"}),
+    joiner.WithCollisionHandler(func(c joiner.CollisionContext) (joiner.CollisionResolution, error) {
+        log.Printf("Collision detected: %s %q (%s vs %s)\n",
+            c.Type, c.Name, c.LeftSource, c.RightSource)
+        return joiner.ContinueWithStrategy(), nil  // Defer to configured strategy
+    }),
+)
+```
+
+Handle only specific collision types:
+
+```go
+// Only handle schema collisions, let others use configured strategy
+result, err := joiner.JoinWithOptions(
+    joiner.WithFilePaths([]string{"users-api.yaml", "billing-api.yaml"}),
+    joiner.WithCollisionHandlerFor(joiner.CollisionTypeSchema, func(c joiner.CollisionContext) (joiner.CollisionResolution, error) {
+        if c.Name == "Error" {
+            return joiner.AcceptLeft(), nil  // Always keep left Error schema
+        }
+        return joiner.ContinueWithStrategy(), nil
+    }),
+)
+```
+
+Resolution actions available:
+- `ContinueWithStrategy()` - Defer to the configured collision strategy
+- `AcceptLeft()` - Keep the value from the left (earlier) document
+- `AcceptRight()` - Keep the value from the right (later) document
+- `Rename()` - Rename the right value using the configured template
+- `Deduplicate()` - Merge if structurally equivalent, fail otherwise
+- `Fail()` - Fail the join operation with an error
+- `UseCustomValue(value)` - Use a custom-provided value
+
+The `CollisionContext` provides: Type, Name, JSONPath, LeftSource/RightSource, LeftValue/RightValue, semantic hashes, and `AreEquivalent` for quick equivalence checks.
+
 > 📚 **Deep Dive:** For comprehensive examples and advanced patterns, see the [Joiner Deep Dive](packages/joiner.md).
 
 ### Differ Package
