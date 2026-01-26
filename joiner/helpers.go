@@ -154,10 +154,51 @@ func (j *Joiner) mergePathsMap(
 ) error {
 	for path, pathItem := range source {
 		if _, exists := target[path]; exists {
+			result.CollisionCount++
+
+			// Invoke collision handler if configured for paths
+			if j.shouldInvokeHandler(CollisionTypePath) {
+				jsonPath := fmt.Sprintf("$.paths['%s']", path)
+				collision := CollisionContext{
+					Type:               CollisionTypePath,
+					Name:               path,
+					JSONPath:           jsonPath,
+					LeftSource:         result.firstFilePath,
+					LeftLocation:       j.getLocationPtr(result.firstFilePath, jsonPath),
+					LeftValue:          target[path],
+					RightSource:        ctx.filePath,
+					RightLocation:      j.getLocationPtr(ctx.filePath, jsonPath),
+					RightValue:         pathItem,
+					ConfiguredStrategy: strategy,
+				}
+
+				resolution, handlerErr := j.collisionHandler(collision)
+				if handlerErr != nil {
+					// Log warning and fall back to configured strategy
+					line, col := j.getLocation(ctx.filePath, jsonPath)
+					result.AddWarning(NewHandlerErrorWarning(
+						jsonPath,
+						fmt.Sprintf("collision handler error: %v; using %s strategy", handlerErr, strategy),
+						ctx.filePath, line, col,
+					))
+					// Fall through to strategy handling below
+				} else {
+					// Apply the resolution
+					applied, err := j.applyPathResolution(collision, resolution, target, result, ctx)
+					if err != nil {
+						return err
+					}
+					if applied {
+						continue // Resolution handled, skip strategy handling
+					}
+					// ResolutionContinue falls through to strategy handling
+				}
+			}
+
+			// Apply configured strategy
 			if err := j.handleCollision(path, "paths", strategy, result.firstFilePath, ctx.filePath); err != nil {
 				return err
 			}
-			result.CollisionCount++
 			if j.shouldOverwrite(strategy) {
 				target[path] = pathItem
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
@@ -171,4 +212,69 @@ func (j *Joiner) mergePathsMap(
 		}
 	}
 	return nil
+}
+
+// applyPathResolution applies a CollisionResolution to a path collision.
+// Returns true if the resolution was fully handled, false if strategy should still be applied.
+func (j *Joiner) applyPathResolution(
+	collision CollisionContext,
+	resolution CollisionResolution,
+	target parser.Paths,
+	result *JoinResult,
+	ctx documentContext,
+) (bool, error) {
+	// Record message as warning if provided
+	if resolution.Message != "" {
+		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
+		result.AddWarning(NewHandlerResolutionWarning(collision.JSONPath, resolution.Message, ctx.filePath, line, col))
+	}
+
+	pathItem, ok := collision.RightValue.(*parser.PathItem)
+	if !ok {
+		return false, fmt.Errorf("collision handler: RightValue is not a *parser.PathItem")
+	}
+
+	switch resolution.Action {
+	case ResolutionContinue:
+		// Delegate to configured strategy
+		return false, nil
+
+	case ResolutionAcceptLeft:
+		// Keep existing (left), discard incoming (right) - no action needed
+		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
+		result.AddWarning(NewPathCollisionWarning(collision.Name, "kept from first document", collision.LeftSource, ctx.filePath, line, col))
+		return true, nil
+
+	case ResolutionAcceptRight:
+		// Replace with incoming (right)
+		target[collision.Name] = pathItem
+		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
+		result.AddWarning(NewPathCollisionWarning(collision.Name, "overwritten", collision.LeftSource, ctx.filePath, line, col))
+		return true, nil
+
+	case ResolutionRename:
+		// Rename is not supported for paths - paths are URLs and cannot be renamed
+		return false, fmt.Errorf("collision handler: ResolutionRename not supported for paths")
+
+	case ResolutionDeduplicate:
+		// Keep left, discard right (treat as equivalent)
+		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
+		result.AddWarning(NewPathCollisionWarning(collision.Name, "deduplicated (kept from first document)", collision.LeftSource, ctx.filePath, line, col))
+		return true, nil
+
+	case ResolutionFail:
+		// Return error with handler's message
+		msg := resolution.Message
+		if msg == "" {
+			msg = fmt.Sprintf("path collision on %q rejected by handler", collision.Name)
+		}
+		return true, fmt.Errorf("collision handler: %s", msg)
+
+	case ResolutionCustom:
+		// Custom value for paths not yet implemented
+		return false, fmt.Errorf("ResolutionCustom for paths not yet implemented")
+
+	default:
+		return false, fmt.Errorf("unknown resolution action: %d", resolution.Action)
+	}
 }

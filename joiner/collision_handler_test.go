@@ -516,3 +516,341 @@ func TestCollisionHandler_WithMessageResolution(t *testing.T) {
 	}
 	assert.True(t, foundResolution, "should have handler resolution warning with message")
 }
+
+// createTestOAS3DocWithPaths creates a test OAS 3.0 document with the given schemas and paths.
+// Each schema map entry creates a schema with that name and description.
+// Each path creates a PathItem with a GET operation.
+func createTestOAS3DocWithPaths(sourcePath string, schemas map[string]string, paths []string) parser.ParseResult {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: make(parser.Paths),
+		Components: &parser.Components{
+			Schemas: make(map[string]*parser.Schema),
+		},
+	}
+	for name, desc := range schemas {
+		doc.Components.Schemas[name] = &parser.Schema{
+			Type:        "object",
+			Description: desc,
+		}
+	}
+	for _, path := range paths {
+		doc.Paths[path] = &parser.PathItem{
+			Get: &parser.Operation{
+				OperationID: "get" + path,
+				Responses:   &parser.Responses{},
+			},
+		}
+	}
+	return parser.ParseResult{
+		SourcePath: sourcePath,
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+}
+
+func TestCollisionHandler_PathCollision(t *testing.T) {
+	var receivedCollision CollisionContext
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		receivedCollision = collision
+		return AcceptRight(), nil
+	}
+
+	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, CollisionTypePath, receivedCollision.Type)
+	assert.Equal(t, "/users", receivedCollision.Name)
+	assert.Contains(t, receivedCollision.JSONPath, "paths")
+	assert.Equal(t, "base.yaml", receivedCollision.LeftSource)
+	assert.Equal(t, "overlay.yaml", receivedCollision.RightSource)
+	assert.NotNil(t, receivedCollision.LeftValue)
+	assert.NotNil(t, receivedCollision.RightValue)
+
+	// Verify overlay path was used (AcceptRight)
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "get/users", oas3Doc.Paths["/users"].Get.OperationID)
+}
+
+func TestCollisionHandler_PathAcceptLeft(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return AcceptLeft(), nil
+	}
+
+	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptRight), // Would keep right, but handler overrides
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+	// Handler said AcceptLeft, so base path should be kept
+	assert.Equal(t, "get/users", oas3Doc.Paths["/users"].Get.OperationID)
+}
+
+func TestCollisionHandler_PathContinueWithStrategy(t *testing.T) {
+	handlerCalled := false
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		handlerCalled = true
+		return ContinueWithStrategy(), nil // Defer to configured strategy
+	}
+
+	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptRight), // Should take effect
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	assert.True(t, handlerCalled)
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "get/users", oas3Doc.Paths["/users"].Get.OperationID)
+}
+
+func TestCollisionHandler_PathFailResolution(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return FailWithMessage("path collision not allowed by policy"), nil
+	}
+
+	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "path collision not allowed by policy")
+}
+
+func TestCollisionHandler_PathHandlerErrorFallback(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return CollisionResolution{}, fmt.Errorf("simulated path handler error")
+	}
+
+	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptLeft), // Fallback
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err, "join should succeed despite handler error")
+
+	// Verify fallback to AcceptLeft occurred (base path kept)
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "get/users", oas3Doc.Paths["/users"].Get.OperationID)
+
+	// Verify warning was recorded
+	var foundWarning bool
+	for _, warn := range result.StructuredWarnings {
+		if warn.Category == WarnHandlerError {
+			foundWarning = true
+			assert.Contains(t, warn.Message, "simulated path handler error")
+		}
+	}
+	assert.True(t, foundWarning, "should have handler error warning")
+}
+
+func TestCollisionHandler_TypeFiltering(t *testing.T) {
+	schemaCallCount := 0
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		schemaCallCount++
+		return ContinueWithStrategy(), nil
+	}
+
+	// Create docs with both schema and path collisions
+	base := createTestOAS3DocWithPaths("base.yaml",
+		map[string]string{"User": "base-user"},
+		[]string{"/users"},
+	)
+	overlay := createTestOAS3DocWithPaths("overlay.yaml",
+		map[string]string{"User": "overlay-user"},
+		[]string{"/users"},
+	)
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithPathStrategy(StrategyAcceptLeft),                  // Need non-fail strategy for paths
+		WithCollisionHandlerFor(handler, CollisionTypeSchema), // Only schemas
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 1, schemaCallCount, "should only call for schema collision, not path")
+}
+
+func TestCollisionHandler_TypeFilteringPathsOnly(t *testing.T) {
+	pathCallCount := 0
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		pathCallCount++
+		return ContinueWithStrategy(), nil
+	}
+
+	// Create docs with both schema and path collisions
+	base := createTestOAS3DocWithPaths("base.yaml",
+		map[string]string{"User": "base-user"},
+		[]string{"/users"},
+	)
+	overlay := createTestOAS3DocWithPaths("overlay.yaml",
+		map[string]string{"User": "overlay-user"},
+		[]string{"/users"},
+	)
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithPathStrategy(StrategyAcceptLeft),                // Need non-fail strategy for paths
+		WithCollisionHandlerFor(handler, CollisionTypePath), // Only paths
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 1, pathCallCount, "should only call for path collision, not schema")
+}
+
+func TestCollisionHandler_MultipleTypeFiltering(t *testing.T) {
+	callCount := 0
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		callCount++
+		return ContinueWithStrategy(), nil
+	}
+
+	// Create docs with both schema and path collisions
+	base := createTestOAS3DocWithPaths("base.yaml",
+		map[string]string{"User": "base-user"},
+		[]string{"/users"},
+	)
+	overlay := createTestOAS3DocWithPaths("overlay.yaml",
+		map[string]string{"User": "overlay-user"},
+		[]string{"/users"},
+	)
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithPathStrategy(StrategyAcceptLeft),                                     // Need non-fail strategy for paths
+		WithCollisionHandlerFor(handler, CollisionTypeSchema, CollisionTypePath), // Both
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount, "should call for both schema and path collisions")
+}
+
+func TestCollisionHandler_PathDeduplicateResolution(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return Deduplicate(), nil
+	}
+
+	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptRight), // Would take right, but handler says deduplicate
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+
+	// Deduplicate keeps left (base)
+	oas3Doc, _ := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, "get/users", oas3Doc.Paths["/users"].Get.OperationID)
+
+	// Should have a warning about deduplication
+	var foundDedup bool
+	for _, warn := range result.StructuredWarnings {
+		if warn.Category == WarnPathCollision && warn.Message != "" {
+			if assert.Contains(t, warn.Message, "deduplicated") {
+				foundDedup = true
+			}
+		}
+	}
+	assert.True(t, foundDedup, "should have path deduplicated warning")
+}
+
+func TestCollisionHandler_PathRenameNotSupported(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return Rename(), nil
+	}
+
+	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ResolutionRename not supported for paths")
+}
+
+func TestCollisionHandler_PathCustomNotSupported(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return UseCustomValue(&parser.PathItem{}), nil
+	}
+
+	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ResolutionCustom for paths not yet implemented")
+}
+
+func TestCollisionHandler_PathWithMessage(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return AcceptLeftWithMessage("keeping base path due to policy"), nil
+	}
+
+	base := createTestOAS3DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS3DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptRight), // Would take right, but handler overrides
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+
+	// Should have a handler resolution warning with the message
+	var foundResolution bool
+	for _, warn := range result.StructuredWarnings {
+		if warn.Category == WarnHandlerResolution {
+			foundResolution = true
+			assert.Contains(t, warn.Message, "keeping base path due to policy")
+			break
+		}
+	}
+	assert.True(t, foundResolution, "should have handler resolution warning with message")
+}
