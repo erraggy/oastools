@@ -854,3 +854,338 @@ func TestCollisionHandler_PathWithMessage(t *testing.T) {
 	}
 	assert.True(t, foundResolution, "should have handler resolution warning with message")
 }
+
+// =============================================================================
+// OAS2 (Swagger 2.0) Tests
+// =============================================================================
+
+// createTestOAS2Doc creates a test OAS 2.0 document with the given definitions.
+// Each definition map entry creates a schema with that name and description.
+func createTestOAS2Doc(sourcePath string, definitions map[string]string) parser.ParseResult {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths:       make(parser.Paths),
+		Definitions: make(map[string]*parser.Schema),
+	}
+	for name, desc := range definitions {
+		doc.Definitions[name] = &parser.Schema{
+			Type:        "object",
+			Description: desc,
+		}
+	}
+	return parser.ParseResult{
+		SourcePath: sourcePath,
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+}
+
+// createTestOAS2DocWithPaths creates a test OAS 2.0 document with the given definitions and paths.
+// Each definition map entry creates a schema with that name and description.
+// Each path creates a PathItem with a GET operation.
+func createTestOAS2DocWithPaths(sourcePath string, definitions map[string]string, paths []string) parser.ParseResult {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths:       make(parser.Paths),
+		Definitions: make(map[string]*parser.Schema),
+	}
+	for name, desc := range definitions {
+		doc.Definitions[name] = &parser.Schema{
+			Type:        "object",
+			Description: desc,
+		}
+	}
+	for _, path := range paths {
+		doc.Paths[path] = &parser.PathItem{
+			Get: &parser.Operation{
+				OperationID: "get" + path,
+				Responses:   &parser.Responses{},
+			},
+		}
+	}
+	return parser.ParseResult{
+		SourcePath: sourcePath,
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Document:   doc,
+	}
+}
+
+func TestCollisionHandler_OAS2SchemaCollision(t *testing.T) {
+	var receivedCollision CollisionContext
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		receivedCollision = collision
+		return AcceptLeft(), nil
+	}
+
+	base := createTestOAS2Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS2Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, CollisionTypeSchema, receivedCollision.Type)
+	assert.Equal(t, "User", receivedCollision.Name)
+	assert.Contains(t, receivedCollision.JSONPath, "definitions")
+	assert.Equal(t, "base.yaml", receivedCollision.LeftSource)
+	assert.Equal(t, "overlay.yaml", receivedCollision.RightSource)
+	assert.NotNil(t, receivedCollision.LeftValue)
+	assert.NotNil(t, receivedCollision.RightValue)
+	assert.Equal(t, StrategyAcceptLeft, receivedCollision.ConfiguredStrategy)
+
+	// Verify the resolution was applied
+	oas2Doc, ok := result.Document.(*parser.OAS2Document)
+	assert.True(t, ok, "document should be OAS2")
+	assert.Equal(t, "base-user", oas2Doc.Definitions["User"].Description)
+}
+
+func TestCollisionHandler_OAS2SchemaAcceptRight(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return AcceptRight(), nil
+	}
+
+	base := createTestOAS2Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS2Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft), // Would keep left, but handler overrides
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	oas2Doc, ok := result.Document.(*parser.OAS2Document)
+	assert.True(t, ok, "document should be OAS2")
+	assert.Equal(t, "overlay-user", oas2Doc.Definitions["User"].Description)
+}
+
+func TestCollisionHandler_OAS2SchemaContinueWithStrategy(t *testing.T) {
+	handlerCalled := false
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		handlerCalled = true
+		return ContinueWithStrategy(), nil // Defer to configured strategy
+	}
+
+	base := createTestOAS2Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS2Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithSchemaStrategy(StrategyAcceptRight), // Should take effect for definitions
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	assert.True(t, handlerCalled)
+	oas2Doc, ok := result.Document.(*parser.OAS2Document)
+	assert.True(t, ok, "document should be OAS2")
+	assert.Equal(t, "overlay-user", oas2Doc.Definitions["User"].Description)
+}
+
+func TestCollisionHandler_OAS2SchemaRenameResolution(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return Rename(), nil
+	}
+
+	base := createTestOAS2Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS2Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	oas2Doc, ok := result.Document.(*parser.OAS2Document)
+	assert.True(t, ok, "document should be OAS2")
+
+	// Original should be kept
+	assert.Equal(t, "base-user", oas2Doc.Definitions["User"].Description)
+
+	// Renamed definition should exist
+	var foundRenamed bool
+	for name, schema := range oas2Doc.Definitions {
+		if name != "User" && schema.Description == "overlay-user" {
+			foundRenamed = true
+			break
+		}
+	}
+	assert.True(t, foundRenamed, "should have a renamed definition with overlay-user description")
+}
+
+func TestCollisionHandler_OAS2SchemaDeduplicateResolution(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return Deduplicate(), nil
+	}
+
+	base := createTestOAS2Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS2Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	oas2Doc, ok := result.Document.(*parser.OAS2Document)
+	assert.True(t, ok, "document should be OAS2")
+
+	// Only one User definition should exist (deduplicated keeps left)
+	assert.Len(t, oas2Doc.Definitions, 1)
+	assert.Equal(t, "base-user", oas2Doc.Definitions["User"].Description)
+
+	// Should have a dedup warning
+	var foundDedup bool
+	for _, warn := range result.StructuredWarnings {
+		if warn.Category == WarnSchemaDeduplicated {
+			foundDedup = true
+			break
+		}
+	}
+	assert.True(t, foundDedup, "should have schema deduplicated warning")
+}
+
+func TestCollisionHandler_OAS2SchemaFailResolution(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return FailWithMessage("intentional OAS2 failure from handler"), nil
+	}
+
+	base := createTestOAS2Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS2Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "intentional OAS2 failure from handler")
+}
+
+func TestCollisionHandler_OAS2SchemaErrorFallback(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return CollisionResolution{}, fmt.Errorf("simulated OAS2 handler error")
+	}
+
+	base := createTestOAS2Doc("base.yaml", map[string]string{"User": "base-user"})
+	overlay := createTestOAS2Doc("overlay.yaml", map[string]string{"User": "overlay-user"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft), // Fallback
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err, "join should succeed despite handler error")
+
+	// Verify fallback to AcceptLeft occurred
+	oas2Doc, ok := result.Document.(*parser.OAS2Document)
+	assert.True(t, ok, "document should be OAS2")
+	assert.Equal(t, "base-user", oas2Doc.Definitions["User"].Description)
+
+	// Verify warning was recorded
+	var foundWarning bool
+	for _, warn := range result.StructuredWarnings {
+		if warn.Category == WarnHandlerError {
+			foundWarning = true
+			assert.Contains(t, warn.Message, "simulated OAS2 handler error")
+		}
+	}
+	assert.True(t, foundWarning, "should have handler error warning")
+}
+
+func TestCollisionHandler_OAS2PathCollision(t *testing.T) {
+	var receivedCollision CollisionContext
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		receivedCollision = collision
+		return AcceptRight(), nil
+	}
+
+	base := createTestOAS2DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS2DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, CollisionTypePath, receivedCollision.Type)
+	assert.Equal(t, "/users", receivedCollision.Name)
+	assert.Contains(t, receivedCollision.JSONPath, "paths")
+	assert.Equal(t, "base.yaml", receivedCollision.LeftSource)
+	assert.Equal(t, "overlay.yaml", receivedCollision.RightSource)
+	assert.NotNil(t, receivedCollision.LeftValue)
+	assert.NotNil(t, receivedCollision.RightValue)
+
+	// Verify overlay path was used (AcceptRight)
+	oas2Doc, ok := result.Document.(*parser.OAS2Document)
+	assert.True(t, ok, "document should be OAS2")
+	assert.Equal(t, "get/users", oas2Doc.Paths["/users"].Get.OperationID)
+}
+
+func TestCollisionHandler_OAS2PathAcceptLeft(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return AcceptLeft(), nil
+	}
+
+	base := createTestOAS2DocWithPaths("base.yaml", nil, []string{"/users"})
+	overlay := createTestOAS2DocWithPaths("overlay.yaml", nil, []string{"/users"})
+
+	result, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithPathStrategy(StrategyAcceptRight), // Would keep right, but handler overrides
+		WithCollisionHandler(handler),
+	)
+
+	assert.NoError(t, err)
+	oas2Doc, ok := result.Document.(*parser.OAS2Document)
+	assert.True(t, ok, "document should be OAS2")
+	// Handler said AcceptLeft, so base path should be kept
+	assert.Equal(t, "get/users", oas2Doc.Paths["/users"].Get.OperationID)
+}
+
+func TestCollisionHandler_OAS2TypeFiltering(t *testing.T) {
+	schemaCallCount := 0
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		schemaCallCount++
+		return ContinueWithStrategy(), nil
+	}
+
+	// Create docs with both definition and path collisions
+	base := createTestOAS2DocWithPaths("base.yaml",
+		map[string]string{"User": "base-user"},
+		[]string{"/users"},
+	)
+	overlay := createTestOAS2DocWithPaths("overlay.yaml",
+		map[string]string{"User": "overlay-user"},
+		[]string{"/users"},
+	)
+
+	_, err := JoinWithOptions(
+		WithParsed(base, overlay),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithPathStrategy(StrategyAcceptLeft),                  // Need non-fail strategy for paths
+		WithCollisionHandlerFor(handler, CollisionTypeSchema), // Only schemas/definitions
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 1, schemaCallCount, "should only call for schema collision, not path")
+}
