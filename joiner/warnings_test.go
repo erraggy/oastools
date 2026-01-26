@@ -474,3 +474,67 @@ func TestNewGenericSourceNameWarning(t *testing.T) {
 		}
 	})
 }
+
+func TestHandlerWarningCategories(t *testing.T) {
+	// Test WarnHandlerError
+	if WarnHandlerError != WarningCategory("handler_error") {
+		t.Errorf("WarnHandlerError = %v, want %v", WarnHandlerError, WarningCategory("handler_error"))
+	}
+
+	// Test WarnHandlerResolution
+	if WarnHandlerResolution != WarningCategory("handler_resolution") {
+		t.Errorf("WarnHandlerResolution = %v, want %v", WarnHandlerResolution, WarningCategory("handler_resolution"))
+	}
+}
+
+func TestNewHandlerErrorWarning(t *testing.T) {
+	warn := NewHandlerErrorWarning("$.components.schemas.User", "handler failed: timeout", "overlay.yaml", 42, 5)
+
+	if warn.Category != WarnHandlerError {
+		t.Errorf("Category = %v, want %v", warn.Category, WarnHandlerError)
+	}
+	if warn.Path != "$.components.schemas.User" {
+		t.Errorf("Path = %q, want %q", warn.Path, "$.components.schemas.User")
+	}
+	if warn.Message != "handler failed: timeout" {
+		t.Errorf("Message = %q, want %q", warn.Message, "handler failed: timeout")
+	}
+	if warn.SourceFile != "overlay.yaml" {
+		t.Errorf("SourceFile = %q, want %q", warn.SourceFile, "overlay.yaml")
+	}
+	if warn.Line != 42 {
+		t.Errorf("Line = %d, want 42", warn.Line)
+	}
+	if warn.Column != 5 {
+		t.Errorf("Column = %d, want 5", warn.Column)
+	}
+	if warn.Severity != severity.SeverityWarning {
+		t.Errorf("Severity = %v, want %v", warn.Severity, severity.SeverityWarning)
+	}
+}
+
+func TestNewHandlerResolutionWarning(t *testing.T) {
+	warn := NewHandlerResolutionWarning("$.components.schemas.User", "custom merge applied", "overlay.yaml", 42, 5)
+
+	if warn.Category != WarnHandlerResolution {
+		t.Errorf("Category = %v, want %v", warn.Category, WarnHandlerResolution)
+	}
+	if warn.Path != "$.components.schemas.User" {
+		t.Errorf("Path = %q, want %q", warn.Path, "$.components.schemas.User")
+	}
+	if warn.Message != "custom merge applied" {
+		t.Errorf("Message = %q, want %q", warn.Message, "custom merge applied")
+	}
+	if warn.SourceFile != "overlay.yaml" {
+		t.Errorf("SourceFile = %q, want %q", warn.SourceFile, "overlay.yaml")
+	}
+	if warn.Line != 42 {
+		t.Errorf("Line = %d, want 42", warn.Line)
+	}
+	if warn.Column != 5 {
+		t.Errorf("Column = %d, want 5", warn.Column)
+	}
+	if warn.Severity != severity.SeverityInfo {
+		t.Errorf("Severity = %v, want %v", warn.Severity, severity.SeverityInfo)
+	}
+}

@@ -32,6 +32,10 @@ const (
 	// WarnGenericSourceName indicates a document has a generic or empty source name.
 	// This makes collision reports less useful for identifying which document caused the collision.
 	WarnGenericSourceName WarningCategory = "generic_source_name"
+	// WarnHandlerError indicates a collision handler returned an error.
+	WarnHandlerError WarningCategory = "handler_error"
+	// WarnHandlerResolution indicates a collision handler resolved with a message.
+	WarnHandlerResolution WarningCategory = "handler_resolution"
 )
 
 // JoinWarning represents a structured warning from the joiner package.
@@ -288,6 +292,32 @@ func NewGenericSourceNameWarning(sourcePath string, docIndex int) *JoinWarning {
 			"doc_index":   docIndex,
 			"source_path": sourcePath,
 		},
+	}
+}
+
+// NewHandlerErrorWarning creates a warning when a collision handler returns an error.
+func NewHandlerErrorWarning(jsonPath, message, source string, line, col int) *JoinWarning {
+	return &JoinWarning{
+		Category:   WarnHandlerError,
+		Path:       jsonPath,
+		Message:    message,
+		SourceFile: source,
+		Line:       line,
+		Column:     col,
+		Severity:   severity.SeverityWarning,
+	}
+}
+
+// NewHandlerResolutionWarning creates a warning when a handler provides a resolution message.
+func NewHandlerResolutionWarning(jsonPath, message, source string, line, col int) *JoinWarning {
+	return &JoinWarning{
+		Category:   WarnHandlerResolution,
+		Path:       jsonPath,
+		Message:    message,
+		SourceFile: source,
+		Line:       line,
+		Column:     col,
+		Severity:   severity.SeverityInfo,
 	}
 }
 
