@@ -239,6 +239,10 @@ type joinConfig struct {
 	// Source location tracking
 	sourceMaps map[string]*parser.SourceMap // Maps file paths to their SourceMaps
 
+	// Collision handler configuration
+	collisionHandler      CollisionHandler       // Handler called on collisions (nil if not configured)
+	collisionHandlerTypes map[CollisionType]bool // Which collision types invoke the handler (nil/empty means all)
+
 	// Overlay integration options
 	preJoinOverlays     []*overlay.Overlay          // Applied to all specs before joining
 	preJoinOverlayFiles []string                    // File paths for pre-join overlays
@@ -723,6 +727,43 @@ func WithPrimaryOperationPolicy(policy PrimaryOperationPolicy) Option {
 func WithSourceMaps(maps map[string]*parser.SourceMap) Option {
 	return func(cfg *joinConfig) error {
 		cfg.sourceMaps = maps
+		return nil
+	}
+}
+
+// WithCollisionHandler registers a handler called when collisions are detected.
+// The handler receives full context and can resolve, observe, or delegate.
+// If the handler returns an error, it's logged as a warning and the configured
+// strategy is used instead.
+//
+// By default, the handler is called for all collision types. Use
+// WithCollisionHandlerFor to handle specific types only.
+func WithCollisionHandler(handler CollisionHandler) Option {
+	return func(cfg *joinConfig) error {
+		if handler == nil {
+			return fmt.Errorf("collision handler cannot be nil")
+		}
+		cfg.collisionHandler = handler
+		cfg.collisionHandlerTypes = nil // nil/empty means all types
+		return nil
+	}
+}
+
+// WithCollisionHandlerFor registers a handler for specific collision types only.
+// Collisions of other types use the configured strategy without invoking the handler.
+func WithCollisionHandlerFor(handler CollisionHandler, types ...CollisionType) Option {
+	return func(cfg *joinConfig) error {
+		if handler == nil {
+			return fmt.Errorf("collision handler cannot be nil")
+		}
+		if len(types) == 0 {
+			return fmt.Errorf("at least one collision type must be specified")
+		}
+		cfg.collisionHandler = handler
+		cfg.collisionHandlerTypes = make(map[CollisionType]bool, len(types))
+		for _, t := range types {
+			cfg.collisionHandlerTypes[t] = true
+		}
 		return nil
 	}
 }

@@ -1918,6 +1918,88 @@ func TestCollisionError_StructFields(t *testing.T) {
 	assert.Equal(t, StrategyFailOnPaths, err.Strategy)
 }
 
+func TestWithCollisionHandler_NilReturnsError(t *testing.T) {
+	_, err := JoinWithOptions(
+		WithFilePaths("../testdata/join-base-3.0.yaml", "../testdata/join-extension-3.0.yaml"),
+		WithCollisionHandler(nil),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "collision handler cannot be nil")
+}
+
+func TestWithCollisionHandlerFor_EmptyTypesReturnsError(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return ContinueWithStrategy(), nil
+	}
+
+	_, err := JoinWithOptions(
+		WithFilePaths("../testdata/join-base-3.0.yaml", "../testdata/join-extension-3.0.yaml"),
+		WithCollisionHandlerFor(handler),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "at least one collision type must be specified")
+}
+
+func TestWithCollisionHandler_SetsHandler(t *testing.T) {
+	handlerCalled := false
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		handlerCalled = true
+		return ContinueWithStrategy(), nil
+	}
+
+	cfg := &joinConfig{
+		filePaths:  make([]string, 0),
+		parsedDocs: make([]parser.ParseResult, 0),
+	}
+
+	opt := WithCollisionHandler(handler)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.NotNil(t, cfg.collisionHandler)
+	assert.Nil(t, cfg.collisionHandlerTypes) // nil means all types
+
+	// Verify handler is callable
+	_, _ = cfg.collisionHandler(CollisionContext{})
+	assert.True(t, handlerCalled)
+}
+
+func TestWithCollisionHandlerFor_SetsHandlerAndTypes(t *testing.T) {
+	handler := func(collision CollisionContext) (CollisionResolution, error) {
+		return ContinueWithStrategy(), nil
+	}
+
+	cfg := &joinConfig{
+		filePaths:  make([]string, 0),
+		parsedDocs: make([]parser.ParseResult, 0),
+	}
+
+	opt := WithCollisionHandlerFor(handler, CollisionTypeSchema, CollisionTypePath)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.NotNil(t, cfg.collisionHandler)
+	assert.NotNil(t, cfg.collisionHandlerTypes)
+	assert.True(t, cfg.collisionHandlerTypes[CollisionTypeSchema])
+	assert.True(t, cfg.collisionHandlerTypes[CollisionTypePath])
+	assert.False(t, cfg.collisionHandlerTypes[CollisionTypeWebhook])
+}
+
+func TestWithCollisionHandlerFor_NilReturnsError(t *testing.T) {
+	cfg := &joinConfig{
+		filePaths:  make([]string, 0),
+		parsedDocs: make([]parser.ParseResult, 0),
+	}
+
+	opt := WithCollisionHandlerFor(nil, CollisionTypeSchema)
+	err := opt(cfg)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "collision handler cannot be nil")
+}
+
 func TestJoinResult_ToParseResult(t *testing.T) {
 	t.Run("OAS3 result converts correctly", func(t *testing.T) {
 		// Create a JoinResult with OAS3 document
