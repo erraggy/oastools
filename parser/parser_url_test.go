@@ -373,7 +373,9 @@ func TestParseURLErrors(t *testing.T) {
 					_, _ = w.Write([]byte("{{{invalid yaml"))
 				}))
 			},
-			errorContains: "failed to parse YAML/JSON",
+			// Note: Content starting with '{' triggers JSON fast-path which returns "failed to parse JSON"
+			// while other invalid content goes through YAML path returning "failed to parse YAML/JSON"
+			errorContains: "failed to parse",
 		},
 		{
 			name: "missing version field",
