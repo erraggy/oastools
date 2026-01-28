@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/oaserrors"
 	"github.com/erraggy/oastools/parser"
 )
@@ -643,19 +644,10 @@ func hasParamConstraints(cfg *paramConfig) bool {
 		cfg.defaultValue != nil
 }
 
-// parameterRefPrefix returns the appropriate $ref prefix for parameters.
-// OAS 2.0 uses "#/parameters/" while OAS 3.x uses "#/components/parameters/".
-func (b *Builder) parameterRefPrefix() string {
-	if b.version == parser.OASVersion20 {
-		return "#/parameters/"
-	}
-	return "#/components/parameters/"
-}
-
 // ParameterRef returns a reference to a named parameter.
 // This method returns the version-appropriate ref path.
 func (b *Builder) ParameterRef(name string) string {
-	return b.parameterRefPrefix() + name
+	return pathutil.ParameterRef(name, b.version == parser.OASVersion20)
 }
 
 // WithParameterRef adds a parameter reference to the operation.

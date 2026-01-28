@@ -11,6 +11,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -551,11 +552,11 @@ func rewriteSchemaRefsRecursive(schema *parser.Schema, renames map[string]string
 // Returns empty string if not a schema reference.
 func extractSchemaNameFromRefPath(ref string) string {
 	// OAS 3.x style
-	if name, found := strings.CutPrefix(ref, "#/components/schemas/"); found {
+	if name, found := strings.CutPrefix(ref, pathutil.RefPrefixSchemas); found {
 		return name
 	}
 	// OAS 2.0 style
-	if name, found := strings.CutPrefix(ref, "#/definitions/"); found {
+	if name, found := strings.CutPrefix(ref, pathutil.RefPrefixDefinitions); found {
 		return name
 	}
 	return ""

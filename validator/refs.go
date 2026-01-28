@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -48,22 +49,22 @@ func buildOAS2ValidRefs(doc *parser.OAS2Document) map[string]bool {
 
 	// Add definitions
 	for name := range doc.Definitions {
-		validRefs[fmt.Sprintf("#/definitions/%s", name)] = true
+		validRefs[pathutil.DefinitionRef(name)] = true
 	}
 
 	// Add parameters
 	for name := range doc.Parameters {
-		validRefs[fmt.Sprintf("#/parameters/%s", name)] = true
+		validRefs[pathutil.ParameterRef(name, true)] = true
 	}
 
 	// Add responses
 	for name := range doc.Responses {
-		validRefs[fmt.Sprintf("#/responses/%s", name)] = true
+		validRefs[pathutil.ResponseRef(name, true)] = true
 	}
 
 	// Add security definitions
 	for name := range doc.SecurityDefinitions {
-		validRefs[fmt.Sprintf("#/securityDefinitions/%s", name)] = true
+		validRefs[pathutil.SecuritySchemeRef(name, true)] = true
 	}
 
 	return validRefs
@@ -79,52 +80,52 @@ func buildOAS3ValidRefs(doc *parser.OAS3Document) map[string]bool {
 
 	// Add schemas
 	for name := range doc.Components.Schemas {
-		validRefs[fmt.Sprintf("#/components/schemas/%s", name)] = true
+		validRefs[pathutil.SchemaRef(name)] = true
 	}
 
 	// Add responses
 	for name := range doc.Components.Responses {
-		validRefs[fmt.Sprintf("#/components/responses/%s", name)] = true
+		validRefs[pathutil.ResponseRef(name, false)] = true
 	}
 
 	// Add parameters
 	for name := range doc.Components.Parameters {
-		validRefs[fmt.Sprintf("#/components/parameters/%s", name)] = true
+		validRefs[pathutil.ParameterRef(name, false)] = true
 	}
 
 	// Add examples
 	for name := range doc.Components.Examples {
-		validRefs[fmt.Sprintf("#/components/examples/%s", name)] = true
+		validRefs[pathutil.ExampleRef(name)] = true
 	}
 
 	// Add request bodies
 	for name := range doc.Components.RequestBodies {
-		validRefs[fmt.Sprintf("#/components/requestBodies/%s", name)] = true
+		validRefs[pathutil.RequestBodyRef(name)] = true
 	}
 
 	// Add headers
 	for name := range doc.Components.Headers {
-		validRefs[fmt.Sprintf("#/components/headers/%s", name)] = true
+		validRefs[pathutil.HeaderRef(name)] = true
 	}
 
 	// Add security schemes
 	for name := range doc.Components.SecuritySchemes {
-		validRefs[fmt.Sprintf("#/components/securitySchemes/%s", name)] = true
+		validRefs[pathutil.SecuritySchemeRef(name, false)] = true
 	}
 
 	// Add links
 	for name := range doc.Components.Links {
-		validRefs[fmt.Sprintf("#/components/links/%s", name)] = true
+		validRefs[pathutil.LinkRef(name)] = true
 	}
 
 	// Add callbacks
 	for name := range doc.Components.Callbacks {
-		validRefs[fmt.Sprintf("#/components/callbacks/%s", name)] = true
+		validRefs[pathutil.CallbackRef(name)] = true
 	}
 
 	// Add path items (OAS 3.1+)
 	for name := range doc.Components.PathItems {
-		validRefs[fmt.Sprintf("#/components/pathItems/%s", name)] = true
+		validRefs[pathutil.PathItemRef(name)] = true
 	}
 
 	return validRefs

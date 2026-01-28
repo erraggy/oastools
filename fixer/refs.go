@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -812,7 +813,7 @@ func (c *RefCollector) IsResponseReferenced(name string, version parser.OASVersi
 // IsRequestBodyReferenced returns true if a request body with the given name is referenced.
 // This is only applicable for OAS 3.x documents.
 func (c *RefCollector) IsRequestBodyReferenced(name string) bool {
-	ref := "#/components/requestBodies/" + name
+	ref := pathutil.RequestBodyRef(name)
 	return c.isRefReferenced(ref, RefTypeRequestBody)
 }
 
@@ -831,31 +832,31 @@ func (c *RefCollector) IsHeaderReferenced(name string, version parser.OASVersion
 		// OAS 2.0 doesn't have a global headers definition
 		return false
 	}
-	ref = "#/components/headers/" + name
+	ref = pathutil.HeaderRef(name)
 	return c.isRefReferenced(ref, RefTypeHeader)
 }
 
 // IsLinkReferenced returns true if a link with the given name is referenced.
 func (c *RefCollector) IsLinkReferenced(name string) bool {
-	ref := "#/components/links/" + name
+	ref := pathutil.LinkRef(name)
 	return c.isRefReferenced(ref, RefTypeLink)
 }
 
 // IsCallbackReferenced returns true if a callback with the given name is referenced.
 func (c *RefCollector) IsCallbackReferenced(name string) bool {
-	ref := "#/components/callbacks/" + name
+	ref := pathutil.CallbackRef(name)
 	return c.isRefReferenced(ref, RefTypeCallback)
 }
 
 // IsExampleReferenced returns true if an example with the given name is referenced.
 func (c *RefCollector) IsExampleReferenced(name string) bool {
-	ref := "#/components/examples/" + name
+	ref := pathutil.ExampleRef(name)
 	return c.isRefReferenced(ref, RefTypeExample)
 }
 
 // IsPathItemReferenced returns true if a path item with the given name is referenced.
 func (c *RefCollector) IsPathItemReferenced(name string) bool {
-	ref := "#/components/pathItems/" + name
+	ref := pathutil.PathItemRef(name)
 	return c.isRefReferenced(ref, RefTypePathItem)
 }
 
@@ -920,33 +921,24 @@ func (c *RefCollector) getRefsByType(refType RefType) []string {
 // schemaRefPath returns the reference path for a schema name.
 func schemaRefPath(name string, version parser.OASVersion) string {
 	if version == parser.OASVersion20 {
-		return "#/definitions/" + name
+		return pathutil.DefinitionRef(name)
 	}
-	return "#/components/schemas/" + name
+	return pathutil.SchemaRef(name)
 }
 
 // parameterRefPath returns the reference path for a parameter name.
 func parameterRefPath(name string, version parser.OASVersion) string {
-	if version == parser.OASVersion20 {
-		return "#/parameters/" + name
-	}
-	return "#/components/parameters/" + name
+	return pathutil.ParameterRef(name, version == parser.OASVersion20)
 }
 
 // responseRefPath returns the reference path for a response name.
 func responseRefPath(name string, version parser.OASVersion) string {
-	if version == parser.OASVersion20 {
-		return "#/responses/" + name
-	}
-	return "#/components/responses/" + name
+	return pathutil.ResponseRef(name, version == parser.OASVersion20)
 }
 
 // securitySchemeRefPath returns the reference path for a security scheme name.
 func securitySchemeRefPath(name string, version parser.OASVersion) string {
-	if version == parser.OASVersion20 {
-		return "#/securityDefinitions/" + name
-	}
-	return "#/components/securitySchemes/" + name
+	return pathutil.SecuritySchemeRef(name, version == parser.OASVersion20)
 }
 
 // ExtractSchemaNameFromRef extracts the schema name from a reference path.
@@ -954,9 +946,9 @@ func securitySchemeRefPath(name string, version parser.OASVersion) string {
 func ExtractSchemaNameFromRef(ref string, version parser.OASVersion) string {
 	var prefix string
 	if version == parser.OASVersion20 {
-		prefix = "#/definitions/"
+		prefix = pathutil.RefPrefixDefinitions
 	} else {
-		prefix = "#/components/schemas/"
+		prefix = pathutil.RefPrefixSchemas
 	}
 
 	if name, found := strings.CutPrefix(ref, prefix); found {
@@ -970,24 +962,24 @@ func ExtractSchemaNameFromRef(ref string, version parser.OASVersion) string {
 func ExtractComponentNameFromRef(ref string) (componentType, name string) {
 	// OAS 2.0 patterns
 	oas2Prefixes := map[string]string{
-		"#/definitions/":         "schema",
-		"#/parameters/":          "parameter",
-		"#/responses/":           "response",
-		"#/securityDefinitions/": "securityScheme",
+		pathutil.RefPrefixDefinitions:         "schema",
+		pathutil.RefPrefixParameters:          "parameter",
+		pathutil.RefPrefixResponses:           "response",
+		pathutil.RefPrefixSecurityDefinitions: "securityScheme",
 	}
 
 	// OAS 3.x patterns
 	oas3Prefixes := map[string]string{
-		"#/components/schemas/":         "schema",
-		"#/components/parameters/":      "parameter",
-		"#/components/responses/":       "response",
-		"#/components/requestBodies/":   "requestBody",
-		"#/components/headers/":         "header",
-		"#/components/securitySchemes/": "securityScheme",
-		"#/components/links/":           "link",
-		"#/components/callbacks/":       "callback",
-		"#/components/examples/":        "example",
-		"#/components/pathItems/":       "pathItem",
+		pathutil.RefPrefixSchemas:         "schema",
+		pathutil.RefPrefixParameters3:     "parameter",
+		pathutil.RefPrefixResponses3:      "response",
+		pathutil.RefPrefixRequestBodies:   "requestBody",
+		pathutil.RefPrefixHeaders:         "header",
+		pathutil.RefPrefixSecuritySchemes: "securityScheme",
+		pathutil.RefPrefixLinks:           "link",
+		pathutil.RefPrefixCallbacks:       "callback",
+		pathutil.RefPrefixExamples:        "example",
+		pathutil.RefPrefixPathItems:       "pathItem",
 	}
 
 	// Try OAS 3.x patterns first (more specific)

@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -96,19 +97,10 @@ func (b *Builder) AddResponse(name string, description string, responseType any,
 	return b
 }
 
-// responseRefPrefix returns the appropriate $ref prefix for responses.
-// OAS 2.0 uses "#/responses/" while OAS 3.x uses "#/components/responses/".
-func (b *Builder) responseRefPrefix() string {
-	if b.version == parser.OASVersion20 {
-		return "#/responses/"
-	}
-	return "#/components/responses/"
-}
-
 // ResponseRef returns a reference to a named response.
 // This method returns the version-appropriate ref path.
 func (b *Builder) ResponseRef(name string) string {
-	return b.responseRefPrefix() + name
+	return pathutil.ResponseRef(name, b.version == parser.OASVersion20)
 }
 
 // buildResponsesFromMap converts a map of status codes to responses into

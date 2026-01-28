@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -37,9 +38,9 @@ func isLocalRef(ref string) bool {
 func extractResponseNameFromRef(ref string, version parser.OASVersion) string {
 	var prefix string
 	if version == parser.OASVersion20 {
-		prefix = "#/responses/"
+		prefix = pathutil.RefPrefixResponses
 	} else {
-		prefix = "#/components/responses/"
+		prefix = pathutil.RefPrefixResponses3
 	}
 
 	if name, found := strings.CutPrefix(ref, prefix); found {
@@ -119,7 +120,7 @@ func (f *Fixer) stubSchemaOAS2(doc *parser.OAS2Document, name string, result *Fi
 	fix := Fix{
 		Type:        FixTypeStubMissingRef,
 		Path:        fmt.Sprintf("definitions.%s", name),
-		Description: fmt.Sprintf("Created stub schema for missing reference #/definitions/%s", name),
+		Description: "Created stub schema for missing reference " + pathutil.DefinitionRef(name),
 		Before:      nil,
 		After:       stub,
 	}
@@ -153,7 +154,7 @@ func (f *Fixer) stubResponseOAS2(doc *parser.OAS2Document, name string, result *
 	fix := Fix{
 		Type:        FixTypeStubMissingRef,
 		Path:        fmt.Sprintf("responses.%s", name),
-		Description: fmt.Sprintf("Created stub response for missing reference #/responses/%s", name),
+		Description: "Created stub response for missing reference " + pathutil.ResponseRef(name, true),
 		Before:      nil,
 		After:       stub,
 	}
@@ -238,7 +239,7 @@ func (f *Fixer) stubSchemaOAS3(doc *parser.OAS3Document, name string, result *Fi
 	fix := Fix{
 		Type:        FixTypeStubMissingRef,
 		Path:        fmt.Sprintf("components.schemas.%s", name),
-		Description: fmt.Sprintf("Created stub schema for missing reference #/components/schemas/%s", name),
+		Description: "Created stub schema for missing reference " + pathutil.SchemaRef(name),
 		Before:      nil,
 		After:       stub,
 	}
@@ -277,7 +278,7 @@ func (f *Fixer) stubResponseOAS3(doc *parser.OAS3Document, name string, result *
 	fix := Fix{
 		Type:        FixTypeStubMissingRef,
 		Path:        fmt.Sprintf("components.responses.%s", name),
-		Description: fmt.Sprintf("Created stub response for missing reference #/components/responses/%s", name),
+		Description: "Created stub response for missing reference " + pathutil.ResponseRef(name, false),
 		Before:      nil,
 		After:       stub,
 	}
