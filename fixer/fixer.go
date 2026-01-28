@@ -148,6 +148,10 @@ type Fixer struct {
 	DryRun bool
 	// StubConfig configures how missing reference stubs are created.
 	StubConfig StubConfig
+	// MutableInput when true, indicates the caller is transferring ownership
+	// of the input document and the fixer may mutate it directly instead of
+	// copying. Default is false (defensive copy for safety).
+	MutableInput bool
 }
 
 // New creates a new Fixer instance with default settings
@@ -179,6 +183,7 @@ type fixConfig struct {
 	operationIdNamingConfig OperationIdNamingConfig
 	dryRun                  bool
 	stubConfig              StubConfig
+	mutableInput            bool
 
 	// Source map for line/column tracking
 	sourceMap *parser.SourceMap
@@ -209,6 +214,7 @@ func FixWithOptions(opts ...Option) (*FixResult, error) {
 		OperationIdNamingConfig: cfg.operationIdNamingConfig,
 		DryRun:                  cfg.dryRun,
 		StubConfig:              cfg.stubConfig,
+		MutableInput:            cfg.mutableInput,
 	}
 
 	// Route to appropriate fix method based on input source
@@ -366,6 +372,24 @@ func WithStubConfig(config StubConfig) Option {
 func WithStubResponseDescription(desc string) Option {
 	return func(cfg *fixConfig) error {
 		cfg.stubConfig.ResponseDescription = desc
+		return nil
+	}
+}
+
+// WithMutableInput indicates the caller is transferring ownership of the input
+// document and the fixer may mutate it directly instead of copying.
+// Default is false (defensive copy for safety).
+//
+// Use this when:
+//   - You've already copied the document for your own use
+//   - You're chaining multiple fixer passes
+//   - Memory efficiency is critical
+//
+// WARNING: When true, the input document will be mutated. Do not use the
+// original document after calling FixWithOptions.
+func WithMutableInput(mutable bool) Option {
+	return func(cfg *fixConfig) error {
+		cfg.mutableInput = mutable
 		return nil
 	}
 }

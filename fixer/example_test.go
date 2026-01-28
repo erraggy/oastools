@@ -869,3 +869,109 @@ paths:
 	// Output:
 	// Created 1 stub(s)
 }
+
+// ExampleWithMutableInput demonstrates skipping the defensive copy when
+// the caller owns the input document. This is useful for chaining multiple
+// fixer passes or when memory efficiency is critical.
+func ExampleWithMutableInput() {
+	// A spec with missing path parameters
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// When you own the document and want to avoid the defensive copy:
+	// - You've already copied the document for your own mutations
+	// - You're chaining multiple fixer passes
+	// - Memory efficiency is critical for large specs
+	//
+	// WARNING: The original document will be mutated!
+	result, err := fixer.FixWithOptions(
+		fixer.WithParsed(*parseResult),
+		fixer.WithMutableInput(true), // Skip internal copy
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Applied %d fix(es)\n", result.FixCount)
+
+	// Output:
+	// Applied 1 fix(es)
+}
+
+// Example_chainingFixerPasses demonstrates chaining multiple fixer passes
+// efficiently using WithMutableInput.
+func Example_chainingFixerPasses() {
+	// A spec with both missing parameters and unused schemas
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+    UnusedSchema:
+      type: object
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// First pass: add missing path parameters
+	pass1, err := fixer.FixWithOptions(
+		fixer.WithParsed(*parseResult),
+		fixer.WithEnabledFixes(fixer.FixTypeMissingPathParameter),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Second pass: prune unused schemas
+	// pass1 is already a fresh copy we own, so use MutableInput to skip another copy
+	pass2, err := fixer.FixWithOptions(
+		fixer.WithParsed(*pass1.ToParseResult()),
+		fixer.WithMutableInput(true), // Skip copy - we own pass1's document
+		fixer.WithEnabledFixes(fixer.FixTypePrunedUnusedSchema),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Pass 1: %d fix(es), Pass 2: %d fix(es)\n", pass1.FixCount, pass2.FixCount)
+
+	// Output:
+	// Pass 1: 1 fix(es), Pass 2: 1 fix(es)
+}
