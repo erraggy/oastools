@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -50,9 +51,9 @@ func (r *SchemaRewriter) RewriteDocument(doc any) error {
 // schemaRefPath returns the $ref path for a schema name based on OAS version
 func schemaRefPath(name string, version parser.OASVersion) string {
 	if version == parser.OASVersion20 {
-		return "#/definitions/" + name
+		return pathutil.DefinitionRef(name)
 	}
-	return "#/components/schemas/" + name
+	return pathutil.SchemaRef(name)
 }
 
 // rewriteOAS3Document rewrites all references in an OAS 3.x document
@@ -402,12 +403,12 @@ func (r *SchemaRewriter) rewriteOperation(op *parser.Operation) {
 // extractSchemaName extracts the schema name from a $ref path
 func extractSchemaName(ref string) string {
 	// Handle "#/components/schemas/Name"
-	if strings.HasPrefix(ref, "#/components/schemas/") {
-		return strings.TrimPrefix(ref, "#/components/schemas/")
+	if name, found := strings.CutPrefix(ref, pathutil.RefPrefixSchemas); found {
+		return name
 	}
 	// Handle "#/definitions/Name"
-	if strings.HasPrefix(ref, "#/definitions/") {
-		return strings.TrimPrefix(ref, "#/definitions/")
+	if name, found := strings.CutPrefix(ref, pathutil.RefPrefixDefinitions); found {
+		return name
 	}
 	return ""
 }
