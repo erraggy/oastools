@@ -508,6 +508,35 @@ for _, fix := range result.Fixes {
 }
 ```
 
+**Mutable Input (Skip Defensive Copy):**
+
+By default, `FixWithOptions` deep-copies the parsed document to avoid mutating the caller's data. When you own the input and don't need it afterward, use `WithMutableInput(true)` to skip the copy and fix in place:
+
+```go
+// Caller owns the document and doesn't need the original
+result, err := fixer.FixWithOptions(
+    fixer.WithParsed(*parseResult),
+    fixer.WithMutableInput(true), // Skip defensive copy
+)
+```
+
+This is especially useful when chaining fixer passes, since each intermediate result is a fresh document you already own:
+
+```go
+// First pass produces a new document
+pass1, _ := fixer.FixWithOptions(
+    fixer.WithFilePath("openapi.yaml"),
+    fixer.WithEnabledFixes(fixer.FixTypeMissingPathParameter),
+)
+
+// Second pass can mutate pass1's document directly
+pass2, _ := fixer.FixWithOptions(
+    fixer.WithParsed(*pass1.ToParseResult()),
+    fixer.WithMutableInput(true), // Safe - we own pass1's document
+    fixer.WithEnabledFixes(fixer.FixTypeRenamedGenericSchema),
+)
+```
+
 ### HTTP Validator Package
 
 The httpvalidator package validates HTTP requests and responses against OpenAPI specifications at runtime, enabling API gateways, middleware, and testing frameworks to enforce API contracts.
@@ -1813,6 +1842,8 @@ joinResult, _ := j.JoinParsed([]parser.ParseResult{
     otherSpec,
 })
 ```
+
+> **Tip:** When chaining multiple fixer passes, use `WithMutableInput(true)` on subsequent passes to skip the defensive copy. Each `ToParseResult()` output is a fresh document you already own, so in-place mutation is safe and avoids unnecessary allocations.
 
 **Overlay to Validator/Converter:**
 

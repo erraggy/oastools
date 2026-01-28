@@ -203,6 +203,7 @@ Configure with `WithGenericNaming()` or `WithGenericNamingConfig()`.
 | `WithGenericNaming(strategy)` | Naming strategy for generic schemas |
 | `WithGenericNamingConfig(cfg)` | Custom naming configuration |
 | `WithDryRun(bool)` | Preview without applying |
+| `WithMutableInput(bool)` | Skip defensive copy when caller owns input |
 
 ### Fixer Fields
 
@@ -212,6 +213,7 @@ Configure with `WithGenericNaming()` or `WithGenericNamingConfig()`.
 | `EnabledFixes` | `[]FixType` | Fix types to apply (empty = all) |
 | `GenericNamingConfig` | `*GenericNamingConfig` | Custom naming rules |
 | `DryRun` | `bool` | Preview mode |
+| `MutableInput` | `bool` | Skip defensive copy |
 
 ### FixResult Fields
 

@@ -152,6 +152,20 @@
 //	# Fix and save
 //	oastools fix api.yaml -o fixed.yaml
 //
+// # Mutable Input
+//
+// By default, the fixer deep-copies the parsed document before applying fixes to
+// avoid mutating the caller's data. When the caller owns the input document and
+// does not need it afterward, use [WithMutableInput](true) to skip the defensive
+// copy and fix in place. This is especially useful when chaining multiple fixer
+// passes, since each intermediate [FixResult.ToParseResult] produces a fresh
+// document the caller already owns.
+//
+//	result, err := fixer.FixWithOptions(
+//	    fixer.WithParsed(*parseResult),
+//	    fixer.WithMutableInput(true), // skip copy — caller owns input
+//	)
+//
 // # Chaining with Other Packages
 //
 // Use [FixResult.ToParseResult] to convert the fix result for use with other packages:
