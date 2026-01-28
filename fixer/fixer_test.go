@@ -417,3 +417,233 @@ paths:
 	// Verify fix was applied (missing userId parameter)
 	assert.True(t, result.HasFixes())
 }
+
+// TestWithMutableInput tests the WithMutableInput option
+func TestWithMutableInput(t *testing.T) {
+	cfg := &fixConfig{}
+	opt := WithMutableInput(true)
+	err := opt(cfg)
+
+	require.NoError(t, err)
+	assert.True(t, cfg.mutableInput)
+
+	// Test false value
+	cfg2 := &fixConfig{}
+	opt2 := WithMutableInput(false)
+	err2 := opt2(cfg2)
+
+	require.NoError(t, err2)
+	assert.False(t, cfg2.mutableInput)
+}
+
+// TestMutableInput_OAS3_MutatesOriginal verifies that WithMutableInput(true)
+// mutates the original document instead of copying
+func TestMutableInput_OAS3_MutatesOriginal(t *testing.T) {
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	// Get the original document
+	originalDoc, ok := parseResult.OAS3Document()
+	require.True(t, ok)
+
+	// Verify no parameters initially
+	pathItem := originalDoc.Paths["/users/{userId}"]
+	require.NotNil(t, pathItem)
+	require.NotNil(t, pathItem.Get)
+	originalParamCount := len(pathItem.Get.Parameters)
+
+	// Fix with mutable input
+	result, err := FixWithOptions(
+		WithParsed(*parseResult),
+		WithMutableInput(true),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.HasFixes())
+
+	// Verify the original document was mutated
+	assert.Greater(t, len(pathItem.Get.Parameters), originalParamCount,
+		"Original document should be mutated when MutableInput is true")
+}
+
+// TestMutableInput_OAS3_PreservesOriginal verifies that WithMutableInput(false)
+// (the default) does not mutate the original document
+func TestMutableInput_OAS3_PreservesOriginal(t *testing.T) {
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	// Get the original document
+	originalDoc, ok := parseResult.OAS3Document()
+	require.True(t, ok)
+
+	// Verify no parameters initially
+	pathItem := originalDoc.Paths["/users/{userId}"]
+	require.NotNil(t, pathItem)
+	require.NotNil(t, pathItem.Get)
+	originalParamCount := len(pathItem.Get.Parameters)
+
+	// Fix WITHOUT mutable input (default behavior)
+	result, err := FixWithOptions(
+		WithParsed(*parseResult),
+		WithMutableInput(false),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.HasFixes())
+
+	// Verify the original document was NOT mutated
+	assert.Equal(t, originalParamCount, len(pathItem.Get.Parameters),
+		"Original document should NOT be mutated when MutableInput is false")
+}
+
+// TestMutableInput_OAS2_MutatesOriginal verifies that WithMutableInput(true)
+// mutates the original OAS 2.0 document
+func TestMutableInput_OAS2_MutatesOriginal(t *testing.T) {
+	spec := `
+swagger: "2.0"
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /pets/{petId}:
+    get:
+      operationId: getPet
+      responses:
+        '200':
+          description: Success
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	// Get the original document
+	originalDoc, ok := parseResult.OAS2Document()
+	require.True(t, ok)
+
+	// Verify no parameters initially
+	pathItem := originalDoc.Paths["/pets/{petId}"]
+	require.NotNil(t, pathItem)
+	require.NotNil(t, pathItem.Get)
+	originalParamCount := len(pathItem.Get.Parameters)
+
+	// Fix with mutable input
+	result, err := FixWithOptions(
+		WithParsed(*parseResult),
+		WithMutableInput(true),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.HasFixes())
+
+	// Verify the original document was mutated
+	assert.Greater(t, len(pathItem.Get.Parameters), originalParamCount,
+		"Original OAS2 document should be mutated when MutableInput is true")
+}
+
+// TestMutableInput_DefaultIsFalse verifies that the default behavior
+// is to NOT mutate the input (defensive copy)
+func TestMutableInput_DefaultIsFalse(t *testing.T) {
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	// Get the original document
+	originalDoc, ok := parseResult.OAS3Document()
+	require.True(t, ok)
+
+	// Verify no parameters initially
+	pathItem := originalDoc.Paths["/users/{userId}"]
+	require.NotNil(t, pathItem)
+	require.NotNil(t, pathItem.Get)
+	originalParamCount := len(pathItem.Get.Parameters)
+
+	// Fix WITHOUT specifying mutable input (should default to false)
+	result, err := FixWithOptions(
+		WithParsed(*parseResult),
+	)
+	require.NoError(t, err)
+	assert.True(t, result.HasFixes())
+
+	// Verify the original document was NOT mutated (default behavior)
+	assert.Equal(t, originalParamCount, len(pathItem.Get.Parameters),
+		"Original document should NOT be mutated by default")
+}
+
+// TestFixer_MutableInput_DirectAPI tests using the MutableInput field
+// directly on the Fixer struct
+func TestFixer_MutableInput_DirectAPI(t *testing.T) {
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      responses:
+        '200':
+          description: Success
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	// Get the original document
+	originalDoc, ok := parseResult.OAS3Document()
+	require.True(t, ok)
+
+	pathItem := originalDoc.Paths["/users/{userId}"]
+	require.NotNil(t, pathItem)
+	originalParamCount := len(pathItem.Get.Parameters)
+
+	// Use direct Fixer API with MutableInput
+	f := New()
+	f.MutableInput = true
+
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+	assert.True(t, result.HasFixes())
+
+	// Verify the original document was mutated
+	assert.Greater(t, len(pathItem.Get.Parameters), originalParamCount,
+		"Original document should be mutated when Fixer.MutableInput is true")
+}

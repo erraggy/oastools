@@ -17,10 +17,17 @@ func (f *Fixer) fixOAS2(parseResult parser.ParseResult, result *FixResult) (*Fix
 		return nil, fmt.Errorf("fixer: expected *parser.OAS2Document, got %T", parseResult.Document)
 	}
 
-	// Deep copy the document to avoid mutating the original
-	doc, err := deepCopyOAS2Document(srcDoc)
-	if err != nil {
-		return nil, fmt.Errorf("fixer: failed to copy document: %w", err)
+	var doc *parser.OAS2Document
+	if f.MutableInput {
+		// Caller owns the document, mutate directly
+		doc = srcDoc
+	} else {
+		// Deep copy the document to avoid mutating the original
+		var err error
+		doc, err = deepCopyOAS2Document(srcDoc)
+		if err != nil {
+			return nil, fmt.Errorf("fixer: failed to copy document: %w", err)
+		}
 	}
 
 	// Apply fixes using shared pipeline
