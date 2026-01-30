@@ -2,7 +2,7 @@
 
 **White Paper**
 
-**Current as of:** v1.46.2<br>
+**Current as of:** v1.48.1<br>
 **Repository:** [github.com/erraggy/oastools](https://github.com/erraggy/oastools)<br>
 **Documentation:** [pkg.go.dev/github.com/erraggy/oastools](https://pkg.go.dev/github.com/erraggy/oastools)<br>
 **License:** MIT
@@ -270,7 +270,42 @@ Configurable limits protect against resource exhaustion attacks.
 | `MaxCachedDocuments` | 100 | Maximum external documents to cache |
 | `MaxFileSize` | 10MB | Maximum file size for external references |
 
-### 4.4 API Usage
+### 4.4 JSON Fast-Path (v1.47.0+)
+
+When parsing JSON input, the parser automatically uses an optimized fast-path that bypasses YAML AST overhead. This provides dramatic performance improvements for JSON specifications.
+
+**Automatic Triggering Conditions:**
+
+The fast-path activates when all conditions are met:
+- Input is detected as JSON format
+- Source map building is disabled (`WithSourceMap(false)`)
+- Order preservation is disabled (`WithPreserveOrder(false)`)
+
+**Performance Improvements:**
+
+| Metric | Standard Path | JSON Fast-Path | Improvement |
+|--------|---------------|----------------|-------------|
+| Parse time (large specs) | ~2.5s | ~0.3s | ~88% reduction |
+| Memory allocation | ~750MB | ~50MB | ~93% reduction |
+
+**Why This Matters:**
+
+The yaml.v4 library builds a complete Abstract Syntax Tree with comprehensive token tracking. While necessary for YAML features (anchors, aliases, multiline strings), this is wasteful for JSON input where `encoding/json` is more efficient.
+
+```go
+// Automatically uses fast-path (JSON input, no source map)
+result, err := parser.ParseWithOptions(
+    parser.WithBytes(jsonData),
+)
+
+// Bypasses fast-path (source map requires YAML AST tracking)
+result, err := parser.ParseWithOptions(
+    parser.WithBytes(jsonData),
+    parser.WithSourceMap(true),
+)
+```
+
+### 4.5 API Usage
 
 **Functional Options Pattern:**
 
@@ -297,7 +332,7 @@ result1, _ := p.Parse("api1.yaml")
 result2, _ := p.Parse("api2.yaml")
 ```
 
-### 4.5 ParseResult Structure
+### 4.6 ParseResult Structure
 
 The `ParseResult` type contains all parsed information.
 
@@ -321,7 +356,7 @@ type ParseResult struct {
 }
 ```
 
-### 4.6 Type-Safe Cloning
+### 4.7 Type-Safe Cloning
 
 All parser types include generated `DeepCopy()` methods for safe mutation.
 
@@ -334,7 +369,7 @@ copy.Info.Title = "Modified API"
 
 Unlike JSON marshal/unmarshal approaches, `DeepCopy()` preserves type information for polymorphic fields like `Schema.Type` (which may be `string` or `[]string` in [OAS 3.1+](https://spec.openapis.org/oas/v3.1.0.html)), version-specific semantics such as `ExclusiveMinimum` representation, and all `x-*` extension fields.
 
-### 4.7 DocumentAccessor Interface
+### 4.8 DocumentAccessor Interface
 
 The `DocumentAccessor` interface provides version-agnostic access to common document fields across [OAS 2.0](https://spec.openapis.org/oas/v2.0.html) and [OAS 3.x](https://spec.openapis.org/oas/v3.0.0.html) documents, eliminating the need for version-specific type switches.
 
@@ -568,6 +603,34 @@ The fixer detects duplicate `operationId` values and automatically generates uni
 
 Enum values specified as comma-separated strings are automatically expanded to proper typed arrays.
 
+### 6.8 Mutable Input Mode (v1.48.0+)
+
+For performance-critical scenarios, `WithMutableInput(true)` skips the defensive deep copy of the input document. This is particularly useful when chaining multiple fix passes.
+
+**When to Use:**
+- Chaining multiple fixer passes (the first pass already creates a fresh copy)
+- Memory efficiency is critical for large specifications
+- You've already copied the document for your own mutations
+
+**Warning:** When enabled, the input document will be mutated directly. Do not use the original document after calling `FixWithOptions`.
+
+```go
+// First pass: creates a defensive copy (default behavior)
+pass1, _ := fixer.FixWithOptions(
+    fixer.WithParsed(*parseResult),
+    fixer.WithEnabledFixes(fixer.FixTypeMissingPathParameter),
+)
+
+// Second pass: skip copy since we already own pass1's document
+pass2, _ := fixer.FixWithOptions(
+    fixer.WithParsed(*pass1.ToParseResult()),
+    fixer.WithMutableInput(true),  // Skip defensive copy
+    fixer.WithEnabledFixes(fixer.FixTypePrunedUnusedSchema),
+)
+```
+
+**Performance:** Typical memory savings of 10-30% for large specifications during fix operations.
+
 ---
 
 ## 7. Converter Package
@@ -755,6 +818,63 @@ fmt.Printf("Joined %d documents into %d paths\n",
 ### 8.8 Source Name Warnings
 
 Collision messages now include source file names for easier debugging when joining multiple specs.
+
+### 8.9 Collision Handler Callbacks (v1.47.0+)
+
+For advanced use cases, custom collision handlers enable programmatic control over collision resolution. Handlers receive full context about each collision and can return custom resolution actions.
+
+**Collision Context:**
+
+```go
+type CollisionContext struct {
+    Type               CollisionType    // schema, path, webhook, etc.
+    Name               string           // The colliding name (e.g., "User")
+    JSONPath           string           // Full path (e.g., "$.components.schemas.User")
+    LeftSource         string           // Source file for left document
+    LeftValue          any              // The left component (*parser.Schema, etc.)
+    RightSource        string           // Source file for right document
+    RightValue         any              // The right component
+    ConfiguredStrategy CollisionStrategy // Default strategy that would apply
+}
+```
+
+**Resolution Actions:**
+
+| Action | Behavior |
+|--------|----------|
+| `ResolutionContinue` | Defer to configured strategy (observe-only) |
+| `ResolutionAcceptLeft` | Keep the left (base) value |
+| `ResolutionAcceptRight` | Keep the right (incoming) value |
+| `ResolutionRename` | Rename the right value (schemas only) |
+| `ResolutionDeduplicate` | Treat colliding values as equivalent |
+| `ResolutionFail` | Abort the join with an error |
+| `ResolutionCustom` | Use a caller-provided merged value |
+
+**Usage Pattern:**
+
+```go
+result, err := joiner.JoinWithOptions(
+    joiner.WithFilePaths("base.yaml", "overlay.yaml"),
+    joiner.WithCollisionHandler(func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
+        // Log all collisions for auditing
+        log.Printf("Collision: %s %s", collision.Type, collision.Name)
+
+        // Custom logic for schema collisions
+        if collision.Type == joiner.CollisionTypeSchema {
+            merged := customMergeLogic(collision.LeftValue, collision.RightValue)
+            return joiner.UseCustomValue(merged), nil
+        }
+
+        // Defer to strategy for other types
+        return joiner.ContinueWithStrategy(), nil
+    }),
+)
+```
+
+**Use Cases:**
+- Semantic schema deduplication with custom logic
+- Collision detection and auditing pipelines
+- Domain-specific resolution (e.g., API versioning strategies)
 
 ---
 
@@ -1699,6 +1819,41 @@ The parser and generator packages use `sync.Pool` to reduce GC pressure:
 - 7 planned pools were cut (YAGNI) due to use-after-put risks
 
 Capacity decisions are data-driven from corpus analysis of 10 real-world OpenAPI specs (19,147 operations, 360,577 schemas).
+
+### 16.7 JSON Fast-Path (v1.47.0)
+
+The parser now automatically uses an optimized path for JSON input that bypasses YAML AST overhead.
+
+| Metric | Standard Path | JSON Fast-Path | Improvement |
+|--------|---------------|----------------|-------------|
+| Parse time (large specs) | ~2.5s | ~0.3s | ~88% reduction |
+| Memory allocation | ~750MB | ~50MB | ~93% reduction |
+
+The fast-path activates automatically when:
+- Input is detected as JSON format
+- Source map building is disabled
+- Order preservation is disabled
+
+### 16.8 PathBuilder Optimization (v1.48.0-v1.48.1)
+
+A new internal `pathutil` package provides efficient incremental path building using push/pop semantics, eliminating allocations during recursive document traversal.
+
+| Operation | fmt.Sprintf | PathBuilder | Improvement |
+|-----------|-------------|-------------|-------------|
+| Deep path building | ~1-2μs | ~200-300ns | ~6-8x faster |
+| Path without String() | ~200-300ns | ~20-50ns | ~4-10x faster |
+| SchemaRef building | ~30-50ns | ~5-10ns | ~5x faster |
+
+The v1.48.1 release migrated the validator, fixer, builder, and joiner packages to use `pathutil` for all internal ref string building, reducing hot path allocations by ~5-15%.
+
+### 16.9 Mutable Input Mode (v1.48.0)
+
+The fixer's `WithMutableInput(true)` option eliminates defensive copying when chaining multiple fix passes:
+
+| Scenario | Standard | WithMutableInput | Improvement |
+|----------|----------|------------------|-------------|
+| Chained fix passes | 2× copy | 1× copy | 50% memory |
+| Large spec fixes | Baseline | 10-30% less memory | Significant |
 
 ---
 
