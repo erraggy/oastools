@@ -270,23 +270,23 @@ Configurable limits protect against resource exhaustion attacks.
 | `MaxCachedDocuments` | 100 | Maximum external documents to cache |
 | `MaxFileSize` | 10MB | Maximum file size for external references |
 
-### 4.4 JSON Fast-Path (v1.47.0+)
+### 4.4 ⚡ JSON Fast-Path (v1.47.0+)
 
 When parsing JSON input, the parser automatically uses an optimized fast-path that bypasses YAML AST overhead. This provides dramatic performance improvements for JSON specifications.
 
 **Automatic Triggering Conditions:**
 
 The fast-path activates when all conditions are met:
-- Input is detected as JSON format
-- Source map building is disabled (`WithSourceMap(false)`)
-- Order preservation is disabled (`WithPreserveOrder(false)`)
+- ✅ Input is detected as JSON format
+- ✅ Source map building is disabled (`WithSourceMap(false)`)
+- ✅ Order preservation is disabled (`WithPreserveOrder(false)`)
 
 **Performance Improvements:**
 
-| Metric | Standard Path | JSON Fast-Path | Improvement |
-|--------|---------------|----------------|-------------|
-| Parse time (large specs) | ~2.5s | ~0.3s | ~88% reduction |
-| Memory allocation | ~750MB | ~50MB | ~93% reduction |
+| Metric                   | Standard Path | JSON Fast-Path | Improvement    |
+|--------------------------|---------------|----------------|----------------|
+| Parse time (large specs) | ~2.5s         | ~0.3s          | ~88% reduction |
+| Memory allocation        | ~750MB        | ~50MB          | ~93% reduction |
 
 **Why This Matters:**
 
@@ -603,16 +603,16 @@ The fixer detects duplicate `operationId` values and automatically generates uni
 
 Enum values specified as comma-separated strings are automatically expanded to proper typed arrays.
 
-### 6.8 Mutable Input Mode (v1.48.0+)
+### 6.8 ⚠️ Mutable Input Mode (v1.48.0+)
 
 For performance-critical scenarios, `WithMutableInput(true)` skips the defensive deep copy of the input document. This is particularly useful when chaining multiple fix passes.
 
 **When to Use:**
-- Chaining multiple fixer passes (the first pass already creates a fresh copy)
-- Memory efficiency is critical for large specifications
-- You've already copied the document for your own mutations
+- ✅ Chaining multiple fixer passes (the first pass already creates a fresh copy)
+- ✅ Memory efficiency is critical for large specifications
+- ✅ You've already copied the document for your own mutations
 
-**Warning:** When enabled, the input document will be mutated directly. Do not use the original document after calling `FixWithOptions`.
+**Warning:** ⚠️ When enabled, the input document will be mutated directly. Do not use the original document after calling `FixWithOptions`.
 
 ```go
 // First pass: creates a defensive copy (default behavior)
@@ -819,7 +819,7 @@ fmt.Printf("Joined %d documents into %d paths\n",
 
 Collision messages now include source file names for easier debugging when joining multiple specs.
 
-### 8.9 Collision Handler Callbacks (v1.47.0+)
+### 8.9 🔧 Collision Handler Callbacks (v1.47.0+)
 
 For advanced use cases, custom collision handlers enable programmatic control over collision resolution. Handlers receive full context about each collision and can return custom resolution actions.
 
@@ -840,15 +840,15 @@ type CollisionContext struct {
 
 **Resolution Actions:**
 
-| Action | Behavior |
-|--------|----------|
-| `ResolutionContinue` | Defer to configured strategy (observe-only) |
-| `ResolutionAcceptLeft` | Keep the left (base) value |
-| `ResolutionAcceptRight` | Keep the right (incoming) value |
-| `ResolutionRename` | Rename the right value (schemas only) |
-| `ResolutionDeduplicate` | Treat colliding values as equivalent |
-| `ResolutionFail` | Abort the join with an error |
-| `ResolutionCustom` | Use a caller-provided merged value |
+| Action                   | Behavior                                    |
+|--------------------------|---------------------------------------------|
+| `ResolutionContinue`     | Defer to configured strategy (observe-only) |
+| `ResolutionAcceptLeft`   | Keep the left (base) value                  |
+| `ResolutionAcceptRight`  | Keep the right (incoming) value             |
+| `ResolutionRename`       | Rename the right value (schemas only)       |
+| `ResolutionDeduplicate`  | Treat colliding values as equivalent        |
+| `ResolutionFail`         | Abort the join with an error                |
+| `ResolutionCustom`       | Use a caller-provided merged value          |
 
 **Usage Pattern:**
 
@@ -1820,40 +1820,40 @@ The parser and generator packages use `sync.Pool` to reduce GC pressure:
 
 Capacity decisions are data-driven from corpus analysis of 10 real-world OpenAPI specs (19,147 operations, 360,577 schemas).
 
-### 16.7 JSON Fast-Path (v1.47.0)
+### 16.7 ⚡ JSON Fast-Path (v1.47.0)
 
 The parser now automatically uses an optimized path for JSON input that bypasses YAML AST overhead.
 
-| Metric | Standard Path | JSON Fast-Path | Improvement |
-|--------|---------------|----------------|-------------|
-| Parse time (large specs) | ~2.5s | ~0.3s | ~88% reduction |
-| Memory allocation | ~750MB | ~50MB | ~93% reduction |
+| Metric                   | Standard Path | JSON Fast-Path | Improvement    |
+|--------------------------|---------------|----------------|----------------|
+| Parse time (large specs) | ~2.5s         | ~0.3s          | ~88% reduction |
+| Memory allocation        | ~750MB        | ~50MB          | ~93% reduction |
 
 The fast-path activates automatically when:
-- Input is detected as JSON format
-- Source map building is disabled
-- Order preservation is disabled
+- ✅ Input is detected as JSON format
+- ✅ Source map building is disabled
+- ✅ Order preservation is disabled
 
-### 16.8 PathBuilder Optimization (v1.48.0-v1.48.1)
+### 16.8 🚀 PathBuilder Optimization (v1.48.0-v1.48.1)
 
 A new internal `pathutil` package provides efficient incremental path building using push/pop semantics, eliminating allocations during recursive document traversal.
 
-| Operation | fmt.Sprintf | PathBuilder | Improvement |
-|-----------|-------------|-------------|-------------|
-| Deep path building | ~1-2μs | ~200-300ns | ~6-8x faster |
-| Path without String() | ~200-300ns | ~20-50ns | ~4-10x faster |
-| SchemaRef building | ~30-50ns | ~5-10ns | ~5x faster |
+| Operation              | fmt.Sprintf | PathBuilder | Improvement    |
+|------------------------|-------------|-------------|----------------|
+| Deep path building     | ~1-2μs      | ~200-300ns  | ~6-8x faster   |
+| Path without String()  | ~200-300ns  | ~20-50ns    | ~4-10x faster  |
+| SchemaRef building     | ~30-50ns    | ~5-10ns     | ~5x faster     |
 
 The v1.48.1 release migrated the validator, fixer, builder, and joiner packages to use `pathutil` for all internal ref string building, reducing hot path allocations by ~5-15%.
 
-### 16.9 Mutable Input Mode (v1.48.0)
+### 16.9 ⚠️ Mutable Input Mode (v1.48.0)
 
 The fixer's `WithMutableInput(true)` option eliminates defensive copying when chaining multiple fix passes:
 
-| Scenario | Standard | WithMutableInput | Improvement |
-|----------|----------|------------------|-------------|
-| Chained fix passes | 2× copy | 1× copy | 50% memory |
-| Large spec fixes | Baseline | 10-30% less memory | Significant |
+| Scenario           | Standard | WithMutableInput   | Improvement  |
+|--------------------|----------|--------------------|--------------|
+| Chained fix passes | 2× copy  | 1× copy            | 50% memory   |
+| Large spec fixes   | Baseline | 10-30% less memory | Significant  |
 
 ---
 
