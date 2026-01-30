@@ -7,6 +7,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/format-go.sh \"${file_path}\""
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/vet-go.sh \"${file_path}\""
           }
         ]
       }
@@ -68,6 +72,7 @@
       "Bash(.claude/hooks/check-branch.sh :*)",
       "Bash(.claude/hooks/block-release-create.sh :*)",
       "Bash(.claude/hooks/format-go.sh :*)",
+      "Bash(.claude/hooks/vet-go.sh :*)",
       "Bash(.claude/scripts/publish-release.sh :*)",
       "mcp__gopls-mcp__go_workspace",
       "mcp__gopls-mcp__go_diagnostics",
