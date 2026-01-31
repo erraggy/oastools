@@ -43,7 +43,7 @@ We verified fixer accuracy by examining actual spec content:
 
 New package under `integration/` to test cross-package workflows.
 
-```
+```text
 integration/
 ├── corpus/
 │   ├── doc.go
@@ -157,8 +157,10 @@ func findOperationsWithUniqueSchemas(doc *parser.OAS3Document) []OperationTarget
 Execute via `developer` agent with `go_diagnostics` after each file write.
 
 ### Phase 1: Package Setup
+
 **Agent**: `developer`
-```
+
+```text
 Create integration/corpus/ package:
 1. Create integration/corpus/doc.go with package documentation
 2. Create integration/corpus/helpers_test.go with shared utilities:
@@ -169,8 +171,10 @@ Create integration/corpus/ package:
 ```
 
 ### Phase 2: Baseline Fixer Tests
+
 **Agent**: `developer`
-```
+
+```text
 Create integration/corpus/fixer_baseline_test.go:
 
 func TestCorpus_FixerBaseline_Plaid(t *testing.T)
@@ -188,8 +192,10 @@ Run: go test -v -run TestCorpus_FixerBaseline ./integration/corpus/...
 ```
 
 ### Phase 3: Fixer → Differ Chain
+
 **Agent**: `developer`
-```
+
+```text
 Create integration/corpus/fixer_differ_test.go:
 
 func TestCorpus_FixerDiffer_Plaid(t *testing.T)
@@ -207,8 +213,10 @@ Run: go test -v -run TestCorpus_FixerDiffer ./integration/corpus/...
 ```
 
 ### Phase 4: Overlay → Fixer Chain
+
 **Agent**: `developer`
-```
+
+```text
 Create integration/corpus/overlay_fixer_test.go:
 
 func TestCorpus_OverlayFixer_RemoveOperation(t *testing.T)
@@ -222,8 +230,10 @@ Use JSONPath like: $.paths['/elevation/json'].get with remove: true
 ```
 
 ### Phase 5: Full Pipeline
+
 **Agent**: `developer`
-```
+
+```text
 Create integration/corpus/full_pipeline_test.go:
 
 func TestCorpus_FullPipeline_OverlayFixerDiffer(t *testing.T)
@@ -237,8 +247,10 @@ func TestCorpus_FullPipeline_OverlayFixerDiffer(t *testing.T)
 ```
 
 ### Phase 6: Review & Cleanup
+
 **Agent**: `maintainer`
-```
+
+```text
 Review all new test files for:
 - Proper error handling
 - Consistent test patterns

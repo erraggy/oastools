@@ -1,3 +1,5 @@
+//go:build integration
+
 package corpus
 
 import (
@@ -6,6 +8,7 @@ import (
 	"github.com/erraggy/oastools/fixer"
 	"github.com/erraggy/oastools/internal/corpusutil"
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,10 +30,9 @@ func parseCorpusSpec(t *testing.T, name string) *parser.ParseResult {
 func assertFixCount(t *testing.T, result *fixer.FixResult, expected, tolerance int) {
 	t.Helper()
 	diff := abs(result.FixCount - expected)
-	if diff > tolerance {
-		t.Errorf("Fix count %d not within %d of expected %d",
-			result.FixCount, tolerance, expected)
-	}
+	assert.LessOrEqual(t, diff, tolerance,
+		"Fix count %d not within %d of expected %d",
+		result.FixCount, tolerance, expected)
 }
 
 // countFixesByType counts fixes of a specific type.

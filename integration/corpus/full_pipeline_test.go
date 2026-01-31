@@ -1,3 +1,5 @@
+//go:build integration
+
 package corpus
 
 import (
@@ -116,6 +118,7 @@ func TestCorpus_FullPipeline_CleanSpecNoChanges(t *testing.T) {
 		overlay.WithOverlayParsed(o),
 	)
 	require.NoError(t, err)
+	require.Equal(t, 1, applyResult.ActionsApplied, "Expected 1 overlay action applied")
 
 	reparsed, err := overlay.ReparseDocument(original, applyResult.Document)
 	require.NoError(t, err)
@@ -170,6 +173,7 @@ func TestCorpus_FullPipeline_MultipleOverlayActions(t *testing.T) {
 		overlay.WithOverlayParsed(o),
 	)
 	require.NoError(t, err)
+	require.Equal(t, 3, applyResult.ActionsApplied, "Expected 3 overlay actions applied")
 
 	t.Logf("Applied %d overlay actions", applyResult.ActionsApplied)
 

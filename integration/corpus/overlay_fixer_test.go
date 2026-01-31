@@ -1,3 +1,5 @@
+//go:build integration
+
 package corpus
 
 import (
@@ -84,6 +86,7 @@ func TestCorpus_OverlayFixer_RemovePath(t *testing.T) {
 		overlay.WithOverlayParsed(o),
 	)
 	require.NoError(t, err)
+	require.Greater(t, applyResult.ActionsApplied, 0, "Expected overlay to apply at least 1 action")
 
 	t.Logf("Overlay removed path: %d actions applied", applyResult.ActionsApplied)
 
