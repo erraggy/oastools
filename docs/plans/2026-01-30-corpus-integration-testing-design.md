@@ -15,7 +15,7 @@ Design for comprehensive corpus testing that exercises **overlay**, **fixer**, a
 We explored the corpus to understand what the fixer would fix in real-world specs:
 
 | Spec | Clean | Missing Params | Unused Schemas | Empty Paths |
-|------|-------|----------------|----------------|-------------|
+| ---- | ----- | -------------- | -------------- | ----------- |
 | Petstore | ✅ | - | - | - |
 | Discord | ✅ | - | - | - |
 | Stripe | ✅ | - | - | - |
@@ -135,7 +135,7 @@ func TestCorpus_FullPipeline(t *testing.T)
 ### Primary Test Cases
 
 | Spec | Use Case | Why |
-|------|----------|-----|
+| ---- | -------- | --- |
 | **Plaid** | Baseline pruning | Already has 128 unused schemas + 10 empty paths |
 | **GoogleMaps** | Minimal case | Single unused schema (ElevationResponse) |
 | **Discord** | Negative test | Clean spec, verify no unwanted changes |

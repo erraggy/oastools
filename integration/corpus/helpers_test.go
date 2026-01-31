@@ -23,6 +23,8 @@ func parseCorpusSpec(t *testing.T, name string) *parser.ParseResult {
 		parser.WithFilePath(spec.GetLocalPath()),
 	)
 	require.NoError(t, err, "Failed to parse %s", name)
+	// Note: Some corpus specs have validation errors but can still be parsed.
+	// We don't require result.Errors to be empty since these are real-world specs.
 	return result
 }
 

@@ -68,6 +68,7 @@ func TestCorpus_FixerDiffer_Plaid(t *testing.T) {
 
 	// Verify differ detected at least some of the fixer's changes
 	assert.Greater(t, schemaRemovals, 0, "Differ should detect schema removals")
+	assert.Greater(t, pathRemovals, 0, "Differ should detect path removals")
 }
 
 // TestCorpus_FixerDiffer_NoChanges is a negative test verifying that the
@@ -106,6 +107,7 @@ func TestCorpus_FixerDiffer_NoChanges(t *testing.T) {
 		"No breaking changes expected for clean spec")
 
 	// Filter out any info-level changes (if any)
+	// Note: Using differ package constants which alias the severity package constants
 	breakingChanges := 0
 	for _, change := range diffResult.Changes {
 		if change.Severity == differ.SeverityError || change.Severity == differ.SeverityCritical {

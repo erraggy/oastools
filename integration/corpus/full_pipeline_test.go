@@ -83,7 +83,8 @@ func TestCorpus_FullPipeline_OverlayFixerDiffer(t *testing.T) {
 	pathRemoved := false
 	for _, change := range diffResult.Changes {
 		if strings.Contains(change.Path, "signal") &&
-			strings.Contains(change.Path, "evaluate") {
+			strings.Contains(change.Path, "evaluate") &&
+			change.Type == differ.ChangeTypeRemoved {
 			pathRemoved = true
 			t.Logf("  Found path removal: %s", change.Path)
 			break

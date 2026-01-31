@@ -55,10 +55,12 @@ func TestCorpus_FixerBaseline_GoogleMaps(t *testing.T) {
 	require.NoError(t, err)
 
 	schemaCount := countFixesByType(result, fixer.FixTypePrunedUnusedSchema)
-	t.Logf("GoogleMaps: %d unused schemas removed", schemaCount)
+	pathCount := countFixesByType(result, fixer.FixTypePrunedEmptyPath)
+	t.Logf("GoogleMaps: %d unused schemas removed, %d empty paths removed", schemaCount, pathCount)
 
-	// Expect exactly 1 (ElevationResponse)
+	// Expect exactly 1 schema (ElevationResponse) and 0 empty paths
 	assert.Equal(t, 1, schemaCount, "GoogleMaps should have exactly 1 unused schema")
+	assert.Equal(t, 0, pathCount, "GoogleMaps should have no empty paths")
 }
 
 // TestCorpus_FixerBaseline_CleanSpecs is a negative test for specs that should
