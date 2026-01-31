@@ -587,6 +587,38 @@ func TestExtractExtensions(t *testing.T) {
 		assert.Contains(t, config, "nested")
 		assert.Contains(t, config, "array")
 	})
+
+	// Unicode-escaped extension keys (JSON allows \uXXXX escapes)
+	t.Run("unicode escaped x in key", func(t *testing.T) {
+		// \u0078 = 'x'
+		data := []byte(`{"\u0078-custom": "escaped x"}`)
+		result := ExtractExtensions(data)
+		require.NotNil(t, result)
+		assert.Equal(t, "escaped x", result["x-custom"])
+	})
+
+	t.Run("unicode escaped dash in key", func(t *testing.T) {
+		// \u002d = '-'
+		data := []byte(`{"x\u002dcustom": "escaped dash"}`)
+		result := ExtractExtensions(data)
+		require.NotNil(t, result)
+		assert.Equal(t, "escaped dash", result["x-custom"])
+	})
+
+	t.Run("unicode escaped x and dash in key", func(t *testing.T) {
+		// Both x and dash escaped
+		data := []byte(`{"\u0078\u002dcustom": "both escaped"}`)
+		result := ExtractExtensions(data)
+		require.NotNil(t, result)
+		assert.Equal(t, "both escaped", result["x-custom"])
+	})
+
+	t.Run("unicode escape in value not key", func(t *testing.T) {
+		// Unicode escape appears in value, not as a key - should return nil
+		data := []byte(`{"desc": "\u0078-api-key is required"}`)
+		result := ExtractExtensions(data)
+		assert.Nil(t, result)
+	})
 }
 
 // Integration test: Round-trip through marshal/unmarshal

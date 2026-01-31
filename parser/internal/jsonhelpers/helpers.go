@@ -305,9 +305,8 @@ func SetSchemaConstraints(m map[string]any, c SchemaConstraints) {
 //	}
 func ExtractExtensions(data []byte) map[string]any {
 	// Fast path: skip JSON parsing if no extension pattern found.
-	// The pattern `"x-` (with opening quote) reliably identifies potential
-	// extension keys without false positives from string values like URLs.
-	if !bytes.Contains(data, []byte(`"x-`)) {
+	// Check for both literal and unicode-escaped variants of "x-".
+	if !mayContainExtensionKey(data) {
 		return nil
 	}
 
@@ -327,4 +326,30 @@ func ExtractExtensions(data []byte) map[string]any {
 		}
 	}
 	return extra
+}
+
+// mayContainExtensionKey checks if the JSON data might contain an extension key.
+// It looks for patterns that could represent "x-" in JSON:
+//   - "x-     (literal)
+//   - "\u0078- (escaped x)
+//   - "x\u002d (escaped dash)
+//   - "\u0078\u002d (both escaped)
+//
+// This is a heuristic that may have false positives (e.g., these patterns in
+// string values), but no false negatives. False positives just mean we fall
+// through to the full JSON parse, which still returns correct results.
+func mayContainExtensionKey(data []byte) bool {
+	// Check for literal pattern first (most common case)
+	if bytes.Contains(data, []byte(`"x-`)) {
+		return true
+	}
+	// Check for unicode-escaped 'x' (\u0078)
+	if bytes.Contains(data, []byte(`"\u0078-`)) || bytes.Contains(data, []byte(`"\u0078\u002d`)) {
+		return true
+	}
+	// Check for unicode-escaped dash (\u002d) with literal 'x'
+	if bytes.Contains(data, []byte(`"x\u002d`)) {
+		return true
+	}
+	return false
 }
