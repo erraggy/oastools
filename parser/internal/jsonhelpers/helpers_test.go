@@ -505,6 +505,122 @@ func TestSetIfTrue(t *testing.T) {
 	})
 }
 
+func TestExtractExtensions(t *testing.T) {
+	t.Run("no extensions", func(t *testing.T) {
+		data := []byte(`{"name": "test", "value": 42}`)
+		result := ExtractExtensions(data)
+		assert.Nil(t, result)
+	})
+
+	t.Run("with extensions", func(t *testing.T) {
+		data := []byte(`{"name": "test", "x-custom": "value", "x-count": 10}`)
+		result := ExtractExtensions(data)
+		require.NotNil(t, result)
+		assert.Equal(t, "value", result["x-custom"])
+		assert.Equal(t, float64(10), result["x-count"])
+		assert.Len(t, result, 2)
+	})
+
+	t.Run("only extensions", func(t *testing.T) {
+		data := []byte(`{"x-one": 1, "x-two": "two"}`)
+		result := ExtractExtensions(data)
+		require.NotNil(t, result)
+		assert.Len(t, result, 2)
+	})
+
+	t.Run("empty object", func(t *testing.T) {
+		data := []byte(`{}`)
+		result := ExtractExtensions(data)
+		assert.Nil(t, result)
+	})
+
+	t.Run("invalid JSON", func(t *testing.T) {
+		data := []byte(`{invalid`)
+		result := ExtractExtensions(data)
+		assert.Nil(t, result)
+	})
+
+	// Edge cases for streaming scan optimization
+	t.Run("x- in string value not a key", func(t *testing.T) {
+		// Pattern "x- appears in value, not as a key
+		data := []byte(`{"desc": "Use x-api-key header"}`)
+		result := ExtractExtensions(data)
+		assert.Nil(t, result)
+	})
+
+	t.Run("x- in nested object key", func(t *testing.T) {
+		// Extension is nested, not at top level
+		data := []byte(`{"nested": {"x-custom": true}}`)
+		result := ExtractExtensions(data)
+		assert.Nil(t, result)
+	})
+
+	t.Run("x- in array element", func(t *testing.T) {
+		data := []byte(`{"tags": ["x-custom-tag", "other"]}`)
+		result := ExtractExtensions(data)
+		assert.Nil(t, result)
+	})
+
+	t.Run("mixed extensions and nested x-", func(t *testing.T) {
+		// Top-level extension should be found, nested should be ignored
+		data := []byte(`{"x-top": true, "nested": {"x-nested": false}}`)
+		result := ExtractExtensions(data)
+		require.NotNil(t, result)
+		assert.Equal(t, true, result["x-top"])
+		assert.NotContains(t, result, "x-nested")
+		assert.Len(t, result, 1)
+	})
+
+	t.Run("minimum extension name x-", func(t *testing.T) {
+		data := []byte(`{"x-": "empty extension name"}`)
+		result := ExtractExtensions(data)
+		require.NotNil(t, result)
+		assert.Equal(t, "empty extension name", result["x-"])
+	})
+
+	t.Run("complex extension value", func(t *testing.T) {
+		data := []byte(`{"x-config": {"nested": {"deep": true}, "array": [1, 2, 3]}}`)
+		result := ExtractExtensions(data)
+		require.NotNil(t, result)
+		config, ok := result["x-config"].(map[string]any)
+		require.True(t, ok)
+		assert.Contains(t, config, "nested")
+		assert.Contains(t, config, "array")
+	})
+
+	// Unicode-escaped extension keys (JSON allows \uXXXX escapes)
+	t.Run("unicode escaped x in key", func(t *testing.T) {
+		// \u0078 = 'x'
+		data := []byte(`{"\u0078-custom": "escaped x"}`)
+		result := ExtractExtensions(data)
+		require.NotNil(t, result)
+		assert.Equal(t, "escaped x", result["x-custom"])
+	})
+
+	t.Run("unicode escaped dash in key", func(t *testing.T) {
+		// \u002d = '-'
+		data := []byte(`{"x\u002dcustom": "escaped dash"}`)
+		result := ExtractExtensions(data)
+		require.NotNil(t, result)
+		assert.Equal(t, "escaped dash", result["x-custom"])
+	})
+
+	t.Run("unicode escaped x and dash in key", func(t *testing.T) {
+		// Both x and dash escaped
+		data := []byte(`{"\u0078\u002dcustom": "both escaped"}`)
+		result := ExtractExtensions(data)
+		require.NotNil(t, result)
+		assert.Equal(t, "both escaped", result["x-custom"])
+	})
+
+	t.Run("unicode escape in value not key", func(t *testing.T) {
+		// Unicode escape appears in value, not as a key - should return nil
+		data := []byte(`{"desc": "\u0078-api-key is required"}`)
+		result := ExtractExtensions(data)
+		assert.Nil(t, result)
+	})
+}
+
 // Integration test: Round-trip through marshal/unmarshal
 func TestMarshalUnmarshalRoundTrip(t *testing.T) {
 	type TestStruct struct {
@@ -550,4 +666,69 @@ func TestMarshalUnmarshalRoundTrip(t *testing.T) {
 	// Note: Extra values that were ints become float64 after JSON round-trip
 	assert.Equal(t, "value", result.Extra["x-custom"])
 	assert.Equal(t, float64(10), result.Extra["x-count"])
+}
+
+// Benchmarks for ExtractExtensions
+// These demonstrate the performance benefit of the streaming scan optimization.
+
+// BenchmarkExtractExtensions_NoExtensions benchmarks the common case where
+// objects have no extensions. The streaming scan optimization should make
+// this significantly faster by avoiding JSON parsing entirely.
+func BenchmarkExtractExtensions_NoExtensions(b *testing.B) {
+	// Typical OpenAPI Operation object without extensions
+	data := []byte(`{
+		"operationId": "createPaymentIntent",
+		"summary": "Creates a PaymentIntent object",
+		"description": "After the PaymentIntent is created, attach a payment method.",
+		"tags": ["Payment Intents"],
+		"parameters": [
+			{"name": "amount", "in": "body", "required": true},
+			{"name": "currency", "in": "body", "required": true}
+		],
+		"responses": {
+			"200": {"description": "Returns the PaymentIntent object"},
+			"400": {"description": "Bad Request"}
+		}
+	}`)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ExtractExtensions(data)
+	}
+}
+
+// BenchmarkExtractExtensions_WithExtensions benchmarks objects that have
+// extensions. The streaming scan detects the pattern and falls through to
+// full JSON parsing, so performance should be similar to the old implementation.
+func BenchmarkExtractExtensions_WithExtensions(b *testing.B) {
+	data := []byte(`{
+		"operationId": "createPaymentIntent",
+		"summary": "Creates a PaymentIntent object",
+		"x-stripe-resource": "payment_intent",
+		"x-expandable-fields": ["customer", "invoice"],
+		"x-rate-limit": 100,
+		"parameters": [{"name": "amount", "in": "body"}],
+		"responses": {"200": {"description": "Success"}}
+	}`)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ExtractExtensions(data)
+	}
+}
+
+// BenchmarkExtractExtensions_FalsePositive benchmarks the edge case where
+// "x- appears in a string value (not as a key). The streaming scan will
+// trigger a full parse, but still return nil extensions correctly.
+func BenchmarkExtractExtensions_FalsePositive(b *testing.B) {
+	data := []byte(`{
+		"operationId": "getUsers",
+		"description": "Use the x-api-key header for authentication",
+		"responses": {"200": {"description": "Success"}}
+	}`)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ExtractExtensions(data)
+	}
 }
