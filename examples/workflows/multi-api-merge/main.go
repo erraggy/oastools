@@ -34,11 +34,11 @@ func main() {
 	// Step 1: Configure the joiner
 	fmt.Println("[1/4] Configuration:")
 	config := joiner.DefaultConfig()
-	config.PathStrategy = joiner.StrategyFailOnPaths        // Fail on path conflicts
-	config.SchemaStrategy = joiner.StrategyAcceptLeft       // Keep first schema on collision
-	config.SemanticDeduplication = true                     // Merge identical schemas
-	config.DeduplicateTags = true                           // Merge duplicate tags
-	config.MergeArrays = true                               // Merge servers, security, tags
+	config.PathStrategy = joiner.StrategyFailOnPaths  // Fail on path conflicts
+	config.SchemaStrategy = joiner.StrategyAcceptLeft // Keep first schema on collision
+	config.SemanticDeduplication = true               // Merge identical schemas
+	config.DeduplicateTags = true                     // Merge duplicate tags
+	config.MergeArrays = true                         // Merge servers, security, tags
 
 	fmt.Printf("      Path Strategy: %s\n", config.PathStrategy)
 	fmt.Printf("      Schema Strategy: %s\n", config.SchemaStrategy)

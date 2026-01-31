@@ -553,10 +553,9 @@ func findSubstring(s, substr string) bool {
 func checkAssertions(t *testing.T, pc *PipelineContext, step *Step, result *StepResult) []AssertionResult {
 	t.Helper()
 
-	var results []AssertionResult
+	results := make([]AssertionResult, 0, len(step.Assertions))
 	for _, assertion := range step.Assertions {
-		ar := evaluateAssertion(t, pc, &assertion, result)
-		results = append(results, ar)
+		results = append(results, evaluateAssertion(t, pc, &assertion, result))
 	}
 	return results
 }
