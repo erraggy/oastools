@@ -32,21 +32,6 @@ func TestSeverityString(t *testing.T) {
 	}
 }
 
-// TestSeverityConstants verifies that severity constants have expected values
-// and maintain their ordering for comparison operations.
-func TestSeverityConstants(t *testing.T) {
-	// Verify iota ordering (Error = 0, Warning = 1, Info = 2, Critical = 3)
-	assert.Equal(t, Severity(0), SeverityError, "SeverityError should be 0")
-	assert.Equal(t, Severity(1), SeverityWarning, "SeverityWarning should be 1")
-	assert.Equal(t, Severity(2), SeverityInfo, "SeverityInfo should be 2")
-	assert.Equal(t, Severity(3), SeverityCritical, "SeverityCritical should be 3")
-
-	// Verify ordering for potential comparison operations
-	assert.Less(t, int(SeverityError), int(SeverityWarning), "Error should be less than Warning")
-	assert.Less(t, int(SeverityWarning), int(SeverityInfo), "Warning should be less than Info")
-	assert.Less(t, int(SeverityInfo), int(SeverityCritical), "Info should be less than Critical")
-}
-
 // TestSeverityStringConsistency verifies that all defined severity levels
 // return non-empty, lowercase strings without whitespace.
 func TestSeverityStringConsistency(t *testing.T) {

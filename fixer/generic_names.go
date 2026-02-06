@@ -142,12 +142,6 @@ func hasInvalidSchemaNameChars(name string) bool {
 	return false
 }
 
-// isGenericStyleName returns true if name appears to be a generic type name
-// (contains square or angle brackets indicating type parameters).
-func isGenericStyleName(name string) bool {
-	return strings.ContainsAny(name, "[]<>")
-}
-
 // isPackageQualifiedName returns true if name appears to be a package-qualified
 // schema name (contains a dot but no brackets indicating generics).
 // Examples: "common.Pet" → true, "Response[User]" → false, "Pet" → false

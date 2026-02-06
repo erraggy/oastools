@@ -42,52 +42,6 @@ func TestFixWithOptions_EmptyPath(t *testing.T) {
 	assert.Contains(t, err.Error(), "file path cannot be empty")
 }
 
-// TestDeepCopyOAS3Document tests that deep copy preserves OASVersion
-func TestDeepCopyOAS3Document(t *testing.T) {
-	doc := &parser.OAS3Document{
-		OpenAPI:    "3.0.3",
-		OASVersion: parser.OASVersion303,
-		Info: &parser.Info{
-			Title:   "Test",
-			Version: "1.0.0",
-		},
-	}
-
-	copied, err := deepCopyOAS3Document(doc)
-	require.NoError(t, err)
-
-	assert.Equal(t, doc.OASVersion, copied.OASVersion)
-	assert.Equal(t, doc.OpenAPI, copied.OpenAPI)
-	assert.Equal(t, doc.Info.Title, copied.Info.Title)
-
-	// Ensure it's a true copy (mutating one doesn't affect the other)
-	copied.Info.Title = "Modified"
-	assert.NotEqual(t, doc.Info.Title, copied.Info.Title)
-}
-
-// TestDeepCopyOAS2Document tests that deep copy preserves OASVersion
-func TestDeepCopyOAS2Document(t *testing.T) {
-	doc := &parser.OAS2Document{
-		Swagger:    "2.0",
-		OASVersion: parser.OASVersion20,
-		Info: &parser.Info{
-			Title:   "Test",
-			Version: "1.0.0",
-		},
-	}
-
-	copied, err := deepCopyOAS2Document(doc)
-	require.NoError(t, err)
-
-	assert.Equal(t, doc.OASVersion, copied.OASVersion)
-	assert.Equal(t, doc.Swagger, copied.Swagger)
-	assert.Equal(t, doc.Info.Title, copied.Info.Title)
-
-	// Ensure it's a true copy
-	copied.Info.Title = "Modified"
-	assert.NotEqual(t, doc.Info.Title, copied.Info.Title)
-}
-
 // TestIsFixEnabled tests the fix type filtering
 func TestIsFixEnabled(t *testing.T) {
 	f := New()

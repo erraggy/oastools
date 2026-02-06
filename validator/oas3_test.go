@@ -1208,3 +1208,98 @@ func TestValidateOAS3Components_PathParameterNotRequired(t *testing.T) {
 	}
 	assert.True(t, foundError, "Should have error about path parameter not having required: true")
 }
+
+// =============================================================================
+// RequestBody Media Type Validation Tests
+// =============================================================================
+
+func TestValidateOAS3RequestBody_InvalidMediaType(t *testing.T) {
+	tests := []struct {
+		name      string
+		mediaType string
+		wantError bool
+	}{
+		{
+			name:      "invalid media type with leading question mark",
+			mediaType: "?invalid",
+			wantError: true,
+		},
+		{
+			name:      "invalid media type with leading slash",
+			mediaType: "/json",
+			wantError: true,
+		},
+		{
+			name:      "valid media type application/json",
+			mediaType: "application/json",
+			wantError: false,
+		},
+		{
+			name:      "valid media type with vendor prefix",
+			mediaType: "application/vnd.api+json",
+			wantError: false,
+		},
+		{
+			name:      "valid wildcard media type",
+			mediaType: "*/*",
+			wantError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := &parser.OAS3Document{
+				OpenAPI:    "3.0.3",
+				OASVersion: parser.OASVersion303,
+				Info:       &parser.Info{Title: "Test API", Version: "1.0.0"},
+				Paths: map[string]*parser.PathItem{
+					"/test": {
+						Post: &parser.Operation{
+							OperationID: "testOp",
+							RequestBody: &parser.RequestBody{
+								Content: map[string]*parser.MediaType{
+									tt.mediaType: {
+										Schema: &parser.Schema{Type: "object"},
+									},
+								},
+							},
+							Responses: &parser.Responses{
+								Codes: map[string]*parser.Response{
+									"200": {Description: "OK"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			parseResult := parser.ParseResult{
+				Version:    "3.0.3",
+				OASVersion: parser.OASVersion303,
+				Document:   doc,
+			}
+
+			v := New()
+			result, err := v.ValidateParsed(parseResult)
+			require.NoError(t, err)
+
+			// Look for "Invalid media type" error on the requestBody content path
+			var foundMediaTypeError bool
+			for _, e := range result.Errors {
+				if strings.Contains(e.Path, "requestBody.content.") &&
+					strings.Contains(e.Message, "Invalid media type") {
+					foundMediaTypeError = true
+					break
+				}
+			}
+
+			if tt.wantError {
+				assert.True(t, foundMediaTypeError,
+					"Expected 'Invalid media type' error for media type %q", tt.mediaType)
+			} else {
+				assert.False(t, foundMediaTypeError,
+					"Did not expect 'Invalid media type' error for media type %q", tt.mediaType)
+			}
+		})
+	}
+}
