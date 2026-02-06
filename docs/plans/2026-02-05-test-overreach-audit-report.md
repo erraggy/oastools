@@ -34,7 +34,7 @@
 **Test inventory:** 471 test functions, 29,666 lines
 **Overreach findings:** 0 test removals
 
-**Infrastructure issue:** `parser/schema_test_helpers.go` is a production file (no `_test.go` suffix) containing only test helper functions (`ptr()`, `intPtr()`, `boolPtr()`). These are never called from production code. Should be renamed to have a `_test.go` suffix to prevent inclusion in production binaries.
+**Infrastructure issue:** `parser/schema_test_helpers.go` is a production file (no `_test.go` suffix) containing only test helper functions (`ptr()`, `intPtr()`, `boolPtr()`). These are never called from production code. It should be renamed to have a `_test.go` suffix to prevent inclusion in production binaries.
 
 **Observations:** Despite being the largest package (39,899 production lines), parser has zero test overreach. All 13 helper test functions in `equals_helpers_test.go` (1,482 lines) test unexported helpers that ARE transitively called from exported `Equals()` methods. Test organization is exemplary.
 
