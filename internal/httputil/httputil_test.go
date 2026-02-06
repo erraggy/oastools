@@ -257,14 +257,6 @@ func TestHTTPMethodConstants(t *testing.T) {
 	assert.Equal(t, "trace", MethodTrace, "MethodTrace should be lowercase")
 }
 
-// TestStatusCodeConstants verifies the status code validation constants.
-func TestStatusCodeConstants(t *testing.T) {
-	assert.Equal(t, 3, StatusCodeLength, "Status codes should be 3 characters")
-	assert.Equal(t, 100, MinStatusCode, "Minimum status code should be 100")
-	assert.Equal(t, 599, MaxStatusCode, "Maximum status code should be 599")
-	assert.Equal(t, 'X', WildcardChar, "Wildcard character should be 'X'")
-}
-
 // TestStandardHTTPStatusCodesCompleteness verifies that StandardHTTPStatusCodes
 // contains expected RFC 9110 codes and doesn't include unexpected ones.
 func TestStandardHTTPStatusCodesCompleteness(t *testing.T) {

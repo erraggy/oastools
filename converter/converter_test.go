@@ -2,15 +2,118 @@ package converter
 
 import (
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/erraggy/oastools/internal/testutil"
+	"go.yaml.in/yaml/v4"
+
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// --- Test helpers (inlined from internal/testutil) ---
+
+// newSimpleOAS2Document creates a minimal OAS 2.0 document for testing.
+// Contains only required fields: swagger, info, host, basePath, schemes, paths.
+func newSimpleOAS2Document() *parser.OAS2Document {
+	return &parser.OAS2Document{
+		Swagger:    "2.0",
+		OASVersion: parser.OASVersion20,
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Host:     "api.example.com",
+		BasePath: "/v1",
+		Schemes:  []string{"https"},
+		Paths:    make(map[string]*parser.PathItem),
+	}
+}
+
+// newDetailedOAS2Document creates a complete OAS 2.0 document with common features for testing.
+// Includes paths, operations, schemas, and definitions.
+func newDetailedOAS2Document() *parser.OAS2Document {
+	doc := newSimpleOAS2Document()
+	doc.Definitions = map[string]*parser.Schema{
+		"Pet": {
+			Type: "object",
+			Properties: map[string]*parser.Schema{
+				"id":   {Type: "integer"},
+				"name": {Type: "string"},
+			},
+		},
+	}
+	doc.Paths = map[string]*parser.PathItem{
+		"/pets": {
+			Get: &parser.Operation{
+				Summary:     "List pets",
+				OperationID: "listPets",
+			},
+		},
+	}
+	return doc
+}
+
+// newDetailedOAS3Document creates a complete OAS 3.x document with common features for testing.
+// Includes paths, operations, schemas, and components.
+func newDetailedOAS3Document() *parser.OAS3Document {
+	return &parser.OAS3Document{
+		OpenAPI:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Servers: []*parser.Server{
+			{
+				URL:         "https://api.example.com/v1",
+				Description: "Production server",
+			},
+		},
+		Paths: map[string]*parser.PathItem{
+			"/pets": {
+				Get: &parser.Operation{
+					Summary:     "List pets",
+					OperationID: "listPets",
+				},
+			},
+		},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Pet": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"id":   {Type: "integer"},
+						"name": {Type: "string"},
+					},
+				},
+			},
+		},
+	}
+}
+
+// writeTempYAML marshals a document to YAML and writes it to a temporary file.
+// Returns the path to the temporary file.
+// The file is automatically cleaned up when the test completes (via t.TempDir).
+func writeTempYAML(t *testing.T, doc any) string {
+	t.Helper()
+
+	data, err := yaml.Marshal(doc)
+	if err != nil {
+		t.Fatalf("Failed to marshal document to YAML: %v", err)
+	}
+
+	tmpFile := filepath.Join(t.TempDir(), "test.yaml")
+	if err := os.WriteFile(tmpFile, data, 0600); err != nil {
+		t.Fatalf("Failed to write temporary YAML file: %v", err)
+	}
+
+	return tmpFile
+}
 
 // TestConverterNew tests the New() constructor
 func TestConverterNew(t *testing.T) {
@@ -32,8 +135,8 @@ func TestConverterNew(t *testing.T) {
 // TestConverterConvert tests the Converter.Convert method
 func TestConverterConvert(t *testing.T) {
 	c := New()
-	oas2Doc := testutil.NewSimpleOAS2Document()
-	tmpFile := testutil.WriteTempYAML(t, oas2Doc)
+	oas2Doc := newSimpleOAS2Document()
+	tmpFile := writeTempYAML(t, oas2Doc)
 
 	result, err := c.Convert(tmpFile, "3.0.3")
 	if err != nil {
@@ -52,7 +155,7 @@ func TestConverterConvert(t *testing.T) {
 // TestConverterConvertParsed tests the Converter.ConvertParsed method
 func TestConverterConvertParsed(t *testing.T) {
 	c := New()
-	oas2Doc := testutil.NewSimpleOAS2Document()
+	oas2Doc := newSimpleOAS2Document()
 	parseResult := parser.ParseResult{
 		Document:   oas2Doc,
 		Version:    "2.0",
@@ -76,7 +179,7 @@ func TestConverterConvertParsed(t *testing.T) {
 // TestOAS2ToOAS3Conversion tests OAS 2.0 to OAS 3.x conversion
 func TestOAS2ToOAS3Conversion(t *testing.T) {
 	c := New()
-	oas2Doc := testutil.NewDetailedOAS2Document()
+	oas2Doc := newDetailedOAS2Document()
 	parseResult := parser.ParseResult{
 		Document:   oas2Doc,
 		Version:    "2.0",
@@ -114,7 +217,7 @@ func TestOAS2ToOAS3Conversion(t *testing.T) {
 // TestOAS3ToOAS2Conversion tests OAS 3.x to OAS 2.0 conversion
 func TestOAS3ToOAS2Conversion(t *testing.T) {
 	c := New()
-	oas3Doc := testutil.NewDetailedOAS3Document()
+	oas3Doc := newDetailedOAS3Document()
 
 	// get server URL and host to verify path parameters are handled
 	serverURL := oas3Doc.Servers[0].URL
@@ -158,7 +261,7 @@ func TestOAS3ToOAS2Conversion(t *testing.T) {
 // TestOAS3ToOAS3Conversion tests OAS 3.x to OAS 3.y version update
 func TestOAS3ToOAS3Conversion(t *testing.T) {
 	c := New()
-	oas3Doc := testutil.NewDetailedOAS3Document()
+	oas3Doc := newDetailedOAS3Document()
 	oas3Doc.OpenAPI = "3.0.3"
 	oas3Doc.OASVersion = parser.OASVersion303
 
@@ -201,7 +304,7 @@ func TestOAS3ToOAS3Conversion(t *testing.T) {
 // TestSameVersionConversion tests conversion when source and target are the same
 func TestSameVersionConversion(t *testing.T) {
 	c := New()
-	oas2Doc := testutil.NewSimpleOAS2Document()
+	oas2Doc := newSimpleOAS2Document()
 	parseResult := parser.ParseResult{
 		Document:   oas2Doc,
 		Version:    "2.0",
@@ -236,7 +339,7 @@ func TestSameVersionConversion(t *testing.T) {
 // TestInvalidTargetVersion tests error handling for invalid target version
 func TestInvalidTargetVersion(t *testing.T) {
 	c := New()
-	oas2Doc := testutil.NewSimpleOAS2Document()
+	oas2Doc := newSimpleOAS2Document()
 	parseResult := parser.ParseResult{
 		Document:   oas2Doc,
 		Version:    "2.0",
@@ -266,7 +369,7 @@ func TestStrictMode(t *testing.T) {
 	c.StrictMode = true
 
 	// Create an OAS 3.x document with webhooks that will cause critical issues when converting to 2.0
-	oas3Doc := testutil.NewDetailedOAS3Document()
+	oas3Doc := newDetailedOAS3Document()
 	oas3Doc.Webhooks = map[string]*parser.PathItem{
 		"newPet": {},
 	}
@@ -291,7 +394,7 @@ func TestIncludeInfo(t *testing.T) {
 	c := New()
 	c.IncludeInfo = false
 
-	oas2Doc := testutil.NewSimpleOAS2Document()
+	oas2Doc := newSimpleOAS2Document()
 	parseResult := parser.ParseResult{
 		Document:   oas2Doc,
 		Version:    "2.0",
