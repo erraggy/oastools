@@ -601,3 +601,15 @@ paths:
 	assert.Greater(t, len(pathItem.Get.Parameters), originalParamCount,
 		"Original document should be mutated when Fixer.MutableInput is true")
 }
+
+// TestFix_SetsInternalMutableInput verifies that Fix() internally sets
+// MutableInput to skip the defensive copy and restores it afterward.
+func TestFix_SetsInternalMutableInput(t *testing.T) {
+	f := New()
+	assert.False(t, f.MutableInput, "default should be false")
+
+	result, err := f.Fix("../testdata/bench/small-oas3.yaml")
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.False(t, f.MutableInput, "MutableInput should be restored after Fix()")
+}
