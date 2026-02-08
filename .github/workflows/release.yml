@@ -31,3 +31,12 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Trigger oastools-web dependency update
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.OASTOOLS_WEB_PAT }}
+        run: |
+          gh api repos/erraggy/oastools-web/dispatches \
+            -f event_type=oastools-release \
+            -f 'client_payload[version]=${{ github.ref_name }}'
