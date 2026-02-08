@@ -89,7 +89,7 @@ if typeStr, ok := schema.Type.(string); ok {
 1. **Assuming schema.Type is always a string** - Use type assertions and handle both string and []string cases
 2. **Creating value slices instead of pointer slices** - Check parser types and use `&Type{...}` syntax
 3. **Forgetting to track conversion issues** - Add issues for every lossy conversion or unsupported feature
-4. **Mutating source documents** - Always deep copy before modification (use JSON marshal/unmarshal)
+4. **Mutating source documents** - Deep copy before modification using generated `DeepCopy()` methods on parser types (e.g., `doc.DeepCopy()`). Never use JSON marshal/unmarshal for deep copying — it silently loses `interface{}` type distinctions (e.g., `string` vs `[]string` in OAS 3.1 `schema.Type`) and drops fields tagged `json:"-"`. When the caller owns the document and won't reuse it, use `WithMutableInput(true)` to skip the copy entirely.
 5. **Not handling operation-level consumes/produces** - Check operation-level first, then fall back to document-level
 6. **Ignoring version-specific features during conversion** - Explicitly check and warn about features that don't convert
 
