@@ -230,6 +230,7 @@ func HandleFix(args []string) error {
 		f.GenericNamingConfig = genericConfig
 		f.OperationIdNamingConfig = operationIdConfig
 		f.DryRun = flags.DryRun
+		f.MutableInput = true
 		if flags.StubResponseDesc != "" {
 			f.StubConfig.ResponseDescription = flags.StubResponseDesc
 		}
@@ -264,6 +265,7 @@ func HandleFix(args []string) error {
 				fixer.WithGenericNamingConfig(genericConfig),
 				fixer.WithOperationIdNamingConfig(operationIdConfig),
 				fixer.WithDryRun(flags.DryRun),
+				fixer.WithMutableInput(true),
 			}
 			if parseResult.SourceMap != nil {
 				fixOpts = append(fixOpts, fixer.WithSourceMap(parseResult.SourceMap))

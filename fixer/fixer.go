@@ -2,6 +2,7 @@ package fixer
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -407,6 +408,10 @@ func (f *Fixer) Fix(specPath string) (*FixResult, error) {
 		return nil, fmt.Errorf("fixer: failed to parse specification: %w", err)
 	}
 
+	// Fix() owns the parsed document, so always mutate in place.
+	origMutable := f.MutableInput
+	f.MutableInput = true
+	defer func() { f.MutableInput = origMutable }()
 	return f.FixParsed(*parseResult)
 }
 
@@ -445,12 +450,7 @@ func (f *Fixer) isFixEnabled(fixType FixType) bool {
 	if len(f.EnabledFixes) == 0 {
 		return true // if explicitly set to empty/nil, enable all fixes
 	}
-	for _, ft := range f.EnabledFixes {
-		if ft == fixType {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(f.EnabledFixes, fixType)
 }
 
 // populateFixLocation fills in Line/Column/File from the SourceMap if available.
