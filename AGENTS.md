@@ -146,7 +146,7 @@ For documentation-only changes, only items 3, 6, and 7 apply.
 1. **Type assertions:** Don't assume `schema.Type` is always a string - check both string and []string
 2. **Pointer slices:** Use `&Type{...}` for pointer semantics, not value types
 3. **Conversion issues:** Track all lossy conversions or unsupported features
-4. **Deep copy:** Never mutate source documents - use JSON marshal/unmarshal
+4. **Deep copy:** Never mutate source documents - use generated `DeepCopy()` methods (e.g., `doc.DeepCopy()`), never JSON marshal/unmarshal
 5. **Operation-level overrides:** Check operation-level fields before falling back to document-level
 6. **Version features:** Explicitly handle version-specific features during conversion
 
