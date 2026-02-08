@@ -605,11 +605,23 @@ paths:
 // TestFix_SetsInternalMutableInput verifies that Fix() internally sets
 // MutableInput to skip the defensive copy and restores it afterward.
 func TestFix_SetsInternalMutableInput(t *testing.T) {
-	f := New()
-	assert.False(t, f.MutableInput, "default should be false")
+	t.Run("restores false to false", func(t *testing.T) {
+		f := New()
+		assert.False(t, f.MutableInput, "default should be false")
 
-	result, err := f.Fix("../testdata/bench/small-oas3.yaml")
-	require.NoError(t, err)
-	assert.True(t, result.Success)
-	assert.False(t, f.MutableInput, "MutableInput should be restored after Fix()")
+		result, err := f.Fix("../testdata/bench/small-oas3.yaml")
+		require.NoError(t, err)
+		assert.True(t, result.Success)
+		assert.False(t, f.MutableInput, "MutableInput should be restored after Fix()")
+	})
+
+	t.Run("restores true to true", func(t *testing.T) {
+		f := New()
+		f.MutableInput = true
+
+		result, err := f.Fix("../testdata/bench/small-oas3.yaml")
+		require.NoError(t, err)
+		assert.True(t, result.Success)
+		assert.True(t, f.MutableInput, "MutableInput should be restored to original true value")
+	})
 }
