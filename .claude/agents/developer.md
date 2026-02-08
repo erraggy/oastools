@@ -173,9 +173,7 @@ servers := []*parser.Server{
 }
 
 // Deep copy when modifying to avoid mutations
-data, _ := json.Marshal(original)
-var copy MyType
-json.Unmarshal(data, &copy)
+copy := original.DeepCopy()
 ```
 
 ## Testing Requirements

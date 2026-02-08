@@ -44,6 +44,9 @@
 - **Use constants**: `httputil.MethodGet`, `severity.SeverityError`
 - **Always run `go_diagnostics`** after edits—hints improve perf 5-15%
 - **Favor fixing immediately** over deferring issues
+- **Deep copy**: Use generated `doc.DeepCopy()` methods, **never** JSON marshal/unmarshal (loses `interface{}` types, drops `json:"-"` fields)
+- **`make check` before pushing** — not just `go test`; catches lint, formatting, and trailing whitespace
+- **`docs/` is generated**: Files are copied by mkdocs build scripts — always edit source files at repo root
 
 ## Orchestrator Mode
 

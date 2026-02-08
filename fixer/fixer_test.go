@@ -601,3 +601,36 @@ paths:
 	assert.Greater(t, len(pathItem.Get.Parameters), originalParamCount,
 		"Original document should be mutated when Fixer.MutableInput is true")
 }
+
+// TestFix_SetsInternalMutableInput verifies that Fix() internally sets
+// MutableInput to skip the defensive copy and restores it afterward.
+func TestFix_SetsInternalMutableInput(t *testing.T) {
+	t.Run("restores false to false", func(t *testing.T) {
+		f := New()
+		assert.False(t, f.MutableInput, "default should be false")
+
+		result, err := f.Fix("../testdata/bench/small-oas3.yaml")
+		require.NoError(t, err)
+		assert.True(t, result.Success)
+		assert.False(t, f.MutableInput, "MutableInput should be restored after Fix()")
+	})
+
+	t.Run("restores true to true", func(t *testing.T) {
+		f := New()
+		f.MutableInput = true
+
+		result, err := f.Fix("../testdata/bench/small-oas3.yaml")
+		require.NoError(t, err)
+		assert.True(t, result.Success)
+		assert.True(t, f.MutableInput, "MutableInput should be restored to original true value")
+	})
+
+	t.Run("untouched on parse error", func(t *testing.T) {
+		f := New()
+		f.MutableInput = true
+
+		_, err := f.Fix("does-not-exist.yaml")
+		require.Error(t, err)
+		assert.True(t, f.MutableInput, "MutableInput should be untouched when Fix() fails before save/restore")
+	})
+}

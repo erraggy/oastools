@@ -614,9 +614,7 @@ modified := sourceDoc
 modified.Info.Title = "New Title"  // Changes sourceDoc too!
 
 // ✅ Correct - deep copy first
-data, _ := json.Marshal(sourceDoc)
-var modified parser.OAS3Document
-json.Unmarshal(data, &modified)
+modified := sourceDoc.DeepCopy()
 modified.Info.Title = "New Title"  // Safe
 ```
 
