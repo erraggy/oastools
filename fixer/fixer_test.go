@@ -624,4 +624,13 @@ func TestFix_SetsInternalMutableInput(t *testing.T) {
 		assert.True(t, result.Success)
 		assert.True(t, f.MutableInput, "MutableInput should be restored to original true value")
 	})
+
+	t.Run("untouched on parse error", func(t *testing.T) {
+		f := New()
+		f.MutableInput = true
+
+		_, err := f.Fix("does-not-exist.yaml")
+		require.Error(t, err)
+		assert.True(t, f.MutableInput, "MutableInput should be untouched when Fix() fails before save/restore")
+	})
 }
