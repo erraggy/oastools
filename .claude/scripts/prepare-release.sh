@@ -77,6 +77,7 @@ elif [[ -f "$BENCHMARK_FILE" ]]; then
 else
     echo "Step 4.2: Triggering benchmark workflow..."
     gh workflow run benchmark.yml \
+        --ref "$BRANCH" \
         -f version="$VERSION" \
         -f ref="$BRANCH" \
         -f output_mode=commit
