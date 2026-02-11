@@ -65,6 +65,7 @@ The converter follows these principles:
 - Cookie parameters
 - Multiple servers (only first is used)
 - Content negotiation complexity
+- Schema keywords: `writeOnly`, `deprecated`, `if`/`then`/`else`, `prefixItems`, `contains`, `propertyNames` (warnings emitted)
 
 **OAS 2.0 -> OAS 3.x:**
 - `collectionFormat` (may not map perfectly to `style`/`explode`)
@@ -480,6 +481,9 @@ requestBody:
 | `links` | Dropped | Critical issue logged |
 | `cookie` parameters | Dropped | Critical issue logged |
 | TRACE method | Dropped | Critical issue logged |
+| `writeOnly`, `deprecated` | Detected | Warning issued (no OAS 2.0 equivalent) |
+| `if`/`then`/`else` | Detected | Warning issued (JSON Schema 2020-12) |
+| `prefixItems`, `contains`, `propertyNames` | Detected | Warning issued (JSON Schema 2020-12) |
 
 **Server URL Decomposition:**
 
@@ -572,6 +576,7 @@ Expect to lose these OAS 3.x features:
 - Links (cannot be represented)
 - Cookie parameters (not supported)
 - Multiple content types per request/response (simplified)
+- Schema keywords without OAS 2.0 equivalents: `writeOnly`, `deprecated`, `if`/`then`/`else`, `prefixItems`, `contains`, `propertyNames` (warnings emitted)
 
 **Best Practices:**
 1. Always check `HasCriticalIssues()` after conversion
@@ -754,6 +759,7 @@ Understanding what information is lost during conversion is crucial for making i
 | Multiple servers | Only first used | Document others externally |
 | Multiple content types | First used | Ensure JSON is first if preferred |
 | TRACE method | Dropped | Use custom extension if needed |
+| Schema keywords (`writeOnly`, `deprecated`, `if`/`then`/`else`, `prefixItems`, `contains`, `propertyNames`) | No equivalent | Warning issued; document constraints externally |
 
 ### OAS 2.0 -> OAS 3.0 (Minimal Loss)
 
