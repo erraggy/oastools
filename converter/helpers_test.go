@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -286,4 +287,365 @@ func TestWalkSchemaRefs(t *testing.T) {
 			schema.Properties["level1"].Properties["level2"].AllOf[0].Ref,
 			"Deeply nested ref should be rewritten")
 	})
+}
+
+// TestConvertOAS3SchemaToOAS2_AdditionalFeatures tests detection of OAS 3.x schema features
+// that have no OAS 2.0 equivalent during downgrade conversion.
+func TestConvertOAS3SchemaToOAS2_AdditionalFeatures(t *testing.T) {
+	t.Run("writeOnly detected", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type:      "string",
+			WriteOnly: true,
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "test.writeOnly")
+
+		require.NotEmpty(t, result.Issues, "Expected issue for writeOnly")
+		assertHasIssueContaining(t, result.Issues, "writeOnly")
+	})
+
+	t.Run("deprecated on schema detected", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type:       "object",
+			Deprecated: true,
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "test.deprecated")
+
+		require.NotEmpty(t, result.Issues, "Expected issue for deprecated")
+		assertHasIssueContaining(t, result.Issues, "deprecated")
+	})
+
+	t.Run("if/then/else detected", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type: "object",
+			If:   &parser.Schema{Properties: map[string]*parser.Schema{"country": {Const: "US"}}},
+			Then: &parser.Schema{Properties: map[string]*parser.Schema{"state": {Type: "string"}}},
+			Else: &parser.Schema{Properties: map[string]*parser.Schema{"province": {Type: "string"}}},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "test.conditional")
+
+		// Should have 3 issues: one each for if, then, else
+		ifCount := countIssuesContaining(result.Issues, "if")
+		thenCount := countIssuesContaining(result.Issues, "then")
+		elseCount := countIssuesContaining(result.Issues, "else")
+		assert.Equal(t, 1, ifCount, "Expected exactly 1 issue for 'if'")
+		assert.Equal(t, 1, thenCount, "Expected exactly 1 issue for 'then'")
+		assert.Equal(t, 1, elseCount, "Expected exactly 1 issue for 'else'")
+	})
+
+	t.Run("prefixItems detected", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type: "array",
+			PrefixItems: []*parser.Schema{
+				{Type: "string"},
+				{Type: "integer"},
+			},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "test.prefixItems")
+
+		require.NotEmpty(t, result.Issues, "Expected issue for prefixItems")
+		assertHasIssueContaining(t, result.Issues, "prefixItems")
+	})
+
+	t.Run("contains detected", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type:     "array",
+			Contains: &parser.Schema{Type: "string"},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "test.contains")
+
+		require.NotEmpty(t, result.Issues, "Expected issue for contains")
+		assertHasIssueContaining(t, result.Issues, "contains")
+	})
+
+	t.Run("propertyNames detected", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type:          "object",
+			PropertyNames: &parser.Schema{Pattern: "^[a-z]+$"},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "test.propertyNames")
+
+		require.NotEmpty(t, result.Issues, "Expected issue for propertyNames")
+		assertHasIssueContaining(t, result.Issues, "propertyNames")
+	})
+
+	t.Run("no issues for plain schema", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type: "object",
+			Properties: map[string]*parser.Schema{
+				"name": {Type: "string"},
+				"age":  {Type: "integer"},
+			},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "test.plain")
+
+		assert.Empty(t, result.Issues, "Expected no issues for plain OAS 2.0-compatible schema")
+	})
+
+	t.Run("multiple features detected simultaneously", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type:          "object",
+			WriteOnly:     true,
+			Deprecated:    true,
+			PropertyNames: &parser.Schema{Pattern: "^[a-z]"},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "test.multi")
+
+		assert.GreaterOrEqual(t, len(result.Issues), 3,
+			"Expected at least 3 issues for writeOnly + deprecated + propertyNames")
+		assertHasIssueContaining(t, result.Issues, "writeOnly")
+		assertHasIssueContaining(t, result.Issues, "deprecated")
+		assertHasIssueContaining(t, result.Issues, "propertyNames")
+	})
+
+	t.Run("if without then/else", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type: "object",
+			If:   &parser.Schema{Properties: map[string]*parser.Schema{"x": {Type: "string"}}},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "test.ifOnly")
+
+		assert.Equal(t, 1, countIssuesContaining(result.Issues, "if"),
+			"Expected exactly 1 issue for 'if' alone")
+		assert.Equal(t, 0, countIssuesContaining(result.Issues, "then"),
+			"Expected no issue for 'then' when absent")
+		assert.Equal(t, 0, countIssuesContaining(result.Issues, "else"),
+			"Expected no issue for 'else' when absent")
+	})
+
+	t.Run("empty prefixItems no issue", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type:        "array",
+			PrefixItems: []*parser.Schema{},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "test.emptyPrefix")
+
+		assert.Empty(t, result.Issues, "Expected no issues for empty prefixItems slice")
+	})
+}
+
+// TestConvertOAS3SchemaToOAS2_NestedFeatures tests that OAS 3.x feature detection
+// works recursively through nested schemas (Properties, Items, AllOf, AdditionalProperties, etc.).
+func TestConvertOAS3SchemaToOAS2_NestedFeatures(t *testing.T) {
+	t.Run("writeOnly in nested property", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type: "object",
+			Properties: map[string]*parser.Schema{
+				"password": {Type: "string", WriteOnly: true},
+			},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "components.schemas.User")
+
+		require.NotEmpty(t, result.Issues, "Expected issue for writeOnly in nested property")
+		assertHasIssueContaining(t, result.Issues, "writeOnly")
+		// Verify the issue path references the nested location
+		found := false
+		for _, issue := range result.Issues {
+			if strings.Contains(issue.Message, "writeOnly") &&
+				strings.Contains(issue.Path, "properties.password") {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Expected issue path to contain 'properties.password'")
+	})
+
+	t.Run("deprecated in array items", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type:  "array",
+			Items: &parser.Schema{Type: "object", Deprecated: true},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "components.schemas.List")
+
+		require.NotEmpty(t, result.Issues, "Expected issue for deprecated in items")
+		assertHasIssueContaining(t, result.Issues, "deprecated")
+		found := false
+		for _, issue := range result.Issues {
+			if strings.Contains(issue.Message, "deprecated") &&
+				strings.Contains(issue.Path, ".items") {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Expected issue path to contain '.items'")
+	})
+
+	t.Run("nested feature in allOf member", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type: "object",
+			AllOf: []*parser.Schema{
+				{Type: "object", WriteOnly: true},
+			},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "components.schemas.Combined")
+
+		require.NotEmpty(t, result.Issues, "Expected issue for writeOnly in allOf member")
+		assertHasIssueContaining(t, result.Issues, "writeOnly")
+		found := false
+		for _, issue := range result.Issues {
+			if strings.Contains(issue.Message, "writeOnly") &&
+				strings.Contains(issue.Path, "allOf[0]") {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Expected issue path to contain 'allOf[0]'")
+	})
+
+	t.Run("deeply nested feature", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type: "object",
+			Properties: map[string]*parser.Schema{
+				"address": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"geo": {Type: "object", WriteOnly: true},
+					},
+				},
+			},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "components.schemas.User")
+
+		require.NotEmpty(t, result.Issues, "Expected issue for deeply nested writeOnly")
+		assertHasIssueContaining(t, result.Issues, "writeOnly")
+		found := false
+		for _, issue := range result.Issues {
+			if strings.Contains(issue.Message, "writeOnly") &&
+				strings.Contains(issue.Path, "properties.address") &&
+				strings.Contains(issue.Path, "properties.geo") {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Expected issue path to contain both 'properties.address' and 'properties.geo'")
+	})
+
+	t.Run("multiple nested features across locations", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type: "object",
+			Properties: map[string]*parser.Schema{
+				"secret": {Type: "string", WriteOnly: true},
+			},
+			Items: &parser.Schema{Type: "object", Deprecated: true},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "components.schemas.Mixed")
+
+		writeOnlyCount := countIssuesContaining(result.Issues, "writeOnly")
+		deprecatedCount := countIssuesContaining(result.Issues, "deprecated")
+		assert.Equal(t, 1, writeOnlyCount, "Expected exactly 1 writeOnly issue")
+		assert.Equal(t, 1, deprecatedCount, "Expected exactly 1 deprecated issue")
+	})
+
+	t.Run("plain nested schema no issues", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type: "object",
+			Properties: map[string]*parser.Schema{
+				"name": {Type: "string"},
+				"tags": {
+					Type:  "array",
+					Items: &parser.Schema{Type: "string"},
+				},
+			},
+			AllOf: []*parser.Schema{
+				{Type: "object", Properties: map[string]*parser.Schema{
+					"id": {Type: "integer"},
+				}},
+			},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "components.schemas.Plain")
+
+		assert.Empty(t, result.Issues, "Expected no issues for plain nested schemas without OAS 3.x features")
+	})
+
+	t.Run("feature in additionalProperties", func(t *testing.T) {
+		c := New()
+		result := &ConversionResult{Issues: []ConversionIssue{}}
+		schema := &parser.Schema{
+			Type:                 "object",
+			AdditionalProperties: &parser.Schema{Type: "string", Nullable: true},
+		}
+
+		c.convertOAS3SchemaToOAS2(schema, result, "components.schemas.Map")
+
+		require.NotEmpty(t, result.Issues, "Expected issue for nullable in additionalProperties")
+		assertHasIssueContaining(t, result.Issues, "nullable")
+		found := false
+		for _, issue := range result.Issues {
+			if strings.Contains(issue.Message, "nullable") &&
+				strings.Contains(issue.Path, "additionalProperties") {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Expected issue path to contain 'additionalProperties'")
+	})
+}
+
+// assertHasIssueContaining asserts that at least one issue contains the given substring.
+func assertHasIssueContaining(t *testing.T, issues []ConversionIssue, substring string) {
+	t.Helper()
+	for _, issue := range issues {
+		if strings.Contains(issue.Message, substring) {
+			return
+		}
+	}
+	t.Errorf("Expected at least one issue containing %q, but none found in %d issues", substring, len(issues))
+}
+
+// countIssuesContaining counts issues whose message contains the given substring.
+func countIssuesContaining(issues []ConversionIssue, substring string) int {
+	count := 0
+	for _, issue := range issues {
+		if strings.Contains(issue.Message, substring) {
+			count++
+		}
+	}
+	return count
 }
