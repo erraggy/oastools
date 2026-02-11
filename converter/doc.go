@@ -33,8 +33,11 @@
 // The converter tracks three severity levels: Info (conversion choices), Warning
 // (lossy conversions), and Critical (features that cannot be converted). Some
 // OAS 3.x features (webhooks, callbacks, links, TRACE method) cannot convert to
-// OAS 2.0. Some OAS 2.0 features (collectionFormat, allowEmptyValue) may not map
-// perfectly to OAS 3.x. See the examples in example_test.go for handling issues.
+// OAS 2.0. Additionally, OAS 3.x schema keywords that lack OAS 2.0 equivalents
+// (writeOnly, deprecated, if/then/else, prefixItems, contains, propertyNames)
+// are detected and emit warnings during downgrade. Some OAS 2.0 features
+// (collectionFormat, allowEmptyValue) may not map perfectly to OAS 3.x. See the
+// examples in example_test.go for handling issues.
 //
 // # Converting with the Validator Package
 //
