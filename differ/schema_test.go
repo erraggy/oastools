@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -534,7 +535,7 @@ func TestDiffSchemaAdditionalPropertiesRecursive(t *testing.T) {
 // TestDiffSchemaUnknownTypesIdentical tests that identical unknown types are skipped
 func TestDiffSchemaUnknownTypesIdentical(t *testing.T) {
 	// Create schemas with unknown types (e.g., unresolved $ref maps)
-	unknownType := map[string]interface{}{"$ref": "#/components/schemas/Pet"}
+	unknownType := map[string]any{"$ref": "#/components/schemas/Pet"}
 
 	source := &parser.Schema{
 		Type:  "array",
@@ -562,7 +563,7 @@ func TestDiffSchemaUnknownTypesIdentical(t *testing.T) {
 func TestDiffSchemaUnknownTypesDifferent(t *testing.T) {
 	source := &parser.Schema{
 		Type:  "array",
-		Items: map[string]interface{}{"$ref": "#/components/schemas/Pet"},
+		Items: map[string]any{"$ref": "#/components/schemas/Pet"},
 	}
 
 	target := &parser.Schema{
@@ -905,10 +906,10 @@ func TestDiffSchemaAllOf(t *testing.T) {
 		{
 			name: "AllOf schema modified",
 			source: []*parser.Schema{
-				{Type: "string", MinLength: ptrInt(5)},
+				{Type: "string", MinLength: testutil.Ptr(5)},
 			},
 			target: []*parser.Schema{
-				{Type: "string", MinLength: ptrInt(10)},
+				{Type: "string", MinLength: testutil.Ptr(10)},
 			},
 			expectedCount:  1,
 			mode:           "breaking",
@@ -1039,10 +1040,10 @@ func TestDiffSchemaAnyOf(t *testing.T) {
 		{
 			name: "AnyOf schema modified",
 			source: []*parser.Schema{
-				{Type: "string", MinLength: ptrInt(5)},
+				{Type: "string", MinLength: testutil.Ptr(5)},
 			},
 			target: []*parser.Schema{
-				{Type: "string", MinLength: ptrInt(10)},
+				{Type: "string", MinLength: testutil.Ptr(10)},
 			},
 			expectedCount: 1,
 			mode:          "breaking",
@@ -1217,8 +1218,8 @@ func TestDiffSchemaNot(t *testing.T) {
 		},
 		{
 			name:          "Not schema modified",
-			source:        &parser.Schema{Type: "string", MinLength: ptrInt(5)},
-			target:        &parser.Schema{Type: "string", MinLength: ptrInt(10)},
+			source:        &parser.Schema{Type: "string", MinLength: testutil.Ptr(5)},
+			target:        &parser.Schema{Type: "string", MinLength: testutil.Ptr(10)},
 			expectedCount: 1,
 			mode:          "breaking",
 		},
@@ -1284,11 +1285,11 @@ func TestDiffSchemaConditional(t *testing.T) {
 		{
 			name:          "Conditional schemas identical",
 			sourceIf:      &parser.Schema{Type: "string"},
-			sourceThen:    &parser.Schema{MinLength: ptrInt(5)},
-			sourceElse:    &parser.Schema{MaxLength: ptrInt(10)},
+			sourceThen:    &parser.Schema{MinLength: testutil.Ptr(5)},
+			sourceElse:    &parser.Schema{MaxLength: testutil.Ptr(10)},
 			targetIf:      &parser.Schema{Type: "string"},
-			targetThen:    &parser.Schema{MinLength: ptrInt(5)},
-			targetElse:    &parser.Schema{MaxLength: ptrInt(10)},
+			targetThen:    &parser.Schema{MinLength: testutil.Ptr(5)},
+			targetElse:    &parser.Schema{MaxLength: testutil.Ptr(10)},
 			expectedCount: 0,
 			mode:          "breaking",
 		},
@@ -1309,7 +1310,7 @@ func TestDiffSchemaConditional(t *testing.T) {
 			sourceThen:    nil,
 			sourceElse:    nil,
 			targetIf:      &parser.Schema{Type: "string"},
-			targetThen:    &parser.Schema{MinLength: ptrInt(5)},
+			targetThen:    &parser.Schema{MinLength: testutil.Ptr(5)},
 			targetElse:    nil,
 			expectedCount: 1,
 			mode:          "breaking",
@@ -1321,7 +1322,7 @@ func TestDiffSchemaConditional(t *testing.T) {
 			sourceElse:    nil,
 			targetIf:      &parser.Schema{Type: "string"},
 			targetThen:    nil,
-			targetElse:    &parser.Schema{MaxLength: ptrInt(10)},
+			targetElse:    &parser.Schema{MaxLength: testutil.Ptr(10)},
 			expectedCount: 1,
 			mode:          "breaking",
 		},
@@ -1338,10 +1339,10 @@ func TestDiffSchemaConditional(t *testing.T) {
 		},
 		{
 			name:          "If schema modified",
-			sourceIf:      &parser.Schema{Type: "string", MinLength: ptrInt(5)},
+			sourceIf:      &parser.Schema{Type: "string", MinLength: testutil.Ptr(5)},
 			sourceThen:    nil,
 			sourceElse:    nil,
-			targetIf:      &parser.Schema{Type: "string", MinLength: ptrInt(10)},
+			targetIf:      &parser.Schema{Type: "string", MinLength: testutil.Ptr(10)},
 			targetThen:    nil,
 			targetElse:    nil,
 			expectedCount: 1,
@@ -1627,7 +1628,7 @@ func TestDiffSchemaConditionalSimpleMode(t *testing.T) {
 			sourceIf:      &parser.Schema{Type: "string"},
 			targetIf:      &parser.Schema{Type: "string"},
 			sourceThen:    nil,
-			targetThen:    &parser.Schema{MinLength: ptrInt(5)},
+			targetThen:    &parser.Schema{MinLength: testutil.Ptr(5)},
 			expectedCount: 1,
 		},
 		{
@@ -1635,7 +1636,7 @@ func TestDiffSchemaConditionalSimpleMode(t *testing.T) {
 			sourceIf:      &parser.Schema{Type: "string"},
 			targetIf:      &parser.Schema{Type: "string"},
 			sourceElse:    nil,
-			targetElse:    &parser.Schema{MaxLength: ptrInt(10)},
+			targetElse:    &parser.Schema{MaxLength: testutil.Ptr(10)},
 			expectedCount: 1,
 		},
 		{
@@ -1648,7 +1649,7 @@ func TestDiffSchemaConditionalSimpleMode(t *testing.T) {
 			name:          "Then removed in simple mode",
 			sourceIf:      &parser.Schema{Type: "string"},
 			targetIf:      &parser.Schema{Type: "string"},
-			sourceThen:    &parser.Schema{MinLength: ptrInt(5)},
+			sourceThen:    &parser.Schema{MinLength: testutil.Ptr(5)},
 			targetThen:    nil,
 			expectedCount: 1,
 		},
@@ -1656,16 +1657,16 @@ func TestDiffSchemaConditionalSimpleMode(t *testing.T) {
 			name:          "Else removed in simple mode",
 			sourceIf:      &parser.Schema{Type: "string"},
 			targetIf:      &parser.Schema{Type: "string"},
-			sourceElse:    &parser.Schema{MaxLength: ptrInt(10)},
+			sourceElse:    &parser.Schema{MaxLength: testutil.Ptr(10)},
 			targetElse:    nil,
 			expectedCount: 1,
 		},
 		{
 			name:          "Multiple conditional changes",
 			sourceIf:      &parser.Schema{Type: "string"},
-			sourceThen:    &parser.Schema{MinLength: ptrInt(5)},
+			sourceThen:    &parser.Schema{MinLength: testutil.Ptr(5)},
 			targetIf:      &parser.Schema{Type: "integer"},
-			targetElse:    &parser.Schema{MaxLength: ptrInt(10)},
+			targetElse:    &parser.Schema{MaxLength: testutil.Ptr(10)},
 			expectedCount: 3, // if modified, then removed, else added
 		},
 	}
@@ -1727,7 +1728,7 @@ func TestDiffSchemaConditionalSimpleMode(t *testing.T) {
 func TestDiffSchemaAllOfModified(t *testing.T) {
 	source := &parser.Schema{
 		AllOf: []*parser.Schema{
-			{Type: "string", MinLength: ptrInt(5)},
+			{Type: "string", MinLength: testutil.Ptr(5)},
 			{Type: "object", Properties: map[string]*parser.Schema{
 				"name": {Type: "string"},
 			}},
@@ -1735,7 +1736,7 @@ func TestDiffSchemaAllOfModified(t *testing.T) {
 	}
 	target := &parser.Schema{
 		AllOf: []*parser.Schema{
-			{Type: "string", MinLength: ptrInt(10)}, // Changed constraint
+			{Type: "string", MinLength: testutil.Ptr(10)}, // Changed constraint
 			{Type: "object", Properties: map[string]*parser.Schema{
 				"name": {Type: "string"},
 				"age":  {Type: "integer"}, // Added property
@@ -1792,9 +1793,4 @@ func TestDiffSchemaAllOfModified(t *testing.T) {
 	if !foundAllOfChange {
 		t.Error("Expected to find changes within allOf schemas")
 	}
-}
-
-// ptrInt is a helper function to create *int from int
-func ptrInt(i int) *int {
-	return &i
 }

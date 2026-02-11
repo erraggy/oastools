@@ -255,14 +255,6 @@ func SkipLargeInShortMode(t testing.TB, spec SpecInfo) {
 	}
 }
 
-// SkipIfEnvSet skips the test if the specified environment variable is set to "1".
-func SkipIfEnvSet(t testing.TB, envVar string) {
-	t.Helper()
-	if os.Getenv(envVar) == "1" {
-		t.Skipf("Skipping test due to %s=1", envVar)
-	}
-}
-
 // SkipIfHasParsingIssues skips specs that have known parsing issues.
 func SkipIfHasParsingIssues(t testing.TB, spec SpecInfo) {
 	t.Helper()

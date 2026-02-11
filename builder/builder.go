@@ -512,7 +512,7 @@ func (b *Builder) BuildOAS3() (*parser.OAS3Document, error) {
 
 // applySchemaAliases rewrites schema references using the deduplicated alias map.
 // This is shared between BuildOAS2 and BuildOAS3.
-func (b *Builder) applySchemaAliases(doc interface{}) error {
+func (b *Builder) applySchemaAliases(doc any) error {
 	if len(b.schemaAliases) == 0 {
 		return nil
 	}

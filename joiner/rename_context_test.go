@@ -682,50 +682,6 @@ func TestExtractPathSegments(t *testing.T) {
 	}
 }
 
-func TestSortedMapKeys(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    map[string]bool
-		expected []string
-	}{
-		{
-			name:     "sorted keys",
-			input:    map[string]bool{"zebra": true, "apple": true, "mango": true},
-			expected: []string{"apple", "mango", "zebra"},
-		},
-		{
-			name:     "single key",
-			input:    map[string]bool{"only": true},
-			expected: []string{"only"},
-		},
-		{
-			name:     "empty map",
-			input:    map[string]bool{},
-			expected: []string{},
-		},
-		{
-			name:     "nil map",
-			input:    nil,
-			expected: []string{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := sortedMapKeys(tt.input)
-			if len(got) != len(tt.expected) {
-				t.Errorf("sortedMapKeys(%v) = %v, want %v", tt.input, got, tt.expected)
-				return
-			}
-			for i := range got {
-				if got[i] != tt.expected[i] {
-					t.Errorf("sortedMapKeys(%v)[%d] = %q, want %q", tt.input, i, got[i], tt.expected[i])
-				}
-			}
-		})
-	}
-}
-
 // ============================================================================
 // RefGraph Tests
 // ============================================================================

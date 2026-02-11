@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -346,19 +347,14 @@ func TestExplicitType_OAS3(t *testing.T) {
 	})
 }
 
-// ptrIntInline is a helper for creating pointer to int in this file.
-func ptrIntInline(v int) *int {
-	return &v
-}
-
 // TestSchemaOverride_OAS3 tests full schema override for OAS 3.x.
 func TestSchemaOverride_OAS3(t *testing.T) {
 	t.Run("array schema override", func(t *testing.T) {
 		schema := &parser.Schema{
 			Type:     "array",
 			Items:    &parser.Schema{Type: "string", Format: "uuid"},
-			MinItems: ptrIntInline(1),
-			MaxItems: ptrIntInline(10),
+			MinItems: testutil.Ptr(1),
+			MaxItems: testutil.Ptr(10),
 		}
 
 		b := New(parser.OASVersion320).

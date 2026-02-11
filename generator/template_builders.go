@@ -179,7 +179,7 @@ func (cg *oas3CodeGenerator) buildStructTypeDefinition(typeName, originalName st
 		switch addProps := schema.AdditionalProperties.(type) {
 		case *parser.Schema:
 			addPropsType = cg.schemaToGoType(addProps, true)
-		case map[string]interface{}:
+		case map[string]any:
 			addPropsType = schemaTypeFromMap(addProps)
 		case bool:
 			if addProps {

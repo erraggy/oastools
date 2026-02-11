@@ -40,40 +40,41 @@ func (p *Path) String() string {
 
 // Segment represents a single segment in a JSONPath expression.
 type Segment interface {
-	// segmentType returns a string identifying the segment type for debugging.
-	segmentType() string
+	// segment is a marker method that restricts the Segment interface
+	// to types defined in this package.
+	segment()
 }
 
 // RootSegment represents the root selector ($).
 type RootSegment struct{}
 
-func (s RootSegment) segmentType() string { return "root" }
+func (RootSegment) segment() {}
 
 // ChildSegment represents a child property selector (.field or ['field']).
 type ChildSegment struct {
 	Key string
 }
 
-func (s ChildSegment) segmentType() string { return "child" }
+func (ChildSegment) segment() {}
 
 // WildcardSegment represents a wildcard selector (.*).
 type WildcardSegment struct{}
 
-func (s WildcardSegment) segmentType() string { return "wildcard" }
+func (WildcardSegment) segment() {}
 
 // IndexSegment represents an array index selector ([n]).
 type IndexSegment struct {
 	Index int
 }
 
-func (s IndexSegment) segmentType() string { return "index" }
+func (IndexSegment) segment() {}
 
 // FilterSegment represents a filter selector ([?expr]).
 type FilterSegment struct {
 	Expr *FilterExpr
 }
 
-func (s FilterSegment) segmentType() string { return "filter" }
+func (FilterSegment) segment() {}
 
 // RecursiveSegment represents recursive descent (..).
 // It searches all descendants for matching children.
@@ -84,7 +85,7 @@ type RecursiveSegment struct {
 	Child Segment
 }
 
-func (s RecursiveSegment) segmentType() string { return "recursive" }
+func (RecursiveSegment) segment() {}
 
 // FilterExpr represents a filter expression that can be a simple condition
 // or a compound expression using && or ||.

@@ -3,18 +3,9 @@ package differ
 import (
 	"testing"
 
+	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
 )
-
-// Helper function to create int pointer
-func ptrIntTest(i int) *int {
-	return &i
-}
-
-// Helper function to create float64 pointer
-func ptrFloat64Test(f float64) *float64 {
-	return &f
-}
 
 // TestDiffSchemaNumericConstraintsUnified tests numeric constraint comparison
 func TestDiffSchemaNumericConstraintsUnified(t *testing.T) {
@@ -30,10 +21,10 @@ func TestDiffSchemaNumericConstraintsUnified(t *testing.T) {
 		{
 			name: "multipleOf changed",
 			source: &parser.Schema{
-				MultipleOf: ptrFloat64Test(5.0),
+				MultipleOf: testutil.Ptr(5.0),
 			},
 			target: &parser.Schema{
-				MultipleOf: ptrFloat64Test(10.0),
+				MultipleOf: testutil.Ptr(10.0),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -43,10 +34,10 @@ func TestDiffSchemaNumericConstraintsUnified(t *testing.T) {
 		{
 			name: "maximum tightened (lowered) - error",
 			source: &parser.Schema{
-				Maximum: ptrFloat64Test(100.0),
+				Maximum: testutil.Ptr(100.0),
 			},
 			target: &parser.Schema{
-				Maximum: ptrFloat64Test(50.0),
+				Maximum: testutil.Ptr(50.0),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -56,10 +47,10 @@ func TestDiffSchemaNumericConstraintsUnified(t *testing.T) {
 		{
 			name: "maximum relaxed (raised) - warning",
 			source: &parser.Schema{
-				Maximum: ptrFloat64Test(50.0),
+				Maximum: testutil.Ptr(50.0),
 			},
 			target: &parser.Schema{
-				Maximum: ptrFloat64Test(100.0),
+				Maximum: testutil.Ptr(100.0),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -72,7 +63,7 @@ func TestDiffSchemaNumericConstraintsUnified(t *testing.T) {
 				Maximum: nil,
 			},
 			target: &parser.Schema{
-				Maximum: ptrFloat64Test(100.0),
+				Maximum: testutil.Ptr(100.0),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -82,10 +73,10 @@ func TestDiffSchemaNumericConstraintsUnified(t *testing.T) {
 		{
 			name: "minimum tightened (raised) - error",
 			source: &parser.Schema{
-				Minimum: ptrFloat64Test(10.0),
+				Minimum: testutil.Ptr(10.0),
 			},
 			target: &parser.Schema{
-				Minimum: ptrFloat64Test(20.0),
+				Minimum: testutil.Ptr(20.0),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -95,10 +86,10 @@ func TestDiffSchemaNumericConstraintsUnified(t *testing.T) {
 		{
 			name: "minimum relaxed (lowered) - warning",
 			source: &parser.Schema{
-				Minimum: ptrFloat64Test(20.0),
+				Minimum: testutil.Ptr(20.0),
 			},
 			target: &parser.Schema{
-				Minimum: ptrFloat64Test(10.0),
+				Minimum: testutil.Ptr(10.0),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -111,7 +102,7 @@ func TestDiffSchemaNumericConstraintsUnified(t *testing.T) {
 				Minimum: nil,
 			},
 			target: &parser.Schema{
-				Minimum: ptrFloat64Test(10.0),
+				Minimum: testutil.Ptr(10.0),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -121,12 +112,12 @@ func TestDiffSchemaNumericConstraintsUnified(t *testing.T) {
 		{
 			name: "no changes",
 			source: &parser.Schema{
-				Minimum: ptrFloat64Test(10.0),
-				Maximum: ptrFloat64Test(100.0),
+				Minimum: testutil.Ptr(10.0),
+				Maximum: testutil.Ptr(100.0),
 			},
 			target: &parser.Schema{
-				Minimum: ptrFloat64Test(10.0),
-				Maximum: ptrFloat64Test(100.0),
+				Minimum: testutil.Ptr(10.0),
+				Maximum: testutil.Ptr(100.0),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 0,
@@ -182,10 +173,10 @@ func TestDiffSchemaStringConstraintsUnified(t *testing.T) {
 		{
 			name: "maxLength tightened (lowered) - error",
 			source: &parser.Schema{
-				MaxLength: ptrIntTest(100),
+				MaxLength: testutil.Ptr(100),
 			},
 			target: &parser.Schema{
-				MaxLength: ptrIntTest(50),
+				MaxLength: testutil.Ptr(50),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -195,10 +186,10 @@ func TestDiffSchemaStringConstraintsUnified(t *testing.T) {
 		{
 			name: "maxLength relaxed (raised) - warning",
 			source: &parser.Schema{
-				MaxLength: ptrIntTest(50),
+				MaxLength: testutil.Ptr(50),
 			},
 			target: &parser.Schema{
-				MaxLength: ptrIntTest(100),
+				MaxLength: testutil.Ptr(100),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -211,7 +202,7 @@ func TestDiffSchemaStringConstraintsUnified(t *testing.T) {
 				MaxLength: nil,
 			},
 			target: &parser.Schema{
-				MaxLength: ptrIntTest(100),
+				MaxLength: testutil.Ptr(100),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -221,10 +212,10 @@ func TestDiffSchemaStringConstraintsUnified(t *testing.T) {
 		{
 			name: "minLength tightened (raised) - error",
 			source: &parser.Schema{
-				MinLength: ptrIntTest(5),
+				MinLength: testutil.Ptr(5),
 			},
 			target: &parser.Schema{
-				MinLength: ptrIntTest(10),
+				MinLength: testutil.Ptr(10),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -234,10 +225,10 @@ func TestDiffSchemaStringConstraintsUnified(t *testing.T) {
 		{
 			name: "minLength relaxed (lowered) - warning",
 			source: &parser.Schema{
-				MinLength: ptrIntTest(10),
+				MinLength: testutil.Ptr(10),
 			},
 			target: &parser.Schema{
-				MinLength: ptrIntTest(5),
+				MinLength: testutil.Ptr(5),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -250,7 +241,7 @@ func TestDiffSchemaStringConstraintsUnified(t *testing.T) {
 				MinLength: nil,
 			},
 			target: &parser.Schema{
-				MinLength: ptrIntTest(5),
+				MinLength: testutil.Ptr(5),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -298,13 +289,13 @@ func TestDiffSchemaStringConstraintsUnified(t *testing.T) {
 		{
 			name: "no changes",
 			source: &parser.Schema{
-				MinLength: ptrIntTest(5),
-				MaxLength: ptrIntTest(100),
+				MinLength: testutil.Ptr(5),
+				MaxLength: testutil.Ptr(100),
 				Pattern:   "^[a-z]+$",
 			},
 			target: &parser.Schema{
-				MinLength: ptrIntTest(5),
-				MaxLength: ptrIntTest(100),
+				MinLength: testutil.Ptr(5),
+				MaxLength: testutil.Ptr(100),
 				Pattern:   "^[a-z]+$",
 			},
 			mode:          ModeBreaking,
@@ -361,10 +352,10 @@ func TestDiffSchemaArrayConstraintsUnified(t *testing.T) {
 		{
 			name: "maxItems tightened (lowered) - error",
 			source: &parser.Schema{
-				MaxItems: ptrIntTest(100),
+				MaxItems: testutil.Ptr(100),
 			},
 			target: &parser.Schema{
-				MaxItems: ptrIntTest(50),
+				MaxItems: testutil.Ptr(50),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -374,10 +365,10 @@ func TestDiffSchemaArrayConstraintsUnified(t *testing.T) {
 		{
 			name: "maxItems relaxed (raised) - warning",
 			source: &parser.Schema{
-				MaxItems: ptrIntTest(50),
+				MaxItems: testutil.Ptr(50),
 			},
 			target: &parser.Schema{
-				MaxItems: ptrIntTest(100),
+				MaxItems: testutil.Ptr(100),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -390,7 +381,7 @@ func TestDiffSchemaArrayConstraintsUnified(t *testing.T) {
 				MaxItems: nil,
 			},
 			target: &parser.Schema{
-				MaxItems: ptrIntTest(100),
+				MaxItems: testutil.Ptr(100),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -400,10 +391,10 @@ func TestDiffSchemaArrayConstraintsUnified(t *testing.T) {
 		{
 			name: "minItems tightened (raised) - error",
 			source: &parser.Schema{
-				MinItems: ptrIntTest(5),
+				MinItems: testutil.Ptr(5),
 			},
 			target: &parser.Schema{
-				MinItems: ptrIntTest(10),
+				MinItems: testutil.Ptr(10),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -413,10 +404,10 @@ func TestDiffSchemaArrayConstraintsUnified(t *testing.T) {
 		{
 			name: "minItems relaxed (lowered) - warning",
 			source: &parser.Schema{
-				MinItems: ptrIntTest(10),
+				MinItems: testutil.Ptr(10),
 			},
 			target: &parser.Schema{
-				MinItems: ptrIntTest(5),
+				MinItems: testutil.Ptr(5),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -429,7 +420,7 @@ func TestDiffSchemaArrayConstraintsUnified(t *testing.T) {
 				MinItems: nil,
 			},
 			target: &parser.Schema{
-				MinItems: ptrIntTest(5),
+				MinItems: testutil.Ptr(5),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -465,13 +456,13 @@ func TestDiffSchemaArrayConstraintsUnified(t *testing.T) {
 		{
 			name: "no changes",
 			source: &parser.Schema{
-				MinItems:    ptrIntTest(5),
-				MaxItems:    ptrIntTest(100),
+				MinItems:    testutil.Ptr(5),
+				MaxItems:    testutil.Ptr(100),
 				UniqueItems: true,
 			},
 			target: &parser.Schema{
-				MinItems:    ptrIntTest(5),
-				MaxItems:    ptrIntTest(100),
+				MinItems:    testutil.Ptr(5),
+				MaxItems:    testutil.Ptr(100),
 				UniqueItems: true,
 			},
 			mode:          ModeBreaking,
@@ -528,10 +519,10 @@ func TestDiffSchemaObjectConstraintsUnified(t *testing.T) {
 		{
 			name: "maxProperties tightened (lowered) - error",
 			source: &parser.Schema{
-				MaxProperties: ptrIntTest(100),
+				MaxProperties: testutil.Ptr(100),
 			},
 			target: &parser.Schema{
-				MaxProperties: ptrIntTest(50),
+				MaxProperties: testutil.Ptr(50),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -541,10 +532,10 @@ func TestDiffSchemaObjectConstraintsUnified(t *testing.T) {
 		{
 			name: "maxProperties relaxed (raised) - warning",
 			source: &parser.Schema{
-				MaxProperties: ptrIntTest(50),
+				MaxProperties: testutil.Ptr(50),
 			},
 			target: &parser.Schema{
-				MaxProperties: ptrIntTest(100),
+				MaxProperties: testutil.Ptr(100),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -557,7 +548,7 @@ func TestDiffSchemaObjectConstraintsUnified(t *testing.T) {
 				MaxProperties: nil,
 			},
 			target: &parser.Schema{
-				MaxProperties: ptrIntTest(100),
+				MaxProperties: testutil.Ptr(100),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -567,10 +558,10 @@ func TestDiffSchemaObjectConstraintsUnified(t *testing.T) {
 		{
 			name: "minProperties tightened (raised) - error",
 			source: &parser.Schema{
-				MinProperties: ptrIntTest(5),
+				MinProperties: testutil.Ptr(5),
 			},
 			target: &parser.Schema{
-				MinProperties: ptrIntTest(10),
+				MinProperties: testutil.Ptr(10),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -580,10 +571,10 @@ func TestDiffSchemaObjectConstraintsUnified(t *testing.T) {
 		{
 			name: "minProperties relaxed (lowered) - warning",
 			source: &parser.Schema{
-				MinProperties: ptrIntTest(10),
+				MinProperties: testutil.Ptr(10),
 			},
 			target: &parser.Schema{
-				MinProperties: ptrIntTest(5),
+				MinProperties: testutil.Ptr(5),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -596,7 +587,7 @@ func TestDiffSchemaObjectConstraintsUnified(t *testing.T) {
 				MinProperties: nil,
 			},
 			target: &parser.Schema{
-				MinProperties: ptrIntTest(5),
+				MinProperties: testutil.Ptr(5),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 1,
@@ -606,12 +597,12 @@ func TestDiffSchemaObjectConstraintsUnified(t *testing.T) {
 		{
 			name: "no changes",
 			source: &parser.Schema{
-				MinProperties: ptrIntTest(5),
-				MaxProperties: ptrIntTest(100),
+				MinProperties: testutil.Ptr(5),
+				MaxProperties: testutil.Ptr(100),
 			},
 			target: &parser.Schema{
-				MinProperties: ptrIntTest(5),
-				MaxProperties: ptrIntTest(100),
+				MinProperties: testutil.Ptr(5),
+				MaxProperties: testutil.Ptr(100),
 			},
 			mode:          ModeBreaking,
 			expectedCount: 0,

@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/erraggy/oastools/internal/pathutil"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/oaserrors"
 	"github.com/erraggy/oastools/parser"
 )
@@ -504,8 +505,46 @@ func applyParamConstraintsToSchema(schema *parser.Schema, cfg *paramConfig) *par
 	// Create a copy if we're modifying a referenced schema
 	result := copySchema(schema)
 
-	// Apply constraints using shared implementation
-	applyConstraintsToTarget(&schemaConstraintAdapter{result}, cfg)
+	// Apply constraints directly to schema fields
+	if cfg.minimum != nil {
+		result.Minimum = cfg.minimum
+	}
+	if cfg.maximum != nil {
+		result.Maximum = cfg.maximum
+	}
+	if cfg.exclusiveMinimum {
+		result.ExclusiveMinimum = cfg.exclusiveMinimum
+	}
+	if cfg.exclusiveMaximum {
+		result.ExclusiveMaximum = cfg.exclusiveMaximum
+	}
+	if cfg.multipleOf != nil {
+		result.MultipleOf = cfg.multipleOf
+	}
+	if cfg.minLength != nil {
+		result.MinLength = cfg.minLength
+	}
+	if cfg.maxLength != nil {
+		result.MaxLength = cfg.maxLength
+	}
+	if cfg.pattern != "" {
+		result.Pattern = cfg.pattern
+	}
+	if cfg.minItems != nil {
+		result.MinItems = cfg.minItems
+	}
+	if cfg.maxItems != nil {
+		result.MaxItems = cfg.maxItems
+	}
+	if cfg.uniqueItems {
+		result.UniqueItems = cfg.uniqueItems
+	}
+	if len(cfg.enum) > 0 {
+		result.Enum = cfg.enum
+	}
+	if cfg.defaultValue != nil {
+		result.Default = cfg.defaultValue
+	}
 
 	return result
 }
@@ -566,11 +605,11 @@ func applyTypeFormatOverrides(schema *parser.Schema, cfg *paramConfig) *parser.S
 //  3. schema.Type/Format (inferred from Go type) is the default
 //
 // The schema parameter provides the inferred type/format from Go type reflection.
-// For Schema.Type, we perform type assertion since it may be interface{} in OAS 3.1+.
+// For Schema.Type, we perform type assertion since it may be any in OAS 3.1+.
 func applyTypeFormatOverridesToOAS2Param(param *parser.Parameter, schema *parser.Schema, cfg *paramConfig) {
 	// Start with inferred type/format from schema
 	if schema != nil {
-		if typeStr, ok := schema.Type.(string); ok {
+		if typeStr := schemautil.GetPrimaryType(schema); typeStr != "" {
 			param.Type = typeStr
 		}
 		param.Format = schema.Format
@@ -578,9 +617,9 @@ func applyTypeFormatOverridesToOAS2Param(param *parser.Parameter, schema *parser
 
 	// Apply overrides (schemaOverride takes precedence over individual overrides)
 	if cfg.schemaOverride != nil {
-		// Schema.Type is interface{} to support OAS 3.1 array types
-		// For OAS 2.0, we only support string types
-		if typeStr, ok := cfg.schemaOverride.Type.(string); ok {
+		// Schema.Type is any to support OAS 3.1 array types
+		// For OAS 2.0, extract the primary (non-null) type
+		if typeStr := schemautil.GetPrimaryType(cfg.schemaOverride); typeStr != "" {
 			param.Type = typeStr
 		}
 		param.Format = cfg.schemaOverride.Format
@@ -606,8 +645,46 @@ func applyTypeFormatOverridesToOAS2Param(param *parser.Parameter, schema *parser
 //   - param: The parameter to apply constraints to
 //   - cfg: The parameter configuration containing constraint values
 func applyParamConstraintsToParam(param *parser.Parameter, cfg *paramConfig) {
-	// Apply shared constraints using shared implementation
-	applyConstraintsToTarget(&paramConstraintAdapter{param}, cfg)
+	// Apply constraints directly to parameter fields
+	if cfg.minimum != nil {
+		param.Minimum = cfg.minimum
+	}
+	if cfg.maximum != nil {
+		param.Maximum = cfg.maximum
+	}
+	if cfg.exclusiveMinimum {
+		param.ExclusiveMinimum = cfg.exclusiveMinimum
+	}
+	if cfg.exclusiveMaximum {
+		param.ExclusiveMaximum = cfg.exclusiveMaximum
+	}
+	if cfg.multipleOf != nil {
+		param.MultipleOf = cfg.multipleOf
+	}
+	if cfg.minLength != nil {
+		param.MinLength = cfg.minLength
+	}
+	if cfg.maxLength != nil {
+		param.MaxLength = cfg.maxLength
+	}
+	if cfg.pattern != "" {
+		param.Pattern = cfg.pattern
+	}
+	if cfg.minItems != nil {
+		param.MinItems = cfg.minItems
+	}
+	if cfg.maxItems != nil {
+		param.MaxItems = cfg.maxItems
+	}
+	if cfg.uniqueItems {
+		param.UniqueItems = cfg.uniqueItems
+	}
+	if len(cfg.enum) > 0 {
+		param.Enum = cfg.enum
+	}
+	if cfg.defaultValue != nil {
+		param.Default = cfg.defaultValue
+	}
 
 	// OAS 2.0 specific fields
 	if cfg.allowEmptyValue {

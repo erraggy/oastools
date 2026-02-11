@@ -7,6 +7,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/internal/naming"
 )
 
@@ -320,9 +321,9 @@ func buildRenameContext(
 		}
 	}
 
-	ctx.AllPaths = sortedMapKeys(pathSet)
-	ctx.AllMethods = sortedMapKeys(methodSet)
-	ctx.AllTags = sortedMapKeys(tagSet)
+	ctx.AllPaths = maputil.SortedKeys(pathSet)
+	ctx.AllMethods = maputil.SortedKeys(methodSet)
+	ctx.AllTags = maputil.SortedKeys(tagSet)
 
 	// Select primary operation based on policy
 	primary := selectPrimaryOperation(refs, policy)
@@ -417,16 +418,6 @@ func extractPathSegments(path string) []string {
 		}
 	}
 	return segments
-}
-
-// sortedMapKeys returns sorted keys from a map[string]bool.
-func sortedMapKeys(m map[string]bool) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 // buildRenameContextPtr is like buildRenameContext but returns a pointer.

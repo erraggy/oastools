@@ -403,7 +403,7 @@ func TestSetIfNotNil(t *testing.T) {
 		assert.Equal(t, 0, m["field"])
 	})
 
-	// Typed nil edge cases - these are wrapped in interface{} and are NOT equal to nil
+	// Typed nil edge cases - these are wrapped in any and are NOT equal to nil
 	t.Run("typed nil pointer", func(t *testing.T) {
 		m := map[string]any{}
 		var nilPtr *int = nil

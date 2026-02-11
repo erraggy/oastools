@@ -5,7 +5,7 @@
 // - Pointer fields (deep copy the pointed value)
 // - Slice fields (create new slice and copy elements)
 // - Map fields (create new map and copy entries)
-// - OAS-typed polymorphic fields (any/interface{} with known types)
+// - OAS-typed polymorphic fields (any with known types)
 
 package parser
 

@@ -166,7 +166,7 @@ func (b *Builder) generateStructSchema(t reflect.Type) *parser.Schema {
 						}
 					}
 					for _, req := range refSchema.Required {
-						if !contains(required, req) {
+						if !slices.Contains(required, req) {
 							required = append(required, req)
 						}
 					}
@@ -179,7 +179,7 @@ func (b *Builder) generateStructSchema(t reflect.Type) *parser.Schema {
 					}
 				}
 				for _, req := range embeddedSchema.Required {
-					if !contains(required, req) {
+					if !slices.Contains(required, req) {
 						required = append(required, req)
 					}
 				}
@@ -279,7 +279,7 @@ func (b *Builder) generatePrimitiveSchema(t reflect.Type) *parser.Schema {
 		return &parser.Schema{Type: "boolean"}
 
 	case reflect.Interface:
-		// interface{} / any becomes an empty schema (accepts anything)
+		// any becomes an empty schema (accepts anything)
 		return &parser.Schema{}
 
 	default:
@@ -326,9 +326,4 @@ func extractRefName(ref string) string {
 		return ref[len(oas2Prefix):]
 	}
 	return ""
-}
-
-// contains checks if a slice contains a string.
-func contains(slice []string, item string) bool {
-	return slices.Contains(slice, item)
 }

@@ -12,58 +12,43 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// refFieldSource is implemented by types that can provide ref-related fields for collection.
-// Both parser.Parameter and parser.Header have these fields.
-type refFieldSource interface {
-	getRef() string
-	getSchema() *parser.Schema
-	getContent() map[string]*parser.MediaType
-	getExamples() map[string]*parser.Example
-	getItems() *parser.Items
-}
+// collectParamOrHeaderRefs collects refs from *parser.Parameter or *parser.Header,
+// which share identical ref field structures (Ref, Schema, Content, Examples, Items).
+func (c *RefCollector) collectParamOrHeaderRefs(source any, path string, refType RefType, version parser.OASVersion) {
+	var (
+		ref      string
+		schema   *parser.Schema
+		content  map[string]*parser.MediaType
+		examples map[string]*parser.Example
+		items    *parser.Items
+	)
 
-// parameterRefAdapter wraps *parser.Parameter to implement refFieldSource.
-type parameterRefAdapter struct {
-	p *parser.Parameter
-}
+	switch v := source.(type) {
+	case *parser.Parameter:
+		ref, schema, content, examples, items = v.Ref, v.Schema, v.Content, v.Examples, v.Items
+	case *parser.Header:
+		ref, schema, content, examples, items = v.Ref, v.Schema, v.Content, v.Examples, v.Items
+	default:
+		panic(fmt.Sprintf("collectParamOrHeaderRefs: unexpected type %T", source))
+	}
 
-func (a *parameterRefAdapter) getRef() string                           { return a.p.Ref }
-func (a *parameterRefAdapter) getSchema() *parser.Schema                { return a.p.Schema }
-func (a *parameterRefAdapter) getContent() map[string]*parser.MediaType { return a.p.Content }
-func (a *parameterRefAdapter) getExamples() map[string]*parser.Example  { return a.p.Examples }
-func (a *parameterRefAdapter) getItems() *parser.Items                  { return a.p.Items }
-
-// headerRefAdapter wraps *parser.Header to implement refFieldSource.
-type headerRefAdapter struct {
-	h *parser.Header
-}
-
-func (a *headerRefAdapter) getRef() string                           { return a.h.Ref }
-func (a *headerRefAdapter) getSchema() *parser.Schema                { return a.h.Schema }
-func (a *headerRefAdapter) getContent() map[string]*parser.MediaType { return a.h.Content }
-func (a *headerRefAdapter) getExamples() map[string]*parser.Example  { return a.h.Examples }
-func (a *headerRefAdapter) getItems() *parser.Items                  { return a.h.Items }
-
-// collectRefFieldSourceRefs is the shared implementation for collecting refs from
-// Parameter and Header types, which have identical ref field structures.
-func (c *RefCollector) collectRefFieldSourceRefs(source refFieldSource, path string, refType RefType, version parser.OASVersion) {
 	// Check $ref
-	if ref := source.getRef(); ref != "" {
+	if ref != "" {
 		c.addRef(ref, path, refType)
 	}
 
 	// Schema (OAS 3.x)
-	if schema := source.getSchema(); schema != nil {
+	if schema != nil {
 		c.collectSchemaRefs(schema, fmt.Sprintf("%s.schema", path))
 	}
 
 	// Content (OAS 3.x)
-	for mediaType, mt := range source.getContent() {
+	for mediaType, mt := range content {
 		c.collectMediaTypeRefs(mt, fmt.Sprintf("%s.content.%s", path, mediaType))
 	}
 
 	// Examples (OAS 3.x)
-	for name, example := range source.getExamples() {
+	for name, example := range examples {
 		if example != nil && example.Ref != "" {
 			c.addRef(example.Ref, fmt.Sprintf("%s.examples.%s", path, name), RefTypeExample)
 		}
@@ -71,7 +56,7 @@ func (c *RefCollector) collectRefFieldSourceRefs(source refFieldSource, path str
 
 	// Items for OAS 2.0
 	if version == parser.OASVersion20 {
-		if items := source.getItems(); items != nil {
+		if items != nil {
 			c.collectItemsRefs(items, fmt.Sprintf("%s.items", path))
 		}
 	}
@@ -396,7 +381,7 @@ func (c *RefCollector) collectParameterRefs(param *parser.Parameter, path string
 	if param == nil {
 		return
 	}
-	c.collectRefFieldSourceRefs(&parameterRefAdapter{param}, path, RefTypeParameter, version)
+	c.collectParamOrHeaderRefs(param, path, RefTypeParameter, version)
 }
 
 // collectItemsRefs collects references from OAS 2.0 Items.
@@ -432,7 +417,7 @@ func (c *RefCollector) collectHeaderRefs(header *parser.Header, path string, ver
 	if header == nil {
 		return
 	}
-	c.collectRefFieldSourceRefs(&headerRefAdapter{header}, path, RefTypeHeader, version)
+	c.collectParamOrHeaderRefs(header, path, RefTypeHeader, version)
 }
 
 // collectMediaTypeRefs collects references from a media type.

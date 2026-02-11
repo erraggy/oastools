@@ -2,8 +2,8 @@ package walker
 
 import (
 	"fmt"
-	"sort"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -124,7 +124,7 @@ func (w *Walker) walkOAS3(doc *parser.OAS3Document, state *walkState) error {
 
 // walkOAS3Paths walks all paths in sorted order.
 func (w *Walker) walkOAS3Paths(paths parser.Paths, basePath string, state *walkState) error {
-	pathKeys := sortedMapKeys(paths)
+	pathKeys := maputil.SortedKeys(paths)
 	for _, pathTemplate := range pathKeys {
 		if w.stopped {
 			return nil
@@ -162,13 +162,7 @@ func (w *Walker) walkOAS3Paths(paths parser.Paths, basePath string, state *walkS
 
 // walkOAS3Webhooks walks webhooks (OAS 3.1+).
 func (w *Walker) walkOAS3Webhooks(webhooks map[string]*parser.PathItem, basePath string, state *walkState) error {
-	webhookKeys := make([]string, 0, len(webhooks))
-	for k := range webhooks {
-		webhookKeys = append(webhookKeys, k)
-	}
-	sort.Strings(webhookKeys)
-
-	for _, name := range webhookKeys {
+	for _, name := range maputil.SortedKeys(webhooks) {
 		if w.stopped {
 			return nil
 		}
@@ -287,13 +281,7 @@ func (w *Walker) walkOAS3PathItemOperations(pathItem *parser.PathItem, basePath 
 
 	// Additional operations (OAS 3.2+)
 	if pathItem.AdditionalOperations != nil {
-		addOpKeys := make([]string, 0, len(pathItem.AdditionalOperations))
-		for k := range pathItem.AdditionalOperations {
-			addOpKeys = append(addOpKeys, k)
-		}
-		sort.Strings(addOpKeys)
-
-		for _, method := range addOpKeys {
+		for _, method := range maputil.SortedKeys(pathItem.AdditionalOperations) {
 			if w.stopped {
 				return nil
 			}
@@ -368,13 +356,7 @@ func (w *Walker) walkOAS3Operation(op *parser.Operation, basePath string, state 
 
 	// Callbacks
 	if op.Callbacks != nil {
-		callbackKeys := make([]string, 0, len(op.Callbacks))
-		for k := range op.Callbacks {
-			callbackKeys = append(callbackKeys, k)
-		}
-		sort.Strings(callbackKeys)
-
-		for _, name := range callbackKeys {
+		for _, name := range maputil.SortedKeys(op.Callbacks) {
 			if w.stopped {
 				return nil
 			}
@@ -451,13 +433,7 @@ func (w *Walker) walkOAS3Responses(responses *parser.Responses, basePath string,
 
 	// Status code responses - using Codes (not StatusCodes!)
 	if responses.Codes != nil {
-		codeKeys := make([]string, 0, len(responses.Codes))
-		for k := range responses.Codes {
-			codeKeys = append(codeKeys, k)
-		}
-		sort.Strings(codeKeys)
-
-		for _, code := range codeKeys {
+		for _, code := range maputil.SortedKeys(responses.Codes) {
 			if w.stopped {
 				return nil
 			}
@@ -517,13 +493,7 @@ func (w *Walker) walkOAS3Response(resp *parser.Response, basePath string, state 
 
 	// Links
 	if resp.Links != nil {
-		linkKeys := make([]string, 0, len(resp.Links))
-		for k := range resp.Links {
-			linkKeys = append(linkKeys, k)
-		}
-		sort.Strings(linkKeys)
-
-		for _, name := range linkKeys {
+		for _, name := range maputil.SortedKeys(resp.Links) {
 			if w.stopped {
 				return nil
 			}
@@ -583,13 +553,7 @@ func (w *Walker) walkOAS3Callback(name string, callback parser.Callback, basePat
 	// The PathItems within the callback will have their own parent tracking.
 
 	// Callback is map[string]*PathItem
-	exprKeys := make([]string, 0, len(callback))
-	for k := range callback {
-		exprKeys = append(exprKeys, k)
-	}
-	sort.Strings(exprKeys)
-
-	for _, expr := range exprKeys {
+	for _, expr := range maputil.SortedKeys(callback) {
 		if w.stopped {
 			return nil
 		}
@@ -650,7 +614,7 @@ func (w *Walker) walkComponentSchemas(components *parser.Components, basePath st
 	if components.Schemas == nil {
 		return nil
 	}
-	for _, name := range sortedMapKeys(components.Schemas) {
+	for _, name := range maputil.SortedKeys(components.Schemas) {
 		if w.stopped {
 			return nil
 		}
@@ -669,7 +633,7 @@ func (w *Walker) walkComponentResponses(components *parser.Components, basePath 
 	if components.Responses == nil {
 		return nil
 	}
-	for _, name := range sortedMapKeys(components.Responses) {
+	for _, name := range maputil.SortedKeys(components.Responses) {
 		if w.stopped {
 			return nil
 		}
@@ -689,7 +653,7 @@ func (w *Walker) walkComponentParameters(components *parser.Components, basePath
 	if components.Parameters == nil {
 		return nil
 	}
-	for _, name := range sortedMapKeys(components.Parameters) {
+	for _, name := range maputil.SortedKeys(components.Parameters) {
 		if w.stopped {
 			return nil
 		}
@@ -708,7 +672,7 @@ func (w *Walker) walkComponentRequestBodies(components *parser.Components, baseP
 	if components.RequestBodies == nil {
 		return nil
 	}
-	for _, name := range sortedMapKeys(components.RequestBodies) {
+	for _, name := range maputil.SortedKeys(components.RequestBodies) {
 		if w.stopped {
 			return nil
 		}
@@ -734,7 +698,7 @@ func (w *Walker) walkComponentSecuritySchemes(components *parser.Components, bas
 	if components.SecuritySchemes == nil {
 		return nil
 	}
-	for _, name := range sortedMapKeys(components.SecuritySchemes) {
+	for _, name := range maputil.SortedKeys(components.SecuritySchemes) {
 		if w.stopped {
 			return nil
 		}
@@ -765,7 +729,7 @@ func (w *Walker) walkComponentLinks(components *parser.Components, basePath stri
 	if components.Links == nil {
 		return nil
 	}
-	for _, name := range sortedMapKeys(components.Links) {
+	for _, name := range maputil.SortedKeys(components.Links) {
 		if w.stopped {
 			return nil
 		}
@@ -796,7 +760,7 @@ func (w *Walker) walkComponentCallbacks(components *parser.Components, basePath 
 	if components.Callbacks == nil {
 		return nil
 	}
-	for _, name := range sortedMapKeys(components.Callbacks) {
+	for _, name := range maputil.SortedKeys(components.Callbacks) {
 		if w.stopped {
 			return nil
 		}
@@ -813,7 +777,7 @@ func (w *Walker) walkComponentExamples(components *parser.Components, basePath s
 	if components.Examples == nil {
 		return nil
 	}
-	for _, name := range sortedMapKeys(components.Examples) {
+	for _, name := range maputil.SortedKeys(components.Examples) {
 		if w.stopped {
 			return nil
 		}
@@ -844,7 +808,7 @@ func (w *Walker) walkComponentPathItems(components *parser.Components, basePath 
 	if components.PathItems == nil {
 		return nil
 	}
-	for _, name := range sortedMapKeys(components.PathItems) {
+	for _, name := range maputil.SortedKeys(components.PathItems) {
 		if w.stopped {
 			return nil
 		}
