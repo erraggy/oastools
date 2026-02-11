@@ -1,18 +1,16 @@
 package fixer
 
 import (
-	"regexp"
 	"strings"
-)
 
-// pathParamRegex matches path template parameters like {paramName}
-var pathParamRegex = regexp.MustCompile(`\{([^}]+)\}`)
+	"github.com/erraggy/oastools/internal/pathutil"
+)
 
 // extractPathParameters extracts parameter names from a path template.
 // e.g., "/pets/{petId}/owners/{ownerId}" -> {"petId": true, "ownerId": true}
 func extractPathParameters(pathPattern string) map[string]bool {
 	params := make(map[string]bool)
-	matches := pathParamRegex.FindAllStringSubmatch(pathPattern, -1)
+	matches := pathutil.PathParamRegex.FindAllStringSubmatch(pathPattern, -1)
 	for _, match := range matches {
 		if len(match) > 1 {
 			params[match[1]] = true

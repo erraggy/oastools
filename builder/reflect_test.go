@@ -2,6 +2,7 @@ package builder
 
 import (
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -277,7 +278,7 @@ func TestBuilder_generateSchema_Interface(t *testing.T) {
 	var iface any
 	schema := b.generateSchema(iface)
 
-	// interface{}/any should produce an empty schema
+	// any should produce an empty schema
 	assert.Empty(t, schema.Type)
 }
 
@@ -439,13 +440,13 @@ func TestBuilder_extractRefName(t *testing.T) {
 	}
 }
 
-func TestBuilder_contains(t *testing.T) {
+func TestBuilder_slicesContains(t *testing.T) {
 	slice := []string{"a", "b", "c"}
-	assert.True(t, contains(slice, "a"))
-	assert.True(t, contains(slice, "b"))
-	assert.True(t, contains(slice, "c"))
-	assert.False(t, contains(slice, "d"))
-	assert.False(t, contains(nil, "a"))
+	assert.True(t, slices.Contains(slice, "a"))
+	assert.True(t, slices.Contains(slice, "b"))
+	assert.True(t, slices.Contains(slice, "c"))
+	assert.False(t, slices.Contains(slice, "d"))
+	assert.False(t, slices.Contains([]string(nil), "a"))
 }
 
 func TestBuilder_schemaName_ConflictDetection(t *testing.T) {

@@ -5,12 +5,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
 )
-
-func boolPtr(b bool) *bool {
-	return &b
-}
 
 func TestDeserializePathParam_Simple(t *testing.T) {
 	d := NewParamDeserializer()
@@ -87,7 +84,7 @@ func TestDeserializePathParam_Simple(t *testing.T) {
 			param: &parser.Parameter{
 				Name:    "obj",
 				In:      "path",
-				Explode: boolPtr(false),
+				Explode: testutil.Ptr(false),
 				Schema: &parser.Schema{
 					Type: "object",
 					Properties: map[string]*parser.Schema{
@@ -104,7 +101,7 @@ func TestDeserializePathParam_Simple(t *testing.T) {
 			param: &parser.Parameter{
 				Name:    "obj",
 				In:      "path",
-				Explode: boolPtr(true),
+				Explode: testutil.Ptr(true),
 				Schema: &parser.Schema{
 					Type: "object",
 					Properties: map[string]*parser.Schema{
@@ -174,7 +171,7 @@ func TestDeserializePathParam_Label(t *testing.T) {
 				Name:    "items",
 				In:      "path",
 				Style:   "label",
-				Explode: boolPtr(false),
+				Explode: testutil.Ptr(false),
 				Schema:  &parser.Schema{Type: "array", Items: &parser.Schema{Type: "string"}},
 			},
 			expected: []any{"a", "b", "c"},
@@ -186,7 +183,7 @@ func TestDeserializePathParam_Label(t *testing.T) {
 				Name:    "items",
 				In:      "path",
 				Style:   "label",
-				Explode: boolPtr(true),
+				Explode: testutil.Ptr(true),
 				Schema:  &parser.Schema{Type: "array", Items: &parser.Schema{Type: "string"}},
 			},
 			expected: []any{"a", "b", "c"},
@@ -198,7 +195,7 @@ func TestDeserializePathParam_Label(t *testing.T) {
 				Name:    "obj",
 				In:      "path",
 				Style:   "label",
-				Explode: boolPtr(false),
+				Explode: testutil.Ptr(false),
 				Schema: &parser.Schema{
 					Type: "object",
 					Properties: map[string]*parser.Schema{
@@ -216,7 +213,7 @@ func TestDeserializePathParam_Label(t *testing.T) {
 				Name:    "obj",
 				In:      "path",
 				Style:   "label",
-				Explode: boolPtr(true),
+				Explode: testutil.Ptr(true),
 				Schema: &parser.Schema{
 					Type: "object",
 					Properties: map[string]*parser.Schema{
@@ -287,7 +284,7 @@ func TestDeserializePathParam_Matrix(t *testing.T) {
 				Name:    "id",
 				In:      "path",
 				Style:   "matrix",
-				Explode: boolPtr(false),
+				Explode: testutil.Ptr(false),
 				Schema:  &parser.Schema{Type: "array", Items: &parser.Schema{Type: "integer"}},
 			},
 			expected: []any{int64(3), int64(4), int64(5)},
@@ -299,7 +296,7 @@ func TestDeserializePathParam_Matrix(t *testing.T) {
 				Name:    "id",
 				In:      "path",
 				Style:   "matrix",
-				Explode: boolPtr(true),
+				Explode: testutil.Ptr(true),
 				Schema:  &parser.Schema{Type: "array", Items: &parser.Schema{Type: "integer"}},
 			},
 			expected: []any{int64(3), int64(4), int64(5)},
@@ -311,7 +308,7 @@ func TestDeserializePathParam_Matrix(t *testing.T) {
 				Name:    "id",
 				In:      "path",
 				Style:   "matrix",
-				Explode: boolPtr(false),
+				Explode: testutil.Ptr(false),
 				Schema: &parser.Schema{
 					Type: "object",
 					Properties: map[string]*parser.Schema{
@@ -329,7 +326,7 @@ func TestDeserializePathParam_Matrix(t *testing.T) {
 				Name:    "id",
 				In:      "path",
 				Style:   "matrix",
-				Explode: boolPtr(true),
+				Explode: testutil.Ptr(true),
 				Schema: &parser.Schema{
 					Type: "object",
 					Properties: map[string]*parser.Schema{
@@ -429,7 +426,7 @@ func TestDeserializeQueryParam_Form(t *testing.T) {
 			param: &parser.Parameter{
 				Name:    "items",
 				In:      "query",
-				Explode: boolPtr(false),
+				Explode: testutil.Ptr(false),
 				Schema:  &parser.Schema{Type: "array", Items: &parser.Schema{Type: "string"}},
 			},
 			expected: []any{"a", "b", "c"},
@@ -440,7 +437,7 @@ func TestDeserializeQueryParam_Form(t *testing.T) {
 			param: &parser.Parameter{
 				Name:    "obj",
 				In:      "query",
-				Explode: boolPtr(false),
+				Explode: testutil.Ptr(false),
 				Schema: &parser.Schema{
 					Type: "object",
 					Properties: map[string]*parser.Schema{
@@ -457,7 +454,7 @@ func TestDeserializeQueryParam_Form(t *testing.T) {
 			param: &parser.Parameter{
 				Name:    "role",
 				In:      "query",
-				Explode: boolPtr(true),
+				Explode: testutil.Ptr(true),
 				Schema:  &parser.Schema{Type: "object"},
 			},
 			expected: "admin",
@@ -726,7 +723,7 @@ func TestDeserializeHeaderParam(t *testing.T) {
 			param: &parser.Parameter{
 				Name:    "X-Object",
 				In:      "header",
-				Explode: boolPtr(true),
+				Explode: testutil.Ptr(true),
 				Schema: &parser.Schema{
 					Type: "object",
 					Properties: map[string]*parser.Schema{
@@ -937,7 +934,7 @@ func TestFormArrayMultipleValuesNoExplode(t *testing.T) {
 		&parser.Parameter{
 			Name:    "items",
 			In:      "query",
-			Explode: boolPtr(false),
+			Explode: testutil.Ptr(false),
 			Schema:  &parser.Schema{Type: "array", Items: &parser.Schema{Type: "string"}},
 		},
 	)
@@ -957,7 +954,7 @@ func TestFormObjectExplodeMultipleValues(t *testing.T) {
 		&parser.Parameter{
 			Name:    "obj",
 			In:      "query",
-			Explode: boolPtr(true),
+			Explode: testutil.Ptr(true),
 			Schema:  &parser.Schema{Type: "object"},
 		},
 	)

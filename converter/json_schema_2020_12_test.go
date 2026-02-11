@@ -272,11 +272,11 @@ func TestWalkSchemaRefs_OAS3ToOAS2_JSONSchema2020_12(t *testing.T) {
 	})
 }
 
-// TestWalkSchemaRefs_AllInterfaceTypedFields tests that all interface{}-typed fields
+// TestWalkSchemaRefs_AllInterfaceTypedFields tests that all polymorphic fields
 // are properly handled with type assertions
 func TestWalkSchemaRefs_AllInterfaceTypedFields(t *testing.T) {
 	t.Run("map[string]any type for AdditionalProperties", func(t *testing.T) {
-		// In some cases, interface{} fields might be map[string]any instead of *Schema
+		// In some cases, polymorphic fields might be map[string]any instead of *Schema
 		schema := &parser.Schema{
 			Type: "object",
 			AdditionalProperties: map[string]any{

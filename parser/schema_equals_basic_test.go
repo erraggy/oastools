@@ -3,6 +3,7 @@ package parser
 import (
 	"testing"
 
+	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -556,19 +557,19 @@ func TestSchemaEquals_PointerFields(t *testing.T) {
 		{
 			name: "Maximum one nil one set",
 			a:    &Schema{Maximum: nil},
-			b:    &Schema{Maximum: ptr(100.0)},
+			b:    &Schema{Maximum: testutil.Ptr(100.0)},
 			want: false,
 		},
 		{
 			name: "Maximum same values",
-			a:    &Schema{Maximum: ptr(100.0)},
-			b:    &Schema{Maximum: ptr(100.0)},
+			a:    &Schema{Maximum: testutil.Ptr(100.0)},
+			b:    &Schema{Maximum: testutil.Ptr(100.0)},
 			want: true,
 		},
 		{
 			name: "Maximum different values",
-			a:    &Schema{Maximum: ptr(100.0)},
-			b:    &Schema{Maximum: ptr(200.0)},
+			a:    &Schema{Maximum: testutil.Ptr(100.0)},
+			b:    &Schema{Maximum: testutil.Ptr(200.0)},
 			want: false,
 		},
 		// Minimum
@@ -580,20 +581,20 @@ func TestSchemaEquals_PointerFields(t *testing.T) {
 		},
 		{
 			name: "Minimum one nil one set",
-			a:    &Schema{Minimum: ptr(0.0)},
+			a:    &Schema{Minimum: testutil.Ptr(0.0)},
 			b:    &Schema{Minimum: nil},
 			want: false,
 		},
 		{
 			name: "Minimum same values",
-			a:    &Schema{Minimum: ptr(0.0)},
-			b:    &Schema{Minimum: ptr(0.0)},
+			a:    &Schema{Minimum: testutil.Ptr(0.0)},
+			b:    &Schema{Minimum: testutil.Ptr(0.0)},
 			want: true,
 		},
 		{
 			name: "Minimum different values",
-			a:    &Schema{Minimum: ptr(0.0)},
-			b:    &Schema{Minimum: ptr(1.0)},
+			a:    &Schema{Minimum: testutil.Ptr(0.0)},
+			b:    &Schema{Minimum: testutil.Ptr(1.0)},
 			want: false,
 		},
 		// MultipleOf
@@ -605,14 +606,14 @@ func TestSchemaEquals_PointerFields(t *testing.T) {
 		},
 		{
 			name: "MultipleOf same values",
-			a:    &Schema{MultipleOf: ptr(2.0)},
-			b:    &Schema{MultipleOf: ptr(2.0)},
+			a:    &Schema{MultipleOf: testutil.Ptr(2.0)},
+			b:    &Schema{MultipleOf: testutil.Ptr(2.0)},
 			want: true,
 		},
 		{
 			name: "MultipleOf different values",
-			a:    &Schema{MultipleOf: ptr(2.0)},
-			b:    &Schema{MultipleOf: ptr(5.0)},
+			a:    &Schema{MultipleOf: testutil.Ptr(2.0)},
+			b:    &Schema{MultipleOf: testutil.Ptr(5.0)},
 			want: false,
 		},
 		// MaxLength
@@ -624,111 +625,111 @@ func TestSchemaEquals_PointerFields(t *testing.T) {
 		},
 		{
 			name: "MaxLength one nil one set",
-			a:    &Schema{MaxLength: intPtr(100)},
+			a:    &Schema{MaxLength: testutil.Ptr(100)},
 			b:    &Schema{MaxLength: nil},
 			want: false,
 		},
 		{
 			name: "MaxLength same values",
-			a:    &Schema{MaxLength: intPtr(100)},
-			b:    &Schema{MaxLength: intPtr(100)},
+			a:    &Schema{MaxLength: testutil.Ptr(100)},
+			b:    &Schema{MaxLength: testutil.Ptr(100)},
 			want: true,
 		},
 		{
 			name: "MaxLength different values",
-			a:    &Schema{MaxLength: intPtr(100)},
-			b:    &Schema{MaxLength: intPtr(200)},
+			a:    &Schema{MaxLength: testutil.Ptr(100)},
+			b:    &Schema{MaxLength: testutil.Ptr(200)},
 			want: false,
 		},
 		// MinLength
 		{
 			name: "MinLength same values",
-			a:    &Schema{MinLength: intPtr(1)},
-			b:    &Schema{MinLength: intPtr(1)},
+			a:    &Schema{MinLength: testutil.Ptr(1)},
+			b:    &Schema{MinLength: testutil.Ptr(1)},
 			want: true,
 		},
 		{
 			name: "MinLength different values",
-			a:    &Schema{MinLength: intPtr(1)},
-			b:    &Schema{MinLength: intPtr(5)},
+			a:    &Schema{MinLength: testutil.Ptr(1)},
+			b:    &Schema{MinLength: testutil.Ptr(5)},
 			want: false,
 		},
 		// MaxItems
 		{
 			name: "MaxItems same values",
-			a:    &Schema{MaxItems: intPtr(10)},
-			b:    &Schema{MaxItems: intPtr(10)},
+			a:    &Schema{MaxItems: testutil.Ptr(10)},
+			b:    &Schema{MaxItems: testutil.Ptr(10)},
 			want: true,
 		},
 		{
 			name: "MaxItems different values",
-			a:    &Schema{MaxItems: intPtr(10)},
-			b:    &Schema{MaxItems: intPtr(20)},
+			a:    &Schema{MaxItems: testutil.Ptr(10)},
+			b:    &Schema{MaxItems: testutil.Ptr(20)},
 			want: false,
 		},
 		// MinItems
 		{
 			name: "MinItems same values",
-			a:    &Schema{MinItems: intPtr(0)},
-			b:    &Schema{MinItems: intPtr(0)},
+			a:    &Schema{MinItems: testutil.Ptr(0)},
+			b:    &Schema{MinItems: testutil.Ptr(0)},
 			want: true,
 		},
 		{
 			name: "MinItems different values",
-			a:    &Schema{MinItems: intPtr(0)},
-			b:    &Schema{MinItems: intPtr(1)},
+			a:    &Schema{MinItems: testutil.Ptr(0)},
+			b:    &Schema{MinItems: testutil.Ptr(1)},
 			want: false,
 		},
 		// MaxProperties
 		{
 			name: "MaxProperties same values",
-			a:    &Schema{MaxProperties: intPtr(50)},
-			b:    &Schema{MaxProperties: intPtr(50)},
+			a:    &Schema{MaxProperties: testutil.Ptr(50)},
+			b:    &Schema{MaxProperties: testutil.Ptr(50)},
 			want: true,
 		},
 		{
 			name: "MaxProperties different values",
-			a:    &Schema{MaxProperties: intPtr(50)},
-			b:    &Schema{MaxProperties: intPtr(100)},
+			a:    &Schema{MaxProperties: testutil.Ptr(50)},
+			b:    &Schema{MaxProperties: testutil.Ptr(100)},
 			want: false,
 		},
 		// MinProperties
 		{
 			name: "MinProperties same values",
-			a:    &Schema{MinProperties: intPtr(1)},
-			b:    &Schema{MinProperties: intPtr(1)},
+			a:    &Schema{MinProperties: testutil.Ptr(1)},
+			b:    &Schema{MinProperties: testutil.Ptr(1)},
 			want: true,
 		},
 		{
 			name: "MinProperties different values",
-			a:    &Schema{MinProperties: intPtr(1)},
-			b:    &Schema{MinProperties: intPtr(2)},
+			a:    &Schema{MinProperties: testutil.Ptr(1)},
+			b:    &Schema{MinProperties: testutil.Ptr(2)},
 			want: false,
 		},
 		// MaxContains
 		{
 			name: "MaxContains same values",
-			a:    &Schema{MaxContains: intPtr(5)},
-			b:    &Schema{MaxContains: intPtr(5)},
+			a:    &Schema{MaxContains: testutil.Ptr(5)},
+			b:    &Schema{MaxContains: testutil.Ptr(5)},
 			want: true,
 		},
 		{
 			name: "MaxContains different values",
-			a:    &Schema{MaxContains: intPtr(5)},
-			b:    &Schema{MaxContains: intPtr(10)},
+			a:    &Schema{MaxContains: testutil.Ptr(5)},
+			b:    &Schema{MaxContains: testutil.Ptr(10)},
 			want: false,
 		},
 		// MinContains
 		{
 			name: "MinContains same values",
-			a:    &Schema{MinContains: intPtr(1)},
-			b:    &Schema{MinContains: intPtr(1)},
+			a:    &Schema{MinContains: testutil.Ptr(1)},
+			b:    &Schema{MinContains: testutil.Ptr(1)},
 			want: true,
 		},
 		{
 			name: "MinContains different values",
-			a:    &Schema{MinContains: intPtr(1)},
-			b:    &Schema{MinContains: intPtr(2)},
+			a:    &Schema{MinContains: testutil.Ptr(1)},
+			b:    &Schema{MinContains: testutil.Ptr(2)},
 			want: false,
 		},
 	}

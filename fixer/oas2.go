@@ -23,11 +23,7 @@ func (f *Fixer) fixOAS2(parseResult parser.ParseResult, result *FixResult) (*Fix
 		doc = srcDoc
 	} else {
 		// Deep copy the document to avoid mutating the original
-		var err error
-		doc, err = deepCopyOAS2Document(srcDoc)
-		if err != nil {
-			return nil, fmt.Errorf("fixer: failed to copy document: %w", err)
-		}
+		doc = srcDoc.DeepCopy()
 	}
 
 	// Apply fixes using shared pipeline

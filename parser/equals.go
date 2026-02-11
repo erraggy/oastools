@@ -2,7 +2,7 @@ package parser
 
 // This file contains helper functions for equality comparison of OAS-typed fields.
 // These helpers understand the OAS specification semantics for fields that use
-// interface{}/any types but have well-defined possible types per the spec.
+// any types but have well-defined possible types per the spec.
 // The functions mirror the patterns in deepcopy_helpers.go.
 
 import (

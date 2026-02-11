@@ -12,7 +12,7 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// collectPolymorphicSchemaRefs handles collecting refs from interface{} schema fields
+// collectPolymorphicSchemaRefs handles collecting refs from polymorphic schema fields
 // that can be *parser.Schema, bool, or map[string]any. This helper reduces duplication
 // in collectSchemaRefsRecursive for AdditionalProperties, Items, AdditionalItems,
 // UnevaluatedProperties, and UnevaluatedItems.

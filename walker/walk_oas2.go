@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -77,13 +78,7 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 		defState := state.clone()
 		defState.isComponent = true
 
-		defKeys := make([]string, 0, len(doc.Definitions))
-		for k := range doc.Definitions {
-			defKeys = append(defKeys, k)
-		}
-		sort.Strings(defKeys)
-
-		for _, name := range defKeys {
+		for _, name := range maputil.SortedKeys(doc.Definitions) {
 			if w.stopped {
 				return nil
 			}
@@ -103,13 +98,7 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 		paramState := state.clone()
 		paramState.isComponent = true
 
-		paramKeys := make([]string, 0, len(doc.Parameters))
-		for k := range doc.Parameters {
-			paramKeys = append(paramKeys, k)
-		}
-		sort.Strings(paramKeys)
-
-		for _, name := range paramKeys {
+		for _, name := range maputil.SortedKeys(doc.Parameters) {
 			if w.stopped {
 				return nil
 			}
@@ -129,13 +118,7 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 		respState := state.clone()
 		respState.isComponent = true
 
-		respKeys := make([]string, 0, len(doc.Responses))
-		for k := range doc.Responses {
-			respKeys = append(respKeys, k)
-		}
-		sort.Strings(respKeys)
-
-		for _, name := range respKeys {
+		for _, name := range maputil.SortedKeys(doc.Responses) {
 			if w.stopped {
 				return nil
 			}
@@ -155,13 +138,7 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 		ssState := state.clone()
 		ssState.isComponent = true
 
-		ssKeys := make([]string, 0, len(doc.SecurityDefinitions))
-		for k := range doc.SecurityDefinitions {
-			ssKeys = append(ssKeys, k)
-		}
-		sort.Strings(ssKeys)
-
-		for _, name := range ssKeys {
+		for _, name := range maputil.SortedKeys(doc.SecurityDefinitions) {
 			if w.stopped {
 				return nil
 			}
@@ -211,7 +188,7 @@ func (w *Walker) walkOAS2(doc *parser.OAS2Document, state *walkState) error {
 
 // walkOAS2Paths walks all paths in sorted order.
 func (w *Walker) walkOAS2Paths(paths parser.Paths, basePath string, state *walkState) error {
-	pathKeys := sortedMapKeys(paths)
+	pathKeys := maputil.SortedKeys(paths)
 	for _, pathTemplate := range pathKeys {
 		if w.stopped {
 			return nil

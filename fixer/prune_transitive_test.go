@@ -13,7 +13,7 @@ import (
 
 // TestPruneOAS2_TransitiveItemsRefs verifies that schemas referenced via array items
 // are not pruned. This is a regression test for a bug where Items fields parsed as
-// map[string]interface{} instead of *parser.Schema, causing the type assertion in
+// map[string]any instead of *parser.Schema, causing the type assertion in
 // collectSchemaRefsRecursive to silently fail.
 //
 // Bug: When parsing OAS 2.0, schema.Items with a $ref is unmarshaled as map[string]any
@@ -441,7 +441,7 @@ definitions:
 }
 
 // TestPruneOAS2_AnyOfOneOfRefs verifies that schemas referenced via anyOf/oneOf
-// composition are not pruned when they appear as map[string]interface{}.
+// composition are not pruned when they appear as map[string]any.
 func TestPruneOAS2_AnyOfOneOfRefs(t *testing.T) {
 	// Note: OAS 2.0 doesn't officially support anyOf/oneOf, but many parsers allow it
 	// and the pruning logic should handle it correctly regardless
@@ -577,7 +577,7 @@ components:
 }
 
 // TestPruneOAS2_NestedPropertiesRefs verifies that schemas referenced via nested
-// properties within a map[string]interface{} are not pruned.
+// properties within a map[string]any are not pruned.
 func TestPruneOAS2_NestedPropertiesRefs(t *testing.T) {
 	spec := `swagger: "2.0"
 info:
@@ -655,7 +655,7 @@ definitions:
 }
 
 // TestPruneOAS2_AdditionalItemsRefs verifies that schemas referenced via additionalItems
-// are not pruned when additionalItems is parsed as map[string]interface{}.
+// are not pruned when additionalItems is parsed as map[string]any.
 func TestPruneOAS2_AdditionalItemsRefs(t *testing.T) {
 	spec := `swagger: "2.0"
 info:

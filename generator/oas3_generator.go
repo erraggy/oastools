@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/internal/httputil"
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
@@ -349,7 +350,7 @@ func (cg *oas3CodeGenerator) generateSingleClient() error {
 	// Generate methods for each operation
 	if cg.doc.Paths != nil {
 		// Sort paths for deterministic output
-		pathKeys := sortedPathKeys(cg.doc.Paths)
+		pathKeys := maputil.SortedKeys(cg.doc.Paths)
 
 		for _, path := range pathKeys {
 			pathItem := cg.doc.Paths[path]
@@ -659,7 +660,7 @@ func (cg *oas3CodeGenerator) generateSingleServer() error {
 // writeRequestTypes generates request types for all operations.
 // This is used as a callback for single-file server generation.
 func (cg *oas3CodeGenerator) writeRequestTypes(buf *bytes.Buffer, generatedMethods map[string]bool) {
-	for _, path := range sortedPathKeys(cg.doc.Paths) {
+	for _, path := range maputil.SortedKeys(cg.doc.Paths) {
 		pathItem := cg.doc.Paths[path]
 		if pathItem == nil {
 			continue
@@ -1075,7 +1076,7 @@ func (cg *oas3CodeGenerator) generateServerResponses() error {
 	generatedMethods := make(map[string]bool)
 
 	// Sort paths for deterministic output
-	pathKeys := sortedPathKeys(cg.doc.Paths)
+	pathKeys := maputil.SortedKeys(cg.doc.Paths)
 
 	for _, path := range pathKeys {
 		pathItem := cg.doc.Paths[path]
@@ -1145,7 +1146,7 @@ func (cg *oas3CodeGenerator) generateServerBinder() error {
 	generatedMethods := make(map[string]bool)
 
 	// Sort paths for deterministic output
-	pathKeys := sortedPathKeys(cg.doc.Paths)
+	pathKeys := maputil.SortedKeys(cg.doc.Paths)
 
 	for _, path := range pathKeys {
 		pathItem := cg.doc.Paths[path]

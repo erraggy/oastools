@@ -2,6 +2,7 @@ package parser
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -25,17 +26,17 @@ func TestOAS2DocumentMarshalJSON(t *testing.T) {
 			},
 			validate: func(t *testing.T, result string) {
 				// Should not contain "extra" field
-				if contains(result, "extra") {
+				if strings.Contains(result, "extra") {
 					t.Error("Should not include extra field when empty")
 				}
 				// Should contain required fields
-				if !contains(result, `"swagger":"2.0"`) {
+				if !strings.Contains(result, `"swagger":"2.0"`) {
 					t.Error("Should include swagger field")
 				}
-				if !contains(result, `"info"`) {
+				if !strings.Contains(result, `"info"`) {
 					t.Error("Should include info field")
 				}
-				if !contains(result, `"paths"`) {
+				if !strings.Contains(result, `"paths"`) {
 					t.Error("Should include paths field")
 				}
 			},
@@ -90,7 +91,7 @@ func TestOAS2DocumentMarshalJSON(t *testing.T) {
 					`"externalDocs"`,
 				}
 				for _, field := range expectedFields {
-					if !contains(result, field) {
+					if !strings.Contains(result, field) {
 						t.Errorf("Expected field missing: %s", field)
 					}
 				}
@@ -116,7 +117,7 @@ func TestOAS2DocumentMarshalJSON(t *testing.T) {
 					`"x-extension"`,
 				}
 				for _, ext := range expectedExtensions {
-					if !contains(result, ext) {
+					if !strings.Contains(result, ext) {
 						t.Errorf("Expected extension missing: %s", ext)
 					}
 				}
@@ -143,7 +144,7 @@ func TestOAS2DocumentMarshalJSON(t *testing.T) {
 				omittedFields := []string{"schemes", "consumes", "produces", "definitions", "parameters", "responses", "securityDefinitions", "security", "tags"}
 				for _, field := range omittedFields {
 					fieldPattern := `"` + field + `":`
-					if contains(result, fieldPattern) {
+					if strings.Contains(result, fieldPattern) {
 						t.Errorf("Empty field should be omitted: %s", field)
 					}
 				}
@@ -412,18 +413,4 @@ func TestOAS2DocumentMarshalUnmarshalRoundtrip(t *testing.T) {
 			t.Errorf("Extension %s mismatch: got %v, want %v", k, restored.Extra[k], v)
 		}
 	}
-}
-
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsRecursive(s, substr))
-}
-
-func containsRecursive(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

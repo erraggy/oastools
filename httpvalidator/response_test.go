@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -430,7 +431,7 @@ paths: {}
 			Content: map[string]*parser.MediaType{
 				"text/plain": {Schema: &parser.Schema{
 					Type:      "string",
-					MinLength: intPtr(5),
+					MinLength: testutil.Ptr(5),
 				}},
 			},
 		}
@@ -798,12 +799,4 @@ paths:
 		}
 		assert.True(t, hasHeaderError, "errors: %v", result.Errors)
 	})
-}
-
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-func intPtr(i int) *int {
-	return &i
 }

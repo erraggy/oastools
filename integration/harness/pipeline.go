@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -899,7 +900,7 @@ func checkSchemasExist(pc *PipelineContext, schemas []string) []string {
 	existingSchemas := getSchemaNames(pc.ParseResult)
 	var missing []string
 	for _, s := range schemas {
-		if !containsString(existingSchemas, s) {
+		if !slices.Contains(existingSchemas, s) {
 			missing = append(missing, s)
 		}
 	}
@@ -915,7 +916,7 @@ func checkSchemasNotExist(pc *PipelineContext, schemas []string) []string {
 	existingSchemas := getSchemaNames(pc.ParseResult)
 	var found []string
 	for _, s := range schemas {
-		if containsString(existingSchemas, s) {
+		if slices.Contains(existingSchemas, s) {
 			found = append(found, s)
 		}
 	}
@@ -939,16 +940,6 @@ func getSchemaNames(pr *parser.ParseResult) []string {
 	}
 
 	return names
-}
-
-// containsString checks if a slice contains a string.
-func containsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-	return false
 }
 
 // executeFixAll applies fixes to all documents in ParseResults.

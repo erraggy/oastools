@@ -13,9 +13,11 @@ coverage:
 # - CLI entry point: CLI handlers are integration-tested via actual CLI usage
 # - Code generators: Build tools run via go generate, not during test execution
 # - Generated files: Validated by compilation and integration tests, not unit tests
+# - Test utilities: Helpers called from test files; Go per-package profiling can't attribute coverage
 ignore:
   - "cmd/**/*"
   - "internal/codegen/**/*"
+  - "internal/testutil/*"
   - "**/zz_generated_*.go"
   - "examples/**/*"  # Generated example code
 

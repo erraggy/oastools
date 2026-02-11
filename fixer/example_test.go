@@ -781,7 +781,7 @@ paths:
 
 // Example_stubMissingRefs demonstrates creating stub definitions for
 // unresolved local $ref pointers. This is useful when tools generate
-// refs to schemas that don't exist (e.g., from Go interface{} types).
+// refs to schemas that don't exist (e.g., from Go any types).
 func Example_stubMissingRefs() {
 	// A spec with references to schemas that don't exist
 	spec := `

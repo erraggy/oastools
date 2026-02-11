@@ -3,6 +3,7 @@ package schemautil
 import (
 	"testing"
 
+	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -40,9 +41,9 @@ func BenchmarkSchemaHasher_Hash(b *testing.B) {
 			Type: "object",
 			Properties: map[string]*parser.Schema{
 				"id":       {Type: "integer", Format: "int64"},
-				"name":     {Type: "string", MinLength: intPtr(1), MaxLength: intPtr(100)},
+				"name":     {Type: "string", MinLength: testutil.Ptr(1), MaxLength: testutil.Ptr(100)},
 				"email":    {Type: "string", Format: "email", Pattern: "^[a-z]+@[a-z]+\\.[a-z]+$"},
-				"age":      {Type: "integer", Minimum: floatPtr(0), Maximum: floatPtr(150)},
+				"age":      {Type: "integer", Minimum: testutil.Ptr(0.0), Maximum: testutil.Ptr(150.0)},
 				"active":   {Type: "boolean"},
 				"tags":     {Type: "array", Items: &parser.Schema{Type: "string"}},
 				"metadata": {Type: "object", AdditionalProperties: &parser.Schema{Type: "string"}},
@@ -140,10 +141,6 @@ func BenchmarkSchemaHasher_GroupByHash(b *testing.B) {
 		}
 	})
 }
-
-// Helper functions for creating pointer values.
-func intPtr(i int) *int           { return &i }
-func floatPtr(f float64) *float64 { return &f }
 
 // generateSchemas creates n schemas with varying types for benchmarking.
 func generateSchemas(n int) map[string]*parser.Schema {

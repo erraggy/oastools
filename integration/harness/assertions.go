@@ -4,6 +4,7 @@ package harness
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -98,7 +99,7 @@ func AssertOASVersion(t *testing.T, result *parser.ParseResult, expected parser.
 func AssertSchemaExists(t *testing.T, result *parser.ParseResult, schemaName string) {
 	t.Helper()
 	names := getSchemaNames(result)
-	if !containsString(names, schemaName) {
+	if !slices.Contains(names, schemaName) {
 		t.Errorf("expected schema %q to exist, but it was not found", schemaName)
 		t.Logf("  available schemas: %v", names)
 	}
@@ -108,7 +109,7 @@ func AssertSchemaExists(t *testing.T, result *parser.ParseResult, schemaName str
 func AssertSchemaNotExists(t *testing.T, result *parser.ParseResult, schemaName string) {
 	t.Helper()
 	names := getSchemaNames(result)
-	if containsString(names, schemaName) {
+	if slices.Contains(names, schemaName) {
 		t.Errorf("expected schema %q to not exist, but it was found", schemaName)
 	}
 }
