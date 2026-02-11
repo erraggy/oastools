@@ -612,3 +612,98 @@ func TestConvertOAS3PathItemToOAS2_Query(t *testing.T) {
 	}
 	assert.True(t, foundQuery, "Expected critical issue about QUERY method")
 }
+
+// TestConvertOAS3ToOAS2_SchemaFeatureDetection tests end-to-end detection of OAS 3.x
+// schema features during conversion to OAS 2.0 via ConvertParsed.
+func TestConvertOAS3ToOAS2_SchemaFeatureDetection(t *testing.T) {
+	tests := []struct {
+		name            string
+		schema          *parser.Schema
+		expectedKeyword string
+	}{
+		{
+			name:            "writeOnly in component schema",
+			schema:          &parser.Schema{Type: "string", WriteOnly: true},
+			expectedKeyword: "writeOnly",
+		},
+		{
+			name:            "deprecated in component schema",
+			schema:          &parser.Schema{Type: "object", Deprecated: true},
+			expectedKeyword: "deprecated",
+		},
+		{
+			name: "if in component schema",
+			schema: &parser.Schema{
+				Type: "object",
+				If:   &parser.Schema{Properties: map[string]*parser.Schema{"x": {Type: "string"}}},
+			},
+			expectedKeyword: "if",
+		},
+		{
+			name: "prefixItems in component schema",
+			schema: &parser.Schema{
+				Type:        "array",
+				PrefixItems: []*parser.Schema{{Type: "string"}, {Type: "integer"}},
+			},
+			expectedKeyword: "prefixItems",
+		},
+		{
+			name: "contains in component schema",
+			schema: &parser.Schema{
+				Type:     "array",
+				Contains: &parser.Schema{Type: "integer"},
+			},
+			expectedKeyword: "contains",
+		},
+		{
+			name: "propertyNames in component schema",
+			schema: &parser.Schema{
+				Type:          "object",
+				PropertyNames: &parser.Schema{Pattern: "^[a-z]+$"},
+			},
+			expectedKeyword: "propertyNames",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := &parser.OAS3Document{
+				OpenAPI: "3.1.0",
+				Info:    &parser.Info{Title: "Test API", Version: "1.0.0"},
+				Paths:   map[string]*parser.PathItem{},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"TestSchema": tt.schema,
+					},
+				},
+			}
+
+			parseResult := parser.ParseResult{
+				Document:   doc,
+				Version:    "3.1.0",
+				OASVersion: parser.OASVersion310,
+				Data:       make(map[string]any),
+				SourcePath: "test.yaml",
+			}
+
+			c := New()
+			result, err := c.ConvertParsed(parseResult, "2.0")
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+
+			found := false
+			for _, issue := range result.Issues {
+				if strings.Contains(issue.Message, tt.expectedKeyword) {
+					found = true
+					assert.Equal(t, SeverityWarning, issue.Severity,
+						"Feature detection issues should be warnings")
+					assert.Contains(t, issue.Path, "components.schemas.TestSchema",
+						"Issue path should reference the schema")
+					break
+				}
+			}
+			assert.True(t, found, "Should have issue for %s", tt.expectedKeyword)
+		})
+	}
+}

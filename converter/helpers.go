@@ -98,6 +98,50 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 			"Consider using 'x-nullable' extension for OAS 2.0 compatibility")
 	}
 
+	// Check for writeOnly (OAS 3.0+)
+	if schema.WriteOnly {
+		c.addIssueWithContext(result, path, "Schema uses 'writeOnly' which is OAS 3.0+",
+			"Consider using 'x-writeOnly' extension for OAS 2.0 compatibility")
+	}
+
+	// Check for deprecated on schemas (OAS 3.0+)
+	if schema.Deprecated {
+		c.addIssueWithContext(result, path, "Schema uses 'deprecated' which is OAS 3.0+",
+			"Consider using 'x-deprecated' extension for OAS 2.0 compatibility")
+	}
+
+	// Check for if/then/else (JSON Schema 2020-12, OAS 3.1+)
+	if schema.If != nil {
+		c.addIssueWithContext(result, path, "Schema uses 'if' which is OAS 3.1+ (JSON Schema 2020-12)",
+			"Conditional schema composition has no OAS 2.0 equivalent")
+	}
+	if schema.Then != nil {
+		c.addIssueWithContext(result, path, "Schema uses 'then' which is OAS 3.1+ (JSON Schema 2020-12)",
+			"Conditional schema composition has no OAS 2.0 equivalent")
+	}
+	if schema.Else != nil {
+		c.addIssueWithContext(result, path, "Schema uses 'else' which is OAS 3.1+ (JSON Schema 2020-12)",
+			"Conditional schema composition has no OAS 2.0 equivalent")
+	}
+
+	// Check for prefixItems (JSON Schema 2020-12, OAS 3.1+)
+	if len(schema.PrefixItems) > 0 {
+		c.addIssueWithContext(result, path, "Schema uses 'prefixItems' which is OAS 3.1+ (JSON Schema 2020-12)",
+			"Tuple validation via 'prefixItems' has no OAS 2.0 equivalent")
+	}
+
+	// Check for contains (JSON Schema 2020-12, OAS 3.1+)
+	if schema.Contains != nil {
+		c.addIssueWithContext(result, path, "Schema uses 'contains' which is OAS 3.1+ (JSON Schema 2020-12)",
+			"Array containment validation has no OAS 2.0 equivalent")
+	}
+
+	// Check for propertyNames (JSON Schema 2020-12, OAS 3.1+)
+	if schema.PropertyNames != nil {
+		c.addIssueWithContext(result, path, "Schema uses 'propertyNames' which is OAS 3.1+ (JSON Schema 2020-12)",
+			"Property name validation has no OAS 2.0 equivalent")
+	}
+
 	// Rewrite all $ref paths from OAS 3.x to OAS 2.0 format
 	rewriteSchemaRefsOAS3ToOAS2(converted)
 
