@@ -707,3 +707,52 @@ func TestConvertOAS3ToOAS2_SchemaFeatureDetection(t *testing.T) {
 		})
 	}
 }
+
+// TestConvertOAS3ToOAS2_NestedSchemaFeatureDetection tests end-to-end detection of OAS 3.x
+// schema features in nested schemas during conversion to OAS 2.0 via ConvertParsed.
+func TestConvertOAS3ToOAS2_NestedSchemaFeatureDetection(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info:    &parser.Info{Title: "Test API", Version: "1.0.0"},
+		Paths:   map[string]*parser.PathItem{},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"User": {
+					Type: "object",
+					Properties: map[string]*parser.Schema{
+						"name":     {Type: "string"},
+						"password": {Type: "string", WriteOnly: true},
+					},
+				},
+			},
+		},
+	}
+
+	parseResult := parser.ParseResult{
+		Document:   doc,
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Data:       make(map[string]any),
+		SourcePath: "test.yaml",
+	}
+
+	c := New()
+	result, err := c.ConvertParsed(parseResult, "2.0")
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// Verify that the nested writeOnly feature was detected
+	found := false
+	for _, issue := range result.Issues {
+		if strings.Contains(issue.Message, "writeOnly") &&
+			strings.Contains(issue.Path, "properties.password") {
+			found = true
+			assert.Equal(t, SeverityWarning, issue.Severity,
+				"Nested feature detection issues should be warnings")
+			break
+		}
+	}
+	assert.True(t, found,
+		"Should detect writeOnly in nested property User.properties.password")
+}
