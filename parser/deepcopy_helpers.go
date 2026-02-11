@@ -2,7 +2,7 @@ package parser
 
 // This file contains helper functions for deep copying OAS-typed polymorphic fields.
 // These helpers understand the OAS specification semantics for fields that use
-// interface{}/any types but have well-defined possible types per the spec.
+// any types but have well-defined possible types per the spec.
 
 // deepCopySchemaType handles Schema.Type which can be:
 // - string (OAS 2.0, 3.0, 3.1)

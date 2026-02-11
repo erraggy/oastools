@@ -3,6 +3,7 @@ package parser
 import (
 	"testing"
 
+	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -176,68 +177,68 @@ func TestEqualParameter(t *testing.T) {
 		{
 			name: "Explode nil vs non-nil",
 			a:    &Parameter{Name: "id", Explode: nil},
-			b:    &Parameter{Name: "id", Explode: boolPtr(true)},
+			b:    &Parameter{Name: "id", Explode: testutil.Ptr(true)},
 			want: false,
 		},
 		{
 			name: "same Explode true",
-			a:    &Parameter{Name: "id", Explode: boolPtr(true)},
-			b:    &Parameter{Name: "id", Explode: boolPtr(true)},
+			a:    &Parameter{Name: "id", Explode: testutil.Ptr(true)},
+			b:    &Parameter{Name: "id", Explode: testutil.Ptr(true)},
 			want: true,
 		},
 		{
 			name: "different Explode values",
-			a:    &Parameter{Name: "id", Explode: boolPtr(true)},
-			b:    &Parameter{Name: "id", Explode: boolPtr(false)},
+			a:    &Parameter{Name: "id", Explode: testutil.Ptr(true)},
+			b:    &Parameter{Name: "id", Explode: testutil.Ptr(false)},
 			want: false,
 		},
 		// Pointer fields - numeric
 		{
 			name: "different Maximum",
-			a:    &Parameter{Name: "id", Maximum: ptr(100.0)},
-			b:    &Parameter{Name: "id", Maximum: ptr(200.0)},
+			a:    &Parameter{Name: "id", Maximum: testutil.Ptr(100.0)},
+			b:    &Parameter{Name: "id", Maximum: testutil.Ptr(200.0)},
 			want: false,
 		},
 		{
 			name: "Maximum nil vs non-nil",
 			a:    &Parameter{Name: "id", Maximum: nil},
-			b:    &Parameter{Name: "id", Maximum: ptr(100.0)},
+			b:    &Parameter{Name: "id", Maximum: testutil.Ptr(100.0)},
 			want: false,
 		},
 		{
 			name: "different Minimum",
-			a:    &Parameter{Name: "id", Minimum: ptr(0.0)},
-			b:    &Parameter{Name: "id", Minimum: ptr(1.0)},
+			a:    &Parameter{Name: "id", Minimum: testutil.Ptr(0.0)},
+			b:    &Parameter{Name: "id", Minimum: testutil.Ptr(1.0)},
 			want: false,
 		},
 		{
 			name: "different MultipleOf",
-			a:    &Parameter{Name: "id", MultipleOf: ptr(5.0)},
-			b:    &Parameter{Name: "id", MultipleOf: ptr(10.0)},
+			a:    &Parameter{Name: "id", MultipleOf: testutil.Ptr(5.0)},
+			b:    &Parameter{Name: "id", MultipleOf: testutil.Ptr(10.0)},
 			want: false,
 		},
 		{
 			name: "different MaxLength",
-			a:    &Parameter{Name: "id", MaxLength: intPtr(100)},
-			b:    &Parameter{Name: "id", MaxLength: intPtr(200)},
+			a:    &Parameter{Name: "id", MaxLength: testutil.Ptr(100)},
+			b:    &Parameter{Name: "id", MaxLength: testutil.Ptr(200)},
 			want: false,
 		},
 		{
 			name: "different MinLength",
-			a:    &Parameter{Name: "id", MinLength: intPtr(1)},
-			b:    &Parameter{Name: "id", MinLength: intPtr(5)},
+			a:    &Parameter{Name: "id", MinLength: testutil.Ptr(1)},
+			b:    &Parameter{Name: "id", MinLength: testutil.Ptr(5)},
 			want: false,
 		},
 		{
 			name: "different MaxItems",
-			a:    &Parameter{Name: "ids", MaxItems: intPtr(10)},
-			b:    &Parameter{Name: "ids", MaxItems: intPtr(20)},
+			a:    &Parameter{Name: "ids", MaxItems: testutil.Ptr(10)},
+			b:    &Parameter{Name: "ids", MaxItems: testutil.Ptr(20)},
 			want: false,
 		},
 		{
 			name: "different MinItems",
-			a:    &Parameter{Name: "ids", MinItems: intPtr(1)},
-			b:    &Parameter{Name: "ids", MinItems: intPtr(2)},
+			a:    &Parameter{Name: "ids", MinItems: testutil.Ptr(1)},
+			b:    &Parameter{Name: "ids", MinItems: testutil.Ptr(2)},
 			want: false,
 		},
 		// Any fields
@@ -404,7 +405,7 @@ func TestEqualParameter(t *testing.T) {
 				Required:    false,
 				Deprecated:  false,
 				Style:       "form",
-				Explode:     boolPtr(true),
+				Explode:     testutil.Ptr(true),
 				Schema:      &Schema{Type: "string"},
 			},
 			b: &Parameter{
@@ -414,7 +415,7 @@ func TestEqualParameter(t *testing.T) {
 				Required:    false,
 				Deprecated:  false,
 				Style:       "form",
-				Explode:     boolPtr(true),
+				Explode:     testutil.Ptr(true),
 				Schema:      &Schema{Type: "string"},
 			},
 			want: true,
@@ -428,8 +429,8 @@ func TestEqualParameter(t *testing.T) {
 				Required:    false,
 				Type:        "integer",
 				Format:      "int32",
-				Minimum:     ptr(1.0),
-				Maximum:     ptr(100.0),
+				Minimum:     testutil.Ptr(1.0),
+				Maximum:     testutil.Ptr(100.0),
 				Default:     10,
 			},
 			b: &Parameter{
@@ -439,8 +440,8 @@ func TestEqualParameter(t *testing.T) {
 				Required:    false,
 				Type:        "integer",
 				Format:      "int32",
-				Minimum:     ptr(1.0),
-				Maximum:     ptr(100.0),
+				Minimum:     testutil.Ptr(1.0),
+				Maximum:     testutil.Ptr(100.0),
 				Default:     10,
 			},
 			want: true,

@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/stringutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -649,13 +650,12 @@ func hasDuplicates(arr []any) bool {
 
 // Format validation helpers
 
-var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 var uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 var dateRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 var dateTimeRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}`)
 
 func isValidEmail(s string) bool {
-	return emailRegex.MatchString(s)
+	return stringutil.IsValidEmail(s)
 }
 
 func isValidURI(s string) bool {

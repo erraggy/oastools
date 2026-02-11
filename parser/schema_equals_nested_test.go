@@ -3,6 +3,7 @@ package parser
 import (
 	"testing"
 
+	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -290,7 +291,7 @@ func TestSchemaEquals_ComplexSchemas(t *testing.T) {
 					Properties: map[string]*Schema{
 						"packSize": {
 							Type:    "integer",
-							Minimum: ptr(0.0),
+							Minimum: testutil.Ptr(0.0),
 						},
 					},
 					Required: []string{"packSize"},
@@ -406,13 +407,13 @@ func TestSchemaEquals_ComplexSchemas(t *testing.T) {
 			a: &Schema{
 				AllOf: []*Schema{{Type: "object"}},
 				OneOf: []*Schema{{Type: "string"}, {Type: "integer"}},
-				AnyOf: []*Schema{{Minimum: ptr(0.0)}},
+				AnyOf: []*Schema{{Minimum: testutil.Ptr(0.0)}},
 				Not:   &Schema{Type: "null"},
 			},
 			b: &Schema{
 				AllOf: []*Schema{{Type: "object"}},
 				OneOf: []*Schema{{Type: "string"}, {Type: "integer"}},
-				AnyOf: []*Schema{{Minimum: ptr(0.0)}},
+				AnyOf: []*Schema{{Minimum: testutil.Ptr(0.0)}},
 				Not:   &Schema{Type: "null"},
 			},
 			want: true,

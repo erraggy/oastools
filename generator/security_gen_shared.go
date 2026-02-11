@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -50,17 +51,6 @@ func buildOperationMap(paths parser.Paths, version parser.OASVersion) map[string
 	}
 
 	return result
-}
-
-// sortedPathKeys returns the keys of a Paths map in sorted order.
-// This is used to ensure deterministic iteration order over API paths.
-func sortedPathKeys(paths parser.Paths) []string {
-	keys := make([]string, 0, len(paths))
-	for k := range paths {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -175,7 +165,7 @@ func generateServerRouterShared(ctx *serverRouterContext) error {
 	generatedMethods := make(map[string]bool)
 
 	// Sort paths for deterministic output
-	pathKeys := sortedPathKeys(ctx.paths)
+	pathKeys := maputil.SortedKeys(ctx.paths)
 
 	// Build router data
 	data := ServerRouterFileData{
@@ -264,7 +254,7 @@ func generateServerStubsShared(ctx *serverStubsContext) error {
 	generatedMethods := make(map[string]bool)
 
 	// Sort paths for deterministic output
-	pathKeys := sortedPathKeys(ctx.paths)
+	pathKeys := maputil.SortedKeys(ctx.paths)
 
 	// Build stubs data
 	data := ServerStubsFileData{
@@ -362,7 +352,7 @@ func generateBaseServerShared(ctx *baseServerContext) (map[string]bool, error) {
 	buf.WriteString("type ServerInterface interface {\n")
 
 	if ctx.paths != nil {
-		for _, path := range sortedPathKeys(ctx.paths) {
+		for _, path := range maputil.SortedKeys(ctx.paths) {
 			pathItem := ctx.paths[path]
 			if pathItem == nil {
 				continue
@@ -406,7 +396,7 @@ func generateBaseServerShared(ctx *baseServerContext) (map[string]bool, error) {
 	generatedUnimplemented := make(map[string]bool)
 
 	if ctx.paths != nil {
-		for _, path := range sortedPathKeys(ctx.paths) {
+		for _, path := range maputil.SortedKeys(ctx.paths) {
 			pathItem := ctx.paths[path]
 			if pathItem == nil {
 				continue

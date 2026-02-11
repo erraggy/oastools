@@ -3,6 +3,7 @@ package parser
 import (
 	"testing"
 
+	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,37 +23,37 @@ func TestEqualFloat64Ptr(t *testing.T) {
 		{
 			name: "a nil, b non-nil",
 			a:    nil,
-			b:    ptr(3.14),
+			b:    testutil.Ptr(3.14),
 			want: false,
 		},
 		{
 			name: "a non-nil, b nil",
-			a:    ptr(3.14),
+			a:    testutil.Ptr(3.14),
 			b:    nil,
 			want: false,
 		},
 		{
 			name: "both same value",
-			a:    ptr(3.14),
-			b:    ptr(3.14),
+			a:    testutil.Ptr(3.14),
+			b:    testutil.Ptr(3.14),
 			want: true,
 		},
 		{
 			name: "both different values",
-			a:    ptr(3.14),
-			b:    ptr(2.71),
+			a:    testutil.Ptr(3.14),
+			b:    testutil.Ptr(2.71),
 			want: false,
 		},
 		{
 			name: "both zero",
-			a:    ptr(0.0),
-			b:    ptr(0.0),
+			a:    testutil.Ptr(0.0),
+			b:    testutil.Ptr(0.0),
 			want: true,
 		},
 		{
 			name: "negative values equal",
-			a:    ptr(-1.5),
-			b:    ptr(-1.5),
+			a:    testutil.Ptr(-1.5),
+			b:    testutil.Ptr(-1.5),
 			want: true,
 		},
 	}
@@ -81,37 +82,37 @@ func TestEqualIntPtr(t *testing.T) {
 		{
 			name: "a nil, b non-nil",
 			a:    nil,
-			b:    intPtr(42),
+			b:    testutil.Ptr(42),
 			want: false,
 		},
 		{
 			name: "a non-nil, b nil",
-			a:    intPtr(42),
+			a:    testutil.Ptr(42),
 			b:    nil,
 			want: false,
 		},
 		{
 			name: "both same value",
-			a:    intPtr(42),
-			b:    intPtr(42),
+			a:    testutil.Ptr(42),
+			b:    testutil.Ptr(42),
 			want: true,
 		},
 		{
 			name: "both different values",
-			a:    intPtr(42),
-			b:    intPtr(100),
+			a:    testutil.Ptr(42),
+			b:    testutil.Ptr(100),
 			want: false,
 		},
 		{
 			name: "both zero",
-			a:    intPtr(0),
-			b:    intPtr(0),
+			a:    testutil.Ptr(0),
+			b:    testutil.Ptr(0),
 			want: true,
 		},
 		{
 			name: "negative values equal",
-			a:    intPtr(-5),
-			b:    intPtr(-5),
+			a:    testutil.Ptr(-5),
+			b:    testutil.Ptr(-5),
 			want: true,
 		},
 	}
@@ -140,43 +141,43 @@ func TestEqualBoolPtr(t *testing.T) {
 		{
 			name: "a nil, b non-nil true",
 			a:    nil,
-			b:    boolPtr(true),
+			b:    testutil.Ptr(true),
 			want: false,
 		},
 		{
 			name: "a nil, b non-nil false",
 			a:    nil,
-			b:    boolPtr(false),
+			b:    testutil.Ptr(false),
 			want: false,
 		},
 		{
 			name: "a non-nil, b nil",
-			a:    boolPtr(true),
+			a:    testutil.Ptr(true),
 			b:    nil,
 			want: false,
 		},
 		{
 			name: "both true",
-			a:    boolPtr(true),
-			b:    boolPtr(true),
+			a:    testutil.Ptr(true),
+			b:    testutil.Ptr(true),
 			want: true,
 		},
 		{
 			name: "both false",
-			a:    boolPtr(false),
-			b:    boolPtr(false),
+			a:    testutil.Ptr(false),
+			b:    testutil.Ptr(false),
 			want: true,
 		},
 		{
 			name: "true vs false",
-			a:    boolPtr(true),
-			b:    boolPtr(false),
+			a:    testutil.Ptr(true),
+			b:    testutil.Ptr(false),
 			want: false,
 		},
 		{
 			name: "false vs true",
-			a:    boolPtr(false),
-			b:    boolPtr(true),
+			a:    testutil.Ptr(false),
+			b:    testutil.Ptr(true),
 			want: false,
 		},
 	}
@@ -1478,5 +1479,3 @@ func TestEqualMapStringString(t *testing.T) {
 		})
 	}
 }
-
-// Note: ptr, intPtr, and boolPtr helper functions are defined in schema_test_helpers.go

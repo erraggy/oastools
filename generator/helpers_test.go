@@ -216,7 +216,12 @@ func TestZeroValue(t *testing.T) {
 		{"[]Pet", "nil"},
 		{"map[string]Pet", "nil"},
 		{"Pet", "Pet{}"},
-		{"string", "string{}"},
+		{"string", `""`},
+		{"bool", "false"},
+		{"int", "0"},
+		{"int64", "0"},
+		{"float64", "0"},
+		{"any", "nil"},
 	}
 
 	for _, tt := range tests {
@@ -283,42 +288,42 @@ func TestEscapeReservedWord(t *testing.T) {
 func TestSchemaTypeFromMap(t *testing.T) {
 	tests := []struct {
 		name     string
-		schema   map[string]interface{}
+		schema   map[string]any
 		expected string
 	}{
 		{
 			name:     "string type",
-			schema:   map[string]interface{}{"type": "string"},
+			schema:   map[string]any{"type": "string"},
 			expected: "string",
 		},
 		{
 			name:     "number type",
-			schema:   map[string]interface{}{"type": "number"},
+			schema:   map[string]any{"type": "number"},
 			expected: "float64",
 		},
 		{
 			name:     "integer type",
-			schema:   map[string]interface{}{"type": "integer"},
+			schema:   map[string]any{"type": "integer"},
 			expected: "int64",
 		},
 		{
 			name:     "boolean type",
-			schema:   map[string]interface{}{"type": "boolean"},
+			schema:   map[string]any{"type": "boolean"},
 			expected: "bool",
 		},
 		{
 			name:     "object type",
-			schema:   map[string]interface{}{"type": "object"},
+			schema:   map[string]any{"type": "object"},
 			expected: "map[string]any",
 		},
 		{
 			name:     "array type",
-			schema:   map[string]interface{}{"type": "array"},
+			schema:   map[string]any{"type": "array"},
 			expected: "[]any",
 		},
 		{
 			name:     "missing type",
-			schema:   map[string]interface{}{},
+			schema:   map[string]any{},
 			expected: "any",
 		},
 	}

@@ -2,20 +2,10 @@ package walker
 
 import (
 	"fmt"
-	"sort"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
-
-// sortedMapKeys returns sorted keys from any map with string keys.
-func sortedMapKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
 
 // handleRef processes a $ref if ref tracking is enabled.
 // It calls the ref handler if set, and returns Stop if the handler requests it.
@@ -99,7 +89,7 @@ func (w *Walker) walkParameter(param *parser.Parameter, basePath string, state *
 
 // walkHeaders walks a map of Headers.
 func (w *Walker) walkHeaders(headers map[string]*parser.Header, basePath string, state *walkState) error {
-	for _, name := range sortedMapKeys(headers) {
+	for _, name := range maputil.SortedKeys(headers) {
 		if w.stopped {
 			return nil
 		}
@@ -167,7 +157,7 @@ func (w *Walker) walkHeader(name string, header *parser.Header, basePath string,
 
 // walkContent walks a map of MediaTypes.
 func (w *Walker) walkContent(content map[string]*parser.MediaType, basePath string, state *walkState) error {
-	for _, mtName := range sortedMapKeys(content) {
+	for _, mtName := range maputil.SortedKeys(content) {
 		if w.stopped {
 			return nil
 		}
@@ -223,7 +213,7 @@ func (w *Walker) walkMediaType(name string, mt *parser.MediaType, basePath strin
 
 // walkExamples walks a map of Examples.
 func (w *Walker) walkExamples(examples map[string]*parser.Example, basePath string, state *walkState) {
-	for _, name := range sortedMapKeys(examples) {
+	for _, name := range maputil.SortedKeys(examples) {
 		if w.stopped {
 			return
 		}
@@ -333,7 +323,7 @@ func (w *Walker) walkSchema(schema *parser.Schema, basePath string, depth int, s
 // walkSchemaProperties walks object-related schema keywords.
 func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, depth int, state *walkState) error {
 	// Properties
-	for _, name := range sortedMapKeys(schema.Properties) {
+	for _, name := range maputil.SortedKeys(schema.Properties) {
 		if w.stopped {
 			return nil
 		}
@@ -347,7 +337,7 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 	}
 
 	// PatternProperties
-	for _, pattern := range sortedMapKeys(schema.PatternProperties) {
+	for _, pattern := range maputil.SortedKeys(schema.PatternProperties) {
 		if w.stopped {
 			return nil
 		}
@@ -398,7 +388,7 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 	}
 
 	// DependentSchemas
-	for _, name := range sortedMapKeys(schema.DependentSchemas) {
+	for _, name := range maputil.SortedKeys(schema.DependentSchemas) {
 		if w.stopped {
 			return nil
 		}
@@ -562,7 +552,7 @@ func (w *Walker) walkSchemaMisc(schema *parser.Schema, basePath string, depth in
 	}
 
 	// $defs (Defs)
-	for _, name := range sortedMapKeys(schema.Defs) {
+	for _, name := range maputil.SortedKeys(schema.Defs) {
 		if w.stopped {
 			return nil
 		}

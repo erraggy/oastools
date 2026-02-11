@@ -283,8 +283,8 @@ func TestCopySchema(t *testing.T) {
 			MinProperties:    &minProps,
 			MaxProperties:    &maxProps,
 			MultipleOf:       &multOf,
-			ExclusiveMaximum: 99.0, // interface{} type, not pointer
-			ExclusiveMinimum: 2.0,  // interface{} type, not pointer
+			ExclusiveMaximum: 99.0, // any type, not pointer
+			ExclusiveMinimum: 2.0,  // any type, not pointer
 		}
 
 		result := copySchema(original)
@@ -312,8 +312,8 @@ func TestCopySchema(t *testing.T) {
 		assert.Equal(t, 2, *result.MinProperties)
 		assert.Equal(t, 20, *result.MaxProperties)
 		assert.Equal(t, 5.0, *result.MultipleOf)
-		assert.Equal(t, 99.0, result.ExclusiveMaximum) // interface{} type
-		assert.Equal(t, 2.0, result.ExclusiveMinimum)  // interface{} type
+		assert.Equal(t, 99.0, result.ExclusiveMaximum) // any type
+		assert.Equal(t, 2.0, result.ExclusiveMinimum)  // any type
 
 		// Verify pointers are different (deep copy)
 		assert.NotSame(t, original.Minimum, result.Minimum)

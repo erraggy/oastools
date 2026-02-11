@@ -2,6 +2,7 @@ package parser
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -22,13 +23,13 @@ func TestOAS3DocumentMarshalJSON(t *testing.T) {
 				Paths: map[string]*PathItem{},
 			},
 			validate: func(t *testing.T, result string) {
-				if contains(result, "extra") {
+				if strings.Contains(result, "extra") {
 					t.Error("Should not include extra field when empty")
 				}
-				if !contains(result, `"openapi":"3.0.3"`) {
+				if !strings.Contains(result, `"openapi":"3.0.3"`) {
 					t.Error("Should include openapi field")
 				}
-				if !contains(result, `"info"`) {
+				if !strings.Contains(result, `"info"`) {
 					t.Error("Should include info field")
 				}
 			},
@@ -81,7 +82,7 @@ func TestOAS3DocumentMarshalJSON(t *testing.T) {
 					`"jsonSchemaDialect"`,
 				}
 				for _, field := range expectedFields {
-					if !contains(result, field) {
+					if !strings.Contains(result, field) {
 						t.Errorf("Expected field missing: %s", field)
 					}
 				}
@@ -106,7 +107,7 @@ func TestOAS3DocumentMarshalJSON(t *testing.T) {
 					`"x-extension"`,
 				}
 				for _, ext := range expectedExtensions {
-					if !contains(result, ext) {
+					if !strings.Contains(result, ext) {
 						t.Errorf("Expected extension missing: %s", ext)
 					}
 				}
@@ -129,7 +130,7 @@ func TestOAS3DocumentMarshalJSON(t *testing.T) {
 				omittedFields := []string{"servers", "webhooks", "security", "tags", "jsonSchemaDialect"}
 				for _, field := range omittedFields {
 					fieldPattern := `"` + field + `":`
-					if contains(result, fieldPattern) {
+					if strings.Contains(result, fieldPattern) {
 						t.Errorf("Empty field should be omitted: %s", field)
 					}
 				}
@@ -149,10 +150,10 @@ func TestOAS3DocumentMarshalJSON(t *testing.T) {
 				JSONSchemaDialect: "https://json-schema.org/draft/2020-12/schema",
 			},
 			validate: func(t *testing.T, result string) {
-				if !contains(result, `"webhooks"`) {
+				if !strings.Contains(result, `"webhooks"`) {
 					t.Error("OAS 3.1 webhooks field missing")
 				}
-				if !contains(result, `"jsonSchemaDialect"`) {
+				if !strings.Contains(result, `"jsonSchemaDialect"`) {
 					t.Error("OAS 3.1 jsonSchemaDialect field missing")
 				}
 			},
@@ -414,10 +415,10 @@ func TestComponentsMarshalJSON(t *testing.T) {
 				},
 			},
 			validate: func(t *testing.T, result string) {
-				if !contains(result, `"schemas"`) {
+				if !strings.Contains(result, `"schemas"`) {
 					t.Error("Should include schemas field")
 				}
-				if !contains(result, `"responses"`) {
+				if !strings.Contains(result, `"responses"`) {
 					t.Error("Should include responses field")
 				}
 			},
@@ -433,7 +434,7 @@ func TestComponentsMarshalJSON(t *testing.T) {
 				},
 			},
 			validate: func(t *testing.T, result string) {
-				if !contains(result, `"x-custom":"value"`) {
+				if !strings.Contains(result, `"x-custom":"value"`) {
 					t.Error("Extra field should be included")
 				}
 			},
