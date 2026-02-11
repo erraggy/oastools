@@ -129,7 +129,11 @@ func cleanDescription(s string) string {
 	s = strings.ReplaceAll(s, "\n", " ")
 	s = strings.TrimSpace(s)
 	if len(s) > maxDescriptionLength {
-		s = s[:maxDescriptionLength-3] + "..."
+		// Truncate at rune boundary to avoid splitting multi-byte characters
+		runes := []rune(s)
+		if len(runes) > maxDescriptionLength-3 {
+			s = string(runes[:maxDescriptionLength-3]) + "..."
+		}
 	}
 	return s
 }

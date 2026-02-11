@@ -1,6 +1,10 @@
 package stringutil
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestIsValidEmail(t *testing.T) {
 	tests := []struct {
@@ -25,10 +29,7 @@ func TestIsValidEmail(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := IsValidEmail(tt.input)
-			if got != tt.want {
-				t.Errorf("IsValidEmail(%q) = %v, want %v", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, IsValidEmail(tt.input))
 		})
 	}
 }

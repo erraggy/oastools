@@ -155,6 +155,13 @@ func walkSchemaRefs(schema *parser.Schema, rewrite refRewriter) {
 	for _, defSchema := range schema.Defs {
 		walkSchemaRefs(defSchema, rewrite)
 	}
+
+	// Discriminator mapping contains schema refs
+	if schema.Discriminator != nil {
+		for key, ref := range schema.Discriminator.Mapping {
+			schema.Discriminator.Mapping[key] = rewrite(ref)
+		}
+	}
 }
 
 // rewriteSchemaRefsOAS2ToOAS3 recursively rewrites all $ref values in a schema from OAS 2.0 to OAS 3.x format.

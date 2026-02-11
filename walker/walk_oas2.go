@@ -2,7 +2,6 @@ package walker
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
@@ -368,13 +367,7 @@ func (w *Walker) walkOAS2Responses(responses *parser.Responses, basePath string,
 
 	// Status code responses - using Codes
 	if responses.Codes != nil {
-		codeKeys := make([]string, 0, len(responses.Codes))
-		for k := range responses.Codes {
-			codeKeys = append(codeKeys, k)
-		}
-		sort.Strings(codeKeys)
-
-		for _, code := range codeKeys {
+		for _, code := range maputil.SortedKeys(responses.Codes) {
 			if w.stopped {
 				return nil
 			}
