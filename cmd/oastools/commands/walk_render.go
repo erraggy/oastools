@@ -60,6 +60,24 @@ func RenderSummaryTable(w io.Writer, headers []string, rows [][]string, quiet bo
 	}
 }
 
+// RenderSummaryStructured renders summary table data as structured output (JSON or YAML).
+// It converts header+row pairs into []map[string]string with lowercase keys.
+func RenderSummaryStructured(w io.Writer, headers []string, rows [][]string, format string) error {
+	records := make([]map[string]string, 0, len(rows))
+	for _, row := range rows {
+		rec := make(map[string]string, len(headers))
+		for i, h := range headers {
+			val := ""
+			if i < len(row) {
+				val = row[i]
+			}
+			rec[strings.ToLower(h)] = val
+		}
+		records = append(records, rec)
+	}
+	return RenderDetail(w, records, format, true)
+}
+
 // RenderDetail renders a single node in the specified format (JSON, YAML, or text).
 func RenderDetail(w io.Writer, node any, format string, quiet bool) error {
 	var data []byte

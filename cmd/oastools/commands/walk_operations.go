@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/walker"
 )
 
@@ -152,14 +153,29 @@ func renderOperationsSummary(ops []*walker.OperationInfo, flags WalkFlags) error
 		})
 	}
 
+	if flags.Format != FormatText {
+		return RenderSummaryStructured(os.Stdout, headers, rows, flags.Format)
+	}
 	RenderSummaryTable(os.Stdout, headers, rows, flags.Quiet)
 	return nil
+}
+
+// operationDetailView wraps an operation with its path and method for serialization.
+type operationDetailView struct {
+	Method    string            `json:"method" yaml:"method"`
+	Path      string            `json:"path" yaml:"path"`
+	Operation *parser.Operation `json:"operation" yaml:"operation"`
 }
 
 // renderOperationsDetail renders each matched operation in full detail.
 func renderOperationsDetail(ops []*walker.OperationInfo, flags WalkFlags) error {
 	for _, op := range ops {
-		if err := RenderDetail(os.Stdout, op.Operation, flags.Format, flags.Quiet); err != nil {
+		view := operationDetailView{
+			Method:    strings.ToUpper(op.Method),
+			Path:      op.PathTemplate,
+			Operation: op.Operation,
+		}
+		if err := RenderDetail(os.Stdout, view, flags.Format, flags.Quiet); err != nil {
 			return fmt.Errorf("walk operations: rendering detail: %w", err)
 		}
 	}
