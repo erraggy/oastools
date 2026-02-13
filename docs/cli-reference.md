@@ -40,6 +40,7 @@ oastools validate --strict=false  # explicitly disable
 | `diff` | Compare two OpenAPI specifications |
 | `generate` | Generate Go code from an OpenAPI specification |
 | `overlay` | Apply OpenAPI Overlay transformations |
+| `walk` | Query and inspect spec elements (operations, schemas, parameters, responses, security, paths) |
 | `version` | Show version information |
 | `help` | Show help information |
 
@@ -1417,6 +1418,83 @@ The overlay package supports these JSONPath expressions:
 | `$[?@.x==y]` | Filter expression | `$.paths[?@.x-internal==true]` |
 | `$[?@ && @]` | Compound AND filter | `$.paths[?@.deprecated==true && @.x-internal==true]` |
 | `$[?@ \|\| @]` | Compound OR filter | `$.paths[?@.deprecated==true \|\| @.x-obsolete==true]` |
+
+---
+
+## walk
+
+Query and inspect elements within an OpenAPI specification. The walk command provides 6 subcommands for exploring different aspects of your API spec.
+
+### Synopsis
+
+```
+oastools walk <subcommand> [flags] <spec-file>
+```
+
+### Subcommands
+
+| Subcommand | Description |
+|------------|-------------|
+| `operations` | List or inspect operations with method, path, tag filters |
+| `schemas` | List or inspect schemas with name, type, component/inline filters |
+| `parameters` | List or inspect parameters with name, location, path filters |
+| `responses` | List or inspect responses with status code, path, method filters |
+| `security` | List or inspect security schemes with name, type filters |
+| `paths` | List or inspect path items with path pattern filters |
+
+### Common Flags
+
+| Flag | Description |
+|------|-------------|
+| `--format <text\|json\|yaml>` | Output format (default: text) |
+| `-q`, `--quiet` | Suppress headers and decoration for piping |
+| `--detail` | Show full node instead of summary table |
+| `--extension <expr>` | Filter by extension (e.g., `x-internal=true`) |
+| `--resolve-refs` | Resolve `$ref` pointers in detail output |
+
+### Examples
+
+```bash
+# List all operations
+oastools walk operations api.yaml
+
+# Filter operations by method and path
+oastools walk operations --method get --path '/pets*' api.yaml
+
+# Show full schema detail in JSON
+oastools walk schemas --name Pet --detail --format json api.yaml
+
+# List only component schemas
+oastools walk schemas --component api.yaml
+
+# Filter responses by status code wildcard
+oastools walk responses --status '4xx' api.yaml
+
+# Pipe response details to jq
+oastools walk responses --status '2xx' -q --detail --format json api.yaml | jq
+
+# List security schemes
+oastools walk security api.yaml
+
+# Filter by extension with value matching
+oastools walk operations --extension 'x-internal=true' api.yaml
+
+# Extension filter DSL: AND (+), OR (,), negation (!)
+oastools walk operations --extension 'x-audited,!x-deprecated' api.yaml
+```
+
+### Extension Filter DSL
+
+The `--extension` flag supports a mini DSL for filtering by vendor extensions:
+
+| Syntax | Meaning | Example |
+|--------|---------|---------|
+| `x-foo` | Has extension | `--extension x-internal` |
+| `!x-foo` | Does not have extension | `--extension '!x-deprecated'` |
+| `x-foo=val` | Extension equals value | `--extension x-internal=true` |
+| `x-foo!=val` | Extension not equal to value | `--extension 'x-status!=draft'` |
+| `a,b` | OR (either matches) | `--extension 'x-public,x-external'` |
+| `a+b` | AND (both match) | `--extension 'x-audited+x-public'` |
 
 ---
 

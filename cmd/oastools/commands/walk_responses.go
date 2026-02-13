@@ -35,12 +35,12 @@ func handleWalkResponses(args []string) error {
 		return err
 	}
 
-	if fs.NArg() == 0 {
-		return fmt.Errorf("walk responses: missing spec file argument")
-	}
-
 	if err := ValidateOutputFormat(flags.Format); err != nil {
 		return err
+	}
+
+	if fs.NArg() == 0 {
+		return fmt.Errorf("walk responses: missing spec file argument")
 	}
 
 	specPath := fs.Arg(0)

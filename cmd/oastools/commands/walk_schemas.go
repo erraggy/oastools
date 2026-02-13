@@ -41,7 +41,7 @@ func handleWalkSchemas(args []string) error {
 	}
 
 	if *component && *inline {
-		return fmt.Errorf("cannot use both --component and --inline")
+		return fmt.Errorf("walk schemas: cannot use both --component and --inline")
 	}
 
 	if fs.NArg() == 0 {
@@ -52,12 +52,12 @@ func handleWalkSchemas(args []string) error {
 	// 1. Collect: parse spec and collect schemas
 	result, err := parseSpec(specPath, flags.ResolveRefs)
 	if err != nil {
-		return fmt.Errorf("parsing spec: %w", err)
+		return fmt.Errorf("walk schemas: %w", err)
 	}
 
 	collector, err := walker.CollectSchemas(result)
 	if err != nil {
-		return fmt.Errorf("collecting schemas: %w", err)
+		return fmt.Errorf("walk schemas: collecting schemas: %w", err)
 	}
 
 	// Choose base set based on component/inline filter
@@ -73,7 +73,7 @@ func handleWalkSchemas(args []string) error {
 	if flags.Extension != "" {
 		ef, err := ParseExtensionFilter(flags.Extension)
 		if err != nil {
-			return fmt.Errorf("parsing extension filter: %w", err)
+			return fmt.Errorf("walk schemas: parsing extension filter: %w", err)
 		}
 		extFilter = &ef
 	}
@@ -101,7 +101,7 @@ func handleWalkSchemas(args []string) error {
 	if flags.Detail {
 		for _, info := range filtered {
 			if err := RenderDetail(os.Stdout, info.Schema, flags.Format, flags.Quiet); err != nil {
-				return fmt.Errorf("rendering detail: %w", err)
+				return fmt.Errorf("walk schemas: rendering detail: %w", err)
 			}
 		}
 		return nil

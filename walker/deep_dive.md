@@ -936,13 +936,15 @@ Each example includes a README with detailed explanations and expected output.
 
 ## Built-in Collectors
 
-The walker package provides convenience functions for common collection patterns, reducing boilerplate when you need to gather schemas or operations.
+The walker package provides convenience functions for common collection patterns, reducing boilerplate when you need to gather spec elements.
+
+Five collectors are available: `CollectSchemas`, `CollectOperations`, `CollectParameters`, `CollectResponses`, and `CollectSecuritySchemes`.
 
 ### When to Use Collectors vs Custom Handlers
 
 **Use built-in collectors when:**
-- You need all schemas or operations in one pass
-- You want ready-made lookup maps (by name, path, method, tag)
+- You need all elements of one type in one pass
+- You want ready-made lookup maps (by name, path, method, tag, status code, location)
 - The standard collection fields meet your needs
 
 **Use custom handlers when:**
@@ -1034,6 +1036,105 @@ for tag, ops := range collector.ByTag {
 | `PathTemplate` | `string` | URL path template (e.g., "/pets/{petId}") |
 | `Method` | `string` | HTTP method (e.g., "get", "post") |
 | `JSONPath` | `string` | Full JSON path to the operation |
+
+### ParameterCollector
+
+`CollectParameters` walks a document and collects all parameters:
+
+```go
+collector, err := walker.CollectParameters(result)
+if err != nil {
+    return err
+}
+
+// All parameters in traversal order
+for _, info := range collector.All {
+    fmt.Printf("%s (%s) at %s\n", info.Name, info.In, info.JSONPath)
+}
+
+// Group by location
+for location, params := range collector.ByLocation {
+    fmt.Printf("%s: %d parameters\n", location, len(params))
+}
+
+// Group by path template
+for path, params := range collector.ByPath {
+    fmt.Printf("%s has %d parameters\n", path, len(params))
+}
+```
+
+**ParameterInfo fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Parameter` | `*parser.Parameter` | The collected parameter |
+| `Name` | `string` | Parameter name |
+| `In` | `string` | Location: query, header, path, cookie |
+| `JSONPath` | `string` | Full JSON path to the parameter |
+| `PathTemplate` | `string` | Owning path template |
+| `Method` | `string` | Owning operation method (empty if path-level) |
+| `IsComponent` | `bool` | True when in components/parameters |
+
+### ResponseCollector
+
+`CollectResponses` walks a document and collects all responses:
+
+```go
+collector, err := walker.CollectResponses(result)
+if err != nil {
+    return err
+}
+
+// All responses in traversal order
+for _, info := range collector.All {
+    fmt.Printf("%s %s -> %s\n", info.Method, info.PathTemplate, info.StatusCode)
+}
+
+// Group by status code
+for code, responses := range collector.ByStatusCode {
+    fmt.Printf("Status %s: %d responses\n", code, len(responses))
+}
+```
+
+**ResponseInfo fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Response` | `*parser.Response` | The collected response |
+| `StatusCode` | `string` | HTTP status code (e.g., "200", "default") |
+| `JSONPath` | `string` | Full JSON path to the response |
+| `PathTemplate` | `string` | Owning path template |
+| `Method` | `string` | Owning operation method |
+| `IsComponent` | `bool` | True when in components/responses |
+
+### SecuritySchemeCollector
+
+`CollectSecuritySchemes` walks a document and collects all security schemes:
+
+```go
+collector, err := walker.CollectSecuritySchemes(result)
+if err != nil {
+    return err
+}
+
+// All security schemes
+for _, info := range collector.All {
+    fmt.Printf("%s: type=%s\n", info.Name, info.SecurityScheme.Type)
+}
+
+// Lookup by name
+if bearer, ok := collector.ByName["bearerAuth"]; ok {
+    fmt.Printf("Bearer scheme: %s\n", bearer.SecurityScheme.Scheme)
+}
+```
+
+**SecuritySchemeInfo fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `SecurityScheme` | `*parser.SecurityScheme` | The collected security scheme |
+| `Name` | `string` | Security scheme name from components map key |
+| `JSONPath` | `string` | Full JSON path to the security scheme |
 
 ### Example: API Coverage Report
 

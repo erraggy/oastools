@@ -146,6 +146,11 @@ oastools overlay apply --dry-run -s openapi.yaml production.yaml
 # Validate an overlay document
 oastools overlay validate changes.yaml
 
+# Query spec structure
+oastools walk operations api.yaml
+oastools walk schemas --name Pet --detail api.yaml
+oastools walk responses --status '4xx' -q --format json api.yaml | jq
+
 # Pipeline support
 cat swagger.yaml | oastools convert -q -t 3.0.3 - > openapi.yaml
 oastools validate --format json openapi.yaml | jq '.valid'
