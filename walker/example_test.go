@@ -358,6 +358,126 @@ func ExampleCollectOperations() {
 	// Tag 'pets' has 3 operations
 }
 
+func ExampleCollectParameters() {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Pet Store", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Parameters: []*parser.Parameter{
+						{Name: "limit", In: "query"},
+						{Name: "offset", In: "query"},
+					},
+				},
+			},
+			"/pets/{petId}": &parser.PathItem{
+				Parameters: []*parser.Parameter{
+					{Name: "petId", In: "path", Required: true},
+				},
+				Get: &parser.Operation{
+					OperationID: "getPet",
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	params, _ := walker.CollectParameters(result)
+
+	fmt.Printf("Total parameters: %d\n", len(params.All))
+	fmt.Printf("Query parameters: %d\n", len(params.ByLocation["query"]))
+	fmt.Printf("Path parameters: %d\n", len(params.ByLocation["path"]))
+	// Output:
+	// Total parameters: 3
+	// Query parameters: 2
+	// Path parameters: 1
+}
+
+func ExampleCollectResponses() {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Pet Store", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {Description: "A list of pets"},
+							"500": {Description: "Server error"},
+						},
+					},
+				},
+				Post: &parser.Operation{
+					OperationID: "createPet",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"201": {Description: "Pet created"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	responses, _ := walker.CollectResponses(result)
+
+	fmt.Printf("Total responses: %d\n", len(responses.All))
+	fmt.Printf("Success (200): %d\n", len(responses.ByStatusCode["200"]))
+	fmt.Printf("Server errors (500): %d\n", len(responses.ByStatusCode["500"]))
+	// Output:
+	// Total responses: 3
+	// Success (200): 1
+	// Server errors (500): 1
+}
+
+func ExampleCollectSecuritySchemes() {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Pet Store", Version: "1.0.0"},
+		Components: &parser.Components{
+			SecuritySchemes: map[string]*parser.SecurityScheme{
+				"bearerAuth": {
+					Type:   "http",
+					Scheme: "bearer",
+				},
+				"apiKey": {
+					Type: "apiKey",
+					Name: "X-API-Key",
+					In:   "header",
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+	}
+
+	schemes, _ := walker.CollectSecuritySchemes(result)
+
+	fmt.Printf("Total schemes: %d\n", len(schemes.All))
+
+	if bearer, ok := schemes.ByName["bearerAuth"]; ok {
+		fmt.Printf("bearerAuth: type=%s, scheme=%s\n", bearer.SecurityScheme.Type, bearer.SecurityScheme.Scheme)
+	}
+	// Output:
+	// Total schemes: 2
+	// bearerAuth: type=http, scheme=bearer
+}
+
 func ExampleWithParentTracking() {
 	doc := &parser.OAS3Document{
 		OpenAPI: "3.0.3",

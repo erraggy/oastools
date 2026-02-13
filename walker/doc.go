@@ -180,7 +180,10 @@
 // reduce boilerplate:
 //
 //   - [CollectSchemas]: Returns a [SchemaCollector] with all schemas indexed by name
-//   - [CollectOperations]: Returns an [OperationCollector] with all operations indexed by operationId
+//   - [CollectOperations]: Returns an [OperationCollector] with all operations indexed by path, method, and tag
+//   - [CollectParameters]: Returns a [ParameterCollector] with all parameters indexed by name, location, and path
+//   - [CollectResponses]: Returns a [ResponseCollector] with all responses indexed by status code and path
+//   - [CollectSecuritySchemes]: Returns a [SecuritySchemeCollector] with all security schemes indexed by name
 //
 // Example:
 //
@@ -194,8 +197,7 @@
 //	    fmt.Printf("%s %s -> %s\n", info.Method, info.PathTemplate, info.Operation.OperationID)
 //	}
 //
-// Each [OperationInfo] provides Method, PathTemplate, JSONPath, and the full [parser.Operation].
-// Each [SchemaInfo] provides Name, JSONPath, IsComponent, and the full [parser.Schema].
+// Each collector provides an All slice for ordered traversal and various maps for indexed lookup.
 //
 // # Schema Cycle Detection
 //
