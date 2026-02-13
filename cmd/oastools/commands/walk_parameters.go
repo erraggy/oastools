@@ -80,7 +80,7 @@ func handleWalkParameters(args []string) error {
 		if filterIn != "" && !strings.EqualFold(info.In, filterIn) {
 			continue
 		}
-		if filterName != "" && info.Name != filterName {
+		if filterName != "" && !strings.EqualFold(info.Name, filterName) {
 			continue
 		}
 		if !matchPath(info.PathTemplate, filterPath) {
