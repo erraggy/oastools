@@ -7,8 +7,16 @@ import (
 	"os"
 	"strings"
 
+	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/walker"
 )
+
+// parameterDetailView wraps a parameter with its walker context for serialization.
+type parameterDetailView struct {
+	Path      string            `json:"path" yaml:"path"`
+	Method    string            `json:"method" yaml:"method"`
+	Parameter *parser.Parameter `json:"parameter" yaml:"parameter"`
+}
 
 // handleWalkParameters implements the "walk parameters" subcommand.
 func handleWalkParameters(args []string) error {
@@ -103,7 +111,12 @@ func handleWalkParameters(args []string) error {
 
 	if flags.Detail {
 		for _, info := range filtered {
-			if err := RenderDetail(os.Stdout, info.Parameter, flags.Format, flags.Quiet); err != nil {
+			view := parameterDetailView{
+				Path:      info.PathTemplate,
+				Method:    strings.ToUpper(info.Method),
+				Parameter: info.Parameter,
+			}
+			if err := RenderDetail(os.Stdout, view, flags.Format, flags.Quiet); err != nil {
 				return fmt.Errorf("walk parameters: %w", err)
 			}
 		}
@@ -124,6 +137,9 @@ func handleWalkParameters(args []string) error {
 		})
 	}
 
+	if flags.Format != FormatText {
+		return RenderSummaryStructured(os.Stdout, headers, rows, flags.Format)
+	}
 	RenderSummaryTable(os.Stdout, headers, rows, flags.Quiet)
 	return nil
 }

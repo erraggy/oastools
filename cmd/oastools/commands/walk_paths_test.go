@@ -307,7 +307,75 @@ func TestWalkPaths_SummaryTableQuiet(t *testing.T) {
 	}
 }
 
-func TestWalkPaths_DetailOutput(t *testing.T) {
+func TestWalkPaths_SummaryJSON(t *testing.T) {
+	paths := collectTestPaths(t)
+
+	matched, err := filterPaths(paths, "/pets", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	headers := []string{"PATH", "METHODS", "SUMMARY", "EXTENSIONS"}
+	rows := make([][]string, 0, len(matched))
+	for _, p := range matched {
+		rows = append(rows, []string{
+			p.pathTemplate,
+			pathMethods(p.pathItem),
+			p.pathItem.Summary,
+			FormatExtensions(p.pathItem.Extra),
+		})
+	}
+
+	var buf bytes.Buffer
+	err = RenderSummaryStructured(&buf, headers, rows, FormatJSON)
+	if err != nil {
+		t.Fatalf("RenderSummaryStructured failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, `"path"`) {
+		t.Error("expected 'path' key in JSON summary output")
+	}
+	if !strings.Contains(output, "/pets") {
+		t.Error("expected /pets in JSON summary output")
+	}
+}
+
+func TestWalkPaths_SummaryYAML(t *testing.T) {
+	paths := collectTestPaths(t)
+
+	matched, err := filterPaths(paths, "/users", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	headers := []string{"PATH", "METHODS", "SUMMARY", "EXTENSIONS"}
+	rows := make([][]string, 0, len(matched))
+	for _, p := range matched {
+		rows = append(rows, []string{
+			p.pathTemplate,
+			pathMethods(p.pathItem),
+			p.pathItem.Summary,
+			FormatExtensions(p.pathItem.Extra),
+		})
+	}
+
+	var buf bytes.Buffer
+	err = RenderSummaryStructured(&buf, headers, rows, FormatYAML)
+	if err != nil {
+		t.Fatalf("RenderSummaryStructured failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "path") {
+		t.Error("expected 'path' key in YAML summary output")
+	}
+	if !strings.Contains(output, "/users") {
+		t.Error("expected /users in YAML summary output")
+	}
+}
+
+func TestWalkPaths_DetailIncludesPath(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "/pets", "")
@@ -319,13 +387,24 @@ func TestWalkPaths_DetailOutput(t *testing.T) {
 		t.Fatalf("expected 1 path, got %d", len(matched))
 	}
 
+	view := pathDetailView{
+		Path:     matched[0].pathTemplate,
+		PathItem: matched[0].pathItem,
+	}
+
 	var buf bytes.Buffer
-	err = RenderDetail(&buf, matched[0].pathItem, FormatJSON, false)
+	err = RenderDetail(&buf, view, FormatJSON, false)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}
 
 	output := buf.String()
+	if !strings.Contains(output, `"path"`) {
+		t.Error("expected 'path' key in detail JSON output")
+	}
+	if !strings.Contains(output, "/pets") {
+		t.Error("expected /pets path value in detail output")
+	}
 	if !strings.Contains(output, "Pet operations") {
 		t.Error("expected summary in detail output")
 	}
@@ -334,7 +413,7 @@ func TestWalkPaths_DetailOutput(t *testing.T) {
 	}
 }
 
-func TestWalkPaths_DetailOutputYAML(t *testing.T) {
+func TestWalkPaths_DetailIncludesPathYAML(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "/users", "")
@@ -346,13 +425,21 @@ func TestWalkPaths_DetailOutputYAML(t *testing.T) {
 		t.Fatalf("expected 1 path, got %d", len(matched))
 	}
 
+	view := pathDetailView{
+		Path:     matched[0].pathTemplate,
+		PathItem: matched[0].pathItem,
+	}
+
 	var buf bytes.Buffer
-	err = RenderDetail(&buf, matched[0].pathItem, FormatYAML, false)
+	err = RenderDetail(&buf, view, FormatYAML, false)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}
 
 	output := buf.String()
+	if !strings.Contains(output, "path:") {
+		t.Error("expected 'path' key in YAML detail output")
+	}
 	if !strings.Contains(output, "User operations") {
 		t.Error("expected summary in YAML detail output")
 	}

@@ -165,6 +165,12 @@ func pathMethods(pi *parser.PathItem) string {
 	return strings.Join(methods, ", ")
 }
 
+// pathDetailView wraps a path item with its template for serialization.
+type pathDetailView struct {
+	Path     string           `json:"path" yaml:"path"`
+	PathItem *parser.PathItem `json:"pathItem" yaml:"pathItem"`
+}
+
 // renderPathsSummary renders a summary table of path items.
 func renderPathsSummary(paths []pathInfo, flags WalkFlags) error {
 	headers := []string{"PATH", "METHODS", "SUMMARY", "EXTENSIONS"}
@@ -179,6 +185,9 @@ func renderPathsSummary(paths []pathInfo, flags WalkFlags) error {
 		})
 	}
 
+	if flags.Format != FormatText {
+		return RenderSummaryStructured(os.Stdout, headers, rows, flags.Format)
+	}
 	RenderSummaryTable(os.Stdout, headers, rows, flags.Quiet)
 	return nil
 }
@@ -186,7 +195,11 @@ func renderPathsSummary(paths []pathInfo, flags WalkFlags) error {
 // renderPathsDetail renders each matched path item in full detail.
 func renderPathsDetail(paths []pathInfo, flags WalkFlags) error {
 	for _, p := range paths {
-		if err := RenderDetail(os.Stdout, p.pathItem, flags.Format, flags.Quiet); err != nil {
+		view := pathDetailView{
+			Path:     p.pathTemplate,
+			PathItem: p.pathItem,
+		}
+		if err := RenderDetail(os.Stdout, view, flags.Format, flags.Quiet); err != nil {
 			return fmt.Errorf("walk paths: rendering detail: %w", err)
 		}
 	}

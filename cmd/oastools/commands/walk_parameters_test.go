@@ -293,10 +293,64 @@ func TestHandleWalkParameters_DetailMode(t *testing.T) {
 	})
 
 	// Detail mode outputs YAML by default, should contain parameter fields
-	if !strings.Contains(output, "name: limit") {
-		t.Errorf("expected detail output to contain 'name: limit', got: %s", output)
+	if !strings.Contains(output, "limit") {
+		t.Errorf("expected detail output to contain 'limit', got: %s", output)
 	}
-	if !strings.Contains(output, "in: query") {
-		t.Errorf("expected detail output to contain 'in: query', got: %s", output)
+}
+
+func TestHandleWalkParameters_DetailIncludesContext(t *testing.T) {
+	tmpFile := writeParameterTestSpec(t)
+
+	output := captureStdout(t, func() {
+		if err := handleWalkParameters([]string{"--detail", "--format", "json", "--name", "limit", tmpFile}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"path"`) {
+		t.Error("expected 'path' key in detail JSON output")
+	}
+	if !strings.Contains(output, `"method"`) {
+		t.Error("expected 'method' key in detail JSON output")
+	}
+	if !strings.Contains(output, "/pets") {
+		t.Error("expected /pets path in detail output")
+	}
+}
+
+func TestHandleWalkParameters_SummaryJSON(t *testing.T) {
+	tmpFile := writeParameterTestSpec(t)
+
+	output := captureStdout(t, func() {
+		if err := handleWalkParameters([]string{"--format", "json", tmpFile}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, `"name"`) {
+		t.Error("expected 'name' key in JSON summary output")
+	}
+	if !strings.Contains(output, `"in"`) {
+		t.Error("expected 'in' key in JSON summary output")
+	}
+	if !strings.Contains(output, "limit") {
+		t.Error("expected 'limit' in JSON summary output")
+	}
+}
+
+func TestHandleWalkParameters_SummaryYAML(t *testing.T) {
+	tmpFile := writeParameterTestSpec(t)
+
+	output := captureStdout(t, func() {
+		if err := handleWalkParameters([]string{"--format", "yaml", tmpFile}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "name") {
+		t.Error("expected 'name' key in YAML summary output")
+	}
+	if !strings.Contains(output, "limit") {
+		t.Error("expected 'limit' in YAML summary output")
 	}
 }

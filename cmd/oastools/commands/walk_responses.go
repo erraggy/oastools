@@ -7,8 +7,17 @@ import (
 	"os"
 	"strings"
 
+	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/walker"
 )
+
+// responseDetailView wraps a response with its walker context for serialization.
+type responseDetailView struct {
+	StatusCode string           `json:"statusCode" yaml:"statusCode"`
+	Path       string           `json:"path" yaml:"path"`
+	Method     string           `json:"method" yaml:"method"`
+	Response   *parser.Response `json:"response" yaml:"response"`
+}
 
 // handleWalkResponses implements the "walk responses" subcommand.
 func handleWalkResponses(args []string) error {
@@ -84,7 +93,13 @@ func handleWalkResponses(args []string) error {
 	// 3. Render
 	if flags.Detail {
 		for _, info := range filtered {
-			if err := RenderDetail(os.Stdout, info.Response, flags.Format, flags.Quiet); err != nil {
+			view := responseDetailView{
+				StatusCode: info.StatusCode,
+				Path:       info.PathTemplate,
+				Method:     strings.ToUpper(info.Method),
+				Response:   info.Response,
+			}
+			if err := RenderDetail(os.Stdout, view, flags.Format, flags.Quiet); err != nil {
 				return fmt.Errorf("walk responses: %w", err)
 			}
 		}
@@ -103,6 +118,9 @@ func handleWalkResponses(args []string) error {
 		})
 	}
 
+	if flags.Format != FormatText {
+		return RenderSummaryStructured(os.Stdout, headers, rows, flags.Format)
+	}
 	RenderSummaryTable(os.Stdout, headers, rows, flags.Quiet)
 	return nil
 }
