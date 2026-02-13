@@ -5,6 +5,9 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // testParameterSpecYAML is a hand-crafted OAS 3.0.3 spec used in parameter tests.
@@ -43,9 +46,7 @@ paths:
 func writeParameterTestSpec(t *testing.T) string {
 	t.Helper()
 	tmpFile := t.TempDir() + "/test-spec.yaml"
-	if err := os.WriteFile(tmpFile, []byte(testParameterSpecYAML), 0o644); err != nil {
-		t.Fatalf("failed to write test spec: %v", err)
-	}
+	require.NoError(t, os.WriteFile(tmpFile, []byte(testParameterSpecYAML), 0o644))
 	return tmpFile
 }
 
@@ -54,9 +55,7 @@ func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 	old := os.Stdout
 	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
+	require.NoError(t, err)
 	os.Stdout = w
 	defer func() {
 		_ = w.Close()
@@ -69,67 +68,48 @@ func captureStdout(t *testing.T, fn func()) string {
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		t.Fatalf("failed to read from pipe: %v", err)
-	}
+	_, err = buf.ReadFrom(r)
+	require.NoError(t, err)
 	return buf.String()
 }
 
 func TestHandleWalkParameters_MissingFile(t *testing.T) {
 	err := handleWalkParameters([]string{})
-	if err == nil {
-		t.Fatal("expected error for missing file argument")
-	}
-	if !strings.Contains(err.Error(), "missing spec file") {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing spec file")
 }
 
 func TestHandleWalkParameters_InvalidFormat(t *testing.T) {
 	err := handleWalkParameters([]string{"--format", "xml", "api.yaml"})
-	if err == nil {
-		t.Fatal("expected error for invalid format")
-	}
-	if !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid format")
 }
 
 func TestHandleWalkParameters_ListAll(t *testing.T) {
 	tmpFile := writeParameterTestSpec(t)
 
 	output := captureStdout(t, func() {
-		if err := handleWalkParameters([]string{tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, handleWalkParameters([]string{tmpFile}))
 	})
 
 	// Should list all 4 parameters
 	for _, name := range []string{"limit", "offset", "id", "fields"} {
-		if !strings.Contains(output, name) {
-			t.Errorf("expected output to contain %q", name)
-		}
+		assert.Contains(t, output, name)
 	}
 	// Check headers present
-	if !strings.Contains(output, "NAME") {
-		t.Error("expected output to contain table header 'NAME'")
-	}
+	assert.Contains(t, output, "NAME")
 }
 
 func TestHandleWalkParameters_FilterByIn(t *testing.T) {
 	tmpFile := writeParameterTestSpec(t)
 
 	output := captureStdout(t, func() {
-		if err := handleWalkParameters([]string{"--in", "query", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, handleWalkParameters([]string{"--in", "query", tmpFile}))
 	})
 
 	// Should include query params: limit, offset, fields
 	for _, name := range []string{"limit", "offset", "fields"} {
-		if !strings.Contains(output, name) {
-			t.Errorf("expected output to contain %q", name)
-		}
+		assert.Contains(t, output, name)
 	}
 
 	// Should NOT include path param 'id' in data rows.
@@ -147,18 +127,12 @@ func TestHandleWalkParameters_FilterByName(t *testing.T) {
 	tmpFile := writeParameterTestSpec(t)
 
 	output := captureStdout(t, func() {
-		if err := handleWalkParameters([]string{"--name", "limit", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, handleWalkParameters([]string{"--name", "limit", tmpFile}))
 	})
 
-	if !strings.Contains(output, "limit") {
-		t.Error("expected output to contain 'limit'")
-	}
+	assert.Contains(t, output, "limit")
 	for _, name := range []string{"offset", "fields"} {
-		if strings.Contains(output, name) {
-			t.Errorf("expected output to NOT contain %q", name)
-		}
+		assert.NotContains(t, output, name)
 	}
 }
 
@@ -166,37 +140,27 @@ func TestHandleWalkParameters_FilterByPath(t *testing.T) {
 	tmpFile := writeParameterTestSpec(t)
 
 	output := captureStdout(t, func() {
-		if err := handleWalkParameters([]string{"--path", "/pets/{id}", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, handleWalkParameters([]string{"--path", "/pets/{id}", tmpFile}))
 	})
 
 	// Should include parameters from /pets/{id}: id, fields
 	for _, name := range []string{"id", "fields"} {
-		if !strings.Contains(output, name) {
-			t.Errorf("expected output to contain %q", name)
-		}
+		assert.Contains(t, output, name)
 	}
 	// Should not contain parameters from /pets
-	if strings.Contains(output, "limit") {
-		t.Error("expected output to NOT contain 'limit'")
-	}
+	assert.NotContains(t, output, "limit")
 }
 
 func TestHandleWalkParameters_FilterByMethod(t *testing.T) {
 	tmpFile := writeParameterTestSpec(t)
 
 	output := captureStdout(t, func() {
-		if err := handleWalkParameters([]string{"--method", "get", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, handleWalkParameters([]string{"--method", "get", tmpFile}))
 	})
 
 	// Should include operation-level params: limit, offset, fields
 	for _, name := range []string{"limit", "offset", "fields"} {
-		if !strings.Contains(output, name) {
-			t.Errorf("expected output to contain %q", name)
-		}
+		assert.Contains(t, output, name)
 	}
 
 	// Path-level param 'id' has empty method, should be excluded.
@@ -215,18 +179,12 @@ func TestHandleWalkParameters_FilterByExtension(t *testing.T) {
 	tmpFile := writeParameterTestSpec(t)
 
 	output := captureStdout(t, func() {
-		if err := handleWalkParameters([]string{"--extension", "x-pagination", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, handleWalkParameters([]string{"--extension", "x-pagination", tmpFile}))
 	})
 
 	// Only 'limit' has x-pagination extension
-	if !strings.Contains(output, "limit") {
-		t.Error("expected output to contain 'limit'")
-	}
-	if strings.Contains(output, "offset") {
-		t.Error("expected output to NOT contain 'offset'")
-	}
+	assert.Contains(t, output, "limit")
+	assert.NotContains(t, output, "offset")
 }
 
 func TestHandleWalkParameters_NoResults(t *testing.T) {
@@ -235,15 +193,11 @@ func TestHandleWalkParameters_NoResults(t *testing.T) {
 	// Capture stderr for the "No parameters matched" message
 	oldStderr := os.Stderr
 	rErr, wErr, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
+	require.NoError(t, err)
 	os.Stderr = wErr
 
 	output := captureStdout(t, func() {
-		if err := handleWalkParameters([]string{"--name", "nonexistent", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, handleWalkParameters([]string{"--name", "nonexistent", tmpFile}))
 	})
 
 	_ = wErr.Close()
@@ -254,112 +208,70 @@ func TestHandleWalkParameters_NoResults(t *testing.T) {
 	stderrOutput := bufErr.String()
 
 	// No stdout output
-	if output != "" {
-		t.Errorf("expected no stdout output, got: %s", output)
-	}
+	assert.Equal(t, "", output)
 
 	// Should have message on stderr
-	if !strings.Contains(stderrOutput, "No parameters matched") {
-		t.Errorf("expected stderr message about no results, got: %s", stderrOutput)
-	}
+	assert.Contains(t, stderrOutput, "No parameters matched")
 }
 
 func TestHandleWalkParameters_QuietMode(t *testing.T) {
 	tmpFile := writeParameterTestSpec(t)
 
 	output := captureStdout(t, func() {
-		if err := handleWalkParameters([]string{"-q", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, handleWalkParameters([]string{"-q", tmpFile}))
 	})
 
 	// Headers should NOT be present in quiet mode
-	if strings.Contains(output, "NAME") {
-		t.Error("expected output to NOT contain table header 'NAME' in quiet mode")
-	}
+	assert.NotContains(t, output, "NAME")
 	// Tab-separated in quiet mode
-	if !strings.Contains(output, "\t") {
-		t.Error("expected tab-separated output in quiet mode")
-	}
+	assert.Contains(t, output, "\t")
 }
 
 func TestHandleWalkParameters_DetailMode(t *testing.T) {
 	tmpFile := writeParameterTestSpec(t)
 
 	output := captureStdout(t, func() {
-		if err := handleWalkParameters([]string{"--detail", "--name", "limit", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, handleWalkParameters([]string{"--detail", "--name", "limit", tmpFile}))
 	})
 
 	// Detail mode outputs YAML by default, should contain parameter fields
-	if !strings.Contains(output, "limit") {
-		t.Errorf("expected detail output to contain 'limit', got: %s", output)
-	}
-	if !strings.Contains(output, "name:") {
-		t.Error("expected 'name' key in detail YAML output")
-	}
-	if !strings.Contains(output, "in:") {
-		t.Error("expected 'in' key in detail YAML output")
-	}
+	assert.Contains(t, output, "limit")
+	assert.Contains(t, output, "name:")
+	assert.Contains(t, output, "in:")
 }
 
 func TestHandleWalkParameters_DetailIncludesContext(t *testing.T) {
 	tmpFile := writeParameterTestSpec(t)
 
 	output := captureStdout(t, func() {
-		if err := handleWalkParameters([]string{"--detail", "--format", "json", "--name", "limit", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, handleWalkParameters([]string{"--detail", "--format", "json", "--name", "limit", tmpFile}))
 	})
 
-	if !strings.Contains(output, `"path"`) {
-		t.Error("expected 'path' key in detail JSON output")
-	}
-	if !strings.Contains(output, `"method"`) {
-		t.Error("expected 'method' key in detail JSON output")
-	}
-	if !strings.Contains(output, "/pets") {
-		t.Error("expected /pets path in detail output")
-	}
+	assert.Contains(t, output, `"path"`)
+	assert.Contains(t, output, `"method"`)
+	assert.Contains(t, output, "/pets")
 }
 
 func TestHandleWalkParameters_SummaryJSON(t *testing.T) {
 	tmpFile := writeParameterTestSpec(t)
 
 	output := captureStdout(t, func() {
-		if err := handleWalkParameters([]string{"--format", "json", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, handleWalkParameters([]string{"--format", "json", tmpFile}))
 	})
 
-	if !strings.Contains(output, `"name"`) {
-		t.Error("expected 'name' key in JSON summary output")
-	}
-	if !strings.Contains(output, `"in"`) {
-		t.Error("expected 'in' key in JSON summary output")
-	}
-	if !strings.Contains(output, "limit") {
-		t.Error("expected 'limit' in JSON summary output")
-	}
+	assert.Contains(t, output, `"name"`)
+	assert.Contains(t, output, `"in"`)
+	assert.Contains(t, output, "limit")
 }
 
 func TestHandleWalkParameters_SummaryYAML(t *testing.T) {
 	tmpFile := writeParameterTestSpec(t)
 
 	output := captureStdout(t, func() {
-		if err := handleWalkParameters([]string{"--format", "yaml", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, handleWalkParameters([]string{"--format", "yaml", tmpFile}))
 	})
 
-	if !strings.Contains(output, "name") {
-		t.Error("expected 'name' key in YAML summary output")
-	}
-	if !strings.Contains(output, "in") {
-		t.Error("expected 'in' key in YAML summary output")
-	}
-	if !strings.Contains(output, "limit") {
-		t.Error("expected 'limit' in YAML summary output")
-	}
+	assert.Contains(t, output, "name")
+	assert.Contains(t, output, "in")
+	assert.Contains(t, output, "limit")
 }

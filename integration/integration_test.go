@@ -14,6 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/erraggy/oastools/integration/harness"
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/validator"
@@ -26,9 +29,7 @@ func getIntegrationDir(t *testing.T) string {
 	// Try to find the integration directory relative to the test file
 	// This works whether running from repo root or integration directory
 	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
+	require.NoError(t, err, "failed to get working directory")
 
 	// Check if we're in the integration directory
 	if filepath.Base(wd) == "integration" {
@@ -47,7 +48,7 @@ func getIntegrationDir(t *testing.T) string {
 		return integrationDir
 	}
 
-	t.Fatalf("could not find integration directory from %s", wd)
+	require.Failf(t, "could not find integration directory", "from %s", wd)
 	return ""
 }
 
@@ -75,39 +76,23 @@ func TestBasesAreValid(t *testing.T) {
 				parser.WithFilePath(basePath),
 				parser.WithResolveRefs(true),
 			)
-			if err != nil {
-				t.Fatalf("failed to parse %s: %v", base.name, err)
-			}
+			require.NoError(t, err, "failed to parse %s", base.name)
 
 			// Check for parse errors
-			if len(parseResult.Errors) > 0 {
-				t.Errorf("parse errors in %s:", base.name)
-				for _, e := range parseResult.Errors {
-					t.Errorf("  - %v", e)
-				}
-			}
+			assert.Empty(t, parseResult.Errors, "parse errors in %s", base.name)
 
 			// Verify version
-			if parseResult.Version != base.expectedVersion {
-				t.Errorf("expected version %s, got %s", base.expectedVersion, parseResult.Version)
-			}
+			assert.Equal(t, base.expectedVersion, parseResult.Version)
 
 			// Validate the document
 			validationResult, err := validator.ValidateWithOptions(
 				validator.WithParsed(*parseResult),
 				validator.WithStrictMode(false),
 			)
-			if err != nil {
-				t.Fatalf("failed to validate %s: %v", base.name, err)
-			}
+			require.NoError(t, err, "failed to validate %s", base.name)
 
 			// Check validation result
-			if !validationResult.Valid {
-				t.Errorf("base fixture %s is not valid:", base.name)
-				for _, e := range validationResult.Errors {
-					t.Errorf("  - %s", e.String())
-				}
-			}
+			assert.True(t, validationResult.Valid, "base fixture %s is not valid", base.name)
 
 			// Log stats for informational purposes
 			t.Logf("  Version: %s", parseResult.Version)
@@ -126,9 +111,7 @@ func TestScenarios(t *testing.T) {
 
 	// Load all scenarios
 	scenarios, err := harness.LoadAllScenarios(scenariosDir)
-	if err != nil {
-		t.Fatalf("failed to load scenarios: %v", err)
-	}
+	require.NoError(t, err, "failed to load scenarios")
 
 	if len(scenarios) == 0 {
 		t.Skip("no scenarios found")
@@ -147,8 +130,8 @@ func TestScenarios(t *testing.T) {
 			results = append(results, result)
 			harness.PrintPipelineResult(t, result)
 
-			if !result.Success && scenario.ExpectedFailure == "" {
-				t.Errorf("scenario failed: %v", result.Error)
+			if scenario.ExpectedFailure == "" {
+				assert.True(t, result.Success, "scenario failed: %v", result.Error)
 			}
 		})
 	}
@@ -177,9 +160,7 @@ func TestParseAllVersions(t *testing.T) {
 			result, err := parser.ParseWithOptions(
 				parser.WithFilePath(filepath.Join(basesDir, v.file)),
 			)
-			if err != nil {
-				t.Fatalf("parse failed: %v", err)
-			}
+			require.NoError(t, err, "parse failed")
 
 			harness.AssertOASVersion(t, result, v.version)
 			harness.AssertNoParseErrors(t, result)

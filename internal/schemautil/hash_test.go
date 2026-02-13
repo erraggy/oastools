@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSchemaHasher_Hash_Consistency(t *testing.T) {
@@ -22,9 +24,7 @@ func TestSchemaHasher_Hash_Consistency(t *testing.T) {
 	hash1 := hasher.Hash(schema)
 	hash2 := hasher.Hash(schema)
 
-	if hash1 != hash2 {
-		t.Errorf("Hash is not consistent: %d != %d", hash1, hash2)
-	}
+	assert.Equal(t, hash1, hash2, "Hash is not consistent")
 }
 
 func TestSchemaHasher_Hash_IdenticalSchemas(t *testing.T) {
@@ -53,9 +53,7 @@ func TestSchemaHasher_Hash_IdenticalSchemas(t *testing.T) {
 	hash1 := hasher.Hash(schema1)
 	hash2 := hasher.Hash(schema2)
 
-	if hash1 != hash2 {
-		t.Errorf("Identical schemas should have same hash: %d != %d", hash1, hash2)
-	}
+	assert.Equal(t, hash1, hash2, "Identical schemas should have same hash")
 }
 
 func TestSchemaHasher_Hash_DifferentSchemas(t *testing.T) {
@@ -114,9 +112,7 @@ func TestSchemaHasher_Hash_DifferentSchemas(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			hash1 := hasher.Hash(tt.schema1)
 			hash2 := hasher.Hash(tt.schema2)
-			if hash1 == hash2 {
-				t.Errorf("Different schemas should have different hashes (hash collision)")
-			}
+			assert.NotEqual(t, hash1, hash2, "Different schemas should have different hashes (hash collision)")
 		})
 	}
 }
@@ -137,9 +133,7 @@ func TestSchemaHasher_Hash_RequiredOrderIndependent(t *testing.T) {
 	hash1 := hasher.Hash(schema1)
 	hash2 := hasher.Hash(schema2)
 
-	if hash1 != hash2 {
-		t.Errorf("Required order should not affect hash: %d != %d", hash1, hash2)
-	}
+	assert.Equal(t, hash1, hash2, "Required order should not affect hash")
 }
 
 func TestSchemaHasher_Hash_PropertyOrderIndependent(t *testing.T) {
@@ -167,9 +161,7 @@ func TestSchemaHasher_Hash_PropertyOrderIndependent(t *testing.T) {
 	hash1 := hasher.Hash(schema1)
 	hash2 := hasher.Hash(schema2)
 
-	if hash1 != hash2 {
-		t.Errorf("Property order should not affect hash: %d != %d", hash1, hash2)
-	}
+	assert.Equal(t, hash1, hash2, "Property order should not affect hash")
 }
 
 func TestSchemaHasher_Hash_CircularReference(t *testing.T) {
@@ -184,24 +176,18 @@ func TestSchemaHasher_Hash_CircularReference(t *testing.T) {
 
 	// Should not panic or infinite loop
 	hash := hasher.Hash(schema)
-	if hash == 0 {
-		t.Error("Hash should be non-zero for circular schema")
-	}
+	assert.NotEqual(t, uint64(0), hash, "Hash should be non-zero for circular schema")
 
 	// Verify consistency even with circular reference
 	hash2 := hasher.Hash(schema)
-	if hash != hash2 {
-		t.Errorf("Hash should be consistent for circular schema: %d != %d", hash, hash2)
-	}
+	assert.Equal(t, hash, hash2, "Hash should be consistent for circular schema")
 }
 
 func TestSchemaHasher_Hash_NilSchema(t *testing.T) {
 	hasher := NewSchemaHasher()
 	hash := hasher.Hash(nil)
 	// Should not panic
-	if hash == 0 {
-		t.Error("Nil schema should still produce a hash")
-	}
+	assert.NotEqual(t, uint64(0), hash, "Nil schema should still produce a hash")
 }
 
 func TestSchemaHasher_Hash_RefSchema(t *testing.T) {
@@ -215,12 +201,8 @@ func TestSchemaHasher_Hash_RefSchema(t *testing.T) {
 	hash2 := hasher.Hash(schema2)
 	hash3 := hasher.Hash(schema3)
 
-	if hash1 != hash2 {
-		t.Errorf("Same $ref should have same hash: %d != %d", hash1, hash2)
-	}
-	if hash1 == hash3 {
-		t.Error("Different $ref should have different hash")
-	}
+	assert.Equal(t, hash1, hash2, "Same $ref should have same hash")
+	assert.NotEqual(t, hash1, hash3, "Different $ref should have different hash")
 }
 
 func TestSchemaHasher_Hash_OAS31TypeArray(t *testing.T) {
@@ -235,12 +217,8 @@ func TestSchemaHasher_Hash_OAS31TypeArray(t *testing.T) {
 	hash2 := hasher.Hash(schema2)
 	hash3 := hasher.Hash(schema3)
 
-	if hash1 != hash2 {
-		t.Errorf("Type array order should not affect hash: %d != %d", hash1, hash2)
-	}
-	if hash1 == hash3 {
-		t.Error("Different type arrays should have different hash")
-	}
+	assert.Equal(t, hash1, hash2, "Type array order should not affect hash")
+	assert.NotEqual(t, hash1, hash3, "Different type arrays should have different hash")
 }
 
 func TestSchemaHasher_Hash_Composition(t *testing.T) {
@@ -271,12 +249,8 @@ func TestSchemaHasher_Hash_Composition(t *testing.T) {
 	hash2 := hasher.Hash(schema2)
 	hash3 := hasher.Hash(schema3)
 
-	if hash1 != hash2 {
-		t.Errorf("Identical allOf should have same hash: %d != %d", hash1, hash2)
-	}
-	if hash1 == hash3 {
-		t.Error("allOf and anyOf should have different hash")
-	}
+	assert.Equal(t, hash1, hash2, "Identical allOf should have same hash")
+	assert.NotEqual(t, hash1, hash3, "allOf and anyOf should have different hash")
 }
 
 func TestSchemaHasher_Hash_NumericConstraints(t *testing.T) {
@@ -293,12 +267,8 @@ func TestSchemaHasher_Hash_NumericConstraints(t *testing.T) {
 	hash2 := hasher.Hash(schema2)
 	hash3 := hasher.Hash(schema3)
 
-	if hash1 != hash2 {
-		t.Errorf("Same constraints should have same hash: %d != %d", hash1, hash2)
-	}
-	if hash1 == hash3 {
-		t.Error("Different constraints should have different hash")
-	}
+	assert.Equal(t, hash1, hash2, "Same constraints should have same hash")
+	assert.NotEqual(t, hash1, hash3, "Different constraints should have different hash")
 }
 
 func TestSchemaHasher_Hash_ArrayItems(t *testing.T) {
@@ -321,12 +291,8 @@ func TestSchemaHasher_Hash_ArrayItems(t *testing.T) {
 	hash2 := hasher.Hash(schema2)
 	hash3 := hasher.Hash(schema3)
 
-	if hash1 != hash2 {
-		t.Errorf("Same items should have same hash: %d != %d", hash1, hash2)
-	}
-	if hash1 == hash3 {
-		t.Error("Different items should have different hash")
-	}
+	assert.Equal(t, hash1, hash2, "Same items should have same hash")
+	assert.NotEqual(t, hash1, hash3, "Different items should have different hash")
 }
 
 func TestSchemaHasher_Hash_AdditionalPropertiesBool(t *testing.T) {
@@ -340,12 +306,8 @@ func TestSchemaHasher_Hash_AdditionalPropertiesBool(t *testing.T) {
 	hash2 := hasher.Hash(schema2)
 	hash3 := hasher.Hash(schema3)
 
-	if hash1 != hash2 {
-		t.Errorf("Same additionalProperties should have same hash: %d != %d", hash1, hash2)
-	}
-	if hash1 == hash3 {
-		t.Error("Different additionalProperties should have different hash")
-	}
+	assert.Equal(t, hash1, hash2, "Same additionalProperties should have same hash")
+	assert.NotEqual(t, hash1, hash3, "Different additionalProperties should have different hash")
 }
 
 func TestSchemaHasher_GroupByHash(t *testing.T) {
@@ -375,9 +337,7 @@ func TestSchemaHasher_GroupByHash(t *testing.T) {
 	groups := hasher.GroupByHash(schemas)
 
 	// Should have 2 groups: one with User+Person, one with Address
-	if len(groups) != 2 {
-		t.Errorf("Expected 2 groups, got %d", len(groups))
-	}
+	assert.Equal(t, 2, len(groups))
 
 	// Find the group with multiple schemas
 	foundDuplicateGroup := false
@@ -394,14 +354,10 @@ func TestSchemaHasher_GroupByHash(t *testing.T) {
 					hasPerson = true
 				}
 			}
-			if !hasUser || !hasPerson {
-				t.Error("Duplicate group should contain User and Person")
-			}
+			assert.True(t, hasUser && hasPerson, "Duplicate group should contain User and Person")
 		}
 	}
-	if !foundDuplicateGroup {
-		t.Error("Should find a group with 2 identical schemas")
-	}
+	require.True(t, foundDuplicateGroup, "Should find a group with 2 identical schemas")
 }
 
 func TestSchemaHasher_Hash_MetadataIgnored(t *testing.T) {
@@ -423,7 +379,5 @@ func TestSchemaHasher_Hash_MetadataIgnored(t *testing.T) {
 	hash1 := hasher.Hash(schema1)
 	hash2 := hasher.Hash(schema2)
 
-	if hash1 != hash2 {
-		t.Errorf("Metadata-only differences should not affect hash: %d != %d", hash1, hash2)
-	}
+	assert.Equal(t, hash1, hash2, "Metadata-only differences should not affect hash")
 }

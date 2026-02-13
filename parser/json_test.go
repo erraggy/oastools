@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOAS3DocumentJSONFieldCasing(t *testing.T) {
@@ -29,27 +32,17 @@ func TestOAS3DocumentJSONFieldCasing(t *testing.T) {
 	}
 
 	data, err := json.Marshal(doc)
-	if err != nil {
-		t.Fatalf("Failed to marshal OAS3Document: %v", err)
-	}
+	require.NoError(t, err)
 
 	jsonStr := string(data)
 
 	// Check that the field is "openapi" not "OpenAPI"
-	if !strings.Contains(jsonStr, `"openapi"`) {
-		t.Errorf("Expected 'openapi' field in JSON output, got: %s", jsonStr)
-	}
-	if strings.Contains(jsonStr, `"OpenAPI"`) {
-		t.Errorf("Found incorrect 'OpenAPI' field (should be 'openapi') in JSON output: %s", jsonStr)
-	}
+	assert.Contains(t, jsonStr, `"openapi"`)
+	assert.NotContains(t, jsonStr, `"OpenAPI"`)
 
 	// Check other important fields
-	if !strings.Contains(jsonStr, `"info"`) {
-		t.Errorf("Expected 'info' field in JSON output, got: %s", jsonStr)
-	}
-	if !strings.Contains(jsonStr, `"paths"`) {
-		t.Errorf("Expected 'paths' field in JSON output, got: %s", jsonStr)
-	}
+	assert.Contains(t, jsonStr, `"info"`)
+	assert.Contains(t, jsonStr, `"paths"`)
 }
 
 func TestOAS2DocumentJSONFieldCasing(t *testing.T) {
@@ -63,19 +56,13 @@ func TestOAS2DocumentJSONFieldCasing(t *testing.T) {
 	}
 
 	data, err := json.Marshal(doc)
-	if err != nil {
-		t.Fatalf("Failed to marshal OAS2Document: %v", err)
-	}
+	require.NoError(t, err)
 
 	jsonStr := string(data)
 
 	// Check that the field is "swagger" not "Swagger"
-	if !strings.Contains(jsonStr, `"swagger"`) {
-		t.Errorf("Expected 'swagger' field in JSON output, got: %s", jsonStr)
-	}
-	if strings.Contains(jsonStr, `"Swagger"`) {
-		t.Errorf("Found incorrect 'Swagger' field (should be 'swagger') in JSON output: %s", jsonStr)
-	}
+	assert.Contains(t, jsonStr, `"swagger"`)
+	assert.NotContains(t, jsonStr, `"Swagger"`)
 }
 
 func TestExtraFieldsJSONInline(t *testing.T) {
@@ -96,24 +83,16 @@ func TestExtraFieldsJSONInline(t *testing.T) {
 	}
 
 	data, err := json.Marshal(doc)
-	if err != nil {
-		t.Fatalf("Failed to marshal OAS3Document with Extra: %v", err)
-	}
+	require.NoError(t, err)
 
 	jsonStr := string(data)
 
 	// Check that extra fields are inlined (not under "Extra" or "extra" key)
-	if strings.Contains(jsonStr, `"Extra"`) || strings.Contains(jsonStr, `"extra"`) {
-		t.Errorf("Extra field should not appear as a key in JSON output: %s", jsonStr)
-	}
+	assert.False(t, strings.Contains(jsonStr, `"Extra"`) || strings.Contains(jsonStr, `"extra"`), "Extra field should not appear as a key in JSON output: %s", jsonStr)
 
 	// Check that the custom fields are present at the root level
-	if !strings.Contains(jsonStr, `"x-root-extension"`) {
-		t.Errorf("Expected 'x-root-extension' to be inlined in JSON output, got: %s", jsonStr)
-	}
-	if !strings.Contains(jsonStr, `"root-value"`) {
-		t.Errorf("Expected 'root-value' in JSON output, got: %s", jsonStr)
-	}
+	assert.Contains(t, jsonStr, `"x-root-extension"`)
+	assert.Contains(t, jsonStr, `"root-value"`)
 }
 
 func TestInfoExtraFieldsJSONInline(t *testing.T) {
@@ -127,30 +106,18 @@ func TestInfoExtraFieldsJSONInline(t *testing.T) {
 	}
 
 	data, err := json.Marshal(info)
-	if err != nil {
-		t.Fatalf("Failed to marshal Info with Extra: %v", err)
-	}
+	require.NoError(t, err)
 
 	var result map[string]any
-	if err := json.Unmarshal(data, &result); err != nil {
-		t.Fatalf("Failed to unmarshal JSON: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(data, &result))
 
 	// Check that custom fields are at the root level
-	if _, ok := result["x-custom"]; !ok {
-		t.Errorf("Expected 'x-custom' field at root level in JSON")
-	}
-	if _, ok := result["x-another"]; !ok {
-		t.Errorf("Expected 'x-another' field at root level in JSON")
-	}
+	assert.Contains(t, result, "x-custom")
+	assert.Contains(t, result, "x-another")
 
 	// Check that there's no "Extra" or "extra" field
-	if _, ok := result["Extra"]; ok {
-		t.Errorf("'Extra' field should not be present in JSON output")
-	}
-	if _, ok := result["extra"]; ok {
-		t.Errorf("'extra' field should not be present in JSON output")
-	}
+	assert.NotContains(t, result, "Extra")
+	assert.NotContains(t, result, "extra")
 }
 
 func TestJSONRoundTrip(t *testing.T) {
@@ -181,33 +148,21 @@ func TestJSONRoundTrip(t *testing.T) {
 
 	// Marshal to JSON
 	data, err := json.Marshal(original)
-	if err != nil {
-		t.Fatalf("Failed to marshal: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Unmarshal back
 	var restored OAS3Document
-	if err := json.Unmarshal(data, &restored); err != nil {
-		t.Fatalf("Failed to unmarshal: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(data, &restored))
 
 	// Verify basic fields
-	if restored.OpenAPI != original.OpenAPI {
-		t.Errorf("OpenAPI field mismatch: got %s, want %s", restored.OpenAPI, original.OpenAPI)
-	}
-	if restored.Info.Title != original.Info.Title {
-		t.Errorf("Title mismatch: got %s, want %s", restored.Info.Title, original.Info.Title)
-	}
+	assert.Equal(t, original.OpenAPI, restored.OpenAPI)
+	assert.Equal(t, original.Info.Title, restored.Info.Title)
 
 	// Verify Extra fields were preserved
-	if restored.Extra["x-doc-custom"] != "doc-value" {
-		t.Errorf("Document Extra field not preserved: got %v", restored.Extra)
-	}
-	if restored.Info.Extra["x-info-custom"] != "info-value" {
-		t.Errorf("Info Extra field not preserved: got %v", restored.Info.Extra)
-	}
-	if len(restored.Servers) > 0 && restored.Servers[0].Extra["x-server-custom"] != "server-value" {
-		t.Errorf("Server Extra field not preserved: got %v", restored.Servers[0].Extra)
+	assert.Equal(t, "doc-value", restored.Extra["x-doc-custom"])
+	assert.Equal(t, "info-value", restored.Info.Extra["x-info-custom"])
+	if len(restored.Servers) > 0 {
+		assert.Equal(t, "server-value", restored.Servers[0].Extra["x-server-custom"])
 	}
 }
 
@@ -222,24 +177,16 @@ func TestSchemaJSONFieldCasing(t *testing.T) {
 	}
 
 	data, err := json.Marshal(schema)
-	if err != nil {
-		t.Fatalf("Failed to marshal Schema: %v", err)
-	}
+	require.NoError(t, err)
 
 	jsonStr := string(data)
 
 	// Check field casing
-	if !strings.Contains(jsonStr, `"type"`) {
-		t.Errorf("Expected 'type' field in JSON output, got: %s", jsonStr)
-	}
-	if !strings.Contains(jsonStr, `"description"`) {
-		t.Errorf("Expected 'description' field in JSON output, got: %s", jsonStr)
-	}
+	assert.Contains(t, jsonStr, `"type"`)
+	assert.Contains(t, jsonStr, `"description"`)
 
 	// Check Extra field inlining
-	if !strings.Contains(jsonStr, `"x-custom-schema"`) {
-		t.Errorf("Expected 'x-custom-schema' to be inlined in JSON output, got: %s", jsonStr)
-	}
+	assert.Contains(t, jsonStr, `"x-custom-schema"`)
 }
 
 func TestResponsesJSONMarshaling(t *testing.T) {
@@ -259,33 +206,19 @@ func TestResponsesJSONMarshaling(t *testing.T) {
 	}
 
 	data, err := json.Marshal(responses)
-	if err != nil {
-		t.Fatalf("Failed to marshal Responses: %v", err)
-	}
+	require.NoError(t, err)
 
 	var result map[string]any
-	if err := json.Unmarshal(data, &result); err != nil {
-		t.Fatalf("Failed to unmarshal JSON: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(data, &result))
 
 	// Check that status codes are at root level
-	if _, ok := result["200"]; !ok {
-		t.Errorf("Expected '200' field at root level in JSON")
-	}
-	if _, ok := result["404"]; !ok {
-		t.Errorf("Expected '404' field at root level in JSON")
-	}
-	if _, ok := result["default"]; !ok {
-		t.Errorf("Expected 'default' field at root level in JSON")
-	}
+	assert.Contains(t, result, "200")
+	assert.Contains(t, result, "404")
+	assert.Contains(t, result, "default")
 
 	// Check that there's no "Codes" field
-	if _, ok := result["Codes"]; ok {
-		t.Errorf("'Codes' field should not be present in JSON output")
-	}
-	if _, ok := result["codes"]; ok {
-		t.Errorf("'codes' field should not be present in JSON output")
-	}
+	assert.NotContains(t, result, "Codes")
+	assert.NotContains(t, result, "codes")
 }
 
 func TestComplexNestedExtraFields(t *testing.T) {
@@ -336,14 +269,10 @@ func TestComplexNestedExtraFields(t *testing.T) {
 
 	// Marshal and unmarshal
 	data, err := json.Marshal(doc)
-	if err != nil {
-		t.Fatalf("Failed to marshal complex document: %v", err)
-	}
+	require.NoError(t, err)
 
 	var restored OAS3Document
-	if err := json.Unmarshal(data, &restored); err != nil {
-		t.Fatalf("Failed to unmarshal complex document: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(data, &restored))
 
 	// Verify all Extra fields at different levels
 	tests := []struct {
@@ -362,9 +291,7 @@ func TestComplexNestedExtraFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.got != tt.want {
-				t.Errorf("%s: got %v, want %v", tt.field, tt.got, tt.want)
-			}
+			assert.Equal(t, tt.want, tt.got, tt.field)
 		})
 	}
 }
@@ -383,26 +310,18 @@ func TestEmptyExtraFields(t *testing.T) {
 	}
 
 	data, err := json.Marshal(doc)
-	if err != nil {
-		t.Fatalf("Failed to marshal document with empty Extra: %v", err)
-	}
+	require.NoError(t, err)
 
 	jsonStr := string(data)
 
 	// Should not contain "Extra" or "extra" key
-	if strings.Contains(jsonStr, `"Extra"`) || strings.Contains(jsonStr, `"extra"`) {
-		t.Errorf("Empty Extra field should not appear in JSON output: %s", jsonStr)
-	}
+	assert.False(t, strings.Contains(jsonStr, `"Extra"`) || strings.Contains(jsonStr, `"extra"`), "Empty Extra field should not appear in JSON output: %s", jsonStr)
 
 	// Verify round-trip
 	var restored OAS3Document
-	if err := json.Unmarshal(data, &restored); err != nil {
-		t.Fatalf("Failed to unmarshal: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(data, &restored))
 
-	if restored.OpenAPI != doc.OpenAPI {
-		t.Errorf("OpenAPI field mismatch after round-trip")
-	}
+	assert.Equal(t, doc.OpenAPI, restored.OpenAPI)
 }
 
 func TestNilPointerHandling(t *testing.T) {
@@ -422,24 +341,16 @@ func TestNilPointerHandling(t *testing.T) {
 	}
 
 	data, err := json.Marshal(doc)
-	if err != nil {
-		t.Fatalf("Failed to marshal document with nil pointers: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify fields are omitted
 	jsonStr := string(data)
-	if strings.Contains(jsonStr, `"contact"`) {
-		t.Errorf("Nil contact should be omitted from JSON")
-	}
-	if strings.Contains(jsonStr, `"license"`) {
-		t.Errorf("Nil license should be omitted from JSON")
-	}
+	assert.NotContains(t, jsonStr, `"contact"`)
+	assert.NotContains(t, jsonStr, `"license"`)
 
 	// Verify round-trip
 	var restored OAS3Document
-	if err := json.Unmarshal(data, &restored); err != nil {
-		t.Fatalf("Failed to unmarshal: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(data, &restored))
 }
 
 func TestExtraFieldConflicts(t *testing.T) {
@@ -459,25 +370,17 @@ func TestExtraFieldConflicts(t *testing.T) {
 	}
 
 	data, err := json.Marshal(doc)
-	if err != nil {
-		t.Fatalf("Failed to marshal document with conflicting Extra: %v", err)
-	}
+	require.NoError(t, err)
 
 	var result map[string]any
-	if err := json.Unmarshal(data, &result); err != nil {
-		t.Fatalf("Failed to unmarshal to map: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(data, &result))
 
 	// The Extra fields should overwrite the real fields in the JSON output
 	// (This is the current behavior - Extra is merged last)
-	if result["openapi"] != "2.0" {
-		t.Errorf("Expected Extra to overwrite openapi field, got %v", result["openapi"])
-	}
+	assert.Equal(t, "2.0", result["openapi"])
 
 	// Verify x-safe extension is present
-	if result["x-safe"] != "value" {
-		t.Errorf("Expected x-safe extension to be present")
-	}
+	assert.Equal(t, "value", result["x-safe"])
 }
 
 func TestInvalidStatusCodeInJSON(t *testing.T) {
@@ -490,12 +393,8 @@ func TestInvalidStatusCodeInJSON(t *testing.T) {
 
 	var responses Responses
 	err := json.Unmarshal([]byte(invalidJSON), &responses)
-	if err == nil {
-		t.Errorf("Expected error for invalid status code '999', but got nil")
-	}
-	if err != nil && !strings.Contains(err.Error(), "invalid status code") {
-		t.Errorf("Expected error about invalid status code, got: %v", err)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid status code")
 }
 
 func TestInvalidStatusCodePatternInJSON(t *testing.T) {
@@ -534,9 +433,7 @@ func TestInvalidStatusCodePatternInJSON(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var responses Responses
 			err := json.Unmarshal([]byte(tc.json), &responses)
-			if err == nil {
-				t.Errorf("Expected error for invalid status code pattern, but got nil")
-			}
+			assert.Error(t, err)
 		})
 	}
 }
@@ -551,28 +448,17 @@ func TestValidExtensionFieldsInResponses(t *testing.T) {
 	}`
 
 	var responses Responses
-	err := json.Unmarshal([]byte(validJSON), &responses)
-	if err != nil {
-		t.Fatalf("Unexpected error unmarshaling valid extensions: %v", err)
-	}
+	require.NoError(t, json.Unmarshal([]byte(validJSON), &responses))
 
 	// Verify standard codes are present
-	if responses.Codes["200"] == nil {
-		t.Errorf("Expected 200 response to be present")
-	}
+	assert.NotNil(t, responses.Codes["200"])
 
 	// Verify extension fields are captured
-	if responses.Codes["x-custom"] == nil {
-		t.Errorf("Expected x-custom extension to be captured")
-	}
-	if responses.Codes["x-rate-limit"] == nil {
-		t.Errorf("Expected x-rate-limit extension to be captured")
-	}
+	assert.NotNil(t, responses.Codes["x-custom"])
+	assert.NotNil(t, responses.Codes["x-rate-limit"])
 
 	// Verify default is present
-	if responses.Default == nil {
-		t.Errorf("Expected default response to be present")
-	}
+	assert.NotNil(t, responses.Default)
 }
 
 func TestMarshalUnmarshalErrors(t *testing.T) {
@@ -599,9 +485,7 @@ func TestMarshalUnmarshalErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var doc OAS3Document
 			err := json.Unmarshal([]byte(tc.jsonStr), &doc)
-			if err == nil {
-				t.Errorf("Expected unmarshal error for malformed JSON, but got nil")
-			}
+			assert.Error(t, err)
 		})
 	}
 }
@@ -625,26 +509,16 @@ func TestLargeExtraMap(t *testing.T) {
 
 	// Should marshal without error
 	data, err := json.Marshal(doc)
-	if err != nil {
-		t.Fatalf("Failed to marshal document with large Extra: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should unmarshal without error
 	var restored OAS3Document
-	if err := json.Unmarshal(data, &restored); err != nil {
-		t.Fatalf("Failed to unmarshal document with large Extra: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(data, &restored))
 
 	// Verify all fields were preserved
-	if len(restored.Extra) != 100 {
-		t.Errorf("Expected 100 Extra fields, got %d", len(restored.Extra))
-	}
+	assert.Len(t, restored.Extra, 100)
 
 	// Spot check a few fields
-	if restored.Extra["x-field-0"] != "value-0" {
-		t.Errorf("Extra field not preserved correctly")
-	}
-	if restored.Extra["x-field-99"] != "value-99" {
-		t.Errorf("Extra field not preserved correctly")
-	}
+	assert.Equal(t, "value-0", restored.Extra["x-field-0"])
+	assert.Equal(t, "value-99", restored.Extra["x-field-99"])
 }

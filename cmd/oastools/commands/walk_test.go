@@ -2,41 +2,33 @@ package commands
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHandleWalk_NoArgs(t *testing.T) {
 	err := HandleWalk([]string{})
-	if err == nil {
-		t.Error("expected error when no subcommand provided")
-	}
+	assert.Error(t, err)
 }
 
 func TestHandleWalk_InvalidSubcommand(t *testing.T) {
 	err := HandleWalk([]string{"invalid"})
-	if err == nil {
-		t.Error("expected error for invalid subcommand")
-	}
+	assert.Error(t, err)
 }
 
 func TestHandleWalk_Help(t *testing.T) {
 	err := HandleWalk([]string{"--help"})
-	if err != nil {
-		t.Errorf("unexpected error for --help: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestHandleWalk_HelpShortFlag(t *testing.T) {
 	err := HandleWalk([]string{"-h"})
-	if err != nil {
-		t.Errorf("unexpected error for -h: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestHandleWalk_HelpSubcommand(t *testing.T) {
 	err := HandleWalk([]string{"help"})
-	if err != nil {
-		t.Errorf("unexpected error for help subcommand: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestHandleWalk_ValidSubcommands(t *testing.T) {
@@ -47,9 +39,7 @@ func TestHandleWalk_ValidSubcommands(t *testing.T) {
 	for _, sub := range subcommands {
 		t.Run(sub, func(t *testing.T) {
 			err := HandleWalk([]string{sub})
-			if err == nil {
-				t.Errorf("expected error for subcommand %s with no args", sub)
-			}
+			assert.Error(t, err)
 		})
 	}
 }
@@ -73,9 +63,7 @@ func TestMatchPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := matchPath(tt.path, tt.pattern)
-			if got != tt.expected {
-				t.Errorf("matchPath(%q, %q) = %v, want %v", tt.path, tt.pattern, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -103,9 +91,7 @@ func TestMatchStatusCode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := matchStatusCode(tt.code, tt.pattern)
-			if got != tt.expected {
-				t.Errorf("matchStatusCode(%q, %q) = %v, want %v", tt.code, tt.pattern, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

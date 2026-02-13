@@ -2,6 +2,9 @@ package jsonpath
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestParse tests the JSONPath parser.
@@ -63,29 +66,14 @@ func TestParse(t *testing.T) {
 			path, err := Parse(tt.input)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Errorf("Parse(%q) expected error, got nil", tt.input)
-				}
+				assert.Error(t, err, "Parse(%q) expected error, got nil", tt.input)
 				return
 			}
 
-			if err != nil {
-				t.Errorf("Parse(%q) unexpected error: %v", tt.input, err)
-				return
-			}
-
-			if path == nil {
-				t.Errorf("Parse(%q) returned nil path without error", tt.input)
-				return
-			}
-
-			if len(path.segments) != tt.segLen {
-				t.Errorf("Parse(%q) got %d segments, want %d", tt.input, len(path.segments), tt.segLen)
-			}
-
-			if path.String() != tt.input {
-				t.Errorf("Path.String() = %q, want %q", path.String(), tt.input)
-			}
+			require.NoError(t, err, "Parse(%q) unexpected error", tt.input)
+			require.NotNil(t, path, "Parse(%q) returned nil path without error", tt.input)
+			assert.Len(t, path.segments, tt.segLen, "Parse(%q) segment count", tt.input)
+			assert.Equal(t, tt.input, path.String(), "Path.String()")
 		})
 	}
 }
@@ -283,20 +271,14 @@ func TestGet(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p, err := Parse(tt.path)
-			if err != nil {
-				t.Fatalf("Parse(%q) error: %v", tt.path, err)
-			}
+			require.NoError(t, err, "Parse(%q) error", tt.path)
 
 			results := p.Get(doc)
 
-			if len(results) != tt.wantLen {
-				t.Errorf("Get(%q) returned %d results, want %d", tt.path, len(results), tt.wantLen)
-			}
+			assert.Len(t, results, tt.wantLen, "Get(%q) result count", tt.path)
 
 			if tt.checkVal != nil && len(results) > 0 {
-				if !tt.checkVal(results) {
-					t.Errorf("Get(%q) value check failed, got %v", tt.path, results)
-				}
+				assert.True(t, tt.checkVal(results), "Get(%q) value check failed, got %v", tt.path, results)
 			}
 		})
 	}
@@ -371,18 +353,11 @@ func TestCompoundFilters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p, err := Parse(tt.path)
-			if err != nil {
-				t.Fatalf("Parse(%q) error: %v", tt.path, err)
-			}
+			require.NoError(t, err, "Parse(%q) error", tt.path)
 
 			results := p.Get(doc)
 
-			if len(results) != tt.wantLen {
-				t.Errorf("Get(%q) returned %d results, want %d", tt.path, len(results), tt.wantLen)
-				for i, r := range results {
-					t.Logf("  result[%d]: %v", i, r)
-				}
-			}
+			assert.Len(t, results, tt.wantLen, "Get(%q) result count", tt.path)
 		})
 	}
 }
@@ -399,14 +374,10 @@ func TestSet(t *testing.T) {
 		p, _ := Parse("$.info.title")
 		err := p.Set(doc, "New Title")
 
-		if err != nil {
-			t.Fatalf("Set error: %v", err)
-		}
+		require.NoError(t, err, "Set error")
 
 		info := doc["info"].(map[string]any)
-		if info["title"] != "New Title" {
-			t.Errorf("Set did not update value, got %v", info["title"])
-		}
+		assert.Equal(t, "New Title", info["title"])
 	})
 
 	t.Run("set array element", func(t *testing.T) {
@@ -419,15 +390,11 @@ func TestSet(t *testing.T) {
 		p, _ := Parse("$.servers[0]")
 		err := p.Set(doc, map[string]any{"url": "new"})
 
-		if err != nil {
-			t.Fatalf("Set error: %v", err)
-		}
+		require.NoError(t, err, "Set error")
 
 		servers := doc["servers"].([]any)
 		server := servers[0].(map[string]any)
-		if server["url"] != "new" {
-			t.Errorf("Set did not update array element, got %v", server["url"])
-		}
+		assert.Equal(t, "new", server["url"])
 	})
 
 	t.Run("set with wildcard", func(t *testing.T) {
@@ -441,16 +408,12 @@ func TestSet(t *testing.T) {
 		p, _ := Parse("$.paths.*.deprecated")
 		err := p.Set(doc, true)
 
-		if err != nil {
-			t.Fatalf("Set error: %v", err)
-		}
+		require.NoError(t, err, "Set error")
 
 		paths := doc["paths"].(map[string]any)
 		for _, pathItem := range paths {
 			pi := pathItem.(map[string]any)
-			if pi["deprecated"] != true {
-				t.Errorf("Set with wildcard did not update all values")
-			}
+			assert.Equal(t, true, pi["deprecated"], "Set with wildcard did not update all values")
 		}
 	})
 
@@ -459,9 +422,7 @@ func TestSet(t *testing.T) {
 		p, _ := Parse("$")
 		err := p.Set(doc, "value")
 
-		if err == nil {
-			t.Error("Expected error when setting on root")
-		}
+		assert.Error(t, err, "Expected error when setting on root")
 	})
 }
 
@@ -478,17 +439,11 @@ func TestRemove(t *testing.T) {
 		p, _ := Parse("$.info.description")
 		_, err := p.Remove(doc)
 
-		if err != nil {
-			t.Fatalf("Remove error: %v", err)
-		}
+		require.NoError(t, err, "Remove error")
 
 		info := doc["info"].(map[string]any)
-		if _, exists := info["description"]; exists {
-			t.Error("Remove did not delete field")
-		}
-		if info["title"] != "API" {
-			t.Error("Remove deleted wrong field")
-		}
+		assert.NotContains(t, info, "description", "Remove did not delete field")
+		assert.Equal(t, "API", info["title"], "Remove deleted wrong field")
 	})
 
 	t.Run("remove with filter", func(t *testing.T) {
@@ -509,17 +464,11 @@ func TestRemove(t *testing.T) {
 		p, _ := Parse("$.operations[?@.x-internal==true]")
 		_, err := p.Remove(doc)
 
-		if err != nil {
-			t.Fatalf("Remove error: %v", err)
-		}
+		require.NoError(t, err, "Remove error")
 
 		ops := doc["operations"].(map[string]any)
-		if _, exists := ops["internal"]; exists {
-			t.Error("Remove with filter did not delete matching entry")
-		}
-		if _, exists := ops["public"]; !exists {
-			t.Error("Remove with filter deleted non-matching entry")
-		}
+		assert.NotContains(t, ops, "internal", "Remove with filter did not delete matching entry")
+		assert.Contains(t, ops, "public", "Remove with filter deleted non-matching entry")
 	})
 
 	t.Run("remove non-existent path", func(t *testing.T) {
@@ -530,9 +479,7 @@ func TestRemove(t *testing.T) {
 		p, _ := Parse("$.info.nonexistent")
 		_, err := p.Remove(doc)
 
-		if err != nil {
-			t.Errorf("Remove on non-existent path should not error, got: %v", err)
-		}
+		assert.NoError(t, err, "Remove on non-existent path should not error")
 	})
 }
 
@@ -550,14 +497,10 @@ func TestModify(t *testing.T) {
 			return v.(string) + " v2"
 		})
 
-		if err != nil {
-			t.Fatalf("Modify error: %v", err)
-		}
+		require.NoError(t, err, "Modify error")
 
 		info := doc["info"].(map[string]any)
-		if info["title"] != "API v2" {
-			t.Errorf("Modify did not transform value, got %v", info["title"])
-		}
+		assert.Equal(t, "API v2", info["title"])
 	})
 
 	t.Run("modify with wildcard", func(t *testing.T) {
@@ -575,16 +518,12 @@ func TestModify(t *testing.T) {
 			return m
 		})
 
-		if err != nil {
-			t.Fatalf("Modify error: %v", err)
-		}
+		require.NoError(t, err, "Modify error")
 
 		paths := doc["paths"].(map[string]any)
 		for _, pathItem := range paths {
 			pi := pathItem.(map[string]any)
-			if pi["x-modified"] != true {
-				t.Error("Modify with wildcard did not update all values")
-			}
+			assert.Equal(t, true, pi["x-modified"], "Modify with wildcard did not update all values")
 		}
 	})
 
@@ -604,20 +543,14 @@ func TestModify(t *testing.T) {
 			return m
 		})
 
-		if err != nil {
-			t.Fatalf("Modify error: %v", err)
-		}
+		require.NoError(t, err, "Modify error")
 
 		ops := doc["operations"].(map[string]any)
 		op1 := ops["op1"].(map[string]any)
 		op2 := ops["op2"].(map[string]any)
 
-		if op1["count"] != 1 {
-			t.Error("Modify with filter did not update matching entry")
-		}
-		if op2["count"] != 0 {
-			t.Error("Modify with filter updated non-matching entry")
-		}
+		assert.Equal(t, 1, op1["count"], "Modify with filter did not update matching entry")
+		assert.Equal(t, 0, op2["count"], "Modify with filter updated non-matching entry")
 	})
 }
 
@@ -649,14 +582,10 @@ func TestFilterExpressions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p, err := Parse(tt.path)
-			if err != nil {
-				t.Fatalf("Parse error: %v", err)
-			}
+			require.NoError(t, err, "Parse error")
 
 			results := p.Get(doc)
-			if len(results) != tt.wantLen {
-				t.Errorf("Get(%q) returned %d results, want %d", tt.path, len(results), tt.wantLen)
-			}
+			assert.Len(t, results, tt.wantLen, "Get(%q) result count", tt.path)
 		})
 	}
 }
@@ -667,17 +596,13 @@ func TestEdgeCases(t *testing.T) {
 		doc := map[string]any{}
 		p, _ := Parse("$.info")
 		results := p.Get(doc)
-		if len(results) != 0 {
-			t.Error("Expected no results for empty document")
-		}
+		assert.Empty(t, results, "Expected no results for empty document")
 	})
 
 	t.Run("nil document", func(t *testing.T) {
 		p, _ := Parse("$.info")
 		results := p.Get(nil)
-		if len(results) != 0 {
-			t.Error("Expected empty results for nil document")
-		}
+		assert.Empty(t, results, "Expected empty results for nil document")
 	})
 
 	t.Run("special characters in key", func(t *testing.T) {
@@ -688,19 +613,13 @@ func TestEdgeCases(t *testing.T) {
 		}
 		p, _ := Parse("$.paths['/users/{id}']")
 		results := p.Get(doc)
-		if len(results) != 1 {
-			t.Error("Expected 1 result for path with special chars")
-		}
+		assert.Len(t, results, 1, "Expected 1 result for path with special chars")
 	})
 
 	t.Run("escaped quotes in string", func(t *testing.T) {
 		p, err := Parse("$.paths['/test\\'s']")
-		if err != nil {
-			t.Fatalf("Parse error for escaped quote: %v", err)
-		}
-		if p == nil {
-			t.Error("Expected valid path for escaped quote")
-		}
+		require.NoError(t, err, "Parse error for escaped quote")
+		assert.NotNil(t, p, "Expected valid path for escaped quote")
 	})
 
 	t.Run("hyphenated field names", func(t *testing.T) {
@@ -709,9 +628,8 @@ func TestEdgeCases(t *testing.T) {
 		}
 		p, _ := Parse("$.x-custom-extension")
 		results := p.Get(doc)
-		if len(results) != 1 || results[0] != "value" {
-			t.Error("Expected to access hyphenated field")
-		}
+		require.Len(t, results, 1, "Expected 1 result for hyphenated field")
+		assert.Equal(t, "value", results[0])
 	})
 }
 
@@ -723,10 +641,7 @@ func TestFilterExpr_String(t *testing.T) {
 		Value:    "active",
 	}
 
-	expected := "@.status == active"
-	if expr.String() != expected {
-		t.Errorf("FilterExpr.String() = %q, want %q", expr.String(), expected)
-	}
+	assert.Equal(t, "@.status == active", expr.String())
 }
 
 // TestSetInParent tests setting values at nested paths.
@@ -774,20 +689,14 @@ func TestSetInParent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p, err := Parse(tt.path)
-			if err != nil {
-				t.Fatalf("Parse error: %v", err)
-			}
+			require.NoError(t, err, "Parse error")
 
 			err = p.Set(tt.doc, tt.value)
 			if tt.wantErr {
-				if err == nil {
-					t.Error("Expected error but got none")
-				}
+				assert.Error(t, err, "Expected error but got none")
 				return
 			}
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -831,20 +740,14 @@ func TestRemoveFromParent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p, err := Parse(tt.path)
-			if err != nil {
-				t.Fatalf("Parse error: %v", err)
-			}
+			require.NoError(t, err, "Parse error")
 
 			_, err = p.Remove(tt.doc)
 			if tt.wantErr {
-				if err == nil {
-					t.Error("Expected error but got none")
-				}
+				assert.Error(t, err, "Expected error but got none")
 				return
 			}
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -881,16 +784,12 @@ func TestModifyInParent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p, err := Parse(tt.path)
-			if err != nil {
-				t.Fatalf("Parse error: %v", err)
-			}
+			require.NoError(t, err, "Parse error")
 
 			err = p.Modify(tt.doc, func(v any) any {
 				return "modified"
 			})
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -923,19 +822,13 @@ func TestFilterComparisons(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p, err := Parse(tt.path)
-			if err != nil {
-				t.Fatalf("Parse error: %v", err)
-			}
+			require.NoError(t, err, "Parse error")
 
 			results := p.Get(doc)
-			if len(results) != tt.wantLen {
-				t.Errorf("Get(%q) returned %d results, want %d", tt.path, len(results), tt.wantLen)
-			}
+			assert.Len(t, results, tt.wantLen, "Get(%q) result count", tt.path)
 			if tt.wantName != "" && len(results) > 0 {
 				if m, ok := results[0].(map[string]any); ok {
-					if m["name"] != tt.wantName {
-						t.Errorf("Expected first match to have name %q, got %v", tt.wantName, m["name"])
-					}
+					assert.Equal(t, tt.wantName, m["name"], "first match name")
 				}
 			}
 		})
@@ -962,11 +855,10 @@ func TestParseQuotedStrings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := Parse(tt.path)
-			if tt.wantErr && err == nil {
-				t.Error("Expected error but got none")
-			}
-			if !tt.wantErr && err != nil {
-				t.Errorf("Unexpected error: %v", err)
+			if tt.wantErr {
+				assert.Error(t, err, "Expected error but got none")
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -990,11 +882,10 @@ func TestParseNumbers(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := Parse(tt.path)
-			if tt.wantErr && err == nil {
-				t.Error("Expected error but got none")
-			}
-			if !tt.wantErr && err != nil {
-				t.Errorf("Unexpected error: %v", err)
+			if tt.wantErr {
+				assert.Error(t, err, "Expected error but got none")
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -1012,16 +903,12 @@ func TestNormalizeValue(t *testing.T) {
 	// Test that int64 compares correctly
 	p, _ := Parse("$.items[?@.id==1]")
 	results := p.Get(doc)
-	if len(results) != 1 {
-		t.Errorf("Expected 1 result for int64 comparison, got %d", len(results))
-	}
+	assert.Len(t, results, 1, "int64 comparison")
 
 	// Test float32 comparison
 	p2, _ := Parse("$.items[?@.val>2.0]")
 	results2 := p2.Get(doc)
-	if len(results2) != 1 {
-		t.Errorf("Expected 1 result for float32 comparison, got %d", len(results2))
-	}
+	assert.Len(t, results2, 1, "float32 comparison")
 }
 
 // TestPathString tests the String method of Path.
@@ -1038,9 +925,7 @@ func TestPathString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			p, _ := Parse(tt.input)
-			if p.String() != tt.input {
-				t.Errorf("String() = %q, want %q", p.String(), tt.input)
-			}
+			assert.Equal(t, tt.input, p.String())
 		})
 	}
 }

@@ -1,6 +1,11 @@
 package pathutil
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestPathParamRegex(t *testing.T) {
 	tests := []struct {
@@ -37,16 +42,10 @@ func TestPathParamRegex(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matches := PathParamRegex.FindAllStringSubmatch(tt.input, -1)
-			if len(matches) != tt.wantLen {
-				t.Fatalf("got %d matches, want %d", len(matches), tt.wantLen)
-			}
+			require.Len(t, matches, tt.wantLen)
 			for i, match := range matches {
-				if len(match) < 2 {
-					t.Fatalf("match %d has no capture group", i)
-				}
-				if match[1] != tt.want[i] {
-					t.Errorf("match[%d] = %q, want %q", i, match[1], tt.want[i])
-				}
+				require.True(t, len(match) >= 2, "match %d has no capture group", i)
+				assert.Equal(t, tt.want[i], match[1], "match[%d]", i)
 			}
 		})
 	}

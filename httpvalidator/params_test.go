@@ -2,8 +2,9 @@ package httpvalidator
 
 import (
 	"net/url"
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
@@ -137,9 +138,7 @@ func TestDeserializePathParam_Simple(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := d.DeserializePathParam(tt.value, tt.param)
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("got %v (%T), want %v (%T)", result, result, tt.expected, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -250,9 +249,7 @@ func TestDeserializePathParam_Label(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := d.DeserializePathParam(tt.value, tt.param)
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("got %v (%T), want %v (%T)", result, result, tt.expected, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -384,9 +381,7 @@ func TestDeserializePathParam_Matrix(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := d.DeserializePathParam(tt.value, tt.param)
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("got %v (%T), want %v (%T)", result, result, tt.expected, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -492,9 +487,7 @@ func TestDeserializeQueryParam_Form(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := d.DeserializeQueryParam(tt.values, tt.param)
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("got %v (%T), want %v (%T)", result, result, tt.expected, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -513,9 +506,7 @@ func TestDeserializeQueryParam_SpaceDelimited(t *testing.T) {
 	)
 
 	expected := []any{"a", "b", "c"}
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("got %v, want %v", result, expected)
-	}
+	assert.Equal(t, expected, result)
 }
 
 func TestDeserializeQueryParam_PipeDelimited(t *testing.T) {
@@ -532,9 +523,7 @@ func TestDeserializeQueryParam_PipeDelimited(t *testing.T) {
 	)
 
 	expected := []any{"a", "b", "c"}
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("got %v, want %v", result, expected)
-	}
+	assert.Equal(t, expected, result)
 }
 
 func TestDeserializeQueryParam_DeepObject(t *testing.T) {
@@ -551,9 +540,7 @@ func TestDeserializeQueryParam_DeepObject(t *testing.T) {
 		},
 	)
 
-	if result != "active" {
-		t.Errorf("got %v, want 'active'", result)
-	}
+	assert.Equal(t, "active", result)
 
 	// Multiple values
 	result = d.DeserializeQueryParam(
@@ -567,9 +554,7 @@ func TestDeserializeQueryParam_DeepObject(t *testing.T) {
 	)
 
 	expected := []string{"a", "b"}
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("got %v, want %v", result, expected)
-	}
+	assert.Equal(t, expected, result)
 }
 
 func TestDeserializeQueryParam_UnknownStyle(t *testing.T) {
@@ -585,9 +570,7 @@ func TestDeserializeQueryParam_UnknownStyle(t *testing.T) {
 			Schema: &parser.Schema{Type: "string"},
 		},
 	)
-	if result != "hello" {
-		t.Errorf("got %v, want 'hello'", result)
-	}
+	assert.Equal(t, "hello", result)
 
 	// Multiple values
 	result = d.DeserializeQueryParam(
@@ -600,9 +583,7 @@ func TestDeserializeQueryParam_UnknownStyle(t *testing.T) {
 		},
 	)
 	expected := []string{"a", "b"}
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("got %v, want %v", result, expected)
-	}
+	assert.Equal(t, expected, result)
 }
 
 func TestDeserializeQueryParamsDeepObject(t *testing.T) {
@@ -626,18 +607,11 @@ func TestDeserializeQueryParamsDeepObject(t *testing.T) {
 
 	result := d.DeserializeQueryParamsDeepObject(queryValues, "filter", schema)
 
-	if result["status"] != "active" {
-		t.Errorf("status = %v, want 'active'", result["status"])
-	}
-	if result["type"] != "user" {
-		t.Errorf("type = %v, want 'user'", result["type"])
-	}
-	if result["count"] != int64(10) {
-		t.Errorf("count = %v (%T), want int64(10)", result["count"], result["count"])
-	}
-	if _, ok := result["other"]; ok {
-		t.Error("'other' should not be in result")
-	}
+	assert.Equal(t, "active", result["status"])
+	assert.Equal(t, "user", result["type"])
+	assert.Equal(t, int64(10), result["count"])
+	_, ok := result["other"]
+	assert.False(t, ok, "'other' should not be in result")
 }
 
 func TestDeserializeQueryParamsDeepObject_MultipleValues(t *testing.T) {
@@ -657,9 +631,7 @@ func TestDeserializeQueryParamsDeepObject_MultipleValues(t *testing.T) {
 	result := d.DeserializeQueryParamsDeepObject(queryValues, "filter", schema)
 
 	expected := []string{"a", "b", "c"}
-	if !reflect.DeepEqual(result["tags"], expected) {
-		t.Errorf("tags = %v, want %v", result["tags"], expected)
-	}
+	assert.Equal(t, expected, result["tags"])
 }
 
 func TestDeserializeQueryParamsDeepObject_InvalidFormat(t *testing.T) {
@@ -673,9 +645,7 @@ func TestDeserializeQueryParamsDeepObject_InvalidFormat(t *testing.T) {
 	schema := &parser.Schema{Type: "object"}
 	result := d.DeserializeQueryParamsDeepObject(queryValues, "filter", schema)
 
-	if len(result) != 0 {
-		t.Errorf("expected empty result for invalid format, got %v", result)
-	}
+	assert.Empty(t, result, "expected empty result for invalid format")
 }
 
 func TestDeserializeHeaderParam(t *testing.T) {
@@ -739,9 +709,7 @@ func TestDeserializeHeaderParam(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := d.DeserializeHeaderParam(tt.value, tt.param)
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("got %v (%T), want %v (%T)", result, result, tt.expected, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -790,9 +758,7 @@ func TestDeserializeCookieParam(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := d.DeserializeCookieParam(tt.value, tt.param)
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("got %v (%T), want %v (%T)", result, result, tt.expected, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -821,9 +787,7 @@ func TestCoerceValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := d.coerceValue(tt.value, tt.schema)
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("got %v (%T), want %v (%T)", result, result, tt.expected, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -833,9 +797,7 @@ func TestDeserializeDelimited_SingleValue(t *testing.T) {
 
 	// Non-array with single value
 	result := d.deserializeDelimited([]string{"hello"}, " ", &parser.Schema{Type: "string"})
-	if result != "hello" {
-		t.Errorf("got %v, want 'hello'", result)
-	}
+	assert.Equal(t, "hello", result)
 }
 
 func TestDeserializeDelimited_MultipleNonArray(t *testing.T) {
@@ -844,23 +806,17 @@ func TestDeserializeDelimited_MultipleNonArray(t *testing.T) {
 	// Multiple values without array schema
 	result := d.deserializeDelimited([]string{"a b", "c d"}, " ", &parser.Schema{Type: "string"})
 	expected := []string{"a", "b", "c", "d"}
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("got %v, want %v", result, expected)
-	}
+	assert.Equal(t, expected, result)
 }
 
 func TestGetPropertySchema(t *testing.T) {
 	d := NewParamDeserializer()
 
 	// Nil schema
-	if d.getPropertySchema(nil, "foo") != nil {
-		t.Error("expected nil for nil schema")
-	}
+	assert.Nil(t, d.getPropertySchema(nil, "foo"), "expected nil for nil schema")
 
 	// No properties
-	if d.getPropertySchema(&parser.Schema{Type: "object"}, "foo") != nil {
-		t.Error("expected nil for schema without properties")
-	}
+	assert.Nil(t, d.getPropertySchema(&parser.Schema{Type: "object"}, "foo"), "expected nil for schema without properties")
 
 	// Property exists
 	schema := &parser.Schema{
@@ -870,58 +826,37 @@ func TestGetPropertySchema(t *testing.T) {
 		},
 	}
 	propSchema := d.getPropertySchema(schema, "name")
-	if propSchema == nil || getSchemaType(propSchema) != "string" {
-		t.Errorf("expected string schema, got %v", propSchema)
-	}
+	assert.NotNil(t, propSchema)
+	assert.Equal(t, "string", getSchemaType(propSchema))
 }
 
 func TestIsArraySchema(t *testing.T) {
-	if isArraySchema(&parser.Schema{Type: "array"}) != true {
-		t.Error("expected true for array type")
-	}
-	if isArraySchema(&parser.Schema{Type: "string"}) != false {
-		t.Error("expected false for string type")
-	}
-	if isArraySchema(nil) != false {
-		t.Error("expected false for nil schema")
-	}
+	assert.True(t, isArraySchema(&parser.Schema{Type: "array"}), "expected true for array type")
+	assert.False(t, isArraySchema(&parser.Schema{Type: "string"}), "expected false for string type")
+	assert.False(t, isArraySchema(nil), "expected false for nil schema")
 }
 
 func TestIsObjectSchema(t *testing.T) {
-	if isObjectSchema(&parser.Schema{Type: "object"}) != true {
-		t.Error("expected true for object type")
-	}
-	if isObjectSchema(&parser.Schema{Type: "string"}) != false {
-		t.Error("expected false for string type")
-	}
-	if isObjectSchema(nil) != false {
-		t.Error("expected false for nil schema")
-	}
+	assert.True(t, isObjectSchema(&parser.Schema{Type: "object"}), "expected true for object type")
+	assert.False(t, isObjectSchema(&parser.Schema{Type: "string"}), "expected false for string type")
+	assert.False(t, isObjectSchema(nil), "expected false for nil schema")
 }
 
 func TestGetItemsSchema(t *testing.T) {
 	// Nil schema
-	if getItemsSchema(nil) != nil {
-		t.Error("expected nil for nil schema")
-	}
+	assert.Nil(t, getItemsSchema(nil), "expected nil for nil schema")
 
 	// No items
-	if getItemsSchema(&parser.Schema{Type: "array"}) != nil {
-		t.Error("expected nil for schema without items")
-	}
+	assert.Nil(t, getItemsSchema(&parser.Schema{Type: "array"}), "expected nil for schema without items")
 
 	// Items as *Schema
 	itemSchema := &parser.Schema{Type: "string"}
 	schema := &parser.Schema{Type: "array", Items: itemSchema}
-	if getItemsSchema(schema) != itemSchema {
-		t.Error("expected items schema")
-	}
+	assert.Equal(t, itemSchema, getItemsSchema(schema), "expected items schema")
 
 	// Items as bool (OAS 3.1+)
 	schema = &parser.Schema{Type: "array", Items: true}
-	if getItemsSchema(schema) != nil {
-		t.Error("expected nil for bool items")
-	}
+	assert.Nil(t, getItemsSchema(schema), "expected nil for bool items")
 }
 
 func TestFormArrayMultipleValuesNoExplode(t *testing.T) {
@@ -940,9 +875,7 @@ func TestFormArrayMultipleValuesNoExplode(t *testing.T) {
 	)
 
 	expected := []any{"a", "b", "c"}
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("got %v, want %v", result, expected)
-	}
+	assert.Equal(t, expected, result)
 }
 
 func TestFormObjectExplodeMultipleValues(t *testing.T) {
@@ -960,7 +893,5 @@ func TestFormObjectExplodeMultipleValues(t *testing.T) {
 	)
 
 	expected := []string{"a", "b"}
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("got %v, want %v", result, expected)
-	}
+	assert.Equal(t, expected, result)
 }

@@ -1,10 +1,11 @@
 package joiner
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // =============================================================================
@@ -19,32 +20,18 @@ func TestBuildRefGraphOAS3_Empty(t *testing.T) {
 
 	graph := buildRefGraphOAS3(doc, parser.OASVersion300)
 
-	if graph == nil {
-		t.Fatal("Expected non-nil graph")
-	}
-	if len(graph.schemaRefs) != 0 {
-		t.Errorf("Expected empty schemaRefs, got %d entries", len(graph.schemaRefs))
-	}
-	if len(graph.operationRefs) != 0 {
-		t.Errorf("Expected empty operationRefs, got %d entries", len(graph.operationRefs))
-	}
-	if len(graph.resolved) != 0 {
-		t.Errorf("Expected empty resolved, got %d entries", len(graph.resolved))
-	}
+	require.NotNil(t, graph)
+	assert.Empty(t, graph.schemaRefs)
+	assert.Empty(t, graph.operationRefs)
+	assert.Empty(t, graph.resolved)
 }
 
 func TestBuildRefGraphOAS3_NilDocument(t *testing.T) {
 	graph := buildRefGraphOAS3(nil, parser.OASVersion300)
 
-	if graph == nil {
-		t.Fatal("Expected non-nil graph even for nil document")
-	}
-	if len(graph.schemaRefs) != 0 {
-		t.Errorf("Expected empty schemaRefs, got %d entries", len(graph.schemaRefs))
-	}
-	if len(graph.operationRefs) != 0 {
-		t.Errorf("Expected empty operationRefs, got %d entries", len(graph.operationRefs))
-	}
+	require.NotNil(t, graph)
+	assert.Empty(t, graph.schemaRefs)
+	assert.Empty(t, graph.operationRefs)
 }
 
 func TestBuildRefGraphOAS3_SingleOperation(t *testing.T) {
@@ -83,39 +70,21 @@ func TestBuildRefGraphOAS3_SingleOperation(t *testing.T) {
 
 	graph := buildRefGraphOAS3(doc, parser.OASVersion300)
 
-	if graph == nil {
-		t.Fatal("Expected non-nil graph")
-	}
+	require.NotNil(t, graph)
 
 	// Verify operationRefs contains UserList schema
 	refs, ok := graph.operationRefs["UserList"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain UserList")
-	}
-	if len(refs) != 1 {
-		t.Fatalf("Expected 1 operation ref, got %d", len(refs))
-	}
+	require.True(t, ok, "Expected operationRefs to contain UserList")
+	require.Len(t, refs, 1)
 
 	// Verify the OperationRef details
 	opRef := refs[0]
-	if opRef.Path != "/users" {
-		t.Errorf("Expected path /users, got %s", opRef.Path)
-	}
-	if opRef.Method != "get" {
-		t.Errorf("Expected method get, got %s", opRef.Method)
-	}
-	if opRef.OperationID != "getUsers" {
-		t.Errorf("Expected operationID getUsers, got %s", opRef.OperationID)
-	}
-	if opRef.UsageType != UsageTypeResponse {
-		t.Errorf("Expected usageType response, got %s", opRef.UsageType)
-	}
-	if opRef.StatusCode != "200" {
-		t.Errorf("Expected statusCode 200, got %s", opRef.StatusCode)
-	}
-	if opRef.MediaType != "application/json" {
-		t.Errorf("Expected mediaType application/json, got %s", opRef.MediaType)
-	}
+	assert.Equal(t, "/users", opRef.Path)
+	assert.Equal(t, "get", opRef.Method)
+	assert.Equal(t, "getUsers", opRef.OperationID)
+	assert.Equal(t, UsageTypeResponse, opRef.UsageType)
+	assert.Equal(t, "200", opRef.StatusCode)
+	assert.Equal(t, "application/json", opRef.MediaType)
 }
 
 func TestBuildRefGraphOAS3_MultipleUsageTypes(t *testing.T) {
@@ -168,27 +137,21 @@ func TestBuildRefGraphOAS3_MultipleUsageTypes(t *testing.T) {
 
 	// Verify request body schema (UsageRequest)
 	requestRefs, ok := graph.operationRefs["UserUpdate"]
-	if !ok {
-		t.Error("Expected operationRefs to contain UserUpdate")
-	} else if len(requestRefs) != 1 || requestRefs[0].UsageType != UsageTypeRequest {
-		t.Errorf("Expected UserUpdate to have UsageTypeRequest, got %v", requestRefs)
-	}
+	require.True(t, ok, "Expected operationRefs to contain UserUpdate")
+	require.Len(t, requestRefs, 1)
+	assert.Equal(t, UsageTypeRequest, requestRefs[0].UsageType)
 
 	// Verify response schema (UsageResponse)
 	responseRefs, ok := graph.operationRefs["User"]
-	if !ok {
-		t.Error("Expected operationRefs to contain User")
-	} else if len(responseRefs) != 1 || responseRefs[0].UsageType != UsageTypeResponse {
-		t.Errorf("Expected User to have UsageTypeResponse, got %v", responseRefs)
-	}
+	require.True(t, ok, "Expected operationRefs to contain User")
+	require.Len(t, responseRefs, 1)
+	assert.Equal(t, UsageTypeResponse, responseRefs[0].UsageType)
 
 	// Verify parameter schema (UsageParameter)
 	paramRefs, ok := graph.operationRefs["FilterParams"]
-	if !ok {
-		t.Error("Expected operationRefs to contain FilterParams")
-	} else if len(paramRefs) != 1 || paramRefs[0].UsageType != UsageTypeParameter {
-		t.Errorf("Expected FilterParams to have UsageTypeParameter, got %v", paramRefs)
-	}
+	require.True(t, ok, "Expected operationRefs to contain FilterParams")
+	require.Len(t, paramRefs, 1)
+	assert.Equal(t, UsageTypeParameter, paramRefs[0].UsageType)
 }
 
 func TestBuildRefGraphOAS3_NestedSchemas(t *testing.T) {
@@ -220,27 +183,15 @@ func TestBuildRefGraphOAS3_NestedSchemas(t *testing.T) {
 
 	// Verify SchemaB is referenced by SchemaA
 	schemaBRefs, ok := graph.schemaRefs["SchemaB"]
-	if !ok {
-		t.Fatal("Expected schemaRefs to contain SchemaB")
-	}
-	if len(schemaBRefs) != 1 {
-		t.Fatalf("Expected 1 reference to SchemaB, got %d", len(schemaBRefs))
-	}
-	if schemaBRefs[0].FromSchema != "SchemaA" {
-		t.Errorf("Expected SchemaB to be referenced from SchemaA, got %s", schemaBRefs[0].FromSchema)
-	}
+	require.True(t, ok, "Expected schemaRefs to contain SchemaB")
+	require.Len(t, schemaBRefs, 1)
+	assert.Equal(t, "SchemaA", schemaBRefs[0].FromSchema)
 
 	// Verify SchemaC is referenced by SchemaB
 	schemaCRefs, ok := graph.schemaRefs["SchemaC"]
-	if !ok {
-		t.Fatal("Expected schemaRefs to contain SchemaC")
-	}
-	if len(schemaCRefs) != 1 {
-		t.Fatalf("Expected 1 reference to SchemaC, got %d", len(schemaCRefs))
-	}
-	if schemaCRefs[0].FromSchema != "SchemaB" {
-		t.Errorf("Expected SchemaC to be referenced from SchemaB, got %s", schemaCRefs[0].FromSchema)
-	}
+	require.True(t, ok, "Expected schemaRefs to contain SchemaC")
+	require.Len(t, schemaCRefs, 1)
+	assert.Equal(t, "SchemaB", schemaCRefs[0].FromSchema)
 }
 
 func TestBuildRefGraphOAS3_CircularRefs(t *testing.T) {
@@ -268,17 +219,11 @@ func TestBuildRefGraphOAS3_CircularRefs(t *testing.T) {
 	// This should not hang or panic
 	graph := buildRefGraphOAS3(doc, parser.OASVersion300)
 
-	if graph == nil {
-		t.Fatal("Expected non-nil graph")
-	}
+	require.NotNil(t, graph)
 
 	// Verify both refs are recorded
-	if _, ok := graph.schemaRefs["SchemaA"]; !ok {
-		t.Error("Expected schemaRefs to contain SchemaA")
-	}
-	if _, ok := graph.schemaRefs["SchemaB"]; !ok {
-		t.Error("Expected schemaRefs to contain SchemaB")
-	}
+	assert.Contains(t, graph.schemaRefs, "SchemaA")
+	assert.Contains(t, graph.schemaRefs, "SchemaB")
 }
 
 func TestBuildRefGraphOAS3_MultiOperationRef(t *testing.T) {
@@ -334,23 +279,18 @@ func TestBuildRefGraphOAS3_MultiOperationRef(t *testing.T) {
 	graph := buildRefGraphOAS3(doc, parser.OASVersion300)
 
 	refs, ok := graph.operationRefs["User"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain User")
-	}
+	require.True(t, ok, "Expected operationRefs to contain User")
 
 	// Should have 3 refs: GET 200 response, POST request, POST 201 response
-	if len(refs) != 3 {
-		t.Errorf("Expected 3 operation refs for User, got %d", len(refs))
-	}
+	assert.Len(t, refs, 3)
 
 	// Verify we have different operation IDs
 	opIDs := make(map[string]bool)
 	for _, ref := range refs {
 		opIDs[ref.OperationID] = true
 	}
-	if !opIDs["listUsers"] || !opIDs["createUser"] {
-		t.Errorf("Expected both listUsers and createUser operations, got %v", opIDs)
-	}
+	assert.True(t, opIDs["listUsers"], "Expected listUsers in operations")
+	assert.True(t, opIDs["createUser"], "Expected createUser in operations")
 }
 
 func TestBuildRefGraphOAS2_Basic(t *testing.T) {
@@ -386,44 +326,26 @@ func TestBuildRefGraphOAS2_Basic(t *testing.T) {
 
 	graph := buildRefGraphOAS2(doc)
 
-	if graph == nil {
-		t.Fatal("Expected non-nil graph")
-	}
+	require.NotNil(t, graph)
 
 	// Verify operationRefs contains PetList
 	refs, ok := graph.operationRefs["PetList"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain PetList")
-	}
-	if len(refs) != 1 {
-		t.Fatalf("Expected 1 operation ref, got %d", len(refs))
-	}
-	if refs[0].UsageType != UsageTypeResponse {
-		t.Errorf("Expected UsageTypeResponse, got %s", refs[0].UsageType)
-	}
+	require.True(t, ok, "Expected operationRefs to contain PetList")
+	require.Len(t, refs, 1)
+	assert.Equal(t, UsageTypeResponse, refs[0].UsageType)
 
 	// Verify schemaRefs contains Pet (referenced by PetList.items)
 	schemaRefs, ok := graph.schemaRefs["Pet"]
-	if !ok {
-		t.Fatal("Expected schemaRefs to contain Pet")
-	}
-	if len(schemaRefs) != 1 {
-		t.Fatalf("Expected 1 schema ref, got %d", len(schemaRefs))
-	}
-	if schemaRefs[0].FromSchema != "PetList" {
-		t.Errorf("Expected Pet to be referenced from PetList, got %s", schemaRefs[0].FromSchema)
-	}
+	require.True(t, ok, "Expected schemaRefs to contain Pet")
+	require.Len(t, schemaRefs, 1)
+	assert.Equal(t, "PetList", schemaRefs[0].FromSchema)
 }
 
 func TestBuildRefGraphOAS2_NilDocument(t *testing.T) {
 	graph := buildRefGraphOAS2(nil)
 
-	if graph == nil {
-		t.Fatal("Expected non-nil graph even for nil document")
-	}
-	if len(graph.schemaRefs) != 0 {
-		t.Errorf("Expected empty schemaRefs, got %d entries", len(graph.schemaRefs))
-	}
+	require.NotNil(t, graph)
+	assert.Empty(t, graph.schemaRefs)
 }
 
 func TestBuildRefGraphOAS3_Webhooks(t *testing.T) {
@@ -454,15 +376,9 @@ func TestBuildRefGraphOAS3_Webhooks(t *testing.T) {
 	graph := buildRefGraphOAS3(doc, parser.OASVersion310)
 
 	refs, ok := graph.operationRefs["Pet"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain Pet from webhook")
-	}
-	if len(refs) != 1 {
-		t.Fatalf("Expected 1 operation ref, got %d", len(refs))
-	}
-	if refs[0].Path != "webhook:newPet" {
-		t.Errorf("Expected path webhook:newPet, got %s", refs[0].Path)
-	}
+	require.True(t, ok, "Expected operationRefs to contain Pet from webhook")
+	require.Len(t, refs, 1)
+	assert.Equal(t, "webhook:newPet", refs[0].Path)
 }
 
 func TestBuildRefGraphOAS3_Callbacks(t *testing.T) {
@@ -524,54 +440,28 @@ func TestBuildRefGraphOAS3_Callbacks(t *testing.T) {
 
 	// Verify OrderRequest is recorded as a regular request (not callback)
 	orderReqRefs, ok := graph.operationRefs["OrderRequest"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain OrderRequest")
-	}
-	if len(orderReqRefs) != 1 {
-		t.Fatalf("Expected 1 operation ref for OrderRequest, got %d", len(orderReqRefs))
-	}
-	if orderReqRefs[0].UsageType != UsageTypeRequest {
-		t.Errorf("Expected UsageTypeRequest for OrderRequest, got %s", orderReqRefs[0].UsageType)
-	}
+	require.True(t, ok, "Expected operationRefs to contain OrderRequest")
+	require.Len(t, orderReqRefs, 1)
+	assert.Equal(t, UsageTypeRequest, orderReqRefs[0].UsageType)
 
 	// Verify OrderCallback schema is recorded with callback usage type
 	callbackRefs, ok := graph.operationRefs["OrderCallback"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain OrderCallback from callback request body")
-	}
-	if len(callbackRefs) != 1 {
-		t.Fatalf("Expected 1 operation ref for OrderCallback, got %d", len(callbackRefs))
-	}
-	if callbackRefs[0].UsageType != UsageTypeCallback {
-		t.Errorf("Expected UsageTypeCallback for OrderCallback, got %s", callbackRefs[0].UsageType)
-	}
+	require.True(t, ok, "Expected operationRefs to contain OrderCallback from callback request body")
+	require.Len(t, callbackRefs, 1)
+	assert.Equal(t, UsageTypeCallback, callbackRefs[0].UsageType)
 	// Verify callback path format: path->callbackName:callbackPath
 	expectedCallbackPath := "/orders->onOrderComplete:{$request.body#/callbackUrl}"
-	if callbackRefs[0].Path != expectedCallbackPath {
-		t.Errorf("Expected callback path %q, got %q", expectedCallbackPath, callbackRefs[0].Path)
-	}
-	if callbackRefs[0].OperationID != "orderCallback" {
-		t.Errorf("Expected operationID 'orderCallback', got %s", callbackRefs[0].OperationID)
-	}
-	if callbackRefs[0].MediaType != "application/json" {
-		t.Errorf("Expected mediaType 'application/json', got %s", callbackRefs[0].MediaType)
-	}
+	assert.Equal(t, expectedCallbackPath, callbackRefs[0].Path)
+	assert.Equal(t, "orderCallback", callbackRefs[0].OperationID)
+	assert.Equal(t, "application/json", callbackRefs[0].MediaType)
 
 	// Verify CallbackResponse schema is recorded from callback response
 	respRefs, ok := graph.operationRefs["CallbackResponse"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain CallbackResponse from callback response")
-	}
-	if len(respRefs) != 1 {
-		t.Fatalf("Expected 1 operation ref for CallbackResponse, got %d", len(respRefs))
-	}
+	require.True(t, ok, "Expected operationRefs to contain CallbackResponse from callback response")
+	require.Len(t, respRefs, 1)
 	// Note: callback responses use UsageTypeResponse, not UsageTypeCallback
-	if respRefs[0].UsageType != UsageTypeResponse {
-		t.Errorf("Expected UsageTypeResponse for CallbackResponse, got %s", respRefs[0].UsageType)
-	}
-	if respRefs[0].StatusCode != "200" {
-		t.Errorf("Expected statusCode '200', got %s", respRefs[0].StatusCode)
-	}
+	assert.Equal(t, UsageTypeResponse, respRefs[0].UsageType)
+	assert.Equal(t, "200", respRefs[0].StatusCode)
 }
 
 func TestBuildRefGraphOAS3_PathLevelParameters(t *testing.T) {
@@ -602,18 +492,10 @@ func TestBuildRefGraphOAS3_PathLevelParameters(t *testing.T) {
 	graph := buildRefGraphOAS3(doc, parser.OASVersion300)
 
 	refs, ok := graph.operationRefs["UserId"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain UserId from path-level parameter")
-	}
-	if len(refs) != 1 {
-		t.Fatalf("Expected 1 operation ref, got %d", len(refs))
-	}
-	if refs[0].UsageType != UsageTypeParameter {
-		t.Errorf("Expected UsageTypeParameter, got %s", refs[0].UsageType)
-	}
-	if refs[0].ParamName != "id" {
-		t.Errorf("Expected param name 'id', got %s", refs[0].ParamName)
-	}
+	require.True(t, ok, "Expected operationRefs to contain UserId from path-level parameter")
+	require.Len(t, refs, 1)
+	assert.Equal(t, UsageTypeParameter, refs[0].UsageType)
+	assert.Equal(t, "id", refs[0].ParamName)
 }
 
 func TestBuildRefGraphOAS3_ResponseHeaders(t *testing.T) {
@@ -655,15 +537,9 @@ func TestBuildRefGraphOAS3_ResponseHeaders(t *testing.T) {
 
 	// Verify header schema is recorded
 	refs, ok := graph.operationRefs["Count"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain Count from response header")
-	}
-	if len(refs) != 1 {
-		t.Fatalf("Expected 1 operation ref, got %d", len(refs))
-	}
-	if refs[0].UsageType != UsageTypeHeader {
-		t.Errorf("Expected UsageTypeHeader, got %s", refs[0].UsageType)
-	}
+	require.True(t, ok, "Expected operationRefs to contain Count from response header")
+	require.Len(t, refs, 1)
+	assert.Equal(t, UsageTypeHeader, refs[0].UsageType)
 }
 
 func TestBuildRefGraphOAS3_DefaultResponse(t *testing.T) {
@@ -696,15 +572,9 @@ func TestBuildRefGraphOAS3_DefaultResponse(t *testing.T) {
 	graph := buildRefGraphOAS3(doc, parser.OASVersion300)
 
 	refs, ok := graph.operationRefs["Error"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain Error from default response")
-	}
-	if len(refs) != 1 {
-		t.Fatalf("Expected 1 operation ref, got %d", len(refs))
-	}
-	if refs[0].StatusCode != "default" {
-		t.Errorf("Expected statusCode 'default', got %s", refs[0].StatusCode)
-	}
+	require.True(t, ok, "Expected operationRefs to contain Error from default response")
+	require.Len(t, refs, 1)
+	assert.Equal(t, "default", refs[0].StatusCode)
 }
 
 // =============================================================================
@@ -743,12 +613,8 @@ func TestResolveLineage_Direct(t *testing.T) {
 	graph := buildRefGraphOAS3(doc, parser.OASVersion300)
 	lineage := graph.ResolveLineage("UserList")
 
-	if len(lineage) != 1 {
-		t.Fatalf("Expected 1 operation in lineage, got %d", len(lineage))
-	}
-	if lineage[0].OperationID != "listUsers" {
-		t.Errorf("Expected operationID listUsers, got %s", lineage[0].OperationID)
-	}
+	require.Len(t, lineage, 1)
+	assert.Equal(t, "listUsers", lineage[0].OperationID)
 }
 
 func TestResolveLineage_Indirect(t *testing.T) {
@@ -793,12 +659,8 @@ func TestResolveLineage_Indirect(t *testing.T) {
 	// SchemaB is indirectly referenced through SchemaA
 	lineage := graph.ResolveLineage("SchemaB")
 
-	if len(lineage) != 1 {
-		t.Fatalf("Expected 1 operation in lineage for SchemaB, got %d", len(lineage))
-	}
-	if lineage[0].OperationID != "listUsers" {
-		t.Errorf("Expected operationID listUsers, got %s", lineage[0].OperationID)
-	}
+	require.Len(t, lineage, 1)
+	assert.Equal(t, "listUsers", lineage[0].OperationID)
 }
 
 func TestResolveLineage_MultiHop(t *testing.T) {
@@ -855,12 +717,8 @@ func TestResolveLineage_MultiHop(t *testing.T) {
 	// SchemaD is 3 hops away from the operation
 	lineage := graph.ResolveLineage("SchemaD")
 
-	if len(lineage) != 1 {
-		t.Fatalf("Expected 1 operation in lineage for SchemaD, got %d", len(lineage))
-	}
-	if lineage[0].OperationID != "listUsers" {
-		t.Errorf("Expected operationID listUsers, got %s", lineage[0].OperationID)
-	}
+	require.Len(t, lineage, 1)
+	assert.Equal(t, "listUsers", lineage[0].OperationID)
 }
 
 func TestResolveLineage_Cycles(t *testing.T) {
@@ -910,18 +768,10 @@ func TestResolveLineage_Cycles(t *testing.T) {
 	lineageB := graph.ResolveLineage("SchemaB")
 
 	// Both should resolve to the same operation
-	if len(lineageA) != 1 {
-		t.Fatalf("Expected 1 operation in lineage for SchemaA, got %d", len(lineageA))
-	}
-	if len(lineageB) != 1 {
-		t.Fatalf("Expected 1 operation in lineage for SchemaB, got %d", len(lineageB))
-	}
-	if lineageA[0].OperationID != "listUsers" {
-		t.Errorf("Expected operationID listUsers for SchemaA, got %s", lineageA[0].OperationID)
-	}
-	if lineageB[0].OperationID != "listUsers" {
-		t.Errorf("Expected operationID listUsers for SchemaB, got %s", lineageB[0].OperationID)
-	}
+	require.Len(t, lineageA, 1)
+	require.Len(t, lineageB, 1)
+	assert.Equal(t, "listUsers", lineageA[0].OperationID)
+	assert.Equal(t, "listUsers", lineageB[0].OperationID)
 }
 
 func TestResolveLineage_MultipleOperations(t *testing.T) {
@@ -980,20 +830,14 @@ func TestResolveLineage_MultipleOperations(t *testing.T) {
 	// User is referenced by both operations (directly and indirectly)
 	lineage := graph.ResolveLineage("User")
 
-	if len(lineage) != 2 {
-		t.Fatalf("Expected 2 operations in lineage for User, got %d", len(lineage))
-	}
+	require.Len(t, lineage, 2)
 
 	opIDs := make(map[string]bool)
 	for _, ref := range lineage {
 		opIDs[ref.OperationID] = true
 	}
-	if !opIDs["listUsers"] {
-		t.Error("Expected listUsers in lineage")
-	}
-	if !opIDs["listOrders"] {
-		t.Error("Expected listOrders in lineage")
-	}
+	assert.True(t, opIDs["listUsers"], "Expected listUsers in lineage")
+	assert.True(t, opIDs["listOrders"], "Expected listOrders in lineage")
 }
 
 func TestResolveLineage_Caching(t *testing.T) {
@@ -1031,17 +875,13 @@ func TestResolveLineage_Caching(t *testing.T) {
 	lineage1 := graph.ResolveLineage("User")
 
 	// Verify it's cached
-	if _, ok := graph.resolved["User"]; !ok {
-		t.Error("Expected User to be cached in resolved map")
-	}
+	assert.Contains(t, graph.resolved, "User")
 
 	// Second call should return cached result
 	lineage2 := graph.ResolveLineage("User")
 
 	// Should be the same slice (cached)
-	if !reflect.DeepEqual(lineage1, lineage2) {
-		t.Error("Expected cached result to match first result")
-	}
+	assert.Equal(t, lineage1, lineage2)
 }
 
 func TestResolveLineage_NilGraph(t *testing.T) {
@@ -1050,9 +890,7 @@ func TestResolveLineage_NilGraph(t *testing.T) {
 	// Should not panic
 	lineage := graph.ResolveLineage("AnySchema")
 
-	if lineage != nil {
-		t.Errorf("Expected nil lineage for nil graph, got %v", lineage)
-	}
+	assert.Nil(t, lineage)
 }
 
 func TestResolveLineage_UnknownSchema(t *testing.T) {
@@ -1060,9 +898,7 @@ func TestResolveLineage_UnknownSchema(t *testing.T) {
 
 	lineage := graph.ResolveLineage("NonExistentSchema")
 
-	if len(lineage) != 0 {
-		t.Errorf("Expected empty lineage for unknown schema, got %d entries", len(lineage))
-	}
+	assert.Empty(t, lineage)
 }
 
 // =============================================================================
@@ -1120,9 +956,7 @@ func TestExtractSchemaNameFromRef(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := extractSchemaNameFromRef(tt.ref)
-			if got != tt.expected {
-				t.Errorf("extractSchemaNameFromRef(%q) = %q, want %q", tt.ref, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -1191,9 +1025,7 @@ func TestDeduplicateOperationRefs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := deduplicateOperationRefs(tt.refs)
-			if len(result) != tt.expectedLen {
-				t.Errorf("deduplicateOperationRefs() returned %d refs, want %d", len(result), tt.expectedLen)
-			}
+			assert.Len(t, result, tt.expectedLen)
 		})
 	}
 }
@@ -1208,16 +1040,12 @@ func TestDeduplicateOperationRefs_PreservesOrder(t *testing.T) {
 
 	result := deduplicateOperationRefs(refs)
 
-	if len(result) != 3 {
-		t.Fatalf("Expected 3 refs, got %d", len(result))
-	}
+	require.Len(t, result, 3)
 
 	// Verify order is preserved
 	expectedPaths := []string{"/a", "/b", "/c"}
 	for i, expected := range expectedPaths {
-		if result[i].Path != expected {
-			t.Errorf("Expected path %s at index %d, got %s", expected, i, result[i].Path)
-		}
+		assert.Equal(t, expected, result[i].Path, "path at index %d", i)
 	}
 }
 
@@ -1237,20 +1065,12 @@ func TestDeduplicateOperationRefs_PreservesAllFields(t *testing.T) {
 
 	result := deduplicateOperationRefs(refs)
 
-	if len(result) != 1 {
-		t.Fatalf("Expected 1 ref, got %d", len(result))
-	}
+	require.Len(t, result, 1)
 
 	// Verify all fields are preserved
-	if result[0].OperationID != "listUsers" {
-		t.Errorf("OperationID not preserved: got %s", result[0].OperationID)
-	}
-	if len(result[0].Tags) != 1 || result[0].Tags[0] != "Users" {
-		t.Errorf("Tags not preserved: got %v", result[0].Tags)
-	}
-	if result[0].MediaType != "application/json" {
-		t.Errorf("MediaType not preserved: got %s", result[0].MediaType)
-	}
+	assert.Equal(t, "listUsers", result[0].OperationID)
+	assert.Equal(t, []string{"Users"}, result[0].Tags)
+	assert.Equal(t, "application/json", result[0].MediaType)
 }
 
 // =============================================================================
@@ -1289,30 +1109,18 @@ func TestBuildRefGraphOAS3_SchemaRefLocations(t *testing.T) {
 
 	// Check properties ref location
 	itemRefs := graph.schemaRefs["Item"]
-	if len(itemRefs) != 1 {
-		t.Fatalf("Expected 1 ref to Item, got %d", len(itemRefs))
-	}
-	if itemRefs[0].RefLocation != "properties.item" {
-		t.Errorf("Expected RefLocation 'properties.item', got '%s'", itemRefs[0].RefLocation)
-	}
+	require.Len(t, itemRefs, 1)
+	assert.Equal(t, "properties.item", itemRefs[0].RefLocation)
 
 	// Check allOf ref location
 	baseRefs := graph.schemaRefs["Base"]
-	if len(baseRefs) != 1 {
-		t.Fatalf("Expected 1 ref to Base, got %d", len(baseRefs))
-	}
-	if baseRefs[0].RefLocation != "allOf[0]" {
-		t.Errorf("Expected RefLocation 'allOf[0]', got '%s'", baseRefs[0].RefLocation)
-	}
+	require.Len(t, baseRefs, 1)
+	assert.Equal(t, "allOf[0]", baseRefs[0].RefLocation)
 
 	// Check items ref location
 	listItemRefs := graph.schemaRefs["ListItem"]
-	if len(listItemRefs) != 1 {
-		t.Fatalf("Expected 1 ref to ListItem, got %d", len(listItemRefs))
-	}
-	if listItemRefs[0].RefLocation != "items" {
-		t.Errorf("Expected RefLocation 'items', got '%s'", listItemRefs[0].RefLocation)
-	}
+	require.Len(t, listItemRefs, 1)
+	assert.Equal(t, "items", listItemRefs[0].RefLocation)
 }
 
 func TestJoinLocation(t *testing.T) {
@@ -1345,9 +1153,7 @@ func TestJoinLocation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := joinLocation(tt.base, tt.segment)
-			if result != tt.expected {
-				t.Errorf("joinLocation(%q, %q) = %q, want %q", tt.base, tt.segment, result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -1382,16 +1188,10 @@ func TestBuildRefGraphOAS2_BodyParameter(t *testing.T) {
 	graph := buildRefGraphOAS2(doc)
 
 	refs, ok := graph.operationRefs["UserCreate"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain UserCreate")
-	}
-	if len(refs) != 1 {
-		t.Fatalf("Expected 1 operation ref, got %d", len(refs))
-	}
+	require.True(t, ok, "Expected operationRefs to contain UserCreate")
+	require.Len(t, refs, 1)
 	// OAS 2.0 body parameters should be marked as request usage
-	if refs[0].UsageType != UsageTypeRequest {
-		t.Errorf("Expected UsageTypeRequest for body parameter, got %s", refs[0].UsageType)
-	}
+	assert.Equal(t, UsageTypeRequest, refs[0].UsageType)
 }
 
 func TestBuildRefGraphOAS2_PathLevelParameter(t *testing.T) {
@@ -1420,12 +1220,8 @@ func TestBuildRefGraphOAS2_PathLevelParameter(t *testing.T) {
 	graph := buildRefGraphOAS2(doc)
 
 	refs, ok := graph.operationRefs["SharedBody"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain SharedBody from path-level parameter")
-	}
-	if len(refs) != 1 {
-		t.Fatalf("Expected 1 operation ref, got %d", len(refs))
-	}
+	require.True(t, ok, "Expected operationRefs to contain SharedBody from path-level parameter")
+	require.Len(t, refs, 1)
 }
 
 func TestBuildRefGraphOAS2_DefaultResponse(t *testing.T) {
@@ -1452,15 +1248,9 @@ func TestBuildRefGraphOAS2_DefaultResponse(t *testing.T) {
 	graph := buildRefGraphOAS2(doc)
 
 	refs, ok := graph.operationRefs["Error"]
-	if !ok {
-		t.Fatal("Expected operationRefs to contain Error from default response")
-	}
-	if len(refs) != 1 {
-		t.Fatalf("Expected 1 operation ref, got %d", len(refs))
-	}
-	if refs[0].StatusCode != "default" {
-		t.Errorf("Expected statusCode 'default', got %s", refs[0].StatusCode)
-	}
+	require.True(t, ok, "Expected operationRefs to contain Error from default response")
+	require.Len(t, refs, 1)
+	assert.Equal(t, "default", refs[0].StatusCode)
 }
 
 // =============================================================================
@@ -1470,16 +1260,8 @@ func TestBuildRefGraphOAS2_DefaultResponse(t *testing.T) {
 func TestNewRefGraph(t *testing.T) {
 	graph := newRefGraph()
 
-	if graph == nil {
-		t.Fatal("Expected non-nil graph")
-	}
-	if graph.schemaRefs == nil {
-		t.Error("Expected non-nil schemaRefs map")
-	}
-	if graph.operationRefs == nil {
-		t.Error("Expected non-nil operationRefs map")
-	}
-	if graph.resolved == nil {
-		t.Error("Expected non-nil resolved map")
-	}
+	require.NotNil(t, graph)
+	assert.NotNil(t, graph.schemaRefs)
+	assert.NotNil(t, graph.operationRefs)
+	assert.NotNil(t, graph.resolved)
 }

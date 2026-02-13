@@ -2,10 +2,11 @@ package builder
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Test types for naming tests
@@ -30,9 +31,7 @@ func TestExtractBaseTypeName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			got := extractBaseTypeName(tt.input)
-			if got != tt.want {
-				t.Errorf("extractBaseTypeName(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -58,17 +57,7 @@ func TestExtractGenericParams(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := extractGenericParams(tt.input)
-			if len(got) != len(tt.want) {
-				t.Errorf("extractGenericParams(%q) = %v (len %d), want %v (len %d)",
-					tt.input, got, len(got), tt.want, len(tt.want))
-				return
-			}
-			for i := range got {
-				if got[i] != tt.want[i] {
-					t.Errorf("extractGenericParams(%q)[%d] = %q, want %q",
-						tt.input, i, got[i], tt.want[i])
-				}
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -95,9 +84,7 @@ func TestSanitizeSchemaName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := sanitizeSchemaName(tt.input)
-			if got != tt.want {
-				t.Errorf("sanitizeSchemaName(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -121,9 +108,7 @@ func TestToPascalCase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			got := toPascalCase(tt.input)
-			if got != tt.want {
-				t.Errorf("toPascalCase(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -145,9 +130,7 @@ func TestToCamelCase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			got := toCamelCase(tt.input)
-			if got != tt.want {
-				t.Errorf("toCamelCase(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -173,9 +156,7 @@ func TestToSnakeCase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			got := toSnakeCase(tt.input)
-			if got != tt.want {
-				t.Errorf("toSnakeCase(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -197,9 +178,7 @@ func TestToKebabCase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			got := toKebabCase(tt.input)
-			if got != tt.want {
-				t.Errorf("toKebabCase(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -218,9 +197,7 @@ func TestSanitizePath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			got := sanitizePath(tt.input)
-			if got != tt.want {
-				t.Errorf("sanitizePath(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -229,40 +206,21 @@ func TestSanitizePath(t *testing.T) {
 func TestDefaultGenericNamingConfig(t *testing.T) {
 	cfg := DefaultGenericNamingConfig()
 
-	if cfg.Strategy != GenericNamingUnderscore {
-		t.Errorf("Strategy = %d, want %d", cfg.Strategy, GenericNamingUnderscore)
-	}
-	if cfg.Separator != "_" {
-		t.Errorf("Separator = %q, want %q", cfg.Separator, "_")
-	}
-	if cfg.ParamSeparator != "_" {
-		t.Errorf("ParamSeparator = %q, want %q", cfg.ParamSeparator, "_")
-	}
-	if cfg.IncludePackage {
-		t.Errorf("IncludePackage = true, want false")
-	}
-	if cfg.ApplyBaseCasing {
-		t.Errorf("ApplyBaseCasing = true, want false")
-	}
+	assert.Equal(t, GenericNamingUnderscore, cfg.Strategy)
+	assert.Equal(t, "_", cfg.Separator)
+	assert.Equal(t, "_", cfg.ParamSeparator)
+	assert.False(t, cfg.IncludePackage)
+	assert.False(t, cfg.ApplyBaseCasing)
 }
 
 // TestNewSchemaNamer tests newSchemaNamer creates a namer with defaults.
 func TestNewSchemaNamer(t *testing.T) {
 	namer := newSchemaNamer()
 
-	if namer.strategy != SchemaNamingDefault {
-		t.Errorf("strategy = %d, want %d", namer.strategy, SchemaNamingDefault)
-	}
-	if namer.genericConfig.Strategy != GenericNamingUnderscore {
-		t.Errorf("genericConfig.Strategy = %d, want %d",
-			namer.genericConfig.Strategy, GenericNamingUnderscore)
-	}
-	if namer.template != nil {
-		t.Errorf("template = %v, want nil", namer.template)
-	}
-	if namer.fn != nil {
-		t.Errorf("fn = %p, want nil", namer.fn)
-	}
+	assert.Equal(t, SchemaNamingDefault, namer.strategy)
+	assert.Equal(t, GenericNamingUnderscore, namer.genericConfig.Strategy)
+	assert.Nil(t, namer.template)
+	assert.Nil(t, namer.fn)
 }
 
 // TestSchemaNamerBuildContext tests context building from reflect.Type.
@@ -272,52 +230,28 @@ func TestSchemaNamerBuildContext(t *testing.T) {
 	t.Run("struct type", func(t *testing.T) {
 		ctx := namer.buildContext(reflect.TypeOf(testUser{}))
 
-		if ctx.Type != "testUser" {
-			t.Errorf("Type = %q, want %q", ctx.Type, "testUser")
-		}
-		if ctx.TypeBase != "testUser" {
-			t.Errorf("TypeBase = %q, want %q", ctx.TypeBase, "testUser")
-		}
-		if ctx.TypeSanitized != "testUser" {
-			t.Errorf("TypeSanitized = %q, want %q", ctx.TypeSanitized, "testUser")
-		}
-		if ctx.Package != "builder" {
-			t.Errorf("Package = %q, want %q", ctx.Package, "builder")
-		}
-		if ctx.IsGeneric {
-			t.Errorf("IsGeneric = true, want false")
-		}
-		if ctx.IsAnonymous {
-			t.Errorf("IsAnonymous = true, want false")
-		}
-		if ctx.IsPointer {
-			t.Errorf("IsPointer = true, want false")
-		}
-		if ctx.Kind != "struct" {
-			t.Errorf("Kind = %q, want %q", ctx.Kind, "struct")
-		}
+		assert.Equal(t, "testUser", ctx.Type)
+		assert.Equal(t, "testUser", ctx.TypeBase)
+		assert.Equal(t, "testUser", ctx.TypeSanitized)
+		assert.Equal(t, "builder", ctx.Package)
+		assert.False(t, ctx.IsGeneric)
+		assert.False(t, ctx.IsAnonymous)
+		assert.False(t, ctx.IsPointer)
+		assert.Equal(t, "struct", ctx.Kind)
 	})
 
 	t.Run("pointer type", func(t *testing.T) {
 		ctx := namer.buildContext(reflect.TypeOf(&testUser{}))
 
-		if !ctx.IsPointer {
-			t.Errorf("IsPointer = false, want true")
-		}
-		if ctx.Type != "testUser" {
-			t.Errorf("Type = %q, want %q (should be dereferenced)", ctx.Type, "testUser")
-		}
+		assert.True(t, ctx.IsPointer)
+		assert.Equal(t, "testUser", ctx.Type)
 	})
 
 	t.Run("anonymous type", func(t *testing.T) {
 		ctx := namer.buildContext(reflect.TypeOf(struct{ X int }{}))
 
-		if !ctx.IsAnonymous {
-			t.Errorf("IsAnonymous = false, want true")
-		}
-		if ctx.Type != "" {
-			t.Errorf("Type = %q, want empty string", ctx.Type)
-		}
+		assert.True(t, ctx.IsAnonymous)
+		assert.Equal(t, "", ctx.Type)
 	})
 }
 
@@ -328,16 +262,12 @@ func TestSchemaNamerDefaultName(t *testing.T) {
 	t.Run("named type", func(t *testing.T) {
 		name := namer.name(reflect.TypeOf(testUser{}))
 		// Should be package.TypeName format
-		if name != "builder.testUser" {
-			t.Errorf("name = %q, want %q", name, "builder.testUser")
-		}
+		assert.Equal(t, "builder.testUser", name)
 	})
 
 	t.Run("anonymous type", func(t *testing.T) {
 		name := namer.name(reflect.TypeOf(struct{ X int }{}))
-		if name != "AnonymousType" {
-			t.Errorf("name = %q, want %q", name, "AnonymousType")
-		}
+		assert.Equal(t, "AnonymousType", name)
 	})
 }
 
@@ -362,9 +292,7 @@ func TestSchemaNamerStrategies(t *testing.T) {
 			namer.strategy = tt.strategy
 
 			got := namer.name(reflect.TypeOf(testUser{}))
-			if got != tt.want {
-				t.Errorf("name() with %s = %q, want %q", tt.name, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -398,10 +326,7 @@ func TestSchemaNamerGenericStrategies(t *testing.T) {
 			namer.genericConfig.Strategy = tt.strategy
 
 			got := namer.formatGenericSuffix(tt.params)
-			if got != tt.want {
-				t.Errorf("formatGenericSuffix(%v) with %s = %q, want %q",
-					tt.params, tt.name, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -414,9 +339,7 @@ func TestSchemaNamerGenericConfig(t *testing.T) {
 		namer.genericConfig.Separator = "__"
 
 		got := namer.formatGenericSuffix([]string{"User"})
-		if got != "__User__" {
-			t.Errorf("formatGenericSuffix with Separator='__' = %q, want %q", got, "__User__")
-		}
+		assert.Equal(t, "__User__", got)
 	})
 
 	t.Run("custom param separator", func(t *testing.T) {
@@ -425,9 +348,7 @@ func TestSchemaNamerGenericConfig(t *testing.T) {
 		namer.genericConfig.ParamSeparator = "And"
 
 		got := namer.formatGenericSuffix([]string{"string", "int"})
-		if got != "OfstringAndOfint" {
-			t.Errorf("formatGenericSuffix with ParamSeparator='And' = %q, want %q", got, "OfstringAndOfint")
-		}
+		assert.Equal(t, "OfstringAndOfint", got)
 	})
 
 	t.Run("include package", func(t *testing.T) {
@@ -436,9 +357,8 @@ func TestSchemaNamerGenericConfig(t *testing.T) {
 
 		params := []string{"models.User"}
 		got := namer.sanitizeGenericParams(params)
-		if len(got) != 1 || got[0] != "models_User" {
-			t.Errorf("sanitizeGenericParams with IncludePackage = %v, want [models_User]", got)
-		}
+		require.Len(t, got, 1)
+		assert.Equal(t, "models_User", got[0])
 	})
 
 	t.Run("strip package", func(t *testing.T) {
@@ -447,9 +367,8 @@ func TestSchemaNamerGenericConfig(t *testing.T) {
 
 		params := []string{"models.User"}
 		got := namer.sanitizeGenericParams(params)
-		if len(got) != 1 || got[0] != "User" {
-			t.Errorf("sanitizeGenericParams without IncludePackage = %v, want [User]", got)
-		}
+		require.Len(t, got, 1)
+		assert.Equal(t, "User", got[0])
 	})
 
 	t.Run("apply base casing", func(t *testing.T) {
@@ -459,9 +378,8 @@ func TestSchemaNamerGenericConfig(t *testing.T) {
 
 		params := []string{"user_profile"}
 		got := namer.sanitizeGenericParams(params)
-		if len(got) != 1 || got[0] != "UserProfile" {
-			t.Errorf("sanitizeGenericParams with ApplyBaseCasing = %v, want [UserProfile]", got)
-		}
+		require.Len(t, got, 1)
+		assert.Equal(t, "UserProfile", got[0])
 	})
 }
 
@@ -475,64 +393,46 @@ func TestSchemaNamerWithFunc(t *testing.T) {
 	}
 
 	got := namer.name(reflect.TypeOf(testUser{}))
-	if got != "Custom_testUser" {
-		t.Errorf("name with custom func = %q, want %q", got, "Custom_testUser")
-	}
-	if callCount != 1 {
-		t.Errorf("custom func called %d times, want 1", callCount)
-	}
+	assert.Equal(t, "Custom_testUser", got)
+	assert.Equal(t, 1, callCount)
 }
 
 // TestSchemaNamerWithTemplate tests custom naming template.
 func TestSchemaNamerWithTemplate(t *testing.T) {
 	t.Run("simple template", func(t *testing.T) {
 		tmpl, err := parseSchemaNameTemplate("{{.Type}}")
-		if err != nil {
-			t.Fatalf("parseSchemaNameTemplate failed: %v", err)
-		}
+		require.NoError(t, err)
 
 		namer := newSchemaNamer()
 		namer.template = tmpl
 
 		got := namer.name(reflect.TypeOf(testUser{}))
-		if got != "testUser" {
-			t.Errorf("name with template = %q, want %q", got, "testUser")
-		}
+		assert.Equal(t, "testUser", got)
 	})
 
 	t.Run("template with functions", func(t *testing.T) {
 		tmpl, err := parseSchemaNameTemplate("{{pascal .Package}}{{pascal .Type}}")
-		if err != nil {
-			t.Fatalf("parseSchemaNameTemplate failed: %v", err)
-		}
+		require.NoError(t, err)
 
 		namer := newSchemaNamer()
 		namer.template = tmpl
 
 		got := namer.name(reflect.TypeOf(testUser{}))
-		if got != "BuilderTestUser" {
-			t.Errorf("name with template = %q, want %q", got, "BuilderTestUser")
-		}
+		assert.Equal(t, "BuilderTestUser", got)
 	})
 
 	t.Run("template with conditionals", func(t *testing.T) {
 		tmpl, err := parseSchemaNameTemplate("{{if .IsAnonymous}}Anon{{else}}{{.Type}}{{end}}")
-		if err != nil {
-			t.Fatalf("parseSchemaNameTemplate failed: %v", err)
-		}
+		require.NoError(t, err)
 
 		namer := newSchemaNamer()
 		namer.template = tmpl
 
 		got := namer.name(reflect.TypeOf(struct{ X int }{}))
-		if got != "Anon" {
-			t.Errorf("name for anonymous with template = %q, want %q", got, "Anon")
-		}
+		assert.Equal(t, "Anon", got)
 
 		got = namer.name(reflect.TypeOf(testUser{}))
-		if got != "testUser" {
-			t.Errorf("name for named with template = %q, want %q", got, "testUser")
-		}
+		assert.Equal(t, "testUser", got)
 	})
 }
 
@@ -540,24 +440,18 @@ func TestSchemaNamerWithTemplate(t *testing.T) {
 func TestParseSchemaNameTemplate(t *testing.T) {
 	t.Run("valid template", func(t *testing.T) {
 		_, err := parseSchemaNameTemplate("{{.Type}}")
-		if err != nil {
-			t.Errorf("parseSchemaNameTemplate failed: %v", err)
-		}
+		assert.NoError(t, err)
 	})
 
 	t.Run("invalid syntax", func(t *testing.T) {
 		_, err := parseSchemaNameTemplate("{{.Type")
-		if err == nil {
-			t.Errorf("parseSchemaNameTemplate should fail for invalid syntax")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("invalid field", func(t *testing.T) {
 		// Template with invalid field should fail during validation execution
 		_, err := parseSchemaNameTemplate("{{.InvalidField}}")
-		if err == nil {
-			t.Errorf("parseSchemaNameTemplate should fail for invalid field")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("all template functions", func(t *testing.T) {
@@ -579,9 +473,7 @@ func TestParseSchemaNameTemplate(t *testing.T) {
 
 		for _, tmplStr := range funcs {
 			_, err := parseSchemaNameTemplate(tmplStr)
-			if err != nil {
-				t.Errorf("parseSchemaNameTemplate(%q) failed: %v", tmplStr, err)
-			}
+			assert.NoError(t, err)
 		}
 	})
 }
@@ -594,9 +486,7 @@ func TestSchemaNamerNameWithConflictCheck(t *testing.T) {
 		got := namer.nameWithConflictCheck(reflect.TypeOf(testUser{}), func(name string) bool {
 			return false // No conflict
 		})
-		if got != "builder.testUser" {
-			t.Errorf("name without conflict = %q, want %q", got, "builder.testUser")
-		}
+		assert.Equal(t, "builder.testUser", got)
 	})
 
 	t.Run("with conflict", func(t *testing.T) {
@@ -604,9 +494,7 @@ func TestSchemaNamerNameWithConflictCheck(t *testing.T) {
 			return name == "builder.testUser" // Conflict on initial name
 		})
 		// Should include full package path
-		if got == "builder.testUser" {
-			t.Errorf("name with conflict should use full path, got %q", got)
-		}
+		assert.NotEqual(t, "builder.testUser", got)
 	})
 }
 
@@ -632,10 +520,7 @@ func TestSchemaNamerApplyCasing(t *testing.T) {
 			namer.strategy = tt.strategy
 
 			got := namer.applyCasing(tt.input)
-			if got != tt.want {
-				t.Errorf("applyCasing(%q) with %d = %q, want %q",
-					tt.input, tt.strategy, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -673,9 +558,7 @@ func TestTemplateFuncs(t *testing.T) {
 	}
 
 	for _, name := range expectedFuncs {
-		if _, ok := funcs[name]; !ok {
-			t.Errorf("templateFuncs missing %q", name)
-		}
+		assert.Contains(t, funcs, name)
 	}
 }
 
@@ -685,27 +568,13 @@ func TestSchemaNameContextFields(t *testing.T) {
 	ctx := namer.buildContext(reflect.TypeOf(testUser{}))
 
 	// Verify all fields that should be populated for a struct type
-	if ctx.Type == "" {
-		t.Error("Type should not be empty")
-	}
-	if ctx.TypeSanitized == "" {
-		t.Error("TypeSanitized should not be empty")
-	}
-	if ctx.TypeBase == "" {
-		t.Error("TypeBase should not be empty")
-	}
-	if ctx.Package == "" {
-		t.Error("Package should not be empty")
-	}
-	if ctx.PackagePath == "" {
-		t.Error("PackagePath should not be empty")
-	}
-	if ctx.PackagePathSanitized == "" {
-		t.Error("PackagePathSanitized should not be empty")
-	}
-	if ctx.Kind == "" {
-		t.Error("Kind should not be empty")
-	}
+	assert.NotEmpty(t, ctx.Type)
+	assert.NotEmpty(t, ctx.TypeSanitized)
+	assert.NotEmpty(t, ctx.TypeBase)
+	assert.NotEmpty(t, ctx.Package)
+	assert.NotEmpty(t, ctx.PackagePath)
+	assert.NotEmpty(t, ctx.PackagePathSanitized)
+	assert.NotEmpty(t, ctx.Kind)
 }
 
 // TestSchemaNamerDefaultNameEdgeCases tests edge cases for defaultName.
@@ -714,9 +583,7 @@ func TestSchemaNamerDefaultNameEdgeCases(t *testing.T) {
 		namer := newSchemaNamer()
 		ctx := namer.buildContext(reflect.TypeOf(struct{ X int }{}))
 		name := namer.defaultName(ctx)
-		if name != "AnonymousType" {
-			t.Errorf("defaultName for anonymous = %q, want %q", name, "AnonymousType")
-		}
+		assert.Equal(t, "AnonymousType", name)
 	})
 
 	t.Run("builtin type without package", func(t *testing.T) {
@@ -730,9 +597,7 @@ func TestSchemaNamerDefaultNameEdgeCases(t *testing.T) {
 			IsAnonymous:   false,
 		}
 		name := namer.defaultName(ctx)
-		if name != "int" {
-			t.Errorf("defaultName for builtin = %q, want %q", name, "int")
-		}
+		assert.Equal(t, "int", name)
 	})
 }
 
@@ -744,12 +609,8 @@ func TestSchemaNamerApplyStrategyFullPath(t *testing.T) {
 	name := namer.name(reflect.TypeOf(testUser{}))
 
 	// Should include full package path
-	if !strings.Contains(name, "builder") {
-		t.Errorf("full path name = %q, should contain 'builder'", name)
-	}
-	if !strings.Contains(name, "testUser") {
-		t.Errorf("full path name = %q, should contain 'testUser'", name)
-	}
+	assert.Contains(t, name, "builder")
+	assert.Contains(t, name, "testUser")
 }
 
 // TestSchemaNamerApplyStrategyBuiltinType tests strategies with no package.
@@ -777,9 +638,7 @@ func TestSchemaNamerApplyStrategyBuiltinType(t *testing.T) {
 				IsAnonymous:          false,
 			}
 			name := namer.applyStrategy(ctx)
-			if name == "" {
-				t.Error("applyStrategy should return non-empty name")
-			}
+			assert.NotEmpty(t, name)
 		})
 	}
 }
@@ -793,9 +652,8 @@ func TestFormatGenericSuffixEmptySeparator(t *testing.T) {
 
 	got := namer.formatGenericSuffix([]string{"A", "B"})
 	// With empty separators, should still use defaults
-	if !strings.Contains(got, "A") || !strings.Contains(got, "B") {
-		t.Errorf("formatGenericSuffix with empty separator = %q, should contain A and B", got)
-	}
+	assert.Contains(t, got, "A")
+	assert.Contains(t, got, "B")
 }
 
 // TestBuildContextGenericType tests building context for generic-like type names.
@@ -806,19 +664,14 @@ func TestBuildContextGenericType(t *testing.T) {
 
 	// Test the parsing logic directly
 	typeName := "Response[User]"
-	if !strings.Contains(typeName, "[") {
-		t.Error("Test type name should contain bracket")
-	}
+	assert.Contains(t, typeName, "[")
 
 	baseType := extractBaseTypeName(typeName)
-	if baseType != "Response" {
-		t.Errorf("extractBaseTypeName(%q) = %q, want %q", typeName, baseType, "Response")
-	}
+	assert.Equal(t, "Response", baseType)
 
 	params := extractGenericParams(typeName)
-	if len(params) != 1 || params[0] != "User" {
-		t.Errorf("extractGenericParams(%q) = %v, want [User]", typeName, params)
-	}
+	require.Len(t, params, 1)
+	assert.Equal(t, "User", params[0])
 }
 
 // TestTemplateExecutionError tests template fallback on execution error.
@@ -826,18 +679,14 @@ func TestTemplateExecutionError(t *testing.T) {
 	// Create a template that will fail during execution with some inputs
 	// This is tricky because we validate templates, but we can test the fallback
 	tmpl, err := parseSchemaNameTemplate("{{.Type}}")
-	if err != nil {
-		t.Fatalf("parseSchemaNameTemplate failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	namer := newSchemaNamer()
 	namer.template = tmpl
 
 	// Normal execution should work
 	name := namer.name(reflect.TypeOf(testUser{}))
-	if name != "testUser" {
-		t.Errorf("template execution = %q, want %q", name, "testUser")
-	}
+	assert.Equal(t, "testUser", name)
 }
 
 // TestWithSchemaNameFunc tests the custom naming function option.
@@ -851,14 +700,10 @@ func TestWithSchemaNameFunc(t *testing.T) {
 	spec.RegisterType(testUser{})
 
 	doc, err := spec.BuildOAS3()
-	if err != nil {
-		t.Fatalf("BuildOAS3 failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify the custom function was used
-	if _, exists := doc.Components.Schemas["custom_testUser"]; !exists {
-		t.Errorf("expected schema named 'custom_testUser', got keys: %v", mapKeys(doc.Components.Schemas))
-	}
+	assert.Contains(t, doc.Components.Schemas, "custom_testUser")
 }
 
 // TestWithGenericNaming tests the generic naming strategy option.
@@ -881,12 +726,8 @@ func TestWithGenericNaming(t *testing.T) {
 
 			// Build should succeed with any strategy
 			doc, err := spec.BuildOAS3()
-			if err != nil {
-				t.Fatalf("BuildOAS3 failed with strategy %s: %v", tt.name, err)
-			}
-			if doc == nil {
-				t.Error("expected non-nil document")
-			}
+			require.NoError(t, err)
+			assert.NotNil(t, doc)
 		})
 	}
 }
@@ -897,9 +738,7 @@ func TestWithGenericSeparator(t *testing.T) {
 	spec.SetTitle("Test").SetVersion("1.0.0")
 
 	// Verify the option was applied
-	if spec.namer.genericConfig.Separator != "__" {
-		t.Errorf("separator = %q, want %q", spec.namer.genericConfig.Separator, "__")
-	}
+	assert.Equal(t, "__", spec.namer.genericConfig.Separator)
 }
 
 // TestWithGenericParamSeparator tests custom parameter separator.
@@ -908,9 +747,7 @@ func TestWithGenericParamSeparator(t *testing.T) {
 	spec.SetTitle("Test").SetVersion("1.0.0")
 
 	// Verify the option was applied
-	if spec.namer.genericConfig.ParamSeparator != "And" {
-		t.Errorf("ParamSeparator = %q, want %q", spec.namer.genericConfig.ParamSeparator, "And")
-	}
+	assert.Equal(t, "And", spec.namer.genericConfig.ParamSeparator)
 }
 
 // TestWithGenericIncludePackage tests package inclusion in generic params.
@@ -919,9 +756,7 @@ func TestWithGenericIncludePackage(t *testing.T) {
 	spec.SetTitle("Test").SetVersion("1.0.0")
 
 	// Verify the option was applied
-	if !spec.namer.genericConfig.IncludePackage {
-		t.Error("IncludePackage should be true")
-	}
+	assert.True(t, spec.namer.genericConfig.IncludePackage)
 }
 
 // TestWithGenericApplyBaseCasing tests base casing for generic params.
@@ -930,18 +765,7 @@ func TestWithGenericApplyBaseCasing(t *testing.T) {
 	spec.SetTitle("Test").SetVersion("1.0.0")
 
 	// Verify the option was applied
-	if !spec.namer.genericConfig.ApplyBaseCasing {
-		t.Error("ApplyBaseCasing should be true")
-	}
-}
-
-// mapKeys returns the keys of a map for error messages.
-func mapKeys[K comparable, V any](m map[K]V) []K {
-	keys := make([]K, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
+	assert.True(t, spec.namer.genericConfig.ApplyBaseCasing)
 }
 
 // TestBuilder_InvalidTemplateError tests that invalid templates cause BuildOAS3/BuildOAS2 to return errors.
@@ -953,12 +777,8 @@ func TestBuilder_InvalidTemplateError(t *testing.T) {
 		).SetTitle("Test").SetVersion("1.0.0")
 
 		_, err := spec.BuildOAS3()
-		if err == nil {
-			t.Error("expected error for invalid template")
-		}
-		if !strings.Contains(err.Error(), "configuration error") {
-			t.Errorf("expected configuration error, got: %v", err)
-		}
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "configuration error")
 	})
 
 	t.Run("BuildOAS2", func(t *testing.T) {
@@ -967,11 +787,7 @@ func TestBuilder_InvalidTemplateError(t *testing.T) {
 		).SetTitle("Test").SetVersion("1.0.0")
 
 		_, err := spec.BuildOAS2()
-		if err == nil {
-			t.Error("expected error for invalid template")
-		}
-		if !strings.Contains(err.Error(), "configuration error") {
-			t.Errorf("expected configuration error, got: %v", err)
-		}
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "configuration error")
 	})
 }

@@ -3,15 +3,16 @@ package httpvalidator
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/erraggy/oastools/parser"
 )
 
 func TestSchemaValidator_Validate_NilSchema(t *testing.T) {
 	v := NewSchemaValidator()
 	errors := v.Validate("test", nil, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors for nil schema, got %d", len(errors))
-	}
+	assert.Empty(t, errors, "expected no errors for nil schema")
 }
 
 func TestSchemaValidator_Validate_NullValue(t *testing.T) {
@@ -20,23 +21,17 @@ func TestSchemaValidator_Validate_NullValue(t *testing.T) {
 	// Non-nullable schema
 	schema := &parser.Schema{Type: "string"}
 	errors := v.Validate(nil, schema, "path")
-	if len(errors) != 1 {
-		t.Errorf("expected 1 error for null value on non-nullable schema, got %d", len(errors))
-	}
+	assert.Len(t, errors, 1, "expected 1 error for null value on non-nullable schema")
 
 	// Nullable via nullable field (OAS 3.0)
 	schema = &parser.Schema{Type: "string", Nullable: true}
 	errors = v.Validate(nil, schema, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors for null value on nullable schema, got %d", len(errors))
-	}
+	assert.Empty(t, errors, "expected no errors for null value on nullable schema")
 
 	// Nullable via type array (OAS 3.1+)
 	schema = &parser.Schema{Type: []any{"string", "null"}}
 	errors = v.Validate(nil, schema, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors for null value on type array with null, got %d", len(errors))
-	}
+	assert.Empty(t, errors, "expected no errors for null value on type array with null")
 }
 
 func TestSchemaValidator_ValidateType(t *testing.T) {
@@ -69,9 +64,7 @@ func TestSchemaValidator_ValidateType(t *testing.T) {
 			schema := &parser.Schema{Type: tt.schemaType}
 			errors := v.Validate(tt.data, schema, "path")
 			hasError := len(errors) > 0
-			if hasError != tt.expectError {
-				t.Errorf("expected error=%v, got %v (errors: %v)", tt.expectError, hasError, errors)
-			}
+			assert.Equal(t, tt.expectError, hasError, "errors: %v", errors)
 		})
 	}
 }
@@ -130,9 +123,7 @@ func TestSchemaValidator_ValidateString(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			errors := v.Validate(tt.data, tt.schema, "path")
 			hasError := len(errors) > 0
-			if hasError != tt.expectError {
-				t.Errorf("expected error=%v, got %v (errors: %v)", tt.expectError, hasError, errors)
-			}
+			assert.Equal(t, tt.expectError, hasError, "errors: %v", errors)
 		})
 	}
 }
@@ -167,9 +158,7 @@ func TestSchemaValidator_ValidateFormat(t *testing.T) {
 			schema := &parser.Schema{Type: "string", Format: tt.format}
 			errors := v.Validate(tt.data, schema, "path")
 			hasError := len(errors) > 0
-			if hasError != tt.expectError {
-				t.Errorf("expected error=%v, got %v (errors: %v)", tt.expectError, hasError, errors)
-			}
+			assert.Equal(t, tt.expectError, hasError, "errors: %v", errors)
 		})
 	}
 }
@@ -247,9 +236,7 @@ func TestSchemaValidator_ValidateNumber(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			errors := v.Validate(tt.data, tt.schema, "path")
 			hasError := len(errors) > 0
-			if hasError != tt.expectError {
-				t.Errorf("expected error=%v, got %v (errors: %v)", tt.expectError, hasError, errors)
-			}
+			assert.Equal(t, tt.expectError, hasError, "errors: %v", errors)
 		})
 	}
 }
@@ -261,14 +248,10 @@ func TestSchemaValidator_ValidateInteger(t *testing.T) {
 	schema := &parser.Schema{Type: "integer"}
 
 	errors := v.Validate(int(42), schema, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors for int, got %v", errors)
-	}
+	assert.Empty(t, errors, "expected no errors for int")
 
 	errors = v.Validate(int64(42), schema, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors for int64, got %v", errors)
-	}
+	assert.Empty(t, errors, "expected no errors for int64")
 }
 
 func TestSchemaValidator_ValidateArray(t *testing.T) {
@@ -337,9 +320,7 @@ func TestSchemaValidator_ValidateArray(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			errors := v.Validate(tt.data, tt.schema, "path")
 			hasError := len(errors) > 0
-			if hasError != tt.expectError {
-				t.Errorf("expected error=%v, got %v (errors: %v)", tt.expectError, hasError, errors)
-			}
+			assert.Equal(t, tt.expectError, hasError, "errors: %v", errors)
 		})
 	}
 }
@@ -414,9 +395,7 @@ func TestSchemaValidator_ValidateObject(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			errors := v.Validate(tt.data, tt.schema, "path")
 			hasError := len(errors) > 0
-			if hasError != tt.expectError {
-				t.Errorf("expected error=%v, got %v (errors: %v)", tt.expectError, hasError, errors)
-			}
+			assert.Equal(t, tt.expectError, hasError, "errors: %v", errors)
 		})
 	}
 }
@@ -431,15 +410,11 @@ func TestSchemaValidator_ValidateEnum(t *testing.T) {
 
 	// Valid enum value
 	errors := v.Validate("red", schema, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors for valid enum value, got %v", errors)
-	}
+	assert.Empty(t, errors, "expected no errors for valid enum value")
 
 	// Invalid enum value
 	errors = v.Validate("yellow", schema, "path")
-	if len(errors) != 1 {
-		t.Errorf("expected 1 error for invalid enum value, got %d", len(errors))
-	}
+	assert.Len(t, errors, 1, "expected 1 error for invalid enum value")
 }
 
 func TestSchemaValidator_ValidateAllOf(t *testing.T) {
@@ -456,15 +431,11 @@ func TestSchemaValidator_ValidateAllOf(t *testing.T) {
 
 	// Passes all schemas
 	errors := v.Validate("hello", schema, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors, got %v", errors)
-	}
+	assert.Empty(t, errors, "expected no errors")
 
 	// Fails one schema (too short)
 	errors = v.Validate("hi", schema, "path")
-	if len(errors) == 0 {
-		t.Error("expected errors for failing allOf schema")
-	}
+	assert.NotEmpty(t, errors, "expected errors for failing allOf schema")
 }
 
 func TestSchemaValidator_ValidateAnyOf(t *testing.T) {
@@ -479,21 +450,15 @@ func TestSchemaValidator_ValidateAnyOf(t *testing.T) {
 
 	// Matches first schema
 	errors := v.Validate("hello", schema, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors for matching anyOf, got %v", errors)
-	}
+	assert.Empty(t, errors, "expected no errors for matching anyOf")
 
 	// Matches second schema
 	errors = v.Validate(42.0, schema, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors for matching anyOf, got %v", errors)
-	}
+	assert.Empty(t, errors, "expected no errors for matching anyOf")
 
 	// Matches neither
 	errors = v.Validate(true, schema, "path")
-	if len(errors) == 0 {
-		t.Error("expected error for not matching any anyOf schema")
-	}
+	assert.NotEmpty(t, errors, "expected error for not matching any anyOf schema")
 }
 
 func TestSchemaValidator_ValidateOneOf(t *testing.T) {
@@ -510,21 +475,15 @@ func TestSchemaValidator_ValidateOneOf(t *testing.T) {
 
 	// Matches exactly one (string)
 	errors := v.Validate("hello", schema, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors for matching exactly one oneOf, got %v", errors)
-	}
+	assert.Empty(t, errors, "expected no errors for matching exactly one oneOf")
 
 	// Matches exactly one (number >= 10)
 	errors = v.Validate(15.0, schema, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors for matching exactly one oneOf, got %v", errors)
-	}
+	assert.Empty(t, errors, "expected no errors for matching exactly one oneOf")
 
 	// Matches none
 	errors = v.Validate(true, schema, "path")
-	if len(errors) == 0 {
-		t.Error("expected error for matching zero oneOf schemas")
-	}
+	assert.NotEmpty(t, errors, "expected error for matching zero oneOf schemas")
 
 	// Test multiple matches scenario
 	schemaMultiple := &parser.Schema{
@@ -535,9 +494,7 @@ func TestSchemaValidator_ValidateOneOf(t *testing.T) {
 	}
 	// float64(42) matches both number and integer (since 42.0 is a whole number)
 	errors = v.Validate(float64(42), schemaMultiple, "path")
-	if len(errors) == 0 {
-		t.Error("expected error for matching multiple oneOf schemas")
-	}
+	assert.NotEmpty(t, errors, "expected error for matching multiple oneOf schemas")
 }
 
 func TestSchemaValidator_ValidateBoolean(t *testing.T) {
@@ -546,19 +503,13 @@ func TestSchemaValidator_ValidateBoolean(t *testing.T) {
 	schema := &parser.Schema{Type: "boolean"}
 
 	errors := v.Validate(true, schema, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors for boolean true, got %v", errors)
-	}
+	assert.Empty(t, errors, "expected no errors for boolean true")
 
 	errors = v.Validate(false, schema, "path")
-	if len(errors) != 0 {
-		t.Errorf("expected no errors for boolean false, got %v", errors)
-	}
+	assert.Empty(t, errors, "expected no errors for boolean false")
 
 	errors = v.Validate("true", schema, "path")
-	if len(errors) == 0 {
-		t.Error("expected error for string instead of boolean")
-	}
+	assert.NotEmpty(t, errors, "expected error for string instead of boolean")
 }
 
 func TestGetDataType(t *testing.T) {
@@ -590,9 +541,7 @@ func TestGetDataType(t *testing.T) {
 
 	for _, tt := range tests {
 		result := getDataType(tt.data)
-		if result != tt.expected {
-			t.Errorf("getDataType(%T) = %q, want %q", tt.data, result, tt.expected)
-		}
+		assert.Equal(t, tt.expected, result, "getDataType(%T)", tt.data)
 	}
 }
 
@@ -611,9 +560,7 @@ func TestToFloat64(t *testing.T) {
 
 	for _, tt := range tests {
 		result := toFloat64(tt.input)
-		if result != tt.expected {
-			t.Errorf("toFloat64(%T(%v)) = %v, want %v", tt.input, tt.input, result, tt.expected)
-		}
+		assert.Equal(t, tt.expected, result, "toFloat64(%T(%v))", tt.input, tt.input)
 	}
 }
 
@@ -632,9 +579,7 @@ func TestHasDuplicates(t *testing.T) {
 
 	for _, tt := range tests {
 		result := hasDuplicates(tt.arr)
-		if result != tt.expected {
-			t.Errorf("hasDuplicates(%v) = %v, want %v", tt.arr, result, tt.expected)
-		}
+		assert.Equal(t, tt.expected, result, "hasDuplicates(%v)", tt.arr)
 	}
 }
 
@@ -643,21 +588,13 @@ func TestPatternCache(t *testing.T) {
 
 	// First call compiles and caches
 	matched, err := v.matchPattern("^test$", "test")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !matched {
-		t.Error("expected match")
-	}
+	require.NoError(t, err, "unexpected error")
+	assert.True(t, matched, "expected match")
 
 	// Second call uses cache
 	matched, err = v.matchPattern("^test$", "test")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !matched {
-		t.Error("expected match from cache")
-	}
+	require.NoError(t, err, "unexpected error")
+	assert.True(t, matched, "expected match from cache")
 }
 
 func TestIsExclusiveMinimum(t *testing.T) {
@@ -675,9 +612,7 @@ func TestIsExclusiveMinimum(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := isExclusiveMinimum(tt.schema)
-			if result != tt.expected {
-				t.Errorf("isExclusiveMinimum = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -697,9 +632,7 @@ func TestIsExclusiveMaximum(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := isExclusiveMaximum(tt.schema)
-			if result != tt.expected {
-				t.Errorf("isExclusiveMaximum = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -719,15 +652,7 @@ func TestGetSchemaTypes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := getSchemaTypes(tt.schema)
-			if len(result) != len(tt.expected) {
-				t.Errorf("getSchemaTypes = %v, want %v", result, tt.expected)
-				return
-			}
-			for i := range result {
-				if result[i] != tt.expected[i] {
-					t.Errorf("getSchemaTypes[%d] = %v, want %v", i, result[i], tt.expected[i])
-				}
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -752,8 +677,6 @@ func TestTypeMatches(t *testing.T) {
 
 	for _, tt := range tests {
 		result := typeMatches(tt.dataType, tt.schemaType)
-		if result != tt.expected {
-			t.Errorf("typeMatches(%q, %q) = %v, want %v", tt.dataType, tt.schemaType, result, tt.expected)
-		}
+		assert.Equal(t, tt.expected, result, "typeMatches(%q, %q)", tt.dataType, tt.schemaType)
 	}
 }

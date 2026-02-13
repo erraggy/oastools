@@ -4,64 +4,36 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/joiner"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSetupJoinFlags(t *testing.T) {
 	fs, flags := SetupJoinFlags()
 
 	t.Run("default values", func(t *testing.T) {
-		if flags.Output != "" {
-			t.Errorf("expected Output to be empty by default, got '%s'", flags.Output)
-		}
-		if flags.PathStrategy != "" {
-			t.Errorf("expected PathStrategy to be empty by default, got '%s'", flags.PathStrategy)
-		}
-		if flags.NoMergeArrays {
-			t.Error("expected NoMergeArrays to be false by default")
-		}
-		if flags.NoDedupTags {
-			t.Error("expected NoDedupTags to be false by default")
-		}
-		if flags.Quiet {
-			t.Error("expected Quiet to be false by default")
-		}
+		assert.Equal(t, "", flags.Output)
+		assert.Equal(t, "", flags.PathStrategy)
+		assert.False(t, flags.NoMergeArrays, "expected NoMergeArrays to be false by default")
+		assert.False(t, flags.NoDedupTags, "expected NoDedupTags to be false by default")
+		assert.False(t, flags.Quiet, "expected Quiet to be false by default")
 		// Operation context flags
-		if flags.OperationContext {
-			t.Error("expected OperationContext to be false by default")
-		}
-		if flags.PrimaryOperationPolicy != "" {
-			t.Errorf("expected PrimaryOperationPolicy to be empty by default, got '%s'", flags.PrimaryOperationPolicy)
-		}
+		assert.False(t, flags.OperationContext, "expected OperationContext to be false by default")
+		assert.Equal(t, "", flags.PrimaryOperationPolicy)
 		// Overlay flags
-		if len(flags.PreOverlays) != 0 {
-			t.Errorf("expected PreOverlays to be empty by default, got %v", flags.PreOverlays)
-		}
-		if flags.PostOverlay != "" {
-			t.Errorf("expected PostOverlay to be empty by default, got '%s'", flags.PostOverlay)
-		}
+		assert.Empty(t, flags.PreOverlays)
+		assert.Equal(t, "", flags.PostOverlay)
 	})
 
 	t.Run("parse flags", func(t *testing.T) {
 		args := []string{"-o", "output.yaml", "--path-strategy", "accept-left", "--no-merge-arrays", "-q", "file1.yaml", "file2.yaml"}
-		if err := fs.Parse(args); err != nil {
-			t.Fatalf("unexpected parse error: %v", err)
-		}
+		require.NoError(t, fs.Parse(args))
 
-		if flags.Output != "output.yaml" {
-			t.Errorf("expected Output 'output.yaml', got '%s'", flags.Output)
-		}
-		if flags.PathStrategy != "accept-left" {
-			t.Errorf("expected PathStrategy 'accept-left', got '%s'", flags.PathStrategy)
-		}
-		if !flags.NoMergeArrays {
-			t.Error("expected NoMergeArrays to be true")
-		}
-		if !flags.Quiet {
-			t.Error("expected Quiet to be true")
-		}
-		if fs.NArg() != 2 {
-			t.Errorf("expected 2 file args, got %d", fs.NArg())
-		}
+		assert.Equal(t, "output.yaml", flags.Output)
+		assert.Equal(t, "accept-left", flags.PathStrategy)
+		assert.True(t, flags.NoMergeArrays, "expected NoMergeArrays to be true")
+		assert.True(t, flags.Quiet, "expected Quiet to be true")
+		assert.Equal(t, 2, fs.NArg())
 	})
 }
 
@@ -79,47 +51,35 @@ func TestSetupJoinFlags_Strategies(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fs, flags := SetupJoinFlags()
-			if err := fs.Parse(tt.args); err != nil {
-				t.Fatalf("unexpected parse error: %v", err)
-			}
-			if joiner.CollisionStrategy(flags.PathStrategy) != tt.expected {
-				t.Errorf("expected strategy %s, got %s", tt.expected, flags.PathStrategy)
-			}
+			require.NoError(t, fs.Parse(tt.args))
+			assert.Equal(t, tt.expected, joiner.CollisionStrategy(flags.PathStrategy))
 		})
 	}
 }
 
 func TestHandleJoin_NotEnoughFiles(t *testing.T) {
 	err := HandleJoin([]string{"single.yaml"})
-	if err == nil {
-		t.Error("expected error when only one file provided")
-	}
+	assert.Error(t, err)
 }
 
 func TestHandleJoin_Help(t *testing.T) {
 	err := HandleJoin([]string{"--help"})
-	if err != nil {
-		t.Errorf("unexpected error for help: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestHandleJoin_InvalidStrategy(t *testing.T) {
 	err := HandleJoin([]string{"--path-strategy", "invalid", "f1.yaml", "f2.yaml"})
-	if err == nil {
-		t.Error("expected error for invalid strategy")
-	}
+	assert.Error(t, err)
 }
 
 func TestSetupJoinFlags_NamespacePrefix(t *testing.T) {
 	t.Run("parse single namespace prefix", func(t *testing.T) {
 		fs, flags := SetupJoinFlags()
 		args := []string{"--namespace-prefix", "api.yaml=Api", "f1.yaml", "f2.yaml"}
-		if err := fs.Parse(args); err != nil {
-			t.Fatalf("unexpected parse error: %v", err)
-		}
-		if prefix, ok := flags.NamespacePrefix["api.yaml"]; !ok || prefix != "Api" {
-			t.Errorf("expected NamespacePrefix['api.yaml'] = 'Api', got '%v'", flags.NamespacePrefix)
-		}
+		require.NoError(t, fs.Parse(args))
+		prefix, ok := flags.NamespacePrefix["api.yaml"]
+		require.True(t, ok)
+		assert.Equal(t, "Api", prefix)
 	})
 
 	t.Run("parse multiple namespace prefixes", func(t *testing.T) {
@@ -129,26 +89,16 @@ func TestSetupJoinFlags_NamespacePrefix(t *testing.T) {
 			"--namespace-prefix", "billing.yaml=Billing",
 			"f1.yaml", "f2.yaml",
 		}
-		if err := fs.Parse(args); err != nil {
-			t.Fatalf("unexpected parse error: %v", err)
-		}
-		if flags.NamespacePrefix["users.yaml"] != "Users" {
-			t.Errorf("expected NamespacePrefix['users.yaml'] = 'Users', got '%s'", flags.NamespacePrefix["users.yaml"])
-		}
-		if flags.NamespacePrefix["billing.yaml"] != "Billing" {
-			t.Errorf("expected NamespacePrefix['billing.yaml'] = 'Billing', got '%s'", flags.NamespacePrefix["billing.yaml"])
-		}
+		require.NoError(t, fs.Parse(args))
+		assert.Equal(t, "Users", flags.NamespacePrefix["users.yaml"])
+		assert.Equal(t, "Billing", flags.NamespacePrefix["billing.yaml"])
 	})
 
 	t.Run("parse always-prefix flag", func(t *testing.T) {
 		fs, flags := SetupJoinFlags()
 		args := []string{"--always-prefix", "f1.yaml", "f2.yaml"}
-		if err := fs.Parse(args); err != nil {
-			t.Fatalf("unexpected parse error: %v", err)
-		}
-		if !flags.AlwaysPrefix {
-			t.Error("expected AlwaysPrefix to be true")
-		}
+		require.NoError(t, fs.Parse(args))
+		assert.True(t, flags.AlwaysPrefix, "expected AlwaysPrefix to be true")
 	})
 
 	t.Run("parse namespace-prefix with always-prefix", func(t *testing.T) {
@@ -158,42 +108,30 @@ func TestSetupJoinFlags_NamespacePrefix(t *testing.T) {
 			"--always-prefix",
 			"f1.yaml", "f2.yaml",
 		}
-		if err := fs.Parse(args); err != nil {
-			t.Fatalf("unexpected parse error: %v", err)
-		}
-		if flags.NamespacePrefix["api.yaml"] != "Api" {
-			t.Errorf("expected NamespacePrefix['api.yaml'] = 'Api', got '%s'", flags.NamespacePrefix["api.yaml"])
-		}
-		if !flags.AlwaysPrefix {
-			t.Error("expected AlwaysPrefix to be true")
-		}
+		require.NoError(t, fs.Parse(args))
+		assert.Equal(t, "Api", flags.NamespacePrefix["api.yaml"])
+		assert.True(t, flags.AlwaysPrefix, "expected AlwaysPrefix to be true")
 	})
 
 	t.Run("invalid namespace prefix format", func(t *testing.T) {
 		fs, _ := SetupJoinFlags()
 		args := []string{"--namespace-prefix", "invalid", "f1.yaml", "f2.yaml"}
 		err := fs.Parse(args)
-		if err == nil {
-			t.Error("expected error for invalid namespace prefix format")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("empty source in namespace prefix", func(t *testing.T) {
 		fs, _ := SetupJoinFlags()
 		args := []string{"--namespace-prefix", "=Prefix", "f1.yaml", "f2.yaml"}
 		err := fs.Parse(args)
-		if err == nil {
-			t.Error("expected error for empty source in namespace prefix")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("empty prefix in namespace prefix", func(t *testing.T) {
 		fs, _ := SetupJoinFlags()
 		args := []string{"--namespace-prefix", "api.yaml=", "f1.yaml", "f2.yaml"}
 		err := fs.Parse(args)
-		if err == nil {
-			t.Error("expected error for empty prefix in namespace prefix")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -202,52 +140,36 @@ func TestNamespacePrefixFlag_String(t *testing.T) {
 	npf["a.yaml"] = "A"
 
 	str := npf.String()
-	if str != "a.yaml=A" {
-		t.Errorf("expected 'a.yaml=A', got '%s'", str)
-	}
+	assert.Equal(t, "a.yaml=A", str)
 }
 
 func TestNamespacePrefixFlag_Set(t *testing.T) {
 	t.Run("valid format", func(t *testing.T) {
 		npf := make(namespacePrefixFlag)
 		err := npf.Set("users.yaml=Users")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if npf["users.yaml"] != "Users" {
-			t.Errorf("expected 'Users', got '%s'", npf["users.yaml"])
-		}
+		require.NoError(t, err)
+		assert.Equal(t, "Users", npf["users.yaml"])
 	})
 
 	t.Run("invalid format - no equals", func(t *testing.T) {
 		npf := make(namespacePrefixFlag)
 		err := npf.Set("invalid")
-		if err == nil {
-			t.Error("expected error for invalid format")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("handles spaces in value", func(t *testing.T) {
 		npf := make(namespacePrefixFlag)
 		err := npf.Set("  users.yaml  =  Users  ")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if npf["users.yaml"] != "Users" {
-			t.Errorf("expected 'Users', got '%s'", npf["users.yaml"])
-		}
+		require.NoError(t, err)
+		assert.Equal(t, "Users", npf["users.yaml"])
 	})
 }
 
 func TestJoinFlags_OperationContext(t *testing.T) {
 	fs, flags := SetupJoinFlags()
 	err := fs.Parse([]string{"--operation-context", "api1.yaml", "api2.yaml"})
-	if err != nil {
-		t.Fatalf("unexpected parse error: %v", err)
-	}
-	if !flags.OperationContext {
-		t.Error("expected OperationContext to be true")
-	}
+	require.NoError(t, err)
+	assert.True(t, flags.OperationContext, "expected OperationContext to be true")
 }
 
 func TestJoinFlags_PrimaryOperationPolicy(t *testing.T) {
@@ -264,12 +186,8 @@ func TestJoinFlags_PrimaryOperationPolicy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs, flags := SetupJoinFlags()
 			err := fs.Parse(tt.args)
-			if err != nil {
-				t.Fatalf("unexpected parse error: %v", err)
-			}
-			if flags.PrimaryOperationPolicy != tt.policy {
-				t.Errorf("expected policy %q, got %q", tt.policy, flags.PrimaryOperationPolicy)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.policy, flags.PrimaryOperationPolicy)
 		})
 	}
 }
@@ -281,29 +199,17 @@ func TestJoinFlags_PreOverlay_Repeatable(t *testing.T) {
 		"--pre-overlay", "overlay2.yaml",
 		"api1.yaml", "api2.yaml",
 	})
-	if err != nil {
-		t.Fatalf("unexpected parse error: %v", err)
-	}
-	if len(flags.PreOverlays) != 2 {
-		t.Fatalf("expected 2 pre-overlays, got %d", len(flags.PreOverlays))
-	}
-	if flags.PreOverlays[0] != "overlay1.yaml" {
-		t.Errorf("expected first overlay 'overlay1.yaml', got %q", flags.PreOverlays[0])
-	}
-	if flags.PreOverlays[1] != "overlay2.yaml" {
-		t.Errorf("expected second overlay 'overlay2.yaml', got %q", flags.PreOverlays[1])
-	}
+	require.NoError(t, err)
+	require.Len(t, flags.PreOverlays, 2)
+	assert.Equal(t, "overlay1.yaml", flags.PreOverlays[0])
+	assert.Equal(t, "overlay2.yaml", flags.PreOverlays[1])
 }
 
 func TestJoinFlags_PostOverlay(t *testing.T) {
 	fs, flags := SetupJoinFlags()
 	err := fs.Parse([]string{"--post-overlay", "final.yaml", "api1.yaml", "api2.yaml"})
-	if err != nil {
-		t.Fatalf("unexpected parse error: %v", err)
-	}
-	if flags.PostOverlay != "final.yaml" {
-		t.Errorf("expected PostOverlay 'final.yaml', got %q", flags.PostOverlay)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "final.yaml", flags.PostOverlay)
 }
 
 func TestValidatePrimaryOperationPolicy(t *testing.T) {
@@ -321,11 +227,10 @@ func TestValidatePrimaryOperationPolicy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.policy, func(t *testing.T) {
 			err := ValidatePrimaryOperationPolicy(tt.policy)
-			if tt.wantErr && err == nil {
-				t.Error("expected error, got nil")
-			}
-			if !tt.wantErr && err != nil {
-				t.Errorf("unexpected error: %v", err)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -345,9 +250,7 @@ func TestMapPrimaryOperationPolicy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.policy, func(t *testing.T) {
 			got := MapPrimaryOperationPolicy(tt.policy)
-			if got != tt.want {
-				t.Errorf("expected %v, got %v", tt.want, got)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -355,41 +258,26 @@ func TestMapPrimaryOperationPolicy(t *testing.T) {
 func TestStringSliceFlag(t *testing.T) {
 	t.Run("empty string representation", func(t *testing.T) {
 		var flag stringSliceFlag
-		if flag.String() != "" {
-			t.Errorf("expected empty string, got %q", flag.String())
-		}
+		assert.Equal(t, "", flag.String())
 	})
 
 	t.Run("nil string representation", func(t *testing.T) {
 		var flag *stringSliceFlag
-		if flag.String() != "" {
-			t.Errorf("expected empty string for nil, got %q", flag.String())
-		}
+		assert.Equal(t, "", flag.String())
 	})
 
 	t.Run("set and string", func(t *testing.T) {
 		var flag stringSliceFlag
-		if err := flag.Set("value1"); err != nil {
-			t.Fatalf("unexpected error on first Set: %v", err)
-		}
-		if err := flag.Set("value2"); err != nil {
-			t.Fatalf("unexpected error on second Set: %v", err)
-		}
-		if len(flag) != 2 {
-			t.Errorf("expected length 2, got %d", len(flag))
-		}
-		expected := "value1,value2"
-		if flag.String() != expected {
-			t.Errorf("expected %q, got %q", expected, flag.String())
-		}
+		require.NoError(t, flag.Set("value1"))
+		require.NoError(t, flag.Set("value2"))
+		assert.Len(t, flag, 2)
+		assert.Equal(t, "value1,value2", flag.String())
 	})
 }
 
 func TestHandleJoin_InvalidPrimaryOperationPolicy(t *testing.T) {
 	err := HandleJoin([]string{"--primary-operation-policy", "invalid", "f1.yaml", "f2.yaml"})
-	if err == nil {
-		t.Error("expected error for invalid primary operation policy")
-	}
+	assert.Error(t, err)
 }
 
 func TestJoinFlags_CombinedNewFlags(t *testing.T) {
@@ -402,21 +290,11 @@ func TestJoinFlags_CombinedNewFlags(t *testing.T) {
 		"--post-overlay", "post.yaml",
 		"api1.yaml", "api2.yaml",
 	})
-	if err != nil {
-		t.Fatalf("unexpected parse error: %v", err)
-	}
-	if !flags.OperationContext {
-		t.Error("expected OperationContext to be true")
-	}
-	if flags.PrimaryOperationPolicy != "most-specific" {
-		t.Errorf("expected policy 'most-specific', got %q", flags.PrimaryOperationPolicy)
-	}
-	if len(flags.PreOverlays) != 2 {
-		t.Errorf("expected 2 pre-overlays, got %d", len(flags.PreOverlays))
-	}
-	if flags.PostOverlay != "post.yaml" {
-		t.Errorf("expected PostOverlay 'post.yaml', got %q", flags.PostOverlay)
-	}
+	require.NoError(t, err)
+	assert.True(t, flags.OperationContext, "expected OperationContext to be true")
+	assert.Equal(t, "most-specific", flags.PrimaryOperationPolicy)
+	assert.Len(t, flags.PreOverlays, 2)
+	assert.Equal(t, "post.yaml", flags.PostOverlay)
 }
 
 func TestHandleJoin_NonexistentPreOverlay(t *testing.T) {
@@ -425,9 +303,7 @@ func TestHandleJoin_NonexistentPreOverlay(t *testing.T) {
 		"../../testdata/oas3/petstore.yaml",
 		"../../testdata/oas3/petstore.yaml",
 	})
-	if err == nil {
-		t.Error("expected error for nonexistent pre-overlay file")
-	}
+	assert.Error(t, err)
 }
 
 func TestHandleJoin_NonexistentPostOverlay(t *testing.T) {
@@ -436,7 +312,5 @@ func TestHandleJoin_NonexistentPostOverlay(t *testing.T) {
 		"../../testdata/oas3/petstore.yaml",
 		"../../testdata/oas3/petstore.yaml",
 	})
-	if err == nil {
-		t.Error("expected error for nonexistent post-overlay file")
-	}
+	assert.Error(t, err)
 }

@@ -3,19 +3,16 @@ package parser
 import (
 	"bytes"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetMarshalBuffer(t *testing.T) {
 	buf := getMarshalBuffer()
-	if buf == nil {
-		t.Fatal("getMarshalBuffer returned nil")
-	}
-	if buf.Len() != 0 {
-		t.Errorf("buffer should be empty, got len=%d", buf.Len())
-	}
-	if buf.Cap() < marshalBufferInitialSize {
-		t.Errorf("buffer capacity should be at least %d, got %d", marshalBufferInitialSize, buf.Cap())
-	}
+	require.NotNil(t, buf)
+	assert.Equal(t, 0, buf.Len(), "buffer should be empty")
+	assert.GreaterOrEqual(t, buf.Cap(), marshalBufferInitialSize, "buffer capacity should be at least %d", marshalBufferInitialSize)
 	putMarshalBuffer(buf)
 }
 
@@ -34,9 +31,7 @@ func TestPutMarshalBuffer_Oversized(t *testing.T) {
 
 	// Get a new buffer - it should have initial size, not the oversized capacity
 	buf := getMarshalBuffer()
-	if buf.Cap() > marshalBufferMaxSize {
-		t.Errorf("pool returned oversized buffer with cap=%d", buf.Cap())
-	}
+	assert.LessOrEqual(t, buf.Cap(), marshalBufferMaxSize, "pool returned oversized buffer")
 	putMarshalBuffer(buf)
 }
 
@@ -48,23 +43,15 @@ func TestMarshalBufferPool_Reuse(t *testing.T) {
 
 	// Get another buffer - it should be reset
 	buf2 := getMarshalBuffer()
-	if buf2.Len() != 0 {
-		t.Errorf("reused buffer should be reset, got len=%d", buf2.Len())
-	}
+	assert.Equal(t, 0, buf2.Len(), "reused buffer should be reset")
 	putMarshalBuffer(buf2)
 }
 
 func TestMarshalBufferPool_Constants(t *testing.T) {
 	// Verify constants are reasonable
-	if marshalBufferInitialSize != 4096 {
-		t.Errorf("marshalBufferInitialSize should be 4096, got %d", marshalBufferInitialSize)
-	}
-	if marshalBufferMaxSize != 1<<20 {
-		t.Errorf("marshalBufferMaxSize should be 1MB, got %d", marshalBufferMaxSize)
-	}
-	if marshalBufferInitialSize >= marshalBufferMaxSize {
-		t.Error("initial size should be less than max size")
-	}
+	assert.Equal(t, 4096, marshalBufferInitialSize)
+	assert.Equal(t, 1<<20, marshalBufferMaxSize)
+	assert.Less(t, marshalBufferInitialSize, marshalBufferMaxSize, "initial size should be less than max size")
 }
 
 func BenchmarkMarshalBufferPool(b *testing.B) {
@@ -100,15 +87,9 @@ func BenchmarkMarshalBufferPool_LargePayload(b *testing.B) {
 
 func TestGetParameterSlice(t *testing.T) {
 	s := getParameterSlice()
-	if s == nil {
-		t.Fatal("getParameterSlice returned nil")
-	}
-	if len(*s) != 0 {
-		t.Errorf("slice should be empty, got len=%d", len(*s))
-	}
-	if cap(*s) < parameterSliceCap {
-		t.Errorf("slice capacity should be at least %d, got %d", parameterSliceCap, cap(*s))
-	}
+	require.NotNil(t, s)
+	assert.Empty(t, *s)
+	assert.GreaterOrEqual(t, cap(*s), parameterSliceCap, "slice capacity should be at least %d", parameterSliceCap)
 	putParameterSlice(s)
 }
 
@@ -123,9 +104,7 @@ func TestParameterSlicePool_Reset(t *testing.T) {
 	putParameterSlice(s)
 
 	s2 := getParameterSlice()
-	if len(*s2) != 0 {
-		t.Errorf("expected empty slice, got len=%d", len(*s2))
-	}
+	assert.Empty(t, *s2)
 	putParameterSlice(s2)
 }
 
@@ -136,9 +115,7 @@ func TestPutParameterSlice_Oversized(t *testing.T) {
 
 	// Get a new slice - it should have the standard capacity
 	s := getParameterSlice()
-	if cap(*s) > 64 {
-		t.Errorf("pool returned oversized slice with cap=%d", cap(*s))
-	}
+	assert.LessOrEqual(t, cap(*s), 64, "pool returned oversized slice")
 	putParameterSlice(s)
 }
 
@@ -164,15 +141,9 @@ func BenchmarkParameterSlice_WithoutPool(b *testing.B) {
 
 func TestGetServerSlice(t *testing.T) {
 	s := getServerSlice()
-	if s == nil {
-		t.Fatal("getServerSlice returned nil")
-	}
-	if len(*s) != 0 {
-		t.Errorf("slice should be empty, got len=%d", len(*s))
-	}
-	if cap(*s) < serverSliceCap {
-		t.Errorf("slice capacity should be at least %d, got %d", serverSliceCap, cap(*s))
-	}
+	require.NotNil(t, s)
+	assert.Empty(t, *s)
+	assert.GreaterOrEqual(t, cap(*s), serverSliceCap, "slice capacity should be at least %d", serverSliceCap)
 	putServerSlice(s)
 }
 
@@ -187,9 +158,7 @@ func TestServerSlicePool_Reset(t *testing.T) {
 	putServerSlice(s)
 
 	s2 := getServerSlice()
-	if len(*s2) != 0 {
-		t.Errorf("expected empty slice, got len=%d", len(*s2))
-	}
+	assert.Empty(t, *s2)
 	putServerSlice(s2)
 }
 
@@ -200,9 +169,7 @@ func TestPutServerSlice_Oversized(t *testing.T) {
 
 	// Get a new slice - it should have the standard capacity
 	s := getServerSlice()
-	if cap(*s) > 16 {
-		t.Errorf("pool returned oversized slice with cap=%d", cap(*s))
-	}
+	assert.LessOrEqual(t, cap(*s), 16, "pool returned oversized slice")
 	putServerSlice(s)
 }
 
@@ -228,15 +195,9 @@ func BenchmarkServerSlice_WithoutPool(b *testing.B) {
 
 func TestGetStringSlice(t *testing.T) {
 	s := getStringSlice()
-	if s == nil {
-		t.Fatal("getStringSlice returned nil")
-	}
-	if len(*s) != 0 {
-		t.Errorf("slice should be empty, got len=%d", len(*s))
-	}
-	if cap(*s) < stringSliceCap {
-		t.Errorf("slice capacity should be at least %d, got %d", stringSliceCap, cap(*s))
-	}
+	require.NotNil(t, s)
+	assert.Empty(t, *s)
+	assert.GreaterOrEqual(t, cap(*s), stringSliceCap, "slice capacity should be at least %d", stringSliceCap)
 	putStringSlice(s)
 }
 
@@ -251,9 +212,7 @@ func TestStringSlicePool_Reset(t *testing.T) {
 	putStringSlice(s)
 
 	s2 := getStringSlice()
-	if len(*s2) != 0 {
-		t.Errorf("expected empty slice, got len=%d", len(*s2))
-	}
+	assert.Empty(t, *s2)
 	putStringSlice(s2)
 }
 
@@ -264,9 +223,7 @@ func TestPutStringSlice_Oversized(t *testing.T) {
 
 	// Get a new slice - it should have the standard capacity
 	s := getStringSlice()
-	if cap(*s) > 32 {
-		t.Errorf("pool returned oversized slice with cap=%d", cap(*s))
-	}
+	assert.LessOrEqual(t, cap(*s), 32, "pool returned oversized slice")
 	putStringSlice(s)
 }
 
@@ -292,30 +249,18 @@ func BenchmarkStringSlice_WithoutPool(b *testing.B) {
 
 func TestSlicePoolConstants(t *testing.T) {
 	// Verify constants are reasonable
-	if parameterSliceCap != 4 {
-		t.Errorf("parameterSliceCap should be 4, got %d", parameterSliceCap)
-	}
-	if serverSliceCap != 2 {
-		t.Errorf("serverSliceCap should be 2, got %d", serverSliceCap)
-	}
-	if stringSliceCap != 2 {
-		t.Errorf("stringSliceCap should be 2, got %d", stringSliceCap)
-	}
+	assert.Equal(t, 4, parameterSliceCap)
+	assert.Equal(t, 2, serverSliceCap)
+	assert.Equal(t, 2, stringSliceCap)
 }
 
 // DeepCopy work pool tests
 
 func TestGetDeepCopyWork(t *testing.T) {
 	s := getDeepCopyWork()
-	if s == nil {
-		t.Fatal("getDeepCopyWork returned nil")
-	}
-	if len(*s) != 0 {
-		t.Errorf("slice should be empty, got len=%d", len(*s))
-	}
-	if cap(*s) < deepCopyWorkCap {
-		t.Errorf("slice capacity should be at least %d, got %d", deepCopyWorkCap, cap(*s))
-	}
+	require.NotNil(t, s)
+	assert.Empty(t, *s)
+	assert.GreaterOrEqual(t, cap(*s), deepCopyWorkCap, "slice capacity should be at least %d", deepCopyWorkCap)
 	putDeepCopyWork(s)
 }
 
@@ -330,9 +275,7 @@ func TestDeepCopyWorkPool_Reset(t *testing.T) {
 	putDeepCopyWork(s)
 
 	s2 := getDeepCopyWork()
-	if len(*s2) != 0 {
-		t.Errorf("expected empty slice, got len=%d", len(*s2))
-	}
+	assert.Empty(t, *s2)
 	putDeepCopyWork(s2)
 }
 
@@ -343,23 +286,15 @@ func TestPutDeepCopyWork_Oversized(t *testing.T) {
 
 	// Get a new slice - it should have the standard capacity
 	s := getDeepCopyWork()
-	if cap(*s) > deepCopyWorkMaxCap {
-		t.Errorf("pool returned oversized slice with cap=%d", cap(*s))
-	}
+	assert.LessOrEqual(t, cap(*s), deepCopyWorkMaxCap, "pool returned oversized slice")
 	putDeepCopyWork(s)
 }
 
 func TestDeepCopyWorkPoolConstants(t *testing.T) {
 	// Verify constants are reasonable
-	if deepCopyWorkCap != 16 {
-		t.Errorf("deepCopyWorkCap should be 16, got %d", deepCopyWorkCap)
-	}
-	if deepCopyWorkMaxCap != 256 {
-		t.Errorf("deepCopyWorkMaxCap should be 256, got %d", deepCopyWorkMaxCap)
-	}
-	if deepCopyWorkCap >= deepCopyWorkMaxCap {
-		t.Error("initial capacity should be less than max capacity")
-	}
+	assert.Equal(t, 16, deepCopyWorkCap)
+	assert.Equal(t, 256, deepCopyWorkMaxCap)
+	assert.Less(t, deepCopyWorkCap, deepCopyWorkMaxCap, "initial capacity should be less than max capacity")
 }
 
 func BenchmarkDeepCopyWork_WithPool(b *testing.B) {
@@ -448,9 +383,7 @@ func TestMarshalToJSON(t *testing.T) {
 			if tt.wantErr {
 				return
 			}
-			if string(got) != tt.want {
-				t.Errorf("marshalToJSON() = %q, want %q", string(got), tt.want)
-			}
+			assert.Equal(t, tt.want, string(got))
 		})
 	}
 }
@@ -458,17 +391,12 @@ func TestMarshalToJSON(t *testing.T) {
 func TestMarshalToJSON_NoTrailingNewline(t *testing.T) {
 	// json.Encoder adds a trailing newline, but marshalToJSON should strip it
 	got, err := marshalToJSON(map[string]string{"test": "value"})
-	if err != nil {
-		t.Fatalf("marshalToJSON() error = %v", err)
-	}
-	if len(got) > 0 && got[len(got)-1] == '\n' {
-		t.Error("marshalToJSON() output should not have trailing newline")
+	require.NoError(t, err)
+	if len(got) > 0 {
+		assert.NotEqual(t, byte('\n'), got[len(got)-1], "marshalToJSON() output should not have trailing newline")
 	}
 	// Compare with json.Marshal behavior
-	want := `{"test":"value"}`
-	if string(got) != want {
-		t.Errorf("marshalToJSON() = %q, want %q", string(got), want)
-	}
+	assert.Equal(t, `{"test":"value"}`, string(got))
 }
 
 func BenchmarkMarshalToJSON(b *testing.B) {

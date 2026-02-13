@@ -1,10 +1,11 @@
 package joiner
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/internal/severity"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestJoinWarning_String(t *testing.T) {
@@ -16,9 +17,7 @@ func TestJoinWarning_String(t *testing.T) {
 	got := w.String()
 	want := "path '/users' overwritten"
 
-	if got != want {
-		t.Errorf("String() = %q, want %q", got, want)
-	}
+	assert.Equal(t, want, got)
 }
 
 func TestJoinWarning_HasLocation(t *testing.T) {
@@ -35,9 +34,7 @@ func TestJoinWarning_HasLocation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &JoinWarning{Line: tt.line}
-			if got := w.HasLocation(); got != tt.want {
-				t.Errorf("HasLocation() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, w.HasLocation())
 		})
 	}
 }
@@ -95,9 +92,7 @@ func TestJoinWarning_Location(t *testing.T) {
 				Line:       tt.line,
 				Column:     tt.column,
 			}
-			if got := w.Location(); got != tt.want {
-				t.Errorf("Location() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, w.Location())
 		})
 	}
 }
@@ -105,52 +100,29 @@ func TestJoinWarning_Location(t *testing.T) {
 func TestNewPathCollisionWarning(t *testing.T) {
 	w := NewPathCollisionWarning("/users", "overwritten", "base.yaml", "second.yaml", 15, 3)
 
-	if w.Category != WarnPathCollision {
-		t.Errorf("Category = %v, want %v", w.Category, WarnPathCollision)
-	}
-	if w.Path != "paths./users" {
-		t.Errorf("Path = %q, want %q", w.Path, "paths./users")
-	}
-	if w.SourceFile != "second.yaml" {
-		t.Errorf("SourceFile = %q, want %q", w.SourceFile, "second.yaml")
-	}
-	if w.Line != 15 || w.Column != 3 {
-		t.Errorf("Line:Column = %d:%d, want 15:3", w.Line, w.Column)
-	}
-	if w.Severity != severity.SeverityWarning {
-		t.Errorf("Severity = %v, want %v", w.Severity, severity.SeverityWarning)
-	}
-	if w.Context["resolution"] != "overwritten" {
-		t.Errorf("Context[resolution] = %v, want %q", w.Context["resolution"], "overwritten")
-	}
+	assert.Equal(t, WarnPathCollision, w.Category)
+	assert.Equal(t, "paths./users", w.Path)
+	assert.Equal(t, "second.yaml", w.SourceFile)
+	assert.Equal(t, 15, w.Line)
+	assert.Equal(t, 3, w.Column)
+	assert.Equal(t, severity.SeverityWarning, w.Severity)
+	assert.Equal(t, "overwritten", w.Context["resolution"])
 }
 
 func TestNewWebhookCollisionWarning(t *testing.T) {
 	w := NewWebhookCollisionWarning("orderCreated", "kept from first", "base.yaml", "webhooks.yaml", 25, 0)
 
-	if w.Category != WarnWebhookCollision {
-		t.Errorf("Category = %v, want %v", w.Category, WarnWebhookCollision)
-	}
-	if w.Path != "webhooks.orderCreated" {
-		t.Errorf("Path = %q, want %q", w.Path, "webhooks.orderCreated")
-	}
-	if !w.HasLocation() {
-		t.Error("HasLocation() = false, want true")
-	}
+	assert.Equal(t, WarnWebhookCollision, w.Category)
+	assert.Equal(t, "webhooks.orderCreated", w.Path)
+	assert.True(t, w.HasLocation())
 }
 
 func TestNewSchemaCollisionWarning(t *testing.T) {
 	w := NewSchemaCollisionWarning("Pet", "overwritten", "components.schemas", "base.yaml", "pets.yaml", 100, 10)
 
-	if w.Category != WarnSchemaCollision {
-		t.Errorf("Category = %v, want %v", w.Category, WarnSchemaCollision)
-	}
-	if w.Path != "components.schemas.Pet" {
-		t.Errorf("Path = %q, want %q", w.Path, "components.schemas.Pet")
-	}
-	if w.Context["section"] != "components.schemas" {
-		t.Errorf("Context[section] = %v, want %q", w.Context["section"], "components.schemas")
-	}
+	assert.Equal(t, WarnSchemaCollision, w.Category)
+	assert.Equal(t, "components.schemas.Pet", w.Path)
+	assert.Equal(t, "components.schemas", w.Context["section"])
 }
 
 func TestNewSchemaRenamedWarning(t *testing.T) {
@@ -175,15 +147,9 @@ func TestNewSchemaRenamedWarning(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := NewSchemaRenamedWarning("Pet", "PetV2", "schemas", "pets.yaml", 50, 0, tt.keptOriginal)
 
-			if w.Category != WarnSchemaRenamed {
-				t.Errorf("Category = %v, want %v", w.Category, WarnSchemaRenamed)
-			}
-			if w.Severity != severity.SeverityInfo {
-				t.Errorf("Severity = %v, want %v", w.Severity, severity.SeverityInfo)
-			}
-			if w.Context["kept_original"] != tt.keptOriginal {
-				t.Errorf("Context[kept_original] = %v, want %v", w.Context["kept_original"], tt.keptOriginal)
-			}
+			assert.Equal(t, WarnSchemaRenamed, w.Category)
+			assert.Equal(t, severity.SeverityInfo, w.Severity)
+			assert.Equal(t, tt.keptOriginal, w.Context["kept_original"])
 		})
 	}
 }
@@ -191,71 +157,41 @@ func TestNewSchemaRenamedWarning(t *testing.T) {
 func TestNewSchemaDedupWarning(t *testing.T) {
 	w := NewSchemaDedupWarning("User", "definitions", "users.yaml", 30, 5)
 
-	if w.Category != WarnSchemaDeduplicated {
-		t.Errorf("Category = %v, want %v", w.Category, WarnSchemaDeduplicated)
-	}
-	if w.Severity != severity.SeverityInfo {
-		t.Errorf("Severity = %v, want %v", w.Severity, severity.SeverityInfo)
-	}
-	if w.Location() != "users.yaml:30:5" {
-		t.Errorf("Location() = %q, want %q", w.Location(), "users.yaml:30:5")
-	}
+	assert.Equal(t, WarnSchemaDeduplicated, w.Category)
+	assert.Equal(t, severity.SeverityInfo, w.Severity)
+	assert.Equal(t, "users.yaml:30:5", w.Location())
 }
 
 func TestNewNamespacePrefixWarning(t *testing.T) {
 	w := NewNamespacePrefixWarning("Pet", "Auth_Pet", "schemas", "auth.yaml", 0, 0)
 
-	if w.Category != WarnNamespacePrefixed {
-		t.Errorf("Category = %v, want %v", w.Category, WarnNamespacePrefixed)
-	}
-	if w.Context["original_name"] != "Pet" {
-		t.Errorf("Context[original_name] = %v, want %q", w.Context["original_name"], "Pet")
-	}
-	if w.Context["new_name"] != "Auth_Pet" {
-		t.Errorf("Context[new_name] = %v, want %q", w.Context["new_name"], "Auth_Pet")
-	}
+	assert.Equal(t, WarnNamespacePrefixed, w.Category)
+	assert.Equal(t, "Pet", w.Context["original_name"])
+	assert.Equal(t, "Auth_Pet", w.Context["new_name"])
 }
 
 func TestNewVersionMismatchWarning(t *testing.T) {
 	w := NewVersionMismatchWarning("v1.yaml", "3.0.0", "v2.yaml", "3.0.3", "3.0.3")
 
-	if w.Category != WarnVersionMismatch {
-		t.Errorf("Category = %v, want %v", w.Category, WarnVersionMismatch)
-	}
-	if w.Severity != severity.SeverityWarning {
-		t.Errorf("Severity = %v, want %v", w.Severity, severity.SeverityWarning)
-	}
-	if w.Context["target_version"] != "3.0.3" {
-		t.Errorf("Context[target_version] = %v, want %q", w.Context["target_version"], "3.0.3")
-	}
+	assert.Equal(t, WarnVersionMismatch, w.Category)
+	assert.Equal(t, severity.SeverityWarning, w.Severity)
+	assert.Equal(t, "3.0.3", w.Context["target_version"])
 }
 
 func TestNewMetadataOverrideWarning(t *testing.T) {
 	w := NewMetadataOverrideWarning("host", "api.example.com", "other.example.com", "second.yaml")
 
-	if w.Category != WarnMetadataOverride {
-		t.Errorf("Category = %v, want %v", w.Category, WarnMetadataOverride)
-	}
-	if w.Path != "host" {
-		t.Errorf("Path = %q, want %q", w.Path, "host")
-	}
-	if w.Context["first_value"] != "api.example.com" {
-		t.Errorf("Context[first_value] = %v, want %q", w.Context["first_value"], "api.example.com")
-	}
+	assert.Equal(t, WarnMetadataOverride, w.Category)
+	assert.Equal(t, "host", w.Path)
+	assert.Equal(t, "api.example.com", w.Context["first_value"])
 }
 
 func TestNewSemanticDedupSummaryWarning(t *testing.T) {
 	w := NewSemanticDedupSummaryWarning(5, "schema")
 
-	if w.Category != WarnSemanticDedup {
-		t.Errorf("Category = %v, want %v", w.Category, WarnSemanticDedup)
-	}
-	if w.Context["count"] != 5 {
-		t.Errorf("Context[count] = %v, want 5", w.Context["count"])
-	}
-	if w.Context["section"] != "schema" {
-		t.Errorf("Context[section] = %v, want %q", w.Context["section"], "schema")
-	}
+	assert.Equal(t, WarnSemanticDedup, w.Category)
+	assert.Equal(t, 5, w.Context["count"])
+	assert.Equal(t, "schema", w.Context["section"])
 }
 
 func TestJoinWarnings_Strings(t *testing.T) {
@@ -267,12 +203,10 @@ func TestJoinWarnings_Strings(t *testing.T) {
 
 	got := warnings.Strings()
 
-	if len(got) != 3 {
-		t.Fatalf("len(Strings()) = %d, want 3", len(got))
-	}
-	if got[0] != "warning 1" || got[1] != "warning 2" || got[2] != "warning 3" {
-		t.Errorf("Strings() = %v, want [warning 1, warning 2, warning 3]", got)
-	}
+	require.Len(t, got, 3)
+	assert.Equal(t, "warning 1", got[0])
+	assert.Equal(t, "warning 2", got[1])
+	assert.Equal(t, "warning 3", got[2])
 }
 
 func TestJoinWarnings_ByCategory(t *testing.T) {
@@ -284,13 +218,9 @@ func TestJoinWarnings_ByCategory(t *testing.T) {
 
 	pathWarnings := warnings.ByCategory(WarnPathCollision)
 
-	if len(pathWarnings) != 2 {
-		t.Fatalf("ByCategory(WarnPathCollision) len = %d, want 2", len(pathWarnings))
-	}
+	require.Len(t, pathWarnings, 2)
 	for _, w := range pathWarnings {
-		if w.Category != WarnPathCollision {
-			t.Errorf("unexpected category %v in filtered results", w.Category)
-		}
+		assert.Equal(t, WarnPathCollision, w.Category, "unexpected category in filtered results")
 	}
 }
 
@@ -303,20 +233,14 @@ func TestJoinWarnings_BySeverity(t *testing.T) {
 
 	infoWarnings := warnings.BySeverity(severity.SeverityInfo)
 
-	if len(infoWarnings) != 1 {
-		t.Fatalf("BySeverity(SeverityInfo) len = %d, want 1", len(infoWarnings))
-	}
-	if infoWarnings[0].Message != "info 1" {
-		t.Errorf("wrong warning filtered: %q", infoWarnings[0].Message)
-	}
+	require.Len(t, infoWarnings, 1)
+	assert.Equal(t, "info 1", infoWarnings[0].Message)
 }
 
 func TestJoinWarnings_Summary(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		var warnings JoinWarnings
-		if got := warnings.Summary(); got != "" {
-			t.Errorf("Summary() = %q, want empty string", got)
-		}
+		assert.Equal(t, "", warnings.Summary())
 	})
 
 	t.Run("with warnings", func(t *testing.T) {
@@ -327,16 +251,11 @@ func TestJoinWarnings_Summary(t *testing.T) {
 
 		got := warnings.Summary()
 
-		if got == "" {
-			t.Error("Summary() returned empty string for non-empty warnings")
-		}
+		assert.NotEqual(t, "", got, "Summary() returned empty string for non-empty warnings")
 		// Check it contains expected parts
-		if !strings.Contains(got, "2 warning(s)") {
-			t.Errorf("Summary() missing count: %q", got)
-		}
-		if !strings.Contains(got, "first warning") || !strings.Contains(got, "second warning") {
-			t.Errorf("Summary() missing warning messages: %q", got)
-		}
+		assert.Contains(t, got, "2 warning(s)")
+		assert.Contains(t, got, "first warning")
+		assert.Contains(t, got, "second warning")
 	})
 }
 
@@ -352,12 +271,8 @@ func TestJoinResult_WarningStrings(t *testing.T) {
 
 		got := result.WarningStrings()
 
-		if len(got) != 2 {
-			t.Fatalf("WarningStrings() len = %d, want 2", len(got))
-		}
-		if got[0] != "structured warning 1" {
-			t.Errorf("WarningStrings()[0] = %q, want %q", got[0], "structured warning 1")
-		}
+		require.Len(t, got, 2)
+		assert.Equal(t, "structured warning 1", got[0])
 	})
 
 	t.Run("falls back to Warnings when StructuredWarnings empty", func(t *testing.T) {
@@ -367,12 +282,8 @@ func TestJoinResult_WarningStrings(t *testing.T) {
 
 		got := result.WarningStrings()
 
-		if len(got) != 2 {
-			t.Fatalf("WarningStrings() len = %d, want 2", len(got))
-		}
-		if got[0] != "legacy warning 1" {
-			t.Errorf("WarningStrings()[0] = %q, want %q", got[0], "legacy warning 1")
-		}
+		require.Len(t, got, 2)
+		assert.Equal(t, "legacy warning 1", got[0])
 	})
 }
 
@@ -385,18 +296,10 @@ func TestJoinWarnings_Strings_WithNil(t *testing.T) {
 
 	got := warnings.Strings()
 
-	if len(got) != 3 {
-		t.Fatalf("Strings() len = %d, want 3", len(got))
-	}
-	if got[0] != "first" {
-		t.Errorf("Strings()[0] = %q, want %q", got[0], "first")
-	}
-	if got[1] != "" {
-		t.Errorf("Strings()[1] = %q, want empty string for nil", got[1])
-	}
-	if got[2] != "third" {
-		t.Errorf("Strings()[2] = %q, want %q", got[2], "third")
-	}
+	require.Len(t, got, 3)
+	assert.Equal(t, "first", got[0])
+	assert.Equal(t, "", got[1], "Expected empty string for nil")
+	assert.Equal(t, "third", got[2])
 }
 
 func TestIsGenericSourceName(t *testing.T) {
@@ -423,9 +326,7 @@ func TestIsGenericSourceName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsGenericSourceName(tt.sourcePath); got != tt.want {
-				t.Errorf("IsGenericSourceName(%q) = %v, want %v", tt.sourcePath, got, tt.want)
-			}
+			assert.Equal(t, tt.want, IsGenericSourceName(tt.sourcePath))
 		})
 	}
 }
@@ -434,107 +335,53 @@ func TestNewGenericSourceNameWarning(t *testing.T) {
 	t.Run("empty source path", func(t *testing.T) {
 		w := NewGenericSourceNameWarning("", 0)
 
-		if w.Category != WarnGenericSourceName {
-			t.Errorf("Category = %v, want %v", w.Category, WarnGenericSourceName)
-		}
-		if w.Severity != severity.SeverityInfo {
-			t.Errorf("Severity = %v, want %v", w.Severity, severity.SeverityInfo)
-		}
-		if !strings.Contains(w.Message, "empty source name") {
-			t.Errorf("Message should mention 'empty source name': %q", w.Message)
-		}
-		if !strings.Contains(w.Message, "ParseResult.SourcePath") {
-			t.Errorf("Message should guide users to set SourcePath: %q", w.Message)
-		}
-		if w.Context["doc_index"] != 0 {
-			t.Errorf("Context[doc_index] = %v, want 0", w.Context["doc_index"])
-		}
+		assert.Equal(t, WarnGenericSourceName, w.Category)
+		assert.Equal(t, severity.SeverityInfo, w.Severity)
+		assert.Contains(t, w.Message, "empty source name")
+		assert.Contains(t, w.Message, "ParseResult.SourcePath")
+		assert.Equal(t, 0, w.Context["doc_index"])
 	})
 
 	t.Run("generic source path", func(t *testing.T) {
 		w := NewGenericSourceNameWarning("ParseBytes.yaml", 5)
 
-		if w.Category != WarnGenericSourceName {
-			t.Errorf("Category = %v, want %v", w.Category, WarnGenericSourceName)
-		}
-		if !strings.Contains(w.Message, "generic source name") {
-			t.Errorf("Message should mention 'generic source name': %q", w.Message)
-		}
-		if !strings.Contains(w.Message, "ParseBytes.yaml") {
-			t.Errorf("Message should include the source path: %q", w.Message)
-		}
-		if w.Context["doc_index"] != 5 {
-			t.Errorf("Context[doc_index] = %v, want 5", w.Context["doc_index"])
-		}
-		if w.Context["source_path"] != "ParseBytes.yaml" {
-			t.Errorf("Context[source_path] = %v, want %q", w.Context["source_path"], "ParseBytes.yaml")
-		}
-		if w.SourceFile != "ParseBytes.yaml" {
-			t.Errorf("SourceFile = %q, want %q", w.SourceFile, "ParseBytes.yaml")
-		}
+		assert.Equal(t, WarnGenericSourceName, w.Category)
+		assert.Contains(t, w.Message, "generic source name")
+		assert.Contains(t, w.Message, "ParseBytes.yaml")
+		assert.Equal(t, 5, w.Context["doc_index"])
+		assert.Equal(t, "ParseBytes.yaml", w.Context["source_path"])
+		assert.Equal(t, "ParseBytes.yaml", w.SourceFile)
 	})
 }
 
 func TestHandlerWarningCategories(t *testing.T) {
 	// Test WarnHandlerError
-	if WarnHandlerError != WarningCategory("handler_error") {
-		t.Errorf("WarnHandlerError = %v, want %v", WarnHandlerError, WarningCategory("handler_error"))
-	}
+	assert.Equal(t, WarningCategory("handler_error"), WarnHandlerError)
 
 	// Test WarnHandlerResolution
-	if WarnHandlerResolution != WarningCategory("handler_resolution") {
-		t.Errorf("WarnHandlerResolution = %v, want %v", WarnHandlerResolution, WarningCategory("handler_resolution"))
-	}
+	assert.Equal(t, WarningCategory("handler_resolution"), WarnHandlerResolution)
 }
 
 func TestNewHandlerErrorWarning(t *testing.T) {
 	warn := NewHandlerErrorWarning("$.components.schemas.User", "handler failed: timeout", "overlay.yaml", 42, 5)
 
-	if warn.Category != WarnHandlerError {
-		t.Errorf("Category = %v, want %v", warn.Category, WarnHandlerError)
-	}
-	if warn.Path != "$.components.schemas.User" {
-		t.Errorf("Path = %q, want %q", warn.Path, "$.components.schemas.User")
-	}
-	if warn.Message != "handler failed: timeout" {
-		t.Errorf("Message = %q, want %q", warn.Message, "handler failed: timeout")
-	}
-	if warn.SourceFile != "overlay.yaml" {
-		t.Errorf("SourceFile = %q, want %q", warn.SourceFile, "overlay.yaml")
-	}
-	if warn.Line != 42 {
-		t.Errorf("Line = %d, want 42", warn.Line)
-	}
-	if warn.Column != 5 {
-		t.Errorf("Column = %d, want 5", warn.Column)
-	}
-	if warn.Severity != severity.SeverityWarning {
-		t.Errorf("Severity = %v, want %v", warn.Severity, severity.SeverityWarning)
-	}
+	assert.Equal(t, WarnHandlerError, warn.Category)
+	assert.Equal(t, "$.components.schemas.User", warn.Path)
+	assert.Equal(t, "handler failed: timeout", warn.Message)
+	assert.Equal(t, "overlay.yaml", warn.SourceFile)
+	assert.Equal(t, 42, warn.Line)
+	assert.Equal(t, 5, warn.Column)
+	assert.Equal(t, severity.SeverityWarning, warn.Severity)
 }
 
 func TestNewHandlerResolutionWarning(t *testing.T) {
 	warn := NewHandlerResolutionWarning("$.components.schemas.User", "custom merge applied", "overlay.yaml", 42, 5)
 
-	if warn.Category != WarnHandlerResolution {
-		t.Errorf("Category = %v, want %v", warn.Category, WarnHandlerResolution)
-	}
-	if warn.Path != "$.components.schemas.User" {
-		t.Errorf("Path = %q, want %q", warn.Path, "$.components.schemas.User")
-	}
-	if warn.Message != "custom merge applied" {
-		t.Errorf("Message = %q, want %q", warn.Message, "custom merge applied")
-	}
-	if warn.SourceFile != "overlay.yaml" {
-		t.Errorf("SourceFile = %q, want %q", warn.SourceFile, "overlay.yaml")
-	}
-	if warn.Line != 42 {
-		t.Errorf("Line = %d, want 42", warn.Line)
-	}
-	if warn.Column != 5 {
-		t.Errorf("Column = %d, want 5", warn.Column)
-	}
-	if warn.Severity != severity.SeverityInfo {
-		t.Errorf("Severity = %v, want %v", warn.Severity, severity.SeverityInfo)
-	}
+	assert.Equal(t, WarnHandlerResolution, warn.Category)
+	assert.Equal(t, "$.components.schemas.User", warn.Path)
+	assert.Equal(t, "custom merge applied", warn.Message)
+	assert.Equal(t, "overlay.yaml", warn.SourceFile)
+	assert.Equal(t, 42, warn.Line)
+	assert.Equal(t, 5, warn.Column)
+	assert.Equal(t, severity.SeverityInfo, warn.Severity)
 }

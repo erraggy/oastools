@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestJoiner_SemanticDeduplication_OAS3(t *testing.T) {
@@ -72,27 +74,19 @@ func TestJoiner_SemanticDeduplication_OAS3(t *testing.T) {
 	j := New(config)
 
 	joinResult, err := j.JoinParsed(results)
-	if err != nil {
-		t.Fatalf("JoinParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Expected OAS3Document")
-	}
+	require.True(t, ok, "Expected OAS3Document")
 
 	// Should have 1 schema (Address is canonical, alphabetically first)
-	if len(oas3Doc.Components.Schemas) != 1 {
-		t.Errorf("Expected 1 schema after dedup, got %d", len(oas3Doc.Components.Schemas))
-	}
+	assert.Len(t, oas3Doc.Components.Schemas, 1, "Expected 1 schema after dedup")
 
-	if _, ok := oas3Doc.Components.Schemas["Address"]; !ok {
-		t.Error("Expected Address to be canonical (alphabetically first)")
-	}
+	_, ok = oas3Doc.Components.Schemas["Address"]
+	assert.True(t, ok, "Expected Address to be canonical (alphabetically first)")
 
-	if _, ok := oas3Doc.Components.Schemas["Location"]; ok {
-		t.Error("Expected Location to be removed (duplicate of Address)")
-	}
+	_, ok = oas3Doc.Components.Schemas["Location"]
+	assert.False(t, ok, "Expected Location to be removed (duplicate of Address)")
 }
 
 func TestJoiner_SemanticDeduplication_OAS2(t *testing.T) {
@@ -156,27 +150,19 @@ func TestJoiner_SemanticDeduplication_OAS2(t *testing.T) {
 	j := New(config)
 
 	joinResult, err := j.JoinParsed(results)
-	if err != nil {
-		t.Fatalf("JoinParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	oas2Doc, ok := joinResult.Document.(*parser.OAS2Document)
-	if !ok {
-		t.Fatal("Expected OAS2Document")
-	}
+	require.True(t, ok, "Expected OAS2Document")
 
 	// Should have 1 definition (Address is canonical, alphabetically first)
-	if len(oas2Doc.Definitions) != 1 {
-		t.Errorf("Expected 1 definition after dedup, got %d", len(oas2Doc.Definitions))
-	}
+	assert.Len(t, oas2Doc.Definitions, 1, "Expected 1 definition after dedup")
 
-	if _, ok := oas2Doc.Definitions["Address"]; !ok {
-		t.Error("Expected Address to be canonical (alphabetically first)")
-	}
+	_, ok = oas2Doc.Definitions["Address"]
+	assert.True(t, ok, "Expected Address to be canonical (alphabetically first)")
 
-	if _, ok := oas2Doc.Definitions["Location"]; ok {
-		t.Error("Expected Location to be removed (duplicate of Address)")
-	}
+	_, ok = oas2Doc.Definitions["Location"]
+	assert.False(t, ok, "Expected Location to be removed (duplicate of Address)")
 }
 
 func TestJoiner_SemanticDeduplication_ReferenceRewriting_OAS3(t *testing.T) {
@@ -245,31 +231,21 @@ func TestJoiner_SemanticDeduplication_ReferenceRewriting_OAS3(t *testing.T) {
 	j := New(config)
 
 	joinResult, err := j.JoinParsed(results)
-	if err != nil {
-		t.Fatalf("JoinParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Expected OAS3Document")
-	}
+	require.True(t, ok, "Expected OAS3Document")
 
 	// Should have 2 schemas: Address (canonical) and Order
-	if len(oas3Doc.Components.Schemas) != 2 {
-		t.Errorf("Expected 2 schemas after dedup, got %d", len(oas3Doc.Components.Schemas))
-	}
+	assert.Len(t, oas3Doc.Components.Schemas, 2, "Expected 2 schemas after dedup")
 
 	// Order's reference to Location should be rewritten to Address
 	orderSchema := oas3Doc.Components.Schemas["Order"]
-	if orderSchema == nil {
-		t.Fatal("Expected Order schema to exist")
-	}
+	require.NotNil(t, orderSchema, "Expected Order schema to exist")
 
 	shipToRef := orderSchema.Properties["shipTo"].Ref
 	expectedRef := "#/components/schemas/Address"
-	if shipToRef != expectedRef {
-		t.Errorf("Expected shipTo.$ref = %s, got %s", expectedRef, shipToRef)
-	}
+	assert.Equal(t, expectedRef, shipToRef)
 }
 
 func TestJoiner_SemanticDeduplication_ReferenceRewriting_OAS2(t *testing.T) {
@@ -334,31 +310,21 @@ func TestJoiner_SemanticDeduplication_ReferenceRewriting_OAS2(t *testing.T) {
 	j := New(config)
 
 	joinResult, err := j.JoinParsed(results)
-	if err != nil {
-		t.Fatalf("JoinParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	oas2Doc, ok := joinResult.Document.(*parser.OAS2Document)
-	if !ok {
-		t.Fatal("Expected OAS2Document")
-	}
+	require.True(t, ok, "Expected OAS2Document")
 
 	// Should have 2 definitions: Address (canonical) and Order
-	if len(oas2Doc.Definitions) != 2 {
-		t.Errorf("Expected 2 definitions after dedup, got %d", len(oas2Doc.Definitions))
-	}
+	assert.Len(t, oas2Doc.Definitions, 2, "Expected 2 definitions after dedup")
 
 	// Order's reference to Location should be rewritten to Address
 	orderSchema := oas2Doc.Definitions["Order"]
-	if orderSchema == nil {
-		t.Fatal("Expected Order definition to exist")
-	}
+	require.NotNil(t, orderSchema, "Expected Order definition to exist")
 
 	shipToRef := orderSchema.Properties["shipTo"].Ref
 	expectedRef := "#/definitions/Address"
-	if shipToRef != expectedRef {
-		t.Errorf("Expected shipTo.$ref = %s, got %s", expectedRef, shipToRef)
-	}
+	assert.Equal(t, expectedRef, shipToRef)
 }
 
 func TestJoiner_SemanticDeduplication_Disabled(t *testing.T) {
@@ -409,19 +375,13 @@ func TestJoiner_SemanticDeduplication_Disabled(t *testing.T) {
 	j := New(config)
 
 	joinResult, err := j.JoinParsed(results)
-	if err != nil {
-		t.Fatalf("JoinParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Expected OAS3Document")
-	}
+	require.True(t, ok, "Expected OAS3Document")
 
 	// Should have both schemas (no deduplication)
-	if len(oas3Doc.Components.Schemas) != 2 {
-		t.Errorf("Expected 2 schemas (no dedup), got %d", len(oas3Doc.Components.Schemas))
-	}
+	assert.Len(t, oas3Doc.Components.Schemas, 2, "Expected 2 schemas (no dedup)")
 }
 
 func TestJoiner_SemanticDeduplication_MultipleGroups(t *testing.T) {
@@ -486,38 +446,27 @@ func TestJoiner_SemanticDeduplication_MultipleGroups(t *testing.T) {
 	j := New(config)
 
 	joinResult, err := j.JoinParsed(results)
-	if err != nil {
-		t.Fatalf("JoinParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Expected OAS3Document")
-	}
+	require.True(t, ok, "Expected OAS3Document")
 
 	// Should have 3 schemas: Address (canonical), Name (canonical), Age (unique)
-	if len(oas3Doc.Components.Schemas) != 3 {
-		t.Errorf("Expected 3 schemas, got %d", len(oas3Doc.Components.Schemas))
-	}
+	assert.Len(t, oas3Doc.Components.Schemas, 3, "Expected 3 schemas")
 
 	// Verify canonical names
-	if _, ok := oas3Doc.Components.Schemas["Address"]; !ok {
-		t.Error("Expected Address to be canonical")
-	}
-	if _, ok := oas3Doc.Components.Schemas["Name"]; !ok {
-		t.Error("Expected Name to be canonical")
-	}
-	if _, ok := oas3Doc.Components.Schemas["Age"]; !ok {
-		t.Error("Expected Age to be present")
-	}
+	_, ok = oas3Doc.Components.Schemas["Address"]
+	assert.True(t, ok, "Expected Address to be canonical")
+	_, ok = oas3Doc.Components.Schemas["Name"]
+	assert.True(t, ok, "Expected Name to be canonical")
+	_, ok = oas3Doc.Components.Schemas["Age"]
+	assert.True(t, ok, "Expected Age to be present")
 
 	// Verify duplicates removed
-	if _, ok := oas3Doc.Components.Schemas["Location"]; ok {
-		t.Error("Expected Location to be removed (duplicate of Address)")
-	}
-	if _, ok := oas3Doc.Components.Schemas["Title"]; ok {
-		t.Error("Expected Title to be removed (duplicate of Name)")
-	}
+	_, ok = oas3Doc.Components.Schemas["Location"]
+	assert.False(t, ok, "Expected Location to be removed (duplicate of Address)")
+	_, ok = oas3Doc.Components.Schemas["Title"]
+	assert.False(t, ok, "Expected Title to be removed (duplicate of Name)")
 }
 
 func TestJoiner_SemanticDeduplication_WarningsGenerated(t *testing.T) {
@@ -568,9 +517,7 @@ func TestJoiner_SemanticDeduplication_WarningsGenerated(t *testing.T) {
 	j := New(config)
 
 	joinResult, err := j.JoinParsed(results)
-	if err != nil {
-		t.Fatalf("JoinParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Check that a warning was generated about deduplication
 	found := false
@@ -581,9 +528,7 @@ func TestJoiner_SemanticDeduplication_WarningsGenerated(t *testing.T) {
 		}
 	}
 
-	if !found {
-		t.Error("Expected warning about semantic deduplication consolidation")
-	}
+	assert.True(t, found, "Expected warning about semantic deduplication consolidation")
 }
 
 func TestJoiner_WithSemanticDeduplication_Option(t *testing.T) {
@@ -634,19 +579,13 @@ func TestJoiner_WithSemanticDeduplication_Option(t *testing.T) {
 		WithParsed(results...),
 		WithSemanticDeduplication(true),
 	)
-	if err != nil {
-		t.Fatalf("JoinWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Expected OAS3Document")
-	}
+	require.True(t, ok, "Expected OAS3Document")
 
 	// Should have 1 schema after deduplication
-	if len(oas3Doc.Components.Schemas) != 1 {
-		t.Errorf("Expected 1 schema after dedup, got %d", len(oas3Doc.Components.Schemas))
-	}
+	assert.Len(t, oas3Doc.Components.Schemas, 1, "Expected 1 schema after dedup")
 }
 
 func TestJoiner_SemanticDeduplication_MetadataIgnored(t *testing.T) {
@@ -711,19 +650,13 @@ func TestJoiner_SemanticDeduplication_MetadataIgnored(t *testing.T) {
 	j := New(config)
 
 	joinResult, err := j.JoinParsed(results)
-	if err != nil {
-		t.Fatalf("JoinParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Expected OAS3Document")
-	}
+	require.True(t, ok, "Expected OAS3Document")
 
 	// Should deduplicate since structural properties are the same
-	if len(oas3Doc.Components.Schemas) != 1 {
-		t.Errorf("Expected 1 schema (metadata ignored), got %d", len(oas3Doc.Components.Schemas))
-	}
+	assert.Len(t, oas3Doc.Components.Schemas, 1, "Expected 1 schema (metadata ignored)")
 }
 
 func TestJoiner_SemanticDeduplication_EmptySchemasPreserved(t *testing.T) {
@@ -791,44 +724,36 @@ func TestJoiner_SemanticDeduplication_EmptySchemasPreserved(t *testing.T) {
 	j := New(config)
 
 	joinResult, err := j.JoinParsed(results)
-	if err != nil {
-		t.Fatalf("JoinParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Expected OAS3Document")
-	}
+	require.True(t, ok, "Expected OAS3Document")
 
 	// Should have 3 schemas:
 	// - AnyPayload (empty, preserved)
 	// - DynamicData (empty, preserved - NOT deduplicated with AnyPayload)
 	// - Person (canonical for Person/User group - alphabetically first)
 	// User should be deduplicated into Person
-	if len(oas3Doc.Components.Schemas) != 3 {
+	if !assert.Len(t, oas3Doc.Components.Schemas, 3, "Expected 3 schemas (empty schemas preserved)") {
 		names := make([]string, 0, len(oas3Doc.Components.Schemas))
 		for name := range oas3Doc.Components.Schemas {
 			names = append(names, name)
 		}
-		t.Errorf("Expected 3 schemas (empty schemas preserved), got %d: %v", len(oas3Doc.Components.Schemas), names)
+		t.Logf("Got schemas: %v", names)
 	}
 
 	// Verify empty schemas are preserved
-	if _, ok := oas3Doc.Components.Schemas["AnyPayload"]; !ok {
-		t.Error("Expected AnyPayload empty schema to be preserved")
-	}
-	if _, ok := oas3Doc.Components.Schemas["DynamicData"]; !ok {
-		t.Error("Expected DynamicData empty schema to be preserved")
-	}
+	_, ok = oas3Doc.Components.Schemas["AnyPayload"]
+	assert.True(t, ok, "Expected AnyPayload empty schema to be preserved")
+	_, ok = oas3Doc.Components.Schemas["DynamicData"]
+	assert.True(t, ok, "Expected DynamicData empty schema to be preserved")
 
 	// Verify non-empty schema deduplication still works
 	// Person is canonical (alphabetically first: "Person" < "User")
-	if _, ok := oas3Doc.Components.Schemas["Person"]; !ok {
-		t.Error("Expected Person to be canonical (alphabetically first vs User)")
-	}
-	if _, ok := oas3Doc.Components.Schemas["User"]; ok {
-		t.Error("Expected User to be removed (duplicate of Person)")
-	}
+	_, ok = oas3Doc.Components.Schemas["Person"]
+	assert.True(t, ok, "Expected Person to be canonical (alphabetically first vs User)")
+	_, ok = oas3Doc.Components.Schemas["User"]
+	assert.False(t, ok, "Expected User to be removed (duplicate of Person)")
 }
 
 func TestJoiner_SemanticDeduplication_EmptySchemasPreserved_OAS2(t *testing.T) {
@@ -887,37 +812,29 @@ func TestJoiner_SemanticDeduplication_EmptySchemasPreserved_OAS2(t *testing.T) {
 	j := New(config)
 
 	joinResult, err := j.JoinParsed(results)
-	if err != nil {
-		t.Fatalf("JoinParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	oas2Doc, ok := joinResult.Document.(*parser.OAS2Document)
-	if !ok {
-		t.Fatal("Expected OAS2Document")
-	}
+	require.True(t, ok, "Expected OAS2Document")
 
 	// Should have 3 definitions: both empty schemas preserved, User deduplicated into Person
-	if len(oas2Doc.Definitions) != 3 {
+	if !assert.Len(t, oas2Doc.Definitions, 3, "Expected 3 definitions (empty schemas preserved)") {
 		names := make([]string, 0, len(oas2Doc.Definitions))
 		for name := range oas2Doc.Definitions {
 			names = append(names, name)
 		}
-		t.Errorf("Expected 3 definitions (empty schemas preserved), got %d: %v", len(oas2Doc.Definitions), names)
+		t.Logf("Got definitions: %v", names)
 	}
 
-	if _, ok := oas2Doc.Definitions["AnyPayload"]; !ok {
-		t.Error("Expected AnyPayload empty schema to be preserved")
-	}
-	if _, ok := oas2Doc.Definitions["DynamicData"]; !ok {
-		t.Error("Expected DynamicData empty schema to be preserved")
-	}
+	_, ok = oas2Doc.Definitions["AnyPayload"]
+	assert.True(t, ok, "Expected AnyPayload empty schema to be preserved")
+	_, ok = oas2Doc.Definitions["DynamicData"]
+	assert.True(t, ok, "Expected DynamicData empty schema to be preserved")
 	// Person is canonical (alphabetically first: "Person" < "User")
-	if _, ok := oas2Doc.Definitions["Person"]; !ok {
-		t.Error("Expected Person to be canonical")
-	}
-	if _, ok := oas2Doc.Definitions["User"]; ok {
-		t.Error("Expected User to be removed (duplicate of Person)")
-	}
+	_, ok = oas2Doc.Definitions["Person"]
+	assert.True(t, ok, "Expected Person to be canonical")
+	_, ok = oas2Doc.Definitions["User"]
+	assert.False(t, ok, "Expected User to be removed (duplicate of Person)")
 }
 
 func TestJoiner_SemanticDeduplication_EmptySchemaReferenceRewriting(t *testing.T) {
@@ -978,34 +895,24 @@ func TestJoiner_SemanticDeduplication_EmptySchemaReferenceRewriting(t *testing.T
 	j := New(config)
 
 	joinResult, err := j.JoinParsed(results)
-	if err != nil {
-		t.Fatalf("JoinParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Expected OAS3Document")
-	}
+	require.True(t, ok, "Expected OAS3Document")
 
 	// Both empty schemas should be preserved (not deduplicated)
-	if _, ok := oas3Doc.Components.Schemas["EmptyPlaceholder"]; !ok {
-		t.Error("Expected EmptyPlaceholder to be preserved")
-	}
-	if _, ok := oas3Doc.Components.Schemas["AnotherEmpty"]; !ok {
-		t.Error("Expected AnotherEmpty to be preserved")
-	}
+	_, ok = oas3Doc.Components.Schemas["EmptyPlaceholder"]
+	assert.True(t, ok, "Expected EmptyPlaceholder to be preserved")
+	_, ok = oas3Doc.Components.Schemas["AnotherEmpty"]
+	assert.True(t, ok, "Expected AnotherEmpty to be preserved")
 
 	// Order's reference to AnotherEmpty should remain unchanged
 	orderSchema := oas3Doc.Components.Schemas["Order"]
-	if orderSchema == nil {
-		t.Fatal("Expected Order schema to exist")
-	}
+	require.NotNil(t, orderSchema, "Expected Order schema to exist")
 
 	payloadRef := orderSchema.Properties["payload"].Ref
 	expectedRef := "#/components/schemas/AnotherEmpty"
-	if payloadRef != expectedRef {
-		t.Errorf("Expected payload.$ref = %s, got %s (reference should NOT be rewritten for empty schemas)", expectedRef, payloadRef)
-	}
+	assert.Equal(t, expectedRef, payloadRef, "reference should NOT be rewritten for empty schemas")
 }
 
 func TestJoiner_SemanticDeduplication_EmptyWithMetadataPreserved(t *testing.T) {
@@ -1062,24 +969,16 @@ func TestJoiner_SemanticDeduplication_EmptyWithMetadataPreserved(t *testing.T) {
 	j := New(config)
 
 	joinResult, err := j.JoinParsed(results)
-	if err != nil {
-		t.Fatalf("JoinParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Expected OAS3Document")
-	}
+	require.True(t, ok, "Expected OAS3Document")
 
 	// Both schemas should be preserved since they are empty (metadata-only)
-	if len(oas3Doc.Components.Schemas) != 2 {
-		t.Errorf("Expected 2 schemas (empty schemas with metadata preserved), got %d", len(oas3Doc.Components.Schemas))
-	}
+	assert.Len(t, oas3Doc.Components.Schemas, 2, "Expected 2 schemas (empty schemas with metadata preserved)")
 
-	if _, ok := oas3Doc.Components.Schemas["Wildcard"]; !ok {
-		t.Error("Expected Wildcard empty schema to be preserved")
-	}
-	if _, ok := oas3Doc.Components.Schemas["Placeholder"]; !ok {
-		t.Error("Expected Placeholder empty schema to be preserved")
-	}
+	_, ok = oas3Doc.Components.Schemas["Wildcard"]
+	assert.True(t, ok, "Expected Wildcard empty schema to be preserved")
+	_, ok = oas3Doc.Components.Schemas["Placeholder"]
+	assert.True(t, ok, "Expected Placeholder empty schema to be preserved")
 }

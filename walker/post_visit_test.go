@@ -3,6 +3,9 @@ package walker
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -40,9 +43,7 @@ func TestPostVisit_SchemaOrder(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
 	// Expected order: pre Pet, pre name, post name, post Pet
 	expected := []string{
@@ -52,15 +53,7 @@ func TestPostVisit_SchemaOrder(t *testing.T) {
 		"post:$.components.schemas['Pet']",
 	}
 
-	if len(events) != len(expected) {
-		t.Fatalf("Expected %d events, got %d: %v", len(expected), len(events), events)
-	}
-
-	for i, exp := range expected {
-		if events[i] != exp {
-			t.Errorf("Event %d: expected %q, got %q", i, exp, events[i])
-		}
-	}
+	assert.Equal(t, expected, events)
 }
 
 func TestPostVisit_SkipChildrenSkipsPost(t *testing.T) {
@@ -99,13 +92,8 @@ func TestPostVisit_SkipChildrenSkipsPost(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-
-	if postCalled {
-		t.Error("Post handler should not be called when SkipChildren is returned")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.False(t, postCalled, "Post handler should not be called when SkipChildren is returned")
 }
 
 func TestPostVisit_StopPreventsPost(t *testing.T) {
@@ -144,13 +132,8 @@ func TestPostVisit_StopPreventsPost(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-
-	if postCalled {
-		t.Error("Post handler should not be called when Stop is returned")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.False(t, postCalled, "Post handler should not be called when Stop is returned")
 }
 
 func TestPostVisit_NestedSchemas(t *testing.T) {
@@ -192,21 +175,11 @@ func TestPostVisit_NestedSchemas(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
 	// Post-visit order should be inner to outer: c (string), b (object), A (object)
 	expected := []string{"string", "object", "object"}
-	if len(postOrder) != len(expected) {
-		t.Fatalf("Expected %d post calls, got %d: %v", len(expected), len(postOrder), postOrder)
-	}
-
-	for i, exp := range expected {
-		if postOrder[i] != exp {
-			t.Errorf("Post order %d: expected %q, got %q", i, exp, postOrder[i])
-		}
-	}
+	assert.Equal(t, expected, postOrder)
 }
 
 func TestPostVisit_AllTypes(t *testing.T) {
@@ -288,28 +261,14 @@ func TestPostVisit_AllTypes(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
-	if !called.schema {
-		t.Error("SchemaPostHandler was not called")
-	}
-	if !called.operation {
-		t.Error("OperationPostHandler was not called")
-	}
-	if !called.pathItem {
-		t.Error("PathItemPostHandler was not called")
-	}
-	if !called.response {
-		t.Error("ResponsePostHandler was not called")
-	}
-	if !called.requestBody {
-		t.Error("RequestBodyPostHandler was not called")
-	}
-	if !called.callback {
-		t.Error("CallbackPostHandler was not called")
-	}
+	assert.True(t, called.schema, "SchemaPostHandler was not called")
+	assert.True(t, called.operation, "OperationPostHandler was not called")
+	assert.True(t, called.pathItem, "PathItemPostHandler was not called")
+	assert.True(t, called.response, "ResponsePostHandler was not called")
+	assert.True(t, called.requestBody, "RequestBodyPostHandler was not called")
+	assert.True(t, called.callback, "CallbackPostHandler was not called")
 }
 
 func TestPostVisit_Aggregation(t *testing.T) {
@@ -350,16 +309,10 @@ func TestPostVisit_Aggregation(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
-	if propertyCounts["Pet"] != 3 {
-		t.Errorf("Pet should have 3 properties, got %d", propertyCounts["Pet"])
-	}
-	if propertyCounts["Empty"] != 0 {
-		t.Errorf("Empty should have 0 properties, got %d", propertyCounts["Empty"])
-	}
+	assert.Equal(t, 3, propertyCounts["Pet"], "Pet should have 3 properties")
+	assert.Equal(t, 0, propertyCounts["Empty"], "Empty should have 0 properties")
 }
 
 func TestPostVisit_OAS2(t *testing.T) {
@@ -414,22 +367,12 @@ func TestPostVisit_OAS2(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
-	if !called.schema {
-		t.Error("SchemaPostHandler was not called for OAS 2.0")
-	}
-	if !called.operation {
-		t.Error("OperationPostHandler was not called for OAS 2.0")
-	}
-	if !called.pathItem {
-		t.Error("PathItemPostHandler was not called for OAS 2.0")
-	}
-	if !called.response {
-		t.Error("ResponsePostHandler was not called for OAS 2.0")
-	}
+	assert.True(t, called.schema, "SchemaPostHandler was not called for OAS 2.0")
+	assert.True(t, called.operation, "OperationPostHandler was not called for OAS 2.0")
+	assert.True(t, called.pathItem, "PathItemPostHandler was not called for OAS 2.0")
+	assert.True(t, called.response, "ResponsePostHandler was not called for OAS 2.0")
 }
 
 func TestPostVisit_StopDuringChildren(t *testing.T) {
@@ -472,13 +415,8 @@ func TestPostVisit_StopDuringChildren(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-
-	if parentPostCalled {
-		t.Error("Parent post handler should not be called when child returns Stop")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.False(t, parentPostCalled, "Parent post handler should not be called when child returns Stop")
 }
 
 func TestPostVisit_PreAndPostWithContext(t *testing.T) {
@@ -527,24 +465,15 @@ func TestPostVisit_PreAndPostWithContext(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
-	if preContext == nil || postContext == nil {
-		t.Fatal("Both pre and post handlers should be called")
-	}
+	require.NotNil(t, preContext, "Pre handler should be called")
+	require.NotNil(t, postContext, "Post handler should be called")
 
 	// Context should be the same in both
-	if preContext.JSONPath != postContext.JSONPath {
-		t.Errorf("JSONPath mismatch: pre=%q, post=%q", preContext.JSONPath, postContext.JSONPath)
-	}
-	if preContext.PathTemplate != postContext.PathTemplate {
-		t.Errorf("PathTemplate mismatch: pre=%q, post=%q", preContext.PathTemplate, postContext.PathTemplate)
-	}
-	if preContext.Method != postContext.Method {
-		t.Errorf("Method mismatch: pre=%q, post=%q", preContext.Method, postContext.Method)
-	}
+	assert.Equal(t, preContext.JSONPath, postContext.JSONPath, "JSONPath mismatch")
+	assert.Equal(t, preContext.PathTemplate, postContext.PathTemplate, "PathTemplate mismatch")
+	assert.Equal(t, preContext.Method, postContext.Method, "Method mismatch")
 }
 
 func TestPostVisit_OnlyPostHandler(t *testing.T) {
@@ -573,13 +502,8 @@ func TestPostVisit_OnlyPostHandler(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-
-	if !postCalled {
-		t.Error("Post handler should be called even without pre handler")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.True(t, postCalled, "Post handler should be called even without pre handler")
 }
 
 func BenchmarkWalk_WithPostHandler(b *testing.B) {
@@ -686,24 +610,16 @@ func TestPostVisit_OAS3DocumentPostHandler(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
 	// Document post should be called after all other visits
-	if len(events) < 2 {
-		t.Fatalf("Expected at least 2 events, got %d: %v", len(events), events)
-	}
+	require.GreaterOrEqual(t, len(events), 2, "Expected at least 2 events")
 
 	// Pre-document should be first
-	if events[0] != "pre:document" {
-		t.Errorf("First event should be pre:document, got %q", events[0])
-	}
+	assert.Equal(t, "pre:document", events[0], "First event should be pre:document")
 
 	// Post-document should be last
-	if events[len(events)-1] != "post:document" {
-		t.Errorf("Last event should be post:document, got %q", events[len(events)-1])
-	}
+	assert.Equal(t, "post:document", events[len(events)-1], "Last event should be post:document")
 }
 
 // TestPostVisit_OAS2DocumentPostHandler tests that the OAS2 document post handler
@@ -749,24 +665,16 @@ func TestPostVisit_OAS2DocumentPostHandler(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
 	// Document post should be called after all other visits
-	if len(events) < 2 {
-		t.Fatalf("Expected at least 2 events, got %d: %v", len(events), events)
-	}
+	require.GreaterOrEqual(t, len(events), 2, "Expected at least 2 events")
 
 	// Pre-document should be first
-	if events[0] != "pre:document" {
-		t.Errorf("First event should be pre:document, got %q", events[0])
-	}
+	assert.Equal(t, "pre:document", events[0], "First event should be pre:document")
 
 	// Post-document should be last
-	if events[len(events)-1] != "post:document" {
-		t.Errorf("Last event should be post:document, got %q", events[len(events)-1])
-	}
+	assert.Equal(t, "post:document", events[len(events)-1], "Last event should be post:document")
 }
 
 // TestPostVisit_DocumentPostSkipChildren tests that document post handlers are NOT called
@@ -800,13 +708,8 @@ func TestPostVisit_DocumentPostSkipChildren(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-
-	if postCalled {
-		t.Error("Document post handler should NOT be called when SkipChildren is returned")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.False(t, postCalled, "Document post handler should NOT be called when SkipChildren is returned")
 }
 
 // TestPostVisit_DocumentPostStop tests that document post handlers are NOT called
@@ -840,13 +743,8 @@ func TestPostVisit_DocumentPostStop(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-
-	if postCalled {
-		t.Error("Document post handler should NOT be called when Stop is returned during children")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.False(t, postCalled, "Document post handler should NOT be called when Stop is returned during children")
 }
 
 // TestPostVisit_DocumentPostAggregation demonstrates the primary use case:
@@ -909,24 +807,17 @@ func TestPostVisit_DocumentPostAggregation(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
 	// Verify operation count is correct
-	if operationCount != 3 {
-		t.Errorf("Expected 3 operations, got %d", operationCount)
-	}
+	assert.Equal(t, 3, operationCount, "Expected 3 operations")
 
 	// Verify tags were collected
-	if !usedTags["pets"] || !usedTags["users"] {
-		t.Errorf("Expected pets and users tags, got %v", usedTags)
-	}
+	assert.True(t, usedTags["pets"], "Expected pets tag")
+	assert.True(t, usedTags["users"], "Expected users tag")
 
 	// Verify document was modified in post handler
-	if doc.Components.SecuritySchemes["api_key"] == nil {
-		t.Error("Expected api_key security scheme to be added in post handler")
-	}
+	assert.NotNil(t, doc.Components.SecuritySchemes["api_key"], "Expected api_key security scheme to be added in post handler")
 }
 
 // TestPostVisit_DocumentPostHandlerOnlyPost tests that document post handler
@@ -949,19 +840,12 @@ func TestPostVisit_DocumentPostHandlerOnlyPost(t *testing.T) {
 		WithOAS3DocumentPostHandler(func(wc *WalkContext, doc *parser.OAS3Document) {
 			postCalled = true
 			// Verify WalkContext is properly set
-			if wc.JSONPath != "$" {
-				t.Errorf("Expected JSONPath '$', got %q", wc.JSONPath)
-			}
+			assert.Equal(t, "$", wc.JSONPath)
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-
-	if !postCalled {
-		t.Error("Document post handler should be called even without pre handler")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.True(t, postCalled, "Document post handler should be called even without pre handler")
 }
 
 // TestPostVisit_DocumentPostWithGenericHandler tests interaction between
@@ -993,21 +877,11 @@ func TestPostVisit_DocumentPostWithGenericHandler(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
 	// Order: typed pre, generic pre, typed post
 	expected := []string{"typed:pre", "generic:pre", "typed:post"}
-	if len(events) != len(expected) {
-		t.Fatalf("Expected %d events, got %d: %v", len(expected), len(events), events)
-	}
-
-	for i, exp := range expected {
-		if events[i] != exp {
-			t.Errorf("Event %d: expected %q, got %q", i, exp, events[i])
-		}
-	}
+	assert.Equal(t, expected, events)
 }
 
 // TestPostVisit_OAS2DocumentPostSkipChildren tests that OAS2 document post handlers
@@ -1041,13 +915,8 @@ func TestPostVisit_OAS2DocumentPostSkipChildren(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-
-	if postCalled {
-		t.Error("OAS2 document post handler should NOT be called when SkipChildren is returned")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.False(t, postCalled, "OAS2 document post handler should NOT be called when SkipChildren is returned")
 }
 
 // TestPostVisit_OAS2DocumentPostStop tests that OAS2 document post handlers are NOT called
@@ -1081,11 +950,6 @@ func TestPostVisit_OAS2DocumentPostStop(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-
-	if postCalled {
-		t.Error("OAS2 document post handler should NOT be called when Stop is returned during children")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.False(t, postCalled, "OAS2 document post handler should NOT be called when Stop is returned during children")
 }

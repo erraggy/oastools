@@ -1,16 +1,15 @@
 package generator
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewOIDCDiscoveryGenerator(t *testing.T) {
 	g := NewOIDCDiscoveryGenerator("api")
 
-	if g.PackageName != "api" {
-		t.Errorf("expected PackageName 'api', got %s", g.PackageName)
-	}
+	assert.Equal(t, "api", g.PackageName)
 }
 
 func TestOIDCDiscoveryGenerator_GenerateOIDCDiscoveryFile(t *testing.T) {
@@ -18,122 +17,58 @@ func TestOIDCDiscoveryGenerator_GenerateOIDCDiscoveryFile(t *testing.T) {
 	result := g.GenerateOIDCDiscoveryFile("https://auth.example.com")
 
 	// Check package declaration
-	if !strings.Contains(result, "package api") {
-		t.Error("expected package declaration")
-	}
+	assert.Contains(t, result, "package api")
 
 	// Check imports
-	if !strings.Contains(result, `"context"`) {
-		t.Error("expected context import")
-	}
-	if !strings.Contains(result, `"encoding/json"`) {
-		t.Error("expected encoding/json import")
-	}
-	if !strings.Contains(result, `"net/http"`) {
-		t.Error("expected net/http import")
-	}
-	if !strings.Contains(result, `"sync"`) {
-		t.Error("expected sync import")
-	}
-	if !strings.Contains(result, `"time"`) {
-		t.Error("expected time import")
-	}
+	assert.Contains(t, result, `"context"`)
+	assert.Contains(t, result, `"encoding/json"`)
+	assert.Contains(t, result, `"net/http"`)
+	assert.Contains(t, result, `"sync"`)
+	assert.Contains(t, result, `"time"`)
 
 	// Check OIDCConfiguration struct
-	if !strings.Contains(result, "type OIDCConfiguration struct") {
-		t.Error("expected OIDCConfiguration struct")
-	}
-	if !strings.Contains(result, "Issuer string") {
-		t.Error("expected Issuer field")
-	}
-	if !strings.Contains(result, "AuthorizationEndpoint string") {
-		t.Error("expected AuthorizationEndpoint field")
-	}
-	if !strings.Contains(result, "TokenEndpoint string") {
-		t.Error("expected TokenEndpoint field")
-	}
-	if !strings.Contains(result, "JwksURI string") {
-		t.Error("expected JwksURI field")
-	}
-	if !strings.Contains(result, "ScopesSupported []string") {
-		t.Error("expected ScopesSupported field")
-	}
-	if !strings.Contains(result, "CodeChallengeMethodsSupported []string") {
-		t.Error("expected CodeChallengeMethodsSupported field")
-	}
+	assert.Contains(t, result, "type OIDCConfiguration struct")
+	assert.Contains(t, result, "Issuer string")
+	assert.Contains(t, result, "AuthorizationEndpoint string")
+	assert.Contains(t, result, "TokenEndpoint string")
+	assert.Contains(t, result, "JwksURI string")
+	assert.Contains(t, result, "ScopesSupported []string")
+	assert.Contains(t, result, "CodeChallengeMethodsSupported []string")
 
 	// Check default discovery URL constant
-	if !strings.Contains(result, "DefaultOIDCDiscoveryURL") {
-		t.Error("expected DefaultOIDCDiscoveryURL constant")
-	}
-	if !strings.Contains(result, `"https://auth.example.com"`) {
-		t.Error("expected discovery URL value")
-	}
+	assert.Contains(t, result, "DefaultOIDCDiscoveryURL")
+	assert.Contains(t, result, `"https://auth.example.com"`)
 
 	// Check OIDCDiscoveryClient struct
-	if !strings.Contains(result, "type OIDCDiscoveryClient struct") {
-		t.Error("expected OIDCDiscoveryClient struct")
-	}
-	if !strings.Contains(result, "discoveryURL string") {
-		t.Error("expected discoveryURL field")
-	}
-	if !strings.Contains(result, "httpClient   *http.Client") {
-		t.Error("expected httpClient field")
-	}
-	if !strings.Contains(result, "cacheTTL     time.Duration") {
-		t.Error("expected cacheTTL field")
-	}
+	assert.Contains(t, result, "type OIDCDiscoveryClient struct")
+	assert.Contains(t, result, "discoveryURL string")
+	assert.Contains(t, result, "httpClient   *http.Client")
+	assert.Contains(t, result, "cacheTTL     time.Duration")
 
 	// Check constructor
-	if !strings.Contains(result, "func NewOIDCDiscoveryClient(discoveryURL string") {
-		t.Error("expected NewOIDCDiscoveryClient function")
-	}
+	assert.Contains(t, result, "func NewOIDCDiscoveryClient(discoveryURL string")
 
 	// Check options
-	if !strings.Contains(result, "type OIDCDiscoveryOption func(*OIDCDiscoveryClient)") {
-		t.Error("expected OIDCDiscoveryOption type")
-	}
-	if !strings.Contains(result, "func WithOIDCHTTPClient(client *http.Client) OIDCDiscoveryOption") {
-		t.Error("expected WithOIDCHTTPClient function")
-	}
-	if !strings.Contains(result, "func WithOIDCCacheTTL(ttl time.Duration) OIDCDiscoveryOption") {
-		t.Error("expected WithOIDCCacheTTL function")
-	}
+	assert.Contains(t, result, "type OIDCDiscoveryOption func(*OIDCDiscoveryClient)")
+	assert.Contains(t, result, "func WithOIDCHTTPClient(client *http.Client) OIDCDiscoveryOption")
+	assert.Contains(t, result, "func WithOIDCCacheTTL(ttl time.Duration) OIDCDiscoveryOption")
 
 	// Check methods
-	if !strings.Contains(result, "func (c *OIDCDiscoveryClient) GetConfiguration(ctx context.Context)") {
-		t.Error("expected GetConfiguration method")
-	}
-	if !strings.Contains(result, "func (c *OIDCDiscoveryClient) ClearCache()") {
-		t.Error("expected ClearCache method")
-	}
-	if !strings.Contains(result, "func (c *OIDCDiscoveryClient) SupportsScope(ctx context.Context, scope string)") {
-		t.Error("expected SupportsScope method")
-	}
-	if !strings.Contains(result, "func (c *OIDCDiscoveryClient) SupportsGrantType(ctx context.Context, grantType string)") {
-		t.Error("expected SupportsGrantType method")
-	}
-	if !strings.Contains(result, "func (c *OIDCDiscoveryClient) SupportsPKCE(ctx context.Context)") {
-		t.Error("expected SupportsPKCE method")
-	}
+	assert.Contains(t, result, "func (c *OIDCDiscoveryClient) GetConfiguration(ctx context.Context)")
+	assert.Contains(t, result, "func (c *OIDCDiscoveryClient) ClearCache()")
+	assert.Contains(t, result, "func (c *OIDCDiscoveryClient) SupportsScope(ctx context.Context, scope string)")
+	assert.Contains(t, result, "func (c *OIDCDiscoveryClient) SupportsGrantType(ctx context.Context, grantType string)")
+	assert.Contains(t, result, "func (c *OIDCDiscoveryClient) SupportsPKCE(ctx context.Context)")
 
 	// Check helper functions
-	if !strings.Contains(result, "func GetOAuth2ConfigFromOIDC(ctx context.Context, discoveryURL string)") {
-		t.Error("expected GetOAuth2ConfigFromOIDC function")
-	}
-	if !strings.Contains(result, "func WithOIDCDiscovery(discoveryURL string, tokenFunc func(ctx context.Context) (string, error)) ClientOption") {
-		t.Error("expected WithOIDCDiscovery function")
-	}
+	assert.Contains(t, result, "func GetOAuth2ConfigFromOIDC(ctx context.Context, discoveryURL string)")
+	assert.Contains(t, result, "func WithOIDCDiscovery(discoveryURL string, tokenFunc func(ctx context.Context) (string, error)) ClientOption")
 
 	// Check caching implementation
-	if !strings.Contains(result, "time.Since(c.lastFetched) < c.cacheTTL") {
-		t.Error("expected cache TTL check")
-	}
+	assert.Contains(t, result, "time.Since(c.lastFetched) < c.cacheTTL")
 
 	// Check well-known path handling
-	if !strings.Contains(result, ".well-known/openid-configuration") {
-		t.Error("expected well-known path")
-	}
+	assert.Contains(t, result, ".well-known/openid-configuration")
 }
 
 func TestOIDCDiscoveryGenerator_NoDiscoveryURL(t *testing.T) {
@@ -141,17 +76,11 @@ func TestOIDCDiscoveryGenerator_NoDiscoveryURL(t *testing.T) {
 	result := g.GenerateOIDCDiscoveryFile("")
 
 	// Should NOT have default discovery URL constant when empty
-	if strings.Contains(result, "DefaultOIDCDiscoveryURL") {
-		t.Error("should not have DefaultOIDCDiscoveryURL when URL is empty")
-	}
+	assert.NotContains(t, result, "DefaultOIDCDiscoveryURL")
 
 	// Should still have all other functionality
-	if !strings.Contains(result, "type OIDCConfiguration struct") {
-		t.Error("expected OIDCConfiguration struct")
-	}
-	if !strings.Contains(result, "type OIDCDiscoveryClient struct") {
-		t.Error("expected OIDCDiscoveryClient struct")
-	}
+	assert.Contains(t, result, "type OIDCConfiguration struct")
+	assert.Contains(t, result, "type OIDCDiscoveryClient struct")
 }
 
 func TestOIDCDiscoveryGenerator_ThreadSafety(t *testing.T) {
@@ -159,19 +88,13 @@ func TestOIDCDiscoveryGenerator_ThreadSafety(t *testing.T) {
 	result := g.GenerateOIDCDiscoveryFile("https://auth.example.com")
 
 	// Should use sync.RWMutex
-	if !strings.Contains(result, "mu           sync.RWMutex") {
-		t.Error("expected sync.RWMutex for thread safety")
-	}
+	assert.Contains(t, result, "mu           sync.RWMutex")
 
 	// Should use RLock for reads
-	if !strings.Contains(result, "c.mu.RLock()") {
-		t.Error("expected RLock for read operations")
-	}
+	assert.Contains(t, result, "c.mu.RLock()")
 
 	// Should use Lock for writes
-	if !strings.Contains(result, "c.mu.Lock()") {
-		t.Error("expected Lock for write operations")
-	}
+	assert.Contains(t, result, "c.mu.Lock()")
 }
 
 func TestOIDCDiscoveryGenerator_JSONTags(t *testing.T) {
@@ -190,9 +113,7 @@ func TestOIDCDiscoveryGenerator_JSONTags(t *testing.T) {
 	}
 
 	for _, tag := range expectedTags {
-		if !strings.Contains(result, tag) {
-			t.Errorf("expected JSON tag %s", tag)
-		}
+		assert.Contains(t, result, tag)
 	}
 }
 
@@ -201,16 +122,8 @@ func TestOIDCDiscoveryGenerator_ErrorHandling(t *testing.T) {
 	result := g.GenerateOIDCDiscoveryFile("")
 
 	// Should have error handling for HTTP request
-	if !strings.Contains(result, "failed to create OIDC discovery request") {
-		t.Error("expected error message for request creation")
-	}
-	if !strings.Contains(result, "failed to fetch OIDC configuration") {
-		t.Error("expected error message for fetch failure")
-	}
-	if !strings.Contains(result, "failed to decode OIDC configuration") {
-		t.Error("expected error message for decode failure")
-	}
-	if !strings.Contains(result, "OIDC discovery returned status") {
-		t.Error("expected error message for non-200 status")
-	}
+	assert.Contains(t, result, "failed to create OIDC discovery request")
+	assert.Contains(t, result, "failed to fetch OIDC configuration")
+	assert.Contains(t, result, "failed to decode OIDC configuration")
+	assert.Contains(t, result, "OIDC discovery returned status")
 }

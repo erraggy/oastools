@@ -2,10 +2,11 @@ package overlay
 
 import (
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestParseOverlay tests parsing overlay documents.
@@ -22,19 +23,11 @@ actions:
       title: New Title
 `)
 		o, err := ParseOverlay(data)
-		if err != nil {
-			t.Fatalf("ParseOverlay error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if o.Version != "1.0.0" {
-			t.Errorf("Version = %q, want %q", o.Version, "1.0.0")
-		}
-		if o.Info.Title != "Test Overlay" {
-			t.Errorf("Info.Title = %q, want %q", o.Info.Title, "Test Overlay")
-		}
-		if len(o.Actions) != 1 {
-			t.Errorf("len(Actions) = %d, want 1", len(o.Actions))
-		}
+		assert.Equal(t, "1.0.0", o.Version)
+		assert.Equal(t, "Test Overlay", o.Info.Title)
+		assert.Len(t, o.Actions, 1)
 	})
 
 	t.Run("valid JSON overlay", func(t *testing.T) {
@@ -44,21 +37,15 @@ actions:
 			"actions": [{"target": "$.info", "update": {"x-test": true}}]
 		}`)
 		o, err := ParseOverlay(data)
-		if err != nil {
-			t.Fatalf("ParseOverlay error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if o.Info.Title != "JSON Overlay" {
-			t.Errorf("Info.Title = %q, want %q", o.Info.Title, "JSON Overlay")
-		}
+		assert.Equal(t, "JSON Overlay", o.Info.Title)
 	})
 
 	t.Run("invalid YAML", func(t *testing.T) {
 		data := []byte(`overlay: [invalid`)
 		_, err := ParseOverlay(data)
-		if err == nil {
-			t.Error("Expected error for invalid YAML")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("overlay with extends", func(t *testing.T) {
@@ -73,13 +60,9 @@ actions:
     remove: true
 `)
 		o, err := ParseOverlay(data)
-		if err != nil {
-			t.Fatalf("ParseOverlay error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if o.Extends != "./openapi.yaml" {
-			t.Errorf("Extends = %q, want %q", o.Extends, "./openapi.yaml")
-		}
+		assert.Equal(t, "./openapi.yaml", o.Extends)
 	})
 }
 
@@ -93,9 +76,7 @@ func TestValidate(t *testing.T) {
 		}
 
 		errs := Validate(o)
-		if len(errs) != 0 {
-			t.Errorf("Expected no errors, got %d: %v", len(errs), errs)
-		}
+		assert.Empty(t, errs)
 	})
 
 	t.Run("missing version", func(t *testing.T) {
@@ -105,9 +86,7 @@ func TestValidate(t *testing.T) {
 		}
 
 		errs := Validate(o)
-		if len(errs) == 0 {
-			t.Error("Expected error for missing version")
-		}
+		assert.NotEmpty(t, errs)
 	})
 
 	t.Run("unsupported version", func(t *testing.T) {
@@ -124,9 +103,7 @@ func TestValidate(t *testing.T) {
 				found = true
 			}
 		}
-		if !found {
-			t.Error("Expected error for unsupported version")
-		}
+		assert.True(t, found, "Expected error for unsupported version")
 	})
 
 	t.Run("missing info title", func(t *testing.T) {
@@ -143,9 +120,7 @@ func TestValidate(t *testing.T) {
 				found = true
 			}
 		}
-		if !found {
-			t.Error("Expected error for missing info.title")
-		}
+		assert.True(t, found, "Expected error for missing info.title")
 	})
 
 	t.Run("missing info version", func(t *testing.T) {
@@ -162,9 +137,7 @@ func TestValidate(t *testing.T) {
 				found = true
 			}
 		}
-		if !found {
-			t.Error("Expected error for missing info.version")
-		}
+		assert.True(t, found, "Expected error for missing info.version")
 	})
 
 	t.Run("empty actions", func(t *testing.T) {
@@ -181,9 +154,7 @@ func TestValidate(t *testing.T) {
 				found = true
 			}
 		}
-		if !found {
-			t.Error("Expected error for empty actions")
-		}
+		assert.True(t, found, "Expected error for empty actions")
 	})
 
 	t.Run("action missing target", func(t *testing.T) {
@@ -200,9 +171,7 @@ func TestValidate(t *testing.T) {
 				found = true
 			}
 		}
-		if !found {
-			t.Error("Expected error for missing target")
-		}
+		assert.True(t, found, "Expected error for missing target")
 	})
 
 	t.Run("action invalid JSONPath", func(t *testing.T) {
@@ -219,9 +188,7 @@ func TestValidate(t *testing.T) {
 				found = true
 			}
 		}
-		if !found {
-			t.Error("Expected error for invalid JSONPath")
-		}
+		assert.True(t, found, "Expected error for invalid JSONPath")
 	})
 
 	t.Run("action no update or remove", func(t *testing.T) {
@@ -238,9 +205,7 @@ func TestValidate(t *testing.T) {
 				found = true
 			}
 		}
-		if !found {
-			t.Error("Expected error for action without update or remove")
-		}
+		assert.True(t, found, "Expected error for action without update or remove")
 	})
 }
 
@@ -258,39 +223,27 @@ func TestIsValid(t *testing.T) {
 		Actions: []Action{},
 	}
 
-	if !IsValid(validOverlay) {
-		t.Error("Expected valid overlay to be valid")
-	}
+	assert.True(t, IsValid(validOverlay), "Expected valid overlay to be valid")
 
-	if IsValid(invalidOverlay) {
-		t.Error("Expected invalid overlay to be invalid")
-	}
+	assert.False(t, IsValid(invalidOverlay), "Expected invalid overlay to be invalid")
 }
 
 // TestApplyResult tests ApplyResult helper methods.
 func TestApplyResult(t *testing.T) {
 	t.Run("HasChanges", func(t *testing.T) {
 		r := &ApplyResult{ActionsApplied: 0}
-		if r.HasChanges() {
-			t.Error("Expected no changes")
-		}
+		assert.False(t, r.HasChanges(), "Expected no changes")
 
 		r.ActionsApplied = 1
-		if !r.HasChanges() {
-			t.Error("Expected changes")
-		}
+		assert.True(t, r.HasChanges(), "Expected changes")
 	})
 
 	t.Run("HasWarnings", func(t *testing.T) {
 		r := &ApplyResult{}
-		if r.HasWarnings() {
-			t.Error("Expected no warnings")
-		}
+		assert.False(t, r.HasWarnings(), "Expected no warnings")
 
 		r.Warnings = []string{"warning"}
-		if !r.HasWarnings() {
-			t.Error("Expected warnings")
-		}
+		assert.True(t, r.HasWarnings(), "Expected warnings")
 	})
 
 	t.Run("WarningStrings prefers StructuredWarnings", func(t *testing.T) {
@@ -301,12 +254,8 @@ func TestApplyResult(t *testing.T) {
 			},
 		}
 		warnings := r.WarningStrings()
-		if len(warnings) != 1 {
-			t.Errorf("Expected 1 warning, got %d", len(warnings))
-		}
-		if warnings[0] == "legacy warning" {
-			t.Error("Expected StructuredWarnings to take precedence")
-		}
+		assert.Len(t, warnings, 1)
+		assert.NotEqual(t, "legacy warning", warnings[0], "Expected StructuredWarnings to take precedence")
 	})
 
 	t.Run("WarningStrings falls back to Warnings", func(t *testing.T) {
@@ -314,20 +263,14 @@ func TestApplyResult(t *testing.T) {
 			Warnings: []string{"legacy warning"},
 		}
 		warnings := r.WarningStrings()
-		if len(warnings) != 1 {
-			t.Errorf("Expected 1 warning, got %d", len(warnings))
-		}
-		if warnings[0] != "legacy warning" {
-			t.Errorf("Expected 'legacy warning', got %q", warnings[0])
-		}
+		assert.Len(t, warnings, 1)
+		assert.Equal(t, "legacy warning", warnings[0])
 	})
 
 	t.Run("WarningStrings with empty result", func(t *testing.T) {
 		r := &ApplyResult{}
 		warnings := r.WarningStrings()
-		if warnings != nil {
-			t.Error("Expected nil for empty result")
-		}
+		assert.Nil(t, warnings, "Expected nil for empty result")
 	})
 }
 
@@ -343,36 +286,18 @@ func TestApplyResult_ToParseResult(t *testing.T) {
 
 		parseResult := applyResult.ToParseResult()
 
-		if parseResult.SourcePath != "overlay" {
-			t.Errorf("SourcePath = %q, want 'overlay'", parseResult.SourcePath)
-		}
-		if parseResult.SourceFormat != parser.SourceFormatYAML {
-			t.Errorf("SourceFormat = %v, want YAML", parseResult.SourceFormat)
-		}
-		if parseResult.Version != "3.0.3" {
-			t.Errorf("Version = %q, want '3.0.3'", parseResult.Version)
-		}
-		if parseResult.OASVersion != parser.OASVersion303 {
-			t.Errorf("OASVersion = %v, want OASVersion303", parseResult.OASVersion)
-		}
-		if parseResult.Document == nil {
-			t.Error("Document should not be nil")
-		}
-		if len(parseResult.Errors) != 0 {
-			t.Errorf("Expected 0 errors, got %d", len(parseResult.Errors))
-		}
-		if len(parseResult.Warnings) != 2 {
-			t.Errorf("Expected 2 warnings, got %d", len(parseResult.Warnings))
-		}
+		assert.Equal(t, "overlay", parseResult.SourcePath)
+		assert.Equal(t, parser.SourceFormatYAML, parseResult.SourceFormat)
+		assert.Equal(t, "3.0.3", parseResult.Version)
+		assert.Equal(t, parser.OASVersion303, parseResult.OASVersion)
+		assert.NotNil(t, parseResult.Document)
+		assert.Empty(t, parseResult.Errors)
+		assert.Len(t, parseResult.Warnings, 2)
 
 		// Verify Document type assertion works
 		doc, ok := parseResult.Document.(*parser.OAS3Document)
-		if !ok {
-			t.Error("Document should be *parser.OAS3Document")
-		}
-		if doc.Info.Title != "Test API" {
-			t.Errorf("Info.Title = %q, want 'Test API'", doc.Info.Title)
-		}
+		require.True(t, ok, "Document should be *parser.OAS3Document")
+		assert.Equal(t, "Test API", doc.Info.Title)
 	})
 
 	t.Run("OAS2 result converts correctly", func(t *testing.T) {
@@ -384,27 +309,15 @@ func TestApplyResult_ToParseResult(t *testing.T) {
 
 		parseResult := applyResult.ToParseResult()
 
-		if parseResult.SourcePath != "overlay" {
-			t.Errorf("SourcePath = %q, want 'overlay'", parseResult.SourcePath)
-		}
-		if parseResult.SourceFormat != parser.SourceFormatJSON {
-			t.Errorf("SourceFormat = %v, want JSON", parseResult.SourceFormat)
-		}
-		if parseResult.Version != "2.0" {
-			t.Errorf("Version = %q, want '2.0'", parseResult.Version)
-		}
-		if parseResult.OASVersion != parser.OASVersion20 {
-			t.Errorf("OASVersion = %v, want OASVersion20", parseResult.OASVersion)
-		}
+		assert.Equal(t, "overlay", parseResult.SourcePath)
+		assert.Equal(t, parser.SourceFormatJSON, parseResult.SourceFormat)
+		assert.Equal(t, "2.0", parseResult.Version)
+		assert.Equal(t, parser.OASVersion20, parseResult.OASVersion)
 
 		// Verify Document type assertion works
 		doc, ok := parseResult.Document.(*parser.OAS2Document)
-		if !ok {
-			t.Error("Document should be *parser.OAS2Document")
-		}
-		if doc.Info.Title != "Swagger API" {
-			t.Errorf("Info.Title = %q, want 'Swagger API'", doc.Info.Title)
-		}
+		require.True(t, ok, "Document should be *parser.OAS2Document")
+		assert.Equal(t, "Swagger API", doc.Info.Title)
 	})
 
 	t.Run("StructuredWarnings converted to strings", func(t *testing.T) {
@@ -419,9 +332,7 @@ func TestApplyResult_ToParseResult(t *testing.T) {
 
 		parseResult := applyResult.ToParseResult()
 
-		if len(parseResult.Warnings) != 2 {
-			t.Errorf("Expected 2 warnings, got %d", len(parseResult.Warnings))
-		}
+		assert.Len(t, parseResult.Warnings, 2)
 	})
 
 	t.Run("empty warnings", func(t *testing.T) {
@@ -432,9 +343,7 @@ func TestApplyResult_ToParseResult(t *testing.T) {
 
 		parseResult := applyResult.ToParseResult()
 
-		if len(parseResult.Warnings) != 0 {
-			t.Errorf("Expected 0 warnings for valid document, got %d", len(parseResult.Warnings))
-		}
+		assert.Empty(t, parseResult.Warnings)
 	})
 
 	t.Run("nil Document returns empty version with warning", func(t *testing.T) {
@@ -445,19 +354,11 @@ func TestApplyResult_ToParseResult(t *testing.T) {
 
 		parseResult := applyResult.ToParseResult()
 
-		if parseResult.Version != "" {
-			t.Errorf("Version should be empty for nil document, got %q", parseResult.Version)
-		}
-		if parseResult.OASVersion != parser.Unknown {
-			t.Errorf("OASVersion should be Unknown for nil document, got %v", parseResult.OASVersion)
-		}
+		assert.Equal(t, "", parseResult.Version)
+		assert.Equal(t, parser.Unknown, parseResult.OASVersion)
 		// Verify warning is added for nil document
-		if len(parseResult.Warnings) != 1 {
-			t.Errorf("Expected 1 warning for nil document, got %d", len(parseResult.Warnings))
-		}
-		if len(parseResult.Warnings) > 0 && parseResult.Warnings[0] != "overlay: ToParseResult: Document is nil, downstream operations may fail" {
-			t.Errorf("Unexpected warning message: %q", parseResult.Warnings[0])
-		}
+		require.Len(t, parseResult.Warnings, 1)
+		assert.Equal(t, "overlay: ToParseResult: Document is nil, downstream operations may fail", parseResult.Warnings[0])
 	})
 
 	t.Run("map[string]any document returns empty version with warning", func(t *testing.T) {
@@ -473,20 +374,11 @@ func TestApplyResult_ToParseResult(t *testing.T) {
 		parseResult := applyResult.ToParseResult()
 
 		// Raw maps don't implement DocumentAccessor, so version is empty
-		if parseResult.Version != "" {
-			t.Errorf("Version should be empty for raw map, got %q", parseResult.Version)
-		}
-		if parseResult.OASVersion != parser.Unknown {
-			t.Errorf("OASVersion should be Unknown for raw map, got %v", parseResult.OASVersion)
-		}
+		assert.Equal(t, "", parseResult.Version)
+		assert.Equal(t, parser.Unknown, parseResult.OASVersion)
 		// Verify warning is added for unrecognized document type
-		if len(parseResult.Warnings) != 1 {
-			t.Errorf("Expected 1 warning for unknown document type, got %d", len(parseResult.Warnings))
-		}
-		expectedWarningPrefix := "overlay: ToParseResult: unrecognized document type"
-		if len(parseResult.Warnings) > 0 && !strings.HasPrefix(parseResult.Warnings[0], expectedWarningPrefix) {
-			t.Errorf("Warning should start with %q, got %q", expectedWarningPrefix, parseResult.Warnings[0])
-		}
+		require.Len(t, parseResult.Warnings, 1)
+		assert.Contains(t, parseResult.Warnings[0], "overlay: ToParseResult: unrecognized document type")
 	})
 }
 
@@ -522,26 +414,16 @@ func TestApplier(t *testing.T) {
 
 		a := NewApplier()
 		result, err := a.ApplyParsed(spec, o)
-		if err != nil {
-			t.Fatalf("Apply error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if result.ActionsApplied != 1 {
-			t.Errorf("ActionsApplied = %d, want 1", result.ActionsApplied)
-		}
+		assert.Equal(t, 1, result.ActionsApplied)
 
 		resultDoc := result.Document.(map[string]any)
 		info := resultDoc["info"].(map[string]any)
-		if info["title"] != "Updated" {
-			t.Errorf("title = %v, want Updated", info["title"])
-		}
-		if info["x-extra"] != "added" {
-			t.Errorf("x-extra = %v, want added", info["x-extra"])
-		}
+		assert.Equal(t, "Updated", info["title"])
+		assert.Equal(t, "added", info["x-extra"])
 		// Original field should be preserved
-		if info["version"] != "1.0.0" {
-			t.Errorf("version = %v, want 1.0.0", info["version"])
-		}
+		assert.Equal(t, "1.0.0", info["version"])
 	})
 
 	t.Run("apply remove action", func(t *testing.T) {
@@ -574,22 +456,14 @@ func TestApplier(t *testing.T) {
 
 		a := NewApplier()
 		result, err := a.ApplyParsed(spec, o)
-		if err != nil {
-			t.Fatalf("Apply error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if result.ActionsApplied != 1 {
-			t.Errorf("ActionsApplied = %d, want 1", result.ActionsApplied)
-		}
+		assert.Equal(t, 1, result.ActionsApplied)
 
 		resultDoc := result.Document.(map[string]any)
 		paths := resultDoc["paths"].(map[string]any)
-		if _, exists := paths["/internal"]; exists {
-			t.Error("Internal path should have been removed")
-		}
-		if _, exists := paths["/public"]; !exists {
-			t.Error("Public path should still exist")
-		}
+		assert.NotContains(t, paths, "/internal", "Internal path should have been removed")
+		assert.Contains(t, paths, "/public", "Public path should still exist")
 	})
 
 	t.Run("sequential actions", func(t *testing.T) {
@@ -617,22 +491,14 @@ func TestApplier(t *testing.T) {
 
 		a := NewApplier()
 		result, err := a.ApplyParsed(spec, o)
-		if err != nil {
-			t.Fatalf("Apply error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if result.ActionsApplied != 3 {
-			t.Errorf("ActionsApplied = %d, want 3", result.ActionsApplied)
-		}
+		assert.Equal(t, 3, result.ActionsApplied)
 
 		resultDoc := result.Document.(map[string]any)
 		info := resultDoc["info"].(map[string]any)
-		if info["title"] != "Final" {
-			t.Errorf("title = %v, want Final", info["title"])
-		}
-		if info["x-step"] != "2" {
-			t.Errorf("x-step = %v, want 2", info["x-step"])
-		}
+		assert.Equal(t, "Final", info["title"])
+		assert.Equal(t, "2", info["x-step"])
 	})
 
 	t.Run("no match warning", func(t *testing.T) {
@@ -655,16 +521,10 @@ func TestApplier(t *testing.T) {
 		a.StrictTargets = false
 
 		result, err := a.ApplyParsed(spec, o)
-		if err != nil {
-			t.Fatalf("Apply error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if result.ActionsSkipped != 1 {
-			t.Errorf("ActionsSkipped = %d, want 1", result.ActionsSkipped)
-		}
-		if len(result.Warnings) == 0 {
-			t.Error("Expected warning for no matches")
-		}
+		assert.Equal(t, 1, result.ActionsSkipped)
+		assert.NotEmpty(t, result.Warnings, "Expected warning for no matches")
 	})
 
 	t.Run("strict mode error", func(t *testing.T) {
@@ -687,9 +547,7 @@ func TestApplier(t *testing.T) {
 		a.StrictTargets = true
 
 		_, err := a.ApplyParsed(spec, o)
-		if err == nil {
-			t.Error("Expected error in strict mode for no matches")
-		}
+		assert.Error(t, err, "Expected error in strict mode for no matches")
 	})
 
 	t.Run("original document unchanged", func(t *testing.T) {
@@ -714,15 +572,11 @@ func TestApplier(t *testing.T) {
 
 		a := NewApplier()
 		_, err := a.ApplyParsed(spec, o)
-		if err != nil {
-			t.Fatalf("Apply error: %v", err)
-		}
+		require.NoError(t, err)
 
 		// Original should be unchanged
 		originalInfo := doc["info"].(map[string]any)
-		if originalInfo["title"] != "Original" {
-			t.Error("Original document was modified")
-		}
+		assert.Equal(t, "Original", originalInfo["title"], "Original document was modified")
 	})
 }
 
@@ -748,13 +602,9 @@ func TestApplyWithOptions(t *testing.T) {
 			WithSpecParsed(spec),
 			WithOverlayParsed(o),
 		)
-		if err != nil {
-			t.Fatalf("ApplyWithOptions error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if result.ActionsApplied != 1 {
-			t.Errorf("ActionsApplied = %d, want 1", result.ActionsApplied)
-		}
+		assert.Equal(t, 1, result.ActionsApplied)
 	})
 
 	t.Run("missing spec source", func(t *testing.T) {
@@ -765,9 +615,7 @@ func TestApplyWithOptions(t *testing.T) {
 		}
 
 		_, err := ApplyWithOptions(WithOverlayParsed(o))
-		if err == nil {
-			t.Error("Expected error for missing spec source")
-		}
+		assert.Error(t, err, "Expected error for missing spec source")
 	})
 
 	t.Run("missing overlay source", func(t *testing.T) {
@@ -776,9 +624,7 @@ func TestApplyWithOptions(t *testing.T) {
 		}
 
 		_, err := ApplyWithOptions(WithSpecParsed(spec))
-		if err == nil {
-			t.Error("Expected error for missing overlay source")
-		}
+		assert.Error(t, err, "Expected error for missing overlay source")
 	})
 
 	t.Run("with strict targets", func(t *testing.T) {
@@ -797,9 +643,7 @@ func TestApplyWithOptions(t *testing.T) {
 			WithOverlayParsed(o),
 			WithStrictTargets(true),
 		)
-		if err == nil {
-			t.Error("Expected error with strict targets")
-		}
+		assert.Error(t, err, "Expected error with strict targets")
 	})
 }
 
@@ -820,9 +664,7 @@ func TestIsOverlayDocument(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := IsOverlayDocument([]byte(tt.data))
-			if got != tt.want {
-				t.Errorf("IsOverlayDocument() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -831,28 +673,20 @@ func TestIsOverlayDocument(t *testing.T) {
 func TestErrorTypes(t *testing.T) {
 	t.Run("ValidationError", func(t *testing.T) {
 		e := ValidationError{Field: "test", Message: "error"}
-		if e.Error() == "" {
-			t.Error("Expected non-empty error message")
-		}
+		assert.NotEmpty(t, e.Error())
 
 		e2 := ValidationError{Path: "actions[0]", Message: "error"}
-		if e2.Error() == "" {
-			t.Error("Expected non-empty error message with path")
-		}
+		assert.NotEmpty(t, e2.Error())
 	})
 
 	t.Run("ApplyError", func(t *testing.T) {
 		e := &ApplyError{ActionIndex: 0, Target: "$.info", Cause: nil}
-		if e.Error() == "" {
-			t.Error("Expected non-empty error message")
-		}
+		assert.NotEmpty(t, e.Error())
 	})
 
 	t.Run("ParseError", func(t *testing.T) {
 		e := &ParseError{Path: "test.yaml", Cause: nil}
-		if e.Error() == "" {
-			t.Error("Expected non-empty error message")
-		}
+		assert.NotEmpty(t, e.Error())
 	})
 }
 
@@ -867,44 +701,28 @@ func TestMarshalOverlay(t *testing.T) {
 	}
 
 	data, err := MarshalOverlay(o)
-	if err != nil {
-		t.Fatalf("MarshalOverlay error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Parse it back
 	o2, err := ParseOverlay(data)
-	if err != nil {
-		t.Fatalf("ParseOverlay error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if o2.Version != o.Version {
-		t.Errorf("Version mismatch: %v != %v", o2.Version, o.Version)
-	}
-	if o2.Info.Title != o.Info.Title {
-		t.Errorf("Title mismatch: %v != %v", o2.Info.Title, o.Info.Title)
-	}
+	assert.Equal(t, o.Version, o2.Version)
+	assert.Equal(t, o.Info.Title, o2.Info.Title)
 }
 
 // TestParseOverlayFile tests file-based overlay parsing.
 func TestParseOverlayFile(t *testing.T) {
 	t.Run("valid file", func(t *testing.T) {
 		o, err := ParseOverlayFile("../testdata/overlay/valid/basic-update.yaml")
-		if err != nil {
-			t.Fatalf("ParseOverlayFile error: %v", err)
-		}
-		if o.Version != "1.0.0" {
-			t.Errorf("Version = %q, want 1.0.0", o.Version)
-		}
-		if len(o.Actions) != 1 {
-			t.Errorf("len(Actions) = %d, want 1", len(o.Actions))
-		}
+		require.NoError(t, err)
+		assert.Equal(t, "1.0.0", o.Version)
+		assert.Len(t, o.Actions, 1)
 	})
 
 	t.Run("missing file", func(t *testing.T) {
 		_, err := ParseOverlayFile("nonexistent.yaml")
-		if err == nil {
-			t.Error("Expected error for missing file")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("invalid yaml file", func(t *testing.T) {
@@ -924,29 +742,21 @@ func TestApplierApply(t *testing.T) {
 			"../testdata/overlay/fixtures/petstore-base.yaml",
 			"../testdata/overlay/fixtures/petstore-overlay.yaml",
 		)
-		if err != nil {
-			t.Fatalf("Apply error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if result.ActionsApplied != 3 {
-			t.Errorf("ActionsApplied = %d, want 3", result.ActionsApplied)
-		}
+		assert.Equal(t, 3, result.ActionsApplied)
 	})
 
 	t.Run("missing spec file", func(t *testing.T) {
 		a := NewApplier()
 		_, err := a.Apply("nonexistent.yaml", "../testdata/overlay/valid/basic-update.yaml")
-		if err == nil {
-			t.Error("Expected error for missing spec file")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("missing overlay file", func(t *testing.T) {
 		a := NewApplier()
 		_, err := a.Apply("../testdata/overlay/fixtures/petstore-base.yaml", "nonexistent.yaml")
-		if err == nil {
-			t.Error("Expected error for missing overlay file")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -957,13 +767,9 @@ func TestApplyWithOptionsFilePaths(t *testing.T) {
 			WithSpecFilePath("../testdata/overlay/fixtures/petstore-base.yaml"),
 			WithOverlayFilePath("../testdata/overlay/fixtures/petstore-overlay.yaml"),
 		)
-		if err != nil {
-			t.Fatalf("ApplyWithOptions error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if result.ActionsApplied != 3 {
-			t.Errorf("ActionsApplied = %d, want 3", result.ActionsApplied)
-		}
+		assert.Equal(t, 3, result.ActionsApplied)
 	})
 
 	t.Run("empty spec path", func(t *testing.T) {
@@ -971,9 +777,7 @@ func TestApplyWithOptionsFilePaths(t *testing.T) {
 			WithSpecFilePath(""),
 			WithOverlayFilePath("../testdata/overlay/valid/basic-update.yaml"),
 		)
-		if err == nil {
-			t.Error("Expected error for empty spec path")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("empty overlay path", func(t *testing.T) {
@@ -981,9 +785,7 @@ func TestApplyWithOptionsFilePaths(t *testing.T) {
 			WithSpecFilePath("../testdata/overlay/fixtures/petstore-base.yaml"),
 			WithOverlayFilePath(""),
 		)
-		if err == nil {
-			t.Error("Expected error for empty overlay path")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("nil overlay", func(t *testing.T) {
@@ -991,9 +793,7 @@ func TestApplyWithOptionsFilePaths(t *testing.T) {
 			WithSpecFilePath("../testdata/overlay/fixtures/petstore-base.yaml"),
 			WithOverlayParsed(nil),
 		)
-		if err == nil {
-			t.Error("Expected error for nil overlay")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -1003,28 +803,20 @@ func TestErrorUnwrap(t *testing.T) {
 		cause := &ParseError{Path: "test"}
 		e := &ApplyError{Cause: cause}
 		unwrapped := e.Unwrap()
-		if unwrapped == nil {
-			t.Error("Unwrap should return non-nil cause")
-		}
+		assert.NotNil(t, unwrapped, "Unwrap should return non-nil cause")
 		// Verify errors.As works with ApplyError
 		var applyErr *ApplyError
-		if !errors.As(e, &applyErr) {
-			t.Error("errors.As should find ApplyError")
-		}
+		assert.True(t, errors.As(e, &applyErr), "errors.As should find ApplyError")
 	})
 
 	t.Run("ParseError Unwrap", func(t *testing.T) {
 		cause := &ValidationError{Message: "test"}
 		e := &ParseError{Cause: cause}
 		unwrapped := e.Unwrap()
-		if unwrapped == nil {
-			t.Error("Unwrap should return non-nil cause")
-		}
+		assert.NotNil(t, unwrapped, "Unwrap should return non-nil cause")
 		// Verify errors.As works with ParseError
 		var parseErr *ParseError
-		if !errors.As(e, &parseErr) {
-			t.Error("errors.As should find ParseError")
-		}
+		assert.True(t, errors.As(e, &parseErr), "errors.As should find ParseError")
 	})
 }
 
@@ -1051,21 +843,13 @@ func TestApplyScalarReplace(t *testing.T) {
 
 	a := NewApplier()
 	result, err := a.ApplyParsed(spec, o)
-	if err != nil {
-		t.Fatalf("Apply error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if result.ActionsApplied != 1 {
-		t.Errorf("ActionsApplied = %d, want 1", result.ActionsApplied)
-	}
+	assert.Equal(t, 1, result.ActionsApplied)
 
 	// Check the change record
-	if len(result.Changes) == 0 {
-		t.Fatal("Expected change record")
-	}
-	if result.Changes[0].Operation != "replace" {
-		t.Errorf("Operation = %q, want replace", result.Changes[0].Operation)
-	}
+	require.NotEmpty(t, result.Changes, "Expected change record")
+	assert.Equal(t, "replace", result.Changes[0].Operation)
 }
 
 // TestApplyArrayAppend tests appending to arrays.
@@ -1091,24 +875,16 @@ func TestApplyArrayAppend(t *testing.T) {
 
 	a := NewApplier()
 	result, err := a.ApplyParsed(spec, o)
-	if err != nil {
-		t.Fatalf("Apply error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Check the change record
-	if len(result.Changes) == 0 {
-		t.Fatal("Expected change record")
-	}
-	if result.Changes[0].Operation != "append" {
-		t.Errorf("Operation = %q, want append", result.Changes[0].Operation)
-	}
+	require.NotEmpty(t, result.Changes, "Expected change record")
+	assert.Equal(t, "append", result.Changes[0].Operation)
 
 	// Verify array has two elements
 	resultDoc := result.Document.(map[string]any)
 	servers := resultDoc["servers"].([]any)
-	if len(servers) != 2 {
-		t.Errorf("len(servers) = %d, want 2", len(servers))
-	}
+	assert.Len(t, servers, 2)
 }
 
 // TestInvalidOverlayValidation tests validation errors for invalid overlays.
@@ -1133,9 +909,7 @@ func TestInvalidOverlayValidation(t *testing.T) {
 
 	// ApplyParsed validates first, so invalid JSONPath should cause validation error
 	_, err := a.ApplyParsed(spec, o)
-	if err == nil {
-		t.Error("Expected validation error for invalid JSONPath")
-	}
+	assert.Error(t, err, "Expected validation error for invalid JSONPath")
 }
 
 // TestDeepCopyError tests deepCopy with non-serializable input.
@@ -1162,22 +936,16 @@ func TestDeepCopyPreservesStructure(t *testing.T) {
 
 	a := NewApplier()
 	result, err := a.ApplyParsed(spec, o)
-	if err != nil {
-		t.Fatalf("Apply error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Original should be unchanged
 	originalNested := doc["nested"].(map[string]any)
-	if _, exists := originalNested["added"]; exists {
-		t.Error("Original document was modified")
-	}
+	assert.NotContains(t, originalNested, "added", "Original document was modified")
 
 	// Result should have the new field
 	resultDoc := result.Document.(map[string]any)
 	resultNested := resultDoc["nested"].(map[string]any)
-	if _, exists := resultNested["added"]; !exists {
-		t.Error("Result should have added field")
-	}
+	assert.Contains(t, resultNested, "added", "Result should have added field")
 }
 
 // TestRemovePrecedence tests that remove takes precedence over update.
@@ -1209,20 +977,14 @@ func TestRemovePrecedence(t *testing.T) {
 
 	a := NewApplier()
 	result, err := a.ApplyParsed(spec, o)
-	if err != nil {
-		t.Fatalf("Apply error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// The field should be removed, not updated
 	resultDoc := result.Document.(map[string]any)
 	info := resultDoc["info"].(map[string]any)
-	if _, exists := info["x-temp"]; exists {
-		t.Error("x-temp should have been removed")
-	}
+	assert.NotContains(t, info, "x-temp", "x-temp should have been removed")
 
-	if result.Changes[0].Operation != "remove" {
-		t.Errorf("Operation = %q, want remove", result.Changes[0].Operation)
-	}
+	assert.Equal(t, "remove", result.Changes[0].Operation)
 }
 
 // TestDryRun tests the dry-run preview functionality.
@@ -1254,34 +1016,18 @@ func TestDryRun(t *testing.T) {
 
 		a := NewApplier()
 		result, err := a.DryRun(spec, o)
-		if err != nil {
-			t.Fatalf("DryRun error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if result.WouldApply != 1 {
-			t.Errorf("WouldApply = %d, want 1", result.WouldApply)
-		}
-		if result.WouldSkip != 0 {
-			t.Errorf("WouldSkip = %d, want 0", result.WouldSkip)
-		}
-		if len(result.Changes) != 1 {
-			t.Fatalf("len(Changes) = %d, want 1", len(result.Changes))
-		}
-		if result.Changes[0].Operation != "update" {
-			t.Errorf("Operation = %q, want update", result.Changes[0].Operation)
-		}
-		if result.Changes[0].MatchCount != 1 {
-			t.Errorf("MatchCount = %d, want 1", result.Changes[0].MatchCount)
-		}
-		if result.Changes[0].Description != "Update info metadata" {
-			t.Errorf("Description = %q, want 'Update info metadata'", result.Changes[0].Description)
-		}
+		assert.Equal(t, 1, result.WouldApply)
+		assert.Equal(t, 0, result.WouldSkip)
+		require.Len(t, result.Changes, 1)
+		assert.Equal(t, "update", result.Changes[0].Operation)
+		assert.Equal(t, 1, result.Changes[0].MatchCount)
+		assert.Equal(t, "Update info metadata", result.Changes[0].Description)
 
 		// Verify original document was not modified
 		origInfo := doc["info"].(map[string]any)
-		if origInfo["title"] != "Original" {
-			t.Error("Original document should not be modified by DryRun")
-		}
+		assert.Equal(t, "Original", origInfo["title"], "Original document should not be modified by DryRun")
 	})
 
 	t.Run("preview remove action", func(t *testing.T) {
@@ -1310,22 +1056,14 @@ func TestDryRun(t *testing.T) {
 
 		a := NewApplier()
 		result, err := a.DryRun(spec, o)
-		if err != nil {
-			t.Fatalf("DryRun error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if result.Changes[0].Operation != "remove" {
-			t.Errorf("Operation = %q, want remove", result.Changes[0].Operation)
-		}
-		if result.Changes[0].MatchCount != 1 {
-			t.Errorf("MatchCount = %d, want 1", result.Changes[0].MatchCount)
-		}
+		assert.Equal(t, "remove", result.Changes[0].Operation)
+		assert.Equal(t, 1, result.Changes[0].MatchCount)
 
 		// Verify original document was not modified
 		paths := doc["paths"].(map[string]any)
-		if _, exists := paths["/internal"]; !exists {
-			t.Error("Original document should not be modified by DryRun")
-		}
+		assert.Contains(t, paths, "/internal", "Original document should not be modified by DryRun")
 	})
 
 	t.Run("preview no matches", func(t *testing.T) {
@@ -1351,19 +1089,11 @@ func TestDryRun(t *testing.T) {
 
 		a := NewApplier()
 		result, err := a.DryRun(spec, o)
-		if err != nil {
-			t.Fatalf("DryRun error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if result.WouldApply != 0 {
-			t.Errorf("WouldApply = %d, want 0", result.WouldApply)
-		}
-		if result.WouldSkip != 1 {
-			t.Errorf("WouldSkip = %d, want 1", result.WouldSkip)
-		}
-		if len(result.Warnings) != 1 {
-			t.Errorf("len(Warnings) = %d, want 1", len(result.Warnings))
-		}
+		assert.Equal(t, 0, result.WouldApply)
+		assert.Equal(t, 1, result.WouldSkip)
+		assert.Len(t, result.Warnings, 1)
 	})
 
 	t.Run("preview append to array", func(t *testing.T) {
@@ -1391,13 +1121,9 @@ func TestDryRun(t *testing.T) {
 
 		a := NewApplier()
 		result, err := a.DryRun(spec, o)
-		if err != nil {
-			t.Fatalf("DryRun error: %v", err)
-		}
+		require.NoError(t, err)
 
-		if result.Changes[0].Operation != "append" {
-			t.Errorf("Operation = %q, want append", result.Changes[0].Operation)
-		}
+		assert.Equal(t, "append", result.Changes[0].Operation)
 	})
 }
 
@@ -1407,41 +1133,27 @@ func TestDryRunWithOptions(t *testing.T) {
 		WithSpecFilePath("../testdata/overlay/fixtures/petstore-base.yaml"),
 		WithOverlayFilePath("../testdata/overlay/fixtures/petstore-overlay.yaml"),
 	)
-	if err != nil {
-		t.Fatalf("DryRunWithOptions error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if result.WouldApply != 3 {
-		t.Errorf("WouldApply = %d, want 3", result.WouldApply)
-	}
-	if !result.HasChanges() {
-		t.Error("HasChanges() should return true")
-	}
+	assert.Equal(t, 3, result.WouldApply)
+	assert.True(t, result.HasChanges(), "HasChanges() should return true")
 }
 
 // TestDryRunResultHelpers tests the helper methods on DryRunResult.
 func TestDryRunResultHelpers(t *testing.T) {
 	t.Run("HasChanges", func(t *testing.T) {
 		r := &DryRunResult{WouldApply: 0}
-		if r.HasChanges() {
-			t.Error("HasChanges() should return false when WouldApply is 0")
-		}
+		assert.False(t, r.HasChanges(), "HasChanges() should return false when WouldApply is 0")
 
 		r.WouldApply = 1
-		if !r.HasChanges() {
-			t.Error("HasChanges() should return true when WouldApply > 0")
-		}
+		assert.True(t, r.HasChanges(), "HasChanges() should return true when WouldApply > 0")
 	})
 
 	t.Run("HasWarnings", func(t *testing.T) {
 		r := &DryRunResult{}
-		if r.HasWarnings() {
-			t.Error("HasWarnings() should return false when Warnings is empty")
-		}
+		assert.False(t, r.HasWarnings(), "HasWarnings() should return false when Warnings is empty")
 
 		r.Warnings = []string{"warning"}
-		if !r.HasWarnings() {
-			t.Error("HasWarnings() should return true when Warnings is not empty")
-		}
+		assert.True(t, r.HasWarnings(), "HasWarnings() should return true when Warnings is not empty")
 	})
 }

@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestDiffParameterUnified tests parameter comparison with all covered paths
@@ -181,28 +183,20 @@ func TestDiffParameterUnified(t *testing.T) {
 
 			d.diffParameterUnified(tt.source, tt.target, "test.param", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s (severity: %v)", c.Path, c.Message, c.Severity)
-				}
-				return
-			}
+			require.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 
 			if tt.expectedCount > 0 && tt.checkPath != "" {
 				found := false
 				for _, c := range result.Changes {
 					if c.Path == tt.checkPath {
 						found = true
-						if tt.checkSeverity != 0 && c.Severity != tt.checkSeverity {
-							t.Errorf("Expected severity %v, got %v for path %s", tt.checkSeverity, c.Severity, c.Path)
+						if tt.checkSeverity != 0 {
+							assert.Equal(t, tt.checkSeverity, c.Severity, "Expected severity %v, got %v for path %s", tt.checkSeverity, c.Severity, c.Path)
 						}
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected change at path %s not found", tt.checkPath)
-				}
+				assert.True(t, found, "Expected change at path %s not found", tt.checkPath)
 			}
 		})
 	}
@@ -322,28 +316,20 @@ func TestDiffRequestBodyUnified(t *testing.T) {
 
 			d.diffRequestBodyUnified(tt.source, tt.target, "test.requestBody", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s (severity: %v)", c.Path, c.Message, c.Severity)
-				}
-				return
-			}
+			require.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 
 			if tt.expectedCount > 0 && tt.checkPath != "" {
 				found := false
 				for _, c := range result.Changes {
 					if c.Path == tt.checkPath {
 						found = true
-						if tt.checkSeverity != 0 && c.Severity != tt.checkSeverity {
-							t.Errorf("Expected severity %v, got %v for path %s", tt.checkSeverity, c.Severity, c.Path)
+						if tt.checkSeverity != 0 {
+							assert.Equal(t, tt.checkSeverity, c.Severity, "Expected severity %v, got %v for path %s", tt.checkSeverity, c.Severity, c.Path)
 						}
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected change at path %s not found", tt.checkPath)
-				}
+				assert.True(t, found, "Expected change at path %s not found", tt.checkPath)
 			}
 		})
 	}
@@ -416,12 +402,7 @@ func TestDiffRequestBodyMediaTypeUnified(t *testing.T) {
 
 			d.diffRequestBodyMediaTypeUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s", c.Path, c.Message)
-				}
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 		})
 	}
 }
@@ -481,12 +462,7 @@ func TestDiffRequestBodyContentUnified(t *testing.T) {
 
 			d.diffRequestBodyContentUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s", c.Path, c.Message)
-				}
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 		})
 	}
 }
@@ -547,13 +523,7 @@ func TestDiffOperationUnified_OperationId(t *testing.T) {
 
 			d.diffOperationUnified(tt.source, tt.target, "test.op", result)
 
-			if len(result.Changes) < tt.expectedCount {
-				t.Errorf("Expected at least %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s", c.Path, c.Message)
-				}
-				return
-			}
+			require.GreaterOrEqual(t, len(result.Changes), tt.expectedCount, "Expected at least %d changes, got %d", tt.expectedCount, len(result.Changes))
 
 			if tt.checkPath != "" {
 				found := false
@@ -563,9 +533,7 @@ func TestDiffOperationUnified_OperationId(t *testing.T) {
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected change at path %s not found", tt.checkPath)
-				}
+				assert.True(t, found, "Expected change at path %s not found", tt.checkPath)
 			}
 		})
 	}
@@ -644,12 +612,7 @@ func TestDiffParametersUnified(t *testing.T) {
 
 			d.diffParametersUnified(tt.source, tt.target, "test.params", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s (severity: %v)", c.Path, c.Message, c.Severity)
-				}
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 		})
 	}
 }

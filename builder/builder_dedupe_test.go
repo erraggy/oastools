@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // addSchema is a test helper to add a schema directly to the builder's internal map
@@ -15,9 +17,7 @@ func TestBuilder_DeduplicateSchemas_Empty(t *testing.T) {
 	b := New(parser.OASVersion320)
 	b.DeduplicateSchemas()
 
-	if len(b.schemaAliases) != 0 {
-		t.Errorf("Expected 0 aliases, got %d", len(b.schemaAliases))
-	}
+	assert.Len(t, b.schemaAliases, 0)
 }
 
 func TestBuilder_DeduplicateSchemas_Single(t *testing.T) {
@@ -25,12 +25,8 @@ func TestBuilder_DeduplicateSchemas_Single(t *testing.T) {
 	b.addSchema("User", &parser.Schema{Type: "object"})
 	b.DeduplicateSchemas()
 
-	if len(b.schemas) != 1 {
-		t.Errorf("Expected 1 schema, got %d", len(b.schemas))
-	}
-	if len(b.schemaAliases) != 0 {
-		t.Errorf("Expected 0 aliases, got %d", len(b.schemaAliases))
-	}
+	assert.Len(t, b.schemas, 1)
+	assert.Len(t, b.schemaAliases, 0)
 }
 
 func TestBuilder_DeduplicateSchemas_Duplicates(t *testing.T) {
@@ -57,20 +53,12 @@ func TestBuilder_DeduplicateSchemas_Duplicates(t *testing.T) {
 	b.DeduplicateSchemas()
 
 	// Should have 1 canonical schema (Address, alphabetically first)
-	if len(b.schemas) != 1 {
-		t.Errorf("Expected 1 schema after dedup, got %d", len(b.schemas))
-	}
-	if _, ok := b.schemas["Address"]; !ok {
-		t.Error("Expected Address to be canonical (alphabetically first)")
-	}
+	assert.Len(t, b.schemas, 1)
+	assert.Contains(t, b.schemas, "Address", "Expected Address to be canonical (alphabetically first)")
 
 	// Should have 1 alias
-	if len(b.schemaAliases) != 1 {
-		t.Errorf("Expected 1 alias, got %d", len(b.schemaAliases))
-	}
-	if b.schemaAliases["Location"] != "Address" {
-		t.Errorf("Expected Location -> Address, got %s", b.schemaAliases["Location"])
-	}
+	assert.Len(t, b.schemaAliases, 1)
+	assert.Equal(t, "Address", b.schemaAliases["Location"])
 }
 
 func TestBuilder_DeduplicateSchemas_NoDuplicates(t *testing.T) {
@@ -82,12 +70,8 @@ func TestBuilder_DeduplicateSchemas_NoDuplicates(t *testing.T) {
 
 	b.DeduplicateSchemas()
 
-	if len(b.schemas) != 3 {
-		t.Errorf("Expected 3 schemas, got %d", len(b.schemas))
-	}
-	if len(b.schemaAliases) != 0 {
-		t.Errorf("Expected 0 aliases, got %d", len(b.schemaAliases))
-	}
+	assert.Len(t, b.schemas, 3)
+	assert.Len(t, b.schemaAliases, 0)
 }
 
 func TestBuilder_WithSemanticDeduplication_OAS3(t *testing.T) {
@@ -116,22 +100,16 @@ func TestBuilder_WithSemanticDeduplication_OAS3(t *testing.T) {
 	})
 
 	doc, err := b.BuildOAS3()
-	if err != nil {
-		t.Fatalf("BuildOAS3 failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have 2 schemas (Address canonical, Order)
-	if len(doc.Components.Schemas) != 2 {
-		t.Errorf("Expected 2 schemas after dedup, got %d", len(doc.Components.Schemas))
-	}
+	assert.Len(t, doc.Components.Schemas, 2)
 
 	// Check that Order's reference was rewritten to Address
 	orderSchema := doc.Components.Schemas["Order"]
 	shipToRef := orderSchema.Properties["shipTo"].Ref
 	expectedRef := "#/components/schemas/Address"
-	if shipToRef != expectedRef {
-		t.Errorf("Expected shipTo.$ref = %s, got %s", expectedRef, shipToRef)
-	}
+	assert.Equal(t, expectedRef, shipToRef)
 }
 
 func TestBuilder_WithSemanticDeduplication_OAS2(t *testing.T) {
@@ -160,22 +138,16 @@ func TestBuilder_WithSemanticDeduplication_OAS2(t *testing.T) {
 	})
 
 	doc, err := b.BuildOAS2()
-	if err != nil {
-		t.Fatalf("BuildOAS2 failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have 2 definitions (Address canonical, Order)
-	if len(doc.Definitions) != 2 {
-		t.Errorf("Expected 2 definitions after dedup, got %d", len(doc.Definitions))
-	}
+	assert.Len(t, doc.Definitions, 2)
 
 	// Check that Order's reference was rewritten to Address
 	orderSchema := doc.Definitions["Order"]
 	shipToRef := orderSchema.Properties["shipTo"].Ref
 	expectedRef := "#/definitions/Address"
-	if shipToRef != expectedRef {
-		t.Errorf("Expected shipTo.$ref = %s, got %s", expectedRef, shipToRef)
-	}
+	assert.Equal(t, expectedRef, shipToRef)
 }
 
 func TestBuilder_WithSemanticDeduplication_Disabled(t *testing.T) {
@@ -186,14 +158,10 @@ func TestBuilder_WithSemanticDeduplication_Disabled(t *testing.T) {
 	b.addSchema("Location", &parser.Schema{Type: "object"})
 
 	doc, err := b.BuildOAS3()
-	if err != nil {
-		t.Fatalf("BuildOAS3 failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have both schemas (no dedup)
-	if len(doc.Components.Schemas) != 2 {
-		t.Errorf("Expected 2 schemas (no dedup), got %d", len(doc.Components.Schemas))
-	}
+	assert.Len(t, doc.Components.Schemas, 2)
 }
 
 func TestBuilder_DeduplicateSchemas_MetadataIgnored(t *testing.T) {
@@ -218,14 +186,10 @@ func TestBuilder_DeduplicateSchemas_MetadataIgnored(t *testing.T) {
 	})
 
 	doc, err := b.BuildOAS3()
-	if err != nil {
-		t.Fatalf("BuildOAS3 failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should deduplicate since structural properties are the same
-	if len(doc.Components.Schemas) != 1 {
-		t.Errorf("Expected 1 schema (metadata ignored), got %d", len(doc.Components.Schemas))
-	}
+	assert.Len(t, doc.Components.Schemas, 1)
 }
 
 func TestBuilder_DeduplicateSchemas_MultipleGroups(t *testing.T) {
@@ -249,25 +213,15 @@ func TestBuilder_DeduplicateSchemas_MultipleGroups(t *testing.T) {
 	b.addSchema("Age", &parser.Schema{Type: "integer"})
 
 	doc, err := b.BuildOAS3()
-	if err != nil {
-		t.Fatalf("BuildOAS3 failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have 3 schemas: Address (canonical), Age (unique), Name (canonical)
-	if len(doc.Components.Schemas) != 3 {
-		t.Errorf("Expected 3 schemas, got %d", len(doc.Components.Schemas))
-	}
+	assert.Len(t, doc.Components.Schemas, 3)
 
 	// Verify canonical names
-	if _, ok := doc.Components.Schemas["Address"]; !ok {
-		t.Error("Expected Address to be canonical")
-	}
-	if _, ok := doc.Components.Schemas["Name"]; !ok {
-		t.Error("Expected Name to be canonical")
-	}
-	if _, ok := doc.Components.Schemas["Age"]; !ok {
-		t.Error("Expected Age to be present")
-	}
+	assert.Contains(t, doc.Components.Schemas, "Address", "Expected Address to be canonical")
+	assert.Contains(t, doc.Components.Schemas, "Name", "Expected Name to be canonical")
+	assert.Contains(t, doc.Components.Schemas, "Age", "Expected Age to be present")
 }
 
 func TestBuilder_DeduplicateSchemas_NestedReferences(t *testing.T) {
@@ -306,24 +260,16 @@ func TestBuilder_DeduplicateSchemas_NestedReferences(t *testing.T) {
 	})
 
 	doc, err := b.BuildOAS3()
-	if err != nil {
-		t.Fatalf("BuildOAS3 failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify all Location refs are rewritten to Address
 	person := doc.Components.Schemas["Person"]
-	if person.Properties["home"].Ref != "#/components/schemas/Address" {
-		t.Errorf("Expected home.$ref = Address, got %s", person.Properties["home"].Ref)
-	}
-	if person.Properties["work"].Ref != "#/components/schemas/Address" {
-		t.Errorf("Expected work.$ref = Address, got %s", person.Properties["work"].Ref)
-	}
+	assert.Equal(t, "#/components/schemas/Address", person.Properties["home"].Ref)
+	assert.Equal(t, "#/components/schemas/Address", person.Properties["work"].Ref)
 
 	employee := doc.Components.Schemas["Employee"]
 	officeRef := employee.AllOf[1].Properties["office"].Ref
-	if officeRef != "#/components/schemas/Address" {
-		t.Errorf("Expected office.$ref = Address, got %s", officeRef)
-	}
+	assert.Equal(t, "#/components/schemas/Address", officeRef)
 }
 
 func TestBuilder_DeduplicateSchemas_ManualCall(t *testing.T) {
@@ -337,17 +283,11 @@ func TestBuilder_DeduplicateSchemas_ManualCall(t *testing.T) {
 	b.DeduplicateSchemas()
 
 	// Verify aliases are set
-	if len(b.schemaAliases) != 1 {
-		t.Errorf("Expected 1 alias, got %d", len(b.schemaAliases))
-	}
+	assert.Len(t, b.schemaAliases, 1)
 
 	// Build should use the aliases for rewriting
 	doc, err := b.BuildOAS3()
-	if err != nil {
-		t.Fatalf("BuildOAS3 failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(doc.Components.Schemas) != 1 {
-		t.Errorf("Expected 1 schema, got %d", len(doc.Components.Schemas))
-	}
+	assert.Len(t, doc.Components.Schemas, 1)
 }

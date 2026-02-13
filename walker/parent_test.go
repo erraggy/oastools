@@ -3,6 +3,9 @@ package walker
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -37,12 +40,8 @@ func TestParentTracking_Disabled(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-	if !parentWasNil {
-		t.Error("Expected Parent to be nil when parent tracking is disabled")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.True(t, parentWasNil, "Expected Parent to be nil when parent tracking is disabled")
 }
 
 func TestParentTracking_SchemaInOperation(t *testing.T) {
@@ -87,15 +86,9 @@ func TestParentTracking_SchemaInOperation(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-	if !foundParentOp {
-		t.Error("Expected to find parent operation for schema")
-	}
-	if parentOpID != "getPets" {
-		t.Errorf("Expected parent operation ID 'getPets', got '%s'", parentOpID)
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.True(t, foundParentOp, "Expected to find parent operation for schema")
+	assert.Equal(t, "getPets", parentOpID)
 }
 
 func TestParentTracking_NestedSchemas(t *testing.T) {
@@ -136,12 +129,8 @@ func TestParentTracking_NestedSchemas(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-	if !foundParentSchema {
-		t.Error("Expected inner schema to find outer schema as parent")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.True(t, foundParentSchema, "Expected inner schema to find outer schema as parent")
 }
 
 func TestParentTracking_Ancestors(t *testing.T) {
@@ -178,13 +167,9 @@ func TestParentTracking_Ancestors(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 	// Ancestors should include: MediaType, RequestBody, Operation, PathItem
-	if ancestorCount < 4 {
-		t.Errorf("Expected at least 4 ancestors, got %d", ancestorCount)
-	}
+	assert.GreaterOrEqual(t, ancestorCount, 4, "Expected at least 4 ancestors")
 }
 
 func TestParentTracking_ParentSchema(t *testing.T) {
@@ -227,9 +212,7 @@ func TestParentTracking_ParentSchema(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
 	// The string schema's parent should be the address object schema
 	var foundStringWithObjectParent bool
@@ -239,9 +222,7 @@ func TestParentTracking_ParentSchema(t *testing.T) {
 			break
 		}
 	}
-	if !foundStringWithObjectParent {
-		t.Error("Expected string schema to have object parent schema")
-	}
+	assert.True(t, foundStringWithObjectParent, "Expected string schema to have object parent schema")
 }
 
 func TestParentTracking_ParentOperation(t *testing.T) {
@@ -281,16 +262,10 @@ func TestParentTracking_ParentOperation(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
-	if paramOperations["limit"] != "getPets" {
-		t.Errorf("Expected 'limit' param to be in 'getPets', got '%s'", paramOperations["limit"])
-	}
-	if paramOperations["body"] != "createPet" {
-		t.Errorf("Expected 'body' param to be in 'createPet', got '%s'", paramOperations["body"])
-	}
+	assert.Equal(t, "getPets", paramOperations["limit"])
+	assert.Equal(t, "createPet", paramOperations["body"])
 }
 
 func TestParentTracking_ParentPathItem(t *testing.T) {
@@ -324,15 +299,9 @@ func TestParentTracking_ParentPathItem(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-	if !foundPathItem {
-		t.Error("Expected to find parent path item for operation")
-	}
-	if pathItemSummary != "Pet operations" {
-		t.Errorf("Expected path item summary 'Pet operations', got '%s'", pathItemSummary)
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.True(t, foundPathItem, "Expected to find parent path item for operation")
+	assert.Equal(t, "Pet operations", pathItemSummary)
 }
 
 func TestParentTracking_ParentResponse(t *testing.T) {
@@ -374,15 +343,9 @@ func TestParentTracking_ParentResponse(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-	if !foundResponse {
-		t.Error("Expected to find parent response for header")
-	}
-	if responseDesc != "Success response" {
-		t.Errorf("Expected response description 'Success response', got '%s'", responseDesc)
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.True(t, foundResponse, "Expected to find parent response for header")
+	assert.Equal(t, "Success response", responseDesc)
 }
 
 func TestParentTracking_ParentRequestBody(t *testing.T) {
@@ -422,15 +385,9 @@ func TestParentTracking_ParentRequestBody(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-	if !foundRequestBody {
-		t.Error("Expected to find parent request body for schema")
-	}
-	if reqBodyDesc != "Pet to create" {
-		t.Errorf("Expected request body description 'Pet to create', got '%s'", reqBodyDesc)
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.True(t, foundRequestBody, "Expected to find parent request body for schema")
+	assert.Equal(t, "Pet to create", reqBodyDesc)
 }
 
 func TestParentTracking_Depth(t *testing.T) {
@@ -469,9 +426,7 @@ func TestParentTracking_Depth(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
+	require.NoError(t, err, "Walk failed")
 
 	// Check that depth increases as we go deeper
 	var minDepth, maxDepth int
@@ -491,9 +446,7 @@ func TestParentTracking_Depth(t *testing.T) {
 		}
 	}
 
-	if maxDepth <= minDepth {
-		t.Error("Expected depth to increase for nested schemas")
-	}
+	assert.Greater(t, maxDepth, minDepth, "Expected depth to increase for nested schemas")
 }
 
 func TestParentTracking_OAS2(t *testing.T) {
@@ -532,12 +485,8 @@ func TestParentTracking_OAS2(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-	if !foundParentOp {
-		t.Error("Expected OAS 2.0 schema to find parent operation")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.True(t, foundParentOp, "Expected OAS 2.0 schema to find parent operation")
 }
 
 func TestParentTracking_ParentInfoChain(t *testing.T) {
@@ -588,12 +537,8 @@ func TestParentTracking_ParentInfoChain(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-	if !chainValid {
-		t.Error("Expected to be able to traverse parent chain")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.True(t, chainValid, "Expected to be able to traverse parent chain")
 }
 
 func TestParentTracking_NoParentAtRoot(t *testing.T) {
@@ -615,12 +560,8 @@ func TestParentTracking_NoParentAtRoot(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-	if !parentWasNil {
-		t.Error("Expected Parent to be nil at document root")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.True(t, parentWasNil, "Expected Parent to be nil at document root")
 }
 
 func TestParentTracking_WalkWithOptions(t *testing.T) {
@@ -663,12 +604,8 @@ func TestParentTracking_WalkWithOptions(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("WalkWithOptions failed: %v", err)
-	}
-	if !foundParent {
-		t.Error("Expected to find parent when using WalkWithOptions with parent tracking")
-	}
+	require.NoError(t, err, "WalkWithOptions failed")
+	assert.True(t, foundParent, "Expected to find parent when using WalkWithOptions with parent tracking")
 }
 
 func BenchmarkWalk_WithParentTracking(b *testing.B) {

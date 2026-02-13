@@ -2,6 +2,8 @@ package parser
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetDocumentStats_OAS2(t *testing.T) {
@@ -93,15 +95,9 @@ func TestGetDocumentStats_OAS2(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := GetDocumentStats(tt.doc)
-			if got.PathCount != tt.want.PathCount {
-				t.Errorf("PathCount = %d, want %d", got.PathCount, tt.want.PathCount)
-			}
-			if got.OperationCount != tt.want.OperationCount {
-				t.Errorf("OperationCount = %d, want %d", got.OperationCount, tt.want.OperationCount)
-			}
-			if got.SchemaCount != tt.want.SchemaCount {
-				t.Errorf("SchemaCount = %d, want %d", got.SchemaCount, tt.want.SchemaCount)
-			}
+			assert.Equal(t, tt.want.PathCount, got.PathCount, "PathCount")
+			assert.Equal(t, tt.want.OperationCount, got.OperationCount, "OperationCount")
+			assert.Equal(t, tt.want.SchemaCount, got.SchemaCount, "SchemaCount")
 		})
 	}
 }
@@ -289,15 +285,9 @@ func TestGetDocumentStats_OAS3(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := GetDocumentStats(tt.doc)
-			if got.PathCount != tt.want.PathCount {
-				t.Errorf("PathCount = %d, want %d", got.PathCount, tt.want.PathCount)
-			}
-			if got.OperationCount != tt.want.OperationCount {
-				t.Errorf("OperationCount = %d, want %d", got.OperationCount, tt.want.OperationCount)
-			}
-			if got.SchemaCount != tt.want.SchemaCount {
-				t.Errorf("SchemaCount = %d, want %d", got.SchemaCount, tt.want.SchemaCount)
-			}
+			assert.Equal(t, tt.want.PathCount, got.PathCount, "PathCount")
+			assert.Equal(t, tt.want.OperationCount, got.OperationCount, "OperationCount")
+			assert.Equal(t, tt.want.SchemaCount, got.SchemaCount, "SchemaCount")
 		})
 	}
 }
@@ -311,9 +301,7 @@ func TestGetDocumentStats_UnknownType(t *testing.T) {
 		SchemaCount:    0,
 	}
 
-	if got != want {
-		t.Errorf("GetDocumentStats with unknown type = %+v, want %+v", got, want)
-	}
+	assert.Equal(t, want, got)
 }
 
 func TestGetDocumentStats_NilDocument(t *testing.T) {
@@ -325,9 +313,7 @@ func TestGetDocumentStats_NilDocument(t *testing.T) {
 		SchemaCount:    0,
 	}
 
-	if got != want {
-		t.Errorf("GetDocumentStats with nil = %+v, want %+v", got, want)
-	}
+	assert.Equal(t, want, got)
 }
 
 func TestCountPathItemOperations(t *testing.T) {
@@ -387,9 +373,7 @@ func TestCountPathItemOperations(t *testing.T) {
 			} else {
 				got = countPathItemOperations(tt.pathItem)
 			}
-			if got != tt.want {
-				t.Errorf("countPathItemOperations() = %d, want %d", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

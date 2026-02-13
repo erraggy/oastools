@@ -2,10 +2,11 @@ package commands
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func testPathParseResult() *parser.ParseResult {
@@ -37,9 +38,7 @@ func collectTestPaths(t *testing.T) []pathInfo {
 	t.Helper()
 	result := testPathParseResult()
 	paths, err := collectPaths(result)
-	if err != nil {
-		t.Fatalf("collectPaths failed: %v", err)
-	}
+	require.NoError(t, err)
 	return paths
 }
 
@@ -47,96 +46,64 @@ func TestWalkPaths_ListAll(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 3 {
-		t.Errorf("expected 3 paths, got %d", len(matched))
-	}
+	assert.Len(t, matched, 3)
 }
 
 func TestWalkPaths_FilterByPathExact(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "/pets", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 path, got %d", len(matched))
-	}
-	if matched[0].pathTemplate != "/pets" {
-		t.Errorf("expected /pets, got %s", matched[0].pathTemplate)
-	}
+	require.Len(t, matched, 1)
+	assert.Equal(t, "/pets", matched[0].pathTemplate)
 }
 
 func TestWalkPaths_FilterByPathGlob(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "/pets/*", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 path matching /pets/*, got %d", len(matched))
-	}
-	if matched[0].pathTemplate != "/pets/{id}" {
-		t.Errorf("expected /pets/{id}, got %s", matched[0].pathTemplate)
-	}
+	require.Len(t, matched, 1)
+	assert.Equal(t, "/pets/{id}", matched[0].pathTemplate)
 }
 
 func TestWalkPaths_FilterByExtension(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "", "x-resource")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 path with x-resource, got %d", len(matched))
-	}
-	if matched[0].pathTemplate != "/pets" {
-		t.Errorf("expected /pets, got %s", matched[0].pathTemplate)
-	}
+	require.Len(t, matched, 1)
+	assert.Equal(t, "/pets", matched[0].pathTemplate)
 }
 
 func TestWalkPaths_FilterByExtensionValue(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "", "x-resource=pets")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 path with x-resource=pets, got %d", len(matched))
-	}
+	require.Len(t, matched, 1)
 }
 
 func TestWalkPaths_FilterByExtensionInvalid(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	_, err := filterPaths(paths, "", "invalid-key")
-	if err == nil {
-		t.Error("expected error for invalid extension key")
-	}
+	assert.Error(t, err)
 }
 
 func TestWalkPaths_FilterByExtensionNoMatch(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "", "x-nonexistent")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 0 {
-		t.Errorf("expected 0 paths, got %d", len(matched))
-	}
+	assert.Empty(t, matched)
 }
 
 func TestWalkPaths_FilterCombined(t *testing.T) {
@@ -144,16 +111,10 @@ func TestWalkPaths_FilterCombined(t *testing.T) {
 
 	// Path pattern + extension: /pets matches the pattern, and has x-resource
 	matched, err := filterPaths(paths, "/pets", "x-resource")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 path, got %d", len(matched))
-	}
-	if matched[0].pathTemplate != "/pets" {
-		t.Errorf("expected /pets, got %s", matched[0].pathTemplate)
-	}
+	require.Len(t, matched, 1)
+	assert.Equal(t, "/pets", matched[0].pathTemplate)
 }
 
 func TestWalkPaths_FilterCombinedNoMatch(t *testing.T) {
@@ -161,26 +122,18 @@ func TestWalkPaths_FilterCombinedNoMatch(t *testing.T) {
 
 	// /users matches path pattern but has no x-resource extension
 	matched, err := filterPaths(paths, "/users", "x-resource")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 0 {
-		t.Errorf("expected 0 paths, got %d", len(matched))
-	}
+	assert.Empty(t, matched)
 }
 
 func TestWalkPaths_FilterNonexistentPath(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "/nonexistent", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 0 {
-		t.Errorf("expected 0 paths, got %d", len(matched))
-	}
+	assert.Empty(t, matched)
 }
 
 func TestPathMethods(t *testing.T) {
@@ -226,9 +179,7 @@ func TestPathMethods(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := pathMethods(tt.pi)
-			if got != tt.want {
-				t.Errorf("pathMethods() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -238,9 +189,7 @@ func TestWalkPaths_SummaryTableOutput(t *testing.T) {
 
 	// Filter to just /pets for predictable output
 	matched, err := filterPaths(paths, "/pets", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	var buf bytes.Buffer
 	headers := []string{"PATH", "METHODS", "SUMMARY", "EXTENSIONS"}
@@ -257,30 +206,18 @@ func TestWalkPaths_SummaryTableOutput(t *testing.T) {
 	RenderSummaryTable(&buf, headers, rows, false)
 	output := buf.String()
 
-	if !strings.Contains(output, "PATH") {
-		t.Error("expected PATH header in summary output")
-	}
-	if !strings.Contains(output, "/pets") {
-		t.Error("expected /pets in summary output")
-	}
-	if !strings.Contains(output, "GET, POST") {
-		t.Error("expected 'GET, POST' methods in summary output")
-	}
-	if !strings.Contains(output, "Pet operations") {
-		t.Error("expected 'Pet operations' summary in output")
-	}
-	if !strings.Contains(output, "x-resource") {
-		t.Error("expected x-resource extension in output")
-	}
+	assert.Contains(t, output, "PATH")
+	assert.Contains(t, output, "/pets")
+	assert.Contains(t, output, "GET, POST")
+	assert.Contains(t, output, "Pet operations")
+	assert.Contains(t, output, "x-resource")
 }
 
 func TestWalkPaths_SummaryTableQuiet(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "/users", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	var buf bytes.Buffer
 	headers := []string{"PATH", "METHODS", "SUMMARY", "EXTENSIONS"}
@@ -298,22 +235,16 @@ func TestWalkPaths_SummaryTableQuiet(t *testing.T) {
 	output := buf.String()
 
 	// Quiet: no headers
-	if strings.Contains(output, "PATH") {
-		t.Error("quiet mode should not contain headers")
-	}
+	assert.NotContains(t, output, "PATH")
 	// Still has data
-	if !strings.Contains(output, "/users") {
-		t.Error("expected /users in quiet output")
-	}
+	assert.Contains(t, output, "/users")
 }
 
 func TestWalkPaths_SummaryJSON(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "/pets", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	headers := []string{"PATH", "METHODS", "SUMMARY", "EXTENSIONS"}
 	rows := make([][]string, 0, len(matched))
@@ -328,26 +259,18 @@ func TestWalkPaths_SummaryJSON(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderSummaryStructured(&buf, headers, rows, FormatJSON)
-	if err != nil {
-		t.Fatalf("RenderSummaryStructured failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, `"path"`) {
-		t.Error("expected 'path' key in JSON summary output")
-	}
-	if !strings.Contains(output, "/pets") {
-		t.Error("expected /pets in JSON summary output")
-	}
+	assert.Contains(t, output, `"path"`)
+	assert.Contains(t, output, "/pets")
 }
 
 func TestWalkPaths_SummaryYAML(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "/users", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	headers := []string{"PATH", "METHODS", "SUMMARY", "EXTENSIONS"}
 	rows := make([][]string, 0, len(matched))
@@ -362,30 +285,20 @@ func TestWalkPaths_SummaryYAML(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderSummaryStructured(&buf, headers, rows, FormatYAML)
-	if err != nil {
-		t.Fatalf("RenderSummaryStructured failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, "path") {
-		t.Error("expected 'path' key in YAML summary output")
-	}
-	if !strings.Contains(output, "/users") {
-		t.Error("expected /users in YAML summary output")
-	}
+	assert.Contains(t, output, "path")
+	assert.Contains(t, output, "/users")
 }
 
 func TestWalkPaths_DetailIncludesPath(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "/pets", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 path, got %d", len(matched))
-	}
+	require.Len(t, matched, 1)
 
 	view := pathDetailView{
 		Path:     matched[0].pathTemplate,
@@ -394,36 +307,22 @@ func TestWalkPaths_DetailIncludesPath(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderDetail(&buf, view, FormatJSON)
-	if err != nil {
-		t.Fatalf("RenderDetail failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, `"path"`) {
-		t.Error("expected 'path' key in detail JSON output")
-	}
-	if !strings.Contains(output, "/pets") {
-		t.Error("expected /pets path value in detail output")
-	}
-	if !strings.Contains(output, "Pet operations") {
-		t.Error("expected summary in detail output")
-	}
-	if !strings.Contains(output, "List pets") {
-		t.Error("expected operation summary in detail output")
-	}
+	assert.Contains(t, output, `"path"`)
+	assert.Contains(t, output, "/pets")
+	assert.Contains(t, output, "Pet operations")
+	assert.Contains(t, output, "List pets")
 }
 
 func TestWalkPaths_DetailIncludesPathYAML(t *testing.T) {
 	paths := collectTestPaths(t)
 
 	matched, err := filterPaths(paths, "/users", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 path, got %d", len(matched))
-	}
+	require.Len(t, matched, 1)
 
 	view := pathDetailView{
 		Path:     matched[0].pathTemplate,
@@ -432,45 +331,27 @@ func TestWalkPaths_DetailIncludesPathYAML(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderDetail(&buf, view, FormatYAML)
-	if err != nil {
-		t.Fatalf("RenderDetail failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, "path:") {
-		t.Error("expected 'path' key in YAML detail output")
-	}
-	if !strings.Contains(output, "/users") {
-		t.Error("expected /users path value in YAML detail output")
-	}
-	if !strings.Contains(output, "User operations") {
-		t.Error("expected summary in YAML detail output")
-	}
-	if !strings.Contains(output, "List users") {
-		t.Error("expected operation summary 'List users' in YAML detail output")
-	}
+	assert.Contains(t, output, "path:")
+	assert.Contains(t, output, "/users")
+	assert.Contains(t, output, "User operations")
+	assert.Contains(t, output, "List users")
 }
 
 func TestWalkPaths_NoArgsError(t *testing.T) {
 	err := handleWalkPaths([]string{})
-	if err == nil {
-		t.Error("expected error when no spec file provided")
-	}
-	if !strings.Contains(err.Error(), "requires a spec file") {
-		t.Errorf("expected 'requires a spec file' error, got: %v", err)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "requires a spec file")
 }
 
 func TestWalkPaths_InvalidFormat(t *testing.T) {
 	err := handleWalkPaths([]string{"--format", "xml", "test.yaml"})
-	if err == nil {
-		t.Error("expected error for invalid format")
-	}
+	assert.Error(t, err)
 }
 
 func TestWalkPaths_CollectPathsNilResult(t *testing.T) {
 	_, err := collectPaths(nil)
-	if err == nil {
-		t.Error("expected error for nil ParseResult")
-	}
+	assert.Error(t, err)
 }

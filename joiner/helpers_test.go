@@ -1,10 +1,11 @@
 package joiner
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCopyInfo(t *testing.T) {
@@ -68,28 +69,22 @@ func TestCopyInfo(t *testing.T) {
 			copied := copyInfo(tt.info)
 
 			if tt.info == nil {
-				if copied != nil {
-					t.Error("Expected nil copy for nil input")
-				}
+				assert.Nil(t, copied, "Expected nil copy for nil input")
 				return
 			}
 
 			// Verify values are equal
-			if !reflect.DeepEqual(copied, tt.info) {
-				t.Error("Copied info does not match original")
-			}
+			assert.Equal(t, tt.info, copied, "Copied info does not match original")
 
 			// Verify it's a different pointer
-			if copied == tt.info {
-				t.Error("Copy should be a different pointer")
-			}
+			assert.False(t, copied == tt.info, "Copy should be a different pointer")
 
 			// Verify nested pointers are also copied
-			if tt.info.Contact != nil && copied.Contact == tt.info.Contact {
-				t.Error("Contact should be copied to a different pointer")
+			if tt.info.Contact != nil {
+				assert.False(t, copied.Contact == tt.info.Contact, "Contact should be copied to a different pointer")
 			}
-			if tt.info.License != nil && copied.License == tt.info.License {
-				t.Error("License should be copied to a different pointer")
+			if tt.info.License != nil {
+				assert.False(t, copied.License == tt.info.License, "License should be copied to a different pointer")
 			}
 		})
 	}
@@ -165,56 +160,40 @@ func TestCopyServers(t *testing.T) {
 			copied := copyServers(tt.servers)
 
 			if tt.servers == nil {
-				if copied != nil {
-					t.Error("Expected nil copy for nil input")
-				}
+				assert.Nil(t, copied, "Expected nil copy for nil input")
 				return
 			}
 
 			// Verify length matches
-			if len(copied) != len(tt.servers) {
-				t.Errorf("Length mismatch: got %d, want %d", len(copied), len(tt.servers))
-			}
+			require.Equal(t, len(tt.servers), len(copied), "Length mismatch")
 
 			// Verify each server is deeply copied
 			for i, server := range tt.servers {
 				if server == nil {
-					if copied[i] != nil {
-						t.Errorf("Server %d should be nil", i)
-					}
+					assert.Nil(t, copied[i], "Server %d should be nil", i)
 					continue
 				}
 
-				if copied[i] == server {
-					t.Errorf("Server %d should be a different pointer", i)
-				}
+				assert.False(t, copied[i] == server, "Server %d should be a different pointer", i)
 
-				if !reflect.DeepEqual(copied[i], server) {
-					t.Errorf("Server %d content mismatch", i)
-				}
+				assert.Equal(t, server, copied[i], "Server %d content mismatch", i)
 
 				// Verify variables are deeply copied
 				if server.Variables != nil {
 					// Maps can't be compared directly, check they have same content
-					if len(copied[i].Variables) != len(server.Variables) {
-						t.Errorf("Server %d variables length mismatch", i)
-					}
+					assert.Equal(t, len(server.Variables), len(copied[i].Variables), "Server %d variables length mismatch", i)
 
 					for k, v := range server.Variables {
 						copiedVar := copied[i].Variables[k]
 
 						// Verify enum slice is copied
 						if len(v.Enum) > 0 {
-							if &copiedVar.Enum[0] == &v.Enum[0] {
-								t.Errorf("Server %d variable %s enum should be copied", i, k)
-							}
+							assert.False(t, &copiedVar.Enum[0] == &v.Enum[0], "Server %d variable %s enum should be copied", i, k)
 						}
 
 						// Verify extra map is copied (check by content since maps can't be compared)
 						if len(v.Extra) > 0 {
-							if len(copiedVar.Extra) != len(v.Extra) {
-								t.Errorf("Server %d variable %s extra length mismatch", i, k)
-							}
+							assert.Equal(t, len(v.Extra), len(copiedVar.Extra), "Server %d variable %s extra length mismatch", i, k)
 						}
 					}
 				}
@@ -271,37 +250,24 @@ func TestCopySecurityRequirements(t *testing.T) {
 			copied := copySecurityRequirements(tt.reqs)
 
 			if tt.reqs == nil {
-				if copied != nil {
-					t.Error("Expected nil copy for nil input")
-				}
+				assert.Nil(t, copied, "Expected nil copy for nil input")
 				return
 			}
 
-			if len(copied) != len(tt.reqs) {
-				t.Errorf("Length mismatch: got %d, want %d", len(copied), len(tt.reqs))
-			}
+			require.Equal(t, len(tt.reqs), len(copied), "Length mismatch")
 
 			for i, req := range tt.reqs {
-				if len(copied[i]) != len(req) {
-					t.Errorf("Requirement %d size mismatch", i)
-				}
+				assert.Equal(t, len(req), len(copied[i]), "Requirement %d size mismatch", i)
 
 				for scheme, scopes := range req {
 					copiedScopes, ok := copied[i][scheme]
-					if !ok {
-						t.Errorf("Requirement %d missing scheme %s", i, scheme)
-						continue
-					}
+					require.True(t, ok, "Requirement %d missing scheme %s", i, scheme)
 
-					if !reflect.DeepEqual(copiedScopes, scopes) {
-						t.Errorf("Requirement %d scheme %s scopes mismatch", i, scheme)
-					}
+					assert.Equal(t, scopes, copiedScopes, "Requirement %d scheme %s scopes mismatch", i, scheme)
 
 					// Verify scopes slice is copied (not same pointer)
 					if len(scopes) > 0 && len(copiedScopes) > 0 {
-						if &copiedScopes[0] == &scopes[0] {
-							t.Errorf("Requirement %d scheme %s scopes should be copied", i, scheme)
-						}
+						assert.False(t, &copiedScopes[0] == &scopes[0], "Requirement %d scheme %s scopes should be copied", i, scheme)
 					}
 				}
 			}
@@ -388,9 +354,7 @@ func TestMergeTags(t *testing.T) {
 
 			result := j.mergeTags(tt.existing, tt.new)
 
-			if len(result) != tt.wantLen {
-				t.Errorf("Length mismatch: got %d, want %d", len(result), tt.wantLen)
-			}
+			assert.Equal(t, tt.wantLen, len(result), "Length mismatch")
 
 			// Verify tag names match expected order
 			for i, wantName := range tt.wantNames {
@@ -401,9 +365,7 @@ func TestMergeTags(t *testing.T) {
 				if result[i] != nil {
 					gotName = result[i].Name
 				}
-				if gotName != wantName {
-					t.Errorf("Tag %d name mismatch: got %s, want %s", i, gotName, wantName)
-				}
+				assert.Equal(t, wantName, gotName, "Tag %d name mismatch", i)
 			}
 		})
 	}

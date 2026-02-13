@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewTestRequest(t *testing.T) {
@@ -14,18 +16,10 @@ func TestNewTestRequest(t *testing.T) {
 
 	req := NewTestRequest(http.MethodGet, "/test")
 
-	if req.method != http.MethodGet {
-		t.Errorf("Expected method GET, got %s", req.method)
-	}
-	if req.path != "/test" {
-		t.Errorf("Expected path /test, got %s", req.path)
-	}
-	if req.headers == nil {
-		t.Error("headers should be initialized")
-	}
-	if req.query == nil {
-		t.Error("query should be initialized")
-	}
+	assert.Equal(t, http.MethodGet, req.method)
+	assert.Equal(t, "/test", req.path)
+	assert.NotNil(t, req.headers)
+	assert.NotNil(t, req.query)
 }
 
 func TestTestRequest_Header(t *testing.T) {
@@ -35,12 +29,8 @@ func TestTestRequest_Header(t *testing.T) {
 		Header("Authorization", "Bearer token").
 		Header("X-Custom", "value")
 
-	if req.headers.Get("Authorization") != "Bearer token" {
-		t.Error("Authorization header not set correctly")
-	}
-	if req.headers.Get("X-Custom") != "value" {
-		t.Error("X-Custom header not set correctly")
-	}
+	assert.Equal(t, "Bearer token", req.headers.Get("Authorization"))
+	assert.Equal(t, "value", req.headers.Get("X-Custom"))
 }
 
 func TestTestRequest_Query(t *testing.T) {
@@ -50,12 +40,8 @@ func TestTestRequest_Query(t *testing.T) {
 		Query("page", "1").
 		Query("limit", "10")
 
-	if req.query.Get("page") != "1" {
-		t.Error("page query param not set correctly")
-	}
-	if req.query.Get("limit") != "10" {
-		t.Error("limit query param not set correctly")
-	}
+	assert.Equal(t, "1", req.query.Get("page"))
+	assert.Equal(t, "10", req.query.Get("limit"))
 }
 
 func TestTestRequest_JSONBody(t *testing.T) {
@@ -68,12 +54,8 @@ func TestTestRequest_JSONBody(t *testing.T) {
 	req := NewTestRequest(http.MethodPost, "/test").
 		JSONBody(payload{Name: "test"})
 
-	if req.headers.Get("Content-Type") != "application/json" {
-		t.Error("Content-Type header not set for JSON body")
-	}
-	if req.body == nil {
-		t.Error("body should be set")
-	}
+	assert.Equal(t, "application/json", req.headers.Get("Content-Type"))
+	assert.NotNil(t, req.body)
 }
 
 func TestTestRequest_Build(t *testing.T) {
@@ -84,18 +66,10 @@ func TestTestRequest_Build(t *testing.T) {
 		Header("X-Test", "header").
 		Build()
 
-	if req.Method != http.MethodGet {
-		t.Errorf("Expected method GET, got %s", req.Method)
-	}
-	if req.URL.Path != "/test" {
-		t.Errorf("Expected path /test, got %s", req.URL.Path)
-	}
-	if req.URL.Query().Get("key") != "value" {
-		t.Error("Query parameter not included in URL")
-	}
-	if req.Header.Get("X-Test") != "header" {
-		t.Error("Header not included in request")
-	}
+	assert.Equal(t, http.MethodGet, req.Method)
+	assert.Equal(t, "/test", req.URL.Path)
+	assert.Equal(t, "value", req.URL.Query().Get("key"))
+	assert.Equal(t, "header", req.Header.Get("X-Test"))
 }
 
 func TestTestRequest_Execute(t *testing.T) {
@@ -108,12 +82,8 @@ func TestTestRequest_Execute(t *testing.T) {
 
 	rec := NewTestRequest(http.MethodGet, "/test").Execute(handler)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", rec.Code)
-	}
-	if rec.Body.String() != `{"status":"ok"}` {
-		t.Errorf("Unexpected body: %s", rec.Body.String())
-	}
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, `{"status":"ok"}`, rec.Body.String())
 }
 
 func TestStubHandler(t *testing.T) {
@@ -126,9 +96,7 @@ func TestStubHandler(t *testing.T) {
 	req := &Request{}
 	resp := handler(ctx, req)
 
-	if resp.StatusCode() != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", resp.StatusCode())
-	}
+	assert.Equal(t, http.StatusOK, resp.StatusCode())
 }
 
 func TestStubHandlerFunc(t *testing.T) {
@@ -144,12 +112,8 @@ func TestStubHandlerFunc(t *testing.T) {
 	req := &Request{MatchedPath: "/test/path"}
 	resp := handler(ctx, req)
 
-	if resp.StatusCode() != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", resp.StatusCode())
-	}
-	if receivedPath != "/test/path" {
-		t.Errorf("Expected matched path /test/path, got %s", receivedPath)
-	}
+	assert.Equal(t, http.StatusOK, resp.StatusCode())
+	assert.Equal(t, "/test/path", receivedPath)
 }
 
 func TestErrorStubHandler(t *testing.T) {
@@ -161,14 +125,10 @@ func TestErrorStubHandler(t *testing.T) {
 	req := &Request{}
 	resp := handler(ctx, req)
 
-	if resp.StatusCode() != http.StatusNotFound {
-		t.Errorf("Expected status 404, got %d", resp.StatusCode())
-	}
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode())
 
 	body := resp.Body().(map[string]any)
-	if body["error"] != "not found" {
-		t.Errorf("Expected error 'not found', got %v", body["error"])
-	}
+	assert.Equal(t, "not found", body["error"])
 }
 
 func TestServerTest(t *testing.T) {
@@ -231,61 +191,41 @@ func TestServerTest(t *testing.T) {
 	t.Run("GetJSON", func(t *testing.T) {
 		var gotPets []Pet
 		rec, err := test.GetJSON("/pets", &gotPets)
-		if err != nil {
-			t.Fatalf("GetJSON failed: %v", err)
-		}
-		if rec.Code != http.StatusOK {
-			t.Errorf("Expected status 200, got %d", rec.Code)
-		}
-		if len(gotPets) != 1 {
-			t.Errorf("Expected 1 pet, got %d", len(gotPets))
-		}
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Len(t, gotPets, 1)
 	})
 
 	t.Run("PostJSON", func(t *testing.T) {
 		newPet := Pet{ID: 2, Name: "Spot"}
 		var created map[string]any
 		rec, err := test.PostJSON("/pets", newPet, &created)
-		if err != nil {
-			t.Fatalf("PostJSON failed: %v", err)
-		}
-		if rec.Code != http.StatusCreated {
-			t.Errorf("Expected status 201, got %d", rec.Code)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusCreated, rec.Code)
 	})
 
 	t.Run("PutJSON", func(t *testing.T) {
 		updatedPet := Pet{ID: 1, Name: "Fluffy Updated"}
 		var updated map[string]any
 		rec, err := test.PutJSON("/pets/1", updatedPet, &updated)
-		if err != nil {
-			t.Fatalf("PutJSON failed: %v", err)
-		}
-		if rec.Code != http.StatusOK {
-			t.Errorf("Expected status 200, got %d", rec.Code)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
 	})
 
 	t.Run("Delete", func(t *testing.T) {
 		rec := test.Delete("/pets/1")
-		if rec.Code != http.StatusNoContent {
-			t.Errorf("Expected status 204, got %d", rec.Code)
-		}
+		assert.Equal(t, http.StatusNoContent, rec.Code)
 	})
 
 	t.Run("Request", func(t *testing.T) {
 		req := test.Request(http.MethodGet, "/pets")
-		if req.method != http.MethodGet {
-			t.Error("Request method not set correctly")
-		}
+		assert.Equal(t, http.MethodGet, req.method)
 	})
 
 	t.Run("Execute", func(t *testing.T) {
 		req := test.Request(http.MethodGet, "/pets")
 		rec := test.Execute(req)
-		if rec.Code != http.StatusOK {
-			t.Errorf("Expected status 200, got %d", rec.Code)
-		}
+		assert.Equal(t, http.StatusOK, rec.Code)
 	})
 }
 
@@ -311,17 +251,11 @@ func TestServerTest_GetJSON_NonSuccessStatus(t *testing.T) {
 	var target map[string]any
 	rec, err := test.GetJSON("/error", &target)
 
-	if err != nil {
-		t.Fatalf("GetJSON returned error: %v", err)
-	}
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status 500, got %d", rec.Code)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 
 	// Target should not be populated on error status
-	if len(target) > 0 {
-		t.Error("Target should not be populated on error status")
-	}
+	assert.Empty(t, target)
 }
 
 func TestServerTest_PostJSON_DecodeError(t *testing.T) {
@@ -346,9 +280,7 @@ func TestServerTest_PostJSON_DecodeError(t *testing.T) {
 	var target map[string]any
 	_, err := test.PostJSON("/text", map[string]string{}, &target)
 
-	if err == nil {
-		t.Error("Expected decode error for non-JSON response")
-	}
+	assert.Error(t, err)
 }
 
 func TestTestRequest_MultipleQueryValues(t *testing.T) {
@@ -360,9 +292,7 @@ func TestTestRequest_MultipleQueryValues(t *testing.T) {
 		Build()
 
 	tags := req.URL.Query()["tag"]
-	if len(tags) != 2 {
-		t.Errorf("Expected 2 tag values, got %d", len(tags))
-	}
+	assert.Len(t, tags, 2)
 }
 
 func TestTestRequest_Body(t *testing.T) {
@@ -382,16 +312,11 @@ func TestTestRequest_Body(t *testing.T) {
 		JSONBody(customBody{Data: "test"})
 
 	httpReq := req.Build()
-	if httpReq.Header.Get("Content-Type") != "application/json" {
-		t.Error("Content-Type not set correctly")
-	}
+	assert.Equal(t, "application/json", httpReq.Header.Get("Content-Type"))
 
 	var decoded customBody
-	if err := json.NewDecoder(httpReq.Body).Decode(&decoded); err != nil {
-		t.Fatalf("Failed to decode body: %v", err)
-	}
-	if decoded.Data != "test" {
-		t.Errorf("Expected data 'test', got '%s'", decoded.Data)
-	}
+	err := json.NewDecoder(httpReq.Body).Decode(&decoded)
+	require.NoError(t, err)
+	assert.Equal(t, "test", decoded.Data)
 	_ = body // Prevent unused variable warning
 }

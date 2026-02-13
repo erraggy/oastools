@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/oaserrors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveLocalRefs(t *testing.T) {
@@ -15,18 +17,14 @@ func TestResolveLocalRefs(t *testing.T) {
 	parser.ResolveRefs = true
 
 	result, err := parser.Parse("../testdata/petstore-3.0.yaml")
-	if err != nil {
-		t.Fatalf("Failed to parse: %v", err)
-	}
+	require.NoError(t, err)
 
 	if len(result.Warnings) > 0 {
 		t.Logf("Warnings during ref resolution: %v", result.Warnings)
 	}
 
 	// The file should parse successfully with refs resolved
-	if result.Version != "3.0.3" {
-		t.Errorf("Expected version 3.0.3, got %s", result.Version)
-	}
+	assert.Equal(t, "3.0.3", result.Version)
 }
 
 func TestResolveExternalRefs(t *testing.T) {
@@ -34,18 +32,14 @@ func TestResolveExternalRefs(t *testing.T) {
 	parser.ResolveRefs = true
 
 	result, err := parser.Parse("../testdata/with-external-refs.yaml")
-	if err != nil {
-		t.Fatalf("Failed to parse: %v", err)
-	}
+	require.NoError(t, err)
 
 	if len(result.Warnings) > 0 {
 		t.Logf("Warnings during ref resolution: %v", result.Warnings)
 	}
 
 	// The file should parse successfully with external refs resolved
-	if result.Version != "3.0.3" {
-		t.Errorf("Expected version 3.0.3, got %s", result.Version)
-	}
+	assert.Equal(t, "3.0.3", result.Version)
 }
 
 func TestPathTraversalSecurity(t *testing.T) {
@@ -54,10 +48,7 @@ func TestPathTraversalSecurity(t *testing.T) {
 
 	// Create a safe directory with an allowed file
 	safeDir := filepath.Join(tmpDir, "safe")
-	err := os.MkdirAll(safeDir, 0755)
-	if err != nil {
-		t.Fatalf("Failed to create safe directory: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(safeDir, 0755))
 
 	// Create an allowed file in the safe directory
 	allowedFile := filepath.Join(safeDir, "allowed.yaml")
@@ -68,10 +59,7 @@ info:
   version: 1.0.0
 paths: {}
 `
-	err = os.WriteFile(allowedFile, []byte(allowedContent), 0644)
-	if err != nil {
-		t.Fatalf("Failed to write allowed file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(allowedFile, []byte(allowedContent), 0644))
 
 	// Create a restricted directory with a forbidden file (outside safe dir)
 	restrictedFile := filepath.Join(tmpDir, "forbidden.yaml")
@@ -82,10 +70,7 @@ info:
   version: 1.0.0
 paths: {}
 `
-	err = os.WriteFile(restrictedFile, []byte(restrictedContent), 0644)
-	if err != nil {
-		t.Fatalf("Failed to write restricted file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(restrictedFile, []byte(restrictedContent), 0644))
 
 	tests := []struct {
 		name          string
@@ -125,28 +110,16 @@ paths: {}
 			result, err := resolver.ResolveExternal(tt.ref)
 
 			if tt.shouldSucceed {
-				if err != nil {
-					t.Errorf("Expected success but got error: %v", err)
-				}
-				if result == nil {
-					t.Error("Expected non-nil result for successful resolution")
-				}
+				assert.NoError(t, err)
+				assert.NotNil(t, result, "Expected non-nil result for successful resolution")
 			} else {
-				if err == nil {
-					t.Error("Expected error but got nil")
-					return
-				}
+				require.Error(t, err)
 				// Use errors.Is for sentinel error check
-				if !errors.Is(err, oaserrors.ErrPathTraversal) {
-					t.Errorf("Expected ErrPathTraversal, got: %v", err)
-				}
+				assert.True(t, errors.Is(err, oaserrors.ErrPathTraversal), "Expected ErrPathTraversal, got: %v", err)
 				// Use errors.As to verify error type and fields
 				var refErr *oaserrors.ReferenceError
-				if !errors.As(err, &refErr) {
-					t.Errorf("Expected *oaserrors.ReferenceError, got %T", err)
-				} else if !refErr.IsPathTraversal {
-					t.Errorf("Expected IsPathTraversal=true, got false")
-				}
+				require.True(t, errors.As(err, &refErr), "Expected *oaserrors.ReferenceError, got %T", err)
+				assert.True(t, refErr.IsPathTraversal, "Expected IsPathTraversal=true, got false")
 			}
 		})
 	}
@@ -162,22 +135,12 @@ func TestPathTraversalWindows(t *testing.T) {
 	baseDir := filepath.Join(tmpDir, "base")
 	base2Dir := filepath.Join(tmpDir, "base2")
 
-	err := os.MkdirAll(baseDir, 0755)
-	if err != nil {
-		t.Fatalf("Failed to create base directory: %v", err)
-	}
-
-	err = os.MkdirAll(base2Dir, 0755)
-	if err != nil {
-		t.Fatalf("Failed to create base2 directory: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(baseDir, 0755))
+	require.NoError(t, os.MkdirAll(base2Dir, 0755))
 
 	// Create a file in base2
 	forbiddenFile := filepath.Join(base2Dir, "forbidden.yaml")
-	err = os.WriteFile(forbiddenFile, []byte("openapi: 3.0.0\ninfo:\n  title: Test\n  version: 1.0.0\npaths: {}"), 0644)
-	if err != nil {
-		t.Fatalf("Failed to write forbidden file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(forbiddenFile, []byte("openapi: 3.0.0\ninfo:\n  title: Test\n  version: 1.0.0\npaths: {}"), 0644))
 
 	// Try to access the file in base2 from a resolver with baseDir set to base
 	resolver := NewRefResolver(baseDir)
@@ -194,21 +157,13 @@ func TestPathTraversalWindows(t *testing.T) {
 			result, err := resolver.ResolveExternal(ref)
 
 			// All these should fail with path traversal error
-			if err == nil {
-				t.Errorf("Expected path traversal error for ref '%s', but got nil error. Result: %v", ref, result)
-				return
-			}
+			require.Error(t, err, "Expected path traversal error for ref '%s', but got nil error. Result: %v", ref, result)
 			// Use errors.Is for sentinel error check
-			if !errors.Is(err, oaserrors.ErrPathTraversal) {
-				t.Errorf("Expected ErrPathTraversal for ref '%s', got: %v", ref, err)
-			}
+			assert.True(t, errors.Is(err, oaserrors.ErrPathTraversal), "Expected ErrPathTraversal for ref '%s', got: %v", ref, err)
 			// Use errors.As to verify error type
 			var refErr *oaserrors.ReferenceError
-			if !errors.As(err, &refErr) {
-				t.Errorf("Expected *oaserrors.ReferenceError for ref '%s', got %T", ref, err)
-			} else if !refErr.IsPathTraversal {
-				t.Errorf("Expected IsPathTraversal=true for ref '%s'", ref)
-			}
+			require.True(t, errors.As(err, &refErr), "Expected *oaserrors.ReferenceError for ref '%s', got %T", ref, err)
+			assert.True(t, refErr.IsPathTraversal, "Expected IsPathTraversal=true for ref '%s'", ref)
 		})
 	}
 }
@@ -225,16 +180,12 @@ properties:
   id:
     type: integer
 `)
-	if err := os.WriteFile(validExternal, validContent, 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(validExternal, validContent, 0644))
 
 	// Create a malformed external file
 	malformedExternal := filepath.Join(tmpDir, "malformed.yaml")
 	malformedContent := []byte(`{{{invalid yaml`)
-	if err := os.WriteFile(malformedExternal, malformedContent, 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(malformedExternal, malformedContent, 0644))
 
 	tests := []struct {
 		name      string
@@ -327,16 +278,12 @@ paths:
 		t.Run(tt.name, func(t *testing.T) {
 			// Write spec to temp file
 			specFile := filepath.Join(tmpDir, "spec.yaml")
-			if err := os.WriteFile(specFile, []byte(tt.spec), 0644); err != nil {
-				t.Fatalf("Failed to create spec file: %v", err)
-			}
+			require.NoError(t, os.WriteFile(specFile, []byte(tt.spec), 0644))
 
 			parser := New()
 			parser.ResolveRefs = true
 			result, err := parser.Parse(specFile)
-			if err != nil {
-				t.Fatalf("Failed to parse: %v", err)
-			}
+			require.NoError(t, err)
 
 			hasExpectedWarning := false
 			for _, w := range result.Warnings {
@@ -346,12 +293,10 @@ paths:
 				}
 			}
 
-			if tt.expectErr && !hasExpectedWarning {
-				t.Errorf("Expected warning containing '%s', but got none. Warnings: %v", tt.errorMsg, result.Warnings)
-			}
-
-			if !tt.expectErr && hasExpectedWarning {
-				t.Errorf("Did not expect warning, but got one. Warnings: %v", result.Warnings)
+			if tt.expectErr {
+				assert.True(t, hasExpectedWarning, "Expected warning containing '%s', but got none. Warnings: %v", tt.errorMsg, result.Warnings)
+			} else {
+				assert.False(t, hasExpectedWarning, "Did not expect warning, but got one. Warnings: %v", result.Warnings)
 			}
 		})
 	}

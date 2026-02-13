@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetSchemaTypes(t *testing.T) {
@@ -57,14 +58,9 @@ func TestGetSchemaTypes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetSchemaTypes(tt.schema)
-			if len(result) != len(tt.expected) {
-				t.Errorf("GetSchemaTypes() = %v, want %v", result, tt.expected)
-				return
-			}
+			assert.Equal(t, len(tt.expected), len(result))
 			for i, v := range result {
-				if v != tt.expected[i] {
-					t.Errorf("GetSchemaTypes()[%d] = %v, want %v", i, v, tt.expected[i])
-				}
+				assert.Equal(t, tt.expected[i], v, "GetSchemaTypes()[%d]", i)
 			}
 		})
 	}
@@ -111,9 +107,7 @@ func TestGetPrimaryType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetPrimaryType(tt.schema)
-			if result != tt.expected {
-				t.Errorf("GetPrimaryType() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -154,9 +148,7 @@ func TestIsNullable(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := IsNullable(tt.schema)
-			if result != tt.expected {
-				t.Errorf("IsNullable() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -203,9 +195,7 @@ func TestHasType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := HasType(tt.schema, tt.targetType)
-			if result != tt.expected {
-				t.Errorf("HasType() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -251,9 +241,7 @@ func TestIsSingleType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := IsSingleType(tt.schema)
-			if result != tt.expected {
-				t.Errorf("IsSingleType() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

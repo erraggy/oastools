@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateOutputFormat(t *testing.T) {
@@ -23,8 +25,10 @@ func TestValidateOutputFormat(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateOutputFormat(tt.format)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateOutputFormat(%q) error = %v, wantErr %v", tt.format, err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -47,8 +51,10 @@ func TestValidateCollisionStrategy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateCollisionStrategy(tt.strategyName, tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateCollisionStrategy(%q, %q) error = %v, wantErr %v", tt.strategyName, tt.value, err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -71,8 +77,10 @@ func TestValidateEquivalenceMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateEquivalenceMode(tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateEquivalenceMode(%q) error = %v, wantErr %v", tt.value, err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -83,22 +91,14 @@ func TestMarshalDocument(t *testing.T) {
 
 	t.Run("json format", func(t *testing.T) {
 		data, err := MarshalDocument(doc, parser.SourceFormatJSON)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(data) == 0 {
-			t.Error("expected non-empty output")
-		}
+		require.NoError(t, err)
+		assert.NotEmpty(t, data)
 	})
 
 	t.Run("yaml format", func(t *testing.T) {
 		data, err := MarshalDocument(doc, parser.SourceFormatYAML)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(data) == 0 {
-			t.Error("expected non-empty output")
-		}
+		require.NoError(t, err)
+		assert.NotEmpty(t, data)
 	})
 }
 
@@ -107,9 +107,7 @@ func TestOutputStructured(t *testing.T) {
 
 	t.Run("invalid format", func(t *testing.T) {
 		err := OutputStructured(data, "invalid")
-		if err == nil {
-			t.Error("expected error for invalid format")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -128,9 +126,7 @@ func TestFormatSpecPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FormatSpecPath(tt.specPath)
-			if got != tt.want {
-				t.Errorf("FormatSpecPath(%q) = %q, want %q", tt.specPath, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -138,26 +134,20 @@ func TestFormatSpecPath(t *testing.T) {
 func TestWritef(t *testing.T) {
 	var buf bytes.Buffer
 	Writef(&buf, "Hello, %s!", "World")
-	if got := buf.String(); got != "Hello, World!" {
-		t.Errorf("Writef() = %q, want %q", got, "Hello, World!")
-	}
+	assert.Equal(t, "Hello, World!", buf.String())
 }
 
 func TestWritef_NoArgs(t *testing.T) {
 	var buf bytes.Buffer
 	Writef(&buf, "Simple message")
-	if got := buf.String(); got != "Simple message" {
-		t.Errorf("Writef() = %q, want %q", got, "Simple message")
-	}
+	assert.Equal(t, "Simple message", buf.String())
 }
 
 func TestWritef_MultipleArgs(t *testing.T) {
 	var buf bytes.Buffer
 	Writef(&buf, "%s: %d items, %v active", "Status", 42, true)
 	want := "Status: 42 items, true active"
-	if got := buf.String(); got != want {
-		t.Errorf("Writef() = %q, want %q", got, want)
-	}
+	assert.Equal(t, want, buf.String())
 }
 
 // errorWriter is a writer that always returns an error

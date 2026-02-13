@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // contextKey is a custom type for context keys to satisfy staticcheck SA1029
@@ -41,9 +43,7 @@ func TestNopLogger(t *testing.T) {
 		l := NopLogger{}
 		l2 := l.With("key", "value")
 		_, ok := l2.(NopLogger)
-		if !ok {
-			t.Error("With should return NopLogger")
-		}
+		assert.True(t, ok, "With should return NopLogger")
 	})
 }
 
@@ -54,9 +54,7 @@ func TestSlogAdapter(t *testing.T) {
 
 	t.Run("NewSlogAdapter with nil uses default", func(t *testing.T) {
 		adapter := NewSlogAdapter(nil)
-		if adapter.logger == nil {
-			t.Error("adapter.logger should not be nil")
-		}
+		assert.NotNil(t, adapter.logger, "adapter.logger should not be nil")
 	})
 
 	t.Run("NewSlogAdapter with custom logger", func(t *testing.T) {
@@ -66,9 +64,7 @@ func TestSlogAdapter(t *testing.T) {
 		adapter := NewSlogAdapter(logger)
 
 		adapter.Debug("debug message", "key", "value")
-		if !strings.Contains(buf.String(), "debug message") {
-			t.Errorf("expected buffer to contain 'debug message', got: %s", buf.String())
-		}
+		assert.Contains(t, buf.String(), "debug message")
 	})
 
 	t.Run("Debug logs at debug level", func(t *testing.T) {
@@ -79,12 +75,8 @@ func TestSlogAdapter(t *testing.T) {
 
 		adapter.Debug("test debug", "foo", "bar")
 		output := buf.String()
-		if !strings.Contains(output, "DEBUG") {
-			t.Errorf("expected DEBUG level, got: %s", output)
-		}
-		if !strings.Contains(output, "foo=bar") {
-			t.Errorf("expected foo=bar attribute, got: %s", output)
-		}
+		assert.Contains(t, output, "DEBUG")
+		assert.Contains(t, output, "foo=bar")
 	})
 
 	t.Run("Info logs at info level", func(t *testing.T) {
@@ -95,12 +87,8 @@ func TestSlogAdapter(t *testing.T) {
 
 		adapter.Info("test info", "count", 42)
 		output := buf.String()
-		if !strings.Contains(output, "INFO") {
-			t.Errorf("expected INFO level, got: %s", output)
-		}
-		if !strings.Contains(output, "count=42") {
-			t.Errorf("expected count=42 attribute, got: %s", output)
-		}
+		assert.Contains(t, output, "INFO")
+		assert.Contains(t, output, "count=42")
 	})
 
 	t.Run("Warn logs at warn level", func(t *testing.T) {
@@ -111,9 +99,7 @@ func TestSlogAdapter(t *testing.T) {
 
 		adapter.Warn("test warn", "problem", "something")
 		output := buf.String()
-		if !strings.Contains(output, "WARN") {
-			t.Errorf("expected WARN level, got: %s", output)
-		}
+		assert.Contains(t, output, "WARN")
 	})
 
 	t.Run("Error logs at error level", func(t *testing.T) {
@@ -124,9 +110,7 @@ func TestSlogAdapter(t *testing.T) {
 
 		adapter.Error("test error", "err", "failed")
 		output := buf.String()
-		if !strings.Contains(output, "ERROR") {
-			t.Errorf("expected ERROR level, got: %s", output)
-		}
+		assert.Contains(t, output, "ERROR")
 	})
 
 	t.Run("With adds attributes", func(t *testing.T) {
@@ -138,21 +122,15 @@ func TestSlogAdapter(t *testing.T) {
 		withAdapter := adapter.With("component", "parser")
 		withAdapter.Debug("test with", "extra", "data")
 		output := buf.String()
-		if !strings.Contains(output, "component=parser") {
-			t.Errorf("expected component=parser attribute, got: %s", output)
-		}
-		if !strings.Contains(output, "extra=data") {
-			t.Errorf("expected extra=data attribute, got: %s", output)
-		}
+		assert.Contains(t, output, "component=parser")
+		assert.Contains(t, output, "extra=data")
 	})
 
 	t.Run("With returns new SlogAdapter", func(t *testing.T) {
 		adapter := NewSlogAdapter(nil)
 		withAdapter := adapter.With("key", "value")
 		_, ok := withAdapter.(*SlogAdapter)
-		if !ok {
-			t.Error("With should return *SlogAdapter")
-		}
+		assert.True(t, ok, "With should return *SlogAdapter")
 	})
 }
 
@@ -164,9 +142,7 @@ func TestContextLogger(t *testing.T) {
 	t.Run("NewContextLogger stores context", func(t *testing.T) {
 		ctx := context.WithValue(context.Background(), contextKey("test"), "value")
 		logger := NewContextLogger(NopLogger{}, ctx)
-		if logger.Context() != ctx {
-			t.Error("Context() should return the stored context")
-		}
+		assert.Equal(t, ctx, logger.Context(), "Context() should return the stored context")
 	})
 
 	t.Run("Debug delegates to wrapped logger", func(t *testing.T) {
@@ -177,9 +153,7 @@ func TestContextLogger(t *testing.T) {
 		ctxLogger := NewContextLogger(adapter, context.Background())
 
 		ctxLogger.Debug("debug via context", "key", "val")
-		if !strings.Contains(buf.String(), "debug via context") {
-			t.Errorf("expected message in output, got: %s", buf.String())
-		}
+		assert.Contains(t, buf.String(), "debug via context")
 	})
 
 	t.Run("Info delegates to wrapped logger", func(t *testing.T) {
@@ -190,9 +164,7 @@ func TestContextLogger(t *testing.T) {
 		ctxLogger := NewContextLogger(adapter, context.Background())
 
 		ctxLogger.Info("info via context")
-		if !strings.Contains(buf.String(), "info via context") {
-			t.Errorf("expected message in output, got: %s", buf.String())
-		}
+		assert.Contains(t, buf.String(), "info via context")
 	})
 
 	t.Run("Warn delegates to wrapped logger", func(t *testing.T) {
@@ -203,9 +175,7 @@ func TestContextLogger(t *testing.T) {
 		ctxLogger := NewContextLogger(adapter, context.Background())
 
 		ctxLogger.Warn("warn via context")
-		if !strings.Contains(buf.String(), "warn via context") {
-			t.Errorf("expected message in output, got: %s", buf.String())
-		}
+		assert.Contains(t, buf.String(), "warn via context")
 	})
 
 	t.Run("Error delegates to wrapped logger", func(t *testing.T) {
@@ -216,9 +186,7 @@ func TestContextLogger(t *testing.T) {
 		ctxLogger := NewContextLogger(adapter, context.Background())
 
 		ctxLogger.Error("error via context")
-		if !strings.Contains(buf.String(), "error via context") {
-			t.Errorf("expected message in output, got: %s", buf.String())
-		}
+		assert.Contains(t, buf.String(), "error via context")
 	})
 
 	t.Run("With preserves context", func(t *testing.T) {
@@ -227,12 +195,8 @@ func TestContextLogger(t *testing.T) {
 
 		withLogger := ctxLogger.With("key", "value")
 		ctxLogger2, ok := withLogger.(*ContextLogger)
-		if !ok {
-			t.Fatal("With should return *ContextLogger")
-		}
-		if ctxLogger2.Context() != ctx {
-			t.Error("With should preserve context")
-		}
+		require.True(t, ok, "With should return *ContextLogger")
+		assert.Equal(t, ctx, ctxLogger2.Context(), "With should preserve context")
 	})
 }
 
@@ -249,15 +213,9 @@ func TestLoggerUsagePatterns(t *testing.T) {
 		l.Debug("resolving reference", "ref", "#/schemas/Pet")
 
 		output := buf.String()
-		if !strings.Contains(output, "package=parser") {
-			t.Errorf("expected package=parser, got: %s", output)
-		}
-		if !strings.Contains(output, "operation=resolve") {
-			t.Errorf("expected operation=resolve, got: %s", output)
-		}
-		if !strings.Contains(output, "ref=#/schemas/Pet") {
-			t.Errorf("expected ref=#/schemas/Pet, got: %s", output)
-		}
+		assert.Contains(t, output, "package=parser")
+		assert.Contains(t, output, "operation=resolve")
+		assert.Contains(t, output, "ref=#/schemas/Pet")
 	})
 
 	t.Run("multiple loggers from same base", func(t *testing.T) {
@@ -273,11 +231,7 @@ func TestLoggerUsagePatterns(t *testing.T) {
 		validatorLogger.Debug("validating")
 
 		output := buf.String()
-		if !strings.Contains(output, "component=parser") {
-			t.Errorf("expected component=parser, got: %s", output)
-		}
-		if !strings.Contains(output, "component=validator") {
-			t.Errorf("expected component=validator, got: %s", output)
-		}
+		assert.Contains(t, output, "component=parser")
+		assert.Contains(t, output, "component=validator")
 	})
 }

@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/httpvalidator"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContextWithValidationResult(t *testing.T) {
@@ -20,12 +22,8 @@ func TestContextWithValidationResult(t *testing.T) {
 	ctx := contextWithValidationResult(context.Background(), result)
 	retrieved := validationResultFromContext(ctx)
 
-	if retrieved == nil {
-		t.Fatal("Expected to retrieve validation result from context")
-	}
-	if retrieved.PathParams["petId"] != int64(123) {
-		t.Errorf("Expected petId=123, got %v", retrieved.PathParams["petId"])
-	}
+	require.NotNil(t, retrieved)
+	assert.Equal(t, int64(123), retrieved.PathParams["petId"])
 }
 
 func TestValidationResultFromContext_NoResult(t *testing.T) {
@@ -34,9 +32,7 @@ func TestValidationResultFromContext_NoResult(t *testing.T) {
 	ctx := context.Background()
 	result := validationResultFromContext(ctx)
 
-	if result != nil {
-		t.Error("Expected nil when no validation result in context")
-	}
+	assert.Nil(t, result)
 }
 
 func TestValidationResultFromContext_WrongType(t *testing.T) {
@@ -46,9 +42,7 @@ func TestValidationResultFromContext_WrongType(t *testing.T) {
 	ctx := context.WithValue(context.Background(), validationResultKey{}, "wrong type")
 	result := validationResultFromContext(ctx)
 
-	if result != nil {
-		t.Error("Expected nil when wrong type in context")
-	}
+	assert.Nil(t, result)
 }
 
 func TestWriteValidationError(t *testing.T) {
@@ -57,22 +51,15 @@ func TestWriteValidationError(t *testing.T) {
 	rec := httptest.NewRecorder()
 	writeValidationError(rec, http.StatusBadRequest, "invalid parameter")
 
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("Expected status 400, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-	if rec.Header().Get("Content-Type") != "application/json" {
-		t.Errorf("Expected Content-Type application/json, got %s", rec.Header().Get("Content-Type"))
-	}
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
 	var body map[string]string
-	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
-		t.Fatalf("Failed to decode response body: %v", err)
-	}
+	err := json.NewDecoder(rec.Body).Decode(&body)
+	require.NoError(t, err)
 
-	if body["error"] != "invalid parameter" {
-		t.Errorf("Expected error message 'invalid parameter', got '%s'", body["error"])
-	}
+	assert.Equal(t, "invalid parameter", body["error"])
 }
 
 func TestWriteValidationResult(t *testing.T) {
@@ -88,31 +75,20 @@ func TestWriteValidationResult(t *testing.T) {
 	rec := httptest.NewRecorder()
 	writeValidationResult(rec, result)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("Expected status 400, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-	if rec.Header().Get("Content-Type") != "application/json" {
-		t.Errorf("Expected Content-Type application/json, got %s", rec.Header().Get("Content-Type"))
-	}
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
 	var body map[string]any
-	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
-		t.Fatalf("Failed to decode response body: %v", err)
-	}
+	err := json.NewDecoder(rec.Body).Decode(&body)
+	require.NoError(t, err)
 
-	if body["error"] != "validation failed" {
-		t.Errorf("Expected error message 'validation failed', got '%s'", body["error"])
-	}
+	assert.Equal(t, "validation failed", body["error"])
 
 	errors, ok := body["errors"].([]any)
-	if !ok {
-		t.Fatal("Expected errors to be an array")
-	}
+	require.True(t, ok, "Expected errors to be an array")
 
-	if len(errors) != 2 {
-		t.Errorf("Expected 2 errors, got %d", len(errors))
-	}
+	assert.Len(t, errors, 2)
 }
 
 func TestWriteValidationResult_WithWarnings(t *testing.T) {
@@ -131,18 +107,13 @@ func TestWriteValidationResult_WithWarnings(t *testing.T) {
 	writeValidationResult(rec, result)
 
 	var body map[string]any
-	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
-		t.Fatalf("Failed to decode response body: %v", err)
-	}
+	err := json.NewDecoder(rec.Body).Decode(&body)
+	require.NoError(t, err)
 
 	warnings, ok := body["warnings"].([]any)
-	if !ok {
-		t.Fatal("Expected warnings to be an array")
-	}
+	require.True(t, ok, "Expected warnings to be an array")
 
-	if len(warnings) != 1 {
-		t.Errorf("Expected 1 warning, got %d", len(warnings))
-	}
+	assert.Len(t, warnings, 1)
 }
 
 func TestWriteValidationResult_NoWarnings(t *testing.T) {
@@ -159,13 +130,11 @@ func TestWriteValidationResult_NoWarnings(t *testing.T) {
 	writeValidationResult(rec, result)
 
 	var body map[string]any
-	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
-		t.Fatalf("Failed to decode response body: %v", err)
-	}
+	err := json.NewDecoder(rec.Body).Decode(&body)
+	require.NoError(t, err)
 
-	if _, hasWarnings := body["warnings"]; hasWarnings {
-		t.Error("Expected no warnings field when warnings slice is empty")
-	}
+	_, hasWarnings := body["warnings"]
+	assert.False(t, hasWarnings, "Expected no warnings field when warnings slice is empty")
 }
 
 func TestValidationMiddleware_Disabled(t *testing.T) {
@@ -190,10 +159,6 @@ func TestValidationMiddleware_Disabled(t *testing.T) {
 
 	handler.ServeHTTP(rec, req)
 
-	if !nextCalled {
-		t.Error("Expected next handler to be called when validation is disabled")
-	}
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", rec.Code)
-	}
+	assert.True(t, nextCalled)
+	assert.Equal(t, http.StatusOK, rec.Code)
 }

@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSourceLocation_IsKnown(t *testing.T) {
@@ -37,9 +40,7 @@ func TestSourceLocation_IsKnown(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.loc.IsKnown(); got != tt.want {
-				t.Errorf("IsKnown() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, tt.loc.IsKnown())
 		})
 	}
 }
@@ -74,9 +75,7 @@ func TestSourceLocation_String(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.loc.String(); got != tt.want {
-				t.Errorf("String() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, tt.loc.String())
 		})
 	}
 }
@@ -85,27 +84,13 @@ func TestSourceMap_NilSafety(t *testing.T) {
 	var sm *SourceMap
 
 	// All methods should return zero values on nil receiver
-	if got := sm.Get("$.test"); got.IsKnown() {
-		t.Error("Get() on nil should return unknown location")
-	}
-	if got := sm.GetKey("$.test"); got.IsKnown() {
-		t.Error("GetKey() on nil should return unknown location")
-	}
-	if got := sm.GetRef("$.test"); got.Origin.IsKnown() {
-		t.Error("GetRef() on nil should return empty RefLocation")
-	}
-	if sm.Has("$.test") {
-		t.Error("Has() on nil should return false")
-	}
-	if sm.Len() != 0 {
-		t.Error("Len() on nil should return 0")
-	}
-	if sm.Paths() != nil {
-		t.Error("Paths() on nil should return nil")
-	}
-	if sm.Copy() != nil {
-		t.Error("Copy() on nil should return nil")
-	}
+	assert.False(t, sm.Get("$.test").IsKnown(), "Get() on nil should return unknown location")
+	assert.False(t, sm.GetKey("$.test").IsKnown(), "GetKey() on nil should return unknown location")
+	assert.False(t, sm.GetRef("$.test").Origin.IsKnown(), "GetRef() on nil should return empty RefLocation")
+	assert.False(t, sm.Has("$.test"), "Has() on nil should return false")
+	assert.Equal(t, 0, sm.Len(), "Len() on nil should return 0")
+	assert.Nil(t, sm.Paths(), "Paths() on nil should return nil")
+	assert.Nil(t, sm.Copy(), "Copy() on nil should return nil")
 
 	// Merge with nil receiver should not panic
 	sm.Merge(NewSourceMap())
@@ -126,21 +111,15 @@ func TestSourceMap_LazyInitialization(t *testing.T) {
 
 	// These should lazily initialize the maps
 	sm.set("$.a", SourceLocation{Line: 1, Column: 1})
-	if !sm.Has("$.a") {
-		t.Error("set() should lazily initialize locations map")
-	}
+	assert.True(t, sm.Has("$.a"), "set() should lazily initialize locations map")
 
 	sm.setKey("$.b", SourceLocation{Line: 2, Column: 1})
 	keyLoc := sm.GetKey("$.b")
-	if !keyLoc.IsKnown() {
-		t.Error("setKey() should lazily initialize keyLocations map")
-	}
+	assert.True(t, keyLoc.IsKnown(), "setKey() should lazily initialize keyLocations map")
 
 	sm.setRef("$.c", RefLocation{TargetRef: "test"})
 	ref := sm.GetRef("$.c")
-	if ref.TargetRef != "test" {
-		t.Error("setRef() should lazily initialize refs map")
-	}
+	assert.Equal(t, "test", ref.TargetRef, "setRef() should lazily initialize refs map")
 }
 
 func TestSourceMap_MergeLazyInit(t *testing.T) {
@@ -153,27 +132,17 @@ func TestSourceMap_MergeLazyInit(t *testing.T) {
 
 	sm.Merge(other)
 
-	if !sm.Has("$.test") {
-		t.Error("Merge should lazily initialize locations map")
-	}
-	if !sm.GetKey("$.test").IsKnown() {
-		t.Error("Merge should lazily initialize keyLocations map")
-	}
-	if sm.GetRef("$.test").TargetRef != "ref" {
-		t.Error("Merge should lazily initialize refs map")
-	}
+	assert.True(t, sm.Has("$.test"), "Merge should lazily initialize locations map")
+	assert.True(t, sm.GetKey("$.test").IsKnown(), "Merge should lazily initialize keyLocations map")
+	assert.Equal(t, "ref", sm.GetRef("$.test").TargetRef, "Merge should lazily initialize refs map")
 }
 
 func TestSourceMap_BasicOperations(t *testing.T) {
 	sm := NewSourceMap()
 
 	// Test initial state
-	if sm.Len() != 0 {
-		t.Errorf("new SourceMap should have length 0, got %d", sm.Len())
-	}
-	if sm.Has("$.test") {
-		t.Error("new SourceMap should not have any paths")
-	}
+	assert.Equal(t, 0, sm.Len(), "new SourceMap should have length 0")
+	assert.False(t, sm.Has("$.test"), "new SourceMap should not have any paths")
 
 	// Set a location via buildSourceMap simulation
 	sm.set("$.info", SourceLocation{Line: 2, Column: 1, File: "test.yaml"})
@@ -182,41 +151,27 @@ func TestSourceMap_BasicOperations(t *testing.T) {
 
 	// Test Get
 	loc := sm.Get("$.info")
-	if !loc.IsKnown() {
-		t.Error("Get() should return known location for existing path")
-	}
-	if loc.Line != 2 || loc.Column != 1 {
-		t.Errorf("Get() returned wrong location: %v", loc)
-	}
+	assert.True(t, loc.IsKnown(), "Get() should return known location for existing path")
+	assert.Equal(t, 2, loc.Line)
+	assert.Equal(t, 1, loc.Column)
 
 	// Test GetKey
 	keyLoc := sm.GetKey("$.info.title")
-	if !keyLoc.IsKnown() {
-		t.Error("GetKey() should return known location")
-	}
+	assert.True(t, keyLoc.IsKnown(), "GetKey() should return known location")
 
 	// Test Has
-	if !sm.Has("$.info") {
-		t.Error("Has() should return true for existing path")
-	}
-	if sm.Has("$.nonexistent") {
-		t.Error("Has() should return false for non-existing path")
-	}
+	assert.True(t, sm.Has("$.info"), "Has() should return true for existing path")
+	assert.False(t, sm.Has("$.nonexistent"), "Has() should return false for non-existing path")
 
 	// Test Len
-	if sm.Len() != 2 {
-		t.Errorf("Len() = %d, want 2", sm.Len())
-	}
+	assert.Equal(t, 2, sm.Len())
 
 	// Test Paths
 	paths := sm.Paths()
-	if len(paths) != 2 {
-		t.Errorf("Paths() returned %d paths, want 2", len(paths))
-	}
+	require.Len(t, paths, 2)
 	// Paths should be sorted
-	if paths[0] != "$.info" || paths[1] != "$.info.title" {
-		t.Errorf("Paths() not sorted correctly: %v", paths)
-	}
+	assert.Equal(t, "$.info", paths[0])
+	assert.Equal(t, "$.info.title", paths[1])
 }
 
 func TestSourceMap_Copy(t *testing.T) {
@@ -231,24 +186,14 @@ func TestSourceMap_Copy(t *testing.T) {
 	copied := sm.Copy()
 
 	// Verify copy has same values
-	if copied.Len() != sm.Len() {
-		t.Errorf("Copy has different length: got %d, want %d", copied.Len(), sm.Len())
-	}
-	if !copied.Has("$.test") {
-		t.Error("Copy missing $.test path")
-	}
-	if copied.Get("$.test").Line != 1 {
-		t.Error("Copy has wrong location")
-	}
-	if copied.GetRef("$.ref").TargetRef != "#/components/schemas/Pet" {
-		t.Error("Copy has wrong ref")
-	}
+	assert.Equal(t, sm.Len(), copied.Len())
+	assert.True(t, copied.Has("$.test"), "Copy missing $.test path")
+	assert.Equal(t, 1, copied.Get("$.test").Line)
+	assert.Equal(t, "#/components/schemas/Pet", copied.GetRef("$.ref").TargetRef)
 
 	// Modify original and verify copy is unchanged
 	sm.set("$.test", SourceLocation{Line: 99, Column: 99, File: "changed.yaml"})
-	if copied.Get("$.test").Line == 99 {
-		t.Error("Copy was affected by modification to original")
-	}
+	assert.NotEqual(t, 99, copied.Get("$.test").Line, "Copy was affected by modification to original")
 }
 
 func TestSourceMap_Merge(t *testing.T) {
@@ -263,16 +208,10 @@ func TestSourceMap_Merge(t *testing.T) {
 	sm1.Merge(sm2)
 
 	// Verify merge results
-	if sm1.Len() != 2 {
-		t.Errorf("Merged SourceMap has length %d, want 2", sm1.Len())
-	}
-	if !sm1.Has("$.b") {
-		t.Error("Merged SourceMap missing $.b")
-	}
+	assert.Equal(t, 2, sm1.Len())
+	assert.True(t, sm1.Has("$.b"), "Merged SourceMap missing $.b")
 	// $.a should be overwritten by sm2's value
-	if sm1.Get("$.a").Line != 99 {
-		t.Errorf("Merge should overwrite: got Line=%d, want 99", sm1.Get("$.a").Line)
-	}
+	assert.Equal(t, 99, sm1.Get("$.a").Line, "Merge should overwrite")
 }
 
 func TestSourceMap_RefTracking(t *testing.T) {
@@ -285,12 +224,8 @@ func TestSourceMap_RefTracking(t *testing.T) {
 	sm.setRef("$.paths./pets.get.responses.200.content.application/json.schema", ref)
 
 	got := sm.GetRef("$.paths./pets.get.responses.200.content.application/json.schema")
-	if got.TargetRef != ref.TargetRef {
-		t.Errorf("GetRef() returned wrong TargetRef: %q", got.TargetRef)
-	}
-	if got.Origin.Line != 10 {
-		t.Errorf("GetRef() returned wrong Origin.Line: %d", got.Origin.Line)
-	}
+	assert.Equal(t, ref.TargetRef, got.TargetRef)
+	assert.Equal(t, 10, got.Origin.Line)
 }
 
 func TestBuildChildPath(t *testing.T) {
@@ -316,10 +251,7 @@ func TestBuildChildPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.key, func(t *testing.T) {
-			got := buildChildPath(tt.parent, tt.key)
-			if got != tt.want {
-				t.Errorf("buildChildPath(%q, %q) = %q, want %q", tt.parent, tt.key, got, tt.want)
-			}
+			assert.Equal(t, tt.want, buildChildPath(tt.parent, tt.key))
 		})
 	}
 }
@@ -348,10 +280,7 @@ func TestNeedsBracketNotation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.key, func(t *testing.T) {
-			got := needsBracketNotation(tt.key)
-			if got != tt.want {
-				t.Errorf("needsBracketNotation(%q) = %v, want %v", tt.key, got, tt.want)
-			}
+			assert.Equal(t, tt.want, needsBracketNotation(tt.key))
 		})
 	}
 }
@@ -367,15 +296,9 @@ func TestUpdateSourceMapFilePath(t *testing.T) {
 
 	updateSourceMapFilePath(sm, "updated.yaml")
 
-	if sm.Get("$.info").File != "updated.yaml" {
-		t.Error("location file path not updated")
-	}
-	if sm.GetKey("$.info").File != "updated.yaml" {
-		t.Error("key location file path not updated")
-	}
-	if sm.GetRef("$.ref").Origin.File != "updated.yaml" {
-		t.Error("ref origin file path not updated")
-	}
+	assert.Equal(t, "updated.yaml", sm.Get("$.info").File, "location file path not updated")
+	assert.Equal(t, "updated.yaml", sm.GetKey("$.info").File, "key location file path not updated")
+	assert.Equal(t, "updated.yaml", sm.GetRef("$.ref").Origin.File, "ref origin file path not updated")
 
 	// Test nil safety
 	updateSourceMapFilePath(nil, "test.yaml")
@@ -392,49 +315,31 @@ paths: {}`
 		WithBytes([]byte(yaml)),
 		WithSourceMap(true),
 	)
-	if err != nil {
-		t.Fatalf("ParseWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	sm := result.SourceMap
-	if sm == nil {
-		t.Fatal("SourceMap is nil when WithSourceMap(true) was used")
-	}
+	require.NotNil(t, sm, "SourceMap is nil when WithSourceMap(true) was used")
 
 	// Check root
-	if !sm.Has("$") {
-		t.Error("SourceMap missing root path '$'")
-	}
+	assert.True(t, sm.Has("$"), "SourceMap missing root path '$'")
 
 	// Check info - the value position is on line 3 (where the mapping content starts)
-	if !sm.Has("$.info") {
-		t.Error("SourceMap missing '$.info'")
-	}
+	assert.True(t, sm.Has("$.info"), "SourceMap missing '$.info'")
 	loc := sm.Get("$.info")
-	if loc.Line != 3 {
-		t.Errorf("$.info value should be on line 3, got %d", loc.Line)
-	}
+	assert.Equal(t, 3, loc.Line, "$.info value should be on line 3")
 
 	// Check info key location - should be on line 2 where "info:" appears
 	keyLoc := sm.GetKey("$.info")
-	if keyLoc.Line != 2 {
-		t.Errorf("$.info key should be on line 2, got %d", keyLoc.Line)
-	}
+	assert.Equal(t, 2, keyLoc.Line, "$.info key should be on line 2")
 
 	// Check info.title - value "Test API" is on line 3
-	if !sm.Has("$.info.title") {
-		t.Error("SourceMap missing '$.info.title'")
-	}
+	assert.True(t, sm.Has("$.info.title"), "SourceMap missing '$.info.title'")
 	titleLoc := sm.Get("$.info.title")
-	if titleLoc.Line != 3 {
-		t.Errorf("$.info.title should be on line 3, got %d", titleLoc.Line)
-	}
+	assert.Equal(t, 3, titleLoc.Line, "$.info.title should be on line 3")
 
 	// Check that key location is also recorded
 	titleKeyLoc := sm.GetKey("$.info.title")
-	if !titleKeyLoc.IsKnown() {
-		t.Error("Key location for $.info.title should be known")
-	}
+	assert.True(t, titleKeyLoc.IsKnown(), "Key location for $.info.title should be known")
 }
 
 func TestBuildSourceMap_ArrayElements(t *testing.T) {
@@ -451,39 +356,25 @@ paths: {}`
 		WithBytes([]byte(yaml)),
 		WithSourceMap(true),
 	)
-	if err != nil {
-		t.Fatalf("ParseWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	sm := result.SourceMap
-	if sm == nil {
-		t.Fatal("SourceMap is nil")
-	}
+	require.NotNil(t, sm)
 
 	// Check servers array
-	if !sm.Has("$.servers") {
-		t.Error("SourceMap missing '$.servers'")
-	}
+	assert.True(t, sm.Has("$.servers"), "SourceMap missing '$.servers'")
 
 	// Check array elements
-	if !sm.Has("$.servers[0]") {
-		t.Error("SourceMap missing '$.servers[0]'")
-	}
-	if !sm.Has("$.servers[1]") {
-		t.Error("SourceMap missing '$.servers[1]'")
-	}
+	assert.True(t, sm.Has("$.servers[0]"), "SourceMap missing '$.servers[0]'")
+	assert.True(t, sm.Has("$.servers[1]"), "SourceMap missing '$.servers[1]'")
 
 	// Check nested values in array elements
-	if !sm.Has("$.servers[0].url") {
-		t.Error("SourceMap missing '$.servers[0].url'")
-	}
+	assert.True(t, sm.Has("$.servers[0].url"), "SourceMap missing '$.servers[0].url'")
 
 	// Verify line numbers make sense
 	servers0 := sm.Get("$.servers[0]")
 	servers1 := sm.Get("$.servers[1]")
-	if servers1.Line <= servers0.Line {
-		t.Errorf("servers[1] (line %d) should be after servers[0] (line %d)", servers1.Line, servers0.Line)
-	}
+	assert.Greater(t, servers1.Line, servers0.Line, "servers[1] should be after servers[0]")
 }
 
 func TestBuildSourceMap_RefTracking(t *testing.T) {
@@ -509,25 +400,17 @@ components:
 		WithBytes([]byte(yaml)),
 		WithSourceMap(true),
 	)
-	if err != nil {
-		t.Fatalf("ParseWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	sm := result.SourceMap
-	if sm == nil {
-		t.Fatal("SourceMap is nil")
-	}
+	require.NotNil(t, sm)
 
 	// Find the $ref path - it should be tracked at the parent schema object
 	// Note: path keys with slashes don't need bracket notation, but '200' does as it starts with a digit
 	schemaPath := "$.paths./pets.get.responses['200'].content.application/json.schema"
 	ref := sm.GetRef(schemaPath)
-	if ref.TargetRef != "#/components/schemas/Pet" {
-		t.Errorf("Expected ref target '#/components/schemas/Pet', got %q", ref.TargetRef)
-	}
-	if !ref.Origin.IsKnown() {
-		t.Error("Ref origin should be known")
-	}
+	assert.Equal(t, "#/components/schemas/Pet", ref.TargetRef)
+	assert.True(t, ref.Origin.IsKnown(), "Ref origin should be known")
 }
 
 func TestBuildSourceMap_JSON(t *testing.T) {
@@ -544,22 +427,14 @@ func TestBuildSourceMap_JSON(t *testing.T) {
 		WithBytes([]byte(json)),
 		WithSourceMap(true),
 	)
-	if err != nil {
-		t.Fatalf("ParseWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	sm := result.SourceMap
-	if sm == nil {
-		t.Fatal("SourceMap is nil for JSON input")
-	}
+	require.NotNil(t, sm, "SourceMap is nil for JSON input")
 
 	// JSON should also get line tracking
-	if !sm.Has("$.info") {
-		t.Error("SourceMap missing '$.info' for JSON input")
-	}
-	if !sm.Has("$.info.title") {
-		t.Error("SourceMap missing '$.info.title' for JSON input")
-	}
+	assert.True(t, sm.Has("$.info"), "SourceMap missing '$.info' for JSON input")
+	assert.True(t, sm.Has("$.info.title"), "SourceMap missing '$.info.title' for JSON input")
 }
 
 func TestBuildSourceMap_FilePath(t *testing.T) {
@@ -567,20 +442,14 @@ func TestBuildSourceMap_FilePath(t *testing.T) {
 		WithFilePath("../testdata/petstore-3.0.yaml"),
 		WithSourceMap(true),
 	)
-	if err != nil {
-		t.Fatalf("ParseWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	sm := result.SourceMap
-	if sm == nil {
-		t.Fatal("SourceMap is nil")
-	}
+	require.NotNil(t, sm)
 
 	// Check that file paths are set correctly
 	loc := sm.Get("$.info")
-	if loc.File != "../testdata/petstore-3.0.yaml" {
-		t.Errorf("File path not set correctly: got %q", loc.File)
-	}
+	assert.Equal(t, "../testdata/petstore-3.0.yaml", loc.File)
 }
 
 func TestBuildSourceMap_ParseBytesPath(t *testing.T) {
@@ -593,20 +462,14 @@ paths: {}`
 	p := New()
 	p.BuildSourceMap = true
 	result, err := p.ParseBytes([]byte(yaml))
-	if err != nil {
-		t.Fatalf("ParseBytes failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	sm := result.SourceMap
-	if sm == nil {
-		t.Fatal("SourceMap is nil")
-	}
+	require.NotNil(t, sm)
 
 	// ParseBytes should set the file path to "ParseBytes.yaml"
 	loc := sm.Get("$.info")
-	if loc.File != "ParseBytes.yaml" {
-		t.Errorf("File path for ParseBytes should be 'ParseBytes.yaml', got %q", loc.File)
-	}
+	assert.Equal(t, "ParseBytes.yaml", loc.File)
 }
 
 func TestBuildSourceMap_ParseReaderPath(t *testing.T) {
@@ -619,20 +482,14 @@ paths: {}`
 	p := New()
 	p.BuildSourceMap = true
 	result, err := p.ParseReader(strings.NewReader(yaml))
-	if err != nil {
-		t.Fatalf("ParseReader failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	sm := result.SourceMap
-	if sm == nil {
-		t.Fatal("SourceMap is nil")
-	}
+	require.NotNil(t, sm)
 
 	// ParseReader should set the file path to "ParseReader.yaml"
 	loc := sm.Get("$.info")
-	if loc.File != "ParseReader.yaml" {
-		t.Errorf("File path for ParseReader should be 'ParseReader.yaml', got %q", loc.File)
-	}
+	assert.Equal(t, "ParseReader.yaml", loc.File)
 }
 
 func TestBuildSourceMap_Disabled(t *testing.T) {
@@ -646,26 +503,18 @@ paths: {}`
 	result, err := ParseWithOptions(
 		WithBytes([]byte(yaml)),
 	)
-	if err != nil {
-		t.Fatalf("ParseWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if result.SourceMap != nil {
-		t.Error("SourceMap should be nil when not enabled")
-	}
+	assert.Nil(t, result.SourceMap, "SourceMap should be nil when not enabled")
 
 	// Explicitly disabled
 	result2, err := ParseWithOptions(
 		WithBytes([]byte(yaml)),
 		WithSourceMap(false),
 	)
-	if err != nil {
-		t.Fatalf("ParseWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if result2.SourceMap != nil {
-		t.Error("SourceMap should be nil when explicitly disabled")
-	}
+	assert.Nil(t, result2.SourceMap, "SourceMap should be nil when explicitly disabled")
 }
 
 func TestParseResult_CopyWithSourceMap(t *testing.T) {
@@ -679,20 +528,12 @@ paths: {}`
 		WithBytes([]byte(yaml)),
 		WithSourceMap(true),
 	)
-	if err != nil {
-		t.Fatalf("ParseWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	copied := result.Copy()
-	if copied.SourceMap == nil {
-		t.Fatal("Copied result should have SourceMap")
-	}
-	if copied.SourceMap == result.SourceMap {
-		t.Error("SourceMap should be deep copied, not shared")
-	}
-	if !copied.SourceMap.Has("$.info") {
-		t.Error("Copied SourceMap should have same paths")
-	}
+	require.NotNil(t, copied.SourceMap, "Copied result should have SourceMap")
+	assert.NotSame(t, result.SourceMap, copied.SourceMap, "SourceMap should be deep copied, not shared")
+	assert.True(t, copied.SourceMap.Has("$.info"), "Copied SourceMap should have same paths")
 }
 
 func TestBuildSourceMap_SpecialPathCharacters(t *testing.T) {
@@ -716,41 +557,29 @@ paths:
 		WithBytes([]byte(yaml)),
 		WithSourceMap(true),
 	)
-	if err != nil {
-		t.Fatalf("ParseWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	sm := result.SourceMap
 
 	// Path with braces - slashes and braces don't need bracket notation
-	if !sm.Has("$.paths./users/{userId}") {
-		t.Error("SourceMap should handle path with braces")
-	}
+	assert.True(t, sm.Has("$.paths./users/{userId}"), "SourceMap should handle path with braces")
 
 	// Path with dot in the name needs bracket notation because of the '.'
-	if !sm.Has("$.paths['/items.json']") {
-		t.Error("SourceMap should handle path with dot")
-	}
+	assert.True(t, sm.Has("$.paths['/items.json']"), "SourceMap should handle path with dot")
 }
 
 func TestBuildSourceMap_NilRoot(t *testing.T) {
 	// Test that buildSourceMap handles nil root gracefully
 	sm := buildSourceMap(nil, "test.yaml")
-	if sm == nil {
-		t.Fatal("buildSourceMap should return non-nil SourceMap even for nil root")
-	}
-	if sm.Len() != 0 {
-		t.Error("buildSourceMap with nil root should return empty SourceMap")
-	}
+	require.NotNil(t, sm, "buildSourceMap should return non-nil SourceMap even for nil root")
+	assert.Equal(t, 0, sm.Len(), "buildSourceMap with nil root should return empty SourceMap")
 }
 
 func TestWalkNode_NilNode(t *testing.T) {
 	// Test that walkNode handles nil node gracefully
 	sm := NewSourceMap()
 	walkNode(nil, "$", sm, "test.yaml")
-	if sm.Len() != 0 {
-		t.Error("walkNode with nil should not add any entries")
-	}
+	assert.Equal(t, 0, sm.Len(), "walkNode with nil should not add any entries")
 }
 
 func TestConvertRefToJSONPath(t *testing.T) {
@@ -798,10 +627,7 @@ func TestConvertRefToJSONPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := convertRefToJSONPath(tt.ref)
-			if got != tt.want {
-				t.Errorf("convertRefToJSONPath(%q) = %q, want %q", tt.ref, got, tt.want)
-			}
+			assert.Equal(t, tt.want, convertRefToJSONPath(tt.ref))
 		})
 	}
 }
@@ -835,14 +661,10 @@ components:
 		WithSourceMap(true),
 		WithResolveRefs(true),
 	)
-	if err != nil {
-		t.Fatalf("ParseWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	sm := result.SourceMap
-	if sm == nil {
-		t.Fatal("SourceMap should not be nil")
-	}
+	require.NotNil(t, sm)
 
 	// Check that the ref at the schema path has both origin and target
 	// Note: The path uses actual characters - only special chars like . space quotes need bracket notation
@@ -851,25 +673,17 @@ components:
 	refLoc := sm.GetRef(refPath)
 
 	// Origin should be set from parsing
-	if !refLoc.Origin.IsKnown() {
-		t.Error("RefLocation Origin should be known")
-	}
+	assert.True(t, refLoc.Origin.IsKnown(), "RefLocation Origin should be known")
 
 	// TargetRef should be the $ref value
-	if refLoc.TargetRef != "#/components/schemas/Pet" {
-		t.Errorf("RefLocation TargetRef = %q, want %q", refLoc.TargetRef, "#/components/schemas/Pet")
-	}
+	assert.Equal(t, "#/components/schemas/Pet", refLoc.TargetRef)
 
 	// Target should be populated after resolution
-	if !refLoc.Target.IsKnown() {
-		t.Error("RefLocation Target should be known after resolution")
-	}
+	assert.True(t, refLoc.Target.IsKnown(), "RefLocation Target should be known after resolution")
 
 	// Target should point to the Pet schema location
 	petLoc := sm.Get("$.components.schemas.Pet")
-	if refLoc.Target.Line != petLoc.Line {
-		t.Errorf("Target line = %d, want %d (Pet schema line)", refLoc.Target.Line, petLoc.Line)
-	}
+	assert.Equal(t, petLoc.Line, refLoc.Target.Line, "Target should point to Pet schema line")
 }
 
 func TestRefResolver_ExternalSourceMaps(t *testing.T) {
@@ -884,9 +698,8 @@ properties:
   name:
     type: string`
 	extSchemaPath := filepath.Join(tmpDir, "pet.yaml")
-	if err := os.WriteFile(extSchemaPath, []byte(extSchemaContent), 0644); err != nil {
-		t.Fatalf("Failed to write external schema: %v", err)
-	}
+	err := os.WriteFile(extSchemaPath, []byte(extSchemaContent), 0644)
+	require.NoError(t, err, "Failed to write external schema")
 
 	// Create main spec that references the external file
 	mainSpec := `openapi: "3.0.0"
@@ -904,23 +717,18 @@ paths:
               schema:
                 $ref: "./pet.yaml"`
 	mainPath := filepath.Join(tmpDir, "main.yaml")
-	if err := os.WriteFile(mainPath, []byte(mainSpec), 0644); err != nil {
-		t.Fatalf("Failed to write main spec: %v", err)
-	}
+	err = os.WriteFile(mainPath, []byte(mainSpec), 0644)
+	require.NoError(t, err, "Failed to write main spec")
 
 	result, err := ParseWithOptions(
 		WithFilePath(mainPath),
 		WithSourceMap(true),
 		WithResolveRefs(true),
 	)
-	if err != nil {
-		t.Fatalf("ParseWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	sm := result.SourceMap
-	if sm == nil {
-		t.Fatal("SourceMap should not be nil")
-	}
+	require.NotNil(t, sm)
 
 	// The external file's source map should be merged in
 	// External paths are prefixed with the file path
@@ -928,12 +736,8 @@ paths:
 
 	// Verify locations exist from both files
 	mainLoc := sm.Get("$.openapi")
-	if !mainLoc.IsKnown() {
-		t.Error("SourceMap should have main file locations")
-	}
-	if mainLoc.File != mainPath {
-		t.Errorf("Main file location File = %q, want %q", mainLoc.File, mainPath)
-	}
+	assert.True(t, mainLoc.IsKnown(), "SourceMap should have main file locations")
+	assert.Equal(t, mainPath, mainLoc.File)
 
 	// The external file should be parsed and its source map merged
 	// After merging, the external file's "$" becomes the extSchemaPath's root
@@ -999,36 +803,24 @@ func TestRefResolver_UpdateAllRefTargets_Comprehensive(t *testing.T) {
 
 	// Verify: already-resolved should be unchanged
 	alreadyResolved := resolver.SourceMap.GetRef("$.already-resolved")
-	if alreadyResolved.Target.Line != 50 {
-		t.Errorf("Already resolved ref target should be unchanged, got line %d", alreadyResolved.Target.Line)
-	}
+	assert.Equal(t, 50, alreadyResolved.Target.Line, "Already resolved ref target should be unchanged")
 
 	// Verify: empty-target should remain empty
 	emptyTarget := resolver.SourceMap.GetRef("$.empty-target")
-	if emptyTarget.Target.IsKnown() {
-		t.Error("Empty target ref should not be resolved")
-	}
+	assert.False(t, emptyTarget.Target.IsKnown(), "Empty target ref should not be resolved")
 
 	// Verify: external-ref should not be resolved
 	externalRef := resolver.SourceMap.GetRef("$.external-ref")
-	if externalRef.Target.IsKnown() {
-		t.Error("External ref should not be resolved")
-	}
+	assert.False(t, externalRef.Target.IsKnown(), "External ref should not be resolved")
 
 	// Verify: missing-target should not be resolved
 	missingTarget := resolver.SourceMap.GetRef("$.missing-target")
-	if missingTarget.Target.IsKnown() {
-		t.Error("Ref pointing to missing target should not be resolved")
-	}
+	assert.False(t, missingTarget.Target.IsKnown(), "Ref pointing to missing target should not be resolved")
 
 	// Verify: needs-resolution should be resolved
 	needsResolution := resolver.SourceMap.GetRef("$.needs-resolution")
-	if !needsResolution.Target.IsKnown() {
-		t.Error("Ref needing resolution should be resolved")
-	}
-	if needsResolution.Target.Line != 60 {
-		t.Errorf("Resolved ref target line = %d, want 60", needsResolution.Target.Line)
-	}
+	assert.True(t, needsResolution.Target.IsKnown(), "Ref needing resolution should be resolved")
+	assert.Equal(t, 60, needsResolution.Target.Line)
 }
 
 func TestRefResolver_BuildExternalSourceMap_NilSourceMap(t *testing.T) {
@@ -1037,9 +829,7 @@ func TestRefResolver_BuildExternalSourceMap_NilSourceMap(t *testing.T) {
 	resolver.buildExternalSourceMap("/test.yaml", []byte("type: string"))
 	// Should not panic, and should not create ExternalSourceMaps
 
-	if resolver.ExternalSourceMaps != nil {
-		t.Error("ExternalSourceMaps should remain nil when SourceMap is nil")
-	}
+	assert.Nil(t, resolver.ExternalSourceMaps, "ExternalSourceMaps should remain nil when SourceMap is nil")
 }
 
 func TestRefResolver_UpdateRefTargetLocation_EdgeCases(t *testing.T) {
@@ -1064,9 +854,7 @@ func TestRefResolver_UpdateRefTargetLocation_EdgeCases(t *testing.T) {
 	// Should skip external refs
 
 	refLoc := resolver.SourceMap.GetRef("$.path")
-	if refLoc.Target.IsKnown() {
-		t.Error("External ref target should not be set")
-	}
+	assert.False(t, refLoc.Target.IsKnown(), "External ref target should not be set")
 
 	// Test with local ref where target location doesn't exist in source map
 	resolver.SourceMap.setRef("$.localref", RefLocation{
@@ -1077,9 +865,7 @@ func TestRefResolver_UpdateRefTargetLocation_EdgeCases(t *testing.T) {
 	// Target should remain unknown since the target path isn't in the source map
 
 	localRefLoc := resolver.SourceMap.GetRef("$.localref")
-	if localRefLoc.Target.IsKnown() {
-		t.Error("Target should not be set when target path not in source map")
-	}
+	assert.False(t, localRefLoc.Target.IsKnown(), "Target should not be set when target path not in source map")
 
 	// Test with local ref where target location DOES exist
 	resolver.SourceMap.set("$.components.schemas.Found", SourceLocation{
@@ -1095,10 +881,6 @@ func TestRefResolver_UpdateRefTargetLocation_EdgeCases(t *testing.T) {
 	// Target should be populated
 
 	foundRefLoc := resolver.SourceMap.GetRef("$.foundref")
-	if !foundRefLoc.Target.IsKnown() {
-		t.Error("Target should be set when target path exists in source map")
-	}
-	if foundRefLoc.Target.Line != 100 {
-		t.Errorf("Target line = %d, want 100", foundRefLoc.Target.Line)
-	}
+	assert.True(t, foundRefLoc.Target.IsKnown(), "Target should be set when target path exists in source map")
+	assert.Equal(t, 100, foundRefLoc.Target.Line)
 }

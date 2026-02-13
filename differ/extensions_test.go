@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestExtensionDiffing tests that extensions (x- fields) are properly detected and reported
@@ -31,15 +33,9 @@ func TestExtensionDiffing(t *testing.T) {
 			},
 			expectedCount: 1,
 			checkChanges: func(t *testing.T, changes []Change) {
-				if changes[0].Category != CategoryExtension {
-					t.Errorf("Expected category extension, got %s", changes[0].Category)
-				}
-				if changes[0].Type != ChangeTypeAdded {
-					t.Errorf("Expected type added, got %s", changes[0].Type)
-				}
-				if changes[0].Path != "document.x-api-id" {
-					t.Errorf("Expected path 'document.x-api-id', got %s", changes[0].Path)
-				}
+				assert.Equal(t, CategoryExtension, changes[0].Category)
+				assert.Equal(t, ChangeTypeAdded, changes[0].Type)
+				assert.Equal(t, "document.x-api-id", changes[0].Path)
 			},
 		},
 		{
@@ -58,9 +54,7 @@ func TestExtensionDiffing(t *testing.T) {
 			},
 			expectedCount: 1,
 			checkChanges: func(t *testing.T, changes []Change) {
-				if changes[0].Type != ChangeTypeRemoved {
-					t.Errorf("Expected type removed, got %s", changes[0].Type)
-				}
+				assert.Equal(t, ChangeTypeRemoved, changes[0].Type)
 			},
 		},
 		{
@@ -81,15 +75,9 @@ func TestExtensionDiffing(t *testing.T) {
 			},
 			expectedCount: 1,
 			checkChanges: func(t *testing.T, changes []Change) {
-				if changes[0].Type != ChangeTypeModified {
-					t.Errorf("Expected type modified, got %s", changes[0].Type)
-				}
-				if changes[0].OldValue != "test-123" {
-					t.Errorf("Expected old value 'test-123', got %v", changes[0].OldValue)
-				}
-				if changes[0].NewValue != "test-456" {
-					t.Errorf("Expected new value 'test-456', got %v", changes[0].NewValue)
-				}
+				assert.Equal(t, ChangeTypeModified, changes[0].Type)
+				assert.Equal(t, "test-123", changes[0].OldValue)
+				assert.Equal(t, "test-456", changes[0].NewValue)
 			},
 		},
 		{
@@ -155,9 +143,7 @@ func TestExtensionDiffing(t *testing.T) {
 			},
 			expectedCount: 1,
 			checkChanges: func(t *testing.T, changes []Change) {
-				if changes[0].Path != "document.paths./pets.x-rate-limit" {
-					t.Errorf("Expected path 'document.paths./pets.x-rate-limit', got %s", changes[0].Path)
-				}
+				assert.Equal(t, "document.paths./pets.x-rate-limit", changes[0].Path)
 			},
 		},
 		{
@@ -198,9 +184,7 @@ func TestExtensionDiffing(t *testing.T) {
 			},
 			expectedCount: 1,
 			checkChanges: func(t *testing.T, changes []Change) {
-				if changes[0].Path != "document.paths./pets.get.x-code-samples" {
-					t.Errorf("Expected path 'document.paths./pets.get.x-code-samples', got %s", changes[0].Path)
-				}
+				assert.Equal(t, "document.paths./pets.get.x-code-samples", changes[0].Path)
 			},
 		},
 		{
@@ -231,9 +215,7 @@ func TestExtensionDiffing(t *testing.T) {
 			},
 			expectedCount: 1,
 			checkChanges: func(t *testing.T, changes []Change) {
-				if changes[0].Path != "document.components.x-schema-registry" {
-					t.Errorf("Expected path 'document.components.x-schema-registry', got %s", changes[0].Path)
-				}
+				assert.Equal(t, "document.components.x-schema-registry", changes[0].Path)
 			},
 		},
 	}
@@ -255,12 +237,10 @@ func TestExtensionDiffing(t *testing.T) {
 			}
 
 			result, err := d.DiffParsed(sourceResult, targetResult)
-			if err != nil {
-				t.Fatalf("DiffParsed failed: %v", err)
-			}
+			require.NoError(t, err)
 
+			assert.Equal(t, tt.expectedCount, len(result.Changes))
 			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 				for i, change := range result.Changes {
 					t.Logf("Change %d: %s", i, change.String())
 				}
@@ -306,22 +286,14 @@ func TestExtensionBreakingDiffing(t *testing.T) {
 	}
 
 	result, err := d.DiffParsed(sourceResult, targetResult)
-	if err != nil {
-		t.Fatalf("DiffParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(result.Changes) != 1 {
-		t.Errorf("Expected 1 change, got %d", len(result.Changes))
-	}
+	assert.Len(t, result.Changes, 1)
 
 	// Extension changes should be INFO severity (non-breaking)
-	if result.Changes[0].Severity != SeverityInfo {
-		t.Errorf("Expected severity Info, got %v", result.Changes[0].Severity)
-	}
+	assert.Equal(t, SeverityInfo, result.Changes[0].Severity)
 
-	if result.HasBreakingChanges {
-		t.Error("Extension changes should not be classified as breaking")
-	}
+	assert.False(t, result.HasBreakingChanges, "Extension changes should not be classified as breaking")
 }
 
 // TestOAS2ExtensionDiffing tests extension diffing with OAS 2.0 documents
@@ -357,21 +329,13 @@ func TestOAS2ExtensionDiffing(t *testing.T) {
 	}
 
 	result, err := d.DiffParsed(sourceResult, targetResult)
-	if err != nil {
-		t.Fatalf("DiffParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(result.Changes) != 1 {
-		t.Errorf("Expected 1 change, got %d", len(result.Changes))
-	}
+	assert.Len(t, result.Changes, 1)
 
-	if result.Changes[0].Type != ChangeTypeAdded {
-		t.Errorf("Expected type added, got %s", result.Changes[0].Type)
-	}
+	assert.Equal(t, ChangeTypeAdded, result.Changes[0].Type)
 
-	if result.Changes[0].Category != CategoryExtension {
-		t.Errorf("Expected category extension, got %s", result.Changes[0].Category)
-	}
+	assert.Equal(t, CategoryExtension, result.Changes[0].Category)
 }
 
 // TestComplexExtensionValues tests extension diffing with complex values
@@ -412,18 +376,12 @@ func TestComplexExtensionValues(t *testing.T) {
 	}
 
 	result, err := d.DiffParsed(sourceResult, targetResult)
-	if err != nil {
-		t.Fatalf("DiffParsed failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should detect the complex value changed
-	if len(result.Changes) != 1 {
-		t.Errorf("Expected 1 change, got %d", len(result.Changes))
-	}
+	assert.Len(t, result.Changes, 1)
 
-	if result.Changes[0].Type != ChangeTypeModified {
-		t.Errorf("Expected type modified, got %s", result.Changes[0].Type)
-	}
+	assert.Equal(t, ChangeTypeModified, result.Changes[0].Type)
 }
 
 // TestNewExtensionLocations tests extension diffing at newly added locations
@@ -758,24 +716,18 @@ func TestNewExtensionLocations(t *testing.T) {
 			}
 
 			result, err := d.DiffParsed(sourceResult, targetResult)
-			if err != nil {
-				t.Fatalf("DiffParsed failed: %v", err)
-			}
+			require.NoError(t, err)
 
+			assert.Equal(t, tt.expectedCount, len(result.Changes))
 			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 				for i, change := range result.Changes {
 					t.Logf("Change %d: %s at %s", i, change.Type, change.Path)
 				}
 			}
 
 			if len(result.Changes) > 0 {
-				if result.Changes[0].Path != tt.expectedPath {
-					t.Errorf("Expected path %q, got %q", tt.expectedPath, result.Changes[0].Path)
-				}
-				if result.Changes[0].Category != CategoryExtension {
-					t.Errorf("Expected category extension, got %s", result.Changes[0].Category)
-				}
+				assert.Equal(t, tt.expectedPath, result.Changes[0].Path)
+				assert.Equal(t, CategoryExtension, result.Changes[0].Category)
 			}
 		})
 	}
@@ -865,25 +817,19 @@ func TestNewExtensionLocationsBreaking(t *testing.T) {
 			}
 
 			result, err := d.DiffParsed(sourceResult, targetResult)
-			if err != nil {
-				t.Fatalf("DiffParsed failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			if len(result.Changes) == 0 {
-				t.Fatal("Expected at least one change")
-			}
+			require.NotEmpty(t, result.Changes, "Expected at least one change")
 
 			// All extension changes should be SeverityInfo
 			for _, change := range result.Changes {
-				if change.Category == CategoryExtension && change.Severity != SeverityInfo {
-					t.Errorf("Extension change should be SeverityInfo, got %v", change.Severity)
+				if change.Category == CategoryExtension {
+					assert.Equal(t, SeverityInfo, change.Severity, "Extension change should be SeverityInfo")
 				}
 			}
 
 			// Extension changes should not be breaking
-			if result.HasBreakingChanges {
-				t.Error("Extension changes should not be classified as breaking")
-			}
+			assert.False(t, result.HasBreakingChanges, "Extension changes should not be classified as breaking")
 		})
 	}
 }

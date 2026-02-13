@@ -1,7 +1,6 @@
 # CLAUDE.md
 
-> ⚠️ **BRANCH PROTECTION**: ALL changes require a feature branch.
-> `git branch --show-current` must NOT be "main". If on main: `git checkout -b <type>/<description>`
+> ⚠️ **BRANCH PROTECTION**: Never commit directly to main. A PreToolUse hook enforces this automatically.
 
 ## Project Overview
 

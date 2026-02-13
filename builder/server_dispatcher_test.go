@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDispatcher_RouteToCorrectHandler(t *testing.T) {
@@ -53,12 +55,8 @@ func TestDispatcher_RouteToCorrectHandler(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/pets", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if !listCalled {
-		t.Error("listPets handler was not called for GET")
-	}
-	if createCalled {
-		t.Error("createPet handler was incorrectly called for GET")
-	}
+	assert.True(t, listCalled, "listPets handler was not called for GET")
+	assert.False(t, createCalled, "createPet handler was incorrectly called for GET")
 
 	// Test POST
 	listCalled = false
@@ -68,12 +66,8 @@ func TestDispatcher_RouteToCorrectHandler(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	result.Handler.ServeHTTP(rec, req)
 
-	if listCalled {
-		t.Error("listPets handler was incorrectly called for POST")
-	}
-	if !createCalled {
-		t.Error("createPet handler was not called for POST")
-	}
+	assert.False(t, listCalled, "listPets handler was incorrectly called for POST")
+	assert.True(t, createCalled, "createPet handler was not called for POST")
 }
 
 func TestDispatcher_PathParamsExtracted(t *testing.T) {
@@ -104,12 +98,8 @@ func TestDispatcher_PathParamsExtracted(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/users/42/pets/99", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if capturedUserId != "42" {
-		t.Errorf("Expected userId '42', got '%s'", capturedUserId)
-	}
-	if capturedPetId != "99" {
-		t.Errorf("Expected petId '99', got '%s'", capturedPetId)
-	}
+	assert.Equal(t, "42", capturedUserId)
+	assert.Equal(t, "99", capturedPetId)
 }
 
 func TestDispatcher_QueryParamsExtracted(t *testing.T) {
@@ -141,12 +131,8 @@ func TestDispatcher_QueryParamsExtracted(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/search?q=test&page=2", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if capturedQ != "test" {
-		t.Errorf("Expected q 'test', got '%s'", capturedQ)
-	}
-	if capturedPage != "2" {
-		t.Errorf("Expected page '2', got '%v'", capturedPage)
-	}
+	assert.Equal(t, "test", capturedQ)
+	assert.Equal(t, "2", capturedPage)
 }
 
 func TestDispatcher_RequestBodyParsed(t *testing.T) {
@@ -179,20 +165,12 @@ func TestDispatcher_RequestBodyParsed(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	result.Handler.ServeHTTP(rec, req)
 
-	if string(capturedRawBody) != body {
-		t.Errorf("Expected raw body '%s', got '%s'", body, string(capturedRawBody))
-	}
+	assert.Equal(t, body, string(capturedRawBody))
 
 	bodyMap, ok := capturedBody.(map[string]any)
-	if !ok {
-		t.Fatalf("Expected body to be map[string]any, got %T", capturedBody)
-	}
-	if bodyMap["name"] != "test" {
-		t.Errorf("Expected name 'test', got '%v'", bodyMap["name"])
-	}
-	if bodyMap["value"] != float64(42) {
-		t.Errorf("Expected value 42, got '%v'", bodyMap["value"])
-	}
+	require.True(t, ok, "Expected body to be map[string]any, got %T", capturedBody)
+	assert.Equal(t, "test", bodyMap["name"])
+	assert.Equal(t, float64(42), bodyMap["value"])
 }
 
 func TestDispatcher_MethodNotAllowed(t *testing.T) {
@@ -217,14 +195,10 @@ func TestDispatcher_MethodNotAllowed(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/pets", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("Expected status 405, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
 
 	allow := rec.Header().Get("Allow")
-	if allow == "" {
-		t.Error("Allow header should be set")
-	}
+	assert.NotEmpty(t, allow, "Allow header should be set")
 }
 
 func TestDispatcher_NotImplemented(t *testing.T) {
@@ -247,9 +221,7 @@ func TestDispatcher_NotImplemented(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/unhandled", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNotImplemented {
-		t.Errorf("Expected status 501, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 func TestDispatcher_OperationIDInRequest(t *testing.T) {
@@ -277,9 +249,7 @@ func TestDispatcher_OperationIDInRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if capturedOperationID != "myOperation" {
-		t.Errorf("Expected operationID 'myOperation', got '%s'", capturedOperationID)
-	}
+	assert.Equal(t, "myOperation", capturedOperationID)
 }
 
 func TestDispatcher_MatchedPathInRequest(t *testing.T) {
@@ -308,9 +278,7 @@ func TestDispatcher_MatchedPathInRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/pets/123", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if capturedMatchedPath != "/pets/{petId}" {
-		t.Errorf("Expected matched path '/pets/{petId}', got '%s'", capturedMatchedPath)
-	}
+	assert.Equal(t, "/pets/{petId}", capturedMatchedPath)
 }
 
 func TestLoggingMiddleware(t *testing.T) {
@@ -338,18 +306,10 @@ func TestLoggingMiddleware(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	handler.ServeHTTP(rec, req)
 
-	if loggedMethod != http.MethodGet {
-		t.Errorf("Expected method GET, got %s", loggedMethod)
-	}
-	if loggedPath != "/test" {
-		t.Errorf("Expected path /test, got %s", loggedPath)
-	}
-	if loggedStatus != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", loggedStatus)
-	}
-	if loggedDuration < 10*time.Millisecond {
-		t.Errorf("Expected duration >= 10ms, got %v", loggedDuration)
-	}
+	assert.Equal(t, http.MethodGet, loggedMethod)
+	assert.Equal(t, "/test", loggedPath)
+	assert.Equal(t, http.StatusOK, loggedStatus)
+	assert.GreaterOrEqual(t, loggedDuration, 10*time.Millisecond)
 }
 
 func TestStatusRecorder(t *testing.T) {
@@ -360,12 +320,8 @@ func TestStatusRecorder(t *testing.T) {
 
 	sr.WriteHeader(http.StatusCreated)
 
-	if sr.status != http.StatusCreated {
-		t.Errorf("Expected status 201, got %d", sr.status)
-	}
-	if rec.Code != http.StatusCreated {
-		t.Errorf("Expected underlying recorder status 201, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusCreated, sr.status)
+	assert.Equal(t, http.StatusCreated, rec.Code)
 }
 
 func TestDispatcher_ErrorHandler(t *testing.T) {
@@ -398,9 +354,7 @@ func TestDispatcher_ErrorHandler(t *testing.T) {
 	result.Handler.ServeHTTP(rec, req)
 
 	// Error handler should not be called for normal requests
-	if errorHandlerCalled {
-		t.Error("Error handler should not be called for successful requests")
-	}
+	assert.False(t, errorHandlerCalled, "Error handler should not be called for successful requests")
 }
 
 func TestDispatcher_HTTPRequestAccessible(t *testing.T) {
@@ -429,15 +383,9 @@ func TestDispatcher_HTTPRequestAccessible(t *testing.T) {
 	req.Header.Set("X-Custom", "value")
 	result.Handler.ServeHTTP(rec, req)
 
-	if capturedHTTPRequest == nil {
-		t.Fatal("HTTPRequest should not be nil")
-	}
-	if capturedHTTPRequest.URL.Path != "/test" {
-		t.Errorf("Expected path /test, got %s", capturedHTTPRequest.URL.Path)
-	}
-	if capturedHTTPRequest.Header.Get("X-Custom") != "value" {
-		t.Error("Custom header not accessible")
-	}
+	require.NotNil(t, capturedHTTPRequest)
+	assert.Equal(t, "/test", capturedHTTPRequest.URL.Path)
+	assert.Equal(t, "value", capturedHTTPRequest.Header.Get("X-Custom"))
 }
 
 func TestDispatcher_AllowedMethodsForMultipleMethods(t *testing.T) {
@@ -476,15 +424,13 @@ func TestDispatcher_AllowedMethodsForMultipleMethods(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/resource", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("Expected status 405, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
 
 	allow := rec.Header().Get("Allow")
 	// Allow header should contain GET, POST, PUT (sorted)
-	if !strings.Contains(allow, "GET") || !strings.Contains(allow, "POST") || !strings.Contains(allow, "PUT") {
-		t.Errorf("Allow header should contain GET, POST, PUT, got '%s'", allow)
-	}
+	assert.Contains(t, allow, "GET")
+	assert.Contains(t, allow, "POST")
+	assert.Contains(t, allow, "PUT")
 }
 
 func TestDispatcher_EmptyBody(t *testing.T) {
@@ -514,12 +460,8 @@ func TestDispatcher_EmptyBody(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/empty", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if capturedBody != nil {
-		t.Error("Body should be nil for empty request")
-	}
-	if len(capturedRawBody) != 0 {
-		t.Error("RawBody should be empty for empty request")
-	}
+	assert.Nil(t, capturedBody, "Body should be nil for empty request")
+	assert.Empty(t, capturedRawBody, "RawBody should be empty for empty request")
 }
 
 func TestDispatcher_NonJSONBody(t *testing.T) {
@@ -551,14 +493,10 @@ func TestDispatcher_NonJSONBody(t *testing.T) {
 	req.Header.Set("Content-Type", "text/plain")
 	result.Handler.ServeHTTP(rec, req)
 
-	if string(capturedRawBody) != body {
-		t.Errorf("Expected raw body '%s', got '%s'", body, string(capturedRawBody))
-	}
+	assert.Equal(t, body, string(capturedRawBody))
 
 	// Body should be nil since it's not valid JSON
-	if capturedBody != nil {
-		t.Errorf("Body should be nil for non-JSON content, got %v", capturedBody)
-	}
+	assert.Nil(t, capturedBody)
 }
 
 func TestDispatcher_ContextPropagation(t *testing.T) {
@@ -586,9 +524,7 @@ func TestDispatcher_ContextPropagation(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/ctx", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if capturedCtx == nil {
-		t.Error("Context should not be nil")
-	}
+	assert.NotNil(t, capturedCtx)
 }
 
 func TestDispatcher_ResponseJSON(t *testing.T) {
@@ -613,21 +549,14 @@ func TestDispatcher_ResponseJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/json", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusOK, rec.Code)
 
-	if rec.Header().Get("Content-Type") != "application/json" {
-		t.Errorf("Expected Content-Type application/json, got %s", rec.Header().Get("Content-Type"))
-	}
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
 	var body map[string]string
-	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
-	if body["message"] != "hello" {
-		t.Errorf("Expected message 'hello', got '%s'", body["message"])
-	}
+	err := json.NewDecoder(rec.Body).Decode(&body)
+	require.NoError(t, err)
+	assert.Equal(t, "hello", body["message"])
 }
 
 func TestDispatcher_MultipartBodyNotConsumed(t *testing.T) {
@@ -667,9 +596,7 @@ func TestDispatcher_MultipartBodyNotConsumed(t *testing.T) {
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 	part, err := writer.CreateFormFile("spec", "test.yaml")
-	if err != nil {
-		t.Fatalf("Failed to create form file: %v", err)
-	}
+	require.NoError(t, err)
 	_, _ = part.Write([]byte("openapi: 3.0.0\ninfo:\n  title: Test\n  version: 1.0.0"))
 	_ = writer.Close()
 
@@ -678,21 +605,13 @@ func TestDispatcher_MultipartBodyNotConsumed(t *testing.T) {
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	result.Handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusOK, rec.Code)
 
-	if formFileErr != nil {
-		t.Errorf("FormFile should work for multipart requests, got error: %v", formFileErr)
-	}
+	assert.NoError(t, formFileErr)
 
-	if formFileName != "test.yaml" {
-		t.Errorf("Expected filename 'test.yaml', got '%s'", formFileName)
-	}
+	assert.Equal(t, "test.yaml", formFileName)
 
-	if !strings.Contains(formFileContent, "openapi: 3.0.0") {
-		t.Errorf("Expected file content to contain 'openapi: 3.0.0', got '%s'", formFileContent)
-	}
+	assert.Contains(t, formFileContent, "openapi: 3.0.0")
 }
 
 func TestDispatcher_MultipartBodyAndRawBodyNil(t *testing.T) {
@@ -732,12 +651,8 @@ func TestDispatcher_MultipartBodyAndRawBodyNil(t *testing.T) {
 	result.Handler.ServeHTTP(rec, req)
 
 	// For multipart requests, Body and RawBody should be nil since we skip reading
-	if capturedBody != nil {
-		t.Errorf("Body should be nil for multipart requests, got %v", capturedBody)
-	}
-	if capturedRawBody != nil {
-		t.Errorf("RawBody should be nil for multipart requests, got %v", capturedRawBody)
-	}
+	assert.Nil(t, capturedBody)
+	assert.Nil(t, capturedRawBody)
 }
 
 func TestDispatcher_MultipartCaseInsensitive(t *testing.T) {
@@ -777,7 +692,5 @@ func TestDispatcher_MultipartCaseInsensitive(t *testing.T) {
 	req.Header.Set("Content-Type", "MULTIPART/FORM-DATA; boundary="+writer.Boundary())
 	result.Handler.ServeHTTP(rec, req)
 
-	if formFileErr != nil {
-		t.Errorf("FormFile should work with uppercase Content-Type, got error: %v", formFileErr)
-	}
+	assert.NoError(t, formFileErr)
 }

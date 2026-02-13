@@ -2,11 +2,12 @@ package commands
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/walker"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func testSecurityParseResult() *parser.ParseResult {
@@ -28,9 +29,7 @@ func collectTestSecuritySchemes(t *testing.T) []*walker.SecuritySchemeInfo {
 	t.Helper()
 	result := testSecurityParseResult()
 	collector, err := walker.CollectSecuritySchemes(result)
-	if err != nil {
-		t.Fatalf("collecting security schemes: %v", err)
-	}
+	require.NoError(t, err)
 	return collector.All
 }
 
@@ -38,93 +37,59 @@ func TestFilterSecuritySchemes_All(t *testing.T) {
 	schemes := collectTestSecuritySchemes(t)
 
 	matched, err := filterSecuritySchemes(schemes, "", "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(matched) != 3 {
-		t.Errorf("expected 3 schemes, got %d", len(matched))
-	}
+	require.NoError(t, err)
+	assert.Len(t, matched, 3)
 }
 
 func TestFilterSecuritySchemes_ByName(t *testing.T) {
 	schemes := collectTestSecuritySchemes(t)
 
 	matched, err := filterSecuritySchemes(schemes, "bearerAuth", "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 scheme, got %d", len(matched))
-	}
-	if matched[0].Name != "bearerAuth" {
-		t.Errorf("expected name bearerAuth, got %s", matched[0].Name)
-	}
+	require.NoError(t, err)
+	require.Len(t, matched, 1)
+	assert.Equal(t, "bearerAuth", matched[0].Name)
 }
 
 func TestFilterSecuritySchemes_ByType(t *testing.T) {
 	schemes := collectTestSecuritySchemes(t)
 
 	matched, err := filterSecuritySchemes(schemes, "", "http", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 scheme, got %d", len(matched))
-	}
-	if matched[0].SecurityScheme.Type != "http" {
-		t.Errorf("expected type http, got %s", matched[0].SecurityScheme.Type)
-	}
+	require.NoError(t, err)
+	require.Len(t, matched, 1)
+	assert.Equal(t, "http", matched[0].SecurityScheme.Type)
 }
 
 func TestFilterSecuritySchemes_ByTypeCaseInsensitive(t *testing.T) {
 	schemes := collectTestSecuritySchemes(t)
 
 	matched, err := filterSecuritySchemes(schemes, "", "HTTP", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 scheme, got %d", len(matched))
-	}
-	if matched[0].SecurityScheme.Type != "http" {
-		t.Errorf("expected type http, got %s", matched[0].SecurityScheme.Type)
-	}
+	require.NoError(t, err)
+	require.Len(t, matched, 1)
+	assert.Equal(t, "http", matched[0].SecurityScheme.Type)
 }
 
 func TestFilterSecuritySchemes_ByExtension(t *testing.T) {
 	schemes := collectTestSecuritySchemes(t)
 
 	matched, err := filterSecuritySchemes(schemes, "", "", "x-scope=internal")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 scheme, got %d", len(matched))
-	}
-	if matched[0].Name != "bearerAuth" {
-		t.Errorf("expected name bearerAuth, got %s", matched[0].Name)
-	}
+	require.NoError(t, err)
+	require.Len(t, matched, 1)
+	assert.Equal(t, "bearerAuth", matched[0].Name)
 }
 
 func TestFilterSecuritySchemes_NoMatch(t *testing.T) {
 	schemes := collectTestSecuritySchemes(t)
 
 	matched, err := filterSecuritySchemes(schemes, "nonexistent", "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(matched) != 0 {
-		t.Errorf("expected 0 schemes, got %d", len(matched))
-	}
+	require.NoError(t, err)
+	assert.Empty(t, matched)
 }
 
 func TestFilterSecuritySchemes_InvalidExtension(t *testing.T) {
 	schemes := collectTestSecuritySchemes(t)
 
 	_, err := filterSecuritySchemes(schemes, "", "", "invalid-key")
-	if err == nil {
-		t.Error("expected error for invalid extension filter")
-	}
+	assert.Error(t, err)
 }
 
 func TestFilterSecuritySchemes_CombinedFilters(t *testing.T) {
@@ -132,15 +97,9 @@ func TestFilterSecuritySchemes_CombinedFilters(t *testing.T) {
 
 	// Filter by type=http AND extension x-scope=internal
 	matched, err := filterSecuritySchemes(schemes, "", "http", "x-scope=internal")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 scheme, got %d", len(matched))
-	}
-	if matched[0].Name != "bearerAuth" {
-		t.Errorf("expected name bearerAuth, got %s", matched[0].Name)
-	}
+	require.NoError(t, err)
+	require.Len(t, matched, 1)
+	assert.Equal(t, "bearerAuth", matched[0].Name)
 }
 
 func TestFilterSecuritySchemes_CombinedNoMatch(t *testing.T) {
@@ -148,41 +107,27 @@ func TestFilterSecuritySchemes_CombinedNoMatch(t *testing.T) {
 
 	// Filter by type=apiKey AND extension x-scope=internal (apiKey has no extensions)
 	matched, err := filterSecuritySchemes(schemes, "", "apiKey", "x-scope=internal")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(matched) != 0 {
-		t.Errorf("expected 0 schemes, got %d", len(matched))
-	}
+	require.NoError(t, err)
+	assert.Empty(t, matched)
 }
 
 func TestHandleWalkSecurity_NoArgs(t *testing.T) {
 	err := handleWalkSecurity([]string{})
-	if err == nil {
-		t.Error("expected error when no spec file provided")
-	}
-	expected := "walk security requires a spec file argument"
-	if err.Error() != expected {
-		t.Errorf("expected error %q, got %q", expected, err.Error())
-	}
+	require.Error(t, err)
+	assert.Equal(t, "walk security requires a spec file argument", err.Error())
 }
 
 func TestHandleWalkSecurity_InvalidFormat(t *testing.T) {
 	err := handleWalkSecurity([]string{"--format", "xml", "spec.yaml"})
-	if err == nil {
-		t.Error("expected error for invalid format")
-	}
+	assert.Error(t, err)
 }
 
 func TestRenderSecuritySummary(t *testing.T) {
 	schemes := collectTestSecuritySchemes(t)
 	flags := WalkFlags{Format: FormatText}
 
-	// Should not return error
 	err := renderSecuritySummary(schemes, flags)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestRenderSecuritySummary_Quiet(t *testing.T) {
@@ -190,9 +135,7 @@ func TestRenderSecuritySummary_Quiet(t *testing.T) {
 	flags := WalkFlags{Format: FormatText, Quiet: true}
 
 	err := renderSecuritySummary(schemes, flags)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestRenderSecurityDetail(t *testing.T) {
@@ -200,9 +143,7 @@ func TestRenderSecurityDetail(t *testing.T) {
 	flags := WalkFlags{Format: FormatJSON}
 
 	err := renderSecurityDetail(schemes, flags)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestRenderSecurityDetail_YAML(t *testing.T) {
@@ -210,9 +151,7 @@ func TestRenderSecurityDetail_YAML(t *testing.T) {
 	flags := WalkFlags{Format: FormatYAML}
 
 	err := renderSecurityDetail(schemes, flags)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestRenderSecurityDetail_Text(t *testing.T) {
@@ -220,9 +159,7 @@ func TestRenderSecurityDetail_Text(t *testing.T) {
 	flags := WalkFlags{Format: FormatText}
 
 	err := renderSecurityDetail(schemes, flags)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestRenderSecurityDetail_IncludesName(t *testing.T) {
@@ -230,12 +167,8 @@ func TestRenderSecurityDetail_IncludesName(t *testing.T) {
 
 	// Filter to bearerAuth
 	matched, err := filterSecuritySchemes(schemes, "bearerAuth", "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 scheme, got %d", len(matched))
-	}
+	require.NoError(t, err)
+	require.Len(t, matched, 1)
 
 	view := securityDetailView{
 		Name:           matched[0].Name,
@@ -244,35 +177,21 @@ func TestRenderSecurityDetail_IncludesName(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderDetail(&buf, view, FormatJSON)
-	if err != nil {
-		t.Fatalf("RenderDetail failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, `"name"`) {
-		t.Error("expected 'name' key in detail JSON output")
-	}
-	if !strings.Contains(output, "bearerAuth") {
-		t.Error("expected bearerAuth name in detail output")
-	}
-	if !strings.Contains(output, `"securityScheme"`) {
-		t.Error("expected 'securityScheme' key in detail output")
-	}
-	if !strings.Contains(output, "bearer") {
-		t.Error("expected bearer scheme in detail output")
-	}
+	assert.Contains(t, output, `"name"`)
+	assert.Contains(t, output, "bearerAuth")
+	assert.Contains(t, output, `"securityScheme"`)
+	assert.Contains(t, output, "bearer")
 }
 
 func TestRenderSecurityDetail_IncludesNameYAML(t *testing.T) {
 	schemes := collectTestSecuritySchemes(t)
 
 	matched, err := filterSecuritySchemes(schemes, "apiKey", "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 scheme, got %d", len(matched))
-	}
+	require.NoError(t, err)
+	require.Len(t, matched, 1)
 
 	view := securityDetailView{
 		Name:           matched[0].Name,
@@ -281,17 +200,11 @@ func TestRenderSecurityDetail_IncludesNameYAML(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderDetail(&buf, view, FormatYAML)
-	if err != nil {
-		t.Fatalf("RenderDetail failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, "name:") {
-		t.Error("expected 'name' key in YAML detail output")
-	}
-	if !strings.Contains(output, "apiKey") {
-		t.Error("expected apiKey name in YAML detail output")
-	}
+	assert.Contains(t, output, "name:")
+	assert.Contains(t, output, "apiKey")
 }
 
 func TestRenderSecuritySummary_JSON(t *testing.T) {
@@ -311,20 +224,12 @@ func TestRenderSecuritySummary_JSON(t *testing.T) {
 
 	var buf bytes.Buffer
 	err := RenderSummaryStructured(&buf, headers, rows, FormatJSON)
-	if err != nil {
-		t.Fatalf("RenderSummaryStructured failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, `"name"`) {
-		t.Error("expected 'name' key in JSON summary output")
-	}
-	if !strings.Contains(output, `"type"`) {
-		t.Error("expected 'type' key in JSON summary output")
-	}
-	if !strings.Contains(output, "bearerAuth") {
-		t.Error("expected bearerAuth in JSON summary output")
-	}
+	assert.Contains(t, output, `"name"`)
+	assert.Contains(t, output, `"type"`)
+	assert.Contains(t, output, "bearerAuth")
 }
 
 func TestRenderSecuritySummary_YAML(t *testing.T) {
@@ -344,15 +249,9 @@ func TestRenderSecuritySummary_YAML(t *testing.T) {
 
 	var buf bytes.Buffer
 	err := RenderSummaryStructured(&buf, headers, rows, FormatYAML)
-	if err != nil {
-		t.Fatalf("RenderSummaryStructured failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, "name") {
-		t.Error("expected 'name' key in YAML summary output")
-	}
-	if !strings.Contains(output, "bearerAuth") {
-		t.Error("expected bearerAuth in YAML summary output")
-	}
+	assert.Contains(t, output, "name")
+	assert.Contains(t, output, "bearerAuth")
 }

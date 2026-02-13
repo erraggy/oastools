@@ -4,26 +4,17 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewFileSplitter(t *testing.T) {
 	fs := NewFileSplitter()
 
-	if fs.MaxLinesPerFile != 2000 {
-		t.Errorf("expected MaxLinesPerFile = 2000, got %d", fs.MaxLinesPerFile)
-	}
-	if fs.MaxTypesPerFile != 200 {
-		t.Errorf("expected MaxTypesPerFile = 200, got %d", fs.MaxTypesPerFile)
-	}
-	if fs.MaxOperationsPerFile != 100 {
-		t.Errorf("expected MaxOperationsPerFile = 100, got %d", fs.MaxOperationsPerFile)
-	}
-	if !fs.SplitByTag {
-		t.Error("expected SplitByTag = true")
-	}
-	if !fs.SplitByPathPrefix {
-		t.Error("expected SplitByPathPrefix = true")
-	}
+	assert.Equal(t, 2000, fs.MaxLinesPerFile)
+	assert.Equal(t, 200, fs.MaxTypesPerFile)
+	assert.Equal(t, 100, fs.MaxOperationsPerFile)
+	assert.True(t, fs.SplitByTag)
+	assert.True(t, fs.SplitByPathPrefix)
 }
 
 func TestFileSplitter_NeedsSplit(t *testing.T) {
@@ -80,9 +71,7 @@ func TestFileSplitter_NeedsSplit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.fs.needsSplit(tt.operations, tt.types, tt.lines)
-			if got != tt.want {
-				t.Errorf("needsSplit() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -110,9 +99,7 @@ func TestFileSplitter_SanitizeGroupName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			got := fs.sanitizeGroupName(tt.input)
-			if got != tt.want {
-				t.Errorf("sanitizeGroupName(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -135,9 +122,7 @@ func TestFileSplitter_ExtractPathPrefix(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
 			got := fs.extractPathPrefix(tt.path)
-			if got != tt.want {
-				t.Errorf("extractPathPrefix(%q) = %q, want %q", tt.path, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -160,9 +145,7 @@ func TestFileSplitter_ExtractRefName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.ref, func(t *testing.T) {
 			got := fs.extractRefName(tt.ref)
-			if got != tt.want {
-				t.Errorf("extractRefName(%q) = %q, want %q", tt.ref, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -180,21 +163,10 @@ func TestFileSplitter_GroupByTag(t *testing.T) {
 
 	groups := fs.groupByTag(operations)
 
-	if len(groups) != 3 {
-		t.Errorf("expected 3 groups, got %d", len(groups))
-	}
-
-	if len(groups["users"]) != 2 {
-		t.Errorf("expected 2 operations in 'users' group, got %d", len(groups["users"]))
-	}
-
-	if len(groups["pets"]) != 2 {
-		t.Errorf("expected 2 operations in 'pets' group, got %d", len(groups["pets"]))
-	}
-
-	if len(groups["default"]) != 1 {
-		t.Errorf("expected 1 operation in 'default' group, got %d", len(groups["default"]))
-	}
+	assert.Len(t, groups, 3)
+	assert.Len(t, groups["users"], 2)
+	assert.Len(t, groups["pets"], 2)
+	assert.Len(t, groups["default"], 1)
 }
 
 func TestFileSplitter_GroupByPathPrefix(t *testing.T) {
@@ -210,21 +182,10 @@ func TestFileSplitter_GroupByPathPrefix(t *testing.T) {
 
 	groups := fs.groupByPathPrefix(operations)
 
-	if len(groups) != 3 {
-		t.Errorf("expected 3 groups, got %d", len(groups))
-	}
-
-	if len(groups["users"]) != 2 {
-		t.Errorf("expected 2 operations in 'users' group, got %d", len(groups["users"]))
-	}
-
-	if len(groups["pets"]) != 2 {
-		t.Errorf("expected 2 operations in 'pets' group, got %d", len(groups["pets"]))
-	}
-
-	if len(groups["health"]) != 1 {
-		t.Errorf("expected 1 operation in 'health' group, got %d", len(groups["health"]))
-	}
+	assert.Len(t, groups, 3)
+	assert.Len(t, groups["users"], 2)
+	assert.Len(t, groups["pets"], 2)
+	assert.Len(t, groups["health"], 1)
 }
 
 func TestFileSplitter_AnalyzeOAS3_NoSplit(t *testing.T) {
@@ -252,21 +213,10 @@ func TestFileSplitter_AnalyzeOAS3_NoSplit(t *testing.T) {
 
 	plan := fs.AnalyzeOAS3(doc)
 
-	if plan.NeedsSplit {
-		t.Error("expected NeedsSplit = false")
-	}
-
-	if plan.TotalOperations != 2 {
-		t.Errorf("expected TotalOperations = 2, got %d", plan.TotalOperations)
-	}
-
-	if plan.TotalTypes != 2 {
-		t.Errorf("expected TotalTypes = 2, got %d", plan.TotalTypes)
-	}
-
-	if len(plan.Groups) != 1 {
-		t.Errorf("expected 1 group, got %d", len(plan.Groups))
-	}
+	assert.False(t, plan.NeedsSplit)
+	assert.Equal(t, 2, plan.TotalOperations)
+	assert.Equal(t, 2, plan.TotalTypes)
+	assert.Len(t, plan.Groups, 1)
 }
 
 func TestFileSplitter_AnalyzeOAS3_WithSplit(t *testing.T) {
@@ -296,17 +246,9 @@ func TestFileSplitter_AnalyzeOAS3_WithSplit(t *testing.T) {
 
 	plan := fs.AnalyzeOAS3(doc)
 
-	if !plan.NeedsSplit {
-		t.Error("expected NeedsSplit = true")
-	}
-
-	if plan.TotalOperations != 4 {
-		t.Errorf("expected TotalOperations = 4, got %d", plan.TotalOperations)
-	}
-
-	if len(plan.Groups) < 2 {
-		t.Errorf("expected at least 2 groups, got %d", len(plan.Groups))
-	}
+	assert.True(t, plan.NeedsSplit)
+	assert.Equal(t, 4, plan.TotalOperations)
+	assert.GreaterOrEqual(t, len(plan.Groups), 2)
 }
 
 func TestFileSplitter_AnalyzeOAS2_NoSplit(t *testing.T) {
@@ -328,17 +270,9 @@ func TestFileSplitter_AnalyzeOAS2_NoSplit(t *testing.T) {
 
 	plan := fs.AnalyzeOAS2(doc)
 
-	if plan.NeedsSplit {
-		t.Error("expected NeedsSplit = false")
-	}
-
-	if plan.TotalOperations != 1 {
-		t.Errorf("expected TotalOperations = 1, got %d", plan.TotalOperations)
-	}
-
-	if plan.TotalTypes != 1 {
-		t.Errorf("expected TotalTypes = 1, got %d", plan.TotalTypes)
-	}
+	assert.False(t, plan.NeedsSplit)
+	assert.Equal(t, 1, plan.TotalOperations)
+	assert.Equal(t, 1, plan.TotalTypes)
 }
 
 func TestFileSplitter_GroupAlphabetically(t *testing.T) {
@@ -354,18 +288,14 @@ func TestFileSplitter_GroupAlphabetically(t *testing.T) {
 
 	groups := fs.groupAlphabetically(operations, 2)
 
-	if len(groups) != 3 {
-		t.Errorf("expected 3 groups, got %d", len(groups))
-	}
+	assert.Len(t, groups, 3)
 
 	// Verify all operations are in a group
 	totalOps := 0
 	for _, ops := range groups {
 		totalOps += len(ops)
 	}
-	if totalOps != 5 {
-		t.Errorf("expected 5 total operations, got %d", totalOps)
-	}
+	assert.Equal(t, 5, totalOps)
 }
 
 func TestFileSplitter_EmptyDocument(t *testing.T) {
@@ -375,23 +305,15 @@ func TestFileSplitter_EmptyDocument(t *testing.T) {
 	doc3 := &parser.OAS3Document{}
 	plan3 := fs.AnalyzeOAS3(doc3)
 
-	if plan3.NeedsSplit {
-		t.Error("expected NeedsSplit = false for empty document")
-	}
-	if plan3.TotalOperations != 0 {
-		t.Errorf("expected TotalOperations = 0, got %d", plan3.TotalOperations)
-	}
+	assert.False(t, plan3.NeedsSplit)
+	assert.Equal(t, 0, plan3.TotalOperations)
 
 	// Test OAS 2.0 empty document
 	doc2 := &parser.OAS2Document{}
 	plan2 := fs.AnalyzeOAS2(doc2)
 
-	if plan2.NeedsSplit {
-		t.Error("expected NeedsSplit = false for empty document")
-	}
-	if plan2.TotalOperations != 0 {
-		t.Errorf("expected TotalOperations = 0, got %d", plan2.TotalOperations)
-	}
+	assert.False(t, plan2.NeedsSplit)
+	assert.Equal(t, 0, plan2.TotalOperations)
 }
 
 func TestGroupNameToTypeName(t *testing.T) {
@@ -407,9 +329,7 @@ func TestGroupNameToTypeName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			got := GroupNameToTypeName(tt.input)
-			if got != tt.want {
-				t.Errorf("GroupNameToTypeName(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -9,6 +9,8 @@ import (
 
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/walker"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func testSchemaParseResult() *parser.ParseResult {
@@ -58,59 +60,37 @@ func testSchemaParseResult() *parser.ParseResult {
 
 func TestHandleWalkSchemas_NoArgs(t *testing.T) {
 	err := handleWalkSchemas([]string{})
-	if err == nil {
-		t.Fatal("expected error when no spec file provided")
-	}
-	if !strings.Contains(err.Error(), "requires a spec file") {
-		t.Errorf("unexpected error message: %v", err)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "requires a spec file")
 }
 
 func TestHandleWalkSchemas_InvalidFormat(t *testing.T) {
 	err := handleWalkSchemas([]string{"--format", "xml", "test.yaml"})
-	if err == nil {
-		t.Fatal("expected error for invalid format")
-	}
-	if !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("unexpected error message: %v", err)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid format")
 }
 
 func TestHandleWalkSchemas_ConflictingFlags(t *testing.T) {
 	err := handleWalkSchemas([]string{"--component", "--inline", "test.yaml"})
-	if err == nil {
-		t.Fatal("expected error for conflicting --component and --inline")
-	}
-	if !strings.Contains(err.Error(), "cannot use both") {
-		t.Errorf("unexpected error message: %v", err)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot use both")
 }
 
 func TestHandleWalkSchemas_ListAll(t *testing.T) {
 	result := testSchemaParseResult()
 	collector, err := walker.CollectSchemas(result)
-	if err != nil {
-		t.Fatalf("unexpected error collecting schemas: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify we get both component and inline schemas
-	if len(collector.All) == 0 {
-		t.Fatal("expected schemas in test document")
-	}
-	if len(collector.Components) == 0 {
-		t.Fatal("expected component schemas")
-	}
-	if len(collector.Inline) == 0 {
-		t.Fatal("expected inline schemas")
-	}
+	require.NotEmpty(t, collector.All)
+	require.NotEmpty(t, collector.Components)
+	require.NotEmpty(t, collector.Inline)
 }
 
 func TestHandleWalkSchemas_FilterByName(t *testing.T) {
 	result := testSchemaParseResult()
 	collector, err := walker.CollectSchemas(result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Filter by name "Pet"
 	var filtered []*walker.SchemaInfo
@@ -120,28 +100,20 @@ func TestHandleWalkSchemas_FilterByName(t *testing.T) {
 		}
 	}
 
-	if len(filtered) == 0 {
-		t.Fatal("expected to find schema named Pet")
-	}
+	require.NotEmpty(t, filtered)
 	for _, info := range filtered {
-		if !strings.EqualFold(info.Name, "Pet") {
-			t.Errorf("expected name Pet, got %s", info.Name)
-		}
+		assert.True(t, strings.EqualFold(info.Name, "Pet"), "expected name Pet, got %s", info.Name)
 	}
 }
 
 func TestHandleWalkSchemas_FilterByComponent(t *testing.T) {
 	result := testSchemaParseResult()
 	collector, err := walker.CollectSchemas(result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// All component schemas should be marked as component
 	for _, info := range collector.Components {
-		if !info.IsComponent {
-			t.Errorf("component schema %s not marked as component", info.Name)
-		}
+		assert.True(t, info.IsComponent, "component schema %s not marked as component", info.Name)
 	}
 
 	// Component list should not include inline schemas
@@ -153,33 +125,25 @@ func TestHandleWalkSchemas_FilterByComponent(t *testing.T) {
 				break
 			}
 		}
-		if found {
-			t.Errorf("component schema %s found in inline list", info.Name)
-		}
+		assert.False(t, found, "component schema %s found in inline list", info.Name)
 	}
 }
 
 func TestHandleWalkSchemas_FilterByInline(t *testing.T) {
 	result := testSchemaParseResult()
 	collector, err := walker.CollectSchemas(result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// All inline schemas should NOT be marked as component
 	for _, info := range collector.Inline {
-		if info.IsComponent {
-			t.Errorf("inline schema %s marked as component", info.JSONPath)
-		}
+		assert.False(t, info.IsComponent, "inline schema %s marked as component", info.JSONPath)
 	}
 }
 
 func TestHandleWalkSchemas_FilterByType(t *testing.T) {
 	result := testSchemaParseResult()
 	collector, err := walker.CollectSchemas(result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Filter for "array" type
 	var filtered []*walker.SchemaInfo
@@ -189,27 +153,19 @@ func TestHandleWalkSchemas_FilterByType(t *testing.T) {
 		}
 	}
 
-	if len(filtered) == 0 {
-		t.Fatal("expected at least one array-type schema")
-	}
+	require.NotEmpty(t, filtered)
 	for _, info := range filtered {
-		if !schemaTypeMatches(info.Schema.Type, "array") {
-			t.Errorf("filtered schema has type %v, expected array", info.Schema.Type)
-		}
+		assert.True(t, schemaTypeMatches(info.Schema.Type, "array"), "filtered schema has type %v, expected array", info.Schema.Type)
 	}
 }
 
 func TestHandleWalkSchemas_FilterByExtension(t *testing.T) {
 	result := testSchemaParseResult()
 	collector, err := walker.CollectSchemas(result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	ef, err := ParseExtensionFilter("x-generated=true")
-	if err != nil {
-		t.Fatalf("unexpected error parsing extension filter: %v", err)
-	}
+	require.NoError(t, err)
 
 	var filtered []*walker.SchemaInfo
 	for _, info := range collector.All {
@@ -218,13 +174,9 @@ func TestHandleWalkSchemas_FilterByExtension(t *testing.T) {
 		}
 	}
 
-	if len(filtered) == 0 {
-		t.Fatal("expected at least one schema with x-generated=true")
-	}
+	require.NotEmpty(t, filtered)
 	for _, info := range filtered {
-		if info.Schema.Extra["x-generated"] != true {
-			t.Errorf("filtered schema missing x-generated=true extension")
-		}
+		assert.Equal(t, true, info.Schema.Extra["x-generated"])
 	}
 }
 
@@ -253,9 +205,7 @@ func TestSchemaTypeMatches(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := schemaTypeMatches(tt.schemaType, tt.filter)
-			if got != tt.want {
-				t.Errorf("schemaTypeMatches(%v, %q) = %v, want %v", tt.schemaType, tt.filter, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "schemaTypeMatches(%v, %q)", tt.schemaType, tt.filter)
 		})
 	}
 }
@@ -274,21 +224,13 @@ func TestHandleWalkSchemas_SummaryTableOutput(t *testing.T) {
 
 	// Verify headers are present
 	for _, h := range headers {
-		if !strings.Contains(output, h) {
-			t.Errorf("expected header %q in output", h)
-		}
+		assert.Contains(t, output, h, "expected header %q in output", h)
 	}
 
 	// Verify data rows
-	if !strings.Contains(output, "Pet") {
-		t.Error("expected Pet in output")
-	}
-	if !strings.Contains(output, "Error") {
-		t.Error("expected Error in output")
-	}
-	if !strings.Contains(output, "x-generated=true") {
-		t.Error("expected extension in output")
-	}
+	assert.Contains(t, output, "Pet")
+	assert.Contains(t, output, "Error")
+	assert.Contains(t, output, "x-generated=true")
 }
 
 func TestHandleWalkSchemas_QuietOutput(t *testing.T) {
@@ -302,13 +244,9 @@ func TestHandleWalkSchemas_QuietOutput(t *testing.T) {
 	output := buf.String()
 
 	// In quiet mode, headers should not be present
-	if strings.Contains(output, "NAME") {
-		t.Error("quiet mode should not include headers")
-	}
+	assert.NotContains(t, output, "NAME", "quiet mode should not include headers")
 	// Data should use tab separation
-	if !strings.Contains(output, "Pet\tobject") {
-		t.Errorf("expected tab-separated data in quiet mode, got: %s", output)
-	}
+	assert.Contains(t, output, "Pet\tobject", "expected tab-separated data in quiet mode")
 }
 
 func TestHandleWalkSchemas_DetailOutput(t *testing.T) {
@@ -319,25 +257,17 @@ func TestHandleWalkSchemas_DetailOutput(t *testing.T) {
 
 	var buf bytes.Buffer
 	err := RenderDetail(&buf, schema, FormatText)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, "object") {
-		t.Error("detail output should contain schema type")
-	}
-	if !strings.Contains(output, "A pet") {
-		t.Error("detail output should contain schema description")
-	}
+	assert.Contains(t, output, "object", "detail output should contain schema type")
+	assert.Contains(t, output, "A pet", "detail output should contain schema description")
 }
 
 func TestHandleWalkSchemas_SummaryJSON(t *testing.T) {
 	result := testSchemaParseResult()
 	collector, err := walker.CollectSchemas(result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	headers := []string{"NAME", "TYPE", "PROPERTIES", "LOCATION", "EXTENSIONS"}
 	rows := make([][]string, 0, len(collector.Components))
@@ -353,25 +283,17 @@ func TestHandleWalkSchemas_SummaryJSON(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderSummaryStructured(&buf, headers, rows, FormatJSON)
-	if err != nil {
-		t.Fatalf("RenderSummaryStructured failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, `"name"`) {
-		t.Error("expected 'name' key in JSON summary output")
-	}
-	if !strings.Contains(output, `"type"`) {
-		t.Error("expected 'type' key in JSON summary output")
-	}
+	assert.Contains(t, output, `"name"`)
+	assert.Contains(t, output, `"type"`)
 }
 
 func TestHandleWalkSchemas_SummaryYAML(t *testing.T) {
 	result := testSchemaParseResult()
 	collector, err := walker.CollectSchemas(result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	headers := []string{"NAME", "TYPE", "PROPERTIES", "LOCATION", "EXTENSIONS"}
 	rows := make([][]string, 0, len(collector.Components))
@@ -387,25 +309,17 @@ func TestHandleWalkSchemas_SummaryYAML(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderSummaryStructured(&buf, headers, rows, FormatYAML)
-	if err != nil {
-		t.Fatalf("RenderSummaryStructured failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, "name") {
-		t.Error("expected 'name' key in YAML summary output")
-	}
-	if !strings.Contains(output, "type") {
-		t.Error("expected 'type' key in YAML summary output")
-	}
+	assert.Contains(t, output, "name")
+	assert.Contains(t, output, "type")
 }
 
 func TestHandleWalkSchemas_DetailIncludesContext(t *testing.T) {
 	result := testSchemaParseResult()
 	collector, err := walker.CollectSchemas(result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Find the Pet component schema
 	var pet *walker.SchemaInfo
@@ -415,9 +329,7 @@ func TestHandleWalkSchemas_DetailIncludesContext(t *testing.T) {
 			break
 		}
 	}
-	if pet == nil {
-		t.Fatal("expected to find Pet schema")
-	}
+	require.NotNil(t, pet, "expected to find Pet schema")
 
 	view := schemaDetailView{
 		Name:        pet.Name,
@@ -428,31 +340,19 @@ func TestHandleWalkSchemas_DetailIncludesContext(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderDetail(&buf, view, FormatJSON)
-	if err != nil {
-		t.Fatalf("RenderDetail failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, `"name"`) {
-		t.Error("expected 'name' key in detail JSON output")
-	}
-	if !strings.Contains(output, "Pet") {
-		t.Error("expected Pet name in detail output")
-	}
-	if !strings.Contains(output, `"isComponent"`) {
-		t.Error("expected 'isComponent' key in detail output")
-	}
-	if !strings.Contains(output, `"jsonPath"`) {
-		t.Error("expected 'jsonPath' key in detail output")
-	}
+	assert.Contains(t, output, `"name"`)
+	assert.Contains(t, output, "Pet")
+	assert.Contains(t, output, `"isComponent"`)
+	assert.Contains(t, output, `"jsonPath"`)
 }
 
 func TestHandleWalkSchemas_DetailIncludesContextYAML(t *testing.T) {
 	result := testSchemaParseResult()
 	collector, err := walker.CollectSchemas(result)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	var pet *walker.SchemaInfo
 	for _, info := range collector.Components {
@@ -461,9 +361,7 @@ func TestHandleWalkSchemas_DetailIncludesContextYAML(t *testing.T) {
 			break
 		}
 	}
-	if pet == nil {
-		t.Fatal("expected to find Pet schema")
-	}
+	require.NotNil(t, pet, "expected to find Pet schema")
 
 	view := schemaDetailView{
 		Name:        pet.Name,
@@ -474,17 +372,11 @@ func TestHandleWalkSchemas_DetailIncludesContextYAML(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderDetail(&buf, view, FormatYAML)
-	if err != nil {
-		t.Fatalf("RenderDetail failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, "name:") {
-		t.Error("expected 'name' key in YAML detail output")
-	}
-	if !strings.Contains(output, "Pet") {
-		t.Error("expected Pet name in YAML detail output")
-	}
+	assert.Contains(t, output, "name:")
+	assert.Contains(t, output, "Pet")
 }
 
 func TestHandleWalkSchemas_NoResults(t *testing.T) {
@@ -499,14 +391,11 @@ func TestHandleWalkSchemas_NoResults(t *testing.T) {
 	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		t.Fatalf("failed to read from pipe: %v", err)
-	}
+	_, err := buf.ReadFrom(r)
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, "No schemas matched") {
-		t.Errorf("expected no-results message, got: %s", output)
-	}
+	assert.Contains(t, output, "No schemas matched")
 }
 
 func TestHandleWalkSchemas_NoResultsQuiet(t *testing.T) {
@@ -521,14 +410,11 @@ func TestHandleWalkSchemas_NoResultsQuiet(t *testing.T) {
 	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		t.Fatalf("failed to read from pipe: %v", err)
-	}
+	_, err := buf.ReadFrom(r)
+	require.NoError(t, err)
 
 	output := buf.String()
-	if output != "" {
-		t.Errorf("quiet mode should produce no output, got: %s", output)
-	}
+	assert.Empty(t, output, "quiet mode should produce no output")
 }
 
 // testSchemaSpecYAML is a hand-crafted OAS 3.0.3 spec used in schema integration tests.
@@ -568,9 +454,8 @@ paths:
 func writeSchemaTestSpec(t *testing.T) string {
 	t.Helper()
 	tmpFile := t.TempDir() + "/test-spec.yaml"
-	if err := os.WriteFile(tmpFile, []byte(testSchemaSpecYAML), 0o644); err != nil {
-		t.Fatalf("failed to write test spec: %v", err)
-	}
+	err := os.WriteFile(tmpFile, []byte(testSchemaSpecYAML), 0o644)
+	require.NoError(t, err)
 	return tmpFile
 }
 
@@ -578,9 +463,7 @@ func captureSchemaStdout(t *testing.T, fn func()) string {
 	t.Helper()
 	old := os.Stdout
 	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
+	require.NoError(t, err)
 	os.Stdout = w
 
 	fn()
@@ -589,9 +472,8 @@ func captureSchemaStdout(t *testing.T, fn func()) string {
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		t.Fatalf("failed to read from pipe: %v", err)
-	}
+	_, err = buf.ReadFrom(r)
+	require.NoError(t, err)
 	return buf.String()
 }
 
@@ -599,45 +481,31 @@ func TestHandleWalkSchemas_Integration_ListAll(t *testing.T) {
 	tmpFile := writeSchemaTestSpec(t)
 
 	output := captureSchemaStdout(t, func() {
-		if err := handleWalkSchemas([]string{tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		err := handleWalkSchemas([]string{tmpFile})
+		require.NoError(t, err)
 	})
 
 	// Should contain component schemas
-	if !strings.Contains(output, "Pet") {
-		t.Error("expected output to contain 'Pet'")
-	}
-	if !strings.Contains(output, "Error") {
-		t.Error("expected output to contain 'Error'")
-	}
+	assert.Contains(t, output, "Pet")
+	assert.Contains(t, output, "Error")
 	// Should contain table headers
-	if !strings.Contains(output, "NAME") {
-		t.Error("expected output to contain 'NAME' header")
-	}
-	if !strings.Contains(output, "TYPE") {
-		t.Error("expected output to contain 'TYPE' header")
-	}
+	assert.Contains(t, output, "NAME")
+	assert.Contains(t, output, "TYPE")
 }
 
 func TestHandleWalkSchemas_Integration_FilterByName(t *testing.T) {
 	tmpFile := writeSchemaTestSpec(t)
 
 	output := captureSchemaStdout(t, func() {
-		if err := handleWalkSchemas([]string{"--name", "Pet", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		err := handleWalkSchemas([]string{"--name", "Pet", tmpFile})
+		require.NoError(t, err)
 	})
 
-	if !strings.Contains(output, "Pet") {
-		t.Error("expected output to contain 'Pet'")
-	}
+	assert.Contains(t, output, "Pet")
 	// Error schema should not appear (different name)
 	for line := range strings.SplitSeq(output, "\n") {
 		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "Error") {
-			t.Error("expected output to NOT contain 'Error' schema")
-		}
+		assert.False(t, strings.HasPrefix(trimmed, "Error"), "expected output to NOT contain 'Error' schema")
 	}
 }
 
@@ -645,9 +513,8 @@ func TestHandleWalkSchemas_Integration_FilterByComponent(t *testing.T) {
 	tmpFile := writeSchemaTestSpec(t)
 
 	output := captureSchemaStdout(t, func() {
-		if err := handleWalkSchemas([]string{"--component", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		err := handleWalkSchemas([]string{"--component", tmpFile})
+		require.NoError(t, err)
 	})
 
 	// All rows should show "component" in the LOCATION column
@@ -656,9 +523,7 @@ func TestHandleWalkSchemas_Integration_FilterByComponent(t *testing.T) {
 		if trimmed == "" || strings.HasPrefix(trimmed, "NAME") {
 			continue
 		}
-		if strings.Contains(trimmed, "inline") {
-			t.Errorf("--component flag should not include inline schemas, got line: %s", line)
-		}
+		assert.NotContains(t, trimmed, "inline", "--component flag should not include inline schemas, got line: %s", line)
 	}
 }
 
@@ -666,9 +531,8 @@ func TestHandleWalkSchemas_Integration_FilterByInline(t *testing.T) {
 	tmpFile := writeSchemaTestSpec(t)
 
 	output := captureSchemaStdout(t, func() {
-		if err := handleWalkSchemas([]string{"--inline", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		err := handleWalkSchemas([]string{"--inline", tmpFile})
+		require.NoError(t, err)
 	})
 
 	// All rows should show "inline" in the LOCATION column
@@ -677,9 +541,7 @@ func TestHandleWalkSchemas_Integration_FilterByInline(t *testing.T) {
 		if trimmed == "" || strings.HasPrefix(trimmed, "NAME") {
 			continue
 		}
-		if strings.Contains(trimmed, "component") {
-			t.Errorf("--inline flag should not include component schemas, got line: %s", line)
-		}
+		assert.NotContains(t, trimmed, "component", "--inline flag should not include component schemas, got line: %s", line)
 	}
 }
 
@@ -687,23 +549,18 @@ func TestHandleWalkSchemas_Integration_FilterByType(t *testing.T) {
 	tmpFile := writeSchemaTestSpec(t)
 
 	output := captureSchemaStdout(t, func() {
-		if err := handleWalkSchemas([]string{"--type", "array", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		err := handleWalkSchemas([]string{"--type", "array", tmpFile})
+		require.NoError(t, err)
 	})
 
-	if !strings.Contains(output, "array") {
-		t.Error("expected output to contain 'array' type")
-	}
+	assert.Contains(t, output, "array")
 	// Object schemas should not appear in data rows
 	for line := range strings.SplitSeq(output, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, "NAME") {
 			continue
 		}
-		if strings.Contains(trimmed, "object") {
-			t.Errorf("--type array should not include object schemas, got line: %s", line)
-		}
+		assert.NotContains(t, trimmed, "object", "--type array should not include object schemas, got line: %s", line)
 	}
 }
 
@@ -711,48 +568,37 @@ func TestHandleWalkSchemas_Integration_FilterByExtension(t *testing.T) {
 	tmpFile := writeSchemaTestSpec(t)
 
 	output := captureSchemaStdout(t, func() {
-		if err := handleWalkSchemas([]string{"--extension", "x-generated", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		err := handleWalkSchemas([]string{"--extension", "x-generated", tmpFile})
+		require.NoError(t, err)
 	})
 
-	if !strings.Contains(output, "Pet") {
-		t.Error("expected output to contain 'Pet' (has x-generated)")
-	}
+	assert.Contains(t, output, "Pet")
 }
 
 func TestHandleWalkSchemas_Integration_DetailMode(t *testing.T) {
 	tmpFile := writeSchemaTestSpec(t)
 
 	output := captureSchemaStdout(t, func() {
-		if err := handleWalkSchemas([]string{"--detail", "--name", "Pet", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		err := handleWalkSchemas([]string{"--detail", "--name", "Pet", tmpFile})
+		require.NoError(t, err)
 	})
 
 	// Detail mode should output YAML with schema fields
-	if !strings.Contains(output, "type: object") {
-		t.Errorf("expected detail output to contain 'type: object', got: %s", output)
-	}
+	assert.Contains(t, output, "type: object")
 }
 
 func TestHandleWalkSchemas_Integration_QuietMode(t *testing.T) {
 	tmpFile := writeSchemaTestSpec(t)
 
 	output := captureSchemaStdout(t, func() {
-		if err := handleWalkSchemas([]string{"-q", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		err := handleWalkSchemas([]string{"-q", tmpFile})
+		require.NoError(t, err)
 	})
 
 	// Quiet mode: no headers
-	if strings.Contains(output, "NAME") {
-		t.Error("expected quiet mode to NOT contain headers")
-	}
+	assert.NotContains(t, output, "NAME")
 	// Should have tab-separated data
-	if !strings.Contains(output, "\t") {
-		t.Error("expected tab-separated output in quiet mode")
-	}
+	assert.Contains(t, output, "\t")
 }
 
 func TestHandleWalkSchemas_Integration_NoResults(t *testing.T) {
@@ -764,9 +610,8 @@ func TestHandleWalkSchemas_Integration_NoResults(t *testing.T) {
 	os.Stderr = wErr
 
 	output := captureSchemaStdout(t, func() {
-		if err := handleWalkSchemas([]string{"--name", "Nonexistent", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		err := handleWalkSchemas([]string{"--name", "Nonexistent", tmpFile})
+		require.NoError(t, err)
 	})
 
 	_ = wErr.Close()
@@ -776,37 +621,26 @@ func TestHandleWalkSchemas_Integration_NoResults(t *testing.T) {
 	_, _ = bufErr.ReadFrom(rErr)
 	stderrOutput := bufErr.String()
 
-	if output != "" {
-		t.Errorf("expected no stdout output, got: %s", output)
-	}
-	if !strings.Contains(stderrOutput, "No schemas matched") {
-		t.Errorf("expected stderr message about no results, got: %s", stderrOutput)
-	}
+	assert.Empty(t, output, "expected no stdout output")
+	assert.Contains(t, stderrOutput, "No schemas matched")
 }
 
 func TestHandleWalkSchemas_Integration_JSONFormat(t *testing.T) {
 	tmpFile := writeSchemaTestSpec(t)
 
 	output := captureSchemaStdout(t, func() {
-		if err := handleWalkSchemas([]string{"--detail", "--format", "json", "--name", "Pet", tmpFile}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		err := handleWalkSchemas([]string{"--detail", "--format", "json", "--name", "Pet", tmpFile})
+		require.NoError(t, err)
 	})
 
 	// JSON output should contain opening brace
-	if !strings.Contains(output, "{") {
-		t.Errorf("expected JSON output, got: %s", output)
-	}
+	assert.Contains(t, output, "{")
 }
 
 func TestHandleWalkSchemas_Integration_InvalidExtensionFilter(t *testing.T) {
 	tmpFile := writeSchemaTestSpec(t)
 
 	err := handleWalkSchemas([]string{"--extension", "not-x-prefixed", tmpFile})
-	if err == nil {
-		t.Fatal("expected error for invalid extension filter")
-	}
-	if !strings.Contains(err.Error(), "must start with") {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must start with")
 }

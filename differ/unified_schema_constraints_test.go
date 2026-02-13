@@ -5,6 +5,8 @@ import (
 
 	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestDiffSchemaNumericConstraintsUnified tests numeric constraint comparison
@@ -132,28 +134,20 @@ func TestDiffSchemaNumericConstraintsUnified(t *testing.T) {
 
 			d.diffSchemaNumericConstraintsUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s (severity: %v)", c.Path, c.Message, c.Severity)
-				}
-				return
-			}
+			require.Len(t, result.Changes, tt.expectedCount)
 
 			if tt.checkPath != "" && tt.expectedCount > 0 {
 				found := false
 				for _, c := range result.Changes {
 					if c.Path == tt.checkPath {
 						found = true
-						if tt.checkSeverity != 0 && c.Severity != tt.checkSeverity {
-							t.Errorf("Expected severity %v, got %v for path %s", tt.checkSeverity, c.Severity, c.Path)
+						if tt.checkSeverity != 0 {
+							assert.Equal(t, tt.checkSeverity, c.Severity, "unexpected severity for path %s", c.Path)
 						}
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected change at path %s not found", tt.checkPath)
-				}
+				assert.True(t, found, "Expected change at path %s not found", tt.checkPath)
 			}
 		})
 	}
@@ -311,28 +305,20 @@ func TestDiffSchemaStringConstraintsUnified(t *testing.T) {
 
 			d.diffSchemaStringConstraintsUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s (severity: %v)", c.Path, c.Message, c.Severity)
-				}
-				return
-			}
+			require.Len(t, result.Changes, tt.expectedCount)
 
 			if tt.checkPath != "" && tt.expectedCount > 0 {
 				found := false
 				for _, c := range result.Changes {
 					if c.Path == tt.checkPath {
 						found = true
-						if tt.checkSeverity != 0 && c.Severity != tt.checkSeverity {
-							t.Errorf("Expected severity %v, got %v for path %s", tt.checkSeverity, c.Severity, c.Path)
+						if tt.checkSeverity != 0 {
+							assert.Equal(t, tt.checkSeverity, c.Severity, "unexpected severity for path %s", c.Path)
 						}
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected change at path %s not found", tt.checkPath)
-				}
+				assert.True(t, found, "Expected change at path %s not found", tt.checkPath)
 			}
 		})
 	}
@@ -478,28 +464,20 @@ func TestDiffSchemaArrayConstraintsUnified(t *testing.T) {
 
 			d.diffSchemaArrayConstraintsUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s (severity: %v)", c.Path, c.Message, c.Severity)
-				}
-				return
-			}
+			require.Len(t, result.Changes, tt.expectedCount)
 
 			if tt.checkPath != "" && tt.expectedCount > 0 {
 				found := false
 				for _, c := range result.Changes {
 					if c.Path == tt.checkPath {
 						found = true
-						if tt.checkSeverity != 0 && c.Severity != tt.checkSeverity {
-							t.Errorf("Expected severity %v, got %v for path %s", tt.checkSeverity, c.Severity, c.Path)
+						if tt.checkSeverity != 0 {
+							assert.Equal(t, tt.checkSeverity, c.Severity, "unexpected severity for path %s", c.Path)
 						}
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected change at path %s not found", tt.checkPath)
-				}
+				assert.True(t, found, "Expected change at path %s not found", tt.checkPath)
 			}
 		})
 	}
@@ -617,28 +595,20 @@ func TestDiffSchemaObjectConstraintsUnified(t *testing.T) {
 
 			d.diffSchemaObjectConstraintsUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s (severity: %v)", c.Path, c.Message, c.Severity)
-				}
-				return
-			}
+			require.Len(t, result.Changes, tt.expectedCount)
 
 			if tt.checkPath != "" && tt.expectedCount > 0 {
 				found := false
 				for _, c := range result.Changes {
 					if c.Path == tt.checkPath {
 						found = true
-						if tt.checkSeverity != 0 && c.Severity != tt.checkSeverity {
-							t.Errorf("Expected severity %v, got %v for path %s", tt.checkSeverity, c.Severity, c.Path)
+						if tt.checkSeverity != 0 {
+							assert.Equal(t, tt.checkSeverity, c.Severity, "unexpected severity for path %s", c.Path)
 						}
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected change at path %s not found", tt.checkPath)
-				}
+				assert.True(t, found, "Expected change at path %s not found", tt.checkPath)
 			}
 		})
 	}
@@ -707,12 +677,7 @@ func TestDiffSchemaRequiredFieldsUnified(t *testing.T) {
 
 			d.diffSchemaRequiredFieldsUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s (severity: %v)", c.Path, c.Message, c.Severity)
-				}
-			}
+			assert.Len(t, result.Changes, tt.expectedCount)
 		})
 	}
 }
@@ -833,28 +798,20 @@ func TestDiffSchemaOASFieldsUnified(t *testing.T) {
 
 			d.diffSchemaOASFieldsUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s (severity: %v)", c.Path, c.Message, c.Severity)
-				}
-				return
-			}
+			require.Len(t, result.Changes, tt.expectedCount)
 
 			if tt.checkPath != "" && tt.expectedCount > 0 {
 				found := false
 				for _, c := range result.Changes {
 					if c.Path == tt.checkPath {
 						found = true
-						if tt.checkSeverity != 0 && c.Severity != tt.checkSeverity {
-							t.Errorf("Expected severity %v, got %v for path %s", tt.checkSeverity, c.Severity, c.Path)
+						if tt.checkSeverity != 0 {
+							assert.Equal(t, tt.checkSeverity, c.Severity, "unexpected severity for path %s", c.Path)
 						}
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected change at path %s not found", tt.checkPath)
-				}
+				assert.True(t, found, "Expected change at path %s not found", tt.checkPath)
 			}
 		})
 	}
