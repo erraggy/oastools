@@ -153,3 +153,207 @@ func CollectOperations(result *parser.ParseResult) (*OperationCollector, error) 
 
 	return collector, nil
 }
+
+// ParameterInfo contains information about a collected parameter.
+type ParameterInfo struct {
+	// Parameter is the collected parameter.
+	Parameter *parser.Parameter
+
+	// Name is the parameter name.
+	Name string
+
+	// In is the parameter location: query, header, path, cookie.
+	In string
+
+	// JSONPath is the full JSON path to the parameter.
+	JSONPath string
+
+	// PathTemplate is the owning path template.
+	PathTemplate string
+
+	// Method is the owning operation method (empty if path-level).
+	Method string
+
+	// IsComponent is true when the parameter is defined in components/definitions.
+	IsComponent bool
+}
+
+// ParameterCollector holds parameters collected during a walk.
+type ParameterCollector struct {
+	// All contains all parameters in traversal order.
+	All []*ParameterInfo
+
+	// ByName groups parameters by name.
+	ByName map[string][]*ParameterInfo
+
+	// ByLocation groups parameters by location: "query", "header", "path", "cookie".
+	ByLocation map[string][]*ParameterInfo
+
+	// ByPath groups parameters by path template.
+	ByPath map[string][]*ParameterInfo
+}
+
+// CollectParameters walks the document and collects all parameters.
+// It returns a ParameterCollector containing all parameters organized by various criteria.
+func CollectParameters(result *parser.ParseResult) (*ParameterCollector, error) {
+	collector := &ParameterCollector{
+		All:        make([]*ParameterInfo, 0),
+		ByName:     make(map[string][]*ParameterInfo),
+		ByLocation: make(map[string][]*ParameterInfo),
+		ByPath:     make(map[string][]*ParameterInfo),
+	}
+
+	err := Walk(result,
+		WithParameterHandler(func(wc *WalkContext, param *parser.Parameter) Action {
+			info := &ParameterInfo{
+				Parameter:    param,
+				Name:         param.Name,
+				In:           param.In,
+				JSONPath:     wc.JSONPath,
+				PathTemplate: wc.PathTemplate,
+				Method:       wc.Method,
+				IsComponent:  wc.IsComponent,
+			}
+
+			collector.All = append(collector.All, info)
+			collector.ByName[param.Name] = append(collector.ByName[param.Name], info)
+			collector.ByLocation[param.In] = append(collector.ByLocation[param.In], info)
+			if wc.PathTemplate != "" {
+				collector.ByPath[wc.PathTemplate] = append(collector.ByPath[wc.PathTemplate], info)
+			}
+
+			return Continue
+		}),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return collector, nil
+}
+
+// ResponseInfo contains information about a collected response.
+type ResponseInfo struct {
+	// Response is the collected response.
+	Response *parser.Response
+
+	// StatusCode is the HTTP status code (e.g., "200", "404", "default").
+	StatusCode string
+
+	// JSONPath is the full JSON path to the response.
+	JSONPath string
+
+	// PathTemplate is the owning path template.
+	PathTemplate string
+
+	// Method is the owning operation method.
+	Method string
+
+	// IsComponent is true when the response is defined in components/responses.
+	IsComponent bool
+}
+
+// ResponseCollector holds responses collected during a walk.
+type ResponseCollector struct {
+	// All contains all responses in traversal order.
+	All []*ResponseInfo
+
+	// ByStatusCode groups responses by HTTP status code.
+	ByStatusCode map[string][]*ResponseInfo
+
+	// ByPath groups responses by path template.
+	ByPath map[string][]*ResponseInfo
+}
+
+// CollectResponses walks the document and collects all responses.
+// It returns a ResponseCollector containing all responses organized by various criteria.
+func CollectResponses(result *parser.ParseResult) (*ResponseCollector, error) {
+	collector := &ResponseCollector{
+		All:          make([]*ResponseInfo, 0),
+		ByStatusCode: make(map[string][]*ResponseInfo),
+		ByPath:       make(map[string][]*ResponseInfo),
+	}
+
+	err := Walk(result,
+		WithResponseHandler(func(wc *WalkContext, resp *parser.Response) Action {
+			info := &ResponseInfo{
+				Response:     resp,
+				StatusCode:   wc.StatusCode,
+				JSONPath:     wc.JSONPath,
+				PathTemplate: wc.PathTemplate,
+				Method:       wc.Method,
+				IsComponent:  wc.IsComponent,
+			}
+
+			collector.All = append(collector.All, info)
+			if wc.StatusCode != "" {
+				collector.ByStatusCode[wc.StatusCode] = append(collector.ByStatusCode[wc.StatusCode], info)
+			}
+			if wc.PathTemplate != "" {
+				collector.ByPath[wc.PathTemplate] = append(collector.ByPath[wc.PathTemplate], info)
+			}
+
+			return Continue
+		}),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return collector, nil
+}
+
+// SecuritySchemeInfo contains information about a collected security scheme.
+type SecuritySchemeInfo struct {
+	// SecurityScheme is the collected security scheme.
+	SecurityScheme *parser.SecurityScheme
+
+	// Name is the security scheme name from the components map key.
+	Name string
+
+	// JSONPath is the full JSON path to the security scheme.
+	JSONPath string
+}
+
+// SecuritySchemeCollector holds security schemes collected during a walk.
+type SecuritySchemeCollector struct {
+	// All contains all security schemes in traversal order.
+	All []*SecuritySchemeInfo
+
+	// ByName provides lookup by name.
+	ByName map[string]*SecuritySchemeInfo
+}
+
+// CollectSecuritySchemes walks the document and collects all security schemes.
+// It returns a SecuritySchemeCollector containing all security schemes organized by various criteria.
+func CollectSecuritySchemes(result *parser.ParseResult) (*SecuritySchemeCollector, error) {
+	collector := &SecuritySchemeCollector{
+		All:    make([]*SecuritySchemeInfo, 0),
+		ByName: make(map[string]*SecuritySchemeInfo),
+	}
+
+	err := Walk(result,
+		WithSecuritySchemeHandler(func(wc *WalkContext, scheme *parser.SecurityScheme) Action {
+			info := &SecuritySchemeInfo{
+				SecurityScheme: scheme,
+				Name:           wc.Name,
+				JSONPath:       wc.JSONPath,
+			}
+
+			collector.All = append(collector.All, info)
+			if wc.Name != "" {
+				collector.ByName[wc.Name] = info
+			}
+
+			return Continue
+		}),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return collector, nil
+}

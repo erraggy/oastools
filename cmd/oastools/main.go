@@ -10,7 +10,7 @@ import (
 
 // validCommands lists all valid command names for typo suggestions
 var validCommands = []string{
-	"validate", "fix", "convert", "diff", "generate", "join", "overlay", "parse", "version", "help",
+	"validate", "fix", "convert", "diff", "generate", "join", "overlay", "parse", "walk", "version", "help",
 }
 
 // levenshteinDistance calculates the minimum edit distance between two strings
@@ -122,6 +122,11 @@ func main() {
 			commands.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+	case "walk":
+		if err := commands.HandleWalk(os.Args[2:]); err != nil {
+			commands.Writef(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		commands.Writef(os.Stderr, "Unknown command: %s\n", command)
 		if suggestion := suggestCommand(command); suggestion != "" {
@@ -148,6 +153,7 @@ Commands:
   join        Join multiple OpenAPI specification files
   overlay     Apply or validate OpenAPI Overlay documents
   parse       Parse and display an OpenAPI specification file or URL
+  walk        Query and explore OpenAPI specification documents
   version     Show version information
   help        Show this help message
 

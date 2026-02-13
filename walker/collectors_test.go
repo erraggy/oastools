@@ -683,3 +683,183 @@ func TestCollectSchemas_MixedComponentsAndInline(t *testing.T) {
 	assert.Empty(t, collector.Inline[0].Name)
 	assert.False(t, collector.Inline[0].IsComponent)
 }
+
+func TestCollectParameters(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					Parameters: []*parser.Parameter{
+						{Name: "limit", In: "query"},
+						{Name: "offset", In: "query"},
+					},
+				},
+			},
+			"/pets/{id}": &parser.PathItem{
+				Parameters: []*parser.Parameter{
+					{Name: "id", In: "path", Required: true},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{Document: doc, OASVersion: parser.OASVersion303}
+	collector, err := CollectParameters(result)
+	require.NoError(t, err)
+
+	assert.Len(t, collector.All, 3)
+
+	// ByName: "limit" (1), "offset" (1), "id" (1)
+	assert.Len(t, collector.ByName, 3)
+	assert.Len(t, collector.ByName["limit"], 1)
+	assert.Len(t, collector.ByName["offset"], 1)
+	assert.Len(t, collector.ByName["id"], 1)
+
+	// ByLocation: "query" (2), "path" (1)
+	assert.Len(t, collector.ByLocation, 2)
+	assert.Len(t, collector.ByLocation["query"], 2)
+	assert.Len(t, collector.ByLocation["path"], 1)
+
+	// ByPath: /pets (2), /pets/{id} (1)
+	assert.Len(t, collector.ByPath, 2)
+	assert.Len(t, collector.ByPath["/pets"], 2)
+	assert.Len(t, collector.ByPath["/pets/{id}"], 1)
+}
+
+func TestCollectParameters_Empty(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+	}
+
+	result := &parser.ParseResult{Document: doc, OASVersion: parser.OASVersion303}
+	collector, err := CollectParameters(result)
+	require.NoError(t, err)
+
+	assert.Empty(t, collector.All)
+	assert.Empty(t, collector.ByName)
+	assert.Empty(t, collector.ByLocation)
+	assert.Empty(t, collector.ByPath)
+}
+
+func TestCollectParameters_ErrorHandling(t *testing.T) {
+	collector, err := CollectParameters(nil)
+	require.Error(t, err)
+	assert.Nil(t, collector)
+}
+
+func TestCollectResponses(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Get: &parser.Operation{
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {Description: "OK"},
+							"404": {Description: "Not Found"},
+						},
+					},
+				},
+				Post: &parser.Operation{
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"201": {Description: "Created"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{Document: doc, OASVersion: parser.OASVersion303}
+	collector, err := CollectResponses(result)
+	require.NoError(t, err)
+
+	assert.Len(t, collector.All, 3)
+
+	// ByStatusCode: "200" (1), "404" (1), "201" (1)
+	assert.Len(t, collector.ByStatusCode, 3)
+	assert.Len(t, collector.ByStatusCode["200"], 1)
+	assert.Len(t, collector.ByStatusCode["404"], 1)
+	assert.Len(t, collector.ByStatusCode["201"], 1)
+
+	// ByPath: /pets (3)
+	assert.Len(t, collector.ByPath, 1)
+	assert.Len(t, collector.ByPath["/pets"], 3)
+}
+
+func TestCollectResponses_Empty(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+	}
+
+	result := &parser.ParseResult{Document: doc, OASVersion: parser.OASVersion303}
+	collector, err := CollectResponses(result)
+	require.NoError(t, err)
+
+	assert.Empty(t, collector.All)
+	assert.Empty(t, collector.ByStatusCode)
+	assert.Empty(t, collector.ByPath)
+}
+
+func TestCollectResponses_ErrorHandling(t *testing.T) {
+	collector, err := CollectResponses(nil)
+	require.Error(t, err)
+	assert.Nil(t, collector)
+}
+
+func TestCollectSecuritySchemes(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+		Components: &parser.Components{
+			SecuritySchemes: map[string]*parser.SecurityScheme{
+				"bearerAuth": {Type: "http", Scheme: "bearer"},
+				"apiKey":     {Type: "apiKey", Name: "X-API-Key", In: "header"},
+			},
+		},
+	}
+
+	result := &parser.ParseResult{Document: doc, OASVersion: parser.OASVersion303}
+	collector, err := CollectSecuritySchemes(result)
+	require.NoError(t, err)
+
+	assert.Len(t, collector.All, 2)
+
+	// ByName lookup
+	assert.Len(t, collector.ByName, 2)
+	bearerInfo, ok := collector.ByName["bearerAuth"]
+	require.True(t, ok, "should find bearerAuth by name")
+	assert.Equal(t, "http", bearerInfo.SecurityScheme.Type)
+	assert.Equal(t, "bearer", bearerInfo.SecurityScheme.Scheme)
+
+	apiKeyInfo, ok := collector.ByName["apiKey"]
+	require.True(t, ok, "should find apiKey by name")
+	assert.Equal(t, "apiKey", apiKeyInfo.SecurityScheme.Type)
+	assert.Equal(t, "header", apiKeyInfo.SecurityScheme.In)
+}
+
+func TestCollectSecuritySchemes_Empty(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Test", Version: "1.0"},
+	}
+
+	result := &parser.ParseResult{Document: doc, OASVersion: parser.OASVersion303}
+	collector, err := CollectSecuritySchemes(result)
+	require.NoError(t, err)
+
+	assert.Empty(t, collector.All)
+	assert.Empty(t, collector.ByName)
+}
+
+func TestCollectSecuritySchemes_ErrorHandling(t *testing.T) {
+	collector, err := CollectSecuritySchemes(nil)
+	require.Error(t, err)
+	assert.Nil(t, collector)
+}
