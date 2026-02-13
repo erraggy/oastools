@@ -7,8 +7,17 @@ import (
 	"os"
 	"strings"
 
+	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/walker"
 )
+
+// schemaDetailView wraps a schema with its walker context for serialization.
+type schemaDetailView struct {
+	Name        string         `json:"name" yaml:"name"`
+	JSONPath    string         `json:"jsonPath" yaml:"jsonPath"`
+	IsComponent bool           `json:"isComponent" yaml:"isComponent"`
+	Schema      *parser.Schema `json:"schema" yaml:"schema"`
+}
 
 // handleWalkSchemas implements the "walk schemas" subcommand.
 func handleWalkSchemas(args []string) error {
@@ -100,7 +109,13 @@ func handleWalkSchemas(args []string) error {
 	// 3. Render: summary table or detail output
 	if flags.Detail {
 		for _, info := range filtered {
-			if err := RenderDetail(os.Stdout, info.Schema, flags.Format, flags.Quiet); err != nil {
+			view := schemaDetailView{
+				Name:        info.Name,
+				JSONPath:    info.JSONPath,
+				IsComponent: info.IsComponent,
+				Schema:      info.Schema,
+			}
+			if err := RenderDetail(os.Stdout, view, flags.Format); err != nil {
 				return fmt.Errorf("walk schemas: rendering detail: %w", err)
 			}
 		}
@@ -132,6 +147,9 @@ func handleWalkSchemas(args []string) error {
 		rows = append(rows, []string{displayName, schemaType, props, location, extensions})
 	}
 
+	if flags.Format != FormatText {
+		return RenderSummaryStructured(os.Stdout, headers, rows, flags.Format)
+	}
 	RenderSummaryTable(os.Stdout, headers, rows, flags.Quiet)
 	return nil
 }

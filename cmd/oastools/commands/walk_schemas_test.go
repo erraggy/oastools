@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -317,7 +318,7 @@ func TestHandleWalkSchemas_DetailOutput(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := RenderDetail(&buf, schema, FormatText, false)
+	err := RenderDetail(&buf, schema, FormatText)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -328,6 +329,161 @@ func TestHandleWalkSchemas_DetailOutput(t *testing.T) {
 	}
 	if !strings.Contains(output, "A pet") {
 		t.Error("detail output should contain schema description")
+	}
+}
+
+func TestHandleWalkSchemas_SummaryJSON(t *testing.T) {
+	result := testSchemaParseResult()
+	collector, err := walker.CollectSchemas(result)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	headers := []string{"NAME", "TYPE", "PROPERTIES", "LOCATION", "EXTENSIONS"}
+	rows := make([][]string, 0, len(collector.Components))
+	for _, info := range collector.Components {
+		rows = append(rows, []string{
+			info.Name,
+			fmt.Sprintf("%v", info.Schema.Type),
+			fmt.Sprintf("%d props", len(info.Schema.Properties)),
+			"component",
+			FormatExtensions(info.Schema.Extra),
+		})
+	}
+
+	var buf bytes.Buffer
+	err = RenderSummaryStructured(&buf, headers, rows, FormatJSON)
+	if err != nil {
+		t.Fatalf("RenderSummaryStructured failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, `"name"`) {
+		t.Error("expected 'name' key in JSON summary output")
+	}
+	if !strings.Contains(output, `"type"`) {
+		t.Error("expected 'type' key in JSON summary output")
+	}
+}
+
+func TestHandleWalkSchemas_SummaryYAML(t *testing.T) {
+	result := testSchemaParseResult()
+	collector, err := walker.CollectSchemas(result)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	headers := []string{"NAME", "TYPE", "PROPERTIES", "LOCATION", "EXTENSIONS"}
+	rows := make([][]string, 0, len(collector.Components))
+	for _, info := range collector.Components {
+		rows = append(rows, []string{
+			info.Name,
+			fmt.Sprintf("%v", info.Schema.Type),
+			fmt.Sprintf("%d props", len(info.Schema.Properties)),
+			"component",
+			FormatExtensions(info.Schema.Extra),
+		})
+	}
+
+	var buf bytes.Buffer
+	err = RenderSummaryStructured(&buf, headers, rows, FormatYAML)
+	if err != nil {
+		t.Fatalf("RenderSummaryStructured failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "name") {
+		t.Error("expected 'name' key in YAML summary output")
+	}
+	if !strings.Contains(output, "type") {
+		t.Error("expected 'type' key in YAML summary output")
+	}
+}
+
+func TestHandleWalkSchemas_DetailIncludesContext(t *testing.T) {
+	result := testSchemaParseResult()
+	collector, err := walker.CollectSchemas(result)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Find the Pet component schema
+	var pet *walker.SchemaInfo
+	for _, info := range collector.Components {
+		if info.Name == "Pet" {
+			pet = info
+			break
+		}
+	}
+	if pet == nil {
+		t.Fatal("expected to find Pet schema")
+	}
+
+	view := schemaDetailView{
+		Name:        pet.Name,
+		JSONPath:    pet.JSONPath,
+		IsComponent: pet.IsComponent,
+		Schema:      pet.Schema,
+	}
+
+	var buf bytes.Buffer
+	err = RenderDetail(&buf, view, FormatJSON)
+	if err != nil {
+		t.Fatalf("RenderDetail failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, `"name"`) {
+		t.Error("expected 'name' key in detail JSON output")
+	}
+	if !strings.Contains(output, "Pet") {
+		t.Error("expected Pet name in detail output")
+	}
+	if !strings.Contains(output, `"isComponent"`) {
+		t.Error("expected 'isComponent' key in detail output")
+	}
+	if !strings.Contains(output, `"jsonPath"`) {
+		t.Error("expected 'jsonPath' key in detail output")
+	}
+}
+
+func TestHandleWalkSchemas_DetailIncludesContextYAML(t *testing.T) {
+	result := testSchemaParseResult()
+	collector, err := walker.CollectSchemas(result)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var pet *walker.SchemaInfo
+	for _, info := range collector.Components {
+		if info.Name == "Pet" {
+			pet = info
+			break
+		}
+	}
+	if pet == nil {
+		t.Fatal("expected to find Pet schema")
+	}
+
+	view := schemaDetailView{
+		Name:        pet.Name,
+		JSONPath:    pet.JSONPath,
+		IsComponent: pet.IsComponent,
+		Schema:      pet.Schema,
+	}
+
+	var buf bytes.Buffer
+	err = RenderDetail(&buf, view, FormatYAML)
+	if err != nil {
+		t.Fatalf("RenderDetail failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "name:") {
+		t.Error("expected 'name' key in YAML detail output")
+	}
+	if !strings.Contains(output, "Pet") {
+		t.Error("expected Pet name in YAML detail output")
 	}
 }
 
@@ -477,7 +633,7 @@ func TestHandleWalkSchemas_Integration_FilterByName(t *testing.T) {
 		t.Error("expected output to contain 'Pet'")
 	}
 	// Error schema should not appear (different name)
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "Error") {
 			t.Error("expected output to NOT contain 'Error' schema")
@@ -495,7 +651,7 @@ func TestHandleWalkSchemas_Integration_FilterByComponent(t *testing.T) {
 	})
 
 	// All rows should show "component" in the LOCATION column
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, "NAME") {
 			continue
@@ -516,7 +672,7 @@ func TestHandleWalkSchemas_Integration_FilterByInline(t *testing.T) {
 	})
 
 	// All rows should show "inline" in the LOCATION column
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, "NAME") {
 			continue
@@ -540,7 +696,7 @@ func TestHandleWalkSchemas_Integration_FilterByType(t *testing.T) {
 		t.Error("expected output to contain 'array' type")
 	}
 	// Object schemas should not appear in data rows
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, "NAME") {
 			continue

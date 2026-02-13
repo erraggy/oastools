@@ -7,8 +7,15 @@ import (
 	"os"
 	"strings"
 
+	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/walker"
 )
+
+// securityDetailView wraps a security scheme with its name for serialization.
+type securityDetailView struct {
+	Name           string                 `json:"name" yaml:"name"`
+	SecurityScheme *parser.SecurityScheme `json:"securityScheme" yaml:"securityScheme"`
+}
 
 // handleWalkSecurity implements the "walk security" subcommand.
 // It collects security schemes from the spec, applies filters, and renders output.
@@ -122,6 +129,9 @@ func renderSecuritySummary(schemes []*walker.SecuritySchemeInfo, flags WalkFlags
 		})
 	}
 
+	if flags.Format != FormatText {
+		return RenderSummaryStructured(os.Stdout, headers, rows, flags.Format)
+	}
 	RenderSummaryTable(os.Stdout, headers, rows, flags.Quiet)
 	return nil
 }
@@ -129,7 +139,11 @@ func renderSecuritySummary(schemes []*walker.SecuritySchemeInfo, flags WalkFlags
 // renderSecurityDetail renders each matched security scheme in full detail.
 func renderSecurityDetail(schemes []*walker.SecuritySchemeInfo, flags WalkFlags) error {
 	for _, info := range schemes {
-		if err := RenderDetail(os.Stdout, info.SecurityScheme, flags.Format, flags.Quiet); err != nil {
+		view := securityDetailView{
+			Name:           info.Name,
+			SecurityScheme: info.SecurityScheme,
+		}
+		if err := RenderDetail(os.Stdout, view, flags.Format); err != nil {
 			return fmt.Errorf("walk security: rendering detail: %w", err)
 		}
 	}

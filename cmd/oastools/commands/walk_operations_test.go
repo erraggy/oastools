@@ -314,7 +314,83 @@ func TestWalkOperations_SummaryTableQuiet(t *testing.T) {
 	}
 }
 
-func TestWalkOperations_DetailOutput(t *testing.T) {
+func TestWalkOperations_SummaryJSON(t *testing.T) {
+	ops := collectTestOperations(t)
+
+	matched, err := filterOperations(ops, "get", "/pets", "", false, "", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	headers := []string{"METHOD", "PATH", "SUMMARY", "TAGS", "EXTENSIONS"}
+	rows := make([][]string, 0, len(matched))
+	for _, op := range matched {
+		rows = append(rows, []string{
+			strings.ToUpper(op.Method),
+			op.PathTemplate,
+			op.Operation.Summary,
+			strings.Join(op.Operation.Tags, ", "),
+			FormatExtensions(op.Operation.Extra),
+		})
+	}
+
+	var buf bytes.Buffer
+	err = RenderSummaryStructured(&buf, headers, rows, FormatJSON)
+	if err != nil {
+		t.Fatalf("RenderSummaryStructured failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, `"method"`) {
+		t.Error("expected 'method' key in JSON summary output")
+	}
+	if !strings.Contains(output, `"path"`) {
+		t.Error("expected 'path' key in JSON summary output")
+	}
+	if !strings.Contains(output, "GET") {
+		t.Error("expected GET in JSON summary output")
+	}
+	if !strings.Contains(output, "/pets") {
+		t.Error("expected /pets in JSON summary output")
+	}
+}
+
+func TestWalkOperations_SummaryYAML(t *testing.T) {
+	ops := collectTestOperations(t)
+
+	matched, err := filterOperations(ops, "post", "", "", false, "", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	headers := []string{"METHOD", "PATH", "SUMMARY", "TAGS", "EXTENSIONS"}
+	rows := make([][]string, 0, len(matched))
+	for _, op := range matched {
+		rows = append(rows, []string{
+			strings.ToUpper(op.Method),
+			op.PathTemplate,
+			op.Operation.Summary,
+			strings.Join(op.Operation.Tags, ", "),
+			FormatExtensions(op.Operation.Extra),
+		})
+	}
+
+	var buf bytes.Buffer
+	err = RenderSummaryStructured(&buf, headers, rows, FormatYAML)
+	if err != nil {
+		t.Fatalf("RenderSummaryStructured failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "method") {
+		t.Error("expected 'method' key in YAML summary output")
+	}
+	if !strings.Contains(output, "POST") {
+		t.Error("expected POST in YAML summary output")
+	}
+}
+
+func TestWalkOperations_DetailIncludesPathAndMethod(t *testing.T) {
 	ops := collectTestOperations(t)
 
 	matched, err := filterOperations(ops, "", "", "", false, "listPets", "")
@@ -326,22 +402,37 @@ func TestWalkOperations_DetailOutput(t *testing.T) {
 		t.Fatalf("expected 1 operation, got %d", len(matched))
 	}
 
+	view := operationDetailView{
+		Method:    strings.ToUpper(matched[0].Method),
+		Path:      matched[0].PathTemplate,
+		Operation: matched[0].Operation,
+	}
+
 	var buf bytes.Buffer
-	err = RenderDetail(&buf, matched[0].Operation, FormatJSON, false)
+	err = RenderDetail(&buf, view, FormatJSON)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}
 
 	output := buf.String()
+	if !strings.Contains(output, `"method"`) {
+		t.Error("expected 'method' key in detail JSON output")
+	}
+	if !strings.Contains(output, `"path"`) {
+		t.Error("expected 'path' key in detail JSON output")
+	}
+	if !strings.Contains(output, "GET") {
+		t.Error("expected GET method value in detail output")
+	}
+	if !strings.Contains(output, "/pets") {
+		t.Error("expected /pets path value in detail output")
+	}
 	if !strings.Contains(output, "listPets") {
 		t.Error("expected operationId in detail output")
 	}
-	if !strings.Contains(output, "List pets") {
-		t.Error("expected summary in detail output")
-	}
 }
 
-func TestWalkOperations_DetailOutputYAML(t *testing.T) {
+func TestWalkOperations_DetailIncludesPathAndMethodYAML(t *testing.T) {
 	ops := collectTestOperations(t)
 
 	matched, err := filterOperations(ops, "", "", "", false, "createPet", "")
@@ -353,13 +444,25 @@ func TestWalkOperations_DetailOutputYAML(t *testing.T) {
 		t.Fatalf("expected 1 operation, got %d", len(matched))
 	}
 
+	view := operationDetailView{
+		Method:    strings.ToUpper(matched[0].Method),
+		Path:      matched[0].PathTemplate,
+		Operation: matched[0].Operation,
+	}
+
 	var buf bytes.Buffer
-	err = RenderDetail(&buf, matched[0].Operation, FormatYAML, false)
+	err = RenderDetail(&buf, view, FormatYAML)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}
 
 	output := buf.String()
+	if !strings.Contains(output, "method:") {
+		t.Error("expected 'method' key in YAML detail output")
+	}
+	if !strings.Contains(output, "path:") {
+		t.Error("expected 'path' key in YAML detail output")
+	}
 	if !strings.Contains(output, "createPet") {
 		t.Error("expected operationId in YAML detail output")
 	}

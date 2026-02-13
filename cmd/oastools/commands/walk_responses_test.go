@@ -285,6 +285,155 @@ func TestHandleWalkResponses_DetailOutput(t *testing.T) {
 	}
 }
 
+func TestHandleWalkResponses_DetailIncludesContext(t *testing.T) {
+	all := collectTestResponses(t)
+	filtered := filterResponsesByStatus(all, "200")
+	filtered = filterResponsesByPath(filtered, "/pets")
+
+	if len(filtered) != 1 {
+		t.Fatalf("expected 1 response, got %d", len(filtered))
+	}
+
+	view := responseDetailView{
+		StatusCode: filtered[0].StatusCode,
+		Path:       filtered[0].PathTemplate,
+		Method:     strings.ToUpper(filtered[0].Method),
+		Response:   filtered[0].Response,
+	}
+
+	var buf bytes.Buffer
+	err := RenderDetail(&buf, view, FormatJSON)
+	if err != nil {
+		t.Fatalf("RenderDetail failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, `"statusCode"`) {
+		t.Error("expected 'statusCode' key in detail JSON output")
+	}
+	if !strings.Contains(output, `"path"`) {
+		t.Error("expected 'path' key in detail JSON output")
+	}
+	if !strings.Contains(output, `"method"`) {
+		t.Error("expected 'method' key in detail JSON output")
+	}
+	if !strings.Contains(output, "200") {
+		t.Error("expected status 200 in detail output")
+	}
+	if !strings.Contains(output, "/pets") {
+		t.Error("expected /pets in detail output")
+	}
+	if !strings.Contains(output, "GET") {
+		t.Error("expected GET in detail output")
+	}
+}
+
+func TestHandleWalkResponses_DetailIncludesContextYAML(t *testing.T) {
+	all := collectTestResponses(t)
+	filtered := filterResponsesByStatus(all, "200")
+	filtered = filterResponsesByPath(filtered, "/pets")
+
+	if len(filtered) != 1 {
+		t.Fatalf("expected 1 response, got %d", len(filtered))
+	}
+
+	view := responseDetailView{
+		StatusCode: filtered[0].StatusCode,
+		Path:       filtered[0].PathTemplate,
+		Method:     strings.ToUpper(filtered[0].Method),
+		Response:   filtered[0].Response,
+	}
+
+	var buf bytes.Buffer
+	err := RenderDetail(&buf, view, FormatYAML)
+	if err != nil {
+		t.Fatalf("RenderDetail failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "statusCode:") {
+		t.Error("expected 'statusCode' key in YAML detail output")
+	}
+	if !strings.Contains(output, "path:") {
+		t.Error("expected 'path' key in YAML detail output")
+	}
+	if !strings.Contains(output, "method:") {
+		t.Error("expected 'method' key in YAML detail output")
+	}
+	if !strings.Contains(output, "200") {
+		t.Error("expected status 200 value in YAML detail output")
+	}
+	if !strings.Contains(output, "/pets") {
+		t.Error("expected /pets path value in YAML detail output")
+	}
+	if !strings.Contains(output, "GET") {
+		t.Error("expected GET method value in YAML detail output")
+	}
+}
+
+func TestHandleWalkResponses_SummaryJSON(t *testing.T) {
+	all := collectTestResponses(t)
+
+	headers := []string{"STATUS", "DESCRIPTION", "PATH", "METHOD", "EXTENSIONS"}
+	rows := make([][]string, 0, len(all))
+	for _, info := range all {
+		rows = append(rows, []string{
+			info.StatusCode,
+			info.Response.Description,
+			info.PathTemplate,
+			strings.ToUpper(info.Method),
+			FormatExtensions(info.Response.Extra),
+		})
+	}
+
+	var buf bytes.Buffer
+	err := RenderSummaryStructured(&buf, headers, rows, FormatJSON)
+	if err != nil {
+		t.Fatalf("RenderSummaryStructured failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, `"status"`) {
+		t.Error("expected 'status' key in JSON summary output")
+	}
+	if !strings.Contains(output, `"path"`) {
+		t.Error("expected 'path' key in JSON summary output")
+	}
+	if !strings.Contains(output, "200") {
+		t.Error("expected 200 in JSON summary output")
+	}
+}
+
+func TestHandleWalkResponses_SummaryYAML(t *testing.T) {
+	all := collectTestResponses(t)
+
+	headers := []string{"STATUS", "DESCRIPTION", "PATH", "METHOD", "EXTENSIONS"}
+	rows := make([][]string, 0, len(all))
+	for _, info := range all {
+		rows = append(rows, []string{
+			info.StatusCode,
+			info.Response.Description,
+			info.PathTemplate,
+			strings.ToUpper(info.Method),
+			FormatExtensions(info.Response.Extra),
+		})
+	}
+
+	var buf bytes.Buffer
+	err := RenderSummaryStructured(&buf, headers, rows, FormatYAML)
+	if err != nil {
+		t.Fatalf("RenderSummaryStructured failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "status") {
+		t.Error("expected 'status' key in YAML summary output")
+	}
+	if !strings.Contains(output, "200") {
+		t.Error("expected 200 in YAML summary output")
+	}
+}
+
 func TestHandleWalkResponses_CombinedFilters(t *testing.T) {
 	all := collectTestResponses(t)
 

@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -220,5 +222,137 @@ func TestRenderSecurityDetail_Text(t *testing.T) {
 	err := renderSecurityDetail(schemes, flags)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestRenderSecurityDetail_IncludesName(t *testing.T) {
+	schemes := collectTestSecuritySchemes(t)
+
+	// Filter to bearerAuth
+	matched, err := filterSecuritySchemes(schemes, "bearerAuth", "", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matched) != 1 {
+		t.Fatalf("expected 1 scheme, got %d", len(matched))
+	}
+
+	view := securityDetailView{
+		Name:           matched[0].Name,
+		SecurityScheme: matched[0].SecurityScheme,
+	}
+
+	var buf bytes.Buffer
+	err = RenderDetail(&buf, view, FormatJSON)
+	if err != nil {
+		t.Fatalf("RenderDetail failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, `"name"`) {
+		t.Error("expected 'name' key in detail JSON output")
+	}
+	if !strings.Contains(output, "bearerAuth") {
+		t.Error("expected bearerAuth name in detail output")
+	}
+	if !strings.Contains(output, `"securityScheme"`) {
+		t.Error("expected 'securityScheme' key in detail output")
+	}
+	if !strings.Contains(output, "bearer") {
+		t.Error("expected bearer scheme in detail output")
+	}
+}
+
+func TestRenderSecurityDetail_IncludesNameYAML(t *testing.T) {
+	schemes := collectTestSecuritySchemes(t)
+
+	matched, err := filterSecuritySchemes(schemes, "apiKey", "", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(matched) != 1 {
+		t.Fatalf("expected 1 scheme, got %d", len(matched))
+	}
+
+	view := securityDetailView{
+		Name:           matched[0].Name,
+		SecurityScheme: matched[0].SecurityScheme,
+	}
+
+	var buf bytes.Buffer
+	err = RenderDetail(&buf, view, FormatYAML)
+	if err != nil {
+		t.Fatalf("RenderDetail failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "name:") {
+		t.Error("expected 'name' key in YAML detail output")
+	}
+	if !strings.Contains(output, "apiKey") {
+		t.Error("expected apiKey name in YAML detail output")
+	}
+}
+
+func TestRenderSecuritySummary_JSON(t *testing.T) {
+	schemes := collectTestSecuritySchemes(t)
+
+	headers := []string{"NAME", "TYPE", "SCHEME", "IN", "EXTENSIONS"}
+	rows := make([][]string, 0, len(schemes))
+	for _, info := range schemes {
+		rows = append(rows, []string{
+			info.Name,
+			info.SecurityScheme.Type,
+			info.SecurityScheme.Scheme,
+			info.SecurityScheme.In,
+			FormatExtensions(info.SecurityScheme.Extra),
+		})
+	}
+
+	var buf bytes.Buffer
+	err := RenderSummaryStructured(&buf, headers, rows, FormatJSON)
+	if err != nil {
+		t.Fatalf("RenderSummaryStructured failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, `"name"`) {
+		t.Error("expected 'name' key in JSON summary output")
+	}
+	if !strings.Contains(output, `"type"`) {
+		t.Error("expected 'type' key in JSON summary output")
+	}
+	if !strings.Contains(output, "bearerAuth") {
+		t.Error("expected bearerAuth in JSON summary output")
+	}
+}
+
+func TestRenderSecuritySummary_YAML(t *testing.T) {
+	schemes := collectTestSecuritySchemes(t)
+
+	headers := []string{"NAME", "TYPE", "SCHEME", "IN", "EXTENSIONS"}
+	rows := make([][]string, 0, len(schemes))
+	for _, info := range schemes {
+		rows = append(rows, []string{
+			info.Name,
+			info.SecurityScheme.Type,
+			info.SecurityScheme.Scheme,
+			info.SecurityScheme.In,
+			FormatExtensions(info.SecurityScheme.Extra),
+		})
+	}
+
+	var buf bytes.Buffer
+	err := RenderSummaryStructured(&buf, headers, rows, FormatYAML)
+	if err != nil {
+		t.Fatalf("RenderSummaryStructured failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "name") {
+		t.Error("expected 'name' key in YAML summary output")
+	}
+	if !strings.Contains(output, "bearerAuth") {
+		t.Error("expected bearerAuth in YAML summary output")
 	}
 }
