@@ -243,7 +243,7 @@ func TestRenderSecurityDetail_IncludesName(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = RenderDetail(&buf, view, FormatJSON, false)
+	err = RenderDetail(&buf, view, FormatJSON)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestRenderSecurityDetail_IncludesNameYAML(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = RenderDetail(&buf, view, FormatYAML, false)
+	err = RenderDetail(&buf, view, FormatYAML)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}

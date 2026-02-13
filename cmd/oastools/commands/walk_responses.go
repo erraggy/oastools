@@ -99,7 +99,7 @@ func handleWalkResponses(args []string) error {
 				Method:     strings.ToUpper(info.Method),
 				Response:   info.Response,
 			}
-			if err := RenderDetail(os.Stdout, view, flags.Format, flags.Quiet); err != nil {
+			if err := RenderDetail(os.Stdout, view, flags.Format); err != nil {
 				return fmt.Errorf("walk responses: %w", err)
 			}
 		}

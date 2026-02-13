@@ -143,7 +143,7 @@ func renderSecurityDetail(schemes []*walker.SecuritySchemeInfo, flags WalkFlags)
 			Name:           info.Name,
 			SecurityScheme: info.SecurityScheme,
 		}
-		if err := RenderDetail(os.Stdout, view, flags.Format, flags.Quiet); err != nil {
+		if err := RenderDetail(os.Stdout, view, flags.Format); err != nil {
 			return fmt.Errorf("walk security: rendering detail: %w", err)
 		}
 	}

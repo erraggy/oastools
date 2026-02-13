@@ -75,11 +75,11 @@ func RenderSummaryStructured(w io.Writer, headers []string, rows [][]string, for
 		}
 		records = append(records, rec)
 	}
-	return RenderDetail(w, records, format, true)
+	return RenderDetail(w, records, format)
 }
 
 // RenderDetail renders a single node in the specified format (JSON, YAML, or text).
-func RenderDetail(w io.Writer, node any, format string, quiet bool) error {
+func RenderDetail(w io.Writer, node any, format string) error {
 	var data []byte
 	var err error
 

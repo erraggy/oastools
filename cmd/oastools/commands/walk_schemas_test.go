@@ -318,7 +318,7 @@ func TestHandleWalkSchemas_DetailOutput(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := RenderDetail(&buf, schema, FormatText, false)
+	err := RenderDetail(&buf, schema, FormatText)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -395,6 +395,9 @@ func TestHandleWalkSchemas_SummaryYAML(t *testing.T) {
 	if !strings.Contains(output, "name") {
 		t.Error("expected 'name' key in YAML summary output")
 	}
+	if !strings.Contains(output, "type") {
+		t.Error("expected 'type' key in YAML summary output")
+	}
 }
 
 func TestHandleWalkSchemas_DetailIncludesContext(t *testing.T) {
@@ -424,7 +427,7 @@ func TestHandleWalkSchemas_DetailIncludesContext(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = RenderDetail(&buf, view, FormatJSON, false)
+	err = RenderDetail(&buf, view, FormatJSON)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}
@@ -470,7 +473,7 @@ func TestHandleWalkSchemas_DetailIncludesContextYAML(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = RenderDetail(&buf, view, FormatYAML, false)
+	err = RenderDetail(&buf, view, FormatYAML)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}
@@ -630,7 +633,7 @@ func TestHandleWalkSchemas_Integration_FilterByName(t *testing.T) {
 		t.Error("expected output to contain 'Pet'")
 	}
 	// Error schema should not appear (different name)
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "Error") {
 			t.Error("expected output to NOT contain 'Error' schema")
@@ -648,7 +651,7 @@ func TestHandleWalkSchemas_Integration_FilterByComponent(t *testing.T) {
 	})
 
 	// All rows should show "component" in the LOCATION column
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, "NAME") {
 			continue
@@ -669,7 +672,7 @@ func TestHandleWalkSchemas_Integration_FilterByInline(t *testing.T) {
 	})
 
 	// All rows should show "inline" in the LOCATION column
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, "NAME") {
 			continue
@@ -693,7 +696,7 @@ func TestHandleWalkSchemas_Integration_FilterByType(t *testing.T) {
 		t.Error("expected output to contain 'array' type")
 	}
 	// Object schemas should not appear in data rows
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, "NAME") {
 			continue

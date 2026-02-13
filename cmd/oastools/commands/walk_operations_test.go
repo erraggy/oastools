@@ -409,7 +409,7 @@ func TestWalkOperations_DetailIncludesPathAndMethod(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = RenderDetail(&buf, view, FormatJSON, false)
+	err = RenderDetail(&buf, view, FormatJSON)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}
@@ -451,7 +451,7 @@ func TestWalkOperations_DetailIncludesPathAndMethodYAML(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = RenderDetail(&buf, view, FormatYAML, false)
+	err = RenderDetail(&buf, view, FormatYAML)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}

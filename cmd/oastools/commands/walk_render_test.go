@@ -154,7 +154,7 @@ func TestRenderDetail_YAML(t *testing.T) {
 		"tags":    []string{"pets"},
 	}
 
-	err := RenderDetail(&buf, node, FormatYAML, false)
+	err := RenderDetail(&buf, node, FormatYAML)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestRenderDetail_JSON(t *testing.T) {
 		"summary": "List pets",
 	}
 
-	err := RenderDetail(&buf, node, FormatJSON, false)
+	err := RenderDetail(&buf, node, FormatJSON)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

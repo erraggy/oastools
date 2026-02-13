@@ -133,7 +133,7 @@ func TestHandleWalkParameters_FilterByIn(t *testing.T) {
 	}
 
 	// Should NOT include path param 'id' in data rows.
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		if strings.Contains(line, "NAME") || strings.TrimSpace(line) == "" {
 			continue
 		}
@@ -200,7 +200,7 @@ func TestHandleWalkParameters_FilterByMethod(t *testing.T) {
 	}
 
 	// Path-level param 'id' has empty method, should be excluded.
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		if strings.Contains(line, "NAME") || strings.TrimSpace(line) == "" {
 			continue
 		}
@@ -296,6 +296,12 @@ func TestHandleWalkParameters_DetailMode(t *testing.T) {
 	if !strings.Contains(output, "limit") {
 		t.Errorf("expected detail output to contain 'limit', got: %s", output)
 	}
+	if !strings.Contains(output, "name:") {
+		t.Error("expected 'name' key in detail YAML output")
+	}
+	if !strings.Contains(output, "in:") {
+		t.Error("expected 'in' key in detail YAML output")
+	}
 }
 
 func TestHandleWalkParameters_DetailIncludesContext(t *testing.T) {
@@ -349,6 +355,9 @@ func TestHandleWalkParameters_SummaryYAML(t *testing.T) {
 
 	if !strings.Contains(output, "name") {
 		t.Error("expected 'name' key in YAML summary output")
+	}
+	if !strings.Contains(output, "in") {
+		t.Error("expected 'in' key in YAML summary output")
 	}
 	if !strings.Contains(output, "limit") {
 		t.Error("expected 'limit' in YAML summary output")

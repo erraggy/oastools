@@ -199,7 +199,7 @@ func renderPathsDetail(paths []pathInfo, flags WalkFlags) error {
 			Path:     p.pathTemplate,
 			PathItem: p.pathItem,
 		}
-		if err := RenderDetail(os.Stdout, view, flags.Format, flags.Quiet); err != nil {
+		if err := RenderDetail(os.Stdout, view, flags.Format); err != nil {
 			return fmt.Errorf("walk paths: rendering detail: %w", err)
 		}
 	}

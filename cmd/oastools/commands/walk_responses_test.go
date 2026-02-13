@@ -302,7 +302,7 @@ func TestHandleWalkResponses_DetailIncludesContext(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := RenderDetail(&buf, view, FormatJSON, false)
+	err := RenderDetail(&buf, view, FormatJSON)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}
@@ -345,7 +345,7 @@ func TestHandleWalkResponses_DetailIncludesContextYAML(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := RenderDetail(&buf, view, FormatYAML, false)
+	err := RenderDetail(&buf, view, FormatYAML)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}
@@ -359,6 +359,15 @@ func TestHandleWalkResponses_DetailIncludesContextYAML(t *testing.T) {
 	}
 	if !strings.Contains(output, "method:") {
 		t.Error("expected 'method' key in YAML detail output")
+	}
+	if !strings.Contains(output, "200") {
+		t.Error("expected status 200 value in YAML detail output")
+	}
+	if !strings.Contains(output, "/pets") {
+		t.Error("expected /pets path value in YAML detail output")
+	}
+	if !strings.Contains(output, "GET") {
+		t.Error("expected GET method value in YAML detail output")
 	}
 }
 

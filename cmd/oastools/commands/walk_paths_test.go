@@ -393,7 +393,7 @@ func TestWalkPaths_DetailIncludesPath(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = RenderDetail(&buf, view, FormatJSON, false)
+	err = RenderDetail(&buf, view, FormatJSON)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}
@@ -431,7 +431,7 @@ func TestWalkPaths_DetailIncludesPathYAML(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = RenderDetail(&buf, view, FormatYAML, false)
+	err = RenderDetail(&buf, view, FormatYAML)
 	if err != nil {
 		t.Fatalf("RenderDetail failed: %v", err)
 	}
@@ -440,8 +440,14 @@ func TestWalkPaths_DetailIncludesPathYAML(t *testing.T) {
 	if !strings.Contains(output, "path:") {
 		t.Error("expected 'path' key in YAML detail output")
 	}
+	if !strings.Contains(output, "/users") {
+		t.Error("expected /users path value in YAML detail output")
+	}
 	if !strings.Contains(output, "User operations") {
 		t.Error("expected summary in YAML detail output")
+	}
+	if !strings.Contains(output, "List users") {
+		t.Error("expected operation summary 'List users' in YAML detail output")
 	}
 }
 
