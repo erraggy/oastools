@@ -163,7 +163,10 @@ overlay/          - Apply OpenAPI Overlay transformations
 differ/           - Compare and diff OAS files
 generator/        - Generate Go code from OAS files
 builder/          - Build OAS documents programmatically
-internal/         - Shared utilities (httputil, severity, issues, testutil)
+httpvalidator/    - Runtime HTTP request/response validation
+walker/           - Traverse OAS documents with typed handlers
+oaserrors/        - Structured error types for programmatic handling
+internal/         - Shared utilities (httputil, severity, issues, mcpserver)
 testdata/         - Test fixtures
 ```
 

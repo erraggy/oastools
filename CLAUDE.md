@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-`oastools` is a Go CLI for OpenAPI Specification files. Validates, fixes, joins, converts, and diffs OAS 2.0-3.2.
+`oastools` is a Go CLI for OpenAPI Specification files. Validates, fixes, joins, converts, diffs, walks, generates, and builds OAS 2.0-3.2.
 
 ## Style
 
