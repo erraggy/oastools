@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "oastools",
+  "description": "OpenAPI Specification tools for Claude Code — validate, fix, convert, diff, walk, and generate from OAS 2.0-3.2 documents",
+  "owner": {
+    "name": "erraggy",
+    "url": "https://github.com/erraggy"
+  },
+  "plugins": [
+    {
+      "name": "oastools",
+      "description": "15 MCP tools and 5 guided skills for working with OpenAPI specs — validate, fix, convert, diff, join, overlay, generate, and walk operations/schemas/parameters/responses/security/paths",
+      "version": "1.0.0",
+      "author": {
+        "name": "erraggy",
+        "url": "https://github.com/erraggy"
+      },
+      "source": "./plugin"
+    }
+  ]
+}

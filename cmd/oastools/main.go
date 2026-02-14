@@ -1,16 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/cmd/oastools/commands"
+	"github.com/erraggy/oastools/internal/mcpserver"
 )
 
 // validCommands lists all valid command names for typo suggestions
 var validCommands = []string{
-	"validate", "fix", "convert", "diff", "generate", "join", "overlay", "parse", "walk", "version", "help",
+	"validate", "fix", "convert", "diff", "generate", "join", "mcp", "overlay", "parse", "walk", "version", "help",
 }
 
 // levenshteinDistance calculates the minimum edit distance between two strings
@@ -127,6 +131,13 @@ func main() {
 			commands.Writef(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+	case "mcp":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := mcpserver.Run(ctx); err != nil {
+			commands.Writef(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		commands.Writef(os.Stderr, "Unknown command: %s\n", command)
 		if suggestion := suggestCommand(command); suggestion != "" {
@@ -154,6 +165,7 @@ Commands:
   overlay     Apply or validate OpenAPI Overlay documents
   parse       Parse and display an OpenAPI specification file or URL
   walk        Query and explore OpenAPI specification documents
+  mcp         Start an MCP server over stdio
   version     Show version information
   help        Show this help message
 

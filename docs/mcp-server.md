@@ -1,0 +1,385 @@
+# MCP Server
+
+oastools includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes all capabilities as tools over stdio transport. This allows LLM agents and AI-powered editors to validate, fix, convert, diff, join, parse, overlay, generate, and walk OpenAPI specs programmatically.
+
+## Quick Start
+
+```bash
+oastools mcp
+```
+
+The server communicates over stdin/stdout using JSON-RPC, following the MCP specification. It is designed to be launched by an MCP client (such as Claude Code, Cursor, or any MCP-compatible host) rather than used interactively.
+
+### Claude Code
+
+The easiest way to use the MCP server with Claude Code is to install the [oastools plugin](claude-code-plugin.md), which configures the server and registers guided skills automatically. Run inside Claude Code:
+
+```text
+/plugin marketplace add erraggy/oastools
+/plugin install oastools
+```
+
+Alternatively, add it manually to your project's `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "oastools": {
+      "type": "stdio",
+      "command": "oastools",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Other MCP Clients
+
+Any MCP-compatible client can launch the server. The transport is stdio — the client spawns `oastools mcp` as a subprocess and communicates via stdin/stdout.
+
+---
+
+## Tools (15)
+
+The server registers 15 tools organized into two categories: 9 core tools and 6 walk tools.
+
+### Core Tools
+
+| Tool | Description |
+|------|-------------|
+| `validate` | Validate an OAS document against its version schema |
+| `parse` | Parse an OAS document and return a structural summary |
+| `fix` | Auto-fix common OAS issues (duplicate IDs, missing parameters, etc.) |
+| `convert` | Convert between OAS versions (2.0, 3.0, 3.1) |
+| `diff` | Compare two specs and detect breaking changes |
+| `join` | Merge multiple specs with collision strategies |
+| `overlay_apply` | Apply an Overlay document to a spec |
+| `overlay_validate` | Validate an Overlay document structure |
+| `generate` | Generate Go client/server/types from a spec |
+
+### Walk Tools
+
+| Tool | Description |
+|------|-------------|
+| `walk_operations` | Query operations by method, path, tag, operationId, or deprecated status |
+| `walk_schemas` | Query schemas by name, type, or component/inline location |
+| `walk_parameters` | Query parameters by location, name, path, or method |
+| `walk_responses` | Query responses by status code, path, or method |
+| `walk_security` | Query security schemes by name or type |
+| `walk_paths` | Query path items by path pattern (supports `*` glob) |
+
+---
+
+## Input Model
+
+Every tool accepts an OpenAPI spec through a `spec` object with three mutually exclusive input modes:
+
+| Field | Description |
+|-------|-------------|
+| `file` | Path to an OAS file on disk |
+| `url` | URL to fetch an OAS document from |
+| `content` | Inline OAS document content (JSON or YAML string) |
+
+Exactly one must be provided.
+
+```json
+{"spec": {"file": "openapi.yaml"}}
+```
+
+```json
+{"spec": {"url": "https://example.com/api/openapi.yaml"}}
+```
+
+```json
+{"spec": {"content": "{\"openapi\": \"3.1.0\", ...}"}}
+```
+
+### Special Input Patterns
+
+Some tools use different input structures:
+
+| Tool | Input Pattern |
+|------|---------------|
+| `diff` | `base` + `revision` (two separate spec objects) |
+| `join` | `specs` array (minimum 2) |
+| `overlay_apply` | `spec` + `overlay` (spec object + overlay object) |
+| All others | Single `spec` object |
+
+---
+
+## Tool Reference
+
+### validate
+
+Validate an OpenAPI spec against its declared version schema.
+
+**Input:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `spec` | object | The OAS document (file/url/content) |
+| `strict` | boolean | Enable stricter validation beyond spec requirements |
+| `no_warnings` | boolean | Suppress warning messages |
+
+**Output:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `valid` | boolean | Whether the spec is valid |
+| `version` | string | Detected OAS version |
+| `error_count` | number | Number of validation errors |
+| `warning_count` | number | Number of warnings |
+| `errors` | array | Error details (path, message, severity) |
+| `warnings` | array | Warning details |
+
+**Example:**
+
+```json
+{
+  "spec": {"file": "openapi.yaml"},
+  "strict": true
+}
+```
+
+---
+
+### parse
+
+Parse an OAS document and return a structural summary.
+
+**Input:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `spec` | object | The OAS document |
+| `full` | boolean | Return the full parsed document instead of a summary |
+| `resolve_refs` | boolean | Resolve `$ref` pointers before returning |
+
+**Output (summary mode):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | string | OAS version |
+| `title` | string | API title |
+| `description` | string | API description |
+| `path_count` | number | Number of paths |
+| `operation_count` | number | Number of operations |
+| `schema_count` | number | Number of schemas |
+| `servers` | array | Server URLs |
+| `tags` | array | Tag names |
+
+---
+
+### fix
+
+Auto-fix common issues in an OAS document.
+
+**Input:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `spec` | object | The OAS document |
+| `dry_run` | boolean | Preview fixes without applying |
+| `include_document` | boolean | Include the fixed document in the response |
+| `fix_duplicate_operationids` | boolean | Deduplicate operationId values |
+| `fix_schema_names` | boolean | Rename generic schema names |
+| `prune` | boolean | Remove empty paths and unused schemas |
+| `stub_missing_refs` | boolean | Create stub schemas for missing `$ref` targets |
+
+**Output:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | string | OAS version |
+| `fix_count` | number | Number of fixes applied |
+| `fixes` | array | Fix details (type, path, description) |
+| `document` | string | Fixed document (when `include_document` is true) |
+
+---
+
+### convert
+
+Convert an OAS document between versions.
+
+**Input:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `spec` | object | The OAS document |
+| `target` | string | Target version (`2.0`, `3.0`, or `3.1`) — **required** |
+| `output` | string | File path to write the converted document |
+
+**Output:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source_version` | string | Original OAS version |
+| `target_version` | string | Target OAS version |
+| `success` | boolean | Whether conversion succeeded |
+| `issue_count` | number | Number of conversion issues |
+| `issues` | array | Issue details (severity, path, message) |
+| `document` | string | Converted document (when no output file specified) |
+
+---
+
+### diff
+
+Compare two OAS documents and report differences.
+
+**Input:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `base` | object | The base/original OAS document |
+| `revision` | object | The revised OAS document |
+| `breaking_only` | boolean | Only show breaking changes |
+| `no_info` | boolean | Suppress informational changes |
+
+**Output:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `total_changes` | number | Number of changes displayed |
+| `breaking_count` | number | Number of breaking changes |
+| `warning_count` | number | Number of warnings |
+| `info_count` | number | Number of informational changes |
+| `changes` | array | Change details (severity, type, path, message) |
+| `summary` | string | Human-readable summary |
+
+---
+
+### join
+
+Merge multiple OAS documents into one.
+
+**Input:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `specs` | array | Array of spec objects (minimum 2) |
+| `path_strategy` | string | Collision strategy for paths |
+| `schema_strategy` | string | Collision strategy for schemas |
+| `output` | string | File path to write the merged document |
+
+Collision strategies: `accept-left`, `accept-right`, `fail`
+
+---
+
+### overlay_apply
+
+Apply an Overlay document to an OAS spec.
+
+**Input:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `spec` | object | The OAS document |
+| `overlay` | object | The Overlay document (file/url/content) |
+| `dry_run` | boolean | Preview changes without applying |
+| `strict` | boolean | Fail if any target matches nothing |
+| `output` | string | File path to write the result |
+
+---
+
+### overlay_validate
+
+Validate an Overlay document structure.
+
+**Input:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `spec` | object | The Overlay document (file/url/content) |
+
+**Output:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `valid` | boolean | Whether the overlay is valid |
+| `version` | string | Overlay specification version |
+| `title` | string | Overlay title |
+| `action_count` | number | Number of actions |
+| `errors` | array | Validation errors |
+
+---
+
+### generate
+
+Generate Go code from an OAS document.
+
+**Input:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `spec` | object | The OAS document |
+| `output_dir` | string | Directory for generated files — **required** |
+| `package_name` | string | Go package name (default: `api`) |
+| `client` | boolean | Generate HTTP client |
+| `server` | boolean | Generate server interface |
+| `types` | boolean | Generate type definitions (default: true) |
+
+---
+
+### Walk Tools
+
+All walk tools share common input fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `spec` | object | The OAS document |
+| `detail` | boolean | Return full objects instead of summaries |
+| `limit` | number | Max results to return (default: 100) |
+| `extension` | string | Filter by extension (e.g., `x-internal=true`) |
+
+**Tool-specific filters:**
+
+| Tool | Filter Fields |
+|------|---------------|
+| `walk_operations` | `method`, `path`, `tag`, `operation_id`, `deprecated` |
+| `walk_schemas` | `name`, `type`, `component`, `inline` |
+| `walk_parameters` | `name`, `location`, `path`, `method` |
+| `walk_responses` | `status`, `path`, `method` |
+| `walk_security` | `name`, `type` |
+| `walk_paths` | `path` (supports `*` glob) |
+
+---
+
+## Error Handling
+
+When a tool encounters an error (invalid input, parse failure, etc.), the response uses the MCP error convention:
+
+- `IsError` is set to `true`
+- The `content` array contains a `TextContent` item with the error message
+
+This is a **tool-level** error — the MCP protocol call itself succeeds. This allows agents to detect the error and retry with corrected input.
+
+---
+
+## Architecture
+
+The MCP server is implemented in the `internal/mcpserver` package:
+
+```text
+internal/mcpserver/
+├── server.go              # Entry point and tool registration
+├── input.go               # Shared specInput type
+├── tools_validate.go      # validate tool
+├── tools_parse.go         # parse tool
+├── tools_fix.go           # fix tool
+├── tools_convert.go       # convert tool
+├── tools_diff.go          # diff tool
+├── tools_join.go          # join tool
+├── tools_overlay.go       # overlay_apply + overlay_validate
+├── tools_generate.go      # generate tool
+├── tools_walk_*.go        # 6 walk tools
+└── integration_test.go    # In-process integration tests
+```
+
+Each tool handler follows a consistent pattern:
+
+1. Parse the typed input struct (auto-deserialized by the SDK via JSON Schema)
+2. Resolve the spec input (file, URL, or inline content)
+3. Call the underlying oastools library package
+4. Return a typed output struct (auto-serialized by the SDK)
+
+The server uses the [Go MCP SDK](https://github.com/modelcontextprotocol/go-sdk) with generics for type-safe tool registration.

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "oastools": {
+      "type": "stdio",
+      "command": "oastools",
+      "args": ["mcp"]
+    }
+  }
+}
