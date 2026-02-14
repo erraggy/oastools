@@ -107,6 +107,7 @@ func TestRequestValidationResult_AddError(t *testing.T) {
 		result.addError("path", "critical error", SeverityCritical)
 		result.addError("query", "info", SeverityInfo)
 
+		require.Len(t, result.Errors, 2)
 		assert.Equal(t, SeverityCritical, result.Errors[0].Severity)
 		assert.Equal(t, SeverityInfo, result.Errors[1].Severity)
 	})
