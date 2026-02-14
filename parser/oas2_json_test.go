@@ -2,8 +2,10 @@ package parser
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOAS2DocumentMarshalJSON(t *testing.T) {
@@ -26,19 +28,11 @@ func TestOAS2DocumentMarshalJSON(t *testing.T) {
 			},
 			validate: func(t *testing.T, result string) {
 				// Should not contain "extra" field
-				if strings.Contains(result, "extra") {
-					t.Error("Should not include extra field when empty")
-				}
+				assert.NotContains(t, result, "extra")
 				// Should contain required fields
-				if !strings.Contains(result, `"swagger":"2.0"`) {
-					t.Error("Should include swagger field")
-				}
-				if !strings.Contains(result, `"info"`) {
-					t.Error("Should include info field")
-				}
-				if !strings.Contains(result, `"paths"`) {
-					t.Error("Should include paths field")
-				}
+				assert.Contains(t, result, `"swagger":"2.0"`)
+				assert.Contains(t, result, `"info"`)
+				assert.Contains(t, result, `"paths"`)
 			},
 		},
 		{
@@ -91,9 +85,7 @@ func TestOAS2DocumentMarshalJSON(t *testing.T) {
 					`"externalDocs"`,
 				}
 				for _, field := range expectedFields {
-					if !strings.Contains(result, field) {
-						t.Errorf("Expected field missing: %s", field)
-					}
+					assert.Contains(t, result, field)
 				}
 			},
 		},
@@ -117,9 +109,7 @@ func TestOAS2DocumentMarshalJSON(t *testing.T) {
 					`"x-extension"`,
 				}
 				for _, ext := range expectedExtensions {
-					if !strings.Contains(result, ext) {
-						t.Errorf("Expected extension missing: %s", ext)
-					}
+					assert.Contains(t, result, ext)
 				}
 			},
 		},
@@ -144,9 +134,7 @@ func TestOAS2DocumentMarshalJSON(t *testing.T) {
 				omittedFields := []string{"schemes", "consumes", "produces", "definitions", "parameters", "responses", "securityDefinitions", "security", "tags"}
 				for _, field := range omittedFields {
 					fieldPattern := `"` + field + `":`
-					if strings.Contains(result, fieldPattern) {
-						t.Errorf("Empty field should be omitted: %s", field)
-					}
+					assert.NotContains(t, result, fieldPattern)
 				}
 			},
 		},
@@ -166,9 +154,7 @@ func TestOAS2DocumentMarshalJSON(t *testing.T) {
 
 			// Verify it's valid JSON by unmarshaling
 			var check map[string]any
-			if err := json.Unmarshal(got, &check); err != nil {
-				t.Errorf("Marshaled JSON is not valid: %v", err)
-			}
+			assert.NoError(t, json.Unmarshal(got, &check), "Marshaled JSON is not valid")
 		})
 	}
 }
@@ -188,15 +174,10 @@ func TestOAS2DocumentUnmarshalJSON(t *testing.T) {
 				"paths": {}
 			}`,
 			validate: func(t *testing.T, doc *OAS2Document) {
-				if doc.Swagger != "2.0" {
-					t.Errorf("Expected swagger 2.0, got %s", doc.Swagger)
-				}
-				if doc.Info == nil || doc.Info.Title != "Test" {
-					t.Error("Info not unmarshaled correctly")
-				}
-				if len(doc.Extra) > 0 {
-					t.Error("Should not have Extra fields")
-				}
+				assert.Equal(t, "2.0", doc.Swagger)
+				require.NotNil(t, doc.Info)
+				assert.Equal(t, "Test", doc.Info.Title)
+				assert.Empty(t, doc.Extra)
 			},
 		},
 		{
@@ -210,21 +191,11 @@ func TestOAS2DocumentUnmarshalJSON(t *testing.T) {
 				"x-nested": {"field": "value"}
 			}`,
 			validate: func(t *testing.T, doc *OAS2Document) {
-				if doc.Extra == nil {
-					t.Fatal("Extra should not be nil")
-				}
-				if len(doc.Extra) != 3 {
-					t.Errorf("Expected 3 extra fields, got %d", len(doc.Extra))
-				}
-				if doc.Extra["x-custom"] != "value" {
-					t.Error("x-custom not captured correctly")
-				}
-				if doc.Extra["x-api-id"] != "12345" {
-					t.Error("x-api-id not captured correctly")
-				}
-				if doc.Extra["x-nested"] == nil {
-					t.Error("x-nested not captured correctly")
-				}
+				require.NotNil(t, doc.Extra)
+				require.Len(t, doc.Extra, 3)
+				assert.Equal(t, "value", doc.Extra["x-custom"])
+				assert.Equal(t, "12345", doc.Extra["x-api-id"])
+				assert.NotNil(t, doc.Extra["x-nested"])
 			},
 		},
 		{
@@ -247,36 +218,17 @@ func TestOAS2DocumentUnmarshalJSON(t *testing.T) {
 				"externalDocs": {"url": "https://example.com"}
 			}`,
 			validate: func(t *testing.T, doc *OAS2Document) {
-				if doc.Host != "api.example.com" {
-					t.Errorf("Host not unmarshaled correctly: %s", doc.Host)
-				}
-				if doc.BasePath != "/v1" {
-					t.Errorf("BasePath not unmarshaled correctly: %s", doc.BasePath)
-				}
-				if len(doc.Schemes) != 1 || doc.Schemes[0] != "https" {
-					t.Error("Schemes not unmarshaled correctly")
-				}
-				if len(doc.Definitions) != 1 {
-					t.Error("Definitions not unmarshaled correctly")
-				}
-				if len(doc.Parameters) != 1 {
-					t.Error("Parameters not unmarshaled correctly")
-				}
-				if len(doc.Responses) != 1 {
-					t.Error("Responses not unmarshaled correctly")
-				}
-				if len(doc.SecurityDefinitions) != 1 {
-					t.Error("SecurityDefinitions not unmarshaled correctly")
-				}
-				if len(doc.Security) != 1 {
-					t.Error("Security not unmarshaled correctly")
-				}
-				if len(doc.Tags) != 1 {
-					t.Error("Tags not unmarshaled correctly")
-				}
-				if doc.ExternalDocs == nil {
-					t.Error("ExternalDocs not unmarshaled correctly")
-				}
+				assert.Equal(t, "api.example.com", doc.Host)
+				assert.Equal(t, "/v1", doc.BasePath)
+				require.Len(t, doc.Schemes, 1)
+				assert.Equal(t, "https", doc.Schemes[0])
+				assert.Len(t, doc.Definitions, 1)
+				assert.Len(t, doc.Parameters, 1)
+				assert.Len(t, doc.Responses, 1)
+				assert.Len(t, doc.SecurityDefinitions, 1)
+				assert.Len(t, doc.Security, 1)
+				assert.Len(t, doc.Tags, 1)
+				assert.NotNil(t, doc.ExternalDocs)
 			},
 		},
 		{
@@ -290,9 +242,7 @@ func TestOAS2DocumentUnmarshalJSON(t *testing.T) {
 			}`,
 			validate: func(t *testing.T, doc *OAS2Document) {
 				// Non x- fields should be ignored, not captured in Extra
-				if len(doc.Extra) > 0 {
-					t.Errorf("Non x- fields should not be in Extra, got: %v", doc.Extra)
-				}
+				assert.Empty(t, doc.Extra)
 			},
 		},
 		{
@@ -310,15 +260,9 @@ func TestOAS2DocumentUnmarshalJSON(t *testing.T) {
 				"xCustom": "should not be captured"
 			}`,
 			validate: func(t *testing.T, doc *OAS2Document) {
-				if doc.Extra == nil || len(doc.Extra) != 1 {
-					t.Fatal("Should have exactly one extension field")
-				}
-				if _, ok := doc.Extra["x-custom"]; !ok {
-					t.Error("x-custom should be captured")
-				}
-				if _, ok := doc.Extra["xCustom"]; ok {
-					t.Error("xCustom (without dash) should not be captured")
-				}
+				require.Len(t, doc.Extra, 1)
+				assert.Contains(t, doc.Extra, "x-custom")
+				assert.NotContains(t, doc.Extra, "xCustom")
 			},
 		},
 	}
@@ -374,43 +318,23 @@ func TestOAS2DocumentMarshalUnmarshalRoundtrip(t *testing.T) {
 
 	// Marshal to JSON
 	data, err := json.Marshal(original)
-	if err != nil {
-		t.Fatalf("Failed to marshal: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Unmarshal back
 	var restored OAS2Document
-	if err := json.Unmarshal(data, &restored); err != nil {
-		t.Fatalf("Failed to unmarshal: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(data, &restored))
 
 	// Verify key fields
-	if restored.Swagger != original.Swagger {
-		t.Errorf("Swagger mismatch: got %s, want %s", restored.Swagger, original.Swagger)
-	}
-	if restored.Host != original.Host {
-		t.Errorf("Host mismatch: got %s, want %s", restored.Host, original.Host)
-	}
-	if restored.BasePath != original.BasePath {
-		t.Errorf("BasePath mismatch: got %s, want %s", restored.BasePath, original.BasePath)
-	}
-	if len(restored.Schemes) != len(original.Schemes) {
-		t.Errorf("Schemes length mismatch: got %d, want %d", len(restored.Schemes), len(original.Schemes))
-	}
-	if len(restored.Paths) != len(original.Paths) {
-		t.Errorf("Paths length mismatch: got %d, want %d", len(restored.Paths), len(original.Paths))
-	}
-	if len(restored.Definitions) != len(original.Definitions) {
-		t.Errorf("Definitions length mismatch: got %d, want %d", len(restored.Definitions), len(original.Definitions))
-	}
-	if len(restored.Extra) != len(original.Extra) {
-		t.Errorf("Extra length mismatch: got %d, want %d", len(restored.Extra), len(original.Extra))
-	}
+	assert.Equal(t, original.Swagger, restored.Swagger)
+	assert.Equal(t, original.Host, restored.Host)
+	assert.Equal(t, original.BasePath, restored.BasePath)
+	assert.Equal(t, len(original.Schemes), len(restored.Schemes))
+	assert.Equal(t, len(original.Paths), len(restored.Paths))
+	assert.Equal(t, len(original.Definitions), len(restored.Definitions))
+	assert.Equal(t, len(original.Extra), len(restored.Extra))
 
 	// Verify extensions
 	for k, v := range original.Extra {
-		if restored.Extra[k] != v {
-			t.Errorf("Extension %s mismatch: got %v, want %v", k, restored.Extra[k], v)
-		}
+		assert.Equal(t, v, restored.Extra[k], "Extension %s mismatch", k)
 	}
 }

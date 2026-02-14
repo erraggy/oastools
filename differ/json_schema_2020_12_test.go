@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestDiffSchemaUnevaluatedProperties tests the unevaluatedProperties comparison
@@ -99,14 +101,11 @@ func TestDiffSchemaUnevaluatedProperties(t *testing.T) {
 
 			d.diffSchemaUnevaluatedPropertiesUnified(tt.source, tt.target, "schema", visited, result)
 
-			if tt.expectChanges && len(result.Changes) == 0 {
-				t.Errorf("Expected changes but got none")
-			}
-			if !tt.expectChanges && len(result.Changes) > 0 {
-				t.Errorf("Expected no changes but got %d: %v", len(result.Changes), result.Changes)
-			}
-			if tt.expectChanges && len(result.Changes) > 0 && result.Changes[0].Type != tt.expectedChange {
-				t.Errorf("Expected change type %v, got %v", tt.expectedChange, result.Changes[0].Type)
+			if tt.expectChanges {
+				require.NotEmpty(t, result.Changes, "Expected changes but got none")
+				assert.Equal(t, tt.expectedChange, result.Changes[0].Type)
+			} else {
+				assert.Empty(t, result.Changes, "Expected no changes but got %d", len(result.Changes))
 			}
 		})
 	}
@@ -178,14 +177,11 @@ func TestDiffSchemaUnevaluatedItems(t *testing.T) {
 
 			d.diffSchemaUnevaluatedItemsUnified(tt.source, tt.target, "schema", visited, result)
 
-			if tt.expectChanges && len(result.Changes) == 0 {
-				t.Errorf("Expected changes but got none")
-			}
-			if !tt.expectChanges && len(result.Changes) > 0 {
-				t.Errorf("Expected no changes but got %d", len(result.Changes))
-			}
-			if tt.expectChanges && len(result.Changes) > 0 && result.Changes[0].Type != tt.expectedChange {
-				t.Errorf("Expected change type %v, got %v", tt.expectedChange, result.Changes[0].Type)
+			if tt.expectChanges {
+				require.NotEmpty(t, result.Changes, "Expected changes but got none")
+				assert.Equal(t, tt.expectedChange, result.Changes[0].Type)
+			} else {
+				assert.Empty(t, result.Changes, "Expected no changes but got %d", len(result.Changes))
 			}
 		})
 	}
@@ -273,9 +269,7 @@ func TestDiffSchemaContentFields(t *testing.T) {
 
 			d.diffSchemaContentFieldsUnified(tt.source, tt.target, "schema", visited, result)
 
-			if len(result.Changes) != tt.expectChanges {
-				t.Errorf("Expected %d changes, got %d: %v", tt.expectChanges, len(result.Changes), result.Changes)
-			}
+			assert.Len(t, result.Changes, tt.expectChanges)
 		})
 	}
 }
@@ -364,9 +358,7 @@ func TestDiffSchemaPrefixItems(t *testing.T) {
 
 			d.diffSchemaPrefixItemsUnified(tt.source, tt.target, "schema", visited, result)
 
-			if len(result.Changes) != tt.expectChanges {
-				t.Errorf("Expected %d changes, got %d: %v", tt.expectChanges, len(result.Changes), result.Changes)
-			}
+			assert.Len(t, result.Changes, tt.expectChanges)
 		})
 	}
 }
@@ -423,11 +415,10 @@ func TestDiffSchemaContains(t *testing.T) {
 
 			d.diffSchemaContainsUnified(tt.source, tt.target, "schema", visited, result)
 
-			if tt.expectChanges && len(result.Changes) == 0 {
-				t.Errorf("Expected changes but got none")
-			}
-			if !tt.expectChanges && len(result.Changes) > 0 {
-				t.Errorf("Expected no changes but got %d", len(result.Changes))
+			if tt.expectChanges {
+				assert.NotEmpty(t, result.Changes, "Expected changes but got none")
+			} else {
+				assert.Empty(t, result.Changes, "Expected no changes but got %d", len(result.Changes))
 			}
 		})
 	}
@@ -478,11 +469,10 @@ func TestDiffSchemaPropertyNames(t *testing.T) {
 
 			d.diffSchemaPropertyNamesUnified(tt.source, tt.target, "schema", visited, result)
 
-			if tt.expectChanges && len(result.Changes) == 0 {
-				t.Errorf("Expected changes but got none")
-			}
-			if !tt.expectChanges && len(result.Changes) > 0 {
-				t.Errorf("Expected no changes but got %d", len(result.Changes))
+			if tt.expectChanges {
+				assert.NotEmpty(t, result.Changes, "Expected changes but got none")
+			} else {
+				assert.Empty(t, result.Changes, "Expected no changes but got %d", len(result.Changes))
 			}
 		})
 	}
@@ -570,9 +560,7 @@ func TestDiffSchemaDependentSchemas(t *testing.T) {
 
 			d.diffSchemaDependentSchemasUnified(tt.source, tt.target, "schema", visited, result)
 
-			if len(result.Changes) != tt.expectChanges {
-				t.Errorf("Expected %d changes, got %d: %v", tt.expectChanges, len(result.Changes), result.Changes)
-			}
+			assert.Len(t, result.Changes, tt.expectChanges)
 		})
 	}
 }
@@ -637,9 +625,7 @@ func TestDiffMediaTypesUnified(t *testing.T) {
 
 			d.diffMediaTypesUnified(tt.source, tt.target, "components.mediaTypes", result)
 
-			if len(result.Changes) != tt.expectChanges {
-				t.Errorf("Expected %d changes, got %d: %v", tt.expectChanges, len(result.Changes), result.Changes)
-			}
+			assert.Len(t, result.Changes, tt.expectChanges)
 		})
 	}
 }

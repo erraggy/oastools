@@ -685,7 +685,7 @@ paths:
 			},
 		}
 		params := v.getParameters("/nonexistent", op)
-		assert.Len(t, params, 1)
+		require.Len(t, params, 1)
 		assert.Equal(t, "test", params[0].Name)
 	})
 }

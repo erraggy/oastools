@@ -2,8 +2,10 @@ package commands
 
 import (
 	"bytes"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRenderSummaryTable(t *testing.T) {
@@ -18,16 +20,10 @@ func TestRenderSummaryTable(t *testing.T) {
 	output := buf.String()
 
 	// Should contain headers
-	if !strings.Contains(output, "METHOD") {
-		t.Error("expected headers in output")
-	}
+	assert.Contains(t, output, "METHOD")
 	// Should contain data
-	if !strings.Contains(output, "GET") {
-		t.Error("expected GET in output")
-	}
-	if !strings.Contains(output, "/pets") {
-		t.Error("expected /pets in output")
-	}
+	assert.Contains(t, output, "GET")
+	assert.Contains(t, output, "/pets")
 }
 
 func TestRenderSummaryTable_Quiet(t *testing.T) {
@@ -41,21 +37,15 @@ func TestRenderSummaryTable_Quiet(t *testing.T) {
 	output := buf.String()
 
 	// Quiet mode: no header row
-	if strings.Contains(output, "METHOD") {
-		t.Error("quiet mode should not include headers")
-	}
+	assert.NotContains(t, output, "METHOD")
 	// Should still contain data
-	if !strings.Contains(output, "GET") {
-		t.Error("expected GET in output")
-	}
+	assert.Contains(t, output, "GET")
 }
 
 func TestRenderSummaryTable_Empty(t *testing.T) {
 	var buf bytes.Buffer
 	RenderSummaryTable(&buf, []string{"A"}, nil, false)
-	if buf.Len() != 0 {
-		t.Errorf("expected empty output for no rows, got %q", buf.String())
-	}
+	assert.Equal(t, 0, buf.Len())
 }
 
 func TestRenderSummaryStructured_JSON(t *testing.T) {
@@ -67,28 +57,16 @@ func TestRenderSummaryStructured_JSON(t *testing.T) {
 	}
 
 	err := RenderSummaryStructured(&buf, headers, rows, FormatJSON)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 	output := buf.String()
 
 	// Should contain lowercase keys
-	if !strings.Contains(output, `"method"`) {
-		t.Error("expected lowercase 'method' key in JSON output")
-	}
-	if !strings.Contains(output, `"path"`) {
-		t.Error("expected lowercase 'path' key in JSON output")
-	}
+	assert.Contains(t, output, `"method"`)
+	assert.Contains(t, output, `"path"`)
 	// Should contain data values
-	if !strings.Contains(output, "GET") {
-		t.Error("expected GET in JSON output")
-	}
-	if !strings.Contains(output, "/pets") {
-		t.Error("expected /pets in JSON output")
-	}
-	if !strings.Contains(output, "List pets") {
-		t.Error("expected 'List pets' in JSON output")
-	}
+	assert.Contains(t, output, "GET")
+	assert.Contains(t, output, "/pets")
+	assert.Contains(t, output, "List pets")
 }
 
 func TestRenderSummaryStructured_YAML(t *testing.T) {
@@ -99,30 +77,20 @@ func TestRenderSummaryStructured_YAML(t *testing.T) {
 	}
 
 	err := RenderSummaryStructured(&buf, headers, rows, FormatYAML)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 	output := buf.String()
 
-	if !strings.Contains(output, "method") {
-		t.Error("expected 'method' key in YAML output")
-	}
-	if !strings.Contains(output, "GET") {
-		t.Error("expected GET in YAML output")
-	}
+	assert.Contains(t, output, "method")
+	assert.Contains(t, output, "GET")
 }
 
 func TestRenderSummaryStructured_EmptyRows(t *testing.T) {
 	var buf bytes.Buffer
 	headers := []string{"A", "B"}
 	err := RenderSummaryStructured(&buf, headers, nil, FormatJSON)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 	// Empty rows should produce an empty JSON array
-	if !strings.Contains(buf.String(), "[]") {
-		t.Errorf("expected empty array, got %q", buf.String())
-	}
+	assert.Contains(t, buf.String(), "[]")
 }
 
 func TestRenderSummaryStructured_RowShorterThanHeaders(t *testing.T) {
@@ -133,18 +101,12 @@ func TestRenderSummaryStructured_RowShorterThanHeaders(t *testing.T) {
 	}
 
 	err := RenderSummaryStructured(&buf, headers, rows, FormatJSON)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 	output := buf.String()
 
 	// Missing columns should default to empty string
-	if !strings.Contains(output, `"b"`) {
-		t.Error("expected key 'b' even when row is shorter than headers")
-	}
-	if !strings.Contains(output, `"c"`) {
-		t.Error("expected key 'c' even when row is shorter than headers")
-	}
+	assert.Contains(t, output, `"b"`)
+	assert.Contains(t, output, `"c"`)
 }
 
 func TestRenderDetail_YAML(t *testing.T) {
@@ -155,13 +117,9 @@ func TestRenderDetail_YAML(t *testing.T) {
 	}
 
 	err := RenderDetail(&buf, node, FormatYAML)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 	output := buf.String()
-	if !strings.Contains(output, "summary") {
-		t.Error("expected summary in YAML output")
-	}
+	assert.Contains(t, output, "summary")
 }
 
 func TestRenderDetail_JSON(t *testing.T) {
@@ -171,11 +129,7 @@ func TestRenderDetail_JSON(t *testing.T) {
 	}
 
 	err := RenderDetail(&buf, node, FormatJSON)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 	output := buf.String()
-	if !strings.Contains(output, `"summary"`) {
-		t.Error("expected summary in JSON output")
-	}
+	assert.Contains(t, output, `"summary"`)
 }

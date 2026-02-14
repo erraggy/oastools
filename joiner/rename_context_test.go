@@ -3,6 +3,9 @@ package joiner
 import (
 	"testing"
 	"text/template"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // ============================================================================
@@ -32,9 +35,7 @@ func TestPathSegment(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := pathSegment(tt.path, tt.index)
-			if got != tt.expected {
-				t.Errorf("pathSegment(%q, %d) = %q, want %q", tt.path, tt.index, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -58,9 +59,7 @@ func TestPathResource(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := pathResource(tt.path)
-			if got != tt.expected {
-				t.Errorf("pathResource(%q) = %q, want %q", tt.path, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -83,9 +82,7 @@ func TestPathLast(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := pathLast(tt.path)
-			if got != tt.expected {
-				t.Errorf("pathLast(%q) = %q, want %q", tt.path, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -111,9 +108,7 @@ func TestPathClean(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := pathClean(tt.path)
-			if got != tt.expected {
-				t.Errorf("pathClean(%q) = %q, want %q", tt.path, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -138,9 +133,7 @@ func TestFirstTag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := firstTag(tt.tags)
-			if got != tt.expected {
-				t.Errorf("firstTag(%v) = %q, want %q", tt.tags, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -164,9 +157,7 @@ func TestJoinTags(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := joinTags(tt.tags, tt.sep)
-			if got != tt.expected {
-				t.Errorf("joinTags(%v, %q) = %q, want %q", tt.tags, tt.sep, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -190,9 +181,7 @@ func TestHasTag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := hasTag(tt.tags, tt.tag)
-			if got != tt.expected {
-				t.Errorf("hasTag(%v, %q) = %v, want %v", tt.tags, tt.tag, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -207,9 +196,7 @@ func TestCaseConversions(t *testing.T) {
 	// Verify all case functions are registered
 	requiredFuncs := []string{"pascalCase", "camelCase", "snakeCase", "kebabCase"}
 	for _, name := range requiredFuncs {
-		if _, ok := funcs[name]; !ok {
-			t.Errorf("renameFuncs() missing required function %q", name)
-		}
+		assert.Contains(t, funcs, name, "renameFuncs() missing required function %q", name)
 	}
 
 	// Test that functions work via template execution
@@ -229,21 +216,15 @@ func TestCaseConversions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.tmpl, func(t *testing.T) {
 			tmpl, err := template.New("test").Funcs(funcs).Parse(tt.tmpl)
-			if err != nil {
-				t.Fatalf("Failed to parse template: %v", err)
-			}
+			require.NoError(t, err)
 
 			var buf []byte
 			w := &testWriter{buf: &buf}
 			err = tmpl.Execute(w, tt.data)
-			if err != nil {
-				t.Fatalf("Failed to execute template: %v", err)
-			}
+			require.NoError(t, err)
 
 			got := string(buf)
-			if got != tt.expected {
-				t.Errorf("Template %q with %v = %q, want %q", tt.tmpl, tt.data, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -279,9 +260,7 @@ func TestDefaultValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := defaultValue(tt.value, tt.fallback)
-			if got != tt.expected {
-				t.Errorf("defaultValue(%q, %q) = %q, want %q", tt.value, tt.fallback, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -304,9 +283,7 @@ func TestCoalesce(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := coalesce(tt.values...)
-			if got != tt.expected {
-				t.Errorf("coalesce(%v) = %q, want %q", tt.values, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -319,40 +296,20 @@ func TestBuildRenameContext_Basic(t *testing.T) {
 	// No graph provided - only core fields should be populated
 	ctx := buildRenameContext("MySchema", "/path/to/file.yaml", 2, nil, PolicyFirstEncountered)
 
-	if ctx.Name != "MySchema" {
-		t.Errorf("Name = %q, want %q", ctx.Name, "MySchema")
-	}
-	if ctx.Source != "file" {
-		t.Errorf("Source = %q, want %q", ctx.Source, "file")
-	}
-	if ctx.Index != 2 {
-		t.Errorf("Index = %d, want %d", ctx.Index, 2)
-	}
+	assert.Equal(t, "MySchema", ctx.Name)
+	assert.Equal(t, "file", ctx.Source)
+	assert.Equal(t, 2, ctx.Index)
 
 	// Operation context should be empty
-	if ctx.Path != "" {
-		t.Errorf("Path = %q, want empty", ctx.Path)
-	}
-	if ctx.Method != "" {
-		t.Errorf("Method = %q, want empty", ctx.Method)
-	}
-	if ctx.OperationID != "" {
-		t.Errorf("OperationID = %q, want empty", ctx.OperationID)
-	}
-	if len(ctx.Tags) != 0 {
-		t.Errorf("Tags = %v, want empty", ctx.Tags)
-	}
+	assert.Empty(t, ctx.Path)
+	assert.Empty(t, ctx.Method)
+	assert.Empty(t, ctx.OperationID)
+	assert.Empty(t, ctx.Tags)
 
 	// Aggregate fields should be empty/zero
-	if len(ctx.AllPaths) != 0 {
-		t.Errorf("AllPaths = %v, want empty", ctx.AllPaths)
-	}
-	if ctx.RefCount != 0 {
-		t.Errorf("RefCount = %d, want 0", ctx.RefCount)
-	}
-	if ctx.IsShared {
-		t.Error("IsShared = true, want false")
-	}
+	assert.Empty(t, ctx.AllPaths)
+	assert.Equal(t, 0, ctx.RefCount)
+	assert.False(t, ctx.IsShared)
 }
 
 func TestBuildRenameContext_WithGraph(t *testing.T) {
@@ -384,61 +341,27 @@ func TestBuildRenameContext_WithGraph(t *testing.T) {
 	ctx := buildRenameContext("User", "api-spec.yaml", 0, graph, PolicyFirstEncountered)
 
 	// Core fields
-	if ctx.Name != "User" {
-		t.Errorf("Name = %q, want %q", ctx.Name, "User")
-	}
-	if ctx.Source != "api_spec" {
-		t.Errorf("Source = %q, want %q", ctx.Source, "api_spec")
-	}
-	if ctx.Index != 0 {
-		t.Errorf("Index = %d, want %d", ctx.Index, 0)
-	}
+	assert.Equal(t, "User", ctx.Name)
+	assert.Equal(t, "api_spec", ctx.Source)
+	assert.Equal(t, 0, ctx.Index)
 
 	// Operation context (from first/primary operation)
-	if ctx.Path != "/users/{id}" {
-		t.Errorf("Path = %q, want %q", ctx.Path, "/users/{id}")
-	}
-	if ctx.Method != "get" {
-		t.Errorf("Method = %q, want %q", ctx.Method, "get")
-	}
-	if ctx.OperationID != "getUser" {
-		t.Errorf("OperationID = %q, want %q", ctx.OperationID, "getUser")
-	}
-	if len(ctx.Tags) != 2 || ctx.Tags[0] != "Users" || ctx.Tags[1] != "Public" {
-		t.Errorf("Tags = %v, want [Users Public]", ctx.Tags)
-	}
-	if ctx.UsageType != "response" {
-		t.Errorf("UsageType = %q, want %q", ctx.UsageType, "response")
-	}
-	if ctx.StatusCode != "200" {
-		t.Errorf("StatusCode = %q, want %q", ctx.StatusCode, "200")
-	}
-	if ctx.MediaType != "application/json" {
-		t.Errorf("MediaType = %q, want %q", ctx.MediaType, "application/json")
-	}
+	assert.Equal(t, "/users/{id}", ctx.Path)
+	assert.Equal(t, "get", ctx.Method)
+	assert.Equal(t, "getUser", ctx.OperationID)
+	assert.Equal(t, []string{"Users", "Public"}, ctx.Tags)
+	assert.Equal(t, UsageType("response"), ctx.UsageType)
+	assert.Equal(t, "200", ctx.StatusCode)
+	assert.Equal(t, "application/json", ctx.MediaType)
 
 	// Aggregate fields
-	if ctx.RefCount != 2 {
-		t.Errorf("RefCount = %d, want %d", ctx.RefCount, 2)
-	}
-	if !ctx.IsShared {
-		t.Error("IsShared = false, want true")
-	}
-	if len(ctx.AllPaths) != 2 {
-		t.Errorf("AllPaths length = %d, want 2", len(ctx.AllPaths))
-	}
-	if len(ctx.AllMethods) != 2 {
-		t.Errorf("AllMethods length = %d, want 2", len(ctx.AllMethods))
-	}
-	if len(ctx.AllOperationIDs) != 2 {
-		t.Errorf("AllOperationIDs length = %d, want 2", len(ctx.AllOperationIDs))
-	}
-	if len(ctx.AllTags) != 2 {
-		t.Errorf("AllTags length = %d, want 2 (Users, Public)", len(ctx.AllTags))
-	}
-	if ctx.PrimaryResource != "users" {
-		t.Errorf("PrimaryResource = %q, want %q", ctx.PrimaryResource, "users")
-	}
+	assert.Equal(t, 2, ctx.RefCount)
+	assert.True(t, ctx.IsShared)
+	assert.Len(t, ctx.AllPaths, 2)
+	assert.Len(t, ctx.AllMethods, 2)
+	assert.Len(t, ctx.AllOperationIDs, 2)
+	assert.Len(t, ctx.AllTags, 2)
+	assert.Equal(t, "users", ctx.PrimaryResource)
 }
 
 func TestBuildRenameContext_EmptyLineage(t *testing.T) {
@@ -454,26 +377,14 @@ func TestBuildRenameContext_EmptyLineage(t *testing.T) {
 	ctx := buildRenameContext("UnreferencedSchema", "spec.yaml", 1, graph, PolicyFirstEncountered)
 
 	// Only core fields should be populated
-	if ctx.Name != "UnreferencedSchema" {
-		t.Errorf("Name = %q, want %q", ctx.Name, "UnreferencedSchema")
-	}
-	if ctx.Source != "spec" {
-		t.Errorf("Source = %q, want %q", ctx.Source, "spec")
-	}
-	if ctx.Index != 1 {
-		t.Errorf("Index = %d, want %d", ctx.Index, 1)
-	}
+	assert.Equal(t, "UnreferencedSchema", ctx.Name)
+	assert.Equal(t, "spec", ctx.Source)
+	assert.Equal(t, 1, ctx.Index)
 
 	// Operation context should be empty
-	if ctx.Path != "" {
-		t.Errorf("Path = %q, want empty", ctx.Path)
-	}
-	if ctx.RefCount != 0 {
-		t.Errorf("RefCount = %d, want 0", ctx.RefCount)
-	}
-	if ctx.IsShared {
-		t.Error("IsShared = true, want false")
-	}
+	assert.Empty(t, ctx.Path)
+	assert.Equal(t, 0, ctx.RefCount)
+	assert.False(t, ctx.IsShared)
 }
 
 func TestBuildRenameContext_SourcePathSanitization(t *testing.T) {
@@ -495,9 +406,7 @@ func TestBuildRenameContext_SourcePathSanitization(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := buildRenameContext("Schema", tt.sourcePath, 0, nil, PolicyFirstEncountered)
-			if ctx.Source != tt.expected {
-				t.Errorf("Source = %q, want %q", ctx.Source, tt.expected)
-			}
+			assert.Equal(t, tt.expected, ctx.Source)
 		})
 	}
 }
@@ -515,12 +424,8 @@ func TestSelectPrimaryOperation_FirstEncountered(t *testing.T) {
 
 	result := selectPrimaryOperation(refs, PolicyFirstEncountered)
 
-	if result.Path != "/users" {
-		t.Errorf("Path = %q, want %q", result.Path, "/users")
-	}
-	if result.OperationID != "getUsers" {
-		t.Errorf("OperationID = %q, want %q", result.OperationID, "getUsers")
-	}
+	assert.Equal(t, "/users", result.Path)
+	assert.Equal(t, "getUsers", result.OperationID)
 }
 
 func TestSelectPrimaryOperation_Alphabetical(t *testing.T) {
@@ -533,12 +438,8 @@ func TestSelectPrimaryOperation_Alphabetical(t *testing.T) {
 	result := selectPrimaryOperation(refs, PolicyAlphabetical)
 
 	// /api + get = "/apiget" is alphabetically first
-	if result.Path != "/api" {
-		t.Errorf("Path = %q, want %q", result.Path, "/api")
-	}
-	if result.OperationID != "getApi" {
-		t.Errorf("OperationID = %q, want %q", result.OperationID, "getApi")
-	}
+	assert.Equal(t, "/api", result.Path)
+	assert.Equal(t, "getApi", result.OperationID)
 }
 
 func TestSelectPrimaryOperation_MostSpecific(t *testing.T) {
@@ -583,26 +484,18 @@ func TestSelectPrimaryOperation_MostSpecific(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := selectPrimaryOperation(tt.refs, PolicyMostSpecific)
-			if result.Path != tt.wantPath {
-				t.Errorf("Path = %q, want %q", result.Path, tt.wantPath)
-			}
-			if result.OperationID != tt.wantID {
-				t.Errorf("OperationID = %q, want %q", result.OperationID, tt.wantID)
-			}
+			assert.Equal(t, tt.wantPath, result.Path)
+			assert.Equal(t, tt.wantID, result.OperationID)
 		})
 	}
 }
 
 func TestSelectPrimaryOperation_EmptyRefs(t *testing.T) {
 	result := selectPrimaryOperation([]OperationRef{}, PolicyFirstEncountered)
-	if result.Path != "" {
-		t.Errorf("Path = %q, want empty", result.Path)
-	}
+	assert.Empty(t, result.Path)
 
 	result = selectPrimaryOperation(nil, PolicyAlphabetical)
-	if result.Path != "" {
-		t.Errorf("Path = %q, want empty", result.Path)
-	}
+	assert.Empty(t, result.Path)
 }
 
 func TestSelectPrimaryOperation_UnknownPolicy(t *testing.T) {
@@ -612,9 +505,7 @@ func TestSelectPrimaryOperation_UnknownPolicy(t *testing.T) {
 
 	// Unknown policy should fall back to first
 	result := selectPrimaryOperation(refs, PrimaryOperationPolicy(999))
-	if result.Path != "/users" {
-		t.Errorf("Path = %q, want %q", result.Path, "/users")
-	}
+	assert.Equal(t, "/users", result.Path)
 }
 
 // ============================================================================
@@ -642,9 +533,7 @@ func TestSanitizeSourcePath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := sanitizeSourcePath(tt.input)
-			if got != tt.expected {
-				t.Errorf("sanitizeSourcePath(%q) = %q, want %q", tt.input, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -669,15 +558,7 @@ func TestExtractPathSegments(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := extractPathSegments(tt.path)
-			if len(got) != len(tt.expected) {
-				t.Errorf("extractPathSegments(%q) = %v, want %v", tt.path, got, tt.expected)
-				return
-			}
-			for i := range got {
-				if got[i] != tt.expected[i] {
-					t.Errorf("extractPathSegments(%q)[%d] = %q, want %q", tt.path, i, got[i], tt.expected[i])
-				}
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -690,9 +571,7 @@ func TestRefGraph_ResolveLineage(t *testing.T) {
 	t.Run("nil graph", func(t *testing.T) {
 		var g *RefGraph
 		result := g.ResolveLineage("Schema")
-		if result != nil {
-			t.Errorf("ResolveLineage on nil graph = %v, want nil", result)
-		}
+		assert.Nil(t, result)
 	})
 
 	t.Run("direct operation refs", func(t *testing.T) {
@@ -706,9 +585,7 @@ func TestRefGraph_ResolveLineage(t *testing.T) {
 		}
 
 		result := g.ResolveLineage("User")
-		if len(result) != 2 {
-			t.Errorf("ResolveLineage returned %d refs, want 2", len(result))
-		}
+		assert.Len(t, result, 2)
 	})
 
 	t.Run("indirect refs through parent schema", func(t *testing.T) {
@@ -726,12 +603,8 @@ func TestRefGraph_ResolveLineage(t *testing.T) {
 		}
 
 		result := g.ResolveLineage("Address")
-		if len(result) != 1 {
-			t.Errorf("ResolveLineage returned %d refs, want 1", len(result))
-		}
-		if result[0].Path != "/users" {
-			t.Errorf("ResolveLineage[0].Path = %q, want %q", result[0].Path, "/users")
-		}
+		require.Len(t, result, 1)
+		assert.Equal(t, "/users", result[0].Path)
 	})
 
 	t.Run("caching", func(t *testing.T) {
@@ -746,9 +619,7 @@ func TestRefGraph_ResolveLineage(t *testing.T) {
 		// Second call should use cache
 		result2 := g.ResolveLineage("User")
 
-		if len(result1) != len(result2) {
-			t.Error("Cached result differs from original")
-		}
+		assert.Equal(t, len(result1), len(result2), "Cached result differs from original")
 	})
 
 	t.Run("cycle detection", func(t *testing.T) {
@@ -765,9 +636,7 @@ func TestRefGraph_ResolveLineage(t *testing.T) {
 
 		// Should not hang due to cycle detection
 		result := g.ResolveLineage("A")
-		if len(result) != 1 {
-			t.Errorf("ResolveLineage with cycle returned %d refs, want 1", len(result))
-		}
+		assert.Len(t, result, 1)
 	})
 
 	t.Run("no refs for schema", func(t *testing.T) {
@@ -778,9 +647,7 @@ func TestRefGraph_ResolveLineage(t *testing.T) {
 		}
 
 		result := g.ResolveLineage("Unknown")
-		if len(result) != 0 {
-			t.Errorf("ResolveLineage for unknown schema = %v, want empty", result)
-		}
+		assert.Empty(t, result)
 	})
 }
 
@@ -803,9 +670,7 @@ func TestRenameFuncs_AllFunctionsRegistered(t *testing.T) {
 	}
 
 	for _, name := range expected {
-		if _, ok := funcs[name]; !ok {
-			t.Errorf("renameFuncs() missing function %q", name)
-		}
+		assert.Contains(t, funcs, name, "renameFuncs() missing function %q", name)
 	}
 }
 
@@ -834,12 +699,8 @@ func TestRenameContext_SingleReference(t *testing.T) {
 	ctx := buildRenameContext("Pet", "petstore.yaml", 0, graph, PolicyFirstEncountered)
 
 	// Single reference should not be marked as shared
-	if ctx.IsShared {
-		t.Error("IsShared = true, want false for single reference")
-	}
-	if ctx.RefCount != 1 {
-		t.Errorf("RefCount = %d, want 1", ctx.RefCount)
-	}
+	assert.False(t, ctx.IsShared, "IsShared = true, want false for single reference")
+	assert.Equal(t, 1, ctx.RefCount)
 }
 
 func TestRenameContext_UsageTypes(t *testing.T) {
@@ -866,9 +727,7 @@ func TestRenameContext_UsageTypes(t *testing.T) {
 			}
 
 			ctx := buildRenameContext("Schema", "spec.yaml", 0, graph, PolicyFirstEncountered)
-			if ctx.UsageType != tt.expected {
-				t.Errorf("UsageType = %v, want %v", ctx.UsageType, tt.expected)
-			}
+			assert.Equal(t, tt.expected, ctx.UsageType)
 		})
 	}
 }

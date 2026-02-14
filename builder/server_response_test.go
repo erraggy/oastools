@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestJSON(t *testing.T) {
@@ -20,36 +23,24 @@ func TestJSON(t *testing.T) {
 	data := testData{Name: "test"}
 	resp := JSON(http.StatusOK, data)
 
-	if resp.StatusCode() != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", resp.StatusCode())
-	}
+	assert.Equal(t, http.StatusOK, resp.StatusCode())
 
-	if resp.Headers() == nil {
-		t.Error("Headers should not be nil")
-	}
+	assert.NotNil(t, resp.Headers())
 
 	body := resp.Body()
-	if body == nil {
-		t.Error("Body should not be nil")
-	}
+	assert.NotNil(t, body)
 
 	rec := httptest.NewRecorder()
-	if err := resp.WriteTo(rec); err != nil {
-		t.Fatalf("WriteTo failed: %v", err)
-	}
+	err := resp.WriteTo(rec)
+	require.NoError(t, err)
 
-	if rec.Header().Get("Content-Type") != "application/json" {
-		t.Errorf("Expected Content-Type application/json, got %s", rec.Header().Get("Content-Type"))
-	}
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
 	var got testData
-	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
+	err = json.NewDecoder(rec.Body).Decode(&got)
+	require.NoError(t, err)
 
-	if got.Name != "test" {
-		t.Errorf("Expected name 'test', got '%s'", got.Name)
-	}
+	assert.Equal(t, "test", got.Name)
 }
 
 func TestJSON_NilBody(t *testing.T) {
@@ -58,17 +49,12 @@ func TestJSON_NilBody(t *testing.T) {
 	resp := JSON(http.StatusNoContent, nil)
 
 	rec := httptest.NewRecorder()
-	if err := resp.WriteTo(rec); err != nil {
-		t.Fatalf("WriteTo failed: %v", err)
-	}
+	err := resp.WriteTo(rec)
+	require.NoError(t, err)
 
-	if rec.Code != http.StatusNoContent {
-		t.Errorf("Expected status 204, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusNoContent, rec.Code)
 
-	if rec.Body.Len() > 0 {
-		t.Errorf("Expected empty body, got %s", rec.Body.String())
-	}
+	assert.Equal(t, 0, rec.Body.Len())
 }
 
 func TestNoContent(t *testing.T) {
@@ -76,26 +62,17 @@ func TestNoContent(t *testing.T) {
 
 	resp := NoContent()
 
-	if resp.StatusCode() != http.StatusNoContent {
-		t.Errorf("Expected status 204, got %d", resp.StatusCode())
-	}
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode())
 
-	if resp.Headers() != nil {
-		t.Error("Headers should be nil for NoContent")
-	}
+	assert.Nil(t, resp.Headers())
 
-	if resp.Body() != nil {
-		t.Error("Body should be nil for NoContent")
-	}
+	assert.Nil(t, resp.Body())
 
 	rec := httptest.NewRecorder()
-	if err := resp.WriteTo(rec); err != nil {
-		t.Fatalf("WriteTo failed: %v", err)
-	}
+	err := resp.WriteTo(rec)
+	require.NoError(t, err)
 
-	if rec.Code != http.StatusNoContent {
-		t.Errorf("Expected status 204, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
 func TestError(t *testing.T) {
@@ -103,32 +80,22 @@ func TestError(t *testing.T) {
 
 	resp := Error(http.StatusNotFound, "resource not found")
 
-	if resp.StatusCode() != http.StatusNotFound {
-		t.Errorf("Expected status 404, got %d", resp.StatusCode())
-	}
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode())
 
 	body := resp.Body().(map[string]any)
-	if body["error"] != "resource not found" {
-		t.Errorf("Expected error message 'resource not found', got %v", body["error"])
-	}
+	assert.Equal(t, "resource not found", body["error"])
 
 	rec := httptest.NewRecorder()
-	if err := resp.WriteTo(rec); err != nil {
-		t.Fatalf("WriteTo failed: %v", err)
-	}
+	err := resp.WriteTo(rec)
+	require.NoError(t, err)
 
-	if rec.Header().Get("Content-Type") != "application/json" {
-		t.Errorf("Expected Content-Type application/json, got %s", rec.Header().Get("Content-Type"))
-	}
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
 	var got map[string]any
-	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
+	err = json.NewDecoder(rec.Body).Decode(&got)
+	require.NoError(t, err)
 
-	if got["error"] != "resource not found" {
-		t.Errorf("Expected error 'resource not found', got %v", got["error"])
-	}
+	assert.Equal(t, "resource not found", got["error"])
 }
 
 func TestErrorWithDetails(t *testing.T) {
@@ -141,32 +108,22 @@ func TestErrorWithDetails(t *testing.T) {
 
 	resp := ErrorWithDetails(http.StatusBadRequest, "validation failed", details)
 
-	if resp.StatusCode() != http.StatusBadRequest {
-		t.Errorf("Expected status 400, got %d", resp.StatusCode())
-	}
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode())
 
 	body := resp.Body().(map[string]any)
-	if body["error"] != "validation failed" {
-		t.Errorf("Expected error message 'validation failed', got %v", body["error"])
-	}
-	if body["details"] == nil {
-		t.Error("Expected details to be present")
-	}
+	assert.Equal(t, "validation failed", body["error"])
+	assert.NotNil(t, body["details"])
 
 	rec := httptest.NewRecorder()
-	if err := resp.WriteTo(rec); err != nil {
-		t.Fatalf("WriteTo failed: %v", err)
-	}
+	err := resp.WriteTo(rec)
+	require.NoError(t, err)
 
 	var got map[string]any
-	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
+	err = json.NewDecoder(rec.Body).Decode(&got)
+	require.NoError(t, err)
 
 	gotDetails := got["details"].(map[string]any)
-	if gotDetails["field"] != "name" {
-		t.Errorf("Expected details.field 'name', got %v", gotDetails["field"])
-	}
+	assert.Equal(t, "name", gotDetails["field"])
 }
 
 func TestRedirect(t *testing.T) {
@@ -174,31 +131,20 @@ func TestRedirect(t *testing.T) {
 
 	resp := Redirect(http.StatusMovedPermanently, "/new-location")
 
-	if resp.StatusCode() != http.StatusMovedPermanently {
-		t.Errorf("Expected status 301, got %d", resp.StatusCode())
-	}
+	assert.Equal(t, http.StatusMovedPermanently, resp.StatusCode())
 
 	headers := resp.Headers()
-	if headers.Get("Location") != "/new-location" {
-		t.Errorf("Expected Location header '/new-location', got '%s'", headers.Get("Location"))
-	}
+	assert.Equal(t, "/new-location", headers.Get("Location"))
 
-	if resp.Body() != nil {
-		t.Error("Body should be nil for Redirect")
-	}
+	assert.Nil(t, resp.Body())
 
 	rec := httptest.NewRecorder()
-	if err := resp.WriteTo(rec); err != nil {
-		t.Fatalf("WriteTo failed: %v", err)
-	}
+	err := resp.WriteTo(rec)
+	require.NoError(t, err)
 
-	if rec.Code != http.StatusMovedPermanently {
-		t.Errorf("Expected status 301, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusMovedPermanently, rec.Code)
 
-	if rec.Header().Get("Location") != "/new-location" {
-		t.Errorf("Expected Location header '/new-location', got '%s'", rec.Header().Get("Location"))
-	}
+	assert.Equal(t, "/new-location", rec.Header().Get("Location"))
 }
 
 func TestStream(t *testing.T) {
@@ -209,27 +155,19 @@ func TestStream(t *testing.T) {
 
 	resp := Stream(http.StatusOK, "application/octet-stream", reader)
 
-	if resp.StatusCode() != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", resp.StatusCode())
-	}
+	assert.Equal(t, http.StatusOK, resp.StatusCode())
 
 	body := resp.Body()
-	if _, ok := body.(io.Reader); !ok {
-		t.Error("Body should be an io.Reader")
-	}
+	_, ok := body.(io.Reader)
+	assert.True(t, ok, "Body should be an io.Reader")
 
 	rec := httptest.NewRecorder()
-	if err := resp.WriteTo(rec); err != nil {
-		t.Fatalf("WriteTo failed: %v", err)
-	}
+	err := resp.WriteTo(rec)
+	require.NoError(t, err)
 
-	if rec.Header().Get("Content-Type") != "application/octet-stream" {
-		t.Errorf("Expected Content-Type application/octet-stream, got %s", rec.Header().Get("Content-Type"))
-	}
+	assert.Equal(t, "application/octet-stream", rec.Header().Get("Content-Type"))
 
-	if rec.Body.String() != string(data) {
-		t.Errorf("Expected body '%s', got '%s'", string(data), rec.Body.String())
-	}
+	assert.Equal(t, string(data), rec.Body.String())
 }
 
 func TestResponseBuilder_JSON(t *testing.T) {
@@ -243,31 +181,21 @@ func TestResponseBuilder_JSON(t *testing.T) {
 		Header("X-Custom", "test").
 		JSON(testData{Value: 42})
 
-	if resp.StatusCode() != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", resp.StatusCode())
-	}
+	assert.Equal(t, http.StatusOK, resp.StatusCode())
 
-	if resp.Headers().Get("X-Custom") != "test" {
-		t.Errorf("Expected X-Custom header 'test', got '%s'", resp.Headers().Get("X-Custom"))
-	}
+	assert.Equal(t, "test", resp.Headers().Get("X-Custom"))
 
 	rec := httptest.NewRecorder()
-	if err := resp.WriteTo(rec); err != nil {
-		t.Fatalf("WriteTo failed: %v", err)
-	}
+	err := resp.WriteTo(rec)
+	require.NoError(t, err)
 
-	if rec.Header().Get("Content-Type") != "application/json" {
-		t.Errorf("Expected Content-Type application/json, got %s", rec.Header().Get("Content-Type"))
-	}
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
 	var got testData
-	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
+	err = json.NewDecoder(rec.Body).Decode(&got)
+	require.NoError(t, err)
 
-	if got.Value != 42 {
-		t.Errorf("Expected value 42, got %d", got.Value)
-	}
+	assert.Equal(t, 42, got.Value)
 }
 
 func TestResponseBuilder_XML(t *testing.T) {
@@ -281,22 +209,16 @@ func TestResponseBuilder_XML(t *testing.T) {
 	resp := NewResponse(http.StatusOK).XML(testData{Value: "test"})
 
 	rec := httptest.NewRecorder()
-	if err := resp.WriteTo(rec); err != nil {
-		t.Fatalf("WriteTo failed: %v", err)
-	}
+	err := resp.WriteTo(rec)
+	require.NoError(t, err)
 
-	if rec.Header().Get("Content-Type") != "application/xml" {
-		t.Errorf("Expected Content-Type application/xml, got %s", rec.Header().Get("Content-Type"))
-	}
+	assert.Equal(t, "application/xml", rec.Header().Get("Content-Type"))
 
 	var got testData
-	if err := xml.NewDecoder(rec.Body).Decode(&got); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
+	err = xml.NewDecoder(rec.Body).Decode(&got)
+	require.NoError(t, err)
 
-	if got.Value != "test" {
-		t.Errorf("Expected value 'test', got '%s'", got.Value)
-	}
+	assert.Equal(t, "test", got.Value)
 }
 
 func TestResponseBuilder_Text(t *testing.T) {
@@ -305,17 +227,12 @@ func TestResponseBuilder_Text(t *testing.T) {
 	resp := NewResponse(http.StatusOK).Text("plain text response")
 
 	rec := httptest.NewRecorder()
-	if err := resp.WriteTo(rec); err != nil {
-		t.Fatalf("WriteTo failed: %v", err)
-	}
+	err := resp.WriteTo(rec)
+	require.NoError(t, err)
 
-	if rec.Header().Get("Content-Type") != "text/plain" {
-		t.Errorf("Expected Content-Type text/plain, got %s", rec.Header().Get("Content-Type"))
-	}
+	assert.Equal(t, "text/plain", rec.Header().Get("Content-Type"))
 
-	if rec.Body.String() != "plain text response" {
-		t.Errorf("Expected body 'plain text response', got '%s'", rec.Body.String())
-	}
+	assert.Equal(t, "plain text response", rec.Body.String())
 }
 
 func TestResponseBuilder_Binary(t *testing.T) {
@@ -325,17 +242,12 @@ func TestResponseBuilder_Binary(t *testing.T) {
 	resp := NewResponse(http.StatusOK).Binary("image/png", data)
 
 	rec := httptest.NewRecorder()
-	if err := resp.WriteTo(rec); err != nil {
-		t.Fatalf("WriteTo failed: %v", err)
-	}
+	err := resp.WriteTo(rec)
+	require.NoError(t, err)
 
-	if rec.Header().Get("Content-Type") != "image/png" {
-		t.Errorf("Expected Content-Type image/png, got %s", rec.Header().Get("Content-Type"))
-	}
+	assert.Equal(t, "image/png", rec.Header().Get("Content-Type"))
 
-	if !bytes.Equal(rec.Body.Bytes(), data) {
-		t.Errorf("Expected body %v, got %v", data, rec.Body.Bytes())
-	}
+	assert.True(t, bytes.Equal(rec.Body.Bytes(), data))
 }
 
 func TestResponseBuilder_NilBody(t *testing.T) {
@@ -345,13 +257,10 @@ func TestResponseBuilder_NilBody(t *testing.T) {
 	// Don't set a body or encoder
 
 	rec := httptest.NewRecorder()
-	if err := builder.WriteTo(rec); err != nil {
-		t.Fatalf("WriteTo failed: %v", err)
-	}
+	err := builder.WriteTo(rec)
+	require.NoError(t, err)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestResponseBuilder_MultipleHeaders(t *testing.T) {
@@ -363,11 +272,7 @@ func TestResponseBuilder_MultipleHeaders(t *testing.T) {
 		Header("X-First", "another"). // Add another value to same header
 		JSON(nil)
 
-	if len(resp.Headers()["X-First"]) != 2 {
-		t.Errorf("Expected 2 values for X-First header, got %d", len(resp.Headers()["X-First"]))
-	}
+	assert.Len(t, resp.Headers()["X-First"], 2)
 
-	if resp.Headers().Get("X-Second") != "two" {
-		t.Errorf("Expected X-Second 'two', got '%s'", resp.Headers().Get("X-Second"))
-	}
+	assert.Equal(t, "two", resp.Headers().Get("X-Second"))
 }

@@ -128,7 +128,7 @@ func TestWalk_OAS3ComponentRequestBodies(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	assert.Len(t, visitedPaths, 1)
+	require.Len(t, visitedPaths, 1)
 	assert.Contains(t, visitedPaths[0], "requestBodies['UserInput']")
 }
 

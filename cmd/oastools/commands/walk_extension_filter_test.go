@@ -2,6 +2,9 @@ package commands
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseExtensionFilter(t *testing.T) {
@@ -113,29 +116,17 @@ func TestParseExtensionFilter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParseExtensionFilter(tt.input)
 			if tt.wantErr {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
+				require.Error(t, err)
 				return
 			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if len(got.Groups) != len(tt.want.Groups) {
-				t.Fatalf("groups: got %d, want %d", len(got.Groups), len(tt.want.Groups))
-			}
+			require.NoError(t, err)
+			require.Equal(t, len(tt.want.Groups), len(got.Groups))
 			for i, group := range got.Groups {
-				if len(group) != len(tt.want.Groups[i]) {
-					t.Fatalf("group[%d]: got %d exprs, want %d", i, len(group), len(tt.want.Groups[i]))
-				}
+				require.Equal(t, len(tt.want.Groups[i]), len(group))
 				for j, expr := range group {
 					wantExpr := tt.want.Groups[i][j]
-					if expr.Key != wantExpr.Key {
-						t.Errorf("group[%d][%d].Key: got %q, want %q", i, j, expr.Key, wantExpr.Key)
-					}
-					if expr.Negated != wantExpr.Negated {
-						t.Errorf("group[%d][%d].Negated: got %v, want %v", i, j, expr.Negated, wantExpr.Negated)
-					}
+					assert.Equal(t, wantExpr.Key, expr.Key)
+					assert.Equal(t, wantExpr.Negated, expr.Negated)
 					gotVal := "<nil>"
 					if expr.Value != nil {
 						gotVal = *expr.Value
@@ -144,9 +135,7 @@ func TestParseExtensionFilter(t *testing.T) {
 					if wantExpr.Value != nil {
 						wantVal = *wantExpr.Value
 					}
-					if gotVal != wantVal {
-						t.Errorf("group[%d][%d].Value: got %q, want %q", i, j, gotVal, wantVal)
-					}
+					assert.Equal(t, wantVal, gotVal)
 				}
 			}
 		})
@@ -249,13 +238,9 @@ func TestExtensionFilter_Match(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f, err := ParseExtensionFilter(tt.filter)
-			if err != nil {
-				t.Fatalf("parse error: %v", err)
-			}
+			require.NoError(t, err)
 			got := f.Match(tt.extensions)
-			if got != tt.want {
-				t.Errorf("Match(%v) = %v, want %v", tt.extensions, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -285,9 +270,7 @@ func TestFormatExtensions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FormatExtensions(tt.extra)
-			if got != tt.want {
-				t.Errorf("FormatExtensions() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

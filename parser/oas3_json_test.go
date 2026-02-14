@@ -2,8 +2,10 @@ package parser
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOAS3DocumentMarshalJSON(t *testing.T) {
@@ -23,15 +25,9 @@ func TestOAS3DocumentMarshalJSON(t *testing.T) {
 				Paths: map[string]*PathItem{},
 			},
 			validate: func(t *testing.T, result string) {
-				if strings.Contains(result, "extra") {
-					t.Error("Should not include extra field when empty")
-				}
-				if !strings.Contains(result, `"openapi":"3.0.3"`) {
-					t.Error("Should include openapi field")
-				}
-				if !strings.Contains(result, `"info"`) {
-					t.Error("Should include info field")
-				}
+				assert.NotContains(t, result, "extra")
+				assert.Contains(t, result, `"openapi":"3.0.3"`)
+				assert.Contains(t, result, `"info"`)
 			},
 		},
 		{
@@ -82,9 +78,7 @@ func TestOAS3DocumentMarshalJSON(t *testing.T) {
 					`"jsonSchemaDialect"`,
 				}
 				for _, field := range expectedFields {
-					if !strings.Contains(result, field) {
-						t.Errorf("Expected field missing: %s", field)
-					}
+					assert.Contains(t, result, field)
 				}
 			},
 		},
@@ -107,9 +101,7 @@ func TestOAS3DocumentMarshalJSON(t *testing.T) {
 					`"x-extension"`,
 				}
 				for _, ext := range expectedExtensions {
-					if !strings.Contains(result, ext) {
-						t.Errorf("Expected extension missing: %s", ext)
-					}
+					assert.Contains(t, result, ext)
 				}
 			},
 		},
@@ -130,9 +122,7 @@ func TestOAS3DocumentMarshalJSON(t *testing.T) {
 				omittedFields := []string{"servers", "webhooks", "security", "tags", "jsonSchemaDialect"}
 				for _, field := range omittedFields {
 					fieldPattern := `"` + field + `":`
-					if strings.Contains(result, fieldPattern) {
-						t.Errorf("Empty field should be omitted: %s", field)
-					}
+					assert.NotContains(t, result, fieldPattern)
 				}
 			},
 		},
@@ -150,12 +140,8 @@ func TestOAS3DocumentMarshalJSON(t *testing.T) {
 				JSONSchemaDialect: "https://json-schema.org/draft/2020-12/schema",
 			},
 			validate: func(t *testing.T, result string) {
-				if !strings.Contains(result, `"webhooks"`) {
-					t.Error("OAS 3.1 webhooks field missing")
-				}
-				if !strings.Contains(result, `"jsonSchemaDialect"`) {
-					t.Error("OAS 3.1 jsonSchemaDialect field missing")
-				}
+				assert.Contains(t, result, `"webhooks"`)
+				assert.Contains(t, result, `"jsonSchemaDialect"`)
 			},
 		},
 	}
@@ -163,8 +149,8 @@ func TestOAS3DocumentMarshalJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := json.Marshal(tt.doc)
+			assert.NoError(t, err)
 			if err != nil {
-				t.Errorf("OAS3Document.MarshalJSON() error = %v", err)
 				return
 			}
 
@@ -174,9 +160,7 @@ func TestOAS3DocumentMarshalJSON(t *testing.T) {
 
 			// Verify it's valid JSON
 			var check map[string]any
-			if err := json.Unmarshal(got, &check); err != nil {
-				t.Errorf("Marshaled JSON is not valid: %v", err)
-			}
+			assert.NoError(t, json.Unmarshal(got, &check), "Marshaled JSON is not valid")
 		})
 	}
 }
@@ -196,15 +180,10 @@ func TestOAS3DocumentUnmarshalJSON(t *testing.T) {
 				"paths": {}
 			}`,
 			validate: func(t *testing.T, doc *OAS3Document) {
-				if doc.OpenAPI != "3.0.3" {
-					t.Errorf("Expected openapi 3.0.3, got %s", doc.OpenAPI)
-				}
-				if doc.Info == nil || doc.Info.Title != "Test" {
-					t.Error("Info not unmarshaled correctly")
-				}
-				if len(doc.Extra) > 0 {
-					t.Error("Should not have Extra fields")
-				}
+				assert.Equal(t, "3.0.3", doc.OpenAPI)
+				require.NotNil(t, doc.Info)
+				assert.Equal(t, "Test", doc.Info.Title)
+				assert.Empty(t, doc.Extra)
 			},
 		},
 		{
@@ -218,15 +197,9 @@ func TestOAS3DocumentUnmarshalJSON(t *testing.T) {
 				"x-nested": {"field": "value"}
 			}`,
 			validate: func(t *testing.T, doc *OAS3Document) {
-				if doc.Extra == nil {
-					t.Fatal("Extra should not be nil")
-				}
-				if len(doc.Extra) != 3 {
-					t.Errorf("Expected 3 extra fields, got %d", len(doc.Extra))
-				}
-				if doc.Extra["x-custom"] != "value" {
-					t.Error("x-custom not captured correctly")
-				}
+				require.NotNil(t, doc.Extra)
+				require.Len(t, doc.Extra, 3)
+				assert.Equal(t, "value", doc.Extra["x-custom"])
 			},
 		},
 		{
@@ -242,24 +215,13 @@ func TestOAS3DocumentUnmarshalJSON(t *testing.T) {
 				"externalDocs": {"url": "https://example.com"}
 			}`,
 			validate: func(t *testing.T, doc *OAS3Document) {
-				if len(doc.Servers) != 1 {
-					t.Error("Servers not unmarshaled correctly")
-				}
-				if len(doc.Paths) != 1 {
-					t.Error("Paths not unmarshaled correctly")
-				}
-				if doc.Components == nil || len(doc.Components.Schemas) != 1 {
-					t.Error("Components not unmarshaled correctly")
-				}
-				if len(doc.Security) != 1 {
-					t.Error("Security not unmarshaled correctly")
-				}
-				if len(doc.Tags) != 1 {
-					t.Error("Tags not unmarshaled correctly")
-				}
-				if doc.ExternalDocs == nil {
-					t.Error("ExternalDocs not unmarshaled correctly")
-				}
+				assert.Len(t, doc.Servers, 1)
+				assert.Len(t, doc.Paths, 1)
+				require.NotNil(t, doc.Components)
+				assert.Len(t, doc.Components.Schemas, 1)
+				assert.Len(t, doc.Security, 1)
+				assert.Len(t, doc.Tags, 1)
+				assert.NotNil(t, doc.ExternalDocs)
 			},
 		},
 		{
@@ -272,15 +234,9 @@ func TestOAS3DocumentUnmarshalJSON(t *testing.T) {
 				"jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema"
 			}`,
 			validate: func(t *testing.T, doc *OAS3Document) {
-				if doc.OpenAPI != "3.1.0" {
-					t.Errorf("Expected openapi 3.1.0, got %s", doc.OpenAPI)
-				}
-				if len(doc.Webhooks) != 1 {
-					t.Error("Webhooks not unmarshaled correctly")
-				}
-				if doc.JSONSchemaDialect != "https://json-schema.org/draft/2020-12/schema" {
-					t.Error("JSONSchemaDialect not unmarshaled correctly")
-				}
+				assert.Equal(t, "3.1.0", doc.OpenAPI)
+				assert.Len(t, doc.Webhooks, 1)
+				assert.Equal(t, "https://json-schema.org/draft/2020-12/schema", doc.JSONSchemaDialect)
 			},
 		},
 		{
@@ -292,9 +248,7 @@ func TestOAS3DocumentUnmarshalJSON(t *testing.T) {
 				"unknownField": "should be ignored"
 			}`,
 			validate: func(t *testing.T, doc *OAS3Document) {
-				if len(doc.Extra) > 0 {
-					t.Errorf("Non x- fields should not be in Extra, got: %v", doc.Extra)
-				}
+				assert.Empty(t, doc.Extra)
 			},
 		},
 		{
@@ -366,35 +320,21 @@ func TestOAS3DocumentMarshalUnmarshalRoundtrip(t *testing.T) {
 
 	// Marshal to JSON
 	data, err := json.Marshal(original)
-	if err != nil {
-		t.Fatalf("Failed to marshal: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Unmarshal back
 	var restored OAS3Document
-	if err := json.Unmarshal(data, &restored); err != nil {
-		t.Fatalf("Failed to unmarshal: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(data, &restored))
 
 	// Verify key fields
-	if restored.OpenAPI != original.OpenAPI {
-		t.Errorf("OpenAPI mismatch: got %s, want %s", restored.OpenAPI, original.OpenAPI)
-	}
-	if len(restored.Servers) != len(original.Servers) {
-		t.Errorf("Servers length mismatch: got %d, want %d", len(restored.Servers), len(original.Servers))
-	}
-	if len(restored.Paths) != len(original.Paths) {
-		t.Errorf("Paths length mismatch: got %d, want %d", len(restored.Paths), len(original.Paths))
-	}
-	if len(restored.Extra) != len(original.Extra) {
-		t.Errorf("Extra length mismatch: got %d, want %d", len(restored.Extra), len(original.Extra))
-	}
+	assert.Equal(t, original.OpenAPI, restored.OpenAPI)
+	assert.Equal(t, len(original.Servers), len(restored.Servers))
+	assert.Equal(t, len(original.Paths), len(restored.Paths))
+	assert.Equal(t, len(original.Extra), len(restored.Extra))
 
 	// Verify extensions
 	for k, v := range original.Extra {
-		if restored.Extra[k] != v {
-			t.Errorf("Extension %s mismatch: got %v, want %v", k, restored.Extra[k], v)
-		}
+		assert.Equal(t, v, restored.Extra[k], "Extension %s mismatch", k)
 	}
 }
 
@@ -415,12 +355,8 @@ func TestComponentsMarshalJSON(t *testing.T) {
 				},
 			},
 			validate: func(t *testing.T, result string) {
-				if !strings.Contains(result, `"schemas"`) {
-					t.Error("Should include schemas field")
-				}
-				if !strings.Contains(result, `"responses"`) {
-					t.Error("Should include responses field")
-				}
+				assert.Contains(t, result, `"schemas"`)
+				assert.Contains(t, result, `"responses"`)
 			},
 		},
 		{
@@ -434,9 +370,7 @@ func TestComponentsMarshalJSON(t *testing.T) {
 				},
 			},
 			validate: func(t *testing.T, result string) {
-				if !strings.Contains(result, `"x-custom":"value"`) {
-					t.Error("Extra field should be included")
-				}
+				assert.Contains(t, result, `"x-custom":"value"`)
 			},
 		},
 		{
@@ -444,9 +378,7 @@ func TestComponentsMarshalJSON(t *testing.T) {
 			comp: &Components{},
 			validate: func(t *testing.T, result string) {
 				// Should produce valid empty object
-				if result != "{}" {
-					t.Errorf("Empty components should marshal to {}, got %s", result)
-				}
+				assert.Equal(t, "{}", result)
 			},
 		},
 	}
@@ -454,8 +386,8 @@ func TestComponentsMarshalJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := json.Marshal(tt.comp)
+			assert.NoError(t, err)
 			if err != nil {
-				t.Errorf("Components.MarshalJSON() error = %v", err)
 				return
 			}
 
@@ -480,12 +412,8 @@ func TestComponentsUnmarshalJSON(t *testing.T) {
 				"responses": {"NotFound": {"description": "Not found"}}
 			}`,
 			validate: func(t *testing.T, comp *Components) {
-				if len(comp.Schemas) != 1 {
-					t.Error("Schemas not unmarshaled correctly")
-				}
-				if len(comp.Responses) != 1 {
-					t.Error("Responses not unmarshaled correctly")
-				}
+				assert.Len(t, comp.Schemas, 1)
+				assert.Len(t, comp.Responses, 1)
 			},
 		},
 		{
@@ -495,12 +423,8 @@ func TestComponentsUnmarshalJSON(t *testing.T) {
 				"x-custom": "value"
 			}`,
 			validate: func(t *testing.T, comp *Components) {
-				if comp.Extra == nil || len(comp.Extra) != 1 {
-					t.Error("Extensions not captured correctly")
-				}
-				if comp.Extra["x-custom"] != "value" {
-					t.Error("x-custom not captured correctly")
-				}
+				require.Len(t, comp.Extra, 1)
+				assert.Equal(t, "value", comp.Extra["x-custom"])
 			},
 		},
 		{

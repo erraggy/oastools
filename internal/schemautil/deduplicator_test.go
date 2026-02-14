@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // alwaysEqual is a compare function that always returns true
@@ -34,16 +36,10 @@ func TestSchemaDeduplicator_Deduplicate_Empty(t *testing.T) {
 	deduper := NewSchemaDeduplicator(DefaultDeduplicationConfig(), alwaysEqual)
 
 	result, err := deduper.Deduplicate(map[string]*parser.Schema{})
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(result.CanonicalSchemas) != 0 {
-		t.Errorf("Expected 0 canonical schemas, got %d", len(result.CanonicalSchemas))
-	}
-	if result.RemovedCount != 0 {
-		t.Errorf("Expected 0 removed, got %d", result.RemovedCount)
-	}
+	assert.Empty(t, result.CanonicalSchemas)
+	assert.Equal(t, 0, result.RemovedCount)
 }
 
 func TestSchemaDeduplicator_Deduplicate_Single(t *testing.T) {
@@ -54,19 +50,11 @@ func TestSchemaDeduplicator_Deduplicate_Single(t *testing.T) {
 	}
 
 	result, err := deduper.Deduplicate(schemas)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(result.CanonicalSchemas) != 1 {
-		t.Errorf("Expected 1 canonical schema, got %d", len(result.CanonicalSchemas))
-	}
-	if _, ok := result.CanonicalSchemas["User"]; !ok {
-		t.Error("Expected User to be canonical")
-	}
-	if result.RemovedCount != 0 {
-		t.Errorf("Expected 0 removed, got %d", result.RemovedCount)
-	}
+	assert.Len(t, result.CanonicalSchemas, 1)
+	assert.Contains(t, result.CanonicalSchemas, "User")
+	assert.Equal(t, 0, result.RemovedCount)
 }
 
 func TestSchemaDeduplicator_Deduplicate_Duplicates(t *testing.T) {
@@ -79,32 +67,18 @@ func TestSchemaDeduplicator_Deduplicate_Duplicates(t *testing.T) {
 	}
 
 	result, err := deduper.Deduplicate(schemas)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have 1 canonical schema (alphabetically first: Address)
-	if len(result.CanonicalSchemas) != 1 {
-		t.Errorf("Expected 1 canonical schema, got %d", len(result.CanonicalSchemas))
-	}
-	if _, ok := result.CanonicalSchemas["Address"]; !ok {
-		t.Error("Expected Address to be canonical (alphabetically first)")
-	}
+	assert.Len(t, result.CanonicalSchemas, 1)
+	assert.Contains(t, result.CanonicalSchemas, "Address")
 
 	// Should have 2 aliases
-	if len(result.Aliases) != 2 {
-		t.Errorf("Expected 2 aliases, got %d", len(result.Aliases))
-	}
-	if result.Aliases["Location"] != "Address" {
-		t.Errorf("Expected Location -> Address, got %s", result.Aliases["Location"])
-	}
-	if result.Aliases["User"] != "Address" {
-		t.Errorf("Expected User -> Address, got %s", result.Aliases["User"])
-	}
+	assert.Len(t, result.Aliases, 2)
+	assert.Equal(t, "Address", result.Aliases["Location"])
+	assert.Equal(t, "Address", result.Aliases["User"])
 
-	if result.RemovedCount != 2 {
-		t.Errorf("Expected 2 removed, got %d", result.RemovedCount)
-	}
+	assert.Equal(t, 2, result.RemovedCount)
 }
 
 func TestSchemaDeduplicator_Deduplicate_NoDuplicates(t *testing.T) {
@@ -117,19 +91,11 @@ func TestSchemaDeduplicator_Deduplicate_NoDuplicates(t *testing.T) {
 	}
 
 	result, err := deduper.Deduplicate(schemas)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(result.CanonicalSchemas) != 3 {
-		t.Errorf("Expected 3 canonical schemas, got %d", len(result.CanonicalSchemas))
-	}
-	if len(result.Aliases) != 0 {
-		t.Errorf("Expected 0 aliases, got %d", len(result.Aliases))
-	}
-	if result.RemovedCount != 0 {
-		t.Errorf("Expected 0 removed, got %d", result.RemovedCount)
-	}
+	assert.Len(t, result.CanonicalSchemas, 3)
+	assert.Empty(t, result.Aliases)
+	assert.Equal(t, 0, result.RemovedCount)
 }
 
 func TestSchemaDeduplicator_Deduplicate_MultipleGroups(t *testing.T) {
@@ -147,37 +113,21 @@ func TestSchemaDeduplicator_Deduplicate_MultipleGroups(t *testing.T) {
 	}
 
 	result, err := deduper.Deduplicate(schemas)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have 3 canonical schemas
-	if len(result.CanonicalSchemas) != 3 {
-		t.Errorf("Expected 3 canonical schemas, got %d", len(result.CanonicalSchemas))
-	}
+	assert.Len(t, result.CanonicalSchemas, 3)
 
 	// Check canonical names (alphabetically first in each group)
-	if _, ok := result.CanonicalSchemas["Address"]; !ok {
-		t.Error("Expected Address to be canonical")
-	}
-	if _, ok := result.CanonicalSchemas["Name"]; !ok {
-		t.Error("Expected Name to be canonical")
-	}
-	if _, ok := result.CanonicalSchemas["Age"]; !ok {
-		t.Error("Expected Age to be canonical")
-	}
+	assert.Contains(t, result.CanonicalSchemas, "Address")
+	assert.Contains(t, result.CanonicalSchemas, "Name")
+	assert.Contains(t, result.CanonicalSchemas, "Age")
 
 	// Check aliases
-	if result.Aliases["Location"] != "Address" {
-		t.Errorf("Expected Location -> Address, got %s", result.Aliases["Location"])
-	}
-	if result.Aliases["Title"] != "Name" {
-		t.Errorf("Expected Title -> Name, got %s", result.Aliases["Title"])
-	}
+	assert.Equal(t, "Address", result.Aliases["Location"])
+	assert.Equal(t, "Name", result.Aliases["Title"])
 
-	if result.RemovedCount != 2 {
-		t.Errorf("Expected 2 removed, got %d", result.RemovedCount)
-	}
+	assert.Equal(t, 2, result.RemovedCount)
 }
 
 func TestSchemaDeduplicator_Deduplicate_AlphabeticCanonical(t *testing.T) {
@@ -191,23 +141,15 @@ func TestSchemaDeduplicator_Deduplicate_AlphabeticCanonical(t *testing.T) {
 	}
 
 	result, err := deduper.Deduplicate(schemas)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Apple should be canonical (alphabetically first)
-	if len(result.CanonicalSchemas) != 1 {
-		t.Errorf("Expected 1 canonical schema, got %d", len(result.CanonicalSchemas))
-	}
-	if _, ok := result.CanonicalSchemas["Apple"]; !ok {
-		t.Error("Expected Apple to be canonical (alphabetically first)")
-	}
+	assert.Len(t, result.CanonicalSchemas, 1)
+	assert.Contains(t, result.CanonicalSchemas, "Apple")
 
 	// All others should be aliases to Apple
 	for _, name := range []string{"Banana", "Mango", "Zebra"} {
-		if result.Aliases[name] != "Apple" {
-			t.Errorf("Expected %s -> Apple, got %s", name, result.Aliases[name])
-		}
+		assert.Equal(t, "Apple", result.Aliases[name])
 	}
 }
 
@@ -221,14 +163,10 @@ func TestSchemaDeduplicator_Deduplicate_NilCompareFunc(t *testing.T) {
 	}
 
 	result, err := deduper.Deduplicate(schemas)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should deduplicate based on hash alone
-	if len(result.CanonicalSchemas) != 1 {
-		t.Errorf("Expected 1 canonical schema, got %d", len(result.CanonicalSchemas))
-	}
+	assert.Len(t, result.CanonicalSchemas, 1)
 }
 
 func TestSchemaDeduplicator_Deduplicate_HashCollision(t *testing.T) {
@@ -241,17 +179,11 @@ func TestSchemaDeduplicator_Deduplicate_HashCollision(t *testing.T) {
 	}
 
 	result, err := deduper.Deduplicate(schemas)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should not deduplicate because compare returns false
-	if len(result.CanonicalSchemas) != 2 {
-		t.Errorf("Expected 2 canonical schemas (no dedup due to compare), got %d", len(result.CanonicalSchemas))
-	}
-	if len(result.Aliases) != 0 {
-		t.Errorf("Expected 0 aliases, got %d", len(result.Aliases))
-	}
+	assert.Len(t, result.CanonicalSchemas, 2)
+	assert.Empty(t, result.Aliases)
 }
 
 func TestDeduplicationResult_CanonicalName(t *testing.T) {
@@ -279,9 +211,7 @@ func TestDeduplicationResult_CanonicalName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := result.CanonicalName(tt.input)
-			if got != tt.expected {
-				t.Errorf("CanonicalName(%s) = %s, want %s", tt.input, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -296,15 +226,9 @@ func TestDeduplicationResult_IsAlias(t *testing.T) {
 		},
 	}
 
-	if !result.IsAlias("Location") {
-		t.Error("Location should be an alias")
-	}
-	if result.IsAlias("Address") {
-		t.Error("Address should not be an alias")
-	}
-	if result.IsAlias("Unknown") {
-		t.Error("Unknown should not be an alias")
-	}
+	assert.True(t, result.IsAlias("Location"))
+	assert.False(t, result.IsAlias("Address"))
+	assert.False(t, result.IsAlias("Unknown"))
 }
 
 func TestDeduplicationResult_IsCanonical(t *testing.T) {
@@ -317,15 +241,9 @@ func TestDeduplicationResult_IsCanonical(t *testing.T) {
 		},
 	}
 
-	if !result.IsCanonical("Address") {
-		t.Error("Address should be canonical")
-	}
-	if result.IsCanonical("Location") {
-		t.Error("Location should not be canonical")
-	}
-	if result.IsCanonical("Unknown") {
-		t.Error("Unknown should not be canonical")
-	}
+	assert.True(t, result.IsCanonical("Address"))
+	assert.False(t, result.IsCanonical("Location"))
+	assert.False(t, result.IsCanonical("Unknown"))
 }
 
 func TestDeduplicationResult_EquivalenceGroups(t *testing.T) {
@@ -338,22 +256,14 @@ func TestDeduplicationResult_EquivalenceGroups(t *testing.T) {
 	}
 
 	result, err := deduper.Deduplicate(schemas)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Check equivalence groups
 	group, ok := result.EquivalenceGroups["Address"]
-	if !ok {
-		t.Fatal("Expected Address in equivalence groups")
-	}
+	require.True(t, ok, "Expected Address in equivalence groups")
 
-	if len(group) != 3 {
-		t.Errorf("Expected 3 members in group, got %d", len(group))
-	}
+	require.Len(t, group, 3)
 
 	// First should be canonical (Address, alphabetically first)
-	if group[0] != "Address" {
-		t.Errorf("Expected Address as first (canonical), got %s", group[0])
-	}
+	assert.Equal(t, "Address", group[0])
 }

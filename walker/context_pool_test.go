@@ -4,6 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -76,14 +79,10 @@ func TestContextPool_FieldsCleared(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("first walk failed: %v", err)
-	}
+	require.NoError(t, err, "first walk failed")
 
 	// Verify we captured some contexts
-	if len(firstWalkContexts) == 0 {
-		t.Fatal("no contexts captured from first walk")
-	}
+	require.NotEmpty(t, firstWalkContexts, "no contexts captured from first walk")
 
 	// Second walk - verify the contexts have correct values (not leaked from first walk)
 	// Use a simple document that should have different context values
@@ -118,31 +117,19 @@ func TestContextPool_FieldsCleared(t *testing.T) {
 			return Continue
 		}),
 	)
-	if err != nil {
-		t.Fatalf("second walk failed: %v", err)
-	}
+	require.NoError(t, err, "second walk failed")
 
 	// Verify second walk has correct values
-	if len(secondWalkContexts) == 0 {
-		t.Fatal("no contexts captured from second walk")
-	}
+	require.NotEmpty(t, secondWalkContexts, "no contexts captured from second walk")
 
 	for _, ctx := range secondWalkContexts {
 		// Should have /other path, not /test from first walk
-		if ctx.PathTemplate == "/test" {
-			t.Error("context leaked /test PathTemplate from first walk")
-		}
+		assert.NotEqual(t, "/test", ctx.PathTemplate, "context leaked /test PathTemplate from first walk")
 		// Should have post method, not get from first walk
-		if ctx.Method == "get" {
-			t.Error("context leaked 'get' Method from first walk")
-		}
+		assert.NotEqual(t, "get", ctx.Method, "context leaked 'get' Method from first walk")
 		// Verify expected values
-		if ctx.PathTemplate != "/other" {
-			t.Errorf("expected PathTemplate /other, got %s", ctx.PathTemplate)
-		}
-		if ctx.Method != "post" {
-			t.Errorf("expected Method post, got %s", ctx.Method)
-		}
+		assert.Equal(t, "/other", ctx.PathTemplate)
+		assert.Equal(t, "post", ctx.Method)
 	}
 }
 
@@ -178,22 +165,16 @@ func TestContextPool_NoDataLeakageBetweenWalks(t *testing.T) {
 				return Continue
 			}),
 		)
-		if err != nil {
-			t.Fatalf("iteration %d: walk failed: %v", i, err)
-		}
+		require.NoError(t, err, "iteration %d: walk failed", i)
 
 		// Verify the captured names are correct for this walk
 		// Root schema should have name "Schema", nested prop should have name "prop"
 		expectedNames := []string{"Schema", "prop"}
-		if len(capturedNames) != len(expectedNames) {
-			t.Fatalf("iteration %d: expected %d names, got %d: %v",
-				i, len(expectedNames), len(capturedNames), capturedNames)
-		}
+		require.Len(t, capturedNames, len(expectedNames),
+			"iteration %d: name count mismatch: %v", i, capturedNames)
 		for j, name := range capturedNames {
-			if name != expectedNames[j] {
-				t.Errorf("iteration %d: name[%d] = %q, want %q",
-					i, j, name, expectedNames[j])
-			}
+			assert.Equal(t, expectedNames[j], name,
+				"iteration %d: name[%d]", i, j)
 		}
 	}
 }
@@ -243,9 +224,7 @@ func TestContextPool_ConcurrentWalks(t *testing.T) {
 						return Continue
 					}),
 				)
-				if err != nil {
-					t.Errorf("concurrent walk failed: %v", err)
-				}
+				assert.NoError(t, err, "concurrent walk failed")
 			}
 			done <- true
 		}()
@@ -325,25 +304,15 @@ func TestWalkContext_WithContext(t *testing.T) {
 	wc2 := wc.WithContext(ctx)
 
 	// Should be a different instance
-	if wc == wc2 {
-		t.Error("WithContext should return a new instance")
-	}
+	assert.NotSame(t, wc, wc2, "WithContext should return a new instance")
 
 	// Should copy all fields
-	if wc.JSONPath != wc2.JSONPath {
-		t.Errorf("JSONPath mismatch: got %s, want %s", wc2.JSONPath, wc.JSONPath)
-	}
-	if wc.PathTemplate != wc2.PathTemplate {
-		t.Errorf("PathTemplate mismatch: got %s, want %s", wc2.PathTemplate, wc.PathTemplate)
-	}
+	assert.Equal(t, wc.JSONPath, wc2.JSONPath, "JSONPath mismatch")
+	assert.Equal(t, wc.PathTemplate, wc2.PathTemplate, "PathTemplate mismatch")
 
 	// Should have new context
-	if wc2.Context() != ctx {
-		t.Error("new WalkContext should have the provided context")
-	}
-	if wc2.Context().Value(ctxKey("testKey")) != "testValue" {
-		t.Error("context value not preserved")
-	}
+	assert.Equal(t, ctx, wc2.Context(), "new WalkContext should have the provided context")
+	assert.Equal(t, "testValue", wc2.Context().Value(ctxKey("testKey")), "context value not preserved")
 }
 
 // TestWithContext_Propagation verifies that WithContext option propagates
@@ -375,12 +344,8 @@ func TestWithContext_Propagation(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-	if receivedCtx != ctx {
-		t.Error("handler did not receive the provided context")
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.Equal(t, ctx, receivedCtx, "handler did not receive the provided context")
 }
 
 // TestWithContext_Cancellation verifies cancelled context is accessible in handlers.
@@ -411,12 +376,8 @@ func TestWithContext_Cancellation(t *testing.T) {
 		}),
 	)
 
-	if err != nil {
-		t.Fatalf("Walk failed: %v", err)
-	}
-	if ctxErr != context.Canceled {
-		t.Errorf("expected context.Canceled, got %v", ctxErr)
-	}
+	require.NoError(t, err, "Walk failed")
+	assert.Equal(t, context.Canceled, ctxErr)
 }
 
 // TestWalkContext_Context_NilReturnsBackground verifies Context() returns
@@ -425,10 +386,6 @@ func TestWalkContext_Context_NilReturnsBackground(t *testing.T) {
 	wc := &WalkContext{JSONPath: "$.test"}
 
 	ctx := wc.Context()
-	if ctx == nil {
-		t.Error("Context() should not return nil")
-	}
-	if ctx != context.Background() {
-		t.Error("Context() should return context.Background() when no context is set")
-	}
+	require.NotNil(t, ctx, "Context() should not return nil")
+	assert.Equal(t, context.Background(), ctx, "Context() should return context.Background() when no context is set")
 }

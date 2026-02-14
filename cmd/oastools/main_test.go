@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestSuggestCommand(t *testing.T) {
 	tests := []struct {
@@ -33,9 +37,7 @@ func TestSuggestCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			got := suggestCommand(tt.input)
-			if got != tt.expected {
-				t.Errorf("suggestCommand(%q) = %q, want %q", tt.input, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

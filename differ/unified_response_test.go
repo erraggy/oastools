@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestDiffResponseLinksUnified tests response links comparison
@@ -118,13 +120,7 @@ func TestDiffResponseLinksUnified(t *testing.T) {
 
 			d.diffResponseLinksUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s (type: %v)", c.Path, c.Message, c.Type)
-				}
-				return
-			}
+			require.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 
 			// Check specific added change
 			if tt.checkAdded != "" {
@@ -135,9 +131,7 @@ func TestDiffResponseLinksUnified(t *testing.T) {
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected added change at path %s not found", tt.checkAdded)
-				}
+				assert.True(t, found, "Expected added change at path %s not found", tt.checkAdded)
 			}
 
 			// Check specific removed change
@@ -149,9 +143,7 @@ func TestDiffResponseLinksUnified(t *testing.T) {
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected removed change at path %s not found", tt.checkRemoved)
-				}
+				assert.True(t, found, "Expected removed change at path %s not found", tt.checkRemoved)
 			}
 		})
 	}
@@ -227,13 +219,7 @@ func TestDiffResponseExamplesUnified(t *testing.T) {
 
 			d.diffResponseExamplesUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s (type: %v)", c.Path, c.Message, c.Type)
-				}
-				return
-			}
+			require.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 
 			// Check specific added change
 			if tt.checkAdded != "" {
@@ -244,9 +230,7 @@ func TestDiffResponseExamplesUnified(t *testing.T) {
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected added change at path %s not found", tt.checkAdded)
-				}
+				assert.True(t, found, "Expected added change at path %s not found", tt.checkAdded)
 			}
 
 			// Check specific removed change
@@ -258,9 +242,7 @@ func TestDiffResponseExamplesUnified(t *testing.T) {
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected removed change at path %s not found", tt.checkRemoved)
-				}
+				assert.True(t, found, "Expected removed change at path %s not found", tt.checkRemoved)
 			}
 		})
 	}
@@ -344,12 +326,7 @@ func TestDiffMediaTypeUnified(t *testing.T) {
 
 			d.diffMediaTypeUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s", c.Path, c.Message)
-				}
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 
 			if tt.checkPath != "" && tt.expectedCount > 0 {
 				found := false
@@ -359,9 +336,7 @@ func TestDiffMediaTypeUnified(t *testing.T) {
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected change at path %s not found", tt.checkPath)
-				}
+				assert.True(t, found, "Expected change at path %s not found", tt.checkPath)
 			}
 		})
 	}
@@ -422,12 +397,7 @@ func TestDiffResponseContentUnified(t *testing.T) {
 
 			d.diffResponseContentUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s", c.Path, c.Message)
-				}
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 		})
 	}
 }
@@ -487,12 +457,7 @@ func TestDiffResponseHeadersUnified(t *testing.T) {
 
 			d.diffResponseHeadersUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s", c.Path, c.Message)
-				}
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 		})
 	}
 }
@@ -589,13 +554,7 @@ func TestDiffHeaderUnified(t *testing.T) {
 
 			d.diffHeaderUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s", c.Path, c.Message)
-				}
-				return
-			}
+			require.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 
 			if tt.checkPath != "" && tt.expectedCount > 0 {
 				found := false
@@ -605,9 +564,7 @@ func TestDiffHeaderUnified(t *testing.T) {
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected change at path %s not found", tt.checkPath)
-				}
+				assert.True(t, found, "Expected change at path %s not found", tt.checkPath)
 			}
 		})
 	}
@@ -706,12 +663,7 @@ func TestDiffResponsesUnified(t *testing.T) {
 
 			d.diffResponsesUnified(tt.source, tt.target, "test.responses", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s (severity: %v)", c.Path, c.Message, c.Severity)
-				}
-			}
+			assert.Len(t, result.Changes, tt.expectedCount)
 		})
 	}
 }
@@ -785,13 +737,7 @@ func TestDiffLinkUnified(t *testing.T) {
 
 			d.diffLinkUnified(tt.source, tt.target, "test", result)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s", c.Path, c.Message)
-				}
-				return
-			}
+			require.Len(t, result.Changes, tt.expectedCount)
 
 			if tt.checkPath != "" && tt.expectedCount > 0 {
 				found := false
@@ -801,9 +747,7 @@ func TestDiffLinkUnified(t *testing.T) {
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected change at path %s not found", tt.checkPath)
-				}
+				assert.True(t, found, "Expected change at path %s not found", tt.checkPath)
 			}
 		})
 	}

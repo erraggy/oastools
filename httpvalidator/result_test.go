@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // =============================================================================
@@ -85,7 +86,7 @@ func TestRequestValidationResult_AddError(t *testing.T) {
 		result.addError("path.userId", "user ID must be an integer", SeverityError)
 
 		assert.False(t, result.Valid, "result should be invalid after adding error")
-		assert.Len(t, result.Errors, 1, "should have one error")
+		require.Len(t, result.Errors, 1, "should have one error")
 		assert.Equal(t, "path.userId", result.Errors[0].Path)
 		assert.Equal(t, "user ID must be an integer", result.Errors[0].Message)
 		assert.Equal(t, SeverityError, result.Errors[0].Severity)
@@ -106,6 +107,7 @@ func TestRequestValidationResult_AddError(t *testing.T) {
 		result.addError("path", "critical error", SeverityCritical)
 		result.addError("query", "info", SeverityInfo)
 
+		require.Len(t, result.Errors, 2)
 		assert.Equal(t, SeverityCritical, result.Errors[0].Severity)
 		assert.Equal(t, SeverityInfo, result.Errors[1].Severity)
 	})
@@ -121,7 +123,7 @@ func TestRequestValidationResult_AddWarning(t *testing.T) {
 		result.addWarning("requestBody", "optional field missing")
 
 		assert.True(t, result.Valid, "warnings should not mark result invalid")
-		assert.Len(t, result.Warnings, 1)
+		require.Len(t, result.Warnings, 1)
 		assert.Equal(t, "requestBody", result.Warnings[0].Path)
 		assert.Equal(t, "optional field missing", result.Warnings[0].Message)
 		assert.Equal(t, SeverityWarning, result.Warnings[0].Severity)
@@ -148,7 +150,7 @@ func TestResponseValidationResult_AddError(t *testing.T) {
 		result.addError("response.body", "invalid JSON", SeverityError)
 
 		assert.False(t, result.Valid, "result should be invalid after adding error")
-		assert.Len(t, result.Errors, 1)
+		require.Len(t, result.Errors, 1)
 		assert.Equal(t, "response.body", result.Errors[0].Path)
 		assert.Equal(t, "invalid JSON", result.Errors[0].Message)
 		assert.Equal(t, SeverityError, result.Errors[0].Severity)
@@ -174,7 +176,7 @@ func TestResponseValidationResult_AddWarning(t *testing.T) {
 		result.addWarning("response.body", "schema not defined for content type")
 
 		assert.True(t, result.Valid, "warnings should not mark result invalid")
-		assert.Len(t, result.Warnings, 1)
+		require.Len(t, result.Warnings, 1)
 		assert.Equal(t, "response.body", result.Warnings[0].Path)
 		assert.Equal(t, "schema not defined for content type", result.Warnings[0].Message)
 		assert.Equal(t, SeverityWarning, result.Warnings[0].Severity)
@@ -228,7 +230,7 @@ func TestResponseResult_ErrorsAndWarnings(t *testing.T) {
 
 	assert.False(t, result.Valid)
 	assert.Len(t, result.Warnings, 1, "warnings should be preserved")
-	assert.Len(t, result.Errors, 1)
+	require.Len(t, result.Errors, 1)
 	assert.Equal(t, SeverityCritical, result.Errors[0].Severity)
 }
 

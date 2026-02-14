@@ -341,7 +341,7 @@ func TestConvertSecuritySchemes(t *testing.T) {
 				}
 			} else {
 				require.NotNil(t, dst.SecurityDefinitions, "Expected security definitions to be created")
-				assert.Len(t, dst.SecurityDefinitions, tt.wantSchemes, "Expected %d security schemes", tt.wantSchemes)
+				require.Len(t, dst.SecurityDefinitions, tt.wantSchemes, "Expected %d security schemes", tt.wantSchemes)
 
 				if tt.schemeName != "" && tt.expectedType != "" {
 					scheme, exists := dst.SecurityDefinitions[tt.schemeName]
@@ -573,7 +573,7 @@ func TestConvertOAS3PathItemToOAS2_Trace(t *testing.T) {
 
 	assert.NotNil(t, converted)
 	assert.Nil(t, converted.Trace, "TRACE should not be in OAS 2.0")
-	assert.NotEmpty(t, result.Issues, "Expected issue about TRACE method")
+	require.NotEmpty(t, result.Issues, "Expected issue about TRACE method")
 
 	foundTrace := false
 	for _, issue := range result.Issues {
@@ -601,7 +601,7 @@ func TestConvertOAS3PathItemToOAS2_Query(t *testing.T) {
 
 	assert.NotNil(t, converted)
 	assert.Nil(t, converted.Query, "QUERY should not be in OAS 2.0")
-	assert.NotEmpty(t, result.Issues, "Expected issue about QUERY method")
+	require.NotEmpty(t, result.Issues, "Expected issue about QUERY method")
 
 	foundQuery := false
 	for _, issue := range result.Issues {

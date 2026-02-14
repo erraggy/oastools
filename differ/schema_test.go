@@ -6,6 +6,8 @@ import (
 
 	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestDiffSchemaCircularReferences tests that circular references don't cause infinite loops
@@ -32,9 +34,7 @@ func TestDiffSchemaCircularReferences(t *testing.T) {
 	// Should not panic or infinite loop
 	d.diffSchemaRecursiveUnified(schema1, schema2, "test.schema", visited, result)
 
-	if len(result.Changes) > 0 {
-		t.Errorf("Expected no changes for identical circular structures, got %d", len(result.Changes))
-	}
+	assert.Empty(t, result.Changes, "Expected no changes for identical circular structures")
 }
 
 // TestDiffSchemaCircularReferencesTargetOnly tests cycle detection when only target has a cycle
@@ -62,9 +62,7 @@ func TestDiffSchemaCircularReferencesTargetOnly(t *testing.T) {
 	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 	// We expect changes (property added/removed), but no infinite loop
-	if len(result.Changes) == 0 {
-		t.Error("Expected changes for different structures")
-	}
+	assert.NotEmpty(t, result.Changes, "Expected changes for different structures")
 }
 
 // TestDiffSchemaPropertiesRequired tests severity for required vs optional properties
@@ -135,31 +133,23 @@ func TestDiffSchemaPropertiesRequired(t *testing.T) {
 
 			d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
-			if len(result.Changes) == 0 {
-				t.Fatal("Expected changes but got none")
-			}
+			require.NotEmpty(t, result.Changes, "Expected changes but got none")
 
 			// Find the property addition/removal change
 			found := false
 			for _, change := range result.Changes {
 				if tt.removedProp != "" && change.Type == ChangeTypeRemoved && change.Path == "test.schema.properties."+tt.removedProp {
-					if change.Severity != tt.expectedRemoved {
-						t.Errorf("Expected removed property severity %v, got %v", tt.expectedRemoved, change.Severity)
-					}
+					assert.Equal(t, tt.expectedRemoved, change.Severity, "Expected removed property severity %v, got %v", tt.expectedRemoved, change.Severity)
 					found = true
 					break
 				}
 				if tt.addedProp != "" && change.Type == ChangeTypeAdded && change.Path == "test.schema.properties."+tt.addedProp {
-					if change.Severity != tt.expectedAdded {
-						t.Errorf("Expected added property severity %v, got %v", tt.expectedAdded, change.Severity)
-					}
+					assert.Equal(t, tt.expectedAdded, change.Severity, "Expected added property severity %v, got %v", tt.expectedAdded, change.Severity)
 					found = true
 					break
 				}
 			}
-			if !found {
-				t.Error("Did not find expected property change")
-			}
+			assert.True(t, found, "Did not find expected property change")
 		})
 	}
 }
@@ -234,9 +224,7 @@ func TestDiffSchemaItemsTypeChange(t *testing.T) {
 			d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 			hasChanges := len(result.Changes) > 0
-			if hasChanges != tt.expectChanges {
-				t.Errorf("Expected changes=%v, got %d changes", tt.expectChanges, len(result.Changes))
-			}
+			assert.Equal(t, tt.expectChanges, hasChanges, "Expected changes=%v, got %d changes", tt.expectChanges, len(result.Changes))
 		})
 	}
 }
@@ -311,17 +299,11 @@ func TestDiffSchemaAdditionalPropertiesBreaking(t *testing.T) {
 			d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 			hasChanges := len(result.Changes) > 0
-			if hasChanges != tt.expectChanges {
-				t.Errorf("Expected changes=%v, got %d changes", tt.expectChanges, len(result.Changes))
-			}
+			assert.Equal(t, tt.expectChanges, hasChanges, "Expected changes=%v, got %d changes", tt.expectChanges, len(result.Changes))
 
 			if tt.expectChanges && tt.expectedSeverity != Severity(0) {
-				if len(result.Changes) == 0 {
-					t.Fatal("Expected changes but got none")
-				}
-				if result.Changes[0].Severity != tt.expectedSeverity {
-					t.Errorf("Expected severity %v, got %v", tt.expectedSeverity, result.Changes[0].Severity)
-				}
+				require.NotEmpty(t, result.Changes, "Expected changes but got none")
+				assert.Equal(t, tt.expectedSeverity, result.Changes[0].Severity, "Expected severity %v, got %v", tt.expectedSeverity, result.Changes[0].Severity)
 			}
 		})
 	}
@@ -372,24 +354,18 @@ func TestDiffSchemaNestedProperties(t *testing.T) {
 
 	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
-	if len(result.Changes) == 0 {
-		t.Fatal("Expected changes for nested property addition")
-	}
+	require.NotEmpty(t, result.Changes, "Expected changes for nested property addition")
 
 	// Verify the path includes the nested structure
 	foundNestedChange := false
 	for _, change := range result.Changes {
 		if change.Path == "test.schema.properties.user.properties.address.properties.zip" {
 			foundNestedChange = true
-			if change.Type != ChangeTypeAdded {
-				t.Errorf("Expected added change, got %v", change.Type)
-			}
+			assert.Equal(t, ChangeTypeAdded, change.Type, "Expected added change, got %v", change.Type)
 		}
 	}
 
-	if !foundNestedChange {
-		t.Error("Did not find expected nested property change")
-	}
+	assert.True(t, foundNestedChange, "Did not find expected nested property change")
 }
 
 // TestDiffSchemaComplexCircular tests complex circular reference scenarios
@@ -428,9 +404,7 @@ func TestDiffSchemaComplexCircular(t *testing.T) {
 	d.diffSchemaRecursiveUnified(schemaA, targetA, "test.schema", visited, result)
 
 	// Identical circular structures should have no changes
-	if len(result.Changes) > 0 {
-		t.Errorf("Expected no changes for identical circular structures, got %d", len(result.Changes))
-	}
+	assert.Empty(t, result.Changes, "Expected no changes for identical circular structures")
 }
 
 // TestDiffSchemaItemsRecursive tests recursive diffing of Items schemas
@@ -464,9 +438,7 @@ func TestDiffSchemaItemsRecursive(t *testing.T) {
 
 	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
-	if len(result.Changes) == 0 {
-		t.Fatal("Expected changes for items property addition")
-	}
+	require.NotEmpty(t, result.Changes, "Expected changes for items property addition")
 
 	// Verify the path includes items
 	foundItemsChange := false
@@ -476,9 +448,7 @@ func TestDiffSchemaItemsRecursive(t *testing.T) {
 		}
 	}
 
-	if !foundItemsChange {
-		t.Error("Did not find expected items property change")
-	}
+	assert.True(t, foundItemsChange, "Did not find expected items property change")
 }
 
 // TestDiffSchemaAdditionalPropertiesRecursive tests recursive diffing of AdditionalProperties schemas
@@ -509,9 +479,7 @@ func TestDiffSchemaAdditionalPropertiesRecursive(t *testing.T) {
 
 	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
-	if len(result.Changes) == 0 {
-		t.Fatal("Expected changes for additionalProperties schema modification")
-	}
+	require.NotEmpty(t, result.Changes, "Expected changes for additionalProperties schema modification")
 
 	// Verify the path includes additionalProperties
 	foundChange := false
@@ -524,12 +492,7 @@ func TestDiffSchemaAdditionalPropertiesRecursive(t *testing.T) {
 		}
 	}
 
-	if !foundChange {
-		t.Errorf("Did not find expected additionalProperties change. Found %d changes:", len(result.Changes))
-		for _, ch := range result.Changes {
-			t.Logf("  - %s: %s", ch.Path, ch.Message)
-		}
-	}
+	assert.True(t, foundChange, "Did not find expected additionalProperties change. Found %d changes", len(result.Changes))
 }
 
 // TestDiffSchemaUnknownTypesIdentical tests that identical unknown types are skipped
@@ -554,9 +517,7 @@ func TestDiffSchemaUnknownTypesIdentical(t *testing.T) {
 	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 	// Identical unknown types should be skipped, no changes reported
-	if len(result.Changes) > 0 {
-		t.Errorf("Expected no changes for identical unknown types, got %d", len(result.Changes))
-	}
+	assert.Empty(t, result.Changes, "Expected no changes for identical unknown types")
 }
 
 // TestDiffSchemaUnknownTypesDifferent tests that different unknown types are reported
@@ -578,9 +539,7 @@ func TestDiffSchemaUnknownTypesDifferent(t *testing.T) {
 	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 	// Different types should be reported
-	if len(result.Changes) == 0 {
-		t.Fatal("Expected changes for different types")
-	}
+	require.NotEmpty(t, result.Changes, "Expected changes for different types")
 }
 
 // TestDiffSchemaSimpleMode tests that simple mode works without severity
@@ -606,15 +565,11 @@ func TestDiffSchemaSimpleMode(t *testing.T) {
 
 	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
-	if len(result.Changes) == 0 {
-		t.Fatal("Expected changes in simple mode")
-	}
+	require.NotEmpty(t, result.Changes, "Expected changes in simple mode")
 
 	// Simple mode should not have severity
 	for _, change := range result.Changes {
-		if change.Severity != Severity(0) {
-			t.Errorf("Simple mode should not have severity, got %v", change.Severity)
-		}
+		assert.Equal(t, Severity(0), change.Severity, "Simple mode should not have severity, got %v", change.Severity)
 	}
 }
 
@@ -688,15 +643,11 @@ func TestDiffSchemaItemsSimpleMode(t *testing.T) {
 			d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 			hasChanges := len(result.Changes) > 0
-			if hasChanges != tt.expectChanges {
-				t.Errorf("Expected changes=%v, got %d changes", tt.expectChanges, len(result.Changes))
-			}
+			assert.Equal(t, tt.expectChanges, hasChanges, "Expected changes=%v, got %d changes", tt.expectChanges, len(result.Changes))
 
 			// Verify no severity in simple mode
 			for _, change := range result.Changes {
-				if change.Severity != Severity(0) {
-					t.Errorf("Simple mode should not have severity, got %v", change.Severity)
-				}
+				assert.Equal(t, Severity(0), change.Severity, "Simple mode should not have severity, got %v", change.Severity)
 			}
 		})
 	}
@@ -772,15 +723,11 @@ func TestDiffSchemaAdditionalPropertiesSimpleMode(t *testing.T) {
 			d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
 			hasChanges := len(result.Changes) > 0
-			if hasChanges != tt.expectChanges {
-				t.Errorf("Expected changes=%v, got %d changes", tt.expectChanges, len(result.Changes))
-			}
+			assert.Equal(t, tt.expectChanges, hasChanges, "Expected changes=%v, got %d changes", tt.expectChanges, len(result.Changes))
 
 			// Verify no severity in simple mode
 			for _, change := range result.Changes {
-				if change.Severity != Severity(0) {
-					t.Errorf("Simple mode should not have severity, got %v", change.Severity)
-				}
+				assert.Equal(t, Severity(0), change.Severity, "Simple mode should not have severity, got %v", change.Severity)
 			}
 		})
 	}
@@ -812,9 +759,7 @@ func TestDiffSchemaPropertiesSimpleMode(t *testing.T) {
 
 	d.diffSchemaRecursiveUnified(source, target, "test.schema", visited, result)
 
-	if len(result.Changes) == 0 {
-		t.Fatal("Expected changes for property modifications")
-	}
+	require.NotEmpty(t, result.Changes, "Expected changes for property modifications")
 
 	// Verify we have changes for removed, added, and modified properties
 	foundRemoved := false
@@ -823,9 +768,7 @@ func TestDiffSchemaPropertiesSimpleMode(t *testing.T) {
 
 	for _, change := range result.Changes {
 		// Verify no severity in simple mode
-		if change.Severity != Severity(0) {
-			t.Errorf("Simple mode should not have severity, got %v for change at %s", change.Severity, change.Path)
-		}
+		assert.Equal(t, Severity(0), change.Severity, "Simple mode should not have severity, got %v for change at %s", change.Severity, change.Path)
 
 		if change.Path == "test.schema.properties.removed" && change.Type == ChangeTypeRemoved {
 			foundRemoved = true
@@ -838,15 +781,9 @@ func TestDiffSchemaPropertiesSimpleMode(t *testing.T) {
 		}
 	}
 
-	if !foundRemoved {
-		t.Error("Expected to find removed property change")
-	}
-	if !foundAdded {
-		t.Error("Expected to find added property change")
-	}
-	if !foundModified {
-		t.Error("Expected to find modified property type change")
-	}
+	assert.True(t, foundRemoved, "Expected to find removed property change")
+	assert.True(t, foundAdded, "Expected to find added property change")
+	assert.True(t, foundModified, "Expected to find modified property type change")
 }
 
 // TestDiffSchemaAllOf tests allOf composition diffing
@@ -965,16 +902,9 @@ func TestDiffSchemaAllOf(t *testing.T) {
 				parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
 				parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
 			)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
+			require.NoError(t, err)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s", c.Path, c.Message)
-				}
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 
 			if tt.checkSeverity {
 				severeCount := 0
@@ -983,9 +913,7 @@ func TestDiffSchemaAllOf(t *testing.T) {
 						severeCount++
 					}
 				}
-				if severeCount != tt.expectedSevere {
-					t.Errorf("Expected %d severe changes, got %d", tt.expectedSevere, severeCount)
-				}
+				assert.Equal(t, tt.expectedSevere, severeCount, "Expected %d severe changes, got %d", tt.expectedSevere, severeCount)
 			}
 		})
 	}
@@ -1083,13 +1011,9 @@ func TestDiffSchemaAnyOf(t *testing.T) {
 				parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
 				parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
 			)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
+			require.NoError(t, err)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 		})
 	}
 }
@@ -1175,13 +1099,9 @@ func TestDiffSchemaOneOf(t *testing.T) {
 				parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
 				parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
 			)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
+			require.NoError(t, err)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 		})
 	}
 }
@@ -1258,13 +1178,9 @@ func TestDiffSchemaNot(t *testing.T) {
 				parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
 				parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
 			)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
+			require.NoError(t, err)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 		})
 	}
 }
@@ -1391,16 +1307,9 @@ func TestDiffSchemaConditional(t *testing.T) {
 				parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
 				parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
 			)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
+			require.NoError(t, err)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s", c.Path, c.Message)
-				}
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 		})
 	}
 }
@@ -1444,15 +1353,11 @@ func TestDiffSchemaCompositionCycles(t *testing.T) {
 		parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
 		parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
 	)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should handle cycles without infinite loop
 	// No changes expected since both have same circular structure
-	if len(result.Changes) != 0 {
-		t.Errorf("Expected 0 changes for identical circular schemas, got %d", len(result.Changes))
-	}
+	assert.Empty(t, result.Changes, "Expected 0 changes for identical circular schemas")
 }
 
 // TestDiffSchemaCompositionSimpleMode tests composition fields in simple mode (no severity)
@@ -1591,16 +1496,9 @@ func TestDiffSchemaCompositionSimpleMode(t *testing.T) {
 				parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
 				parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
 			)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
+			require.NoError(t, err)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s", c.Path, c.Message)
-				}
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 		})
 	}
 }
@@ -1710,16 +1608,9 @@ func TestDiffSchemaConditionalSimpleMode(t *testing.T) {
 				parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
 				parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
 			)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
+			require.NoError(t, err)
 
-			if len(result.Changes) != tt.expectedCount {
-				t.Errorf("Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
-				for _, c := range result.Changes {
-					t.Logf("Change: %s - %s", c.Path, c.Message)
-				}
-			}
+			assert.Len(t, result.Changes, tt.expectedCount, "Expected %d changes, got %d", tt.expectedCount, len(result.Changes))
 		})
 	}
 }
@@ -1770,17 +1661,10 @@ func TestDiffSchemaAllOfModified(t *testing.T) {
 		parser.ParseResult{Document: sourceDoc, OASVersion: parser.OASVersion310},
 		parser.ParseResult{Document: targetDoc, OASVersion: parser.OASVersion310},
 	)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should detect minLength change and property addition
-	if len(result.Changes) < 2 {
-		t.Errorf("Expected at least 2 changes (minLength and property), got %d", len(result.Changes))
-		for _, c := range result.Changes {
-			t.Logf("Change: %s - %s", c.Path, c.Message)
-		}
-	}
+	assert.GreaterOrEqual(t, len(result.Changes), 2, "Expected at least 2 changes (minLength and property), got %d", len(result.Changes))
 
 	// Check that changes are in allOf context
 	foundAllOfChange := false
@@ -1790,7 +1674,5 @@ func TestDiffSchemaAllOfModified(t *testing.T) {
 			break
 		}
 	}
-	if !foundAllOfChange {
-		t.Error("Expected to find changes within allOf schemas")
-	}
+	assert.True(t, foundAllOfChange, "Expected to find changes within allOf schemas")
 }

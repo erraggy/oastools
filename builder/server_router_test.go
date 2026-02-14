@@ -4,6 +4,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStdlibRouter_Build(t *testing.T) {
@@ -24,9 +27,7 @@ func TestStdlibRouter_Build(t *testing.T) {
 	})
 
 	handler, err := router.Build(routes, dispatcher)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	tests := []struct {
 		name         string
@@ -45,9 +46,7 @@ func TestStdlibRouter_Build(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
 			handler.ServeHTTP(rec, req)
 
-			if rec.Header().Get("X-Matched-Path") != tt.expectedPath {
-				t.Errorf("Expected matched path %s, got %s", tt.expectedPath, rec.Header().Get("X-Matched-Path"))
-			}
+			assert.Equal(t, tt.expectedPath, rec.Header().Get("X-Matched-Path"))
 		})
 	}
 }
@@ -66,17 +65,13 @@ func TestStdlibRouter_NotFound(t *testing.T) {
 	})
 
 	handler, err := router.Build(routes, dispatcher)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/unknown", nil)
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("Expected status 404, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
 func TestStdlibRouter_CustomNotFoundHandler(t *testing.T) {
@@ -98,20 +93,14 @@ func TestStdlibRouter_CustomNotFoundHandler(t *testing.T) {
 	})
 
 	handler, err := router.Build(routes, dispatcher)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/unknown", nil)
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("Expected status 404, got %d", rec.Code)
-	}
-	if rec.Header().Get("X-Custom") != "true" {
-		t.Error("Custom not found handler was not called")
-	}
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, "true", rec.Header().Get("X-Custom"))
 }
 
 func TestStdlibRouter_PathParam(t *testing.T) {
@@ -130,17 +119,13 @@ func TestStdlibRouter_PathParam(t *testing.T) {
 	})
 
 	handler, err := router.Build(routes, dispatcher)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/pets/123", nil)
 	handler.ServeHTTP(rec, req)
 
-	if capturedParam != "123" {
-		t.Errorf("Expected path param '123', got '%s'", capturedParam)
-	}
+	assert.Equal(t, "123", capturedParam)
 }
 
 func TestStdlibRouter_MultiplePathParams(t *testing.T) {
@@ -160,20 +145,14 @@ func TestStdlibRouter_MultiplePathParams(t *testing.T) {
 	})
 
 	handler, err := router.Build(routes, dispatcher)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/users/42/pets/99", nil)
 	handler.ServeHTTP(rec, req)
 
-	if userId != "42" {
-		t.Errorf("Expected userId '42', got '%s'", userId)
-	}
-	if petId != "99" {
-		t.Errorf("Expected petId '99', got '%s'", petId)
-	}
+	assert.Equal(t, "42", userId)
+	assert.Equal(t, "99", petId)
 }
 
 func TestStdlibRouter_PathParamNotFound(t *testing.T) {
@@ -192,17 +171,13 @@ func TestStdlibRouter_PathParamNotFound(t *testing.T) {
 	})
 
 	handler, err := router.Build(routes, dispatcher)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/pets/123", nil)
 	handler.ServeHTTP(rec, req)
 
-	if capturedParam != "" {
-		t.Errorf("Expected empty string for nonexistent param, got '%s'", capturedParam)
-	}
+	assert.Equal(t, "", capturedParam)
 }
 
 func TestPathParam(t *testing.T) {
@@ -221,17 +196,13 @@ func TestPathParam(t *testing.T) {
 	})
 
 	handler, err := router.Build(routes, dispatcher)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/pets/abc", nil)
 	handler.ServeHTTP(rec, req)
 
-	if capturedParam != "abc" {
-		t.Errorf("Expected path param 'abc', got '%s'", capturedParam)
-	}
+	assert.Equal(t, "abc", capturedParam)
 }
 
 func TestMatchedPath(t *testing.T) {
@@ -250,17 +221,13 @@ func TestMatchedPath(t *testing.T) {
 	})
 
 	handler, err := router.Build(routes, dispatcher)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/pets/123", nil)
 	handler.ServeHTTP(rec, req)
 
-	if matchedPath != "/pets/{petId}" {
-		t.Errorf("Expected matched path '/pets/{petId}', got '%s'", matchedPath)
-	}
+	assert.Equal(t, "/pets/{petId}", matchedPath)
 }
 
 func TestPathParam_NoContext(t *testing.T) {
@@ -269,9 +236,7 @@ func TestPathParam_NoContext(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	result := PathParam(req, "id")
 
-	if result != "" {
-		t.Errorf("Expected empty string, got '%s'", result)
-	}
+	assert.Equal(t, "", result)
 }
 
 func TestMatchedPath_NoContext(t *testing.T) {
@@ -280,9 +245,7 @@ func TestMatchedPath_NoContext(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	result := MatchedPath(req)
 
-	if result != "" {
-		t.Errorf("Expected empty string, got '%s'", result)
-	}
+	assert.Equal(t, "", result)
 }
 
 func TestStdlibRouter_DuplicatePaths(t *testing.T) {
@@ -304,18 +267,14 @@ func TestStdlibRouter_DuplicatePaths(t *testing.T) {
 	})
 
 	handler, err := router.Build(routes, dispatcher)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Test that path matching still works
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/pets", nil)
 	handler.ServeHTTP(rec, req)
 
-	if rec.Header().Get("X-Matched-Path") != "/pets" {
-		t.Errorf("Expected matched path '/pets', got '%s'", rec.Header().Get("X-Matched-Path"))
-	}
+	assert.Equal(t, "/pets", rec.Header().Get("X-Matched-Path"))
 }
 
 func TestStdlibRouter_EmptyRoutes(t *testing.T) {
@@ -330,16 +289,12 @@ func TestStdlibRouter_EmptyRoutes(t *testing.T) {
 	})
 
 	handler, err := router.Build(routes, dispatcher)
-	if err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/anything", nil)
 	handler.ServeHTTP(rec, req)
 
 	// Should return 404 for any path when there are no routes
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("Expected status 404 for empty routes, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusNotFound, rec.Code)
 }

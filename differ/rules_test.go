@@ -5,6 +5,8 @@ import (
 
 	"github.com/erraggy/oastools/internal/severity"
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBreakingRulesConfig_getRule(t *testing.T) {
@@ -74,21 +76,13 @@ func TestBreakingRulesConfig_getRule(t *testing.T) {
 			t.Parallel()
 			got := tc.config.getRule(tc.key)
 			if tc.wantRule == nil {
-				if got != nil {
-					t.Errorf("expected nil rule, got %+v", got)
-				}
+				assert.Nil(t, got)
 				return
 			}
-			if got == nil {
-				t.Fatalf("expected rule, got nil")
-			}
-			if tc.wantRule.Ignore != got.Ignore {
-				t.Errorf("Ignore: want %v, got %v", tc.wantRule.Ignore, got.Ignore)
-			}
+			require.NotNil(t, got)
+			assert.Equal(t, tc.wantRule.Ignore, got.Ignore)
 			if tc.wantRule.Severity != nil && got.Severity != nil {
-				if *tc.wantRule.Severity != *got.Severity {
-					t.Errorf("Severity: want %v, got %v", *tc.wantRule.Severity, *got.Severity)
-				}
+				assert.Equal(t, *tc.wantRule.Severity, *got.Severity)
 			}
 		})
 	}
@@ -138,12 +132,8 @@ func TestBreakingChangeRule_ApplyRule(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			gotSeverity, gotIgnore := tc.rule.ApplyRule(tc.defaultSeverity)
-			if gotSeverity != tc.wantSeverity {
-				t.Errorf("Severity: want %v, got %v", tc.wantSeverity, gotSeverity)
-			}
-			if gotIgnore != tc.wantIgnore {
-				t.Errorf("Ignore: want %v, got %v", tc.wantIgnore, gotIgnore)
-			}
+			assert.Equal(t, tc.wantSeverity, gotSeverity)
+			assert.Equal(t, tc.wantIgnore, gotIgnore)
 		})
 	}
 }
@@ -207,9 +197,7 @@ func TestDiff_WithBreakingRules(t *testing.T) {
 			d.BreakingRules = tc.rules
 
 			result, err := d.DiffParsed(source, target)
-			if err != nil {
-				t.Fatalf("DiffParsed failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			// Filter to only operationId changes
 			var opIdChanges []Change
@@ -219,14 +207,10 @@ func TestDiff_WithBreakingRules(t *testing.T) {
 				}
 			}
 
-			if len(opIdChanges) != tc.wantChanges {
-				t.Errorf("want %d operationId changes, got %d", tc.wantChanges, len(opIdChanges))
-			}
+			require.Len(t, opIdChanges, tc.wantChanges)
 
-			if tc.wantChanges > 0 && len(opIdChanges) > 0 {
-				if opIdChanges[0].Severity != tc.wantSeverity {
-					t.Errorf("want severity %v, got %v", tc.wantSeverity, opIdChanges[0].Severity)
-				}
+			if tc.wantChanges > 0 {
+				assert.Equal(t, tc.wantSeverity, opIdChanges[0].Severity)
 			}
 		})
 	}
@@ -248,23 +232,17 @@ func TestDiffWithOptions_BreakingRules(t *testing.T) {
 			},
 		}),
 	)
-	if err != nil {
-		t.Fatalf("DiffWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Find the operationId change
 	var found bool
 	for _, c := range result.Changes {
 		if c.Category == CategoryOperation && c.Message == `operationId changed from "getUsers" to "listUsers"` {
 			found = true
-			if c.Severity != SeverityInfo {
-				t.Errorf("want severity Info, got %v", c.Severity)
-			}
+			assert.Equal(t, SeverityInfo, c.Severity)
 		}
 	}
-	if !found {
-		t.Error("operationId change not found in results")
-	}
+	assert.True(t, found, "operationId change not found in results")
 }
 
 func TestPresetRules(t *testing.T) {
@@ -273,41 +251,27 @@ func TestPresetRules(t *testing.T) {
 	t.Run("DefaultRules returns empty config", func(t *testing.T) {
 		t.Parallel()
 		rules := DefaultRules()
-		if rules == nil {
-			t.Fatal("DefaultRules returned nil")
-		}
+		require.NotNil(t, rules)
 		// Default rules should have all nil fields
-		if rules.Operation != nil {
-			t.Error("expected nil Operation rules")
-		}
+		assert.Nil(t, rules.Operation)
 	})
 
 	t.Run("StrictRules elevates warnings", func(t *testing.T) {
 		t.Parallel()
 		rules := StrictRules()
-		if rules == nil || rules.Operation == nil {
-			t.Fatal("StrictRules returned incomplete config")
-		}
-		if rules.Operation.OperationIDModified == nil {
-			t.Fatal("OperationIDModified rule not set")
-		}
-		if *rules.Operation.OperationIDModified.Severity != severity.SeverityError {
-			t.Errorf("expected Error severity, got %v", *rules.Operation.OperationIDModified.Severity)
-		}
+		require.NotNil(t, rules)
+		require.NotNil(t, rules.Operation)
+		require.NotNil(t, rules.Operation.OperationIDModified)
+		assert.Equal(t, severity.SeverityError, *rules.Operation.OperationIDModified.Severity)
 	})
 
 	t.Run("LenientRules downgrades errors", func(t *testing.T) {
 		t.Parallel()
 		rules := LenientRules()
-		if rules == nil || rules.Schema == nil {
-			t.Fatal("LenientRules returned incomplete config")
-		}
-		if rules.Schema.EnumValueRemoved == nil {
-			t.Fatal("EnumValueRemoved rule not set")
-		}
-		if *rules.Schema.EnumValueRemoved.Severity != severity.SeverityWarning {
-			t.Errorf("expected Warning severity, got %v", *rules.Schema.EnumValueRemoved.Severity)
-		}
+		require.NotNil(t, rules)
+		require.NotNil(t, rules.Schema)
+		require.NotNil(t, rules.Schema.EnumValueRemoved)
+		assert.Equal(t, severity.SeverityWarning, *rules.Schema.EnumValueRemoved.Severity)
 	})
 }
 
@@ -438,12 +402,8 @@ func TestSeverityPtr(t *testing.T) {
 	severities := []Severity{SeverityInfo, SeverityWarning, SeverityError, SeverityCritical}
 	for _, s := range severities {
 		ptr := SeverityPtr(s)
-		if ptr == nil {
-			t.Fatalf("SeverityPtr(%v) returned nil", s)
-		}
-		if *ptr != s {
-			t.Errorf("SeverityPtr(%v) = %v, want %v", s, *ptr, s)
-		}
+		require.NotNil(t, ptr)
+		assert.Equal(t, s, *ptr)
 	}
 }
 
@@ -473,15 +433,9 @@ func TestStrictRulesComprehensive(t *testing.T) {
 
 	for _, c := range checks {
 		t.Run(c.name, func(t *testing.T) {
-			if c.rule == nil {
-				t.Fatalf("%s is nil", c.name)
-			}
-			if c.rule.Severity == nil {
-				t.Fatalf("%s.Severity is nil", c.name)
-			}
-			if *c.rule.Severity != c.expected {
-				t.Errorf("%s.Severity = %v, want %v", c.name, *c.rule.Severity, c.expected)
-			}
+			require.NotNil(t, c.rule, "%s is nil", c.name)
+			require.NotNil(t, c.rule.Severity, "%s.Severity is nil", c.name)
+			assert.Equal(t, c.expected, *c.rule.Severity)
 		})
 	}
 }
@@ -505,15 +459,9 @@ func TestLenientRulesComprehensive(t *testing.T) {
 
 	for _, c := range checks {
 		t.Run(c.name, func(t *testing.T) {
-			if c.rule == nil {
-				t.Fatalf("%s is nil", c.name)
-			}
-			if c.rule.Severity == nil {
-				t.Fatalf("%s.Severity is nil", c.name)
-			}
-			if *c.rule.Severity != c.expected {
-				t.Errorf("%s.Severity = %v, want %v", c.name, *c.rule.Severity, c.expected)
-			}
+			require.NotNil(t, c.rule, "%s is nil", c.name)
+			require.NotNil(t, c.rule.Severity, "%s.Severity is nil", c.name)
+			assert.Equal(t, c.expected, *c.rule.Severity)
 		})
 	}
 }

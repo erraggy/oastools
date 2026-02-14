@@ -1,8 +1,10 @@
 package generator
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -26,58 +28,30 @@ func TestSecurityEnforceGenerator_GenerateSecurityEnforceFile(t *testing.T) {
 	result := g.GenerateSecurityEnforceFile(opSecurity, globalSecurity)
 
 	// Check package declaration
-	if !strings.Contains(result, "package api") {
-		t.Error("expected package declaration")
-	}
+	assert.Contains(t, result, "package api", "expected package declaration")
 
 	// Check imports
-	if !strings.Contains(result, `"fmt"`) {
-		t.Error("expected fmt import")
-	}
+	assert.Contains(t, result, `"fmt"`, "expected fmt import")
 
 	// Check SecurityRequirement type
-	if !strings.Contains(result, "type SecurityRequirement struct") {
-		t.Error("expected SecurityRequirement struct")
-	}
-	if !strings.Contains(result, "Scheme string") {
-		t.Error("expected Scheme field")
-	}
-	if !strings.Contains(result, "Scopes []string") {
-		t.Error("expected Scopes field")
-	}
+	assert.Contains(t, result, "type SecurityRequirement struct", "expected SecurityRequirement struct")
+	assert.Contains(t, result, "Scheme string", "expected Scheme field")
+	assert.Contains(t, result, "Scopes []string", "expected Scopes field")
 
 	// Check operation security map
-	if !strings.Contains(result, "var OperationSecurity = map[string][]SecurityRequirement") {
-		t.Error("expected OperationSecurity map")
-	}
-	if !strings.Contains(result, `"listUsers"`) {
-		t.Error("expected listUsers operation")
-	}
-	if !strings.Contains(result, `"user.read"`) {
-		t.Error("expected user.read scope")
-	}
+	assert.Contains(t, result, "var OperationSecurity = map[string][]SecurityRequirement", "expected OperationSecurity map")
+	assert.Contains(t, result, `"listUsers"`, "expected listUsers operation")
+	assert.Contains(t, result, `"user.read"`, "expected user.read scope")
 
 	// Check global security
-	if !strings.Contains(result, "var GlobalSecurity = []SecurityRequirement") {
-		t.Error("expected GlobalSecurity")
-	}
-	if !strings.Contains(result, `Scheme: "api_key"`) {
-		t.Error("expected api_key scheme in global security")
-	}
+	assert.Contains(t, result, "var GlobalSecurity = []SecurityRequirement", "expected GlobalSecurity")
+	assert.Contains(t, result, `Scheme: "api_key"`, "expected api_key scheme in global security")
 
 	// Check SecurityValidator
-	if !strings.Contains(result, "type SecurityValidator struct") {
-		t.Error("expected SecurityValidator struct")
-	}
-	if !strings.Contains(result, "func NewSecurityValidator()") {
-		t.Error("expected NewSecurityValidator function")
-	}
-	if !strings.Contains(result, "func (v *SecurityValidator) ConfigureScheme") {
-		t.Error("expected ConfigureScheme method")
-	}
-	if !strings.Contains(result, "func (v *SecurityValidator) ValidateOperation") {
-		t.Error("expected ValidateOperation method")
-	}
+	assert.Contains(t, result, "type SecurityValidator struct", "expected SecurityValidator struct")
+	assert.Contains(t, result, "func NewSecurityValidator()", "expected NewSecurityValidator function")
+	assert.Contains(t, result, "func (v *SecurityValidator) ConfigureScheme", "expected ConfigureScheme method")
+	assert.Contains(t, result, "func (v *SecurityValidator) ValidateOperation", "expected ValidateOperation method")
 }
 
 func TestSecurityEnforceGenerator_EmptySecurity(t *testing.T) {
@@ -86,17 +60,11 @@ func TestSecurityEnforceGenerator_EmptySecurity(t *testing.T) {
 	result := g.GenerateSecurityEnforceFile(nil, nil)
 
 	// Should still have the basic structure
-	if !strings.Contains(result, "type SecurityRequirement struct") {
-		t.Error("expected SecurityRequirement struct")
-	}
-	if !strings.Contains(result, "var OperationSecurity = map[string][]SecurityRequirement") {
-		t.Error("expected OperationSecurity map")
-	}
+	assert.Contains(t, result, "type SecurityRequirement struct", "expected SecurityRequirement struct")
+	assert.Contains(t, result, "var OperationSecurity = map[string][]SecurityRequirement", "expected OperationSecurity map")
 
 	// Should NOT have global security when empty
-	if strings.Contains(result, "var GlobalSecurity") {
-		t.Error("did not expect GlobalSecurity for empty security")
-	}
+	assert.NotContains(t, result, "var GlobalSecurity", "did not expect GlobalSecurity for empty security")
 }
 
 func TestQuotedStrings(t *testing.T) {
@@ -111,9 +79,7 @@ func TestQuotedStrings(t *testing.T) {
 
 	for _, tt := range tests {
 		got := quotedStrings(tt.input)
-		if got != tt.want {
-			t.Errorf("quotedStrings(%v) = %q, want %q", tt.input, got, tt.want)
-		}
+		assert.Equal(t, tt.want, got, "quotedStrings(%v)", tt.input)
 	}
 }
 
@@ -142,27 +108,17 @@ func TestExtractOperationSecurityOAS3(t *testing.T) {
 
 	// ListUsers (transformed from listUsers) should have its own security
 	listUsersSec, ok := result["ListUsers"]
-	if !ok {
-		t.Error("expected ListUsers in result")
-	}
-	if len(listUsersSec) != 1 {
-		t.Errorf("expected 1 security requirement for ListUsers, got %d", len(listUsersSec))
-	}
-	if _, hasOAuth2 := listUsersSec[0]["oauth2"]; !hasOAuth2 {
-		t.Error("expected oauth2 scheme for ListUsers")
-	}
+	require.True(t, ok, "expected ListUsers in result")
+	require.Len(t, listUsersSec, 1, "expected 1 security requirement for ListUsers")
+	_, hasOAuth2 := listUsersSec[0]["oauth2"]
+	assert.True(t, hasOAuth2, "expected oauth2 scheme for ListUsers")
 
 	// CreateUser (transformed from createUser) should have global security
 	createUserSec, ok := result["CreateUser"]
-	if !ok {
-		t.Error("expected CreateUser in result")
-	}
-	if len(createUserSec) != 1 {
-		t.Errorf("expected 1 security requirement for CreateUser, got %d", len(createUserSec))
-	}
-	if _, hasGlobal := createUserSec[0]["global_auth"]; !hasGlobal {
-		t.Error("expected global_auth scheme for CreateUser")
-	}
+	require.True(t, ok, "expected CreateUser in result")
+	require.Len(t, createUserSec, 1, "expected 1 security requirement for CreateUser")
+	_, hasGlobal := createUserSec[0]["global_auth"]
+	assert.True(t, hasGlobal, "expected global_auth scheme for CreateUser")
 }
 
 func TestExtractOperationSecurityOAS2(t *testing.T) {
@@ -183,19 +139,13 @@ func TestExtractOperationSecurityOAS2(t *testing.T) {
 
 	// ListPets (transformed from listPets) should have global security
 	listPetsSec, ok := result["ListPets"]
-	if !ok {
-		t.Error("expected ListPets in result")
-	}
-	if len(listPetsSec) != 1 {
-		t.Errorf("expected 1 security requirement for ListPets, got %d", len(listPetsSec))
-	}
+	require.True(t, ok, "expected ListPets in result")
+	assert.Len(t, listPetsSec, 1, "expected 1 security requirement for ListPets")
 }
 
 func TestExtractOperationSecurityOAS3_Empty(t *testing.T) {
 	doc := &parser.OAS3Document{}
 	result := ExtractOperationSecurityOAS3(doc)
 
-	if len(result) != 0 {
-		t.Errorf("expected empty result, got %d entries", len(result))
-	}
+	assert.Empty(t, result, "expected empty result")
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCollisionType_Constants(t *testing.T) {
@@ -942,7 +943,7 @@ func TestCollisionHandler_PathCollisionEventRecording(t *testing.T) {
 
 	// Verify the collision event was recorded
 	events := result.CollisionDetails.Events
-	assert.Len(t, events, 1, "should have one collision event for /users")
+	require.Len(t, events, 1, "should have one collision event for /users")
 
 	event := events[0]
 	assert.Equal(t, "/users", event.SchemaName) // SchemaName field is reused for item name
@@ -998,7 +999,7 @@ func TestCollisionHandler_PathCollisionEventRecording_AllResolutions(t *testing.
 
 			assert.NoError(t, err)
 			assert.NotNil(t, result.CollisionDetails)
-			assert.Len(t, result.CollisionDetails.Events, 1)
+			require.Len(t, result.CollisionDetails.Events, 1)
 			assert.Equal(t, tt.expected, result.CollisionDetails.Events[0].Resolution)
 		})
 	}

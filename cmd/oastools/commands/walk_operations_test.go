@@ -7,6 +7,8 @@ import (
 
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/walker"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func testOperationsParseResult() *parser.ParseResult {
@@ -49,9 +51,7 @@ func collectTestOperations(t *testing.T) []*walker.OperationInfo {
 	t.Helper()
 	result := testOperationsParseResult()
 	collector, err := walker.CollectOperations(result)
-	if err != nil {
-		t.Fatalf("CollectOperations failed: %v", err)
-	}
+	require.NoError(t, err)
 	return collector.All
 }
 
@@ -59,13 +59,9 @@ func TestWalkOperations_ListAll(t *testing.T) {
 	ops := collectTestOperations(t)
 
 	matched, err := filterOperations(ops, "", "", "", false, "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 4 {
-		t.Errorf("expected 4 operations, got %d", len(matched))
-	}
+	assert.Len(t, matched, 4)
 }
 
 func TestWalkOperations_FilterByMethod(t *testing.T) {
@@ -86,12 +82,8 @@ func TestWalkOperations_FilterByMethod(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matched, err := filterOperations(ops, tt.method, "", "", false, "", "")
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if len(matched) != tt.want {
-				t.Errorf("filterOperations(method=%q) returned %d, want %d", tt.method, len(matched), tt.want)
-			}
+			require.NoError(t, err)
+			assert.Len(t, matched, tt.want)
 		})
 	}
 }
@@ -113,12 +105,8 @@ func TestWalkOperations_FilterByPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matched, err := filterOperations(ops, "", tt.path, "", false, "", "")
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if len(matched) != tt.want {
-				t.Errorf("filterOperations(path=%q) returned %d, want %d", tt.path, len(matched), tt.want)
-			}
+			require.NoError(t, err)
+			assert.Len(t, matched, tt.want)
 		})
 	}
 }
@@ -139,12 +127,8 @@ func TestWalkOperations_FilterByTag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matched, err := filterOperations(ops, "", "", tt.tag, false, "", "")
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if len(matched) != tt.want {
-				t.Errorf("filterOperations(tag=%q) returned %d, want %d", tt.tag, len(matched), tt.want)
-			}
+			require.NoError(t, err)
+			assert.Len(t, matched, tt.want)
 		})
 	}
 }
@@ -153,32 +137,20 @@ func TestWalkOperations_FilterByDeprecated(t *testing.T) {
 	ops := collectTestOperations(t)
 
 	matched, err := filterOperations(ops, "", "", "", true, "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 deprecated operation, got %d", len(matched))
-	}
-	if matched[0].Operation.OperationID != "deletePet" {
-		t.Errorf("expected deprecated operation deletePet, got %s", matched[0].Operation.OperationID)
-	}
+	require.Len(t, matched, 1)
+	assert.Equal(t, "deletePet", matched[0].Operation.OperationID)
 }
 
 func TestWalkOperations_FilterByOperationID(t *testing.T) {
 	ops := collectTestOperations(t)
 
 	matched, err := filterOperations(ops, "", "", "", false, "listPets", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 operation, got %d", len(matched))
-	}
-	if matched[0].Operation.OperationID != "listPets" {
-		t.Errorf("expected listPets, got %s", matched[0].Operation.OperationID)
-	}
+	require.Len(t, matched, 1)
+	assert.Equal(t, "listPets", matched[0].Operation.OperationID)
 }
 
 func TestWalkOperations_FilterByExtension(t *testing.T) {
@@ -186,38 +158,26 @@ func TestWalkOperations_FilterByExtension(t *testing.T) {
 
 	// Filter for x-internal existence
 	matched, err := filterOperations(ops, "", "", "", false, "", "x-internal")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 operation with x-internal, got %d", len(matched))
-	}
-	if matched[0].Operation.OperationID != "listPets" {
-		t.Errorf("expected listPets, got %s", matched[0].Operation.OperationID)
-	}
+	require.Len(t, matched, 1)
+	assert.Equal(t, "listPets", matched[0].Operation.OperationID)
 }
 
 func TestWalkOperations_FilterByExtensionValue(t *testing.T) {
 	ops := collectTestOperations(t)
 
 	matched, err := filterOperations(ops, "", "", "", false, "", "x-internal=true")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 operation with x-internal=true, got %d", len(matched))
-	}
+	require.Len(t, matched, 1)
 }
 
 func TestWalkOperations_FilterByExtensionInvalid(t *testing.T) {
 	ops := collectTestOperations(t)
 
 	_, err := filterOperations(ops, "", "", "", false, "", "invalid-key")
-	if err == nil {
-		t.Error("expected error for invalid extension key")
-	}
+	assert.Error(t, err)
 }
 
 func TestWalkOperations_CombinedFilters(t *testing.T) {
@@ -225,16 +185,10 @@ func TestWalkOperations_CombinedFilters(t *testing.T) {
 
 	// GET + /pets/{id} should yield only getPet
 	matched, err := filterOperations(ops, "get", "/pets/*", "", false, "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 operation, got %d", len(matched))
-	}
-	if matched[0].Operation.OperationID != "getPet" {
-		t.Errorf("expected getPet, got %s", matched[0].Operation.OperationID)
-	}
+	require.Len(t, matched, 1)
+	assert.Equal(t, "getPet", matched[0].Operation.OperationID)
 }
 
 func TestWalkOperations_SummaryTableOutput(t *testing.T) {
@@ -242,9 +196,7 @@ func TestWalkOperations_SummaryTableOutput(t *testing.T) {
 
 	// Use only GET operations for predictable output
 	matched, err := filterOperations(ops, "get", "/pets", "", false, "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	var buf bytes.Buffer
 	headers := []string{"METHOD", "PATH", "SUMMARY", "TAGS", "EXTENSIONS"}
@@ -263,30 +215,18 @@ func TestWalkOperations_SummaryTableOutput(t *testing.T) {
 	output := buf.String()
 
 	// Verify table structure
-	if !strings.Contains(output, "METHOD") {
-		t.Error("expected METHOD header in summary output")
-	}
-	if !strings.Contains(output, "GET") {
-		t.Error("expected GET in summary output")
-	}
-	if !strings.Contains(output, "/pets") {
-		t.Error("expected /pets in summary output")
-	}
-	if !strings.Contains(output, "List pets") {
-		t.Error("expected 'List pets' summary in output")
-	}
-	if !strings.Contains(output, "x-internal") {
-		t.Error("expected x-internal extension in output")
-	}
+	assert.Contains(t, output, "METHOD")
+	assert.Contains(t, output, "GET")
+	assert.Contains(t, output, "/pets")
+	assert.Contains(t, output, "List pets")
+	assert.Contains(t, output, "x-internal")
 }
 
 func TestWalkOperations_SummaryTableQuiet(t *testing.T) {
 	ops := collectTestOperations(t)
 
 	matched, err := filterOperations(ops, "post", "", "", false, "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	var buf bytes.Buffer
 	headers := []string{"METHOD", "PATH", "SUMMARY", "TAGS", "EXTENSIONS"}
@@ -305,22 +245,16 @@ func TestWalkOperations_SummaryTableQuiet(t *testing.T) {
 	output := buf.String()
 
 	// Quiet: no headers
-	if strings.Contains(output, "METHOD") {
-		t.Error("quiet mode should not contain headers")
-	}
+	assert.NotContains(t, output, "METHOD")
 	// Still has data
-	if !strings.Contains(output, "POST") {
-		t.Error("expected POST in quiet output")
-	}
+	assert.Contains(t, output, "POST")
 }
 
 func TestWalkOperations_SummaryJSON(t *testing.T) {
 	ops := collectTestOperations(t)
 
 	matched, err := filterOperations(ops, "get", "/pets", "", false, "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	headers := []string{"METHOD", "PATH", "SUMMARY", "TAGS", "EXTENSIONS"}
 	rows := make([][]string, 0, len(matched))
@@ -336,32 +270,20 @@ func TestWalkOperations_SummaryJSON(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderSummaryStructured(&buf, headers, rows, FormatJSON)
-	if err != nil {
-		t.Fatalf("RenderSummaryStructured failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, `"method"`) {
-		t.Error("expected 'method' key in JSON summary output")
-	}
-	if !strings.Contains(output, `"path"`) {
-		t.Error("expected 'path' key in JSON summary output")
-	}
-	if !strings.Contains(output, "GET") {
-		t.Error("expected GET in JSON summary output")
-	}
-	if !strings.Contains(output, "/pets") {
-		t.Error("expected /pets in JSON summary output")
-	}
+	assert.Contains(t, output, `"method"`)
+	assert.Contains(t, output, `"path"`)
+	assert.Contains(t, output, "GET")
+	assert.Contains(t, output, "/pets")
 }
 
 func TestWalkOperations_SummaryYAML(t *testing.T) {
 	ops := collectTestOperations(t)
 
 	matched, err := filterOperations(ops, "post", "", "", false, "", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	headers := []string{"METHOD", "PATH", "SUMMARY", "TAGS", "EXTENSIONS"}
 	rows := make([][]string, 0, len(matched))
@@ -377,30 +299,20 @@ func TestWalkOperations_SummaryYAML(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderSummaryStructured(&buf, headers, rows, FormatYAML)
-	if err != nil {
-		t.Fatalf("RenderSummaryStructured failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, "method") {
-		t.Error("expected 'method' key in YAML summary output")
-	}
-	if !strings.Contains(output, "POST") {
-		t.Error("expected POST in YAML summary output")
-	}
+	assert.Contains(t, output, "method")
+	assert.Contains(t, output, "POST")
 }
 
 func TestWalkOperations_DetailIncludesPathAndMethod(t *testing.T) {
 	ops := collectTestOperations(t)
 
 	matched, err := filterOperations(ops, "", "", "", false, "listPets", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 operation, got %d", len(matched))
-	}
+	require.Len(t, matched, 1)
 
 	view := operationDetailView{
 		Method:    strings.ToUpper(matched[0].Method),
@@ -410,39 +322,23 @@ func TestWalkOperations_DetailIncludesPathAndMethod(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderDetail(&buf, view, FormatJSON)
-	if err != nil {
-		t.Fatalf("RenderDetail failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, `"method"`) {
-		t.Error("expected 'method' key in detail JSON output")
-	}
-	if !strings.Contains(output, `"path"`) {
-		t.Error("expected 'path' key in detail JSON output")
-	}
-	if !strings.Contains(output, "GET") {
-		t.Error("expected GET method value in detail output")
-	}
-	if !strings.Contains(output, "/pets") {
-		t.Error("expected /pets path value in detail output")
-	}
-	if !strings.Contains(output, "listPets") {
-		t.Error("expected operationId in detail output")
-	}
+	assert.Contains(t, output, `"method"`)
+	assert.Contains(t, output, `"path"`)
+	assert.Contains(t, output, "GET")
+	assert.Contains(t, output, "/pets")
+	assert.Contains(t, output, "listPets")
 }
 
 func TestWalkOperations_DetailIncludesPathAndMethodYAML(t *testing.T) {
 	ops := collectTestOperations(t)
 
 	matched, err := filterOperations(ops, "", "", "", false, "createPet", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if len(matched) != 1 {
-		t.Fatalf("expected 1 operation, got %d", len(matched))
-	}
+	require.Len(t, matched, 1)
 
 	view := operationDetailView{
 		Method:    strings.ToUpper(matched[0].Method),
@@ -452,37 +348,23 @@ func TestWalkOperations_DetailIncludesPathAndMethodYAML(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = RenderDetail(&buf, view, FormatYAML)
-	if err != nil {
-		t.Fatalf("RenderDetail failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	output := buf.String()
-	if !strings.Contains(output, "method:") {
-		t.Error("expected 'method' key in YAML detail output")
-	}
-	if !strings.Contains(output, "path:") {
-		t.Error("expected 'path' key in YAML detail output")
-	}
-	if !strings.Contains(output, "createPet") {
-		t.Error("expected operationId in YAML detail output")
-	}
+	assert.Contains(t, output, "method:")
+	assert.Contains(t, output, "path:")
+	assert.Contains(t, output, "createPet")
 }
 
 func TestWalkOperations_NoArgsError(t *testing.T) {
 	err := handleWalkOperations([]string{})
-	if err == nil {
-		t.Error("expected error when no spec file provided")
-	}
-	if !strings.Contains(err.Error(), "requires a spec file") {
-		t.Errorf("expected 'requires a spec file' error, got: %v", err)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "requires a spec file")
 }
 
 func TestWalkOperations_InvalidFormat(t *testing.T) {
 	err := handleWalkOperations([]string{"--format", "xml", "test.yaml"})
-	if err == nil {
-		t.Error("expected error for invalid format")
-	}
+	assert.Error(t, err)
 }
 
 func TestWalkOperations_MatchOperationMethod(t *testing.T) {
@@ -501,9 +383,7 @@ func TestWalkOperations_MatchOperationMethod(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := matchOperationMethod(tt.method, tt.filter)
-			if got != tt.expected {
-				t.Errorf("matchOperationMethod(%q, %q) = %v, want %v", tt.method, tt.filter, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -524,9 +404,7 @@ func TestWalkOperations_MatchOperationTag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := matchOperationTag(tt.tags, tt.filter)
-			if got != tt.expected {
-				t.Errorf("matchOperationTag(%v, %q) = %v, want %v", tt.tags, tt.filter, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

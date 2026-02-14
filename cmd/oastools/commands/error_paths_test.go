@@ -4,51 +4,40 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestHandleValidate_ErrorPaths tests error handling for the validate command.
 func TestHandleValidate_ErrorPaths(t *testing.T) {
 	t.Run("non-existent file", func(t *testing.T) {
 		err := HandleValidate([]string{"/nonexistent/path/to/file.yaml"})
-		if err == nil {
-			t.Error("expected error for non-existent file")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("malformed YAML", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		malformedFile := filepath.Join(tmpDir, "malformed.yaml")
-		if err := os.WriteFile(malformedFile, []byte("not: valid: yaml: [unclosed"), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(malformedFile, []byte("not: valid: yaml: [unclosed"), 0644))
 		err := HandleValidate([]string{malformedFile})
-		if err == nil {
-			t.Error("expected error for malformed YAML")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("malformed JSON", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		malformedFile := filepath.Join(tmpDir, "malformed.json")
-		if err := os.WriteFile(malformedFile, []byte(`{"unclosed": `), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(malformedFile, []byte(`{"unclosed": `), 0644))
 		err := HandleValidate([]string{malformedFile})
-		if err == nil {
-			t.Error("expected error for malformed JSON")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("empty file", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		emptyFile := filepath.Join(tmpDir, "empty.yaml")
-		if err := os.WriteFile(emptyFile, []byte(""), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(emptyFile, []byte(""), 0644))
 		err := HandleValidate([]string{emptyFile})
-		if err == nil {
-			t.Error("expected error for empty file")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("non-OpenAPI content", func(t *testing.T) {
@@ -59,13 +48,9 @@ items:
   - one
   - two
 `
-		if err := os.WriteFile(nonOASFile, []byte(content), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(nonOASFile, []byte(content), 0644))
 		err := HandleValidate([]string{nonOASFile})
-		if err == nil {
-			t.Error("expected error for non-OpenAPI content")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -73,33 +58,23 @@ items:
 func TestHandleParse_ErrorPaths(t *testing.T) {
 	t.Run("non-existent file", func(t *testing.T) {
 		err := HandleParse([]string{"/nonexistent/path/to/file.yaml"})
-		if err == nil {
-			t.Error("expected error for non-existent file")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("malformed YAML", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		malformedFile := filepath.Join(tmpDir, "malformed.yaml")
-		if err := os.WriteFile(malformedFile, []byte("not: valid: yaml: [unclosed"), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(malformedFile, []byte("not: valid: yaml: [unclosed"), 0644))
 		err := HandleParse([]string{malformedFile})
-		if err == nil {
-			t.Error("expected error for malformed YAML")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("empty file", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		emptyFile := filepath.Join(tmpDir, "empty.yaml")
-		if err := os.WriteFile(emptyFile, []byte(""), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(emptyFile, []byte(""), 0644))
 		err := HandleParse([]string{emptyFile})
-		if err == nil {
-			t.Error("expected error for empty file")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -107,21 +82,15 @@ func TestHandleParse_ErrorPaths(t *testing.T) {
 func TestHandleFix_ErrorPaths(t *testing.T) {
 	t.Run("non-existent file", func(t *testing.T) {
 		err := HandleFix([]string{"/nonexistent/path/to/file.yaml"})
-		if err == nil {
-			t.Error("expected error for non-existent file")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("malformed YAML", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		malformedFile := filepath.Join(tmpDir, "malformed.yaml")
-		if err := os.WriteFile(malformedFile, []byte("not: valid: yaml: [unclosed"), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(malformedFile, []byte("not: valid: yaml: [unclosed"), 0644))
 		err := HandleFix([]string{malformedFile})
-		if err == nil {
-			t.Error("expected error for malformed YAML")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -129,9 +98,7 @@ func TestHandleFix_ErrorPaths(t *testing.T) {
 func TestHandleConvert_ErrorPaths(t *testing.T) {
 	t.Run("non-existent file", func(t *testing.T) {
 		err := HandleConvert([]string{"--to", "3.0", "/nonexistent/path/to/file.yaml"})
-		if err == nil {
-			t.Error("expected error for non-existent file")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("invalid target version", func(t *testing.T) {
@@ -143,13 +110,9 @@ info:
   version: "1.0"
 paths: {}
 `
-		if err := os.WriteFile(validFile, []byte(content), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(validFile, []byte(content), 0644))
 		err := HandleConvert([]string{"--to", "invalid", validFile})
-		if err == nil {
-			t.Error("expected error for invalid target version")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("missing target version", func(t *testing.T) {
@@ -161,13 +124,9 @@ info:
   version: "1.0"
 paths: {}
 `
-		if err := os.WriteFile(validFile, []byte(content), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(validFile, []byte(content), 0644))
 		err := HandleConvert([]string{validFile})
-		if err == nil {
-			t.Error("expected error when target version not specified")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -175,9 +134,7 @@ paths: {}
 func TestHandleJoin_ErrorPaths(t *testing.T) {
 	t.Run("no files provided", func(t *testing.T) {
 		err := HandleJoin([]string{})
-		if err == nil {
-			t.Error("expected error when no files provided")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("single file provided", func(t *testing.T) {
@@ -189,13 +146,9 @@ info:
   version: "1.0"
 paths: {}
 `
-		if err := os.WriteFile(validFile, []byte(content), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(validFile, []byte(content), 0644))
 		err := HandleJoin([]string{validFile})
-		if err == nil {
-			t.Error("expected error when only one file provided")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("non-existent file", func(t *testing.T) {
@@ -207,13 +160,9 @@ info:
   version: "1.0"
 paths: {}
 `
-		if err := os.WriteFile(validFile, []byte(content), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(validFile, []byte(content), 0644))
 		err := HandleJoin([]string{validFile, "/nonexistent/path.yaml"})
-		if err == nil {
-			t.Error("expected error for non-existent file")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -221,9 +170,7 @@ paths: {}
 func TestHandleDiff_ErrorPaths(t *testing.T) {
 	t.Run("no files provided", func(t *testing.T) {
 		err := HandleDiff([]string{})
-		if err == nil {
-			t.Error("expected error when no files provided")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("single file provided", func(t *testing.T) {
@@ -235,13 +182,9 @@ info:
   version: "1.0"
 paths: {}
 `
-		if err := os.WriteFile(validFile, []byte(content), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(validFile, []byte(content), 0644))
 		err := HandleDiff([]string{validFile})
-		if err == nil {
-			t.Error("expected error when only one file provided")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("non-existent file", func(t *testing.T) {
@@ -253,12 +196,8 @@ info:
   version: "1.0"
 paths: {}
 `
-		if err := os.WriteFile(validFile, []byte(content), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(validFile, []byte(content), 0644))
 		err := HandleDiff([]string{validFile, "/nonexistent/path.yaml"})
-		if err == nil {
-			t.Error("expected error for non-existent file")
-		}
+		assert.Error(t, err)
 	})
 }

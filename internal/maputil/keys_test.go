@@ -1,8 +1,9 @@
 package maputil
 
 import (
-	"slices"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSortedKeys(t *testing.T) {
@@ -36,13 +37,7 @@ func TestSortedKeys(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := SortedKeys(tt.input)
-			if len(got) != len(tt.expected) {
-				t.Errorf("SortedKeys(%v) = %v, want %v", tt.input, got, tt.expected)
-				return
-			}
-			if !slices.Equal(got, tt.expected) {
-				t.Errorf("SortedKeys(%v) = %v, want %v", tt.input, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got, "SortedKeys(%v)", tt.input)
 		})
 	}
 }
@@ -51,9 +46,7 @@ func TestSortedKeys_StringValues(t *testing.T) {
 	input := map[string]string{"c": "3", "a": "1", "b": "2"}
 	got := SortedKeys(input)
 	expected := []string{"a", "b", "c"}
-	if !slices.Equal(got, expected) {
-		t.Errorf("SortedKeys(%v) = %v, want %v", input, got, expected)
-	}
+	assert.Equal(t, expected, got, "SortedKeys(%v)", input)
 }
 
 func TestSortedKeys_PointerValues(t *testing.T) {
@@ -61,7 +54,5 @@ func TestSortedKeys_PointerValues(t *testing.T) {
 	input := map[string]*item{"z": {name: "z"}, "a": {name: "a"}}
 	got := SortedKeys(input)
 	expected := []string{"a", "z"}
-	if !slices.Equal(got, expected) {
-		t.Errorf("SortedKeys(pointer map) = %v, want %v", got, expected)
-	}
+	assert.Equal(t, expected, got, "SortedKeys(pointer map)")
 }

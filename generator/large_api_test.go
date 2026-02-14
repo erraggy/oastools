@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	oasparser "github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestLargeAPISplitByTag tests that a large API is split by tags when enabled
@@ -30,28 +32,20 @@ func TestLargeAPISplitByTag(t *testing.T) {
 	}
 
 	result, err := gen.GenerateParsed(parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Check that we have multiple client files
 	clientFiles := countFilesByPrefix(result.Files, "client")
-	if clientFiles < 2 {
-		t.Errorf("expected multiple client files when splitting large API, got %d", clientFiles)
-	}
+	assert.GreaterOrEqual(t, clientFiles, 2, "expected multiple client files when splitting large API")
 
 	// Types may be in a single file if they're all shared
 	// but we should have at least one types file
 	typesFiles := countFilesByPrefix(result.Files, "types")
-	if typesFiles < 1 {
-		t.Errorf("expected at least 1 types file, got %d", typesFiles)
-	}
+	assert.GreaterOrEqual(t, typesFiles, 1, "expected at least 1 types file")
 
 	// Check that we have multiple server files
 	serverFiles := countFilesByPrefix(result.Files, "server")
-	if serverFiles < 2 {
-		t.Errorf("expected multiple server files when splitting large API, got %d", serverFiles)
-	}
+	assert.GreaterOrEqual(t, serverFiles, 2, "expected multiple server files when splitting large API")
 
 	// Verify all generated Go code compiles (skip non-Go files like README.md)
 	for _, file := range result.Files {
@@ -60,9 +54,7 @@ func TestLargeAPISplitByTag(t *testing.T) {
 		}
 		fset := token.NewFileSet()
 		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-		if parseErr != nil {
-			t.Errorf("generated file %s does not compile: %v", file.Name, parseErr)
-		}
+		assert.NoError(t, parseErr, "generated file %s does not compile", file.Name)
 	}
 }
 
@@ -86,9 +78,7 @@ func TestLargeAPISplitByPathPrefix(t *testing.T) {
 	}
 
 	result, err := gen.GenerateParsed(parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify all generated Go code compiles (skip non-Go files like README.md)
 	for _, file := range result.Files {
@@ -97,15 +87,11 @@ func TestLargeAPISplitByPathPrefix(t *testing.T) {
 		}
 		fset := token.NewFileSet()
 		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-		if parseErr != nil {
-			t.Errorf("generated file %s does not compile: %v", file.Name, parseErr)
-		}
+		assert.NoError(t, parseErr, "generated file %s does not compile", file.Name)
 	}
 
 	// Should have at least types.go and client.go
-	if len(result.Files) < 2 {
-		t.Errorf("expected at least 2 files, got %d", len(result.Files))
-	}
+	assert.GreaterOrEqual(t, len(result.Files), 2)
 }
 
 // TestLargeAPINoSplit tests that splitting is disabled when thresholds not met
@@ -128,21 +114,15 @@ func TestLargeAPINoSplit(t *testing.T) {
 	}
 
 	result, err := gen.GenerateParsed(parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have exactly one client file
 	clientFiles := countFilesByPrefix(result.Files, "client")
-	if clientFiles != 1 {
-		t.Errorf("expected 1 client file for small API, got %d", clientFiles)
-	}
+	assert.Equal(t, 1, clientFiles)
 
 	// Should have exactly one types file
 	typesFiles := countFilesByPrefix(result.Files, "types")
-	if typesFiles != 1 {
-		t.Errorf("expected 1 types file for small API, got %d", typesFiles)
-	}
+	assert.Equal(t, 1, typesFiles)
 }
 
 // TestOAS2LargeAPISplit tests file splitting for OAS 2.0 documents
@@ -164,14 +144,10 @@ func TestOAS2LargeAPISplit(t *testing.T) {
 	}
 
 	result, err := gen.GenerateParsed(parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Check that we have multiple files
-	if len(result.Files) < 4 {
-		t.Errorf("expected multiple files for large OAS2 API, got %d", len(result.Files))
-	}
+	assert.GreaterOrEqual(t, len(result.Files), 4, "expected multiple files for large OAS2 API")
 
 	// Verify all generated Go code compiles (skip non-Go files like README.md)
 	for _, file := range result.Files {
@@ -180,9 +156,7 @@ func TestOAS2LargeAPISplit(t *testing.T) {
 		}
 		fset := token.NewFileSet()
 		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-		if parseErr != nil {
-			t.Errorf("generated file %s does not compile: %v", file.Name, parseErr)
-		}
+		assert.NoError(t, parseErr, "generated file %s does not compile", file.Name)
 	}
 }
 
@@ -223,12 +197,10 @@ func TestFileSplitterAnalyze(t *testing.T) {
 
 			plan := fs.AnalyzeOAS3(doc)
 
-			if plan.NeedsSplit != tt.wantSplit {
-				t.Errorf("NeedsSplit = %v, want %v", plan.NeedsSplit, tt.wantSplit)
-			}
+			assert.Equal(t, tt.wantSplit, plan.NeedsSplit)
 
-			if tt.wantSplit && len(plan.Groups) < tt.wantMinGroups {
-				t.Errorf("got %d groups, want at least %d", len(plan.Groups), tt.wantMinGroups)
+			if tt.wantSplit {
+				assert.GreaterOrEqual(t, len(plan.Groups), tt.wantMinGroups)
 			}
 		})
 	}
@@ -253,9 +225,7 @@ func TestSplitFilesCompile(t *testing.T) {
 	}
 
 	result, err := gen.GenerateParsed(parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Collect all files and verify they can be parsed together (skip non-Go files)
 	fset := token.NewFileSet()
@@ -271,9 +241,7 @@ func TestSplitFilesCompile(t *testing.T) {
 		}
 	}
 
-	if len(parseErrors) > 0 {
-		t.Errorf("generated package has compilation errors:\n%v", parseErrors)
-	}
+	assert.Empty(t, parseErrors, "generated package has compilation errors")
 
 	// Log file count for visibility
 	t.Logf("Generated %d files for large API", len(result.Files))
@@ -475,15 +443,11 @@ func TestLargeAPISecurityEnforceSplit(t *testing.T) {
 	}
 
 	result, err := gen.GenerateParsed(parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Check that we have multiple security_enforce files
 	securityFiles := countFilesByPrefix(result.Files, "security_enforce")
-	if securityFiles < 2 {
-		t.Errorf("expected multiple security_enforce files when splitting, got %d", securityFiles)
-	}
+	assert.GreaterOrEqual(t, securityFiles, 2, "expected multiple security_enforce files when splitting")
 
 	// Verify all generated Go code compiles
 	for _, file := range result.Files {
@@ -492,9 +456,7 @@ func TestLargeAPISecurityEnforceSplit(t *testing.T) {
 		}
 		fset := token.NewFileSet()
 		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-		if parseErr != nil {
-			t.Errorf("generated file %s does not compile: %v", file.Name, parseErr)
-		}
+		assert.NoError(t, parseErr, "generated file %s does not compile", file.Name)
 	}
 
 	// Log file count for visibility
@@ -524,9 +486,7 @@ func TestOAS2SplitClientCompiles(t *testing.T) {
 	}
 
 	result, err := gen.GenerateParsed(parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify ALL generated Go files compile - this catches missing imports
 	for _, file := range result.Files {
@@ -535,10 +495,8 @@ func TestOAS2SplitClientCompiles(t *testing.T) {
 		}
 		fset := token.NewFileSet()
 		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-		if parseErr != nil {
-			t.Errorf("generated file %s does not compile: %v\nContent preview:\n%s",
-				file.Name, parseErr, truncateContent(file.Content, 500))
-		}
+		assert.NoError(t, parseErr, "generated file %s does not compile: content preview: %s",
+			file.Name, truncateContent(file.Content, 500))
 	}
 
 	// Specifically check client.go has the required imports for clientHelpers
@@ -550,18 +508,14 @@ func TestOAS2SplitClientCompiles(t *testing.T) {
 		}
 	}
 
-	if clientFile == nil {
-		t.Fatal("expected client.go file")
-	}
+	require.NotNil(t, clientFile, "expected client.go file")
 
 	// With imports.Process(), base client.go only contains imports it actually uses.
 	// The actual API methods (which use bytes, encoding/json, etc.) are in split files.
 	// We just verify the file exists and the code parses correctly.
 	fset := token.NewFileSet()
 	_, parseErr := parser.ParseFile(fset, clientFile.Name, clientFile.Content, parser.AllErrors)
-	if parseErr != nil {
-		t.Fatalf("client.go does not parse: %v", parseErr)
-	}
+	require.NoError(t, parseErr, "client.go does not parse")
 }
 
 // TestOAS2SecurityEnforceSplit tests security_enforce splitting for OAS 2.0
@@ -582,15 +536,11 @@ func TestOAS2SecurityEnforceSplit(t *testing.T) {
 	}
 
 	result, err := gen.GenerateParsed(parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Check that we have multiple security_enforce files
 	securityFiles := countFilesByPrefix(result.Files, "security_enforce")
-	if securityFiles < 2 {
-		t.Errorf("expected multiple security_enforce files when splitting, got %d", securityFiles)
-	}
+	assert.GreaterOrEqual(t, securityFiles, 2, "expected multiple security_enforce files when splitting")
 
 	// Verify all generated Go code compiles
 	for _, file := range result.Files {
@@ -599,9 +549,7 @@ func TestOAS2SecurityEnforceSplit(t *testing.T) {
 		}
 		fset := token.NewFileSet()
 		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-		if parseErr != nil {
-			t.Errorf("generated file %s does not compile: %v", file.Name, parseErr)
-		}
+		assert.NoError(t, parseErr, "generated file %s does not compile", file.Name)
 	}
 }
 
@@ -714,9 +662,7 @@ func TestDuplicateOperationIdHandling(t *testing.T) {
 	}
 
 	result, err := gen.GenerateParsed(parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have warnings about duplicate method names
 	hasWarning := false
@@ -735,9 +681,7 @@ func TestDuplicateOperationIdHandling(t *testing.T) {
 		if file.Name == "server.go" {
 			fset := token.NewFileSet()
 			_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-			if parseErr != nil {
-				t.Fatalf("server.go does not compile: %v", parseErr)
-			}
+			require.NoError(t, parseErr, "server.go does not compile")
 		}
 	}
 }
@@ -794,9 +738,7 @@ func TestDuplicateTypeNameHandling(t *testing.T) {
 	}
 
 	result, err := gen.GenerateParsed(parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have warnings about duplicate type names
 	warningCount := 0
@@ -815,9 +757,7 @@ func TestDuplicateTypeNameHandling(t *testing.T) {
 		if file.Name == "types.go" {
 			fset := token.NewFileSet()
 			_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-			if parseErr != nil {
-				t.Fatalf("types.go does not compile: %v", parseErr)
-			}
+			require.NoError(t, parseErr, "types.go does not compile")
 		}
 	}
 }
@@ -871,9 +811,7 @@ func TestSelfReferencingTypeCompiles(t *testing.T) {
 	}
 
 	result, err := gen.GenerateParsed(parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Find types.go and verify it compiles
 	var typesContent string
@@ -882,22 +820,17 @@ func TestSelfReferencingTypeCompiles(t *testing.T) {
 			typesContent = string(file.Content)
 			fset := token.NewFileSet()
 			_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-			if parseErr != nil {
-				t.Fatalf("types.go does not compile: %v\n\nContent:\n%s", parseErr, typesContent)
-			}
+			require.NoError(t, parseErr, "types.go does not compile\n\nContent:\n%s", typesContent)
 			break
 		}
 	}
 
-	if typesContent == "" {
-		t.Fatal("types.go not found in generated files")
-	}
+	require.NotEmpty(t, typesContent, "types.go not found in generated files")
 
 	// Verify the parent field uses a pointer (required for non-array self-reference)
 	// The struct field may have variable whitespace alignment, so check for the pattern
-	if !strings.Contains(typesContent, "Parent") || !strings.Contains(typesContent, "*TreeNode") {
-		t.Errorf("expected Parent field to be a pointer to TreeNode for self-reference\n\nGenerated content:\n%s", typesContent)
-	}
+	assert.Contains(t, typesContent, "Parent", "expected Parent field in generated content")
+	assert.Contains(t, typesContent, "*TreeNode", "expected pointer to TreeNode for self-reference")
 
 	// Verify it's actually a pointer field (not array or other type)
 	// Look for the pattern: Parent followed by whitespace and *TreeNode
@@ -909,9 +842,8 @@ func TestSelfReferencingTypeCompiles(t *testing.T) {
 			break
 		}
 	}
-	if !foundPointerField {
-		t.Errorf("Parent field should be *TreeNode (pointer) for self-reference\n\nGenerated content:\n%s", typesContent)
-	}
+	assert.True(t, foundPointerField,
+		"Parent field should be *TreeNode (pointer) for self-reference\n\nGenerated content:\n%s", typesContent)
 }
 
 // TestOAS3DuplicateOperationIdAcrossTags tests that duplicate operationIds across
@@ -923,9 +855,7 @@ func TestOAS3DuplicateOperationIdAcrossTags(t *testing.T) {
 		oasparser.WithFilePath("../testdata/generator/duplicate_operations_oas3.json"),
 		oasparser.WithValidateStructure(true),
 	)
-	if err != nil {
-		t.Fatalf("failed to parse test file: %v", err)
-	}
+	require.NoError(t, err)
 
 	gen := New()
 	gen.PackageName = "duplicateops"
@@ -936,9 +866,7 @@ func TestOAS3DuplicateOperationIdAcrossTags(t *testing.T) {
 	gen.MaxOperationsPerFile = 2 // Force splitting
 
 	result, err := gen.GenerateParsed(*parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Track which operations appear in which files to verify deduplication
 	methodsInFiles := make(map[string][]string) // method name -> list of file names
@@ -960,10 +888,9 @@ func TestOAS3DuplicateOperationIdAcrossTags(t *testing.T) {
 
 	// Verify each duplicate operationId only generates ONE request type
 	for methodName, files := range methodsInFiles {
-		if len(files) > 1 {
-			t.Errorf("request type %sRequest defined in multiple files: %v (should be deduplicated)",
-				methodName, files)
-		}
+		assert.Len(t, files, 1,
+			"request type %sRequest defined in multiple files: %v (should be deduplicated)",
+			methodName, files)
 	}
 
 	// Verify all generated Go code compiles
@@ -973,10 +900,8 @@ func TestOAS3DuplicateOperationIdAcrossTags(t *testing.T) {
 		}
 		fset := token.NewFileSet()
 		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-		if parseErr != nil {
-			t.Errorf("generated file %s does not compile: %v\nContent:\n%s",
-				file.Name, parseErr, string(file.Content))
-		}
+		assert.NoError(t, parseErr, "generated file %s does not compile\nContent:\n%s",
+			file.Name, string(file.Content))
 	}
 }
 
@@ -988,9 +913,7 @@ func TestOAS3DuplicateOperationIdSingleFile(t *testing.T) {
 		oasparser.WithFilePath("../testdata/generator/duplicate_operations_oas3.json"),
 		oasparser.WithValidateStructure(true),
 	)
-	if err != nil {
-		t.Fatalf("failed to parse test file: %v", err)
-	}
+	require.NoError(t, err)
 
 	gen := New()
 	gen.PackageName = "duplicateops"
@@ -1000,9 +923,7 @@ func TestOAS3DuplicateOperationIdSingleFile(t *testing.T) {
 	gen.SplitByTag = false // No splitting
 
 	result, err := gen.GenerateParsed(*parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify all generated Go code compiles
 	for _, file := range result.Files {
@@ -1011,10 +932,8 @@ func TestOAS3DuplicateOperationIdSingleFile(t *testing.T) {
 		}
 		fset := token.NewFileSet()
 		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-		if parseErr != nil {
-			t.Errorf("generated file %s does not compile: %v\nContent:\n%s",
-				file.Name, parseErr, string(file.Content))
-		}
+		assert.NoError(t, parseErr, "generated file %s does not compile\nContent:\n%s",
+			file.Name, string(file.Content))
 	}
 
 	// Count occurrences of each method in server.go to verify no duplicates
@@ -1026,9 +945,7 @@ func TestOAS3DuplicateOperationIdSingleFile(t *testing.T) {
 		}
 	}
 
-	if serverContent == "" {
-		t.Fatal("server.go not found in generated files")
-	}
+	require.NotEmpty(t, serverContent, "server.go not found in generated files")
 
 	// Each method should appear exactly twice in server.go:
 	// once in the interface and once in UnimplementedServer
@@ -1037,10 +954,9 @@ func TestOAS3DuplicateOperationIdSingleFile(t *testing.T) {
 		interfacePattern := methodName + "("
 		count := strings.Count(serverContent, interfacePattern)
 		// Should be 2: interface declaration + unimplemented method
-		if count != 2 {
-			t.Errorf("method %s appears %d times in server.go (expected 2: interface + unimplemented)",
-				methodName, count)
-		}
+		assert.Equal(t, 2, count,
+			"method %s appears %d times in server.go (expected 2: interface + unimplemented)",
+			methodName, count)
 	}
 }
 
@@ -1053,9 +969,7 @@ func TestOAS2DuplicateOperationIdAcrossTags(t *testing.T) {
 		oasparser.WithFilePath("../testdata/generator/duplicate_operations_oas2.json"),
 		oasparser.WithValidateStructure(true),
 	)
-	if err != nil {
-		t.Fatalf("failed to parse test file: %v", err)
-	}
+	require.NoError(t, err)
 
 	gen := New()
 	gen.PackageName = "duplicateops"
@@ -1066,9 +980,7 @@ func TestOAS2DuplicateOperationIdAcrossTags(t *testing.T) {
 	gen.MaxOperationsPerFile = 2 // Force splitting
 
 	result, err := gen.GenerateParsed(*parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Track which operations appear in which files to verify deduplication
 	methodsInFiles := make(map[string][]string) // method name -> list of file names
@@ -1090,10 +1002,9 @@ func TestOAS2DuplicateOperationIdAcrossTags(t *testing.T) {
 
 	// Verify each duplicate operationId only generates ONE request type
 	for methodName, files := range methodsInFiles {
-		if len(files) > 1 {
-			t.Errorf("request type %sRequest defined in multiple files: %v (should be deduplicated)",
-				methodName, files)
-		}
+		assert.Len(t, files, 1,
+			"request type %sRequest defined in multiple files: %v (should be deduplicated)",
+			methodName, files)
 	}
 
 	// Verify all generated Go code compiles
@@ -1103,10 +1014,8 @@ func TestOAS2DuplicateOperationIdAcrossTags(t *testing.T) {
 		}
 		fset := token.NewFileSet()
 		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-		if parseErr != nil {
-			t.Errorf("generated file %s does not compile: %v\nContent:\n%s",
-				file.Name, parseErr, string(file.Content))
-		}
+		assert.NoError(t, parseErr, "generated file %s does not compile\nContent:\n%s",
+			file.Name, string(file.Content))
 	}
 
 	// Verify we got the expected file structure with split files
@@ -1143,9 +1052,7 @@ func TestOAS2DuplicateOperationIdAcrossTags(t *testing.T) {
 
 	// Animals should have the deduplicated operations
 	if animalsClientContent != "" {
-		if !strings.Contains(animalsClientContent, "ListItems") {
-			t.Error("animals client should have ListItems operation")
-		}
+		assert.Contains(t, animalsClientContent, "ListItems")
 	}
 
 	// Plants should NOT have a separate client file since all its operations are duplicates
@@ -1163,9 +1070,7 @@ func TestOAS2DuplicateOperationIdSingleFile(t *testing.T) {
 		oasparser.WithFilePath("../testdata/generator/duplicate_operations_oas2.json"),
 		oasparser.WithValidateStructure(true),
 	)
-	if err != nil {
-		t.Fatalf("failed to parse test file: %v", err)
-	}
+	require.NoError(t, err)
 
 	gen := New()
 	gen.PackageName = "duplicateops"
@@ -1175,9 +1080,7 @@ func TestOAS2DuplicateOperationIdSingleFile(t *testing.T) {
 	gen.SplitByTag = false // No splitting
 
 	result, err := gen.GenerateParsed(*parseResult)
-	if err != nil {
-		t.Fatalf("GenerateParsed() error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify all generated Go code compiles
 	for _, file := range result.Files {
@@ -1186,10 +1089,8 @@ func TestOAS2DuplicateOperationIdSingleFile(t *testing.T) {
 		}
 		fset := token.NewFileSet()
 		_, parseErr := parser.ParseFile(fset, file.Name, file.Content, parser.AllErrors)
-		if parseErr != nil {
-			t.Errorf("generated file %s does not compile: %v\nContent:\n%s",
-				file.Name, parseErr, string(file.Content))
-		}
+		assert.NoError(t, parseErr, "generated file %s does not compile\nContent:\n%s",
+			file.Name, string(file.Content))
 	}
 
 	// Count occurrences of each method in server.go to verify no duplicates
@@ -1201,9 +1102,7 @@ func TestOAS2DuplicateOperationIdSingleFile(t *testing.T) {
 		}
 	}
 
-	if serverContent == "" {
-		t.Fatal("server.go not found in generated files")
-	}
+	require.NotEmpty(t, serverContent, "server.go not found in generated files")
 
 	// Each method should appear exactly twice in server.go:
 	// once in the interface and once in UnimplementedServer
@@ -1212,9 +1111,8 @@ func TestOAS2DuplicateOperationIdSingleFile(t *testing.T) {
 		interfacePattern := methodName + "("
 		count := strings.Count(serverContent, interfacePattern)
 		// Should be 2: interface declaration + unimplemented method
-		if count != 2 {
-			t.Errorf("method %s appears %d times in server.go (expected 2: interface + unimplemented)",
-				methodName, count)
-		}
+		assert.Equal(t, 2, count,
+			"method %s appears %d times in server.go (expected 2: interface + unimplemented)",
+			methodName, count)
 	}
 }

@@ -2097,7 +2097,7 @@ func TestJoinResult_ToParseResult(t *testing.T) {
 
 		parseResult := joinResult.ToParseResult()
 
-		assert.Len(t, parseResult.Warnings, 2)
+		require.Len(t, parseResult.Warnings, 2)
 		assert.Equal(t, "legacy warning 1", parseResult.Warnings[0])
 		assert.Equal(t, "legacy warning 2", parseResult.Warnings[1])
 	})

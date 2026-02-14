@@ -1392,7 +1392,7 @@ func TestConversionResult_ToParseResult(t *testing.T) {
 		assert.Equal(t, parser.OASVersion310, parseResult.OASVersion)
 		assert.NotNil(t, parseResult.Document)
 		assert.Empty(t, parseResult.Errors)
-		assert.Len(t, parseResult.Warnings, 1)
+		require.Len(t, parseResult.Warnings, 1)
 		assert.Contains(t, parseResult.Warnings[0], "test issue")
 		assert.Equal(t, 100*time.Millisecond, parseResult.LoadTime)
 		assert.Equal(t, int64(1024), parseResult.SourceSize)
@@ -1442,7 +1442,7 @@ func TestConversionResult_ToParseResult(t *testing.T) {
 
 		parseResult := result.ToParseResult()
 
-		assert.Len(t, parseResult.Warnings, 3)
+		require.Len(t, parseResult.Warnings, 3)
 		// Verify severity prefix is included for programmatic filtering
 		assert.Contains(t, parseResult.Warnings[0], "[warning]")
 		assert.Contains(t, parseResult.Warnings[0], "issue 1")

@@ -511,7 +511,7 @@ paths:
 	result, err := f.FixParsed(*parseResult)
 	require.NoError(t, err)
 
-	assert.Equal(t, 1, len(result.Fixes))
+	require.Len(t, result.Fixes, 1)
 	assert.Equal(t, "getData", result.Fixes[0].Before)
 	assert.Equal(t, "getData2", result.Fixes[0].After)
 
@@ -556,7 +556,7 @@ webhooks:
 
 	// One fix should be applied - paths and webhooks share the same operationId namespace per OAS spec
 	// "paths:/users" sorts before "webhooks:userCreated", so the webhook is the duplicate
-	assert.Equal(t, 1, len(result.Fixes))
+	require.Len(t, result.Fixes, 1)
 	assert.Equal(t, "handleEvent", result.Fixes[0].Before)
 	assert.Equal(t, "handleEvent2", result.Fixes[0].After)
 	assert.Contains(t, result.Fixes[0].Path, "webhooks.")
@@ -599,7 +599,7 @@ webhooks:
 	require.NoError(t, err)
 
 	// One fix should be applied for the duplicate within webhooks
-	assert.Equal(t, 1, len(result.Fixes))
+	require.Len(t, result.Fixes, 1)
 	assert.Equal(t, "handleEvent", result.Fixes[0].Before)
 	assert.Equal(t, "handleEvent2", result.Fixes[0].After)
 	assert.Contains(t, result.Fixes[0].Path, "webhooks.")
@@ -692,7 +692,7 @@ paths:
 	require.NoError(t, err)
 
 	// Fixes should still be reported
-	assert.Equal(t, 1, len(result.Fixes))
+	require.Len(t, result.Fixes, 1)
 	assert.Equal(t, "getData", result.Fixes[0].Before)
 	assert.Equal(t, "getData2", result.Fixes[0].After)
 
@@ -742,7 +742,7 @@ paths:
 	)
 	require.NoError(t, err)
 
-	assert.Equal(t, 1, len(result.Fixes))
+	require.Len(t, result.Fixes, 1)
 	assert.Equal(t, "list", result.Fixes[0].Before)
 	// /api/v1/items is first alphabetically, /api/v1/users is duplicate
 	// PathSeparator "-" makes /api/v1/users become "api-v1-users"
@@ -998,7 +998,7 @@ paths:
 	require.NoError(t, err)
 
 	// Should have 1 fix
-	assert.Equal(t, 1, len(result.Fixes))
+	require.Len(t, result.Fixes, 1)
 	assert.Equal(t, "getUsuarios", result.Fixes[0].Before)
 	assert.Equal(t, "getUsuarios2", result.Fixes[0].After)
 }
@@ -1034,7 +1034,7 @@ paths:
 	require.NoError(t, err)
 
 	// Should have 1 fix
-	assert.Equal(t, 1, len(result.Fixes))
+	require.Len(t, result.Fixes, 1)
 	assert.Equal(t, "获取用户", result.Fixes[0].Before)
 	assert.Equal(t, "获取用户2", result.Fixes[0].After)
 }

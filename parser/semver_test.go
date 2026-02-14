@@ -2,6 +2,9 @@ package parser
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseVersion(t *testing.T) {
@@ -94,28 +97,16 @@ func TestParseVersion(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ver, err := parseVersion(tt.input)
 			if tt.shouldFail {
-				if err == nil {
-					t.Errorf("parseVersion(%q) expected error, got nil", tt.input)
-				}
+				assert.Error(t, err)
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("parseVersion(%q) unexpected error: %v", tt.input, err)
-			}
+			require.NoError(t, err)
 
-			if ver.major != tt.wantMajor {
-				t.Errorf("major = %d, want %d", ver.major, tt.wantMajor)
-			}
-			if ver.minor != tt.wantMinor {
-				t.Errorf("minor = %d, want %d", ver.minor, tt.wantMinor)
-			}
-			if ver.patch != tt.wantPatch {
-				t.Errorf("patch = %d, want %d", ver.patch, tt.wantPatch)
-			}
-			if ver.prerelease != tt.wantPre {
-				t.Errorf("prerelease = %q, want %q", ver.prerelease, tt.wantPre)
-			}
+			assert.Equal(t, tt.wantMajor, ver.major)
+			assert.Equal(t, tt.wantMinor, ver.minor)
+			assert.Equal(t, tt.wantPatch, ver.patch)
+			assert.Equal(t, tt.wantPre, ver.prerelease)
 		})
 	}
 }
@@ -124,12 +115,8 @@ func TestVersionSegments(t *testing.T) {
 	ver, _ := parseVersion("3.1.2")
 	segments := ver.segments()
 
-	if len(segments) != 3 {
-		t.Fatalf("segments length = %d, want 3", len(segments))
-	}
-	if segments[0] != 3 || segments[1] != 1 || segments[2] != 2 {
-		t.Errorf("segments = %v, want [3 1 2]", segments)
-	}
+	require.Len(t, segments, 3)
+	assert.Equal(t, []int{3, 1, 2}, segments)
 }
 
 func TestVersionLessThan(t *testing.T) {
@@ -157,18 +144,12 @@ func TestVersionLessThan(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v1, err := parseVersion(tt.v1)
-			if err != nil {
-				t.Fatalf("parseVersion(%q) error: %v", tt.v1, err)
-			}
+			require.NoError(t, err)
 			v2, err := parseVersion(tt.v2)
-			if err != nil {
-				t.Fatalf("parseVersion(%q) error: %v", tt.v2, err)
-			}
+			require.NoError(t, err)
 
 			got := v1.lessThan(v2)
-			if got != tt.want {
-				t.Errorf("%s.lessThan(%s) = %v, want %v", tt.v1, tt.v2, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -195,18 +176,12 @@ func TestVersionGreaterThanOrEqual(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v1, err := parseVersion(tt.v1)
-			if err != nil {
-				t.Fatalf("parseVersion(%q) error: %v", tt.v1, err)
-			}
+			require.NoError(t, err)
 			v2, err := parseVersion(tt.v2)
-			if err != nil {
-				t.Fatalf("parseVersion(%q) error: %v", tt.v2, err)
-			}
+			require.NoError(t, err)
 
 			got := v1.greaterThanOrEqual(v2)
-			if got != tt.want {
-				t.Errorf("%s.greaterThanOrEqual(%s) = %v, want %v", tt.v1, tt.v2, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

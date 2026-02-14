@@ -1,6 +1,10 @@
 package naming
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestToPascalCase(t *testing.T) {
 	tests := []struct {
@@ -57,9 +61,7 @@ func TestToPascalCase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ToPascalCase(tt.input)
-			if got != tt.want {
-				t.Errorf("ToPascalCase(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "ToPascalCase(%q)", tt.input)
 		})
 	}
 }
@@ -101,9 +103,7 @@ func TestToCamelCase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ToCamelCase(tt.input)
-			if got != tt.want {
-				t.Errorf("ToCamelCase(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "ToCamelCase(%q)", tt.input)
 		})
 	}
 }
@@ -154,9 +154,7 @@ func TestToSnakeCase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ToSnakeCase(tt.input)
-			if got != tt.want {
-				t.Errorf("ToSnakeCase(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "ToSnakeCase(%q)", tt.input)
 		})
 	}
 }
@@ -198,9 +196,7 @@ func TestToKebabCase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ToKebabCase(tt.input)
-			if got != tt.want {
-				t.Errorf("ToKebabCase(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "ToKebabCase(%q)", tt.input)
 		})
 	}
 }
@@ -237,9 +233,7 @@ func TestToTitleCase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ToTitleCase(tt.input)
-			if got != tt.want {
-				t.Errorf("ToTitleCase(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "ToTitleCase(%q)", tt.input)
 		})
 	}
 }
@@ -259,9 +253,7 @@ func TestEdgeCases(t *testing.T) {
 		}
 		for _, tt := range tests {
 			got := ToPascalCase(tt.input)
-			if got != tt.want {
-				t.Errorf("ToPascalCase(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "ToPascalCase(%q)", tt.input)
 		}
 	})
 
@@ -277,9 +269,7 @@ func TestEdgeCases(t *testing.T) {
 		}
 		for _, tt := range tests {
 			got := ToCamelCase(tt.input)
-			if got != tt.want {
-				t.Errorf("ToCamelCase(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "ToCamelCase(%q)", tt.input)
 		}
 	})
 }

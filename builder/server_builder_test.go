@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewServerBuilder(t *testing.T) {
@@ -30,18 +32,10 @@ func TestNewServerBuilder(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			srv := NewServerBuilder(tt.version)
-			if srv == nil {
-				t.Fatal("NewServerBuilder returned nil")
-			}
-			if srv.Builder == nil {
-				t.Error("ServerBuilder.Builder is nil")
-			}
-			if srv.handlers == nil {
-				t.Error("ServerBuilder.handlers is nil")
-			}
-			if srv.middleware == nil {
-				t.Error("ServerBuilder.middleware is nil")
-			}
+			require.NotNil(t, srv)
+			assert.NotNil(t, srv.Builder)
+			assert.NotNil(t, srv.handlers)
+			assert.NotNil(t, srv.middleware)
 		})
 	}
 }
@@ -55,12 +49,8 @@ func TestFromBuilder(t *testing.T) {
 
 	srv := FromBuilder(b)
 
-	if srv == nil {
-		t.Fatal("FromBuilder returned nil")
-	}
-	if srv.Builder != b {
-		t.Error("FromBuilder did not preserve the original builder")
-	}
+	require.NotNil(t, srv)
+	assert.Equal(t, b, srv.Builder)
 }
 
 func TestServerBuilder_Handle(t *testing.T) {
@@ -74,18 +64,13 @@ func TestServerBuilder_Handle(t *testing.T) {
 
 	result := srv.Handle(http.MethodGet, "/test", handler)
 
-	if result != srv {
-		t.Error("Handle did not return the same ServerBuilder for chaining")
-	}
+	assert.Equal(t, srv, result)
 
 	srv.mu.RLock()
 	methodHandlers, pathOk := srv.handlers["/test"]
-	if !pathOk {
-		t.Error("Handler was not registered for path")
-	}
-	if _, methodOk := methodHandlers[http.MethodGet]; !methodOk {
-		t.Error("Handler was not registered for method")
-	}
+	assert.True(t, pathOk, "Handler was not registered for path")
+	_, methodOk := methodHandlers[http.MethodGet]
+	assert.True(t, methodOk, "Handler was not registered for method")
 	srv.mu.RUnlock()
 }
 
@@ -101,18 +86,13 @@ func TestServerBuilder_HandleFunc(t *testing.T) {
 
 	result := srv.HandleFunc(http.MethodGet, "/test", handler)
 
-	if result != srv {
-		t.Error("HandleFunc did not return the same ServerBuilder for chaining")
-	}
+	assert.Equal(t, srv, result)
 
 	srv.mu.RLock()
 	methodHandlers, pathOk := srv.handlers["/test"]
-	if !pathOk {
-		t.Error("Handler was not registered for path")
-	}
-	if _, methodOk := methodHandlers[http.MethodGet]; !methodOk {
-		t.Error("Handler was not registered for method")
-	}
+	assert.True(t, pathOk, "Handler was not registered for path")
+	_, methodOk := methodHandlers[http.MethodGet]
+	assert.True(t, methodOk, "Handler was not registered for method")
 	srv.mu.RUnlock()
 }
 
@@ -130,9 +110,7 @@ func TestServerBuilder_Use(t *testing.T) {
 
 	srv.Use(mw1, mw2)
 
-	if len(srv.middleware) != 2 {
-		t.Errorf("Expected 2 middleware, got %d", len(srv.middleware))
-	}
+	assert.Len(t, srv.middleware, 2)
 }
 
 func TestServerBuilder_BuildServer(t *testing.T) {
@@ -152,22 +130,12 @@ func TestServerBuilder_BuildServer(t *testing.T) {
 	})
 
 	result, err := srv.BuildServer()
-	if err != nil {
-		t.Fatalf("BuildServer failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if result == nil {
-		t.Fatal("BuildServer returned nil result")
-	}
-	if result.Handler == nil {
-		t.Error("ServerResult.Handler is nil")
-	}
-	if result.Spec == nil {
-		t.Error("ServerResult.Spec is nil")
-	}
-	if result.ParseResult == nil {
-		t.Error("ServerResult.ParseResult is nil")
-	}
+	require.NotNil(t, result)
+	assert.NotNil(t, result.Handler)
+	assert.NotNil(t, result.Spec)
+	assert.NotNil(t, result.ParseResult)
 }
 
 func TestServerBuilder_BuildServer_WithValidation(t *testing.T) {
@@ -187,13 +155,9 @@ func TestServerBuilder_BuildServer_WithValidation(t *testing.T) {
 	})
 
 	result, err := srv.BuildServer()
-	if err != nil {
-		t.Fatalf("BuildServer failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if result.Validator == nil {
-		t.Error("ServerResult.Validator is nil when validation is enabled")
-	}
+	assert.NotNil(t, result.Validator)
 }
 
 func TestServerBuilder_MustBuildServer(t *testing.T) {
@@ -214,9 +178,7 @@ func TestServerBuilder_MustBuildServer(t *testing.T) {
 
 	result := srv.MustBuildServer()
 
-	if result == nil {
-		t.Fatal("MustBuildServer returned nil")
-	}
+	require.NotNil(t, result)
 }
 
 func TestServerBuilder_MustBuildServer_Panics(t *testing.T) {
@@ -285,9 +247,7 @@ func TestServerBuilder_EndToEnd(t *testing.T) {
 	})
 
 	result, err := srv.BuildServer()
-	if err != nil {
-		t.Fatalf("BuildServer failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Test GET /pets
 	t.Run("GET /pets", func(t *testing.T) {
@@ -295,18 +255,13 @@ func TestServerBuilder_EndToEnd(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/pets", nil)
 		result.Handler.ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusOK {
-			t.Errorf("Expected status 200, got %d", rec.Code)
-		}
+		assert.Equal(t, http.StatusOK, rec.Code)
 
 		var gotPets []Pet
-		if err := json.NewDecoder(rec.Body).Decode(&gotPets); err != nil {
-			t.Fatalf("Failed to decode response: %v", err)
-		}
+		err := json.NewDecoder(rec.Body).Decode(&gotPets)
+		require.NoError(t, err)
 
-		if len(gotPets) != 2 {
-			t.Errorf("Expected 2 pets, got %d", len(gotPets))
-		}
+		assert.Len(t, gotPets, 2)
 	})
 
 	// Test GET /pets/1
@@ -315,9 +270,7 @@ func TestServerBuilder_EndToEnd(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/pets/1", nil)
 		result.Handler.ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusOK {
-			t.Errorf("Expected status 200, got %d", rec.Code)
-		}
+		assert.Equal(t, http.StatusOK, rec.Code)
 	})
 
 	// Test GET /pets/999 (not found)
@@ -326,9 +279,7 @@ func TestServerBuilder_EndToEnd(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/pets/999", nil)
 		result.Handler.ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusNotFound {
-			t.Errorf("Expected status 404, got %d", rec.Code)
-		}
+		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
 
 	// Test POST /pets
@@ -339,9 +290,7 @@ func TestServerBuilder_EndToEnd(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		result.Handler.ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusCreated {
-			t.Errorf("Expected status 201, got %d", rec.Code)
-		}
+		assert.Equal(t, http.StatusCreated, rec.Code)
 	})
 
 	// Test 404 for unknown path
@@ -350,9 +299,7 @@ func TestServerBuilder_EndToEnd(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/unknown", nil)
 		result.Handler.ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusNotFound {
-			t.Errorf("Expected status 404, got %d", rec.Code)
-		}
+		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
 
 	// Test 405 for unsupported method
@@ -361,9 +308,7 @@ func TestServerBuilder_EndToEnd(t *testing.T) {
 		req := httptest.NewRequest(http.MethodDelete, "/pets", nil)
 		result.Handler.ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusMethodNotAllowed {
-			t.Errorf("Expected status 405, got %d", rec.Code)
-		}
+		assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
 	})
 }
 
@@ -382,17 +327,13 @@ func TestServerBuilder_UnhandledOperation(t *testing.T) {
 	// Note: We don't register a handler for "unhandledOp"
 
 	result, err := srv.BuildServer()
-	if err != nil {
-		t.Fatalf("BuildServer failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/unhandled", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNotImplemented {
-		t.Errorf("Expected status 501, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 func TestServerBuilder_WithMiddleware(t *testing.T) {
@@ -421,17 +362,13 @@ func TestServerBuilder_WithMiddleware(t *testing.T) {
 	})
 
 	result, err := srv.BuildServer()
-	if err != nil {
-		t.Fatalf("BuildServer failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if !middlewareCalled {
-		t.Error("Middleware was not called")
-	}
+	assert.True(t, middlewareCalled)
 }
 
 func TestServerBuilder_WithRecovery(t *testing.T) {
@@ -451,9 +388,7 @@ func TestServerBuilder_WithRecovery(t *testing.T) {
 	})
 
 	result, err := srv.BuildServer()
-	if err != nil {
-		t.Fatalf("BuildServer failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
@@ -461,9 +396,7 @@ func TestServerBuilder_WithRecovery(t *testing.T) {
 	// Should not panic
 	result.Handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status 500 after panic, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestServerBuilder_WithLogging(t *testing.T) {
@@ -493,23 +426,15 @@ func TestServerBuilder_WithLogging(t *testing.T) {
 	})
 
 	result, err := srv.BuildServer()
-	if err != nil {
-		t.Fatalf("BuildServer failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/logged", nil)
 	result.Handler.ServeHTTP(rec, req)
 
-	if loggedMethod != http.MethodGet {
-		t.Errorf("Expected logged method GET, got %s", loggedMethod)
-	}
-	if loggedPath != "/logged" {
-		t.Errorf("Expected logged path /logged, got %s", loggedPath)
-	}
-	if loggedStatus != http.StatusOK {
-		t.Errorf("Expected logged status 200, got %d", loggedStatus)
-	}
+	assert.Equal(t, http.MethodGet, loggedMethod)
+	assert.Equal(t, "/logged", loggedPath)
+	assert.Equal(t, http.StatusOK, loggedStatus)
 }
 
 func TestServerBuilderOptions(t *testing.T) {
@@ -519,43 +444,33 @@ func TestServerBuilderOptions(t *testing.T) {
 		t.Parallel()
 		router := &stdlibRouter{}
 		srv := NewServerBuilder(parser.OASVersion320, WithRouter(router))
-		if srv.router != router {
-			t.Error("WithRouter did not set the router")
-		}
+		assert.Equal(t, router, srv.router)
 	})
 
 	t.Run("WithStdlibRouter", func(t *testing.T) {
 		t.Parallel()
 		srv := NewServerBuilder(parser.OASVersion320, WithStdlibRouter())
-		if srv.router == nil {
-			t.Error("WithStdlibRouter did not set the router")
-		}
+		assert.NotNil(t, srv.router)
 	})
 
 	t.Run("WithoutValidation", func(t *testing.T) {
 		t.Parallel()
 		srv := NewServerBuilder(parser.OASVersion320, WithoutValidation())
-		if srv.config.enableValidation {
-			t.Error("WithoutValidation did not disable validation")
-		}
+		assert.False(t, srv.config.enableValidation)
 	})
 
 	t.Run("WithValidationConfig", func(t *testing.T) {
 		t.Parallel()
 		cfg := ValidationConfig{StrictMode: true}
 		srv := NewServerBuilder(parser.OASVersion320, WithValidationConfig(cfg))
-		if !srv.config.validationConfig.StrictMode {
-			t.Error("WithValidationConfig did not set strict mode")
-		}
+		assert.True(t, srv.config.validationConfig.StrictMode)
 	})
 
 	t.Run("WithErrorHandler", func(t *testing.T) {
 		t.Parallel()
 		handler := func(_ http.ResponseWriter, _ *http.Request, _ error) {}
 		srv := NewServerBuilder(parser.OASVersion320, WithErrorHandler(handler))
-		if srv.errorHandler == nil {
-			t.Error("WithErrorHandler did not set error handler")
-		}
+		assert.NotNil(t, srv.errorHandler)
 	})
 
 	t.Run("WithNotFoundHandler", func(t *testing.T) {
@@ -564,9 +479,7 @@ func TestServerBuilderOptions(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 		})
 		srv := NewServerBuilder(parser.OASVersion320, WithNotFoundHandler(handler))
-		if srv.config.notFoundHandler == nil {
-			t.Error("WithNotFoundHandler did not set handler")
-		}
+		assert.NotNil(t, srv.config.notFoundHandler)
 	})
 
 	t.Run("WithMethodNotAllowedHandler", func(t *testing.T) {
@@ -575,17 +488,13 @@ func TestServerBuilderOptions(t *testing.T) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		})
 		srv := NewServerBuilder(parser.OASVersion320, WithMethodNotAllowedHandler(handler))
-		if srv.config.methodNotAllowed == nil {
-			t.Error("WithMethodNotAllowedHandler did not set handler")
-		}
+		assert.NotNil(t, srv.config.methodNotAllowed)
 	})
 
 	t.Run("WithRecovery", func(t *testing.T) {
 		t.Parallel()
 		srv := NewServerBuilder(parser.OASVersion320, WithRecovery())
-		if !srv.config.enableRecovery {
-			t.Error("WithRecovery did not enable recovery")
-		}
+		assert.True(t, srv.config.enableRecovery)
 	})
 }
 
@@ -594,18 +503,10 @@ func TestDefaultValidationConfig(t *testing.T) {
 
 	cfg := DefaultValidationConfig()
 
-	if !cfg.IncludeRequestValidation {
-		t.Error("Default should include request validation")
-	}
-	if cfg.IncludeResponseValidation {
-		t.Error("Default should not include response validation")
-	}
-	if cfg.StrictMode {
-		t.Error("Default should not use strict mode")
-	}
-	if cfg.OnValidationError != nil {
-		t.Error("Default should have nil error handler")
-	}
+	assert.True(t, cfg.IncludeRequestValidation)
+	assert.False(t, cfg.IncludeResponseValidation)
+	assert.False(t, cfg.StrictMode)
+	assert.Nil(t, cfg.OnValidationError)
 }
 
 func TestResponseCapture(t *testing.T) {
@@ -615,27 +516,17 @@ func TestResponseCapture(t *testing.T) {
 
 	// Test Header
 	rec.Header().Set("X-Test", "value")
-	if rec.header.Get("X-Test") != "value" {
-		t.Error("Header() did not work correctly")
-	}
+	assert.Equal(t, "value", rec.header.Get("X-Test"))
 
 	// Test Write
 	n, err := rec.Write([]byte("hello"))
-	if err != nil {
-		t.Errorf("Write failed: %v", err)
-	}
-	if n != 5 {
-		t.Errorf("Expected 5 bytes written, got %d", n)
-	}
-	if string(rec.body) != "hello" {
-		t.Errorf("Expected body 'hello', got '%s'", string(rec.body))
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 5, n)
+	assert.Equal(t, "hello", string(rec.body))
 
 	// Test WriteHeader
 	rec.WriteHeader(http.StatusCreated)
-	if rec.status != http.StatusCreated {
-		t.Errorf("Expected status 201, got %d", rec.status)
-	}
+	assert.Equal(t, http.StatusCreated, rec.status)
 }
 
 func TestCapturedResponse(t *testing.T) {
@@ -649,23 +540,15 @@ func TestCapturedResponse(t *testing.T) {
 			body:    []byte("test"),
 		}
 
-		if resp.StatusCode() != http.StatusCreated {
-			t.Errorf("Expected status 201, got %d", resp.StatusCode())
-		}
-		if resp.Headers().Get("X-Test") != "value" {
-			t.Error("Headers not returned correctly")
-		}
-		if string(resp.Body().([]byte)) != "test" {
-			t.Error("Body not returned correctly")
-		}
+		assert.Equal(t, http.StatusCreated, resp.StatusCode())
+		assert.Equal(t, "value", resp.Headers().Get("X-Test"))
+		assert.Equal(t, "test", string(resp.Body().([]byte)))
 	})
 
 	t.Run("default status", func(t *testing.T) {
 		t.Parallel()
 		resp := &capturedResponse{}
-		if resp.StatusCode() != http.StatusOK {
-			t.Errorf("Expected default status 200, got %d", resp.StatusCode())
-		}
+		assert.Equal(t, http.StatusOK, resp.StatusCode())
 	})
 
 	t.Run("WriteTo", func(t *testing.T) {
@@ -677,19 +560,12 @@ func TestCapturedResponse(t *testing.T) {
 		}
 
 		rec := httptest.NewRecorder()
-		if err := resp.WriteTo(rec); err != nil {
-			t.Fatalf("WriteTo failed: %v", err)
-		}
+		err := resp.WriteTo(rec)
+		require.NoError(t, err)
 
-		if rec.Code != http.StatusOK {
-			t.Errorf("Expected status 200, got %d", rec.Code)
-		}
-		if rec.Header().Get("X-Custom") != "test" {
-			t.Error("Custom header not set")
-		}
-		if rec.Body.String() != "response body" {
-			t.Errorf("Expected body 'response body', got '%s'", rec.Body.String())
-		}
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, "test", rec.Header().Get("X-Custom"))
+		assert.Equal(t, "response body", rec.Body.String())
 	})
 }
 
@@ -711,9 +587,7 @@ func TestRecoveryMiddleware_ErrorPanic(t *testing.T) {
 	})
 
 	result, err := srv.BuildServer()
-	if err != nil {
-		t.Fatalf("BuildServer failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/panic-error", nil)
@@ -721,9 +595,7 @@ func TestRecoveryMiddleware_ErrorPanic(t *testing.T) {
 	// Should not panic - recovery middleware should catch it
 	result.Handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status 500 after error panic, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestRecoveryMiddleware_OtherTypePanic(t *testing.T) {
@@ -744,9 +616,7 @@ func TestRecoveryMiddleware_OtherTypePanic(t *testing.T) {
 	})
 
 	result, err := srv.BuildServer()
-	if err != nil {
-		t.Fatalf("BuildServer failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/panic-other", nil)
@@ -754,9 +624,7 @@ func TestRecoveryMiddleware_OtherTypePanic(t *testing.T) {
 	// Should not panic - recovery middleware should catch it
 	result.Handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status 500 after other-type panic, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestRecoveryMiddleware_WithCustomErrorHandler(t *testing.T) {
@@ -786,9 +654,7 @@ func TestRecoveryMiddleware_WithCustomErrorHandler(t *testing.T) {
 	})
 
 	result, err := srv.BuildServer()
-	if err != nil {
-		t.Fatalf("BuildServer failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/panic-custom", nil)
@@ -796,15 +662,9 @@ func TestRecoveryMiddleware_WithCustomErrorHandler(t *testing.T) {
 	result.Handler.ServeHTTP(rec, req)
 
 	// Should use custom error handler's status code
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Errorf("Expected custom status 503, got %d", rec.Code)
-	}
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
 
 	// Verify error was captured
-	if capturedErr == nil {
-		t.Error("Expected error to be captured by custom error handler")
-	}
-	if capturedErr != nil && !strings.Contains(capturedErr.Error(), "builder: panic recovered") {
-		t.Errorf("Expected error to contain 'builder: panic recovered', got: %v", capturedErr)
-	}
+	require.NotNil(t, capturedErr)
+	assert.Contains(t, capturedErr.Error(), "builder: panic recovered")
 }

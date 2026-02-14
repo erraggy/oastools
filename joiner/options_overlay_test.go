@@ -7,6 +7,8 @@ import (
 
 	"github.com/erraggy/oastools/overlay"
 	"github.com/erraggy/oastools/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWithPreJoinOverlay(t *testing.T) {
@@ -41,12 +43,8 @@ paths:
 
 	spec1Path := filepath.Join(dir, "spec1.yaml")
 	spec2Path := filepath.Join(dir, "spec2.yaml")
-	if err := os.WriteFile(spec1Path, []byte(spec1), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(spec2Path, []byte(spec2), 0600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(spec1Path, []byte(spec1), 0600))
+	require.NoError(t, os.WriteFile(spec2Path, []byte(spec2), 0600))
 
 	// Create overlay that adds a tag to info
 	preOverlay := &overlay.Overlay{
@@ -67,23 +65,15 @@ paths:
 		WithPreJoinOverlay(preOverlay),
 		WithPathStrategy(StrategyAcceptLeft),
 	)
-	if err != nil {
-		t.Fatalf("JoinWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Check that the overlay was applied (x-transformed should be in info)
 	// Result is a typed *parser.OAS3Document
 	oas3Doc, ok := result.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Document is not *parser.OAS3Document")
-	}
-	if oas3Doc.Info == nil {
-		t.Fatal("Info is nil")
-	}
-	if oas3Doc.Info.Extra == nil {
-		t.Error("Pre-join overlay was not applied: Extra is nil")
-	} else if _, exists := oas3Doc.Info.Extra["x-transformed"]; !exists {
-		t.Error("Pre-join overlay was not applied: x-transformed not found in info")
+	require.True(t, ok, "Document is not *parser.OAS3Document")
+	require.NotNil(t, oas3Doc.Info)
+	if assert.NotNil(t, oas3Doc.Info.Extra, "Pre-join overlay was not applied: Extra is nil") {
+		assert.Contains(t, oas3Doc.Info.Extra, "x-transformed", "Pre-join overlay was not applied: x-transformed not found in info")
 	}
 }
 
@@ -115,12 +105,8 @@ paths:
 
 	spec1Path := filepath.Join(dir, "spec1.yaml")
 	spec2Path := filepath.Join(dir, "spec2.yaml")
-	if err := os.WriteFile(spec1Path, []byte(spec1), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(spec2Path, []byte(spec2), 0600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(spec1Path, []byte(spec1), 0600))
+	require.NoError(t, os.WriteFile(spec2Path, []byte(spec2), 0600))
 
 	// Create overlay that updates info after join
 	postOverlay := &overlay.Overlay{
@@ -142,25 +128,15 @@ paths:
 		WithPostJoinOverlay(postOverlay),
 		WithPathStrategy(StrategyAcceptLeft),
 	)
-	if err != nil {
-		t.Fatalf("JoinWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Check that the post-join overlay was applied
 	doc, ok := result.Document.(map[string]any)
-	if !ok {
-		t.Fatal("Document is not a map")
-	}
+	require.True(t, ok, "Document is not a map")
 	info, ok := doc["info"].(map[string]any)
-	if !ok {
-		t.Fatal("info is not a map")
-	}
-	if info["title"] != "Combined API" {
-		t.Errorf("Post-join overlay title not applied: got %v", info["title"])
-	}
-	if info["description"] != "APIs joined with overlay" {
-		t.Errorf("Post-join overlay description not applied: got %v", info["description"])
-	}
+	require.True(t, ok, "info is not a map")
+	assert.Equal(t, "Combined API", info["title"])
+	assert.Equal(t, "APIs joined with overlay", info["description"])
 }
 
 func TestWithOverlayFiles(t *testing.T) {
@@ -192,12 +168,8 @@ paths:
 
 	spec1Path := filepath.Join(dir, "spec1.yaml")
 	spec2Path := filepath.Join(dir, "spec2.yaml")
-	if err := os.WriteFile(spec1Path, []byte(spec1), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(spec2Path, []byte(spec2), 0600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(spec1Path, []byte(spec1), 0600))
+	require.NoError(t, os.WriteFile(spec2Path, []byte(spec2), 0600))
 
 	// Create overlay files
 	preOverlayContent := `overlay: "1.0.0"
@@ -221,12 +193,8 @@ actions:
 
 	preOverlayPath := filepath.Join(dir, "pre-overlay.yaml")
 	postOverlayPath := filepath.Join(dir, "post-overlay.yaml")
-	if err := os.WriteFile(preOverlayPath, []byte(preOverlayContent), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(postOverlayPath, []byte(postOverlayContent), 0600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(preOverlayPath, []byte(preOverlayContent), 0600))
+	require.NoError(t, os.WriteFile(postOverlayPath, []byte(postOverlayContent), 0600))
 
 	result, err := JoinWithOptions(
 		WithFilePaths(spec1Path, spec2Path),
@@ -234,26 +202,16 @@ actions:
 		WithPostJoinOverlayFile(postOverlayPath),
 		WithPathStrategy(StrategyAcceptLeft),
 	)
-	if err != nil {
-		t.Fatalf("JoinWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	doc, ok := result.Document.(map[string]any)
-	if !ok {
-		t.Fatal("Document is not a map")
-	}
+	require.True(t, ok, "Document is not a map")
 	info, ok := doc["info"].(map[string]any)
-	if !ok {
-		t.Fatal("info is not a map")
-	}
+	require.True(t, ok, "info is not a map")
 
 	// Both overlays should be applied
-	if _, exists := info["x-pre-join"]; !exists {
-		t.Error("Pre-join overlay file was not applied")
-	}
-	if _, exists := info["x-post-join"]; !exists {
-		t.Error("Post-join overlay file was not applied")
-	}
+	assert.Contains(t, info, "x-pre-join", "Pre-join overlay file was not applied")
+	assert.Contains(t, info, "x-post-join", "Post-join overlay file was not applied")
 }
 
 func TestWithSpecOverlay(t *testing.T) {
@@ -285,12 +243,8 @@ paths:
 
 	spec1Path := filepath.Join(dir, "users-api.yaml")
 	spec2Path := filepath.Join(dir, "orders-api.yaml")
-	if err := os.WriteFile(spec1Path, []byte(spec1), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(spec2Path, []byte(spec2), 0600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(spec1Path, []byte(spec1), 0600))
+	require.NoError(t, os.WriteFile(spec2Path, []byte(spec2), 0600))
 
 	// Create spec-specific overlay for users API only
 	// Use bracket notation for paths with slashes
@@ -312,42 +266,26 @@ paths:
 		WithSpecOverlay(spec1Path, usersOverlay),
 		WithPathStrategy(StrategyAcceptLeft),
 	)
-	if err != nil {
-		t.Fatalf("JoinWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Result is a typed *parser.OAS3Document
 	oas3Doc, ok := result.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Document is not *parser.OAS3Document")
-	}
+	require.True(t, ok, "Document is not *parser.OAS3Document")
 
 	// Check users endpoint has the extension
 	usersPath, ok := oas3Doc.Paths["/users"]
-	if !ok {
-		t.Fatal("/users path not found")
-	}
-	if usersPath.Get == nil {
-		t.Fatal("GET operation not found on /users")
-	}
-	if usersPath.Get.Extra == nil {
-		t.Error("Spec-specific overlay was not applied: Extra is nil")
-	} else if _, exists := usersPath.Get.Extra["x-users-only"]; !exists {
-		t.Error("Spec-specific overlay was not applied to users API")
+	require.True(t, ok, "/users path not found")
+	require.NotNil(t, usersPath.Get, "GET operation not found on /users")
+	if assert.NotNil(t, usersPath.Get.Extra, "Spec-specific overlay was not applied: Extra is nil") {
+		assert.Contains(t, usersPath.Get.Extra, "x-users-only", "Spec-specific overlay was not applied to users API")
 	}
 
 	// Orders endpoint should NOT have the extension
 	ordersPath, ok := oas3Doc.Paths["/orders"]
-	if !ok {
-		t.Fatal("/orders path not found")
-	}
-	if ordersPath.Get == nil {
-		t.Fatal("GET operation not found on /orders")
-	}
+	require.True(t, ok, "/orders path not found")
+	require.NotNil(t, ordersPath.Get, "GET operation not found on /orders")
 	if ordersPath.Get.Extra != nil {
-		if _, exists := ordersPath.Get.Extra["x-users-only"]; exists {
-			t.Error("Spec-specific overlay should NOT be applied to orders API")
-		}
+		assert.NotContains(t, ordersPath.Get.Extra, "x-users-only", "Spec-specific overlay should NOT be applied to orders API")
 	}
 }
 
@@ -379,12 +317,8 @@ paths:
 
 	spec1Path := filepath.Join(dir, "spec1.yaml")
 	spec2Path := filepath.Join(dir, "spec2.yaml")
-	if err := os.WriteFile(spec1Path, []byte(spec1), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(spec2Path, []byte(spec2), 0600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(spec1Path, []byte(spec1), 0600))
+	require.NoError(t, os.WriteFile(spec2Path, []byte(spec2), 0600))
 
 	// Nil overlay should be ignored without error
 	result, err := JoinWithOptions(
@@ -392,12 +326,8 @@ paths:
 		WithPreJoinOverlay(nil),
 		WithPathStrategy(StrategyAcceptLeft),
 	)
-	if err != nil {
-		t.Fatalf("JoinWithOptions with nil overlay failed: %v", err)
-	}
-	if result == nil {
-		t.Fatal("Result should not be nil")
-	}
+	require.NoError(t, err)
+	require.NotNil(t, result, "Result should not be nil")
 }
 
 func TestJoinWithParsedAndOverlay(t *testing.T) {
@@ -415,16 +345,12 @@ paths:
           description: OK
 `
 	spec1Path := filepath.Join(dir, "spec1.yaml")
-	if err := os.WriteFile(spec1Path, []byte(spec1), 0600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(spec1Path, []byte(spec1), 0600))
 
 	// Parse spec1 first
 	p := parser.New()
 	parsed1, err := p.Parse(spec1Path)
-	if err != nil {
-		t.Fatalf("Failed to parse spec1: %v", err)
-	}
+	require.NoError(t, err, "Failed to parse spec1")
 
 	// Spec2 as file path
 	spec2 := `openapi: "3.0.3"
@@ -439,9 +365,7 @@ paths:
           description: OK
 `
 	spec2Path := filepath.Join(dir, "spec2.yaml")
-	if err := os.WriteFile(spec2Path, []byte(spec2), 0600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(spec2Path, []byte(spec2), 0600))
 
 	// Overlay for the parsed doc (using index "0")
 	parsedOverlay := &overlay.Overlay{
@@ -463,22 +387,14 @@ paths:
 		WithSpecOverlay("0", parsedOverlay), // Index 0 for pre-parsed doc
 		WithPathStrategy(StrategyAcceptLeft),
 	)
-	if err != nil {
-		t.Fatalf("JoinWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Result is a typed *parser.OAS3Document
 	oas3Doc, ok := result.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Document is not *parser.OAS3Document")
-	}
-	if oas3Doc.Info == nil {
-		t.Fatal("Info is nil")
-	}
-	if oas3Doc.Info.Extra == nil {
-		t.Error("Spec overlay for parsed doc was not applied: Extra is nil")
-	} else if _, exists := oas3Doc.Info.Extra["x-from-parsed"]; !exists {
-		t.Error("Spec overlay for parsed doc was not applied")
+	require.True(t, ok, "Document is not *parser.OAS3Document")
+	require.NotNil(t, oas3Doc.Info)
+	if assert.NotNil(t, oas3Doc.Info.Extra, "Spec overlay for parsed doc was not applied: Extra is nil") {
+		assert.Contains(t, oas3Doc.Info.Extra, "x-from-parsed", "Spec overlay for parsed doc was not applied")
 	}
 }
 
@@ -510,21 +426,15 @@ paths:
 
 	spec1Path := filepath.Join(dir, "spec1.yaml")
 	spec2Path := filepath.Join(dir, "spec2.yaml")
-	if err := os.WriteFile(spec1Path, []byte(spec1), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(spec2Path, []byte(spec2), 0600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(spec1Path, []byte(spec1), 0600))
+	require.NoError(t, os.WriteFile(spec2Path, []byte(spec2), 0600))
 
 	_, err := JoinWithOptions(
 		WithFilePaths(spec1Path, spec2Path),
 		WithPreJoinOverlayFile("/nonexistent/overlay.yaml"),
 		WithPathStrategy(StrategyAcceptLeft),
 	)
-	if err == nil {
-		t.Error("Expected error for nonexistent overlay file")
-	}
+	assert.Error(t, err, "Expected error for nonexistent overlay file")
 }
 
 func TestMultiplePreJoinOverlays(t *testing.T) {
@@ -555,12 +465,8 @@ paths:
 
 	spec1Path := filepath.Join(dir, "spec1.yaml")
 	spec2Path := filepath.Join(dir, "spec2.yaml")
-	if err := os.WriteFile(spec1Path, []byte(spec1), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(spec2Path, []byte(spec2), 0600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(spec1Path, []byte(spec1), 0600))
+	require.NoError(t, os.WriteFile(spec2Path, []byte(spec2), 0600))
 
 	// Create two pre-join overlays
 	overlay1 := &overlay.Overlay{
@@ -594,27 +500,15 @@ paths:
 		WithPreJoinOverlay(overlay2),
 		WithPathStrategy(StrategyAcceptLeft),
 	)
-	if err != nil {
-		t.Fatalf("JoinWithOptions failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Result is a typed *parser.OAS3Document
 	oas3Doc, ok := result.Document.(*parser.OAS3Document)
-	if !ok {
-		t.Fatal("Document is not *parser.OAS3Document")
-	}
-	if oas3Doc.Info == nil {
-		t.Fatal("Info is nil")
-	}
-	if oas3Doc.Info.Extra == nil {
-		t.Fatal("Extra is nil - overlays not applied")
-	}
+	require.True(t, ok, "Document is not *parser.OAS3Document")
+	require.NotNil(t, oas3Doc.Info)
+	require.NotNil(t, oas3Doc.Info.Extra, "Extra is nil - overlays not applied")
 
 	// Both overlays should be applied
-	if _, exists := oas3Doc.Info.Extra["x-overlay-1"]; !exists {
-		t.Error("First pre-join overlay was not applied")
-	}
-	if _, exists := oas3Doc.Info.Extra["x-overlay-2"]; !exists {
-		t.Error("Second pre-join overlay was not applied")
-	}
+	assert.Contains(t, oas3Doc.Info.Extra, "x-overlay-1", "First pre-join overlay was not applied")
+	assert.Contains(t, oas3Doc.Info.Extra, "x-overlay-2", "Second pre-join overlay was not applied")
 }

@@ -3,6 +3,9 @@ package differ
 import (
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestIsErrorCode_Extended tests additional error code detection scenarios
@@ -63,9 +66,7 @@ func TestIsErrorCode_Extended(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.code, func(t *testing.T) {
 			got := isErrorCode(tt.code)
-			if got != tt.expected {
-				t.Errorf("isErrorCode(%q) = %v, want %v", tt.code, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -103,9 +104,7 @@ func TestIsSuccessCode_Extended(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.code, func(t *testing.T) {
 			got := isSuccessCode(tt.code)
-			if got != tt.expected {
-				t.Errorf("isSuccessCode(%q) = %v, want %v", tt.code, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -138,9 +137,7 @@ func TestAnyToString_Extended(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := anyToString(tt.input)
-			if got != tt.expected {
-				t.Errorf("anyToString(%v) = %q, want %q", tt.input, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -159,12 +156,8 @@ func TestSeverityWithRule_SimpleMode(t *testing.T) {
 
 	sev, ignore := d.severityWithRule(SeverityError, RuleKey{Category: CategorySchema, ChangeType: ChangeTypeModified})
 
-	if sev != 0 {
-		t.Errorf("Expected severity 0 in simple mode, got %v", sev)
-	}
-	if ignore {
-		t.Error("Expected ignore=false in simple mode")
-	}
+	assert.Equal(t, Severity(0), sev)
+	assert.False(t, ignore, "Expected ignore=false in simple mode")
 }
 
 // TestSeverityWithRule_BreakingMode tests that breaking mode returns appropriate severity
@@ -174,12 +167,8 @@ func TestSeverityWithRule_BreakingMode(t *testing.T) {
 
 	sev, ignore := d.severityWithRule(SeverityError, RuleKey{Category: CategorySchema, ChangeType: ChangeTypeModified})
 
-	if sev != SeverityError {
-		t.Errorf("Expected severity Error in breaking mode, got %v", sev)
-	}
-	if ignore {
-		t.Error("Expected ignore=false without ignore rule")
-	}
+	assert.Equal(t, SeverityError, sev)
+	assert.False(t, ignore, "Expected ignore=false without ignore rule")
 }
 
 // TestSeverityConditionalWithRule_SimpleMode tests conditional severity in simple mode
@@ -189,12 +178,8 @@ func TestSeverityConditionalWithRule_SimpleMode(t *testing.T) {
 
 	sev, ignore := d.severityConditionalWithRule(true, SeverityError, SeverityWarning, RuleKey{})
 
-	if sev != 0 {
-		t.Errorf("Expected severity 0 in simple mode, got %v", sev)
-	}
-	if ignore {
-		t.Error("Expected ignore=false in simple mode")
-	}
+	assert.Equal(t, Severity(0), sev)
+	assert.False(t, ignore, "Expected ignore=false in simple mode")
 }
 
 // TestSeverityConditionalWithRule_BreakingMode tests conditional severity in breaking mode
@@ -204,21 +189,13 @@ func TestSeverityConditionalWithRule_BreakingMode(t *testing.T) {
 
 	// Test condition=true
 	sev, ignore := d.severityConditionalWithRule(true, SeverityError, SeverityWarning, RuleKey{})
-	if sev != SeverityError {
-		t.Errorf("Expected severity Error when condition=true, got %v", sev)
-	}
-	if ignore {
-		t.Error("Expected ignore=false")
-	}
+	assert.Equal(t, SeverityError, sev)
+	assert.False(t, ignore, "Expected ignore=false")
 
 	// Test condition=false
 	sev, ignore = d.severityConditionalWithRule(false, SeverityError, SeverityWarning, RuleKey{})
-	if sev != SeverityWarning {
-		t.Errorf("Expected severity Warning when condition=false, got %v", sev)
-	}
-	if ignore {
-		t.Error("Expected ignore=false")
-	}
+	assert.Equal(t, SeverityWarning, sev)
+	assert.False(t, ignore, "Expected ignore=false")
 }
 
 // TestAddChange tests the addChange helper method
@@ -230,12 +207,8 @@ func TestAddChange(t *testing.T) {
 
 		d.addChange(result, "test.path", ChangeTypeModified, CategorySchema, SeverityError, "old", "new", "test message")
 
-		if len(result.Changes) != 1 {
-			t.Fatalf("Expected 1 change, got %d", len(result.Changes))
-		}
-		if result.Changes[0].Severity != 0 {
-			t.Errorf("Expected severity 0 in simple mode, got %v", result.Changes[0].Severity)
-		}
+		require.Len(t, result.Changes, 1)
+		assert.Equal(t, Severity(0), result.Changes[0].Severity)
 	})
 
 	t.Run("breaking mode adds severity", func(t *testing.T) {
@@ -245,12 +218,8 @@ func TestAddChange(t *testing.T) {
 
 		d.addChange(result, "test.path", ChangeTypeModified, CategorySchema, SeverityError, "old", "new", "test message")
 
-		if len(result.Changes) != 1 {
-			t.Fatalf("Expected 1 change, got %d", len(result.Changes))
-		}
-		if result.Changes[0].Severity != SeverityError {
-			t.Errorf("Expected severity Error, got %v", result.Changes[0].Severity)
-		}
+		require.Len(t, result.Changes, 1)
+		assert.Equal(t, SeverityError, result.Changes[0].Severity)
 	})
 }
 
@@ -299,12 +268,8 @@ func TestAddChangeConditional(t *testing.T) {
 			d.addChangeConditional(result, "test.path", ChangeTypeModified, CategorySchema,
 				tt.condition, tt.severityIfTrue, tt.severityIfFalse, "old", "new", "test message")
 
-			if len(result.Changes) != 1 {
-				t.Fatalf("Expected 1 change, got %d", len(result.Changes))
-			}
-			if result.Changes[0].Severity != tt.expectedSeverity {
-				t.Errorf("Expected severity %v, got %v", tt.expectedSeverity, result.Changes[0].Severity)
-			}
+			require.Len(t, result.Changes, 1)
+			assert.Equal(t, tt.expectedSeverity, result.Changes[0].Severity)
 		})
 	}
 }
@@ -343,9 +308,7 @@ func TestIsCompatibleTypeChange_Extended(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			got := isCompatibleTypeChange(tt.oldType, tt.newType)
-			if got != tt.expected {
-				t.Errorf("isCompatibleTypeChange(%q, %q) = %v, want %v", tt.oldType, tt.newType, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

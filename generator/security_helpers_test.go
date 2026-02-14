@@ -1,8 +1,10 @@
 package generator
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -30,9 +32,7 @@ func TestSanitizeSecurityFunctionName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			got := sanitizeSecurityFunctionName(tt.input)
-			if got != tt.want {
-				t.Errorf("sanitizeSecurityFunctionName(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "sanitizeSecurityFunctionName(%q)", tt.input)
 		})
 	}
 }
@@ -52,14 +52,10 @@ func TestSecurityHelperGenerator_APIKey_Header(t *testing.T) {
 	result := g.GenerateSecurityHelpers(schemes)
 
 	// Verify function signature
-	if !strings.Contains(result, "func WithApiKeyAPIKey(key string) ClientOption") {
-		t.Error("expected WithApiKeyAPIKey function")
-	}
+	assert.Contains(t, result, "func WithApiKeyAPIKey(key string) ClientOption", "expected WithApiKeyAPIKey function")
 
 	// Verify header setting
-	if !strings.Contains(result, `req.Header.Set("X-API-Key", key)`) {
-		t.Error("expected header set code")
-	}
+	assert.Contains(t, result, `req.Header.Set("X-API-Key", key)`, "expected header set code")
 }
 
 func TestSecurityHelperGenerator_APIKey_Query(t *testing.T) {
@@ -76,14 +72,10 @@ func TestSecurityHelperGenerator_APIKey_Query(t *testing.T) {
 	result := g.GenerateSecurityHelpers(schemes)
 
 	// Verify function signature
-	if !strings.Contains(result, "func WithApiKeyAPIKeyQuery(key string) ClientOption") {
-		t.Error("expected WithApiKeyAPIKeyQuery function")
-	}
+	assert.Contains(t, result, "func WithApiKeyAPIKeyQuery(key string) ClientOption", "expected WithApiKeyAPIKeyQuery function")
 
 	// Verify query parameter setting
-	if !strings.Contains(result, `q.Set("api_key", key)`) {
-		t.Error("expected query set code")
-	}
+	assert.Contains(t, result, `q.Set("api_key", key)`, "expected query set code")
 }
 
 func TestSecurityHelperGenerator_APIKey_Cookie(t *testing.T) {
@@ -100,14 +92,10 @@ func TestSecurityHelperGenerator_APIKey_Cookie(t *testing.T) {
 	result := g.GenerateSecurityHelpers(schemes)
 
 	// Verify function signature
-	if !strings.Contains(result, "func WithSessionAPIKeyCookie(key string) ClientOption") {
-		t.Error("expected WithSessionAPIKeyCookie function")
-	}
+	assert.Contains(t, result, "func WithSessionAPIKeyCookie(key string) ClientOption", "expected WithSessionAPIKeyCookie function")
 
 	// Verify cookie setting
-	if !strings.Contains(result, `req.AddCookie(&http.Cookie{Name: "session_id", Value: key})`) {
-		t.Error("expected cookie add code")
-	}
+	assert.Contains(t, result, `req.AddCookie(&http.Cookie{Name: "session_id", Value: key})`, "expected cookie add code")
 }
 
 func TestSecurityHelperGenerator_HTTP_Basic(t *testing.T) {
@@ -123,14 +111,10 @@ func TestSecurityHelperGenerator_HTTP_Basic(t *testing.T) {
 	result := g.GenerateSecurityHelpers(schemes)
 
 	// Verify function signature
-	if !strings.Contains(result, "func WithBasicBasicAuth(username, password string) ClientOption") {
-		t.Error("expected WithBasicBasicAuth function")
-	}
+	assert.Contains(t, result, "func WithBasicBasicAuth(username, password string) ClientOption", "expected WithBasicBasicAuth function")
 
 	// Verify SetBasicAuth call
-	if !strings.Contains(result, "req.SetBasicAuth(username, password)") {
-		t.Error("expected SetBasicAuth code")
-	}
+	assert.Contains(t, result, "req.SetBasicAuth(username, password)", "expected SetBasicAuth code")
 }
 
 func TestSecurityHelperGenerator_HTTP_Bearer(t *testing.T) {
@@ -147,19 +131,13 @@ func TestSecurityHelperGenerator_HTTP_Bearer(t *testing.T) {
 	result := g.GenerateSecurityHelpers(schemes)
 
 	// Verify function signature
-	if !strings.Contains(result, "func WithBearerAuthBearerToken(token string) ClientOption") {
-		t.Error("expected WithBearerAuthBearerToken function")
-	}
+	assert.Contains(t, result, "func WithBearerAuthBearerToken(token string) ClientOption", "expected WithBearerAuthBearerToken function")
 
 	// Verify bearer format comment
-	if !strings.Contains(result, "Bearer format: JWT") {
-		t.Error("expected bearer format comment")
-	}
+	assert.Contains(t, result, "Bearer format: JWT", "expected bearer format comment")
 
 	// Verify Authorization header
-	if !strings.Contains(result, `req.Header.Set("Authorization", "Bearer "+token)`) {
-		t.Error("expected Authorization header code")
-	}
+	assert.Contains(t, result, `req.Header.Set("Authorization", "Bearer "+token)`, "expected Authorization header code")
 }
 
 func TestSecurityHelperGenerator_OAuth2(t *testing.T) {
@@ -184,19 +162,13 @@ func TestSecurityHelperGenerator_OAuth2(t *testing.T) {
 	result := g.GenerateSecurityHelpers(schemes)
 
 	// Verify function signature
-	if !strings.Contains(result, "func WithOauth2OAuth2Token(token string) ClientOption") {
-		t.Error("expected WithOauth2OAuth2Token function")
-	}
+	assert.Contains(t, result, "func WithOauth2OAuth2Token(token string) ClientOption", "expected WithOauth2OAuth2Token function")
 
 	// Verify scopes documentation
-	if !strings.Contains(result, "Available scopes:") {
-		t.Error("expected scopes documentation")
-	}
+	assert.Contains(t, result, "Available scopes:", "expected scopes documentation")
 
 	// Verify Authorization header
-	if !strings.Contains(result, `req.Header.Set("Authorization", "Bearer "+token)`) {
-		t.Error("expected Authorization header code")
-	}
+	assert.Contains(t, result, `req.Header.Set("Authorization", "Bearer "+token)`, "expected Authorization header code")
 }
 
 func TestSecurityHelperGenerator_OpenIDConnect(t *testing.T) {
@@ -212,28 +184,20 @@ func TestSecurityHelperGenerator_OpenIDConnect(t *testing.T) {
 	result := g.GenerateSecurityHelpers(schemes)
 
 	// Verify function signature
-	if !strings.Contains(result, "func WithOidcToken(token string) ClientOption") {
-		t.Error("expected WithOidcToken function")
-	}
+	assert.Contains(t, result, "func WithOidcToken(token string) ClientOption", "expected WithOidcToken function")
 
 	// Verify discovery URL comment
-	if !strings.Contains(result, "OpenID Connect Discovery URL:") {
-		t.Error("expected discovery URL comment")
-	}
+	assert.Contains(t, result, "OpenID Connect Discovery URL:", "expected discovery URL comment")
 }
 
 func TestSecurityHelperGenerator_EmptySchemes(t *testing.T) {
 	g := NewSecurityHelperGenerator("api")
 
 	result := g.GenerateSecurityHelpers(nil)
-	if result != "" {
-		t.Errorf("expected empty result for nil schemes, got %q", result)
-	}
+	assert.Equal(t, "", result, "expected empty result for nil schemes")
 
 	result = g.GenerateSecurityHelpers(map[string]*parser.SecurityScheme{})
-	if result != "" {
-		t.Errorf("expected empty result for empty schemes, got %q", result)
-	}
+	assert.Equal(t, "", result, "expected empty result for empty schemes")
 }
 
 func TestSecurityHelperGenerator_MultipleSchemes(t *testing.T) {
@@ -254,39 +218,18 @@ func TestSecurityHelperGenerator_MultipleSchemes(t *testing.T) {
 	result := g.GenerateSecurityHelpers(schemes)
 
 	// Both functions should be present
-	if !strings.Contains(result, "WithApiKeyAPIKey") {
-		t.Error("expected WithApiKeyAPIKey function")
-	}
-	if !strings.Contains(result, "WithBearerBearerToken") {
-		t.Error("expected WithBearerBearerToken function")
-	}
+	assert.Contains(t, result, "WithApiKeyAPIKey", "expected WithApiKeyAPIKey function")
+	assert.Contains(t, result, "WithBearerBearerToken", "expected WithBearerBearerToken function")
 }
 
 func TestSecurityHelperGenerator_GenerateSecurityImports(t *testing.T) {
 	g := NewSecurityHelperGenerator("api")
 	imports := g.GenerateSecurityImports()
 
-	if len(imports) != 2 {
-		t.Errorf("expected 2 imports, got %d", len(imports))
-	}
+	require.Len(t, imports, 2, "expected 2 imports")
 
-	hasContext := false
-	hasHTTP := false
-	for _, imp := range imports {
-		if imp == "context" {
-			hasContext = true
-		}
-		if imp == "net/http" {
-			hasHTTP = true
-		}
-	}
-
-	if !hasContext {
-		t.Error("expected context import")
-	}
-	if !hasHTTP {
-		t.Error("expected net/http import")
-	}
+	assert.Contains(t, imports, "context", "expected context import")
+	assert.Contains(t, imports, "net/http", "expected net/http import")
 }
 
 func TestGetSecuritySchemeInfo(t *testing.T) {
@@ -314,45 +257,27 @@ func TestGetSecuritySchemeInfo(t *testing.T) {
 
 	info := GetSecuritySchemeInfo(schemes)
 
-	if len(info) != 2 {
-		t.Errorf("expected 2 scheme infos, got %d", len(info))
-	}
+	require.Len(t, info, 2, "expected 2 scheme infos")
 
 	// Verify api_key info
 	apiKeyInfo := info[0] // Sorted alphabetically
-	if apiKeyInfo.Name != "api_key" {
-		t.Errorf("expected first scheme to be api_key, got %s", apiKeyInfo.Name)
-	}
-	if apiKeyInfo.Type != "apiKey" {
-		t.Errorf("expected type apiKey, got %s", apiKeyInfo.Type)
-	}
-	if apiKeyInfo.In != "header" {
-		t.Errorf("expected in header, got %s", apiKeyInfo.In)
-	}
+	assert.Equal(t, "api_key", apiKeyInfo.Name, "expected first scheme to be api_key")
+	assert.Equal(t, "apiKey", apiKeyInfo.Type, "expected type apiKey")
+	assert.Equal(t, "header", apiKeyInfo.In, "expected in header")
 
 	// Verify oauth2 info
 	oauth2Info := info[1]
-	if oauth2Info.Name != "oauth2" {
-		t.Errorf("expected second scheme to be oauth2, got %s", oauth2Info.Name)
-	}
-	if len(oauth2Info.Scopes) != 2 {
-		t.Errorf("expected 2 scopes, got %d", len(oauth2Info.Scopes))
-	}
-	if len(oauth2Info.FlowTypes) != 1 {
-		t.Errorf("expected 1 flow type, got %d", len(oauth2Info.FlowTypes))
-	}
+	assert.Equal(t, "oauth2", oauth2Info.Name, "expected second scheme to be oauth2")
+	assert.Len(t, oauth2Info.Scopes, 2, "expected 2 scopes")
+	assert.Len(t, oauth2Info.FlowTypes, 1, "expected 1 flow type")
 }
 
 func TestGetSecuritySchemeInfo_Empty(t *testing.T) {
 	info := GetSecuritySchemeInfo(nil)
-	if info != nil {
-		t.Errorf("expected nil for nil schemes, got %v", info)
-	}
+	assert.Nil(t, info, "expected nil for nil schemes")
 
 	info = GetSecuritySchemeInfo(map[string]*parser.SecurityScheme{})
-	if info != nil {
-		t.Errorf("expected nil for empty schemes, got %v", info)
-	}
+	assert.Nil(t, info, "expected nil for empty schemes")
 }
 
 func TestCollectOAuth2Scopes_OAS2Style(t *testing.T) {
@@ -369,9 +294,7 @@ func TestCollectOAuth2Scopes_OAS2Style(t *testing.T) {
 
 	scopes := g.collectOAuth2Scopes(scheme)
 
-	if len(scopes) != 2 {
-		t.Errorf("expected 2 scopes, got %d", len(scopes))
-	}
+	assert.Len(t, scopes, 2, "expected 2 scopes")
 }
 
 func TestGetOAuth2FlowTypes(t *testing.T) {
@@ -381,9 +304,8 @@ func TestGetOAuth2FlowTypes(t *testing.T) {
 		Flow: "implicit",
 	}
 	flows2 := getOAuth2FlowTypes(scheme2)
-	if len(flows2) != 1 || flows2[0] != "implicit" {
-		t.Errorf("expected [implicit] for OAS 2.0, got %v", flows2)
-	}
+	require.Len(t, flows2, 1, "expected 1 flow for OAS 2.0")
+	assert.Equal(t, "implicit", flows2[0], "expected implicit for OAS 2.0")
 
 	// OAS 3.0 style
 	scheme3 := &parser.SecurityScheme{
@@ -399,7 +321,5 @@ func TestGetOAuth2FlowTypes(t *testing.T) {
 		},
 	}
 	flows3 := getOAuth2FlowTypes(scheme3)
-	if len(flows3) != 2 {
-		t.Errorf("expected 2 flows for OAS 3.0, got %v", flows3)
-	}
+	assert.Len(t, flows3, 2, "expected 2 flows for OAS 3.0")
 }
