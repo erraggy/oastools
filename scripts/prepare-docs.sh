@@ -20,36 +20,9 @@ echo "Preparing documentation in $DOCS_DIR..."
 # Ensure the target directories exist
 mkdir -p "$DOCS_DIR/packages"
 
-# 1. Copy README.md to index.md (Home page)
-# We filter out badges or tweak content if needed, but a direct copy is usually fine.
-echo "Copying README.md to $DOCS_DIR/index.md"
-cp README.md "$DOCS_DIR/index.md"
-
-# Fix links in index.md
-# 1. Change docs/filename.md to filename.md (since index.md is now in docs/)
-# 2. Change package/deep_dive.md to packages/package.md
-# 3. Change src="docs/ to src=" (for HTML img tags)
-sed 's|](docs/|](|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
-sed 's|\([a-z]*\)/deep_dive.md|packages/\1.md|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
-sed 's|src="docs/|src="|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
-# Convert examples/ relative links to local docs paths
-# First handle petstore specifically (directory with subdirs, needs index.md)
-sed 's|](examples/petstore/)|](examples/petstore/index.md)|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
-# Handle nested paths: examples/workflows/validate-and-fix/ -> examples/workflows/validate-and-fix.md
-sed 's|](examples/workflows/\([^/)]*\)/)|](examples/workflows/\1.md)|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
-sed 's|](examples/programmatic-api/\([^/)]*\)/)|](examples/programmatic-api/\1.md)|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
-# Handle top-level examples: examples/quickstart/ -> examples/quickstart.md
-sed 's|](examples/\([^/)]*\)/)|](examples/\1.md)|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
-# Fix examples/README.md -> examples/index.md
-sed 's|examples/README.md)|examples/index.md)|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
-# Fix examples/ directory link -> examples/index.md
-sed 's|](examples/)|](examples/index.md)|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
-# Transform absolute GitHub links to relative paths for docs site
-# Only transform links to docs/ files (which exist in the docs structure)
-sed 's|https://github.com/erraggy/oastools/blob/main/docs/|./|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
-# Transform links to root-level .md files that are part of the docs site (benchmarks.md)
-# Note: WORKFLOW.md and AGENTS.md are NOT in the docs structure, so they stay as GitHub links
-sed 's|https://github.com/erraggy/oastools/blob/main/benchmarks\.md|benchmarks.md|g' "$DOCS_DIR/index.md" > "$DOCS_DIR/index.md.tmp" && mv "$DOCS_DIR/index.md.tmp" "$DOCS_DIR/index.md"
+# 1. docs/index.md is a hand-crafted landing page (not a README copy).
+#    It is checked into git and should not be overwritten.
+echo "Skipping index.md (hand-crafted landing page, checked into git)"
 
 # 2. Copy root level docs (user-facing only; internal dev docs stay in GitHub)
 echo "Copying root level markdown files..."

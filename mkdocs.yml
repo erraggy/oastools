@@ -58,14 +58,15 @@ markdown_extensions:
 nav:
   - Home: index.md
   - "🌐 Try Online": https://oastools.robnrob.com
-  - "📄 White Paper": whitepaper.md
-  - Guides:
-    - Developer Guide: developer-guide.md
-    - CLI Reference: cli-reference.md
+  - Get Started:
+    - Go Library: developer-guide.md
+    - CLI / CI/CD: cli-reference.md
     - MCP Server: mcp-server.md
     - Claude Code Plugin: claude-code-plugin.md
+  - Guides:
+    - Why oastools?: why-oastools.md
+    - Detecting API Breaking Changes: breaking-changes.md
     - Generator Features: generator_beyond_boilerplate.md
-    - Breaking Changes: breaking-changes.md
     - Benchmarks: benchmarks.md
   - Examples:
     - Overview: examples/index.md
@@ -113,6 +114,7 @@ nav:
     - Generator: packages/generator.md
     - Builder: packages/builder.md
     - Walker: packages/walker.md
+  - "📄 White Paper": whitepaper.md
   - Project Info:
     - Contributing: CONTRIBUTORS.md
     - License: LICENSE.md
