@@ -546,7 +546,7 @@ docs-clean:
 	@rm -rf site/
 	@rm -rf .tmp/
 	@rm -f mkdocs.log mkdocs_error.log
-	@rm -f docs/index.md docs/index.md.tmp
+	@rm -f docs/index.md.tmp
 	@rm -f docs/CONTRIBUTORS.md docs/LICENSE.md docs/benchmarks.md
 	@rm -f docs/AGENTS.md docs/WORKFLOW.md docs/CLAUDE.md docs/RELEASES.md docs/BENCHMARK_UPDATE_PROCESS.md
 	@rm -rf docs/packages

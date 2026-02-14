@@ -27,14 +27,14 @@ The documentation build process (`scripts/prepare-docs.sh`) copies files from so
 
 | Source | Generated | Description |
 |--------|-----------|-------------|
-| `README.md` | `docs/index.md` | Home page |
+| `docs/index.md` | (checked in) | Home page (hand-crafted landing page) |
 | `{package}/deep_dive.md` | `docs/packages/{package}.md` | Package deep dives |
 | `examples/*/README.md` | `docs/examples/*.md` | Example documentation |
 
 ## Editing Documentation
 
 **Always edit the SOURCE files:**
-- To update the home page → edit `README.md`
+- To update the home page → edit `docs/index.md` directly (it is checked into git, not generated)
 - To update package docs → edit `{package}/deep_dive.md` (e.g., `validator/deep_dive.md`)
 - To update examples → edit `examples/*/README.md`
 

@@ -8,22 +8,22 @@ The plugin runs `oastools mcp` under the hood, so the **oastools binary must be 
 
 Install via any of these methods:
 
-=== "Homebrew (macOS/Linux)"
+**Homebrew (macOS/Linux):**
 
-    ```bash
-    brew tap erraggy/oastools && brew install oastools
-    ```
+```bash
+brew tap erraggy/oastools && brew install oastools
+```
 
-=== "Go install"
+**Go install:**
 
-    ```bash
-    # Requires Go 1.24+
-    go install github.com/erraggy/oastools/cmd/oastools@latest
-    ```
+```bash
+# Requires Go 1.24+
+go install github.com/erraggy/oastools/cmd/oastools@latest
+```
 
-=== "Binary download"
+**Binary download:**
 
-    Download a pre-built binary from the [Releases page](https://github.com/erraggy/oastools/releases/latest) and place it on your `PATH`.
+Download a pre-built binary from the [Releases page](https://github.com/erraggy/oastools/releases/latest) and place it on your `PATH`.
 
 Verify the binary is available:
 
