@@ -12,6 +12,10 @@ import (
 	"slices"
 )
 
+// equalsLogger is used for warnings in equality comparison functions.
+// Tests can replace this with a discard logger to suppress expected warnings.
+var equalsLogger = slog.Default()
+
 // equalFloat64Ptr compares two *float64 pointers for equality.
 // Both nil returns true, both non-nil with equal values returns true.
 func equalFloat64Ptr(a, b *float64) bool {
@@ -371,7 +375,7 @@ func equalDocument(a, b any) bool {
 		// Unknown document type - log warning and fall back to reflect.DeepEqual.
 		// This should only happen with future OAS versions (e.g., OAS4).
 		// When adding support for new versions, add an explicit case above.
-		slog.Warn("equalDocument: unknown document type, using reflect.DeepEqual fallback",
+		equalsLogger.Warn("equalDocument: unknown document type, using reflect.DeepEqual fallback",
 			"type_a", reflect.TypeOf(a).String(),
 			"type_b", reflect.TypeOf(b).String())
 		return reflect.DeepEqual(a, b)

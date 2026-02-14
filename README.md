@@ -253,10 +253,11 @@ For complete API documentation and examples, see [pkg.go.dev](https://pkg.go.dev
 ```
 github.com/erraggy/oastools
 ├── go.yaml.in/yaml/v4  (YAML parsing)
+├── golang.org/x/text   (Title casing)
 └── golang.org/x/tools  (Code generation - imports analysis)
 ```
 
-Unlike many OpenAPI tools that pull in dozens of transitive dependencies, oastools is designed to be self-contained. The `stretchr/testify` dependency is test-only and not included in your production builds.
+Unlike many OpenAPI tools that pull in dozens of transitive dependencies, oastools is designed to be self-contained. The `stretchr/testify` dependency is test-only and not included in your production builds. The `golang.org/x/text` and `golang.org/x/tools` packages are the only non-YAML production dependencies.
 
 ### Battle-Tested Quality
 

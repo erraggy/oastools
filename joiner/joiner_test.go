@@ -1,6 +1,8 @@
 package joiner
 
 import (
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1199,6 +1201,11 @@ func TestJoinWithOptions_NewStrategies(t *testing.T) {
 	})
 
 	t.Run("with invalid template falls back to default", func(t *testing.T) {
+		// Suppress expected WARN output from template execution fallback
+		original := joinerLogger
+		joinerLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
+		t.Cleanup(func() { joinerLogger = original })
+
 		result, err := JoinWithOptions(
 			WithFilePaths(
 				filepath.Join(testdataDir, "join-collision-rename-base-3.0.yaml"),
