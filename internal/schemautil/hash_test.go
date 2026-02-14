@@ -337,7 +337,7 @@ func TestSchemaHasher_GroupByHash(t *testing.T) {
 	groups := hasher.GroupByHash(schemas)
 
 	// Should have 2 groups: one with User+Person, one with Address
-	assert.Equal(t, 2, len(groups))
+	assert.Len(t, groups, 2)
 
 	// Find the group with multiple schemas
 	foundDuplicateGroup := false

@@ -829,8 +829,8 @@ func TestSelfReferencingTypeCompiles(t *testing.T) {
 
 	// Verify the parent field uses a pointer (required for non-array self-reference)
 	// The struct field may have variable whitespace alignment, so check for the pattern
-	assert.True(t, strings.Contains(typesContent, "Parent") && strings.Contains(typesContent, "*TreeNode"),
-		"expected Parent field to be a pointer to TreeNode for self-reference\n\nGenerated content:\n%s", typesContent)
+	assert.Contains(t, typesContent, "Parent", "expected Parent field in generated content")
+	assert.Contains(t, typesContent, "*TreeNode", "expected pointer to TreeNode for self-reference")
 
 	// Verify it's actually a pointer field (not array or other type)
 	// Look for the pattern: Parent followed by whitespace and *TreeNode

@@ -2,7 +2,6 @@ package commands
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -132,6 +131,5 @@ func TestRenderDetail_JSON(t *testing.T) {
 	err := RenderDetail(&buf, node, FormatJSON)
 	require.NoError(t, err)
 	output := buf.String()
-	_ = strings.Contains(output, `"summary"`) // keep strings import used
 	assert.Contains(t, output, `"summary"`)
 }

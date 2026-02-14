@@ -109,14 +109,14 @@ func TestExtractOperationSecurityOAS3(t *testing.T) {
 	// ListUsers (transformed from listUsers) should have its own security
 	listUsersSec, ok := result["ListUsers"]
 	require.True(t, ok, "expected ListUsers in result")
-	assert.Len(t, listUsersSec, 1, "expected 1 security requirement for ListUsers")
+	require.Len(t, listUsersSec, 1, "expected 1 security requirement for ListUsers")
 	_, hasOAuth2 := listUsersSec[0]["oauth2"]
 	assert.True(t, hasOAuth2, "expected oauth2 scheme for ListUsers")
 
 	// CreateUser (transformed from createUser) should have global security
 	createUserSec, ok := result["CreateUser"]
 	require.True(t, ok, "expected CreateUser in result")
-	assert.Len(t, createUserSec, 1, "expected 1 security requirement for CreateUser")
+	require.Len(t, createUserSec, 1, "expected 1 security requirement for CreateUser")
 	_, hasGlobal := createUserSec[0]["global_auth"]
 	assert.True(t, hasGlobal, "expected global_auth scheme for CreateUser")
 }

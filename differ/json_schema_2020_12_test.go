@@ -272,7 +272,7 @@ func TestDiffSchemaContentFields(t *testing.T) {
 
 			d.diffSchemaContentFieldsUnified(tt.source, tt.target, "schema", visited, result)
 
-			assert.Equal(t, tt.expectChanges, len(result.Changes))
+			assert.Len(t, result.Changes, tt.expectChanges)
 		})
 	}
 }
@@ -361,7 +361,7 @@ func TestDiffSchemaPrefixItems(t *testing.T) {
 
 			d.diffSchemaPrefixItemsUnified(tt.source, tt.target, "schema", visited, result)
 
-			assert.Equal(t, tt.expectChanges, len(result.Changes))
+			assert.Len(t, result.Changes, tt.expectChanges)
 		})
 	}
 }
@@ -563,7 +563,7 @@ func TestDiffSchemaDependentSchemas(t *testing.T) {
 
 			d.diffSchemaDependentSchemasUnified(tt.source, tt.target, "schema", visited, result)
 
-			assert.Equal(t, tt.expectChanges, len(result.Changes))
+			assert.Len(t, result.Changes, tt.expectChanges)
 		})
 	}
 }
@@ -628,7 +628,7 @@ func TestDiffMediaTypesUnified(t *testing.T) {
 
 			d.diffMediaTypesUnified(tt.source, tt.target, "components.mediaTypes", result)
 
-			assert.Equal(t, tt.expectChanges, len(result.Changes))
+			assert.Len(t, result.Changes, tt.expectChanges)
 		})
 	}
 }

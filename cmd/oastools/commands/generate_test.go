@@ -239,8 +239,7 @@ paths:
 
 	for _, expected := range expectedFiles {
 		path := filepath.Join(outputDir, expected)
-		_, err := os.Stat(path)
-		assert.False(t, os.IsNotExist(err), "--server-all flag not fully honored: %s not generated", expected)
+		assert.FileExists(t, path, "--server-all flag not fully honored: %s not generated", expected)
 	}
 }
 

@@ -58,10 +58,7 @@ func TestGetSchemaTypes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetSchemaTypes(tt.schema)
-			assert.Equal(t, len(tt.expected), len(result))
-			for i, v := range result {
-				assert.Equal(t, tt.expected[i], v, "GetSchemaTypes()[%d]", i)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

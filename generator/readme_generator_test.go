@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewReadmeGenerator(t *testing.T) {
@@ -313,10 +314,8 @@ func TestExtractOAuth2FlowNames_OAS2(t *testing.T) {
 
 	for _, tt := range tests {
 		names := extractOAuth2FlowNames(nil, tt.flow)
-		assert.Len(t, names, 1, "expected 1 flow name for %s", tt.flow)
-		if len(names) == 1 {
-			assert.Equal(t, tt.expected, names[0], "for %s", tt.flow)
-		}
+		require.Len(t, names, 1, "expected 1 flow name for %s", tt.flow)
+		assert.Equal(t, tt.expected, names[0], "for %s", tt.flow)
 	}
 }
 

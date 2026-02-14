@@ -44,7 +44,7 @@ func TestPathParamRegex(t *testing.T) {
 			matches := PathParamRegex.FindAllStringSubmatch(tt.input, -1)
 			require.Len(t, matches, tt.wantLen)
 			for i, match := range matches {
-				require.True(t, len(match) >= 2, "match %d has no capture group", i)
+				require.GreaterOrEqual(t, len(match), 2, "match %d has no capture group", i)
 				assert.Equal(t, tt.want[i], match[1], "match[%d]", i)
 			}
 		})
