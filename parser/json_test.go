@@ -516,7 +516,7 @@ func TestLargeExtraMap(t *testing.T) {
 	require.NoError(t, json.Unmarshal(data, &restored))
 
 	// Verify all fields were preserved
-	assert.Len(t, restored.Extra, 100)
+	require.Len(t, restored.Extra, 100)
 
 	// Spot check a few fields
 	assert.Equal(t, "value-0", restored.Extra["x-field-0"])

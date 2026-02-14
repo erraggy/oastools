@@ -207,9 +207,9 @@ func TestDiff_WithBreakingRules(t *testing.T) {
 				}
 			}
 
-			assert.Len(t, opIdChanges, tc.wantChanges)
+			require.Len(t, opIdChanges, tc.wantChanges)
 
-			if tc.wantChanges > 0 && len(opIdChanges) > 0 {
+			if tc.wantChanges > 0 {
 				assert.Equal(t, tc.wantSeverity, opIdChanges[0].Severity)
 			}
 		})

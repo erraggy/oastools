@@ -65,7 +65,7 @@ func TestCollectSchemas_Components(t *testing.T) {
 		collector, err := CollectSchemas(result)
 		require.NoError(t, err)
 
-		assert.Len(t, collector.Components, 1)
+		require.Len(t, collector.Components, 1)
 		assert.Equal(t, "User", collector.Components[0].Name)
 		assert.True(t, collector.Components[0].IsComponent)
 	})
@@ -379,7 +379,7 @@ func TestCollectOperations_ByPath(t *testing.T) {
 	// Check /pets/{petId} has 1 operation
 	petIdOps, ok := collector.ByPath["/pets/{petId}"]
 	require.True(t, ok)
-	assert.Len(t, petIdOps, 1)
+	require.Len(t, petIdOps, 1)
 	assert.Equal(t, "getPet", petIdOps[0].Operation.OperationID)
 }
 
@@ -458,7 +458,7 @@ func TestCollectOperations_ByTag(t *testing.T) {
 	// admin tag should have 1 operation
 	adminOps, ok := collector.ByTag["admin"]
 	require.True(t, ok)
-	assert.Len(t, adminOps, 1)
+	require.Len(t, adminOps, 1)
 	assert.Equal(t, "createPet", adminOps[0].Operation.OperationID)
 
 	// users tag should have 1 operation
@@ -672,8 +672,8 @@ func TestCollectSchemas_MixedComponentsAndInline(t *testing.T) {
 
 	// Total = 1 component + 1 inline
 	assert.Len(t, collector.All, 2)
-	assert.Len(t, collector.Components, 1)
-	assert.Len(t, collector.Inline, 1)
+	require.Len(t, collector.Components, 1)
+	require.Len(t, collector.Inline, 1)
 
 	// Component should be Pet
 	assert.Equal(t, "Pet", collector.Components[0].Name)

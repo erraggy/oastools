@@ -254,7 +254,7 @@ func TestApplyResult(t *testing.T) {
 			},
 		}
 		warnings := r.WarningStrings()
-		assert.Len(t, warnings, 1)
+		require.Len(t, warnings, 1)
 		assert.NotEqual(t, "legacy warning", warnings[0], "Expected StructuredWarnings to take precedence")
 	})
 
@@ -263,7 +263,7 @@ func TestApplyResult(t *testing.T) {
 			Warnings: []string{"legacy warning"},
 		}
 		warnings := r.WarningStrings()
-		assert.Len(t, warnings, 1)
+		require.Len(t, warnings, 1)
 		assert.Equal(t, "legacy warning", warnings[0])
 	})
 

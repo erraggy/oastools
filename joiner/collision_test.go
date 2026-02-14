@@ -5,6 +5,7 @@ import (
 
 	"github.com/erraggy/oastools/internal/severity"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewCollisionReport(t *testing.T) {
@@ -185,7 +186,7 @@ func TestCollisionReport_GetCriticalEvents(t *testing.T) {
 
 	critical := report.GetCriticalEvents()
 
-	assert.Equal(t, 2, len(critical))
+	require.Len(t, critical, 2)
 	assert.Equal(t, "Product", critical[0].SchemaName)
 	assert.Equal(t, "Payment", critical[1].SchemaName)
 }
@@ -213,16 +214,16 @@ func TestCollisionReport_GetByResolution(t *testing.T) {
 	})
 
 	renamed := report.GetByResolution("renamed")
-	assert.Equal(t, 2, len(renamed))
+	require.Len(t, renamed, 2)
 	assert.Equal(t, "User", renamed[0].SchemaName)
 	assert.Equal(t, "Order", renamed[1].SchemaName)
 
 	dedup := report.GetByResolution("deduplicated")
-	assert.Equal(t, 1, len(dedup))
+	require.Len(t, dedup, 1)
 	assert.Equal(t, "Product", dedup[0].SchemaName)
 
 	kept := report.GetByResolution("kept-left")
-	assert.Equal(t, 1, len(kept))
+	require.Len(t, kept, 1)
 	assert.Equal(t, "Payment", kept[0].SchemaName)
 
 	failed := report.GetByResolution("failed")

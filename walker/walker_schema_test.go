@@ -577,7 +577,7 @@ func TestWalk_SchemaSkippedCycle(t *testing.T) {
 
 	require.NoError(t, err)
 	// Should have skipped the circular reference
-	assert.Len(t, skippedReasons, 1, "expected one schema to be skipped due to cycle")
+	require.Len(t, skippedReasons, 1, "expected one schema to be skipped due to cycle")
 	assert.Equal(t, "cycle", skippedReasons[0], "expected skip reason to be 'cycle'")
 	assert.Equal(t, petSchema, skippedSchemas[0], "expected skipped schema to be the pet schema")
 	assert.Contains(t, skippedPaths[0], "parent", "expected path to include 'parent' property")

@@ -463,7 +463,7 @@ func TestWalk_OAS2PathItemSkipChildren(t *testing.T) {
 	)
 
 	require.NoError(t, err)
-	assert.Len(t, visitedOps, 1, "expected only 1 operation (internal ones should be skipped)")
+	require.Len(t, visitedOps, 1, "expected only 1 operation (internal ones should be skipped)")
 	assert.Equal(t, "publicGet", visitedOps[0])
 }
 

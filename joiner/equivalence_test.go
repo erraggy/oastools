@@ -5,6 +5,7 @@ import (
 
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCompareSchemas_NoneMode(t *testing.T) {
@@ -48,7 +49,7 @@ func TestCompareSchemas_TypeMismatch(t *testing.T) {
 	result := CompareSchemas(left, right, EquivalenceModeShallow)
 
 	assert.False(t, result.Equivalent)
-	assert.Equal(t, 1, len(result.Differences))
+	require.Len(t, result.Differences, 1)
 	assert.Equal(t, "type", result.Differences[0].Path)
 	assert.Equal(t, "type mismatch", result.Differences[0].Description)
 }
@@ -60,7 +61,7 @@ func TestCompareSchemas_FormatMismatch(t *testing.T) {
 	result := CompareSchemas(left, right, EquivalenceModeShallow)
 
 	assert.False(t, result.Equivalent)
-	assert.Equal(t, 1, len(result.Differences))
+	require.Len(t, result.Differences, 1)
 	assert.Equal(t, "format", result.Differences[0].Path)
 }
 
@@ -93,7 +94,7 @@ func TestCompareSchemas_RequiredMismatch(t *testing.T) {
 	result := CompareSchemas(left, right, EquivalenceModeShallow)
 
 	assert.False(t, result.Equivalent)
-	assert.Equal(t, 1, len(result.Differences))
+	require.Len(t, result.Differences, 1)
 	assert.Equal(t, "required", result.Differences[0].Path)
 }
 
@@ -110,7 +111,7 @@ func TestCompareSchemas_EnumMismatch(t *testing.T) {
 	result := CompareSchemas(left, right, EquivalenceModeDeep)
 
 	assert.False(t, result.Equivalent, "enum order matters")
-	assert.Equal(t, 1, len(result.Differences))
+	require.Len(t, result.Differences, 1)
 	assert.Equal(t, "enum", result.Differences[0].Path)
 }
 
@@ -133,7 +134,7 @@ func TestCompareSchemas_PropertyNamesMismatch(t *testing.T) {
 	result := CompareSchemas(left, right, EquivalenceModeShallow)
 
 	assert.False(t, result.Equivalent)
-	assert.Equal(t, 1, len(result.Differences))
+	require.Len(t, result.Differences, 1)
 	assert.Equal(t, "properties", result.Differences[0].Path)
 }
 
@@ -199,7 +200,7 @@ func TestCompareSchemas_NumericConstraints(t *testing.T) {
 	result := CompareSchemas(left, right, EquivalenceModeDeep)
 
 	assert.False(t, result.Equivalent)
-	assert.Equal(t, 1, len(result.Differences))
+	require.Len(t, result.Differences, 1)
 	assert.Equal(t, "maximum", result.Differences[0].Path)
 }
 
@@ -224,7 +225,7 @@ func TestCompareSchemas_StringConstraints(t *testing.T) {
 	result := CompareSchemas(left, right, EquivalenceModeDeep)
 
 	assert.False(t, result.Equivalent)
-	assert.Equal(t, 1, len(result.Differences))
+	require.Len(t, result.Differences, 1)
 	assert.Equal(t, "maxLength", result.Differences[0].Path)
 }
 

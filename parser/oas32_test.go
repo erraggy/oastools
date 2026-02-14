@@ -65,7 +65,7 @@ components:
 	doc, ok := result.OAS3Document()
 	require.True(t, ok)
 	require.NotNil(t, doc.Components)
-	assert.Len(t, doc.Components.MediaTypes, 1)
+	require.Len(t, doc.Components.MediaTypes, 1)
 	assert.NotNil(t, doc.Components.MediaTypes["JsonResponse"])
 	assert.NotNil(t, doc.Components.MediaTypes["JsonResponse"].Schema)
 }
@@ -107,7 +107,7 @@ paths:
 	pathItem := doc.Paths["/resource"]
 	require.NotNil(t, pathItem)
 	require.NotNil(t, pathItem.AdditionalOperations)
-	assert.Len(t, pathItem.AdditionalOperations, 2)
+	require.Len(t, pathItem.AdditionalOperations, 2)
 
 	purgeOp := pathItem.AdditionalOperations["PURGE"]
 	require.NotNil(t, purgeOp)

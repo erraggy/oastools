@@ -6,6 +6,7 @@ import (
 
 	"github.com/erraggy/oastools/internal/severity"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIssueString(t *testing.T) {
@@ -255,7 +256,7 @@ func TestIssueMultilineFormatting(t *testing.T) {
 	lines := strings.Split(result, "\n")
 
 	// Should have 3 lines: main message, SpecRef indent, Context indent
-	assert.Len(t, lines, 3, "Issue with SpecRef and Context should have 3 lines")
+	require.Len(t, lines, 3, "Issue with SpecRef and Context should have 3 lines")
 
 	// First line: symbol, path, message
 	assert.Contains(t, lines[0], "✗")

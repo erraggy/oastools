@@ -344,17 +344,7 @@ func TestSchemaHasher_GroupByHash(t *testing.T) {
 	for _, names := range groups {
 		if len(names) == 2 {
 			foundDuplicateGroup = true
-			// Should contain User and Person
-			hasUser, hasPerson := false, false
-			for _, name := range names {
-				if name == "User" {
-					hasUser = true
-				}
-				if name == "Person" {
-					hasPerson = true
-				}
-			}
-			assert.True(t, hasUser && hasPerson, "Duplicate group should contain User and Person")
+			assert.ElementsMatch(t, []string{"User", "Person"}, names)
 		}
 	}
 	require.True(t, foundDuplicateGroup, "Should find a group with 2 identical schemas")

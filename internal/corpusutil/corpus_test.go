@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCorpus_Count(t *testing.T) {
@@ -108,7 +109,7 @@ func TestGetInvalidSpecs(t *testing.T) {
 
 func TestGetOAS2Specs(t *testing.T) {
 	oas2Specs := GetOAS2Specs()
-	assert.Equal(t, 1, len(oas2Specs), "Should have exactly 1 OAS 2.0 spec (Petstore)")
+	require.Len(t, oas2Specs, 1, "Should have exactly 1 OAS 2.0 spec (Petstore)")
 	assert.Equal(t, "Petstore", oas2Specs[0].Name)
 	assert.Equal(t, "2.0", oas2Specs[0].OASVersion)
 }

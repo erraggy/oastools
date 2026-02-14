@@ -259,7 +259,7 @@ func TestExtractSecuritySchemeSummaries(t *testing.T) {
 
 	result := ExtractSecuritySchemeSummaries(schemes)
 
-	assert.Len(t, result, 3, "expected 3 summaries")
+	require.Len(t, result, 3, "expected 3 summaries")
 
 	// Check sorted order (alphabetical by name)
 	assert.Equal(t, "api_key", result[0].Name, "expected first scheme 'api_key'")
@@ -273,7 +273,7 @@ func TestExtractSecuritySchemeSummaries(t *testing.T) {
 	assert.Equal(t, "basic", result[1].Scheme, "expected basic scheme")
 
 	// Check oauth2 flows
-	assert.Len(t, result[2].Flows, 1, "expected 1 flow for oauth2")
+	require.Len(t, result[2].Flows, 1, "expected 1 flow for oauth2")
 	assert.Equal(t, "authorization_code", result[2].Flows[0], "expected authorization_code flow for oauth2")
 }
 

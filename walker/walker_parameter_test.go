@@ -239,7 +239,7 @@ func TestWalk_ParameterStop(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	assert.Len(t, visitedParams, 1, "should stop after first parameter")
+	require.Len(t, visitedParams, 1, "should stop after first parameter")
 	assert.Equal(t, "limit", visitedParams[0])
 }
 

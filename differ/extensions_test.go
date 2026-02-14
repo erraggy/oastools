@@ -288,7 +288,7 @@ func TestExtensionBreakingDiffing(t *testing.T) {
 	result, err := d.DiffParsed(sourceResult, targetResult)
 	require.NoError(t, err)
 
-	assert.Len(t, result.Changes, 1)
+	require.Len(t, result.Changes, 1)
 
 	// Extension changes should be INFO severity (non-breaking)
 	assert.Equal(t, SeverityInfo, result.Changes[0].Severity)
@@ -331,7 +331,7 @@ func TestOAS2ExtensionDiffing(t *testing.T) {
 	result, err := d.DiffParsed(sourceResult, targetResult)
 	require.NoError(t, err)
 
-	assert.Len(t, result.Changes, 1)
+	require.Len(t, result.Changes, 1)
 
 	assert.Equal(t, ChangeTypeAdded, result.Changes[0].Type)
 
@@ -379,7 +379,7 @@ func TestComplexExtensionValues(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should detect the complex value changed
-	assert.Len(t, result.Changes, 1)
+	require.Len(t, result.Changes, 1)
 
 	assert.Equal(t, ChangeTypeModified, result.Changes[0].Type)
 }

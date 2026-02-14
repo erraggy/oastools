@@ -192,7 +192,7 @@ func TestOAS2DocumentUnmarshalJSON(t *testing.T) {
 			}`,
 			validate: func(t *testing.T, doc *OAS2Document) {
 				require.NotNil(t, doc.Extra)
-				assert.Len(t, doc.Extra, 3)
+				require.Len(t, doc.Extra, 3)
 				assert.Equal(t, "value", doc.Extra["x-custom"])
 				assert.Equal(t, "12345", doc.Extra["x-api-id"])
 				assert.NotNil(t, doc.Extra["x-nested"])
@@ -220,7 +220,7 @@ func TestOAS2DocumentUnmarshalJSON(t *testing.T) {
 			validate: func(t *testing.T, doc *OAS2Document) {
 				assert.Equal(t, "api.example.com", doc.Host)
 				assert.Equal(t, "/v1", doc.BasePath)
-				assert.Len(t, doc.Schemes, 1)
+				require.Len(t, doc.Schemes, 1)
 				assert.Equal(t, "https", doc.Schemes[0])
 				assert.Len(t, doc.Definitions, 1)
 				assert.Len(t, doc.Parameters, 1)

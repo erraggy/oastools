@@ -198,7 +198,7 @@ func TestOAS3DocumentUnmarshalJSON(t *testing.T) {
 			}`,
 			validate: func(t *testing.T, doc *OAS3Document) {
 				require.NotNil(t, doc.Extra)
-				assert.Len(t, doc.Extra, 3)
+				require.Len(t, doc.Extra, 3)
 				assert.Equal(t, "value", doc.Extra["x-custom"])
 			},
 		},

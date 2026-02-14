@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestVersion verifies that Version() returns the version variable.
@@ -108,7 +109,7 @@ func TestUserAgentConsistency(t *testing.T) {
 
 	// Extract version from user agent (after "oastools/")
 	parts := strings.SplitN(userAgent, "/", 2)
-	assert.Len(t, parts, 2, "UserAgent() should have format 'oastools/{version}'")
+	require.Len(t, parts, 2, "UserAgent() should have format 'oastools/{version}'")
 
 	extractedVersion := parts[1]
 	assert.Equal(t, version, extractedVersion,

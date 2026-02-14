@@ -262,7 +262,7 @@ func TestDeduplicationResult_EquivalenceGroups(t *testing.T) {
 	group, ok := result.EquivalenceGroups["Address"]
 	require.True(t, ok, "Expected Address in equivalence groups")
 
-	assert.Len(t, group, 3)
+	require.Len(t, group, 3)
 
 	// First should be canonical (Address, alphabetically first)
 	assert.Equal(t, "Address", group[0])

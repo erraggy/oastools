@@ -143,7 +143,7 @@ func TestConvertSecurityDefinitions(t *testing.T) {
 			c.convertSecurityDefinitions(tt.src, dst, result)
 
 			require.NotNil(t, dst.Components.SecuritySchemes, "Expected security schemes to be created")
-			assert.Len(t, dst.Components.SecuritySchemes, tt.wantSchemes, "Expected %d security schemes", tt.wantSchemes)
+			require.Len(t, dst.Components.SecuritySchemes, tt.wantSchemes, "Expected %d security schemes", tt.wantSchemes)
 
 			if tt.schemeName != "" {
 				scheme, exists := dst.Components.SecuritySchemes[tt.schemeName]
@@ -211,7 +211,7 @@ func TestConvertOAS2OperationToOAS3_EdgeCases(t *testing.T) {
 			checkResult: func(t *testing.T, op *parser.Operation) {
 				assert.NotNil(t, op)
 				assert.NotNil(t, op.RequestBody, "Should have request body")
-				assert.Len(t, op.Parameters, 1, "Should have 1 non-body parameter")
+				require.Len(t, op.Parameters, 1, "Should have 1 non-body parameter")
 				assert.Equal(t, "header", op.Parameters[0].In, "Remaining parameter should be header")
 			},
 		},
@@ -446,7 +446,7 @@ func TestConvertServers(t *testing.T) {
 			result := &ConversionResult{}
 			servers := c.convertServers(tt.src, result)
 
-			assert.Len(t, servers, tt.wantServers, "Expected %d servers", tt.wantServers)
+			require.Len(t, servers, tt.wantServers, "Expected %d servers", tt.wantServers)
 
 			if tt.checkFirst && len(servers) > 0 {
 				assert.Equal(t, tt.expectedURL, servers[0].URL, "Expected URL %s", tt.expectedURL)

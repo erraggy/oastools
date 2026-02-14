@@ -5,6 +5,7 @@ import (
 
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestDiffSchemaUnevaluatedProperties tests the unevaluatedProperties comparison
@@ -101,12 +102,10 @@ func TestDiffSchemaUnevaluatedProperties(t *testing.T) {
 			d.diffSchemaUnevaluatedPropertiesUnified(tt.source, tt.target, "schema", visited, result)
 
 			if tt.expectChanges {
-				assert.NotEmpty(t, result.Changes, "Expected changes but got none")
+				require.NotEmpty(t, result.Changes, "Expected changes but got none")
+				assert.Equal(t, tt.expectedChange, result.Changes[0].Type)
 			} else {
 				assert.Empty(t, result.Changes, "Expected no changes but got %d", len(result.Changes))
-			}
-			if tt.expectChanges && len(result.Changes) > 0 {
-				assert.Equal(t, tt.expectedChange, result.Changes[0].Type)
 			}
 		})
 	}
@@ -179,12 +178,10 @@ func TestDiffSchemaUnevaluatedItems(t *testing.T) {
 			d.diffSchemaUnevaluatedItemsUnified(tt.source, tt.target, "schema", visited, result)
 
 			if tt.expectChanges {
-				assert.NotEmpty(t, result.Changes, "Expected changes but got none")
+				require.NotEmpty(t, result.Changes, "Expected changes but got none")
+				assert.Equal(t, tt.expectedChange, result.Changes[0].Type)
 			} else {
 				assert.Empty(t, result.Changes, "Expected no changes but got %d", len(result.Changes))
-			}
-			if tt.expectChanges && len(result.Changes) > 0 {
-				assert.Equal(t, tt.expectedChange, result.Changes[0].Type)
 			}
 		})
 	}
