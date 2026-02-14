@@ -1,0 +1,12 @@
+{
+  "name": "oastools",
+  "description": "OpenAPI Specification tools — validate, fix, convert, diff, walk, and generate from OAS 2.0-3.2 documents",
+  "version": "1.0.0",
+  "author": {
+    "name": "erraggy",
+    "url": "https://github.com/erraggy"
+  },
+  "repository": "https://github.com/erraggy/oastools",
+  "license": "MIT",
+  "homepage": "https://erraggy.github.io/oastools/"
+}

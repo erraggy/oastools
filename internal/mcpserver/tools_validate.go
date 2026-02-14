@@ -1,0 +1,76 @@
+package mcpserver
+
+import (
+	"context"
+
+	"github.com/erraggy/oastools/validator"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+type validateInput struct {
+	Spec       specInput `json:"spec"                    jsonschema:"The OAS document to validate"`
+	Strict     bool      `json:"strict,omitempty"        jsonschema:"Enable strict validation mode"`
+	NoWarnings bool      `json:"no_warnings,omitempty"   jsonschema:"Suppress warnings from output"`
+}
+
+type validateIssue struct {
+	Path    string `json:"path"`
+	Message string `json:"message"`
+	Field   string `json:"field,omitempty"`
+}
+
+type validateOutput struct {
+	Valid        bool            `json:"valid"`
+	Version      string          `json:"version"`
+	ErrorCount   int             `json:"error_count"`
+	WarningCount int             `json:"warning_count"`
+	Errors       []validateIssue `json:"errors,omitempty"`
+	Warnings     []validateIssue `json:"warnings,omitempty"`
+}
+
+func handleValidate(_ context.Context, _ *mcp.CallToolRequest, input validateInput) (*mcp.CallToolResult, validateOutput, error) {
+	parseResult, err := input.Spec.resolve()
+	if err != nil {
+		return errResult(err), validateOutput{}, nil
+	}
+
+	opts := []validator.Option{
+		validator.WithParsed(*parseResult),
+	}
+	if input.Strict {
+		opts = append(opts, validator.WithStrictMode(true))
+	}
+
+	result, err := validator.ValidateWithOptions(opts...)
+	if err != nil {
+		return errResult(err), validateOutput{}, nil
+	}
+
+	output := validateOutput{
+		Valid:      result.Valid,
+		Version:    result.Version,
+		ErrorCount: result.ErrorCount,
+	}
+
+	output.Errors = makeSlice[validateIssue](len(result.Errors))
+	for _, e := range result.Errors {
+		output.Errors = append(output.Errors, validateIssue{
+			Path:    e.Path,
+			Message: e.Message,
+			Field:   e.Field,
+		})
+	}
+	if !input.NoWarnings {
+		output.WarningCount = result.WarningCount
+		output.Warnings = makeSlice[validateIssue](len(result.Warnings))
+		for _, w := range result.Warnings {
+			output.Warnings = append(output.Warnings, validateIssue{
+				Path:    w.Path,
+				Message: w.Message,
+				Field:   w.Field,
+			})
+		}
+	}
+
+	return nil, output, nil
+}

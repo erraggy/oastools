@@ -16,12 +16,13 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 
 ## Highlights
 
-- **Minimal Dependencies** - Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4), [`golang.org/x/tools`](https://pkg.go.dev/golang.org/x/tools), and [`golang.org/x/text`](https://pkg.go.dev/golang.org/x/text) at runtime
+- **Minimal Dependencies** - Library packages require only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4), [`golang.org/x/tools`](https://pkg.go.dev/golang.org/x/tools), and [`golang.org/x/text`](https://pkg.go.dev/golang.org/x/text); the CLI adds the [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk) for `oastools mcp`
 - **Battle-Tested** - 7,500+ tests<sup>†</sup> against 10 production APIs (Discord, Stripe, GitHub, MS Graph 34MB)
 - **Complete Toolset** - 12 packages covering the full OpenAPI lifecycle
 - **Performance Optimized** - 340+ benchmarks<sup>†</sup>; pre-parsed workflows 11-150x faster
 - **Type-Safe Cloning** - Generated `DeepCopy()` methods preserve types across OAS versions (no JSON marshal hacks)
 - **Enterprise Ready** - Structured errors with `errors.Is()`/`errors.As()`, pluggable logging, configurable resource limits
+- **AI-Ready** - Built-in [MCP server](#mcp-server) exposes all capabilities to LLM agents; [Claude Code plugin](#claude-code-plugin) for one-command setup
 - **Well Documented** - Every package has godoc, runnable examples, and [deep dive guides](#deep-dive-guides) for advanced usage
 - **Semantic Deduplication** - Automatically consolidate structurally identical schemas, reducing document size
 - **Optimized Memory Usage** — sync.Pool reduces GC pressure up to 36% fewer allocations in marshal operations
@@ -106,6 +107,40 @@ Requires Go 1.24 or higher.
 No installation required! Use oastools directly in your browser:
 
 🌐 **[oastools.robnrob.com](https://oastools.robnrob.com)** — Validate, convert, diff, fix, join, and apply overlays without installing anything.
+
+## MCP Server
+
+oastools includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes all 15 tools to LLM agents over stdio. Use it with Claude Code, Cursor, or any MCP-compatible client.
+
+```bash
+# Start the MCP server (used by MCP clients, not interactive)
+oastools mcp
+```
+
+### Claude Code Plugin
+
+Install the plugin to give Claude direct access to all OpenAPI tools. Run these inside Claude Code:
+
+```text
+/plugin marketplace add erraggy/oastools
+/plugin install oastools
+```
+
+Or add the MCP server manually to `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "oastools": {
+      "type": "stdio",
+      "command": "oastools",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+See the [MCP Server guide](docs/mcp-server.md) and [Claude Code Plugin guide](docs/claude-code-plugin.md) for full documentation.
 
 ## Quick Start
 
@@ -361,6 +396,10 @@ When a custom client is provided, `InsecureSkipVerify` is ignored—configure TL
 📚 **[Developer Guide](docs/developer-guide.md)** - Complete library usage with examples for all 12 public packages
 
 📖 **[CLI Reference](docs/cli-reference.md)** - Full command documentation with all flags, options, and output formats
+
+🤖 **[MCP Server](docs/mcp-server.md)** - All 15 tools available to LLM agents via Model Context Protocol
+
+🔌 **[Claude Code Plugin](docs/claude-code-plugin.md)** - One-command setup for Claude Code with guided skills
 
 | Resource                                                     | Description                             |
 |--------------------------------------------------------------|-----------------------------------------|
