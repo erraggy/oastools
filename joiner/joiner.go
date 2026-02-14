@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strconv"
 	"text/template"
@@ -13,6 +13,10 @@ import (
 	"github.com/erraggy/oastools/parser"
 	"go.yaml.in/yaml/v4"
 )
+
+// joinerLogger is used for warnings in joiner functions.
+// Tests can replace this with a discard logger to suppress expected warnings.
+var joinerLogger = slog.Default()
 
 // CollisionStrategy defines how to handle collisions when merging documents
 type CollisionStrategy string
@@ -1098,14 +1102,14 @@ func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docI
 	tmpl, err := template.New("rename").Funcs(renameFuncs()).Parse(tmplStr)
 	if err != nil {
 		// Fall back to default pattern on template parse error
-		log.Printf("joiner: template parse error for schema %q: template %q: %v", originalName, tmplStr, err)
+		joinerLogger.Warn("joiner: template parse error", "schema", originalName, "template", tmplStr, "error", err)
 		return fmt.Sprintf("%s_%s", originalName, ctx.Source)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, ctx); err != nil {
 		// Fall back to default pattern on template execution error
-		log.Printf("joiner: template execution error for schema %q: template %q: %v", originalName, tmplStr, err)
+		joinerLogger.Warn("joiner: template execution error", "schema", originalName, "template", tmplStr, "error", err)
 		return fmt.Sprintf("%s_%s", originalName, ctx.Source)
 	}
 

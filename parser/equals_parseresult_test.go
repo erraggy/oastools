@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -345,6 +347,11 @@ func TestParseResultDocumentEquals(t *testing.T) {
 }
 
 func TestEqualDocument(t *testing.T) {
+	// Suppress expected WARN output from equalDocument fallback (unknown type subtests)
+	original := equalsLogger
+	equalsLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	t.Cleanup(func() { equalsLogger = original })
+
 	oas3Doc1 := &OAS3Document{
 		OpenAPI:    "3.0.3",
 		OASVersion: OASVersion303,
@@ -484,6 +491,11 @@ func TestEqualDocument(t *testing.T) {
 // TestEqualDocumentUnknownTypeFallback tests the reflect.DeepEqual fallback
 // for unknown document types (e.g., future OAS versions).
 func TestEqualDocumentUnknownTypeFallback(t *testing.T) {
+	// Suppress expected WARN output from equalDocument fallback
+	original := equalsLogger
+	equalsLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	t.Cleanup(func() { equalsLogger = original })
+
 	tests := []struct {
 		name string
 		a    any
