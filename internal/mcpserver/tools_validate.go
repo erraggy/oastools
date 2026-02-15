@@ -11,6 +11,8 @@ type validateInput struct {
 	Spec       specInput `json:"spec"                    jsonschema:"The OAS document to validate"`
 	Strict     bool      `json:"strict,omitempty"        jsonschema:"Enable strict validation mode"`
 	NoWarnings bool      `json:"no_warnings,omitempty"   jsonschema:"Suppress warnings from output"`
+	Offset     int       `json:"offset,omitempty"        jsonschema:"Skip the first N errors/warnings (for pagination)"`
+	Limit      int       `json:"limit,omitempty"         jsonschema:"Maximum number of errors/warnings to return (default 100). Applied independently to errors and warnings arrays."`
 }
 
 type validateIssue struct {
@@ -24,6 +26,7 @@ type validateOutput struct {
 	Version      string          `json:"version"`
 	ErrorCount   int             `json:"error_count"`
 	WarningCount int             `json:"warning_count"`
+	Returned     int             `json:"returned"`
 	Errors       []validateIssue `json:"errors,omitempty"`
 	Warnings     []validateIssue `json:"warnings,omitempty"`
 }
@@ -71,6 +74,13 @@ func handleValidate(_ context.Context, _ *mcp.CallToolRequest, input validateInp
 			})
 		}
 	}
+
+	// Paginate errors and warnings.
+	output.Errors = paginate(output.Errors, input.Offset, input.Limit)
+	if !input.NoWarnings {
+		output.Warnings = paginate(output.Warnings, input.Offset, input.Limit)
+	}
+	output.Returned = len(output.Errors) + len(output.Warnings)
 
 	return nil, output, nil
 }

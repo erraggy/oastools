@@ -15,6 +15,8 @@ Call the `validate` tool on the user's spec:
 
 If the user wants strict validation, add `"strict": true`.
 
+⚠️ **Tip for large specs:** Use `"no_warnings": true` for initial triage. Large specs can produce hundreds of warnings that obscure the actual errors. Get the error picture first, then run again without `no_warnings` to review warnings separately.
+
 ## Step 2: Report results
 
 If the spec is valid:
@@ -26,6 +28,16 @@ If the spec has errors:
 - List each error with its JSON path and a plain-language explanation
 - Group related errors (e.g., multiple missing `$ref` targets)
 - Explain **why** each error matters and what it would cause in practice (tooling failures, code generation issues, etc.)
+
+### Paginating large results
+
+Results are paginated (default limit: 100). When `returned < error_count`, there are more errors:
+
+```json
+{"spec": {"file": "<path>"}, "offset": 100, "limit": 100}
+```
+
+⚠️ **Strategy for large error sets:** Analyze the first page for patterns — if errors are repetitive (e.g., hundreds of missing path parameters), summarize the pattern and total count rather than paging through all of them. Only page further when errors appear diverse or the user needs specifics.
 
 ## Step 3: Suggest fixes
 

@@ -210,3 +210,81 @@ paths:
 	assert.Equal(t, 0, output.FixCount)
 	assert.Empty(t, output.Fixes)
 }
+
+func TestFixTool_Pagination(t *testing.T) {
+	// This spec has 3 missing path parameters, producing at least 3 fixes.
+	content := `openapi: "3.0.0"
+info:
+  title: Pagination Test
+  version: "1.0.0"
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      responses:
+        "200":
+          description: OK
+  /items/{itemId}:
+    get:
+      operationId: getItem
+      responses:
+        "200":
+          description: OK
+  /posts/{postId}:
+    get:
+      operationId: getPost
+      responses:
+        "200":
+          description: OK
+`
+	// Baseline: get total fix count without pagination.
+	_, baseline, err := handleFix(context.Background(), &mcp.CallToolRequest{}, fixInput{
+		Spec: specInput{Content: content},
+	})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, baseline.FixCount, 3, "need at least 3 fixes for pagination test")
+
+	t.Run("limit", func(t *testing.T) {
+		_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, fixInput{
+			Spec:  specInput{Content: content},
+			Limit: 1,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, baseline.FixCount, output.FixCount)
+		assert.Equal(t, 1, output.Returned)
+		assert.Len(t, output.Fixes, 1)
+	})
+
+	t.Run("offset", func(t *testing.T) {
+		_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, fixInput{
+			Spec:   specInput{Content: content},
+			Offset: 1,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, baseline.FixCount, output.FixCount)
+		assert.Equal(t, baseline.FixCount-1, output.Returned)
+	})
+
+	t.Run("offset and limit", func(t *testing.T) {
+		_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, fixInput{
+			Spec:   specInput{Content: content},
+			Offset: 1,
+			Limit:  1,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, baseline.FixCount, output.FixCount)
+		assert.Equal(t, 1, output.Returned)
+		assert.Len(t, output.Fixes, 1)
+	})
+
+	t.Run("offset beyond total", func(t *testing.T) {
+		_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, fixInput{
+			Spec:   specInput{Content: content},
+			Offset: baseline.FixCount,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, baseline.FixCount, output.FixCount)
+		assert.Equal(t, 0, output.Returned)
+		assert.Nil(t, output.Fixes)
+	})
+}

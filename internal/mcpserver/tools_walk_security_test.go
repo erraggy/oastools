@@ -160,6 +160,33 @@ func TestWalkSecurity_NoMatches(t *testing.T) {
 	assert.Nil(t, output.Summaries)
 }
 
+func TestWalkSecurity_Offset(t *testing.T) {
+	input := walkSecurityInput{
+		Spec:   specInput{Content: walkSecurityTestSpec},
+		Offset: 1,
+	}
+	_, output := callWalkSecurity(t, input)
+
+	assert.Equal(t, 3, output.Total)
+	assert.Equal(t, 3, output.Matched)
+	assert.Equal(t, 2, output.Returned)
+	assert.Len(t, output.Summaries, 2)
+}
+
+func TestWalkSecurity_OffsetAndLimit(t *testing.T) {
+	input := walkSecurityInput{
+		Spec:   specInput{Content: walkSecurityTestSpec},
+		Offset: 1,
+		Limit:  1,
+	}
+	_, output := callWalkSecurity(t, input)
+
+	assert.Equal(t, 3, output.Total)
+	assert.Equal(t, 3, output.Matched)
+	assert.Equal(t, 1, output.Returned)
+	assert.Len(t, output.Summaries, 1)
+}
+
 func TestWalkSecurity_FilterByExtension(t *testing.T) {
 	spec := `openapi: "3.0.0"
 info:

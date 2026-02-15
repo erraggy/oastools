@@ -163,3 +163,99 @@ func TestDiffTool_MissingInput(t *testing.T) {
 	assert.True(t, result.IsError)
 	assert.Empty(t, output.Changes)
 }
+
+func TestDiffTool_Pagination(t *testing.T) {
+	// Baseline: get total change count.
+	_, baseline, err := handleDiff(context.Background(), &mcp.CallToolRequest{}, diffInput{
+		Base:     specInput{Content: diffBaseSpec},
+		Revision: specInput{Content: diffRevisedSpec},
+	})
+	require.NoError(t, err)
+	require.Greater(t, baseline.TotalChanges, 2, "need at least 3 changes for pagination test")
+
+	t.Run("limit", func(t *testing.T) {
+		_, output, err := handleDiff(context.Background(), &mcp.CallToolRequest{}, diffInput{
+			Base:     specInput{Content: diffBaseSpec},
+			Revision: specInput{Content: diffRevisedSpec},
+			Limit:    1,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, baseline.TotalChanges, output.TotalChanges)
+		assert.Equal(t, 1, output.Returned)
+		assert.Len(t, output.Changes, 1)
+		assert.NotEmpty(t, output.Summary)
+	})
+
+	t.Run("offset", func(t *testing.T) {
+		_, output, err := handleDiff(context.Background(), &mcp.CallToolRequest{}, diffInput{
+			Base:     specInput{Content: diffBaseSpec},
+			Revision: specInput{Content: diffRevisedSpec},
+			Offset:   1,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, baseline.TotalChanges, output.TotalChanges)
+		assert.Equal(t, baseline.TotalChanges-1, output.Returned)
+	})
+
+	t.Run("offset and limit", func(t *testing.T) {
+		_, output, err := handleDiff(context.Background(), &mcp.CallToolRequest{}, diffInput{
+			Base:     specInput{Content: diffBaseSpec},
+			Revision: specInput{Content: diffRevisedSpec},
+			Offset:   1,
+			Limit:    2,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, baseline.TotalChanges, output.TotalChanges)
+		assert.Equal(t, 2, output.Returned)
+		assert.Len(t, output.Changes, 2)
+	})
+
+	t.Run("offset beyond total", func(t *testing.T) {
+		_, output, err := handleDiff(context.Background(), &mcp.CallToolRequest{}, diffInput{
+			Base:     specInput{Content: diffBaseSpec},
+			Revision: specInput{Content: diffRevisedSpec},
+			Offset:   baseline.TotalChanges,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, baseline.TotalChanges, output.TotalChanges)
+		assert.Equal(t, 0, output.Returned)
+		assert.Nil(t, output.Changes)
+		// Summary should still reflect the full result.
+		assert.NotEmpty(t, output.Summary)
+	})
+
+	t.Run("counts unchanged by pagination", func(t *testing.T) {
+		_, output, err := handleDiff(context.Background(), &mcp.CallToolRequest{}, diffInput{
+			Base:     specInput{Content: diffBaseSpec},
+			Revision: specInput{Content: diffRevisedSpec},
+			Limit:    1,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, baseline.BreakingCount, output.BreakingCount)
+		assert.Equal(t, baseline.WarningCount, output.WarningCount)
+		assert.Equal(t, baseline.InfoCount, output.InfoCount)
+	})
+
+	t.Run("negative offset returns no changes", func(t *testing.T) {
+		_, output, err := handleDiff(context.Background(), &mcp.CallToolRequest{}, diffInput{
+			Base:     specInput{Content: diffBaseSpec},
+			Revision: specInput{Content: diffRevisedSpec},
+			Offset:   -1,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, baseline.TotalChanges, output.TotalChanges)
+		assert.Equal(t, 0, output.Returned)
+		assert.Nil(t, output.Changes)
+	})
+
+	t.Run("negative limit uses default", func(t *testing.T) {
+		_, output, err := handleDiff(context.Background(), &mcp.CallToolRequest{}, diffInput{
+			Base:     specInput{Content: diffBaseSpec},
+			Revision: specInput{Content: diffRevisedSpec},
+			Limit:    -5,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, baseline.TotalChanges, output.TotalChanges)
+		assert.Equal(t, baseline.TotalChanges, output.Returned)
+	})
+}

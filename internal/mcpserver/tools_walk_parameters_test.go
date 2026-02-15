@@ -217,3 +217,30 @@ func TestWalkParameters_NoMatches(t *testing.T) {
 	assert.Equal(t, 0, output.Matched)
 	assert.Nil(t, output.Summaries)
 }
+
+func TestWalkParameters_Offset(t *testing.T) {
+	input := walkParametersInput{
+		Spec:   specInput{Content: walkParametersTestSpec},
+		Offset: 2,
+	}
+	_, output := callWalkParameters(t, input)
+
+	assert.Equal(t, 4, output.Total)
+	assert.Equal(t, 4, output.Matched)
+	assert.Equal(t, 2, output.Returned)
+	assert.Len(t, output.Summaries, 2)
+}
+
+func TestWalkParameters_OffsetAndLimit(t *testing.T) {
+	input := walkParametersInput{
+		Spec:   specInput{Content: walkParametersTestSpec},
+		Offset: 1,
+		Limit:  2,
+	}
+	_, output := callWalkParameters(t, input)
+
+	assert.Equal(t, 4, output.Total)
+	assert.Equal(t, 4, output.Matched)
+	assert.Equal(t, 2, output.Returned)
+	assert.Len(t, output.Summaries, 2)
+}

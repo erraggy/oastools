@@ -13,6 +13,8 @@ type diffInput struct {
 	Revision     specInput `json:"revision"                jsonschema:"The revised OAS document to compare against the base"`
 	BreakingOnly bool      `json:"breaking_only,omitempty" jsonschema:"Only show breaking changes"`
 	NoInfo       bool      `json:"no_info,omitempty"       jsonschema:"Suppress informational changes"`
+	Offset       int       `json:"offset,omitempty"        jsonschema:"Skip the first N changes (for pagination)"`
+	Limit        int       `json:"limit,omitempty"         jsonschema:"Maximum number of changes to return (default 100)"`
 }
 
 type diffChange struct {
@@ -27,6 +29,7 @@ type diffOutput struct {
 	BreakingCount int          `json:"breaking_count"`
 	WarningCount  int          `json:"warning_count"`
 	InfoCount     int          `json:"info_count"`
+	Returned      int          `json:"returned"`
 	Changes       []diffChange `json:"changes,omitempty"`
 	Summary       string       `json:"summary"`
 }
@@ -88,6 +91,9 @@ func handleDiff(_ context.Context, _ *mcp.CallToolRequest, input diffInput) (*mc
 
 	output.TotalChanges = len(output.Changes)
 	output.Summary = buildDiffSummary(output)
+
+	output.Changes = paginate(output.Changes, input.Offset, input.Limit)
+	output.Returned = len(output.Changes)
 
 	return nil, output, nil
 }

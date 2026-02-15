@@ -182,6 +182,33 @@ func TestWalkResponses_NoMatches(t *testing.T) {
 	assert.Nil(t, output.Summaries)
 }
 
+func TestWalkResponses_Offset(t *testing.T) {
+	input := walkResponsesInput{
+		Spec:   specInput{Content: walkResponsesTestSpec},
+		Offset: 3,
+	}
+	_, output := callWalkResponses(t, input)
+
+	assert.Equal(t, 8, output.Total)
+	assert.Equal(t, 8, output.Matched)
+	assert.Equal(t, 5, output.Returned)
+	assert.Len(t, output.Summaries, 5)
+}
+
+func TestWalkResponses_OffsetAndLimit(t *testing.T) {
+	input := walkResponsesInput{
+		Spec:   specInput{Content: walkResponsesTestSpec},
+		Offset: 3,
+		Limit:  3,
+	}
+	_, output := callWalkResponses(t, input)
+
+	assert.Equal(t, 8, output.Total)
+	assert.Equal(t, 8, output.Matched)
+	assert.Equal(t, 3, output.Returned)
+	assert.Len(t, output.Summaries, 3)
+}
+
 func TestStatusCodeMatches(t *testing.T) {
 	tests := []struct {
 		statusCode string

@@ -20,6 +20,7 @@ type walkSchemasInput struct {
 	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers"`
 	Detail      bool      `json:"detail,omitempty"         jsonschema:"Return full schema objects"`
 	Limit       int       `json:"limit,omitempty"          jsonschema:"Maximum results (default 100)"`
+	Offset      int       `json:"offset,omitempty"         jsonschema:"Skip the first N results (for pagination)"`
 }
 
 type schemaSummary struct {
@@ -79,15 +80,8 @@ func handleWalkSchemas(_ context.Context, _ *mcp.CallToolRequest, input walkSche
 		return errResult(err), nil, nil
 	}
 
-	// Apply limit.
-	limit := input.Limit
-	if limit <= 0 {
-		limit = defaultWalkLimit
-	}
-	returned := filtered
-	if len(returned) > limit {
-		returned = returned[:limit]
-	}
+	// Apply offset/limit pagination.
+	returned := paginate(filtered, input.Offset, input.Limit)
 
 	output := walkSchemasOutput{
 		Total:    len(collector.All),
