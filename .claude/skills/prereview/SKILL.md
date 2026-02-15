@@ -25,16 +25,19 @@ Use the AskUserQuestion tool to ask:
 **Question:** "No unpushed commits found, but you have uncommitted changes. Would you like to commit them first?"
 
 **Options:**
+
 1. **Commit all changes** - Stage all changes and create a commit (will prompt for message)
-2. **Commit staged only** - Commit only what's currently staged
+2. **Commit staged only** - Commit just what's currently staged
 3. **Cancel** - Exit without reviewing
 
 If the user chooses to commit:
+
 - For "Commit all changes": Run `git add -A` first
 - Use the Skill tool to invoke `commit-commands:commit` to create a proper conventional commit
 - After the commit succeeds, continue to Step 1
 
 **If there are NO unpushed commits AND NO uncommitted changes:**
+
 - Inform the user: "Nothing to review - no unpushed commits and no uncommitted changes."
 - Exit the skill
 
@@ -79,6 +82,7 @@ Using the diff output, launch the pr-review-toolkit agents to analyze the change
 6. **type-design-analyzer** (`pr-review-toolkit:type-design-analyzer`): If new types were introduced, review their design
 
 When launching agents, provide them with:
+
 - The git diff output showing all changes
 - The list of files modified
 - Context that this is a pre-push review (not a PR review)
@@ -101,12 +105,14 @@ After presenting the summary, use the AskUserQuestion tool to ask what the user 
 **Question:** "How would you like to proceed with these findings?"
 
 **Options:**
+
 1. **Address all** - Fix all critical issues, warnings, and suggestions now
 2. **Address critical + warnings** - Fix critical and warning issues, skip minor suggestions
 3. **Push as-is** - No changes needed, ready to push
 4. **Custom** - Let me choose which specific issues to address
 
 If the user selects an option to address issues:
+
 - Create a todo list of all issues to fix based on their selection
 - Work through each issue systematically, making the necessary code changes
 - After all fixes are complete, run `make check` to verify the changes

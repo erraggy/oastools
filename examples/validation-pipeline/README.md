@@ -17,12 +17,14 @@ Demonstrates a complete validation pipeline with source map integration for IDE-
 ## Quick Start
 
 1. Run against the petstore spec:
+
    ```bash
    cd examples/validation-pipeline
    go run main.go ../petstore/spec/petstore-v2.json
    ```
 
 2. Expected output:
+
    ```
    Validation Pipeline
    ===================
@@ -46,6 +48,7 @@ Demonstrates a complete validation pipeline with source map integration for IDE-
    ```
 
 3. Try with your own specification:
+
    ```bash
    go run main.go /path/to/your/openapi.yaml
    ```
@@ -62,6 +65,7 @@ Demonstrates a complete validation pipeline with source map integration for IDE-
 **Source Map Integration**: By enabling `parser.WithSourceMap(true)` and passing it to the validator via `v.SourceMap = result.SourceMap`, validation errors include line numbers. This is essential for IDE integration and debugging.
 
 **Severity Levels**: oastools uses four severity levels:
+
 - `CRITICAL` - Specification cannot be processed
 - `ERROR` - Violates OpenAPI specification requirements
 - `WARNING` - Best practice recommendations

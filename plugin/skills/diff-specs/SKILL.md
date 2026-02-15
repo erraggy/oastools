@@ -67,6 +67,7 @@ Present the diff results organized by severity:
 ## Step 3: Explain breaking changes
 
 For each breaking change:
+
 - Describe **what** changed (the specific path and property)
 - Explain **why** it breaks consumers (e.g., "Clients sending requests to `DELETE /users/{id}` will get 404")
 - Estimate the **scope of impact** (how many operations/schemas are affected)
@@ -86,6 +87,7 @@ For each breaking change, provide a concrete migration step:
 ## Step 5: Summary
 
 Provide a migration checklist:
+
 - Total changes (breaking / warning / info)
 - List of required client-side updates
 - Recommended testing strategy for the migration

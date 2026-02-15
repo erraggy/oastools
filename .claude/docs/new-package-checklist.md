@@ -36,7 +36,9 @@ When adding a new package, ensure:
 When adding new examples under `examples/`, you must update **both**:
 
 ### 1. `mkdocs.yml`
+
 Add nav entries with explicit titles (not just file paths):
+
 ```yaml
 # Good - with titles
 - Overview: examples/myexample/index.md
@@ -47,7 +49,9 @@ Add nav entries with explicit titles (not just file paths):
 ```
 
 ### 2. `scripts/prepare-docs.sh`
+
 Add copy commands for new example READMEs:
+
 - Create target directory: `mkdir -p "$DOCS_DIR/examples/myexample"`
 - Copy and fix links for each README
 - Add any new sibling link patterns to `fix_example_links()`

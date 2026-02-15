@@ -29,6 +29,7 @@ The [`converter`](https://pkg.go.dev/github.com/erraggy/oastools/converter) pack
 The converter performs best-effort conversion with detailed issue tracking. Features converted include servers, schemas, parameters, security schemes, and request/response bodies. It preserves the input file format (JSON or YAML) for output consistency.
 
 **Supported conversions:**
+
 - OAS 2.0 (Swagger) -> OAS 3.0.x / 3.1.x
 - OAS 3.0.x / 3.1.x -> OAS 2.0 (Swagger)
 
@@ -58,6 +59,7 @@ The converter follows these principles:
 ### What Cannot Convert
 
 **OAS 3.x -> OAS 2.0:**
+
 - Webhooks (3.1+ only)
 - Callbacks
 - Links
@@ -68,6 +70,7 @@ The converter follows these principles:
 - Schema keywords: `writeOnly`, `deprecated`, `if`/`then`/`else`, `prefixItems`, `contains`, `propertyNames` (warnings emitted)
 
 **OAS 2.0 -> OAS 3.x:**
+
 - `collectionFormat` (may not map perfectly to `style`/`explode`)
 - `allowEmptyValue` (deprecated in 3.x)
 - File upload patterns differ significantly
@@ -162,6 +165,7 @@ func main() {
 ```
 
 **Example Input (swagger.yaml):**
+
 ```yaml
 swagger: "2.0"
 info:
@@ -230,6 +234,7 @@ definitions:
 ```
 
 **Generated Output (openapi.yaml):**
+
 ```yaml
 openapi: 3.0.3
 info:
@@ -316,6 +321,7 @@ fmt.Printf("Converted to %s\n", result.TargetVersion)
 ```
 
 **Key Changes in 3.0 -> 3.1:**
+
 - `nullable: true` is converted to type arrays: `type: ["string", "null"]`
 - JSON Schema keywords like `unevaluatedProperties` become available
 - Webhooks support is added
@@ -527,12 +533,14 @@ schemes:
 ### Converting to OAS 3.0.x
 
 **Choose Your Patch Version:**
+
 - `3.0.0` - Initial release, use for maximum compatibility
 - `3.0.1` - Clarifications only
 - `3.0.2` - More clarifications
 - `3.0.3` - **Recommended** - Most stable and widely supported
 
 **Watch For:**
+
 - Security schemes with OAuth2 flows need careful mapping
 - Form data and file uploads have different patterns than 2.0
 - Global consumes/produces become per-operation content types
@@ -564,6 +572,7 @@ webhooks:
 ```
 
 **Choose Your Patch Version:**
+
 - `3.1.0` - Initial JSON Schema alignment
 - `3.1.1` - Bug fixes and clarifications
 
@@ -571,6 +580,7 @@ webhooks:
 
 **Feature Loss:**
 Expect to lose these OAS 3.x features:
+
 - Webhooks (cannot be represented)
 - Callbacks (cannot be represented)
 - Links (cannot be represented)
@@ -579,6 +589,7 @@ Expect to lose these OAS 3.x features:
 - Schema keywords without OAS 2.0 equivalents: `writeOnly`, `deprecated`, `if`/`then`/`else`, `prefixItems`, `contains`, `propertyNames` (warnings emitted)
 
 **Best Practices:**
+
 1. Always check `HasCriticalIssues()` after conversion
 2. Review all critical issues to understand what was lost
 3. Consider if the target tooling truly requires 2.0
@@ -889,7 +900,7 @@ actions:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `Document` | `any` | Converted document (*OAS2Document or *OAS3Document) |
+| `Document` | `any` | Converted document (`OAS2Document` or `OAS3Document`) |
 | `TargetVersion` | `string` | Target OAS version string |
 | `Issues` | `[]ConversionIssue` | All conversion issues |
 | `CriticalCount` | `int` | Number of critical issues |
@@ -957,6 +968,7 @@ Note: Conversion issues are converted to string warnings in the resulting ParseR
 1. **Always check issues** - Use `HasCriticalIssues()` and review warnings before using converted documents in production.
 
 2. **Validate after conversion** - The converted document may have structural issues that the converter cannot detect. Run through the validator:
+
    ```go
    result, _ := converter.ConvertWithOptions(...)
    parseResult := &parser.ParseResult{Document: result.Document, ...}

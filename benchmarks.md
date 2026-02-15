@@ -53,11 +53,13 @@ See [CLAUDE.md](https://github.com/erraggy/oastools/blob/main/CLAUDE.md#benchmar
 The v1.7.0 release includes a major optimization to JSON marshaling that eliminates the double-marshal pattern across all 29 custom JSON marshalers in the parser package.
 
 **Performance Improvements**:
+
 - **25-32% faster** JSON marshaling for types with specification extensions (Extra fields)
 - **29-37% fewer** memory allocations
 - **Zero overhead** for types without Extra fields (fast path optimization)
 
 **Implementation Strategy**:
+
 - Eliminated marshal→unmarshal→marshal pattern (4 operations → 2 operations)
 - Direct map building approach for types with Extra fields
 - Replaced knownFields map lookups with efficient prefix checking (`x-`)
@@ -78,12 +80,14 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 ### Parser Package (44 benchmarks)
 
 **Marshaling Operations**:
+
 - Info marshaling: no extra fields, with extra fields, varying extra field counts (1, 5, 10, 20)
 - Contact marshaling: no extra fields, with extra fields
 - Server marshaling: no extra fields, with extra fields
 - Document marshaling: small, medium, and large OAS 2.0 and OAS 3.x documents
 
 **Parsing Operations**:
+
 - Small, medium, and large OAS 3.x documents
 - Small and medium OAS 2.0 documents
 - Parsing with and without validation
@@ -95,14 +99,17 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 - FormatBytes utility function
 
 **DeepCopy Operations**:
+
 - OAS3Document.DeepCopy() for small, medium, and large documents
 - OAS2Document.DeepCopy() for small and medium documents
 - Type-aware copying that preserves nil vs empty distinction
 
 **Unmarshaling Operations**:
+
 - Info unmarshaling: no extra fields, with extra fields
 
 **Order-Preserving Marshaling**:
+
 - MarshalOrderedJSON: small, medium, and large OAS 3.x documents
 - MarshalOrderedYAML: small, medium, and large OAS 3.x documents
 - MarshalOrderedJSONIndent: indented JSON output
@@ -112,6 +119,7 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 ### Validator Package (16 benchmarks)
 
 **Validation Operations**:
+
 - Small, medium, and large OAS 3.x documents
 - Small and medium OAS 2.0 documents
 - With and without warnings
@@ -123,6 +131,7 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 ### Fixer Package (13 benchmarks)
 
 **Fixing Operations**:
+
 - Small, medium, and large OAS 3.x documents
 - Small and medium OAS 2.0 documents
 - With and without type inference
@@ -132,6 +141,7 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 ### Converter Package (13 benchmarks)
 
 **Conversion Operations**:
+
 - OAS 2.0 → OAS 3.x (small and medium documents)
 - OAS 3.x → OAS 2.0 (small and medium documents)
 - OAS 3.0 → OAS 3.1 version updates
@@ -142,6 +152,7 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 ### Joiner Package (14 benchmarks)
 
 **Joining Operations**:
+
 - Join 2, 3, and 5 small documents
 - JoinParsed (pre-parsed) vs Join (parse + join)
 - JoinWithOptions convenience API (basic and pre-parsed variants)
@@ -154,6 +165,7 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 ### Differ Package (10 benchmarks)
 
 **Diffing Operations**:
+
 - Diff (parse + diff) vs DiffParsed (pre-parsed)
 - DiffWithOptions convenience API
 - Simple mode vs Breaking mode
@@ -165,6 +177,7 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 ### Generator Package (4 benchmarks)
 
 **Code Generation Operations**:
+
 - Types-only generation
 - Client code generation
 - Server code generation
@@ -173,6 +186,7 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 ### Overlay Package (18 benchmarks)
 
 **Overlay Application Operations**:
+
 - Apply overlays to small, medium, and large documents
 - Apply with in-memory overlays vs file-based
 - ApplyParsed performance (pre-parsed documents)
@@ -180,6 +194,7 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 - DryRun preview functionality
 
 **JSONPath Operations**:
+
 - Parse expressions of varying complexity
 - Get operations with wildcards, filters, recursive descent
 - Modify operations for document transformation
@@ -188,6 +203,7 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 ### Builder Package (17 benchmarks)
 
 **Builder Construction Operations**:
+
 - Builder instantiation (New)
 - Info configuration (SetTitle, SetVersion, SetDescription)
 - Schema generation from reflection (primitives, structs, nested structs, slices, maps)
@@ -199,6 +215,7 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 ### HTTP Validator Package (9 benchmarks)
 
 **Request/Response Validation**:
+
 - Request validation (path, query, header, body)
 - Response validation (status code, headers, body)
 - Path matching performance (single path, multiple paths)
@@ -482,6 +499,7 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 
 1. **Reuse parser/validator/fixer/converter/joiner/differ/httpvalidator instances** when processing multiple files with the same configuration
 2. **Use ParseOnce workflows**: For operations on the same document (validate, fix, convert, join, diff), parse once and pass the `ParseResult` to subsequent operations:
+
    ```go
    result, _ := parser.Parse("spec.yaml", false, true)
    validator.ValidateParsed(result, true, false)   // 30x faster than Validate
@@ -489,6 +507,7 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
    converter.ConvertParsed(result, "3.0.3")        // 9x faster than Convert
    differ.DiffParsed(result1, result2)             // 81x faster than Diff
    ```
+
 3. **Disable reference resolution** (`ResolveRefs=false`) when not needed
 4. **Disable validation** during parsing (`ValidateStructure=false`) if you'll validate separately
 5. **Minimize specification extensions**: Documents with many Extra fields (`x-*`) will be slower to marshal
@@ -502,12 +521,14 @@ The benchmark suite includes **250+ benchmark runs** across ten packages:
 ## Benchmark Methodology
 
 All benchmarks follow these standards:
+
 - Run with `-benchmem` to track memory allocations
 - Use realistic test data from `testdata/bench/`
 - Deterministic and repeatable
 - Measure both CPU time and memory performance
 
 **Test Data**:
+
 - Small documents: ~60 lines
 - Medium documents: ~570 lines
 - Large documents: ~6000 lines

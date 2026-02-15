@@ -130,6 +130,7 @@ for _, err := range result.Errors {
 ```
 
 **How it works:**
+
 - Query params, path params, body: Full values included (helpful for debugging)
 - Headers, cookies: Values redacted (e.g., "value is not one of the allowed values" instead of "value 'Bearer sk-xxx' is not...")
 

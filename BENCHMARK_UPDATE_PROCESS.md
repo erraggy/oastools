@@ -11,6 +11,7 @@ This document describes the process for updating benchmark results after making 
 Saved benchmark files capture I/O conditions at the time of recording. Comparing saved benchmarks across versions can show **phantom regressions of 50%+** that are actually just I/O variance, not real code changes.
 
 **Example from v1.28.1 investigation:**
+
 | Benchmark | Saved v1.25.0 | Saved v1.28.1 | Live Comparison |
 |-----------|---------------|---------------|-----------------|
 | Parse/SmallOAS3 | 143 µs | 217 µs (+51%) | **0% actual change** |
@@ -61,6 +62,7 @@ See [CLAUDE.md](CLAUDE.md#benchmark-reliability-and-performance-regression-detec
 ### Automatic (CI)
 
 Benchmarks are **automatically captured** when you push a version tag. The CI workflow:
+
 - Runs 9 packages in parallel (~5 min wall time vs ~20 min sequential)
 - Commits results to `benchmarks/benchmark-v1.X.Y.txt`
 - Compares with the previous version using benchstat
@@ -70,6 +72,7 @@ Benchmarks are **automatically captured** when you push a version tag. The CI wo
 ### Manual (Development)
 
 Update benchmarks manually in these situations:
+
 - After making performance-related changes (to verify no regression)
 - After adding new functionality that may affect performance
 - When significant changes are made to core packages (parser, validator, fixer, converter, joiner, overlay, differ, generator, builder)
@@ -116,6 +119,7 @@ The `/prepare-release` skill automates this entire process.
 ### Post-Tag Workflow (Fallback)
 
 If you push a tag without running benchmarks first, the CI workflow will:
+
 1. Run benchmarks on the tagged version
 2. Create a separate PR to add the benchmark file
 
@@ -126,6 +130,7 @@ git push origin v1.X.Y
 ```
 
 Monitor the workflow:
+
 ```bash
 gh run list --workflow=benchmark.yml --limit=1
 gh run watch <RUN_ID>
@@ -156,11 +161,13 @@ make bench-release VERSION=v1.19.1
 ```
 
 This command:
+
 1. Runs all package benchmarks with proper timeout handling
 2. Saves results directly to `benchmarks/benchmark-v1.19.1.txt`
 3. Automatically compares with the previous version (if `benchstat` is installed)
 
 After running, commit the benchmark file:
+
 ```bash
 git add benchmarks/benchmark-v1.19.1.txt
 git commit -m "chore: add benchmark results for v1.19.1"
@@ -202,6 +209,7 @@ make bench-overlay
 ```
 
 **Alternative:** Run all benchmarks at once:
+
 ```bash
 make bench
 ```
@@ -209,12 +217,14 @@ make bench
 ### 2. Collect Benchmark Results
 
 The benchmark output includes:
+
 - **Iterations**: Number of times the benchmark ran (e.g., `42094`)
 - **Time per operation**: In nanoseconds (e.g., `142212 ns/op`)
 - **Memory per operation**: In bytes (e.g., `202678 B/op`)
 - **Allocations per operation**: Number of allocations (e.g., `2128 allocs/op`)
 
 Example output:
+
 ```
 BenchmarkParseSmallOAS3-10    42094    142212 ns/op    202678 B/op    2128 allocs/op
 ```
@@ -226,22 +236,26 @@ Update the following sections in `benchmarks.md` with the new results:
 #### 3.1 Parser Performance
 
 **Document Parsing table:**
+
 - Convert nanoseconds to microseconds (divide by 1,000)
 - Convert bytes to kilobytes (divide by 1,024)
 - Round to whole numbers for readability
 
 Example:
+
 ```
 BenchmarkParseSmallOAS3: 142212 ns/op, 202678 B/op, 2128 allocs/op
 → Small OAS3: 142 μs, 203 KB, 2,128 allocs
 ```
 
 **JSON Marshaling table:**
+
 - Keep time in nanoseconds (round to whole numbers)
 - Keep memory in bytes (round to whole numbers)
 - Keep allocations exact
 
 Example:
+
 ```
 BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
 → Info (5 fields): 1,717 ns, 1,737 bytes, 26 allocs
@@ -250,11 +264,13 @@ BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
 #### 3.2 Validator Performance
 
 **Validation table:**
+
 - Convert nanoseconds to microseconds
 - Convert bytes to kilobytes
 - Round to whole numbers
 
 **ValidateParsed table:**
+
 - Keep microseconds with one decimal place for small values (e.g., 4.7 μs)
 - Keep kilobytes with one decimal place for small values (e.g., 5.2 KB)
 - Keep allocations exact
@@ -262,11 +278,13 @@ BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
 #### 3.3 Fixer Performance
 
 **Fixing table (parse + fix):**
+
 - Convert nanoseconds to microseconds
 - Convert bytes to kilobytes
 - Round to whole numbers
 
 **FixParsed table:**
+
 - Keep microseconds with one decimal place for small values (e.g., 86 μs)
 - Keep kilobytes with one decimal place for small values (e.g., 79 KB)
 - Keep allocations exact
@@ -274,11 +292,13 @@ BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
 #### 3.4 Converter Performance
 
 **Conversion table (parse + convert):**
+
 - Convert nanoseconds to microseconds
 - Convert bytes to kilobytes
 - Round to whole numbers
 
 **ConvertParsed table:**
+
 - Keep microseconds with one decimal place
 - Keep kilobytes with one decimal place
 - Keep allocations exact
@@ -286,11 +306,13 @@ BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
 #### 3.5 Joiner Performance
 
 **Joining table (parse + join):**
+
 - Convert nanoseconds to microseconds
 - Convert bytes to kilobytes
 - Round to whole numbers
 
 **JoinParsed table:**
+
 - Keep time in nanoseconds (round to whole numbers)
 - Keep memory in bytes (round to whole numbers)
 - Keep allocations exact
@@ -298,11 +320,13 @@ BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
 #### 3.6 Differ Performance
 
 **Diffing table (parse + diff):**
+
 - Convert nanoseconds to microseconds
 - Convert bytes to kilobytes
 - Round to whole numbers
 
 **DiffParsed table:**
+
 - Keep microseconds with one decimal place
 - Keep kilobytes with one decimal place
 - Keep allocations exact
@@ -310,6 +334,7 @@ BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
 #### 3.7 Generator Performance
 
 **Code generation table:**
+
 - Convert nanoseconds to microseconds
 - Convert bytes to kilobytes
 - Round to whole numbers
@@ -317,6 +342,7 @@ BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
 #### 3.8 Builder Performance
 
 **Builder operations table:**
+
 - Keep time in nanoseconds (round to whole numbers)
 - Keep memory in bytes (round to whole numbers)
 - Keep allocations exact
@@ -324,10 +350,12 @@ BenchmarkMarshalInfoWithExtra: 1717 ns/op, 1737 B/op, 26 allocs/op
 ### 4. Update README.md
 
 Update the **Document Processing Performance** table in README.md:
+
 - Use the same values from benchmarks.md's "Current Performance Metrics" section
 - Ensure consistency between the two files
 
 Example:
+
 ```
 | Parse            | 142 μs            | 1,130 μs            | 14,131 μs           |
 | Validate         | 143 μs            | 1,160 μs            | 14,635 μs           |
@@ -344,6 +372,7 @@ Example:
 ### 5. Verify Changes
 
 Before committing, verify:
+
 - All tables are properly formatted (aligned columns)
 - All numbers use comma separators for thousands (e.g., `2,128` not `2128`)
 - Microsecond values are consistent across benchmarks.md and README.md
@@ -363,10 +392,13 @@ git commit -m "docs: update benchmark results for v1.x.x release"
 1. **Consistent Environment**: Run benchmarks on the same machine with similar system load
 2. **Multiple Runs**: If results seem inconsistent, run benchmarks multiple times and use the median
 3. **Benchmark Time**: Use `BENCH_TIME` to run longer benchmarks for more stable results:
+
    ```bash
    make bench BENCH_TIME=10s
    ```
+
 4. **Baseline Comparison**: Save baseline benchmarks and use `benchstat` to compare:
+
    ```bash
    make bench-baseline          # Save current as baseline
    # Make changes...
@@ -421,6 +453,7 @@ The benchmark workflow supports three output modes via the `output_mode` paramet
 | `artifact` | Batch backfill | Uploads artifact only, no commit |
 
 Example usage:
+
 ```bash
 # Pre-release: commit to branch
 gh workflow run benchmark.yml -f version="v1.34.0" -f ref="chore/v1.34.0-prep" -f output_mode=commit
@@ -442,6 +475,7 @@ To generate CI benchmarks for historical versions, use the backfill script:
 ```
 
 The script:
+
 1. Triggers the benchmark workflow with `output_mode=artifact` for each version
 2. Waits for each workflow run to complete
 3. Downloads the combined artifact from each run
@@ -454,6 +488,7 @@ The script:
 Benchmark files include platform information at the top of each output:
 
 **CI Benchmarks (linux/amd64):**
+
 ```
 goos: linux
 goarch: amd64
@@ -462,6 +497,7 @@ cpu: AMD EPYC 7763 64-Core Processor
 ```
 
 **Local Benchmarks (darwin/arm64):**
+
 ```
 goos: darwin
 goarch: arm64
@@ -474,17 +510,20 @@ When updating `benchmarks.md`, note the platform used for the measurements.
 ## Troubleshooting
 
 **Benchmarks show wildly different results:**
+
 - Ensure system is not under load
 - Close other applications
 - Run benchmarks multiple times
 - Consider using `make bench-baseline` and `benchstat` for comparison
 
 **Benchmark command fails:**
+
 - Ensure `make check` passes first
 - Ensure all dependencies are installed (`make deps`)
 - Check that test files exist in `testdata/bench/` directory
 
 **Numbers don't match between packages:**
+
 - This is expected - different packages have different overhead
 - Parser is the baseline; other packages build on top of parsing
 

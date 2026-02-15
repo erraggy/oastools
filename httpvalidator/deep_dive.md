@@ -26,6 +26,7 @@ Runtime HTTP validation catches contract violations before they reach applicatio
 The validator supports OAS 2.0 (Swagger) through OAS 3.2, automatically adapting its behavior to match the specification version. It handles all OAS parameter serialization styles (simple, form, matrix, label, deepObject, spaceDelimited, pipeDelimited) and performs schema validation for request and response bodies.
 
 Key features include:
+
 - **Request validation**: Path parameters, query parameters, headers, cookies, request body
 - **Response validation**: Status codes, headers, response body
 - **Parameter deserialization**: Automatic type conversion according to OAS style and schema
@@ -40,6 +41,7 @@ Key features include:
 ### Request vs Response Validation
 
 **Request validation** examines incoming HTTP requests against the specification's path and operation definitions. It verifies that:
+
 - The request path matches a defined path template
 - The HTTP method is supported for that path
 - All required path, query, header, and cookie parameters are present
@@ -47,6 +49,7 @@ Key features include:
 - The request body (if present) matches the declared schema
 
 **Response validation** checks outgoing HTTP responses against the operation's response definitions. It ensures that:
+
 - The response status code is documented in the operation
 - Response headers match declared headers
 - The response body conforms to the declared schema for that status code
@@ -66,6 +69,7 @@ Deserialized values are available in the validation result for use by your appli
 By default, the validator is permissive: it validates declared parameters but allows undeclared parameters to pass through. This accommodates real-world scenarios where clients send extra headers or where responses include additional status codes not documented in the specification.
 
 **Strict mode** changes this behavior:
+
 - **Unknown query parameters**: Rejected (error)
 - **Unknown headers**: Rejected (error), except for standard HTTP headers like `Content-Type`, `Content-Length`, `User-Agent`
 - **Unknown cookies**: Rejected (error)
@@ -303,6 +307,7 @@ func main() {
 ```
 
 **Example OpenAPI Specification:**
+
 ```yaml
 openapi: 3.0.3
 info:
@@ -536,26 +541,31 @@ The validator automatically deserializes parameters according to their OpenAPI s
 **Simple style** (default for path and header parameters) serializes values without prefixes or delimiters.
 
 **Primitive values:**
+
 ```
 param=value          → "value"
 ```
 
 **Array with explode=false:**
+
 ```
 param=red,green,blue → []string{"red", "green", "blue"}
 ```
 
 **Array with explode=true:**
+
 ```
 param=red&param=green&param=blue → []string{"red", "green", "blue"}
 ```
 
 **Object with explode=false:**
+
 ```
 param=role,admin,enabled,true → map[string]interface{}{"role": "admin", "enabled": "true"}
 ```
 
 **Object with explode=true:**
+
 ```
 role=admin&enabled=true → map[string]interface{}{"role": "admin", "enabled": "true"}
 ```
@@ -565,21 +575,25 @@ role=admin&enabled=true → map[string]interface{}{"role": "admin", "enabled": "
 **Form style** (default for query and cookie parameters) uses ampersand-separated key-value pairs.
 
 **Primitive values:**
+
 ```
 param=value → "value"
 ```
 
 **Array with explode=false:**
+
 ```
 param=red,green,blue → []string{"red", "green", "blue"}
 ```
 
 **Array with explode=true:**
+
 ```
 param=red&param=green&param=blue → []string{"red", "green", "blue"}
 ```
 
 **Object with explode=true:**
+
 ```
 role=admin&enabled=true → map[string]interface{}{"role": "admin", "enabled": "true"}
 ```
@@ -589,16 +603,19 @@ role=admin&enabled=true → map[string]interface{}{"role": "admin", "enabled": "
 **Matrix style** (path parameters only) uses semicolon-prefixed parameters.
 
 **Primitive values:**
+
 ```
 ;param=value → "value"
 ```
 
 **Array with explode=false:**
+
 ```
 ;param=red,green,blue → []string{"red", "green", "blue"}
 ```
 
 **Array with explode=true:**
+
 ```
 ;param=red;param=green;param=blue → []string{"red", "green", "blue"}
 ```
@@ -608,16 +625,19 @@ role=admin&enabled=true → map[string]interface{}{"role": "admin", "enabled": "
 **Label style** (path parameters only) uses dot-prefixed parameters.
 
 **Primitive values:**
+
 ```
 .value → "value"
 ```
 
 **Array with explode=false:**
+
 ```
 .red.green.blue → []string{"red", "green", "blue"}
 ```
 
 **Array with explode=true:**
+
 ```
 .red.green.blue → []string{"red", "green", "blue"}
 ```
@@ -627,6 +647,7 @@ role=admin&enabled=true → map[string]interface{}{"role": "admin", "enabled": "
 **DeepObject style** (query parameters only) uses bracket notation for nested objects.
 
 **Nested object:**
+
 ```
 filter[name]=John&filter[age]=30 → map[string]interface{}{"name": "John", "age": "30"}
 ```
@@ -638,11 +659,13 @@ This style is particularly useful for complex query parameters representing stru
 **SpaceDelimited** and **PipeDelimited** (query parameters only) use space or pipe as array delimiters.
 
 **SpaceDelimited:**
+
 ```
 tags=red%20green%20blue → []string{"red", "green", "blue"}
 ```
 
 **PipeDelimited:**
+
 ```
 tags=red|green|blue → []string{"red", "green", "blue"}
 ```
@@ -669,39 +692,46 @@ The validator includes a minimal JSON Schema implementation that validates reque
 ### Supported Schema Features
 
 **Type Validation:**
+
 - Primitive types: `string`, `number`, `integer`, `boolean`, `null`
 - Structured types: `array`, `object`
 - OAS 3.1 type arrays: `type: ["string", "null"]`
 - OAS 3.0 nullable: `nullable: true`
 
 **String Constraints:**
+
 - `minLength`, `maxLength`
 - `pattern` (regex validation)
 - `format` (email, uri, uuid, date-time, date, etc.)
 - `enum` (allowed values)
 
 **Number Constraints:**
+
 - `minimum`, `maximum`
 - `exclusiveMinimum`, `exclusiveMaximum`
 - `multipleOf`
 
 **Array Constraints:**
+
 - `minItems`, `maxItems`
 - `uniqueItems`
 - `items` (schema for array elements)
 
 **Object Constraints:**
+
 - `required` (required property names)
 - `properties` (property schemas)
 - `additionalProperties` (schema for undeclared properties, or boolean to allow/disallow)
 - `minProperties`, `maxProperties`
 
 **Composition:**
+
 - `allOf` (must match all schemas)
 - `anyOf` (must match at least one schema)
 - `oneOf` (must match exactly one schema)
 
 **References:**
+
 - `$ref` (references to component schemas)
 
 ### Validation Behavior
@@ -711,12 +741,14 @@ The validator includes a minimal JSON Schema implementation that validates reque
 **Constraint checking** validates that values meet their declared constraints. For example, a string with `minLength: 5` must have at least 5 characters.
 
 **Format validation** performs limited format checking for common formats:
+
 - `email`: Basic email pattern
 - `uri`: URL format check
 - `uuid`: UUID v4 pattern
 - `date-time`, `date`, `time`: ISO 8601 format
 
 **Composition** applies all composition rules:
+
 - `allOf`: Value must validate against every schema in the array
 - `anyOf`: Value must validate against at least one schema in the array
 - `oneOf`: Value must validate against exactly one schema (not zero, not multiple)
@@ -754,6 +786,7 @@ paths:
 ```
 
 **Valid request body:**
+
 ```json
 {
   "name": "Widget",
@@ -763,6 +796,7 @@ paths:
 ```
 
 **Invalid request body (multiple violations):**
+
 ```json
 {
   "name": "AB",           // Too short (minLength: 3)
@@ -1078,6 +1112,7 @@ result, _ := v.ValidateRequest(req)
 **Be aware of schema validation limitations.** The built-in schema validator handles common JSON Schema features but is not a complete implementation. For advanced schema validation (JSON Schema 2020-12 with all keywords), consider integrating a full-featured JSON Schema library.
 
 **Consider performance for high-throughput services.** Path matching and schema validation add latency to request processing. Profile your service under load and consider:
+
 - Validating requests but not responses in production (response validation in tests only)
 - Selective validation (validate only critical paths or methods)
 - Asynchronous response validation (log failures without blocking the response)

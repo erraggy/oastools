@@ -57,6 +57,7 @@ The builder provides extensible naming strategies for cases where you need diffe
 The builder automatically adjusts `$ref` paths based on the OAS version. When you register a type, references are generated correctly for the target version.
 
 **OAS 3.x references:**
+
 ```yaml
 $ref: "#/components/schemas/models.User"
 $ref: "#/components/parameters/LimitParam"
@@ -64,6 +65,7 @@ $ref: "#/components/responses/ErrorResponse"
 ```
 
 **OAS 2.0 references:**
+
 ```yaml
 $ref: "#/definitions/models.User"
 $ref: "#/parameters/LimitParam"
@@ -206,6 +208,7 @@ func main() {
 ```
 
 **Generated Output (openapi.yaml):**
+
 ```yaml
 openapi: 3.2.0
 info:
@@ -1070,6 +1073,7 @@ func TestListPets(t *testing.T) {
 ```
 
 Available test methods:
+
 - `GetJSON(path, target)` - GET with JSON response
 - `PostJSON(path, body, target)` - POST JSON with response
 - `PutJSON(path, body, target)` - PUT JSON with response

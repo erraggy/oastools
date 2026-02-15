@@ -16,17 +16,20 @@ A minimal 5-minute introduction to oastools, demonstrating the parse and validat
 ## Quick Start
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/erraggy/oastools.git
    cd oastools/examples/quickstart
    ```
 
 2. Run the example:
+
    ```bash
    go run main.go
    ```
 
 3. Expected output:
+
    ```
    oastools Quickstart
    ===================
@@ -70,6 +73,7 @@ A minimal 5-minute introduction to oastools, demonstrating the parse and validat
 **Version-Agnostic Access**: The `AsAccessor()` method returns a `DocumentAccessor` interface that works identically for OAS 2.0, 3.0.x, 3.1.x, and 3.2.0 documents, abstracting away version-specific structure differences.
 
 **Validation Severity Levels**: oastools uses four severity levels:
+
 - `Critical` - Specification cannot be processed
 - `Error` - Violates OpenAPI specification requirements
 - `Warning` - Best practice recommendations

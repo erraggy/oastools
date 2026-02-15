@@ -94,6 +94,7 @@ Conversion completed successfully
 ### Bidirectional Conversion
 
 The converter supports both directions:
+
 - OAS 2.0 → 3.0.x, 3.1.x, 3.2.0
 - OAS 3.x → 2.0 (with potential information loss)
 

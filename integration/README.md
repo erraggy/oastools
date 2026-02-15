@@ -164,6 +164,7 @@ assertions:
 3. Run `make integration-test` to verify
 
 Example:
+
 ```yaml
 name: "My new scenario"
 description: "Tests a specific feature"
@@ -186,6 +187,7 @@ Base fixtures are minimal but valid OAS documents:
 | `petstore-oas32.yaml` | 3.2.0 | QUERY method |
 
 Each has:
+
 - 2-3 paths
 - 2-4 schemas
 - Valid structure (passes validation)

@@ -8,6 +8,7 @@ description: "Run full validation suite (make check + gopls diagnostics) and rep
 Run the complete quality pipeline and report structured results.
 
 **Usage:**
+
 - `/quality-gate` — validate all changed packages
 - `/quality-gate parser validator` — validate specific packages
 
@@ -40,6 +41,7 @@ Record pass/fail and capture any output.
 Use the `go_diagnostics` MCP tool on changed `.go` files (NOT bash). Pass absolute paths.
 
 Categorize results:
+
 - 🔴 **Errors** — must fix
 - 🟡 **Warnings** — should fix
 - 💡 **Hints** — fix for performance (5-15% impact documented)
@@ -69,6 +71,7 @@ Issues to address:
 ## Step 5: Offer Actions
 
 If there are fixable issues, offer:
+
 1. **Fix all** — address all findings automatically
 2. **Fix errors only** — address blocking issues
 3. **Skip** — acknowledge and continue

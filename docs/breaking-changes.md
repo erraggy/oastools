@@ -11,6 +11,7 @@ The `differ` package classifies changes between OpenAPI specifications by severi
 Changes classified as **Critical** will definitively break existing API consumers. These require immediate attention and typically demand a major version bump.
 
 **Examples:**
+
 - Removed endpoints (`DELETE /paths/users/{id}`)
 - Removed operations (removing `GET`, `POST`, `DELETE`, etc. from an existing path)
 - Removed required request parameters
@@ -31,6 +32,7 @@ Changes classified as **Critical** will definitively break existing API consumer
 Changes classified as **Error** severity have a high likelihood of breaking consumers, especially those not written defensively.
 
 **Examples:**
+
 - Changed parameter or property types (`string` → `integer`, `number` → `string`)
 - Added new required parameters or fields (existing clients won't send them)
 - Removed optional fields that were commonly used
@@ -50,6 +52,7 @@ Changes classified as **Error** severity have a high likelihood of breaking cons
 Changes classified as **Warning** typically won't break consumers but may affect behavior or require updates for best practices.
 
 **Examples:**
+
 - Added new optional parameters
 - Deprecated operations, parameters, or fields
 - Changed descriptions that affect semantics (e.g., documenting new behavior)
@@ -69,6 +72,7 @@ Changes classified as **Warning** typically won't break consumers but may affect
 Changes classified as **Info** are backward compatible and generally improve the API without affecting existing consumers.
 
 **Examples:**
+
 - Added new optional fields
 - Relaxed constraints (`maxLength` increased, `minimum` decreased)
 - Added new endpoints
@@ -100,6 +104,7 @@ Based on the severity of changes detected by the differ:
 If a release contains changes of multiple severities, use the highest severity level to determine the version bump.
 
 For example, if you have:
+
 - 3 Critical changes
 - 5 Warning changes
 - 10 Info changes

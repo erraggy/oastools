@@ -25,6 +25,7 @@ The [`fixer`](https://pkg.go.dev/github.com/erraggy/oastools/fixer) package prov
 The fixer analyzes OAS documents and applies fixes for issues that would cause validation failures. It preserves the input file format (JSON or YAML) for output consistency.
 
 **Common use cases:**
+
 - Add missing path parameters automatically
 - Rename schemas with invalid characters (e.g., `Response[User]`)
 - Remove unused schema definitions

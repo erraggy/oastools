@@ -138,6 +138,7 @@ func main() {
 ```
 
 **Example Input (api-v1.yaml):**
+
 ```yaml
 openapi: 3.0.3
 info:
@@ -158,6 +159,7 @@ paths:
 ```
 
 **Example Input (api-v2.yaml):**
+
 ```yaml
 openapi: 3.0.3
 info:
@@ -183,6 +185,7 @@ paths:
 ```
 
 **Example Output:**
+
 ```
 Found 2 changes between versions
 Source version: 3.0.3
@@ -237,6 +240,7 @@ func main() {
 ```
 
 **Example Output (with breaking changes):**
+
 ```
 Summary: 2 breaking, 1 warnings, 3 info
 
@@ -358,6 +362,7 @@ func main() {
 ```
 
 **Example Output:**
+
 ```
 parameter Changes (2):
   [error] paths./pets.get.parameters.limit: required changed from false to true
@@ -525,11 +530,13 @@ All extension changes are reported with `SeverityInfo` since extensions are non-
 Source maps enable **precise change locations** by tracking line and column numbers from your YAML/JSON source files. Without source maps, changes only show JSON paths. With source maps, changes include file:line:column positions that IDEs can click to jump directly to the modification.
 
 **Without source maps:**
+
 ```
 paths./pets.get.parameters.limit: required changed from false to true
 ```
 
 **With source maps:**
+
 ```
 api-v2.yaml:45:11: required changed from false to true
 ```

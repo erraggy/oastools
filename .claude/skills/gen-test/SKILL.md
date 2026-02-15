@@ -8,12 +8,14 @@ description: "Generate test scaffolding for a Go file following oastools convent
 Generate test scaffolding for Go files following oastools testing conventions.
 
 **Usage:**
+
 - `/gen-test parser/resolver.go` - Generate tests for all exported functions
 - `/gen-test validator/validate.go ValidateSpec` - Generate test for specific function
 
 ## Step 1: Analyze Target File
 
 Read the specified file and identify:
+
 1. Package name
 2. Exported functions/methods to test
 3. Existing test file (if any)
@@ -39,6 +41,7 @@ ls -la $(dirname "$FILE")/*_test.go 2>/dev/null | head -5
 ```
 
 Read 1-2 existing test files to understand:
+
 - Table-driven test patterns used
 - Test helper usage (`testutil`, `require`, `assert`)
 - Fixture/testdata patterns
@@ -118,6 +121,7 @@ func TestTypeName_MethodName(t *testing.T) {
 ## Step 4: Add Edge Cases
 
 Always include test cases for:
+
 - ✅ Happy path (valid input)
 - ❌ Error cases (invalid input)
 - 🔲 Nil/empty inputs
@@ -134,6 +138,7 @@ go test -c ./path/to/package
 ## Step 6: Summary
 
 Present the generated test scaffolding and ask if the user wants to:
+
 1. Run the tests (`go test -v ./path/to/package -run TestName`)
 2. Add more test cases
 3. Generate tests for additional functions

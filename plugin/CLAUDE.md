@@ -7,11 +7,13 @@ You have access to the oastools MCP server, which provides 17 tools for working 
 This plugin requires the `oastools` CLI binary on your PATH. The MCP server runs as `oastools mcp`.
 
 **Install via Homebrew:**
+
 ```bash
 brew install erraggy/oastools/oastools
 ```
 
 **Or from source (requires Go 1.24+):**
+
 ```bash
 go install github.com/erraggy/oastools/cmd/oastools@latest
 ```
@@ -37,6 +39,7 @@ Every tool accepts a spec via one of three methods inside a `spec` object:
 Exactly one must be provided. Example: `{"spec": {"file": "openapi.yaml"}}`
 
 Special cases:
+
 - `diff` uses `base` and `revision` instead of `spec`
 - `join` uses a `specs` array
 - `overlay_apply` uses `spec` and `overlay`
@@ -73,12 +76,14 @@ When `output` is omitted, the document is returned inline (automatically for `co
 Chain tools by writing intermediate results to files and referencing them in subsequent calls:
 
 **Fix → Validate:**
+
 ```
 fix(spec.file="api.yaml", output="/tmp/api-fixed.yaml")
 validate(spec.file="/tmp/api-fixed.yaml")
 ```
 
 **Fix → Convert → Validate:**
+
 ```
 fix(spec.file="api.yaml", output="/tmp/api-fixed.yaml")
 convert(spec.file="/tmp/api-fixed.yaml", target="3.1", output="/tmp/api-3.1.yaml")
@@ -86,6 +91,7 @@ validate(spec.file="/tmp/api-3.1.yaml")
 ```
 
 **Fix → Generate:**
+
 ```
 fix(spec.file="api.yaml", output="/tmp/api-fixed.yaml")
 generate(spec.file="/tmp/api-fixed.yaml", client=true, output_dir="./generated")
@@ -96,23 +102,27 @@ Use a temp directory for intermediate files (e.g., `/tmp/`) and copy the final r
 ## Common Workflows
 
 **Validate and fix:**
+
 1. `validate` the spec to find issues
 2. `fix` with `dry_run: true` to preview fixes
 3. `fix` with `output` to apply fixes and persist the result
 4. `validate` the output file to confirm the spec is now valid
 
 **Explore an API:**
+
 1. `parse` to get title, version, path/schema/operation counts
 2. `walk_operations` to list endpoints (filter by tag, method, or path)
 3. `walk_schemas` to list data models
 4. `walk_operations` with `detail: true` on specific endpoints for full request/response details
 
 **Compare API versions:**
+
 1. `diff` with both specs to see all changes
 2. Review breaking changes and their severity
 3. Use `walk_operations` on the revision to understand new/modified endpoints
 
 **Explore a large API (100+ operations):**
+
 1. 📊 `parse` to get counts and tag list
 2. 📊 `walk_operations` with `group_by: "tag"` — operation count per tag at a glance
 3. 🏷️ `walk_operations` with `tag` filter — work through one tag at a time

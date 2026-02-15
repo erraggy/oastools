@@ -32,12 +32,14 @@ This document defines the standard workflow for the oastools repository, from co
 Before making any changes, create a feature branch from the latest main:
 
 1. **Update local main branch:**
+
    ```bash
    git checkout main
    git pull origin main
    ```
 
 2. **Create feature branch:**
+
    ```bash
    git checkout -b <type>/<summary-kebab-case>
    ```
@@ -47,6 +49,7 @@ Before making any changes, create a feature branch from the latest main:
    - `<summary-kebab-case>`: Brief description using kebab-case (lowercase with hyphens)
 
    **Examples:**
+
    ```bash
    git checkout -b feat/add-oas-3.2-support
    git checkout -b fix/handle-nil-schema-type
@@ -56,6 +59,7 @@ Before making any changes, create a feature branch from the latest main:
    ```
 
 3. **Verify you're on the new branch:**
+
    ```bash
    git branch --show-current
    ```
@@ -67,24 +71,29 @@ Before making any changes, create a feature branch from the latest main:
 Before committing code changes, ensure:
 
 1. **All tests pass:**
+
    ```bash
    make check  # Runs tidy, fmt, lint, test, and shows git status
    ```
 
 2. **Code coverage is adequate:**
+
    ```bash
    make test-coverage  # Generate and view HTML coverage report
    ```
+
    - All exported functions, methods, and types must have tests
    - Include positive cases, negative cases, and edge cases
    - Integration tests for components working together
 
 3. **Benchmarks updated (if applicable):**
+
    ```bash
    make bench-save  # If changes affect performance
    ```
 
 4. **Security vulnerabilities checked:**
+
    ```bash
    go run golang.org/x/vuln/cmd/govulncheck@latest ./...
    ```
@@ -96,15 +105,18 @@ Before committing code changes, ensure:
    - No backwards-compatibility hacks for unused code
 
 6. **Documentation previewed (if applicable):**
+
    ```bash
    make docs-serve  # Preview docs if README.md, deep_dive.md, or docs/ changed
    ```
+
    - Verify links work correctly
    - Check formatting renders properly
 
 ### Step 3: Commit Message Format
 
 **Structure:**
+
 ```
 <type>(<scope>): <subject>
 
@@ -114,15 +126,18 @@ Before committing code changes, ensure:
 ```
 
 **First Line (72 characters max):**
+
 - Type: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 - Scope: package name or component (optional)
 - Subject: imperative mood, lowercase, no period
 
 **Body (100 columns max):**
+
 - Explain what and why, not how
 - Simple formatting, basic reasoning
 
 **Examples:**
+
 ```
 feat(converter): add OAS 3.2.0 support
 
@@ -146,11 +161,13 @@ Fixes #456
 ### Step 4: Local Code Review
 
 **One-time setup:**
+
 ```bash
 ./scripts/install-git-hooks.sh  # Installs pre-push hook
 ```
 
 **Manual review (optional but recommended):**
+
 ```bash
 # Review all uncommitted changes
 ./scripts/local-code-review.sh
@@ -165,6 +182,7 @@ Fixes #456
 ### Step 5: Pushing Changes
 
 **Standard push:**
+
 ```bash
 git push origin <branch-name>
 ```
@@ -172,11 +190,13 @@ git push origin <branch-name>
 The pre-push hook will automatically run local code review.
 
 **Skip review (use sparingly):**
+
 ```bash
 SKIP_REVIEW=1 git push origin <branch-name>
 ```
 
 **Bypass hook entirely (not recommended):**
+
 ```bash
 git push origin <branch-name> --no-verify
 ```
@@ -186,6 +206,7 @@ git push origin <branch-name> --no-verify
 ### Creating a Pull Request
 
 **Method 1: Using GitHub CLI (recommended):**
+
 ```bash
 # Ensure changes are committed and pushed
 git push origin <branch-name> -u
@@ -215,6 +236,7 @@ EOF
 ```
 
 **Method 2: Using GitHub Web UI:**
+
 1. Push your branch to GitHub
 2. Navigate to repository on GitHub
 3. Click "Compare & pull request"
@@ -226,6 +248,7 @@ EOF
 Same as commit message first line (conventional commit format)
 
 **Description Template:**
+
 ```markdown
 ## Summary
 [1-3 bullet points summarizing the changes]
@@ -254,6 +277,7 @@ Related to #ZZZ
 ### PR Review Process
 
 **Monitoring PR checks:**
+
 ```bash
 # Check status of all PR checks
 gh pr checks <PR_NUMBER>
@@ -269,6 +293,7 @@ gh pr view <PR_NUMBER> --comments
 ```
 
 **Addressing review feedback:**
+
 1. Make requested changes in your local branch
 2. Run `make check` to ensure quality
 3. Commit changes with descriptive message
@@ -276,6 +301,7 @@ gh pr view <PR_NUMBER> --comments
 5. Respond to review comments
 
 **Never submit a PR with:**
+
 - Untested exported functions, methods, or types
 - Tests that only cover the "happy path" without error cases
 - Performance regressions without documented justification
@@ -285,6 +311,7 @@ gh pr view <PR_NUMBER> --comments
 ### Merging
 
 PRs are merged by maintainers once:
+
 1. All checks pass
 2. Code review approved
 3. No outstanding change requests
@@ -297,6 +324,7 @@ After a PR is merged (typically via GitHub web interface), clean up the local an
 **When user says:** `pr merged, please clean up`
 
 **Execute:**
+
 ```bash
 # Switch to main and get latest
 git checkout main
@@ -310,6 +338,7 @@ git push origin --delete <branch-name>
 ```
 
 **Example cleanup session:**
+
 ```bash
 git checkout main
 git pull origin main
@@ -318,6 +347,7 @@ git push origin --delete feat/security-codegen
 ```
 
 **Notes:**
+
 - Use `-d` (not `-D`) to ensure the branch was fully merged
 - If `-d` fails with "not fully merged" error, verify the PR was actually merged before using `-D`
 - The remote branch may already be deleted if GitHub's "auto-delete branches" setting is enabled
@@ -329,12 +359,14 @@ git push origin --delete feat/security-codegen
 Before creating a release:
 
 1. **On main branch, up-to-date:**
+
    ```bash
    git checkout main
    git pull origin main
    ```
 
 2. **All tests pass:**
+
    ```bash
    make check
    ```
@@ -348,6 +380,7 @@ Before creating a release:
    - Includes the benchmark in the pre-release PR
 
    **Quick local validation:**
+
    ```bash
    make bench-quick  # Fast I/O-isolated benchmarks (~2 min)
    ```
@@ -355,6 +388,7 @@ Before creating a release:
    See [BENCHMARK_UPDATE_PROCESS.md](BENCHMARK_UPDATE_PROCESS.md) for details.
 
 4. **Review merged PRs:**
+
    ```bash
    git log $(git describe --tags --abbrev=0)..HEAD --oneline
    gh pr list --state merged --limit 20
@@ -363,18 +397,21 @@ Before creating a release:
 ### Semantic Versioning Guidelines
 
 **PATCH** (`v1.6.0` → `v1.6.1`):
+
 - Bug fixes
 - Documentation updates
 - Small refactors without API changes
 - Performance improvements without API changes
 
 **MINOR** (`v1.6.0` → `v1.7.0`):
+
 - New features
 - New public APIs (backward compatible)
 - Significant optimizations
 - Deprecations (without removal)
 
 **MAJOR** (`v1.6.0` → `v2.0.0`):
+
 - Breaking changes to public APIs
 - Removal of deprecated functionality
 - Incompatible API changes
@@ -388,6 +425,7 @@ This process uses GitHub's **immutable releases** feature. The workflow creates 
 **Workflow:** Push tag → CI creates draft + uploads assets → Review → Publish
 
 **Step 1: Prepare for release**
+
 ```bash
 # Ensure you're on main and up-to-date
 git checkout main
@@ -401,6 +439,7 @@ git log $(git describe --tags --abbrev=0)..HEAD --oneline
 ```
 
 **Step 2: Create and push the tag**
+
 ```bash
 # Determine the next version following semver
 # Create and push the tag (this triggers the workflow)
@@ -416,6 +455,7 @@ gh run watch <RUN_ID>
 ```
 
 The **release workflow** will:
+
 - Build binaries for all platforms (Darwin, Linux, Windows)
 - Create a **draft** release on GitHub
 - Upload all binary assets to the draft (8 files total)
@@ -424,12 +464,14 @@ The **release workflow** will:
 **Note:** If you used `/prepare-release`, the benchmark is already in the tagged commit. If you pushed a tag without the pre-release process, a benchmark workflow will also run and create a separate PR.
 
 **Step 4: Verify the draft release**
+
 ```bash
 # Confirm draft status and assets
 gh release view v1.X.Y --json isDraft,assets --jq '{isDraft, assetCount: (.assets | length), assets: [.assets[].name]}'
 ```
 
 Expected output:
+
 - `isDraft: true`
 - 8 assets: checksums + binaries for Darwin (amd64/arm64), Linux (amd64/arm64), Windows (amd64/arm64)
 
@@ -442,12 +484,14 @@ Prompt: "Generate release notes for v1.X.Y based on changes since the last relea
 ```
 
 Claude will:
+
 - Review `git log` and merged PRs
 - Categorize changes (features, bug fixes, improvements, breaking changes)
 - Generate well-formatted markdown release notes
 - Apply them to the draft release using `gh release edit`
 
 **Manual alternative:**
+
 ```bash
 gh release edit v1.X.Y --notes "$(cat <<'EOF'
 ## Summary
@@ -475,8 +519,7 @@ gh release edit v1.X.Y --notes "$(cat <<'EOF'
 
 ### Homebrew
 \`\`\`bash
-brew tap erraggy/oastools
-brew install oastools
+brew install erraggy/oastools/oastools
 \`\`\`
 
 ### Go Module
@@ -491,6 +534,7 @@ EOF
 ```
 
 **Step 6: Publish the release (hands-on-keyboard)**
+
 ```bash
 # Review the draft one final time on GitHub web UI (optional)
 gh release view v1.X.Y --web
@@ -504,6 +548,7 @@ gh release edit v1.X.Y --draft=false
 ### Post-Release Verification
 
 **Test installation:**
+
 ```bash
 # Homebrew installation
 brew update
@@ -514,11 +559,13 @@ oastools --version
 ```
 
 **Go module:**
+
 ```bash
 go get github.com/erraggy/oastools@v1.X.Y
 ```
 
 **Verify release on GitHub:**
+
 ```bash
 gh release view v1.X.Y
 ```
@@ -526,6 +573,7 @@ gh release view v1.X.Y
 ### Troubleshooting
 
 **Workflow failed before creating draft:**
+
 ```bash
 # Delete the tag and start over
 git push origin :refs/tags/v1.X.Y
@@ -535,6 +583,7 @@ git tag -d v1.X.Y
 ```
 
 **Workflow failed after creating draft (missing assets):**
+
 ```bash
 # Delete the draft release and tag
 gh release delete v1.X.Y --yes
@@ -547,6 +596,7 @@ git tag -d v1.X.Y
 **Accidentally published too early:**
 
 With immutability enabled, this cannot be fixed easily. Options:
+
 1. Contact GitHub support to delete the release (requires admin)
 2. Temporarily disable immutability in repository settings, delete release, re-enable
 3. Delete the release and tag, increment the version (v1.X.Y → v1.X.Y+1), start over
@@ -571,6 +621,7 @@ Prevention: Always review the draft thoroughly before publishing.
   - Check formula URL and SHA256 checksums
 
 **Retrieving security alerts:**
+
 ```bash
 # List all code scanning alerts
 gh api /repos/erraggy/oastools/code-scanning/alerts
@@ -582,6 +633,7 @@ go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 ## Quick Reference Commands
 
 **Development:**
+
 ```bash
 make check                                              # Run all quality checks
 make test-coverage                                      # View test coverage
@@ -592,6 +644,7 @@ go run golang.org/x/vuln/cmd/govulncheck@latest ./...  # Check for vulnerabiliti
 ```
 
 **Git workflow:**
+
 ```bash
 git checkout -b feature-branch          # Create feature branch
 # Make changes
@@ -603,6 +656,7 @@ git push origin feature-branch -u       # Push
 ```
 
 **Pull requests:**
+
 ```bash
 gh pr create --title "..." --body "..." # Create PR
 gh pr checks <NUMBER>                   # Check PR status
@@ -611,6 +665,7 @@ gh pr merge <NUMBER>                    # Merge PR (maintainers)
 ```
 
 **Releases:**
+
 ```bash
 git tag v1.X.Y                          # Create tag
 git push origin v1.X.Y                  # Push tag (triggers workflow)
@@ -621,6 +676,7 @@ gh release edit v1.X.Y --draft=false    # Publish
 ```
 
 **Monitoring:**
+
 ```bash
 gh run list --workflow=release.yml      # List release workflows
 gh run list --workflow=benchmark.yml    # List benchmark workflows
@@ -630,6 +686,7 @@ gh pr checks <NUMBER>                   # Check PR status
 ```
 
 **Documentation:**
+
 ```bash
 make docs-serve                         # Preview docs locally (blocking)
 make docs-start                         # Start docs server in background

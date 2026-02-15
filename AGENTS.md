@@ -14,6 +14,7 @@ This file provides quick, actionable guidance for AI coding agents working on th
 ## Dev Environment Setup
 
 **CRITICAL: Install golangci-lint v2 before making code changes:**
+
 ```bash
 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.1.0
 export PATH=$PATH:$(go env GOPATH)/bin
@@ -41,12 +42,14 @@ make bench-save     # Save new benchmark baseline (only if changes affect perfor
 ## Testing Requirements
 
 **ALL exported functionality MUST have comprehensive tests:**
+
 - Positive cases (valid inputs work)
 - Negative cases (errors handled correctly)
 - Edge cases (nil, empty, boundary conditions)
 - Integration cases (components work together)
 
 **Benchmark tests MUST use Go 1.24+ pattern:**
+
 ```go
 func BenchmarkOperation(b *testing.B) {
     // Setup
@@ -64,16 +67,19 @@ func BenchmarkOperation(b *testing.B) {
 ## Code Style & Patterns
 
 **Use package constants instead of string literals:**
+
 - HTTP Methods: `httputil.MethodGet`, `httputil.MethodPost`, etc.
 - HTTP Status Codes: `httputil.ValidateStatusCode()`, `httputil.StandardHTTPStatusCodes`
 - Severity Levels: `severity.SeverityError`, `severity.SeverityWarning`, etc.
 
 **Format preservation:**
+
 - Parser, converter, and joiner preserve input file format (JSON or YAML)
 - Format detected from file extension or content
 - First file determines output format for joiner
 
 **Type handling in OAS 3.1+:**
+
 ```go
 // schema.Type can be string or []string - always use type assertions
 if typeStr, ok := schema.Type.(string); ok {
@@ -84,6 +90,7 @@ if typeStr, ok := schema.Type.(string); ok {
 ```
 
 **Pointer semantics:**
+
 ```go
 // Use pointer slices for nested structures
 servers := []*parser.Server{
@@ -94,6 +101,7 @@ servers := []*parser.Server{
 ## Security Fixes
 
 **Size computation overflow (CWE-190):**
+
 ```go
 capacity := 0
 sum := uint64(len(a)) + uint64(len(b))
@@ -104,6 +112,7 @@ result := make([]string, 0, capacity)
 ```
 
 **Always check for vulnerabilities:**
+
 ```bash
 govulncheck ./...
 ```
@@ -120,6 +129,7 @@ govulncheck ./...
 ## Acceptance Criteria
 
 A task is complete when:
+
 1. ✅ All required functionality is implemented
 2. ✅ New/modified exported functions have comprehensive tests
 3. ✅ `make build` succeeds without errors
@@ -134,10 +144,12 @@ For documentation-only changes, only items 3, 6, and 7 apply.
 ## Commit & PR Format
 
 **Commit messages:**
+
 - First line: Conventional commit format (max 72 chars)
 - Examples: `feat: add webhook support to parser`, `fix: handle nil pointer in converter`
 
 **PR format:**
+
 - Title: Same as commit message
 - Body: Detailed markdown explaining reasoning, changes, and context
 
@@ -234,6 +246,7 @@ The Developer agent pauses between implementation phases:
 ### Agent Files
 
 Located in `.claude/agents/`:
+
 - `architect.md` - Planning and design
 - `maintainer.md` - Code review and standards
 - `developer.md` - Implementation execution

@@ -44,6 +44,7 @@ walker.Walk(result,
 ```
 
 Use `Continue` when you want to:
+
 - **Visit every matching node** in the document
 - **Collect comprehensive information** (all operations, all schemas, etc.)
 - **Apply transformations uniformly** across the entire document
@@ -69,6 +70,7 @@ walker.Walk(result,
 Common use cases for `SkipChildren`:
 
 **1. Skipping internal/private paths:**
+
 ```go
 walker.Walk(result,
     walker.WithPathHandler(func(wc *walker.WalkContext, pi *parser.PathItem) walker.Action {
@@ -82,6 +84,7 @@ walker.Walk(result,
 ```
 
 **2. Processing only top-level schemas (ignoring nested):**
+
 ```go
 walker.Walk(result,
     walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
@@ -94,6 +97,7 @@ walker.Walk(result,
 ```
 
 **3. Conditional depth limiting:**
+
 ```go
 walker.Walk(result,
     walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {
@@ -107,6 +111,7 @@ walker.Walk(result,
 ```
 
 **4. Skipping deprecated operations:**
+
 ```go
 walker.Walk(result,
     walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
@@ -139,6 +144,7 @@ walker.Walk(result,
 Common use cases for `Stop`:
 
 **1. Search with early termination:**
+
 ```go
 // Check if any operation uses a specific security scheme
 var usesOAuth bool
@@ -156,6 +162,7 @@ walker.Walk(result,
 ```
 
 **2. Validation with fail-fast:**
+
 ```go
 // Stop on first validation error
 var firstError error
@@ -171,6 +178,7 @@ walker.Walk(result,
 ```
 
 **3. Finding a specific node by path:**
+
 ```go
 // Find operation at a specific path and method
 var targetOp *parser.Operation
@@ -186,6 +194,7 @@ walker.Walk(result,
 ```
 
 **4. Resource limits:**
+
 ```go
 // Process at most N schemas
 const maxSchemas = 1000
@@ -361,6 +370,7 @@ The walker package provides two complementary APIs:
 | `WalkWithOptions` | File paths or parsed documents | Via options | Option functions can return errors |
 
 **Use `Walk` when:**
+
 - You already have a `ParseResult` from parsing
 - You're walking multiple documents with the same handlers
 - You want simpler handler registration (no error checking)
@@ -375,6 +385,7 @@ walker.Walk(result,
 ```
 
 **Use `WalkWithOptions` when:**
+
 - You want to parse and walk in a single call
 - You need error handling for configuration (e.g., invalid depth)
 
@@ -497,6 +508,7 @@ walker.Walk(result,
 ```
 
 **Behavior:**
+
 - The depth counter starts at 0 for component/definition schemas
 - Each nested schema (properties, items, allOf, etc.) increments the depth
 - When depth reaches the limit, nested schemas are skipped
@@ -521,10 +533,12 @@ walker.Walk(result,
 ```
 
 **Reason values:**
+
 - `"depth"` - Schema exceeded the configured `maxDepth` limit
 - `"cycle"` - Schema was already visited (circular reference detected)
 
 This is useful for:
+
 - **Debugging**: Understanding why certain schemas weren't processed
 - **Logging**: Recording when circular references are encountered
 - **Validation**: Detecting overly deep or circular schema structures
@@ -580,6 +594,7 @@ walker.Walk(result,
 ```
 
 **Handler Order:** When both typed and generic handlers are registered:
+
 1. The typed handler (`OAS2DocumentHandler` or `OAS3DocumentHandler`) is called first
 2. If it returns `Continue` or `SkipChildren`, the generic `DocumentHandler` is called
 3. If it returns `Stop`, the generic handler is skipped and the walk stops
@@ -779,6 +794,7 @@ References are tracked in:
 ### Use Cases
 
 **Collecting all references:**
+
 ```go
 var refs []string
 walker.Walk(result,
@@ -790,6 +806,7 @@ walker.Walk(result,
 ```
 
 **Finding broken references:**
+
 ```go
 walker.Walk(result,
     walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
@@ -802,6 +819,7 @@ walker.Walk(result,
 ```
 
 **Stop on first external reference:**
+
 ```go
 var hasExternal bool
 walker.Walk(result,
@@ -862,12 +880,14 @@ walker.Walk(result,
 ```
 
 **Key behaviors:**
+
 - `WithMapRefTracking()` implicitly enables standard ref tracking
 - The walker checks for `$ref` keys in `map[string]any` values in polymorphic fields
 - Empty strings and non-string `$ref` values are ignored
 - Map-stored refs receive `RefNodeSchema` as their node type
 
 **Affected fields:**
+
 | Field | Description |
 |-------|-------------|
 | `Items` | Array items schema |
@@ -913,6 +933,7 @@ walker.Walk(result,
 ```
 
 **When to use:**
+
 - Parsing documents where polymorphic fields weren't fully resolved
 - Working with documents from external sources that use map representations
 - Comprehensive reference analysis that needs to catch all `$ref` values
@@ -943,11 +964,13 @@ Five collectors are available: `CollectSchemas`, `CollectOperations`, `CollectPa
 ### When to Use Collectors vs Custom Handlers
 
 **Use built-in collectors when:**
+
 - You need all elements of one type in one pass
 - You want ready-made lookup maps (by name, path, method, tag, status code, location)
 - The standard collection fields meet your needs
 
 **Use custom handlers when:**
+
 - You need to filter during collection (e.g., only deprecated operations)
 - You want to collect multiple node types in a single pass
 - You need custom organization or aggregation logic
@@ -1278,6 +1301,7 @@ walker.Walk(result,
 ### Performance Considerations
 
 Parent tracking adds overhead:
+
 - ~15-20% increase in traversal time
 - Additional allocations for ParentInfo structs
 
@@ -1303,6 +1327,7 @@ Post-visit handlers fire after a node's children have been processed, enabling b
 ### When Post Handlers Are Called
 
 Post handlers are called:
+
 - **AFTER** all children are walked
 - **BEFORE** the parent is popped (if parent tracking is enabled)
 - **NOT** called if the pre-visit handler returned `SkipChildren` or `Stop`
@@ -1310,6 +1335,7 @@ Post handlers are called:
 ### Execution Order
 
 For nested schemas:
+
 ```
 Pre-visit A (parent)
   Pre-visit B (child)
@@ -1499,6 +1525,7 @@ err := walker.Walk(result,
 ```
 
 This pattern is useful for:
+
 - Adding security schemes based on operation requirements
 - Generating documentation tags from operation tags
 - Adding components discovered during traversal

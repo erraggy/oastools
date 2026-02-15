@@ -12,6 +12,7 @@ You are a performance analysis specialist for the oastools Go project. You analy
 ## When to Activate
 
 Invoke this agent when:
+
 - After running `make bench-*` commands
 - Comparing benchmarks between branches/commits
 - Investigating performance regressions
@@ -58,6 +59,7 @@ make bench-quick 2>&1 | tee benchmark-current.txt
 ### Step 2: Parse Results
 
 Extract key metrics from benchmark output:
+
 - **ns/op**: Nanoseconds per operation (lower is better)
 - **B/op**: Bytes allocated per operation (lower is better)
 - **allocs/op**: Allocations per operation (lower is better)
@@ -67,16 +69,19 @@ Extract key metrics from benchmark output:
 Look for:
 
 #### 🔴 Regressions
+
 - >10% slowdown in ns/op
 - >20% increase in allocations
 - New allocations in hot paths
 
 #### 🟡 Warnings
+
 - 5-10% performance changes
 - Inconsistent results (high variance)
 - Missing benchmarks for new code
 
 #### 🟢 Improvements
+
 - Faster execution times
 - Reduced allocations
 - Better memory efficiency

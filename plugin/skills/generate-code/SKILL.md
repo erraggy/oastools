@@ -26,6 +26,7 @@ Ask the user what they need. The `generate` tool supports three output modes:
 | `server` | Server interface and handler stubs (includes types) |
 
 Also determine:
+
 - `output_dir` (required) -- Where to write the generated files
 - `package_name` (optional, default: `api`) -- Go package name for the generated code
 
@@ -59,15 +60,18 @@ Read the generated files and provide a summary of the key types and functions.
 Based on what was generated, suggest next steps:
 
 **For types only:**
+
 - Import the package and use the types in existing code
 - Note any custom types that may need manual adjustment (e.g., `interface{}` fields)
 
 **For client:**
+
 - Show how to initialize the client with a base URL
 - Demonstrate calling one or two key endpoints
 - Note authentication setup if the spec has security schemes
 
 **For server:**
+
 - Show how to implement the generated interface
 - Demonstrate registering handlers with a router
 - Note any middleware needed (auth, CORS, etc.)

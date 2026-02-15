@@ -61,16 +61,19 @@ if err != nil {
 ### Authentication
 
 **api_key (API Key in Header):**
+
 ```go
 client, err := NewClient(baseURL, WithApiKeyAPIKey("your-api-key"))
 ```
 
 **petstore_auth (OAuth2):**
+
 ```go
 client, err := NewClient(baseURL, WithPetstoreAuthOAuth2Token("your-access-token"))
 ```
 
 For OAuth2 token management, see the generated OAuth2 client:
+
 ```go
 oauth2Client := NewPetstoreAuthOAuth2Client(config)
 // Use authorization code flow, client credentials, etc.

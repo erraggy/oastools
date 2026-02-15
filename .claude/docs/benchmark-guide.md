@@ -5,6 +5,7 @@
 **CRITICAL: Use the Go 1.24+ `for b.Loop()` pattern for all benchmarks.**
 
 ### Correct Pattern
+
 ```go
 func BenchmarkOperation(b *testing.B) {
     // Setup (parsing, creating instances, etc.)
@@ -23,6 +24,7 @@ func BenchmarkOperation(b *testing.B) {
 ```
 
 ### DO NOT
+
 - Use `for i := 0; i < b.N; i++` (old pattern)
 - Call `b.ReportAllocs()` manually (handled by `b.Loop()`)
 - Call `b.ResetTimer()` for trivial setup

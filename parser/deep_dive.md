@@ -25,6 +25,7 @@ The [`parser`](https://pkg.go.dev/github.com/erraggy/oastools/parser) package pr
 The parser can load specifications from local files or remote URLs, resolve external references (`$ref`), validate structure, and preserve unknown fields for forward compatibility. It automatically detects the file format (JSON/YAML) and OAS version.
 
 **Key capabilities:**
+
 - Parse files, URLs, readers, or byte slices
 - Resolve local and external `$ref` references
 - Detect and handle circular references safely
@@ -40,6 +41,7 @@ The parser can load specifications from local files or remote URLs, resolve exte
 ### Format Detection
 
 The parser automatically detects format from:
+
 1. File extension (`.json`, `.yaml`, `.yml`)
 2. Content inspection (JSON starts with `{` or `[`)
 3. Defaults to YAML if unknown
@@ -57,11 +59,13 @@ External `$ref` values are resolved when `ResolveRefs` is enabled:
 ### Circular Reference Handling
 
 When circular references are detected:
+
 - The `$ref` node is left unresolved (preserves the `"$ref"` key)
 - A warning is added to `result.Warnings`
 - The document remains valid for most operations
 
 Detection triggers:
+
 - A `$ref` points to an ancestor in the current resolution path
 - Resolution depth exceeds `MaxRefDepth` (default: 100)
 
@@ -195,6 +199,7 @@ $ref: '#/paths/~1users/get/parameters/0/schema'
 ```
 
 The resolver handles:
+
 - Valid indices: `0`, `1`, `2`, etc.
 - Out-of-bounds errors with descriptive messages
 - Non-numeric index errors

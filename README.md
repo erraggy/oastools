@@ -61,7 +61,7 @@ fResult, _ := fixer.FixWithOptions(fixer.WithDocument(result))
 ### CLI
 
 ```bash
-brew tap erraggy/oastools && brew install oastools       # Homebrew (macOS/Linux)
+brew install erraggy/oastools/oastools                   # Homebrew (macOS/Linux)
 go install github.com/erraggy/oastools/cmd/oastools@latest  # Go install
 ```
 

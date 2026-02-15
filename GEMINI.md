@@ -26,49 +26,63 @@ The project uses a `Makefile` to streamline common development tasks.
 ### Key Commands
 
 *   **Build the CLI:**
+
     ```bash
     make build
     ```
+
     This command compiles the `oastools` CLI and places the binary in the `bin/` directory.
 
 *   **Run tests:**
+
     ```bash
     make test
     ```
+
     This command runs the test suite for all packages.
 
 *   **Run tests with race detection:**
+
     ```bash
     make test-race
     ```
 
 *   **Generate a test coverage report:**
+
     ```bash
     make test-coverage
     ```
+
     This will generate an HTML coverage report named `coverage.html`.
 
 *   **Lint the code:**
+
     ```bash
     make lint
     ```
+
     This command runs `golangci-lint` to check for style and formatting issues.
 
 *   **Format the code:**
+
     ```bash
     make fmt
     ```
 
 *   **Run all checks:**
+
     ```bash
     make check
     ```
+
     This is a convenience target that runs `tidy`, `fmt`, `lint`, and `test`.
 
 *   **Install the CLI:**
+
     ```bash
     make install
     ```
+
     This command installs the `oastools` binary in your `$GOPATH/bin`.
 
 ## Development Conventions

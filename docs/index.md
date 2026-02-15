@@ -39,7 +39,7 @@ oastools diff --breaking --format json v1.yaml v2.yaml | jq
 
 ### 🤖 MCP Server
 
-Connect oastools to Claude Code, Cursor, VS Code, or any MCP-compatible AI agent. All 15 tools are available over stdio via the Model Context Protocol.
+Connect oastools to Claude Code, Cursor, VS Code, or any MCP-compatible AI agent. All 17 tools are available over stdio via the Model Context Protocol.
 
 ```bash
 oastools mcp  # Start the MCP server
@@ -106,7 +106,7 @@ All packages include comprehensive documentation with runnable examples. See ind
 ### CLI
 
 ```bash
-brew tap erraggy/oastools && brew install oastools       # Homebrew (macOS/Linux)
+brew install erraggy/oastools/oastools                   # Homebrew (macOS/Linux)
 go install github.com/erraggy/oastools/cmd/oastools@latest  # Go install
 ```
 

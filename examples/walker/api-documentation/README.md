@@ -105,6 +105,7 @@ walker.Walk(parseResult,
 ### Handler Ordering and Nesting
 
 The walker visits nodes in this order:
+
 1. Document root → Info → Servers → Tags
 2. For each path: PathHandler → OperationHandler → ParameterHandler → ResponseHandler
 3. Components (schemas, security schemes, etc.)

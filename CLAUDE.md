@@ -8,7 +8,7 @@
 
 ## Style
 
-- **Emojis encouraged** (✅❌🔴🟡⚠️) for scannability
+- **Emojis welcome** in PR descriptions and release notes, but not required in code or docs
 - **GitHub formatting**: Bare hashes/issues auto-link; backticks break linking
   - Good: `Fixed in commit 1f3eb93` → clickable
   - Bad: `Fixed in commit \`1f3eb93\`` → not clickable
@@ -45,13 +45,14 @@
 - **Favor fixing immediately** over deferring issues
 - **Deep copy**: Use generated `doc.DeepCopy()` methods, **never** JSON marshal/unmarshal (loses `interface{}` types, drops `json:"-"` fields)
 - **`make check` before pushing** — not just `go test`; catches lint, formatting, and trailing whitespace
-- **`docs/` is generated**: Files are copied by mkdocs build scripts — always edit source files at repo root
+- **`docs/` is mixed source + generated**: Source files (`index.md`, `mcp-server.md`, `cli-reference.md`, etc.) are edited directly in `docs/`. Generated files (`docs/packages/`, `docs/examples/`) come from `{package}/deep_dive.md` and `examples/*/README.md` — see `.claude/docs/docs-website.md`
 
 ## Orchestrator Mode
 
 **Default behavior**: Act as an orchestrator, not an implementer.
 
 ### When to Delegate
+
 | Task Type | Agent |
 |-----------|-------|
 | Research/exploration | `general-purpose` |
@@ -61,6 +62,7 @@
 | Release/deployment | `devops-engineer` |
 
 ### When to Handle Directly
+
 - Simple questions answerable from context
 - Clarifying user intent
 - Synthesizing agent results

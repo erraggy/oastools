@@ -49,6 +49,7 @@ Both variants include:
 ## Regeneration
 
 **stdlib variant:**
+
 ```bash
 oastools generate --server --server-all --client --security-enforce \
   --oauth2-flows --oidc-discovery --credential-mgmt \
@@ -57,6 +58,7 @@ oastools generate --server --server-all --client --security-enforce \
 ```
 
 **chi variant:**
+
 ```bash
 oastools generate --server --server-all --server-router chi --client \
   --security-enforce --oauth2-flows --oidc-discovery --credential-mgmt \

@@ -151,6 +151,7 @@ When a collision occurs, the schema from the mapped source gets the prefix: `Acc
 | `true` | Prefix ALL schemas from mapped sources |
 
 Setting `AlwaysApplyPrefix = true` is useful for:
+
 - Consistent naming across large merges
 - Avoiding future collisions when APIs evolve
 - Clear provenance of schemas in the merged output

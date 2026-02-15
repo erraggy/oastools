@@ -34,11 +34,13 @@ All deprecated package-level convenience functions have been removed:
 #### Basic File Parsing
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 result, err := parser.Parse("openapi.yaml", false, true)
 ```
 
 **v1.13.0 and later:**
+
 ```go
 result, err := parser.ParseWithOptions(
     parser.WithFilePath("openapi.yaml"),
@@ -49,12 +51,14 @@ result, err := parser.ParseWithOptions(
 #### Parsing from io.Reader
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 file, _ := os.Open("openapi.yaml")
 result, err := parser.ParseReader(file, false, true)
 ```
 
 **v1.13.0 and later:**
+
 ```go
 file, _ := os.Open("openapi.yaml")
 result, err := parser.ParseWithOptions(
@@ -66,12 +70,14 @@ result, err := parser.ParseWithOptions(
 #### Parsing from Byte Slice
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 data := []byte(`openapi: 3.0.0...`)
 result, err := parser.ParseBytes(data, false, true)
 ```
 
 **v1.13.0 and later:**
+
 ```go
 data := []byte(`openapi: 3.0.0...`)
 result, err := parser.ParseWithOptions(
@@ -93,11 +99,13 @@ result, err := parser.ParseWithOptions(
 #### Basic Validation
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 result, err := validator.Validate("openapi.yaml", true, false)
 ```
 
 **v1.13.0 and later:**
+
 ```go
 result, err := validator.ValidateWithOptions(
     validator.WithFilePath("openapi.yaml"),
@@ -108,12 +116,14 @@ result, err := validator.ValidateWithOptions(
 #### Validating Parsed Document
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 parsed, _ := parser.Parse("openapi.yaml", false, true)
 result, err := validator.ValidateParsed(*parsed, true, false)
 ```
 
 **v1.13.0 and later:**
+
 ```go
 parsed, _ := parser.ParseWithOptions(
     parser.WithFilePath("openapi.yaml"),
@@ -138,11 +148,13 @@ result, err := validator.ValidateWithOptions(
 #### Basic Conversion
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 result, err := converter.Convert("swagger.yaml", "3.0.3")
 ```
 
 **v1.13.0 and later:**
+
 ```go
 result, err := converter.ConvertWithOptions(
     converter.WithFilePath("swagger.yaml"),
@@ -153,12 +165,14 @@ result, err := converter.ConvertWithOptions(
 #### Converting Parsed Document
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 parsed, _ := parser.Parse("swagger.yaml", false, true)
 result, err := converter.ConvertParsed(*parsed, "3.0.3")
 ```
 
 **v1.13.0 and later:**
+
 ```go
 parsed, _ := parser.ParseWithOptions(
     parser.WithFilePath("swagger.yaml"),
@@ -184,12 +198,14 @@ result, err := converter.ConvertWithOptions(
 #### Basic Joining
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 config := joiner.DefaultConfig()
 result, err := joiner.Join([]string{"base.yaml", "ext.yaml"}, config)
 ```
 
 **v1.13.0 and later:**
+
 ```go
 result, err := joiner.JoinWithOptions(
     joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
@@ -200,6 +216,7 @@ result, err := joiner.JoinWithOptions(
 #### Joining with Custom Strategy
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 config := joiner.DefaultConfig()
 config.PathStrategy = joiner.StrategyAcceptLeft
@@ -207,6 +224,7 @@ result, err := joiner.Join([]string{"base.yaml", "ext.yaml"}, config)
 ```
 
 **v1.13.0 and later:**
+
 ```go
 result, err := joiner.JoinWithOptions(
     joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
@@ -217,6 +235,7 @@ result, err := joiner.JoinWithOptions(
 #### Joining Parsed Documents
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 doc1, _ := parser.Parse("base.yaml", false, true)
 doc2, _ := parser.Parse("ext.yaml", false, true)
@@ -225,6 +244,7 @@ result, err := joiner.JoinParsed([]parser.ParseResult{*doc1, *doc2}, config)
 ```
 
 **v1.13.0 and later:**
+
 ```go
 doc1, _ := parser.ParseWithOptions(
     parser.WithFilePath("base.yaml"),
@@ -257,11 +277,13 @@ result, err := joiner.JoinWithOptions(
 #### Basic Diff
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 result, err := differ.Diff("api-v1.yaml", "api-v2.yaml")
 ```
 
 **v1.13.0 and later:**
+
 ```go
 result, err := differ.DiffWithOptions(
     differ.WithSourceFilePath("api-v1.yaml"),
@@ -272,6 +294,7 @@ result, err := differ.DiffWithOptions(
 #### Diff with Breaking Change Detection
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 d := differ.New()
 d.Mode = differ.ModeBreaking
@@ -279,6 +302,7 @@ result, err := d.Diff("api-v1.yaml", "api-v2.yaml")
 ```
 
 **v1.13.0 and later:**
+
 ```go
 result, err := differ.DiffWithOptions(
     differ.WithSourceFilePath("api-v1.yaml"),
@@ -290,6 +314,7 @@ result, err := differ.DiffWithOptions(
 #### Diffing Parsed Documents
 
 **v1.12.x and earlier (Removed in v1.13.0):**
+
 ```go
 source, _ := parser.Parse("api-v1.yaml", false, true)
 target, _ := parser.Parse("api-v2.yaml", false, true)
@@ -297,6 +322,7 @@ result, err := differ.DiffParsed(*source, *target)
 ```
 
 **v1.13.0 and later:**
+
 ```go
 source, _ := parser.ParseWithOptions(
     parser.WithFilePath("api-v1.yaml"),
@@ -325,6 +351,7 @@ result, err := differ.DiffWithOptions(
 The struct-based API remains **unchanged** and is the recommended approach for reusable instances:
 
 ### Parser
+
 ```go
 p := parser.New()
 p.ResolveRefs = false
@@ -334,6 +361,7 @@ result2, _ := p.Parse("api2.yaml")
 ```
 
 ### Validator
+
 ```go
 v := validator.New()
 v.IncludeWarnings = true
@@ -343,6 +371,7 @@ result2, _ := v.Validate("api2.yaml")
 ```
 
 ### Converter
+
 ```go
 c := converter.New()
 c.StrictMode = false
@@ -352,6 +381,7 @@ result2, _ := c.Convert("swagger2.yaml", "3.0.3")
 ```
 
 ### Joiner
+
 ```go
 j := joiner.New(joiner.DefaultConfig())
 result1, _ := j.Join([]string{"base1.yaml", "ext1.yaml"})
@@ -359,6 +389,7 @@ result2, _ := j.Join([]string{"base2.yaml", "ext2.yaml"})
 ```
 
 ### Differ
+
 ```go
 d := differ.New()
 d.Mode = differ.ModeBreaking
@@ -372,11 +403,13 @@ result2, _ := d.Diff("api-v2.yaml", "api-v3.yaml")
 ### 1. Self-Documenting Code
 
 **v1.12.x and earlier:**
+
 ```go
 result, err := parser.Parse("api.yaml", false, true)  // What do these bools mean?
 ```
 
 **v1.13.0 and later:**
+
 ```go
 result, err := parser.ParseWithOptions(
     parser.WithFilePath("api.yaml"),
@@ -388,6 +421,7 @@ result, err := parser.ParseWithOptions(
 ### 2. Flexible Input Sources
 
 **v1.13.0** allows mixing input sources in a single call:
+
 ```go
 // Parse from URL with custom user agent
 result, err := parser.ParseWithOptions(
@@ -411,6 +445,7 @@ result, err := parser.ParseWithOptions(
 ### 3. Backward-Compatible Extensions
 
 New options can be added without breaking existing code:
+
 ```go
 // v1.13.0
 result, err := parser.ParseWithOptions(
@@ -439,6 +474,7 @@ With functional options, IDEs can suggest available options as you type, making 
 ### For Large Codebases
 
 1. **Phase 1**: Identify all deprecated usage with:
+
    ```bash
    # Search for deprecated parser calls
    grep -r "parser\.Parse(" . --include="*.go"
@@ -498,6 +534,7 @@ However, v1.12.x and earlier will no longer receive new features. Security patch
 The v1.13.0 release removes deprecated convenience functions in favor of a more flexible, maintainable functional options API. The struct method API remains unchanged, providing a smooth migration path for codebases already using that pattern.
 
 **Key Takeaways:**
+
 - Replace `Package.Function(args...)` with `Package.FunctionWithOptions(Package.WithOption(...), ...)`
 - Struct methods (`New().Method()`) remain unchanged
 - New API provides better clarity, flexibility, and extensibility

@@ -11,7 +11,7 @@ Install via any of these methods:
 **Homebrew (macOS/Linux):**
 
 ```bash
-brew tap erraggy/oastools && brew install oastools
+brew install erraggy/oastools/oastools
 ```
 
 **Go install:**
@@ -69,7 +69,7 @@ If you prefer not to use the plugin system, you can configure the MCP server dir
 ```
 
 !!! note
-    The manual approach gives you the 15 MCP tools but **not** the guided skills or CLAUDE.md instructions that come with the plugin. For the full experience, use Option 1.
+    The manual approach gives you the 17 MCP tools but **not** the guided skills or CLAUDE.md instructions that come with the plugin. For the full experience, use Option 1.
 
 ---
 
@@ -81,7 +81,7 @@ After installing, restart Claude Code (or start a new session) and check that th
 /mcp
 ```
 
-You should see `oastools` listed as an MCP server with 15 tools. You can also ask Claude directly:
+You should see `oastools` listed as an MCP server with 17 tools. You can also ask Claude directly:
 
 > "What oastools MCP tools do you have access to?"
 
@@ -89,13 +89,13 @@ You should see `oastools` listed as an MCP server with 15 tools. You can also as
 
 ## What the Plugin Provides
 
-### 15 MCP Tools
+### 17 MCP Tools
 
-The plugin configures the oastools MCP server, which exposes 15 tools that Claude can call directly:
+The plugin configures the oastools MCP server, which exposes 17 tools that Claude can call directly:
 
 **Core (9):** `validate`, `parse`, `fix`, `convert`, `diff`, `join`, `overlay_apply`, `overlay_validate`, `generate`
 
-**Walk (6):** `walk_operations`, `walk_schemas`, `walk_parameters`, `walk_responses`, `walk_security`, `walk_paths`
+**Walk (8):** `walk_operations`, `walk_schemas`, `walk_parameters`, `walk_responses`, `walk_headers`, `walk_security`, `walk_paths`, `walk_refs`
 
 See the [MCP Server reference](mcp-server.md) for detailed documentation of each tool.
 
