@@ -30,11 +30,13 @@ make corpus-download
 Based on the mode argument:
 
 **Full mode** (default):
+
 ```bash
 make test-corpus
 ```
 
 **Short mode** (argument = "short"):
+
 ```bash
 make test-corpus-short
 ```

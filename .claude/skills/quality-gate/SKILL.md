@@ -48,7 +48,7 @@ Categorize results:
 
 Present results in this format:
 
-```
+```markdown
 ## Quality Gate Results
 
 ### `make check`: ✅ PASS / ❌ FAIL
