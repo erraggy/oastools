@@ -2,6 +2,24 @@
 
 You have access to the oastools MCP server, which provides 15 tools for working with OpenAPI Specification (OAS 2.0-3.2) documents.
 
+## Prerequisites
+
+This plugin requires the `oastools` CLI binary on your PATH. The MCP server runs as `oastools mcp`.
+
+**Install via Homebrew:**
+```bash
+brew install erraggy/oastools/oastools
+```
+
+**Or from source (requires Go 1.24+):**
+```bash
+go install github.com/erraggy/oastools/cmd/oastools@latest
+```
+
+**Check version:** `oastools version`
+
+If MCP tools are unavailable or returning errors, verify the binary is installed and up to date. New tool parameters (like `output` on `fix`) require the corresponding binary version.
+
 ## Available Tools
 
 **Core (9):** `validate`, `parse`, `fix`, `convert`, `diff`, `join`, `overlay_apply`, `overlay_validate`, `generate`

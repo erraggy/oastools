@@ -46,6 +46,47 @@ echo "=== Prepare Release $VERSION ==="
 echo "Branch: $BRANCH"
 echo ""
 
+# Strip leading 'v' for semver-only contexts (plugin.json, marketplace.json).
+SEMVER="${VERSION#v}"
+
+# =============================================================================
+# Phase 3.5: Sync Plugin Version
+# =============================================================================
+
+echo "=== Phase 3.5: Sync Plugin Version ==="
+
+PLUGIN_JSON="plugin/.claude-plugin/plugin.json"
+MARKETPLACE_JSON=".claude-plugin/marketplace.json"
+
+echo "Step 3.5.1: Updating plugin version to $SEMVER..."
+if [[ -f "$PLUGIN_JSON" ]]; then
+    # Use a temp file for portable sed -i behavior (macOS vs Linux).
+    jq --arg v "$SEMVER" '.version = $v' "$PLUGIN_JSON" > "${PLUGIN_JSON}.tmp" \
+        && mv "${PLUGIN_JSON}.tmp" "$PLUGIN_JSON"
+    echo "  ✓ $PLUGIN_JSON → $SEMVER"
+else
+    echo "  Warning: $PLUGIN_JSON not found, skipping"
+fi
+
+echo "Step 3.5.2: Updating marketplace version to $SEMVER..."
+if [[ -f "$MARKETPLACE_JSON" ]]; then
+    jq --arg v "$SEMVER" '.plugins[0].version = $v' "$MARKETPLACE_JSON" > "${MARKETPLACE_JSON}.tmp" \
+        && mv "${MARKETPLACE_JSON}.tmp" "$MARKETPLACE_JSON"
+    echo "  ✓ $MARKETPLACE_JSON → $SEMVER"
+else
+    echo "  Warning: $MARKETPLACE_JSON not found, skipping"
+fi
+
+# Commit version bump if there are changes.
+if ! git diff --quiet "$PLUGIN_JSON" "$MARKETPLACE_JSON" 2>/dev/null; then
+    git add "$PLUGIN_JSON" "$MARKETPLACE_JSON"
+    git commit -m "chore: bump plugin version to $SEMVER"
+    echo "  ✓ Version bump committed"
+else
+    echo "  Versions already at $SEMVER, no commit needed"
+fi
+echo ""
+
 # =============================================================================
 # Phase 4: CI Benchmarks
 # =============================================================================
