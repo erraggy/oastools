@@ -22,15 +22,9 @@ Invoke this agent when:
 
 ## ⚠️ Branch Protection
 
-The `main` branch has push protections. **ALL changes require a feature branch and PR.**
+A PreToolUse hook (`check-branch.sh`) automatically blocks edits on `main`. All changes require a feature branch and PR.
 
-```bash
-# Check current branch
-git branch --show-current
-
-# Create feature branch if needed
-git checkout -b <type>/<description>
-
+```
 # Branch naming convention
 feat/description    # New features
 fix/description     # Bug fixes
@@ -38,7 +32,7 @@ chore/description   # Maintenance, docs, refactoring
 release/vX.Y.Z      # Release preparation
 ```
 
-**Releases are the only exception** - tags are pushed directly but never commits to main.
+**Releases are the only exception** — only tags (not commits) are pushed directly to main.
 
 ## Core Responsibilities
 

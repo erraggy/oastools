@@ -1,6 +1,6 @@
 ---
 name: prepare-release
-description: Prepare a release (phases 1-6). Usage: /prepare-release [version]. If version omitted, infers from conventional commits. Coordinates agents for review, runs prepare-release.sh, then enhances release notes with rich formatting.
+description: "Prepare a release (phases 1-6). Usage: /prepare-release [version]. If version omitted, infers from conventional commits. Coordinates agents for review, runs prepare-release.sh, then enhances release notes with rich formatting."
 ---
 
 # prepare-release

@@ -18,25 +18,12 @@ Invoke this agent when:
 - Following an approved design
 - Writing tests or benchmarks
 
-## ⚠️ Branch Check (REQUIRED)
+## ⚠️ Branch Protection
 
-**Before making ANY code changes**, verify you're on a feature branch:
-
-```bash
-BRANCH=$(git branch --show-current)
-if [ "$BRANCH" = "main" ]; then
-    echo "❌ ERROR: Cannot edit on main branch. Create a feature branch first."
-    exit 1
-fi
-echo "✅ On branch: $BRANCH"
-```
-
-If on `main`, create a feature branch before proceeding:
+A PreToolUse hook (`check-branch.sh`) automatically blocks edits on the `main` branch. If it triggers, create a feature branch:
 ```bash
 git checkout -b <type>/<description>  # e.g., feat/add-feature, fix/bug-name
 ```
-
-**DO NOT skip this check.** The main branch has push protections.
 
 ## Checkpoint Mode
 
@@ -256,27 +243,25 @@ func ExampleParseWithOptions() {
 }
 ```
 
-## Verification Commands
+## Verification
+
+**Automatic (handled by hooks):** Formatting (`gofmt`, `goimports`) and gopls diagnostics run automatically after every Write/Edit via PostToolUse hooks. You do not need to run these manually.
+
+**Manual verification after each phase:**
 
 ```bash
-# After each phase
+# Run tests for affected packages
 go test ./affected/package
 
-# Before checkpoint
-go fmt ./...
-go vet ./...
-
-# Full validation
+# Full validation (before checkpoint)
 make check
-
-# Coverage verification
-go test -coverprofile=cover.out ./package
-go tool cover -func=cover.out | grep MyFunction
 ```
+
+Use the `go_diagnostics` MCP tool to check for errors after edits — it's faster than bash and doesn't require permission prompts.
 
 ## gopls Diagnostics
 
-After making changes, check gopls diagnostics. Address ALL levels:
+After making changes, use `go_diagnostics` MCP tool. Address ALL levels:
 
 | Level | Action |
 |-------|--------|

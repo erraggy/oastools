@@ -58,14 +58,9 @@ Every feature plan MUST include a documentation phase that addresses:
 When tasked with architectural work:
 
 ### Step 1: Understand Context
-```bash
-# Read project documentation
-Read CLAUDE.md, AGENTS.md
-
-# Examine related packages
-Glob for related files
-Grep for existing patterns
-```
+- Read `CLAUDE.md` and `AGENTS.md` using the Read tool
+- Use Glob/Grep to find related files and patterns
+- Use `go_workspace` and `go_search` MCP tools to explore Go packages
 
 ### Step 2: Analyze Current State
 - Find similar implementations to use as reference

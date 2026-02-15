@@ -178,10 +178,10 @@ servers := []parser.Server{...}
 - Benchmark tests use `for b.Loop()` (Go 1.24+)
 
 ### gopls Diagnostics
-After review, check gopls diagnostics:
+Use the `go_diagnostics` MCP tool (not bash) to check diagnostics on modified files:
 - Address errors (blocking)
 - Address warnings (important)
-- Address hints (performance impact - 5-15% improvements documented)
+- Address hints (performance impact — 5-15% improvements documented)
 
 Common hints:
 - "Loop can be simplified using slices.Contains"

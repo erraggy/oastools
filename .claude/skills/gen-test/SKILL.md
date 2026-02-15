@@ -1,6 +1,6 @@
 ---
 name: gen-test
-description: Generate test scaffolding for a Go file following oastools conventions. Usage: /gen-test <file.go> [function names...]
+description: "Generate test scaffolding for a Go file following oastools conventions. Usage: /gen-test <file.go> [function names...]"
 ---
 
 # gen-test
