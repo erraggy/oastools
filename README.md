@@ -16,9 +16,9 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 
 ## What It Does
 
-**Spec Lifecycle** — [parser](https://pkg.go.dev/github.com/erraggy/oastools/parser) · [validator](https://pkg.go.dev/github.com/erraggy/oastools/validator) · [fixer](https://pkg.go.dev/github.com/erraggy/oastools/fixer) · [converter](https://pkg.go.dev/github.com/erraggy/oastools/converter)
-**Multi-Spec Ops** — [joiner](https://pkg.go.dev/github.com/erraggy/oastools/joiner) · [differ](https://pkg.go.dev/github.com/erraggy/oastools/differ) · [overlay](https://pkg.go.dev/github.com/erraggy/oastools/overlay)
-**Code & Query** — [generator](https://pkg.go.dev/github.com/erraggy/oastools/generator) · [builder](https://pkg.go.dev/github.com/erraggy/oastools/builder) · [walker](https://pkg.go.dev/github.com/erraggy/oastools/walker)
+**Spec Lifecycle** — [parser](https://pkg.go.dev/github.com/erraggy/oastools/parser) · [validator](https://pkg.go.dev/github.com/erraggy/oastools/validator) · [fixer](https://pkg.go.dev/github.com/erraggy/oastools/fixer) · [converter](https://pkg.go.dev/github.com/erraggy/oastools/converter)<br>
+**Multi-Spec Ops** — [joiner](https://pkg.go.dev/github.com/erraggy/oastools/joiner) · [differ](https://pkg.go.dev/github.com/erraggy/oastools/differ) · [overlay](https://pkg.go.dev/github.com/erraggy/oastools/overlay)<br>
+**Code & Query** — [generator](https://pkg.go.dev/github.com/erraggy/oastools/generator) · [builder](https://pkg.go.dev/github.com/erraggy/oastools/builder) · [walker](https://pkg.go.dev/github.com/erraggy/oastools/walker)<br>
 **Runtime** — [httpvalidator](https://pkg.go.dev/github.com/erraggy/oastools/httpvalidator) · [oaserrors](https://pkg.go.dev/github.com/erraggy/oastools/oaserrors)
 
 12 packages covering the full OpenAPI lifecycle. [See full details →](https://erraggy.github.io/oastools/)
