@@ -225,3 +225,62 @@ paths:
 	require.Len(t, output.Summaries, 1)
 	assert.Equal(t, "/internal", output.Summaries[0].Path)
 }
+
+func TestWalkPaths_GroupBySegment(t *testing.T) {
+	input := walkPathsInput{
+		Spec:    specInput{Content: walkPathsTestSpec},
+		GroupBy: "segment",
+	}
+	_, output := callWalkPaths(t, input)
+
+	require.NotEmpty(t, output.Groups)
+	assert.Nil(t, output.Summaries)
+	assert.Nil(t, output.Paths)
+
+	groupMap := make(map[string]int)
+	for _, g := range output.Groups {
+		groupMap[g.Key] = g.Count
+	}
+	// /pets and /pets/{petId} = 2 for "pets", /stores = 1 for "stores"
+	assert.Equal(t, 2, groupMap["pets"])
+	assert.Equal(t, 1, groupMap["stores"])
+}
+
+func TestWalkPaths_GroupByAndDetailError(t *testing.T) {
+	input := walkPathsInput{
+		Spec:    specInput{Content: walkPathsTestSpec},
+		GroupBy: "segment",
+		Detail:  true,
+	}
+	result, _ := callWalkPaths(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+}
+
+func TestWalkPaths_GroupByInvalid(t *testing.T) {
+	input := walkPathsInput{
+		Spec:    specInput{Content: walkPathsTestSpec},
+		GroupBy: "invalid",
+	}
+	result, _ := callWalkPaths(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+}
+
+func TestFirstPathSegment(t *testing.T) {
+	tests := []struct {
+		path string
+		want string
+	}{
+		{"/pets/{id}", "pets"},
+		{"/pets", "pets"},
+		{"/stores/123/items", "stores"},
+		{"/", "/"},
+		{"", "/"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			assert.Equal(t, tt.want, firstPathSegment(tt.path))
+		})
+	}
+}

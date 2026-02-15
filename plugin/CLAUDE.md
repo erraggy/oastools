@@ -22,6 +22,8 @@ go install github.com/erraggy/oastools/cmd/oastools@latest
 
 If MCP tools are unavailable or returning errors, verify the binary is installed and up to date. New tool parameters (like `output` on `fix`) require the corresponding binary version.
 
+**Version mismatch detection:** On session start, the plugin checks whether the installed `oastools` binary version matches the plugin version. If a mismatch is detected, a warning is surfaced so you can update accordingly. Dev and unknown builds skip this check.
+
 ## Available Tools
 
 **Core (9):** `validate`, `parse`, `fix`, `convert`, `diff`, `join`, `overlay_apply`, `overlay_validate`, `generate`
@@ -57,7 +59,7 @@ Special cases:
    - Use `detail: true` only after filtering to specific items — full objects can be very large
 6. **Check breaking changes.** When diffing specs, use `breaking_only: true` to focus on changes that will break API consumers.
 7. 📄 **Page through large results.** Tools that return arrays (`validate`, `fix`, `diff`, `walk_*`) support `offset` and `limit` params (default limit: 100). When `returned` is less than the total count, use `offset` to page through. Prefer filtering over paging when possible.
-8. 📊 **Aggregate with `group_by`.** The walk tools (`walk_operations`, `walk_schemas`, `walk_parameters`, `walk_responses`, `walk_headers`) support a `group_by` parameter that returns `{key, count}` groups instead of individual items. Use this for distribution questions ("how many operations per tag?") instead of paging through all results.
+8. 📊 **Aggregate with `group_by`.** Most walk tools (`walk_operations`, `walk_schemas`, `walk_parameters`, `walk_responses`, `walk_headers`, `walk_paths`, `walk_refs`) support a `group_by` parameter (`walk_security` does not, since specs rarely have more than 3 schemes) that returns `{key, count}` groups instead of individual items. `walk_paths` supports `group_by: "segment"` (group by first path segment) and `walk_refs` supports `group_by: "node_type"` (group by reference target type). Use this for distribution questions ("how many operations per tag?") instead of paging through all results.
 
 ## 💾 Persisting Results
 

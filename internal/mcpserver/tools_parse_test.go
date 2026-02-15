@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -124,4 +125,54 @@ components:
 	assert.Equal(t, "Ref Test", output.Title)
 	assert.Equal(t, 1, output.SchemaCount)
 	assert.NotEmpty(t, output.FullDocument)
+}
+
+func TestParseTool_TruncatesLongDescription(t *testing.T) {
+	// Create a spec with a very long description.
+	longDesc := strings.Repeat("A", 500)
+	spec := `openapi: "3.0.0"
+info:
+  title: Long Desc Test
+  description: "` + longDesc + `"
+  version: "1.0.0"
+servers:
+  - url: https://api.example.com
+    description: "` + longDesc + `"
+paths: {}
+`
+	input := parseInput{
+		Spec: specInput{Content: spec},
+	}
+	_, output, err := handleParse(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+
+	// Summary mode: description should be truncated.
+	assert.LessOrEqual(t, len(output.Description), 203) // 200 + "..."
+	assert.True(t, strings.HasSuffix(output.Description, "..."))
+	// Server description should also be truncated.
+	require.Len(t, output.Servers, 1)
+	assert.LessOrEqual(t, len(output.Servers[0].Description), 203)
+	assert.True(t, strings.HasSuffix(output.Servers[0].Description, "..."))
+}
+
+func TestTruncateText(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		maxLen int
+		want   string
+	}{
+		{"short", "hello", 10, "hello"},
+		{"exact", "hello", 5, "hello"},
+		{"truncated", "hello world", 5, "hello..."},
+		{"empty", "", 5, ""},
+		{"multi-byte UTF-8", "café résumé", 5, "café ..."},
+		{"zero maxLen", "hello", 0, "..."},
+		{"negative maxLen", "hello", -1, "..."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, truncateText(tt.input, tt.maxLen))
+		})
+	}
 }

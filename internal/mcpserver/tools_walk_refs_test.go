@@ -203,6 +203,61 @@ func TestMatchRefGlob(t *testing.T) {
 	assert.False(t, matchRefGlob("#/components/schemas/Pet", "*responses/*"))
 }
 
+func TestWalkRefs_GroupByNodeType(t *testing.T) {
+	input := walkRefsInput{
+		Spec:    specInput{Content: walkRefsTestSpec},
+		GroupBy: "node_type",
+	}
+	_, output := callWalkRefs(t, input)
+
+	require.NotEmpty(t, output.Groups)
+	assert.Nil(t, output.Summaries)
+	assert.Nil(t, output.Details)
+
+	groupMap := make(map[string]int)
+	for _, g := range output.Groups {
+		groupMap[g.Key] = g.Count
+	}
+	// Test spec has schema refs (Pet x3, Error x1) and response refs (BadRequest, NotFound).
+	assert.Greater(t, groupMap["schema"], 0)
+	assert.Greater(t, groupMap["response"], 0)
+}
+
+func TestWalkRefs_GroupByAndDetailError(t *testing.T) {
+	input := walkRefsInput{
+		Spec:    specInput{Content: walkRefsTestSpec},
+		GroupBy: "node_type",
+		Detail:  true,
+	}
+	result, _ := callWalkRefs(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+}
+
+func TestWalkRefs_GroupByInvalid(t *testing.T) {
+	input := walkRefsInput{
+		Spec:    specInput{Content: walkRefsTestSpec},
+		GroupBy: "invalid",
+	}
+	result, _ := callWalkRefs(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+}
+
+func TestWalkRefs_GroupByWithFilter(t *testing.T) {
+	input := walkRefsInput{
+		Spec:    specInput{Content: walkRefsTestSpec},
+		Target:  "*schemas/*",
+		GroupBy: "node_type",
+	}
+	_, output := callWalkRefs(t, input)
+
+	require.NotEmpty(t, output.Groups)
+	// All filtered refs are schema refs.
+	require.Len(t, output.Groups, 1)
+	assert.Equal(t, "schema", output.Groups[0].Key)
+}
+
 func TestWalkRefs_InvalidSpec(t *testing.T) {
 	input := walkRefsInput{
 		Spec: specInput{Content: "not valid yaml: ["},

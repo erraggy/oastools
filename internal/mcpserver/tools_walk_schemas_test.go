@@ -403,6 +403,49 @@ func TestWalkSchemas_GroupByAndDetailError(t *testing.T) {
 	assert.True(t, result.IsError)
 }
 
+func TestWalkSchemas_GroupByType_UntypedLabel(t *testing.T) {
+	// Spec with a composition schema that has no type field.
+	spec := `openapi: "3.0.0"
+info:
+  title: Untyped Test
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Cat:
+      type: object
+      properties:
+        name:
+          type: string
+    Dog:
+      type: object
+      properties:
+        breed:
+          type: string
+    Animal:
+      oneOf:
+        - $ref: "#/components/schemas/Cat"
+        - $ref: "#/components/schemas/Dog"
+`
+	input := walkSchemasInput{
+		Spec:      specInput{Content: spec},
+		Component: true,
+		GroupBy:   "type",
+	}
+	_, output := callWalkSchemas(t, input)
+
+	require.NotEmpty(t, output.Groups)
+	groupMap := make(map[string]int)
+	for _, g := range output.Groups {
+		groupMap[g.Key] = g.Count
+	}
+	// Animal has no type (it's a oneOf composition) -> "(untyped)"
+	assert.Greater(t, groupMap["(untyped)"], 0, "expected (untyped) group for composition schemas")
+	// No empty-string key should exist.
+	_, hasEmpty := groupMap[""]
+	assert.False(t, hasEmpty, "expected no empty-string group key")
+}
+
 func TestWalkSchemas_GroupByInvalid(t *testing.T) {
 	input := walkSchemasInput{
 		Spec:    specInput{Content: walkSchemasTestSpec},

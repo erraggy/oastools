@@ -97,12 +97,12 @@ func registerAllTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "walk_paths",
-		Description: "Walk and query path items in an OpenAPI Specification document. Filter by path pattern or extension. Returns summaries (path, method count) by default or full path item objects with detail=true. Path patterns support * (one segment) and ** (zero or more segments), e.g. /users/** matches all paths under /users.",
+		Description: "Walk and query path items in an OpenAPI Specification document. Filter by path pattern or extension. Returns summaries (path, method count) by default or full path item objects with detail=true. Path patterns support * (one segment) and ** (zero or more segments), e.g. /users/** matches all paths under /users. Use group_by=segment to group paths by their first URL segment.",
 	}, handleWalkPaths)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "walk_refs",
-		Description: "Walk and count $ref references in an OpenAPI Specification document. By default, returns unique ref targets ranked by reference count (most-referenced first). Use target to filter to a specific ref (supports * glob, e.g. *schemas/microsoft.graph.*). Use detail=true to see individual source locations instead of counts. Filter by node_type to narrow to schema, parameter, response, requestBody, header, or pathItem refs.",
+		Description: "Walk and count $ref references in an OpenAPI Specification document. By default, returns unique ref targets ranked by reference count (most-referenced first). Use target to filter to a specific ref (supports * glob, e.g. *schemas/microsoft.graph.*). Use detail=true to see individual source locations instead of counts. Filter by node_type to narrow to schema, parameter, response, requestBody, header, or pathItem refs. Use group_by=node_type to get distribution counts by ref type.",
 	}, handleWalkRefs)
 
 	mcp.AddTool(server, &mcp.Tool{

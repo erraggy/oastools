@@ -307,6 +307,44 @@ func TestWalkParameters_GroupByAndDetailError(t *testing.T) {
 	assert.True(t, result.IsError)
 }
 
+func TestWalkParameters_GroupByLocation_RefLabel(t *testing.T) {
+	// Spec with a $ref parameter that has no "in" field resolved.
+	spec := `openapi: "3.0.0"
+info:
+  title: Ref Param Test
+  version: "1.0.0"
+paths:
+  /pets:
+    get:
+      summary: List pets
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: OK
+components:
+  parameters:
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+`
+	input := walkParametersInput{
+		Spec:    specInput{Content: spec},
+		GroupBy: "location",
+	}
+	_, output := callWalkParameters(t, input)
+
+	require.NotEmpty(t, output.Groups)
+	// With resolved refs, this should show "query" for the resolved parameter.
+	// Without resolve_refs, the walker may report "" for unresolved $ref params.
+	// Verify no empty-string key exists in either case.
+	for _, g := range output.Groups {
+		assert.NotEqual(t, "", g.Key, "expected no empty-string group key")
+	}
+}
+
 func TestWalkParameters_GroupByInvalid(t *testing.T) {
 	input := walkParametersInput{
 		Spec:    specInput{Content: walkParametersTestSpec},

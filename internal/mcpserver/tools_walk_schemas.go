@@ -94,7 +94,7 @@ func handleWalkSchemas(_ context.Context, _ *mcp.CallToolRequest, input walkSche
 			case "type":
 				t := schemaTypeString(info.Schema.Type)
 				if t == "" {
-					return []string{""}
+					return []string{"(untyped)"}
 				}
 				return []string{t}
 			case "location":

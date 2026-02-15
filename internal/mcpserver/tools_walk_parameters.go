@@ -80,6 +80,9 @@ func handleWalkParameters(_ context.Context, _ *mcp.CallToolRequest, input walkP
 		groups := groupAndSort(matched, func(info *walker.ParameterInfo) []string {
 			switch strings.ToLower(input.GroupBy) {
 			case "location":
+				if info.In == "" {
+					return []string{"(ref)"}
+				}
 				return []string{info.In}
 			case "name":
 				return []string{info.Name}

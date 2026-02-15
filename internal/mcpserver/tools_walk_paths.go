@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"strings"
 
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/walker"
@@ -14,6 +15,7 @@ type walkPathsInput struct {
 	Extension   string    `json:"extension,omitempty"      jsonschema:"Filter by extension key=value (e.g. x-internal=true)"`
 	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers in output. Inlines referenced objects instead of showing $ref strings."`
 	Detail      bool      `json:"detail,omitempty"         jsonschema:"Return full path item objects instead of summaries"`
+	GroupBy     string    `json:"group_by,omitempty"       jsonschema:"Group results and return counts instead of individual items. Values: segment"`
 	Limit       int       `json:"limit,omitempty"          jsonschema:"Maximum number of results to return (default 100)"`
 	Offset      int       `json:"offset,omitempty"         jsonschema:"Skip the first N results (for pagination)"`
 }
@@ -41,6 +43,7 @@ type walkPathsOutput struct {
 	Returned  int           `json:"returned"`
 	Summaries []pathSummary `json:"summaries,omitempty"`
 	Paths     []pathDetail  `json:"paths,omitempty"`
+	Groups    []groupCount  `json:"groups,omitempty"`
 }
 
 func handleWalkPaths(_ context.Context, _ *mcp.CallToolRequest, input walkPathsInput) (*mcp.CallToolResult, any, error) {
@@ -51,6 +54,10 @@ func handleWalkPaths(_ context.Context, _ *mcp.CallToolRequest, input walkPathsI
 
 	result, err := input.Spec.resolve(extraOpts...)
 	if err != nil {
+		return errResult(err), nil, nil
+	}
+
+	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"segment"}); err != nil {
 		return errResult(err), nil, nil
 	}
 
@@ -76,6 +83,21 @@ func handleWalkPaths(_ context.Context, _ *mcp.CallToolRequest, input walkPathsI
 	matched, err := filterWalkPaths(all, input)
 	if err != nil {
 		return errResult(err), nil, nil
+	}
+
+	// group_by: aggregate matched paths and return counts.
+	if input.GroupBy != "" {
+		groups := groupAndSort(matched, func(info *pathInfo) []string {
+			return []string{firstPathSegment(info.PathTemplate)}
+		})
+		paged := paginate(groups, input.Offset, input.Limit)
+		output := walkPathsOutput{
+			Total:    len(all),
+			Matched:  len(matched),
+			Returned: len(paged),
+			Groups:   paged,
+		}
+		return nil, output, nil
 	}
 
 	// Apply offset/limit pagination.
@@ -168,4 +190,14 @@ func countMethods(p *parser.PathItem) int {
 	}
 	count += len(p.AdditionalOperations)
 	return count
+}
+
+// firstPathSegment returns the first segment of an OAS path (e.g., "/pets/{id}" -> "pets").
+// Returns "/" for root paths or empty strings (defensive fallback).
+func firstPathSegment(path string) string {
+	parts := strings.SplitN(strings.TrimPrefix(path, "/"), "/", 2)
+	if parts[0] == "" {
+		return "/"
+	}
+	return parts[0]
 }
