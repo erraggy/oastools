@@ -75,6 +75,15 @@ func handleParse(_ context.Context, _ *mcp.CallToolRequest, input parseInput) (*
 		}
 	}
 
+	// In summary mode, truncate long text fields to reduce token usage.
+	const summaryMaxDescriptionLen = 200
+	if !input.Full {
+		output.Description = truncateText(output.Description, summaryMaxDescriptionLen)
+		for i := range output.Servers {
+			output.Servers[i].Description = truncateText(output.Servers[i].Description, summaryMaxDescriptionLen)
+		}
+	}
+
 	if input.Full {
 		var data []byte
 		switch result.SourceFormat {
@@ -90,4 +99,16 @@ func handleParse(_ context.Context, _ *mcp.CallToolRequest, input parseInput) (*
 	}
 
 	return nil, output, nil
+}
+
+// truncateText truncates a string to maxLen runes, appending "..." if truncated.
+func truncateText(s string, maxLen int) string {
+	if maxLen < 0 {
+		maxLen = 0
+	}
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	return string(runes[:maxLen]) + "..."
 }

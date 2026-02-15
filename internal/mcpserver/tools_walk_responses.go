@@ -76,6 +76,9 @@ func handleWalkResponses(_ context.Context, _ *mcp.CallToolRequest, input walkRe
 		groups := groupAndSort(matched, func(info *walker.ResponseInfo) []string {
 			switch strings.ToLower(input.GroupBy) {
 			case "status_code":
+				if info.StatusCode == "" {
+					return []string{"(component)"}
+				}
 				return []string{info.StatusCode}
 			case "method":
 				return []string{strings.ToUpper(info.Method)}

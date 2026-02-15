@@ -359,8 +359,55 @@ All walk tools share common input fields:
 | `walk_responses` | `status`, `path`, `method` | `status_code`, `method` |
 | `walk_headers` | `name`, `path`, `method`, `status`, `component` | `name`, `status_code` |
 | `walk_security` | `name`, `type` | — |
-| `walk_paths` | `path` (supports `*` glob) | — |
-| `walk_refs` | `target`, `node_type` | — |
+| `walk_paths` | `path` (supports `*` glob) | `segment` |
+| `walk_refs` | `target`, `node_type` | `node_type` |
+
+---
+
+## Spec Caching
+
+The MCP server maintains a session-scoped cache of parsed specs. Once a spec is parsed, subsequent tool calls referencing the same spec reuse the cached parse result instead of re-parsing.
+
+**Cache keys:**
+
+| Input Mode | Key Strategy | Invalidation |
+|------------|-------------|--------------|
+| `file` | Absolute path + file modification time | Automatic on file change (mtime) |
+| `content` | SHA-256 hash of the content string | Automatic (different content = different key) |
+| `url` | Not cached | N/A (remote content may change between calls) |
+
+The cache holds a maximum of 10 entries and uses LRU (least recently used) eviction when at capacity.
+
+**Which tools use the cache:**
+
+- Most tools use the cache: `parse`, `validate`, all `walk_*` tools, `generate`, `diff`, `join`, `overlay_apply`
+- `fix` and `convert` bypass the cache and parse independently (they use their own internal parsing pipelines)
+
+---
+
+## Behavioral Notes
+
+### Parse Truncation
+
+In summary mode (the default), `parse` truncates long description fields to 200 characters. This reduces token usage for LLM consumers. Set `full=true` to retrieve complete, untruncated descriptions.
+
+### walk_refs Count Semantics
+
+In `walk_refs` summary mode (the default), the `total` field represents the number of unique `$ref` targets in the spec, not the total number of `$ref` occurrences. A single target referenced from 5 locations counts as 1 toward `total`.
+
+In `detail` mode and `group_by` mode, `total` counts individual `$ref` occurrences (a target referenced 5 times counts as 5). When using `group_by=node_type`, each group's `count` is the number of `$ref` occurrences pointing to targets of that node type.
+
+### Group Key Labels
+
+Some walk tools use labeled group keys to represent edge cases when using `group_by` aggregation:
+
+| Tool | `group_by` | Label | Meaning |
+|------|-----------|-------|---------|
+| `walk_schemas` | `type` | `(untyped)` | Schemas without an explicit `type` field -- typically compositions (`allOf`/`anyOf`/`oneOf`) or `$ref` wrappers |
+| `walk_parameters` | `location` | `(ref)` | Parameters defined as a `$ref` that have not been resolved -- the `in` field is not available until the reference is followed |
+| `walk_responses` | `status_code` | `(component)` | Component-level responses (defined in `components/responses`) that are not associated with a specific operation or status code |
+
+These labels appear as the `key` field in the `groups` array when the corresponding condition is met.
 
 ---
 

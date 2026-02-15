@@ -15,6 +15,7 @@ type walkRefsInput struct {
 	Target   string    `json:"target,omitempty"        jsonschema:"Filter by ref target (supports * and ? glob, e.g. *schemas/Pet or *responses/*)"`
 	NodeType string    `json:"node_type,omitempty"     jsonschema:"Filter by ref node type: schema, parameter, response, requestBody, header, pathItem"`
 	Detail   bool      `json:"detail,omitempty"        jsonschema:"Return individual source locations instead of aggregated counts"`
+	GroupBy  string    `json:"group_by,omitempty"      jsonschema:"Group results and return counts instead of individual items. Values: node_type"`
 	Limit    int       `json:"limit,omitempty"         jsonschema:"Maximum number of results to return (default 100)"`
 	Offset   int       `json:"offset,omitempty"        jsonschema:"Skip the first N results (for pagination)"`
 }
@@ -31,19 +32,24 @@ type refDetail struct {
 }
 
 // walkRefsOutput holds results from walk_refs. In summary mode, Total and
-// Matched count unique ref targets. In detail mode, they count individual
-// ref occurrences (a single target referenced 3 times counts as 3).
+// Matched count unique ref targets. In detail and group_by modes, they count
+// individual ref occurrences (a single target referenced 3 times counts as 3).
 type walkRefsOutput struct {
 	Total     int          `json:"total"`
 	Matched   int          `json:"matched"`
 	Returned  int          `json:"returned"`
 	Summaries []refSummary `json:"refs,omitempty"`
 	Details   []refDetail  `json:"details,omitempty"`
+	Groups    []groupCount `json:"groups,omitempty"`
 }
 
 func handleWalkRefs(_ context.Context, _ *mcp.CallToolRequest, input walkRefsInput) (*mcp.CallToolResult, any, error) {
 	// Validate glob pattern before expensive walk.
 	if err := validateGlobPattern(input.Target); err != nil {
+		return errResult(err), nil, nil
+	}
+
+	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"node_type"}); err != nil {
 		return errResult(err), nil, nil
 	}
 
@@ -67,6 +73,21 @@ func handleWalkRefs(_ context.Context, _ *mcp.CallToolRequest, input walkRefsInp
 
 	// Filter refs.
 	filtered := filterRefs(allRefs, input)
+
+	// group_by: aggregate by node type and return counts.
+	if input.GroupBy != "" {
+		groups := groupAndSort(filtered, func(ref *walker.RefInfo) []string {
+			return []string{string(ref.NodeType)}
+		})
+		paged := paginate(groups, input.Offset, input.Limit)
+		output := walkRefsOutput{
+			Total:    len(allRefs),
+			Matched:  len(filtered),
+			Returned: len(paged),
+			Groups:   paged,
+		}
+		return nil, output, nil
+	}
 
 	if input.Detail {
 		// Detail mode: return individual ref locations.
