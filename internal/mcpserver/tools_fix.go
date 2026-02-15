@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/erraggy/oastools/fixer"
@@ -18,6 +19,7 @@ type fixInput struct {
 	StubMissingRefs          bool      `json:"stub_missing_refs,omitempty"           jsonschema:"Create stub schemas for missing $ref targets"`
 	DryRun                   bool      `json:"dry_run,omitempty"                     jsonschema:"Preview fixes without applying them"`
 	IncludeDocument          bool      `json:"include_document,omitempty"            jsonschema:"Include the full corrected document in output"`
+	Output                   string    `json:"output,omitempty"                     jsonschema:"File path to write the fixed document. If omitted the document is returned inline when include_document is true."`
 	Offset                   int       `json:"offset,omitempty"                     jsonschema:"Skip the first N fixes (for pagination)"`
 	Limit                    int       `json:"limit,omitempty"                      jsonschema:"Maximum number of fixes to return (default 100)"`
 }
@@ -29,11 +31,12 @@ type fixApplied struct {
 }
 
 type fixOutput struct {
-	FixCount int          `json:"fix_count"`
-	Returned int          `json:"returned"`
-	Fixes    []fixApplied `json:"fixes,omitempty"`
-	Version  string       `json:"version"`
-	Document string       `json:"document,omitempty"`
+	FixCount  int          `json:"fix_count"`
+	Returned  int          `json:"returned"`
+	Fixes     []fixApplied `json:"fixes,omitempty"`
+	Version   string       `json:"version"`
+	WrittenTo string       `json:"written_to,omitempty"`
+	Document  string       `json:"document,omitempty"`
 }
 
 func handleFix(_ context.Context, _ *mcp.CallToolRequest, input fixInput) (*mcp.CallToolResult, fixOutput, error) {
@@ -64,7 +67,8 @@ func handleFix(_ context.Context, _ *mcp.CallToolRequest, input fixInput) (*mcp.
 	output.Fixes = paginate(output.Fixes, input.Offset, input.Limit)
 	output.Returned = len(output.Fixes)
 
-	if input.IncludeDocument && !input.DryRun {
+	needsDocument := !input.DryRun && (input.Output != "" || input.IncludeDocument)
+	if needsDocument {
 		pr := result.ToParseResult()
 		var data []byte
 		switch result.SourceFormat {
@@ -76,7 +80,16 @@ func handleFix(_ context.Context, _ *mcp.CallToolRequest, input fixInput) (*mcp.
 		if err != nil {
 			return errResult(err), fixOutput{}, nil
 		}
-		output.Document = string(data)
+
+		if input.Output != "" {
+			if err := os.WriteFile(input.Output, data, 0o644); err != nil {
+				return errResult(fmt.Errorf("failed to write output file: %w", err)), fixOutput{}, nil
+			}
+			output.WrittenTo = input.Output
+		}
+		if input.IncludeDocument {
+			output.Document = string(data)
+		}
 	}
 
 	return nil, output, nil

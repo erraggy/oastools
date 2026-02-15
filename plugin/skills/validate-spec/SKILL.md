@@ -56,8 +56,20 @@ If the errors are auto-fixable, offer to run the `fix` tool:
 {"spec": {"file": "<path>"}, "dry_run": true}
 ```
 
-Show the user the planned fixes before applying.
+Show the user the planned fixes before applying. ✅ When applying, use `output` to persist:
+
+```json
+{"spec": {"file": "<path>"}, "output": "<output-path>"}
+```
+
+⚠️ The `fix` tool does not modify the input file. Without `output`, the fixed document is not persisted to disk.
 
 ## Step 4: Re-validate after fixes
 
-After any changes (manual edits or `fix` tool), run `validate` again to confirm the spec is now valid. Report the final status.
+After any changes, ✅ run `validate` on the **output file** (not the original input):
+
+```json
+{"spec": {"file": "<output-path>"}}
+```
+
+Report the final status.

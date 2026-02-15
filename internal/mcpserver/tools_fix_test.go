@@ -2,6 +2,8 @@ package mcpserver
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/erraggy/oastools/fixer"
@@ -209,6 +211,79 @@ paths:
 	assert.Equal(t, "3.0.0", output.Version)
 	assert.Equal(t, 0, output.FixCount)
 	assert.Empty(t, output.Fixes)
+}
+
+func TestFixTool_OutputFile(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "fixed.yaml")
+
+	input := fixInput{
+		Spec:   specInput{Content: specWithMissingPathParam},
+		Output: outPath,
+	}
+	_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+
+	assert.GreaterOrEqual(t, output.FixCount, 1)
+	assert.Equal(t, outPath, output.WrittenTo)
+	assert.Empty(t, output.Document, "document should not be inline when written to file")
+
+	data, err := os.ReadFile(outPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "userId")
+	assert.Contains(t, string(data), "Path Param Test")
+}
+
+func TestFixTool_OutputFile_WithIncludeDocument(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "fixed.yaml")
+
+	input := fixInput{
+		Spec:            specInput{Content: specWithMissingPathParam},
+		Output:          outPath,
+		IncludeDocument: true,
+	}
+	_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+
+	assert.Equal(t, outPath, output.WrittenTo)
+	assert.NotEmpty(t, output.Document, "document should be inline when IncludeDocument is set")
+
+	data, err := os.ReadFile(outPath)
+	require.NoError(t, err)
+	assert.Equal(t, output.Document, string(data))
+}
+
+func TestFixTool_OutputFile_InvalidPath(t *testing.T) {
+	input := fixInput{
+		Spec:   specInput{Content: specWithMissingPathParam},
+		Output: filepath.Join(t.TempDir(), "no-such-dir", "nested", "fixed.yaml"),
+	}
+	result, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.True(t, result.IsError)
+	assert.Empty(t, output.WrittenTo)
+}
+
+func TestFixTool_OutputFile_DryRun_NoWrite(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "fixed.yaml")
+
+	input := fixInput{
+		Spec:   specInput{Content: specWithMissingPathParam},
+		Output: outPath,
+		DryRun: true,
+	}
+	_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+
+	assert.GreaterOrEqual(t, output.FixCount, 1)
+	assert.Empty(t, output.WrittenTo, "should not write in dry-run mode")
+	assert.Empty(t, output.Document)
+
+	_, err = os.Stat(outPath)
+	assert.True(t, os.IsNotExist(err), "file should not exist in dry-run mode")
 }
 
 func TestFixTool_Pagination(t *testing.T) {

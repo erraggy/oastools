@@ -2,6 +2,24 @@
 
 You have access to the oastools MCP server, which provides 15 tools for working with OpenAPI Specification (OAS 2.0-3.2) documents.
 
+## Prerequisites
+
+This plugin requires the `oastools` CLI binary on your PATH. The MCP server runs as `oastools mcp`.
+
+**Install via Homebrew:**
+```bash
+brew install erraggy/oastools/oastools
+```
+
+**Or from source (requires Go 1.24+):**
+```bash
+go install github.com/erraggy/oastools/cmd/oastools@latest
+```
+
+**Check version:** `oastools version`
+
+If MCP tools are unavailable or returning errors, verify the binary is installed and up to date. New tool parameters (like `output` on `fix`) require the corresponding binary version.
+
 ## Available Tools
 
 **Core (9):** `validate`, `parse`, `fix`, `convert`, `diff`, `join`, `overlay_apply`, `overlay_validate`, `generate`
@@ -37,13 +55,50 @@ Special cases:
 6. **Check breaking changes.** When diffing specs, use `breaking_only: true` to focus on changes that will break API consumers.
 7. 📄 **Page through large results.** Tools that return arrays (`validate`, `fix`, `diff`, `walk_*`) support `offset` and `limit` params (default limit: 100). When `returned` is less than the total count, use `offset` to page through. Prefer filtering over paging when possible.
 
+## 💾 Persisting Results
+
+Tools that transform documents (`fix`, `convert`, `join`, `overlay_apply`) do **not** modify input files in-place. The `file` input is read-only. To persist results, use the `output` parameter:
+
+```json
+{"spec": {"file": "openapi.yaml"}, "output": "/tmp/fixed.yaml"}
+```
+
+The response includes `written_to` confirming the file path. Both `output` and `include_document` can be used together when you need to write to disk AND inspect the result inline.
+
+When `output` is omitted, the document is returned inline (automatically for `convert`/`join`/`overlay_apply`; only when `include_document: true` for `fix`). **For large specs, prefer `output` over inline** to avoid excessive token usage.
+
+## 🔗 Pipelining Tools
+
+Chain tools by writing intermediate results to files and referencing them in subsequent calls:
+
+**Fix → Validate:**
+```
+fix(spec.file="api.yaml", output="/tmp/api-fixed.yaml")
+validate(spec.file="/tmp/api-fixed.yaml")
+```
+
+**Fix → Convert → Validate:**
+```
+fix(spec.file="api.yaml", output="/tmp/api-fixed.yaml")
+convert(spec.file="/tmp/api-fixed.yaml", target="3.1", output="/tmp/api-3.1.yaml")
+validate(spec.file="/tmp/api-3.1.yaml")
+```
+
+**Fix → Generate:**
+```
+fix(spec.file="api.yaml", output="/tmp/api-fixed.yaml")
+generate(spec.file="/tmp/api-fixed.yaml", client=true, output_dir="./generated")
+```
+
+Use a temp directory for intermediate files (e.g., `/tmp/`) and copy the final result to the desired location when the pipeline succeeds.
+
 ## Common Workflows
 
 **Validate and fix:**
 1. `validate` the spec to find issues
 2. `fix` with `dry_run: true` to preview fixes
-3. `fix` to apply fixes
-4. `validate` again to confirm the spec is now valid
+3. `fix` with `output` to apply fixes and persist the result
+4. `validate` the output file to confirm the spec is now valid
 
 **Explore an API:**
 1. `parse` to get title, version, path/schema/operation counts

@@ -181,6 +181,7 @@ Auto-fix common issues in an OAS document.
 | `spec` | object | The OAS document |
 | `dry_run` | boolean | Preview fixes without applying |
 | `include_document` | boolean | Include the fixed document in the response |
+| `output` | string | File path to write the fixed document |
 | `fix_duplicate_operationids` | boolean | Deduplicate operationId values |
 | `fix_schema_names` | boolean | Rename generic schema names |
 | `prune` | boolean | Remove empty paths and unused schemas |
@@ -193,6 +194,7 @@ Auto-fix common issues in an OAS document.
 | `version` | string | OAS version |
 | `fix_count` | number | Number of fixes applied |
 | `fixes` | array | Fix details (type, path, description) |
+| `written_to` | string | File path where the fixed document was written |
 | `document` | string | Fixed document (when `include_document` is true) |
 
 ---

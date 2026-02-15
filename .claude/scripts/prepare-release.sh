@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# prepare-release.sh - Phases 4-6 of release preparation
+# prepare-release.sh - Phases 3.5-6 of release preparation
 #
 # This script handles the deterministic steps of release preparation:
+# - Phase 3.5: Sync plugin version in plugin.json and marketplace.json
 # - Phase 4: Trigger CI benchmarks and wait
 # - Phase 5: Create and merge pre-release PR
 # - Phase 6: Generate release notes
@@ -44,6 +45,51 @@ fi
 
 echo "=== Prepare Release $VERSION ==="
 echo "Branch: $BRANCH"
+echo ""
+
+# Strip leading 'v' for semver-only contexts (plugin.json, marketplace.json).
+SEMVER="${VERSION#v}"
+
+# =============================================================================
+# Phase 3.5: Sync Plugin Version
+# =============================================================================
+
+echo "=== Phase 3.5: Sync Plugin Version ==="
+
+PLUGIN_JSON="plugin/.claude-plugin/plugin.json"
+MARKETPLACE_JSON=".claude-plugin/marketplace.json"
+
+echo "Step 3.5.1: Updating plugin version to $SEMVER..."
+if [[ -f "$PLUGIN_JSON" ]]; then
+    # Use a temp file for portable in-place editing (jq has no -i flag).
+    jq --arg v "$SEMVER" '.version = $v' "$PLUGIN_JSON" > "${PLUGIN_JSON}.tmp" \
+        && mv "${PLUGIN_JSON}.tmp" "$PLUGIN_JSON"
+    echo "  ✓ $PLUGIN_JSON → $SEMVER"
+else
+    echo "  Warning: $PLUGIN_JSON not found, skipping"
+fi
+
+echo "Step 3.5.2: Updating marketplace version to $SEMVER..."
+if [[ -f "$MARKETPLACE_JSON" ]]; then
+    jq --arg v "$SEMVER" '.plugins[0].version = $v' "$MARKETPLACE_JSON" > "${MARKETPLACE_JSON}.tmp" \
+        && mv "${MARKETPLACE_JSON}.tmp" "$MARKETPLACE_JSON"
+    echo "  ✓ $MARKETPLACE_JSON → $SEMVER"
+else
+    echo "  Warning: $MARKETPLACE_JSON not found, skipping"
+fi
+
+# Commit version bump if there are changes.
+VERSION_FILES=()
+[[ -f "$PLUGIN_JSON" ]] && VERSION_FILES+=("$PLUGIN_JSON")
+[[ -f "$MARKETPLACE_JSON" ]] && VERSION_FILES+=("$MARKETPLACE_JSON")
+
+if [[ ${#VERSION_FILES[@]} -gt 0 ]] && ! git diff --quiet "${VERSION_FILES[@]}"; then
+    git add "${VERSION_FILES[@]}"
+    git commit -m "chore: bump plugin version to $SEMVER"
+    echo "  ✓ Version bump committed"
+else
+    echo "  Versions already at $SEMVER, no commit needed"
+fi
 echo ""
 
 # =============================================================================
