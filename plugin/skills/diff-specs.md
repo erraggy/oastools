@@ -7,6 +7,8 @@ description: Compare two OpenAPI spec versions, highlight breaking changes, and 
 
 ## Step 1: Compare the specs
 
+> ⚠️ **Note:** The `diff` tool is designed for comparing **versions of the same API** (e.g., v1.2 vs v1.3). Diffing unrelated APIs (e.g., Stripe vs GitHub) will produce thousands of changes that aren't meaningful. If the user wants to compare different APIs, suggest exploring each one separately with the `explore-api` workflow.
+
 Call the `diff` tool with both spec versions:
 
 ```json
@@ -27,6 +29,20 @@ To focus only on breaking changes:
 ```
 
 ## Step 2: Categorize changes
+
+### Paginating large diffs
+
+Results are paginated (default limit: 100). When `returned < total_changes`, there are more changes:
+
+```json
+{
+  "base": {"file": "<old-version-path>"},
+  "revision": {"file": "<new-version-path>"},
+  "offset": 100, "limit": 100
+}
+```
+
+⚠️ **Strategy for large diffs:** Start with `breaking_only: true` to see all breaking changes first — these are usually the most important and fewest. Then page through the full diff only if the user needs the complete picture. The `total_changes`, `breaking_count`, `warning_count`, and `info_count` fields always reflect the full result, even when paginated.
 
 Present the diff results organized by severity:
 

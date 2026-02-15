@@ -292,3 +292,30 @@ func TestWalkOperations_InvalidSpec(t *testing.T) {
 	require.NotNil(t, result)
 	assert.True(t, result.IsError)
 }
+
+func TestWalkOperations_Offset(t *testing.T) {
+	input := walkOperationsInput{
+		Spec:   specInput{Content: walkOperationsTestSpec},
+		Offset: 2,
+	}
+	_, output := callWalkOperations(t, input)
+
+	assert.Equal(t, 5, output.Total)
+	assert.Equal(t, 5, output.Matched)
+	assert.Equal(t, 3, output.Returned)
+	assert.Len(t, output.Summaries, 3)
+}
+
+func TestWalkOperations_OffsetAndLimit(t *testing.T) {
+	input := walkOperationsInput{
+		Spec:   specInput{Content: walkOperationsTestSpec},
+		Offset: 1,
+		Limit:  2,
+	}
+	_, output := callWalkOperations(t, input)
+
+	assert.Equal(t, 5, output.Total)
+	assert.Equal(t, 5, output.Matched)
+	assert.Equal(t, 2, output.Returned)
+	assert.Len(t, output.Summaries, 2)
+}

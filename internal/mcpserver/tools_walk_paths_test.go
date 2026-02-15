@@ -168,6 +168,33 @@ func TestWalkPaths_NoMatches(t *testing.T) {
 	assert.Nil(t, output.Summaries)
 }
 
+func TestWalkPaths_Offset(t *testing.T) {
+	input := walkPathsInput{
+		Spec:   specInput{Content: walkPathsTestSpec},
+		Offset: 1,
+	}
+	_, output := callWalkPaths(t, input)
+
+	assert.Equal(t, 3, output.Total)
+	assert.Equal(t, 3, output.Matched)
+	assert.Equal(t, 2, output.Returned)
+	assert.Len(t, output.Summaries, 2)
+}
+
+func TestWalkPaths_OffsetAndLimit(t *testing.T) {
+	input := walkPathsInput{
+		Spec:   specInput{Content: walkPathsTestSpec},
+		Offset: 1,
+		Limit:  1,
+	}
+	_, output := callWalkPaths(t, input)
+
+	assert.Equal(t, 3, output.Total)
+	assert.Equal(t, 3, output.Matched)
+	assert.Equal(t, 1, output.Returned)
+	assert.Len(t, output.Summaries, 1)
+}
+
 func TestWalkPaths_FilterByExtension(t *testing.T) {
 	spec := `openapi: "3.0.0"
 info:

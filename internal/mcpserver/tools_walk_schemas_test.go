@@ -257,3 +257,30 @@ func TestWalkSchemas_InvalidSpec(t *testing.T) {
 	require.NotNil(t, result)
 	assert.True(t, result.IsError)
 }
+
+func TestWalkSchemas_Offset(t *testing.T) {
+	input := walkSchemasInput{
+		Spec:      specInput{Content: walkSchemasTestSpec},
+		Component: true,
+		Offset:    3,
+	}
+	_, output := callWalkSchemas(t, input)
+
+	assert.Equal(t, 8, output.Matched)
+	assert.Equal(t, 5, output.Returned)
+	assert.Len(t, output.Summaries, 5)
+}
+
+func TestWalkSchemas_OffsetAndLimit(t *testing.T) {
+	input := walkSchemasInput{
+		Spec:      specInput{Content: walkSchemasTestSpec},
+		Component: true,
+		Offset:    3,
+		Limit:     2,
+	}
+	_, output := callWalkSchemas(t, input)
+
+	assert.Equal(t, 8, output.Matched)
+	assert.Equal(t, 2, output.Returned)
+	assert.Len(t, output.Summaries, 2)
+}

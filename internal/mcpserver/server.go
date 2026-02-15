@@ -97,6 +97,22 @@ func registerAllTools(server *mcp.Server) {
 	}, handleWalkPaths)
 }
 
+// paginate applies offset/limit pagination to a slice, returning the
+// requested page. A non-positive limit defaults to defaultWalkLimit.
+func paginate[T any](items []T, offset, limit int) []T {
+	if limit <= 0 {
+		limit = defaultWalkLimit
+	}
+	if offset < 0 || offset >= len(items) {
+		return nil
+	}
+	end := offset + limit
+	if end < offset || end > len(items) { // overflow or beyond slice
+		end = len(items)
+	}
+	return items[offset:end]
+}
+
 // makeSlice returns nil when n is 0 (preserving omitempty JSON semantics),
 // otherwise returns make([]T, 0, n) for pre-allocated appending.
 func makeSlice[T any](n int) []T {

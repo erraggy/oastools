@@ -18,6 +18,8 @@ type fixInput struct {
 	StubMissingRefs          bool      `json:"stub_missing_refs,omitempty"           jsonschema:"Create stub schemas for missing $ref targets"`
 	DryRun                   bool      `json:"dry_run,omitempty"                     jsonschema:"Preview fixes without applying them"`
 	IncludeDocument          bool      `json:"include_document,omitempty"            jsonschema:"Include the full corrected document in output"`
+	Offset                   int       `json:"offset,omitempty"                     jsonschema:"Skip the first N fixes (for pagination)"`
+	Limit                    int       `json:"limit,omitempty"                      jsonschema:"Maximum number of fixes to return (default 100)"`
 }
 
 type fixApplied struct {
@@ -28,6 +30,7 @@ type fixApplied struct {
 
 type fixOutput struct {
 	FixCount int          `json:"fix_count"`
+	Returned int          `json:"returned"`
 	Fixes    []fixApplied `json:"fixes,omitempty"`
 	Version  string       `json:"version"`
 	Document string       `json:"document,omitempty"`
@@ -57,6 +60,9 @@ func handleFix(_ context.Context, _ *mcp.CallToolRequest, input fixInput) (*mcp.
 			Description: f.Description,
 		})
 	}
+
+	output.Fixes = paginate(output.Fixes, input.Offset, input.Limit)
+	output.Returned = len(output.Fixes)
 
 	if input.IncludeDocument && !input.DryRun {
 		pr := result.ToParseResult()

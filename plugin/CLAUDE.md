@@ -29,8 +29,13 @@ Special cases:
 2. **Explore before modifying.** Use `parse` for a high-level overview and `walk_*` tools to drill into specific parts before running `fix` or `convert`.
 3. **Validate after changes.** Always run `validate` after `fix`, `convert`, or `overlay_apply` to confirm the result is valid.
 4. **Use `dry_run` for fix.** Preview what the `fix` tool will change before applying.
-5. **Filter walk results.** Walk tools support filters (method, path, tag, status, name, type) and return summaries by default. Use `detail: true` only when you need full objects.
+5. 🔍 **Filter before paging.** All walk tools and `validate`, `fix`, `diff` support filters that reduce result size more effectively than pagination. Key filters:
+   - `walk_*`: `tag`, `method`, `path`, `status`, `name`, `type`, `component` (schemas only)
+   - `validate`: `no_warnings: true` — suppresses warnings for error-focused triage
+   - `diff`: `breaking_only: true` — shows only breaking changes (usually fewest and most important)
+   - Use `detail: true` only after filtering to specific items — full objects can be very large
 6. **Check breaking changes.** When diffing specs, use `breaking_only: true` to focus on changes that will break API consumers.
+7. 📄 **Page through large results.** Tools that return arrays (`validate`, `fix`, `diff`, `walk_*`) support `offset` and `limit` params (default limit: 100). When `returned` is less than the total count, use `offset` to page through. Prefer filtering over paging when possible.
 
 ## Common Workflows
 
@@ -50,3 +55,10 @@ Special cases:
 1. `diff` with both specs to see all changes
 2. Review breaking changes and their severity
 3. Use `walk_operations` on the revision to understand new/modified endpoints
+
+**Explore a large API (100+ operations):**
+1. 📊 `parse` to get counts and tag list
+2. 🏷️ `walk_operations` with `tag` filter — work through one tag at a time
+3. 📋 `walk_schemas` with `component: true` — named schemas only (skip inline)
+4. 🔍 Drill into specifics with `operation_id` or `path` + `detail: true`
+5. ✅ Use `validate` with `no_warnings: true` for error-focused triage

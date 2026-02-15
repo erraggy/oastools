@@ -30,6 +30,16 @@ Show the user a clear summary of planned fixes:
 - Number of fixes that will be applied
 - For each fix: what it changes, where (JSON path), and why
 
+### Paginating large fix lists
+
+Results are paginated (default limit: 100). When `returned < fix_count`, there are more fixes:
+
+```json
+{"spec": {"file": "<path>"}, "dry_run": true, "offset": 100, "limit": 100}
+```
+
+✅ Page through all fixes so the user gets a complete picture before confirming. Group fixes by type for readability (e.g., "842 missing path parameters, 12 duplicate operationIds").
+
 Ask the user to confirm before proceeding. If they want to exclude certain fixes, adjust the flags accordingly.
 
 ## Step 3: Apply fixes
