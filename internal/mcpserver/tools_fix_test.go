@@ -254,6 +254,18 @@ func TestFixTool_OutputFile_WithIncludeDocument(t *testing.T) {
 	assert.Equal(t, output.Document, string(data))
 }
 
+func TestFixTool_OutputFile_InvalidPath(t *testing.T) {
+	input := fixInput{
+		Spec:   specInput{Content: specWithMissingPathParam},
+		Output: filepath.Join(t.TempDir(), "no-such-dir", "nested", "fixed.yaml"),
+	}
+	result, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.True(t, result.IsError)
+	assert.Empty(t, output.WrittenTo)
+}
+
 func TestFixTool_OutputFile_DryRun_NoWrite(t *testing.T) {
 	dir := t.TempDir()
 	outPath := filepath.Join(dir, "fixed.yaml")
