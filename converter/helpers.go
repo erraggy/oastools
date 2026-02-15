@@ -162,6 +162,9 @@ func (c *Converter) resolveHeaderRef(ref string, result *ConversionResult, path 
 	if !strings.HasPrefix(ref, prefix) {
 		return nil
 	}
+	if c.sourceHeaders == nil {
+		return nil
+	}
 	name := ref[len(prefix):]
 	header, ok := c.sourceHeaders[name]
 	if !ok {

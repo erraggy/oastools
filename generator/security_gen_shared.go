@@ -76,7 +76,10 @@ func resolveWrapperName(methodName string, schemaTypes map[string]bool) string {
 			return candidate
 		}
 	}
-	return methodName + "Request"
+	// All candidates exhausted — practically unreachable.
+	// Return a novel numeric suffix so generated code fails with a clear compile error
+	// rather than silently reusing a known-colliding name.
+	return fmt.Sprintf("%sRequest%d", methodName, maxAttempts+1)
 }
 
 // buildServerMethodSignature builds an interface method signature for an operation.

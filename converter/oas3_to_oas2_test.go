@@ -752,6 +752,20 @@ func TestConvertOAS3ParameterToOAS2_TypeFallback(t *testing.T) {
 			},
 			expectedType: "string",
 		},
+		{
+			name: "anyOf with concrete type",
+			param: &parser.Parameter{
+				Name: "value",
+				In:   "query",
+				Schema: &parser.Schema{
+					AnyOf: []*parser.Schema{
+						{Type: "number"},
+						{Type: "string"},
+					},
+				},
+			},
+			expectedType: "number",
+		},
 	}
 
 	for _, tt := range tests {

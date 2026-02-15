@@ -2,6 +2,7 @@ package converter
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -282,6 +283,7 @@ func (c *Converter) convertOAS2FormDataToRequestBody(src *parser.Operation, doc 
 			propSchema.Format = "binary"
 		case "array":
 			propSchema.Type = "array"
+			propSchema.Format = param.Format
 			if param.Items != nil {
 				propSchema.Items = convertOAS2ItemsToSchema(param.Items)
 			}
@@ -325,7 +327,7 @@ func (c *Converter) convertOAS2FormDataToRequestBody(src *parser.Operation, doc 
 	} else {
 		consumes := c.getConsumes(src, doc)
 		for _, ct := range consumes {
-			if ct == "multipart/form-data" {
+			if strings.HasPrefix(ct, "multipart/") {
 				contentType = ct
 				break
 			}
