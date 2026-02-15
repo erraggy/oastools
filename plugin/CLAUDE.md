@@ -1,6 +1,6 @@
 # oastools MCP Plugin
 
-You have access to the oastools MCP server, which provides 15 tools for working with OpenAPI Specification (OAS 2.0-3.2) documents.
+You have access to the oastools MCP server, which provides 17 tools for working with OpenAPI Specification (OAS 2.0-3.2) documents.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ If MCP tools are unavailable or returning errors, verify the binary is installed
 
 **Core (9):** `validate`, `parse`, `fix`, `convert`, `diff`, `join`, `overlay_apply`, `overlay_validate`, `generate`
 
-**Walk (6):** `walk_operations`, `walk_schemas`, `walk_parameters`, `walk_responses`, `walk_security`, `walk_paths`
+**Walk (8):** `walk_operations`, `walk_schemas`, `walk_parameters`, `walk_responses`, `walk_headers`, `walk_security`, `walk_paths`, `walk_refs`
 
 ## Input Model
 
@@ -54,6 +54,7 @@ Special cases:
    - Use `detail: true` only after filtering to specific items — full objects can be very large
 6. **Check breaking changes.** When diffing specs, use `breaking_only: true` to focus on changes that will break API consumers.
 7. 📄 **Page through large results.** Tools that return arrays (`validate`, `fix`, `diff`, `walk_*`) support `offset` and `limit` params (default limit: 100). When `returned` is less than the total count, use `offset` to page through. Prefer filtering over paging when possible.
+8. 📊 **Aggregate with `group_by`.** The walk tools (`walk_operations`, `walk_schemas`, `walk_parameters`, `walk_responses`, `walk_headers`) support a `group_by` parameter that returns `{key, count}` groups instead of individual items. Use this for distribution questions ("how many operations per tag?") instead of paging through all results.
 
 ## 💾 Persisting Results
 
@@ -113,7 +114,9 @@ Use a temp directory for intermediate files (e.g., `/tmp/`) and copy the final r
 
 **Explore a large API (100+ operations):**
 1. 📊 `parse` to get counts and tag list
-2. 🏷️ `walk_operations` with `tag` filter — work through one tag at a time
-3. 📋 `walk_schemas` with `component: true` — named schemas only (skip inline)
-4. 🔍 Drill into specifics with `operation_id` or `path` + `detail: true`
-5. ✅ Use `validate` with `no_warnings: true` for error-focused triage
+2. 📊 `walk_operations` with `group_by: "tag"` — operation count per tag at a glance
+3. 🏷️ `walk_operations` with `tag` filter — work through one tag at a time
+4. 📋 `walk_schemas` with `component: true` — named schemas only (skip inline)
+5. 🔗 `walk_refs` to find most-referenced schemas and trace usage patterns
+6. 🔍 Drill into specifics with `operation_id` or `path` + `detail: true`
+7. ✅ Use `validate` with `no_warnings: true` for error-focused triage

@@ -14,7 +14,7 @@ type walkSecurityInput struct {
 	Name        string    `json:"name,omitempty"           jsonschema:"Filter by security scheme name"`
 	Type        string    `json:"type,omitempty"           jsonschema:"Filter by security scheme type (apiKey\\, http\\, oauth2\\, openIdConnect)"`
 	Extension   string    `json:"extension,omitempty"      jsonschema:"Filter by extension key=value (e.g. x-internal=true)"`
-	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers before output"`
+	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers in output. Inlines referenced objects instead of showing $ref strings."`
 	Detail      bool      `json:"detail,omitempty"         jsonschema:"Return full security scheme objects instead of summaries"`
 	Limit       int       `json:"limit,omitempty"          jsonschema:"Maximum number of results to return (default 100)"`
 	Offset      int       `json:"offset,omitempty"         jsonschema:"Skip the first N results (for pagination)"`

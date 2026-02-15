@@ -103,8 +103,8 @@ func TestIntegration_ListTools(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	// We expect 15 tools: 9 core + 6 walk.
-	assert.Len(t, result.Tools, 15, "expected 15 registered tools")
+	// We expect 17 tools: 9 core + 8 walk.
+	assert.Len(t, result.Tools, 17, "expected 17 registered tools")
 
 	// Collect tool names and verify expected ones are present.
 	names := make([]string, 0, len(result.Tools))
@@ -128,6 +128,8 @@ func TestIntegration_ListTools(t *testing.T) {
 		"walk_responses",
 		"walk_security",
 		"walk_paths",
+		"walk_refs",
+		"walk_headers",
 	}
 
 	for _, name := range expectedTools {

@@ -271,6 +271,50 @@ func TestWalkOperations_FilterByExtensionInvalid(t *testing.T) {
 	assert.True(t, result.IsError)
 }
 
+func TestMatchWalkPath_DoubleStarMiddle(t *testing.T) {
+	assert.True(t, matchWalkPath("/drives/{drive-id}/items/{driveItem-id}/workbook/functions/abs", "/drives/**/workbook/**"))
+	assert.True(t, matchWalkPath("/drives/{drive-id}/items/{driveItem-id}/workbook/names/{id}/range()", "/drives/**/workbook/**"))
+}
+
+func TestMatchWalkPath_DoubleStarLeading(t *testing.T) {
+	assert.True(t, matchWalkPath("/users/{id}/posts/{postId}", "/**/posts/*"))
+	assert.True(t, matchWalkPath("/posts/{postId}", "/**/posts/*"))
+}
+
+func TestMatchWalkPath_DoubleStarTrailing(t *testing.T) {
+	assert.True(t, matchWalkPath("/users/{id}", "/users/**"))
+	assert.True(t, matchWalkPath("/users/{id}/posts", "/users/**"))
+	assert.True(t, matchWalkPath("/users", "/users/**"))
+}
+
+func TestMatchWalkPath_DoubleStarMatchesZeroSegments(t *testing.T) {
+	assert.True(t, matchWalkPath("/users/{id}", "/**/users/*"))
+}
+
+func TestMatchWalkPath_DoubleStarNoMatch(t *testing.T) {
+	assert.False(t, matchWalkPath("/pets/{petId}", "/users/**"))
+	assert.False(t, matchWalkPath("/stores", "/users/**/stores"))
+}
+
+func TestMatchWalkPath_SingleStarUnchanged(t *testing.T) {
+	assert.True(t, matchWalkPath("/pets/{petId}", "/pets/*"))
+	assert.False(t, matchWalkPath("/pets/{petId}/toys", "/pets/*"))
+}
+
+func TestMatchWalkPath_ExactMatchUnchanged(t *testing.T) {
+	assert.True(t, matchWalkPath("/pets", "/pets"))
+	assert.False(t, matchWalkPath("/pets", "/stores"))
+}
+
+func TestMatchWalkPath_EmptyPattern(t *testing.T) {
+	assert.True(t, matchWalkPath("/anything", ""))
+}
+
+func TestMatchWalkPath_MixedStars(t *testing.T) {
+	assert.True(t, matchWalkPath("/sites/{id}/termStore/groups/{gid}/sets/{sid}/children/{tid}", "/sites/*/termStore/**"))
+	assert.False(t, matchWalkPath("/sites/{id}/other/groups", "/sites/*/termStore/**"))
+}
+
 func TestWalkOperations_FilterByExactPath(t *testing.T) {
 	input := walkOperationsInput{
 		Spec: specInput{Content: walkOperationsTestSpec},
@@ -318,4 +362,146 @@ func TestWalkOperations_OffsetAndLimit(t *testing.T) {
 	assert.Equal(t, 5, output.Matched)
 	assert.Equal(t, 2, output.Returned)
 	assert.Len(t, output.Summaries, 2)
+}
+
+const walkOperationsDeepPathSpec = `openapi: "3.0.0"
+info:
+  title: Deep Path Test
+  version: "1.0.0"
+paths:
+  /drives/{driveId}/items/{itemId}/workbook/functions/abs:
+    post:
+      operationId: workbook.functions.abs
+      summary: Invoke abs
+      responses:
+        "200":
+          description: OK
+  /drives/{driveId}/items/{itemId}/workbook/worksheets/{wsId}/range:
+    get:
+      operationId: workbook.worksheets.range
+      summary: Get range
+      responses:
+        "200":
+          description: OK
+  /users/{userId}/posts:
+    get:
+      operationId: users.listPosts
+      summary: List posts
+      responses:
+        "200":
+          description: OK
+`
+
+func TestWalkOperations_FilterByPathDoubleStar(t *testing.T) {
+	input := walkOperationsInput{
+		Spec: specInput{Content: walkOperationsDeepPathSpec},
+		Path: "/drives/**/workbook/**",
+	}
+	_, output := callWalkOperations(t, input)
+
+	assert.Equal(t, 3, output.Total)
+	assert.Equal(t, 2, output.Matched)
+	ids := make([]string, 0, len(output.Summaries))
+	for _, s := range output.Summaries {
+		ids = append(ids, s.OperationID)
+	}
+	assert.Contains(t, ids, "workbook.functions.abs")
+	assert.Contains(t, ids, "workbook.worksheets.range")
+}
+
+func TestWalkOperations_FilterByPathDoubleStarTrailing(t *testing.T) {
+	input := walkOperationsInput{
+		Spec: specInput{Content: walkOperationsDeepPathSpec},
+		Path: "/users/**",
+	}
+	_, output := callWalkOperations(t, input)
+
+	assert.Equal(t, 1, output.Matched)
+	require.Len(t, output.Summaries, 1)
+	assert.Equal(t, "users.listPosts", output.Summaries[0].OperationID)
+}
+
+func TestWalkOperations_GroupByTag(t *testing.T) {
+	input := walkOperationsInput{
+		Spec:    specInput{Content: walkOperationsTestSpec},
+		GroupBy: "tag",
+	}
+	_, output := callWalkOperations(t, input)
+
+	assert.Equal(t, 5, output.Total)
+	assert.Equal(t, 5, output.Matched)
+	require.NotEmpty(t, output.Groups)
+	assert.Nil(t, output.Summaries)
+
+	// pets tag has 3 ops (listPets, createPet, getPet), admin has 1 (deletePet), stores has 1.
+	groupMap := make(map[string]int)
+	for _, g := range output.Groups {
+		groupMap[g.Key] = g.Count
+	}
+	assert.Equal(t, 3, groupMap["pets"])
+	assert.Equal(t, 1, groupMap["admin"])
+	assert.Equal(t, 1, groupMap["stores"])
+
+	// Sorted descending by count.
+	assert.Equal(t, "pets", output.Groups[0].Key)
+}
+
+func TestWalkOperations_GroupByMethod(t *testing.T) {
+	input := walkOperationsInput{
+		Spec:    specInput{Content: walkOperationsTestSpec},
+		GroupBy: "method",
+	}
+	_, output := callWalkOperations(t, input)
+
+	assert.Equal(t, 5, output.Total)
+	require.NotEmpty(t, output.Groups)
+	assert.Nil(t, output.Summaries)
+
+	groupMap := make(map[string]int)
+	for _, g := range output.Groups {
+		groupMap[g.Key] = g.Count
+	}
+	assert.Equal(t, 3, groupMap["GET"])
+	assert.Equal(t, 1, groupMap["POST"])
+	assert.Equal(t, 1, groupMap["DELETE"])
+}
+
+func TestWalkOperations_GroupByWithFilter(t *testing.T) {
+	// group_by=method, filtered to tag=pets: should show method distribution within pets tag.
+	input := walkOperationsInput{
+		Spec:    specInput{Content: walkOperationsTestSpec},
+		Tag:     "pets",
+		GroupBy: "method",
+	}
+	_, output := callWalkOperations(t, input)
+
+	assert.Equal(t, 5, output.Total)
+	assert.Equal(t, 3, output.Matched) // 3 pets-tagged ops
+	groupMap := make(map[string]int)
+	for _, g := range output.Groups {
+		groupMap[g.Key] = g.Count
+	}
+	assert.Equal(t, 2, groupMap["GET"])  // listPets + getPet
+	assert.Equal(t, 1, groupMap["POST"]) // createPet
+}
+
+func TestWalkOperations_GroupByAndDetailError(t *testing.T) {
+	input := walkOperationsInput{
+		Spec:    specInput{Content: walkOperationsTestSpec},
+		GroupBy: "tag",
+		Detail:  true,
+	}
+	result, _ := callWalkOperations(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+}
+
+func TestWalkOperations_GroupByInvalid(t *testing.T) {
+	input := walkOperationsInput{
+		Spec:    specInput{Content: walkOperationsTestSpec},
+		GroupBy: "invalid",
+	}
+	result, _ := callWalkOperations(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
 }

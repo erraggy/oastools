@@ -10,9 +10,9 @@ import (
 
 type walkPathsInput struct {
 	Spec        specInput `json:"spec"                     jsonschema:"The OAS document to walk"`
-	Path        string    `json:"path,omitempty"           jsonschema:"Filter by path pattern (supports * glob)"`
+	Path        string    `json:"path,omitempty"           jsonschema:"Filter by path pattern (* = one segment\\, ** = zero or more segments\\, e.g. /users/* or /drives/**/workbook/**)"`
 	Extension   string    `json:"extension,omitempty"      jsonschema:"Filter by extension key=value (e.g. x-internal=true)"`
-	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers before output"`
+	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers in output. Inlines referenced objects instead of showing $ref strings."`
 	Detail      bool      `json:"detail,omitempty"         jsonschema:"Return full path item objects instead of summaries"`
 	Limit       int       `json:"limit,omitempty"          jsonschema:"Maximum number of results to return (default 100)"`
 	Offset      int       `json:"offset,omitempty"         jsonschema:"Skip the first N results (for pagination)"`

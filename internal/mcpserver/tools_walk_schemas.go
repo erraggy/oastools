@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/erraggy/oastools/parser"
@@ -12,13 +13,14 @@ import (
 
 type walkSchemasInput struct {
 	Spec        specInput `json:"spec"                     jsonschema:"The OAS document to walk"`
-	Name        string    `json:"name,omitempty"           jsonschema:"Filter by schema name"`
+	Name        string    `json:"name,omitempty"           jsonschema:"Filter by schema name (exact match\\, or glob with * and ? for pattern matching\\, e.g. *workbook* or microsoft.graph.*)"`
 	Type        string    `json:"type,omitempty"           jsonschema:"Filter by schema type (object\\, array\\, string\\, integer\\, etc.)"`
-	Component   bool      `json:"component,omitempty"      jsonschema:"Only show component schemas"`
-	Inline      bool      `json:"inline,omitempty"         jsonschema:"Only show inline schemas"`
+	Component   bool      `json:"component,omitempty"      jsonschema:"Only show component schemas (defined in components/schemas or definitions). Mutually exclusive with inline."`
+	Inline      bool      `json:"inline,omitempty"         jsonschema:"Only show inline schemas (embedded in operations\\, not in components). Mutually exclusive with component."`
 	Extension   string    `json:"extension,omitempty"      jsonschema:"Filter by extension key=value (e.g. x-internal=true)"`
-	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers"`
-	Detail      bool      `json:"detail,omitempty"         jsonschema:"Return full schema objects"`
+	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers in output. Inlines referenced objects instead of showing $ref strings."`
+	Detail      bool      `json:"detail,omitempty"         jsonschema:"Return full schema objects. WARNING: produces large output without name/type filters on big specs."`
+	GroupBy     string    `json:"group_by,omitempty"       jsonschema:"Group results and return counts instead of individual items. Values: type\\, location"`
 	Limit       int       `json:"limit,omitempty"          jsonschema:"Maximum results (default 100)"`
 	Offset      int       `json:"offset,omitempty"         jsonschema:"Skip the first N results (for pagination)"`
 }
@@ -44,11 +46,16 @@ type walkSchemasOutput struct {
 	Returned  int             `json:"returned"`
 	Summaries []schemaSummary `json:"summaries,omitempty"`
 	Schemas   []schemaDetail  `json:"schemas,omitempty"`
+	Groups    []groupCount    `json:"groups,omitempty"`
 }
 
 func handleWalkSchemas(_ context.Context, _ *mcp.CallToolRequest, input walkSchemasInput) (*mcp.CallToolResult, any, error) {
 	if input.Component && input.Inline {
 		return errResult(fmt.Errorf("cannot use both component and inline filters")), nil, nil
+	}
+
+	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"type", "location"}); err != nil {
+		return errResult(err), nil, nil
 	}
 
 	var extraOpts []parser.Option
@@ -78,6 +85,32 @@ func handleWalkSchemas(_ context.Context, _ *mcp.CallToolRequest, input walkSche
 	filtered, err := filterWalkSchemas(schemas, input)
 	if err != nil {
 		return errResult(err), nil, nil
+	}
+
+	// group_by: aggregate matched schemas and return counts.
+	if input.GroupBy != "" {
+		groups := groupAndSort(filtered, func(info *walker.SchemaInfo) []string {
+			switch strings.ToLower(input.GroupBy) {
+			case "type":
+				t := schemaTypeString(info.Schema.Type)
+				if t == "" {
+					return []string{""}
+				}
+				return []string{t}
+			case "location":
+				return []string{schemaLocation(info.IsComponent)}
+			default:
+				return nil
+			}
+		})
+		paged := paginate(groups, input.Offset, input.Limit)
+		output := walkSchemasOutput{
+			Total:    len(collector.All),
+			Matched:  len(filtered),
+			Returned: len(paged),
+			Groups:   paged,
+		}
+		return nil, output, nil
 	}
 
 	// Apply offset/limit pagination.
@@ -117,6 +150,10 @@ func handleWalkSchemas(_ context.Context, _ *mcp.CallToolRequest, input walkSche
 
 // filterWalkSchemas applies name, type, and extension filters.
 func filterWalkSchemas(schemas []*walker.SchemaInfo, input walkSchemasInput) ([]*walker.SchemaInfo, error) {
+	if err := validateGlobPattern(input.Name); err != nil {
+		return nil, err
+	}
+
 	var extKey, extValue string
 	var hasExtFilter bool
 	if input.Extension != "" {
@@ -131,7 +168,7 @@ func filterWalkSchemas(schemas []*walker.SchemaInfo, input walkSchemasInput) ([]
 
 	var filtered []*walker.SchemaInfo
 	for _, info := range schemas {
-		if input.Name != "" && !strings.EqualFold(info.Name, input.Name) {
+		if input.Name != "" && !matchGlobName(info.Name, input.Name) {
 			continue
 		}
 		if input.Type != "" && !schemaTypeMatches(info.Schema.Type, input.Type) {
@@ -204,4 +241,15 @@ func schemaLocation(isComponent bool) string {
 		return "component"
 	}
 	return "inline"
+}
+
+// matchGlobName matches a name against a pattern. If the pattern contains
+// glob characters (* or ?), it uses case-insensitive filepath.Match.
+// Otherwise, it falls back to case-insensitive exact match.
+func matchGlobName(name, pattern string) bool {
+	if strings.ContainsAny(pattern, "*?") {
+		matched, err := filepath.Match(strings.ToLower(pattern), strings.ToLower(name))
+		return err == nil && matched
+	}
+	return strings.EqualFold(name, pattern)
 }

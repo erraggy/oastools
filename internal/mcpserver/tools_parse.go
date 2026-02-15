@@ -10,7 +10,7 @@ import (
 type parseInput struct {
 	Spec        specInput `json:"spec"                     jsonschema:"The OAS document to parse"`
 	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers before returning"`
-	Full        bool      `json:"full,omitempty"           jsonschema:"Return full parsed document instead of summary"`
+	Full        bool      `json:"full,omitempty"           jsonschema:"Return full parsed document instead of summary. WARNING: produces very large output for big specs — prefer walk_* tools instead."`
 }
 
 type parseSummaryServer struct {

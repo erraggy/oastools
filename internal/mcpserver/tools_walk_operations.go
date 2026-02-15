@@ -14,13 +14,14 @@ import (
 type walkOperationsInput struct {
 	Spec        specInput `json:"spec"                       jsonschema:"The OAS document to walk"`
 	Method      string    `json:"method,omitempty"           jsonschema:"Filter by HTTP method (get\\, post\\, put\\, delete\\, patch\\, etc.)"`
-	Path        string    `json:"path,omitempty"             jsonschema:"Filter by path pattern (supports * glob)"`
-	Tag         string    `json:"tag,omitempty"              jsonschema:"Filter by tag name"`
+	Path        string    `json:"path,omitempty"             jsonschema:"Filter by path pattern (* = one segment\\, ** = zero or more segments\\, e.g. /users/* or /drives/**/workbook/**)"`
+	Tag         string    `json:"tag,omitempty"              jsonschema:"Filter by tag name (exact match\\, case-sensitive)"`
 	Deprecated  bool      `json:"deprecated,omitempty"       jsonschema:"Only show deprecated operations"`
-	OperationID string    `json:"operation_id,omitempty"     jsonschema:"Select by operationId"`
+	OperationID string    `json:"operation_id,omitempty"     jsonschema:"Select a single operation by operationId (exact match)"`
 	Extension   string    `json:"extension,omitempty"        jsonschema:"Filter by extension key=value (e.g. x-internal=true)"`
-	ResolveRefs bool      `json:"resolve_refs,omitempty"     jsonschema:"Resolve $ref pointers before output"`
+	ResolveRefs bool      `json:"resolve_refs,omitempty"     jsonschema:"Resolve $ref pointers in output. Inlines referenced objects instead of showing $ref strings."`
 	Detail      bool      `json:"detail,omitempty"           jsonschema:"Return full operation objects instead of summaries"`
+	GroupBy     string    `json:"group_by,omitempty"         jsonschema:"Group results and return counts instead of individual items. Values: tag\\, method. Note: group_by=tag excludes untagged operations and counts multi-tagged operations once per tag."`
 	Limit       int       `json:"limit,omitempty"            jsonschema:"Maximum number of results to return (default 100)"`
 	Offset      int       `json:"offset,omitempty"           jsonschema:"Skip the first N results (for pagination)"`
 }
@@ -46,6 +47,7 @@ type walkOperationsOutput struct {
 	Returned   int                `json:"returned"`
 	Summaries  []operationSummary `json:"summaries,omitempty"`
 	Operations []operationDetail  `json:"operations,omitempty"`
+	Groups     []groupCount       `json:"groups,omitempty"`
 }
 
 const defaultWalkLimit = 100
@@ -61,6 +63,10 @@ func handleWalkOperations(_ context.Context, _ *mcp.CallToolRequest, input walkO
 		return errResult(err), nil, nil
 	}
 
+	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"tag", "method"}); err != nil {
+		return errResult(err), nil, nil
+	}
+
 	collector, err := walker.CollectOperations(result)
 	if err != nil {
 		return errResult(err), nil, nil
@@ -70,6 +76,31 @@ func handleWalkOperations(_ context.Context, _ *mcp.CallToolRequest, input walkO
 	matched, err := filterWalkOperations(collector.All, input)
 	if err != nil {
 		return errResult(err), nil, nil
+	}
+
+	// group_by: aggregate matched operations and return counts.
+	if input.GroupBy != "" {
+		groups := groupAndSort(matched, func(op *walker.OperationInfo) []string {
+			switch strings.ToLower(input.GroupBy) {
+			case "tag":
+				if len(op.Operation.Tags) == 0 {
+					return nil
+				}
+				return op.Operation.Tags
+			case "method":
+				return []string{strings.ToUpper(op.Method)}
+			default:
+				return nil
+			}
+		})
+		paged := paginate(groups, input.Offset, input.Limit)
+		output := walkOperationsOutput{
+			Total:    len(collector.All),
+			Matched:  len(matched),
+			Returned: len(paged),
+			Groups:   paged,
+		}
+		return nil, output, nil
 	}
 
 	// Apply offset/limit pagination.
@@ -148,28 +179,48 @@ func filterWalkOperations(ops []*walker.OperationInfo, input walkOperationsInput
 }
 
 // matchWalkPath checks if a path template matches a pattern.
-// Supports simple glob matching where * matches exactly one path segment.
+// Supports glob matching: * matches one path segment, ** matches zero or more segments.
 func matchWalkPath(pathTemplate, pattern string) bool {
 	if pattern == "" {
 		return true
 	}
-	if strings.Contains(pattern, "*") {
-		patternParts := strings.Split(pattern, "/")
-		pathParts := strings.Split(pathTemplate, "/")
-		if len(patternParts) != len(pathParts) {
+	patternParts := strings.Split(pattern, "/")
+	pathParts := strings.Split(pathTemplate, "/")
+	return matchPathParts(pathParts, patternParts)
+}
+
+// matchPathParts recursively matches path segments against pattern segments.
+// * matches exactly one segment, ** matches zero or more segments.
+func matchPathParts(path, pattern []string) bool {
+	for len(pattern) > 0 {
+		seg := pattern[0]
+		pattern = pattern[1:]
+
+		if seg == "**" {
+			// If ** is the last pattern segment, it matches everything remaining.
+			if len(pattern) == 0 {
+				return true
+			}
+			// Try matching the rest of the pattern at every possible position.
+			for i := range len(path) + 1 {
+				if matchPathParts(path[i:], pattern) {
+					return true
+				}
+			}
 			return false
 		}
-		for i, pp := range patternParts {
-			if pp == "*" {
-				continue
-			}
-			if pp != pathParts[i] {
-				return false
-			}
+
+		if len(path) == 0 {
+			return false
 		}
-		return true
+
+		if seg != "*" && seg != path[0] {
+			return false
+		}
+
+		path = path[1:]
 	}
-	return pathTemplate == pattern
+	return len(path) == 0
 }
 
 // parseExtensionKeyValue parses a simple "key=value" extension filter.

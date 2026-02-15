@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -164,6 +165,70 @@ func TestWalkSchemas_FilterByName(t *testing.T) {
 	assert.Equal(t, []string{"id", "name"}, output.Summaries[0].Required)
 }
 
+func TestWalkSchemas_FilterByNameGlob(t *testing.T) {
+	input := walkSchemasInput{
+		Spec: specInput{Content: walkSchemasTestSpec},
+		Name: "*et*",
+	}
+	_, output := callWalkSchemas(t, input)
+
+	// Should match "Pet" (case-insensitive glob).
+	assert.Equal(t, 1, output.Matched)
+	require.Len(t, output.Summaries, 1)
+	assert.Equal(t, "Pet", output.Summaries[0].Name)
+}
+
+func TestWalkSchemas_FilterByNameGlobStar(t *testing.T) {
+	input := walkSchemasInput{
+		Spec:      specInput{Content: walkSchemasTestSpec},
+		Name:      "*",
+		Component: true,
+	}
+	_, output := callWalkSchemas(t, input)
+
+	// Glob * matches all names — should return all component schemas.
+	assert.Equal(t, 8, output.Matched)
+}
+
+func TestWalkSchemas_FilterByNameGlobPrefix(t *testing.T) {
+	input := walkSchemasInput{
+		Spec:      specInput{Content: walkSchemasTestSpec},
+		Name:      "P*",
+		Component: true,
+	}
+	_, output := callWalkSchemas(t, input)
+
+	// Should match "Pet" only (not "Error" or "Tag").
+	assert.GreaterOrEqual(t, output.Matched, 1)
+	for _, s := range output.Summaries {
+		assert.True(t, strings.HasPrefix(strings.ToLower(s.Name), "p"),
+			"expected name starting with P, got %q", s.Name)
+	}
+}
+
+func TestWalkSchemas_FilterByNameExactUnchanged(t *testing.T) {
+	// No glob chars → exact match (case-insensitive), unchanged behavior.
+	input := walkSchemasInput{
+		Spec: specInput{Content: walkSchemasTestSpec},
+		Name: "pet",
+	}
+	_, output := callWalkSchemas(t, input)
+
+	assert.Equal(t, 1, output.Matched)
+	require.Len(t, output.Summaries, 1)
+	assert.Equal(t, "Pet", output.Summaries[0].Name)
+}
+
+func TestWalkSchemas_InvalidGlobPattern(t *testing.T) {
+	input := walkSchemasInput{
+		Spec: specInput{Content: walkSchemasTestSpec},
+		Name: "[invalid",
+	}
+	result, _ := callWalkSchemas(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+}
+
 func TestWalkSchemas_DetailMode(t *testing.T) {
 	input := walkSchemasInput{
 		Spec:   specInput{Content: walkSchemasTestSpec},
@@ -283,4 +348,67 @@ func TestWalkSchemas_OffsetAndLimit(t *testing.T) {
 	assert.Equal(t, 8, output.Matched)
 	assert.Equal(t, 2, output.Returned)
 	assert.Len(t, output.Summaries, 2)
+}
+
+func TestWalkSchemas_GroupByType(t *testing.T) {
+	input := walkSchemasInput{
+		Spec:      specInput{Content: walkSchemasTestSpec},
+		Component: true,
+		GroupBy:   "type",
+	}
+	_, output := callWalkSchemas(t, input)
+
+	assert.Equal(t, 8, output.Matched)
+	require.NotEmpty(t, output.Groups)
+	assert.Nil(t, output.Summaries)
+
+	// Pet(object) + Error(object) = 2 object schemas, Tag(string) = 1 string schema,
+	// plus property schemas: id(integer)*2, name(string)*1, tag(string)*1,
+	// code(integer)*1, message(string)*1. Total: object=2, string=3, integer=3
+	groupMap := make(map[string]int)
+	for _, g := range output.Groups {
+		groupMap[g.Key] = g.Count
+	}
+	assert.Greater(t, groupMap["object"], 0)
+	assert.Greater(t, groupMap["string"], 0)
+	assert.Greater(t, groupMap["integer"], 0)
+}
+
+func TestWalkSchemas_GroupByLocation(t *testing.T) {
+	input := walkSchemasInput{
+		Spec:    specInput{Content: walkSchemasTestSpec},
+		GroupBy: "location",
+	}
+	_, output := callWalkSchemas(t, input)
+
+	require.NotEmpty(t, output.Groups)
+	assert.Nil(t, output.Summaries)
+
+	groupMap := make(map[string]int)
+	for _, g := range output.Groups {
+		groupMap[g.Key] = g.Count
+	}
+	assert.Greater(t, groupMap["component"], 0)
+	assert.Greater(t, groupMap["inline"], 0)
+}
+
+func TestWalkSchemas_GroupByAndDetailError(t *testing.T) {
+	input := walkSchemasInput{
+		Spec:    specInput{Content: walkSchemasTestSpec},
+		GroupBy: "type",
+		Detail:  true,
+	}
+	result, _ := callWalkSchemas(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+}
+
+func TestWalkSchemas_GroupByInvalid(t *testing.T) {
+	input := walkSchemasInput{
+		Spec:    specInput{Content: walkSchemasTestSpec},
+		GroupBy: "invalid",
+	}
+	result, _ := callWalkSchemas(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
 }
