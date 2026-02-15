@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# prepare-release.sh - Phases 4-6 of release preparation
+# prepare-release.sh - Phases 3.5-6 of release preparation
 #
 # This script handles the deterministic steps of release preparation:
+# - Phase 3.5: Sync plugin version in plugin.json and marketplace.json
 # - Phase 4: Trigger CI benchmarks and wait
 # - Phase 5: Create and merge pre-release PR
 # - Phase 6: Generate release notes
@@ -60,7 +61,7 @@ MARKETPLACE_JSON=".claude-plugin/marketplace.json"
 
 echo "Step 3.5.1: Updating plugin version to $SEMVER..."
 if [[ -f "$PLUGIN_JSON" ]]; then
-    # Use a temp file for portable sed -i behavior (macOS vs Linux).
+    # Use a temp file for portable in-place editing (jq has no -i flag).
     jq --arg v "$SEMVER" '.version = $v' "$PLUGIN_JSON" > "${PLUGIN_JSON}.tmp" \
         && mv "${PLUGIN_JSON}.tmp" "$PLUGIN_JSON"
     echo "  ✓ $PLUGIN_JSON → $SEMVER"
@@ -78,8 +79,12 @@ else
 fi
 
 # Commit version bump if there are changes.
-if ! git diff --quiet "$PLUGIN_JSON" "$MARKETPLACE_JSON" 2>/dev/null; then
-    git add "$PLUGIN_JSON" "$MARKETPLACE_JSON"
+VERSION_FILES=()
+[[ -f "$PLUGIN_JSON" ]] && VERSION_FILES+=("$PLUGIN_JSON")
+[[ -f "$MARKETPLACE_JSON" ]] && VERSION_FILES+=("$MARKETPLACE_JSON")
+
+if [[ ${#VERSION_FILES[@]} -gt 0 ]] && ! git diff --quiet "${VERSION_FILES[@]}"; then
+    git add "${VERSION_FILES[@]}"
     git commit -m "chore: bump plugin version to $SEMVER"
     echo "  ✓ Version bump committed"
 else
