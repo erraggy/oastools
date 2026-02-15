@@ -73,6 +73,7 @@ Each handler receives a `WalkContext` (with JSON path via `wc.JSONPath`) and the
 ### Traversal Order
 
 The walker visits nodes in document order (OAS 3.x):
+
 1. Document root (OAS2Document or OAS3Document)
 2. Info object
 3. ExternalDocs (root level)

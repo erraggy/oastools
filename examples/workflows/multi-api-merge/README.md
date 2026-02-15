@@ -96,12 +96,14 @@ Merge completed successfully
 ### Semantic Deduplication
 
 When `SemanticDeduplication: true`, the joiner identifies structurally identical schemas across documents and consolidates them. In this example:
+
 - Both APIs define an `Error` schema with identical structure
 - The joiner recognizes this and keeps a single `Error` schema
 
 ### Merge Arrays
 
 When `MergeArrays: true`:
+
 - `servers` arrays are concatenated
 - `tags` are combined (with deduplication if enabled)
 - `security` requirements are merged

@@ -48,6 +48,7 @@ make corpus-download
 ## Selection Criteria
 
 These specifications were selected based on:
+
 1. **Popularity** - Widely-used APIs with active developer communities
 2. **Size** - Range from minimal (20KB) to massive (15MB)
 3. **Diversity** - Multiple OAS versions, formats, and domains

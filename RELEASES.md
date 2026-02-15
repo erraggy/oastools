@@ -31,6 +31,7 @@ Human pushes tag → Workflow creates draft + uploads assets → Human reviews �
 ### Release Immutability (Already Enabled)
 
 Release immutability is already enabled on this repository. This means:
+
 - **Draft releases** remain fully mutable until published
 - **Published releases** become immutable (assets and tags cannot be modified or deleted)
 - **Release notes** remain editable for the life of the release
@@ -80,6 +81,7 @@ git push origin v1.X.Y
 ```
 
 **What happens:**
+
 - Tag is pushed to GitHub
 - GitHub Actions workflow is triggered automatically
 - Workflow begins building binaries and creating draft release
@@ -95,6 +97,7 @@ gh run watch <RUN_ID>
 ```
 
 The workflow will:
+
 - Build binaries for all platforms (Darwin arm64/x86_64, Linux arm64/i386/x86_64, Windows i386/x86_64)
 - Create a **draft** release on GitHub
 - Upload all binary assets to the draft
@@ -108,6 +111,7 @@ gh release view v1.X.Y --json isDraft,assets --jq '{isDraft, assetCount: (.asset
 ```
 
 **Expected output:**
+
 - `isDraft: true`
 - `assetCount: 8`
 - Assets: checksums.txt + binaries for all platforms
@@ -117,11 +121,13 @@ gh release view v1.X.Y --json isDraft,assets --jq '{isDraft, assetCount: (.asset
 Ask Claude Code to generate release notes based on commits and PRs since the last release.
 
 **Example prompt:**
+
 ```
 Generate release notes for v1.X.Y based on changes since the last release
 ```
 
 Claude Code will:
+
 1. Review git log and merged PRs
 2. Categorize changes (features, bug fixes, improvements, breaking changes)
 3. Generate well-formatted markdown release notes
@@ -152,8 +158,7 @@ gh release edit v1.X.Y --notes "$(cat <<'EOF'
 
 ### Homebrew
 \`\`\`bash
-brew tap erraggy/oastools
-brew install oastools
+brew install erraggy/oastools/oastools
 \`\`\`
 
 ### Go Module
@@ -177,6 +182,7 @@ gh release edit v1.X.Y --draft=false
 ```
 
 **⚠️ Once published:**
+
 - The release becomes **immutable**
 - Assets and tags cannot be modified or deleted
 - Release notes can still be edited
@@ -231,11 +237,13 @@ With immutability enabled, this cannot be fixed without consequences:
 ### GoReleaser Can't Push to homebrew-oastools
 
 **Possible causes:**
+
 - `HOMEBREW_TAP_TOKEN` secret not configured or expired
 - PAT doesn't have `repo` scope
 - Commit author email in `.goreleaser.yaml` doesn't match verified GitHub email
 
 **Solution:**
+
 ```bash
 # Verify secret exists
 gh secret list --repo erraggy/oastools
@@ -247,6 +255,7 @@ gh secret list --repo erraggy/oastools
 ### Build Fails
 
 **Solution:**
+
 - Review GitHub Actions logs: `gh run view --log-failed`
 - Check CGO dependencies
 - Test locally: `make release-test`
@@ -254,6 +263,7 @@ gh secret list --repo erraggy/oastools
 ### Formula Doesn't Work
 
 **Solution:**
+
 - Verify formula was pushed to `erraggy/homebrew-oastools`
 - Test in a clean environment
 - Check formula syntax
@@ -330,6 +340,7 @@ jobs:
 4. Name: `HOMEBREW_TAP_TOKEN`
 
 **Verification:**
+
 ```bash
 gh secret list --repo erraggy/oastools
 ```

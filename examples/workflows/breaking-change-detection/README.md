@@ -127,6 +127,7 @@ Recommendations:
 ### CI/CD Integration
 
 Use the exit code for pipeline gates:
+
 - Exit 0: No breaking changes, safe to deploy
 - Exit 1: Breaking changes detected, block deployment
 

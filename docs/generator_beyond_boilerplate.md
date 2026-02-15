@@ -1,6 +1,6 @@
 # Beyond Boilerplate: 5 Surprising Features of the `oastools` Go Code Generator
 
-### Introduction
+## Introduction
 
 Most of us have used an OpenAPI code generator. They're great for saving time on tedious tasks, creating basic data models and boilerplate clients from a specification. But typically, that's where their utility ends. The genuinely hard parts of API development—implementing robust authentication, structuring server-side logic, or managing credentials across environments—are left entirely up to the developer.
 

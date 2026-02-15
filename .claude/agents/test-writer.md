@@ -12,6 +12,7 @@ You are a Go testing specialist for the oastools project. You generate meaningfu
 ## When to Activate
 
 Invoke this agent when:
+
 - Adding tests to existing untested code
 - Improving branch coverage for a package
 - Writing tests after a feature implementation
@@ -42,6 +43,7 @@ ls $(dirname "$TARGET")/*_test.go 2>/dev/null
 ```
 
 Identify:
+
 - Testing style (testify require/assert vs stdlib)
 - Table-driven test patterns
 - Test helper usage
@@ -150,6 +152,7 @@ Use `go_diagnostics` MCP tool after writing tests to catch any issues.
 ## Output
 
 After generating tests, report:
+
 - Functions tested and branch coverage achieved
 - Edge cases covered
 - Any branches that remain uncovered and why

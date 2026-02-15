@@ -12,6 +12,7 @@ Publish a prepared release to GitHub. This is phase 7 of the release process.
 ## Prerequisites
 
 Before running this skill:
+
 1. Run `/prepare-release <version>` to complete phases 1-6
 2. Verify prepared notes exist at `.release/notes-<version>.md`
 3. Review the release notes in that file
@@ -24,6 +25,7 @@ Before running this skill:
 ### Step 1: Validate Version Argument
 
 If no version is provided, **stop and ask the user**:
+
 ```
 Error: Version argument required.
 Usage: /publish-release <version>
@@ -31,6 +33,7 @@ Example: /publish-release v1.46.0
 ```
 
 If the version doesn't match the `vX.Y.Z` pattern, reject it:
+
 ```
 Error: Version must match vX.Y.Z pattern (e.g., v1.46.0)
 Got: <invalid-version>
@@ -39,6 +42,7 @@ Got: <invalid-version>
 ### Step 2: Confirm with User
 
 Use the **AskUserQuestion** tool to confirm before proceeding:
+
 ```
 Ready to publish release **<version>**?
 
@@ -60,6 +64,7 @@ From the repository root, run:
 ```
 
 The script handles:
+
 1. Verifies on main branch
 2. Creates and pushes annotated tag
 3. Waits for goreleaser workflow
@@ -71,6 +76,7 @@ The script handles:
 ### Step 4: Report Results
 
 On success, report:
+
 ```
 ✅ Release <version> published successfully!
 

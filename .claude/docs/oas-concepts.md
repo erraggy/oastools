@@ -12,6 +12,7 @@ All OAS versions utilize **JSON Schema Specification Draft 2020-12**: https://ww
 ## OAS Version Evolution
 
 ### OAS 2.0 (Swagger) → OAS 3.0
+
 - **Servers**: `host`, `basePath`, and `schemes` → unified `servers` array with URL templates
 - **Components**: `definitions`, `parameters`, `responses`, `securityDefinitions` → `components.*`
 - **Request Bodies**: `consumes` + body parameter → `requestBody.content` with media types
@@ -20,6 +21,7 @@ All OAS versions utilize **JSON Schema Specification Draft 2020-12**: https://ww
 - **New Features**: Links, callbacks, and more flexible parameter serialization
 
 ### OAS 3.0 → OAS 3.1
+
 - **JSON Schema Alignment**: OAS 3.1 fully aligns with JSON Schema Draft 2020-12
 - **Type Arrays**: `type` can be a string or array (e.g., `type: ["string", "null"]`)
 - **Nullable Handling**: Deprecated `nullable: true` in favor of `type: ["string", "null"]`
@@ -29,25 +31,32 @@ All OAS versions utilize **JSON Schema Specification Draft 2020-12**: https://ww
 ## Version-Specific Features
 
 **OAS 2.0 Only:**
+
 - `allowEmptyValue`, `collectionFormat`, single `host`/`basePath`/`schemes`
 
 **OAS 3.0+ Only:**
+
 - `requestBody`, `callbacks`, `links`, cookie parameters, `servers` array, TRACE method
 
 **OAS 3.1+ Only:**
+
 - `webhooks`, JSON Schema 2020-12 alignment, `type` as array, `license.identifier`
 
 **OAS 3.2+ Only:**
+
 - `$self` (document identity), `Query` method, `additionalOperations`, `components.mediaTypes`
 
 **JSON Schema 2020-12 Keywords (OAS 3.1+):**
+
 - `unevaluatedProperties`, `unevaluatedItems` - strict validation of uncovered properties/items
 - `contentEncoding`, `contentMediaType`, `contentSchema` - encoded content validation
 
 ## Critical Type System Considerations
 
 ### interface{} Fields
+
 Several OAS 3.1+ fields use `interface{}` to support multiple types. Always use type assertions:
+
 ```go
 if typeStr, ok := schema.Type.(string); ok {
     // Handle string type
@@ -57,6 +66,7 @@ if typeStr, ok := schema.Type.(string); ok {
 ```
 
 ### Pointer vs Value Types
+
 - `OAS3Document.Servers` uses `[]*parser.Server` (slice of pointers)
 - Always use `&parser.Server{...}` for pointer semantics
 - This pattern applies to other nested structures to avoid unexpected mutations
@@ -74,14 +84,18 @@ if typeStr, ok := schema.Type.(string); ok {
    - `OASVersion` (parser.OASVersion enum): Our canonical enum for each published spec version
 
 ### OASVersion Constants
+
 See `parser/versions.go`:
+
 - `OASVersion20` - OpenAPI 2.0 (Swagger)
 - `OASVersion300`, `OASVersion301`, `OASVersion302`, `OASVersion303`, `OASVersion304` - OpenAPI 3.0.x
 - `OASVersion310`, `OASVersion311`, `OASVersion312` - OpenAPI 3.1.x
 - `OASVersion320` - OpenAPI 3.2.0
 
 ### ParseResult in Tests
+
 **ALWAYS set both fields when constructing ParseResult:**
+
 ```go
 parseResult := parser.ParseResult{
     Version:    "3.0.0",               // String from document
@@ -89,4 +103,5 @@ parseResult := parser.ParseResult{
     Document:   &parser.OAS3Document{...},
 }
 ```
+
 The validator uses `OASVersion` to determine which validation rules to apply. Setting only `Version` will cause "unsupported OAS version: unknown" errors.

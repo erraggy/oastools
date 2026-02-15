@@ -25,6 +25,7 @@ The [`overlay`](https://pkg.go.dev/github.com/erraggy/oastools/overlay) package 
 Overlays use JSONPath expressions to select specific locations in an OpenAPI document and apply updates or removals. This enables environment-specific customizations, removing internal endpoints for public APIs, or batch-updating descriptions across an entire specification.
 
 **Common use cases:**
+
 - Remove internal/deprecated paths for public documentation
 - Add environment-specific server URLs
 - Update descriptions or metadata in bulk

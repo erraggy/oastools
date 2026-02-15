@@ -72,6 +72,7 @@ Specification is now valid!
 ### Type Inference
 
 The fixer uses naming conventions to infer parameter types:
+
 - `*Id` suffix → `integer` type
 - `*Uuid` suffix → `string` with `uuid` format
 - Other parameters → `string` type (default)
@@ -86,6 +87,7 @@ The fixer uses naming conventions to infer parameter types:
 ### Dry-Run Mode
 
 Use `WithDryRun(true)` to preview what fixes would be applied without modifying the document. This is useful for:
+
 - CI/CD pipelines that need to report issues
 - Interactive tools that want user confirmation
 

@@ -1,0 +1,32 @@
+# markdownlint-cli2 configuration
+# Run: make lint-md
+# Docs: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+config:
+  default: false
+
+  # Structural correctness
+  MD001: true  # heading-increment: no skipping heading levels
+  MD047: true  # single-trailing-newline: files must end with newline
+  MD056: true  # table-column-count: consistent column counts
+
+  # Broken formatting
+  MD037: true  # no-space-in-emphasis: **broken ** emphasis
+  MD049: true  # emphasis-style: consistent * vs _
+  MD050: true  # strong-style: consistent ** vs __
+
+  # Spacing that affects rendering
+  MD022: true  # blanks-around-headings
+  MD031: true  # blanks-around-fences
+  MD032: true  # blanks-around-lists
+  MD058: true  # blanks-around-tables
+
+globs:
+  - "**/*.md"
+  - "!node_modules"
+  - "!vendor"
+  - "!site"
+  - "!docs/packages/**"
+  - "!docs/examples/**"
+  - "!docs/plans/**"
+  - "!benchmarks/**"

@@ -5,12 +5,14 @@
 **Use Go tooling for imports and formatting instead of manual management.**
 
 After editing Go source files:
+
 ```bash
 goimports -w <file>   # Auto-organizes imports and formats
 gofmt -w <file>       # Formats code (goimports includes this)
 ```
 
 `goimports` automatically:
+
 - Adds missing imports
 - Removes unused imports
 - Groups imports (stdlib, external, internal)
@@ -25,9 +27,11 @@ When refactoring, don't manually adjust import blocks - run `goimports` and let 
 The gopls MCP server (`go_diagnostics` tool) provides invaluable code quality feedback. **Even "hint" level suggestions can have significant performance impact.**
 
 ### Proven Impact
+
 In v1.22.2, addressing gopls hints (unnecessary type conversions, redundant nil checks, modern Go idioms) resulted in **5-15% performance improvements** across most packages. These weren't errors or warnings—they were hints that had been ignored for some time.
 
 ### Workflow
+
 1. After modifying Go files, run `go_diagnostics` with the file paths
 2. Address **all** severity levels: errors, warnings, **and hints**
 3. Hints suggest modern Go idioms and stdlib usage that improve both readability and performance
@@ -45,6 +49,7 @@ In v1.22.2, addressing gopls hints (unnecessary type conversions, redundant nil 
 ## Running Diagnostics
 
 Via gopls MCP:
+
 ```
 go_diagnostics with file paths
 ```

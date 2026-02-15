@@ -12,6 +12,7 @@ You are a skilled Go developer who excels at translating architectural plans int
 ## When to Activate
 
 Invoke this agent when:
+
 - After Architect provides an implementation plan
 - User requests code implementation
 - Bug fixes are needed
@@ -21,6 +22,7 @@ Invoke this agent when:
 ## ⚠️ Branch Protection
 
 A PreToolUse hook (`check-branch.sh`) automatically blocks edits on the `main` branch. If it triggers, create a feature branch:
+
 ```bash
 git checkout -b <type>/<description>  # e.g., feat/add-feature, fix/bug-name
 ```
@@ -28,6 +30,7 @@ git checkout -b <type>/<description>  # e.g., feat/add-feature, fix/bug-name
 ## Checkpoint Mode
 
 **IMPORTANT:** This agent operates in checkpoint mode. After completing each phase:
+
 1. Summarize changes made
 2. Run tests for affected packages
 3. **PAUSE** and ask user to continue
@@ -49,6 +52,7 @@ Wait for explicit approval before proceeding to the next phase.
 ## Development Workflow
 
 ### Phase Execution
+
 For each phase in the implementation plan:
 
 1. **Implement** - Write the code changes
@@ -57,6 +61,7 @@ For each phase in the implementation plan:
 4. **Pause** - Wait for user approval
 
 ### After Final Phase
+
 Invoke the **Maintainer agent** for comprehensive code review.
 
 ## Responding to Maintainer Reviews
@@ -72,6 +77,7 @@ When the Maintainer agent provides a code review, you **must** address all findi
 > **Important:** "Warning" items marked "should fix" are **requirements**, not suggestions. Failing to address them leads to additional review cycles when external reviewers (like GitHub Copilot) catch the same issues. Fix all warnings before considering the work complete.
 
 If you **disagree** with a finding:
+
 1. Explain your reasoning clearly
 2. Ask the user for a decision
 3. Do NOT skip the fix without explicit user approval
@@ -81,6 +87,7 @@ If you **disagree** with a finding:
 ### Code Style
 
 **Functional Options Pattern:**
+
 ```go
 // Package-level convenience function
 func DoWithOptions(opts ...Option) (*Result, error) {
@@ -109,6 +116,7 @@ func WithFilePath(path string) Option {
 ```
 
 **Struct-Based API:**
+
 ```go
 type Processor struct {
     FilePath    string
@@ -127,6 +135,7 @@ func (p *Processor) Process(input string) (*Result, error) {
 ```
 
 ### Error Handling
+
 ```go
 // Always: package prefix + descriptive action + %w wrapping
 return fmt.Errorf("parser: failed to parse specification: %w", err)
@@ -138,6 +147,7 @@ if errors.Is(err, oaserrors.ErrParse) { ... }
 ```
 
 ### Type System (OAS 3.1+)
+
 ```go
 // Always use type assertions for interface{} fields
 switch t := schema.Type.(type) {
@@ -151,6 +161,7 @@ default:
 ```
 
 ### Pointer Semantics
+
 ```go
 // Check parser types - some use pointer slices
 // OAS3Document.Servers is []*parser.Server
@@ -166,10 +177,12 @@ copy := original.DeepCopy()
 ## Testing Requirements
 
 ### Test Coverage
+
 - 70% patch coverage required (Codecov enforced)
 - All branches tested (if/else, switch, nil checks)
 
 ### Test Structure
+
 ```go
 func TestMyFunction(t *testing.T) {
     tests := []struct {
@@ -211,6 +224,7 @@ func TestMyFunction(t *testing.T) {
 ```
 
 ### Benchmark Tests (Go 1.24+)
+
 ```go
 func BenchmarkOperation(b *testing.B) {
     // Setup outside the loop
@@ -228,6 +242,7 @@ func BenchmarkOperation(b *testing.B) {
 ```
 
 ### Example Tests
+
 ```go
 func ExampleParseWithOptions() {
     result, err := parser.ParseWithOptions(
@@ -270,6 +285,7 @@ After making changes, use `go_diagnostics` MCP tool. Address ALL levels:
 | Hint | Fix for performance (5-15% impact documented) |
 
 Common fixes:
+
 ```go
 // Hint: "Loop can be simplified using slices.Contains"
 // Before
@@ -295,6 +311,7 @@ for i := range n { ... }
 ## File Structure
 
 When creating a new package:
+
 ```
 package/
 ├── doc.go           # Package documentation
@@ -308,6 +325,7 @@ package/
 ## Commit Strategy
 
 Use conventional commits:
+
 ```bash
 git add modified_files
 
@@ -348,6 +366,7 @@ Continue to Phase 2? (y/n)
 ```
 
 On final phase completion:
+
 ```
 All phases complete. Invoking Maintainer agent for code review...
 ```

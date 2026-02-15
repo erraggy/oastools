@@ -165,9 +165,19 @@ vet:
 	@echo "Running go vet..."
 	go vet ./...
 
-## check: Run tidy, fmt, lint, test, and git status
+## lint-md: Lint markdown files
+.PHONY: lint-md
+lint-md:
+	@echo "Linting markdown..."
+	@if command -v npx >/dev/null 2>&1; then \
+		npx markdownlint-cli2; \
+	else \
+		echo "npx not found (Node.js required). Skipping markdown lint."; \
+	fi
+
+## check: Run tidy, fmt, lint, lint-md, test, and git status
 .PHONY: check
-check: tidy fmt lint test
+check: tidy fmt lint lint-md test
 	@echo "Running git status..."
 	@git status
 
@@ -548,8 +558,7 @@ docs-clean:
 	@rm -f mkdocs.log mkdocs_error.log
 	@rm -f docs/index.md.tmp
 	@rm -f docs/CONTRIBUTORS.md docs/LICENSE.md docs/benchmarks.md
-	@rm -f docs/AGENTS.md docs/WORKFLOW.md docs/CLAUDE.md docs/RELEASES.md docs/BENCHMARK_UPDATE_PROCESS.md
-	@rm -rf docs/packages
+	@rm -rf docs/packages docs/examples
 
 # =============================================================================
 # Help Target

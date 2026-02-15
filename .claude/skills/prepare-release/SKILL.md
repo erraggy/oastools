@@ -8,6 +8,7 @@ description: "Prepare a release (phases 1-6). Usage: /prepare-release [version].
 Prepare a new release by running comprehensive pre-release checks and updates.
 
 **Usage:**
+
 - `/prepare-release <version>` - Use specified version (e.g., `/prepare-release v1.46.0`)
 - `/prepare-release` - Infer version from conventional commits
 
@@ -26,6 +27,7 @@ git log "$LAST_TAG"..HEAD --oneline
 ### Step 2: Determine Version Bump
 
 Parse conventional commit prefixes:
+
 - Any `BREAKING CHANGE:` footer or type with exclamation suffix (e.g., `feat!:`, `fix!:`) → **MAJOR** bump
 - Any `feat:` or `feat(scope):` → **MINOR** bump
 - Only `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `perf:` → **PATCH** bump
@@ -33,6 +35,7 @@ Parse conventional commit prefixes:
 ### Step 3: Propose or Prompt
 
 **If clear signal:** Propose the version with explanation:
+
 ```
 Analyzing commits since v1.45.2...
 
@@ -48,6 +51,7 @@ Proceed with v1.46.0? [Yes / Different version]
 ```
 
 **If ambiguous:** Prompt user to choose:
+
 ```
 Analyzing commits since v1.45.2...
 
@@ -107,6 +111,7 @@ Launch these agents **in background mode** (`run_in_background: true`) to run co
    - If Developer finds missing examples → add them incrementally
 
 4. **Status update format** (update after each check):
+
    ```
    | Agent | Status | Key Findings |
    |-------|--------|--------------|
@@ -122,6 +127,7 @@ Launch these agents **in background mode** (`run_in_background: true`) to run co
 ### Phase 3: Consolidate & Fix
 
 After all agents complete:
+
 1. Final summary table of all findings
 2. List any remaining required changes
 3. Apply fixes that couldn't be done incrementally
@@ -138,11 +144,13 @@ After all agent work is committed, from the repository root run:
 ```
 
 The script handles:
+
 - **Phase 4:** Push branch, trigger CI benchmarks, wait for completion, pull results
 - **Phase 5:** Create PR, wait for CI checks, merge with `--admin`, switch to main
 - **Phase 6:** Generate release notes, save to temp file, display for review
 
 If the script fails partway through, check the error message. You can re-run safely:
+
 - `--skip-benchmarks` flag if benchmarks already completed
 - The script auto-detects already-merged PRs and skips to checkout
 
@@ -154,15 +162,18 @@ After the script completes, enhance the auto-generated release notes with richer
 
 1. Read the auto-generated notes at `.release/notes-<version>.md`
 2. Get commits since the previous tag:
+
    ```bash
    PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
    git log "$PREV_TAG"..HEAD --oneline
    ```
+
 3. For each significant commit, understand what changed by reading relevant files
 
 #### Step 2: Reference Previous Releases
 
 Look at 1-2 previous releases for style consistency:
+
 ```bash
 gh release view --json body | jq -r '.body' | head -100
 ```
@@ -239,6 +250,7 @@ Ready to publish <version>?
 ```
 
 If user chooses "Yes", from the repository root run:
+
 ```bash
 .claude/scripts/publish-release.sh <version>
 ```

@@ -17,6 +17,7 @@ Always start with a dry run to see what would change:
 ```
 
 Include any specific fix flags the user requested:
+
 - `fix_schema_names` -- Rename generic names like Object1, Model2 to meaningful names
 - `fix_duplicate_operationids` -- Deduplicate operationId values
 - `prune` -- Remove empty paths and unused schemas
@@ -27,6 +28,7 @@ If no specific flags are given, the tool applies the default fix (missing path p
 ## Step 2: Present the preview
 
 Show the user a clear summary of planned fixes:
+
 - Number of fixes that will be applied
 - For each fix: what it changes, where (JSON path), and why
 
@@ -71,6 +73,7 @@ Report the final validation status. If new issues were introduced, investigate a
 ## Step 5: Summary
 
 Provide a final summary:
+
 - Total fixes applied
 - Remaining issues (if any)
 - Suggested next steps (e.g., manual review of renamed schemas, re-running code generation)

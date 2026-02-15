@@ -19,6 +19,7 @@ fmt.Errorf("<package>: <action>: %w", err)
 ## Examples
 
 ### Good - Consistent Prefixing and Wrapping
+
 ```go
 return fmt.Errorf("parser: failed to parse specification: %w", err)
 return fmt.Errorf("converter: invalid target version: %s", targetVersionStr)
@@ -28,6 +29,7 @@ return fmt.Errorf("generator: failed to generate types: %w", err)
 ```
 
 ### Bad - Inconsistent Patterns
+
 ```go
 return fmt.Errorf("failed to parse specification: %w", err)  // Missing package prefix
 return fmt.Errorf("Invalid target version: %s", version)     // Capitalized

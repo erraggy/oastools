@@ -153,6 +153,7 @@ func main() {
 ```
 
 **Example Input (users-api.yaml):**
+
 ```yaml
 openapi: 3.0.3
 info:
@@ -183,6 +184,7 @@ components:
 ```
 
 **Example Input (orders-api.yaml):**
+
 ```yaml
 openapi: 3.0.3
 info:
@@ -213,6 +215,7 @@ components:
 ```
 
 **Example Output (merged.yaml):**
+
 ```yaml
 openapi: 3.0.3
 info:
@@ -306,6 +309,7 @@ func main() {
 ```
 
 **Example Output:**
+
 ```
 Collisions resolved: 1
   schema 'User' collision: right renamed to 'User_orders-api'
@@ -320,6 +324,7 @@ Collisions resolved: 1
 When joining OpenAPI specifications from different services, you often encounter generic schema names that collide. Consider two microservices:
 
 **users-service.yaml:**
+
 ```yaml
 openapi: 3.0.3
 info:
@@ -358,6 +363,7 @@ components:
 ```
 
 **orders-service.yaml:**
+
 ```yaml
 openapi: 3.0.3
 info:
@@ -467,6 +473,7 @@ The reference graph construction:
 4. **Caches results** - Lineage is computed once and cached for efficient template evaluation
 
 When a collision occurs and renaming is needed, the joiner:
+
 1. Retrieves the operation lineage for the schema
 2. Selects a primary operation based on the configured policy
 3. Builds a `RenameContext` with all available operation metadata
@@ -651,6 +658,7 @@ config.RenameTemplate = `{{if .IsShared}}{{range $i, $id := .AllOperationIDs}}{{
 When using `WithOperationContext(true)`, only schemas from the RIGHT (incoming) documents receive operation-derived context. The LEFT (base) document's schemas do not have their operation references traced.
 
 This means for base document schemas, the following `RenameContext` fields will be empty:
+
 - `Path`, `Method`, `OperationID`, `Tags`
 - `UsageType`, `StatusCode`, `ParamName`, `MediaType`
 - `AllPaths`, `AllMethods`, `AllOperationIDs`, `AllTags`
@@ -748,6 +756,7 @@ config.RenameTemplate = `DEBUG_{{.Name}}_path={{.Path}}_method={{.Method}}_op={{
 ```
 
 This produces names like:
+
 ```
 DEBUG_Response_path=/orders_method=get_op=listOrders_usage=response_shared=false
 ```
@@ -803,6 +812,7 @@ result, err := j.Join(files)
 ```
 
 With this configuration:
+
 1. Structurally identical schemas (e.g., `Address` in users and orders) are consolidated
 2. Structurally different schemas with the same name (e.g., different `Response` schemas) are renamed with operation context
 
@@ -1250,6 +1260,7 @@ func main() {
 **Example Input Documents:**
 
 users-api.yaml:
+
 ```yaml
 components:
   schemas:
@@ -1265,6 +1276,7 @@ components:
 ```
 
 orders-api.yaml:
+
 ```yaml
 components:
   schemas:
@@ -1280,6 +1292,7 @@ components:
 ```
 
 **Example Output:**
+
 ```
 Schema count after deduplication: 1
   semantic deduplication: consolidated 3 duplicate definition(s)
@@ -1318,6 +1331,7 @@ components:
 ```
 
 After joining with semantic deduplication enabled:
+
 - `AnyPayload` and `DynamicData` are **both preserved** (empty schemas are never consolidated)
 - The two `User` schemas are consolidated into one (structurally identical, non-empty)
 
@@ -1500,6 +1514,7 @@ func main() {
 ```
 
 **Example Pre-Join Overlay (normalize.yaml):**
+
 ```yaml
 overlay: 1.0.0
 info:
@@ -1654,11 +1669,13 @@ type JoinResult struct {
 Source maps enable **precise collision and warning locations** by tracking line and column numbers from your YAML/JSON source files. Without source maps, collision errors only show JSON paths. With source maps, collision errors include file:line:column positions that IDEs can click to jump directly to the conflict.
 
 **Without source maps:**
+
 ```
 schema collision: 'User' defined in users-api.yaml (components.schemas.User) and orders-api.yaml (components.schemas.User)
 ```
 
 **With source maps:**
+
 ```
 schema collision: 'User' defined in users-api.yaml:45:5 and orders-api.yaml:62:5
 ```
@@ -1734,6 +1751,7 @@ Note: Join warnings are converted to string warnings in the resulting ParseResul
 **Use StrategyFailOnCollision initially** to understand what collisions exist in your documents before choosing a resolution strategy.
 
 **Choose collision strategies based on your use case:**
+
 - **Fail strategies** for strict merging where collisions indicate problems
 - **Accept strategies** when you have a clear "primary" document
 - **Rename strategies** when you need to preserve both versions
@@ -1899,6 +1917,7 @@ oastools join \
 ```
 
 **Example pre-overlay (normalize.yaml):**
+
 ```yaml
 overlay: 1.0.0
 info:
@@ -1911,6 +1930,7 @@ actions:
 ```
 
 **Example post-overlay (enhance.yaml):**
+
 ```yaml
 overlay: 1.0.0
 info:
@@ -1946,6 +1966,7 @@ oastools join \
 ```
 
 This command:
+
 1. Applies `normalize.yaml` to each input document
 2. Joins the documents with semantic deduplication
 3. Renames colliding schemas using operation context

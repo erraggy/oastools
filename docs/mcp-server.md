@@ -2,6 +2,17 @@
 
 oastools includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes all capabilities as tools over stdio transport. This allows LLM agents and AI-powered editors to validate, fix, convert, diff, join, parse, overlay, generate, and walk OpenAPI specs programmatically.
 
+## Prerequisites
+
+The MCP server is built into the `oastools` binary. Install it first:
+
+```bash
+brew install erraggy/oastools/oastools                   # Homebrew (macOS/Linux)
+go install github.com/erraggy/oastools/cmd/oastools@latest  # Go install (requires Go 1.24+)
+```
+
+Or download a pre-built binary from the [Releases page](https://github.com/erraggy/oastools/releases/latest).
+
 ## Quick Start
 
 ```bash
@@ -39,9 +50,9 @@ Any MCP-compatible client can launch the server. The transport is stdio — the 
 
 ---
 
-## Tools (15)
+## Tools (17)
 
-The server registers 15 tools organized into two categories: 9 core tools and 6 walk tools.
+The server registers 17 tools organized into two categories: 9 core tools and 8 walk tools.
 
 ### Core Tools
 
@@ -65,8 +76,10 @@ The server registers 15 tools organized into two categories: 9 core tools and 6 
 | `walk_schemas` | Query schemas by name, type, or component/inline location |
 | `walk_parameters` | Query parameters by location, name, path, or method |
 | `walk_responses` | Query responses by status code, path, or method |
+| `walk_headers` | Query headers by name, path, method, status code, or component location |
 | `walk_security` | Query security schemes by name or type |
 | `walk_paths` | Query path items by path pattern (supports `*` glob) |
+| `walk_refs` | Query `$ref` references by target pattern or node type |
 
 ---
 
@@ -330,19 +343,24 @@ All walk tools share common input fields:
 |-------|------|-------------|
 | `spec` | object | The OAS document |
 | `detail` | boolean | Return full objects instead of summaries |
+| `resolve_refs` | boolean | Resolve `$ref` pointers before output |
 | `limit` | number | Max results to return (default: 100) |
+| `offset` | number | Skip the first N results (for pagination) |
+| `group_by` | string | Group results and return `{key, count}` aggregates instead of individual items |
 | `extension` | string | Filter by extension (e.g., `x-internal=true`) |
 
 **Tool-specific filters:**
 
-| Tool | Filter Fields |
-|------|---------------|
-| `walk_operations` | `method`, `path`, `tag`, `operation_id`, `deprecated` |
-| `walk_schemas` | `name`, `type`, `component`, `inline` |
-| `walk_parameters` | `name`, `location`, `path`, `method` |
-| `walk_responses` | `status`, `path`, `method` |
-| `walk_security` | `name`, `type` |
-| `walk_paths` | `path` (supports `*` glob) |
+| Tool | Filter Fields | `group_by` Values |
+|------|---------------|-------------------|
+| `walk_operations` | `method`, `path`, `tag`, `operation_id`, `deprecated` | `tag`, `method` |
+| `walk_schemas` | `name`, `type`, `component`, `inline` | `type`, `location` |
+| `walk_parameters` | `name`, `in`, `path`, `method` | `location`, `name` |
+| `walk_responses` | `status`, `path`, `method` | `status_code`, `method` |
+| `walk_headers` | `name`, `path`, `method`, `status`, `component` | `name`, `status_code` |
+| `walk_security` | `name`, `type` | — |
+| `walk_paths` | `path` (supports `*` glob) | — |
+| `walk_refs` | `target`, `node_type` | — |
 
 ---
 
@@ -373,7 +391,7 @@ internal/mcpserver/
 ├── tools_join.go          # join tool
 ├── tools_overlay.go       # overlay_apply + overlay_validate
 ├── tools_generate.go      # generate tool
-├── tools_walk_*.go        # 6 walk tools
+├── tools_walk_*.go        # 8 walk tools
 └── integration_test.go    # In-process integration tests
 ```
 

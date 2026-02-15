@@ -33,8 +33,7 @@ This guide provides comprehensive documentation for developers using oastools as
 
 ```bash
 # Homebrew (macOS and Linux)
-brew tap erraggy/oastools
-brew install oastools
+brew install erraggy/oastools/oastools
 
 # Go install
 go install github.com/erraggy/oastools/cmd/oastools@latest
@@ -816,11 +815,13 @@ result, err := j.Join([]string{"users-api.yaml", "orders-api.yaml"})
 ```
 
 Template functions available:
+
 - **Path extraction**: `pathResource` (last non-parameter segment), `pathLast` (final segment)
 - **Case conversion**: `pascalCase`, `camelCase`, `snakeCase`, `kebabCase`
 - **Conditionals**: `default` (fallback value), `coalesce` (first non-empty)
 
 Example template using path context:
+
 ```go
 config.RenameTemplate = "{{.Path | pathResource | pascalCase}}{{.Name}}"
 // /orders/{id} + "Response" → OrdersResponse
@@ -858,6 +859,7 @@ result, err := joiner.JoinWithOptions(
 ```
 
 Resolution actions available:
+
 - `ContinueWithStrategy()` - Defer to the configured collision strategy
 - `AcceptLeft()` - Keep the value from the left (earlier) document
 - `AcceptRight()` - Keep the value from the right (later) document
@@ -1258,6 +1260,7 @@ result, err := generator.GenerateWithOptions(
 ```
 
 Server extension options:
+
 - `WithServerResponses(true)`: Typed response writers with `Status*()` methods
 - `WithServerBinder(true)`: Request parameter binding using httpvalidator
 - `WithServerMiddleware(true)`: Validation middleware for request/response validation
@@ -1266,6 +1269,7 @@ Server extension options:
 - `WithServerEmbedSpec(true)`: Embed OpenAPI spec for runtime validation
 
 Generated server extension files:
+
 - `server_responses.go`: Per-operation response types with `WriteTo()` methods
 - `server_binder.go`: `RequestBinder` with `Bind{Operation}Request()` methods
 - `server_middleware.go`: `ValidationMiddleware` with configurable error handling
@@ -2127,6 +2131,7 @@ client := &http.Client{
 **"missing required field 'openapi' or 'swagger'"**
 
 The document doesn't specify a version. Add either:
+
 - `openapi: "3.0.0"` (or another 3.x version) for OpenAPI 3.x
 - `swagger: "2.0"` for Swagger 2.0
 
@@ -2141,6 +2146,7 @@ All documents in a join operation must be the same major version. Convert docume
 **"collision at path '/users'"**
 
 Two documents define the same path. Choose a collision strategy:
+
 - `accept-left`: Keep the first definition
 - `accept-right`: Keep the last definition
 - `fail`: Abort the operation

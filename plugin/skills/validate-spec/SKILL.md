@@ -20,11 +20,13 @@ If the user wants strict validation, add `"strict": true`.
 ## Step 2: Report results
 
 If the spec is valid:
+
 - Confirm it passes validation
 - Mention the detected OAS version
 - Note any warnings (unless `no_warnings` was set)
 
 If the spec has errors:
+
 - List each error with its JSON path and a plain-language explanation
 - Group related errors (e.g., multiple missing `$ref` targets)
 - Explain **why** each error matters and what it would cause in practice (tooling failures, code generation issues, etc.)

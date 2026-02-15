@@ -11,6 +11,7 @@ Overrides the `scripts` block to add TTL-based cache expiration for repository f
 **Problem solved:** MkDocs Material caches GitHub repository data in `sessionStorage` indefinitely (until the browser tab is closed). This means users who visited the site before a release would see stale version numbers until they manually cleared their browser data.
 
 **Solution:** A small script that:
+
 1. Checks if cached repository facts exist with a timestamp
 2. If older than 1 hour (TTL), clears the cache
 3. Patches `__md_set` to record timestamps when new data is cached

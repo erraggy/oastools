@@ -14,6 +14,7 @@ Call `parse` to understand the API at a glance:
 ```
 
 Report:
+
 - API title and version
 - OAS version (2.0, 3.0, 3.1)
 - Number of paths, operations, and schemas
@@ -176,6 +177,7 @@ Narrow to schema, parameter, response, requestBody, header, or pathItem refs.
 ## Step 6: Summarize findings
 
 Provide a structured summary of the API:
+
 - Purpose and scope (from title/description)
 - Authentication methods (from security schemes)
 - Key resource groups (from tags)

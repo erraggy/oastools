@@ -26,6 +26,7 @@ go run main.go
 The output shows the full modified YAML specification. Key excerpts demonstrating the added extensions:
 
 **Schema with processing metadata:**
+
 ```yaml
 Pet:
   type: object
@@ -39,6 +40,7 @@ Pet:
 ```
 
 **Operation with rate limiting:**
+
 ```yaml
 get:
   summary: List all pets
@@ -48,6 +50,7 @@ get:
 ```
 
 **Modification summary:**
+
 ```
 Modification Summary
 --------------------

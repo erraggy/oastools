@@ -140,6 +140,7 @@ func main() {
 ```
 
 **Example Input (with issues):**
+
 ```yaml
 openapi: 3.0.3
 info:
@@ -162,6 +163,7 @@ paths:
 ```
 
 **Example Output:**
+
 ```
 OAS Version: 3.0.3
 Valid: false
@@ -502,6 +504,7 @@ The validator performs comprehensive checks across all document sections. Unders
 The validator checks that required fields are present and formats are correct.
 
 **Checked Fields:**
+
 - `title` (required)
 - `version` (required)
 - `termsOfService` (URL format when present)
@@ -514,6 +517,7 @@ The validator checks that required fields are present and formats are correct.
 Paths receive thorough structural and semantic validation.
 
 **Path Template Checks:**
+
 - Properly formed parameter placeholders (`{paramName}`)
 - No unclosed braces
 - No reserved characters in parameter names
@@ -521,6 +525,7 @@ Paths receive thorough structural and semantic validation.
 - Trailing slash warnings (best practice)
 
 **Path Parameter Consistency:**
+
 - Every `{param}` in the path template must have a corresponding parameter definition with `in: path`
 - Path parameters must be marked as `required: true`
 - Declared path parameters should be used in the template
@@ -530,11 +535,13 @@ Paths receive thorough structural and semantic validation.
 Each operation (GET, POST, PUT, etc.) is validated for completeness and correctness.
 
 **Required Checks:**
+
 - `responses` object must be present
 - At least one response code or `default` response
 - Each response must have a `description`
 
 **Best Practice Warnings:**
+
 - Missing `operationId`
 - Missing `summary` or `description`
 - Duplicate `operationId` values across operations
@@ -544,12 +551,14 @@ Each operation (GET, POST, PUT, etc.) is validated for completeness and correctn
 Parameters are checked for correct structure and usage.
 
 **Structural Checks:**
+
 - `name` is required
 - `in` is required and must be one of: path, query, header, cookie
 - Path parameters must have `required: true`
 - Schema or content must be defined (OAS 3.x)
 
 **Format Checks:**
+
 - Valid parameter types and formats
 - Consistent use of serialization styles
 
@@ -558,12 +567,14 @@ Parameters are checked for correct structure and usage.
 Component schemas undergo structural validation.
 
 **Checked Items:**
+
 - Valid `type` values when present
 - Correct `format` for the specified `type`
 - `$ref` targets must resolve to existing schemas
 - Nested schema structures (allOf, oneOf, anyOf, properties)
 
 **Reference Validation:**
+
 - `$ref` uses correct path format for the OAS version
 - Referenced schemas exist in components/definitions
 - No circular references that would cause infinite loops
@@ -573,6 +584,7 @@ Component schemas undergo structural validation.
 Security definitions are validated for completeness.
 
 **Checked by Type:**
+
 - `apiKey`: `name` and `in` are required
 - `http`: `scheme` is required
 - `oauth2`: `flows` object with required flow properties
@@ -583,6 +595,7 @@ Security definitions are validated for completeness.
 Server objects are checked for correct structure.
 
 **Checked Items:**
+
 - `url` is required and valid format
 - Server variables have `default` values
 - Variable placeholders in URL match defined variables

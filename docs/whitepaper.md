@@ -277,6 +277,7 @@ When parsing JSON input, the parser automatically uses an optimized fast-path th
 **Automatic Triggering Conditions:**
 
 The fast-path activates when all conditions are met:
+
 - ✅ Input is detected as JSON format
 - ✅ Source map building is disabled (`WithSourceMap(false)`)
 - ✅ Order preservation is disabled (`WithPreserveOrder(false)`)
@@ -417,6 +418,7 @@ This is useful for detecting changes, caching decisions, and test assertions.
 ### Deterministic Output
 
 The `MarshalOrderedJSON()` and `MarshalOrderedYAML()` functions produce deterministic output by preserving key order. This ensures:
+
 - Reproducible diffs between versions
 - Consistent output for CI/CD pipelines
 - Predictable test snapshots
@@ -608,6 +610,7 @@ Enum values specified as comma-separated strings are automatically expanded to p
 For performance-critical scenarios, `WithMutableInput(true)` skips the defensive deep copy of the input document. This is particularly useful when chaining multiple fix passes.
 
 **When to Use:**
+
 - ✅ Chaining multiple fixer passes (the first pass already creates a fresh copy)
 - ✅ Memory efficiency is critical for large specifications
 - ✅ You've already copied the document for your own mutations
@@ -872,6 +875,7 @@ result, err := joiner.JoinWithOptions(
 ```
 
 **Use Cases:**
+
 - Semantic schema deduplication with custom logic
 - Collision detection and auditing pipelines
 - Domain-specific resolution (e.g., API versioning strategies)
@@ -1397,7 +1401,7 @@ All OAS serialization styles are supported per the [OpenAPI Specification](https
 | label | path | `.blue.red` |
 | deepObject | query | `?filter[status]=active` |
 | spaceDelimited | query | `?ids=1%202%203` |
-| pipeDelimited | query | `?ids=1|2|3` |
+| pipeDelimited | query | `?ids=1\|2\|3` |
 
 ### 13.3 API Usage
 
@@ -1804,15 +1808,18 @@ File-based benchmarks can vary ±50% due to I/O variance. For reliable regressio
 The parser and generator packages use `sync.Pool` to reduce GC pressure:
 
 **Marshal Buffer Pool** (parser):
+
 - Reuses `bytes.Buffer` for JSON/YAML marshaling
 - Up to 36% fewer allocations for large documents
 - 78x faster buffer acquisition vs allocation
 
 **Template Buffer Pool** (generator):
+
 - Tiered pools (8KB/32KB/64KB) based on operation count
 - Prevents oversized allocations during code generation
 
 **Design Decisions:**
+
 - All pools are internal (package-private)
 - Reset-on-get pattern ensures clean state
 - Size guards prevent memory leaks from oversized objects
@@ -1830,6 +1837,7 @@ The parser now automatically uses an optimized path for JSON input that bypasses
 | Memory allocation        | ~750MB        | ~50MB          | ~93% reduction |
 
 The fast-path activates automatically when:
+
 - ✅ Input is detected as JSON format
 - ✅ Source map building is disabled
 - ✅ Order preservation is disabled
@@ -1901,8 +1909,7 @@ oastools provides a comprehensive command-line interface for all major operation
 **Homebrew:**
 
 ```bash
-brew tap erraggy/oastools
-brew install oastools
+brew install erraggy/oastools/oastools
 ```
 
 **Go Install:**

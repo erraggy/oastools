@@ -5,6 +5,7 @@
 ## Coverage Requirements
 
 Test coverage must include:
+
 1. **Exported Functions** - Package-level convenience functions and struct methods
 2. **Exported Types** - Struct initialization, fields, type conversions
 3. **Exported Constants** - Verify expected values
@@ -31,5 +32,6 @@ Test all branches including nil checks and error paths—they count against patc
 ## Known Test Stability Issues
 
 **TestCircularReferenceDetection** (`parser/resolver_test.go`): If this test hangs, check `parser/resolver.go` for:
+
 1. Deep copying in `resolveRefsRecursive` (not shallow copy)
 2. Parameterized defer in `ResolveLocal` (captures ref by value)

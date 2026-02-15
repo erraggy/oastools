@@ -52,6 +52,7 @@ make check
 ```
 
 This command runs:
+
 1. `go mod tidy` - Clean up dependencies
 2. `go fmt` - Format code
 3. `golangci-lint run` - Lint code
@@ -125,6 +126,7 @@ oastools/
 ### Public vs Internal Packages
 
 **Public packages** (can be imported by external projects):
+
 - `parser` - Parse OpenAPI specifications
 - `validator` - Validate OpenAPI specifications
 - `joiner` - Join multiple specifications
@@ -132,6 +134,7 @@ oastools/
 - `differ` - Compare specifications
 
 **Internal packages** (project-only):
+
 - `internal/*` - Shared utilities not exposed to external users
 
 ### Design Principles
@@ -184,6 +187,7 @@ if method == httputil.MethodGet { ... }
 ```
 
 This ensures:
+
 - Single source of truth
 - Type safety
 - Easy refactoring
@@ -221,6 +225,7 @@ if err != nil {
 **All exported functionality MUST have comprehensive test coverage.**
 
 This includes:
+
 - ✅ Exported functions (e.g., `parser.Parse()`)
 - ✅ Exported methods (e.g., `Parser.Parse()`)
 - ✅ Exported types and their fields
@@ -266,6 +271,7 @@ func BenchmarkParse(b *testing.B) {
 ```
 
 **Don't use:**
+
 - ❌ `for i := 0; i < b.N; i++` (old pattern)
 - ❌ `b.ReportAllocs()` (handled automatically by `b.Loop()`)
 
@@ -311,6 +317,7 @@ Use conventional commit format:
 ```
 
 **Types:**
+
 - `feat` - New feature
 - `fix` - Bug fix
 - `docs` - Documentation only
@@ -365,12 +372,14 @@ git commit -m "chore: update dependencies
 ```
 
 **When to use `[skip-review]`:**
+
 - Automated formatting (`go fmt`, `gofmt`)
 - Dependency updates (`go mod tidy`)
 - Minor documentation typos
 - Whitespace or comment-only changes
 
 **When NOT to use `[skip-review]`:**
+
 - Any logic changes
 - New features
 - Bug fixes
@@ -382,11 +391,13 @@ The review will be skipped if **any** commit in your PR contains `[skip-review]`
 ### Pull Request Process
 
 1. **Create a feature branch**
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
 2. **Make your changes and commit**
+
    ```bash
    # Make changes
    make check
@@ -395,6 +406,7 @@ The review will be skipped if **any** commit in your PR contains `[skip-review]`
    ```
 
 3. **Push to your fork**
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -439,17 +451,20 @@ When you create a PR, several automated workflows run:
 ### Workflow Status
 
 Check workflow status:
+
 - In your PR - See status checks at the bottom
 - On the Actions tab - https://github.com/erraggy/oastools/actions
 
 ### Common CI Issues
 
 **Tests fail on CI but pass locally:**
+
 - Ensure you're testing with race detection: `go test -race`
 - Check for timing-dependent tests
 - Verify all test files are committed
 
 **Exit code 143 (SIGTERM):**
+
 - This means the test process was killed by the runner
 - Common with `go test -race` on GitHub Actions
 - Usually indicates tests hung or timed out
@@ -462,11 +477,13 @@ Check workflow status:
 - Related: [actions/runner-images#6680](https://github.com/actions/runner-images/issues/6680), [actions/runner-images#7146](https://github.com/actions/runner-images/issues/7146)
 
 **Linter fails:**
+
 - Run `make lint` locally
 - Fix reported issues
 - Push fixes
 
 **Claude Code Review comments:**
+
 - Review the feedback (visible in PR comments)
 - Address legitimate concerns
 - Respond to questions
@@ -490,6 +507,7 @@ All versions use **JSON Schema Draft 2020-12** for schema definitions.
 Understanding how OAS evolved helps when working with conversion and validation:
 
 **OAS 2.0 → 3.0 Changes:**
+
 - `host`/`basePath`/`schemes` → unified `servers` array
 - `definitions`/`parameters`/`responses` → `components.*`
 - `consumes` + body param → `requestBody.content`
@@ -497,6 +515,7 @@ Understanding how OAS evolved helps when working with conversion and validation:
 - Added: callbacks, links, cookie parameters
 
 **OAS 3.0 → 3.1 Changes:**
+
 - Full JSON Schema alignment
 - `type` can be array: `["string", "null"]`
 - Deprecated `nullable` field
@@ -523,10 +542,12 @@ if typeStr, ok := schema.Type.(string); ok {
 ### Version-Specific Features
 
 **OAS 2.0 Only:**
+
 - `allowEmptyValue` (removed in 3.0+)
 - `collectionFormat` (replaced by `style`/`explode`)
 
 **OAS 3.0+ Only:**
+
 - `requestBody` (replaces body parameters)
 - `callbacks` (async operations)
 - `links` (operation relationships)
@@ -534,6 +555,7 @@ if typeStr, ok := schema.Type.(string); ok {
 - TRACE HTTP method
 
 **OAS 3.1+ Only:**
+
 - `webhooks` (event subscriptions)
 - Type arrays for nullable
 - `license.identifier`
@@ -567,10 +589,12 @@ When working with conversions, these differences matter!
 1. Search existing issues
 2. Provide a minimal reproduction case
 3. Include relevant version information:
+
    ```bash
    oastools --version
    go version
    ```
+
 4. Include error messages and stack traces
 5. Describe expected vs actual behavior
 

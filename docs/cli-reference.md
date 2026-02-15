@@ -224,6 +224,7 @@ When `--fix-schema-names` is enabled, schemas with invalid names (containing bra
 | `dot` | `Response[User]` | `Response.User` |
 
 For multi-parameter types like `Map[string,int]`:
+
 - `underscore`: `Map_String_Int_`
 - `of`: `MapOfStringOfInt`
 
@@ -975,6 +976,7 @@ oastools generate [flags] <file|url|->
 ### Description
 
 The generate command creates Go code from OpenAPI specifications. It can generate:
+
 - **HTTP clients** with methods for each API operation
 - **Server interfaces** defining the endpoints your implementation must satisfy
 - **Type definitions** for all schemas in the specification
@@ -1520,6 +1522,7 @@ go: go1.24.0
 ```
 
 The version command displays:
+
 - **version**: The release version
 - **commit**: The git commit hash of the build
 - **built**: The build timestamp (RFC3339 format)
@@ -1605,6 +1608,7 @@ The following commands support loading specifications from URLs:
 - `generate`
 
 Supported URL schemes:
+
 - `http://`
 - `https://`
 

@@ -95,16 +95,19 @@ See: examples/workflows/schema-renaming/
 ### When to Use Each Strategy
 
 **fail-on-collision (Recommended Default)**
+
 - Best for CI/CD pipelines where collisions should block merges
 - Forces explicit decisions about how to resolve conflicts
 - Prevents accidental data loss
 
 **accept-left**
+
 - When the first API is the "source of truth"
 - Merging secondary/supplementary APIs into a primary API
 - Legacy API takes precedence over newer additions
 
 **accept-right**
+
 - When newer APIs should override older definitions
 - Progressive migration scenarios
 - Last-write-wins semantics
@@ -127,6 +130,7 @@ config.SchemaStrategy = joiner.StrategyRenameRight  // Keeps both schemas
 ```
 
 This produces:
+
 - `Transaction` (from payments-api)
 - `Transaction_orders-api` (renamed from orders-api)
 
