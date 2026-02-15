@@ -57,12 +57,35 @@ func buildOperationMap(paths parser.Paths, version parser.OASVersion) map[string
 // Server Generation Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// wrapperSuffixes is the ordered list of suffixes to try when naming server wrapper types.
+var wrapperSuffixes = []string{"Request", "Input", "Req"}
+
+// resolveWrapperName picks a wrapper type name that doesn't collide with schema types.
+// It tries {methodName}Request, then Input, then Req, then numeric fallback.
+func resolveWrapperName(methodName string, schemaTypes map[string]bool) string {
+	for _, suffix := range wrapperSuffixes {
+		candidate := methodName + suffix
+		if !schemaTypes[candidate] {
+			return candidate
+		}
+	}
+	const maxAttempts = 1000
+	for i := 2; i <= maxAttempts; i++ {
+		candidate := fmt.Sprintf("%sRequest%d", methodName, i)
+		if !schemaTypes[candidate] {
+			return candidate
+		}
+	}
+	return methodName + "Request"
+}
+
 // buildServerMethodSignature builds an interface method signature for an operation.
 // This is 100% identical between OAS 2.0 and OAS 3.x.
-func buildServerMethodSignature(path, method string, op *parser.Operation, responseType string) string {
+func buildServerMethodSignature(path, method string, op *parser.Operation, responseType string, schemaTypes map[string]bool) string {
 	var buf bytes.Buffer
 
 	methodName := operationToMethodName(op, path, method)
+	wrapperName := resolveWrapperName(methodName, schemaTypes)
 
 	// Write comment - handle multiline descriptions properly
 	if op.Summary != "" {
@@ -74,7 +97,7 @@ func buildServerMethodSignature(path, method string, op *parser.Operation, respo
 		buf.WriteString("\t// Deprecated: This operation is deprecated.\n")
 	}
 
-	buf.WriteString(fmt.Sprintf("\t%s(ctx context.Context, req *%sRequest) (%s, error)\n", methodName, methodName, responseType))
+	buf.WriteString(fmt.Sprintf("\t%s(ctx context.Context, req *%s) (%s, error)\n", methodName, wrapperName, responseType))
 
 	return buf.String()
 }
@@ -148,6 +171,7 @@ type serverRouterContext struct {
 	httpMethods  []string
 	packageName  string
 	serverRouter string
+	schemaTypes  map[string]bool
 	result       *GenerateResult
 	addIssue     issueAdder
 	// paramToBindData converts a parameter to ParamBindData (version-specific)
@@ -198,7 +222,7 @@ func generateServerRouterShared(ctx *serverRouterContext) error {
 				Path:        path,
 				Method:      strings.ToUpper(method),
 				MethodName:  methodName,
-				RequestType: methodName + "Request",
+				RequestType: resolveWrapperName(methodName, ctx.schemaTypes),
 			}
 
 			// Collect path parameters with type info for proper conversion in templates
@@ -237,6 +261,7 @@ type serverStubsContext struct {
 	oasVersion  parser.OASVersion
 	httpMethods []string
 	packageName string
+	schemaTypes map[string]bool
 	result      *GenerateResult
 	addIssue    issueAdder
 	// getResponseType returns the Go type for the operation's response given the method name
@@ -285,7 +310,7 @@ func generateServerStubsShared(ctx *serverStubsContext) error {
 
 			opData := StubOperationData{
 				MethodName:   methodName,
-				RequestType:  methodName + "Request",
+				RequestType:  resolveWrapperName(methodName, ctx.schemaTypes),
 				ResponseType: ctx.getResponseType(methodName),
 			}
 
@@ -313,6 +338,7 @@ type baseServerContext struct {
 	httpMethods []string
 	packageName string
 	needsTime   bool // Whether the time import is needed
+	schemaTypes map[string]bool
 	result      *GenerateResult
 	addIssue    issueAdder
 	// generateMethodSignature generates a server method signature for the interface
@@ -421,9 +447,10 @@ func generateBaseServerShared(ctx *baseServerContext) (map[string]bool, error) {
 				generatedUnimplemented[methodName] = true
 
 				responseType := ctx.getResponseType(op)
+				wrapperName := resolveWrapperName(methodName, ctx.schemaTypes)
 
-				buf.WriteString(fmt.Sprintf("func (s *UnimplementedServer) %s(ctx context.Context, req *%sRequest) (%s, error) {\n",
-					methodName, methodName, responseType))
+				buf.WriteString(fmt.Sprintf("func (s *UnimplementedServer) %s(ctx context.Context, req *%s) (%s, error) {\n",
+					methodName, wrapperName, responseType))
 				buf.WriteString(fmt.Sprintf("\treturn %s, ErrNotImplemented\n", zeroValue(responseType)))
 				buf.WriteString("}\n\n")
 			}

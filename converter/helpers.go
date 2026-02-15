@@ -2,6 +2,7 @@ package converter
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/internal/schemautil"
@@ -106,6 +107,22 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 		}
 	}
 
+	// Fallback: infer type from composite schemas
+	if converted.Type == "" && param.In != "body" {
+		inferred := inferTypeFromSchema(converted.Schema)
+		if inferred != "" {
+			converted.Type = inferred
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Inferred type '%s' from composite schema", inferred),
+				"OAS 2.0 requires explicit type for non-body parameters")
+		} else {
+			converted.Type = "string"
+			c.addIssueWithContext(result, path,
+				"Could not infer type from schema, defaulting to 'string'",
+				"OAS 2.0 requires explicit type for non-body parameters")
+		}
+	}
+
 	// Check for OAS 3.x style/explode parameters
 	if param.Style != "" {
 		c.addIssueWithContext(result, path,
@@ -114,6 +131,50 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 	}
 
 	return converted
+}
+
+// inferTypeFromSchema walks allOf/oneOf/anyOf to find a concrete type.
+func inferTypeFromSchema(schema *parser.Schema) string {
+	if schema == nil {
+		return ""
+	}
+	for _, sub := range schema.AllOf {
+		if t := schemautil.GetPrimaryType(sub); t != "" {
+			return t
+		}
+	}
+	for _, sub := range schema.OneOf {
+		if t := schemautil.GetPrimaryType(sub); t != "" {
+			return t
+		}
+	}
+	for _, sub := range schema.AnyOf {
+		if t := schemautil.GetPrimaryType(sub); t != "" {
+			return t
+		}
+	}
+	return ""
+}
+
+// resolveHeaderRef resolves a #/components/headers/* ref by inlining the definition.
+func (c *Converter) resolveHeaderRef(ref string, result *ConversionResult, path string) *parser.Header {
+	const prefix = "#/components/headers/"
+	if !strings.HasPrefix(ref, prefix) {
+		return nil
+	}
+	name := ref[len(prefix):]
+	header, ok := c.sourceHeaders[name]
+	if !ok {
+		c.addIssueWithContext(result, path,
+			fmt.Sprintf("Unresolved header ref: %s", ref),
+			"Header not found in components.headers")
+		return nil
+	}
+	c.addIssue(result, path,
+		fmt.Sprintf("Inlined component header ref %s", ref), SeverityInfo)
+	inlined := header.DeepCopy()
+	inlined.Ref = ""
+	return inlined
 }
 
 // convertOAS2ResponseToOAS3Old converts an OAS 2.0 response to OAS 3.x format
@@ -155,7 +216,24 @@ func (c *Converter) convertOAS3ResponseToOAS2(response *parser.Response, result 
 
 	converted := &parser.Response{
 		Description: response.Description,
-		Headers:     response.Headers,
+	}
+
+	if len(response.Headers) > 0 {
+		converted.Headers = make(map[string]*parser.Header, len(response.Headers))
+		for name, header := range response.Headers {
+			if header != nil && header.Ref != "" && c.sourceHeaders != nil {
+				resolved := c.resolveHeaderRef(header.Ref, result, path)
+				if resolved != nil {
+					converted.Headers[name] = resolved
+					continue
+				}
+			}
+			if header != nil {
+				converted.Headers[name] = header.DeepCopy()
+			} else {
+				converted.Headers[name] = nil
+			}
+		}
 	}
 
 	var produces []string

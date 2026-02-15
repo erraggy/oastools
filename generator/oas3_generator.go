@@ -653,6 +653,7 @@ func (cg *oas3CodeGenerator) generateSingleServer() error {
 		generateMethodSignature: cg.generateServerMethodSignature,
 		getResponseType:         cg.getResponseType,
 		generateRequestTypes:    cg.writeRequestTypes,
+		schemaTypes:             cg.generatedTypes,
 	})
 	return err
 }
@@ -711,6 +712,7 @@ func (cg *oas3CodeGenerator) generateBaseServer() (map[string]bool, error) {
 		httpMethods:             httpMethods,
 		packageName:             cg.result.PackageName,
 		needsTime:               cg.operationsNeedTimeImport(),
+		schemaTypes:             cg.generatedTypes,
 		result:                  cg.result,
 		addIssue:                cg.addIssue,
 		generateMethodSignature: cg.generateServerMethodSignature,
@@ -720,7 +722,7 @@ func (cg *oas3CodeGenerator) generateBaseServer() (map[string]bool, error) {
 
 // generateServerMethodSignature generates the interface method signature
 func (cg *oas3CodeGenerator) generateServerMethodSignature(path, method string, op *parser.Operation) string {
-	return buildServerMethodSignature(path, method, op, cg.getResponseType(op))
+	return buildServerMethodSignature(path, method, op, cg.getResponseType(op), cg.generatedTypes)
 }
 
 // generateRequestType generates a request struct for an operation
@@ -728,9 +730,10 @@ func (cg *oas3CodeGenerator) generateRequestType(path, method string, op *parser
 	var buf bytes.Buffer
 
 	methodName := operationToMethodName(op, path, method)
+	wrapperName := resolveWrapperName(methodName, cg.generatedTypes)
 
-	buf.WriteString(fmt.Sprintf("// %sRequest contains the request data for %s.\n", methodName, methodName))
-	buf.WriteString(fmt.Sprintf("type %sRequest struct {\n", methodName))
+	buf.WriteString(fmt.Sprintf("// %s contains the request data for %s.\n", wrapperName, methodName))
+	buf.WriteString(fmt.Sprintf("type %s struct {\n", wrapperName))
 
 	// Categorize parameters in a single pass
 	var pathParams, queryParams, headerParams, cookieParams []*parser.Parameter
@@ -1192,7 +1195,7 @@ func (cg *oas3CodeGenerator) generateServerBinder() error {
 func (cg *oas3CodeGenerator) buildBinderOperationData(methodName string, op *parser.Operation) BinderOperationData {
 	opData := BinderOperationData{
 		MethodName:  methodName,
-		RequestType: methodName + "Request",
+		RequestType: resolveWrapperName(methodName, cg.generatedTypes),
 	}
 
 	// Process parameters
@@ -1301,6 +1304,7 @@ func (cg *oas3CodeGenerator) generateServerRouter() error {
 		httpMethods:  httpMethods,
 		packageName:  cg.result.PackageName,
 		serverRouter: cg.g.ServerRouter,
+		schemaTypes:  cg.generatedTypes,
 		result:       cg.result,
 		addIssue:     cg.addIssue,
 		paramToBindData: func(param *parser.Parameter) ParamBindData {
@@ -1325,6 +1329,7 @@ func (cg *oas3CodeGenerator) generateServerStubs() error {
 		oasVersion:  cg.doc.OASVersion,
 		httpMethods: httpMethods,
 		packageName: cg.result.PackageName,
+		schemaTypes: cg.generatedTypes,
 		result:      cg.result,
 		addIssue:    cg.addIssue,
 		getResponseType: func(methodName string) string {

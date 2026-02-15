@@ -459,6 +459,98 @@ func TestConvertServers(t *testing.T) {
 	}
 }
 
+// TestConvertOAS2FormDataToRequestBody tests conversion of OAS 2.0 formData parameters to OAS 3.x requestBody.
+func TestConvertOAS2FormDataToRequestBody(t *testing.T) {
+	tests := []struct {
+		name              string
+		operation         *parser.Operation
+		doc               *parser.OAS2Document
+		expectedMediaType string
+		expectedProps     []string
+	}{
+		{
+			name: "url-encoded form data",
+			operation: &parser.Operation{
+				OperationID: "createPet",
+				Parameters: []*parser.Parameter{
+					{Name: "name", In: "formData", Type: "string", Required: true},
+					{Name: "age", In: "formData", Type: "integer"},
+				},
+				Responses: &parser.Responses{},
+			},
+			doc:               &parser.OAS2Document{},
+			expectedMediaType: "application/x-www-form-urlencoded",
+			expectedProps:     []string{"name", "age"},
+		},
+		{
+			name: "multipart form data with file",
+			operation: &parser.Operation{
+				OperationID: "uploadFile",
+				Parameters: []*parser.Parameter{
+					{Name: "file", In: "formData", Type: "file"},
+					{Name: "description", In: "formData", Type: "string"},
+				},
+				Responses: &parser.Responses{},
+			},
+			doc:               &parser.OAS2Document{},
+			expectedMediaType: "multipart/form-data",
+			expectedProps:     []string{"file", "description"},
+		},
+		{
+			name: "mixed formData and query params",
+			operation: &parser.Operation{
+				OperationID: "createWithQuery",
+				Parameters: []*parser.Parameter{
+					{Name: "name", In: "formData", Type: "string"},
+					{Name: "limit", In: "query", Type: "integer"},
+				},
+				Responses: &parser.Responses{},
+			},
+			doc:               &parser.OAS2Document{},
+			expectedMediaType: "application/x-www-form-urlencoded",
+			expectedProps:     []string{"name"},
+		},
+		{
+			name: "operation-level consumes override",
+			operation: &parser.Operation{
+				OperationID: "createWithConsumes",
+				Consumes:    []string{"multipart/form-data"},
+				Parameters: []*parser.Parameter{
+					{Name: "name", In: "formData", Type: "string"},
+				},
+				Responses: &parser.Responses{},
+			},
+			doc:               &parser.OAS2Document{Consumes: []string{"application/json"}},
+			expectedMediaType: "multipart/form-data",
+			expectedProps:     []string{"name"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := New()
+			result := &ConversionResult{}
+			converted := c.convertOAS2OperationToOAS3(tt.operation, tt.doc, result, "paths./test.post")
+
+			require.NotNil(t, converted.RequestBody, "expected requestBody from formData params")
+			require.Contains(t, converted.RequestBody.Content, tt.expectedMediaType)
+			mediaType := converted.RequestBody.Content[tt.expectedMediaType]
+			require.NotNil(t, mediaType.Schema, "expected schema in media type")
+			for _, prop := range tt.expectedProps {
+				assert.Contains(t, mediaType.Schema.Properties, prop)
+			}
+			// Verify Required field is set when formData params are required
+			if tt.name == "url-encoded form data" {
+				assert.True(t, converted.RequestBody.Required, "RequestBody should be required when params are required")
+				assert.Contains(t, mediaType.Schema.Required, "name", "required formData param should be in schema.Required")
+			}
+			for _, param := range converted.Parameters {
+				assert.NotEqual(t, "formData", param.In, "formData params should be removed")
+			}
+		})
+	}
+}
+
 // TestConvertParameters tests the convertParameters method.
 func TestConvertParameters(t *testing.T) {
 	tests := []struct {

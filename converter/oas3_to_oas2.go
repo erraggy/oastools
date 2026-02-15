@@ -27,6 +27,8 @@ func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *Co
 
 	// Convert components
 	if src.Components != nil {
+		c.sourceHeaders = src.Components.Headers
+
 		// Convert schemas
 		if len(src.Components.Schemas) > 0 {
 			dst.Definitions = make(map[string]*parser.Schema)
@@ -93,6 +95,8 @@ func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *Co
 
 	// Rewrite all $ref paths from OAS 3.x to OAS 2.0 format
 	c.rewriteAllRefsOAS3ToOAS2(dst)
+
+	c.sourceHeaders = nil
 
 	result.Document = dst
 	return nil
