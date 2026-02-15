@@ -42,25 +42,28 @@ Results are paginated (default limit: 100). When `returned < fix_count`, there a
 
 Ask the user to confirm before proceeding. If they want to exclude certain fixes, adjust the flags accordingly.
 
-## Step 3: Apply fixes
+## Step 3: Apply fixes and persist
 
-Run the `fix` tool without `dry_run`:
+Run the `fix` tool without `dry_run`, using `output` to write the result to disk:
 
 ```json
 {
   "spec": {"file": "<path>"},
+  "output": "<output-path>",
   "fix_schema_names": true
 }
 ```
 
-Add `"include_document": true` if the user wants to see the full corrected spec in the response.
+⚠️ **Important:** The `fix` tool does not modify the input file. Without `output`, the fixed document only exists in the response (when `include_document: true`). Always use `output` to persist the result for subsequent steps.
+
+For in-place updates, set `output` to the same path as the input file. Add `"include_document": true` if the user also wants to see the full corrected spec in the response.
 
 ## Step 4: Validate the result
 
-Run the `validate` tool on the fixed spec to confirm it is now valid:
+Run the `validate` tool on the **output file** from step 3:
 
 ```json
-{"spec": {"file": "<path>"}}
+{"spec": {"file": "<output-path>"}}
 ```
 
 Report the final validation status. If new issues were introduced, investigate and explain them.
