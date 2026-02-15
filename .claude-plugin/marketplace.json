@@ -10,7 +10,7 @@
     {
       "name": "oastools",
       "description": "15 MCP tools and 5 guided skills for working with OpenAPI specs — validate, fix, convert, diff, join, overlay, generate, and walk operations/schemas/parameters/responses/security/paths",
-      "version": "1.51.3",
+      "version": "1.51.4",
       "author": {
         "name": "erraggy",
         "url": "https://github.com/erraggy"
