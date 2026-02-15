@@ -13,12 +13,13 @@ import (
 type walkParametersInput struct {
 	Spec        specInput `json:"spec"                     jsonschema:"The OAS document to walk"`
 	In          string    `json:"in,omitempty"             jsonschema:"Filter by parameter location (query\\, header\\, path\\, cookie)"`
-	Name        string    `json:"name,omitempty"           jsonschema:"Filter by parameter name"`
-	Path        string    `json:"path,omitempty"           jsonschema:"Filter by path pattern (supports * glob)"`
+	Name        string    `json:"name,omitempty"           jsonschema:"Filter by parameter name (case-insensitive exact match)"`
+	Path        string    `json:"path,omitempty"           jsonschema:"Filter by path pattern (* = one segment\\, ** = zero or more segments\\, e.g. /users/* or /drives/**/workbook/**)"`
 	Method      string    `json:"method,omitempty"         jsonschema:"Filter by HTTP method (get\\, post\\, put\\, delete\\, patch\\, etc.)"`
 	Extension   string    `json:"extension,omitempty"      jsonschema:"Filter by extension key=value (e.g. x-internal=true)"`
-	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers before output"`
+	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers in output. Inlines referenced objects instead of showing $ref strings."`
 	Detail      bool      `json:"detail,omitempty"         jsonschema:"Return full parameter objects instead of summaries"`
+	GroupBy     string    `json:"group_by,omitempty"       jsonschema:"Group results and return counts instead of individual items. Values: location\\, name"`
 	Limit       int       `json:"limit,omitempty"          jsonschema:"Maximum number of results to return (default 100)"`
 	Offset      int       `json:"offset,omitempty"         jsonschema:"Skip the first N results (for pagination)"`
 }
@@ -45,6 +46,7 @@ type walkParametersOutput struct {
 	Returned   int                `json:"returned"`
 	Summaries  []parameterSummary `json:"summaries,omitempty"`
 	Parameters []parameterDetail  `json:"parameters,omitempty"`
+	Groups     []groupCount       `json:"groups,omitempty"`
 }
 
 func handleWalkParameters(_ context.Context, _ *mcp.CallToolRequest, input walkParametersInput) (*mcp.CallToolResult, any, error) {
@@ -58,6 +60,10 @@ func handleWalkParameters(_ context.Context, _ *mcp.CallToolRequest, input walkP
 		return errResult(err), nil, nil
 	}
 
+	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"location", "name"}); err != nil {
+		return errResult(err), nil, nil
+	}
+
 	collector, err := walker.CollectParameters(result)
 	if err != nil {
 		return errResult(err), nil, nil
@@ -67,6 +73,28 @@ func handleWalkParameters(_ context.Context, _ *mcp.CallToolRequest, input walkP
 	matched, err := filterWalkParameters(collector.All, input)
 	if err != nil {
 		return errResult(err), nil, nil
+	}
+
+	// group_by: aggregate matched parameters and return counts.
+	if input.GroupBy != "" {
+		groups := groupAndSort(matched, func(info *walker.ParameterInfo) []string {
+			switch strings.ToLower(input.GroupBy) {
+			case "location":
+				return []string{info.In}
+			case "name":
+				return []string{info.Name}
+			default:
+				return nil
+			}
+		})
+		paged := paginate(groups, input.Offset, input.Limit)
+		output := walkParametersOutput{
+			Total:    len(collector.All),
+			Matched:  len(matched),
+			Returned: len(paged),
+			Groups:   paged,
+		}
+		return nil, output, nil
 	}
 
 	// Apply offset/limit pagination.

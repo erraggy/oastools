@@ -4,6 +4,10 @@ package mcpserver
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/erraggy/oastools"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -23,17 +27,17 @@ func Run(ctx context.Context) error {
 func registerAllTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "validate",
-		Description: "Validate an OpenAPI Specification document against its version schema. Returns validation errors and warnings.",
+		Description: "Validate an OpenAPI Specification document against its version schema. Returns errors and warnings with JSON path locations. For large specs, use no_warnings to focus on errors first. Use offset/limit to paginate through results.",
 	}, handleValidate)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "parse",
-		Description: "Parse an OpenAPI Specification document and return a summary of its structure (paths, schemas, servers, tags) or the full parsed document.",
+		Description: "Parse an OpenAPI Specification document. Returns a structural summary: title, version, OAS version, path/operation/schema counts, servers, and tags. Use full=true only for small specs; for large specs use walk_* tools to explore specific sections.",
 	}, handleParse)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "fix",
-		Description: "Automatically fix common issues in an OpenAPI Specification document. Supports fixing missing path parameters, duplicate operationIds, generic schema names, pruning unused schemas/empty paths, and stubbing missing $ref targets.",
+		Description: "Automatically fix common issues in an OpenAPI Specification document. Fix types: generic schema names, duplicate operationIds, missing path parameters, unused schemas/empty paths (prune), missing $ref targets (stub). Use dry_run=true to preview fixes before applying. Use output to write to a file instead of returning inline.",
 	}, handleFix)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -43,12 +47,12 @@ func registerAllTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "diff",
-		Description: "Compare two OpenAPI Specification documents and report differences. Detects breaking changes, additions, removals, and modifications with severity levels.",
+		Description: "Compare two versions of the same OpenAPI Specification document and report differences. Detects breaking changes, additions, removals, and modifications with severity levels. Use breaking_only=true to focus on breaking changes first. Both base and revision must be provided.",
 	}, handleDiff)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "join",
-		Description: "Join multiple OpenAPI Specification documents into a single merged document. Requires at least 2 specs. Supports collision strategies for paths and schemas.",
+		Description: "Join multiple OpenAPI Specification documents into a single merged document. Requires at least 2 specs via the specs array. Collision strategies: accept_left, accept_right, fail (paths/schemas), rename (schemas only). Use semantic_dedup to merge equivalent schemas.",
 	}, handleJoin)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -63,38 +67,48 @@ func registerAllTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "generate",
-		Description: "Generate Go code (types, client, server) from an OpenAPI Specification document. Writes generated files to the specified output directory and returns a manifest of what was generated.",
+		Description: "Generate Go code from an OpenAPI Specification document. Set exactly one of: types (type definitions only), client (HTTP client), or server (server interfaces and handlers). Requires output_dir. Returns a manifest of generated files.",
 	}, handleGenerate)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "walk_operations",
-		Description: "Walk and query operations in an OpenAPI Specification document. Filter by method, path, tag, operationId, deprecated status, or extension. Returns summaries by default or full operation objects with detail mode.",
+		Description: "Walk and query operations in an OpenAPI Specification document. Filter by method, path, tag, operationId, deprecated status, or extension. Returns summaries (method, path, operationId, tags) by default or full operation objects with detail=true. For large APIs, filter by tag first (most selective), then narrow with path or method. Path patterns support * (one segment) and ** (zero or more segments). Use group_by (tag or method) to get distribution counts instead of individual items.",
 	}, handleWalkOperations)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "walk_schemas",
-		Description: "Walk and query schemas in an OpenAPI Specification document. Filter by name, type, component/inline location, or extension. Returns summaries by default or full schema objects with detail mode.",
+		Description: "Walk and query schemas in an OpenAPI Specification document. Filter by name, type, component/inline location, or extension. Returns summaries (name, type, JSON path, component status) by default or full schema objects with detail=true. Use component=true to see only named component schemas (skips inline schemas, reducing results 3-5x). Avoid detail=true without filters on large specs. Use group_by (type or location) to get distribution counts instead of individual items.",
 	}, handleWalkSchemas)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "walk_parameters",
-		Description: "Walk and query parameters in an OpenAPI Specification document. Filter by location (query/header/path/cookie), name, path, method, or extension. Returns summaries by default or full parameter objects with detail mode.",
+		Description: "Walk and query parameters in an OpenAPI Specification document. Filter by location (in), name, path pattern, method, or extension. Returns summaries (name, location, path, method) by default or full parameter objects with detail=true. Use group_by (location or name) to get distribution counts instead of individual items.",
 	}, handleWalkParameters)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "walk_responses",
-		Description: "Walk and query responses in an OpenAPI Specification document. Filter by status code (200, 4xx, default), path, method, or extension. Returns summaries by default or full response objects with detail mode.",
+		Description: "Walk and query responses in an OpenAPI Specification document. Filter by status code, path pattern, method, or extension. Returns summaries (status code, path, method, description) by default or full response objects with detail=true. Use group_by (status_code or method) to get distribution counts instead of individual items.",
 	}, handleWalkResponses)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "walk_security",
-		Description: "Walk and query security schemes in an OpenAPI Specification document. Filter by name, type (apiKey/http/oauth2/openIdConnect), or extension. Returns summaries by default or full security scheme objects with detail mode.",
+		Description: "Walk and query security schemes defined in components. Filter by name or type (apiKey, http, oauth2, openIdConnect). Returns summaries (name, type, location) by default or full security scheme objects with detail=true.",
 	}, handleWalkSecurity)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "walk_paths",
-		Description: "Walk and query path items in an OpenAPI Specification document. Filter by path pattern (supports * glob) or extension. Returns summaries with method counts by default or full path item objects with detail mode.",
+		Description: "Walk and query path items in an OpenAPI Specification document. Filter by path pattern or extension. Returns summaries (path, method count) by default or full path item objects with detail=true. Path patterns support * (one segment) and ** (zero or more segments), e.g. /users/** matches all paths under /users.",
 	}, handleWalkPaths)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "walk_refs",
+		Description: "Walk and count $ref references in an OpenAPI Specification document. By default, returns unique ref targets ranked by reference count (most-referenced first). Use target to filter to a specific ref (supports * glob, e.g. *schemas/microsoft.graph.*). Use detail=true to see individual source locations instead of counts. Filter by node_type to narrow to schema, parameter, response, requestBody, header, or pathItem refs.",
+	}, handleWalkRefs)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "walk_headers",
+		Description: "Walk and query response headers and component headers in an OpenAPI Specification document. Filter by name, path, method, status code, or component location. Returns summaries (name, path, method, status, description) by default or full header objects with detail=true. Use group_by=name to find the most commonly used headers across the API.",
+	}, handleWalkHeaders)
 }
 
 // paginate applies offset/limit pagination to a slice, returning the
@@ -128,4 +142,61 @@ func errResult(err error) *mcp.CallToolResult {
 		IsError: true,
 		Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
 	}
+}
+
+// groupCount represents a single group in group_by results.
+type groupCount struct {
+	Key   string `json:"key"`
+	Count int    `json:"count"`
+}
+
+// groupAndSort groups items by key, sorts by count descending (ties
+// broken alphabetically by key), and returns the sorted groups.
+func groupAndSort[T any](items []T, keyFn func(T) []string) []groupCount {
+	counts := make(map[string]int)
+	for _, item := range items {
+		for _, key := range keyFn(item) {
+			counts[key]++
+		}
+	}
+	groups := make([]groupCount, 0, len(counts))
+	for key, count := range counts {
+		groups = append(groups, groupCount{Key: key, Count: count})
+	}
+	sort.Slice(groups, func(i, j int) bool {
+		if groups[i].Count != groups[j].Count {
+			return groups[i].Count > groups[j].Count
+		}
+		return groups[i].Key < groups[j].Key
+	})
+	return groups
+}
+
+// validateGroupBy checks that group_by is a valid value and is not combined with detail.
+func validateGroupBy(groupBy string, detail bool, allowed []string) error {
+	if groupBy == "" {
+		return nil
+	}
+	if detail {
+		return fmt.Errorf("cannot use both group_by and detail")
+	}
+	for _, a := range allowed {
+		if strings.EqualFold(groupBy, a) {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid group_by value %q; valid values: %s", groupBy, strings.Join(allowed, ", "))
+}
+
+// validateGlobPattern checks whether a glob pattern is syntactically valid.
+// Call this once before a filter loop so matchGlobName/matchRefGlob never
+// encounter an invalid pattern at match time.
+func validateGlobPattern(pattern string) error {
+	if pattern == "" || !strings.ContainsAny(pattern, "*?[") {
+		return nil
+	}
+	if _, err := filepath.Match(pattern, ""); err != nil {
+		return fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
+	}
+	return nil
 }

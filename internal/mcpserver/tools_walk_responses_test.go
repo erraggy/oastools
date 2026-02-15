@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -207,6 +208,71 @@ func TestWalkResponses_OffsetAndLimit(t *testing.T) {
 	assert.Equal(t, 8, output.Matched)
 	assert.Equal(t, 3, output.Returned)
 	assert.Len(t, output.Summaries, 3)
+}
+
+func TestWalkResponses_GroupByStatusCode(t *testing.T) {
+	input := walkResponsesInput{
+		Spec:    specInput{Content: walkResponsesTestSpec},
+		GroupBy: "status_code",
+	}
+	_, output := callWalkResponses(t, input)
+
+	require.NotEmpty(t, output.Groups)
+	assert.Nil(t, output.Summaries)
+
+	// Verify groups are sorted descending by count.
+	for i := 1; i < len(output.Groups); i++ {
+		assert.GreaterOrEqual(t, output.Groups[i-1].Count, output.Groups[i].Count)
+	}
+}
+
+func TestWalkResponses_GroupByMethod(t *testing.T) {
+	input := walkResponsesInput{
+		Spec:    specInput{Content: walkResponsesTestSpec},
+		GroupBy: "method",
+	}
+	_, output := callWalkResponses(t, input)
+
+	require.NotEmpty(t, output.Groups)
+	assert.Nil(t, output.Summaries)
+
+	// All keys should be uppercase methods.
+	for _, g := range output.Groups {
+		assert.Equal(t, strings.ToUpper(g.Key), g.Key)
+	}
+}
+
+func TestWalkResponses_GroupByWithFilter(t *testing.T) {
+	input := walkResponsesInput{
+		Spec:    specInput{Content: walkResponsesTestSpec},
+		Status:  "2xx",
+		GroupBy: "method",
+	}
+	_, output := callWalkResponses(t, input)
+
+	assert.Greater(t, output.Matched, 0)
+	require.NotEmpty(t, output.Groups)
+}
+
+func TestWalkResponses_GroupByAndDetailError(t *testing.T) {
+	input := walkResponsesInput{
+		Spec:    specInput{Content: walkResponsesTestSpec},
+		GroupBy: "status_code",
+		Detail:  true,
+	}
+	result, _ := callWalkResponses(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+}
+
+func TestWalkResponses_GroupByInvalid(t *testing.T) {
+	input := walkResponsesInput{
+		Spec:    specInput{Content: walkResponsesTestSpec},
+		GroupBy: "invalid",
+	}
+	result, _ := callWalkResponses(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
 }
 
 func TestStatusCodeMatches(t *testing.T) {

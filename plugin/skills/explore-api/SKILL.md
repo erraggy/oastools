@@ -39,6 +39,20 @@ Call `walk_operations` to list all API endpoints:
 
 Present them grouped by tag or by path prefix. For each operation show the method, path, and summary.
 
+For a quick overview of a large API, use `group_by` first:
+
+```json
+{"spec": {"file": "<path>"}, "group_by": "tag"}
+```
+
+This returns operation counts per tag — the fastest way to understand API scope.
+
+```json
+{"spec": {"file": "<path>"}, "group_by": "method"}
+```
+
+This shows the HTTP method distribution (e.g., 60% GET, 25% POST, etc.).
+
 ⚠️ If the API is large (more endpoints than the default page of 100), prefer **filtering** over paging:
 
 ```json
@@ -47,6 +61,12 @@ Present them grouped by tag or by path prefix. For each operation show the metho
 
 ```json
 {"spec": {"file": "<path>"}, "path": "/users/*"}
+```
+
+For deeply nested APIs, use `**` to match across path depths:
+
+```json
+{"spec": {"file": "<path>"}, "path": "/drives/**/workbook/**"}
 ```
 
 ✅ When `returned < matched`, use `offset` to page through remaining results:
@@ -67,6 +87,12 @@ Call `walk_schemas` to list the API's data models:
 
 ```json
 {"spec": {"file": "<path>"}, "component": true}
+```
+
+Get schema type distribution:
+
+```json
+{"spec": {"file": "<path>"}, "group_by": "type", "component": true}
 ```
 
 ⚠️ Omit `component` only when you need to find inline schemas (e.g., hunting for unnamed request body schemas).
@@ -105,7 +131,49 @@ Based on what the user is interested in, drill deeper:
 
 (using `walk_security`)
 
-## Step 5: Summarize findings
+**Response headers:**
+
+```json
+{"spec": {"file": "<path>"}, "group_by": "name"}
+```
+
+(using `walk_headers` — shows which headers are most common across the API)
+
+**Headers for a specific endpoint:**
+
+```json
+{"spec": {"file": "<path>"}, "path": "/users", "method": "get"}
+```
+
+(using `walk_headers`)
+
+## Step 5: Analyze references
+
+Call `walk_refs` to understand which schemas and responses are most referenced:
+
+```json
+{"spec": {"file": "<path>"}}
+```
+
+This returns unique `$ref` targets ranked by count (most-referenced first). Use this to identify the API's core data models.
+
+**Trace a specific schema's usage:**
+
+```json
+{"spec": {"file": "<path>"}, "target": "*schemas/User*", "detail": true}
+```
+
+This shows every location that references the schema — useful for understanding impact before modifying a schema.
+
+**Filter by ref type:**
+
+```json
+{"spec": {"file": "<path>"}, "node_type": "response"}
+```
+
+Narrow to schema, parameter, response, requestBody, header, or pathItem refs.
+
+## Step 6: Summarize findings
 
 Provide a structured summary of the API:
 - Purpose and scope (from title/description)

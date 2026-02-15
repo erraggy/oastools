@@ -244,3 +244,75 @@ func TestWalkParameters_OffsetAndLimit(t *testing.T) {
 	assert.Equal(t, 2, output.Returned)
 	assert.Len(t, output.Summaries, 2)
 }
+
+func TestWalkParameters_GroupByLocation(t *testing.T) {
+	input := walkParametersInput{
+		Spec:    specInput{Content: walkParametersTestSpec},
+		GroupBy: "location",
+	}
+	_, output := callWalkParameters(t, input)
+
+	assert.Equal(t, 4, output.Total)
+	require.NotEmpty(t, output.Groups)
+	assert.Nil(t, output.Summaries)
+
+	groupMap := make(map[string]int)
+	for _, g := range output.Groups {
+		groupMap[g.Key] = g.Count
+	}
+	assert.Equal(t, 2, groupMap["query"])  // limit, offset
+	assert.Equal(t, 1, groupMap["header"]) // X-Request-Id
+	assert.Equal(t, 1, groupMap["path"])   // petId
+}
+
+func TestWalkParameters_GroupByName(t *testing.T) {
+	input := walkParametersInput{
+		Spec:    specInput{Content: walkParametersTestSpec},
+		GroupBy: "name",
+	}
+	_, output := callWalkParameters(t, input)
+
+	require.NotEmpty(t, output.Groups)
+	// Each parameter has a unique name in test spec, so each group has count 1.
+	for _, g := range output.Groups {
+		assert.Equal(t, 1, g.Count)
+	}
+}
+
+func TestWalkParameters_GroupByWithFilter(t *testing.T) {
+	input := walkParametersInput{
+		Spec:    specInput{Content: walkParametersTestSpec},
+		Path:    "/pets",
+		GroupBy: "location",
+	}
+	_, output := callWalkParameters(t, input)
+
+	assert.Equal(t, 3, output.Matched)
+	groupMap := make(map[string]int)
+	for _, g := range output.Groups {
+		groupMap[g.Key] = g.Count
+	}
+	assert.Equal(t, 2, groupMap["query"])
+	assert.Equal(t, 1, groupMap["header"])
+}
+
+func TestWalkParameters_GroupByAndDetailError(t *testing.T) {
+	input := walkParametersInput{
+		Spec:    specInput{Content: walkParametersTestSpec},
+		GroupBy: "location",
+		Detail:  true,
+	}
+	result, _ := callWalkParameters(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+}
+
+func TestWalkParameters_GroupByInvalid(t *testing.T) {
+	input := walkParametersInput{
+		Spec:    specInput{Content: walkParametersTestSpec},
+		GroupBy: "invalid",
+	}
+	result, _ := callWalkParameters(t, input)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+}

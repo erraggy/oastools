@@ -11,11 +11,12 @@ import (
 
 type walkResponsesInput struct {
 	Spec        specInput `json:"spec"                     jsonschema:"The OAS document to walk"`
-	Status      string    `json:"status,omitempty"         jsonschema:"Filter by status code (200\\, 4xx\\, default)"`
-	Path        string    `json:"path,omitempty"           jsonschema:"Filter by path pattern (supports * glob)"`
+	Status      string    `json:"status,omitempty"         jsonschema:"Filter by status code: exact (200\\, 404)\\, wildcard (2xx\\, 4xx\\, 5xx)\\, or default (case-insensitive)"`
+	Path        string    `json:"path,omitempty"           jsonschema:"Filter by path pattern (* = one segment\\, ** = zero or more segments\\, e.g. /users/* or /drives/**/workbook/**)"`
 	Method      string    `json:"method,omitempty"         jsonschema:"Filter by HTTP method (get\\, post\\, put\\, delete\\, patch\\, etc.)"`
 	Extension   string    `json:"extension,omitempty"      jsonschema:"Filter by extension key=value (e.g. x-internal=true)"`
-	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers before output"`
+	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers in output. Inlines referenced objects instead of showing $ref strings."`
+	GroupBy     string    `json:"group_by,omitempty"       jsonschema:"Group results and return counts instead of individual items. Values: status_code\\, method"`
 	Detail      bool      `json:"detail,omitempty"         jsonschema:"Return full response objects instead of summaries"`
 	Limit       int       `json:"limit,omitempty"          jsonschema:"Maximum number of results to return (default 100)"`
 	Offset      int       `json:"offset,omitempty"         jsonschema:"Skip the first N results (for pagination)"`
@@ -41,6 +42,7 @@ type walkResponsesOutput struct {
 	Returned  int               `json:"returned"`
 	Summaries []responseSummary `json:"summaries,omitempty"`
 	Responses []responseDetail  `json:"responses,omitempty"`
+	Groups    []groupCount      `json:"groups,omitempty"`
 }
 
 func handleWalkResponses(_ context.Context, _ *mcp.CallToolRequest, input walkResponsesInput) (*mcp.CallToolResult, any, error) {
@@ -54,6 +56,10 @@ func handleWalkResponses(_ context.Context, _ *mcp.CallToolRequest, input walkRe
 		return errResult(err), nil, nil
 	}
 
+	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"status_code", "method"}); err != nil {
+		return errResult(err), nil, nil
+	}
+
 	collector, err := walker.CollectResponses(result)
 	if err != nil {
 		return errResult(err), nil, nil
@@ -63,6 +69,28 @@ func handleWalkResponses(_ context.Context, _ *mcp.CallToolRequest, input walkRe
 	matched, err := filterWalkResponses(collector.All, input)
 	if err != nil {
 		return errResult(err), nil, nil
+	}
+
+	// group_by: aggregate matched responses and return counts.
+	if input.GroupBy != "" {
+		groups := groupAndSort(matched, func(info *walker.ResponseInfo) []string {
+			switch strings.ToLower(input.GroupBy) {
+			case "status_code":
+				return []string{info.StatusCode}
+			case "method":
+				return []string{strings.ToUpper(info.Method)}
+			default:
+				return nil
+			}
+		})
+		paged := paginate(groups, input.Offset, input.Limit)
+		output := walkResponsesOutput{
+			Total:    len(collector.All),
+			Matched:  len(matched),
+			Returned: len(paged),
+			Groups:   paged,
+		}
+		return nil, output, nil
 	}
 
 	// Apply offset/limit pagination.
