@@ -710,3 +710,114 @@ paths:
 	assert.NotContains(t, content, "criteria\nThis API")
 	assert.NotContains(t, content, "token.\nIf you")
 }
+
+func TestServerWrapperTypeCollision(t *testing.T) {
+	spec := `openapi: "3.0.0"
+info:
+  title: Pet API
+  version: "1.0.0"
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      responses:
+        '201':
+          description: Pet created
+components:
+  schemas:
+    CreatePetRequest:
+      type: object
+      properties:
+        name:
+          type: string
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "collision.yaml")
+	err := os.WriteFile(tmpFile, []byte(spec), 0600)
+	require.NoError(t, err)
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("petapi"),
+		WithServer(true),
+	)
+	require.NoError(t, err)
+
+	serverFile := result.GetFile("server.go")
+	require.NotNil(t, serverFile, "server.go not generated")
+	content := string(serverFile.Content)
+
+	assert.Contains(t, content, "type CreatePetInput struct", "wrapper should use Input suffix to avoid collision")
+	assert.Contains(t, content, "req *CreatePetInput)", "interface should reference renamed wrapper")
+
+	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "types.go not generated")
+	assert.Contains(t, string(typesFile.Content), "type CreatePetRequest struct")
+}
+
+func TestResolveWrapperName(t *testing.T) {
+	tests := []struct {
+		name        string
+		methodName  string
+		schemaTypes map[string]bool
+		want        string
+	}{
+		{
+			name:        "no collision uses Request suffix",
+			methodName:  "CreatePet",
+			schemaTypes: map[string]bool{},
+			want:        "CreatePetRequest",
+		},
+		{
+			name:        "nil map uses Request suffix",
+			methodName:  "CreatePet",
+			schemaTypes: nil,
+			want:        "CreatePetRequest",
+		},
+		{
+			name:       "Request collision uses Input suffix",
+			methodName: "CreatePet",
+			schemaTypes: map[string]bool{
+				"CreatePetRequest": true,
+			},
+			want: "CreatePetInput",
+		},
+		{
+			name:       "Request and Input collision uses Req suffix",
+			methodName: "CreatePet",
+			schemaTypes: map[string]bool{
+				"CreatePetRequest": true,
+				"CreatePetInput":   true,
+			},
+			want: "CreatePetReq",
+		},
+		{
+			name:       "all suffixes taken uses numeric fallback",
+			methodName: "CreatePet",
+			schemaTypes: map[string]bool{
+				"CreatePetRequest": true,
+				"CreatePetInput":   true,
+				"CreatePetReq":     true,
+			},
+			want: "CreatePetRequest2",
+		},
+		{
+			name:       "numeric fallback increments",
+			methodName: "CreatePet",
+			schemaTypes: map[string]bool{
+				"CreatePetRequest":  true,
+				"CreatePetInput":    true,
+				"CreatePetReq":      true,
+				"CreatePetRequest2": true,
+			},
+			want: "CreatePetRequest3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveWrapperName(tt.methodName, tt.schemaTypes)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

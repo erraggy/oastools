@@ -2,6 +2,7 @@ package converter
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -187,6 +188,32 @@ func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parse
 		dst.Parameters = filteredParams
 	}
 
+	// Convert formData parameters to requestBody
+	hasFormData := false
+	for _, param := range src.Parameters {
+		if param != nil && param.In == "formData" {
+			hasFormData = true
+			break
+		}
+	}
+
+	if hasFormData {
+		if dst.RequestBody != nil {
+			c.addIssueWithContext(result, opPath,
+				"Operation has both body and formData parameters",
+				"OAS 2.0 spec forbids this; formData parameters ignored")
+		} else {
+			dst.RequestBody = c.convertOAS2FormDataToRequestBody(src, doc)
+			filteredParams := make([]*parser.Parameter, 0, len(dst.Parameters))
+			for _, param := range dst.Parameters {
+				if param != nil && param.In != "formData" {
+					filteredParams = append(filteredParams, param)
+				}
+			}
+			dst.Parameters = filteredParams
+		}
+	}
+
 	return dst
 }
 
@@ -225,6 +252,126 @@ func (c *Converter) convertOAS2RequestBody(src *parser.Operation, doc *parser.OA
 	}
 
 	return requestBody
+}
+
+// convertOAS2FormDataToRequestBody converts OAS 2.0 formData parameters to OAS 3.x requestBody.
+func (c *Converter) convertOAS2FormDataToRequestBody(src *parser.Operation, doc *parser.OAS2Document) *parser.RequestBody {
+	var formDataParams []*parser.Parameter
+	hasFile := false
+	for _, param := range src.Parameters {
+		if param != nil && param.In == "formData" {
+			formDataParams = append(formDataParams, param)
+			if param.Type == "file" {
+				hasFile = true
+			}
+		}
+	}
+	if len(formDataParams) == 0 {
+		return nil
+	}
+
+	schema := &parser.Schema{
+		Type:       "object",
+		Properties: make(map[string]*parser.Schema),
+	}
+	var required []string
+	for _, param := range formDataParams {
+		propSchema := &parser.Schema{}
+		switch param.Type {
+		case "file":
+			propSchema.Type = "string"
+			propSchema.Format = "binary"
+		case "array":
+			propSchema.Type = "array"
+			propSchema.Format = param.Format
+			if param.Items != nil {
+				propSchema.Items = convertOAS2ItemsToSchema(param.Items)
+			}
+		default:
+			propSchema.Type = param.Type
+			propSchema.Format = param.Format
+		}
+		// Transfer validation properties from OAS 2.0 parameter to schema
+		propSchema.Default = param.Default
+		propSchema.Enum = param.Enum
+		propSchema.Maximum = param.Maximum
+		propSchema.Minimum = param.Minimum
+		propSchema.MaxLength = param.MaxLength
+		propSchema.MinLength = param.MinLength
+		propSchema.Pattern = param.Pattern
+		propSchema.MaxItems = param.MaxItems
+		propSchema.MinItems = param.MinItems
+		propSchema.UniqueItems = param.UniqueItems
+		propSchema.MultipleOf = param.MultipleOf
+		if param.ExclusiveMaximum {
+			propSchema.ExclusiveMaximum = true
+		}
+		if param.ExclusiveMinimum {
+			propSchema.ExclusiveMinimum = true
+		}
+		if param.Description != "" {
+			propSchema.Description = param.Description
+		}
+		schema.Properties[param.Name] = propSchema
+		if param.Required {
+			required = append(required, param.Name)
+		}
+	}
+	if len(required) > 0 {
+		schema.Required = required
+	}
+
+	contentType := "application/x-www-form-urlencoded"
+	if hasFile {
+		contentType = "multipart/form-data"
+	} else {
+		consumes := c.getConsumes(src, doc)
+		for _, ct := range consumes {
+			if strings.HasPrefix(ct, "multipart/") {
+				contentType = ct
+				break
+			}
+		}
+	}
+
+	return &parser.RequestBody{
+		Required: len(required) > 0,
+		Content: map[string]*parser.MediaType{
+			contentType: {Schema: schema},
+		},
+	}
+}
+
+// convertOAS2ItemsToSchema converts an OAS 2.0 Items object to an OAS 3.x Schema.
+func convertOAS2ItemsToSchema(items *parser.Items) *parser.Schema {
+	if items == nil {
+		return nil
+	}
+	s := &parser.Schema{
+		Type:        items.Type,
+		Format:      items.Format,
+		Default:     items.Default,
+		Enum:        items.Enum,
+		Maximum:     items.Maximum,
+		Minimum:     items.Minimum,
+		MaxLength:   items.MaxLength,
+		MinLength:   items.MinLength,
+		Pattern:     items.Pattern,
+		MaxItems:    items.MaxItems,
+		MinItems:    items.MinItems,
+		UniqueItems: items.UniqueItems,
+		MultipleOf:  items.MultipleOf,
+	}
+	if items.ExclusiveMaximum {
+		s.ExclusiveMaximum = true
+	}
+	if items.ExclusiveMinimum {
+		s.ExclusiveMinimum = true
+	}
+	if items.Items != nil {
+		s.Items = convertOAS2ItemsToSchema(items.Items)
+	}
+	return s
 }
 
 // convertParameters converts a list of parameters from OAS 2.0 to OAS 3.x

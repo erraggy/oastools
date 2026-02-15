@@ -708,6 +708,143 @@ func TestConvertOAS3ToOAS2_SchemaFeatureDetection(t *testing.T) {
 	}
 }
 
+// TestConvertOAS3ParameterToOAS2_TypeFallback tests type inference from composite schemas.
+func TestConvertOAS3ParameterToOAS2_TypeFallback(t *testing.T) {
+	tests := []struct {
+		name         string
+		param        *parser.Parameter
+		expectedType string
+	}{
+		{
+			name: "allOf with concrete type",
+			param: &parser.Parameter{
+				Name: "filter",
+				In:   "query",
+				Schema: &parser.Schema{
+					AllOf: []*parser.Schema{
+						{Type: "string"},
+						{Description: "filter constraint"},
+					},
+				},
+			},
+			expectedType: "string",
+		},
+		{
+			name: "oneOf with concrete types",
+			param: &parser.Parameter{
+				Name: "id",
+				In:   "query",
+				Schema: &parser.Schema{
+					OneOf: []*parser.Schema{
+						{Type: "string"},
+						{Type: "integer"},
+					},
+				},
+			},
+			expectedType: "string",
+		},
+		{
+			name: "no type defaults to string",
+			param: &parser.Parameter{
+				Name:   "unknown",
+				In:     "query",
+				Schema: &parser.Schema{},
+			},
+			expectedType: "string",
+		},
+		{
+			name: "anyOf with concrete type",
+			param: &parser.Parameter{
+				Name: "value",
+				In:   "query",
+				Schema: &parser.Schema{
+					AnyOf: []*parser.Schema{
+						{Type: "number"},
+						{Type: "string"},
+					},
+				},
+			},
+			expectedType: "number",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Converter{}
+			result := &ConversionResult{}
+			converted := c.convertOAS3ParameterToOAS2(tt.param, result, "parameters.test")
+
+			require.NotNil(t, converted)
+			assert.Equal(t, tt.expectedType, converted.Type)
+			assert.NotEmpty(t, result.Issues, "expected conversion issue")
+		})
+	}
+}
+
+// TestConvertOAS3ToOAS2_InlineHeaderRefs tests that component header $refs are inlined
+// during 3.0-to-2.0 conversion.
+func TestConvertOAS3ToOAS2_InlineHeaderRefs(t *testing.T) {
+	c := &Converter{}
+	result := &ConversionResult{}
+
+	src := parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document: &parser.OAS3Document{
+			OpenAPI:    "3.0.0",
+			OASVersion: parser.OASVersion300,
+			Info:       &parser.Info{Title: "Test", Version: "1.0.0"},
+			Paths: parser.Paths{
+				"/test": &parser.PathItem{
+					Get: &parser.Operation{
+						OperationID: "getTest",
+						Responses: &parser.Responses{
+							Codes: map[string]*parser.Response{
+								"200": {
+									Description: "OK",
+									Headers: map[string]*parser.Header{
+										"X-Rate-Limit": {
+											Ref: "#/components/headers/X-Rate-Limit",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Components: &parser.Components{
+				Headers: map[string]*parser.Header{
+					"X-Rate-Limit": {
+						Description: "Rate limit",
+						Schema:      &parser.Schema{Type: "integer"},
+					},
+				},
+			},
+		},
+	}
+
+	err := c.convertOAS3ToOAS2(src, result)
+	require.NoError(t, err)
+
+	doc, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok)
+
+	pathItem, ok := doc.Paths["/test"]
+	require.True(t, ok, "path /test should exist")
+	require.NotNil(t, pathItem.Get, "GET operation should exist")
+	require.NotNil(t, pathItem.Get.Responses, "responses should exist")
+	require.NotNil(t, pathItem.Get.Responses.Codes, "response codes should exist")
+	resp, ok := pathItem.Get.Responses.Codes["200"]
+	require.True(t, ok, "200 response should exist")
+	require.NotNil(t, resp.Headers, "headers should exist")
+	require.Contains(t, resp.Headers, "X-Rate-Limit")
+
+	header := resp.Headers["X-Rate-Limit"]
+	assert.Empty(t, header.Ref, "ref should be resolved")
+	assert.Equal(t, "Rate limit", header.Description)
+}
+
 // TestConvertOAS3ToOAS2_NestedSchemaFeatureDetection tests end-to-end detection of OAS 3.x
 // schema features in nested schemas during conversion to OAS 2.0 via ConvertParsed.
 func TestConvertOAS3ToOAS2_NestedSchemaFeatureDetection(t *testing.T) {

@@ -111,6 +111,8 @@ type Converter struct {
 	// SourceMap provides source location lookup for conversion issues.
 	// When set, issues will include Line, Column, and File information.
 	SourceMap *parser.SourceMap
+	// sourceHeaders holds OAS 3.x component headers during 3.0-to-2.0 conversion
+	sourceHeaders map[string]*parser.Header
 }
 
 // New creates a new Converter instance with default settings
