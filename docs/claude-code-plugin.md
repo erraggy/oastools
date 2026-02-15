@@ -181,15 +181,24 @@ If you installed via the marketplace, Claude Code will check for updates automat
 ```
 plugin/
 ├── .claude-plugin/
-│   └── plugin.json        # Plugin manifest (name, version, author)
-├── .mcp.json              # MCP server configuration
-├── CLAUDE.md              # Instructions for Claude (tools, best practices)
+│   └── plugin.json           # Plugin manifest (name, version, author)
+├── .mcp.json                 # MCP server configuration
+├── CLAUDE.md                 # Instructions for Claude (tools, best practices)
+├── hooks/
+│   ├── hooks.json            # SessionStart hook configuration
+│   └── scripts/
+│       └── check-binary.sh   # Verify oastools binary is on PATH
 └── skills/
-    ├── validate-spec.md   # Guided validation workflow
-    ├── fix-spec.md        # Guided fix workflow
-    ├── explore-api.md     # Guided exploration workflow
-    ├── diff-specs.md      # Guided diff workflow
-    └── generate-code.md   # Guided code generation workflow
+    ├── validate-spec/
+    │   └── SKILL.md          # Guided validation workflow
+    ├── fix-spec/
+    │   └── SKILL.md          # Guided fix workflow
+    ├── explore-api/
+    │   └── SKILL.md          # Guided exploration workflow
+    ├── diff-specs/
+    │   └── SKILL.md          # Guided diff workflow
+    └── generate-code/
+        └── SKILL.md          # Guided code generation workflow
 ```
 
 ---
