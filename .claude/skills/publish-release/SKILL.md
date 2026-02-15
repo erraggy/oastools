@@ -1,6 +1,6 @@
 ---
 name: publish-release
-description: Publish a prepared release (phase 7). Usage: /publish-release <version>. Requires version argument. Wraps publish-release.sh for deterministic execution.
+description: "Publish a prepared release (phase 7). Usage: /publish-release <version>. Requires version argument. Wraps publish-release.sh for deterministic execution."
 ---
 
 # publish-release
