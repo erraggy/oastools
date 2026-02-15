@@ -15,7 +15,7 @@ Run integration tests against the corpus of real-world OpenAPI specifications.
 
 Use the Glob tool to check for corpus files:
 
-```
+```text
 pattern: testdata/corpus/*.{json,yaml,yml}
 ```
 
@@ -52,7 +52,7 @@ For each corpus spec, report:
 
 ## Step 4: Report
 
-```
+```markdown
 ## Corpus Test Results
 
 | Spec | Parse | Validate | Fix | Notes |

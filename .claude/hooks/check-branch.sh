@@ -21,7 +21,7 @@ fi
 # Reject commands with shell metacharacters that could chain commands
 # This prevents bypasses like: git status && rm -rf /
 # Also rejects newlines to prevent multi-line bypasses
-if echo "$COMMAND" | grep -qPE '[;|&`$()\\n\\r]|>\s*[^&]'; then
+if echo "$COMMAND" | grep -qP '[;|&`$()\\n\\r]|>\s*[^&]'; then
     echo "❌ BLOCKED: Command chaining on main branch."
     echo "   Command: $(echo "$COMMAND" | head -1)"
     echo ""

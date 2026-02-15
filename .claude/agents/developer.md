@@ -248,6 +248,7 @@ func ExampleParseWithOptions() {
 **Automatic (handled by hooks):** Formatting (`gofmt`, `goimports`) and gopls diagnostics run automatically after every Write/Edit via PostToolUse hooks. You do not need to run these manually.
 
 **Manual verification after each phase:**
+
 ```bash
 # Run tests for affected packages
 go test ./affected/package
