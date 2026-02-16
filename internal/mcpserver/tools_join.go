@@ -13,8 +13,8 @@ import (
 
 type joinInput struct {
 	Specs          []specInput `json:"specs"                         jsonschema:"Array of OAS documents to join (minimum 2)"`
-	PathStrategy   string      `json:"path_strategy,omitempty"       jsonschema:"Strategy for path collisions: accept_left or accept_right or fail"`
-	SchemaStrategy string      `json:"schema_strategy,omitempty"     jsonschema:"Strategy for schema collisions: accept_left or accept_right or fail or rename"`
+	PathStrategy   string      `json:"path_strategy,omitempty"       jsonschema:"Strategy for path collisions: accept-left or accept-right or fail"`
+	SchemaStrategy string      `json:"schema_strategy,omitempty"     jsonschema:"Strategy for schema collisions: accept-left or accept-right or fail or rename"`
 	SemanticDedup  bool        `json:"semantic_dedup,omitempty"      jsonschema:"Enable semantic deduplication of equivalent schemas"`
 	Output         string      `json:"output,omitempty"              jsonschema:"File path to write joined document. If omitted the result is returned inline."`
 }
