@@ -52,7 +52,7 @@ func registerAllTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "join",
-		Description: "Join multiple OpenAPI Specification documents into a single merged document. Requires at least 2 specs via the specs array. Collision strategies: accept_left, accept_right, fail (paths/schemas), rename (schemas only). Use semantic_dedup to merge equivalent schemas.",
+		Description: "Join multiple OpenAPI Specification documents into a single merged document. Requires at least 2 specs via the specs array. Collision strategies: accept-left, accept-right, fail (paths/schemas), rename (schemas only). Use semantic_dedup to merge equivalent schemas.",
 	}, handleJoin)
 
 	mcp.AddTool(server, &mcp.Tool{
