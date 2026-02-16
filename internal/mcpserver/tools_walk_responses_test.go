@@ -302,6 +302,41 @@ components:
 	assert.Contains(t, groupMap, "(component)", "expected (component) group key for component response")
 }
 
+func TestWalkResponses_GroupByMethod_ComponentLabel(t *testing.T) {
+	// Spec with component responses (no method context).
+	spec := `openapi: "3.0.0"
+info:
+  title: Component Response Test
+  version: "1.0.0"
+paths:
+  /pets:
+    get:
+      summary: List pets
+      responses:
+        "200":
+          description: OK
+components:
+  responses:
+    NotFound:
+      description: Not found
+`
+	input := walkResponsesInput{
+		Spec:    specInput{Content: spec},
+		GroupBy: "method",
+	}
+	_, output := callWalkResponses(t, input)
+
+	require.NotEmpty(t, output.Groups)
+	// Verify no empty-string key exists and collect group keys.
+	groupMap := make(map[string]int)
+	for _, g := range output.Groups {
+		assert.NotEqual(t, "", g.Key, "expected no empty-string group key")
+		groupMap[g.Key] = g.Count
+	}
+	// Verify the (component) label is present for the component response.
+	assert.Contains(t, groupMap, "(component)", "expected (component) group key for component response")
+}
+
 func TestWalkResponses_GroupByInvalid(t *testing.T) {
 	input := walkResponsesInput{
 		Spec:    specInput{Content: walkResponsesTestSpec},

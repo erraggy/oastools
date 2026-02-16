@@ -104,6 +104,27 @@ func TestPaginate(t *testing.T) {
 	}
 }
 
+func TestDetailLimit(t *testing.T) {
+	tests := []struct {
+		name  string
+		input int
+		want  int
+	}{
+		{"zero returns default", 0, 25},
+		{"negative returns default", -1, 25},
+		{"explicit 50", 50, 50},
+		{"explicit 10", 10, 10},
+		{"explicit 200", 200, 200},
+		{"boundary 1", 1, 1},
+		{"max int returns itself", math.MaxInt, math.MaxInt},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, detailLimit(tt.input))
+		})
+	}
+}
+
 func TestPaginate_OverflowLimit(t *testing.T) {
 	items := []int{0, 1, 2}
 	got := paginate(items, 1, math.MaxInt)

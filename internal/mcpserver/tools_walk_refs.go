@@ -16,7 +16,7 @@ type walkRefsInput struct {
 	NodeType string    `json:"node_type,omitempty"     jsonschema:"Filter by ref node type: schema, parameter, response, requestBody, header, pathItem"`
 	Detail   bool      `json:"detail,omitempty"        jsonschema:"Return individual source locations instead of aggregated counts"`
 	GroupBy  string    `json:"group_by,omitempty"      jsonschema:"Group results and return counts instead of individual items. Values: node_type"`
-	Limit    int       `json:"limit,omitempty"         jsonschema:"Maximum number of results to return (default 100)"`
+	Limit    int       `json:"limit,omitempty"         jsonschema:"Maximum number of results to return (default 100; 25 in detail mode)"`
 	Offset   int       `json:"offset,omitempty"        jsonschema:"Skip the first N results (for pagination)"`
 }
 
@@ -91,7 +91,8 @@ func handleWalkRefs(_ context.Context, _ *mcp.CallToolRequest, input walkRefsInp
 
 	if input.Detail {
 		// Detail mode: return individual ref locations.
-		paged := paginate(filtered, input.Offset, input.Limit)
+		limit := detailLimit(input.Limit)
+		paged := paginate(filtered, input.Offset, limit)
 		output := walkRefsOutput{
 			Total:    len(allRefs),
 			Matched:  len(filtered),

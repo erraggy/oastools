@@ -127,6 +127,16 @@ func paginate[T any](items []T, offset, limit int) []T {
 	return items[offset:end]
 }
 
+// detailLimit returns a lower default limit for detail mode output.
+// When the user hasn't specified an explicit limit (limit <= 0),
+// detail mode defaults to 25 items instead of 100 to keep output manageable.
+func detailLimit(limit int) int {
+	if limit <= 0 {
+		return defaultDetailLimit
+	}
+	return limit
+}
+
 // makeSlice returns nil when n is 0 (preserving omitempty JSON semantics),
 // otherwise returns make([]T, 0, n) for pre-allocated appending.
 func makeSlice[T any](n int) []T {

@@ -16,7 +16,7 @@ type walkPathsInput struct {
 	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers in output. Inlines referenced objects instead of showing $ref strings."`
 	Detail      bool      `json:"detail,omitempty"         jsonschema:"Return full path item objects instead of summaries"`
 	GroupBy     string    `json:"group_by,omitempty"       jsonschema:"Group results and return counts instead of individual items. Values: segment"`
-	Limit       int       `json:"limit,omitempty"          jsonschema:"Maximum number of results to return (default 100)"`
+	Limit       int       `json:"limit,omitempty"          jsonschema:"Maximum number of results to return (default 100; 25 in detail mode)"`
 	Offset      int       `json:"offset,omitempty"         jsonschema:"Skip the first N results (for pagination)"`
 }
 
@@ -101,7 +101,11 @@ func handleWalkPaths(_ context.Context, _ *mcp.CallToolRequest, input walkPathsI
 	}
 
 	// Apply offset/limit pagination.
-	returned := paginate(matched, input.Offset, input.Limit)
+	limit := input.Limit
+	if input.Detail {
+		limit = detailLimit(limit)
+	}
+	returned := paginate(matched, input.Offset, limit)
 
 	output := walkPathsOutput{
 		Total:    len(all),

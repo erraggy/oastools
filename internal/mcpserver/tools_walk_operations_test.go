@@ -2,6 +2,8 @@ package mcpserver
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -504,4 +506,37 @@ func TestWalkOperations_GroupByInvalid(t *testing.T) {
 	result, _ := callWalkOperations(t, input)
 	require.NotNil(t, result)
 	assert.True(t, result.IsError)
+}
+
+func TestWalkOperations_DetailDefaultLimit(t *testing.T) {
+	// Generate a spec with >25 operations to verify detail limit kicks in.
+	paths := make([]string, 0, 30)
+	for i := range 30 {
+		paths = append(paths, fmt.Sprintf(`  /resource%d:
+    get:
+      operationId: getResource%d
+      summary: Get resource %d
+      responses:
+        "200":
+          description: OK`, i, i, i))
+	}
+	spec := fmt.Sprintf(`openapi: "3.0.0"
+info:
+  title: Detail Limit Test
+  version: "1.0.0"
+paths:
+%s
+`, strings.Join(paths, "\n"))
+
+	input := walkOperationsInput{
+		Spec:   specInput{Content: spec},
+		Detail: true,
+	}
+	_, output := callWalkOperations(t, input)
+
+	assert.Equal(t, 30, output.Total)
+	assert.Equal(t, 30, output.Matched)
+	assert.Equal(t, 25, output.Returned, "detail mode should default to 25 items")
+	assert.Nil(t, output.Summaries, "detail mode should not populate summaries")
+	assert.Len(t, output.Operations, 25)
 }
