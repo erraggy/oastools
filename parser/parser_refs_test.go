@@ -106,7 +106,7 @@ paths: {}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resolver := NewRefResolver(safeDir)
+			resolver := NewRefResolver(safeDir, 0, 0, 0)
 			result, err := resolver.ResolveExternal(tt.ref)
 
 			if tt.shouldSucceed {
@@ -143,7 +143,7 @@ func TestPathTraversalWindows(t *testing.T) {
 	require.NoError(t, os.WriteFile(forbiddenFile, []byte("openapi: 3.0.0\ninfo:\n  title: Test\n  version: 1.0.0\npaths: {}"), 0644))
 
 	// Try to access the file in base2 from a resolver with baseDir set to base
-	resolver := NewRefResolver(baseDir)
+	resolver := NewRefResolver(baseDir, 0, 0, 0)
 
 	// Try various ways to escape to base2
 	refs := []string{

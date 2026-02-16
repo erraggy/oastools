@@ -53,6 +53,21 @@ func mapGetFloat64Ptr(m map[string]any, key string) *float64 {
 	case int64:
 		f := float64(n)
 		return &f
+	case uint64:
+		f := float64(n)
+		return &f
+	case uint:
+		f := float64(n)
+		return &f
+	case uint32:
+		f := float64(n)
+		return &f
+	case uint16:
+		f := float64(n)
+		return &f
+	case uint8:
+		f := float64(n)
+		return &f
 	default:
 		return nil
 	}
@@ -72,6 +87,21 @@ func mapGetIntPtr(m map[string]any, key string) *int {
 	case int:
 		return &n
 	case int64:
+		i := int(n)
+		return &i
+	case uint64:
+		i := int(n)
+		return &i
+	case uint:
+		i := int(n)
+		return &i
+	case uint32:
+		i := int(n)
+		return &i
+	case uint16:
+		i := int(n)
+		return &i
+	case uint8:
 		i := int(n)
 		return &i
 	default:
@@ -162,6 +192,17 @@ func decodeSchemaOrBool(v any) any {
 		s := new(Schema)
 		s.decodeFromMap(val)
 		return s
+	case []any:
+		// OAS 2.0 tuple validation: items can be an array of schemas
+		schemas := make([]*Schema, 0, len(val))
+		for _, elem := range val {
+			if m, ok := elem.(map[string]any); ok {
+				s := new(Schema)
+				s.decodeFromMap(m)
+				schemas = append(schemas, s)
+			}
+		}
+		return schemas
 	default:
 		return v // bool, nil, etc.
 	}

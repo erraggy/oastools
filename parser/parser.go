@@ -1067,9 +1067,9 @@ func (p *Parser) resolveRefsInMap(rawData map[string]any, originalBytes []byte, 
 // newRefResolver creates a RefResolver configured for this parser's settings.
 func (p *Parser) newRefResolver(baseDir, baseURL string) *RefResolver {
 	if p.ResolveHTTPRefs {
-		return NewRefResolverWithHTTP(baseDir, baseURL, p.fetchURL)
+		return NewRefResolverWithHTTP(baseDir, baseURL, p.fetchURL, p.MaxRefDepth, p.MaxCachedDocuments, p.MaxFileSize)
 	}
-	return NewRefResolver(baseDir)
+	return NewRefResolver(baseDir, p.MaxRefDepth, p.MaxCachedDocuments, p.MaxFileSize)
 }
 
 // parseJSONFastPath parses JSON input directly using encoding/json, bypassing YAML AST overhead.

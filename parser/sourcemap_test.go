@@ -746,7 +746,7 @@ paths:
 
 func TestRefResolver_UpdateAllRefTargets_NilSourceMap(t *testing.T) {
 	// Test that updateAllRefTargets handles nil SourceMap gracefully
-	resolver := NewRefResolver(".")
+	resolver := NewRefResolver(".", 0, 0, 0)
 	resolver.updateAllRefTargets() // Should not panic
 
 	// Also test with nil refs map
@@ -757,7 +757,7 @@ func TestRefResolver_UpdateAllRefTargets_NilSourceMap(t *testing.T) {
 
 func TestRefResolver_UpdateAllRefTargets_Comprehensive(t *testing.T) {
 	// Test comprehensive ref target updates
-	resolver := NewRefResolver(".")
+	resolver := NewRefResolver(".", 0, 0, 0)
 	resolver.SourceMap = NewSourceMap()
 
 	// Add locations for targets
@@ -825,7 +825,7 @@ func TestRefResolver_UpdateAllRefTargets_Comprehensive(t *testing.T) {
 
 func TestRefResolver_BuildExternalSourceMap_NilSourceMap(t *testing.T) {
 	// Test that buildExternalSourceMap handles nil SourceMap gracefully
-	resolver := NewRefResolver(".")
+	resolver := NewRefResolver(".", 0, 0, 0)
 	resolver.buildExternalSourceMap("/test.yaml", []byte("type: string"))
 	// Should not panic, and should not create ExternalSourceMaps
 
@@ -834,7 +834,7 @@ func TestRefResolver_BuildExternalSourceMap_NilSourceMap(t *testing.T) {
 
 func TestRefResolver_UpdateRefTargetLocation_EdgeCases(t *testing.T) {
 	// Test updateRefTargetLocation edge cases
-	resolver := NewRefResolver(".")
+	resolver := NewRefResolver(".", 0, 0, 0)
 
 	// Test with nil SourceMap
 	resolver.updateRefTargetLocation("$.path", "#/ref")

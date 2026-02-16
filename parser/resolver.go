@@ -73,29 +73,63 @@ type RefResolver struct {
 	// (e.g., decodeDocumentFromMap). When false (default), every resolved
 	// $ref is deep-copied to prevent shared mutation.
 	ShallowCopy bool
+	// maxRefDepth is the maximum depth allowed for nested $ref resolution.
+	// If 0, the package-level MaxRefDepth constant is used.
+	maxRefDepth int
+	// maxCachedDocuments is the maximum number of external documents to cache.
+	// If 0, the package-level MaxCachedDocuments constant is used.
+	maxCachedDocuments int
+	// maxFileSize is the maximum size (in bytes) allowed for external reference files.
+	// If 0, the package-level MaxFileSize constant is used.
+	maxFileSize int64
 }
 
-// NewRefResolver creates a new reference resolver for local and file-based refs
-func NewRefResolver(baseDir string) *RefResolver {
-	return &RefResolver{
+// NewRefResolver creates a new reference resolver for local and file-based refs.
+// The maxRefDepth, maxCachedDocs, and maxFileSize parameters configure resource limits.
+// A value of 0 for any parameter means the corresponding package-level constant is used as the default.
+func NewRefResolver(baseDir string, maxRefDepth, maxCachedDocs int, maxFileSize int64) *RefResolver {
+	r := &RefResolver{
 		visited:   make(map[string]bool),
 		resolving: make(map[string]bool),
 		documents: make(map[string]*cacheEntry),
 		baseDir:   baseDir,
 	}
+	r.applyLimitDefaults(maxRefDepth, maxCachedDocs, maxFileSize)
+	return r
 }
 
-// NewRefResolverWithHTTP creates a reference resolver with HTTP/HTTPS support
-// The baseURL is used for resolving relative refs when the source is an HTTP URL
-// The fetcher function is called to retrieve content from HTTP/HTTPS URLs
-func NewRefResolverWithHTTP(baseDir, baseURL string, fetcher HTTPFetcher) *RefResolver {
-	return &RefResolver{
+// NewRefResolverWithHTTP creates a reference resolver with HTTP/HTTPS support.
+// The baseURL is used for resolving relative refs when the source is an HTTP URL.
+// The fetcher function is called to retrieve content from HTTP/HTTPS URLs.
+// The maxRefDepth, maxCachedDocs, and maxFileSize parameters configure resource limits.
+// A value of 0 for any parameter means the corresponding package-level constant is used as the default.
+func NewRefResolverWithHTTP(baseDir, baseURL string, fetcher HTTPFetcher, maxRefDepth, maxCachedDocs int, maxFileSize int64) *RefResolver {
+	r := &RefResolver{
 		visited:   make(map[string]bool),
 		resolving: make(map[string]bool),
 		documents: make(map[string]*cacheEntry),
 		baseDir:   baseDir,
 		baseURL:   baseURL,
 		httpFetch: fetcher,
+	}
+	r.applyLimitDefaults(maxRefDepth, maxCachedDocs, maxFileSize)
+	return r
+}
+
+// applyLimitDefaults sets resource limit fields, falling back to package-level
+// constants when the caller passes zero (the zero value).
+func (r *RefResolver) applyLimitDefaults(maxRefDepth, maxCachedDocs int, maxFileSize int64) {
+	r.maxRefDepth = maxRefDepth
+	if r.maxRefDepth == 0 {
+		r.maxRefDepth = MaxRefDepth
+	}
+	r.maxCachedDocuments = maxCachedDocs
+	if r.maxCachedDocuments == 0 {
+		r.maxCachedDocuments = MaxCachedDocuments
+	}
+	r.maxFileSize = maxFileSize
+	if r.maxFileSize == 0 {
+		r.maxFileSize = MaxFileSize
 	}
 }
 
@@ -219,10 +253,10 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 		doc = entry.doc
 	} else {
 		// Enforce cache size limit to prevent memory exhaustion
-		if len(r.documents) >= MaxCachedDocuments {
+		if len(r.documents) >= r.maxCachedDocuments {
 			return nil, &oaserrors.ResourceLimitError{
 				ResourceType: "cached_documents",
-				Limit:        MaxCachedDocuments,
+				Limit:        int64(r.maxCachedDocuments),
 				Actual:       int64(len(r.documents)),
 				Message:      "too many external references",
 			}
@@ -234,9 +268,9 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read external file %s: %w", filePath, err)
 		}
-		if int64(len(data)) > MaxFileSize {
+		if int64(len(data)) > r.maxFileSize {
 			return nil, fmt.Errorf("external file %s exceeds maximum size limit (%d bytes): file is %d bytes",
-				filePath, MaxFileSize, len(data))
+				filePath, r.maxFileSize, len(data))
 		}
 
 		// Parse the external document
@@ -295,10 +329,10 @@ func (r *RefResolver) ResolveHTTP(ref string) (any, error) {
 
 	if !cacheValid {
 		// Enforce cache size limit to prevent memory exhaustion
-		if len(r.documents) >= MaxCachedDocuments {
+		if len(r.documents) >= r.maxCachedDocuments {
 			return nil, &oaserrors.ResourceLimitError{
 				ResourceType: "cached_documents",
-				Limit:        MaxCachedDocuments,
+				Limit:        int64(r.maxCachedDocuments),
 				Actual:       int64(len(r.documents)),
 				Message:      "too many external references",
 			}
@@ -311,9 +345,9 @@ func (r *RefResolver) ResolveHTTP(ref string) (any, error) {
 		}
 
 		// Enforce file size limit
-		if int64(len(data)) > MaxFileSize {
+		if int64(len(data)) > r.maxFileSize {
 			return nil, fmt.Errorf("HTTP response from %s exceeds maximum size limit (%d bytes): response is %d bytes",
-				urlStr, MaxFileSize, len(data))
+				urlStr, r.maxFileSize, len(data))
 		}
 
 		// Parse the document (YAML parser handles both YAML and JSON)
@@ -415,10 +449,10 @@ func (r *RefResolver) ResolveAllRefs(doc map[string]any) error {
 // resolveRefsRecursive recursively walks through the document structure and resolves $ref
 func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 	// Prevent stack overflow from deeply nested structures
-	if depth > MaxRefDepth {
+	if depth > r.maxRefDepth {
 		return &oaserrors.ResourceLimitError{
 			ResourceType: "ref_depth",
-			Limit:        MaxRefDepth,
+			Limit:        int64(r.maxRefDepth),
 			Actual:       int64(depth),
 			Message:      "structure too deeply nested",
 		}
