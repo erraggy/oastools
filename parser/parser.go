@@ -1,6 +1,7 @@
 package parser
 
 //go:generate go run ../internal/codegen/deepcopy
+//go:generate go run ../internal/codegen/decode
 
 import (
 	"bytes"
@@ -957,31 +958,7 @@ func (p *Parser) parseBytesWithBaseDirAndURL(data []byte, baseDir, baseURL strin
 	// Resolve references if enabled (before semver-specific parsing)
 	var hasCircularRefs bool
 	if p.ResolveRefs {
-		var resolver *RefResolver
-		if p.ResolveHTTPRefs {
-			// Use HTTP-enabled resolver when HTTP refs are enabled
-			// This supports both: local files with absolute HTTP $refs, and
-			// HTTP-sourced specs with relative $refs (resolved against baseURL)
-			resolver = NewRefResolverWithHTTP(baseDir, baseURL, p.fetchURL)
-		} else {
-			resolver = NewRefResolver(baseDir)
-		}
-
-		// If building source maps, pass the source map to the resolver
-		// so it can build source maps for external documents
-		if p.BuildSourceMap && result.SourceMap != nil {
-			resolver.SourceMap = result.SourceMap
-		}
-
-		if err := resolver.ResolveAllRefs(rawData); err != nil {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("ref resolution warning: %v", err))
-		}
-		hasCircularRefs = resolver.HasCircularRefs()
-
-		// After resolution, update ref target locations in the source map
-		if p.BuildSourceMap && result.SourceMap != nil {
-			resolver.updateAllRefTargets()
-		}
+		rawData, hasCircularRefs = p.resolveRefsInMap(rawData, data, baseDir, baseURL, result)
 	}
 
 	result.Data = rawData
@@ -993,37 +970,20 @@ func (p *Parser) parseBytesWithBaseDirAndURL(data []byte, baseDir, baseURL strin
 	}
 	result.Version = version
 
-	// Prepare data for version-specific parsing
-	// Only re-marshal if we resolved refs AND no circular refs were detected
-	//
-	// Performance trade-off: When ResolveRefs is enabled, we must re-marshal the
-	// rawData map after reference resolution to ensure the resolved content is
-	// available to the version-specific parsers. This adds overhead (especially
-	// for large documents), but is necessary for correct reference resolution.
-	// When ResolveRefs is disabled, we skip this step and use the original data.
-	//
-	// IMPORTANT: If circular references were detected, we MUST skip re-marshaling
-	// because yaml.Marshal will enter an infinite loop on circular Go structures.
-	var parseData []byte
-	if p.ResolveRefs && !hasCircularRefs {
-		// Re-marshal the data with resolved refs
-		parseData, err = yaml.Marshal(rawData)
-		if err != nil {
-			// If marshaling fails, fall back to using the original data.
-			parseData = data
-			result.Warnings = append(result.Warnings, fmt.Sprintf("Warning: Could not re-marshal document after reference resolution: %v. Using original document structure. Some references may not be fully resolved.", err))
-		}
-	} else if hasCircularRefs {
-		// Use original data when circular refs detected to avoid infinite loop in yaml.Marshal
-		parseData = data
-		result.Warnings = append(result.Warnings, "Warning: Circular references detected. Using original document structure. Some references may not be fully resolved.")
-	} else {
-		// Use original data directly
-		parseData = data
+	if hasCircularRefs {
+		result.Warnings = append(result.Warnings, "Warning: Circular references detected. Non-circular references resolved normally. Circular references remain as $ref pointers.")
 	}
 
-	// Parse to semver-specific structure
-	doc, oasVersion, err := p.parseVersionSpecific(parseData, version)
+	// Parse to version-specific structure
+	var doc any
+	var oasVersion OASVersion
+	if p.ResolveRefs {
+		// Decode directly from the resolved map, avoiding the marshal->unmarshal roundtrip.
+		// This eliminates the intermediate []byte allocation that inflates memory for large specs.
+		doc, oasVersion, err = decodeDocumentFromMap(rawData, version)
+	} else {
+		doc, oasVersion, err = p.parseVersionSpecific(data, version)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1040,6 +1000,76 @@ func (p *Parser) parseBytesWithBaseDirAndURL(data []byte, baseDir, baseURL strin
 	result.Stats = GetDocumentStats(result.Document)
 
 	return result, nil
+}
+
+// resolveRefsInMap resolves $ref references in a parsed map. It first attempts
+// shallow-copy resolution (which avoids duplicating resolved content). If circular
+// references are detected, shallow copy creates Go pointer cycles in the map, so
+// it falls back to re-parsing and resolving with deep copy.
+//
+// Parameters:
+//   - rawData: the parsed map to resolve refs in (modified in place)
+//   - originalBytes: the original YAML/JSON bytes, used for re-parsing on fallback
+//   - baseDir, baseURL: for resolving relative file and HTTP refs
+//   - result: the ParseResult to append warnings to and set source maps on
+//
+// Returns the (possibly re-parsed) map and whether circular refs were detected.
+func (p *Parser) resolveRefsInMap(rawData map[string]any, originalBytes []byte, baseDir, baseURL string, result *ParseResult) (map[string]any, bool) {
+	resolver := p.newRefResolver(baseDir, baseURL)
+
+	// If building source maps, pass the source map to the resolver
+	if p.BuildSourceMap && result.SourceMap != nil {
+		resolver.SourceMap = result.SourceMap
+	}
+
+	// Try shallow copy first — avoids deep-copying every resolved ref subtree.
+	resolver.ShallowCopy = true
+
+	resolveErr := resolver.ResolveAllRefs(rawData)
+
+	// Shallow copy is only safe when there are no circular refs AND the
+	// resolution completed without error. With circular schemas, shallow copy
+	// creates Go pointer cycles in the map data. A MaxRefDepth error may also
+	// indicate cycles created by shallow copy (the resolver's value-iteration
+	// loop follows shared map pointers, inflating depth).
+	needsFallback := resolver.HasCircularRefs() || resolveErr != nil
+	if !needsFallback {
+		if p.BuildSourceMap && result.SourceMap != nil {
+			resolver.updateAllRefTargets()
+		}
+		return rawData, false
+	}
+
+	// Circular refs or resolution error — shallow copy may have created Go
+	// pointer cycles. Re-parse from original bytes and re-resolve with deep copy.
+	var freshData map[string]any
+	if err := yaml.Unmarshal(originalBytes, &freshData); err != nil {
+		// If re-parse fails, return the cyclic data with a warning.
+		// This shouldn't happen since the same bytes parsed successfully before.
+		result.Warnings = append(result.Warnings, fmt.Sprintf("ref resolution warning: failed to re-parse for deep copy fallback: %v", err))
+		return rawData, resolver.HasCircularRefs()
+	}
+
+	freshResolver := p.newRefResolver(baseDir, baseURL)
+	if p.BuildSourceMap && result.SourceMap != nil {
+		freshResolver.SourceMap = result.SourceMap
+	}
+	// Deep copy (ShallowCopy=false is the default) — safe for circular refs.
+	if err := freshResolver.ResolveAllRefs(freshData); err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("ref resolution warning: %v", err))
+	}
+	if p.BuildSourceMap && result.SourceMap != nil {
+		freshResolver.updateAllRefTargets()
+	}
+	return freshData, freshResolver.HasCircularRefs()
+}
+
+// newRefResolver creates a RefResolver configured for this parser's settings.
+func (p *Parser) newRefResolver(baseDir, baseURL string) *RefResolver {
+	if p.ResolveHTTPRefs {
+		return NewRefResolverWithHTTP(baseDir, baseURL, p.fetchURL)
+	}
+	return NewRefResolver(baseDir)
 }
 
 // parseJSONFastPath parses JSON input directly using encoding/json, bypassing YAML AST overhead.
@@ -1065,17 +1095,7 @@ func (p *Parser) parseJSONFastPath(data []byte, baseDir, baseURL string, result 
 	// Resolve references if enabled (before version-specific parsing)
 	var hasCircularRefs bool
 	if p.ResolveRefs {
-		var resolver *RefResolver
-		if p.ResolveHTTPRefs {
-			resolver = NewRefResolverWithHTTP(baseDir, baseURL, p.fetchURL)
-		} else {
-			resolver = NewRefResolver(baseDir)
-		}
-
-		if err := resolver.ResolveAllRefs(rawData); err != nil {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("ref resolution warning: %v", err))
-		}
-		hasCircularRefs = resolver.HasCircularRefs()
+		rawData, hasCircularRefs = p.resolveRefsInMap(rawData, data, baseDir, baseURL, result)
 	}
 
 	result.Data = rawData
@@ -1088,25 +1108,19 @@ func (p *Parser) parseJSONFastPath(data []byte, baseDir, baseURL string, result 
 	}
 	result.Version = version
 
-	// Prepare data for version-specific parsing
-	// Only re-marshal if we resolved refs AND no circular refs were detected
-	var parseData []byte
-	if p.ResolveRefs && !hasCircularRefs {
-		// Re-marshal the data with resolved refs using JSON (faster than YAML)
-		parseData, err = json.Marshal(rawData)
-		if err != nil {
-			parseData = data
-			result.Warnings = append(result.Warnings, fmt.Sprintf("Warning: Could not re-marshal document after reference resolution: %v. Using original document structure. Some references may not be fully resolved.", err))
-		}
-	} else if hasCircularRefs {
-		parseData = data
-		result.Warnings = append(result.Warnings, "Warning: Circular references detected. Using original document structure. Some references may not be fully resolved.")
-	} else {
-		parseData = data
+	if hasCircularRefs {
+		result.Warnings = append(result.Warnings, "Warning: Circular references detected. Non-circular references resolved normally. Circular references remain as $ref pointers.")
 	}
 
-	// Parse to version-specific structure using JSON unmarshaling
-	doc, oasVersion, err := p.parseVersionSpecificJSON(parseData, version)
+	// Parse to version-specific structure
+	var doc any
+	var oasVersion OASVersion
+	if p.ResolveRefs {
+		// Decode directly from the resolved map, avoiding the marshal->unmarshal roundtrip.
+		doc, oasVersion, err = decodeDocumentFromMap(rawData, version)
+	} else {
+		doc, oasVersion, err = p.parseVersionSpecificJSON(data, version)
+	}
 	if err != nil {
 		return nil, err
 	}

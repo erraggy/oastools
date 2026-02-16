@@ -67,6 +67,12 @@ type RefResolver struct {
 	SourceMap *SourceMap
 	// ExternalSourceMaps caches source maps for external documents
 	ExternalSourceMaps map[string]*SourceMap
+	// ShallowCopy controls whether resolved $ref content is deep-copied.
+	// When true, resolved content shares references with the original map,
+	// which is safe when the consumer creates independent struct copies
+	// (e.g., decodeDocumentFromMap). When false (default), every resolved
+	// $ref is deep-copied to prevent shared mutation.
+	ShallowCopy bool
 }
 
 // NewRefResolver creates a new reference resolver for local and file-based refs
@@ -465,11 +471,17 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 				delete(r.resolving, ref)
 				return fmt.Errorf("resolved $ref %s is not an object (got %T)", ref, resolved)
 			}
-			// Deep copy resolved content to prevent circular Go pointer creation
-			// When A -> B -> A refs are resolved, shallow copying creates actual
-			// circular pointer chains that cause yaml.Marshal to infinite loop.
+			// Copy resolved content into the target map.
+			// When ShallowCopy is true, references are shared — this is safe when
+			// the consumer (decodeDocumentFromMap) creates independent struct copies
+			// from the map data. When false, deep copy prevents shared mutation and
+			// circular Go pointer chains that would cause yaml.Marshal to loop.
 			for k, val := range resolvedMap {
-				v[k] = deepCopyJSONValue(val)
+				if r.ShallowCopy {
+					v[k] = val
+				} else {
+					v[k] = deepCopyJSONValue(val)
+				}
 			}
 			delete(v, "$ref")
 
@@ -499,9 +511,10 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 	return nil
 }
 
-// HasCircularRefs returns true if circular references were detected during resolution.
-// When true, the resolved data contains actual Go circular references and cannot be
-// safely serialized with yaml.Marshal (which would cause an infinite loop).
+// HasCircularRefs returns whether the last call to ResolveAllRefs detected circular references.
+// When true, the resolver left circular $ref strings in place (unresolved) while
+// resolving all non-circular references normally. The resolved data does NOT contain
+// Go pointer cycles and can be safely serialized.
 func (r *RefResolver) HasCircularRefs() bool {
 	return r.hasCircularRefs
 }
