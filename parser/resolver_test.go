@@ -128,7 +128,7 @@ func TestRefResolver_HasCircularRefs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resolver := NewRefResolver("")
+			resolver := NewRefResolver("", 0, 0, 0)
 			_ = resolver.ResolveAllRefs(tt.doc)
 
 			assert.Equal(t, tt.wantCircular, resolver.HasCircularRefs(), "HasCircularRefs() mismatch")
@@ -138,7 +138,7 @@ func TestRefResolver_HasCircularRefs(t *testing.T) {
 
 // TestRefResolver_HasCircularRefs_Reset verifies the flag is reset between calls
 func TestRefResolver_HasCircularRefs_Reset(t *testing.T) {
-	resolver := NewRefResolver("")
+	resolver := NewRefResolver("", 0, 0, 0)
 
 	// First: resolve a doc with circular refs
 	docWithCircular := map[string]any{
@@ -388,7 +388,7 @@ components:
 
 // TestLocalRefResolution tests basic local reference resolution
 func TestLocalRefResolution(t *testing.T) {
-	resolver := NewRefResolver(".")
+	resolver := NewRefResolver(".", 0, 0, 0)
 
 	doc := map[string]any{
 		"components": map[string]any{
@@ -417,7 +417,7 @@ func TestLocalRefResolution(t *testing.T) {
 
 // TestLocalRefNotFound tests that missing local references return appropriate errors
 func TestLocalRefNotFound(t *testing.T) {
-	resolver := NewRefResolver(".")
+	resolver := NewRefResolver(".", 0, 0, 0)
 
 	doc := map[string]any{
 		"components": map[string]any{
@@ -433,7 +433,7 @@ func TestLocalRefNotFound(t *testing.T) {
 
 // TestJSONPointerEscaping tests that JSON Pointer special characters are properly escaped
 func TestJSONPointerEscaping(t *testing.T) {
-	resolver := NewRefResolver(".")
+	resolver := NewRefResolver(".", 0, 0, 0)
 
 	// JSON Pointer uses ~0 for ~ and ~1 for /
 	doc := map[string]any{
@@ -488,7 +488,7 @@ func TestJSONPointerEscaping(t *testing.T) {
 // TestHTTPReferencesRequireFetcher tests that HTTP(S) references require an HTTP fetcher
 func TestHTTPReferencesRequireFetcher(t *testing.T) {
 	// Without HTTP fetcher configured, HTTP refs should return an error
-	resolver := NewRefResolver(".")
+	resolver := NewRefResolver(".", 0, 0, 0)
 
 	doc := map[string]any{}
 
@@ -744,7 +744,7 @@ func TestArrayIndexResolution(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resolver := NewRefResolver("")
+			resolver := NewRefResolver("", 0, 0, 0)
 			result, err := resolver.Resolve(tt.doc, tt.ref)
 
 			if tt.expectError {
@@ -809,7 +809,7 @@ paths:
 // TestSetCacheTTL tests the TTL-based cache expiration functionality.
 func TestSetCacheTTL(t *testing.T) {
 	t.Run("default zero TTL caches forever", func(t *testing.T) {
-		r := NewRefResolver(".")
+		r := NewRefResolver(".", 0, 0, 0)
 		// Default cacheTTL is zero, meaning cache forever
 		if r.cacheTTL != 0 {
 			t.Errorf("expected default cacheTTL to be 0, got %v", r.cacheTTL)
@@ -817,7 +817,7 @@ func TestSetCacheTTL(t *testing.T) {
 	})
 
 	t.Run("SetCacheTTL sets positive TTL", func(t *testing.T) {
-		r := NewRefResolver(".")
+		r := NewRefResolver(".", 0, 0, 0)
 		r.SetCacheTTL(5 * time.Minute)
 		if r.cacheTTL != 5*time.Minute {
 			t.Errorf("expected cacheTTL to be 5m, got %v", r.cacheTTL)
@@ -825,7 +825,7 @@ func TestSetCacheTTL(t *testing.T) {
 	})
 
 	t.Run("SetCacheTTL sets negative TTL to disable caching", func(t *testing.T) {
-		r := NewRefResolver(".")
+		r := NewRefResolver(".", 0, 0, 0)
 		r.SetCacheTTL(-1)
 		if r.cacheTTL >= 0 {
 			t.Errorf("expected negative cacheTTL, got %v", r.cacheTTL)
@@ -862,7 +862,7 @@ func TestResolveHTTP_TTLExpiration(t *testing.T) {
 		return []byte(`{"type": "object", "properties": {"name": {"type": "string"}}}`), "application/json", nil
 	}
 
-	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher)
+	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher, 0, 0, 0)
 	resolver.SetCacheTTL(50 * time.Millisecond) // Very short TTL for testing
 
 	doc := map[string]any{}
@@ -899,7 +899,7 @@ func TestResolveHTTP_NegativeTTLDisablesCache(t *testing.T) {
 		return []byte(`{"type": "string"}`), "application/json", nil
 	}
 
-	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher)
+	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher, 0, 0, 0)
 	resolver.SetCacheTTL(-1) // Disable caching
 
 	doc := map[string]any{}
@@ -920,7 +920,7 @@ func TestResolveHTTP_ZeroTTLCachesForever(t *testing.T) {
 		return []byte(`{"type": "boolean"}`), "application/json", nil
 	}
 
-	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher)
+	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher, 0, 0, 0)
 	// Default TTL is 0 (cache forever)
 
 	doc := map[string]any{}

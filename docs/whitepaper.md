@@ -2081,7 +2081,7 @@ oastools incorporates several security measures to protect against common vulner
 External file references are validated to prevent path traversal attacks.
 
 ```go
-resolver := parser.NewRefResolver("/base/path")
+resolver := parser.NewRefResolver("/base/path", 0, 0, 0)
 // Attempting to resolve "../../../etc/passwd" will fail with ErrPathTraversal
 ```
 

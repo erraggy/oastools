@@ -43,7 +43,7 @@ func TestResolveHTTPBasic(t *testing.T) {
 		return body[:n], resp.Header.Get("Content-Type"), nil
 	}
 
-	resolver := NewRefResolverWithHTTP(".", server.URL, fetcher)
+	resolver := NewRefResolverWithHTTP(".", server.URL, fetcher, 0, 0, 0)
 	doc := map[string]any{}
 
 	// Test resolving the whole document
@@ -92,7 +92,7 @@ components:
 		return body[:n], resp.Header.Get("Content-Type"), nil
 	}
 
-	resolver := NewRefResolverWithHTTP(".", server.URL, fetcher)
+	resolver := NewRefResolverWithHTTP(".", server.URL, fetcher, 0, 0, 0)
 	doc := map[string]any{}
 
 	// Test resolving with fragment
@@ -135,7 +135,7 @@ func TestResolveHTTPCaching(t *testing.T) {
 		return body[:n], resp.Header.Get("Content-Type"), nil
 	}
 
-	resolver := NewRefResolverWithHTTP(".", server.URL, fetcher)
+	resolver := NewRefResolverWithHTTP(".", server.URL, fetcher, 0, 0, 0)
 	doc := map[string]any{}
 
 	// Resolve the same URL multiple times
@@ -167,7 +167,7 @@ func TestResolveHTTPCircularDetection(t *testing.T) {
 		return body[:n], resp.Header.Get("Content-Type"), nil
 	}
 
-	resolver := NewRefResolverWithHTTP(".", server.URL, fetcher)
+	resolver := NewRefResolverWithHTTP(".", server.URL, fetcher, 0, 0, 0)
 	doc := map[string]any{}
 
 	// First resolution should work
@@ -215,7 +215,7 @@ func TestResolveHTTPMaxSizeLimit(t *testing.T) {
 		return body[:n], resp.Header.Get("Content-Type"), nil
 	}
 
-	resolver := NewRefResolverWithHTTP(".", server.URL, fetcher)
+	resolver := NewRefResolverWithHTTP(".", server.URL, fetcher, 0, 0, 0)
 	doc := map[string]any{}
 
 	_, err := resolver.Resolve(doc, server.URL)
@@ -229,7 +229,7 @@ func TestResolveHTTPFetchError(t *testing.T) {
 		return nil, "", http.ErrServerClosed
 	}
 
-	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher)
+	resolver := NewRefResolverWithHTTP(".", "http://example.com", fetcher, 0, 0, 0)
 	doc := map[string]any{}
 
 	_, err := resolver.Resolve(doc, "http://example.com/api.yaml")
@@ -256,7 +256,7 @@ func TestResolveHTTPInvalidContent(t *testing.T) {
 		return body[:n], resp.Header.Get("Content-Type"), nil
 	}
 
-	resolver := NewRefResolverWithHTTP(".", server.URL, fetcher)
+	resolver := NewRefResolverWithHTTP(".", server.URL, fetcher, 0, 0, 0)
 	doc := map[string]any{}
 
 	_, err := resolver.Resolve(doc, server.URL)
@@ -300,7 +300,7 @@ func TestResolveRelativeURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resolver := NewRefResolverWithHTTP(".", tt.baseURL, nil)
+			resolver := NewRefResolverWithHTTP(".", tt.baseURL, nil, 0, 0, 0)
 			result, err := resolver.resolveRelativeURL(tt.ref)
 			require.NoError(t, err, "Failed to resolve relative URL")
 			assert.Equal(t, tt.expected, result)
@@ -314,7 +314,7 @@ func TestNewRefResolverWithHTTP(t *testing.T) {
 		return nil, "", nil
 	}
 
-	resolver := NewRefResolverWithHTTP("/base/dir", "https://example.com/api.yaml", fetcher)
+	resolver := NewRefResolverWithHTTP("/base/dir", "https://example.com/api.yaml", fetcher, 0, 0, 0)
 
 	assert.Equal(t, "/base/dir", resolver.baseDir, "Expected baseDir '/base/dir'")
 	assert.Equal(t, "https://example.com/api.yaml", resolver.baseURL, "Expected baseURL 'https://example.com/api.yaml'")
@@ -354,7 +354,7 @@ func TestResolveHTTPRelativeRefFromHTTPSource(t *testing.T) {
 	}
 
 	baseURL := server.URL + "/api/spec.yaml"
-	resolver := NewRefResolverWithHTTP(".", baseURL, fetcher)
+	resolver := NewRefResolverWithHTTP(".", baseURL, fetcher, 0, 0, 0)
 	doc := map[string]any{}
 
 	// Resolve a relative reference - should resolve against baseURL
