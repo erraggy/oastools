@@ -344,7 +344,7 @@ All walk tools share common input fields:
 | `spec` | object | The OAS document |
 | `detail` | boolean | Return full objects instead of summaries |
 | `resolve_refs` | boolean | Resolve `$ref` pointers before output |
-| `limit` | number | Max results to return (default: 100) |
+| `limit` | number | Max results to return (default: 100; 25 in detail mode) |
 | `offset` | number | Skip the first N results (for pagination) |
 | `group_by` | string | Group results and return `{key, count}` aggregates instead of individual items |
 | `extension` | string | Filter by extension (e.g., `x-internal=true`) |
