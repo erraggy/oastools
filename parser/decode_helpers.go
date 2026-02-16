@@ -1,6 +1,9 @@
 package parser
 
-import "strings"
+import (
+	"math"
+	"strings"
+)
 
 // extractExtensionsFromMap collects x-* keys from a map into an extension map.
 // Returns nil if no extensions found (not an empty map).
@@ -90,9 +93,15 @@ func mapGetIntPtr(m map[string]any, key string) *int {
 		i := int(n)
 		return &i
 	case uint64:
+		if n > math.MaxInt {
+			return nil
+		}
 		i := int(n)
 		return &i
 	case uint:
+		if n > math.MaxInt {
+			return nil
+		}
 		i := int(n)
 		return &i
 	case uint32:
