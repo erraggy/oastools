@@ -77,17 +77,18 @@
 //
 // # Circular Reference Handling
 //
-// When the parser detects circular references during $ref resolution, it uses a
-// "silent fallback" strategy: the affected $ref nodes remain unresolved, but
-// parsing continues successfully. This ensures documents with circular references
-// can still be used while maintaining safety.
+// The parser resolves non-circular references normally even when circular
+// references exist in the document. Only the circular $ref nodes themselves
+// remain unresolved (preserving the "$ref" key); all other references are
+// fully inlined.
 //
 // Circular references are detected when:
 //   - A $ref points to an ancestor in the current resolution path
 //   - The resolution depth exceeds MaxRefDepth (default: 100)
 //
 // When circular references are detected:
-//   - The $ref node is left unresolved (preserves the "$ref" key)
+//   - Non-circular $ref nodes are resolved normally
+//   - Circular $ref nodes are left unresolved (preserves the "$ref" key)
 //   - A warning is added to result.Warnings
 //   - The document remains valid for most operations
 //
