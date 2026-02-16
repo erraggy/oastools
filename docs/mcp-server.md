@@ -344,7 +344,7 @@ All walk tools share common input fields:
 | `spec` | object | The OAS document |
 | `detail` | boolean | Return full objects instead of summaries |
 | `resolve_refs` | boolean | Resolve `$ref` pointers before output |
-| `limit` | number | Max results to return (default: 100) |
+| `limit` | number | Max results to return (default: 100; 25 in detail mode) |
 | `offset` | number | Skip the first N results (for pagination) |
 | `group_by` | string | Group results and return `{key, count}` aggregates instead of individual items |
 | `extension` | string | Filter by extension (e.g., `x-internal=true`) |
@@ -406,8 +406,25 @@ Some walk tools use labeled group keys to represent edge cases when using `group
 | `walk_schemas` | `type` | `(untyped)` | Schemas without an explicit `type` field -- typically compositions (`allOf`/`anyOf`/`oneOf`) or `$ref` wrappers |
 | `walk_parameters` | `location` | `(ref)` | Parameters defined as a `$ref` that have not been resolved -- the `in` field is not available until the reference is followed |
 | `walk_responses` | `status_code` | `(component)` | Component-level responses (defined in `components/responses`) that are not associated with a specific operation or status code |
+| `walk_responses` | `method` | `(component)` | Component-level responses that are not associated with any HTTP method |
 
 These labels appear as the `key` field in the `groups` array when the corresponding condition is met.
+
+### Detail Mode Defaults
+
+Walk tools in `detail=true` mode use a default limit of **25** (vs 100 for summaries) to keep output manageable. Each detail object can be 2-10KB of JSON, so 100 detail results could produce 200KB-1MB+ of output. Set `limit` explicitly to override the default.
+
+### Filter Behaviors
+
+- **Parameter auto-resolution:** `walk_parameters` automatically resolves `$ref` parameters when the `in` or `name` filter is specified. Without this, `$ref` parameters have empty `in` and `name` fields, causing filters to silently return 0 results. The `path` and `method` filters don't need this since they operate on location context available even for unresolved refs. **Note:** Specs with circular `$ref`s fall back to original data during resolution (#326), so parameter auto-resolution may not take effect for those specs.
+- **OAS 3.1 type filter:** `walk_schemas` `type=string` uses exact match. OAS 3.1 nullable types (`type: [string, null]`) won't match `type=string`. Use `component=true` with `detail=true` to inspect multi-type schemas.
+- **Schema name filter scope:** `walk_schemas` `name` matches both component schema names and nested property names. Use `component=true` to restrict to component schemas only.
+
+### Cross-Tool Limitations
+
+- **Cross-version diff:** Comparing specs across OAS versions (e.g., 2.0 vs 3.0) with `diff` reports structural format changes as breaking. This is technically correct but reflects version differences, not API changes.
+- **Fixer coverage:** `fix` handles structural issues (duplicate operationIds, missing path parameters, unused schemas, missing `$ref` targets). Semantic validation errors (invalid compositions, type mismatches) are not auto-fixable.
+- **Validator strictness:** Specs using `allOf`/`anyOf`/`oneOf` compositions may produce high error counts in strict mode if required properties are distributed across composed schemas.
 
 ---
 

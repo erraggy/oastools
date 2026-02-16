@@ -18,7 +18,7 @@ type walkResponsesInput struct {
 	ResolveRefs bool      `json:"resolve_refs,omitempty"   jsonschema:"Resolve $ref pointers in output. Inlines referenced objects instead of showing $ref strings."`
 	GroupBy     string    `json:"group_by,omitempty"       jsonschema:"Group results and return counts instead of individual items. Values: status_code\\, method"`
 	Detail      bool      `json:"detail,omitempty"         jsonschema:"Return full response objects instead of summaries"`
-	Limit       int       `json:"limit,omitempty"          jsonschema:"Maximum number of results to return (default 100)"`
+	Limit       int       `json:"limit,omitempty"          jsonschema:"Maximum number of results to return (default 100; 25 in detail mode)"`
 	Offset      int       `json:"offset,omitempty"         jsonschema:"Skip the first N results (for pagination)"`
 }
 
@@ -81,6 +81,9 @@ func handleWalkResponses(_ context.Context, _ *mcp.CallToolRequest, input walkRe
 				}
 				return []string{info.StatusCode}
 			case "method":
+				if info.Method == "" {
+					return []string{"(component)"}
+				}
 				return []string{strings.ToUpper(info.Method)}
 			default:
 				return nil
@@ -97,7 +100,11 @@ func handleWalkResponses(_ context.Context, _ *mcp.CallToolRequest, input walkRe
 	}
 
 	// Apply offset/limit pagination.
-	returned := paginate(matched, input.Offset, input.Limit)
+	limit := input.Limit
+	if input.Detail {
+		limit = detailLimit(limit)
+	}
+	returned := paginate(matched, input.Offset, limit)
 
 	output := walkResponsesOutput{
 		Total:    len(collector.All),

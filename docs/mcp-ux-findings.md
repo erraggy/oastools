@@ -24,6 +24,11 @@
 | `walk_headers`/`walk_refs` missing from docs | Addressed | Added to MCP server documentation |
 | Operation-level security overrides | Deferred | Would need new walk_security features |
 | Spec re-parsing on every call | Addressed | Session-scoped LRU cache (max 10 entries) |
+| Component response "" method | Addressed | Labeled as `(component)` in `group_by=method` |
+| $ref params invisible to `in`/`name` filters | Partial | Auto-resolve refs when `in` or `name` filter specified; specs with circular refs fall back to unresolved data (#326) |
+| `detail=true` output too large | Addressed | Default limit lowered to 25 in detail mode |
+| Filter behaviors undocumented | Addressed | Documented in MCP server docs |
+| Cross-tool limitations undocumented | Addressed | Documented in MCP server docs |
 
 > **Note:** The sections below reflect findings as observed during the original corpus analysis session. The Resolution Status table above shows which items have since been addressed. Sections describing addressed items are preserved as historical context for the design decisions.
 

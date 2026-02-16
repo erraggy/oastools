@@ -22,7 +22,7 @@ type walkOperationsInput struct {
 	ResolveRefs bool      `json:"resolve_refs,omitempty"     jsonschema:"Resolve $ref pointers in output. Inlines referenced objects instead of showing $ref strings."`
 	Detail      bool      `json:"detail,omitempty"           jsonschema:"Return full operation objects instead of summaries"`
 	GroupBy     string    `json:"group_by,omitempty"         jsonschema:"Group results and return counts instead of individual items. Values: tag\\, method. Note: group_by=tag excludes untagged operations and counts multi-tagged operations once per tag."`
-	Limit       int       `json:"limit,omitempty"            jsonschema:"Maximum number of results to return (default 100)"`
+	Limit       int       `json:"limit,omitempty"            jsonschema:"Maximum number of results to return (default 100; 25 in detail mode)"`
 	Offset      int       `json:"offset,omitempty"           jsonschema:"Skip the first N results (for pagination)"`
 }
 
@@ -51,6 +51,10 @@ type walkOperationsOutput struct {
 }
 
 const defaultWalkLimit = 100
+
+// defaultDetailLimit is lower because detail mode returns full objects,
+// which are significantly larger than summaries (2-10KB each).
+const defaultDetailLimit = 25
 
 func handleWalkOperations(_ context.Context, _ *mcp.CallToolRequest, input walkOperationsInput) (*mcp.CallToolResult, any, error) {
 	var extraOpts []parser.Option
@@ -104,7 +108,11 @@ func handleWalkOperations(_ context.Context, _ *mcp.CallToolRequest, input walkO
 	}
 
 	// Apply offset/limit pagination.
-	returned := paginate(matched, input.Offset, input.Limit)
+	limit := input.Limit
+	if input.Detail {
+		limit = detailLimit(limit)
+	}
+	returned := paginate(matched, input.Offset, limit)
 
 	output := walkOperationsOutput{
 		Total:    len(collector.All),

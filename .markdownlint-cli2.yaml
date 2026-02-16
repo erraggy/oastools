@@ -30,3 +30,4 @@ globs:
   - "!docs/examples/**"
   - "!docs/plans/**"
   - "!benchmarks/**"
+  - "!.release/**"

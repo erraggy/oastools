@@ -354,3 +354,83 @@ func TestWalkParameters_GroupByInvalid(t *testing.T) {
 	require.NotNil(t, result)
 	assert.True(t, result.IsError)
 }
+
+func TestWalkParameters_InFilterAutoResolves(t *testing.T) {
+	// Spec where parameters are $ref references — filtering by "in" requires resolution.
+	spec := `openapi: "3.0.0"
+info:
+  title: Ref Param Test
+  version: "1.0.0"
+paths:
+  /pets:
+    get:
+      summary: List pets
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/TokenHeader"
+      responses:
+        "200":
+          description: OK
+components:
+  parameters:
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+    TokenHeader:
+      name: X-Auth-Token
+      in: header
+      schema:
+        type: string
+`
+	// Without explicit resolve_refs, in=header should still find the header param.
+	input := walkParametersInput{
+		Spec: specInput{Content: spec},
+		In:   "header",
+		Path: "/pets",
+	}
+	_, output := callWalkParameters(t, input)
+
+	assert.Equal(t, 1, output.Matched, "expected 1 header parameter after auto-resolution")
+	require.Len(t, output.Summaries, 1)
+	assert.Equal(t, "X-Auth-Token", output.Summaries[0].Name)
+	assert.Equal(t, "header", output.Summaries[0].In)
+}
+
+func TestWalkParameters_NameFilterAutoResolves(t *testing.T) {
+	// Spec where parameters are $ref references — filtering by "name" requires resolution.
+	spec := `openapi: "3.0.0"
+info:
+  title: Ref Param Test
+  version: "1.0.0"
+paths:
+  /pets:
+    get:
+      summary: List pets
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: OK
+components:
+  parameters:
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+`
+	// Without explicit resolve_refs, name=limit should still find the param.
+	input := walkParametersInput{
+		Spec: specInput{Content: spec},
+		Name: "limit",
+		Path: "/pets",
+	}
+	_, output := callWalkParameters(t, input)
+
+	assert.Equal(t, 1, output.Matched, "expected 1 parameter after auto-resolution by name")
+	require.Len(t, output.Summaries, 1)
+	assert.Equal(t, "limit", output.Summaries[0].Name)
+	assert.Equal(t, "query", output.Summaries[0].In)
+}
