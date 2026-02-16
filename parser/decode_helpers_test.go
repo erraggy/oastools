@@ -154,15 +154,19 @@ func TestMapGetIntPtr(t *testing.T) {
 
 	// Overflow cases: values that exceed int range return nil
 	overflow := map[string]any{
-		"uint64Overflow": uint64(math.MaxUint64),
-		"float64NaN":     math.NaN(),
-		"float64PosInf":  math.Inf(1),
-		"float64Large":   float64(1e19),
+		"uint64Overflow":  uint64(math.MaxUint64),
+		"float64NaN":      math.NaN(),
+		"float64PosInf":   math.Inf(1),
+		"float64NegInf":   math.Inf(-1),
+		"float64Large":    float64(1e19),
+		"float64NegLarge": float64(-1e19),
 	}
 	assert.Nil(t, mapGetIntPtr(overflow, "uint64Overflow"))
 	assert.Nil(t, mapGetIntPtr(overflow, "float64NaN"))
 	assert.Nil(t, mapGetIntPtr(overflow, "float64PosInf"))
+	assert.Nil(t, mapGetIntPtr(overflow, "float64NegInf"))
 	assert.Nil(t, mapGetIntPtr(overflow, "float64Large"))
+	assert.Nil(t, mapGetIntPtr(overflow, "float64NegLarge"))
 }
 
 func TestMapGetBoolPtr(t *testing.T) {
@@ -285,6 +289,24 @@ func TestDecodeSecurityRequirements_Multiple(t *testing.T) {
 	assert.Equal(t, []string{"admin"}, reqs[1]["oauth2"])
 }
 
+func TestDecodeSchemaOrBool_Map(t *testing.T) {
+	input := map[string]any{"type": "string", "description": "a name"}
+	result := decodeSchemaOrBool(input)
+	s, ok := result.(*Schema)
+	require.True(t, ok, "Expected *Schema, got %T", result)
+	assert.Equal(t, "string", s.Type)
+	assert.Equal(t, "a name", s.Description)
+}
+
+func TestDecodeSchemaOrBool_Bool(t *testing.T) {
+	assert.Equal(t, true, decodeSchemaOrBool(true))
+	assert.Equal(t, false, decodeSchemaOrBool(false))
+}
+
+func TestDecodeSchemaOrBool_Nil(t *testing.T) {
+	assert.Nil(t, decodeSchemaOrBool(nil))
+}
+
 func TestDecodeSchemaOrBool_ArrayOfSchemas(t *testing.T) {
 	// OAS 2.0 tuple validation: items can be an array of schemas
 	input := []any{
@@ -321,6 +343,92 @@ func TestDecodeSchemaOrBool_EmptyArray(t *testing.T) {
 	schemas, ok := result.([]*Schema)
 	require.True(t, ok, "Expected []*Schema, got %T", result)
 	assert.Empty(t, schemas)
+}
+
+func TestDecodePaths(t *testing.T) {
+	m := map[string]any{
+		"/pets": map[string]any{
+			"get": map[string]any{
+				"summary": "List pets",
+			},
+		},
+		"/pets/{id}": map[string]any{
+			"get": map[string]any{
+				"summary": "Get pet",
+			},
+		},
+	}
+	result := decodePaths(m)
+	require.Len(t, result, 2)
+	assert.NotNil(t, result["/pets"])
+	assert.NotNil(t, result["/pets/{id}"])
+}
+
+func TestDecodePaths_Nil(t *testing.T) {
+	assert.Nil(t, decodePaths(nil))
+}
+
+func TestDecodePaths_NonMapValues(t *testing.T) {
+	m := map[string]any{
+		"/valid": map[string]any{"get": map[string]any{}},
+		"/bad":   "not-a-map",
+	}
+	result := decodePaths(m)
+	require.Len(t, result, 1)
+	assert.NotNil(t, result["/valid"])
+}
+
+func TestDecodeCallback(t *testing.T) {
+	m := map[string]any{
+		"{$request.body#/callbackUrl}": map[string]any{
+			"post": map[string]any{
+				"summary": "Callback",
+			},
+		},
+	}
+	result := decodeCallback(m)
+	require.NotNil(t, result)
+	assert.Len(t, *result, 1)
+}
+
+func TestDecodeCallback_Nil(t *testing.T) {
+	assert.Nil(t, decodeCallback(nil))
+}
+
+func TestMapGetStringMap_NonStringValues(t *testing.T) {
+	m := map[string]any{
+		"mapping": map[string]any{
+			"valid":   "a-string",
+			"invalid": 42,
+		},
+	}
+	result := mapGetStringMap(m, "mapping")
+	require.Len(t, result, 1)
+	assert.Equal(t, "a-string", result["valid"])
+}
+
+func TestMapGetBoolMap_NonBoolValues(t *testing.T) {
+	m := map[string]any{
+		"vocab": map[string]any{
+			"valid":   true,
+			"invalid": "not-a-bool",
+		},
+	}
+	result := mapGetBoolMap(m, "vocab")
+	require.Len(t, result, 1)
+	assert.True(t, result["valid"])
+}
+
+func TestMapGetDependentRequired_NonSliceValues(t *testing.T) {
+	m := map[string]any{
+		"deps": map[string]any{
+			"valid":   []any{"field1"},
+			"invalid": "not-a-slice",
+		},
+	}
+	result := mapGetDependentRequired(m, "deps")
+	require.Len(t, result, 1)
+	assert.Equal(t, []string{"field1"}, result["valid"])
 }
 
 func TestIsExtensionKey(t *testing.T) {
