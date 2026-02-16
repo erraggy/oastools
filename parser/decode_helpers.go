@@ -85,6 +85,9 @@ func mapGetIntPtr(m map[string]any, key string) *int {
 	}
 	switch n := v.(type) {
 	case float64:
+		if n != n || n > float64(math.MaxInt) || n < float64(math.MinInt) {
+			return nil
+		}
 		i := int(n)
 		return &i
 	case int:

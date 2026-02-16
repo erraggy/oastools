@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -150,6 +151,18 @@ func TestMapGetIntPtr(t *testing.T) {
 
 	assert.Nil(t, mapGetIntPtr(m, "notANum"))
 	assert.Nil(t, mapGetIntPtr(m, "missing"))
+
+	// Overflow cases: values that exceed int range return nil
+	overflow := map[string]any{
+		"uint64Overflow": uint64(math.MaxUint64),
+		"float64NaN":     math.NaN(),
+		"float64PosInf":  math.Inf(1),
+		"float64Large":   float64(1e19),
+	}
+	assert.Nil(t, mapGetIntPtr(overflow, "uint64Overflow"))
+	assert.Nil(t, mapGetIntPtr(overflow, "float64NaN"))
+	assert.Nil(t, mapGetIntPtr(overflow, "float64PosInf"))
+	assert.Nil(t, mapGetIntPtr(overflow, "float64Large"))
 }
 
 func TestMapGetBoolPtr(t *testing.T) {
