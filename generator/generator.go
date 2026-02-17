@@ -860,9 +860,7 @@ func (g *Generator) GenerateParsed(parseResult parser.ParseResult) (*GenerateRes
 	}
 
 	// Generate security helpers and related files
-	if err := cg.generateSecurityHelpers(); err != nil {
-		return nil, fmt.Errorf("generator: failed to generate security helpers: %w", err)
-	}
+	cg.generateSecurityHelpers()
 
 	// Update counts and timing
 	result.GenerateTime = time.Since(startTime)
@@ -913,7 +911,7 @@ type codeGenerator interface {
 	generateTypes() error
 	generateClient() error
 	generateServer() error
-	generateSecurityHelpers() error
+	generateSecurityHelpers()
 	// Server generation extensions
 	generateServerResponses() error
 	generateServerBinder() error
