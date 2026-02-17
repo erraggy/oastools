@@ -5,6 +5,7 @@ package harness
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -129,7 +130,7 @@ func AssertNoParseErrors(t *testing.T, result *parser.ParseResult) {
 func AssertParseErrorContains(t *testing.T, result *parser.ParseResult, substr string) {
 	t.Helper()
 	for _, e := range result.Errors {
-		if containsSubstring(e.Error(), substr) {
+		if strings.Contains(e.Error(), substr) {
 			return
 		}
 	}
@@ -143,7 +144,7 @@ func AssertParseErrorContains(t *testing.T, result *parser.ParseResult, substr s
 func AssertValidationErrorContains(t *testing.T, result *validator.ValidationResult, substr string) {
 	t.Helper()
 	for _, e := range result.Errors {
-		if containsSubstring(e.String(), substr) {
+		if strings.Contains(e.String(), substr) {
 			return
 		}
 	}

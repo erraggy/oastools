@@ -343,21 +343,6 @@ func executeConvertAll(t *testing.T, pc *PipelineContext, step *Step, result *St
 	return nil
 }
 
-// containsSubstring checks if s contains substr (case-insensitive would be nice but keeping simple).
-func containsSubstring(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && findSubstring(s, substr)))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
 // executeFixAll applies fixes to all documents in ParseResults.
 func executeFixAll(t *testing.T, pc *PipelineContext, step *Step, result *StepResult) error {
 	t.Helper()

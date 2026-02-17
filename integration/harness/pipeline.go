@@ -5,6 +5,7 @@ package harness
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,7 +61,7 @@ func ExecuteStep(t *testing.T, pc *PipelineContext, step *Step) StepResult {
 		if step.Expect == "error" {
 			// Error was expected - check if error message matches
 			if step.ErrorContains != "" {
-				if containsSubstring(err.Error(), step.ErrorContains) {
+				if strings.Contains(err.Error(), step.ErrorContains) {
 					result.Success = true
 					result.Error = nil
 					return result
@@ -156,7 +157,7 @@ func evaluateAssertion(t *testing.T, pc *PipelineContext, assertion *Assertion, 
 		found := false
 		if pc.ValidationResult != nil {
 			for _, e := range pc.ValidationResult.Errors {
-				if containsSubstring(e.String(), assertion.ErrorContains) {
+				if strings.Contains(e.String(), assertion.ErrorContains) {
 					found = true
 					break
 				}
@@ -263,8 +264,8 @@ func evaluateAssertion(t *testing.T, pc *PipelineContext, assertion *Assertion, 
 		if pc.ConvertResult != nil {
 			for _, issue := range pc.ConvertResult.Issues {
 				if issue.Severity == converter.SeverityWarning {
-					if containsSubstring(issue.Message, assertion.WarningContains) ||
-						containsSubstring(issue.Context, assertion.WarningContains) {
+					if strings.Contains(issue.Message, assertion.WarningContains) ||
+						strings.Contains(issue.Context, assertion.WarningContains) {
 						found = true
 						break
 					}
