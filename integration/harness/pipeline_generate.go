@@ -139,19 +139,7 @@ func executeBuild(t *testing.T, pc *PipelineContext, step *Step, result *StepRes
 	output, err := buildCmd.CombinedOutput()
 
 	if err != nil {
-		// Check if error was expected
-		if step.Expect == "error" {
-			if pc.Debug {
-				t.Logf("  Build failed as expected: %s\n%s", err, output)
-			}
-			return nil // Expected failure
-		}
 		return fmt.Errorf("build failed: %s\n%s", err, output)
-	}
-
-	// Check if success was not expected
-	if step.Expect == "error" {
-		return fmt.Errorf("build succeeded but error was expected")
 	}
 
 	if pc.Debug {

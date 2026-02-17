@@ -232,13 +232,13 @@ func joinWithOverlays(j *Joiner, cfg *joinConfig) (*JoinResult, error) {
 		}
 	}
 
-	// Step 5: Perform the join
+	// Step 4: Perform the join
 	joinResult, err := j.JoinParsed(allDocs)
 	if err != nil {
 		return nil, err
 	}
 
-	// Step 6: Apply post-join overlay
+	// Step 5: Apply post-join overlay
 	if postOverlay != nil {
 		postResult, err := applier.ApplyParsed(&parser.ParseResult{
 			Document:     joinResult.Document,

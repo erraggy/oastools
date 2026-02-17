@@ -15,25 +15,25 @@ import (
 )
 
 // FormatBytes formats a byte count into a human-readable string using binary units (KiB, MiB, etc.)
-func FormatBytes(bytes int64) string {
+func FormatBytes(size int64) string {
 	// Handle negative values
-	if bytes < 0 {
-		return fmt.Sprintf("%d B", bytes)
+	if size < 0 {
+		return fmt.Sprintf("%d B", size)
 	}
 
 	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
 	}
 
 	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit && exp < 5; n /= unit {
+	for n := size / unit; n >= unit && exp < 5; n /= unit {
 		div *= unit
 		exp++
 	}
 
 	// Use proper binary unit notation (KiB, MiB, GiB, etc.)
-	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%.1f %ciB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
 // detectFormatFromPath detects the source format from a file path
@@ -87,6 +87,7 @@ func (p *Parser) fetchURL(urlStr string) ([]byte, string, error) {
 		transport := &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true, //nolint:gosec // User explicitly requested insecure mode
+				MinVersion:         tls.VersionTLS12,
 			},
 		}
 		client = &http.Client{
