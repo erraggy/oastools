@@ -3,8 +3,10 @@
 package generator
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -15,6 +17,15 @@ type baseCodeGenerator struct {
 	schemaNames    map[string]string // maps schema references to generated type names
 	generatedTypes map[string]bool   // tracks which type names have been generated
 	splitPlan      *SplitPlan        // file splitting plan for large APIs
+
+	// Version-agnostic document access (set in constructor)
+	paths       parser.Paths
+	oasVersion  parser.OASVersion
+	httpMethods []string
+
+	// Version-specific callbacks (set in constructor)
+	statusCodeDataBuilder      func(string, *parser.Response) StatusCodeData
+	binderOperationDataBuilder func(string, *parser.Operation) BinderOperationData
 }
 
 // initBase initializes the base code generator fields
@@ -23,6 +34,40 @@ func (b *baseCodeGenerator) initBase(g *Generator, result *GenerateResult) {
 	b.result = result
 	b.schemaNames = make(map[string]string)
 	b.generatedTypes = make(map[string]bool)
+}
+
+// securityContext returns a securityGenerationContext for shared security generation functions.
+func (b *baseCodeGenerator) securityContext() *securityGenerationContext {
+	return &securityGenerationContext{
+		result:    b.result,
+		splitPlan: b.splitPlan,
+		addIssue:  b.addIssue,
+	}
+}
+
+// generateServerMiddleware generates validation middleware.
+func (b *baseCodeGenerator) generateServerMiddleware() error {
+	return generateServerMiddlewareShared(b.result, b.addIssue)
+}
+
+// generateCredentialsFile generates the credentials.go file.
+func (b *baseCodeGenerator) generateCredentialsFile() {
+	generateCredentialsFileShared(b.securityContext())
+}
+
+// generateSecurityHelpersFile generates the security_helpers.go file.
+func (b *baseCodeGenerator) generateSecurityHelpersFile(schemes map[string]*parser.SecurityScheme) {
+	generateSecurityHelpersFileShared(b.securityContext(), schemes)
+}
+
+// generateOAuth2Files generates OAuth2 flow files for each OAuth2 security scheme.
+func (b *baseCodeGenerator) generateOAuth2Files(schemes map[string]*parser.SecurityScheme) {
+	generateOAuth2FilesShared(b.securityContext(), schemes)
+}
+
+// generateOIDCDiscoveryFile generates the oidc_discovery.go file.
+func (b *baseCodeGenerator) generateOIDCDiscoveryFile(schemes map[string]*parser.SecurityScheme) {
+	generateOIDCDiscoveryFileShared(b.securityContext(), schemes)
 }
 
 // resolveRef resolves a $ref to a Go type name
@@ -164,4 +209,153 @@ func (b *baseCodeGenerator) schemaToGoTypeBase(schema *parser.Schema, required b
 	}
 
 	return goType
+}
+
+// buildStatusCodes builds status code data for an operation's responses.
+func (b *baseCodeGenerator) buildStatusCodes(op *parser.Operation) []StatusCodeData {
+	return buildStatusCodesShared(op, b.statusCodeDataBuilder)
+}
+
+// generateServerResponses generates typed response helpers for each operation.
+func (b *baseCodeGenerator) generateServerResponses() error {
+	if len(b.paths) == 0 {
+		return nil
+	}
+
+	// Build template data
+	data := ServerResponsesFileData{
+		Header: HeaderData{
+			PackageName: b.result.PackageName,
+		},
+		Operations: make([]ResponseOperationData, 0),
+	}
+
+	// Track generated methods to avoid duplicates
+	generatedMethods := make(map[string]bool)
+
+	// Sort paths for deterministic output
+	pathKeys := maputil.SortedKeys(b.paths)
+
+	for _, path := range pathKeys {
+		pathItem := b.paths[path]
+		if pathItem == nil {
+			continue
+		}
+
+		operations := parser.GetOperations(pathItem, b.oasVersion)
+		for _, method := range b.httpMethods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+
+			methodName := operationToMethodName(op, path, method)
+			if generatedMethods[methodName] {
+				continue
+			}
+			generatedMethods[methodName] = true
+
+			// Build response operation data
+			opData := ResponseOperationData{
+				MethodName:   methodName,
+				ResponseType: methodName + "Response",
+				StatusCodes:  b.buildStatusCodes(op),
+			}
+
+			data.Operations = append(data.Operations, opData)
+		}
+	}
+
+	// Execute template
+	formatted, err := executeTemplate("responses.go.tmpl", data)
+	if err != nil {
+		b.addIssue("server_responses.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	b.result.Files = append(b.result.Files, GeneratedFile{
+		Name:    "server_responses.go",
+		Content: formatted,
+	})
+
+	return nil
+}
+
+// generateServerBinder generates parameter binding helpers.
+func (b *baseCodeGenerator) generateServerBinder() error {
+	if len(b.paths) == 0 {
+		return nil
+	}
+
+	// Build template data
+	data := ServerBinderFileData{
+		Header: HeaderData{
+			PackageName: b.result.PackageName,
+		},
+		Operations: make([]BinderOperationData, 0),
+	}
+
+	// Track generated methods to avoid duplicates
+	generatedMethods := make(map[string]bool)
+
+	// Sort paths for deterministic output
+	pathKeys := maputil.SortedKeys(b.paths)
+
+	for _, path := range pathKeys {
+		pathItem := b.paths[path]
+		if pathItem == nil {
+			continue
+		}
+
+		operations := parser.GetOperations(pathItem, b.oasVersion)
+		for _, method := range b.httpMethods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+
+			methodName := operationToMethodName(op, path, method)
+			if generatedMethods[methodName] {
+				continue
+			}
+			generatedMethods[methodName] = true
+
+			// Build binder operation data
+			opData := b.binderOperationDataBuilder(methodName, op)
+			data.Operations = append(data.Operations, opData)
+		}
+	}
+
+	// Execute template
+	formatted, err := executeTemplate("binder.go.tmpl", data)
+	if err != nil {
+		b.addIssue("server_binder.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		return err
+	}
+
+	b.result.Files = append(b.result.Files, GeneratedFile{
+		Name:    "server_binder.go",
+		Content: formatted,
+	})
+
+	return nil
+}
+
+// generateServerStubs generates testable stub implementations.
+func (b *baseCodeGenerator) generateServerStubs() error {
+	return generateServerStubsShared(&serverStubsContext{
+		paths:       b.paths,
+		oasVersion:  b.oasVersion,
+		httpMethods: b.httpMethods,
+		packageName: b.result.PackageName,
+		schemaTypes: b.generatedTypes,
+		result:      b.result,
+		addIssue:    b.addIssue,
+		getResponseType: func(methodName string) string {
+			if !b.g.ServerResponses {
+				return "any"
+			}
+			return "*" + methodName + "Response"
+		},
+	})
 }

@@ -33,6 +33,13 @@ func newOAS2CodeGenerator(g *Generator, doc *parser.OAS2Document, result *Genera
 	}
 	cg.splitPlan = splitter.AnalyzeOAS2(doc)
 
+	// Populate base fields for shared methods
+	cg.paths = doc.Paths
+	cg.oasVersion = parser.OASVersion20
+	cg.httpMethods = oas2HttpMethods
+	cg.statusCodeDataBuilder = cg.buildStatusCodeData
+	cg.binderOperationDataBuilder = cg.buildBinderOperationData
+
 	return cg
 }
 
@@ -781,8 +788,8 @@ func (cg *oas2CodeGenerator) generateRequestType(path, method string, op *parser
 }
 
 // generateSecurityHelpers generates security helper code based on configuration
-func (cg *oas2CodeGenerator) generateSecurityHelpers() error {
-	return generateAllSecurityHelpers(cg.g, cg.doc.SecurityDefinitions, fullSecurityCallbacks{
+func (cg *oas2CodeGenerator) generateSecurityHelpers() {
+	generateAllSecurityHelpers(cg.g, cg.doc.SecurityDefinitions, fullSecurityCallbacks{
 		generateSecurityHelpersFile: cg.generateSecurityHelpersFile,
 		generateOAuth2Files:         cg.generateOAuth2Files,
 		generateCredentials:         cg.generateCredentialsFile,
@@ -792,63 +799,31 @@ func (cg *oas2CodeGenerator) generateSecurityHelpers() error {
 	})
 }
 
-// generateSecurityHelpersFile generates the security_helpers.go file for OAS 2.0
-//
-//nolint:unparam // error return kept for API consistency and future extensibility
-func (cg *oas2CodeGenerator) generateSecurityHelpersFile(schemes map[string]*parser.SecurityScheme) error {
-	return generateSecurityHelpersFileShared(cg.securityContext(), schemes)
-}
-
-// generateOAuth2Files generates OAuth2 flow files for each OAuth2 security scheme
-//
-//nolint:unparam // error return kept for API consistency and future extensibility
-func (cg *oas2CodeGenerator) generateOAuth2Files(schemes map[string]*parser.SecurityScheme) error {
-	return generateOAuth2FilesShared(cg.securityContext(), schemes)
-}
-
-// generateCredentialsFile generates the credentials.go file
-//
-//nolint:unparam // error return kept for API consistency and future extensibility
-func (cg *oas2CodeGenerator) generateCredentialsFile() error {
-	return generateCredentialsFileShared(cg.securityContext())
-}
-
 // generateSecurityEnforceFile generates security enforcement code.
 // If file splitting is enabled and needed, generates multiple files.
-//
-//nolint:unparam // error return kept for API consistency and future extensibility
-func (cg *oas2CodeGenerator) generateSecurityEnforceFile() error {
+func (cg *oas2CodeGenerator) generateSecurityEnforceFile() {
 	// Check if we should split
 	if cg.splitPlan != nil && cg.splitPlan.NeedsSplit {
-		return cg.generateSplitSecurityEnforce()
+		cg.generateSplitSecurityEnforce()
+		return
 	}
-	return cg.generateSingleSecurityEnforce()
+	cg.generateSingleSecurityEnforce()
 }
 
 // generateSingleSecurityEnforce generates all security enforcement in a single file.
-func (cg *oas2CodeGenerator) generateSingleSecurityEnforce() error {
+func (cg *oas2CodeGenerator) generateSingleSecurityEnforce() {
 	opSecurity := ExtractOperationSecurityOAS2(cg.doc)
-	return generateSingleSecurityEnforceShared(cg.securityContext(), opSecurity, cg.doc.Security)
+	generateSingleSecurityEnforceShared(cg.securityContext(), opSecurity, cg.doc.Security)
 }
 
 // generateSplitSecurityEnforce generates security enforcement split across multiple files.
-func (cg *oas2CodeGenerator) generateSplitSecurityEnforce() error {
+func (cg *oas2CodeGenerator) generateSplitSecurityEnforce() {
 	opSecurity := ExtractOperationSecurityOAS2(cg.doc)
-	return generateSplitSecurityEnforceShared(cg.securityContext(), opSecurity, cg.doc.Security)
-}
-
-// generateOIDCDiscoveryFile generates the oidc_discovery.go file
-// Note: OIDC is not officially part of OAS 2.0 but some specs may use it
-//
-//nolint:unparam // error return kept for API consistency and future extensibility
-func (cg *oas2CodeGenerator) generateOIDCDiscoveryFile(schemes map[string]*parser.SecurityScheme) error {
-	return generateOIDCDiscoveryFileShared(cg.securityContext(), schemes)
+	generateSplitSecurityEnforceShared(cg.securityContext(), opSecurity, cg.doc.Security)
 }
 
 // generateReadmeFile generates the README.md file
-//
-//nolint:unparam // error return kept for API consistency and future extensibility
-func (cg *oas2CodeGenerator) generateReadmeFile(schemes map[string]*parser.SecurityScheme) error {
+func (cg *oas2CodeGenerator) generateReadmeFile(schemes map[string]*parser.SecurityScheme) {
 	g := NewReadmeGenerator()
 
 	// Build version-specific security scheme summaries
@@ -871,17 +846,6 @@ func (cg *oas2CodeGenerator) generateReadmeFile(schemes map[string]*parser.Secur
 		Name:    "README.md",
 		Content: []byte(content),
 	})
-
-	return nil
-}
-
-// securityContext returns a securityGenerationContext for shared security generation functions.
-func (cg *oas2CodeGenerator) securityContext() *securityGenerationContext {
-	return &securityGenerationContext{
-		result:    cg.result,
-		splitPlan: cg.splitPlan,
-		addIssue:  cg.addIssue,
-	}
 }
 
 // oas2HttpMethods defines the HTTP methods supported in OAS 2.0.
@@ -894,76 +858,6 @@ var oas2HttpMethods = []string{
 	httputil.MethodOptions,
 	httputil.MethodHead,
 	httputil.MethodPatch,
-}
-
-// generateServerResponses generates typed response helpers for OAS 2.0
-func (cg *oas2CodeGenerator) generateServerResponses() error {
-	if len(cg.doc.Paths) == 0 {
-		return nil
-	}
-
-	// Build template data
-	data := ServerResponsesFileData{
-		Header: HeaderData{
-			PackageName: cg.result.PackageName,
-		},
-		Operations: make([]ResponseOperationData, 0),
-	}
-
-	// Track generated methods to avoid duplicates
-	generatedMethods := make(map[string]bool)
-
-	// Sort paths for deterministic output
-	pathKeys := maputil.SortedKeys(cg.doc.Paths)
-
-	for _, path := range pathKeys {
-		pathItem := cg.doc.Paths[path]
-		if pathItem == nil {
-			continue
-		}
-
-		operations := parser.GetOperations(pathItem, parser.OASVersion20)
-		for _, method := range oas2HttpMethods {
-			op := operations[method]
-			if op == nil {
-				continue
-			}
-
-			methodName := operationToMethodName(op, path, method)
-			if generatedMethods[methodName] {
-				continue
-			}
-			generatedMethods[methodName] = true
-
-			// Build response operation data
-			opData := ResponseOperationData{
-				MethodName:   methodName,
-				ResponseType: methodName + "Response",
-				StatusCodes:  cg.buildStatusCodes(op),
-			}
-
-			data.Operations = append(data.Operations, opData)
-		}
-	}
-
-	// Execute template
-	formatted, err := executeTemplate("responses.go.tmpl", data)
-	if err != nil {
-		cg.addIssue("server_responses.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
-		return err
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "server_responses.go",
-		Content: formatted,
-	})
-
-	return nil
-}
-
-// buildStatusCodes builds status code data for an operation's responses (OAS 2.0)
-func (cg *oas2CodeGenerator) buildStatusCodes(op *parser.Operation) []StatusCodeData {
-	return buildStatusCodesShared(op, cg.buildStatusCodeData)
 }
 
 // buildStatusCodeData builds data for a single status code response (OAS 2.0)
@@ -980,66 +874,6 @@ func (cg *oas2CodeGenerator) buildStatusCodeData(code string, resp *parser.Respo
 	}
 
 	return statusData
-}
-
-// generateServerBinder generates parameter binding helpers for OAS 2.0
-func (cg *oas2CodeGenerator) generateServerBinder() error {
-	if len(cg.doc.Paths) == 0 {
-		return nil
-	}
-
-	// Build template data
-	data := ServerBinderFileData{
-		Header: HeaderData{
-			PackageName: cg.result.PackageName,
-		},
-		Operations: make([]BinderOperationData, 0),
-	}
-
-	// Track generated methods to avoid duplicates
-	generatedMethods := make(map[string]bool)
-
-	// Sort paths for deterministic output
-	pathKeys := maputil.SortedKeys(cg.doc.Paths)
-
-	for _, path := range pathKeys {
-		pathItem := cg.doc.Paths[path]
-		if pathItem == nil {
-			continue
-		}
-
-		operations := parser.GetOperations(pathItem, parser.OASVersion20)
-		for _, method := range oas2HttpMethods {
-			op := operations[method]
-			if op == nil {
-				continue
-			}
-
-			methodName := operationToMethodName(op, path, method)
-			if generatedMethods[methodName] {
-				continue
-			}
-			generatedMethods[methodName] = true
-
-			// Build binder operation data
-			opData := cg.buildBinderOperationData(methodName, op)
-			data.Operations = append(data.Operations, opData)
-		}
-	}
-
-	// Execute template
-	formatted, err := executeTemplate("binder.go.tmpl", data)
-	if err != nil {
-		cg.addIssue("server_binder.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
-		return err
-	}
-
-	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "server_binder.go",
-		Content: formatted,
-	})
-
-	return nil
 }
 
 // buildBinderOperationData builds binding data for a single operation (OAS 2.0)
@@ -1122,11 +956,6 @@ func (cg *oas2CodeGenerator) getOAS2ParamSchemaType(param *parser.Parameter) str
 	return "string"
 }
 
-// generateServerMiddleware generates validation middleware for OAS 2.0
-func (cg *oas2CodeGenerator) generateServerMiddleware() error {
-	return generateServerMiddlewareShared(cg.result, cg.addIssue)
-}
-
 // generateServerRouter generates HTTP router code for OAS 2.0
 func (cg *oas2CodeGenerator) generateServerRouter() error {
 	return generateServerRouterShared(&serverRouterContext{
@@ -1146,25 +975,6 @@ func (cg *oas2CodeGenerator) generateServerRouter() error {
 				Required:   param.Required,
 				SchemaType: cg.getOAS2ParamSchemaType(param),
 			}
-		},
-	})
-}
-
-// generateServerStubs generates testable stub implementations for OAS 2.0
-func (cg *oas2CodeGenerator) generateServerStubs() error {
-	return generateServerStubsShared(&serverStubsContext{
-		paths:       cg.doc.Paths,
-		oasVersion:  parser.OASVersion20,
-		httpMethods: oas2HttpMethods,
-		packageName: cg.result.PackageName,
-		schemaTypes: cg.generatedTypes,
-		result:      cg.result,
-		addIssue:    cg.addIssue,
-		getResponseType: func(methodName string) string {
-			if !cg.g.ServerResponses {
-				return "any"
-			}
-			return "*" + methodName + "Response"
 		},
 	})
 }

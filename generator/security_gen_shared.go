@@ -119,7 +119,7 @@ type securityGenerationContext struct {
 
 // generateSecurityHelpersFileShared generates the security_helpers.go file.
 // This is shared between OAS 2.0 and OAS 3.x generators.
-func generateSecurityHelpersFileShared(ctx *securityGenerationContext, schemes map[string]*parser.SecurityScheme) error {
+func generateSecurityHelpersFileShared(ctx *securityGenerationContext, schemes map[string]*parser.SecurityScheme) {
 	g := NewSecurityHelperGenerator(ctx.result.PackageName)
 	code := g.GenerateSecurityHelpers(schemes)
 
@@ -134,13 +134,11 @@ func generateSecurityHelpersFileShared(ctx *securityGenerationContext, schemes m
 		Name:    "security_helpers.go",
 		Content: formatted,
 	})
-
-	return nil
 }
 
 // generateOAuth2FilesShared generates OAuth2 flow files for each OAuth2 security scheme.
 // This is shared between OAS 2.0 and OAS 3.x generators.
-func generateOAuth2FilesShared(ctx *securityGenerationContext, schemes map[string]*parser.SecurityScheme) error {
+func generateOAuth2FilesShared(ctx *securityGenerationContext, schemes map[string]*parser.SecurityScheme) {
 	for name, scheme := range schemes {
 		if scheme == nil || scheme.Type != schemeTypeOAuth2 {
 			continue
@@ -166,13 +164,11 @@ func generateOAuth2FilesShared(ctx *securityGenerationContext, schemes map[strin
 			Content: formatted,
 		})
 	}
-
-	return nil
 }
 
 // generateCredentialsFileShared generates the credentials.go file.
 // This is shared between OAS 2.0 and OAS 3.x generators.
-func generateCredentialsFileShared(ctx *securityGenerationContext) error {
+func generateCredentialsFileShared(ctx *securityGenerationContext) {
 	g := NewCredentialGenerator(ctx.result.PackageName)
 	code := g.GenerateCredentialsFile()
 
@@ -187,13 +183,11 @@ func generateCredentialsFileShared(ctx *securityGenerationContext) error {
 		Name:    "credentials.go",
 		Content: formatted,
 	})
-
-	return nil
 }
 
 // generateOIDCDiscoveryFileShared generates the oidc_discovery.go file.
 // This is shared between OAS 2.0 and OAS 3.x generators.
-func generateOIDCDiscoveryFileShared(ctx *securityGenerationContext, schemes map[string]*parser.SecurityScheme) error {
+func generateOIDCDiscoveryFileShared(ctx *securityGenerationContext, schemes map[string]*parser.SecurityScheme) {
 	// Find the first OpenID Connect scheme to get the discovery URL
 	var discoveryURL string
 	for _, scheme := range schemes {
@@ -217,13 +211,11 @@ func generateOIDCDiscoveryFileShared(ctx *securityGenerationContext, schemes map
 		Name:    "oidc_discovery.go",
 		Content: formatted,
 	})
-
-	return nil
 }
 
 // generateSingleSecurityEnforceShared generates all security enforcement in a single file.
 // This is shared between OAS 2.0 and OAS 3.x generators.
-func generateSingleSecurityEnforceShared(ctx *securityGenerationContext, opSecurity OperationSecurityRequirements, globalSecurity []parser.SecurityRequirement) error {
+func generateSingleSecurityEnforceShared(ctx *securityGenerationContext, opSecurity OperationSecurityRequirements, globalSecurity []parser.SecurityRequirement) {
 	g := NewSecurityEnforceGenerator(ctx.result.PackageName)
 	code := g.GenerateSecurityEnforceFile(opSecurity, globalSecurity)
 
@@ -238,13 +230,11 @@ func generateSingleSecurityEnforceShared(ctx *securityGenerationContext, opSecur
 		Name:    "security_enforce.go",
 		Content: formatted,
 	})
-
-	return nil
 }
 
 // generateSplitSecurityEnforceShared generates security enforcement split across multiple files.
 // This is shared between OAS 2.0 and OAS 3.x generators.
-func generateSplitSecurityEnforceShared(ctx *securityGenerationContext, opSecurity OperationSecurityRequirements, globalSecurity []parser.SecurityRequirement) error {
+func generateSplitSecurityEnforceShared(ctx *securityGenerationContext, opSecurity OperationSecurityRequirements, globalSecurity []parser.SecurityRequirement) {
 	g := NewSecurityEnforceGenerator(ctx.result.PackageName)
 
 	// Generate base file with shared types and empty map
@@ -291,8 +281,6 @@ func generateSplitSecurityEnforceShared(ctx *securityGenerationContext, opSecuri
 			Content: formatted,
 		})
 	}
-
-	return nil
 }
 
 // readmeContextBuilder holds common data needed to build a ReadmeContext.
@@ -511,80 +499,66 @@ func parseStatusCodeMetadata(code string) StatusCodeData {
 // securityFileCallbacks holds callbacks for generating security-related files.
 // Each callback handles version-specific file generation.
 type securityFileCallbacks struct {
-	generateCredentials     func() error
-	generateSecurityEnforce func() error
-	generateOIDCDiscovery   func(map[string]*parser.SecurityScheme) error
-	generateReadme          func(map[string]*parser.SecurityScheme) error
+	generateCredentials     func()
+	generateSecurityEnforce func()
+	generateOIDCDiscovery   func(map[string]*parser.SecurityScheme)
+	generateReadme          func(map[string]*parser.SecurityScheme)
 }
 
 // generateSecurityFilesOrchestrated orchestrates the generation of optional security files.
 // This pattern is 100% identical between OAS 2.0 and OAS 3.x.
-func generateSecurityFilesOrchestrated(g *Generator, schemes map[string]*parser.SecurityScheme, cb securityFileCallbacks) error {
+func generateSecurityFilesOrchestrated(g *Generator, schemes map[string]*parser.SecurityScheme, cb securityFileCallbacks) {
 	// Generate credential management if enabled
 	if g.GenerateCredentialMgmt {
-		if err := cb.generateCredentials(); err != nil {
-			return fmt.Errorf("generator: failed to generate credentials: %w", err)
-		}
+		cb.generateCredentials()
 	}
 
 	// Generate security enforcement if enabled
 	if g.GenerateSecurityEnforce {
-		if err := cb.generateSecurityEnforce(); err != nil {
-			return fmt.Errorf("generator: failed to generate security enforcement: %w", err)
-		}
+		cb.generateSecurityEnforce()
 	}
 
 	// Generate OIDC discovery if enabled
 	if g.GenerateOIDCDiscovery && len(schemes) > 0 {
-		if err := cb.generateOIDCDiscovery(schemes); err != nil {
-			return fmt.Errorf("generator: failed to generate OIDC discovery: %w", err)
-		}
+		cb.generateOIDCDiscovery(schemes)
 	}
 
 	// Generate README if enabled
 	if g.GenerateReadme {
-		if err := cb.generateReadme(schemes); err != nil {
-			return fmt.Errorf("generator: failed to generate README: %w", err)
-		}
+		cb.generateReadme(schemes)
 	}
-
-	return nil
 }
 
 // fullSecurityCallbacks extends securityFileCallbacks with additional generation callbacks.
 // This type supports the unified generateAllSecurityHelpers orchestration function.
 type fullSecurityCallbacks struct {
-	generateSecurityHelpersFile func(map[string]*parser.SecurityScheme) error
-	generateOAuth2Files         func(map[string]*parser.SecurityScheme) error
-	generateCredentials         func() error
-	generateSecurityEnforce     func() error
-	generateOIDCDiscovery       func(map[string]*parser.SecurityScheme) error
-	generateReadme              func(map[string]*parser.SecurityScheme) error
+	generateSecurityHelpersFile func(map[string]*parser.SecurityScheme)
+	generateOAuth2Files         func(map[string]*parser.SecurityScheme)
+	generateCredentials         func()
+	generateSecurityEnforce     func()
+	generateOIDCDiscovery       func(map[string]*parser.SecurityScheme)
+	generateReadme              func(map[string]*parser.SecurityScheme)
 }
 
 // generateAllSecurityHelpers orchestrates the complete security helper generation.
 // This function is identical between OAS 2.0 and OAS 3.x - only the scheme source differs.
-func generateAllSecurityHelpers(g *Generator, schemes map[string]*parser.SecurityScheme, cb fullSecurityCallbacks) error {
+func generateAllSecurityHelpers(g *Generator, schemes map[string]*parser.SecurityScheme, cb fullSecurityCallbacks) {
 	if !g.GenerateClient {
-		return nil
+		return
 	}
 
 	// Generate security helpers if enabled
 	if g.GenerateSecurity && len(schemes) > 0 {
-		if err := cb.generateSecurityHelpersFile(schemes); err != nil {
-			return fmt.Errorf("generator: failed to generate security helpers: %w", err)
-		}
+		cb.generateSecurityHelpersFile(schemes)
 	}
 
 	// Generate OAuth2 flows if enabled
 	if g.GenerateOAuth2Flows && len(schemes) > 0 {
-		if err := cb.generateOAuth2Files(schemes); err != nil {
-			return fmt.Errorf("generator: failed to generate OAuth2 flows: %w", err)
-		}
+		cb.generateOAuth2Files(schemes)
 	}
 
 	// Generate optional security files using shared orchestration
-	return generateSecurityFilesOrchestrated(g, schemes, securityFileCallbacks{
+	generateSecurityFilesOrchestrated(g, schemes, securityFileCallbacks{
 		generateCredentials:     cb.generateCredentials,
 		generateSecurityEnforce: cb.generateSecurityEnforce,
 		generateOIDCDiscovery:   cb.generateOIDCDiscovery,
