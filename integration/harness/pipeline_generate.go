@@ -105,14 +105,17 @@ func executeBuild(t *testing.T, pc *PipelineContext, step *Step, result *StepRes
 		return fmt.Errorf("build step requires a prior generate step")
 	}
 
-	// Check that the directory exists
-	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
-		return fmt.Errorf("build: output directory does not exist: %s", outputDir)
+	// Check that the directory exists and is accessible
+	if _, err := os.Stat(outputDir); err != nil {
+		return fmt.Errorf("build: output directory not accessible: %s: %w", outputDir, err)
 	}
 
 	// Initialize go module in temp directory if needed
 	goModPath := filepath.Join(outputDir, "go.mod")
-	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
+	if _, err := os.Stat(goModPath); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("build: failed to check go.mod: %w", err)
+		}
 		// Get package name from generate result or config
 		pkgName := "generated"
 		if pc.GenerateResult != nil && pc.GenerateResult.PackageName != "" {

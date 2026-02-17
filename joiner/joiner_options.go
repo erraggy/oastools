@@ -471,6 +471,9 @@ func WithAlwaysApplyPrefix(enabled bool) Option {
 // Default: "none"
 func WithEquivalenceMode(mode string) Option {
 	return func(cfg *joinConfig) error {
+		if !IsValidEquivalenceMode(mode) {
+			return fmt.Errorf("invalid equivalence mode %q: valid values are none, shallow, deep", mode)
+		}
 		cfg.equivalenceMode = &mode
 		return nil
 	}
