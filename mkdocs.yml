@@ -114,6 +114,8 @@ nav:
     - Generator: packages/generator.md
     - Builder: packages/builder.md
     - Walker: packages/walker.md
+  - Blog:
+    - Building the MCP Server: blog/building-the-mcp-server.md
   - "📄 White Paper": whitepaper.md
   - Project Info:
     - Contributing: CONTRIBUTORS.md
