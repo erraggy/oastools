@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -383,15 +384,16 @@ func HandleJoin(args []string) error {
 		if dataErr != nil {
 			return fmt.Errorf("marshaling joined document: %w", dataErr)
 		}
-		if writeErr := os.WriteFile(flags.Output, data, 0600); writeErr != nil {
+		cleanedOutput := filepath.Clean(flags.Output)
+		if writeErr := os.WriteFile(cleanedOutput, data, 0600); writeErr != nil { //nolint:gosec // G703 - output path is user-provided CLI flag
 			return fmt.Errorf("writing output file: %w", writeErr)
 		}
 		// Ensure correct permissions even if file pre-existed with different permissions
-		if chmodErr := os.Chmod(flags.Output, 0600); chmodErr != nil {
+		if chmodErr := os.Chmod(cleanedOutput, 0600); chmodErr != nil {
 			return fmt.Errorf("setting output file permissions: %w", chmodErr)
 		}
 		if !flags.Quiet {
-			Writef(os.Stderr, "\nOutput written to: %s\n", flags.Output)
+			Writef(os.Stderr, "\nOutput written to: %s\n", cleanedOutput)
 		}
 	} else {
 		// Write to stdout

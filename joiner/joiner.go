@@ -342,13 +342,14 @@ func (j *Joiner) WriteResult(result *JoinResult, outputPath string) error {
 	}
 
 	// Write to file with restrictive permissions for potentially sensitive API specs
-	if err := os.WriteFile(filepath.Clean(outputPath), data, outputFileMode); err != nil { //nolint:gosec // G703 - output path is user-provided
+	cleanedPath := filepath.Clean(outputPath)
+	if err := os.WriteFile(cleanedPath, data, outputFileMode); err != nil { //nolint:gosec // G703 - output path is user-provided
 		return fmt.Errorf("joiner: failed to write output file: %w", err)
 	}
 
 	// Explicitly set permissions to ensure they're correct even if file existed before
 	// This handles the case where an existing file may have had different permissions
-	if err := os.Chmod(outputPath, outputFileMode); err != nil {
+	if err := os.Chmod(cleanedPath, outputFileMode); err != nil { //nolint:gosec // G703 - output path is user-provided
 		return fmt.Errorf("joiner: failed to set output file permissions: %w", err)
 	}
 

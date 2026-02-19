@@ -40,7 +40,7 @@ document$.subscribe(function() {
       var url = new URL(a.href);
       if (url.hostname && url.hostname !== host) {
         a.setAttribute("target", "_blank");
-        a.setAttribute("rel", "noopener");
+        a.setAttribute("rel", "noopener noreferrer");
       }
     } catch(e) {}
   });

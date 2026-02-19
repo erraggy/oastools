@@ -2,7 +2,7 @@
 
 *How corpus-driven development turned a prototype into a production-grade tool server across 6 releases.*
 
-**Published:** February 2026 | **Releases:** v1.51.0 – v1.51.5 | **Pull Requests:** 7 PRs, 8,274 lines of Go
+**Published:** February 2026 | **Releases:** v1.51.0 – v1.51.5 | **Pull Requests:** 8 PRs, 8,274 lines of Go
 
 ---
 
@@ -275,9 +275,9 @@ The corpus didn't just find bugs — it shaped the API surface. Features like `g
 
 | Metric | Value |
 |--------|-------|
-| Development window | 48 hours (Feb 13-15, 2026) |
+| Development window | 48 hours (Feb 13–15, 2026) |
 | Releases | 6 (v1.51.0 – v1.51.5) |
-| Pull requests | 7 MCP-focused PRs |
+| Pull requests | 8 MCP-focused PRs |
 | MCP tools | 15 → 17 |
 | Lines of Go | 8,274 across 37 files |
 | Test count | 8,000 → 8,200+ |

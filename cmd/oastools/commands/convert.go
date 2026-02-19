@@ -198,11 +198,12 @@ func HandleConvert(args []string) error {
 	}
 
 	if flags.Output != "" {
-		if err := os.WriteFile(filepath.Clean(flags.Output), data, 0600); err != nil { //nolint:gosec // G703 - output path is user-provided CLI flag
+		cleanedOutput := filepath.Clean(flags.Output)
+		if err := os.WriteFile(cleanedOutput, data, 0600); err != nil { //nolint:gosec // G703 - output path is user-provided CLI flag
 			return fmt.Errorf("writing output file: %w", err)
 		}
 		if !flags.Quiet {
-			Writef(os.Stderr, "\nOutput written to: %s\n", flags.Output)
+			Writef(os.Stderr, "\nOutput written to: %s\n", cleanedOutput)
 		}
 	} else {
 		// Write to stdout
