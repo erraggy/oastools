@@ -99,12 +99,12 @@ func seriesKey(major, minor int) string {
 	// Pre-allocate for common case of single-digit numbers
 	buf := make([]byte, 0, 5)
 	if major >= 10 {
-		buf = append(buf, byte('0'+major/10))
+		buf = append(buf, byte('0'+major/10)) //nolint:gosec // G115 - OAS major versions are 0-9
 	}
 	buf = append(buf, byte('0'+major%10))
 	buf = append(buf, '.')
 	if minor >= 10 {
-		buf = append(buf, byte('0'+minor/10))
+		buf = append(buf, byte('0'+minor/10)) //nolint:gosec // G115 - OAS minor versions are 0-9
 	}
 	buf = append(buf, byte('0'+minor%10))
 	return string(buf)

@@ -241,7 +241,7 @@ func (errs BuilderErrors) Error() string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("builder: %d error(s):\n", len(errs)))
+	fmt.Fprintf(&sb, "builder: %d error(s):\n", len(errs))
 	for _, e := range errs {
 		if e == nil {
 			continue

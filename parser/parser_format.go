@@ -114,7 +114,7 @@ func (p *Parser) fetchURL(urlStr string) ([]byte, string, error) {
 	req.Header.Set("User-Agent", userAgent)
 
 	// Execute request
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:gosec // G704 - URL is user-provided input (CLI parser)
 	if err != nil {
 		return nil, "", fmt.Errorf("parser: failed to fetch URL: %w", err)
 	}

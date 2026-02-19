@@ -365,7 +365,7 @@ func (ws JoinWarnings) Summary() string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("%d warning(s):\n", len(ws)))
+	fmt.Fprintf(&sb, "%d warning(s):\n", len(ws))
 	for _, w := range ws {
 		sb.WriteString("  - ")
 		sb.WriteString(w.String())

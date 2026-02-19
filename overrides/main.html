@@ -28,6 +28,22 @@
     };
   }
 })();
+
 </script>
 {{ super() }}
+<script>
+// Open external links in new tabs — compatible with navigation.instant
+document$.subscribe(function() {
+  var host = location.hostname;
+  document.querySelectorAll("a[href]").forEach(function(a) {
+    try {
+      var url = new URL(a.href);
+      if (url.hostname && url.hostname !== host) {
+        a.setAttribute("target", "_blank");
+        a.setAttribute("rel", "noopener noreferrer");
+      }
+    } catch(e) {}
+  });
+});
+</script>
 {% endblock %}

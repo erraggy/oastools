@@ -145,7 +145,7 @@ func FormatSpecPath(specPath string) string {
 // Writef writes formatted output to the writer.
 // If the write fails, it logs to stderr (useful for debugging).
 func Writef(w io.Writer, format string, args ...any) {
-	if _, err := fmt.Fprintf(w, format, args...); err != nil {
+	if _, err := fmt.Fprintf(w, format, args...); err != nil { //nolint:gosec // G705 - CLI tool, not a web server
 		_, _ = fmt.Fprintf(os.Stderr, "write error: %v\n", err)
 	}
 }
