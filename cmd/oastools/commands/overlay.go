@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/erraggy/oastools"
@@ -235,7 +236,7 @@ func handleOverlayApply(args []string) error {
 	}
 
 	if flags.Output != "" {
-		if err := os.WriteFile(flags.Output, data, 0600); err != nil {
+		if err := os.WriteFile(filepath.Clean(flags.Output), data, 0600); err != nil { //nolint:gosec // G703 - output path is user-provided CLI flag
 			return fmt.Errorf("writing output file: %w", err)
 		}
 		if !flags.Quiet {

@@ -181,10 +181,10 @@ func (g *ReadmeGenerator) generateHeader(ctx *ReadmeContext) string {
 		title = "Generated API Client"
 	}
 
-	buf.WriteString(fmt.Sprintf("# %s\n\n", title))
+	fmt.Fprintf(&buf, "# %s\n\n", title)
 
 	if ctx.APIDescription != "" {
-		buf.WriteString(fmt.Sprintf("%s\n\n", ctx.APIDescription))
+		fmt.Fprintf(&buf, "%s\n\n", ctx.APIDescription)
 	}
 
 	return buf.String()
@@ -202,16 +202,16 @@ func (g *ReadmeGenerator) generateOverview(ctx *ReadmeContext) string {
 	buf.WriteString("|----------|-------|\n")
 
 	if ctx.APIVersion != "" {
-		buf.WriteString(fmt.Sprintf("| API Version | %s |\n", ctx.APIVersion))
+		fmt.Fprintf(&buf, "| API Version | %s |\n", ctx.APIVersion)
 	}
 	if ctx.OASVersion != "" {
-		buf.WriteString(fmt.Sprintf("| OpenAPI Version | %s |\n", ctx.OASVersion))
+		fmt.Fprintf(&buf, "| OpenAPI Version | %s |\n", ctx.OASVersion)
 	}
-	buf.WriteString(fmt.Sprintf("| Package | `%s` |\n", ctx.PackageName))
+	fmt.Fprintf(&buf, "| Package | `%s` |\n", ctx.PackageName)
 	if ctx.OastoolsVersion != "" {
-		buf.WriteString(fmt.Sprintf("| Generator Version | %s |\n", ctx.OastoolsVersion))
+		fmt.Fprintf(&buf, "| Generator Version | %s |\n", ctx.OastoolsVersion)
 	}
-	buf.WriteString(fmt.Sprintf("| Generated | %s |\n", ctx.Timestamp.Format(time.RFC3339)))
+	fmt.Fprintf(&buf, "| Generated | %s |\n", ctx.Timestamp.Format(time.RFC3339))
 
 	buf.WriteString("\n")
 
@@ -237,7 +237,7 @@ func (g *ReadmeGenerator) generateFilesSection(ctx *ReadmeContext) string {
 		if f.LineCount > 0 {
 			desc = fmt.Sprintf("%s (%d lines)", desc, f.LineCount)
 		}
-		buf.WriteString(fmt.Sprintf("| `%s` | %s |\n", f.FileName, desc))
+		fmt.Fprintf(&buf, "| `%s` | %s |\n", f.FileName, desc)
 	}
 
 	buf.WriteString("\n")
@@ -245,18 +245,18 @@ func (g *ReadmeGenerator) generateFilesSection(ctx *ReadmeContext) string {
 	// Split information
 	if ctx.SplitInfo != nil && ctx.SplitInfo.WasSplit {
 		buf.WriteString("### File Organization\n\n")
-		buf.WriteString(fmt.Sprintf("Files were split %s.\n\n", ctx.SplitInfo.Strategy))
+		fmt.Fprintf(&buf, "Files were split %s.\n\n", ctx.SplitInfo.Strategy)
 
 		if len(ctx.SplitInfo.Groups) > 0 {
 			buf.WriteString("**Groups:**\n")
 			for _, group := range ctx.SplitInfo.Groups {
-				buf.WriteString(fmt.Sprintf("- %s\n", group))
+				fmt.Fprintf(&buf, "- %s\n", group)
 			}
 			buf.WriteString("\n")
 		}
 
 		if ctx.SplitInfo.SharedTypesFile != "" {
-			buf.WriteString(fmt.Sprintf("**Shared types:** `%s`\n\n", ctx.SplitInfo.SharedTypesFile))
+			fmt.Fprintf(&buf, "**Shared types:** `%s`\n\n", ctx.SplitInfo.SharedTypesFile)
 		}
 	}
 
@@ -271,26 +271,26 @@ func (g *ReadmeGenerator) generateSecuritySection(ctx *ReadmeContext) string {
 	buf.WriteString("This API uses the following authentication methods:\n\n")
 
 	for _, sec := range ctx.SecuritySchemes {
-		buf.WriteString(fmt.Sprintf("### %s\n\n", sec.Name))
+		fmt.Fprintf(&buf, "### %s\n\n", sec.Name)
 
 		if sec.Description != "" {
-			buf.WriteString(fmt.Sprintf("%s\n\n", sec.Description))
+			fmt.Fprintf(&buf, "%s\n\n", sec.Description)
 		}
 
-		buf.WriteString(fmt.Sprintf("- **Type:** %s\n", sec.Type))
+		fmt.Fprintf(&buf, "- **Type:** %s\n", sec.Type)
 
 		switch sec.Type {
 		case schemeTypeAPIKey:
-			buf.WriteString(fmt.Sprintf("- **Location:** %s\n", sec.Location))
+			fmt.Fprintf(&buf, "- **Location:** %s\n", sec.Location)
 		case schemeTypeHTTP:
-			buf.WriteString(fmt.Sprintf("- **Scheme:** %s\n", sec.Scheme))
+			fmt.Fprintf(&buf, "- **Scheme:** %s\n", sec.Scheme)
 		case schemeTypeOAuth2:
 			if len(sec.Flows) > 0 {
-				buf.WriteString(fmt.Sprintf("- **Flows:** %s\n", strings.Join(sec.Flows, ", ")))
+				fmt.Fprintf(&buf, "- **Flows:** %s\n", strings.Join(sec.Flows, ", "))
 			}
 		case schemeTypeOpenIDConnect:
 			if sec.OpenIDConnectURL != "" {
-				buf.WriteString(fmt.Sprintf("- **Discovery URL:** %s\n", sec.OpenIDConnectURL))
+				fmt.Fprintf(&buf, "- **Discovery URL:** %s\n", sec.OpenIDConnectURL)
 			}
 		}
 
@@ -309,7 +309,7 @@ func (g *ReadmeGenerator) generateUsageSection(ctx *ReadmeContext) string {
 	// Basic client creation
 	buf.WriteString("### Creating a Client\n\n")
 	buf.WriteString("```go\n")
-	buf.WriteString(fmt.Sprintf("import \"%s\"\n\n", ctx.PackageName))
+	fmt.Fprintf(&buf, "import \"%s\"\n\n", ctx.PackageName)
 	buf.WriteString("client, err := NewClient(\"https://api.example.com\")\n")
 	buf.WriteString("if err != nil {\n")
 	buf.WriteString("    log.Fatal(err)\n")
@@ -327,51 +327,51 @@ func (g *ReadmeGenerator) generateUsageSection(ctx *ReadmeContext) string {
 			case schemeTypeAPIKey:
 				switch sec.Location {
 				case "header":
-					buf.WriteString(fmt.Sprintf("**%s (API Key in Header):**\n", sec.Name))
+					fmt.Fprintf(&buf, "**%s (API Key in Header):**\n", sec.Name)
 					buf.WriteString("```go\n")
-					buf.WriteString(fmt.Sprintf("client, err := NewClient(baseURL, With%sAPIKey(\"your-api-key\"))\n", funcName))
+					fmt.Fprintf(&buf, "client, err := NewClient(baseURL, With%sAPIKey(\"your-api-key\"))\n", funcName)
 					buf.WriteString("```\n\n")
 				case "query":
-					buf.WriteString(fmt.Sprintf("**%s (API Key in Query):**\n", sec.Name))
+					fmt.Fprintf(&buf, "**%s (API Key in Query):**\n", sec.Name)
 					buf.WriteString("```go\n")
-					buf.WriteString(fmt.Sprintf("client, err := NewClient(baseURL, With%sAPIKeyQuery(\"your-api-key\"))\n", funcName))
+					fmt.Fprintf(&buf, "client, err := NewClient(baseURL, With%sAPIKeyQuery(\"your-api-key\"))\n", funcName)
 					buf.WriteString("```\n\n")
 				case "cookie":
-					buf.WriteString(fmt.Sprintf("**%s (API Key in Cookie):**\n", sec.Name))
+					fmt.Fprintf(&buf, "**%s (API Key in Cookie):**\n", sec.Name)
 					buf.WriteString("```go\n")
-					buf.WriteString(fmt.Sprintf("client, err := NewClient(baseURL, With%sAPIKeyCookie(\"your-api-key\"))\n", funcName))
+					fmt.Fprintf(&buf, "client, err := NewClient(baseURL, With%sAPIKeyCookie(\"your-api-key\"))\n", funcName)
 					buf.WriteString("```\n\n")
 				}
 			case schemeTypeHTTP:
 				switch sec.Scheme {
 				case "basic":
-					buf.WriteString(fmt.Sprintf("**%s (Basic Auth):**\n", sec.Name))
+					fmt.Fprintf(&buf, "**%s (Basic Auth):**\n", sec.Name)
 					buf.WriteString("```go\n")
-					buf.WriteString(fmt.Sprintf("client, err := NewClient(baseURL, With%sBasicAuth(\"username\", \"password\"))\n", funcName))
+					fmt.Fprintf(&buf, "client, err := NewClient(baseURL, With%sBasicAuth(\"username\", \"password\"))\n", funcName)
 					buf.WriteString("```\n\n")
 				case "bearer":
-					buf.WriteString(fmt.Sprintf("**%s (Bearer Token):**\n", sec.Name))
+					fmt.Fprintf(&buf, "**%s (Bearer Token):**\n", sec.Name)
 					buf.WriteString("```go\n")
-					buf.WriteString(fmt.Sprintf("client, err := NewClient(baseURL, With%sBearerToken(\"your-token\"))\n", funcName))
+					fmt.Fprintf(&buf, "client, err := NewClient(baseURL, With%sBearerToken(\"your-token\"))\n", funcName)
 					buf.WriteString("```\n\n")
 				}
 			case schemeTypeOAuth2:
-				buf.WriteString(fmt.Sprintf("**%s (OAuth2):**\n", sec.Name))
+				fmt.Fprintf(&buf, "**%s (OAuth2):**\n", sec.Name)
 				buf.WriteString("```go\n")
-				buf.WriteString(fmt.Sprintf("client, err := NewClient(baseURL, With%sOAuth2Token(\"your-access-token\"))\n", funcName))
+				fmt.Fprintf(&buf, "client, err := NewClient(baseURL, With%sOAuth2Token(\"your-access-token\"))\n", funcName)
 				buf.WriteString("```\n\n")
 
 				if ctx.Config != nil && ctx.Config.GenerateOAuth2Flows {
 					buf.WriteString("For OAuth2 token management, see the generated OAuth2 client:\n")
 					buf.WriteString("```go\n")
-					buf.WriteString(fmt.Sprintf("oauth2Client := New%sOAuth2Client(config)\n", funcName))
+					fmt.Fprintf(&buf, "oauth2Client := New%sOAuth2Client(config)\n", funcName)
 					buf.WriteString("// Use authorization code flow, client credentials, etc.\n")
 					buf.WriteString("```\n\n")
 				}
 			case schemeTypeOpenIDConnect:
-				buf.WriteString(fmt.Sprintf("**%s (OpenID Connect):**\n", sec.Name))
+				fmt.Fprintf(&buf, "**%s (OpenID Connect):**\n", sec.Name)
 				buf.WriteString("```go\n")
-				buf.WriteString(fmt.Sprintf("client, err := NewClient(baseURL, With%sToken(\"your-access-token\"))\n", funcName))
+				fmt.Fprintf(&buf, "client, err := NewClient(baseURL, With%sToken(\"your-access-token\"))\n", funcName)
 				buf.WriteString("```\n\n")
 
 				if ctx.Config != nil && ctx.Config.GenerateOIDCDiscovery {
@@ -456,7 +456,7 @@ func (g *ReadmeGenerator) generateFooter(ctx *ReadmeContext) string {
 	buf.WriteString("Generated by [oastools](https://github.com/erraggy/oastools)")
 
 	if ctx.OastoolsVersion != "" {
-		buf.WriteString(fmt.Sprintf(" v%s", ctx.OastoolsVersion))
+		fmt.Fprintf(&buf, " v%s", ctx.OastoolsVersion)
 	}
 
 	buf.WriteString("\n")

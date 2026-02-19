@@ -29,8 +29,11 @@
   }
 })();
 
-// Open external links in new tabs
-document.addEventListener("DOMContentLoaded", function() {
+</script>
+{{ super() }}
+<script>
+// Open external links in new tabs — compatible with navigation.instant
+document$.subscribe(function() {
   var host = location.hostname;
   document.querySelectorAll("a[href]").forEach(function(a) {
     try {
@@ -43,5 +46,4 @@ document.addEventListener("DOMContentLoaded", function() {
   });
 });
 </script>
-{{ super() }}
 {% endblock %}

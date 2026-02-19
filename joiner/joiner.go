@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"text/template"
 
 	"github.com/erraggy/oastools/parser"
@@ -238,17 +239,17 @@ func (j *Joiner) JoinParsed(parsedDocs []parser.ParseResult) (*JoinResult, error
 	// Verify all documents are the same major version
 	baseVersion := parsedDocs[0].OASVersion
 	var versionWarnings JoinWarnings
-	for i, doc := range parsedDocs[1:] {
+	for _, doc := range parsedDocs[1:] {
 		if !j.versionsCompatible(baseVersion, doc.OASVersion) {
 			return nil, fmt.Errorf("joiner: incompatible versions: %s (%s) and %s (%s) cannot be joined",
-				parsedDocs[0].SourcePath, parsedDocs[0].Version, parsedDocs[i+1].SourcePath, doc.Version)
+				parsedDocs[0].SourcePath, parsedDocs[0].Version, doc.SourcePath, doc.Version)
 		}
 
 		// Warn about minor version mismatches (e.g., 3.0.x with 3.1.x)
 		if baseVersion != doc.OASVersion && j.hasMinorVersionMismatch(baseVersion, doc.OASVersion) {
 			versionWarnings = append(versionWarnings, NewVersionMismatchWarning(
 				parsedDocs[0].SourcePath, parsedDocs[0].Version,
-				parsedDocs[i+1].SourcePath, doc.Version,
+				doc.SourcePath, doc.Version,
 				parsedDocs[0].Version))
 		}
 	}
@@ -341,7 +342,7 @@ func (j *Joiner) WriteResult(result *JoinResult, outputPath string) error {
 	}
 
 	// Write to file with restrictive permissions for potentially sensitive API specs
-	if err := os.WriteFile(outputPath, data, outputFileMode); err != nil {
+	if err := os.WriteFile(filepath.Clean(outputPath), data, outputFileMode); err != nil { //nolint:gosec // G703 - output path is user-provided
 		return fmt.Errorf("joiner: failed to write output file: %w", err)
 	}
 

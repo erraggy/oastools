@@ -168,7 +168,7 @@ func resolveOverlayInput(ctx context.Context, s specInput) (*overlay.Overlay, er
 		if err != nil {
 			return nil, fmt.Errorf("failed to create overlay request: %w", err)
 		}
-		resp, err := client.Do(req)
+		resp, err := client.Do(req) //nolint:gosec // G704 - URL is user-provided input (MCP tool)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch overlay from URL: %w", err)
 		}

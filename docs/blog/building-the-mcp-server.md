@@ -2,7 +2,7 @@
 
 *How corpus-driven development turned a prototype into a production-grade tool server across 6 releases.*
 
-**Published:** February 2026 | **Releases:** v1.51.0 – v1.51.5 | **Commits:** 7 PRs, 8,274 lines of Go
+**Published:** February 2026 | **Releases:** v1.51.0 – v1.51.5 | **Pull Requests:** 7 PRs, 8,274 lines of Go
 
 ---
 
@@ -42,7 +42,7 @@ type validateInput struct {
 }
 ```
 
-A shared `specInput` type handles the three input modes (file path, URL, inline content) with mutual exclusivity validation. This one type serves all 17 tools.
+A shared `specInput` type handles the three input modes (file path, URL, inline content) with mutual exclusivity validation. This one type serves all 15 tools (and later, the 2 added in v1.51.3).
 
 ### The 15 tools
 
@@ -168,6 +168,7 @@ The implementation uses a generic `groupAndSort[T any]` helper with filter-befor
 ### Glob-style filtering
 
 Path filters gained `**` for multi-segment matching:
+
 - `/users/*` matches `/users/{id}` but not `/users/{id}/posts`
 - `/drives/**/workbook/**` matches any depth under both segments
 
