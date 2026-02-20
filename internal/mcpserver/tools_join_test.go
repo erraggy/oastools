@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
@@ -216,6 +217,53 @@ func TestJoinTool_InvalidOutputPath(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.True(t, result.IsError)
 	assert.Empty(t, output.WrittenTo)
+}
+
+func TestHandleJoin_ConfigDefaults(t *testing.T) {
+	specCache.reset()
+	origCfg := cfg
+	cfg = &serverConfig{
+		CacheEnabled:       true,
+		CacheMaxSize:       10,
+		CacheFileTTL:       15 * time.Minute,
+		CacheURLTTL:        5 * time.Minute,
+		CacheContentTTL:    15 * time.Minute,
+		CacheSweepInterval: 60 * time.Second,
+		WalkLimit:          100,
+		WalkDetailLimit:    25,
+		JoinPathStrategy:   "accept-left",
+		JoinSchemaStrategy: "accept-left",
+	}
+	t.Cleanup(func() { cfg = origCfg })
+
+	// Use specs with a path collision (/users) to prove the config default
+	// strategy (accept-left) is applied. Without it, the join would fail.
+	specWithUsers := `openapi: "3.0.0"
+info:
+  title: Another Users Spec
+  version: "1.0.0"
+paths:
+  /users:
+    post:
+      operationId: createUser
+      responses:
+        "201":
+          description: Created
+`
+	input := joinInput{
+		Specs: []specInput{
+			{Content: joinSpecA},     // defines /users (GET)
+			{Content: specWithUsers}, // also defines /users (POST)
+		},
+	}
+
+	// With cfg.JoinPathStrategy="accept-left", the collision should resolve
+	// using the left spec's /users rather than failing.
+	_, output, err := handleJoin(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+	assert.Greater(t, output.PathCount, 0, "join should succeed with config default strategy")
+	assert.NotEmpty(t, output.Document, "document should be returned inline")
+	assert.Contains(t, output.Document, "/users")
 }
 
 func TestJoinTool_MissingSpecInput(t *testing.T) {

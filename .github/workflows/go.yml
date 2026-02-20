@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+env:
+  GOEXPERIMENT: synctest  # Required for testing/synctest. Remove when Go 1.25+.
+
 jobs:
 
   build:

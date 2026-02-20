@@ -13,8 +13,8 @@ import (
 
 type joinInput struct {
 	Specs          []specInput `json:"specs"                         jsonschema:"Array of OAS documents to join (minimum 2)"`
-	PathStrategy   string      `json:"path_strategy,omitempty"       jsonschema:"Strategy for path collisions: accept-left or accept-right or fail"`
-	SchemaStrategy string      `json:"schema_strategy,omitempty"     jsonschema:"Strategy for schema collisions: accept-left or accept-right or fail or rename"`
+	PathStrategy   string      `json:"path_strategy,omitempty"       jsonschema:"Strategy for path collisions: accept-left or accept-right or fail or fail-on-paths"`
+	SchemaStrategy string      `json:"schema_strategy,omitempty"     jsonschema:"Strategy for schema collisions: accept-left or accept-right or fail or rename-left or rename-right or deduplicate"`
 	SemanticDedup  bool        `json:"semantic_dedup,omitempty"      jsonschema:"Enable semantic deduplication of equivalent schemas"`
 	Output         string      `json:"output,omitempty"              jsonschema:"File path to write joined document. If omitted the result is returned inline."`
 }
@@ -37,6 +37,14 @@ type joinOutput struct {
 }
 
 func handleJoin(_ context.Context, _ *mcp.CallToolRequest, input joinInput) (*mcp.CallToolResult, joinOutput, error) {
+	// Apply config defaults.
+	if input.PathStrategy == "" {
+		input.PathStrategy = cfg.JoinPathStrategy
+	}
+	if input.SchemaStrategy == "" {
+		input.SchemaStrategy = cfg.JoinSchemaStrategy
+	}
+
 	if len(input.Specs) < 2 {
 		return errResult(fmt.Errorf("at least 2 specs are required for joining, got %d", len(input.Specs))), joinOutput{}, nil
 	}

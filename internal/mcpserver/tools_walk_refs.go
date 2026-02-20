@@ -13,7 +13,7 @@ import (
 type walkRefsInput struct {
 	Spec     specInput `json:"spec"                   jsonschema:"The OAS document to walk"`
 	Target   string    `json:"target,omitempty"        jsonschema:"Filter by ref target (supports * and ? glob, e.g. *schemas/Pet or *responses/*)"`
-	NodeType string    `json:"node_type,omitempty"     jsonschema:"Filter by ref node type: schema, parameter, response, requestBody, header, pathItem"`
+	NodeType string    `json:"node_type,omitempty"     jsonschema:"Filter by ref node type: schema, parameter, response, requestBody, header, pathItem, link, example, securityScheme"`
 	Detail   bool      `json:"detail,omitempty"        jsonschema:"Return individual source locations instead of aggregated counts"`
 	GroupBy  string    `json:"group_by,omitempty"      jsonschema:"Group results and return counts instead of individual items. Values: node_type"`
 	Limit    int       `json:"limit,omitempty"         jsonschema:"Maximum number of results to return (default 100; 25 in detail mode)"`

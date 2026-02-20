@@ -1,11 +1,14 @@
 package mcpserver
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/synctest"
 	"time"
 
+	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -159,4 +162,106 @@ paths: {}
 
 	// The first entry (oldest) should have been evicted.
 	assert.Nil(t, specCache.get(firstKey), "expected oldest entry to be evicted")
+}
+
+func TestSpecInput_ResolveCacheDisabled(t *testing.T) {
+	specCache.reset()
+	origCfg := cfg
+	cfg = &serverConfig{
+		CacheEnabled:       false,
+		CacheMaxSize:       10,
+		CacheFileTTL:       15 * time.Minute,
+		CacheURLTTL:        5 * time.Minute,
+		CacheContentTTL:    15 * time.Minute,
+		CacheSweepInterval: 60 * time.Second,
+		WalkLimit:          100,
+		WalkDetailLimit:    25,
+	}
+	t.Cleanup(func() { cfg = origCfg })
+
+	input := specInput{File: "../../testdata/petstore-3.0.yaml"}
+	result1, err := input.resolve()
+	require.NoError(t, err)
+	assert.Equal(t, 0, specCache.size(), "cache should remain empty when disabled")
+
+	result2, err := input.resolve()
+	require.NoError(t, err)
+	assert.NotSame(t, result1, result2, "each resolve should parse fresh when cache disabled")
+}
+
+func TestSpecCache_TTLExpiry(t *testing.T) {
+	synctest.Run(func() {
+		c := &specCacheStore{
+			entries: make(map[string]*cacheEntry),
+			maxSize: 10,
+		}
+
+		result := &parser.ParseResult{}
+		c.putWithTTL("key1", result, 1*time.Millisecond)
+		assert.Equal(t, 1, c.size())
+
+		// Advance fake clock past TTL.
+		time.Sleep(2 * time.Millisecond)
+
+		// get() should return nil for expired entry and remove it.
+		assert.Nil(t, c.get("key1"))
+		assert.Equal(t, 0, c.size())
+	})
+}
+
+func TestSpecCache_TTLNotExpired(t *testing.T) {
+	c := &specCacheStore{
+		entries: make(map[string]*cacheEntry),
+		maxSize: 10,
+	}
+
+	result := &parser.ParseResult{}
+	c.putWithTTL("key1", result, 1*time.Hour)
+
+	// Should still be valid (no time advancement needed).
+	assert.Same(t, result, c.get("key1"))
+}
+
+func TestSpecCache_Sweep(t *testing.T) {
+	synctest.Run(func() {
+		c := &specCacheStore{
+			entries: make(map[string]*cacheEntry),
+			maxSize: 10,
+		}
+
+		result := &parser.ParseResult{}
+		c.putWithTTL("expired", result, 1*time.Millisecond)
+		c.putWithTTL("valid", result, 1*time.Hour)
+
+		// Advance fake clock past the short TTL.
+		time.Sleep(2 * time.Millisecond)
+		c.sweep()
+
+		assert.Equal(t, 1, c.size())
+		assert.Nil(t, c.get("expired"))
+		assert.NotNil(t, c.get("valid"))
+	})
+}
+
+func TestSpecCache_Sweeper(t *testing.T) {
+	synctest.Run(func() {
+		c := &specCacheStore{
+			entries: make(map[string]*cacheEntry),
+			maxSize: 10,
+		}
+
+		result := &parser.ParseResult{}
+		c.putWithTTL("sweep-me", result, 1*time.Millisecond)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		c.startSweeper(ctx, 10*time.Millisecond)
+
+		// Advance fake clock past TTL and sweep interval.
+		time.Sleep(11 * time.Millisecond)
+		// Wait for sweeper goroutine to complete its sweep cycle.
+		synctest.Wait()
+
+		assert.Equal(t, 0, c.size(), "sweeper should have removed expired entry")
+	})
 }

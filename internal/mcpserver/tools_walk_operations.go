@@ -50,12 +50,6 @@ type walkOperationsOutput struct {
 	Groups     []groupCount       `json:"groups,omitempty"`
 }
 
-const defaultWalkLimit = 100
-
-// defaultDetailLimit is lower because detail mode returns full objects,
-// which are significantly larger than summaries (2-10KB each).
-const defaultDetailLimit = 25
-
 func handleWalkOperations(_ context.Context, _ *mcp.CallToolRequest, input walkOperationsInput) (*mcp.CallToolResult, any, error) {
 	var extraOpts []parser.Option
 	if input.ResolveRefs {

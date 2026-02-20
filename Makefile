@@ -5,6 +5,10 @@ MAIN_PATH=./cmd/oastools
 BENCH_DIR=benchmarks
 BENCH_TIME=5s
 
+# Required for testing/synctest (deterministic time in tests). Remove when Go 1.25+.
+# Scoped to targets that compile test code (which imports testing/synctest).
+test test-quick test-race test-full test-coverage test-corpus test-corpus-short integration-test integration-test-debug count-tests count-benchmarks lint vet: export GOEXPERIMENT = synctest
+
 # Default target
 all: build
 

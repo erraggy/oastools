@@ -50,6 +50,69 @@ Any MCP-compatible client can launch the server. The transport is stdio — the 
 
 ---
 
+## Configuration
+
+All server defaults are configurable via `OASTOOLS_*` environment variables. The Go MCP SDK does not support `initializationOptions`, so environment variables are the configuration mechanism. Set them in your MCP client's server configuration.
+
+### Environment Variables
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `OASTOOLS_CACHE_ENABLED` | bool | `true` | Enable/disable spec caching entirely |
+| `OASTOOLS_CACHE_MAX_SIZE` | int | `10` | Maximum number of cached specs |
+| `OASTOOLS_CACHE_FILE_TTL` | duration | `15m` | Cache TTL for local file specs |
+| `OASTOOLS_CACHE_URL_TTL` | duration | `5m` | Cache TTL for URL-fetched specs |
+| `OASTOOLS_CACHE_CONTENT_TTL` | duration | `15m` | Cache TTL for inline content specs |
+| `OASTOOLS_CACHE_SWEEP_INTERVAL` | duration | `60s` | How often the background sweeper runs |
+| `OASTOOLS_WALK_LIMIT` | int | `100` | Default result limit for walk tools |
+| `OASTOOLS_WALK_DETAIL_LIMIT` | int | `25` | Default limit in detail mode |
+| `OASTOOLS_VALIDATE_STRICT` | bool | `false` | Enable strict validation by default |
+| `OASTOOLS_VALIDATE_NO_WARNINGS` | bool | `false` | Suppress warnings by default |
+| `OASTOOLS_JOIN_PATH_STRATEGY` | string | *(none)* | Default path collision strategy for join |
+| `OASTOOLS_JOIN_SCHEMA_STRATEGY` | string | *(none)* | Default schema collision strategy for join |
+
+Duration values use Go syntax: `30s`, `5m`, `1h`. Invalid values log a warning and fall back to the default.
+
+### Client Configuration Examples
+
+**Claude Code** (`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "oastools": {
+      "type": "stdio",
+      "command": "oastools",
+      "args": ["mcp"],
+      "env": {
+        "OASTOOLS_CACHE_FILE_TTL": "30m",
+        "OASTOOLS_VALIDATE_STRICT": "true",
+        "OASTOOLS_WALK_LIMIT": "50"
+      }
+    }
+  }
+}
+```
+
+**Claude Desktop** (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "oastools": {
+      "command": "oastools",
+      "args": ["mcp"],
+      "env": {
+        "OASTOOLS_CACHE_URL_TTL": "10m",
+        "OASTOOLS_JOIN_PATH_STRATEGY": "accept-left"
+      }
+    }
+  }
+}
+```
+
+---
+
 ## Tools (17)
 
 The server registers 17 tools organized into two categories: 9 core tools and 8 walk tools.
@@ -369,17 +432,17 @@ All walk tools share common input fields:
 
 ## Spec Caching
 
-The MCP server maintains a session-scoped cache of parsed specs. Once a spec is parsed, subsequent tool calls referencing the same spec reuse the cached parse result instead of re-parsing.
+The MCP server maintains a session-scoped cache of parsed specs. Once a spec is parsed, subsequent tool calls referencing the same spec reuse the cached parse result instead of re-parsing. Entries have per-type TTLs and a background sweeper removes expired entries periodically.
 
-**Cache keys:**
+**Cache keys and TTLs:**
 
-| Input Mode | Key Strategy | Invalidation |
-|------------|-------------|--------------|
-| `file` | Absolute path + file modification time | Automatic on file change (mtime) |
-| `content` | SHA-256 hash of the content string | Automatic (different content = different key) |
-| `url` | Not cached | N/A (remote content may change between calls) |
+| Input Mode | Key Strategy | Default TTL | Invalidation |
+|------------|-------------|-------------|--------------|
+| `file` | Absolute path + file modification time | 15m | New key on mtime change (stale entry expires via TTL or sweeper) |
+| `content` | SHA-256 hash of the content string | 15m | Automatic (different content = different key) or TTL expiry |
+| `url` | URL string | 5m | TTL expiry (shorter TTL since remote content may change) |
 
-The cache holds a maximum of 10 entries and uses LRU (least recently used) eviction when at capacity.
+The cache holds a maximum of 10 entries (configurable via `OASTOOLS_CACHE_MAX_SIZE`) and uses LRU eviction when at capacity. Expired entries are lazily removed on access and proactively removed by a background sweeper (every 60s by default). Caching can be disabled entirely with `OASTOOLS_CACHE_ENABLED=false`.
 
 **Which tools use the cache:**
 
@@ -449,7 +512,8 @@ The MCP server is implemented in the `internal/mcpserver` package:
 ```text
 internal/mcpserver/
 ├── server.go              # Entry point and tool registration
-├── input.go               # Shared specInput type
+├── config.go              # Configuration via OASTOOLS_* env vars
+├── input.go               # Shared specInput type and spec cache
 ├── tools_validate.go      # validate tool
 ├── tools_parse.go         # parse tool
 ├── tools_fix.go           # fix tool
