@@ -219,8 +219,26 @@ echo ""
 if [[ "$SKIP_TO_CHECKOUT" == "false" ]]; then
     # Step 5.3: Wait for CI and merge
     echo "Step 5.3: Waiting for CI checks..."
-    if ! gh pr checks "$PR_NUMBER" --watch --fail-fast; then
-        echo "Error: CI checks failed for PR #$PR_NUMBER" >&2
+    # CI checks need time to register after PR creation. Retry until checks appear.
+    CI_PASSED=false
+    for attempt in 1 2 3 4 5; do
+        if gh pr checks "$PR_NUMBER" --watch --fail-fast 2>/dev/null; then
+            CI_PASSED=true
+            break
+        fi
+        # If checks haven't appeared yet, wait and retry
+        CHECKS=$(gh pr checks "$PR_NUMBER" 2>&1 || true)
+        if echo "$CHECKS" | grep -q "no checks reported"; then
+            echo "  Checks not yet reported, waiting 15s (attempt $attempt/5)..."
+            sleep 15
+        else
+            # Checks appeared but failed
+            echo "Error: CI checks failed for PR #$PR_NUMBER" >&2
+            exit 3
+        fi
+    done
+    if [[ "$CI_PASSED" != "true" ]]; then
+        echo "Error: CI checks never appeared for PR #$PR_NUMBER after 75s" >&2
         exit 3
     fi
     echo "  ✓ CI checks passed"
