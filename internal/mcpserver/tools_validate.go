@@ -9,8 +9,8 @@ import (
 
 type validateInput struct {
 	Spec       specInput `json:"spec"                    jsonschema:"The OAS document to validate"`
-	Strict     bool      `json:"strict,omitempty"        jsonschema:"Enable strict validation mode"`
-	NoWarnings bool      `json:"no_warnings,omitempty"   jsonschema:"Suppress warnings from output"`
+	Strict     *bool     `json:"strict,omitempty"        jsonschema:"Enable strict validation mode"`
+	NoWarnings *bool     `json:"no_warnings,omitempty"   jsonschema:"Suppress warnings from output"`
 	Offset     int       `json:"offset,omitempty"        jsonschema:"Skip the first N errors/warnings (for pagination)"`
 	Limit      int       `json:"limit,omitempty"         jsonschema:"Maximum number of errors/warnings to return (default 100). Applied independently to errors and warnings arrays."`
 }
@@ -32,6 +32,16 @@ type validateOutput struct {
 }
 
 func handleValidate(_ context.Context, _ *mcp.CallToolRequest, input validateInput) (*mcp.CallToolResult, validateOutput, error) {
+	// Apply config defaults when input fields are omitted (nil).
+	strict := cfg.ValidateStrict
+	if input.Strict != nil {
+		strict = *input.Strict
+	}
+	noWarnings := cfg.ValidateNoWarnings
+	if input.NoWarnings != nil {
+		noWarnings = *input.NoWarnings
+	}
+
 	parseResult, err := input.Spec.resolve()
 	if err != nil {
 		return errResult(err), validateOutput{}, nil
@@ -40,7 +50,7 @@ func handleValidate(_ context.Context, _ *mcp.CallToolRequest, input validateInp
 	opts := []validator.Option{
 		validator.WithParsed(*parseResult),
 	}
-	if input.Strict {
+	if strict {
 		opts = append(opts, validator.WithStrictMode(true))
 	}
 
@@ -63,7 +73,7 @@ func handleValidate(_ context.Context, _ *mcp.CallToolRequest, input validateInp
 			Field:   e.Field,
 		})
 	}
-	if !input.NoWarnings {
+	if !noWarnings {
 		output.WarningCount = result.WarningCount
 		output.Warnings = makeSlice[validateIssue](len(result.Warnings))
 		for _, w := range result.Warnings {
@@ -77,7 +87,7 @@ func handleValidate(_ context.Context, _ *mcp.CallToolRequest, input validateInp
 
 	// Paginate errors and warnings.
 	output.Errors = paginate(output.Errors, input.Offset, input.Limit)
-	if !input.NoWarnings {
+	if !noWarnings {
 		output.Warnings = paginate(output.Warnings, input.Offset, input.Limit)
 	}
 	output.Returned = len(output.Errors) + len(output.Warnings)

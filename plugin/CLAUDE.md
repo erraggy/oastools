@@ -46,6 +46,29 @@ Special cases:
 - `join` uses a `specs` array
 - `overlay_apply` uses `spec` and `overlay`
 
+## Configuration
+
+The MCP server reads `OASTOOLS_*` environment variables for default behavior. These are set by the user in their MCP client config (e.g., the `env` field in `.mcp.json`). You don't need to configure these yourself — just be aware that defaults may differ from the documented values.
+
+**Key settings that affect tool behavior:**
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `OASTOOLS_VALIDATE_STRICT` | `false` | When `true`, validate uses strict mode unless the call explicitly sets `strict: false` |
+| `OASTOOLS_VALIDATE_NO_WARNINGS` | `false` | When `true`, validate suppresses warnings unless the call explicitly sets `no_warnings: false` |
+| `OASTOOLS_WALK_LIMIT` | `100` | Default result limit for walk tools (override with `limit` per call) |
+| `OASTOOLS_WALK_DETAIL_LIMIT` | `25` | Default limit in detail mode |
+| `OASTOOLS_JOIN_PATH_STRATEGY` | *(none)* | Default path collision strategy for join |
+| `OASTOOLS_JOIN_SCHEMA_STRATEGY` | *(none)* | Default schema collision strategy for join |
+| `OASTOOLS_CACHE_ENABLED` | `true` | Disable spec caching entirely with `false` |
+| `OASTOOLS_CACHE_MAX_SIZE` | `10` | Maximum number of parsed specs held in the LRU cache |
+| `OASTOOLS_CACHE_FILE_TTL` | `15m` | How long file-based specs are cached |
+| `OASTOOLS_CACHE_URL_TTL` | `5m` | How long URL-fetched specs are cached |
+| `OASTOOLS_CACHE_CONTENT_TTL` | `15m` | How long inline content specs are cached |
+| `OASTOOLS_CACHE_SWEEP_INTERVAL` | `60s` | How often the background cache sweeper runs |
+
+Tool-level parameters (e.g., `strict`, `no_warnings`, `limit`) always override the env var defaults when explicitly provided.
+
 ## Best Practices
 
 1. **Prefer `file` over `content`** for specs already on disk. Avoids copying large documents into tool calls.

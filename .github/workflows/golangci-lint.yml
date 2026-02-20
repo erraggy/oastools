@@ -10,6 +10,9 @@ permissions:
   # Optional: allow read access to pull requests. Use with `only-new-issues` option.
   # pull-requests: read
 
+env:
+  GOEXPERIMENT: synctest  # Required for testing/synctest. Remove when Go 1.25+.
+
 jobs:
   golangci:
     name: lint

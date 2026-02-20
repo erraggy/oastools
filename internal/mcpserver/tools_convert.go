@@ -13,7 +13,7 @@ import (
 
 type convertInput struct {
 	Spec   specInput `json:"spec"               jsonschema:"The OAS document to convert"`
-	Target string    `json:"target"             jsonschema:"Target OAS version (2.0\\, 3.0\\, or 3.1)"`
+	Target string    `json:"target"             jsonschema:"Target OAS version (2.0\\, 3.0\\, 3.1\\, or 3.2)"`
 	Output string    `json:"output,omitempty"   jsonschema:"File path to write converted document. If omitted the document is returned inline."`
 }
 

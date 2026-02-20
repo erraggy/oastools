@@ -13,12 +13,35 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+const serverInstructions = `oastools MCP server — validates, fixes, converts, diffs, joins, walks, and generates OpenAPI specs.
+
+Configuration: All defaults are configurable via OASTOOLS_* environment variables set in your MCP client config. The Go MCP SDK does not support initializationOptions; use env vars instead.
+
+Key settings:
+- OASTOOLS_CACHE_FILE_TTL (default: 15m) — cache TTL for local file specs
+- OASTOOLS_CACHE_URL_TTL (default: 5m) — cache TTL for URL-fetched specs
+- OASTOOLS_CACHE_ENABLED (default: true) — disable spec caching entirely
+- OASTOOLS_WALK_LIMIT (default: 100) — default result limit for walk tools
+- OASTOOLS_WALK_DETAIL_LIMIT (default: 25) — default limit in detail mode
+- OASTOOLS_VALIDATE_STRICT (default: false) — enable strict validation by default
+- OASTOOLS_VALIDATE_NO_WARNINGS (default: false) — suppress warnings by default
+- OASTOOLS_JOIN_PATH_STRATEGY — default path collision strategy for join
+- OASTOOLS_JOIN_SCHEMA_STRATEGY — default schema collision strategy for join
+
+Caching: Parsed specs are cached per session. File entries use path+mtime as key (auto-invalidated on change). URL entries are cached with a shorter TTL. A background sweeper removes expired entries every 60s.`
+
 // Run starts the MCP server over stdio and blocks until the client disconnects
 // or the context is cancelled.
 func Run(ctx context.Context) error {
+	if cfg.CacheEnabled {
+		specCache.startSweeper(ctx, cfg.CacheSweepInterval)
+	}
+
 	server := mcp.NewServer(
 		&mcp.Implementation{Name: "oastools", Version: oastools.Version()},
-		nil,
+		&mcp.ServerOptions{
+			Instructions: serverInstructions,
+		},
 	)
 	registerAllTools(server)
 	return server.Run(ctx, &mcp.StdioTransport{})
@@ -27,7 +50,7 @@ func Run(ctx context.Context) error {
 func registerAllTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "validate",
-		Description: "Validate an OpenAPI Specification document against its version schema. Returns errors and warnings with JSON path locations. For large specs, use no_warnings to focus on errors first. Use offset/limit to paginate through results.",
+		Description: "Validate an OpenAPI Specification document against its version schema. Returns errors and warnings with JSON path locations. For large specs, use no_warnings to focus on errors first. Use offset/limit to paginate through results. Strict mode and warning suppression defaults are configurable via OASTOOLS_VALIDATE_STRICT and OASTOOLS_VALIDATE_NO_WARNINGS env vars.",
 	}, handleValidate)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -52,7 +75,7 @@ func registerAllTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "join",
-		Description: "Join multiple OpenAPI Specification documents into a single merged document. Requires at least 2 specs via the specs array. Collision strategies: accept-left, accept-right, fail (paths/schemas), rename (schemas only). Use semantic_dedup to merge equivalent schemas.",
+		Description: "Join multiple OpenAPI Specification documents into a single merged document. Requires at least 2 specs via the specs array. Collision strategies: accept-left, accept-right, fail (paths/schemas), rename (schemas only). Use semantic_dedup to merge equivalent schemas. Default collision strategies are configurable via OASTOOLS_JOIN_PATH_STRATEGY and OASTOOLS_JOIN_SCHEMA_STRATEGY env vars.",
 	}, handleJoin)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -72,7 +95,7 @@ func registerAllTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "walk_operations",
-		Description: "Walk and query operations in an OpenAPI Specification document. Filter by method, path, tag, operationId, deprecated status, or extension. Returns summaries (method, path, operationId, tags) by default or full operation objects with detail=true. For large APIs, filter by tag first (most selective), then narrow with path or method. Path patterns support * (one segment) and ** (zero or more segments). Use group_by (tag or method) to get distribution counts instead of individual items.",
+		Description: "Walk and query operations in an OpenAPI Specification document. Filter by method, path, tag, operationId, deprecated status, or extension. Returns summaries (method, path, operationId, tags) by default or full operation objects with detail=true. For large APIs, filter by tag first (most selective), then narrow with path or method. Path patterns support * (one segment) and ** (zero or more segments). Use group_by (tag or method) to get distribution counts instead of individual items. Default limit is configurable via OASTOOLS_WALK_LIMIT (default 100, 25 in detail mode).",
 	}, handleWalkOperations)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -112,10 +135,10 @@ func registerAllTools(server *mcp.Server) {
 }
 
 // paginate applies offset/limit pagination to a slice, returning the
-// requested page. A non-positive limit defaults to defaultWalkLimit.
+// requested page. A non-positive limit defaults to cfg.WalkLimit.
 func paginate[T any](items []T, offset, limit int) []T {
 	if limit <= 0 {
-		limit = defaultWalkLimit
+		limit = cfg.WalkLimit
 	}
 	if offset < 0 || offset >= len(items) {
 		return nil
@@ -129,10 +152,10 @@ func paginate[T any](items []T, offset, limit int) []T {
 
 // detailLimit returns a lower default limit for detail mode output.
 // When the user hasn't specified an explicit limit (limit <= 0),
-// detail mode defaults to 25 items instead of 100 to keep output manageable.
+// detail mode defaults to cfg.WalkDetailLimit to keep output manageable.
 func detailLimit(limit int) int {
 	if limit <= 0 {
-		return defaultDetailLimit
+		return cfg.WalkDetailLimit
 	}
 	return limit
 }
