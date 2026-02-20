@@ -137,22 +137,25 @@ After all agents complete:
 
 > ⚠️ **CRITICAL:** Use the prepare script. Do NOT run these commands manually.
 
-After all agent work is committed, from the repository root run:
+After all agent work is committed, from the repository root run the script **in background mode** (`run_in_background: true`):
 
 ```bash
 .claude/scripts/prepare-release.sh <version>
 ```
 
+> **Timing:** The script takes ~13-15 minutes total (CI benchmarks ~10.3 min + CI checks ~3 min + overhead). This exceeds the Bash tool's 10-minute max timeout, so it **must** run in background mode. Use `TaskOutput` with `block: true, timeout: 600000` to wait, and re-check if it times out — the script is idempotent and can be re-run safely.
+
 The script handles:
 
 - **Phase 4:** Push branch, trigger CI benchmarks, wait for completion, pull results
-- **Phase 5:** Create PR, wait for CI checks, merge with `--admin`, switch to main
+- **Phase 5:** Create PR, wait for CI checks (with retry for check registration delay), merge with `--squash --admin`, switch to main
 - **Phase 6:** Generate release notes, save to temp file, display for review
 
 If the script fails partway through, check the error message. You can re-run safely:
 
 - `--skip-benchmarks` flag if benchmarks already completed
 - The script auto-detects already-merged PRs and skips to checkout
+- CI check registration delay is handled with automatic retries (up to 75s)
 
 ### Phase 6.2: Enhance Release Notes
 
@@ -264,4 +267,6 @@ If user chooses "Yes", from the repository root run:
 - CI benchmarks run on the pre-release branch and are included in the PR
 - Document all new public API in CLAUDE.md
 - **ALWAYS use scripts** for phases 4-6 - never run release commands manually
+- **ALWAYS run scripts in background mode** - the prepare script takes ~13-15 min (exceeds Bash 10-min max timeout)
 - **ALWAYS enhance release notes** (Phase 6.2) - never skip to publishing with auto-generated notes only
+- **If the script fails at Phase 5.3** (CI checks), it's often a timing issue — re-run the script (it's idempotent) or manually run `gh pr checks <PR#> --watch` then merge
