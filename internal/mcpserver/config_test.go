@@ -17,6 +17,8 @@ func clearOASTOOLSEnv(t *testing.T) {
 		"OASTOOLS_WALK_LIMIT", "OASTOOLS_WALK_DETAIL_LIMIT",
 		"OASTOOLS_JOIN_PATH_STRATEGY", "OASTOOLS_JOIN_SCHEMA_STRATEGY",
 		"OASTOOLS_VALIDATE_STRICT", "OASTOOLS_VALIDATE_NO_WARNINGS",
+		"OASTOOLS_MAX_INLINE_SIZE", "OASTOOLS_MAX_LIMIT",
+		"OASTOOLS_MAX_JOIN_SPECS", "OASTOOLS_ALLOW_PRIVATE_IPS",
 	} {
 		t.Setenv(key, "")
 	}
@@ -39,6 +41,10 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	assert.Empty(t, c.JoinSchemaStrategy)
 	assert.False(t, c.ValidateStrict)
 	assert.False(t, c.ValidateNoWarnings)
+	assert.Equal(t, int64(10*1024*1024), c.MaxInlineSize)
+	assert.Equal(t, 1000, c.MaxLimit)
+	assert.Equal(t, 20, c.MaxJoinSpecs)
+	assert.False(t, c.AllowPrivateIPs)
 }
 
 func TestLoadConfig_EnvOverrides(t *testing.T) {
@@ -55,6 +61,10 @@ func TestLoadConfig_EnvOverrides(t *testing.T) {
 	t.Setenv("OASTOOLS_JOIN_SCHEMA_STRATEGY", "rename-right")
 	t.Setenv("OASTOOLS_VALIDATE_STRICT", "true")
 	t.Setenv("OASTOOLS_VALIDATE_NO_WARNINGS", "true")
+	t.Setenv("OASTOOLS_MAX_INLINE_SIZE", "5242880")
+	t.Setenv("OASTOOLS_MAX_LIMIT", "500")
+	t.Setenv("OASTOOLS_MAX_JOIN_SPECS", "50")
+	t.Setenv("OASTOOLS_ALLOW_PRIVATE_IPS", "true")
 
 	c := loadConfig()
 
@@ -70,6 +80,10 @@ func TestLoadConfig_EnvOverrides(t *testing.T) {
 	assert.Equal(t, "rename-right", c.JoinSchemaStrategy)
 	assert.True(t, c.ValidateStrict)
 	assert.True(t, c.ValidateNoWarnings)
+	assert.Equal(t, int64(5242880), c.MaxInlineSize)
+	assert.Equal(t, 500, c.MaxLimit)
+	assert.Equal(t, 50, c.MaxJoinSpecs)
+	assert.True(t, c.AllowPrivateIPs)
 }
 
 func TestLoadConfig_InvalidValues_UseDefaults(t *testing.T) {
@@ -79,6 +93,9 @@ func TestLoadConfig_InvalidValues_UseDefaults(t *testing.T) {
 	t.Setenv("OASTOOLS_CACHE_ENABLED", "maybe")
 	t.Setenv("OASTOOLS_WALK_LIMIT", "-5")
 	t.Setenv("OASTOOLS_JOIN_PATH_STRATEGY", "typo")
+	t.Setenv("OASTOOLS_MAX_INLINE_SIZE", "abc")
+	t.Setenv("OASTOOLS_MAX_LIMIT", "0")
+	t.Setenv("OASTOOLS_MAX_JOIN_SPECS", "-1")
 
 	c := loadConfig()
 
@@ -88,6 +105,9 @@ func TestLoadConfig_InvalidValues_UseDefaults(t *testing.T) {
 	assert.Equal(t, 15*time.Minute, c.CacheFileTTL)
 	assert.Equal(t, 100, c.WalkLimit)
 	assert.Empty(t, c.JoinPathStrategy, "invalid strategy should fall back to empty")
+	assert.Equal(t, int64(10*1024*1024), c.MaxInlineSize)
+	assert.Equal(t, 1000, c.MaxLimit)
+	assert.Equal(t, 20, c.MaxJoinSpecs)
 }
 
 func TestLoadConfig_PartialOverrides(t *testing.T) {

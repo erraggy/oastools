@@ -29,6 +29,12 @@ type serverConfig struct {
 	// Validate tool defaults.
 	ValidateStrict     bool
 	ValidateNoWarnings bool
+
+	// Security settings.
+	MaxInlineSize   int64 // max inline content size in bytes (default 10 MiB)
+	MaxLimit        int   // max pagination limit (default 1000)
+	MaxJoinSpecs    int   // max specs in join (default 20)
+	AllowPrivateIPs bool  // opt-out of SSRF protection
 }
 
 // cfg is the active server configuration, initialized at package load time.
@@ -50,6 +56,10 @@ func loadConfig() *serverConfig {
 		JoinSchemaStrategy: envStrategy("OASTOOLS_JOIN_SCHEMA_STRATEGY"),
 		ValidateStrict:     envBool("OASTOOLS_VALIDATE_STRICT", false),
 		ValidateNoWarnings: envBool("OASTOOLS_VALIDATE_NO_WARNINGS", false),
+		MaxInlineSize:      envInt64("OASTOOLS_MAX_INLINE_SIZE", 10*1024*1024),
+		MaxLimit:           envInt("OASTOOLS_MAX_LIMIT", 1000),
+		MaxJoinSpecs:       envInt("OASTOOLS_MAX_JOIN_SPECS", 20),
+		AllowPrivateIPs:    envBool("OASTOOLS_ALLOW_PRIVATE_IPS", false),
 	}
 }
 
@@ -74,6 +84,19 @@ func envInt(key string, fallback int) int {
 	n, err := strconv.Atoi(v)
 	if err != nil || n <= 0 {
 		slog.Warn("invalid int env var, using default", "key", key, "value", v, "default", fallback) //nolint:gosec // G706: values are structured log fields, not format strings
+		return fallback
+	}
+	return n
+}
+
+func envInt64(key string, fallback int64) int64 {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil || n <= 0 {
+		slog.Warn("invalid int64 env var, using default", "key", key, "value", v, "default", fallback) //nolint:gosec // G706: values are structured log fields, not format strings
 		return fallback
 	}
 	return n
