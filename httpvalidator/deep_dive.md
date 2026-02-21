@@ -993,56 +993,104 @@ func GetUserHandler(w http.ResponseWriter, r *http.Request) {
 
 ## Validation Result Structure
 
+Request and response validation return separate result types, each tailored to their context.
+
+### RequestValidationResult
+
 ```go
-// ValidationResult contains the outcome of request or response validation.
-type ValidationResult struct {
-    // Valid indicates whether the request/response is valid.
-    // For requests: true if all required parameters are present and valid.
-    // For responses: true if status code is documented and body matches schema.
+// RequestValidationResult contains the results of validating an HTTP request
+// against an OpenAPI specification.
+type RequestValidationResult struct {
+    // Valid is true if the request passes all validation checks.
     Valid bool
 
-    // Errors contains validation errors (severity: error).
+    // Errors contains all validation errors found.
     Errors []ValidationError
 
-    // Warnings contains best practice warnings (severity: warning).
+    // Warnings contains best-practice warnings (if IncludeWarnings is enabled).
     Warnings []ValidationError
 
-    // ErrorCount is the number of errors.
-    ErrorCount int
-
-    // WarningCount is the number of warnings.
-    WarningCount int
-
-    // PathParams contains deserialized path parameters (request only).
-    PathParams map[string]interface{}
-
-    // QueryParams contains deserialized query parameters (request only).
-    QueryParams map[string]interface{}
-
-    // HeaderParams contains deserialized header parameters.
-    HeaderParams map[string]interface{}
-
-    // CookieParams contains deserialized cookie parameters (request only).
-    CookieParams map[string]interface{}
-
-    // MatchedPath is the OpenAPI path template that matched (e.g., "/users/{id}").
+    // MatchedPath is the OpenAPI path template that matched the request
+    // (e.g., "/pets/{petId}"). Empty if no path matched.
     MatchedPath string
 
-    // MatchedOperation is the HTTP method for the matched operation.
-    MatchedOperation string
+    // MatchedMethod is the HTTP method of the request (e.g., "GET", "POST").
+    MatchedMethod string
+
+    // PathParams contains the extracted and validated path parameters.
+    // Keys are parameter names, values are the deserialized values.
+    PathParams map[string]any
+
+    // QueryParams contains the extracted and validated query parameters.
+    QueryParams map[string]any
+
+    // HeaderParams contains the extracted and validated header parameters.
+    HeaderParams map[string]any
+
+    // CookieParams contains the extracted and validated cookie parameters.
+    CookieParams map[string]any
 }
+```
 
-// ValidationError represents a single validation error or warning.
-type ValidationError struct {
-    // Path is the location of the error (e.g., "query.page", "body.name").
-    Path string
+### ResponseValidationResult
 
-    // Message describes the validation error.
-    Message string
+```go
+// ResponseValidationResult contains the results of validating an HTTP response
+// against an OpenAPI specification.
+type ResponseValidationResult struct {
+    // Valid is true if the response passes all validation checks.
+    Valid bool
 
-    // Severity indicates the error level (error, warning).
-    Severity string
+    // Errors contains all validation errors found.
+    Errors []ValidationError
+
+    // Warnings contains best-practice warnings (if IncludeWarnings is enabled).
+    Warnings []ValidationError
+
+    // StatusCode is the HTTP status code of the response.
+    StatusCode int
+
+    // ContentType is the Content-Type of the response.
+    ContentType string
+
+    // MatchedPath is the OpenAPI path template that matched the original request.
+    MatchedPath string
+
+    // MatchedMethod is the HTTP method of the original request.
+    MatchedMethod string
 }
+```
+
+### ValidationError
+
+`ValidationError` is a type alias for `issues.Issue`, providing a unified issue type across oastools packages:
+
+```go
+// ValidationError is an alias to issues.Issue.
+type ValidationError = issues.Issue
+
+// The underlying issues.Issue struct has the following fields:
+//   Path     string             // JSON path to the problematic field
+//   Message  string             // Human-readable description
+//   Severity severity.Severity  // Severity level (not a string)
+//   Field    string             // Specific field name
+//   Value    any                // Problematic value (optional)
+//   SpecRef  string             // URL to OAS specification section (optional)
+//   Context  string             // Additional context (optional)
+//   Line     int                // 1-based line number (0 if unknown)
+//   Column   int                // 1-based column number (0 if unknown)
+//   File     string             // Source file path (empty for main document)
+```
+
+Note that `Severity` is of type `severity.Severity`, not `string`. The httpvalidator package re-exports severity constants for convenience:
+
+```go
+const (
+    SeverityError    = severity.SeverityError
+    SeverityWarning  = severity.SeverityWarning
+    SeverityInfo     = severity.SeverityInfo
+    SeverityCritical = severity.SeverityCritical
+)
 ```
 
 [↑ Back to top](#top)
@@ -1074,6 +1122,11 @@ type Validator struct {
 | `WithParsed(*ParseResult)` | Use pre-parsed specification |
 | `WithStrictMode(bool)` | Enable/disable strict validation |
 | `WithIncludeWarnings(bool)` | Include/exclude best practice warnings |
+| `WithSkipBodyValidation(bool)` | Skip request/response body validation |
+| `WithSkipQueryValidation(bool)` | Skip query parameter validation |
+| `WithSkipHeaderValidation(bool)` | Skip header parameter validation |
+| `WithSkipCookieValidation(bool)` | Skip cookie parameter validation |
+| `WithMaxBodySize(int64)` | Maximum body size to validate (in bytes) |
 
 ### Usage Examples
 
