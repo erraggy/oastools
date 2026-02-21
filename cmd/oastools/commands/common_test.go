@@ -2,6 +2,9 @@ package commands
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -169,4 +172,50 @@ func TestWritef_WriteError(t *testing.T) {
 	var ew errorWriter
 	// Should not panic
 	Writef(ew, "This will fail")
+}
+
+func TestRejectSymlinkOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks require elevated privileges on Windows")
+	}
+
+	t.Run("non-existent path is allowed", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		nonExistent := filepath.Join(tmpDir, "does-not-exist.yaml")
+		err := RejectSymlinkOutput(nonExistent)
+		assert.NoError(t, err)
+	})
+
+	t.Run("regular file is allowed", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		regularFile := filepath.Join(tmpDir, "regular.yaml")
+		require.NoError(t, os.WriteFile(regularFile, []byte("test"), 0600))
+
+		err := RejectSymlinkOutput(regularFile)
+		assert.NoError(t, err)
+	})
+
+	t.Run("symlink is rejected", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		target := filepath.Join(tmpDir, "target.yaml")
+		require.NoError(t, os.WriteFile(target, []byte("test"), 0600))
+
+		symlinkPath := filepath.Join(tmpDir, "symlink.yaml")
+		require.NoError(t, os.Symlink(target, symlinkPath))
+
+		err := RejectSymlinkOutput(symlinkPath)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "refusing to write to symlink")
+		assert.Contains(t, err.Error(), symlinkPath)
+	})
+
+	t.Run("symlink to non-existent target is rejected", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		symlinkPath := filepath.Join(tmpDir, "dangling-symlink.yaml")
+		require.NoError(t, os.Symlink("/nonexistent/target", symlinkPath))
+
+		err := RejectSymlinkOutput(symlinkPath)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "refusing to write to symlink")
+	})
 }

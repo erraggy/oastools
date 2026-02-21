@@ -3,6 +3,7 @@ package commands
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -164,6 +165,35 @@ paths: {}
 		err := HandleJoin([]string{validFile, "/nonexistent/path.yaml"})
 		assert.Error(t, err)
 	})
+}
+
+// TestHandleFix_SymlinkOutputRejected tests that fix refuses to write to a symlink.
+func TestHandleFix_SymlinkOutputRejected(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks require elevated privileges on Windows")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create a valid OAS file that fix can process
+	inputFile := filepath.Join(tmpDir, "input.yaml")
+	content := `openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths: {}
+`
+	require.NoError(t, os.WriteFile(inputFile, []byte(content), 0644))
+
+	// Create a symlink as the output target
+	target := filepath.Join(tmpDir, "real-output.yaml")
+	require.NoError(t, os.WriteFile(target, []byte(""), 0600))
+	symlinkOutput := filepath.Join(tmpDir, "symlink-output.yaml")
+	require.NoError(t, os.Symlink(target, symlinkOutput))
+
+	err := HandleFix([]string{"-o", symlinkOutput, "-q", inputFile})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "refusing to write to symlink")
 }
 
 // TestHandleDiff_ErrorPaths tests error handling for the diff command.

@@ -11,6 +11,6 @@ func BenchmarkMatchPattern(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		pattern := patterns[i%len(patterns)]
-		sv.matchPattern(pattern, "test-value-123")
+		_, _ = sv.matchPattern(pattern, "test-value-123")
 	}
 }
