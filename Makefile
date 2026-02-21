@@ -5,8 +5,12 @@ MAIN_PATH=./cmd/oastools
 BENCH_DIR=benchmarks
 BENCH_TIME=5s
 
-# Required for testing/synctest (deterministic time in tests). Remove when Go 1.25+.
-# Scoped to targets that compile test code (which imports testing/synctest).
+# Pin to Go 1.24 toolchain even when a newer Go is installed system-wide.
+# GOROOT points tools (including golangci-lint) to the correct SDK.
+# GOEXPERIMENT=synctest required for testing/synctest (experimental in 1.24, GA in 1.25+).
+# Remove all three lines when min Go >= 1.25.
+test test-quick test-race test-full test-coverage test-corpus test-corpus-short integration-test integration-test-debug count-tests count-benchmarks lint vet: export GOROOT = $(HOME)/sdk/go1.24.13
+test test-quick test-race test-full test-coverage test-corpus test-corpus-short integration-test integration-test-debug count-tests count-benchmarks lint vet: export PATH := $(HOME)/sdk/go1.24.13/bin:$(PATH)
 test test-quick test-race test-full test-coverage test-corpus test-corpus-short integration-test integration-test-debug count-tests count-benchmarks lint vet: export GOEXPERIMENT = synctest
 
 # Default target
