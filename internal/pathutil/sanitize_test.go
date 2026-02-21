@@ -90,4 +90,19 @@ func TestSanitizeOutputPath(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "symlink")
 	})
+
+	t.Run("lstat permission error fails closed", func(t *testing.T) {
+		if os.Getuid() == 0 {
+			t.Skip("test requires non-root user")
+		}
+		tmpDir := t.TempDir()
+		noAccessDir := filepath.Join(tmpDir, "noaccess")
+		require.NoError(t, os.Mkdir(noAccessDir, 0o000))
+		t.Cleanup(func() { _ = os.Chmod(noAccessDir, 0o755) })
+
+		target := filepath.Join(noAccessDir, "file.yaml")
+		_, err := SanitizeOutputPath(target)
+		require.Error(t, err, "should fail closed when Lstat returns a permission error")
+		assert.Contains(t, err.Error(), "cannot stat path")
+	})
 }

@@ -19,10 +19,15 @@ func SanitizeOutputPath(path string) (string, error) {
 	}
 
 	info, err := os.Lstat(abs)
-	if err == nil {
+	switch {
+	case err == nil:
 		if info.Mode()&os.ModeSymlink != 0 {
 			return "", fmt.Errorf("pathutil: refusing to write to symlink: %s", abs)
 		}
+	case os.IsNotExist(err):
+		// New file — safe to proceed.
+	default:
+		return "", fmt.Errorf("pathutil: cannot stat path: %w", err)
 	}
 
 	return abs, nil

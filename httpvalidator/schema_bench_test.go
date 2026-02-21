@@ -8,10 +8,28 @@ func BenchmarkMatchPattern(b *testing.B) {
 		`^[a-zA-Z]+$`, `^\d{3}-\d{2}-\d{4}$`, `^[a-f0-9]+$`,
 		`^\w+@\w+\.\w+$`, `^https?://`, `^\d+\.\d+\.\d+$`,
 	}
+	b.ReportAllocs()
 	i := 0
 	for b.Loop() {
 		pattern := patterns[i%len(patterns)]
 		_, _ = sv.matchPattern(pattern, "test-value-123")
 		i++
 	}
+}
+
+func BenchmarkMatchPatternParallel(b *testing.B) {
+	sv := NewSchemaValidator()
+	patterns := []string{
+		`^[a-zA-Z]+$`, `^\d{3}-\d{2}-\d{4}$`, `^[a-f0-9]+$`,
+		`^\w+@\w+\.\w+$`, `^https?://`, `^\d+\.\d+\.\d+$`,
+	}
+	b.ReportAllocs()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			pattern := patterns[i%len(patterns)]
+			_, _ = sv.matchPattern(pattern, "test-value-123")
+			i++
+		}
+	})
 }
