@@ -41,6 +41,7 @@ oastools validate --strict=false  # explicitly disable
 | `generate` | Generate Go code from an OpenAPI specification |
 | `overlay` | Apply OpenAPI Overlay transformations |
 | `walk` | Query and inspect spec elements (operations, schemas, parameters, responses, security, paths) |
+| `mcp` | Start an MCP server over stdio for AI-assisted development |
 | `version` | Show version information |
 | `help` | Show help information |
 
@@ -1497,6 +1498,62 @@ The `--extension` flag supports a mini DSL for filtering by vendor extensions:
 | `x-foo!=val` | Extension not equal to value | `--extension 'x-status!=draft'` |
 | `a,b` | OR (either matches) | `--extension 'x-public,x-external'` |
 | `a+b` | AND (both match) | `--extension 'x-audited+x-public'` |
+
+---
+
+## mcp
+
+Start a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server over stdio, exposing all oastools capabilities as tools for AI-assisted development environments.
+
+### Synopsis
+
+```bash
+oastools mcp
+```
+
+### Description
+
+The MCP command launches a server that communicates over stdio using the Model Context Protocol. It exposes 17 tools (9 core tools + 8 walk tools) that AI agents can invoke to parse, validate, fix, convert, join, diff, overlay, generate, and query OpenAPI specifications.
+
+The server is designed for use with MCP-compatible clients such as Claude Code, Cursor, VS Code, and other AI development environments.
+
+### Configuration
+
+The MCP server is configured via environment variables. MCP clients typically set these via their `env` field in server configuration.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OASTOOLS_CACHE_ENABLED` | `true` | Enable/disable spec caching |
+| `OASTOOLS_CACHE_MAX_SIZE` | `10` | Maximum cached specifications |
+| `OASTOOLS_CACHE_FILE_TTL` | `15m` | File spec TTL |
+| `OASTOOLS_CACHE_URL_TTL` | `5m` | URL-fetched spec TTL |
+| `OASTOOLS_WALK_LIMIT` | `100` | Default walk result limit |
+| `OASTOOLS_WALK_DETAIL_LIMIT` | `25` | Detail mode result limit |
+| `OASTOOLS_VALIDATE_STRICT` | `false` | Enable strict validation by default |
+| `OASTOOLS_ALLOW_PRIVATE_IPS` | `false` | Allow resolution of private/loopback IPs |
+
+### Example
+
+Claude Code `mcp_servers` configuration in `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "oastools": {
+      "command": "oastools",
+      "args": ["mcp"],
+      "env": {
+        "OASTOOLS_CACHE_FILE_TTL": "30m"
+      }
+    }
+  }
+}
+```
+
+For complete tool reference and setup guides, see:
+
+- [MCP Server Guide](mcp-server.md) — Full tool reference and configuration
+- [Claude Code Plugin](claude-code-plugin.md) — One-command setup for Claude Code
 
 ---
 

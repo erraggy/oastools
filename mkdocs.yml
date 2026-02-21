@@ -1,5 +1,5 @@
 site_name: oastools
-site_description: High-performance Go library and CLI for working with OpenAPI Specifications (OAS 2.0, 3.0, 3.1).
+site_description: High-performance Go library, CLI, and MCP server for working with OpenAPI Specifications (OAS 2.0, 3.0, 3.1, 3.2).
 site_url: https://erraggy.github.io/oastools/
 repo_url: https://github.com/erraggy/oastools
 repo_name: erraggy/oastools
@@ -67,6 +67,8 @@ nav:
     - Why oastools?: why-oastools.md
     - Detecting API Breaking Changes: breaking-changes.md
     - Generator Features: generator_beyond_boilerplate.md
+    - Corpus Analysis: corpus-analysis.md
+    - MCP UX Findings: mcp-ux-findings.md
     - Benchmarks: benchmarks.md
   - Examples:
     - Overview: examples/index.md

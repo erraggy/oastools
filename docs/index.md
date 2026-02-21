@@ -4,7 +4,7 @@
 
 # oastools
 
-A complete, self-contained OpenAPI toolkit for Go — parse, validate, fix, convert, diff, join, generate, and build OpenAPI specs (2.0–3.2) with minimal dependencies.
+A complete, self-contained OpenAPI toolkit for Go — parse, validate, fix, convert, diff, join, walk, generate, and build OpenAPI specs (2.0–3.2) with an MCP server for AI-assisted development.
 
 [![CI: Go](https://github.com/erraggy/oastools/actions/workflows/go.yml/badge.svg)](https://github.com/erraggy/oastools/actions/workflows/go.yml)
 [![codecov](https://codecov.io/gh/erraggy/oastools/graph/badge.svg?token=T8768QXQAX)](https://codecov.io/gh/erraggy/oastools)
