@@ -129,7 +129,12 @@ func (p *Parser) fetchURL(urlStr string) ([]byte, string, error) {
 
 	// Read response body with size limit
 	maxSize := p.maxInputSizeOrDefault()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxSize+1))
+	// Use maxSize+1 to detect oversized input, but cap to avoid int64 overflow.
+	readLimit := maxSize + 1
+	if readLimit <= 0 { // overflow: maxSize == math.MaxInt64
+		readLimit = maxSize
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, readLimit))
 	if err != nil {
 		return nil, "", fmt.Errorf("parser: failed to read response body: %w", err)
 	}

@@ -19,6 +19,10 @@ func TestIsBlockedIP(t *testing.T) {
 		{"192.168.1.1", true},    // private (Class C)
 		{"169.254.1.1", true},    // link-local
 		{"::1", true},            // IPv6 loopback
+		{"0.0.0.0", true},        // unspecified IPv4
+		{"::", true},             // unspecified IPv6
+		{"fe80::1", true},        // IPv6 link-local
+		{"fd00::1", true},        // IPv6 ULA (private)
 		{"8.8.8.8", false},       // public (Google DNS)
 		{"1.1.1.1", false},       // public (Cloudflare DNS)
 		{"93.184.216.34", false}, // public (example.com)

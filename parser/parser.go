@@ -360,7 +360,12 @@ func (p *Parser) maxInputSizeOrDefault() int64 {
 func (p *Parser) ParseReader(r io.Reader) (*ParseResult, error) {
 	maxSize := p.maxInputSizeOrDefault()
 	loadStart := time.Now()
-	data, err := io.ReadAll(io.LimitReader(r, maxSize+1))
+	// Use maxSize+1 to detect oversized input, but cap to avoid int64 overflow.
+	readLimit := maxSize + 1
+	if readLimit <= 0 { // overflow: maxSize == math.MaxInt64
+		readLimit = maxSize
+	}
+	data, err := io.ReadAll(io.LimitReader(r, readLimit))
 	loadTime := time.Since(loadStart)
 	if err != nil {
 		return nil, fmt.Errorf("parser: failed to read data: %w", err)

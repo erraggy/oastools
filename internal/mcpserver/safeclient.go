@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-// isBlockedIP returns true if the IP is private, loopback, or link-local.
+// isBlockedIP returns true if the IP is private, loopback, link-local, or unspecified.
 func isBlockedIP(ip net.IP) bool {
-	return ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast()
+	return ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()
 }
 
 // newSafeHTTPClient creates an HTTP client that blocks requests to
@@ -35,6 +35,9 @@ func newSafeHTTPClient() *http.Client {
 					if isBlockedIP(ipAddr.IP) {
 						return nil, fmt.Errorf("blocked request to private/loopback IP: %s (%s)", host, ipAddr.IP)
 					}
+				}
+				if len(ips) == 0 {
+					return nil, fmt.Errorf("no IP addresses found for host: %s", host)
 				}
 				// Dial the first resolved address.
 				return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))

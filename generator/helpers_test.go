@@ -43,6 +43,9 @@ func TestToFileName(t *testing.T) {
 		{"scheme/with/slashes", "schemewithslashes"},
 		{"scheme.with.dots", "schemewithdots"},
 		{"normal_name", "normal_name"},
+		{"", "unnamed"},
+		{"!!!", "unnamed"},
+		{"日本語", "unnamed"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {

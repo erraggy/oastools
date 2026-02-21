@@ -29,19 +29,13 @@ func TestSanitizeOutputPath(t *testing.T) {
 		assert.True(t, filepath.IsAbs(got), "expected absolute path, got %s", got)
 	})
 
-	t.Run("dot-dot path rejected", func(t *testing.T) {
-		// filepath.Clean resolves most ".." but on some systems /tmp/../etc/passwd
-		// still has ".." in the absolute path after Clean if the path doesn't exist.
-		// Use a crafted path that retains ".." after Abs.
-		_, err := SanitizeOutputPath("/tmp/../etc/passwd")
-		// On most systems, filepath.Abs resolves this to /etc/passwd (no "..").
-		// The test verifies the function doesn't error for paths that Clean resolves,
-		// but to test the ".." check, we need a path where Abs doesn't fully resolve.
-		// Since most OSes resolve "..", let's just check the function works correctly:
-		// either it accepts (because Abs resolved the "..") or rejects (because ".." remains).
-		if err != nil {
-			assert.Contains(t, err.Error(), "..")
-		}
+	t.Run("dot-dot path resolved by filepath.Abs", func(t *testing.T) {
+		// filepath.Clean + filepath.Abs resolves ".." traversal on all platforms.
+		// The function relies on this rather than string matching (which would
+		// false-positive on legitimate paths like /data/my..config/).
+		got, err := SanitizeOutputPath("/tmp/../etc/passwd")
+		require.NoError(t, err)
+		assert.NotContains(t, got, "..", "filepath.Abs should resolve all '..' components")
 	})
 
 	t.Run("symlink target rejected", func(t *testing.T) {

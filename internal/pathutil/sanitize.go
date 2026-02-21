@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // SanitizeOutputPath validates and cleans an output file path.
@@ -17,10 +16,6 @@ func SanitizeOutputPath(path string) (string, error) {
 	abs, err := filepath.Abs(cleaned)
 	if err != nil {
 		return "", fmt.Errorf("pathutil: cannot resolve absolute path: %w", err)
-	}
-
-	if strings.Contains(abs, "..") {
-		return "", fmt.Errorf("pathutil: path must not contain '..': %s", abs)
 	}
 
 	info, err := os.Lstat(abs)

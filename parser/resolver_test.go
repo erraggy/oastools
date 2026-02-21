@@ -942,6 +942,24 @@ func TestResolveRelativeURLSameOrigin(t *testing.T) {
 			wantErr: false,
 			wantURL: "https://example.com/api/schemas.yaml#/components/schemas/Pet",
 		},
+		{
+			name:    "cross-origin absolute URL rejected",
+			baseURL: "https://example.com/api/spec.yaml",
+			ref:     "https://evil.com/malicious.yaml",
+			wantErr: true,
+		},
+		{
+			name:    "cross-origin different subdomain rejected",
+			baseURL: "https://api.example.com/spec.yaml",
+			ref:     "https://evil.example.com/schemas.yaml",
+			wantErr: true,
+		},
+		{
+			name:    "cross-origin different port rejected",
+			baseURL: "https://example.com/spec.yaml",
+			ref:     "https://example.com:9999/schemas.yaml",
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

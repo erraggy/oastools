@@ -107,7 +107,7 @@ func isSecureURL(urlStr string) bool {
 	if u.Scheme == "https" {
 		return true
 	}
-	if u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1") {
+	if u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1") {
 		return true
 	}
 	return false

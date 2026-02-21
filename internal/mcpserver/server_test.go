@@ -148,6 +148,11 @@ func TestSanitizeError(t *testing.T) {
 		want string
 	}{
 		{
+			name: "nil error returns empty string",
+			err:  nil,
+			want: "",
+		},
+		{
 			name: "strips absolute path",
 			err:  fmt.Errorf("failed to open /home/user/secret/api.yaml: no such file"),
 			want: "failed to open <path>: no such file",

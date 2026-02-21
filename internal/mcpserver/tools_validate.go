@@ -49,6 +49,7 @@ func handleValidate(_ context.Context, _ *mcp.CallToolRequest, input validateInp
 
 	opts := []validator.Option{
 		validator.WithParsed(*parseResult),
+		validator.WithIncludeWarnings(!noWarnings),
 	}
 	if strict {
 		opts = append(opts, validator.WithStrictMode(true))

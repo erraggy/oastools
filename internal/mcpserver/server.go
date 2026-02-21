@@ -178,6 +178,9 @@ func makeSlice[T any](n int) []T {
 var pathPattern = regexp.MustCompile(`(?:/[a-zA-Z0-9._-]+){2,}`)
 
 func sanitizeError(err error) string {
+	if err == nil {
+		return ""
+	}
 	return pathPattern.ReplaceAllString(err.Error(), "<path>")
 }
 
