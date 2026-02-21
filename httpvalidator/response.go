@@ -26,6 +26,13 @@ import (
 //
 //	result, err := v.ValidateResponseData(req, rec.Code, rec.Header(), rec.Body.Bytes())
 func (v *Validator) ValidateResponseData(req *http.Request, statusCode int, headers http.Header, body []byte) (*ResponseValidationResult, error) {
+	// Snapshot mutable fields so concurrent mutations cannot cause
+	// inconsistent behavior within a single validation call.
+	flags := validationFlags{
+		strictMode:      v.StrictMode,
+		includeWarnings: v.IncludeWarnings,
+	}
+
 	result := newResponseResult()
 	result.StatusCode = statusCode
 	result.ContentType = headers.Get("Content-Type")
@@ -37,13 +44,13 @@ func (v *Validator) ValidateResponseData(req *http.Request, statusCode int, head
 	}
 
 	// Validate response
-	v.validateResponseParts(statusCode, headers, body, result.MatchedPath, operation, result)
+	v.validateResponseParts(statusCode, headers, body, result.MatchedPath, operation, result, flags)
 
 	return result, nil
 }
 
 // validateResponse validates an HTTP response against the operation spec.
-func (v *Validator) validateResponse(resp *http.Response, matchedPath string, operation *parser.Operation, result *ResponseValidationResult) {
+func (v *Validator) validateResponse(resp *http.Response, matchedPath string, operation *parser.Operation, result *ResponseValidationResult, flags validationFlags) {
 	// Read response body if present
 	var body []byte
 	if resp.Body != nil {
@@ -53,7 +60,7 @@ func (v *Validator) validateResponse(resp *http.Response, matchedPath string, op
 		if err != nil {
 			result.addError(
 				"response",
-				fmt.Sprintf("failed to read response body: %v", err),
+				fmt.Sprintf("failed to read response body: %s", truncateForError(err.Error(), maxErrorValueLen)),
 				SeverityError,
 			)
 			return
@@ -67,21 +74,21 @@ func (v *Validator) validateResponse(resp *http.Response, matchedPath string, op
 		}
 	}
 
-	v.validateResponseParts(resp.StatusCode, resp.Header, body, matchedPath, operation, result)
+	v.validateResponseParts(resp.StatusCode, resp.Header, body, matchedPath, operation, result, flags)
 }
 
 // validateResponseParts is the shared implementation for response validation.
-func (v *Validator) validateResponseParts(statusCode int, headers http.Header, body []byte, _ string, operation *parser.Operation, result *ResponseValidationResult) {
+func (v *Validator) validateResponseParts(statusCode int, headers http.Header, body []byte, _ string, operation *parser.Operation, result *ResponseValidationResult, flags validationFlags) {
 	// Find response definition for this status code
 	responseDef := v.getResponseDefinition(operation, statusCode)
 	if responseDef == nil {
-		if v.StrictMode {
+		if flags.strictMode {
 			result.addError(
 				fmt.Sprintf("response.%d", statusCode),
 				fmt.Sprintf("undocumented response status code: %d", statusCode),
 				SeverityError,
 			)
-		} else if v.IncludeWarnings {
+		} else if flags.includeWarnings {
 			result.addWarning(
 				fmt.Sprintf("response.%d", statusCode),
 				fmt.Sprintf("response status code %d not documented", statusCode),
@@ -95,7 +102,7 @@ func (v *Validator) validateResponseParts(statusCode int, headers http.Header, b
 
 	// Validate response body
 	contentType := headers.Get("Content-Type")
-	v.validateResponseBody(body, contentType, responseDef, result)
+	v.validateResponseBody(body, contentType, responseDef, result, flags)
 }
 
 // getResponseDefinition finds the response definition for a status code.
@@ -180,7 +187,7 @@ func (v *Validator) validateResponseHeaders(headers http.Header, responseDef *pa
 }
 
 // validateResponseBody validates the response body against the spec.
-func (v *Validator) validateResponseBody(body []byte, contentType string, responseDef *parser.Response, result *ResponseValidationResult) {
+func (v *Validator) validateResponseBody(body []byte, contentType string, responseDef *parser.Response, result *ResponseValidationResult, flags validationFlags) {
 	// Get schema for this response
 	var schema *parser.Schema
 
@@ -204,7 +211,7 @@ func (v *Validator) validateResponseBody(body []byte, contentType string, respon
 	if len(body) == 0 {
 		// Some schemas allow empty (e.g., nullable: true, or no required fields)
 		// For now, just warn
-		if v.IncludeWarnings {
+		if flags.includeWarnings {
 			result.addWarning("response.body", "response body is empty but schema is defined")
 		}
 		return
@@ -234,8 +241,8 @@ func (v *Validator) validateResponseBody(body []byte, contentType string, respon
 		}
 
 	default:
-		if v.IncludeWarnings {
-			result.addWarning("response.body", fmt.Sprintf("cannot validate content type: %s", mediaType))
+		if flags.includeWarnings {
+			result.addWarning("response.body", fmt.Sprintf("cannot validate content type: %q", truncateForError(mediaType, maxErrorValueLen)))
 		}
 	}
 }
@@ -267,7 +274,7 @@ func (v *Validator) validateJSONResponseBody(body []byte, schema *parser.Schema,
 	if err := json.Unmarshal(body, &data); err != nil {
 		result.addError(
 			"response.body",
-			fmt.Sprintf("invalid JSON in response: %v", err),
+			fmt.Sprintf("invalid JSON in response: %s", truncateForError(err.Error(), maxErrorValueLen)),
 			SeverityError,
 		)
 		return

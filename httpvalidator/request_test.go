@@ -236,6 +236,21 @@ paths:
 
 		assert.True(t, result.Valid)
 	})
+
+	t.Run("decodes URL-encoded form values", func(t *testing.T) {
+		result := newRequestResult()
+		schema := &parser.Schema{
+			Type: "object",
+			Properties: map[string]*parser.Schema{
+				"key name":  {Type: "string"},
+				"other key": {Type: "string"},
+			},
+		}
+		// key%20name=value%3D123&other%20key=hello%26world
+		v.validateFormBody([]byte("key%20name=value%3D123&other%20key=hello%26world"), schema, "/test", nil, result)
+
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
+	})
 }
 
 // =============================================================================
@@ -327,6 +342,16 @@ paths:
 		v.validateFormDataParams([]byte("username"), "/upload", op, result)
 		// username is present but with empty value
 		assert.True(t, result.Valid)
+	})
+
+	t.Run("direct validateFormDataParams decodes URL-encoded values", func(t *testing.T) {
+		result := newRequestResult()
+		op := v.getOperation("/upload", "POST")
+		require.NotNil(t, op)
+
+		// username=john%20doe&email=john%40example.com
+		v.validateFormDataParams([]byte("username=john%20doe&email=john%40example.com"), "/upload", op, result)
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
 	})
 }
 
@@ -786,8 +811,19 @@ paths:
 
 		result, err := v.ValidateRequest(req)
 		require.NoError(t, err)
-		// Body is required but empty - this returns an error
-		assert.False(t, result.Valid)
+		// An empty body with a Content-Type header is present-but-empty.
+		// For text/plain, the validator issues a warning (not error).
+		// The body nil check no longer uses ContentLength==0 because
+		// that caused false negatives for chunked transfers (ContentLength=-1).
+		assert.True(t, result.Valid, "expected valid result with warning only, errors: %v", result.Errors)
+		hasEmptyWarning := false
+		for _, w := range result.Warnings {
+			if containsSubstring(w.Message, "empty") {
+				hasEmptyWarning = true
+				break
+			}
+		}
+		assert.True(t, hasEmptyWarning, "expected empty body warning, warnings: %v", result.Warnings)
 	})
 
 	t.Run("unsupported content type in strict mode", func(t *testing.T) {

@@ -346,6 +346,19 @@ func (v *SchemaValidator) validateObject(obj map[string]any, schema *parser.Sche
 		}
 	}
 
+	// additionalProperties enforcement
+	if allowed, ok := schema.AdditionalProperties.(bool); ok && !allowed {
+		for name := range obj {
+			if _, defined := schema.Properties[name]; !defined {
+				errors = append(errors, ValidationError{
+					Path:     path + "." + name,
+					Message:  fmt.Sprintf("additional property %q is not allowed", name),
+					Severity: SeverityError,
+				})
+			}
+		}
+	}
+
 	return errors
 }
 

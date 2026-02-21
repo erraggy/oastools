@@ -334,7 +334,7 @@ paths: {}
 
 		result := newResponseResult()
 		responseDef := &parser.Response{Content: nil}
-		v.validateResponseBody([]byte(`{"any": "data"}`), "application/json", responseDef, result)
+		v.validateResponseBody([]byte(`{"any": "data"}`), "application/json", responseDef, result, validationFlags{includeWarnings: v.IncludeWarnings, strictMode: v.StrictMode})
 
 		assert.True(t, result.Valid)
 	})
@@ -356,7 +356,7 @@ paths: {}
 				"application/json": {Schema: &parser.Schema{Type: "object"}},
 			},
 		}
-		v.validateResponseBody(nil, "application/json", responseDef, result)
+		v.validateResponseBody(nil, "application/json", responseDef, result, validationFlags{includeWarnings: v.IncludeWarnings, strictMode: v.StrictMode})
 
 		assert.True(t, result.Valid) // Empty body is a warning, not error
 		hasEmptyWarning := false
@@ -391,7 +391,7 @@ paths: {}
 				}},
 			},
 		}
-		v.validateResponseBody([]byte(`{"id": 123}`), "application/json", responseDef, result)
+		v.validateResponseBody([]byte(`{"id": 123}`), "application/json", responseDef, result, validationFlags{includeWarnings: v.IncludeWarnings, strictMode: v.StrictMode})
 
 		assert.True(t, result.Valid)
 	})
@@ -412,7 +412,7 @@ paths: {}
 				"application/vnd.api+json": {Schema: &parser.Schema{Type: "object"}},
 			},
 		}
-		v.validateResponseBody([]byte(`{"data": "test"}`), "application/vnd.api+json", responseDef, result)
+		v.validateResponseBody([]byte(`{"data": "test"}`), "application/vnd.api+json", responseDef, result, validationFlags{includeWarnings: v.IncludeWarnings, strictMode: v.StrictMode})
 
 		assert.True(t, result.Valid)
 	})
@@ -436,7 +436,7 @@ paths: {}
 				}},
 			},
 		}
-		v.validateResponseBody([]byte("hello world"), "text/plain", responseDef, result)
+		v.validateResponseBody([]byte("hello world"), "text/plain", responseDef, result, validationFlags{includeWarnings: v.IncludeWarnings, strictMode: v.StrictMode})
 
 		assert.True(t, result.Valid)
 	})
@@ -458,7 +458,7 @@ paths: {}
 				"application/octet-stream": {Schema: &parser.Schema{Type: "string", Format: "binary"}},
 			},
 		}
-		v.validateResponseBody([]byte{0x01, 0x02, 0x03}, "application/octet-stream", responseDef, result)
+		v.validateResponseBody([]byte{0x01, 0x02, 0x03}, "application/octet-stream", responseDef, result, validationFlags{includeWarnings: v.IncludeWarnings, strictMode: v.StrictMode})
 
 		hasWarning := false
 		for _, w := range result.Warnings {
@@ -494,7 +494,7 @@ paths:
 
 		result := newResponseResult()
 		op := v.getOperation("/test", "GET")
-		v.validateResponseParts(500, http.Header{}, nil, "/test", op, result)
+		v.validateResponseParts(500, http.Header{}, nil, "/test", op, result, validationFlags{strictMode: v.StrictMode, includeWarnings: v.IncludeWarnings})
 
 		assert.False(t, result.Valid)
 		hasUndocumentedError := false
@@ -526,7 +526,7 @@ paths:
 
 		result := newResponseResult()
 		op := v.getOperation("/test", "GET")
-		v.validateResponseParts(500, http.Header{}, nil, "/test", op, result)
+		v.validateResponseParts(500, http.Header{}, nil, "/test", op, result, validationFlags{strictMode: v.StrictMode, includeWarnings: v.IncludeWarnings})
 
 		assert.True(t, result.Valid) // Warning doesn't mark as invalid
 		hasWarning := false
@@ -661,7 +661,7 @@ paths:
 			Body:       newReadCloser(`{"id": 123}`),
 		}
 		op := v.getOperation("/test", "GET")
-		v.validateResponse(resp, "/test", op, result)
+		v.validateResponse(resp, "/test", op, result, validationFlags{strictMode: v.StrictMode, includeWarnings: v.IncludeWarnings})
 
 		assert.True(t, result.Valid, "errors: %v", result.Errors)
 	})
@@ -674,7 +674,7 @@ paths:
 			Body:       nil,
 		}
 		op := v.getOperation("/test", "GET")
-		v.validateResponse(resp, "/test", op, result)
+		v.validateResponse(resp, "/test", op, result, validationFlags{strictMode: v.StrictMode, includeWarnings: v.IncludeWarnings})
 
 		// Should not panic, just skip body validation
 		assert.True(t, result.Valid)

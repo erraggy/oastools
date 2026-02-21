@@ -278,7 +278,8 @@ func (v *Validator) validateRequestWithSkips(req *http.Request, cfg *config) (*R
 	// 1. Find matching path
 	matchedPath, pathParams, found := v.matchPath(req.URL.Path)
 	if !found {
-		result.addError(req.URL.Path, fmt.Sprintf("no matching path found for %s", req.URL.Path), SeverityError)
+		sanitizedPath := truncateForError(req.URL.Path, maxErrorValueLen)
+		result.addError("request.path", fmt.Sprintf("no matching path found for %q", sanitizedPath), SeverityError)
 		return result, nil
 	}
 	result.MatchedPath = matchedPath
@@ -295,27 +296,33 @@ func (v *Validator) validateRequestWithSkips(req *http.Request, cfg *config) (*R
 		return result, nil
 	}
 
+	// Snapshot mutable fields for consistent behavior within this call.
+	flags := validationFlags{
+		strictMode:      v.StrictMode,
+		includeWarnings: v.IncludeWarnings,
+	}
+
 	// 3. Validate path parameters (always)
 	v.validatePathParams(pathParams, matchedPath, operation, result)
 
 	// 4. Validate query parameters (if not skipped)
 	if !cfg.skipQueryValidation {
-		v.validateQueryParams(req, matchedPath, operation, result)
+		v.validateQueryParams(req, matchedPath, operation, result, flags)
 	}
 
 	// 5. Validate header parameters (if not skipped)
 	if !cfg.skipHeaderValidation {
-		v.validateHeaderParams(req, matchedPath, operation, result)
+		v.validateHeaderParams(req, matchedPath, operation, result, flags)
 	}
 
 	// 6. Validate cookie parameters (if not skipped)
 	if !cfg.skipCookieValidation {
-		v.validateCookieParams(req, matchedPath, operation, result)
+		v.validateCookieParams(req, matchedPath, operation, result, flags)
 	}
 
 	// 7. Validate request body (if not skipped)
 	if !cfg.skipBodyValidation {
-		v.validateRequestBody(req, matchedPath, operation, result)
+		v.validateRequestBody(req, matchedPath, operation, result, flags)
 	}
 
 	return result, nil

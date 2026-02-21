@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/erraggy/oastools/parser"
@@ -65,7 +66,7 @@ func (v *Validator) validatePathParams(pathParams map[string]string, pathTemplat
 }
 
 // validateQueryParams validates query parameters against the spec.
-func (v *Validator) validateQueryParams(req *http.Request, pathTemplate string, operation *parser.Operation, result *RequestValidationResult) {
+func (v *Validator) validateQueryParams(req *http.Request, pathTemplate string, operation *parser.Operation, result *RequestValidationResult, flags validationFlags) {
 	paramDefs := v.getParametersByLocation(pathTemplate, operation, "query")
 	deserializer := NewParamDeserializer()
 	queryValues := req.URL.Query()
@@ -119,7 +120,7 @@ func (v *Validator) validateQueryParams(req *http.Request, pathTemplate string, 
 
 		// Check for empty value if not allowed
 		if len(values) == 1 && values[0] == "" && !param.AllowEmptyValue {
-			if v.IncludeWarnings {
+			if flags.includeWarnings {
 				result.addWarning(
 					fmt.Sprintf("query.%s", name),
 					fmt.Sprintf("query parameter %q has empty value", name),
@@ -141,7 +142,7 @@ func (v *Validator) validateQueryParams(req *http.Request, pathTemplate string, 
 	}
 
 	// In strict mode, reject unknown query parameters
-	if v.StrictMode {
+	if flags.strictMode {
 		for key := range queryValues {
 			if !processed[key] {
 				result.addError(
@@ -155,7 +156,7 @@ func (v *Validator) validateQueryParams(req *http.Request, pathTemplate string, 
 }
 
 // validateHeaderParams validates header parameters against the spec.
-func (v *Validator) validateHeaderParams(req *http.Request, pathTemplate string, operation *parser.Operation, result *RequestValidationResult) {
+func (v *Validator) validateHeaderParams(req *http.Request, pathTemplate string, operation *parser.Operation, result *RequestValidationResult, flags validationFlags) {
 	paramDefs := v.getParametersByLocation(pathTemplate, operation, "header")
 	deserializer := NewParamDeserializer()
 
@@ -204,7 +205,7 @@ func (v *Validator) validateHeaderParams(req *http.Request, pathTemplate string,
 	}
 
 	// In strict mode, reject unknown header parameters (excluding standard headers)
-	if v.StrictMode {
+	if flags.strictMode {
 		standardHeaders := map[string]bool{
 			"accept": true, "accept-charset": true, "accept-encoding": true,
 			"accept-language": true, "authorization": true, "cache-control": true,
@@ -228,7 +229,7 @@ func (v *Validator) validateHeaderParams(req *http.Request, pathTemplate string,
 }
 
 // validateCookieParams validates cookie parameters against the spec.
-func (v *Validator) validateCookieParams(req *http.Request, pathTemplate string, operation *parser.Operation, result *RequestValidationResult) {
+func (v *Validator) validateCookieParams(req *http.Request, pathTemplate string, operation *parser.Operation, result *RequestValidationResult, flags validationFlags) {
 	paramDefs := v.getParametersByLocation(pathTemplate, operation, "cookie")
 	deserializer := NewParamDeserializer()
 
@@ -273,7 +274,7 @@ func (v *Validator) validateCookieParams(req *http.Request, pathTemplate string,
 	}
 
 	// In strict mode, reject unknown cookies
-	if v.StrictMode {
+	if flags.strictMode {
 		for _, cookie := range req.Cookies() {
 			if !processed[cookie.Name] {
 				result.addError(
@@ -287,7 +288,7 @@ func (v *Validator) validateCookieParams(req *http.Request, pathTemplate string,
 }
 
 // validateRequestBody validates the request body against the spec.
-func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, operation *parser.Operation, result *RequestValidationResult) {
+func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, operation *parser.Operation, result *RequestValidationResult, flags validationFlags) {
 	// Get request body definition
 	var requestBody *parser.RequestBody
 	var bodySchema *parser.Schema
@@ -310,7 +311,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	}
 
 	// Check if body is present
-	if req.Body == nil || req.ContentLength == 0 {
+	if req.Body == nil {
 		if bodyRequired {
 			result.addError(
 				"requestBody",
@@ -324,7 +325,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	// Get and validate Content-Type
 	contentType := req.Header.Get("Content-Type")
 	if contentType == "" {
-		if v.IncludeWarnings {
+		if flags.includeWarnings {
 			result.addWarning("requestBody", "Content-Type header is missing")
 		}
 		return
@@ -335,7 +336,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	if err != nil {
 		result.addError(
 			"requestBody",
-			fmt.Sprintf("invalid Content-Type header: %s", contentType),
+			fmt.Sprintf("invalid Content-Type header: %q", truncateForError(contentType, maxErrorValueLen)),
 			SeverityError,
 		)
 		return
@@ -344,10 +345,10 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	// Get schema for this content type
 	if v.parsed.IsOAS3() && requestBody != nil {
 		bodySchema = v.getRequestBodySchema(requestBody, mediaType)
-		if bodySchema == nil && v.StrictMode {
+		if bodySchema == nil && flags.strictMode {
 			result.addError(
 				"requestBody",
-				fmt.Sprintf("unsupported Content-Type: %s", mediaType),
+				fmt.Sprintf("unsupported Content-Type: %q", truncateForError(mediaType, maxErrorValueLen)),
 				SeverityError,
 			)
 			return
@@ -363,7 +364,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	// Multipart validation would require parsing the form data ourselves, which is
 	// beyond the scope of basic request validation.
 	if strings.HasPrefix(mediaType, "multipart/") {
-		if v.IncludeWarnings {
+		if flags.includeWarnings {
 			result.addWarning("requestBody", "multipart/form-data validation is limited")
 		}
 		return
@@ -375,7 +376,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	if readErr != nil {
 		result.addError(
 			"requestBody",
-			fmt.Sprintf("failed to read request body: %v", readErr),
+			fmt.Sprintf("failed to read request body: %s", truncateForError(readErr.Error(), maxErrorValueLen)),
 			SeverityError,
 		)
 		return
@@ -398,13 +399,13 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 
 	case strings.HasPrefix(mediaType, "text/"):
 		// Text body - validate as string
-		if v.IncludeWarnings && len(body) == 0 {
+		if flags.includeWarnings && len(body) == 0 {
 			result.addWarning("requestBody", "request body is empty")
 		}
 
 	default:
-		if v.IncludeWarnings {
-			result.addWarning("requestBody", fmt.Sprintf("cannot validate content type: %s", mediaType))
+		if flags.includeWarnings {
+			result.addWarning("requestBody", fmt.Sprintf("cannot validate content type: %q", truncateForError(mediaType, maxErrorValueLen)))
 		}
 	}
 }
@@ -457,7 +458,7 @@ func (v *Validator) validateJSONBody(body []byte, schema *parser.Schema, result 
 	if err := json.Unmarshal(body, &data); err != nil {
 		result.addError(
 			path,
-			fmt.Sprintf("invalid JSON: %v", err),
+			fmt.Sprintf("invalid JSON: %s", truncateForError(err.Error(), maxErrorValueLen)),
 			SeverityError,
 		)
 		return
@@ -482,19 +483,16 @@ func (v *Validator) validateFormBody(body []byte, schema *parser.Schema, pathTem
 	}
 
 	// OAS 3.x: Parse form data and validate against schema
-	formData := make(map[string]any)
-	pairs := strings.Split(string(body), "&")
-	for _, pair := range pairs {
-		if pair == "" {
-			continue
+	parsed, parseErr := url.ParseQuery(string(body))
+	if parseErr != nil {
+		result.addError("requestBody", fmt.Sprintf("invalid form body: %s", truncateForError(parseErr.Error(), maxErrorValueLen)), SeverityError)
+		return
+	}
+	formData := make(map[string]any, len(parsed))
+	for key, values := range parsed {
+		if len(values) > 0 {
+			formData[key] = values[0]
 		}
-		parts := strings.SplitN(pair, "=", 2)
-		key := parts[0]
-		value := ""
-		if len(parts) > 1 {
-			value = parts[1]
-		}
-		formData[key] = value
 	}
 
 	errors := v.schemaValidator.Validate(formData, schema, "requestBody")
@@ -506,19 +504,10 @@ func (v *Validator) validateFormBody(body []byte, schema *parser.Schema, pathTem
 // validateFormDataParams validates OAS 2.0 formData parameters.
 func (v *Validator) validateFormDataParams(body []byte, pathTemplate string, operation *parser.Operation, result *RequestValidationResult) {
 	// Parse form data
-	formValues := make(map[string][]string)
-	pairs := strings.Split(string(body), "&")
-	for _, pair := range pairs {
-		if pair == "" {
-			continue
-		}
-		parts := strings.SplitN(pair, "=", 2)
-		key := parts[0]
-		value := ""
-		if len(parts) > 1 {
-			value = parts[1]
-		}
-		formValues[key] = append(formValues[key], value)
+	formValues, parseErr := url.ParseQuery(string(body))
+	if parseErr != nil {
+		result.addError("requestBody", fmt.Sprintf("invalid form body: %s", truncateForError(parseErr.Error(), maxErrorValueLen)), SeverityError)
+		return
 	}
 
 	// Get formData parameters
