@@ -444,10 +444,7 @@ func (cg *oas3CodeGenerator) buildOneOfTypeDefinition(typeName, originalName str
 	if schema.Discriminator != nil && schema.Discriminator.PropertyName != "" {
 		oneOfData.Discriminator = schema.Discriminator.PropertyName
 		oneOfData.DiscriminatorField = toFieldName(schema.Discriminator.PropertyName)
-		// Escape characters that could break Go struct tag syntax.
-		// The value must match the real JSON key, so we escape rather than strip.
-		jsonName := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(schema.Discriminator.PropertyName)
-		oneOfData.DiscriminatorJSONName = jsonName
+		oneOfData.DiscriminatorJSONName = schema.Discriminator.PropertyName
 		oneOfData.HasUnmarshal = true
 
 		// Build unmarshal cases from discriminator mapping
