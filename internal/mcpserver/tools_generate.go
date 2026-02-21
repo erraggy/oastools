@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/erraggy/oastools/generator"
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -38,6 +39,10 @@ func handleGenerate(_ context.Context, _ *mcp.CallToolRequest, input generateInp
 	if input.OutputDir == "" {
 		return errResult(fmt.Errorf("output_dir is required")), generateOutput{}, nil
 	}
+	cleanDir, pathErr := pathutil.SanitizeOutputPath(input.OutputDir)
+	if pathErr != nil {
+		return errResult(fmt.Errorf("invalid output_dir: %w", pathErr)), generateOutput{}, nil
+	}
 
 	parseResult, err := input.Spec.resolve()
 	if err != nil {
@@ -67,13 +72,13 @@ func handleGenerate(_ context.Context, _ *mcp.CallToolRequest, input generateInp
 		return errResult(err), generateOutput{}, nil
 	}
 
-	if err := result.WriteFiles(input.OutputDir); err != nil {
+	if err := result.WriteFiles(cleanDir); err != nil {
 		return errResult(fmt.Errorf("failed to write generated files: %w", err)), generateOutput{}, nil
 	}
 
 	output := generateOutput{
 		Success:             result.Success,
-		OutputDir:           input.OutputDir,
+		OutputDir:           cleanDir,
 		PackageName:         result.PackageName,
 		FileCount:           len(result.Files),
 		GeneratedTypes:      result.GeneratedTypes,
