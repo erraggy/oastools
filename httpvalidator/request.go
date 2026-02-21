@@ -370,13 +370,21 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	}
 
 	// Read and parse body based on content type
-	body, readErr := io.ReadAll(req.Body)
+	maxSize := v.maxBodySizeOrDefault()
+	body, readErr := io.ReadAll(io.LimitReader(req.Body, maxSize+1))
 	if readErr != nil {
 		result.addError(
 			"requestBody",
 			fmt.Sprintf("failed to read request body: %v", readErr),
 			SeverityError,
 		)
+		return
+	}
+
+	if int64(len(body)) > maxSize {
+		result.addError("requestBody",
+			fmt.Sprintf("request body size %d bytes exceeds maximum %d bytes", len(body), maxSize),
+			SeverityError)
 		return
 	}
 

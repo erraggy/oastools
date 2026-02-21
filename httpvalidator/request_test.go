@@ -1036,6 +1036,123 @@ paths:
 }
 
 // =============================================================================
+// Request Body Size Limit Tests
+// =============================================================================
+
+func TestRequestBodySizeLimit(t *testing.T) {
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /test:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+`)
+
+	t.Run("rejects request body exceeding max size", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		v.maxBodySize = 512
+
+		// Create a body larger than 512 bytes
+		largeBody := bytes.Repeat([]byte("x"), 600)
+		req := httptest.NewRequest("POST", "/test", bytes.NewReader(largeBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.False(t, result.Valid)
+		require.NotEmpty(t, result.Errors)
+		hasBodySizeError := false
+		for _, e := range result.Errors {
+			if containsSubstring(e.Message, "exceeds maximum") {
+				hasBodySizeError = true
+				break
+			}
+		}
+		assert.True(t, hasBodySizeError, "expected body size error, got: %v", result.Errors)
+	})
+
+	t.Run("allows request body within max size", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		v.maxBodySize = 512
+
+		smallBody := []byte(`{"name": "test"}`)
+		req := httptest.NewRequest("POST", "/test", bytes.NewReader(smallBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
+	})
+
+	t.Run("uses default max size when not configured", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		// maxBodySize is 0, should use default (10 MiB)
+
+		smallBody := []byte(`{"name": "test"}`)
+		req := httptest.NewRequest("POST", "/test", bytes.NewReader(smallBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
+	})
+
+	t.Run("body exactly at max size is allowed", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		v.maxBodySize = 20
+
+		// Exactly 20 bytes of JSON
+		exactBody := []byte(`{"a":"0123456789ab"}`)
+		require.Equal(t, 20, len(exactBody))
+		req := httptest.NewRequest("POST", "/test", bytes.NewReader(exactBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
+	})
+
+	t.Run("body one byte over max size is rejected", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		v.maxBodySize = 20
+
+		// 21 bytes of body
+		overBody := []byte(`{"a":"0123456789abc"}`)
+		require.Equal(t, 21, len(overBody))
+		req := httptest.NewRequest("POST", "/test", bytes.NewReader(overBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.False(t, result.Valid)
+		hasBodySizeError := false
+		for _, e := range result.Errors {
+			if containsSubstring(e.Message, "exceeds maximum") {
+				hasBodySizeError = true
+				break
+			}
+		}
+		assert.True(t, hasBodySizeError, "expected body size error, got: %v", result.Errors)
+	})
+}
+
+// =============================================================================
 // Multipart Body Preservation Tests
 // =============================================================================
 

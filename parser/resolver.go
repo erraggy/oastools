@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -409,37 +408,27 @@ func (r *RefResolver) Resolve(doc map[string]any, ref string) (any, error) {
 }
 
 // resolveRelativeURL resolves a relative reference against the baseURL
+// using the standard RFC 3986 resolution algorithm via url.URL.ResolveReference.
 func (r *RefResolver) resolveRelativeURL(ref string) (string, error) {
-	// Split ref into path and fragment
-	parts := strings.SplitN(ref, "#", 2)
-	relPath := parts[0]
-	fragment := ""
-	if len(parts) > 1 {
-		fragment = "#" + parts[1]
-	}
-
-	// Parse the base URL
 	base, err := url.Parse(r.baseURL)
 	if err != nil {
 		return "", fmt.Errorf("invalid base URL: %w", err)
 	}
 
-	// Resolve the relative path against the base URL's directory
-	// Use path.Dir to get the directory of the base URL path
-	base.Path = path.Join(path.Dir(base.Path), relPath)
+	refURL, err := url.Parse(ref)
+	if err != nil {
+		return "", fmt.Errorf("invalid $ref URL: %w", err)
+	}
 
-	// Verify the resolved URL stays on the same host (defense-in-depth)
-	resolved := base.String() + fragment
-	resolvedURL, parseErr := url.Parse(resolved)
-	if parseErr != nil {
-		return "", fmt.Errorf("invalid resolved URL: %w", parseErr)
-	}
-	origBase, _ := url.Parse(r.baseURL)
-	if origBase != nil && resolvedURL.Host != origBase.Host {
+	resolved := base.ResolveReference(refURL)
+
+	// Same-origin enforcement: reject if the resolved URL changes host
+	if resolved.Host != base.Host {
 		return "", fmt.Errorf("cross-origin $ref blocked: resolved to %s (base: %s)",
-			resolvedURL.Host, origBase.Host)
+			resolved.Host, base.Host)
 	}
-	return resolved, nil
+
+	return resolved.String(), nil
 }
 
 // unescapeJSONPointer unescapes JSON Pointer tokens

@@ -25,6 +25,9 @@ type config struct {
 	skipQueryValidation  bool
 	skipHeaderValidation bool
 	skipCookieValidation bool
+
+	// Resource limits
+	maxBodySize int64 // max request/response body size (0 = default 10 MiB)
 }
 
 // defaultConfig returns the default configuration.
@@ -112,6 +115,19 @@ func WithSkipCookieValidation(skip bool) Option {
 	}
 }
 
+// WithMaxBodySize sets the maximum request/response body size in bytes.
+// Bodies exceeding this limit will produce a validation error.
+// Default: 10 MiB.
+func WithMaxBodySize(n int64) Option {
+	return func(c *config) error {
+		if n < 0 {
+			return fmt.Errorf("httpvalidator: maxBodySize cannot be negative")
+		}
+		c.maxBodySize = n
+		return nil
+	}
+}
+
 // ValidateRequestWithOptions validates an HTTP request against an OpenAPI specification
 // using functional options.
 //
@@ -149,6 +165,7 @@ func ValidateRequestWithOptions(req *http.Request, opts ...Option) (*RequestVali
 	// Apply config
 	v.IncludeWarnings = cfg.includeWarnings
 	v.StrictMode = cfg.strictMode
+	v.maxBodySize = cfg.maxBodySize
 
 	// For skip options, we need to create a wrapper that respects them
 	if cfg.skipBodyValidation || cfg.skipQueryValidation || cfg.skipHeaderValidation || cfg.skipCookieValidation {
@@ -195,6 +212,7 @@ func ValidateResponseWithOptions(req *http.Request, resp *http.Response, opts ..
 	// Apply config
 	v.IncludeWarnings = cfg.includeWarnings
 	v.StrictMode = cfg.strictMode
+	v.maxBodySize = cfg.maxBodySize
 
 	return v.ValidateResponse(req, resp)
 }
@@ -235,6 +253,7 @@ func ValidateResponseDataWithOptions(req *http.Request, statusCode int, headers 
 	// Apply config
 	v.IncludeWarnings = cfg.includeWarnings
 	v.StrictMode = cfg.strictMode
+	v.maxBodySize = cfg.maxBodySize
 
 	return v.ValidateResponseData(req, statusCode, headers, body)
 }

@@ -46,7 +46,13 @@ type Validator struct {
 	// - Rejects requests with unknown headers
 	// - Rejects responses with undocumented status codes
 	StrictMode bool
+
+	// maxBodySize is the maximum body size in bytes. 0 means default (10 MiB).
+	maxBodySize int64
 }
+
+// defaultMaxBodySize is the default max body size (10 MiB).
+const defaultMaxBodySize int64 = 10 * 1024 * 1024
 
 // New creates a new HTTP Validator from a parsed OpenAPI specification.
 // The validator pre-compiles path matchers for efficient matching.
@@ -71,6 +77,14 @@ func New(parsed *parser.ParseResult) (*Validator, error) {
 	}
 
 	return v, nil
+}
+
+// maxBodySizeOrDefault returns the configured max body size, or the default (10 MiB).
+func (v *Validator) maxBodySizeOrDefault() int64 {
+	if v.maxBodySize > 0 {
+		return v.maxBodySize
+	}
+	return defaultMaxBodySize
 }
 
 // initPathMatchers pre-compiles regex patterns for all paths in the spec.

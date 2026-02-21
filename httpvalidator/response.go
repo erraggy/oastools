@@ -47,14 +47,22 @@ func (v *Validator) validateResponse(resp *http.Response, matchedPath string, op
 	// Read response body if present
 	var body []byte
 	if resp.Body != nil {
+		maxSize := v.maxBodySizeOrDefault()
 		var err error
-		body, err = io.ReadAll(resp.Body)
+		body, err = io.ReadAll(io.LimitReader(resp.Body, maxSize+1))
 		if err != nil {
 			result.addError(
 				"response",
 				fmt.Sprintf("failed to read response body: %v", err),
 				SeverityError,
 			)
+			return
+		}
+
+		if int64(len(body)) > maxSize {
+			result.addError("response",
+				fmt.Sprintf("response body size %d bytes exceeds maximum %d bytes", len(body), maxSize),
+				SeverityError)
 			return
 		}
 	}

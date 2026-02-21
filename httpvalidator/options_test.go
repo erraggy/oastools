@@ -123,6 +123,35 @@ func TestWithSkipCookieValidation(t *testing.T) {
 	assert.True(t, cfg.skipCookieValidation)
 }
 
+func TestWithMaxBodySize(t *testing.T) {
+	t.Run("sets max body size", func(t *testing.T) {
+		cfg := &config{}
+		opt := WithMaxBodySize(1024)
+		err := opt(cfg)
+
+		assert.NoError(t, err)
+		assert.Equal(t, int64(1024), cfg.maxBodySize)
+	})
+
+	t.Run("allows zero (means default)", func(t *testing.T) {
+		cfg := &config{}
+		opt := WithMaxBodySize(0)
+		err := opt(cfg)
+
+		assert.NoError(t, err)
+		assert.Equal(t, int64(0), cfg.maxBodySize)
+	})
+
+	t.Run("returns error for negative value", func(t *testing.T) {
+		cfg := &config{}
+		opt := WithMaxBodySize(-1)
+		err := opt(cfg)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "negative")
+	})
+}
+
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 
@@ -134,6 +163,7 @@ func TestDefaultConfig(t *testing.T) {
 	assert.False(t, cfg.skipQueryValidation)
 	assert.False(t, cfg.skipHeaderValidation)
 	assert.False(t, cfg.skipCookieValidation)
+	assert.Equal(t, int64(0), cfg.maxBodySize, "maxBodySize should default to 0 (meaning default 10 MiB)")
 }
 
 // =============================================================================

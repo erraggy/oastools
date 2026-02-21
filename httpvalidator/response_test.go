@@ -1,6 +1,7 @@
 package httpvalidator
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -536,6 +537,91 @@ paths:
 			}
 		}
 		assert.True(t, hasWarning)
+	})
+}
+
+// =============================================================================
+// Response Body Size Limit Tests
+// =============================================================================
+
+func TestResponseBodySizeLimit(t *testing.T) {
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /test:
+    get:
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+`)
+
+	t.Run("rejects response body exceeding max size", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		v.maxBodySize = 256
+
+		// Create a response body larger than 256 bytes
+		largeBody := string(bytes.Repeat([]byte("x"), 300))
+		req := httptest.NewRequest("GET", "/test", nil)
+		resp := &http.Response{
+			StatusCode: 200,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       newReadCloser(largeBody),
+		}
+
+		result, err := v.ValidateResponse(req, resp)
+		require.NoError(t, err)
+		assert.False(t, result.Valid)
+		require.NotEmpty(t, result.Errors)
+		hasBodySizeError := false
+		for _, e := range result.Errors {
+			if containsSubstring(e.Message, "exceeds maximum") {
+				hasBodySizeError = true
+				break
+			}
+		}
+		assert.True(t, hasBodySizeError, "expected body size error, got: %v", result.Errors)
+	})
+
+	t.Run("allows response body within max size", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		v.maxBodySize = 256
+
+		req := httptest.NewRequest("GET", "/test", nil)
+		resp := &http.Response{
+			StatusCode: 200,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       newReadCloser(`{"id": 123}`),
+		}
+
+		result, err := v.ValidateResponse(req, resp)
+		require.NoError(t, err)
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
+	})
+
+	t.Run("uses default max size when not configured", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		// maxBodySize is 0, should use default (10 MiB)
+
+		req := httptest.NewRequest("GET", "/test", nil)
+		resp := &http.Response{
+			StatusCode: 200,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       newReadCloser(`{"id": 123}`),
+		}
+
+		result, err := v.ValidateResponse(req, resp)
+		require.NoError(t, err)
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
 	})
 }
 
