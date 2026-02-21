@@ -531,6 +531,9 @@ func (v *SchemaValidator) matchPattern(pattern, s string) (bool, error) {
 
 	// Size cap: if cache exceeds limit, clear and start fresh.
 	// This prevents unbounded growth from specs with many unique patterns.
+	// NOTE: The count check and clear are not atomic — under high concurrency,
+	// multiple goroutines may clear simultaneously. This is acceptable because
+	// the cache is a performance optimization; worst case is extra recompilation.
 	if v.patternCount.Add(1) > maxPatternCacheSize {
 		v.patternCache.Range(func(key, _ any) bool {
 			v.patternCache.Delete(key)

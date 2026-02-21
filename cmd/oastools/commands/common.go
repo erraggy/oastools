@@ -134,10 +134,10 @@ func RejectSymlinkOutput(cleanedPath string) error {
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("checking output path: %w", err)
+		return fmt.Errorf("commands: checking output path: %w", err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("refusing to write to symlink: %s", cleanedPath)
+		return fmt.Errorf("commands: refusing to write to symlink: %s", cleanedPath)
 	}
 	return nil
 }
