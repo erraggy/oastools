@@ -428,7 +428,18 @@ func (r *RefResolver) resolveRelativeURL(ref string) (string, error) {
 	// Use path.Dir to get the directory of the base URL path
 	base.Path = path.Join(path.Dir(base.Path), relPath)
 
-	return base.String() + fragment, nil
+	// Verify the resolved URL stays on the same host (defense-in-depth)
+	resolved := base.String() + fragment
+	resolvedURL, parseErr := url.Parse(resolved)
+	if parseErr != nil {
+		return "", fmt.Errorf("invalid resolved URL: %w", parseErr)
+	}
+	origBase, _ := url.Parse(r.baseURL)
+	if origBase != nil && resolvedURL.Host != origBase.Host {
+		return "", fmt.Errorf("cross-origin $ref blocked: resolved to %s (base: %s)",
+			resolvedURL.Host, origBase.Host)
+	}
+	return resolved, nil
 }
 
 // unescapeJSONPointer unescapes JSON Pointer tokens
