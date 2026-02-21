@@ -3,6 +3,7 @@ package generator
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -96,6 +97,22 @@ func addScopesFromFlow(scopeSet map[string]bool, flow *parser.OAuthFlow) {
 // Security Generation Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// isSecureURL checks whether a URL uses HTTPS, or HTTP only for localhost/127.0.0.1.
+// This is used to warn about insecure OAuth2/OIDC endpoint URLs during code generation.
+func isSecureURL(urlStr string) bool {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return false
+	}
+	if u.Scheme == "https" {
+		return true
+	}
+	if u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1") {
+		return true
+	}
+	return false
+}
+
 // issueAdder is a callback for adding issues during generation.
 type issueAdder func(location, message string, severity Severity)
 
@@ -149,6 +166,17 @@ func generateOAuth2FilesShared(ctx *securityGenerationContext, schemes map[strin
 			continue
 		}
 
+		// Validate OAuth2 endpoint URLs use HTTPS (or HTTP for localhost)
+		authURL, tokenURL := g.getURLs()
+		if authURL != "" && !isSecureURL(authURL) {
+			ctx.addIssue(fmt.Sprintf("securitySchemes.%s", name),
+				fmt.Sprintf("OAuth2 authorization URL uses insecure scheme: %s", authURL), SeverityWarning)
+		}
+		if tokenURL != "" && !isSecureURL(tokenURL) {
+			ctx.addIssue(fmt.Sprintf("securitySchemes.%s", name),
+				fmt.Sprintf("OAuth2 token URL uses insecure scheme: %s", tokenURL), SeverityWarning)
+		}
+
 		code := g.GenerateOAuth2File(ctx.result.PackageName)
 
 		// Format the code
@@ -195,6 +223,12 @@ func generateOIDCDiscoveryFileShared(ctx *securityGenerationContext, schemes map
 			discoveryURL = scheme.OpenIDConnectURL
 			break
 		}
+	}
+
+	// Validate OIDC discovery URL uses HTTPS (or HTTP for localhost)
+	if discoveryURL != "" && !isSecureURL(discoveryURL) {
+		ctx.addIssue("securitySchemes.openIdConnect",
+			fmt.Sprintf("OpenID Connect discovery URL uses insecure scheme: %s", discoveryURL), SeverityWarning)
 	}
 
 	g := NewOIDCDiscoveryGenerator(ctx.result.PackageName)

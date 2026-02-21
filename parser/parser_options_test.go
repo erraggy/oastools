@@ -482,6 +482,98 @@ func TestWithMaxFileSize(t *testing.T) {
 	})
 }
 
+// TestWithMaxInputSize tests the WithMaxInputSize option
+func TestWithMaxInputSize(t *testing.T) {
+	t.Run("sets positive value", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithMaxInputSize(50 * 1024 * 1024) // 50 MiB
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, int64(50*1024*1024), cfg.maxInputSize)
+	})
+
+	t.Run("accepts zero (use default)", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithMaxInputSize(0)
+		err := opt(cfg)
+
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), cfg.maxInputSize)
+	})
+
+	t.Run("rejects negative value", func(t *testing.T) {
+		cfg := &parseConfig{}
+		opt := WithMaxInputSize(-1)
+		err := opt(cfg)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot be negative")
+	})
+}
+
+// TestParseReaderSizeLimit tests that ParseReader rejects oversized input
+func TestParseReaderSizeLimit(t *testing.T) {
+	t.Run("rejects input exceeding limit", func(t *testing.T) {
+		huge := strings.NewReader(strings.Repeat("a", 1025))
+		_, err := ParseWithOptions(
+			WithReader(huge),
+			WithMaxInputSize(1024),
+		)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds maximum")
+	})
+
+	t.Run("accepts input within limit", func(t *testing.T) {
+		minimalOAS := `openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths: {}
+`
+		r := strings.NewReader(minimalOAS)
+		result, err := ParseWithOptions(
+			WithReader(r),
+			WithMaxInputSize(4096),
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, "3.0.0", result.Version)
+	})
+
+	t.Run("accepts input exactly at limit", func(t *testing.T) {
+		minimalOAS := `openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths: {}
+`
+		r := strings.NewReader(minimalOAS)
+		result, err := ParseWithOptions(
+			WithReader(r),
+			WithMaxInputSize(len(minimalOAS)),
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, "3.0.0", result.Version)
+	})
+}
+
+// TestParseBytesSizeLimit tests that ParseBytes rejects oversized input
+func TestParseBytesSizeLimit(t *testing.T) {
+	t.Run("rejects bytes exceeding limit", func(t *testing.T) {
+		huge := []byte(strings.Repeat("a", 1025))
+		_, err := ParseWithOptions(
+			WithBytes(huge),
+			WithMaxInputSize(1024),
+		)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds maximum")
+	})
+}
+
 // TestParseWithOptions_ResourceLimits tests that resource limits are passed to parser
 func TestParseWithOptions_ResourceLimits(t *testing.T) {
 	// We can't easily test that the limits are actually used without

@@ -174,20 +174,28 @@ func applySegment(current []any, seg Segment) []any {
 
 		case RecursiveSegment:
 			// Recursive descent searches all descendants
-			results = append(results, recursiveDescend(node, s.Child)...)
+			results = append(results, recursiveDescend(node, s.Child, 0)...)
 		}
 	}
 
 	return results
 }
 
+// maxRecursionDepth caps how deep recursive descent will traverse to prevent
+// stack overflow on pathologically nested structures.
+const maxRecursionDepth = 500
+
 // recursiveDescend finds all nodes matching the child selector at any depth.
-func recursiveDescend(node any, child Segment) []any {
+func recursiveDescend(node any, child Segment, depth int) []any {
+	if depth > maxRecursionDepth {
+		return nil
+	}
+
 	var results []any
 
 	// If child is nil, collect all descendants
 	if child == nil {
-		collectAllDescendants(node, &results)
+		collectAllDescendants(node, &results, depth)
 		return results
 	}
 
@@ -199,11 +207,11 @@ func recursiveDescend(node any, child Segment) []any {
 	switch v := node.(type) {
 	case map[string]any:
 		for _, val := range v {
-			results = append(results, recursiveDescend(val, child)...)
+			results = append(results, recursiveDescend(val, child, depth+1)...)
 		}
 	case []any:
 		for _, elem := range v {
-			results = append(results, recursiveDescend(elem, child)...)
+			results = append(results, recursiveDescend(elem, child, depth+1)...)
 		}
 	}
 
@@ -211,17 +219,21 @@ func recursiveDescend(node any, child Segment) []any {
 }
 
 // collectAllDescendants collects all nodes in the tree (for bare ..)
-func collectAllDescendants(node any, results *[]any) {
+func collectAllDescendants(node any, results *[]any, depth int) {
+	if depth > maxRecursionDepth {
+		return
+	}
+
 	switch v := node.(type) {
 	case map[string]any:
 		for _, val := range v {
 			*results = append(*results, val)
-			collectAllDescendants(val, results)
+			collectAllDescendants(val, results, depth+1)
 		}
 	case []any:
 		for _, elem := range v {
 			*results = append(*results, elem)
-			collectAllDescendants(elem, results)
+			collectAllDescendants(elem, results, depth+1)
 		}
 	}
 }

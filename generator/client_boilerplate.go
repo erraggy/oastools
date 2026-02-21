@@ -41,7 +41,7 @@ func writeClientConstructor(buf *bytes.Buffer, info *parser.Info) {
 	buf.WriteString("func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {\n")
 	buf.WriteString("\tc := &Client{\n")
 	buf.WriteString("\t\tBaseURL:    strings.TrimSuffix(baseURL, \"/\"),\n")
-	buf.WriteString("\t\tHTTPClient: http.DefaultClient,\n")
+	buf.WriteString("\t\tHTTPClient: &http.Client{Timeout: 30 * time.Second},\n")
 	_, _ = fmt.Fprintf(buf, "\t\tUserAgent:  %q,\n", defaultUserAgent)
 	buf.WriteString("\t}\n")
 	buf.WriteString("\tfor _, opt := range opts {\n")

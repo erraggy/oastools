@@ -385,6 +385,10 @@ func HandleJoin(args []string) error {
 			return fmt.Errorf("marshaling joined document: %w", dataErr)
 		}
 		cleanedOutput := filepath.Clean(flags.Output)
+		// Reject symlinks to prevent symlink attacks
+		if symlinkErr := RejectSymlinkOutput(cleanedOutput); symlinkErr != nil {
+			return symlinkErr
+		}
 		if writeErr := os.WriteFile(cleanedOutput, data, 0600); writeErr != nil { //nolint:gosec // G703 - output path is user-provided CLI flag
 			return fmt.Errorf("writing output file: %w", writeErr)
 		}

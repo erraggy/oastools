@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -138,4 +139,50 @@ func TestPaginate_DefaultLimit(t *testing.T) {
 	}
 	got := paginate(items, 0, 0)
 	assert.Len(t, got, 100, "default limit should cap at 100 items")
+}
+
+func TestSanitizeError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "nil error returns empty string",
+			err:  nil,
+			want: "",
+		},
+		{
+			name: "strips absolute path",
+			err:  fmt.Errorf("failed to open /home/user/secret/api.yaml: no such file"),
+			want: "failed to open <path>: no such file",
+		},
+		{
+			name: "preserves non-path content",
+			err:  fmt.Errorf("invalid JSON at line 5"),
+			want: "invalid JSON at line 5",
+		},
+		{
+			name: "strips multiple paths",
+			err:  fmt.Errorf("diff /tmp/a.yaml vs /tmp/b.yaml failed"),
+			want: "diff <path> vs <path> failed",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeError(tt.err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestPaginate_MaxLimitCap(t *testing.T) {
+	// Generate items exceeding MaxLimit.
+	items := make([]int, 1500)
+	for i := range items {
+		items[i] = i
+	}
+	// Request a limit higher than MaxLimit (default 1000).
+	got := paginate(items, 0, 1500)
+	assert.Len(t, got, cfg.MaxLimit, "limit should be capped at MaxLimit")
 }

@@ -1,6 +1,7 @@
 package httpvalidator
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -333,7 +334,7 @@ paths: {}
 
 		result := newResponseResult()
 		responseDef := &parser.Response{Content: nil}
-		v.validateResponseBody([]byte(`{"any": "data"}`), "application/json", responseDef, result)
+		v.validateResponseBody([]byte(`{"any": "data"}`), "application/json", responseDef, result, validationFlags{includeWarnings: v.IncludeWarnings, strictMode: v.StrictMode})
 
 		assert.True(t, result.Valid)
 	})
@@ -355,7 +356,7 @@ paths: {}
 				"application/json": {Schema: &parser.Schema{Type: "object"}},
 			},
 		}
-		v.validateResponseBody(nil, "application/json", responseDef, result)
+		v.validateResponseBody(nil, "application/json", responseDef, result, validationFlags{includeWarnings: v.IncludeWarnings, strictMode: v.StrictMode})
 
 		assert.True(t, result.Valid) // Empty body is a warning, not error
 		hasEmptyWarning := false
@@ -390,7 +391,7 @@ paths: {}
 				}},
 			},
 		}
-		v.validateResponseBody([]byte(`{"id": 123}`), "application/json", responseDef, result)
+		v.validateResponseBody([]byte(`{"id": 123}`), "application/json", responseDef, result, validationFlags{includeWarnings: v.IncludeWarnings, strictMode: v.StrictMode})
 
 		assert.True(t, result.Valid)
 	})
@@ -411,7 +412,7 @@ paths: {}
 				"application/vnd.api+json": {Schema: &parser.Schema{Type: "object"}},
 			},
 		}
-		v.validateResponseBody([]byte(`{"data": "test"}`), "application/vnd.api+json", responseDef, result)
+		v.validateResponseBody([]byte(`{"data": "test"}`), "application/vnd.api+json", responseDef, result, validationFlags{includeWarnings: v.IncludeWarnings, strictMode: v.StrictMode})
 
 		assert.True(t, result.Valid)
 	})
@@ -435,7 +436,7 @@ paths: {}
 				}},
 			},
 		}
-		v.validateResponseBody([]byte("hello world"), "text/plain", responseDef, result)
+		v.validateResponseBody([]byte("hello world"), "text/plain", responseDef, result, validationFlags{includeWarnings: v.IncludeWarnings, strictMode: v.StrictMode})
 
 		assert.True(t, result.Valid)
 	})
@@ -457,7 +458,7 @@ paths: {}
 				"application/octet-stream": {Schema: &parser.Schema{Type: "string", Format: "binary"}},
 			},
 		}
-		v.validateResponseBody([]byte{0x01, 0x02, 0x03}, "application/octet-stream", responseDef, result)
+		v.validateResponseBody([]byte{0x01, 0x02, 0x03}, "application/octet-stream", responseDef, result, validationFlags{includeWarnings: v.IncludeWarnings, strictMode: v.StrictMode})
 
 		hasWarning := false
 		for _, w := range result.Warnings {
@@ -493,7 +494,7 @@ paths:
 
 		result := newResponseResult()
 		op := v.getOperation("/test", "GET")
-		v.validateResponseParts(500, http.Header{}, nil, "/test", op, result)
+		v.validateResponseParts(500, http.Header{}, nil, "/test", op, result, validationFlags{strictMode: v.StrictMode, includeWarnings: v.IncludeWarnings})
 
 		assert.False(t, result.Valid)
 		hasUndocumentedError := false
@@ -525,7 +526,7 @@ paths:
 
 		result := newResponseResult()
 		op := v.getOperation("/test", "GET")
-		v.validateResponseParts(500, http.Header{}, nil, "/test", op, result)
+		v.validateResponseParts(500, http.Header{}, nil, "/test", op, result, validationFlags{strictMode: v.StrictMode, includeWarnings: v.IncludeWarnings})
 
 		assert.True(t, result.Valid) // Warning doesn't mark as invalid
 		hasWarning := false
@@ -536,6 +537,91 @@ paths:
 			}
 		}
 		assert.True(t, hasWarning)
+	})
+}
+
+// =============================================================================
+// Response Body Size Limit Tests
+// =============================================================================
+
+func TestResponseBodySizeLimit(t *testing.T) {
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /test:
+    get:
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+`)
+
+	t.Run("rejects response body exceeding max size", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		v.maxBodySize = 256
+
+		// Create a response body larger than 256 bytes
+		largeBody := string(bytes.Repeat([]byte("x"), 300))
+		req := httptest.NewRequest("GET", "/test", nil)
+		resp := &http.Response{
+			StatusCode: 200,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       newReadCloser(largeBody),
+		}
+
+		result, err := v.ValidateResponse(req, resp)
+		require.NoError(t, err)
+		assert.False(t, result.Valid)
+		require.NotEmpty(t, result.Errors)
+		hasBodySizeError := false
+		for _, e := range result.Errors {
+			if containsSubstring(e.Message, "exceeds maximum") {
+				hasBodySizeError = true
+				break
+			}
+		}
+		assert.True(t, hasBodySizeError, "expected body size error, got: %v", result.Errors)
+	})
+
+	t.Run("allows response body within max size", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		v.maxBodySize = 256
+
+		req := httptest.NewRequest("GET", "/test", nil)
+		resp := &http.Response{
+			StatusCode: 200,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       newReadCloser(`{"id": 123}`),
+		}
+
+		result, err := v.ValidateResponse(req, resp)
+		require.NoError(t, err)
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
+	})
+
+	t.Run("uses default max size when not configured", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		// maxBodySize is 0, should use default (10 MiB)
+
+		req := httptest.NewRequest("GET", "/test", nil)
+		resp := &http.Response{
+			StatusCode: 200,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       newReadCloser(`{"id": 123}`),
+		}
+
+		result, err := v.ValidateResponse(req, resp)
+		require.NoError(t, err)
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
 	})
 }
 
@@ -575,7 +661,7 @@ paths:
 			Body:       newReadCloser(`{"id": 123}`),
 		}
 		op := v.getOperation("/test", "GET")
-		v.validateResponse(resp, "/test", op, result)
+		v.validateResponse(resp, "/test", op, result, validationFlags{strictMode: v.StrictMode, includeWarnings: v.IncludeWarnings})
 
 		assert.True(t, result.Valid, "errors: %v", result.Errors)
 	})
@@ -588,7 +674,7 @@ paths:
 			Body:       nil,
 		}
 		op := v.getOperation("/test", "GET")
-		v.validateResponse(resp, "/test", op, result)
+		v.validateResponse(resp, "/test", op, result, validationFlags{strictMode: v.StrictMode, includeWarnings: v.IncludeWarnings})
 
 		// Should not panic, just skip body validation
 		assert.True(t, result.Valid)

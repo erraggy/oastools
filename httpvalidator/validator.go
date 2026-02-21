@@ -46,6 +46,21 @@ type Validator struct {
 	// - Rejects requests with unknown headers
 	// - Rejects responses with undocumented status codes
 	StrictMode bool
+
+	// maxBodySize is the maximum body size in bytes. 0 means default (10 MiB).
+	maxBodySize int64
+}
+
+// defaultMaxBodySize is the default max body size (10 MiB).
+const defaultMaxBodySize int64 = 10 * 1024 * 1024
+
+// validationFlags holds snapshotted copies of mutable Validator fields.
+// By copying StrictMode and IncludeWarnings at the start of each public
+// validation method, we ensure consistent behavior throughout a single
+// call even if another goroutine mutates the Validator concurrently.
+type validationFlags struct {
+	strictMode      bool
+	includeWarnings bool
 }
 
 // New creates a new HTTP Validator from a parsed OpenAPI specification.
@@ -71,6 +86,27 @@ func New(parsed *parser.ParseResult) (*Validator, error) {
 	}
 
 	return v, nil
+}
+
+// truncateForError truncates a string to maxLen and adds "..." if truncated.
+// This prevents user-supplied data from bloating error messages or being used
+// for log injection attacks.
+func truncateForError(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
+// maxErrorValueLen is the maximum length of a user-supplied value in error messages.
+const maxErrorValueLen = 200
+
+// maxBodySizeOrDefault returns the configured max body size, or the default (10 MiB).
+func (v *Validator) maxBodySizeOrDefault() int64 {
+	if v.maxBodySize > 0 {
+		return v.maxBodySize
+	}
+	return defaultMaxBodySize
 }
 
 // initPathMatchers pre-compiles regex patterns for all paths in the spec.
@@ -156,7 +192,7 @@ func (v *Validator) matchPath(requestPath string) (template string, params map[s
 func (v *Validator) findMatchedOperation(req *http.Request, result *ResponseValidationResult) *parser.Operation {
 	matchedPath, _, found := v.matchPath(req.URL.Path)
 	if !found {
-		result.addError(req.URL.Path, "no matching path found for request", SeverityError)
+		result.addError("request.path", "no matching path found for request", SeverityError)
 		return nil
 	}
 	result.MatchedPath = matchedPath
@@ -234,12 +270,20 @@ func (v *Validator) getParametersByLocation(pathTemplate string, operation *pars
 // The error return is reserved for internal errors (e.g., body reading failures),
 // not validation errors which are captured in the result.
 func (v *Validator) ValidateRequest(req *http.Request) (*RequestValidationResult, error) {
+	// Snapshot mutable fields so concurrent mutations cannot cause
+	// inconsistent behavior within a single validation call.
+	flags := validationFlags{
+		strictMode:      v.StrictMode,
+		includeWarnings: v.IncludeWarnings,
+	}
+
 	result := newRequestResult()
 
 	// 1. Find matching path
 	matchedPath, pathParams, found := v.matchPath(req.URL.Path)
 	if !found {
-		result.addError(req.URL.Path, fmt.Sprintf("no matching path found for %s", req.URL.Path), SeverityError)
+		sanitizedPath := truncateForError(req.URL.Path, maxErrorValueLen)
+		result.addError("request.path", fmt.Sprintf("no matching path found for %q", sanitizedPath), SeverityError)
 		return result, nil
 	}
 	result.MatchedPath = matchedPath
@@ -260,16 +304,16 @@ func (v *Validator) ValidateRequest(req *http.Request) (*RequestValidationResult
 	v.validatePathParams(pathParams, matchedPath, operation, result)
 
 	// 4. Validate query parameters
-	v.validateQueryParams(req, matchedPath, operation, result)
+	v.validateQueryParams(req, matchedPath, operation, result, flags)
 
 	// 5. Validate header parameters
-	v.validateHeaderParams(req, matchedPath, operation, result)
+	v.validateHeaderParams(req, matchedPath, operation, result, flags)
 
 	// 6. Validate cookie parameters
-	v.validateCookieParams(req, matchedPath, operation, result)
+	v.validateCookieParams(req, matchedPath, operation, result, flags)
 
 	// 7. Validate request body
-	v.validateRequestBody(req, matchedPath, operation, result)
+	v.validateRequestBody(req, matchedPath, operation, result, flags)
 
 	return result, nil
 }
@@ -283,6 +327,13 @@ func (v *Validator) ValidateRequest(req *http.Request) (*RequestValidationResult
 // The error return is reserved for internal errors (e.g., body reading failures),
 // not validation errors which are captured in the result.
 func (v *Validator) ValidateResponse(req *http.Request, resp *http.Response) (*ResponseValidationResult, error) {
+	// Snapshot mutable fields so concurrent mutations cannot cause
+	// inconsistent behavior within a single validation call.
+	flags := validationFlags{
+		strictMode:      v.StrictMode,
+		includeWarnings: v.IncludeWarnings,
+	}
+
 	result := newResponseResult()
 	result.StatusCode = resp.StatusCode
 	result.ContentType = resp.Header.Get("Content-Type")
@@ -294,7 +345,7 @@ func (v *Validator) ValidateResponse(req *http.Request, resp *http.Response) (*R
 	}
 
 	// Validate response
-	v.validateResponse(resp, result.MatchedPath, operation, result)
+	v.validateResponse(resp, result.MatchedPath, operation, result, flags)
 
 	return result, nil
 }

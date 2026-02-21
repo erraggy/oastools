@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/converter"
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -78,10 +79,14 @@ func handleConvert(_ context.Context, _ *mcp.CallToolRequest, input convertInput
 	}
 
 	if input.Output != "" {
-		if err := os.WriteFile(input.Output, data, 0o644); err != nil {
+		cleanPath, pathErr := pathutil.SanitizeOutputPath(input.Output)
+		if pathErr != nil {
+			return errResult(fmt.Errorf("invalid output path: %w", pathErr)), convertOutput{}, nil
+		}
+		if err := os.WriteFile(cleanPath, data, 0o600); err != nil {
 			return errResult(fmt.Errorf("failed to write output file: %w", err)), convertOutput{}, nil
 		}
-		output.WrittenTo = input.Output
+		output.WrittenTo = cleanPath
 	} else {
 		output.Document = string(data)
 	}

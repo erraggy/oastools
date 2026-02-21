@@ -125,6 +125,23 @@ func ValidateOutputPath(outputPath string, inputPaths []string) error {
 	return nil
 }
 
+// RejectSymlinkOutput checks if the output path is a symlink and returns an error if so.
+// This prevents symlink attacks where a symlink could redirect output to an unintended location.
+func RejectSymlinkOutput(cleanedPath string) error {
+	info, err := os.Lstat(cleanedPath)
+	if os.IsNotExist(err) {
+		// File doesn't exist yet — safe to write.
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("checking output path: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("refusing to write to symlink: %s", cleanedPath)
+	}
+	return nil
+}
+
 // MarshalDocument marshals a document to bytes in the specified format
 func MarshalDocument(doc any, format parser.SourceFormat) ([]byte, error) {
 	if format == parser.SourceFormatJSON {

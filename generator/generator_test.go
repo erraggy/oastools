@@ -141,6 +141,18 @@ func TestGenerateResult_WriteFiles(t *testing.T) {
 	}
 }
 
+func TestWriteFilesPathTraversal(t *testing.T) {
+	dir := t.TempDir()
+	result := &GenerateResult{
+		Files: []GeneratedFile{
+			{Name: "../escape.go", Content: []byte("package evil")},
+		},
+	}
+	err := result.WriteFiles(dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must not contain path separators")
+}
+
 func TestGenerateResult_GetFile(t *testing.T) {
 	result := &GenerateResult{
 		Files: []GeneratedFile{

@@ -125,6 +125,7 @@ func TestHandleValidate_ConfigDefaults(t *testing.T) {
 		CacheSweepInterval: 60 * time.Second,
 		WalkLimit:          100,
 		WalkDetailLimit:    25,
+		MaxInlineSize:      10 * 1024 * 1024,
 		ValidateStrict:     true,
 		ValidateNoWarnings: true,
 	}
@@ -161,6 +162,7 @@ paths:
 			CacheEnabled:       false,
 			WalkLimit:          100,
 			WalkDetailLimit:    25,
+			MaxInlineSize:      10 * 1024 * 1024,
 			ValidateStrict:     true,
 			ValidateNoWarnings: false,
 		}

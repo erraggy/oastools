@@ -2,8 +2,10 @@ package httpvalidator
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -275,7 +277,15 @@ paths:
 		result, err := v.ValidateRequest(req)
 		require.NoError(t, err)
 		assert.False(t, result.Valid)
-		assert.Contains(t, result.Errors[0].Message, "required")
+		// With nil/empty body, the JSON validator reports "request body is empty"
+		// rather than the old "required but missing" since we no longer short-circuit
+		// on ContentLength==0 (which caused false negatives for chunked transfers).
+		require.NotEmpty(t, result.Errors)
+		assert.True(t,
+			strings.Contains(result.Errors[0].Message, "required") ||
+				strings.Contains(result.Errors[0].Message, "empty"),
+			"expected error about required or empty body, got: %s", result.Errors[0].Message,
+		)
 	})
 
 	t.Run("returns error for invalid JSON", func(t *testing.T) {
@@ -699,6 +709,327 @@ func TestValidator_MatchPath_NilMatcherSet(t *testing.T) {
 	assert.False(t, found)
 	assert.Empty(t, template)
 	assert.Nil(t, params)
+}
+
+// =============================================================================
+// truncateForError Tests
+// =============================================================================
+
+func TestTruncateForError(t *testing.T) {
+	t.Run("short string unchanged", func(t *testing.T) {
+		assert.Equal(t, "short", truncateForError("short", 200))
+	})
+
+	t.Run("exact length unchanged", func(t *testing.T) {
+		s := strings.Repeat("x", 200)
+		assert.Equal(t, s, truncateForError(s, 200))
+	})
+
+	t.Run("long string truncated with ellipsis", func(t *testing.T) {
+		long := strings.Repeat("x", 300)
+		got := truncateForError(long, 200)
+		assert.Equal(t, 203, len(got)) // 200 + "..."
+		assert.True(t, strings.HasSuffix(got, "..."))
+	})
+
+	t.Run("empty string unchanged", func(t *testing.T) {
+		assert.Equal(t, "", truncateForError("", 200))
+	})
+
+	t.Run("maxLen zero truncates everything", func(t *testing.T) {
+		assert.Equal(t, "...", truncateForError("hello", 0))
+	})
+}
+
+// =============================================================================
+// Error message sanitization tests
+// =============================================================================
+
+func TestValidateRequest_PathSanitized(t *testing.T) {
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /pets:
+    get:
+      responses:
+        "200":
+          description: OK
+`)
+	v, _ := New(parsed)
+
+	t.Run("long path is truncated in error", func(t *testing.T) {
+		longPath := "/" + strings.Repeat("x", 300)
+		req := httptest.NewRequest("GET", longPath, nil)
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.False(t, result.Valid)
+		require.NotEmpty(t, result.Errors)
+		// Error path should use static key, not raw user input
+		assert.Equal(t, "request.path", result.Errors[0].Path)
+		// Error message should be truncated and quoted
+		assert.Contains(t, result.Errors[0].Message, "...")
+		assert.Less(t, len(result.Errors[0].Message), 300)
+	})
+}
+
+func TestValidateRequest_ContentTypeSanitized(t *testing.T) {
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /test:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+`)
+	v, _ := New(parsed)
+
+	t.Run("invalid Content-Type is quoted and truncated", func(t *testing.T) {
+		body := bytes.NewBufferString(`{"test": true}`)
+		req := httptest.NewRequest("POST", "/test", body)
+		longCT := "invalid/" + strings.Repeat("x", 300) + ";;;"
+		req.Header.Set("Content-Type", longCT)
+
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.False(t, result.Valid)
+		require.NotEmpty(t, result.Errors)
+		// Should contain quoted truncated value
+		assert.Contains(t, result.Errors[0].Message, "...")
+		assert.Contains(t, result.Errors[0].Message, "invalid Content-Type")
+	})
+
+	t.Run("unsupported Content-Type is quoted in strict mode", func(t *testing.T) {
+		v.StrictMode = true
+		defer func() { v.StrictMode = false }()
+
+		body := bytes.NewBufferString(`<xml>test</xml>`)
+		req := httptest.NewRequest("POST", "/test", body)
+		req.Header.Set("Content-Type", "application/xml")
+
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.False(t, result.Valid)
+		require.NotEmpty(t, result.Errors)
+		// The media type should be quoted with %q
+		assert.Contains(t, result.Errors[0].Message, `"application/xml"`)
+	})
+}
+
+// =============================================================================
+// Validation Flags Snapshot Tests
+// =============================================================================
+
+// mutatingReader is a reader that flips Validator fields when Read is called,
+// simulating a concurrent mutation during validation.
+type mutatingReader struct {
+	data    []byte
+	offset  int
+	mutateF func()
+	mutated bool
+}
+
+func (r *mutatingReader) Read(p []byte) (int, error) {
+	if !r.mutated {
+		r.mutateF()
+		r.mutated = true
+	}
+	if r.offset >= len(r.data) {
+		return 0, io.EOF
+	}
+	n := copy(p, r.data[r.offset:])
+	r.offset += n
+	return n, nil
+}
+
+func TestValidateRequest_SnapshotStrictMode(t *testing.T) {
+	// Verify that StrictMode is snapshotted at the start of ValidateRequest,
+	// so a concurrent mutation after the method begins does not affect
+	// the in-flight validation.
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /test:
+    post:
+      parameters:
+        - name: known
+          in: query
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+`)
+	v, err := New(parsed)
+	require.NoError(t, err)
+
+	// Start with StrictMode enabled -- unknown query params should be rejected.
+	v.StrictMode = true
+
+	// The mutating reader flips StrictMode to false when the body is read.
+	// Body reading happens AFTER query param validation, but within the
+	// same ValidateRequest call. If the snapshot works, the query param
+	// validation already captured StrictMode=true and will reject the
+	// unknown parameter regardless of the mutation.
+	body := &mutatingReader{
+		data: []byte(`{"ok": true}`),
+		mutateF: func() {
+			v.StrictMode = false
+		},
+	}
+
+	req := httptest.NewRequest("POST", "/test?known=a&unknown=b", body)
+	req.Header.Set("Content-Type", "application/json")
+
+	result, err := v.ValidateRequest(req)
+	require.NoError(t, err)
+
+	// The unknown query param should still cause an error because StrictMode
+	// was true when ValidateRequest began (before the reader flipped it).
+	assert.False(t, result.Valid, "expected validation to fail for unknown query param")
+	hasUnknownQueryErr := false
+	for _, e := range result.Errors {
+		if containsSubstring(e.Message, "unknown query parameter") {
+			hasUnknownQueryErr = true
+			break
+		}
+	}
+	assert.True(t, hasUnknownQueryErr,
+		"expected 'unknown query parameter' error despite StrictMode being flipped during body read; errors: %v",
+		result.Errors)
+}
+
+func TestValidateRequest_SnapshotIncludeWarnings(t *testing.T) {
+	// Verify that IncludeWarnings is snapshotted at the start of ValidateRequest.
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /test:
+    post:
+      parameters:
+        - name: flag
+          in: query
+          allowEmptyValue: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+`)
+	v, err := New(parsed)
+	require.NoError(t, err)
+
+	// Start with IncludeWarnings enabled
+	v.IncludeWarnings = true
+
+	// The mutating reader flips IncludeWarnings to false during body read.
+	body := &mutatingReader{
+		data: []byte(`{"ok": true}`),
+		mutateF: func() {
+			v.IncludeWarnings = false
+		},
+	}
+
+	req := httptest.NewRequest("POST", "/test?flag=", body)
+	req.Header.Set("Content-Type", "application/json")
+
+	result, err := v.ValidateRequest(req)
+	require.NoError(t, err)
+
+	// The empty value warning should still be present because IncludeWarnings
+	// was true when ValidateRequest began.
+	hasEmptyWarning := false
+	for _, w := range result.Warnings {
+		if containsSubstring(w.Message, "empty value") {
+			hasEmptyWarning = true
+			break
+		}
+	}
+	assert.True(t, hasEmptyWarning,
+		"expected 'empty value' warning despite IncludeWarnings being flipped during body read; warnings: %v",
+		result.Warnings)
+}
+
+func TestValidateResponse_SnapshotStrictMode(t *testing.T) {
+	// Verify that StrictMode is snapshotted at the start of ValidateResponse.
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /test:
+    get:
+      responses:
+        "200":
+          description: OK
+`)
+	v, err := New(parsed)
+	require.NoError(t, err)
+
+	// Start with StrictMode enabled -- undocumented status codes should error.
+	v.StrictMode = true
+
+	// The mutating reader flips StrictMode to false when the response body is read.
+	body := &mutatingReader{
+		data: []byte(`{"error": "not found"}`),
+		mutateF: func() {
+			v.StrictMode = false
+		},
+	}
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	resp := &http.Response{
+		StatusCode: 404, // Undocumented status code
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(body),
+	}
+
+	result, err := v.ValidateResponse(req, resp)
+	require.NoError(t, err)
+
+	// The undocumented status code should still cause an error because
+	// StrictMode was true when ValidateResponse began.
+	assert.False(t, result.Valid, "expected validation to fail for undocumented status code")
+	hasUndocumentedErr := false
+	for _, e := range result.Errors {
+		if containsSubstring(e.Message, "undocumented") {
+			hasUndocumentedErr = true
+			break
+		}
+	}
+	assert.True(t, hasUndocumentedErr,
+		"expected 'undocumented' error despite StrictMode being flipped during body read; errors: %v",
+		result.Errors)
 }
 
 // Helper to create an io.ReadCloser from a string

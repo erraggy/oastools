@@ -444,7 +444,11 @@ func (cg *oas3CodeGenerator) buildOneOfTypeDefinition(typeName, originalName str
 	if schema.Discriminator != nil && schema.Discriminator.PropertyName != "" {
 		oneOfData.Discriminator = schema.Discriminator.PropertyName
 		oneOfData.DiscriminatorField = toFieldName(schema.Discriminator.PropertyName)
-		oneOfData.DiscriminatorJSONName = schema.Discriminator.PropertyName
+		// Sanitize the discriminator property name to prevent injection in generated code
+		jsonName := schema.Discriminator.PropertyName
+		jsonName = strings.ReplaceAll(jsonName, `"`, "")
+		jsonName = strings.ReplaceAll(jsonName, "`", "")
+		oneOfData.DiscriminatorJSONName = jsonName
 		oneOfData.HasUnmarshal = true
 
 		// Build unmarshal cases from discriminator mapping

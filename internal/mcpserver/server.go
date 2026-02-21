@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -140,6 +141,9 @@ func paginate[T any](items []T, offset, limit int) []T {
 	if limit <= 0 {
 		limit = cfg.WalkLimit
 	}
+	if limit > cfg.MaxLimit {
+		limit = cfg.MaxLimit
+	}
 	if offset < 0 || offset >= len(items) {
 		return nil
 	}
@@ -169,11 +173,22 @@ func makeSlice[T any](n int) []T {
 	return make([]T, 0, n)
 }
 
+// sanitizeError strips absolute filesystem paths from error messages
+// to prevent leaking internal directory structure to MCP clients.
+var pathPattern = regexp.MustCompile(`(?:/[a-zA-Z0-9._-]+){2,}`)
+
+func sanitizeError(err error) string {
+	if err == nil {
+		return ""
+	}
+	return pathPattern.ReplaceAllString(err.Error(), "<path>")
+}
+
 // errResult creates an MCP error result from an error.
 func errResult(err error) *mcp.CallToolResult {
 	return &mcp.CallToolResult{
 		IsError: true,
-		Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
+		Content: []mcp.Content{&mcp.TextContent{Text: sanitizeError(err)}},
 	}
 }
 

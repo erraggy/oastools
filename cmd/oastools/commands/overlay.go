@@ -237,6 +237,10 @@ func handleOverlayApply(args []string) error {
 
 	if flags.Output != "" {
 		cleanedOutput := filepath.Clean(flags.Output)
+		// Reject symlinks to prevent symlink attacks
+		if err := RejectSymlinkOutput(cleanedOutput); err != nil {
+			return err
+		}
 		if err := os.WriteFile(cleanedOutput, data, 0600); err != nil { //nolint:gosec // G703 - output path is user-provided CLI flag
 			return fmt.Errorf("writing output file: %w", err)
 		}

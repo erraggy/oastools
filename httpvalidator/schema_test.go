@@ -680,3 +680,49 @@ func TestTypeMatches(t *testing.T) {
 		assert.Equal(t, tt.expected, result, "typeMatches(%q, %q)", tt.dataType, tt.schemaType)
 	}
 }
+
+func TestAdditionalPropertiesFalse(t *testing.T) {
+	sv := NewSchemaValidator()
+	schema := &parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"name": {Type: "string"},
+			"age":  {Type: "integer"},
+		},
+		AdditionalProperties: false,
+	}
+
+	// Object with an extra property should fail
+	obj := map[string]any{"name": "Alice", "age": float64(30), "extra": "bad"}
+	errors := sv.Validate(obj, schema, "test")
+	assert.NotEmpty(t, errors, "expected error for additional property 'extra'")
+
+	// Verify the error mentions the extra property
+	found := false
+	for _, e := range errors {
+		if e.Path == "test.extra" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected error path 'test.extra', got: %v", errors)
+
+	// Valid object (no extra props) should pass
+	validObj := map[string]any{"name": "Alice", "age": float64(30)}
+	errors2 := sv.Validate(validObj, schema, "test")
+	assert.Empty(t, errors2, "valid object should have no errors")
+
+	// additionalProperties: true should allow extra properties
+	schemaAllowed := &parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"name": {Type: "string"},
+		},
+		AdditionalProperties: true,
+	}
+	errors3 := sv.Validate(obj, schemaAllowed, "test")
+	// Should not have additionalProperties errors (may have type errors for "age" since it's not defined)
+	for _, e := range errors3 {
+		assert.NotContains(t, e.Message, "additional property", "additionalProperties: true should not reject extra properties")
+	}
+}

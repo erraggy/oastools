@@ -912,6 +912,70 @@ func TestResolveHTTP_NegativeTTLDisablesCache(t *testing.T) {
 	}
 }
 
+// TestResolveRelativeURLSameOrigin tests that resolveRelativeURL enforces same-origin policy.
+func TestResolveRelativeURLSameOrigin(t *testing.T) {
+	tests := []struct {
+		name    string
+		baseURL string
+		ref     string
+		wantErr bool
+		wantURL string
+	}{
+		{
+			name:    "same host relative path",
+			baseURL: "https://example.com/api/spec.yaml",
+			ref:     "components.yaml",
+			wantErr: false,
+			wantURL: "https://example.com/api/components.yaml",
+		},
+		{
+			name:    "same host with subdirectory",
+			baseURL: "https://example.com/api/v1/spec.yaml",
+			ref:     "../common/schemas.yaml",
+			wantErr: false,
+			wantURL: "https://example.com/api/common/schemas.yaml",
+		},
+		{
+			name:    "same host with fragment",
+			baseURL: "https://example.com/api/spec.yaml",
+			ref:     "schemas.yaml#/components/schemas/Pet",
+			wantErr: false,
+			wantURL: "https://example.com/api/schemas.yaml#/components/schemas/Pet",
+		},
+		{
+			name:    "cross-origin absolute URL rejected",
+			baseURL: "https://example.com/api/spec.yaml",
+			ref:     "https://evil.com/malicious.yaml",
+			wantErr: true,
+		},
+		{
+			name:    "cross-origin different subdomain rejected",
+			baseURL: "https://api.example.com/spec.yaml",
+			ref:     "https://evil.example.com/schemas.yaml",
+			wantErr: true,
+		},
+		{
+			name:    "cross-origin different port rejected",
+			baseURL: "https://example.com/spec.yaml",
+			ref:     "https://example.com:9999/schemas.yaml",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RefResolver{baseURL: tt.baseURL}
+			got, err := r.resolveRelativeURL(tt.ref)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "cross-origin")
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantURL, got)
+			}
+		})
+	}
+}
+
 // TestResolveHTTP_ZeroTTLCachesForever tests that zero TTL caches forever (default).
 func TestResolveHTTP_ZeroTTLCachesForever(t *testing.T) {
 	fetchCount := 0

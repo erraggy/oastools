@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -47,6 +48,16 @@ func handleJoin(_ context.Context, _ *mcp.CallToolRequest, input joinInput) (*mc
 
 	if len(input.Specs) < 2 {
 		return errResult(fmt.Errorf("at least 2 specs are required for joining, got %d", len(input.Specs))), joinOutput{}, nil
+	}
+	if len(input.Specs) > cfg.MaxJoinSpecs {
+		return errResult(fmt.Errorf("too many specs: got %d, maximum is %d",
+			len(input.Specs), cfg.MaxJoinSpecs)), joinOutput{}, nil
+	}
+	if input.PathStrategy != "" && !validJoinStrategies[input.PathStrategy] {
+		return errResult(fmt.Errorf("invalid path_strategy: %q", input.PathStrategy)), joinOutput{}, nil
+	}
+	if input.SchemaStrategy != "" && !validJoinStrategies[input.SchemaStrategy] {
+		return errResult(fmt.Errorf("invalid schema_strategy: %q", input.SchemaStrategy)), joinOutput{}, nil
 	}
 
 	// Resolve all specs.
@@ -108,10 +119,14 @@ func handleJoin(_ context.Context, _ *mcp.CallToolRequest, input joinInput) (*mc
 	}
 
 	if input.Output != "" {
-		if err := os.WriteFile(input.Output, data, 0o644); err != nil {
+		cleanPath, pathErr := pathutil.SanitizeOutputPath(input.Output)
+		if pathErr != nil {
+			return errResult(fmt.Errorf("invalid output path: %w", pathErr)), joinOutput{}, nil
+		}
+		if err := os.WriteFile(cleanPath, data, 0o600); err != nil {
 			return errResult(fmt.Errorf("failed to write output file: %w", err)), joinOutput{}, nil
 		}
-		output.WrittenTo = input.Output
+		output.WrittenTo = cleanPath
 	} else {
 		output.Document = string(data)
 	}

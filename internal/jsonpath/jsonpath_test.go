@@ -929,3 +929,51 @@ func TestPathString(t *testing.T) {
 		})
 	}
 }
+
+// TestRecursiveDescentDepthLimit verifies that recursiveDescend stops at
+// maxRecursionDepth and does not stack overflow on deeply nested structures.
+func TestRecursiveDescentDepthLimit(t *testing.T) {
+	// Build a deeply nested structure (600 levels, exceeding the 500 cap).
+	var node any = "leaf"
+	for range 600 {
+		node = map[string]any{"nested": node}
+	}
+
+	// Use a child segment that matches the "nested" key at every level.
+	child := ChildSegment{Key: "nested"}
+	results := recursiveDescend(node, child, 0)
+
+	// Should not panic or stack overflow; results are capped by depth limit.
+	assert.LessOrEqual(t, len(results), 501)
+	assert.Greater(t, len(results), 0, "expected some results before hitting depth cap")
+}
+
+// TestRecursiveDescentDepthLimit_nilChild verifies the depth cap when
+// recursiveDescend delegates to collectAllDescendants (nil child segment).
+func TestRecursiveDescentDepthLimit_nilChild(t *testing.T) {
+	var node any = "leaf"
+	for range 600 {
+		node = map[string]any{"nested": node}
+	}
+
+	results := recursiveDescend(node, nil, 0)
+
+	assert.LessOrEqual(t, len(results), 501)
+	assert.Greater(t, len(results), 0, "expected some results before hitting depth cap")
+}
+
+// TestCollectAllDescendantsDepthLimit verifies that collectAllDescendants
+// stops at maxRecursionDepth on deeply nested structures.
+func TestCollectAllDescendantsDepthLimit(t *testing.T) {
+	var node any = "leaf"
+	for range 600 {
+		node = map[string]any{"nested": node}
+	}
+
+	var results []any
+	collectAllDescendants(node, &results, 0)
+
+	// Each level adds one value; depth cap at 500 means at most ~501 entries.
+	assert.LessOrEqual(t, len(results), 501)
+	assert.Greater(t, len(results), 0, "expected some results before hitting depth cap")
+}

@@ -35,7 +35,7 @@ type ClientOption func(*Client) error
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	c := &Client{
 		BaseURL:    strings.TrimSuffix(baseURL, "/"),
-		HTTPClient: http.DefaultClient,
+		HTTPClient: &http.Client{Timeout: 30 * time.Second},
 		UserAgent:  {{.DefaultUserAgent | quote}},
 	}
 	for _, opt := range opts {

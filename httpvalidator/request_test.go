@@ -236,6 +236,21 @@ paths:
 
 		assert.True(t, result.Valid)
 	})
+
+	t.Run("decodes URL-encoded form values", func(t *testing.T) {
+		result := newRequestResult()
+		schema := &parser.Schema{
+			Type: "object",
+			Properties: map[string]*parser.Schema{
+				"key name":  {Type: "string"},
+				"other key": {Type: "string"},
+			},
+		}
+		// key%20name=value%3D123&other%20key=hello%26world
+		v.validateFormBody([]byte("key%20name=value%3D123&other%20key=hello%26world"), schema, "/test", nil, result)
+
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
+	})
 }
 
 // =============================================================================
@@ -327,6 +342,16 @@ paths:
 		v.validateFormDataParams([]byte("username"), "/upload", op, result)
 		// username is present but with empty value
 		assert.True(t, result.Valid)
+	})
+
+	t.Run("direct validateFormDataParams decodes URL-encoded values", func(t *testing.T) {
+		result := newRequestResult()
+		op := v.getOperation("/upload", "POST")
+		require.NotNil(t, op)
+
+		// username=john%20doe&email=john%40example.com
+		v.validateFormDataParams([]byte("username=john%20doe&email=john%40example.com"), "/upload", op, result)
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
 	})
 }
 
@@ -786,8 +811,19 @@ paths:
 
 		result, err := v.ValidateRequest(req)
 		require.NoError(t, err)
-		// Body is required but empty - this returns an error
-		assert.False(t, result.Valid)
+		// An empty body with a Content-Type header is present-but-empty.
+		// For text/plain, the validator issues a warning (not error).
+		// The body nil check no longer uses ContentLength==0 because
+		// that caused false negatives for chunked transfers (ContentLength=-1).
+		assert.True(t, result.Valid, "expected valid result with warning only, errors: %v", result.Errors)
+		hasEmptyWarning := false
+		for _, w := range result.Warnings {
+			if containsSubstring(w.Message, "empty") {
+				hasEmptyWarning = true
+				break
+			}
+		}
+		assert.True(t, hasEmptyWarning, "expected empty body warning, warnings: %v", result.Warnings)
 	})
 
 	t.Run("unsupported content type in strict mode", func(t *testing.T) {
@@ -1032,6 +1068,123 @@ paths:
 		assert.False(t, result.Valid)
 		// Should have multiple errors: invalid path param type, missing header, missing cookie, missing required field
 		assert.GreaterOrEqual(t, len(result.Errors), 3, "errors: %v", result.Errors)
+	})
+}
+
+// =============================================================================
+// Request Body Size Limit Tests
+// =============================================================================
+
+func TestRequestBodySizeLimit(t *testing.T) {
+	parsed := mustParse(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /test:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+`)
+
+	t.Run("rejects request body exceeding max size", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		v.maxBodySize = 512
+
+		// Create a body larger than 512 bytes
+		largeBody := bytes.Repeat([]byte("x"), 600)
+		req := httptest.NewRequest("POST", "/test", bytes.NewReader(largeBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.False(t, result.Valid)
+		require.NotEmpty(t, result.Errors)
+		hasBodySizeError := false
+		for _, e := range result.Errors {
+			if containsSubstring(e.Message, "exceeds maximum") {
+				hasBodySizeError = true
+				break
+			}
+		}
+		assert.True(t, hasBodySizeError, "expected body size error, got: %v", result.Errors)
+	})
+
+	t.Run("allows request body within max size", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		v.maxBodySize = 512
+
+		smallBody := []byte(`{"name": "test"}`)
+		req := httptest.NewRequest("POST", "/test", bytes.NewReader(smallBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
+	})
+
+	t.Run("uses default max size when not configured", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		// maxBodySize is 0, should use default (10 MiB)
+
+		smallBody := []byte(`{"name": "test"}`)
+		req := httptest.NewRequest("POST", "/test", bytes.NewReader(smallBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
+	})
+
+	t.Run("body exactly at max size is allowed", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		v.maxBodySize = 20
+
+		// Exactly 20 bytes of JSON
+		exactBody := []byte(`{"a":"0123456789ab"}`)
+		require.Equal(t, 20, len(exactBody))
+		req := httptest.NewRequest("POST", "/test", bytes.NewReader(exactBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.True(t, result.Valid, "errors: %v", result.Errors)
+	})
+
+	t.Run("body one byte over max size is rejected", func(t *testing.T) {
+		v, err := New(parsed)
+		require.NoError(t, err)
+		v.maxBodySize = 20
+
+		// 21 bytes of body
+		overBody := []byte(`{"a":"0123456789abc"}`)
+		require.Equal(t, 21, len(overBody))
+		req := httptest.NewRequest("POST", "/test", bytes.NewReader(overBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := v.ValidateRequest(req)
+		require.NoError(t, err)
+		assert.False(t, result.Valid)
+		hasBodySizeError := false
+		for _, e := range result.Errors {
+			if containsSubstring(e.Message, "exceeds maximum") {
+				hasBodySizeError = true
+				break
+			}
+		}
+		assert.True(t, hasBodySizeError, "expected body size error, got: %v", result.Errors)
 	})
 }
 

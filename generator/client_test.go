@@ -725,8 +725,8 @@ paths:
 
 func TestGenerateClientWithTimeImport_RequestBody(t *testing.T) {
 	// Test that client generates correctly when request body uses date-time format.
-	// Note: The client uses map[string]any for bodies, so time import is not needed.
-	// With imports.Process(), unused imports are automatically removed.
+	// The time import is always present because the client constructor uses time.Second
+	// for the default HTTP client timeout.
 	spec := `openapi: "3.0.0"
 info:
   title: Test API
@@ -766,15 +766,16 @@ paths:
 	content := string(clientFile.Content)
 
 	// The generated client uses map[string]any for request body, not typed structs.
-	// Therefore, time import is not needed (and is removed by imports.Process()).
+	// The time import IS present because the client constructor uses time.Second for the default timeout.
 	assert.Contains(t, content, "body map[string]any", "request body should use map[string]any")
-	assert.NotContains(t, content, `"time"`, "time import should not be present when not used")
+	assert.Contains(t, content, `"time"`, "time import should be present for client timeout")
+	assert.Contains(t, content, "30 * time.Second", "client should have a 30s default timeout")
 }
 
 func TestGenerateClientWithTimeImport_Response(t *testing.T) {
 	// Test that client generates correctly when response uses date-time format.
-	// Note: The client uses map[string]any for responses, so time import is not needed.
-	// With imports.Process(), unused imports are automatically removed.
+	// The time import is always present because the client constructor uses time.Second
+	// for the default HTTP client timeout.
 	spec := `openapi: "3.0.0"
 info:
   title: Test API
@@ -812,15 +813,16 @@ paths:
 	content := string(clientFile.Content)
 
 	// The generated client uses map[string]any for responses, not typed structs.
-	// Therefore, time import is not needed (and is removed by imports.Process()).
+	// The time import IS present because the client constructor uses time.Second for the default timeout.
 	assert.Contains(t, content, "map[string]any", "response should use map[string]any")
-	assert.NotContains(t, content, `"time"`, "time import should not be present when not used")
+	assert.Contains(t, content, `"time"`, "time import should be present for client timeout")
+	assert.Contains(t, content, "30 * time.Second", "client should have a 30s default timeout")
 }
 
 func TestGenerateClientWithTimeImport_DefaultResponse(t *testing.T) {
 	// Test that client generates correctly when default response uses date-time format.
-	// Note: The client uses map[string]any for responses, so time import is not needed.
-	// With imports.Process(), unused imports are automatically removed.
+	// The time import is always present because the client constructor uses time.Second
+	// for the default HTTP client timeout.
 	spec := `openapi: "3.0.0"
 info:
   title: Test API
@@ -860,13 +862,15 @@ paths:
 	content := string(clientFile.Content)
 
 	// The generated client uses map[string]any for responses, not typed structs.
-	// Therefore, time import is not needed (and is removed by imports.Process()).
+	// The time import IS present because the client constructor uses time.Second for the default timeout.
 	assert.Contains(t, content, "map[string]any", "response should use map[string]any")
-	assert.NotContains(t, content, `"time"`, "time import should not be present when not used")
+	assert.Contains(t, content, `"time"`, "time import should be present for client timeout")
+	assert.Contains(t, content, "30 * time.Second", "client should have a 30s default timeout")
 }
 
 func TestGenerateClientWithoutTimeImport(t *testing.T) {
-	// Test that time is NOT imported when no date-time fields exist
+	// Test that time IS imported even when no date-time fields exist,
+	// because the client constructor uses time.Second for the default HTTP client timeout.
 	spec := `openapi: "3.0.0"
 info:
   title: Test API
@@ -907,7 +911,9 @@ paths:
 	require.NotNil(t, clientFile, "expected client.go to be generated")
 	content := string(clientFile.Content)
 
-	assert.NotContains(t, content, `"time"`, "client.go should NOT import time package")
+	// time import IS present because the client constructor uses time.Second for the default timeout.
+	assert.Contains(t, content, `"time"`, "time import should be present for client timeout")
+	assert.Contains(t, content, "30 * time.Second", "client should have a 30s default timeout")
 }
 
 func TestGenerateServerWithTimeImport(t *testing.T) {

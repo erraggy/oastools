@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/erraggy/oastools/internal/stringutil"
 	"github.com/erraggy/oastools/parser"
@@ -14,8 +16,11 @@ import (
 // It implements a minimal subset of JSON Schema validation suitable for
 // validating HTTP request and response bodies.
 type SchemaValidator struct {
-	// patternCache caches compiled regex patterns
-	patternCache map[string]*regexp.Regexp
+	// patternCache caches compiled regex patterns (sync.Map[string, *regexp.Regexp])
+	patternCache sync.Map
+
+	// patternCount tracks the approximate number of cached patterns for size capping
+	patternCount atomic.Int32
 
 	// redactValues controls whether actual values appear in error messages.
 	// When true, error messages describe the violation without exposing the value.
@@ -25,9 +30,7 @@ type SchemaValidator struct {
 
 // NewSchemaValidator creates a new SchemaValidator.
 func NewSchemaValidator() *SchemaValidator {
-	return &SchemaValidator{
-		patternCache: make(map[string]*regexp.Regexp),
-	}
+	return &SchemaValidator{}
 }
 
 // NewRedactingSchemaValidator creates a SchemaValidator that omits actual values
@@ -35,7 +38,6 @@ func NewSchemaValidator() *SchemaValidator {
 // HTTP headers that may contain credentials.
 func NewRedactingSchemaValidator() *SchemaValidator {
 	return &SchemaValidator{
-		patternCache: make(map[string]*regexp.Regexp),
 		redactValues: true,
 	}
 }
@@ -344,6 +346,19 @@ func (v *SchemaValidator) validateObject(obj map[string]any, schema *parser.Sche
 		}
 	}
 
+	// additionalProperties enforcement
+	if allowed, ok := schema.AdditionalProperties.(bool); ok && !allowed {
+		for name := range obj {
+			if _, defined := schema.Properties[name]; !defined {
+				errors = append(errors, ValidationError{
+					Path:     path + "." + name,
+					Message:  fmt.Sprintf("additional property %q is not allowed", name),
+					Severity: SeverityError,
+				})
+			}
+		}
+	}
+
 	return errors
 }
 
@@ -498,17 +513,32 @@ func (v *SchemaValidator) validateFormat(s, format, path string) []ValidationErr
 	return nil
 }
 
+// maxPatternCacheSize is the upper bound on cached compiled regex patterns.
+// When exceeded, the cache is cleared to prevent unbounded memory growth
+// from specs with many unique patterns.
+const maxPatternCacheSize = 1000
+
 // matchPattern compiles and matches a regex pattern.
 func (v *SchemaValidator) matchPattern(pattern, s string) (bool, error) {
-	re, ok := v.patternCache[pattern]
-	if !ok {
-		var err error
-		re, err = regexp.Compile(pattern)
-		if err != nil {
-			return false, err
-		}
-		v.patternCache[pattern] = re
+	if cached, ok := v.patternCache.Load(pattern); ok {
+		return cached.(*regexp.Regexp).MatchString(s), nil
 	}
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return false, err
+	}
+
+	// Size cap: if cache exceeds limit, clear and start fresh.
+	// This prevents unbounded growth from specs with many unique patterns.
+	if v.patternCount.Add(1) > maxPatternCacheSize {
+		v.patternCache.Range(func(key, _ any) bool {
+			v.patternCache.Delete(key)
+			return true
+		})
+		v.patternCount.Store(1)
+	}
+	v.patternCache.Store(pattern, re)
 	return re.MatchString(s), nil
 }
 

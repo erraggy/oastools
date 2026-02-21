@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -264,4 +265,23 @@ func TestSpecCache_Sweeper(t *testing.T) {
 
 		assert.Equal(t, 0, c.size(), "sweeper should have removed expired entry")
 	})
+}
+
+func TestInlineContentSizeLimit(t *testing.T) {
+	// Default MaxInlineSize is 10 MiB; 11 MiB should be rejected.
+	huge := strings.Repeat("a", 11*1024*1024)
+	s := specInput{Content: huge}
+	_, err := s.resolve()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum")
+}
+
+func TestInlineContentSizeLimit_UnderLimit(t *testing.T) {
+	// Content under the limit should not be rejected by the size check.
+	// It will fail parsing (not valid OAS), but the error should not mention "exceeds maximum".
+	small := strings.Repeat("a", 100)
+	s := specInput{Content: small}
+	_, err := s.resolve()
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "exceeds maximum")
 }

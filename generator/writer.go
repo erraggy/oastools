@@ -15,7 +15,11 @@ func (r *GenerateResult) WriteFiles(outputDir string) error {
 	}
 
 	for _, file := range r.Files {
-		filePath := filepath.Join(outputDir, file.Name)
+		safeName := filepath.Base(file.Name)
+		if safeName != file.Name {
+			return fmt.Errorf("invalid file name %q: must not contain path separators", file.Name)
+		}
+		filePath := filepath.Join(outputDir, safeName)
 		if err := os.WriteFile(filePath, file.Content, 0644); err != nil {
 			return fmt.Errorf("failed to write file %s: %w", file.Name, err)
 		}

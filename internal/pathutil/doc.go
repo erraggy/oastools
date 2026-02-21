@@ -47,4 +47,14 @@
 //
 //	ref := pathutil.ParameterRef("limit", true)   // "#/parameters/limit" (OAS 2.0)
 //	ref := pathutil.ParameterRef("limit", false)  // "#/components/parameters/limit" (OAS 3.x)
+//
+// # Output Path Sanitization
+//
+// [SanitizeOutputPath] validates and cleans output file paths for security.
+// It rejects directory traversal ("..") and symlinks:
+//
+//	safe, err := pathutil.SanitizeOutputPath(userProvidedPath)
+//	if err != nil {
+//	    return err // path traversal or symlink detected
+//	}
 package pathutil

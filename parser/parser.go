@@ -53,6 +53,9 @@ type Parser struct {
 	// MaxFileSize is the maximum file size in bytes for external references.
 	// Default: 10MB
 	MaxFileSize int64
+	// MaxInputSize is the maximum input size in bytes for the primary document.
+	// Applies to ParseReader and ParseBytes. Default: 100 MiB
+	MaxInputSize int64
 	// BuildSourceMap enables source location tracking during parsing.
 	// When enabled, the ParseResult.SourceMap will contain line/column
 	// information for each JSON path in the document.
@@ -340,14 +343,35 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 	return res, nil
 }
 
+// defaultMaxInputSize is the default maximum input size (100 MiB) applied to
+// ParseReader, ParseBytes, and fetchURL when MaxInputSize is not configured.
+const defaultMaxInputSize int64 = 100 * 1024 * 1024
+
+// maxInputSizeOrDefault returns the configured MaxInputSize, or defaultMaxInputSize if unset.
+func (p *Parser) maxInputSizeOrDefault() int64 {
+	if p.MaxInputSize > 0 {
+		return p.MaxInputSize
+	}
+	return defaultMaxInputSize
+}
+
 // ParseReader parses an OpenAPI specification from an io.Reader
 // Note: since there is no actual ParseResult.SourcePath, it will be set to: ParseReader.yaml or ParseReader.json
 func (p *Parser) ParseReader(r io.Reader) (*ParseResult, error) {
+	maxSize := p.maxInputSizeOrDefault()
 	loadStart := time.Now()
-	data, err := io.ReadAll(r)
+	// Use maxSize+1 to detect oversized input, but cap to avoid int64 overflow.
+	readLimit := maxSize + 1
+	if readLimit <= 0 { // overflow: maxSize == math.MaxInt64
+		readLimit = maxSize
+	}
+	data, err := io.ReadAll(io.LimitReader(r, readLimit))
 	loadTime := time.Since(loadStart)
 	if err != nil {
 		return nil, fmt.Errorf("parser: failed to read data: %w", err)
+	}
+	if int64(len(data)) > maxSize {
+		return nil, fmt.Errorf("parser: input size %d bytes exceeds maximum %d bytes", len(data), maxSize)
 	}
 	res, err := p.ParseBytes(data)
 	if err != nil {
@@ -371,6 +395,10 @@ func (p *Parser) ParseReader(r io.Reader) (*ParseResult, error) {
 // For external references to work, use Parse() with a file path instead
 // Note: since there is no actual ParseResult.SourcePath, it will be set to: ParseBytes.yaml or ParseBytes.json
 func (p *Parser) ParseBytes(data []byte) (*ParseResult, error) {
+	maxSize := p.maxInputSizeOrDefault()
+	if int64(len(data)) > maxSize {
+		return nil, fmt.Errorf("parser: input size %d bytes exceeds maximum %d bytes", len(data), maxSize)
+	}
 	res, err := p.parseBytesWithBaseDir(data, ".")
 	if err != nil {
 		return nil, err

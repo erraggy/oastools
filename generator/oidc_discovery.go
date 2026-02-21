@@ -151,7 +151,7 @@ func WithOIDCCacheTTL(ttl time.Duration) OIDCDiscoveryOption {
 func NewOIDCDiscoveryClient(discoveryURL string, opts ...OIDCDiscoveryOption) *OIDCDiscoveryClient {
 	c := &OIDCDiscoveryClient{
 		discoveryURL: discoveryURL,
-		httpClient:   http.DefaultClient,
+		httpClient:   &http.Client{Timeout: 30 * time.Second},
 		cacheTTL:     time.Hour,
 	}
 	for _, opt := range opts {
