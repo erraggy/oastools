@@ -692,7 +692,7 @@ func BenchmarkExtractExtensions_NoExtensions(b *testing.B) {
 	}`)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		ExtractExtensions(data)
 	}
 }
@@ -712,7 +712,7 @@ func BenchmarkExtractExtensions_WithExtensions(b *testing.B) {
 	}`)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		ExtractExtensions(data)
 	}
 }
@@ -728,7 +728,7 @@ func BenchmarkExtractExtensions_FalsePositive(b *testing.B) {
 	}`)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		ExtractExtensions(data)
 	}
 }

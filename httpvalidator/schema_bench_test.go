@@ -9,8 +9,10 @@ func BenchmarkMatchPattern(b *testing.B) {
 		`^\w+@\w+\.\w+$`, `^https?://`, `^\d+\.\d+\.\d+$`,
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
 		pattern := patterns[i%len(patterns)]
 		_, _ = sv.matchPattern(pattern, "test-value-123")
+		i++
 	}
 }
