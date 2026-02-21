@@ -294,12 +294,12 @@ func WithMaxCachedDocuments(count int) Option {
 // This prevents resource exhaustion from loading arbitrarily large files.
 // A value of 0 means use the default (10MB).
 // Returns an error if size is negative.
-func WithMaxFileSize(size int64) Option {
+func WithMaxFileSize(size int) Option {
 	return func(cfg *parseConfig) error {
 		if size < 0 {
 			return fmt.Errorf("parser: maxFileSize cannot be negative")
 		}
-		cfg.maxFileSize = size
+		cfg.maxFileSize = int64(size)
 		return nil
 	}
 }

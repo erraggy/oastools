@@ -444,10 +444,14 @@ func (cg *oas3CodeGenerator) buildOneOfTypeDefinition(typeName, originalName str
 	if schema.Discriminator != nil && schema.Discriminator.PropertyName != "" {
 		oneOfData.Discriminator = schema.Discriminator.PropertyName
 		oneOfData.DiscriminatorField = toFieldName(schema.Discriminator.PropertyName)
-		// Sanitize the discriminator property name to prevent injection in generated code
-		jsonName := schema.Discriminator.PropertyName
-		jsonName = strings.ReplaceAll(jsonName, `"`, "")
-		jsonName = strings.ReplaceAll(jsonName, "`", "")
+		// Sanitize the discriminator property name to prevent injection in generated code.
+		// Only allow alphanumeric, underscore, hyphen, and dot — safe for JSON struct tags.
+		jsonName := strings.Map(func(r rune) rune {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r == '.' {
+				return r
+			}
+			return -1 // drop unsafe characters
+		}, schema.Discriminator.PropertyName)
 		oneOfData.DiscriminatorJSONName = jsonName
 		oneOfData.HasUnmarshal = true
 

@@ -175,7 +175,7 @@ func makeSlice[T any](n int) []T {
 
 // sanitizeError strips absolute filesystem paths from error messages
 // to prevent leaking internal directory structure to MCP clients.
-var pathPattern = regexp.MustCompile(`(?:/[a-zA-Z0-9._-]+){2,}`)
+var pathPattern = regexp.MustCompile(`(?:/(?:home|tmp|var|Users|etc|opt|usr|private|root|mnt|srv|run|snap|nix)[a-zA-Z0-9._/-]*)`)
 
 func sanitizeError(err error) string {
 	if err == nil {
