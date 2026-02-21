@@ -169,7 +169,7 @@ func New%sOAuth2Client(cfg %sOAuth2Config) *%sOAuth2Client {
 		Config:           cfg,
 		AuthorizationURL: %q,
 		TokenURL:         %q,
-		HTTPClient:       http.DefaultClient,
+		HTTPClient:       &http.Client{Timeout: 30 * time.Second},
 	}
 }
 

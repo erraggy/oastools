@@ -188,7 +188,7 @@ func (g *SecurityHelperGenerator) generateHTTPAuthHelper(name string, scheme *pa
 		bearerFormat := scheme.BearerFormat
 		formatComment := ""
 		if bearerFormat != "" {
-			formatComment = fmt.Sprintf("\n// Bearer format: %s", bearerFormat)
+			formatComment = fmt.Sprintf("\n// Bearer format: %s", cleanDescription(bearerFormat))
 		}
 		fmt.Fprintf(&buf, `// With%sBearerToken sets the Bearer token for authentication.%s
 `, funcName, formatComment)
@@ -267,7 +267,11 @@ func (g *SecurityHelperGenerator) generateOAuth2Helper(name string, scheme *pars
 	scopes := g.collectOAuth2Scopes(scheme)
 	scopesComment := ""
 	if len(scopes) > 0 {
-		scopesComment = "\n// Available scopes: " + strings.Join(scopes, ", ")
+		cleaned := make([]string, len(scopes))
+		for i, s := range scopes {
+			cleaned[i] = cleanDescription(s)
+		}
+		scopesComment = "\n// Available scopes: " + strings.Join(cleaned, ", ")
 	}
 
 	var buf bytes.Buffer
@@ -306,7 +310,7 @@ func (g *SecurityHelperGenerator) generateOpenIDConnectHelper(name string, schem
 
 	urlComment := ""
 	if discoveryURL != "" {
-		urlComment = fmt.Sprintf("\n// OpenID Connect Discovery URL: %s", discoveryURL)
+		urlComment = fmt.Sprintf("\n// OpenID Connect Discovery URL: %s", cleanDescription(discoveryURL))
 	}
 
 	fmt.Fprintf(&buf, `// With%sToken sets the OpenID Connect token for authentication.%s

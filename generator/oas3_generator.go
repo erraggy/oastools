@@ -980,12 +980,21 @@ func getFileDescription(name string) string {
 	}
 }
 
-// toFileName converts a name to a valid Go file name
+// toFileName converts a name to a valid Go file name.
+// It lowercases, replaces hyphens/spaces with underscores, and strips all
+// characters outside the [a-z0-9_] allowlist to prevent path traversal.
 func toFileName(name string) string {
 	name = strings.ToLower(name)
 	name = strings.ReplaceAll(name, "-", "_")
 	name = strings.ReplaceAll(name, " ", "_")
-	return name
+	// Strip all characters except [a-z0-9_]
+	var result strings.Builder
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' {
+			result.WriteRune(r)
+		}
+	}
+	return result.String()
 }
 
 // convertFlows converts parser.OAuthFlows to readme generator OAuthFlows

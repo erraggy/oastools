@@ -32,6 +32,26 @@ func TestToTypeName(t *testing.T) {
 	}
 }
 
+func TestToFileName(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"MyScheme", "myscheme"},
+		{"my-scheme", "my_scheme"},
+		{"../../etc/passwd", "etcpasswd"},
+		{"scheme/with/slashes", "schemewithslashes"},
+		{"scheme.with.dots", "schemewithdots"},
+		{"normal_name", "normal_name"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := toFileName(tt.input)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
 func TestToParamName(t *testing.T) {
 	tests := []struct {
 		input    string
