@@ -8,7 +8,6 @@ func BenchmarkMatchPattern(b *testing.B) {
 		`^[a-zA-Z]+$`, `^\d{3}-\d{2}-\d{4}$`, `^[a-f0-9]+$`,
 		`^\w+@\w+\.\w+$`, `^https?://`, `^\d+\.\d+\.\d+$`,
 	}
-	b.ResetTimer()
 	i := 0
 	for b.Loop() {
 		pattern := patterns[i%len(patterns)]

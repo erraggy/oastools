@@ -7,9 +7,9 @@ import (
 )
 
 // SanitizeOutputPath validates and cleans an output file path.
-// It rejects paths containing ".." after cleaning and paths that
-// resolve to symlinks. New files in existing directories are accepted.
-// Returns the cleaned absolute path.
+// It resolves ".." components via filepath.Clean + filepath.Abs and
+// rejects paths that resolve to symlinks. New files in existing
+// directories are accepted. Returns the cleaned absolute path.
 func SanitizeOutputPath(path string) (string, error) {
 	cleaned := filepath.Clean(path)
 
