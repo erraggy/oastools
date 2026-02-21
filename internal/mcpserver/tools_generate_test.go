@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -173,4 +174,50 @@ func TestGenerateTool_FileInput(t *testing.T) {
 	assert.True(t, output.Success)
 	assert.GreaterOrEqual(t, output.FileCount, 1)
 	assert.GreaterOrEqual(t, output.GeneratedTypes, 1)
+}
+
+func TestGenerateTool_PackageNameValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		pkg     string
+		wantErr bool
+	}{
+		{"valid simple", "api", false},
+		{"valid with underscore", "my_pkg", false},
+		{"valid with digits", "v2api", false},
+		{"empty is ok (uses default)", "", false},
+		{"uppercase rejected", "MyPkg", true},
+		{"starts with digit", "123pkg", true},
+		{"hyphen rejected", "my-pkg", true},
+		{"dot rejected", "my.pkg", true},
+		{"space rejected", "my pkg", true},
+		{"too long", strings.Repeat("a", 65), true},
+		{"exactly 64 chars", strings.Repeat("a", 64), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := generateInput{
+				Spec:        specInput{Content: minimalSpecWithSchemaAndOp},
+				OutputDir:   t.TempDir(),
+				Types:       true,
+				PackageName: tt.pkg,
+			}
+			result, _, err := handleGenerate(context.Background(), &mcp.CallToolRequest{}, input)
+			require.NoError(t, err)
+			if tt.wantErr {
+				require.NotNil(t, result, "expected error result for package name %q", tt.pkg)
+				assert.True(t, result.IsError, "expected error for package name %q", tt.pkg)
+				text := result.Content[0].(*mcp.TextContent).Text
+				assert.Contains(t, text, "invalid package_name")
+			} else {
+				// Valid package names should not produce a package_name validation error.
+				// The result may be nil (success) or an error for a different reason.
+				if result != nil && result.IsError {
+					text := result.Content[0].(*mcp.TextContent).Text
+					assert.NotContains(t, text, "invalid package_name",
+						"valid package name %q should not be rejected", tt.pkg)
+				}
+			}
+		})
+	}
 }

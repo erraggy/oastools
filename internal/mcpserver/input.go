@@ -197,6 +197,12 @@ func (s specInput) resolve(extraOpts ...parser.Option) (*parser.ParseResult, err
 		return nil, fmt.Errorf("exactly one of file, url, or content must be provided (got %d)", count)
 	}
 
+	// Enforce inline content size limit.
+	if s.Content != "" && int64(len(s.Content)) > cfg.MaxInlineSize {
+		return nil, fmt.Errorf("inline content size %d bytes exceeds maximum %d bytes",
+			len(s.Content), cfg.MaxInlineSize)
+	}
+
 	// Determine cache key and TTL (skip when caching is disabled).
 	var key string
 	var ttl time.Duration

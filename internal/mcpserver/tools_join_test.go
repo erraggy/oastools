@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -233,6 +234,8 @@ func TestHandleJoin_ConfigDefaults(t *testing.T) {
 		WalkDetailLimit:    25,
 		JoinPathStrategy:   "accept-left",
 		JoinSchemaStrategy: "accept-left",
+		MaxInlineSize:      10 * 1024 * 1024,
+		MaxJoinSpecs:       20,
 	}
 	t.Cleanup(func() { cfg = origCfg })
 
@@ -278,4 +281,124 @@ func TestJoinTool_MissingSpecInput(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.True(t, result.IsError)
 	assert.Empty(t, output.Document)
+}
+
+func TestJoinTool_SpecsLimit(t *testing.T) {
+	specCache.reset()
+	origCfg := cfg
+	cfg = &serverConfig{
+		CacheEnabled:       true,
+		CacheMaxSize:       100,
+		CacheFileTTL:       15 * time.Minute,
+		CacheURLTTL:        5 * time.Minute,
+		CacheContentTTL:    15 * time.Minute,
+		CacheSweepInterval: 60 * time.Second,
+		WalkLimit:          100,
+		WalkDetailLimit:    25,
+		MaxInlineSize:      10 * 1024 * 1024,
+		MaxJoinSpecs:       5, // Low limit for testing.
+	}
+	t.Cleanup(func() { cfg = origCfg })
+
+	// Create 6 unique specs, exceeding the limit of 5.
+	specs := make([]specInput, 6)
+	for i := range specs {
+		specs[i] = specInput{Content: fmt.Sprintf(`openapi: "3.0.0"
+info:
+  title: "Spec %d"
+  version: "1.0"
+paths:
+  /path%d:
+    get:
+      operationId: op%d
+      responses:
+        "200":
+          description: OK
+`, i, i, i)}
+	}
+	input := joinInput{Specs: specs}
+	result, _, err := handleJoin(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+	text := result.Content[0].(*mcp.TextContent).Text
+	assert.Contains(t, text, "too many specs")
+}
+
+func TestJoinTool_SpecsLimitDefault(t *testing.T) {
+	// Verify that 21 specs exceed the default limit of 20.
+	specs := make([]specInput, 21)
+	for i := range specs {
+		specs[i] = specInput{Content: fmt.Sprintf(`openapi: "3.0.0"
+info:
+  title: "Spec %d"
+  version: "1.0"
+paths:
+  /path%d:
+    get:
+      operationId: op%d
+      responses:
+        "200":
+          description: OK
+`, i, i, i)}
+	}
+	input := joinInput{Specs: specs}
+	result, _, err := handleJoin(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+	text := result.Content[0].(*mcp.TextContent).Text
+	assert.Contains(t, text, "too many specs")
+}
+
+func TestJoinTool_InvalidPathStrategy(t *testing.T) {
+	specs := []specInput{
+		{Content: joinSpecA},
+		{Content: joinSpecB},
+	}
+	input := joinInput{
+		Specs:        specs,
+		PathStrategy: "invalid-strategy",
+	}
+	result, _, err := handleJoin(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+	text := result.Content[0].(*mcp.TextContent).Text
+	assert.Contains(t, text, "invalid path_strategy")
+}
+
+func TestJoinTool_InvalidSchemaStrategy(t *testing.T) {
+	specs := []specInput{
+		{Content: joinSpecA},
+		{Content: joinSpecB},
+	}
+	input := joinInput{
+		Specs:          specs,
+		SchemaStrategy: "bogus",
+	}
+	result, _, err := handleJoin(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError)
+	text := result.Content[0].(*mcp.TextContent).Text
+	assert.Contains(t, text, "invalid schema_strategy")
+}
+
+func TestJoinTool_ValidStrategiesAccepted(t *testing.T) {
+	specs := []specInput{
+		{Content: joinSpecA},
+		{Content: joinSpecB},
+	}
+	// "accept-left" and "deduplicate" are valid strategies.
+	input := joinInput{
+		Specs:          specs,
+		PathStrategy:   "accept-left",
+		SchemaStrategy: "deduplicate",
+	}
+	result, output, err := handleJoin(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+	// Should not be an error result (nil means success in this handler pattern).
+	assert.Nil(t, result)
+	assert.NotEmpty(t, output.Document)
 }

@@ -3,11 +3,16 @@ package mcpserver
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/erraggy/oastools/generator"
 	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// validPackageName matches valid Go package names: lowercase letter followed
+// by lowercase letters, digits, or underscores.
+var validPackageName = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 type generateInput struct {
 	Spec        specInput `json:"spec"                    jsonschema:"The OAS document to generate code from"`
@@ -42,6 +47,13 @@ func handleGenerate(_ context.Context, _ *mcp.CallToolRequest, input generateInp
 	cleanDir, pathErr := pathutil.SanitizeOutputPath(input.OutputDir)
 	if pathErr != nil {
 		return errResult(fmt.Errorf("invalid output_dir: %w", pathErr)), generateOutput{}, nil
+	}
+
+	if input.PackageName != "" {
+		if len(input.PackageName) > 64 || !validPackageName.MatchString(input.PackageName) {
+			return errResult(fmt.Errorf("invalid package_name: must match [a-z][a-z0-9_]* (max 64 chars)")),
+				generateOutput{}, nil
+		}
 	}
 
 	parseResult, err := input.Spec.resolve()
