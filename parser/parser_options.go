@@ -33,6 +33,7 @@ type parseConfig struct {
 	maxRefDepth        int
 	maxCachedDocuments int
 	maxFileSize        int64
+	maxInputSize       int64
 
 	// Source map building
 	buildSourceMap bool
@@ -71,6 +72,7 @@ func ParseWithOptions(opts ...Option) (*ParseResult, error) {
 		MaxRefDepth:        cfg.maxRefDepth,
 		MaxCachedDocuments: cfg.maxCachedDocuments,
 		MaxFileSize:        cfg.maxFileSize,
+		MaxInputSize:       cfg.maxInputSize,
 		BuildSourceMap:     cfg.buildSourceMap,
 		PreserveOrder:      cfg.preserveOrder,
 	}
@@ -298,6 +300,20 @@ func WithMaxFileSize(size int64) Option {
 			return fmt.Errorf("parser: maxFileSize cannot be negative")
 		}
 		cfg.maxFileSize = size
+		return nil
+	}
+}
+
+// WithMaxInputSize sets the maximum input size in bytes for the primary document.
+// This prevents resource exhaustion from reading oversized inputs via ParseReader or ParseBytes.
+// A value of 0 means use the default (100 MiB).
+// Returns an error if size is negative.
+func WithMaxInputSize(size int64) Option {
+	return func(cfg *parseConfig) error {
+		if size < 0 {
+			return fmt.Errorf("parser: maxInputSize cannot be negative")
+		}
+		cfg.maxInputSize = size
 		return nil
 	}
 }
