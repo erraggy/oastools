@@ -38,13 +38,13 @@ Pre-parsed workflows eliminate redundant parsing when processing multiple operat
 | Method             | Speedup      |
 |--------------------|--------------|
 | `ValidateParsed()` | 31x faster   |
-| `ConvertParsed()`  | ~50x faster  |
+| `ConvertParsed()`  | 47x faster   |
 | `JoinParsed()`     | 150x faster  |
 | `DiffParsed()`     | 81x faster   |
 | `FixParsed()`      | ~60x faster  |
 | `ApplyParsed()`    | ~11x faster  |
 
-JSON marshaling is optimized for 25-32% better performance with 29-37% fewer allocations. See [Benchmarks](benchmarks.md) for detailed analysis.
+JSON marshaling is optimized for 25-32% better performance with 29-37% fewer allocations. See the [whitepaper performance section](whitepaper.md#17-performance-analysis) for detailed analysis.
 
 ## 🔒 Type-Safe Document Cloning
 

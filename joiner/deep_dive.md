@@ -84,7 +84,7 @@ Best for single merge operations with inline configuration:
 
 ```go
 result, err := joiner.JoinWithOptions(
-    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+    joiner.WithFilePaths("base.yaml", "ext.yaml"),
     joiner.WithPathStrategy(joiner.StrategyFailOnCollision),
     joiner.WithSchemaStrategy(joiner.StrategyAcceptLeft),
 )
@@ -881,7 +881,7 @@ import (
 
 func main() {
     result, err := joiner.JoinWithOptions(
-        joiner.WithFilePaths([]string{"base.yaml", "overlay.yaml"}),
+        joiner.WithFilePaths("base.yaml", "overlay.yaml"),
         joiner.WithSchemaStrategy(joiner.StrategyAcceptLeft), // Default strategy
         joiner.WithCollisionHandler(func(collision joiner.CollisionContext) (joiner.CollisionResolution, error) {
             // Log all collisions
@@ -1051,9 +1051,9 @@ joiner.WithCollisionHandlerFor(
 | Type | Description | Custom Value Support | Rename Support |
 |------|-------------|---------------------|----------------|
 | `CollisionTypeSchema` | Schema in components.schemas (OAS3) or definitions (OAS2) | ✅ Yes | ✅ Yes |
-| `CollisionTypePath` | Path in paths section | ✅ Yes | ❌ No |
+| `CollisionTypePath` | Path in paths section | ❌ No | ❌ No |
 
-Note: `Rename()` is not supported for path collisions because paths are URL endpoints that cannot be renamed without breaking API contracts. However, `UseCustomValue()` is supported for paths, allowing you to provide a merged `*parser.PathItem` that combines operations from both colliding paths.
+Note: `Rename()` and `UseCustomValue()` are not supported for path collisions because paths are URL endpoints that cannot be renamed or custom-merged without breaking API contracts. Use `AcceptLeft()`, `AcceptRight()`, `Deduplicate()`, or `Fail()` for path collisions.
 
 ### Error Handling
 
@@ -1145,11 +1145,11 @@ func governanceHandler(collision joiner.CollisionContext) (joiner.CollisionResol
 
 func main() {
     result, err := joiner.JoinWithOptions(
-        joiner.WithFilePaths([]string{
+        joiner.WithFilePaths(
             "base-api.yaml",
             "users-service.yaml",
             "orders-service.yaml",
-        }),
+        ),
         joiner.WithSchemaStrategy(joiner.StrategyFailOnCollision),
         joiner.WithCollisionHandler(governanceHandler),
     )
@@ -1235,11 +1235,11 @@ import (
 
 func main() {
     result, err := joiner.JoinWithOptions(
-        joiner.WithFilePaths([]string{
+        joiner.WithFilePaths(
             "users-api.yaml",    // Has Address schema
             "orders-api.yaml",   // Has ShippingAddress schema (identical structure)
             "billing-api.yaml",  // Has BillingAddress schema (identical structure)
-        }),
+        ),
         joiner.WithSemanticDeduplication(true),
     )
     if err != nil {
@@ -1497,8 +1497,8 @@ import (
 
 func main() {
     result, err := joiner.JoinWithOptions(
-        joiner.WithFilePaths([]string{"api1.yaml", "api2.yaml"}),
-        
+        joiner.WithFilePaths("api1.yaml", "api2.yaml"),
+
         // Apply overlay to each input before merging
         joiner.WithPreJoinOverlayFile("normalize.yaml"),
         
@@ -1610,7 +1610,7 @@ type JoinerConfig struct {
 
 | Option | Description |
 |--------|-------------|
-| `WithFilePaths([]string)` | Input file paths or URLs |
+| `WithFilePaths(paths ...string)` | Input file paths or URLs |
 | `WithParsed(docs ...ParseResult)` | Pre-parsed documents (154x faster) |
 | `WithConfig(JoinerConfig)` | Full configuration object |
 | `WithPathStrategy(CollisionStrategy)` | Strategy for path collisions |
@@ -1621,6 +1621,7 @@ type JoinerConfig struct {
 | `WithCollisionHandlerFor(handler, types...)` | Register handler for specific collision types |
 | `WithPreJoinOverlayFile(string)` | Overlay applied to each input |
 | `WithPostJoinOverlayFile(string)` | Overlay applied to merged result |
+| `WithCollisionReport(bool)` | Enable detailed collision analysis in result |
 
 [↑ Back to top](#top)
 
@@ -1717,7 +1718,7 @@ The `ToParseResult()` method enables seamless chaining with other oastools packa
 ```go
 // Join then validate
 joinResult, err := joiner.JoinWithOptions(
-    joiner.WithFilePaths([]string{"users-api.yaml", "orders-api.yaml"}),
+    joiner.WithFilePaths("users-api.yaml", "orders-api.yaml"),
 )
 if err != nil {
     log.Fatal(err)

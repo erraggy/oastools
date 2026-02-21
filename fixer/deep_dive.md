@@ -44,6 +44,8 @@ The fixer analyzes OAS documents and applies fixes for issues that would cause v
 | `FixTypePrunedUnusedSchema` | ❌ Disabled | Removes unreferenced schema definitions |
 | `FixTypePrunedEmptyPath` | ❌ Disabled | Removes paths with no HTTP operations |
 | `FixTypeEnumCSVExpanded` | ❌ Disabled | Expands CSV enum strings to typed arrays (e.g., "1,2,3" → [1, 2, 3]) |
+| `FixTypeDuplicateOperationId` | ❌ Disabled | Renames duplicate operationId values to ensure uniqueness |
+| `FixTypeStubMissingRef` | ❌ Disabled | Creates empty stubs for unresolved `$ref` targets |
 
 **Why are some fixes disabled by default?**
 
@@ -205,6 +207,11 @@ Configure with `WithGenericNaming()` or `WithGenericNamingConfig()`.
 | `WithGenericNamingConfig(cfg)` | Custom naming configuration |
 | `WithDryRun(bool)` | Preview without applying |
 | `WithMutableInput(bool)` | Skip defensive copy when caller owns input |
+| `WithUserAgent(string)` | Custom User-Agent for HTTP requests |
+| `WithSourceMap(sm *parser.SourceMap)` | Source map for line/column info in fixes |
+| `WithOperationIdNamingConfig(config)` | Configuration for duplicate operationId renaming |
+| `WithStubConfig(config StubConfig)` | Configuration for missing reference stub creation |
+| `WithStubResponseDescription(desc string)` | Default description for stubbed responses |
 
 ### Fixer Fields
 
@@ -212,7 +219,11 @@ Configure with `WithGenericNaming()` or `WithGenericNamingConfig()`.
 |-------|------|-------------|
 | `InferTypes` | `bool` | Enable type inference |
 | `EnabledFixes` | `[]FixType` | Fix types to apply (empty = all) |
-| `GenericNamingConfig` | `*GenericNamingConfig` | Custom naming rules |
+| `UserAgent` | `string` | User-Agent string for HTTP requests |
+| `SourceMap` | `*parser.SourceMap` | Source location lookup for fix issues |
+| `GenericNamingConfig` | `GenericNamingConfig` | Custom naming rules |
+| `OperationIdNamingConfig` | `OperationIdNamingConfig` | Configuration for duplicate operationId renaming |
+| `StubConfig` | `StubConfig` | Configuration for missing reference stub creation |
 | `DryRun` | `bool` | Preview mode |
 | `MutableInput` | `bool` | Skip defensive copy |
 

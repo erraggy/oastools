@@ -621,6 +621,9 @@ type ValidationResult struct {
     // SourceFormat preserves the original document format for output
     SourceFormat parser.SourceFormat
 
+    // SourcePath is the original source path from the parsed document
+    SourcePath string
+
     // Errors contains all validation errors
     Errors []ValidationError
 
@@ -659,7 +662,7 @@ type ValidationError struct {
     Field string
     
     // Value is the problematic value (optional)
-    Value string
+    Value any
 
     // OperationContext provides API operation context (optional)
     OperationContext *issues.OperationContext
@@ -730,6 +733,10 @@ type Validator struct {
 
     // UserAgent for HTTP requests when fetching URLs
     UserAgent string
+
+    // SourceMap provides source location lookup for validation errors.
+    // When set, validation errors will include Line, Column, and File fields.
+    SourceMap *parser.SourceMap
 }
 ```
 
@@ -743,6 +750,7 @@ type Validator struct {
 | `WithStrictMode(bool)` | Treat warnings as errors |
 | `WithValidateStructure(bool)` | Enable/disable parser structure validation (default: true) |
 | `WithUserAgent(string)` | Custom User-Agent for HTTP requests |
+| `WithSourceMap(sm *parser.SourceMap)` | Source map for line/column info in errors |
 
 [↑ Back to top](#top)
 

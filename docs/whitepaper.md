@@ -55,7 +55,7 @@ oastools addresses these challenges through a modular twelve-package architectur
 
 ### Design Philosophy
 
-The development of oastools follows several guiding principles. The toolkit maintains minimal dependencies, relying only on `go.yaml.in/yaml/v4` for YAML parsing, `golang.org/x/text` for Unicode handling, `golang.org/x/tools` for import analysis during code generation, and `github.com/modelcontextprotocol/go-sdk` for MCP server support. The parse-once pattern ensures documents flow through multiple operations without redundant parsing. All [parser](#4-parser-package) types include generated `DeepCopy()` methods for safe document mutation without serialization overhead. The toolkit supports [OAS 2.0](https://spec.openapis.org/oas/v2.0.html) through [OAS 3.2.0](https://spec.openapis.org/oas/v3.2.0.html) comprehensively, adapting behavior for version-specific features. Both functional options for one-off operations and reusable struct instances for batch processing are supported.
+The development of oastools follows several guiding principles. The toolkit maintains minimal dependencies, relying only on `go.yaml.in/yaml/v4` for YAML parsing, `golang.org/x/text` for Unicode handling, `golang.org/x/tools` for import analysis during code generation, `github.com/modelcontextprotocol/go-sdk` for MCP server support, and `github.com/stretchr/testify` for testing. The parse-once pattern ensures documents flow through multiple operations without redundant parsing. All [parser](#4-parser-package) types include generated `DeepCopy()` methods for safe document mutation without serialization overhead. The toolkit supports [OAS 2.0](https://spec.openapis.org/oas/v2.0.html) through [OAS 3.2.0](https://spec.openapis.org/oas/v3.2.0.html) comprehensively, adapting behavior for version-specific features. Both functional options for one-off operations and reusable struct instances for batch processing are supported.
 
 ### Practical Examples
 
@@ -92,7 +92,7 @@ The [OpenAPI Specification](https://www.openapis.org/) (OAS) defines a standard,
 
 **OAS 3.2.0 Features:**
 
-The latest [OAS version](https://spec.openapis.org/oas/v3.2.0.html) introduces several capabilities that oastools fully supports: the `$self` URI fragment for self-references, the QUERY HTTP method for complex queries, `additionalOperations` for custom HTTP methods, `pathItems` reusability via components, streaming media types (`application/jsonl`, `text/event-stream`), and tag hierarchies with `parent` and `kind` fields.
+The latest [OAS version](https://spec.openapis.org/oas/v3.2.0.html) introduces several capabilities that oastools fully supports: the `$self` document identity URI, the QUERY HTTP method for complex queries, `additionalOperations` for custom HTTP methods, `pathItems` reusability via components (OAS 3.1+), and reusable `mediaTypes` in components.
 
 ### 2.2 OpenAPI Overlay Specification
 
@@ -108,7 +108,7 @@ The `remove` action deletes nodes at the target location. When set to `true`, th
 
 **JSONPath Implementation:**
 
-oastools implements [JSONPath per RFC 9535](https://datatracker.ietf.org/doc/html/rfc9535) for targeting nodes within OpenAPI documents. Supported features include root navigation (`$`), child access (dot and bracket notation), wildcards (`*` for all children), array indices (positive and negative), array slices (`[start:end:step]`), recursive descent (`..`), simple filter expressions (`[?(@.property == value)]`), compound filters with logical operators, and comparison operators (`==`, `!=`, `<`, `>`, `<=`, `>=`).
+oastools implements [JSONPath per RFC 9535](https://datatracker.ietf.org/doc/html/rfc9535) for targeting nodes within OpenAPI documents. Supported features include root navigation (`$`), child access (dot and bracket notation), wildcards (`*` for all children), array indices (positive and negative), recursive descent (`..`), simple filter expressions (`[?(@.property == value)]`), compound filters with logical operators, and comparison operators (`==`, `!=`, `<`, `>`, `<=`, `>=`).
 
 ### 2.3 Go Language Specification
 
@@ -241,8 +241,9 @@ joined := joiner.JoinParsed(converted.ToParseResult(), other.ToParseResult())
 |---------|-------------|-------------------------|
 | validator | `ValidationResult` | v1.41.0 |
 | fixer | `FixResult` | v1.41.0 |
-| converter | `ConvertResult` | v1.40.0 |
+| converter | `ConversionResult` | v1.40.0 |
 | joiner | `JoinResult` | v1.40.0 |
+| overlay | `ApplyResult` | v1.41.0 |
 
 This pattern eliminates boilerplate and preserves metadata (source path, OAS version, parse options) throughout the pipeline.
 
@@ -327,7 +328,7 @@ result, err := parser.ParseWithOptions(
 if err != nil {
     log.Fatal(err)
 }
-fmt.Printf("Parsed %s, version %s\n", result.FilePath, result.Version)
+fmt.Printf("Parsed %s, version %s\n", result.SourcePath, result.OASVersion)
 ```
 
 **Struct-Based Pattern:**
@@ -349,19 +350,21 @@ The `ParseResult` type contains all parsed information.
 type ParseResult struct {
     // Document contains the parsed document (version-specific type)
     Document any
-    
+
     // Version-specific accessors (methods, not fields)
     // doc2, ok := result.OAS2Document()  // Returns (*OAS2Document, bool)
     // doc3, ok := result.OAS3Document()  // Returns (*OAS3Document, bool)
-    
+
     // Metadata
-    Version      OASVersion     // Detected version (e.g., "3.1.0")
-    FilePath     string         // Source file path
+    Version      string         // Raw version string from document
+    OASVersion   OASVersion     // Detected version (e.g., "3.1.0")
+    SourcePath   string         // Source file path
     SourceFormat SourceFormat   // JSON or YAML
-    
+
     // Optional features
     SourceMap    *SourceMap     // Line/column mapping (if enabled)
     Warnings     []string       // Non-fatal warnings
+    Errors       []error        // Parse errors
 }
 ```
 
@@ -370,7 +373,7 @@ type ParseResult struct {
 All parser types include generated `DeepCopy()` methods for safe mutation.
 
 ```go
-original := result.OAS3Document
+original, _ := result.OAS3Document()
 copy := original.DeepCopy()
 copy.Info.Title = "Modified API"
 // original.Info.Title unchanged
@@ -423,7 +426,7 @@ This abstraction is particularly useful for tooling that needs to operate on doc
 
 ### Structural Comparison
 
-All OAS types provide `Equals()` methods for deep structural comparison:
+Key document types (`OAS2Document`, `OAS3Document`, `Schema`, `ParseResult`) provide `Equals()` methods for deep structural comparison:
 
 ```go
 if doc1.Equals(doc2) {
@@ -435,7 +438,7 @@ This is useful for detecting changes, caching decisions, and test assertions.
 
 ### Deterministic Output
 
-The `MarshalOrderedJSON()` and `MarshalOrderedYAML()` functions produce deterministic output by preserving key order. This ensures:
+The `MarshalOrderedJSON()` and `MarshalOrderedYAML()` methods on `*ParseResult` produce deterministic output by preserving key order. This ensures:
 
 - Reproducible diffs between versions
 - Consistent output for CI/CD pipelines
@@ -489,14 +492,14 @@ type ValidationResult struct {
     Warnings      []ValidationError // Warnings (best practice)
     ErrorCount    int
     WarningCount  int
-    InfoCount     int
-    Version       parser.OASVersion
+    Version       string
+    OASVersion    parser.OASVersion
 }
 
 type ValidationError struct {
     Path             string                   // JSON path to error location
     Message          string                   // Human-readable description
-    Severity         severity.Level           // Error, Warning, or Info
+    Severity         severity.Severity        // Error, Warning, or Info
     SpecRef          string                   // URL to relevant spec section
     Line             int                      // Line number (if source map enabled)
     Column           int                      // Column number (if source map enabled)
@@ -566,7 +569,7 @@ The fixer package automatically corrects common validation errors, reducing manu
 
 **Empty Paths (FixTypePrunedEmptyPath):** Path items with no HTTP operations (only parameters or extensions) are removed.
 
-**Missing Reference Targets (FixTypeStubMissingRefs, v1.46.0+):** When a `$ref` points to a non-existent schema or response definition, the fixer creates a stub placeholder to prevent validation errors. Stub descriptions are configurable via `WithStubConfig()` or `WithStubResponseDescription()`.
+**Missing Reference Targets (FixTypeStubMissingRef, v1.46.0+):** When a `$ref` points to a non-existent schema or response definition, the fixer creates a stub placeholder to prevent validation errors. Stub descriptions are configurable via `WithStubConfig()` or `WithStubResponseDescription()`.
 
 ### 6.2 Default Behavior
 
@@ -688,9 +691,9 @@ The converter now detects additional OAS 3.x features that cannot be faithfully 
 |---------|----------|--------|
 | Webhooks (3.1+) | Critical | No OAS 2.0 equivalent |
 | Server variables | Warning | Extracted but incompatible |
-| Multiple servers | Info | Only first server used |
-| Callbacks | Warning | No OAS 2.0 equivalent |
-| Links | Warning | No OAS 2.0 equivalent |
+| Multiple servers | Warning | Only first server used |
+| Callbacks | Critical | No OAS 2.0 equivalent |
+| Links | Warning | No OAS 2.0 equivalent (not yet detected -- planned) |
 
 ### 7.3 Issue Tracking
 
@@ -751,9 +754,7 @@ Arrays like `servers`, `security`, and `tags` are merged according to configurab
 
 ```go
 config := joiner.DefaultConfig()
-config.MergeServers = true    // Combine server arrays
-config.MergeSecurity = true   // Combine security requirements
-config.MergeTags = true       // Combine tags with deduplication
+config.MergeArrays = true    // Combine server, security, and tag arrays
 ```
 
 ### 8.5 Overlay Integration
@@ -844,8 +845,8 @@ result, err := joiner.JoinWithOptions(
     joiner.WithSchemaStrategy(joiner.StrategyDeduplicateEquivalent),
 )
 
-fmt.Printf("Joined %d documents into %d paths\n",
-    result.DocumentCount, result.PathCount)
+fmt.Printf("Joined documents into %d paths\n",
+    result.Stats.PathCount)
 ```
 
 ### 8.8 Source Name Warnings
@@ -1047,13 +1048,13 @@ In breaking mode, changes are classified by severity.
 
 ```go
 result, err := differ.DiffWithOptions(
-    differ.WithFilePath1("v1.yaml"),
-    differ.WithFilePath2("v2.yaml"),
+    differ.WithSourceFilePath("v1.yaml"),
+    differ.WithTargetFilePath("v2.yaml"),
     differ.WithMode(differ.ModeBreaking),
 )
 
-fmt.Printf("Changes: %d Critical, %d Error, %d Warning\n",
-    result.CriticalCount, result.ErrorCount, result.WarningCount)
+fmt.Printf("Changes: %d Breaking, %d Warning\n",
+    result.BreakingCount, result.WarningCount)
 
 for _, change := range result.Changes {
     if change.Severity == severity.SeverityCritical {
@@ -1072,12 +1073,12 @@ v2, _ := parser.ParseWithOptions(parser.WithFilePath("v2.yaml"))
 v3, _ := parser.ParseWithOptions(parser.WithFilePath("v3.yaml"))
 
 diff12, _ := differ.DiffWithOptions(
-    differ.WithParsed1(*v1),
-    differ.WithParsed2(*v2),
+    differ.WithSourceParsed(*v1),
+    differ.WithTargetParsed(*v2),
 )
 diff23, _ := differ.DiffWithOptions(
-    differ.WithParsed1(*v2),
-    differ.WithParsed2(*v3),
+    differ.WithSourceParsed(*v2),
+    differ.WithTargetParsed(*v3),
 )
 ```
 
@@ -1245,7 +1246,7 @@ result, err := generator.GenerateWithOptions(
 )
 
 for _, file := range result.Files {
-    fmt.Printf("Generated %s (%d lines)\n", file.Name, file.LineCount)
+    fmt.Printf("Generated %s (%d bytes)\n", file.Name, len(file.Content))
 }
 ```
 
@@ -1260,28 +1261,20 @@ The builder package enables programmatic construction of OpenAPI documents, with
 ### 12.1 Document Construction
 
 ```go
-spec := builder.NewSpec()
+spec := builder.New(parser.OASVersion310)
 spec.SetTitle("My API").
     SetVersion("1.0.0").
     SetDescription("A sample API").
     AddServer("https://api.example.com", "Production")
 
-spec.AddPath("/users", &builder.PathItem{
-    Get: &builder.Operation{
-        Summary:     "List users",
-        OperationID: "listUsers",
-        Responses: map[string]*builder.Response{
-            "200": {
-                Description: "Successful response",
-                Content: map[string]*builder.MediaType{
-                    "application/json": {
-                        Schema: spec.SchemaRef("UserList"),
-                    },
-                },
-            },
-        },
-    },
-})
+spec.AddOperation(http.MethodGet, "/users",
+    builder.WithOperationID("listUsers"),
+    builder.WithSummary("List users"),
+    builder.WithResponse(http.StatusOK, builder.ResponseConfig{
+        Description: "Successful response",
+        SchemaRef:   spec.SchemaRef("UserList"), // returns a $ref string
+    }),
+)
 
 doc, err := spec.BuildOAS3()
 ```
@@ -1299,8 +1292,8 @@ type User struct {
     Role      string    `json:"role" oas:"enum=admin|user|guest"`
 }
 
-spec := builder.NewSpec()
-spec.AddSchemaFromType(User{})
+spec := builder.New(parser.OASVersion310)
+spec.RegisterType(User{})
 
 // Generates:
 // User:
@@ -1338,12 +1331,12 @@ Configurable naming strategies handle generic types and package prefixes.
 
 | Strategy | Example Type | Result |
 |----------|--------------|--------|
-| `PackageTypeName` | `models.User` | `models.User` |
-| `PascalCase` | `models.User` | `ModelsUser` |
-| `TypeOnly` | `models.User` | `User` |
+| `SchemaNamingDefault` | `models.User` | `models.User` |
+| `SchemaNamingPascalCase` | `models.User` | `ModelsUser` |
+| `SchemaNamingTypeOnly` | `models.User` | `User` |
 | `GenericUnderscore` | `Response[User]` | `Response_User_` |
 | `GenericOf` | `Response[User]` | `ResponseOfUser` |
-| Custom | User-defined | Via `WithSchemaNamingFunc` |
+| Custom | User-defined | Via `WithSchemaNameFunc` |
 
 ### 12.5 Server Builder
 
@@ -1398,11 +1391,11 @@ Operations without registered handlers return 501 Not Implemented at runtime.
 When multiple types generate identical schemas, the builder consolidates them.
 
 ```go
-spec := builder.NewSpec()
-spec.SetDeduplicateSchemas(true)
+// Enable semantic deduplication via constructor option
+spec := builder.New(parser.OASVersion310, builder.WithSemanticDeduplication(true))
 
-spec.AddSchemaFromType(UserRequest{})  // Creates UserRequest schema
-spec.AddSchemaFromType(UserResponse{}) // If identical, reuses UserRequest
+spec.RegisterType(UserRequest{})  // Creates UserRequest schema
+spec.RegisterType(UserResponse{}) // If identical, reuses UserRequest
 ```
 
 ---
@@ -1605,10 +1598,10 @@ The walker automatically detects circular schema references and provides notific
 
 ```go
 walker.Walk(result,
-    walker.WithMaxDepth(50),
-    walker.WithSchemaSkippedHandler(func(reason string, schema *parser.Schema, path string) {
+    walker.WithMaxSchemaDepth(50), // WithMaxDepth is deprecated; prefer WithMaxSchemaDepth
+    walker.WithSchemaSkippedHandler(func(wc *walker.WalkContext, reason string, schema *parser.Schema) {
         if reason == "cycle" {
-            fmt.Printf("Circular reference at: %s\n", path)
+            fmt.Printf("Circular reference at: %s\n", wc.JSONPath)
         }
     }),
 )
@@ -1685,7 +1678,7 @@ The MCP server provides 17 tools organized into two categories.
 
 **Pagination:** All tools support `offset`/`limit` parameters (default limit: 100, maximum: 1000) for handling large specifications.
 
-**Group-By Aggregation:** Walk tools support a `group_by` parameter that returns distribution counts instead of individual items. For example, `walk_operations` with `group_by=method` returns a count of operations per HTTP method.
+**Group-By Aggregation:** Most walk tools support a `group_by` parameter (all except `walk_security`) that returns distribution counts instead of individual items. For example, `walk_operations` with `group_by=method` returns a count of operations per HTTP method.
 
 **Detail Mode:** Walk tools support a `detail` flag that returns full nested objects instead of summary tables (default limit: 25 items in detail mode).
 
@@ -1703,6 +1696,7 @@ The MCP server is configured via environment variables, since the Go MCP SDK doe
 | `OASTOOLS_CACHE_MAX_SIZE` | `10` | Maximum cached specifications |
 | `OASTOOLS_CACHE_FILE_TTL` | `15m` | File spec expiration |
 | `OASTOOLS_CACHE_URL_TTL` | `5m` | URL-fetched spec expiration |
+| `OASTOOLS_CACHE_CONTENT_TTL` | `15m` | Inline content spec expiration |
 | `OASTOOLS_CACHE_SWEEP_INTERVAL` | `60s` | Background cleanup frequency |
 
 **Behavior Defaults:**
@@ -1712,6 +1706,7 @@ The MCP server is configured via environment variables, since the Go MCP SDK doe
 | `OASTOOLS_WALK_LIMIT` | `100` | Default result limit |
 | `OASTOOLS_WALK_DETAIL_LIMIT` | `25` | Detail mode result limit |
 | `OASTOOLS_VALIDATE_STRICT` | `false` | Enable strict validation |
+| `OASTOOLS_VALIDATE_NO_WARNINGS` | `false` | Suppress validation warnings |
 | `OASTOOLS_JOIN_PATH_STRATEGY` | — | Default path collision strategy |
 | `OASTOOLS_JOIN_SCHEMA_STRATEGY` | — | Default schema collision strategy |
 

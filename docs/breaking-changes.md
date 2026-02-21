@@ -153,10 +153,10 @@ if result.HasBreakingChanges {
 
 ```bash
 # Detect breaking changes
-oastools diff --mode breaking api-v1.yaml api-v2.yaml
+oastools diff --breaking api-v1.yaml api-v2.yaml
 
 # Focus on breaking and error-level changes only
-oastools diff --mode breaking --no-info api-v1.yaml api-v2.yaml
+oastools diff --breaking --no-info api-v1.yaml api-v2.yaml
 ```
 
 ---
@@ -300,7 +300,7 @@ responses:
 # Example: Fail CI if breaking changes are detected
 
 oastools diff \
-  --mode breaking \
+  --breaking \
   current-api.yaml \
   proposed-api.yaml \
   > diff-result.txt

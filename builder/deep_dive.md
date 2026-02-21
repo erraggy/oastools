@@ -1110,10 +1110,12 @@ result := srv.MustBuildServer()
 | `WithoutValidation()` | Disable request validation |
 | `WithValidationConfig(cfg)` | Configure validation behavior |
 | `WithRecovery()` | Enable panic recovery middleware |
-| `WithRequestLogger(fn)` | Add request logging |
+| `WithRequestLogging(fn)` | Enable request logging with a logger function |
 | `WithErrorHandler(fn)` | Custom error handler |
 | `WithNotFoundHandler(h)` | Custom 404 handler |
 | `WithMethodNotAllowedHandler(h)` | Custom 405 handler |
+| `WithRouter(strategy)` | Set the routing strategy |
+| `WithStdlibRouter()` | Use net/http with PathMatcherSet for routing (default) |
 
 [↑ Back to top](#top)
 

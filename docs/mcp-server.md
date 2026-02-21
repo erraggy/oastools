@@ -70,6 +70,10 @@ All server defaults are configurable via `OASTOOLS_*` environment variables. The
 | `OASTOOLS_VALIDATE_NO_WARNINGS` | bool | `false` | Suppress warnings by default |
 | `OASTOOLS_JOIN_PATH_STRATEGY` | string | *(none)* | Default path collision strategy for join |
 | `OASTOOLS_JOIN_SCHEMA_STRATEGY` | string | *(none)* | Default schema collision strategy for join |
+| `OASTOOLS_ALLOW_PRIVATE_IPS` | bool | `false` | Allow resolution of private/loopback IPs |
+| `OASTOOLS_MAX_INLINE_SIZE` | int | `10485760` | Maximum size of inline content (10 MiB) |
+| `OASTOOLS_MAX_LIMIT` | int | `1000` | Maximum result limit for walk tools |
+| `OASTOOLS_MAX_JOIN_SPECS` | int | `20` | Maximum number of specs in a join operation |
 
 Duration values use Go syntax: `30s`, `5m`, `1h`. Invalid values log a warning and fall back to the default.
 
@@ -205,7 +209,7 @@ Validate an OpenAPI spec against its declared version schema.
 | `version` | string | Detected OAS version |
 | `error_count` | number | Number of validation errors |
 | `warning_count` | number | Number of warnings |
-| `errors` | array | Error details (path, message, severity) |
+| `errors` | array | Error details (path, message, field) |
 | `warnings` | array | Warning details |
 
 **Example:**
@@ -357,7 +361,6 @@ Apply an Overlay document to an OAS spec.
 | `spec` | object | The OAS document |
 | `overlay` | object | The Overlay document (file/url/content) |
 | `dry_run` | boolean | Preview changes without applying |
-| `strict` | boolean | Fail if any target matches nothing |
 | `output` | string | File path to write the result |
 
 ---
@@ -370,16 +373,14 @@ Validate an Overlay document structure.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `spec` | object | The Overlay document (file/url/content) |
+| `overlay` | object | The Overlay document (file/url/content) |
 
 **Output:**
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `valid` | boolean | Whether the overlay is valid |
-| `version` | string | Overlay specification version |
-| `title` | string | Overlay title |
-| `action_count` | number | Number of actions |
+| `error_count` | number | Number of validation errors |
 | `errors` | array | Validation errors |
 
 ---

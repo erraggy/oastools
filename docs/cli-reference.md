@@ -1030,8 +1030,8 @@ Generated code follows Go idioms, includes proper error handling, and is suitabl
 | `--max-lines-per-file int` | Maximum lines per generated file (default: 2000) |
 | `--max-types-per-file int` | Maximum types per generated file (default: 200) |
 | `--max-ops-per-file int` | Maximum operations per generated file (default: 100) |
-| `--split-by-tag` | Split files by operation tag (default: true) |
-| `--split-by-path` | Split files by path prefix (default: true) |
+| `--no-split-by-tag` | Disable splitting files by operation tag (splitting is enabled by default) |
+| `--no-split-by-path` | Disable splitting files by path prefix (splitting is enabled by default) |
 
 ### Examples
 
@@ -1087,7 +1087,7 @@ oastools generate --server --security-enforce -o ./server -p api openapi.yaml
 **Generate with file splitting for large APIs:**
 
 ```bash
-oastools generate --client --max-lines-per-file 1500 --split-by-tag \
+oastools generate --client --max-lines-per-file 1500 \
   -o ./client -p api large-api.yaml
 ```
 
@@ -1638,7 +1638,7 @@ Run 'oastools <command> --help' for more information on a command.
 
 ## Environment Variables
 
-oastools does not currently use any environment variables.
+The `mcp` subcommand reads `OASTOOLS_*` environment variables for server configuration (cache TTLs, walk limits, join strategies, etc.). See the [MCP Server Guide](mcp-server.md#environment-variables) for the full list of supported variables.
 
 ---
 

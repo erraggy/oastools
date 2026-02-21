@@ -421,7 +421,7 @@ func main() {
     
     fmt.Printf("Generated %d files\n", len(result.Files))
     for _, file := range result.Files {
-        fmt.Printf("  %s (%d lines)\n", file.Name, file.LineCount)
+        fmt.Printf("  %s (%d bytes)\n", file.Name, len(file.Content))
     }
 }
 ```
@@ -1122,8 +1122,7 @@ func main() {
     
     fmt.Printf("Generated %d files:\n", len(result.Files))
     for _, file := range result.Files {
-        fmt.Printf("  %s (%d lines, %d types)\n", 
-            file.Name, file.LineCount, file.TypeCount)
+        fmt.Printf("  %s (%d bytes)\n", file.Name, len(file.Content))
     }
 }
 ```
@@ -1376,6 +1375,7 @@ type Generator struct {
 | `WithServerMiddleware(bool)` | Generate validation middleware |
 | `WithServerRouter(string)` | Generate HTTP router ("stdlib", "chi") |
 | `WithServerStubs(bool)` | Generate stub server for testing |
+| `WithServerEmbedSpec(bool)` | Embed the OpenAPI spec in generated code |
 | `WithServerAll()` | Enable all server extensions |
 
 [↑ Back to top](#top)
@@ -1386,21 +1386,24 @@ type Generator struct {
 type GenerateResult struct {
     // Files contains all generated files
     Files []GeneratedFile
-    
+
     // Version info
-    Version    string
-    OASVersion parser.OASVersion
-    PackageName string
-    
+    SourceVersion    string
+    SourceOASVersion parser.OASVersion
+    SourceFormat     parser.SourceFormat
+    PackageName      string
+
     // Statistics
-    TypeCount      int
-    OperationCount int
-    SchemaCount    int
-    
-    // Generation info
+    GeneratedTypes      int
+    GeneratedOperations int
+
+    // Timing and size
+    LoadTime      time.Duration
     GenerateTime  time.Duration
+    SourceSize    int64
+    Stats         parser.DocumentStats
     Success       bool
-    
+
     // Issues encountered
     Issues        []GenerateIssue
     InfoCount     int
@@ -1409,10 +1412,8 @@ type GenerateResult struct {
 }
 
 type GeneratedFile struct {
-    Name      string
-    Content   []byte
-    LineCount int
-    TypeCount int
+    Name    string
+    Content []byte
 }
 ```
 
