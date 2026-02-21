@@ -343,12 +343,16 @@ func (p *Parser) Parse(specPath string) (*ParseResult, error) {
 	return res, nil
 }
 
-// maxInputSizeOrDefault returns the configured MaxInputSize, or 100 MiB if unset.
+// defaultMaxInputSize is the default maximum input size (100 MiB) applied to
+// ParseReader, ParseBytes, and fetchURL when MaxInputSize is not configured.
+const defaultMaxInputSize int64 = 100 * 1024 * 1024
+
+// maxInputSizeOrDefault returns the configured MaxInputSize, or defaultMaxInputSize if unset.
 func (p *Parser) maxInputSizeOrDefault() int64 {
 	if p.MaxInputSize > 0 {
 		return p.MaxInputSize
 	}
-	return 100 * 1024 * 1024 // 100 MiB
+	return defaultMaxInputSize
 }
 
 // ParseReader parses an OpenAPI specification from an io.Reader

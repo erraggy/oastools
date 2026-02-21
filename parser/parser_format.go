@@ -127,10 +127,14 @@ func (p *Parser) fetchURL(urlStr string) ([]byte, string, error) {
 		return nil, "", fmt.Errorf("parser: HTTP %d: %s", resp.StatusCode, resp.Status)
 	}
 
-	// Read response body
-	data, err := io.ReadAll(resp.Body)
+	// Read response body with size limit
+	maxSize := p.maxInputSizeOrDefault()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxSize+1))
 	if err != nil {
 		return nil, "", fmt.Errorf("parser: failed to read response body: %w", err)
+	}
+	if int64(len(data)) > maxSize {
+		return nil, "", fmt.Errorf("parser: response body size exceeds maximum %d bytes", maxSize)
 	}
 
 	// Return data and Content-Type header

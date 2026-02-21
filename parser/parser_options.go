@@ -308,12 +308,12 @@ func WithMaxFileSize(size int64) Option {
 // This prevents resource exhaustion from reading oversized inputs via ParseReader or ParseBytes.
 // A value of 0 means use the default (100 MiB).
 // Returns an error if size is negative.
-func WithMaxInputSize(size int64) Option {
+func WithMaxInputSize(size int) Option {
 	return func(cfg *parseConfig) error {
 		if size < 0 {
 			return fmt.Errorf("parser: maxInputSize cannot be negative")
 		}
-		cfg.maxInputSize = size
+		cfg.maxInputSize = int64(size)
 		return nil
 	}
 }

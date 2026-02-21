@@ -552,7 +552,7 @@ paths: {}
 		r := strings.NewReader(minimalOAS)
 		result, err := ParseWithOptions(
 			WithReader(r),
-			WithMaxInputSize(int64(len(minimalOAS))),
+			WithMaxInputSize(len(minimalOAS)),
 		)
 
 		require.NoError(t, err)

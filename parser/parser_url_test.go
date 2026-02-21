@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -203,6 +204,42 @@ paths:
 			}
 		})
 	}
+}
+
+// TestFetchURLSizeLimit tests that fetchURL enforces the MaxInputSize limit
+func TestFetchURLSizeLimit(t *testing.T) {
+	t.Run("rejects response body exceeding limit", func(t *testing.T) {
+		// Create a test server returning a body larger than the limit
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/yaml")
+			// Write 2KB response
+			_, _ = w.Write([]byte(strings.Repeat("a", 2048)))
+		}))
+		defer server.Close()
+
+		p := &Parser{
+			MaxInputSize: 1024, // 1KB limit
+		}
+		_, _, err := p.fetchURL(server.URL)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds maximum")
+	})
+
+	t.Run("accepts response body within limit", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/yaml")
+			_, _ = w.Write([]byte("openapi: \"3.0.0\"\ninfo:\n  title: Test\n  version: \"1.0\"\npaths: {}\n"))
+		}))
+		defer server.Close()
+
+		p := &Parser{
+			MaxInputSize: 1024 * 1024, // 1MB limit
+		}
+		data, contentType, err := p.fetchURL(server.URL)
+		require.NoError(t, err)
+		assert.NotEmpty(t, data)
+		assert.Contains(t, contentType, "yaml")
+	})
 }
 
 // TestParseFromURL tests end-to-end parsing from URLs
