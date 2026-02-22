@@ -5,29 +5,32 @@
 package converter
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/erraggy/oastools/parser"
 )
 
-var (
-	// Map OAS 3.x locations to the Regexp for the prefix of the OAS 2.0 locations
-	refRegxMapWithOAS3AsNew = map[string]*regexp.Regexp{
-		"#/components/schemas/":         regexp.MustCompile(`^` + regexp.QuoteMeta("#/definitions/")),
-		"#/components/parameters/":      regexp.MustCompile(`^` + regexp.QuoteMeta("#/parameters/")),
-		"#/components/responses/":       regexp.MustCompile(`^` + regexp.QuoteMeta("#/responses/")),
-		"#/components/securitySchemes/": regexp.MustCompile(`^` + regexp.QuoteMeta("#/securityDefinitions/")),
-	}
+// refMapping defines a prefix substitution for $ref rewriting.
+type refMapping struct {
+	from string
+	to   string
+}
 
-	// Map OAS 2.0 locations to the Regexp for the prefix of the OAS 3.x locations
-	refRegxMapWithSwaggerAsNew = map[string]*regexp.Regexp{
-		"#/definitions/":         regexp.MustCompile(`^` + regexp.QuoteMeta("#/components/schemas/")),
-		"#/parameters/":          regexp.MustCompile(`^` + regexp.QuoteMeta("#/components/parameters/")),
-		"#/responses/":           regexp.MustCompile(`^` + regexp.QuoteMeta("#/components/responses/")),
-		"#/securityDefinitions/": regexp.MustCompile(`^` + regexp.QuoteMeta("#/components/securitySchemes/")),
-	}
-)
+// oas2ToOAS3Mappings maps OAS 2.0 $ref prefixes to their OAS 3.x equivalents.
+var oas2ToOAS3Mappings = []refMapping{
+	{"#/definitions/", "#/components/schemas/"},
+	{"#/parameters/", "#/components/parameters/"},
+	{"#/responses/", "#/components/responses/"},
+	{"#/securityDefinitions/", "#/components/securitySchemes/"},
+}
+
+// oas3ToOAS2Mappings maps OAS 3.x $ref prefixes to their OAS 2.0 equivalents.
+var oas3ToOAS2Mappings = []refMapping{
+	{"#/components/schemas/", "#/definitions/"},
+	{"#/components/parameters/", "#/parameters/"},
+	{"#/components/responses/", "#/responses/"},
+	{"#/components/securitySchemes/", "#/securityDefinitions/"},
+}
 
 // rewriteRefOAS2ToOAS3 rewrites an OAS 2.0 $ref to OAS 3.x format
 // Only rewrites local references (starting with #/)
@@ -36,10 +39,9 @@ func rewriteRefOAS2ToOAS3(ref string) string {
 		return ref
 	}
 
-	// iterate all regexp mappings and if found on the specified ref, replace it with the new prefix
-	for newOAS3Prefix, swaggerPrefixRegX := range refRegxMapWithOAS3AsNew {
-		if swaggerPrefixRegX.MatchString(ref) {
-			return swaggerPrefixRegX.ReplaceAllString(ref, newOAS3Prefix)
+	for _, m := range oas2ToOAS3Mappings {
+		if strings.HasPrefix(ref, m.from) {
+			return m.to + ref[len(m.from):]
 		}
 	}
 
@@ -54,10 +56,9 @@ func rewriteRefOAS3ToOAS2(ref string) string {
 		return ref
 	}
 
-	// iterate all regexp mappings and if found on the specified ref, replace it with the new prefix
-	for newSwaggerPrefix, oas3PrefixRegX := range refRegxMapWithSwaggerAsNew {
-		if oas3PrefixRegX.MatchString(ref) {
-			return oas3PrefixRegX.ReplaceAllString(ref, newSwaggerPrefix)
+	for _, m := range oas3ToOAS2Mappings {
+		if strings.HasPrefix(ref, m.from) {
+			return m.to + ref[len(m.from):]
 		}
 	}
 

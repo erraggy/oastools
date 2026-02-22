@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"reflect"
 	"sort"
+	"strconv"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -28,7 +29,7 @@ func NewSchemaHasher() *SchemaHasher {
 // Schemas with identical structural properties will have the same hash.
 // Note: Hash collisions are possible; use deep comparison to verify equivalence.
 func (h *SchemaHasher) Hash(schema *parser.Schema) uint64 {
-	h.visited = make(map[uintptr]bool) // Reset visited map
+	clear(h.visited) // Reset visited map without reallocating
 	hasher := fnv.New64a()
 	h.hashSchema(hasher, schema)
 	return hasher.Sum64()
@@ -323,10 +324,10 @@ func (h *SchemaHasher) hashSchemaOrBool(hasher hash.Hash64, v any) {
 // hashNumericConstraints hashes numeric validation fields.
 func (h *SchemaHasher) hashNumericConstraints(hasher hash.Hash64, schema *parser.Schema) {
 	if schema.Minimum != nil {
-		h.writeString(hasher, fmt.Sprintf("minimum:%v", *schema.Minimum))
+		h.writeString(hasher, "minimum:"+strconv.FormatFloat(*schema.Minimum, 'g', -1, 64))
 	}
 	if schema.Maximum != nil {
-		h.writeString(hasher, fmt.Sprintf("maximum:%v", *schema.Maximum))
+		h.writeString(hasher, "maximum:"+strconv.FormatFloat(*schema.Maximum, 'g', -1, 64))
 	}
 	if schema.ExclusiveMinimum != nil {
 		h.writeString(hasher, fmt.Sprintf("exclusiveMinimum:%v", schema.ExclusiveMinimum))
@@ -335,46 +336,46 @@ func (h *SchemaHasher) hashNumericConstraints(hasher hash.Hash64, schema *parser
 		h.writeString(hasher, fmt.Sprintf("exclusiveMaximum:%v", schema.ExclusiveMaximum))
 	}
 	if schema.MultipleOf != nil {
-		h.writeString(hasher, fmt.Sprintf("multipleOf:%v", *schema.MultipleOf))
+		h.writeString(hasher, "multipleOf:"+strconv.FormatFloat(*schema.MultipleOf, 'g', -1, 64))
 	}
 }
 
 // hashStringConstraints hashes string validation fields.
 func (h *SchemaHasher) hashStringConstraints(hasher hash.Hash64, schema *parser.Schema) {
 	if schema.MinLength != nil {
-		h.writeString(hasher, fmt.Sprintf("minLength:%d", *schema.MinLength))
+		h.writeString(hasher, "minLength:"+strconv.Itoa(*schema.MinLength))
 	}
 	if schema.MaxLength != nil {
-		h.writeString(hasher, fmt.Sprintf("maxLength:%d", *schema.MaxLength))
+		h.writeString(hasher, "maxLength:"+strconv.Itoa(*schema.MaxLength))
 	}
 }
 
 // hashArrayConstraints hashes array validation fields.
 func (h *SchemaHasher) hashArrayConstraints(hasher hash.Hash64, schema *parser.Schema) {
 	if schema.MinItems != nil {
-		h.writeString(hasher, fmt.Sprintf("minItems:%d", *schema.MinItems))
+		h.writeString(hasher, "minItems:"+strconv.Itoa(*schema.MinItems))
 	}
 	if schema.MaxItems != nil {
-		h.writeString(hasher, fmt.Sprintf("maxItems:%d", *schema.MaxItems))
+		h.writeString(hasher, "maxItems:"+strconv.Itoa(*schema.MaxItems))
 	}
 	if schema.UniqueItems {
 		h.writeString(hasher, "uniqueItems:true")
 	}
 	if schema.MinContains != nil {
-		h.writeString(hasher, fmt.Sprintf("minContains:%d", *schema.MinContains))
+		h.writeString(hasher, "minContains:"+strconv.Itoa(*schema.MinContains))
 	}
 	if schema.MaxContains != nil {
-		h.writeString(hasher, fmt.Sprintf("maxContains:%d", *schema.MaxContains))
+		h.writeString(hasher, "maxContains:"+strconv.Itoa(*schema.MaxContains))
 	}
 }
 
 // hashObjectConstraints hashes object validation fields.
 func (h *SchemaHasher) hashObjectConstraints(hasher hash.Hash64, schema *parser.Schema) {
 	if schema.MinProperties != nil {
-		h.writeString(hasher, fmt.Sprintf("minProperties:%d", *schema.MinProperties))
+		h.writeString(hasher, "minProperties:"+strconv.Itoa(*schema.MinProperties))
 	}
 	if schema.MaxProperties != nil {
-		h.writeString(hasher, fmt.Sprintf("maxProperties:%d", *schema.MaxProperties))
+		h.writeString(hasher, "maxProperties:"+strconv.Itoa(*schema.MaxProperties))
 	}
 }
 

@@ -2,6 +2,7 @@ package validator
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/erraggy/oastools/internal/pathutil"
@@ -45,7 +46,8 @@ func (v *Validator) validateRef(ref, path string, validRefs map[string]bool, res
 
 // buildOAS2ValidRefs builds a map of all valid $ref paths in an OAS 2.0 document
 func buildOAS2ValidRefs(doc *parser.OAS2Document) map[string]bool {
-	validRefs := make(map[string]bool)
+	capacity := len(doc.Definitions) + len(doc.Parameters) + len(doc.Responses) + len(doc.SecurityDefinitions)
+	validRefs := make(map[string]bool, capacity)
 
 	// Add definitions
 	for name := range doc.Definitions {
@@ -72,11 +74,21 @@ func buildOAS2ValidRefs(doc *parser.OAS2Document) map[string]bool {
 
 // buildOAS3ValidRefs builds a map of all valid $ref paths in an OAS 3.x document
 func buildOAS3ValidRefs(doc *parser.OAS3Document) map[string]bool {
-	validRefs := make(map[string]bool)
-
 	if doc.Components == nil {
-		return validRefs
+		return make(map[string]bool)
 	}
+
+	capacity := len(doc.Components.Schemas) +
+		len(doc.Components.Responses) +
+		len(doc.Components.Parameters) +
+		len(doc.Components.Examples) +
+		len(doc.Components.RequestBodies) +
+		len(doc.Components.Headers) +
+		len(doc.Components.SecuritySchemes) +
+		len(doc.Components.Links) +
+		len(doc.Components.Callbacks) +
+		len(doc.Components.PathItems)
+	validRefs := make(map[string]bool, capacity)
 
 	// Add schemas
 	for name := range doc.Components.Schemas {
@@ -146,112 +158,100 @@ func (v *Validator) validateSchemaRefs(schema *parser.Schema, path string, valid
 	// Properties
 	for propName, propSchema := range schema.Properties {
 		if propSchema != nil {
-			propPath := fmt.Sprintf("%s.properties.%s", path, propName)
-			v.validateSchemaRefs(propSchema, propPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(propSchema, path+".properties."+propName, validRefs, result, baseURL)
 		}
 	}
 
 	// Pattern properties
 	for propName, propSchema := range schema.PatternProperties {
 		if propSchema != nil {
-			propPath := fmt.Sprintf("%s.patternProperties.%s", path, propName)
-			v.validateSchemaRefs(propSchema, propPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(propSchema, path+".patternProperties."+propName, validRefs, result, baseURL)
 		}
 	}
 
 	// Additional properties
 	if schema.AdditionalProperties != nil {
 		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-			addPropsPath := fmt.Sprintf("%s.additionalProperties", path)
-			v.validateSchemaRefs(addProps, addPropsPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(addProps, path+".additionalProperties", validRefs, result, baseURL)
 		}
 	}
 
 	// Items
 	if schema.Items != nil {
 		if items, ok := schema.Items.(*parser.Schema); ok {
-			itemsPath := fmt.Sprintf("%s.items", path)
-			v.validateSchemaRefs(items, itemsPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(items, path+".items", validRefs, result, baseURL)
 		}
 	}
 
 	// AllOf, AnyOf, OneOf
 	for i, subSchema := range schema.AllOf {
 		if subSchema != nil {
-			subPath := fmt.Sprintf("%s.allOf[%d]", path, i)
-			v.validateSchemaRefs(subSchema, subPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(subSchema, path+".allOf["+strconv.Itoa(i)+"]", validRefs, result, baseURL)
 		}
 	}
 
 	for i, subSchema := range schema.AnyOf {
 		if subSchema != nil {
-			subPath := fmt.Sprintf("%s.anyOf[%d]", path, i)
-			v.validateSchemaRefs(subSchema, subPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(subSchema, path+".anyOf["+strconv.Itoa(i)+"]", validRefs, result, baseURL)
 		}
 	}
 
 	for i, subSchema := range schema.OneOf {
 		if subSchema != nil {
-			subPath := fmt.Sprintf("%s.oneOf[%d]", path, i)
-			v.validateSchemaRefs(subSchema, subPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(subSchema, path+".oneOf["+strconv.Itoa(i)+"]", validRefs, result, baseURL)
 		}
 	}
 
 	// Not
 	if schema.Not != nil {
-		notPath := fmt.Sprintf("%s.not", path)
-		v.validateSchemaRefs(schema.Not, notPath, validRefs, result, baseURL)
+		v.validateSchemaRefs(schema.Not, path+".not", validRefs, result, baseURL)
 	}
 
 	// Additional items
 	if schema.AdditionalItems != nil {
 		if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
-			addItemsPath := fmt.Sprintf("%s.additionalItems", path)
-			v.validateSchemaRefs(addItems, addItemsPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(addItems, path+".additionalItems", validRefs, result, baseURL)
 		}
 	}
 
 	// Prefix items (JSON Schema Draft 2020-12)
 	for i, prefixItem := range schema.PrefixItems {
 		if prefixItem != nil {
-			prefixPath := fmt.Sprintf("%s.prefixItems[%d]", path, i)
-			v.validateSchemaRefs(prefixItem, prefixPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(prefixItem, path+".prefixItems["+strconv.Itoa(i)+"]", validRefs, result, baseURL)
 		}
 	}
 
 	// Contains, PropertyNames (JSON Schema Draft 2020-12)
 	if schema.Contains != nil {
-		v.validateSchemaRefs(schema.Contains, fmt.Sprintf("%s.contains", path), validRefs, result, baseURL)
+		v.validateSchemaRefs(schema.Contains, path+".contains", validRefs, result, baseURL)
 	}
 
 	if schema.PropertyNames != nil {
-		v.validateSchemaRefs(schema.PropertyNames, fmt.Sprintf("%s.propertyNames", path), validRefs, result, baseURL)
+		v.validateSchemaRefs(schema.PropertyNames, path+".propertyNames", validRefs, result, baseURL)
 	}
 
 	// Dependent schemas (JSON Schema Draft 2020-12)
 	for name, depSchema := range schema.DependentSchemas {
 		if depSchema != nil {
-			depPath := fmt.Sprintf("%s.dependentSchemas.%s", path, name)
-			v.validateSchemaRefs(depSchema, depPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(depSchema, path+".dependentSchemas."+name, validRefs, result, baseURL)
 		}
 	}
 
 	// If/Then/Else (JSON Schema Draft 2020-12, OAS 3.1+)
 	if schema.If != nil {
-		v.validateSchemaRefs(schema.If, fmt.Sprintf("%s.if", path), validRefs, result, baseURL)
+		v.validateSchemaRefs(schema.If, path+".if", validRefs, result, baseURL)
 	}
 	if schema.Then != nil {
-		v.validateSchemaRefs(schema.Then, fmt.Sprintf("%s.then", path), validRefs, result, baseURL)
+		v.validateSchemaRefs(schema.Then, path+".then", validRefs, result, baseURL)
 	}
 	if schema.Else != nil {
-		v.validateSchemaRefs(schema.Else, fmt.Sprintf("%s.else", path), validRefs, result, baseURL)
+		v.validateSchemaRefs(schema.Else, path+".else", validRefs, result, baseURL)
 	}
 
 	// $defs (JSON Schema Draft 2020-12)
 	for name, defSchema := range schema.Defs {
 		if defSchema != nil {
-			defPath := fmt.Sprintf("%s.$defs.%s", path, name)
-			v.validateSchemaRefs(defSchema, defPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(defSchema, path+".$defs."+name, validRefs, result, baseURL)
 		}
 	}
 }
@@ -268,7 +268,7 @@ func (v *Validator) validateParameterRef(param *parser.Parameter, path string, v
 
 	// Also validate schema refs within the parameter
 	if param.Schema != nil {
-		v.validateSchemaRefs(param.Schema, fmt.Sprintf("%s.schema", path), validRefs, result, baseURL)
+		v.validateSchemaRefs(param.Schema, path+".schema", validRefs, result, baseURL)
 	}
 }
 
@@ -279,13 +279,11 @@ func (v *Validator) validateOperationResponses(op *parser.Operation, opPath stri
 		return
 	}
 	if op.Responses.Default != nil {
-		responsePath := fmt.Sprintf("%s.responses.default", opPath)
-		v.validateResponseRef(op.Responses.Default, responsePath, validRefs, result, baseURL)
+		v.validateResponseRef(op.Responses.Default, opPath+".responses.default", validRefs, result, baseURL)
 	}
 	for code, response := range op.Responses.Codes {
 		if response != nil {
-			responsePath := fmt.Sprintf("%s.responses.%s", opPath, code)
-			v.validateResponseRef(response, responsePath, validRefs, result, baseURL)
+			v.validateResponseRef(response, opPath+".responses."+code, validRefs, result, baseURL)
 		}
 	}
 }
@@ -302,26 +300,25 @@ func (v *Validator) validateResponseRef(response *parser.Response, path string, 
 
 	// Validate schema refs in the response
 	if response.Schema != nil {
-		v.validateSchemaRefs(response.Schema, fmt.Sprintf("%s.schema", path), validRefs, result, baseURL)
+		v.validateSchemaRefs(response.Schema, path+".schema", validRefs, result, baseURL)
 	}
 
 	// Validate content schemas (OAS 3.x)
 	for mediaType, mediaTypeObj := range response.Content {
 		if mediaTypeObj != nil && mediaTypeObj.Schema != nil {
-			schemaPath := fmt.Sprintf("%s.content.%s.schema", path, mediaType)
-			v.validateSchemaRefs(mediaTypeObj.Schema, schemaPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(mediaTypeObj.Schema, path+".content."+mediaType+".schema", validRefs, result, baseURL)
 		}
 	}
 
 	// Validate headers
 	for headerName, header := range response.Headers {
 		if header != nil {
-			headerPath := fmt.Sprintf("%s.headers.%s", path, headerName)
+			headerPath := path + ".headers." + headerName
 			if header.Ref != "" {
 				v.validateRef(header.Ref, headerPath, validRefs, result, baseURL)
 			}
 			if header.Schema != nil {
-				v.validateSchemaRefs(header.Schema, fmt.Sprintf("%s.schema", headerPath), validRefs, result, baseURL)
+				v.validateSchemaRefs(header.Schema, headerPath+".schema", validRefs, result, baseURL)
 			}
 		}
 	}
@@ -329,8 +326,7 @@ func (v *Validator) validateResponseRef(response *parser.Response, path string, 
 	// Validate links (OAS 3.x)
 	for linkName, link := range response.Links {
 		if link != nil && link.Ref != "" {
-			linkPath := fmt.Sprintf("%s.links.%s", path, linkName)
-			v.validateRef(link.Ref, linkPath, validRefs, result, baseURL)
+			v.validateRef(link.Ref, path+".links."+linkName, validRefs, result, baseURL)
 		}
 	}
 }
@@ -348,8 +344,7 @@ func (v *Validator) validateRequestBodyRef(requestBody *parser.RequestBody, path
 	// Validate content schemas
 	for mediaType, mediaTypeObj := range requestBody.Content {
 		if mediaTypeObj != nil && mediaTypeObj.Schema != nil {
-			schemaPath := fmt.Sprintf("%s.content.%s.schema", path, mediaType)
-			v.validateSchemaRefs(mediaTypeObj.Schema, schemaPath, validRefs, result, baseURL)
+			v.validateSchemaRefs(mediaTypeObj.Schema, path+".content."+mediaType+".schema", validRefs, result, baseURL)
 		}
 	}
 }
@@ -362,24 +357,21 @@ func (v *Validator) validateOAS2Refs(doc *parser.OAS2Document, result *Validatio
 	// Validate refs in definitions
 	for name, schema := range doc.Definitions {
 		if schema != nil {
-			path := fmt.Sprintf("definitions.%s", name)
-			v.validateSchemaRefs(schema, path, validRefs, result, baseURL)
+			v.validateSchemaRefs(schema, "definitions."+name, validRefs, result, baseURL)
 		}
 	}
 
 	// Validate refs in parameters
 	for name, param := range doc.Parameters {
 		if param != nil {
-			path := fmt.Sprintf("parameters.%s", name)
-			v.validateParameterRef(param, path, validRefs, result, baseURL)
+			v.validateParameterRef(param, "parameters."+name, validRefs, result, baseURL)
 		}
 	}
 
 	// Validate refs in responses
 	for name, response := range doc.Responses {
 		if response != nil {
-			path := fmt.Sprintf("responses.%s", name)
-			v.validateResponseRef(response, path, validRefs, result, baseURL)
+			v.validateResponseRef(response, "responses."+name, validRefs, result, baseURL)
 		}
 	}
 
@@ -389,13 +381,12 @@ func (v *Validator) validateOAS2Refs(doc *parser.OAS2Document, result *Validatio
 			continue
 		}
 
-		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
+		pathPrefix := "paths." + pathPattern
 
 		// Validate path-level parameters
 		for i, param := range pathItem.Parameters {
 			if param != nil {
-				paramPath := fmt.Sprintf("%s.parameters[%d]", pathPrefix, i)
-				v.validateParameterRef(param, paramPath, validRefs, result, baseURL)
+				v.validateParameterRef(param, pathPrefix+".parameters["+strconv.Itoa(i)+"]", validRefs, result, baseURL)
 			}
 		}
 
@@ -406,13 +397,12 @@ func (v *Validator) validateOAS2Refs(doc *parser.OAS2Document, result *Validatio
 				continue
 			}
 
-			opPath := fmt.Sprintf("%s.%s", pathPrefix, method)
+			opPath := pathPrefix + "." + method
 
 			// Validate operation parameters
 			for i, param := range op.Parameters {
 				if param != nil {
-					paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, i)
-					v.validateParameterRef(param, paramPath, validRefs, result, baseURL)
+					v.validateParameterRef(param, opPath+".parameters["+strconv.Itoa(i)+"]", validRefs, result, baseURL)
 				}
 			}
 
@@ -432,44 +422,40 @@ func (v *Validator) validateOAS3Refs(doc *parser.OAS3Document, result *Validatio
 		// Validate schemas
 		for name, schema := range doc.Components.Schemas {
 			if schema != nil {
-				path := fmt.Sprintf("components.schemas.%s", name)
-				v.validateSchemaRefs(schema, path, validRefs, result, baseURL)
+				v.validateSchemaRefs(schema, "components.schemas."+name, validRefs, result, baseURL)
 			}
 		}
 
 		// Validate parameters
 		for name, param := range doc.Components.Parameters {
 			if param != nil {
-				path := fmt.Sprintf("components.parameters.%s", name)
-				v.validateParameterRef(param, path, validRefs, result, baseURL)
+				v.validateParameterRef(param, "components.parameters."+name, validRefs, result, baseURL)
 			}
 		}
 
 		// Validate responses
 		for name, response := range doc.Components.Responses {
 			if response != nil {
-				path := fmt.Sprintf("components.responses.%s", name)
-				v.validateResponseRef(response, path, validRefs, result, baseURL)
+				v.validateResponseRef(response, "components.responses."+name, validRefs, result, baseURL)
 			}
 		}
 
 		// Validate request bodies
 		for name, requestBody := range doc.Components.RequestBodies {
 			if requestBody != nil {
-				path := fmt.Sprintf("components.requestBodies.%s", name)
-				v.validateRequestBodyRef(requestBody, path, validRefs, result, baseURL)
+				v.validateRequestBodyRef(requestBody, "components.requestBodies."+name, validRefs, result, baseURL)
 			}
 		}
 
 		// Validate headers
 		for name, header := range doc.Components.Headers {
 			if header != nil {
-				headerPath := fmt.Sprintf("components.headers.%s", name)
+				headerPath := "components.headers." + name
 				if header.Ref != "" {
 					v.validateRef(header.Ref, headerPath, validRefs, result, baseURL)
 				}
 				if header.Schema != nil {
-					v.validateSchemaRefs(header.Schema, fmt.Sprintf("%s.schema", headerPath), validRefs, result, baseURL)
+					v.validateSchemaRefs(header.Schema, headerPath+".schema", validRefs, result, baseURL)
 				}
 			}
 		}
@@ -482,7 +468,7 @@ func (v *Validator) validateOAS3Refs(doc *parser.OAS3Document, result *Validatio
 				continue
 			}
 
-			pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
+			pathPrefix := "paths." + pathPattern
 
 			// Validate PathItem $ref
 			if pathItem.Ref != "" {
@@ -492,8 +478,7 @@ func (v *Validator) validateOAS3Refs(doc *parser.OAS3Document, result *Validatio
 			// Validate path-level parameters
 			for i, param := range pathItem.Parameters {
 				if param != nil {
-					paramPath := fmt.Sprintf("%s.parameters[%d]", pathPrefix, i)
-					v.validateParameterRef(param, paramPath, validRefs, result, baseURL)
+					v.validateParameterRef(param, pathPrefix+".parameters["+strconv.Itoa(i)+"]", validRefs, result, baseURL)
 				}
 			}
 
@@ -508,7 +493,7 @@ func (v *Validator) validateOAS3Refs(doc *parser.OAS3Document, result *Validatio
 			continue
 		}
 
-		pathPrefix := fmt.Sprintf("webhooks.%s", webhookName)
+		pathPrefix := "webhooks." + webhookName
 
 		// Validate PathItem $ref
 		if pathItem.Ref != "" {
@@ -529,20 +514,18 @@ func (v *Validator) validatePathItemOperationRefs(pathItem *parser.PathItem, pat
 			continue
 		}
 
-		opPath := fmt.Sprintf("%s.%s", pathPrefix, method)
+		opPath := pathPrefix + "." + method
 
 		// Validate operation parameters
 		for i, param := range op.Parameters {
 			if param != nil {
-				paramPath := fmt.Sprintf("%s.parameters[%d]", opPath, i)
-				v.validateParameterRef(param, paramPath, validRefs, result, baseURL)
+				v.validateParameterRef(param, opPath+".parameters["+strconv.Itoa(i)+"]", validRefs, result, baseURL)
 			}
 		}
 
 		// Validate request body
 		if op.RequestBody != nil {
-			requestBodyPath := fmt.Sprintf("%s.requestBody", opPath)
-			v.validateRequestBodyRef(op.RequestBody, requestBodyPath, validRefs, result, baseURL)
+			v.validateRequestBodyRef(op.RequestBody, opPath+".requestBody", validRefs, result, baseURL)
 		}
 
 		// Validate operation responses

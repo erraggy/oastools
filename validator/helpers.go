@@ -74,14 +74,14 @@ func (v *Validator) validateResponseStatusCodes(responses *parser.Responses, pat
 	for code := range responses.Codes {
 		// Validate HTTP status code format
 		if !httputil.ValidateStatusCode(code) {
-			v.addError(result, fmt.Sprintf("%s.responses.%s", path, code),
+			v.addError(result, path+".responses."+code,
 				fmt.Sprintf("Invalid HTTP status code: %s", code),
 				withSpecRef(fmt.Sprintf("%s#responses-object", baseURL)),
 				withValue(code),
 			)
 		} else if v.StrictMode && !httputil.IsStandardStatusCode(code) {
 			// In strict mode, warn about non-standard status codes
-			v.addWarning(result, fmt.Sprintf("%s.responses.%s", path, code),
+			v.addWarning(result, path+".responses."+code,
 				fmt.Sprintf("Non-standard HTTP status code: %s (not defined in HTTP RFCs)", code),
 				withSpecRef(fmt.Sprintf("%s#responses-object", baseURL)),
 				withValue(code),
@@ -93,7 +93,7 @@ func (v *Validator) validateResponseStatusCodes(responses *parser.Responses, pat
 		}
 	}
 	if !hasSuccess && v.StrictMode {
-		v.addWarning(result, fmt.Sprintf("%s.responses", path),
+		v.addWarning(result, path+".responses",
 			"Operation should define at least one successful response (2XX or default)",
 			withSpecRef(fmt.Sprintf("%s#responses-object", baseURL)),
 		)
@@ -115,7 +115,7 @@ func (v *Validator) checkDuplicateOperationIds(
 			continue
 		}
 
-		opPath := fmt.Sprintf("%s.%s.%s", pathType, pathPattern, method)
+		opPath := pathType + "." + pathPattern + "." + method
 
 		if firstSeenAt, exists := operationIds[op.OperationID]; exists {
 			// Determine the correct spec reference based on path type
