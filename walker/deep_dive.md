@@ -269,6 +269,32 @@ Each OAS node type has a corresponding handler type:
 | `ExternalDocsHandler` | External docs | All |
 | `SchemaSkippedHandler` | Skipped schemas (depth/cycle) | All |
 
+Each handler type has a corresponding registration option. Register handlers using these `Option` functions:
+
+| Option | Called For | OAS Version |
+|--------|-----------|-------------|
+| `WithDocumentHandler(fn)` | Root document (any type) | All |
+| `WithOAS2DocumentHandler(fn)` | OAS 2.0 documents only | 2.0 only |
+| `WithOAS3DocumentHandler(fn)` | OAS 3.x documents only | 3.x only |
+| `WithInfoHandler(fn)` | API metadata | All |
+| `WithServerHandler(fn)` | Server definitions | 3.x only |
+| `WithTagHandler(fn)` | Tag definitions | All |
+| `WithPathHandler(fn)` | Path entries | All |
+| `WithPathItemHandler(fn)` | Path items | All |
+| `WithOperationHandler(fn)` | Operations | All |
+| `WithParameterHandler(fn)` | Parameters | All |
+| `WithRequestBodyHandler(fn)` | Request bodies | 3.x only |
+| `WithResponseHandler(fn)` | Responses | All |
+| `WithSchemaHandler(fn)` | Schemas (including nested) | All |
+| `WithSecuritySchemeHandler(fn)` | Security schemes | All |
+| `WithHeaderHandler(fn)` | Headers | All |
+| `WithMediaTypeHandler(fn)` | Media types | 3.x only |
+| `WithLinkHandler(fn)` | Links | 3.x only |
+| `WithCallbackHandler(fn)` | Callbacks | 3.x only |
+| `WithExampleHandler(fn)` | Examples | All |
+| `WithExternalDocsHandler(fn)` | External docs | All |
+| `WithSchemaSkippedHandler(fn)` | Skipped schemas (depth/cycle) | All |
+
 ### WalkContext
 
 Every handler receives a `*WalkContext` as its first parameter, providing contextual information about the current node.
@@ -464,6 +490,12 @@ WithParsed(result *parser.ParseResult)  // Walk pre-parsed document
 WithMaxSchemaDepth(depth int)           // Silently ignored if not positive (uses default 100)
 WithContext(ctx context.Context)        // Context for cancellation
 ```
+
+| Option | Description |
+|--------|-------------|
+| `WithFilePath(path)` | Parse and walk a file |
+| `WithParsed(result)` | Walk a pre-parsed `*parser.ParseResult` |
+| `WithContext(ctx)` | Set context for cancellation and deadline propagation |
 
 All handler options (e.g., `WithSchemaHandler`, `WithOperationHandler`) work directly with both `Walk` and `WalkWithOptions`.
 
