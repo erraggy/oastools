@@ -4,7 +4,7 @@
 //   - Use SchemaSkippedHandler for cycle and depth notifications
 //   - Build reference graphs with walker
 //   - Identify unused components
-//   - Configure WithMaxDepth for schema traversal
+//   - Configure WithMaxSchemaDepth for schema traversal
 package main
 
 import (
@@ -63,7 +63,7 @@ func main() {
 	// Walk the document with handlers for reference tracking
 	err = walker.Walk(parseResult,
 		// Set max depth for schema traversal
-		walker.WithMaxDepth(50),
+		walker.WithMaxSchemaDepth(50),
 
 		// Track schema references
 		walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {

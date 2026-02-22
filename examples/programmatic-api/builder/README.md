@@ -207,8 +207,8 @@ if err != nil {
     log.Fatal(err)
 }
 
-// Generic build (any version)
-generic, err := spec.Build()
+// Generic build (any version) - returns *parser.ParseResult
+result, err := spec.BuildResult()
 ```
 
 ### Advanced Features

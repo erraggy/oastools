@@ -228,13 +228,23 @@ A critical feature is format preservation across the pipeline. The [parser](#4-p
 oastools packages are designed for seamless composition. Each package's result type provides a `ToParseResult()` method, enabling fluid pipelines without manual rewrapping:
 
 ```go
-result, _ := parser.Parse("spec.yaml", false, true)
+result, err := parser.ParseWithOptions(parser.WithFilePath("spec.yaml"))
+if err != nil { return err }
 
 // Chain through the entire toolchain without losing context
-validated := validator.ValidateParsed(result, true, false)
-fixed := fixer.FixParsed(validated.ToParseResult())
-converted := converter.ConvertParsed(fixed.ToParseResult(), "3.1.0")
-joined := joiner.JoinParsed(converted.ToParseResult(), other.ToParseResult())
+validated, err := validator.ValidateWithOptions(validator.WithParsed(*result))
+if err != nil { return err }
+fixed, err := fixer.FixWithOptions(fixer.WithParsed(*validated.ToParseResult()))
+if err != nil { return err }
+converted, err := converter.ConvertWithOptions(
+    converter.WithParsed(*fixed.ToParseResult()),
+    converter.WithTargetVersion("3.1.0"),
+)
+if err != nil { return err }
+joined, err := joiner.JoinWithOptions(
+    joiner.WithParsed(*converted.ToParseResult(), *other.ToParseResult()),
+)
+if err != nil { return err }
 ```
 
 | Package | Result Type | Provides ToParseResult() |
@@ -1057,7 +1067,7 @@ fmt.Printf("Changes: %d Breaking, %d Warning\n",
     result.BreakingCount, result.WarningCount)
 
 for _, change := range result.Changes {
-    if change.Severity == severity.SeverityCritical {
+    if change.Severity == differ.SeverityCritical {
         fmt.Printf("BREAKING: %s - %s\n", change.Path, change.Message)
     }
 }
@@ -1265,15 +1275,13 @@ spec := builder.New(parser.OASVersion310)
 spec.SetTitle("My API").
     SetVersion("1.0.0").
     SetDescription("A sample API").
-    AddServer("https://api.example.com", "Production")
+    AddServer("https://api.example.com",
+        builder.WithServerDescription("Production"))
 
 spec.AddOperation(http.MethodGet, "/users",
     builder.WithOperationID("listUsers"),
     builder.WithSummary("List users"),
-    builder.WithResponse(http.StatusOK, builder.ResponseConfig{
-        Description: "Successful response",
-        SchemaRef:   spec.SchemaRef("UserList"), // returns a $ref string
-    }),
+    builder.WithResponseRef(http.StatusOK, spec.SchemaRef("UserList")),
 )
 
 doc, err := spec.BuildOAS3()
@@ -1334,8 +1342,8 @@ Configurable naming strategies handle generic types and package prefixes.
 | `SchemaNamingDefault` | `models.User` | `models.User` |
 | `SchemaNamingPascalCase` | `models.User` | `ModelsUser` |
 | `SchemaNamingTypeOnly` | `models.User` | `User` |
-| `GenericUnderscore` | `Response[User]` | `Response_User_` |
-| `GenericOf` | `Response[User]` | `ResponseOfUser` |
+| `GenericNamingUnderscore` | `Response[User]` | `Response_User_` |
+| `GenericNamingOf` | `Response[User]` | `ResponseOfUser` |
 | Custom | User-defined | Via `WithSchemaNameFunc` |
 
 ### 12.5 Server Builder

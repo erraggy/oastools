@@ -50,8 +50,8 @@ oastools generate --client --server -o ./gen -p api openapi.yaml  # Generate Go 
 ```go
 // Parse, validate, and fix — consistent functional options API
 result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
-vResult, _ := validator.ValidateWithOptions(validator.WithDocument(result))
-fResult, _ := fixer.FixWithOptions(fixer.WithDocument(result))
+vResult, _ := validator.ValidateWithOptions(validator.WithParsed(*result))
+fResult, _ := fixer.FixWithOptions(fixer.WithParsed(*result))
 ```
 
 [Full library guide →](https://erraggy.github.io/oastools/developer-guide/)

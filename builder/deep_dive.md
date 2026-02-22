@@ -1185,6 +1185,113 @@ result := srv.MustBuildServer()
 | `AddSecurityScheme(name, scheme)` | Register security scheme |
 | `SetSecurity(requirements...)` | Document-level security |
 
+### Tag Options
+
+| Option | Description |
+|--------|-------------|
+| `WithTagDescription(desc)` | Set tag description |
+| `WithTagExternalDocs(url, desc)` | Set external documentation URL and description for a tag |
+
+### Server Options
+
+| Option | Description |
+|--------|-------------|
+| `WithServerDescription(desc)` | Set server description |
+| `WithServerVariable(name, default, ...opts)` | Add a variable to the server |
+
+### Server Variable Options
+
+| Option | Description |
+|--------|-------------|
+| `WithServerVariableEnum(values...)` | Set allowed values for a server variable |
+| `WithServerVariableDescription(desc)` | Set description for a server variable |
+
+### Response Detail Options
+
+These `ResponseOption` values configure individual responses when passed to `WithResponse` or `WithResponseRawSchema`:
+
+| Option | Description |
+|--------|-------------|
+| `WithResponseContentType(contentType)` | Set response content type (default: application/json) |
+| `WithResponseExample(example)` | Set response example value |
+| `WithResponseHeader(name, header)` | Add a header to the response |
+
+### Response-Level Operation Options
+
+These `OperationOption` values add or configure responses at the operation level:
+
+| Option | Description |
+|--------|-------------|
+| `WithResponseRawSchema(statusCode, contentType, schema, ...opts)` | Add response with pre-built schema |
+| `WithResponseRef(statusCode, ref)` | Add a response `$ref` reference |
+| `WithDefaultResponse(responseType, ...opts)` | Set the default response for the operation |
+
+### Request Body Detail Options
+
+These options configure request bodies at a finer level than `WithRequestBody`.
+
+| Option | Description |
+|--------|-------------|
+| `WithRequestBodyRawSchema(contentType, schema, ...opts)` | Request body with pre-built schema |
+| `WithRequestDescription(desc)` | Set request body description |
+| `WithRequestExample(example)` | Set request body example value |
+| `WithRequired(required)` | Set whether request body is required |
+
+### Advanced Operation Options
+
+These options provide lower-level control over operations, including pre-built parameters and handler registration.
+
+| Option | Description |
+|--------|-------------|
+| `WithHandler(handler)` | Register a typed handler for the operation (ServerBuilder only) |
+| `WithHandlerFunc(handler)` | Register an `http.HandlerFunc` handler (ServerBuilder only) |
+| `WithNoSecurity()` | Explicitly mark operation as requiring no security |
+| `WithParameter(param)` | Add a pre-built `*parser.Parameter` to the operation |
+| `WithParameterRef(ref)` | Add a parameter `$ref` reference |
+| `WithFileParam(name, ...opts)` | Add a file upload parameter (OAS 2.0: formData; OAS 3.x: multipart) |
+| `WithFormParam(name, type, ...opts)` | Add a form parameter (OAS 2.0: formData; OAS 3.x: request body) |
+
+### Parameter Validation Options
+
+These `ParamOption` values set JSON Schema validation constraints on parameters.
+
+| Option | Description |
+|--------|-------------|
+| `WithParamDefault(value)` | Set default value |
+| `WithParamDeprecated(bool)` | Mark parameter as deprecated |
+| `WithParamEnum(values...)` | Set allowed values |
+| `WithParamExample(example)` | Set example value |
+| `WithParamMinimum(min)` | Minimum numeric value |
+| `WithParamMaximum(max)` | Maximum numeric value |
+| `WithParamExclusiveMinimum(bool)` | Exclusive minimum bound |
+| `WithParamExclusiveMaximum(bool)` | Exclusive maximum bound |
+| `WithParamMinLength(min)` | Minimum string length |
+| `WithParamMaxLength(max)` | Maximum string length |
+| `WithParamPattern(pattern)` | Regex pattern for string validation |
+| `WithParamMinItems(min)` | Minimum array items |
+| `WithParamMaxItems(max)` | Maximum array items |
+| `WithParamMultipleOf(value)` | Numeric multiple-of constraint |
+| `WithParamUniqueItems(bool)` | Require unique array items |
+
+### Schema Field Processing
+
+| Option | Description |
+|--------|-------------|
+| `WithSchemaFieldProcessor(fn)` | Custom `BuilderOption` for processing struct field tags during schema generation |
+
+### Generic Naming Options
+
+These `BuilderOption` values configure how Go generic types are represented in schema names.
+
+| Option | Description |
+|--------|-------------|
+| `WithGenericNaming(strategy)` | Set generic type naming strategy |
+| `WithGenericNamingConfig(config)` | Fine-grained control over generic naming |
+| `WithGenericSeparator(sep)` | Separator for generic type parameters (default: `_`) |
+| `WithGenericParamSeparator(sep)` | Separator between multiple type parameters |
+| `WithGenericIncludePackage(bool)` | Include package names in generic type parameters |
+| `WithGenericApplyBaseCasing(bool)` | Apply base naming strategy to type parameters |
+
 [↑ Back to top](#top)
 
 ## Best Practices

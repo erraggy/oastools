@@ -78,7 +78,7 @@ The walker enables validation rules that go beyond structural schema validation:
 ```go
 // Check for operations missing security requirements
 walker.WithOperationHandler(func(wc *walker.WalkContext, op *parser.Operation) walker.Action {
-    if len(op.Security) == 0 && !isInternalPath(wc.PathTemplate) {
+    if len(op.Security) == 0 && !isInternalPath(currentPathTemplate) {
         findings = append(findings, Finding{
             Severity: "WARNING",
             Path:     wc.JSONPath,
