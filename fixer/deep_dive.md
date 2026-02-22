@@ -44,10 +44,15 @@ The fixer analyzes OAS documents and applies fixes for issues that would cause v
 | `FixTypePrunedUnusedSchema` | ❌ Disabled | Removes unreferenced schema definitions |
 | `FixTypePrunedEmptyPath` | ❌ Disabled | Removes paths with no HTTP operations |
 | `FixTypeEnumCSVExpanded` | ❌ Disabled | Expands CSV enum strings to typed arrays (e.g., "1,2,3" → [1, 2, 3]) |
+| `FixTypeDuplicateOperationId` | ❌ Disabled | Renames duplicate operationId values to ensure uniqueness |
+| `FixTypeStubMissingRef` | ❌ Disabled | Creates empty stubs for unresolved `$ref` targets |
 
 **Why are some fixes disabled by default?**
 
-Schema renaming and pruning involve expensive operations (walking all references, computing unused schemas) that can significantly slow down processing of large specifications. Enable them explicitly when needed.
+Disabled fixes fall into two categories:
+
+- **Performance-sensitive**: Schema renaming (`FixTypeRenamedGenericSchema`) and pruning (`FixTypePrunedUnusedSchema`, `FixTypePrunedEmptyPath`) walk all references and compute unused schemas, which can significantly slow processing of large specifications.
+- **Behavioral impact**: `FixTypeDuplicateOperationId` renames operation IDs that clients and SDK generators may already depend on. `FixTypeStubMissingRef` injects synthetic placeholder content into the document. Both are opt-in to avoid unexpected breakage.
 
 [Back to top](#top)
 
@@ -205,6 +210,11 @@ Configure with `WithGenericNaming()` or `WithGenericNamingConfig()`.
 | `WithGenericNamingConfig(cfg)` | Custom naming configuration |
 | `WithDryRun(bool)` | Preview without applying |
 | `WithMutableInput(bool)` | Skip defensive copy when caller owns input |
+| `WithUserAgent(userAgent string)` | Custom User-Agent for HTTP requests |
+| `WithSourceMap(sm *parser.SourceMap)` | Source map for line/column info in fixes |
+| `WithOperationIdNamingConfig(config OperationIdNamingConfig)` | Configuration for duplicate operationId renaming |
+| `WithStubConfig(config StubConfig)` | Configuration for missing reference stub creation |
+| `WithStubResponseDescription(desc string)` | Default description for stubbed responses |
 
 ### Fixer Fields
 
@@ -212,7 +222,11 @@ Configure with `WithGenericNaming()` or `WithGenericNamingConfig()`.
 |-------|------|-------------|
 | `InferTypes` | `bool` | Enable type inference |
 | `EnabledFixes` | `[]FixType` | Fix types to apply (empty = all) |
-| `GenericNamingConfig` | `*GenericNamingConfig` | Custom naming rules |
+| `UserAgent` | `string` | User-Agent string for HTTP requests |
+| `SourceMap` | `*parser.SourceMap` | Source location lookup for fix issues |
+| `GenericNamingConfig` | `GenericNamingConfig` | Custom naming rules |
+| `OperationIdNamingConfig` | `OperationIdNamingConfig` | Configuration for duplicate operationId renaming |
+| `StubConfig` | `StubConfig` | Configuration for missing reference stub creation |
 | `DryRun` | `bool` | Preview mode |
 | `MutableInput` | `bool` | Skip defensive copy |
 

@@ -17,23 +17,35 @@ type securityDetailView struct {
 	SecurityScheme *parser.SecurityScheme `json:"securityScheme" yaml:"securityScheme"`
 }
 
-// handleWalkSecurity implements the "walk security" subcommand.
-// It collects security schemes from the spec, applies filters, and renders output.
-func handleWalkSecurity(args []string) error {
+// WalkSecurityFlags contains flags for the walk security subcommand.
+type WalkSecurityFlags struct {
+	Name string
+	Type string
+	WalkFlags
+}
+
+// SetupWalkSecurityFlags creates and configures a FlagSet for the walk security subcommand.
+func SetupWalkSecurityFlags() (*flag.FlagSet, *WalkSecurityFlags) {
 	fs := flag.NewFlagSet("walk security", flag.ContinueOnError)
+	flags := &WalkSecurityFlags{}
 
-	// Security-specific flags
-	name := fs.String("name", "", "Filter by security scheme name")
-	schemeType := fs.String("type", "", "Filter by type (apiKey, http, oauth2, openIdConnect)")
+	fs.StringVar(&flags.Name, "name", "", "Filter by security scheme name")
+	fs.StringVar(&flags.Type, "type", "", "Filter by type (apiKey, http, oauth2, openIdConnect)")
 
-	// Common walk flags
-	var flags WalkFlags
 	fs.StringVar(&flags.Format, "format", FormatText, "Output format: text, json, yaml")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "Suppress headers and decoration")
 	fs.BoolVar(&flags.Quiet, "q", false, "Suppress headers and decoration (shorthand)")
 	fs.BoolVar(&flags.Detail, "detail", false, "Show full security scheme instead of summary table")
 	fs.StringVar(&flags.Extension, "extension", "", "Filter by extension (e.g., x-scope=internal)")
 	fs.BoolVar(&flags.ResolveRefs, "resolve-refs", false, "Resolve $ref pointers before output")
+
+	return fs, flags
+}
+
+// handleWalkSecurity implements the "walk security" subcommand.
+// It collects security schemes from the spec, applies filters, and renders output.
+func handleWalkSecurity(args []string) error {
+	fs, flags := SetupWalkSecurityFlags()
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -63,7 +75,7 @@ func handleWalkSecurity(args []string) error {
 	}
 
 	// 2. Filter
-	matched, err := filterSecuritySchemes(collector.All, *name, *schemeType, flags.Extension)
+	matched, err := filterSecuritySchemes(collector.All, flags.Name, flags.Type, flags.Extension)
 	if err != nil {
 		return err
 	}
@@ -75,9 +87,9 @@ func handleWalkSecurity(args []string) error {
 
 	// 3. Render
 	if flags.Detail {
-		return renderSecurityDetail(matched, flags)
+		return renderSecurityDetail(matched, flags.WalkFlags)
 	}
-	return renderSecuritySummary(matched, flags)
+	return renderSecuritySummary(matched, flags.WalkFlags)
 }
 
 // filterSecuritySchemes applies all security scheme filters and returns the matching subset.

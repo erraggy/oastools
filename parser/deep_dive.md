@@ -302,12 +302,15 @@ See also: [DeepCopy example](https://pkg.go.dev/github.com/erraggy/oastools/pars
 ```go
 result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
 
+// Get the typed document
+doc, _ := result.OAS3Document()
+
 // Deep copy before mutation
-copy := result.OAS3Document.DeepCopy()
-copy.Info.Title = "Modified API"
+docCopy := doc.DeepCopy()
+docCopy.Info.Title = "Modified API"
 
 // Original unchanged
-fmt.Println(result.OAS3Document.Info.Title) // Original title
+fmt.Println(doc.Info.Title) // Original title
 ```
 
 [Back to top](#top)
@@ -321,13 +324,21 @@ fmt.Println(result.OAS3Document.Info.Title) // Original title
 | Option | Description |
 |--------|-------------|
 | `WithFilePath(path)` | File path or URL to parse |
+| `WithBytes(data []byte)` | Parse from byte slice |
+| `WithReader(r io.Reader)` | Parse from an io.Reader |
 | `WithResolveRefs(bool)` | Enable `$ref` resolution (default: true) |
 | `WithResolveHTTPRefs(bool)` | Enable HTTP/HTTPS ref resolution (default: false) |
 | `WithValidateStructure(bool)` | Validate document structure during parsing |
 | `WithInsecureSkipVerify(bool)` | Skip TLS verification for HTTPS refs |
+| `WithSourceMap(enabled bool)` | Enable source map tracking for line/column info |
+| `WithPreserveOrder(enabled bool)` | Preserve original field ordering from source |
+| `WithUserAgent(ua string)` | Custom User-Agent for HTTP requests |
+| `WithHTTPClient(client *http.Client)` | Custom HTTP client for remote refs |
 | `WithMaxRefDepth(n)` | Max nested ref depth (default: 100) |
 | `WithMaxCachedDocuments(n)` | Max cached external docs (default: 100) |
 | `WithMaxFileSize(n)` | Max file size in bytes (default: 10MB) |
+| `WithMaxInputSize(size int)` | Max input size in bytes |
+| `WithSourceName(name string)` | Override source name for bytes/reader input |
 
 ### ParseResult Fields
 
@@ -338,7 +349,7 @@ fmt.Println(result.OAS3Document.Info.Title) // Original title
 | `OASVersion` | `OASVersion` | Parsed version constant |
 | `SourceFormat` | `SourceFormat` | Detected format (JSON or YAML) |
 | `SourcePath` | `string` | Original file path |
-| `Errors` | `[]string` | Parse errors |
+| `Errors` | `[]error` | Parse errors |
 | `Warnings` | `[]string` | Non-fatal warnings |
 
 [Back to top](#top)

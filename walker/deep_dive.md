@@ -380,7 +380,7 @@ The walker package provides two complementary APIs:
 result, _ := parser.New().Parse("openapi.yaml")
 walker.Walk(result,
     walker.WithSchemaHandler(handler),
-    walker.WithMaxDepth(50),
+    walker.WithMaxSchemaDepth(50),
 )
 ```
 
@@ -411,8 +411,10 @@ func WalkWithOptions(opts ...Option) error
 ### Walk Options
 
 ```go
-// Handler registration
+// Pre-visit handler registration
 WithDocumentHandler(fn DocumentHandler)
+WithOAS2DocumentHandler(fn OAS2DocumentHandler)
+WithOAS3DocumentHandler(fn OAS3DocumentHandler)
 WithInfoHandler(fn InfoHandler)
 WithServerHandler(fn ServerHandler)
 WithTagHandler(fn TagHandler)
@@ -432,8 +434,26 @@ WithExampleHandler(fn ExampleHandler)
 WithExternalDocsHandler(fn ExternalDocsHandler)
 WithSchemaSkippedHandler(fn SchemaSkippedHandler)
 
+// Post-visit handler registration
+WithSchemaPostHandler(fn SchemaPostHandler)
+WithOperationPostHandler(fn OperationPostHandler)
+WithPathItemPostHandler(fn PathItemPostHandler)
+WithResponsePostHandler(fn ResponsePostHandler)
+WithRequestBodyPostHandler(fn RequestBodyPostHandler)
+WithCallbackPostHandler(fn CallbackPostHandler)
+WithOAS2DocumentPostHandler(fn OAS2DocumentPostHandler)
+WithOAS3DocumentPostHandler(fn OAS3DocumentPostHandler)
+
+// Reference and parent tracking
+WithRefHandler(fn RefHandler)
+WithRefTracking()
+WithMapRefTracking()
+WithParentTracking()
+
 // Configuration
-WithMaxDepth(depth int)  // Default: 100
+WithMaxSchemaDepth(depth int)  // Limit schema recursion depth (default: 100)
+WithMaxDepth(depth int)        // Deprecated: use WithMaxSchemaDepth instead
+WithContext(ctx context.Context)
 ```
 
 ### WalkWithOptions Input Options
@@ -442,7 +462,7 @@ WithMaxDepth(depth int)  // Default: 100
 WithFilePath(path string)               // Parse and walk a file
 WithParsed(result *parser.ParseResult)  // Walk pre-parsed document
 WithMaxSchemaDepth(depth int)           // Silently ignored if not positive (uses default 100)
-WithUserContext(ctx context.Context)    // Context for cancellation
+WithContext(ctx context.Context)        // Context for cancellation
 ```
 
 All handler options (e.g., `WithSchemaHandler`, `WithOperationHandler`) work directly with both `Walk` and `WalkWithOptions`.
@@ -497,13 +517,13 @@ schema.Properties = map[string]*parser.Schema{
 
 ### Depth Limiting
 
-Use `WithMaxDepth(n)` to limit schema recursion depth (default: 100).
+Use `WithMaxSchemaDepth(n)` to limit schema recursion depth (default: 100). The older `WithMaxDepth(n)` is deprecated but still works.
 
 ```go
 // Limit to 10 levels of nesting
 walker.Walk(result,
     walker.WithSchemaHandler(handler),
-    walker.WithMaxDepth(10),
+    walker.WithMaxSchemaDepth(10),
 )
 ```
 
@@ -520,7 +540,7 @@ Use `WithSchemaSkippedHandler` to receive notifications when schemas are skipped
 
 ```go
 walker.Walk(result,
-    walker.WithMaxDepth(10),
+    walker.WithMaxSchemaDepth(10),
     walker.WithSchemaSkippedHandler(func(wc *walker.WalkContext, reason string, schema *parser.Schema) {
         switch reason {
         case "depth":

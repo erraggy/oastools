@@ -1740,13 +1740,13 @@ if err != nil {
     log.Fatal(err)
 }
 
-// Validate (30x faster than validator.Validate)
+// Validate (31x faster than validator.Validate)
 valResult, _ := validator.ValidateWithOptions(
     validator.WithParsed(*parseResult),
     validator.WithIncludeWarnings(true),
 )
 
-// Convert (9x faster than converter.Convert)
+// Convert (47x faster than converter.Convert)
 convResult, _ := converter.ConvertWithOptions(
     converter.WithParsed(*parseResult),
     converter.WithTargetVersion("3.0.3"),
@@ -2164,4 +2164,4 @@ Two documents define the same path. Choose a collision strategy:
 - **API Documentation**: [pkg.go.dev/github.com/erraggy/oastools](https://pkg.go.dev/github.com/erraggy/oastools)
 - **GitHub Issues**: [https://github.com/erraggy/oastools/issues](https://github.com/erraggy/oastools/issues)
 - **Breaking Change Semantics**: See [breaking-changes.md](breaking-changes.md)
-- **Performance Details**: See [benchmarks.md](benchmarks.md)
+- **Performance Details**: See the [whitepaper performance section](whitepaper.md#17-performance-analysis)

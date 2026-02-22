@@ -304,6 +304,16 @@ go test -bench=. ./parser
 4. ✅ Verify test coverage is sufficient
 5. ✅ Update benchmarks with `make bench-save` for performance-impacting changes
 
+### Documentation Checks
+
+CI automatically verifies that documentation stays in sync with code through automated checks:
+
+- **CLI flag tables** (`TestCLIFlagsDocumented`) - CLI flags must match `docs/cli-reference.md`
+- **Option tables** (`TestDeepDiveOptionTables`) - `With*` functions must appear in respective `deep_dive.md`
+- **Link checking** (lychee) - Broken links caught in CI and via `make docs-check`
+
+If you add a CLI flag or `With*` option, the tests will tell you which doc to update.
+
 ### Commit Message Format
 
 Use conventional commit format:

@@ -12,26 +12,41 @@ import (
 	"github.com/erraggy/oastools/walker"
 )
 
-// handleWalkOperations implements the "walk operations" subcommand.
-// It collects operations from the spec, applies filters, and renders output.
-func handleWalkOperations(args []string) error {
+// WalkOperationsFlags contains flags for the walk operations subcommand.
+type WalkOperationsFlags struct {
+	Method      string
+	Path        string
+	Tag         string
+	Deprecated  bool
+	OperationID string
+	WalkFlags
+}
+
+// SetupWalkOperationsFlags creates and configures a FlagSet for the walk operations subcommand.
+func SetupWalkOperationsFlags() (*flag.FlagSet, *WalkOperationsFlags) {
 	fs := flag.NewFlagSet("walk operations", flag.ContinueOnError)
+	flags := &WalkOperationsFlags{}
 
-	// Operation-specific flags
-	method := fs.String("method", "", "Filter by HTTP method (e.g., get, post)")
-	path := fs.String("path", "", "Filter by path pattern (supports glob with *)")
-	tag := fs.String("tag", "", "Filter by tag")
-	deprecated := fs.Bool("deprecated", false, "Only show deprecated operations")
-	operationID := fs.String("operationId", "", "Select by operationId")
+	fs.StringVar(&flags.Method, "method", "", "Filter by HTTP method (e.g., get, post)")
+	fs.StringVar(&flags.Path, "path", "", "Filter by path pattern (supports glob with *)")
+	fs.StringVar(&flags.Tag, "tag", "", "Filter by tag")
+	fs.BoolVar(&flags.Deprecated, "deprecated", false, "Only show deprecated operations")
+	fs.StringVar(&flags.OperationID, "operationId", "", "Select by operationId")
 
-	// Common walk flags
-	var flags WalkFlags
 	fs.StringVar(&flags.Format, "format", FormatText, "Output format: text, json, yaml")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "Suppress headers and decoration")
 	fs.BoolVar(&flags.Quiet, "q", false, "Suppress headers and decoration (shorthand)")
 	fs.BoolVar(&flags.Detail, "detail", false, "Show full operation instead of summary table")
 	fs.StringVar(&flags.Extension, "extension", "", "Filter by extension (e.g., x-internal=true)")
 	fs.BoolVar(&flags.ResolveRefs, "resolve-refs", false, "Resolve $ref pointers before output")
+
+	return fs, flags
+}
+
+// handleWalkOperations implements the "walk operations" subcommand.
+// It collects operations from the spec, applies filters, and renders output.
+func handleWalkOperations(args []string) error {
+	fs, flags := SetupWalkOperationsFlags()
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -63,7 +78,7 @@ func handleWalkOperations(args []string) error {
 	// 2. Filter
 	matched := collector.All
 
-	matched, err = filterOperations(matched, *method, *path, *tag, *deprecated, *operationID, flags.Extension)
+	matched, err = filterOperations(matched, flags.Method, flags.Path, flags.Tag, flags.Deprecated, flags.OperationID, flags.Extension)
 	if err != nil {
 		return err
 	}
@@ -75,9 +90,9 @@ func handleWalkOperations(args []string) error {
 
 	// 3. Render
 	if flags.Detail {
-		return renderOperationsDetail(matched, flags)
+		return renderOperationsDetail(matched, flags.WalkFlags)
 	}
-	return renderOperationsSummary(matched, flags)
+	return renderOperationsSummary(matched, flags.WalkFlags)
 }
 
 // filterOperations applies all operation filters and returns the matching subset.

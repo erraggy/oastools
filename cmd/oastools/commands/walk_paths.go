@@ -19,22 +19,33 @@ type pathInfo struct {
 	pathItem     *parser.PathItem
 }
 
-// handleWalkPaths implements the "walk paths" subcommand.
-// It collects path items from the spec, applies filters, and renders output.
-func handleWalkPaths(args []string) error {
+// WalkPathsFlags contains flags for the walk paths subcommand.
+type WalkPathsFlags struct {
+	Path string
+	WalkFlags
+}
+
+// SetupWalkPathsFlags creates and configures a FlagSet for the walk paths subcommand.
+func SetupWalkPathsFlags() (*flag.FlagSet, *WalkPathsFlags) {
 	fs := flag.NewFlagSet("walk paths", flag.ContinueOnError)
+	flags := &WalkPathsFlags{}
 
-	// Paths-specific flags
-	path := fs.String("path", "", "Filter by path pattern (supports glob with *)")
+	fs.StringVar(&flags.Path, "path", "", "Filter by path pattern (supports glob with *)")
 
-	// Common walk flags
-	var flags WalkFlags
 	fs.StringVar(&flags.Format, "format", FormatText, "Output format: text, json, yaml")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "Suppress headers and decoration")
 	fs.BoolVar(&flags.Quiet, "q", false, "Suppress headers and decoration (shorthand)")
 	fs.BoolVar(&flags.Detail, "detail", false, "Show full path item instead of summary table")
 	fs.StringVar(&flags.Extension, "extension", "", "Filter by extension (e.g., x-internal=true)")
 	fs.BoolVar(&flags.ResolveRefs, "resolve-refs", false, "Resolve $ref pointers before output")
+
+	return fs, flags
+}
+
+// handleWalkPaths implements the "walk paths" subcommand.
+// It collects path items from the spec, applies filters, and renders output.
+func handleWalkPaths(args []string) error {
+	fs, flags := SetupWalkPathsFlags()
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -64,7 +75,7 @@ func handleWalkPaths(args []string) error {
 	}
 
 	// 2. Filter
-	paths, err = filterPaths(paths, *path, flags.Extension)
+	paths, err = filterPaths(paths, flags.Path, flags.Extension)
 	if err != nil {
 		return err
 	}
@@ -76,9 +87,9 @@ func handleWalkPaths(args []string) error {
 
 	// 3. Render
 	if flags.Detail {
-		return renderPathsDetail(paths, flags)
+		return renderPathsDetail(paths, flags.WalkFlags)
 	}
-	return renderPathsSummary(paths, flags)
+	return renderPathsSummary(paths, flags.WalkFlags)
 }
 
 // collectPaths walks the spec and collects all path items.

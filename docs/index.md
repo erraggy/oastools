@@ -4,7 +4,7 @@
 
 # oastools
 
-A complete, self-contained OpenAPI toolkit for Go — parse, validate, fix, convert, diff, join, generate, and build OpenAPI specs (2.0–3.2) with minimal dependencies.
+A complete, self-contained OpenAPI toolkit for Go — parse, validate, fix, convert, diff, join, walk, generate, and build OpenAPI specs (2.0–3.2) with an MCP server for AI-assisted development.
 
 [![CI: Go](https://github.com/erraggy/oastools/actions/workflows/go.yml/badge.svg)](https://github.com/erraggy/oastools/actions/workflows/go.yml)
 [![codecov](https://codecov.io/gh/erraggy/oastools/graph/badge.svg?token=T8768QXQAX)](https://codecov.io/gh/erraggy/oastools)
@@ -21,7 +21,7 @@ Import oastools packages into your Go application for parsing, validation, conve
 
 ```go
 result, _ := parser.ParseWithOptions(parser.WithFilePath("api.yaml"))
-vResult, _ := validator.ValidateWithOptions(validator.WithDocument(result))
+vResult, _ := validator.ValidateWithOptions(validator.WithParsed(*result))
 ```
 
 → **[Developer Guide](developer-guide.md)** — Complete library usage with examples for all 12 packages
@@ -93,7 +93,7 @@ All packages include comprehensive documentation with runnable examples. See ind
 
 ??? note "Performance"
 
-    Pre-parsed workflows are 11–150x faster. JSON marshaling optimized for 25-32% better performance. 340+ benchmarks track regressions. See [Benchmarks](benchmarks.md).
+    Pre-parsed workflows are 11–150x faster. JSON marshaling optimized for 25-32% better performance. 340+ benchmarks track regressions. See the [whitepaper performance section](whitepaper.md#17-performance-analysis) for detailed analysis.
 
 ??? note "Enterprise-Ready"
 

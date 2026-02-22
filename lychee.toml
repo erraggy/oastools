@@ -1,0 +1,15 @@
+# lychee.toml — link checker configuration
+# Used by `make lint-links` and CI docs workflow.
+
+cache = true
+max_cache_age = "1d"
+
+# Rate-limited or self-referential sites that cause flaky results.
+exclude = [
+  "localhost",
+  "127\\.0\\.0\\.1",
+  "pkg\\.go\\.dev",
+  "oastools\\.robnrob\\.com",
+]
+
+exclude_path = ["node_modules", "vendor", "site"]

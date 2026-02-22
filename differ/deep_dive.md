@@ -53,6 +53,7 @@ Changes are organized by the specification element that was modified:
 | `CategorySecurity` | Security scheme modifications |
 | `CategoryServer` | Server URL or variable changes |
 | `CategoryInfo` | Metadata changes (title, version, description) |
+| `CategoryExtension` | Specification extension (x-*) changes |
 
 ### Severity Levels
 
@@ -228,8 +229,8 @@ func main() {
         for _, change := range result.Changes {
             if change.Severity == differ.SeverityCritical || 
                change.Severity == differ.SeverityError {
-                fmt.Printf("  [%s] %s: %s\n", 
-                    change.Severity, change.Path, change.Description)
+                fmt.Printf("  [%s] %s: %s\n",
+                    change.Severity, change.Path, change.Message)
             }
         }
         os.Exit(1)
@@ -347,6 +348,7 @@ func main() {
         differ.CategorySecurity,
         differ.CategoryServer,
         differ.CategoryInfo,
+        differ.CategoryExtension,
     }
     
     for _, category := range categoryOrder {
@@ -565,10 +567,10 @@ result, _ := differ.DiffWithOptions(
 for _, change := range result.Changes {
     if change.HasLocation() {
         // IDE-friendly format: file:line:column
-        fmt.Printf("%s: %s\n", change.Location(), change.Description)
+        fmt.Printf("%s: %s\n", change.Location(), change.Message)
     } else {
         // Fallback to JSON path
-        fmt.Printf("%s: %s\n", change.Path, change.Description)
+        fmt.Printf("%s: %s\n", change.Path, change.Message)
     }
 }
 ```
@@ -705,8 +707,20 @@ result2, _ := d.Diff("api-v2.yaml", "api-v3.yaml")
 type DiffResult struct {
     // SourceVersion is the OAS version of the source document
     SourceVersion string
+    // SourceOASVersion is the enumerated source OAS version
+    SourceOASVersion parser.OASVersion
+    // SourceStats contains statistical information about the source document
+    SourceStats parser.DocumentStats
+    // SourceSize is the size of the source document in bytes
+    SourceSize int64
     // TargetVersion is the OAS version of the target document
     TargetVersion string
+    // TargetOASVersion is the enumerated target OAS version
+    TargetOASVersion parser.OASVersion
+    // TargetStats contains statistical information about the target document
+    TargetStats parser.DocumentStats
+    // TargetSize is the size of the target document in bytes
+    TargetSize int64
     // Changes contains all detected changes
     Changes []Change
     // BreakingCount is the number of breaking changes (Critical + Error)
@@ -734,7 +748,7 @@ type Change struct {
     Category    ChangeCategory // endpoint, operation, parameter, etc.
     Severity    Severity       // critical, error, warning, info
     Path        string         // JSON path to changed element
-    Description string         // Human-readable description
+    Message     string         // Human-readable description
     OldValue    any            // Previous value (for modifications)
     NewValue    any            // New value (for modifications)
 }
