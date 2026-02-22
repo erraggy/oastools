@@ -142,7 +142,7 @@ if result.HasBreakingChanges {
 
     // Review critical changes
     for _, change := range result.Changes {
-        if change.Severity == severity.SeverityCritical {
+        if change.Severity == differ.SeverityCritical {
             fmt.Printf("CRITICAL: %s\n", change.Message)
         }
     }

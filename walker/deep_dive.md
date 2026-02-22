@@ -495,6 +495,7 @@ WithContext(ctx context.Context)        // Context for cancellation
 |--------|-------------|
 | `WithFilePath(path)` | Parse and walk a file |
 | `WithParsed(result)` | Walk a pre-parsed `*parser.ParseResult` |
+| `WithMaxSchemaDepth(depth)` | Maximum depth for recursive schema traversal (default: 100) |
 | `WithContext(ctx)` | Set context for cancellation and deadline propagation |
 
 All handler options (e.g., `WithSchemaHandler`, `WithOperationHandler`) work directly with both `Walk` and `WalkWithOptions`.

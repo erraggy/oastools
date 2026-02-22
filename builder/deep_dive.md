@@ -1208,16 +1208,23 @@ result := srv.MustBuildServer()
 
 ### Response Detail Options
 
-These options configure individual responses at a finer level than the Body and Response Options above.
+These `ResponseOption` values configure individual responses when passed to `WithResponse` or `WithResponseRawSchema`:
 
 | Option | Description |
 |--------|-------------|
 | `WithResponseContentType(contentType)` | Set response content type (default: application/json) |
 | `WithResponseExample(example)` | Set response example value |
 | `WithResponseHeader(name, header)` | Add a header to the response |
-| `WithResponseRawSchema(status, contentType, schema, ...opts)` | Add response with pre-built schema |
-| `WithResponseRef(status, ref)` | Add a response `$ref` reference |
-| `WithDefaultResponse(type, ...opts)` | Set the default response for the operation |
+
+### Response-Level Operation Options
+
+These `OperationOption` values add or configure responses at the operation level:
+
+| Option | Description |
+|--------|-------------|
+| `WithResponseRawSchema(statusCode, contentType, schema, ...opts)` | Add response with pre-built schema |
+| `WithResponseRef(statusCode, ref)` | Add a response `$ref` reference |
+| `WithDefaultResponse(responseType, ...opts)` | Set the default response for the operation |
 
 ### Request Body Detail Options
 
@@ -1266,6 +1273,12 @@ These `ParamOption` values set JSON Schema validation constraints on parameters.
 | `WithParamMultipleOf(value)` | Numeric multiple-of constraint |
 | `WithParamUniqueItems(bool)` | Require unique array items |
 
+### Schema Field Processing
+
+| Option | Description |
+|--------|-------------|
+| `WithSchemaFieldProcessor(fn)` | Custom `BuilderOption` for processing struct field tags during schema generation |
+
 ### Generic Naming Options
 
 These `BuilderOption` values configure how Go generic types are represented in schema names.
@@ -1278,7 +1291,6 @@ These `BuilderOption` values configure how Go generic types are represented in s
 | `WithGenericParamSeparator(sep)` | Separator between multiple type parameters |
 | `WithGenericIncludePackage(bool)` | Include package names in generic type parameters |
 | `WithGenericApplyBaseCasing(bool)` | Apply base naming strategy to type parameters |
-| `WithSchemaFieldProcessor(fn)` | Custom function for processing struct field tags |
 
 [↑ Back to top](#top)
 

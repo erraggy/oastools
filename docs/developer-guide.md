@@ -697,14 +697,15 @@ import "github.com/erraggy/oastools/joiner"
 
 // Join with default configuration
 result, err := joiner.JoinWithOptions(
-    joiner.WithFilePaths([]string{"base.yaml", "extension.yaml"}),
+    joiner.WithFilePaths("base.yaml", "extension.yaml"),
 )
 if err != nil {
     log.Fatal(err)
 }
 
 // Write result to file
-joiner.WriteResult(result, "merged.yaml")
+j := joiner.New(joiner.DefaultConfig())
+j.WriteResult(result, "merged.yaml")
 ```
 
 **Custom Collision Strategies:**
@@ -721,7 +722,7 @@ config := joiner.JoinerConfig{
 }
 
 result, err := joiner.JoinWithOptions(
-    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+    joiner.WithFilePaths("base.yaml", "ext.yaml"),
     joiner.WithConfig(config),
 )
 ```
@@ -752,7 +753,7 @@ result, err := j.JoinParsed(docs)
 
 ```go
 result, err := joiner.JoinWithOptions(
-    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+    joiner.WithFilePaths("base.yaml", "ext.yaml"),
     joiner.WithConfig(joiner.DefaultConfig()),
 )
 
@@ -834,7 +835,7 @@ For fine-grained control over collision resolution, register a collision handler
 ```go
 // Observe-only handler: log collisions but use configured strategy
 result, err := joiner.JoinWithOptions(
-    joiner.WithFilePaths([]string{"users-api.yaml", "billing-api.yaml"}),
+    joiner.WithFilePaths("users-api.yaml", "billing-api.yaml"),
     joiner.WithCollisionHandler(func(c joiner.CollisionContext) (joiner.CollisionResolution, error) {
         log.Printf("Collision detected: %s %q (%s vs %s)\n",
             c.Type, c.Name, c.LeftSource, c.RightSource)
@@ -848,13 +849,13 @@ Handle only specific collision types:
 ```go
 // Only handle schema collisions, let others use configured strategy
 result, err := joiner.JoinWithOptions(
-    joiner.WithFilePaths([]string{"users-api.yaml", "billing-api.yaml"}),
-    joiner.WithCollisionHandlerFor(joiner.CollisionTypeSchema, func(c joiner.CollisionContext) (joiner.CollisionResolution, error) {
+    joiner.WithFilePaths("users-api.yaml", "billing-api.yaml"),
+    joiner.WithCollisionHandlerFor(func(c joiner.CollisionContext) (joiner.CollisionResolution, error) {
         if c.Name == "Error" {
             return joiner.AcceptLeft(), nil  // Always keep left Error schema
         }
         return joiner.ContinueWithStrategy(), nil
-    }),
+    }, joiner.CollisionTypeSchema),
 )
 ```
 
@@ -988,7 +989,7 @@ rules := &differ.BreakingRulesConfig{
     },
     Schema: &differ.SchemaRules{
         // Ignore type changes entirely
-        TypeModified: &differ.BreakingChangeRule{
+        TypeChanged: &differ.BreakingChangeRule{
             Ignore: true,
         },
     },
@@ -1335,14 +1336,14 @@ spec := builder.New(parser.OASVersion300).
     SetDescription("Simple user management API").
     AddOperation(http.MethodGet, "/users/{id}",
         builder.WithOperationID("getUserByID"),
-        builder.WithOperationDescription("Get a user by ID"),
-        builder.WithParameter("id", "path", "string", "User ID"),
+        builder.WithDescription("Get a user by ID"),
+        builder.WithPathParam("id", "string", builder.WithParamDescription("User ID")),
         builder.WithResponse(http.StatusOK, User{}),
         builder.WithResponse(http.StatusNotFound, Error{}),
     ).
     AddOperation(http.MethodPost, "/users",
         builder.WithOperationID("createUser"),
-        builder.WithRequestBody(User{}, "Create user request"),
+        builder.WithRequestBody("application/json", User{}, builder.WithRequestDescription("Create user request")),
         builder.WithResponse(http.StatusCreated, User{}),
         builder.WithResponse(http.StatusBadRequest, Error{}),
     )
@@ -1354,7 +1355,7 @@ if err != nil {
 }
 
 // Convert to YAML/JSON
-data, _ := parser.ToYAML(doc)
+data, _ := yaml.Marshal(doc)
 fmt.Println(string(data))
 ```
 
@@ -1799,7 +1800,7 @@ diffResult, _ := differ.DiffWithOptions(
 ```go
 // Join multiple documents
 joinResult, err := joiner.JoinWithOptions(
-    joiner.WithFilePaths([]string{"users-api.yaml", "orders-api.yaml"}),
+    joiner.WithFilePaths("users-api.yaml", "orders-api.yaml"),
 )
 if err != nil {
     log.Fatal(err)
@@ -1982,7 +1983,7 @@ for _, issue := range result.Issues {
 
 ```go
 result, err := joiner.JoinWithOptions(
-    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+    joiner.WithFilePaths("base.yaml", "ext.yaml"),
     joiner.WithConfig(joiner.DefaultConfig()),
 )
 

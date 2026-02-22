@@ -200,7 +200,7 @@ result, _ := converter.ConvertWithOptions(
 )
 
 if result.HasCriticalIssues() {
-    log.Warn("Some features were lost in conversion")
+    log.Println("Warning: Some features were lost in conversion")
 }
 ```
 

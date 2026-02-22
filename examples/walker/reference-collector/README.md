@@ -7,7 +7,7 @@ Demonstrates analyzing schema references and detecting circular references using
 - Using SchemaSkippedHandler for cycle and depth notifications
 - Building reference graphs with walker
 - Identifying unused components in your API specification
-- Configuring WithMaxDepth for controlled schema traversal
+- Configuring WithMaxSchemaDepth for controlled schema traversal
 - Detecting self-referencing schemas (circular references)
 
 ## Prerequisites
@@ -84,14 +84,14 @@ Depth-Limited Schemas: 0
 The `SchemaSkippedHandler` is called when the walker skips a schema for one of two reasons:
 
 ```go
-walker.WithSchemaSkippedHandler(func(reason string, schema *parser.Schema, path string) {
+walker.WithSchemaSkippedHandler(func(wc *walker.WalkContext, reason string, schema *parser.Schema) {
     switch reason {
     case "cycle":
         // Schema was already visited - circular reference detected
-        collector.Cycles = append(collector.Cycles, path)
+        collector.Cycles = append(collector.Cycles, wc.JSONPath)
     case "depth":
         // Schema exceeds maxDepth - depth limit reached
-        collector.DepthLimited = append(collector.DepthLimited, path)
+        collector.DepthLimited = append(collector.DepthLimited, wc.JSONPath)
     }
 })
 ```
@@ -119,7 +119,7 @@ When an array schema has items with a `$ref`, the parser stores it as `map[strin
 if items, ok := schema.Items.(map[string]any); ok {
     if ref, ok := items["$ref"].(string); ok {
         schemaName := extractSchemaName(ref)
-        collector.SchemaRefs[schemaName] = append(collector.SchemaRefs[schemaName], path+".items")
+        collector.SchemaRefs[schemaName] = append(collector.SchemaRefs[schemaName], wc.JSONPath+".items")
     }
 }
 ```
@@ -153,11 +153,11 @@ for name, refs := range collector.SchemaRefs {
 
 ### MaxDepth Configuration
 
-Use `WithMaxDepth` to prevent infinite traversal in deeply nested schemas:
+Use `WithMaxSchemaDepth` to prevent infinite traversal in deeply nested schemas:
 
 ```go
 walker.Walk(parseResult,
-    walker.WithMaxDepth(50),  // Limit schema traversal depth
+    walker.WithMaxSchemaDepth(50),  // Limit schema traversal depth
     // ... handlers
 )
 ```

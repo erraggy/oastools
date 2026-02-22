@@ -63,7 +63,7 @@ func main() {
 	// Walk the document with handlers for reference tracking
 	err = walker.Walk(parseResult,
 		// Set max depth for schema traversal
-		walker.WithMaxDepth(50),
+		walker.WithMaxSchemaDepth(50),
 
 		// Track schema references
 		walker.WithSchemaHandler(func(wc *walker.WalkContext, schema *parser.Schema) walker.Action {

@@ -61,7 +61,7 @@ The `oas` struct tag provides full control over schema properties.
 Create runnable HTTP servers from your spec:
 
 ```go
-srv := builder.NewServerBuilder(parser.OASVersion320).
+srv := builder.NewServerBuilder(parser.OASVersion320, builder.WithoutValidation()).
     SetTitle("Quick API").
     SetVersion("1.0.0")
 

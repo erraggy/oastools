@@ -176,8 +176,8 @@ All workflows demonstrate the parse-once pattern for maximum performance:
 parsed, _ := parser.ParseWithOptions(parser.WithFilePath("spec.yaml"))
 
 // Reuse for multiple operations
-fixer.FixWithOptions(fixer.WithParsed(parsed))
-validator.ValidateWithOptions(validator.WithParsed(parsed))
+fixer.FixWithOptions(fixer.WithParsed(*parsed))
+validator.ValidateWithOptions(validator.WithParsed(*parsed))
 ```
 
 This avoids re-parsing the same spec, providing 9-154x performance improvements.

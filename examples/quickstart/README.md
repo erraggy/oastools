@@ -68,7 +68,7 @@ A minimal 5-minute introduction to oastools, demonstrating the parse and validat
 
 ## Key Concepts
 
-**Parse-Once Pattern**: The example uses `parser.ParseWithOptions()` to parse the specification once, then passes the result to `validator.ValidateParsed()`. This avoids re-parsing and provides significant performance improvement for repeated operations.
+**Parse-Once Pattern**: The example uses `parser.ParseWithOptions()` to parse the specification once, then passes the result to `v.ValidateParsed()` (a method on `*validator.Validator`). This avoids re-parsing and provides significant performance improvement for repeated operations.
 
 **Version-Agnostic Access**: The `AsAccessor()` method returns a `DocumentAccessor` interface that works identically for OAS 2.0, 3.0.x, 3.1.x, and 3.2.0 documents, abstracting away version-specific structure differences.
 
