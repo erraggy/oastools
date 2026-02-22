@@ -82,7 +82,7 @@ func validatePathTemplate(pathPattern string) error {
 // Trailing slashes are discouraged by REST best practices but not forbidden by OAS spec
 func checkTrailingSlash(v *Validator, pathPattern string, result *ValidationResult, baseURL string) {
 	if v.IncludeWarnings && len(pathPattern) > 1 && strings.HasSuffix(pathPattern, "/") {
-		v.addWarning(result, fmt.Sprintf("paths.%s", pathPattern),
+		v.addWarning(result, "paths."+pathPattern,
 			"Path has trailing slash, which is discouraged by REST best practices",
 			withSpecRef(fmt.Sprintf("%s#paths-object", baseURL)),
 			withValue(pathPattern),
@@ -94,11 +94,21 @@ func checkTrailingSlash(v *Validator, pathPattern string, result *ValidationResu
 // e.g., "/pets/{petId}/owners/{ownerId}" -> {"petId": true, "ownerId": true}
 func extractPathParameters(pathPattern string) map[string]bool {
 	params := make(map[string]bool)
-	matches := pathutil.PathParamRegex.FindAllStringSubmatch(pathPattern, -1)
-	for _, match := range matches {
-		if len(match) > 1 {
-			params[match[1]] = true
+	s := pathPattern
+	for {
+		open := strings.IndexByte(s, '{')
+		if open < 0 {
+			break
 		}
+		close := strings.IndexByte(s[open+1:], '}')
+		if close < 0 {
+			break
+		}
+		name := s[open+1 : open+1+close]
+		if len(name) > 0 {
+			params[name] = true
+		}
+		s = s[open+1+close+1:]
 	}
 	return params
 }

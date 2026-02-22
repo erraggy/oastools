@@ -16,17 +16,17 @@ import (
 // that can be *parser.Schema, bool, or map[string]any. This helper reduces duplication
 // in collectSchemaRefsRecursive for AdditionalProperties, Items, AdditionalItems,
 // UnevaluatedProperties, and UnevaluatedItems.
-func collectPolymorphicSchemaRefs(field any, prefix string, visited map[*parser.Schema]bool) []string {
+func collectPolymorphicSchemaRefs(refs *[]string, field any, prefix string, visited map[*parser.Schema]bool) {
 	if field == nil {
-		return nil
+		return
 	}
 	if schema, ok := field.(*parser.Schema); ok {
-		return collectSchemaRefsRecursive(schema, prefix, visited)
+		collectSchemaRefsRecursive(refs, schema, prefix, visited)
+		return
 	}
 	if mapField, ok := field.(map[string]any); ok {
-		return collectRefsFromMap(mapField, prefix)
+		collectRefsFromMap(refs, mapField, prefix)
 	}
-	return nil
 }
 
 // buildReferencedSchemaSet builds the transitive closure of referenced schemas.
@@ -99,96 +99,94 @@ func extractSchemaName(ref, prefix string) string {
 // prefix should be "#/definitions/" for OAS 2.0 or "#/components/schemas/" for OAS 3.x
 func collectSchemaRefs(schema *parser.Schema, prefix string) []string {
 	visited := make(map[*parser.Schema]bool)
-	return collectSchemaRefsRecursive(schema, prefix, visited)
+	refs := make([]string, 0, 32)
+	collectSchemaRefsRecursive(&refs, schema, prefix, visited)
+	return refs
 }
 
 // appendOptionalSchemaRefs appends refs from an optional schema field if non-nil.
 // This helper reduces duplication in collectSchemaRefsRecursive.
-func appendOptionalSchemaRefs(refs []string, s *parser.Schema, prefix string, visited map[*parser.Schema]bool) []string {
+func appendOptionalSchemaRefs(refs *[]string, s *parser.Schema, prefix string, visited map[*parser.Schema]bool) {
 	if s != nil {
-		refs = append(refs, collectSchemaRefsRecursive(s, prefix, visited)...)
+		collectSchemaRefsRecursive(refs, s, prefix, visited)
 	}
-	return refs
 }
 
 // collectSchemaRefsRecursive is the internal implementation with circular reference protection.
-func collectSchemaRefsRecursive(schema *parser.Schema, prefix string, visited map[*parser.Schema]bool) []string {
+// It appends found refs to the pre-allocated slice pointed to by refs.
+func collectSchemaRefsRecursive(refs *[]string, schema *parser.Schema, prefix string, visited map[*parser.Schema]bool) {
 	if schema == nil || visited[schema] {
-		return nil
+		return
 	}
 	visited[schema] = true
 
-	var refs []string
-
 	// Direct schema ref
 	if name := extractSchemaName(schema.Ref, prefix); name != "" {
-		refs = append(refs, name)
+		*refs = append(*refs, name)
 	}
 
 	// Properties
 	for _, propSchema := range schema.Properties {
-		refs = append(refs, collectSchemaRefsRecursive(propSchema, prefix, visited)...)
+		collectSchemaRefsRecursive(refs, propSchema, prefix, visited)
 	}
 
 	// Polymorphic fields (can be *Schema, bool, or map[string]any)
-	refs = append(refs, collectPolymorphicSchemaRefs(schema.AdditionalProperties, prefix, visited)...)
-	refs = append(refs, collectPolymorphicSchemaRefs(schema.Items, prefix, visited)...)
-	refs = append(refs, collectPolymorphicSchemaRefs(schema.AdditionalItems, prefix, visited)...)
+	collectPolymorphicSchemaRefs(refs, schema.AdditionalProperties, prefix, visited)
+	collectPolymorphicSchemaRefs(refs, schema.Items, prefix, visited)
+	collectPolymorphicSchemaRefs(refs, schema.AdditionalItems, prefix, visited)
 
 	// Schema composition
 	for _, s := range schema.AllOf {
-		refs = append(refs, collectSchemaRefsRecursive(s, prefix, visited)...)
+		collectSchemaRefsRecursive(refs, s, prefix, visited)
 	}
 	for _, s := range schema.AnyOf {
-		refs = append(refs, collectSchemaRefsRecursive(s, prefix, visited)...)
+		collectSchemaRefsRecursive(refs, s, prefix, visited)
 	}
 	for _, s := range schema.OneOf {
-		refs = append(refs, collectSchemaRefsRecursive(s, prefix, visited)...)
+		collectSchemaRefsRecursive(refs, s, prefix, visited)
 	}
-	refs = appendOptionalSchemaRefs(refs, schema.Not, prefix, visited)
+	appendOptionalSchemaRefs(refs, schema.Not, prefix, visited)
 
 	// OAS 3.1+ / JSON Schema Draft 2020-12 fields
 	for _, s := range schema.PrefixItems {
-		refs = append(refs, collectSchemaRefsRecursive(s, prefix, visited)...)
+		collectSchemaRefsRecursive(refs, s, prefix, visited)
 	}
-	refs = appendOptionalSchemaRefs(refs, schema.Contains, prefix, visited)
-	refs = appendOptionalSchemaRefs(refs, schema.PropertyNames, prefix, visited)
+	appendOptionalSchemaRefs(refs, schema.Contains, prefix, visited)
+	appendOptionalSchemaRefs(refs, schema.PropertyNames, prefix, visited)
 	for _, depSchema := range schema.DependentSchemas {
-		refs = append(refs, collectSchemaRefsRecursive(depSchema, prefix, visited)...)
+		collectSchemaRefsRecursive(refs, depSchema, prefix, visited)
 	}
 
 	// JSON Schema 2020-12 unevaluated keywords (polymorphic: *Schema or bool)
-	refs = append(refs, collectPolymorphicSchemaRefs(schema.UnevaluatedProperties, prefix, visited)...)
-	refs = append(refs, collectPolymorphicSchemaRefs(schema.UnevaluatedItems, prefix, visited)...)
+	collectPolymorphicSchemaRefs(refs, schema.UnevaluatedProperties, prefix, visited)
+	collectPolymorphicSchemaRefs(refs, schema.UnevaluatedItems, prefix, visited)
 
 	// JSON Schema 2020-12 content keywords
-	refs = appendOptionalSchemaRefs(refs, schema.ContentSchema, prefix, visited)
+	appendOptionalSchemaRefs(refs, schema.ContentSchema, prefix, visited)
 
 	// Conditional schemas (OAS 3.1+)
-	refs = appendOptionalSchemaRefs(refs, schema.If, prefix, visited)
-	refs = appendOptionalSchemaRefs(refs, schema.Then, prefix, visited)
-	refs = appendOptionalSchemaRefs(refs, schema.Else, prefix, visited)
+	appendOptionalSchemaRefs(refs, schema.If, prefix, visited)
+	appendOptionalSchemaRefs(refs, schema.Then, prefix, visited)
+	appendOptionalSchemaRefs(refs, schema.Else, prefix, visited)
 
 	// $defs (OAS 3.1+)
 	for _, defSchema := range schema.Defs {
-		refs = append(refs, collectSchemaRefsRecursive(defSchema, prefix, visited)...)
+		collectSchemaRefsRecursive(refs, defSchema, prefix, visited)
 	}
 
 	// Pattern properties
 	for _, propSchema := range schema.PatternProperties {
-		refs = append(refs, collectSchemaRefsRecursive(propSchema, prefix, visited)...)
+		collectSchemaRefsRecursive(refs, propSchema, prefix, visited)
 	}
 
 	// Discriminator mapping values are references
 	if schema.Discriminator != nil {
 		for _, mappingRef := range schema.Discriminator.Mapping {
 			if name := extractSchemaName(mappingRef, prefix); name != "" {
-				refs = append(refs, name)
+				*refs = append(*refs, name)
 			}
 		}
 	}
-
-	return refs
 }
 
 // isPathItemEmpty returns true if the path item has no operations defined.
@@ -319,13 +317,11 @@ func isComponentsEmpty(comp *parser.Components) bool {
 // This handles polymorphic schema fields (Items, AdditionalProperties, etc.) that may
 // remain as untyped maps after YAML/JSON unmarshaling. These fields are declared as
 // `any` in parser.Schema to support both *Schema and bool values per the OAS spec.
-func collectRefsFromMap(m map[string]any, prefix string) []string {
-	var refs []string
-
+func collectRefsFromMap(refs *[]string, m map[string]any, prefix string) {
 	// Check for direct $ref
 	if refStr, ok := m["$ref"].(string); ok {
 		if name := extractSchemaName(refStr, prefix); name != "" {
-			refs = append(refs, name)
+			*refs = append(*refs, name)
 		}
 	}
 
@@ -333,19 +329,19 @@ func collectRefsFromMap(m map[string]any, prefix string) []string {
 	if props, ok := m["properties"].(map[string]any); ok {
 		for _, propVal := range props {
 			if propMap, ok := propVal.(map[string]any); ok {
-				refs = append(refs, collectRefsFromMap(propMap, prefix)...)
+				collectRefsFromMap(refs, propMap, prefix)
 			}
 		}
 	}
 
 	// Check items
 	if items, ok := m["items"].(map[string]any); ok {
-		refs = append(refs, collectRefsFromMap(items, prefix)...)
+		collectRefsFromMap(refs, items, prefix)
 	}
 
 	// Check additionalProperties
 	if addProps, ok := m["additionalProperties"].(map[string]any); ok {
-		refs = append(refs, collectRefsFromMap(addProps, prefix)...)
+		collectRefsFromMap(refs, addProps, prefix)
 	}
 
 	// Check allOf, anyOf, oneOf
@@ -353,11 +349,9 @@ func collectRefsFromMap(m map[string]any, prefix string) []string {
 		if arr, ok := m[key].([]any); ok {
 			for _, item := range arr {
 				if itemMap, ok := item.(map[string]any); ok {
-					refs = append(refs, collectRefsFromMap(itemMap, prefix)...)
+					collectRefsFromMap(refs, itemMap, prefix)
 				}
 			}
 		}
 	}
-
-	return refs
 }

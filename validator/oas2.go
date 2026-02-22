@@ -2,6 +2,7 @@ package validator
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/erraggy/oastools/parser"
@@ -75,7 +76,7 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 
 		// Validate path pattern starts with "/"
 		if !strings.HasPrefix(pathPattern, "/") {
-			v.addError(result, fmt.Sprintf("paths.%s", pathPattern),
+			v.addError(result, "paths."+pathPattern,
 				"Path must start with '/'",
 				withSpecRef(fmt.Sprintf("%s#paths-object", baseURL)),
 				withValue(pathPattern),
@@ -84,7 +85,7 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 
 		// Validate path template is well-formed
 		if err := validatePathTemplate(pathPattern); err != nil {
-			v.addError(result, fmt.Sprintf("paths.%s", pathPattern),
+			v.addError(result, "paths."+pathPattern,
 				fmt.Sprintf("Invalid path template: %s", err),
 				withSpecRef(fmt.Sprintf("%s#paths-object", baseURL)),
 				withValue(pathPattern),
@@ -94,11 +95,11 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 		// Warning: trailing slash in path (REST best practice)
 		checkTrailingSlash(v, pathPattern, result, baseURL)
 
-		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
+		pathPrefix := "paths." + pathPattern
 
 		// Validate QUERY method is not used in OAS 2.0
 		if pathItem.Query != nil {
-			v.addError(result, fmt.Sprintf("%s.query", pathPrefix),
+			v.addError(result, pathPrefix+".query",
 				"QUERY method is only supported in OAS 3.2+, not in OAS 2.0",
 				withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
 				withField("query"),
@@ -107,7 +108,7 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 
 		// Validate TRACE method is not used in OAS 2.0
 		if pathItem.Trace != nil {
-			v.addError(result, fmt.Sprintf("%s.trace", pathPrefix),
+			v.addError(result, pathPrefix+".trace",
 				"TRACE method is only supported in OAS 3.0+, not in OAS 2.0",
 				withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
 				withField("trace"),
@@ -122,7 +123,7 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 				continue
 			}
 
-			opPath := fmt.Sprintf("%s.%s", pathPrefix, method)
+			opPath := pathPrefix + "." + method
 			v.validateOAS2Operation(op, opPath, result, baseURL)
 
 			// Warning: recommend description
@@ -145,7 +146,7 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 	// Validate consumes/produces media types
 	for i, mediaType := range op.Consumes {
 		if !isValidMediaType(mediaType) {
-			v.addError(result, fmt.Sprintf("%s.consumes[%d]", path, i),
+			v.addError(result, path+".consumes["+strconv.Itoa(i)+"]",
 				fmt.Sprintf("Invalid media type: %s", mediaType),
 				withSpecRef(fmt.Sprintf("%s#operation-object", baseURL)),
 				withValue(mediaType),
@@ -155,7 +156,7 @@ func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, res
 
 	for i, mediaType := range op.Produces {
 		if !isValidMediaType(mediaType) {
-			v.addError(result, fmt.Sprintf("%s.produces[%d]", path, i),
+			v.addError(result, path+".produces["+strconv.Itoa(i)+"]",
 				fmt.Sprintf("Invalid media type: %s", mediaType),
 				withSpecRef(fmt.Sprintf("%s#operation-object", baseURL)),
 				withValue(mediaType),
@@ -171,8 +172,7 @@ func (v *Validator) validateOAS2Definitions(doc *parser.OAS2Document, result *Va
 		if schema == nil {
 			continue
 		}
-		path := fmt.Sprintf("definitions.%s", name)
-		v.validateSchema(schema, path, result)
+		v.validateSchema(schema, "definitions."+name, result)
 	}
 }
 
@@ -182,7 +182,7 @@ func (v *Validator) validateOAS2Parameters(doc *parser.OAS2Document, result *Val
 		if param == nil {
 			continue
 		}
-		path := fmt.Sprintf("parameters.%s", name)
+		path := "parameters." + name
 
 		// Body parameters must have a schema
 		if param.In == "body" && param.Schema == nil {
@@ -210,10 +210,9 @@ func (v *Validator) validateOAS2Responses(doc *parser.OAS2Document, result *Vali
 		if response == nil {
 			continue
 		}
-		path := fmt.Sprintf("responses.%s", name)
 
 		if response.Description == "" {
-			v.addError(result, path,
+			v.addError(result, "responses."+name,
 				"Response must have a description",
 				withSpecRef(fmt.Sprintf("%s#response-object", baseURL)),
 				withField("description"),
@@ -228,7 +227,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 	for i, secReq := range doc.Security {
 		for schemeName := range secReq {
 			if _, exists := doc.SecurityDefinitions[schemeName]; !exists {
-				v.addError(result, fmt.Sprintf("security[%d].%s", i, schemeName),
+				v.addError(result, "security["+strconv.Itoa(i)+"]."+schemeName,
 					fmt.Sprintf("Security requirement references undefined security scheme: %s", schemeName),
 					withSpecRef(fmt.Sprintf("%s#security-requirement-object", baseURL)),
 					withValue(schemeName),
@@ -239,7 +238,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 
 	// Validate security definitions
 	for name, secDef := range doc.SecurityDefinitions {
-		path := fmt.Sprintf("securityDefinitions.%s", name)
+		path := "securityDefinitions." + name
 
 		if secDef.Type == "" {
 			v.addError(result, path,
@@ -347,10 +346,12 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 				}
 			}
 
+			opPath := "paths." + pathPattern + "." + method
+
 			// Verify all path template parameters are declared
 			for paramName := range pathParams {
 				if !declaredParams[paramName] {
-					v.addError(result, fmt.Sprintf("paths.%s.%s", pathPattern, method),
+					v.addError(result, opPath,
 						fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
 						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
 						withValue(paramName),
@@ -361,7 +362,7 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 			// Warn about declared path parameters not in template
 			for paramName := range declaredParams {
 				if !pathParams[paramName] {
-					v.addWarning(result, fmt.Sprintf("paths.%s.%s", pathPattern, method),
+					v.addWarning(result, opPath,
 						fmt.Sprintf("Parameter '%s' is declared as path parameter but not used in path template", paramName),
 						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
 						withValue(paramName),

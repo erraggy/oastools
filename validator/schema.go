@@ -2,6 +2,7 @@ package validator
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/erraggy/oastools/parser"
@@ -17,7 +18,7 @@ func (v *Validator) validateSchemaName(name, pathPrefix string, result *Validati
 		return
 	}
 	if strings.TrimSpace(name) == "" {
-		v.addError(result, fmt.Sprintf("%s.%s", pathPrefix, name),
+		v.addError(result, pathPrefix+"."+name,
 			fmt.Sprintf("schema name cannot be whitespace-only: %q", name),
 			withField("name"),
 			withValue(name),
@@ -27,11 +28,11 @@ func (v *Validator) validateSchemaName(name, pathPrefix string, result *Validati
 
 // validateSchema performs basic schema validation
 func (v *Validator) validateSchema(schema *parser.Schema, path string, result *ValidationResult) {
-	v.validateSchemaWithVisited(schema, path, result, make(map[*parser.Schema]bool))
+	v.validateSchemaWithVisited(schema, path, result, make(map[*parser.Schema]bool), 0)
 }
 
 // validateSchemaWithVisited performs basic schema validation with cycle detection
-func (v *Validator) validateSchemaWithVisited(schema *parser.Schema, path string, result *ValidationResult, visited map[*parser.Schema]bool) {
+func (v *Validator) validateSchemaWithVisited(schema *parser.Schema, path string, result *ValidationResult, visited map[*parser.Schema]bool, depth int) {
 	if schema == nil {
 		return
 	}
@@ -43,7 +44,6 @@ func (v *Validator) validateSchemaWithVisited(schema *parser.Schema, path string
 	visited[schema] = true
 
 	// Check for excessive nesting depth to prevent resource exhaustion
-	depth := strings.Count(path, ".")
 	if depth > maxSchemaNestingDepth {
 		v.addError(result, path,
 			fmt.Sprintf("Schema nesting depth (%d) exceeds maximum allowed (%d)", depth, maxSchemaNestingDepth),
@@ -64,13 +64,13 @@ func (v *Validator) validateSchemaWithVisited(schema *parser.Schema, path string
 	v.validateRequiredFields(schema, path, result)
 
 	// Validate nested schemas
-	v.validateNestedSchemas(schema, path, result, visited)
+	v.validateNestedSchemas(schema, path, result, visited, depth)
 }
 
 // validateEnumValues validates that enum values match the schema type
 func (v *Validator) validateEnumValues(schema *parser.Schema, path string, result *ValidationResult) {
 	for i, enumVal := range schema.Enum {
-		enumPath := fmt.Sprintf("%s.enum[%d]", path, i)
+		enumPath := path + ".enum[" + strconv.Itoa(i) + "]"
 
 		switch schema.Type {
 		case "string":
@@ -188,29 +188,28 @@ func (v *Validator) validateRequiredFields(schema *parser.Schema, path string, r
 }
 
 // validateNestedSchemas validates all nested schemas (properties, items, allOf, oneOf, anyOf, not)
-func (v *Validator) validateNestedSchemas(schema *parser.Schema, path string, result *ValidationResult, visited map[*parser.Schema]bool) {
+func (v *Validator) validateNestedSchemas(schema *parser.Schema, path string, result *ValidationResult, visited map[*parser.Schema]bool, depth int) {
+	nextDepth := depth + 1
+
 	// Validate properties
 	for propName, propSchema := range schema.Properties {
 		if propSchema == nil {
 			continue
 		}
-		propPath := fmt.Sprintf("%s.properties.%s", path, propName)
-		v.validateSchemaWithVisited(propSchema, propPath, result, visited)
+		v.validateSchemaWithVisited(propSchema, path+".properties."+propName, result, visited, nextDepth)
 	}
 
 	// Validate additionalProperties (can be *Schema or bool)
 	if schema.AdditionalProperties != nil {
 		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-			addPropsPath := fmt.Sprintf("%s.additionalProperties", path)
-			v.validateSchemaWithVisited(addProps, addPropsPath, result, visited)
+			v.validateSchemaWithVisited(addProps, path+".additionalProperties", result, visited, nextDepth)
 		}
 	}
 
 	// Validate items (can be *Schema or bool)
 	if schema.Items != nil {
 		if items, ok := schema.Items.(*parser.Schema); ok {
-			itemsPath := fmt.Sprintf("%s.items", path)
-			v.validateSchemaWithVisited(items, itemsPath, result, visited)
+			v.validateSchemaWithVisited(items, path+".items", result, visited, nextDepth)
 		}
 	}
 
@@ -219,8 +218,7 @@ func (v *Validator) validateNestedSchemas(schema *parser.Schema, path string, re
 		if subSchema == nil {
 			continue
 		}
-		subPath := fmt.Sprintf("%s.allOf[%d]", path, i)
-		v.validateSchemaWithVisited(subSchema, subPath, result, visited)
+		v.validateSchemaWithVisited(subSchema, path+".allOf["+strconv.Itoa(i)+"]", result, visited, nextDepth)
 	}
 
 	// Validate oneOf
@@ -228,8 +226,7 @@ func (v *Validator) validateNestedSchemas(schema *parser.Schema, path string, re
 		if subSchema == nil {
 			continue
 		}
-		subPath := fmt.Sprintf("%s.oneOf[%d]", path, i)
-		v.validateSchemaWithVisited(subSchema, subPath, result, visited)
+		v.validateSchemaWithVisited(subSchema, path+".oneOf["+strconv.Itoa(i)+"]", result, visited, nextDepth)
 	}
 
 	// Validate anyOf
@@ -237,13 +234,11 @@ func (v *Validator) validateNestedSchemas(schema *parser.Schema, path string, re
 		if subSchema == nil {
 			continue
 		}
-		subPath := fmt.Sprintf("%s.anyOf[%d]", path, i)
-		v.validateSchemaWithVisited(subSchema, subPath, result, visited)
+		v.validateSchemaWithVisited(subSchema, path+".anyOf["+strconv.Itoa(i)+"]", result, visited, nextDepth)
 	}
 
 	// Validate not
 	if schema.Not != nil {
-		notPath := fmt.Sprintf("%s.not", path)
-		v.validateSchemaWithVisited(schema.Not, notPath, result, visited)
+		v.validateSchemaWithVisited(schema.Not, path+".not", result, visited, nextDepth)
 	}
 }

@@ -3,6 +3,7 @@ package validator
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/erraggy/oastools/parser"
@@ -109,7 +110,7 @@ func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *V
 // validateOAS3Servers validates server objects in OAS 3.x
 func (v *Validator) validateOAS3Servers(doc *parser.OAS3Document, result *ValidationResult, baseURL string) {
 	for i, server := range doc.Servers {
-		path := fmt.Sprintf("servers[%d]", i)
+		path := "servers[" + strconv.Itoa(i) + "]"
 
 		if server.URL == "" {
 			v.addError(result, path, "Server must have a url",
@@ -120,7 +121,7 @@ func (v *Validator) validateOAS3Servers(doc *parser.OAS3Document, result *Valida
 
 		// Validate server variables
 		for varName, varObj := range server.Variables {
-			varPath := fmt.Sprintf("%s.variables.%s", path, varName)
+			varPath := path + ".variables." + varName
 
 			if varObj.Default == "" {
 				v.addError(result, varPath, "Server variable must have a default value",
@@ -153,7 +154,7 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 			continue
 		}
 
-		pathPrefix := fmt.Sprintf("paths.%s", pathPattern)
+		pathPrefix := "paths." + pathPattern
 
 		// Validate path pattern starts with "/"
 		if !strings.HasPrefix(pathPattern, "/") {
@@ -176,7 +177,7 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 
 		// Validate QUERY method is only used in OAS 3.2+
 		if pathItem.Query != nil && doc.OASVersion < parser.OASVersion320 {
-			v.addError(result, fmt.Sprintf("%s.query", pathPrefix),
+			v.addError(result, pathPrefix+".query",
 				fmt.Sprintf("QUERY method is only supported in OAS 3.2+, but document is version %s", doc.OASVersion),
 				withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
 				withField("query"),
@@ -191,7 +192,7 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 				continue
 			}
 
-			opPath := fmt.Sprintf("%s.%s", pathPrefix, method)
+			opPath := pathPrefix + "." + method
 			v.validateOAS3Operation(op, opPath, result, baseURL)
 
 			// Warning: recommend description
@@ -209,7 +210,7 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 func (v *Validator) validateOAS3Operation(op *parser.Operation, path string, result *ValidationResult, baseURL string) {
 	// Validate request body if present
 	if op.RequestBody != nil {
-		v.validateOAS3RequestBody(op.RequestBody, fmt.Sprintf("%s.requestBody", path), result, baseURL)
+		v.validateOAS3RequestBody(op.RequestBody, path+".requestBody", result, baseURL)
 	}
 
 	// Validate response status codes
@@ -238,7 +239,7 @@ func (v *Validator) validateOAS3RequestBody(requestBody *parser.RequestBody, pat
 
 	// Validate each media type
 	for mediaType, mediaTypeObj := range requestBody.Content {
-		mediaTypePath := fmt.Sprintf("%s.content.%s", path, mediaType)
+		mediaTypePath := path + ".content." + mediaType
 
 		// Validate media type format
 		if !isValidMediaType(mediaType) {
@@ -250,8 +251,7 @@ func (v *Validator) validateOAS3RequestBody(requestBody *parser.RequestBody, pat
 
 		// Validate that media type has a schema
 		if mediaTypeObj != nil && mediaTypeObj.Schema != nil {
-			schemaPath := fmt.Sprintf("%s.schema", mediaTypePath)
-			v.validateSchema(mediaTypeObj.Schema, schemaPath, result)
+			v.validateSchema(mediaTypeObj.Schema, mediaTypePath+".schema", result)
 		}
 	}
 }
@@ -268,8 +268,7 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 		if schema == nil {
 			continue
 		}
-		path := fmt.Sprintf("components.schemas.%s", name)
-		v.validateSchema(schema, path, result)
+		v.validateSchema(schema, "components.schemas."+name, result)
 	}
 
 	// Validate responses
@@ -277,10 +276,9 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 		if response == nil {
 			continue
 		}
-		path := fmt.Sprintf("components.responses.%s", name)
 
 		if response.Description == "" {
-			v.addError(result, path, "Response must have a description",
+			v.addError(result, "components.responses."+name, "Response must have a description",
 				withSpecRef(fmt.Sprintf("%s#response-object", baseURL)),
 				withField("description"),
 			)
@@ -292,8 +290,7 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 		if requestBody == nil {
 			continue
 		}
-		path := fmt.Sprintf("components.requestBodies.%s", name)
-		v.validateOAS3RequestBody(requestBody, path, result, baseURL)
+		v.validateOAS3RequestBody(requestBody, "components.requestBodies."+name, result, baseURL)
 	}
 
 	// Validate parameters
@@ -301,7 +298,7 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 		if param == nil {
 			continue
 		}
-		path := fmt.Sprintf("components.parameters.%s", name)
+		path := "components.parameters." + name
 
 		// Parameters must have either schema or content (but not both)
 		hasSchema := param.Schema != nil
@@ -333,8 +330,7 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 		if secScheme == nil {
 			continue
 		}
-		path := fmt.Sprintf("components.securitySchemes.%s", name)
-		v.validateOAS3SecurityScheme(secScheme, path, result, baseURL)
+		v.validateOAS3SecurityScheme(secScheme, "components.securitySchemes."+name, result, baseURL)
 	}
 }
 
@@ -392,7 +388,7 @@ func (v *Validator) validateOAS3SecurityScheme(scheme *parser.SecurityScheme, pa
 func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, result *ValidationResult, baseURL string) {
 	// Validate implicit flow
 	if flows.Implicit != nil {
-		flowPath := fmt.Sprintf("%s.flows.implicit", path)
+		flowPath := path + ".flows.implicit"
 		if flows.Implicit.AuthorizationURL == "" {
 			v.addError(result, flowPath, "Implicit flow must have authorizationUrl",
 				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
@@ -410,7 +406,7 @@ func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, r
 
 	// Validate password flow
 	if flows.Password != nil {
-		flowPath := fmt.Sprintf("%s.flows.password", path)
+		flowPath := path + ".flows.password"
 		if flows.Password.TokenURL == "" {
 			v.addError(result, flowPath, "Password flow must have tokenUrl",
 				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
@@ -428,7 +424,7 @@ func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, r
 
 	// Validate clientCredentials flow
 	if flows.ClientCredentials != nil {
-		flowPath := fmt.Sprintf("%s.flows.clientCredentials", path)
+		flowPath := path + ".flows.clientCredentials"
 		if flows.ClientCredentials.TokenURL == "" {
 			v.addError(result, flowPath, "Client credentials flow must have tokenUrl",
 				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
@@ -446,7 +442,7 @@ func (v *Validator) validateOAuth2Flows(flows *parser.OAuthFlows, path string, r
 
 	// Validate authorizationCode flow
 	if flows.AuthorizationCode != nil {
-		flowPath := fmt.Sprintf("%s.flows.authorizationCode", path)
+		flowPath := path + ".flows.authorizationCode"
 		if flows.AuthorizationCode.AuthorizationURL == "" {
 			v.addError(result, flowPath, "Authorization code flow must have authorizationUrl",
 				withSpecRef(fmt.Sprintf("%s#oauth-flows-object", baseURL)),
@@ -487,7 +483,7 @@ func (v *Validator) validateOAS3Webhooks(doc *parser.OAS3Document, result *Valid
 			continue
 		}
 
-		pathPrefix := fmt.Sprintf("webhooks.%s", webhookName)
+		pathPrefix := "webhooks." + webhookName
 
 		// Validate each operation in the webhook
 		operations := parser.GetOperations(pathItem, doc.OASVersion)
@@ -497,7 +493,7 @@ func (v *Validator) validateOAS3Webhooks(doc *parser.OAS3Document, result *Valid
 				continue
 			}
 
-			opPath := fmt.Sprintf("%s.%s", pathPrefix, method)
+			opPath := pathPrefix + "." + method
 			v.validateOAS3Operation(op, opPath, result, baseURL)
 		}
 	}
@@ -519,6 +515,7 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 
 		// Check all operations in this path
 		operations := parser.GetOperations(pathItem, doc.OASVersion)
+		pathPrefix := "paths." + pathPattern
 
 		for method, op := range operations {
 			if op == nil {
@@ -535,7 +532,7 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 
 					// Path parameters must have required: true
 					if !param.Required {
-						v.addError(result, fmt.Sprintf("paths.%s.parameters[%d]", pathPattern, i),
+						v.addError(result, pathPrefix+".parameters["+strconv.Itoa(i)+"]",
 							"Path parameters must have required: true",
 							withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
 							withField("required"),
@@ -545,13 +542,14 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 			}
 
 			// Check operation-level parameters
+			opPath := pathPrefix + "." + method
 			for i, param := range op.Parameters {
 				if param != nil && param.In == "path" {
 					declaredParams[param.Name] = true
 
 					// Path parameters must have required: true
 					if !param.Required {
-						v.addError(result, fmt.Sprintf("paths.%s.%s.parameters[%d]", pathPattern, method, i),
+						v.addError(result, opPath+".parameters["+strconv.Itoa(i)+"]",
 							"Path parameters must have required: true",
 							withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
 							withField("required"),
@@ -563,7 +561,7 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 			// Verify all path template parameters are declared
 			for paramName := range pathParams {
 				if !declaredParams[paramName] {
-					v.addError(result, fmt.Sprintf("paths.%s.%s", pathPattern, method),
+					v.addError(result, opPath,
 						fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
 						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
 						withValue(paramName),
@@ -574,7 +572,7 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 			// Warn about declared path parameters not in template
 			for paramName := range declaredParams {
 				if !pathParams[paramName] {
-					v.addWarning(result, fmt.Sprintf("paths.%s.%s", pathPattern, method),
+					v.addWarning(result, opPath,
 						fmt.Sprintf("Parameter '%s' is declared as path parameter but not used in path template", paramName),
 						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
 						withValue(paramName),
@@ -599,7 +597,7 @@ func (v *Validator) validateOAS3SecurityRequirements(doc *parser.OAS3Document, r
 	for i, secReq := range doc.Security {
 		for schemeName := range secReq {
 			if !availableSchemes[schemeName] {
-				v.addError(result, fmt.Sprintf("security[%d].%s", i, schemeName),
+				v.addError(result, "security["+strconv.Itoa(i)+"]."+schemeName,
 					fmt.Sprintf("Security requirement references undefined security scheme: %s", schemeName),
 					withSpecRef(fmt.Sprintf("%s#security-requirement-object", baseURL)),
 					withValue(schemeName),
@@ -625,7 +623,7 @@ func (v *Validator) validateOAS3SecurityRequirements(doc *parser.OAS3Document, r
 				for i, secReq := range op.Security {
 					for schemeName := range secReq {
 						if !availableSchemes[schemeName] {
-							v.addError(result, fmt.Sprintf("paths.%s.%s.security[%d].%s", pathPattern, method, i, schemeName),
+							v.addError(result, "paths."+pathPattern+"."+method+".security["+strconv.Itoa(i)+"]."+schemeName,
 								fmt.Sprintf("Security requirement references undefined security scheme: %s", schemeName),
 								withSpecRef(fmt.Sprintf("%s#security-requirement-object", baseURL)),
 								withValue(schemeName),
