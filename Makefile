@@ -572,6 +572,21 @@ docs-clean:
 	@rm -f docs/CONTRIBUTORS.md docs/LICENSE.md docs/benchmarks.md
 	@rm -rf docs/packages docs/examples
 
+## lint-links: Check for broken links in assembled docs
+.PHONY: lint-links
+lint-links: docs-prepare
+	@echo "Checking links in docs/..."
+	@if command -v lychee >/dev/null 2>&1; then \
+		lychee --no-progress docs/; \
+	else \
+		echo "WARNING: lychee not found — link checking SKIPPED." >&2; \
+		echo "Install: brew install lychee (or cargo install lychee)" >&2; \
+	fi
+
+## docs-check: Full documentation validation (prepare + link check)
+.PHONY: docs-check
+docs-check: lint-links
+
 # =============================================================================
 # Help Target
 # =============================================================================

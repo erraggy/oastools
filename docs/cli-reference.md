@@ -41,6 +41,7 @@ oastools validate --strict=false  # explicitly disable
 | `generate` | Generate Go code from an OpenAPI specification |
 | `overlay` | Apply OpenAPI Overlay transformations |
 | `walk` | Query and inspect spec elements (operations, schemas, parameters, responses, security, paths) |
+| `mcp` | Start an MCP server over stdio for AI-assisted development |
 | `version` | Show version information |
 | `help` | Show help information |
 
@@ -64,6 +65,7 @@ oastools validate [flags] <file|url|->
 | `-s, --source-map` | Include line numbers in output (IDE-friendly format) |
 | `-q, --quiet` | Quiet mode: only output validation result, no diagnostic messages |
 | `--format` | Output format: text, json, or yaml (default: "text") |
+| `--include-document` | Include the full OAS document in JSON/YAML output |
 | `-h, --help` | Display help for validate command |
 
 ### Examples
@@ -198,6 +200,8 @@ The fix command automatically corrects common validation errors in OpenAPI speci
 | `--prune-all, --prune` | Apply all pruning fixes (schemas, paths) |
 | `--fix-duplicate-operationids` | Rename duplicate operationId values |
 | `--operationid-template` | Template for renamed operationIds (default: `{operationId}{n}`) |
+| `--operationid-path-sep` | Separator for path segments in operationId template (default: `_`) |
+| `--operationid-tag-sep` | Separator for tags in operationId template (default: `_`) |
 | `--dry-run` | Preview changes without modifying the document |
 | `-h, --help` | Display help for fix command |
 
@@ -368,6 +372,8 @@ oastools parse [flags] <file|url|->
 | Flag | Description |
 |------|-------------|
 | `--resolve-refs` | Resolve external $ref references |
+| `--resolve-http-refs` | Resolve HTTP/HTTPS $ref URLs (requires --resolve-refs) |
+| `--insecure` | Disable TLS certificate verification for HTTPS refs |
 | `--validate-structure` | Validate document structure during parsing |
 | `-q, --quiet` | Quiet mode: only output the document, no diagnostic messages |
 | `-h, --help` | Display help for parse command |
@@ -592,11 +598,16 @@ oastools join [flags] <file1> <file2> [file3...]
 | `--operation-context` | | Enable operation-aware schema renaming |
 | `--primary-operation-policy` | | Policy for selecting primary operation: `first`, `most-specific`, `alphabetical` (default: `first`) |
 | `--semantic-dedup` | | Enable semantic deduplication to consolidate identical schemas |
+| `--equivalence-mode` | | Schema comparison mode for deduplication: `none`, `shallow`, `deep` (default: `none`) |
+| `--collision-report` | | Generate detailed collision analysis report |
+| `--namespace-prefix` | | Namespace prefix for source file (format: source=prefix, can be repeated) |
+| `--always-prefix` | | Apply namespace prefix to all schemas, not just on collision |
 | `--no-merge-arrays` | | Don't merge arrays (servers, security, etc.) |
 | `--no-dedup-tags` | | Don't deduplicate tags by name |
 | `--pre-overlay` | | Overlay file to apply before joining (can be repeated) |
 | `--post-overlay` | | Overlay file to apply to merged result |
 | `--source-map` | `-s` | Include line numbers in output (IDE-friendly format) |
+| `-q, --quiet` | | Quiet mode: suppress diagnostic messages (for pipelining) |
 | `-h, --help` | | Display help for join command |
 
 ### Collision Strategies
@@ -1029,8 +1040,8 @@ Generated code follows Go idioms, includes proper error handling, and is suitabl
 | `--max-lines-per-file int` | Maximum lines per generated file (default: 2000) |
 | `--max-types-per-file int` | Maximum types per generated file (default: 200) |
 | `--max-ops-per-file int` | Maximum operations per generated file (default: 100) |
-| `--split-by-tag` | Split files by operation tag (default: true) |
-| `--split-by-path` | Split files by path prefix (default: true) |
+| `--no-split-by-tag` | Disable splitting files by operation tag (splitting is enabled by default) |
+| `--no-split-by-path` | Disable splitting files by path prefix (splitting is enabled by default) |
 
 ### Examples
 
@@ -1086,7 +1097,7 @@ oastools generate --server --security-enforce -o ./server -p api openapi.yaml
 **Generate with file splitting for large APIs:**
 
 ```bash
-oastools generate --client --max-lines-per-file 1500 --split-by-tag \
+oastools generate --client --max-lines-per-file 1500 \
   -o ./client -p api large-api.yaml
 ```
 
@@ -1498,6 +1509,165 @@ The `--extension` flag supports a mini DSL for filtering by vendor extensions:
 | `a,b` | OR (either matches) | `--extension 'x-public,x-external'` |
 | `a+b` | AND (both match) | `--extension 'x-audited+x-public'` |
 
+### walk operations
+
+List or inspect operations with method, path, tag filters.
+
+#### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--method` | Filter by HTTP method (e.g., get, post) |
+| `--path` | Filter by path pattern (supports glob with *) |
+| `--tag` | Filter by tag |
+| `--deprecated` | Only show deprecated operations |
+| `--operationId` | Select by operationId |
+| `--format` | Output format: text, json, yaml (default: "text") |
+| `-q, --quiet` | Suppress headers and decoration for piping |
+| `--detail` | Show full operation instead of summary table |
+| `--extension` | Filter by extension (e.g., x-internal=true) |
+| `--resolve-refs` | Resolve $ref pointers in detail output |
+
+### walk schemas
+
+List or inspect schemas with name, type, component/inline filters.
+
+#### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--name` | Select by schema name |
+| `--component` | Only show component schemas |
+| `--inline` | Only show inline schemas |
+| `--type` | Filter by schema type (object, array, string, etc.) |
+| `--format` | Output format: text, json, yaml (default: "text") |
+| `-q, --quiet` | Suppress headers and decoration for piping |
+| `--detail` | Show full node instead of summary table |
+| `--extension` | Filter by extension (e.g., x-internal=true) |
+| `--resolve-refs` | Resolve $ref pointers in detail output |
+
+### walk parameters
+
+List or inspect parameters with name, location, path filters.
+
+#### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--in` | Filter by location (path, query, header, cookie) |
+| `--name` | Filter by parameter name |
+| `--path` | Filter by owning path pattern (supports glob with *) |
+| `--method` | Filter by owning operation method |
+| `--format` | Output format: text, json, yaml (default: "text") |
+| `-q, --quiet` | Suppress headers and decoration for piping |
+| `--detail` | Show full parameter instead of summary table |
+| `--extension` | Filter by extension (e.g., x-internal=true) |
+| `--resolve-refs` | Resolve $ref pointers in detail output |
+
+### walk responses
+
+List or inspect responses with status code, path, method filters.
+
+#### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--status` | Filter by status code (200, 4xx, etc.) |
+| `--path` | Filter by owning path pattern (supports glob) |
+| `--method` | Filter by owning operation method |
+| `--format` | Output format: text, json, yaml (default: "text") |
+| `-q, --quiet` | Suppress headers and decoration for piping |
+| `--detail` | Show full node instead of summary table |
+| `--extension` | Filter by extension (e.g., x-internal=true) |
+| `--resolve-refs` | Resolve $ref pointers in detail output |
+
+### walk security
+
+List or inspect security schemes with name, type filters.
+
+#### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--name` | Filter by security scheme name |
+| `--type` | Filter by type (apiKey, http, oauth2, openIdConnect) |
+| `--format` | Output format: text, json, yaml (default: "text") |
+| `-q, --quiet` | Suppress headers and decoration for piping |
+| `--detail` | Show full security scheme instead of summary table |
+| `--extension` | Filter by extension (e.g., x-scope=internal) |
+| `--resolve-refs` | Resolve $ref pointers in detail output |
+
+### walk paths
+
+List or inspect path items with path pattern filters.
+
+#### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--path` | Filter by path pattern (supports glob with *) |
+| `--format` | Output format: text, json, yaml (default: "text") |
+| `-q, --quiet` | Suppress headers and decoration for piping |
+| `--detail` | Show full path item instead of summary table |
+| `--extension` | Filter by extension (e.g., x-internal=true) |
+| `--resolve-refs` | Resolve $ref pointers in detail output |
+
+---
+
+## mcp
+
+Start a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server over stdio, exposing all oastools capabilities as tools for AI-assisted development environments.
+
+### Synopsis
+
+```bash
+oastools mcp
+```
+
+### Description
+
+The MCP command launches a server that communicates over stdio using the Model Context Protocol. It exposes 17 tools (9 core tools + 8 walk tools) that AI agents can invoke to parse, validate, fix, convert, join, diff, overlay, generate, and query OpenAPI specifications.
+
+The server is designed for use with MCP-compatible clients such as Claude Code, Cursor, VS Code, and other AI development environments.
+
+### Configuration
+
+The MCP server is configured via environment variables. MCP clients typically set these via their `env` field in server configuration.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OASTOOLS_CACHE_ENABLED` | `true` | Enable/disable spec caching |
+| `OASTOOLS_CACHE_MAX_SIZE` | `10` | Maximum cached specifications |
+| `OASTOOLS_CACHE_FILE_TTL` | `15m` | File spec TTL |
+| `OASTOOLS_CACHE_URL_TTL` | `5m` | URL-fetched spec TTL |
+| `OASTOOLS_WALK_LIMIT` | `100` | Default walk result limit |
+| `OASTOOLS_WALK_DETAIL_LIMIT` | `25` | Detail mode result limit |
+| `OASTOOLS_VALIDATE_STRICT` | `false` | Enable strict validation by default |
+| `OASTOOLS_ALLOW_PRIVATE_IPS` | `false` | Allow resolution of private/loopback IPs |
+
+### Example
+
+Claude Code `mcp_servers` configuration in `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "oastools": {
+      "command": "oastools",
+      "args": ["mcp"],
+      "env": {
+        "OASTOOLS_CACHE_FILE_TTL": "30m"
+      }
+    }
+  }
+}
+```
+
+For complete tool reference and setup guides, see:
+
+- [MCP Server Guide](mcp-server.md) — Full tool reference and configuration
+- [Claude Code Plugin](claude-code-plugin.md) — One-command setup for Claude Code
+
 ---
 
 ## version
@@ -1581,7 +1751,7 @@ Run 'oastools <command> --help' for more information on a command.
 
 ## Environment Variables
 
-oastools does not currently use any environment variables.
+The `mcp` subcommand reads `OASTOOLS_*` environment variables for server configuration (cache TTLs, walk limits, join strategies, etc.). See the [MCP Server Guide](mcp-server.md#environment-variables) for the full list of supported variables.
 
 ---
 
@@ -1675,7 +1845,7 @@ oastools diff --format json --breaking v1.yaml v2.yaml | jq '.HasBreakingChanges
 
 ## Security Considerations
 
-1. **External References**: Only local file references are supported for `$ref` values. HTTP(S) references are not supported for security reasons.
+1. **External References**: By default, only local file `$ref` values are resolved. HTTP(S) references require explicit opt-in via `--resolve-http-refs` (which also requires `--resolve-refs`). Use `--insecure` only in trusted environments to bypass TLS certificate verification.
 
 2. **Path Traversal**: External file references are restricted to the base directory and subdirectories to prevent path traversal attacks.
 

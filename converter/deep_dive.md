@@ -32,6 +32,7 @@ The converter performs best-effort conversion with detailed issue tracking. Feat
 
 - OAS 2.0 (Swagger) -> OAS 3.0.x / 3.1.x
 - OAS 3.0.x / 3.1.x -> OAS 2.0 (Swagger)
+- OAS 3.0.x <-> OAS 3.1.x
 
 [Back to top](#top)
 
@@ -153,13 +154,13 @@ func main() {
 
     // Review any warnings or critical issues
     for _, issue := range result.Issues {
-        if issue.Severity != "info" {
-            fmt.Printf("[%s] %s: %s\n", issue.Severity, issue.Location, issue.Message)
+        if issue.Severity != converter.SeverityInfo {
+            fmt.Printf("[%s] %s: %s\n", issue.Severity, issue.Path, issue.Message)
         }
     }
 
-    // Write the result
-    data, _ := result.Marshal()
+    // Write the result using the converted document
+    data, _ := json.MarshalIndent(result.Document, "", "  ")
     os.WriteFile("openapi.yaml", data, 0644)
 }
 ```
@@ -344,13 +345,13 @@ if err != nil {
 if result.HasCriticalIssues() {
     fmt.Println("WARNING: Some features could not be converted:")
     for _, issue := range result.Issues {
-        if issue.Severity == "critical" {
-            fmt.Printf("  - %s: %s\n", issue.Location, issue.Message)
+        if issue.Severity == converter.SeverityCritical {
+            fmt.Printf("  - %s: %s\n", issue.Path, issue.Message)
         }
     }
 }
 
-data, _ := result.Marshal()
+data, _ := yaml.Marshal(result.Document)
 os.WriteFile("swagger.yaml", data, 0644)
 ```
 
@@ -368,11 +369,11 @@ var schemaIssues, pathIssues, securityIssues []converter.ConversionIssue
 
 for _, issue := range result.Issues {
     switch {
-    case strings.Contains(issue.Location, "schemas"):
+    case strings.Contains(issue.Path, "schemas"):
         schemaIssues = append(schemaIssues, issue)
-    case strings.Contains(issue.Location, "paths"):
+    case strings.Contains(issue.Path, "paths"):
         pathIssues = append(pathIssues, issue)
-    case strings.Contains(issue.Location, "security"):
+    case strings.Contains(issue.Path, "security"):
         securityIssues = append(securityIssues, issue)
     }
 }
@@ -405,7 +406,7 @@ for _, file := range files {
 
     // Write output with matching extension
     outFile := strings.TrimSuffix(file, ".yaml") + "-v3.yaml"
-    data, _ := result.Marshal()
+    data, _ := yaml.Marshal(result.Document)
     os.WriteFile(outFile, data, 0644)
 
     fmt.Printf("Converted %s: %d warnings, %d critical\n",
@@ -611,7 +612,7 @@ result, _ := converter.ConvertWithOptions(
     converter.WithFilePath("api.yaml"),
     converter.WithTargetVersion("2.0"),
 )
-data, _ := result.Marshal()
+data, _ := yaml.Marshal(result.Document)
 os.WriteFile("swagger.yaml", data, 0644)
 // Webhooks, callbacks, links silently dropped!
 ```
@@ -631,8 +632,8 @@ if err != nil {
 if result.HasCriticalIssues() {
     log.Printf("WARNING: %d features could not be converted", result.CriticalCount)
     for _, issue := range result.Issues {
-        if issue.Severity == "critical" {
-            log.Printf("  %s: %s", issue.Location, issue.Message)
+        if issue.Severity == converter.SeverityCritical {
+            log.Printf("  %s: %s", issue.Path, issue.Message)
         }
     }
 }
@@ -667,7 +668,7 @@ if err != nil {
 
 // Now check what was lost
 for _, issue := range result.Issues {
-    if issue.Severity == "critical" {
+    if issue.Severity == converter.SeverityCritical {
         log.Printf("Feature lost: %s", issue.Message)
     }
 }
@@ -806,8 +807,8 @@ if totalFeatures > 0 {
 // Categorize losses
 var losses = map[string]int{}
 for _, issue := range result.Issues {
-    if issue.Severity == "critical" {
-        losses[issue.Location]++
+    if issue.Severity == converter.SeverityCritical {
+        losses[issue.Path]++
     }
 }
 fmt.Printf("Features lost by location: %v\n", losses)
@@ -894,7 +895,7 @@ actions:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `StrictMode` | `bool` | `false` | Return error on critical issues |
-| `IncludeInfo` | `bool` | `false` | Include info-level issues in result |
+| `IncludeInfo` | `bool` | `true` | Include info-level issues in result |
 
 ### ConversionResult Fields
 
@@ -913,10 +914,11 @@ actions:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `Severity` | `string` | "info", "warning", or "critical" |
-| `Location` | `string` | JSON path to affected element |
+| `Severity` | `Severity` | Severity level (use `SeverityInfo`, `SeverityWarning`, `SeverityCritical` constants) |
+| `Path` | `string` | JSON path to affected element |
 | `Message` | `string` | Human-readable description |
-| `Code` | `string` | Machine-readable issue code |
+
+Note: `Location()` is available as a method that returns the path with line/column info when source maps are enabled.
 
 [Back to top](#top)
 
@@ -979,7 +981,7 @@ Note: Conversion issues are converted to string warnings in the resulting ParseR
 
 4. **Use overlays for fixes** - Pre/post conversion overlays can address gaps that the converter cannot handle automatically.
 
-5. **Preserve format** - Use `result.Marshal()` to maintain JSON/YAML consistency with the source document.
+5. **Preserve format** - Use `result.ToParseResult()` to chain with other packages, or marshal `result.Document` directly to maintain output consistency.
 
 6. **Test round-trip conversions** - If you need bidirectional compatibility, test converting A->B->A and verify the result.
 

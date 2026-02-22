@@ -19,24 +19,38 @@ type schemaDetailView struct {
 	Schema      *parser.Schema `json:"schema" yaml:"schema"`
 }
 
-// handleWalkSchemas implements the "walk schemas" subcommand.
-func handleWalkSchemas(args []string) error {
+// WalkSchemasFlags contains flags for the walk schemas subcommand.
+type WalkSchemasFlags struct {
+	Name      string
+	Component bool
+	Inline    bool
+	Type      string
+	WalkFlags
+}
+
+// SetupWalkSchemasFlags creates and configures a FlagSet for the walk schemas subcommand.
+func SetupWalkSchemasFlags() (*flag.FlagSet, *WalkSchemasFlags) {
 	fs := flag.NewFlagSet("walk schemas", flag.ContinueOnError)
+	flags := &WalkSchemasFlags{}
 
-	// Schema-specific flags
-	name := fs.String("name", "", "Select by schema name")
-	component := fs.Bool("component", false, "Only show component schemas")
-	inline := fs.Bool("inline", false, "Only show inline schemas")
-	typeFilter := fs.String("type", "", "Filter by schema type (object, array, string, etc.)")
+	fs.StringVar(&flags.Name, "name", "", "Select by schema name")
+	fs.BoolVar(&flags.Component, "component", false, "Only show component schemas")
+	fs.BoolVar(&flags.Inline, "inline", false, "Only show inline schemas")
+	fs.StringVar(&flags.Type, "type", "", "Filter by schema type (object, array, string, etc.)")
 
-	// Common walk flags
-	var flags WalkFlags
 	fs.StringVar(&flags.Format, "format", FormatText, "Output format: text, json, yaml")
-	fs.BoolVar(&flags.Quiet, "q", false, "Suppress headers and decoration")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "Suppress headers and decoration")
+	fs.BoolVar(&flags.Quiet, "q", false, "Suppress headers and decoration (shorthand)")
 	fs.BoolVar(&flags.Detail, "detail", false, "Show full node instead of summary table")
 	fs.StringVar(&flags.Extension, "extension", "", "Filter by extension (e.g., x-internal=true)")
 	fs.BoolVar(&flags.ResolveRefs, "resolve-refs", false, "Resolve $ref pointers")
+
+	return fs, flags
+}
+
+// handleWalkSchemas implements the "walk schemas" subcommand.
+func handleWalkSchemas(args []string) error {
+	fs, flags := SetupWalkSchemasFlags()
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -49,7 +63,7 @@ func handleWalkSchemas(args []string) error {
 		return err
 	}
 
-	if *component && *inline {
+	if flags.Component && flags.Inline {
 		return fmt.Errorf("walk schemas: cannot use both --component and --inline")
 	}
 
@@ -71,9 +85,9 @@ func handleWalkSchemas(args []string) error {
 
 	// Choose base set based on component/inline filter
 	schemas := collector.All
-	if *component {
+	if flags.Component {
 		schemas = collector.Components
-	} else if *inline {
+	} else if flags.Inline {
 		schemas = collector.Inline
 	}
 
@@ -89,10 +103,10 @@ func handleWalkSchemas(args []string) error {
 
 	var filtered []*walker.SchemaInfo
 	for _, info := range schemas {
-		if *name != "" && !strings.EqualFold(info.Name, *name) {
+		if flags.Name != "" && !strings.EqualFold(info.Name, flags.Name) {
 			continue
 		}
-		if *typeFilter != "" && !schemaTypeMatches(info.Schema.Type, *typeFilter) {
+		if flags.Type != "" && !schemaTypeMatches(info.Schema.Type, flags.Type) {
 			continue
 		}
 		if extFilter != nil && !extFilter.Match(info.Schema.Extra) {

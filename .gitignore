@@ -67,6 +67,9 @@ testdata/corpus/*.yaml
 testdata/corpus/*.yml
 !testdata/corpus/README.md
 
+# Lychee link checker cache
+.lycheecache
+
 # Generated Documentation
 site/
 .tmp/

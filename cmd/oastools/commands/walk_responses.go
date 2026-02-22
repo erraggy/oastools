@@ -19,23 +19,36 @@ type responseDetailView struct {
 	Response   *parser.Response `json:"response" yaml:"response"`
 }
 
-// handleWalkResponses implements the "walk responses" subcommand.
-func handleWalkResponses(args []string) error {
+// WalkResponsesFlags contains flags for the walk responses subcommand.
+type WalkResponsesFlags struct {
+	Status string
+	Path   string
+	Method string
+	WalkFlags
+}
+
+// SetupWalkResponsesFlags creates and configures a FlagSet for the walk responses subcommand.
+func SetupWalkResponsesFlags() (*flag.FlagSet, *WalkResponsesFlags) {
 	fs := flag.NewFlagSet("walk responses", flag.ContinueOnError)
+	flags := &WalkResponsesFlags{}
 
-	// Subcommand-specific flags
-	status := fs.String("status", "", "Filter by status code (200, 4xx, etc.)")
-	path := fs.String("path", "", "Filter by owning path pattern (supports glob)")
-	method := fs.String("method", "", "Filter by owning operation method")
+	fs.StringVar(&flags.Status, "status", "", "Filter by status code (200, 4xx, etc.)")
+	fs.StringVar(&flags.Path, "path", "", "Filter by owning path pattern (supports glob)")
+	fs.StringVar(&flags.Method, "method", "", "Filter by owning operation method")
 
-	// Common flags
-	var flags WalkFlags
 	fs.StringVar(&flags.Format, "format", FormatText, "Output format: text, json, yaml")
-	fs.BoolVar(&flags.Quiet, "q", false, "Suppress headers and decoration")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "Suppress headers and decoration")
+	fs.BoolVar(&flags.Quiet, "q", false, "Suppress headers and decoration (shorthand)")
 	fs.BoolVar(&flags.Detail, "detail", false, "Show full node instead of summary table")
 	fs.StringVar(&flags.Extension, "extension", "", "Filter by extension (e.g., x-internal=true)")
 	fs.BoolVar(&flags.ResolveRefs, "resolve-refs", false, "Resolve $ref pointers before output")
+
+	return fs, flags
+}
+
+// handleWalkResponses implements the "walk responses" subcommand.
+func handleWalkResponses(args []string) error {
+	fs, flags := SetupWalkResponsesFlags()
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -68,14 +81,14 @@ func handleWalkResponses(args []string) error {
 	// 2. Filter
 	filtered := collector.All
 
-	if *status != "" {
-		filtered = filterResponsesByStatus(filtered, *status)
+	if flags.Status != "" {
+		filtered = filterResponsesByStatus(filtered, flags.Status)
 	}
-	if *path != "" {
-		filtered = filterResponsesByPath(filtered, *path)
+	if flags.Path != "" {
+		filtered = filterResponsesByPath(filtered, flags.Path)
 	}
-	if *method != "" {
-		filtered = filterResponsesByMethod(filtered, *method)
+	if flags.Method != "" {
+		filtered = filterResponsesByMethod(filtered, flags.Method)
 	}
 	if flags.Extension != "" {
 		extFilter, err := ParseExtensionFilter(flags.Extension)

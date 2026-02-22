@@ -232,14 +232,29 @@ if errs := overlay.Validate(o); len(errs) > 0 {
 
 ### Result Fields
 
+**ApplyResult:**
+
 | Field | Type | Description |
 |-------|------|-------------|
+| `Document` | `any` | The modified document |
+| `SourceFormat` | `parser.SourceFormat` | The original document format (YAML or JSON) |
 | `ActionsApplied` | `int` | Number of actions that matched and modified nodes |
 | `ActionsSkipped` | `int` | Number of actions with no matching targets |
-| `Changes` | `[]Change` | Details of each change (for dry-run) |
+| `Changes` | `[]ChangeRecord` | Details of each applied change |
 | `Warnings` | `[]string` | Non-fatal warnings during application |
-| `Document` | `any` | The modified document |
-| `ToParseResult()` | `*parser.ParseResult` | Converts result for package chaining |
+| `StructuredWarnings` | `ApplyWarnings` | Detailed warning information with context |
+
+`ToParseResult()` converts the result to `*parser.ParseResult` for package chaining.
+
+**DryRunResult:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `WouldApply` | `int` | Number of actions that would be successfully applied |
+| `WouldSkip` | `int` | Number of actions that would be skipped |
+| `Changes` | `[]ProposedChange` | Proposed changes that would be made (different type than ApplyResult) |
+| `Warnings` | `[]string` | Non-fatal issues that would occur |
+| `StructuredWarnings` | `ApplyWarnings` | Detailed warning information with context |
 
 [Back to top](#top)
 

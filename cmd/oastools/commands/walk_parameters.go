@@ -18,29 +18,38 @@ type parameterDetailView struct {
 	Parameter *parser.Parameter `json:"parameter" yaml:"parameter"`
 }
 
-// handleWalkParameters implements the "walk parameters" subcommand.
-func handleWalkParameters(args []string) error {
+// WalkParametersFlags contains flags for the walk parameters subcommand.
+type WalkParametersFlags struct {
+	In     string
+	Name   string
+	Path   string
+	Method string
+	WalkFlags
+}
+
+// SetupWalkParametersFlags creates and configures a FlagSet for the walk parameters subcommand.
+func SetupWalkParametersFlags() (*flag.FlagSet, *WalkParametersFlags) {
 	fs := flag.NewFlagSet("walk parameters", flag.ContinueOnError)
+	flags := &WalkParametersFlags{}
 
-	// Subcommand-specific flags
-	var filterIn string
-	var filterName string
-	var filterPath string
-	var filterMethod string
+	fs.StringVar(&flags.In, "in", "", "Filter by location (path, query, header, cookie)")
+	fs.StringVar(&flags.Name, "name", "", "Filter by parameter name")
+	fs.StringVar(&flags.Path, "path", "", "Filter by owning path pattern (supports glob with *)")
+	fs.StringVar(&flags.Method, "method", "", "Filter by owning operation method")
 
-	fs.StringVar(&filterIn, "in", "", "Filter by location (path, query, header, cookie)")
-	fs.StringVar(&filterName, "name", "", "Filter by parameter name")
-	fs.StringVar(&filterPath, "path", "", "Filter by owning path pattern (supports glob with *)")
-	fs.StringVar(&filterMethod, "method", "", "Filter by owning operation method")
-
-	// Common flags
-	var flags WalkFlags
 	fs.StringVar(&flags.Format, "format", FormatText, "Output format: text, json, yaml")
-	fs.BoolVar(&flags.Quiet, "q", false, "Suppress headers and decoration")
 	fs.BoolVar(&flags.Quiet, "quiet", false, "Suppress headers and decoration")
+	fs.BoolVar(&flags.Quiet, "q", false, "Suppress headers and decoration (shorthand)")
 	fs.BoolVar(&flags.Detail, "detail", false, "Show full parameter instead of summary table")
 	fs.StringVar(&flags.Extension, "extension", "", "Filter by extension (e.g., x-internal=true)")
 	fs.BoolVar(&flags.ResolveRefs, "resolve-refs", false, "Resolve $ref pointers before output")
+
+	return fs, flags
+}
+
+// handleWalkParameters implements the "walk parameters" subcommand.
+func handleWalkParameters(args []string) error {
+	fs, flags := SetupWalkParametersFlags()
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -57,9 +66,6 @@ func handleWalkParameters(args []string) error {
 		return fmt.Errorf("walk parameters: missing spec file argument")
 	}
 	specPath := fs.Arg(0)
-
-	// Normalize method filter to lowercase
-	filterMethod = strings.ToLower(filterMethod)
 
 	// 1. Collect
 	result, err := parseSpec(specPath, flags.ResolveRefs)
@@ -85,16 +91,16 @@ func handleWalkParameters(args []string) error {
 
 	var filtered []*walker.ParameterInfo
 	for _, info := range collector.All {
-		if filterIn != "" && !strings.EqualFold(info.In, filterIn) {
+		if flags.In != "" && !strings.EqualFold(info.In, flags.In) {
 			continue
 		}
-		if filterName != "" && !strings.EqualFold(info.Name, filterName) {
+		if flags.Name != "" && !strings.EqualFold(info.Name, flags.Name) {
 			continue
 		}
-		if !matchPath(info.PathTemplate, filterPath) {
+		if !matchPath(info.PathTemplate, flags.Path) {
 			continue
 		}
-		if filterMethod != "" && info.Method != filterMethod {
+		if flags.Method != "" && !strings.EqualFold(info.Method, flags.Method) {
 			continue
 		}
 		if hasExtFilter && !extFilter.Match(info.Parameter.Extra) {
