@@ -4,7 +4,7 @@
 //   - Use SchemaSkippedHandler for cycle and depth notifications
 //   - Build reference graphs with walker
 //   - Identify unused components
-//   - Configure WithMaxDepth for schema traversal
+//   - Configure WithMaxSchemaDepth for schema traversal
 package main
 
 import (

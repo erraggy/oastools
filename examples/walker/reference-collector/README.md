@@ -151,7 +151,7 @@ for name, refs := range collector.SchemaRefs {
 }
 ```
 
-### MaxDepth Configuration
+### MaxSchemaDepth Configuration
 
 Use `WithMaxSchemaDepth` to prevent infinite traversal in deeply nested schemas:
 
