@@ -33,7 +33,7 @@ func newSafeHTTPClient() *http.Client {
 				}
 				for _, ipAddr := range ips {
 					if isBlockedIP(ipAddr.IP) {
-						return nil, fmt.Errorf("blocked request to private/loopback IP: %s (%s)", host, ipAddr.IP)
+						return nil, fmt.Errorf("blocked request to private/loopback IP: %s (%s); set OASTOOLS_ALLOW_PRIVATE_IPS=true to allow", host, ipAddr.IP)
 					}
 				}
 				if len(ips) == 0 {
@@ -55,7 +55,7 @@ func newSafeHTTPClient() *http.Client {
 			}
 			for _, ipAddr := range ips {
 				if isBlockedIP(ipAddr.IP) {
-					return fmt.Errorf("redirect to private/loopback IP blocked: %s (%s)", host, ipAddr.IP)
+					return fmt.Errorf("redirect to private/loopback IP blocked: %s (%s); set OASTOOLS_ALLOW_PRIVATE_IPS=true to allow", host, ipAddr.IP)
 				}
 			}
 			return nil

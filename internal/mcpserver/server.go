@@ -28,8 +28,17 @@ Key settings:
 - OASTOOLS_VALIDATE_NO_WARNINGS (default: false) — suppress warnings by default
 - OASTOOLS_JOIN_PATH_STRATEGY — default path collision strategy for join
 - OASTOOLS_JOIN_SCHEMA_STRATEGY — default schema collision strategy for join
+- OASTOOLS_ALLOW_PRIVATE_IPS (default: false) — allow URL resolution to private/loopback/link-local IPs (for internal APIs)
+- OASTOOLS_MAX_INLINE_SIZE (default: 10485760) — max inline content size in bytes (10 MiB)
+- OASTOOLS_MAX_LIMIT (default: 1000) — max pagination limit for walk tools
+- OASTOOLS_MAX_JOIN_SPECS (default: 20) — max number of specs in a join operation
 
-Caching: Parsed specs are cached per session. File entries use path+mtime as key (auto-invalidated on change). URL entries are cached with a shorter TTL. A background sweeper removes expired entries every 60s.`
+Caching: Parsed specs are cached per session. File entries use path+mtime as key (auto-invalidated on change). URL entries are cached with a shorter TTL. A background sweeper removes expired entries every 60s.
+
+Troubleshooting:
+- "blocked request to private/loopback IP: <host> (<ip>); set OASTOOLS_ALLOW_PRIVATE_IPS=true to allow" or "redirect to private/loopback IP blocked: <host> (<ip>); set OASTOOLS_ALLOW_PRIVATE_IPS=true to allow" — the spec URL resolved to a private, loopback, or link-local IP address. Guide the user to set OASTOOLS_ALLOW_PRIVATE_IPS=true in their MCP client's env config. Do NOT work around this by downloading the file with curl or other tools.
+- "inline content size <actual> bytes exceeds maximum <limit> bytes; use file input instead, or set OASTOOLS_MAX_INLINE_SIZE to increase" — the spec content is too large for inline input. Use file input instead of content, or guide the user to increase OASTOOLS_MAX_INLINE_SIZE in their MCP client's env config.
+- Env var changes require restarting the MCP server (reconnecting the client).`
 
 // Run starts the MCP server over stdio and blocks until the client disconnects
 // or the context is cancelled.

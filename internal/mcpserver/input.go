@@ -199,7 +199,7 @@ func (s specInput) resolve(extraOpts ...parser.Option) (*parser.ParseResult, err
 
 	// Enforce inline content size limit.
 	if s.Content != "" && int64(len(s.Content)) > cfg.MaxInlineSize {
-		return nil, fmt.Errorf("inline content size %d bytes exceeds maximum %d bytes",
+		return nil, fmt.Errorf("inline content size %d bytes exceeds maximum %d bytes; use file input instead, or set OASTOOLS_MAX_INLINE_SIZE to increase",
 			len(s.Content), cfg.MaxInlineSize)
 	}
 
