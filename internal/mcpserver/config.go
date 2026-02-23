@@ -3,7 +3,9 @@ package mcpserver
 import (
 	"log/slog"
 	"os"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -110,6 +112,17 @@ var validJoinStrategies = map[string]bool{
 	"rename-left": true, "rename-right": true,
 	"deduplicate": true,
 }
+
+// validJoinStrategyList is a sorted, comma-separated list of valid strategy
+// values for use in error messages.
+var validJoinStrategyList = func() string {
+	keys := make([]string, 0, len(validJoinStrategies))
+	for k := range validJoinStrategies {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return strings.Join(keys, ", ")
+}()
 
 func envStrategy(key string) string {
 	v := os.Getenv(key)

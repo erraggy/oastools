@@ -66,6 +66,10 @@ The MCP server reads `OASTOOLS_*` environment variables for default behavior. Th
 | `OASTOOLS_CACHE_URL_TTL` | `5m` | How long URL-fetched specs are cached |
 | `OASTOOLS_CACHE_CONTENT_TTL` | `15m` | How long inline content specs are cached |
 | `OASTOOLS_CACHE_SWEEP_INTERVAL` | `60s` | How often the background cache sweeper runs |
+| `OASTOOLS_ALLOW_PRIVATE_IPS` | `false` | Allow URL resolution to private/loopback/link-local IPs (for internal APIs) |
+| `OASTOOLS_MAX_INLINE_SIZE` | `10485760` | Max inline content size in bytes (10 MiB) |
+| `OASTOOLS_MAX_LIMIT` | `1000` | Max pagination limit for walk tools |
+| `OASTOOLS_MAX_JOIN_SPECS` | `20` | Max number of specs in a join operation |
 
 Tool-level parameters (e.g., `strict`, `no_warnings`, `limit`) always override the env var defaults when explicitly provided.
 
@@ -157,3 +161,35 @@ Use a temp directory for intermediate files (e.g., `/tmp/`) and copy the final r
 5. 🔗 `walk_refs` to find most-referenced schemas and trace usage patterns
 6. 🔍 Drill into specifics with `operation_id` or `path` + `detail: true`
 7. ✅ Use `validate` with `no_warnings: true` for error-focused triage
+
+## Troubleshooting
+
+### Private/internal URLs blocked
+
+When `spec.url` returns an error containing `"blocked request to private/loopback IP"` or `"redirect to private/loopback IP blocked"`, this is SSRF protection preventing URL resolution to private, loopback, or link-local IP addresses. The error message itself includes the fix (`set OASTOOLS_ALLOW_PRIVATE_IPS=true to allow`). This is expected for internal/company APIs.
+
+**Fix:** Add `OASTOOLS_ALLOW_PRIVATE_IPS=true` to the MCP server's `env` config:
+
+```json
+{
+  "mcpServers": {
+    "oastools": {
+      "command": "oastools",
+      "args": ["mcp"],
+      "env": {
+        "OASTOOLS_ALLOW_PRIVATE_IPS": "true"
+      }
+    }
+  }
+}
+```
+
+Do NOT work around this by downloading the spec with `curl`, `fetch`, or other tools — use the proper env var so the MCP tools can fetch and cache the spec directly.
+
+### Inline content too large
+
+When content exceeds 10 MiB, the server returns an error containing `"use file input instead, or set OASTOOLS_MAX_INLINE_SIZE to increase"`. Follow the error's guidance: use `file` input instead of `content`. If the spec is only available as a string (e.g., from an API response), write it to a temp file first, then reference that file.
+
+### Env var changes require restart
+
+The MCP server reads environment variables at startup. After changing `env` values in `.mcp.json` (or project settings), the MCP server must be restarted. In Claude Code: use `/mcp` and restart the server, or restart the session.
