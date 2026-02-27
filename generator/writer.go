@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/erraggy/oastools/internal/fileutil"
 )
 
 // WriteFiles writes all generated files to the specified output directory.
@@ -20,7 +22,7 @@ func (r *GenerateResult) WriteFiles(outputDir string) error {
 			return fmt.Errorf("invalid file name %q: must not contain path separators", file.Name)
 		}
 		filePath := filepath.Join(outputDir, safeName)
-		if err := os.WriteFile(filePath, file.Content, 0644); err != nil {
+		if err := os.WriteFile(filePath, file.Content, fileutil.ReadableByAll); err != nil {
 			return fmt.Errorf("failed to write file %s: %w", file.Name, err)
 		}
 	}
@@ -36,7 +38,7 @@ func (f *GeneratedFile) WriteFile(path string) error {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	if err := os.WriteFile(path, f.Content, 0644); err != nil {
+	if err := os.WriteFile(path, f.Content, fileutil.ReadableByAll); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 

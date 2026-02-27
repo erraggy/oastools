@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"github.com/erraggy/oastools/internal/fileutil"
 	"github.com/erraggy/oastools/parser"
 	"go.yaml.in/yaml/v4"
 )
@@ -311,9 +312,6 @@ func (j *Joiner) Join(specPaths []string) (*JoinResult, error) {
 	return j.JoinParsed(parsedDocs)
 }
 
-// outputFileMode is the file permission mode for output files (owner read/write only)
-const outputFileMode = 0600
-
 // marshalJSON marshals a document to JSON format with proper indentation
 func marshalJSON(doc any) ([]byte, error) {
 	return json.MarshalIndent(doc, "", "  ")
@@ -321,9 +319,9 @@ func marshalJSON(doc any) ([]byte, error) {
 
 // WriteResult writes a join result to a file in YAML or JSON format (matching the source format)
 //
-// The output file is written with restrictive permissions (0600 - owner read/write only)
+// The output file is written with restrictive permissions (fileutil.OwnerReadWrite)
 // to protect potentially sensitive API specifications. If the file already exists, its
-// permissions will be explicitly set to 0600 after writing.
+// permissions will be explicitly set to match after writing.
 func (j *Joiner) WriteResult(result *JoinResult, outputPath string) error {
 	var data []byte
 	var err error
@@ -343,13 +341,13 @@ func (j *Joiner) WriteResult(result *JoinResult, outputPath string) error {
 
 	// Write to file with restrictive permissions for potentially sensitive API specs
 	cleanedPath := filepath.Clean(outputPath)
-	if err := os.WriteFile(cleanedPath, data, outputFileMode); err != nil { //nolint:gosec // G703 - output path is user-provided
+	if err := os.WriteFile(cleanedPath, data, fileutil.OwnerReadWrite); err != nil { //nolint:gosec // G703 - output path is user-provided
 		return fmt.Errorf("joiner: failed to write output file: %w", err)
 	}
 
 	// Explicitly set permissions to ensure they're correct even if file existed before
 	// This handles the case where an existing file may have had different permissions
-	if err := os.Chmod(cleanedPath, outputFileMode); err != nil { //nolint:gosec // G703 - output path is user-provided
+	if err := os.Chmod(cleanedPath, fileutil.OwnerReadWrite); err != nil { //nolint:gosec // G703 - output path is user-provided
 		return fmt.Errorf("joiner: failed to set output file permissions: %w", err)
 	}
 

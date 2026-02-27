@@ -1,11 +1,22 @@
 package jsonpath
 
 import (
+	"bytes"
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// suppressJSONPathLogger suppresses jsonpathLogger warnings for the duration of the test.
+func suppressJSONPathLogger(t *testing.T) {
+	t.Helper()
+	old := jsonpathLogger
+	jsonpathLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	t.Cleanup(func() { jsonpathLogger = old })
+}
 
 // TestParse tests the JSONPath parser.
 func TestParse(t *testing.T) {
@@ -933,6 +944,8 @@ func TestPathString(t *testing.T) {
 // TestRecursiveDescentDepthLimit verifies that recursiveDescend stops at
 // maxRecursionDepth and does not stack overflow on deeply nested structures.
 func TestRecursiveDescentDepthLimit(t *testing.T) {
+	suppressJSONPathLogger(t)
+
 	// Build a deeply nested structure (600 levels, exceeding the 500 cap).
 	var node any = "leaf"
 	for range 600 {
@@ -948,9 +961,30 @@ func TestRecursiveDescentDepthLimit(t *testing.T) {
 	assert.Greater(t, len(results), 0, "expected some results before hitting depth cap")
 }
 
+// TestRecursiveDescentDepthLimit_WarningEmitted verifies that a slog.Warn
+// is actually emitted when the depth limit is hit during recursive descent.
+func TestRecursiveDescentDepthLimit_WarningEmitted(t *testing.T) {
+	var buf bytes.Buffer
+	old := jsonpathLogger
+	jsonpathLogger = slog.New(slog.NewTextHandler(&buf, nil))
+	t.Cleanup(func() { jsonpathLogger = old })
+
+	var node any = "leaf"
+	for range 600 {
+		node = map[string]any{"nested": node}
+	}
+
+	child := ChildSegment{Key: "nested"}
+	recursiveDescend(node, child, 0)
+
+	assert.Contains(t, buf.String(), "truncated at depth limit")
+}
+
 // TestRecursiveDescentDepthLimit_nilChild verifies the depth cap when
 // recursiveDescend delegates to collectAllDescendants (nil child segment).
 func TestRecursiveDescentDepthLimit_nilChild(t *testing.T) {
+	suppressJSONPathLogger(t)
+
 	var node any = "leaf"
 	for range 600 {
 		node = map[string]any{"nested": node}
@@ -965,6 +999,8 @@ func TestRecursiveDescentDepthLimit_nilChild(t *testing.T) {
 // TestCollectAllDescendantsDepthLimit verifies that collectAllDescendants
 // stops at maxRecursionDepth on deeply nested structures.
 func TestCollectAllDescendantsDepthLimit(t *testing.T) {
+	suppressJSONPathLogger(t)
+
 	var node any = "leaf"
 	for range 600 {
 		node = map[string]any{"nested": node}

@@ -6,6 +6,7 @@ package fixer
 
 import (
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 
@@ -59,6 +60,9 @@ func (f *Fixer) stubMissingRefsOAS2(doc *parser.OAS2Document, result *FixResult)
 	// Collect all refs in the document
 	collector := NewRefCollector()
 	collector.CollectOAS2(doc)
+	for _, w := range collector.Warnings {
+		slog.Warn("ref collection warning", "detail", w)
+	}
 
 	// Check schema refs and stub missing ones
 	// Sort refs for deterministic output order
@@ -173,6 +177,9 @@ func (f *Fixer) stubMissingRefsOAS3(doc *parser.OAS3Document, result *FixResult)
 	// Collect all refs in the document
 	collector := NewRefCollector()
 	collector.CollectOAS3(doc)
+	for _, w := range collector.Warnings {
+		slog.Warn("ref collection warning", "detail", w)
+	}
 
 	// Check schema refs and stub missing ones
 	// Sort refs for deterministic output order

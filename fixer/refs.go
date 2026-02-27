@@ -131,6 +131,10 @@ type RefCollector struct {
 
 	// visited tracks processed schemas for circular reference handling.
 	visited map[*parser.Schema]bool
+
+	// Warnings contains non-fatal issues encountered during collection,
+	// such as depth limit truncation.
+	Warnings []string
 }
 
 // NewRefCollector creates a new RefCollector instance.
@@ -648,7 +652,7 @@ func (c *RefCollector) collectRefsFromMap(m map[string]any, path string) {
 // collectRefsFromMapWithDepth is the internal implementation with depth tracking.
 func (c *RefCollector) collectRefsFromMapWithDepth(m map[string]any, path string, depth int) {
 	if depth > maxRefCollectionDepth {
-		// Extremely deep nesting or circular structure - stop to prevent stack overflow
+		c.Warnings = append(c.Warnings, fmt.Sprintf("ref collection truncated at depth %d (path: %s): possible circular structure", depth, path))
 		return
 	}
 

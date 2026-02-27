@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/fileutil"
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
@@ -621,9 +622,6 @@ func (b *Builder) MarshalJSON() ([]byte, error) {
 	return json.MarshalIndent(doc, "", "  ")
 }
 
-// outputFileMode is the file permission mode for output files (owner read/write only)
-const outputFileMode = 0600
-
 // WriteFile writes the document to a file.
 // The format is inferred from the file extension (.json for JSON, .yaml/.yml for YAML).
 func (b *Builder) WriteFile(path string) error {
@@ -645,7 +643,7 @@ func (b *Builder) WriteFile(path string) error {
 		return fmt.Errorf("builder: failed to marshal document: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, outputFileMode); err != nil {
+	if err := os.WriteFile(path, data, fileutil.OwnerReadWrite); err != nil {
 		return fmt.Errorf("builder: failed to write file: %w", err)
 	}
 

@@ -2,7 +2,12 @@ package jsonpath
 
 import (
 	"fmt"
+	"log/slog"
 )
+
+// jsonpathLogger is used for warning-level log output (e.g., depth limit
+// truncation). Tests swap it with a discard logger to suppress expected noise.
+var jsonpathLogger = slog.Default()
 
 // Get evaluates the path against the document and returns all matching values.
 //
@@ -188,6 +193,9 @@ const maxRecursionDepth = 500
 // recursiveDescend finds all nodes matching the child selector at any depth.
 func recursiveDescend(node any, child Segment, depth int) []any {
 	if depth > maxRecursionDepth {
+		jsonpathLogger.Warn("jsonpath recursive descent truncated at depth limit",
+			"depth", depth,
+			"maxDepth", maxRecursionDepth)
 		return nil
 	}
 
@@ -221,6 +229,9 @@ func recursiveDescend(node any, child Segment, depth int) []any {
 // collectAllDescendants collects all nodes in the tree (for bare ..)
 func collectAllDescendants(node any, results *[]any, depth int) {
 	if depth > maxRecursionDepth {
+		jsonpathLogger.Warn("jsonpath descendant collection truncated at depth limit",
+			"depth", depth,
+			"maxDepth", maxRecursionDepth)
 		return
 	}
 

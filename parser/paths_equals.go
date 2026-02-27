@@ -1,6 +1,10 @@
 package parser
 
-import "maps"
+import (
+	"maps"
+
+	"github.com/erraggy/oastools/internal/equalutil"
+)
 
 // This file contains equality comparison functions for path-related OpenAPI types.
 //
@@ -449,7 +453,7 @@ func equalEncoding(a, b *Encoding) bool {
 	}
 
 	// Pointer fields
-	if !equalBoolPtr(a.Explode, b.Explode) {
+	if !equalutil.EqualPtr(a.Explode, b.Explode) {
 		return false
 	}
 

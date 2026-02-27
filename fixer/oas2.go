@@ -4,6 +4,7 @@ package fixer
 
 import (
 	"fmt"
+	"log/slog"
 	"sort"
 
 	"github.com/erraggy/oastools/parser"
@@ -187,6 +188,9 @@ func (f *Fixer) pruneUnusedSchemasOAS2(doc *parser.OAS2Document, result *FixResu
 	// Collect all refs in the document
 	collector := NewRefCollector()
 	collector.CollectOAS2(doc)
+	for _, w := range collector.Warnings {
+		slog.Warn("ref collection warning", "detail", w)
+	}
 
 	// Prune unreferenced schemas
 	f.pruneSchemas(doc.Definitions, collector, doc, result)

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/equalutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -443,7 +444,7 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 	}
 
 	// Compare numeric constraints
-	if !equalPointerFloat(left.Minimum, right.Minimum) {
+	if !equalutil.EqualPtr(left.Minimum, right.Minimum) {
 		path.push("minimum")
 		result.Differences = append(result.Differences, SchemaDifference{
 			Path:        path.String(),
@@ -453,7 +454,7 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		})
 		path.pop()
 	}
-	if !equalPointerFloat(left.Maximum, right.Maximum) {
+	if !equalutil.EqualPtr(left.Maximum, right.Maximum) {
 		path.push("maximum")
 		result.Differences = append(result.Differences, SchemaDifference{
 			Path:        path.String(),
@@ -465,7 +466,7 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 	}
 
 	// Compare string constraints
-	if !equalPointerInt(left.MinLength, right.MinLength) {
+	if !equalutil.EqualPtr(left.MinLength, right.MinLength) {
 		path.push("minLength")
 		result.Differences = append(result.Differences, SchemaDifference{
 			Path:        path.String(),
@@ -475,7 +476,7 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		})
 		path.pop()
 	}
-	if !equalPointerInt(left.MaxLength, right.MaxLength) {
+	if !equalutil.EqualPtr(left.MaxLength, right.MaxLength) {
 		path.push("maxLength")
 		result.Differences = append(result.Differences, SchemaDifference{
 			Path:        path.String(),
@@ -487,7 +488,7 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 	}
 
 	// Compare array constraints
-	if !equalPointerInt(left.MinItems, right.MinItems) {
+	if !equalutil.EqualPtr(left.MinItems, right.MinItems) {
 		path.push("minItems")
 		result.Differences = append(result.Differences, SchemaDifference{
 			Path:        path.String(),
@@ -497,7 +498,7 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		})
 		path.pop()
 	}
-	if !equalPointerInt(left.MaxItems, right.MaxItems) {
+	if !equalutil.EqualPtr(left.MaxItems, right.MaxItems) {
 		path.push("maxItems")
 		result.Differences = append(result.Differences, SchemaDifference{
 			Path:        path.String(),
@@ -519,7 +520,7 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 	}
 
 	// Compare object constraints
-	if !equalPointerInt(left.MinProperties, right.MinProperties) {
+	if !equalutil.EqualPtr(left.MinProperties, right.MinProperties) {
 		path.push("minProperties")
 		result.Differences = append(result.Differences, SchemaDifference{
 			Path:        path.String(),
@@ -529,7 +530,7 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		})
 		path.pop()
 	}
-	if !equalPointerInt(left.MaxProperties, right.MaxProperties) {
+	if !equalutil.EqualPtr(left.MaxProperties, right.MaxProperties) {
 		path.push("maxProperties")
 		result.Differences = append(result.Differences, SchemaDifference{
 			Path:        path.String(),
@@ -768,26 +769,6 @@ func equalStringSlices(left, right []string) bool {
 		}
 	}
 	return true
-}
-
-func equalPointerFloat(left, right *float64) bool {
-	if left == nil && right == nil {
-		return true
-	}
-	if left == nil || right == nil {
-		return false
-	}
-	return *left == *right
-}
-
-func equalPointerInt(left, right *int) bool {
-	if left == nil && right == nil {
-		return true
-	}
-	if left == nil || right == nil {
-		return false
-	}
-	return *left == *right
 }
 
 func equalPropertyNames(left, right map[string]*parser.Schema) bool {
