@@ -16,42 +16,6 @@ import (
 // Tests can replace this with a discard logger to suppress expected warnings.
 var equalsLogger = slog.Default()
 
-// equalFloat64Ptr compares two *float64 pointers for equality.
-// Both nil returns true, both non-nil with equal values returns true.
-func equalFloat64Ptr(a, b *float64) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	return *a == *b
-}
-
-// equalIntPtr compares two *int pointers for equality.
-// Both nil returns true, both non-nil with equal values returns true.
-func equalIntPtr(a, b *int) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	return *a == *b
-}
-
-// equalBoolPtr compares two *bool pointers for equality.
-// Both nil returns true, both non-nil with equal values returns true.
-func equalBoolPtr(a, b *bool) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	return *a == *b
-}
-
 // equalStringSlice compares two string slices for equality.
 // Order-sensitive comparison. Nil and empty slices are considered equal.
 func equalStringSlice(a, b []string) bool {

@@ -894,6 +894,35 @@ components:
 	assert.False(t, collector.IsPathItemReferenced("UnusedPath"))
 }
 
+// TestRefCollector_DepthLimitWarning tests that exceeding maxRefCollectionDepth
+// produces a warning instead of silently truncating.
+func TestRefCollector_DepthLimitWarning(t *testing.T) {
+	// Build a deeply nested map structure exceeding maxRefCollectionDepth (100).
+	// Use "items" as the nesting key since collectRefsFromMapWithDepth recurses
+	// into recognized OAS keys like "items", "properties", etc.
+	leaf := map[string]any{
+		"$ref": "#/components/schemas/TooDeep",
+	}
+	current := leaf
+	for range maxRefCollectionDepth + 2 {
+		current = map[string]any{
+			"items": current,
+		}
+	}
+
+	collector := NewRefCollector()
+	collector.collectRefsFromMap(current, "$.root")
+
+	// The collector should have recorded at least one warning about truncation.
+	require.NotEmpty(t, collector.Warnings, "expected depth limit warning but got none")
+	assert.Contains(t, collector.Warnings[0], "truncated",
+		"warning should mention truncation")
+
+	// The deeply nested $ref should NOT have been collected (it's beyond the depth limit).
+	_, found := collector.Refs["#/components/schemas/TooDeep"]
+	assert.False(t, found, "refs beyond the depth limit should not be collected")
+}
+
 // TestRefCollector_JSONSchema202012 tests ref collection from JSON Schema Draft 2020-12 keywords
 // like unevaluatedProperties, unevaluatedItems, and contentSchema.
 func TestRefCollector_JSONSchema202012(t *testing.T) {

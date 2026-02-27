@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/erraggy/oastools"
+	"github.com/erraggy/oastools/internal/fileutil"
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
 )
@@ -389,11 +390,11 @@ func HandleJoin(args []string) error {
 		if symlinkErr := RejectSymlinkOutput(cleanedOutput); symlinkErr != nil {
 			return symlinkErr
 		}
-		if writeErr := os.WriteFile(cleanedOutput, data, 0600); writeErr != nil { //nolint:gosec // G703 - output path is user-provided CLI flag
+		if writeErr := os.WriteFile(cleanedOutput, data, fileutil.OwnerReadWrite); writeErr != nil { //nolint:gosec // G703 - output path is user-provided CLI flag
 			return fmt.Errorf("writing output file: %w", writeErr)
 		}
 		// Ensure correct permissions even if file pre-existed with different permissions
-		if chmodErr := os.Chmod(cleanedOutput, 0600); chmodErr != nil {
+		if chmodErr := os.Chmod(cleanedOutput, fileutil.OwnerReadWrite); chmodErr != nil {
 			return fmt.Errorf("setting output file permissions: %w", chmodErr)
 		}
 		if !flags.Quiet {

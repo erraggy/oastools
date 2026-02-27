@@ -3,6 +3,8 @@ package parser
 import (
 	"maps"
 	"slices"
+
+	"github.com/erraggy/oastools/internal/equalutil"
 )
 
 // This file contains equality comparison functions for parameter-related OpenAPI types.
@@ -78,28 +80,28 @@ func equalParameter(a, b *Parameter) bool {
 	}
 
 	// Pointer fields
-	if !equalBoolPtr(a.Explode, b.Explode) {
+	if !equalutil.EqualPtr(a.Explode, b.Explode) {
 		return false
 	}
-	if !equalFloat64Ptr(a.Maximum, b.Maximum) {
+	if !equalutil.EqualPtr(a.Maximum, b.Maximum) {
 		return false
 	}
-	if !equalFloat64Ptr(a.Minimum, b.Minimum) {
+	if !equalutil.EqualPtr(a.Minimum, b.Minimum) {
 		return false
 	}
-	if !equalFloat64Ptr(a.MultipleOf, b.MultipleOf) {
+	if !equalutil.EqualPtr(a.MultipleOf, b.MultipleOf) {
 		return false
 	}
-	if !equalIntPtr(a.MaxLength, b.MaxLength) {
+	if !equalutil.EqualPtr(a.MaxLength, b.MaxLength) {
 		return false
 	}
-	if !equalIntPtr(a.MinLength, b.MinLength) {
+	if !equalutil.EqualPtr(a.MinLength, b.MinLength) {
 		return false
 	}
-	if !equalIntPtr(a.MaxItems, b.MaxItems) {
+	if !equalutil.EqualPtr(a.MaxItems, b.MaxItems) {
 		return false
 	}
-	if !equalIntPtr(a.MinItems, b.MinItems) {
+	if !equalutil.EqualPtr(a.MinItems, b.MinItems) {
 		return false
 	}
 
@@ -204,28 +206,28 @@ func equalHeader(a, b *Header) bool {
 	}
 
 	// Pointer fields
-	if !equalBoolPtr(a.Explode, b.Explode) {
+	if !equalutil.EqualPtr(a.Explode, b.Explode) {
 		return false
 	}
-	if !equalFloat64Ptr(a.Maximum, b.Maximum) {
+	if !equalutil.EqualPtr(a.Maximum, b.Maximum) {
 		return false
 	}
-	if !equalFloat64Ptr(a.Minimum, b.Minimum) {
+	if !equalutil.EqualPtr(a.Minimum, b.Minimum) {
 		return false
 	}
-	if !equalFloat64Ptr(a.MultipleOf, b.MultipleOf) {
+	if !equalutil.EqualPtr(a.MultipleOf, b.MultipleOf) {
 		return false
 	}
-	if !equalIntPtr(a.MaxLength, b.MaxLength) {
+	if !equalutil.EqualPtr(a.MaxLength, b.MaxLength) {
 		return false
 	}
-	if !equalIntPtr(a.MinLength, b.MinLength) {
+	if !equalutil.EqualPtr(a.MinLength, b.MinLength) {
 		return false
 	}
-	if !equalIntPtr(a.MaxItems, b.MaxItems) {
+	if !equalutil.EqualPtr(a.MaxItems, b.MaxItems) {
 		return false
 	}
-	if !equalIntPtr(a.MinItems, b.MinItems) {
+	if !equalutil.EqualPtr(a.MinItems, b.MinItems) {
 		return false
 	}
 
@@ -354,25 +356,25 @@ func equalItems(a, b *Items) bool {
 	}
 
 	// Pointer fields
-	if !equalFloat64Ptr(a.Maximum, b.Maximum) {
+	if !equalutil.EqualPtr(a.Maximum, b.Maximum) {
 		return false
 	}
-	if !equalFloat64Ptr(a.Minimum, b.Minimum) {
+	if !equalutil.EqualPtr(a.Minimum, b.Minimum) {
 		return false
 	}
-	if !equalFloat64Ptr(a.MultipleOf, b.MultipleOf) {
+	if !equalutil.EqualPtr(a.MultipleOf, b.MultipleOf) {
 		return false
 	}
-	if !equalIntPtr(a.MaxLength, b.MaxLength) {
+	if !equalutil.EqualPtr(a.MaxLength, b.MaxLength) {
 		return false
 	}
-	if !equalIntPtr(a.MinLength, b.MinLength) {
+	if !equalutil.EqualPtr(a.MinLength, b.MinLength) {
 		return false
 	}
-	if !equalIntPtr(a.MaxItems, b.MaxItems) {
+	if !equalutil.EqualPtr(a.MaxItems, b.MaxItems) {
 		return false
 	}
-	if !equalIntPtr(a.MinItems, b.MinItems) {
+	if !equalutil.EqualPtr(a.MinItems, b.MinItems) {
 		return false
 	}
 

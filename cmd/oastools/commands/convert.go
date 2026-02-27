@@ -10,6 +10,7 @@ import (
 
 	"github.com/erraggy/oastools"
 	"github.com/erraggy/oastools/converter"
+	"github.com/erraggy/oastools/internal/fileutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -203,7 +204,7 @@ func HandleConvert(args []string) error {
 		if err := RejectSymlinkOutput(cleanedOutput); err != nil {
 			return err
 		}
-		if err := os.WriteFile(cleanedOutput, data, 0600); err != nil { //nolint:gosec // G703 - output path is user-provided CLI flag
+		if err := os.WriteFile(cleanedOutput, data, fileutil.OwnerReadWrite); err != nil { //nolint:gosec // G703 - output path is user-provided CLI flag
 			return fmt.Errorf("writing output file: %w", err)
 		}
 		if !flags.Quiet {

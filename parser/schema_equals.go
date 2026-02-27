@@ -1,6 +1,10 @@
 package parser
 
-import "maps"
+import (
+	"maps"
+
+	"github.com/erraggy/oastools/internal/equalutil"
+)
 
 // This file contains the Equals method for Schema equality comparison.
 // The comparison is optimized for early exit by checking cheaper fields first.
@@ -111,37 +115,37 @@ func (s *Schema) equalsWithVisited(other *Schema, visited map[schemaPair]bool) b
 	}
 
 	// Group 4: Pointer fields
-	if !equalFloat64Ptr(s.Maximum, other.Maximum) {
+	if !equalutil.EqualPtr(s.Maximum, other.Maximum) {
 		return false
 	}
-	if !equalFloat64Ptr(s.Minimum, other.Minimum) {
+	if !equalutil.EqualPtr(s.Minimum, other.Minimum) {
 		return false
 	}
-	if !equalFloat64Ptr(s.MultipleOf, other.MultipleOf) {
+	if !equalutil.EqualPtr(s.MultipleOf, other.MultipleOf) {
 		return false
 	}
-	if !equalIntPtr(s.MaxLength, other.MaxLength) {
+	if !equalutil.EqualPtr(s.MaxLength, other.MaxLength) {
 		return false
 	}
-	if !equalIntPtr(s.MinLength, other.MinLength) {
+	if !equalutil.EqualPtr(s.MinLength, other.MinLength) {
 		return false
 	}
-	if !equalIntPtr(s.MaxItems, other.MaxItems) {
+	if !equalutil.EqualPtr(s.MaxItems, other.MaxItems) {
 		return false
 	}
-	if !equalIntPtr(s.MinItems, other.MinItems) {
+	if !equalutil.EqualPtr(s.MinItems, other.MinItems) {
 		return false
 	}
-	if !equalIntPtr(s.MaxProperties, other.MaxProperties) {
+	if !equalutil.EqualPtr(s.MaxProperties, other.MaxProperties) {
 		return false
 	}
-	if !equalIntPtr(s.MinProperties, other.MinProperties) {
+	if !equalutil.EqualPtr(s.MinProperties, other.MinProperties) {
 		return false
 	}
-	if !equalIntPtr(s.MaxContains, other.MaxContains) {
+	if !equalutil.EqualPtr(s.MaxContains, other.MaxContains) {
 		return false
 	}
-	if !equalIntPtr(s.MinContains, other.MinContains) {
+	if !equalutil.EqualPtr(s.MinContains, other.MinContains) {
 		return false
 	}
 

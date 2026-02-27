@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/erraggy/oastools/internal/fileutil"
 	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/overlay"
 	"github.com/erraggy/oastools/parser"
@@ -96,7 +97,7 @@ func handleOverlayApply(ctx context.Context, _ *mcp.CallToolRequest, input overl
 		if pathErr != nil {
 			return errResult(fmt.Errorf("invalid output path: %w", pathErr)), overlayApplyOutput{}, nil
 		}
-		if err := os.WriteFile(cleanPath, data, 0o600); err != nil {
+		if err := os.WriteFile(cleanPath, data, fileutil.OwnerReadWrite); err != nil {
 			return errResult(fmt.Errorf("failed to write output file: %w", err)), overlayApplyOutput{}, nil
 		}
 		output.WrittenTo = cleanPath
