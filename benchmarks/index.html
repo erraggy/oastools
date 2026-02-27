@@ -1,0 +1,5096 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="High-performance Go library, CLI, and MCP server for working with OpenAPI Specifications (OAS 2.0, 3.0, 3.1, 3.2).">
+      
+      
+      
+        <link rel="canonical" href="https://erraggy.github.io/oastools/benchmarks/">
+      
+      
+        <link rel="prev" href="../mcp-ux-findings/">
+      
+      
+        <link rel="next" href="../examples/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
+    
+    
+      
+        <title>Benchmarks - oastools</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#performance-benchmarks" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="oastools" class="md-header__button md-logo" aria-label="oastools" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            oastools
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Benchmarks
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/erraggy/oastools" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    erraggy/oastools
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="oastools" class="md-nav__button md-logo" aria-label="oastools" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    oastools
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/erraggy/oastools" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    erraggy/oastools
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://oastools.robnrob.com" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    🌐 Try Online
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI / CI/CD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-code-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../why-oastools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why oastools?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../breaking-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detecting API Breaking Changes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../generator_beyond_boilerplate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../corpus-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corpus Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp-ux-findings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP UX Findings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-reliability-notice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ⚠️ Benchmark Reliability Notice
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="⚠️ Benchmark Reliability Notice">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#io-variance-can-mask-reality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I/O Variance Can Mask Reality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#which-benchmarks-to-trust" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which Benchmarks to Trust
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recommended-benchmarks-for-regression-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended Benchmarks for Regression Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-performance-achievements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Performance Achievements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Key Performance Achievements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-optimization-json-marshaling-v170" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 Optimization: JSON Marshaling (v1.7.0)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Suite
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Benchmark Suite">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parser-package-44-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parser Package (44 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validator-package-16-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validator Package (16 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixer-package-13-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixer Package (13 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#converter-package-13-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Converter Package (13 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#joiner-package-14-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Joiner Package (14 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#differ-package-10-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Differ Package (10 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generator-package-4-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generator Package (4 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#overlay-package-18-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overlay Package (18 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#builder-package-17-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Builder Package (17 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#http-validator-package-9-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP Validator Package (9 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#current-performance-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current Performance Metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Current Performance Metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parser-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parser Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validator-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validator Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixer-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixer Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#converter-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Converter Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#joiner-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Joiner Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#differ-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Differ Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generator-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generator Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#builder-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Builder Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#http-validator-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP Validator Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#for-library-users" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For Library Users
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-high-throughput-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For High-Throughput Scenarios
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-methodology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Methodology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-optimization-opportunities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Future Optimization Opportunities
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Future Optimization Opportunities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#available-low-risk-optimizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Available Low-Risk Optimizations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#available-medium-risk-optimizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Available Medium-Risk Optimizations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#historical-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Historical Performance
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Historical Performance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v1290-oas-320-and-json-schema-2020-12-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.29.0 - OAS 3.2.0 and JSON Schema 2020-12 Support
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#baseline-pre-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Baseline (Pre-Optimization)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related Documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#questions-and-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Questions and Feedback
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/validation-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Workflows
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/validate-and-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validate and Fix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/version-conversion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version Conversion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/version-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/multi-api-merge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-API Merge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/collision-resolution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Collision Resolution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/schema-deduplication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema Deduplication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/schema-renaming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema Renaming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/fixer-showcase/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fixer Showcase
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/pipeline-compositions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline Compositions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/breaking-change-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Breaking Change Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/overlay-transformations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overlay Transformations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/http-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Programmatic API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Programmatic API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/programmatic-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/programmatic-api/builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Walker
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Walker
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/api-statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/security-audit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Audit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/vendor-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vendor Extensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/public-api-filter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Public API Filter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/api-documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/reference-collector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference Collector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Generation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Code Generation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/petstore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/petstore/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Standard Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/petstore/chi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chi Router
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Package Deep Dives
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Package Deep Dives
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/validator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/fixer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fixer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/converter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Converter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/overlay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overlay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/joiner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Joiner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/differ/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Differ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/httpvalidator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP Validator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/walker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Walker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Blog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../blog/building-the-mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building the MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../whitepaper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    📄 White Paper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Info
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project Info
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONTRIBUTORS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../LICENSE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    License
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://pkg.go.dev/github.com/erraggy/oastools" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-reliability-notice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ⚠️ Benchmark Reliability Notice
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="⚠️ Benchmark Reliability Notice">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#io-variance-can-mask-reality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I/O Variance Can Mask Reality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#which-benchmarks-to-trust" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which Benchmarks to Trust
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recommended-benchmarks-for-regression-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended Benchmarks for Regression Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-performance-achievements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Performance Achievements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Key Performance Achievements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-optimization-json-marshaling-v170" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 Optimization: JSON Marshaling (v1.7.0)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Suite
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Benchmark Suite">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parser-package-44-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parser Package (44 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validator-package-16-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validator Package (16 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixer-package-13-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixer Package (13 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#converter-package-13-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Converter Package (13 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#joiner-package-14-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Joiner Package (14 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#differ-package-10-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Differ Package (10 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generator-package-4-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generator Package (4 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#overlay-package-18-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overlay Package (18 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#builder-package-17-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Builder Package (17 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#http-validator-package-9-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP Validator Package (9 benchmarks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#current-performance-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current Performance Metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Current Performance Metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parser-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parser Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validator-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validator Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixer-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixer Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#converter-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Converter Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#joiner-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Joiner Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#differ-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Differ Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generator-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generator Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#builder-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Builder Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#http-validator-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP Validator Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#for-library-users" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For Library Users
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-high-throughput-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For High-Throughput Scenarios
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-methodology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Methodology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-optimization-opportunities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Future Optimization Opportunities
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Future Optimization Opportunities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#available-low-risk-optimizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Available Low-Risk Optimizations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#available-medium-risk-optimizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Available Medium-Risk Optimizations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#historical-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Historical Performance
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Historical Performance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v1290-oas-320-and-json-schema-2020-12-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.29.0 - OAS 3.2.0 and JSON Schema 2020-12 Support
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#baseline-pre-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Baseline (Pre-Optimization)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related Documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#questions-and-feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Questions and Feedback
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="performance-benchmarks">Performance Benchmarks</h1>
+<p>This document provides detailed performance analysis and benchmark results for the oastools library.</p>
+<h2 id="overview">Overview</h2>
+<p>As of v1.18.0, oastools includes comprehensive performance benchmarking infrastructure covering all major operations across the parser, validator, fixer, converter, joiner, differ, generator, builder, and overlay packages. The library has undergone targeted optimizations to achieve significant performance improvements while maintaining correctness and code quality.</p>
+<p><strong>CI Platform (for cross-version comparisons)</strong>: linux/amd64, AMD EPYC 7763, Go 1.24
+<strong>Local Platform (historical reference)</strong>: darwin/arm64, Apple M4, Go 1.24</p>
+<blockquote>
+<p><strong>Note:</strong> CI-generated benchmarks (<code>benchmarks/benchmark-v*.txt</code>) provide consistent, reproducible results for cross-version comparisons. Local benchmarks (<code>benchmarks/local/</code>) are preserved for historical reference but have ±50% I/O variance.</p>
+</blockquote>
+<h2 id="benchmark-reliability-notice">⚠️ Benchmark Reliability Notice</h2>
+<h3 id="io-variance-can-mask-reality">I/O Variance Can Mask Reality</h3>
+<p><strong>IMPORTANT:</strong> File-based benchmarks (e.g., <code>BenchmarkParse</code>, <code>BenchmarkJoin</code>) include file I/O in every iteration. This makes them <strong>unreliable for detecting code-level performance regressions</strong> because:</p>
+<ul>
+<li>Filesystem caching state varies between benchmark runs</li>
+<li>System load affects disk access times</li>
+<li>I/O variance can be <strong>+/- 50%</strong> or more</li>
+</ul>
+<p><strong>Example:</strong> An investigation in v1.28.1 found that comparing saved benchmarks showed apparent 51-82% regressions. However, running both versions live on the same machine showed <strong>0% actual code performance difference</strong>.</p>
+<h3 id="which-benchmarks-to-trust">Which Benchmarks to Trust</h3>
+<table>
+<thead>
+<tr>
+<th>Benchmark Type</th>
+<th>Pattern</th>
+<th>Use For</th>
+<th>Reliable?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>I/O-Isolated</td>
+<td><code>*Core</code>, <code>*Bytes</code></td>
+<td>Regression detection</td>
+<td>✅ Yes</td>
+</tr>
+<tr>
+<td>Pre-Parsed</td>
+<td><code>*Parsed</code></td>
+<td>Regression detection</td>
+<td>✅ Yes</td>
+</tr>
+<tr>
+<td>End-to-End</td>
+<td><code>BenchmarkParse</code>, <code>BenchmarkJoin</code>, etc.</td>
+<td>User documentation</td>
+<td>⚠️ Informational only</td>
+</tr>
+</tbody>
+</table>
+<h3 id="recommended-benchmarks-for-regression-detection">Recommended Benchmarks for Regression Detection</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Parser: Use BenchmarkParseCore (not BenchmarkParse)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span>BenchmarkParseCore<span class="w"> </span>-benchmem<span class="w"> </span>./parser
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Joiner: Use BenchmarkJoinParsed (not BenchmarkJoin)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span>BenchmarkJoinParsed<span class="w"> </span>-benchmem<span class="w"> </span>./joiner
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># All packages: Filter to reliable benchmarks only</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span><span class="s1">&#39;ParseCore|JoinParsed|ValidateParsed|FixParsed|ConvertParsed|Diff/Parsed&#39;</span><span class="w"> </span>-benchmem<span class="w"> </span>./...
+</code></pre></div>
+<p>See <a href="https://github.com/erraggy/oastools/blob/main/CLAUDE.md#benchmark-reliability-and-performance-regression-detection">CLAUDE.md</a> and <a href="https://github.com/erraggy/oastools/blob/main/BENCHMARK_UPDATE_PROCESS.md#important-detecting-performance-regressions">BENCHMARK_UPDATE_PROCESS.md</a> for detailed guidance on investigating suspected regressions.</p>
+<h2 id="key-performance-achievements">Key Performance Achievements</h2>
+<h3 id="phase-2-optimization-json-marshaling-v170">Phase 2 Optimization: JSON Marshaling (v1.7.0)</h3>
+<p>The v1.7.0 release includes a major optimization to JSON marshaling that eliminates the double-marshal pattern across all 29 custom JSON marshalers in the parser package.</p>
+<p><strong>Performance Improvements</strong>:</p>
+<ul>
+<li><strong>25-32% faster</strong> JSON marshaling for types with specification extensions (Extra fields)</li>
+<li><strong>29-37% fewer</strong> memory allocations</li>
+<li><strong>Zero overhead</strong> for types without Extra fields (fast path optimization)</li>
+</ul>
+<p><strong>Implementation Strategy</strong>:</p>
+<ul>
+<li>Eliminated marshal→unmarshal→marshal pattern (4 operations → 2 operations)</li>
+<li>Direct map building approach for types with Extra fields</li>
+<li>Replaced knownFields map lookups with efficient prefix checking (<code>x-</code>)</li>
+<li>Early return optimization when no Extra fields present</li>
+</ul>
+<p><strong>Benchmark Results</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Before (baseline)</th>
+<th>After (optimized)</th>
+<th>Time Improvement</th>
+<th>Alloc Improvement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Info</td>
+<td>2,323 ns/op</td>
+<td>1,707 ns/op</td>
+<td><strong>26% faster</strong></td>
+<td><strong>32% fewer</strong></td>
+</tr>
+<tr>
+<td>Contact</td>
+<td>2,336 ns/op</td>
+<td>1,599 ns/op</td>
+<td><strong>32% faster</strong></td>
+<td><strong>37% fewer</strong></td>
+</tr>
+<tr>
+<td>Server</td>
+<td>2,837 ns/op</td>
+<td>2,160 ns/op</td>
+<td><strong>25% faster</strong></td>
+<td><strong>29% fewer</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="benchmark-suite">Benchmark Suite</h2>
+<p>The benchmark suite includes <strong>250+ benchmark runs</strong> across ten packages:</p>
+<h3 id="parser-package-44-benchmarks">Parser Package (44 benchmarks)</h3>
+<p><strong>Marshaling Operations</strong>:</p>
+<ul>
+<li>Info marshaling: no extra fields, with extra fields, varying extra field counts (1, 5, 10, 20)</li>
+<li>Contact marshaling: no extra fields, with extra fields</li>
+<li>Server marshaling: no extra fields, with extra fields</li>
+<li>Document marshaling: small, medium, and large OAS 2.0 and OAS 3.x documents</li>
+</ul>
+<p><strong>Parsing Operations</strong>:</p>
+<ul>
+<li>Small, medium, and large OAS 3.x documents</li>
+<li>Small and medium OAS 2.0 documents</li>
+<li>Parsing with and without validation</li>
+<li>ParseBytes vs Parse (file-based)</li>
+<li>ParseWithOptions convenience API (file path, reader, reference resolution)</li>
+<li>ParseReader I/O performance</li>
+<li>ParseResult.Copy() deep copy performance</li>
+<li>Reference resolution overhead measurement</li>
+<li>FormatBytes utility function</li>
+</ul>
+<p><strong>DeepCopy Operations</strong>:</p>
+<ul>
+<li>OAS3Document.DeepCopy() for small, medium, and large documents</li>
+<li>OAS2Document.DeepCopy() for small and medium documents</li>
+<li>Type-aware copying that preserves nil vs empty distinction</li>
+</ul>
+<p><strong>Unmarshaling Operations</strong>:</p>
+<ul>
+<li>Info unmarshaling: no extra fields, with extra fields</li>
+</ul>
+<p><strong>Order-Preserving Marshaling</strong>:</p>
+<ul>
+<li>MarshalOrderedJSON: small, medium, and large OAS 3.x documents</li>
+<li>MarshalOrderedYAML: small, medium, and large OAS 3.x documents</li>
+<li>MarshalOrderedJSONIndent: indented JSON output</li>
+<li>Order-preserving vs standard marshaling comparison</li>
+<li>PreserveOrder parsing overhead measurement</li>
+</ul>
+<h3 id="validator-package-16-benchmarks">Validator Package (16 benchmarks)</h3>
+<p><strong>Validation Operations</strong>:</p>
+<ul>
+<li>Small, medium, and large OAS 3.x documents</li>
+<li>Small and medium OAS 2.0 documents</li>
+<li>With and without warnings</li>
+<li>ValidateParsed (pre-parsed documents) vs Validate (parse + validate)</li>
+<li>ValidateWithOptions convenience API (basic and pre-parsed variants)</li>
+<li>Strict mode validation (small, medium, and large documents)</li>
+<li>Large document validation without warnings</li>
+</ul>
+<h3 id="fixer-package-13-benchmarks">Fixer Package (13 benchmarks)</h3>
+<p><strong>Fixing Operations</strong>:</p>
+<ul>
+<li>Small, medium, and large OAS 3.x documents</li>
+<li>Small and medium OAS 2.0 documents</li>
+<li>With and without type inference</li>
+<li>FixParsed (pre-parsed documents) vs Fix (parse + fix)</li>
+<li>FixWithOptions convenience API (basic and pre-parsed variants)</li>
+</ul>
+<h3 id="converter-package-13-benchmarks">Converter Package (13 benchmarks)</h3>
+<p><strong>Conversion Operations</strong>:</p>
+<ul>
+<li>OAS 2.0 → OAS 3.x (small and medium documents)</li>
+<li>OAS 3.x → OAS 2.0 (small and medium documents)</li>
+<li>OAS 3.0 → OAS 3.1 version updates</li>
+<li>ConvertParsed (pre-parsed) vs Convert (parse + convert)</li>
+<li>ConvertWithOptions convenience API (basic and pre-parsed variants)</li>
+<li>Conversion with and without info messages</li>
+</ul>
+<h3 id="joiner-package-14-benchmarks">Joiner Package (14 benchmarks)</h3>
+<p><strong>Joining Operations</strong>:</p>
+<ul>
+<li>Join 2, 3, and 5 small documents</li>
+<li>JoinParsed (pre-parsed) vs Join (parse + join)</li>
+<li>JoinWithOptions convenience API (basic and pre-parsed variants)</li>
+<li>Different collision resolution strategies (AcceptLeft, AcceptRight)</li>
+<li>Array merge strategies</li>
+<li>Tag deduplication</li>
+<li>WriteResult I/O performance</li>
+<li>Configuration utilities (DefaultConfig, IsValidStrategy, ValidStrategies)</li>
+</ul>
+<h3 id="differ-package-10-benchmarks">Differ Package (10 benchmarks)</h3>
+<p><strong>Diffing Operations</strong>:</p>
+<ul>
+<li>Diff (parse + diff) vs DiffParsed (pre-parsed)</li>
+<li>DiffWithOptions convenience API</li>
+<li>Simple mode vs Breaking mode</li>
+<li>Configuration options (IncludeInfo)</li>
+<li>Edge cases (identical specifications)</li>
+<li>Parse-once pattern efficiency</li>
+<li>Change.String() formatting performance</li>
+</ul>
+<h3 id="generator-package-4-benchmarks">Generator Package (4 benchmarks)</h3>
+<p><strong>Code Generation Operations</strong>:</p>
+<ul>
+<li>Types-only generation</li>
+<li>Client code generation</li>
+<li>Server code generation</li>
+<li>Full generation (types + client + server)</li>
+</ul>
+<h3 id="overlay-package-18-benchmarks">Overlay Package (18 benchmarks)</h3>
+<p><strong>Overlay Application Operations</strong>:</p>
+<ul>
+<li>Apply overlays to small, medium, and large documents</li>
+<li>Apply with in-memory overlays vs file-based</li>
+<li>ApplyParsed performance (pre-parsed documents)</li>
+<li>ApplyWithOptions functional API</li>
+<li>DryRun preview functionality</li>
+</ul>
+<p><strong>JSONPath Operations</strong>:</p>
+<ul>
+<li>Parse expressions of varying complexity</li>
+<li>Get operations with wildcards, filters, recursive descent</li>
+<li>Modify operations for document transformation</li>
+<li>Compound filter evaluation (&amp;&amp;, ||)</li>
+</ul>
+<h3 id="builder-package-17-benchmarks">Builder Package (17 benchmarks)</h3>
+<p><strong>Builder Construction Operations</strong>:</p>
+<ul>
+<li>Builder instantiation (New)</li>
+<li>Info configuration (SetTitle, SetVersion, SetDescription)</li>
+<li>Schema generation from reflection (primitives, structs, nested structs, slices, maps)</li>
+<li>Operation building (simple operations, with parameters, with request bodies)</li>
+<li>Full document building (Build)</li>
+<li>Serialization (MarshalYAML, MarshalJSON)</li>
+<li>OAS tag parsing and application</li>
+</ul>
+<h3 id="http-validator-package-9-benchmarks">HTTP Validator Package (9 benchmarks)</h3>
+<p><strong>Request/Response Validation</strong>:</p>
+<ul>
+<li>Request validation (path, query, header, body)</li>
+<li>Response validation (status code, headers, body)</li>
+<li>Path matching performance (single path, multiple paths)</li>
+<li>Schema validation for request/response bodies</li>
+<li>Parameter deserialization benchmarks</li>
+<li>Strict mode validation overhead</li>
+<li>Pre-parsed validator reuse performance</li>
+</ul>
+<h2 id="current-performance-metrics">Current Performance Metrics</h2>
+<h3 id="parser-performance">Parser Performance</h3>
+<p><strong>Document Parsing</strong> (with validation, no ref resolution):</p>
+<table>
+<thead>
+<tr>
+<th>Document Size</th>
+<th>Lines</th>
+<th>Time (μs)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Small OAS3</td>
+<td>~60</td>
+<td>138</td>
+<td>197</td>
+<td>2,070</td>
+</tr>
+<tr>
+<td>Medium OAS3</td>
+<td>~570</td>
+<td>1,119</td>
+<td>1,447</td>
+<td>17,389</td>
+</tr>
+<tr>
+<td>Large OAS3</td>
+<td>~6000</td>
+<td>13,880</td>
+<td>16,425</td>
+<td>194,712</td>
+</tr>
+<tr>
+<td>Small OAS2</td>
+<td>~60</td>
+<td>134</td>
+<td>174</td>
+<td>2,059</td>
+</tr>
+<tr>
+<td>Medium OAS2</td>
+<td>~570</td>
+<td>1,016</td>
+<td>1,230</td>
+<td>16,027</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Parsing without validation</strong> provides ~3-5% improvement over validated parsing.</p>
+<p><strong>JSON Marshaling</strong> (post-optimization):</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Extra Fields</th>
+<th>Time (ns)</th>
+<th>Memory (bytes)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Info</td>
+<td>None</td>
+<td>432</td>
+<td>192</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Info</td>
+<td>5 fields</td>
+<td>1,762</td>
+<td>1,705</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Contact</td>
+<td>None</td>
+<td>449</td>
+<td>192</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Contact</td>
+<td>With extras</td>
+<td>1,686</td>
+<td>1,377</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Server</td>
+<td>None</td>
+<td>371</td>
+<td>160</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Server</td>
+<td>With extras</td>
+<td>2,275</td>
+<td>2,010</td>
+<td>29</td>
+</tr>
+<tr>
+<td>OAS3Document</td>
+<td>Small</td>
+<td>19,891</td>
+<td>7,003</td>
+<td>66</td>
+</tr>
+<tr>
+<td>OAS3Document</td>
+<td>Medium</td>
+<td>221,137</td>
+<td>65,753</td>
+<td>471</td>
+</tr>
+<tr>
+<td>OAS3Document</td>
+<td>Large</td>
+<td>2,724,839</td>
+<td>840,948</td>
+<td>5,336</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Observation</strong>: Marshaling performance scales linearly with document size and extra field count. The fast path (no extra fields) has minimal overhead.</p>
+<p><strong>DeepCopy Performance</strong> (code-generated, type-aware copying):</p>
+<table>
+<thead>
+<tr>
+<th>Document Size</th>
+<th>Time (ns)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Small OAS3</td>
+<td>1,769</td>
+<td>7.2</td>
+<td>44</td>
+</tr>
+<tr>
+<td>Medium OAS3</td>
+<td>24,596</td>
+<td>106.01</td>
+<td>466</td>
+</tr>
+<tr>
+<td>Large OAS3</td>
+<td>342,732</td>
+<td>1,136</td>
+<td>4,877</td>
+</tr>
+<tr>
+<td>Small OAS2</td>
+<td>1,499</td>
+<td>6.2</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Medium OAS2</td>
+<td>20,699</td>
+<td>92.5</td>
+<td>387</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Observation</strong>: DeepCopy uses code-generated methods that are type-aware, preserving nil vs empty distinction and handling OAS-specific polymorphic fields (Schema.Type, AdditionalProperties, etc.) correctly. This replaces the previous JSON marshal/unmarshal approach which was ~20-40x slower and corrupted <code>$ref</code> parameters.</p>
+<p><strong>Order-Preserving Marshaling</strong> (pre-parsed with PreserveOrder=true):</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Document Size</th>
+<th>Time</th>
+<th>Memory</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JSON</td>
+<td>Small OAS3</td>
+<td>9.0 us</td>
+<td>4.7 KB</td>
+<td>160</td>
+</tr>
+<tr>
+<td>JSON</td>
+<td>Medium OAS3</td>
+<td>98.8 us</td>
+<td>63.4 KB</td>
+<td>1,532</td>
+</tr>
+<tr>
+<td>JSON</td>
+<td>Large OAS3</td>
+<td>1.08 ms</td>
+<td>631 KB</td>
+<td>17,433</td>
+</tr>
+<tr>
+<td>YAML</td>
+<td>Small OAS3</td>
+<td>46.1 us</td>
+<td>187 KB</td>
+<td>390</td>
+</tr>
+<tr>
+<td>YAML</td>
+<td>Medium OAS3</td>
+<td>544 us</td>
+<td>1.79 MB</td>
+<td>3,495</td>
+</tr>
+<tr>
+<td>YAML</td>
+<td>Large OAS3</td>
+<td>5.11 ms</td>
+<td>22.1 MB</td>
+<td>38,850</td>
+</tr>
+<tr>
+<td>JSON Indent</td>
+<td>Medium OAS3</td>
+<td>148 us</td>
+<td>148 KB</td>
+<td>1,535</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Order-Preserving vs Standard Marshaling</strong> (Medium OAS3):</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Time</th>
+<th>Memory</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Order-Preserving JSON</td>
+<td>99.5 us</td>
+<td>63.4 KB</td>
+<td>1,532</td>
+</tr>
+<tr>
+<td>Standard JSON</td>
+<td>222 us</td>
+<td>65.9 KB</td>
+<td>471</td>
+</tr>
+</tbody>
+</table>
+<p><strong>PreserveOrder Parsing Overhead</strong> (Medium OAS3):</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Time</th>
+<th>Memory</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With PreserveOrder</td>
+<td>1.50 ms</td>
+<td>1.71 MB</td>
+<td>22,119</td>
+</tr>
+<tr>
+<td>Without PreserveOrder</td>
+<td>1.10 ms</td>
+<td>1.45 MB</td>
+<td>17,389</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Observation</strong>: Order-preserving JSON marshaling is <strong>2.2x faster</strong> than standard JSON marshaling (99.5us vs 222us) because it writes directly to a buffer using the source node order, avoiding the overhead of reflection-based encoding. YAML marshaling requires building an intermediate node tree, making it ~5.5x slower than JSON. Enabling PreserveOrder during parsing adds ~37% overhead (storing the yaml.Node tree) but this is amortized when the document is marshaled multiple times with consistent field ordering.</p>
+<h3 id="validator-performance">Validator Performance</h3>
+<p><strong>Validation</strong> (with warnings):</p>
+<table>
+<thead>
+<tr>
+<th>Document Size</th>
+<th>Lines</th>
+<th>Time (μs)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Small OAS3</td>
+<td>~60</td>
+<td>139</td>
+<td>204</td>
+<td>2,162</td>
+</tr>
+<tr>
+<td>Medium OAS3</td>
+<td>~570</td>
+<td>1,133</td>
+<td>1,492</td>
+<td>18,307</td>
+</tr>
+<tr>
+<td>Large OAS3</td>
+<td>~6000</td>
+<td>14,409</td>
+<td>16,844</td>
+<td>205,022</td>
+</tr>
+<tr>
+<td>Small OAS2</td>
+<td>~60</td>
+<td>134</td>
+<td>181</td>
+<td>2,135</td>
+</tr>
+<tr>
+<td>Medium OAS2</td>
+<td>~570</td>
+<td>1,058</td>
+<td>1,268</td>
+<td>16,851</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Validating pre-parsed documents</strong> (ValidateParsed):</p>
+<table>
+<thead>
+<tr>
+<th>Document Size</th>
+<th>Time (μs)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Small OAS3</td>
+<td>4.7</td>
+<td>5.1</td>
+<td>90</td>
+</tr>
+<tr>
+<td>Medium OAS3</td>
+<td>40.4</td>
+<td>32.6</td>
+<td>914</td>
+</tr>
+<tr>
+<td>Large OAS3</td>
+<td>462</td>
+<td>367</td>
+<td>10,297</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Observation</strong>: ValidateParsed is <strong>31x faster</strong> than Validate for small documents (4.7μs vs 147μs) because it skips parsing. This is ideal for workflows where documents are parsed once and validated multiple times.</p>
+<h3 id="fixer-performance">Fixer Performance</h3>
+<p><strong>Fixing</strong> (parse + fix):</p>
+<table>
+<thead>
+<tr>
+<th>Document Size</th>
+<th>Lines</th>
+<th>Time (μs)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Small OAS3</td>
+<td>~60</td>
+<td>220</td>
+<td>279</td>
+<td>3,252</td>
+</tr>
+<tr>
+<td>Medium OAS3</td>
+<td>~570</td>
+<td>2,034</td>
+<td>2,208</td>
+<td>28,422</td>
+</tr>
+<tr>
+<td>Large OAS3</td>
+<td>~6000</td>
+<td>24,957</td>
+<td>25,028</td>
+<td>320,120</td>
+</tr>
+<tr>
+<td>Small OAS2</td>
+<td>~60</td>
+<td>209</td>
+<td>239</td>
+<td>3,100</td>
+</tr>
+<tr>
+<td>Medium OAS2</td>
+<td>~570</td>
+<td>1,733</td>
+<td>1,797</td>
+<td>24,946</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Fixing pre-parsed documents</strong> (FixParsed):</p>
+<table>
+<thead>
+<tr>
+<th>Document Size</th>
+<th>Time (μs)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Small OAS3</td>
+<td>2.4</td>
+<td>8.17</td>
+<td>52</td>
+</tr>
+<tr>
+<td>Medium OAS3</td>
+<td>28.6</td>
+<td>115.1</td>
+<td>530</td>
+</tr>
+<tr>
+<td>Large OAS3</td>
+<td>354</td>
+<td>1,161</td>
+<td>5,021</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Observation</strong>: FixParsed is <strong>60x faster</strong> than Fix for small documents (2.3μs vs 141μs) because it skips parsing. The v1.20.0 release dramatically improved FixParsed performance by replacing JSON marshal/unmarshal with code-generated DeepCopy methods, resulting in ~37x faster deep copying operations. Type inference has negligible overhead (~3% slower). The fixer is I/O and parse-bound for most workflows.</p>
+<h3 id="converter-performance">Converter Performance</h3>
+<p><strong>Conversion</strong> (parse + convert):</p>
+<table>
+<thead>
+<tr>
+<th>Conversion</th>
+<th>Document Size</th>
+<th>Time (μs)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OAS2 → OAS3</td>
+<td>Small</td>
+<td>152</td>
+<td>191</td>
+<td>2,359</td>
+</tr>
+<tr>
+<td>OAS2 → OAS3</td>
+<td>Medium</td>
+<td>1,258</td>
+<td>1,461</td>
+<td>19,640</td>
+</tr>
+<tr>
+<td>OAS3 → OAS2</td>
+<td>Small</td>
+<td>160</td>
+<td>216</td>
+<td>2,390</td>
+</tr>
+<tr>
+<td>OAS3 → OAS2</td>
+<td>Medium</td>
+<td>1,438</td>
+<td>1,696</td>
+<td>21,369</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Converting pre-parsed documents</strong> (ConvertParsed):</p>
+<table>
+<thead>
+<tr>
+<th>Conversion</th>
+<th>Document Size</th>
+<th>Time (μs)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OAS2 → OAS3</td>
+<td>Small</td>
+<td>3.2</td>
+<td>10.0</td>
+<td>83</td>
+</tr>
+<tr>
+<td>OAS2 → OAS3</td>
+<td>Medium</td>
+<td>37.9</td>
+<td>119</td>
+<td>687</td>
+</tr>
+<tr>
+<td>OAS3 → OAS2</td>
+<td>Small</td>
+<td>3.6</td>
+<td>8.4</td>
+<td>89</td>
+</tr>
+<tr>
+<td>OAS3 → OAS2</td>
+<td>Medium</td>
+<td>44.8</td>
+<td>114</td>
+<td>821</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Observation</strong>: ConvertParsed is <strong>42x faster</strong> than Convert for small documents (3.2μs vs 135μs) because it skips parsing. The v1.20.0 release improved ConvertParsed by ~5x through code-generated DeepCopy methods replacing JSON marshal/unmarshal. Conversion overhead is minimal compared to parsing.</p>
+<h3 id="joiner-performance">Joiner Performance</h3>
+<p><strong>Joining</strong> (parse + join):</p>
+<table>
+<thead>
+<tr>
+<th>Documents</th>
+<th>Time (μs)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2 small</td>
+<td>110</td>
+<td>141</td>
+<td>1,602</td>
+</tr>
+<tr>
+<td>3 small</td>
+<td>162</td>
+<td>210</td>
+<td>2,363</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Joining pre-parsed documents</strong> (JoinParsed):</p>
+<table>
+<thead>
+<tr>
+<th>Documents</th>
+<th>Time (ns)</th>
+<th>Memory (bytes)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2 small</td>
+<td>732</td>
+<td>1,816</td>
+<td>22</td>
+</tr>
+<tr>
+<td>3 small</td>
+<td>934</td>
+<td>1,960</td>
+<td>23</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Observation</strong>: JoinParsed is <strong>150x faster</strong> than Join for 2 small documents (732ns vs 110μs) because it skips parsing. The actual joining operation has minimal overhead.</p>
+<h3 id="differ-performance">Differ Performance</h3>
+<p><strong>Diffing</strong> (parse + diff):</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Time (μs)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simple</td>
+<td>463</td>
+<td>594</td>
+<td>7,182</td>
+</tr>
+<tr>
+<td>Breaking</td>
+<td>467</td>
+<td>597</td>
+<td>7,183</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Diffing pre-parsed documents</strong> (DiffParsed):</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Time (μs)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simple</td>
+<td>5.7</td>
+<td>7.6</td>
+<td>162</td>
+</tr>
+<tr>
+<td>Breaking</td>
+<td>6.9</td>
+<td>7.9</td>
+<td>177</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Special cases</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Time (μs)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identical specs</td>
+<td>3.8</td>
+<td>3.2</td>
+<td>115</td>
+</tr>
+<tr>
+<td>With info changes</td>
+<td>6.8</td>
+<td>7.9</td>
+<td>177</td>
+</tr>
+<tr>
+<td>Without info</td>
+<td>6.9</td>
+<td>9.0</td>
+<td>178</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Observation</strong>: DiffParsed is <strong>81x faster</strong> than Diff (5.7μs vs 463μs) because it skips parsing. The differ includes a fast path for identical specifications that runs in ~3.8μs. Breaking mode vs Simple mode has negligible performance difference (~1.2μs), making breaking change detection essentially free.</p>
+<h3 id="generator-performance">Generator Performance</h3>
+<p><strong>Code Generation</strong> (pre-parsed documents):</p>
+<table>
+<thead>
+<tr>
+<th>Generation Mode</th>
+<th>Time (μs)</th>
+<th>Memory (KB)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Types only</td>
+<td>39</td>
+<td>28</td>
+<td>724</td>
+</tr>
+<tr>
+<td>Client</td>
+<td>272</td>
+<td>187</td>
+<td>4,088</td>
+</tr>
+<tr>
+<td>Server</td>
+<td>57</td>
+<td>48</td>
+<td>1,040</td>
+</tr>
+<tr>
+<td>All (full)</td>
+<td>249</td>
+<td>182</td>
+<td>3,882</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Observation</strong>: Types-only generation is fastest at 39μs. Client generation is most expensive due to HTTP client method generation. Full generation (all modes) is comparable to client-only because client code dominates the generation time.</p>
+<h3 id="builder-performance">Builder Performance</h3>
+<p><strong>Builder Construction</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Time (ns)</th>
+<th>Memory (bytes)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New</td>
+<td>203</td>
+<td>736</td>
+<td>13</td>
+</tr>
+<tr>
+<td>SetInfo (fluent chain)</td>
+<td>221</td>
+<td>848</td>
+<td>14</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Schema Generation</strong> (reflection-based):</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Time (ns)</th>
+<th>Memory (bytes)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Primitive</td>
+<td>166</td>
+<td>768</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Struct</td>
+<td>3,229</td>
+<td>15,280</td>
+<td>75</td>
+</tr>
+<tr>
+<td>Nested struct</td>
+<td>4,684</td>
+<td>22,960</td>
+<td>95</td>
+</tr>
+<tr>
+<td>Slice</td>
+<td>3,356</td>
+<td>16,048</td>
+<td>76</td>
+</tr>
+<tr>
+<td>Map</td>
+<td>3,389</td>
+<td>16,048</td>
+<td>76</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Operation Building</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Operation Type</th>
+<th>Time (ns)</th>
+<th>Memory (bytes)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simple operation</td>
+<td>4,087</td>
+<td>18,633</td>
+<td>99</td>
+</tr>
+<tr>
+<td>With parameters</td>
+<td>5,741</td>
+<td>26,925</td>
+<td>140</td>
+</tr>
+<tr>
+<td>With request body</td>
+<td>6,835</td>
+<td>31,504</td>
+<td>151</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Document Building</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Time (ns)</th>
+<th>Memory (bytes)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Build (3 ops)</td>
+<td>8,013</td>
+<td>35,490</td>
+<td>211</td>
+</tr>
+<tr>
+<td>MarshalYAML</td>
+<td>32,841</td>
+<td>93,870</td>
+<td>482</td>
+</tr>
+<tr>
+<td>MarshalJSON</td>
+<td>18,704</td>
+<td>8,429</td>
+<td>38</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tag Processing</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Time (ns)</th>
+<th>Memory (bytes)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Parse OAS tag</td>
+<td>181</td>
+<td>432</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Apply OAS tag</td>
+<td>267</td>
+<td>1,184</td>
+<td>6</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Observation</strong>: Builder provides efficient programmatic construction of OAS documents. Schema generation from reflection is ~3-5μs for typical structs, making it suitable for runtime use. JSON marshaling is ~2x faster than YAML marshaling (18.7μs vs 32.8μs). Tag parsing is highly optimized at ~181ns per tag.</p>
+<h3 id="http-validator-performance">HTTP Validator Performance</h3>
+<p><strong>Request Validation (Pre-parsed)</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Document Size</th>
+<th>Time (ns)</th>
+<th>Memory (bytes)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Small (3 paths)</td>
+<td>210</td>
+<td>528</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Medium (20 paths)</td>
+<td>268</td>
+<td>528</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Large (100+ paths)</td>
+<td>502</td>
+<td>528</td>
+<td>8</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Validation Components</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Time (ns)</th>
+<th>Memory (bytes)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Path matching only</td>
+<td>210-1017</td>
+<td>528</td>
+<td>8</td>
+</tr>
+<tr>
+<td>With parameters</td>
+<td>212</td>
+<td>528</td>
+<td>8</td>
+</tr>
+<tr>
+<td>With JSON body</td>
+<td>455</td>
+<td>1,521</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Response validation</td>
+<td>110</td>
+<td>256</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Strict mode</td>
+<td>212</td>
+<td>528</td>
+<td>8</td>
+</tr>
+</tbody>
+</table>
+<p><strong>API Comparison</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>Time (ns)</th>
+<th>Memory (bytes)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ValidateRequestWithOptions (file path)</td>
+<td>217,277</td>
+<td>207,185</td>
+<td>2,203</td>
+</tr>
+<tr>
+<td>ValidateRequestWithOptions (parsed)</td>
+<td>3,250</td>
+<td>9,153</td>
+<td>127</td>
+</tr>
+<tr>
+<td>Validator.ValidateRequest</td>
+<td>210</td>
+<td>528</td>
+<td>8</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Observation</strong>: HTTP validation is extremely fast when using a pre-created Validator instance (~210ns per request). The functional options API with file path includes parsing overhead (217μs), while using pre-parsed results is ~67x faster (3.2μs). Path matching scales sub-linearly with path count. Response validation is even faster at ~110ns. This makes the httpvalidator package suitable for high-throughput API gateway use cases.</p>
+<h2 id="performance-best-practices">Performance Best Practices</h2>
+<h3 id="for-library-users">For Library Users</h3>
+<ol>
+<li><strong>Reuse parser/validator/fixer/converter/joiner/differ/httpvalidator instances</strong> when processing multiple files with the same configuration</li>
+<li><strong>Use ParseOnce workflows</strong>: For operations on the same document (validate, fix, convert, join, diff), parse once and pass the <code>ParseResult</code> to subsequent operations:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parser</span><span class="p">.</span><span class="nx">Parse</span><span class="p">(</span><span class="s">&quot;spec.yaml&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="p">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nx">validator</span><span class="p">.</span><span class="nx">ValidateParsed</span><span class="p">(</span><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span><span class="p">)</span><span class="w">   </span><span class="c1">// 30x faster than Validate</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nx">fixer</span><span class="p">.</span><span class="nx">FixParsed</span><span class="p">(</span><span class="nx">result</span><span class="p">)</span><span class="w">                         </span><span class="c1">// 2.6x faster than Fix</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nx">converter</span><span class="p">.</span><span class="nx">ConvertParsed</span><span class="p">(</span><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;3.0.3&quot;</span><span class="p">)</span><span class="w">        </span><span class="c1">// 9x faster than Convert</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nx">differ</span><span class="p">.</span><span class="nx">DiffParsed</span><span class="p">(</span><span class="nx">result1</span><span class="p">,</span><span class="w"> </span><span class="nx">result2</span><span class="p">)</span><span class="w">             </span><span class="c1">// 81x faster than Diff</span>
+</code></pre></div>
+<ol>
+<li><strong>Disable reference resolution</strong> (<code>ResolveRefs=false</code>) when not needed</li>
+<li><strong>Disable validation</strong> during parsing (<code>ValidateStructure=false</code>) if you'll validate separately</li>
+<li><strong>Minimize specification extensions</strong>: Documents with many Extra fields (<code>x-*</code>) will be slower to marshal</li>
+</ol>
+<h3 id="for-high-throughput-scenarios">For High-Throughput Scenarios</h3>
+<ul>
+<li>Use the struct-based API (e.g., <code>parser.New()</code>) instead of convenience functions for reusable instances</li>
+<li>Consider parallel processing of independent documents (oastools is safe for concurrent use)</li>
+<li>Profile your specific workload to identify bottlenecks</li>
+</ul>
+<h2 id="benchmark-methodology">Benchmark Methodology</h2>
+<p>All benchmarks follow these standards:</p>
+<ul>
+<li>Run with <code>-benchmem</code> to track memory allocations</li>
+<li>Use realistic test data from <code>testdata/bench/</code></li>
+<li>Deterministic and repeatable</li>
+<li>Measure both CPU time and memory performance</li>
+</ul>
+<p><strong>Test Data</strong>:</p>
+<ul>
+<li>Small documents: ~60 lines</li>
+<li>Medium documents: ~570 lines</li>
+<li>Large documents: ~6000 lines</li>
+</ul>
+<p><strong>Running Benchmarks</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Run all benchmarks</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>make<span class="w"> </span>bench-parser
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>make<span class="w"> </span>bench-validator
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>make<span class="w"> </span>bench-fixer
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>make<span class="w"> </span>bench-converter
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>make<span class="w"> </span>bench-joiner
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>make<span class="w"> </span>bench-differ
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>make<span class="w"> </span>bench-generator
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>make<span class="w"> </span>bench-builder
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1"># Or individually</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span>.<span class="w"> </span>-benchmem<span class="w"> </span>./parser
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span>.<span class="w"> </span>-benchmem<span class="w"> </span>./validator
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span>.<span class="w"> </span>-benchmem<span class="w"> </span>./fixer
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span>.<span class="w"> </span>-benchmem<span class="w"> </span>./converter
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span>.<span class="w"> </span>-benchmem<span class="w"> </span>./joiner
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span>.<span class="w"> </span>-benchmem<span class="w"> </span>./differ
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span>.<span class="w"> </span>-benchmem<span class="w"> </span>./generator
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span>.<span class="w"> </span>-benchmem<span class="w"> </span>./builder
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="c1"># Save baseline for comparison</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span>.<span class="w"> </span>-benchmem<span class="w"> </span>./...<span class="w"> </span>&gt;<span class="w"> </span>benchmark-baseline.txt
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="c1"># Compare before/after</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-bench<span class="o">=</span>.<span class="w"> </span>-benchmem<span class="w"> </span>./...<span class="w"> </span>&gt;<span class="w"> </span>benchmark-new.txt
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>benchstat<span class="w"> </span>benchmark-baseline.txt<span class="w"> </span>benchmark-new.txt
+</code></pre></div>
+<h2 id="future-optimization-opportunities">Future Optimization Opportunities</h2>
+<p>Based on profiling and analysis, several low-risk optimization opportunities remain available for future releases:</p>
+<h3 id="available-low-risk-optimizations">Available Low-Risk Optimizations</h3>
+<ol>
+<li><strong>Memory pre-allocation</strong> (5-15% improvement)</li>
+<li>Pre-allocate slices with capacity hints</li>
+<li>
+<p>Reduces GC pressure in high-throughput scenarios</p>
+</li>
+<li>
+<p><strong>Validation early exits</strong> (10-20% improvement for invalid documents)</p>
+</li>
+<li>Return early when possible for malformed inputs</li>
+<li>
+<p>Fast-fail scenarios</p>
+</li>
+<li>
+<p><strong>Reference resolution two-pass</strong> (20-30% improvement for docs without refs)</p>
+</li>
+<li>Skip resolution when no <code>$ref</code> fields present</li>
+<li>Benefits simple documents</li>
+</ol>
+<h3 id="available-medium-risk-optimizations">Available Medium-Risk Optimizations</h3>
+<ol>
+<li><strong>Validation caching</strong> (20-40% improvement for docs with repeated schemas)</li>
+<li>Cache validation results by schema hash</li>
+<li>
+<p>Helps documents with many references to the same schema</p>
+</li>
+<li>
+<p><strong>Parallel validation</strong> (30-50% improvement for large documents)</p>
+</li>
+<li>Validate independent paths/schemas concurrently</li>
+<li>
+<p>Utilize multiple CPU cores</p>
+</li>
+<li>
+<p><strong>Parallel reference resolution</strong> (30-50% improvement for multi-ref docs)</p>
+</li>
+<li>Resolve independent references concurrently</li>
+<li>Benefits documents with many external references</li>
+</ol>
+<p>These optimizations are <strong>on hold</strong> pending real-world performance feedback. The current performance is sufficient for v1.7.0, and future optimization efforts will be prioritized based on demonstrated user needs rather than speculation.</p>
+<h2 id="historical-performance">Historical Performance</h2>
+<h3 id="v1290-oas-320-and-json-schema-2020-12-support">v1.29.0 - OAS 3.2.0 and JSON Schema 2020-12 Support</h3>
+<p><strong>Parser Performance</strong> (I/O-Isolated):</p>
+<table>
+<thead>
+<tr>
+<th>Benchmark</th>
+<th>Time</th>
+<th>Memory</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ParseCore/SmallOAS3</td>
+<td>134 µs</td>
+<td>196 KB</td>
+<td>2,065</td>
+</tr>
+<tr>
+<td>ParseCore/MediumOAS3</td>
+<td>1.18 ms</td>
+<td>1.4 MB</td>
+<td>17,384</td>
+</tr>
+<tr>
+<td>ParseCore/LargeOAS3</td>
+<td>14.0 ms</td>
+<td>16.4 MB</td>
+<td>194,707</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Pre-Parsed Benchmarks</strong> (Core Operations):</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Benchmark</th>
+<th>Time</th>
+<th>Memory</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Validator</td>
+<td>ValidateParsed</td>
+<td>4.8 µs</td>
+<td>5.8 KB</td>
+<td>90</td>
+</tr>
+<tr>
+<td>Fixer</td>
+<td>FixParsed</td>
+<td>2.8 µs</td>
+<td>9.1 KB</td>
+<td>54</td>
+</tr>
+<tr>
+<td>Converter</td>
+<td>ConvertParsed</td>
+<td>3.3 µs</td>
+<td>11.1 KB</td>
+<td>83</td>
+</tr>
+<tr>
+<td>Joiner</td>
+<td>JoinParsed/TwoDocs</td>
+<td>803 ns</td>
+<td>1.9 KB</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Differ</td>
+<td>Diff/Parsed</td>
+<td>12.7 µs</td>
+<td>21.7 KB</td>
+<td>369</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Changes from v1.28.4</strong>: Added support for OAS 3.2.0 fields (<code>$self</code>, <code>Query</code>, <code>additionalOperations</code>, <code>mediaTypes</code>) and JSON Schema 2020-12 keywords (<code>unevaluatedProperties</code>, <code>unevaluatedItems</code>, <code>contentEncoding</code>, <code>contentMediaType</code>, <code>contentSchema</code>). Performance impact: ~0% (new fields are only processed when present).</p>
+<h3 id="baseline-pre-optimization">Baseline (Pre-Optimization)</h3>
+<p><strong>JSON Marshaling</strong> (before v1.7.0):</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Time (ns)</th>
+<th>Allocations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Info</td>
+<td>2,323</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Contact</td>
+<td>2,336</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Server</td>
+<td>2,837</td>
+<td>41</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Post-v1.7.0 Improvement</strong>: 25-32% faster, 29-37% fewer allocations</p>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="https://github.com/erraggy/oastools/blob/main/CLAUDE.md">CLAUDE.md</a> - Development guidelines and architecture</li>
+<li><a href="https://github.com/erraggy/oastools/blob/main/BENCHMARK_UPDATE_PROCESS.md">BENCHMARK_UPDATE_PROCESS.md</a> - How to update benchmarks for releases</li>
+</ul>
+<h2 id="questions-and-feedback">Questions and Feedback</h2>
+<p>If you have specific performance requirements or encounter performance issues in your use case, please open an issue on GitHub. Real-world performance feedback helps prioritize future optimization efforts.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.expand", "navigation.top", "toc.follow", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+<script>
+// Clear stale repository facts cache (TTL: 1 hour)
+// MkDocs Material caches GitHub repo stats in sessionStorage indefinitely.
+// This override adds TTL expiration so users see updated release versions.
+(function() {
+  var TTL_MS = 60 * 60 * 1000; // 1 hour
+  var scope = new URL("..", location);
+  var key = scope.pathname + ".__source";
+  var ttlKey = key + "_ts";
+
+  var timestamp = sessionStorage.getItem(ttlKey);
+  if (timestamp && (Date.now() - parseInt(timestamp, 10)) > TTL_MS) {
+    sessionStorage.removeItem(key);
+    sessionStorage.removeItem(ttlKey);
+  }
+
+  // Patch __md_set to track timestamps for __source
+  var originalSet = window.__md_set;
+  if (originalSet) {
+    window.__md_set = function(k, v, storage, s) {
+      originalSet(k, v, storage, s);
+      if (k === "__source" && storage === sessionStorage) {
+        sessionStorage.setItem(ttlKey, Date.now().toString());
+      }
+    };
+  }
+})();
+
+</script>
+
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+<script>
+// Open external links in new tabs — compatible with navigation.instant
+document$.subscribe(function() {
+  var host = location.hostname;
+  document.querySelectorAll("a[href]").forEach(function(a) {
+    try {
+      var url = new URL(a.href);
+      if (url.hostname && url.hostname !== host) {
+        a.setAttribute("target", "_blank");
+        a.setAttribute("rel", "noopener noreferrer");
+      }
+    } catch(e) {}
+  });
+});
+</script>
+
+  </body>
+</html>

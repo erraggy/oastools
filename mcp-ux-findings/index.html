@@ -1,0 +1,3819 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="High-performance Go library, CLI, and MCP server for working with OpenAPI Specifications (OAS 2.0, 3.0, 3.1, 3.2).">
+      
+      
+      
+        <link rel="canonical" href="https://erraggy.github.io/oastools/mcp-ux-findings/">
+      
+      
+        <link rel="prev" href="../corpus-analysis/">
+      
+      
+        <link rel="next" href="../benchmarks/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
+    
+    
+      
+        <title>MCP UX Findings - oastools</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#mcp-server-ux-findings" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="oastools" class="md-header__button md-logo" aria-label="oastools" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            oastools
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              MCP UX Findings
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/erraggy/oastools" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    erraggy/oastools
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="oastools" class="md-nav__button md-logo" aria-label="oastools" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    oastools
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/erraggy/oastools" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    erraggy/oastools
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://oastools.robnrob.com" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    🌐 Try Online
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI / CI/CD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-code-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../why-oastools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why oastools?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../breaking-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detecting API Breaking Changes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../generator_beyond_boilerplate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../corpus-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corpus Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP UX Findings
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP UX Findings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#resolution-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolution Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup &amp; Discovery
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setup &amp; Discovery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#plugin-rebuild-required-after-code-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin rebuild required after code changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tool-parameter-discoverability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool parameter discoverability
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#group_by-aggregation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        group_by Aggregation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="group_by Aggregation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-works-well" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What works well
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-could-be-improved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What could be improved
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#missing-cross-spec-aggregation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Missing: cross-spec aggregation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk_headers-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        walk_headers (New)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="walk_headers (New)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-works-well_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What works well
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-could-be-improved_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What could be improved
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk_refs-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        walk_refs (New)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="walk_refs (New)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-works-well_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What works well
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-could-be-improved_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What could be improved
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk_parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        walk_parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="walk_parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#empty-location-for-ref-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Empty location for $ref parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk_schemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        walk_schemas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="walk_schemas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#total-vs-matched-distinction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        total vs matched distinction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schema-type-none-ambiguity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema type "(none)" ambiguity
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk_responses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        walk_responses
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="walk_responses">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wildcard-status-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wildcard status codes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk_security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        walk_security
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="walk_security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#works-perfectly-for-its-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Works perfectly for its scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#missing-operation-level-security-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Missing: operation-level security overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parse-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        parse Tool
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="parse Tool">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#description-field-can-be-enormous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Description field can be enormous
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-tool-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-Tool Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cross-Tool Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#consistent-output-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consistent output shape
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pagination-works-but-is-rarely-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pagination works but is rarely needed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resolve_refs-is-a-power-user-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        resolve_refs is a power-user feature
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation Gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary-of-actionable-suggestions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary of Actionable Suggestions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/validation-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Workflows
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/validate-and-fix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validate and Fix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/version-conversion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version Conversion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/version-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/multi-api-merge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-API Merge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/collision-resolution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Collision Resolution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/schema-deduplication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema Deduplication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/schema-renaming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema Renaming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/fixer-showcase/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fixer Showcase
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/pipeline-compositions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline Compositions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/breaking-change-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Breaking Change Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/overlay-transformations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overlay Transformations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/workflows/http-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Programmatic API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Programmatic API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/programmatic-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/programmatic-api/builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Walker
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Walker
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/api-statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/security-audit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Audit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/vendor-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vendor Extensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/public-api-filter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Public API Filter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/api-documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/walker/reference-collector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference Collector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Generation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Code Generation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/petstore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/petstore/stdlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Standard Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/petstore/chi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chi Router
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Package Deep Dives
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Package Deep Dives
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/validator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/fixer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fixer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/converter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Converter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/overlay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overlay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/joiner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Joiner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/differ/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Differ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/httpvalidator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP Validator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/walker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Walker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Blog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../blog/building-the-mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building the MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../whitepaper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    📄 White Paper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Info
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project Info
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONTRIBUTORS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../LICENSE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    License
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://pkg.go.dev/github.com/erraggy/oastools" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#resolution-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolution Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup &amp; Discovery
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setup &amp; Discovery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#plugin-rebuild-required-after-code-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin rebuild required after code changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tool-parameter-discoverability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool parameter discoverability
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#group_by-aggregation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        group_by Aggregation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="group_by Aggregation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-works-well" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What works well
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-could-be-improved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What could be improved
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#missing-cross-spec-aggregation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Missing: cross-spec aggregation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk_headers-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        walk_headers (New)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="walk_headers (New)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-works-well_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What works well
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-could-be-improved_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What could be improved
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk_refs-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        walk_refs (New)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="walk_refs (New)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-works-well_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What works well
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-could-be-improved_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What could be improved
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk_parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        walk_parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="walk_parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#empty-location-for-ref-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Empty location for $ref parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk_schemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        walk_schemas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="walk_schemas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#total-vs-matched-distinction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        total vs matched distinction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schema-type-none-ambiguity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema type "(none)" ambiguity
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk_responses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        walk_responses
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="walk_responses">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wildcard-status-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wildcard status codes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk_security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        walk_security
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="walk_security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#works-perfectly-for-its-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Works perfectly for its scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#missing-operation-level-security-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Missing: operation-level security overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parse-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        parse Tool
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="parse Tool">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#description-field-can-be-enormous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Description field can be enormous
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-tool-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-Tool Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cross-Tool Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#consistent-output-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consistent output shape
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pagination-works-but-is-rarely-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pagination works but is rarely needed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resolve_refs-is-a-power-user-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        resolve_refs is a power-user feature
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation Gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary-of-actionable-suggestions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary of Actionable Suggestions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="mcp-server-ux-findings">MCP Server UX Findings</h1>
+<blockquote>
+<p>Observations from using the oastools MCP server tools as a Claude Code client to analyze the <code>testdata/corpus/</code> specs. Focus is on what a fresh-install user would encounter without codebase knowledge.</p>
+<p>Generated 2026-02-15 from corpus analysis session.</p>
+</blockquote>
+<h2 id="resolution-status">Resolution Status</h2>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Status</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>group_by</code> on <code>walk_refs</code></td>
+<td>Addressed</td>
+<td>Added <code>group_by=node_type</code></td>
+</tr>
+<tr>
+<td><code>group_by</code> on <code>walk_paths</code></td>
+<td>Addressed</td>
+<td>Added <code>group_by=segment</code> (first path segment)</td>
+</tr>
+<tr>
+<td><code>group_by</code> on <code>walk_security</code></td>
+<td>Deferred</td>
+<td>Low priority -- most specs have 0-3 schemes</td>
+</tr>
+<tr>
+<td>Cross-spec aggregation</td>
+<td>Out of scope</td>
+<td>Would require multi-spec input; not planned</td>
+</tr>
+<tr>
+<td><code>walk_headers</code> <code>component</code> filter</td>
+<td>Deferred</td>
+<td>Low usage -- headers rarely exceed component count</td>
+</tr>
+<tr>
+<td>Header name casing normalization</td>
+<td>Deferred</td>
+<td>Spec quality issue; may add as option later</td>
+</tr>
+<tr>
+<td>Empty location for $ref parameters</td>
+<td>Addressed</td>
+<td>Labeled as <code>(ref)</code> in group_by results</td>
+</tr>
+<tr>
+<td>Schema type "" ambiguity</td>
+<td>Addressed</td>
+<td>Labeled as <code>(untyped)</code> in group_by results</td>
+</tr>
+<tr>
+<td>Component response "" status</td>
+<td>Addressed</td>
+<td>Labeled as <code>(component)</code> in group_by results</td>
+</tr>
+<tr>
+<td>Parse description truncation</td>
+<td>Addressed</td>
+<td>Truncated to 200 chars in summary mode</td>
+</tr>
+<tr>
+<td>Plugin rebuild after update</td>
+<td>Addressed</td>
+<td>SessionStart hook checks binary vs plugin version</td>
+</tr>
+<tr>
+<td><code>group_by</code> enum constraints</td>
+<td>Deferred</td>
+<td>Works via description; enum would be stricter</td>
+</tr>
+<tr>
+<td><code>walk_refs</code> total semantics</td>
+<td>Addressed</td>
+<td>Documented in MCP server docs</td>
+</tr>
+<tr>
+<td><code>walk_headers</code>/<code>walk_refs</code> missing from docs</td>
+<td>Addressed</td>
+<td>Added to MCP server documentation</td>
+</tr>
+<tr>
+<td>Operation-level security overrides</td>
+<td>Deferred</td>
+<td>Would need new walk_security features</td>
+</tr>
+<tr>
+<td>Spec re-parsing on every call</td>
+<td>Addressed</td>
+<td>Session-scoped LRU cache (max 10 entries)</td>
+</tr>
+<tr>
+<td>Component response "" method</td>
+<td>Addressed</td>
+<td>Labeled as <code>(component)</code> in <code>group_by=method</code></td>
+</tr>
+<tr>
+<td>$ref params invisible to <code>in</code>/<code>name</code> filters</td>
+<td>Partial</td>
+<td>Auto-resolve refs when <code>in</code> or <code>name</code> filter specified; specs with circular refs fall back to unresolved data (#326)</td>
+</tr>
+<tr>
+<td><code>detail=true</code> output too large</td>
+<td>Addressed</td>
+<td>Default limit lowered to 25 in detail mode</td>
+</tr>
+<tr>
+<td>Filter behaviors undocumented</td>
+<td>Addressed</td>
+<td>Documented in MCP server docs</td>
+</tr>
+<tr>
+<td>Cross-tool limitations undocumented</td>
+<td>Addressed</td>
+<td>Documented in MCP server docs</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note:</strong> The sections below reflect findings as observed during the original corpus analysis session. The Resolution Status table above shows which items have since been addressed. Sections describing addressed items are preserved as historical context for the design decisions.</p>
+</blockquote>
+<hr />
+<h2 id="setup-discovery">Setup &amp; Discovery</h2>
+<h3 id="plugin-rebuild-required-after-code-changes">Plugin rebuild required after code changes</h3>
+<p>After PR #321 merged (adding <code>group_by</code>, <code>walk_headers</code>, <code>walk_refs</code>), the <strong>running MCP server plugin didn't expose the new tools or parameters</strong> until the plugin binary was rebuilt. The MCP tool schema is generated at runtime from Go struct tags, so a stale binary means stale schemas.</p>
+<p><strong>Impact</strong>: A user who updates oastools via <code>go install</code> or git pull won't get new MCP features until they also rebuild the plugin. There's no version mismatch warning.</p>
+<p><strong>Suggestion</strong>: The plugin could expose its version (from <code>plugin.json</code>) in tool responses or as a resource, so clients can detect staleness. Alternatively, document the rebuild step prominently in plugin setup docs.</p>
+<h3 id="tool-parameter-discoverability">Tool parameter discoverability</h3>
+<p>The <code>group_by</code> parameter's allowed values are documented in the JSON Schema <code>description</code> field (e.g., "Values: tag, method"). This works well -- Claude Code picks them up automatically from the schema. However, the allowed values are buried in prose rather than using <code>enum</code> constraints.</p>
+<p><strong>Suggestion</strong>: Consider adding <code>enum</code> to <code>group_by</code> fields so clients can validate locally and offer autocompletion. The current approach works but relies on the client reading the description text.</p>
+<hr />
+<h2 id="group_by-aggregation"><code>group_by</code> Aggregation</h2>
+<h3 id="what-works-well">What works well</h3>
+<ul>
+<li><strong>Massive efficiency gain</strong>: analyzing method distribution across 10 specs took 10 parallel calls instead of 50+ (5 methods x 10 specs). Each <code>group_by</code> call replaces N filter-and-count calls.</li>
+<li><strong>Output shape is clean</strong>: <code>{"groups": [{"key": "GET", "count": 568}]}</code> is immediately usable. The <code>total</code> and <code>matched</code> counts alongside groups provide context.</li>
+<li><strong>Sorted by count descending</strong>: groups come back largest-first, which is the natural reading order for analysis.</li>
+<li><strong>Composable with filters</strong>: <code>group_by=method</code> combined with <code>tag=repos</code> works correctly to show method distribution within a specific tag.</li>
+</ul>
+<h3 id="what-could-be-improved">What could be improved</h3>
+<ul>
+<li><strong>No <code>group_by</code> on <code>walk_paths</code></strong>: paths are the only walk tool without aggregation. A <code>group_by=depth</code> or <code>group_by=segment</code> (first path segment) would be valuable for understanding API structure. For example, GitHub's paths could be grouped by <code>/repos/**</code>, <code>/orgs/**</code>, <code>/users/**</code>.</li>
+<li><strong>No <code>group_by</code> on <code>walk_refs</code></strong>: refs already return counts by default (which is great), but there's no way to group by ref <em>type</em> (schema vs response vs parameter vs header). You can filter by <code>node_type</code>, but you can't get a single "how many schema refs vs response refs vs parameter refs" summary.</li>
+<li><strong>No <code>group_by</code> on <code>walk_security</code></strong>: low priority since most specs have 0-3 security schemes, but <code>group_by=type</code> would show the auth type distribution across a spec.</li>
+</ul>
+<h3 id="missing-cross-spec-aggregation">Missing: cross-spec aggregation</h3>
+<p>The most labor-intensive part of the analysis was running the same <code>group_by</code> call across all 10 specs and manually assembling the results into a table. A hypothetical <code>walk_operations</code> that accepts multiple specs and returns per-spec groups would eliminate this entirely. This may be out of scope for the MCP server, but it's the dominant workflow pain point.</p>
+<hr />
+<h2 id="walk_headers-new"><code>walk_headers</code> (New)</h2>
+<h3 id="what-works-well_1">What works well</h3>
+<ul>
+<li><strong>Fills a genuine gap</strong>: before this tool, finding response headers required <code>walk_responses</code> with <code>detail=true</code> and manually inspecting each response object. Now it's a single call.</li>
+<li><strong><code>group_by=name</code> is the killer feature</strong>: immediately reveals rate-limit patterns (Discord: 5 headers x 240 operations = 1,200 total) and HATEOAS patterns (GitHub: <code>Link</code> header on 193 responses).</li>
+<li><strong>Correctly handles both inline and <code>$ref</code>-based headers</strong>: Discord's headers are all <code>$ref</code>s to <code>#/components/headers/X-RateLimit-*</code>, and the tool resolves them for counting.</li>
+</ul>
+<h3 id="what-could-be-improved_1">What could be improved</h3>
+<ul>
+<li><strong>No <code>component</code> filter like <code>walk_schemas</code> has</strong>: <code>walk_schemas</code> has <code>component=true</code> to show only <code>components/schemas/</code> entries. An analogous <code>component=true</code> for <code>walk_headers</code> would show only <code>components/headers/</code> definitions, useful for understanding the reusable header vocabulary.</li>
+<li><strong>Header name casing</strong>: GitHub's spec has both <code>Link</code> and <code>link</code>, <code>Location</code> and <code>location</code> as separate header entries. Since HTTP headers are case-insensitive, <code>group_by=name</code> could optionally normalize casing (or at least note duplicates). This is arguably a spec quality issue rather than a tool issue, but the tool is in a position to surface it.</li>
+</ul>
+<hr />
+<h2 id="walk_refs-new"><code>walk_refs</code> (New)</h2>
+<h3 id="what-works-well_2">What works well</h3>
+<ul>
+<li><strong>Default behavior is perfect</strong>: returns unique ref targets ranked by reference count, most-referenced first. This immediately shows the "gravity centers" of a spec.</li>
+<li><strong>Ref counts reveal API structure</strong>: Discord's <code>SnowflakeType</code> (554 refs) tells you more about the API's design than any other single data point. GitHub's <code>owner</code>/<code>repo</code> parameters (480/479 refs) reveal the repo-centric architecture.</li>
+<li><strong>Mixed ref types in one view</strong>: seeing schemas, responses, parameters, and headers ranked together shows which component <em>category</em> dominates. For Discord, 5 of the top 8 refs are headers. For GitHub, 3 of the top 10 are parameters.</li>
+</ul>
+<h3 id="what-could-be-improved_2">What could be improved</h3>
+<ul>
+<li><strong>No <code>group_by=node_type</code></strong>: as noted above, a single call to get "schema refs: 500, response refs: 300, parameter refs: 200, header refs: 100" would be a useful overview. Currently you'd need 4 separate calls with <code>node_type</code> filter.</li>
+<li><strong><code>total</code> count semantics</strong>: for <code>walk_refs</code>, <code>total</code> returns the number of <em>unique ref targets</em> (e.g., 1,349 for GitHub), not the total number of <code>$ref</code> occurrences across the document. This is the right default, but the distinction isn't documented. A user might expect <code>total</code> to mean "total $ref usages" (which would be the sum of all <code>count</code> values).</li>
+</ul>
+<hr />
+<h2 id="walk_parameters"><code>walk_parameters</code></h2>
+<h3 id="empty-location-for-ref-parameters">Empty location for <code>$ref</code> parameters</h3>
+<p>Parameters that use <code>$ref</code> (e.g., <code>$ref: '#/components/parameters/owner'</code>) show up with an <strong>empty string location <code>""</code></strong> in <code>group_by=location</code> results. This is technically correct (the <code>in</code> field isn't on the <code>$ref</code> object itself), but it's confusing.</p>
+<p>For GitHub, 2,832 of 3,303 parameters (86%) show empty location. The workaround is <code>resolve_refs=true</code>, but that's expensive on large specs and changes the output format.</p>
+<p><strong>Suggestion</strong>: Consider resolving just the <code>in</code> field for <code>$ref</code> parameters during grouping, or label the empty group as <code>"$ref (unresolved)"</code> instead of <code>""</code>.</p>
+<hr />
+<h2 id="walk_schemas"><code>walk_schemas</code></h2>
+<h3 id="total-vs-matched-distinction"><code>total</code> vs <code>matched</code> distinction</h3>
+<p>The <code>total</code> field counts <em>all</em> schemas (inline + component), while <code>matched</code> reflects filters. With <code>component=true</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Spec</th>
+<th style="text-align: right;">total (all)</th>
+<th style="text-align: right;">matched (component only)</th>
+<th style="text-align: right;">Inline %</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Petstore</td>
+<td style="text-align: right;">49</td>
+<td style="text-align: right;">33</td>
+<td style="text-align: right;">33%</td>
+</tr>
+<tr>
+<td>GitHub</td>
+<td style="text-align: right;">34,847</td>
+<td style="text-align: right;">31,959</td>
+<td style="text-align: right;">8%</td>
+</tr>
+<tr>
+<td>Stripe</td>
+<td style="text-align: right;">23,286</td>
+<td style="text-align: right;">8,860</td>
+<td style="text-align: right;">62%</td>
+</tr>
+<tr>
+<td>MS Graph</td>
+<td style="text-align: right;">89,434</td>
+<td style="text-align: right;">29,665</td>
+<td style="text-align: right;">67%</td>
+</tr>
+</tbody>
+</table>
+<p>This reveals that <strong>Stripe and MS Graph have more inline schemas than component schemas</strong> -- a surprising finding that <code>group_by=location</code> would surface directly.</p>
+<h3 id="schema-type-none-ambiguity">Schema type "(none)" ambiguity</h3>
+<p>Schemas without an explicit <code>type</code> field show as <code>""</code> in <code>group_by=type</code>. These are composition schemas (<code>allOf</code>, <code>anyOf</code>, <code>oneOf</code>), pure <code>$ref</code> wrappers, or <code>enum</code>-only schemas. The empty string is accurate but unlabeled.</p>
+<p><strong>Suggestion</strong>: Consider labeling these as <code>"(composition)"</code> or <code>"(untyped)"</code> to make the output self-documenting. Alternatively, the docs could explain what <code>""</code> means in this context.</p>
+<hr />
+<h2 id="walk_responses"><code>walk_responses</code></h2>
+<h3 id="wildcard-status-codes">Wildcard status codes</h3>
+<p>Discord uses <code>4XX</code> and MS Graph uses <code>2XX</code>/<code>4XX</code>/<code>5XX</code> (OAS 3.0 range wildcards). These appear correctly in <code>group_by=status_code</code> as their literal values (<code>"4XX"</code>, <code>"5XX"</code>). The <code>status</code> filter also handles them with its own wildcard syntax (<code>status=2xx</code> matches <code>2XX</code> range codes).</p>
+<p>This works well. The only gap is that there's no way to distinguish between a spec that declares <code>4XX</code> (range wildcard) and one that declares individual <code>400</code>, <code>401</code>, <code>403</code>, <code>404</code> codes. Both are valid OAS patterns but imply different levels of client guidance.</p>
+<hr />
+<h2 id="walk_security"><code>walk_security</code></h2>
+<h3 id="works-perfectly-for-its-scope">Works perfectly for its scope</h3>
+<p>Security schemes are simple enough that the current tool covers the use case completely. No <code>group_by</code> is needed since specs rarely have more than 3 schemes.</p>
+<h3 id="missing-operation-level-security-overrides">Missing: operation-level security overrides</h3>
+<p><code>walk_security</code> only shows schemes <em>defined</em> in <code>components/securitySchemes</code>. It doesn't show which operations <em>use</em> which schemes, or which operations override the global security. A <code>walk_operations</code> filter like <code>security_scheme=OAuth2</code> would be useful for understanding auth coverage.</p>
+<hr />
+<h2 id="parse-tool"><code>parse</code> Tool</h2>
+<h3 id="description-field-can-be-enormous">Description field can be enormous</h3>
+<p>DigitalOcean's <code>description</code> field in the parse output is ~8,000 characters -- it contains their entire API introduction including rate limiting docs, curl examples, and CORS documentation. This makes the parse response very large for what's meant to be a summary.</p>
+<p><strong>Suggestion</strong>: Truncate the <code>description</code> field in parse output (e.g., first 200 chars with <code>...</code>) or move it behind a <code>full=true</code> flag. The current behavior means parsing DigitalOcean returns ~10x more text than parsing Stripe, even though both are similar in structural complexity.</p>
+<hr />
+<h2 id="cross-tool-patterns">Cross-Tool Patterns</h2>
+<h3 id="consistent-output-shape">Consistent output shape</h3>
+<p>All walk tools follow the same pattern: <code>{"total": N, "matched": N, "returned": N, "summaries|groups|refs": [...]}</code>. This consistency is excellent for tooling -- once you learn one walk tool, you know the shape of all of them.</p>
+<h3 id="pagination-works-but-is-rarely-needed">Pagination works but is rarely needed</h3>
+<p><code>limit</code> and <code>offset</code> are available on all walk tools. In practice, <code>group_by</code> eliminates the need for pagination in analysis workflows since aggregated results are always small. Pagination is most useful for <code>detail=true</code> queries on large specs.</p>
+<h3 id="resolve_refs-is-a-power-user-feature"><code>resolve_refs</code> is a power-user feature</h3>
+<p>Most analysis workflows don't need <code>resolve_refs=true</code>. The one exception is <code>walk_parameters</code> where unresolved refs hide the parameter location. For all other tools, the default (no resolution) is the right choice because it's faster and the output is more compact.</p>
+<hr />
+<h2 id="documentation-gaps">Documentation Gaps</h2>
+<ol>
+<li><strong><code>group_by</code> allowed values</strong>: documented in schema descriptions but not in the MCP server docs (<code>docs/mcp-server.md</code>). A table of "tool -&gt; group_by values" would help.</li>
+<li><strong><code>walk_refs</code> total semantics</strong>: the <code>total</code> field means "unique ref targets", not "total $ref occurrences". This should be documented.</li>
+<li><strong>Empty string in group keys</strong>: <code>""</code> appears in <code>group_by</code> results for schemas without <code>type</code>, parameters without <code>in</code> (due to <code>$ref</code>), and responses without explicit status codes. What <code>""</code> means varies by context and should be explained.</li>
+<li><strong><code>walk_headers</code> and <code>walk_refs</code> aren't in the MCP server docs yet</strong>: they were added in PR #321 but the documentation page hasn't been updated.</li>
+<li><strong>Plugin rebuild after update</strong>: the docs don't mention that updating oastools source requires rebuilding the plugin to get new MCP features.</li>
+</ol>
+<hr />
+<h2 id="summary-of-actionable-suggestions">Summary of Actionable Suggestions</h2>
+<table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>High</td>
+<td>Add <code>walk_headers</code> and <code>walk_refs</code> to MCP server documentation</td>
+</tr>
+<tr>
+<td>High</td>
+<td>Document <code>group_by</code> values in a table in MCP docs</td>
+</tr>
+<tr>
+<td>High</td>
+<td>Document what <code>""</code> means in each group_by context</td>
+</tr>
+<tr>
+<td>Medium</td>
+<td>Add <code>group_by=node_type</code> to <code>walk_refs</code></td>
+</tr>
+<tr>
+<td>Medium</td>
+<td>~~Label empty parameter locations~~ — resolved: labeled as <code>(ref)</code></td>
+</tr>
+<tr>
+<td>Medium</td>
+<td>Truncate <code>description</code> in <code>parse</code> output</td>
+</tr>
+<tr>
+<td>Medium</td>
+<td>Add <code>group_by</code> to <code>walk_paths</code> (e.g., by first segment or depth)</td>
+</tr>
+<tr>
+<td>Low</td>
+<td>Add <code>component</code> filter to <code>walk_headers</code></td>
+</tr>
+<tr>
+<td>Low</td>
+<td>Add <code>enum</code> constraints to <code>group_by</code> fields in JSON Schema</td>
+</tr>
+<tr>
+<td>Low</td>
+<td>Add version/build info to plugin for staleness detection</td>
+</tr>
+<tr>
+<td>Low</td>
+<td>Consider case-insensitive header name grouping option</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.expand", "navigation.top", "toc.follow", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+<script>
+// Clear stale repository facts cache (TTL: 1 hour)
+// MkDocs Material caches GitHub repo stats in sessionStorage indefinitely.
+// This override adds TTL expiration so users see updated release versions.
+(function() {
+  var TTL_MS = 60 * 60 * 1000; // 1 hour
+  var scope = new URL("..", location);
+  var key = scope.pathname + ".__source";
+  var ttlKey = key + "_ts";
+
+  var timestamp = sessionStorage.getItem(ttlKey);
+  if (timestamp && (Date.now() - parseInt(timestamp, 10)) > TTL_MS) {
+    sessionStorage.removeItem(key);
+    sessionStorage.removeItem(ttlKey);
+  }
+
+  // Patch __md_set to track timestamps for __source
+  var originalSet = window.__md_set;
+  if (originalSet) {
+    window.__md_set = function(k, v, storage, s) {
+      originalSet(k, v, storage, s);
+      if (k === "__source" && storage === sessionStorage) {
+        sessionStorage.setItem(ttlKey, Date.now().toString());
+      }
+    };
+  }
+})();
+
+</script>
+
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+<script>
+// Open external links in new tabs — compatible with navigation.instant
+document$.subscribe(function() {
+  var host = location.hostname;
+  document.querySelectorAll("a[href]").forEach(function(a) {
+    try {
+      var url = new URL(a.href);
+      if (url.hostname && url.hostname !== host) {
+        a.setAttribute("target", "_blank");
+        a.setAttribute("rel", "noopener noreferrer");
+      }
+    } catch(e) {}
+  });
+});
+</script>
+
+  </body>
+</html>
