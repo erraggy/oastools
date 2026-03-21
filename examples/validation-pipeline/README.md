@@ -11,7 +11,7 @@ Demonstrates a complete validation pipeline with source map integration for IDE-
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 - An OpenAPI specification file to validate
 
 ## Quick Start

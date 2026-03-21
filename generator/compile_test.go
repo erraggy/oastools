@@ -90,7 +90,7 @@ components:
 	// Create go.mod for the test package
 	goModContent := `module testapi
 
-go 1.24
+go 1.25
 `
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
@@ -167,7 +167,7 @@ components:
 	// Create go.mod for the test package
 	goModContent := `module testapi
 
-go 1.24
+go 1.25
 `
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
@@ -237,7 +237,7 @@ components:
 	// Create go.mod for the test package
 	goModContent := `module testapi
 
-go 1.24
+go 1.25
 `
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
@@ -346,7 +346,7 @@ components:
 	// Create go.mod for the test package
 	goModContent := `module testapi
 
-go 1.24
+go 1.25
 `
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
@@ -453,7 +453,7 @@ definitions:
 	// Create go.mod for the test package
 	goModContent := `module testapi
 
-go 1.24
+go 1.25
 `
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
@@ -549,7 +549,7 @@ definitions:
 	// Create go.mod for the test package
 	goModContent := `module testapi
 
-go 1.24
+go 1.25
 `
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
@@ -690,7 +690,7 @@ func TestFixerToGeneratorIntegration(t *testing.T) {
 	// Step 7: Create go.mod for the test package
 	goModContent := `module testapi
 
-go 1.24
+go 1.25
 `
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)

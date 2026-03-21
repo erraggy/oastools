@@ -17,7 +17,7 @@ Thank you for your interest in contributing to oastools! This document provides 
 
 ### Prerequisites
 
-- **Go 1.24+** - Required for development
+- **Go 1.25+** - Required for development
 - **golangci-lint** - For linting (optional but recommended)
 - **gotestsum** - For better test output formatting (optional)
 

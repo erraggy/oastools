@@ -112,7 +112,7 @@ oastools implements [JSONPath per RFC 9535](https://datatracker.ietf.org/doc/htm
 
 ### 2.3 Go Language Specification
 
-oastools targets [Go 1.24+](https://go.dev/doc/go1.24) and leverages language features accordingly. The toolkit uses generics for type-safe operations where appropriate, Go 1.24 benchmark patterns with `b.Loop()` for accurate performance measurement, and standard library patterns for HTTP handling that integrate with `net/http`. The [generator package](#11-generator-package) produces code compatible with Go 1.18+ when using generics for optional types.
+oastools targets [Go 1.25+](https://go.dev/doc/go1.25) and leverages language features accordingly. The toolkit uses generics for type-safe operations where appropriate, Go 1.24+ benchmark patterns with `b.Loop()` for accurate performance measurement, and standard library patterns for HTTP handling that integrate with `net/http`. The [generator package](#11-generator-package) produces code compatible with Go 1.18+ when using generics for optional types.
 
 ### 2.4 Related RFCs
 
@@ -2392,7 +2392,7 @@ The modular architecture allows teams to adopt individual packages as needed whi
 
 15. **The Go Programming Language Specification.** [https://go.dev/ref/spec](https://go.dev/ref/spec)
 
-16. **Go 1.24 Release Notes.** [https://go.dev/doc/go1.24](https://go.dev/doc/go1.24)
+16. **Go 1.25 Release Notes.** [https://go.dev/doc/go1.25](https://go.dev/doc/go1.25)
 
 ### oastools Documentation
 

@@ -11,7 +11,7 @@ Demonstrates schema deduplication strategies when merging OpenAPI specifications
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 
 ## Quick Start
 

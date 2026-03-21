@@ -12,7 +12,7 @@ Demonstrates analyzing schema references and detecting circular references using
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 
 ## Quick Start
 

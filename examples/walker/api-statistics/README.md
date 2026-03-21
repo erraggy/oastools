@@ -12,7 +12,7 @@ Demonstrates collecting API statistics in a single pass using multiple walker ha
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 
 ## Quick Start
 

@@ -39,7 +39,7 @@ Both instruction files follow [GitHub's best practices](https://docs.github.com/
 
 - ✅ Clear project purpose and overview
 - ✅ Specific build, test, and lint commands
-- ✅ Detailed tech stack information (Go 1.24, frameworks, dependencies)
+- ✅ Detailed tech stack information (Go 1.25, frameworks, dependencies)
 - ✅ Code style guidelines with real examples
 - ✅ Explicit acceptance criteria for task completion
 - ✅ Clear boundaries (files/directories that should not be modified)

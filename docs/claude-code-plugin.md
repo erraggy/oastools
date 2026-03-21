@@ -17,7 +17,7 @@ brew install erraggy/oastools/oastools
 **Go install:**
 
 ```bash
-# Requires Go 1.24+
+# Requires Go 1.25+
 go install github.com/erraggy/oastools/cmd/oastools@latest
 ```
 

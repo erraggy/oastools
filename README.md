@@ -73,7 +73,7 @@ Pre-built binaries for macOS, Linux, and Windows on the [Releases](https://githu
 go get github.com/erraggy/oastools@latest
 ```
 
-Requires Go 1.24+.
+Requires Go 1.25+.
 
 ## Documentation
 

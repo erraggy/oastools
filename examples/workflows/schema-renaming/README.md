@@ -11,7 +11,7 @@ Demonstrates schema renaming strategies for resolving component collisions while
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 
 ## Quick Start
 

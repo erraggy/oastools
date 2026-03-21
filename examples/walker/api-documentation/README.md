@@ -11,7 +11,7 @@ Demonstrates generating Markdown API documentation from OpenAPI specifications u
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 
 ## Quick Start
 

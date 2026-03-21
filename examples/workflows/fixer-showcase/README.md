@@ -12,7 +12,7 @@ Demonstrates all available fix types in the oastools fixer package with before/a
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 
 ## Quick Start
 

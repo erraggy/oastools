@@ -120,7 +120,7 @@ export PATH=$PATH:$(go env GOPATH)/bin
 
 # Verify installation
 golangci-lint version
-# Expected output: golangci-lint has version 2.1.0 built with go1.24.2...
+# Expected output: golangci-lint has version 2.1.0 built with go1.25...
 ```
 
 **Without golangci-lint v2 installed, `make check` and `make lint` will fail.**
@@ -313,7 +313,7 @@ For documentation-only changes, only items 3, 6, and 7 apply.
 **DO NOT:**
 
 - Add dependencies without checking for security vulnerabilities first
-- Modify benchmark test patterns (must use Go 1.24 `for b.Loop()` pattern)
+- Modify benchmark test patterns (must use Go 1.24+ `for b.Loop()` pattern)
 - Remove or weaken existing test coverage
 - Change public API signatures without documenting breaking changes
 - Commit secrets, credentials, or sensitive data
@@ -322,7 +322,7 @@ For documentation-only changes, only items 3, 6, and 7 apply.
 ## Go Module
 
 - Module path: `github.com/erraggy/oastools`
-- Minimum Go version: 1.24
+- Minimum Go version: 1.25
 
 ## Public API Structure
 

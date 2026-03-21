@@ -19,9 +19,6 @@ on:
 permissions:
   contents: read
 
-env:
-  GOEXPERIMENT: synctest  # Required for testing/synctest. Remove when Go 1.25+.
-
 jobs:
 
   race-test:
@@ -33,7 +30,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.24'
+        go-version: '1.25'
         cache: true
 
     - name: Test parser package with Race Detector
