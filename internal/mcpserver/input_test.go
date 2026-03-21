@@ -191,7 +191,7 @@ func TestSpecInput_ResolveCacheDisabled(t *testing.T) {
 }
 
 func TestSpecCache_TTLExpiry(t *testing.T) {
-	synctest.Run(func() {
+	synctest.Test(t, func(t *testing.T) {
 		c := &specCacheStore{
 			entries: make(map[string]*cacheEntry),
 			maxSize: 10,
@@ -224,7 +224,7 @@ func TestSpecCache_TTLNotExpired(t *testing.T) {
 }
 
 func TestSpecCache_Sweep(t *testing.T) {
-	synctest.Run(func() {
+	synctest.Test(t, func(t *testing.T) {
 		c := &specCacheStore{
 			entries: make(map[string]*cacheEntry),
 			maxSize: 10,
@@ -245,7 +245,7 @@ func TestSpecCache_Sweep(t *testing.T) {
 }
 
 func TestSpecCache_Sweeper(t *testing.T) {
-	synctest.Run(func() {
+	synctest.Test(t, func(t *testing.T) {
 		c := &specCacheStore{
 			entries: make(map[string]*cacheEntry),
 			maxSize: 10,
