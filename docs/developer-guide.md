@@ -50,6 +50,8 @@ make install
 go get github.com/erraggy/oastools@latest
 ```
 
+Requires Go 1.25+.
+
 ## CLI Usage
 
 This section provides quick examples of common CLI operations. For complete documentation including all flags, options, and output formats, see the **[CLI Reference](cli-reference.md)**.
