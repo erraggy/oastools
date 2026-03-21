@@ -1,12 +1,12 @@
 module fixer-showcase
 
-go 1.24.0
+go 1.25.8
 
 require github.com/erraggy/oastools v1.45.3
 
 require (
 	go.yaml.in/yaml/v4 v4.0.0-rc.4 // indirect
-	golang.org/x/text v0.34.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
 )
 
 replace github.com/erraggy/oastools => ../../../

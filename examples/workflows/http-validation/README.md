@@ -13,7 +13,7 @@ Demonstrates runtime HTTP request/response validation using the httpvalidator pa
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 
 ## Quick Start
 

@@ -14,7 +14,7 @@ Demonstrates programmatic OpenAPI specification construction using the builder p
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 
 ## Quick Start
 

@@ -47,7 +47,6 @@
 - **`make check` before pushing** — not just `go test`; catches lint, formatting, and trailing whitespace
 - **`docs/` is mixed source + generated**: Source files (`index.md`, `mcp-server.md`, `cli-reference.md`, etc.) are edited directly in `docs/`. Generated files (`docs/packages/`, `docs/examples/`) come from `{package}/deep_dive.md` and `examples/*/README.md` — see `.claude/docs/docs-website.md`
 - **MCP config via env vars**: The MCP server reads `OASTOOLS_*` env vars for configuration (cache TTLs, walk limits, join strategies, etc.). The Go MCP SDK doesn't support `initializationOptions`, so env vars are used instead. MCP clients set these via their `env` field in server config.
-- **`GOEXPERIMENT=synctest`**: Required for `testing/synctest` (deterministic fake-clock tests). The Makefile exports this globally. Remove when Go 1.25+ (where synctest is GA). Use `make test`, not bare `go test`.
 
 ## Orchestrator Mode
 
@@ -86,4 +85,4 @@
 ## Go Module
 
 - **Module**: `github.com/erraggy/oastools`
-- **Minimum Go**: 1.24
+- **Minimum Go**: 1.25

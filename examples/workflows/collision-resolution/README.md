@@ -12,7 +12,7 @@ Demonstrates how to handle schema collisions when merging OpenAPI specifications
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 
 ## Quick Start
 

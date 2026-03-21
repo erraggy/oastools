@@ -228,32 +228,35 @@ func extractExportedSymbols(t *testing.T, dir string) map[string]bool {
 	t.Helper()
 
 	fset := token.NewFileSet()
-	pkgs, err := goparser.ParseDir(fset, dir, func(fi os.FileInfo) bool {
-		return !strings.HasSuffix(fi.Name(), "_test.go")
-	}, 0)
-	require.NoError(t, err, "parsing package dir %s", dir)
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err, "reading dir %s", dir)
 
 	syms := make(map[string]bool)
-	for _, pkg := range pkgs {
-		for _, file := range pkg.Files {
-			for _, decl := range file.Decls {
-				switch d := decl.(type) {
-				case *ast.FuncDecl:
-					if d.Name.IsExported() {
-						syms[d.Name.Name] = true
-					}
-				case *ast.GenDecl:
-					for _, spec := range d.Specs {
-						switch s := spec.(type) {
-						case *ast.TypeSpec:
-							if s.Name.IsExported() {
-								syms[s.Name.Name] = true
-							}
-						case *ast.ValueSpec:
-							for _, name := range s.Names {
-								if name.IsExported() {
-									syms[name.Name] = true
-								}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, err := goparser.ParseFile(fset, filepath.Join(dir, name), nil, 0)
+		require.NoError(t, err, "parsing file %s", name)
+
+		for _, decl := range file.Decls {
+			switch d := decl.(type) {
+			case *ast.FuncDecl:
+				if d.Name.IsExported() {
+					syms[d.Name.Name] = true
+				}
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						if s.Name.IsExported() {
+							syms[s.Name.Name] = true
+						}
+					case *ast.ValueSpec:
+						for _, name := range s.Names {
+							if name.IsExported() {
+								syms[name.Name] = true
 							}
 						}
 					}

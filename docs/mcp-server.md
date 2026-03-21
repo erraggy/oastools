@@ -8,7 +8,7 @@ The MCP server is built into the `oastools` binary. Install it first:
 
 ```bash
 brew install erraggy/oastools/oastools                   # Homebrew (macOS/Linux)
-go install github.com/erraggy/oastools/cmd/oastools@latest  # Go install (requires Go 1.24+)
+go install github.com/erraggy/oastools/cmd/oastools@latest  # Go install (requires Go 1.25+)
 ```
 
 Or download a pre-built binary from the [Releases page](https://github.com/erraggy/oastools/releases/latest).

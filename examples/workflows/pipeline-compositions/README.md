@@ -11,7 +11,7 @@ Demonstrates multi-step oastools workflows by chaining parser, fixer, converter,
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 
 ## Quick Start
 

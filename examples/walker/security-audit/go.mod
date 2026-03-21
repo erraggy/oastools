@@ -1,6 +1,6 @@
 module security-audit
 
-go 1.24.0
+go 1.25.8
 
 require github.com/erraggy/oastools v1.45.3
 

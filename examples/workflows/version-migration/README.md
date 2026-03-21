@@ -11,7 +11,7 @@ Demonstrates OAS 3.1/3.2 version conversions and handling lossy downgrades using
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 
 ## Quick Start
 

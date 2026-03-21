@@ -10,7 +10,7 @@ A minimal 5-minute introduction to oastools, demonstrating the parse and validat
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 - oastools module dependency (auto-fetched)
 
 ## Quick Start

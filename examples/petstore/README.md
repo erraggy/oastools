@@ -10,7 +10,7 @@ A comprehensive code generation example demonstrating the full capabilities of o
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 - oastools CLI installed (`go install github.com/erraggy/oastools/cmd/oastools@latest`)
 
 ## Variants

@@ -187,22 +187,25 @@ func extractWithFunctions(t *testing.T, dir string) []string {
 	t.Helper()
 
 	fset := token.NewFileSet()
-	pkgs, err := goparser.ParseDir(fset, dir, func(fi os.FileInfo) bool {
-		return !strings.HasSuffix(fi.Name(), "_test.go")
-	}, 0)
-	require.NoError(t, err, "parsing package dir %s", dir)
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err, "reading dir %s", dir)
 
 	var funcs []string
-	for _, pkg := range pkgs {
-		for _, file := range pkg.Files {
-			for _, decl := range file.Decls {
-				fn, ok := decl.(*ast.FuncDecl)
-				if !ok || fn.Recv != nil {
-					continue
-				}
-				if fn.Name.IsExported() && strings.HasPrefix(fn.Name.Name, "With") {
-					funcs = append(funcs, fn.Name.Name)
-				}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, err := goparser.ParseFile(fset, filepath.Join(dir, name), nil, 0)
+		require.NoError(t, err, "parsing file %s", name)
+
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv != nil {
+				continue
+			}
+			if fn.Name.IsExported() && strings.HasPrefix(fn.Name.Name, "With") {
+				funcs = append(funcs, fn.Name.Name)
 			}
 		}
 	}
