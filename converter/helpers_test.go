@@ -760,6 +760,410 @@ func TestConvertOAS2ParameterToOAS3_ArrayWithoutItems(t *testing.T) {
 	assert.Nil(t, converted.Schema.Items, "Schema.Items should be nil when source has no Items")
 }
 
+// TestConvertOAS2ParameterToOAS3_ExclusiveKeywordsOAS31 verifies that for OAS 3.1+
+// targets, boolean ExclusiveMaximum/ExclusiveMinimum are converted to numeric form.
+func TestConvertOAS2ParameterToOAS3_ExclusiveKeywordsOAS31(t *testing.T) {
+	t.Run("OAS 3.1 target converts boolean to numeric", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion310}
+
+		min := float64(0)
+		max := float64(100)
+		param := &parser.Parameter{
+			Name:             "count",
+			In:               "query",
+			Type:             "integer",
+			Minimum:          &min,
+			Maximum:          &max,
+			ExclusiveMinimum: true,
+			ExclusiveMaximum: true,
+		}
+
+		converted := c.convertOAS2ParameterToOAS3(param, result, "test")
+		require.NotNil(t, converted.Schema)
+		assert.Equal(t, float64(100), converted.Schema.ExclusiveMaximum, "ExclusiveMaximum should be numeric 100")
+		assert.Nil(t, converted.Schema.Maximum, "Maximum should be nil after conversion")
+		assert.Equal(t, float64(0), converted.Schema.ExclusiveMinimum, "ExclusiveMinimum should be numeric 0")
+		assert.Nil(t, converted.Schema.Minimum, "Minimum should be nil after conversion")
+	})
+
+	t.Run("OAS 3.0 target preserves boolean form", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion303}
+
+		min := float64(0)
+		max := float64(100)
+		param := &parser.Parameter{
+			Name:             "count",
+			In:               "query",
+			Type:             "integer",
+			Minimum:          &min,
+			Maximum:          &max,
+			ExclusiveMinimum: true,
+			ExclusiveMaximum: true,
+		}
+
+		converted := c.convertOAS2ParameterToOAS3(param, result, "test")
+		require.NotNil(t, converted.Schema)
+		assert.Equal(t, true, converted.Schema.ExclusiveMaximum, "ExclusiveMaximum should be boolean for OAS 3.0")
+		assert.Equal(t, &max, converted.Schema.Maximum, "Maximum should be preserved for OAS 3.0")
+		assert.Equal(t, true, converted.Schema.ExclusiveMinimum, "ExclusiveMinimum should be boolean for OAS 3.0")
+		assert.Equal(t, &min, converted.Schema.Minimum, "Minimum should be preserved for OAS 3.0")
+	})
+
+	t.Run("OAS 3.1 target with no maximum emits warning", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion310}
+
+		param := &parser.Parameter{
+			Name:             "count",
+			In:               "query",
+			Type:             "integer",
+			ExclusiveMaximum: true,
+			// Maximum intentionally nil — malformed OAS 2.0
+		}
+
+		converted := c.convertOAS2ParameterToOAS3(param, result, "test")
+		require.NotNil(t, converted.Schema)
+		assert.Nil(t, converted.Schema.ExclusiveMaximum, "ExclusiveMaximum should be nil when no Maximum present")
+		assert.Nil(t, converted.Schema.Maximum, "Maximum should remain nil")
+		assert.Greater(t, countIssuesContaining(result.Issues, "exclusiveMaximum: true"), 0,
+			"should emit warning about dropped exclusiveMaximum constraint")
+	})
+}
+
+// TestConvertOAS2ItemsToSchema_ExclusiveOAS31 verifies that Items conversion
+// handles exclusiveMaximum/exclusiveMinimum correctly for different target versions.
+func TestConvertOAS2ItemsToSchema_ExclusiveOAS31(t *testing.T) {
+	t.Run("OAS 3.1 target converts boolean to numeric in items", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion310}
+		max := float64(50)
+		min := float64(5)
+		items := &parser.Items{
+			Type:             "integer",
+			Maximum:          &max,
+			Minimum:          &min,
+			ExclusiveMaximum: true,
+			ExclusiveMinimum: true,
+		}
+
+		s := convertOAS2ItemsToSchema(c, items, result, "test.items")
+		require.NotNil(t, s)
+		assert.Equal(t, float64(50), s.ExclusiveMaximum, "ExclusiveMaximum should be numeric 50")
+		assert.Nil(t, s.Maximum, "Maximum should be nil after conversion")
+		assert.Equal(t, float64(5), s.ExclusiveMinimum, "ExclusiveMinimum should be numeric 5")
+		assert.Nil(t, s.Minimum, "Minimum should be nil after conversion")
+	})
+
+	t.Run("OAS 3.0 target preserves boolean in items", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion303}
+		max := float64(50)
+		min := float64(5)
+		items := &parser.Items{
+			Type:             "integer",
+			Maximum:          &max,
+			Minimum:          &min,
+			ExclusiveMaximum: true,
+			ExclusiveMinimum: true,
+		}
+
+		s := convertOAS2ItemsToSchema(c, items, result, "test.items")
+		require.NotNil(t, s)
+		assert.Equal(t, true, s.ExclusiveMaximum, "ExclusiveMaximum should be boolean for OAS 3.0")
+		assert.Equal(t, &max, s.Maximum, "Maximum should be preserved for OAS 3.0")
+		assert.Equal(t, true, s.ExclusiveMinimum, "ExclusiveMinimum should be boolean for OAS 3.0")
+		assert.Equal(t, &min, s.Minimum, "Minimum should be preserved for OAS 3.0")
+	})
+
+	t.Run("nested items inherit target version", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion310}
+		innerMax := float64(25)
+		items := &parser.Items{
+			Type: "array",
+			Items: &parser.Items{
+				Type:             "integer",
+				Maximum:          &innerMax,
+				ExclusiveMaximum: true,
+			},
+		}
+
+		s := convertOAS2ItemsToSchema(c, items, result, "test.items")
+		require.NotNil(t, s)
+		inner, ok := s.Items.(*parser.Schema)
+		require.True(t, ok, "nested Items should be *parser.Schema")
+		assert.Equal(t, float64(25), inner.ExclusiveMaximum, "nested ExclusiveMaximum should be numeric")
+		assert.Nil(t, inner.Maximum, "nested Maximum should be nil after conversion")
+	})
+
+	t.Run("OAS 3.1 items with no maximum emits warning", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion310}
+		items := &parser.Items{
+			Type:             "integer",
+			ExclusiveMaximum: true,
+			// Maximum intentionally nil
+		}
+
+		s := convertOAS2ItemsToSchema(c, items, result, "test.items")
+		require.NotNil(t, s)
+		assert.Nil(t, s.ExclusiveMaximum, "ExclusiveMaximum should remain nil")
+		assert.Greater(t, countIssuesContaining(result.Issues, "exclusiveMaximum: true"), 0,
+			"should emit warning about dropped exclusiveMaximum constraint")
+	})
+}
+
+// TestConvertOAS2SchemaToOAS3_ExclusiveOAS31 verifies that convertOAS2SchemaToOAS3
+// fixes boolean exclusive min/max in schemas when targeting OAS 3.1+.
+func TestConvertOAS2SchemaToOAS3_ExclusiveOAS31(t *testing.T) {
+	t.Run("OAS 3.1 target converts boolean exclusive in schema", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion310}
+		max := float64(200)
+		min := float64(10)
+		schema := &parser.Schema{
+			Type:             "integer",
+			Maximum:          &max,
+			Minimum:          &min,
+			ExclusiveMaximum: true,
+			ExclusiveMinimum: true,
+		}
+
+		converted := c.convertOAS2SchemaToOAS3(schema, parser.OASVersion310, result, "test")
+		require.NotNil(t, converted)
+		assert.Equal(t, float64(200), converted.ExclusiveMaximum, "ExclusiveMaximum should be numeric 200")
+		assert.Nil(t, converted.Maximum, "Maximum should be nil after conversion")
+		assert.Equal(t, float64(10), converted.ExclusiveMinimum, "ExclusiveMinimum should be numeric 10")
+		assert.Nil(t, converted.Minimum, "Minimum should be nil after conversion")
+	})
+
+	t.Run("OAS 3.0 target preserves boolean in schema", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion303}
+		max := float64(200)
+		min := float64(10)
+		schema := &parser.Schema{
+			Type:             "integer",
+			Maximum:          &max,
+			Minimum:          &min,
+			ExclusiveMaximum: true,
+			ExclusiveMinimum: true,
+		}
+
+		converted := c.convertOAS2SchemaToOAS3(schema, parser.OASVersion303, result, "test")
+		require.NotNil(t, converted)
+		assert.Equal(t, true, converted.ExclusiveMaximum, "ExclusiveMaximum should be boolean for OAS 3.0")
+		assert.NotNil(t, converted.Maximum, "Maximum should be preserved for OAS 3.0")
+		assert.Equal(t, true, converted.ExclusiveMinimum, "ExclusiveMinimum should be boolean for OAS 3.0")
+		assert.NotNil(t, converted.Minimum, "Minimum should be preserved for OAS 3.0")
+	})
+
+	t.Run("OAS 3.1 converts nested property exclusive", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion311}
+		propMax := float64(99)
+		schema := &parser.Schema{
+			Type: "object",
+			Properties: map[string]*parser.Schema{
+				"score": {
+					Type:             "number",
+					Maximum:          &propMax,
+					ExclusiveMaximum: true,
+				},
+			},
+		}
+
+		converted := c.convertOAS2SchemaToOAS3(schema, parser.OASVersion311, result, "test")
+		require.NotNil(t, converted)
+		scoreProp, ok := converted.Properties["score"]
+		require.True(t, ok, "score property should exist")
+		assert.Equal(t, float64(99), scoreProp.ExclusiveMaximum, "nested ExclusiveMaximum should be numeric")
+		assert.Nil(t, scoreProp.Maximum, "nested Maximum should be nil after conversion")
+	})
+
+	t.Run("OAS 3.1 boolean exclusive with no maximum emits warning", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion310}
+		schema := &parser.Schema{
+			Type:             "integer",
+			ExclusiveMaximum: true,
+			// Maximum intentionally nil
+		}
+
+		converted := c.convertOAS2SchemaToOAS3(schema, parser.OASVersion310, result, "test")
+		require.NotNil(t, converted)
+		assert.Nil(t, converted.ExclusiveMaximum, "ExclusiveMaximum should be nil when no Maximum present")
+		assert.Greater(t, countIssuesContaining(result.Issues, "exclusiveMaximum: true"), 0,
+			"should emit warning about dropped exclusiveMaximum constraint")
+	})
+
+	t.Run("nil schema returns nil", func(t *testing.T) {
+		c := newConverter()
+		assert.Nil(t, c.convertOAS2SchemaToOAS3(nil, parser.OASVersion310, nil, ""))
+	})
+
+	t.Run("does not mutate original schema", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion310}
+		max := float64(100)
+		original := &parser.Schema{
+			Type:             "integer",
+			Maximum:          &max,
+			ExclusiveMaximum: true,
+		}
+
+		_ = c.convertOAS2SchemaToOAS3(original, parser.OASVersion310, result, "test")
+		assert.Equal(t, true, original.ExclusiveMaximum, "original should not be mutated")
+		assert.NotNil(t, original.Maximum, "original Maximum should not be mutated")
+	})
+
+	t.Run("false boolean exclusiveMaximum becomes nil in OAS 3.1", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion310}
+		max := float64(100)
+		schema := &parser.Schema{
+			Type:             "integer",
+			Maximum:          &max,
+			ExclusiveMaximum: false, // boolean false
+		}
+
+		converted := c.convertOAS2SchemaToOAS3(schema, parser.OASVersion310, result, "test")
+		require.NotNil(t, converted)
+		assert.Nil(t, converted.ExclusiveMaximum, "false ExclusiveMaximum should become nil in OAS 3.1")
+		assert.NotNil(t, converted.Maximum, "Maximum should be preserved when ExclusiveMaximum was false")
+	})
+
+	t.Run("allOf traversal converts exclusive in OAS 3.1", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion310}
+		val := float64(42)
+		schema := &parser.Schema{
+			AllOf: []*parser.Schema{
+				{
+					Type:             "integer",
+					Maximum:          &val,
+					ExclusiveMaximum: true,
+				},
+			},
+		}
+
+		converted := c.convertOAS2SchemaToOAS3(schema, parser.OASVersion310, result, "test")
+		require.NotNil(t, converted)
+		require.Len(t, converted.AllOf, 1)
+		assert.Equal(t, float64(42), converted.AllOf[0].ExclusiveMaximum, "allOf member ExclusiveMaximum should be numeric")
+		assert.Nil(t, converted.AllOf[0].Maximum, "allOf member Maximum should be nil after conversion")
+	})
+
+	t.Run("nil result is safe for schema conversion", func(t *testing.T) {
+		c := newConverter()
+		schema := &parser.Schema{
+			Type:             "integer",
+			ExclusiveMaximum: true,
+			// Maximum intentionally nil -- would emit warning but result is nil
+		}
+
+		converted := c.convertOAS2SchemaToOAS3(schema, parser.OASVersion310, nil, "")
+		require.NotNil(t, converted)
+		assert.Nil(t, converted.ExclusiveMaximum, "ExclusiveMaximum should be nil even with nil result")
+	})
+}
+
+// TestConvertOAS2FormDataToRequestBody_ExclusiveOAS31 verifies that formData parameter
+// conversion handles exclusiveMaximum/exclusiveMinimum correctly for different target versions.
+func TestConvertOAS2FormDataToRequestBody_ExclusiveOAS31(t *testing.T) {
+	t.Run("OAS 3.1 target converts boolean to numeric in formData", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion310}
+		max := float64(100)
+		min := float64(1)
+		src := &parser.Operation{
+			Parameters: []*parser.Parameter{
+				{
+					Name:             "score",
+					In:               "formData",
+					Type:             "integer",
+					Maximum:          &max,
+					Minimum:          &min,
+					ExclusiveMaximum: true,
+					ExclusiveMinimum: true,
+				},
+			},
+		}
+
+		rb := c.convertOAS2FormDataToRequestBody(src, &parser.OAS2Document{}, result)
+		require.NotNil(t, rb)
+		require.NotEmpty(t, rb.Content, "Content should have at least one media type")
+		// Find the schema in the content
+		for _, mt := range rb.Content {
+			require.NotNil(t, mt.Schema)
+			scoreProp, ok := mt.Schema.Properties["score"]
+			require.True(t, ok, "score property should exist")
+			assert.Equal(t, float64(100), scoreProp.ExclusiveMaximum, "ExclusiveMaximum should be numeric 100")
+			assert.Nil(t, scoreProp.Maximum, "Maximum should be nil after conversion")
+			assert.Equal(t, float64(1), scoreProp.ExclusiveMinimum, "ExclusiveMinimum should be numeric 1")
+			assert.Nil(t, scoreProp.Minimum, "Minimum should be nil after conversion")
+			break
+		}
+	})
+
+	t.Run("OAS 3.0 target preserves boolean in formData", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion303}
+		max := float64(100)
+		min := float64(1)
+		src := &parser.Operation{
+			Parameters: []*parser.Parameter{
+				{
+					Name:             "score",
+					In:               "formData",
+					Type:             "integer",
+					Maximum:          &max,
+					Minimum:          &min,
+					ExclusiveMaximum: true,
+					ExclusiveMinimum: true,
+				},
+			},
+		}
+
+		rb := c.convertOAS2FormDataToRequestBody(src, &parser.OAS2Document{}, result)
+		require.NotNil(t, rb)
+		require.NotEmpty(t, rb.Content, "Content should have at least one media type")
+		for _, mt := range rb.Content {
+			require.NotNil(t, mt.Schema)
+			scoreProp, ok := mt.Schema.Properties["score"]
+			require.True(t, ok, "score property should exist")
+			assert.Equal(t, true, scoreProp.ExclusiveMaximum, "ExclusiveMaximum should be boolean for OAS 3.0")
+			assert.Equal(t, &max, scoreProp.Maximum, "Maximum should be preserved for OAS 3.0")
+			assert.Equal(t, true, scoreProp.ExclusiveMinimum, "ExclusiveMinimum should be boolean for OAS 3.0")
+			assert.Equal(t, &min, scoreProp.Minimum, "Minimum should be preserved for OAS 3.0")
+			break
+		}
+	})
+
+	t.Run("OAS 3.1 target with no maximum emits warning in formData", func(t *testing.T) {
+		c := newConverter()
+		result := &ConversionResult{TargetOASVersion: parser.OASVersion310}
+		src := &parser.Operation{
+			Parameters: []*parser.Parameter{
+				{
+					Name:             "score",
+					In:               "formData",
+					Type:             "integer",
+					ExclusiveMaximum: true,
+					// Maximum intentionally nil
+				},
+			},
+		}
+
+		rb := c.convertOAS2FormDataToRequestBody(src, &parser.OAS2Document{}, result)
+		require.NotNil(t, rb)
+		assert.Greater(t, countIssuesContaining(result.Issues, "exclusiveMaximum: true"), 0,
+			"should emit warning about dropped exclusiveMaximum constraint in formData")
+	})
+}
+
 // newConverter creates a Converter for unit testing helpers using the same
 // initialization path as production code.
 func newConverter() *Converter {

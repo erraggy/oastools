@@ -49,7 +49,7 @@ func (c *Converter) convertOAS2ParameterToOAS3(param *parser.Parameter, result *
 
 	// Handle schema
 	if param.Schema != nil {
-		converted.Schema = c.convertOAS2SchemaToOAS3(param.Schema)
+		converted.Schema = c.convertOAS2SchemaToOAS3(param.Schema, result.TargetOASVersion, result, path+".schema")
 	} else if param.Type != "" {
 		// Convert type/format to schema, transferring all OAS 2.0 validation keywords
 		converted.Schema = &parser.Schema{
@@ -68,13 +68,35 @@ func (c *Converter) convertOAS2ParameterToOAS3(param *parser.Parameter, result *
 			MultipleOf:  param.MultipleOf,
 		}
 		if param.ExclusiveMaximum {
-			converted.Schema.ExclusiveMaximum = true
+			if c.isOAS31OrLater(result.TargetOASVersion) {
+				if param.Maximum != nil {
+					converted.Schema.ExclusiveMaximum = *param.Maximum
+					converted.Schema.Maximum = nil
+				} else {
+					c.addIssueWithContext(result, path,
+						"Parameter has 'exclusiveMaximum: true' but no 'maximum' value; constraint dropped in OAS 3.1 conversion",
+						"Add a 'maximum' value to preserve this exclusive boundary in OAS 3.1")
+				}
+			} else {
+				converted.Schema.ExclusiveMaximum = true
+			}
 		}
 		if param.ExclusiveMinimum {
-			converted.Schema.ExclusiveMinimum = true
+			if c.isOAS31OrLater(result.TargetOASVersion) {
+				if param.Minimum != nil {
+					converted.Schema.ExclusiveMinimum = *param.Minimum
+					converted.Schema.Minimum = nil
+				} else {
+					c.addIssueWithContext(result, path,
+						"Parameter has 'exclusiveMinimum: true' but no 'minimum' value; constraint dropped in OAS 3.1 conversion",
+						"Add a 'minimum' value to preserve this exclusive boundary in OAS 3.1")
+				}
+			} else {
+				converted.Schema.ExclusiveMinimum = true
+			}
 		}
 		if param.Items != nil {
-			converted.Schema.Items = convertOAS2ItemsToSchema(param.Items)
+			converted.Schema.Items = convertOAS2ItemsToSchema(c, param.Items, result, path+".items")
 			if param.Items.CollectionFormat != "" && param.Items.CollectionFormat != "csv" {
 				c.addIssueWithContext(result, path,
 					fmt.Sprintf("Parameter items uses collectionFormat '%s'", param.Items.CollectionFormat),
@@ -206,7 +228,7 @@ func (c *Converter) resolveHeaderRef(ref string, result *ConversionResult, path 
 }
 
 // convertOAS2ResponseToOAS3Old converts an OAS 2.0 response to OAS 3.x format
-func (c *Converter) convertOAS2ResponseToOAS3Old(response *parser.Response, produces []string) *parser.Response {
+func (c *Converter) convertOAS2ResponseToOAS3Old(response *parser.Response, produces []string, targetVersion parser.OASVersion, result *ConversionResult, path string) *parser.Response {
 	if response == nil {
 		return nil
 	}
@@ -226,9 +248,11 @@ func (c *Converter) convertOAS2ResponseToOAS3Old(response *parser.Response, prod
 			mediaTypes = []string{getDefaultMediaType()}
 		}
 
+		// Convert schema once; deep-copy per media type to avoid shared mutation.
+		convertedSchema := c.convertOAS2SchemaToOAS3(response.Schema, targetVersion, result, path+".schema")
 		for _, mediaType := range mediaTypes {
 			converted.Content[mediaType] = &parser.MediaType{
-				Schema: c.convertOAS2SchemaToOAS3(response.Schema),
+				Schema: convertedSchema.DeepCopy(),
 			}
 		}
 	}
