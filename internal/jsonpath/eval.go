@@ -119,11 +119,12 @@ func (p *Path) Remove(doc any) (any, error) {
 // the caller's variable cannot be reassigned.
 func (p *Path) Modify(doc any, fn func(any) any) error {
 	if len(p.segments) < 2 {
-		if _, ok := doc.(map[string]any); !ok {
-			return fmt.Errorf("jsonpath: root path Modify requires a map document; got %T", doc)
+		m, ok := doc.(map[string]any)
+		if !ok || m == nil {
+			return fmt.Errorf("jsonpath: root path Modify requires a non-nil map document; got %T", doc)
 		}
 		// fn is expected to mutate the map in place; return value is ignored.
-		fn(doc)
+		fn(m)
 		return nil
 	}
 

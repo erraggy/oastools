@@ -1042,6 +1042,24 @@ func TestModifyRoot(t *testing.T) {
 	assert.Equal(t, "api.example.com", doc["host"], "root Modify should merge into document")
 }
 
+// TestModifyRoot_InvalidDoc verifies that Modify on root path "$" returns an
+// error for non-map and typed-nil map documents.
+func TestModifyRoot_InvalidDoc(t *testing.T) {
+	p, err := Parse("$")
+	require.NoError(t, err)
+
+	t.Run("non-map value returns error", func(t *testing.T) {
+		err := p.Modify("not a map", func(v any) any { return v })
+		require.Error(t, err)
+	})
+
+	t.Run("typed-nil map returns error", func(t *testing.T) {
+		var doc map[string]any
+		err := p.Modify(doc, func(v any) any { return v })
+		require.Error(t, err)
+	})
+}
+
 // TestRemoveArrayIndex_Splices verifies that Remove on an index segment produces
 // a correctly spliced slice (no nil gaps) — regression for issue #351.
 func TestRemoveArrayIndex_Splices(t *testing.T) {

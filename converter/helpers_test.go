@@ -740,6 +740,26 @@ func TestConvertOAS2ParameterToOAS3_ItemsCollectionFormat(t *testing.T) {
 		"should warn about non-csv collectionFormat on items")
 }
 
+// TestConvertOAS2ParameterToOAS3_ArrayWithoutItems verifies that an array
+// parameter with nil Items is handled gracefully.
+func TestConvertOAS2ParameterToOAS3_ArrayWithoutItems(t *testing.T) {
+	c := newConverter()
+	result := &ConversionResult{}
+
+	param := &parser.Parameter{
+		Name: "tags",
+		In:   "query",
+		Type: "array",
+		// Items intentionally nil
+	}
+
+	converted := c.convertOAS2ParameterToOAS3(param, result, "test")
+	require.NotNil(t, converted)
+	require.NotNil(t, converted.Schema)
+	assert.Equal(t, "array", converted.Schema.Type, "Schema.Type should be array")
+	assert.Nil(t, converted.Schema.Items, "Schema.Items should be nil when source has no Items")
+}
+
 // newConverter creates a Converter for unit testing helpers using the same
 // initialization path as production code.
 func newConverter() *Converter {

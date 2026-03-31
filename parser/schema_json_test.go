@@ -295,6 +295,24 @@ func TestSchemaJSONRoundTrip(t *testing.T) {
 		assert.True(t, ok, "Items should be *Schema after JSON unmarshal, not map[string]any")
 	})
 
+	t.Run("Items bool true preserved (OAS 3.1+)", func(t *testing.T) {
+		data := []byte(`{"type":"array","items":true}`)
+		var s Schema
+		require.NoError(t, json.Unmarshal(data, &s))
+		b, ok := s.Items.(bool)
+		assert.True(t, ok, "items true should remain bool")
+		assert.True(t, b)
+	})
+
+	t.Run("Items array decoded as []*Schema (OAS 2.0 tuple)", func(t *testing.T) {
+		data := []byte(`{"type":"array","items":[{"type":"string"},{"type":"integer"}]}`)
+		var s Schema
+		require.NoError(t, json.Unmarshal(data, &s))
+		arr, ok := s.Items.([]*Schema)
+		assert.True(t, ok, "items array should be []*Schema after JSON unmarshal")
+		assert.Len(t, arr, 2)
+	})
+
 	t.Run("additionalProperties object decoded as *Schema", func(t *testing.T) {
 		data := []byte(`{"type":"object","additionalProperties":{"type":"string"}}`)
 		var s Schema

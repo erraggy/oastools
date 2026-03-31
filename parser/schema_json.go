@@ -122,11 +122,11 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 // map cannot be round-tripped through JSON into a *Schema, so callers get a
 // clear parse error rather than a silent type-assertion panic downstream.
 func promoteSchemaOrBool(v any) (any, error) {
-	switch v.(type) {
+	switch val := v.(type) {
 	case nil, bool, *Schema:
 		return v, nil
 	case map[string]any:
-		data, err := json.Marshal(v)
+		data, err := json.Marshal(val)
 		if err != nil {
 			return nil, fmt.Errorf("parser: schema field promotion: %w", err)
 		}
@@ -135,6 +135,19 @@ func promoteSchemaOrBool(v any) (any, error) {
 			return nil, fmt.Errorf("parser: schema field promotion: %w", err)
 		}
 		return s, nil
+	case []any:
+		// OAS 2.0 tuple validation: items can be an array of schemas.
+		schemas := make([]*Schema, 0, len(val))
+		for _, elem := range val {
+			promoted, err := promoteSchemaOrBool(elem)
+			if err != nil {
+				return nil, err
+			}
+			if s, ok := promoted.(*Schema); ok {
+				schemas = append(schemas, s)
+			}
+		}
+		return schemas, nil
 	}
 	return v, nil
 }
