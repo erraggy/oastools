@@ -2,6 +2,7 @@ package parser
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/erraggy/oastools/parser/internal/jsonhelpers"
 )
@@ -93,7 +94,62 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	s.Extra = jsonhelpers.ExtractExtensions(data)
+	// The Alias trick bypasses custom unmarshalers, causing encoding/json to decode
+	// any-typed fields (Items, AdditionalProperties, etc.) as map[string]any instead
+	// of *Schema. Promote them back so downstream type assertions work correctly.
+	var err error
+	if s.Items, err = promoteSchemaOrBool(s.Items); err != nil {
+		return err
+	}
+	if s.AdditionalProperties, err = promoteSchemaOrBool(s.AdditionalProperties); err != nil {
+		return err
+	}
+	if s.AdditionalItems, err = promoteSchemaOrBool(s.AdditionalItems); err != nil {
+		return err
+	}
+	if s.UnevaluatedItems, err = promoteSchemaOrBool(s.UnevaluatedItems); err != nil {
+		return err
+	}
+	if s.UnevaluatedProperties, err = promoteSchemaOrBool(s.UnevaluatedProperties); err != nil {
+		return err
+	}
 	return nil
+}
+
+// promoteSchemaOrBool converts a map[string]any value (produced by the standard
+// JSON decoder for any-typed schema fields) into a *Schema. Bool values and
+// already-typed *Schema values pass through unchanged. Returns an error if the
+// map cannot be round-tripped through JSON into a *Schema, so callers get a
+// clear parse error rather than a silent type-assertion panic downstream.
+func promoteSchemaOrBool(v any) (any, error) {
+	switch val := v.(type) {
+	case nil, bool, *Schema:
+		return v, nil
+	case map[string]any:
+		data, err := json.Marshal(val)
+		if err != nil {
+			return nil, fmt.Errorf("parser: schema field promotion: %w", err)
+		}
+		s := &Schema{}
+		if err := json.Unmarshal(data, s); err != nil {
+			return nil, fmt.Errorf("parser: schema field promotion: %w", err)
+		}
+		return s, nil
+	case []any:
+		// OAS 2.0 tuple validation: items can be an array of schemas.
+		schemas := make([]*Schema, 0, len(val))
+		for _, elem := range val {
+			promoted, err := promoteSchemaOrBool(elem)
+			if err != nil {
+				return nil, err
+			}
+			if s, ok := promoted.(*Schema); ok {
+				schemas = append(schemas, s)
+			}
+		}
+		return schemas, nil
+	}
+	return v, nil
 }
 
 // MarshalJSON implements custom JSON marshaling for Discriminator.

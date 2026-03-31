@@ -980,6 +980,150 @@ func TestRecursiveDescentDepthLimit_WarningEmitted(t *testing.T) {
 	assert.Contains(t, buf.String(), "truncated at depth limit")
 }
 
+// TestRemoveArrayFilter_Splices verifies that filter removal on arrays splices
+// elements out rather than setting them to nil (issue #352).
+func TestRemoveArrayFilter_Splices(t *testing.T) {
+	doc := map[string]any{
+		"parameters": []any{
+			map[string]any{"name": "apikey", "in": "query"},
+			map[string]any{"name": "limit", "in": "query"},
+		},
+	}
+
+	p, err := Parse("$.parameters[?@.name=='apikey']")
+	require.NoError(t, err)
+	_, err = p.Remove(doc)
+	require.NoError(t, err)
+
+	params := doc["parameters"].([]any)
+	require.Len(t, params, 1, "splice should remove element, not nil-pad")
+	assert.Equal(t, "limit", params[0].(map[string]any)["name"])
+}
+
+// TestRemoveRecursiveDescent verifies that $..field removal deletes the field
+// from all descendants (issue #351).
+func TestRemoveRecursiveDescent(t *testing.T) {
+	doc := map[string]any{
+		"x-struct": "root",
+		"info":     map[string]any{"title": "t", "x-struct": "info"},
+		"nested": map[string]any{
+			"deep": map[string]any{"x-struct": "deep"},
+		},
+	}
+
+	p, err := Parse("$..x-struct")
+	require.NoError(t, err)
+	_, err = p.Remove(doc)
+	require.NoError(t, err)
+
+	assert.NotContains(t, doc, "x-struct", "root-level x-struct should be removed")
+	assert.NotContains(t, doc["info"], "x-struct", "info-level x-struct should be removed")
+	deep := doc["nested"].(map[string]any)["deep"].(map[string]any)
+	assert.NotContains(t, deep, "x-struct", "nested x-struct should be removed")
+}
+
+// TestModifyRoot verifies that Modify on root path "$" merges into the document
+// in place (issue #350).
+func TestModifyRoot(t *testing.T) {
+	doc := map[string]any{
+		"openapi": "3.0.0",
+		"info":    map[string]any{"title": "t"},
+	}
+
+	p, err := Parse("$")
+	require.NoError(t, err)
+	err = p.Modify(doc, func(v any) any {
+		if m, ok := v.(map[string]any); ok {
+			m["host"] = "api.example.com"
+		}
+		return v
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "api.example.com", doc["host"], "root Modify should merge into document")
+}
+
+// TestModifyRoot_InvalidDoc verifies that Modify on root path "$" returns an
+// error for non-map and typed-nil map documents.
+func TestModifyRoot_InvalidDoc(t *testing.T) {
+	p, err := Parse("$")
+	require.NoError(t, err)
+
+	t.Run("non-map value returns error", func(t *testing.T) {
+		err := p.Modify("not a map", func(v any) any { return v })
+		require.Error(t, err)
+	})
+
+	t.Run("typed-nil map returns error", func(t *testing.T) {
+		var doc map[string]any
+		err := p.Modify(doc, func(v any) any { return v })
+		require.Error(t, err)
+	})
+}
+
+// TestRemoveArrayIndex_Splices verifies that Remove on an index segment produces
+// a correctly spliced slice (no nil gaps) — regression for issue #351.
+func TestRemoveArrayIndex_Splices(t *testing.T) {
+	doc := map[string]any{
+		"servers": []any{"a", "b", "c"},
+	}
+
+	p, err := Parse("$.servers[1]")
+	require.NoError(t, err)
+	result, err := p.Remove(doc)
+	require.NoError(t, err)
+
+	servers := result.(map[string]any)["servers"].([]any)
+	require.Len(t, servers, 2, "splice should remove element, not nil-pad")
+	assert.Equal(t, "a", servers[0])
+	assert.Equal(t, "c", servers[1])
+}
+
+// TestRemoveRecursive_ThroughArrays verifies that $..field removal descends
+// through arrays to remove the field from every object inside them.
+func TestRemoveRecursive_ThroughArrays(t *testing.T) {
+	doc := map[string]any{
+		"items": []any{
+			map[string]any{"name": "a", "x-internal": true},
+			map[string]any{"name": "b", "x-internal": false},
+		},
+	}
+
+	p, err := Parse("$..x-internal")
+	require.NoError(t, err)
+	_, err = p.Remove(doc)
+	require.NoError(t, err)
+
+	items := doc["items"].([]any)
+	require.Len(t, items, 2)
+	assert.NotContains(t, items[0], "x-internal", "x-internal should be removed from first item")
+	assert.NotContains(t, items[1], "x-internal", "x-internal should be removed from second item")
+	assert.Equal(t, "a", items[0].(map[string]any)["name"], "name should be preserved")
+	assert.Equal(t, "b", items[1].(map[string]any)["name"], "name should be preserved")
+}
+
+// TestModifyRecursiveDescent verifies that Modify with $..field applies the
+// transform to every matching field at all depths.
+func TestModifyRecursiveDescent(t *testing.T) {
+	doc := map[string]any{
+		"description": "root",
+		"info":        map[string]any{"description": "info level"},
+		"paths": map[string]any{
+			"/users": map[string]any{"description": "path level"},
+		},
+	}
+
+	p, err := Parse("$..description")
+	require.NoError(t, err)
+	err = p.Modify(doc, func(v any) any {
+		return "updated"
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, "updated", doc["description"], "root description should be updated")
+	assert.Equal(t, "updated", doc["info"].(map[string]any)["description"], "info description should be updated")
+	assert.Equal(t, "updated", doc["paths"].(map[string]any)["/users"].(map[string]any)["description"], "path description should be updated")
+}
+
 // TestRecursiveDescentDepthLimit_nilChild verifies the depth cap when
 // recursiveDescend delegates to collectAllDescendants (nil child segment).
 func TestRecursiveDescentDepthLimit_nilChild(t *testing.T) {

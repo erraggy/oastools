@@ -67,28 +67,44 @@ func (p *Path) Set(doc any, value any) error {
 // Remove removes all matching nodes from the document.
 //
 // Returns the modified document. For maps, matching keys are deleted.
-// For arrays, matching indices are removed (with index shift).
+// For arrays, matching elements are spliced out (not set to nil).
+// Returns the original document unmodified (not an error) if the path matches
+// no nodes — callers that need to distinguish no-match from success should
+// pre-check with Get.
 func (p *Path) Remove(doc any) (any, error) {
 	if len(p.segments) < 2 {
 		return nil, fmt.Errorf("jsonpath: cannot remove root")
 	}
 
-	// Get the parent nodes and the final key
+	lastSeg := p.segments[len(p.segments)-1]
 	parentPath := &Path{
 		raw:      p.raw,
 		segments: p.segments[:len(p.segments)-1],
 	}
 
-	parents := parentPath.Get(doc)
-	if len(parents) == 0 {
-		// No matches - nothing to remove
+	// When the parent is the root document, apply removal directly.
+	if len(parentPath.segments) <= 1 {
+		return removeFromParent(doc, lastSeg), nil
+	}
+
+	// For deeper paths, go one level further to the grandparent. This lets us
+	// update the grandparent's reference to the parent slice when splicing,
+	// since a new slice header cannot be reflected through a plain any parameter.
+	grandParentPath := &Path{
+		raw:      p.raw,
+		segments: p.segments[:len(p.segments)-2],
+	}
+	parentSeg := p.segments[len(p.segments)-2]
+
+	grandParents := grandParentPath.Get(doc)
+	if len(grandParents) == 0 {
 		return doc, nil
 	}
 
-	lastSeg := p.segments[len(p.segments)-1]
-
-	for _, parent := range parents {
-		removeFromParent(parent, lastSeg)
+	for _, gp := range grandParents {
+		modifyInParent(gp, parentSeg, func(v any) any {
+			return removeFromParent(v, lastSeg)
+		})
 	}
 
 	return doc, nil
@@ -97,11 +113,19 @@ func (p *Path) Remove(doc any) (any, error) {
 // Modify applies a transformation function to all matching nodes.
 //
 // The function receives each matched value and should return the new value.
-// The document is modified in place.
+// The document is modified in place. For the root path ("$"), the document
+// must be a map[string]any; fn is expected to mutate it in place (e.g.
+// mergeDeep). Root replacement via fn's return value is not supported since
+// the caller's variable cannot be reassigned.
 func (p *Path) Modify(doc any, fn func(any) any) error {
 	if len(p.segments) < 2 {
-		// Modifying root means replacing entire doc - not supported in-place
-		return fmt.Errorf("jsonpath: cannot modify root in place")
+		m, ok := doc.(map[string]any)
+		if !ok || m == nil {
+			return fmt.Errorf("jsonpath: root path Modify requires a non-nil map document; got %T", doc)
+		}
+		// fn is expected to mutate the map in place; return value is ignored.
+		fn(m)
+		return nil
 	}
 
 	// Get the parent nodes and the final segment
@@ -312,8 +336,14 @@ func setInParent(parent any, seg Segment, value any) error {
 	}
 }
 
-// removeFromParent removes nodes from the parent at the location specified by the segment.
-func removeFromParent(parent any, seg Segment) {
+// removeFromParent removes nodes from the parent at the location specified by the
+// segment and returns the (possibly new) parent value. Callers must use the
+// return value when the parent is a slice, since splicing produces a new header.
+func removeFromParent(parent any, seg Segment) any {
+	return removeFromParentAt(parent, seg, 0)
+}
+
+func removeFromParentAt(parent any, seg Segment, depth int) any {
 	switch s := seg.(type) {
 	case ChildSegment:
 		if m, ok := parent.(map[string]any); ok {
@@ -321,15 +351,13 @@ func removeFromParent(parent any, seg Segment) {
 		}
 
 	case IndexSegment:
-		// Note: Removing from arrays by index is tricky as it shifts other elements.
-		// For simplicity, we set to nil rather than removing.
 		if arr, ok := parent.([]any); ok {
 			idx := s.Index
 			if idx < 0 {
 				idx = len(arr) + idx
 			}
 			if idx >= 0 && idx < len(arr) {
-				arr[idx] = nil
+				return append(arr[:idx:idx], arr[idx+1:]...)
 			}
 		}
 
@@ -340,10 +368,7 @@ func removeFromParent(parent any, seg Segment) {
 				delete(v, key)
 			}
 		case []any:
-			// Clear array elements
-			for i := range v {
-				v[i] = nil
-			}
+			return v[:0]
 		}
 
 	case FilterSegment:
@@ -355,25 +380,46 @@ func removeFromParent(parent any, seg Segment) {
 				}
 			}
 		case []any:
-			// For arrays, we need to collect indices to remove, then remove in reverse order
-			var toRemove []int
-			for i, elem := range v {
-				if evalFilter(elem, s.Expr) {
-					toRemove = append(toRemove, i)
+			result := v[:0]
+			for _, elem := range v {
+				if !evalFilter(elem, s.Expr) {
+					result = append(result, elem)
 				}
 			}
-			// Remove in reverse order to maintain correct indices
-			for i := len(toRemove) - 1; i >= 0; i-- {
-				idx := toRemove[i]
-				// Set to nil marker (actual removal would require modifying the slice)
-				v[idx] = nil
+			return result
+		}
+
+	case RecursiveSegment:
+		if s.Child != nil {
+			if depth > maxRecursionDepth {
+				jsonpathLogger.Warn("jsonpath recursive remove truncated at depth limit",
+					"depth", depth, "maxDepth", maxRecursionDepth)
+				return parent
+			}
+			// Remove child at this level, then recurse into all descendants.
+			parent = removeFromParentAt(parent, s.Child, depth)
+			switch v := parent.(type) {
+			case map[string]any:
+				for key, val := range v {
+					v[key] = removeFromParentAt(val, seg, depth+1)
+				}
+			case []any:
+				for i, elem := range v {
+					v[i] = removeFromParentAt(elem, seg, depth+1)
+				}
 			}
 		}
 	}
+
+	return parent
 }
 
 // modifyInParent applies a transformation function to matching nodes in the parent.
 func modifyInParent(parent any, seg Segment, fn func(any) any) {
+	modifyInParentAt(parent, seg, fn, 0)
+}
+
+func modifyInParentAt(parent any, seg Segment, fn func(any) any, depth int) {
 	switch s := seg.(type) {
 	case ChildSegment:
 		if m, ok := parent.(map[string]any); ok {
@@ -417,6 +463,27 @@ func modifyInParent(parent any, seg Segment, fn func(any) any) {
 			for i, elem := range v {
 				if evalFilter(elem, s.Expr) {
 					v[i] = fn(elem)
+				}
+			}
+		}
+
+	case RecursiveSegment:
+		if s.Child != nil {
+			if depth > maxRecursionDepth {
+				jsonpathLogger.Warn("jsonpath recursive modify truncated at depth limit",
+					"depth", depth, "maxDepth", maxRecursionDepth)
+				return
+			}
+			// Apply transform at this level, then recurse into all descendants.
+			modifyInParentAt(parent, s.Child, fn, depth)
+			switch v := parent.(type) {
+			case map[string]any:
+				for _, val := range v {
+					modifyInParentAt(val, seg, fn, depth+1)
+				}
+			case []any:
+				for _, elem := range v {
+					modifyInParentAt(elem, seg, fn, depth+1)
 				}
 			}
 		}

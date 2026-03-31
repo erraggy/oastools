@@ -587,3 +587,66 @@ func TestEncodingUnmarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+// TestOperationEmptySecurityMarshal verifies that a non-nil empty Security slice
+// marshals as [] rather than being omitted (issue #349). An empty security array
+// on an operation explicitly disables any document-level security requirements.
+func TestOperationEmptySecurityMarshal(t *testing.T) {
+	okResponses := &Responses{Codes: map[string]*Response{"200": {Description: "ok"}}}
+
+	t.Run("nil security is omitted", func(t *testing.T) {
+		op := &Operation{
+			Responses: okResponses,
+			Security:  nil,
+			Extra:     map[string]any{"x-test": "val"},
+		}
+		data, err := json.Marshal(op)
+		require.NoError(t, err)
+		assert.NotContains(t, string(data), `"security"`, "nil security should be omitted")
+	})
+
+	t.Run("empty security slice marshals as []", func(t *testing.T) {
+		op := &Operation{
+			Responses: okResponses,
+			Security:  []SecurityRequirement{},
+			Extra:     map[string]any{"x-test": "val"},
+		}
+		data, err := json.Marshal(op)
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"security":[]`, "empty non-nil security should marshal as []")
+	})
+
+	t.Run("empty security slice marshals as [] without extra fields", func(t *testing.T) {
+		op := &Operation{
+			Responses: okResponses,
+			Security:  []SecurityRequirement{},
+		}
+		data, err := json.Marshal(op)
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"security":[]`, "empty non-nil security should marshal as [] even without x- fields")
+	})
+
+	t.Run("populated security slice marshals correctly", func(t *testing.T) {
+		op := &Operation{
+			Responses: okResponses,
+			Security: []SecurityRequirement{
+				{"api_key": []string{}},
+				{"oauth2": []string{"read", "write"}},
+			},
+		}
+		data, err := json.Marshal(op)
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"security"`, "populated security should be present")
+		assert.Contains(t, string(data), `"api_key"`, "security requirement should contain api_key")
+		assert.Contains(t, string(data), `"oauth2"`, "security requirement should contain oauth2")
+	})
+
+	t.Run("empty security array round-trips through unmarshal", func(t *testing.T) {
+		input := `{"responses":{"200":{"description":"ok"}},"security":[]}`
+		var op Operation
+		err := json.Unmarshal([]byte(input), &op)
+		require.NoError(t, err)
+		require.NotNil(t, op.Security, "empty security array should unmarshal to non-nil slice")
+		assert.Empty(t, op.Security, "security slice should be empty after round-trip")
+	})
+}

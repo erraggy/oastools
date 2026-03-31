@@ -5,14 +5,11 @@ MAIN_PATH=./cmd/oastools
 BENCH_DIR=benchmarks
 BENCH_TIME=5s
 
-# Pin GOROOT to the SDK matching go.mod when system Go is older.
-# Update the version here when bumping go.mod's go directive.
-GO_SDK := $(wildcard $(HOME)/sdk/go1.25.8)
-QUALITY_TARGETS := tidy fmt test test-quick test-race test-full test-coverage test-corpus test-corpus-short integration-test integration-test-debug count-tests count-benchmarks lint vet
-ifneq ($(GO_SDK),)
-$(QUALITY_TARGETS): export GOROOT = $(GO_SDK)
-$(QUALITY_TARGETS): export PATH := $(GO_SDK)/bin:$(PATH)
-endif
+# Allow go commands to automatically download the toolchain version declared in
+# go.mod when the local Go binary is older. This is the portable alternative to
+# pinning GOROOT/PATH to a specific SDK path.
+QUALITY_TARGETS := tidy fmt test test-quick test-race test-full test-coverage test-corpus test-corpus-short integration-test integration-test-debug count-tests count-benchmarks lint vet check
+$(QUALITY_TARGETS): export GOTOOLCHAIN = auto
 
 # Default target
 all: build

@@ -118,10 +118,7 @@ func writeTempYAML(t *testing.T, doc any) string {
 // TestConverterNew tests the New() constructor
 func TestConverterNew(t *testing.T) {
 	c := New()
-
-	if c == nil {
-		t.Fatal("Expected non-nil Converter")
-	}
+	require.NotNil(t, c, "Expected non-nil Converter")
 
 	if c.StrictMode {
 		t.Error("Expected StrictMode to be false by default")
@@ -580,14 +577,10 @@ func TestRefRewritingOAS2ToOAS3(t *testing.T) {
 
 	// Verify refs were rewritten in components/schemas
 	ownerSchema := oas3Doc.Components.Schemas["Owner"]
-	if ownerSchema == nil {
-		t.Fatal("Owner schema not found")
-	}
+	require.NotNil(t, ownerSchema, "Owner schema not found")
 
 	petProp := ownerSchema.Properties["pet"]
-	if petProp == nil {
-		t.Fatal("Pet property not found")
-	}
+	require.NotNil(t, petProp, "Pet property not found")
 
 	expectedRef := "#/components/schemas/Pet"
 	if petProp.Ref != expectedRef {
@@ -596,14 +589,10 @@ func TestRefRewritingOAS2ToOAS3(t *testing.T) {
 
 	// Verify refs were rewritten in paths
 	pathItem := oas3Doc.Paths["/pets"]
-	if pathItem == nil {
-		t.Fatal("Path /pets not found")
-	}
+	require.NotNil(t, pathItem, "Path /pets not found")
 
 	responseSchema := pathItem.Get.Responses.Codes["200"].Content["application/json"].Schema
-	if responseSchema == nil {
-		t.Fatal("Response schema not found")
-	}
+	require.NotNil(t, responseSchema, "Response schema not found")
 
 	if responseSchema.Ref != expectedRef {
 		t.Errorf("Expected response schema ref '%s', got '%s'", expectedRef, responseSchema.Ref)
@@ -689,14 +678,10 @@ func TestRefRewritingOAS3ToOAS2(t *testing.T) {
 
 	// Verify refs were rewritten in definitions
 	ownerSchema := oas2Doc.Definitions["Owner"]
-	if ownerSchema == nil {
-		t.Fatal("Owner schema not found")
-	}
+	require.NotNil(t, ownerSchema, "Owner schema not found")
 
 	petProp := ownerSchema.Properties["pet"]
-	if petProp == nil {
-		t.Fatal("Pet property not found")
-	}
+	require.NotNil(t, petProp, "Pet property not found")
 
 	expectedRef := "#/definitions/Pet"
 	if petProp.Ref != expectedRef {
@@ -705,14 +690,10 @@ func TestRefRewritingOAS3ToOAS2(t *testing.T) {
 
 	// Verify refs were rewritten in paths
 	pathItem := oas2Doc.Paths["/pets"]
-	if pathItem == nil {
-		t.Fatal("Path /pets not found")
-	}
+	require.NotNil(t, pathItem, "Path /pets not found")
 
 	responseSchema := pathItem.Get.Responses.Codes["200"].Schema
-	if responseSchema == nil {
-		t.Fatal("Response schema not found")
-	}
+	require.NotNil(t, responseSchema, "Response schema not found")
 
 	if responseSchema.Ref != expectedRef {
 		t.Errorf("Expected response schema ref '%s', got '%s'", expectedRef, responseSchema.Ref)

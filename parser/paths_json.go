@@ -55,8 +55,10 @@ func (p *PathItem) UnmarshalJSON(data []byte) error {
 // into the top-level JSON object, as Go's encoding/json doesn't support
 // inline maps like yaml:",inline".
 func (o *Operation) MarshalJSON() ([]byte, error) {
-	// Fast path: no Extra fields, use standard marshaling
-	if len(o.Extra) == 0 {
+	// Fast path: no Extra fields and nil security, use standard marshaling.
+	// Security is excluded from the fast path because a non-nil empty slice
+	// must serialize as [] (disable inherited security), not be omitted.
+	if len(o.Extra) == 0 && o.Security == nil {
 		type Alias Operation
 		return marshalToJSON((*Alias)(o))
 	}
@@ -74,7 +76,7 @@ func (o *Operation) MarshalJSON() ([]byte, error) {
 	jsonhelpers.SetIfNotNil(m, "requestBody", o.RequestBody)
 	jsonhelpers.SetIfMapNotEmpty(m, "callbacks", o.Callbacks)
 	jsonhelpers.SetIfTrue(m, "deprecated", o.Deprecated)
-	jsonhelpers.SetIfSliceNotEmpty(m, "security", o.Security)
+	jsonhelpers.SetIfSliceNotNil(m, "security", o.Security)
 	jsonhelpers.SetIfSliceNotEmpty(m, "servers", o.Servers)
 	jsonhelpers.SetIfSliceNotEmpty(m, "consumes", o.Consumes)
 	jsonhelpers.SetIfSliceNotEmpty(m, "produces", o.Produces)

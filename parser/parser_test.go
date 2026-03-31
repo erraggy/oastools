@@ -158,13 +158,8 @@ paths:
 
 	// Verify QUERY operation is present
 	usersPath := doc.Paths["/users"]
-	if usersPath == nil {
-		t.Fatal("Expected /users path to be present")
-	}
-
-	if usersPath.Query == nil {
-		t.Fatal("Expected QUERY operation to be present")
-	}
+	require.NotNil(t, usersPath, "Expected /users path to be present")
+	require.NotNil(t, usersPath.Query, "Expected QUERY operation to be present")
 
 	if usersPath.Query.OperationID != "queryUsers" {
 		t.Errorf("Expected operationId 'queryUsers', got %s", usersPath.Query.OperationID)
