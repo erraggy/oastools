@@ -1,0 +1,364 @@
+goos: linux
+goarch: amd64
+pkg: github.com/erraggy/oastools/parser
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkParseResultEquals/Identical/SmallOAS3-4         	 2597760	      2308 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseResultEquals/Identical/MediumOAS3-4        	  147601	     40733 ns/op	    6696 B/op	       9 allocs/op
+BenchmarkParseResultEquals/Identical/LargeOAS3-4         	   12322	    486315 ns/op	   54152 B/op	      15 allocs/op
+BenchmarkParseResultEquals/Identical/SmallOAS2-4         	 3072846	      1955 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseResultEquals/Identical/MediumOAS2-4        	  166840	     35981 ns/op	    6696 B/op	       9 allocs/op
+BenchmarkEquals_EarlyExit/DifferentVersion-4             	1000000000	         5.642 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEquals_EarlyExit/DifferentOASVersion-4          	1000000000	         5.000 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEquals_EarlyExit/DifferentInfo-4                	350056651	        17.04 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEquals_EarlyExit/DifferentLastPath-4            	  249954	     23502 ns/op	    6696 B/op	       9 allocs/op
+BenchmarkSchemaEquals/Simple-4                           	32232985	       187.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchemaEquals/WithProperties-4                   	 4462690	      1339 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSchemaEquals/Complex-4                          	 2456508	      2461 ns/op	     456 B/op	       3 allocs/op
+BenchmarkSchemaEquals/Nested-4                           	 5111608	      1174 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDocumentEquals/OAS3/Small-4                     	 2629726	      2286 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDocumentEquals/OAS3/Medium-4                    	  148692	     40312 ns/op	    6696 B/op	       9 allocs/op
+BenchmarkDocumentEquals/OAS3/Large-4                     	   12408	    483617 ns/op	   54152 B/op	      15 allocs/op
+BenchmarkDocumentEquals/OAS2/Small-4                     	 3079338	      1973 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDocumentEquals/OAS2/Medium-4                    	  159806	     38163 ns/op	    6696 B/op	       9 allocs/op
+BenchmarkMarshalInfo/NoExtra-4                           	 5408073	      1112 ns/op	     192 B/op	       2 allocs/op
+BenchmarkMarshalInfo/Extra1-4                            	 2592535	      2293 ns/op	     896 B/op	      16 allocs/op
+BenchmarkMarshalInfo/Extra5-4                            	 1583858	      3777 ns/op	    1376 B/op	      24 allocs/op
+BenchmarkMarshalInfo/Extra10-4                           	  853008	      7154 ns/op	    2697 B/op	      37 allocs/op
+BenchmarkMarshalInfo/Extra20-4                           	  450327	     13395 ns/op	    5227 B/op	      59 allocs/op
+BenchmarkMarshalContact/NoExtra-4                        	 5630175	      1061 ns/op	     192 B/op	       2 allocs/op
+BenchmarkMarshalContact/WithExtra-4                      	 1518087	      3951 ns/op	    1376 B/op	      24 allocs/op
+BenchmarkMarshalServer/NoExtra-4                         	 6697970	       898.8 ns/op	     160 B/op	       2 allocs/op
+BenchmarkMarshalServer/WithExtra-4                       	 1000000	      5453 ns/op	    2297 B/op	      30 allocs/op
+BenchmarkMarshalOAS3Document/Small-4                     	  129703	     45313 ns/op	    7010 B/op	      66 allocs/op
+BenchmarkMarshalOAS3Document/Medium-4                    	   10000	    507136 ns/op	   66097 B/op	     471 allocs/op
+BenchmarkMarshalOAS3Document/Large-4                     	     966	   6118195 ns/op	  848520 B/op	    5336 allocs/op
+BenchmarkMarshalOAS2Document/Small-4                     	  144132	     39561 ns/op	    6375 B/op	      58 allocs/op
+BenchmarkMarshalOAS2Document/Medium-4                    	   14760	    405427 ns/op	   53810 B/op	     396 allocs/op
+BenchmarkUnmarshalInfo/NoExtra-4                         	 3065793	      1950 ns/op	     512 B/op	      10 allocs/op
+BenchmarkUnmarshalInfo/WithExtra-4                       	  801712	      7362 ns/op	    1736 B/op	      46 allocs/op
+BenchmarkJSONFastPath/FastPath-4                         	    7419	    806667 ns/op	  362651 B/op	    4847 allocs/op
+BenchmarkJSONFastPath/YAMLPath_SourceMap-4               	    1173	   5024489 ns/op	 5849652 B/op	   19628 allocs/op
+BenchmarkJSONFastPath/YAMLPath_PreserveOrder-4           	    1236	   4931068 ns/op	 5601211 B/op	   18947 allocs/op
+BenchmarkMarshalOrderedJSON/SmallOAS3-4                  	  280809	     21380 ns/op	    3761 B/op	     156 allocs/op
+BenchmarkMarshalOrderedJSON/MediumOAS3-4                 	   27110	    220043 ns/op	   40445 B/op	    1524 allocs/op
+BenchmarkMarshalOrderedJSON/LargeOAS3-4                  	    2290	   2537925 ns/op	  483844 B/op	   17421 allocs/op
+BenchmarkMarshalOrderedYAML/SmallOAS3-4                  	   52580	    114607 ns/op	  190422 B/op	     389 allocs/op
+BenchmarkMarshalOrderedYAML/MediumOAS3-4                 	    4503	   1321038 ns/op	 1821176 B/op	    3494 allocs/op
+BenchmarkMarshalOrderedYAML/LargeOAS3-4                  	     397	  15210611 ns/op	22548145 B/op	   38848 allocs/op
+BenchmarkMarshalOrderedJSONIndent-4                      	   19486	    307583 ns/op	   60954 B/op	    1525 allocs/op
+BenchmarkMarshalOrderedJSON_vs_Standard/OrderPreserving-4         	   27099	    222612 ns/op	   40448 B/op	    1524 allocs/op
+BenchmarkMarshalOrderedJSON_vs_Standard/Standard-4                	   12076	    497364 ns/op	   66080 B/op	     471 allocs/op
+BenchmarkPreserveOrderOverhead/WithPreserveOrder-4                	    1537	   3963660 ns/op	 1905913 B/op	   22244 allocs/op
+BenchmarkPreserveOrderOverhead/WithoutPreserveOrder-4             	    2053	   2969210 ns/op	 1606757 B/op	   17517 allocs/op
+BenchmarkParse/SmallOAS3-4                                        	   16910	    355445 ns/op	  208568 B/op	    2078 allocs/op
+BenchmarkParse/MediumOAS3-4                                       	    2025	   3005092 ns/op	 1620407 B/op	   17516 allocs/op
+BenchmarkParse/LargeOAS3-4                                        	     169	  35643313 ns/op	18288042 B/op	  195567 allocs/op
+BenchmarkParse/SmallOAS2-4                                        	   17583	    341442 ns/op	  184748 B/op	    2063 allocs/op
+BenchmarkParse/MediumOAS2-4                                       	    2335	   2605939 ns/op	 1384873 B/op	   16119 allocs/op
+BenchmarkParseNoValidation/SmallOAS3-4                            	   17074	    351368 ns/op	  207734 B/op	    2055 allocs/op
+BenchmarkParseNoValidation/MediumOAS3-4                           	    1996	   3021538 ns/op	 1615821 B/op	   17423 allocs/op
+BenchmarkParseBytes/SmallOAS3-4                                   	   17804	    336437 ns/op	  206801 B/op	    2073 allocs/op
+BenchmarkParseBytes/MediumOAS3-4                                  	    1863	   3008634 ns/op	 1606494 B/op	   17512 allocs/op
+BenchmarkParseCore/SmallOAS3-4                                    	   17628	    342793 ns/op	  206813 B/op	    2073 allocs/op
+BenchmarkParseCore/MediumOAS3-4                                   	    1971	   3076200 ns/op	 1606641 B/op	   17513 allocs/op
+BenchmarkParseCore/LargeOAS3-4                                    	     165	  36098716 ns/op	18123873 B/op	  195563 allocs/op
+BenchmarkParseCore/SmallOAS2-4                                    	   18193	    328879 ns/op	  183123 B/op	    2058 allocs/op
+BenchmarkParseCore/MediumOAS2-4                                   	    2298	   2584656 ns/op	 1372281 B/op	   16115 allocs/op
+BenchmarkParseWithOptions/FilePath/SmallOAS3-4                    	   16507	    363778 ns/op	  208902 B/op	    2085 allocs/op
+BenchmarkParseWithOptions/Bytes/SmallOAS3-4                       	   17551	    342164 ns/op	  207133 B/op	    2079 allocs/op
+BenchmarkParseWithOptions/ResolveRefs/SmallOAS3-4                 	   38061	    158476 ns/op	   68138 B/op	     899 allocs/op
+BenchmarkParseReader/MediumOAS3-4                                 	    1874	   3142422 ns/op	 1669306 B/op	   17527 allocs/op
+BenchmarkParseResultCopy/SmallOAS3-4                              	  489236	     12263 ns/op	   18664 B/op	     113 allocs/op
+BenchmarkParseResolveRefs/MediumOAS3-4                            	    3592	   1671627 ns/op	  753866 B/op	    8267 allocs/op
+BenchmarkFormatBytes-4                                            	 7391241	       810.1 ns/op	      64 B/op	       8 allocs/op
+BenchmarkDeepCopy/SmallOAS3-4                                     	 1432126	      4193 ns/op	    7936 B/op	      44 allocs/op
+BenchmarkDeepCopy/MediumOAS3-4                                    	   96609	     61919 ns/op	  121600 B/op	     466 allocs/op
+BenchmarkDeepCopy/LargeOAS3-4                                     	    6391	    962399 ns/op	 1313666 B/op	    4877 allocs/op
+BenchmarkDeepCopy/SmallOAS2-4                                     	 1601323	      3756 ns/op	    6768 B/op	      38 allocs/op
+BenchmarkDeepCopy/MediumOAS2-4                                    	  110145	     54329 ns/op	  106256 B/op	     387 allocs/op
+BenchmarkSourceMapOverhead/Small/Default-4                        	   16186	    371248 ns/op	  208902 B/op	    2085 allocs/op
+BenchmarkSourceMapOverhead/Small/SourceMapDisabled-4              	   16074	    372344 ns/op	  208919 B/op	    2086 allocs/op
+BenchmarkSourceMapOverhead/Small/SourceMapEnabled-4               	   10000	    501852 ns/op	  278405 B/op	    2720 allocs/op
+BenchmarkSourceMapOverhead/Medium/Default-4                       	    1939	   3137097 ns/op	 1620847 B/op	   17525 allocs/op
+BenchmarkSourceMapOverhead/Medium/SourceMapDisabled-4             	    1908	   3131138 ns/op	 1620841 B/op	   17526 allocs/op
+BenchmarkSourceMapOverhead/Medium/SourceMapEnabled-4              	    1380	   4335687 ns/op	 2189292 B/op	   22999 allocs/op
+BenchmarkSourceMapOverhead/Large/Default-4                        	     158	  37736646 ns/op	18288363 B/op	  195574 allocs/op
+BenchmarkSourceMapOverhead/Large/SourceMapDisabled-4              	     158	  37789326 ns/op	18288383 B/op	  195575 allocs/op
+BenchmarkSourceMapOverhead/Large/SourceMapEnabled-4               	     100	  52229041 ns/op	24047582 B/op	  256271 allocs/op
+BenchmarkParseURL_CustomClient-4                                  	    6112	    987427 ns/op	  436144 B/op	    4664 allocs/op
+BenchmarkParseURL_DefaultClient-4                                 	    6186	    988188 ns/op	  436191 B/op	    4664 allocs/op
+BenchmarkMarshalBufferPool-4                                      	279632120	        21.43 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMarshalBufferNoPool-4                                    	 4270622	      1285 ns/op	    4144 B/op	       2 allocs/op
+BenchmarkMarshalBufferPool_LargePayload-4                         	 4531291	      1324 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParameterSlice_WithPool-4                                	22162840	       276.6 ns/op	     704 B/op	       2 allocs/op
+BenchmarkParameterSlice_WithoutPool-4                             	24590832	       252.5 ns/op	     704 B/op	       2 allocs/op
+BenchmarkServerSlice_WithPool-4                                   	70798226	        84.15 ns/op	      96 B/op	       2 allocs/op
+BenchmarkServerSlice_WithoutPool-4                                	86210310	        67.84 ns/op	      96 B/op	       2 allocs/op
+BenchmarkStringSlice_WithPool-4                                   	321084432	        18.70 ns/op	       0 B/op	       0 allocs/op
+BenchmarkStringSlice_WithoutPool-4                                	1000000000	         5.000 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDeepCopyWork_WithPool-4                                  	100000000	        53.86 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDeepCopyWork_WithoutPool-4                               	169168268	        35.49 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMarshalToJSON-4                                          	 6119474	       990.8 ns/op	     368 B/op	      11 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/parser	577.953s
+goos: linux
+goarch: amd64
+pkg: github.com/erraggy/oastools/validator
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkValidate/SmallOAS3-4    	   16568	    364793 ns/op	  214694 B/op	    2122 allocs/op
+BenchmarkValidate/MediumOAS3-4   	    2059	   2944226 ns/op	 1662066 B/op	   17983 allocs/op
+BenchmarkValidate/LargeOAS3-4    	     160	  37171688 ns/op	18686134 B/op	  200302 allocs/op
+BenchmarkValidate/SmallOAS2-4    	   17430	    344201 ns/op	  190474 B/op	    2096 allocs/op
+BenchmarkValidate/MediumOAS2-4   	    2266	   2656810 ns/op	 1420948 B/op	   16536 allocs/op
+BenchmarkValidateNoWarnings/SmallOAS3-4         	   16532	    362980 ns/op	  214900 B/op	    2122 allocs/op
+BenchmarkValidateNoWarnings/MediumOAS3-4        	    2060	   2917113 ns/op	 1659124 B/op	   17982 allocs/op
+BenchmarkValidateNoWarnings/LargeOAS3-4         	     160	  37312886 ns/op	18683797 B/op	  200302 allocs/op
+BenchmarkValidateParsed/SmallOAS3-4             	  662740	      8990 ns/op	    5078 B/op	      41 allocs/op
+BenchmarkValidateParsed/MediumOAS3-4            	   75835	     79105 ns/op	   33295 B/op	     462 allocs/op
+BenchmarkValidateParsed/LargeOAS3-4             	    6374	    939593 ns/op	  359705 B/op	    4723 allocs/op
+BenchmarkValidateStrictMode/SmallOAS3-4         	   16164	    370969 ns/op	  214568 B/op	    2122 allocs/op
+BenchmarkValidateStrictMode/MediumOAS3-4        	    2014	   2976496 ns/op	 1658211 B/op	   17981 allocs/op
+BenchmarkValidateStrictMode/LargeOAS3-4         	     159	  37334758 ns/op	18685262 B/op	  200302 allocs/op
+BenchmarkValidateWithOptions/FilePath/SmallOAS3-4         	   16440	    364755 ns/op	  214976 B/op	    2126 allocs/op
+BenchmarkValidateWithOptions/Parsed/SmallOAS3-4           	  662250	      9111 ns/op	    5337 B/op	      44 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/validator	96.237s
+goos: linux
+goarch: amd64
+pkg: github.com/erraggy/oastools/fixer
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkFixDocuments/SmallOAS3-4         	   17157	    354214 ns/op	  210840 B/op	    2092 allocs/op
+BenchmarkFixDocuments/MediumOAS3-4        	    2080	   2917565 ns/op	 1643343 B/op	   17635 allocs/op
+BenchmarkFixDocuments/LargeOAS3-4         	     165	  35981794 ns/op	18382543 B/op	  196140 allocs/op
+BenchmarkFixDocuments/SmallOAS2-4         	   17694	    338589 ns/op	  186993 B/op	    2077 allocs/op
+BenchmarkFixDocuments/MediumOAS2-4        	    2302	   2600942 ns/op	 1401541 B/op	   16231 allocs/op
+BenchmarkFixWithInferTypes/SmallOAS3-4    	   16941	    354380 ns/op	  210807 B/op	    2092 allocs/op
+BenchmarkFixWithInferTypes/MediumOAS3-4   	    2041	   2901834 ns/op	 1640805 B/op	   17637 allocs/op
+BenchmarkFixWithInferTypes/LargeOAS3-4    	     166	  35917908 ns/op	18381854 B/op	  196140 allocs/op
+BenchmarkFixParsed/SmallOAS3-4            	  909063	      6498 ns/op	    9096 B/op	      55 allocs/op
+BenchmarkFixParsed/MediumOAS3-4           	   75489	     80212 ns/op	  136417 B/op	     580 allocs/op
+BenchmarkFixParsed/LargeOAS3-4            	    6372	    936536 ns/op	 1376962 B/op	    5441 allocs/op
+BenchmarkFixWithOptions/FilePath/SmallOAS3-4         	   16774	    356254 ns/op	  211230 B/op	    2098 allocs/op
+BenchmarkFixWithOptions/Parsed/SmallOAS3-4           	  885362	      6813 ns/op	    9727 B/op	      60 allocs/op
+BenchmarkFix-4                                       	  542188	     11113 ns/op	   14945 B/op	     107 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/fixer	84.012s
+goos: linux
+goarch: amd64
+pkg: github.com/erraggy/oastools/httpvalidator
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkMatchPattern-4                 	68351763	        85.98 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMatchPatternParallel-4         	136396066	        43.82 ns/op	       0 B/op	       0 allocs/op
+BenchmarkValidateRequest/SmallOAS3-4    	10786024	       562.0 ns/op	     528 B/op	       8 allocs/op
+BenchmarkValidateRequest/MediumOAS3-4   	 8816188	       676.0 ns/op	     528 B/op	       8 allocs/op
+BenchmarkValidateRequest/LargeOAS3-4    	 5013680	      1198 ns/op	     528 B/op	       8 allocs/op
+BenchmarkValidateRequestWithParams-4    	10272813	       584.8 ns/op	     528 B/op	       8 allocs/op
+BenchmarkValidateRequestWithBody-4      	 4656433	      1291 ns/op	    1520 B/op	      16 allocs/op
+BenchmarkValidateResponse-4             	23854826	       250.3 ns/op	     256 B/op	       2 allocs/op
+BenchmarkValidateStrictMode-4           	10335493	       582.2 ns/op	     528 B/op	       8 allocs/op
+BenchmarkValidateRequestWithOptions/FilePath/SmallOAS3-4         	   16483	    363751 ns/op	  218117 B/op	    2211 allocs/op
+BenchmarkValidateRequestWithOptions/Parsed/SmallOAS3-4           	  675750	      8896 ns/op	    9252 B/op	     127 allocs/op
+BenchmarkPathMatching/SmallOAS3-4                                	 9797929	       611.5 ns/op	     528 B/op	       8 allocs/op
+BenchmarkPathMatching/MediumOAS3-4                               	 7757817	       772.8 ns/op	     528 B/op	       8 allocs/op
+BenchmarkPathMatching/LargeOAS3-4                                	 2495265	      2403 ns/op	     528 B/op	       8 allocs/op
+BenchmarkParameterDeserialization-4                              	10396765	       576.7 ns/op	     528 B/op	       8 allocs/op
+BenchmarkSchemaValidation-4                                      	 4697054	      1279 ns/op	    1520 B/op	      16 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/httpvalidator	100.449s
+goos: linux
+goarch: amd64
+pkg: github.com/erraggy/oastools/converter
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkConvertOAS2ToOAS3/Small-4   	   17445	    342273 ns/op	  196993 B/op	    2166 allocs/op
+BenchmarkConvertOAS2ToOAS3/Medium-4  	    2335	   2580993 ns/op	 1540411 B/op	   16898 allocs/op
+BenchmarkConvertOAS3ToOAS2/Small-4   	   16500	    362649 ns/op	  221798 B/op	    2232 allocs/op
+BenchmarkConvertOAS3ToOAS2/Medium-4  	    1882	   3084972 ns/op	 1811168 B/op	   19664 allocs/op
+BenchmarkConvertParsedOAS2ToOAS3/Small-4         	  676014	      8719 ns/op	   12122 B/op	     100 allocs/op
+BenchmarkConvertParsedOAS2ToOAS3/Medium-4        	   61150	     97702 ns/op	  155478 B/op	     776 allocs/op
+BenchmarkConvertParsedOAS3ToOAS2/Small-4         	  434635	     13675 ns/op	   11875 B/op	     151 allocs/op
+BenchmarkConvertParsedOAS3ToOAS2/Medium-4        	   30130	    198858 ns/op	  181214 B/op	    2142 allocs/op
+BenchmarkConvertNoInfo/Small-4                   	   17697	    340296 ns/op	  196992 B/op	    2166 allocs/op
+BenchmarkConvertNoInfo/Medium-4                  	    2337	   2575347 ns/op	 1540400 B/op	   16897 allocs/op
+BenchmarkConvertWithOptions/FilePath/Small-4     	   17683	    339393 ns/op	  197142 B/op	    2170 allocs/op
+BenchmarkConvertWithOptions/Parsed/Small-4       	  666273	      9040 ns/op	   12451 B/op	     104 allocs/op
+BenchmarkConvertOAS30ToOAS31/Small-4             	   17077	    350895 ns/op	  217580 B/op	    2153 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/converter	77.687s
+goos: linux
+goarch: amd64
+pkg: github.com/erraggy/oastools/joiner
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkCompareSchemas/SimpleSchemas-4         	22895160	       264.4 ns/op	     128 B/op	       1 allocs/op
+BenchmarkCompareSchemas/ObjectWithProperties-4  	 4942285	      1213 ns/op	     128 B/op	       1 allocs/op
+BenchmarkCompareSchemas/NestedSchemas-4         	 2747640	      2186 ns/op	     128 B/op	       1 allocs/op
+BenchmarkCompareSchemas/AllOfComposition-4      	 2817016	      2140 ns/op	     137 B/op	       4 allocs/op
+BenchmarkCompareSchemas/DeeplyNested-4          	 2784103	      2152 ns/op	     384 B/op	       2 allocs/op
+BenchmarkCompareSchemas/ShallowMode-4           	27931846	       215.2 ns/op	     128 B/op	       1 allocs/op
+BenchmarkComparePath/StringConcat-4             	52019247	       113.5 ns/op	      72 B/op	       3 allocs/op
+BenchmarkComparePath/ComparePathSlice-4         	52410159	       114.7 ns/op	     160 B/op	       2 allocs/op
+BenchmarkComparePath/ComparePathSliceDeep-4     	46740200	       128.9 ns/op	     160 B/op	       2 allocs/op
+BenchmarkCompareSchemasDifferences/SingleDifference-4         	17750425	       338.1 ns/op	     224 B/op	       2 allocs/op
+BenchmarkCompareSchemasDifferences/MultipleDifferences-4      	12546547	       478.6 ns/op	     448 B/op	       5 allocs/op
+BenchmarkCompareSchemasDifferences/NestedDifference-4         	 5023308	      1193 ns/op	     272 B/op	       3 allocs/op
+BenchmarkJoin/TwoDocs-4                                       	   23901	    248674 ns/op	  147714 B/op	    1502 allocs/op
+BenchmarkJoin/ThreeDocs-4                                     	   16464	    364370 ns/op	  219125 B/op	    2212 allocs/op
+BenchmarkJoin/FiveDocs-4                                      	    9475	    618863 ns/op	  368763 B/op	    3778 allocs/op
+BenchmarkJoinParsed/TwoDocs-4                                 	 3356319	      1781 ns/op	    1992 B/op	      22 allocs/op
+BenchmarkJoinParsed/ThreeDocs-4                               	 2757241	      2180 ns/op	    2184 B/op	      23 allocs/op
+BenchmarkJoinParsed/FiveDocs-4                                	  771308	      7703 ns/op	    6025 B/op	     110 allocs/op
+BenchmarkJoinStrategy/AcceptLeft-4                            	   24061	    248075 ns/op	  147714 B/op	    1502 allocs/op
+BenchmarkJoinStrategy/AcceptRight-4                           	   24188	    247599 ns/op	  147714 B/op	    1502 allocs/op
+BenchmarkJoinOptions/MergeArrays-4                            	   24190	    247968 ns/op	  147713 B/op	    1502 allocs/op
+BenchmarkJoinOptions/DeduplicateTags-4                        	   24171	    248178 ns/op	  147713 B/op	    1502 allocs/op
+BenchmarkJoinWithOptions/FilePaths-4                          	   23971	    250106 ns/op	  148305 B/op	    1509 allocs/op
+BenchmarkJoinWithOptions/Parsed-4                             	 2494794	      2383 ns/op	    3288 B/op	      29 allocs/op
+BenchmarkJoinWriteResult-4                                    	   24567	    247086 ns/op	   90498 B/op	     416 allocs/op
+BenchmarkJoinHelpers/DefaultConfig-4                          	143478765	        41.94 ns/op	      48 B/op	       1 allocs/op
+BenchmarkJoinHelpers/IsValidStrategy-4                        	502994883	        12.11 ns/op	       0 B/op	       0 allocs/op
+BenchmarkJoinHelpers/ValidStrategies-4                        	141070263	        42.80 ns/op	     112 B/op	       1 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/joiner	167.973s
+goos: linux
+goarch: amd64
+pkg: github.com/erraggy/oastools/differ
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkDiff/FilePath-4     	    4902	   1210983 ns/op	  665206 B/op	    7312 allocs/op
+BenchmarkDiff/Parsed-4       	  184041	     32664 ns/op	   21723 B/op	     369 allocs/op
+BenchmarkDiffMode/Simple-4   	  184003	     32693 ns/op	   21723 B/op	     369 allocs/op
+BenchmarkDiffMode/Breaking-4 	  182679	     32806 ns/op	   21723 B/op	     369 allocs/op
+BenchmarkDiffIncludeInfo/WithInfo-4         	  182881	     32817 ns/op	   21723 B/op	     369 allocs/op
+BenchmarkDiffIncludeInfo/WithoutInfo-4      	  181994	     33327 ns/op	   23516 B/op	     370 allocs/op
+BenchmarkDiffIdentical-4                    	  226507	     26655 ns/op	   16706 B/op	     325 allocs/op
+BenchmarkDiffWithOptions/FilePath-4         	    4885	   1218112 ns/op	  665481 B/op	    7320 allocs/op
+BenchmarkChangeString-4                     	 6455125	       927.8 ns/op	     400 B/op	      15 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/differ	54.051s
+goos: linux
+goarch: amd64
+pkg: github.com/erraggy/oastools/generator
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkGenerate/Types-4               	    2122	   2905003 ns/op	   84411 B/op	    1394 allocs/op
+BenchmarkGenerate/Client-4              	     814	   7639201 ns/op	  442028 B/op	    8725 allocs/op
+BenchmarkGenerate/Server-4              	     964	   6255597 ns/op	  177770 B/op	    2639 allocs/op
+BenchmarkGenerate/All-4                 	     573	   9909238 ns/op	  492353 B/op	    8537 allocs/op
+BenchmarkTemplateBuffer_WithPool-4      	291054186	        20.60 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTemplateBuffer_WithoutPool-4   	  614307	     11339 ns/op	   32816 B/op	       2 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/generator	39.348s
+goos: linux
+goarch: amd64
+pkg: github.com/erraggy/oastools/builder
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkBuilderNew-4                   	 8806393	       694.9 ns/op	    1152 B/op	      18 allocs/op
+BenchmarkBuilderSetInfo-4               	 8179119	       734.3 ns/op	    1264 B/op	      19 allocs/op
+BenchmarkSchemaFrom/Primitive-4         	 6673072	       896.4 ns/op	    2048 B/op	      19 allocs/op
+BenchmarkSchemaFrom/Struct-4            	  690502	      8778 ns/op	   17080 B/op	      72 allocs/op
+BenchmarkSchemaFrom/NestedStruct-4      	  452827	     13276 ns/op	   26472 B/op	     102 allocs/op
+BenchmarkSchemaFrom/Slice-4             	  664953	      8934 ns/op	   17976 B/op	      73 allocs/op
+BenchmarkSchemaFrom/Map-4               	  671895	      8970 ns/op	   17976 B/op	      73 allocs/op
+BenchmarkBuilderAddOperation/Simple-4   	  533161	     11168 ns/op	   20885 B/op	      97 allocs/op
+BenchmarkBuilderAddOperation/WithParams-4         	  382257	     15490 ns/op	   29407 B/op	     137 allocs/op
+BenchmarkBuilderAddOperation/WithRequestBody-4    	  311098	     19208 ns/op	   35441 B/op	     159 allocs/op
+BenchmarkBuilderBuild-4                           	  286796	     20954 ns/op	   37865 B/op	     208 allocs/op
+BenchmarkBuilderMarshal/YAML-4                    	   71697	     82950 ns/op	   94526 B/op	     498 allocs/op
+BenchmarkBuilderMarshal/JSON-4                    	  141297	     42753 ns/op	    8501 B/op	      38 allocs/op
+BenchmarkOASTag/Apply-4                           	10069484	       587.1 ns/op	    1248 B/op	       5 allocs/op
+BenchmarkOASTag/Parse-4                           	18422353	       324.0 ns/op	     336 B/op	       2 allocs/op
+BenchmarkBuilderFormParams/OAS2-4                 	 1000000	      5887 ns/op	   12163 B/op	      81 allocs/op
+BenchmarkBuilderFormParams/OAS3-4                 	  848438	      6935 ns/op	   15324 B/op	      87 allocs/op
+BenchmarkSchemaNaming/default-4                   	 1000000	      5807 ns/op	   10698 B/op	      63 allocs/op
+BenchmarkSchemaNaming/pascal-4                    	 1000000	      5844 ns/op	   10722 B/op	      66 allocs/op
+BenchmarkSchemaNaming/camel-4                     	 1000000	      5973 ns/op	   10738 B/op	      67 allocs/op
+BenchmarkSchemaNaming/snake-4                     	 1000000	      5911 ns/op	   10730 B/op	      66 allocs/op
+BenchmarkSchemaNaming/kebab-4                     	  993256	      5972 ns/op	   10746 B/op	      67 allocs/op
+BenchmarkSchemaNaming/type_only-4                 	 1000000	      5645 ns/op	   10658 B/op	      62 allocs/op
+BenchmarkSchemaNaming/full_path-4                 	 1000000	      5773 ns/op	   10754 B/op	      63 allocs/op
+BenchmarkGenericNaming/underscore-4               	  733382	      8100 ns/op	   13131 B/op	      80 allocs/op
+BenchmarkGenericNaming/of-4                       	  732411	      8200 ns/op	   13131 B/op	      80 allocs/op
+BenchmarkGenericNaming/for-4                      	  747040	      8298 ns/op	   13155 B/op	      80 allocs/op
+BenchmarkGenericNaming/flat-4                     	  759543	      8032 ns/op	   13115 B/op	      79 allocs/op
+BenchmarkGenericNaming/angle_brackets-4           	  753858	      8139 ns/op	   13131 B/op	      80 allocs/op
+BenchmarkSchemaNameTemplate/simple-4              	  363493	     16387 ns/op	   19837 B/op	     134 allocs/op
+BenchmarkSchemaNameTemplate/pascal-4              	  267481	     22676 ns/op	   20789 B/op	     171 allocs/op
+BenchmarkSchemaNameTemplate/complex-4             	  214138	     25412 ns/op	   21422 B/op	     187 allocs/op
+BenchmarkSchemaNameTemplate/generic_aware-4       	  270834	     22391 ns/op	   20965 B/op	     170 allocs/op
+BenchmarkCaseConversions/toPascalCase-4           	35892944	       163.9 ns/op	      56 B/op	       3 allocs/op
+BenchmarkCaseConversions/toCamelCase-4            	18608972	       322.8 ns/op	      80 B/op	       4 allocs/op
+BenchmarkCaseConversions/toSnakeCase-4            	31957471	       186.9 ns/op	      56 B/op	       3 allocs/op
+BenchmarkCaseConversions/toKebabCase-4            	21580620	       278.5 ns/op	      80 B/op	       4 allocs/op
+BenchmarkCaseConversions_Separators/toPascalCase-4         	31691466	       190.4 ns/op	      56 B/op	       3 allocs/op
+BenchmarkCaseConversions_Separators/toCamelCase-4          	16015693	       374.1 ns/op	      88 B/op	       4 allocs/op
+BenchmarkCaseConversions_Separators/toSnakeCase-4          	28374589	       211.8 ns/op	      56 B/op	       3 allocs/op
+BenchmarkCaseConversions_Separators/toKebabCase-4          	19246254	       312.5 ns/op	      88 B/op	       4 allocs/op
+BenchmarkExtractGenericParams/simple-4                     	70771536	        83.20 ns/op	      24 B/op	       2 allocs/op
+BenchmarkExtractGenericParams/multi-4                      	33328891	       177.5 ns/op	      64 B/op	       4 allocs/op
+BenchmarkExtractGenericParams/nested-4                     	41286432	       144.9 ns/op	      40 B/op	       3 allocs/op
+BenchmarkExtractGenericParams/triple-4                     	27370768	       218.6 ns/op	     136 B/op	       6 allocs/op
+BenchmarkExtractGenericParams/deeply_nested-4              	25707714	       232.9 ns/op	      72 B/op	       4 allocs/op
+BenchmarkExtractGenericParams/none-4                       	449923750	        13.38 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExtractBaseTypeName/generic-4                     	960355268	         6.246 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExtractBaseTypeName/non_generic-4                 	875177774	         6.896 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExtractBaseTypeName/nested-4                      	836711493	         7.180 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSanitizeSchemaName/clean-4                        	100000000	        60.20 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSanitizeSchemaName/brackets-4                     	36934401	       160.9 ns/op	      32 B/op	       2 allocs/op
+BenchmarkSanitizeSchemaName/complex-4                      	19446631	       307.2 ns/op	      96 B/op	       4 allocs/op
+BenchmarkSanitizeSchemaName/spaces-4                       	48732235	       122.1 ns/op	      16 B/op	       1 allocs/op
+BenchmarkSchemaNamer_Name/default_simple-4                 	26931877	       221.6 ns/op	      72 B/op	       2 allocs/op
+BenchmarkSchemaNamer_Name/default_generic-4                	 6513662	       907.1 ns/op	     272 B/op	      10 allocs/op
+BenchmarkSchemaNamer_Name/pascal_simple-4                  	16502422	       363.4 ns/op	      96 B/op	       5 allocs/op
+BenchmarkSchemaNamer_Name/pascal_generic-4                 	 5292484	      1140 ns/op	     336 B/op	      14 allocs/op
+BenchmarkSchemaNamer_Name/snake_nested-4                   	15077312	       401.7 ns/op	     104 B/op	       5 allocs/op
+BenchmarkSchemaNamer_BuildContext/simple-4                 	37501462	       159.0 ns/op	      48 B/op	       1 allocs/op
+BenchmarkSchemaNamer_BuildContext/generic-4                	 7245991	       833.2 ns/op	     240 B/op	       9 allocs/op
+BenchmarkSchemaNamer_BuildContext/nested_generic-4         	 7198405	       833.4 ns/op	     240 B/op	       9 allocs/op
+BenchmarkGenericNamingConfig/default-4                     	  728913	      8123 ns/op	   13179 B/op	      80 allocs/op
+BenchmarkGenericNamingConfig/of_strategy-4                 	  737274	      8183 ns/op	   13179 B/op	      80 allocs/op
+BenchmarkGenericNamingConfig/include_package-4             	  713208	      8425 ns/op	   13379 B/op	      81 allocs/op
+BenchmarkGenericNamingConfig/apply_casing-4                	  717991	      8302 ns/op	   13179 B/op	      80 allocs/op
+BenchmarkGenericNamingConfig/custom_separators-4           	  724480	      8273 ns/op	   13203 B/op	      80 allocs/op
+BenchmarkBuilderWithNamingOptions/default-4                	  385117	     15400 ns/op	   26327 B/op	     138 allocs/op
+BenchmarkBuilderWithNamingOptions/with_pascal_naming-4     	  373929	     16162 ns/op	   26463 B/op	     149 allocs/op
+BenchmarkBuilderWithNamingOptions/with_template-4          	  184546	     32856 ns/op	   34497 B/op	     242 allocs/op
+BenchmarkBuilderWithNamingOptions/with_custom_func-4       	  375499	     16051 ns/op	   26463 B/op	     149 allocs/op
+BenchmarkBuilderWithNamingOptions/combined_pascal_of-4     	  371835	     16065 ns/op	   26479 B/op	     150 allocs/op
+BenchmarkSchemaNameFunc/simple_func_non_generic-4          	34298210	       173.3 ns/op	      48 B/op	       1 allocs/op
+BenchmarkSchemaNameFunc/simple_func_generic-4              	 7121332	       842.6 ns/op	     240 B/op	       9 allocs/op
+BenchmarkSchemaNameFunc/complex_func_non_generic-4         	21355256	       284.6 ns/op	      80 B/op	       3 allocs/op
+BenchmarkSchemaNameFunc/complex_func_generic-4             	 6687208	       885.3 ns/op	     264 B/op	      10 allocs/op
+BenchmarkFormatGenericSuffix/underscore-4                  	75786094	        77.40 ns/op	      32 B/op	       2 allocs/op
+BenchmarkFormatGenericSuffix/of-4                          	73597141	        80.32 ns/op	      32 B/op	       2 allocs/op
+BenchmarkFormatGenericSuffix/for-4                         	74554026	        77.63 ns/op	      32 B/op	       2 allocs/op
+BenchmarkFormatGenericSuffix/flat-4                        	151976230	        39.43 ns/op	      16 B/op	       1 allocs/op
+BenchmarkFormatGenericSuffix/angle-4                       	77274813	        77.56 ns/op	      32 B/op	       2 allocs/op
+BenchmarkSanitizeGenericParams/exclude_package-4           	26441778	       226.1 ns/op	      48 B/op	       1 allocs/op
+BenchmarkSanitizeGenericParams/include_package-4           	14214586	       424.8 ns/op	      96 B/op	       4 allocs/op
+BenchmarkSanitizeGenericParams/apply_casing-4              	15399036	       387.7 ns/op	      72 B/op	       4 allocs/op
+BenchmarkTemplateParsing/simple-4                          	  988018	      5821 ns/op	    5849 B/op	      44 allocs/op
+BenchmarkTemplateParsing/pascal-4                          	  692536	      8658 ns/op	    6433 B/op	      63 allocs/op
+BenchmarkTemplateParsing/complex-4                         	  567154	     10638 ns/op	    6993 B/op	      78 allocs/op
+BenchmarkTemplateParsing/full-4                            	  610495	      9932 ns/op	    7057 B/op	      76 allocs/op
+BenchmarkSanitizePath/short-4                              	457800724	        13.11 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSanitizePath/medium-4                             	75839703	        78.41 ns/op	      24 B/op	       1 allocs/op
+BenchmarkSanitizePath/long-4                               	48925698	       123.9 ns/op	      64 B/op	       1 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/builder	543.412s
+goos: linux
+goarch: amd64
+pkg: github.com/erraggy/oastools/walker
+cpu: AMD EPYC 7763 64-Core Processor                
+BenchmarkWalk_WithPooling-4          	 3085864	      1980 ns/op	     856 B/op	      16 allocs/op
+BenchmarkWalk_WithMapRefTracking-4   	 4166910	      1421 ns/op	     784 B/op	      11 allocs/op
+BenchmarkWalk_WithParentTracking/without_parent_tracking-4         	 1951477	      3064 ns/op	    1272 B/op	      21 allocs/op
+BenchmarkWalk_WithParentTracking/with_parent_tracking-4            	 1656878	      3586 ns/op	    1904 B/op	      33 allocs/op
+BenchmarkWalk_WithPostHandler-4                                    	   70819	     84554 ns/op	   32278 B/op	     708 allocs/op
+BenchmarkWalk_WithRefTracking-4                                    	 2674760	      2240 ns/op	     928 B/op	      14 allocs/op
+BenchmarkWalk_WithoutRefTracking-4                                 	 2572711	      2329 ns/op	     880 B/op	      13 allocs/op
+BenchmarkWalkSmallDocument-4                                       	 4248639	      1422 ns/op	     720 B/op	      12 allocs/op
+BenchmarkWalkMediumDocument-4                                      	   79765	     76083 ns/op	   20339 B/op	     457 allocs/op
+BenchmarkWalkNoHandlers-4                                          	 6785976	       884.6 ns/op	     616 B/op	       8 allocs/op
+BenchmarkWalkAllHandlers-4                                         	 2492948	      2417 ns/op	    1016 B/op	      27 allocs/op
+BenchmarkWalkSchemaOnly-4                                          	 3439400	      1739 ns/op	     864 B/op	      12 allocs/op
+BenchmarkWalkWithStop-4                                            	  780421	      7717 ns/op	    2232 B/op	       6 allocs/op
+BenchmarkWalkOAS2-4                                                	 4091360	      1451 ns/op	     744 B/op	      13 allocs/op
+PASS
+ok  	github.com/erraggy/oastools/walker	84.014s
