@@ -2,6 +2,7 @@ package parser
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/erraggy/oastools/parser/internal/jsonhelpers"
 )
@@ -96,33 +97,46 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 	// The Alias trick bypasses custom unmarshalers, causing encoding/json to decode
 	// any-typed fields (Items, AdditionalProperties, etc.) as map[string]any instead
 	// of *Schema. Promote them back so downstream type assertions work correctly.
-	s.Items = promoteSchemaOrBool(s.Items)
-	s.AdditionalProperties = promoteSchemaOrBool(s.AdditionalProperties)
-	s.AdditionalItems = promoteSchemaOrBool(s.AdditionalItems)
-	s.UnevaluatedItems = promoteSchemaOrBool(s.UnevaluatedItems)
-	s.UnevaluatedProperties = promoteSchemaOrBool(s.UnevaluatedProperties)
+	var err error
+	if s.Items, err = promoteSchemaOrBool(s.Items); err != nil {
+		return err
+	}
+	if s.AdditionalProperties, err = promoteSchemaOrBool(s.AdditionalProperties); err != nil {
+		return err
+	}
+	if s.AdditionalItems, err = promoteSchemaOrBool(s.AdditionalItems); err != nil {
+		return err
+	}
+	if s.UnevaluatedItems, err = promoteSchemaOrBool(s.UnevaluatedItems); err != nil {
+		return err
+	}
+	if s.UnevaluatedProperties, err = promoteSchemaOrBool(s.UnevaluatedProperties); err != nil {
+		return err
+	}
 	return nil
 }
 
 // promoteSchemaOrBool converts a map[string]any value (produced by the standard
 // JSON decoder for any-typed schema fields) into a *Schema. Bool values and
-// already-typed *Schema values pass through unchanged.
-func promoteSchemaOrBool(v any) any {
+// already-typed *Schema values pass through unchanged. Returns an error if the
+// map cannot be round-tripped through JSON into a *Schema, so callers get a
+// clear parse error rather than a silent type-assertion panic downstream.
+func promoteSchemaOrBool(v any) (any, error) {
 	switch val := v.(type) {
 	case nil, bool, *Schema:
-		return v
+		return v, nil
 	case map[string]any:
 		data, err := json.Marshal(val)
 		if err != nil {
-			return v
+			return nil, fmt.Errorf("parser: schema field promotion: %w", err)
 		}
 		s := &Schema{}
 		if err := json.Unmarshal(data, s); err != nil {
-			return v
+			return nil, fmt.Errorf("parser: schema field promotion: %w", err)
 		}
-		return s
+		return s, nil
 	}
-	return v
+	return v, nil
 }
 
 // MarshalJSON implements custom JSON marshaling for Discriminator.

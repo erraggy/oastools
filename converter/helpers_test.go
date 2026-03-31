@@ -695,6 +695,51 @@ func TestConvertOAS2ParameterToOAS3_ValidationKeywords(t *testing.T) {
 	assert.Equal(t, []any{"a", "b"}, converted.Schema.Enum)
 }
 
+// TestConvertOAS2ParameterToOAS3_ExclusiveKeywords verifies that ExclusiveMaximum
+// and ExclusiveMinimum bool flags are transferred to the OAS 3.x schema.
+func TestConvertOAS2ParameterToOAS3_ExclusiveKeywords(t *testing.T) {
+	c := newConverter()
+	result := &ConversionResult{}
+
+	min := float64(0)
+	max := float64(10)
+	param := &parser.Parameter{
+		Name:             "count",
+		In:               "query",
+		Type:             "integer",
+		Minimum:          &min,
+		Maximum:          &max,
+		ExclusiveMinimum: true,
+		ExclusiveMaximum: true,
+	}
+
+	converted := c.convertOAS2ParameterToOAS3(param, result, "test")
+	require.NotNil(t, converted.Schema)
+	assert.Equal(t, true, converted.Schema.ExclusiveMinimum, "ExclusiveMinimum should be transferred")
+	assert.Equal(t, true, converted.Schema.ExclusiveMaximum, "ExclusiveMaximum should be transferred")
+}
+
+// TestConvertOAS2ParameterToOAS3_ItemsCollectionFormat verifies that a
+// non-csv collectionFormat on items generates a conversion warning.
+func TestConvertOAS2ParameterToOAS3_ItemsCollectionFormat(t *testing.T) {
+	c := newConverter()
+	result := &ConversionResult{}
+
+	param := &parser.Parameter{
+		Name: "tags",
+		In:   "query",
+		Type: "array",
+		Items: &parser.Items{
+			Type:             "string",
+			CollectionFormat: "pipes",
+		},
+	}
+
+	c.convertOAS2ParameterToOAS3(param, result, "test")
+	assert.Greater(t, countIssuesContaining(result.Issues, "collectionFormat"), 0,
+		"should warn about non-csv collectionFormat on items")
+}
+
 // newConverter creates a minimal Converter for unit testing helpers.
 func newConverter() *Converter {
 	return &Converter{}

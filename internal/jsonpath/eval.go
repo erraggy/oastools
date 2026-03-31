@@ -68,6 +68,9 @@ func (p *Path) Set(doc any, value any) error {
 //
 // Returns the modified document. For maps, matching keys are deleted.
 // For arrays, matching elements are spliced out (not set to nil).
+// Returns the original document unmodified (not an error) if the path matches
+// no nodes — callers that need to distinguish no-match from success should
+// pre-check with Get.
 func (p *Path) Remove(doc any) (any, error) {
 	if len(p.segments) < 2 {
 		return nil, fmt.Errorf("jsonpath: cannot remove root")
@@ -110,12 +113,16 @@ func (p *Path) Remove(doc any) (any, error) {
 // Modify applies a transformation function to all matching nodes.
 //
 // The function receives each matched value and should return the new value.
-// The document is modified in place.
+// The document is modified in place. For the root path ("$"), the document
+// must be a map[string]any; fn is expected to mutate it in place (e.g.
+// mergeDeep). Root replacement via fn's return value is not supported since
+// the caller's variable cannot be reassigned.
 func (p *Path) Modify(doc any, fn func(any) any) error {
 	if len(p.segments) < 2 {
-		// Root path: call fn with doc. For map documents the fn typically performs
-		// an in-place merge (e.g. mergeDeep), so mutations are visible to callers.
-		// The return value of fn is ignored since we cannot reassign the caller's var.
+		if _, ok := doc.(map[string]any); !ok {
+			return fmt.Errorf("jsonpath: root path Modify requires a map document; got %T", doc)
+		}
+		// fn is expected to mutate the map in place; return value is ignored.
 		fn(doc)
 		return nil
 	}
@@ -332,6 +339,10 @@ func setInParent(parent any, seg Segment, value any) error {
 // segment and returns the (possibly new) parent value. Callers must use the
 // return value when the parent is a slice, since splicing produces a new header.
 func removeFromParent(parent any, seg Segment) any {
+	return removeFromParentAt(parent, seg, 0)
+}
+
+func removeFromParentAt(parent any, seg Segment, depth int) any {
 	switch s := seg.(type) {
 	case ChildSegment:
 		if m, ok := parent.(map[string]any); ok {
@@ -380,15 +391,20 @@ func removeFromParent(parent any, seg Segment) any {
 	case RecursiveSegment:
 		if s.Child != nil {
 			// Remove child at this level, then recurse into all descendants.
-			parent = removeFromParent(parent, s.Child)
+			parent = removeFromParentAt(parent, s.Child, depth)
+			if depth > maxRecursionDepth {
+				jsonpathLogger.Warn("jsonpath recursive remove truncated at depth limit",
+					"depth", depth, "maxDepth", maxRecursionDepth)
+				return parent
+			}
 			switch v := parent.(type) {
 			case map[string]any:
 				for key, val := range v {
-					v[key] = removeFromParent(val, seg)
+					v[key] = removeFromParentAt(val, seg, depth+1)
 				}
 			case []any:
 				for i, elem := range v {
-					v[i] = removeFromParent(elem, seg)
+					v[i] = removeFromParentAt(elem, seg, depth+1)
 				}
 			}
 		}
@@ -399,6 +415,10 @@ func removeFromParent(parent any, seg Segment) any {
 
 // modifyInParent applies a transformation function to matching nodes in the parent.
 func modifyInParent(parent any, seg Segment, fn func(any) any) {
+	modifyInParentAt(parent, seg, fn, 0)
+}
+
+func modifyInParentAt(parent any, seg Segment, fn func(any) any, depth int) {
 	switch s := seg.(type) {
 	case ChildSegment:
 		if m, ok := parent.(map[string]any); ok {
@@ -442,6 +462,27 @@ func modifyInParent(parent any, seg Segment, fn func(any) any) {
 			for i, elem := range v {
 				if evalFilter(elem, s.Expr) {
 					v[i] = fn(elem)
+				}
+			}
+		}
+
+	case RecursiveSegment:
+		if s.Child != nil {
+			// Apply transform at this level, then recurse into all descendants.
+			modifyInParentAt(parent, s.Child, fn, depth)
+			if depth > maxRecursionDepth {
+				jsonpathLogger.Warn("jsonpath recursive modify truncated at depth limit",
+					"depth", depth, "maxDepth", maxRecursionDepth)
+				return
+			}
+			switch v := parent.(type) {
+			case map[string]any:
+				for _, val := range v {
+					modifyInParentAt(val, seg, fn, depth+1)
+				}
+			case []any:
+				for _, elem := range v {
+					modifyInParentAt(elem, seg, fn, depth+1)
 				}
 			}
 		}

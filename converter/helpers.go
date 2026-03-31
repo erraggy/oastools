@@ -75,6 +75,11 @@ func (c *Converter) convertOAS2ParameterToOAS3(param *parser.Parameter, result *
 		}
 		if param.Items != nil {
 			converted.Schema.Items = convertOAS2ItemsToSchema(param.Items)
+			if param.Items.CollectionFormat != "" && param.Items.CollectionFormat != "csv" {
+				c.addIssueWithContext(result, path,
+					fmt.Sprintf("Parameter items uses collectionFormat '%s'", param.Items.CollectionFormat),
+					"OAS 3.x uses 'style' and 'explode' instead; 'csv' format maps to style=form")
+			}
 		}
 
 		// Handle collection format

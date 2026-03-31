@@ -312,6 +312,30 @@ func TestSchemaJSONRoundTrip(t *testing.T) {
 		assert.False(t, b)
 	})
 
+	t.Run("additionalItems decoded as *Schema", func(t *testing.T) {
+		data := []byte(`{"type":"array","additionalItems":{"type":"string"}}`)
+		var s Schema
+		require.NoError(t, json.Unmarshal(data, &s))
+		_, ok := s.AdditionalItems.(*Schema)
+		assert.True(t, ok, "additionalItems should be *Schema after JSON unmarshal")
+	})
+
+	t.Run("unevaluatedItems decoded as *Schema", func(t *testing.T) {
+		data := []byte(`{"type":"array","unevaluatedItems":{"type":"integer"}}`)
+		var s Schema
+		require.NoError(t, json.Unmarshal(data, &s))
+		_, ok := s.UnevaluatedItems.(*Schema)
+		assert.True(t, ok, "unevaluatedItems should be *Schema after JSON unmarshal")
+	})
+
+	t.Run("unevaluatedProperties decoded as *Schema", func(t *testing.T) {
+		data := []byte(`{"type":"object","unevaluatedProperties":{"type":"boolean"}}`)
+		var s Schema
+		require.NoError(t, json.Unmarshal(data, &s))
+		_, ok := s.UnevaluatedProperties.(*Schema)
+		assert.True(t, ok, "unevaluatedProperties should be *Schema after JSON unmarshal")
+	})
+
 	t.Run("XML round-trip", func(t *testing.T) {
 		original := &XML{
 			Name:      "pet",
