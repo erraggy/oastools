@@ -587,3 +587,42 @@ func TestEncodingUnmarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+// TestOperationEmptySecurityMarshal verifies that a non-nil empty Security slice
+// marshals as [] rather than being omitted (issue #349). An empty security array
+// on an operation explicitly disables any document-level security requirements.
+func TestOperationEmptySecurityMarshal(t *testing.T) {
+	okResponses := &Responses{Codes: map[string]*Response{"200": {Description: "ok"}}}
+
+	t.Run("nil security is omitted", func(t *testing.T) {
+		op := &Operation{
+			Responses: okResponses,
+			Security:  nil,
+			Extra:     map[string]any{"x-test": "val"},
+		}
+		data, err := json.Marshal(op)
+		require.NoError(t, err)
+		assert.NotContains(t, string(data), `"security"`, "nil security should be omitted")
+	})
+
+	t.Run("empty security slice marshals as []", func(t *testing.T) {
+		op := &Operation{
+			Responses: okResponses,
+			Security:  []SecurityRequirement{},
+			Extra:     map[string]any{"x-test": "val"},
+		}
+		data, err := json.Marshal(op)
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"security":[]`, "empty non-nil security should marshal as []")
+	})
+
+	t.Run("empty security slice marshals as [] without extra fields", func(t *testing.T) {
+		op := &Operation{
+			Responses: okResponses,
+			Security:  []SecurityRequirement{},
+		}
+		data, err := json.Marshal(op)
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"security":[]`, "empty non-nil security should marshal as [] even without x- fields")
+	})
+}

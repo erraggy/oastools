@@ -980,6 +980,68 @@ func TestRecursiveDescentDepthLimit_WarningEmitted(t *testing.T) {
 	assert.Contains(t, buf.String(), "truncated at depth limit")
 }
 
+// TestRemoveArrayFilter_Splices verifies that filter removal on arrays splices
+// elements out rather than setting them to nil (issue #352).
+func TestRemoveArrayFilter_Splices(t *testing.T) {
+	doc := map[string]any{
+		"parameters": []any{
+			map[string]any{"name": "apikey", "in": "query"},
+			map[string]any{"name": "limit", "in": "query"},
+		},
+	}
+
+	p, err := Parse("$.parameters[?@.name=='apikey']")
+	require.NoError(t, err)
+	_, err = p.Remove(doc)
+	require.NoError(t, err)
+
+	params := doc["parameters"].([]any)
+	require.Len(t, params, 1, "splice should remove element, not nil-pad")
+	assert.Equal(t, "limit", params[0].(map[string]any)["name"])
+}
+
+// TestRemoveRecursiveDescent verifies that $..field removal deletes the field
+// from all descendants (issue #351).
+func TestRemoveRecursiveDescent(t *testing.T) {
+	doc := map[string]any{
+		"x-struct": "root",
+		"info":     map[string]any{"title": "t", "x-struct": "info"},
+		"nested": map[string]any{
+			"deep": map[string]any{"x-struct": "deep"},
+		},
+	}
+
+	p, err := Parse("$..x-struct")
+	require.NoError(t, err)
+	_, err = p.Remove(doc)
+	require.NoError(t, err)
+
+	assert.NotContains(t, doc, "x-struct", "root-level x-struct should be removed")
+	assert.NotContains(t, doc["info"], "x-struct", "info-level x-struct should be removed")
+	deep := doc["nested"].(map[string]any)["deep"].(map[string]any)
+	assert.NotContains(t, deep, "x-struct", "nested x-struct should be removed")
+}
+
+// TestModifyRoot verifies that Modify on root path "$" merges into the document
+// in place (issue #350).
+func TestModifyRoot(t *testing.T) {
+	doc := map[string]any{
+		"openapi": "3.0.0",
+		"info":    map[string]any{"title": "t"},
+	}
+
+	p, err := Parse("$")
+	require.NoError(t, err)
+	err = p.Modify(doc, func(v any) any {
+		if m, ok := v.(map[string]any); ok {
+			m["host"] = "api.example.com"
+		}
+		return v
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "api.example.com", doc["host"], "root Modify should merge into document")
+}
+
 // TestRecursiveDescentDepthLimit_nilChild verifies the depth cap when
 // recursiveDescend delegates to collectAllDescendants (nil child segment).
 func TestRecursiveDescentDepthLimit_nilChild(t *testing.T) {

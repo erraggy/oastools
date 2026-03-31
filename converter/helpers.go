@@ -51,10 +51,30 @@ func (c *Converter) convertOAS2ParameterToOAS3(param *parser.Parameter, result *
 	if param.Schema != nil {
 		converted.Schema = c.convertOAS2SchemaToOAS3(param.Schema)
 	} else if param.Type != "" {
-		// Convert type/format to schema
+		// Convert type/format to schema, transferring all OAS 2.0 validation keywords
 		converted.Schema = &parser.Schema{
-			Type:   param.Type,
-			Format: param.Format,
+			Type:        param.Type,
+			Format:      param.Format,
+			Default:     param.Default,
+			Enum:        param.Enum,
+			Maximum:     param.Maximum,
+			Minimum:     param.Minimum,
+			MaxLength:   param.MaxLength,
+			MinLength:   param.MinLength,
+			Pattern:     param.Pattern,
+			MaxItems:    param.MaxItems,
+			MinItems:    param.MinItems,
+			UniqueItems: param.UniqueItems,
+			MultipleOf:  param.MultipleOf,
+		}
+		if param.ExclusiveMaximum {
+			converted.Schema.ExclusiveMaximum = true
+		}
+		if param.ExclusiveMinimum {
+			converted.Schema.ExclusiveMinimum = true
+		}
+		if param.Items != nil {
+			converted.Schema.Items = convertOAS2ItemsToSchema(param.Items)
 		}
 
 		// Handle collection format

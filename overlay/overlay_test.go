@@ -1,6 +1,7 @@
 package overlay
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -1125,6 +1126,88 @@ func TestDryRun(t *testing.T) {
 
 		assert.Equal(t, "append", result.Changes[0].Operation)
 	})
+}
+
+// TestApplyRootTarget verifies that target "$" correctly merges into the root
+// document (issue #350).
+func TestApplyRootTarget(t *testing.T) {
+	spec := mustParseSpec(t, `{"openapi":"3.0.0","info":{"title":"t","version":"1"},"paths":{}}`)
+	o := &Overlay{
+		Version: "1.0.0",
+		Info:    Info{Title: "test", Version: "1.0.0"},
+		Actions: []Action{
+			{Target: "$", Update: map[string]any{"x-custom": "added"}},
+		},
+	}
+
+	a := NewApplier()
+	result, err := a.ApplyParsed(spec, o)
+	require.NoError(t, err)
+	require.Equal(t, 1, result.ActionsApplied)
+
+	doc := result.Document.(map[string]any)
+	assert.Equal(t, "added", doc["x-custom"], "root update should merge x-custom into document")
+}
+
+// TestApplyRecursiveRemove verifies that $..field remove deletes the field from
+// all descendants (issue #351).
+func TestApplyRecursiveRemove(t *testing.T) {
+	spec := mustParseSpec(t, `{"openapi":"3.0.0","info":{"title":"t","version":"1","x-struct":"root"},"paths":{"/a":{"get":{"parameters":[{"name":"p","in":"query","schema":{"type":"string","x-struct":"deep"}}],"responses":{"200":{"description":"ok"}}}}}}`)
+	o := &Overlay{
+		Version: "1.0.0",
+		Info:    Info{Title: "test", Version: "1.0.0"},
+		Actions: []Action{
+			{Target: "$..x-struct", Remove: true},
+		},
+	}
+
+	a := NewApplier()
+	result, err := a.ApplyParsed(spec, o)
+	require.NoError(t, err)
+	require.Equal(t, 1, result.ActionsApplied)
+
+	doc := result.Document.(map[string]any)
+	info := doc["info"].(map[string]any)
+	assert.NotContains(t, info, "x-struct", "x-struct should be removed from info")
+
+	paths := doc["paths"].(map[string]any)
+	getOp := paths["/a"].(map[string]any)["get"].(map[string]any)
+	params := getOp["parameters"].([]any)
+	schema := params[0].(map[string]any)["schema"].(map[string]any)
+	assert.NotContains(t, schema, "x-struct", "x-struct should be removed from nested schema")
+}
+
+// TestApplyArrayFilterRemove verifies that filter removal on arrays splices
+// elements out rather than nil-padding (issue #352).
+func TestApplyArrayFilterRemove(t *testing.T) {
+	spec := mustParseSpec(t, `{"openapi":"3.0.0","info":{"title":"t","version":"1"},"paths":{"/a":{"get":{"parameters":[{"name":"apikey","in":"query","schema":{"type":"string"}},{"name":"limit","in":"query","schema":{"type":"integer"}}],"responses":{"200":{"description":"ok"}}}}}}`)
+	o := &Overlay{
+		Version: "1.0.0",
+		Info:    Info{Title: "test", Version: "1.0.0"},
+		Actions: []Action{
+			{Target: "$.paths.*.get.parameters[?@.name=='apikey']", Remove: true},
+		},
+	}
+
+	a := NewApplier()
+	result, err := a.ApplyParsed(spec, o)
+	require.NoError(t, err)
+	require.Equal(t, 1, result.ActionsApplied)
+
+	doc := result.Document.(map[string]any)
+	paths := doc["paths"].(map[string]any)
+	getOp := paths["/a"].(map[string]any)["get"].(map[string]any)
+	params := getOp["parameters"].([]any)
+	require.Len(t, params, 1, "filter remove should splice element, not nil-pad")
+	assert.Equal(t, "limit", params[0].(map[string]any)["name"])
+}
+
+// mustParseSpec is a test helper that parses a JSON spec string into a ParseResult.
+func mustParseSpec(t *testing.T, specJSON string) *parser.ParseResult {
+	t.Helper()
+	var doc map[string]any
+	require.NoError(t, json.Unmarshal([]byte(specJSON), &doc))
+	return &parser.ParseResult{Document: doc}
 }
 
 // TestDryRunWithOptions tests the functional options API for dry-run.

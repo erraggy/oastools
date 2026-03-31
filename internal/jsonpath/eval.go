@@ -67,28 +67,41 @@ func (p *Path) Set(doc any, value any) error {
 // Remove removes all matching nodes from the document.
 //
 // Returns the modified document. For maps, matching keys are deleted.
-// For arrays, matching indices are removed (with index shift).
+// For arrays, matching elements are spliced out (not set to nil).
 func (p *Path) Remove(doc any) (any, error) {
 	if len(p.segments) < 2 {
 		return nil, fmt.Errorf("jsonpath: cannot remove root")
 	}
 
-	// Get the parent nodes and the final key
+	lastSeg := p.segments[len(p.segments)-1]
 	parentPath := &Path{
 		raw:      p.raw,
 		segments: p.segments[:len(p.segments)-1],
 	}
 
-	parents := parentPath.Get(doc)
-	if len(parents) == 0 {
-		// No matches - nothing to remove
+	// When the parent is the root document, apply removal directly.
+	if len(parentPath.segments) <= 1 {
+		return removeFromParent(doc, lastSeg), nil
+	}
+
+	// For deeper paths, go one level further to the grandparent. This lets us
+	// update the grandparent's reference to the parent slice when splicing,
+	// since a new slice header cannot be reflected through a plain any parameter.
+	grandParentPath := &Path{
+		raw:      p.raw,
+		segments: p.segments[:len(p.segments)-2],
+	}
+	parentSeg := p.segments[len(p.segments)-2]
+
+	grandParents := grandParentPath.Get(doc)
+	if len(grandParents) == 0 {
 		return doc, nil
 	}
 
-	lastSeg := p.segments[len(p.segments)-1]
-
-	for _, parent := range parents {
-		removeFromParent(parent, lastSeg)
+	for _, gp := range grandParents {
+		modifyInParent(gp, parentSeg, func(v any) any {
+			return removeFromParent(v, lastSeg)
+		})
 	}
 
 	return doc, nil
@@ -100,8 +113,11 @@ func (p *Path) Remove(doc any) (any, error) {
 // The document is modified in place.
 func (p *Path) Modify(doc any, fn func(any) any) error {
 	if len(p.segments) < 2 {
-		// Modifying root means replacing entire doc - not supported in-place
-		return fmt.Errorf("jsonpath: cannot modify root in place")
+		// Root path: call fn with doc. For map documents the fn typically performs
+		// an in-place merge (e.g. mergeDeep), so mutations are visible to callers.
+		// The return value of fn is ignored since we cannot reassign the caller's var.
+		fn(doc)
+		return nil
 	}
 
 	// Get the parent nodes and the final segment
@@ -312,8 +328,10 @@ func setInParent(parent any, seg Segment, value any) error {
 	}
 }
 
-// removeFromParent removes nodes from the parent at the location specified by the segment.
-func removeFromParent(parent any, seg Segment) {
+// removeFromParent removes nodes from the parent at the location specified by the
+// segment and returns the (possibly new) parent value. Callers must use the
+// return value when the parent is a slice, since splicing produces a new header.
+func removeFromParent(parent any, seg Segment) any {
 	switch s := seg.(type) {
 	case ChildSegment:
 		if m, ok := parent.(map[string]any); ok {
@@ -321,15 +339,13 @@ func removeFromParent(parent any, seg Segment) {
 		}
 
 	case IndexSegment:
-		// Note: Removing from arrays by index is tricky as it shifts other elements.
-		// For simplicity, we set to nil rather than removing.
 		if arr, ok := parent.([]any); ok {
 			idx := s.Index
 			if idx < 0 {
 				idx = len(arr) + idx
 			}
 			if idx >= 0 && idx < len(arr) {
-				arr[idx] = nil
+				return append(arr[:idx:idx], arr[idx+1:]...)
 			}
 		}
 
@@ -340,10 +356,7 @@ func removeFromParent(parent any, seg Segment) {
 				delete(v, key)
 			}
 		case []any:
-			// Clear array elements
-			for i := range v {
-				v[i] = nil
-			}
+			return v[:0]
 		}
 
 	case FilterSegment:
@@ -355,21 +368,33 @@ func removeFromParent(parent any, seg Segment) {
 				}
 			}
 		case []any:
-			// For arrays, we need to collect indices to remove, then remove in reverse order
-			var toRemove []int
-			for i, elem := range v {
-				if evalFilter(elem, s.Expr) {
-					toRemove = append(toRemove, i)
+			result := v[:0]
+			for _, elem := range v {
+				if !evalFilter(elem, s.Expr) {
+					result = append(result, elem)
 				}
 			}
-			// Remove in reverse order to maintain correct indices
-			for i := len(toRemove) - 1; i >= 0; i-- {
-				idx := toRemove[i]
-				// Set to nil marker (actual removal would require modifying the slice)
-				v[idx] = nil
+			return result
+		}
+
+	case RecursiveSegment:
+		if s.Child != nil {
+			// Remove child at this level, then recurse into all descendants.
+			parent = removeFromParent(parent, s.Child)
+			switch v := parent.(type) {
+			case map[string]any:
+				for key, val := range v {
+					v[key] = removeFromParent(val, seg)
+				}
+			case []any:
+				for i, elem := range v {
+					v[i] = removeFromParent(elem, seg)
+				}
 			}
 		}
 	}
+
+	return parent
 }
 
 // modifyInParent applies a transformation function to matching nodes in the parent.

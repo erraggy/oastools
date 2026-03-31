@@ -284,6 +284,34 @@ func TestSchemaJSONRoundTrip(t *testing.T) {
 		assert.Equal(t, original.Extra, decoded.Extra)
 	})
 
+	// Regression test for issue #353/#355: the JSON fast-path (type Alias trick)
+	// must promote any-typed fields (Items, AdditionalProperties, etc.) from
+	// map[string]any back to *Schema so downstream type assertions work.
+	t.Run("Items decoded as *Schema not map[string]any", func(t *testing.T) {
+		data := []byte(`{"type":"array","items":{"$ref":"#/definitions/Foo"}}`)
+		var s Schema
+		require.NoError(t, json.Unmarshal(data, &s))
+		_, ok := s.Items.(*Schema)
+		assert.True(t, ok, "Items should be *Schema after JSON unmarshal, not map[string]any")
+	})
+
+	t.Run("additionalProperties object decoded as *Schema", func(t *testing.T) {
+		data := []byte(`{"type":"object","additionalProperties":{"type":"string"}}`)
+		var s Schema
+		require.NoError(t, json.Unmarshal(data, &s))
+		_, ok := s.AdditionalProperties.(*Schema)
+		assert.True(t, ok, "additionalProperties should be *Schema after JSON unmarshal")
+	})
+
+	t.Run("additionalProperties bool preserved", func(t *testing.T) {
+		data := []byte(`{"type":"object","additionalProperties":false}`)
+		var s Schema
+		require.NoError(t, json.Unmarshal(data, &s))
+		b, ok := s.AdditionalProperties.(bool)
+		assert.True(t, ok, "additionalProperties false should remain bool")
+		assert.False(t, b)
+	})
+
 	t.Run("XML round-trip", func(t *testing.T) {
 		original := &XML{
 			Name:      "pet",

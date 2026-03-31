@@ -93,7 +93,36 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	s.Extra = jsonhelpers.ExtractExtensions(data)
+	// The Alias trick bypasses custom unmarshalers, causing encoding/json to decode
+	// any-typed fields (Items, AdditionalProperties, etc.) as map[string]any instead
+	// of *Schema. Promote them back so downstream type assertions work correctly.
+	s.Items = promoteSchemaOrBool(s.Items)
+	s.AdditionalProperties = promoteSchemaOrBool(s.AdditionalProperties)
+	s.AdditionalItems = promoteSchemaOrBool(s.AdditionalItems)
+	s.UnevaluatedItems = promoteSchemaOrBool(s.UnevaluatedItems)
+	s.UnevaluatedProperties = promoteSchemaOrBool(s.UnevaluatedProperties)
 	return nil
+}
+
+// promoteSchemaOrBool converts a map[string]any value (produced by the standard
+// JSON decoder for any-typed schema fields) into a *Schema. Bool values and
+// already-typed *Schema values pass through unchanged.
+func promoteSchemaOrBool(v any) any {
+	switch val := v.(type) {
+	case nil, bool, *Schema:
+		return v
+	case map[string]any:
+		data, err := json.Marshal(val)
+		if err != nil {
+			return v
+		}
+		s := &Schema{}
+		if err := json.Unmarshal(data, s); err != nil {
+			return v
+		}
+		return s
+	}
+	return v
 }
 
 // MarshalJSON implements custom JSON marshaling for Discriminator.

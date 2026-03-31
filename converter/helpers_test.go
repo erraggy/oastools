@@ -639,6 +639,67 @@ func assertHasIssueContaining(t *testing.T, issues []ConversionIssue, substring 
 	t.Errorf("Expected at least one issue containing %q, but none found in %d issues", substring, len(issues))
 }
 
+// TestConvertOAS2ParameterToOAS3_ArrayItems verifies that Items and validation
+// keywords on OAS 2.0 array parameters are transferred to the OAS 3.0 schema
+// (issue #357).
+func TestConvertOAS2ParameterToOAS3_ArrayItems(t *testing.T) {
+	c := newConverter()
+	result := &ConversionResult{}
+
+	strType := "string"
+	param := &parser.Parameter{
+		Name:  "chain_id",
+		In:    "query",
+		Type:  "array",
+		Items: &parser.Items{Type: strType},
+	}
+
+	converted := c.convertOAS2ParameterToOAS3(param, result, "test")
+	require.NotNil(t, converted)
+	require.NotNil(t, converted.Schema)
+	assert.Equal(t, "array", converted.Schema.Type)
+	require.NotNil(t, converted.Schema.Items, "Items should be transferred from OAS 2.0 parameter")
+
+	itemsSchema, ok := converted.Schema.Items.(*parser.Schema)
+	require.True(t, ok, "Items should be *Schema")
+	assert.Equal(t, strType, itemsSchema.Type)
+}
+
+func TestConvertOAS2ParameterToOAS3_ValidationKeywords(t *testing.T) {
+	c := newConverter()
+	result := &ConversionResult{}
+
+	min := float64(1)
+	max := float64(100)
+	minLen := 2
+	maxLen := 50
+	param := &parser.Parameter{
+		Name:      "q",
+		In:        "query",
+		Type:      "string",
+		Minimum:   &min,
+		Maximum:   &max,
+		MinLength: &minLen,
+		MaxLength: &maxLen,
+		Pattern:   "^[a-z]+$",
+		Enum:      []any{"a", "b"},
+	}
+
+	converted := c.convertOAS2ParameterToOAS3(param, result, "test")
+	require.NotNil(t, converted.Schema)
+	assert.Equal(t, &min, converted.Schema.Minimum)
+	assert.Equal(t, &max, converted.Schema.Maximum)
+	assert.Equal(t, &minLen, converted.Schema.MinLength)
+	assert.Equal(t, &maxLen, converted.Schema.MaxLength)
+	assert.Equal(t, "^[a-z]+$", converted.Schema.Pattern)
+	assert.Equal(t, []any{"a", "b"}, converted.Schema.Enum)
+}
+
+// newConverter creates a minimal Converter for unit testing helpers.
+func newConverter() *Converter {
+	return &Converter{}
+}
+
 // countIssuesContaining counts issues whose message contains the given substring.
 func countIssuesContaining(issues []ConversionIssue, substring string) int {
 	count := 0

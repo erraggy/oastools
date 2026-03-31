@@ -22,6 +22,7 @@ func TestCorpus_FixerReducesErrors(t *testing.T) {
 	spec := corpusutil.GetByName("DigitalOcean")
 	if spec == nil {
 		t.Skip("DigitalOcean spec not found in corpus")
+		return
 	}
 	corpusutil.SkipIfNotCached(t, *spec)
 	corpusutil.SkipLargeInShortMode(t, *spec)
@@ -161,6 +162,7 @@ func TestCorpus_FixerWithInferTypes(t *testing.T) {
 	spec := corpusutil.GetByName("Asana")
 	if spec == nil {
 		t.Skip("Asana spec not found in corpus")
+		return
 	}
 	corpusutil.SkipIfNotCached(t, *spec)
 
