@@ -35,7 +35,7 @@ func (c *Converter) convertOAS2ToOAS3(parseResult parser.ParseResult, targetVers
 
 		// Convert definitions to schemas
 		for name, schema := range src.Definitions {
-			dst.Components.Schemas[name] = c.convertOAS2SchemaToOAS3(schema)
+			dst.Components.Schemas[name] = c.convertOAS2SchemaToOAS3(schema, targetVersion, result, fmt.Sprintf("components.schemas.%s", name))
 		}
 
 		// Convert parameters
@@ -46,7 +46,7 @@ func (c *Converter) convertOAS2ToOAS3(parseResult parser.ParseResult, targetVers
 
 		// Convert responses
 		for name, response := range src.Responses {
-			dst.Components.Responses[name] = c.convertOAS2ResponseToOAS3Old(response, src.Produces)
+			dst.Components.Responses[name] = c.convertOAS2ResponseToOAS3Old(response, src.Produces, targetVersion, result, fmt.Sprintf("components.responses.%s", name))
 		}
 
 		// Convert security definitions
@@ -144,13 +144,22 @@ func (c *Converter) convertOAS2PathItemToOAS3(src *parser.PathItem, doc *parser.
 
 // convertOAS2OperationToOAS3 converts an OAS 2.0 operation to OAS 3.x
 func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parser.OAS2Document, result *ConversionResult, opPath string) *parser.Operation {
+	// Exclude body and formData parameters before conversion — they are remapped
+	// to requestBody separately and must not be converted twice (which would
+	// emit duplicate warnings and produce unused converted parameters).
+	var nonBodyParams []*parser.Parameter
+	for _, p := range src.Parameters {
+		if p != nil && p.In != "body" && p.In != "formData" {
+			nonBodyParams = append(nonBodyParams, p)
+		}
+	}
 	dst := &parser.Operation{
 		Tags:         src.Tags,
 		Summary:      src.Summary,
 		Description:  src.Description,
 		ExternalDocs: src.ExternalDocs,
 		OperationID:  src.OperationID,
-		Parameters:   c.convertParameters(src.Parameters, result, fmt.Sprintf("%s.parameters", opPath)),
+		Parameters:   c.convertParameters(nonBodyParams, result, fmt.Sprintf("%s.parameters", opPath)),
 		Deprecated:   src.Deprecated,
 		Security:     src.Security,
 	}
@@ -158,12 +167,12 @@ func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parse
 	// Convert responses
 	if src.Responses != nil {
 		dst.Responses = &parser.Responses{
-			Default: c.convertOAS2ResponseToOAS3Old(src.Responses.Default, c.getProduces(src, doc)),
+			Default: c.convertOAS2ResponseToOAS3Old(src.Responses.Default, c.getProduces(src, doc), result.TargetOASVersion, result, opPath+".responses.default"),
 			Codes:   make(map[string]*parser.Response),
 		}
 
 		for code, response := range src.Responses.Codes {
-			dst.Responses.Codes[code] = c.convertOAS2ResponseToOAS3Old(response, c.getProduces(src, doc))
+			dst.Responses.Codes[code] = c.convertOAS2ResponseToOAS3Old(response, c.getProduces(src, doc), result.TargetOASVersion, result, fmt.Sprintf("%s.responses.%s", opPath, code))
 		}
 	}
 
@@ -177,15 +186,7 @@ func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parse
 	}
 
 	if hasBodyParam {
-		dst.RequestBody = c.convertOAS2RequestBody(src, doc)
-		// Remove body parameters from the parameters list in dst
-		filteredParams := make([]*parser.Parameter, 0)
-		for _, param := range dst.Parameters {
-			if param != nil && param.In != "body" {
-				filteredParams = append(filteredParams, param)
-			}
-		}
-		dst.Parameters = filteredParams
+		dst.RequestBody = c.convertOAS2RequestBody(src, doc, result)
 	}
 
 	// Convert formData parameters to requestBody
@@ -203,14 +204,7 @@ func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parse
 				"Operation has both body and formData parameters",
 				"OAS 2.0 spec forbids this; formData parameters ignored")
 		} else {
-			dst.RequestBody = c.convertOAS2FormDataToRequestBody(src, doc)
-			filteredParams := make([]*parser.Parameter, 0, len(dst.Parameters))
-			for _, param := range dst.Parameters {
-				if param != nil && param.In != "formData" {
-					filteredParams = append(filteredParams, param)
-				}
-			}
-			dst.Parameters = filteredParams
+			dst.RequestBody = c.convertOAS2FormDataToRequestBody(src, doc, result)
 		}
 	}
 
@@ -218,7 +212,7 @@ func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parse
 }
 
 // convertOAS2RequestBody converts OAS 2.0 body parameters and consumes to OAS 3.x requestBody
-func (c *Converter) convertOAS2RequestBody(src *parser.Operation, doc *parser.OAS2Document) *parser.RequestBody {
+func (c *Converter) convertOAS2RequestBody(src *parser.Operation, doc *parser.OAS2Document, result *ConversionResult) *parser.RequestBody {
 	// Find body parameter
 	var bodyParam *parser.Parameter
 	for _, param := range src.Parameters {
@@ -244,10 +238,11 @@ func (c *Converter) convertOAS2RequestBody(src *parser.Operation, doc *parser.OA
 		consumes = []string{getDefaultMediaType()}
 	}
 
-	// Create content for each media type
+	// Convert schema once; deep-copy per media type to avoid shared mutation.
+	convertedSchema := c.convertOAS2SchemaToOAS3(bodyParam.Schema, result.TargetOASVersion, result, "requestBody")
 	for _, mediaType := range consumes {
 		requestBody.Content[mediaType] = &parser.MediaType{
-			Schema: c.convertOAS2SchemaToOAS3(bodyParam.Schema),
+			Schema: convertedSchema.DeepCopy(),
 		}
 	}
 
@@ -255,7 +250,7 @@ func (c *Converter) convertOAS2RequestBody(src *parser.Operation, doc *parser.OA
 }
 
 // convertOAS2FormDataToRequestBody converts OAS 2.0 formData parameters to OAS 3.x requestBody.
-func (c *Converter) convertOAS2FormDataToRequestBody(src *parser.Operation, doc *parser.OAS2Document) *parser.RequestBody {
+func (c *Converter) convertOAS2FormDataToRequestBody(src *parser.Operation, doc *parser.OAS2Document, result *ConversionResult) *parser.RequestBody {
 	var formDataParams []*parser.Parameter
 	hasFile := false
 	for _, param := range src.Parameters {
@@ -285,7 +280,7 @@ func (c *Converter) convertOAS2FormDataToRequestBody(src *parser.Operation, doc 
 			propSchema.Type = "array"
 			propSchema.Format = param.Format
 			if param.Items != nil {
-				propSchema.Items = convertOAS2ItemsToSchema(param.Items)
+				propSchema.Items = convertOAS2ItemsToSchema(c, param.Items, result, fmt.Sprintf("requestBody.properties.%s.items", param.Name))
 			}
 		default:
 			propSchema.Type = param.Type
@@ -304,10 +299,32 @@ func (c *Converter) convertOAS2FormDataToRequestBody(src *parser.Operation, doc 
 		propSchema.UniqueItems = param.UniqueItems
 		propSchema.MultipleOf = param.MultipleOf
 		if param.ExclusiveMaximum {
-			propSchema.ExclusiveMaximum = true
+			if c.isOAS31OrLater(result.TargetOASVersion) {
+				if param.Maximum != nil {
+					propSchema.ExclusiveMaximum = *param.Maximum
+					propSchema.Maximum = nil
+				} else {
+					c.addIssueWithContext(result, fmt.Sprintf("requestBody.properties.%s", param.Name),
+						"FormData parameter has 'exclusiveMaximum: true' but no 'maximum' value; constraint dropped in OAS 3.1 conversion",
+						"Add a 'maximum' value to preserve this exclusive boundary in OAS 3.1")
+				}
+			} else {
+				propSchema.ExclusiveMaximum = true
+			}
 		}
 		if param.ExclusiveMinimum {
-			propSchema.ExclusiveMinimum = true
+			if c.isOAS31OrLater(result.TargetOASVersion) {
+				if param.Minimum != nil {
+					propSchema.ExclusiveMinimum = *param.Minimum
+					propSchema.Minimum = nil
+				} else {
+					c.addIssueWithContext(result, fmt.Sprintf("requestBody.properties.%s", param.Name),
+						"FormData parameter has 'exclusiveMinimum: true' but no 'minimum' value; constraint dropped in OAS 3.1 conversion",
+						"Add a 'minimum' value to preserve this exclusive boundary in OAS 3.1")
+				}
+			} else {
+				propSchema.ExclusiveMinimum = true
+			}
 		}
 		if param.Description != "" {
 			propSchema.Description = param.Description
@@ -343,7 +360,7 @@ func (c *Converter) convertOAS2FormDataToRequestBody(src *parser.Operation, doc 
 }
 
 // convertOAS2ItemsToSchema converts an OAS 2.0 Items object to an OAS 3.x Schema.
-func convertOAS2ItemsToSchema(items *parser.Items) *parser.Schema {
+func convertOAS2ItemsToSchema(c *Converter, items *parser.Items, result *ConversionResult, path string) *parser.Schema {
 	if items == nil {
 		return nil
 	}
@@ -363,13 +380,35 @@ func convertOAS2ItemsToSchema(items *parser.Items) *parser.Schema {
 		MultipleOf:  items.MultipleOf,
 	}
 	if items.ExclusiveMaximum {
-		s.ExclusiveMaximum = true
+		if c.isOAS31OrLater(result.TargetOASVersion) {
+			if items.Maximum != nil {
+				s.ExclusiveMaximum = *items.Maximum
+				s.Maximum = nil
+			} else {
+				c.addIssueWithContext(result, path,
+					"Items has 'exclusiveMaximum: true' but no 'maximum' value; constraint dropped in OAS 3.1 conversion",
+					"Add a 'maximum' value to preserve this exclusive boundary in OAS 3.1")
+			}
+		} else {
+			s.ExclusiveMaximum = true
+		}
 	}
 	if items.ExclusiveMinimum {
-		s.ExclusiveMinimum = true
+		if c.isOAS31OrLater(result.TargetOASVersion) {
+			if items.Minimum != nil {
+				s.ExclusiveMinimum = *items.Minimum
+				s.Minimum = nil
+			} else {
+				c.addIssueWithContext(result, path,
+					"Items has 'exclusiveMinimum: true' but no 'minimum' value; constraint dropped in OAS 3.1 conversion",
+					"Add a 'minimum' value to preserve this exclusive boundary in OAS 3.1")
+			}
+		} else {
+			s.ExclusiveMinimum = true
+		}
 	}
 	if items.Items != nil {
-		s.Items = convertOAS2ItemsToSchema(items.Items)
+		s.Items = convertOAS2ItemsToSchema(c, items.Items, result, path+".items")
 	}
 	return s
 }

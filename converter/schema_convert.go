@@ -9,7 +9,7 @@ import (
 )
 
 // convertOAS2SchemaToOAS3 converts an OAS 2.0 schema to OAS 3.x format
-func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema) *parser.Schema {
+func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion parser.OASVersion, result *ConversionResult, path string) *parser.Schema {
 	if schema == nil {
 		return nil
 	}
@@ -20,7 +20,102 @@ func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema) *parser.Schem
 	// Rewrite all $ref paths from OAS 2.0 to OAS 3.x format
 	rewriteSchemaRefsOAS2ToOAS3(converted)
 
+	// For OAS 3.1+, convert boolean exclusiveMaximum/exclusiveMinimum to numeric form
+	if c.isOAS31OrLater(targetVersion) {
+		fixSchemaExclusiveMinMaxForOAS31(c, converted, result, path, make(map[*parser.Schema]bool))
+	}
+
 	return converted
+}
+
+// fixSchemaExclusiveMinMaxForOAS31 recursively converts boolean exclusiveMaximum/exclusiveMinimum
+// to OAS 3.1+ numeric semantics (number replaces boolean+maximum pair).
+// Schemas with a $ref are skipped -- they are resolved separately.
+// When result is non-nil, warnings are emitted for malformed constraints (true with no bound).
+func fixSchemaExclusiveMinMaxForOAS31(c *Converter, schema *parser.Schema, result *ConversionResult, path string, visited map[*parser.Schema]bool) {
+	if schema == nil || visited[schema] || schema.Ref != "" {
+		return
+	}
+	visited[schema] = true
+
+	if v, ok := schema.ExclusiveMaximum.(bool); ok {
+		if v && schema.Maximum != nil {
+			schema.ExclusiveMaximum = *schema.Maximum
+			schema.Maximum = nil
+		} else if v {
+			if result != nil {
+				c.addIssueWithContext(result, path,
+					"Schema has 'exclusiveMaximum: true' but no 'maximum' value; constraint dropped in OAS 3.1 conversion",
+					"Add a 'maximum' value to preserve this exclusive boundary in OAS 3.1")
+			}
+			schema.ExclusiveMaximum = nil
+		} else {
+			// false -- remove the no-op keyword
+			schema.ExclusiveMaximum = nil
+		}
+	}
+	if v, ok := schema.ExclusiveMinimum.(bool); ok {
+		if v && schema.Minimum != nil {
+			schema.ExclusiveMinimum = *schema.Minimum
+			schema.Minimum = nil
+		} else if v {
+			if result != nil {
+				c.addIssueWithContext(result, path,
+					"Schema has 'exclusiveMinimum: true' but no 'minimum' value; constraint dropped in OAS 3.1 conversion",
+					"Add a 'minimum' value to preserve this exclusive boundary in OAS 3.1")
+			}
+			schema.ExclusiveMinimum = nil
+		} else {
+			schema.ExclusiveMinimum = nil
+		}
+	}
+
+	for name, s := range schema.Properties {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.properties.%s", path, name), visited)
+	}
+	for pattern, s := range schema.PatternProperties {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.patternProperties.%s", path, pattern), visited)
+	}
+	if s, ok := schema.AdditionalProperties.(*parser.Schema); ok {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".additionalProperties", visited)
+	}
+	if s, ok := schema.Items.(*parser.Schema); ok {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".items", visited)
+	}
+	for i, s := range schema.AllOf {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.allOf[%d]", path, i), visited)
+	}
+	for i, s := range schema.AnyOf {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.anyOf[%d]", path, i), visited)
+	}
+	for i, s := range schema.OneOf {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.oneOf[%d]", path, i), visited)
+	}
+	fixSchemaExclusiveMinMaxForOAS31(c, schema.Not, result, path+".not", visited)
+	if s, ok := schema.AdditionalItems.(*parser.Schema); ok {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".additionalItems", visited)
+	}
+	for i, s := range schema.PrefixItems {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.prefixItems[%d]", path, i), visited)
+	}
+	fixSchemaExclusiveMinMaxForOAS31(c, schema.Contains, result, path+".contains", visited)
+	fixSchemaExclusiveMinMaxForOAS31(c, schema.PropertyNames, result, path+".propertyNames", visited)
+	for name, s := range schema.DependentSchemas {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.dependentSchemas.%s", path, name), visited)
+	}
+	if s, ok := schema.UnevaluatedProperties.(*parser.Schema); ok {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".unevaluatedProperties", visited)
+	}
+	if s, ok := schema.UnevaluatedItems.(*parser.Schema); ok {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".unevaluatedItems", visited)
+	}
+	fixSchemaExclusiveMinMaxForOAS31(c, schema.ContentSchema, result, path+".contentSchema", visited)
+	fixSchemaExclusiveMinMaxForOAS31(c, schema.If, result, path+".if", visited)
+	fixSchemaExclusiveMinMaxForOAS31(c, schema.Then, result, path+".then", visited)
+	fixSchemaExclusiveMinMaxForOAS31(c, schema.Else, result, path+".else", visited)
+	for name, s := range schema.Defs {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.$defs.%s", path, name), visited)
+	}
 }
 
 // convertOAS3SchemaToOAS2 converts an OAS 3.x schema to OAS 2.0 format
