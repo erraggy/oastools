@@ -303,13 +303,22 @@ func TestSchemaJSONRoundTrip(t *testing.T) {
 		assert.True(t, ok, "additionalProperties should be *Schema after JSON unmarshal")
 	})
 
-	t.Run("additionalProperties bool preserved", func(t *testing.T) {
+	t.Run("additionalProperties bool false preserved", func(t *testing.T) {
 		data := []byte(`{"type":"object","additionalProperties":false}`)
 		var s Schema
 		require.NoError(t, json.Unmarshal(data, &s))
 		b, ok := s.AdditionalProperties.(bool)
 		assert.True(t, ok, "additionalProperties false should remain bool")
 		assert.False(t, b)
+	})
+
+	t.Run("additionalProperties bool true preserved", func(t *testing.T) {
+		data := []byte(`{"type":"object","additionalProperties":true}`)
+		var s Schema
+		require.NoError(t, json.Unmarshal(data, &s))
+		b, ok := s.AdditionalProperties.(bool)
+		assert.True(t, ok, "additionalProperties true should remain bool")
+		assert.True(t, b)
 	})
 
 	t.Run("additionalItems decoded as *Schema", func(t *testing.T) {
@@ -320,6 +329,15 @@ func TestSchemaJSONRoundTrip(t *testing.T) {
 		assert.True(t, ok, "additionalItems should be *Schema after JSON unmarshal")
 	})
 
+	t.Run("additionalItems bool preserved", func(t *testing.T) {
+		data := []byte(`{"type":"array","additionalItems":false}`)
+		var s Schema
+		require.NoError(t, json.Unmarshal(data, &s))
+		b, ok := s.AdditionalItems.(bool)
+		assert.True(t, ok, "additionalItems false should remain bool")
+		assert.False(t, b)
+	})
+
 	t.Run("unevaluatedItems decoded as *Schema", func(t *testing.T) {
 		data := []byte(`{"type":"array","unevaluatedItems":{"type":"integer"}}`)
 		var s Schema
@@ -328,12 +346,30 @@ func TestSchemaJSONRoundTrip(t *testing.T) {
 		assert.True(t, ok, "unevaluatedItems should be *Schema after JSON unmarshal")
 	})
 
+	t.Run("unevaluatedItems bool preserved", func(t *testing.T) {
+		data := []byte(`{"type":"array","unevaluatedItems":false}`)
+		var s Schema
+		require.NoError(t, json.Unmarshal(data, &s))
+		b, ok := s.UnevaluatedItems.(bool)
+		assert.True(t, ok, "unevaluatedItems false should remain bool")
+		assert.False(t, b)
+	})
+
 	t.Run("unevaluatedProperties decoded as *Schema", func(t *testing.T) {
 		data := []byte(`{"type":"object","unevaluatedProperties":{"type":"boolean"}}`)
 		var s Schema
 		require.NoError(t, json.Unmarshal(data, &s))
 		_, ok := s.UnevaluatedProperties.(*Schema)
 		assert.True(t, ok, "unevaluatedProperties should be *Schema after JSON unmarshal")
+	})
+
+	t.Run("unevaluatedProperties bool preserved", func(t *testing.T) {
+		data := []byte(`{"type":"object","unevaluatedProperties":false}`)
+		var s Schema
+		require.NoError(t, json.Unmarshal(data, &s))
+		b, ok := s.UnevaluatedProperties.(bool)
+		assert.True(t, ok, "unevaluatedProperties false should remain bool")
+		assert.False(t, b)
 	})
 
 	t.Run("XML round-trip", func(t *testing.T) {

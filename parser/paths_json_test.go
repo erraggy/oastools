@@ -625,4 +625,28 @@ func TestOperationEmptySecurityMarshal(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, string(data), `"security":[]`, "empty non-nil security should marshal as [] even without x- fields")
 	})
+
+	t.Run("populated security slice marshals correctly", func(t *testing.T) {
+		op := &Operation{
+			Responses: okResponses,
+			Security: []SecurityRequirement{
+				{"api_key": []string{}},
+				{"oauth2": []string{"read", "write"}},
+			},
+		}
+		data, err := json.Marshal(op)
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"security"`, "populated security should be present")
+		assert.Contains(t, string(data), `"api_key"`, "security requirement should contain api_key")
+		assert.Contains(t, string(data), `"oauth2"`, "security requirement should contain oauth2")
+	})
+
+	t.Run("empty security array round-trips through unmarshal", func(t *testing.T) {
+		input := `{"responses":{"200":{"description":"ok"}},"security":[]}`
+		var op Operation
+		err := json.Unmarshal([]byte(input), &op)
+		require.NoError(t, err)
+		require.NotNil(t, op.Security, "empty security array should unmarshal to non-nil slice")
+		assert.Empty(t, op.Security, "security slice should be empty after round-trip")
+	})
 }

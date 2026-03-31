@@ -740,9 +740,10 @@ func TestConvertOAS2ParameterToOAS3_ItemsCollectionFormat(t *testing.T) {
 		"should warn about non-csv collectionFormat on items")
 }
 
-// newConverter creates a minimal Converter for unit testing helpers.
+// newConverter creates a Converter for unit testing helpers using the same
+// initialization path as production code.
 func newConverter() *Converter {
-	return &Converter{}
+	return New()
 }
 
 // countIssuesContaining counts issues whose message contains the given substring.

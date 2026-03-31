@@ -390,13 +390,13 @@ func removeFromParentAt(parent any, seg Segment, depth int) any {
 
 	case RecursiveSegment:
 		if s.Child != nil {
-			// Remove child at this level, then recurse into all descendants.
-			parent = removeFromParentAt(parent, s.Child, depth)
 			if depth > maxRecursionDepth {
 				jsonpathLogger.Warn("jsonpath recursive remove truncated at depth limit",
 					"depth", depth, "maxDepth", maxRecursionDepth)
 				return parent
 			}
+			// Remove child at this level, then recurse into all descendants.
+			parent = removeFromParentAt(parent, s.Child, depth)
 			switch v := parent.(type) {
 			case map[string]any:
 				for key, val := range v {
@@ -468,13 +468,13 @@ func modifyInParentAt(parent any, seg Segment, fn func(any) any, depth int) {
 
 	case RecursiveSegment:
 		if s.Child != nil {
-			// Apply transform at this level, then recurse into all descendants.
-			modifyInParentAt(parent, s.Child, fn, depth)
 			if depth > maxRecursionDepth {
 				jsonpathLogger.Warn("jsonpath recursive modify truncated at depth limit",
 					"depth", depth, "maxDepth", maxRecursionDepth)
 				return
 			}
+			// Apply transform at this level, then recurse into all descendants.
+			modifyInParentAt(parent, s.Child, fn, depth)
 			switch v := parent.(type) {
 			case map[string]any:
 				for _, val := range v {

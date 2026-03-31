@@ -122,11 +122,11 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 // map cannot be round-tripped through JSON into a *Schema, so callers get a
 // clear parse error rather than a silent type-assertion panic downstream.
 func promoteSchemaOrBool(v any) (any, error) {
-	switch val := v.(type) {
+	switch v.(type) {
 	case nil, bool, *Schema:
 		return v, nil
 	case map[string]any:
-		data, err := json.Marshal(val)
+		data, err := json.Marshal(v)
 		if err != nil {
 			return nil, fmt.Errorf("parser: schema field promotion: %w", err)
 		}

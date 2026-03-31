@@ -1147,6 +1147,21 @@ func TestApplyRootTarget(t *testing.T) {
 
 	doc := result.Document.(map[string]any)
 	assert.Equal(t, "added", doc["x-custom"], "root update should merge x-custom into document")
+
+	t.Run("root update overwrites existing key", func(t *testing.T) {
+		spec2 := mustParseSpec(t, `{"openapi":"3.0.0","info":{"title":"t","version":"1"},"paths":{}}`)
+		o2 := &Overlay{
+			Version: "1.0.0",
+			Info:    Info{Title: "test", Version: "1.0.0"},
+			Actions: []Action{
+				{Target: "$", Update: map[string]any{"openapi": "3.1.0"}},
+			},
+		}
+		result2, err2 := a.ApplyParsed(spec2, o2)
+		require.NoError(t, err2)
+		doc2 := result2.Document.(map[string]any)
+		assert.Equal(t, "3.1.0", doc2["openapi"], "root update should overwrite existing key")
+	})
 }
 
 // TestApplyRecursiveRemove verifies that $..field remove deletes the field from
