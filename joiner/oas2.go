@@ -224,10 +224,10 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 			case StrategyDeduplicateEquivalent:
 				// Use semantic equivalence to determine if schemas are identical
 				mode := EquivalenceModeNone
-				switch j.config.EquivalenceMode {
-				case "shallow":
+				switch EquivalenceMode(j.config.EquivalenceMode) {
+				case EquivalenceModeShallow:
 					mode = EquivalenceModeShallow
-				case "deep":
+				case EquivalenceModeDeep:
 					mode = EquivalenceModeDeep
 				}
 
