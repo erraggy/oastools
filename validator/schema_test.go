@@ -413,6 +413,148 @@ func TestValidate_WhitespaceSchemaName_OAS3(t *testing.T) {
 	assert.True(t, foundError, "Should have error about whitespace-only schema name")
 }
 
+// ========================================
+// Schema Type "null" Validation Tests (OAS 3.0 vs 3.1+)
+// ========================================
+
+// TestValidate_NullType_OAS30_Rejected verifies that schemas declaring
+// type: "null" are rejected in OAS 3.0.x, where the only valid types are
+// array, boolean, integer, number, object, string. Nullability in 3.0 is
+// expressed via "nullable: true". See issue #362.
+func TestValidate_NullType_OAS30_Rejected(t *testing.T) {
+	tests := []struct {
+		name       string
+		version    string
+		oasVersion parser.OASVersion
+	}{
+		{"OAS 3.0.0", "3.0.0", parser.OASVersion300},
+		{"OAS 3.0.1", "3.0.1", parser.OASVersion301},
+		{"OAS 3.0.2", "3.0.2", parser.OASVersion302},
+		{"OAS 3.0.3", "3.0.3", parser.OASVersion303},
+		{"OAS 3.0.4", "3.0.4", parser.OASVersion304},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := &parser.OAS3Document{
+				OpenAPI: tt.version,
+				Info: &parser.Info{
+					Title:   "Test API",
+					Version: "1.0.0",
+				},
+				Paths: map[string]*parser.PathItem{},
+				Components: &parser.Components{
+					Schemas: map[string]*parser.Schema{
+						"BadNull": {
+							Type: "null",
+						},
+					},
+				},
+			}
+
+			parseResult := &parser.ParseResult{
+				Version:    tt.version,
+				OASVersion: tt.oasVersion,
+				Document:   doc,
+			}
+
+			v := New()
+			result, err := v.ValidateParsed(*parseResult)
+			require.NoError(t, err)
+
+			foundNullTypeError := false
+			for _, e := range result.Errors {
+				if strings.Contains(e.Path, "components.schemas.BadNull") &&
+					strings.Contains(e.Message, `"null" is not a valid type for OpenAPI 3.0`) {
+					foundNullTypeError = true
+					assert.Equal(t, "type", e.Field, "Error should set Field to 'type'")
+					assert.Equal(t, "null", e.Value, "Error should set Value to 'null'")
+					assert.Contains(t, e.SpecRef, "spec.openapis.org/oas/v3.0.0.html#data-types",
+						"Error should reference OAS 3.0 data-types spec section")
+					break
+				}
+			}
+			assert.True(t, foundNullTypeError,
+				"Expected error about 'null' not being a valid OAS 3.0 type, got errors: %v",
+				result.Errors)
+			assert.False(t, result.Valid, "Document should be invalid")
+		})
+	}
+}
+
+// TestValidate_NullType_OAS31_Allowed verifies that schemas declaring
+// type: "null" are accepted in OAS 3.1+ (JSON Schema 2020-12).
+func TestValidate_NullType_OAS31_Allowed(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.1.0",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: map[string]*parser.PathItem{},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"NullSchema": {
+					Type: "null",
+				},
+			},
+		},
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Document:   doc,
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	// No error about "null" being invalid should be present under OAS 3.1.
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, `"null" is not a valid type for OpenAPI 3.0`) {
+			t.Errorf("Unexpected OAS 3.0 null-type error under OAS 3.1: %s", e.String())
+		}
+	}
+}
+
+// TestValidate_StringType_OAS30_Allowed is a regression guard ensuring that
+// the OAS 3.0 null-type rejection does not flag other legitimate types.
+func TestValidate_StringType_OAS30_Allowed(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.0",
+		Info: &parser.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Paths: map[string]*parser.PathItem{},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Plain": {
+					Type: "string",
+				},
+			},
+		},
+	}
+
+	parseResult := &parser.ParseResult{
+		Version:    "3.0.0",
+		OASVersion: parser.OASVersion300,
+		Document:   doc,
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(*parseResult)
+	require.NoError(t, err)
+
+	for _, e := range result.Errors {
+		if strings.Contains(e.Path, "components.schemas.Plain") {
+			t.Errorf("Unexpected error for valid string schema under OAS 3.0: %s", e.String())
+		}
+	}
+}
+
 // TestValidate_ValidSchemaNames tests that valid schema names pass validation
 func TestValidate_ValidSchemaNames(t *testing.T) {
 	tests := []struct {
