@@ -10,9 +10,7 @@ import (
 
 func TestDifferNew(t *testing.T) {
 	d := New()
-	if d == nil {
-		t.Fatal("Expected non-nil Differ")
-	}
+	require.NotNil(t, d, "Expected non-nil Differ")
 
 	if d.Mode != ModeSimple {
 		t.Errorf("Expected default mode to be ModeSimple, got %d", d.Mode)
