@@ -170,7 +170,28 @@ func (v *Validator) validateSchemaTypeConstraints(schema *parser.Schema, path st
 				withSpecRef(getJSONSchemaRef()),
 			)
 		}
+	case "null":
+		// "null" is only a valid JSON Schema type in OAS 3.1+ (JSON Schema 2020-12).
+		// In OAS 3.0.x, the only valid types are: array, boolean, integer, number,
+		// object, string. Nullability is expressed via "nullable: true".
+		// Note: this only catches the scalar form (schema.Type == "null"). OAS 3.1+
+		// type arrays (e.g. ["string", "null"]) are represented as []any and bypass
+		// this switch entirely, which is the correct behavior.
+		if isOAS30x(v.oasVersion) {
+			v.addError(result, path,
+				`"null" is not a valid type for OpenAPI 3.0; valid types are: array, boolean, integer, number, object, string. Use "nullable: true" instead.`,
+				withSpecRef("https://spec.openapis.org/oas/v3.0.0.html#data-types"),
+				withField("type"),
+				withValue("null"),
+			)
+		}
 	}
+}
+
+// isOAS30x reports whether the given version is in the OAS 3.0.x family,
+// where "null" is not a valid schema type.
+func isOAS30x(version parser.OASVersion) bool {
+	return version >= parser.OASVersion300 && version <= parser.OASVersion304
 }
 
 // validateRequiredFields validates that required fields exist in properties

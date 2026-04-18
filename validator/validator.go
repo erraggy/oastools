@@ -124,6 +124,10 @@ type Validator struct {
 	// refTracker tracks which operations reference which components.
 	// Built during ValidateParsed for populating OperationContext on issues.
 	refTracker *refTracker
+	// oasVersion is the detected OAS version for the document under validation.
+	// Set during ValidateParsed so version-sensitive checks (e.g., type "null"
+	// being illegal in OAS 3.0.x) can consult it without plumbing through every call.
+	oasVersion parser.OASVersion
 }
 
 // New creates a new Validator instance with default settings
@@ -259,6 +263,10 @@ func (v *Validator) ValidateParsed(parseResult parser.ParseResult) (*ValidationR
 		SourceFormat: parseResult.SourceFormat,
 		SourcePath:   parseResult.SourcePath,
 	}
+
+	// Record the OAS version for version-sensitive checks (e.g., type "null"
+	// being illegal in OAS 3.0.x but valid in OAS 3.1+).
+	v.oasVersion = parseResult.OASVersion
 
 	// Build reference tracker for operation context
 	switch doc := parseResult.Document.(type) {
