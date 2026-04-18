@@ -599,6 +599,7 @@ oastools join [flags] <file1> <file2> [file3...]
 | `--primary-operation-policy` | | Policy for selecting primary operation: `first`, `most-specific`, `alphabetical` (default: `first`) |
 | `--semantic-dedup` | | Enable semantic deduplication to consolidate identical schemas |
 | `--equivalence-mode` | | Schema comparison mode for deduplication: `none`, `shallow`, `deep` (default: `none`) |
+| `--equivalence-docs` | | Whether `title`, `description`, `example`, and `examples` participate in schema equivalence: `include` (default, strict), `ignore` (legacy loose) |
 | `--collision-report` | | Generate detailed collision analysis report |
 | `--namespace-prefix` | | Namespace prefix for source file (format: source=prefix, can be repeated) |
 | `--always-prefix` | | Apply namespace prefix to all schemas, not just on collision |

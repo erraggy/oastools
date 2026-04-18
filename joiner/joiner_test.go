@@ -984,10 +984,15 @@ func TestJoinOAS3_RenameStrategies(t *testing.T) {
 func TestJoinOAS3_DeduplicateStrategy(t *testing.T) {
 	testdataDir := filepath.Join("..", "testdata")
 
-	t.Run("deduplicate equivalent schemas", func(t *testing.T) {
+	t.Run("deduplicate equivalent schemas with loose docs", func(t *testing.T) {
+		// The Product fixtures differ only in title/description. Under the
+		// strict default these would NOT be consolidated. Opt in to the
+		// legacy loose behavior to verify dedup still works when callers
+		// explicitly accept that documentation will be discarded.
 		config := DefaultConfig()
 		config.SchemaStrategy = StrategyDeduplicateEquivalent
 		config.EquivalenceMode = "deep"
+		config.EquivalenceDocs = string(EquivalenceDocsIgnore)
 
 		j := New(config)
 		result, err := j.Join([]string{
@@ -1007,6 +1012,23 @@ func TestJoinOAS3_DeduplicateStrategy(t *testing.T) {
 
 		// Should have both paths
 		assert.Equal(t, 2, len(doc.Paths))
+	})
+
+	t.Run("deduplicate under strict docs preserves metadata-only differences", func(t *testing.T) {
+		// Same fixtures, strict default. Because the two Product schemas
+		// differ in title/description, dedup must refuse to consolidate.
+		config := DefaultConfig()
+		config.SchemaStrategy = StrategyDeduplicateEquivalent
+		config.EquivalenceMode = "deep"
+
+		j := New(config)
+		_, err := j.Join([]string{
+			filepath.Join(testdataDir, "join-equivalent-schemas-base-3.0.yaml"),
+			filepath.Join(testdataDir, "join-equivalent-schemas-ext-3.0.yaml"),
+		})
+
+		require.Error(t, err, "strict default should fail to dedup schemas with divergent docs")
+		assert.Contains(t, err.Error(), "not equivalent")
 	})
 
 	t.Run("deduplicate fails on non-equivalent schemas", func(t *testing.T) {
@@ -1140,6 +1162,9 @@ func TestJoinWithOptions_NewStrategies(t *testing.T) {
 	})
 
 	t.Run("with equivalence mode option", func(t *testing.T) {
+		// The Product fixtures differ in title/description so this scenario
+		// requires EquivalenceDocs=ignore to consolidate them. Under the
+		// strict default the joiner would refuse to dedup.
 		result, err := JoinWithOptions(
 			WithFilePaths(
 				filepath.Join(testdataDir, "join-equivalent-schemas-base-3.0.yaml"),
@@ -1147,6 +1172,7 @@ func TestJoinWithOptions_NewStrategies(t *testing.T) {
 			),
 			WithSchemaStrategy(StrategyDeduplicateEquivalent),
 			WithEquivalenceMode("deep"),
+			WithEquivalenceDocs(string(EquivalenceDocsIgnore)),
 		)
 
 		require.NoError(t, err)

@@ -89,6 +89,31 @@ func TestValidateEquivalenceMode(t *testing.T) {
 	}
 }
 
+func TestValidateEquivalenceDocs(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{"empty value", "", false},
+		{"valid include", "include", false},
+		{"valid ignore", "ignore", false},
+		{"invalid value", "strict", true},
+		{"case sensitive INCLUDE", "INCLUDE", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateEquivalenceDocs(tt.value)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestMarshalDocument(t *testing.T) {
 	doc := map[string]string{"key": "value"}
 

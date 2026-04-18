@@ -182,8 +182,9 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	// Apply semantic deduplication if enabled
 	if j.config.SemanticDeduplication && len(joined.Components.Schemas) > 1 {
+		compareOpts := j.buildCompareOptions(EquivalenceModeDeep)
 		compare := func(left, right *parser.Schema) bool {
-			res := CompareSchemas(left, right, EquivalenceModeDeep)
+			res := CompareSchemasWithOptions(left, right, compareOpts)
 			return res.Equivalent
 		}
 		config := schemautil.DefaultDeduplicationConfig()
@@ -348,7 +349,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				}
 
 				if mode != EquivalenceModeNone {
-					eqResult := CompareSchemas(target[effectiveName], schema, mode)
+					eqResult := CompareSchemasWithOptions(target[effectiveName], schema, j.buildCompareOptions(mode))
 					if eqResult.Equivalent {
 						// Schemas are equivalent, keep existing and skip
 						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))

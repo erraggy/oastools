@@ -1374,6 +1374,45 @@ func main() {
 }
 ```
 
+### Preserving Documentation During Deduplication
+
+Since v1.54.0, semantic equivalence is **strict by default**: two schemas that
+differ only in `title`, `description`, `example`, or `examples` are treated
+as **not equivalent** and are preserved as separate schemas. This prevents a
+subtle documentation-clobbering bug where every `$ref` site to a
+consolidated schema ended up pointing at a canonical schema whose prose
+applied to a different context (for example, a 403 response landing on a
+schema whose description said "The request is invalid").
+
+Callers that explicitly want the legacy loose behavior — where schemas with
+identical structure are merged regardless of docs — can opt in with
+`WithEquivalenceDocs`:
+
+```go
+result, err := joiner.JoinWithOptions(
+    joiner.WithFilePaths("users-api.yaml", "admin-api.yaml"),
+    joiner.WithSemanticDeduplication(true),
+    // Accept that consolidated schemas' docs will be replaced
+    // at every $ref site.
+    joiner.WithEquivalenceDocs(string(joiner.EquivalenceDocsIgnore)),
+)
+```
+
+The CLI exposes the same control via `--equivalence-docs`:
+
+```bash
+# Default: strict. Schemas with differing docs are preserved.
+oastools join --semantic-dedup -o merged.yaml api1.yaml api2.yaml
+
+# Loose: legacy behavior. Differing docs are discarded during dedup.
+oastools join --semantic-dedup --equivalence-docs ignore \
+    -o merged.yaml api1.yaml api2.yaml
+```
+
+The same `WithEquivalenceDocs` option applies to the `deduplicate` collision
+strategy (`SchemaStrategy = StrategyDeduplicateEquivalent`) and to the
+`SemanticDeduplication` post-merge pass.
+
 ### High-Performance Joining with Pre-Parsed Documents
 
 For integration with other oastools packages, use pre-parsed documents for 154x faster performance:

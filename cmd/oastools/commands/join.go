@@ -78,6 +78,7 @@ type JoinFlags struct {
 	// Advanced collision strategies
 	RenameTemplate  string
 	EquivalenceMode string
+	EquivalenceDocs string
 	CollisionReport bool
 	SemanticDedup   bool
 	// Namespace prefix configuration
@@ -114,6 +115,8 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 	// Advanced collision strategies
 	fs.StringVar(&flags.RenameTemplate, "rename-template", "{{.Name}}_{{.Source}}", "template for renamed schema names")
 	fs.StringVar(&flags.EquivalenceMode, "equivalence-mode", "none", "schema comparison mode for deduplication (none, shallow, deep)")
+	fs.StringVar(&flags.EquivalenceDocs, "equivalence-docs", "include",
+		"whether title/description/example/examples participate in schema equivalence (include, ignore)")
 	fs.BoolVar(&flags.CollisionReport, "collision-report", false, "generate detailed collision analysis report")
 	fs.BoolVar(&flags.SemanticDedup, "semantic-dedup", false, "enable semantic deduplication to consolidate identical schemas")
 
@@ -243,6 +246,9 @@ func HandleJoin(args []string) error {
 	// Apply advanced collision strategy settings
 	config.RenameTemplate = flags.RenameTemplate
 	config.EquivalenceMode = flags.EquivalenceMode
+	if flags.EquivalenceDocs != "" {
+		config.EquivalenceDocs = flags.EquivalenceDocs
+	}
 	config.CollisionReport = flags.CollisionReport
 	config.SemanticDeduplication = flags.SemanticDedup
 
@@ -264,6 +270,9 @@ func HandleJoin(args []string) error {
 		return err
 	}
 	if err := ValidateEquivalenceMode(flags.EquivalenceMode); err != nil {
+		return err
+	}
+	if err := ValidateEquivalenceDocs(flags.EquivalenceDocs); err != nil {
 		return err
 	}
 	if err := ValidatePrimaryOperationPolicy(flags.PrimaryOperationPolicy); err != nil {
