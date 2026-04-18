@@ -1376,7 +1376,7 @@ func main() {
 
 ### Preserving Documentation During Deduplication
 
-Since v1.54.0, semantic equivalence is **strict by default**: two schemas that
+Since v1.53.2, semantic equivalence is **strict by default**: two schemas that
 differ only in `title`, `description`, `example`, or `examples` are treated
 as **not equivalent** and are preserved as separate schemas. This prevents a
 subtle documentation-clobbering bug where every `$ref` site to a
@@ -1394,7 +1394,7 @@ result, err := joiner.JoinWithOptions(
     joiner.WithSemanticDeduplication(true),
     // Accept that consolidated schemas' docs will be replaced
     // at every $ref site.
-    joiner.WithEquivalenceDocs(string(joiner.EquivalenceDocsIgnore)),
+    joiner.WithEquivalenceDocs("ignore"),
 )
 ```
 

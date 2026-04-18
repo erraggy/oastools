@@ -106,6 +106,46 @@ func Example_semanticDeduplication() {
 	// Version: 3.0.3
 }
 
+// Example_equivalenceDocs demonstrates controlling whether title, description,
+// example, and examples participate in semantic-dedup equivalence comparison.
+// The default ("include") is strict: schemas with differing docs are preserved
+// as separate schemas. Use "ignore" to restore the legacy loose behavior.
+func Example_equivalenceDocs() {
+	outputPath := filepath.Join(os.TempDir(), "joined-dedup-loose.yaml")
+	defer func() { _ = os.Remove(outputPath) }()
+
+	// Opt in to loose equivalence: schemas differing only in docs are merged.
+	// The surviving canonical schema's docs replace docs at every $ref site.
+	config := joiner.JoinerConfig{
+		DefaultStrategy:       joiner.StrategyAcceptLeft,
+		SemanticDeduplication: true,
+		EquivalenceMode:       "deep",
+		EquivalenceDocs:       "ignore", // legacy loose behavior
+		DeduplicateTags:       true,
+		MergeArrays:           true,
+	}
+
+	j := joiner.New(config)
+	result, err := j.Join([]string{
+		"../testdata/join-base-3.0.yaml",
+		"../testdata/join-extension-3.0.yaml",
+	})
+	if err != nil {
+		log.Fatalf("failed to join: %v", err)
+	}
+
+	err = j.WriteResult(result, outputPath)
+	if err != nil {
+		log.Fatalf("failed to write result: %v", err)
+	}
+
+	fmt.Printf("Joined successfully\n")
+	fmt.Printf("Version: %s\n", result.Version)
+	// Output:
+	// Joined successfully
+	// Version: 3.0.3
+}
+
 // Example_operationContext demonstrates operation-aware schema renaming.
 // When OperationContext is enabled, the joiner traces schemas back to their
 // originating operations, allowing rename templates to use fields like
