@@ -11,6 +11,7 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 [![Go Reference](https://pkg.go.dev/badge/github.com/erraggy/oastools.svg)](https://pkg.go.dev/github.com/erraggy/oastools)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Try it Online](https://img.shields.io/badge/Try_it-Online-blue)](https://oastools.robnrob.com)
+[![SafeSkill 85/100](https://img.shields.io/badge/SafeSkill-85%2F100_Passes%20with%20Notes-yellow)](https://safeskill.dev/scan/erraggy-oastools)
 
 **Parse, validate, fix, convert, diff, join, generate, and build OpenAPI specs (2.0–3.2) — all in one tool.**
 
