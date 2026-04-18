@@ -15,9 +15,7 @@ import (
 // TestValidatorNew tests the New constructor
 func TestValidatorNew(t *testing.T) {
 	v := New()
-	if v == nil {
-		t.Fatal("New() returned nil")
-	}
+	require.NotNil(t, v, "New() returned nil")
 	if !v.IncludeWarnings {
 		t.Error("Expected IncludeWarnings to be true by default")
 	}
@@ -374,9 +372,7 @@ func TestCircularSchemaReferences(t *testing.T) {
 	}
 
 	// Validation should not crash on circular schemas
-	if result == nil {
-		t.Fatal("Expected result, got nil")
-	}
+	require.NotNil(t, result, "Expected result, got nil")
 
 	t.Logf("Circular schema validation completed with %d errors, %d warnings", result.ErrorCount, result.WarningCount)
 }
@@ -394,9 +390,7 @@ func TestDeeplyNestedSchemas(t *testing.T) {
 	}
 
 	// Validation should complete without stack overflow
-	if result == nil {
-		t.Fatal("Expected result, got nil")
-	}
+	require.NotNil(t, result, "Expected result, got nil")
 
 	t.Logf("Deeply nested schema validation completed with %d errors, %d warnings", result.ErrorCount, result.WarningCount)
 }

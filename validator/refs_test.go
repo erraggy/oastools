@@ -281,9 +281,7 @@ components:
 				t.Fatalf("Validate failed: %v", err)
 			}
 
-			if result == nil {
-				t.Fatal("Expected result, got nil")
-			}
+			require.NotNil(t, result, "Expected result, got nil")
 
 			hasRefError := false
 			for _, validationErr := range result.Errors {
