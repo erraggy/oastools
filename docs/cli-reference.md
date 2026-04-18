@@ -743,6 +743,9 @@ oastools join --no-dedup-tags -o merged.yaml base.yaml ext.yaml
 # Enable semantic deduplication to consolidate identical schemas
 oastools join --semantic-dedup -o merged.yaml api1.yaml api2.yaml
 
+# Semantic dedup with legacy loose mode (ignore title/description/example differences)
+oastools join --semantic-dedup --equivalence-docs ignore -o merged.yaml api1.yaml api2.yaml
+
 # Rename colliding schemas with source file suffix
 oastools join --schema-strategy rename-right \
   --rename-template "{{.Name}}_{{.Source}}" \
