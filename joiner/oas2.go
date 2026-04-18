@@ -70,8 +70,9 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	// Apply semantic deduplication if enabled
 	if j.config.SemanticDeduplication && len(joined.Definitions) > 1 {
+		compareOpts := j.buildCompareOptions(EquivalenceModeDeep)
 		compare := func(left, right *parser.Schema) bool {
-			res := CompareSchemas(left, right, EquivalenceModeDeep)
+			res := CompareSchemasWithOptions(left, right, compareOpts)
 			return res.Equivalent
 		}
 		config := schemautil.DefaultDeduplicationConfig()
@@ -223,15 +224,15 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 			case StrategyDeduplicateEquivalent:
 				// Use semantic equivalence to determine if schemas are identical
 				mode := EquivalenceModeNone
-				switch j.config.EquivalenceMode {
-				case "shallow":
+				switch EquivalenceMode(j.config.EquivalenceMode) {
+				case EquivalenceModeShallow:
 					mode = EquivalenceModeShallow
-				case "deep":
+				case EquivalenceModeDeep:
 					mode = EquivalenceModeDeep
 				}
 
 				if mode != EquivalenceModeNone {
-					eqResult := CompareSchemas(joined.Definitions[effectiveName], schema, mode)
+					eqResult := CompareSchemasWithOptions(joined.Definitions[effectiveName], schema, j.buildCompareOptions(mode))
 					if eqResult.Equivalent {
 						// Schemas are equivalent, keep existing and skip
 						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))

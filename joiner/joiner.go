@@ -90,6 +90,12 @@ type JoinerConfig struct {
 	AlwaysApplyPrefix bool
 	// EquivalenceMode controls depth of schema comparison: "none", "shallow", or "deep"
 	EquivalenceMode string
+	// EquivalenceDocs controls whether documentation metadata (title, description,
+	// example, examples) participates in schema equivalence.
+	// Valid values: "include" (default, strict), "ignore" (legacy loose behavior).
+	// When "include", semantic deduplication refuses to consolidate schemas that
+	// differ only in their prose, preserving reference-site documentation.
+	EquivalenceDocs string
 	// CollisionReport enables detailed collision analysis reporting
 	CollisionReport bool
 	// SemanticDeduplication enables cross-document schema deduplication after merging.
@@ -122,6 +128,7 @@ func DefaultConfig() JoinerConfig {
 		NamespacePrefix:   make(map[string]string),
 		AlwaysApplyPrefix: false,
 		EquivalenceMode:   "none",
+		EquivalenceDocs:   string(EquivalenceDocsInclude),
 		CollisionReport:   false,
 	}
 }
@@ -147,6 +154,17 @@ func New(config JoinerConfig) *Joiner {
 	return &Joiner{
 		config: config,
 	}
+}
+
+// buildCompareOptions builds a CompareOptions for schema equivalence using
+// the joiner's configured EquivalenceDocs setting. Invalid or empty values
+// fall back to EquivalenceDocsInclude (strict).
+func (j *Joiner) buildCompareOptions(mode EquivalenceMode) CompareOptions {
+	docs := EquivalenceDocs(j.config.EquivalenceDocs)
+	if !IsValidEquivalenceDocs(string(docs)) {
+		docs = EquivalenceDocsInclude
+	}
+	return CompareOptions{Mode: mode, Docs: docs}
 }
 
 // JoinResult contains the joined OpenAPI specification and metadata

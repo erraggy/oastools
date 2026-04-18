@@ -30,6 +30,7 @@ type joinConfig struct {
 	namespacePrefix        map[string]string
 	alwaysApplyPrefix      *bool
 	equivalenceMode        *string
+	equivalenceDocs        *string
 	collisionReport        *bool
 	semanticDeduplication  *bool
 	operationContext       *bool
@@ -89,6 +90,7 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 		NamespacePrefix:       mapValueOrDefault(cfg.namespacePrefix, defaults.NamespacePrefix),
 		AlwaysApplyPrefix:     boolValueOrDefault(cfg.alwaysApplyPrefix, defaults.AlwaysApplyPrefix),
 		EquivalenceMode:       stringValueOrDefault(cfg.equivalenceMode, defaults.EquivalenceMode),
+		EquivalenceDocs:       stringValueOrDefault(cfg.equivalenceDocs, defaults.EquivalenceDocs),
 		CollisionReport:       boolValueOrDefault(cfg.collisionReport, defaults.CollisionReport),
 		SemanticDeduplication: boolValueOrDefault(cfg.semanticDeduplication, defaults.SemanticDeduplication),
 	}
@@ -375,6 +377,7 @@ func WithConfig(config JoinerConfig) Option {
 		cfg.namespacePrefix = config.NamespacePrefix
 		cfg.alwaysApplyPrefix = &config.AlwaysApplyPrefix
 		cfg.equivalenceMode = &config.EquivalenceMode
+		cfg.equivalenceDocs = &config.EquivalenceDocs
 		cfg.collisionReport = &config.CollisionReport
 		cfg.semanticDeduplication = &config.SemanticDeduplication
 		cfg.operationContext = &config.OperationContext
@@ -475,6 +478,28 @@ func WithEquivalenceMode(mode string) Option {
 			return fmt.Errorf("invalid equivalence mode %q: valid values are none, shallow, deep", mode)
 		}
 		cfg.equivalenceMode = &mode
+		return nil
+	}
+}
+
+// WithEquivalenceDocs controls whether documentation metadata (title,
+// description, example, examples) participates in schema equivalence.
+// Valid values: "include" (default, strict), "ignore" (legacy loose).
+//
+// When "include" (strict), semantic deduplication refuses to merge schemas
+// that differ only in their prose. This preserves reference-site
+// documentation accuracy: a schema referenced from a 403 response won't be
+// consolidated with a schema whose description applies to 400 errors.
+//
+// When "ignore" (loose), documentation differences are treated as
+// inconsequential for equivalence. Use when you explicitly accept that the
+// surviving canonical schema's docs will replace docs at every $ref site.
+func WithEquivalenceDocs(mode string) Option {
+	return func(cfg *joinConfig) error {
+		if !IsValidEquivalenceDocs(mode) {
+			return fmt.Errorf("invalid equivalence docs %q: valid values are include, ignore", mode)
+		}
+		cfg.equivalenceDocs = &mode
 		return nil
 	}
 }

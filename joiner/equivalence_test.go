@@ -336,26 +336,152 @@ func TestCompareSchemas_AllOfLengthMismatch(t *testing.T) {
 	assert.True(t, found)
 }
 
-func TestCompareSchemas_IgnoresMetadata(t *testing.T) {
+func TestCompareSchemas_DocsIncludedByDefault(t *testing.T) {
+	// Schemas that differ only in documentation fields are NOT equivalent
+	// under the default (strict) policy. Callers that want the old loose
+	// behavior can opt in with EquivalenceDocsIgnore.
 	left := &parser.Schema{
 		Type:        "string",
 		Title:       "User Name",
 		Description: "The name of the user",
 		Example:     "John Doe",
-		Deprecated:  false,
 	}
 	right := &parser.Schema{
 		Type:        "string",
 		Title:       "Full Name",
 		Description: "User's full name",
 		Example:     "Jane Smith",
-		Deprecated:  true,
 	}
 
+	// Default: docs included -> not equivalent
 	result := CompareSchemas(left, right, EquivalenceModeDeep)
+	assert.False(t, result.Equivalent, "schemas differing only in docs should NOT be equivalent under default")
+	assert.NotEmpty(t, result.Differences, "expected differences to be recorded")
 
-	// Should be equivalent because metadata is ignored
-	assert.True(t, result.Equivalent, "schemas should be equivalent when only metadata differs")
+	// Opt-in loose mode: docs ignored -> equivalent
+	looseResult := CompareSchemasWithOptions(left, right, CompareOptions{
+		Mode: EquivalenceModeDeep,
+		Docs: EquivalenceDocsIgnore,
+	})
+	assert.True(t, looseResult.Equivalent, "schemas should be equivalent when docs are explicitly ignored")
+}
+
+func TestCompareSchemas_TitleOnlyDifference(t *testing.T) {
+	left := &parser.Schema{Type: "string", Title: "A"}
+	right := &parser.Schema{Type: "string", Title: "B"}
+
+	// Default (strict): titles differ -> not equivalent
+	strict := CompareSchemas(left, right, EquivalenceModeDeep)
+	assert.False(t, strict.Equivalent)
+	require.NotEmpty(t, strict.Differences)
+	assert.Equal(t, "title", strict.Differences[0].Path)
+
+	// Loose mode: titles ignored -> equivalent
+	loose := CompareSchemasWithOptions(left, right, CompareOptions{
+		Mode: EquivalenceModeDeep,
+		Docs: EquivalenceDocsIgnore,
+	})
+	assert.True(t, loose.Equivalent)
+}
+
+func TestCompareSchemas_DescriptionOnlyDifference(t *testing.T) {
+	left := &parser.Schema{Type: "string", Description: "the first"}
+	right := &parser.Schema{Type: "string", Description: "the second"}
+
+	strict := CompareSchemas(left, right, EquivalenceModeDeep)
+	assert.False(t, strict.Equivalent)
+	require.NotEmpty(t, strict.Differences)
+	assert.Equal(t, "description", strict.Differences[0].Path)
+
+	loose := CompareSchemasWithOptions(left, right, CompareOptions{
+		Mode: EquivalenceModeDeep,
+		Docs: EquivalenceDocsIgnore,
+	})
+	assert.True(t, loose.Equivalent)
+}
+
+func TestCompareSchemas_ExampleOnlyDifference(t *testing.T) {
+	left := &parser.Schema{Type: "string", Example: "hello"}
+	right := &parser.Schema{Type: "string", Example: "world"}
+
+	strict := CompareSchemas(left, right, EquivalenceModeDeep)
+	assert.False(t, strict.Equivalent)
+	require.NotEmpty(t, strict.Differences)
+	assert.Equal(t, "example", strict.Differences[0].Path)
+
+	loose := CompareSchemasWithOptions(left, right, CompareOptions{
+		Mode: EquivalenceModeDeep,
+		Docs: EquivalenceDocsIgnore,
+	})
+	assert.True(t, loose.Equivalent)
+}
+
+func TestCompareSchemas_NestedDocDifference(t *testing.T) {
+	// Two object schemas, identical at the top level, but a nested property
+	// differs only in description. Default behavior: not equivalent.
+	left := &parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"id": {Type: "string", Description: "the user id"},
+		},
+	}
+	right := &parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"id": {Type: "string", Description: "the account id"},
+		},
+	}
+
+	strict := CompareSchemas(left, right, EquivalenceModeDeep)
+	assert.False(t, strict.Equivalent, "nested description differences should bubble up")
+	require.NotEmpty(t, strict.Differences)
+	assert.Equal(t, "properties.id.description", strict.Differences[0].Path)
+
+	loose := CompareSchemasWithOptions(left, right, CompareOptions{
+		Mode: EquivalenceModeDeep,
+		Docs: EquivalenceDocsIgnore,
+	})
+	assert.True(t, loose.Equivalent, "nested docs should be ignored in loose mode")
+}
+
+func TestCompareSchemas_IdenticalSchemasAlwaysEquivalent(t *testing.T) {
+	// When schemas are fully identical (structure + docs), both modes agree.
+	left := &parser.Schema{
+		Type:        "string",
+		Title:       "Name",
+		Description: "A name",
+		Example:     "Alice",
+	}
+	right := &parser.Schema{
+		Type:        "string",
+		Title:       "Name",
+		Description: "A name",
+		Example:     "Alice",
+	}
+
+	assert.True(t, CompareSchemas(left, right, EquivalenceModeDeep).Equivalent)
+	assert.True(t, CompareSchemasWithOptions(left, right, CompareOptions{
+		Mode: EquivalenceModeDeep,
+		Docs: EquivalenceDocsIgnore,
+	}).Equivalent)
+}
+
+func TestIsValidEquivalenceDocs(t *testing.T) {
+	assert.True(t, IsValidEquivalenceDocs("include"))
+	assert.True(t, IsValidEquivalenceDocs("ignore"))
+	assert.False(t, IsValidEquivalenceDocs(""))
+	assert.False(t, IsValidEquivalenceDocs("strict"))
+	assert.False(t, IsValidEquivalenceDocs("INCLUDE"))
+	assert.Equal(t, []string{"include", "ignore"}, ValidEquivalenceDocs())
+}
+
+func TestCompareSchemasWithOptions_EmptyDocsDefaultsToInclude(t *testing.T) {
+	// Empty Docs is treated as "include" (strict).
+	left := &parser.Schema{Type: "string", Description: "one"}
+	right := &parser.Schema{Type: "string", Description: "two"}
+
+	result := CompareSchemasWithOptions(left, right, CompareOptions{Mode: EquivalenceModeDeep})
+	assert.False(t, result.Equivalent, "empty Docs should default to include (strict)")
 }
 
 func TestCompareSchemas_CircularReferences(t *testing.T) {

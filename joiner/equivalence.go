@@ -63,6 +63,68 @@ func IsValidEquivalenceMode(mode string) bool {
 	}
 }
 
+// EquivalenceDocs controls whether documentation-oriented metadata fields
+// (title, description, example, examples) participate in schema equivalence.
+//
+// When EquivalenceDocsInclude (the default) is selected, two schemas that
+// differ only in their documentation are treated as non-equivalent. This
+// matters for semantic deduplication: merging schemas with divergent
+// descriptions causes the canonical schema's docs to replace the other
+// schemas' docs at every $ref site, which produces misleading API
+// documentation (for example, a 403 response pointing at a schema whose
+// description says "The request is invalid").
+//
+// When EquivalenceDocsIgnore is selected, title/description/example/examples
+// are ignored during comparison. Use this when you intentionally want
+// structurally identical schemas to be consolidated even if their prose
+// differs, and the docs of the surviving canonical schema are acceptable for
+// every reference site.
+type EquivalenceDocs string
+
+const (
+	// EquivalenceDocsInclude makes title, description, example, and examples
+	// part of the comparison. Default and recommended.
+	EquivalenceDocsInclude EquivalenceDocs = "include"
+	// EquivalenceDocsIgnore skips documentation metadata during comparison.
+	EquivalenceDocsIgnore EquivalenceDocs = "ignore"
+)
+
+// ValidEquivalenceDocs returns all valid equivalence docs strings
+func ValidEquivalenceDocs() []string {
+	return []string{
+		string(EquivalenceDocsInclude),
+		string(EquivalenceDocsIgnore),
+	}
+}
+
+// IsValidEquivalenceDocs checks if an equivalence docs string is valid
+func IsValidEquivalenceDocs(mode string) bool {
+	switch EquivalenceDocs(mode) {
+	case EquivalenceDocsInclude, EquivalenceDocsIgnore:
+		return true
+	default:
+		return false
+	}
+}
+
+// CompareOptions configures schema equivalence comparison behavior.
+//
+// Mode controls structural comparison depth.
+// Docs controls whether documentation metadata participates in comparison.
+type CompareOptions struct {
+	// Mode controls comparison depth: none, shallow, or deep.
+	Mode EquivalenceMode
+	// Docs controls whether title/description/example/examples participate.
+	// Empty value is treated as EquivalenceDocsInclude (strict).
+	Docs EquivalenceDocs
+}
+
+// defaultCompareOptions builds a CompareOptions with the provided mode and
+// the strict (include) documentation policy.
+func defaultCompareOptions(mode EquivalenceMode) CompareOptions {
+	return CompareOptions{Mode: mode, Docs: EquivalenceDocsInclude}
+}
+
 // EquivalenceResult contains the outcome of schema comparison
 type EquivalenceResult struct {
 	Equivalent  bool
@@ -275,12 +337,29 @@ func (r EquivalenceResult) String() string {
 	return b.String()
 }
 
-// CompareSchemas compares two schemas for structural equivalence
-// Ignores: description, title, example, deprecated, and extension fields (x-*)
+// CompareSchemas compares two schemas for structural equivalence using the
+// strict (docs-included) comparison policy. Title, description, example, and
+// examples all participate in the comparison by default; two schemas that
+// differ only in those fields will be reported as non-equivalent.
+//
+// Callers that need the legacy behavior of ignoring documentation metadata
+// can use CompareSchemasWithOptions with Docs set to EquivalenceDocsIgnore.
 func CompareSchemas(left, right *parser.Schema, mode EquivalenceMode) EquivalenceResult {
-	if mode == EquivalenceModeNone {
+	return CompareSchemasWithOptions(left, right, defaultCompareOptions(mode))
+}
+
+// CompareSchemasWithOptions compares two schemas using the provided options.
+//
+// When opts.Docs is empty, it is treated as EquivalenceDocsInclude (strict).
+// See CompareOptions and EquivalenceDocs for details.
+func CompareSchemasWithOptions(left, right *parser.Schema, opts CompareOptions) EquivalenceResult {
+	if opts.Mode == EquivalenceModeNone {
 		return EquivalenceResult{Equivalent: false}
 	}
+	if opts.Docs == "" {
+		opts.Docs = EquivalenceDocsInclude
+	}
+	compareDocs := opts.Docs == EquivalenceDocsInclude
 
 	result := EquivalenceResult{
 		Differences: make([]SchemaDifference, 0),
@@ -319,10 +398,10 @@ func CompareSchemas(left, right *parser.Schema, mode EquivalenceMode) Equivalenc
 	// Use stack-based path builder to minimize allocations
 	path := &comparePath{segments: make([]string, 0, 8)}
 
-	if mode == EquivalenceModeShallow {
-		compareShallow(left, right, path, &result)
+	if opts.Mode == EquivalenceModeShallow {
+		compareShallow(left, right, path, &result, compareDocs)
 	} else {
-		compareDeep(left, right, path, &result, visited)
+		compareDeep(left, right, path, &result, visited, compareDocs)
 	}
 
 	result.Equivalent = len(result.Differences) == 0
@@ -335,9 +414,67 @@ type pointerPair struct {
 	right uintptr
 }
 
+// compareDocFields compares documentation metadata fields (title, description,
+// example, examples) and records any differences on the result.
+//
+// Only invoked when the caller has elected to include documentation in
+// equivalence (Docs == EquivalenceDocsInclude).
+func compareDocFields(left, right *parser.Schema, path *comparePath, result *EquivalenceResult) {
+	if left.Title != right.Title {
+		path.push("title")
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        path.String(),
+			LeftValue:   left.Title,
+			RightValue:  right.Title,
+			Description: "title mismatch",
+		})
+		path.pop()
+	}
+
+	if left.Description != right.Description {
+		path.push("description")
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        path.String(),
+			LeftValue:   left.Description,
+			RightValue:  right.Description,
+			Description: "description mismatch",
+		})
+		path.pop()
+	}
+
+	if !reflect.DeepEqual(left.Example, right.Example) {
+		path.push("example")
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        path.String(),
+			LeftValue:   left.Example,
+			RightValue:  right.Example,
+			Description: "example mismatch",
+		})
+		path.pop()
+	}
+
+	if !reflect.DeepEqual(left.Examples, right.Examples) {
+		path.push("examples")
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        path.String(),
+			LeftValue:   left.Examples,
+			RightValue:  right.Examples,
+			Description: "examples mismatch",
+		})
+		path.pop()
+	}
+}
+
 // compareCommonFields compares schema fields common to both shallow and deep comparison.
 // This helper eliminates duplication between compareShallow and compareDeep.
-func compareCommonFields(left, right *parser.Schema, path *comparePath, result *EquivalenceResult) {
+//
+// When compareDocs is true, documentation metadata (title, description,
+// example, examples) is also compared.
+func compareCommonFields(left, right *parser.Schema, path *comparePath, result *EquivalenceResult, compareDocs bool) {
+	if compareDocs {
+		compareDocFields(left, right, path, result)
+	}
+
 	// Compare type
 	if !equalTypes(left.Type, right.Type) {
 		path.push("type")
@@ -400,12 +537,12 @@ func compareCommonFields(left, right *parser.Schema, path *comparePath, result *
 }
 
 // compareShallow compares only the top-level properties of schemas
-func compareShallow(left, right *parser.Schema, path *comparePath, result *EquivalenceResult) {
-	compareCommonFields(left, right, path, result)
+func compareShallow(left, right *parser.Schema, path *comparePath, result *EquivalenceResult, compareDocs bool) {
+	compareCommonFields(left, right, path, result, compareDocs)
 }
 
 // compareDeep recursively compares all schema properties
-func compareDeep(left, right *parser.Schema, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool) {
+func compareDeep(left, right *parser.Schema, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool, compareDocs bool) {
 	// Check for circular references
 	pair := pointerPair{
 		left:  reflect.ValueOf(left).Pointer(),
@@ -416,8 +553,9 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 	}
 	visited[pair] = true
 
-	// Compare common fields (type, format, required, enum, propertyNames)
-	compareCommonFields(left, right, path, result)
+	// Compare common fields (type, format, required, enum, propertyNames, and
+	// optionally documentation metadata).
+	compareCommonFields(left, right, path, result, compareDocs)
 
 	// Compare pattern (deep only)
 	if left.Pattern != right.Pattern {
@@ -547,27 +685,27 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		for name, leftProp := range left.Properties {
 			rightProp := right.Properties[name]
 			path.push(name)
-			compareDeep(leftProp, rightProp, path, result, visited)
+			compareDeep(leftProp, rightProp, path, result, visited, compareDocs)
 			path.pop()
 		}
 		path.pop()
 	}
 
 	// Compare items (array item schema)
-	compareItemsSchemas(left.Items, right.Items, path, result, visited)
+	compareItemsSchemas(left.Items, right.Items, path, result, visited, compareDocs)
 
 	// Compare additionalProperties
-	compareAdditionalPropertiesSchemas(left.AdditionalProperties, right.AdditionalProperties, path, result, visited)
+	compareAdditionalPropertiesSchemas(left.AdditionalProperties, right.AdditionalProperties, path, result, visited, compareDocs)
 
 	// Compare composition (allOf, anyOf, oneOf)
 	path.push("allOf")
-	compareSchemaArrays(left.AllOf, right.AllOf, path, result, visited)
+	compareSchemaArrays(left.AllOf, right.AllOf, path, result, visited, compareDocs)
 	path.pop()
 	path.push("anyOf")
-	compareSchemaArrays(left.AnyOf, right.AnyOf, path, result, visited)
+	compareSchemaArrays(left.AnyOf, right.AnyOf, path, result, visited, compareDocs)
 	path.pop()
 	path.push("oneOf")
-	compareSchemaArrays(left.OneOf, right.OneOf, path, result, visited)
+	compareSchemaArrays(left.OneOf, right.OneOf, path, result, visited, compareDocs)
 	path.pop()
 
 	// Compare not
@@ -582,7 +720,7 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		path.pop()
 	} else if left.Not != nil && right.Not != nil {
 		path.push("not")
-		compareDeep(left.Not, right.Not, path, result, visited)
+		compareDeep(left.Not, right.Not, path, result, visited, compareDocs)
 		path.pop()
 	}
 
@@ -590,12 +728,12 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 
 	// Compare unevaluatedProperties (can be bool or *Schema)
 	path.push("unevaluatedProperties")
-	comparePolymorphicSchemas(left.UnevaluatedProperties, right.UnevaluatedProperties, path, result, visited)
+	comparePolymorphicSchemas(left.UnevaluatedProperties, right.UnevaluatedProperties, path, result, visited, compareDocs)
 	path.pop()
 
 	// Compare unevaluatedItems (can be bool or *Schema)
 	path.push("unevaluatedItems")
-	comparePolymorphicSchemas(left.UnevaluatedItems, right.UnevaluatedItems, path, result, visited)
+	comparePolymorphicSchemas(left.UnevaluatedItems, right.UnevaluatedItems, path, result, visited, compareDocs)
 	path.pop()
 
 	// Compare contentEncoding
@@ -634,13 +772,13 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		path.pop()
 	} else if left.ContentSchema != nil && right.ContentSchema != nil {
 		path.push("contentSchema")
-		compareDeep(left.ContentSchema, right.ContentSchema, path, result, visited)
+		compareDeep(left.ContentSchema, right.ContentSchema, path, result, visited, compareDocs)
 		path.pop()
 	}
 
 	// Compare prefixItems
 	path.push("prefixItems")
-	compareSchemaArrays(left.PrefixItems, right.PrefixItems, path, result, visited)
+	compareSchemaArrays(left.PrefixItems, right.PrefixItems, path, result, visited, compareDocs)
 	path.pop()
 
 	// Compare contains
@@ -655,7 +793,7 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		path.pop()
 	} else if left.Contains != nil && right.Contains != nil {
 		path.push("contains")
-		compareDeep(left.Contains, right.Contains, path, result, visited)
+		compareDeep(left.Contains, right.Contains, path, result, visited, compareDocs)
 		path.pop()
 	}
 
@@ -671,7 +809,7 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		path.pop()
 	} else if left.PropertyNames != nil && right.PropertyNames != nil {
 		path.push("propertyNames")
-		compareDeep(left.PropertyNames, right.PropertyNames, path, result, visited)
+		compareDeep(left.PropertyNames, right.PropertyNames, path, result, visited, compareDocs)
 		path.pop()
 	}
 
@@ -690,7 +828,7 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		for name, leftSchema := range left.DependentSchemas {
 			rightSchema := right.DependentSchemas[name]
 			path.push(name)
-			compareDeep(leftSchema, rightSchema, path, result, visited)
+			compareDeep(leftSchema, rightSchema, path, result, visited, compareDocs)
 			path.pop()
 		}
 		path.pop()
@@ -792,7 +930,7 @@ func getPropertyNames(properties map[string]*parser.Schema) []string {
 	return names
 }
 
-func compareItemsSchemas(left, right any, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool) {
+func compareItemsSchemas(left, right any, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool, compareDocs bool) {
 	// Both nil
 	if left == nil && right == nil {
 		return
@@ -815,7 +953,7 @@ func compareItemsSchemas(left, right any, path *comparePath, result *Equivalence
 	rightSchema, rightIsSchema := right.(*parser.Schema)
 	if leftIsSchema && rightIsSchema {
 		path.push("items")
-		compareDeep(leftSchema, rightSchema, path, result, visited)
+		compareDeep(leftSchema, rightSchema, path, result, visited, compareDocs)
 		path.pop()
 		return
 	}
@@ -848,7 +986,7 @@ func compareItemsSchemas(left, right any, path *comparePath, result *Equivalence
 	path.pop()
 }
 
-func compareAdditionalPropertiesSchemas(left, right any, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool) {
+func compareAdditionalPropertiesSchemas(left, right any, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool, compareDocs bool) {
 	// Both nil
 	if left == nil && right == nil {
 		return
@@ -871,7 +1009,7 @@ func compareAdditionalPropertiesSchemas(left, right any, path *comparePath, resu
 	rightSchema, rightIsSchema := right.(*parser.Schema)
 	if leftIsSchema && rightIsSchema {
 		path.push("additionalProperties")
-		compareDeep(leftSchema, rightSchema, path, result, visited)
+		compareDeep(leftSchema, rightSchema, path, result, visited, compareDocs)
 		path.pop()
 		return
 	}
@@ -905,7 +1043,7 @@ func compareAdditionalPropertiesSchemas(left, right any, path *comparePath, resu
 }
 
 // comparePolymorphicSchemas compares schema fields that can be bool or *Schema (e.g., unevaluatedProperties, unevaluatedItems)
-func comparePolymorphicSchemas(left, right any, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool) {
+func comparePolymorphicSchemas(left, right any, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool, compareDocs bool) {
 	// Both nil
 	if left == nil && right == nil {
 		return
@@ -925,7 +1063,7 @@ func comparePolymorphicSchemas(left, right any, path *comparePath, result *Equiv
 	leftSchema, leftIsSchema := left.(*parser.Schema)
 	rightSchema, rightIsSchema := right.(*parser.Schema)
 	if leftIsSchema && rightIsSchema {
-		compareDeep(leftSchema, rightSchema, path, result, visited)
+		compareDeep(leftSchema, rightSchema, path, result, visited, compareDocs)
 		return
 	}
 
@@ -953,7 +1091,7 @@ func comparePolymorphicSchemas(left, right any, path *comparePath, result *Equiv
 	})
 }
 
-func compareSchemaArrays(left, right []*parser.Schema, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool) {
+func compareSchemaArrays(left, right []*parser.Schema, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool, compareDocs bool) {
 	if len(left) != len(right) {
 		result.Differences = append(result.Differences, SchemaDifference{
 			Path:        path.String(),
@@ -967,7 +1105,7 @@ func compareSchemaArrays(left, right []*parser.Schema, path *comparePath, result
 	for i := range left {
 		// Use strconv.Itoa instead of fmt.Sprintf for better performance
 		path.push("[" + strconv.Itoa(i) + "]")
-		compareDeep(left[i], right[i], path, result, visited)
+		compareDeep(left[i], right[i], path, result, visited, compareDocs)
 		path.pop()
 	}
 }

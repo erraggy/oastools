@@ -164,10 +164,13 @@ func TestBuilder_WithSemanticDeduplication_Disabled(t *testing.T) {
 	assert.Len(t, doc.Components.Schemas, 2)
 }
 
-func TestBuilder_DeduplicateSchemas_MetadataIgnored(t *testing.T) {
+func TestBuilder_DeduplicateSchemas_MetadataPreserved(t *testing.T) {
+	// Regression for issue #363: under the strict equivalence default, the
+	// builder must not consolidate schemas that differ in documentation.
+	// Doing so would replace the surviving canonical schema's docs at every
+	// reference site, producing misleading API documentation.
 	b := New(parser.OASVersion320, WithSemanticDeduplication(true))
 
-	// Schemas differ only in metadata - should still be deduplicated
 	b.addSchema("Address", &parser.Schema{
 		Type:        "object",
 		Title:       "An Address",
@@ -188,8 +191,11 @@ func TestBuilder_DeduplicateSchemas_MetadataIgnored(t *testing.T) {
 	doc, err := b.BuildOAS3()
 	require.NoError(t, err)
 
-	// Should deduplicate since structural properties are the same
-	assert.Len(t, doc.Components.Schemas, 1)
+	// Both schemas must survive because their documentation differs.
+	assert.Len(t, doc.Components.Schemas, 2,
+		"strict equivalence should preserve schemas with divergent metadata")
+	assert.Equal(t, "An Address", doc.Components.Schemas["Address"].Title)
+	assert.Equal(t, "A Location", doc.Components.Schemas["Location"].Title)
 }
 
 func TestBuilder_DeduplicateSchemas_MultipleGroups(t *testing.T) {

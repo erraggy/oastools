@@ -73,6 +73,15 @@ func ValidateEquivalenceMode(value string) error {
 	return nil
 }
 
+// ValidateEquivalenceDocs validates the equivalence-docs flag and returns an
+// error if invalid. Empty values are accepted and resolved to the default.
+func ValidateEquivalenceDocs(value string) error {
+	if value != "" && !joiner.IsValidEquivalenceDocs(value) {
+		return fmt.Errorf("invalid equivalence-docs '%s'. Valid values: %v", value, joiner.ValidEquivalenceDocs())
+	}
+	return nil
+}
+
 // ValidatePrimaryOperationPolicy validates the primary operation policy flag value.
 func ValidatePrimaryOperationPolicy(policy string) error {
 	if policy == "" {

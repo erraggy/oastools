@@ -588,8 +588,92 @@ func TestJoiner_WithSemanticDeduplication_Option(t *testing.T) {
 	assert.Len(t, oas3Doc.Components.Schemas, 1, "Expected 1 schema after dedup")
 }
 
-func TestJoiner_SemanticDeduplication_MetadataIgnored(t *testing.T) {
-	// Create two documents with schemas that differ only in metadata
+func TestJoiner_SemanticDeduplication_MetadataPreservedByDefault(t *testing.T) {
+	// Regression test for issue #363: schemas that differ only in metadata
+	// (title, description) MUST NOT be consolidated under the strict default.
+	// Losing per-schema docs when references get rewritten produces misleading
+	// API documentation (a 403 response pointing at a schema whose description
+	// applies to the 400 case, for example).
+	doc1, doc2 := buildMetadataOnlyDifferenceFixtures()
+
+	results := []parser.ParseResult{
+		{
+			Document:     doc1,
+			Version:      "3.0.3",
+			OASVersion:   parser.OASVersion303,
+			SourcePath:   "api1.yaml",
+			SourceFormat: "yaml",
+		},
+		{
+			Document:     doc2,
+			Version:      "3.0.3",
+			OASVersion:   parser.OASVersion303,
+			SourcePath:   "api2.yaml",
+			SourceFormat: "yaml",
+		},
+	}
+
+	// Default config -> EquivalenceDocs is "include", schemas must survive.
+	config := DefaultConfig()
+	config.SemanticDeduplication = true
+	j := New(config)
+
+	joinResult, err := j.JoinParsed(results)
+	require.NoError(t, err)
+
+	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
+	require.True(t, ok, "Expected OAS3Document")
+
+	// Both schemas are kept because their documentation differs.
+	assert.Len(t, oas3Doc.Components.Schemas, 2,
+		"expected both schemas to survive strict equivalence (docs differ)")
+	_, hasAddress := oas3Doc.Components.Schemas["Address"]
+	_, hasLocation := oas3Doc.Components.Schemas["Location"]
+	assert.True(t, hasAddress, "Address schema should be preserved")
+	assert.True(t, hasLocation, "Location schema should be preserved")
+}
+
+func TestJoiner_SemanticDeduplication_MetadataIgnored_Loose(t *testing.T) {
+	// Opt-in loose mode: when callers explicitly request EquivalenceDocs=ignore,
+	// schemas that differ only in metadata ARE consolidated (legacy behavior).
+	doc1, doc2 := buildMetadataOnlyDifferenceFixtures()
+
+	results := []parser.ParseResult{
+		{
+			Document:     doc1,
+			Version:      "3.0.3",
+			OASVersion:   parser.OASVersion303,
+			SourcePath:   "api1.yaml",
+			SourceFormat: "yaml",
+		},
+		{
+			Document:     doc2,
+			Version:      "3.0.3",
+			OASVersion:   parser.OASVersion303,
+			SourcePath:   "api2.yaml",
+			SourceFormat: "yaml",
+		},
+	}
+
+	config := DefaultConfig()
+	config.SemanticDeduplication = true
+	config.EquivalenceDocs = string(EquivalenceDocsIgnore)
+	j := New(config)
+
+	joinResult, err := j.JoinParsed(results)
+	require.NoError(t, err)
+
+	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
+	require.True(t, ok, "Expected OAS3Document")
+
+	assert.Len(t, oas3Doc.Components.Schemas, 1,
+		"expected 1 schema after loose equivalence deduplication")
+}
+
+// buildMetadataOnlyDifferenceFixtures returns two OAS3 documents each
+// containing a single structurally identical schema whose docs (title,
+// description) differ. Used by TestJoiner_SemanticDeduplication_*.
+func buildMetadataOnlyDifferenceFixtures() (*parser.OAS3Document, *parser.OAS3Document) {
 	doc1 := &parser.OAS3Document{
 		OpenAPI: "3.0.3",
 		Info:    &parser.Info{Title: "API 1", Version: "1.0.0"},
@@ -627,22 +711,51 @@ func TestJoiner_SemanticDeduplication_MetadataIgnored(t *testing.T) {
 		},
 		OASVersion: parser.OASVersion303,
 	}
+	return doc1, doc2
+}
+
+func TestJoiner_SemanticDeduplication_Issue363_ErrorResponses(t *testing.T) {
+	// Canonical reproduction from issue #363. Three error schemas with
+	// identical structure but distinct, response-specific descriptions.
+	// Under the strict default, all three must survive so that a 403's
+	// description doesn't end up claiming "The request is invalid".
+	makeErrorSchema := func(description string) *parser.Schema {
+		return &parser.Schema{
+			Type:        "object",
+			Description: description,
+			Required:    []string{"code", "message"},
+			Properties: map[string]*parser.Schema{
+				"code":    {Type: "string"},
+				"message": {Type: "string"},
+			},
+		}
+	}
+
+	doc1 := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Errors API", Version: "1.0.0"},
+		Paths:   make(parser.Paths),
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"BadRequest": makeErrorSchema("The request is invalid."),
+				"Forbidden":  makeErrorSchema("The caller lacks permission to perform this action."),
+				"NotFound":   makeErrorSchema("The requested resource could not be located."),
+			},
+		},
+		OASVersion: parser.OASVersion303,
+	}
+
+	doc2 := &parser.OAS3Document{
+		OpenAPI:    "3.0.3",
+		Info:       &parser.Info{Title: "Other API", Version: "1.0.0"},
+		Paths:      make(parser.Paths),
+		Components: &parser.Components{Schemas: map[string]*parser.Schema{}},
+		OASVersion: parser.OASVersion303,
+	}
 
 	results := []parser.ParseResult{
-		{
-			Document:     doc1,
-			Version:      "3.0.3",
-			OASVersion:   parser.OASVersion303,
-			SourcePath:   "api1.yaml",
-			SourceFormat: "yaml",
-		},
-		{
-			Document:     doc2,
-			Version:      "3.0.3",
-			OASVersion:   parser.OASVersion303,
-			SourcePath:   "api2.yaml",
-			SourceFormat: "yaml",
-		},
+		{Document: doc1, Version: "3.0.3", OASVersion: parser.OASVersion303, SourcePath: "errors.yaml", SourceFormat: "yaml"},
+		{Document: doc2, Version: "3.0.3", OASVersion: parser.OASVersion303, SourcePath: "other.yaml", SourceFormat: "yaml"},
 	}
 
 	config := DefaultConfig()
@@ -651,12 +764,16 @@ func TestJoiner_SemanticDeduplication_MetadataIgnored(t *testing.T) {
 
 	joinResult, err := j.JoinParsed(results)
 	require.NoError(t, err)
-
 	oas3Doc, ok := joinResult.Document.(*parser.OAS3Document)
-	require.True(t, ok, "Expected OAS3Document")
+	require.True(t, ok)
 
-	// Should deduplicate since structural properties are the same
-	assert.Len(t, oas3Doc.Components.Schemas, 1, "Expected 1 schema (metadata ignored)")
+	assert.Len(t, oas3Doc.Components.Schemas, 3,
+		"each error response schema should survive: descriptions are response-specific")
+
+	// Verify docs are preserved untouched.
+	assert.Equal(t, "The request is invalid.", oas3Doc.Components.Schemas["BadRequest"].Description)
+	assert.Equal(t, "The caller lacks permission to perform this action.", oas3Doc.Components.Schemas["Forbidden"].Description)
+	assert.Equal(t, "The requested resource could not be located.", oas3Doc.Components.Schemas["NotFound"].Description)
 }
 
 func TestJoiner_SemanticDeduplication_EmptySchemasPreserved(t *testing.T) {
