@@ -31,7 +31,7 @@ type OAuth2Generator struct {
 
 // NewOAuth2Generator creates a new OAuth2Generator from a security scheme.
 func NewOAuth2Generator(name string, scheme *parser.SecurityScheme) *OAuth2Generator {
-	if scheme == nil || scheme.Type != "oauth2" {
+	if scheme == nil || scheme.Type != schemeTypeOAuth2 {
 		return nil
 	}
 
@@ -391,7 +391,7 @@ func (g *OAuth2Generator) hasAuthorizationCodeFlow() bool {
 	if g.Flows != nil && g.Flows.AuthorizationCode != nil {
 		return true
 	}
-	return g.OAS2Flow == "accessCode" || g.OAS2Flow == "authorizationCode"
+	return g.OAS2Flow == oauth2FlowAccessCode || g.OAS2Flow == "authorizationCode"
 }
 
 func (g *OAuth2Generator) hasClientCredentialsFlow() bool {
@@ -412,7 +412,7 @@ func (g *OAuth2Generator) hasImplicitFlow() bool {
 	if g.Flows != nil && g.Flows.Implicit != nil {
 		return true
 	}
-	return g.OAS2Flow == "implicit"
+	return g.OAS2Flow == oauth2FlowImplicit
 }
 
 // HasAnyFlow returns true if any OAuth2 flow is configured.

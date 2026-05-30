@@ -241,7 +241,7 @@ func (j *Joiner) applyPathResolution(
 
 	case ResolutionAcceptLeft:
 		// Keep existing (left), discard incoming (right) - no action needed
-		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "kept-left")
+		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, resolutionKeptLeft)
 		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
 		result.AddWarning(NewPathCollisionWarning(collision.Name, "kept from first document", collision.LeftSource, ctx.filePath, line, col))
 		return true, nil
@@ -249,7 +249,7 @@ func (j *Joiner) applyPathResolution(
 	case ResolutionAcceptRight:
 		// Replace with incoming (right)
 		target[collision.Name] = pathItem
-		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "kept-right")
+		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, resolutionKeptRight)
 		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
 		result.AddWarning(NewPathCollisionWarning(collision.Name, "overwritten", collision.LeftSource, ctx.filePath, line, col))
 		return true, nil
@@ -260,7 +260,7 @@ func (j *Joiner) applyPathResolution(
 
 	case ResolutionDeduplicate:
 		// Keep left, discard right (treat as equivalent)
-		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "deduplicated")
+		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, resolutionDeduplicated)
 		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
 		result.AddWarning(NewPathCollisionWarning(collision.Name, "deduplicated (kept from first document)", collision.LeftSource, ctx.filePath, line, col))
 		return true, nil

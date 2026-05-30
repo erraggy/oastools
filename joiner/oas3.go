@@ -354,7 +354,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 						// Schemas are equivalent, keep existing and skip
 						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
 						result.AddWarning(NewSchemaDedupWarning(effectiveName, "schema", ctx.filePath, line, col))
-						j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "deduplicated", "")
+						j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, resolutionDeduplicated, "")
 						continue
 					}
 					// Not equivalent, fall back to default strategy or fail
@@ -388,7 +388,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
 				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "schema", ctx.filePath, line, col, true))
-				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "renamed", newName)
+				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, resolutionRenamed, newName)
 
 			case StrategyRenameRight:
 				// Rename the new (right) schema and keep existing (left) schema under original name
@@ -415,7 +415,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
 				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "schema", ctx.filePath, line, col, false))
-				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "renamed", newName)
+				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, resolutionRenamed, newName)
 
 			default:
 				// Handle existing strategies (accept-left, accept-right, fail, fail-on-paths)
@@ -426,11 +426,11 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 					target[effectiveName] = schema
 					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
 					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "overwritten", "components.schemas", result.firstFilePath, ctx.filePath, line, col))
-					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "kept-right", "")
+					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, resolutionKeptRight, "")
 				} else {
 					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
 					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept from first document", "components.schemas", result.firstFilePath, ctx.filePath, line, col))
-					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, "kept-left", "")
+					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, resolutionKeptLeft, "")
 				}
 			}
 		} else {

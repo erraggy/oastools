@@ -30,7 +30,7 @@ func TestDispatcher_RouteToCorrectHandler(t *testing.T) {
 
 	srv.AddOperation(http.MethodPost, "/pets",
 		WithOperationID("createPet"),
-		WithRequestBody("application/json", struct{}{}),
+		WithRequestBody(contentTypeJSON, struct{}{}),
 		WithResponse(http.StatusCreated, struct{}{}),
 	)
 
@@ -63,7 +63,7 @@ func TestDispatcher_RouteToCorrectHandler(t *testing.T) {
 	createCalled = false
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/pets", strings.NewReader(`{}`))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", contentTypeJSON)
 	result.Handler.ServeHTTP(rec, req)
 
 	assert.False(t, listCalled, "listPets handler was incorrectly called for POST")
@@ -144,7 +144,7 @@ func TestDispatcher_RequestBodyParsed(t *testing.T) {
 
 	srv.AddOperation(http.MethodPost, "/data",
 		WithOperationID("postData"),
-		WithRequestBody("application/json", struct{}{}),
+		WithRequestBody(contentTypeJSON, struct{}{}),
 		WithResponse(http.StatusOK, struct{}{}),
 	)
 
@@ -162,7 +162,7 @@ func TestDispatcher_RequestBodyParsed(t *testing.T) {
 	body := `{"name": "test", "value": 42}`
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/data", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", contentTypeJSON)
 	result.Handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, body, string(capturedRawBody))
@@ -551,7 +551,7 @@ func TestDispatcher_ResponseJSON(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
 
 	var body map[string]string
 	err := json.NewDecoder(rec.Body).Decode(&body)

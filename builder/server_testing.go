@@ -56,7 +56,7 @@ func (r *TestRequest) JSONBody(body any) *TestRequest {
 		panic(fmt.Sprintf("builder: JSONBody failed to marshal body: %v", err))
 	}
 	r.body = bytes.NewReader(data)
-	r.headers.Set("Content-Type", "application/json")
+	r.headers.Set("Content-Type", contentTypeJSON)
 	return r
 }
 

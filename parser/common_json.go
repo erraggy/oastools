@@ -19,10 +19,10 @@ func (i *Info) MarshalJSON() ([]byte, error) {
 
 	// Build map with known fields
 	m := map[string]any{
-		"title":   i.Title,   // Required field, always include
-		"version": i.Version, // Required field, always include
+		jsonKeyTitle:   i.Title,   // Required field, always include
+		jsonKeyVersion: i.Version, // Required field, always include
 	}
-	jsonhelpers.SetIfNotEmpty(m, "description", i.Description)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, i.Description)
 	jsonhelpers.SetIfNotEmpty(m, "termsOfService", i.TermsOfService)
 	jsonhelpers.SetIfNotNil(m, "contact", i.Contact)
 	jsonhelpers.SetIfNotNil(m, "license", i.License)
@@ -56,7 +56,7 @@ func (c *Contact) MarshalJSON() ([]byte, error) {
 
 	// Build map with known fields
 	m := make(map[string]any, 3+len(c.Extra))
-	jsonhelpers.SetIfNotEmpty(m, "name", c.Name)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyName, c.Name)
 	jsonhelpers.SetIfNotEmpty(m, "url", c.URL)
 	jsonhelpers.SetIfNotEmpty(m, "email", c.Email)
 
@@ -88,7 +88,7 @@ func (l *License) MarshalJSON() ([]byte, error) {
 
 	// Build map with known fields
 	m := make(map[string]any, 3+len(l.Extra))
-	jsonhelpers.SetIfNotEmpty(m, "name", l.Name)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyName, l.Name)
 	jsonhelpers.SetIfNotEmpty(m, "url", l.URL)
 	jsonhelpers.SetIfNotEmpty(m, "identifier", l.Identifier)
 
@@ -122,7 +122,7 @@ func (e *ExternalDocs) MarshalJSON() ([]byte, error) {
 	m := map[string]any{
 		"url": e.URL, // Required field, always include
 	}
-	jsonhelpers.SetIfNotEmpty(m, "description", e.Description)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, e.Description)
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, e.Extra)
@@ -152,9 +152,9 @@ func (t *Tag) MarshalJSON() ([]byte, error) {
 
 	// Build map with known fields
 	m := map[string]any{
-		"name": t.Name, // Required field, always include
+		jsonKeyName: t.Name, // Required field, always include
 	}
-	jsonhelpers.SetIfNotEmpty(m, "description", t.Description)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, t.Description)
 	jsonhelpers.SetIfNotNil(m, "externalDocs", t.ExternalDocs)
 
 	// Merge in Extra fields and marshal
@@ -187,7 +187,7 @@ func (s *Server) MarshalJSON() ([]byte, error) {
 	m := map[string]any{
 		"url": s.URL, // Required field, always include
 	}
-	jsonhelpers.SetIfNotEmpty(m, "description", s.Description)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, s.Description)
 	jsonhelpers.SetIfMapNotEmpty(m, "variables", s.Variables)
 
 	// Merge in Extra fields and marshal
@@ -218,10 +218,10 @@ func (sv *ServerVariable) MarshalJSON() ([]byte, error) {
 
 	// Build map with known fields
 	m := map[string]any{
-		"default": sv.Default, // Required field, always include
+		jsonKeyDefault: sv.Default, // Required field, always include
 	}
 	jsonhelpers.SetIfNotNil(m, "enum", sv.Enum)
-	jsonhelpers.SetIfNotEmpty(m, "description", sv.Description)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, sv.Description)
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, sv.Extra)
@@ -251,10 +251,10 @@ func (r *Reference) MarshalJSON() ([]byte, error) {
 
 	// Build map with known fields
 	m := map[string]any{
-		"$ref": r.Ref, // Required field, always include
+		jsonKeyRef: r.Ref, // Required field, always include
 	}
 	jsonhelpers.SetIfNotEmpty(m, "summary", r.Summary)
-	jsonhelpers.SetIfNotEmpty(m, "description", r.Description)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, r.Description)
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, r.Extra)

@@ -22,15 +22,15 @@ func (ss *SecurityScheme) MarshalJSON() ([]byte, error) {
 
 	// Add known fields (omit zero values to match json:",omitempty" behavior)
 	if ss.Ref != "" {
-		m["$ref"] = ss.Ref
+		m[jsonKeyRef] = ss.Ref
 	}
 	// Type is required, always include
-	m["type"] = ss.Type
+	m[jsonKeyType] = ss.Type
 	if ss.Description != "" {
-		m["description"] = ss.Description
+		m[jsonKeyDescription] = ss.Description
 	}
 	if ss.Name != "" {
-		m["name"] = ss.Name
+		m[jsonKeyName] = ss.Name
 	}
 	if ss.In != "" {
 		m["in"] = ss.In

@@ -107,7 +107,7 @@ func isSecureURL(urlStr string) bool {
 	if u.Scheme == "https" {
 		return true
 	}
-	if u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1") {
+	if u.Scheme == schemeTypeHTTP && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1") {
 		return true
 	}
 	return false
@@ -357,7 +357,7 @@ func buildReadmeContextShared(b *readmeContextBuilder, secSummaries []SecuritySc
 			WasSplit:        true,
 			Strategy:        strategy,
 			Groups:          groups,
-			SharedTypesFile: "types.go",
+			SharedTypesFile: fileNameTypes,
 		}
 	}
 
@@ -459,13 +459,13 @@ func buildSecuritySchemeSummariesOAS3(schemes map[string]*parser.SecurityScheme)
 		}
 
 		switch scheme.Type {
-		case "apiKey":
+		case schemeTypeAPIKey:
 			summary.Location = scheme.In
-		case "http":
+		case schemeTypeHTTP:
 			summary.Scheme = scheme.Scheme
-		case "oauth2":
+		case schemeTypeOAuth2:
 			summary.Flows = extractOAuth2FlowNames(convertFlows(scheme.Flows), scheme.Flow)
-		case "openIdConnect":
+		case schemeTypeOpenIDConnect:
 			summary.OpenIDConnectURL = scheme.OpenIDConnectURL
 		}
 
@@ -492,7 +492,7 @@ func parseStatusCodeMetadata(code string) StatusCodeData {
 	data := StatusCodeData{Code: code}
 
 	switch {
-	case code == "default":
+	case code == defaultName:
 		data.MethodName = "StatusDefault"
 		data.StatusCodeInt = 500
 		data.IsDefault = true
@@ -620,7 +620,7 @@ func buildStatusCodesShared(op *parser.Operation, buildData statusCodeDataBuilde
 
 	// Process default response first
 	if op.Responses.Default != nil {
-		statusData := buildData("default", op.Responses.Default)
+		statusData := buildData(defaultName, op.Responses.Default)
 		codes = append(codes, statusData)
 	}
 

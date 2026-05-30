@@ -73,7 +73,7 @@ func WithResponseExtension(key string, value any) ResponseOption {
 func (b *Builder) AddResponse(name string, description string, responseType any, opts ...ResponseOption) *Builder {
 	rCfg := &responseConfig{
 		description: description,
-		contentType: "application/json", // Default content type
+		contentType: contentTypeJSON, // Default content type
 	}
 	for _, opt := range opts {
 		opt(rCfg)
@@ -114,7 +114,7 @@ func buildResponsesFromMap(responseMap map[string]*parser.Response) *parser.Resp
 		Codes: make(map[string]*parser.Response),
 	}
 	for code, resp := range responseMap {
-		if code == "default" {
+		if code == defaultKeyword {
 			responses.Default = resp
 		} else {
 			responses.Codes[code] = resp

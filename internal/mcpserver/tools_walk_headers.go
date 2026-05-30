@@ -72,7 +72,7 @@ func handleWalkHeaders(_ context.Context, _ *mcp.CallToolRequest, input walkHead
 		return errResult(err), nil, nil
 	}
 
-	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"name", "status_code"}); err != nil {
+	if err := validateGroupBy(input.GroupBy, input.Detail, []string{groupByName, groupByStatusCode}); err != nil {
 		return errResult(err), nil, nil
 	}
 
@@ -105,9 +105,9 @@ func handleWalkHeaders(_ context.Context, _ *mcp.CallToolRequest, input walkHead
 	if input.GroupBy != "" {
 		groups := groupAndSort(matched, func(info *headerInfo) []string {
 			switch strings.ToLower(input.GroupBy) {
-			case "name":
+			case groupByName:
 				return []string{info.Name}
-			case "status_code":
+			case groupByStatusCode:
 				if info.StatusCode == "" {
 					return nil
 				}

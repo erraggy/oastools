@@ -370,7 +370,7 @@ func WithResponse(statusCode int, responseType any, opts ...ResponseOption) Oper
 	return func(cfg *operationConfig) {
 		rCfg := &responseConfig{
 			description: fmt.Sprintf("%d response", statusCode),
-			contentType: "application/json", // Default content type
+			contentType: contentTypeJSON, // Default content type
 		}
 		for _, opt := range opts {
 			opt(rCfg)
@@ -452,13 +452,13 @@ func WithDefaultResponse(responseType any, opts ...ResponseOption) OperationOpti
 	return func(cfg *operationConfig) {
 		rCfg := &responseConfig{
 			description: "Default response",
-			contentType: "application/json", // Default content type
+			contentType: contentTypeJSON, // Default content type
 		}
 		for _, opt := range opts {
 			opt(rCfg)
 		}
 
-		cfg.responses["default"] = &responseBuilder{
+		cfg.responses[defaultKeyword] = &responseBuilder{
 			response: &parser.Response{
 				Description: rCfg.description,
 				Headers:     rCfg.headers,
@@ -955,7 +955,7 @@ func (b *Builder) buildFormParamSchema(formParams []*formParamBuilder) *parser.S
 			// For OAS 3.x, file uploads use type="string" with format="binary"
 			propSchema = &parser.Schema{
 				Type:   "string",
-				Format: "binary",
+				Format: binary,
 			}
 		} else {
 			// Generate schema from type

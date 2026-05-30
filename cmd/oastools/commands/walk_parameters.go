@@ -130,7 +130,7 @@ func handleWalkParameters(args []string) error {
 	}
 
 	// Summary table
-	headers := []string{"NAME", "IN", "REQUIRED", "PATH", "METHOD", "EXTENSIONS"}
+	headers := []string{headerName, "IN", "REQUIRED", headerPath, headerMethod, headerExtensions}
 	var rows [][]string
 	for _, info := range filtered {
 		rows = append(rows, []string{

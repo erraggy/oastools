@@ -9,6 +9,12 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+const (
+	strUUID  = "uuid"
+	strInt32 = "int32"
+	strInt64 = "int64"
+)
+
 // generateSchema converts a Go type to an OpenAPI schema.
 func (b *Builder) generateSchema(v any) *parser.Schema {
 	if v == nil {
@@ -128,7 +134,7 @@ func (b *Builder) generateSpecialTypeSchema(t reflect.Type) *parser.Schema {
 	if t.String() == "uuid.UUID" {
 		return &parser.Schema{
 			Type:   "string",
-			Format: "uuid",
+			Format: strUUID,
 		}
 	}
 
@@ -258,16 +264,16 @@ func (b *Builder) generatePrimitiveSchema(t reflect.Type) *parser.Schema {
 		return &parser.Schema{Type: "string"}
 
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
-		return &parser.Schema{Type: "integer", Format: "int32"}
+		return &parser.Schema{Type: "integer", Format: strInt32}
 
 	case reflect.Int64:
-		return &parser.Schema{Type: "integer", Format: "int64"}
+		return &parser.Schema{Type: "integer", Format: strInt64}
 
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
-		return &parser.Schema{Type: "integer", Format: "int32"}
+		return &parser.Schema{Type: "integer", Format: strInt32}
 
 	case reflect.Uint64:
-		return &parser.Schema{Type: "integer", Format: "int64"}
+		return &parser.Schema{Type: "integer", Format: strInt64}
 
 	case reflect.Float32:
 		return &parser.Schema{Type: "number", Format: "float"}

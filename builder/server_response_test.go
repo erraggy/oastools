@@ -34,7 +34,7 @@ func TestJSON(t *testing.T) {
 	err := resp.WriteTo(rec)
 	require.NoError(t, err)
 
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
 
 	var got testData
 	err = json.NewDecoder(rec.Body).Decode(&got)
@@ -89,7 +89,7 @@ func TestError(t *testing.T) {
 	err := resp.WriteTo(rec)
 	require.NoError(t, err)
 
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
 
 	var got map[string]any
 	err = json.NewDecoder(rec.Body).Decode(&got)
@@ -189,7 +189,7 @@ func TestResponseBuilder_JSON(t *testing.T) {
 	err := resp.WriteTo(rec)
 	require.NoError(t, err)
 
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
 
 	var got testData
 	err = json.NewDecoder(rec.Body).Decode(&got)

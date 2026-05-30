@@ -108,15 +108,7 @@ func (c Change) String() string {
 		symbol = "·"
 	}
 
-	typeStr := ""
-	switch c.Type {
-	case ChangeTypeAdded:
-		typeStr = "added"
-	case ChangeTypeRemoved:
-		typeStr = "removed"
-	case ChangeTypeModified:
-		typeStr = "modified"
-	}
+	typeStr := string(c.Type)
 
 	return fmt.Sprintf("%s %s [%s] %s: %s", symbol, c.Path, typeStr, c.Category, c.Message)
 }

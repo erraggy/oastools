@@ -136,7 +136,7 @@ func handleWalkSchemas(args []string) error {
 		return nil
 	}
 
-	headers := []string{"NAME", "TYPE", "PROPERTIES", "LOCATION", "EXTENSIONS"}
+	headers := []string{headerName, headerType, "PROPERTIES", "LOCATION", headerExtensions}
 	rows := make([][]string, 0, len(filtered))
 	for _, info := range filtered {
 		displayName := info.Name
@@ -153,7 +153,7 @@ func handleWalkSchemas(args []string) error {
 
 		location := "inline"
 		if info.IsComponent {
-			location = "component"
+			location = locationComponent
 		}
 
 		extensions := FormatExtensions(info.Schema.Extra)

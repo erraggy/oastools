@@ -223,7 +223,7 @@ func TestServerBuilder_EndToEnd(t *testing.T) {
 
 	srv.AddOperation(http.MethodPost, "/pets",
 		WithOperationID("createPet"),
-		WithRequestBody("application/json", Pet{}, WithRequired(true)),
+		WithRequestBody(contentTypeJSON, Pet{}, WithRequired(true)),
 		WithResponse(http.StatusCreated, Pet{}),
 	)
 
@@ -287,7 +287,7 @@ func TestServerBuilder_EndToEnd(t *testing.T) {
 		body := `{"id": 3, "name": "Buddy"}`
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/pets", strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Type", contentTypeJSON)
 		result.Handler.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusCreated, rec.Code)

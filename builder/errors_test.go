@@ -19,43 +19,43 @@ func TestBuilderError_Error(t *testing.T) {
 			name: "duplicate operationID with first occurrence",
 			err: NewDuplicateOperationIDError("getUser", "POST", "/users/{id}",
 				&operationLocation{Method: "GET", Path: "/users/{id}"}),
-			contains: []string{"builder", "operation", "POST /users/{id}", "duplicate", "getUser", "GET /users/{id}"},
+			contains: []string{strBuilder, "operation", "POST /users/{id}", "duplicate", "getUser", "GET /users/{id}"},
 		},
 		{
 			name:     "duplicate operationID without first occurrence",
 			err:      NewDuplicateOperationIDError("getUser", "POST", "/users/{id}", nil),
-			contains: []string{"builder", "operation", "POST /users/{id}", "duplicate", "getUser"},
+			contains: []string{strBuilder, "operation", "POST /users/{id}", "duplicate", "getUser"},
 		},
 		{
 			name:     "unsupported method TRACE",
 			err:      NewUnsupportedMethodError("TRACE", "/debug", "3.0.0"),
-			contains: []string{"builder", "operation", "TRACE", "/debug", "3.0.0"},
+			contains: []string{strBuilder, "operation", "TRACE", "/debug", "3.0.0"},
 		},
 		{
 			name:     "unsupported method QUERY",
 			err:      NewUnsupportedMethodError("QUERY", "/search", "3.2.0"),
-			contains: []string{"builder", "operation", "QUERY", "/search", "3.2.0"},
+			contains: []string{strBuilder, "operation", "QUERY", "/search", "3.2.0"},
 		},
 		{
 			name:     "invalid method",
 			err:      NewInvalidMethodError("INVALID", "/path"),
-			contains: []string{"builder", "operation", "INVALID", "/path", "unsupported"},
+			contains: []string{strBuilder, "operation", "INVALID", "/path", "unsupported"},
 		},
 		{
 			name: "webhook duplicate operationID",
 			err: NewDuplicateWebhookOperationIDError("createUser", "myWebhook", "POST",
 				&operationLocation{Method: "POST", Path: "/users", IsWebhook: false}),
-			contains: []string{"builder", "webhook", "myWebhook", "duplicate", "createUser", "POST /users"},
+			contains: []string{strBuilder, "webhook", "myWebhook", "duplicate", "createUser", "POST /users"},
 		},
 		{
 			name:     "schema error with cause",
 			err:      NewSchemaError("UserSchema", "deduplication failed", errors.New("hash collision")),
-			contains: []string{"builder", "schema", "UserSchema", "deduplication failed", "hash collision"},
+			contains: []string{strBuilder, "schema", "UserSchema", "deduplication failed", "hash collision"},
 		},
 		{
 			name:     "parameter constraint error",
 			err:      NewParameterConstraintError("age", "POST /users", "minimum", "minimum (100) cannot exceed maximum (1)"),
-			contains: []string{"builder", "parameter", "POST /users", "age", "minimum"},
+			contains: []string{strBuilder, "parameter", "POST /users", "age", "minimum"},
 		},
 	}
 

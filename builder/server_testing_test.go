@@ -54,7 +54,7 @@ func TestTestRequest_JSONBody(t *testing.T) {
 	req := NewTestRequest(http.MethodPost, "/test").
 		JSONBody(payload{Name: "test"})
 
-	assert.Equal(t, "application/json", req.headers.Get("Content-Type"))
+	assert.Equal(t, contentTypeJSON, req.headers.Get("Content-Type"))
 	assert.NotNil(t, req.body)
 }
 
@@ -150,14 +150,14 @@ func TestServerTest(t *testing.T) {
 
 	srv.AddOperation(http.MethodPost, "/pets",
 		WithOperationID("createPet"),
-		WithRequestBody("application/json", Pet{}),
+		WithRequestBody(contentTypeJSON, Pet{}),
 		WithResponse(http.StatusCreated, Pet{}),
 	)
 
 	srv.AddOperation(http.MethodPut, "/pets/{id}",
 		WithOperationID("updatePet"),
 		WithPathParam("id", int64(0)),
-		WithRequestBody("application/json", Pet{}),
+		WithRequestBody(contentTypeJSON, Pet{}),
 		WithResponse(http.StatusOK, Pet{}),
 	)
 
@@ -312,7 +312,7 @@ func TestTestRequest_Body(t *testing.T) {
 		JSONBody(customBody{Data: "test"})
 
 	httpReq := req.Build()
-	assert.Equal(t, "application/json", httpReq.Header.Get("Content-Type"))
+	assert.Equal(t, contentTypeJSON, httpReq.Header.Get("Content-Type"))
 
 	var decoded customBody
 	err := json.NewDecoder(httpReq.Body).Decode(&decoded)

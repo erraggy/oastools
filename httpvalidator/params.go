@@ -8,6 +8,12 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// Parameter serialization style constants.
+const (
+	styleLabel  = "label"
+	styleMatrix = "matrix"
+)
+
 // ParamDeserializer handles deserialization of HTTP parameters according to
 // OpenAPI serialization styles. Each parameter location has default styles:
 //
@@ -48,9 +54,9 @@ func (d *ParamDeserializer) DeserializePathParam(value string, param *parser.Par
 	switch style {
 	case "simple":
 		return d.deserializeSimple(value, schema, explode)
-	case "label":
+	case styleLabel:
 		return d.deserializeLabel(value, schema, explode)
-	case "matrix":
+	case styleMatrix:
 		return d.deserializeMatrix(value, param.Name, schema, explode)
 	default:
 		// Unknown style, return raw value

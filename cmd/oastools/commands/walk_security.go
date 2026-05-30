@@ -128,7 +128,7 @@ func filterSecuritySchemes(
 
 // renderSecuritySummary renders a summary table of security schemes.
 func renderSecuritySummary(schemes []*walker.SecuritySchemeInfo, flags WalkFlags) error {
-	headers := []string{"NAME", "TYPE", "SCHEME", "IN", "EXTENSIONS"}
+	headers := []string{headerName, headerType, "SCHEME", "IN", headerExtensions}
 	rows := make([][]string, 0, len(schemes))
 
 	for _, info := range schemes {

@@ -523,7 +523,7 @@ func templateFuncs() template.FuncMap {
 	titleCaser := cases.Title(language.English)
 
 	return template.FuncMap{
-		"pascal":     toPascalCase,
+		pascal:       toPascalCase,
 		"camel":      toCamelCase,
 		"snake":      toSnakeCase,
 		"kebab":      toKebabCase,

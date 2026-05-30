@@ -62,12 +62,12 @@ func (cg *oas3CodeGenerator) generateSingleTypes() error {
 	// Execute template
 	formatted, err := executeTemplate("types.go.tmpl", data)
 	if err != nil {
-		cg.addIssue("types.go", fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
+		cg.addIssue(fileNameTypes, fmt.Sprintf("failed to execute template: %v", err), SeverityWarning)
 		return err
 	}
 
 	cg.result.Files = append(cg.result.Files, GeneratedFile{
-		Name:    "types.go",
+		Name:    fileNameTypes,
 		Content: formatted,
 	})
 
@@ -83,7 +83,7 @@ func (cg *oas3CodeGenerator) generateSplitTypes() error {
 	allSchemas := cg.collectSchemas()
 
 	// Generate shared types file (types.go)
-	if err := cg.generateTypesFile("types.go", "Shared types used across multiple operations", allSchemas, sharedTypes); err != nil {
+	if err := cg.generateTypesFile(fileNameTypes, "Shared types used across multiple operations", allSchemas, sharedTypes); err != nil {
 		return err
 	}
 
@@ -383,7 +383,7 @@ func (cg *oas3CodeGenerator) generateSingleClient() error {
 	buf.WriteString(clientHelpers)
 
 	// Format and append the file
-	appendFormattedFile(cg.result, "client.go", &buf, cg.addIssue)
+	appendFormattedFile(cg.result, fileNameClient, &buf, cg.addIssue)
 
 	return nil
 }
@@ -444,7 +444,7 @@ func (cg *oas3CodeGenerator) generateClientGroupFile(group FileGroup, opToPathMe
 		// Check if any parameters need time
 		for _, param := range op.Parameters {
 			if param != nil && param.Schema != nil {
-				if param.Schema.Format == "date-time" || param.Schema.Format == "date" {
+				if param.Schema.Format == formatDateTime || param.Schema.Format == "date" {
 					needsTime = true
 				}
 			}
@@ -954,11 +954,11 @@ func (cg *oas3CodeGenerator) generateReadmeFile(schemes map[string]*parser.Secur
 // getFileDescription returns a description for a generated file
 func getFileDescription(name string) string {
 	switch name {
-	case "types.go":
+	case fileNameTypes:
 		return "Data types and models"
-	case "client.go":
+	case fileNameClient:
 		return "HTTP client implementation"
-	case "server.go":
+	case fileNameServer:
 		return "Server interface"
 	case "security_helpers.go":
 		return "Security authentication helpers"

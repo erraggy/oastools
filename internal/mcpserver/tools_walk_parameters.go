@@ -60,7 +60,7 @@ func handleWalkParameters(_ context.Context, _ *mcp.CallToolRequest, input walkP
 		return errResult(err), nil, nil
 	}
 
-	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"location", "name"}); err != nil {
+	if err := validateGroupBy(input.GroupBy, input.Detail, []string{groupByLocation, groupByName}); err != nil {
 		return errResult(err), nil, nil
 	}
 
@@ -79,12 +79,12 @@ func handleWalkParameters(_ context.Context, _ *mcp.CallToolRequest, input walkP
 	if input.GroupBy != "" {
 		groups := groupAndSort(matched, func(info *walker.ParameterInfo) []string {
 			switch strings.ToLower(input.GroupBy) {
-			case "location":
+			case groupByLocation:
 				if info.In == "" {
 					return []string{"(ref)"}
 				}
 				return []string{info.In}
-			case "name":
+			case groupByName:
 				return []string{info.Name}
 			default:
 				return nil

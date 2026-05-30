@@ -274,13 +274,13 @@ func (j *Joiner) applySchemaResolution(p schemaResolutionParams) (bool, error) {
 
 	case ResolutionAcceptLeft:
 		// Keep existing (left), discard incoming (right)
-		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "kept-left", "")
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, resolutionKeptLeft, "")
 		return true, nil
 
 	case ResolutionAcceptRight:
 		// Replace with incoming (right)
 		p.target[p.collision.Name] = schema
-		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "kept-right", "")
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, resolutionKeptRight, "")
 		return true, nil
 
 	case ResolutionRename:
@@ -293,14 +293,14 @@ func (j *Joiner) applySchemaResolution(p schemaResolutionParams) (bool, error) {
 		p.result.rewriter.RegisterRename(p.collision.Name, newName, p.result.OASVersion)
 		line, col := j.getLocation(p.ctx.filePath, p.collision.JSONPath)
 		p.result.AddWarning(NewSchemaRenamedWarning(p.collision.Name, newName, p.label, p.ctx.filePath, line, col, false))
-		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "renamed", newName)
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, resolutionRenamed, newName)
 		return true, nil
 
 	case ResolutionDeduplicate:
 		// Keep left, discard right (treat as equivalent)
 		line, col := j.getLocation(p.ctx.filePath, p.collision.JSONPath)
 		p.result.AddWarning(NewSchemaDedupWarning(p.collision.Name, p.label, p.ctx.filePath, line, col))
-		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "deduplicated", "")
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, resolutionDeduplicated, "")
 		return true, nil
 
 	case ResolutionFail:
@@ -357,19 +357,19 @@ func (j *Joiner) applyComponentResolution(p componentResolutionParams) (handled 
 
 	case ResolutionAcceptLeft:
 		// Keep existing (left), discard incoming (right)
-		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "kept-left", "")
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, resolutionKeptLeft, "")
 		return true, false, nil
 
 	case ResolutionAcceptRight:
 		// Replace with incoming (right)
-		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "kept-right", "")
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, resolutionKeptRight, "")
 		return true, true, nil
 
 	case ResolutionDeduplicate:
 		// Keep left, discard right (treat as equivalent)
 		line, col := j.getLocation(p.ctx.filePath, p.collision.JSONPath)
 		p.result.AddWarning(NewSchemaDedupWarning(p.collision.Name, string(p.collision.Type), p.ctx.filePath, line, col))
-		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "deduplicated", "")
+		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, resolutionDeduplicated, "")
 		return true, false, nil
 
 	case ResolutionFail:

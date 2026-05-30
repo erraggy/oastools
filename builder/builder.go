@@ -15,6 +15,14 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+const (
+	strBuilder     = "builder"
+	pascal         = "pascal"
+	binary         = "binary"
+	defaultKeyword = "default"
+	minimumKeyword = "minimum"
+)
+
 // Builder is the main entry point for constructing OAS documents.
 // It maintains internal state for accumulated components and reflection cache.
 //
@@ -580,7 +588,7 @@ func (b *Builder) BuildResult() (*parser.ParseResult, error) {
 	}
 
 	return &parser.ParseResult{
-		SourcePath:   "builder",
+		SourcePath:   strBuilder,
 		SourceFormat: parser.SourceFormatYAML,
 		Version:      b.version.String(),
 		OASVersion:   b.version,

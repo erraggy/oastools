@@ -155,7 +155,7 @@ func matchOperationTag(tags []string, filter string) bool {
 
 // renderOperationsSummary renders a summary table of operations.
 func renderOperationsSummary(ops []*walker.OperationInfo, flags WalkFlags) error {
-	headers := []string{"METHOD", "PATH", "SUMMARY", "TAGS", "EXTENSIONS"}
+	headers := []string{headerMethod, headerPath, headerSummary, "TAGS", headerExtensions}
 	rows := make([][]string, 0, len(ops))
 
 	for _, op := range ops {

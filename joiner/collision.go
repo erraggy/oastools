@@ -2,6 +2,18 @@ package joiner
 
 import "github.com/erraggy/oastools/internal/severity"
 
+// Collision resolution outcome labels recorded on CollisionEvent.Resolution.
+const (
+	resolutionRenamed      = "renamed"
+	resolutionDeduplicated = "deduplicated"
+	resolutionKeptLeft     = "kept-left"
+	resolutionKeptRight    = "kept-right"
+	resolutionFailed       = "failed"
+)
+
+// defaultKey is the OpenAPI "default" key used for responses and template helpers.
+const defaultKey = "default"
+
 // CollisionReport provides detailed analysis of collisions encountered during join operations
 type CollisionReport struct {
 	TotalCollisions  int
@@ -53,13 +65,13 @@ func (r *CollisionReport) AddEvent(event CollisionEvent) {
 	r.TotalCollisions++
 
 	switch event.Resolution {
-	case "renamed":
+	case resolutionRenamed:
 		r.ResolvedByRename++
-	case "deduplicated":
+	case resolutionDeduplicated:
 		r.ResolvedByDedup++
-	case "kept-left", "kept-right":
+	case resolutionKeptLeft, resolutionKeptRight:
 		r.ResolvedByAccept++
-	case "failed":
+	case resolutionFailed:
 		r.FailedCollisions++
 	}
 }

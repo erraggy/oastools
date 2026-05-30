@@ -420,7 +420,7 @@ func generateBaseServerShared(ctx *baseServerContext) (map[string]bool, error) {
 	writeNotImplementedError(&buf)
 
 	// Format and append the file
-	appendFormattedFile(ctx.result, "server.go", &buf, ctx.addIssue)
+	appendFormattedFile(ctx.result, fileNameServer, &buf, ctx.addIssue)
 
 	return generatedMethods, nil
 }
@@ -561,7 +561,7 @@ func generateBaseClientShared(packageName string, info *parser.Info, result *Gen
 	buf.WriteString(clientHelpers)
 
 	// Format and append the file
-	appendFormattedFile(result, "client.go", &buf, addIssue)
+	appendFormattedFile(result, fileNameClient, &buf, addIssue)
 
 	return nil
 }

@@ -41,15 +41,15 @@ type seriesInfo struct {
 var (
 	versionToString = map[OASVersion]string{
 		OASVersion20:  "2.0",
-		OASVersion300: "3.0.0",
-		OASVersion301: "3.0.1",
+		OASVersion300: oas300,
+		OASVersion301: oas301,
 		OASVersion302: "3.0.2",
-		OASVersion303: "3.0.3",
+		OASVersion303: oas303,
 		OASVersion304: "3.0.4",
-		OASVersion310: "3.1.0",
+		OASVersion310: oas310,
 		OASVersion311: "3.1.1",
 		OASVersion312: "3.1.2",
-		OASVersion320: "3.2.0",
+		OASVersion320: oas320,
 	}
 
 	stringToVersion = func() map[string]OASVersion {

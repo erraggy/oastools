@@ -323,14 +323,14 @@ func ExtractOperationSecurityOAS3(doc *parser.OAS3Document) OperationSecurityReq
 		}
 
 		methodOps := map[string]*parser.Operation{
-			"get":     pathItem.Get,
-			"put":     pathItem.Put,
-			"post":    pathItem.Post,
-			"delete":  pathItem.Delete,
-			"options": pathItem.Options,
-			"head":    pathItem.Head,
-			"patch":   pathItem.Patch,
-			"trace":   pathItem.Trace,
+			"get":          pathItem.Get,
+			"put":          pathItem.Put,
+			httpMethodPost: pathItem.Post,
+			"delete":       pathItem.Delete,
+			"options":      pathItem.Options,
+			"head":         pathItem.Head,
+			"patch":        pathItem.Patch,
+			"trace":        pathItem.Trace,
 		}
 
 		for method, op := range methodOps {
@@ -368,13 +368,13 @@ func ExtractOperationSecurityOAS2(doc *parser.OAS2Document) OperationSecurityReq
 		}
 
 		methodOps := map[string]*parser.Operation{
-			"get":     pathItem.Get,
-			"put":     pathItem.Put,
-			"post":    pathItem.Post,
-			"delete":  pathItem.Delete,
-			"options": pathItem.Options,
-			"head":    pathItem.Head,
-			"patch":   pathItem.Patch,
+			"get":          pathItem.Get,
+			"put":          pathItem.Put,
+			httpMethodPost: pathItem.Post,
+			"delete":       pathItem.Delete,
+			"options":      pathItem.Options,
+			"head":         pathItem.Head,
+			"patch":        pathItem.Patch,
 		}
 
 		for method, op := range methodOps {

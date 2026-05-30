@@ -53,7 +53,7 @@ func TestWriteValidationError(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
 
 	var body map[string]string
 	err := json.NewDecoder(rec.Body).Decode(&body)
@@ -77,7 +77,7 @@ func TestWriteValidationResult(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
 
 	var body map[string]any
 	err := json.NewDecoder(rec.Body).Decode(&body)

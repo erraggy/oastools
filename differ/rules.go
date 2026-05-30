@@ -7,6 +7,9 @@ import (
 // SubType constants for rule matching
 const (
 	subTypeDescription = "description"
+	subTypeRequired    = "required"
+	subTypeType        = "type"
+	subTypeMediaType   = "mediaType"
 )
 
 // BreakingChangeRule configures how a specific change type is treated.
@@ -445,15 +448,15 @@ func (c *BreakingRulesConfig) getParameterRule(key RuleKey) *BreakingChangeRule 
 		return c.Parameter.Added
 	case ChangeTypeModified:
 		switch key.SubType {
-		case "required":
+		case subTypeRequired:
 			return c.Parameter.RequiredChanged
-		case "type":
+		case subTypeType:
 			return c.Parameter.TypeChanged
 		case "format":
 			return c.Parameter.FormatChanged
 		case "style":
 			return c.Parameter.StyleChanged
-		case "schema":
+		case string(CategorySchema):
 			return c.Parameter.SchemaChanged
 		case subTypeDescription:
 			return c.Parameter.DescriptionModified
@@ -468,20 +471,20 @@ func (c *BreakingRulesConfig) getRequestBodyRule(key RuleKey) *BreakingChangeRul
 	}
 	switch key.ChangeType {
 	case ChangeTypeRemoved:
-		if key.SubType == "mediaType" {
+		if key.SubType == subTypeMediaType {
 			return c.RequestBody.MediaTypeRemoved
 		}
 		return c.RequestBody.Removed
 	case ChangeTypeAdded:
-		if key.SubType == "mediaType" {
+		if key.SubType == subTypeMediaType {
 			return c.RequestBody.MediaTypeAdded
 		}
 		return c.RequestBody.Added
 	case ChangeTypeModified:
 		switch key.SubType {
-		case "required":
+		case subTypeRequired:
 			return c.RequestBody.RequiredChanged
-		case "schema":
+		case string(CategorySchema):
 			return c.RequestBody.SchemaChanged
 		}
 	}
@@ -495,7 +498,7 @@ func (c *BreakingRulesConfig) getResponseRule(key RuleKey) *BreakingChangeRule {
 	switch key.ChangeType {
 	case ChangeTypeRemoved:
 		switch key.SubType {
-		case "mediaType":
+		case subTypeMediaType:
 			return c.Response.MediaTypeRemoved
 		case "header":
 			return c.Response.HeaderRemoved
@@ -504,7 +507,7 @@ func (c *BreakingRulesConfig) getResponseRule(key RuleKey) *BreakingChangeRule {
 		}
 	case ChangeTypeAdded:
 		switch key.SubType {
-		case "mediaType":
+		case subTypeMediaType:
 			return c.Response.MediaTypeAdded
 		case "header":
 			return c.Response.HeaderAdded
@@ -515,7 +518,7 @@ func (c *BreakingRulesConfig) getResponseRule(key RuleKey) *BreakingChangeRule {
 		switch key.SubType {
 		case subTypeDescription:
 			return c.Response.DescriptionModified
-		case "schema":
+		case string(CategorySchema):
 			return c.Response.SchemaChanged
 		}
 	}
@@ -531,7 +534,7 @@ func (c *BreakingRulesConfig) getSchemaRule(key RuleKey) *BreakingChangeRule {
 		switch key.SubType {
 		case "property":
 			return c.Schema.PropertyRemoved
-		case "required":
+		case subTypeRequired:
 			return c.Schema.RequiredRemoved
 		case "enum":
 			return c.Schema.EnumValueRemoved
@@ -544,7 +547,7 @@ func (c *BreakingRulesConfig) getSchemaRule(key RuleKey) *BreakingChangeRule {
 		switch key.SubType {
 		case "property":
 			return c.Schema.PropertyAdded
-		case "required":
+		case subTypeRequired:
 			return c.Schema.RequiredAdded
 		case "enum":
 			return c.Schema.EnumValueAdded
@@ -555,7 +558,7 @@ func (c *BreakingRulesConfig) getSchemaRule(key RuleKey) *BreakingChangeRule {
 		}
 	case ChangeTypeModified:
 		switch key.SubType {
-		case "type":
+		case subTypeType:
 			return c.Schema.TypeChanged
 		case "format":
 			return c.Schema.FormatChanged
@@ -594,7 +597,7 @@ func (c *BreakingRulesConfig) getSecurityRule(key RuleKey) *BreakingChangeRule {
 		}
 		return c.Security.Added
 	case ChangeTypeModified:
-		if key.SubType == "type" {
+		if key.SubType == subTypeType {
 			return c.Security.TypeChanged
 		}
 	}

@@ -67,6 +67,13 @@ linters:
       - path: _test\.go
         linters:
           - goconst
+      # Allow string literals in generated files
+      - path: zz_generated_
+        linters:
+          - goconst
+      - path: internal/codegen/
+        linters:
+          - goconst
 
 issues:
   max-issues-per-linter: 0

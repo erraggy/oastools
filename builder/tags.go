@@ -144,7 +144,7 @@ func applyOASTag(schema *parser.Schema, tag string) *parser.Schema {
 				result.Enum[i] = strings.TrimSpace(v)
 			}
 
-		case "minimum":
+		case minimumKeyword:
 			if f, err := strconv.ParseFloat(value, 64); err == nil {
 				result.Minimum = &f
 			}
@@ -196,7 +196,7 @@ func applyOASTag(schema *parser.Schema, tag string) *parser.Schema {
 		case "title":
 			result.Title = value
 
-		case "default":
+		case defaultKeyword:
 			// Try to parse as appropriate type based on schema type
 			result.Default = parseDefaultValue(value, result.Type)
 		}

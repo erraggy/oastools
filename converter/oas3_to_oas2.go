@@ -108,7 +108,7 @@ func (c *Converter) convertServersToHostBasePath(src *parser.OAS3Document, dst *
 		// No servers defined, use defaults
 		dst.Host = "localhost"
 		dst.BasePath = "/"
-		dst.Schemes = []string{"https"}
+		dst.Schemes = []string{schemeHTTPS}
 		c.addIssue(result, "servers", "No servers defined in OAS 3.x document, using defaults", SeverityInfo)
 		return
 	}
@@ -124,7 +124,7 @@ func (c *Converter) convertServersToHostBasePath(src *parser.OAS3Document, dst *
 			"Using default values")
 		dst.Host = "localhost"
 		dst.BasePath = "/"
-		dst.Schemes = []string{"https"}
+		dst.Schemes = []string{schemeHTTPS}
 		return
 	}
 
@@ -318,7 +318,7 @@ func (c *Converter) convertSecuritySchemes(src *parser.OAS3Document, dst *parser
 		}
 
 		// Convert OAuth2 flows
-		if scheme.Type == "oauth2" && scheme.Flows != nil {
+		if scheme.Type == securityTypeOAuth2 && scheme.Flows != nil {
 			// OAS 2.0 only supports a single flow
 			flowCount := 0
 			if scheme.Flows.Implicit != nil {

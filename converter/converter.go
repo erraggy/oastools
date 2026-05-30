@@ -25,6 +25,13 @@ const (
 	SeverityCritical = severity.SeverityCritical
 )
 
+const (
+	mediaTypeJSON      = "application/json"
+	schemeHTTPS        = "https"
+	paramInFormData    = "formData"
+	securityTypeOAuth2 = "oauth2"
+)
+
 // ConversionIssue represents a single conversion issue or limitation
 type ConversionIssue = issues.Issue
 

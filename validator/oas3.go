@@ -345,7 +345,7 @@ func (v *Validator) validateOAS3SecurityScheme(scheme *parser.SecurityScheme, pa
 	}
 
 	switch scheme.Type {
-	case "apiKey":
+	case securitySchemeTypeAPIKey:
 		if scheme.Name == "" {
 			v.addError(result, path, "API key security scheme must have a name",
 				withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
@@ -365,7 +365,7 @@ func (v *Validator) validateOAS3SecurityScheme(scheme *parser.SecurityScheme, pa
 				withField("scheme"),
 			)
 		}
-	case "oauth2":
+	case securitySchemeTypeOAuth2:
 		if scheme.Flows == nil {
 			v.addError(result, path, "OAuth2 security scheme must have flows",
 				withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),

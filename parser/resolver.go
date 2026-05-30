@@ -204,7 +204,7 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 	if r.visited[ref] {
 		return nil, &oaserrors.ReferenceError{
 			Ref:        ref,
-			RefType:    "file",
+			RefType:    refTypeFile,
 			IsCircular: true,
 		}
 	}
@@ -241,7 +241,7 @@ func (r *RefResolver) ResolveExternal(ref string) (any, error) {
 	if err != nil || strings.HasPrefix(relPath, "..") {
 		return nil, &oaserrors.ReferenceError{
 			Ref:             ref,
-			RefType:         "file",
+			RefType:         refTypeFile,
 			IsPathTraversal: true,
 		}
 	}
@@ -302,7 +302,7 @@ func (r *RefResolver) ResolveHTTP(ref string) (any, error) {
 	if r.visited[ref] {
 		return nil, &oaserrors.ReferenceError{
 			Ref:        ref,
-			RefType:    "http",
+			RefType:    refTypeHTTP,
 			IsCircular: true,
 		}
 	}
@@ -464,7 +464,7 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 	switch v := current.(type) {
 	case map[string]any:
 		// Check if this object has a $ref field
-		if ref, ok := v["$ref"].(string); ok {
+		if ref, ok := v[jsonKeyRef].(string); ok {
 			// Check for $ref pointing to document root (always circular)
 			if ref == "#" || ref == "#/" {
 				// Leave the $ref in place - resolving it would create infinite recursion
@@ -496,7 +496,7 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 			// Replace the current object with the resolved content
 			// Note: This modifies the map in place
 			for k := range v {
-				if k != "$ref" {
+				if k != jsonKeyRef {
 					delete(v, k)
 				}
 			}
@@ -517,7 +517,7 @@ func (r *RefResolver) resolveRefsRecursive(root, current any, depth int) error {
 					v[k] = deepCopyJSONValue(val)
 				}
 			}
-			delete(v, "$ref")
+			delete(v, jsonKeyRef)
 
 			// Continue resolving in the newly resolved content
 			// Keep ref in resolving map during this recursive call to detect self-references

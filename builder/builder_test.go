@@ -278,7 +278,7 @@ func TestBuilder_BuildResult(t *testing.T) {
 
 	result, err := b.BuildResult()
 	require.NoError(t, err)
-	assert.Equal(t, "builder", result.SourcePath)
+	assert.Equal(t, strBuilder, result.SourcePath)
 	assert.Equal(t, parser.SourceFormatYAML, result.SourceFormat)
 	assert.Equal(t, "3.2.0", result.Version)
 	assert.Equal(t, parser.OASVersion320, result.OASVersion)
@@ -507,7 +507,7 @@ func TestBuilder_AddOperation_WithRequestBody(t *testing.T) {
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/users",
 			WithOperationID("createUser"),
-			WithRequestBody("application/json", CreateUser{},
+			WithRequestBody(contentTypeJSON, CreateUser{},
 				WithRequired(true),
 				WithRequestDescription("User to create"),
 			),
@@ -651,8 +651,8 @@ func TestBuilder_AddResponse(t *testing.T) {
 	assert.Contains(t, doc.Components.Responses, "Error")
 	resp := doc.Components.Responses["Error"]
 	assert.Equal(t, "Error response", resp.Description)
-	require.Contains(t, resp.Content, "application/json")
-	require.NotNil(t, resp.Content["application/json"].Schema)
+	require.Contains(t, resp.Content, contentTypeJSON)
+	require.NotNil(t, resp.Content[contentTypeJSON].Schema)
 }
 
 func TestBuilder_AddResponse_WithContentType(t *testing.T) {
@@ -1084,7 +1084,7 @@ func TestBuilder_AddWebhook(t *testing.T) {
 			SetVersion("1.0.0").
 			AddWebhook("newUser", http.MethodPost,
 				WithOperationID("userCreatedWebhook"),
-				WithRequestBody("application/json", WebhookPayload{}),
+				WithRequestBody(contentTypeJSON, WebhookPayload{}),
 				WithResponse(http.StatusOK, struct{}{}),
 			)
 
@@ -1247,7 +1247,7 @@ func TestBuilder_FileUpload_OAS3_Integration(t *testing.T) {
 	require.Contains(t, schema.Properties, "file")
 	fileSchema := schema.Properties["file"]
 	assert.Equal(t, "string", fileSchema.Type)
-	assert.Equal(t, "binary", fileSchema.Format)
+	assert.Equal(t, binary, fileSchema.Format)
 	assert.Equal(t, "File to upload", fileSchema.Description)
 
 	// Verify description property
@@ -1263,7 +1263,7 @@ func TestBuilder_FileUpload_OAS3_Integration(t *testing.T) {
 func TestBuilder_RawSchema_BinaryDownload_Integration(t *testing.T) {
 	schema := &parser.Schema{
 		Type:   "string",
-		Format: "binary",
+		Format: binary,
 	}
 
 	b := New(parser.OASVersion320).
@@ -1299,7 +1299,7 @@ func TestBuilder_RawSchema_BinaryDownload_Integration(t *testing.T) {
 	mediaType := resp.Content["application/octet-stream"]
 	require.NotNil(t, mediaType.Schema)
 	assert.Equal(t, "string", mediaType.Schema.Type)
-	assert.Equal(t, "binary", mediaType.Schema.Format)
+	assert.Equal(t, binary, mediaType.Schema.Format)
 
 	// Verify header
 	require.Contains(t, resp.Headers, "Content-Disposition")
@@ -1313,7 +1313,7 @@ func TestBuilder_RawSchema_ComplexUpload_Integration(t *testing.T) {
 		Properties: map[string]*parser.Schema{
 			"file": {
 				Type:        "string",
-				Format:      "binary",
+				Format:      binary,
 				Description: "The file data",
 			},
 			"metadata": {
@@ -1365,7 +1365,7 @@ func TestBuilder_RawSchema_ComplexUpload_Integration(t *testing.T) {
 	require.Contains(t, reqSchema.Properties, "file")
 	fileSchema := reqSchema.Properties["file"]
 	assert.Equal(t, "string", fileSchema.Type)
-	assert.Equal(t, "binary", fileSchema.Format)
+	assert.Equal(t, binary, fileSchema.Format)
 
 	// Verify metadata property
 	require.Contains(t, reqSchema.Properties, "metadata")

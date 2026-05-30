@@ -88,21 +88,28 @@ const (
 	RefTypePathItem
 )
 
+const (
+	refTypeNameSchema         = "schema"
+	refTypeNameParameter      = "parameter"
+	refTypeNameResponse       = "response"
+	refTypeNameSecurityScheme = "securityScheme"
+)
+
 // String returns the string representation of a RefType.
 func (rt RefType) String() string {
 	switch rt {
 	case RefTypeSchema:
-		return "schema"
+		return refTypeNameSchema
 	case RefTypeParameter:
-		return "parameter"
+		return refTypeNameParameter
 	case RefTypeResponse:
-		return "response"
+		return refTypeNameResponse
 	case RefTypeRequestBody:
 		return "requestBody"
 	case RefTypeHeader:
 		return "header"
 	case RefTypeSecurityScheme:
-		return "securityScheme"
+		return refTypeNameSecurityScheme
 	case RefTypeLink:
 		return "link"
 	case RefTypeCallback:
@@ -951,20 +958,20 @@ func ExtractSchemaNameFromRef(ref string, version parser.OASVersion) string {
 func ExtractComponentNameFromRef(ref string) (componentType, name string) {
 	// OAS 2.0 patterns
 	oas2Prefixes := map[string]string{
-		pathutil.RefPrefixDefinitions:         "schema",
-		pathutil.RefPrefixParameters:          "parameter",
-		pathutil.RefPrefixResponses:           "response",
-		pathutil.RefPrefixSecurityDefinitions: "securityScheme",
+		pathutil.RefPrefixDefinitions:         refTypeNameSchema,
+		pathutil.RefPrefixParameters:          refTypeNameParameter,
+		pathutil.RefPrefixResponses:           refTypeNameResponse,
+		pathutil.RefPrefixSecurityDefinitions: refTypeNameSecurityScheme,
 	}
 
 	// OAS 3.x patterns
 	oas3Prefixes := map[string]string{
-		pathutil.RefPrefixSchemas:         "schema",
-		pathutil.RefPrefixParameters3:     "parameter",
-		pathutil.RefPrefixResponses3:      "response",
+		pathutil.RefPrefixSchemas:         refTypeNameSchema,
+		pathutil.RefPrefixParameters3:     refTypeNameParameter,
+		pathutil.RefPrefixResponses3:      refTypeNameResponse,
 		pathutil.RefPrefixRequestBodies:   "requestBody",
 		pathutil.RefPrefixHeaders:         "header",
-		pathutil.RefPrefixSecuritySchemes: "securityScheme",
+		pathutil.RefPrefixSecuritySchemes: refTypeNameSecurityScheme,
 		pathutil.RefPrefixLinks:           "link",
 		pathutil.RefPrefixCallbacks:       "callback",
 		pathutil.RefPrefixExamples:        "example",

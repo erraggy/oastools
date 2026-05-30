@@ -63,7 +63,7 @@ func validationResultFromContext(ctx context.Context) *httpvalidator.RequestVali
 // and status have already been written. Any encoding failure would result in a
 // partial/empty body, but there's no recovery path available.
 func writeValidationError(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", contentTypeJSON)
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{ //nolint:errcheck // Cannot recover after headers written
 		"error": message,
@@ -75,7 +75,7 @@ func writeValidationError(w http.ResponseWriter, status int, message string) {
 // and status have already been written. Any encoding failure would result in a
 // partial/empty body, but there's no recovery path available.
 func writeValidationResult(w http.ResponseWriter, result *httpvalidator.RequestValidationResult) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", contentTypeJSON)
 	w.WriteHeader(http.StatusBadRequest)
 
 	errors := make([]map[string]string, 0, len(result.Errors))

@@ -319,14 +319,14 @@ func (fs *FileSplitter) extractOAS3Operations(doc *parser.OAS3Document) []*Opera
 
 		// Iterate over each HTTP method
 		methodOps := map[string]*parser.Operation{
-			"get":     pathItem.Get,
-			"put":     pathItem.Put,
-			"post":    pathItem.Post,
-			"delete":  pathItem.Delete,
-			"options": pathItem.Options,
-			"head":    pathItem.Head,
-			"patch":   pathItem.Patch,
-			"trace":   pathItem.Trace,
+			"get":          pathItem.Get,
+			"put":          pathItem.Put,
+			httpMethodPost: pathItem.Post,
+			"delete":       pathItem.Delete,
+			"options":      pathItem.Options,
+			"head":         pathItem.Head,
+			"patch":        pathItem.Patch,
+			"trace":        pathItem.Trace,
 		}
 
 		for method, op := range methodOps {
@@ -375,13 +375,13 @@ func (fs *FileSplitter) extractOAS2Operations(doc *parser.OAS2Document) []*Opera
 
 		// Iterate over each HTTP method
 		methodOps := map[string]*parser.Operation{
-			"get":     pathItem.Get,
-			"put":     pathItem.Put,
-			"post":    pathItem.Post,
-			"delete":  pathItem.Delete,
-			"options": pathItem.Options,
-			"head":    pathItem.Head,
-			"patch":   pathItem.Patch,
+			"get":          pathItem.Get,
+			"put":          pathItem.Put,
+			httpMethodPost: pathItem.Post,
+			"delete":       pathItem.Delete,
+			"options":      pathItem.Options,
+			"head":         pathItem.Head,
+			"patch":        pathItem.Patch,
 		}
 
 		for method, op := range methodOps {
@@ -420,7 +420,7 @@ func (fs *FileSplitter) groupByTag(operations []*OperationInfo) map[string][]*Op
 	groups := make(map[string][]*OperationInfo)
 
 	for _, op := range operations {
-		tag := "default"
+		tag := defaultName
 		if len(op.Tags) > 0 {
 			tag = op.Tags[0]
 		}
@@ -454,12 +454,12 @@ func (fs *FileSplitter) extractPathPrefix(path string) string {
 		// Remove any path parameters
 		segment := parts[0]
 		if strings.HasPrefix(segment, "{") {
-			return "default"
+			return defaultName
 		}
 		return segment
 	}
 
-	return "default"
+	return defaultName
 }
 
 // groupAlphabetically groups operations alphabetically by operation ID.
@@ -523,7 +523,7 @@ func (fs *FileSplitter) getOperationByMethod(pathItem *parser.PathItem, method s
 		return pathItem.Get
 	case "put":
 		return pathItem.Put
-	case "post":
+	case httpMethodPost:
 		return pathItem.Post
 	case "delete":
 		return pathItem.Delete

@@ -451,7 +451,7 @@ func getOAuth2FlowTypes(scheme *parser.SecurityScheme) []string {
 	// OAS 3.0+ style
 	if scheme.Flows != nil {
 		if scheme.Flows.Implicit != nil {
-			flows = append(flows, "implicit")
+			flows = append(flows, oauth2FlowImplicit)
 		}
 		if scheme.Flows.Password != nil {
 			flows = append(flows, "password")

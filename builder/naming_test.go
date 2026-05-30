@@ -233,7 +233,7 @@ func TestSchemaNamerBuildContext(t *testing.T) {
 		assert.Equal(t, "testUser", ctx.Type)
 		assert.Equal(t, "testUser", ctx.TypeBase)
 		assert.Equal(t, "testUser", ctx.TypeSanitized)
-		assert.Equal(t, "builder", ctx.Package)
+		assert.Equal(t, strBuilder, ctx.Package)
 		assert.False(t, ctx.IsGeneric)
 		assert.False(t, ctx.IsAnonymous)
 		assert.False(t, ctx.IsPointer)
@@ -279,7 +279,7 @@ func TestSchemaNamerStrategies(t *testing.T) {
 		want     string
 	}{
 		{"default", SchemaNamingDefault, "builder.testUser"},
-		{"pascal", SchemaNamingPascalCase, "BuilderTestUser"},
+		{pascal, SchemaNamingPascalCase, "BuilderTestUser"},
 		{"camel", SchemaNamingCamelCase, "builderTestUser"},
 		{"snake", SchemaNamingSnakeCase, "builder_test_user"},
 		{"kebab", SchemaNamingKebabCase, "builder-test-user"},
@@ -531,7 +531,7 @@ func (s SchemaNamingStrategy) String() string {
 	case SchemaNamingDefault:
 		return "default"
 	case SchemaNamingPascalCase:
-		return "pascal"
+		return pascal
 	case SchemaNamingCamelCase:
 		return "camel"
 	case SchemaNamingSnakeCase:
@@ -552,7 +552,7 @@ func TestTemplateFuncs(t *testing.T) {
 	funcs := templateFuncs()
 
 	expectedFuncs := []string{
-		"pascal", "camel", "snake", "kebab",
+		pascal, "camel", "snake", "kebab",
 		"upper", "lower", "title", "sanitize",
 		"trimPrefix", "trimSuffix", "replace", "join",
 	}
@@ -609,7 +609,7 @@ func TestSchemaNamerApplyStrategyFullPath(t *testing.T) {
 	name := namer.name(reflect.TypeOf(testUser{}))
 
 	// Should include full package path
-	assert.Contains(t, name, "builder")
+	assert.Contains(t, name, strBuilder)
 	assert.Contains(t, name, "testUser")
 }
 

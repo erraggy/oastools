@@ -149,7 +149,7 @@ func BenchmarkBuilderAddOperation(b *testing.B) {
 				SetVersion("1.0.0").
 				AddOperation(http.MethodPost, "/orders",
 					WithOperationID("createOrder"),
-					WithRequestBody("application/json", BenchmarkOrder{},
+					WithRequestBody(contentTypeJSON, BenchmarkOrder{},
 						WithRequired(true),
 					),
 					WithResponse(http.StatusCreated, BenchmarkOrder{}),
@@ -187,7 +187,7 @@ func BenchmarkBuilderBuild(b *testing.B) {
 			AddOperation(http.MethodPost, "/users",
 				WithOperationID("createUser"),
 				WithTags("users"),
-				WithRequestBody("application/json", BenchmarkUser{},
+				WithRequestBody(contentTypeJSON, BenchmarkUser{},
 					WithRequired(true),
 				),
 				WithResponse(http.StatusCreated, BenchmarkUser{}),

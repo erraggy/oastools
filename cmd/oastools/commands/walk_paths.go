@@ -184,7 +184,7 @@ type pathDetailView struct {
 
 // renderPathsSummary renders a summary table of path items.
 func renderPathsSummary(paths []pathInfo, flags WalkFlags) error {
-	headers := []string{"PATH", "METHODS", "SUMMARY", "EXTENSIONS"}
+	headers := []string{headerPath, "METHODS", headerSummary, headerExtensions}
 	rows := make([][]string, 0, len(paths))
 
 	for _, p := range paths {

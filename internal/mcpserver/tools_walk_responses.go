@@ -56,7 +56,7 @@ func handleWalkResponses(_ context.Context, _ *mcp.CallToolRequest, input walkRe
 		return errResult(err), nil, nil
 	}
 
-	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"status_code", "method"}); err != nil {
+	if err := validateGroupBy(input.GroupBy, input.Detail, []string{groupByStatusCode, groupByMethod}); err != nil {
 		return errResult(err), nil, nil
 	}
 
@@ -75,12 +75,12 @@ func handleWalkResponses(_ context.Context, _ *mcp.CallToolRequest, input walkRe
 	if input.GroupBy != "" {
 		groups := groupAndSort(matched, func(info *walker.ResponseInfo) []string {
 			switch strings.ToLower(input.GroupBy) {
-			case "status_code":
+			case groupByStatusCode:
 				if info.StatusCode == "" {
 					return []string{"(component)"}
 				}
 				return []string{info.StatusCode}
-			case "method":
+			case groupByMethod:
 				if info.Method == "" {
 					return []string{"(component)"}
 				}
