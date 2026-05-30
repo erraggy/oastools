@@ -183,7 +183,7 @@ func SetIfNotNil(m map[string]any, key string, value any) {
 	// We must use reflection to detect these cases
 	v := reflect.ValueOf(value)
 	switch v.Kind() {
-	case reflect.Ptr, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func, reflect.Interface:
+	case reflect.Pointer, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func, reflect.Interface:
 		if v.IsNil() {
 			return
 		}

@@ -19,11 +19,11 @@ func (p *Parameter) MarshalJSON() ([]byte, error) {
 
 	// Build map with known fields
 	m := map[string]any{
-		"name": p.Name, // Required field, always include
-		"in":   p.In,   // Required field, always include
+		jsonKeyName: p.Name, // Required field, always include
+		"in":        p.In,   // Required field, always include
 	}
-	jsonhelpers.SetIfNotEmpty(m, "$ref", p.Ref)
-	jsonhelpers.SetIfNotEmpty(m, "description", p.Description)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyRef, p.Ref)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, p.Description)
 	jsonhelpers.SetIfTrue(m, "required", p.Required)
 	jsonhelpers.SetIfTrue(m, "deprecated", p.Deprecated)
 	jsonhelpers.SetIfNotEmpty(m, "style", p.Style)
@@ -74,7 +74,7 @@ func (i *Items) MarshalJSON() ([]byte, error) {
 
 	// Build map with known fields
 	m := map[string]any{
-		"type": i.Type, // Required field, always include
+		jsonKeyType: i.Type, // Required field, always include
 	}
 	jsonhelpers.SetOAS2PrimitiveFields(m, jsonhelpers.OAS2PrimitiveFields{
 		Format: i.Format, Items: i.Items,
@@ -118,8 +118,8 @@ func (rb *RequestBody) MarshalJSON() ([]byte, error) {
 	m := map[string]any{
 		"content": rb.Content, // Required field, always include
 	}
-	jsonhelpers.SetIfNotEmpty(m, "$ref", rb.Ref)
-	jsonhelpers.SetIfNotEmpty(m, "description", rb.Description)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyRef, rb.Ref)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, rb.Description)
 	jsonhelpers.SetIfTrue(m, "required", rb.Required)
 
 	// Merge in Extra fields and marshal
@@ -150,8 +150,8 @@ func (h *Header) MarshalJSON() ([]byte, error) {
 
 	// Build map with known fields
 	m := make(map[string]any, 27+len(h.Extra))
-	jsonhelpers.SetIfNotEmpty(m, "$ref", h.Ref)
-	jsonhelpers.SetIfNotEmpty(m, "description", h.Description)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyRef, h.Ref)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, h.Description)
 	jsonhelpers.SetIfTrue(m, "required", h.Required)
 	jsonhelpers.SetIfTrue(m, "deprecated", h.Deprecated)
 	jsonhelpers.SetIfNotEmpty(m, "style", h.Style)

@@ -71,7 +71,7 @@ type BuilderError struct {
 // Error implements the error interface with a detailed, formatted message.
 func (e *BuilderError) Error() string {
 	var sb strings.Builder
-	sb.WriteString("builder")
+	sb.WriteString(strBuilder)
 
 	// Add component context
 	if e.Component != "" {

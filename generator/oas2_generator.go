@@ -135,7 +135,7 @@ func (cg *oas2CodeGenerator) generateSingleTypes() error {
 	}
 
 	// Format and append the file
-	appendFormattedFile(cg.result, "types.go", &buf, cg.addIssue)
+	appendFormattedFile(cg.result, fileNameTypes, &buf, cg.addIssue)
 
 	return nil
 }
@@ -149,7 +149,7 @@ func (cg *oas2CodeGenerator) generateSplitTypes() error {
 	allSchemas := cg.collectSchemas()
 
 	// Generate shared types file (types.go)
-	if err := cg.generateOAS2TypesFile("types.go", "Shared types used across multiple operations", allSchemas, sharedTypes); err != nil {
+	if err := cg.generateOAS2TypesFile(fileNameTypes, "Shared types used across multiple operations", allSchemas, sharedTypes); err != nil {
 		return err
 	}
 
@@ -452,7 +452,7 @@ func (cg *oas2CodeGenerator) generateSingleClient() error {
 	buf.WriteString(clientHelpers)
 
 	// Format and append the file
-	appendFormattedFile(cg.result, "client.go", &buf, cg.addIssue)
+	appendFormattedFile(cg.result, fileNameClient, &buf, cg.addIssue)
 
 	return nil
 }

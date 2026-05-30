@@ -119,7 +119,7 @@ func handleWalkResponses(args []string) error {
 		return nil
 	}
 
-	headers := []string{"STATUS", "DESCRIPTION", "PATH", "METHOD", "EXTENSIONS"}
+	headers := []string{"STATUS", "DESCRIPTION", headerPath, headerMethod, headerExtensions}
 	rows := make([][]string, 0, len(filtered))
 	for _, info := range filtered {
 		rows = append(rows, []string{

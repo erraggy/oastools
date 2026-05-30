@@ -32,7 +32,7 @@ func TestOAS2Integration_RequestBodyAndResponse(t *testing.T) {
 		AddOperation("POST", "/users",
 			WithOperationID("createUser"),
 			WithSummary("Create a new user"),
-			WithRequestBody("application/json", CreateUserRequest{},
+			WithRequestBody(contentTypeJSON, CreateUserRequest{},
 				WithRequired(true),
 				WithRequestDescription("User creation data"),
 			),
@@ -140,12 +140,12 @@ func TestOAS2Integration_RequestBodyAndResponse(t *testing.T) {
 func TestOAS2Integration_RawSchema(t *testing.T) {
 	uploadSchema := &parser.Schema{
 		Type:   "string",
-		Format: "binary",
+		Format: binary,
 	}
 
 	downloadSchema := &parser.Schema{
 		Type:   "string",
-		Format: "binary",
+		Format: binary,
 	}
 
 	b := New(parser.OASVersion20).
@@ -177,7 +177,7 @@ func TestOAS2Integration_RawSchema(t *testing.T) {
 	assert.Equal(t, "Binary file data", uploadOp.Parameters[0].Description)
 	require.NotNil(t, uploadOp.Parameters[0].Schema)
 	assert.Equal(t, "string", uploadOp.Parameters[0].Schema.Type)
-	assert.Equal(t, "binary", uploadOp.Parameters[0].Schema.Format)
+	assert.Equal(t, binary, uploadOp.Parameters[0].Schema.Format)
 
 	// Verify download operation
 	downloadOp := doc.Paths["/download"].Get
@@ -186,7 +186,7 @@ func TestOAS2Integration_RawSchema(t *testing.T) {
 	assert.Nil(t, downloadResp.Content)
 	require.NotNil(t, downloadResp.Schema)
 	assert.Equal(t, "string", downloadResp.Schema.Type)
-	assert.Equal(t, "binary", downloadResp.Schema.Format)
+	assert.Equal(t, binary, downloadResp.Schema.Format)
 }
 
 // TestOAS2ServerBuilder_EndToEnd verifies the complete OAS 2.0 server builder flow
@@ -263,7 +263,7 @@ func TestOAS2ServerBuilder_EndToEnd(t *testing.T) {
 	// Create pet operation
 	srv.AddOperation(http.MethodPost, "/pets",
 		WithOperationID("createPet"),
-		WithRequestBody("application/json", Pet{}),
+		WithRequestBody(contentTypeJSON, Pet{}),
 		WithResponse(http.StatusCreated, Pet{}),
 	)
 	srv.Handle(http.MethodPost, "/pets", func(_ context.Context, req *Request) Response {
@@ -297,7 +297,7 @@ func TestOAS2ServerBuilder_EndToEnd(t *testing.T) {
 		result.Handler.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusOK, rec.Code)
-		assert.Contains(t, rec.Header().Get("Content-Type"), "application/json")
+		assert.Contains(t, rec.Header().Get("Content-Type"), contentTypeJSON)
 
 		var petsList []Pet
 		err := json.NewDecoder(rec.Body).Decode(&petsList)

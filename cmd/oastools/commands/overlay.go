@@ -114,7 +114,7 @@ func HandleOverlay(args []string) error {
 		return handleOverlayApply(args[1:])
 	case "validate":
 		return handleOverlayValidate(args[1:])
-	case "-h", "--help", "help":
+	case "-h", flagHelpLong, "help":
 		printOverlayUsage()
 		return nil
 	default:

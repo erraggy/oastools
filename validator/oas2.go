@@ -250,7 +250,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 
 		// Validate type-specific requirements
 		switch secDef.Type {
-		case "apiKey":
+		case securitySchemeTypeAPIKey:
 			if secDef.Name == "" {
 				v.addError(result, path,
 					"API key security scheme must have a name",
@@ -265,7 +265,7 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 					withField("in"),
 				)
 			}
-		case "oauth2":
+		case securitySchemeTypeOAuth2:
 			if secDef.Flow == "" {
 				v.addError(result, path,
 					"OAuth2 security scheme must have a flow",

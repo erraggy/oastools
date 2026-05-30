@@ -54,7 +54,7 @@ func handleWalkSchemas(_ context.Context, _ *mcp.CallToolRequest, input walkSche
 		return errResult(fmt.Errorf("cannot use both component and inline filters")), nil, nil
 	}
 
-	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"type", "location"}); err != nil {
+	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"type", groupByLocation}); err != nil {
 		return errResult(err), nil, nil
 	}
 
@@ -97,7 +97,7 @@ func handleWalkSchemas(_ context.Context, _ *mcp.CallToolRequest, input walkSche
 					return []string{"(untyped)"}
 				}
 				return []string{t}
-			case "location":
+			case groupByLocation:
 				return []string{schemaLocation(info.IsComponent)}
 			default:
 				return nil

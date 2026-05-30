@@ -168,9 +168,9 @@ func detectFormatFromURL(urlStr string, contentType string) SourceFormat {
 		contentType = strings.TrimSpace(contentType)
 
 		switch contentType {
-		case "application/json":
+		case mimeApplicationJSON:
 			return SourceFormatJSON
-		case "application/yaml", "application/x-yaml", "text/yaml", "text/x-yaml":
+		case mimeApplicationYAML, "application/x-yaml", "text/yaml", "text/x-yaml":
 			return SourceFormatYAML
 		}
 	}

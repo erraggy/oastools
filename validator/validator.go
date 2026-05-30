@@ -33,6 +33,12 @@ const (
 	maxSchemaNestingDepth = 100 // Maximum depth for nested schemas to prevent stack overflow
 )
 
+// Security scheme type constants.
+const (
+	securitySchemeTypeAPIKey = "apiKey"
+	securitySchemeTypeOAuth2 = "oauth2"
+)
+
 // ValidationError represents a single validation issue
 type ValidationError = issues.Issue
 

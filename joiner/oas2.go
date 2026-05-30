@@ -237,7 +237,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 						// Schemas are equivalent, keep existing and skip
 						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
 						result.AddWarning(NewSchemaDedupWarning(effectiveName, "definition", ctx.filePath, line, col))
-						j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, "deduplicated", "")
+						j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, resolutionDeduplicated, "")
 						continue
 					}
 					// Not equivalent, fall back to fail
@@ -270,7 +270,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
 				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "definition", ctx.filePath, line, col, true))
-				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, "renamed", newName)
+				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, resolutionRenamed, newName)
 
 			case StrategyRenameRight:
 				// Rename the new (right) definition and keep existing (left) definition under original name
@@ -296,7 +296,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
 				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "definition", ctx.filePath, line, col, false))
-				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, "renamed", newName)
+				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, resolutionRenamed, newName)
 
 			default:
 				// Handle existing strategies
@@ -307,10 +307,10 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				if j.shouldOverwrite(schemaStrategy) {
 					joined.Definitions[effectiveName] = schema
 					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "overwritten", "definitions", result.firstFilePath, ctx.filePath, line, col))
-					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, "kept-right", "")
+					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, resolutionKeptRight, "")
 				} else {
 					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept from first document", "definitions", result.firstFilePath, ctx.filePath, line, col))
-					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, "kept-left", "")
+					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, resolutionKeptLeft, "")
 				}
 			}
 		} else {

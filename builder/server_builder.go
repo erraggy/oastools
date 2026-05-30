@@ -310,7 +310,7 @@ func (s *ServerBuilder) buildDocument() (any, error) {
 // createParseResult creates a ParseResult for compatibility with httpvalidator.
 func (s *ServerBuilder) createParseResult(doc any) *parser.ParseResult {
 	return &parser.ParseResult{
-		SourcePath:   "builder",
+		SourcePath:   strBuilder,
 		SourceFormat: parser.SourceFormatYAML,
 		Version:      s.version.String(),
 		OASVersion:   s.version,

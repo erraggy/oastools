@@ -101,7 +101,7 @@ func (c *Converter) convertServers(src *parser.OAS2Document, result *ConversionR
 
 	schemes := src.Schemes
 	if len(schemes) == 0 {
-		schemes = []string{"https"}
+		schemes = []string{schemeHTTPS}
 	}
 
 	basePath := src.BasePath
@@ -149,7 +149,7 @@ func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parse
 	// emit duplicate warnings and produce unused converted parameters).
 	var nonBodyParams []*parser.Parameter
 	for _, p := range src.Parameters {
-		if p != nil && p.In != "body" && p.In != "formData" {
+		if p != nil && p.In != "body" && p.In != paramInFormData {
 			nonBodyParams = append(nonBodyParams, p)
 		}
 	}
@@ -192,7 +192,7 @@ func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parse
 	// Convert formData parameters to requestBody
 	hasFormData := false
 	for _, param := range src.Parameters {
-		if param != nil && param.In == "formData" {
+		if param != nil && param.In == paramInFormData {
 			hasFormData = true
 			break
 		}
@@ -254,7 +254,7 @@ func (c *Converter) convertOAS2FormDataToRequestBody(src *parser.Operation, doc 
 	var formDataParams []*parser.Parameter
 	hasFile := false
 	for _, param := range src.Parameters {
-		if param != nil && param.In == "formData" {
+		if param != nil && param.In == paramInFormData {
 			formDataParams = append(formDataParams, param)
 			if param.Type == "file" {
 				hasFile = true
@@ -431,7 +431,7 @@ func (c *Converter) convertSecurityDefinitions(src *parser.OAS2Document, dst *pa
 		}
 
 		// Convert OAuth2 flows
-		if secDef.Type == "oauth2" {
+		if secDef.Type == securityTypeOAuth2 {
 			scheme.Flows = &parser.OAuthFlows{}
 
 			switch secDef.Flow {

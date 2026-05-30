@@ -11,7 +11,7 @@ import (
 
 // getDefaultMediaType returns a default media type if none is specified
 func getDefaultMediaType() string {
-	return "application/json"
+	return mediaTypeJSON
 }
 
 // mergeStringArrays merges multiple string arrays, removing duplicates

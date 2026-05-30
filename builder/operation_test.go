@@ -135,7 +135,7 @@ func TestWithRequestBody(t *testing.T) {
 		SetTitle("Test").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/test",
-			WithRequestBody("application/json", Body{},
+			WithRequestBody(contentTypeJSON, Body{},
 				WithRequired(true),
 				WithRequestDescription("Test body"),
 			),
@@ -146,8 +146,8 @@ func TestWithRequestBody(t *testing.T) {
 	rb := b.paths["/test"].Post.RequestBody
 	assert.True(t, rb.Required)
 	assert.Equal(t, "Test body", rb.Description)
-	require.Contains(t, rb.Content, "application/json")
-	require.NotNil(t, rb.Content["application/json"].Schema)
+	require.Contains(t, rb.Content, contentTypeJSON)
+	require.NotNil(t, rb.Content[contentTypeJSON].Schema)
 }
 
 func TestWithResponse(t *testing.T) {
@@ -168,7 +168,7 @@ func TestWithResponse(t *testing.T) {
 	require.Contains(t, b.paths["/test"].Get.Responses.Codes, "200")
 	resp := b.paths["/test"].Get.Responses.Codes["200"]
 	assert.Equal(t, "Success response", resp.Description)
-	require.Contains(t, resp.Content, "application/json")
+	require.Contains(t, resp.Content, contentTypeJSON)
 }
 
 func TestWithResponseRef(t *testing.T) {
@@ -224,7 +224,7 @@ func TestWithResponseRawSchema_OAS20(t *testing.T) {
 	// Test that OAS 2.0 converts response content to direct schema with raw schema
 	schema := &parser.Schema{
 		Type:   "string",
-		Format: "binary",
+		Format: binary,
 	}
 
 	b := New(parser.OASVersion20).
@@ -247,7 +247,7 @@ func TestWithResponseRawSchema_OAS20(t *testing.T) {
 	// OAS 2.0 should have direct Schema field
 	require.NotNil(t, resp.Schema)
 	assert.Equal(t, "string", resp.Schema.Type)
-	assert.Equal(t, "binary", resp.Schema.Format)
+	assert.Equal(t, binary, resp.Schema.Format)
 }
 
 func TestWithDefaultResponse(t *testing.T) {
@@ -471,7 +471,7 @@ func TestBuilder_AddOperation_MultipleOnSamePath(t *testing.T) {
 func TestWithRequestBodyRawSchema(t *testing.T) {
 	schema := &parser.Schema{
 		Type:   "string",
-		Format: "binary",
+		Format: binary,
 	}
 
 	b := New(parser.OASVersion320).
@@ -492,13 +492,13 @@ func TestWithRequestBodyRawSchema(t *testing.T) {
 	require.Contains(t, rb.Content, "application/octet-stream")
 	require.NotNil(t, rb.Content["application/octet-stream"].Schema)
 	assert.Equal(t, "string", rb.Content["application/octet-stream"].Schema.Type)
-	assert.Equal(t, "binary", rb.Content["application/octet-stream"].Schema.Format)
+	assert.Equal(t, binary, rb.Content["application/octet-stream"].Schema.Format)
 }
 
 func TestWithResponseRawSchema(t *testing.T) {
 	schema := &parser.Schema{
 		Type:   "string",
-		Format: "binary",
+		Format: binary,
 	}
 
 	b := New(parser.OASVersion320).
@@ -517,7 +517,7 @@ func TestWithResponseRawSchema(t *testing.T) {
 	require.Contains(t, resp.Content, "application/octet-stream")
 	require.NotNil(t, resp.Content["application/octet-stream"].Schema)
 	assert.Equal(t, "string", resp.Content["application/octet-stream"].Schema.Type)
-	assert.Equal(t, "binary", resp.Content["application/octet-stream"].Schema.Format)
+	assert.Equal(t, binary, resp.Content["application/octet-stream"].Schema.Format)
 }
 
 func TestWithFileParam_OAS20(t *testing.T) {
@@ -562,7 +562,7 @@ func TestWithFileParam_OAS3(t *testing.T) {
 	require.Contains(t, schema.Properties, "file")
 	fileSchema := schema.Properties["file"]
 	assert.Equal(t, "string", fileSchema.Type)
-	assert.Equal(t, "binary", fileSchema.Format)
+	assert.Equal(t, binary, fileSchema.Format)
 	assert.Equal(t, "File to upload", fileSchema.Description)
 	require.Contains(t, schema.Required, "file")
 }
@@ -637,7 +637,7 @@ func TestWithRequestBodyRawSchema_WithExample(t *testing.T) {
 		SetTitle("Test").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/test",
-			WithRequestBodyRawSchema("application/json", schema,
+			WithRequestBodyRawSchema(contentTypeJSON, schema,
 				WithRequestExample(example),
 			),
 			WithResponse(http.StatusOK, struct{}{}),
@@ -645,15 +645,15 @@ func TestWithRequestBodyRawSchema_WithExample(t *testing.T) {
 
 	rb := b.paths["/test"].Post.RequestBody
 	require.NotNil(t, rb)
-	require.Contains(t, rb.Content, "application/json")
-	assert.Equal(t, example, rb.Content["application/json"].Example)
+	require.Contains(t, rb.Content, contentTypeJSON)
+	assert.Equal(t, example, rb.Content[contentTypeJSON].Example)
 }
 
 func TestWithRequestBodyRawSchema_OAS20(t *testing.T) {
 	// Test that OAS 2.0 converts requestBody to body parameter
 	schema := &parser.Schema{
 		Type:   "string",
-		Format: "binary",
+		Format: binary,
 	}
 
 	b := New(parser.OASVersion20).
@@ -679,7 +679,7 @@ func TestWithRequestBodyRawSchema_OAS20(t *testing.T) {
 	assert.True(t, params[0].Required)
 	require.NotNil(t, params[0].Schema)
 	assert.Equal(t, "string", params[0].Schema.Type)
-	assert.Equal(t, "binary", params[0].Schema.Format)
+	assert.Equal(t, binary, params[0].Schema.Format)
 }
 
 func TestWithRequestBody_OAS20(t *testing.T) {
@@ -693,7 +693,7 @@ func TestWithRequestBody_OAS20(t *testing.T) {
 		SetTitle("Test").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/users",
-			WithRequestBody("application/json", RequestBody{},
+			WithRequestBody(contentTypeJSON, RequestBody{},
 				WithRequired(true),
 				WithRequestDescription("User data"),
 			),
@@ -726,7 +726,7 @@ func TestWithRequestBody_OAS20(t *testing.T) {
 func TestWithResponseRawSchema_WithHeaders(t *testing.T) {
 	schema := &parser.Schema{
 		Type:   "string",
-		Format: "binary",
+		Format: binary,
 	}
 	header := &parser.Header{
 		Description: "Content disposition",
@@ -805,7 +805,7 @@ func TestWithFileParam_IgnoresConstraints_OAS3(t *testing.T) {
 
 	fileSchema := schema.Properties["file"]
 	assert.Equal(t, "string", fileSchema.Type)
-	assert.Equal(t, "binary", fileSchema.Format)
+	assert.Equal(t, binary, fileSchema.Format)
 	assert.Equal(t, "File to upload", fileSchema.Description)
 
 	// Verify constraints are not applied to file schema
@@ -835,21 +835,21 @@ func TestWithFileParam_EmptyName(t *testing.T) {
 	require.Contains(t, schema.Properties, "")
 	fileSchema := schema.Properties[""]
 	assert.Equal(t, "string", fileSchema.Type)
-	assert.Equal(t, "binary", fileSchema.Format)
+	assert.Equal(t, binary, fileSchema.Format)
 }
 
 // Tests for WithConsumes and WithProduces
 
 func TestWithConsumes(t *testing.T) {
 	cfg := &operationConfig{}
-	WithConsumes("application/json", "application/xml")(cfg)
-	assert.Equal(t, []string{"application/json", "application/xml"}, cfg.consumes)
+	WithConsumes(contentTypeJSON, "application/xml")(cfg)
+	assert.Equal(t, []string{contentTypeJSON, "application/xml"}, cfg.consumes)
 }
 
 func TestWithProduces(t *testing.T) {
 	cfg := &operationConfig{}
-	WithProduces("application/json", "text/plain")(cfg)
-	assert.Equal(t, []string{"application/json", "text/plain"}, cfg.produces)
+	WithProduces(contentTypeJSON, "text/plain")(cfg)
+	assert.Equal(t, []string{contentTypeJSON, "text/plain"}, cfg.produces)
 }
 
 func TestWithConsumesProduces_OAS2(t *testing.T) {
@@ -861,9 +861,9 @@ func TestWithConsumesProduces_OAS2(t *testing.T) {
 		SetTitle("Test").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/users",
-			WithConsumes("application/json", "application/xml"),
-			WithProduces("application/json"),
-			WithRequestBody("application/json", User{}),
+			WithConsumes(contentTypeJSON, "application/xml"),
+			WithProduces(contentTypeJSON),
+			WithRequestBody(contentTypeJSON, User{}),
 			WithResponse(http.StatusOK, User{}),
 		)
 
@@ -871,8 +871,8 @@ func TestWithConsumesProduces_OAS2(t *testing.T) {
 	require.NoError(t, err)
 
 	op := doc.Paths["/users"].Post
-	assert.Equal(t, []string{"application/json", "application/xml"}, op.Consumes)
-	assert.Equal(t, []string{"application/json"}, op.Produces)
+	assert.Equal(t, []string{contentTypeJSON, "application/xml"}, op.Consumes)
+	assert.Equal(t, []string{contentTypeJSON}, op.Produces)
 }
 
 func TestWithConsumesProduces_IgnoredForOAS3Output(t *testing.T) {
@@ -881,9 +881,9 @@ func TestWithConsumesProduces_IgnoredForOAS3Output(t *testing.T) {
 		SetTitle("Test").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/test",
-			WithConsumes("application/json"), // Should be stored but fields are omitempty
-			WithProduces("application/json"), // Should be stored but fields are omitempty
-			WithRequestBody("application/json", struct{}{}),
+			WithConsumes(contentTypeJSON), // Should be stored but fields are omitempty
+			WithProduces(contentTypeJSON), // Should be stored but fields are omitempty
+			WithRequestBody(contentTypeJSON, struct{}{}),
 			WithResponse(http.StatusOK, struct{}{}),
 		)
 
@@ -892,8 +892,8 @@ func TestWithConsumesProduces_IgnoredForOAS3Output(t *testing.T) {
 
 	op := doc.Paths["/test"].Post
 	// Fields are set but will be empty in serialized output due to omitempty
-	assert.Equal(t, []string{"application/json"}, op.Consumes)
-	assert.Equal(t, []string{"application/json"}, op.Produces)
+	assert.Equal(t, []string{contentTypeJSON}, op.Consumes)
+	assert.Equal(t, []string{contentTypeJSON}, op.Produces)
 }
 
 // Tests for WithRequestBodyContentTypes
@@ -908,7 +908,7 @@ func TestWithRequestBodyContentTypes_OAS3(t *testing.T) {
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/users",
 			WithRequestBodyContentTypes(
-				[]string{"application/json", "application/xml", "text/yaml"},
+				[]string{contentTypeJSON, "application/xml", "text/yaml"},
 				User{},
 				WithRequired(true),
 			),
@@ -923,7 +923,7 @@ func TestWithRequestBodyContentTypes_OAS3(t *testing.T) {
 	assert.True(t, rb.Required)
 
 	// All content types should be present
-	require.Contains(t, rb.Content, "application/json")
+	require.Contains(t, rb.Content, contentTypeJSON)
 	require.Contains(t, rb.Content, "application/xml")
 	require.Contains(t, rb.Content, "text/yaml")
 
@@ -961,7 +961,7 @@ func TestWithRequestBodyContentTypes_OAS2(t *testing.T) {
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/users",
 			WithRequestBodyContentTypes(
-				[]string{"application/json", "application/xml"},
+				[]string{contentTypeJSON, "application/xml"},
 				User{},
 				WithRequired(true),
 				WithRequestDescription("User data"),
@@ -995,7 +995,7 @@ func TestWithResponseContentTypes_OAS3(t *testing.T) {
 			WithPathParam("id", int64(0)),
 			WithResponseContentTypes(
 				http.StatusOK,
-				[]string{"application/json", "application/xml"},
+				[]string{contentTypeJSON, "application/xml"},
 				User{},
 				WithResponseDescription("User found"),
 			),
@@ -1008,7 +1008,7 @@ func TestWithResponseContentTypes_OAS3(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.Equal(t, "User found", resp.Description)
 
-	require.Contains(t, resp.Content, "application/json")
+	require.Contains(t, resp.Content, contentTypeJSON)
 	require.Contains(t, resp.Content, "application/xml")
 
 	// Both should reference the same schema
@@ -1046,7 +1046,7 @@ func TestWithResponseContentTypes_OAS2(t *testing.T) {
 			WithPathParam("id", int64(0)),
 			WithResponseContentTypes(
 				http.StatusOK,
-				[]string{"application/json", "application/xml"},
+				[]string{contentTypeJSON, "application/xml"},
 				User{},
 				WithResponseDescription("User found"),
 			),
@@ -1071,7 +1071,7 @@ func TestRequestBodyMethods_LastWins(t *testing.T) {
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/test",
 			WithRequestBody("text/plain", struct{}{}),
-			WithRequestBodyContentTypes([]string{"application/json", "application/xml"}, struct{}{}),
+			WithRequestBodyContentTypes([]string{contentTypeJSON, "application/xml"}, struct{}{}),
 			WithResponse(http.StatusOK, struct{}{}),
 		)
 
@@ -1083,7 +1083,7 @@ func TestRequestBodyMethods_LastWins(t *testing.T) {
 
 	// Should have the multi-content types, not text/plain
 	assert.NotContains(t, rb.Content, "text/plain")
-	assert.Contains(t, rb.Content, "application/json")
+	assert.Contains(t, rb.Content, contentTypeJSON)
 	assert.Contains(t, rb.Content, "application/xml")
 }
 
@@ -1099,7 +1099,7 @@ func TestWithResponseContentTypes_WithHeaders(t *testing.T) {
 		AddOperation(http.MethodGet, "/test",
 			WithResponseContentTypes(
 				http.StatusOK,
-				[]string{"application/json", "application/xml"},
+				[]string{contentTypeJSON, "application/xml"},
 				struct{}{},
 				WithResponseDescription("Success"),
 				WithResponseHeader("X-Rate-Limit-Remaining", header),
@@ -1343,7 +1343,7 @@ func TestWithRequestBodyExtension_OAS3Output(t *testing.T) {
 		SetTitle("Test").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/users",
-			WithRequestBody("application/json", struct{}{},
+			WithRequestBody(contentTypeJSON, struct{}{},
 				WithRequestBodyExtension("x-codegen-request-body-name", "user"),
 			),
 			WithResponse(http.StatusCreated, struct{}{}),
@@ -1363,7 +1363,7 @@ func TestWithRequestBodyExtension_OAS2BodyParam(t *testing.T) {
 		SetTitle("Test").
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/users",
-			WithRequestBody("application/json", struct{}{},
+			WithRequestBody(contentTypeJSON, struct{}{},
 				WithRequestBodyExtension("x-codegen-request-body-name", "user"),
 			),
 			WithResponse(http.StatusCreated, struct{}{}),
@@ -1388,7 +1388,7 @@ func TestWithRequestBodyExtension_OAS2BodyParam(t *testing.T) {
 func TestWithRequestBodyExtension_RawSchema(t *testing.T) {
 	schema := &parser.Schema{
 		Type:   "string",
-		Format: "binary",
+		Format: binary,
 	}
 
 	b := New(parser.OASVersion320).
@@ -1416,7 +1416,7 @@ func TestWithRequestBodyExtension_MultipleContentTypes(t *testing.T) {
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/users",
 			WithRequestBodyContentTypes(
-				[]string{"application/json", "application/xml"},
+				[]string{contentTypeJSON, "application/xml"},
 				struct{}{},
 				WithRequestBodyExtension("x-supports-xml", true),
 			),
@@ -1441,7 +1441,7 @@ func TestCombinedExtensions_AllComponents(t *testing.T) {
 			WithPathParam("id", "",
 				WithParamExtension("x-param-custom", "param-value"),
 			),
-			WithRequestBody("application/json", struct{}{},
+			WithRequestBody(contentTypeJSON, struct{}{},
 				WithRequestBodyExtension("x-body-custom", "body-value"),
 			),
 			WithResponse(http.StatusOK, struct{}{},

@@ -25,6 +25,31 @@ const (
 // StdinFilePath is the special file path used to indicate reading from stdin.
 const StdinFilePath = "-"
 
+const (
+	// flagHelpLong is the long-form help flag.
+	flagHelpLong = "--help"
+	// strategyFirst is the first-encountered collision strategy name.
+	strategyFirst = "first"
+	// strategyMostSpecific is the most-specific collision strategy name.
+	strategyMostSpecific = "most-specific"
+	// strategyAlphabetical is the alphabetical collision strategy name.
+	strategyAlphabetical = "alphabetical"
+	// headerName is the table header for name columns.
+	headerName = "NAME"
+	// headerMethod is the table header for HTTP method columns.
+	headerMethod = "METHOD"
+	// headerPath is the table header for path columns.
+	headerPath = "PATH"
+	// headerSummary is the table header for summary columns.
+	headerSummary = "SUMMARY"
+	// headerType is the table header for type columns.
+	headerType = "TYPE"
+	// headerExtensions is the table header for specification extensions.
+	headerExtensions = "EXTENSIONS"
+	// locationComponent labels schemas defined in the components section.
+	locationComponent = "component"
+)
+
 // ValidateOutputFormat validates an output format and returns an error if invalid.
 func ValidateOutputFormat(format string) error {
 	if format != FormatText && format != FormatJSON && format != FormatYAML {
@@ -87,7 +112,7 @@ func ValidatePrimaryOperationPolicy(policy string) error {
 	if policy == "" {
 		return nil
 	}
-	valid := []string{"first", "most-specific", "alphabetical"}
+	valid := []string{strategyFirst, strategyMostSpecific, strategyAlphabetical}
 	if slices.Contains(valid, policy) {
 		return nil
 	}
@@ -97,9 +122,9 @@ func ValidatePrimaryOperationPolicy(policy string) error {
 // MapPrimaryOperationPolicy maps a string policy to the joiner enum.
 func MapPrimaryOperationPolicy(policy string) joiner.PrimaryOperationPolicy {
 	switch policy {
-	case "most-specific":
+	case strategyMostSpecific:
 		return joiner.PolicyMostSpecific
-	case "alphabetical":
+	case strategyAlphabetical:
 		return joiner.PolicyAlphabetical
 	default:
 		return joiner.PolicyFirstEncountered

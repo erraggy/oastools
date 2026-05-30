@@ -75,7 +75,7 @@ func (r *Responses) UnmarshalYAML(unmarshal func(any) error) error {
 
 	// Process each field
 	for key, value := range raw {
-		if key == "default" {
+		if key == jsonKeyDefault {
 			// Handle the default response
 			valueBytes, err := yamlMarshalValue(value)
 			if err != nil {

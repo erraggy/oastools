@@ -41,7 +41,7 @@ func getSchemaType(schema *parser.Schema) string {
 // stringFormatToGoType maps OpenAPI string formats to Go types.
 func stringFormatToGoType(format string) string {
 	switch format {
-	case "date-time":
+	case formatDateTime:
 		return "time.Time"
 	case "date":
 		return "string" // Could use time.Time with custom parsing
@@ -61,10 +61,10 @@ func integerFormatToGoType(format string) string {
 	switch format {
 	case "int32":
 		return "int32"
-	case "int64":
-		return "int64"
+	case goTypeInt64:
+		return goTypeInt64
 	default:
-		return "int64"
+		return goTypeInt64
 	}
 }
 
@@ -74,9 +74,9 @@ func numberFormatToGoType(format string) string {
 	case "float":
 		return "float32"
 	case "double":
-		return "float64"
+		return goTypeFloat64
 	default:
-		return "float64"
+		return goTypeFloat64
 	}
 }
 
@@ -91,7 +91,7 @@ func paramTypeToGoType(paramType, format string) string {
 	case "number":
 		return numberFormatToGoType(format)
 	case "boolean":
-		return "bool"
+		return goTypeBool
 	case "array":
 		return "[]string"
 	default:
@@ -106,7 +106,7 @@ func needsTimeImport(schema *parser.Schema) bool {
 	}
 
 	schemaType := getSchemaType(schema)
-	if schemaType == "string" && schema.Format == "date-time" {
+	if schemaType == "string" && schema.Format == formatDateTime {
 		return true
 	}
 
@@ -138,11 +138,11 @@ func zeroValue(t string) string {
 	switch t {
 	case "string":
 		return `""`
-	case "bool":
+	case goTypeBool:
 		return "false"
-	case "int", "int8", "int16", "int32", "int64",
+	case "int", "int8", "int16", "int32", goTypeInt64,
 		"uint", "uint8", "uint16", "uint32", "uint64",
-		"float32", "float64":
+		"float32", goTypeFloat64:
 		return "0"
 	case "any":
 		return "nil"
@@ -155,7 +155,7 @@ func zeroValue(t string) string {
 // This handles cases where the parser returns additionalProperties or items as a
 // map[string]any rather than a *parser.Schema.
 func schemaTypeFromMap(m map[string]any) string {
-	if typeVal, ok := m["type"]; ok {
+	if typeVal, ok := m[typeName]; ok {
 		if typeStr, ok := typeVal.(string); ok {
 			switch typeStr {
 			case "string":
@@ -167,14 +167,14 @@ func schemaTypeFromMap(m map[string]any) string {
 				if format, ok := m["format"].(string); ok {
 					return integerFormatToGoType(format)
 				}
-				return "int64"
+				return goTypeInt64
 			case "number":
 				if format, ok := m["format"].(string); ok {
 					return numberFormatToGoType(format)
 				}
-				return "float64"
+				return goTypeFloat64
 			case "boolean":
-				return "bool"
+				return goTypeBool
 			case "array":
 				return "[]any"
 			case "object":

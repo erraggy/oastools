@@ -940,7 +940,7 @@ func (p *Parser) validateOAS3(doc *OAS3Document) []error {
 	// Validate openapi version field
 	if doc.OpenAPI == "" {
 		errors = append(errors, fmt.Errorf("oas 3.x: missing required root field 'openapi': must be set to a valid 3.x version (e.g., \"3.0.3\", \"3.1.0\")"))
-	} else if !versionInRangeExclusive(doc.OpenAPI, "3.0.0", "4.0.0") {
+	} else if !versionInRangeExclusive(doc.OpenAPI, oas300, "4.0.0") {
 		errors = append(errors, fmt.Errorf("oas %s: invalid 'openapi' field value: \"%s\" is not a valid 3.x version", version, doc.OpenAPI))
 	}
 
@@ -957,7 +957,7 @@ func (p *Parser) validateOAS3(doc *OAS3Document) []error {
 
 	// Validate webhooks if present (OAS 3.1+)
 	if len(doc.Webhooks) > 0 {
-		if versionInRangeExclusive(doc.OpenAPI, "0.0.0", "3.1.0") {
+		if versionInRangeExclusive(doc.OpenAPI, "0.0.0", oas310) {
 			errors = append(errors, fmt.Errorf("oas %s: 'webhooks' field is only supported in OAS 3.1.0 and later, not in version %s", version, doc.OpenAPI))
 		} else {
 			// Validate webhook structure (webhooks are PathItems like paths)
@@ -985,11 +985,11 @@ func (p *Parser) validateOAS3Info(info *Info, version string) []error {
 
 func (p *Parser) validateOAS3PathsRequirement(doc *OAS3Document, version string) []error {
 	errors := make([]error, 0)
-	if versionInRangeExclusive(doc.OpenAPI, "3.0.0", "3.1.0") {
+	if versionInRangeExclusive(doc.OpenAPI, oas300, oas310) {
 		if doc.Paths == nil {
 			errors = append(errors, fmt.Errorf("oas %s: missing required root field 'paths': Paths object is required in OAS 3.0.x (https://spec.openapis.org/oas/v3.0.0.html#paths-object)", version))
 		}
-	} else if versionInRangeExclusive(doc.OpenAPI, "3.1.0", "") {
+	} else if versionInRangeExclusive(doc.OpenAPI, oas310, "") {
 		// In OAS 3.1+, either paths or webhooks must be present
 		if doc.Paths == nil && len(doc.Webhooks) == 0 {
 			errors = append(errors, fmt.Errorf("oas %s: document must have either 'paths' or 'webhooks': at least one is required in OAS 3.1+", version))

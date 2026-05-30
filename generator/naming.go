@@ -21,10 +21,10 @@ const maxDescriptionLength = 200
 var goReservedWords = map[string]bool{
 	// Keywords (these are truly reserved and cannot be used)
 	"break": true, "case": true, "chan": true, "const": true, "continue": true,
-	"default": true, "defer": true, "else": true, "fallthrough": true, "for": true,
+	defaultName: true, "defer": true, "else": true, "fallthrough": true, "for": true,
 	"func": true, "go": true, "goto": true, "if": true, "import": true,
 	"interface": true, "map": true, "package": true, "range": true, "return": true,
-	"select": true, "struct": true, "switch": true, "type": true, "var": true,
+	"select": true, "struct": true, "switch": true, typeName: true, "var": true,
 }
 
 // escapeReservedWord checks if a name is a Go reserved keyword and escapes it

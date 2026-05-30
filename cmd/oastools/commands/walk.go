@@ -18,7 +18,7 @@ func HandleWalk(args []string) error {
 	subcommand := args[0]
 
 	// Handle --help at walk level
-	if subcommand == "--help" || subcommand == "-h" || subcommand == "help" {
+	if subcommand == flagHelpLong || subcommand == "-h" || subcommand == "help" {
 		printWalkUsage()
 		return nil
 	}

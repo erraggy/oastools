@@ -165,7 +165,7 @@ func renameFuncs() template.FuncMap {
 		"kebabCase":  naming.ToKebabCase,
 
 		// Conditional helpers
-		"default":  defaultValue,
+		defaultKey: defaultValue,
 		"coalesce": coalesce,
 	}
 }

@@ -38,7 +38,7 @@ func BenchmarkSchemaNaming(b *testing.B) {
 		strategy SchemaNamingStrategy
 	}{
 		{"default", SchemaNamingDefault},
-		{"pascal", SchemaNamingPascalCase},
+		{pascal, SchemaNamingPascalCase},
 		{"camel", SchemaNamingCamelCase},
 		{"snake", SchemaNamingSnakeCase},
 		{"kebab", SchemaNamingKebabCase},
@@ -100,7 +100,7 @@ func BenchmarkSchemaNameTemplate(b *testing.B) {
 		tmpl string
 	}{
 		{"simple", `{{.Type}}`},
-		{"pascal", `{{pascal .Package}}{{pascal .Type}}`},
+		{pascal, `{{pascal .Package}}{{pascal .Type}}`},
 		{"complex", `{{if .IsGeneric}}Generic_{{end}}{{snake .Package}}_{{pascal .Type}}`},
 		{"generic_aware", `{{.TypeBase}}{{if .IsGeneric}}Of{{range .GenericParamsSanitized}}{{pascal .}}{{end}}{{end}}`},
 	}
@@ -577,7 +577,7 @@ func BenchmarkTemplateParsing(b *testing.B) {
 		tmpl string
 	}{
 		{"simple", `{{.Type}}`},
-		{"pascal", `{{pascal .Package}}{{pascal .Type}}`},
+		{pascal, `{{pascal .Package}}{{pascal .Type}}`},
 		{"complex", `{{if .IsGeneric}}Generic_{{end}}{{snake .Package}}_{{pascal .Type}}`},
 		{"full", `{{.TypeBase}}{{if .IsGeneric}}Of{{range .GenericParamsSanitized}}{{pascal .}}{{end}}{{end}}`},
 	}

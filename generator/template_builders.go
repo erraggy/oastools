@@ -274,7 +274,7 @@ func (cg *oas3CodeGenerator) buildAliasTypeDefinition(typeName string, schema *p
 	}
 
 	return TypeDefinition{
-		Kind:  "alias",
+		Kind:  kindAlias,
 		Alias: aliasData,
 	}
 }
@@ -294,7 +294,7 @@ func (cg *oas3CodeGenerator) buildArrayAliasTypeDefinition(typeName string, sche
 	}
 
 	return TypeDefinition{
-		Kind:  "alias",
+		Kind:  kindAlias,
 		Alias: aliasData,
 	}
 }
@@ -314,7 +314,7 @@ func (cg *oas3CodeGenerator) buildStringAliasTypeDefinition(typeName string, sch
 	}
 
 	return TypeDefinition{
-		Kind:  "alias",
+		Kind:  kindAlias,
 		Alias: aliasData,
 	}
 }
@@ -334,7 +334,7 @@ func (cg *oas3CodeGenerator) buildIntegerAliasTypeDefinition(typeName string, sc
 	}
 
 	return TypeDefinition{
-		Kind:  "alias",
+		Kind:  kindAlias,
 		Alias: aliasData,
 	}
 }
@@ -354,7 +354,7 @@ func (cg *oas3CodeGenerator) buildNumberAliasTypeDefinition(typeName string, sch
 	}
 
 	return TypeDefinition{
-		Kind:  "alias",
+		Kind:  kindAlias,
 		Alias: aliasData,
 	}
 }
@@ -363,7 +363,7 @@ func (cg *oas3CodeGenerator) buildNumberAliasTypeDefinition(typeName string, sch
 func (cg *oas3CodeGenerator) buildBooleanAliasTypeDefinition(typeName string, schema *parser.Schema) TypeDefinition {
 	aliasData := &AliasData{
 		TypeName:   typeName,
-		TargetType: "bool",
+		TargetType: goTypeBool,
 		IsDefined:  false,
 	}
 
@@ -372,7 +372,7 @@ func (cg *oas3CodeGenerator) buildBooleanAliasTypeDefinition(typeName string, sc
 	}
 
 	return TypeDefinition{
-		Kind:  "alias",
+		Kind:  kindAlias,
 		Alias: aliasData,
 	}
 }
@@ -386,7 +386,7 @@ func (cg *oas3CodeGenerator) buildAnyAliasTypeDefinition(typeName string) TypeDe
 	}
 
 	return TypeDefinition{
-		Kind:  "alias",
+		Kind:  kindAlias,
 		Alias: aliasData,
 	}
 }

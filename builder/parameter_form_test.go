@@ -338,7 +338,7 @@ func TestWithFormParam_OAS3(t *testing.T) {
 			SetTitle("Test API").
 			SetVersion("1.0.0").
 			AddOperation(http.MethodPost, "/upload",
-				WithRequestBody("application/json", struct {
+				WithRequestBody(contentTypeJSON, struct {
 					Metadata string `json:"metadata"`
 				}{},
 					WithRequired(true),
@@ -356,7 +356,7 @@ func TestWithFormParam_OAS3(t *testing.T) {
 		require.NotNil(t, rb)
 
 		// Both content types should exist
-		require.Contains(t, rb.Content, "application/json")
+		require.Contains(t, rb.Content, contentTypeJSON)
 		require.Contains(t, rb.Content, "application/x-www-form-urlencoded")
 
 		// Check form parameters

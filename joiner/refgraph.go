@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -81,7 +82,7 @@ func (g *RefGraph) recordPathItemOAS3(path string, pathItem *parser.PathItem, ve
 		if op.Responses != nil {
 			// Default response
 			if op.Responses.Default != nil {
-				g.recordResponseSchemaRefs(op.Responses.Default, baseRef, "default")
+				g.recordResponseSchemaRefs(op.Responses.Default, baseRef, defaultKey)
 			}
 			// Status code responses
 			for statusCode, response := range op.Responses.Codes {
@@ -161,7 +162,7 @@ func (g *RefGraph) recordPathItemCallbackOAS3(pathItem *parser.PathItem, baseRef
 		// Record responses
 		if op.Responses != nil {
 			if op.Responses.Default != nil {
-				g.recordResponseSchemaRefs(op.Responses.Default, callbackRef, "default")
+				g.recordResponseSchemaRefs(op.Responses.Default, callbackRef, defaultKey)
 			}
 			for statusCode, response := range op.Responses.Codes {
 				if response != nil {
@@ -240,13 +241,13 @@ func buildRefGraphOAS2(doc *parser.OAS2Document) *RefGraph {
 func (g *RefGraph) recordPathItemOAS2(path string, pathItem *parser.PathItem) {
 	// OAS 2.0 operations
 	operations := map[string]*parser.Operation{
-		"get":     pathItem.Get,
-		"put":     pathItem.Put,
-		"post":    pathItem.Post,
-		"delete":  pathItem.Delete,
-		"options": pathItem.Options,
-		"head":    pathItem.Head,
-		"patch":   pathItem.Patch,
+		"get":               pathItem.Get,
+		"put":               pathItem.Put,
+		httputil.MethodPost: pathItem.Post,
+		"delete":            pathItem.Delete,
+		"options":           pathItem.Options,
+		"head":              pathItem.Head,
+		"patch":             pathItem.Patch,
 	}
 
 	for method, op := range operations {
@@ -279,7 +280,7 @@ func (g *RefGraph) recordPathItemOAS2(path string, pathItem *parser.PathItem) {
 		if op.Responses != nil {
 			// Default response
 			if op.Responses.Default != nil && op.Responses.Default.Schema != nil {
-				g.recordOperationSchemaRef(op.Responses.Default.Schema, baseRef, UsageTypeResponse, "default", "", "")
+				g.recordOperationSchemaRef(op.Responses.Default.Schema, baseRef, UsageTypeResponse, defaultKey, "", "")
 			}
 			// Status code responses
 			for statusCode, response := range op.Responses.Codes {

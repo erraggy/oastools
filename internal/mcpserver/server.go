@@ -14,6 +14,13 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+const (
+	groupByName       = "name"
+	groupByMethod     = "method"
+	groupByLocation   = "location"
+	groupByStatusCode = "status_code"
+)
+
 const serverInstructions = `oastools MCP server — validates, fixes, converts, diffs, joins, walks, and generates OpenAPI specs.
 
 Configuration: All defaults are configurable via OASTOOLS_* environment variables set in your MCP client config. The Go MCP SDK does not support initializationOptions; use env vars instead.

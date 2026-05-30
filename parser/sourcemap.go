@@ -266,7 +266,7 @@ func walkNode(node *yaml.Node, path string, sm *SourceMap, file string) {
 			})
 
 			// Track $ref specially
-			if key == "$ref" && valNode.Kind == yaml.ScalarNode {
+			if key == jsonKeyRef && valNode.Kind == yaml.ScalarNode {
 				sm.setRef(path, RefLocation{
 					Origin: SourceLocation{
 						Line:   valNode.Line,

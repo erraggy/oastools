@@ -61,7 +61,7 @@ func handleWalkOperations(_ context.Context, _ *mcp.CallToolRequest, input walkO
 		return errResult(err), nil, nil
 	}
 
-	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"tag", "method"}); err != nil {
+	if err := validateGroupBy(input.GroupBy, input.Detail, []string{"tag", groupByMethod}); err != nil {
 		return errResult(err), nil, nil
 	}
 
@@ -85,7 +85,7 @@ func handleWalkOperations(_ context.Context, _ *mcp.CallToolRequest, input walkO
 					return nil
 				}
 				return op.Operation.Tags
-			case "method":
+			case groupByMethod:
 				return []string{strings.ToUpper(op.Method)}
 			default:
 				return nil

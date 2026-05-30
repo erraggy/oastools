@@ -524,21 +524,21 @@ func extractOAuth2FlowNames(flows *OAuthFlows, legacyFlow string) []string {
 			names = append(names, "password")
 		}
 		if flows.Implicit != nil {
-			names = append(names, "implicit")
+			names = append(names, oauth2FlowImplicit)
 		}
 	}
 
 	// OAS 2.0 style
 	if len(names) == 0 && legacyFlow != "" {
 		switch legacyFlow {
-		case "accessCode", "authorizationCode":
+		case oauth2FlowAccessCode, "authorizationCode":
 			names = append(names, "authorization_code")
 		case "application", "clientCredentials":
 			names = append(names, "client_credentials")
 		case "password":
 			names = append(names, "password")
-		case "implicit":
-			names = append(names, "implicit")
+		case oauth2FlowImplicit:
+			names = append(names, oauth2FlowImplicit)
 		}
 	}
 

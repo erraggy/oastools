@@ -14,6 +14,11 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+const (
+	contentTypeJSON = "application/json"
+	binary          = "binary"
+)
+
 // Pet represents a pet in the store.
 type Pet struct {
 	ID        int64     `json:"id" oas:"description=Unique pet identifier"`
@@ -90,7 +95,7 @@ func Example_withRequestBody() {
 		SetVersion("1.0.0").
 		AddOperation(http.MethodPost, "/pets",
 			builder.WithOperationID("createPet"),
-			builder.WithRequestBody("application/json", CreatePetRequest{},
+			builder.WithRequestBody(contentTypeJSON, CreatePetRequest{},
 				builder.WithRequired(true),
 				builder.WithRequestDescription("Pet to create"),
 			),
@@ -525,7 +530,7 @@ func Example_withRawSchema() {
 	// Binary file download response
 	binarySchema := &parser.Schema{
 		Type:   "string",
-		Format: "binary",
+		Format: binary,
 	}
 
 	spec.AddOperation(http.MethodGet, "/download/{id}",
@@ -572,7 +577,7 @@ func Example_withComplexRawSchema() {
 		Properties: map[string]*parser.Schema{
 			"file": {
 				Type:        "string",
-				Format:      "binary",
+				Format:      binary,
 				Description: "The file data",
 			},
 			"metadata": {
@@ -866,7 +871,7 @@ func Example_serverBuilderCRUD() {
 
 	srv.AddOperation(http.MethodPost, "/pets",
 		builder.WithOperationID("createPet"),
-		builder.WithRequestBody("application/json", Pet{}),
+		builder.WithRequestBody(contentTypeJSON, Pet{}),
 		builder.WithResponse(http.StatusCreated, Pet{}),
 	)
 
@@ -1116,7 +1121,7 @@ func Example_serverBuilderWithValidation() {
 
 	srv.AddOperation(http.MethodPost, "/pets",
 		builder.WithOperationID("createPet"),
-		builder.WithRequestBody("application/json", Pet{}),
+		builder.WithRequestBody(contentTypeJSON, Pet{}),
 		builder.WithResponse(http.StatusCreated, Pet{}),
 	)
 

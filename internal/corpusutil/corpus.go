@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+const formatJSON = "json"
+
 // SpecInfo contains metadata about a corpus specification.
 type SpecInfo struct {
 	Name             string // Human-readable name (e.g., "Stripe")
@@ -40,7 +42,7 @@ var Corpus = []SpecInfo{
 		Filename:       "petstore-swagger.json",
 		URL:            "https://petstore.swagger.io/v2/swagger.json",
 		OASVersion:     "2.0",
-		Format:         "json",
+		Format:         formatJSON,
 		ExpectedValid:  true,
 		ExpectedErrors: 0,
 		IsLarge:        false,
@@ -75,7 +77,7 @@ var Corpus = []SpecInfo{
 		Filename:       "google-maps-platform.json",
 		URL:            "https://raw.githubusercontent.com/googlemaps/openapi-specification/main/dist/google-maps-platform-openapi3.json",
 		OASVersion:     "3.0.3",
-		Format:         "json",
+		Format:         formatJSON,
 		ExpectedValid:  true, // Now valid after fixing $ref parameter validation (was 228 false positives)
 		ExpectedErrors: 0,
 		IsLarge:        false,
@@ -86,7 +88,7 @@ var Corpus = []SpecInfo{
 		Filename:       "nws-openapi.json",
 		URL:            "https://api.weather.gov/openapi.json",
 		OASVersion:     "3.0.3",
-		Format:         "json",
+		Format:         formatJSON,
 		ExpectedValid:  false,
 		ExpectedErrors: 44, // Reduced from 156 after fixing $ref parameter validation
 		IsLarge:        false,
@@ -108,7 +110,7 @@ var Corpus = []SpecInfo{
 		Filename:       "discord-openapi.json",
 		URL:            "https://raw.githubusercontent.com/discord/discord-api-spec/main/specs/openapi.json",
 		OASVersion:     "3.1.0",
-		Format:         "json",
+		Format:         formatJSON,
 		ExpectedValid:  true,
 		ExpectedErrors: 0,
 		IsLarge:        false,
@@ -119,7 +121,7 @@ var Corpus = []SpecInfo{
 		Filename:       "github-api.json",
 		URL:            "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json",
 		OASVersion:     "3.0.3",
-		Format:         "json",
+		Format:         formatJSON,
 		ExpectedValid:  false,
 		ExpectedErrors: 2224, // Reduced from 8000 after fixing $ref parameter/requestBody validation
 		IsLarge:        false,
@@ -130,7 +132,7 @@ var Corpus = []SpecInfo{
 		Filename:       "stripe-spec3.json",
 		URL:            "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json",
 		OASVersion:     "3.0.0",
-		Format:         "json",
+		Format:         formatJSON,
 		ExpectedValid:  true,
 		ExpectedErrors: 0,
 		IsLarge:        true,

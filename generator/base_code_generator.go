@@ -184,7 +184,7 @@ func (b *baseCodeGenerator) schemaToGoTypeBase(schema *parser.Schema, required b
 	case "number":
 		goType = numberFormatToGoType(schema.Format)
 	case "boolean":
-		goType = "bool"
+		goType = goTypeBool
 	case "array":
 		goType = "[]" + b.getArrayItemType(schema, schemaToGoType)
 	case "object":

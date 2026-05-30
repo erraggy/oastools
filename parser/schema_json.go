@@ -22,13 +22,13 @@ func (s *Schema) MarshalJSON() ([]byte, error) {
 	m := make(map[string]any, 50+len(s.Extra))
 
 	// Add known fields (using helpers to omit zero values)
-	jsonhelpers.SetIfNotEmpty(m, "$ref", s.Ref)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyRef, s.Ref)
 	jsonhelpers.SetIfNotEmpty(m, "$schema", s.Schema)
-	jsonhelpers.SetIfNotEmpty(m, "title", s.Title)
-	jsonhelpers.SetIfNotEmpty(m, "description", s.Description)
-	jsonhelpers.SetIfNotNil(m, "default", s.Default)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyTitle, s.Title)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, s.Description)
+	jsonhelpers.SetIfNotNil(m, jsonKeyDefault, s.Default)
 	jsonhelpers.SetIfSliceNotEmpty(m, "examples", s.Examples)
-	jsonhelpers.SetIfNotNil(m, "type", s.Type)
+	jsonhelpers.SetIfNotNil(m, jsonKeyType, s.Type)
 	jsonhelpers.SetIfNotNil(m, "enum", s.Enum)
 	jsonhelpers.SetIfNotNil(m, "const", s.Const)
 	jsonhelpers.SetIfNotNil(m, "multipleOf", s.MultipleOf)
@@ -197,7 +197,7 @@ func (x *XML) MarshalJSON() ([]byte, error) {
 
 	// Build map with known fields
 	m := make(map[string]any, 5+len(x.Extra))
-	jsonhelpers.SetIfNotEmpty(m, "name", x.Name)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyName, x.Name)
 	jsonhelpers.SetIfNotEmpty(m, "namespace", x.Namespace)
 	jsonhelpers.SetIfNotEmpty(m, "prefix", x.Prefix)
 	jsonhelpers.SetIfTrue(m, "attribute", x.Attribute)
