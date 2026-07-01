@@ -1,0 +1,63 @@
+openapi: 3.1.0
+info:
+  title: Xquik API
+  version: "1.0"
+
+servers:
+  - url: https://xquik.com
+
+security:
+  - apiKey: []
+
+paths:
+  /api/v1/x/tweets/search:
+    get:
+      operationId: searchTweets
+      summary: Search tweets by query, Tweet ID, X status URL, or account date window
+      tags:
+        - Tweets
+      security:
+        - apiKey: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedTweets"
+
+components:
+  schemas:
+    PaginatedTweets:
+      type: object
+      required:
+        - tweets
+      properties:
+        tweets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tweet"
+        next_cursor:
+          type: string
+    Tweet:
+      type: object
+      required:
+        - id
+        - text
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      name: x-api-key
+      in: header

@@ -104,6 +104,36 @@ func TestParseOAS31(t *testing.T) {
 	}
 }
 
+func TestParseOAS31XquikFixture(t *testing.T) {
+	parser := New()
+	result, err := parser.Parse("../testdata/xquik-openapi-3.1.yaml")
+	require.NoError(t, err, "Failed to parse Xquik OAS 3.1 fixture")
+	require.Empty(t, result.Errors, "Expected no validation errors")
+	assert.Equal(t, "3.1.0", result.Version)
+
+	doc, ok := result.Document.(*OAS3Document)
+	require.True(t, ok, "Expected OAS3Document, got %T", result.Document)
+	require.NotNil(t, doc.Info)
+	assert.Equal(t, "Xquik API", doc.Info.Title)
+	require.Len(t, doc.Servers, 1)
+	assert.Equal(t, "https://xquik.com", doc.Servers[0].URL)
+
+	require.NotNil(t, doc.Components)
+	apiKey := doc.Components.SecuritySchemes["apiKey"]
+	require.NotNil(t, apiKey)
+	assert.Equal(t, "apiKey", apiKey.Type)
+	assert.Equal(t, "x-api-key", apiKey.Name)
+	assert.Equal(t, "header", apiKey.In)
+
+	pathItem := doc.Paths["/api/v1/x/tweets/search"]
+	require.NotNil(t, pathItem)
+	require.NotNil(t, pathItem.Get)
+	assert.Equal(t, "searchTweets", pathItem.Get.OperationID)
+	assert.Equal(t, []string{"Tweets"}, pathItem.Get.Tags)
+	require.Len(t, pathItem.Get.Parameters, 1)
+	assert.Equal(t, "q", pathItem.Get.Parameters[0].Name)
+}
+
 func TestParseOAS32(t *testing.T) {
 	parser := New()
 	result, err := parser.Parse("../testdata/petstore-3.2.yaml")
