@@ -1,0 +1,113 @@
+// Package paramutil resolves parameter $ref values against a document's
+// reusable parameter definitions.
+//
+// The parser preserves $ref values verbatim so documents round-trip losslessly,
+// which means a referenced parameter arrives with empty Name and In fields. Any
+// analysis that keys off those fields — path template consistency checks, for
+// example — must resolve the reference first or it will conclude the parameter
+// declares nothing at all.
+package paramutil
+
+import (
+	"github.com/erraggy/oastools/internal/pathutil"
+	"github.com/erraggy/oastools/parser"
+)
+
+// maxRefDepth bounds how many $ref hops Resolve will follow. Reusable parameter
+// definitions may themselves be references, but a cycle
+// (#/parameters/a -> #/parameters/b -> #/parameters/a) must not loop forever.
+const maxRefDepth = 10
+
+// Resolver maps local parameter $ref values to the definitions they point at.
+// The zero value (a nil Resolver) is usable: it resolves inline parameters and
+// reports every $ref as unresolvable.
+type Resolver map[string]*parser.Parameter
+
+// NewOAS2Resolver builds a Resolver over an OAS 2.0 document's root-level
+// parameters, keyed by "#/parameters/{name}".
+func NewOAS2Resolver(doc *parser.OAS2Document) Resolver {
+	if doc == nil {
+		return nil
+	}
+	return newResolver(doc.Parameters, true)
+}
+
+// NewOAS3Resolver builds a Resolver over an OAS 3.x document's
+// components.parameters, keyed by "#/components/parameters/{name}".
+func NewOAS3Resolver(doc *parser.OAS3Document) Resolver {
+	if doc == nil || doc.Components == nil {
+		return nil
+	}
+	return newResolver(doc.Components.Parameters, false)
+}
+
+func newResolver(params map[string]*parser.Parameter, oas2 bool) Resolver {
+	if len(params) == 0 {
+		return nil
+	}
+	r := make(Resolver, len(params))
+	for name, param := range params {
+		if param != nil {
+			r[pathutil.ParameterRef(name, oas2)] = param
+		}
+	}
+	return r
+}
+
+// Resolve returns the effective definition for param, following local $ref
+// hops until it reaches an inline parameter.
+//
+// ok is false when the reference cannot be followed: an external $ref (which
+// the parser's resolver handles, not this one), a dangling local $ref, or a
+// reference cycle. Callers must treat a false ok as "unknown" rather than
+// "declares nothing" — the whole point of this package is that the two are not
+// the same.
+func (r Resolver) Resolve(param *parser.Parameter) (resolved *parser.Parameter, ok bool) {
+	for depth := 0; param != nil && param.Ref != ""; depth++ {
+		if depth >= maxRefDepth {
+			return nil, false
+		}
+		target, found := r[param.Ref]
+		if !found {
+			return nil, false
+		}
+		param = target
+	}
+	if param == nil {
+		return nil, false
+	}
+	return param, true
+}
+
+// DeclaredPathParams returns the names of every path parameter declared across
+// the given parameter lists, resolving local $ref values along the way. Lists
+// are typically the path item's parameters followed by the operation's, which
+// is why the names collapse into a single set: an operation-level parameter
+// overrides a path-level one of the same name and location.
+//
+// complete reports whether every parameter resolved. When it is false the
+// returned set is a lower bound — some parameter in the list may declare a name
+// that is not present — so callers must not report a path template parameter as
+// undeclared based on it.
+func (r Resolver) DeclaredPathParams(lists ...[]*parser.Parameter) (declared map[string]bool, complete bool) {
+	declared = make(map[string]bool)
+	complete = true
+
+	for _, params := range lists {
+		for _, param := range params {
+			if param == nil {
+				continue
+			}
+			resolved, ok := r.Resolve(param)
+			if !ok {
+				complete = false
+				continue
+			}
+			if resolved.In == parser.ParamInPath {
+				declared[resolved.Name] = true
+			}
+		}
+	}
+
+	return declared, complete
+}

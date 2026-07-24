@@ -1,0 +1,267 @@
+package paramutil_test
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/erraggy/oastools/internal/paramutil"
+	"github.com/erraggy/oastools/parser"
+)
+
+func pathParam(name string) *parser.Parameter {
+	return &parser.Parameter{Name: name, In: parser.ParamInPath, Required: true}
+}
+
+func ref(target string) *parser.Parameter {
+	return &parser.Parameter{Ref: target}
+}
+
+func TestNewOAS2Resolver(t *testing.T) {
+	t.Run("resolves root-level parameters", func(t *testing.T) {
+		doc := &parser.OAS2Document{
+			Parameters: map[string]*parser.Parameter{"petIdParam": pathParam("petId")},
+		}
+
+		resolved, ok := paramutil.NewOAS2Resolver(doc).Resolve(ref("#/parameters/petIdParam"))
+
+		require.True(t, ok)
+		assert.Equal(t, "petId", resolved.Name)
+		assert.Equal(t, parser.ParamInPath, resolved.In)
+	})
+
+	t.Run("does not resolve OAS 3 style refs", func(t *testing.T) {
+		doc := &parser.OAS2Document{
+			Parameters: map[string]*parser.Parameter{"petIdParam": pathParam("petId")},
+		}
+
+		_, ok := paramutil.NewOAS2Resolver(doc).Resolve(ref("#/components/parameters/petIdParam"))
+
+		assert.False(t, ok)
+	})
+
+	t.Run("nil document yields nil resolver", func(t *testing.T) {
+		assert.Nil(t, paramutil.NewOAS2Resolver(nil))
+	})
+
+	t.Run("skips nil definitions", func(t *testing.T) {
+		doc := &parser.OAS2Document{
+			Parameters: map[string]*parser.Parameter{"broken": nil},
+		}
+
+		_, ok := paramutil.NewOAS2Resolver(doc).Resolve(ref("#/parameters/broken"))
+
+		assert.False(t, ok)
+	})
+}
+
+func TestNewOAS3Resolver(t *testing.T) {
+	t.Run("resolves components parameters", func(t *testing.T) {
+		doc := &parser.OAS3Document{
+			Components: &parser.Components{
+				Parameters: map[string]*parser.Parameter{"petIdParam": pathParam("petId")},
+			},
+		}
+
+		resolved, ok := paramutil.NewOAS3Resolver(doc).Resolve(ref("#/components/parameters/petIdParam"))
+
+		require.True(t, ok)
+		assert.Equal(t, "petId", resolved.Name)
+	})
+
+	t.Run("nil components yields nil resolver", func(t *testing.T) {
+		assert.Nil(t, paramutil.NewOAS3Resolver(&parser.OAS3Document{}))
+	})
+
+	t.Run("nil document yields nil resolver", func(t *testing.T) {
+		assert.Nil(t, paramutil.NewOAS3Resolver(nil))
+	})
+}
+
+func TestResolver_Resolve(t *testing.T) {
+	resolver := paramutil.NewOAS3Resolver(&parser.OAS3Document{
+		Components: &parser.Components{
+			Parameters: map[string]*parser.Parameter{
+				"direct":  pathParam("petId"),
+				"hop1":    ref("#/components/parameters/hop2"),
+				"hop2":    pathParam("ownerId"),
+				"loopA":   ref("#/components/parameters/loopB"),
+				"loopB":   ref("#/components/parameters/loopA"),
+				"selfRef": ref("#/components/parameters/selfRef"),
+			},
+		},
+	})
+
+	tests := []struct {
+		name     string
+		param    *parser.Parameter
+		wantOK   bool
+		wantName string
+	}{
+		{
+			name:     "inline parameter returns itself",
+			param:    pathParam("inlineId"),
+			wantOK:   true,
+			wantName: "inlineId",
+		},
+		{
+			name:     "single hop",
+			param:    ref("#/components/parameters/direct"),
+			wantOK:   true,
+			wantName: "petId",
+		},
+		{
+			name:     "chained refs are followed",
+			param:    ref("#/components/parameters/hop1"),
+			wantOK:   true,
+			wantName: "ownerId",
+		},
+		{
+			name:   "dangling local ref is unresolvable",
+			param:  ref("#/components/parameters/nope"),
+			wantOK: false,
+		},
+		{
+			name:   "external file ref is unresolvable",
+			param:  ref("common.yaml#/components/parameters/petId"),
+			wantOK: false,
+		},
+		{
+			name:   "remote url ref is unresolvable",
+			param:  ref("https://example.com/spec.yaml#/components/parameters/petId"),
+			wantOK: false,
+		},
+		{
+			name:   "two-node cycle terminates",
+			param:  ref("#/components/parameters/loopA"),
+			wantOK: false,
+		},
+		{
+			name:   "self reference terminates",
+			param:  ref("#/components/parameters/selfRef"),
+			wantOK: false,
+		},
+		{
+			name:   "nil parameter is unresolvable",
+			param:  nil,
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolved, ok := resolver.Resolve(tt.param)
+
+			assert.Equal(t, tt.wantOK, ok)
+			if tt.wantOK {
+				require.NotNil(t, resolved)
+				assert.Equal(t, tt.wantName, resolved.Name)
+			} else {
+				assert.Nil(t, resolved)
+			}
+		})
+	}
+}
+
+func TestResolver_Resolve_NilResolver(t *testing.T) {
+	var resolver paramutil.Resolver
+
+	t.Run("still resolves inline parameters", func(t *testing.T) {
+		resolved, ok := resolver.Resolve(pathParam("petId"))
+
+		require.True(t, ok)
+		assert.Equal(t, "petId", resolved.Name)
+	})
+
+	t.Run("reports every ref as unresolvable", func(t *testing.T) {
+		_, ok := resolver.Resolve(ref("#/components/parameters/petIdParam"))
+
+		assert.False(t, ok)
+	})
+}
+
+func TestResolver_DeclaredPathParams(t *testing.T) {
+	resolver := paramutil.NewOAS3Resolver(&parser.OAS3Document{
+		Components: &parser.Components{
+			Parameters: map[string]*parser.Parameter{
+				"petIdParam":   pathParam("petId"),
+				"ownerIdParam": pathParam("ownerId"),
+				"limitParam":   {Name: "limit", In: parser.ParamInQuery},
+			},
+		},
+	})
+
+	tests := []struct {
+		name         string
+		lists        [][]*parser.Parameter
+		wantDeclared []string
+		wantComplete bool
+	}{
+		{
+			name:         "no parameters",
+			lists:        nil,
+			wantDeclared: nil,
+			wantComplete: true,
+		},
+		{
+			name:         "inline path parameter",
+			lists:        [][]*parser.Parameter{{pathParam("petId")}},
+			wantDeclared: []string{"petId"},
+			wantComplete: true,
+		},
+		{
+			name:         "referenced path parameter",
+			lists:        [][]*parser.Parameter{{ref("#/components/parameters/petIdParam")}},
+			wantDeclared: []string{"petId"},
+			wantComplete: true,
+		},
+		{
+			name: "path-item and operation lists merge",
+			lists: [][]*parser.Parameter{
+				{ref("#/components/parameters/petIdParam")},
+				{ref("#/components/parameters/ownerIdParam")},
+			},
+			wantDeclared: []string{"ownerId", "petId"},
+			wantComplete: true,
+		},
+		{
+			name:         "non-path parameters are excluded",
+			lists:        [][]*parser.Parameter{{ref("#/components/parameters/limitParam")}},
+			wantDeclared: nil,
+			wantComplete: true,
+		},
+		{
+			name:         "nil entries are skipped",
+			lists:        [][]*parser.Parameter{{nil, pathParam("petId"), nil}},
+			wantDeclared: []string{"petId"},
+			wantComplete: true,
+		},
+		{
+			name: "unresolvable ref marks the set incomplete",
+			lists: [][]*parser.Parameter{
+				{pathParam("petId"), ref("shared.yaml#/parameters/ownerId")},
+			},
+			wantDeclared: []string{"petId"},
+			wantComplete: false,
+		},
+		{
+			name:         "dangling local ref marks the set incomplete",
+			lists:        [][]*parser.Parameter{{ref("#/components/parameters/missing")}},
+			wantDeclared: nil,
+			wantComplete: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			declared, complete := resolver.DeclaredPathParams(tt.lists...)
+
+			assert.Equal(t, tt.wantComplete, complete)
+			assert.Len(t, declared, len(tt.wantDeclared))
+			for _, name := range tt.wantDeclared {
+				assert.True(t, declared[name], "expected %q to be declared", name)
+			}
+		})
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/paramutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -313,6 +314,10 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 
 // validateOAS2PathParameterConsistency checks that path parameters match the path template
 func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Document, result *ValidationResult, baseURL string) {
+	// Parameters may be hoisted into the document's root-level `parameters` and
+	// referenced by $ref, in which case Name and In only exist on the definition.
+	resolver := paramutil.NewOAS2Resolver(doc)
+
 	for pathPattern, pathItem := range doc.Paths {
 		if pathItem == nil {
 			continue
@@ -329,33 +334,25 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 				continue
 			}
 
-			// Collect declared path parameters
-			declaredParams := make(map[string]bool)
-
-			// Check path-level parameters
-			for _, param := range pathItem.Parameters {
-				if param != nil && param.In == "path" {
-					declaredParams[param.Name] = true
-				}
-			}
-
-			// Check operation-level parameters
-			for _, param := range op.Parameters {
-				if param != nil && param.In == "path" {
-					declaredParams[param.Name] = true
-				}
-			}
+			// Collect declared path parameters from both the path item (which
+			// applies to every operation) and the operation itself.
+			declaredParams, complete := resolver.DeclaredPathParams(pathItem.Parameters, op.Parameters)
 
 			opPath := "paths." + pathPattern + "." + method
 
-			// Verify all path template parameters are declared
-			for paramName := range pathParams {
-				if !declaredParams[paramName] {
-					v.addError(result, opPath,
-						fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
-						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
-						withValue(paramName),
-					)
+			// Verify all path template parameters are declared. Skipped when a
+			// parameter $ref could not be resolved — an unresolvable reference
+			// may well declare the missing name, and a broken local $ref is
+			// already reported by validateOAS2Refs.
+			if complete {
+				for paramName := range pathParams {
+					if !declaredParams[paramName] {
+						v.addError(result, opPath,
+							fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
+							withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
+							withValue(paramName),
+						)
+					}
 				}
 			}
 

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"sort"
 
+	"github.com/erraggy/oastools/internal/paramutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -37,27 +38,6 @@ func buildRefRenameMap(renames map[string]string, accessor parser.DocumentAccess
 	}
 
 	return refRenames
-}
-
-// collectDeclaredPathParams collects declared path parameters from both PathItem and Operation.
-func collectDeclaredPathParams(pathItem *parser.PathItem, op *parser.Operation) map[string]bool {
-	declaredParams := make(map[string]bool)
-
-	// PathItem-level parameters
-	for _, param := range pathItem.Parameters {
-		if param != nil && param.In == parser.ParamInPath {
-			declaredParams[param.Name] = true
-		}
-	}
-
-	// Operation-level parameters (override PathItem params)
-	for _, param := range op.Parameters {
-		if param != nil && param.In == parser.ParamInPath {
-			declaredParams[param.Name] = true
-		}
-	}
-
-	return declaredParams
 }
 
 // createMissingPathParameter creates a new path parameter for the given OAS version.
@@ -97,13 +77,22 @@ func buildMissingParamDescription(paramName, paramType, paramFormat string) stri
 
 // findMissingPathParams finds path parameters declared in the path template but missing from the operation.
 // Returns a sorted list of missing parameter names for deterministic output.
-func findMissingPathParams(pathPattern string, pathItem *parser.PathItem, op *parser.Operation) []string {
+//
+// Declared parameters may be $refs into the document's reusable parameter
+// definitions, so resolver is used to look through them. When a $ref cannot be
+// resolved no parameters are reported missing: adding one that the reference
+// already declares would produce a duplicate name+location, which is worse than
+// leaving the spec as-is.
+func findMissingPathParams(pathPattern string, pathItem *parser.PathItem, op *parser.Operation, resolver paramutil.Resolver) []string {
 	pathParams := extractPathParameters(pathPattern)
 	if len(pathParams) == 0 {
 		return nil
 	}
 
-	declaredParams := collectDeclaredPathParams(pathItem, op)
+	declaredParams, complete := resolver.DeclaredPathParams(pathItem.Parameters, op.Parameters)
+	if !complete {
+		return nil
+	}
 
 	// Collect missing params (pre-allocate with max possible capacity)
 	missing := make([]string, 0, len(pathParams))

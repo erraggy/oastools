@@ -47,6 +47,19 @@ The fixer analyzes OAS documents and applies fixes for issues that would cause v
 | `FixTypeDuplicateOperationId` | ❌ Disabled | Renames duplicate operationId values to ensure uniqueness |
 | `FixTypeStubMissingRef` | ❌ Disabled | Creates empty stubs for unresolved `$ref` targets |
 
+**How `FixTypeMissingPathParameter` decides what is missing**
+
+A path template variable counts as declared when it is declared on the
+operation or on the containing path item, whether inline or as a `$ref` into the
+document's reusable parameter definitions (OAS 2.0's root-level `parameters` or
+OAS 3.x's `components.parameters`). References are resolved, including chains of
+them, so a shared parameter is never added a second time.
+
+When a `$ref` cannot be resolved — an external file or URL, or a reference cycle
+— no parameters are added for that operation. The reference may already declare
+the variable, and adding a duplicate name and location would produce an invalid
+document.
+
 **Why are some fixes disabled by default?**
 
 Disabled fixes fall into two categories:

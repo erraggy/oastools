@@ -530,6 +530,17 @@ Paths receive thorough structural and semantic validation.
 - Path parameters must be marked as `required: true`
 - Declared path parameters should be used in the template
 
+Parameters may be declared on the operation or on the path item (where they
+apply to every operation the item contains), and either may be a `$ref` into the
+document's reusable parameter definitions — OAS 2.0's root-level `parameters` or
+OAS 3.x's `components.parameters`. References are resolved, including chains of
+them, before the template is checked.
+
+A reference the validator cannot resolve — an external file or URL, or a
+reference cycle — is treated as unknown rather than empty, so no undeclared
+parameter error is reported for that operation. A broken *local* `$ref` is still
+reported separately as an unresolvable reference.
+
 ### Operation Validation
 
 Each operation (GET, POST, PUT, etc.) is validated for completeness and correctness.

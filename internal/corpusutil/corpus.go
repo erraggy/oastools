@@ -55,7 +55,7 @@ var Corpus = []SpecInfo{
 		OASVersion:     "3.0.0",
 		Format:         "yaml",
 		ExpectedValid:  false,
-		ExpectedErrors: 496, // Reduced from 1918 after fixing $ref parameter validation
+		ExpectedErrors: 128, // Reduced from 496 after resolving $ref path parameters (#374)
 		IsLarge:        false,
 		SizeBytes:      2_500_000,
 		// Note: Uses bundled version from DigitalOcean's CI. The unbundled source
@@ -68,7 +68,7 @@ var Corpus = []SpecInfo{
 		OASVersion:     "3.0.0",
 		Format:         "yaml",
 		ExpectedValid:  false,
-		ExpectedErrors: 302,
+		ExpectedErrors: 9, // Reduced from 302 after resolving $ref path parameters (#374)
 		IsLarge:        false,
 		SizeBytes:      405_000,
 	},
@@ -89,8 +89,8 @@ var Corpus = []SpecInfo{
 		URL:            "https://api.weather.gov/openapi.json",
 		OASVersion:     "3.0.3",
 		Format:         formatJSON,
-		ExpectedValid:  false,
-		ExpectedErrors: 44, // Reduced from 156 after fixing $ref parameter validation
+		ExpectedValid:  true, // Now valid after resolving $ref path parameters (#374); all 44 were false positives
+		ExpectedErrors: 0,
 		IsLarge:        false,
 		SizeBytes:      800_000,
 	},
@@ -123,7 +123,7 @@ var Corpus = []SpecInfo{
 		OASVersion:     "3.0.3",
 		Format:         formatJSON,
 		ExpectedValid:  false,
-		ExpectedErrors: 2224, // Reduced from 8000 after fixing $ref parameter/requestBody validation
+		ExpectedErrors: 115, // Reduced from 2224 after resolving $ref path parameters (#374)
 		IsLarge:        false,
 		SizeBytes:      5_000_000,
 	},

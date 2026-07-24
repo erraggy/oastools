@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/paramutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -505,6 +506,10 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 		return
 	}
 
+	// Parameters may be hoisted into components.parameters and referenced by
+	// $ref, in which case Name and In only exist on the definition.
+	resolver := paramutil.NewOAS3Resolver(doc)
+
 	for pathPattern, pathItem := range doc.Paths {
 		if pathItem == nil {
 			continue
@@ -517,55 +522,35 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 		operations := parser.GetOperations(pathItem, doc.OASVersion)
 		pathPrefix := "paths." + pathPattern
 
+		// Path-level parameters apply to every operation in the item, so their
+		// required check runs once here rather than once per operation.
+		v.validateOAS3PathParamsRequired(pathItem.Parameters, pathPrefix, result, baseURL)
+
 		for method, op := range operations {
 			if op == nil {
 				continue
 			}
 
-			// Collect declared path parameters
-			declaredParams := make(map[string]bool)
-
-			// Check path-level parameters
-			for i, param := range pathItem.Parameters {
-				if param != nil && param.In == "path" {
-					declaredParams[param.Name] = true
-
-					// Path parameters must have required: true
-					if !param.Required {
-						v.addError(result, pathPrefix+".parameters["+strconv.Itoa(i)+"]",
-							"Path parameters must have required: true",
-							withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
-							withField("required"),
-						)
-					}
-				}
-			}
-
-			// Check operation-level parameters
 			opPath := pathPrefix + "." + method
-			for i, param := range op.Parameters {
-				if param != nil && param.In == "path" {
-					declaredParams[param.Name] = true
+			v.validateOAS3PathParamsRequired(op.Parameters, opPath, result, baseURL)
 
-					// Path parameters must have required: true
-					if !param.Required {
-						v.addError(result, opPath+".parameters["+strconv.Itoa(i)+"]",
-							"Path parameters must have required: true",
-							withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
-							withField("required"),
+			// Collect declared path parameters from both the path item (which
+			// applies to every operation) and the operation itself.
+			declaredParams, complete := resolver.DeclaredPathParams(pathItem.Parameters, op.Parameters)
+
+			// Verify all path template parameters are declared. Skipped when a
+			// parameter $ref could not be resolved — an unresolvable reference
+			// may well declare the missing name, and a broken local $ref is
+			// already reported by validateOAS3Refs.
+			if complete {
+				for paramName := range pathParams {
+					if !declaredParams[paramName] {
+						v.addError(result, opPath,
+							fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
+							withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
+							withValue(paramName),
 						)
 					}
-				}
-			}
-
-			// Verify all path template parameters are declared
-			for paramName := range pathParams {
-				if !declaredParams[paramName] {
-					v.addError(result, opPath,
-						fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
-						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
-						withValue(paramName),
-					)
 				}
 			}
 
@@ -580,6 +565,23 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 				}
 			}
 		}
+	}
+}
+
+// validateOAS3PathParamsRequired reports inline path parameters that omit
+// required: true. Referenced parameters are deliberately skipped: their
+// definitions are checked once in validateOAS3Components, so checking them
+// again at each use site would report the same defect repeatedly.
+func (v *Validator) validateOAS3PathParamsRequired(params []*parser.Parameter, prefix string, result *ValidationResult, baseURL string) {
+	for i, param := range params {
+		if param == nil || param.Ref != "" || param.In != parser.ParamInPath || param.Required {
+			continue
+		}
+		v.addError(result, prefix+".parameters["+strconv.Itoa(i)+"]",
+			"Path parameters must have required: true",
+			withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+			withField("required"),
+		)
 	}
 }
 
