@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"sort"
 
+	"github.com/erraggy/oastools/internal/paramutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -36,11 +37,13 @@ func (f *Fixer) fixOAS2(parseResult parser.ParseResult, result *FixResult) (*Fix
 // fixMissingPathParametersOAS2 adds missing path parameters to an OAS 2.0 document.
 // Fixes are applied in sorted order (by path, method, parameter name) for deterministic output.
 func (f *Fixer) fixMissingPathParametersOAS2(doc *parser.OAS2Document, result *FixResult) {
-	f.fixMissingPathParameters(doc.Paths, parser.OASVersion20, result)
+	f.fixMissingPathParameters(doc.Paths, parser.OASVersion20, paramutil.NewOAS2Resolver(doc), result)
 }
 
 // fixMissingPathParameters is the shared implementation for both OAS versions.
-func (f *Fixer) fixMissingPathParameters(paths map[string]*parser.PathItem, version parser.OASVersion, result *FixResult) {
+// resolver looks through $refs into the document's reusable parameter
+// definitions so an already-declared parameter is not added a second time.
+func (f *Fixer) fixMissingPathParameters(paths map[string]*parser.PathItem, version parser.OASVersion, resolver paramutil.Resolver, result *FixResult) {
 	if paths == nil {
 		return
 	}
@@ -75,7 +78,7 @@ func (f *Fixer) fixMissingPathParameters(paths map[string]*parser.PathItem, vers
 			}
 
 			// Find missing parameters
-			missingParams := findMissingPathParams(pathPattern, pathItem, op)
+			missingParams := findMissingPathParams(pathPattern, pathItem, op, resolver)
 			for _, paramName := range missingParams {
 				// Determine type
 				paramType := "string"

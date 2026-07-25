@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/erraggy/oastools/internal/paramutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -35,7 +36,7 @@ func (f *Fixer) fixOAS3(parseResult parser.ParseResult, result *FixResult) (*Fix
 // fixMissingPathParametersOAS3 adds missing path parameters to an OAS 3.x document.
 // Fixes are applied in sorted order (by path, method, parameter name) for deterministic output.
 func (f *Fixer) fixMissingPathParametersOAS3(doc *parser.OAS3Document, result *FixResult) {
-	f.fixMissingPathParameters(doc.Paths, doc.OASVersion, result)
+	f.fixMissingPathParameters(doc.Paths, doc.OASVersion, paramutil.NewOAS3Resolver(doc), result)
 }
 
 // fixInvalidSchemaNamesOAS3 renames schemas with invalid characters (like generic types)

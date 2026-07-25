@@ -5,9 +5,12 @@ package validator
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/paramutil"
 	"github.com/erraggy/oastools/internal/pathutil"
+	"github.com/erraggy/oastools/parser"
 )
 
 // validatePathTemplate validates that a path template is well-formed
@@ -86,6 +89,185 @@ func checkTrailingSlash(v *Validator, pathPattern string, result *ValidationResu
 			"Path has trailing slash, which is discouraged by REST best practices",
 			withSpecRef(fmt.Sprintf("%s#paths-object", baseURL)),
 			withValue(pathPattern),
+		)
+	}
+}
+
+// validateParameterRefs reports parameter $ref values that cannot be followed
+// to a parameter definition.
+//
+// The path-parameter consistency check suppresses its undeclared-parameter
+// error whenever a reference fails to resolve, because an unresolvable
+// reference may itself declare the missing name. That suppression is only sound
+// if every reason a reference fails is reported somewhere, and for three of the
+// four reasons nothing else reports it:
+//
+//   - A wrong-kind ref passes reference validation, because buildOAS2ValidRefs
+//     and buildOAS3ValidRefs collect every component path into one flat set and
+//     so cannot tell which kind belongs in a parameter slot.
+//   - A cycle and an too-long chain consist entirely of valid references, so
+//     reference validation has nothing to object to.
+//
+// Without this check each of those makes a broken document validate clean.
+//
+// Two cases are deliberately left alone: a dangling ref, already reported by
+// validateRef, which would otherwise be reported twice; and an external ref,
+// which is the one genuinely unknowable case.
+//
+// Added while addressing #374 - Root-level parameters are not applied to
+// Operations contained within
+func (v *Validator) validateParameterRefs(
+	params []*parser.Parameter,
+	prefix string,
+	resolver paramutil.Resolver,
+	validRefs map[string]bool,
+	result *ValidationResult,
+	baseURL string,
+) {
+	for i, param := range params {
+		if param == nil || param.Ref == "" {
+			continue
+		}
+
+		var message string
+		switch _, reason := resolver.Classify(param); reason {
+		case paramutil.ReasonNotAParameter:
+			// The chain may break at a later hop than this one. Only this ref's
+			// own kind is in question here: if it does name a parameter, the
+			// break is downstream and is reported against the definition that
+			// carries it, not against every reference that reaches it.
+			if resolver.Defines(param.Ref) {
+				continue
+			}
+			// Absent entirely means dangling, which validateRef reports.
+			if !validRefs[param.Ref] {
+				continue
+			}
+			message = fmt.Sprintf("$ref '%s' resolves to a component that is not a parameter definition", param.Ref)
+		case paramutil.ReasonCycle:
+			message = fmt.Sprintf("$ref '%s' leads to a reference cycle between parameter definitions", param.Ref)
+		case paramutil.ReasonTooDeep:
+			message = fmt.Sprintf("$ref '%s' leads to a parameter reference chain too long to follow", param.Ref)
+		case paramutil.ReasonResolved, paramutil.ReasonExternal:
+			continue
+		}
+
+		v.addError(result, prefix+".parameters["+strconv.Itoa(i)+"]", message,
+			withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+			withField("$ref"),
+			withValue(param.Ref),
+		)
+	}
+}
+
+// validateParameterDefinitionRefs reports reusable parameter definitions whose
+// own $ref names a component that exists but is not a parameter.
+//
+// validateParameterRefs deliberately stops at the first hop: when a use-site
+// $ref names a parameter, any break further down belongs to the definition
+// carrying it. This is the check that makes that possible. Without it such an
+// alias is invisible from every angle: reference validation accepts the target
+// because it exists, the use site defers to a definition-site check, and the
+// path-parameter check suppresses itself because the chain did not resolve.
+//
+// Cycles and too-long chains are deliberately not reported here. They are
+// already reported once at the use site, and reporting them per definition
+// would emit one error for every link in the chain. The gap that leaves is an
+// unreferenced cyclic definition, which no operation can be affected by.
+func (v *Validator) validateParameterDefinitionRefs(
+	defs map[string]*parser.Parameter,
+	prefix string,
+	resolver paramutil.Resolver,
+	validRefs map[string]bool,
+	result *ValidationResult,
+	baseURL string,
+) {
+	for name, param := range defs {
+		// Only this definition's own target is in question. A ref naming
+		// another parameter is that parameter's business; one naming nothing at
+		// all is dangling, which validateRef reports.
+		if param == nil || param.Ref == "" || resolver.Defines(param.Ref) || !validRefs[param.Ref] {
+			continue
+		}
+		v.addError(result, prefix+"."+name,
+			fmt.Sprintf("$ref '%s' resolves to a component that is not a parameter definition", param.Ref),
+			withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+			withField("$ref"),
+			withValue(param.Ref),
+		)
+	}
+}
+
+// pathParamDeclarations records the path parameters a path item declares and
+// those one of its operations declares, kept apart so each is reported where it
+// is declared while the template check still sees their union.
+type pathParamDeclarations struct {
+	item, operation map[string]bool
+	// complete is false when some $ref in either list could not be resolved, so
+	// the union is only a lower bound. See [paramutil.Resolver.DeclaredPathParams].
+	complete bool
+}
+
+// declaresPathParams pairs an already-resolved path item declaration set with
+// an operation's. The item's set is resolved by the caller outside its
+// operation loop, so a path item with several operations resolves its own
+// parameters once rather than once per operation.
+func declaresPathParams(
+	resolver paramutil.Resolver,
+	item map[string]bool,
+	itemComplete bool,
+	opParams []*parser.Parameter,
+) pathParamDeclarations {
+	operation, opComplete := resolver.DeclaredPathParams(opParams)
+	return pathParamDeclarations{
+		item:      item,
+		operation: operation,
+		complete:  itemComplete && opComplete,
+	}
+}
+
+// operationOnly returns the param names the operation declares and the path item does
+// not, so a name declared at both levels is not warned about twice.
+func (d pathParamDeclarations) operationOnly() map[string]bool {
+	only := make(map[string]bool, len(d.operation))
+	for name := range d.operation {
+		if !d.item[name] {
+			only[name] = true
+		}
+	}
+	return only
+}
+
+// reportUndeclaredPathParams reports path template variables that no parameter
+// declares, for either the path item or the operation.
+//
+// Skipped entirely when some $ref could not be resolved, because an
+// unresolvable reference may itself declare the missing name — reporting it
+// would be the false positive this check exists to avoid.
+//
+// Suppressing is only safe because every reason a $ref fails to resolve is
+// reported elsewhere: a dangling local ref by reference validation, and a
+// wrong-kind ref, cycle, or too-long chain by validateParameterRefs and
+// validateParameterDefinitionRefs. External refs are genuinely unknowable and
+// are the one case that stays silent by design.
+func (v *Validator) reportUndeclaredPathParams(
+	decls pathParamDeclarations,
+	pathParams map[string]bool,
+	opPath string,
+	result *ValidationResult,
+	baseURL string,
+) {
+	if !decls.complete {
+		return
+	}
+	for paramName := range pathParams {
+		if decls.item[paramName] || decls.operation[paramName] {
+			continue
+		}
+		v.addError(result, opPath,
+			fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
+			withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
+			withValue(paramName),
 		)
 	}
 }

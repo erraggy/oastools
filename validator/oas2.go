@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/paramutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -313,6 +314,15 @@ func (v *Validator) validateOAS2Security(doc *parser.OAS2Document, result *Valid
 
 // validateOAS2PathParameterConsistency checks that path parameters match the path template
 func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Document, result *ValidationResult, baseURL string) {
+	// Parameters may be hoisted into the document's root-level `parameters` and
+	// referenced by $ref, in which case Name and In only exist on the definition.
+	resolver := paramutil.NewOAS2Resolver(doc)
+	validRefs := buildOAS2ValidRefs(doc)
+
+	// Checked before the paths below, whose use-site checks defer downstream
+	// breaks to the definition that carries them.
+	v.validateParameterDefinitionRefs(doc.Parameters, "parameters", resolver, validRefs, result, baseURL)
+
 	for pathPattern, pathItem := range doc.Paths {
 		if pathItem == nil {
 			continue
@@ -323,52 +333,33 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 
 		// Check all operations in this path
 		operations := parser.GetOperations(pathItem, parser.OASVersion20)
+		pathPrefix := "paths." + pathPattern
+
+		// Path-level parameters apply to every operation in the item, so they
+		// are checked once here rather than once per operation.
+		v.validateParameterRefs(pathItem.Parameters, pathPrefix, resolver, validRefs, result, baseURL)
+
+		// A path-item parameter is declared once, so an unused one is warned
+		// about once here rather than repeated for every operation in the item.
+		// Resolving the item's parameters here also keeps them out of the
+		// operation loop below.
+		itemDeclared, itemComplete := resolver.DeclaredPathParams(pathItem.Parameters)
+		v.warnUnusedPathParams(itemDeclared, pathParams, pathPrefix, result, baseURL)
 
 		for method, op := range operations {
 			if op == nil {
 				continue
 			}
 
-			// Collect declared path parameters
-			declaredParams := make(map[string]bool)
+			opPath := pathPrefix + "." + method
+			v.validateParameterRefs(op.Parameters, opPath, resolver, validRefs, result, baseURL)
 
-			// Check path-level parameters
-			for _, param := range pathItem.Parameters {
-				if param != nil && param.In == "path" {
-					declaredParams[param.Name] = true
-				}
-			}
+			decls := declaresPathParams(resolver, itemDeclared, itemComplete, op.Parameters)
+			v.reportUndeclaredPathParams(decls, pathParams, opPath, result, baseURL)
 
-			// Check operation-level parameters
-			for _, param := range op.Parameters {
-				if param != nil && param.In == "path" {
-					declaredParams[param.Name] = true
-				}
-			}
-
-			opPath := "paths." + pathPattern + "." + method
-
-			// Verify all path template parameters are declared
-			for paramName := range pathParams {
-				if !declaredParams[paramName] {
-					v.addError(result, opPath,
-						fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
-						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
-						withValue(paramName),
-					)
-				}
-			}
-
-			// Warn about declared path parameters not in template
-			for paramName := range declaredParams {
-				if !pathParams[paramName] {
-					v.addWarning(result, opPath,
-						fmt.Sprintf("Parameter '%s' is declared as path parameter but not used in path template", paramName),
-						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
-						withValue(paramName),
-					)
-				}
-			}
+			// Warn only about parameters this operation declares itself; the
+			// path item's were warned about once, above.
+			v.warnUnusedPathParams(decls.operationOnly(), pathParams, opPath, result, baseURL)
 		}
 	}
 }
