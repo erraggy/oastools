@@ -511,6 +511,13 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 	resolver := paramutil.NewOAS3Resolver(doc)
 	validRefs := buildOAS3ValidRefs(doc)
 
+	// Checked before the paths below, whose use-site checks defer downstream
+	// breaks to the definition that carries them.
+	if doc.Components != nil {
+		v.validateParameterDefinitionRefs(doc.Components.Parameters, "components.parameters",
+			resolver, validRefs, result, baseURL)
+	}
+
 	for pathPattern, pathItem := range doc.Paths {
 		if pathItem == nil {
 			continue
@@ -530,7 +537,9 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 
 		// A path-item parameter is declared once, so an unused one is warned
 		// about once here rather than repeated for every operation in the item.
-		itemDeclared, _ := resolver.DeclaredPathParams(pathItem.Parameters)
+		// Resolving the item's parameters here also keeps them out of the
+		// operation loop below.
+		itemDeclared, itemComplete := resolver.DeclaredPathParams(pathItem.Parameters)
 		v.warnUnusedPathParams(itemDeclared, pathParams, pathPrefix, result, baseURL)
 
 		for method, op := range operations {
@@ -542,39 +551,12 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 			v.validateOAS3PathParamsRequired(op.Parameters, opPath, result, baseURL)
 			v.validateParameterRefs(op.Parameters, opPath, resolver, validRefs, result, baseURL)
 
-			// Collect declared path parameters from both the path item (which
-			// applies to every operation) and the operation itself.
-			declaredParams, complete := resolver.DeclaredPathParams(pathItem.Parameters, op.Parameters)
-
-			// Verify all path template parameters are declared. Skipped when a
-			// parameter $ref could not be resolved, because an unresolvable
-			// reference may well declare the missing name — reporting it would
-			// be the false positive this check exists to avoid.
-			//
-			// Suppressing here is only safe because every reason a $ref fails to
-			// resolve is reported elsewhere: a dangling local ref by
-			// validateOAS3Refs, and a ref naming a non-parameter component by
-			// validateParameterRefKinds above. External refs are genuinely
-			// unknowable and are the one case that stays silent by design.
-			if complete {
-				for paramName := range pathParams {
-					if !declaredParams[paramName] {
-						v.addError(result, opPath,
-							fmt.Sprintf("Path template references parameter '{%s}' but it is not declared in parameters", paramName),
-							withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
-							withValue(paramName),
-						)
-					}
-				}
-			}
+			decls := declaresPathParams(resolver, itemDeclared, itemComplete, op.Parameters)
+			v.reportUndeclaredPathParams(decls, pathParams, opPath, result, baseURL)
 
 			// Warn only about parameters this operation declares itself; the
 			// path item's were warned about once, above.
-			opDeclared, _ := resolver.DeclaredPathParams(op.Parameters)
-			for name := range itemDeclared {
-				delete(opDeclared, name)
-			}
-			v.warnUnusedPathParams(opDeclared, pathParams, opPath, result, baseURL)
+			v.warnUnusedPathParams(decls.operationOnly(), pathParams, opPath, result, baseURL)
 		}
 	}
 }

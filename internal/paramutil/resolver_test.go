@@ -345,7 +345,7 @@ func TestResolver_Classify(t *testing.T) {
 		},
 		{
 			// Nothing repeats here, so it must NOT be classified as a cycle.
-			name:       "over-long chain is depth exhaustion, not a cycle",
+			name:       "too-long chain is depth exhaustion, not a cycle",
 			param:      deep,
 			wantReason: paramutil.ReasonTooDeep,
 		},

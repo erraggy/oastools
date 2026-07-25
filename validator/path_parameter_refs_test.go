@@ -316,6 +316,74 @@ paths:
 			wantErrors: []string{"paths./pets/{petId}.parameters[0]: $ref '#/components/schemas/PetId' resolves to a component that is not a parameter definition"},
 		},
 		{
+			// REGRESSION GUARD. The wrong-kind ref sits one hop DOWN, on the
+			// definition rather than at the use site. The use site defers to the
+			// definition because the ref does name a parameter; reference
+			// validation accepts the schema because it exists; and the failed
+			// resolution suppresses the undeclared check. Without a check over
+			// the definitions themselves, the document validates clean.
+			//
+			// The alias carries a schema so the pre-existing "schema or content"
+			// false positive cannot mask the result.
+			name: "definition aliasing a non-parameter is reported at the definition",
+			spec: `
+openapi: 3.0.3
+info: {title: Test, version: "1.0.0"}
+components:
+  schemas: {PetId: {type: string}}
+  parameters:
+    aliasParam: {$ref: '#/components/schemas/PetId', schema: {type: string}}
+paths:
+  /pets/{petId}:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/aliasParam'
+      responses: {"200": {description: OK}}
+`,
+			wantErrors: []string{"components.parameters.aliasParam: $ref '#/components/schemas/PetId' resolves to a component that is not a parameter definition"},
+		},
+		{
+			name: "OAS 2.0 definition aliasing a non-parameter is reported at the definition",
+			spec: `
+swagger: "2.0"
+info: {title: Test, version: "1.0.0"}
+definitions: {PetId: {type: string}}
+parameters:
+  aliasParam: {$ref: '#/definitions/PetId', type: string}
+paths:
+  /pets/{petId}:
+    get:
+      parameters:
+        - $ref: '#/parameters/aliasParam'
+      responses: {"200": {description: OK}}
+`,
+			wantErrors: []string{"parameters.aliasParam: $ref '#/definitions/PetId' resolves to a component that is not a parameter definition"},
+		},
+		{
+			// The defect belongs to the definition, so referencing it from
+			// several operations must not multiply the error.
+			name: "definition-site wrong-kind is reported once regardless of use count",
+			spec: `
+openapi: 3.0.3
+info: {title: Test, version: "1.0.0"}
+components:
+  schemas: {PetId: {type: string}}
+  parameters:
+    aliasParam: {$ref: '#/components/schemas/PetId', schema: {type: string}}
+paths:
+  /pets/{petId}:
+    parameters:
+      - $ref: '#/components/parameters/aliasParam'
+    get:
+      responses: {"200": {description: OK}}
+    put:
+      responses: {"200": {description: OK}}
+    delete:
+      responses: {"204": {description: No Content}}
+`,
+			wantErrors: []string{"components.parameters.aliasParam: $ref '#/components/schemas/PetId' resolves to a component that is not a parameter definition"},
+		},
+		{
 			// REGRESSION GUARD. A cycle is built entirely from references that
 			// individually exist, so reference validation has nothing to object
 			// to, and every member IS a parameter, so the wrong-kind check skips
@@ -343,7 +411,7 @@ paths:
 			// Distinct from a cycle: nothing repeats, the chain is just longer
 			// than the resolver follows. Reported rather than silently suppressed,
 			// since suppression would hide whatever the chain actually declares.
-			name: "over-long reference chain is reported, and not called a cycle",
+			name: "too-long reference chain is reported, and not called a cycle",
 			spec: `
 openapi: 3.0.3
 info: {title: Test, version: "1.0.0"}

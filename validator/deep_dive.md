@@ -558,6 +558,12 @@ kind, so it cannot tell which kind belongs in a parameter slot, and a cycle or a
 over-long chain is built entirely from references that individually exist. Every
 one of them would otherwise make a broken document validate clean.
 
+Reusable parameter definitions are checked the same way, so an alias that points
+at a non-parameter is reported against the definition rather than against each
+operation that references it. A reference reaching a definition is only checked
+as far as that definition — whatever is wrong beyond it belongs to the
+definition, and is reported there.
+
 The ten-hop limit is the validator's, not the specification's. A longer chain is
 reported rather than followed, on the grounds that a parameter alias chain that
 deep is far more likely to be a mistake than an intention.
