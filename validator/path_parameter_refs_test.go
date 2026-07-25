@@ -10,12 +10,17 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// undeclaredPathParamErrors returns the "not declared in parameters" errors
-// from a validation result. That message is the symptom of issue #374: a path
-// parameter hoisted into reusable definitions and referenced by $ref was
-// invisible to the consistency check, because a $ref parameter carries no
-// Name or In of its own.
-func undeclaredPathParamErrors(t *testing.T, spec string) []string {
+// validationErrors returns every error from validating spec, formatted as
+// "path: message".
+//
+// It deliberately does not filter. An earlier version returned only messages
+// containing "not declared in parameters" and asserted that set was empty,
+// which cannot distinguish "correctly silent" from "wrongly silent" — any other
+// error in the same document was invisible to it. That blind spot let a real
+// regression pass: a parameter $ref pointing at a wrong-kind component
+// suppressed the undeclared error, and the filtered assertion still went green.
+// Assert on the whole error set so silence has to be earned.
+func validationErrors(t *testing.T, spec string) []string {
 	t.Helper()
 
 	p := parser.New()
@@ -28,20 +33,40 @@ func undeclaredPathParamErrors(t *testing.T, spec string) []string {
 	result, err := v.ValidateParsed(*parseResult)
 	require.NoError(t, err)
 
-	var messages []string
+	messages := make([]string, 0, len(result.Errors))
 	for _, e := range result.Errors {
-		if strings.Contains(e.Message, "not declared in parameters") {
-			messages = append(messages, e.Path+": "+e.Message)
-		}
+		messages = append(messages, e.Path+": "+e.Message)
 	}
 	return messages
 }
 
+// assertErrorsMatch checks that errs contains exactly one error per entry in
+// wantSubstrings, matched by substring, and nothing else. Passing an empty
+// wantSubstrings asserts the document is completely clean.
+func assertErrorsMatch(t *testing.T, errs []string, wantSubstrings []string) {
+	t.Helper()
+
+	assert.Len(t, errs, len(wantSubstrings), "unexpected error count; got: %v", errs)
+	for _, want := range wantSubstrings {
+		matched := false
+		for _, got := range errs {
+			if strings.Contains(got, want) {
+				matched = true
+				break
+			}
+		}
+		assert.True(t, matched, "expected an error containing %q; got: %v", want, errs)
+	}
+}
+
 func TestPathParameterConsistency_ReferencedParameters(t *testing.T) {
 	tests := []struct {
-		name    string
-		spec    string
-		wantErr bool
+		name string
+		spec string
+		// wantErrors lists a substring per expected error. Empty means the
+		// document must validate completely clean — not merely free of
+		// undeclared-parameter errors.
+		wantErrors []string
 	}{
 		{
 			// Issue #374, reported against OAS 2.0: the parameter lives in the
@@ -150,6 +175,12 @@ paths:
 		},
 		{
 			// A reusable definition may itself be a $ref; the chain is followed.
+			//
+			// The expected error is NOT about path parameters: validateOAS3Components
+			// does not skip `$ref` parameters, so a pure-alias definition is
+			// wrongly told it needs a schema or content. Pre-existing on main and
+			// tracked separately — asserted here rather than filtered away, so
+			// that fixing it shows up as a test change instead of passing silently.
 			name: "chained $ref between component parameters",
 			spec: `
 openapi: 3.0.3
@@ -165,10 +196,13 @@ paths:
         - $ref: '#/components/parameters/aliasParam'
       responses: {"200": {description: OK}}
 `,
+			wantErrors: []string{"components.parameters.aliasParam: Parameter must have either a schema or content"},
 		},
 		{
 			// An unresolvable $ref is unknown, not empty: it may well declare
 			// the missing name, so no undeclared-parameter error is reported.
+			// External refs are the ONE cause of unresolvability that stays
+			// silent by design — every other cause is reported by some check.
 			name: "external $ref suppresses the undeclared error",
 			spec: `
 openapi: 3.0.3
@@ -192,7 +226,7 @@ paths:
     get:
       responses: {"200": {description: OK}}
 `,
-			wantErr: true,
+			wantErrors: []string{"Path template references parameter '{petId}' but it is not declared in parameters"},
 		},
 		{
 			name: "OAS 2.0 genuinely undeclared path parameter still errors",
@@ -204,7 +238,7 @@ paths:
     get:
       responses: {"200": {description: OK}}
 `,
-			wantErr: true,
+			wantErrors: []string{"Path template references parameter '{petId}' but it is not declared in parameters"},
 		},
 		{
 			// The $ref resolves, but to a query parameter, so the path
@@ -223,19 +257,92 @@ paths:
         - $ref: '#/components/parameters/limitParam'
       responses: {"200": {description: OK}}
 `,
-			wantErr: true,
+			wantErrors: []string{"Path template references parameter '{petId}' but it is not declared in parameters"},
+		},
+		{
+			// REGRESSION GUARD. A $ref naming a component that exists but is not
+			// a parameter is accepted by validateRef — validRefs is one flat set
+			// across all component kinds — and is unresolvable to the parameter
+			// resolver, which suppresses the undeclared-parameter check. Before
+			// validateParameterRefKinds existed, this document validated clean
+			// while erroring on main: a false positive traded for a false negative.
+			name: "OAS 3.x $ref to a schema in a parameter slot is reported",
+			spec: `
+openapi: 3.0.3
+info: {title: Test, version: "1.0.0"}
+components:
+  schemas: {PetId: {type: string}}
+paths:
+  /pets/{petId}:
+    get:
+      parameters:
+        - $ref: '#/components/schemas/PetId'
+      responses: {"200": {description: OK}}
+`,
+			wantErrors: []string{"$ref '#/components/schemas/PetId' resolves to a component that is not a parameter definition"},
+		},
+		{
+			name: "OAS 2.0 $ref to a definition in a parameter slot is reported",
+			spec: `
+swagger: "2.0"
+info: {title: Test, version: "1.0.0"}
+definitions: {PetId: {type: string}}
+paths:
+  /pets/{petId}:
+    get:
+      parameters:
+        - $ref: '#/definitions/PetId'
+      responses: {"200": {description: OK}}
+`,
+			wantErrors: []string{"$ref '#/definitions/PetId' resolves to a component that is not a parameter definition"},
+		},
+		{
+			// Same defect at path-item level, which applies to every operation.
+			name: "wrong-kind $ref at path-item level is reported once",
+			spec: `
+openapi: 3.0.3
+info: {title: Test, version: "1.0.0"}
+components:
+  schemas: {PetId: {type: string}}
+paths:
+  /pets/{petId}:
+    parameters:
+      - $ref: '#/components/schemas/PetId'
+    get:
+      responses: {"200": {description: OK}}
+    put:
+      responses: {"200": {description: OK}}
+`,
+			wantErrors: []string{"paths./pets/{petId}.parameters[0]: $ref '#/components/schemas/PetId' resolves to a component that is not a parameter definition"},
+		},
+		{
+			// A ref that DOES name a parameter but whose chain breaks further
+			// down is a different defect, and must not be mislabeled wrong-kind.
+			// Defines, not Resolve, is what draws that line.
+			name: "$ref to a parameter whose own chain is broken is not called wrong-kind",
+			spec: `
+openapi: 3.0.3
+info: {title: Test, version: "1.0.0"}
+components:
+  parameters:
+    aliasParam: {$ref: '#/components/parameters/goneParam'}
+paths:
+  /pets/{petId}:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/aliasParam'
+      responses: {"200": {description: OK}}
+`,
+			wantErrors: []string{
+				"components.parameters.aliasParam: $ref '#/components/parameters/goneParam' does not resolve to a valid component",
+				"components.parameters.aliasParam: Parameter must have either a schema or content",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := undeclaredPathParamErrors(t, tt.spec)
-
-			if tt.wantErr {
-				assert.NotEmpty(t, errs, "expected an undeclared path parameter error")
-			} else {
-				assert.Empty(t, errs, "referenced path parameters should satisfy the path template")
-			}
+			assertErrorsMatch(t, validationErrors(t, tt.spec), tt.wantErrors)
 		})
 	}
 }
@@ -388,6 +495,35 @@ paths:
 
 	assert.Equal(t, []string{"paths./pets/{petId}.parameters[0]"}, requiredErrors,
 		"a path-item parameter defect should be reported once, not once per operation")
+}
+
+// TestPathParameterConsistency_RequiredCheckedWithoutOperations pins a
+// behavior WIDENING introduced alongside the dedup fix.
+//
+// The path-item required check previously lived inside the per-operation loop,
+// so a path item with parameters but no operations never ran it — such an item
+// is legal (it may carry only summary, servers, or a $ref) and its parameters
+// are still bound by the rule. Hoisting the check out of that loop means it now
+// runs regardless, which can turn a previously-passing document invalid.
+//
+// The new behavior is correct; this test exists so the widening is deliberate
+// and visible rather than an unnoticed side effect of the restructure.
+func TestPathParameterConsistency_RequiredCheckedWithoutOperations(t *testing.T) {
+	spec := `
+openapi: 3.0.3
+info: {title: Test, version: "1.0.0"}
+paths:
+  /pets/{petId}:
+    description: legal path item carrying parameters but no operations
+    parameters:
+      - name: petId
+        in: path
+        schema: {type: string}
+`
+
+	assertErrorsMatch(t, validationErrors(t, spec), []string{
+		"paths./pets/{petId}.parameters[0]: Path parameters must have required: true",
+	})
 }
 
 // TestPathParameterConsistency_RequiredSkippedForRefs checks that a referenced

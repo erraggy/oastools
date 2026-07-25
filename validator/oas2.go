@@ -317,6 +317,7 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 	// Parameters may be hoisted into the document's root-level `parameters` and
 	// referenced by $ref, in which case Name and In only exist on the definition.
 	resolver := paramutil.NewOAS2Resolver(doc)
+	validRefs := buildOAS2ValidRefs(doc)
 
 	for pathPattern, pathItem := range doc.Paths {
 		if pathItem == nil {
@@ -328,22 +329,34 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 
 		// Check all operations in this path
 		operations := parser.GetOperations(pathItem, parser.OASVersion20)
+		pathPrefix := "paths." + pathPattern
+
+		// Path-level parameters apply to every operation in the item, so they
+		// are checked once here rather than once per operation.
+		v.validateParameterRefKinds(pathItem.Parameters, pathPrefix, resolver, validRefs, result, baseURL)
 
 		for method, op := range operations {
 			if op == nil {
 				continue
 			}
 
+			opPath := pathPrefix + "." + method
+			v.validateParameterRefKinds(op.Parameters, opPath, resolver, validRefs, result, baseURL)
+
 			// Collect declared path parameters from both the path item (which
 			// applies to every operation) and the operation itself.
 			declaredParams, complete := resolver.DeclaredPathParams(pathItem.Parameters, op.Parameters)
 
-			opPath := "paths." + pathPattern + "." + method
-
 			// Verify all path template parameters are declared. Skipped when a
-			// parameter $ref could not be resolved — an unresolvable reference
-			// may well declare the missing name, and a broken local $ref is
-			// already reported by validateOAS2Refs.
+			// parameter $ref could not be resolved, because an unresolvable
+			// reference may well declare the missing name — reporting it would
+			// be the false positive this check exists to avoid.
+			//
+			// Suppressing here is only safe because every reason a $ref fails to
+			// resolve is reported elsewhere: a dangling local ref by
+			// validateOAS2Refs, and a ref naming a non-parameter component by
+			// validateParameterRefKinds above. External refs are genuinely
+			// unknowable and are the one case that stays silent by design.
 			if complete {
 				for paramName := range pathParams {
 					if !declaredParams[paramName] {
@@ -356,7 +369,11 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 				}
 			}
 
-			// Warn about declared path parameters not in template
+			// Warn about declared path parameters not in template.
+			//
+			// Deliberately outside the `complete` guard: declaredParams is a
+			// lower bound, so an unresolved $ref can only suppress a warning,
+			// never invent one. Gating this would lose warnings for no gain.
 			for paramName := range declaredParams {
 				if !pathParams[paramName] {
 					v.addWarning(result, opPath,

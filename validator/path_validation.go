@@ -5,9 +5,12 @@ package validator
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/paramutil"
 	"github.com/erraggy/oastools/internal/pathutil"
+	"github.com/erraggy/oastools/parser"
 )
 
 // validatePathTemplate validates that a path template is well-formed
@@ -86,6 +89,47 @@ func checkTrailingSlash(v *Validator, pathPattern string, result *ValidationResu
 			"Path has trailing slash, which is discouraged by REST best practices",
 			withSpecRef(fmt.Sprintf("%s#paths-object", baseURL)),
 			withValue(pathPattern),
+		)
+	}
+}
+
+// validateParameterRefKinds reports parameter $ref values that point at a
+// component which exists but is not a parameter definition — a schema, say,
+// referenced from a parameter slot.
+//
+// Nothing else catches this. buildOAS2ValidRefs and buildOAS3ValidRefs collect
+// every component path into one flat set, so validateRef sees a schema ref in a
+// parameter position as perfectly valid. The parameter resolver keys only
+// parameter definitions, so the same ref is unresolvable, which suppresses the
+// undeclared-parameter check. Between them the document passes clean, so this
+// check is what keeps a wrong-kind reference from becoming a silent failure.
+//
+// Two cases are deliberately left alone:
+//   - A ref whose target is absent entirely is dangling, and validateRef
+//     already reports it. Reporting it again here would duplicate the defect.
+//   - A ref that does name a parameter but fails to resolve has a break further
+//     down its chain, which is a different defect from being the wrong kind.
+//     Defines, not Resolve, is what draws that line.
+//
+// Added while addressing #374 - Root-level parameters are not applied to
+// Operations contained within
+func (v *Validator) validateParameterRefKinds(
+	params []*parser.Parameter,
+	prefix string,
+	resolver paramutil.Resolver,
+	validRefs map[string]bool,
+	result *ValidationResult,
+	baseURL string,
+) {
+	for i, param := range params {
+		if param == nil || param.Ref == "" || resolver.Defines(param.Ref) || !validRefs[param.Ref] {
+			continue
+		}
+		v.addError(result, prefix+".parameters["+strconv.Itoa(i)+"]",
+			fmt.Sprintf("$ref '%s' resolves to a component that is not a parameter definition", param.Ref),
+			withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+			withField("$ref"),
+			withValue(param.Ref),
 		)
 	}
 }

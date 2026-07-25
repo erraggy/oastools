@@ -125,6 +125,15 @@ func TestResolver_Resolve(t *testing.T) {
 			wantOK: false,
 		},
 		{
+			// Indistinguishable from dangling here by design — Resolve reports
+			// only that the chain could not be followed. Defines is what tells
+			// the two apart, and callers need that: a dangling ref is reported
+			// by reference validation, a wrong-kind one is not.
+			name:   "local ref to a component of another kind is unresolvable",
+			param:  ref("#/components/schemas/PetId"),
+			wantOK: false,
+		},
+		{
 			name:   "external file ref is unresolvable",
 			param:  ref("common.yaml#/components/parameters/petId"),
 			wantOK: false,
@@ -208,6 +217,59 @@ func TestResolver_Resolve_RefDepthBoundary(t *testing.T) {
 
 		assert.False(t, ok)
 		assert.Nil(t, resolved)
+	})
+}
+
+// TestResolver_Defines covers the narrower question Defines answers: whether a
+// ref names a parameter definition at all, independent of whether that
+// definition resolves. Callers use the gap between the two to tell "not a
+// parameter" apart from "a parameter with a broken chain".
+func TestResolver_Defines(t *testing.T) {
+	resolver := paramutil.NewOAS3Resolver(&parser.OAS3Document{
+		Components: &parser.Components{
+			Parameters: map[string]*parser.Parameter{
+				"petIdParam": pathParam("petId"),
+				"brokenLink": ref("#/components/parameters/goneParam"),
+			},
+		},
+	})
+
+	tests := []struct {
+		name string
+		ref  string
+		want bool
+	}{
+		{name: "names a resolvable parameter", ref: "#/components/parameters/petIdParam", want: true},
+		{
+			// The point of the method: still true, even though Resolve fails.
+			name: "names a parameter whose own chain is broken",
+			ref:  "#/components/parameters/brokenLink",
+			want: true,
+		},
+		{name: "names a component of another kind", ref: "#/components/schemas/PetId", want: false},
+		{name: "names nothing", ref: "#/components/parameters/absent", want: false},
+		{name: "external ref", ref: "shared.yaml#/components/parameters/petIdParam", want: false},
+		{name: "empty ref", ref: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, resolver.Defines(tt.ref))
+		})
+	}
+
+	t.Run("Defines and Resolve disagree on a broken chain", func(t *testing.T) {
+		const brokenRef = "#/components/parameters/brokenLink"
+
+		require.True(t, resolver.Defines(brokenRef), "it is a parameter")
+		_, ok := resolver.Resolve(ref(brokenRef))
+		assert.False(t, ok, "but it does not resolve")
+	})
+
+	t.Run("nil resolver defines nothing", func(t *testing.T) {
+		var nilResolver paramutil.Resolver
+
+		assert.False(t, nilResolver.Defines("#/components/parameters/petIdParam"))
 	})
 }
 

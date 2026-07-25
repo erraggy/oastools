@@ -177,6 +177,26 @@ paths:
 `,
 		},
 		{
+			// The validator reports this as a wrong-kind reference; the fixer
+			// deliberately diverges and stays silent. It cannot know what the
+			// author meant, and adding a parameter beside a reference it does
+			// not understand risks a duplicate name and location.
+			name: "$ref to a component that is not a parameter",
+			spec: `
+openapi: 3.0.0
+info: {title: Test API, version: 1.0.0}
+components:
+  schemas: {PetId: {type: string}}
+paths:
+  /pets/{petId}:
+    get:
+      operationId: getPet
+      parameters:
+        - $ref: '#/components/schemas/PetId'
+      responses: {"200": {description: Success}}
+`,
+		},
+		{
 			name: "dangling local $ref",
 			spec: `
 openapi: 3.0.0

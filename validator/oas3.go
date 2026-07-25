@@ -509,6 +509,7 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 	// Parameters may be hoisted into components.parameters and referenced by
 	// $ref, in which case Name and In only exist on the definition.
 	resolver := paramutil.NewOAS3Resolver(doc)
+	validRefs := buildOAS3ValidRefs(doc)
 
 	for pathPattern, pathItem := range doc.Paths {
 		if pathItem == nil {
@@ -522,9 +523,10 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 		operations := parser.GetOperations(pathItem, doc.OASVersion)
 		pathPrefix := "paths." + pathPattern
 
-		// Path-level parameters apply to every operation in the item, so their
-		// required check runs once here rather than once per operation.
+		// Path-level parameters apply to every operation in the item, so they
+		// are checked once here rather than once per operation.
 		v.validateOAS3PathParamsRequired(pathItem.Parameters, pathPrefix, result, baseURL)
+		v.validateParameterRefKinds(pathItem.Parameters, pathPrefix, resolver, validRefs, result, baseURL)
 
 		for method, op := range operations {
 			if op == nil {
@@ -533,15 +535,22 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 
 			opPath := pathPrefix + "." + method
 			v.validateOAS3PathParamsRequired(op.Parameters, opPath, result, baseURL)
+			v.validateParameterRefKinds(op.Parameters, opPath, resolver, validRefs, result, baseURL)
 
 			// Collect declared path parameters from both the path item (which
 			// applies to every operation) and the operation itself.
 			declaredParams, complete := resolver.DeclaredPathParams(pathItem.Parameters, op.Parameters)
 
 			// Verify all path template parameters are declared. Skipped when a
-			// parameter $ref could not be resolved — an unresolvable reference
-			// may well declare the missing name, and a broken local $ref is
-			// already reported by validateOAS3Refs.
+			// parameter $ref could not be resolved, because an unresolvable
+			// reference may well declare the missing name — reporting it would
+			// be the false positive this check exists to avoid.
+			//
+			// Suppressing here is only safe because every reason a $ref fails to
+			// resolve is reported elsewhere: a dangling local ref by
+			// validateOAS3Refs, and a ref naming a non-parameter component by
+			// validateParameterRefKinds above. External refs are genuinely
+			// unknowable and are the one case that stays silent by design.
 			if complete {
 				for paramName := range pathParams {
 					if !declaredParams[paramName] {
@@ -554,7 +563,11 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 				}
 			}
 
-			// Warn about declared path parameters not in template
+			// Warn about declared path parameters not in template.
+			//
+			// Deliberately outside the `complete` guard: declaredParams is a
+			// lower bound, so an unresolved $ref can only suppress a warning,
+			// never invent one. Gating this would lose warnings for no gain.
 			for paramName := range declaredParams {
 				if !pathParams[paramName] {
 					v.addWarning(result, opPath,
@@ -569,9 +582,15 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 }
 
 // validateOAS3PathParamsRequired reports inline path parameters that omit
-// required: true. Referenced parameters are deliberately skipped: their
-// definitions are checked once in validateOAS3Components, so checking them
-// again at each use site would report the same defect repeatedly.
+// required: true. Referenced parameters are deliberately skipped: a ref into
+// components.parameters has its definition checked once by
+// validateOAS3Components, so checking it again at each use site would report the
+// same defect repeatedly.
+//
+// The skip is unconditional, so a ref that does not land in components.parameters
+// — external, or dangling — has its required field checked nowhere. Those refs
+// are reported as unresolvable in their own right, which is the more useful
+// diagnostic anyway.
 func (v *Validator) validateOAS3PathParamsRequired(params []*parser.Parameter, prefix string, result *ValidationResult, baseURL string) {
 	for i, param := range params {
 		if param == nil || param.Ref != "" || param.In != parser.ParamInPath || param.Required {

@@ -527,7 +527,7 @@ Paths receive thorough structural and semantic validation.
 **Path Parameter Consistency:**
 
 - Every `{param}` in the path template must have a corresponding parameter definition with `in: path`
-- Path parameters must be marked as `required: true`
+- Path parameters must be marked as `required: true` (checked for OAS 3.x only — the OAS 2.0 validator does not yet implement this, though the specification requires it)
 - Declared path parameters should be used in the template
 
 Parameters may be declared on the operation or on the path item (where they
@@ -536,10 +536,34 @@ document's reusable parameter definitions — OAS 2.0's root-level `parameters` 
 OAS 3.x's `components.parameters`. References are resolved, including chains of
 them, before the template is checked.
 
-A reference the validator cannot resolve — an external file or URL, or a
-reference cycle — is treated as unknown rather than empty, so no undeclared
-parameter error is reported for that operation. A broken *local* `$ref` is still
-reported separately as an unresolvable reference.
+A reference the validator cannot resolve is treated as unknown rather than
+empty, so no undeclared parameter error is reported for that operation. That
+suppression is safe because each reason a reference fails to resolve is reported
+by some other check:
+
+| Reference | Reported as |
+|-----------|-------------|
+| Local, target missing | `$ref '...' does not resolve to a valid component in the document` |
+| Local, target exists but is not a parameter | `$ref '...' resolves to a component that is not a parameter definition` |
+| External file or URL | Not reported — genuinely unknowable without resolving the reference |
+| Cycle or chain longer than 10 hops | Not reported by name; see the note below |
+
+A wrong-kind reference — a schema referenced from a parameter slot, say — needs
+its own check because reference validation accepts it: valid references are
+collected into a single set spanning every component kind, so it cannot tell
+which kind belongs in which position.
+
+Path parameters are also checked for `required: true`. That check applies to the
+path item's own parameters even when the item declares no operations, which is
+legal: a path item may carry only `summary`, `servers`, or a `$ref`.
+
+Where an error is reported follows where the defect lives, so a single mistake
+is reported once:
+
+- A defect in a path item's own parameters is reported against the path item,
+  not repeated for each operation the item contains
+- A defect in a reusable parameter definition is reported against the
+  definition, not repeated at each place it is referenced
 
 ### Operation Validation
 
