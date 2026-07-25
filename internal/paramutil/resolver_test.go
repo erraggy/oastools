@@ -1,6 +1,8 @@
 package paramutil_test
 
 import (
+	"fmt"
+	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -162,6 +164,51 @@ func TestResolver_Resolve(t *testing.T) {
 			}
 		})
 	}
+}
+
+// refChain builds a chain of reusable parameter definitions requiring exactly
+// hops resolution steps: the returned parameter references the first link, each
+// link references the next, and the final link is an inline path parameter.
+func refChain(prefix string, hops int) (start *parser.Parameter, defs map[string]*parser.Parameter) {
+	defs = make(map[string]*parser.Parameter, hops)
+	for i := 1; i < hops; i++ {
+		defs[fmt.Sprintf("%s%d", prefix, i)] = ref(fmt.Sprintf("#/components/parameters/%s%d", prefix, i+1))
+	}
+	defs[fmt.Sprintf("%s%d", prefix, hops)] = pathParam(prefix + "Id")
+	return ref(fmt.Sprintf("#/components/parameters/%s1", prefix)), defs
+}
+
+// TestResolver_Resolve_RefDepthBoundary exercises the maxRefDepth cutoff
+// directly. The cycle cases in TestResolver_Resolve terminate via the same
+// mechanism, but only a chain of known length pins down where the boundary
+// actually falls.
+func TestResolver_Resolve_RefDepthBoundary(t *testing.T) {
+	const maxRefDepth = 10 // mirrors the unexported constant in the package
+
+	atLimit, atLimitDefs := refChain("atLimit", maxRefDepth)
+	overLimit, overLimitDefs := refChain("overLimit", maxRefDepth+1)
+
+	params := make(map[string]*parser.Parameter, len(atLimitDefs)+len(overLimitDefs))
+	maps.Copy(params, atLimitDefs)
+	maps.Copy(params, overLimitDefs)
+
+	resolver := paramutil.NewOAS3Resolver(&parser.OAS3Document{
+		Components: &parser.Components{Parameters: params},
+	})
+
+	t.Run("chain of exactly maxRefDepth hops resolves", func(t *testing.T) {
+		resolved, ok := resolver.Resolve(atLimit)
+
+		require.True(t, ok)
+		assert.Equal(t, "atLimitId", resolved.Name)
+	})
+
+	t.Run("chain exceeding maxRefDepth hops is unresolvable", func(t *testing.T) {
+		resolved, ok := resolver.Resolve(overLimit)
+
+		assert.False(t, ok)
+		assert.Nil(t, resolved)
+	})
 }
 
 func TestResolver_Resolve_NilResolver(t *testing.T) {
