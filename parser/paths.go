@@ -106,10 +106,13 @@ func (r *Responses) UnmarshalYAML(unmarshal func(any) error) error {
 	return nil
 }
 
-// Response describes a single response from an API Operation
+// Response describes a single response from an API Operation.
+//
+// Description is tagged omitempty for the same reason as [Parameter.Name]: a
+// $ref response would otherwise serialize with an empty description sibling.
 type Response struct {
 	Ref         string                `yaml:"$ref,omitempty" json:"$ref,omitempty"`
-	Description string                `yaml:"description" json:"description"`
+	Description string                `yaml:"description,omitempty" json:"description,omitempty"`
 	Headers     map[string]*Header    `yaml:"headers,omitempty" json:"headers,omitempty"`
 	Content     map[string]*MediaType `yaml:"content,omitempty" json:"content,omitempty"` // OAS 3.0+
 	Links       map[string]*Link      `yaml:"links,omitempty" json:"links,omitempty"`     // OAS 3.0+

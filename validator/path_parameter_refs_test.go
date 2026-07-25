@@ -174,13 +174,10 @@ paths:
 `,
 		},
 		{
-			// A reusable definition may itself be a $ref; the chain is followed.
-			//
-			// The expected error is NOT about path parameters: validateOAS3Components
-			// does not skip `$ref` parameters, so a pure-alias definition is
-			// wrongly told it needs a schema or content. Pre-existing on main and
-			// tracked separately — asserted here rather than filtered away, so
-			// that fixing it shows up as a test change instead of passing silently.
+			// A reusable definition may itself be a $ref; the chain is followed,
+			// and the alias itself is clean. validateOAS3Components skips $ref
+			// entries rather than telling a pure alias it needs a schema or
+			// content — a reference carries neither by design.
 			name: "chained $ref between component parameters",
 			spec: `
 openapi: 3.0.3
@@ -196,7 +193,7 @@ paths:
         - $ref: '#/components/parameters/aliasParam'
       responses: {"200": {description: OK}}
 `,
-			wantErrors: []string{"components.parameters.aliasParam: Parameter must have either a schema or content"},
+			wantErrors: nil,
 		},
 		{
 			// An unresolvable $ref is unknown, not empty: it may well declare
@@ -456,9 +453,11 @@ paths:
         - $ref: '#/components/parameters/aliasParam'
       responses: {"200": {description: OK}}
 `,
+			// Only the dangling ref is reported. The alias is not additionally
+			// told it needs a schema or content: that check now skips $ref
+			// entries, so a broken chain is named once rather than twice.
 			wantErrors: []string{
 				"components.parameters.aliasParam: $ref '#/components/parameters/goneParam' does not resolve to a valid component",
-				"components.parameters.aliasParam: Parameter must have either a schema or content",
 			},
 		},
 	}
@@ -536,17 +535,15 @@ paths:
 	}
 }
 
-// TestPathParameterConsistency_OAS2HasNoRequiredCheck documents why the
-// required-reported-once tests below are OAS 3 only: OAS 2.0 has no
-// "required: true" check for path parameters at all, so there is no per-path-item
-// error for the OAS 2.0 path to report more than once.
+// TestPathParameterConsistency_OAS2RequiredReportedOncePerPathItem is the OAS
+// 2.0 counterpart of TestPathParameterConsistency_RequiredReportedOncePerPathItem.
 //
-// OAS 2.0 does mandate required: true on path parameters, so this is a real gap
-// — but a pre-existing one, unrelated to $ref resolution. It is tracked in
-// issue #378. This test pins the current behavior so that adding the check is a
-// deliberate, visible change rather than a silent one: it fails once the check
-// lands, at which point it should be replaced with the positive assertions.
-func TestPathParameterConsistency_OAS2HasNoRequiredCheck(t *testing.T) {
+// Swagger 2.0 mandates required: true on path parameters just as OAS 3.x does,
+// and both versions run the same check, so both must dedup a path-item
+// parameter to a single error rather than repeating it per operation. Three
+// operations are declared so a regression to the per-operation placement shows
+// up as three errors.
+func TestPathParameterConsistency_OAS2RequiredReportedOncePerPathItem(t *testing.T) {
 	spec := `
 swagger: "2.0"
 info: {title: Test, version: "1.0.0"}
@@ -564,6 +561,63 @@ paths:
       responses: {"204": {description: No Content}}
 `
 
+	assert.Equal(t, []string{"paths./pets/{petId}.parameters[0]"}, requiredErrorPaths(t, spec),
+		"a path-item parameter defect should be reported once, not once per operation")
+}
+
+// TestPathParameterConsistency_OAS2RequiredSkippedForRefs is the OAS 2.0
+// counterpart of TestPathParameterConsistency_RequiredSkippedForRefs: a
+// referenced parameter is reported at its definition in the root-level
+// parameters, not at every use site.
+func TestPathParameterConsistency_OAS2RequiredSkippedForRefs(t *testing.T) {
+	spec := `
+swagger: "2.0"
+info: {title: Test, version: "1.0.0"}
+parameters:
+  petIdParam: {name: petId, in: path, type: string}
+paths:
+  /pets/{petId}:
+    parameters:
+      - $ref: '#/parameters/petIdParam'
+    get:
+      responses: {"200": {description: OK}}
+    put:
+      responses: {"200": {description: OK}}
+`
+
+	assert.Equal(t, []string{"parameters.petIdParam"}, requiredErrorPaths(t, spec),
+		"the defect belongs to the definition, not to each use site")
+}
+
+// TestPathParameterConsistency_OAS2AliasNotRequiredChecked pins the interaction
+// between the two halves of issue #378: the definition-site required check must
+// not fire on a pure $ref alias. An alias carries no In, so it cannot match
+// in: path — this asserts that rather than assuming it.
+func TestPathParameterConsistency_OAS2AliasNotRequiredChecked(t *testing.T) {
+	spec := `
+swagger: "2.0"
+info: {title: Test, version: "1.0.0"}
+parameters:
+  aliasParam: {$ref: '#/parameters/petIdParam'}
+  petIdParam: {name: petId, in: path, required: true, type: string}
+paths:
+  /pets/{petId}:
+    get:
+      parameters:
+        - $ref: '#/parameters/aliasParam'
+      responses: {"200": {description: OK}}
+`
+
+	assert.Empty(t, requiredErrorPaths(t, spec),
+		"a pure $ref alias has no In and must not be treated as a path parameter")
+}
+
+// requiredErrorPaths collects the paths of every "required: true" error the
+// validator reports for spec, so a test can assert both how many were reported
+// and where.
+func requiredErrorPaths(t *testing.T, spec string) []string {
+	t.Helper()
+
 	p := parser.New()
 	p.ValidateStructure = false
 	parseResult, err := p.ParseBytes([]byte(spec))
@@ -572,17 +626,18 @@ paths:
 	result, err := New().ValidateParsed(*parseResult)
 	require.NoError(t, err)
 
+	var paths []string
 	for _, e := range result.Errors {
-		assert.NotContains(t, e.Message, "Path parameters must have required: true",
-			"OAS 2.0 does not implement this check; update this test if that changes")
+		if strings.Contains(e.Message, "Path parameters must have required: true") {
+			paths = append(paths, e.Path)
+		}
 	}
+	return paths
 }
 
 // TestPathParameterConsistency_RequiredReportedOncePerPathItem guards against
 // path-item level parameters being re-validated for every operation in the
 // item, which produced one identical error per operation.
-//
-// OAS 3 only, per TestPathParameterConsistency_OAS2HasNoRequiredCheck.
 func TestPathParameterConsistency_RequiredReportedOncePerPathItem(t *testing.T) {
 	spec := `
 openapi: 3.0.3
@@ -601,22 +656,7 @@ paths:
       responses: {"204": {description: No Content}}
 `
 
-	p := parser.New()
-	p.ValidateStructure = false
-	parseResult, err := p.ParseBytes([]byte(spec))
-	require.NoError(t, err)
-
-	result, err := New().ValidateParsed(*parseResult)
-	require.NoError(t, err)
-
-	var requiredErrors []string
-	for _, e := range result.Errors {
-		if strings.Contains(e.Message, "Path parameters must have required: true") {
-			requiredErrors = append(requiredErrors, e.Path)
-		}
-	}
-
-	assert.Equal(t, []string{"paths./pets/{petId}.parameters[0]"}, requiredErrors,
+	assert.Equal(t, []string{"paths./pets/{petId}.parameters[0]"}, requiredErrorPaths(t, spec),
 		"a path-item parameter defect should be reported once, not once per operation")
 }
 
@@ -652,8 +692,6 @@ paths:
 // TestPathParameterConsistency_RequiredSkippedForRefs checks that a referenced
 // parameter missing required: true is reported at its definition rather than
 // at every place it is used.
-//
-// OAS 3 only, per TestPathParameterConsistency_OAS2HasNoRequiredCheck.
 func TestPathParameterConsistency_RequiredSkippedForRefs(t *testing.T) {
 	spec := `
 openapi: 3.0.3
@@ -671,21 +709,6 @@ paths:
       responses: {"200": {description: OK}}
 `
 
-	p := parser.New()
-	p.ValidateStructure = false
-	parseResult, err := p.ParseBytes([]byte(spec))
-	require.NoError(t, err)
-
-	result, err := New().ValidateParsed(*parseResult)
-	require.NoError(t, err)
-
-	var requiredErrors []string
-	for _, e := range result.Errors {
-		if strings.Contains(e.Message, "Path parameters must have required: true") {
-			requiredErrors = append(requiredErrors, e.Path)
-		}
-	}
-
-	assert.Equal(t, []string{"components.parameters.petIdParam"}, requiredErrors,
+	assert.Equal(t, []string{"components.parameters.petIdParam"}, requiredErrorPaths(t, spec),
 		"the defect belongs to the definition, not to each use site")
 }

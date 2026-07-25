@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/internal/issues"
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -275,8 +276,8 @@ func (rt *refTracker) trackSchemaRefs(schema *parser.Schema, opRef operationRef,
 		rt.addRef(schema.Ref, opRef)
 
 		// Follow the ref to track transitive dependencies
-		if components != nil && strings.HasPrefix(schema.Ref, "#/components/schemas/") {
-			name := strings.TrimPrefix(schema.Ref, "#/components/schemas/")
+		if components != nil && strings.HasPrefix(schema.Ref, pathutil.RefPrefixSchemas) {
+			name := pathutil.UnescapeRefToken(strings.TrimPrefix(schema.Ref, pathutil.RefPrefixSchemas))
 			if resolved, ok := components.Schemas[name]; ok {
 				rt.trackSchemaRefs(resolved, opRef, components, visited)
 			}

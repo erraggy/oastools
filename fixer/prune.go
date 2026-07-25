@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -77,17 +78,23 @@ func buildReferencedSchemaSet(collector *RefCollector, schemas map[string]*parse
 
 // extractSchemaName extracts the schema name from a reference path.
 // Handles both URL-encoded and non-encoded refs.
+//
+// The JSON Pointer escaping is reversed so the name matches the key it was
+// built from. Without it, a schema named "pet/summary" is referenced as
+// "#/definitions/pet~1summary", the recovered name never matches the schemas
+// map, and pruning deletes a schema that is in fact referenced.
 func extractSchemaName(ref, prefix string) string {
 	// Try direct prefix match first
 	if name, found := strings.CutPrefix(ref, prefix); found {
-		return name
+		return pathutil.UnescapeRefToken(name)
 	}
 
-	// Try URL-decoded version
+	// Try URL-decoded version. This is a different escaping from the JSON
+	// Pointer form above, handled because some tools emit percent-encoded refs.
 	decoded, err := url.PathUnescape(ref)
 	if err == nil {
 		if name, found := strings.CutPrefix(decoded, prefix); found {
-			return name
+			return pathutil.UnescapeRefToken(name)
 		}
 	}
 

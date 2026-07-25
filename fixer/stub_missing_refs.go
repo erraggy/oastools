@@ -45,7 +45,7 @@ func extractResponseNameFromRef(ref string, version parser.OASVersion) string {
 	}
 
 	if name, found := strings.CutPrefix(ref, prefix); found {
-		return name
+		return pathutil.UnescapeRefToken(name)
 	}
 	return ""
 }

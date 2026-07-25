@@ -198,6 +198,36 @@ func (v *Validator) validateParameterDefinitionRefs(
 	}
 }
 
+// validatePathParamsRequired reports inline path parameters that omit
+// required: true. The rule is identical in OAS 2.0 and 3.x — Swagger 2.0 states
+// that required "MUST be true" for in: path — and the check reads only fields
+// both versions share, so both validators call this.
+//
+// Referenced parameters are deliberately skipped: a ref into the reusable
+// definitions has its definition checked once by validateOAS2Parameters or
+// validateOAS3Components, so checking it again at each use site would report the
+// same defect repeatedly.
+//
+// The skip is unconditional, so a ref that does not land in those definitions
+// — external, or dangling — has its required field checked nowhere. Those refs
+// are reported as unresolvable in their own right, which is the more useful
+// diagnostic anyway.
+//
+// Callers must invoke this once per path item rather than inside their
+// operation loop, or a path-item parameter is reported once per operation.
+func (v *Validator) validatePathParamsRequired(params []*parser.Parameter, prefix string, result *ValidationResult, baseURL string) {
+	for i, param := range params {
+		if param == nil || param.Ref != "" || param.In != parser.ParamInPath || param.Required {
+			continue
+		}
+		v.addError(result, prefix+".parameters["+strconv.Itoa(i)+"]",
+			"Path parameters must have required: true",
+			withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+			withField("required"),
+		)
+	}
+}
+
 // pathParamDeclarations records the path parameters a path item declares and
 // those one of its operations declares, kept apart so each is reported where it
 // is declared while the template check still sees their union.

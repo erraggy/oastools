@@ -1,10 +1,17 @@
 package parser
 
-// Parameter describes a single operation parameter
+// Parameter describes a single operation parameter.
+//
+// Name and In are required by the specification but are still tagged omitempty:
+// a $ref parameter arrives from the parser with every sibling field empty, and
+// emitting name: "" and in: "" alongside the $ref corrupts the object on every
+// round trip. An inline parameter that genuinely lacks them is invalid either
+// way, and the validator reports it — the serializer is not the right place to
+// surface that defect.
 type Parameter struct {
 	Ref         string `yaml:"$ref,omitempty" json:"$ref,omitempty"`
-	Name        string `yaml:"name" json:"name"`
-	In          string `yaml:"in" json:"in"` // "query", "header", "path", "cookie" (OAS 3.0+), "formData", "body" (OAS 2.0)
+	Name        string `yaml:"name,omitempty" json:"name,omitempty"`
+	In          string `yaml:"in,omitempty" json:"in,omitempty"` // "query", "header", "path", "cookie" (OAS 3.0+), "formData", "body" (OAS 2.0)
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	Required    bool   `yaml:"required,omitempty" json:"required,omitempty"`
 	Deprecated  bool   `yaml:"deprecated,omitempty" json:"deprecated,omitempty"` // OAS 3.0+
@@ -64,11 +71,14 @@ type Items struct {
 	Extra            map[string]any `yaml:",inline" json:"-"`
 }
 
-// RequestBody describes a single request body (OAS 3.0+)
+// RequestBody describes a single request body (OAS 3.0+).
+//
+// Content is tagged omitempty for the same reason as [Parameter.Name]: a $ref
+// request body would otherwise serialize with a null content sibling.
 type RequestBody struct {
 	Ref         string                `yaml:"$ref,omitempty" json:"$ref,omitempty"`
 	Description string                `yaml:"description,omitempty" json:"description,omitempty"`
-	Content     map[string]*MediaType `yaml:"content" json:"content"`
+	Content     map[string]*MediaType `yaml:"content,omitempty" json:"content,omitempty"`
 	Required    bool                  `yaml:"required,omitempty" json:"required,omitempty"`
 	Extra       map[string]any        `yaml:",inline" json:"-"`
 }

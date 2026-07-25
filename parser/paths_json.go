@@ -108,10 +108,11 @@ func (r *Response) MarshalJSON() ([]byte, error) {
 		return marshalToJSON((*Alias)(r))
 	}
 
-	// Build map with known fields
-	m := map[string]any{
-		jsonKeyDescription: r.Description, // Required field, always include
-	}
+	// Build map with known fields conditionally so this path agrees with the
+	// struct tags used by the fast path above. See [Response] for why
+	// description is omitempty.
+	m := make(map[string]any, 7+len(r.Extra))
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, r.Description)
 	jsonhelpers.SetIfNotEmpty(m, jsonKeyRef, r.Ref)
 	jsonhelpers.SetIfMapNotEmpty(m, "headers", r.Headers)
 	jsonhelpers.SetIfMapNotEmpty(m, "content", r.Content)
