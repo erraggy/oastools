@@ -2,18 +2,14 @@ package parser
 
 import (
 	"encoding/json"
+	"maps"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v4"
 )
-
-// leakedSiblings are the keys that a $ref object used to emit alongside its
-// $ref: name and in from Parameter, description from Response, and content from
-// RequestBody. Each was a required field tagged without omitempty, so it was
-// written even when empty, corrupting the object on every round trip.
-var leakedSiblings = []string{"name", "in", "description", "content"}
 
 // TestRefObjectsSerializeWithoutEmptySiblings pins that a $ref object round
 // trips as $ref alone.
@@ -25,16 +21,22 @@ var leakedSiblings = []string{"name", "in", "description", "content"}
 // was fixed the two paths disagreed, which meant the serialized shape of a $ref
 // depended on whether it happened to carry an extension.
 func TestRefObjectsSerializeWithoutEmptySiblings(t *testing.T) {
+	extras := map[string]any{"x-note": "hi"}
+
 	tests := []struct {
-		name  string
-		value any
+		name string
+		// wantExtras is the extension set the object carries, and so the only
+		// keys permitted alongside its $ref.
+		wantExtras map[string]any
+		value      any
 	}{
 		{
 			name:  "parameter",
 			value: &Parameter{Ref: "#/components/parameters/petIdParam"},
 		},
 		{
-			name: "parameter with extension",
+			name:       "parameter with extension",
+			wantExtras: extras,
 			value: &Parameter{
 				Ref:   "#/components/parameters/petIdParam",
 				Extra: map[string]any{"x-note": "hi"},
@@ -45,7 +47,8 @@ func TestRefObjectsSerializeWithoutEmptySiblings(t *testing.T) {
 			value: &Response{Ref: "#/components/responses/NotFound"},
 		},
 		{
-			name: "response with extension",
+			name:       "response with extension",
+			wantExtras: extras,
 			value: &Response{
 				Ref:   "#/components/responses/NotFound",
 				Extra: map[string]any{"x-note": "hi"},
@@ -56,7 +59,8 @@ func TestRefObjectsSerializeWithoutEmptySiblings(t *testing.T) {
 			value: &RequestBody{Ref: "#/components/requestBodies/PetBody"},
 		},
 		{
-			name: "request body with extension",
+			name:       "request body with extension",
+			wantExtras: extras,
 			value: &RequestBody{
 				Ref:   "#/components/requestBodies/PetBody",
 				Extra: map[string]any{"x-note": "hi"},
@@ -71,7 +75,7 @@ func TestRefObjectsSerializeWithoutEmptySiblings(t *testing.T) {
 
 			var got map[string]any
 			require.NoError(t, json.Unmarshal(data, &got))
-			assertOnlyRefAndExtensions(t, got, string(data))
+			assertOnlyRefAndExtensions(t, got, tt.wantExtras, string(data))
 		})
 
 		t.Run(tt.name+"/yaml", func(t *testing.T) {
@@ -80,20 +84,36 @@ func TestRefObjectsSerializeWithoutEmptySiblings(t *testing.T) {
 
 			var got map[string]any
 			require.NoError(t, yaml.Unmarshal(data, &got))
-			assertOnlyRefAndExtensions(t, got, string(data))
+			assertOnlyRefAndExtensions(t, got, tt.wantExtras, string(data))
 		})
 	}
 }
 
 // assertOnlyRefAndExtensions checks that the serialized object carries its $ref
-// and any x- extensions, and nothing else.
-func assertOnlyRefAndExtensions(t *testing.T, got map[string]any, encoded string) {
+// and exactly wantExtras, and nothing else.
+//
+// The key set is asserted whole rather than by denying a list of known-bad keys.
+// The four that used to leak — name and in from Parameter, description from
+// Response, content from RequestBody, each a required field tagged without
+// omitempty and so written even when empty — are what prompted this test, but a
+// field added later without omitempty would leak identically, and denying only
+// today's four would not notice.
+//
+// Extension values are compared, not merely counted: the marshalers reach their
+// Extra-fields path precisely when an extension is present, so a regression that
+// dropped extensions would otherwise satisfy every remaining assertion here.
+func assertOnlyRefAndExtensions(t *testing.T, got, wantExtras map[string]any, encoded string) {
 	t.Helper()
 
-	assert.Contains(t, got, "$ref", "encoded: %s", encoded)
-	for _, key := range leakedSiblings {
-		assert.NotContains(t, got, key, "$ref object leaked empty %q sibling; encoded: %s", key, encoded)
+	wantKeys := make([]string, 0, len(wantExtras)+1)
+	wantKeys = append(wantKeys, jsonKeyRef)
+	for key, want := range wantExtras {
+		wantKeys = append(wantKeys, key)
+		assert.Equal(t, want, got[key], "extension %q must survive serialization; encoded: %s", key, encoded)
 	}
+
+	assert.ElementsMatch(t, wantKeys, slices.Collect(maps.Keys(got)),
+		"a $ref object must serialize with only its $ref and its extensions; encoded: %s", encoded)
 }
 
 // TestInlineObjectsStillSerializeRequiredFields guards the other direction: the
@@ -211,7 +231,7 @@ paths:
 
 			var got map[string]any
 			require.NoError(t, json.Unmarshal(data, &got))
-			assertOnlyRefAndExtensions(t, got, string(data))
+			assertOnlyRefAndExtensions(t, got, nil, string(data))
 		})
 
 		t.Run(name+"/yaml", func(t *testing.T) {
@@ -220,7 +240,7 @@ paths:
 
 			var got map[string]any
 			require.NoError(t, yaml.Unmarshal(data, &got))
-			assertOnlyRefAndExtensions(t, got, string(data))
+			assertOnlyRefAndExtensions(t, got, nil, string(data))
 		})
 	}
 }
