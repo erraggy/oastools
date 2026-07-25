@@ -93,27 +93,30 @@ func checkTrailingSlash(v *Validator, pathPattern string, result *ValidationResu
 	}
 }
 
-// validateParameterRefKinds reports parameter $ref values that point at a
-// component which exists but is not a parameter definition — a schema, say,
-// referenced from a parameter slot.
+// validateParameterRefs reports parameter $ref values that cannot be followed
+// to a parameter definition.
 //
-// Nothing else catches this. buildOAS2ValidRefs and buildOAS3ValidRefs collect
-// every component path into one flat set, so validateRef sees a schema ref in a
-// parameter position as perfectly valid. The parameter resolver keys only
-// parameter definitions, so the same ref is unresolvable, which suppresses the
-// undeclared-parameter check. Between them the document passes clean, so this
-// check is what keeps a wrong-kind reference from becoming a silent failure.
+// The path-parameter consistency check suppresses its undeclared-parameter
+// error whenever a reference fails to resolve, because an unresolvable
+// reference may itself declare the missing name. That suppression is only sound
+// if every reason a reference fails is reported somewhere, and for three of the
+// four reasons nothing else reports it:
 //
-// Two cases are deliberately left alone:
-//   - A ref whose target is absent entirely is dangling, and validateRef
-//     already reports it. Reporting it again here would duplicate the defect.
-//   - A ref that does name a parameter but fails to resolve has a break further
-//     down its chain, which is a different defect from being the wrong kind.
-//     Defines, not Resolve, is what draws that line.
+//   - A wrong-kind ref passes reference validation, because buildOAS2ValidRefs
+//     and buildOAS3ValidRefs collect every component path into one flat set and
+//     so cannot tell which kind belongs in a parameter slot.
+//   - A cycle and an over-long chain consist entirely of valid references, so
+//     reference validation has nothing to object to.
+//
+// Without this check each of those makes a broken document validate clean.
+//
+// Two cases are deliberately left alone: a dangling ref, already reported by
+// validateRef, which would otherwise be reported twice; and an external ref,
+// which is the one genuinely unknowable case.
 //
 // Added while addressing #374 - Root-level parameters are not applied to
 // Operations contained within
-func (v *Validator) validateParameterRefKinds(
+func (v *Validator) validateParameterRefs(
 	params []*parser.Parameter,
 	prefix string,
 	resolver paramutil.Resolver,
@@ -122,11 +125,34 @@ func (v *Validator) validateParameterRefKinds(
 	baseURL string,
 ) {
 	for i, param := range params {
-		if param == nil || param.Ref == "" || resolver.Defines(param.Ref) || !validRefs[param.Ref] {
+		if param == nil || param.Ref == "" {
 			continue
 		}
-		v.addError(result, prefix+".parameters["+strconv.Itoa(i)+"]",
-			fmt.Sprintf("$ref '%s' resolves to a component that is not a parameter definition", param.Ref),
+
+		var message string
+		switch _, reason := resolver.Classify(param); reason {
+		case paramutil.ReasonNotAParameter:
+			// The chain may break at a later hop than this one. Only this ref's
+			// own kind is in question here: if it does name a parameter, the
+			// break is downstream and is reported against the definition that
+			// carries it, not against every reference that reaches it.
+			if resolver.Defines(param.Ref) {
+				continue
+			}
+			// Absent entirely means dangling, which validateRef reports.
+			if !validRefs[param.Ref] {
+				continue
+			}
+			message = fmt.Sprintf("$ref '%s' resolves to a component that is not a parameter definition", param.Ref)
+		case paramutil.ReasonCycle:
+			message = fmt.Sprintf("$ref '%s' leads to a reference cycle between parameter definitions", param.Ref)
+		case paramutil.ReasonTooDeep:
+			message = fmt.Sprintf("$ref '%s' leads to a parameter reference chain too long to follow", param.Ref)
+		case paramutil.ReasonResolved, paramutil.ReasonExternal:
+			continue
+		}
+
+		v.addError(result, prefix+".parameters["+strconv.Itoa(i)+"]", message,
 			withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
 			withField("$ref"),
 			withValue(param.Ref),

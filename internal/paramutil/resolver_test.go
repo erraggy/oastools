@@ -12,6 +12,12 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// maxRefDepthForTest mirrors the package's unexported maxRefDepth. Duplicating
+// it is deliberate: the boundary tests assert where the real limit falls, so
+// changing the production constant must make them fail rather than silently
+// follow along.
+const maxRefDepthForTest = 10
+
 func pathParam(name string) *parser.Parameter {
 	return &parser.Parameter{Name: name, In: parser.ParamInPath, Required: true}
 }
@@ -192,10 +198,8 @@ func refChain(prefix string, hops int) (start *parser.Parameter, defs map[string
 // mechanism, but only a chain of known length pins down where the boundary
 // actually falls.
 func TestResolver_Resolve_RefDepthBoundary(t *testing.T) {
-	const maxRefDepth = 10 // mirrors the unexported constant in the package
-
-	atLimit, atLimitDefs := refChain("atLimit", maxRefDepth)
-	overLimit, overLimitDefs := refChain("overLimit", maxRefDepth+1)
+	atLimit, atLimitDefs := refChain("atLimit", maxRefDepthForTest)
+	overLimit, overLimitDefs := refChain("overLimit", maxRefDepthForTest+1)
 
 	params := make(map[string]*parser.Parameter, len(atLimitDefs)+len(overLimitDefs))
 	maps.Copy(params, atLimitDefs)
@@ -271,6 +275,95 @@ func TestResolver_Defines(t *testing.T) {
 
 		assert.False(t, nilResolver.Defines("#/components/parameters/petIdParam"))
 	})
+}
+
+// TestResolver_Classify covers each Reason directly. Resolve collapses them all
+// to a single false, but callers that suppress diagnostics on failure owe the
+// user an explanation, and only ReasonExternal warrants silence — so the
+// distinctions have to hold.
+func TestResolver_Classify(t *testing.T) {
+	deep, deepDefs := refChain("deep", maxRefDepthForTest+1)
+
+	params := map[string]*parser.Parameter{
+		"petIdParam": pathParam("petId"),
+		"aliasParam": ref("#/components/parameters/petIdParam"),
+		"brokenLink": ref("#/components/parameters/goneParam"),
+		"loopA":      ref("#/components/parameters/loopB"),
+		"loopB":      ref("#/components/parameters/loopA"),
+		"selfRef":    ref("#/components/parameters/selfRef"),
+	}
+	maps.Copy(params, deepDefs)
+
+	resolver := paramutil.NewOAS3Resolver(&parser.OAS3Document{
+		Components: &parser.Components{Parameters: params},
+	})
+
+	tests := []struct {
+		name       string
+		param      *parser.Parameter
+		wantReason paramutil.Reason
+	}{
+		{name: "inline parameter", param: pathParam("petId"), wantReason: paramutil.ReasonResolved},
+		{name: "single hop", param: ref("#/components/parameters/petIdParam"), wantReason: paramutil.ReasonResolved},
+		{name: "chained hops", param: ref("#/components/parameters/aliasParam"), wantReason: paramutil.ReasonResolved},
+		{
+			name:       "external file ref",
+			param:      ref("shared.yaml#/components/parameters/petIdParam"),
+			wantReason: paramutil.ReasonExternal,
+		},
+		{
+			name:       "remote url ref",
+			param:      ref("https://example.com/spec.yaml#/components/parameters/petIdParam"),
+			wantReason: paramutil.ReasonExternal,
+		},
+		{
+			name:       "dangling local ref",
+			param:      ref("#/components/parameters/absent"),
+			wantReason: paramutil.ReasonNotAParameter,
+		},
+		{
+			name:       "local ref to another component kind",
+			param:      ref("#/components/schemas/PetId"),
+			wantReason: paramutil.ReasonNotAParameter,
+		},
+		{
+			// The break is downstream, but Classify reports the outcome of the
+			// whole chain — callers use Defines to locate where it broke.
+			name:       "chain breaking at a later hop",
+			param:      ref("#/components/parameters/brokenLink"),
+			wantReason: paramutil.ReasonNotAParameter,
+		},
+		{
+			name:       "two-node cycle is a cycle, not depth exhaustion",
+			param:      ref("#/components/parameters/loopA"),
+			wantReason: paramutil.ReasonCycle,
+		},
+		{
+			name:       "self reference is a cycle",
+			param:      ref("#/components/parameters/selfRef"),
+			wantReason: paramutil.ReasonCycle,
+		},
+		{
+			// Nothing repeats here, so it must NOT be classified as a cycle.
+			name:       "over-long chain is depth exhaustion, not a cycle",
+			param:      deep,
+			wantReason: paramutil.ReasonTooDeep,
+		},
+		{name: "nil parameter", param: nil, wantReason: paramutil.ReasonNotAParameter},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolved, reason := resolver.Classify(tt.param)
+
+			assert.Equal(t, tt.wantReason, reason)
+			if tt.wantReason == paramutil.ReasonResolved {
+				assert.NotNil(t, resolved)
+			} else {
+				assert.Nil(t, resolved, "only a resolved chain yields a parameter")
+			}
+		})
+	}
 }
 
 func TestResolver_Resolve_NilResolver(t *testing.T) {

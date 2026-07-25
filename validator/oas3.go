@@ -526,7 +526,12 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 		// Path-level parameters apply to every operation in the item, so they
 		// are checked once here rather than once per operation.
 		v.validateOAS3PathParamsRequired(pathItem.Parameters, pathPrefix, result, baseURL)
-		v.validateParameterRefKinds(pathItem.Parameters, pathPrefix, resolver, validRefs, result, baseURL)
+		v.validateParameterRefs(pathItem.Parameters, pathPrefix, resolver, validRefs, result, baseURL)
+
+		// A path-item parameter is declared once, so an unused one is warned
+		// about once here rather than repeated for every operation in the item.
+		itemDeclared, _ := resolver.DeclaredPathParams(pathItem.Parameters)
+		v.warnUnusedPathParams(itemDeclared, pathParams, pathPrefix, result, baseURL)
 
 		for method, op := range operations {
 			if op == nil {
@@ -535,7 +540,7 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 
 			opPath := pathPrefix + "." + method
 			v.validateOAS3PathParamsRequired(op.Parameters, opPath, result, baseURL)
-			v.validateParameterRefKinds(op.Parameters, opPath, resolver, validRefs, result, baseURL)
+			v.validateParameterRefs(op.Parameters, opPath, resolver, validRefs, result, baseURL)
 
 			// Collect declared path parameters from both the path item (which
 			// applies to every operation) and the operation itself.
@@ -563,20 +568,36 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 				}
 			}
 
-			// Warn about declared path parameters not in template.
-			//
-			// Deliberately outside the `complete` guard: declaredParams is a
-			// lower bound, so an unresolved $ref can only suppress a warning,
-			// never invent one. Gating this would lose warnings for no gain.
-			for paramName := range declaredParams {
-				if !pathParams[paramName] {
-					v.addWarning(result, opPath,
-						fmt.Sprintf("Parameter '%s' is declared as path parameter but not used in path template", paramName),
-						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
-						withValue(paramName),
-					)
-				}
+			// Warn only about parameters this operation declares itself; the
+			// path item's were warned about once, above.
+			opDeclared, _ := resolver.DeclaredPathParams(op.Parameters)
+			for name := range itemDeclared {
+				delete(opDeclared, name)
 			}
+			v.warnUnusedPathParams(opDeclared, pathParams, opPath, result, baseURL)
+		}
+	}
+}
+
+// warnUnusedPathParams warns about path parameters declared at prefix that the
+// path template never uses.
+//
+// Deliberately not gated on the resolver reporting a complete set: declared is
+// a lower bound, so an unresolved $ref can only suppress a warning, never
+// invent one. Gating it would lose warnings for no gain.
+func (v *Validator) warnUnusedPathParams(
+	declared, pathParams map[string]bool,
+	prefix string,
+	result *ValidationResult,
+	baseURL string,
+) {
+	for paramName := range declared {
+		if !pathParams[paramName] {
+			v.addWarning(result, prefix,
+				fmt.Sprintf("Parameter '%s' is declared as path parameter but not used in path template", paramName),
+				withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
+				withValue(paramName),
+			)
 		}
 	}
 }

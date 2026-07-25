@@ -316,6 +316,61 @@ paths:
 			wantErrors: []string{"paths./pets/{petId}.parameters[0]: $ref '#/components/schemas/PetId' resolves to a component that is not a parameter definition"},
 		},
 		{
+			// REGRESSION GUARD. A cycle is built entirely from references that
+			// individually exist, so reference validation has nothing to object
+			// to, and every member IS a parameter, so the wrong-kind check skips
+			// it. Giving the members a schema also silences the incidental
+			// "schema or content" error that used to mask this. Without a cycle
+			// check the whole document validates clean.
+			name: "reference cycle between parameter definitions is reported",
+			spec: `
+openapi: 3.0.3
+info: {title: Test, version: "1.0.0"}
+components:
+  parameters:
+    loopA: {$ref: '#/components/parameters/loopB', schema: {type: string}}
+    loopB: {$ref: '#/components/parameters/loopA', schema: {type: string}}
+paths:
+  /pets/{petId}:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/loopA'
+      responses: {"200": {description: OK}}
+`,
+			wantErrors: []string{"$ref '#/components/parameters/loopA' leads to a reference cycle between parameter definitions"},
+		},
+		{
+			// Distinct from a cycle: nothing repeats, the chain is just longer
+			// than the resolver follows. Reported rather than silently suppressed,
+			// since suppression would hide whatever the chain actually declares.
+			name: "over-long reference chain is reported, and not called a cycle",
+			spec: `
+openapi: 3.0.3
+info: {title: Test, version: "1.0.0"}
+components:
+  parameters:
+    a1: {$ref: '#/components/parameters/a2', schema: {type: string}}
+    a2: {$ref: '#/components/parameters/a3', schema: {type: string}}
+    a3: {$ref: '#/components/parameters/a4', schema: {type: string}}
+    a4: {$ref: '#/components/parameters/a5', schema: {type: string}}
+    a5: {$ref: '#/components/parameters/a6', schema: {type: string}}
+    a6: {$ref: '#/components/parameters/a7', schema: {type: string}}
+    a7: {$ref: '#/components/parameters/a8', schema: {type: string}}
+    a8: {$ref: '#/components/parameters/a9', schema: {type: string}}
+    a9: {$ref: '#/components/parameters/a10', schema: {type: string}}
+    a10: {$ref: '#/components/parameters/a11', schema: {type: string}}
+    a11: {$ref: '#/components/parameters/a12', schema: {type: string}}
+    a12: {name: petId, in: path, required: true, schema: {type: string}}
+paths:
+  /pets/{petId}:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/a1'
+      responses: {"200": {description: OK}}
+`,
+			wantErrors: []string{"$ref '#/components/parameters/a1' leads to a parameter reference chain too long to follow"},
+		},
+		{
 			// A ref that DOES name a parameter but whose chain breaks further
 			// down is a different defect, and must not be mislabeled wrong-kind.
 			// Defines, not Resolve, is what draws that line.

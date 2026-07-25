@@ -545,25 +545,38 @@ by some other check:
 |-----------|-------------|
 | Local, target missing | `$ref '...' does not resolve to a valid component in the document` |
 | Local, target exists but is not a parameter | `$ref '...' resolves to a component that is not a parameter definition` |
+| Chain that revisits a reference | `$ref '...' leads to a reference cycle between parameter definitions` |
+| Chain longer than 10 hops without repeating | `$ref '...' leads to a parameter reference chain too long to follow` |
 | External file or URL | Not reported — genuinely unknowable without resolving the reference |
-| Cycle or chain longer than 10 hops | Not reported by name; see the note below |
 
-A wrong-kind reference — a schema referenced from a parameter slot, say — needs
-its own check because reference validation accepts it: valid references are
-collected into a single set spanning every component kind, so it cannot tell
-which kind belongs in which position.
+External references are the only case that stays silent, and only because
+nothing in the document can settle them.
+
+The middle three need their own check, because reference validation cannot catch
+them: it collects valid references into a single set spanning every component
+kind, so it cannot tell which kind belongs in a parameter slot, and a cycle or an
+over-long chain is built entirely from references that individually exist. Every
+one of them would otherwise make a broken document validate clean.
+
+The ten-hop limit is the validator's, not the specification's. A longer chain is
+reported rather than followed, on the grounds that a parameter alias chain that
+deep is far more likely to be a mistake than an intention.
 
 Path parameters are also checked for `required: true`. That check applies to the
 path item's own parameters even when the item declares no operations, which is
 legal: a path item may carry only `summary`, `servers`, or a `$ref`.
 
-Where an error is reported follows where the defect lives, so a single mistake
-is reported once:
+Where a problem is reported follows where it lives, so a single mistake is
+reported once. This applies to warnings as well as errors:
 
-- A defect in a path item's own parameters is reported against the path item,
+- A problem in a path item's own parameters is reported against the path item,
   not repeated for each operation the item contains
-- A defect in a reusable parameter definition is reported against the
+- A problem in a reusable parameter definition is reported against the
   definition, not repeated at each place it is referenced
+
+The undeclared-parameter error is the exception, and necessarily so: whether a
+template variable is declared depends on the path item's parameters *and* the
+operation's together, so it belongs to the operation.
 
 ### Operation Validation
 

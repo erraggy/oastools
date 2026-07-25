@@ -333,7 +333,12 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 
 		// Path-level parameters apply to every operation in the item, so they
 		// are checked once here rather than once per operation.
-		v.validateParameterRefKinds(pathItem.Parameters, pathPrefix, resolver, validRefs, result, baseURL)
+		v.validateParameterRefs(pathItem.Parameters, pathPrefix, resolver, validRefs, result, baseURL)
+
+		// A path-item parameter is declared once, so an unused one is warned
+		// about once here rather than repeated for every operation in the item.
+		itemDeclared, _ := resolver.DeclaredPathParams(pathItem.Parameters)
+		v.warnUnusedPathParams(itemDeclared, pathParams, pathPrefix, result, baseURL)
 
 		for method, op := range operations {
 			if op == nil {
@@ -341,7 +346,7 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 			}
 
 			opPath := pathPrefix + "." + method
-			v.validateParameterRefKinds(op.Parameters, opPath, resolver, validRefs, result, baseURL)
+			v.validateParameterRefs(op.Parameters, opPath, resolver, validRefs, result, baseURL)
 
 			// Collect declared path parameters from both the path item (which
 			// applies to every operation) and the operation itself.
@@ -354,8 +359,8 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 			//
 			// Suppressing here is only safe because every reason a $ref fails to
 			// resolve is reported elsewhere: a dangling local ref by
-			// validateOAS2Refs, and a ref naming a non-parameter component by
-			// validateParameterRefKinds above. External refs are genuinely
+			// validateOAS2Refs, and a wrong-kind ref, cycle, or over-long chain
+			// by validateParameterRefs above. External refs are genuinely
 			// unknowable and are the one case that stays silent by design.
 			if complete {
 				for paramName := range pathParams {
@@ -369,20 +374,13 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 				}
 			}
 
-			// Warn about declared path parameters not in template.
-			//
-			// Deliberately outside the `complete` guard: declaredParams is a
-			// lower bound, so an unresolved $ref can only suppress a warning,
-			// never invent one. Gating this would lose warnings for no gain.
-			for paramName := range declaredParams {
-				if !pathParams[paramName] {
-					v.addWarning(result, opPath,
-						fmt.Sprintf("Parameter '%s' is declared as path parameter but not used in path template", paramName),
-						withSpecRef(fmt.Sprintf("%s#path-item-object", baseURL)),
-						withValue(paramName),
-					)
-				}
+			// Warn only about parameters this operation declares itself; the
+			// path item's were warned about once, above.
+			opDeclared, _ := resolver.DeclaredPathParams(op.Parameters)
+			for name := range itemDeclared {
+				delete(opDeclared, name)
 			}
+			v.warnUnusedPathParams(opDeclared, pathParams, opPath, result, baseURL)
 		}
 	}
 }

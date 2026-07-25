@@ -9,9 +9,14 @@
 package paramutil
 
 import (
+	"strings"
+
 	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 )
+
+// localRefPrefix marks a $ref that points within the current document.
+const localRefPrefix = "#/"
 
 // maxRefDepth bounds how many $ref hops Resolve will follow. Reusable parameter
 // definitions may themselves be references, but a cycle
@@ -72,37 +77,81 @@ func (r Resolver) Defines(ref string) bool {
 	return ok
 }
 
-// Resolve returns the effective definition for param, following local $ref
-// hops until it reaches an inline parameter.
+// Reason explains the outcome of following a parameter's $ref chain.
 //
-// ok is false whenever the chain cannot be followed to an inline parameter:
+// Only ReasonExternal is genuinely unknowable. The rest are defects in the
+// document, so a caller that suppresses a diagnostic because resolution failed
+// must make sure something reports the reason instead — silence is only
+// warranted for ReasonExternal.
+type Reason int
+
+const (
+	// ReasonResolved means the chain reached an inline parameter.
+	ReasonResolved Reason = iota
+	// ReasonExternal means the $ref points outside this document. This package
+	// never loads other files or URLs, and the parser leaves such references
+	// unexpanded by default, so nothing has resolved them.
+	ReasonExternal
+	// ReasonNotAParameter means a local $ref that names no parameter definition
+	// in this document — it either dangles or names a different kind of
+	// component. Distinguishing those two needs the document's full set of
+	// valid references, which this package does not have.
+	ReasonNotAParameter
+	// ReasonCycle means the chain revisits a reference it already followed.
+	ReasonCycle
+	// ReasonTooDeep means the chain exceeded maxRefDepth without repeating,
+	// so it is not a cycle — just longer than this package will follow.
+	ReasonTooDeep
+)
+
+// Classify follows param's $ref chain and reports what happened. The returned
+// parameter is non-nil only for ReasonResolved.
 //
-//   - an external $ref — this package never loads other files or URLs, and the
-//     parser leaves them unresolved by default, so nothing has expanded them
-//   - a local $ref with no matching reusable parameter definition, whether it
-//     dangles or names some other kind of component
-//   - a reference cycle, or a chain longer than maxRefDepth
-//
-// Callers must treat a false ok as "unknown" rather than "declares nothing" —
-// the whole point of this package is that the two are not the same. Note that
-// only the first case is genuinely unknowable; the others are defects, and
-// callers that suppress diagnostics on a false ok are responsible for making
-// sure something else reports them. Defines distinguishes the second case.
-func (r Resolver) Resolve(param *parser.Parameter) (resolved *parser.Parameter, ok bool) {
-	for depth := 0; param != nil && param.Ref != ""; depth++ {
-		if depth >= maxRefDepth {
-			return nil, false
+// Callers that only need "did it resolve" should use Resolve. Classify exists
+// for callers that suppress diagnostics on failure and therefore owe the user
+// an explanation of why.
+func (r Resolver) Classify(param *parser.Parameter) (*parser.Parameter, Reason) {
+	// Tracks refs already followed so a cycle is reported as a cycle rather
+	// than surfacing as depth exhaustion, which is a different defect.
+	var visited map[string]bool
+
+	for param != nil && param.Ref != "" {
+		if !strings.HasPrefix(param.Ref, localRefPrefix) {
+			return nil, ReasonExternal
 		}
+		if visited[param.Ref] {
+			return nil, ReasonCycle
+		}
+		if len(visited) >= maxRefDepth {
+			return nil, ReasonTooDeep
+		}
+		if visited == nil {
+			visited = make(map[string]bool, maxRefDepth)
+		}
+		visited[param.Ref] = true
+
 		target, found := r[param.Ref]
 		if !found {
-			return nil, false
+			return nil, ReasonNotAParameter
 		}
 		param = target
 	}
 	if param == nil {
-		return nil, false
+		return nil, ReasonNotAParameter
 	}
-	return param, true
+	return param, ReasonResolved
+}
+
+// Resolve returns the effective definition for param, following local $ref
+// hops until it reaches an inline parameter.
+//
+// Returns false whenever the chain cannot be followed. Callers must treat that as
+// "unknown" rather than "declares nothing" — the whole point of this package is
+// that the two are not the same. Use Classify when the distinction between the
+// ways it can fail matters, which it does for anything that reports diagnostics.
+func (r Resolver) Resolve(param *parser.Parameter) (*parser.Parameter, bool) {
+	resolved, reason := r.Classify(param)
+	return resolved, reason == ReasonResolved
 }
 
 // DeclaredPathParams returns the names of every path parameter declared across
