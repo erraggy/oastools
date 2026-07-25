@@ -135,11 +135,19 @@ func TestNormalizeRefUnescapesPerToken(t *testing.T) {
 	assert.Equal(t, "definitions.pet/summary", normalizeRef("#/definitions/pet~1summary"))
 	assert.NotEqual(t, "definitions.pet.summary", normalizeRef("#/definitions/pet~1summary"),
 		"the recovered slash must not be rewritten as a path separator")
+
+	// "~01" is an escaped tilde followed by a literal "1", so it must decode to
+	// the literal text "~1" rather than to a slash. Unescaping "~0" before "~1"
+	// would produce a "~" that then combines with the "1" into a slash, which
+	// the join would in turn rewrite as ".".
+	assert.Equal(t, "definitions.pet~1summary", normalizeRef("#/definitions/pet~01summary"))
 }
 
-// TestNormalizeRefIgnoresExternalRefs keeps the early return intact: an external
-// ref names nothing in this document and is deliberately untracked.
-func TestNormalizeRefIgnoresExternalRefs(t *testing.T) {
+// TestNormalizeRefIgnoresUntrackableRefs keeps the early return intact: a ref
+// that names nothing inside this document's component tree is deliberately
+// untracked, whether it points at another file or at the document root.
+func TestNormalizeRefIgnoresUntrackableRefs(t *testing.T) {
 	assert.Empty(t, normalizeRef("other.yaml#/definitions/User"))
 	assert.Empty(t, normalizeRef("https://example.com/spec.yaml#/definitions/User"))
+	assert.Empty(t, normalizeRef("#"))
 }

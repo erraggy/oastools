@@ -194,19 +194,29 @@ paths:
 // TestComponentNameCharsetSkipsBlankNames keeps this check from double-reporting
 // a defect validateSchemaName already owns. An empty or whitespace-only name is
 // a missing name rather than a malformed one, and is reported as such.
+//
+// Both blank forms are covered because they are separate branches: a
+// whitespace-only name also fails the charset pattern, so suppressing it takes
+// its own guard, whereas an empty name would be caught by either check.
 func TestComponentNameCharsetSkipsBlankNames(t *testing.T) {
-	spec := `
-openapi: 3.0.3
-info: {title: T, version: "1.0.0"}
-components:
-  schemas:
-    "": {type: object}
-paths: {}
-`
+	tests := []struct {
+		name string
+		want string
+	}{
+		{name: "", want: "schema name cannot be empty"},
+		{name: "   ", want: "schema name cannot be whitespace-only"},
+	}
 
-	errs := validationErrors(t, spec)
-	assert.Len(t, errs, 1, "the blank name should be reported once, not also as a charset violation; got: %v", errs)
-	assert.Contains(t, strings.Join(errs, "\n"), "schema name cannot be empty")
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%q", tt.name), func(t *testing.T) {
+			spec := oas3WithComponentSection(t, oas31, "schemas", tt.name, `{type: object}`)
+
+			errs := validationErrors(t, spec)
+			assert.Len(t, errs, 1,
+				"the blank name should be reported once, not also as a charset violation; got: %v", errs)
+			assert.Contains(t, strings.Join(errs, "\n"), tt.want)
+		})
+	}
 }
 
 // TestComponentBlankNames covers the sections validateSchemaName does not reach.
