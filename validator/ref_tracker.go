@@ -366,18 +366,57 @@ func (rt *refTracker) addRef(ref string, opRef operationRef) {
 	rt.componentToOps[normalized] = append(existing, opRef)
 }
 
-// normalizeRef converts a $ref like "#/components/schemas/User" to "components.schemas.User".
+// normalizeRef converts a $ref like "#/components/schemas/User" to
+// "components.schemas.User", the form issue paths use.
+//
+// Each pointer token is unescaped per RFC 6901 so the result matches the issue
+// path the validator reports, which carries the component's real name. A
+// definition named "pet/summary" is referenced as "#/definitions/pet~1summary"
+// but reported at "definitions.pet/summary"; without unescaping, the two never
+// match and getComponentOperationContext calls a referenced component unused.
+//
+// Unescaping must happen per token, after splitting on "/" and before joining
+// on ".". Unescaping the whole string first would turn "~1" into a "/" that the
+// join then rewrites to ".", corrupting the name.
 func normalizeRef(ref string) string {
 	if !strings.HasPrefix(ref, "#/") {
 		return "" // External ref, not tracked
 	}
-	// Remove leading #/ and replace / with .
-	return strings.ReplaceAll(strings.TrimPrefix(ref, "#/"), "/", ".")
+	tokens := strings.Split(strings.TrimPrefix(ref, "#/"), "/")
+	for i, token := range tokens {
+		tokens[i] = pathutil.UnescapeRefToken(token)
+	}
+	return strings.Join(tokens, ".")
 }
 
-// getOperationsForComponent returns all operations that reference a component.
-func (rt *refTracker) getOperationsForComponent(componentPath string) []operationRef {
-	return rt.componentToOps[componentPath]
+// getOperationsForComponent returns the operations that reference the component
+// an issue path falls under, or nil when nothing references it.
+//
+// The path is matched against the components already known to reference
+// something rather than split positionally, because a component name may itself
+// contain dots — "microsoft.graph.user" is legal and accounts for every name in
+// some real specs — so the boundary between the name and the nesting after it
+// cannot be recovered from the path alone.
+//
+// Trying successively shorter prefixes yields the longest match first in one map
+// lookup per dot. Longest-first matters beyond dotted names: it keeps a
+// component named "User" from claiming an issue path under "UserProfile".
+//
+// No match means no operation references this component, which is exactly what
+// componentToOps records, so returning nil here is the right answer rather than
+// a failure to resolve.
+func (rt *refTracker) getOperationsForComponent(issuePath string) []operationRef {
+	for path := issuePath; path != ""; {
+		if ops, ok := rt.componentToOps[path]; ok {
+			return ops
+		}
+		i := strings.LastIndex(path, ".")
+		if i < 0 {
+			break
+		}
+		path = path[:i]
+	}
+	return nil
 }
 
 // getOperationContext builds an OperationContext for a given issue path.
@@ -446,10 +485,11 @@ func (rt *refTracker) getPathOrWebhookOperationContext(issuePath, prefix string,
 
 // getComponentOperationContext builds context for a reusable component.
 func (rt *refTracker) getComponentOperationContext(issuePath string) *issues.OperationContext {
-	// Normalize path to component root (e.g., "components.schemas.User.properties.id" -> "components.schemas.User")
-	componentPath := getComponentRoot(issuePath)
-
-	ops := rt.getOperationsForComponent(componentPath)
+	// The issue path may point inside a component — "components.schemas.User"
+	// for the component itself, "components.schemas.User.properties.id" for a
+	// problem nested within it — so the lookup resolves it to whichever
+	// component owns it.
+	ops := rt.getOperationsForComponent(issuePath)
 	if len(ops) == 0 {
 		// Unused component
 		return &issues.OperationContext{
@@ -491,26 +531,6 @@ func isReusableComponentPath(path string) bool {
 		}
 	}
 	return false
-}
-
-// getComponentRoot extracts the component root from a nested path.
-// e.g., "components.schemas.User.properties.id" -> "components.schemas.User"
-func getComponentRoot(path string) string {
-	// Handle OAS3 components
-	if strings.HasPrefix(path, "components.") {
-		parts := strings.Split(path, ".")
-		if len(parts) >= 3 {
-			return strings.Join(parts[:3], ".")
-		}
-	}
-	// Handle OAS2 definitions/parameters/responses
-	if strings.HasPrefix(path, "definitions.") || strings.HasPrefix(path, "parameters.") || strings.HasPrefix(path, "responses.") {
-		parts := strings.Split(path, ".")
-		if len(parts) >= 2 {
-			return strings.Join(parts[:2], ".")
-		}
-	}
-	return path
 }
 
 // parseMethod converts a lowercase method string to uppercase, or returns "" if not a valid method.

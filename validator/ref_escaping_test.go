@@ -11,7 +11,11 @@ import (
 //
 // OAS 2.0 places no charset constraint on the keys of the root-level
 // parameters, definitions, and responses objects, so these documents are all
-// legitimate.
+// legitimate and must validate completely clean.
+//
+// The OAS 3.x side is deliberately not here: those names are illegal per the
+// Components Object charset, so the equivalent document is expected to produce
+// exactly one error. See TestComponentNameCharset_EscapedRefStillResolves.
 func TestEscapedRefsResolve(t *testing.T) {
 	tests := []struct {
 		name string
@@ -86,31 +90,6 @@ paths:
       summary: List
       responses:
         "404": {$ref: '#/responses/not~1found'}
-`,
-		},
-		{
-			// OAS 3.x constrains component keys to a charset that excludes both
-			// characters, so this document is not strictly legal — but the
-			// validator does not enforce that charset, and until it does such a
-			// name must hit the same escaping path rather than a misleading
-			// "does not resolve" error.
-			name: "escaped slash in OAS 3.x schema name",
-			spec: `
-openapi: 3.0.3
-info: {title: T, version: "1.0.0"}
-components:
-  schemas:
-    pet/summary: {type: object, properties: {id: {type: string}}}
-paths:
-  /pets:
-    get:
-      summary: List
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/pet~1summary'}
 `,
 		},
 	}
