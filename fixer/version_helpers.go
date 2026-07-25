@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/erraggy/oastools/internal/paramutil"
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -26,11 +27,16 @@ func buildRefRenameMap(renames map[string]string, accessor parser.DocumentAccess
 	refRenames := make(map[string]string, len(renames)*2)
 
 	for oldName, newName := range renames {
-		oldRef := prefix + oldName
-		newRef := prefix + newName
+		// Names are escaped per RFC 6901 so a name containing "/" or "~" builds
+		// the pointer a document actually carries, and so the renamed component
+		// stays reachable afterwards.
+		oldRef := prefix + pathutil.EscapeRefToken(oldName)
+		newRef := prefix + pathutil.EscapeRefToken(newName)
 		refRenames[oldRef] = newRef
 
-		// Add URL-encoded version for refs that might be encoded
+		// Add URL-encoded version for refs that might be encoded. This is a
+		// different escaping from the JSON Pointer form above, kept because
+		// some tools emit percent-encoded refs.
 		encodedOldRef := prefix + url.PathEscape(oldName)
 		if encodedOldRef != oldRef {
 			refRenames[encodedOldRef] = newRef

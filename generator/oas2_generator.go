@@ -8,6 +8,7 @@ import (
 
 	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/internal/maputil"
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -74,7 +75,7 @@ func (cg *oas2CodeGenerator) collectSchemas() []oas2SchemaEntry {
 			cg.generatedTypes[typeName] = true
 
 			schemas = append(schemas, oas2SchemaEntry{name: name, schema: schema})
-			cg.schemaNames["#/definitions/"+name] = typeName
+			cg.schemaNames[pathutil.DefinitionRef(name)] = typeName
 		}
 	}
 

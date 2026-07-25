@@ -17,11 +17,13 @@ func (p *Parameter) MarshalJSON() ([]byte, error) {
 		return marshalToJSON((*Alias)(p))
 	}
 
-	// Build map with known fields
-	m := map[string]any{
-		jsonKeyName: p.Name, // Required field, always include
-		"in":        p.In,   // Required field, always include
-	}
+	// Build map with known fields. Every field is emitted conditionally so this
+	// path agrees with the struct tags used by the fast path above — otherwise
+	// the serialized shape of a parameter would depend on whether it happens to
+	// carry an x- extension. See [Parameter] for why name and in are omitempty.
+	m := make(map[string]any, 24+len(p.Extra))
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyName, p.Name)
+	jsonhelpers.SetIfNotEmpty(m, "in", p.In)
 	jsonhelpers.SetIfNotEmpty(m, jsonKeyRef, p.Ref)
 	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, p.Description)
 	jsonhelpers.SetIfTrue(m, "required", p.Required)
@@ -114,10 +116,11 @@ func (rb *RequestBody) MarshalJSON() ([]byte, error) {
 		return marshalToJSON((*Alias)(rb))
 	}
 
-	// Build map with known fields
-	m := map[string]any{
-		"content": rb.Content, // Required field, always include
-	}
+	// Build map with known fields conditionally so this path agrees with the
+	// struct tags used by the fast path above. See [RequestBody] for why content
+	// is omitempty.
+	m := make(map[string]any, 4+len(rb.Extra))
+	jsonhelpers.SetIfMapNotEmpty(m, "content", rb.Content)
 	jsonhelpers.SetIfNotEmpty(m, jsonKeyRef, rb.Ref)
 	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, rb.Description)
 	jsonhelpers.SetIfTrue(m, "required", rb.Required)

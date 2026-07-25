@@ -183,7 +183,28 @@ func (v *Validator) validateOAS2Parameters(doc *parser.OAS2Document, result *Val
 		if param == nil {
 			continue
 		}
+		// A pure $ref alias to another parameter definition is valid OAS, and
+		// arrives from the parser with every sibling field empty because
+		// references are preserved verbatim for lossless round-trips. Checking
+		// the fields below would read those empties as missing content. The
+		// referenced definition is validated in its own right, so nothing is
+		// lost. Mirrors validateOAS3RequestBody, which returns early for the
+		// same reason.
+		if param.Ref != "" {
+			continue
+		}
+
 		path := "parameters." + name
+
+		// Path parameters must have required: true. Swagger 2.0 states the
+		// property is required and its value MUST be true for in: path.
+		if param.In == parser.ParamInPath && !param.Required {
+			v.addError(result, path,
+				"Path parameters must have required: true",
+				withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+				withField("required"),
+			)
+		}
 
 		// Body parameters must have a schema
 		if param.In == "body" && param.Schema == nil {
@@ -337,6 +358,7 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 
 		// Path-level parameters apply to every operation in the item, so they
 		// are checked once here rather than once per operation.
+		v.validatePathParamsRequired(pathItem.Parameters, pathPrefix, result, baseURL)
 		v.validateParameterRefs(pathItem.Parameters, pathPrefix, resolver, validRefs, result, baseURL)
 
 		// A path-item parameter is declared once, so an unused one is warned
@@ -352,6 +374,7 @@ func (v *Validator) validateOAS2PathParameterConsistency(doc *parser.OAS2Documen
 			}
 
 			opPath := pathPrefix + "." + method
+			v.validatePathParamsRequired(op.Parameters, opPath, result, baseURL)
 			v.validateParameterRefs(op.Parameters, opPath, resolver, validRefs, result, baseURL)
 
 			decls := declaresPathParams(resolver, itemDeclared, itemComplete, op.Parameters)

@@ -299,6 +299,17 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 		if param == nil {
 			continue
 		}
+		// A pure $ref alias to another parameter definition is valid OAS, and
+		// arrives from the parser with every sibling field empty because
+		// references are preserved verbatim for lossless round-trips. Checking
+		// the fields below would read those empties as missing content. The
+		// referenced definition is validated in its own right, so nothing is
+		// lost. Mirrors validateOAS3RequestBody, which returns early for the
+		// same reason.
+		if param.Ref != "" {
+			continue
+		}
+
 		path := "components.parameters." + name
 
 		// Parameters must have either schema or content (but not both)
@@ -532,7 +543,7 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 
 		// Path-level parameters apply to every operation in the item, so they
 		// are checked once here rather than once per operation.
-		v.validateOAS3PathParamsRequired(pathItem.Parameters, pathPrefix, result, baseURL)
+		v.validatePathParamsRequired(pathItem.Parameters, pathPrefix, result, baseURL)
 		v.validateParameterRefs(pathItem.Parameters, pathPrefix, resolver, validRefs, result, baseURL)
 
 		// A path-item parameter is declared once, so an unused one is warned
@@ -548,7 +559,7 @@ func (v *Validator) validateOAS3PathParameterConsistency(doc *parser.OAS3Documen
 			}
 
 			opPath := pathPrefix + "." + method
-			v.validateOAS3PathParamsRequired(op.Parameters, opPath, result, baseURL)
+			v.validatePathParamsRequired(op.Parameters, opPath, result, baseURL)
 			v.validateParameterRefs(op.Parameters, opPath, resolver, validRefs, result, baseURL)
 
 			decls := declaresPathParams(resolver, itemDeclared, itemComplete, op.Parameters)
@@ -581,29 +592,6 @@ func (v *Validator) warnUnusedPathParams(
 				withValue(paramName),
 			)
 		}
-	}
-}
-
-// validateOAS3PathParamsRequired reports inline path parameters that omit
-// required: true. Referenced parameters are deliberately skipped: a ref into
-// components.parameters has its definition checked once by
-// validateOAS3Components, so checking it again at each use site would report the
-// same defect repeatedly.
-//
-// The skip is unconditional, so a ref that does not land in components.parameters
-// — external, or dangling — has its required field checked nowhere. Those refs
-// are reported as unresolvable in their own right, which is the more useful
-// diagnostic anyway.
-func (v *Validator) validateOAS3PathParamsRequired(params []*parser.Parameter, prefix string, result *ValidationResult, baseURL string) {
-	for i, param := range params {
-		if param == nil || param.Ref != "" || param.In != parser.ParamInPath || param.Required {
-			continue
-		}
-		v.addError(result, prefix+".parameters["+strconv.Itoa(i)+"]",
-			"Path parameters must have required: true",
-			withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
-			withField("required"),
-		)
 	}
 }
 

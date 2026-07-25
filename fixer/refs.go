@@ -948,7 +948,7 @@ func ExtractSchemaNameFromRef(ref string, version parser.OASVersion) string {
 	}
 
 	if name, found := strings.CutPrefix(ref, prefix); found {
-		return name
+		return pathutil.UnescapeRefToken(name)
 	}
 	return ""
 }
@@ -981,14 +981,14 @@ func ExtractComponentNameFromRef(ref string) (componentType, name string) {
 	// Try OAS 3.x patterns first (more specific)
 	for prefix, compType := range oas3Prefixes {
 		if n, found := strings.CutPrefix(ref, prefix); found {
-			return compType, n
+			return compType, pathutil.UnescapeRefToken(n)
 		}
 	}
 
 	// Try OAS 2.0 patterns
 	for prefix, compType := range oas2Prefixes {
 		if n, found := strings.CutPrefix(ref, prefix); found {
-			return compType, n
+			return compType, pathutil.UnescapeRefToken(n)
 		}
 	}
 

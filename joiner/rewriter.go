@@ -404,11 +404,11 @@ func (r *SchemaRewriter) rewriteOperation(op *parser.Operation) {
 func extractSchemaName(ref string) string {
 	// Handle "#/components/schemas/Name"
 	if name, found := strings.CutPrefix(ref, pathutil.RefPrefixSchemas); found {
-		return name
+		return pathutil.UnescapeRefToken(name)
 	}
 	// Handle "#/definitions/Name"
 	if name, found := strings.CutPrefix(ref, pathutil.RefPrefixDefinitions); found {
-		return name
+		return pathutil.UnescapeRefToken(name)
 	}
 	return ""
 }

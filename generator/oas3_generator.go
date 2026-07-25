@@ -8,6 +8,7 @@ import (
 
 	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/internal/maputil"
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
@@ -206,7 +207,7 @@ func (cg *oas3CodeGenerator) collectSchemas() []schemaEntry {
 		cg.generatedTypes[typeName] = true
 
 		schemas = append(schemas, schemaEntry{name: name, schema: schema})
-		cg.schemaNames["#/components/schemas/"+name] = typeName
+		cg.schemaNames[pathutil.SchemaRef(name)] = typeName
 	}
 
 	// Sort for deterministic output
