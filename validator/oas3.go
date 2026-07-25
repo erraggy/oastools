@@ -263,6 +263,10 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 		return
 	}
 
+	// Checked across every section first, so a nil value cannot cause its name
+	// to go unchecked by the loops below, several of which skip nil entries.
+	v.validateOAS3ComponentNames(doc.Components, result, baseURL)
+
 	// Validate schemas
 	for name, schema := range doc.Components.Schemas {
 		v.validateSchemaName(name, "components.schemas", result)
