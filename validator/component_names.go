@@ -37,7 +37,7 @@ func (v *Validator) validateOAS3ComponentNames(components *parser.Components, re
 		return
 	}
 
-	checkComponentNames(v, components.Schemas, "schemas", result, baseURL)
+	checkComponentNames(v, components.Schemas, componentSchemasName, result, baseURL)
 	checkComponentNames(v, components.Responses, "responses", result, baseURL)
 	checkComponentNames(v, components.Parameters, "parameters", result, baseURL)
 	checkComponentNames(v, components.Examples, "examples", result, baseURL)
@@ -50,16 +50,19 @@ func (v *Validator) validateOAS3ComponentNames(components *parser.Components, re
 	checkComponentNames(v, components.MediaTypes, "mediaTypes", result, baseURL)
 }
 
+// componentSchemasName is a special case
+const componentSchemasName = "schemas"
+
 // checkComponentNames reports every key of one Components section that falls
 // outside [componentNamePattern].
 //
 // A free function rather than a method because Go does not permit type
 // parameters on methods, and the sections hold eleven different value types.
 //
-// Empty and whitespace-only names are skipped: those are a missing name rather
-// than a malformed one, and validateSchemaName already reports them for schemas
-// with a message that says so. Reporting them here as a charset violation would
-// double up on that and describe the defect less clearly.
+// An empty or whitespace-only name is reported as a missing name rather than a
+// charset violation, because that is the more accurate description and the more
+// actionable message. Schemas are the exception: validateSchemaName already says
+// exactly that for them, so blankNamesReportedElsewhere suppresses the duplicate.
 //
 // Keys are visited in sorted order so a document with several offending names
 // reports them the same way on every run.
@@ -70,15 +73,33 @@ func checkComponentNames[V any](
 	result *ValidationResult,
 	baseURL string,
 ) {
+	prefix := "components." + field
+	specRef := withSpecRef(fmt.Sprintf("%s#components-object", baseURL))
+
+	// if this is schemas, then know it is reported elsewhere
+	blankNamesReportedElsewhere := field == componentSchemasName
+
 	for _, name := range maputil.SortedKeys(section) {
-		if strings.TrimSpace(name) == "" || componentNamePattern.MatchString(name) {
+		switch {
+		case blankNamesReportedElsewhere && strings.TrimSpace(name) == "":
 			continue
+
+		case name == "":
+			v.addError(result, prefix, "Component name cannot be empty",
+				specRef, withField("name"), withValue(""),
+			)
+
+		case strings.TrimSpace(name) == "":
+			v.addError(result, prefix+"."+name,
+				fmt.Sprintf("Component name cannot be whitespace-only: %q", name),
+				specRef, withField("name"), withValue(name),
+			)
+
+		case !componentNamePattern.MatchString(name):
+			v.addError(result, prefix+"."+name,
+				fmt.Sprintf("Component name %q must match %s", name, componentNamePattern),
+				specRef, withField("name"), withValue(name),
+			)
 		}
-		v.addError(result, "components."+field+"."+name,
-			fmt.Sprintf("Component name %q must match %s", name, componentNamePattern),
-			withSpecRef(fmt.Sprintf("%s#components-object", baseURL)),
-			withField("name"),
-			withValue(name),
-		)
 	}
 }

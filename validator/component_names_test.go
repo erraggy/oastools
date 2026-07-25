@@ -8,19 +8,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// oas3WithComponentSection builds a minimal OAS 3.1 document declaring one
-// component of the given kind under the given name. 3.1 is used so pathItems is
-// legal; every other section exists in 3.0 as well.
-func oas3WithComponentSection(t *testing.T, field, name, body string) string {
+// Component sections were not all introduced at once, so each case declares the
+// earliest version in which its section is a legal Components field. Using one
+// blanket version would test some sections against a document that may not
+// legally carry them.
+const (
+	oas31 = "3.1.0" // pathItems
+	oas32 = "3.2.0" // mediaTypes
+)
+
+// oas3WithComponentSection builds a minimal OAS 3.x document declaring one
+// component of the given kind under the given name.
+func oas3WithComponentSection(t *testing.T, version, field, name, body string) string {
 	t.Helper()
 
-	return fmt.Sprintf(`openapi: 3.1.0
+	return fmt.Sprintf(`openapi: %s
 info: {title: T, version: "1.0.0"}
 components:
   %s:
     %q: %s
 paths: {}
-`, field, name, body)
+`, version, field, name, body)
 }
 
 // TestComponentNameCharset covers issue #380: OAS 3.x requires every fixed field
@@ -30,34 +38,37 @@ paths: {}
 // Every section is exercised rather than schemas alone, because the previous gap
 // was precisely that only schemas had any name validation at all.
 func TestComponentNameCharset(t *testing.T) {
-	// bodies are the minimal valid value for each section, so the only error a
-	// case can produce is the name one.
-	bodies := map[string]string{
-		"schemas":         `{type: object}`,
-		"responses":       `{description: OK}`,
-		"parameters":      `{name: q, in: query, schema: {type: string}}`,
-		"examples":        `{value: 1}`,
-		"requestBodies":   `{content: {application/json: {schema: {type: object}}}}`,
-		"headers":         `{schema: {type: string}}`,
-		"securitySchemes": `{type: apiKey, name: k, in: header}`,
-		"links":           `{operationId: getPet}`,
-		"callbacks":       `{}`,
-		"pathItems":       `{}`,
-		"mediaTypes":      `{schema: {type: object}}`,
-	}
-
-	for field, body := range bodies {
+	for field, section := range componentSections() {
 		t.Run(field+"/rejects slash", func(t *testing.T) {
-			spec := oas3WithComponentSection(t, field, "pet/summary", body)
+			spec := oas3WithComponentSection(t, section.version, field, "pet/summary", section.body)
 			assertErrorsMatch(t, validationErrors(t, spec), []string{
 				fmt.Sprintf(`components.%s.pet/summary: Component name "pet/summary" must match`, field),
 			})
 		})
 
 		t.Run(field+"/accepts legal name", func(t *testing.T) {
-			spec := oas3WithComponentSection(t, field, "Pet.Summary-v2_1", body)
+			spec := oas3WithComponentSection(t, section.version, field, "Pet.Summary-v2_1", section.body)
 			assertErrorsMatch(t, validationErrors(t, spec), nil)
 		})
+	}
+}
+
+// componentSections pairs each Components field with the earliest OAS version
+// that accepts it and a minimal valid value, so the only error a case can
+// produce is the name one.
+func componentSections() map[string]struct{ version, body string } {
+	return map[string]struct{ version, body string }{
+		"schemas":         {oas31, `{type: object}`},
+		"responses":       {oas31, `{description: OK}`},
+		"parameters":      {oas31, `{name: q, in: query, schema: {type: string}}`},
+		"examples":        {oas31, `{value: 1}`},
+		"requestBodies":   {oas31, `{content: {application/json: {schema: {type: object}}}}`},
+		"headers":         {oas31, `{schema: {type: string}}`},
+		"securitySchemes": {oas31, `{type: apiKey, name: k, in: header}`},
+		"links":           {oas31, `{operationId: getPet}`},
+		"callbacks":       {oas31, `{}`},
+		"pathItems":       {oas31, `{}`},                       // OAS 3.1+
+		"mediaTypes":      {oas32, `{schema: {type: object}}`}, // OAS 3.2+
 	}
 }
 
@@ -79,7 +90,7 @@ func TestComponentNameCharsetRejectedCharacters(t *testing.T) {
 
 	for _, name := range rejected {
 		t.Run(name, func(t *testing.T) {
-			spec := oas3WithComponentSection(t, "schemas", name, `{type: object}`)
+			spec := oas3WithComponentSection(t, oas31, "schemas", name, `{type: object}`)
 			errs := validationErrors(t, spec)
 			assert.Len(t, errs, 1, "expected exactly the name error; got: %v", errs)
 			assert.Contains(t, strings.Join(errs, "\n"), "must match",
@@ -108,7 +119,7 @@ func TestComponentNameCharsetAcceptedCharacters(t *testing.T) {
 
 	for _, name := range accepted {
 		t.Run(name, func(t *testing.T) {
-			spec := oas3WithComponentSection(t, "schemas", name, `{type: object}`)
+			spec := oas3WithComponentSection(t, oas31, "schemas", name, `{type: object}`)
 			assertErrorsMatch(t, validationErrors(t, spec), nil)
 		})
 	}
@@ -196,4 +207,32 @@ paths: {}
 	errs := validationErrors(t, spec)
 	assert.Len(t, errs, 1, "the blank name should be reported once, not also as a charset violation; got: %v", errs)
 	assert.Contains(t, strings.Join(errs, "\n"), "schema name cannot be empty")
+}
+
+// TestComponentBlankNames covers the sections validateSchemaName does not reach.
+//
+// Only schemas had any name validation before this check, so a blank key
+// anywhere else went unreported entirely. It is reported as a missing name
+// rather than as a charset violation, because that describes the defect and
+// says what to do about it.
+func TestComponentBlankNames(t *testing.T) {
+	for field, section := range componentSections() {
+		if field == componentSchemasName {
+			continue // validateSchemaName owns these; see the test above
+		}
+
+		t.Run(field+"/empty", func(t *testing.T) {
+			spec := oas3WithComponentSection(t, section.version, field, "", section.body)
+			assertErrorsMatch(t, validationErrors(t, spec), []string{
+				fmt.Sprintf("components.%s: Component name cannot be empty", field),
+			})
+		})
+
+		t.Run(field+"/whitespace only", func(t *testing.T) {
+			spec := oas3WithComponentSection(t, section.version, field, "   ", section.body)
+			assertErrorsMatch(t, validationErrors(t, spec), []string{
+				fmt.Sprintf("components.%s.   : Component name cannot be whitespace-only", field),
+			})
+		})
+	}
 }
