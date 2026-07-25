@@ -2,11 +2,11 @@ module validate-and-fix
 
 go 1.25.8
 
-require github.com/erraggy/oastools v1.45.3
+require github.com/erraggy/oastools v1.53.2
 
 require (
-	go.yaml.in/yaml/v4 v4.0.0-rc.4 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
+	golang.org/x/text v0.40.0 // indirect
 )
 
 replace github.com/erraggy/oastools => ../../../

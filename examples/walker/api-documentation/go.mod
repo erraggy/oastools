@@ -2,8 +2,8 @@ module api-documentation
 
 go 1.25.8
 
-require github.com/erraggy/oastools v1.45.3
+require github.com/erraggy/oastools v1.53.2
 
-require go.yaml.in/yaml/v4 v4.0.0-rc.4 // indirect
+require go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
 
 replace github.com/erraggy/oastools => ../../../
