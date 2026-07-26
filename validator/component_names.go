@@ -66,6 +66,12 @@ const componentSchemasName = "schemas"
 //
 // Keys are visited in sorted order so a document with several offending names
 // reports them the same way on every run.
+//
+// The section is scanned for a defect before any reporting machinery is built.
+// Building the issue path prefix and the spec-reference option cost more than
+// every other part of this check combined — they are eleven allocations per
+// document that the overwhelmingly common case, a document whose names are all
+// legal, then discards unused.
 func checkComponentNames[V any](
 	v *Validator,
 	section map[string]V,
@@ -73,33 +79,83 @@ func checkComponentNames[V any](
 	result *ValidationResult,
 	baseURL string,
 ) {
-	prefix := "components." + field
-	specRef := withSpecRef(fmt.Sprintf("%s#components-object", baseURL))
+	if len(section) == 0 {
+		return
+	}
 
 	// if this is schemas, then know it is reported elsewhere
 	blankNamesReportedElsewhere := field == componentSchemasName
 
+	if !hasComponentNameDefect(section, blankNamesReportedElsewhere) {
+		return
+	}
+
+	prefix := "components." + field
+	specRef := withSpecRef(fmt.Sprintf("%s#components-object", baseURL))
+
 	for _, name := range maputil.SortedKeys(section) {
-		switch {
-		case blankNamesReportedElsewhere && strings.TrimSpace(name) == "":
+		switch classifyComponentName(name, blankNamesReportedElsewhere) {
+		case componentNameOK:
 			continue
 
-		case name == "":
+		case componentNameEmpty:
 			v.addError(result, prefix, "Component name cannot be empty",
 				specRef, withField("name"), withValue(""),
 			)
 
-		case strings.TrimSpace(name) == "":
+		case componentNameWhitespace:
 			v.addError(result, prefix+"."+name,
 				fmt.Sprintf("Component name cannot be whitespace-only: %q", name),
 				specRef, withField("name"), withValue(name),
 			)
 
-		case !componentNamePattern.MatchString(name):
+		case componentNameCharset:
 			v.addError(result, prefix+"."+name,
 				fmt.Sprintf("Component name %q must match %s", name, componentNamePattern),
 				specRef, withField("name"), withValue(name),
 			)
 		}
 	}
+}
+
+// componentNameDefect describes what, if anything, is wrong with a component name.
+type componentNameDefect int
+
+const (
+	componentNameOK componentNameDefect = iota
+	componentNameEmpty
+	componentNameWhitespace
+	componentNameCharset
+)
+
+// classifyComponentName is the single source of truth for what counts as a
+// defective component name, shared by the scan and the reporting loop so the
+// two cannot disagree about which names are worth reporting.
+func classifyComponentName(name string, blankNamesReportedElsewhere bool) componentNameDefect {
+	switch {
+	case blankNamesReportedElsewhere && strings.TrimSpace(name) == "":
+		return componentNameOK
+	case name == "":
+		return componentNameEmpty
+	case strings.TrimSpace(name) == "":
+		return componentNameWhitespace
+	case !componentNamePattern.MatchString(name):
+		return componentNameCharset
+	default:
+		return componentNameOK
+	}
+}
+
+// hasComponentNameDefect reports whether any key of the section is defective.
+//
+// It ranges the map directly rather than over sorted keys: order does not matter
+// to a yes-or-no answer, and sorting would allocate for the common case this
+// exists to keep cheap.
+func hasComponentNameDefect[V any](section map[string]V, blankNamesReportedElsewhere bool) bool {
+	for name := range section {
+		if classifyComponentName(name, blankNamesReportedElsewhere) != componentNameOK {
+			return true
+		}
+	}
+	return false
 }

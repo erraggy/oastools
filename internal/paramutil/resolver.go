@@ -166,8 +166,12 @@ func (r Resolver) Resolve(param *parser.Parameter) (*parser.Parameter, bool) {
 // returned set is a lower bound — some parameter in the list may declare a name
 // that is not present — so callers must not report a path template parameter as
 // undeclared based on it.
+//
+// declared is nil when no path parameter is declared, which is the common case:
+// this runs per path item and per operation, and most of them declare none. A
+// nil set reads and ranges exactly like an empty one, so callers need no special
+// case — but they must only read it, never assign into it.
 func (r Resolver) DeclaredPathParams(lists ...[]*parser.Parameter) (declared map[string]bool, complete bool) {
-	declared = make(map[string]bool)
 	complete = true
 
 	for _, params := range lists {
@@ -181,6 +185,9 @@ func (r Resolver) DeclaredPathParams(lists ...[]*parser.Parameter) (declared map
 				continue
 			}
 			if resolved.In == parser.ParamInPath {
+				if declared == nil {
+					declared = make(map[string]bool)
+				}
 				declared[resolved.Name] = true
 			}
 		}

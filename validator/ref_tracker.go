@@ -375,14 +375,37 @@ func (rt *refTracker) addRef(ref string, opRef operationRef) {
 // but reported at "definitions.pet/summary"; without unescaping, the two never
 // match and getComponentOperationContext calls a referenced component unused.
 //
-// Unescaping must happen per token, after splitting on "/" and before joining
-// on ".". Unescaping the whole string first would turn "~1" into a "/" that the
-// join then rewrites to ".", corrupting the name.
+// [unescapeRefBody] does that work. This function only decides whether it can be
+// skipped.
 func normalizeRef(ref string) string {
 	if !strings.HasPrefix(ref, "#/") {
 		return "" // External ref, not tracked
 	}
-	tokens := strings.Split(strings.TrimPrefix(ref, "#/"), "/")
+	body := strings.TrimPrefix(ref, "#/")
+	// A ref with no "~" anywhere has no token that can carry an escape sequence,
+	// so unescapeRefBody would return every token unchanged and its whole round
+	// trip reduces to this single replacement. That is the overwhelming majority
+	// of refs, and the general path allocates a token slice and a joined string
+	// for each one.
+	if !strings.Contains(body, "~") {
+		return strings.ReplaceAll(body, "/", ".")
+	}
+	return unescapeRefBody(body)
+}
+
+// unescapeRefBody converts the body of a local $ref — everything after "#/" — to
+// the dotted form, unescaping each pointer token per RFC 6901.
+//
+// This is the general form, correct for any body including one with no escapes
+// at all. [normalizeRef] shortcuts past it when it can prove the result would be
+// identical, and the tests assert that equivalence by calling this directly, so
+// changing what normalization means here changes it for both paths at once.
+//
+// Unescaping must happen per token, after splitting on "/" and before joining on
+// ".". Unescaping the whole body first would turn a "~1" into a "/" that the
+// join then rewrites to ".", silently renaming the component.
+func unescapeRefBody(body string) string {
+	tokens := strings.Split(body, "/")
 	for i, token := range tokens {
 		tokens[i] = pathutil.UnescapeRefToken(token)
 	}

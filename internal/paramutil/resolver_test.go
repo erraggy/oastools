@@ -460,6 +460,9 @@ func TestResolver_DeclaredPathParams(t *testing.T) {
 			declared, complete := resolver.DeclaredPathParams(tt.lists...)
 
 			assert.Equal(t, tt.wantComplete, complete)
+			if tt.wantDeclared == nil {
+				assert.Nil(t, declared, "no path parameter declared, so no map should be allocated")
+			}
 			assert.Len(t, declared, len(tt.wantDeclared))
 			for _, name := range tt.wantDeclared {
 				assert.True(t, declared[name], "expected %q to be declared", name)
