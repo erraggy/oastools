@@ -219,6 +219,32 @@ func TestComponentNameCharsetSkipsBlankNames(t *testing.T) {
 	}
 }
 
+// TestComponentNameCharsetMixedSection covers a section holding a legal name
+// alongside an illegal one.
+//
+// checkComponentNames scans for a defect before building any reporting state, so
+// the reporting loop only ever runs for a section that has at least one, and it
+// must then still skip the legal names it walks past. Every other case here uses
+// either all legal names or a single illegal one, so neither exercises a legal
+// name reached during reporting.
+func TestComponentNameCharsetMixedSection(t *testing.T) {
+	spec := `openapi: ` + oas31 + `
+info: {title: T, version: "1.0.0"}
+components:
+  schemas:
+    "Legal.Name-v2_1": {type: object}
+    "pet/summary": {type: object}
+paths: {}
+`
+
+	errs := validationErrors(t, spec)
+	assert.Len(t, errs, 1,
+		"only the illegal name should be reported; got: %v", errs)
+	assert.Contains(t, strings.Join(errs, "\n"), `components.schemas.pet/summary`)
+	assert.NotContains(t, strings.Join(errs, "\n"), "Legal.Name-v2_1",
+		"the legal name must not be reported")
+}
+
 // TestComponentBlankNames covers the sections validateSchemaName does not reach.
 //
 // Only schemas had any name validation before this check, so a blank key

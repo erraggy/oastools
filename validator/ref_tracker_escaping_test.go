@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -150,4 +151,49 @@ func TestNormalizeRefIgnoresUntrackableRefs(t *testing.T) {
 	assert.Empty(t, normalizeRef("other.yaml#/definitions/User"))
 	assert.Empty(t, normalizeRef("https://example.com/spec.yaml#/definitions/User"))
 	assert.Empty(t, normalizeRef("#"))
+}
+
+// TestNormalizeRefFastPathMatchesGeneralPath pins the equivalence the fast path
+// assumes.
+//
+// normalizeRef skips unescapeRefBody for a ref containing no "~", on the grounds
+// that no token of such a ref can carry an escape sequence. That is a claim about
+// RFC 6901 rather than about this code, so each case is checked twice: against a
+// written expectation, which proves the output is right, and against
+// unescapeRefBody, which proves the shortcut did not change what normalization
+// means.
+//
+// The second assertion calls the real general path rather than a copy of it. A
+// copy would freeze at the moment it was written and quietly stop describing the
+// function it is meant to check — and the natural way to fix the resulting
+// failure is to re-copy the implementation, which turns the assertion into a
+// comparison of the code against itself.
+func TestNormalizeRefFastPathMatchesGeneralPath(t *testing.T) {
+	tests := []struct {
+		name string
+		ref  string
+		want string
+	}{
+		// No "~" anywhere: these take the fast path.
+		{"plain component", "#/components/schemas/User", "components.schemas.User"},
+		{"oas2 definition", "#/definitions/Pet", "definitions.Pet"},
+		{"dotted name", "#/definitions/microsoft.graph.user", "definitions.microsoft.graph.user"},
+		{"nested path", "#/components/schemas/User/properties/id", "components.schemas.User.properties.id"},
+		{"single token", "#/Pet", "Pet"},
+
+		// Contains "~": these take the round trip.
+		{"escaped slash", "#/definitions/pet~1summary", "definitions.pet/summary"},
+		{"escaped tilde", "#/definitions/pet~0summary", "definitions.pet~summary"},
+		{"escaped tilde then literal one", "#/definitions/pet~01summary", "definitions.pet~1summary"},
+		{"escaped and plain tokens", "#/components/schemas/a~1b/properties/c", "components.schemas.a/b.properties.c"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeRef(tt.ref)
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, unescapeRefBody(strings.TrimPrefix(tt.ref, "#/")), got,
+				"the fast path must agree with the general path")
+		})
+	}
 }
