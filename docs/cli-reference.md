@@ -174,6 +174,7 @@ oastools fix [flags] <file|url|->
 The fix command automatically corrects common validation errors in OpenAPI specifications. Currently supported fixes:
 
 - **Missing path parameters**: Adds missing path parameters (e.g., `{userId}`) that are referenced in the path but not declared in the parameters list
+- **Path parameters missing `required`**: Sets `required: true` on existing `in: path` parameters that omit it — the only value any OAS version permits. Applies to reusable parameter definitions and to path item and operation parameters; parameters that are a `$ref` are fixed in the definition they name
 - **Invalid schema names** (`--fix-schema-names`): Renames schemas with invalid characters (brackets, special characters) using configurable naming strategies
 - **Stub missing references** (`--stub-missing-refs`): Creates stub definitions for unresolved local `$ref` pointers. Schemas get empty `{}` stubs, responses get stubs with configurable descriptions
 - **Prune unused schemas** (`--prune-schemas`): Removes schema definitions that are not referenced anywhere in the document

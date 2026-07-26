@@ -333,7 +333,7 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 		}
 
 		// Path parameters must have required: true
-		if param.In == "path" && !param.Required {
+		if paramutil.NeedsRequiredTrue(param) {
 			v.addError(result, path, "Path parameters must have required: true",
 				withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
 				withField("required"),

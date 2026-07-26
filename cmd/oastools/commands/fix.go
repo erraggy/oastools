@@ -96,6 +96,9 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 		Writef(fs.Output(), "  - Missing path parameters: Adds Parameter objects for path template\n")
 		Writef(fs.Output(), "    variables that are not declared in the operation's parameters list.\n")
 		Writef(fs.Output(), "    Default type is 'string'. Use --infer for smart type inference.\n")
+		Writef(fs.Output(), "  - Path parameters missing required: Sets 'required: true' on existing\n")
+		Writef(fs.Output(), "    'in: path' parameters that omit it, the only value the spec allows.\n")
+		Writef(fs.Output(), "    A $ref is fixed in the definition it names, not at the use site.\n")
 		Writef(fs.Output(), "  - Invalid schema names (--fix-schema-names): Renames schemas with\n")
 		Writef(fs.Output(), "    invalid characters (brackets, etc.) using configurable strategies.\n")
 		Writef(fs.Output(), "  - Duplicate operationIds (--fix-duplicate-operationids): Renames\n")
@@ -191,11 +194,9 @@ func HandleFix(args []string) error {
 		TagSeparator:  flags.OperationIdTagSep,
 	}
 
-	// Build enabled fixes list based on flags
-	var enabledFixes []fixer.FixType
-
-	// Always enable missing path parameters (default behavior)
-	enabledFixes = append(enabledFixes, fixer.FixTypeMissingPathParameter)
+	// Build enabled fixes list based on flags, starting from the fixer's own
+	// defaults so a new mechanical fix reaches the CLI without a flag.
+	enabledFixes := fixer.DefaultEnabledFixes()
 
 	// Add explicit fixes based on flags
 	if flags.FixSchemaNames {

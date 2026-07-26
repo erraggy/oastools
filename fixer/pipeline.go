@@ -6,6 +6,7 @@ import "github.com/erraggy/oastools/parser"
 type fixPipeline struct {
 	stubMissingRefs          func(*Fixer, any, *FixResult)
 	fixMissingPathParams     func(*Fixer, any, *FixResult)
+	fixPathParamsRequired    func(*Fixer, any, *FixResult)
 	fixDuplicateOperationIds func(*Fixer, any, *FixResult)
 	fixInvalidSchemas        func(*Fixer, any, *FixResult)
 	fixCSVEnums              func(*Fixer, any, *FixResult)
@@ -27,27 +28,34 @@ func (f *Fixer) applyFixPipeline(doc any, result *FixResult, pipeline fixPipelin
 		pipeline.fixMissingPathParams(f, doc, result)
 	}
 
-	// 2. Duplicate operationIds
+	// 2. Path parameters missing required: true. Runs after the pass above,
+	// whose added parameters already carry required: true, so this pass sees
+	// only parameters the document itself declared.
+	if f.isFixEnabled(FixTypePathParameterNotRequired) {
+		pipeline.fixPathParamsRequired(f, doc, result)
+	}
+
+	// 3. Duplicate operationIds
 	if f.isFixEnabled(FixTypeDuplicateOperationId) {
 		pipeline.fixDuplicateOperationIds(f, doc, result)
 	}
 
-	// 3. Rename invalid schema names (must happen BEFORE pruning)
+	// 4. Rename invalid schema names (must happen BEFORE pruning)
 	if f.isFixEnabled(FixTypeRenamedGenericSchema) {
 		pipeline.fixInvalidSchemas(f, doc, result)
 	}
 
-	// 4. Expand CSV enums
+	// 5. Expand CSV enums
 	if f.isFixEnabled(FixTypeEnumCSVExpanded) {
 		pipeline.fixCSVEnums(f, doc, result)
 	}
 
-	// 5. Prune unused schemas
+	// 6. Prune unused schemas
 	if f.isFixEnabled(FixTypePrunedUnusedSchema) {
 		pipeline.pruneUnusedSchemas(f, doc, result)
 	}
 
-	// 6. Prune empty paths
+	// 7. Prune empty paths
 	if f.isFixEnabled(FixTypePrunedEmptyPath) {
 		f.pruneEmptyPaths(pipeline.getPaths(doc), result, pipeline.getVersion(doc))
 	}
@@ -72,6 +80,9 @@ var oas2Pipeline = fixPipeline{
 	},
 	fixMissingPathParams: func(f *Fixer, doc any, result *FixResult) {
 		f.fixMissingPathParametersOAS2(mustOAS2(doc), result)
+	},
+	fixPathParamsRequired: func(f *Fixer, doc any, result *FixResult) {
+		f.fixPathParamsRequiredOAS2(mustOAS2(doc), result)
 	},
 	fixDuplicateOperationIds: func(f *Fixer, doc any, result *FixResult) {
 		f.fixDuplicateOperationIdsOAS2(mustOAS2(doc), result)
@@ -108,6 +119,9 @@ var oas3Pipeline = fixPipeline{
 	},
 	fixMissingPathParams: func(f *Fixer, doc any, result *FixResult) {
 		f.fixMissingPathParametersOAS3(mustOAS3(doc), result)
+	},
+	fixPathParamsRequired: func(f *Fixer, doc any, result *FixResult) {
+		f.fixPathParamsRequiredOAS3(mustOAS3(doc), result)
 	},
 	fixDuplicateOperationIds: func(f *Fixer, doc any, result *FixResult) {
 		f.fixDuplicateOperationIdsOAS3(mustOAS3(doc), result)

@@ -126,10 +126,9 @@ func buildFixerOptions(input fixInput) ([]fixer.Option, error) {
 		return nil, fmt.Errorf("exactly one of file, url, or content must be provided")
 	}
 
-	// Build the list of enabled fix types based on input flags.
-	var fixes []fixer.FixType
-	// Missing path parameters are always enabled (default fixer behavior).
-	fixes = append(fixes, fixer.FixTypeMissingPathParameter)
+	// Build the list of enabled fix types based on input flags, starting from the
+	// fixer's own defaults (the mechanical path parameter fixes, always enabled).
+	fixes := fixer.DefaultEnabledFixes()
 	if input.FixSchemaNames {
 		fixes = append(fixes, fixer.FixTypeRenamedGenericSchema)
 	}

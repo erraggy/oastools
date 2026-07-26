@@ -40,6 +40,7 @@ The fixer analyzes OAS documents and applies fixes for issues that would cause v
 | Fix Type | Default | Description |
 |----------|---------|-------------|
 | `FixTypeMissingPathParameter` | ✅ Enabled | Adds Parameter objects for undeclared path template variables |
+| `FixTypePathParameterNotRequired` | ✅ Enabled | Sets `required: true` on existing `in: path` parameters that omit it |
 | `FixTypeRenamedGenericSchema` | ❌ Disabled | Renames schemas containing URL-unsafe characters |
 | `FixTypePrunedUnusedSchema` | ❌ Disabled | Removes unreferenced schema definitions |
 | `FixTypePrunedEmptyPath` | ❌ Disabled | Removes paths with no HTTP operations |
@@ -65,6 +66,28 @@ This is deliberately more conservative than the validator, which reports a
 reference naming a non-parameter component as an error. The fixer cannot know
 what the author intended by such a reference, so it declines to guess rather
 than adding a parameter beside one it does not understand.
+
+**Where `FixTypePathParameterNotRequired` applies**
+
+Every OAS version requires `required` on an `in: path` parameter and permits no
+value other than `true`, so this repair involves no judgment and loses nothing.
+It runs at the three sites the validator reports the defect:
+
+| Site | Reported path |
+|---|---|
+| OAS 2.0 root-level `parameters` | `parameters.{name}` |
+| OAS 3.x `components.parameters` | `components.parameters.{name}` |
+| Path item and operation, both versions | `paths.{path}[.{method}].parameters[{i}]` |
+
+Parameters that are a `$ref` are skipped. The defect belongs to the definition
+being referenced, not to the reference — writing `required` beside a `$ref` would
+add a sibling the spec does not allow there. Fixing the definition clears the
+error for every use site at once.
+
+The defect test itself, `paramutil.NeedsRequiredTrue`, is shared with the
+validator, so what `validate` reports is exactly what `fix` repairs. A parity test
+validates a defective spec, fixes it, and re-validates to assert no
+`required: true` error survives.
 
 **Why are some fixes disabled by default?**
 

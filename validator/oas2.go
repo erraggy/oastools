@@ -198,7 +198,7 @@ func (v *Validator) validateOAS2Parameters(doc *parser.OAS2Document, result *Val
 
 		// Path parameters must have required: true. Swagger 2.0 states the
 		// property is required and its value MUST be true for in: path.
-		if param.In == parser.ParamInPath && !param.Required {
+		if paramutil.NeedsRequiredTrue(param) {
 			v.addError(result, path,
 				"Path parameters must have required: true",
 				withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),

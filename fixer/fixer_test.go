@@ -13,7 +13,18 @@ func TestNew(t *testing.T) {
 	f := New()
 	require.NotNil(t, f)
 	assert.False(t, f.InferTypes)
-	assert.Equal(t, []FixType{FixTypeMissingPathParameter}, f.EnabledFixes)
+	assert.Equal(t, []FixType{FixTypeMissingPathParameter, FixTypePathParameterNotRequired}, f.EnabledFixes)
+}
+
+// TestDefaultEnabledFixes_FreshSlice guards the contract that callers own the
+// returned slice. Callers assign it to the public EnabledFixes field and may
+// rewrite it, so a shared backing array would let one Fixer corrupt the defaults
+// every later one starts from.
+func TestDefaultEnabledFixes_FreshSlice(t *testing.T) {
+	first := DefaultEnabledFixes()
+	first[0] = FixTypePrunedUnusedSchema
+
+	assert.Equal(t, []FixType{FixTypeMissingPathParameter, FixTypePathParameterNotRequired}, DefaultEnabledFixes())
 }
 
 // TestFixWithOptions_NoInput tests that FixWithOptions fails with no input

@@ -490,7 +490,7 @@ Walk tools in `detail=true` mode use a default limit of **25** (vs 100 for summa
 ### Cross-Tool Limitations
 
 - **Cross-version diff:** Comparing specs across OAS versions (e.g., 2.0 vs 3.0) with `diff` reports structural format changes as breaking. This is technically correct but reflects version differences, not API changes.
-- **Fixer coverage:** `fix` handles structural issues (duplicate operationIds, missing path parameters, unused schemas, missing `$ref` targets). Semantic validation errors (invalid compositions, type mismatches) are not auto-fixable.
+- **Fixer coverage:** `fix` handles structural issues (duplicate operationIds, missing path parameters, path parameters missing `required: true`, unused schemas, missing `$ref` targets). Semantic validation errors (invalid compositions, type mismatches) are not auto-fixable.
 - **Validator strictness:** Specs using `allOf`/`anyOf`/`oneOf` compositions may produce high error counts in strict mode if required properties are distributed across composed schemas.
 
 ---

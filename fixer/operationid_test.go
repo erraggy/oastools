@@ -881,7 +881,7 @@ paths:
 	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(yaml)))
 	require.NoError(t, err)
 
-	f := New() // Default fixer, only FixTypeMissingPathParameter is enabled
+	f := New() // Default fixer: only the path parameter fixes are enabled
 
 	result, err := f.FixParsed(*parseResult)
 	require.NoError(t, err)
