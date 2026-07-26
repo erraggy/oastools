@@ -50,14 +50,14 @@ jobs:
         package: [parser, validator, fixer, httpvalidator, converter, joiner, differ, generator, builder, walker]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # Priority: explicit ref > version input > triggered ref
           ref: ${{ inputs.ref || inputs.version || github.ref }}
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: '1.25'
           cache: true
@@ -69,7 +69,7 @@ jobs:
           cat bench-${{ matrix.package }}.txt
 
       - name: Upload benchmark artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bench-${{ matrix.package }}
           path: bench-${{ matrix.package }}.txt
@@ -81,14 +81,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # For commit mode, checkout the target ref; otherwise main is fine
           ref: ${{ inputs.output_mode == 'commit' && inputs.ref || 'main' }}
 
       - name: Download all benchmark artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: bench-results
 
@@ -116,7 +116,7 @@ jobs:
           head -50 benchmarks/benchmark-${VERSION}.txt
 
       - name: Upload combined benchmark artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-combined-${{ inputs.version || github.ref_name }}
           path: benchmarks/benchmark-*.txt
