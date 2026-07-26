@@ -1,36 +1,8 @@
 // Copyright 2024 Erraggy
 // SPDX-License-Identifier: MIT
 
-// Package pathutil provides efficient path building utilities for OpenAPI
-// document traversal.
-//
-// The primary type is [PathBuilder], which uses push/pop semantics to build
-// paths incrementally without allocating intermediate strings. This is
-// particularly useful in recursive traversal where paths are built on each
-// recursive call but only used when reporting errors or differences.
-//
-// # PathBuilder Usage
-//
-// Use [Get] to obtain a pooled PathBuilder, and [Put] to return it:
-//
-//	path := pathutil.Get()
-//	defer pathutil.Put(path)
-//
-//	path.Push("properties")
-//	path.Push(propName)
-//	// ... recurse ...
-//	path.Pop()
-//	path.Pop()
-//
-//	// Only call String() when needed (e.g., reporting an error)
-//	if hasError {
-//	    return fmt.Errorf("error at %s", path.String())
-//	}
-//
-// Array indices are supported via [PathBuilder.PushIndex]:
-//
-//	path.Push("items")
-//	path.PushIndex(0)  // produces "items[0]"
+// Package pathutil provides reference building, escaping, and path
+// sanitization utilities for OpenAPI document traversal.
 //
 // # Reference Builders
 //
@@ -47,6 +19,20 @@
 //
 //	ref := pathutil.ParameterRef("limit", true)   // "#/parameters/limit" (OAS 2.0)
 //	ref := pathutil.ParameterRef("limit", false)  // "#/components/parameters/limit" (OAS 3.x)
+//
+// # Reference Token Escaping
+//
+// Component names are not always safe to drop into a JSON Pointer as-is: RFC
+// 6901 gives "~" and "/" special meaning, so a component legitimately named
+// "pet/summary" must be referenced as "#/definitions/pet~1summary".
+// [EscapeRefToken] and [UnescapeRefToken] convert a single pointer token in
+// each direction:
+//
+//	tok := pathutil.EscapeRefToken("pet/summary")   // "pet~1summary"
+//	name := pathutil.UnescapeRefToken("pet~1summary") // "pet/summary"
+//
+// Escape per token, never across a whole reference — escaping the full string
+// would rewrite the "/" separators that give the pointer its structure.
 //
 // # Output Path Sanitization
 //
