@@ -382,7 +382,16 @@ func normalizeRef(ref string) string {
 	if !strings.HasPrefix(ref, "#/") {
 		return "" // External ref, not tracked
 	}
-	tokens := strings.Split(strings.TrimPrefix(ref, "#/"), "/")
+	body := strings.TrimPrefix(ref, "#/")
+	// A ref with no "~" anywhere has no token that can carry an escape sequence,
+	// so every UnescapeRefToken below would return its token unchanged and the
+	// split/join round trip reduces to this single replacement. That is the
+	// overwhelming majority of refs, and the slow path allocates a token slice
+	// and a joined string for each one.
+	if !strings.Contains(body, "~") {
+		return strings.ReplaceAll(body, "/", ".")
+	}
+	tokens := strings.Split(body, "/")
 	for i, token := range tokens {
 		tokens[i] = pathutil.UnescapeRefToken(token)
 	}
