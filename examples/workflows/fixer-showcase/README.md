@@ -1,10 +1,10 @@
 # Fixer Showcase
 
-Demonstrates all available fix types in the oastools fixer package with before/after comparison.
+Demonstrates the most common fix types in the oastools fixer package with before/after comparison.
 
 ## What You'll Learn
 
-- All available fix types and what each one does
+- Common fix types and what each one does
 - When to use each fix type
 - Using dry-run mode to preview changes
 - Applying multiple fixes at once
@@ -35,8 +35,8 @@ go run main.go
 ## Expected Output
 
 ```
-Fixer Showcase: All Available Fix Types
-=======================================
+Fixer Showcase: Common Fix Types
+================================
 
 This spec intentionally contains common issues:
   - CSV enum values (should be array)
@@ -48,8 +48,9 @@ This spec intentionally contains common issues:
 
 [0/7] Initial Validation
 ------------------------
-  [X] Found 4 validation errors:
+  [X] Found 5 validation errors:
     - oas 3.0.3: duplicate operationId 'getPets' at 'paths./pet...
+    - Component name "Response[Pet]" must match ^[a-zA-Z0-9._-]+$
     - Path template references parameter '{petId}' but it is no...
     - Path template references parameter '{petId}' but it is no...
     - Duplicate operationId 'getPets' (first seen at paths./pet...
@@ -88,7 +89,7 @@ This spec intentionally contains common issues:
   -> Schemas: Pet, Response_Pet_
 
 =======================================
-Available Fix Types:
+Fix Types Demonstrated Above:
   fixer.FixTypeEnumCSVExpanded       - Convert CSV enums to arrays
   fixer.FixTypeDuplicateOperationId  - Make operation IDs unique
   fixer.FixTypePrunedEmptyPath       - Remove empty path items
@@ -101,14 +102,14 @@ Available Fix Types:
 
 | File | Purpose |
 |------|---------|
-| main.go | Demonstrates all fix types individually and combined |
-| specs/problematic-api.yaml | OpenAPI spec with all fixable issues |
+| main.go | Demonstrates each fix type individually and combined |
+| specs/problematic-api.yaml | OpenAPI spec with the issues shown above |
 
 ## Key Concepts
 
 ### FixType Constants
 
-Each fix has a corresponding constant:
+Each fix demonstrated here has a corresponding constant:
 
 ```go
 fixer.FixTypeEnumCSVExpanded       // "enum-csv-expanded"
@@ -121,7 +122,7 @@ fixer.FixTypePrunedUnusedSchema    // "pruned-unused-schema"
 
 ### Enabling Specific Fixes
 
-By default, only `FixTypeMissingPathParameter` is enabled. To enable others:
+By default, only the path parameter fixes are enabled — `FixTypeMissingPathParameter` and `FixTypePathParameterNotRequired`, both returned by `fixer.DefaultEnabledFixes()`. To enable others:
 
 ```go
 f := fixer.New()

@@ -23,7 +23,7 @@ Include any specific fix flags the user requested:
 - `prune` -- Remove empty paths and unused schemas
 - `stub_missing_refs` -- Create stub schemas for missing `$ref` targets
 
-If no specific flags are given, the tool applies the default fix (missing path parameters).
+If no specific flags are given, the tool applies the default fixes: adding missing path parameters, and setting `required: true` on path parameters that omit it.
 
 ## Step 2: Present the preview
 

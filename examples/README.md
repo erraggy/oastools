@@ -47,7 +47,7 @@ Common OpenAPI transformation patterns covering 6 packages.
 | Example | Package | Description |
 |---------|---------|-------------|
 | [pipeline-compositions/](workflows/pipeline-compositions/) | multiple | Chain convert→fix→join→generate pipelines |
-| [fixer-showcase/](workflows/fixer-showcase/) | fixer | All 6 fix types with before/after |
+| [fixer-showcase/](workflows/fixer-showcase/) | fixer | Common fix types with before/after |
 | [validate-and-fix/](workflows/validate-and-fix/) | fixer | Parse, validate, auto-fix common errors |
 | [version-conversion/](workflows/version-conversion/) | converter | Convert OAS 2.0 (Swagger) → OAS 3.0.3 |
 | [version-migration/](workflows/version-migration/) | converter | OAS 3.1/3.2 upgrades, lossy downgrades |
