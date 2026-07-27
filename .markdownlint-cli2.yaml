@@ -31,3 +31,6 @@ globs:
   - "!docs/plans/**"
   - "!benchmarks/**"
   - "!.release/**"
+  # Agent worktrees are full checkouts, so every exclusion above would
+  # otherwise be defeated by its copy under .claude/worktrees/<name>/.
+  - "!.claude/worktrees/**"

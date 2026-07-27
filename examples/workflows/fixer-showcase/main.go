@@ -1,4 +1,4 @@
-// Fixer Showcase example demonstrating all available fix types.
+// Fixer Showcase example demonstrating the most common fix types.
 //
 // This example shows how to:
 //   - Identify common OpenAPI spec issues
@@ -23,8 +23,8 @@ import (
 func main() {
 	specPath := findSpecPath("specs/problematic-api.yaml")
 
-	fmt.Println("Fixer Showcase: All Available Fix Types")
-	fmt.Println("=======================================")
+	fmt.Println("Fixer Showcase: Common Fix Types")
+	fmt.Println("================================")
 	fmt.Println()
 	fmt.Println("This spec intentionally contains common issues:")
 	fmt.Println("  - CSV enum values (should be array)")
@@ -79,7 +79,7 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("=======================================")
-	fmt.Println("Available Fix Types:")
+	fmt.Println("Fix Types Demonstrated Above:")
 	fmt.Println("  fixer.FixTypeEnumCSVExpanded       - Convert CSV enums to arrays")
 	fmt.Println("  fixer.FixTypeDuplicateOperationId  - Make operation IDs unique")
 	fmt.Println("  fixer.FixTypePrunedEmptyPath       - Remove empty path items")

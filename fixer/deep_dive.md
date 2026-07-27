@@ -318,7 +318,7 @@ This enables workflows like: `parse → fix → validate → convert → join`
 
 ## Best Practices
 
-1. **Start with defaults** - `FixTypeMissingPathParameter` handles the most common issue
+1. **Start with defaults** - `DefaultEnabledFixes()` (`FixTypeMissingPathParameter`, `FixTypePathParameterNotRequired`) handles the most common issues
 2. **Enable expensive fixes only when needed** - Schema pruning/renaming can be slow on large specs
 3. **Use dry-run in CI** - Verify what would change before applying
 4. **Validate after fixing** - Ensure the fixed document is valid

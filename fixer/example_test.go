@@ -163,6 +163,69 @@ paths:
 	// Fixes: 1
 }
 
+// Example_pathParameterNotRequired demonstrates setting required: true on a
+// path parameter that omits it. The spec permits no other value, so this fix
+// is enabled by default alongside missing path parameters.
+func Example_pathParameterNotRequired() {
+	// A spec whose path parameter is declared but omits required: true
+	spec := `
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      parameters:
+        - name: userId
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// No WithEnabledFixes needed: this fix is on by default
+	result, err := fixer.FixWithOptions(
+		fixer.WithParsed(*parseResult),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Applied %d fix(es)\n", result.FixCount)
+	for _, fix := range result.Fixes {
+		fmt.Printf("  %s: %s\n", fix.Type, fix.Description)
+	}
+
+	// Output:
+	// Applied 1 fix(es)
+	//   path-parameter-not-required: Set required: true on path parameter 'userId'
+}
+
+// ExampleDefaultEnabledFixes demonstrates the fix types a Fixer applies when
+// the caller enables none explicitly.
+func ExampleDefaultEnabledFixes() {
+	// Both repair a path parameter defect with only one valid outcome.
+	// Every other fix type renames or removes content, so it stays opt-in.
+	fmt.Println("Enabled by default:")
+	for _, fixType := range fixer.DefaultEnabledFixes() {
+		fmt.Printf("  %s\n", fixType)
+	}
+
+	// Output:
+	// Enabled by default:
+	//   missing-path-parameter
+	//   path-parameter-not-required
+}
+
 // ExampleFixResult_HasFixes demonstrates checking if fixes were applied.
 func ExampleFixResult_HasFixes() {
 	// A spec with no issues needs no fixes
