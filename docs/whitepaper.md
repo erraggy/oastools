@@ -573,6 +573,8 @@ The fixer package automatically corrects common validation errors, reducing manu
 
 **Missing Path Parameters (FixTypeMissingPathParameter):** When a path template contains variables like `/users/{userId}` but the operation lacks a corresponding parameter declaration, the fixer adds one. Type inference can be enabled to assign appropriate types based on naming conventions.
 
+**Path Parameters Missing `required` (FixTypePathParameterNotRequired):** Every OAS version requires `required: true` on an `in: path` parameter and permits no other value, so the fixer sets it wherever it is absent — in the reusable parameter definitions (OAS 2.0's root-level `parameters`, OAS 3.x's `components.parameters`) as well as on path items and operations. Parameters that are a `$ref` are skipped so the definition they name is repaired once instead of at every use site. The defect test is shared with the validator, so what `validate` reports is exactly what `fix` repairs.
+
 **Invalid Schema Names (FixTypeRenamedGenericSchema):** Schemas with names containing URL-encoding-required characters (such as `Response[User]` from code generators) are renamed using configurable strategies. All `$ref` values throughout the document are updated accordingly.
 
 **Unused Schemas (FixTypePrunedUnusedSchema):** Schema definitions not referenced anywhere in the document are removed, cleaning up orphaned definitions.
@@ -583,7 +585,7 @@ The fixer package automatically corrects common validation errors, reducing manu
 
 ### 6.2 Default Behavior
 
-For performance, only `FixTypeMissingPathParameter` is enabled by default. Schema renaming and pruning involve expensive operations (walking all references, computing unused schemas) that can significantly slow processing of large specifications.
+Only the path parameter fixes — `FixTypeMissingPathParameter` and `FixTypePathParameterNotRequired`, both returned by `DefaultEnabledFixes()` — are enabled by default. Each repairs a defect the spec leaves no room to interpret, and both are cheap. Schema renaming and pruning involve expensive operations (walking all references, computing unused schemas) that can significantly slow processing of large specifications, so they remain opt-in.
 
 ### 6.3 Type Inference
 

@@ -215,9 +215,13 @@ func (v *Validator) validateParameterDefinitionRefs(
 //
 // Callers must invoke this once per path item rather than inside their
 // operation loop, or a path-item parameter is reported once per operation.
+//
+// The defect test itself lives in [paramutil.NeedsRequiredTrue], shared with the
+// fixer so what is reported here is exactly what fixer.FixTypePathParameterNotRequired
+// repairs.
 func (v *Validator) validatePathParamsRequired(params []*parser.Parameter, prefix string, result *ValidationResult, baseURL string) {
 	for i, param := range params {
-		if param == nil || param.Ref != "" || param.In != parser.ParamInPath || param.Required {
+		if !paramutil.NeedsRequiredTrue(param) {
 			continue
 		}
 		v.addError(result, prefix+".parameters["+strconv.Itoa(i)+"]",

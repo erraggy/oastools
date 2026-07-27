@@ -34,6 +34,14 @@
 //     declare a "userId" path parameter, the fixer adds one with type "string" (or
 //     inferred type if enabled).
 //
+//   - Path parameters missing required (FixTypePathParameterNotRequired): Sets
+//     required: true on parameters with "in": "path" that omit it. Every OAS version
+//     requires the field and permits no value other than true, so the repair is
+//     mechanical. Applies to reusable parameter definitions (root-level "parameters"
+//     in OAS 2.0, "components.parameters" in 3.x) as well as those declared on path
+//     items and operations. Parameters that are a $ref are left alone: the defect
+//     belongs to the definition they name, which is fixed there instead.
+//
 //   - Invalid schema names (FixTypeRenamedGenericSchema): Renames schemas with names
 //     containing characters that require URL encoding in $ref values. This commonly
 //     occurs with code generators that produce generic type names like "Response[User]".
@@ -69,10 +77,12 @@
 //
 // # Default Behavior
 //
-// For performance, only FixTypeMissingPathParameter is enabled by default.
-// The schema renaming and pruning fixes involve expensive operations (walking
-// all references, computing unused schemas) that can significantly slow down
-// processing of large specifications.
+// Only the path parameter fixes — FixTypeMissingPathParameter and
+// FixTypePathParameterNotRequired, both returned by DefaultEnabledFixes — are
+// enabled by default. Each repairs a defect the spec leaves no room to interpret,
+// and both are cheap. The schema renaming and pruning fixes involve expensive
+// operations (walking all references, computing unused schemas) that can
+// significantly slow down processing of large specifications, so they are opt-in.
 //
 // To enable additional fixes:
 //

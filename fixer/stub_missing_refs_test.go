@@ -604,7 +604,7 @@ paths:
 	// Use default fixer (no explicit enabled fixes for stub)
 	result, err := FixWithOptions(
 		WithParsed(*parseResult),
-		// Default EnabledFixes is only FixTypeMissingPathParameter
+		// Default EnabledFixes covers only the path parameter fixes
 	)
 	require.NoError(t, err)
 

@@ -90,6 +90,8 @@ func mapFixTypeName(name string) fixer.FixType {
 	switch strings.ToLower(name) {
 	case "missing-path-params", "missing-path-parameter":
 		return fixer.FixTypeMissingPathParameter
+	case "path-params-required", "path-parameter-not-required":
+		return fixer.FixTypePathParameterNotRequired
 	case "generic-schemas", "renamed-generic-schema":
 		return fixer.FixTypeRenamedGenericSchema
 	case "duplicate-operationids", "duplicate-operation-id":

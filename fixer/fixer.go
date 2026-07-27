@@ -13,6 +13,11 @@ type FixType string
 const (
 	// FixTypeMissingPathParameter indicates a missing path parameter was added
 	FixTypeMissingPathParameter FixType = "missing-path-parameter"
+	// FixTypePathParameterNotRequired indicates an existing path parameter that
+	// omitted required: true had it set. Distinct from
+	// FixTypeMissingPathParameter, which adds a parameter the path template
+	// declares but the operation never mentions.
+	FixTypePathParameterNotRequired FixType = "path-parameter-not-required"
 	// FixTypePrunedEmptyPath indicates an empty path item was removed
 	FixTypePrunedEmptyPath FixType = "pruned-empty-path"
 	// FixTypePrunedUnusedSchema indicates an orphaned schema was removed
@@ -127,7 +132,8 @@ type Fixer struct {
 	// and all others become string type.
 	InferTypes bool
 	// EnabledFixes specifies which fix types to apply.
-	// Defaults to only FixTypeMissingPathParameter for performance.
+	// Defaults to [DefaultEnabledFixes]: the path parameter fixes, which are
+	// mechanical, and cheap enough to leave on.
 	// Set to include other FixType values to enable additional fixes.
 	// Set to empty slice ([]FixType{}) or nil to enable all fix types
 	// (for backward compatibility with pre-v1.28.1 behavior).
@@ -155,11 +161,23 @@ type Fixer struct {
 	MutableInput bool
 }
 
+// DefaultEnabledFixes returns the fix types enabled when a caller names none.
+//
+// Both repair a path parameter defect that the spec leaves no room to interpret —
+// one adds a parameter the path template declares, the other sets required: true,
+// which is the only value the spec permits. The remaining fix types rename or
+// remove content and stay opt-in.
+//
+// A fresh slice per call: callers own the value and may append to it.
+func DefaultEnabledFixes() []FixType {
+	return []FixType{FixTypeMissingPathParameter, FixTypePathParameterNotRequired}
+}
+
 // New creates a new Fixer instance with default settings
 func New() *Fixer {
 	return &Fixer{
 		InferTypes:              false,
-		EnabledFixes:            []FixType{FixTypeMissingPathParameter}, // only missing params by default
+		EnabledFixes:            DefaultEnabledFixes(),
 		GenericNamingConfig:     DefaultGenericNamingConfig(),
 		OperationIdNamingConfig: DefaultOperationIdNamingConfig(),
 		DryRun:                  false,
@@ -236,7 +254,7 @@ func applyOptions(opts ...Option) (*fixConfig, error) {
 	cfg := &fixConfig{
 		// Set defaults
 		inferTypes:              false,
-		enabledFixes:            []FixType{FixTypeMissingPathParameter}, // only missing params by default
+		enabledFixes:            DefaultEnabledFixes(),
 		userAgent:               "",
 		genericNamingConfig:     DefaultGenericNamingConfig(),
 		operationIdNamingConfig: DefaultOperationIdNamingConfig(),
