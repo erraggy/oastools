@@ -1,10 +1,10 @@
 # Fixer Showcase
 
-Demonstrates the most common fix types in the oastools fixer package with before/after comparison.
+Demonstrates all available fix types in the oastools fixer package with before/after comparison.
 
 ## What You'll Learn
 
-- Common fix types and what each one does
+- All available fix types and what each one does
 - When to use each fix type
 - Using dry-run mode to preview changes
 - Applying multiple fixes at once
@@ -30,13 +30,15 @@ go run main.go
 | `FixTypePrunedEmptyPath` | Empty path items | `/empty: {}` -> removed |
 | `FixTypeRenamedGenericSchema` | Generic schema names | `Response[Pet]` -> `Response_Pet_` |
 | `FixTypeMissingPathParameter` | Missing path params | `/{petId}` without param -> param added |
+| `FixTypePathParameterNotRequired` | Declared path params missing `required` | `in: path` without `required` -> `required: true` |
 | `FixTypePrunedUnusedSchema` | Unreferenced schemas | Orphan schemas -> removed |
+| `FixTypeStubMissingRef` | `$ref` to an undefined target | `$ref: '#/components/schemas/Order'` -> stub created |
 
 ## Expected Output
 
 ```
-Fixer Showcase: Common Fix Types
-================================
+Fixer Showcase: All Available Fix Types
+=======================================
 
 This spec intentionally contains common issues:
   - CSV enum values (should be array)
@@ -44,24 +46,25 @@ This spec intentionally contains common issues:
   - Empty path items
   - Generic schema names like Response[Pet]
   - Missing path parameter definitions
+  - Declared path parameters missing required: true
   - Unused/unreferenced schemas
+  - $refs pointing at schemas that do not exist
 
-[0/7] Initial Validation
+[0/9] Initial Validation
 ------------------------
-  [X] Found 5 validation errors:
+  [X] Found 8 validation errors:
     - oas 3.0.3: duplicate operationId 'getPets' at 'paths./pet...
+    - oas 3.0.3: invalid parameter 'paths./orders/{orderId}.get...
     - Component name "Response[Pet]" must match ^[a-zA-Z0-9._-]+$
-    - Path template references parameter '{petId}' but it is no...
-    - Path template references parameter '{petId}' but it is no...
-    - Duplicate operationId 'getPets' (first seen at paths./pet...
+    ... and 5 more
 
-[1/7] Fix: CSV Enums
+[1/9] Fix: CSV Enums
 ------------------------
   -> CSV enum values -> proper arrays
   [OK] Applied 1 fix(es):
     - expanded CSV enum string to 5 individual values
 
-[2/7] Fix: Duplicate OperationIds
+[2/9] Fix: Duplicate OperationIds
 ------------------------
   -> Duplicate IDs -> unique suffixed IDs
   [OK] Applied 1 fix(es):
@@ -69,60 +72,87 @@ This spec intentionally contains common issues:
 
 ...
 
-[7/7] Apply ALL Fixes
+[6/9] Fix: Path Parameters Missing required
+------------------------
+  -> Declared {orderId} param -> required: true
+  [OK] Applied 1 fix(es):
+    - Set required: true on path parameter 'orderId'
+
+...
+
+[8/9] Fix: Stub Missing Refs
+------------------------
+  -> $ref to undefined Order -> stub created
+  [OK] Applied 1 fix(es):
+    - Created stub schema for missing reference #/components/schemas/Order
+
+[9/9] Apply ALL Fixes
 ------------------------
   Dry-run preview:
-    Would apply 8 fixes
-    - pruned-unused-schema: 2
-    - pruned-empty-path: 1
-    - missing-path-parameter: 2
+    Would apply 9 fixes
     - duplicate-operation-id: 1
-    - renamed-generic-schema: 1
     - enum-csv-expanded: 1
+    - missing-path-parameter: 2
+    - path-parameter-not-required: 1
+    - pruned-empty-path: 1
+    - pruned-unused-schema: 2
+    - renamed-generic-schema: 1
+    (stub-missing-ref is absent above: stubbing is skipped in
+     dry-run mode, so the applied count below is higher)
 
   Applying all fixes:
-  [OK] Applied 8 total fixes
+  [OK] Applied 10 total fixes
 
   Validation after fixes:
   [OK] Spec is now VALID!
-  -> Final schema count: 2
-  -> Schemas: Pet, Response_Pet_
+  -> Final schema count: 3
+  -> Schemas: Order, Pet, Response_Pet_
 
 =======================================
-Fix Types Demonstrated Above:
-  fixer.FixTypeEnumCSVExpanded       - Convert CSV enums to arrays
-  fixer.FixTypeDuplicateOperationId  - Make operation IDs unique
-  fixer.FixTypePrunedEmptyPath       - Remove empty path items
-  fixer.FixTypeRenamedGenericSchema  - Sanitize generic names
-  fixer.FixTypeMissingPathParameter  - Add missing path params
-  fixer.FixTypePrunedUnusedSchema    - Remove unreferenced schemas
+Available Fix Types:
+  fixer.FixTypeEnumCSVExpanded            - Convert CSV enums to arrays
+  fixer.FixTypeDuplicateOperationId       - Make operation IDs unique
+  fixer.FixTypePrunedEmptyPath            - Remove empty path items
+  fixer.FixTypeRenamedGenericSchema       - Sanitize generic names
+  fixer.FixTypeMissingPathParameter       - Add missing path params
+  fixer.FixTypePathParameterNotRequired   - Set required: true on path params
+  fixer.FixTypePrunedUnusedSchema         - Remove unreferenced schemas
+  fixer.FixTypeStubMissingRef             - Stub out unresolved $refs
 ```
+
+> The `[0/9]` error list is elided above because the validator does not fix the
+> order of its findings; the `[9/9]` fix-type summary is sorted and stable.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| main.go | Demonstrates each fix type individually and combined |
-| specs/problematic-api.yaml | OpenAPI spec with the issues shown above |
+| main.go | Demonstrates all fix types individually and combined |
+| specs/problematic-api.yaml | OpenAPI spec with all fixable issues |
 
 ## Key Concepts
 
 ### FixType Constants
 
-Each fix demonstrated here has a corresponding constant:
+Each fix has a corresponding constant:
 
 ```go
-fixer.FixTypeEnumCSVExpanded       // "enum-csv-expanded"
-fixer.FixTypeDuplicateOperationId  // "duplicate-operation-id"
-fixer.FixTypePrunedEmptyPath       // "pruned-empty-path"
-fixer.FixTypeRenamedGenericSchema  // "renamed-generic-schema"
-fixer.FixTypeMissingPathParameter  // "missing-path-parameter"
-fixer.FixTypePrunedUnusedSchema    // "pruned-unused-schema"
+fixer.FixTypeEnumCSVExpanded            // "enum-csv-expanded"
+fixer.FixTypeDuplicateOperationId       // "duplicate-operation-id"
+fixer.FixTypePrunedEmptyPath            // "pruned-empty-path"
+fixer.FixTypeRenamedGenericSchema       // "renamed-generic-schema"
+fixer.FixTypeMissingPathParameter       // "missing-path-parameter"
+fixer.FixTypePathParameterNotRequired   // "path-parameter-not-required"
+fixer.FixTypePrunedUnusedSchema         // "pruned-unused-schema"
+fixer.FixTypeStubMissingRef             // "stub-missing-ref"
 ```
 
 ### Enabling Specific Fixes
 
-By default, only the path parameter fixes are enabled — `FixTypeMissingPathParameter` and `FixTypePathParameterNotRequired`, both returned by `fixer.DefaultEnabledFixes()`. To enable others:
+By default, only the two path parameter fixes are enabled (`DefaultEnabledFixes()`:
+`FixTypeMissingPathParameter` and `FixTypePathParameterNotRequired`) — both are
+mechanical repairs the spec leaves no room to interpret. Every other fix type
+renames or removes content, so it stays opt-in:
 
 ```go
 f := fixer.New()
@@ -157,6 +187,10 @@ preview, err := fixer.FixWithOptions(
 )
 fmt.Printf("Would apply %d fixes\n", preview.FixCount)
 ```
+
+`FixTypeStubMissingRef` is the one exception: stubbing runs first in the pipeline
+because later passes traverse `$ref`s, and it is skipped under dry-run. A preview
+therefore undercounts by the number of stubs a real run would create.
 
 ### Chaining with ToParseResult()
 

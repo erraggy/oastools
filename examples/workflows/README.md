@@ -49,7 +49,9 @@ The [fixer-showcase](fixer-showcase/) workflow demonstrates the most common fix 
 3. Empty path item removal
 4. Generic schema name sanitization
 5. Missing path parameter injection
-6. Unused schema pruning
+6. `required: true` repair on declared path parameters
+7. Unused schema pruning
+8. Stub creation for unresolved `$ref`s
 
 **Use cases:** Understanding all fixer capabilities, comparing fix types, learning the API
 

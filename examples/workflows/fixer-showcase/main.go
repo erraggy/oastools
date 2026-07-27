@@ -1,4 +1,4 @@
-// Fixer Showcase example demonstrating the most common fix types.
+// Fixer Showcase example demonstrating all available fix types.
 //
 // This example shows how to:
 //   - Identify common OpenAPI spec issues
@@ -20,11 +20,25 @@ import (
 	"github.com/erraggy/oastools/validator"
 )
 
+// allFixTypes lists every fixer.FixType. Declared once so the individual demos
+// below and the combined run below them cannot drift out of sync -- the drift
+// that let two fix types go undemonstrated for several releases.
+var allFixTypes = []fixer.FixType{
+	fixer.FixTypeEnumCSVExpanded,
+	fixer.FixTypeDuplicateOperationId,
+	fixer.FixTypePrunedEmptyPath,
+	fixer.FixTypeRenamedGenericSchema,
+	fixer.FixTypeMissingPathParameter,
+	fixer.FixTypePathParameterNotRequired,
+	fixer.FixTypePrunedUnusedSchema,
+	fixer.FixTypeStubMissingRef,
+}
+
 func main() {
 	specPath := findSpecPath("specs/problematic-api.yaml")
 
-	fmt.Println("Fixer Showcase: Common Fix Types")
-	fmt.Println("================================")
+	fmt.Println("Fixer Showcase: All Available Fix Types")
+	fmt.Println("=======================================")
 	fmt.Println()
 	fmt.Println("This spec intentionally contains common issues:")
 	fmt.Println("  - CSV enum values (should be array)")
@@ -32,60 +46,74 @@ func main() {
 	fmt.Println("  - Empty path items")
 	fmt.Println("  - Generic schema names like Response[Pet]")
 	fmt.Println("  - Missing path parameter definitions")
+	fmt.Println("  - Declared path parameters missing required: true")
 	fmt.Println("  - Unused/unreferenced schemas")
+	fmt.Println("  - $refs pointing at schemas that do not exist")
 	fmt.Println()
 
 	// First, show the validation errors
-	fmt.Println("[0/7] Initial Validation")
+	fmt.Println("[0/9] Initial Validation")
 	fmt.Println("------------------------")
 	showValidationStatus(specPath)
 
 	// Demo each fix type
 	fmt.Println()
-	fmt.Println("[1/7] Fix: CSV Enums")
+	fmt.Println("[1/9] Fix: CSV Enums")
 	fmt.Println("------------------------")
 	demonstrateFix(specPath, fixer.FixTypeEnumCSVExpanded, "CSV enum values -> proper arrays")
 
 	fmt.Println()
-	fmt.Println("[2/7] Fix: Duplicate OperationIds")
+	fmt.Println("[2/9] Fix: Duplicate OperationIds")
 	fmt.Println("------------------------")
 	demonstrateFix(specPath, fixer.FixTypeDuplicateOperationId, "Duplicate IDs -> unique suffixed IDs")
 
 	fmt.Println()
-	fmt.Println("[3/7] Fix: Empty Paths")
+	fmt.Println("[3/9] Fix: Empty Paths")
 	fmt.Println("------------------------")
 	demonstrateFix(specPath, fixer.FixTypePrunedEmptyPath, "Empty path items -> removed")
 
 	fmt.Println()
-	fmt.Println("[4/7] Fix: Generic Schema Names")
+	fmt.Println("[4/9] Fix: Generic Schema Names")
 	fmt.Println("------------------------")
 	demonstrateFix(specPath, fixer.FixTypeRenamedGenericSchema, "Response[Pet] -> Response_Pet_")
 
 	fmt.Println()
-	fmt.Println("[5/7] Fix: Missing Path Parameters")
+	fmt.Println("[5/9] Fix: Missing Path Parameters")
 	fmt.Println("------------------------")
 	demonstrateFix(specPath, fixer.FixTypeMissingPathParameter, "Missing {petId} param -> added")
 
 	fmt.Println()
-	fmt.Println("[6/7] Fix: Unused Schemas")
+	fmt.Println("[6/9] Fix: Path Parameters Missing required")
+	fmt.Println("------------------------")
+	demonstrateFix(specPath, fixer.FixTypePathParameterNotRequired, "Declared {orderId} param -> required: true")
+
+	fmt.Println()
+	fmt.Println("[7/9] Fix: Unused Schemas")
 	fmt.Println("------------------------")
 	demonstrateFix(specPath, fixer.FixTypePrunedUnusedSchema, "Unreferenced schemas -> removed")
 
+	fmt.Println()
+	fmt.Println("[8/9] Fix: Stub Missing Refs")
+	fmt.Println("------------------------")
+	demonstrateFix(specPath, fixer.FixTypeStubMissingRef, "$ref to undefined Order -> stub created")
+
 	// Demo all fixes combined
 	fmt.Println()
-	fmt.Println("[7/7] Apply ALL Fixes")
+	fmt.Println("[9/9] Apply ALL Fixes")
 	fmt.Println("------------------------")
 	demonstrateAllFixes(specPath)
 
 	fmt.Println()
 	fmt.Println("=======================================")
-	fmt.Println("Fix Types Demonstrated Above:")
-	fmt.Println("  fixer.FixTypeEnumCSVExpanded       - Convert CSV enums to arrays")
-	fmt.Println("  fixer.FixTypeDuplicateOperationId  - Make operation IDs unique")
-	fmt.Println("  fixer.FixTypePrunedEmptyPath       - Remove empty path items")
-	fmt.Println("  fixer.FixTypeRenamedGenericSchema  - Sanitize generic names")
-	fmt.Println("  fixer.FixTypeMissingPathParameter  - Add missing path params")
-	fmt.Println("  fixer.FixTypePrunedUnusedSchema    - Remove unreferenced schemas")
+	fmt.Println("Available Fix Types:")
+	fmt.Println("  fixer.FixTypeEnumCSVExpanded            - Convert CSV enums to arrays")
+	fmt.Println("  fixer.FixTypeDuplicateOperationId       - Make operation IDs unique")
+	fmt.Println("  fixer.FixTypePrunedEmptyPath            - Remove empty path items")
+	fmt.Println("  fixer.FixTypeRenamedGenericSchema       - Sanitize generic names")
+	fmt.Println("  fixer.FixTypeMissingPathParameter       - Add missing path params")
+	fmt.Println("  fixer.FixTypePathParameterNotRequired   - Set required: true on path params")
+	fmt.Println("  fixer.FixTypePrunedUnusedSchema         - Remove unreferenced schemas")
+	fmt.Println("  fixer.FixTypeStubMissingRef             - Stub out unresolved $refs")
 }
 
 func showValidationStatus(specPath string) {
@@ -166,14 +194,7 @@ func demonstrateAllFixes(specPath string) {
 	fmt.Println("  Dry-run preview:")
 	preview, err := fixer.FixWithOptions(
 		fixer.WithParsed(*parsed),
-		fixer.WithEnabledFixes(
-			fixer.FixTypeEnumCSVExpanded,
-			fixer.FixTypeDuplicateOperationId,
-			fixer.FixTypePrunedEmptyPath,
-			fixer.FixTypeRenamedGenericSchema,
-			fixer.FixTypeMissingPathParameter,
-			fixer.FixTypePrunedUnusedSchema,
-		),
+		fixer.WithEnabledFixes(allFixTypes...),
 		fixer.WithDryRun(true),
 	)
 	if err != nil {
@@ -182,27 +203,29 @@ func demonstrateAllFixes(specPath string) {
 	}
 	fmt.Printf("    Would apply %d fixes\n", preview.FixCount)
 
-	// Group fixes by type for summary
+	// Group fixes by type for summary. Map iteration order is random, so sort
+	// the types before printing -- otherwise this block reorders itself run to
+	// run, which is exactly the noise a showcase should not produce.
 	fixCounts := make(map[fixer.FixType]int)
 	for _, fix := range preview.Fixes {
 		fixCounts[fix.Type]++
 	}
-	for fixType, count := range fixCounts {
-		fmt.Printf("    - %s: %d\n", fixType, count)
+	types := make([]fixer.FixType, 0, len(fixCounts))
+	for fixType := range fixCounts {
+		types = append(types, fixType)
 	}
+	slices.Sort(types)
+	for _, fixType := range types {
+		fmt.Printf("    - %s: %d\n", fixType, fixCounts[fixType])
+	}
+	fmt.Println("    (stub-missing-ref is absent above: stubbing is skipped in")
+	fmt.Println("     dry-run mode, so the applied count below is higher)")
 
 	// Now apply all fixes
 	fmt.Println()
 	fmt.Println("  Applying all fixes:")
 	f := fixer.New()
-	f.EnabledFixes = []fixer.FixType{
-		fixer.FixTypeEnumCSVExpanded,
-		fixer.FixTypeDuplicateOperationId,
-		fixer.FixTypePrunedEmptyPath,
-		fixer.FixTypeRenamedGenericSchema,
-		fixer.FixTypeMissingPathParameter,
-		fixer.FixTypePrunedUnusedSchema,
-	}
+	f.EnabledFixes = slices.Clone(allFixTypes)
 	fixed, err := f.FixParsed(*parsed)
 	if err != nil {
 		log.Printf("  Fix error: %v", err)
