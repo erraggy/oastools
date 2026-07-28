@@ -193,7 +193,7 @@
 // # JSON Schema 2020-12 Keywords
 //
 // The parser supports JSON Schema Draft 2020-12 keywords for OAS 3.1+:
-//   - unevaluatedProperties/unevaluatedItems: Strict validation (can be bool, *Schema, or map)
+//   - unevaluatedProperties/unevaluatedItems: Strict validation (parsed as bool or *Schema)
 //   - contentEncoding/contentMediaType/contentSchema: Encoded content validation
 //   - prefixItems, contains, propertyNames, dependentSchemas, $defs: Advanced schema features
 //

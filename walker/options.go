@@ -75,8 +75,9 @@ func WithParentTracking() Option {
 // AdditionalProperties, UnevaluatedItems, UnevaluatedProperties) that were not parsed as *Schema.
 // Implicitly enables ref tracking.
 //
-// Polymorphic fields may contain map[string]any instead of *Schema when:
-//   - Documents are parsed from raw YAML/JSON without full schema resolution
+// Every parser decode path promotes these fields to *Schema, so documents
+// oastools parsed never need this. Polymorphic fields may still contain
+// map[string]any when:
 //   - Manually constructing documents with map literals (e.g., in tests)
 //   - Using external tooling that produces partially resolved documents
 //

@@ -46,6 +46,29 @@ The parser automatically detects format from:
 2. Content inspection (JSON starts with `{` or `[`)
 3. Defaults to YAML if unknown
 
+### Discriminator Dialects
+
+OAS 2.0 spells a Schema Object's discriminator as a bare string naming the
+property; OAS 3.0+ uses an object with `propertyName` and an optional `mapping`.
+Both decode into `*Discriminator`, and `StringForm` records which spelling the
+document used:
+
+```go
+pet := doc.Definitions["Pet"]          // OAS 2.0: discriminator: petType
+pet.Discriminator.PropertyName          // "petType"
+pet.Discriminator.StringForm            // true
+```
+
+Marshaling reproduces the form it was given, so a 2.0 document is not silently
+rewritten into the 3.x object form on a round trip. `Mapping` and any `x-*`
+extensions have no representation in the string form and are dropped when
+`StringForm` is set.
+
+The parser accepts either dialect regardless of version, because a Schema Object
+is decoded before the document version is known to it. Rejecting the form that is
+wrong for the version is the validator's job, and re-spelling it for a target
+version is the converter's.
+
 ### Reference Resolution
 
 External `$ref` values are resolved when `ResolveRefs` is enabled:
@@ -166,23 +189,21 @@ For strict validation of object and array schemas:
 
 | Keyword | Type | Description |
 |---------|------|-------------|
-| `unevaluatedProperties` | `any` | `*Schema`, `bool`, or `map[string]any` for uncovered properties |
-| `unevaluatedItems` | `any` | `*Schema`, `bool`, or `map[string]any` for uncovered array items |
+| `unevaluatedProperties` | `any` | `*Schema` or `bool` for uncovered properties |
+| `unevaluatedItems` | `any` | `*Schema` or `bool` for uncovered array items |
+
+Every decode path promotes these to `*Schema`, so a parsed document never leaves
+a raw `map[string]any` here — only a hand-constructed one can. Two cases suffice:
 
 ```go
 schema := doc.Components.Schemas["StrictObject"]
 switch v := schema.UnevaluatedProperties.(type) {
 case *parser.Schema:
-    // Typed schema - most common after parsing
+    // Typed schema
     fmt.Printf("Unevaluated properties must match: %s\n", v.Ref)
 case bool:
     // Boolean value - false disallows, true allows any
     fmt.Printf("Unevaluated properties allowed: %v\n", v)
-case map[string]any:
-    // Raw map - when schema wasn't typed during parsing
-    if ref, ok := v["$ref"].(string); ok {
-        fmt.Printf("Raw ref to: %s\n", ref)
-    }
 default:
     // nil or unexpected type
     fmt.Println("No unevaluatedProperties constraint")

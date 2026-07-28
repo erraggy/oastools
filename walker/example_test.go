@@ -612,8 +612,9 @@ func ExampleWithRefHandler() {
 func ExampleWithMapRefTracking() {
 	// Some polymorphic schema fields (Items, AdditionalItems, AdditionalProperties,
 	// UnevaluatedItems, UnevaluatedProperties) can contain map[string]any instead of
-	// *parser.Schema in certain parsing scenarios. WithMapRefTracking enables
-	// detection of $ref values stored in these map structures.
+	// *parser.Schema in hand-constructed or externally produced documents.
+	// WithMapRefTracking enables detection of $ref values stored in these map
+	// structures.
 	doc := &parser.OAS3Document{
 		OpenAPI: "3.1.0",
 		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
@@ -621,7 +622,7 @@ func ExampleWithMapRefTracking() {
 			Schemas: map[string]*parser.Schema{
 				"Container": {
 					Type: "array",
-					// Simulating Items as map[string]any with a $ref (can occur in some parsing scenarios)
+					// Hand-constructed Items as map[string]any with a $ref
 					Items: map[string]any{
 						"$ref": "#/components/schemas/Item",
 					},

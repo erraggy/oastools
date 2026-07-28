@@ -434,6 +434,7 @@ fmt.Printf("\nTotal critical issues across all files: %d\n", totalCritical)
 | `consumes` + body param | `requestBody.content` | Media types explicit |
 | `produces` + schema | `response.content` | Media types explicit |
 | `type: file` | Binary string + format | `type: string, format: binary` |
+| `discriminator: petType` | `discriminator.propertyName` | Bare string promoted to the object form |
 | `collectionFormat` | `style` + `explode` | Mapping varies by format |
 
 **Server URL Construction:**
@@ -491,6 +492,9 @@ requestBody:
 | `writeOnly`, `deprecated` | Detected | Warning issued (no OAS 2.0 equivalent) |
 | `if`/`then`/`else` | Detected | Warning issued (JSON Schema 2020-12) |
 | `prefixItems`, `contains`, `propertyNames` | Detected | Warning issued (JSON Schema 2020-12) |
+| `discriminator` object | Bare string | `propertyName` preserved as the OAS 2.0 string form |
+| `discriminator.mapping` | Dropped | Warning issued (OAS 2.0 resolves by schema name only) |
+| `discriminator` extensions (`x-*`) | Dropped | Warning issued (the bare string has no object to hold them) |
 
 **Server URL Decomposition:**
 
@@ -772,6 +776,7 @@ Understanding what information is lost during conversion is crucial for making i
 | Multiple content types | First used | Ensure JSON is first if preferred |
 | TRACE method | Dropped | Use custom extension if needed |
 | Schema keywords (`writeOnly`, `deprecated`, `if`/`then`/`else`, `prefixItems`, `contains`, `propertyNames`) | No equivalent | Warning issued; document constraints externally |
+| `discriminator.mapping` and its extensions | Complete loss | Warning issued; rename target definitions to match discriminator values |
 
 ### OAS 2.0 -> OAS 3.0 (Minimal Loss)
 

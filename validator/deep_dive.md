@@ -625,7 +625,8 @@ Component schemas undergo structural validation.
 - Valid `type` values when present
 - Correct `format` for the specified `type`
 - `$ref` targets must resolve to existing schemas
-- Nested schema structures (allOf, oneOf, anyOf, properties)
+- Nested schema structures (allOf, oneOf, anyOf, properties, items, additionalProperties)
+- `discriminator` uses the form its version requires: a bare string in OAS 2.0, an object with `propertyName` in OAS 3.0+. Skipped when `ParseResult.OASVersion` is unset or invalid, since an unrecognized version says nothing about which form is correct
 
 **Reference Validation:**
 
