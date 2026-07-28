@@ -3,7 +3,10 @@
 
 package pathutil
 
-import "strings"
+import (
+	"net/url"
+	"strings"
+)
 
 // EscapeRefToken escapes a component name for use as a single JSON Pointer
 // token, per RFC 6901: "~" becomes "~0" and "/" becomes "~1".
@@ -42,6 +45,31 @@ func UnescapeRefToken(token string) string {
 	}
 	token = strings.ReplaceAll(token, "~1", "/")
 	return strings.ReplaceAll(token, "~0", "~")
+}
+
+// DecodeRefToken reverses both escaping conventions a reference token may
+// carry, recovering the component name it denotes.
+//
+// Documents are inconsistent here. RFC 6901 asks for "~1" and "~0", but code
+// generators commonly percent-encode instead — and often encode only what their
+// URL escaper considers unsafe, so "[" becomes "%5B" while "/" is left raw. A
+// token like "Paged%5Bexample.com/pkg.Pet%5D" is therefore in neither
+// convention, and no single unescaper recovers it.
+//
+// Percent-decoding runs first so a percent-encoded tilde ("%7E1") is still
+// recognized as a JSON Pointer escape afterwards. An invalid percent sequence
+// leaves the token untouched rather than failing: a token that cannot be
+// decoded is already the only form it has.
+//
+// Decoding is lossy, so prefer the undecoded token when it already matches:
+// a component genuinely named "Foo%20Bar" decodes to "Foo Bar" and would
+// otherwise stop matching itself. Callers should try the exact spelling first
+// and fall back to this.
+func DecodeRefToken(token string) string {
+	if decoded, err := url.PathUnescape(token); err == nil {
+		token = decoded
+	}
+	return UnescapeRefToken(token)
 }
 
 // OAS 2.0 reference prefixes
