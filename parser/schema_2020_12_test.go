@@ -132,7 +132,7 @@ components:
 
 			if tt.expected == "schema" {
 				nested, ok := schema.UnevaluatedProperties.(*Schema)
-				assert.True(t, ok, "expected unevaluatedProperties to be a *Schema, got %T", schema.UnevaluatedProperties)
+				require.True(t, ok, "expected unevaluatedProperties to be a *Schema, got %T", schema.UnevaluatedProperties)
 				assert.Equal(t, "string", nested.Type)
 			} else {
 				assert.Equal(t, tt.expected, schema.UnevaluatedProperties)
@@ -208,7 +208,7 @@ components:
 
 			if tt.expected == "schema" {
 				nested, ok := schema.UnevaluatedItems.(*Schema)
-				assert.True(t, ok, "expected unevaluatedItems to be a *Schema, got %T", schema.UnevaluatedItems)
+				require.True(t, ok, "expected unevaluatedItems to be a *Schema, got %T", schema.UnevaluatedItems)
 				assert.Equal(t, "integer", nested.Type)
 			} else {
 				assert.Equal(t, tt.expected, schema.UnevaluatedItems)

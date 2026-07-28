@@ -202,6 +202,8 @@ func TestSchemaUnmarshalYAMLPromotesThroughMergeKey(t *testing.T) {
 base: &base
   items:
     type: object
+    x-inner: inner
+    unknown-inner: 2
 schema:
   <<: *base
   type: array
@@ -214,6 +216,15 @@ schema:
 	items, ok := doc.Schema.Items.(*Schema)
 	require.True(t, ok, "expected *Schema, got %T", doc.Schema.Items)
 	assert.Equal(t, "object", items.Type)
+
+	// Known limitation of the fallback, pinned rather than fixed. The map-based
+	// decoder collects only x-* keys, so an unrecognized key inside a merged
+	// subtree is dropped where the node-based path would have kept it. Matching
+	// the node path would mean carrying a YAML-only quirk further: the JSON
+	// path's ExtractExtensions is x-* only too, so what the fallback produces
+	// here is what an equivalent JSON document produces everywhere.
+	assert.Equal(t, "inner", items.Extra["x-inner"])
+	assert.NotContains(t, items.Extra, "unknown-inner")
 }
 
 func TestSchemaUnmarshalYAMLKeepsExtensions(t *testing.T) {
