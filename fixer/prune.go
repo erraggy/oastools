@@ -122,7 +122,6 @@ func appendSchemaNames(dst []string, ref, prefix string) []string {
 		return dst
 	}
 
-	// this utilizes array notation `[2]string` to allowcate our known set of two on the stack
 	for _, candidate := range [2]string{pathutil.UnescapeRefToken(name), pathutil.DecodeRefToken(name)} {
 		if !slices.Contains(dst[start:], candidate) {
 			dst = append(dst, candidate)

@@ -1,7 +1,7 @@
 package fixer
 
 import (
-	"maps"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -649,10 +649,12 @@ components:
         mapping:
           encoded: '#/components/schemas/Dog%5Bexample.com/pkg.Breed%5D'
           bare: 'Cat[example.com/pkg.Breed]'
+          bareEncoded: 'Fish%5Bexample.com%2Fpkg.Breed%5D'
       properties:
         kind: {type: string}
     "Dog[example.com/pkg.Breed]": {type: object}
     "Cat[example.com/pkg.Breed]": {type: object}
+    "Fish[example.com/pkg.Breed]": {type: object}
 paths:
   /pets:
     get:
@@ -672,6 +674,8 @@ paths:
 		"a percent-encoded full ref must be rewritten")
 	assert.Equal(t, "CatOfexample.com.pkg.Breed", mapping["bare"],
 		"a bare name must be rewritten and stay bare")
+	assert.Equal(t, "FishOfexample.com.pkg.Breed", mapping["bareEncoded"],
+		"a bare name carrying an encoding must be rewritten too")
 }
 
 // TestFixSchemaNamesKeepsLiteralPercentName covers a name that genuinely
@@ -772,17 +776,33 @@ paths:
       responses:
         "200": {description: OK}
 `
+	// Compare the old->new pairs, not the set of new names. All three reduce to
+	// the same base, so the resulting names are always {X, X2, X3} whichever
+	// schema gets which — only the pairing reveals an ordering flip.
 	var first []string
 	for range 12 {
 		result := fixSchemaNames(t, spec, GenericNamingOf)
-		got := slices.Sorted(maps.Keys(schemaNames(t, result.Document)))
+
+		got := make([]string, 0, len(result.Fixes))
+		for _, fix := range result.Fixes {
+			got = append(got, fmt.Sprintf("%v->%v", fix.Before, fix.After))
+		}
+		slices.Sort(got)
+
 		if first == nil {
 			first = got
 			continue
 		}
 		require.Equal(t, first, got, "collision suffixes must not depend on map iteration order")
 	}
-	assert.Len(t, first, 3, "all three schemas must survive")
+
+	// The unsuffixed name goes to the first candidate in byte order ("." is 0x2E,
+	// "/" is 0x2F), and the suffixes follow from there.
+	assert.Equal(t, []string{
+		"Resp[a.b.Pet]->RespOfa.b.Pet",
+		"Resp[a//b.Pet]->RespOfa.b.Pet2",
+		"Resp[a/b.Pet]->RespOfa.b.Pet3",
+	}, first, "all three schemas must survive, each with a stable name")
 }
 
 // TestPruneKeepsMixedEncodingRefSchema covers the pruning half of the same
@@ -901,4 +921,41 @@ paths:
 	after, err := validator.New().ValidateParsed(*result.ToParseResult())
 	require.NoError(t, err)
 	assert.True(t, after.Valid, "errors: %v", after.Errors)
+}
+
+// TestBuildRefRenameMapDecodedKeyIsDeterministic covers two names that share a
+// decoded form without either being it: "A%2FB[Pet]" and "A~1B[Pet]" both reduce
+// to "A/B[Pet]", and only one can claim that key.
+//
+// Ranging over the rename map to register decoded keys handed it to a different
+// name on each run, so a $ref spelled "#/components/schemas/A/B[Pet]" resolved
+// to a different schema run to run.
+func TestBuildRefRenameMapDecodedKeyIsDeterministic(t *testing.T) {
+	spec := `
+openapi: 3.0.3
+info: {title: T, version: "1.0"}
+components:
+  schemas:
+    "A%2FB[Pet]": {type: object}
+    "A~1B[Pet]": {type: object}
+    Pet: {type: object}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/A/B[Pet]'}
+`
+	seen := make(map[string]bool)
+	for range 40 {
+		result := fixSchemaNames(t, spec, GenericNamingOf)
+		seen[responseSchemaRef(t, result.Document)] = true
+	}
+
+	assert.Equal(t, map[string]bool{pathutil.RefPrefixSchemas + "A_2FBOfPet": true}, seen,
+		"an ambiguous ref must resolve to the same schema on every run")
 }

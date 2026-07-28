@@ -29,9 +29,14 @@ func schemaPathPrefix(version parser.OASVersion) string {
 // match a name that carries none of them. Registering only one of the two loses
 // whichever case it does not cover.
 //
-// Exact keys are registered first and never overwritten, so where a decoded key
-// would collide with another rename's exact spelling, the exact match wins and
-// the result does not depend on map iteration order.
+// Exact keys are registered first and never overwritten, so a decoded key that
+// would collide with another rename's exact spelling loses to it.
+//
+// The decoded pass runs in sorted order because two names can share a decoded
+// form without either being it — "A%2FB[Pet]" and "A~1B[Pet]" both reduce to
+// "A/B[Pet]" — and only one of them can claim that key. Ranging over the map
+// would hand it to a different rename on each run, so a $ref spelled that way
+// would resolve to a different schema run to run.
 //
 // Values are ready to write into a $ref, so the new name is escaped per RFC
 // 6901: a name containing "/" or "~" must build the pointer that reaches the
@@ -40,14 +45,17 @@ func buildRefRenameMap(renames map[string]string, accessor parser.DocumentAccess
 	prefix := accessor.SchemaRefPrefix()
 	refRenames := make(map[string]string, len(renames)*2)
 
+	oldNames := make([]string, 0, len(renames))
 	for oldName, newName := range renames {
 		refRenames[prefix+oldName] = prefix + pathutil.EscapeRefToken(newName)
+		oldNames = append(oldNames, oldName)
 	}
+	sort.Strings(oldNames)
 
-	for oldName, newName := range renames {
+	for _, oldName := range oldNames {
 		decoded := prefix + pathutil.DecodeRefToken(oldName)
 		if _, taken := refRenames[decoded]; !taken {
-			refRenames[decoded] = prefix + pathutil.EscapeRefToken(newName)
+			refRenames[decoded] = prefix + pathutil.EscapeRefToken(renames[oldName])
 		}
 	}
 

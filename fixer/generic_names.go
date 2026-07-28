@@ -616,26 +616,41 @@ func rewriteSchemaRefsRecursive(schema *parser.Schema, renames map[string]string
 	// Discriminator mapping values
 	if schema.Discriminator != nil && schema.Discriminator.Mapping != nil {
 		for key, ref := range schema.Discriminator.Mapping {
-			// Check if it's a full ref path
-			if newRef, ok := lookupRenamedRef(ref, renames); ok {
-				schema.Discriminator.Mapping[key] = newRef
-			} else {
-				// Also check for bare names (discriminator mapping can use just the schema name)
-				// e.g., "Dog" instead of "#/components/schemas/Dog"
-				//
-				// Keys carry the name undecoded, so it compares directly against a
-				// bare mapping value. Values carry it escaped for a pointer, so the
-				// escaping is reversed before it is written back as a bare name.
-				for oldRef, newRef := range renames {
-					oldName := extractSchemaNameFromRefPath(oldRef)
-					if ref == oldName {
-						schema.Discriminator.Mapping[key] = pathutil.UnescapeRefToken(extractSchemaNameFromRefPath(newRef))
-						break
-					}
-				}
+			if newValue, ok := lookupRenamedMappingValue(ref, renames); ok {
+				schema.Discriminator.Mapping[key] = newValue
 			}
 		}
 	}
+}
+
+// lookupRenamedMappingValue resolves one discriminator mapping value against the
+// rename map, in the spelling the document used it: a full $ref stays a $ref, a
+// bare schema name stays a bare name.
+//
+// A mapping may name its target either way — "#/components/schemas/Dog" or just
+// "Dog" — so a bare name is completed into a ref before lookup rather than
+// compared against the map's keys directly. That routes it through the same
+// exact-then-decoded match every other ref gets, so a bare name carrying an
+// encoding resolves too, and an exact spelling still wins over a decoded one.
+// Comparing against extracted key names instead would have to iterate the map,
+// and no iteration order can honor that precedence.
+//
+// Both prefixes are tried because a rename map is built for one OAS version, so
+// the other simply matches nothing.
+func lookupRenamedMappingValue(ref string, renames map[string]string) (string, bool) {
+	if newRef, ok := lookupRenamedRef(ref, renames); ok {
+		return newRef, true
+	}
+
+	for _, prefix := range [2]string{pathutil.RefPrefixSchemas, pathutil.RefPrefixDefinitions} {
+		if newRef, ok := lookupRenamedRef(prefix+ref, renames); ok {
+			// Values are escaped for a pointer, so the escaping is reversed
+			// before the name goes back as a bare value.
+			return pathutil.UnescapeRefToken(extractSchemaNameFromRefPath(newRef)), true
+		}
+	}
+
+	return "", false
 }
 
 // extractSchemaNameFromRefPath extracts the schema name from a $ref path.
