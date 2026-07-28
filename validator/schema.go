@@ -60,6 +60,9 @@ func (v *Validator) validateSchemaWithVisited(schema *parser.Schema, path string
 	// Validate type-specific constraints
 	v.validateSchemaTypeConstraints(schema, path, result)
 
+	// Validate the discriminator meets the varying requirements of each OAS version
+	v.validateDiscriminatorForm(schema, path, result)
+
 	// Validate required fields
 	v.validateRequiredFields(schema, path, result)
 
@@ -192,6 +195,45 @@ func (v *Validator) validateSchemaTypeConstraints(schema *parser.Schema, path st
 // where "null" is not a valid schema type.
 func isOAS30x(version parser.OASVersion) bool {
 	return version >= parser.OASVersion300 && version <= parser.OASVersion304
+}
+
+// validateDiscriminatorForm checks that a schema's discriminator uses the
+// form its OAS version requires: a bare string in OAS 2.0, an object with
+// propertyName in OAS 3.0+.
+//
+// The parser accepts both forms regardless of version, because a Schema Object
+// is decoded before the document version is known to it. That makes this check
+// the only thing standing between a document and a silently accepted
+// cross-dialect discriminator.
+func (v *Validator) validateDiscriminatorForm(schema *parser.Schema, path string, result *ValidationResult) {
+	if schema.Discriminator == nil {
+		return
+	}
+
+	// An unrecognized version says nothing about which form is correct, so
+	// there is nothing to enforce. ValidateParsed always sets this; a
+	// hand-assembled ParseResult may not.
+	if !v.oasVersion.IsValid() {
+		return
+	}
+
+	switch {
+	case v.oasVersion == parser.OASVersion20 && !schema.Discriminator.StringForm:
+		v.addError(result, path,
+			"discriminator must be a string naming the property in OpenAPI 2.0; the object form with 'propertyName' was introduced in OpenAPI 3.0",
+			withSpecRef("https://spec.openapis.org/oas/v2.0.html#schema-object"),
+			withField("discriminator"),
+			withValue(schema.Discriminator.PropertyName),
+		)
+
+	case v.oasVersion != parser.OASVersion20 && schema.Discriminator.StringForm:
+		v.addError(result, path,
+			"discriminator must be an object with 'propertyName' in OpenAPI 3.0+; the bare string form is OpenAPI 2.0 only",
+			withSpecRef("https://spec.openapis.org/oas/v3.0.0.html#discriminator-object"),
+			withField("discriminator"),
+			withValue(schema.Discriminator.PropertyName),
+		)
+	}
 }
 
 // validateRequiredFields validates that required fields exist in properties

@@ -862,10 +862,7 @@ func (x *Schema) decodeFromMap(m map[string]any) {
 		x.Not.decodeFromMap(sub)
 	}
 	x.Nullable, _ = m["nullable"].(bool)
-	if sub, ok := m["discriminator"].(map[string]any); ok {
-		x.Discriminator = new(Discriminator)
-		x.Discriminator.decodeFromMap(sub)
-	}
+	x.Discriminator = decodeDiscriminator(m["discriminator"])
 	x.ReadOnly, _ = m["readOnly"].(bool)
 	x.WriteOnly, _ = m["writeOnly"].(bool)
 	if sub, ok := m["xml"].(map[string]any); ok {

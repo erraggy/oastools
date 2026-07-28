@@ -71,98 +71,105 @@ func rewriteRefOAS3ToOAS2(ref string) string {
 // The function receives the original $ref value and returns the rewritten value.
 type refRewriter func(ref string) string
 
-// walkSchemaRefs recursively walks a schema and rewrites all $ref values using the provided rewriter function.
-// This is a generic traversal function that handles all nested schema locations.
-func walkSchemaRefs(schema *parser.Schema, rewrite refRewriter) {
+// walkSchemas recursively walks a schema and every schema nested within it,
+// calling visit once per schema. This is the generic traversal that handles all
+// nested schema locations; callers supply the per-schema work.
+func walkSchemas(schema *parser.Schema, visit func(*parser.Schema)) {
 	if schema == nil {
 		return
 	}
 
-	// Rewrite the $ref in this schema
-	if schema.Ref != "" {
-		schema.Ref = rewrite(schema.Ref)
-	}
+	visit(schema)
 
-	// Recursively rewrite nested schemas in properties
+	// Recursively visit nested schemas in properties
 	for _, propSchema := range schema.Properties {
-		walkSchemaRefs(propSchema, rewrite)
+		walkSchemas(propSchema, visit)
 	}
 
 	for _, propSchema := range schema.PatternProperties {
-		walkSchemaRefs(propSchema, rewrite)
+		walkSchemas(propSchema, visit)
 	}
 
 	// Handle polymorphic fields with type assertion.
 	// These can be bool (OAS 3.1+) or *Schema - only *Schema needs traversal.
 	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-		walkSchemaRefs(addProps, rewrite)
+		walkSchemas(addProps, visit)
 	}
 
 	if items, ok := schema.Items.(*parser.Schema); ok {
-		walkSchemaRefs(items, rewrite)
+		walkSchemas(items, visit)
 	}
 
 	// Composition keywords
 	for _, subSchema := range schema.AllOf {
-		walkSchemaRefs(subSchema, rewrite)
+		walkSchemas(subSchema, visit)
 	}
 
 	for _, subSchema := range schema.AnyOf {
-		walkSchemaRefs(subSchema, rewrite)
+		walkSchemas(subSchema, visit)
 	}
 
 	for _, subSchema := range schema.OneOf {
-		walkSchemaRefs(subSchema, rewrite)
+		walkSchemas(subSchema, visit)
 	}
 
-	walkSchemaRefs(schema.Not, rewrite)
+	walkSchemas(schema.Not, visit)
 
 	// Array-related keywords
 	if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
-		walkSchemaRefs(addItems, rewrite)
+		walkSchemas(addItems, visit)
 	}
 
 	for _, prefixItem := range schema.PrefixItems {
-		walkSchemaRefs(prefixItem, rewrite)
+		walkSchemas(prefixItem, visit)
 	}
 
-	walkSchemaRefs(schema.Contains, rewrite)
+	walkSchemas(schema.Contains, visit)
 
 	// Object validation keywords
-	walkSchemaRefs(schema.PropertyNames, rewrite)
+	walkSchemas(schema.PropertyNames, visit)
 
 	for _, depSchema := range schema.DependentSchemas {
-		walkSchemaRefs(depSchema, rewrite)
+		walkSchemas(depSchema, visit)
 	}
 
 	// JSON Schema 2020-12 unevaluated keywords (can be bool or *Schema)
 	if unevalProps, ok := schema.UnevaluatedProperties.(*parser.Schema); ok {
-		walkSchemaRefs(unevalProps, rewrite)
+		walkSchemas(unevalProps, visit)
 	}
 
 	if unevalItems, ok := schema.UnevaluatedItems.(*parser.Schema); ok {
-		walkSchemaRefs(unevalItems, rewrite)
+		walkSchemas(unevalItems, visit)
 	}
 
 	// JSON Schema 2020-12 content keywords
-	walkSchemaRefs(schema.ContentSchema, rewrite)
+	walkSchemas(schema.ContentSchema, visit)
 
 	// Conditional keywords
-	walkSchemaRefs(schema.If, rewrite)
-	walkSchemaRefs(schema.Then, rewrite)
-	walkSchemaRefs(schema.Else, rewrite)
+	walkSchemas(schema.If, visit)
+	walkSchemas(schema.Then, visit)
+	walkSchemas(schema.Else, visit)
 
 	// Schema definitions
 	for _, defSchema := range schema.Defs {
-		walkSchemaRefs(defSchema, rewrite)
+		walkSchemas(defSchema, visit)
 	}
+}
 
-	// Discriminator mapping contains schema refs
-	if schema.Discriminator != nil {
-		for key, ref := range schema.Discriminator.Mapping {
-			schema.Discriminator.Mapping[key] = rewrite(ref)
+// walkSchemaRefs recursively walks a schema and rewrites all $ref values using the provided rewriter function.
+func walkSchemaRefs(schema *parser.Schema, rewrite refRewriter) {
+	walkSchemas(schema, func(s *parser.Schema) {
+		if s.Ref != "" {
+			s.Ref = rewrite(s.Ref)
 		}
-	}
+
+		// Discriminator mapping values are schema refs too
+		if s.Discriminator != nil {
+			for key, ref := range s.Discriminator.Mapping {
+				s.Discriminator.Mapping[key] = rewrite(ref)
+			}
+		}
+	})
 }
 
 // rewriteSchemaRefsOAS2ToOAS3 recursively rewrites all $ref values in a schema from OAS 2.0 to OAS 3.x format.

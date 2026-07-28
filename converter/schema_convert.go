@@ -20,12 +20,46 @@ func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion
 	// Rewrite all $ref paths from OAS 2.0 to OAS 3.x format
 	rewriteSchemaRefsOAS2ToOAS3(converted)
 
+	// Promote the OAS 2.0 bare-string discriminator to the OAS 3.x object form
+	discriminatorToObjectForm(converted)
+
 	// For OAS 3.1+, convert boolean exclusiveMaximum/exclusiveMinimum to numeric form
 	if c.isOAS31OrLater(targetVersion) {
 		fixSchemaExclusiveMinMaxForOAS31(c, converted, result, path, make(map[*parser.Schema]bool))
 	}
 
 	return converted
+}
+
+// discriminatorToObjectForm clears StringForm on every discriminator in the
+// schema tree so they serialize as OAS 3.x objects. The property name carries
+// over unchanged; only the spelling differs between dialects.
+func discriminatorToObjectForm(schema *parser.Schema) {
+	walkSchemas(schema, func(s *parser.Schema) {
+		if s.Discriminator != nil {
+			s.Discriminator.StringForm = false
+		}
+	})
+}
+
+// discriminatorToStringForm sets StringForm on every discriminator in the
+// schema tree so they serialize as OAS 2.0 bare strings. OAS 2.0 has no
+// equivalent of the 3.x mapping, so any mapping is dropped and reported.
+func discriminatorToStringForm(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
+	walkSchemas(schema, func(s *parser.Schema) {
+		d := s.Discriminator
+		if d == nil {
+			return
+		}
+		if len(d.Mapping) > 0 {
+			c.addIssueWithContext(result, path,
+				"Schema discriminator uses 'mapping' which has no OAS 2.0 equivalent; mapping dropped",
+				"OAS 2.0 resolves the discriminator by schema name only; rename the target definitions to match the discriminator values")
+			d.Mapping = nil
+		}
+		d.Extra = nil
+		d.StringForm = true
+	})
 }
 
 // fixSchemaExclusiveMinMaxForOAS31 recursively converts boolean exclusiveMaximum/exclusiveMinimum
@@ -132,6 +166,9 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 
 	// Rewrite all $ref paths from OAS 3.x to OAS 2.0 format on the deep copy
 	rewriteSchemaRefsOAS3ToOAS2(converted)
+
+	// Demote the OAS 3.x discriminator object to the OAS 2.0 bare-string form
+	discriminatorToStringForm(c, converted, result, path)
 
 	return converted
 }

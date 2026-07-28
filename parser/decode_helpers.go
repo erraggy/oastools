@@ -220,6 +220,23 @@ func decodeSchemaOrBool(v any) any {
 	}
 }
 
+// decodeDiscriminator decodes a value that can be either the OAS 2.0
+// bare-string form (`discriminator: petType`) or the OAS 3.0+ object form.
+// Anything else yields nil, matching how the generated decoder skips values of
+// an unexpected shape.
+func decodeDiscriminator(v any) *Discriminator {
+	switch val := v.(type) {
+	case string:
+		return &Discriminator{PropertyName: val, StringForm: true}
+	case map[string]any:
+		d := new(Discriminator)
+		d.decodeFromMap(val)
+		return d
+	default:
+		return nil
+	}
+}
+
 // decodePaths decodes a map[string]any into a Paths value.
 func decodePaths(m map[string]any) Paths {
 	if m == nil {

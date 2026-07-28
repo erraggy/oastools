@@ -1,0 +1,30 @@
+# Intentionally invalid: the OAS 3.0 discriminator object form used inside a
+# Swagger 2.0 document. The parser accepts both spellings (it decodes a Schema
+# Object before it knows the document version); the validator is what must
+# reject this one.
+swagger: "2.0"
+info:
+  title: Discriminator (OAS 3.0 object form in a 2.0 document)
+  version: 1.0.0
+paths:
+  /pets:
+    get:
+      summary: Get a pet
+      responses:
+        "200":
+          description: a pet
+          schema:
+            $ref: '#/definitions/Pet'
+definitions:
+  Pet:
+    type: object
+    discriminator:
+      propertyName: petType
+    properties:
+      name:
+        type: string
+      petType:
+        type: string
+    required:
+      - name
+      - petType
