@@ -307,6 +307,11 @@ func equalSchemaMapWithVisited(a, b map[string]*Schema, visited map[schemaPair]b
 }
 
 // equalDiscriminator compares two *Discriminator for equality.
+//
+// StringForm is deliberately excluded: it records which dialect spelled the
+// discriminator, not what it means. An OAS 2.0 `discriminator: petType` and an
+// OAS 3.x `{propertyName: petType}` select the same property, so treating them
+// as different would make every cross-version diff report a phantom change.
 func equalDiscriminator(a, b *Discriminator) bool {
 	if a == nil && b == nil {
 		return true

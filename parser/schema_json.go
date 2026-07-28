@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -156,7 +157,16 @@ func promoteSchemaOrBool(v any) (any, error) {
 // This is required to flatten Extra fields (specification extensions like x-*)
 // into the top-level JSON object, as Go's encoding/json doesn't support
 // inline maps like yaml:",inline".
+//
+// When StringForm is set the OAS 2.0 bare-string form is emitted instead, so a
+// 2.0 document is not silently rewritten into the OAS 3.x object form.
 func (d *Discriminator) MarshalJSON() ([]byte, error) {
+	// OAS 2.0: a bare string naming the property. Mapping and Extra have no
+	// representation in this form and are dropped.
+	if d.StringForm {
+		return json.Marshal(d.PropertyName)
+	}
+
 	// Fast path: no Extra fields, use standard marshaling
 	if len(d.Extra) == 0 {
 		type Alias Discriminator
@@ -175,7 +185,26 @@ func (d *Discriminator) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements custom JSON unmarshaling for Discriminator.
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
+//
+// Both dialects are accepted: the OAS 2.0 bare-string form decodes into
+// PropertyName with StringForm set, and the OAS 3.0+ object form decodes
+// normally. Rejecting the form that is wrong for the document's version is the
+// validator's job, since the parser cannot see the version from here.
 func (d *Discriminator) UnmarshalJSON(data []byte) error {
+	// OAS 2.0: "discriminator": "petType"
+	// Sniffing the first byte avoids the cost of a failed string decode on the
+	// far more common OAS 3.x object form.
+	if trimmed := bytes.TrimLeft(data, " \t\n\r"); len(trimmed) > 0 && trimmed[0] == '"' {
+		var name string
+		if err := json.Unmarshal(data, &name); err != nil {
+			return err
+		}
+		d.PropertyName = name
+		d.StringForm = true
+		return nil
+	}
+
+	// OAS 3.0+: "discriminator": {"propertyName": "petType", ...}
 	type Alias Discriminator
 	if err := json.Unmarshal(data, (*Alias)(d)); err != nil {
 		return err

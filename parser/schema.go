@@ -67,7 +67,7 @@ type Schema struct {
 
 	// OAS specific extensions
 	Nullable      bool           `yaml:"nullable,omitempty" json:"nullable,omitempty"`           // OAS 3.0 only (replaced by type: [T, "null"] in 3.1+)
-	Discriminator *Discriminator `yaml:"discriminator,omitempty" json:"discriminator,omitempty"` // OAS 3.0+
+	Discriminator *Discriminator `yaml:"discriminator,omitempty" json:"discriminator,omitempty"` // OAS 2.0+ (bare string in 2.0, object in 3.0+)
 	ReadOnly      bool           `yaml:"readOnly,omitempty" json:"readOnly,omitempty"`           // OAS 2.0+
 	WriteOnly     bool           `yaml:"writeOnly,omitempty" json:"writeOnly,omitempty"`         // OAS 3.0+
 	XML           *XML           `yaml:"xml,omitempty" json:"xml,omitempty"`                     // OAS 2.0+
@@ -100,11 +100,27 @@ type Schema struct {
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
-// Discriminator represents a discriminator for polymorphism (OAS 3.0+)
+// Discriminator represents a discriminator for polymorphism.
+//
+// The two OAS dialects spell this differently. In OAS 2.0 the Schema Object's
+// discriminator is a bare string naming the property; in OAS 3.0+ it is an
+// object with propertyName and an optional mapping. A single Go type serves
+// both: the string form decodes into PropertyName with StringForm set, so the
+// dialect a document was written in survives a parse/serialize round trip.
 type Discriminator struct {
 	PropertyName string            `yaml:"propertyName" json:"propertyName"`
-	Mapping      map[string]string `yaml:"mapping,omitempty" json:"mapping,omitempty"`
+	Mapping      map[string]string `yaml:"mapping,omitempty" json:"mapping,omitempty"` // OAS 3.0+ only
 	Extra        map[string]any    `yaml:",inline" json:"-"`
+
+	// StringForm reports that this discriminator came from — and should be
+	// written back as — the OAS 2.0 bare-string form (`discriminator: petType`)
+	// rather than the OAS 3.0+ object form. It is not itself a specification
+	// field, so it is excluded from both JSON and YAML.
+	//
+	// Mapping and Extra have no representation in the string form and are
+	// dropped when serializing with StringForm set. Converting between
+	// dialects must set or clear this flag; see the converter package.
+	StringForm bool `yaml:"-" json:"-"`
 }
 
 // XML represents metadata for XML encoding (OAS 2.0+)

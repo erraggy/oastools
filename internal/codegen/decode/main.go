@@ -56,6 +56,14 @@ var polymorphicFields = map[string]bool{
 	"Schema.UnevaluatedProperties": true,
 }
 
+// stringOrObjectFields maps "StructName.FieldName" to true for pointer-to-OAS-struct
+// fields that a document may also spell as a bare string. Schema.Discriminator is
+// an object in OAS 3.0+ but a plain string in OAS 2.0, so the default oas_ptr
+// strategy (which only matches map[string]any) would silently drop the 2.0 form.
+var stringOrObjectFields = map[string]bool{
+	"Schema.Discriminator": true,
+}
+
 // oasStructTypes is populated during discovery with the names of all struct
 // types in the parser package that have an Extra map[string]any field.
 var oasStructTypes = map[string]bool{}
@@ -85,14 +93,15 @@ func main() {
 	// Use an overlay to replace the generated file with a minimal stub.
 	// This prevents stale method signatures from causing type errors
 	// during package loading, while keeping decode_helpers.go compilable
-	// by providing the three methods it references.
+	// by providing every method it references.
 	stub := []byte(`package parser
 
-func (x *OAS2Document) decodeFromMap(m map[string]any) {}
-func (x *OAS3Document) decodeFromMap(m map[string]any) {}
-func (x *Schema) decodeFromMap(m map[string]any)       {}
-func (x *PathItem) decodeFromMap(m map[string]any)     {}
-func (x *Response) decodeFromMap(m map[string]any)     {}
+func (x *OAS2Document) decodeFromMap(m map[string]any)  {}
+func (x *OAS3Document) decodeFromMap(m map[string]any)  {}
+func (x *Schema) decodeFromMap(m map[string]any)        {}
+func (x *PathItem) decodeFromMap(m map[string]any)      {}
+func (x *Response) decodeFromMap(m map[string]any)      {}
+func (x *Discriminator) decodeFromMap(m map[string]any) {}
 `)
 
 	// Load the parser package using go/types
@@ -279,6 +288,17 @@ func classifyField(structName, fieldName string, t types.Type) (strategy, elemTy
 	// 1. Check polymorphic override (Schema.Items, etc.)
 	if polymorphicFields[structName+"."+fieldName] {
 		return "polymorphic_schema", ""
+	}
+
+	// 1b. Check string-or-object override (Schema.Discriminator). The named
+	// decode helper handles both spellings; ElemType selects which one.
+	if stringOrObjectFields[structName+"."+fieldName] {
+		if ptr, ok := types.Unalias(t).(*types.Pointer); ok {
+			if named, ok := ptr.Elem().(*types.Named); ok {
+				return "string_or_object", named.Obj().Name()
+			}
+		}
+		fatal("stringOrObjectFields entry %s.%s is not a pointer to a named type", structName, fieldName)
 	}
 
 	// 2. Check for Extra field — handled separately
@@ -486,6 +506,8 @@ func (x *{{.Name}}) decodeFromMap(m map[string]any) {
 		x.{{.FieldName}} = new({{.ElemType}})
 		x.{{.FieldName}}.decodeFromMap(sub)
 	}
+{{- else if eq .Strategy "string_or_object"}}
+	x.{{.FieldName}} = decode{{.ElemType}}(m["{{.JSONKey}}"])
 {{- else if eq .Strategy "oas_map"}}
 	if sub, ok := m["{{.JSONKey}}"].(map[string]any); ok {
 		x.{{.FieldName}} = make(map[string]*{{.ElemType}}, len(sub))
