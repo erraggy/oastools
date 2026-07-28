@@ -4,6 +4,9 @@ package converter
 
 import (
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -43,8 +46,9 @@ func discriminatorToObjectForm(schema *parser.Schema) {
 }
 
 // discriminatorToStringForm sets StringForm on every discriminator in the
-// schema tree so they serialize as OAS 2.0 bare strings. OAS 2.0 has no
-// equivalent of the 3.x mapping, so any mapping is dropped and reported.
+// schema tree so they serialize as OAS 2.0 bare strings. OAS 2.0 spells the
+// discriminator as a bare string with no object to hang anything off, so both
+// the 3.x mapping and any specification extensions are dropped and reported.
 func discriminatorToStringForm(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
 	walkSchemas(schema, func(s *parser.Schema) {
 		d := s.Discriminator
@@ -57,7 +61,13 @@ func discriminatorToStringForm(c *Converter, schema *parser.Schema, result *Conv
 				"OAS 2.0 resolves the discriminator by schema name only; rename the target definitions to match the discriminator values")
 			d.Mapping = nil
 		}
-		d.Extra = nil
+		if len(d.Extra) > 0 {
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Schema discriminator carries extensions (%s) which have no OAS 2.0 equivalent; extensions dropped",
+					strings.Join(slices.Sorted(maps.Keys(d.Extra)), ", ")),
+				"OAS 2.0 spells the discriminator as a bare string, so it has no object to hold extensions; move them onto the enclosing Schema Object, which does accept them")
+			d.Extra = nil
+		}
 		d.StringForm = true
 	})
 }

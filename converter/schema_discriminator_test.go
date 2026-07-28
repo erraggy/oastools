@@ -63,6 +63,42 @@ func TestConvertOAS3ToOAS2ReportsDroppedDiscriminatorMapping(t *testing.T) {
 	assert.True(t, found, "expected an issue reporting the dropped discriminator mapping")
 }
 
+func TestConvertOAS3ToOAS2ReportsDroppedDiscriminatorExtensions(t *testing.T) {
+	// OAS 2.0 spells the discriminator as a bare string, so there is no object
+	// left to carry x- extensions. Dropping them is unavoidable; dropping them
+	// silently is not.
+	schema := &parser.Schema{
+		Discriminator: &parser.Discriminator{
+			PropertyName: "petType",
+			Extra:        map[string]any{"x-vendor": true, "x-internal": "yes"},
+		},
+	}
+	result := &ConversionResult{}
+
+	discriminatorToStringForm(New(), schema, result, "definitions.Pet")
+
+	require.Len(t, result.Issues, 1)
+	// Keys are sorted so the message is stable across map iteration order.
+	assert.Contains(t, result.Issues[0].Message, "x-internal, x-vendor")
+	assert.Contains(t, result.Issues[0].Message, "extensions dropped")
+	assert.Nil(t, schema.Discriminator.Extra)
+	assert.True(t, schema.Discriminator.StringForm)
+}
+
+func TestConvertOAS3ToOAS2SilentWhenDiscriminatorHasNothingToDrop(t *testing.T) {
+	// A discriminator with neither mapping nor extensions converts losslessly
+	// and must not manufacture a warning.
+	schema := &parser.Schema{
+		Discriminator: &parser.Discriminator{PropertyName: "petType"},
+	}
+	result := &ConversionResult{}
+
+	discriminatorToStringForm(New(), schema, result, "definitions.Pet")
+
+	assert.Empty(t, result.Issues)
+	assert.True(t, schema.Discriminator.StringForm)
+}
+
 func TestConvertOAS2DiscriminatorRoundTrip(t *testing.T) {
 	// 2.0 -> 3.0 -> 2.0 must land back on the string form rather than
 	// accumulating the dialect it passed through.
