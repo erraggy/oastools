@@ -106,6 +106,23 @@ func TestDiscriminatorUnmarshalYAMLInvalidForm(t *testing.T) {
 	assert.NotContains(t, err.Error(), "line 3: line 3:")
 }
 
+func TestYAMLKindName(t *testing.T) {
+	// yaml.Kind has no String method, so error messages depend on this mapping
+	// staying in step with the constants.
+	tests := map[yaml.Kind]string{
+		yaml.DocumentNode: "DocumentNode",
+		yaml.SequenceNode: "SequenceNode",
+		yaml.MappingNode:  "MappingNode",
+		yaml.ScalarNode:   "ScalarNode",
+		yaml.AliasNode:    "AliasNode",
+		yaml.Kind(0):      "unknown yaml.Kind(0)",
+	}
+
+	for kind, want := range tests {
+		assert.Equal(t, want, yamlKindName(kind))
+	}
+}
+
 func TestDiscriminatorMarshalYAMLRoundTrip(t *testing.T) {
 	tests := []struct {
 		name string

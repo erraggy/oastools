@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -92,6 +93,23 @@ components:
 	require.Len(t, msgs, 1)
 	assert.Contains(t, msgs[0], "must be an object with 'propertyName' in OpenAPI 3.0+")
 	assert.False(t, result.Valid)
+}
+
+func TestValidateDiscriminatorFormSkippedForUnknownVersion(t *testing.T) {
+	// ValidateParsed always sets oasVersion, but a hand-assembled ParseResult
+	// may not. An unrecognized version says nothing about which form is
+	// correct, so neither form may be flagged.
+	for _, stringForm := range []bool{true, false} {
+		schema := &parser.Schema{
+			Discriminator: &parser.Discriminator{PropertyName: "petType", StringForm: stringForm},
+		}
+		result := &ValidationResult{}
+
+		// Zero Validator: oasVersion is the invalid zero value.
+		New().validateDiscriminatorForm(schema, "components.schemas.Pet", result)
+
+		assert.Empty(t, result.Errors, "StringForm=%v must not be flagged without a known version", stringForm)
+	}
 }
 
 func TestValidateDiscriminatorFormCheckedOnNestedSchemas(t *testing.T) {
