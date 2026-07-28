@@ -32,11 +32,11 @@ All OAS versions utilize **JSON Schema Specification Draft 2020-12**: https://ww
 
 **OAS 2.0 Only:**
 
-- `allowEmptyValue`, `collectionFormat`, single `host`/`basePath`/`schemes`
+- `allowEmptyValue`, `collectionFormat`, single `host`/`basePath`/`schemes`, bare-string `discriminator`
 
 **OAS 3.0+ Only:**
 
-- `requestBody`, `callbacks`, `links`, cookie parameters, `servers` array, TRACE method
+- `requestBody`, `callbacks`, `links`, cookie parameters, `servers` array, TRACE method, `discriminator` object with `propertyName`/`mapping`
 
 **OAS 3.1+ Only:**
 
@@ -79,7 +79,8 @@ if typeStr, ok := schema.Type.(string); ok {
 4. **Mutating source documents** - Always deep copy before modification using generated `DeepCopy()` methods (e.g., `doc.DeepCopy()`). Never use JSON marshal/unmarshal — it loses `interface{}` type distinctions and drops `json:"-"` fields
 5. **Not handling operation-level consumes/produces** - Check operation-level first, then fall back to document-level
 6. **Ignoring version-specific features during conversion** - Explicitly check and warn about features that don't convert
-7. **Confusing Version (string) with OASVersion (enum)** - `ParseResult` has TWO version fields:
+7. **Assuming `Schema.Discriminator` implies OAS 3.x** - A hand-built OAS 2.0 fixture must set `Discriminator.StringForm: true`, or the validator rejects it as the 3.0+ object form. Likewise, assuming `schema.Items` may be a `map[string]any` — every parser decode path promotes it to `*parser.Schema`
+8. **Confusing Version (string) with OASVersion (enum)** - `ParseResult` has TWO version fields:
    - `Version` (string): The literal version string from the document (e.g., `"3.0.3"`, `"2.0"`)
    - `OASVersion` (parser.OASVersion enum): Our canonical enum for each published spec version
 

@@ -555,6 +555,7 @@ if typeStr, ok := schema.Type.(string); ok {
 
 - `allowEmptyValue` (removed in 3.0+)
 - `collectionFormat` (replaced by `style`/`explode`)
+- `discriminator` as a bare string (object form in 3.0+)
 
 **OAS 3.0+ Only:**
 
@@ -563,6 +564,7 @@ if typeStr, ok := schema.Type.(string); ok {
 - `links` (operation relationships)
 - Cookie parameters (`in: cookie`)
 - TRACE HTTP method
+- `discriminator` object with `propertyName` and `mapping`
 
 **OAS 3.1+ Only:**
 

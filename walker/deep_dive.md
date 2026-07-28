@@ -918,7 +918,7 @@ walker.Walk(result,
 
 ### Map Reference Tracking
 
-Some polymorphic schema fields (`Items`, `AdditionalItems`, `AdditionalProperties`, `UnevaluatedItems`, `UnevaluatedProperties`) can contain either `*parser.Schema` or `map[string]any`. When a document is parsed with certain configurations or when schemas aren't fully resolved, these fields may contain raw maps with `$ref` values that the standard ref tracking wouldn't detect.
+Some polymorphic schema fields (`Items`, `AdditionalItems`, `AdditionalProperties`, `UnevaluatedItems`, `UnevaluatedProperties`) can contain either `*parser.Schema` or `map[string]any`. Documents parsed by oastools always carry `*parser.Schema` here; the map form appears in hand-constructed documents or documents produced by external tooling, where `$ref` values would otherwise escape standard ref tracking.
 
 Use `WithMapRefTracking()` to enable detection of `$ref` values stored in these map structures:
 

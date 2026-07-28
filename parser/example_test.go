@@ -1,6 +1,7 @@
 package parser_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -327,6 +328,124 @@ func ExampleSchema_Equals() {
 	// Output:
 	// Schemas equal: true
 	// After modification: false
+}
+
+// ExampleDiscriminator_stringForm demonstrates how the two discriminator dialects
+// are decoded and written back. OAS 2.0 spells a discriminator as a bare string
+// naming the property, while OAS 3.0+ uses an object with propertyName. Both decode
+// into a Discriminator; StringForm records which spelling the document used so it
+// round-trips unchanged.
+func ExampleDiscriminator_stringForm() {
+	// OAS 2.0 uses the bare-string form: `discriminator: petType`
+	spec := []byte(`swagger: "2.0"
+info:
+  title: Pet Store
+  version: "1.0"
+paths: {}
+definitions:
+  Pet:
+    type: object
+    discriminator: petType
+    required:
+      - petType
+    properties:
+      petType:
+        type: string
+`)
+
+	result, err := parser.ParseWithOptions(parser.WithBytes(spec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	doc, ok := result.OAS2Document()
+	if !ok {
+		log.Fatal("expected OAS2 document")
+	}
+
+	discriminator := doc.Definitions["Pet"].Discriminator
+	fmt.Printf("PropertyName: %s\n", discriminator.PropertyName)
+	fmt.Printf("StringForm: %v\n", discriminator.StringForm)
+
+	// Marshaling reproduces the form the document used
+	stringForm, err := json.Marshal(discriminator)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("OAS 2.0 output: %s\n", stringForm)
+
+	// Targeting OAS 3.0+ means clearing the flag, which selects the object form.
+	// The converter package does this for you in both directions.
+	discriminator.StringForm = false
+	objectForm, err := json.Marshal(discriminator)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("OAS 3.x output: %s\n", objectForm)
+	// Output:
+	// PropertyName: petType
+	// StringForm: true
+	// OAS 2.0 output: "petType"
+	// OAS 3.x output: {"propertyName":"petType"}
+}
+
+// ExampleSchema_items demonstrates reading Schema's any-typed fields. Items,
+// AdditionalProperties, AdditionalItems, UnevaluatedItems and UnevaluatedProperties
+// hold either a *Schema or a bool per JSON Schema, so consumers type-assert. The
+// decoded types are the same whether the source was YAML or JSON.
+func ExampleSchema_items() {
+	spec := []byte(`openapi: 3.0.3
+info:
+  title: Inventory API
+  version: "1.0"
+paths: {}
+components:
+  schemas:
+    Tags:
+      type: array
+      items:
+        type: string
+    Counters:
+      type: object
+      additionalProperties:
+        type: integer
+    Strict:
+      type: object
+      additionalProperties: false
+`)
+
+	result, err := parser.ParseWithOptions(parser.WithBytes(spec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	doc, ok := result.OAS3Document()
+	if !ok {
+		log.Fatal("expected OAS3 document")
+	}
+
+	// Items is a *parser.Schema when present
+	items, ok := doc.Components.Schemas["Tags"].Items.(*parser.Schema)
+	if !ok {
+		log.Fatal("expected Items to be a schema")
+	}
+	fmt.Printf("Tags items: %v\n", items.Type)
+
+	// AdditionalProperties is either a *parser.Schema or a bool
+	for _, name := range []string{"Counters", "Strict"} {
+		switch additional := doc.Components.Schemas[name].AdditionalProperties.(type) {
+		case *parser.Schema:
+			fmt.Printf("%s additionalProperties: schema of %v\n", name, additional.Type)
+		case bool:
+			fmt.Printf("%s additionalProperties: %v\n", name, additional)
+		default:
+			fmt.Printf("%s additionalProperties: not set\n", name)
+		}
+	}
+	// Output:
+	// Tags items: string
+	// Counters additionalProperties: schema of integer
+	// Strict additionalProperties: false
 }
 
 // ExampleOAS3Document_Equals demonstrates comparing two OAS 3.x documents for equality.

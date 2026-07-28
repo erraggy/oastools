@@ -44,6 +44,8 @@
 - **Always run `go_diagnostics`** after edits—hints improve perf 5-15%
 - **Favor fixing immediately** over deferring issues
 - **Deep copy**: Use generated `doc.DeepCopy()` methods, **never** JSON marshal/unmarshal (loses `interface{}` types, drops `json:"-"` fields)
+- **Schema-or-bool fields are always promoted**: `Items`, `AdditionalProperties`, `AdditionalItems`, `UnevaluatedItems` and `UnevaluatedProperties` are `any`, but every decode path (JSON, YAML, `decodeFromMap`) yields `*Schema`, `[]*Schema` (OAS 2.0 tuple form), or `bool`. Type-assert to `*parser.Schema`; a `map[string]any` arm is dead for parsed documents
+- **Discriminator has two dialects**: OAS 2.0 spells `discriminator` as a bare string, OAS 3.0+ as an object. Both decode into `parser.Discriminator`; `StringForm bool` records which. The parser accepts either (it cannot see the document version), the validator rejects the wrong one for the version, and the converter flips the flag in both directions. `StringForm` is excluded from JSON, YAML, and `equalDiscriminator` — it is spelling, not meaning
 - **`make check` before pushing** — not just `go test`; catches lint, formatting, and trailing whitespace
 - **`docs/` is mixed source + generated**: Source files (`index.md`, `mcp-server.md`, `cli-reference.md`, etc.) are edited directly in `docs/`. Generated files (`docs/packages/`, `docs/examples/`) come from `{package}/deep_dive.md` and `examples/*/README.md` — see `.claude/docs/docs-website.md`
 - **MCP config via env vars**: The MCP server reads `OASTOOLS_*` env vars for configuration (cache TTLs, walk limits, join strategies, etc.). The Go MCP SDK doesn't support `initializationOptions`, so env vars are used instead. MCP clients set these via their `env` field in server config.
