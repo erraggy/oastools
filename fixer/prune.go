@@ -7,6 +7,7 @@ package fixer
 import (
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/erraggy/oastools/internal/pathutil"
@@ -41,15 +42,16 @@ func buildReferencedSchemaSet(collector *RefCollector, schemas map[string]*parse
 
 	prefix := accessor.SchemaRefPrefix()
 
-	// 1. Get directly referenced schemas from collector
+	// 1. Get directly referenced schemas from collector. names is reused across
+	// refs so the candidate spellings cost no allocation after the first ref.
+	var names []string
 	for ref := range collector.RefsByType[RefTypeSchema] {
-		name := extractSchemaName(ref, prefix)
-		if name == "" {
-			continue
-		}
-		if _, exists := schemas[name]; exists && !referenced[name] {
-			referenced[name] = true
-			queue = append(queue, name)
+		names = appendSchemaNames(names[:0], ref, prefix)
+		for _, name := range names {
+			if _, exists := schemas[name]; exists && !referenced[name] {
+				referenced[name] = true
+				queue = append(queue, name)
+			}
 		}
 	}
 
@@ -76,29 +78,56 @@ func buildReferencedSchemaSet(collector *RefCollector, schemas map[string]*parse
 	return referenced
 }
 
-// extractSchemaName extracts the schema name from a reference path.
-// Handles both URL-encoded and non-encoded refs.
+// appendSchemaNames appends to dst every schema name a reference path could
+// denote, most-faithful spelling first. It appends nothing for a ref that does
+// not name a local schema.
 //
-// The JSON Pointer escaping is reversed so the name matches the key it was
-// built from. Without it, a schema named "pet/summary" is referenced as
-// "#/definitions/pet~1summary", the recovered name never matches the schemas
-// map, and pruning deletes a schema that is in fact referenced.
-func extractSchemaName(ref, prefix string) string {
-	// Try direct prefix match first
-	if name, found := strings.CutPrefix(ref, prefix); found {
-		return pathutil.UnescapeRefToken(name)
-	}
-
-	// Try URL-decoded version. This is a different escaping from the JSON
-	// Pointer form above, handled because some tools emit percent-encoded refs.
-	decoded, err := url.PathUnescape(ref)
-	if err == nil {
-		if name, found := strings.CutPrefix(decoded, prefix); found {
-			return pathutil.UnescapeRefToken(name)
+// More than one candidate is needed because generators disagree about how to
+// escape a name, and a wrong guess makes pruning delete a schema that is in
+// fact referenced. Escaping is reversed so the name matches the key it was
+// built from: without it, a schema named "pet/summary" is referenced as
+// "#/definitions/pet~1summary" and the recovered name never matches the schemas
+// map. But one reversal is not enough either — generators mix the conventions,
+// so "#/definitions/Paged%5Bpkg/store.Pet%5D" percent-encodes the brackets and
+// leaves the slashes raw, and RFC 6901 unescaping alone recovers a name no key
+// matches.
+//
+// Returning candidates rather than picking one keeps both readings alive: a
+// schema genuinely named "Foo%20Bar" is matched by the undecoded spelling, and
+// a mixed-encoding ref by the decoded one. Every caller looks each name up in
+// the schemas map before acting, so a candidate that names nothing costs a
+// lookup and no more.
+//
+// Appending to dst rather than returning a fresh slice keeps the common case
+// allocation-free: this runs for every $ref in the document, and almost all of
+// them are unencoded and yield a single name.
+func appendSchemaNames(dst []string, ref, prefix string) []string {
+	name, found := strings.CutPrefix(ref, prefix)
+	if !found {
+		// The prefix itself may be percent-encoded.
+		decoded, err := url.PathUnescape(ref)
+		if err != nil {
+			return dst
+		}
+		if name, found = strings.CutPrefix(decoded, prefix); !found {
+			return dst
 		}
 	}
 
-	return ""
+	start := len(dst)
+	dst = append(dst, name)
+
+	// Without an escape sequence every spelling of the name is the same string.
+	if !strings.ContainsAny(name, "%~") {
+		return dst
+	}
+
+	for _, candidate := range [2]string{pathutil.UnescapeRefToken(name), pathutil.DecodeRefToken(name)} {
+		if !slices.Contains(dst[start:], candidate) {
+			dst = append(dst, candidate)
+		}
+	}
+	return dst
 }
 
 // collectSchemaRefs extracts all schema reference names from a schema.
@@ -128,9 +157,7 @@ func collectSchemaRefsRecursive(refs *[]string, schema *parser.Schema, prefix st
 	visited[schema] = true
 
 	// Direct schema ref
-	if name := extractSchemaName(schema.Ref, prefix); name != "" {
-		*refs = append(*refs, name)
-	}
+	*refs = appendSchemaNames(*refs, schema.Ref, prefix)
 
 	// Properties
 	for _, propSchema := range schema.Properties {
@@ -189,9 +216,7 @@ func collectSchemaRefsRecursive(refs *[]string, schema *parser.Schema, prefix st
 	// Discriminator mapping values are references
 	if schema.Discriminator != nil {
 		for _, mappingRef := range schema.Discriminator.Mapping {
-			if name := extractSchemaName(mappingRef, prefix); name != "" {
-				*refs = append(*refs, name)
-			}
+			*refs = appendSchemaNames(*refs, mappingRef, prefix)
 		}
 	}
 }
@@ -264,16 +289,25 @@ func (f *Fixer) pruneEmptyPaths(paths parser.Paths, result *FixResult, version p
 // resolveNameCollision ensures a new name doesn't conflict with existing schemas.
 // If newName exists in schemas (and is not being renamed away), appends a numeric suffix.
 // Returns the resolved unique name.
-func resolveNameCollision(newName string, schemas map[string]*parser.Schema, pendingRenames map[string]string) string {
+//
+// claimed carries the names earlier renames already took; the caller adds each
+// resolved name to it. See [isNameAvailable] for why that set is separate from
+// pendingRenames.
+func resolveNameCollision(
+	newName string,
+	schemas map[string]*parser.Schema,
+	pendingRenames map[string]string,
+	claimed map[string]bool,
+) string {
 	// Check if the name is available
-	if isNameAvailable(newName, schemas, pendingRenames) {
+	if isNameAvailable(newName, schemas, pendingRenames, claimed) {
 		return newName
 	}
 
 	// Find a unique name by appending a numeric suffix
 	for i := 2; ; i++ {
 		candidate := fmt.Sprintf("%s%d", newName, i)
-		if isNameAvailable(candidate, schemas, pendingRenames) {
+		if isNameAvailable(candidate, schemas, pendingRenames, claimed) {
 			return candidate
 		}
 	}
@@ -281,9 +315,30 @@ func resolveNameCollision(newName string, schemas map[string]*parser.Schema, pen
 
 // isNameAvailable checks if a name is available for use.
 // A name is available if:
-// 1. It doesn't exist in schemas, OR
-// 2. It exists but is being renamed away (in pendingRenames as a key)
-func isNameAvailable(name string, schemas map[string]*parser.Schema, pendingRenames map[string]string) bool {
+//  1. No earlier rename has already claimed it, AND
+//  2. It doesn't exist in schemas, OR it exists but is being renamed away
+//     (in pendingRenames as a key)
+//
+// The claimed check is what stops two schemas from being renamed to the same
+// thing. Distinct names can transform to one result — "Resp[a/b.Pet]" and
+// "Resp[a.b.Pet]" both reduce to "RespOfa.b.Pet" — and the second rename would
+// otherwise be handed a name the first already took, so applying them in turn
+// overwrites one schema with the other and silently drops it.
+//
+// claimed is a set rather than a scan of pendingRenames' values because this
+// runs once per candidate name: deriving it here would make assigning n names
+// quadratic, which is measurable on the code-first specs that produce hundreds
+// of generic schemas at once.
+func isNameAvailable(
+	name string,
+	schemas map[string]*parser.Schema,
+	pendingRenames map[string]string,
+	claimed map[string]bool,
+) bool {
+	if claimed[name] {
+		return false
+	}
+
 	// If the name doesn't exist in schemas, it's available
 	if _, exists := schemas[name]; !exists {
 		return true
@@ -327,9 +382,7 @@ func isComponentsEmpty(comp *parser.Components) bool {
 func collectRefsFromMap(refs *[]string, m map[string]any, prefix string) {
 	// Check for direct $ref
 	if refStr, ok := m["$ref"].(string); ok {
-		if name := extractSchemaName(refStr, prefix); name != "" {
-			*refs = append(*refs, name)
-		}
+		*refs = appendSchemaNames(*refs, refStr, prefix)
 	}
 
 	// Check nested properties

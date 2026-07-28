@@ -200,10 +200,11 @@ func splitTypeParams(s string) []string {
 		return nil
 	}
 
-	var params []string
-	var current strings.Builder
-	depth := 0
-
+	var (
+		params  []string
+		current strings.Builder
+		depth   = 0
+	)
 	for _, r := range s {
 		switch r {
 		case '[', '<':
@@ -263,6 +264,13 @@ func transformSchemaName(name string, config GenericNamingConfig) string {
 		return sanitized
 	}
 
+	// The base is spliced into the result below, so it carries whatever the
+	// original name had in front of the bracket — "Res ponse[User]" and
+	// "pkg/v1.Response[Pet]" both reach here. Only the parameters were being
+	// cleaned, so the base needs the same treatment or the new name is no more
+	// legal than the old one.
+	base = toNameFragment(base)
+
 	// Recursively transform nested generic types in parameters
 	transformedParams := make([]string, len(params))
 	for i, param := range params {
@@ -308,10 +316,11 @@ func transformTypeParam(param string, config GenericNamingConfig) string {
 	// Strip leading pointer asterisks (Go pointer syntax leaking from code generators)
 	param = strings.TrimLeft(param, "*")
 
-	// If it's a package-qualified name (like common.Pet), preserve it as-is
-	// to avoid corrupting the reference
+	// If it's a package-qualified name (like common.Pet), preserve the
+	// qualification to avoid corrupting the reference, cleaning only the
+	// characters that cannot survive into a schema name
 	if isPackageQualifiedName(param) {
-		return param
+		return toNameFragment(param)
 	}
 
 	// For generic types or simple names, apply normal transformation
@@ -323,6 +332,41 @@ func transformTypeParam(param string, config GenericNamingConfig) string {
 	}
 
 	return transformed
+}
+
+// toNameFragment reduces one fragment of a generated schema name — a base name
+// or a package-qualified type parameter — to the characters a schema name may
+// contain.
+//
+// Every fragment spliced into a transformed name needs this. Cleaning only the
+// parameters leaves the base free to carry a bracket-adjacent space, comma, or
+// brace straight through, producing a name as illegal as the one it replaced.
+//
+// Path separators are folded to "." before the general sanitizer runs, so they
+// do not become the "_" it would otherwise produce: a dot is what the fragment
+// already uses to qualify its package, and it keeps every segment, so two types
+// differing only by package still reduce to distinct names.
+func toNameFragment(name string) string {
+	return sanitizeSchemaName(flattenPathQualifier(name))
+}
+
+// flattenPathQualifier rewrites the "/" separators of a path-qualified type
+// name as dots: "example.com/petstore/pkg/store.Pet" becomes
+// "example.com.petstore.pkg.store.Pet".
+//
+// Code-first generators emit these for package-qualified generic parameters, and
+// a "/" cannot stay in the new name: OAS 3.x rejects a component name outright
+// unless it matches ^[a-zA-Z0-9._-]+$, and while OAS 2.0 permits one in a
+// definitions key, every $ref reaching it then needs escaping — exactly the
+// encoding trouble this fix removes.
+//
+// Empty segments are dropped, so a doubled, leading, or trailing slash cannot
+// leave a stray dot behind.
+func flattenPathQualifier(name string) string {
+	if !strings.Contains(name, "/") {
+		return name
+	}
+	return strings.Join(strings.FieldsFunc(name, func(r rune) bool { return r == '/' }), ".")
 }
 
 // sanitizeSchemaName removes or replaces invalid characters with underscores.
@@ -396,8 +440,57 @@ func toPascalCase(s string) string {
 	return result.String()
 }
 
+// splitSchemaRef splits a schema $ref into its prefix and its name token, for
+// either OAS version. ok is false for a ref that names something other than a
+// local schema, an external one included.
+func splitSchemaRef(ref string) (prefix, name string, ok bool) {
+	if n, found := strings.CutPrefix(ref, pathutil.RefPrefixSchemas); found {
+		return pathutil.RefPrefixSchemas, n, true
+	}
+	if n, found := strings.CutPrefix(ref, pathutil.RefPrefixDefinitions); found {
+		return pathutil.RefPrefixDefinitions, n, true
+	}
+	return "", "", false
+}
+
+// canonicalSchemaRefKey reduces a schema $ref to the decoded key
+// [buildRefRenameMap] registers alongside the undecoded one: the prefix
+// verbatim, followed by the name with both escaping conventions reversed.
+//
+// This is the fallback half of the lookup, not the whole of it. Decoding is
+// lossy — see [pathutil.DecodeRefToken] — so a ref is matched against its exact
+// spelling first and only reduced here when that misses. Reducing
+// unconditionally would stop a component genuinely named "Foo%20Bar[Pet]" from
+// matching a $ref that spells it the same way.
+//
+// A ref that names something other than a schema is returned unchanged, and so
+// matches no key.
+func canonicalSchemaRefKey(ref string) string {
+	// Without an escape sequence the ref is already its own decoded form. This
+	// runs for every $ref in the document, so the fast path is worth it.
+	if !strings.ContainsAny(ref, "%~") {
+		return ref
+	}
+	prefix, name, ok := splitSchemaRef(ref)
+	if !ok {
+		return ref
+	}
+	return prefix + pathutil.DecodeRefToken(name)
+}
+
+// lookupRenamedRef resolves ref against the rename map, trying its exact
+// spelling before the decoded fallback.
+func lookupRenamedRef(ref string, renames map[string]string) (string, bool) {
+	if newRef, ok := renames[ref]; ok {
+		return newRef, true
+	}
+	newRef, ok := renames[canonicalSchemaRefKey(ref)]
+	return newRef, ok
+}
+
 // rewriteSchemaRefs recursively rewrites $ref values in a schema using the rename map.
-// The renames map contains old $ref -> new $ref mappings.
+// Look refs up with [lookupRenamedRef] rather than indexing the map directly,
+// or a ref that spells the name in any encoding will miss.
 //
 // Example:
 //
@@ -440,7 +533,7 @@ func rewriteSchemaRefsRecursive(schema *parser.Schema, renames map[string]string
 
 	// Rewrite direct $ref
 	if schema.Ref != "" {
-		if newRef, ok := renames[schema.Ref]; ok {
+		if newRef, ok := lookupRenamedRef(schema.Ref, renames); ok {
 			schema.Ref = newRef
 		}
 	}
@@ -523,35 +616,46 @@ func rewriteSchemaRefsRecursive(schema *parser.Schema, renames map[string]string
 	// Discriminator mapping values
 	if schema.Discriminator != nil && schema.Discriminator.Mapping != nil {
 		for key, ref := range schema.Discriminator.Mapping {
-			// Check if it's a full ref path
-			if newRef, ok := renames[ref]; ok {
-				schema.Discriminator.Mapping[key] = newRef
-			} else {
-				// Also check for bare names (discriminator mapping can use just the schema name)
-				// e.g., "Dog" instead of "#/components/schemas/Dog"
-				for oldRef, newRef := range renames {
-					oldName := extractSchemaNameFromRefPath(oldRef)
-					newName := extractSchemaNameFromRefPath(newRef)
-					if ref == oldName {
-						schema.Discriminator.Mapping[key] = newName
-						break
-					}
-				}
+			if newValue, ok := lookupRenamedMappingValue(ref, renames); ok {
+				schema.Discriminator.Mapping[key] = newValue
 			}
 		}
 	}
 }
 
+// lookupRenamedMappingValue resolves one discriminator mapping value against the
+// rename map, in the spelling the document used it: a full $ref stays a $ref, a
+// bare schema name stays a bare name.
+//
+// A mapping may name its target either way — "#/components/schemas/Dog" or just
+// "Dog" — so a bare name is completed into a ref before lookup rather than
+// compared against the map's keys directly. That routes it through the same
+// exact-then-decoded match every other ref gets, so a bare name carrying an
+// encoding resolves too, and an exact spelling still wins over a decoded one.
+// Comparing against extracted key names instead would have to iterate the map,
+// and no iteration order can honor that precedence.
+//
+// Both prefixes are tried because a rename map is built for one OAS version, so
+// the other simply matches nothing.
+func lookupRenamedMappingValue(ref string, renames map[string]string) (string, bool) {
+	if newRef, ok := lookupRenamedRef(ref, renames); ok {
+		return newRef, true
+	}
+
+	for _, prefix := range [2]string{pathutil.RefPrefixSchemas, pathutil.RefPrefixDefinitions} {
+		if newRef, ok := lookupRenamedRef(prefix+ref, renames); ok {
+			// Values are escaped for a pointer, so the escaping is reversed
+			// before the name goes back as a bare value.
+			return pathutil.UnescapeRefToken(extractSchemaNameFromRefPath(newRef)), true
+		}
+	}
+
+	return "", false
+}
+
 // extractSchemaNameFromRefPath extracts the schema name from a $ref path.
 // Returns empty string if not a schema reference.
 func extractSchemaNameFromRefPath(ref string) string {
-	// OAS 3.x style
-	if name, found := strings.CutPrefix(ref, pathutil.RefPrefixSchemas); found {
-		return name
-	}
-	// OAS 2.0 style
-	if name, found := strings.CutPrefix(ref, pathutil.RefPrefixDefinitions); found {
-		return name
-	}
-	return ""
+	_, name, _ := splitSchemaRef(ref)
+	return name
 }

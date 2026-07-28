@@ -120,3 +120,34 @@ func TestRefBuildersEscape(t *testing.T) {
 	assert.Equal(t, "#/components/schemas/Pet", SchemaRef("Pet"))
 	assert.Equal(t, "#/definitions/Pet", DefinitionRef("Pet"))
 }
+
+// TestDecodeRefToken covers both escaping conventions and the mixed spellings
+// that satisfy neither, which is what the function exists for.
+func TestDecodeRefToken(t *testing.T) {
+	tests := []struct {
+		name  string
+		token string
+		want  string
+	}{
+		{"plain name is unchanged", "Pet", "Pet"},
+		{"empty is unchanged", "", ""},
+		{"percent-encoded brackets", "Response%5BUser%5D", "Response[User]"},
+		{"JSON Pointer slash", "pet~1summary", "pet/summary"},
+		{"JSON Pointer tilde", "pet~0summary", "pet~summary"},
+		{"percent-encoded slash", "pkg%2FPet", "pkg/Pet"},
+		{"mixed: encoded brackets, raw slashes", "Paged%5Bexample.com/pkg.Pet%5D", "Paged[example.com/pkg.Pet]"},
+		{"mixed: encoded brackets, pointer slashes", "Paged%5Bexample.com~1pkg.Pet%5D", "Paged[example.com/pkg.Pet]"},
+		{"fully percent-encoded", "Paged%5Bexample.com%2Fpkg.Pet%5D", "Paged[example.com/pkg.Pet]"},
+		{"percent-encoded tilde becomes a pointer escape", "pet%7E1summary", "pet/summary"},
+		{"invalid percent sequence is left alone", "Discount%OFF", "Discount%OFF"},
+		{"lone percent is left alone", "100%", "100%"},
+		{"plus is not a space", "a+b", "a+b"},
+		{"escaped tilde-one survives", "x~01y", "x~1y"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, DecodeRefToken(tt.token))
+		})
+	}
+}
