@@ -55,6 +55,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pet'
+  /orders/{orderId}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      parameters:
+        # Path parameter not required fix: unlike the paths above, {orderId} IS
+        # declared -- it just omits the required: true that path params demand
+        - name: orderId
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                # Stub missing ref fix: Order is referenced but never defined
+                $ref: '#/components/schemas/Order'
   # Empty path fix: path item with no operations
   /empty: {}
 components:

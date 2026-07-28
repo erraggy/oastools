@@ -7,7 +7,7 @@ This directory contains examples demonstrating common OpenAPI workflows using th
 | Workflow | Package | Description | Time |
 |----------|---------|-------------|------|
 | [pipeline-compositions](pipeline-compositions/) | multiple | Chain multiple oastools operations together | 5 min |
-| [fixer-showcase](fixer-showcase/) | fixer | Demonstrate common fix types | 5 min |
+| [fixer-showcase](fixer-showcase/) | fixer | Demonstrate all available fix types | 5 min |
 | [validate-and-fix](validate-and-fix/) | fixer | Parse, validate, auto-fix common errors | 3 min |
 | [version-conversion](version-conversion/) | converter | Convert OAS 2.0 (Swagger) → OAS 3.0.3 | 3 min |
 | [version-migration](version-migration/) | converter | OAS 3.1/3.2 upgrades and lossy downgrades | 4 min |
@@ -42,14 +42,16 @@ The [pipeline-compositions](pipeline-compositions/) workflow demonstrates multi-
 
 ### Fixer Showcase
 
-The [fixer-showcase](fixer-showcase/) workflow demonstrates the most common fix types:
+The [fixer-showcase](fixer-showcase/) workflow demonstrates all available fix types:
 
 1. CSV enum expansion (go-restful-openapi pattern)
 2. Duplicate operationId renaming
 3. Empty path item removal
 4. Generic schema name sanitization
 5. Missing path parameter injection
-6. Unused schema pruning
+6. `required: true` repair on declared path parameters
+7. Unused schema pruning
+8. Stub creation for unresolved `$ref`s
 
 **Use cases:** Understanding all fixer capabilities, comparing fix types, learning the API
 
