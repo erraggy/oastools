@@ -131,10 +131,9 @@ components:
 			require.NotNil(t, schema)
 
 			if tt.expected == "schema" {
-				// Should be a map representing a schema
-				schemaMap, ok := schema.UnevaluatedProperties.(map[string]any)
-				assert.True(t, ok, "expected unevaluatedProperties to be a schema map")
-				assert.Equal(t, "string", schemaMap["type"])
+				nested, ok := schema.UnevaluatedProperties.(*Schema)
+				require.True(t, ok, "expected unevaluatedProperties to be a *Schema, got %T", schema.UnevaluatedProperties)
+				assert.Equal(t, "string", nested.Type)
 			} else {
 				assert.Equal(t, tt.expected, schema.UnevaluatedProperties)
 			}
@@ -208,9 +207,9 @@ components:
 			require.NotNil(t, schema)
 
 			if tt.expected == "schema" {
-				schemaMap, ok := schema.UnevaluatedItems.(map[string]any)
-				assert.True(t, ok, "expected unevaluatedItems to be a schema map")
-				assert.Equal(t, "integer", schemaMap["type"])
+				nested, ok := schema.UnevaluatedItems.(*Schema)
+				require.True(t, ok, "expected unevaluatedItems to be a *Schema, got %T", schema.UnevaluatedItems)
+				assert.Equal(t, "integer", nested.Type)
 			} else {
 				assert.Equal(t, tt.expected, schema.UnevaluatedItems)
 			}
