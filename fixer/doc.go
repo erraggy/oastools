@@ -42,10 +42,15 @@
 //     items and operations. Parameters that are a $ref are left alone: the defect
 //     belongs to the definition they name, which is fixed there instead.
 //
-//   - Invalid schema names (FixTypeRenamedGenericSchema): Renames schemas with names
-//     containing characters that require URL encoding in $ref values. This commonly
-//     occurs with code generators that produce generic type names like "Response[User]".
-//     The fixer transforms these using configurable naming strategies.
+//   - Invalid schema names (FixTypeRenamedGenericSchema): Renames schemas whose names
+//     are illegal for the document's OAS version, then rewrites every $ref and
+//     discriminator mapping value that pointed to the old name. OAS 3.x constrains
+//     Components keys to an allowlist ("^[a-zA-Z0-9._-]+$"), so names like
+//     "Response[User]", "pkg/Pet", or "Pét" are all invalid; OAS 2.0 places no charset
+//     constraint on definitions keys, so the fixer only renames names containing
+//     characters that would require URL encoding in $ref values (e.g. "Response[User]").
+//     Path-like qualifiers are folded rather than discarded ("pkg/Pet" becomes
+//     "pkg.Pet"), and the fixer transforms names using configurable naming strategies.
 //
 //   - Unused schemas (FixTypePrunedUnusedSchema): Removes schema definitions that are
 //     not referenced anywhere in the document. Useful for cleaning up orphaned schemas.
@@ -87,8 +92,8 @@
 // To enable additional fixes:
 //
 //	// Enable specific fixes via CLI flags
-//	oastools fix --prune-unused api.yaml
-//	oastools fix --rename-generics --prune-unused api.yaml
+//	oastools fix --prune-schemas api.yaml
+//	oastools fix --fix-schema-names --prune-schemas api.yaml
 //
 //	// Enable specific fixes programmatically
 //	result, err := fixer.FixWithOptions(

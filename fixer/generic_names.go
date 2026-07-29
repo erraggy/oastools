@@ -150,9 +150,9 @@ const (
 
 	// charsetComponentName applies to OAS 3.x, whose Components Object requires
 	// every key to match [naming.ComponentNamePattern]. That rule is an
-	// allowlist, so a
-	// denylist can never keep up with it: "pkg/Pet", "Pet@v1" and "Pét" are all
-	// illegal without containing a single character worth enumerating.
+	// allowlist, so a denylist can never keep up with it: "pkg/Pet", "Pet@v1"
+	// and "Pét" are all illegal without containing a single character worth
+	// enumerating.
 	charsetComponentName
 )
 
@@ -460,9 +460,8 @@ func toNameFragment(name string, charset nameCharset) string {
 // Code-first generators emit these for package-qualified generic parameters, and
 // a "/" cannot stay in the new name: OAS 3.x rejects a component name outright
 // unless it satisfies [naming.ComponentNamePattern], and while OAS 2.0 permits
-// one in a
-// definitions key, every $ref reaching it then needs escaping — exactly the
-// encoding trouble this fix removes.
+// one in a definitions key, every $ref reaching it then needs escaping —
+// exactly the encoding trouble this fix removes.
 //
 // Empty segments are dropped, so a doubled, leading, or trailing slash cannot
 // leave a stray dot behind.

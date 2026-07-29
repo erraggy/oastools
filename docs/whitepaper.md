@@ -2078,7 +2078,7 @@ oastools validate -q openapi.yaml  # Quiet mode
 ```bash
 oastools fix openapi.yaml
 oastools fix --infer openapi.yaml  # With type inference
-oastools fix --prune-unused openapi.yaml  # Remove unused schemas
+oastools fix --prune-schemas openapi.yaml  # Remove unused schemas
 oastools fix -o fixed.yaml openapi.yaml  # Output to file
 ```
 
