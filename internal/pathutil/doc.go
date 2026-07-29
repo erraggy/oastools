@@ -1,6 +1,3 @@
-// Copyright 2024 Erraggy
-// SPDX-License-Identifier: MIT
-
 // Package pathutil provides reference building, escaping, and path
 // sanitization utilities for OpenAPI document traversal.
 //

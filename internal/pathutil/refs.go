@@ -1,6 +1,3 @@
-// Copyright 2024 Erraggy
-// SPDX-License-Identifier: MIT
-
 package pathutil
 
 import (
