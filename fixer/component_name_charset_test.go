@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/erraggy/oastools/internal/naming"
 	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/validator"
@@ -12,10 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// componentNamePattern is the OAS 3.x Components Object key rule, restated here
-// so these tests assert against the spec rather than against the fixer's own
-// idea of it. Kept in sync with validator.componentNamePattern.
-var componentNamePattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+// componentNamePattern compiles the shared rule, so these tests assert against
+// the same definition the validator enforces rather than a copy of it.
+var componentNamePattern = regexp.MustCompile(naming.ComponentNamePattern)
 
 // oas3SpecNamed renders a one-schema OAS 3.0.3 document whose single $ref reaches
 // that schema.
@@ -310,18 +310,5 @@ func TestFoldToASCII(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, foldToASCII(tt.input))
 		})
-	}
-}
-
-// TestIsComponentNameChar covers the charset predicate against the pattern it
-// restates, including the ASCII-only boundary that unicode.IsLetter gets wrong.
-func TestIsComponentNameChar(t *testing.T) {
-	for _, r := range []rune{'a', 'z', 'A', 'Z', '0', '9', '.', '-', '_'} {
-		assert.True(t, isComponentNameChar(r), "%q should be allowed", r)
-		assert.Regexp(t, componentNamePattern, string(r), "%q should match the pattern", r)
-	}
-	for _, r := range []rune{'/', '~', '@', '!', ' ', '[', ']', 'é', '宠', '中', 'Ω'} {
-		assert.False(t, isComponentNameChar(r), "%q should be rejected", r)
-		assert.NotRegexp(t, componentNamePattern, string(r), "%q should not match the pattern", r)
 	}
 }

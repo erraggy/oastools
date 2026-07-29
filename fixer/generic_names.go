@@ -12,6 +12,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/erraggy/oastools/internal/naming"
 	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 	"golang.org/x/text/cases"
@@ -148,7 +149,8 @@ const (
 	charsetUnrestricted nameCharset = iota
 
 	// charsetComponentName applies to OAS 3.x, whose Components Object requires
-	// every key to match ^[a-zA-Z0-9._-]+$. That rule is an allowlist, so a
+	// every key to match [naming.ComponentNamePattern]. That rule is an
+	// allowlist, so a
 	// denylist can never keep up with it: "pkg/Pet", "Pet@v1" and "Pét" are all
 	// illegal without containing a single character worth enumerating.
 	charsetComponentName
@@ -171,7 +173,7 @@ func charsetForVersion(version parser.OASVersion) nameCharset {
 // break tooling. Under OAS 3.x the spec itself settles it.
 func (c nameCharset) allowsInName(r rune) bool {
 	if c == charsetComponentName {
-		return isComponentNameChar(r)
+		return naming.IsComponentNameChar(r)
 	}
 	return !slices.Contains(invalidSchemaNameChars, r)
 }
@@ -183,23 +185,9 @@ func (c nameCharset) allowsInName(r rune) bool {
 // escaped, even where the spec would permit it.
 func (c nameCharset) allowsInReplacement(r rune) bool {
 	if c == charsetComponentName {
-		return isComponentNameChar(r)
+		return naming.IsComponentNameChar(r)
 	}
 	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-' || r == '.'
-}
-
-// isComponentNameChar reports whether r is permitted by the OAS 3.x Components
-// Object key pattern, ^[a-zA-Z0-9._-]+$.
-//
-// Spelled out rather than deferring to unicode.IsLetter: the pattern is ASCII
-// only, so "é" and "宠" are letters that it nonetheless rejects.
-func isComponentNameChar(r rune) bool {
-	switch {
-	case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
-		return true
-	default:
-		return r == '.' || r == '-' || r == '_'
-	}
 }
 
 // hasInvalidSchemaNameChars returns true if name contains characters that
@@ -471,7 +459,8 @@ func toNameFragment(name string, charset nameCharset) string {
 //
 // Code-first generators emit these for package-qualified generic parameters, and
 // a "/" cannot stay in the new name: OAS 3.x rejects a component name outright
-// unless it matches ^[a-zA-Z0-9._-]+$, and while OAS 2.0 permits one in a
+// unless it satisfies [naming.ComponentNamePattern], and while OAS 2.0 permits
+// one in a
 // definitions key, every $ref reaching it then needs escaping — exactly the
 // encoding trouble this fix removes.
 //

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/erraggy/oastools/internal/naming"
 	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/validator"
@@ -636,7 +637,7 @@ func TestTransformSchemaNameCleansBase(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := transformSchemaName(tt.input, GenericNamingConfig{Strategy: GenericNamingOf}, charsetComponentName)
 			assert.Equal(t, tt.want, got)
-			assert.Regexp(t, `^[a-zA-Z0-9._-]+$`, got,
+			assert.Regexp(t, naming.ComponentNamePattern, got,
 				"a generated name must satisfy the OAS 3.x component-name charset")
 		})
 	}
