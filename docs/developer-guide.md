@@ -421,6 +421,8 @@ case *parser.OAS3Document:
 
 > **Note:** Schema renaming is not enabled by default. You must use `WithEnabledFixes()` to opt-in.
 
+Detection is version-aware: OAS 3.x Components keys must match `^[a-zA-Z0-9._-]+$`, so names like `Response[User]`, `pkg/Pet`, or `Pét` are all invalid; OAS 2.0 has no charset constraint on `definitions` keys, so only names containing characters that would require URL encoding in `$ref` values get renamed. Every `$ref` and discriminator mapping value pointing to a renamed schema is rewritten to match.
+
 ```go
 // Fix schemas with invalid names (e.g., Response[User])
 result, err := fixer.FixWithOptions(

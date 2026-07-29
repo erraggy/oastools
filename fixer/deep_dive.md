@@ -27,7 +27,7 @@ The fixer analyzes OAS documents and applies fixes for issues that would cause v
 **Common use cases:**
 
 - Add missing path parameters automatically
-- Rename schemas with invalid characters (e.g., `Response[User]`)
+- Rename schemas with names illegal for the document's OAS version (e.g., `Response[User]`, `pkg/Pet`) and rewrite the `$ref`s that pointed to them
 - Remove unused schema definitions
 - Clean up empty path items
 

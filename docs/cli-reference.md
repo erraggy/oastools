@@ -175,7 +175,7 @@ The fix command automatically corrects common validation errors in OpenAPI speci
 
 - **Missing path parameters**: Adds missing path parameters (e.g., `{userId}`) that are referenced in the path but not declared in the parameters list
 - **Path parameters missing `required`**: Sets `required: true` on existing `in: path` parameters that omit it — the only value any OAS version permits. Applies to reusable parameter definitions and to path item and operation parameters; parameters that are a `$ref` are fixed in the definition they name
-- **Invalid schema names** (`--fix-schema-names`): Renames schemas with invalid characters (brackets, special characters) using configurable naming strategies
+- **Invalid schema names** (`--fix-schema-names`): Renames schemas whose names are illegal for the document's OAS version — OAS 3.x allows only `^[a-zA-Z0-9._-]+$` in Components keys, OAS 2.0 has no charset constraint but still gets bracket/special-character names cleaned up — using configurable naming strategies, then rewrites every `$ref` and discriminator mapping value that pointed to the old name
 - **Stub missing references** (`--stub-missing-refs`): Creates stub definitions for unresolved local `$ref` pointers. Schemas get empty `{}` stubs, responses get stubs with configurable descriptions
 - **Prune unused schemas** (`--prune-schemas`): Removes schema definitions that are not referenced anywhere in the document
 - **Prune empty paths** (`--prune-paths`): Removes path items that have no HTTP operations defined
@@ -189,7 +189,7 @@ The fix command automatically corrects common validation errors in OpenAPI speci
 | `-s, --source-map` | Include line numbers in output (IDE-friendly format) |
 | `-o, --output` | Output file path (default: stdout) |
 | `-q, --quiet` | Quiet mode: only output the fixed document, no diagnostic messages |
-| `--fix-schema-names` | Fix invalid schema names (brackets, special characters) |
+| `--fix-schema-names` | Fix invalid schema names (illegal per OAS version's charset rules) |
 | `--generic-naming` | Strategy for renaming generic types: `underscore`, `of`, `for`, `flat`, `dot` (default: underscore) |
 | `--generic-separator` | Separator for underscore strategy (default: `_`) |
 | `--generic-param-separator` | Separator between multiple type parameters (default: `_`) |
@@ -218,7 +218,7 @@ When `--infer` is enabled, parameter types are inferred from naming conventions:
 
 ### Generic Naming Strategies
 
-When `--fix-schema-names` is enabled, schemas with invalid names (containing brackets or special characters) are renamed using the selected strategy:
+When `--fix-schema-names` is enabled, schemas with names invalid for the document's OAS version are renamed using the selected strategy:
 
 | Strategy | Example Input | Output |
 |----------|---------------|--------|
@@ -232,6 +232,8 @@ For multi-parameter types like `Map[string,int]`:
 
 - `underscore`: `Map_String_Int_`
 - `of`: `MapOfStringOfInt`
+
+Path-like qualifiers are folded rather than discarded — `pkg/Pet` becomes `pkg.Pet` — and accented characters are folded to ASCII: `Pét[User]` becomes `PetOfUser` (OAS 3.x) or `PétOfUser` (OAS 2.0, where accents alone don't require renaming).
 
 ### Duplicate OperationId Templates
 

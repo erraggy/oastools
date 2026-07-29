@@ -62,7 +62,7 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 	fs.BoolVar(&flags.SourceMap, "s", false, "include line numbers in fix output (IDE-friendly format)")
 
 	// Schema name fixing flags
-	fs.BoolVar(&flags.FixSchemaNames, "fix-schema-names", false, "fix invalid schema names (brackets, special characters)")
+	fs.BoolVar(&flags.FixSchemaNames, "fix-schema-names", false, "fix invalid schema names (illegal per OAS version's charset rules)")
 	fs.StringVar(&flags.GenericNaming, "generic-naming", "underscore", "strategy for renaming generic types: underscore, of, for, flat, dot")
 	fs.StringVar(&flags.GenericSeparator, "generic-separator", "_", "separator for underscore strategy")
 	fs.StringVar(&flags.GenericParamSeparator, "generic-param-separator", "_", "separator between multiple type parameters")
@@ -99,8 +99,9 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 		Writef(fs.Output(), "  - Path parameters missing required: Sets 'required: true' on existing\n")
 		Writef(fs.Output(), "    'in: path' parameters that omit it, the only value the spec allows.\n")
 		Writef(fs.Output(), "    A $ref is fixed in the definition it names, not at the use site.\n")
-		Writef(fs.Output(), "  - Invalid schema names (--fix-schema-names): Renames schemas with\n")
-		Writef(fs.Output(), "    invalid characters (brackets, etc.) using configurable strategies.\n")
+		Writef(fs.Output(), "  - Invalid schema names (--fix-schema-names): Renames schemas whose\n")
+		Writef(fs.Output(), "    names are illegal for the document's OAS version, using configurable\n")
+		Writef(fs.Output(), "    strategies, and rewrites the $refs that pointed to them.\n")
 		Writef(fs.Output(), "  - Duplicate operationIds (--fix-duplicate-operationids): Renames\n")
 		Writef(fs.Output(), "    duplicate operationId values using configurable templates.\n")
 		Writef(fs.Output(), "  - Stub missing refs (--stub-missing-refs): Creates stub definitions\n")
