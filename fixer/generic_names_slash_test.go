@@ -341,6 +341,15 @@ func fixSchemaNames(t *testing.T, spec string, strategy GenericNamingStrategy) *
 	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
 	require.NoError(t, err)
 
+	return fixSchemaNamesParsed(t, parseResult, strategy)
+}
+
+// fixSchemaNamesParsed is [fixSchemaNames] for a document a test has already
+// parsed, typically to assert its validity before the fix. parseResult is left
+// untouched: FixParsed copies unless MutableInput is set.
+func fixSchemaNamesParsed(t *testing.T, parseResult *parser.ParseResult, strategy GenericNamingStrategy) *FixResult {
+	t.Helper()
+
 	f := New()
 	f.EnabledFixes = []FixType{FixTypeRenamedGenericSchema}
 	f.GenericNamingConfig.Strategy = strategy
@@ -415,7 +424,7 @@ func TestFixSchemaNamesRoundTripsToValid(t *testing.T) {
 							require.False(t, before.Valid,
 								"the unfixed document should fail validation, or this case proves nothing")
 
-							result := fixSchemaNames(t, spec, strategy)
+							result := fixSchemaNamesParsed(t, parseResult, strategy)
 							require.True(t, result.HasFixes(), "the invalid schema name should be renamed")
 
 							after, err := validator.New().ValidateParsed(*result.ToParseResult())
@@ -625,7 +634,7 @@ func TestTransformSchemaNameCleansBase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := transformSchemaName(tt.input, GenericNamingConfig{Strategy: GenericNamingOf})
+			got := transformSchemaName(tt.input, GenericNamingConfig{Strategy: GenericNamingOf}, charsetComponentName)
 			assert.Equal(t, tt.want, got)
 			assert.Regexp(t, `^[a-zA-Z0-9._-]+$`, got,
 				"a generated name must satisfy the OAS 3.x component-name charset")
