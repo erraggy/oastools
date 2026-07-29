@@ -2,28 +2,12 @@ package validator
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/erraggy/oastools/internal/maputil"
+	"github.com/erraggy/oastools/internal/naming"
 	"github.com/erraggy/oastools/parser"
 )
-
-// componentNamePattern is the key charset OAS 3.x requires of every fixed field
-// of the Components Object: "All the fixed fields declared above are objects
-// that MUST use keys that match the regular expression: ^[a-zA-Z0-9\.\-_]+$".
-//
-// See: https://spec.openapis.org/oas/v3.0.0.html#components-object
-//
-// The spec writes "." and "-" escaped inside the character class, where neither
-// needs escaping; this is the same expression written plainly.
-//
-// OAS 2.0 has no counterpart, deliberately. It places no charset constraint on
-// the keys of the root-level parameters, definitions, and responses objects, so
-// a name containing "/" or "~" is legitimate there and is escaped per RFC 6901
-// when referenced: see [pathutil.EscapeRefToken]. Applying this pattern to an
-// OAS 2.0 document would reject valid specs.
-var componentNamePattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 
 // validateOAS3ComponentNames reports component names that violate the charset
 // OAS 3.x requires.
@@ -54,7 +38,7 @@ func (v *Validator) validateOAS3ComponentNames(components *parser.Components, re
 const componentSchemasName = "schemas"
 
 // checkComponentNames reports every key of one Components section that falls
-// outside [componentNamePattern].
+// outside [naming.ComponentNamePattern].
 //
 // A free function rather than a method because Go does not permit type
 // parameters on methods, and the sections hold eleven different value types.
@@ -111,7 +95,7 @@ func checkComponentNames[V any](
 
 		case componentNameCharset:
 			v.addError(result, prefix+"."+name,
-				fmt.Sprintf("Component name %q must match %s", name, componentNamePattern),
+				fmt.Sprintf("Component name %q must match %s", name, naming.ComponentNamePattern),
 				specRef, withField("name"), withValue(name),
 			)
 		}
@@ -139,7 +123,7 @@ func classifyComponentName(name string, blankNamesReportedElsewhere bool) compon
 		return componentNameEmpty
 	case strings.TrimSpace(name) == "":
 		return componentNameWhitespace
-	case !componentNamePattern.MatchString(name):
+	case !naming.IsValidComponentName(name):
 		return componentNameCharset
 	default:
 		return componentNameOK

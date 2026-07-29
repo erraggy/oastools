@@ -10,11 +10,16 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
+	"github.com/erraggy/oastools/internal/naming"
 	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
 // GenericNamingStrategy defines how generic type parameters are formatted
@@ -114,6 +119,11 @@ func DefaultGenericNamingConfig() GenericNamingConfig {
 // invalidSchemaNameChars contains characters that require URL encoding in $ref values.
 // These characters cause issues when used in schema names because JSON Pointer
 // references to them require percent-encoding.
+//
+// This is the whole detection rule only under [charsetUnrestricted], where the
+// spec imposes none of its own. OAS 3.x has an allowlist that already covers
+// every character here, so [charsetComponentName] never consults this list —
+// see [nameCharset.allowsInName].
 var invalidSchemaNameChars = []rune{
 	'[', ']', // square brackets (generics)
 	'<', '>', // angle brackets (generics in some languages)
@@ -126,16 +136,70 @@ var invalidSchemaNameChars = []rune{
 	'`',  // backtick
 }
 
-// hasInvalidSchemaNameChars returns true if name contains characters that are
-// problematic in schema names (require URL encoding in $ref values).
-func hasInvalidSchemaNameChars(name string) bool {
+// nameCharset is the set of characters a schema name may use. The OAS versions
+// disagree, so both halves of a rename — deciding a name needs one, and building
+// the replacement — are driven by this rather than by one hardcoded rule.
+type nameCharset uint8
+
+const (
+	// charsetUnrestricted applies to OAS 2.0, which places no charset constraint
+	// on the keys of the definitions object. A name there is renamed only for
+	// the characters in [invalidSchemaNameChars], which is the fixer's own
+	// judgement about what trips up tooling rather than anything the spec says.
+	charsetUnrestricted nameCharset = iota
+
+	// charsetComponentName applies to OAS 3.x, whose Components Object requires
+	// every key to match [naming.ComponentNamePattern]. That rule is an
+	// allowlist, so a
+	// denylist can never keep up with it: "pkg/Pet", "Pet@v1" and "Pét" are all
+	// illegal without containing a single character worth enumerating.
+	charsetComponentName
+)
+
+// charsetForVersion returns the charset a document's schema names must satisfy.
+func charsetForVersion(version parser.OASVersion) nameCharset {
+	if version == parser.OASVersion20 {
+		return charsetUnrestricted
+	}
+	return charsetComponentName
+}
+
+// allowsInName reports whether r may appear in a name the fixer leaves alone.
+//
+// This is the detection rule, and it is deliberately not the same question as
+// [nameCharset.allowsInReplacement]. Under OAS 2.0 a "/" is legal in a
+// definitions key and resolves correctly once escaped, so renaming it would
+// rewrite a valid document; the fixer only steps in for the characters it knows
+// break tooling. Under OAS 3.x the spec itself settles it.
+func (c nameCharset) allowsInName(r rune) bool {
+	if c == charsetComponentName {
+		return naming.IsComponentNameChar(r)
+	}
+	return !slices.Contains(invalidSchemaNameChars, r)
+}
+
+// allowsInReplacement reports whether r may appear in a name the fixer builds.
+//
+// Stricter than [nameCharset.allowsInName] under OAS 2.0: a generated name
+// should not reintroduce a character that forces every $ref reaching it to be
+// escaped, even where the spec would permit it.
+func (c nameCharset) allowsInReplacement(r rune) bool {
+	if c == charsetComponentName {
+		return naming.IsComponentNameChar(r)
+	}
+	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-' || r == '.'
+}
+
+// hasInvalidSchemaNameChars returns true if name contains characters that
+// require the schema to be renamed under the given charset.
+func hasInvalidSchemaNameChars(name string, charset nameCharset) bool {
 	// Empty or whitespace-only names are invalid
 	if strings.TrimSpace(name) == "" {
 		return true
 	}
 
 	for _, c := range name {
-		if slices.Contains(invalidSchemaNameChars, c) {
+		if !charset.allowsInName(c) {
 			return true
 		}
 	}
@@ -247,7 +311,7 @@ func splitTypeParams(s string) []string {
 //	"Response[User]" -> "ResponseOfUser"
 //	"Map[string,int]" -> "MapOfStringOfInt"
 //	"Response[List[User]]" -> "ResponseOfListOfUser"
-func transformSchemaName(name string, config GenericNamingConfig) string {
+func transformSchemaName(name string, config GenericNamingConfig, charset nameCharset) string {
 	// Handle empty or whitespace-only names
 	if strings.TrimSpace(name) == "" {
 		return "UnnamedSchema"
@@ -255,13 +319,17 @@ func transformSchemaName(name string, config GenericNamingConfig) string {
 
 	base, params, _ := parseGenericName(name)
 
-	// If no type parameters, just sanitize and return
+	// If no type parameters, the whole name is one fragment. It gets the same
+	// treatment a base or a type parameter would, so a path-qualified name
+	// reduces the same way whether or not it happens to be generic:
+	// "example.com/pkg/Pet" and "Resp[example.com/pkg/Pet]" both keep their
+	// qualification as dots rather than losing it to underscores.
 	if len(params) == 0 {
-		sanitized := sanitizeSchemaName(name)
-		if sanitized == "" {
+		fragment := toNameFragment(name, charset)
+		if fragment == "" {
 			return "UnnamedSchema"
 		}
-		return sanitized
+		return fragment
 	}
 
 	// The base is spliced into the result below, so it carries whatever the
@@ -269,12 +337,12 @@ func transformSchemaName(name string, config GenericNamingConfig) string {
 	// "pkg/v1.Response[Pet]" both reach here. Only the parameters were being
 	// cleaned, so the base needs the same treatment or the new name is no more
 	// legal than the old one.
-	base = toNameFragment(base)
+	base = toNameFragment(base, charset)
 
 	// Recursively transform nested generic types in parameters
 	transformedParams := make([]string, len(params))
 	for i, param := range params {
-		transformedParams[i] = transformTypeParam(param, config)
+		transformedParams[i] = transformTypeParam(param, config, charset)
 	}
 
 	// Apply strategy
@@ -312,7 +380,7 @@ func transformSchemaName(name string, config GenericNamingConfig) string {
 //	"common.Pet" → "common.Pet" (package preserved)
 //	"*User" → "User" (pointer stripped, then PascalCased if configured)
 //	"List[User]" → recursively transformed
-func transformTypeParam(param string, config GenericNamingConfig) string {
+func transformTypeParam(param string, config GenericNamingConfig, charset nameCharset) string {
 	// Strip leading pointer asterisks (Go pointer syntax leaking from code generators)
 	param = strings.TrimLeft(param, "*")
 
@@ -320,11 +388,11 @@ func transformTypeParam(param string, config GenericNamingConfig) string {
 	// qualification to avoid corrupting the reference, cleaning only the
 	// characters that cannot survive into a schema name
 	if isPackageQualifiedName(param) {
-		return toNameFragment(param)
+		return toNameFragment(param, charset)
 	}
 
 	// For generic types or simple names, apply normal transformation
-	transformed := transformSchemaName(param, config)
+	transformed := transformSchemaName(param, config, charset)
 
 	// Apply PascalCase if not preserving casing (for non-package names)
 	if !config.PreserveCasing {
@@ -332,6 +400,41 @@ func transformTypeParam(param string, config GenericNamingConfig) string {
 	}
 
 	return transformed
+}
+
+// foldToASCII rewrites accented letters as their base letter, so "Pét" becomes
+// "Pet" rather than "P_t".
+//
+// It decomposes each rune into a base plus its combining marks, drops the marks,
+// and recomposes. That covers the Latin-alphabet names code generators actually
+// produce; a script with no ASCII base form, such as "宠物", is returned
+// unchanged and the caller's sanitizer replaces it. Transliterating those would
+// need a per-script romanization table, which is a different job.
+//
+// The transformer is built per call rather than shared, because it carries state
+// and the fixer may run concurrently. The ASCII fast path keeps that off the
+// common route: almost every name is already ASCII.
+func foldToASCII(name string) string {
+	if isASCII(name) {
+		return name
+	}
+
+	folded, _, err := transform.String(
+		transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC), name)
+	if err != nil {
+		return name
+	}
+	return folded
+}
+
+// isASCII reports whether name is entirely ASCII.
+func isASCII(name string) bool {
+	for i := range len(name) {
+		if name[i] >= utf8.RuneSelf {
+			return false
+		}
+	}
+	return true
 }
 
 // toNameFragment reduces one fragment of a generated schema name — a base name
@@ -346,8 +449,8 @@ func transformTypeParam(param string, config GenericNamingConfig) string {
 // do not become the "_" it would otherwise produce: a dot is what the fragment
 // already uses to qualify its package, and it keeps every segment, so two types
 // differing only by package still reduce to distinct names.
-func toNameFragment(name string) string {
-	return sanitizeSchemaName(flattenPathQualifier(name))
+func toNameFragment(name string, charset nameCharset) string {
+	return sanitizeSchemaName(flattenPathQualifier(name), charset)
 }
 
 // flattenPathQualifier rewrites the "/" separators of a path-qualified type
@@ -356,7 +459,8 @@ func toNameFragment(name string) string {
 //
 // Code-first generators emit these for package-qualified generic parameters, and
 // a "/" cannot stay in the new name: OAS 3.x rejects a component name outright
-// unless it matches ^[a-zA-Z0-9._-]+$, and while OAS 2.0 permits one in a
+// unless it satisfies [naming.ComponentNamePattern], and while OAS 2.0 permits
+// one in a
 // definitions key, every $ref reaching it then needs escaping — exactly the
 // encoding trouble this fix removes.
 //
@@ -372,12 +476,18 @@ func flattenPathQualifier(name string) string {
 // sanitizeSchemaName removes or replaces invalid characters with underscores.
 // This is a fallback for names that aren't cleanly generic-style but still
 // contain problematic characters.
-func sanitizeSchemaName(name string) string {
+func sanitizeSchemaName(name string, charset nameCharset) string {
+	// Fold before the loop so an accented letter reaches it as its base letter
+	// rather than as a rune the ASCII charset has no choice but to replace.
+	if charset == charsetComponentName {
+		name = foldToASCII(name)
+	}
+
 	var result strings.Builder
 	result.Grow(len(name))
 
 	for _, r := range name {
-		if isValidSchemaNameChar(r) {
+		if charset.allowsInReplacement(r) {
 			result.WriteRune(r)
 		} else {
 			result.WriteRune('_')
@@ -394,12 +504,6 @@ func sanitizeSchemaName(name string) string {
 	s = strings.Trim(s, "_")
 
 	return s
-}
-
-// isValidSchemaNameChar returns true if the character is valid in schema names.
-// Valid characters are: alphanumeric, underscore, hyphen, and dot.
-func isValidSchemaNameChar(r rune) bool {
-	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-' || r == '.'
 }
 
 // toPascalCase converts a string to PascalCase.

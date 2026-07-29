@@ -188,9 +188,11 @@ func (f *Fixer) renameInvalidSchemas(
 	// "RespOfa.b.Pet" — and the loser takes the numeric suffix
 	// resolveNameCollision appends. Ranging over the map instead would hand that
 	// suffix to a different schema on each run.
+	charset := charsetForVersion(accessor.GetVersion())
+
 	candidates := make([]string, 0, len(schemas))
 	for name := range schemas {
-		if hasInvalidSchemaNameChars(name) {
+		if hasInvalidSchemaNameChars(name, charset) {
 			candidates = append(candidates, name)
 		}
 	}
@@ -205,7 +207,7 @@ func (f *Fixer) renameInvalidSchemas(
 	claimed := make(map[string]bool, len(candidates))
 	for _, name := range candidates {
 		newName := resolveNameCollision(
-			transformSchemaName(name, f.GenericNamingConfig), schemas, renames, claimed)
+			transformSchemaName(name, f.GenericNamingConfig, charset), schemas, renames, claimed)
 		renames[name] = newName
 		claimed[newName] = true
 	}
