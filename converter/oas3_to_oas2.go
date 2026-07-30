@@ -93,6 +93,10 @@ func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *Co
 		dst.Security = src.Security
 	}
 
+	// Report the 3.2 fixed fields against the source document, whose objects still
+	// carry them; the OAS 2.0 result has no field to point at for most of them.
+	c.detectOAS32Features(src, result)
+
 	// Rewrite all $ref paths from OAS 3.x to OAS 2.0 format
 	c.rewriteAllRefsOAS3ToOAS2(dst)
 

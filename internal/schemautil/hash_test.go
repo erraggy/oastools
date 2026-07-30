@@ -371,3 +371,57 @@ func TestSchemaHasher_Hash_MetadataIgnored(t *testing.T) {
 
 	assert.Equal(t, hash1, hash2, "Metadata-only differences should not affect hash")
 }
+
+// TestHashDistinguishesXML covers the XML Object, which was absent from the
+// structural hash entirely.
+//
+// XML decides the element name, namespace, and node kind a value serializes to, so
+// two schemas whose XML differs describe different payloads. Hashing them alike put
+// them in one deduplication bucket, where a comparison that also ignored XML then
+// merged them: silently changing the wire format of a payload.
+func TestHashDistinguishesXML(t *testing.T) {
+	stringWithXML := func(x *parser.XML) *parser.Schema {
+		return &parser.Schema{Type: "string", XML: x}
+	}
+
+	base := stringWithXML(&parser.XML{Name: "tag"})
+
+	tests := []struct {
+		name  string
+		other *parser.Schema
+	}{
+		{"no xml at all", &parser.Schema{Type: "string"}},
+		{"different name", stringWithXML(&parser.XML{Name: "label"})},
+		{"added namespace", stringWithXML(&parser.XML{Name: "tag", Namespace: "https://example.com/ns"})},
+		{"added prefix", stringWithXML(&parser.XML{Name: "tag", Prefix: "ex"})},
+		{"attribute set", stringWithXML(&parser.XML{Name: "tag", Attribute: true})},
+		{"wrapped set", stringWithXML(&parser.XML{Name: "tag", Wrapped: true})},
+		{"nodeType set", stringWithXML(&parser.XML{Name: "tag", NodeType: "attribute"})},
+	}
+
+	hasher := NewSchemaHasher()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.NotEqual(t, hasher.Hash(base), hasher.Hash(tt.other),
+				"schemas differing only in xml must not share a structural hash")
+		})
+	}
+
+	t.Run("nodeType values are distinguished from each other", func(t *testing.T) {
+		seen := make(map[uint64]string)
+		for _, nodeType := range []string{"element", "attribute", "text", "cdata", "none"} {
+			sum := hasher.Hash(stringWithXML(&parser.XML{NodeType: nodeType}))
+			if prev, clash := seen[sum]; clash {
+				t.Errorf("nodeType %q and %q share a hash", nodeType, prev)
+			}
+			seen[sum] = nodeType
+		}
+	})
+
+	t.Run("identical xml still hashes alike", func(t *testing.T) {
+		left := stringWithXML(&parser.XML{Name: "tag", Namespace: "https://example.com/ns", NodeType: "attribute"})
+		right := stringWithXML(&parser.XML{Name: "tag", Namespace: "https://example.com/ns", NodeType: "attribute"})
+		assert.Equal(t, hasher.Hash(left), hasher.Hash(right),
+			"equal xml must not be made to differ")
+	})
+}

@@ -225,6 +225,46 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 		}
 	}
 
+	// XML
+	//
+	// XML metadata is structural, not descriptive: it decides the element name,
+	// namespace, and node kind a value serializes to, so two schemas with
+	// different XML are not interchangeable. Leaving it out of the hash put them
+	// in the same bucket, and deduplication then merged them and changed the wire
+	// format of a payload. That is the opposite case from the metadata this type's
+	// doc comment excludes: a title or description cannot change a payload.
+	//
+	// Every field is labelled so no value can be mistaken for a neighbour's, and
+	// the block is entered only for a non-nil XML object, so a schema without one
+	// hashes exactly as it did before.
+	if schema.XML != nil {
+		h.writeString(hasher, "xml:")
+		if schema.XML.Name != "" {
+			h.writeString(hasher, "name:")
+			h.writeString(hasher, schema.XML.Name)
+		}
+		if schema.XML.Namespace != "" {
+			h.writeString(hasher, "namespace:")
+			h.writeString(hasher, schema.XML.Namespace)
+		}
+		if schema.XML.Prefix != "" {
+			h.writeString(hasher, "prefix:")
+			h.writeString(hasher, schema.XML.Prefix)
+		}
+		if schema.XML.Attribute {
+			h.writeString(hasher, "attribute:true")
+		}
+		if schema.XML.Wrapped {
+			h.writeString(hasher, "wrapped:true")
+		}
+		// OAS 3.2+, and the field that supersedes attribute and wrapped, so it has
+		// to separate schemas at least as strongly as they do.
+		if schema.XML.NodeType != "" {
+			h.writeString(hasher, "nodeType:")
+			h.writeString(hasher, schema.XML.NodeType)
+		}
+	}
+
 	// Contains
 	if schema.Contains != nil {
 		h.writeString(hasher, "contains:")

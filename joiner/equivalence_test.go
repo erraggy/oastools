@@ -1395,3 +1395,61 @@ func TestEquivalenceResult_String_WithDifferences(t *testing.T) {
 	assert.Contains(t, s, "type")
 	assert.Contains(t, s, "type mismatch")
 }
+
+// TestCompareSchemas_XMLMismatch covers the XML Object, which deep comparison
+// ignored entirely.
+//
+// XML decides the element name, namespace, and node kind a value serializes to, so
+// two schemas whose XML differs describe different payloads. Reporting them as
+// equivalent let semantic deduplication merge them and silently change the wire
+// format — and the structural hash omitted XML too, so the two gaps hid each
+// other: such schemas rarely reached this comparison at all.
+func TestCompareSchemas_XMLMismatch(t *testing.T) {
+	tests := []struct {
+		name        string
+		left, right *parser.XML
+	}{
+		{"nodeType differs", &parser.XML{NodeType: "attribute"}, &parser.XML{NodeType: "text"}},
+		{"xml present vs absent", &parser.XML{Name: "tag"}, nil},
+		{"name differs", &parser.XML{Name: "tag"}, &parser.XML{Name: "label"}},
+		{"namespace differs", &parser.XML{Namespace: "https://a.example"}, &parser.XML{Namespace: "https://b.example"}},
+		{"prefix differs", &parser.XML{Prefix: "a"}, &parser.XML{Prefix: "b"}},
+		{"attribute differs", &parser.XML{Attribute: true}, &parser.XML{}},
+		{"wrapped differs", &parser.XML{Wrapped: true}, &parser.XML{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			left := &parser.Schema{Type: "string", XML: tt.left}
+			right := &parser.Schema{Type: "string", XML: tt.right}
+
+			result := CompareSchemas(left, right, EquivalenceModeDeep)
+
+			assert.False(t, result.Equivalent)
+			require.Len(t, result.Differences, 1)
+			assert.Equal(t, "xml", result.Differences[0].Path)
+			assert.Equal(t, "xml metadata mismatch", result.Differences[0].Description)
+		})
+	}
+}
+
+// TestCompareSchemas_XMLEquivalent is the control: identical XML must not be made
+// to differ, or deduplication stops consolidating schemas it always could.
+func TestCompareSchemas_XMLEquivalent(t *testing.T) {
+	xml := func() *parser.XML {
+		return &parser.XML{Name: "tag", Namespace: "https://example.com/ns", NodeType: "attribute"}
+	}
+	left := &parser.Schema{Type: "string", XML: xml()}
+	right := &parser.Schema{Type: "string", XML: xml()}
+
+	result := CompareSchemas(left, right, EquivalenceModeDeep)
+
+	assert.True(t, result.Equivalent, "identical xml must compare equal")
+	assert.Empty(t, result.Differences)
+
+	t.Run("both absent", func(t *testing.T) {
+		plainLeft := &parser.Schema{Type: "string"}
+		plainRight := &parser.Schema{Type: "string"}
+		assert.True(t, CompareSchemas(plainLeft, plainRight, EquivalenceModeDeep).Equivalent)
+	})
+}

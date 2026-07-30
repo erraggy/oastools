@@ -46,6 +46,30 @@ The parser automatically detects format from:
 2. Content inspection (JSON starts with `{` or `[`)
 3. Defaults to YAML if unknown
 
+### Unknown Fields Differ by Format
+
+Every parser struct carries an `Extra` map tagged ``yaml:",inline" json:"-"``, and
+the two halves of that tag do not do the same job:
+
+| Format | Unknown field | Result |
+|---|---|---|
+| YAML | any key the struct does not model | **preserved** — the inline map captures every unknown key |
+| JSON | `x-` extension | **preserved** — repopulated by `ExtractExtensions` |
+| JSON | anything else | **dropped** — `ExtractExtensions` keeps only `x-` prefixed keys |
+
+So a field oastools does not model survives a YAML round trip and is lost on a
+JSON one. YAML preserving it is incidental rather than designed: the inline map is
+simply indiscriminate.
+
+This matters when a document uses a specification field newer than the parser. All
+OAS 2.0 through 3.2.0 fixed fields are modeled, so a conformant document is not
+affected today — but a field added by a future OAS revision will round trip in
+YAML and disappear from JSON until it is modeled here. If you are relying on
+oastools to round trip a document containing fields it does not model, use YAML.
+
+Note that `Extra` holds only what the struct does not model; a field with a Go
+field of its own round trips identically in both formats.
+
 ### Discriminator Dialects
 
 OAS 2.0 spells a Schema Object's discriminator as a bare string naming the

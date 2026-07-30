@@ -510,6 +510,13 @@ func (c *Converter) convertOAS3ToOAS3(parseResult parser.ParseResult, targetVers
 		c.checkNullableDeprecation(converted, result)
 	}
 
+	// Report the 3.2 fixed fields when the target predates them. Gated on the
+	// target rather than on the source being 3.2, because a document may carry a
+	// 3.2 field whatever version string it declares.
+	if targetVersion < parser.OASVersion320 {
+		c.detectOAS32Features(converted, result)
+	}
+
 	return nil
 }
 

@@ -569,6 +569,24 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		path.pop()
 	}
 
+	// Compare xml
+	//
+	// XML decides the element name, namespace, and node kind a value serializes
+	// to, so two schemas whose XML differs describe different payloads and are not
+	// equivalent. Reporting them as equivalent let deduplication merge them and
+	// silently change the wire format; the missing entry in the structural hash
+	// hid it, because two such schemas rarely reached this comparison at all.
+	if !equalXMLObjects(left.XML, right.XML) {
+		path.push("xml")
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        path.String(),
+			LeftValue:   left.XML,
+			RightValue:  right.XML,
+			Description: "xml metadata mismatch",
+		})
+		path.pop()
+	}
+
 	// Compare const
 	if !reflect.DeepEqual(left.Const, right.Const) {
 		path.push("const")
@@ -888,6 +906,26 @@ func equalTypes(left, right any) bool {
 
 	// Different types
 	return false
+}
+
+// equalXMLObjects compares two XML Objects field by field.
+//
+// A nil XML object and a present one are not equal: absent XML means the
+// serializer infers everything, which is a different payload from one that names
+// an element or picks a node type. Attribute, Wrapped, and NodeType are compared
+// independently, matching how the parser models them — nothing here derives the
+// 3.2 nodeType from the two bools it supersedes, because the 3.2 default depends
+// on the enclosing schema and cannot be computed from the XML object alone.
+func equalXMLObjects(left, right *parser.XML) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.Name == right.Name &&
+		left.Namespace == right.Namespace &&
+		left.Prefix == right.Prefix &&
+		left.Attribute == right.Attribute &&
+		left.Wrapped == right.Wrapped &&
+		left.NodeType == right.NodeType
 }
 
 func equalStringSlices(left, right []string) bool {
