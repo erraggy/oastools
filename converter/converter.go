@@ -32,6 +32,24 @@ const (
 	securityTypeOAuth2 = "oauth2"
 )
 
+// OAuth flow names. The two versions agree on implicit and password and rename
+// the other two, which is the mapping convertSecuritySchemes implements.
+// https://spec.openapis.org/oas/v3.2.0.html#oauth-flows-object
+const (
+	// Spelled the same in both versions.
+	oauthFlowImplicit = "implicit"
+	oauthFlowPassword = "password"
+
+	// OAS 2.0 spellings of the remaining two.
+	oas2FlowApplication = "application"
+	oas2FlowAccessCode  = "accessCode"
+
+	// OAS 3.x spellings of the same two, plus the flow 3.2 added.
+	oas3FlowClientCredentials   = "clientCredentials"
+	oas3FlowAuthorizationCode   = "authorizationCode"
+	oas3FlowDeviceAuthorization = "deviceAuthorization"
+)
+
 // ConversionIssue represents a single conversion issue or limitation
 type ConversionIssue = issues.Issue
 

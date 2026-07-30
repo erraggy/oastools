@@ -279,14 +279,14 @@ func detectOAS32SecuritySchemeFeatures(scheme *parser.SecurityScheme, prefix str
 		return
 	}
 	if scheme.Flows.DeviceAuthorization != nil {
-		report(prefix+".flows", "deviceAuthorization")
+		report(prefix+".flows", oas3FlowDeviceAuthorization)
 	}
 	for name, flow := range map[string]*parser.OAuthFlow{
-		"implicit":            scheme.Flows.Implicit,
-		"password":            scheme.Flows.Password,
-		"clientCredentials":   scheme.Flows.ClientCredentials,
-		"authorizationCode":   scheme.Flows.AuthorizationCode,
-		"deviceAuthorization": scheme.Flows.DeviceAuthorization,
+		oauthFlowImplicit:           scheme.Flows.Implicit,
+		oauthFlowPassword:           scheme.Flows.Password,
+		oas3FlowClientCredentials:   scheme.Flows.ClientCredentials,
+		oas3FlowAuthorizationCode:   scheme.Flows.AuthorizationCode,
+		oas3FlowDeviceAuthorization: scheme.Flows.DeviceAuthorization,
 	} {
 		if flow != nil && flow.DeviceAuthorizationURL != "" {
 			report(prefix+".flows."+name, "deviceAuthorizationUrl")
