@@ -1,5 +1,6 @@
 // oas32_features.go reports the OAS 3.2.0 fixed fields a document uses when the
 // conversion target predates 3.2.
+// https://spec.openapis.org/oas/v3.2.0.html
 
 package converter
 
@@ -13,29 +14,18 @@ import (
 // detectOAS32Features reports every OAS 3.2 fixed field the document uses, for a
 // conversion whose target version predates 3.2.
 //
-// Reporting rather than stripping is this package's established convention for a
-// field the target does not define. detectOAS3SchemaFeatures leaves `nullable`,
-// `if`, `prefixItems` and the rest in place and records an issue; convertOAS3ToOAS3
-// removes nothing at all, so even a 3.1 to 3.0 conversion keeps $defs. A field is
-// cleared only where the target's serialization structurally cannot hold it: see
-// discriminatorToStringForm, where the OAS 2.0 bare-string discriminator has
-// nowhere to put `mapping` or `defaultMapping`.
+// Reporting rather than stripping is this package's convention: detectOAS3SchemaFeatures
+// leaves `nullable`, `if`, and `prefixItems` in place and records an issue, and
+// convertOAS3ToOAS3 removes nothing at all. A field is cleared only where the target
+// cannot serialize it, as discriminatorToStringForm does for `mapping`.
 //
-// Before this ran, `query` and `additionalOperations` were the only 3.2 features
-// reported on downconversion, and only on the OAS 2.0 path. The fixed fields 3.2
-// added were emitted into a 3.0 or 3.1 document with no warning at all, which is
-// the half of issue #397 that survives once the fields are modeled: they now round
-// trip, so they reach a target that has no meaning for them.
-//
-// Severity is Warning rather than Critical throughout. These are additive
-// annotations (a name for a server, a summary for a tag) so a consumer of the
-// converted document is no worse off than before the field existed. That is
-// unlike `query` or `additionalOperations`, which describe an operation the target
-// version cannot express at all and are reported as Critical where they are found.
+// Severity is Warning because these are additive annotations, unlike `query` and
+// `additionalOperations`, which describe an operation the target cannot express and
+// are Critical where the OAS 2.0 path finds them.
 func (c *Converter) detectOAS32Features(doc *parser.OAS3Document, result *ConversionResult) {
 	target := result.TargetVersion
 
-	// define our oas32Reporter to use here and pass into downnstream functions expecting it
+	// The oas32Reporter used here and passed into the downstream detectors.
 	report := func(path, field string) {
 		c.addIssueWithContext(result, path,
 			fmt.Sprintf("'%s' is OAS 3.2+ only and has no equivalent in OAS %s", field, target),
@@ -128,11 +118,9 @@ func (c *Converter) detectOAS32PathItemFeatures(
 		c.detectOAS32ParameterFeatures(param, prefix+".parameters["+strconv.Itoa(i)+"]", report)
 	}
 
-	// GetOperations only surfaces query and additionalOperations at 3.2+, which is
-	// exactly the case this function runs in, so the 3.2 methods are covered by the
-	// loop rather than needing their own checks. They are reported as Critical
-	// where the OAS 2.0 path finds them, since an operation the target cannot
-	// express is a different kind of loss from an unusable annotation.
+	// GetOperations surfaces `query` and `additionalOperations` at 3.2+, so the loop
+	// covers them without checks of their own. Both are reported as Critical where
+	// the OAS 2.0 path finds them: a lost operation is not a lost annotation.
 	for method, op := range parser.GetOperations(item, version) {
 		if op == nil {
 			continue
@@ -153,6 +141,8 @@ func (c *Converter) detectOAS32PathItemFeatures(
 	}
 }
 
+// detectOAS32ParameterFeatures reports `in: "querystring"`, new in 3.2.
+// https://spec.openapis.org/oas/v3.2.0.html#parameter-in
 func (c *Converter) detectOAS32ParameterFeatures(param *parser.Parameter, prefix string, report oas32Reporter) {
 	if param == nil || param.Ref != "" {
 		return
@@ -176,6 +166,8 @@ func (c *Converter) detectOAS32HeaderFeatures(header *parser.Header, prefix stri
 	c.detectOAS32ContentFeatures(header.Content, prefix, report)
 }
 
+// detectOAS32ResponseFeatures reports the Response Object's `summary`.
+// https://spec.openapis.org/oas/v3.2.0.html#response-object
 func (c *Converter) detectOAS32ResponseFeatures(resp *parser.Response, prefix string, report oas32Reporter) {
 	if resp == nil || resp.Ref != "" {
 		return
@@ -195,6 +187,8 @@ func (c *Converter) detectOAS32ContentFeatures(content map[string]*parser.MediaT
 	}
 }
 
+// detectOAS32MediaTypeFeatures reports the sequential-media-type fields.
+// https://spec.openapis.org/oas/v3.2.0.html#media-type-object
 func (c *Converter) detectOAS32MediaTypeFeatures(mt *parser.MediaType, prefix string, report oas32Reporter) {
 	if mt == nil {
 		return
@@ -223,11 +217,15 @@ func (c *Converter) detectOAS32MediaTypeFeatures(mt *parser.MediaType, prefix st
 	}
 }
 
-// maxEncodingNestingDepth bounds the recursive Encoding walk. The parser decodes
-// each level into a fresh value, so a document cannot build a cyclic Encoding
-// graph, but the bound keeps a hand-assembled one from recursing without end.
+// maxEncodingNestingDepth bounds the recursive Encoding walk 3.2 introduced.
+// https://spec.openapis.org/oas/v3.2.0.html#encoding-object
+//
+// A parsed document cannot build a cyclic Encoding graph, but the bound keeps a
+// hand-assembled one from recursing without end.
 const maxEncodingNestingDepth = 100
 
+// detectOAS32EncodingFeatures reports the nesting fields 3.2 added to Encoding.
+// https://spec.openapis.org/oas/v3.2.0.html#encoding-object
 func detectOAS32EncodingFeatures(enc *parser.Encoding, prefix string, report oas32Reporter, depth int) {
 	if enc == nil || depth > maxEncodingNestingDepth {
 		return
@@ -251,6 +249,8 @@ func detectOAS32EncodingFeatures(enc *parser.Encoding, prefix string, report oas
 	}
 }
 
+// detectOAS32ExampleFeatures reports `dataValue` and `serializedValue`.
+// https://spec.openapis.org/oas/v3.2.0.html#fixed-fields-15
 func detectOAS32ExampleFeatures(ex *parser.Example, prefix string, report oas32Reporter) {
 	if ex == nil || ex.Ref != "" {
 		return
@@ -263,6 +263,8 @@ func detectOAS32ExampleFeatures(ex *parser.Example, prefix string, report oas32R
 	}
 }
 
+// detectOAS32SecuritySchemeFeatures reports the scheme and OAuth flow additions.
+// https://spec.openapis.org/oas/v3.2.0.html#security-scheme-object
 func detectOAS32SecuritySchemeFeatures(scheme *parser.SecurityScheme, prefix string, report oas32Reporter) {
 	if scheme == nil || scheme.Ref != "" {
 		return
@@ -292,12 +294,11 @@ func detectOAS32SecuritySchemeFeatures(scheme *parser.SecurityScheme, prefix str
 	}
 }
 
-// detectOAS32SchemaFeatures reports the 3.2 fields carried by a Schema Object and
-// its nested schemas.
+// detectOAS32SchemaFeatures reports `discriminator.defaultMapping` and
+// `xml.nodeType` on a Schema Object and its nested schemas.
 //
-// A schema with a $ref is skipped for the same reason walkSchemaFeatures skips
-// one: the definition it names is walked at the top level, so checking here would
-// double-report.
+// A schema with a `$ref` is skipped for the same reason walkSchemaFeatures skips
+// one: the definition it names is walked at the top level.
 func (c *Converter) detectOAS32SchemaFeatures(
 	schema *parser.Schema,
 	prefix string,
@@ -341,8 +342,8 @@ func (c *Converter) detectOAS32SchemaFeatures(
 		c.detectOAS32SchemaFeatures(s, prefix+".prefixItems["+strconv.Itoa(i)+"]", report, visited)
 	}
 
-	// Schema-or-bool fields always decode to *Schema, []*Schema, or bool; only the
-	// first two need walking. See the parser's promotion note.
+	// Schema-or-bool fields decode to *Schema, []*Schema, or bool; only the first
+	// two need walking.
 	for field, value := range map[string]any{
 		"additionalProperties":  schema.AdditionalProperties,
 		"items":                 schema.Items,

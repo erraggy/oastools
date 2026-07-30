@@ -155,6 +155,11 @@ func filterWalkOperations(ops []*walker.OperationInfo, input walkOperationsInput
 		hasExtFilter = true
 	}
 
+	// Nothing to filter: skip the walk and the allocation.
+	if len(ops) == 0 {
+		return nil, nil
+	}
+
 	matched := make([]*walker.OperationInfo, 0, len(ops))
 	for _, op := range ops {
 		if input.Method != "" && !strings.EqualFold(op.Method, input.Method) {

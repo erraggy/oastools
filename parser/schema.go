@@ -112,18 +112,16 @@ type Discriminator struct {
 	Mapping      map[string]string `yaml:"mapping,omitempty" json:"mapping,omitempty"` // OAS 3.0+ only
 
 	// DefaultMapping names the schema to use when the discriminating property is
-	// absent, or present with a value no Mapping key covers.
+	// absent, or holds a value no Mapping key covers (OAS 3.2+).
+	// https://spec.openapis.org/oas/v3.2.0.html#discriminator-default-mapping
 	//
-	// It is reference-bearing in exactly the way a Mapping value is: the value is
-	// either a schema name or a URI reference. Every pass that rewrites Mapping —
-	// joining documents, renaming schemas, converting between versions — must
-	// rewrite this alongside it, or the rewrite produces a dangling reference here
-	// while reporting success.
+	// Reference-bearing exactly as a Mapping value is: a schema name or a URI
+	// reference. Every pass that rewrites Mapping (joining, renaming, converting)
+	// must rewrite this too, or leave a dangling reference while reporting success.
 	//
-	// The spec makes it conditionally required: when the discriminating property is
-	// optional, the Discriminator Object MUST include defaultMapping. That is a
-	// validator rule rather than a parser one, since presence of the property in
-	// `required` is only knowable from the enclosing schema.
+	// Its conditional requirement is a validator rule, not a parser one: whether the
+	// discriminating property is optional is only knowable from the enclosing
+	// schema.
 	DefaultMapping string         `yaml:"defaultMapping,omitempty" json:"defaultMapping,omitempty"` // OAS 3.2+
 	Extra          map[string]any `yaml:",inline" json:"-"`
 
@@ -139,9 +137,10 @@ type Discriminator struct {
 }
 
 // XML represents metadata for XML encoding (OAS 2.0+)
+// https://spec.openapis.org/oas/v3.2.0.html#xml-object
 //
-// NodeType supersedes Attribute and Wrapped in OAS 3.2, and is modeled beside
-// them rather than derived from either. See the field's own comment for why.
+// NodeType supersedes Attribute and Wrapped in OAS 3.2 and is modeled beside them
+// rather than derived from either. See the field's own comment for why.
 type XML struct {
 	Name      string `yaml:"name,omitempty" json:"name,omitempty"`
 	Namespace string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
@@ -149,21 +148,15 @@ type XML struct {
 	Attribute bool   `yaml:"attribute,omitempty" json:"attribute,omitempty"`
 	Wrapped   bool   `yaml:"wrapped,omitempty" json:"wrapped,omitempty"`
 
-	// NodeType selects the XML node a schema maps to: "element", "attribute",
-	// "text", "cdata", or "none". It supersedes Attribute and Wrapped.
+	// NodeType selects the XML node a schema maps to, superseding Attribute and
+	// Wrapped (OAS 3.2+).
+	// https://spec.openapis.org/oas/v3.2.0.html#xml-node-type
 	//
-	// Deliberately an independent field, not a third spelling reconciled with the
-	// two bools. Collapsing the two representations into one is what made
-	// discriminator's dual dialect need StringForm to stay lossless (#394), and
-	// here it would be worse than lossy: the 3.2 default for nodeType is not a
-	// constant, it depends on the enclosing schema — "none" when the schema is a
-	// $ref or $dynamicRef, or holds certain types — and an XML object cannot see
-	// its schema from here. Synthesizing a value would therefore mean inventing one
-	// that the document did not state and that this type cannot compute correctly.
-	//
-	// Keeping them independent means each survives a round trip exactly as written,
-	// and no document gains a field it did not have. Reconciling a document that
-	// sets both is the validator's job, which is where the OAS version is known.
+	// Deliberately independent of those two bools rather than reconciled with them.
+	// Its default depends on the enclosing Schema Object, which an XML Object cannot
+	// see, so deriving a value here would invent one the document never stated.
+	// Keeping them independent lets each survive a round trip as written; the spec
+	// forbids setting both, and the validator enforces that.
 	NodeType string `yaml:"nodeType,omitempty" json:"nodeType,omitempty"` // OAS 3.2+
 
 	Extra map[string]any `yaml:",inline" json:"-"`

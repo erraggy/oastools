@@ -1,10 +1,9 @@
-// oas32.go implements the OAS 3.2.0 constraints that are more than presence
-// checks — the rules where a field's legality depends on a sibling field, on the
-// document's version, or on another parameter in the same effective list.
+// oas32.go implements the OAS 3.2.0 constraints that depend on more than a
+// field's presence: a sibling field, the document version, or another parameter
+// in the same effective list.
 //
-// Every rule here is quoted from versions/3.2.0.md in OAI/OpenAPI-Specification
-// at the site that enforces it, because several of them read as though they were
-// warnings and are in fact MUST NOTs.
+// Each rule links to the section of the specification that states it rather than
+// restating it here. https://spec.openapis.org/oas/v3.2.0.html
 
 package validator
 
@@ -16,59 +15,33 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// oas32SpecRef is the base URL for the 3.2.0 spec, used for every rule in this
-// file. The rules only exist at 3.2, so unlike the version-varying checks
-// elsewhere there is nothing to select between.
+// oas32SpecRef is the OAS 3.2.0 specification. Every rule in this file exists
+// only at 3.2, so there is no version to select between.
 const oas32SpecRef = "https://spec.openapis.org/oas/v3.2.0.html"
 
-// xmlNodeTypes is the closed set the XML Object's nodeType may take:
+// xmlNodeTypes is the closed set `nodeType` accepts.
+// https://spec.openapis.org/oas/v3.2.0.html#xml-node-type
 //
-//	One of `element`, `attribute`, `text`, `cdata`, or `none`
-//
-// Quoted from the XML Object's fixed fields table. The default is deliberately
-// not modeled — it is "none if $ref, $dynamicRef, or type: "array" is present in
-// the Schema Object containing the XML Object, and element otherwise", which
-// depends on the enclosing schema rather than on the XML Object.
+// Its default is not modeled: the default depends on the enclosing Schema Object,
+// which an XML Object cannot see.
 var xmlNodeTypes = []string{"element", "attribute", "text", "cdata", "none"}
 
-// oas32TraversalApplies reports whether the traversal-driven 3.2 rules are worth
-// walking the document for.
+// oas32TraversalApplies reports whether the traversal-driven 3.2 rules apply.
 //
-// Gated on the version because these rules read Example.dataValue,
-// Example.serializedValue, and in: "querystring" — fields OAS 3.2 introduced. A
-// pre-3.2 document cannot legally carry any of them, and walking every media
-// type, header, and encoding of such a document to say so is not free: the walk
-// builds a JSON path string per operation, response, and media type it passes,
-// which measured as roughly a 20% increase in validator allocations across every
-// document size. Skipping it keeps 3.0 and 3.1 documents at exactly their
-// previous cost.
-//
-// What that gives up is narrow. `in: "querystring"` below 3.2 is already rejected
-// by the parser's structure validation, so nothing is lost there. A pre-3.2
-// document carrying dataValue or serializedValue goes unreported by these rules —
-// an unknown field for its version, which is the parser's business rather than a
-// cross-field constraint. The schema-level 3.2 rules keep their version checks,
-// because validateSchema already visits every schema and they cost a nil test.
+// They read fields 3.2 introduced, and the walk is not free: it builds a JSON path
+// per operation, response, and media type it passes, which ungated cost roughly
+// 20% more validator allocations on every document. An unrecognized version counts
+// as in scope, so a document the parser could not classify is still checked.
 func oas32TraversalApplies(version parser.OASVersion) bool {
 	return !version.IsValid() || version >= parser.OASVersion320
 }
 
-// validateOAS32Document runs the 3.2 cross-field rules that are not reachable
-// from schema validation.
+// validateOAS32Document runs the 3.2 rules over the Components sections. Path
+// items go through [Validator.validateOAS32PathItem], called from the passes that
+// already hold their operations map.
 //
-// The schema-level rules (XML nodeType, discriminator defaultMapping) hang off
-// validateSchema instead, so they reach every schema the validator already
-// visits rather than needing a second traversal of their own.
-//
-// The Example and querystring rules do need a traversal — the validator has
-// never visited Example Objects, and the querystring rules need a path item's
-// parameters together with each operation's. They share one pass over the path
-// items rather than taking a pass each, because [parser.GetOperations] builds a
-// map per call and this package already calls it three times per path item.
-// Maps are ranged directly rather than in sorted order for the same reason:
-// sorting every map in the document allocates on every document to make error
-// ordering deterministic in the rare document that has an error, and the
-// surrounding validator ranges doc.Paths directly for exactly this reason.
+// The schema-level rules hang off validateSchema instead, which already visits
+// every schema.
 func (v *Validator) validateOAS32Document(doc *parser.OAS3Document, result *ValidationResult) {
 	if !oas32TraversalApplies(doc.OASVersion) || doc.Components == nil {
 		return
@@ -81,9 +54,8 @@ func (v *Validator) validateOAS32Document(doc *parser.OAS3Document, result *Vali
 	for name, param := range c.Parameters {
 		prefix := "components.parameters." + name
 		v.visitParameterExamples(param, prefix, result)
-		// A parameter definition gets its declaration-site rules only: which
-		// operations reference it is not knowable from here, so the interaction
-		// rules are left to the use sites.
+		// Declaration-site rules only: which operations reference this definition is
+		// not knowable here, so the interaction rules are left to the use sites.
 		v.validateQueryStringParam(param, prefix, result)
 	}
 	for name, header := range c.Headers {
@@ -102,14 +74,10 @@ func (v *Validator) validateOAS32Document(doc *parser.OAS3Document, result *Vali
 	}
 }
 
-// validateOAS32PathItem applies the traversal-driven 3.2 rules — Example Object
-// exclusivity and the in: "querystring" constraints — to one path item.
-//
-// ops and version are passed in rather than derived here because every caller is
-// a pass that already holds both. [parser.GetOperations] allocates a map per call, and this
-// package already calls it three times per path item; a fourth traversal of its
-// own measured as roughly a 20% increase in validator allocations on a large
-// document, for rules that fire on almost none.
+// validateOAS32PathItem applies the Example and `querystring` rules to one path
+// item. ops and version come from the caller because every caller already holds
+// them; building another operations map here cost roughly 20% more validator
+// allocations, for rules that fire on almost no document.
 func (v *Validator) validateOAS32PathItem(
 	item *parser.PathItem,
 	prefix string,
@@ -165,21 +133,14 @@ func (v *Validator) validateOAS32PathItem(
 // Example Object: dataValue / serializedValue exclusivity
 // =============================================================================
 
-// validateExampleValueExclusivity enforces the Example Object's mutual-exclusion
-// rules, quoted from the 3.2.0 fixed fields table:
+// validateExampleValueExclusivity enforces the Example Object's mutual exclusions:
+// `dataValue` and `serializedValue` each forbid `value`, and `serializedValue`
+// also forbids `externalValue`.
+// https://spec.openapis.org/oas/v3.2.0.html#fixed-fields-15
 //
-//	dataValue        — "If this field is present, `value` MUST be absent."
-//	serializedValue  — "If this field is present, `value`, and `externalValue`
-//	                    MUST be absent."
-//	externalValue    — "If this field is present, `serializedValue` and `value`
-//	                    MUST be absent."
-//
-// dataValue and serializedValue together are explicitly fine — the spec's own
-// Example Object example sets both — so no rule pairs those two.
-//
-// Reached only for a 3.2+ document (or one whose version could not be
-// recognized): [oas32TraversalApplies] gates the walk that finds these objects,
-// so there is no pre-3.2 branch to take here.
+// `dataValue` with `serializedValue` is legal, so no rule pairs those two.
+// [oas32TraversalApplies] gates the walk that reaches here, so there is no
+// pre-3.2 branch to take.
 func (v *Validator) validateExampleValueExclusivity(ex *parser.Example, path string, result *ValidationResult) {
 	if ex == nil {
 		return
@@ -200,21 +161,21 @@ func (v *Validator) validateExampleValueExclusivity(ex *parser.Example, path str
 	if hasData && ex.Value != nil {
 		v.addError(result, path,
 			"Example must not have both dataValue and value; dataValue requires value to be absent",
-			withSpecRef(oas32SpecRef+"#example-object"),
+			withSpecRef(oas32SpecRef+"#fixed-fields-15"),
 			withField("dataValue"),
 		)
 	}
 	if hasSerialized && ex.Value != nil {
 		v.addError(result, path,
 			"Example must not have both serializedValue and value; serializedValue requires value to be absent",
-			withSpecRef(oas32SpecRef+"#example-object"),
+			withSpecRef(oas32SpecRef+"#fixed-fields-15"),
 			withField("serializedValue"),
 		)
 	}
 	if hasSerialized && ex.ExternalValue != "" {
 		v.addError(result, path,
 			"Example must not have both serializedValue and externalValue; serializedValue requires externalValue to be absent",
-			withSpecRef(oas32SpecRef+"#example-object"),
+			withSpecRef(oas32SpecRef+"#fixed-fields-15"),
 			withField("serializedValue"),
 		)
 	}
@@ -263,8 +224,8 @@ func (v *Validator) visitMediaTypeExamples(mt *parser.MediaType, prefix string, 
 	for name, ex := range mt.Examples {
 		v.validateExampleValueExclusivity(ex, prefix+".examples."+name, result)
 	}
-	// Encoding Objects carry Headers, which carry Examples. Reached through the
-	// OAS 3.2 nested encodings too, since an Encoding may now contain Encodings.
+	// Encoding Objects carry Headers, which carry Examples, including through the
+	// nested encodings 3.2 added.
 	for name, enc := range mt.Encoding {
 		v.visitEncodingExamples(enc, prefix+".encoding."+name, result, 0)
 	}
@@ -274,11 +235,9 @@ func (v *Validator) visitMediaTypeExamples(mt *parser.MediaType, prefix string, 
 	}
 }
 
-// maxEncodingNestingDepth bounds the OAS 3.2 recursive Encoding traversal.
-//
-// The parser decodes each level into a fresh value, so a document cannot produce
-// a cyclic Encoding graph — but a depth bound costs nothing and keeps a
-// hand-assembled document from recursing without end.
+// maxEncodingNestingDepth bounds the recursive Encoding traversal 3.2 introduced.
+// A parsed document cannot build a cyclic Encoding graph, but the bound keeps a
+// hand-assembled one from recursing without end.
 const maxEncodingNestingDepth = 100
 
 func (v *Validator) visitEncodingExamples(enc *parser.Encoding, prefix string, result *ValidationResult, depth int) {
@@ -301,8 +260,8 @@ func (v *Validator) visitEncodingExamples(enc *parser.Encoding, prefix string, r
 // Parameter Object: in: "querystring"
 // =============================================================================
 
-// countQueryLocations counts the querystring and query parameters in one list.
-// A $ref parameter contributes to neither: its `in` lives on the definition, and
+// countQueryLocations counts the `querystring` and `query` parameters in one list.
+// A `$ref` parameter counts as neither: its `in` lives on the definition, and
 // guessing would report a conflict that may not exist.
 func countQueryLocations(params []*parser.Parameter) (queryString, query int) {
 	for _, param := range params {
@@ -319,13 +278,14 @@ func countQueryLocations(params []*parser.Parameter) (queryString, query int) {
 	return queryString, query
 }
 
-// reportQueryStringConflicts reports the two interaction rules for one effective
-// parameter list.
+// reportQueryStringConflicts reports the two `querystring` interaction rules for
+// one effective parameter list: at most one, and never alongside `in: "query"`.
+// https://spec.openapis.org/oas/v3.2.0.html#parameter-in
 func (v *Validator) reportQueryStringConflicts(queryString, query int, prefix string, result *ValidationResult) {
 	if queryString > 1 {
 		v.addError(result, prefix,
 			fmt.Sprintf("A querystring parameter must not appear more than once, but %d were found", queryString),
-			withSpecRef(oas32SpecRef+"#parameter-object"),
+			withSpecRef(oas32SpecRef+"#parameter-in"),
 			withField("parameters"),
 		)
 	}
@@ -333,22 +293,18 @@ func (v *Validator) reportQueryStringConflicts(queryString, query int, prefix st
 		v.addError(result, prefix,
 			"A querystring parameter must not appear alongside any 'in: query' parameter "+
 				"in the same operation or its path item",
-			withSpecRef(oas32SpecRef+"#parameter-object"),
+			withSpecRef(oas32SpecRef+"#parameter-in"),
 			withField("parameters"),
 		)
 	}
 }
 
-// validateQueryStringParam enforces the rules a single querystring parameter must
-// satisfy on its own: that it is described with `content` rather than `schema`.
+// validateQueryStringParam enforces what an `in: "querystring"` parameter must
+// satisfy on its own: described with `content`, and none of the schema-form fields
+// present.
+// https://spec.openapis.org/oas/v3.2.0.html#fixed-fields-for-use-with-schema
 //
-// The `schema` prohibition is stated in the spec under "Fixed Fields for use with
-// `schema`" — "These fields MUST NOT be used with in: "querystring"" — and covers
-// style, explode, and allowReserved alongside schema itself.
-//
-// The version this location was introduced in is enforced by the parser's
-// structure validation, which rejects in: "querystring" outright below 3.2, so
-// there is nothing to re-report here.
+// The version gate belongs to the parser, which rejects the location below 3.2.
 func (v *Validator) validateQueryStringParam(param *parser.Parameter, path string, result *ValidationResult) {
 	if param == nil || param.Ref != "" || param.In != parser.ParamInQueryString {
 		return
@@ -357,19 +313,19 @@ func (v *Validator) validateQueryStringParam(param *parser.Parameter, path strin
 	if len(param.Content) == 0 {
 		v.addError(result, path,
 			"A querystring parameter must be specified using the content field",
-			withSpecRef(oas32SpecRef+"#parameter-object"),
+			withSpecRef(oas32SpecRef+"#fixed-fields-for-use-with-schema"),
 			withField("content"),
 		)
 	}
 	if param.Schema != nil {
 		v.addError(result, path,
 			"A querystring parameter must not use schema; the entire query string is described with content",
-			withSpecRef(oas32SpecRef+"#parameter-object"),
+			withSpecRef(oas32SpecRef+"#fixed-fields-for-use-with-schema"),
 			withField("schema"),
 		)
 	}
-	// style, explode, and allowReserved are listed under "Fixed Fields for use
-	// with `schema`" alongside schema itself, so the same prohibition covers them.
+	// Listed alongside `schema` in the section linked above, so the same
+	// prohibition covers them.
 	for _, f := range []struct {
 		name    string
 		present bool
@@ -383,7 +339,7 @@ func (v *Validator) validateQueryStringParam(param *parser.Parameter, path strin
 		}
 		v.addError(result, path,
 			fmt.Sprintf("A querystring parameter must not use %s; that field is for use with schema", f.name),
-			withSpecRef(oas32SpecRef+"#parameter-object"),
+			withSpecRef(oas32SpecRef+"#fixed-fields-for-use-with-schema"),
 			withField(f.name),
 		)
 	}
@@ -400,13 +356,12 @@ func (v *Validator) validateOAS32SchemaFields(schema *parser.Schema, path string
 	v.validateDiscriminatorDefaultMapping(schema, path, result)
 }
 
-// validateXMLNodeType enforces the XML Object's nodeType rules.
+// validateXMLNodeType enforces the XML Object's `nodeType` rules: a value from the
+// closed set, and neither `attribute` nor `wrapped` present alongside it.
+// https://spec.openapis.org/oas/v3.2.0.html#xml-node-type
 //
-// Both bools it supersedes are a hard conflict, not a style preference — the
-// fixed fields table says of each: "If `nodeType` is present, this field MUST NOT
-// be present." That is what makes modeling nodeType as an independent field
-// correct rather than lazy: a document may legally set the bools *or* nodeType,
-// never both, so there is no case where one has to be derived from the other.
+// The two bools are a MUST NOT rather than a preference, which is why the parser
+// models `nodeType` beside them instead of deriving one from the other.
 func (v *Validator) validateXMLNodeType(schema *parser.Schema, path string, result *ValidationResult) {
 	if schema.XML == nil || schema.XML.NodeType == "" {
 		return
@@ -416,7 +371,7 @@ func (v *Validator) validateXMLNodeType(schema *parser.Schema, path string, resu
 	if v.oasVersion.IsValid() && v.oasVersion < parser.OASVersion320 {
 		v.addError(result, xmlPath,
 			fmt.Sprintf("XML nodeType is only supported in OAS 3.2+, but document is version %s", v.oasVersion),
-			withSpecRef(oas32SpecRef+"#xml-object"),
+			withSpecRef(oas32SpecRef+"#xml-node-type"),
 			withField("nodeType"),
 			withValue(schema.XML.NodeType),
 		)
@@ -426,7 +381,7 @@ func (v *Validator) validateXMLNodeType(schema *parser.Schema, path string, resu
 	if !slices.Contains(xmlNodeTypes, schema.XML.NodeType) {
 		v.addError(result, xmlPath,
 			fmt.Sprintf("Invalid XML nodeType %q; must be one of element, attribute, text, cdata, none", schema.XML.NodeType),
-			withSpecRef(oas32SpecRef+"#xml-object"),
+			withSpecRef(oas32SpecRef+"#xml-node-type"),
 			withField("nodeType"),
 			withValue(schema.XML.NodeType),
 		)
@@ -435,36 +390,29 @@ func (v *Validator) validateXMLNodeType(schema *parser.Schema, path string, resu
 	if schema.XML.Attribute {
 		v.addError(result, xmlPath,
 			"XML attribute must not be present when nodeType is present; use nodeType: attribute instead",
-			withSpecRef(oas32SpecRef+"#xml-object"),
+			withSpecRef(oas32SpecRef+"#xml-attribute"),
 			withField("attribute"),
 		)
 	}
 	if schema.XML.Wrapped {
 		v.addError(result, xmlPath,
 			"XML wrapped must not be present when nodeType is present; use nodeType: element instead",
-			withSpecRef(oas32SpecRef+"#xml-object"),
+			withSpecRef(oas32SpecRef+"#xml-wrapped"),
 			withField("wrapped"),
 		)
 	}
 }
 
-// validateDiscriminatorDefaultMapping enforces the conditional requirement the
-// 3.2 spec places on defaultMapping:
+// validateDiscriminatorDefaultMapping enforces that an optional discriminating
+// property requires `defaultMapping`.
+// https://spec.openapis.org/oas/v3.2.0.html#discriminator-default-mapping
 //
-//	The discriminating property MAY be defined as required or optional, but when
-//	defined as an optional property the Discriminator Object MUST include a
-//	`defaultMapping` field […]
+// Reported only where "optional" is locally provable: this schema declares the
+// property and omits it from `required`. When the property lives in `oneOf` or
+// `anyOf` subschemas instead, reporting from here would be a guess, and a false
+// report on a correct document is the worse failure.
 //
-// Reported only when this schema itself declares the discriminating property and
-// omits it from `required`, which is the case where "defined as an optional
-// property" is locally provable. When the property is declared in the subschemas
-// of a oneOf/anyOf instead — the more common shape — its optionality is a property
-// of those subschemas, and reporting from here would mean guessing. Staying
-// silent loses findings; guessing invents them, and a false "must include
-// defaultMapping" on a correct document is the worse failure.
-//
-// Below 3.2 the field does not exist, so a document carrying it is reported as a
-// version error rather than checked.
+// Below 3.2 the field does not exist, so its presence is a version error.
 func (v *Validator) validateDiscriminatorDefaultMapping(schema *parser.Schema, path string, result *ValidationResult) {
 	d := schema.Discriminator
 	if d == nil {
@@ -475,7 +423,7 @@ func (v *Validator) validateDiscriminatorDefaultMapping(schema *parser.Schema, p
 		if v.oasVersion.IsValid() && v.oasVersion < parser.OASVersion320 {
 			v.addError(result, path+".discriminator",
 				fmt.Sprintf("discriminator defaultMapping is only supported in OAS 3.2+, but document is version %s", v.oasVersion),
-				withSpecRef(oas32SpecRef+"#discriminator-object"),
+				withSpecRef(oas32SpecRef+"#discriminator-default-mapping"),
 				withField("defaultMapping"),
 				withValue(d.DefaultMapping),
 			)
@@ -500,7 +448,7 @@ func (v *Validator) validateDiscriminatorDefaultMapping(schema *parser.Schema, p
 
 	v.addError(result, path+".discriminator",
 		fmt.Sprintf("Discriminator must include defaultMapping because the discriminating property '%s' is optional", d.PropertyName),
-		withSpecRef(oas32SpecRef+"#discriminator-object"),
+		withSpecRef(oas32SpecRef+"#discriminator-default-mapping"),
 		withField("defaultMapping"),
 		withValue(d.PropertyName),
 	)

@@ -154,6 +154,11 @@ func filterWalkParameters(params []*walker.ParameterInfo, input walkParametersIn
 		hasExtFilter = true
 	}
 
+	// Nothing to filter: skip the walk and the allocation.
+	if len(params) == 0 {
+		return nil, nil
+	}
+
 	matched := make([]*walker.ParameterInfo, 0, len(params))
 	for _, info := range params {
 		if input.In != "" && !strings.EqualFold(info.In, input.In) {

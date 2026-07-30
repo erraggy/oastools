@@ -170,6 +170,11 @@ func filterWalkSchemas(schemas []*walker.SchemaInfo, input walkSchemasInput) ([]
 		hasExtFilter = true
 	}
 
+	// Nothing to filter: skip the walk and the allocation.
+	if len(schemas) == 0 {
+		return nil, nil
+	}
+
 	filtered := make([]*walker.SchemaInfo, 0, len(schemas))
 	for _, info := range schemas {
 		if input.Name != "" && !matchGlobName(info.Name, input.Name) {

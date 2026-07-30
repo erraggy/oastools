@@ -146,9 +146,10 @@ type Link struct {
 
 // MediaType provides schema and examples for the media type (OAS 3.0+)
 //
-// The three OAS 3.2 fields describe sequential media types — a stream of items
-// such as JSON Lines or multipart — where the schema and encoding apply to each
-// item rather than to the payload as a whole.
+// The three OAS 3.2 fields describe sequential media types (a stream of items such
+// as JSON Lines or multipart), where the schema and encoding apply to each item
+// rather than to the payload as a whole.
+// https://spec.openapis.org/oas/v3.2.0.html#media-type-object
 type MediaType struct {
 	Schema   *Schema              `yaml:"schema,omitempty" json:"schema,omitempty"`
 	Example  any                  `yaml:"example,omitempty" json:"example,omitempty"`
@@ -176,15 +177,15 @@ type Example struct {
 	Value         any    `yaml:"value,omitempty" json:"value,omitempty"`
 	ExternalValue string `yaml:"externalValue,omitempty" json:"externalValue,omitempty"`
 
-	// DataValue holds the example as structured data, replacing Value in OAS 3.2
-	// where the distinction from SerializedValue matters (OAS 3.2+).
+	// DataValue holds the example as structured data, superseding Value (OAS 3.2+).
+	// https://spec.openapis.org/oas/v3.2.0.html#example-data-value
 	//
-	// Mutually exclusive with Value: "If this field is present, value MUST be
-	// absent." Enforced by the validator, not here — a parser that rejected one of
-	// the two could not round-trip a document to report the problem.
+	// Its exclusivity with Value is enforced by the validator, not here: a parser
+	// that rejected the pair could not round trip the document to report it.
 	DataValue any `yaml:"dataValue,omitempty" json:"dataValue,omitempty"` // OAS 3.2+
-	// SerializedValue holds the example already serialized for its media type
-	// (OAS 3.2+). Mutually exclusive with Value on the same terms as DataValue.
+	// SerializedValue holds the example already serialized for its media type,
+	// excluding Value and ExternalValue (OAS 3.2+).
+	// https://spec.openapis.org/oas/v3.2.0.html#example-serialized-value
 	SerializedValue string `yaml:"serializedValue,omitempty" json:"serializedValue,omitempty"` // OAS 3.2+
 
 	// Extra captures specification extensions (fields starting with "x-")
@@ -192,11 +193,11 @@ type Example struct {
 }
 
 // Encoding defines encoding for a specific property (OAS 3.0+)
+// https://spec.openapis.org/oas/v3.2.0.html#encoding-object
 //
-// OAS 3.2 makes this type recursive: an encoding may describe the encoding of its
-// own nested properties or sequence items. Anything walking an Encoding must
-// recurse through Encoding, ItemEncoding, and PrefixEncoding, and guard against
-// a cycle the way the schema walkers do.
+// OAS 3.2 makes this type recursive: an encoding may describe its own nested
+// properties or sequence items. Anything walking an Encoding must recurse through
+// Encoding, ItemEncoding, and PrefixEncoding.
 type Encoding struct {
 	ContentType   string             `yaml:"contentType,omitempty" json:"contentType,omitempty"`
 	Headers       map[string]*Header `yaml:"headers,omitempty" json:"headers,omitempty"`

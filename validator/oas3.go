@@ -116,30 +116,25 @@ func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *V
 
 	// Check reusable path items (OAS 3.1+).
 	//
-	// The spec requires an operationId to be "unique among all operations
-	// described in the API", which needs a decision here rather than a mechanical
-	// extension of the sweep above. The rule adopted is: each components.pathItems
-	// entry is counted exactly once, however many places $ref it, and whether or
-	// not anything does.
+	// `operationId` must be unique among all operations described in the API:
+	// https://spec.openapis.org/oas/v3.2.0.html#operation-id
 	//
-	// Counting once rather than once per use site is what "described in the API"
-	// reduces to for this parser. A path item $ref is preserved verbatim rather
-	// than resolved in place, so a use site under paths or webhooks carries no
-	// operations of its own and cannot double-count against the declaration.
-	// Resolving first and counting each site instead would make a path item
-	// referenced from two places collide with itself, which is not a defect in the
-	// document.
+	// Applying that to `components.pathItems` is a decision, so it is recorded
+	// here: each entry counts exactly once, however many places `$ref` it, and
+	// whether or not anything does.
 	//
-	// Counting an entry nothing references is deliberate. It arguably describes
-	// nothing, so it is not strictly bound by the uniqueness rule, but an
-	// operationId duplicating a live one is a latent defect one $ref away from
-	// mattering, and reporting it costs a document that never adds that $ref
-	// nothing but a rename.
+	// Once rather than per use site, because a path item `$ref` is preserved
+	// verbatim rather than resolved in place. A use site carries no operations of
+	// its own, so it cannot double-count against the declaration, and counting
+	// resolved sites instead would make a twice-referenced path item collide with
+	// itself.
 	//
-	// Swept after paths and webhooks so a collision with either is reported at the
-	// components site, where the fix belongs, and in sorted name order so a
-	// collision between two reusable path items names the same one of the pair on
-	// every run instead of alternating with map order.
+	// An unreferenced entry counts too. It describes nothing today, but an
+	// `operationId` duplicating a live one is one `$ref` away from mattering.
+	//
+	// Swept last so a collision with `paths` or `webhooks` is reported at the
+	// components site, and in sorted name order so the same one of a colliding
+	// pair is named on every run.
 	if doc.Components != nil {
 		for _, name := range slices.Sorted(maps.Keys(doc.Components.PathItems)) {
 			pathItem := doc.Components.PathItems[name]
@@ -579,17 +574,15 @@ func (v *Validator) validateOAS3Webhooks(doc *parser.OAS3Document, result *Valid
 //
 // Deliberately excluded: the path-template consistency checks
 // (reportUndeclaredPathParams and warnUnusedPathParams). The spec scopes the
-// parameter name rule to the Paths Object —
+// `name` rule for `in: "path"` to a template expression in the Paths Object:
+// https://spec.openapis.org/oas/v3.2.0.html#parameter-name
 //
-//	If in is "path", the name field MUST correspond to a single template
-//	expression occurring within the path field in the Paths Object.
-//
-// — and a reusable path item has no path field of its own, so running those here
+// A reusable path item has no `path` of its own, so running those checks here
 // would warn about every well-formed path parameter. Webhooks are excluded for
 // the same reason.
 //
 // [Validator.validatePathParamsRequired] is not a template check and does apply:
-// required: true is a property of the parameter alone, independent of any path.
+// `required: true` is a property of the parameter alone.
 func (v *Validator) validateOAS3ComponentPathItems(doc *parser.OAS3Document, result *ValidationResult, baseURL string) {
 	if doc.Components == nil || len(doc.Components.PathItems) == 0 {
 		return

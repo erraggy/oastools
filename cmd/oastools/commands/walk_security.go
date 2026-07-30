@@ -107,6 +107,11 @@ func filterSecuritySchemes(
 		extFilter = &ef
 	}
 
+	// Nothing to filter: skip the walk and the allocation.
+	if len(schemes) == 0 {
+		return nil, nil
+	}
+
 	matched := make([]*walker.SecuritySchemeInfo, 0, len(schemes))
 	for _, info := range schemes {
 		if info == nil || info.SecurityScheme == nil {

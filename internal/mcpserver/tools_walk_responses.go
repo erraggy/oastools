@@ -154,6 +154,11 @@ func filterWalkResponses(responses []*walker.ResponseInfo, input walkResponsesIn
 		hasExtFilter = true
 	}
 
+	// Nothing to filter: skip the walk and the allocation.
+	if len(responses) == 0 {
+		return nil, nil
+	}
+
 	matched := make([]*walker.ResponseInfo, 0, len(responses))
 	for _, info := range responses {
 		if input.Status != "" && !statusCodeMatches(info.StatusCode, input.Status) {

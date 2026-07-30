@@ -216,27 +216,23 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 				h.writeString(hasher, schema.Discriminator.Mapping[k])
 			}
 		}
-		// OAS 3.2+. Labelled and written only when set, so a schema that does not
-		// use it hashes exactly as it did before the field existed, while two
-		// schemas that fall back to different defaults stop colliding.
+		// OAS 3.2+. Written only when set, so a schema without it hashes as it
+		// always has, while two schemas with different fallbacks stop colliding.
+		// https://spec.openapis.org/oas/v3.2.0.html#discriminator-default-mapping
 		if schema.Discriminator.DefaultMapping != "" {
 			h.writeString(hasher, "defaultMapping:")
 			h.writeString(hasher, schema.Discriminator.DefaultMapping)
 		}
 	}
 
-	// XML
+	// XML is structural, not descriptive: it decides the element name, namespace,
+	// and node kind a value serializes to, unlike the title and description this
+	// type's doc comment excludes.
+	// https://spec.openapis.org/oas/v3.2.0.html#xml-object
 	//
-	// XML metadata is structural, not descriptive: it decides the element name,
-	// namespace, and node kind a value serializes to, so two schemas with
-	// different XML are not interchangeable. Leaving it out of the hash put them
-	// in the same bucket, and deduplication then merged them and changed the wire
-	// format of a payload. That is the opposite case from the metadata this type's
-	// doc comment excludes: a title or description cannot change a payload.
-	//
-	// Every field is labelled so no value can be mistaken for a neighbour's, and
-	// the block is entered only for a non-nil XML object, so a schema without one
-	// hashes exactly as it did before.
+	// Omitting it put schemas that serialize to different XML in one bucket, where
+	// deduplication merged them. Fields are labeled so no value can be mistaken for
+	// its neighbor's; a schema with no `xml` hashes as it always has.
 	if schema.XML != nil {
 		h.writeString(hasher, "xml:")
 		if schema.XML.Name != "" {
@@ -257,8 +253,8 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 		if schema.XML.Wrapped {
 			h.writeString(hasher, "wrapped:true")
 		}
-		// OAS 3.2+, and the field that supersedes attribute and wrapped, so it has
-		// to separate schemas at least as strongly as they do.
+		// Supersedes attribute and wrapped, so it must separate schemas at least as
+		// strongly as they do.
 		if schema.XML.NodeType != "" {
 			h.writeString(hasher, "nodeType:")
 			h.writeString(hasher, schema.XML.NodeType)

@@ -569,13 +569,10 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		path.pop()
 	}
 
-	// Compare xml
-	//
-	// XML decides the element name, namespace, and node kind a value serializes
-	// to, so two schemas whose XML differs describe different payloads and are not
-	// equivalent. Reporting them as equivalent let deduplication merge them and
-	// silently change the wire format; the missing entry in the structural hash
-	// hid it, because two such schemas rarely reached this comparison at all.
+	// Compare xml. It decides the element name, namespace, and node kind a value
+	// serializes to, so schemas whose XML differs describe different payloads.
+	// Calling them equivalent let deduplication merge them and change the wire
+	// format; the structural hash omitted xml too, so each gap hid the other.
 	if !equalXMLObjects(left.XML, right.XML) {
 		path.push("xml")
 		result.Differences = append(result.Differences, SchemaDifference{
@@ -909,13 +906,11 @@ func equalTypes(left, right any) bool {
 }
 
 // equalXMLObjects compares two XML Objects field by field.
+// https://spec.openapis.org/oas/v3.2.0.html#xml-object
 //
-// A nil XML object and a present one are not equal: absent XML means the
-// serializer infers everything, which is a different payload from one that names
-// an element or picks a node type. Attribute, Wrapped, and NodeType are compared
-// independently, matching how the parser models them — nothing here derives the
-// 3.2 nodeType from the two bools it supersedes, because the 3.2 default depends
-// on the enclosing schema and cannot be computed from the XML object alone.
+// Absent XML is not equal to present XML: inferring everything is a different
+// payload from naming an element. Attribute, Wrapped, and NodeType are compared
+// independently, matching how [parser.XML] models them.
 func equalXMLObjects(left, right *parser.XML) bool {
 	if left == nil || right == nil {
 		return left == right

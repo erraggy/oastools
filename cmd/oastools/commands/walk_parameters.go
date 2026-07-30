@@ -89,6 +89,12 @@ func handleWalkParameters(args []string) error {
 		hasExtFilter = true
 	}
 
+	// Nothing to filter: skip the walk and the allocation.
+	if len(collector.All) == 0 {
+		renderNoResults("parameters", flags.Quiet)
+		return nil
+	}
+
 	filtered := make([]*walker.ParameterInfo, 0, len(collector.All))
 	for _, info := range collector.All {
 		if flags.In != "" && !strings.EqualFold(info.In, flags.In) {

@@ -189,6 +189,11 @@ func filterWalkHeaders(headers []*headerInfo, input walkHeadersInput) ([]*header
 		hasExtFilter = true
 	}
 
+	// Nothing to filter: skip the walk and the allocation.
+	if len(headers) == 0 {
+		return nil, nil
+	}
+
 	matched := make([]*headerInfo, 0, len(headers))
 	for _, info := range headers {
 		if input.Name != "" && !matchGlobName(info.Name, input.Name) {

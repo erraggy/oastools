@@ -149,6 +149,11 @@ func filterWalkPaths(paths []*pathInfo, input walkPathsInput) ([]*pathInfo, erro
 		hasExtFilter = true
 	}
 
+	// Nothing to filter: skip the walk and the allocation.
+	if len(paths) == 0 {
+		return nil, nil
+	}
+
 	matched := make([]*pathInfo, 0, len(paths))
 	for _, info := range paths {
 		if input.Path != "" && !matchWalkPath(info.PathTemplate, input.Path) {
