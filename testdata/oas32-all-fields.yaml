@@ -1,0 +1,126 @@
+# Exercises every fixed field OAS 3.2.0 added over 3.1.1, as audited in issue
+# #397. The companion oas32-all-fields.json is the same document in JSON, so the
+# round-trip test can prove the two formats agree — the original defect was that
+# YAML preserved these fields incidentally (via the inline Extra map) while JSON
+# dropped them.
+#
+# Every object carrying a 3.2 field also carries an "x-" extension. That is
+# deliberate: each type marshals through two paths, a fast one driven by struct
+# tags and a slow one that hand-builds a map when Extra is non-empty. Only a
+# non-empty Extra reaches the slow path, which is where a newly added field is
+# most easily forgotten.
+openapi: 3.2.0
+$self: https://example.com/api/openapi.yaml
+info:
+  title: OAS 3.2 full field set
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+    name: production
+    x-server-ext: keep
+tags:
+  - name: pets
+    summary: Pet operations
+    parent: root
+    kind: nav
+    x-tag-ext: keep
+  - name: root
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "200":
+          description: A list of pets
+          summary: Pets, or the default shape
+          x-response-ext: keep
+          content:
+            application/jsonl:
+              itemSchema:
+                $ref: "#/components/schemas/Pet"
+              itemEncoding:
+                contentType: application/json
+                x-item-encoding-ext: keep
+              prefixEncoding:
+                - contentType: application/json
+                  x-prefix-encoding-ext: keep
+              x-media-type-ext: keep
+            multipart/form-data:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+              encoding:
+                meta:
+                  contentType: application/json
+                  encoding:
+                    nested:
+                      contentType: text/plain
+                      x-nested-encoding-ext: keep
+                  itemEncoding:
+                    contentType: text/plain
+                  prefixEncoding:
+                    - contentType: text/plain
+                  x-encoding-ext: keep
+    post:
+      operationId: searchPets
+      parameters:
+        - name: q
+          in: querystring
+          content:
+            application/x-www-form-urlencoded:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+      responses:
+        "204":
+          description: No content
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - petType
+      properties:
+        petType:
+          type: string
+        tag:
+          type: string
+          xml:
+            name: tag
+            nodeType: attribute
+            x-xml-ext: keep
+      discriminator:
+        propertyName: petType
+        defaultMapping: OtherPet
+        mapping:
+          dog: Dog
+        x-discriminator-ext: keep
+    Dog:
+      type: object
+    OtherPet:
+      type: object
+  examples:
+    withData:
+      summary: Structured form only
+      dataValue:
+        petType: dog
+      serializedValue: '{"petType":"dog"}'
+      x-example-ext: keep
+  securitySchemes:
+    oauth:
+      type: oauth2
+      deprecated: true
+      oauth2MetadataUrl: https://auth.example.com/.well-known/oauth-authorization-server
+      x-security-scheme-ext: keep
+      flows:
+        deviceAuthorization:
+          deviceAuthorizationUrl: https://auth.example.com/device
+          tokenUrl: https://auth.example.com/token
+          scopes:
+            read: Read access
+          x-oauth-flow-ext: keep
+        x-oauth-flows-ext: keep

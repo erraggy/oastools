@@ -47,6 +47,16 @@ type Tag struct {
 	Name         string        `yaml:"name" json:"name"`
 	Description  string        `yaml:"description,omitempty" json:"description,omitempty"`
 	ExternalDocs *ExternalDocs `yaml:"externalDocs,omitempty" json:"externalDocs,omitempty"`
+
+	// Summary is a short display name for the tag (OAS 3.2+).
+	Summary string `yaml:"summary,omitempty" json:"summary,omitempty"` // OAS 3.2+
+	// Parent names another tag this one nests under, forming a tag hierarchy
+	// (OAS 3.2+). The value is a tag name, not a reference.
+	Parent string `yaml:"parent,omitempty" json:"parent,omitempty"` // OAS 3.2+
+	// Kind classifies how tooling should treat the tag, e.g. "nav" or "badge"
+	// (OAS 3.2+).
+	Kind string `yaml:"kind,omitempty" json:"kind,omitempty"` // OAS 3.2+
+
 	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
@@ -56,6 +66,11 @@ type Server struct {
 	URL         string                    `yaml:"url" json:"url"`
 	Description string                    `yaml:"description,omitempty" json:"description,omitempty"`
 	Variables   map[string]ServerVariable `yaml:"variables,omitempty" json:"variables,omitempty"`
+
+	// Name is a short identifier for the server, unique among the servers of the
+	// document it appears in (OAS 3.2+).
+	Name string `yaml:"name,omitempty" json:"name,omitempty"` // OAS 3.2+
+
 	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]any `yaml:",inline" json:"-"`
 }

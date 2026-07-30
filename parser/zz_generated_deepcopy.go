@@ -182,6 +182,28 @@ func (in *Encoding) DeepCopyInto(out *Encoding) {
 		*out.Explode = *in.Explode
 	}
 
+	if in.Encoding != nil {
+		out.Encoding = make(map[string]*Encoding, len(in.Encoding))
+		for k, v := range in.Encoding {
+			if v != nil {
+				out.Encoding[k] = v.DeepCopy()
+			}
+		}
+	}
+
+	if in.ItemEncoding != nil {
+		out.ItemEncoding = in.ItemEncoding.DeepCopy()
+	}
+
+	if in.PrefixEncoding != nil {
+		out.PrefixEncoding = make([]*Encoding, len(in.PrefixEncoding))
+		for i, v := range in.PrefixEncoding {
+			if v != nil {
+				out.PrefixEncoding[i] = v.DeepCopy()
+			}
+		}
+	}
+
 	out.Extra = deepCopyExtensions(in.Extra)
 }
 
@@ -200,6 +222,8 @@ func (in *Example) DeepCopyInto(out *Example) {
 	*out = *in
 
 	out.Value = deepCopyJSONValue(in.Value)
+
+	out.DataValue = deepCopyJSONValue(in.DataValue)
 
 	out.Extra = deepCopyExtensions(in.Extra)
 }
@@ -475,6 +499,23 @@ func (in *MediaType) DeepCopyInto(out *MediaType) {
 		}
 	}
 
+	if in.ItemSchema != nil {
+		out.ItemSchema = in.ItemSchema.DeepCopy()
+	}
+
+	if in.ItemEncoding != nil {
+		out.ItemEncoding = in.ItemEncoding.DeepCopy()
+	}
+
+	if in.PrefixEncoding != nil {
+		out.PrefixEncoding = make([]*Encoding, len(in.PrefixEncoding))
+		for i, v := range in.PrefixEncoding {
+			if v != nil {
+				out.PrefixEncoding[i] = v.DeepCopy()
+			}
+		}
+	}
+
 	out.Extra = deepCopyExtensions(in.Extra)
 }
 
@@ -674,6 +715,10 @@ func (in *OAuthFlows) DeepCopyInto(out *OAuthFlows) {
 
 	if in.AuthorizationCode != nil {
 		out.AuthorizationCode = in.AuthorizationCode.DeepCopy()
+	}
+
+	if in.DeviceAuthorization != nil {
+		out.DeviceAuthorization = in.DeviceAuthorization.DeepCopy()
 	}
 
 	out.Extra = deepCopyExtensions(in.Extra)

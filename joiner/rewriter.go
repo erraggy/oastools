@@ -219,13 +219,23 @@ func (r *SchemaRewriter) rewriteSchema(schema *parser.Schema) {
 	r.rewriteSchema(schema.Else)
 
 	// Rewrite discriminator mappings
-	if schema.Discriminator != nil && schema.Discriminator.Mapping != nil {
+	if schema.Discriminator != nil {
 		for key, value := range schema.Discriminator.Mapping {
 			// Handle full $ref paths first, then bare schema names if not matched
 			if newRef, exists := r.refMap[value]; exists {
 				schema.Discriminator.Mapping[key] = newRef
 			} else if newName, exists := r.bareNameMap[value]; exists {
 				schema.Discriminator.Mapping[key] = newName
+			}
+		}
+		// defaultMapping (OAS 3.2+) names a schema in the same two spellings, so
+		// it is resolved the same way. A join that renames the fallback's target
+		// without rewriting this produces a dangling reference.
+		if value := schema.Discriminator.DefaultMapping; value != "" {
+			if newRef, exists := r.refMap[value]; exists {
+				schema.Discriminator.DefaultMapping = newRef
+			} else if newName, exists := r.bareNameMap[value]; exists {
+				schema.Discriminator.DefaultMapping = newName
 			}
 		}
 	}

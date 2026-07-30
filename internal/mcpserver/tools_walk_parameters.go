@@ -154,7 +154,7 @@ func filterWalkParameters(params []*walker.ParameterInfo, input walkParametersIn
 		hasExtFilter = true
 	}
 
-	var matched []*walker.ParameterInfo
+	matched := make([]*walker.ParameterInfo, 0, len(params))
 	for _, info := range params {
 		if input.In != "" && !strings.EqualFold(info.In, input.In) {
 			continue

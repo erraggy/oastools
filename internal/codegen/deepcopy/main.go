@@ -293,14 +293,24 @@ var typeConfigs = []TypeConfig{
 			{Name: "Example", Type: "any", CopyMethod: "helper", Helper: "deepCopyJSONValue"},
 			{Name: "Examples", Type: "map[string]*Example", CopyMethod: "map", KeyType: "string", ElemType: "*Example"},
 			{Name: "Encoding", Type: "map[string]*Encoding", CopyMethod: "map", KeyType: "string", ElemType: "*Encoding"},
+			{Name: "ItemSchema", Type: "*Schema", CopyMethod: "pointer"},                              // OAS 3.2+
+			{Name: "ItemEncoding", Type: "*Encoding", CopyMethod: "pointer"},                          // OAS 3.2+
+			{Name: "PrefixEncoding", Type: "[]*Encoding", CopyMethod: "slice", ElemType: "*Encoding"}, // OAS 3.2+
 			{Name: "Extra", Type: "map[string]any", CopyMethod: "helper", Helper: "deepCopyExtensions"},
 		},
 	},
 	{
+		// Recursive as of OAS 3.2: an Encoding may nest Encoding maps and item
+		// encodings. The generated copy recurses through DeepCopy, which is
+		// unbounded — the parser cannot build a cyclic Encoding graph from a
+		// document, since each level is decoded into a fresh value.
 		Name: "Encoding",
 		Fields: []FieldConfig{
 			{Name: "Headers", Type: "map[string]*Header", CopyMethod: "map", KeyType: "string", ElemType: "*Header"},
 			{Name: "Explode", Type: "*bool", CopyMethod: "prim_pointer"},
+			{Name: "Encoding", Type: "map[string]*Encoding", CopyMethod: "map", KeyType: "string", ElemType: "*Encoding"}, // OAS 3.2+
+			{Name: "ItemEncoding", Type: "*Encoding", CopyMethod: "pointer"},                                              // OAS 3.2+
+			{Name: "PrefixEncoding", Type: "[]*Encoding", CopyMethod: "slice", ElemType: "*Encoding"},                     // OAS 3.2+
 			{Name: "Extra", Type: "map[string]any", CopyMethod: "helper", Helper: "deepCopyExtensions"},
 		},
 	},
@@ -308,6 +318,7 @@ var typeConfigs = []TypeConfig{
 		Name: "Example",
 		Fields: []FieldConfig{
 			{Name: "Value", Type: "any", CopyMethod: "helper", Helper: "deepCopyJSONValue"},
+			{Name: "DataValue", Type: "any", CopyMethod: "helper", Helper: "deepCopyJSONValue"}, // OAS 3.2+
 			{Name: "Extra", Type: "map[string]any", CopyMethod: "helper", Helper: "deepCopyExtensions"},
 		},
 	},
@@ -353,6 +364,7 @@ var typeConfigs = []TypeConfig{
 			{Name: "Password", Type: "*OAuthFlow", CopyMethod: "pointer"},
 			{Name: "ClientCredentials", Type: "*OAuthFlow", CopyMethod: "pointer"},
 			{Name: "AuthorizationCode", Type: "*OAuthFlow", CopyMethod: "pointer"},
+			{Name: "DeviceAuthorization", Type: "*OAuthFlow", CopyMethod: "pointer"}, // OAS 3.2+
 			{Name: "Extra", Type: "map[string]any", CopyMethod: "helper", Helper: "deepCopyExtensions"},
 		},
 	},

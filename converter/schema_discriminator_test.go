@@ -144,3 +144,36 @@ func TestDiscriminatorFormNormalizationReachesNestedSchemas(t *testing.T) {
 	discriminatorToStringForm(New(), nested, &ConversionResult{}, "test")
 	assert.True(t, nested.Properties["pet"].AllOf[0].Discriminator.StringForm)
 }
+
+// TestConvertOAS3ToOAS2ReportsDroppedDefaultMapping covers the OAS 3.2 fallback
+// field. Unlike mapping, defaultMapping names the single schema that validates a
+// payload carrying no discriminating value, so losing it changes what the document
+// means. OAS 2.0 has no equivalent, which makes dropping it unavoidable and
+// dropping it silently a defect — see erraggy/oastools#397.
+func TestConvertOAS3ToOAS2ReportsDroppedDefaultMapping(t *testing.T) {
+	schema := &parser.Schema{
+		Type: "object",
+		Discriminator: &parser.Discriminator{
+			PropertyName:   "petType",
+			DefaultMapping: "OtherPet",
+		},
+	}
+
+	result := &ConversionResult{}
+	discriminatorToStringForm(New(), schema, result, "definitions.Pet")
+
+	var found bool
+	for _, issue := range result.Issues {
+		if strings.Contains(issue.Message, "discriminator uses 'defaultMapping'") {
+			found = true
+			assert.Contains(t, issue.Message, "OtherPet",
+				"the issue should name the schema being lost")
+			break
+		}
+	}
+	assert.True(t, found, "expected an issue reporting the dropped defaultMapping")
+
+	assert.Empty(t, schema.Discriminator.DefaultMapping,
+		"defaultMapping must be cleared, not carried into an OAS 2.0 document")
+	assert.True(t, schema.Discriminator.StringForm)
+}

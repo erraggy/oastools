@@ -148,3 +148,123 @@ func TestDecodeRefToken(t *testing.T) {
 		})
 	}
 }
+
+// TestCutRefPrefix covers the percent-encoded pointer separators the raw
+// strings.CutPrefix path cannot see, and the boundary cases where a partially
+// decodable ref must be rejected rather than half-matched.
+func TestCutRefPrefix(t *testing.T) {
+	tests := []struct {
+		name     string
+		ref      string
+		prefix   string
+		wantRest string
+		wantOK   bool
+	}{
+		{
+			name:     "raw prefix",
+			ref:      "#/components/schemas/Pet",
+			prefix:   RefPrefixSchemas,
+			wantRest: "Pet",
+			wantOK:   true,
+		},
+		{
+			name:     "fully percent-encoded pointer",
+			ref:      "#%2Fcomponents%2Fschemas%2FPaged%5BPet%5D",
+			prefix:   RefPrefixSchemas,
+			wantRest: "Paged%5BPet%5D",
+			wantOK:   true,
+		},
+		{
+			name:     "lowercase hex decodes the same as uppercase",
+			ref:      "#%2fcomponents%2fschemas%2fPet",
+			prefix:   RefPrefixSchemas,
+			wantRest: "Pet",
+			wantOK:   true,
+		},
+		{
+			name:     "mixed raw and encoded separators",
+			ref:      "#/components%2Fschemas/Pet",
+			prefix:   RefPrefixSchemas,
+			wantRest: "Pet",
+			wantOK:   true,
+		},
+		{
+			name:     "the name keeps its own escaping, so DecodeRefToken stays the one decoder",
+			ref:      "#%2Fdefinitions%2FPaged%255BPet%255D",
+			prefix:   RefPrefixDefinitions,
+			wantRest: "Paged%255BPet%255D",
+			wantOK:   true,
+		},
+		{
+			name:     "encoded prefix for the other OAS version does not match",
+			ref:      "#%2Fdefinitions%2FPet",
+			prefix:   RefPrefixSchemas,
+			wantRest: "",
+			wantOK:   false,
+		},
+		{
+			name:     "a percent sequence that decodes to the wrong byte does not match",
+			ref:      "#%2Bcomponents%2Fschemas%2FPet",
+			prefix:   RefPrefixSchemas,
+			wantRest: "",
+			wantOK:   false,
+		},
+		{
+			name:     "an invalid percent sequence does not match",
+			ref:      "#%ZZcomponents%2Fschemas%2FPet",
+			prefix:   RefPrefixSchemas,
+			wantRest: "",
+			wantOK:   false,
+		},
+		{
+			name:     "a truncated percent sequence does not run off the end",
+			ref:      "#%2Fcomponents%2Fschemas%2",
+			prefix:   RefPrefixSchemas,
+			wantRest: "",
+			wantOK:   false,
+		},
+		{
+			name:     "a ref shorter than its prefix does not match",
+			ref:      "#/components/",
+			prefix:   RefPrefixSchemas,
+			wantRest: "",
+			wantOK:   false,
+		},
+		{
+			name:     "the bare prefix matches with an empty remainder",
+			ref:      "#%2Fcomponents%2Fschemas%2F",
+			prefix:   RefPrefixSchemas,
+			wantRest: "",
+			wantOK:   true,
+		},
+		{
+			name:     "a ref with no percent at all takes the reject path",
+			ref:      "#/definitions/Pet",
+			prefix:   RefPrefixSchemas,
+			wantRest: "",
+			wantOK:   false,
+		},
+		{
+			name:     "an external ref does not match a local prefix",
+			ref:      "other.yaml#/components/schemas/Pet",
+			prefix:   RefPrefixSchemas,
+			wantRest: "",
+			wantOK:   false,
+		},
+		{
+			name:     "an external ref with an encoded pointer still does not match",
+			ref:      "other.yaml#%2Fcomponents%2Fschemas%2FPet",
+			prefix:   RefPrefixSchemas,
+			wantRest: "",
+			wantOK:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rest, ok := CutRefPrefix(tt.ref, tt.prefix)
+			assert.Equal(t, tt.wantOK, ok)
+			assert.Equal(t, tt.wantRest, rest)
+		})
+	}
+}

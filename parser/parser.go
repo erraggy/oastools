@@ -1101,8 +1101,17 @@ func (p *Parser) validateOAS3Parameter(param *Parameter, opPath string, index in
 			ParamInPath:   true,
 			ParamInCookie: true,
 		}
+		// "querystring" is OAS 3.2+ only. Gated here rather than accepted
+		// unconditionally so a 3.0 or 3.1 document using it is still rejected;
+		// the constraints that come with it (content required, at most one, no
+		// sibling in: query) are the validator's, not the parser's.
+		locations := "query, header, path, or cookie"
+		if v, ok := ParseVersion(version); ok && v >= OASVersion320 {
+			validLocations[ParamInQueryString] = true
+			locations = "query, querystring, header, path, or cookie"
+		}
 		if !validLocations[param.In] {
-			errors = append(errors, fmt.Errorf("oas %s: invalid value for '%s.in': \"%s\" is not a valid parameter location (must be query, header, path, or cookie)", version, paramPath, param.In))
+			errors = append(errors, fmt.Errorf("oas %s: invalid value for '%s.in': \"%s\" is not a valid parameter location (must be %s)", version, paramPath, param.In, locations))
 		}
 	}
 

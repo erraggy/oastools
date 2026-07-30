@@ -2,6 +2,7 @@ package validator
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -54,6 +55,9 @@ func (v *Validator) validateOAS3(doc *parser.OAS3Document, result *ValidationRes
 	// Validate webhooks (OAS 3.1+)
 	v.validateOAS3Webhooks(doc, result, baseURL)
 
+	// Validate reusable path items (OAS 3.1+)
+	v.validateOAS3ComponentPathItems(doc, result, baseURL)
+
 	// Validate path parameters match path templates
 	v.validateOAS3PathParameterConsistency(doc, result, baseURL)
 
@@ -62,6 +66,9 @@ func (v *Validator) validateOAS3(doc *parser.OAS3Document, result *ValidationRes
 
 	// Validate duplicate operationIds
 	v.validateOAS3OperationIds(doc, result, baseURL)
+
+	// Validate the OAS 3.2 cross-field constraints (see oas32.go)
+	v.validateOAS32Document(doc, result)
 
 	// Validate all $ref values point to valid components
 	v.validateOAS3Refs(doc, result, baseURL)
@@ -105,6 +112,45 @@ func (v *Validator) validateOAS3OperationIds(doc *parser.OAS3Document, result *V
 		operations := parser.GetOperations(pathItem, doc.OASVersion)
 
 		v.checkDuplicateOperationIds(operations, "webhooks", webhookName, operationIds, result, baseURL)
+	}
+
+	// Check reusable path items (OAS 3.1+).
+	//
+	// The spec requires an operationId to be "unique among all operations
+	// described in the API", which needs a decision here rather than a mechanical
+	// extension of the sweep above. The rule adopted is: each components.pathItems
+	// entry is counted exactly once, however many places $ref it, and whether or
+	// not anything does.
+	//
+	// Counting once rather than once per use site is what "described in the API"
+	// reduces to for this parser. A path item $ref is preserved verbatim rather
+	// than resolved in place, so a use site under paths or webhooks carries no
+	// operations of its own and cannot double-count against the declaration.
+	// Resolving first and counting each site instead would make a path item
+	// referenced from two places collide with itself, which is not a defect in the
+	// document.
+	//
+	// Counting an entry nothing references is deliberate. It arguably describes
+	// nothing, so it is not strictly bound by the uniqueness rule, but an
+	// operationId duplicating a live one is a latent defect one $ref away from
+	// mattering, and reporting it costs a document that never adds that $ref
+	// nothing but a rename.
+	//
+	// Swept after paths and webhooks so a collision with either is reported at the
+	// components site, where the fix belongs, and in sorted name order so a
+	// collision between two reusable path items names the same one of the pair on
+	// every run instead of alternating with map order.
+	if doc.Components != nil {
+		for _, name := range slices.Sorted(maps.Keys(doc.Components.PathItems)) {
+			pathItem := doc.Components.PathItems[name]
+			if pathItem == nil {
+				continue
+			}
+
+			operations := parser.GetOperations(pathItem, doc.OASVersion)
+
+			v.checkDuplicateOperationIds(operations, "components.pathItems", name, operationIds, result, baseURL)
+		}
 	}
 }
 
@@ -187,6 +233,10 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 
 		// Validate each operation
 		operations := parser.GetOperations(pathItem, doc.OASVersion)
+
+		// The OAS 3.2 traversal rules ride along on the operations map this pass
+		// already built, rather than taking a traversal of their own (see oas32.go).
+		v.validateOAS32PathItem(pathItem, pathPrefix, doc.OASVersion, operations, result)
 
 		for method, op := range operations {
 			if op == nil {
@@ -504,6 +554,8 @@ func (v *Validator) validateOAS3Webhooks(doc *parser.OAS3Document, result *Valid
 		// Validate each operation in the webhook
 		operations := parser.GetOperations(pathItem, doc.OASVersion)
 
+		v.validateOAS32PathItem(pathItem, pathPrefix, doc.OASVersion, operations, result)
+
 		for method, op := range operations {
 			if op == nil {
 				continue
@@ -511,6 +563,59 @@ func (v *Validator) validateOAS3Webhooks(doc *parser.OAS3Document, result *Valid
 
 			opPath := pathPrefix + "." + method
 			v.validateOAS3Operation(op, opPath, result, baseURL)
+		}
+	}
+}
+
+// validateOAS3ComponentPathItems validates the reusable path items under
+// components.pathItems (OAS 3.1+).
+//
+// A reusable path item is reached by $ref from webhooks, from paths, or from
+// another path item, and describes operations as genuine as any other, so its
+// operations get the same operation-level validation as those under paths and
+// webhooks. Before this ran, only the component *names* were checked
+// (checkComponentNames) and nothing inside them was: a request body with no
+// content, or a malformed response status code, went unreported.
+//
+// Deliberately excluded: the path-template consistency checks
+// (reportUndeclaredPathParams and warnUnusedPathParams). The spec scopes the
+// parameter name rule to the Paths Object —
+//
+//	If in is "path", the name field MUST correspond to a single template
+//	expression occurring within the path field in the Paths Object.
+//
+// — and a reusable path item has no path field of its own, so running those here
+// would warn about every well-formed path parameter. Webhooks are excluded for
+// the same reason.
+//
+// [Validator.validatePathParamsRequired] is not a template check and does apply:
+// required: true is a property of the parameter alone, independent of any path.
+func (v *Validator) validateOAS3ComponentPathItems(doc *parser.OAS3Document, result *ValidationResult, baseURL string) {
+	if doc.Components == nil || len(doc.Components.PathItems) == 0 {
+		return
+	}
+
+	for name, pathItem := range doc.Components.PathItems {
+		if pathItem == nil {
+			continue
+		}
+
+		prefix := "components.pathItems." + name
+
+		// Path-item parameters apply to every operation in the item, so they are
+		// checked once here rather than once per operation — the same requirement
+		// validatePathParamsRequired documents for its callers.
+		v.validatePathParamsRequired(pathItem.Parameters, prefix, result, baseURL)
+
+		operations := parser.GetOperations(pathItem, doc.OASVersion)
+
+		v.validateOAS32PathItem(pathItem, prefix, doc.OASVersion, operations, result)
+
+		for method, op := range operations {
+			if op == nil {
+				continue
+			}
+			v.validateOAS3Operation(op, prefix+"."+method, result, baseURL)
 		}
 	}
 }

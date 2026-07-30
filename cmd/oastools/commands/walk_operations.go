@@ -112,7 +112,7 @@ func filterOperations(
 		extFilter = &ef
 	}
 
-	var matched []*walker.OperationInfo
+	matched := make([]*walker.OperationInfo, 0, len(ops))
 	for _, op := range ops {
 		if !matchOperationMethod(op.Method, method) {
 			continue

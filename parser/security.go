@@ -30,17 +30,28 @@ type SecurityScheme struct {
 	// Type: openIdConnect (OAS 3.0+)
 	OpenIDConnectURL string `yaml:"openIdConnectUrl,omitempty" json:"openIdConnectUrl,omitempty"`
 
+	// Deprecated marks the scheme as no longer recommended for use (OAS 3.2+).
+	Deprecated bool `yaml:"deprecated,omitempty" json:"deprecated,omitempty"` // OAS 3.2+
+	// OAuth2MetadataURL points at the OAuth 2.0 Authorization Server Metadata
+	// document for the scheme (OAS 3.2+).
+	OAuth2MetadataURL string `yaml:"oauth2MetadataUrl,omitempty" json:"oauth2MetadataUrl,omitempty"` // OAS 3.2+
+
 	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // OAuthFlows allows configuration of the supported OAuth Flows (OAS 3.0+)
 type OAuthFlows struct {
-	Implicit          *OAuthFlow     `yaml:"implicit,omitempty" json:"implicit,omitempty"`
-	Password          *OAuthFlow     `yaml:"password,omitempty" json:"password,omitempty"`
-	ClientCredentials *OAuthFlow     `yaml:"clientCredentials,omitempty" json:"clientCredentials,omitempty"`
-	AuthorizationCode *OAuthFlow     `yaml:"authorizationCode,omitempty" json:"authorizationCode,omitempty"`
-	Extra             map[string]any `yaml:",inline" json:"-"`
+	Implicit          *OAuthFlow `yaml:"implicit,omitempty" json:"implicit,omitempty"`
+	Password          *OAuthFlow `yaml:"password,omitempty" json:"password,omitempty"`
+	ClientCredentials *OAuthFlow `yaml:"clientCredentials,omitempty" json:"clientCredentials,omitempty"`
+	AuthorizationCode *OAuthFlow `yaml:"authorizationCode,omitempty" json:"authorizationCode,omitempty"`
+
+	// DeviceAuthorization configures the OAuth 2.0 Device Authorization Grant
+	// (RFC 8628) flow (OAS 3.2+).
+	DeviceAuthorization *OAuthFlow `yaml:"deviceAuthorization,omitempty" json:"deviceAuthorization,omitempty"` // OAS 3.2+
+
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // OAuthFlow represents configuration for a single OAuth flow (OAS 3.0+)
@@ -49,5 +60,10 @@ type OAuthFlow struct {
 	TokenURL         string            `yaml:"tokenUrl,omitempty" json:"tokenUrl,omitempty"`
 	RefreshURL       string            `yaml:"refreshUrl,omitempty" json:"refreshUrl,omitempty"`
 	Scopes           map[string]string `yaml:"scopes" json:"scopes"`
-	Extra            map[string]any    `yaml:",inline" json:"-"`
+
+	// DeviceAuthorizationURL is the device authorization endpoint, required by the
+	// deviceAuthorization flow (OAS 3.2+).
+	DeviceAuthorizationURL string `yaml:"deviceAuthorizationUrl,omitempty" json:"deviceAuthorizationUrl,omitempty"` // OAS 3.2+
+
+	Extra map[string]any `yaml:",inline" json:"-"`
 }

@@ -107,7 +107,7 @@ func filterSecuritySchemes(
 		extFilter = &ef
 	}
 
-	var matched []*walker.SecuritySchemeInfo
+	matched := make([]*walker.SecuritySchemeInfo, 0, len(schemes))
 	for _, info := range schemes {
 		if info == nil || info.SecurityScheme == nil {
 			continue

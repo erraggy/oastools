@@ -108,7 +108,7 @@ func filterWalkSecurity(schemes []*walker.SecuritySchemeInfo, input walkSecurity
 		hasExtFilter = true
 	}
 
-	var matched []*walker.SecuritySchemeInfo
+	matched := make([]*walker.SecuritySchemeInfo, 0, len(schemes))
 	for _, info := range schemes {
 		if input.Name != "" && !strings.EqualFold(info.Name, input.Name) {
 			continue

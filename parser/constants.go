@@ -4,6 +4,13 @@ package parser
 const (
 	// ParamInQuery indicates the parameter is passed in the query string
 	ParamInQuery = "query"
+	// ParamInQueryString indicates the parameter is the entire query string,
+	// described as a single value (OAS 3.2+).
+	//
+	// Distinct from ParamInQuery, and mutually exclusive with it: a querystring
+	// parameter describes the whole query string, so it cannot coexist with a
+	// parameter describing one member of it. See the OAS 3.2 Parameter Object.
+	ParamInQueryString = "querystring"
 	// ParamInHeader indicates the parameter is passed in a request header
 	ParamInHeader = "header"
 	// ParamInPath indicates the parameter is part of the URL path

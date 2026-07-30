@@ -216,6 +216,13 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 				h.writeString(hasher, schema.Discriminator.Mapping[k])
 			}
 		}
+		// OAS 3.2+. Labelled and written only when set, so a schema that does not
+		// use it hashes exactly as it did before the field existed, while two
+		// schemas that fall back to different defaults stop colliding.
+		if schema.Discriminator.DefaultMapping != "" {
+			h.writeString(hasher, "defaultMapping:")
+			h.writeString(hasher, schema.Discriminator.DefaultMapping)
+		}
 	}
 
 	// Contains

@@ -82,5 +82,8 @@ docs/examples/
 # Playwright MCP (browser automation screenshots/data)
 .playwright-mcp/
 
+# Local MCP server configuration (per-developer tooling, not project config)
+.air/
+
 # Git worktrees for isolated development
 .worktrees/

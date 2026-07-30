@@ -101,7 +101,7 @@ func handleWalkSchemas(args []string) error {
 		extFilter = &ef
 	}
 
-	var filtered []*walker.SchemaInfo
+	filtered := make([]*walker.SchemaInfo, 0, len(schemas))
 	for _, info := range schemas {
 		if flags.Name != "" && !strings.EqualFold(info.Name, flags.Name) {
 			continue

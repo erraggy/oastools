@@ -110,7 +110,22 @@ type Schema struct {
 type Discriminator struct {
 	PropertyName string            `yaml:"propertyName" json:"propertyName"`
 	Mapping      map[string]string `yaml:"mapping,omitempty" json:"mapping,omitempty"` // OAS 3.0+ only
-	Extra        map[string]any    `yaml:",inline" json:"-"`
+
+	// DefaultMapping names the schema to use when the discriminating property is
+	// absent, or present with a value no Mapping key covers.
+	//
+	// It is reference-bearing in exactly the way a Mapping value is: the value is
+	// either a schema name or a URI reference. Every pass that rewrites Mapping —
+	// joining documents, renaming schemas, converting between versions — must
+	// rewrite this alongside it, or the rewrite produces a dangling reference here
+	// while reporting success.
+	//
+	// The spec makes it conditionally required: when the discriminating property is
+	// optional, the Discriminator Object MUST include defaultMapping. That is a
+	// validator rule rather than a parser one, since presence of the property in
+	// `required` is only knowable from the enclosing schema.
+	DefaultMapping string         `yaml:"defaultMapping,omitempty" json:"defaultMapping,omitempty"` // OAS 3.2+
+	Extra          map[string]any `yaml:",inline" json:"-"`
 
 	// StringForm reports that this discriminator came from — and should be
 	// written back as — the OAS 2.0 bare-string form (`discriminator: petType`)
@@ -124,11 +139,32 @@ type Discriminator struct {
 }
 
 // XML represents metadata for XML encoding (OAS 2.0+)
+//
+// NodeType supersedes Attribute and Wrapped in OAS 3.2, and is modeled beside
+// them rather than derived from either. See the field's own comment for why.
 type XML struct {
-	Name      string         `yaml:"name,omitempty" json:"name,omitempty"`
-	Namespace string         `yaml:"namespace,omitempty" json:"namespace,omitempty"`
-	Prefix    string         `yaml:"prefix,omitempty" json:"prefix,omitempty"`
-	Attribute bool           `yaml:"attribute,omitempty" json:"attribute,omitempty"`
-	Wrapped   bool           `yaml:"wrapped,omitempty" json:"wrapped,omitempty"`
-	Extra     map[string]any `yaml:",inline" json:"-"`
+	Name      string `yaml:"name,omitempty" json:"name,omitempty"`
+	Namespace string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
+	Prefix    string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+	Attribute bool   `yaml:"attribute,omitempty" json:"attribute,omitempty"`
+	Wrapped   bool   `yaml:"wrapped,omitempty" json:"wrapped,omitempty"`
+
+	// NodeType selects the XML node a schema maps to: "element", "attribute",
+	// "text", "cdata", or "none". It supersedes Attribute and Wrapped.
+	//
+	// Deliberately an independent field, not a third spelling reconciled with the
+	// two bools. Collapsing the two representations into one is what made
+	// discriminator's dual dialect need StringForm to stay lossless (#394), and
+	// here it would be worse than lossy: the 3.2 default for nodeType is not a
+	// constant, it depends on the enclosing schema — "none" when the schema is a
+	// $ref or $dynamicRef, or holds certain types — and an XML object cannot see
+	// its schema from here. Synthesizing a value would therefore mean inventing one
+	// that the document did not state and that this type cannot compute correctly.
+	//
+	// Keeping them independent means each survives a round trip exactly as written,
+	// and no document gains a field it did not have. Reconciling a document that
+	// sets both is the validator's job, which is where the OAS version is known.
+	NodeType string `yaml:"nodeType,omitempty" json:"nodeType,omitempty"` // OAS 3.2+
+
+	Extra map[string]any `yaml:",inline" json:"-"`
 }

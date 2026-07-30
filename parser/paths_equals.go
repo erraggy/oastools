@@ -2,6 +2,7 @@ package parser
 
 import (
 	"maps"
+	"slices"
 
 	"github.com/erraggy/oastools/internal/equalutil"
 )
@@ -243,6 +244,11 @@ func equalResponse(a, b *Response) bool {
 		return false
 	}
 
+	// OAS 3.2+
+	if a.Summary != b.Summary {
+		return false
+	}
+
 	// Extensions
 	if !equalMapStringAny(a.Extra, b.Extra) {
 		return false
@@ -366,6 +372,17 @@ func equalMediaType(a, b *MediaType) bool {
 		return false
 	}
 
+	// OAS 3.2+ sequential media type fields
+	if !a.ItemSchema.Equals(b.ItemSchema) {
+		return false
+	}
+	if !equalEncoding(a.ItemEncoding, b.ItemEncoding) {
+		return false
+	}
+	if !equalEncodingSlice(a.PrefixEncoding, b.PrefixEncoding) {
+		return false
+	}
+
 	// Extensions
 	if !equalMapStringAny(a.Extra, b.Extra) {
 		return false
@@ -409,6 +426,14 @@ func equalExample(a, b *Example) bool {
 
 	// Any field
 	if !equalJSONValue(a.Value, b.Value) {
+		return false
+	}
+
+	// OAS 3.2+
+	if a.SerializedValue != b.SerializedValue {
+		return false
+	}
+	if !equalJSONValue(a.DataValue, b.DataValue) {
 		return false
 	}
 
@@ -462,6 +487,19 @@ func equalEncoding(a, b *Encoding) bool {
 		return false
 	}
 
+	// OAS 3.2+ nested encodings. Recursive, and safely so: the parser decodes
+	// each level into a fresh value, so an Encoding graph from a document is a
+	// tree and cannot cycle back on itself.
+	if !equalEncodingMap(a.Encoding, b.Encoding) {
+		return false
+	}
+	if !equalEncoding(a.ItemEncoding, b.ItemEncoding) {
+		return false
+	}
+	if !equalEncodingSlice(a.PrefixEncoding, b.PrefixEncoding) {
+		return false
+	}
+
 	// Extensions
 	if !equalMapStringAny(a.Extra, b.Extra) {
 		return false
@@ -474,4 +512,11 @@ func equalEncoding(a, b *Encoding) bool {
 // Nil and empty maps are considered equal.
 func equalEncodingMap(a, b map[string]*Encoding) bool {
 	return maps.EqualFunc(a, b, equalEncoding)
+}
+
+// equalEncodingSlice compares two []*Encoding slices for equality.
+// Order-sensitive, because prefixEncoding is positional. Nil and empty slices
+// are considered equal.
+func equalEncodingSlice(a, b []*Encoding) bool {
+	return slices.EqualFunc(a, b, equalEncoding)
 }

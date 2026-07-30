@@ -325,6 +325,13 @@ func equalDiscriminator(a, b *Discriminator) bool {
 	if !equalMapStringString(a.Mapping, b.Mapping) {
 		return false
 	}
+
+	// OAS 3.2+. Unlike StringForm this is meaning, not spelling: two
+	// discriminators that fall back to different schemas are different.
+	if a.DefaultMapping != b.DefaultMapping {
+		return false
+	}
+
 	if !equalMapStringAny(a.Extra, b.Extra) {
 		return false
 	}
@@ -360,6 +367,13 @@ func equalXML(a, b *XML) bool {
 	if a.Wrapped != b.Wrapped {
 		return false
 	}
+
+	// OAS 3.2+. Compared independently of Attribute and Wrapped, matching how
+	// the field is modeled: nothing here derives one spelling from the other.
+	if a.NodeType != b.NodeType {
+		return false
+	}
+
 	if !equalMapStringAny(a.Extra, b.Extra) {
 		return false
 	}

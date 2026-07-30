@@ -122,7 +122,7 @@ func filterPaths(paths []pathInfo, pathPattern, extension string) ([]pathInfo, e
 		extFilter = &ef
 	}
 
-	var matched []pathInfo
+	matched := make([]pathInfo, 0, len(paths))
 	for _, p := range paths {
 		if !matchPath(p.pathTemplate, pathPattern) {
 			continue

@@ -1,0 +1,181 @@
+{
+  "$self": "https://example.com/api/openapi.yaml",
+  "components": {
+    "examples": {
+      "withData": {
+        "dataValue": {
+          "petType": "dog"
+        },
+        "serializedValue": "{\"petType\":\"dog\"}",
+        "summary": "Structured form only",
+        "x-example-ext": "keep"
+      }
+    },
+    "schemas": {
+      "Dog": {
+        "type": "object"
+      },
+      "OtherPet": {
+        "type": "object"
+      },
+      "Pet": {
+        "discriminator": {
+          "defaultMapping": "OtherPet",
+          "mapping": {
+            "dog": "Dog"
+          },
+          "propertyName": "petType",
+          "x-discriminator-ext": "keep"
+        },
+        "properties": {
+          "petType": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string",
+            "xml": {
+              "name": "tag",
+              "nodeType": "attribute",
+              "x-xml-ext": "keep"
+            }
+          }
+        },
+        "required": [
+          "petType"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "oauth": {
+        "deprecated": true,
+        "flows": {
+          "deviceAuthorization": {
+            "deviceAuthorizationUrl": "https://auth.example.com/device",
+            "scopes": {
+              "read": "Read access"
+            },
+            "tokenUrl": "https://auth.example.com/token",
+            "x-oauth-flow-ext": "keep"
+          },
+          "x-oauth-flows-ext": "keep"
+        },
+        "oauth2MetadataUrl": "https://auth.example.com/.well-known/oauth-authorization-server",
+        "type": "oauth2",
+        "x-security-scheme-ext": "keep"
+      }
+    }
+  },
+  "info": {
+    "title": "OAS 3.2 full field set",
+    "version": "1.0.0"
+  },
+  "openapi": "3.2.0",
+  "paths": {
+    "/pets": {
+      "get": {
+        "operationId": "listPets",
+        "responses": {
+          "200": {
+            "content": {
+              "application/jsonl": {
+                "itemEncoding": {
+                  "contentType": "application/json",
+                  "x-item-encoding-ext": "keep"
+                },
+                "itemSchema": {
+                  "$ref": "#/components/schemas/Pet"
+                },
+                "prefixEncoding": [
+                  {
+                    "contentType": "application/json",
+                    "x-prefix-encoding-ext": "keep"
+                  }
+                ],
+                "x-media-type-ext": "keep"
+              },
+              "multipart/form-data": {
+                "encoding": {
+                  "meta": {
+                    "contentType": "application/json",
+                    "encoding": {
+                      "nested": {
+                        "contentType": "text/plain",
+                        "x-nested-encoding-ext": "keep"
+                      }
+                    },
+                    "itemEncoding": {
+                      "contentType": "text/plain"
+                    },
+                    "prefixEncoding": [
+                      {
+                        "contentType": "text/plain"
+                      }
+                    ],
+                    "x-encoding-ext": "keep"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "meta": {
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "A list of pets",
+            "summary": "Pets, or the default shape",
+            "x-response-ext": "keep"
+          }
+        }
+      },
+      "post": {
+        "operationId": "searchPets",
+        "parameters": [
+          {
+            "content": {
+              "application/x-www-form-urlencoded": {
+                "schema": {
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "in": "querystring",
+            "name": "q"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "name": "production",
+      "url": "https://api.example.com",
+      "x-server-ext": "keep"
+    }
+  ],
+  "tags": [
+    {
+      "kind": "nav",
+      "name": "pets",
+      "parent": "root",
+      "summary": "Pet operations",
+      "x-tag-ext": "keep"
+    },
+    {
+      "name": "root"
+    }
+  ]
+}
