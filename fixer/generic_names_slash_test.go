@@ -1252,3 +1252,56 @@ paths:
 	assert.NotContains(t, doc.Components.Schemas, "Orphan",
 		"matching bare names must not make every schema look referenced")
 }
+
+// TestPruneKeepsBareDiscriminatorTargetsWithSlash covers the shape this repo's own
+// generic-name fixer produces: a schema name containing "/".
+//
+// Treating "/" as evidence that a value was a pointer rather than a name deleted
+// both targets here. Only "#" marks a pointer; OAS 2.0 places no charset
+// constraint on definition keys, and "Dog[example.com/pkg.Breed]" is a name the
+// fixer emits and the discriminator tests already use as a bare mapping value.
+func TestPruneKeepsBareDiscriminatorTargetsWithSlash(t *testing.T) {
+	spec := `
+openapi: 3.2.0
+info: {title: T, version: "1.0"}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [kind]
+      properties: {kind: {type: string}}
+      discriminator:
+        propertyName: kind
+        defaultMapping: 'Other[example.com/pkg.Breed]'
+        mapping:
+          dog: 'Dog[example.com/pkg.Breed]'
+    "Dog[example.com/pkg.Breed]": {type: object}
+    "Other[example.com/pkg.Breed]": {type: object}
+    "Orphan[example.com/pkg.Breed]": {type: object}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Pet'}
+`
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	doc := result.Document.(*parser.OAS3Document)
+	assert.Contains(t, doc.Components.Schemas, "Dog[example.com/pkg.Breed]",
+		"a bare mapping value containing \"/\" must keep its schema alive")
+	assert.Contains(t, doc.Components.Schemas, "Other[example.com/pkg.Breed]",
+		"a bare defaultMapping value containing \"/\" must too")
+	assert.NotContains(t, doc.Components.Schemas, "Orphan[example.com/pkg.Breed]",
+		"an unreferenced schema with the same shape is still pruned")
+}

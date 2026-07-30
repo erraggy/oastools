@@ -38,13 +38,18 @@ paths:
             application/jsonl:
               itemSchema:
                 $ref: "#/components/schemas/Pet"
+              x-media-type-ext: keep
+            # itemEncoding and prefixEncoding SHALL only apply to a multipart media
+            # type, so they live here rather than on the sequential one above.
+            multipart/mixed:
+              itemSchema:
+                $ref: "#/components/schemas/Pet"
               itemEncoding:
                 contentType: application/json
                 x-item-encoding-ext: keep
               prefixEncoding:
                 - contentType: application/json
                   x-prefix-encoding-ext: keep
-              x-media-type-ext: keep
             multipart/form-data:
               schema:
                 type: object
@@ -63,6 +68,22 @@ paths:
                   prefixEncoding:
                     - contentType: text/plain
                   x-encoding-ext: keep
+    query:
+      operationId: queryPets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Matching pets
+    additionalOperations:
+      PURGE:
+        operationId: purgePets
+        responses:
+          "204":
+            description: Purged
     post:
       operationId: searchPets
       parameters:
@@ -93,6 +114,9 @@ components:
             name: tag
             nodeType: attribute
             x-xml-ext: keep
+      oneOf:
+        - $ref: "#/components/schemas/Dog"
+        - $ref: "#/components/schemas/OtherPet"
       discriminator:
         propertyName: petType
         defaultMapping: OtherPet

@@ -235,17 +235,23 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 	// its neighbor's; a schema with no `xml` hashes as it always has.
 	if schema.XML != nil {
 		h.writeString(hasher, "xml:")
+		// Each value is terminated, not just labeled. writeString appends raw bytes,
+		// so unterminated values run together: name "anamespace:b" with no namespace
+		// would otherwise hash the same as name "a" with namespace "b".
 		if schema.XML.Name != "" {
 			h.writeString(hasher, "name:")
 			h.writeString(hasher, schema.XML.Name)
+			h.writeString(hasher, "\x00")
 		}
 		if schema.XML.Namespace != "" {
 			h.writeString(hasher, "namespace:")
 			h.writeString(hasher, schema.XML.Namespace)
+			h.writeString(hasher, "\x00")
 		}
 		if schema.XML.Prefix != "" {
 			h.writeString(hasher, "prefix:")
 			h.writeString(hasher, schema.XML.Prefix)
+			h.writeString(hasher, "\x00")
 		}
 		if schema.XML.Attribute {
 			h.writeString(hasher, "attribute:true")
@@ -258,6 +264,7 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 		if schema.XML.NodeType != "" {
 			h.writeString(hasher, "nodeType:")
 			h.writeString(hasher, schema.XML.NodeType)
+			h.writeString(hasher, "\x00")
 		}
 	}
 

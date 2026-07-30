@@ -243,9 +243,12 @@ func appendDiscriminatorTargetNames(dst []string, value, prefix string) []string
 	}
 	dst = appendSchemaNames(dst, value, prefix)
 
-	// A pointer spelling was already expanded above; only a bare name is left to
-	// add, and a value containing "/" or "#" is not one.
-	if !strings.ContainsAny(value, "/#") && !slices.Contains(dst, value) {
+	// A pointer spelling was already expanded above, so only a bare name is left
+	// to add. "#" is the only reliable marker of a pointer: a bare schema name may
+	// legitimately contain "/", and this repo's own generic-name fixer produces
+	// exactly that shape, e.g. "Dog[example.com/pkg.Breed]". Excluding "/" here
+	// made pruning delete schemas referenced only by such a name.
+	if !strings.Contains(value, "#") && !slices.Contains(dst, value) {
 		dst = append(dst, value)
 	}
 	return dst

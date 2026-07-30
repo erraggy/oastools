@@ -27,6 +27,14 @@
           "propertyName": "petType",
           "x-discriminator-ext": "keep"
         },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/Dog"
+          },
+          {
+            "$ref": "#/components/schemas/OtherPet"
+          }
+        ],
         "properties": {
           "petType": {
             "type": "string"
@@ -73,25 +81,25 @@
   "openapi": "3.2.0",
   "paths": {
     "/pets": {
+      "additionalOperations": {
+        "PURGE": {
+          "operationId": "purgePets",
+          "responses": {
+            "204": {
+              "description": "Purged"
+            }
+          }
+        }
+      },
       "get": {
         "operationId": "listPets",
         "responses": {
           "200": {
             "content": {
               "application/jsonl": {
-                "itemEncoding": {
-                  "contentType": "application/json",
-                  "x-item-encoding-ext": "keep"
-                },
                 "itemSchema": {
                   "$ref": "#/components/schemas/Pet"
                 },
-                "prefixEncoding": [
-                  {
-                    "contentType": "application/json",
-                    "x-prefix-encoding-ext": "keep"
-                  }
-                ],
                 "x-media-type-ext": "keep"
               },
               "multipart/form-data": {
@@ -123,6 +131,21 @@
                   },
                   "type": "object"
                 }
+              },
+              "multipart/mixed": {
+                "itemEncoding": {
+                  "contentType": "application/json",
+                  "x-item-encoding-ext": "keep"
+                },
+                "itemSchema": {
+                  "$ref": "#/components/schemas/Pet"
+                },
+                "prefixEncoding": [
+                  {
+                    "contentType": "application/json",
+                    "x-prefix-encoding-ext": "keep"
+                  }
+                ]
               }
             },
             "description": "A list of pets",
@@ -154,6 +177,23 @@
         "responses": {
           "204": {
             "description": "No content"
+          }
+        }
+      },
+      "query": {
+        "operationId": "queryPets",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching pets"
           }
         }
       }

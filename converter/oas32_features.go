@@ -47,13 +47,19 @@ func (c *Converter) detectOAS32Features(doc *parser.OAS3Document, result *Conver
 			continue
 		}
 		tagPath := "tags[" + strconv.Itoa(i) + "]"
-		for field, present := range map[string]bool{
-			"summary": tag.Summary != "",
-			"parent":  tag.Parent != "",
-			"kind":    tag.Kind != "",
+		// An ordered slice, not a map literal: report appends to result.Issues, and
+		// Go randomizes map iteration, so a map here would reorder the output between
+		// runs for no reason.
+		for _, f := range []struct {
+			name    string
+			present bool
+		}{
+			{"summary", tag.Summary != ""},
+			{"parent", tag.Parent != ""},
+			{"kind", tag.Kind != ""},
 		} {
-			if present {
-				report(tagPath, field)
+			if f.present {
+				report(tagPath, f.name)
 			}
 		}
 	}
@@ -118,9 +124,17 @@ func (c *Converter) detectOAS32PathItemFeatures(
 		c.detectOAS32ParameterFeatures(param, prefix+".parameters["+strconv.Itoa(i)+"]", report)
 	}
 
-	// GetOperations surfaces `query` and `additionalOperations` at 3.2+, so the loop
-	// covers them without checks of their own. Both are reported as Critical where
-	// the OAS 2.0 path finds them: a lost operation is not a lost annotation.
+	// The 3.2 methods have to be reported here, not left to the loop below: that
+	// loop walks their contents, so a `query` operation carrying no 3.2-only field
+	// would convert to 3.0 with no warning at all. The OAS 2.0 path reports both as
+	// Critical of its own accord, since a lost operation is not a lost annotation.
+	if item.Query != nil {
+		report(prefix, "query")
+	}
+	if len(item.AdditionalOperations) > 0 {
+		report(prefix, "additionalOperations")
+	}
+
 	for method, op := range parser.GetOperations(item, version) {
 		if op == nil {
 			continue
@@ -281,15 +295,19 @@ func detectOAS32SecuritySchemeFeatures(scheme *parser.SecurityScheme, prefix str
 	if scheme.Flows.DeviceAuthorization != nil {
 		report(prefix+".flows", oas3FlowDeviceAuthorization)
 	}
-	for name, flow := range map[string]*parser.OAuthFlow{
-		oauthFlowImplicit:           scheme.Flows.Implicit,
-		oauthFlowPassword:           scheme.Flows.Password,
-		oas3FlowClientCredentials:   scheme.Flows.ClientCredentials,
-		oas3FlowAuthorizationCode:   scheme.Flows.AuthorizationCode,
-		oas3FlowDeviceAuthorization: scheme.Flows.DeviceAuthorization,
+	// Ordered for the same reason as the tag fields above.
+	for _, f := range []struct {
+		name string
+		flow *parser.OAuthFlow
+	}{
+		{oauthFlowImplicit, scheme.Flows.Implicit},
+		{oauthFlowPassword, scheme.Flows.Password},
+		{oas3FlowClientCredentials, scheme.Flows.ClientCredentials},
+		{oas3FlowAuthorizationCode, scheme.Flows.AuthorizationCode},
+		{oas3FlowDeviceAuthorization, scheme.Flows.DeviceAuthorization},
 	} {
-		if flow != nil && flow.DeviceAuthorizationURL != "" {
-			report(prefix+".flows."+name, "deviceAuthorizationUrl")
+		if f.flow != nil && f.flow.DeviceAuthorizationURL != "" {
+			report(prefix+".flows."+f.name, "deviceAuthorizationUrl")
 		}
 	}
 }

@@ -48,15 +48,26 @@ func assertOAS32FieldsPresent(t *testing.T, doc *OAS3Document) {
 	require.NotNil(t, resp)
 	assert.Equal(t, "Pets, or the default shape", resp.Summary, "response.summary")
 
-	// Media Type Object: sequential media type fields
+	// Media Type Object: itemSchema describes each item of a sequential media type.
 	jsonl := resp.Content["application/jsonl"]
 	require.NotNil(t, jsonl, "application/jsonl media type")
 	require.NotNil(t, jsonl.ItemSchema, "mediaType.itemSchema")
 	assert.Equal(t, "#/components/schemas/Pet", jsonl.ItemSchema.Ref, "mediaType.itemSchema.$ref")
-	require.NotNil(t, jsonl.ItemEncoding, "mediaType.itemEncoding")
-	assert.Equal(t, "application/json", jsonl.ItemEncoding.ContentType)
-	require.Len(t, jsonl.PrefixEncoding, 1, "mediaType.prefixEncoding")
-	assert.Equal(t, "application/json", jsonl.PrefixEncoding[0].ContentType)
+
+	// itemEncoding and prefixEncoding only apply to a multipart media type.
+	mixed := resp.Content["multipart/mixed"]
+	require.NotNil(t, mixed, "multipart/mixed media type")
+	require.NotNil(t, mixed.ItemEncoding, "mediaType.itemEncoding")
+	assert.Equal(t, "application/json", mixed.ItemEncoding.ContentType)
+	require.Len(t, mixed.PrefixEncoding, 1, "mediaType.prefixEncoding")
+	assert.Equal(t, "application/json", mixed.PrefixEncoding[0].ContentType)
+
+	// Path Item Object: the two methods 3.2 added.
+	require.NotNil(t, doc.Paths["/pets"].Query, "pathItem.query")
+	assert.Equal(t, "queryPets", doc.Paths["/pets"].Query.OperationID)
+	purge := doc.Paths["/pets"].AdditionalOperations["PURGE"]
+	require.NotNil(t, purge, "pathItem.additionalOperations.PURGE")
+	assert.Equal(t, "purgePets", purge.OperationID)
 
 	// Encoding Object: recursive as of 3.2
 	multipart := resp.Content["multipart/form-data"]
@@ -263,16 +274,20 @@ func TestOAS32DeepCopyPreservesNewFields(t *testing.T) {
 
 	// Mutating the clone's nested 3.2 structures must not reach the original, or
 	// the copy is shallow and the two share state.
-	cloneJSONL := clone.Paths["/pets"].Get.Responses.Codes["200"].Content["application/jsonl"]
-	cloneJSONL.ItemSchema.Ref = "#/components/schemas/Mutated"
-	cloneJSONL.ItemEncoding.ContentType = "text/mutated"
-	cloneJSONL.PrefixEncoding[0].ContentType = "text/mutated"
+	cloneContent := clone.Paths["/pets"].Get.Responses.Codes["200"].Content
+	cloneContent["application/jsonl"].ItemSchema.Ref = "#/components/schemas/Mutated"
+	cloneContent["multipart/mixed"].ItemEncoding.ContentType = "text/mutated"
+	cloneContent["multipart/mixed"].PrefixEncoding[0].ContentType = "text/mutated"
+	clone.Paths["/pets"].Query.OperationID = "mutated"
+	clone.Paths["/pets"].AdditionalOperations["PURGE"].OperationID = "mutated"
 	clone.Components.SecuritySchemes["oauth"].Flows.DeviceAuthorization.DeviceAuthorizationURL = "https://mutated"
 
-	originalJSONL := original.Paths["/pets"].Get.Responses.Codes["200"].Content["application/jsonl"]
-	assert.Equal(t, "#/components/schemas/Pet", originalJSONL.ItemSchema.Ref)
-	assert.Equal(t, "application/json", originalJSONL.ItemEncoding.ContentType)
-	assert.Equal(t, "application/json", originalJSONL.PrefixEncoding[0].ContentType)
+	originalContent := original.Paths["/pets"].Get.Responses.Codes["200"].Content
+	assert.Equal(t, "#/components/schemas/Pet", originalContent["application/jsonl"].ItemSchema.Ref)
+	assert.Equal(t, "application/json", originalContent["multipart/mixed"].ItemEncoding.ContentType)
+	assert.Equal(t, "application/json", originalContent["multipart/mixed"].PrefixEncoding[0].ContentType)
+	assert.Equal(t, "queryPets", original.Paths["/pets"].Query.OperationID)
+	assert.Equal(t, "purgePets", original.Paths["/pets"].AdditionalOperations["PURGE"].OperationID)
 	assert.Equal(t, "https://auth.example.com/device",
 		original.Components.SecuritySchemes["oauth"].Flows.DeviceAuthorization.DeviceAuthorizationURL)
 }

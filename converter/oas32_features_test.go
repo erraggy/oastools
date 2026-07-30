@@ -1,6 +1,8 @@
 package converter
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -60,6 +62,8 @@ func TestDownconvertReportsOAS32Fields(t *testing.T) {
 				"'defaultMapping'", // Discriminator Object
 				"'nodeType'",       // XML Object
 				`'in: "querystring"'`,
+				"'query'",                // Path Item Object
+				"'additionalOperations'", // Path Item Object
 			} {
 				assert.Contains(t, joined, field,
 					"converting to %s should report the 3.2 field %s", target, field)
@@ -85,6 +89,42 @@ func TestDownconvertPreservesOAS32Fields(t *testing.T) {
 		"defaultMapping must survive a 3.x to 3.y conversion, which strips nothing")
 	assert.Equal(t, "production", doc.Servers[0].Name,
 		"a server name must survive too")
+}
+
+// TestDownconvertReportsBare32Methods pins that the 3.2 HTTP methods are reported
+// for themselves, not only when something 3.2-only is nested inside them. The walk
+// over their contents cannot see the method, so a bare `query` operation converted
+// to 3.0 previously produced no warning at all.
+func TestDownconvertReportsBare32Methods(t *testing.T) {
+	spec := `openapi: 3.2.0
+info: {title: T, version: "1.0.0"}
+paths:
+  /pets:
+    query:
+      operationId: queryPets
+      responses:
+        "200": {description: OK}
+    additionalOperations:
+      PURGE:
+        operationId: purgePets
+        responses:
+          "204": {description: No Content}
+`
+	path := filepath.Join(t.TempDir(), "bare32.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(spec), 0o600))
+
+	result, err := New().Convert(path, "3.0.3")
+	require.NoError(t, err)
+
+	var joined string
+	for _, issue := range result.Issues {
+		joined += issue.Path + ": " + issue.Message + "\n"
+	}
+
+	assert.Contains(t, joined, "'query' is OAS 3.2+ only",
+		"a query operation with no 3.2-only content must still be reported")
+	assert.Contains(t, joined, "'additionalOperations' is OAS 3.2+ only",
+		"additionalOperations must be reported for itself")
 }
 
 // TestConvertToOAS32TargetReportsNothing is the control: the fields are legal at

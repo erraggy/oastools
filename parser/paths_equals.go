@@ -487,9 +487,13 @@ func equalEncoding(a, b *Encoding) bool {
 		return false
 	}
 
-	// OAS 3.2+ nested encodings. Recursive, and safely so: the parser decodes
-	// each level into a fresh value, so an Encoding graph from a document is a
-	// tree and cannot cycle back on itself.
+	// OAS 3.2+ nested encodings. Recursive, and deliberately without the
+	// visited-pair guard [Schema.equalsWithVisited] carries: a Schema graph can
+	// cycle for a real document, because $ref resolution makes schemas share
+	// pointers, while an Encoding is only ever reached by decoding a fresh value
+	// per level. A cyclic Encoding is therefore unreachable by parsing and can only
+	// be hand-assembled; guarding it would cost an allocation on every media type
+	// comparison to defend against input the parser cannot produce.
 	if !equalEncodingMap(a.Encoding, b.Encoding) {
 		return false
 	}

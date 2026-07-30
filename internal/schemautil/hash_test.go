@@ -418,6 +418,16 @@ func TestHashDistinguishesXML(t *testing.T) {
 		}
 	})
 
+	// writeString appends raw bytes, so unterminated values run together. Without a
+	// terminator these two hash identically, putting different XML configurations in
+	// one deduplication bucket.
+	t.Run("adjacent xml values do not run together", func(t *testing.T) {
+		runTogether := stringWithXML(&parser.XML{Name: "anamespace:b"})
+		separate := stringWithXML(&parser.XML{Name: "a", Namespace: "b"})
+		assert.NotEqual(t, hasher.Hash(runTogether), hasher.Hash(separate),
+			"concatenated xml values must not collide")
+	})
+
 	t.Run("identical xml still hashes alike", func(t *testing.T) {
 		left := stringWithXML(&parser.XML{Name: "tag", Namespace: "https://example.com/ns", NodeType: "attribute"})
 		right := stringWithXML(&parser.XML{Name: "tag", Namespace: "https://example.com/ns", NodeType: "attribute"})
