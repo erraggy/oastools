@@ -93,7 +93,12 @@ func populate(target any, f field) bool {
 		return true
 	case reflect.Interface:
 		// The schema-or-bool fields and the example and default values are declared
-		// `any`. A string is a legal inhabitant of every one of them.
+		// `any`, and a string inhabits every one of them. A named interface would
+		// not accept one, and a panic here aborts the whole guard rather than
+		// failing a case, so report it as uncovered instead.
+		if !reflect.TypeOf(marker).AssignableTo(fv.Type()) {
+			return false
+		}
 		fv.Set(reflect.ValueOf(marker))
 		return true
 	default:

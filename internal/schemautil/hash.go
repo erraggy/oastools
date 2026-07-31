@@ -264,8 +264,9 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 		}
 	}
 
-	// JSON Schema identity, dialect, and the content keywords
+	// JSON Schema identity and dialect, value semantics, and the content keywords
 	h.hashIdentity(hasher, schema)
+	h.hashValueSemantics(hasher, schema)
 	h.hashContentKeywords(hasher, schema)
 
 	// Contains
@@ -402,24 +403,28 @@ func (h *SchemaHasher) hashIdentity(hasher hash.Hash64, schema *parser.Schema) {
 	sort.Strings(keys)
 	for _, k := range keys {
 		h.writeLabeled(hasher, "k", k)
-		h.writeString(hasher, strconv.FormatBool(schema.Vocabulary[k]))
+		h.writeLabeled(hasher, "v", strconv.FormatBool(schema.Vocabulary[k]))
 	}
 }
 
-// hashContentKeywords hashes the value and serialization keywords: the default, the
-// OAS 2.0 array format, and the JSON Schema 2020-12 unevaluated and content
-// keywords, all of which participate in validation or in the wire format.
+// hashValueSemantics hashes the keywords that decide what a value is when the
+// payload does not say: the default, and the OAS 2.0 array serialization.
 //
 // default is an annotation in JSON Schema terms, but two schemas that default
 // differently generate different code and fill payloads differently, so
-// consolidating them is not safe.
-func (h *SchemaHasher) hashContentKeywords(hasher hash.Hash64, schema *parser.Schema) {
+// consolidating them is not safe. collectionFormat decides a wire format outright.
+func (h *SchemaHasher) hashValueSemantics(hasher hash.Hash64, schema *parser.Schema) {
 	if schema.Default != nil {
 		h.writeLabeled(hasher, "default", fmt.Sprintf("%v", schema.Default))
 	}
 	if schema.CollectionFormat != "" {
 		h.writeLabeled(hasher, "collectionFormat", schema.CollectionFormat)
 	}
+}
+
+// hashContentKeywords hashes the JSON Schema 2020-12 unevaluated and content
+// keywords, all of which participate in validation.
+func (h *SchemaHasher) hashContentKeywords(hasher hash.Hash64, schema *parser.Schema) {
 	if schema.UnevaluatedProperties != nil {
 		h.writeString(hasher, "unevaluatedProperties:")
 		h.hashSchemaOrBool(hasher, schema.UnevaluatedProperties)

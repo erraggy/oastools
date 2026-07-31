@@ -509,8 +509,18 @@ func compareSchemaMaps(
 	}
 	path.push(field)
 	for name, leftValue := range left {
+		// compareDeep dereferences both operands with no nil guard of its own, and a
+		// map may hold a nil value for a present key: `patternProperties: {"^a": }`
+		// parses that way.
+		rightValue := right[name]
+		if leftValue == nil || rightValue == nil {
+			if (leftValue == nil) != (rightValue == nil) {
+				result.record(path, name, leftValue != nil, rightValue != nil, field+" entry presence mismatch")
+			}
+			continue
+		}
 		path.push(name)
-		compareDeep(leftValue, right[name], path, result, visited, compareDocs)
+		compareDeep(leftValue, rightValue, path, result, visited, compareDocs)
 		path.pop()
 	}
 	path.pop()
@@ -601,7 +611,7 @@ func compareStructuralSchemaFields(
 	}
 
 	// Nested schemas.
-	compareAdditionalPropertiesSchemas(left.AdditionalItems, right.AdditionalItems, path, result, visited, compareDocs)
+	compareSchemaOrBool("additionalItems", left.AdditionalItems, right.AdditionalItems, path, result, visited, compareDocs)
 	compareSchemaMaps("patternProperties", left.PatternProperties, right.PatternProperties, path, result, visited, compareDocs)
 	compareSchemaMaps("$defs", left.Defs, right.Defs, path, result, visited, compareDocs)
 	for _, c := range []struct {
@@ -1209,18 +1219,28 @@ func compareItemsSchemas(left, right any, path *comparePath, result *Equivalence
 }
 
 func compareAdditionalPropertiesSchemas(left, right any, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool, compareDocs bool) {
+	compareSchemaOrBool("additionalProperties", left, right, path, result, visited, compareDocs)
+}
+
+// compareSchemaOrBool compares one schema-or-bool field, recording differences
+// under the keyword it belongs to.
+//
+// The keyword is a parameter because additionalProperties and additionalItems are
+// the same shape but not the same field: reusing the additionalProperties path for
+// additionalItems reported an item difference under an object keyword.
+func compareSchemaOrBool(field string, left, right any, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool, compareDocs bool) {
 	// Both nil
 	if left == nil && right == nil {
 		return
 	}
 	// One nil
 	if left == nil || right == nil {
-		path.push("additionalProperties")
+		path.push(field)
 		result.Differences = append(result.Differences, SchemaDifference{
 			Path:        path.String(),
 			LeftValue:   left != nil,
 			RightValue:  right != nil,
-			Description: "additionalProperties presence mismatch",
+			Description: field + " presence mismatch",
 		})
 		path.pop()
 		return
@@ -1230,7 +1250,7 @@ func compareAdditionalPropertiesSchemas(left, right any, path *comparePath, resu
 	leftSchema, leftIsSchema := left.(*parser.Schema)
 	rightSchema, rightIsSchema := right.(*parser.Schema)
 	if leftIsSchema && rightIsSchema {
-		path.push("additionalProperties")
+		path.push(field)
 		compareDeep(leftSchema, rightSchema, path, result, visited, compareDocs)
 		path.pop()
 		return
@@ -1241,12 +1261,12 @@ func compareAdditionalPropertiesSchemas(left, right any, path *comparePath, resu
 	rightBool, rightIsBool := right.(bool)
 	if leftIsBool && rightIsBool {
 		if leftBool != rightBool {
-			path.push("additionalProperties")
+			path.push(field)
 			result.Differences = append(result.Differences, SchemaDifference{
 				Path:        path.String(),
 				LeftValue:   leftBool,
 				RightValue:  rightBool,
-				Description: "additionalProperties boolean value mismatch",
+				Description: field + " boolean value mismatch",
 			})
 			path.pop()
 		}
@@ -1254,12 +1274,12 @@ func compareAdditionalPropertiesSchemas(left, right any, path *comparePath, resu
 	}
 
 	// Type mismatch
-	path.push("additionalProperties")
+	path.push(field)
 	result.Differences = append(result.Differences, SchemaDifference{
 		Path:        path.String(),
 		LeftValue:   fmt.Sprintf("%T", left),
 		RightValue:  fmt.Sprintf("%T", right),
-		Description: "additionalProperties type mismatch",
+		Description: field + " type mismatch",
 	})
 	path.pop()
 }

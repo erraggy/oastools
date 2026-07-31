@@ -64,10 +64,6 @@ func TestDeepComparisonReadsEveryStructuralSchemaField(t *testing.T) {
 func TestEqualsReadsEveryStructuralSchemaField(t *testing.T) {
 	for _, f := range fieldsOf[parser.Schema]() {
 		t.Run(f.name, func(t *testing.T) {
-			if f.name == "StringForm" {
-				t.Skip("not a Schema field")
-			}
-
 			left, right := &parser.Schema{}, &parser.Schema{}
 			if !populate(right, f) {
 				t.Skip("no distinctive value for this field's type")

@@ -107,7 +107,12 @@ func runMarshalGuard(t *testing.T, withExtension bool, message string) {
 				encoded, err := json.Marshal(value)
 				require.NoError(t, err)
 
-				assert.Contains(t, string(encoded), `"`+f.jsonKey+`"`, message, typeName, f.name)
+				// Decoded rather than substring-matched: the key name can occur inside a
+				// nested value too, and a guard that passes falsely is worse than none.
+				var decoded map[string]json.RawMessage
+				require.NoError(t, json.Unmarshal(encoded, &decoded))
+
+				assert.Contains(t, decoded, f.jsonKey, message, typeName, f.name)
 			})
 		}
 	}
