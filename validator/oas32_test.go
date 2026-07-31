@@ -81,9 +81,14 @@ components:
 		{
 			// The traversal that finds Example Objects is gated on 3.2 — see
 			// oas32TraversalApplies for why paying it on every 3.0/3.1 document is
-			// not worth catching a field those versions do not define. A pre-3.2
-			// document carrying dataValue therefore gets no error from this rule.
-			name: "the rules do not run below 3.2",
+			// not worth catching a field those versions do not define. So the
+			// exclusivity rule stays silent here even though dataValue and value are
+			// set together.
+			//
+			// What reports instead is the version gate: below 3.2 the defect is not
+			// that dataValue conflicts with value, it is that dataValue does not
+			// exist yet. Issue #411 covers that pass.
+			name: "the exclusivity rules do not run below 3.2, but the field is still too early",
 			spec: `
 openapi: 3.1.0
 info: {title: T, version: "1.0.0"}
@@ -94,7 +99,9 @@ components:
       dataValue: {a: 1}
       value: {a: 1}
 `,
-			wantErrors: nil,
+			wantErrors: []string{
+				"components.examples.tooEarly.dataValue: dataValue was introduced in OpenAPI 3.2.0",
+			},
 		},
 		{
 			// Reached only through the media-type traversal, not through

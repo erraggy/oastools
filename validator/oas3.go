@@ -69,6 +69,7 @@ func (v *Validator) validateOAS3(doc *parser.OAS3Document, result *ValidationRes
 
 	// Validate the OAS 3.2 cross-field constraints (see oas32.go)
 	v.validateOAS32Document(doc, result)
+	v.validateOAS32FieldsNotYetIntroduced(doc, result)
 
 	// Validate all $ref values point to valid components
 	v.validateOAS3Refs(doc, result, baseURL)
