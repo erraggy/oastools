@@ -46,6 +46,9 @@ func (d *OAS3Document) MarshalJSON() ([]byte, error) {
 	if d.ExternalDocs != nil {
 		m["externalDocs"] = d.ExternalDocs
 	}
+	if d.Self != "" {
+		m["$self"] = d.Self
+	}
 	if d.JSONSchemaDialect != "" {
 		m["jsonSchemaDialect"] = d.JSONSchemaDialect
 	}
@@ -108,6 +111,9 @@ func (c *Components) MarshalJSON() ([]byte, error) {
 	}
 	if len(c.Callbacks) > 0 {
 		m["callbacks"] = c.Callbacks
+	}
+	if len(c.MediaTypes) > 0 {
+		m["mediaTypes"] = c.MediaTypes
 	}
 	if len(c.PathItems) > 0 {
 		m["pathItems"] = c.PathItems

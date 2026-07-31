@@ -463,6 +463,192 @@ func compareDocFields(left, right *parser.Schema, path *comparePath, result *Equ
 		})
 		path.pop()
 	}
+
+	// $comment, externalDocs and deprecated are documentation and advisory rather
+	// than structural, so they belong to this set: they count by default, and are
+	// ignored under EquivalenceDocsIgnore along with the four above.
+	if left.Comment != right.Comment {
+		result.record(path, "$comment", left.Comment, right.Comment, "$comment mismatch")
+	}
+	if !reflect.DeepEqual(left.ExternalDocs, right.ExternalDocs) {
+		result.record(path, "externalDocs", left.ExternalDocs, right.ExternalDocs, "externalDocs mismatch")
+	}
+	if left.Deprecated != right.Deprecated {
+		result.record(path, "deprecated", left.Deprecated, right.Deprecated, "deprecated mismatch")
+	}
+}
+
+// record appends one field difference at path. The existing comparisons above
+// spell this out inline; new ones use this so the check is the line you read.
+func (r *EquivalenceResult) record(path *comparePath, field string, left, right any, description string) {
+	path.push(field)
+	r.Differences = append(r.Differences, SchemaDifference{
+		Path:        path.String(),
+		LeftValue:   left,
+		RightValue:  right,
+		Description: description,
+	})
+	path.pop()
+}
+
+// compareSchemaMaps compares two name-keyed schema maps deeply.
+func compareSchemaMaps(
+	field string,
+	left, right map[string]*parser.Schema,
+	path *comparePath,
+	result *EquivalenceResult,
+	visited map[pointerPair]bool,
+	compareDocs bool,
+) {
+	if !equalPropertyNames(left, right) {
+		result.record(path, field, getPropertyNames(left), getPropertyNames(right), field+" names mismatch")
+		return
+	}
+	if left == nil {
+		return
+	}
+	path.push(field)
+	for name, leftValue := range left {
+		path.push(name)
+		compareDeep(leftValue, right[name], path, result, visited, compareDocs)
+		path.pop()
+	}
+	path.pop()
+}
+
+// compareStructuralSchemaFields compares the Schema fields that affect what a
+// document means but are not reached by the comparisons written out above.
+//
+// They were all unchecked until issue #410: deep comparison read 38 of the 65
+// fields, so schemas differing only in nullability, in which property
+// discriminates a union, or in OAS 2.0 array serialization were reported
+// equivalent and merged. internal/driftguard is what keeps this list complete.
+func compareStructuralSchemaFields(
+	left, right *parser.Schema,
+	path *comparePath,
+	result *EquivalenceResult,
+	visited map[pointerPair]bool,
+	compareDocs bool,
+) {
+	// JSON Schema identity and dialect: these decide what a $ref or $dynamicRef
+	// resolves to and which vocabulary validates it.
+	if left.Schema != right.Schema {
+		result.record(path, "$schema", left.Schema, right.Schema, "$schema mismatch")
+	}
+	if left.ID != right.ID {
+		result.record(path, "$id", left.ID, right.ID, "$id mismatch")
+	}
+	if left.Anchor != right.Anchor {
+		result.record(path, "$anchor", left.Anchor, right.Anchor, "$anchor mismatch")
+	}
+	if left.DynamicRef != right.DynamicRef {
+		result.record(path, "$dynamicRef", left.DynamicRef, right.DynamicRef, "$dynamicRef mismatch")
+	}
+	if left.DynamicAnchor != right.DynamicAnchor {
+		result.record(path, "$dynamicAnchor", left.DynamicAnchor, right.DynamicAnchor, "$dynamicAnchor mismatch")
+	}
+	if !reflect.DeepEqual(left.Vocabulary, right.Vocabulary) {
+		result.record(path, "$vocabulary", left.Vocabulary, right.Vocabulary, "$vocabulary mismatch")
+	}
+
+	// Value and serialization semantics.
+	if !reflect.DeepEqual(left.Default, right.Default) {
+		result.record(path, "default", left.Default, right.Default, "default mismatch")
+	}
+	if left.CollectionFormat != right.CollectionFormat {
+		result.record(path, "collectionFormat", left.CollectionFormat, right.CollectionFormat,
+			"collectionFormat mismatch")
+	}
+
+	// OAS flags. Merging across any of these changes what a payload may contain.
+	if left.Nullable != right.Nullable {
+		result.record(path, "nullable", left.Nullable, right.Nullable, "nullable mismatch")
+	}
+	if left.ReadOnly != right.ReadOnly {
+		result.record(path, "readOnly", left.ReadOnly, right.ReadOnly, "readOnly mismatch")
+	}
+	if left.WriteOnly != right.WriteOnly {
+		result.record(path, "writeOnly", left.WriteOnly, right.WriteOnly, "writeOnly mismatch")
+	}
+
+	// Numeric and array constraints.
+	if !equalutil.EqualPtr(left.MultipleOf, right.MultipleOf) {
+		result.record(path, "multipleOf", left.MultipleOf, right.MultipleOf, "multipleOf constraint mismatch")
+	}
+	if !reflect.DeepEqual(left.ExclusiveMaximum, right.ExclusiveMaximum) {
+		result.record(path, "exclusiveMaximum", left.ExclusiveMaximum, right.ExclusiveMaximum,
+			"exclusiveMaximum constraint mismatch")
+	}
+	if !reflect.DeepEqual(left.ExclusiveMinimum, right.ExclusiveMinimum) {
+		result.record(path, "exclusiveMinimum", left.ExclusiveMinimum, right.ExclusiveMinimum,
+			"exclusiveMinimum constraint mismatch")
+	}
+	if !equalutil.EqualPtr(left.MaxContains, right.MaxContains) {
+		result.record(path, "maxContains", left.MaxContains, right.MaxContains, "maxContains constraint mismatch")
+	}
+	if !equalutil.EqualPtr(left.MinContains, right.MinContains) {
+		result.record(path, "minContains", left.MinContains, right.MinContains, "minContains constraint mismatch")
+	}
+	if !equalStringSliceMaps(left.DependentRequired, right.DependentRequired) {
+		result.record(path, "dependentRequired", left.DependentRequired, right.DependentRequired,
+			"dependentRequired mismatch")
+	}
+
+	// Polymorphism. A discriminator names the property that selects a subschema,
+	// so two schemas discriminating differently describe different payloads.
+	if !equalDiscriminators(left.Discriminator, right.Discriminator) {
+		result.record(path, "discriminator", left.Discriminator, right.Discriminator, "discriminator mismatch")
+	}
+
+	// Nested schemas.
+	compareAdditionalPropertiesSchemas(left.AdditionalItems, right.AdditionalItems, path, result, visited, compareDocs)
+	compareSchemaMaps("patternProperties", left.PatternProperties, right.PatternProperties, path, result, visited, compareDocs)
+	compareSchemaMaps("$defs", left.Defs, right.Defs, path, result, visited, compareDocs)
+	for _, c := range []struct {
+		name        string
+		left, right *parser.Schema
+	}{
+		{"if", left.If, right.If},
+		{"then", left.Then, right.Then},
+		{"else", left.Else, right.Else},
+	} {
+		if (c.left == nil) != (c.right == nil) {
+			result.record(path, c.name, c.left != nil, c.right != nil, c.name+" presence mismatch")
+			continue
+		}
+		if c.left != nil {
+			path.push(c.name)
+			compareDeep(c.left, c.right, path, result, visited, compareDocs)
+			path.pop()
+		}
+	}
+}
+
+// equalDiscriminators compares two Discriminator Objects.
+//
+// StringForm is excluded for the same reason parser's equalDiscriminator excludes
+// it: it records which dialect spelled the discriminator, not what it selects.
+func equalDiscriminators(left, right *parser.Discriminator) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.PropertyName == right.PropertyName &&
+		left.DefaultMapping == right.DefaultMapping &&
+		reflect.DeepEqual(left.Mapping, right.Mapping)
+}
+
+// equalStringSliceMaps compares two name-keyed string-slice maps, order-independently.
+func equalStringSliceMaps(left, right map[string][]string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for k, lv := range left {
+		rv, ok := right[k]
+		if !ok || !equalStringSlices(lv, rv) {
+			return false
+		}
+	}
+	return true
 }
 
 // compareCommonFields compares schema fields common to both shallow and deep comparison.
@@ -705,6 +891,9 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		}
 		path.pop()
 	}
+
+	// Compare the structural fields that are not written out above (issue #410).
+	compareStructuralSchemaFields(left, right, path, result, visited, compareDocs)
 
 	// Compare items (array item schema)
 	compareItemsSchemas(left.Items, right.Items, path, result, visited, compareDocs)

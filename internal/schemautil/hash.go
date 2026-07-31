@@ -80,11 +80,12 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 	h.writeString(hasher, "pattern:")
 	h.writeString(hasher, schema.Pattern)
 
-	// Enum (order matters)
+	// Enum (order matters). Length-framed: unframed, ["ab"] and ["a", "b"] both
+	// hash as "enum:ab".
 	if len(schema.Enum) > 0 {
 		h.writeString(hasher, "enum:")
 		for _, v := range schema.Enum {
-			h.writeString(hasher, fmt.Sprintf("%v", v))
+			h.writeLabeled(hasher, "v", fmt.Sprintf("%v", v))
 		}
 	}
 
@@ -94,14 +95,15 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 		h.writeString(hasher, fmt.Sprintf("%v", schema.Const))
 	}
 
-	// Required (sort for order-independent comparison)
+	// Required (sort for order-independent comparison). Length-framed for the same
+	// reason as Enum.
 	if len(schema.Required) > 0 {
 		h.writeString(hasher, "required:")
 		sorted := make([]string, len(schema.Required))
 		copy(sorted, schema.Required)
 		sort.Strings(sorted)
 		for _, r := range sorted {
-			h.writeString(hasher, r)
+			h.writeLabeled(hasher, "r", r)
 		}
 	}
 
@@ -262,6 +264,10 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 		}
 	}
 
+	// JSON Schema identity, dialect, and the content keywords
+	h.hashIdentity(hasher, schema)
+	h.hashContentKeywords(hasher, schema)
+
 	// Contains
 	if schema.Contains != nil {
 		h.writeString(hasher, "contains:")
@@ -283,12 +289,12 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			h.writeString(hasher, k)
+			h.writeLabeled(hasher, "k", k)
 			deps := make([]string, len(schema.DependentRequired[k]))
 			copy(deps, schema.DependentRequired[k])
 			sort.Strings(deps)
 			for _, d := range deps {
-				h.writeString(hasher, d)
+				h.writeLabeled(hasher, "d", d)
 			}
 		}
 	}
@@ -362,6 +368,75 @@ func (h *SchemaHasher) hashSchemaOrBool(hasher hash.Hash64, v any) {
 		} else {
 			h.writeString(hasher, "false")
 		}
+	}
+}
+
+// hashIdentity hashes the JSON Schema identity and dialect keywords. They decide
+// which schema a $ref or $dynamicRef resolves to and which vocabulary validates
+// it, so two schemas differing here are not interchangeable however alike their
+// constraints look.
+func (h *SchemaHasher) hashIdentity(hasher hash.Hash64, schema *parser.Schema) {
+	if schema.Schema != "" {
+		h.writeLabeled(hasher, "$schema", schema.Schema)
+	}
+	if schema.ID != "" {
+		h.writeLabeled(hasher, "$id", schema.ID)
+	}
+	if schema.Anchor != "" {
+		h.writeLabeled(hasher, "$anchor", schema.Anchor)
+	}
+	if schema.DynamicRef != "" {
+		h.writeLabeled(hasher, "$dynamicRef", schema.DynamicRef)
+	}
+	if schema.DynamicAnchor != "" {
+		h.writeLabeled(hasher, "$dynamicAnchor", schema.DynamicAnchor)
+	}
+	if len(schema.Vocabulary) == 0 {
+		return
+	}
+	h.writeString(hasher, "$vocabulary:")
+	keys := make([]string, 0, len(schema.Vocabulary))
+	for k := range schema.Vocabulary {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		h.writeLabeled(hasher, "k", k)
+		h.writeString(hasher, strconv.FormatBool(schema.Vocabulary[k]))
+	}
+}
+
+// hashContentKeywords hashes the value and serialization keywords: the default, the
+// OAS 2.0 array format, and the JSON Schema 2020-12 unevaluated and content
+// keywords, all of which participate in validation or in the wire format.
+//
+// default is an annotation in JSON Schema terms, but two schemas that default
+// differently generate different code and fill payloads differently, so
+// consolidating them is not safe.
+func (h *SchemaHasher) hashContentKeywords(hasher hash.Hash64, schema *parser.Schema) {
+	if schema.Default != nil {
+		h.writeLabeled(hasher, "default", fmt.Sprintf("%v", schema.Default))
+	}
+	if schema.CollectionFormat != "" {
+		h.writeLabeled(hasher, "collectionFormat", schema.CollectionFormat)
+	}
+	if schema.UnevaluatedProperties != nil {
+		h.writeString(hasher, "unevaluatedProperties:")
+		h.hashSchemaOrBool(hasher, schema.UnevaluatedProperties)
+	}
+	if schema.UnevaluatedItems != nil {
+		h.writeString(hasher, "unevaluatedItems:")
+		h.hashSchemaOrBool(hasher, schema.UnevaluatedItems)
+	}
+	if schema.ContentEncoding != "" {
+		h.writeLabeled(hasher, "contentEncoding", schema.ContentEncoding)
+	}
+	if schema.ContentMediaType != "" {
+		h.writeLabeled(hasher, "contentMediaType", schema.ContentMediaType)
+	}
+	if schema.ContentSchema != nil {
+		h.writeString(hasher, "contentSchema:")
+		h.hashSchema(hasher, schema.ContentSchema)
 	}
 }
 
