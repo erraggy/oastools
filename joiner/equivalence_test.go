@@ -1,6 +1,7 @@
 package joiner
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -1452,4 +1453,183 @@ func TestCompareSchemas_XMLEquivalent(t *testing.T) {
 		plainRight := &parser.Schema{Type: "string"}
 		assert.True(t, CompareSchemas(plainLeft, plainRight, EquivalenceModeDeep).Equivalent)
 	})
+}
+
+// TestCompareSchemas_NilNestedSchemas covers the nil values a schema map or a
+// schema-or-bool field can legitimately hold.
+//
+// compareDeep dereferences both operands with no nil guard of its own, so every
+// nested walk has to keep nils away from it. `patternProperties: {"^a": }` parses
+// to a nil entry, and a caller can store a typed nil `(*parser.Schema)(nil)` in
+// additionalItems, which passes an interface nil check and asserts cleanly.
+func TestCompareSchemas_NilNestedSchemas(t *testing.T) {
+	base := func() map[string]*parser.Schema {
+		return map[string]*parser.Schema{"p": {Type: "string"}}
+	}
+
+	tests := []struct {
+		name        string
+		left, right *parser.Schema
+		equivalent  bool
+		wantPath    string
+	}{
+		{
+			name:       "nil patternProperties entry against a present one",
+			left:       &parser.Schema{Type: "object", Properties: base(), PatternProperties: map[string]*parser.Schema{"^a": nil}},
+			right:      &parser.Schema{Type: "object", Properties: base(), PatternProperties: map[string]*parser.Schema{"^a": {Type: "string"}}},
+			equivalent: false,
+			wantPath:   "patternProperties.^a",
+		},
+		{
+			name:       "nil $defs entry against a present one",
+			left:       &parser.Schema{Type: "object", Properties: base(), Defs: map[string]*parser.Schema{"A": nil}},
+			right:      &parser.Schema{Type: "object", Properties: base(), Defs: map[string]*parser.Schema{"A": {Type: "string"}}},
+			equivalent: false,
+			wantPath:   "$defs.A",
+		},
+		{
+			name:       "both entries nil",
+			left:       &parser.Schema{Type: "object", Properties: base(), Defs: map[string]*parser.Schema{"A": nil}},
+			right:      &parser.Schema{Type: "object", Properties: base(), Defs: map[string]*parser.Schema{"A": nil}},
+			equivalent: true,
+		},
+		{
+			name:       "typed-nil additionalItems against a present schema",
+			left:       &parser.Schema{Type: "array", Properties: base(), AdditionalItems: (*parser.Schema)(nil)},
+			right:      &parser.Schema{Type: "array", Properties: base(), AdditionalItems: &parser.Schema{Type: "string"}},
+			equivalent: false,
+			wantPath:   "additionalItems",
+		},
+		{
+			name:       "typed-nil additionalProperties against a present schema",
+			left:       &parser.Schema{Type: "object", Properties: base(), AdditionalProperties: (*parser.Schema)(nil)},
+			right:      &parser.Schema{Type: "object", Properties: base(), AdditionalProperties: &parser.Schema{Type: "string"}},
+			equivalent: false,
+			wantPath:   "additionalProperties",
+		},
+		{
+			name:       "both additionalItems typed-nil",
+			left:       &parser.Schema{Type: "array", Properties: base(), AdditionalItems: (*parser.Schema)(nil)},
+			right:      &parser.Schema{Type: "array", Properties: base(), AdditionalItems: (*parser.Schema)(nil)},
+			equivalent: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CompareSchemas(tt.left, tt.right, EquivalenceModeDeep)
+
+			assert.Equal(t, tt.equivalent, result.Equivalent)
+			if tt.wantPath == "" {
+				return
+			}
+			var paths []string
+			for _, d := range result.Differences {
+				paths = append(paths, d.Path)
+			}
+			assert.Contains(t, paths, tt.wantPath,
+				"the difference should be reported at the field it belongs to")
+		})
+	}
+}
+
+// TestCompareSchemas_AdditionalItemsNamesItsOwnKeyword pins the keyword a
+// schema-or-bool difference is reported under.
+//
+// additionalItems and additionalProperties share a comparison, which used to
+// hardcode the additionalProperties path, so an item difference was labelled as
+// an object one. The comparison was right and only the diagnostic was wrong,
+// which is why no equivalence assertion caught it.
+func TestCompareSchemas_AdditionalItemsNamesItsOwnKeyword(t *testing.T) {
+	props := map[string]*parser.Schema{"p": {Type: "string"}}
+	left := &parser.Schema{Type: "array", Properties: props, AdditionalItems: &parser.Schema{Type: "string"}}
+	right := &parser.Schema{Type: "array", Properties: props, AdditionalItems: &parser.Schema{Type: "integer"}}
+
+	result := CompareSchemas(left, right, EquivalenceModeDeep)
+
+	require.False(t, result.Equivalent)
+	require.NotEmpty(t, result.Differences)
+	for _, d := range result.Differences {
+		assert.True(t, strings.HasPrefix(d.Path, "additionalItems"),
+			"expected the difference under additionalItems, got %q", d.Path)
+	}
+}
+
+// TestCompareSchemas_SchemaOrBoolMismatch covers the remaining shapes a
+// schema-or-bool field can take, since additionalItems and additionalProperties
+// accept either and a document may change which.
+func TestCompareSchemas_SchemaOrBoolMismatch(t *testing.T) {
+	props := map[string]*parser.Schema{"p": {Type: "string"}}
+
+	t.Run("boolean values differ", func(t *testing.T) {
+		left := &parser.Schema{Type: "object", Properties: props, AdditionalProperties: true}
+		right := &parser.Schema{Type: "object", Properties: props, AdditionalProperties: false}
+		assert.False(t, CompareSchemas(left, right, EquivalenceModeDeep).Equivalent)
+	})
+
+	t.Run("a schema against a boolean", func(t *testing.T) {
+		left := &parser.Schema{Type: "object", Properties: props, AdditionalProperties: &parser.Schema{Type: "string"}}
+		right := &parser.Schema{Type: "object", Properties: props, AdditionalProperties: false}
+		assert.False(t, CompareSchemas(left, right, EquivalenceModeDeep).Equivalent)
+	})
+
+	t.Run("present against absent", func(t *testing.T) {
+		left := &parser.Schema{Type: "object", Properties: props, AdditionalProperties: true}
+		right := &parser.Schema{Type: "object", Properties: props}
+		assert.False(t, CompareSchemas(left, right, EquivalenceModeDeep).Equivalent)
+	})
+}
+
+// TestCompareSchemas_NilAndEmptyMapsAgreeWithParser pins deep comparison to the
+// convention parser's equality already documents: "Nil and empty maps are
+// considered equal."
+//
+// reflect.DeepEqual splits those two, so using it for a typed map made this
+// package disagree with parser about the same pair of schemas. The last case
+// covers why the fix is maps.EqualFunc rather than maps.Equal for Extra:
+// specification extensions hold arbitrary JSON, and == on a slice value panics.
+func TestCompareSchemas_NilAndEmptyMapsAgreeWithParser(t *testing.T) {
+	base := func() map[string]*parser.Schema {
+		return map[string]*parser.Schema{"p": {Type: "string"}}
+	}
+
+	tests := []struct {
+		name        string
+		left, right *parser.Schema
+	}{
+		{
+			name:  "$vocabulary absent against declared empty",
+			left:  &parser.Schema{Type: "object", Properties: base()},
+			right: &parser.Schema{Type: "object", Properties: base(), Vocabulary: map[string]bool{}},
+		},
+		{
+			name: "discriminator mapping absent against declared empty",
+			left: &parser.Schema{Type: "object", Properties: base(),
+				Discriminator: &parser.Discriminator{PropertyName: "kind"}},
+			right: &parser.Schema{Type: "object", Properties: base(),
+				Discriminator: &parser.Discriminator{PropertyName: "kind", Mapping: map[string]string{}}},
+		},
+		{
+			name: "dependentRequired absent against declared empty",
+			left: &parser.Schema{Type: "object", Properties: base()},
+			right: &parser.Schema{Type: "object", Properties: base(),
+				DependentRequired: map[string][]string{}},
+		},
+		{
+			name: "externalDocs extensions holding an uncomparable value",
+			left: &parser.Schema{Type: "object", Properties: base(),
+				ExternalDocs: &parser.ExternalDocs{URL: "https://example.com", Extra: map[string]any{"x-a": []any{1, 2}}}},
+			right: &parser.Schema{Type: "object", Properties: base(),
+				ExternalDocs: &parser.ExternalDocs{URL: "https://example.com", Extra: map[string]any{"x-a": []any{1, 2}}}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.True(t, CompareSchemas(tt.left, tt.right, EquivalenceModeDeep).Equivalent,
+				"deep comparison should treat these as equivalent")
+			assert.True(t, tt.left.Equals(tt.right),
+				"parser agrees, and the two must not diverge")
+		})
+	}
 }

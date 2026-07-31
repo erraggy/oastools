@@ -58,13 +58,17 @@ clean:
 
 ## test: Run tests with coverage (parallel execution for speed)
 ## Note: Fuzz tests are skipped in regular test runs. Use 'make test-fuzz-parse' to run them separately.
+##
+## -coverpkg=./... credits a test to the package it exercises, not only the one it
+## lives in. Go attributes coverage per-package by default, which discards
+## everything a test in one package covers in another.
 .PHONY: test
 test:
 	@echo "Running tests..."
 ifeq ("$(shell command -v gotestsum)", "")
-	go test -coverprofile=coverage.txt -covermode=atomic -timeout=5m -skip='^Fuzz' ./...
+	go test -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout=5m -skip='^Fuzz' ./...
 else
-	gotestsum --format testname -- -coverprofile=coverage.txt -covermode=atomic -timeout=5m -failfast -skip='^Fuzz' ./...
+	gotestsum --format testname -- -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic -timeout=5m -failfast -skip='^Fuzz' ./...
 endif
 
 ## test-quick: Run tests quickly for rapid iteration (no coverage, short mode)

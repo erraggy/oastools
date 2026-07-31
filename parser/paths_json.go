@@ -32,6 +32,8 @@ func (p *PathItem) MarshalJSON() ([]byte, error) {
 	jsonhelpers.SetIfNotNil(m, "head", p.Head)
 	jsonhelpers.SetIfNotNil(m, "patch", p.Patch)
 	jsonhelpers.SetIfNotNil(m, "trace", p.Trace)
+	jsonhelpers.SetIfNotNil(m, "query", p.Query)                                    // OAS 3.2+
+	jsonhelpers.SetIfMapNotEmpty(m, "additionalOperations", p.AdditionalOperations) // OAS 3.2+
 	jsonhelpers.SetIfSliceNotEmpty(m, "servers", p.Servers)
 	jsonhelpers.SetIfSliceNotEmpty(m, "parameters", p.Parameters)
 

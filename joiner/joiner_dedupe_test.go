@@ -1202,3 +1202,102 @@ func TestJoiner_SemanticDeduplication_MergesXMLIdenticalSchemas(t *testing.T) {
 		"identical xml must still deduplicate")
 	assert.Contains(t, doc.Components.Schemas, "Alpha", "alphabetically first name is canonical")
 }
+
+// TestJoiner_SemanticDeduplication_KeepsStructurallyDistinctSchemas is the
+// end-to-end regression for issue #410.
+//
+// Deep comparison read 38 of Schema's 65 fields. For six of the rest the
+// structural hash was silent too, so the schemas landed in one bucket and the
+// verification step that exists to split false positives agreed they matched.
+// Each pair below was merged before, and merging them changes what the document
+// says: a different array serialization, a different default, a different JSON
+// Schema dialect or identity.
+func TestJoiner_SemanticDeduplication_KeepsStructurallyDistinctSchemas(t *testing.T) {
+	tests := []struct {
+		name        string
+		left, right *parser.Schema
+	}{
+		{
+			name:  "collectionFormat",
+			left:  &parser.Schema{Type: "array", CollectionFormat: "csv", Items: &parser.Schema{Type: "string"}},
+			right: &parser.Schema{Type: "array", CollectionFormat: "pipes", Items: &parser.Schema{Type: "string"}},
+		},
+		{
+			name:  "default",
+			left:  &parser.Schema{Type: "string", Default: "a"},
+			right: &parser.Schema{Type: "string", Default: "b"},
+		},
+		{
+			name:  "$schema",
+			left:  &parser.Schema{Type: "string", Schema: "https://json-schema.org/draft/2020-12/schema"},
+			right: &parser.Schema{Type: "string", Schema: "http://json-schema.org/draft-07/schema#"},
+		},
+		{
+			name:  "$id",
+			left:  &parser.Schema{Type: "string", ID: "https://example.com/a"},
+			right: &parser.Schema{Type: "string", ID: "https://example.com/b"},
+		},
+		{
+			name:  "$dynamicRef",
+			left:  &parser.Schema{Type: "string", DynamicRef: "#a"},
+			right: &parser.Schema{Type: "string", DynamicRef: "#b"},
+		},
+		{
+			name:  "deprecated",
+			left:  &parser.Schema{Type: "string", Deprecated: true},
+			right: &parser.Schema{Type: "string"},
+		},
+		{
+			name:  "nullable",
+			left:  &parser.Schema{Type: "string", Nullable: true},
+			right: &parser.Schema{Type: "string"},
+		},
+		{
+			name: "discriminator",
+			left: &parser.Schema{
+				Type:          "object",
+				Properties:    map[string]*parser.Schema{"kind": {Type: "string"}},
+				Discriminator: &parser.Discriminator{PropertyName: "kind"},
+			},
+			right: &parser.Schema{
+				Type:          "object",
+				Properties:    map[string]*parser.Schema{"kind": {Type: "string"}},
+				Discriminator: &parser.Discriminator{PropertyName: "other"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			docOf := func(title, name string, schema *parser.Schema) parser.ParseResult {
+				return parser.ParseResult{
+					Document: &parser.OAS3Document{
+						OpenAPI:    "3.1.0",
+						Info:       &parser.Info{Title: title, Version: "1.0.0"},
+						Paths:      make(parser.Paths),
+						Components: &parser.Components{Schemas: map[string]*parser.Schema{name: schema}},
+						OASVersion: parser.OASVersion310,
+					},
+					Version:      "3.1.0",
+					OASVersion:   parser.OASVersion310,
+					SourcePath:   title + ".yaml",
+					SourceFormat: "yaml",
+				}
+			}
+
+			config := DefaultConfig()
+			config.SemanticDeduplication = true
+
+			joined, err := New(config).JoinParsed([]parser.ParseResult{
+				docOf("API 1", "Alpha", tt.left),
+				docOf("API 2", "Beta", tt.right),
+			})
+			require.NoError(t, err)
+
+			doc, ok := joined.Document.(*parser.OAS3Document)
+			require.True(t, ok)
+			assert.Len(t, doc.Components.Schemas, 2,
+				"schemas differing in %s must not be consolidated", tt.name)
+		})
+	}
+}
