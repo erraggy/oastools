@@ -542,6 +542,9 @@ func compareStructuralSchemaFields(
 ) {
 	// JSON Schema identity and dialect: these decide what a $ref or $dynamicRef
 	// resolves to and which vocabulary validates it.
+	if left.Ref != right.Ref {
+		result.record(path, "$ref", left.Ref, right.Ref, "$ref target mismatch")
+	}
 	if left.Schema != right.Schema {
 		result.record(path, "$schema", left.Schema, right.Schema, "$schema mismatch")
 	}
@@ -1250,6 +1253,14 @@ func compareSchemaOrBool(field string, left, right any, path *comparePath, resul
 	leftSchema, leftIsSchema := left.(*parser.Schema)
 	rightSchema, rightIsSchema := right.(*parser.Schema)
 	if leftIsSchema && rightIsSchema {
+		// A typed nil passes the interface nil checks above and asserts cleanly, so
+		// the pointer itself has to be tested before compareDeep dereferences it.
+		if leftSchema == nil || rightSchema == nil {
+			if leftSchema != rightSchema {
+				result.record(path, field, leftSchema != nil, rightSchema != nil, field+" presence mismatch")
+			}
+			return
+		}
 		path.push(field)
 		compareDeep(leftSchema, rightSchema, path, result, visited, compareDocs)
 		path.pop()

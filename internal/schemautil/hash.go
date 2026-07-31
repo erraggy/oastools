@@ -62,11 +62,11 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 	h.visited[ptr] = true
 	defer func() { h.visited[ptr] = false }()
 
-	// Hash $ref if present (schema is just a reference)
+	// Hash $ref if present. JSON Schema 2020-12 allows keywords alongside $ref, so
+	// this records the reference and keeps going: returning here made
+	// {$ref: X, default: 1} and {$ref: X, default: 2} hash alike.
 	if schema.Ref != "" {
-		h.writeString(hasher, "$ref:")
-		h.writeString(hasher, schema.Ref)
-		return
+		h.writeLabeled(hasher, "$ref", schema.Ref)
 	}
 
 	// Type (handle both string and []any for OAS 3.1+)

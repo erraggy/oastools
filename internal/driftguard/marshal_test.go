@@ -2,6 +2,7 @@ package driftguard
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,9 +28,10 @@ import (
 // the reason. Everything else must survive both paths.
 var marshalExclusions = map[string]map[string]string{
 	"Discriminator": {
-		// Spelling rather than meaning: it records which dialect the document used,
-		// and is excluded from JSON, YAML and equality alike.
-		"StringForm": "not a specification field",
+		// Spelling rather than meaning: it records which dialect the document used.
+		// Setting it does not drop a key, it re-spells the Discriminator as the OAS
+		// 2.0 bare string, which is why this case is checked before decoding.
+		"StringForm": "selects the OAS 2.0 bare-string form",
 	},
 }
 
@@ -88,17 +90,10 @@ func runMarshalGuard(t *testing.T, withExtension bool, message string) {
 		_, fields := subject()
 		for _, f := range fields {
 			t.Run(typeName+"/"+f.name, func(t *testing.T) {
-				if reason, skipped := marshalExclusions[typeName][f.name]; skipped {
-					t.Skipf("deliberately not emitted: %s", reason)
-				}
-				if f.jsonKey == "" {
-					t.Skip("not serialized to JSON")
-				}
-
 				value, _ := subject()
-				if !populate(value, f) {
-					t.Skip("no distinctive value for this field's type")
-				}
+				require.True(t, populate(value, f),
+					"populate cannot produce a value for %s.%s; extend it rather than "+
+						"leaving the field unchecked", typeName, f.name)
 				if withExtension {
 					require.True(t, setExtension(value),
 						"%s has no Extra field, so the slow path cannot be reached", typeName)
@@ -107,10 +102,32 @@ func runMarshalGuard(t *testing.T, withExtension bool, message string) {
 				encoded, err := json.Marshal(value)
 				require.NoError(t, err)
 
+				// An excluded field is asserted to stay excluded rather than skipped: a
+				// skip checks nothing, so emitting one by accident would go unnoticed.
+				//
+				// Checked on the raw bytes because an excluded field can change the shape
+				// of the output rather than merely drop a key. Discriminator.StringForm
+				// re-spells the whole object as an OAS 2.0 bare string, so there is no
+				// object left to decode.
+				if reason, excluded := marshalExclusions[typeName][f.name]; excluded {
+					assert.NotContains(t, string(encoded), `"`+f.name+`"`,
+						"%s.%s is excluded from JSON (%s) but was emitted", typeName, f.name, reason)
+					return
+				}
+
 				// Decoded rather than substring-matched: the key name can occur inside a
 				// nested value too, and a guard that passes falsely is worse than none.
 				var decoded map[string]json.RawMessage
 				require.NoError(t, json.Unmarshal(encoded, &decoded))
+
+				if f.jsonKey == "" {
+					// Tagged json:"-", so no spelling of the name should appear as a key.
+					assert.NotContains(t, decoded, f.name,
+						`%s.%s is tagged json:"-" but was emitted`, typeName, f.name)
+					assert.NotContains(t, decoded, strings.ToLower(f.name[:1])+f.name[1:],
+						`%s.%s is tagged json:"-" but was emitted`, typeName, f.name)
+					return
+				}
 
 				assert.Contains(t, decoded, f.jsonKey, message, typeName, f.name)
 			})

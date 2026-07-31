@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
@@ -17,25 +18,17 @@ import (
 // deliberately excludes it; the joiner should reach the same verdict for anything
 // structural. This guard sets one field at a time and requires both to notice.
 
-// equivalenceExclusions lists fields deep comparison deliberately treats as not
-// affecting equivalence, with the reason.
+// Deep comparison excludes nothing: every field of a Schema affects what a
+// document means, documentation included, since [joiner.EquivalenceDocsInclude]
+// is the default and decides at runtime whether the documentation fields count.
 //
-// Documentation fields are absent from this list on purpose: they are handled at
-// runtime by [joiner.EquivalenceDocsInclude], which is the default and makes them
-// count. Anything listed here is excluded unconditionally.
-var equivalenceExclusions = map[string]string{
-	// A $ref schema is compared by the definition it names, which is walked at the
-	// top level, so comparing the ref string here would double-report.
-	"Ref": "compared via the definition it names",
-}
+// There is deliberately no exclusion list here. If one becomes necessary, the
+// entry belongs beside an assertion that the field really is ignored, not beside
+// a skip: a skipped case checks nothing and reads as though it did.
 
 func TestDeepComparisonReadsEveryStructuralSchemaField(t *testing.T) {
 	for _, f := range fieldsOf[parser.Schema]() {
 		t.Run(f.name, func(t *testing.T) {
-			if reason, skipped := equivalenceExclusions[f.name]; skipped {
-				t.Skipf("deliberately not compared: %s", reason)
-			}
-
 			// A type and a property keep both schemas out of the empty-schema early
 			// return, which reports any two empty schemas as non-equivalent for
 			// reasons unrelated to the field under test.
@@ -47,9 +40,9 @@ func TestDeepComparisonReadsEveryStructuralSchemaField(t *testing.T) {
 			}
 
 			left, right := base(), base()
-			if !populate(right, f) {
-				t.Skip("no distinctive value for this field's type")
-			}
+			require.True(t, populate(right, f),
+				"populate cannot produce a value for Schema.%s; extend it rather than "+
+					"leaving the field unchecked", f.name)
 
 			result := joiner.CompareSchemas(left, right, joiner.EquivalenceModeDeep)
 			assert.False(t, result.Equivalent,
@@ -65,9 +58,9 @@ func TestEqualsReadsEveryStructuralSchemaField(t *testing.T) {
 	for _, f := range fieldsOf[parser.Schema]() {
 		t.Run(f.name, func(t *testing.T) {
 			left, right := &parser.Schema{}, &parser.Schema{}
-			if !populate(right, f) {
-				t.Skip("no distinctive value for this field's type")
-			}
+			require.True(t, populate(right, f),
+				"populate cannot produce a value for Schema.%s; extend it rather than "+
+					"leaving the field unchecked", f.name)
 
 			assert.False(t, left.Equals(right),
 				"Schema.%s differs but Equals reported the schemas equal", f.name)

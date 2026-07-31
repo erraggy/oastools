@@ -505,3 +505,44 @@ func TestHashFramesDiscriminatorStrings(t *testing.T) {
 		assert.Equal(t, hasher.Hash(left), hasher.Hash(right))
 	})
 }
+
+// TestHashReadsRefSiblings covers the keywords a $ref schema may carry alongside
+// the reference.
+//
+// JSON Schema 2020-12 allows siblings to $ref, unlike OAS 3.0 where they are
+// ignored. Returning as soon as the reference was written made every $ref schema
+// to the same target hash alike whatever else it said.
+func TestHashReadsRefSiblings(t *testing.T) {
+	hasher := NewSchemaHasher()
+	const target = "#/components/schemas/X"
+
+	plain := &parser.Schema{Ref: target}
+
+	tests := []struct {
+		name  string
+		other *parser.Schema
+	}{
+		{"default", &parser.Schema{Ref: target, Default: "a"}},
+		{"$id", &parser.Schema{Ref: target, ID: "https://example.com/a"}},
+		{"$anchor", &parser.Schema{Ref: target, Anchor: "a"}},
+		{"$dynamicRef", &parser.Schema{Ref: target, DynamicRef: "#a"}},
+		{"contentEncoding", &parser.Schema{Ref: target, ContentEncoding: "base64"}},
+		{"contentMediaType", &parser.Schema{Ref: target, ContentMediaType: "application/json"}},
+		{"contentSchema", &parser.Schema{Ref: target, ContentSchema: &parser.Schema{Type: "string"}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.NotEqual(t, hasher.Hash(plain), hasher.Hash(tt.other),
+				"a $ref schema carrying %s must not hash as the bare reference", tt.name)
+		})
+	}
+
+	t.Run("two references to the same target still hash alike", func(t *testing.T) {
+		assert.Equal(t, hasher.Hash(&parser.Schema{Ref: target}), hasher.Hash(&parser.Schema{Ref: target}))
+	})
+
+	t.Run("different targets differ", func(t *testing.T) {
+		assert.NotEqual(t, hasher.Hash(&parser.Schema{Ref: target}), hasher.Hash(&parser.Schema{Ref: target + "Y"}))
+	})
+}

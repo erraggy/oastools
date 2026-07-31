@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
@@ -37,13 +38,19 @@ func TestHashReadsEveryStructuralSchemaField(t *testing.T) {
 
 	for _, f := range fieldsOf[parser.Schema]() {
 		t.Run(f.name, func(t *testing.T) {
-			if reason, skipped := hashExclusions[f.name]; skipped {
-				t.Skipf("deliberately not hashed: %s", reason)
-			}
-
 			schema := &parser.Schema{}
-			if !populate(schema, f) {
-				t.Skip("no distinctive value for this field's type")
+			require.True(t, populate(schema, f),
+				"populate cannot produce a value for Schema.%s; extend it rather than "+
+					"leaving the field unchecked", f.name)
+
+			// An excluded field is asserted to stay excluded rather than skipped. A
+			// skip checks nothing, so hashing Title by accident would go unnoticed;
+			// this way the exclusion is a claim the suite keeps honest.
+			if reason, excluded := hashExclusions[f.name]; excluded {
+				assert.Equal(t, baseline, hasher.Hash(schema),
+					"Schema.%s is excluded from the structural hash (%s) but setting it "+
+						"changed the hash", f.name, reason)
+				return
 			}
 
 			assert.NotEqual(t, baseline, hasher.Hash(schema),
