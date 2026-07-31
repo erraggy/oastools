@@ -20,7 +20,11 @@ jobs:
         with:
           go-version: '1.25'
           cache: true
+      # The version comes from the Makefile so it cannot drift from `make lint`.
+      - name: Read pinned golangci-lint version
+        id: lint-version
+        run: echo "version=$(grep '^GOLANGCI_VERSION=' Makefile | cut -d= -f2)" >> "$GITHUB_OUTPUT"
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          version: ${{ steps.lint-version.outputs.version }}
