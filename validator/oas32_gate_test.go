@@ -49,6 +49,17 @@ func gateFields(t *testing.T, spec string) map[string][]string {
 	return found
 }
 
+// gateSpecRefs keys the gate's spec references by the path they were reported at.
+func gateSpecRefs(t *testing.T, spec string) map[string]string {
+	t.Helper()
+
+	refs := make(map[string]string)
+	for _, e := range gateErrors(t, spec) {
+		refs[e.Path] = e.SpecRef
+	}
+	return refs
+}
+
 // gatePaths lists the gate's error paths, in the order reported.
 func gatePaths(t *testing.T, spec string) []string {
 	t.Helper()
@@ -65,16 +76,18 @@ func gatePaths(t *testing.T, spec string) []string {
 }
 
 // TestOAS32FieldGate_ReportsEachField covers issue #411's inventory one field at a
-// time, so a failure names the field that lost its gate rather than a count.
-//
-// Each case is a whole document because the gate reads the declared version, and
-// the version is the thing under test.
+// time, so a failure names the field that lost its gate rather than a count. Each
+// case is a whole document because the declared version is what the gate reads.
 func TestOAS32FieldGate_ReportsEachField(t *testing.T) {
 	tests := []struct {
 		name      string
 		spec      string
 		wantField string
 		wantPath  string
+		// wantRef is the object that defines the field, which is not always the
+		// object the field is spelled on: deviceAuthorizationUrl sits inside an OAuth
+		// Flow, deviceAuthorization on the OAuth Flows that holds it.
+		wantRef string
 	}{
 		{
 			name: "$self on the OpenAPI Object",
@@ -86,6 +99,7 @@ paths: {}
 `,
 			wantField: "$self",
 			wantPath:  "$self",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#openapi-object",
 		},
 		{
 			name: "mediaTypes on the Components Object",
@@ -100,6 +114,7 @@ components:
 `,
 			wantField: "mediaTypes",
 			wantPath:  "components.mediaTypes",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#components-object",
 		},
 		{
 			name: "query on a Path Item",
@@ -115,6 +130,7 @@ paths:
 `,
 			wantField: "query",
 			wantPath:  "paths./pets.query",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#path-item-object",
 		},
 		{
 			name: "additionalOperations on a Path Item",
@@ -131,6 +147,7 @@ paths:
 `,
 			wantField: "additionalOperations",
 			wantPath:  "paths./pets.additionalOperations",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#path-item-object",
 		},
 		{
 			name: "summary on a Tag",
@@ -144,6 +161,7 @@ paths: {}
 `,
 			wantField: "summary",
 			wantPath:  "tags[0].summary",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#tag-object",
 		},
 		{
 			name: "parent on a Tag",
@@ -157,6 +175,7 @@ paths: {}
 `,
 			wantField: "parent",
 			wantPath:  "tags[0].parent",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#tag-object",
 		},
 		{
 			name: "kind on a Tag",
@@ -170,6 +189,7 @@ paths: {}
 `,
 			wantField: "kind",
 			wantPath:  "tags[0].kind",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#tag-object",
 		},
 		{
 			name: "name on a Server",
@@ -183,6 +203,7 @@ paths: {}
 `,
 			wantField: "name",
 			wantPath:  "servers[0].name",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#server-object",
 		},
 		{
 			// The one Server Object that is not part of a servers list. Missed by the
@@ -207,6 +228,7 @@ paths:
 `,
 			wantField: "name",
 			wantPath:  "paths./pets.get.responses.200.links.self.server.name",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#server-object",
 		},
 		{
 			name: "name on a Server inside a component Link",
@@ -224,6 +246,7 @@ components:
 `,
 			wantField: "name",
 			wantPath:  "components.links.shared.server.name",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#server-object",
 		},
 		{
 			name: "summary on a Response",
@@ -241,6 +264,7 @@ paths:
 `,
 			wantField: "summary",
 			wantPath:  "paths./pets.get.responses.200.summary",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#response-object",
 		},
 		{
 			name: "itemSchema on a Media Type",
@@ -260,6 +284,7 @@ paths:
 `,
 			wantField: "itemSchema",
 			wantPath:  "paths./pets.get.responses.200.content.application/json.itemSchema",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#media-type-object",
 		},
 		{
 			name: "itemEncoding on a Media Type",
@@ -279,6 +304,7 @@ paths:
 `,
 			wantField: "itemEncoding",
 			wantPath:  "paths./pets.post.requestBody.content.multipart/mixed.itemEncoding",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#media-type-object",
 		},
 		{
 			name: "prefixEncoding on a Media Type",
@@ -299,6 +325,7 @@ paths:
 `,
 			wantField: "prefixEncoding",
 			wantPath:  "paths./pets.post.requestBody.content.multipart/mixed.prefixEncoding",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#media-type-object",
 		},
 		{
 			name: "encoding nested in an Encoding",
@@ -321,6 +348,7 @@ paths:
 `,
 			wantField: "encoding",
 			wantPath:  "paths./pets.post.requestBody.content.multipart/form-data.encoding.profile.encoding",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#encoding-object",
 		},
 		{
 			name: "encoding nested inside a Media Type itemEncoding",
@@ -340,6 +368,7 @@ components:
 `,
 			wantField: "encoding",
 			wantPath:  "components.requestBodies.body.content.multipart/mixed.itemEncoding.encoding",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#encoding-object",
 		},
 		{
 			name: "itemEncoding nested inside a Media Type prefixEncoding entry",
@@ -358,6 +387,7 @@ components:
 `,
 			wantField: "itemEncoding",
 			wantPath:  "components.requestBodies.body.content.multipart/mixed.prefixEncoding[0].itemEncoding",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#encoding-object",
 		},
 		{
 			name: "dataValue on an Example",
@@ -372,6 +402,7 @@ components:
 `,
 			wantField: "dataValue",
 			wantPath:  "components.examples.pet.dataValue",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#example-object",
 		},
 		{
 			name: "serializedValue on an Example",
@@ -386,6 +417,7 @@ components:
 `,
 			wantField: "serializedValue",
 			wantPath:  "components.examples.pet.serializedValue",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#example-object",
 		},
 		{
 			name: "deprecated on a Security Scheme",
@@ -403,6 +435,7 @@ components:
 `,
 			wantField: "deprecated",
 			wantPath:  "components.securitySchemes.key.deprecated",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#security-scheme-object",
 		},
 		{
 			name: "oauth2MetadataUrl on a Security Scheme",
@@ -420,6 +453,7 @@ components:
 `,
 			wantField: "oauth2MetadataUrl",
 			wantPath:  "components.securitySchemes.key.oauth2MetadataUrl",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#security-scheme-object",
 		},
 		{
 			name: "deviceAuthorization on OAuth Flows",
@@ -438,6 +472,7 @@ components:
 `,
 			wantField: "deviceAuthorization",
 			wantPath:  "components.securitySchemes.oauth.flows.deviceAuthorization",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#oauth-flows-object",
 		},
 		{
 			name: "deviceAuthorizationUrl on an OAuth Flow",
@@ -457,6 +492,7 @@ components:
 `,
 			wantField: "deviceAuthorizationUrl",
 			wantPath:  "components.securitySchemes.oauth.flows.deviceAuthorization.deviceAuthorizationUrl",
+			wantRef:   "https://spec.openapis.org/oas/v3.2.0.html#oauth-flow-object",
 		},
 	}
 
@@ -473,6 +509,8 @@ components:
 			// membership check alone would pass a gate that reported the legal one too.
 			assert.Len(t, found[tt.wantField], 1,
 				"%s should be reported once, at %s; got %v", tt.wantField, tt.wantPath, found[tt.wantField])
+			assert.Equal(t, tt.wantRef, gateSpecRefs(t, tt.spec)[tt.wantPath],
+				"the error should link the object that defines %s", tt.wantField)
 		})
 	}
 }
@@ -589,10 +627,9 @@ components:
 }
 
 // pathItemFields renders a path item's two OAS 3.2 operation fields at the given
-// indent. Built from an indent rather than reindented from a fixed template: a
-// template shifted by exact-whitespace replacement silently produced sibling keys
-// instead of nested ones, and the test passed for the wrong reason until the
-// paths were checked.
+// indent. Built from an indent rather than reindenting a fixed template, which
+// silently produced sibling keys instead of nested ones and passed for the wrong
+// reason until the paths were checked.
 func pathItemFields(indent int) string {
 	pad := strings.Repeat(" ", indent)
 	return "\n" + pad + "query:" +
@@ -628,11 +665,9 @@ paths:
 		"a 3.2 field inside a 3.2-only operation should be reported in its own right")
 }
 
-// TestOAS32GatePartitionsVersionsWithTraversal pins the two predicates against each
-// other. They divide the version space: oas32TraversalApplies runs the rules that
-// exist at 3.2, oas32FieldGateApplies reports the fields that do not exist before
-// it. A version answering true or false to both would be checked twice or not at
-// all.
+// TestOAS32GatePartitionsVersionsWithTraversal pins the two predicates against
+// each other: they divide the version space, so a version answering the same to
+// both would be checked twice or not at all.
 func TestOAS32GatePartitionsVersionsWithTraversal(t *testing.T) {
 	versions := []parser.OASVersion{
 		parser.OASVersion20,
@@ -661,15 +696,9 @@ func TestOAS32GatePartitionsVersionsWithTraversal(t *testing.T) {
 	assert.False(t, oas32FieldGateApplies(unknown))
 }
 
-// TestOAS32FieldGate_ErrorOrderIsDeterministic pins the ordering.
-//
-// The walk ranges over maps, and Go randomizes that order, so the same document
-// reported its errors in a different order on each run — six distinct orderings
-// in eight runs of the eight-path document below. Anything diffing validator
-// output across runs saw phantom changes.
-//
-// The gate sorts the errors it added rather than sorting each map's keys during
-// the walk, so a clean document sorts an empty range and pays nothing.
+// TestOAS32FieldGate_ErrorOrderIsDeterministic pins the ordering. Map order is
+// randomized, so this document reported six distinct orderings in eight runs, and
+// anything diffing validator output saw phantom changes.
 func TestOAS32FieldGate_ErrorOrderIsDeterministic(t *testing.T) {
 	var spec strings.Builder
 	spec.WriteString("openapi: 3.0.3\ninfo: {title: T, version: \"1.0.0\"}\npaths:\n")
@@ -692,12 +721,11 @@ func TestOAS32FieldGate_ErrorOrderIsDeterministic(t *testing.T) {
 }
 
 // TestOAS32FieldGate_BoundsCyclicPathItems covers the one graph the walk cannot
-// treat as a tree. A Callback Object holds path items, whose operations hold
-// callbacks, so the two can point at each other.
+// treat as a tree — a [Callback Object] holds path items whose operations hold
+// callbacks. Hand-built because a parsed document cannot close that loop, and
+// ValidateParsed takes the caller's; before the bound this exhausted the stack.
 //
-// A parsed document cannot build that cycle, but ValidateParsed takes a document
-// from the caller, and before the bound this recursed until the stack gave out.
-// Constructed by hand because that is precisely the case that reaches it.
+// [Callback Object]: https://spec.openapis.org/oas/v3.2.0.html#callback-object
 func TestOAS32FieldGate_BoundsCyclicPathItems(t *testing.T) {
 	item := &parser.PathItem{}
 	callback := parser.Callback{"loop": item}
