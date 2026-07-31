@@ -101,7 +101,13 @@ func handleWalkSchemas(args []string) error {
 		extFilter = &ef
 	}
 
-	var filtered []*walker.SchemaInfo
+	// Nothing to filter: skip the walk and the allocation.
+	if len(schemas) == 0 {
+		renderNoResults("schemas", flags.Quiet)
+		return nil
+	}
+
+	filtered := make([]*walker.SchemaInfo, 0, len(schemas))
 	for _, info := range schemas {
 		if flags.Name != "" && !strings.EqualFold(info.Name, flags.Name) {
 			continue

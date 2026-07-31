@@ -119,6 +119,7 @@ func (r *Response) MarshalJSON() ([]byte, error) {
 	jsonhelpers.SetIfMapNotEmpty(m, "links", r.Links)
 	jsonhelpers.SetIfNotNil(m, "schema", r.Schema)
 	jsonhelpers.SetIfMapNotEmpty(m, "examples", r.Examples)
+	jsonhelpers.SetIfNotEmpty(m, "summary", r.Summary)
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, r.Extra)
@@ -188,6 +189,9 @@ func (mt *MediaType) MarshalJSON() ([]byte, error) {
 	jsonhelpers.SetIfNotNil(m, "example", mt.Example)
 	jsonhelpers.SetIfMapNotEmpty(m, "examples", mt.Examples)
 	jsonhelpers.SetIfMapNotEmpty(m, "encoding", mt.Encoding)
+	jsonhelpers.SetIfNotNil(m, "itemSchema", mt.ItemSchema)
+	jsonhelpers.SetIfNotNil(m, "itemEncoding", mt.ItemEncoding)
+	jsonhelpers.SetIfSliceNotEmpty(m, "prefixEncoding", mt.PrefixEncoding)
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, mt.Extra)
@@ -222,6 +226,8 @@ func (e *Example) MarshalJSON() ([]byte, error) {
 	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, e.Description)
 	jsonhelpers.SetIfNotNil(m, "value", e.Value)
 	jsonhelpers.SetIfNotEmpty(m, "externalValue", e.ExternalValue)
+	jsonhelpers.SetIfNotNil(m, "dataValue", e.DataValue)
+	jsonhelpers.SetIfNotEmpty(m, "serializedValue", e.SerializedValue)
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, e.Extra)
@@ -256,6 +262,9 @@ func (e *Encoding) MarshalJSON() ([]byte, error) {
 	jsonhelpers.SetIfNotEmpty(m, "style", e.Style)
 	jsonhelpers.SetIfNotNil(m, "explode", e.Explode)
 	jsonhelpers.SetIfTrue(m, "allowReserved", e.AllowReserved)
+	jsonhelpers.SetIfMapNotEmpty(m, "encoding", e.Encoding)
+	jsonhelpers.SetIfNotNil(m, "itemEncoding", e.ItemEncoding)
+	jsonhelpers.SetIfSliceNotEmpty(m, "prefixEncoding", e.PrefixEncoding)
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, e.Extra)

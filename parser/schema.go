@@ -110,7 +110,20 @@ type Schema struct {
 type Discriminator struct {
 	PropertyName string            `yaml:"propertyName" json:"propertyName"`
 	Mapping      map[string]string `yaml:"mapping,omitempty" json:"mapping,omitempty"` // OAS 3.0+ only
-	Extra        map[string]any    `yaml:",inline" json:"-"`
+
+	// DefaultMapping names the schema to use when the discriminating property is
+	// absent, or holds a value no Mapping key covers (OAS 3.2+).
+	// https://spec.openapis.org/oas/v3.2.0.html#discriminator-default-mapping
+	//
+	// Reference-bearing exactly as a Mapping value is: a schema name or a URI
+	// reference. Every pass that rewrites Mapping (joining, renaming, converting)
+	// must rewrite this too, or leave a dangling reference while reporting success.
+	//
+	// Its conditional requirement is a validator rule, not a parser one: whether the
+	// discriminating property is optional is only knowable from the enclosing
+	// schema.
+	DefaultMapping string         `yaml:"defaultMapping,omitempty" json:"defaultMapping,omitempty"` // OAS 3.2+
+	Extra          map[string]any `yaml:",inline" json:"-"`
 
 	// StringForm reports that this discriminator came from — and should be
 	// written back as — the OAS 2.0 bare-string form (`discriminator: petType`)
@@ -124,11 +137,27 @@ type Discriminator struct {
 }
 
 // XML represents metadata for XML encoding (OAS 2.0+)
+// https://spec.openapis.org/oas/v3.2.0.html#xml-object
+//
+// NodeType supersedes Attribute and Wrapped in OAS 3.2 and is modeled beside them
+// rather than derived from either. See the field's own comment for why.
 type XML struct {
-	Name      string         `yaml:"name,omitempty" json:"name,omitempty"`
-	Namespace string         `yaml:"namespace,omitempty" json:"namespace,omitempty"`
-	Prefix    string         `yaml:"prefix,omitempty" json:"prefix,omitempty"`
-	Attribute bool           `yaml:"attribute,omitempty" json:"attribute,omitempty"`
-	Wrapped   bool           `yaml:"wrapped,omitempty" json:"wrapped,omitempty"`
-	Extra     map[string]any `yaml:",inline" json:"-"`
+	Name      string `yaml:"name,omitempty" json:"name,omitempty"`
+	Namespace string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
+	Prefix    string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+	Attribute bool   `yaml:"attribute,omitempty" json:"attribute,omitempty"`
+	Wrapped   bool   `yaml:"wrapped,omitempty" json:"wrapped,omitempty"`
+
+	// NodeType selects the XML node a schema maps to, superseding Attribute and
+	// Wrapped (OAS 3.2+).
+	// https://spec.openapis.org/oas/v3.2.0.html#xml-node-type
+	//
+	// Deliberately independent of those two bools rather than reconciled with them.
+	// Its default depends on the enclosing Schema Object, which an XML Object cannot
+	// see, so deriving a value here would invent one the document never stated.
+	// Keeping them independent lets each survive a round trip as written; the spec
+	// forbids setting both, and the validator enforces that.
+	NodeType string `yaml:"nodeType,omitempty" json:"nodeType,omitempty"` // OAS 3.2+
+
+	Extra map[string]any `yaml:",inline" json:"-"`
 }

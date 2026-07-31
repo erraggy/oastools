@@ -61,6 +61,18 @@ func discriminatorToStringForm(c *Converter, schema *parser.Schema, result *Conv
 				"OAS 2.0 resolves the discriminator by schema name only; rename the target definitions to match the discriminator values")
 			d.Mapping = nil
 		}
+		// defaultMapping (OAS 3.2+) has no OAS 2.0 equivalent either, and unlike
+		// mapping it names a single fallback schema, so losing it changes which
+		// schema validates a payload with no discriminating value. Reported and
+		// cleared here rather than left set: the string form drops it on
+		// serialization regardless, and dropping it silently is the defect issue
+		// #397 is about.
+		if d.DefaultMapping != "" {
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Schema discriminator uses 'defaultMapping' (%s) which has no OAS 2.0 equivalent; defaultMapping dropped", d.DefaultMapping),
+				"OAS 2.0 has no fallback for a missing or unmapped discriminator value; describe the fallback schema explicitly in the enclosing definition")
+			d.DefaultMapping = ""
+		}
 		if len(d.Extra) > 0 {
 			c.addIssueWithContext(result, path,
 				fmt.Sprintf("Schema discriminator carries extensions (%s) which have no OAS 2.0 equivalent; extensions dropped",

@@ -641,6 +641,11 @@ func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 		for key, ref := range schema.Discriminator.Mapping {
 			c.addRef(ref, fmt.Sprintf("%s.discriminator.mapping.%s", path, key), RefTypeSchema)
 		}
+		// defaultMapping (OAS 3.2+) is reference-bearing on the same terms.
+		if schema.Discriminator.DefaultMapping != "" {
+			c.addRef(schema.Discriminator.DefaultMapping,
+				path+".discriminator.defaultMapping", RefTypeSchema)
+		}
 	}
 }
 

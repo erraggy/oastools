@@ -76,6 +76,14 @@ func equalSecurityScheme(a, b *SecurityScheme) bool {
 		return false
 	}
 
+	// OAS 3.2+
+	if a.Deprecated != b.Deprecated {
+		return false
+	}
+	if a.OAuth2MetadataURL != b.OAuth2MetadataURL {
+		return false
+	}
+
 	// Struct pointers
 	if !equalOAuthFlows(a.Flows, b.Flows) {
 		return false
@@ -126,6 +134,11 @@ func equalOAuthFlows(a, b *OAuthFlows) bool {
 		return false
 	}
 
+	// OAS 3.2+
+	if !equalOAuthFlow(a.DeviceAuthorization, b.DeviceAuthorization) {
+		return false
+	}
+
 	// Extensions
 	if !equalMapStringAny(a.Extra, b.Extra) {
 		return false
@@ -151,6 +164,11 @@ func equalOAuthFlow(a, b *OAuthFlow) bool {
 		return false
 	}
 	if a.RefreshURL != b.RefreshURL {
+		return false
+	}
+
+	// OAS 3.2+
+	if a.DeviceAuthorizationURL != b.DeviceAuthorizationURL {
 		return false
 	}
 

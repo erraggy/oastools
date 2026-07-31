@@ -202,9 +202,12 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 	}
 
 	// Discriminator
+	// Every string here is length-framed. Unframed, adjacent values run together:
+	// mapping {"ab": "c"} hashed the same as {"a": "bc"}, and a mapping value could
+	// forge the defaultMapping label that follows it.
 	if schema.Discriminator != nil {
 		h.writeString(hasher, "discriminator:")
-		h.writeString(hasher, schema.Discriminator.PropertyName)
+		h.writeLabeled(hasher, "propertyName", schema.Discriminator.PropertyName)
 		if len(schema.Discriminator.Mapping) > 0 {
 			keys := make([]string, 0, len(schema.Discriminator.Mapping))
 			for k := range schema.Discriminator.Mapping {
@@ -212,9 +215,50 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 			}
 			sort.Strings(keys)
 			for _, k := range keys {
-				h.writeString(hasher, k)
-				h.writeString(hasher, schema.Discriminator.Mapping[k])
+				h.writeLabeled(hasher, "map", k)
+				h.writeLabeled(hasher, "to", schema.Discriminator.Mapping[k])
 			}
+		}
+		// OAS 3.2+. Written only when set, so a schema without it hashes as it
+		// always has, while two schemas with different fallbacks stop colliding.
+		// https://spec.openapis.org/oas/v3.2.0.html#discriminator-default-mapping
+		if schema.Discriminator.DefaultMapping != "" {
+			h.writeLabeled(hasher, "defaultMapping", schema.Discriminator.DefaultMapping)
+		}
+	}
+
+	// XML is structural, not descriptive: it decides the element name, namespace,
+	// and node kind a value serializes to, unlike the title and description this
+	// type's doc comment excludes.
+	// https://spec.openapis.org/oas/v3.2.0.html#xml-object
+	//
+	// Omitting it put schemas that serialize to different XML in one bucket, where
+	// deduplication merged them. Fields are labeled so no value can be mistaken for
+	// its neighbor's; a schema with no `xml` hashes as it always has.
+	if schema.XML != nil {
+		h.writeString(hasher, "xml:")
+		// Length-framed via writeLabeled: writeString appends raw bytes, so an
+		// unframed name "anamespace:b" would hash the same as name "a" with
+		// namespace "b".
+		if schema.XML.Name != "" {
+			h.writeLabeled(hasher, "name", schema.XML.Name)
+		}
+		if schema.XML.Namespace != "" {
+			h.writeLabeled(hasher, "namespace", schema.XML.Namespace)
+		}
+		if schema.XML.Prefix != "" {
+			h.writeLabeled(hasher, "prefix", schema.XML.Prefix)
+		}
+		if schema.XML.Attribute {
+			h.writeString(hasher, "attribute:true")
+		}
+		if schema.XML.Wrapped {
+			h.writeString(hasher, "wrapped:true")
+		}
+		// Supersedes attribute and wrapped, so it must separate schemas at least as
+		// strongly as they do.
+		if schema.XML.NodeType != "" {
+			h.writeLabeled(hasher, "nodeType", schema.XML.NodeType)
 		}
 	}
 
@@ -408,4 +452,18 @@ func (h *SchemaHasher) hashComposition(hasher hash.Hash64, schema *parser.Schema
 // writeString writes a string to the hash.
 func (h *SchemaHasher) writeString(hasher hash.Hash64, s string) {
 	_, _ = hasher.Write([]byte(s))
+}
+
+// writeLabeled writes a labeled value framed by its byte length, so no value can
+// be mistaken for its neighbor whatever it contains.
+//
+// A delimiter cannot do this: any sentinel byte can also appear inside a value,
+// so a NUL terminator is defeated by a name holding a NUL. The length pins where
+// the value ends, which makes the encoding injective.
+func (h *SchemaHasher) writeLabeled(hasher hash.Hash64, label, value string) {
+	h.writeString(hasher, label)
+	h.writeString(hasher, ":")
+	h.writeString(hasher, strconv.Itoa(len(value)))
+	h.writeString(hasher, ":")
+	h.writeString(hasher, value)
 }

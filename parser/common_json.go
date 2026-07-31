@@ -156,6 +156,9 @@ func (t *Tag) MarshalJSON() ([]byte, error) {
 	}
 	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, t.Description)
 	jsonhelpers.SetIfNotNil(m, "externalDocs", t.ExternalDocs)
+	jsonhelpers.SetIfNotEmpty(m, "summary", t.Summary)
+	jsonhelpers.SetIfNotEmpty(m, "parent", t.Parent)
+	jsonhelpers.SetIfNotEmpty(m, "kind", t.Kind)
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, t.Extra)
@@ -189,6 +192,7 @@ func (s *Server) MarshalJSON() ([]byte, error) {
 	}
 	jsonhelpers.SetIfNotEmpty(m, jsonKeyDescription, s.Description)
 	jsonhelpers.SetIfMapNotEmpty(m, "variables", s.Variables)
+	jsonhelpers.SetIfNotEmpty(m, jsonKeyName, s.Name)
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, s.Extra)

@@ -152,7 +152,7 @@ func (x *Discriminator) decodeFromMap(m map[string]any) {}
 	oasStructTypes["Responses"] = true
 
 	// Phase 2: For each discovered type, introspect fields and classify
-	var targets []decodeTarget
+	targets := make([]decodeTarget, 0, len(targetNames))
 	for _, name := range targetNames {
 		// Responses gets a hand-written method
 		if name == "Responses" {

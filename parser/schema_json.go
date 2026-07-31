@@ -178,6 +178,7 @@ func (d *Discriminator) MarshalJSON() ([]byte, error) {
 		"propertyName": d.PropertyName, // Required field, always include
 	}
 	jsonhelpers.SetIfNotNil(m, "mapping", d.Mapping)
+	jsonhelpers.SetIfNotEmpty(m, "defaultMapping", d.DefaultMapping)
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, d.Extra)
@@ -231,6 +232,7 @@ func (x *XML) MarshalJSON() ([]byte, error) {
 	jsonhelpers.SetIfNotEmpty(m, "prefix", x.Prefix)
 	jsonhelpers.SetIfTrue(m, "attribute", x.Attribute)
 	jsonhelpers.SetIfTrue(m, "wrapped", x.Wrapped)
+	jsonhelpers.SetIfNotEmpty(m, "nodeType", x.NodeType)
 
 	// Merge in Extra fields and marshal
 	return jsonhelpers.MarshalWithExtras(m, x.Extra)

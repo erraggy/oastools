@@ -130,6 +130,7 @@ func (x *Contact) decodeFromMap(m map[string]any) {
 func (x *Discriminator) decodeFromMap(m map[string]any) {
 	x.PropertyName, _ = m["propertyName"].(string)
 	x.Mapping = mapGetStringMap(m, "mapping")
+	x.DefaultMapping, _ = m["defaultMapping"].(string)
 	x.Extra = extractExtensionsFromMap(m)
 }
 
@@ -148,6 +149,30 @@ func (x *Encoding) decodeFromMap(m map[string]any) {
 	x.Style, _ = m["style"].(string)
 	x.Explode = mapGetBoolPtr(m, "explode")
 	x.AllowReserved, _ = m["allowReserved"].(bool)
+	if sub, ok := m["encoding"].(map[string]any); ok {
+		x.Encoding = make(map[string]*Encoding, len(sub))
+		for k, v := range sub {
+			if vm, ok := v.(map[string]any); ok {
+				elem := new(Encoding)
+				elem.decodeFromMap(vm)
+				x.Encoding[k] = elem
+			}
+		}
+	}
+	if sub, ok := m["itemEncoding"].(map[string]any); ok {
+		x.ItemEncoding = new(Encoding)
+		x.ItemEncoding.decodeFromMap(sub)
+	}
+	if arr, ok := m["prefixEncoding"].([]any); ok {
+		x.PrefixEncoding = make([]*Encoding, 0, len(arr))
+		for _, item := range arr {
+			if sub, ok := item.(map[string]any); ok {
+				elem := new(Encoding)
+				elem.decodeFromMap(sub)
+				x.PrefixEncoding = append(x.PrefixEncoding, elem)
+			}
+		}
+	}
 	x.Extra = extractExtensionsFromMap(m)
 }
 
@@ -157,6 +182,8 @@ func (x *Example) decodeFromMap(m map[string]any) {
 	x.Description, _ = m["description"].(string)
 	x.Value = m["value"]
 	x.ExternalValue, _ = m["externalValue"].(string)
+	x.DataValue = m["dataValue"]
+	x.SerializedValue, _ = m["serializedValue"].(string)
 	x.Extra = extractExtensionsFromMap(m)
 }
 
@@ -315,6 +342,24 @@ func (x *MediaType) decodeFromMap(m map[string]any) {
 			}
 		}
 	}
+	if sub, ok := m["itemSchema"].(map[string]any); ok {
+		x.ItemSchema = new(Schema)
+		x.ItemSchema.decodeFromMap(sub)
+	}
+	if sub, ok := m["itemEncoding"].(map[string]any); ok {
+		x.ItemEncoding = new(Encoding)
+		x.ItemEncoding.decodeFromMap(sub)
+	}
+	if arr, ok := m["prefixEncoding"].([]any); ok {
+		x.PrefixEncoding = make([]*Encoding, 0, len(arr))
+		for _, item := range arr {
+			if sub, ok := item.(map[string]any); ok {
+				elem := new(Encoding)
+				elem.decodeFromMap(sub)
+				x.PrefixEncoding = append(x.PrefixEncoding, elem)
+			}
+		}
+	}
 	x.Extra = extractExtensionsFromMap(m)
 }
 
@@ -452,6 +497,7 @@ func (x *OAuthFlow) decodeFromMap(m map[string]any) {
 	x.TokenURL, _ = m["tokenUrl"].(string)
 	x.RefreshURL, _ = m["refreshUrl"].(string)
 	x.Scopes = mapGetStringMap(m, "scopes")
+	x.DeviceAuthorizationURL, _ = m["deviceAuthorizationUrl"].(string)
 	x.Extra = extractExtensionsFromMap(m)
 }
 
@@ -471,6 +517,10 @@ func (x *OAuthFlows) decodeFromMap(m map[string]any) {
 	if sub, ok := m["authorizationCode"].(map[string]any); ok {
 		x.AuthorizationCode = new(OAuthFlow)
 		x.AuthorizationCode.decodeFromMap(sub)
+	}
+	if sub, ok := m["deviceAuthorization"].(map[string]any); ok {
+		x.DeviceAuthorization = new(OAuthFlow)
+		x.DeviceAuthorization.decodeFromMap(sub)
 	}
 	x.Extra = extractExtensionsFromMap(m)
 }
@@ -721,6 +771,7 @@ func (x *Response) decodeFromMap(m map[string]any) {
 			}
 		}
 	}
+	x.Summary, _ = m["summary"].(string)
 	if sub, ok := m["schema"].(map[string]any); ok {
 		x.Schema = new(Schema)
 		x.Schema.decodeFromMap(sub)
@@ -919,6 +970,8 @@ func (x *SecurityScheme) decodeFromMap(m map[string]any) {
 	x.TokenURL, _ = m["tokenUrl"].(string)
 	x.Scopes = mapGetStringMap(m, "scopes")
 	x.OpenIDConnectURL, _ = m["openIdConnectUrl"].(string)
+	x.Deprecated, _ = m["deprecated"].(bool)
+	x.OAuth2MetadataURL, _ = m["oauth2MetadataUrl"].(string)
 	x.Extra = extractExtensionsFromMap(m)
 }
 
@@ -935,6 +988,7 @@ func (x *Server) decodeFromMap(m map[string]any) {
 			}
 		}
 	}
+	x.Name, _ = m["name"].(string)
 	x.Extra = extractExtensionsFromMap(m)
 }
 
@@ -952,6 +1006,9 @@ func (x *Tag) decodeFromMap(m map[string]any) {
 		x.ExternalDocs = new(ExternalDocs)
 		x.ExternalDocs.decodeFromMap(sub)
 	}
+	x.Summary, _ = m["summary"].(string)
+	x.Parent, _ = m["parent"].(string)
+	x.Kind, _ = m["kind"].(string)
 	x.Extra = extractExtensionsFromMap(m)
 }
 
@@ -961,6 +1018,7 @@ func (x *XML) decodeFromMap(m map[string]any) {
 	x.Prefix, _ = m["prefix"].(string)
 	x.Attribute, _ = m["attribute"].(bool)
 	x.Wrapped, _ = m["wrapped"].(bool)
+	x.NodeType, _ = m["nodeType"].(string)
 	x.Extra = extractExtensionsFromMap(m)
 }
 

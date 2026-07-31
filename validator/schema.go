@@ -63,6 +63,9 @@ func (v *Validator) validateSchemaWithVisited(schema *parser.Schema, path string
 	// Validate the discriminator meets the varying requirements of each OAS version
 	v.validateDiscriminatorForm(schema, path, result)
 
+	// Validate the OAS 3.2 schema-level fields (xml.nodeType, discriminator.defaultMapping)
+	v.validateOAS32SchemaFields(schema, path, result)
+
 	// Validate required fields
 	v.validateRequiredFields(schema, path, result)
 

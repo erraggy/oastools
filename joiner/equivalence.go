@@ -569,6 +569,21 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 		path.pop()
 	}
 
+	// Compare xml. It decides the element name, namespace, and node kind a value
+	// serializes to, so schemas whose XML differs describe different payloads.
+	// Calling them equivalent let deduplication merge them and change the wire
+	// format; the structural hash omitted xml too, so each gap hid the other.
+	if !equalXMLObjects(left.XML, right.XML) {
+		path.push("xml")
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        path.String(),
+			LeftValue:   left.XML,
+			RightValue:  right.XML,
+			Description: "xml metadata mismatch",
+		})
+		path.pop()
+	}
+
 	// Compare const
 	if !reflect.DeepEqual(left.Const, right.Const) {
 		path.push("const")
@@ -888,6 +903,24 @@ func equalTypes(left, right any) bool {
 
 	// Different types
 	return false
+}
+
+// equalXMLObjects compares two XML Objects field by field.
+// https://spec.openapis.org/oas/v3.2.0.html#xml-object
+//
+// Absent XML is not equal to present XML: inferring everything is a different
+// payload from naming an element. Attribute, Wrapped, and NodeType are compared
+// independently, matching how [parser.XML] models them.
+func equalXMLObjects(left, right *parser.XML) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.Name == right.Name &&
+		left.Namespace == right.Namespace &&
+		left.Prefix == right.Prefix &&
+		left.Attribute == right.Attribute &&
+		left.Wrapped == right.Wrapped &&
+		left.NodeType == right.NodeType
 }
 
 func equalStringSlices(left, right []string) bool {

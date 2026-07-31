@@ -89,7 +89,13 @@ func handleWalkParameters(args []string) error {
 		hasExtFilter = true
 	}
 
-	var filtered []*walker.ParameterInfo
+	// Nothing to filter: skip the walk and the allocation.
+	if len(collector.All) == 0 {
+		renderNoResults("parameters", flags.Quiet)
+		return nil
+	}
+
+	filtered := make([]*walker.ParameterInfo, 0, len(collector.All))
 	for _, info := range collector.All {
 		if flags.In != "" && !strings.EqualFold(info.In, flags.In) {
 			continue
@@ -131,7 +137,7 @@ func handleWalkParameters(args []string) error {
 
 	// Summary table
 	headers := []string{headerName, "IN", "REQUIRED", headerPath, headerMethod, headerExtensions}
-	var rows [][]string
+	rows := make([][]string, 0, len(filtered))
 	for _, info := range filtered {
 		rows = append(rows, []string{
 			info.Name,

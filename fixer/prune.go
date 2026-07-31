@@ -6,7 +6,6 @@ package fixer
 
 import (
 	"fmt"
-	"net/url"
 	"slices"
 	"strings"
 
@@ -102,16 +101,13 @@ func buildReferencedSchemaSet(collector *RefCollector, schemas map[string]*parse
 // allocation-free: this runs for every $ref in the document, and almost all of
 // them are unencoded and yield a single name.
 func appendSchemaNames(dst []string, ref, prefix string) []string {
-	name, found := strings.CutPrefix(ref, prefix)
+	// Shares [pathutil.CutRefPrefix] with splitSchemaRef so a ref whose pointer
+	// separators are percent-encoded is recognized identically by pruning and by
+	// rewriting. Recognizing it in only one of the two is what made a rename leave
+	// such a ref dangling while its target survived the prune.
+	name, found := pathutil.CutRefPrefix(ref, prefix)
 	if !found {
-		// The prefix itself may be percent-encoded.
-		decoded, err := url.PathUnescape(ref)
-		if err != nil {
-			return dst
-		}
-		if name, found = strings.CutPrefix(decoded, prefix); !found {
-			return dst
-		}
+		return dst
 	}
 
 	start := len(dst)
@@ -216,9 +212,46 @@ func collectSchemaRefsRecursive(refs *[]string, schema *parser.Schema, prefix st
 	// Discriminator mapping values are references
 	if schema.Discriminator != nil {
 		for _, mappingRef := range schema.Discriminator.Mapping {
-			*refs = appendSchemaNames(*refs, mappingRef, prefix)
+			*refs = appendDiscriminatorTargetNames(*refs, mappingRef, prefix)
 		}
+		// defaultMapping (OAS 3.2+) keeps its target alive exactly as a mapping
+		// value does; omitting it would let pruning delete the fallback schema.
+		*refs = appendDiscriminatorTargetNames(*refs, schema.Discriminator.DefaultMapping, prefix)
 	}
+}
+
+// appendDiscriminatorTargetNames appends the schema names a discriminator mapping
+// or defaultMapping value could denote.
+//
+// A discriminator names its target in either of two spellings — a full pointer
+// ("#/components/schemas/Dog") or a bare schema name ("Dog") — and the spec calls
+// the second one out explicitly: "The behavior of a `mapping` value or
+// `defaultMapping` value that is both a valid schema name and a valid relative URI
+// reference is implementation-defined, but it is RECOMMENDED that it be treated as
+// a schema name."
+//
+// [appendSchemaNames] alone only recognizes the pointer spelling, because it also
+// serves real $ref values where a bare name must not match. Used on its own here
+// it made pruning delete a schema referenced only by a bare mapping value, which
+// is a legal document losing content. The bare value is appended as one more
+// candidate rather than resolved: every caller looks each name up in the schemas
+// map before acting, so a value that names no schema costs a lookup and no more —
+// the same contract appendSchemaNames documents for its own candidates.
+func appendDiscriminatorTargetNames(dst []string, value, prefix string) []string {
+	if value == "" {
+		return dst
+	}
+	dst = appendSchemaNames(dst, value, prefix)
+
+	// A pointer spelling was already expanded above, so only a bare name is left
+	// to add. "#" is the only reliable marker of a pointer: a bare schema name may
+	// legitimately contain "/", and this repo's own generic-name fixer produces
+	// exactly that shape, e.g. "Dog[example.com/pkg.Breed]". Excluding "/" here
+	// made pruning delete schemas referenced only by such a name.
+	if !strings.Contains(value, "#") && !slices.Contains(dst, value) {
+		dst = append(dst, value)
+	}
+	return dst
 }
 
 // isPathItemEmpty returns true if the path item has no operations defined.

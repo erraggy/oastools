@@ -1099,3 +1099,106 @@ func TestJoiner_SemanticDeduplication_EmptyWithMetadataPreserved(t *testing.T) {
 	_, ok = oas3Doc.Components.Schemas["Placeholder"]
 	assert.True(t, ok, "Expected Placeholder empty schema to be preserved")
 }
+
+// TestJoiner_SemanticDeduplication_KeepsXMLDistinctSchemas is the end-to-end
+// regression for the XML gap: deduplication merged two schemas that serialize to
+// different XML, silently changing the wire format of every payload using them.
+//
+// Two independent holes produced it. The structural hash omitted the XML Object
+// entirely, so the schemas landed in one bucket; deep comparison also ignored it,
+// so the verification step that exists to split false positives agreed they were
+// identical. Either hole alone would have been masked by the other.
+func TestJoiner_SemanticDeduplication_KeepsXMLDistinctSchemas(t *testing.T) {
+	docWith := func(title, schemaName string, xml *parser.XML) *parser.OAS3Document {
+		return &parser.OAS3Document{
+			OpenAPI: "3.2.0",
+			Info:    &parser.Info{Title: title, Version: "1.0.0"},
+			Paths:   make(parser.Paths),
+			Components: &parser.Components{
+				Schemas: map[string]*parser.Schema{
+					schemaName: {
+						Type: "object",
+						Properties: map[string]*parser.Schema{
+							"id": {Type: "string"},
+						},
+						Required: []string{"id"},
+						XML:      xml,
+					},
+				},
+			},
+			OASVersion: parser.OASVersion320,
+		}
+	}
+
+	parsed := func(doc *parser.OAS3Document, path string) parser.ParseResult {
+		return parser.ParseResult{
+			Document:     doc,
+			Version:      "3.2.0",
+			OASVersion:   parser.OASVersion320,
+			SourcePath:   path,
+			SourceFormat: "yaml",
+		}
+	}
+
+	// Identical in every respect except the XML node kind their values serialize to.
+	results := []parser.ParseResult{
+		parsed(docWith("API 1", "AsAttribute", &parser.XML{Name: "thing", NodeType: "attribute"}), "api1.yaml"),
+		parsed(docWith("API 2", "AsElement", &parser.XML{Name: "thing", NodeType: "element"}), "api2.yaml"),
+	}
+
+	config := DefaultConfig()
+	config.SemanticDeduplication = true
+
+	joinResult, err := New(config).JoinParsed(results)
+	require.NoError(t, err)
+
+	doc, ok := joinResult.Document.(*parser.OAS3Document)
+	require.True(t, ok)
+
+	assert.Len(t, doc.Components.Schemas, 2,
+		"schemas serializing to different XML must not be consolidated")
+	assert.Contains(t, doc.Components.Schemas, "AsAttribute")
+	assert.Contains(t, doc.Components.Schemas, "AsElement")
+}
+
+// TestJoiner_SemanticDeduplication_MergesXMLIdenticalSchemas is the control:
+// distinguishing XML must not stop deduplication consolidating schemas whose XML
+// actually agrees.
+func TestJoiner_SemanticDeduplication_MergesXMLIdenticalSchemas(t *testing.T) {
+	docWith := func(title, schemaName string) *parser.OAS3Document {
+		return &parser.OAS3Document{
+			OpenAPI: "3.2.0",
+			Info:    &parser.Info{Title: title, Version: "1.0.0"},
+			Paths:   make(parser.Paths),
+			Components: &parser.Components{
+				Schemas: map[string]*parser.Schema{
+					schemaName: {
+						Type:       "object",
+						Properties: map[string]*parser.Schema{"id": {Type: "string"}},
+						Required:   []string{"id"},
+						XML:        &parser.XML{Name: "thing", NodeType: "element"},
+					},
+				},
+			},
+			OASVersion: parser.OASVersion320,
+		}
+	}
+
+	results := []parser.ParseResult{
+		{Document: docWith("API 1", "Alpha"), Version: "3.2.0", OASVersion: parser.OASVersion320, SourcePath: "api1.yaml", SourceFormat: "yaml"},
+		{Document: docWith("API 2", "Beta"), Version: "3.2.0", OASVersion: parser.OASVersion320, SourcePath: "api2.yaml", SourceFormat: "yaml"},
+	}
+
+	config := DefaultConfig()
+	config.SemanticDeduplication = true
+
+	joinResult, err := New(config).JoinParsed(results)
+	require.NoError(t, err)
+
+	doc, ok := joinResult.Document.(*parser.OAS3Document)
+	require.True(t, ok)
+
+	assert.Len(t, doc.Components.Schemas, 1,
+		"identical xml must still deduplicate")
+	assert.Contains(t, doc.Components.Schemas, "Alpha", "alphabetically first name is canonical")
+}

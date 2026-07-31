@@ -93,6 +93,10 @@ func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *Co
 		dst.Security = src.Security
 	}
 
+	// Report the 3.2 fixed fields against the source document, whose objects still
+	// carry them; the OAS 2.0 result has no field to point at for most of them.
+	c.detectOAS32Features(src, result)
+
 	// Rewrite all $ref paths from OAS 3.x to OAS 2.0 format
 	c.rewriteAllRefsOAS3ToOAS2(dst)
 
@@ -323,25 +327,25 @@ func (c *Converter) convertSecuritySchemes(src *parser.OAS3Document, dst *parser
 			flowCount := 0
 			if scheme.Flows.Implicit != nil {
 				flowCount++
-				secDef.Flow = "implicit"
+				secDef.Flow = oauthFlowImplicit
 				secDef.AuthorizationURL = scheme.Flows.Implicit.AuthorizationURL
 				secDef.Scopes = scheme.Flows.Implicit.Scopes
 			}
 			if scheme.Flows.Password != nil {
 				flowCount++
-				secDef.Flow = "password"
+				secDef.Flow = oauthFlowPassword
 				secDef.TokenURL = scheme.Flows.Password.TokenURL
 				secDef.Scopes = scheme.Flows.Password.Scopes
 			}
 			if scheme.Flows.ClientCredentials != nil {
 				flowCount++
-				secDef.Flow = "application"
+				secDef.Flow = oas2FlowApplication
 				secDef.TokenURL = scheme.Flows.ClientCredentials.TokenURL
 				secDef.Scopes = scheme.Flows.ClientCredentials.Scopes
 			}
 			if scheme.Flows.AuthorizationCode != nil {
 				flowCount++
-				secDef.Flow = "accessCode"
+				secDef.Flow = oas2FlowAccessCode
 				secDef.AuthorizationURL = scheme.Flows.AuthorizationCode.AuthorizationURL
 				secDef.TokenURL = scheme.Flows.AuthorizationCode.TokenURL
 				secDef.Scopes = scheme.Flows.AuthorizationCode.Scopes

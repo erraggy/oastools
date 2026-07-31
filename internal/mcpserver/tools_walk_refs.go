@@ -141,7 +141,12 @@ func filterRefs(refs []*walker.RefInfo, input walkRefsInput) []*walker.RefInfo {
 	if input.Target == "" && input.NodeType == "" {
 		return refs
 	}
-	var filtered []*walker.RefInfo
+	// Nothing to filter: skip the walk and the allocation.
+	if len(refs) == 0 {
+		return nil
+	}
+
+	filtered := make([]*walker.RefInfo, 0, len(refs))
 	for _, ref := range refs {
 		if input.Target != "" && !matchRefGlob(ref.Ref, input.Target) {
 			continue

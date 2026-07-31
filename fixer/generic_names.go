@@ -546,12 +546,18 @@ func toPascalCase(s string) string {
 // splitSchemaRef splits a schema $ref into its prefix and its name token, for
 // either OAS version. ok is false for a ref that names something other than a
 // local schema, an external one included.
+//
+// The prefix is matched through [pathutil.CutRefPrefix], so a ref that
+// percent-encodes the pointer separators themselves — "#%2Fcomponents%2Fschemas%2F…"
+// — splits like the raw form and yields the raw prefix. That matters because
+// [buildRefRenameMap] keys on raw prefixes: matching only the raw spelling here
+// left such a ref dangling after a rename, while prune already recognized it and
+// kept the schema alive.
 func splitSchemaRef(ref string) (prefix, name string, ok bool) {
-	if n, found := strings.CutPrefix(ref, pathutil.RefPrefixSchemas); found {
-		return pathutil.RefPrefixSchemas, n, true
-	}
-	if n, found := strings.CutPrefix(ref, pathutil.RefPrefixDefinitions); found {
-		return pathutil.RefPrefixDefinitions, n, true
+	for _, p := range [2]string{pathutil.RefPrefixSchemas, pathutil.RefPrefixDefinitions} {
+		if n, found := pathutil.CutRefPrefix(ref, p); found {
+			return p, n, true
+		}
 	}
 	return "", "", false
 }
@@ -717,11 +723,17 @@ func rewriteSchemaRefsRecursive(schema *parser.Schema, renames map[string]string
 	}
 
 	// Discriminator mapping values
-	if schema.Discriminator != nil && schema.Discriminator.Mapping != nil {
+	if schema.Discriminator != nil {
 		for key, ref := range schema.Discriminator.Mapping {
 			if newValue, ok := lookupRenamedMappingValue(ref, renames); ok {
 				schema.Discriminator.Mapping[key] = newValue
 			}
+		}
+		// defaultMapping (OAS 3.2+) names a schema exactly as a mapping value
+		// does, in either spelling, so it goes through the same lookup. Rewriting
+		// mapping without it leaves the fallback target dangling after a rename.
+		if newValue, ok := lookupRenamedMappingValue(schema.Discriminator.DefaultMapping, renames); ok {
+			schema.Discriminator.DefaultMapping = newValue
 		}
 	}
 }

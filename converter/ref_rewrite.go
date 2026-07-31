@@ -168,6 +168,12 @@ func walkSchemaRefs(schema *parser.Schema, rewrite refRewriter) {
 			for key, ref := range s.Discriminator.Mapping {
 				s.Discriminator.Mapping[key] = rewrite(ref)
 			}
+			// defaultMapping (OAS 3.2+) is a schema ref on the same terms. Left
+			// alone, a downconvert would emit an OAS 2.0 document whose fallback
+			// still points into #/components/schemas/.
+			if s.Discriminator.DefaultMapping != "" {
+				s.Discriminator.DefaultMapping = rewrite(s.Discriminator.DefaultMapping)
+			}
 		}
 	})
 }

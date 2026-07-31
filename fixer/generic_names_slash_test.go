@@ -570,6 +570,16 @@ func TestCanonicalSchemaRefKey(t *testing.T) {
 			want: "#/definitions/Discount%OFF",
 		},
 		{
+			name: "percent-encoded pointer separators reduce to the raw prefix",
+			ref:  "#%2Fcomponents%2Fschemas%2FPaged%5BPet%5D",
+			want: "#/components/schemas/Paged[Pet]",
+		},
+		{
+			name: "an encoded pointer whose name is doubly encoded decodes only once",
+			ref:  "#%2Fdefinitions%2FPaged%255BPet%255D",
+			want: "#/definitions/Paged%5BPet%5D",
+		},
+		{
 			name: "a non-schema ref is not a key and passes through",
 			ref:  "#/components/parameters/Limit%5Bx%5D",
 			want: "#/components/parameters/Limit%5Bx%5D",
@@ -686,6 +696,131 @@ paths:
 		"a bare name must be rewritten and stay bare")
 	assert.Equal(t, "FishOfexample.com.pkg.Breed", mapping["bareEncoded"],
 		"a bare name carrying an encoding must be rewritten too")
+}
+
+// TestFixSchemaNamesRewritesDiscriminatorDefaultMapping covers issue #397's
+// reference-bearing field: discriminator.defaultMapping (OAS 3.2+) names a schema
+// in exactly the two spellings a mapping value may use, so a rename that rewrote
+// mapping but not defaultMapping would leave the fallback target dangling.
+func TestFixSchemaNamesRewritesDiscriminatorDefaultMapping(t *testing.T) {
+	spec := `
+openapi: 3.2.0
+info: {title: T, version: "1.0"}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [kind]
+      discriminator:
+        propertyName: kind
+        defaultMapping: '#/components/schemas/Other[example.com/pkg.Breed]'
+        mapping:
+          dog: '#/components/schemas/Dog[example.com/pkg.Breed]'
+      properties:
+        kind: {type: string}
+    "Dog[example.com/pkg.Breed]": {type: object}
+    "Other[example.com/pkg.Breed]": {type: object}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Pet'}
+`
+	result := fixSchemaNames(t, spec, GenericNamingOf)
+	doc := result.Document.(*parser.OAS3Document)
+
+	d := doc.Components.Schemas["Pet"].Discriminator
+	assert.Equal(t, pathutil.RefPrefixSchemas+"DogOfexample.com.pkg.Breed", d.Mapping["dog"],
+		"the mapping value must be rewritten")
+	assert.Equal(t, pathutil.RefPrefixSchemas+"OtherOfexample.com.pkg.Breed", d.DefaultMapping,
+		"defaultMapping must be rewritten alongside mapping")
+}
+
+// TestFixSchemaNamesRewritesBareDefaultMapping is the bare-name spelling of the
+// same field: a defaultMapping may name its target without a pointer prefix, and
+// must stay bare after the rewrite.
+func TestFixSchemaNamesRewritesBareDefaultMapping(t *testing.T) {
+	spec := `
+openapi: 3.2.0
+info: {title: T, version: "1.0"}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [kind]
+      discriminator:
+        propertyName: kind
+        defaultMapping: 'Other[example.com/pkg.Breed]'
+      properties:
+        kind: {type: string}
+    "Other[example.com/pkg.Breed]": {type: object}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Pet'}
+`
+	result := fixSchemaNames(t, spec, GenericNamingOf)
+	doc := result.Document.(*parser.OAS3Document)
+
+	assert.Equal(t, "OtherOfexample.com.pkg.Breed",
+		doc.Components.Schemas["Pet"].Discriminator.DefaultMapping,
+		"a bare defaultMapping must be rewritten and stay bare")
+}
+
+// TestPruneKeepsDefaultMappingTarget covers the pruning side: a schema reachable
+// only through discriminator.defaultMapping is referenced, and deleting it would
+// dangle the fallback.
+func TestPruneKeepsDefaultMappingTarget(t *testing.T) {
+	spec := `
+openapi: 3.2.0
+info: {title: T, version: "1.0"}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [kind]
+      discriminator:
+        propertyName: kind
+        defaultMapping: '#/components/schemas/OtherPet'
+      properties:
+        kind: {type: string}
+    OtherPet: {type: object}
+    Orphan: {type: object}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Pet'}
+`
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	doc := result.Document.(*parser.OAS3Document)
+	assert.Contains(t, doc.Components.Schemas, "OtherPet",
+		"a schema reachable only through defaultMapping must survive pruning")
+	assert.NotContains(t, doc.Components.Schemas, "Orphan",
+		"the genuinely unreferenced schema should still be pruned")
 }
 
 // TestFixSchemaNamesKeepsLiteralPercentName covers a name that genuinely
@@ -847,6 +982,102 @@ paths:
 	assert.Zero(t, result.FixCount, "nothing should have been pruned")
 }
 
+// TestFixSchemaNamesRewritesEncodedPointerRef is the regression for issue #408.
+//
+// A generator that runs a URL escaper over a whole pointer rather than over each
+// token emits "#%2Fcomponents%2Fschemas%2F…". Pruning already recognized that
+// shape and kept the schema, but the rewrite did not, so a rename left the ref
+// pointing at a name no longer present — a dangling ref in output the fixer
+// reported as successfully fixed.
+func TestFixSchemaNamesRewritesEncodedPointerRef(t *testing.T) {
+	for _, tt := range []struct {
+		version string
+		spec    string
+	}{
+		{
+			version: "oas3",
+			spec: `
+openapi: 3.0.3
+info: {title: T, version: "1.0"}
+components:
+  schemas:
+    "Paged[Pet]": {type: object}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#%2Fcomponents%2Fschemas%2FPaged%5BPet%5D'}
+`,
+		},
+		{
+			version: "oas2",
+			spec: `
+swagger: "2.0"
+info: {title: T, version: "1.0"}
+definitions:
+  "Paged[Pet]": {type: object}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "200":
+          description: OK
+          schema: {$ref: '#%2Fdefinitions%2FPaged%5BPet%5D'}
+`,
+		},
+	} {
+		t.Run(tt.version, func(t *testing.T) {
+			result := fixSchemaNames(t, tt.spec, GenericNamingOf)
+
+			names := schemaNames(t, result.Document)
+			require.Contains(t, names, "PagedOfPet", "the schema should have been renamed")
+
+			assert.NotContains(t, responseSchemaRef(t, result.Document), "Paged%5BPet%5D",
+				"the ref must not still name the schema by its old name")
+			assert.Contains(t, responseSchemaRef(t, result.Document), "PagedOfPet",
+				"a ref whose pointer separators are encoded must be rewritten too")
+		})
+	}
+}
+
+// TestPruneKeepsEncodedPointerRefSchema pins the pruning half of #408. It passed
+// before the fix — appendSchemaNames already decoded the prefix — and must keep
+// passing now that it shares pathutil.CutRefPrefix with the rewrite, since a
+// prune that stops recognizing the ref would delete a referenced schema.
+func TestPruneKeepsEncodedPointerRefSchema(t *testing.T) {
+	spec := `
+swagger: "2.0"
+info: {title: T, version: "1.0"}
+definitions:
+  "Paged[Pet]": {type: object}
+paths:
+  /p:
+    get:
+      operationId: g
+      responses:
+        "200":
+          description: OK
+          schema: {$ref: '#%2Fdefinitions%2FPaged%5BPet%5D'}
+`
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	doc := result.Document.(*parser.OAS2Document)
+	assert.Contains(t, doc.Definitions, "Paged[Pet]")
+	assert.Zero(t, result.FixCount, "nothing should have been pruned")
+}
+
 // TestPruneStillRemovesUnreferencedMixedEncodingSchema is the control: matching
 // more spellings must not make every schema look referenced.
 func TestPruneStillRemovesUnreferencedMixedEncodingSchema(t *testing.T) {
@@ -968,4 +1199,109 @@ paths:
 
 	assert.Equal(t, map[string]bool{pathutil.RefPrefixSchemas + "A_2FBOfPet": true}, seen,
 		"an ambiguous ref must resolve to the same schema on every run")
+}
+
+// TestPruneKeepsBareDiscriminatorTargets covers the bare spelling a discriminator
+// may use for its target.
+//
+// The spec recommends treating a mapping or defaultMapping value that is a valid
+// schema name as a schema name, so "Dog" and "#/components/schemas/Dog" name the
+// same schema. Pruning recognized only the pointer form, so a schema referenced
+// only by a bare mapping value was deleted from a legal document.
+func TestPruneKeepsBareDiscriminatorTargets(t *testing.T) {
+	spec := `
+openapi: 3.2.0
+info: {title: T, version: "1.0"}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [kind]
+      properties: {kind: {type: string}}
+      discriminator:
+        propertyName: kind
+        defaultMapping: OtherPet
+        mapping: {dog: Dog}
+    Dog: {type: object}
+    OtherPet: {type: object}
+    Orphan: {type: object}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Pet'}
+`
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	doc := result.Document.(*parser.OAS3Document)
+	assert.Contains(t, doc.Components.Schemas, "Dog",
+		"a bare mapping value names a schema and must keep it alive")
+	assert.Contains(t, doc.Components.Schemas, "OtherPet",
+		"a bare defaultMapping value must keep its schema alive too")
+	assert.NotContains(t, doc.Components.Schemas, "Orphan",
+		"matching bare names must not make every schema look referenced")
+}
+
+// TestPruneKeepsBareDiscriminatorTargetsWithSlash covers the shape this repo's own
+// generic-name fixer produces: a schema name containing "/".
+//
+// Treating "/" as evidence that a value was a pointer rather than a name deleted
+// both targets here. Only "#" marks a pointer; OAS 2.0 places no charset
+// constraint on definition keys, and "Dog[example.com/pkg.Breed]" is a name the
+// fixer emits and the discriminator tests already use as a bare mapping value.
+func TestPruneKeepsBareDiscriminatorTargetsWithSlash(t *testing.T) {
+	spec := `
+openapi: 3.2.0
+info: {title: T, version: "1.0"}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [kind]
+      properties: {kind: {type: string}}
+      discriminator:
+        propertyName: kind
+        defaultMapping: 'Other[example.com/pkg.Breed]'
+        mapping:
+          dog: 'Dog[example.com/pkg.Breed]'
+    "Dog[example.com/pkg.Breed]": {type: object}
+    "Other[example.com/pkg.Breed]": {type: object}
+    "Orphan[example.com/pkg.Breed]": {type: object}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Pet'}
+`
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	require.NoError(t, err)
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypePrunedUnusedSchema}
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	doc := result.Document.(*parser.OAS3Document)
+	assert.Contains(t, doc.Components.Schemas, "Dog[example.com/pkg.Breed]",
+		"a bare mapping value containing \"/\" must keep its schema alive")
+	assert.Contains(t, doc.Components.Schemas, "Other[example.com/pkg.Breed]",
+		"a bare defaultMapping value containing \"/\" must too")
+	assert.NotContains(t, doc.Components.Schemas, "Orphan[example.com/pkg.Breed]",
+		"an unreferenced schema with the same shape is still pruned")
 }

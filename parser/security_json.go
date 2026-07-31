@@ -59,6 +59,12 @@ func (ss *SecurityScheme) MarshalJSON() ([]byte, error) {
 	if ss.OpenIDConnectURL != "" {
 		m["openIdConnectUrl"] = ss.OpenIDConnectURL
 	}
+	if ss.Deprecated {
+		m["deprecated"] = ss.Deprecated
+	}
+	if ss.OAuth2MetadataURL != "" {
+		m["oauth2MetadataUrl"] = ss.OAuth2MetadataURL
+	}
 
 	// Add Extra fields (spec extensions must start with "x-")
 	for k, v := range ss.Extra {
@@ -106,6 +112,9 @@ func (of *OAuthFlows) MarshalJSON() ([]byte, error) {
 	if of.AuthorizationCode != nil {
 		m["authorizationCode"] = of.AuthorizationCode
 	}
+	if of.DeviceAuthorization != nil {
+		m["deviceAuthorization"] = of.DeviceAuthorization
+	}
 
 	// Add Extra fields (spec extensions must start with "x-")
 	for k, v := range of.Extra {
@@ -152,6 +161,9 @@ func (of *OAuthFlow) MarshalJSON() ([]byte, error) {
 	}
 	// Scopes is required, always include
 	m["scopes"] = of.Scopes
+	if of.DeviceAuthorizationURL != "" {
+		m["deviceAuthorizationUrl"] = of.DeviceAuthorizationURL
+	}
 
 	// Add Extra fields (spec extensions must start with "x-")
 	for k, v := range of.Extra {

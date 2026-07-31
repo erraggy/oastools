@@ -435,22 +435,22 @@ func (c *Converter) convertSecurityDefinitions(src *parser.OAS2Document, dst *pa
 			scheme.Flows = &parser.OAuthFlows{}
 
 			switch secDef.Flow {
-			case "implicit":
+			case oauthFlowImplicit:
 				scheme.Flows.Implicit = &parser.OAuthFlow{
 					AuthorizationURL: secDef.AuthorizationURL,
 					Scopes:           secDef.Scopes,
 				}
-			case "password":
+			case oauthFlowPassword:
 				scheme.Flows.Password = &parser.OAuthFlow{
 					TokenURL: secDef.TokenURL,
 					Scopes:   secDef.Scopes,
 				}
-			case "application":
+			case oas2FlowApplication:
 				scheme.Flows.ClientCredentials = &parser.OAuthFlow{
 					TokenURL: secDef.TokenURL,
 					Scopes:   secDef.Scopes,
 				}
-			case "accessCode":
+			case oas2FlowAccessCode:
 				scheme.Flows.AuthorizationCode = &parser.OAuthFlow{
 					AuthorizationURL: secDef.AuthorizationURL,
 					TokenURL:         secDef.TokenURL,

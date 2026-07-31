@@ -2,6 +2,7 @@ package pathutil
 
 import (
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -67,6 +68,56 @@ func DecodeRefToken(token string) string {
 		token = decoded
 	}
 	return UnescapeRefToken(token)
+}
+
+// CutRefPrefix strips a JSON Pointer prefix from a reference, tolerating a
+// reference whose pointer separators are percent-encoded, and returns the
+// remainder with its own escaping untouched.
+//
+// Generators reach that shape by running a URL escaper over a whole pointer
+// rather than over each token, so "#/components/schemas/Paged%5BPet%5D" arrives
+// as "#%2Fcomponents%2Fschemas%2FPaged%255BPet%255D". Rare, but a reference
+// spelled that way denotes exactly the same component as the raw form and has
+// to resolve to it.
+//
+// prefix is matched one decoded byte at a time rather than against a wholesale
+// [url.PathUnescape] of ref, because a wholesale decode would also decode the
+// token that follows. That token has to reach [DecodeRefToken] still escaped for
+// the exact-then-decoded lookup order to mean anything: decoding twice turns a
+// component genuinely named "Paged%5BPet%5D" into "Paged[Pet]" and stops it
+// matching itself. Keeping the decode confined to the prefix leaves
+// [DecodeRefToken] the single place a name's escaping is reversed.
+//
+// The prefix returned to the caller is the raw one it passed in, never the
+// spelling ref used, so a decoded reference lands on the same key as a raw one.
+func CutRefPrefix(ref, prefix string) (rest string, ok bool) {
+	// Fast path: almost every reference spells its prefix raw.
+	if rest, found := strings.CutPrefix(ref, prefix); found {
+		return rest, true
+	}
+	// Only a percent sequence can make the prefix match after decoding; RFC 6901
+	// escapes cannot, because "~0" and "~1" never produce "#" or "/".
+	if !strings.Contains(ref, "%") {
+		return "", false
+	}
+
+	i := 0
+	for p := 0; p < len(prefix); p++ {
+		switch {
+		case i < len(ref) && ref[i] == prefix[p]:
+			i++
+		case i+3 <= len(ref) && ref[i] == '%':
+			// ParseUint accepts either hex case, so "%2f" and "%2F" both match "/".
+			b, err := strconv.ParseUint(ref[i+1:i+3], 16, 8)
+			if err != nil || byte(b) != prefix[p] {
+				return "", false
+			}
+			i += 3
+		default:
+			return "", false
+		}
+	}
+	return ref[i:], true
 }
 
 // OAS 2.0 reference prefixes

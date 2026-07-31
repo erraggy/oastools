@@ -119,6 +119,18 @@ func equalTag(a, b *Tag) bool {
 	if !equalExternalDocs(a.ExternalDocs, b.ExternalDocs) {
 		return false
 	}
+
+	// OAS 3.2+
+	if a.Summary != b.Summary {
+		return false
+	}
+	if a.Parent != b.Parent {
+		return false
+	}
+	if a.Kind != b.Kind {
+		return false
+	}
+
 	if !equalMapStringAny(a.Extra, b.Extra) {
 		return false
 	}
@@ -152,6 +164,12 @@ func equalServer(a, b *Server) bool {
 	if !equalServerVariableMap(a.Variables, b.Variables) {
 		return false
 	}
+
+	// OAS 3.2+
+	if a.Name != b.Name {
+		return false
+	}
+
 	if !equalMapStringAny(a.Extra, b.Extra) {
 		return false
 	}
