@@ -135,7 +135,7 @@ components:
       serializedValue: '{"petType":"dog"}'
       x-example-ext: keep
   mediaTypes:
-    application/jsonl:
+    PetStream:
       itemSchema:
         $ref: "#/components/schemas/Pet"
       x-media-type-ext: keep

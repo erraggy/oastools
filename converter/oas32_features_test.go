@@ -146,7 +146,7 @@ func TestConvertToOAS32TargetReportsNothing(t *testing.T) {
 func TestDownconvertReportsAmbiguousFieldsAtTheirLocation(t *testing.T) {
 	for _, target := range []string{"3.0.3", "3.1.0"} {
 		t.Run(target, func(t *testing.T) {
-			joined := strings.Join(oas32FeatureIssues(t, target), "\n")
+			issues := oas32FeatureIssues(t, target)
 
 			for _, want := range []string{
 				// name, on each of the two kinds of Server Object
@@ -158,10 +158,14 @@ func TestDownconvertReportsAmbiguousFieldsAtTheirLocation(t *testing.T) {
 				// the Components section that is itself 3.2-only, and what is inside it:
 				// reporting only the container would understate what the target loses
 				"components.mediaTypes: 'mediaTypes'",
-				"components.mediaTypes.application/jsonl: 'itemSchema'",
+				"components.mediaTypes.PetStream: 'itemSchema'",
 			} {
-				assert.Contains(t, joined, want,
-					"converting to %s should report %s at that location", target, want)
+				// Matched per issue rather than against the joined text: every path here
+				// is a prefix of some other path in the document, so a substring search
+				// over one blob would let a nested report satisfy its parent's assertion.
+				assert.True(t, slices.ContainsFunc(issues, func(issue string) bool {
+					return strings.HasPrefix(issue, want+" ")
+				}), "converting to %s should report %s at that location; got %v", target, want, issues)
 			}
 		})
 	}

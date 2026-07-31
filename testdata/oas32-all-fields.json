@@ -23,7 +23,7 @@
       }
     },
     "mediaTypes": {
-      "application/jsonl": {
+      "PetStream": {
         "itemSchema": {
           "$ref": "#/components/schemas/Pet"
         },

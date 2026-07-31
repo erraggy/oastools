@@ -108,14 +108,18 @@ func assertOAS32FieldsPresent(t *testing.T, doc *OAS3Document) {
 	assert.Equal(t, `{"petType":"dog"}`, ex.SerializedValue, "example.serializedValue")
 
 	// Components Object
-	sharedMediaType := doc.Components.MediaTypes["application/jsonl"]
+	sharedMediaType := doc.Components.MediaTypes["PetStream"]
 	require.NotNil(t, sharedMediaType, "components.mediaTypes")
-	assert.NotNil(t, sharedMediaType.ItemSchema, "components.mediaTypes[].itemSchema")
+	require.NotNil(t, sharedMediaType.ItemSchema, "components.mediaTypes[].itemSchema")
+	assert.Equal(t, "#/components/schemas/Pet", sharedMediaType.ItemSchema.Ref,
+		"components.mediaTypes[].itemSchema.$ref")
 
 	// Link Object, whose server is the one Server Object outside a servers list
 	link := doc.Components.Links["petById"]
 	require.NotNil(t, link)
+	assert.Equal(t, "listPets", link.OperationID, "link.operationId")
 	require.NotNil(t, link.Server, "link.server")
+	assert.Equal(t, "https://api.example.com", link.Server.URL, "link.server.url")
 	assert.Equal(t, "link-server", link.Server.Name, "link.server.name")
 
 	// Security Scheme Object and the OAuth flow objects
