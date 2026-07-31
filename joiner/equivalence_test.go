@@ -1462,6 +1462,12 @@ func TestCompareSchemas_XMLEquivalent(t *testing.T) {
 // nested walk has to keep nils away from it. `patternProperties: {"^a": }` parses
 // to a nil entry, and a caller can store a typed nil `(*parser.Schema)(nil)` in
 // additionalItems, which passes an interface nil check and asserts cleanly.
+// Issues #416 and #417 have the rest.
+//
+// Cases are one-directional except for properties, which is checked both ways
+// because compareSchemaMaps ranges over the left map alone. The guard itself is
+// symmetric, so the remaining fields would report the same verdict at the same
+// path reversed.
 func TestCompareSchemas_NilNestedSchemas(t *testing.T) {
 	base := func() map[string]*parser.Schema {
 		return map[string]*parser.Schema{"p": {Type: "string"}}
@@ -1491,6 +1497,65 @@ func TestCompareSchemas_NilNestedSchemas(t *testing.T) {
 			name:       "both entries nil",
 			left:       &parser.Schema{Type: "object", Properties: base(), Defs: map[string]*parser.Schema{"A": nil}},
 			right:      &parser.Schema{Type: "object", Properties: base(), Defs: map[string]*parser.Schema{"A": nil}},
+			equivalent: true,
+		},
+		{
+			name: "nil properties entry against a present one",
+			left: &parser.Schema{Type: "object", Properties: map[string]*parser.Schema{
+				"p": {Type: "string"}, "name": nil}},
+			right: &parser.Schema{Type: "object", Properties: map[string]*parser.Schema{
+				"p": {Type: "string"}, "name": {Type: "string"}}},
+			equivalent: false,
+			wantPath:   "properties.name",
+		},
+		{
+			name: "present properties entry against a nil one",
+			left: &parser.Schema{Type: "object", Properties: map[string]*parser.Schema{
+				"p": {Type: "string"}, "name": {Type: "string"}}},
+			right: &parser.Schema{Type: "object", Properties: map[string]*parser.Schema{
+				"p": {Type: "string"}, "name": nil}},
+			equivalent: false,
+			wantPath:   "properties.name",
+		},
+		{
+			name:       "nil dependentSchemas entry against a present one",
+			left:       &parser.Schema{Type: "object", Properties: base(), DependentSchemas: map[string]*parser.Schema{"a": nil}},
+			right:      &parser.Schema{Type: "object", Properties: base(), DependentSchemas: map[string]*parser.Schema{"a": {Type: "string"}}},
+			equivalent: false,
+			wantPath:   "dependentSchemas.a",
+		},
+		{
+			name:       "nil allOf element against a present one",
+			left:       &parser.Schema{Type: "object", Properties: base(), AllOf: []*parser.Schema{nil}},
+			right:      &parser.Schema{Type: "object", Properties: base(), AllOf: []*parser.Schema{{Type: "string"}}},
+			equivalent: false,
+			wantPath:   "allOf.[0]",
+		},
+		{
+			name:       "nil anyOf element against a present one",
+			left:       &parser.Schema{Type: "object", Properties: base(), AnyOf: []*parser.Schema{nil}},
+			right:      &parser.Schema{Type: "object", Properties: base(), AnyOf: []*parser.Schema{{Type: "string"}}},
+			equivalent: false,
+			wantPath:   "anyOf.[0]",
+		},
+		{
+			name:       "nil oneOf element against a present one",
+			left:       &parser.Schema{Type: "object", Properties: base(), OneOf: []*parser.Schema{nil}},
+			right:      &parser.Schema{Type: "object", Properties: base(), OneOf: []*parser.Schema{{Type: "string"}}},
+			equivalent: false,
+			wantPath:   "oneOf.[0]",
+		},
+		{
+			name:       "nil prefixItems element against a present one",
+			left:       &parser.Schema{Type: "array", Properties: base(), PrefixItems: []*parser.Schema{nil}},
+			right:      &parser.Schema{Type: "array", Properties: base(), PrefixItems: []*parser.Schema{{Type: "string"}}},
+			equivalent: false,
+			wantPath:   "prefixItems.[0]",
+		},
+		{
+			name:       "both allOf elements nil",
+			left:       &parser.Schema{Type: "object", Properties: base(), AllOf: []*parser.Schema{nil}},
+			right:      &parser.Schema{Type: "object", Properties: base(), AllOf: []*parser.Schema{nil}},
 			equivalent: true,
 		},
 		{

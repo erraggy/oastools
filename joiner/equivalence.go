@@ -510,18 +510,10 @@ func compareSchemaMaps(
 	}
 	path.push(field)
 	for name, leftValue := range left {
-		// compareDeep dereferences both operands with no nil guard of its own, and a
-		// map may hold a nil value for a present key: `patternProperties: {"^a": }`
-		// parses that way.
-		rightValue := right[name]
-		if leftValue == nil || rightValue == nil {
-			if (leftValue == nil) != (rightValue == nil) {
-				result.record(path, name, leftValue != nil, rightValue != nil, field+" entry presence mismatch")
-			}
-			continue
-		}
+		// A nil entry needs no guard here: compareDeep checks its own operands and
+		// records at this path.
 		path.push(name)
-		compareDeep(leftValue, rightValue, path, result, visited, compareDocs)
+		compareDeep(leftValue, right[name], path, result, visited, compareDocs)
 		path.pop()
 	}
 	path.pop()
@@ -762,6 +754,23 @@ func compareShallow(left, right *parser.Schema, path *comparePath, result *Equiv
 
 // compareDeep recursively compares all schema properties
 func compareDeep(left, right *parser.Schema, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool, compareDocs bool) {
+	// Everything below dereferences both operands, and a nested schema can
+	// legitimately be nil. Guarded here rather than at the fourteen call sites so a
+	// new nested walk cannot miss it, and recorded at the caller's path, which
+	// already names the field. Issue #417 has the reachable cases; #416 spot-fixed
+	// two of them before this replaced that approach.
+	if left == nil || right == nil {
+		if left != right {
+			result.Differences = append(result.Differences, SchemaDifference{
+				Path:        path.String(),
+				LeftValue:   left != nil,
+				RightValue:  right != nil,
+				Description: "schema presence mismatch",
+			})
+		}
+		return
+	}
+
 	// Check for circular references
 	pair := pointerPair{
 		left:  reflect.ValueOf(left).Pointer(),
@@ -1273,14 +1282,8 @@ func compareSchemaOrBool(field string, left, right any, path *comparePath, resul
 	leftSchema, leftIsSchema := left.(*parser.Schema)
 	rightSchema, rightIsSchema := right.(*parser.Schema)
 	if leftIsSchema && rightIsSchema {
-		// A typed nil passes the interface nil checks above and asserts cleanly, so
-		// the pointer itself has to be tested before compareDeep dereferences it.
-		if leftSchema == nil || rightSchema == nil {
-			if leftSchema != rightSchema {
-				result.record(path, field, leftSchema != nil, rightSchema != nil, field+" presence mismatch")
-			}
-			return
-		}
+		// A typed nil passes the interface nil checks above and asserts cleanly.
+		// compareDeep catches it and records at this path.
 		path.push(field)
 		compareDeep(leftSchema, rightSchema, path, result, visited, compareDocs)
 		path.pop()
