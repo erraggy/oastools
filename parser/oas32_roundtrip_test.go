@@ -114,6 +114,15 @@ func assertOAS32FieldsPresent(t *testing.T, doc *OAS3Document) {
 	assert.Equal(t, "#/components/schemas/Pet", sharedMediaType.ItemSchema.Ref,
 		"components.mediaTypes[].itemSchema.$ref")
 
+	// A Link Object reached through a Response, not through Components: the
+	// converter walks the two separately, so one working proves nothing about the
+	// other.
+	respLink := resp.Links["firstPet"]
+	require.NotNil(t, respLink, "response.links")
+	require.NotNil(t, respLink.Server, "response.links[].server")
+	assert.Equal(t, "response-link-server", respLink.Server.Name,
+		"response.links[].server.name")
+
 	// Link Object, whose server is the one Server Object outside a servers list
 	link := doc.Components.Links["petById"]
 	require.NotNil(t, link)
@@ -260,6 +269,12 @@ func stripOAS32Extensions(doc *OAS3Document) {
 		mt.Extra = nil
 	}
 	for _, link := range doc.Components.Links {
+		link.Extra = nil
+		if link.Server != nil {
+			link.Server.Extra = nil
+		}
+	}
+	for _, link := range doc.Paths["/pets"].Get.Responses.Codes["200"].Links {
 		link.Extra = nil
 		if link.Server != nil {
 			link.Server.Extra = nil

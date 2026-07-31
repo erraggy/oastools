@@ -152,6 +152,7 @@ func TestDownconvertReportsAmbiguousFieldsAtTheirLocation(t *testing.T) {
 				// name, on each of the two kinds of Server Object
 				"servers[0]: 'name'",
 				"components.links.petById.server: 'name'",
+				"paths./pets.get.responses.200.links.firstPet.server: 'name'",
 				// summary, on a Tag and on a Response
 				"tags[0]: 'summary'",
 				"paths./pets.get.responses.200: 'summary'",

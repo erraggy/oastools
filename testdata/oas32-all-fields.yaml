@@ -33,6 +33,13 @@ paths:
         "200":
           description: A list of pets
           summary: Pets, or the default shape
+          links:
+            firstPet:
+              operationId: listPets
+              server:
+                url: https://api.example.com
+                name: response-link-server
+                x-response-link-server-ext: keep
           x-response-ext: keep
           content:
             application/jsonl:

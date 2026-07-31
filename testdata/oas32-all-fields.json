@@ -168,6 +168,16 @@
               }
             },
             "description": "A list of pets",
+            "links": {
+              "firstPet": {
+                "operationId": "listPets",
+                "server": {
+                  "name": "response-link-server",
+                  "url": "https://api.example.com",
+                  "x-response-link-server-ext": "keep"
+                }
+              }
+            },
             "summary": "Pets, or the default shape",
             "x-response-ext": "keep"
           }
