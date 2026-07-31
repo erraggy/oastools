@@ -107,6 +107,17 @@ func assertOAS32FieldsPresent(t *testing.T, doc *OAS3Document) {
 	assert.NotNil(t, ex.DataValue, "example.dataValue")
 	assert.Equal(t, `{"petType":"dog"}`, ex.SerializedValue, "example.serializedValue")
 
+	// Components Object
+	sharedMediaType := doc.Components.MediaTypes["application/jsonl"]
+	require.NotNil(t, sharedMediaType, "components.mediaTypes")
+	assert.NotNil(t, sharedMediaType.ItemSchema, "components.mediaTypes[].itemSchema")
+
+	// Link Object, whose server is the one Server Object outside a servers list
+	link := doc.Components.Links["petById"]
+	require.NotNil(t, link)
+	require.NotNil(t, link.Server, "link.server")
+	assert.Equal(t, "link-server", link.Server.Name, "link.server.name")
+
 	// Security Scheme Object and the OAuth flow objects
 	oauth := doc.Components.SecuritySchemes["oauth"]
 	require.NotNil(t, oauth)
@@ -240,6 +251,16 @@ func stripOAS32Extensions(doc *OAS3Document) {
 	pet.Discriminator.Extra = nil
 	pet.Properties["tag"].XML.Extra = nil
 	doc.Components.Examples["withData"].Extra = nil
+
+	for _, mt := range doc.Components.MediaTypes {
+		mt.Extra = nil
+	}
+	for _, link := range doc.Components.Links {
+		link.Extra = nil
+		if link.Server != nil {
+			link.Server.Extra = nil
+		}
+	}
 
 	oauth := doc.Components.SecuritySchemes["oauth"]
 	oauth.Extra = nil

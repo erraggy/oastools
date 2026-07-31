@@ -11,6 +11,25 @@
         "x-example-ext": "keep"
       }
     },
+    "links": {
+      "petById": {
+        "operationId": "listPets",
+        "server": {
+          "name": "link-server",
+          "url": "https://api.example.com",
+          "x-server-ext": "keep"
+        },
+        "x-link-ext": "keep"
+      }
+    },
+    "mediaTypes": {
+      "application/jsonl": {
+        "itemSchema": {
+          "$ref": "#/components/schemas/Pet"
+        },
+        "x-media-type-ext": "keep"
+      }
+    },
     "schemas": {
       "Dog": {
         "type": "object"

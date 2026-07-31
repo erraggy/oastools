@@ -45,7 +45,8 @@ func TestDownconvertReportsOAS32Fields(t *testing.T) {
 
 			for _, field := range []string{
 				"'$self'",
-				"'name'",              // Server Object
+				"'mediaTypes'",        // Components Object
+				"'name'",              // Server Object, including a Link's own
 				"'summary'",           // Tag and Response Objects
 				"'parent'",            // Tag Object
 				"'kind'",              // Tag Object
@@ -132,4 +133,35 @@ paths:
 func TestConvertToOAS32TargetReportsNothing(t *testing.T) {
 	assert.Empty(t, oas32FeatureIssues(t, "3.2.0"),
 		"nothing is lost converting a 3.2 document to 3.2")
+}
+
+// TestDownconvertReportsAmbiguousFieldsAtTheirLocation pins where a field is
+// reported, not only that its name appears somewhere.
+//
+// TestDownconvertReportsOAS32Fields checks field names, which is enough for a name
+// used once. It is not enough for `name` and `summary`, each of which several
+// objects carry: `name` was already reported for the document's own servers, so
+// that test passed for the whole time a Link Object's server went unreported.
+func TestDownconvertReportsAmbiguousFieldsAtTheirLocation(t *testing.T) {
+	for _, target := range []string{"3.0.3", "3.1.0"} {
+		t.Run(target, func(t *testing.T) {
+			joined := strings.Join(oas32FeatureIssues(t, target), "\n")
+
+			for _, want := range []string{
+				// name, on each of the two kinds of Server Object
+				"servers[0]: 'name'",
+				"components.links.petById.server: 'name'",
+				// summary, on a Tag and on a Response
+				"tags[0]: 'summary'",
+				"paths./pets.get.responses.200: 'summary'",
+				// the Components section that is itself 3.2-only, and what is inside it:
+				// reporting only the container would understate what the target loses
+				"components.mediaTypes: 'mediaTypes'",
+				"components.mediaTypes.application/jsonl: 'itemSchema'",
+			} {
+				assert.Contains(t, joined, want,
+					"converting to %s should report %s at that location", target, want)
+			}
+		})
+	}
 }

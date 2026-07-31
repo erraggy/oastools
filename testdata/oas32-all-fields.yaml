@@ -134,6 +134,19 @@ components:
         petType: dog
       serializedValue: '{"petType":"dog"}'
       x-example-ext: keep
+  mediaTypes:
+    application/jsonl:
+      itemSchema:
+        $ref: "#/components/schemas/Pet"
+      x-media-type-ext: keep
+  links:
+    petById:
+      operationId: listPets
+      server:
+        url: https://api.example.com
+        name: link-server
+        x-server-ext: keep
+      x-link-ext: keep
   securitySchemes:
     oauth:
       type: oauth2

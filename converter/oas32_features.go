@@ -79,6 +79,11 @@ func (c *Converter) detectOAS32Features(doc *parser.OAS3Document, result *Conver
 	if len(comp.MediaTypes) > 0 {
 		report("components.mediaTypes", "mediaTypes")
 	}
+	for name, mt := range comp.MediaTypes {
+		// The section is 3.2-only, but so is anything 3.2 added inside it, and
+		// reporting only the container would understate what the target loses.
+		c.detectOAS32MediaTypeFeatures(mt, "components.mediaTypes."+name, report)
+	}
 	for name, item := range comp.PathItems {
 		c.detectOAS32PathItemFeatures(item, "components.pathItems."+name, doc.OASVersion, report)
 	}
@@ -104,6 +109,9 @@ func (c *Converter) detectOAS32Features(doc *parser.OAS3Document, result *Conver
 	}
 	for name, scheme := range comp.SecuritySchemes {
 		detectOAS32SecuritySchemeFeatures(scheme, "components.securitySchemes."+name, report)
+	}
+	for name, link := range comp.Links {
+		detectOAS32LinkFeatures(link, "components.links."+name, report)
 	}
 }
 
@@ -192,6 +200,21 @@ func (c *Converter) detectOAS32ResponseFeatures(resp *parser.Response, prefix st
 	c.detectOAS32ContentFeatures(resp.Content, prefix, report)
 	for name, header := range resp.Headers {
 		c.detectOAS32HeaderFeatures(header, prefix+".headers."+name, report)
+	}
+	for name, link := range resp.Links {
+		detectOAS32LinkFeatures(link, prefix+".links."+name, report)
+	}
+}
+
+// detectOAS32LinkFeatures reports the `name` of the one Server Object that is not
+// part of a servers list.
+// https://spec.openapis.org/oas/v3.2.0.html#link-object
+func detectOAS32LinkFeatures(link *parser.Link, prefix string, report oas32Reporter) {
+	if link == nil || link.Ref != "" {
+		return
+	}
+	if link.Server != nil && link.Server.Name != "" {
+		report(prefix+".server", "name")
 	}
 }
 
