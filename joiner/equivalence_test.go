@@ -1579,3 +1579,57 @@ func TestCompareSchemas_SchemaOrBoolMismatch(t *testing.T) {
 		assert.False(t, CompareSchemas(left, right, EquivalenceModeDeep).Equivalent)
 	})
 }
+
+// TestCompareSchemas_NilAndEmptyMapsAgreeWithParser pins deep comparison to the
+// convention parser's equality already documents: "Nil and empty maps are
+// considered equal."
+//
+// reflect.DeepEqual splits those two, so using it for a typed map made this
+// package disagree with parser about the same pair of schemas. The last case
+// covers why the fix is maps.EqualFunc rather than maps.Equal for Extra:
+// specification extensions hold arbitrary JSON, and == on a slice value panics.
+func TestCompareSchemas_NilAndEmptyMapsAgreeWithParser(t *testing.T) {
+	base := func() map[string]*parser.Schema {
+		return map[string]*parser.Schema{"p": {Type: "string"}}
+	}
+
+	tests := []struct {
+		name        string
+		left, right *parser.Schema
+	}{
+		{
+			name:  "$vocabulary absent against declared empty",
+			left:  &parser.Schema{Type: "object", Properties: base()},
+			right: &parser.Schema{Type: "object", Properties: base(), Vocabulary: map[string]bool{}},
+		},
+		{
+			name: "discriminator mapping absent against declared empty",
+			left: &parser.Schema{Type: "object", Properties: base(),
+				Discriminator: &parser.Discriminator{PropertyName: "kind"}},
+			right: &parser.Schema{Type: "object", Properties: base(),
+				Discriminator: &parser.Discriminator{PropertyName: "kind", Mapping: map[string]string{}}},
+		},
+		{
+			name: "dependentRequired absent against declared empty",
+			left: &parser.Schema{Type: "object", Properties: base()},
+			right: &parser.Schema{Type: "object", Properties: base(),
+				DependentRequired: map[string][]string{}},
+		},
+		{
+			name: "externalDocs extensions holding an uncomparable value",
+			left: &parser.Schema{Type: "object", Properties: base(),
+				ExternalDocs: &parser.ExternalDocs{URL: "https://example.com", Extra: map[string]any{"x-a": []any{1, 2}}}},
+			right: &parser.Schema{Type: "object", Properties: base(),
+				ExternalDocs: &parser.ExternalDocs{URL: "https://example.com", Extra: map[string]any{"x-a": []any{1, 2}}}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.True(t, CompareSchemas(tt.left, tt.right, EquivalenceModeDeep).Equivalent,
+				"deep comparison should treat these as equivalent")
+			assert.True(t, tt.left.Equals(tt.right),
+				"parser agrees, and the two must not diverge")
+		})
+	}
+}

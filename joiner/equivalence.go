@@ -2,6 +2,7 @@ package joiner
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"sort"
 	"strconv"
@@ -470,7 +471,7 @@ func compareDocFields(left, right *parser.Schema, path *comparePath, result *Equ
 	if left.Comment != right.Comment {
 		result.record(path, "$comment", left.Comment, right.Comment, "$comment mismatch")
 	}
-	if !reflect.DeepEqual(left.ExternalDocs, right.ExternalDocs) {
+	if !equalExternalDocs(left.ExternalDocs, right.ExternalDocs) {
 		result.record(path, "externalDocs", left.ExternalDocs, right.ExternalDocs, "externalDocs mismatch")
 	}
 	if left.Deprecated != right.Deprecated {
@@ -560,7 +561,10 @@ func compareStructuralSchemaFields(
 	if left.DynamicAnchor != right.DynamicAnchor {
 		result.record(path, "$dynamicAnchor", left.DynamicAnchor, right.DynamicAnchor, "$dynamicAnchor mismatch")
 	}
-	if !reflect.DeepEqual(left.Vocabulary, right.Vocabulary) {
+	// maps.Equal, not reflect.DeepEqual: this package and parser both treat a nil
+	// map and an empty one as equal, and DeepEqual splits them, which made a schema
+	// declaring `$vocabulary: {}` differ from one declaring none.
+	if !maps.Equal(left.Vocabulary, right.Vocabulary) {
 		result.record(path, "$vocabulary", left.Vocabulary, right.Vocabulary, "$vocabulary mismatch")
 	}
 
@@ -647,7 +651,23 @@ func equalDiscriminators(left, right *parser.Discriminator) bool {
 	}
 	return left.PropertyName == right.PropertyName &&
 		left.DefaultMapping == right.DefaultMapping &&
-		reflect.DeepEqual(left.Mapping, right.Mapping)
+		maps.Equal(left.Mapping, right.Mapping)
+}
+
+// equalExternalDocs compares two External Documentation Objects.
+//
+// Mirrors parser's equalExternalDocs field by field rather than reaching for
+// reflect.DeepEqual, whose comparison of the Extra map would split a nil map from
+// an empty one and disagree with parser about the same pair.
+func equalExternalDocs(left, right *parser.ExternalDocs) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.Description == right.Description &&
+		left.URL == right.URL &&
+		// EqualFunc with DeepEqual, not maps.Equal: Extra holds arbitrary JSON, and
+		// == on a slice value panics. Same pairing parser's equalMapStringAny uses.
+		maps.EqualFunc(left.Extra, right.Extra, reflect.DeepEqual)
 }
 
 // equalStringSliceMaps compares two name-keyed string-slice maps, order-independently.
