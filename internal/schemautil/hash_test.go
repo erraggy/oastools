@@ -418,9 +418,10 @@ func TestHashDistinguishesXML(t *testing.T) {
 		}
 	})
 
-	// writeString appends raw bytes, so unterminated values run together. Without a
-	// terminator these two hash identically, putting different XML configurations in
-	// one deduplication bucket.
+	// writeString appends raw bytes, so values need framing or they run together.
+	// Both pairs below collided at some point: the first defeats no framing at all,
+	// the second defeats a delimiter, since any sentinel byte can appear inside a
+	// value. Only length framing separates them.
 	t.Run("adjacent xml values do not run together", func(t *testing.T) {
 		runTogether := stringWithXML(&parser.XML{Name: "anamespace:b"})
 		separate := stringWithXML(&parser.XML{Name: "a", Namespace: "b"})
@@ -428,10 +429,79 @@ func TestHashDistinguishesXML(t *testing.T) {
 			"concatenated xml values must not collide")
 	})
 
+	t.Run("a value containing the delimiter does not collide", func(t *testing.T) {
+		withNUL := stringWithXML(&parser.XML{Name: "a\x00namespace:b"})
+		separate := stringWithXML(&parser.XML{Name: "a", Namespace: "b"})
+		assert.NotEqual(t, hasher.Hash(withNUL), hasher.Hash(separate),
+			"a NUL inside a value must not forge a field boundary")
+	})
+
+	t.Run("a value containing the length framing does not collide", func(t *testing.T) {
+		forged := stringWithXML(&parser.XML{Name: "a1:bnamespace:1:c"})
+		separate := stringWithXML(&parser.XML{Name: "a", Namespace: "b"})
+		assert.NotEqual(t, hasher.Hash(forged), hasher.Hash(separate),
+			"a value imitating the framing must not collide either")
+	})
+
 	t.Run("identical xml still hashes alike", func(t *testing.T) {
 		left := stringWithXML(&parser.XML{Name: "tag", Namespace: "https://example.com/ns", NodeType: "attribute"})
 		right := stringWithXML(&parser.XML{Name: "tag", Namespace: "https://example.com/ns", NodeType: "attribute"})
 		assert.Equal(t, hasher.Hash(left), hasher.Hash(right),
 			"equal xml must not be made to differ")
+	})
+}
+
+// TestHashFramesDiscriminatorStrings covers the framing of the Discriminator
+// Object's strings.
+//
+// writeString appends raw bytes, so unframed neighbors run together. Each pair
+// below hashed identically before the discriminator block was length-framed, which
+// put semantically different discriminators in one deduplication bucket.
+func TestHashFramesDiscriminatorStrings(t *testing.T) {
+	discriminated := func(property string, mapping map[string]string, def string) *parser.Schema {
+		return &parser.Schema{
+			Type: "object",
+			Discriminator: &parser.Discriminator{
+				PropertyName:   property,
+				Mapping:        mapping,
+				DefaultMapping: def,
+			},
+		}
+	}
+
+	hasher := NewSchemaHasher()
+
+	tests := []struct {
+		name        string
+		left, right *parser.Schema
+	}{
+		{
+			name:  "a mapping key runs into its value",
+			left:  discriminated("kind", map[string]string{"ab": "c"}, ""),
+			right: discriminated("kind", map[string]string{"a": "bc"}, ""),
+		},
+		{
+			name:  "a mapping value forges the defaultMapping label",
+			left:  discriminated("kind", map[string]string{"k": "xdefaultMapping:y"}, ""),
+			right: discriminated("kind", map[string]string{"k": "x"}, "y"),
+		},
+		{
+			name:  "propertyName absorbs the first mapping key",
+			left:  discriminated("kindab", nil, ""),
+			right: discriminated("kind", map[string]string{"ab": ""}, ""),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.NotEqual(t, hasher.Hash(tt.left), hasher.Hash(tt.right),
+				"framing must keep these discriminators apart")
+		})
+	}
+
+	t.Run("identical discriminators still hash alike", func(t *testing.T) {
+		left := discriminated("kind", map[string]string{"a": "b"}, "Other")
+		right := discriminated("kind", map[string]string{"a": "b"}, "Other")
+		assert.Equal(t, hasher.Hash(left), hasher.Hash(right))
 	})
 }
