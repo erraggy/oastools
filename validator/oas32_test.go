@@ -1,7 +1,11 @@
 package validator
 
 import (
+	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestOAS32ExampleValueExclusivity covers the Example Object rules from issue
@@ -689,6 +693,34 @@ components:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assertErrorsMatch(t, validationErrors(t, tt.spec), tt.wantErrors)
+		})
+	}
+}
+
+// TestOAS32AllFieldsFixtureIsValid pins that the shared 3.2 fixture is a valid
+// document.
+//
+// parser and converter both build on it, and both reach it through the parser's
+// structure validation, which does not check the Components key charset. So a
+// `components.mediaTypes` key of `application/jsonl` passed every test in both
+// packages while making the fixture an invalid document.
+//
+// That key is the easy mistake to make twice: the same string is legal as a
+// `content` key, which the fixture still uses, because there it names a media
+// type. Under `components` it names a component, and the allowlist has no slash.
+// The check lives here because parser cannot import validator.
+//
+// https://spec.openapis.org/oas/v3.2.0.html#components-object
+func TestOAS32AllFieldsFixtureIsValid(t *testing.T) {
+	for _, path := range []string{
+		"../testdata/oas32-all-fields.yaml",
+		"../testdata/oas32-all-fields.json",
+	} {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			result, err := New().Validate(path)
+			require.NoError(t, err)
+			assert.Empty(t, result.Errors,
+				"the full-field fixture must itself be a valid OAS 3.2 document")
 		})
 	}
 }

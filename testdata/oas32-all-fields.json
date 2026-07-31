@@ -11,6 +11,25 @@
         "x-example-ext": "keep"
       }
     },
+    "links": {
+      "petById": {
+        "operationId": "listPets",
+        "server": {
+          "name": "link-server",
+          "url": "https://api.example.com",
+          "x-server-ext": "keep"
+        },
+        "x-link-ext": "keep"
+      }
+    },
+    "mediaTypes": {
+      "PetStream": {
+        "itemSchema": {
+          "$ref": "#/components/schemas/Pet"
+        },
+        "x-media-type-ext": "keep"
+      }
+    },
     "schemas": {
       "Dog": {
         "type": "object"
@@ -149,6 +168,16 @@
               }
             },
             "description": "A list of pets",
+            "links": {
+              "firstPet": {
+                "operationId": "listPets",
+                "server": {
+                  "name": "response-link-server",
+                  "url": "https://api.example.com",
+                  "x-response-link-server-ext": "keep"
+                }
+              }
+            },
             "summary": "Pets, or the default shape",
             "x-response-ext": "keep"
           }

@@ -107,6 +107,30 @@ func assertOAS32FieldsPresent(t *testing.T, doc *OAS3Document) {
 	assert.NotNil(t, ex.DataValue, "example.dataValue")
 	assert.Equal(t, `{"petType":"dog"}`, ex.SerializedValue, "example.serializedValue")
 
+	// Components Object
+	sharedMediaType := doc.Components.MediaTypes["PetStream"]
+	require.NotNil(t, sharedMediaType, "components.mediaTypes")
+	require.NotNil(t, sharedMediaType.ItemSchema, "components.mediaTypes[].itemSchema")
+	assert.Equal(t, "#/components/schemas/Pet", sharedMediaType.ItemSchema.Ref,
+		"components.mediaTypes[].itemSchema.$ref")
+
+	// A Link Object reached through a Response, not through Components: the
+	// converter walks the two separately, so one working proves nothing about the
+	// other.
+	respLink := resp.Links["firstPet"]
+	require.NotNil(t, respLink, "response.links")
+	require.NotNil(t, respLink.Server, "response.links[].server")
+	assert.Equal(t, "response-link-server", respLink.Server.Name,
+		"response.links[].server.name")
+
+	// Link Object, whose server is the one Server Object outside a servers list
+	link := doc.Components.Links["petById"]
+	require.NotNil(t, link)
+	assert.Equal(t, "listPets", link.OperationID, "link.operationId")
+	require.NotNil(t, link.Server, "link.server")
+	assert.Equal(t, "https://api.example.com", link.Server.URL, "link.server.url")
+	assert.Equal(t, "link-server", link.Server.Name, "link.server.name")
+
 	// Security Scheme Object and the OAuth flow objects
 	oauth := doc.Components.SecuritySchemes["oauth"]
 	require.NotNil(t, oauth)
@@ -240,6 +264,22 @@ func stripOAS32Extensions(doc *OAS3Document) {
 	pet.Discriminator.Extra = nil
 	pet.Properties["tag"].XML.Extra = nil
 	doc.Components.Examples["withData"].Extra = nil
+
+	for _, mt := range doc.Components.MediaTypes {
+		mt.Extra = nil
+	}
+	for _, link := range doc.Components.Links {
+		link.Extra = nil
+		if link.Server != nil {
+			link.Server.Extra = nil
+		}
+	}
+	for _, link := range doc.Paths["/pets"].Get.Responses.Codes["200"].Links {
+		link.Extra = nil
+		if link.Server != nil {
+			link.Server.Extra = nil
+		}
+	}
 
 	oauth := doc.Components.SecuritySchemes["oauth"]
 	oauth.Extra = nil

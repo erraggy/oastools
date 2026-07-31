@@ -33,6 +33,13 @@ paths:
         "200":
           description: A list of pets
           summary: Pets, or the default shape
+          links:
+            firstPet:
+              operationId: listPets
+              server:
+                url: https://api.example.com
+                name: response-link-server
+                x-response-link-server-ext: keep
           x-response-ext: keep
           content:
             application/jsonl:
@@ -134,6 +141,19 @@ components:
         petType: dog
       serializedValue: '{"petType":"dog"}'
       x-example-ext: keep
+  mediaTypes:
+    PetStream:
+      itemSchema:
+        $ref: "#/components/schemas/Pet"
+      x-media-type-ext: keep
+  links:
+    petById:
+      operationId: listPets
+      server:
+        url: https://api.example.com
+        name: link-server
+        x-server-ext: keep
+      x-link-ext: keep
   securitySchemes:
     oauth:
       type: oauth2
