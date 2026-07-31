@@ -6,7 +6,9 @@ package converter
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -24,6 +26,24 @@ import (
 // are Critical where the OAS 2.0 path finds them.
 func (c *Converter) detectOAS32Features(doc *parser.OAS3Document, result *ConversionResult) {
 	target := result.TargetVersion
+
+	// The section walks below range over maps, and Go randomizes that order, so the
+	// same document reported these issues in a different order on each run — four
+	// orderings in eight runs of the full-field fixture. Sorting what this pass
+	// appended costs one sort of a short slice and leaves the walks readable, where
+	// ordering every map's keys would allocate on documents that report nothing.
+	// The ordered-slice comment on the Tag fields below is the same concern, caught
+	// earlier and solved locally.
+	first := len(result.Issues)
+	defer func() {
+		added := result.Issues[first:]
+		slices.SortStableFunc(added, func(a, b ConversionIssue) int {
+			if n := strings.Compare(a.Path, b.Path); n != 0 {
+				return n
+			}
+			return strings.Compare(a.Message, b.Message)
+		})
+	}()
 
 	// The oas32Reporter used here and passed into the downstream detectors.
 	report := func(path, field string) {

@@ -3,6 +3,7 @@ package converter
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -164,4 +165,32 @@ func TestDownconvertReportsAmbiguousFieldsAtTheirLocation(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestDownconvertIssueOrderIsDeterministic pins the ordering.
+//
+// The section walks range over maps, so the full-field fixture reported these
+// issues in four distinct orderings across eight runs. Anything diffing conversion
+// output between runs saw changes that were not there.
+func TestDownconvertIssueOrderIsDeterministic(t *testing.T) {
+	first := oas32FeatureIssues(t, "3.0.3")
+	require.NotEmpty(t, first)
+
+	// Repeated rather than compared against a fixed list: the assertion is that the
+	// order holds, not that it is any particular order.
+	for range 12 {
+		assert.Equal(t, first, oas32FeatureIssues(t, "3.0.3"),
+			"the same document must report its issues in the same order every run")
+	}
+
+	// Asserted on the sort key itself, not the rendered "path: message" line: '.'
+	// sorts before ':', so a parent path and its child render out of order while
+	// their paths are sorted correctly.
+	paths := make([]string, 0, len(first))
+	for _, issue := range first {
+		path, _, _ := strings.Cut(issue, ": ")
+		paths = append(paths, path)
+	}
+	assert.True(t, slices.IsSorted(paths),
+		"sorted by path, so the order is predictable and not merely stable: %v", paths)
 }
