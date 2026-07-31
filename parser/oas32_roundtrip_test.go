@@ -107,6 +107,19 @@ func assertOAS32FieldsPresent(t *testing.T, doc *OAS3Document) {
 	assert.NotNil(t, ex.DataValue, "example.dataValue")
 	assert.Equal(t, `{"petType":"dog"}`, ex.SerializedValue, "example.serializedValue")
 
+	// An inline schema in a media type, not one under components.schemas
+	formData := resp.Content["multipart/form-data"]
+	require.NotNil(t, formData)
+	require.NotNil(t, formData.Schema)
+	metaProp := formData.Schema.Properties["meta"]
+	require.NotNil(t, metaProp, "inline media type schema property")
+	require.NotNil(t, metaProp.XML, "inline schema xml")
+	assert.Equal(t, "meta", metaProp.XML.Name, "inline schema xml.name")
+	assert.Equal(t, "element", metaProp.XML.NodeType, "inline schema xml.nodeType")
+	// No extension assertion here: this function also runs against the document
+	// stripOAS32Extensions has cleared, which is how the fast marshal path is
+	// exercised. Extension survival is the strip/no-strip pairing's job.
+
 	// Components Object
 	sharedMediaType := doc.Components.MediaTypes["PetStream"]
 	require.NotNil(t, sharedMediaType, "components.mediaTypes")
@@ -161,10 +174,42 @@ func parseOAS32Fixture(t *testing.T, path string) *OAS3Document {
 
 // TestOAS32AllFieldsParse is the decode half of issue #397: the fields have to
 // reach the struct at all, from either format.
+// assertInlineXMLExtensionPresent asserts the extension on the inline media type
+// schema survived. Separate from [assertOAS32FieldsPresent], which also runs
+// against the document stripOAS32Extensions has cleared.
+//
+// The suite proved extensions are *removed* on the fast path and that the two
+// formats agree with each other, but nothing asserted an extension survives a
+// marshal round-trip at all.
+func assertInlineXMLExtensionPresent(t *testing.T, doc *OAS3Document) {
+	t.Helper()
+
+	xml := inlineMetaXML(t, doc)
+	assert.Equal(t, "keep", xml.Extra["x-inline-xml-ext"],
+		"the inline schema's extension should survive the round trip")
+}
+
+// inlineMetaXML returns the XML Object on the inline media type schema property.
+func inlineMetaXML(t *testing.T, doc *OAS3Document) *XML {
+	t.Helper()
+
+	resp := doc.Paths["/pets"].Get.Responses.Codes["200"]
+	require.NotNil(t, resp)
+	formData := resp.Content["multipart/form-data"]
+	require.NotNil(t, formData)
+	require.NotNil(t, formData.Schema)
+	meta := formData.Schema.Properties["meta"]
+	require.NotNil(t, meta)
+	require.NotNil(t, meta.XML)
+	return meta.XML
+}
+
 func TestOAS32AllFieldsParse(t *testing.T) {
 	for name, path := range map[string]string{"yaml": oas32FixtureYAML, "json": oas32FixtureJSON} {
 		t.Run(name, func(t *testing.T) {
-			assertOAS32FieldsPresent(t, parseOAS32Fixture(t, path))
+			doc := parseOAS32Fixture(t, path)
+			assertOAS32FieldsPresent(t, doc)
+			assertInlineXMLExtensionPresent(t, doc)
 		})
 	}
 }
@@ -189,6 +234,7 @@ func TestOAS32AllFieldsSurviveRoundTrip(t *testing.T) {
 		require.True(t, ok)
 
 		assertOAS32FieldsPresent(t, reparsed)
+		assertInlineXMLExtensionPresent(t, reparsed)
 	})
 
 	t.Run("yaml", func(t *testing.T) {
@@ -203,6 +249,7 @@ func TestOAS32AllFieldsSurviveRoundTrip(t *testing.T) {
 		require.True(t, ok)
 
 		assertOAS32FieldsPresent(t, reparsed)
+		assertInlineXMLExtensionPresent(t, reparsed)
 	})
 }
 
@@ -230,6 +277,8 @@ func TestOAS32AllFieldsRoundTripWithoutExtensions(t *testing.T) {
 	require.True(t, ok)
 
 	assertOAS32FieldsPresent(t, reparsed)
+	assert.NotContains(t, inlineMetaXML(t, reparsed).Extra, "x-inline-xml-ext",
+		"the extension was cleared, so it must not come back")
 }
 
 // stripOAS32Extensions clears Extra on every object the fixture puts an extension
@@ -246,6 +295,13 @@ func stripOAS32Extensions(doc *OAS3Document) {
 	resp.Extra = nil
 	for _, mt := range resp.Content {
 		mt.Extra = nil
+		if mt.Schema != nil {
+			for _, prop := range mt.Schema.Properties {
+				if prop != nil && prop.XML != nil {
+					prop.XML.Extra = nil
+				}
+			}
+		}
 		if mt.ItemEncoding != nil {
 			mt.ItemEncoding.Extra = nil
 		}

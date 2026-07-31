@@ -145,7 +145,12 @@
                 "schema": {
                   "properties": {
                     "meta": {
-                      "type": "object"
+                      "type": "object",
+                      "xml": {
+                        "name": "meta",
+                        "nodeType": "element",
+                        "x-inline-xml-ext": "keep"
+                      }
                     }
                   },
                   "type": "object"

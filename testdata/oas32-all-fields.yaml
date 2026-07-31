@@ -63,6 +63,13 @@ paths:
                 properties:
                   meta:
                     type: object
+                    # Inline rather than under components.schemas: the schema-level
+                    # 3.2 rules reached components.schemas and the request body
+                    # alone, so this position had no coverage at all. Issue #423.
+                    xml:
+                      name: meta
+                      nodeType: element
+                      x-inline-xml-ext: keep
               encoding:
                 meta:
                   contentType: application/json

@@ -73,13 +73,21 @@ var Corpus = []SpecInfo{
 		SizeBytes:      405_000,
 	},
 	{
-		Name:           "GoogleMaps",
-		Filename:       "google-maps-platform.json",
-		URL:            "https://raw.githubusercontent.com/googlemaps/openapi-specification/main/dist/google-maps-platform-openapi3.json",
-		OASVersion:     "3.0.3",
-		Format:         formatJSON,
-		ExpectedValid:  true, // Now valid after fixing $ref parameter validation (was 228 false positives)
-		ExpectedErrors: 0,
+		Name:       "GoogleMaps",
+		Filename:   "google-maps-platform.json",
+		URL:        "https://raw.githubusercontent.com/googlemaps/openapi-specification/main/dist/google-maps-platform-openapi3.json",
+		OASVersion: "3.0.3",
+		Format:     formatJSON,
+		// Invalid again as of #423, and correctly so. Two parameters declare
+		// `"type": "string"` with `"enum": [0, 1, 2, 3, 4]`, five integers in a
+		// string-typed enum. The spec's own description says the values "range
+		// between 0 and 4", so the type is the mistake, not the enum.
+		//
+		// It read as valid only because parameter schemas were never validated:
+		// validateSchema was reached from the request body and components.schemas
+		// alone. The earlier note below is still true of the $ref work it describes.
+		ExpectedValid:  false, // Was true after $ref parameter validation removed 228 false positives
+		ExpectedErrors: 10,
 		IsLarge:        false,
 		SizeBytes:      500_000,
 	},
