@@ -5,6 +5,11 @@ MAIN_PATH=./cmd/oastools
 BENCH_DIR=benchmarks
 BENCH_TIME=5s
 
+# The golangci-lint version this repository is checked against. CI installs this
+# exact version in both workflows, so `make lint` and CI cannot disagree. Bumping
+# it is a deliberate, reviewable change; see issue #413 for why it is pinned.
+GOLANGCI_VERSION=v2.12.2
+
 # Allow go commands to automatically download the toolchain version declared in
 # go.mod when the local Go binary is older. This is the portable alternative to
 # pinning GOROOT/PATH to a specific SDK path.
@@ -152,12 +157,26 @@ count-benchmarks:
 .PHONY: lint
 lint:
 	@echo "Running linter..."
-	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run ./...; \
-	else \
-		echo "golangci-lint not installed. Install it from https://golangci-lint.run/usage/install/"; \
+	@if ! command -v golangci-lint >/dev/null 2>&1; then \
+		echo "golangci-lint not installed. Install $(GOLANGCI_VERSION) with:"; \
+		echo "  make lint-install"; \
 		exit 1; \
 	fi
+	@installed=$$(golangci-lint --version 2>/dev/null | grep -oE 'version [0-9]+\.[0-9]+\.[0-9]+' | cut -d' ' -f2); \
+	if [ "v$$installed" != "$(GOLANGCI_VERSION)" ]; then \
+		echo "golangci-lint v$$installed is installed, but this repository pins $(GOLANGCI_VERSION)."; \
+		echo "Findings will not match CI. Install the pinned version with:"; \
+		echo "  make lint-install"; \
+		exit 1; \
+	fi
+	@golangci-lint run ./...
+
+## lint-install: Install the pinned golangci-lint version
+.PHONY: lint-install
+lint-install:
+	@echo "Installing golangci-lint $(GOLANGCI_VERSION)..."
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
+		| sh -s -- -b $$(go env GOPATH)/bin $(GOLANGCI_VERSION)
 
 ## fmt: Format code
 .PHONY: fmt
@@ -441,25 +460,25 @@ corpus-download:
 	@echo "Downloading corpus specifications..."
 	@mkdir -p testdata/corpus
 	@echo "  Downloading Petstore (OAS 2.0)..."
-	@curl -sL -o testdata/corpus/petstore-swagger.json "https://petstore.swagger.io/v2/swagger.json"
+	@curl -sSL --fail -o testdata/corpus/petstore-swagger.json "https://petstore.swagger.io/v2/swagger.json"
 	@echo "  Downloading DigitalOcean (OAS 3.0.0, bundled)..."
-	@curl -sL -o testdata/corpus/digitalocean-public.v2.yaml "https://api-engineering.nyc3.digitaloceanspaces.com/spec-ci/DigitalOcean-public.v2.yaml"
+	@curl -sSL --fail -o testdata/corpus/digitalocean-public.v2.yaml "https://api-engineering.nyc3.digitaloceanspaces.com/spec-ci/DigitalOcean-public.v2.yaml"
 	@echo "  Downloading Asana (OAS 3.0.0)..."
-	@curl -sL -o testdata/corpus/asana-oas.yaml "https://raw.githubusercontent.com/Asana/openapi/master/defs/asana_oas.yaml"
+	@curl -sSL --fail -o testdata/corpus/asana-oas.yaml "https://raw.githubusercontent.com/Asana/openapi/master/defs/asana_oas.yaml"
 	@echo "  Downloading Google Maps (OAS 3.0.3)..."
-	@curl -sL -o testdata/corpus/google-maps-platform.json "https://raw.githubusercontent.com/googlemaps/openapi-specification/main/dist/google-maps-platform-openapi3.json"
+	@curl -sSL --fail -o testdata/corpus/google-maps-platform.json "https://raw.githubusercontent.com/googlemaps/openapi-specification/main/dist/google-maps-platform-openapi3.json"
 	@echo "  Downloading US NWS (OAS 3.0.3)..."
-	@curl -sL -o testdata/corpus/nws-openapi.json "https://api.weather.gov/openapi.json"
+	@curl -sSL --fail -o testdata/corpus/nws-openapi.json "https://api.weather.gov/openapi.json"
 	@echo "  Downloading Plaid (OAS 3.0.0)..."
-	@curl -sL -o testdata/corpus/plaid-2020-09-14.yml "https://raw.githubusercontent.com/plaid/plaid-openapi/master/2020-09-14.yml"
+	@curl -sSL --fail -o testdata/corpus/plaid-2020-09-14.yml "https://raw.githubusercontent.com/plaid/plaid-openapi/master/2020-09-14.yml"
 	@echo "  Downloading Discord (OAS 3.1.0)..."
-	@curl -sL -o testdata/corpus/discord-openapi.json "https://raw.githubusercontent.com/discord/discord-api-spec/main/specs/openapi.json"
+	@curl -sSL --fail -o testdata/corpus/discord-openapi.json "https://raw.githubusercontent.com/discord/discord-api-spec/main/specs/openapi.json"
 	@echo "  Downloading GitHub (OAS 3.0.3)..."
-	@curl -sL -o testdata/corpus/github-api.json "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json"
+	@curl -sSL --fail -o testdata/corpus/github-api.json "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json"
 	@echo "  Downloading Stripe (OAS 3.0.0, large)..."
-	@curl -sL -o testdata/corpus/stripe-spec3.json "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json"
+	@curl -sSL --fail -o testdata/corpus/stripe-spec3.json "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json"
 	@echo "  Downloading Microsoft Graph (OAS 3.0.4, large)..."
-	@curl -sL -o testdata/corpus/msgraph-openapi.yaml "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/v1.0/openapi.yaml"
+	@curl -sSL --fail -o testdata/corpus/msgraph-openapi.yaml "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/v1.0/openapi.yaml"
 	@echo "Corpus download complete!"
 	@echo ""
 	@ls -lh testdata/corpus/
