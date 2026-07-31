@@ -67,3 +67,101 @@ func TestEqualsReadsEveryStructuralSchemaField(t *testing.T) {
 		})
 	}
 }
+
+// TestDeepComparisonSurvivesNilNestedSchemas covers the class behind issue #417
+// rather than the individual sites that issue lists. Populating every
+// nested-schema field with a nil in turn is what keeps the next nested walk added
+// from reintroducing it.
+func TestDeepComparisonSurvivesNilNestedSchemas(t *testing.T) {
+	// Both schemas carry a type and a property so neither is the empty schema,
+	// which compareDeep rejects for unrelated reasons.
+	base := func() *parser.Schema {
+		return &parser.Schema{
+			Type:       "object",
+			Properties: map[string]*parser.Schema{"p": {Type: "string"}},
+		}
+	}
+	present := &parser.Schema{Type: "string"}
+
+	// Every Schema field that can hold a nested schema, by the shape that holds it.
+	nilIn := map[string]func(*parser.Schema, bool){
+		"properties":            func(s *parser.Schema, nilled bool) { s.Properties = schemaMapEntry(nilled, present) },
+		"patternProperties":     func(s *parser.Schema, nilled bool) { s.PatternProperties = schemaMapEntry(nilled, present) },
+		"dependentSchemas":      func(s *parser.Schema, nilled bool) { s.DependentSchemas = schemaMapEntry(nilled, present) },
+		"$defs":                 func(s *parser.Schema, nilled bool) { s.Defs = schemaMapEntry(nilled, present) },
+		"allOf":                 func(s *parser.Schema, nilled bool) { s.AllOf = schemaSliceEntry(nilled, present) },
+		"anyOf":                 func(s *parser.Schema, nilled bool) { s.AnyOf = schemaSliceEntry(nilled, present) },
+		"oneOf":                 func(s *parser.Schema, nilled bool) { s.OneOf = schemaSliceEntry(nilled, present) },
+		"prefixItems":           func(s *parser.Schema, nilled bool) { s.PrefixItems = schemaSliceEntry(nilled, present) },
+		"not":                   func(s *parser.Schema, nilled bool) { s.Not = schemaPointer(nilled, present) },
+		"contains":              func(s *parser.Schema, nilled bool) { s.Contains = schemaPointer(nilled, present) },
+		"propertyNames":         func(s *parser.Schema, nilled bool) { s.PropertyNames = schemaPointer(nilled, present) },
+		"if":                    func(s *parser.Schema, nilled bool) { s.If = schemaPointer(nilled, present) },
+		"then":                  func(s *parser.Schema, nilled bool) { s.Then = schemaPointer(nilled, present) },
+		"else":                  func(s *parser.Schema, nilled bool) { s.Else = schemaPointer(nilled, present) },
+		"contentSchema":         func(s *parser.Schema, nilled bool) { s.ContentSchema = schemaPointer(nilled, present) },
+		"items":                 func(s *parser.Schema, nilled bool) { s.Items = schemaOrBool(nilled, present) },
+		"additionalItems":       func(s *parser.Schema, nilled bool) { s.AdditionalItems = schemaOrBool(nilled, present) },
+		"additionalProperties":  func(s *parser.Schema, nilled bool) { s.AdditionalProperties = schemaOrBool(nilled, present) },
+		"unevaluatedItems":      func(s *parser.Schema, nilled bool) { s.UnevaluatedItems = schemaOrBool(nilled, present) },
+		"unevaluatedProperties": func(s *parser.Schema, nilled bool) { s.UnevaluatedProperties = schemaOrBool(nilled, present) },
+	}
+
+	for field, set := range nilIn {
+		t.Run(field, func(t *testing.T) {
+			nilled, populated := base(), base()
+			set(nilled, true)
+			set(populated, false)
+
+			// The assertion is that these return at all. A panic here is the bug.
+			assert.NotPanics(t, func() {
+				result := joiner.CompareSchemas(nilled, populated, joiner.EquivalenceModeDeep)
+				assert.False(t, result.Equivalent,
+					"a nil %s against a populated one is a difference", field)
+			})
+
+			assert.NotPanics(t, func() {
+				bothNil := base()
+				set(bothNil, true)
+				other := base()
+				set(other, true)
+				assert.True(t, joiner.CompareSchemas(bothNil, other, joiner.EquivalenceModeDeep).Equivalent,
+					"two schemas both holding a nil %s are equivalent", field)
+			})
+		})
+	}
+}
+
+// schemaMapEntry returns a one-entry schema map whose value is nil or present.
+func schemaMapEntry(nilled bool, present *parser.Schema) map[string]*parser.Schema {
+	if nilled {
+		return map[string]*parser.Schema{"a": nil}
+	}
+	return map[string]*parser.Schema{"a": present}
+}
+
+// schemaSliceEntry returns a one-element schema slice holding nil or present.
+func schemaSliceEntry(nilled bool, present *parser.Schema) []*parser.Schema {
+	if nilled {
+		return []*parser.Schema{nil}
+	}
+	return []*parser.Schema{present}
+}
+
+// schemaPointer returns nil or present.
+func schemaPointer(nilled bool, present *parser.Schema) *parser.Schema {
+	if nilled {
+		return nil
+	}
+	return present
+}
+
+// schemaOrBool returns a typed nil or a present schema, in the `any` a
+// schema-or-bool field is declared as. A typed nil is the shape that passes an
+// interface nil check and still dereferences to nothing.
+func schemaOrBool(nilled bool, present *parser.Schema) any {
+	if nilled {
+		return (*parser.Schema)(nil)
+	}
+	return present
+}
