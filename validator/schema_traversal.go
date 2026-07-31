@@ -17,13 +17,23 @@ package validator
 import (
 	"strconv"
 
+	"github.com/erraggy/oastools/internal/httputil"
+
 	"github.com/erraggy/oastools/parser"
 )
 
 // validateOAS3OperationSchemas validates the schemas an operation carries that
 // [Validator.validateOAS3RequestBody] does not already reach.
 func (v *Validator) validateOAS3OperationSchemas(op *parser.Operation, path string, result *ValidationResult) {
-	v.validateOperationSchemasAtDepth(op, path, result, make(map[*parser.PathItem]bool), 0)
+	// The visited set exists only for the callback traversal, and most operations
+	// carry no callbacks. Allocating it unconditionally cost one map per operation
+	// in the document; nil is never written, because validatePathItemSchemas is
+	// reachable only through a callback.
+	var visited map[*parser.PathItem]bool
+	if op != nil && len(op.Callbacks) > 0 {
+		visited = make(map[*parser.PathItem]bool)
+	}
+	v.validateOperationSchemasAtDepth(op, path, result, visited, 0)
 }
 
 // validateOperationSchemasAtDepth carries the callback traversal's cycle state,
@@ -44,6 +54,28 @@ func (v *Validator) validateOperationSchemasAtDepth(op *parser.Operation, path s
 	for code, resp := range op.Responses.Codes {
 		v.validateResponseSchemas(resp, path+".responses."+code, result)
 	}
+}
+
+// pathItemOperations pairs each of a Path Item's operation fields with its method
+// name.
+//
+// Listed rather than taken from [parser.GetOperations], which needs a version to
+// decide which methods exist: a schema is a schema whatever version admits the
+// operation holding it. A package-level slice rather than a map built per path
+// item, so it allocates nothing and iterates in a stable order.
+var pathItemOperations = []struct {
+	method string
+	get    func(*parser.PathItem) *parser.Operation
+}{
+	{httputil.MethodGet, func(p *parser.PathItem) *parser.Operation { return p.Get }},
+	{httputil.MethodPut, func(p *parser.PathItem) *parser.Operation { return p.Put }},
+	{httputil.MethodPost, func(p *parser.PathItem) *parser.Operation { return p.Post }},
+	{httputil.MethodDelete, func(p *parser.PathItem) *parser.Operation { return p.Delete }},
+	{httputil.MethodOptions, func(p *parser.PathItem) *parser.Operation { return p.Options }},
+	{httputil.MethodHead, func(p *parser.PathItem) *parser.Operation { return p.Head }},
+	{httputil.MethodPatch, func(p *parser.PathItem) *parser.Operation { return p.Patch }},
+	{httputil.MethodTrace, func(p *parser.PathItem) *parser.Operation { return p.Trace }},
+	{httputil.MethodQuery, func(p *parser.PathItem) *parser.Operation { return p.Query }},
 }
 
 // maxCallbackNestingDepth bounds the recursive Callback traversal. A callback
@@ -84,15 +116,8 @@ func (v *Validator) validatePathItemSchemas(item *parser.PathItem, path string, 
 
 	v.validateParameterListSchemas(item.Parameters, path, result)
 
-	// Listed rather than taken from [parser.GetOperations], which needs a version
-	// to decide which methods exist. A schema is a schema whatever version admits
-	// the operation holding it.
-	for method, op := range map[string]*parser.Operation{
-		"get": item.Get, "put": item.Put, "post": item.Post, "delete": item.Delete,
-		"options": item.Options, "head": item.Head, "patch": item.Patch,
-		"trace": item.Trace, "query": item.Query,
-	} {
-		v.validateOperationSchemasAtDepth(op, path+"."+method, result, visited, depth+1)
+	for _, entry := range pathItemOperations {
+		v.validateOperationSchemasAtDepth(entry.get(item), path+"."+entry.method, result, visited, depth+1)
 	}
 	for method, op := range item.AdditionalOperations {
 		v.validateOperationSchemasAtDepth(op, path+".additionalOperations."+method, result, visited, depth+1)
@@ -223,5 +248,7 @@ func (v *Validator) validateOAS3ComponentSchemas(c *parser.Components, result *V
 	for name, mt := range c.MediaTypes {
 		v.validateMediaTypeSchemas(mt, "components.mediaTypes."+name, result)
 	}
-	v.validateCallbackMapSchemas(c.Callbacks, "components", result, make(map[*parser.PathItem]bool), 0)
+	if len(c.Callbacks) > 0 {
+		v.validateCallbackMapSchemas(c.Callbacks, "components", result, make(map[*parser.PathItem]bool), 0)
+	}
 }
