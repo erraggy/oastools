@@ -184,11 +184,25 @@
 //
 // # OAS 3.2.0 Features
 //
-// OAS 3.2.0 introduces several new capabilities:
-//   - $self: Document identity/base URI (OAS3Document.Self)
-//   - Query method: New HTTP method (PathItem.Query)
-//   - additionalOperations: Custom HTTP methods (PathItem.AdditionalOperations)
-//   - mediaTypes: Reusable media type definitions (Components.MediaTypes)
+// The parser models the full set of fixed fields OAS 3.2.0 added over 3.1.1:
+//
+//   - OpenAPI Object: $self (OAS3Document.Self)
+//   - Components Object: mediaTypes (Components.MediaTypes)
+//   - Path Item Object: query, additionalOperations
+//   - Tag Object: summary, parent, kind
+//   - Server Object: name
+//   - Response Object: summary
+//   - Media Type Object: itemSchema, itemEncoding, prefixEncoding
+//   - Encoding Object: encoding, itemEncoding, prefixEncoding
+//   - Example Object: dataValue, serializedValue
+//   - Security Scheme Object: deprecated, oauth2MetadataUrl
+//   - OAuth Flows Object: deviceAuthorization
+//   - OAuth Flow Object: deviceAuthorizationUrl
+//   - Discriminator Object: defaultMapping
+//   - XML Object: nodeType
+//   - Parameter Object: in: "querystring" (ParamInQueryString)
+//
+// https://spec.openapis.org/oas/v3.2.0.html
 //
 // # JSON Schema 2020-12 Keywords
 //

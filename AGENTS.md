@@ -13,13 +13,16 @@ This file provides quick, actionable guidance for AI coding agents working on th
 
 ## Dev Environment Setup
 
-**CRITICAL: Install golangci-lint v2 before making code changes:**
+**CRITICAL: Install the pinned golangci-lint before making code changes:**
 
 ```bash
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.1.0
+make lint-install
 export PATH=$PATH:$(go env GOPATH)/bin
-golangci-lint version  # Should show v2.1.0
 ```
+
+The version lives in one place, `GOLANGCI_VERSION` in the Makefile, and CI reads
+it from there. `make lint` refuses to run against any other version, because
+findings would not match CI.
 
 ## Quick Commands
 
@@ -29,10 +32,10 @@ make check          # Runs tidy, fmt, lint, test, and git status
 
 # Individual commands
 make build          # Build binary to bin/oastools
-make test           # Run all tests with race detection
+make test           # Run all tests with cross-package coverage
 make test-coverage  # Generate and view HTML coverage report
 make fmt            # Format all Go code
-make lint           # Run golangci-lint (requires v2 installation)
+make lint           # Run golangci-lint (the version the Makefile pins)
 
 # Benchmarks
 make bench          # Run benchmarks

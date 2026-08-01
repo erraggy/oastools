@@ -308,9 +308,11 @@
 // or context-specific wildcards -- and should remain distinct even when structurally
 // identical. Metadata fields (title, description, example, deprecated) are not considered
 // constraints for empty-schema detection, so a schema with only metadata is still treated
-// as empty. However, schema equivalence comparison includes title, description, example,
-// and examples by default — use WithEquivalenceDocs("ignore") to opt in to legacy behavior
-// that treats documentation differences as inconsequential.
+// as empty. However, schema equivalence comparison includes the documentation and
+// advisory fields by default — title, description, example, examples, $comment,
+// externalDocs and deprecated — so schemas differing only in those are kept apart.
+// Use WithEquivalenceDocs("ignore") to opt in to legacy behavior that treats those
+// differences as inconsequential.
 //
 // This differs from the StrategyDeduplicateEquivalent collision strategy which only
 // handles same-named collisions. Semantic deduplication works across all schemas

@@ -1377,8 +1377,9 @@ func main() {
 ### Preserving Documentation During Deduplication
 
 Since v1.53.2, semantic equivalence is **strict by default**: two schemas that
-differ only in `title`, `description`, `example`, or `examples` are treated
-as **not equivalent** and are preserved as separate schemas. This prevents a
+differ only in documentation or advisory fields — `title`, `description`,
+`example`, `examples`, and, since v1.59.0, `$comment`, `externalDocs` and
+`deprecated` — are treated as **not equivalent** and are preserved as separate schemas. This prevents a
 subtle documentation-clobbering bug where every `$ref` site to a
 consolidated schema ended up pointing at a canonical schema whose prose
 applied to a different context (for example, a 403 response landing on a

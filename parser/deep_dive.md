@@ -130,7 +130,13 @@ Detection triggers:
 
 ## OAS 3.2.0 Features
 
-OAS 3.2.0 introduces several new capabilities that the parser fully supports:
+The parser models the full set of fixed fields OAS 3.2.0 added over 3.1.1. The
+sections below cover the ones with behavior worth explaining; the complete list is
+in `parser/doc.go`. Fields added in v1.59.0 include Tag `summary`/`parent`/`kind`,
+Server `name`, Response `summary`, the Media Type and Encoding sequential-media-type
+fields, Example `dataValue`/`serializedValue`, the Security Scheme and OAuth device
+authorization fields, Discriminator `defaultMapping`, XML `nodeType`, and Parameter
+`in: "querystring"`.
 
 ### Document Identity ($self)
 
