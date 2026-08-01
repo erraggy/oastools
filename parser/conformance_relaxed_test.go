@@ -255,8 +255,24 @@ paths:
 // the generated decodeFromMap — filters status codes before a Responses object
 // is built, so validateOAS3Operation's own loop over Responses.Codes can never
 // see an invalid one. That loop is unreachable, and predates this change.
+//
+// The two paths ParseBytes can reach are both covered below. The third,
+// decodeFromMap, is not reachable from here and does not agree with them — it
+// drops the offending key silently rather than erroring. That inconsistency and
+// the dead loop are tracked in issue #449, not fixed here.
 func TestOperationResponsesStatusCodesStillChecked(t *testing.T) {
-	spec := `
+	const want = "invalid status code '999'"
+
+	// paths.go and paths_json.go implement this check separately, so both are
+	// exercised — the same document in each source format. Covering only YAML
+	// would leave the JSON decoder's copy free to drift.
+	tests := []struct {
+		name string
+		spec string
+	}{
+		{
+			name: "yaml",
+			spec: `
 openapi: 3.2.0
 info:
   title: API
@@ -267,24 +283,45 @@ paths:
       responses:
         "999":
           description: not a status code
-`
-	const want = "invalid status code '999'"
-
-	// Pinned to the channel that actually carries this today: the decoder
-	// rejects an invalid status code, so ParseBytes returns a hard error and
-	// never reaches structure validation. Both the YAML and JSON decode paths
-	// behave this way.
-	//
-	// Asserting the channel and not just the message is deliberate. If a change
-	// moves this diagnostic into the collected result.Errors instead, that is a
-	// change to ParseBytes's external contract — callers today can rely on a
-	// non-nil error for this input — and the test should fail so the move is a
-	// decision rather than a side effect.
-	_, err := New().ParseBytes([]byte(spec))
-	if err == nil {
-		t.Fatalf("want a hard ParseBytes error containing %q, got nil", want)
+`,
+		},
+		{
+			name: "json",
+			spec: `{
+  "openapi": "3.2.0",
+  "info": {"title": "API", "version": "1.0.0"},
+  "paths": {
+    "/pets": {
+      "get": {
+        "responses": {
+          "999": {"description": "not a status code"}
+        }
+      }
+    }
+  }
+}`,
+		},
 	}
-	if !strings.Contains(err.Error(), want) {
-		t.Errorf("want error containing %q, got: %v", want, err)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Pinned to the channel that actually carries this today: the
+			// decoder rejects an invalid status code, so ParseBytes returns a
+			// hard error and never reaches structure validation.
+			//
+			// Asserting the channel and not just the message is deliberate. If
+			// a change moves this diagnostic into the collected result.Errors
+			// instead, that is a change to ParseBytes's external contract —
+			// callers today can rely on a non-nil error for this input — and
+			// the test should fail so the move is a decision rather than a
+			// side effect.
+			_, err := New().ParseBytes([]byte(tt.spec))
+			if err == nil {
+				t.Fatalf("want a hard ParseBytes error containing %q, got nil", want)
+			}
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("want error containing %q, got: %v", want, err)
+			}
+		})
 	}
 }
