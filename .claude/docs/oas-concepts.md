@@ -42,7 +42,8 @@ All OAS versions utilize **JSON Schema Specification Draft 2020-12**: https://ww
 
 - `webhooks`, JSON Schema 2020-12 alignment, `type` as array, `license.identifier`
 
-**OAS 3.2+ Only:**
+**Fixed fields OAS 3.2 added over 3.1.1** (not an exhaustive 3.2 changelog — 3.2
+also adjusted serialization behavior such as `allowReserved` applicability):
 
 - OpenAPI `$self`; Components `mediaTypes`; Path Item `query`, `additionalOperations`
 - Tag `summary`, `parent`, `kind`; Server `name`; Response `summary`
