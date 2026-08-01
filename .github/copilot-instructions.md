@@ -107,23 +107,23 @@ if typeStr, ok := schema.Type.(string); ok {
 
 ### Development Environment Setup
 
-**CRITICAL: Install golangci-lint v2 before running `make check`**
+**CRITICAL: Install the pinned golangci-lint before running `make check`**
 
-The repository uses golangci-lint v2 for linting. Install it before making any code changes:
+The repository pins one golangci-lint version, `GOLANGCI_VERSION` in the Makefile,
+and both CI workflows read it from there. Install that version before making any
+code changes:
 
 ```bash
-# Install golangci-lint v2.1.0
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.1.0
+make lint-install
 
 # Add GOPATH/bin to PATH if not already present
 export PATH=$PATH:$(go env GOPATH)/bin
-
-# Verify installation
-golangci-lint version
-# Expected output: golangci-lint has version 2.1.0 built with go1.25...
 ```
 
-**Without golangci-lint v2 installed, `make check` and `make lint` will fail.**
+`make lint` refuses to run against any other version — findings would not match
+CI, which is what the pin exists to prevent. Do not install a version by hand:
+the Makefile is the single source of truth, so a hardcoded version here would
+drift out of date the moment the pin moves.
 
 ### Recommended Workflow
 

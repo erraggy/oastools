@@ -306,11 +306,15 @@
 // validation rules) are automatically excluded from deduplication. Empty schemas serve
 // different semantic purposes depending on context -- as placeholders, "any type" markers,
 // or context-specific wildcards -- and should remain distinct even when structurally
-// identical. Metadata fields (title, description, example, deprecated) are not considered
-// constraints for empty-schema detection, so a schema with only metadata is still treated
-// as empty. However, schema equivalence comparison includes title, description, example,
-// and examples by default — use WithEquivalenceDocs("ignore") to opt in to legacy behavior
-// that treats documentation differences as inconsequential.
+// identical. isEmptySchema tests structural constraints only and reads no
+// documentation field at all, so a schema carrying nothing but documentation is
+// still treated as empty and excluded before equivalence is ever consulted.
+//
+// Where equivalence does apply, it counts the documentation and advisory fields by
+// default -- title, description, example, examples, $comment, externalDocs and
+// deprecated -- so schemas differing only in those are kept apart. Use
+// WithEquivalenceDocs("ignore") to opt in to legacy behavior that treats those
+// differences as inconsequential.
 //
 // This differs from the StrategyDeduplicateEquivalent collision strategy which only
 // handles same-named collisions. Semantic deduplication works across all schemas

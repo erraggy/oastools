@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -85,10 +86,10 @@ func (c *Converter) detectOAS32Features(doc *parser.OAS3Document, result *Conver
 	}
 
 	for name, item := range doc.Paths {
-		c.detectOAS32PathItemFeatures(item, "paths."+name, doc.OASVersion, report)
+		c.detectOAS32PathItemFeatures(item, "paths."+name, report)
 	}
 	for name, item := range doc.Webhooks {
-		c.detectOAS32PathItemFeatures(item, "webhooks."+name, doc.OASVersion, report)
+		c.detectOAS32PathItemFeatures(item, "webhooks."+name, report)
 	}
 
 	if doc.Components == nil {
@@ -105,7 +106,7 @@ func (c *Converter) detectOAS32Features(doc *parser.OAS3Document, result *Conver
 		c.detectOAS32MediaTypeFeatures(mt, "components.mediaTypes."+name, report)
 	}
 	for name, item := range comp.PathItems {
-		c.detectOAS32PathItemFeatures(item, "components.pathItems."+name, doc.OASVersion, report)
+		c.detectOAS32PathItemFeatures(item, "components.pathItems."+name, report)
 	}
 	for name, schema := range comp.Schemas {
 		c.detectOAS32SchemaFeatures(schema, "components.schemas."+name, report, make(map[*parser.Schema]bool))
@@ -141,7 +142,6 @@ type oas32Reporter func(path, field string)
 func (c *Converter) detectOAS32PathItemFeatures(
 	item *parser.PathItem,
 	prefix string,
-	version parser.OASVersion,
 	report oas32Reporter,
 ) {
 	if item == nil {
@@ -163,23 +163,55 @@ func (c *Converter) detectOAS32PathItemFeatures(
 		report(prefix, "additionalOperations")
 	}
 
-	for method, op := range parser.GetOperations(item, version) {
-		if op == nil {
-			continue
-		}
-		opPath := prefix + "." + method
+	// Listed rather than taken from [parser.GetOperations], which is version-aware
+	// and omits query and additionalOperations below 3.2. This pass runs only when
+	// the target is below 3.2, and on a 3.x to 3.x conversion the document already
+	// carries the target version — convertOAS3ToOAS3 sets it before this runs — so
+	// the accessor would drop exactly the two operations whose contents need
+	// walking, and a `summary` inside a `query` would be lost with no warning. That
+	// is why no version is taken here at all. Mirrors validator/oas32_gate.go.
+	for _, entry := range oas32PathItemOperations {
+		c.detectOAS32OperationFeatures(entry.get(item), prefix+"."+entry.method, report)
+	}
+	for method, op := range item.AdditionalOperations {
+		c.detectOAS32OperationFeatures(op, prefix+".additionalOperations."+method, report)
+	}
+}
 
-		for i, param := range op.Parameters {
-			c.detectOAS32ParameterFeatures(param, opPath+".parameters["+strconv.Itoa(i)+"]", report)
-		}
-		if op.RequestBody != nil {
-			c.detectOAS32ContentFeatures(op.RequestBody.Content, opPath+".requestBody", report)
-		}
-		if op.Responses != nil {
-			for code, resp := range op.Responses.Codes {
-				c.detectOAS32ResponseFeatures(resp, opPath+".responses."+code, report)
-			}
-		}
+// oas32PathItemOperations pairs each of a Path Item's operation fields with its
+// method name, including the 3.2-only `query`.
+var oas32PathItemOperations = []struct {
+	method string
+	get    func(*parser.PathItem) *parser.Operation
+}{
+	{httputil.MethodGet, func(p *parser.PathItem) *parser.Operation { return p.Get }},
+	{httputil.MethodPut, func(p *parser.PathItem) *parser.Operation { return p.Put }},
+	{httputil.MethodPost, func(p *parser.PathItem) *parser.Operation { return p.Post }},
+	{httputil.MethodDelete, func(p *parser.PathItem) *parser.Operation { return p.Delete }},
+	{httputil.MethodOptions, func(p *parser.PathItem) *parser.Operation { return p.Options }},
+	{httputil.MethodHead, func(p *parser.PathItem) *parser.Operation { return p.Head }},
+	{httputil.MethodPatch, func(p *parser.PathItem) *parser.Operation { return p.Patch }},
+	{httputil.MethodTrace, func(p *parser.PathItem) *parser.Operation { return p.Trace }},
+	{httputil.MethodQuery, func(p *parser.PathItem) *parser.Operation { return p.Query }},
+}
+
+// detectOAS32OperationFeatures walks one operation's parameters, request body and
+// responses.
+func (c *Converter) detectOAS32OperationFeatures(op *parser.Operation, opPath string, report oas32Reporter) {
+	if op == nil {
+		return
+	}
+	for i, param := range op.Parameters {
+		c.detectOAS32ParameterFeatures(param, opPath+".parameters["+strconv.Itoa(i)+"]", report)
+	}
+	if op.RequestBody != nil {
+		c.detectOAS32ContentFeatures(op.RequestBody.Content, opPath+".requestBody", report)
+	}
+	if op.Responses == nil {
+		return
+	}
+	for code, resp := range op.Responses.Codes {
+		c.detectOAS32ResponseFeatures(resp, opPath+".responses."+code, report)
 	}
 }
 

@@ -42,9 +42,20 @@ All OAS versions utilize **JSON Schema Specification Draft 2020-12**: https://ww
 
 - `webhooks`, JSON Schema 2020-12 alignment, `type` as array, `license.identifier`
 
-**OAS 3.2+ Only:**
+**Fixed fields OAS 3.2 added over 3.1.1** (not an exhaustive 3.2 changelog — 3.2
+also adjusted serialization behavior such as `allowReserved` applicability):
 
-- `$self` (document identity), `Query` method, `additionalOperations`, `components.mediaTypes`
+- OpenAPI `$self`; Components `mediaTypes`; Path Item `query`, `additionalOperations`
+- Tag `summary`, `parent`, `kind`; Server `name`; Response `summary`
+- Media Type `itemSchema`, `itemEncoding`, `prefixEncoding`
+- Encoding `encoding`, `itemEncoding`, `prefixEncoding`
+- Example `dataValue`, `serializedValue`
+- Security Scheme `deprecated`, `oauth2MetadataUrl`; OAuth Flows `deviceAuthorization`;
+  OAuth Flow `deviceAuthorizationUrl`
+- Discriminator `defaultMapping`; XML `nodeType`; Parameter `in: "querystring"`
+
+Since v1.59.0 the validator **errors** on any of these in a document declaring a
+version below 3.2, so a test fixture using one must declare `3.2.0`.
 
 **JSON Schema 2020-12 Keywords (OAS 3.1+):**
 

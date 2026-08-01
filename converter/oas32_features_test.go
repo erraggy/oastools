@@ -203,3 +203,64 @@ func TestDownconvertIssueOrderIsDeterministic(t *testing.T) {
 	assert.True(t, slices.IsSorted(paths),
 		"sorted by path, so the order is predictable and not merely stable: %v", paths)
 }
+
+// TestDownconvertWalksInsideTheThreeTwoOnlyOperations pins that a 3.2 field
+// nested inside `query` or `additionalOperations` is reported.
+//
+// detectOAS32PathItemFeatures used to take its operations from
+// parser.GetOperations, which is version-aware and omits those two below 3.2.
+// This pass runs only when the target is below 3.2, and on a 3.x to 3.x
+// conversion the document already carries the target version, so the accessor
+// dropped exactly the operations whose contents needed walking: converting to
+// 3.1 reported `query` itself but nothing inside it.
+//
+// The 3.0/3.1 targets are the cases that were broken. 2.0 worked by accident,
+// because that path passes the source document, whose version is still 3.2.
+func TestDownconvertWalksInsideTheThreeTwoOnlyOperations(t *testing.T) {
+	spec := `
+openapi: 3.2.0
+info: {title: T, version: "1.0.0"}
+paths:
+  /p:
+    get:
+      operationId: g
+      responses:
+        "200": {description: OK, summary: from get}
+    query:
+      operationId: q
+      responses:
+        "200": {description: OK, summary: from query}
+    additionalOperations:
+      PURGE:
+        operationId: p
+        responses:
+          "200": {description: OK, summary: from purge}
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "spec.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(spec), 0o600))
+
+	for _, target := range []string{"3.0.3", "3.1.0", "2.0"} {
+		t.Run(target, func(t *testing.T) {
+			result, err := New().Convert(path, target)
+			require.NoError(t, err)
+
+			var reported []string
+			for _, issue := range result.Issues {
+				if strings.Contains(issue.Message, "OAS 3.2+ only") {
+					reported = append(reported, issue.Path+": "+issue.Message)
+				}
+			}
+			joined := strings.Join(reported, "\n")
+
+			for _, want := range []string{
+				"paths./p.get.responses.200: 'summary'",
+				"paths./p.query.responses.200: 'summary'",
+				"paths./p.additionalOperations.PURGE.responses.200: 'summary'",
+			} {
+				assert.Contains(t, joined, want,
+					"converting to %s should report the summary nested in that operation", target)
+			}
+		})
+	}
+}
