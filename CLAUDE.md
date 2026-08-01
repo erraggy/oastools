@@ -17,6 +17,7 @@
 
 - `make check` before committing
 - Conventional commits: `feat(parser): add feature`
+- **Never amend a pushed PR commit once review has begun** — add a new commit. PRs squash on merge, so amending only breaks review diffs and comment anchors
 - See [WORKFLOW.md](WORKFLOW.md) for PR/release process
 - See [AGENTS.md](AGENTS.md) for agent workflow
 

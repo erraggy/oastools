@@ -296,9 +296,24 @@ gh pr view <PR_NUMBER> --comments
 
 1. Make requested changes in your local branch
 2. Run `make check` to ensure quality
-3. Commit changes with descriptive message
+3. Commit changes as a **new commit** — see below
 4. Push to update the PR
 5. Respond to review comments
+
+**Do not amend or rebase a commit once review has begun.**
+
+PRs merge with squash, so every commit on the branch collapses into one at merge
+time. Amending buys nothing and costs plenty:
+
+- Reviewers lose the diff between what they reviewed and what you changed, and
+  GitHub cannot show "changes since your last review".
+- Review comments anchored to the old commit come unstuck.
+- The push needs `--force-with-lease`; a plain `git push` is rejected as a
+  non-fast-forward, and a scheduled or chained push can fail while later steps —
+  posting replies that reference the commit — carry on regardless.
+
+Add a new commit describing what the feedback changed. Amend freely *before* the
+first push, and never after.
 
 **Never submit a PR with:**
 
