@@ -98,6 +98,11 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 
 		pathPrefix := "paths." + pathPattern
 
+		// Path-item-level parameters are inherited by every operation, so the
+		// primitives constraints apply to them just as they do to an
+		// operation's own parameters.
+		v.validateOAS2PrimitiveParameters(pathItem.Parameters, pathPrefix, result, baseURL)
+
 		// Validate QUERY method is not used in OAS 2.0
 		if pathItem.Query != nil {
 			v.addError(result, pathPrefix+".query",
@@ -143,6 +148,21 @@ func (v *Validator) validateOAS2Paths(doc *parser.OAS2Document, result *Validati
 func (v *Validator) validateOAS2Operation(op *parser.Operation, path string, result *ValidationResult, baseURL string) {
 	// Validate response status codes
 	v.validateResponseStatusCodes(op.Responses, path, result, baseURL)
+
+	// Validate the primitives constraints on this operation's own parameters
+	// and on the headers of its responses.
+	v.validateOAS2PrimitiveParameters(op.Parameters, path, result, baseURL)
+	if op.Responses != nil {
+		if op.Responses.Default != nil {
+			v.validateOAS2ResponseHeaders(op.Responses.Default, path+".responses.default", result, baseURL)
+		}
+		for code, resp := range op.Responses.Codes {
+			if resp == nil {
+				continue
+			}
+			v.validateOAS2ResponseHeaders(resp, path+".responses."+code, result, baseURL)
+		}
+	}
 
 	// Validate consumes/produces media types
 	for i, mediaType := range op.Consumes {
@@ -223,6 +243,8 @@ func (v *Validator) validateOAS2Parameters(doc *parser.OAS2Document, result *Val
 				withField("type"),
 			)
 		}
+
+		v.validateOAS2PrimitiveParameter(param, path, result, baseURL)
 	}
 }
 
@@ -240,6 +262,86 @@ func (v *Validator) validateOAS2Responses(doc *parser.OAS2Document, result *Vali
 				withField("description"),
 			)
 		}
+
+		v.validateOAS2ResponseHeaders(response, "responses."+name, result, baseURL)
+	}
+}
+
+// validateOAS2ResponseHeaders checks the primitives constraints on every header
+// of an OAS 2.0 Response Object.
+func (v *Validator) validateOAS2ResponseHeaders(response *parser.Response, path string, result *ValidationResult, baseURL string) {
+	for name, header := range response.Headers {
+		if header == nil || header.Ref != "" {
+			continue
+		}
+		headerPath := path + ".headers." + name
+		// Swagger 2.0 Header Object: `items` is "Required if type is 'array'".
+		if header.Type == "array" && header.Items == nil {
+			v.addError(result, headerPath,
+				`Header with type "array" must have 'items' defined`,
+				withSpecRef(fmt.Sprintf("%s#header-object", baseURL)),
+				withField("items"),
+			)
+		}
+		v.validateOAS2Items(header.Items, headerPath+".items", result, baseURL)
+	}
+}
+
+// validateOAS2PrimitiveParameters applies validateOAS2PrimitiveParameter to
+// each entry of an inline parameter list.
+func (v *Validator) validateOAS2PrimitiveParameters(params []*parser.Parameter, path string, result *ValidationResult, baseURL string) {
+	for i, param := range params {
+		if param == nil || param.Ref != "" {
+			continue
+		}
+		v.validateOAS2PrimitiveParameter(param, path+".parameters["+strconv.Itoa(i)+"]", result, baseURL)
+	}
+}
+
+// validateOAS2PrimitiveParameter checks the constraints Swagger 2.0 places on a
+// non-body parameter — the "primitives" form, which is an Items Object rather
+// than a Schema Object.
+//
+// This is deliberately *not* a Schema Object rule. Swagger 2.0 requires `items`
+// when `type` is "array" on the Parameter, Header and Items Objects only; no OAS
+// version requires it on a Schema Object. See validateSchemaTypeConstraints.
+func (v *Validator) validateOAS2PrimitiveParameter(param *parser.Parameter, path string, result *ValidationResult, baseURL string) {
+	if param.In == "body" {
+		return
+	}
+	if param.Type == "array" && param.Items == nil {
+		v.addError(result, path,
+			`Non-body parameter with type "array" must have 'items' defined`,
+			withSpecRef(fmt.Sprintf("%s#parameter-object", baseURL)),
+			withField("items"),
+		)
+	}
+	v.validateOAS2Items(param.Items, path+".items", result, baseURL)
+}
+
+// validateOAS2Items walks a chain of Swagger 2.0 Items Objects, which nest
+// through their own `items` field when describing an array of arrays.
+func (v *Validator) validateOAS2Items(items *parser.Items, path string, result *ValidationResult, baseURL string) {
+	for depth := 0; items != nil; depth++ {
+		// The Items Object nests only through `items`, so the chain is linear
+		// and cannot cycle — but a hand-written document can still make it
+		// arbitrarily deep, so bound it the way schema traversal is bounded.
+		if depth > maxSchemaNestingDepth {
+			v.addError(result, path,
+				fmt.Sprintf("Items nesting depth (%d) exceeds maximum allowed (%d)", depth, maxSchemaNestingDepth),
+				withSpecRef(fmt.Sprintf("%s#items-object", baseURL)),
+			)
+			return
+		}
+		if items.Type == "array" && items.Items == nil {
+			v.addError(result, path,
+				`Items with type "array" must have 'items' defined`,
+				withSpecRef(fmt.Sprintf("%s#items-object", baseURL)),
+				withField("items"),
+			)
+		}
+		items = items.Items
+		path += ".items"
 	}
 }
 
