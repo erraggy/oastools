@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -51,13 +53,9 @@ func TestBoolSchemaDecodes(t *testing.T) {
 	for _, format := range []string{"yaml", "json"} {
 		t.Run(format, func(t *testing.T) {
 			result, err := New().ParseBytes([]byte(boolSchemaSpecs[format]))
-			if err != nil {
-				t.Fatalf("ParseBytes: %v", err)
-			}
+			require.NoError(t, err)
 			doc, ok := result.OAS3Document()
-			if !ok {
-				t.Fatal("not an OAS3 document")
-			}
+			require.True(t, ok, "expected an OAS3 document")
 
 			checks := []struct {
 				name      string
@@ -74,15 +72,10 @@ func TestBoolSchemaDecodes(t *testing.T) {
 				{"nested.properties.q", doc.Components.Schemas["nested"].Properties["q"], false, true},
 			}
 			for _, c := range checks {
-				if c.schema == nil {
-					t.Errorf("%s: schema was dropped", c.name)
-					continue
-				}
+				require.NotNil(t, c.schema, "%s: schema was dropped", c.name)
 				gotValue, gotBool := c.schema.IsBool()
-				if gotBool != c.wantBool || gotValue != c.wantValue {
-					t.Errorf("%s: IsBool() = (%v, %v), want (%v, %v)",
-						c.name, gotValue, gotBool, c.wantValue, c.wantBool)
-				}
+				assert.Equal(t, c.wantBool, gotBool, "%s: IsBool ok", c.name)
+				assert.Equal(t, c.wantValue, gotValue, "%s: IsBool value", c.name)
 			}
 		})
 	}
@@ -96,26 +89,17 @@ func TestBoolSchemaSurvivesResolveRefs(t *testing.T) {
 	p.ResolveRefs = true
 
 	result, err := p.ParseBytes([]byte(boolSchemaSpecs["yaml"]))
-	if err != nil {
-		t.Fatalf("ParseBytes: %v", err)
-	}
+	require.NoError(t, err)
 	doc, ok := result.OAS3Document()
-	if !ok {
-		t.Fatal("not an OAS3 document")
-	}
+	require.True(t, ok, "expected an OAS3 document")
 
-	if got := len(doc.Components.Schemas); got != 4 {
-		t.Errorf("got %d component schemas, want 4 — a boolean schema was dropped", got)
-	}
+	assert.Len(t, doc.Components.Schemas, 4, "a boolean schema was dropped")
 	for name, want := range map[string]bool{"anything": true, "nothing": false} {
-		s := doc.Components.Schemas[name]
-		if s == nil {
-			t.Errorf("%s: dropped by the ResolveRefs decode path", name)
-			continue
-		}
-		if v, ok := s.IsBool(); !ok || v != want {
-			t.Errorf("%s: IsBool() = (%v, %v), want (%v, true)", name, v, ok, want)
-		}
+		schema := doc.Components.Schemas[name]
+		require.NotNil(t, schema, "%s: dropped by the ResolveRefs decode path", name)
+		got, isBool := schema.IsBool()
+		assert.True(t, isBool, "%s: not reported as a boolean schema", name)
+		assert.Equal(t, want, got, "%s: wrong boolean value", name)
 	}
 }
 
@@ -137,20 +121,12 @@ func TestBoolSchemaRoundTrips(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotYAML, err := yaml.Marshal(tt.schema)
-			if err != nil {
-				t.Fatalf("yaml.Marshal: %v", err)
-			}
-			if string(gotYAML) != tt.wantYAML {
-				t.Errorf("yaml = %q, want %q", gotYAML, tt.wantYAML)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantYAML, string(gotYAML))
 
 			gotJSON, err := json.Marshal(tt.schema)
-			if err != nil {
-				t.Fatalf("json.Marshal: %v", err)
-			}
-			if string(gotJSON) != tt.wantJSON {
-				t.Errorf("json = %q, want %q", gotJSON, tt.wantJSON)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantJSON, string(gotJSON))
 		})
 	}
 }
@@ -175,9 +151,33 @@ func TestBoolSchemaEquality(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.a.Equals(tt.b); got != tt.equal {
-				t.Errorf("Equals() = %v, want %v", got, tt.equal)
-			}
+			assert.Equal(t, tt.equal, tt.a.Equals(tt.b))
+		})
+	}
+}
+
+// TestIsBool covers the accessor's own contract, including the nil receiver it
+// documents. The two returns are independent: (false, false) is an ordinary
+// object schema, while (false, true) is the boolean schema `false`.
+func TestIsBool(t *testing.T) {
+	tests := []struct {
+		name      string
+		schema    *Schema
+		wantValue bool
+		wantOK    bool
+	}{
+		{"nil receiver", nil, false, false},
+		{"empty object schema", &Schema{}, false, false},
+		{"populated object schema", &Schema{Type: "string"}, false, false},
+		{"boolean true", NewBoolSchema(true), true, true},
+		{"boolean false", NewBoolSchema(false), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotValue, gotOK := tt.schema.IsBool()
+			assert.Equal(t, tt.wantOK, gotOK)
+			assert.Equal(t, tt.wantValue, gotValue)
 		})
 	}
 }
@@ -189,17 +189,15 @@ func TestBoolSchemaDeepCopyDoesNotAlias(t *testing.T) {
 	original := NewBoolSchema(true)
 	clone := original.DeepCopy()
 
-	if v, ok := clone.IsBool(); !ok || !v {
-		t.Fatalf("clone.IsBool() = (%v, %v), want (true, true)", v, ok)
-	}
-	if original.BoolForm == clone.BoolForm {
-		t.Error("DeepCopy shares the BoolForm pointer with the original")
-	}
+	value, ok := clone.IsBool()
+	require.True(t, ok, "clone is not a boolean schema")
+	require.True(t, value, "clone has the wrong value")
+	require.NotSame(t, original.BoolForm, clone.BoolForm,
+		"DeepCopy shares the BoolForm pointer with the original")
 
 	*clone.BoolForm = false
-	if v, _ := original.IsBool(); !v {
-		t.Error("mutating the clone changed the original")
-	}
+	originalValue, _ := original.IsBool()
+	assert.True(t, originalValue, "mutating the clone changed the original")
 }
 
 // TestQuotedTrueIsNotABoolSchema guards the tag check. In YAML a quoted "true"
@@ -215,7 +213,6 @@ components:
   schemas:
     quoted: "true"
 `
-	if _, err := New().ParseBytes([]byte(spec)); err == nil {
-		t.Error("want an error for a string where a schema is expected, got nil")
-	}
+	_, err := New().ParseBytes([]byte(spec))
+	assert.Error(t, err, "a string where a schema is expected should not parse")
 }

@@ -161,6 +161,15 @@ func isEmptySchema(s *parser.Schema) bool {
 		return false
 	}
 
+	// A bare-boolean schema is the opposite of empty: `false` rejects every
+	// instance and `true` accepts every instance, both deliberately. Without
+	// this, CompareSchemasWithOptions took the empty-schema early return and
+	// reported two identical `true` schemas as non-equivalent — with an empty
+	// Differences slice, since nothing had actually been compared.
+	if s.BoolForm != nil {
+		return false
+	}
+
 	// Basic type constraints
 	if s.Type != nil {
 		return false

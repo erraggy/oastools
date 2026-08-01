@@ -2,6 +2,8 @@ package validator
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // TestBoolSchemaVersionGate covers the version applicability of the bare-boolean
@@ -109,8 +111,14 @@ components:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := validateSpec(t, tt.spec)
-			if got := resultHasMessage(result, wantMsg); got != tt.wantErr {
-				t.Errorf("boolean-schema error = %v, want %v; errors: %v", got, tt.wantErr, result.Errors)
+			assert.Equal(t, tt.wantErr, resultHasMessage(result, wantMsg),
+				"boolean-schema error presence; errors: %v", result.Errors)
+
+			// The accepting cases assert full validity, not merely the absence
+			// of this one message — otherwise they would pass on a document
+			// that is invalid for some unrelated reason.
+			if !tt.wantErr {
+				assert.True(t, result.Valid, "document should validate clean; errors: %v", result.Errors)
 			}
 		})
 	}

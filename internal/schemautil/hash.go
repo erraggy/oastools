@@ -67,8 +67,7 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 	// each other or with an object schema, or deduplication groups them and the
 	// deep comparison never gets to reject the merge.
 	if b, ok := schema.IsBool(); ok {
-		h.writeString(hasher, "boolschema:")
-		h.writeString(hasher, strconv.FormatBool(b))
+		h.writeBoolSchema(hasher, b)
 		return
 	}
 
@@ -349,12 +348,20 @@ func (h *SchemaHasher) hashSchemaOrBool(hasher hash.Hash64, v any) {
 	case *parser.Schema:
 		h.hashSchema(hasher, val)
 	case bool:
-		if val {
-			h.writeString(hasher, "true")
-		} else {
-			h.writeString(hasher, "false")
-		}
+		// Same encoding hashSchema uses for Schema.BoolForm. A boolean schema
+		// has two representations — a raw bool here, a *Schema with BoolForm
+		// set in a *Schema-typed position — and they mean the same thing, so
+		// they must hash the same. Writing a bare "true" here put `items: true`
+		// and `items: NewBoolSchema(true)` in different buckets.
+		h.writeBoolSchema(hasher, val)
 	}
+}
+
+// writeBoolSchema writes the bare-boolean schema form. Shared by hashSchema and
+// hashSchemaOrBool so the two representations cannot drift apart.
+func (h *SchemaHasher) writeBoolSchema(hasher hash.Hash64, v bool) {
+	h.writeString(hasher, "boolschema:")
+	h.writeString(hasher, strconv.FormatBool(v))
 }
 
 // hashIdentity hashes the JSON Schema identity and dialect keywords. They decide
