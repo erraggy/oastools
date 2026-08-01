@@ -158,6 +158,10 @@ func TestDownconvertReportsAmbiguousFieldsAtTheirLocation(t *testing.T) {
 				"paths./pets.get.responses.200: 'summary'",
 				// the Components section that is itself 3.2-only, and what is inside it:
 				// reporting only the container would understate what the target loses
+				// nodeType, on a components schema and on an inline one: the schema
+				// rules reached components.schemas and the request body alone
+				"components.schemas.Pet.properties.tag.xml: 'nodeType'",
+				"paths./pets.get.responses.200.content.multipart/form-data.schema.properties.meta.xml: 'nodeType'",
 				"components.mediaTypes: 'mediaTypes'",
 				"components.mediaTypes.PetStream: 'itemSchema'",
 			} {

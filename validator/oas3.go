@@ -234,6 +234,9 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 		// already built, rather than taking a traversal of their own (see oas32.go).
 		v.validateOAS32PathItem(pathItem, pathPrefix, doc.OASVersion, operations, result)
 
+		// A path item carries parameters of its own, shared by every operation in it.
+		v.validateParameterListSchemas(pathItem.Parameters, pathPrefix, result)
+
 		for method, op := range operations {
 			if op == nil {
 				continue
@@ -262,6 +265,10 @@ func (v *Validator) validateOAS3Operation(op *parser.Operation, path string, res
 
 	// Validate response status codes
 	v.validateResponseStatusCodes(op.Responses, path, result, baseURL)
+
+	// Every schema this operation carries beyond the request body, which
+	// validateOAS3RequestBody already reaches. See schema_traversal.go.
+	v.validateOAS3OperationSchemas(op, path, result)
 }
 
 // validateOAS3RequestBody validates a request body in OAS 3.x
@@ -296,10 +303,10 @@ func (v *Validator) validateOAS3RequestBody(requestBody *parser.RequestBody, pat
 			)
 		}
 
-		// Validate that media type has a schema
-		if mediaTypeObj != nil && mediaTypeObj.Schema != nil {
-			v.validateSchema(mediaTypeObj.Schema, mediaTypePath+".schema", result)
-		}
+		// Both the schema and the 3.2 itemSchema beside it, so a request body is
+		// covered the same way every other media type position is. See
+		// schema_traversal.go.
+		v.validateMediaTypeSchemas(mediaTypeObj, mediaTypePath, result)
 	}
 }
 
@@ -312,6 +319,10 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 	// Checked across every section first, so a nil value cannot cause its name
 	// to go unchecked by the loops below, several of which skip nil entries.
 	v.validateOAS3ComponentNames(doc.Components, result, baseURL)
+
+	// The schemas held by the sections other than `schemas`. See
+	// schema_traversal.go.
+	v.validateOAS3ComponentSchemas(doc.Components, result)
 
 	// Validate schemas
 	for name, schema := range doc.Components.Schemas {
@@ -552,6 +563,9 @@ func (v *Validator) validateOAS3Webhooks(doc *parser.OAS3Document, result *Valid
 
 		v.validateOAS32PathItem(pathItem, pathPrefix, doc.OASVersion, operations, result)
 
+		// A path item carries parameters of its own, shared by every operation in it.
+		v.validateParameterListSchemas(pathItem.Parameters, pathPrefix, result)
+
 		for method, op := range operations {
 			if op == nil {
 				continue
@@ -604,6 +618,9 @@ func (v *Validator) validateOAS3ComponentPathItems(doc *parser.OAS3Document, res
 		operations := parser.GetOperations(pathItem, doc.OASVersion)
 
 		v.validateOAS32PathItem(pathItem, prefix, doc.OASVersion, operations, result)
+
+		// A path item carries parameters of its own, shared by every operation in it.
+		v.validateParameterListSchemas(pathItem.Parameters, prefix, result)
 
 		for method, op := range operations {
 			if op == nil {

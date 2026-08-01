@@ -262,6 +262,12 @@ func (c *Converter) detectOAS32MediaTypeFeatures(mt *parser.MediaType, prefix st
 	for name, ex := range mt.Examples {
 		detectOAS32ExampleFeatures(ex, prefix+".examples."+name, report)
 	}
+	// The ordinary schema as well as the 3.2 itemSchema beside it: only itemSchema
+	// was walked, so a 3.2 field in the schema every 3.0 document already has went
+	// unreported. Issue #423.
+	if mt.Schema != nil {
+		c.detectOAS32SchemaFeatures(mt.Schema, prefix+".schema", report, make(map[*parser.Schema]bool))
+	}
 	if mt.ItemSchema != nil {
 		c.detectOAS32SchemaFeatures(mt.ItemSchema, prefix+".itemSchema", report, make(map[*parser.Schema]bool))
 	}
