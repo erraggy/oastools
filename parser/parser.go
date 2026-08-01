@@ -990,9 +990,18 @@ func (p *Parser) validateOAS3PathsRequirement(doc *OAS3Document, version string)
 			errors = append(errors, fmt.Errorf("oas %s: missing required root field 'paths': Paths object is required in OAS 3.0.x (https://spec.openapis.org/oas/v3.0.0.html#paths-object)", version))
 		}
 	} else if versionInRangeExclusive(doc.OpenAPI, oas310, "") {
-		// In OAS 3.1+, either paths or webhooks must be present
-		if doc.Paths == nil && len(doc.Webhooks) == 0 {
-			errors = append(errors, fmt.Errorf("oas %s: document must have either 'paths' or 'webhooks': at least one is required in OAS 3.1+", version))
+		// OAS 3.1+ relaxed the 3.0 requirement into a three-way choice. The
+		// root `anyOf` lists `paths`, `components` and `webhooks` — identical
+		// in 3.1, 3.2 and 3.3 — so a document carrying only reusable
+		// components and no operations at all is valid.
+		//
+		// The test is presence, not content: `anyOf: [required: webhooks]` is
+		// satisfied by `webhooks: {}`, so an empty-but-present map counts.
+		// The parser preserves that distinction — an absent field decodes to a
+		// nil map, a `{}` one to a non-nil empty map — so compare against nil,
+		// never len().
+		if doc.Paths == nil && doc.Webhooks == nil && doc.Components == nil {
+			errors = append(errors, fmt.Errorf("oas %s: document must have at least one of 'paths', 'components' or 'webhooks' (https://spec.openapis.org/oas/v3.1.0.html#openapi-object)", version))
 		}
 	}
 	return errors
@@ -1049,9 +1058,14 @@ func (p *Parser) validateOAS3Operation(op *Operation, opPath string, operationID
 		}
 	}
 
-	// Validate responses object exists
+	// `responses` is REQUIRED on an Operation in OAS 2.0 and 3.0, and was
+	// relaxed to optional in 3.1. The 3.1+ `$defs.operation` carries no
+	// `required:` clause, and the prose drops the **REQUIRED** marker from the
+	// field's row — which, per its own preamble, means OPTIONAL.
 	if op.Responses == nil {
-		errors = append(errors, fmt.Errorf("oas %s: missing required field '%s.responses': Operation must have a responses object", version, opPath))
+		if versionInRangeExclusive(version, oas300, oas310) {
+			errors = append(errors, fmt.Errorf("oas %s: missing required field '%s.responses': Operation must have a responses object (https://spec.openapis.org/oas/v3.0.0.html#operation-object)", version, opPath))
+		}
 	} else {
 		// Validate status codes in responses
 		for code := range op.Responses.Codes {
