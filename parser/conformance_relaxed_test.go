@@ -3,6 +3,9 @@ package parser
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // hasErrorContaining reports whether any parse error mentions substr.
@@ -130,19 +133,17 @@ info:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := New().ParseBytes([]byte(tt.spec))
-			if err != nil {
-				t.Fatalf("ParseBytes: %v", err)
+			require.NoError(t, err)
+			if tt.wantErr {
+				assert.True(t, hasErrorContaining(result.Errors, tt.errSubst),
+					"want error containing %q, got errors: %v", tt.errSubst, result.Errors)
+				return
 			}
-			got := hasErrorContaining(result.Errors, tt.errSubst)
-			if tt.wantErr && !got {
-				t.Errorf("want error containing %q, got errors: %v", tt.errSubst, result.Errors)
-			}
-			if !tt.wantErr {
-				// Neither form of the root requirement may fire.
-				if hasErrorContaining(result.Errors, wantMsg) || hasErrorContaining(result.Errors, want30Msg) {
-					t.Errorf("want no root-requirement error, got: %v", result.Errors)
-				}
-			}
+			// Neither form of the root requirement may fire.
+			assert.False(t, hasErrorContaining(result.Errors, wantMsg),
+				"want no root-requirement error, got: %v", result.Errors)
+			assert.False(t, hasErrorContaining(result.Errors, want30Msg),
+				"want no root-requirement error, got: %v", result.Errors)
 		})
 	}
 }
@@ -234,13 +235,9 @@ paths:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := New().ParseBytes([]byte(tt.spec))
-			if err != nil {
-				t.Fatalf("ParseBytes: %v", err)
-			}
-			got := hasErrorContaining(result.Errors, wantMsg)
-			if got != tt.wantErr {
-				t.Errorf("responses-required error = %v, want %v; errors: %v", got, tt.wantErr, result.Errors)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantErr, hasErrorContaining(result.Errors, wantMsg),
+				"responses-required error presence; errors: %v", result.Errors)
 		})
 	}
 }
@@ -316,12 +313,8 @@ paths:
 			// the test should fail so the move is a decision rather than a
 			// side effect.
 			_, err := New().ParseBytes([]byte(tt.spec))
-			if err == nil {
-				t.Fatalf("want a hard ParseBytes error containing %q, got nil", want)
-			}
-			if !strings.Contains(err.Error(), want) {
-				t.Errorf("want error containing %q, got: %v", want, err)
-			}
+			require.Error(t, err, "want a hard ParseBytes error containing %q", want)
+			assert.Contains(t, err.Error(), want)
 		})
 	}
 }

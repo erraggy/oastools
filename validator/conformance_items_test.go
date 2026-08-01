@@ -4,6 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -11,13 +14,9 @@ import (
 func validateSpec(t *testing.T, spec string) *ValidationResult {
 	t.Helper()
 	parseResult, err := parser.New().ParseBytes([]byte(spec))
-	if err != nil {
-		t.Fatalf("ParseBytes: %v", err)
-	}
+	require.NoError(t, err, "ParseBytes")
 	result, err := New().ValidateParsed(*parseResult)
-	if err != nil {
-		t.Fatalf("ValidateParsed: %v", err)
-	}
+	require.NoError(t, err, "ValidateParsed")
 	return result
 }
 
@@ -103,9 +102,8 @@ components:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := validateSpec(t, tt.spec)
-			if resultHasMessage(result, wantAbsent) {
-				t.Errorf("no OAS version requires 'items' on an array Schema Object, got: %v", result.Errors)
-			}
+			assert.False(t, resultHasMessage(result, wantAbsent),
+				"no OAS version requires 'items' on an array Schema Object, got: %v", result.Errors)
 		})
 	}
 }
@@ -289,9 +287,8 @@ responses:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := validateSpec(t, tt.spec)
-			if got := resultHasMessage(result, tt.want); got != tt.wantErr {
-				t.Errorf("message %q present = %v, want %v; errors: %v", tt.want, got, tt.wantErr, result.Errors)
-			}
+			assert.Equal(t, tt.wantErr, resultHasMessage(result, tt.want),
+				"message %q presence; errors: %v", tt.want, result.Errors)
 		})
 	}
 }
@@ -318,9 +315,8 @@ paths:
           description: ok
 `
 	result := validateSpec(t, spec)
-	if resultHasMessage(result, "must have 'items' defined") {
-		t.Errorf("OAS 3.x has no items-required rule, got: %v", result.Errors)
-	}
+	assert.False(t, resultHasMessage(result, "must have 'items' defined"),
+		"OAS 3.x has no items-required rule, got: %v", result.Errors)
 }
 
 // TestOAS2ItemsNestingDepthBounded guards the depth bound on the Items chain.
@@ -347,7 +343,6 @@ parameters:
 	}
 
 	result := validateSpec(t, sb.String())
-	if !resultHasMessage(result, "Items nesting depth") {
-		t.Errorf("want a depth-bound error, got: %v", result.Errors)
-	}
+	assert.True(t, resultHasMessage(result, "Items nesting depth"),
+		"want a depth-bound error, got: %v", result.Errors)
 }
