@@ -245,9 +245,16 @@ paths:
 	}
 }
 
-// TestOperationResponsesStatusCodesStillChecked guards the else-branch of the
-// relaxation: dropping the requirement must not stop status codes from being
-// validated when `responses` *is* present.
+// TestOperationResponsesStatusCodesStillChecked guards the relaxation from the
+// obvious way it could go wrong: dropping the `responses` requirement for 3.1+
+// must not stop an invalid status code being reported when `responses` *is*
+// present.
+//
+// Note that the check which fires here is the decoder's, not the structure
+// validator's. Every decode path — paths.go (YAML), paths_json.go (JSON) and
+// the generated decodeFromMap — filters status codes before a Responses object
+// is built, so validateOAS3Operation's own loop over Responses.Codes can never
+// see an invalid one. That loop is unreachable, and predates this change.
 func TestOperationResponsesStatusCodesStillChecked(t *testing.T) {
 	spec := `
 openapi: 3.2.0
@@ -261,20 +268,23 @@ paths:
         "999":
           description: not a status code
 `
-	result, err := New().ParseBytes([]byte(spec))
-
-	// The status-code check reaches this document through the decoder, which
-	// reports it as a hard parse failure rather than a collected error, so
-	// accept either channel — the point is that relaxing the `responses`
-	// requirement did not stop the code being checked.
 	const want = "invalid status code '999'"
-	if err != nil {
-		if !strings.Contains(err.Error(), want) {
-			t.Fatalf("want error containing %q, got: %v", want, err)
-		}
-		return
+
+	// Pinned to the channel that actually carries this today: the decoder
+	// rejects an invalid status code, so ParseBytes returns a hard error and
+	// never reaches structure validation. Both the YAML and JSON decode paths
+	// behave this way.
+	//
+	// Asserting the channel and not just the message is deliberate. If a change
+	// moves this diagnostic into the collected result.Errors instead, that is a
+	// change to ParseBytes's external contract — callers today can rely on a
+	// non-nil error for this input — and the test should fail so the move is a
+	// decision rather than a side effect.
+	_, err := New().ParseBytes([]byte(spec))
+	if err == nil {
+		t.Fatalf("want a hard ParseBytes error containing %q, got nil", want)
 	}
-	if !hasErrorContaining(result.Errors, want) {
-		t.Errorf("want error containing %q, got: %v", want, result.Errors)
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("want error containing %q, got: %v", want, err)
 	}
 }

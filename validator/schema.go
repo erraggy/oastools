@@ -158,7 +158,8 @@ func (v *Validator) validateSchemaTypeConstraints(schema *parser.Schema, path st
 		// version's prose states it. OAS 2.0 does require it when `type` is
 		// "array" — but only on the Items Object and on non-body Parameters
 		// and Headers, which are `parser.Items`, not `parser.Schema`. That
-		// rule lives in validateOAS2PrimitiveItems.
+		// rule lives in validateOAS2PrimitiveParameter,
+		// validateOAS2ResponseHeaders and validateOAS2Items.
 	case "string":
 		// Validate min/max length
 		if schema.MinLength != nil && schema.MaxLength != nil && *schema.MinLength > *schema.MaxLength {
