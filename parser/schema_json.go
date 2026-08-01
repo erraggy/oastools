@@ -13,6 +13,12 @@ import (
 // into the top-level JSON object, as Go's encoding/json doesn't support
 // inline maps like yaml:",inline".
 func (s *Schema) MarshalJSON() ([]byte, error) {
+	// The bare-boolean form has no keywords, so it round-trips as the scalar it
+	// came from rather than as an object. See Schema.BoolForm.
+	if b, ok := s.IsBool(); ok {
+		return json.Marshal(b)
+	}
+
 	// Fast path: no Extra fields, use standard marshaling
 	if len(s.Extra) == 0 {
 		type Alias Schema
@@ -96,6 +102,15 @@ func (s *Schema) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements custom JSON unmarshaling for Schema.
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (s *Schema) UnmarshalJSON(data []byte) error {
+	// A schema may be a bare boolean in JSON Schema 2020-12, which OAS 3.1+
+	// adopts. Unmarshaling a scalar into the struct alias below fails, so catch
+	// it first and record the spelling. See Schema.BoolForm.
+	var b bool
+	if err := json.Unmarshal(data, &b); err == nil {
+		*s = Schema{BoolForm: &b}
+		return nil
+	}
+
 	type Alias Schema
 	if err := json.Unmarshal(data, (*Alias)(s)); err != nil {
 		return err

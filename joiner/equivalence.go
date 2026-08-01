@@ -393,6 +393,27 @@ func CompareSchemasWithOptions(left, right *parser.Schema, opts CompareOptions) 
 		}
 	}
 
+	// The bare-boolean form has no keywords, so it is compared by value and
+	// nothing below applies. `true` and `false` are opposite schemas, and
+	// neither is equivalent to an object schema — merging any of those pairs
+	// during deduplication would change what the document means.
+	leftBool, leftIsBool := left.IsBool()
+	rightBool, rightIsBool := right.IsBool()
+	if leftIsBool || rightIsBool {
+		if leftIsBool && rightIsBool && leftBool == rightBool {
+			result.Equivalent = true
+			return result
+		}
+		result.Differences = append(result.Differences, SchemaDifference{
+			Path:        "",
+			LeftValue:   left.BoolForm,
+			RightValue:  right.BoolForm,
+			Description: "boolean schema form mismatch",
+		})
+		result.Equivalent = false
+		return result
+	}
+
 	// Track visited pointers to handle circular references
 	visited := make(map[pointerPair]bool)
 

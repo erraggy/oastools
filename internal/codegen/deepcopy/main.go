@@ -196,6 +196,10 @@ var typeConfigs = []TypeConfig{
 			{Name: "MinContains", Type: "*int", CopyMethod: "prim_pointer"},
 			{Name: "MaxProperties", Type: "*int", CopyMethod: "prim_pointer"},
 			{Name: "MinProperties", Type: "*int", CopyMethod: "prim_pointer"},
+			// BoolForm is not a spec field, but it is still a pointer: without
+			// an entry here `*out = *in` would alias the pointee between the
+			// original and the copy.
+			{Name: "BoolForm", Type: "*bool", CopyMethod: "prim_pointer"},
 			// Struct pointer fields
 			{Name: "Discriminator", Type: "*Discriminator", CopyMethod: "pointer"},
 			{Name: "XML", Type: "*XML", CopyMethod: "pointer"},

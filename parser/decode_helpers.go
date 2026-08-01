@@ -133,6 +133,27 @@ func mapGetBoolPtr(m map[string]any, key string) *bool {
 	return nil
 }
 
+// decodeSchemaValue decodes one Schema from the generic map representation,
+// accepting both the object form and the bare-boolean form that JSON Schema
+// 2020-12 allows wherever a schema is expected (see Schema.BoolForm).
+//
+// It returns nil for anything else, including an absent key. This is the
+// decodeFromMap counterpart of the bool handling in Schema.UnmarshalYAML and
+// Schema.UnmarshalJSON; all three paths must agree, or a boolean schema
+// survives one route and vanishes on another.
+func decodeSchemaValue(v any) *Schema {
+	switch t := v.(type) {
+	case bool:
+		return NewBoolSchema(t)
+	case map[string]any:
+		s := new(Schema)
+		s.decodeFromMap(t)
+		return s
+	default:
+		return nil
+	}
+}
+
 // mapGetStringMap extracts a map[string]string from m[key].
 func mapGetStringMap(m map[string]any, key string) map[string]string {
 	v, ok := m[key]

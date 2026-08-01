@@ -62,6 +62,16 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 	h.visited[ptr] = true
 	defer func() { h.visited[ptr] = false }()
 
+	// The bare-boolean form has no keywords, so it hashes on its value alone.
+	// `true` and `false` are opposite schemas and must not share a bucket with
+	// each other or with an object schema, or deduplication groups them and the
+	// deep comparison never gets to reject the merge.
+	if b, ok := schema.IsBool(); ok {
+		h.writeString(hasher, "boolschema:")
+		h.writeString(hasher, strconv.FormatBool(b))
+		return
+	}
+
 	// Hash $ref if present. JSON Schema 2020-12 allows keywords alongside $ref, so
 	// this records the reference and keeps going: returning here made
 	// {$ref: X, default: 1} and {$ref: X, default: 2} hash alike.
@@ -80,32 +90,7 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 	h.writeString(hasher, "pattern:")
 	h.writeString(hasher, schema.Pattern)
 
-	// Enum (order matters). Length-framed: unframed, ["ab"] and ["a", "b"] both
-	// hash as "enum:ab".
-	if len(schema.Enum) > 0 {
-		h.writeString(hasher, "enum:")
-		for _, v := range schema.Enum {
-			h.writeLabeled(hasher, "v", fmt.Sprintf("%v", v))
-		}
-	}
-
-	// Const
-	if schema.Const != nil {
-		h.writeString(hasher, "const:")
-		h.writeString(hasher, fmt.Sprintf("%v", schema.Const))
-	}
-
-	// Required (sort for order-independent comparison). Length-framed for the same
-	// reason as Enum.
-	if len(schema.Required) > 0 {
-		h.writeString(hasher, "required:")
-		sorted := make([]string, len(schema.Required))
-		copy(sorted, schema.Required)
-		sort.Strings(sorted)
-		for _, r := range sorted {
-			h.writeLabeled(hasher, "r", r)
-		}
-	}
+	h.hashEnumConstRequired(hasher, schema)
 
 	// Properties (sorted by key for deterministic hashing)
 	if len(schema.Properties) > 0 {
@@ -413,6 +398,38 @@ func (h *SchemaHasher) hashIdentity(hasher hash.Hash64, schema *parser.Schema) {
 // default is an annotation in JSON Schema terms, but two schemas that default
 // differently generate different code and fill payloads differently, so
 // consolidating them is not safe. collectionFormat decides a wire format outright.
+// hashEnumConstRequired hashes the three value-set keywords. Extracted from
+// hashSchema purely to keep that function under the complexity limit; the write
+// order is unchanged, so hashes computed before and after the extraction match.
+func (h *SchemaHasher) hashEnumConstRequired(hasher hash.Hash64, schema *parser.Schema) {
+	// Enum (order matters). Length-framed: unframed, ["ab"] and ["a", "b"] both
+	// hash as "enum:ab".
+	if len(schema.Enum) > 0 {
+		h.writeString(hasher, "enum:")
+		for _, v := range schema.Enum {
+			h.writeLabeled(hasher, "v", fmt.Sprintf("%v", v))
+		}
+	}
+
+	// Const
+	if schema.Const != nil {
+		h.writeString(hasher, "const:")
+		h.writeString(hasher, fmt.Sprintf("%v", schema.Const))
+	}
+
+	// Required (sort for order-independent comparison). Length-framed for the same
+	// reason as Enum.
+	if len(schema.Required) > 0 {
+		h.writeString(hasher, "required:")
+		sorted := make([]string, len(schema.Required))
+		copy(sorted, schema.Required)
+		sort.Strings(sorted)
+		for _, r := range sorted {
+			h.writeLabeled(hasher, "r", r)
+		}
+	}
+}
+
 func (h *SchemaHasher) hashValueSemantics(hasher hash.Hash64, schema *parser.Schema) {
 	if schema.Default != nil {
 		h.writeLabeled(hasher, "default", fmt.Sprintf("%v", schema.Default))

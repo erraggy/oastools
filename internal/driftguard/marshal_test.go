@@ -33,6 +33,13 @@ var marshalExclusions = map[string]map[string]string{
 		// 2.0 bare string, which is why this case is checked before decoding.
 		"StringForm": "selects the OAS 2.0 bare-string form",
 	},
+	"Schema": {
+		// Same shape as StringForm, one level up: setting it re-spells the whole
+		// Schema as a bare boolean, so the output is the scalar `true` or `false`
+		// and there is no object left to decode. The value it carries is not lost —
+		// it *is* the output — so this exclusion covers the key, not the meaning.
+		"BoolForm": "re-spells the schema as a bare boolean",
+	},
 }
 
 // marshalSubjects pairs each type carrying a hand-built MarshalJSON with a fresh

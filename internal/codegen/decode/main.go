@@ -494,29 +494,45 @@ func (x *{{.Name}}) decodeFromMap(m map[string]any) {
 	if arr, ok := m["{{.JSONKey}}"].([]any); ok {
 		x.{{.FieldName}} = make([]*{{.ElemType}}, 0, len(arr))
 		for _, item := range arr {
+{{- if eq .ElemType "Schema"}}
+			if elem := decodeSchemaValue(item); elem != nil {
+				x.{{.FieldName}} = append(x.{{.FieldName}}, elem)
+			}
+{{- else}}
 			if sub, ok := item.(map[string]any); ok {
 				elem := new({{.ElemType}})
 				elem.decodeFromMap(sub)
 				x.{{.FieldName}} = append(x.{{.FieldName}}, elem)
 			}
+{{- end}}
 		}
 	}
 {{- else if eq .Strategy "oas_ptr"}}
+{{- if eq .ElemType "Schema"}}
+	x.{{.FieldName}} = decodeSchemaValue(m["{{.JSONKey}}"])
+{{- else}}
 	if sub, ok := m["{{.JSONKey}}"].(map[string]any); ok {
 		x.{{.FieldName}} = new({{.ElemType}})
 		x.{{.FieldName}}.decodeFromMap(sub)
 	}
+{{- end}}
 {{- else if eq .Strategy "string_or_object"}}
 	x.{{.FieldName}} = decode{{.ElemType}}(m["{{.JSONKey}}"])
 {{- else if eq .Strategy "oas_map"}}
 	if sub, ok := m["{{.JSONKey}}"].(map[string]any); ok {
 		x.{{.FieldName}} = make(map[string]*{{.ElemType}}, len(sub))
 		for k, v := range sub {
+{{- if eq .ElemType "Schema"}}
+			if elem := decodeSchemaValue(v); elem != nil {
+				x.{{.FieldName}}[k] = elem
+			}
+{{- else}}
 			if vm, ok := v.(map[string]any); ok {
 				elem := new({{.ElemType}})
 				elem.decodeFromMap(vm)
 				x.{{.FieldName}}[k] = elem
 			}
+{{- end}}
 		}
 	}
 {{- else if eq .Strategy "string_map"}}

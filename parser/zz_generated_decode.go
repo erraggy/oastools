@@ -12,9 +12,7 @@ func (x *Components) decodeFromMap(m map[string]any) {
 	if sub, ok := m["schemas"].(map[string]any); ok {
 		x.Schemas = make(map[string]*Schema, len(sub))
 		for k, v := range sub {
-			if vm, ok := v.(map[string]any); ok {
-				elem := new(Schema)
-				elem.decodeFromMap(vm)
+			if elem := decodeSchemaValue(v); elem != nil {
 				x.Schemas[k] = elem
 			}
 		}
@@ -200,10 +198,7 @@ func (x *Header) decodeFromMap(m map[string]any) {
 	x.Deprecated, _ = m["deprecated"].(bool)
 	x.Style, _ = m["style"].(string)
 	x.Explode = mapGetBoolPtr(m, "explode")
-	if sub, ok := m["schema"].(map[string]any); ok {
-		x.Schema = new(Schema)
-		x.Schema.decodeFromMap(sub)
-	}
+	x.Schema = decodeSchemaValue(m["schema"])
 	x.Example = m["example"]
 	if sub, ok := m["examples"].(map[string]any); ok {
 		x.Examples = make(map[string]*Example, len(sub))
@@ -317,10 +312,7 @@ func (x *Link) decodeFromMap(m map[string]any) {
 }
 
 func (x *MediaType) decodeFromMap(m map[string]any) {
-	if sub, ok := m["schema"].(map[string]any); ok {
-		x.Schema = new(Schema)
-		x.Schema.decodeFromMap(sub)
-	}
+	x.Schema = decodeSchemaValue(m["schema"])
 	x.Example = m["example"]
 	if sub, ok := m["examples"].(map[string]any); ok {
 		x.Examples = make(map[string]*Example, len(sub))
@@ -342,10 +334,7 @@ func (x *MediaType) decodeFromMap(m map[string]any) {
 			}
 		}
 	}
-	if sub, ok := m["itemSchema"].(map[string]any); ok {
-		x.ItemSchema = new(Schema)
-		x.ItemSchema.decodeFromMap(sub)
-	}
+	x.ItemSchema = decodeSchemaValue(m["itemSchema"])
 	if sub, ok := m["itemEncoding"].(map[string]any); ok {
 		x.ItemEncoding = new(Encoding)
 		x.ItemEncoding.decodeFromMap(sub)
@@ -380,9 +369,7 @@ func (x *OAS2Document) decodeFromMap(m map[string]any) {
 	if sub, ok := m["definitions"].(map[string]any); ok {
 		x.Definitions = make(map[string]*Schema, len(sub))
 		for k, v := range sub {
-			if vm, ok := v.(map[string]any); ok {
-				elem := new(Schema)
-				elem.decodeFromMap(vm)
+			if elem := decodeSchemaValue(v); elem != nil {
 				x.Definitions[k] = elem
 			}
 		}
@@ -590,10 +577,7 @@ func (x *Parameter) decodeFromMap(m map[string]any) {
 	x.Style, _ = m["style"].(string)
 	x.Explode = mapGetBoolPtr(m, "explode")
 	x.AllowReserved, _ = m["allowReserved"].(bool)
-	if sub, ok := m["schema"].(map[string]any); ok {
-		x.Schema = new(Schema)
-		x.Schema.decodeFromMap(sub)
-	}
+	x.Schema = decodeSchemaValue(m["schema"])
 	x.Example = m["example"]
 	if sub, ok := m["examples"].(map[string]any); ok {
 		x.Examples = make(map[string]*Example, len(sub))
@@ -772,10 +756,7 @@ func (x *Response) decodeFromMap(m map[string]any) {
 		}
 	}
 	x.Summary, _ = m["summary"].(string)
-	if sub, ok := m["schema"].(map[string]any); ok {
-		x.Schema = new(Schema)
-		x.Schema.decodeFromMap(sub)
-	}
+	x.Schema = decodeSchemaValue(m["schema"])
 	if sub, ok := m["examples"].(map[string]any); ok {
 		x.Examples = sub
 	}
@@ -808,9 +789,7 @@ func (x *Schema) decodeFromMap(m map[string]any) {
 	if arr, ok := m["prefixItems"].([]any); ok {
 		x.PrefixItems = make([]*Schema, 0, len(arr))
 		for _, item := range arr {
-			if sub, ok := item.(map[string]any); ok {
-				elem := new(Schema)
-				elem.decodeFromMap(sub)
+			if elem := decodeSchemaValue(item); elem != nil {
 				x.PrefixItems = append(x.PrefixItems, elem)
 			}
 		}
@@ -820,18 +799,13 @@ func (x *Schema) decodeFromMap(m map[string]any) {
 	x.MaxItems = mapGetIntPtr(m, "maxItems")
 	x.MinItems = mapGetIntPtr(m, "minItems")
 	x.UniqueItems, _ = m["uniqueItems"].(bool)
-	if sub, ok := m["contains"].(map[string]any); ok {
-		x.Contains = new(Schema)
-		x.Contains.decodeFromMap(sub)
-	}
+	x.Contains = decodeSchemaValue(m["contains"])
 	x.MaxContains = mapGetIntPtr(m, "maxContains")
 	x.MinContains = mapGetIntPtr(m, "minContains")
 	if sub, ok := m["properties"].(map[string]any); ok {
 		x.Properties = make(map[string]*Schema, len(sub))
 		for k, v := range sub {
-			if vm, ok := v.(map[string]any); ok {
-				elem := new(Schema)
-				elem.decodeFromMap(vm)
+			if elem := decodeSchemaValue(v); elem != nil {
 				x.Properties[k] = elem
 			}
 		}
@@ -839,9 +813,7 @@ func (x *Schema) decodeFromMap(m map[string]any) {
 	if sub, ok := m["patternProperties"].(map[string]any); ok {
 		x.PatternProperties = make(map[string]*Schema, len(sub))
 		for k, v := range sub {
-			if vm, ok := v.(map[string]any); ok {
-				elem := new(Schema)
-				elem.decodeFromMap(vm)
+			if elem := decodeSchemaValue(v); elem != nil {
 				x.PatternProperties[k] = elem
 			}
 		}
@@ -849,41 +821,25 @@ func (x *Schema) decodeFromMap(m map[string]any) {
 	x.AdditionalProperties = decodeSchemaOrBool(m["additionalProperties"])
 	x.UnevaluatedProperties = decodeSchemaOrBool(m["unevaluatedProperties"])
 	x.Required = mapGetStringSlice(m, "required")
-	if sub, ok := m["propertyNames"].(map[string]any); ok {
-		x.PropertyNames = new(Schema)
-		x.PropertyNames.decodeFromMap(sub)
-	}
+	x.PropertyNames = decodeSchemaValue(m["propertyNames"])
 	x.MaxProperties = mapGetIntPtr(m, "maxProperties")
 	x.MinProperties = mapGetIntPtr(m, "minProperties")
 	x.DependentRequired = mapGetDependentRequired(m, "dependentRequired")
 	if sub, ok := m["dependentSchemas"].(map[string]any); ok {
 		x.DependentSchemas = make(map[string]*Schema, len(sub))
 		for k, v := range sub {
-			if vm, ok := v.(map[string]any); ok {
-				elem := new(Schema)
-				elem.decodeFromMap(vm)
+			if elem := decodeSchemaValue(v); elem != nil {
 				x.DependentSchemas[k] = elem
 			}
 		}
 	}
-	if sub, ok := m["if"].(map[string]any); ok {
-		x.If = new(Schema)
-		x.If.decodeFromMap(sub)
-	}
-	if sub, ok := m["then"].(map[string]any); ok {
-		x.Then = new(Schema)
-		x.Then.decodeFromMap(sub)
-	}
-	if sub, ok := m["else"].(map[string]any); ok {
-		x.Else = new(Schema)
-		x.Else.decodeFromMap(sub)
-	}
+	x.If = decodeSchemaValue(m["if"])
+	x.Then = decodeSchemaValue(m["then"])
+	x.Else = decodeSchemaValue(m["else"])
 	if arr, ok := m["allOf"].([]any); ok {
 		x.AllOf = make([]*Schema, 0, len(arr))
 		for _, item := range arr {
-			if sub, ok := item.(map[string]any); ok {
-				elem := new(Schema)
-				elem.decodeFromMap(sub)
+			if elem := decodeSchemaValue(item); elem != nil {
 				x.AllOf = append(x.AllOf, elem)
 			}
 		}
@@ -891,9 +847,7 @@ func (x *Schema) decodeFromMap(m map[string]any) {
 	if arr, ok := m["anyOf"].([]any); ok {
 		x.AnyOf = make([]*Schema, 0, len(arr))
 		for _, item := range arr {
-			if sub, ok := item.(map[string]any); ok {
-				elem := new(Schema)
-				elem.decodeFromMap(sub)
+			if elem := decodeSchemaValue(item); elem != nil {
 				x.AnyOf = append(x.AnyOf, elem)
 			}
 		}
@@ -901,17 +855,12 @@ func (x *Schema) decodeFromMap(m map[string]any) {
 	if arr, ok := m["oneOf"].([]any); ok {
 		x.OneOf = make([]*Schema, 0, len(arr))
 		for _, item := range arr {
-			if sub, ok := item.(map[string]any); ok {
-				elem := new(Schema)
-				elem.decodeFromMap(sub)
+			if elem := decodeSchemaValue(item); elem != nil {
 				x.OneOf = append(x.OneOf, elem)
 			}
 		}
 	}
-	if sub, ok := m["not"].(map[string]any); ok {
-		x.Not = new(Schema)
-		x.Not.decodeFromMap(sub)
-	}
+	x.Not = decodeSchemaValue(m["not"])
 	x.Nullable, _ = m["nullable"].(bool)
 	x.Discriminator = decodeDiscriminator(m["discriminator"])
 	x.ReadOnly, _ = m["readOnly"].(bool)
@@ -929,10 +878,7 @@ func (x *Schema) decodeFromMap(m map[string]any) {
 	x.Format, _ = m["format"].(string)
 	x.ContentEncoding, _ = m["contentEncoding"].(string)
 	x.ContentMediaType, _ = m["contentMediaType"].(string)
-	if sub, ok := m["contentSchema"].(map[string]any); ok {
-		x.ContentSchema = new(Schema)
-		x.ContentSchema.decodeFromMap(sub)
-	}
+	x.ContentSchema = decodeSchemaValue(m["contentSchema"])
 	x.CollectionFormat, _ = m["collectionFormat"].(string)
 	x.ID, _ = m["$id"].(string)
 	x.Anchor, _ = m["$anchor"].(string)
@@ -943,9 +889,7 @@ func (x *Schema) decodeFromMap(m map[string]any) {
 	if sub, ok := m["$defs"].(map[string]any); ok {
 		x.Defs = make(map[string]*Schema, len(sub))
 		for k, v := range sub {
-			if vm, ok := v.(map[string]any); ok {
-				elem := new(Schema)
-				elem.decodeFromMap(vm)
+			if elem := decodeSchemaValue(v); elem != nil {
 				x.Defs[k] = elem
 			}
 		}

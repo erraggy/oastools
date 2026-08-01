@@ -42,6 +42,17 @@ func (s *Schema) equalsWithVisited(other *Schema, visited map[schemaPair]bool) b
 	}
 	visited[pair] = true
 
+	// The bare-boolean form is compared by value, not treated as spelling.
+	// Unlike Discriminator.StringForm — where both spellings mean the same
+	// thing — `true` and `false` are opposite schemas, and neither is equal to
+	// an object schema. A boolean schema has no other fields, so this is the
+	// whole comparison when either side is one.
+	sv, sok := s.IsBool()
+	ov, ook := other.IsBool()
+	if sok || ook {
+		return sok && ook && sv == ov
+	}
+
 	// Group 1: Boolean fields (cheapest comparisons first)
 	if s.ReadOnly != other.ReadOnly {
 		return false

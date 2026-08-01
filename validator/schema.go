@@ -43,6 +43,13 @@ func (v *Validator) validateSchemaWithVisited(schema *parser.Schema, path string
 	}
 	visited[schema] = true
 
+	// A bare-boolean schema has no keywords, so it is the whole check when
+	// present — nothing below applies to it.
+	if _, isBool := schema.IsBool(); isBool {
+		v.validateBoolSchemaVersion(schema, path, result)
+		return
+	}
+
 	// Check for excessive nesting depth to prevent resource exhaustion
 	if depth > maxSchemaNestingDepth {
 		v.addError(result, path,
@@ -192,6 +199,30 @@ func (v *Validator) validateSchemaTypeConstraints(schema *parser.Schema, path st
 			)
 		}
 	}
+}
+
+// validateBoolSchemaVersion rejects the bare-boolean schema form for the
+// versions that predate it.
+//
+// JSON Schema 2020-12 allows `true` and `false` wherever a schema is expected,
+// and OAS 3.1 adopted that dialect wholesale. OAS 3.0 is based on an earlier
+// draft where a schema is always an object, and OAS 2.0 more so. The parser
+// accepts the form regardless of version — a Schema Object is decoded before
+// the document version is known to it — which makes this check the only thing
+// standing between a 3.0 document and a silently accepted boolean schema.
+//
+// The same division of labour as validateDiscriminatorForm.
+func (v *Validator) validateBoolSchemaVersion(schema *parser.Schema, path string, result *ValidationResult) {
+	// An unrecognized version says nothing about which forms are legal.
+	if !v.oasVersion.IsValid() || v.oasVersion >= parser.OASVersion310 {
+		return
+	}
+	b, _ := schema.IsBool()
+	v.addError(result, path,
+		fmt.Sprintf("Boolean schemas (%t) require OpenAPI 3.1 or later; in this version a schema must be an object", b),
+		withSpecRef(getJSONSchemaRef()),
+		withValue(b),
+	)
 }
 
 // isOAS30x reports whether the given version is in the OAS 3.0.x family,
