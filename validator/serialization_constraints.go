@@ -20,7 +20,7 @@ var rfc9110Token = regexp.MustCompile(`^[0-9A-Za-z!#$%&'*+.^_` + "`" + `|~-]+$`)
 //
 // OAS 3.2 introduced it: the `token` definition does not exist in the 3.1 schema
 // at all, so enforcing it there would reject documents 3.1 considers valid. An
-// unrecognized version counts as in scope, matching oas32TraversalApplies.
+// unrecognized version counts as in scope, matching oas3TraversalApplies.
 func headerNameRulesApply(version parser.OASVersion) bool {
 	return !version.IsValid() || version >= parser.OASVersion320
 }

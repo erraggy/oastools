@@ -665,25 +665,36 @@ paths:
 		"a 3.2 field inside a 3.2-only operation should be reported in its own right")
 }
 
-// TestOAS32GatePartitionsVersionsWithTraversal pins the two predicates against
-// each other: they divide the version space, so a version answering the same to
-// both would be checked twice or not at all.
-func TestOAS32GatePartitionsVersionsWithTraversal(t *testing.T) {
-	versions := []parser.OASVersion{
-		parser.OASVersion20,
-		parser.OASVersion300,
-		parser.OASVersion303,
-		parser.OASVersion304,
-		parser.OASVersion310,
-		parser.OASVersion311,
-		parser.OASVersion312,
-		parser.OASVersion320,
+// TestOAS32GateCoversEveryVersionWithTraversal pins the two predicates against
+// each other. They partitioned the version space while the traversal was
+// 3.2-only; the traversal now starts at 3.0, so on 3.0 and 3.1 both claim the
+// document. What must still hold is that no version falls through both, which
+// would leave it unchecked by either pass.
+func TestOAS32GateCoversEveryVersionWithTraversal(t *testing.T) {
+	versions := []struct {
+		version       parser.OASVersion
+		wantTraversal bool
+		wantFieldGate bool
+	}{
+		{parser.OASVersion20, false, true},
+		{parser.OASVersion300, true, true},
+		{parser.OASVersion303, true, true},
+		{parser.OASVersion304, true, true},
+		{parser.OASVersion310, true, true},
+		{parser.OASVersion311, true, true},
+		{parser.OASVersion312, true, true},
+		{parser.OASVersion320, true, false},
 	}
 
-	for _, version := range versions {
-		t.Run(version.String(), func(t *testing.T) {
-			assert.NotEqual(t, oas32TraversalApplies(version), oas32FieldGateApplies(version),
-				"exactly one of the two 3.2 passes must claim %s", version)
+	for _, tc := range versions {
+		t.Run(tc.version.String(), func(t *testing.T) {
+			traversal := oas3TraversalApplies(tc.version)
+			fieldGate := oas32FieldGateApplies(tc.version)
+
+			assert.Equal(t, tc.wantTraversal, traversal, "traversal gate for %s", tc.version)
+			assert.Equal(t, tc.wantFieldGate, fieldGate, "field gate for %s", tc.version)
+			assert.True(t, traversal || fieldGate,
+				"at least one of the two 3.2 passes must claim %s", tc.version)
 		})
 	}
 
@@ -692,7 +703,7 @@ func TestOAS32GatePartitionsVersionsWithTraversal(t *testing.T) {
 	// version to call the field newer than.
 	var unknown parser.OASVersion
 	require.False(t, unknown.IsValid(), "the zero version should not be valid")
-	assert.True(t, oas32TraversalApplies(unknown))
+	assert.True(t, oas3TraversalApplies(unknown))
 	assert.False(t, oas32FieldGateApplies(unknown))
 }
 

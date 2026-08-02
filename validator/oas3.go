@@ -43,7 +43,7 @@ func (v *Validator) validateOAS3(doc *parser.OAS3Document, result *ValidationRes
 	v.validateOAS3OperationIds(doc, result, baseURL)
 
 	// Validate the OAS 3.2 cross-field constraints (see oas32.go)
-	v.validateOAS32Document(doc, result)
+	v.validateOAS3TraversalComponents(doc, result)
 	v.validateOAS32FieldsNotYetIntroduced(doc, result)
 
 	// Validate all $ref values point to valid components
@@ -158,7 +158,7 @@ func (v *Validator) validateOAS3Servers(doc *parser.OAS3Document, result *Valida
 			// decodes to a nil slice, `enum: []` to an empty non-nil one.
 			//
 			// An unrecognized version counts as in scope, matching
-			// oas32TraversalApplies and the other version gates: a constraint
+			// oas3TraversalApplies and the other version gates: a constraint
 			// introduced at a threshold is assumed to hold in later versions
 			// this build does not yet know about.
 			if varObj.Enum != nil && len(varObj.Enum) == 0 && emptyServerEnumApplies(v.oasVersion) {
@@ -228,7 +228,7 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 
 		// The OAS 3.2 traversal rules ride along on the operations map this pass
 		// already built, rather than taking a traversal of their own (see oas32.go).
-		v.validateOAS32PathItem(pathItem, pathPrefix, doc.OASVersion, operations, result)
+		v.validateOAS3TraversalPathItem(pathItem, pathPrefix, doc.OASVersion, operations, result)
 
 		// A path item carries parameters of its own, shared by every operation in it.
 		v.validateParameterListSchemas(pathItem.Parameters, pathPrefix, result)
@@ -405,6 +405,14 @@ func (v *Validator) validateOAS3Components(doc *parser.OAS3Document, result *Val
 
 // validateOAS3SecurityScheme validates a security scheme in OAS 3.x
 func (v *Validator) validateOAS3SecurityScheme(scheme *parser.SecurityScheme, path string, result *ValidationResult, baseURL string) {
+	// `securitySchemes` holds a Security Scheme Object or a Reference Object at
+	// every 3.x version. A $ref carries no sibling fields, so requiring `type`
+	// of one rejects a valid document; the target is checked where it is
+	// defined. Mirrors validateOAS3RequestBody.
+	if scheme.Ref != "" {
+		return
+	}
+
 	if scheme.Type == "" {
 		v.addError(result, path, "Security scheme must have a type",
 			withSpecRef(fmt.Sprintf("%s#security-scheme-object", baseURL)),
@@ -557,7 +565,7 @@ func (v *Validator) validateOAS3Webhooks(doc *parser.OAS3Document, result *Valid
 		// Validate each operation in the webhook
 		operations := parser.GetOperations(pathItem, doc.OASVersion)
 
-		v.validateOAS32PathItem(pathItem, pathPrefix, doc.OASVersion, operations, result)
+		v.validateOAS3TraversalPathItem(pathItem, pathPrefix, doc.OASVersion, operations, result)
 
 		// A path item carries parameters of its own, shared by every operation in it.
 		v.validateParameterListSchemas(pathItem.Parameters, pathPrefix, result)
@@ -613,7 +621,7 @@ func (v *Validator) validateOAS3ComponentPathItems(doc *parser.OAS3Document, res
 
 		operations := parser.GetOperations(pathItem, doc.OASVersion)
 
-		v.validateOAS32PathItem(pathItem, prefix, doc.OASVersion, operations, result)
+		v.validateOAS3TraversalPathItem(pathItem, prefix, doc.OASVersion, operations, result)
 
 		// A path item carries parameters of its own, shared by every operation in it.
 		v.validateParameterListSchemas(pathItem.Parameters, prefix, result)
