@@ -89,6 +89,12 @@ func assertOAS32FieldsPresent(t *testing.T, doc *OAS3Document) {
 	require.NotNil(t, attachmentsProp, "encoding.attachments must name a declared property")
 	// An array, because the encoding below describes it with the sequential
 	// forms. A scalar here would make the itemEncoding assertions meaningless.
+	//
+	// Compared against the decoded form rather than read through
+	// internal/schemautil, which is for code consuming a type it did not write.
+	// That accessor reports the same result for `array` and `[array]`, and which
+	// of the two this fixture round-trips as is what these assertions exist to
+	// pin. See schema_type_forms_test.go.
 	assert.Equal(t, "array", attachmentsProp.Type, "schema.properties.attachments.type")
 	attachmentItems, ok := attachmentsProp.Items.(*Schema)
 	require.True(t, ok, "schema.properties.attachments.items should promote to *Schema")
