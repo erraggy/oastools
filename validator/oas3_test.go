@@ -273,7 +273,11 @@ func TestValidateOAS3SecurityScheme_MissingType(t *testing.T) {
 func TestValidateOAS3SecurityScheme_RefFormNeedsNoType(t *testing.T) {
 	doc := &parser.OAS3Document{
 		OpenAPI: "3.0.3",
-		Info:    &parser.Info{Title: "T", Version: "1.0.0"},
+		// validateOAS3 reads doc.OASVersion, not the ParseResult's, so leaving it
+		// zero would validate this under an unclassifiable version rather than
+		// the 3.0.3 the fixture is written for.
+		OASVersion: parser.OASVersion303,
+		Info:       &parser.Info{Title: "T", Version: "1.0.0"},
 		Components: &parser.Components{
 			SecuritySchemes: map[string]*parser.SecurityScheme{
 				"alias": {Ref: "#/components/securitySchemes/real"},
