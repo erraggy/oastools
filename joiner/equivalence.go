@@ -787,11 +787,26 @@ func equalBoolForms(left, right *parser.Schema, path *comparePath, result *Equiv
 	}
 	result.Differences = append(result.Differences, SchemaDifference{
 		Path:        path.String(),
-		LeftValue:   left.BoolForm,
-		RightValue:  right.BoolForm,
+		LeftValue:   boolDifferenceValue(leftBool, leftIsBool),
+		RightValue:  boolDifferenceValue(rightBool, rightIsBool),
 		Description: "boolean schema form mismatch",
 	})
 	return false
+}
+
+// boolDifferenceValue renders one side of a boolean-form mismatch for a
+// SchemaDifference. Callers format LeftValue and RightValue with %v, and
+// neither of the values available here survives that: a *bool prints as a
+// pointer address, and a *Schema prints as a full struct dump. Both hide the
+// one thing the difference exists to report.
+//
+// nil marks the side that is not a boolean schema at all, matching how the
+// other comparators leave a value absent rather than inventing one.
+func boolDifferenceValue(value, ok bool) any {
+	if !ok {
+		return nil
+	}
+	return value
 }
 
 // compareBoolOperands handles the bare-boolean form for the any-typed
@@ -821,8 +836,8 @@ func compareBoolOperands(field string, left, right any, path *comparePath, resul
 	}
 	result.Differences = append(result.Differences, SchemaDifference{
 		Path:        path.String(),
-		LeftValue:   left,
-		RightValue:  right,
+		LeftValue:   boolDifferenceValue(leftBool, leftIsBool),
+		RightValue:  boolDifferenceValue(rightBool, rightIsBool),
 		Description: description,
 	})
 	return true
@@ -1327,23 +1342,6 @@ func compareItemsSchemas(left, right any, path *comparePath, result *Equivalence
 		return
 	}
 
-	// Both booleans
-	leftBool, leftIsBool := left.(bool)
-	rightBool, rightIsBool := right.(bool)
-	if leftIsBool && rightIsBool {
-		if leftBool != rightBool {
-			path.push("items")
-			result.Differences = append(result.Differences, SchemaDifference{
-				Path:        path.String(),
-				LeftValue:   leftBool,
-				RightValue:  rightBool,
-				Description: "items boolean value mismatch",
-			})
-			path.pop()
-		}
-		return
-	}
-
 	// Type mismatch
 	path.push("items")
 	result.Differences = append(result.Differences, SchemaDifference{
@@ -1436,21 +1434,6 @@ func comparePolymorphicSchemas(left, right any, path *comparePath, result *Equiv
 	rightSchema, rightIsSchema := right.(*parser.Schema)
 	if leftIsSchema && rightIsSchema {
 		compareDeep(leftSchema, rightSchema, path, result, visited, compareDocs)
-		return
-	}
-
-	// Both booleans
-	leftBool, leftIsBool := left.(bool)
-	rightBool, rightIsBool := right.(bool)
-	if leftIsBool && rightIsBool {
-		if leftBool != rightBool {
-			result.Differences = append(result.Differences, SchemaDifference{
-				Path:        path.String(),
-				LeftValue:   leftBool,
-				RightValue:  rightBool,
-				Description: "boolean value mismatch",
-			})
-		}
 		return
 	}
 

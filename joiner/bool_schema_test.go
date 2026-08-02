@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -72,6 +73,80 @@ func TestCompareBoolSchemasReportsADifference(t *testing.T) {
 
 	assert.False(t, result.Equivalent)
 	assert.NotEmpty(t, result.Differences, "a mismatch should say what differed")
+}
+
+// TestBoolSchemaDifferenceValuesArePrintable guards what a reported difference
+// actually says. Callers format LeftValue and RightValue with %v, and the two
+// values naturally available at these sites do not survive it: a *bool prints
+// as a pointer address, and a *Schema prints as a full struct dump. Either way
+// the reader loses the one fact the difference exists to convey.
+//
+// The side that is not a boolean schema is recorded as nil, matching how the
+// other comparators leave a value absent rather than inventing one.
+func TestBoolSchemaDifferenceValuesArePrintable(t *testing.T) {
+	tests := []struct {
+		name        string
+		left, right *parser.Schema
+		wantLeft    any
+		wantRight   any
+	}{
+		{
+			name:      "top-level true and false",
+			left:      parser.NewBoolSchema(true),
+			right:     parser.NewBoolSchema(false),
+			wantLeft:  true,
+			wantRight: false,
+		},
+		{
+			name:      "top-level boolean and object",
+			left:      parser.NewBoolSchema(true),
+			right:     &parser.Schema{Type: "string"},
+			wantLeft:  true,
+			wantRight: nil,
+		},
+		{
+			name:      "items raw and wrapped mismatch",
+			left:      &parser.Schema{Items: true},
+			right:     &parser.Schema{Items: parser.NewBoolSchema(false)},
+			wantLeft:  true,
+			wantRight: false,
+		},
+		{
+			name:      "items boolean and object",
+			left:      &parser.Schema{Items: true},
+			right:     &parser.Schema{Items: &parser.Schema{Type: "string"}},
+			wantLeft:  true,
+			wantRight: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CompareSchemas(tt.left, tt.right, EquivalenceModeDeep)
+			require.Len(t, result.Differences, 1)
+
+			difference := result.Differences[0]
+			assertBoolOrNil(t, tt.wantLeft, difference.LeftValue)
+			assertBoolOrNil(t, tt.wantRight, difference.RightValue)
+		})
+	}
+}
+
+// assertBoolOrNil requires a SchemaDifference value to hold a plain bool, or
+// nil for a side that is not a boolean schema.
+//
+// The type is the subject here, not the value: a *bool or a *Schema would
+// carry the right information and still be useless to a caller, since these
+// fields exist to be displayed. Asserting it explicitly says so, rather than
+// relying on assert.Equal's type-strictness to catch it as a side effect.
+func assertBoolOrNil(t *testing.T, want, got any) {
+	t.Helper()
+	if want == nil {
+		assert.Nil(t, got)
+		return
+	}
+	require.IsType(t, false, got, "must be a plain bool, not the pointer it was read from")
+	assert.Equal(t, want, got)
 }
 
 // TestCompareNestedBoolSchemas covers boolean schemas below the top level.
