@@ -487,11 +487,11 @@ components:
 	})
 }
 
-// TestExclusionPresenceSurvivesEveryDecodePath is the reason these rules can be
-// stated at all: `encoding: {}` writes the key while leaving the map empty, so
+// TestExclusionPresenceSurvivesEveryDecodePath is what makes these rules
+// expressible: `encoding: {}` writes the key while leaving the map empty, so
 // presence is the nil check rather than the length. parser keeps three decode
-// paths and they have disagreed before, so each one is asserted rather than
-// assumed.
+// paths, so each one is asserted rather than assumed. Issue #397 is a case where
+// two of them disagreed.
 func TestExclusionPresenceSurvivesEveryDecodePath(t *testing.T) {
 	const yamlSpec = `
 openapi: 3.2.0
