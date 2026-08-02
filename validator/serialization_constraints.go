@@ -25,6 +25,16 @@ func headerNameRulesApply(version parser.OASVersion) bool {
 	return !version.IsValid() || version >= parser.OASVersion320
 }
 
+// emptyServerEnumApplies reports whether the non-empty Server Variable enum
+// constraint is in force. OAS 3.1 added `minItems: 1`; 3.0's schema has no such
+// constraint.
+//
+// Declared beside the other version gates so all four can be compared in one
+// place. An unrecognized version counts as in scope, as it does for the rest.
+func emptyServerEnumApplies(version parser.OASVersion) bool {
+	return !version.IsValid() || version >= parser.OASVersion310
+}
+
 // validateHeaderName checks one header name against the RFC 9110 token rule.
 // The name is a map key for a Header Object and the `name` field for a header
 // parameter; both are field names on the wire, so both carry the constraint.
@@ -56,9 +66,8 @@ func (v *Validator) validateHeaderName(name, path, field string, result *Validat
 //   - 3.2+: widened to the `in` and `style` combinations that percent-encode:
 //     `in: path`, `in: query`, and `in: cookie` with `style: form`.
 //
-// This is the shape of defect the project keeps finding: a constraint that a
-// later version relaxed. Enforcing the 3.1 rule everywhere would reject valid
-// 3.2 documents; enforcing the 3.2 rule everywhere would accept invalid 3.1 ones.
+// Applying one version's rule to all of them fails in both directions: 3.1's
+// would reject valid 3.2 documents, and 3.2's would accept invalid 3.1 ones.
 func allowReservedPermitted(version parser.OASVersion, in, style string) bool {
 	// 3.0 and earlier: structurally permitted, so nothing to enforce.
 	if version.IsValid() && version < parser.OASVersion310 {
@@ -104,15 +113,12 @@ func (v *Validator) validateParameterAllowReserved(param *parser.Parameter, path
 // draft-04 schema does not close the object the same way.
 func (v *Validator) validateHeaderAllowReserved(header *parser.Header, path string, result *ValidationResult) {
 	// parser.Header has no AllowReserved field, because no OAS version defines
-	// one for a Header Object. An `allowReserved` key therefore lands in Extra,
-	// which the inline decoder fills with every unmatched field rather than only
-	// x- extensions.
+	// one for a Header Object, so the key lands in Extra: the inline decoder
+	// fills it with every unmatched field, not only x- extensions.
 	//
-	// That is a narrow read of a broader gap: the specification closes these
-	// objects with `unevaluatedProperties: false`, so *any* unmatched field is
-	// invalid, and oastools has no general check for that. Closing it properly
-	// needs the field/version matrix (#439); this handles the one case the
-	// conformance suite exercises.
+	// This detects the one field rather than every unmatched one. A general
+	// check for `unevaluatedProperties: false` needs the field/version matrix
+	// (#439).
 	if _, present := header.Extra["allowReserved"]; !present {
 		return
 	}

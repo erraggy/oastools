@@ -156,8 +156,12 @@ func (v *Validator) validateOAS3Servers(doc *parser.OAS3Document, result *Valida
 			// Presence, not length, is the test: an absent enum means "any
 			// value" and is fine. The parser keeps the two apart: absent
 			// decodes to a nil slice, `enum: []` to an empty non-nil one.
-			if varObj.Enum != nil && len(varObj.Enum) == 0 &&
-				v.oasVersion.IsValid() && v.oasVersion >= parser.OASVersion310 {
+			//
+			// An unrecognized version counts as in scope, matching
+			// oas32TraversalApplies and the other version gates: a constraint
+			// introduced at a threshold is assumed to hold in later versions
+			// this build does not yet know about.
+			if varObj.Enum != nil && len(varObj.Enum) == 0 && emptyServerEnumApplies(v.oasVersion) {
 				v.addError(result, varPath,
 					"Server variable enum must not be empty; omit it to allow any value",
 					withSpecRef(fmt.Sprintf("%s#server-variable-object", baseURL)),

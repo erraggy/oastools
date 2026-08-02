@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/erraggy/oastools/parser"
 )
 
 // TestHeaderNameMustBeToken covers the RFC 9110 token constraint on header
@@ -625,11 +627,8 @@ paths: {}
 
 // TestHeaderRulesReachEveryPosition is the reachability guard for the rules this
 // file adds. They hook into the structural traversal rather than into individual
-// call sites, so a Header Object is checked wherever it occurs: the point of that
-// choice is only worth anything if it is asserted.
-//
-// This is the shape of defect #423 was: the rule was right, and simply never ran
-// in most of the places the object can appear.
+// call sites, so a Header Object is checked wherever it occurs. See #423 for the
+// case where a rule was correct but never ran in most of those positions.
 func TestHeaderRulesReachEveryPosition(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -762,4 +761,42 @@ paths:
 				"the rule did not reach this position; errors: %v", result.Errors)
 		})
 	}
+}
+
+// TestVersionGatesTreatUnrecognizedVersionsAsInScope pins the convention shared
+// by every version gate here and by oas32TraversalApplies: a constraint
+// introduced at a threshold is assumed to hold in later versions this build does
+// not yet recognize.
+//
+// The alternative, skipping the rule, means a document oastools cannot classify
+// is held to fewer rules than one it can. The gates are written separately, so
+// this pins them to one answer.
+func TestVersionGatesTreatUnrecognizedVersionsAsInScope(t *testing.T) {
+	unrecognized := parser.OASVersion(0)
+	require.False(t, unrecognized.IsValid(), "the test needs a version this build does not know")
+
+	t.Run("header name rule", func(t *testing.T) {
+		assert.True(t, headerNameRulesApply(unrecognized))
+	})
+
+	t.Run("empty server enum rule", func(t *testing.T) {
+		assert.True(t, emptyServerEnumApplies(unrecognized))
+	})
+
+	t.Run("allowReserved on a parameter uses the newest table", func(t *testing.T) {
+		// The permitted set widened in 3.2, so "in scope" means the 3.2 table
+		// rather than 3.1's narrower one.
+		assert.True(t, allowReservedPermitted(unrecognized, parser.ParamInPath, ""),
+			"3.2 permits allowReserved on a path parameter")
+		assert.False(t, allowReservedPermitted(unrecognized, parser.ParamInHeader, ""),
+			"no version permits allowReserved on a header parameter")
+	})
+
+	t.Run("allowReserved on a Header Object", func(t *testing.T) {
+		v := &Validator{oasVersion: unrecognized}
+		result := &ValidationResult{}
+		header := &parser.Header{Extra: map[string]any{"allowReserved": true}}
+		v.validateHeaderAllowReserved(header, "components.headers.X", result)
+		assert.True(t, resultHasMessage(result, "allowReserved is not permitted"))
+	})
 }
