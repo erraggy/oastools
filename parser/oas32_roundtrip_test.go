@@ -85,10 +85,18 @@ func assertOAS32FieldsPresent(t *testing.T, doc *OAS3Document) {
 	// this the fixture could pass every assertion below while describing a
 	// property it never declares.
 	require.NotNil(t, multipart.Schema, "multipart schema")
-	require.Contains(t, multipart.Schema.Properties, "attachments",
-		"encoding.attachments must name a declared property")
+	attachmentsProp := multipart.Schema.Properties["attachments"]
+	require.NotNil(t, attachmentsProp, "encoding.attachments must name a declared property")
+	// An array, because the encoding below describes it with the sequential
+	// forms. A scalar here would make the itemEncoding assertions meaningless.
+	assert.Equal(t, "array", attachmentsProp.Type, "schema.properties.attachments.type")
+	attachmentItems, ok := attachmentsProp.Items.(*Schema)
+	require.True(t, ok, "schema.properties.attachments.items should promote to *Schema")
+	assert.Equal(t, "string", attachmentItems.Type, "schema.properties.attachments.items.type")
+
 	attachments := multipart.Encoding["attachments"]
 	require.NotNil(t, attachments, "encoding.attachments")
+	assert.Equal(t, "application/json", attachments.ContentType, "encoding.attachments.contentType")
 	require.NotNil(t, attachments.ItemEncoding, "encoding.attachments.itemEncoding")
 	assert.Equal(t, "text/plain", attachments.ItemEncoding.ContentType)
 	require.Len(t, attachments.PrefixEncoding, 1, "encoding.attachments.prefixEncoding")

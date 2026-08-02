@@ -66,6 +66,9 @@ func (v *Validator) validateOAS3TraversalComponents(doc *parser.OAS3Document, re
 	for name, mt := range c.MediaTypes {
 		v.visitMediaTypeExamples(mt, "components.mediaTypes."+name, result)
 	}
+	// components.pathItems and webhooks are reached by the passes that already
+	// hold their operations maps. Callbacks have no such pass.
+	v.visitCallbacks(c.Callbacks, "components", doc.OASVersion, result, nil, 0)
 }
 
 // validateOAS3TraversalPathItem applies the Example and `querystring` rules to
@@ -78,6 +81,22 @@ func (v *Validator) validateOAS3TraversalPathItem(
 	version parser.OASVersion,
 	ops map[string]*parser.Operation,
 	result *ValidationResult,
+) {
+	v.traversePathItem(item, prefix, version, ops, result, nil, 0)
+}
+
+// traversePathItem is [Validator.validateOAS3TraversalPathItem] carrying the
+// state only the recursion through callbacks needs. visited stays nil until a
+// path item inside a callback is reached, so a document with none allocates
+// nothing.
+func (v *Validator) traversePathItem(
+	item *parser.PathItem,
+	prefix string,
+	version parser.OASVersion,
+	ops map[string]*parser.Operation,
+	result *ValidationResult,
+	visited map[*parser.PathItem]bool,
+	depth int,
 ) {
 	if item == nil || !oas3TraversalApplies(version) {
 		return
@@ -122,12 +141,61 @@ func (v *Validator) validateOAS3TraversalPathItem(
 			v.visitContentExamples(op.RequestBody.Content, opPath+".requestBody", result)
 		}
 		if op.Responses != nil {
+			// The default response is a sibling of the coded ones, not one of
+			// them: it carries its own content and headers.
+			if responseNeedsVisit(op.Responses.Default) {
+				v.visitResponseExamples(op.Responses.Default, opPath+".responses.default", result)
+			}
 			for code, resp := range op.Responses.Codes {
 				if !responseNeedsVisit(resp) {
 					continue
 				}
 				v.visitResponseExamples(resp, opPath+".responses."+code, result)
 			}
+		}
+
+		v.visitCallbacks(op.Callbacks, opPath, version, result, visited, depth)
+	}
+}
+
+// visitCallbacks walks the path items a Callback Object holds, so the rules
+// reach every position inside one. Each of those path items needs its own
+// operations map, which the callers of
+// [Validator.validateOAS3TraversalPathItem] cannot supply; only a document
+// declaring callbacks pays for building them.
+//
+// visited is what makes this terminate. The depth bound alone does not contain a
+// cycle, because a path item whose operations lead back to it branches, so the
+// walk goes exponential in depth long before the bound is reached. Same
+// reasoning as [Validator.validatePathItemSchemas], which hit exactly that.
+func (v *Validator) visitCallbacks(
+	callbacks map[string]*parser.Callback,
+	prefix string,
+	version parser.OASVersion,
+	result *ValidationResult,
+	visited map[*parser.PathItem]bool,
+	depth int,
+) {
+	if len(callbacks) == 0 || depth >= maxCallbackNestingDepth {
+		return
+	}
+	for name, cb := range callbacks {
+		if cb == nil {
+			continue
+		}
+		for expr, item := range *cb {
+			// Reading a nil map is legal, so the lookup above needs no map and
+			// only the write below does. A callback map holding nothing but nil
+			// entries therefore allocates nothing.
+			if item == nil || visited[item] {
+				continue
+			}
+			if visited == nil {
+				visited = make(map[*parser.PathItem]bool)
+			}
+			visited[item] = true
+			v.traversePathItem(item, prefix+".callbacks."+name+"."+expr, version,
+				parser.GetOperations(item, version), result, visited, depth+1)
 		}
 	}
 }

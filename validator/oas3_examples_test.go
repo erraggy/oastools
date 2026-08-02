@@ -77,11 +77,11 @@ components:
 			wantErrors: nil,
 		},
 		{
-			// The traversal that finds Example Objects is gated on 3.2 — see
-			// oas32TraversalApplies for why paying it on every 3.0/3.1 document is
-			// not worth catching a field those versions do not define. So the
-			// exclusivity rule stays silent here even though dataValue and value are
-			// set together.
+			// The traversal reaches this document: it runs from 3.0 (see
+			// oas3TraversalApplies). What keeps the rule silent is the rule's own
+			// version, `since: parser.OASVersion320` in exampleExclusions, because
+			// 3.1 does not define dataValue. So the exclusivity rule stays silent
+			// here even though dataValue and value are set together.
 			//
 			// What reports instead is the version gate: below 3.2 the defect is not
 			// that dataValue conflicts with value, it is that dataValue does not

@@ -265,6 +265,51 @@ func TestValidateOAS3SecurityScheme_MissingType(t *testing.T) {
 	assert.True(t, foundError, "Should have error about security scheme missing type")
 }
 
+// TestValidateOAS3SecurityScheme_RefFormNeedsNoType covers the $ref form, which
+// `components.securitySchemes` accepts at every 3.x version. A Reference Object
+// carries no `type`, so demanding one rejects a valid document. The alias here
+// deliberately sits beside a scheme that is missing `type` for real, so the test
+// fails if the guard stops distinguishing them.
+func TestValidateOAS3SecurityScheme_RefFormNeedsNoType(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "T", Version: "1.0.0"},
+		Components: &parser.Components{
+			SecuritySchemes: map[string]*parser.SecurityScheme{
+				"alias": {Ref: "#/components/securitySchemes/real"},
+				// apiKey rather than mutualTLS: 3.0 does not define the latter,
+				// and the target of the alias has to be valid at the version
+				// under test for the alias case to mean anything.
+				"real":   {Type: securitySchemeTypeAPIKey, Name: "X-Key", In: parser.ParamInHeader},
+				"noType": {},
+			},
+		},
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(parser.ParseResult{
+		Version:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Document:   doc,
+	})
+	require.NoError(t, err)
+
+	var aliasReported, noTypeReported bool
+	for _, e := range result.Errors {
+		if !strings.Contains(e.Message, "Security scheme must have a type") {
+			continue
+		}
+		if strings.Contains(e.Path, "components.securitySchemes.alias") {
+			aliasReported = true
+		}
+		if strings.Contains(e.Path, "components.securitySchemes.noType") {
+			noTypeReported = true
+		}
+	}
+	assert.False(t, aliasReported, "a $ref-form security scheme must not be required to have a type")
+	assert.True(t, noTypeReported, "a scheme genuinely missing type must still be reported")
+}
+
 func TestValidateOAS3SecurityScheme_ApiKeyMissingName(t *testing.T) {
 	// Test: apiKey security scheme without name should error
 	doc := &parser.OAS3Document{

@@ -42,7 +42,7 @@ func (v *Validator) validateOAS3(doc *parser.OAS3Document, result *ValidationRes
 	// Validate duplicate operationIds
 	v.validateOAS3OperationIds(doc, result, baseURL)
 
-	// Validate the OAS 3.2 cross-field constraints (see oas32.go)
+	// Validate the OAS 3.x mutual exclusions (see oas3_examples.go)
 	v.validateOAS3TraversalComponents(doc, result)
 	v.validateOAS32FieldsNotYetIntroduced(doc, result)
 
@@ -226,8 +226,9 @@ func (v *Validator) validateOAS3Paths(doc *parser.OAS3Document, result *Validati
 		// Validate each operation
 		operations := parser.GetOperations(pathItem, doc.OASVersion)
 
-		// The OAS 3.2 traversal rules ride along on the operations map this pass
-		// already built, rather than taking a traversal of their own (see oas32.go).
+		// The OAS 3.x traversal rules ride along on the operations map this pass
+		// already built, rather than taking a traversal of their own
+		// (see oas3_examples.go).
 		v.validateOAS3TraversalPathItem(pathItem, pathPrefix, doc.OASVersion, operations, result)
 
 		// A path item carries parameters of its own, shared by every operation in it.

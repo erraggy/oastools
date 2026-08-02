@@ -678,6 +678,8 @@ func TestOAS32GateCoversEveryVersionWithTraversal(t *testing.T) {
 	}{
 		{parser.OASVersion20, false, true},
 		{parser.OASVersion300, true, true},
+		{parser.OASVersion301, true, true},
+		{parser.OASVersion302, true, true},
 		{parser.OASVersion303, true, true},
 		{parser.OASVersion304, true, true},
 		{parser.OASVersion310, true, true},

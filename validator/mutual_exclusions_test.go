@@ -2,6 +2,7 @@ package validator
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -161,7 +162,7 @@ components:
               itemEncoding: {}
 `,
 			wantErrors: []string{
-				"content.multipart/mixed.encoding.meta: Encoding must not have both encoding and itemEncoding",
+				"components.requestBodies.rb.content.multipart/mixed.encoding.meta: Encoding must not have both encoding and itemEncoding",
 			},
 		},
 		{
@@ -179,7 +180,7 @@ components:
               prefixEncoding: []
 `,
 			wantErrors: []string{
-				"content.multipart/mixed.prefixEncoding[0]: Encoding must not have both encoding and prefixEncoding",
+				"components.requestBodies.rb.content.multipart/mixed.prefixEncoding[0]: Encoding must not have both encoding and prefixEncoding",
 			},
 		},
 		{
@@ -197,7 +198,7 @@ components:
             itemEncoding: {}
 `,
 			wantErrors: []string{
-				"content.multipart/mixed.itemEncoding: Encoding must not have both encoding and itemEncoding",
+				"components.requestBodies.rb.content.multipart/mixed.itemEncoding: Encoding must not have both encoding and itemEncoding",
 			},
 		},
 		{
@@ -218,7 +219,7 @@ components:
                   prefixEncoding: []
 `,
 			wantErrors: []string{
-				"encoding.outer.encoding.inner: Encoding must not have both encoding and prefixEncoding",
+				"components.requestBodies.rb.content.multipart/mixed.encoding.outer.encoding.inner: Encoding must not have both encoding and prefixEncoding",
 			},
 		},
 	}
@@ -293,7 +294,7 @@ components:
               dataValue: {a: 1}
 `,
 			wantErrors: []string{
-				"content.application/json: Media Type must not have both example and examples",
+				"components.requestBodies.rb.content.application/json: Media Type must not have both example and examples",
 			},
 		},
 		{
@@ -448,7 +449,14 @@ components:
           encoding: {}
           itemEncoding: {}
 `
-		for _, got := range validationErrors(t, spec) {
+		errs := validationErrors(t, spec)
+		// Pinned non-empty, and pinned to the report that should fire instead.
+		// Without this the loop below runs zero times and the sub-test passes
+		// even if the traversal stopped reporting anything at all.
+		assertErrorsMatch(t, errs, []string{
+			"itemEncoding was introduced in OpenAPI 3.2.0",
+		})
+		for _, got := range errs {
 			assert.NotContains(t, got, "must not have both encoding",
 				"the 3.2 encoding exclusion must not reach a 3.1 document")
 		}
@@ -468,7 +476,11 @@ components:
       dataValue: foo
       value: foo
 `
-		for _, got := range validationErrors(t, spec) {
+		errs := validationErrors(t, spec)
+		assertErrorsMatch(t, errs, []string{
+			"dataValue was introduced in OpenAPI 3.2.0",
+		})
+		for _, got := range errs {
 			assert.NotContains(t, got, "must not have both dataValue and value",
 				"the 3.2 dataValue exclusion must not reach a 3.0 document")
 		}
@@ -665,6 +677,78 @@ paths:
 `,
 			wantPath: "paths./pets.parameters[0].content.application/json",
 		},
+		{
+			// The default response is a sibling of the coded ones rather than an
+			// entry among them, so a walk over Responses.Codes alone never sees it.
+			name: "default response",
+			spec: `
+openapi: 3.2.0
+info: {title: T, version: "1.0.0"}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        default:
+          description: Anything else
+          content:
+            application/json:
+              encoding: {}
+              itemEncoding: {}
+`,
+			wantPath: "paths./pets.get.responses.default.content.application/json",
+		},
+		{
+			// A Callback Object holds Path Item Objects, so every position inside a
+			// path item exists again inside a callback.
+			name: "operation callback",
+			spec: `
+openapi: 3.2.0
+info: {title: T, version: "1.0.0"}
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      responses:
+        "204": {description: No Content}
+      callbacks:
+        onEvent:
+          '{$request.body#/url}':
+            post:
+              operationId: notify
+              requestBody:
+                content:
+                  application/json:
+                    encoding: {}
+                    itemEncoding: {}
+              responses:
+                "204": {description: No Content}
+`,
+			wantPath: "paths./pets.post.callbacks.onEvent.{$request.body#/url}.post." +
+				"requestBody.content.application/json",
+		},
+		{
+			name: "components.callbacks",
+			spec: `
+openapi: 3.2.0
+info: {title: T, version: "1.0.0"}
+components:
+  callbacks:
+    onEvent:
+      '{$request.body#/url}':
+        post:
+          operationId: notify
+          requestBody:
+            content:
+              application/json:
+                encoding: {}
+                itemEncoding: {}
+          responses:
+            "204": {description: No Content}
+`,
+			wantPath: "components.callbacks.onEvent.{$request.body#/url}.post." +
+				"requestBody.content.application/json",
+		},
 	}
 
 	for _, tt := range tests {
@@ -676,9 +760,51 @@ paths:
 	}
 }
 
-// TestExclusionsSkipReferenceForms asserts a $ref alias is left alone. It
-// carries no sibling fields, and the definition it names is checked in its own
-// right.
+// TestCallbackTraversalTerminatesOnACycle pins the reason [Validator.visitCallbacks]
+// tracks visited path items rather than relying on its depth bound alone. A
+// parsed document cannot express this graph, but ValidateParsed takes the
+// caller's, and a branching cycle goes exponential long before the bound.
+func TestCallbackTraversalTerminatesOnACycle(t *testing.T) {
+	item := &parser.PathItem{}
+	cb := parser.Callback{"{$request.body#/url}": item}
+	// Two operations, each holding the callback that leads back to this same path
+	// item. Without the visited set the walk branches two ways per level.
+	item.Post = &parser.Operation{Callbacks: map[string]*parser.Callback{"a": &cb}}
+	item.Get = &parser.Operation{Callbacks: map[string]*parser.Callback{"b": &cb}}
+
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.2.0",
+		OASVersion: parser.OASVersion320,
+		Info:       &parser.Info{Title: "T", Version: "1.0.0"},
+		Paths:      map[string]*parser.PathItem{"/pets": item},
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		v := New()
+		_, err := v.ValidateParsed(parser.ParseResult{
+			Document:   doc,
+			Version:    "3.2.0",
+			OASVersion: parser.OASVersion320,
+		})
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("callback traversal did not terminate on a cyclic graph")
+	}
+}
+
+// TestExclusionsSkipReferenceForms asserts a $ref alias is left alone: the
+// definition it names is checked in its own right.
+//
+// Both aliases deliberately carry the sibling fields of a rule they would
+// otherwise trip. A `$ref` with no siblings proves nothing here, because no rule
+// could fire on it whether or not the Ref guard exists. These spell the pair, so
+// removing either guard makes this test fail.
 func TestExclusionsSkipReferenceForms(t *testing.T) {
 	spec := `
 openapi: 3.2.0
@@ -687,6 +813,10 @@ components:
   parameters:
     alias:
       $ref: '#/components/parameters/real'
+      example: bear
+      examples:
+        one:
+          dataValue: bear
     real:
       name: p
       in: header
@@ -694,6 +824,8 @@ components:
   examples:
     exampleAlias:
       $ref: '#/components/examples/realExample'
+      value: foo
+      externalValue: https://example.com/example.json
     realExample:
       value: foo
 `
