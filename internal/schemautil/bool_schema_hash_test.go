@@ -40,6 +40,26 @@ func TestHashBoolSchemaRepresentationsAgree(t *testing.T) {
 			raw:  &parser.Schema{Type: "object", AdditionalProperties: false},
 			wrap: &parser.Schema{Type: "object", AdditionalProperties: parser.NewBoolSchema(false)},
 		},
+		{
+			name: "additionalItems true",
+			raw:  &parser.Schema{Type: "array", AdditionalItems: true},
+			wrap: &parser.Schema{Type: "array", AdditionalItems: parser.NewBoolSchema(true)},
+		},
+		{
+			name: "additionalItems false",
+			raw:  &parser.Schema{Type: "array", AdditionalItems: false},
+			wrap: &parser.Schema{Type: "array", AdditionalItems: parser.NewBoolSchema(false)},
+		},
+		{
+			name: "unevaluatedProperties true",
+			raw:  &parser.Schema{Type: "object", UnevaluatedProperties: true},
+			wrap: &parser.Schema{Type: "object", UnevaluatedProperties: parser.NewBoolSchema(true)},
+		},
+		{
+			name: "unevaluatedItems false",
+			raw:  &parser.Schema{Type: "array", UnevaluatedItems: false},
+			wrap: &parser.Schema{Type: "array", UnevaluatedItems: parser.NewBoolSchema(false)},
+		},
 	}
 
 	for _, tt := range tests {

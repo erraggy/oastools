@@ -73,3 +73,74 @@ func TestCompareBoolSchemasReportsADifference(t *testing.T) {
 	assert.False(t, result.Equivalent)
 	assert.NotEmpty(t, result.Differences, "a mismatch should say what differed")
 }
+
+// TestCompareNestedBoolSchemas covers boolean schemas below the top level.
+// Checking only at the entry point left every nested position unguarded:
+// `{p: true}` and `{p: false}` compared equal, because the field-by-field
+// comparison finds nothing set on either side and a boolean carries no fields.
+func TestCompareNestedBoolSchemas(t *testing.T) {
+	object := func(property *parser.Schema) *parser.Schema {
+		return &parser.Schema{
+			Type:       "object",
+			Properties: map[string]*parser.Schema{"p": property},
+		}
+	}
+
+	tests := []struct {
+		name       string
+		left       *parser.Schema
+		right      *parser.Schema
+		equivalent bool
+	}{
+		{"nested true and true", object(parser.NewBoolSchema(true)), object(parser.NewBoolSchema(true)), true},
+		{"nested false and false", object(parser.NewBoolSchema(false)), object(parser.NewBoolSchema(false)), true},
+		{"nested true and false", object(parser.NewBoolSchema(true)), object(parser.NewBoolSchema(false)), false},
+		{"nested boolean and object", object(parser.NewBoolSchema(true)), object(&parser.Schema{Type: "string"}), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CompareSchemas(tt.left, tt.right, EquivalenceModeDeep)
+			assert.Equal(t, tt.equivalent, result.Equivalent, "differences: %v", result.Differences)
+		})
+	}
+}
+
+// TestCompareSchemaOrBoolRepresentations covers the any-typed schema-or-bool
+// fields, where a boolean can arrive either as a raw bool — what the decoders
+// leave there — or as a *Schema with BoolForm set, which is what building one
+// programmatically produces. The two mean the same thing.
+//
+// Three separate functions compare these fields (compareSchemaOrBool,
+// compareItemsSchemas, comparePolymorphicSchemas), so each field below is
+// covered rather than trusting one to stand for the rest.
+func TestCompareSchemaOrBoolRepresentations(t *testing.T) {
+	wrapped := parser.NewBoolSchema
+
+	tests := []struct {
+		name        string
+		left, right *parser.Schema
+		equivalent  bool
+	}{
+		{"items raw and wrapped true", &parser.Schema{Items: true}, &parser.Schema{Items: wrapped(true)}, true},
+		{"items raw true and wrapped false", &parser.Schema{Items: true}, &parser.Schema{Items: wrapped(false)}, false},
+		{"items both raw true", &parser.Schema{Items: true}, &parser.Schema{Items: true}, true},
+		{"items raw true and raw false", &parser.Schema{Items: true}, &parser.Schema{Items: false}, false},
+		{"items boolean and object", &parser.Schema{Items: true}, &parser.Schema{Items: &parser.Schema{Type: "string"}}, false},
+
+		{"additionalProperties raw and wrapped", &parser.Schema{AdditionalProperties: true}, &parser.Schema{AdditionalProperties: wrapped(true)}, true},
+		{"additionalProperties raw true and false", &parser.Schema{AdditionalProperties: true}, &parser.Schema{AdditionalProperties: false}, false},
+
+		{"additionalItems raw and wrapped", &parser.Schema{AdditionalItems: true}, &parser.Schema{AdditionalItems: wrapped(true)}, true},
+
+		{"unevaluatedProperties raw and wrapped", &parser.Schema{UnevaluatedProperties: true}, &parser.Schema{UnevaluatedProperties: wrapped(true)}, true},
+		{"unevaluatedItems raw true and wrapped false", &parser.Schema{UnevaluatedItems: true}, &parser.Schema{UnevaluatedItems: wrapped(false)}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CompareSchemas(tt.left, tt.right, EquivalenceModeDeep)
+			assert.Equal(t, tt.equivalent, result.Equivalent, "differences: %v", result.Differences)
+		})
+	}
+}
