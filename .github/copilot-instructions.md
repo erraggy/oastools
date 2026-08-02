@@ -61,24 +61,11 @@ All OAS versions utilize the **JSON Schema Specification Draft 2020-12**: https:
 - **Webhooks**: New top-level `webhooks` object for event-driven APIs
 - **License**: Added `identifier` field to license object
 
-### Critical Type System Considerations
+### Type System
 
-**interface{} Fields:**
-Several OAS 3.1+ fields use `interface{}` to support multiple types. Always use type assertions:
+Some fields are `interface{}` because the specification allows more than one shape there. `schema.Type` is the common one. Read it through `internal/schemautil`, which owns the assertion and documents the shapes it can hold, rather than asserting inline.
 
-```go
-if typeStr, ok := schema.Type.(string); ok {
-    // Handle string type
-} else if typeArr, ok := schema.Type.([]string); ok {
-    // Handle array type
-}
-```
-
-**Pointer vs Value Types:**
-
-- `OAS3Document.Servers` uses `[]*parser.Server` (slice of pointers)
-- Always use `&parser.Server{...}` for pointer semantics
-- This pattern applies to other nested structures to avoid unexpected mutations
+Nested structures are pointer slices (`[]*parser.Server`), so construct them with `&parser.Server{...}`.
 
 ### Version-Specific Features
 
@@ -96,7 +83,7 @@ if typeStr, ok := schema.Type.(string); ok {
 
 ### Common Pitfalls and Solutions
 
-1. **Assuming schema.Type is always a string** - Use type assertions and handle both string and []string cases
+1. **Assuming schema.Type is always a string** - Read it through `internal/schemautil` rather than asserting inline
 2. **Creating value slices instead of pointer slices** - Check parser types and use `&Type{...}` syntax
 3. **Forgetting to track conversion issues** - Add issues for every lossy conversion or unsupported feature
 4. **Mutating source documents** - Deep copy before modification using generated `DeepCopy()` methods on parser types (e.g., `doc.DeepCopy()`). Never use JSON marshal/unmarshal for deep copying — it silently loses `interface{}` type distinctions (e.g., `string` vs `[]string` in OAS 3.1 `schema.Type`) and drops fields tagged `json:"-"`. When the caller owns the document and won't reuse it, use `WithMutableInput(true)` to skip the copy entirely.
