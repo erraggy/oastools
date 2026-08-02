@@ -764,7 +764,7 @@ paths:
 }
 
 // TestVersionGatesTreatUnrecognizedVersionsAsInScope pins the convention shared
-// by every version gate here and by oas32TraversalApplies: a constraint
+// by every version gate here and by oas3TraversalApplies: a constraint
 // introduced at a threshold is assumed to hold in later versions this build does
 // not yet recognize.
 //

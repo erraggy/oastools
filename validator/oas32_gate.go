@@ -16,8 +16,12 @@ import (
 )
 
 // oas32FieldGateApplies reports whether a document predates the 3.2 fixed fields.
-// The exact complement of [oas32TraversalApplies], which keeps the unrecognized
-// versions: calling a field too new needs a version to measure it against.
+// An unrecognized version is out of scope, since calling a field too new needs a
+// version to measure it against.
+//
+// Overlaps [oas3TraversalApplies] on 3.0 and 3.1 documents without reporting the
+// same thing twice: this gate reports fields 3.2 introduced, and every traversal
+// rule reading one of those fields carries a matching version of its own.
 func oas32FieldGateApplies(version parser.OASVersion) bool {
 	return version.IsValid() && version < parser.OASVersion320
 }
@@ -47,7 +51,7 @@ type gateSeg struct {
 }
 
 // gatePath accumulates a JSON path without building one. Building it eagerly cost
-// roughly 20% more validator allocations — see [oas32TraversalApplies] — so
+// roughly 20% more validator allocations (see [oas3TraversalApplies]), so
 // segments push and pop by value and the join happens only where a violation is
 // reported, which on a real pre-3.2 document is nowhere.
 type gatePath struct {

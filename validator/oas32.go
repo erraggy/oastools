@@ -1,16 +1,20 @@
-// oas32.go implements the OAS 3.2.0 constraints that depend on more than a
-// field's presence: a sibling field, the document version, or another parameter
-// in the same effective list.
+// oas32.go implements the constraints OAS 3.2 alone states: the `querystring`
+// parameter location and its interaction rules, and the two Schema Object fields
+// 3.2 added, `nodeType` on the XML Object and `defaultMapping` on the
+// Discriminator Object.
 //
-// Each rule links to the section of the specification that states it rather than
-// restating it here. https://spec.openapis.org/oas/v3.2.0.html
+// Rules stated from 3.0 that depend on a sibling field are in oas3_examples.go.
+// oas32_gate.go is this file's complement: it reports these same fields when a
+// document predates them.
+//
+// Each rule links the section stating it rather than restating it here.
+// https://spec.openapis.org/oas/v3.2.0.html
 
 package validator
 
 import (
 	"fmt"
 	"slices"
-	"strconv"
 
 	"github.com/erraggy/oastools/parser"
 )
@@ -25,236 +29,6 @@ const oas32SpecRef = "https://spec.openapis.org/oas/v3.2.0.html"
 // Its default is not modeled: the default depends on the enclosing Schema Object,
 // which an XML Object cannot see.
 var xmlNodeTypes = []string{"element", "attribute", "text", "cdata", "none"}
-
-// oas32TraversalApplies reports whether the traversal-driven 3.2 rules apply.
-//
-// They read fields 3.2 introduced, and the walk is not free: it builds a JSON path
-// per operation, response, and media type it passes, which ungated cost roughly
-// 20% more validator allocations on every document. An unrecognized version counts
-// as in scope, so a document the parser could not classify is still checked.
-func oas32TraversalApplies(version parser.OASVersion) bool {
-	return !version.IsValid() || version >= parser.OASVersion320
-}
-
-// validateOAS32Document runs the 3.2 rules over the Components sections. Path
-// items go through [Validator.validateOAS32PathItem], called from the passes that
-// already hold their operations map.
-//
-// The schema-level rules hang off validateSchema instead, which already visits
-// every schema.
-func (v *Validator) validateOAS32Document(doc *parser.OAS3Document, result *ValidationResult) {
-	if !oas32TraversalApplies(doc.OASVersion) || doc.Components == nil {
-		return
-	}
-	c := doc.Components
-
-	for name, ex := range c.Examples {
-		v.validateExampleValueExclusivity(ex, "components.examples."+name, result)
-	}
-	for name, param := range c.Parameters {
-		prefix := "components.parameters." + name
-		v.visitParameterExamples(param, prefix, result)
-		// Declaration-site rules only: which operations reference this definition is
-		// not knowable here, so the interaction rules are left to the use sites.
-		v.validateQueryStringParam(param, prefix, result)
-	}
-	for name, header := range c.Headers {
-		v.visitHeaderExamples(header, "components.headers."+name, result)
-	}
-	for name, rb := range c.RequestBodies {
-		if rb != nil {
-			v.visitContentExamples(rb.Content, "components.requestBodies."+name, result)
-		}
-	}
-	for name, resp := range c.Responses {
-		v.visitResponseExamples(resp, "components.responses."+name, result)
-	}
-	for name, mt := range c.MediaTypes {
-		v.visitMediaTypeExamples(mt, "components.mediaTypes."+name, result)
-	}
-}
-
-// validateOAS32PathItem applies the Example and `querystring` rules to one path
-// item. ops and version come from the caller because every caller already holds
-// them; building another operations map here cost roughly 20% more validator
-// allocations, for rules that fire on almost no document.
-func (v *Validator) validateOAS32PathItem(
-	item *parser.PathItem,
-	prefix string,
-	version parser.OASVersion,
-	ops map[string]*parser.Operation,
-	result *ValidationResult,
-) {
-	if item == nil || !oas32TraversalApplies(version) {
-		return
-	}
-
-	for i, param := range item.Parameters {
-		paramPath := prefix + ".parameters[" + strconv.Itoa(i) + "]"
-		v.visitParameterExamples(param, paramPath, result)
-		v.validateQueryStringParam(param, paramPath, result)
-	}
-
-	// Reported against the path item so a conflict wholly inside its own
-	// parameter list is not repeated for every operation it contains.
-	itemQueryString, itemQuery := countQueryLocations(item.Parameters)
-	v.reportQueryStringConflicts(itemQueryString, itemQuery, prefix, result)
-
-	for method, op := range ops {
-		if op == nil {
-			continue
-		}
-		opPath := prefix + "." + method
-
-		for i, param := range op.Parameters {
-			paramPath := opPath + ".parameters[" + strconv.Itoa(i) + "]"
-			v.visitParameterExamples(param, paramPath, result)
-			v.validateQueryStringParam(param, paramPath, result)
-		}
-
-		if opQueryString, opQuery := countQueryLocations(op.Parameters); opQueryString > 0 || opQuery > 0 {
-			// Skipped when the operation declares neither, since any defect in the
-			// path item's own list was already reported above.
-			v.reportQueryStringConflicts(itemQueryString+opQueryString, itemQuery+opQuery, opPath, result)
-		}
-
-		if op.RequestBody != nil {
-			v.visitContentExamples(op.RequestBody.Content, opPath+".requestBody", result)
-		}
-		if op.Responses != nil {
-			for code, resp := range op.Responses.Codes {
-				v.visitResponseExamples(resp, opPath+".responses."+code, result)
-			}
-		}
-	}
-}
-
-// =============================================================================
-// Example Object: dataValue / serializedValue exclusivity
-// =============================================================================
-
-// validateExampleValueExclusivity enforces the Example Object's mutual exclusions:
-// `dataValue` and `serializedValue` each forbid `value`, and `serializedValue`
-// also forbids `externalValue`.
-// https://spec.openapis.org/oas/v3.2.0.html#fixed-fields-15
-//
-// `dataValue` with `serializedValue` is legal, so no rule pairs those two.
-// [oas32TraversalApplies] gates the walk that reaches here, so there is no
-// pre-3.2 branch to take.
-func (v *Validator) validateExampleValueExclusivity(ex *parser.Example, path string, result *ValidationResult) {
-	if ex == nil {
-		return
-	}
-	// A pure $ref alias carries no sibling fields; the definition it names is
-	// checked in its own right. Mirrors validateOAS3RequestBody.
-	if ex.Ref != "" {
-		return
-	}
-
-	hasData := ex.DataValue != nil
-	hasSerialized := ex.SerializedValue != ""
-
-	if !hasData && !hasSerialized {
-		return
-	}
-
-	if hasData && ex.Value != nil {
-		v.addError(result, path,
-			"Example must not have both dataValue and value; dataValue requires value to be absent",
-			withSpecRef(oas32SpecRef+"#fixed-fields-15"),
-			withField("dataValue"),
-		)
-	}
-	if hasSerialized && ex.Value != nil {
-		v.addError(result, path,
-			"Example must not have both serializedValue and value; serializedValue requires value to be absent",
-			withSpecRef(oas32SpecRef+"#fixed-fields-15"),
-			withField("serializedValue"),
-		)
-	}
-	if hasSerialized && ex.ExternalValue != "" {
-		v.addError(result, path,
-			"Example must not have both serializedValue and externalValue; serializedValue requires externalValue to be absent",
-			withSpecRef(oas32SpecRef+"#fixed-fields-15"),
-			withField("serializedValue"),
-		)
-	}
-}
-
-func (v *Validator) visitParameterExamples(param *parser.Parameter, prefix string, result *ValidationResult) {
-	if param == nil {
-		return
-	}
-	for name, ex := range param.Examples {
-		v.validateExampleValueExclusivity(ex, prefix+".examples."+name, result)
-	}
-	v.visitContentExamples(param.Content, prefix, result)
-}
-
-func (v *Validator) visitHeaderExamples(header *parser.Header, prefix string, result *ValidationResult) {
-	if header == nil {
-		return
-	}
-	for name, ex := range header.Examples {
-		v.validateExampleValueExclusivity(ex, prefix+".examples."+name, result)
-	}
-	v.visitContentExamples(header.Content, prefix, result)
-}
-
-func (v *Validator) visitResponseExamples(resp *parser.Response, prefix string, result *ValidationResult) {
-	if resp == nil {
-		return
-	}
-	v.visitContentExamples(resp.Content, prefix, result)
-	for name, header := range resp.Headers {
-		v.visitHeaderExamples(header, prefix+".headers."+name, result)
-	}
-}
-
-func (v *Validator) visitContentExamples(content map[string]*parser.MediaType, prefix string, result *ValidationResult) {
-	for mediaType, mt := range content {
-		v.visitMediaTypeExamples(mt, prefix+".content."+mediaType, result)
-	}
-}
-
-func (v *Validator) visitMediaTypeExamples(mt *parser.MediaType, prefix string, result *ValidationResult) {
-	if mt == nil {
-		return
-	}
-	for name, ex := range mt.Examples {
-		v.validateExampleValueExclusivity(ex, prefix+".examples."+name, result)
-	}
-	// Encoding Objects carry Headers, which carry Examples, including through the
-	// nested encodings 3.2 added.
-	for name, enc := range mt.Encoding {
-		v.visitEncodingExamples(enc, prefix+".encoding."+name, result, 0)
-	}
-	v.visitEncodingExamples(mt.ItemEncoding, prefix+".itemEncoding", result, 0)
-	for i, enc := range mt.PrefixEncoding {
-		v.visitEncodingExamples(enc, prefix+".prefixEncoding["+strconv.Itoa(i)+"]", result, 0)
-	}
-}
-
-// maxEncodingNestingDepth bounds the recursive Encoding traversal 3.2 introduced.
-// A parsed document cannot build a cyclic Encoding graph, but the bound keeps a
-// hand-assembled one from recursing without end.
-const maxEncodingNestingDepth = 100
-
-func (v *Validator) visitEncodingExamples(enc *parser.Encoding, prefix string, result *ValidationResult, depth int) {
-	if enc == nil || depth > maxEncodingNestingDepth {
-		return
-	}
-	for name, header := range enc.Headers {
-		v.visitHeaderExamples(header, prefix+".headers."+name, result)
-	}
-	for name, nested := range enc.Encoding {
-		v.visitEncodingExamples(nested, prefix+".encoding."+name, result, depth+1)
-	}
-	v.visitEncodingExamples(enc.ItemEncoding, prefix+".itemEncoding", result, depth+1)
-	for i, nested := range enc.PrefixEncoding {
-		v.visitEncodingExamples(nested, prefix+".prefixEncoding["+strconv.Itoa(i)+"]", result, depth+1)
-	}
-}
 
 // =============================================================================
 // Parameter Object: in: "querystring"
@@ -282,6 +56,9 @@ func countQueryLocations(params []*parser.Parameter) (queryString, query int) {
 // one effective parameter list: at most one, and never alongside `in: "query"`.
 // https://spec.openapis.org/oas/v3.2.0.html#parameter-in
 func (v *Validator) reportQueryStringConflicts(queryString, query int, prefix string, result *ValidationResult) {
+	if !queryStringRulesApply(v.oasVersion) {
+		return
+	}
 	if queryString > 1 {
 		v.addError(result, prefix,
 			fmt.Sprintf("A querystring parameter must not appear more than once, but %d were found", queryString),
@@ -299,14 +76,26 @@ func (v *Validator) reportQueryStringConflicts(queryString, query int, prefix st
 	}
 }
 
+// queryStringRulesApply reports whether the `in: "querystring"` rules are in
+// force. 3.2 introduced the location, so a document below it describes something
+// else by that name and is left alone.
+//
+// Gated here rather than at the walk: [oas3TraversalApplies] admits 3.0 and 3.1
+// for the rules stated at those versions, and a parameter reaching this function
+// carries no proof the parser refused the location.
+func queryStringRulesApply(version parser.OASVersion) bool {
+	return !version.IsValid() || version >= parser.OASVersion320
+}
+
 // validateQueryStringParam enforces what an `in: "querystring"` parameter must
 // satisfy on its own: described with `content`, and none of the schema-form fields
 // present.
 // https://spec.openapis.org/oas/v3.2.0.html#fixed-fields-for-use-with-schema
-//
-// The version gate belongs to the parser, which rejects the location below 3.2.
 func (v *Validator) validateQueryStringParam(param *parser.Parameter, path string, result *ValidationResult) {
 	if param == nil || param.Ref != "" || param.In != parser.ParamInQueryString {
+		return
+	}
+	if !queryStringRulesApply(v.oasVersion) {
 		return
 	}
 

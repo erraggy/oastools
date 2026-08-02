@@ -76,10 +76,37 @@ func assertOAS32FieldsPresent(t *testing.T, doc *OAS3Document) {
 	require.NotNil(t, meta, "encoding.meta")
 	require.NotNil(t, meta.Encoding["nested"], "encoding.meta.encoding.nested")
 	assert.Equal(t, "text/plain", meta.Encoding["nested"].ContentType)
-	require.NotNil(t, meta.ItemEncoding, "encoding.meta.itemEncoding")
-	assert.Equal(t, "text/plain", meta.ItemEncoding.ContentType)
-	require.Len(t, meta.PrefixEncoding, 1, "encoding.meta.prefixEncoding")
-	assert.Equal(t, "text/plain", meta.PrefixEncoding[0].ContentType)
+
+	// The sequential forms sit on their own Encoding Object: `encoding` forbids
+	// both on the object that carries it.
+	//
+	// Every key under `encoding` names a property of the media type's schema, so
+	// assert the property exists before the encoding that describes it. Without
+	// this the fixture could pass every assertion below while describing a
+	// property it never declares.
+	require.NotNil(t, multipart.Schema, "multipart schema")
+	attachmentsProp := multipart.Schema.Properties["attachments"]
+	require.NotNil(t, attachmentsProp, "encoding.attachments must name a declared property")
+	// An array, because the encoding below describes it with the sequential
+	// forms. A scalar here would make the itemEncoding assertions meaningless.
+	//
+	// Compared against the decoded form rather than read through
+	// internal/schemautil, which is for code consuming a type it did not write.
+	// That accessor reports the same result for `array` and `[array]`, and which
+	// of the two this fixture round-trips as is what these assertions exist to
+	// pin. See schema_type_forms_test.go.
+	assert.Equal(t, "array", attachmentsProp.Type, "schema.properties.attachments.type")
+	attachmentItems, ok := attachmentsProp.Items.(*Schema)
+	require.True(t, ok, "schema.properties.attachments.items should promote to *Schema")
+	assert.Equal(t, "string", attachmentItems.Type, "schema.properties.attachments.items.type")
+
+	attachments := multipart.Encoding["attachments"]
+	require.NotNil(t, attachments, "encoding.attachments")
+	assert.Equal(t, "application/json", attachments.ContentType, "encoding.attachments.contentType")
+	require.NotNil(t, attachments.ItemEncoding, "encoding.attachments.itemEncoding")
+	assert.Equal(t, "text/plain", attachments.ItemEncoding.ContentType)
+	require.Len(t, attachments.PrefixEncoding, 1, "encoding.attachments.prefixEncoding")
+	assert.Equal(t, "text/plain", attachments.PrefixEncoding[0].ContentType)
 
 	// Parameter Object: in: "querystring"
 	post := doc.Paths["/pets"].Post

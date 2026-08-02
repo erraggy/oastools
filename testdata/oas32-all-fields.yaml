@@ -70,18 +70,31 @@ paths:
                       name: meta
                       nodeType: element
                       x-inline-xml-ext: keep
+                  # An array, because the encoding below describes it with the
+                  # sequential forms. Every key under `encoding` names a property
+                  # that must exist here.
+                  attachments:
+                    type: array
+                    items:
+                      type: string
               encoding:
+                # Split across two Encoding Objects because `encoding` forbids
+                # both sequential forms on the object that carries it. One
+                # object holding all three exercises every field and is not a
+                # valid document.
                 meta:
                   contentType: application/json
                   encoding:
                     nested:
                       contentType: text/plain
                       x-nested-encoding-ext: keep
+                  x-encoding-ext: keep
+                attachments:
+                  contentType: application/json
                   itemEncoding:
                     contentType: text/plain
                   prefixEncoding:
                     - contentType: text/plain
-                  x-encoding-ext: keep
     query:
       operationId: queryPets
       requestBody:

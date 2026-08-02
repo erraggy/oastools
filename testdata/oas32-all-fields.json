@@ -131,6 +131,10 @@
                         "x-nested-encoding-ext": "keep"
                       }
                     },
+                    "x-encoding-ext": "keep"
+                  },
+                  "attachments": {
+                    "contentType": "application/json",
                     "itemEncoding": {
                       "contentType": "text/plain"
                     },
@@ -138,8 +142,7 @@
                       {
                         "contentType": "text/plain"
                       }
-                    ],
-                    "x-encoding-ext": "keep"
+                    ]
                   }
                 },
                 "schema": {
@@ -150,6 +153,12 @@
                         "name": "meta",
                         "nodeType": "element",
                         "x-inline-xml-ext": "keep"
+                      }
+                    },
+                    "attachments": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
                       }
                     }
                   },

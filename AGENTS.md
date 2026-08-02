@@ -81,16 +81,9 @@ func BenchmarkOperation(b *testing.B) {
 - Format detected from file extension or content
 - First file determines output format for joiner
 
-**Type handling in OAS 3.1+:**
-
-```go
-// schema.Type can be string or []string - always use type assertions
-if typeStr, ok := schema.Type.(string); ok {
-    // Handle string type
-} else if typeArr, ok := schema.Type.([]string); ok {
-    // Handle array type
-}
-```
+**Type handling in OAS 3.1+:** `schema.Type` is `any`, because a schema may declare
+one type or several. Read it through `internal/schemautil`, which owns the assertion
+and documents the shapes it can hold.
 
 **Pointer semantics:**
 
@@ -158,7 +151,7 @@ For documentation-only changes, only items 3, 6, and 7 apply.
 
 ## Common Pitfalls
 
-1. **Type assertions:** Don't assume `schema.Type` is always a string - check both string and []string
+1. **Type assertions:** Don't assume `schema.Type` is always a string - read it through `internal/schemautil`
 2. **Pointer slices:** Use `&Type{...}` for pointer semantics, not value types
 3. **Conversion issues:** Track all lossy conversions or unsupported features
 4. **Deep copy:** Never mutate source documents - use generated `DeepCopy()` methods (e.g., `doc.DeepCopy()`), never JSON marshal/unmarshal
