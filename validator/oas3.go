@@ -13,32 +13,7 @@ import (
 
 // validateOAS3 performs OAS 3.x specific validation
 func (v *Validator) validateOAS3(doc *parser.OAS3Document, result *ValidationResult) {
-	version := doc.OpenAPI
-	var baseURL string
-
-	// Determine the correct spec URL based on version
-	switch doc.OASVersion {
-	case parser.OASVersion300:
-		baseURL = "https://spec.openapis.org/oas/v3.0.0.html"
-	case parser.OASVersion301:
-		baseURL = "https://spec.openapis.org/oas/v3.0.1.html"
-	case parser.OASVersion302:
-		baseURL = "https://spec.openapis.org/oas/v3.0.2.html"
-	case parser.OASVersion303:
-		baseURL = "https://spec.openapis.org/oas/v3.0.3.html"
-	case parser.OASVersion304:
-		baseURL = "https://spec.openapis.org/oas/v3.0.4.html"
-	case parser.OASVersion310:
-		baseURL = "https://spec.openapis.org/oas/v3.1.0.html"
-	case parser.OASVersion311:
-		baseURL = "https://spec.openapis.org/oas/v3.1.1.html"
-	case parser.OASVersion312:
-		baseURL = "https://spec.openapis.org/oas/v3.1.2.html"
-	case parser.OASVersion320:
-		baseURL = "https://spec.openapis.org/oas/v3.2.0.html"
-	default:
-		baseURL = fmt.Sprintf("https://spec.openapis.org/oas/v%s.html", version)
-	}
+	baseURL := specBaseURL(doc.OASVersion, doc.OpenAPI)
 
 	// Validate required fields in info object
 	v.validateOAS3Info(doc, result, baseURL)
@@ -170,6 +145,23 @@ func (v *Validator) validateOAS3Servers(doc *parser.OAS3Document, result *Valida
 				v.addError(result, varPath, "Server variable must have a default value",
 					withSpecRef(fmt.Sprintf("%s#server-variable-object", baseURL)),
 					withField("default"),
+				)
+			}
+
+			// An enum that is present but empty permits no value at all, which
+			// cannot be satisfied (the default itself could never be a member).
+			// OAS 3.1 added `minItems: 1` to the Server Variable Object's enum;
+			// 3.0's schema has no such constraint, so this is gated.
+			//
+			// Presence, not length, is the test: an absent enum means "any
+			// value" and is fine. The parser keeps the two apart: absent
+			// decodes to a nil slice, `enum: []` to an empty non-nil one.
+			if varObj.Enum != nil && len(varObj.Enum) == 0 &&
+				v.oasVersion.IsValid() && v.oasVersion >= parser.OASVersion310 {
+				v.addError(result, varPath,
+					"Server variable enum must not be empty; omit it to allow any value",
+					withSpecRef(fmt.Sprintf("%s#server-variable-object", baseURL)),
+					withField("enum"),
 				)
 			}
 
