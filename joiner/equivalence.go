@@ -161,6 +161,15 @@ func isEmptySchema(s *parser.Schema) bool {
 		return false
 	}
 
+	// A bare-boolean schema is the opposite of empty: `false` rejects every
+	// instance and `true` accepts every instance, both deliberately. Without
+	// this, CompareSchemasWithOptions took the empty-schema early return and
+	// reported two identical `true` schemas as non-equivalent — with an empty
+	// Differences slice, since nothing had actually been compared.
+	if s.BoolForm != nil {
+		return false
+	}
+
 	// Basic type constraints
 	if s.Type != nil {
 		return false
@@ -398,6 +407,14 @@ func CompareSchemasWithOptions(left, right *parser.Schema, opts CompareOptions) 
 
 	// Use stack-based path builder to minimize allocations
 	path := &comparePath{segments: make([]string, 0, 8)}
+
+	// A bare-boolean operand settles the comparison on its own. compareDeep
+	// repeats this for nested positions; running it here too is what covers
+	// shallow mode, which does not recurse.
+	if !equalBoolForms(left, right, path, &result) {
+		result.Equivalent = len(result.Differences) == 0
+		return result
+	}
 
 	if opts.Mode == EquivalenceModeShallow {
 		compareShallow(left, right, path, &result, compareDocs)
@@ -752,6 +769,96 @@ func compareShallow(left, right *parser.Schema, path *comparePath, result *Equiv
 	compareCommonFields(left, right, path, result, compareDocs)
 }
 
+// equalBoolForms compares two schemas when either is the bare-boolean form,
+// recording a difference when they disagree. It reports whether comparison
+// should continue: false means one or both sides were boolean and the verdict
+// is settled, since a boolean schema has no other fields to compare.
+//
+// `true` and `false` are opposite schemas — one accepts every instance, the
+// other none — and neither is equivalent to an object schema.
+func equalBoolForms(left, right *parser.Schema, path *comparePath, result *EquivalenceResult) bool {
+	leftBool, leftIsBool := left.IsBool()
+	rightBool, rightIsBool := right.IsBool()
+	if !leftIsBool && !rightIsBool {
+		return true
+	}
+	if leftIsBool && rightIsBool && leftBool == rightBool {
+		return false
+	}
+	result.Differences = append(result.Differences, SchemaDifference{
+		Path:        path.String(),
+		LeftValue:   boolDifferenceValue(leftBool, leftIsBool),
+		RightValue:  boolDifferenceValue(rightBool, rightIsBool),
+		Description: "boolean schema form mismatch",
+	})
+	return false
+}
+
+// boolDifferenceValue renders one side of a boolean-form mismatch for a
+// SchemaDifference. Callers format LeftValue and RightValue with %v, and
+// neither of the values available here survives that: a *bool prints as a
+// pointer address, and a *Schema prints as a full struct dump. Both hide the
+// one thing the difference exists to report.
+//
+// nil marks the side that is not a boolean schema at all, matching how the
+// other comparators leave a value absent rather than inventing one.
+func boolDifferenceValue(value, ok bool) any {
+	if !ok {
+		return nil
+	}
+	return value
+}
+
+// compareBoolOperands handles the bare-boolean form for the any-typed
+// schema-or-bool fields, recording a difference when the two sides disagree.
+// It reports whether the comparison is settled, which it is as soon as either
+// side is boolean: a boolean schema has no other fields.
+//
+// Shared by the three functions that compare these fields — compareSchemaOrBool,
+// compareItemsSchemas and comparePolymorphicSchemas — so the check cannot be
+// added to one and forgotten in the others. Pass an empty field when the caller
+// has already pushed the path segment.
+func compareBoolOperands(field string, left, right any, path *comparePath, result *EquivalenceResult) bool {
+	leftBool, leftIsBool := boolSchemaOperand(left)
+	rightBool, rightIsBool := boolSchemaOperand(right)
+	if !leftIsBool && !rightIsBool {
+		return false
+	}
+	if leftIsBool && rightIsBool && leftBool == rightBool {
+		return true
+	}
+
+	description := "boolean value mismatch"
+	if field != "" {
+		path.push(field)
+		defer path.pop()
+		description = field + " " + description
+	}
+	result.Differences = append(result.Differences, SchemaDifference{
+		Path:        path.String(),
+		LeftValue:   boolDifferenceValue(leftBool, leftIsBool),
+		RightValue:  boolDifferenceValue(rightBool, rightIsBool),
+		Description: description,
+	})
+	return true
+}
+
+// boolSchemaOperand reports the boolean a schema-or-bool operand represents, in
+// either of the two representations it can arrive in: a raw bool, which is what
+// the decoders leave in these any-typed fields, or a *Schema with BoolForm set,
+// which is what a caller building one programmatically produces. They mean the
+// same thing and must compare equal.
+func boolSchemaOperand(v any) (value bool, ok bool) {
+	switch t := v.(type) {
+	case bool:
+		return t, true
+	case *parser.Schema:
+		return t.IsBool()
+	default:
+		return false, false
+	}
+}
+
 // compareDeep recursively compares all schema properties
 func compareDeep(left, right *parser.Schema, path *comparePath, result *EquivalenceResult, visited map[pointerPair]bool, compareDocs bool) {
 	// Everything below dereferences both operands, and a nested schema can
@@ -768,6 +875,15 @@ func compareDeep(left, right *parser.Schema, path *comparePath, result *Equivale
 				Description: "schema presence mismatch",
 			})
 		}
+		return
+	}
+
+	// The bare-boolean form has no keywords, so it is compared by value and none
+	// of the field-by-field comparison below applies. Checked here rather than
+	// only at the top-level entry point because every nested schema position
+	// routes through this function: without it, `{p: true}` and `{p: false}`
+	// compared equal, since compareCommonFields finds nothing set on either side.
+	if !equalBoolForms(left, right, path, result) {
 		return
 	}
 
@@ -1212,6 +1328,10 @@ func compareItemsSchemas(left, right any, path *comparePath, result *Equivalence
 		return
 	}
 
+	if compareBoolOperands("items", left, right, path, result) {
+		return
+	}
+
 	// Both schemas
 	leftSchema, leftIsSchema := left.(*parser.Schema)
 	rightSchema, rightIsSchema := right.(*parser.Schema)
@@ -1219,23 +1339,6 @@ func compareItemsSchemas(left, right any, path *comparePath, result *Equivalence
 		path.push("items")
 		compareDeep(leftSchema, rightSchema, path, result, visited, compareDocs)
 		path.pop()
-		return
-	}
-
-	// Both booleans
-	leftBool, leftIsBool := left.(bool)
-	rightBool, rightIsBool := right.(bool)
-	if leftIsBool && rightIsBool {
-		if leftBool != rightBool {
-			path.push("items")
-			result.Differences = append(result.Differences, SchemaDifference{
-				Path:        path.String(),
-				LeftValue:   leftBool,
-				RightValue:  rightBool,
-				Description: "items boolean value mismatch",
-			})
-			path.pop()
-		}
 		return
 	}
 
@@ -1278,6 +1381,10 @@ func compareSchemaOrBool(field string, left, right any, path *comparePath, resul
 		return
 	}
 
+	if compareBoolOperands(field, left, right, path, result) {
+		return
+	}
+
 	// Both schemas
 	leftSchema, leftIsSchema := left.(*parser.Schema)
 	rightSchema, rightIsSchema := right.(*parser.Schema)
@@ -1287,23 +1394,6 @@ func compareSchemaOrBool(field string, left, right any, path *comparePath, resul
 		path.push(field)
 		compareDeep(leftSchema, rightSchema, path, result, visited, compareDocs)
 		path.pop()
-		return
-	}
-
-	// Both booleans
-	leftBool, leftIsBool := left.(bool)
-	rightBool, rightIsBool := right.(bool)
-	if leftIsBool && rightIsBool {
-		if leftBool != rightBool {
-			path.push(field)
-			result.Differences = append(result.Differences, SchemaDifference{
-				Path:        path.String(),
-				LeftValue:   leftBool,
-				RightValue:  rightBool,
-				Description: field + " boolean value mismatch",
-			})
-			path.pop()
-		}
 		return
 	}
 
@@ -1335,26 +1425,15 @@ func comparePolymorphicSchemas(left, right any, path *comparePath, result *Equiv
 		return
 	}
 
+	if compareBoolOperands("", left, right, path, result) {
+		return
+	}
+
 	// Both schemas
 	leftSchema, leftIsSchema := left.(*parser.Schema)
 	rightSchema, rightIsSchema := right.(*parser.Schema)
 	if leftIsSchema && rightIsSchema {
 		compareDeep(leftSchema, rightSchema, path, result, visited, compareDocs)
-		return
-	}
-
-	// Both booleans
-	leftBool, leftIsBool := left.(bool)
-	rightBool, rightIsBool := right.(bool)
-	if leftIsBool && rightIsBool {
-		if leftBool != rightBool {
-			result.Differences = append(result.Differences, SchemaDifference{
-				Path:        path.String(),
-				LeftValue:   leftBool,
-				RightValue:  rightBool,
-				Description: "boolean value mismatch",
-			})
-		}
 		return
 	}
 

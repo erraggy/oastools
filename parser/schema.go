@@ -98,6 +98,40 @@ type Schema struct {
 	// Extension fields
 	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]any `yaml:",inline" json:"-"`
+
+	// BoolForm reports that this schema came from — and should be written back
+	// as — a bare boolean rather than an object. JSON Schema 2020-12 allows
+	// `true` (accept anything) and `false` (accept nothing) wherever a schema is
+	// expected, and OAS 3.1+ adopts that dialect wholesale, so a Components
+	// entry may legally be `MySchema: true`.
+	//
+	// nil is the ordinary object form. Non-nil carries the boolean's value, so
+	// `true` and `false` stay distinguishable — they are opposite schemas, not a
+	// present/absent pair.
+	//
+	// This is spelling, not meaning, so it is excluded from JSON and YAML the
+	// same way Discriminator.StringForm is. Every other field is meaningless
+	// alongside it and is dropped when serializing with BoolForm set: a boolean
+	// schema has no keywords by definition.
+	//
+	// Only valid for OAS 3.1+. The validator rejects it for 3.0 and 2.0, which
+	// predate the 2020-12 dialect.
+	BoolForm *bool `yaml:"-" json:"-"`
+}
+
+// IsBool reports whether the schema is the bare-boolean form, and its value.
+// The two returns are independent: (false, false) is an ordinary object schema,
+// while (false, true) is the boolean schema `false`, which accepts nothing.
+func (s *Schema) IsBool() (value bool, ok bool) {
+	if s == nil || s.BoolForm == nil {
+		return false, false
+	}
+	return *s.BoolForm, true
+}
+
+// NewBoolSchema returns a schema in the bare-boolean form.
+func NewBoolSchema(v bool) *Schema {
+	return &Schema{BoolForm: &v}
 }
 
 // Discriminator represents a discriminator for polymorphism.

@@ -1180,6 +1180,11 @@ func (in *Schema) DeepCopyInto(out *Schema) {
 		*out.MinProperties = *in.MinProperties
 	}
 
+	if in.BoolForm != nil {
+		out.BoolForm = new(bool)
+		*out.BoolForm = *in.BoolForm
+	}
+
 	if in.Discriminator != nil {
 		out.Discriminator = in.Discriminator.DeepCopy()
 	}

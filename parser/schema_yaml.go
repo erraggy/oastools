@@ -18,6 +18,15 @@ import (
 // Schema.UnmarshalJSON does the same job for JSON, and decodeFromMap for the
 // ResolveRefs path. All three must agree on the decoded types.
 func (s *Schema) UnmarshalYAML(node *yaml.Node) error {
+	// A schema may be a bare boolean in JSON Schema 2020-12, which OAS 3.1+
+	// adopts — `true` accepts anything, `false` accepts nothing. Decoding a
+	// scalar into the struct alias below fails, so catch it first and record
+	// the spelling. See Schema.BoolForm.
+	if b, ok := boolSchemaNode(node); ok {
+		*s = Schema{BoolForm: &b}
+		return nil
+	}
+
 	type Alias Schema
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
@@ -116,6 +125,24 @@ func childValueNode(node *yaml.Node, key string) *yaml.Node {
 // decoded document — yaml.Unmarshal hands an Unmarshaler the document node
 // rather than its content — and an AliasNode when the schema was written as
 // `*anchor`. Returns nil when no node is left to unwrap.
+// boolSchemaNode reports whether a node is the bare-boolean schema form, and
+// its value. Anchors are followed first so `schema: *alwaysValid` is classified
+// by what it points at rather than by the alias node.
+//
+// Only a genuine `!!bool` counts. A quoted "true" is a string scalar and is not
+// a boolean schema, so tag is checked rather than the raw value.
+func boolSchemaNode(node *yaml.Node) (bool, bool) {
+	node = unwrapSchemaNode(node)
+	if node == nil || node.Kind != yaml.ScalarNode || node.Tag != "!!bool" {
+		return false, false
+	}
+	var b bool
+	if err := node.Decode(&b); err != nil {
+		return false, false
+	}
+	return b, true
+}
+
 func unwrapSchemaNode(node *yaml.Node) *yaml.Node {
 	for node != nil {
 		switch node.Kind {
@@ -196,6 +223,21 @@ func yamlKindName(k yaml.Kind) string {
 	default:
 		return fmt.Sprintf("unknown yaml.Kind(%d)", k)
 	}
+}
+
+// MarshalYAML implements custom YAML marshaling for Schema.
+//
+// When BoolForm is set the bare-boolean form is emitted, so `MySchema: true`
+// is not silently rewritten into the empty object `MySchema: {}` — which is a
+// different schema, and one that constrains nothing rather than the `false`
+// case that permits nothing. Every other field is dropped, since a boolean
+// schema has no keywords.
+func (s *Schema) MarshalYAML() (any, error) {
+	if b, ok := s.IsBool(); ok {
+		return b, nil
+	}
+	type Alias Schema
+	return (*Alias)(s), nil
 }
 
 // MarshalYAML implements custom YAML marshaling for Discriminator.
