@@ -198,6 +198,13 @@ func (v *Validator) validateParameterSchemas(param *parser.Parameter, path strin
 	if param == nil {
 		return
 	}
+	// Hooked here rather than at each call site so these rules inherit the
+	// structural reachability this traversal exists to provide: a parameter is
+	// a parameter wherever it occurs.
+	v.validateParameterAllowReserved(param, path, result)
+	if param.In == parser.ParamInHeader {
+		v.validateHeaderName(param.Name, path, "name", result)
+	}
 	if param.Schema != nil {
 		v.validateSchema(param.Schema, path+".schema", result)
 	}
@@ -210,7 +217,9 @@ func (v *Validator) validateHeaderMapSchemas(headers map[string]*parser.Header, 
 		return
 	}
 	for name, header := range headers {
-		v.validateHeaderSchemas(header, path+".headers."+name, result)
+		headerPath := path + ".headers." + name
+		v.validateHeaderName(name, headerPath, "headers", result)
+		v.validateHeaderSchemas(header, headerPath, result)
 	}
 }
 
@@ -219,6 +228,7 @@ func (v *Validator) validateHeaderSchemas(header *parser.Header, path string, re
 	if header == nil {
 		return
 	}
+	v.validateHeaderAllowReserved(header, path, result)
 	if header.Schema != nil {
 		v.validateSchema(header.Schema, path+".schema", result)
 	}
@@ -243,7 +253,9 @@ func (v *Validator) validateOAS3ComponentSchemas(c *parser.Components, result *V
 		v.validateParameterSchemas(param, "components.parameters."+name, result)
 	}
 	for name, header := range c.Headers {
-		v.validateHeaderSchemas(header, "components.headers."+name, result)
+		headerPath := "components.headers." + name
+		v.validateHeaderName(name, headerPath, "headers", result)
+		v.validateHeaderSchemas(header, headerPath, result)
 	}
 	for name, mt := range c.MediaTypes {
 		v.validateMediaTypeSchemas(mt, "components.mediaTypes."+name, result)

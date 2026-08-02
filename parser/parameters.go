@@ -17,8 +17,17 @@ type Parameter struct {
 	Deprecated  bool   `yaml:"deprecated,omitempty" json:"deprecated,omitempty"` // OAS 3.0+
 
 	// OAS 3.0+ fields
-	Style         string                `yaml:"style,omitempty" json:"style,omitempty"`
-	Explode       *bool                 `yaml:"explode,omitempty" json:"explode,omitempty"`
+	Style   string `yaml:"style,omitempty" json:"style,omitempty"`
+	Explode *bool  `yaml:"explode,omitempty" json:"explode,omitempty"`
+
+	// AllowReserved lets RFC 3986 reserved characters pass through a parameter
+	// value unencoded. Where it may legally appear depends on `in` and `style`;
+	// the validator's allowReservedPermitted holds the per-version table.
+	//
+	// Note: the specification constrains the field's presence rather than its
+	// value, which a bool cannot express. An illegal `allowReserved: false`
+	// decodes the same as an absent field, so oastools catches the violation
+	// only when the value is true. Changing the type would break the v1 API.
 	AllowReserved bool                  `yaml:"allowReserved,omitempty" json:"allowReserved,omitempty"`
 	Schema        *Schema               `yaml:"schema,omitempty" json:"schema,omitempty"`
 	Example       any                   `yaml:"example,omitempty" json:"example,omitempty"`
