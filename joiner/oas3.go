@@ -477,6 +477,13 @@ func (j *Joiner) mergeLinks(target, source map[string]*parser.Link, strategy Col
 // mergeMap only compares like with like, so the check below covers the pairing
 // it misses. Left through, the joined document would hold that name in both
 // maps, which cannot be written.
+//
+// That check fails the join outright, without consulting the collision handler
+// or the configured CollisionStrategy, unlike every same-form collision. There is
+// no resolution to offer: keeping either side, renaming, or deduplicating all
+// leave a name whose form depends on which document won, and the result is a
+// document rather than a component the caller chose. Same-form collisions still
+// route through the handler in mergeCallbacks and mergeCallbackRefs below.
 func (j *Joiner) mergeAllCallbacks(target, source *parser.Components, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
 	// The clash may be between the two documents or inside the incoming one:
 	// decoding cannot produce a name in both maps, but a document assembled in
