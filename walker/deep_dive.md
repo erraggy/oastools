@@ -264,7 +264,7 @@ Each OAS node type has a corresponding handler type:
 | `HeaderHandler` | Headers | All |
 | `MediaTypeHandler` | Media types | 3.x only |
 | `LinkHandler` | Links | 3.x only |
-| `CallbackHandler` | Callbacks | 3.x only |
+| `CallbackHandler` | Callbacks written as Callback Objects ([not references](#callbacks-arrive-two-ways)) | 3.x only |
 | `ExampleHandler` | Examples | All |
 | `ExternalDocsHandler` | External docs | All |
 | `SchemaSkippedHandler` | Skipped schemas (depth/cycle) | All |
@@ -290,10 +290,56 @@ Each handler type has a corresponding registration option. Register handlers usi
 | `WithHeaderHandler(fn)` | Headers | All |
 | `WithMediaTypeHandler(fn)` | Media types | 3.x only |
 | `WithLinkHandler(fn)` | Links | 3.x only |
-| `WithCallbackHandler(fn)` | Callbacks | 3.x only |
+| `WithCallbackHandler(fn)` | Callbacks written as Callback Objects ([not references](#callbacks-arrive-two-ways)) | 3.x only |
 | `WithExampleHandler(fn)` | Examples | All |
 | `WithExternalDocsHandler(fn)` | External docs | All |
 | `WithSchemaSkippedHandler(fn)` | Skipped schemas (depth/cycle) | All |
+
+### Callbacks Arrive Two Ways
+
+A `callbacks` entry is either a
+[Callback Object](https://spec.openapis.org/oas/v3.2.0.html#callback-object) or a
+[Reference Object](https://spec.openapis.org/oas/v3.2.0.html#reference-object),
+told apart by the presence of a `$ref` key. Both positions holding one are typed
+`Map[string, Callback Object | Reference Object]`:
+[Operation](https://spec.openapis.org/oas/v3.2.0.html#operation-callbacks) and
+[Components](https://spec.openapis.org/oas/v3.2.0.html#components-callbacks). The
+parser carries the two forms on separate fields, because a Callback Object is a
+map keyed by runtime expressions and a map has nowhere to put a `$ref` (see
+`parser.Callback`). The walker follows that split:
+
+| Written as | Field | Handler | Node type |
+|---|---|---|---|
+| Callback Object | `Callbacks` | `CallbackHandler` | n/a |
+| Reference Object | `CallbackRefs` | `RefHandler` | `RefNodeCallback` |
+
+Both positions a `callbacks` object can occupy are affected: an Operation Object
+and `components.callbacks`.
+
+This matters because **`CallbackHandler` alone does not see every callback in a
+document.** Counting callbacks, or collecting the components a document depends
+on, needs both handlers:
+
+```go
+walker.Walk(result,
+    walker.WithCallbackHandler(func(wc *walker.WalkContext, cb parser.Callback) walker.Action {
+        // A Callback Object: its path items are walked as children.
+        return walker.Continue
+    }),
+    walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+        if ref.NodeType == walker.RefNodeCallback {
+            // A Reference Object: a $ref and nothing to walk into.
+        }
+        return walker.Continue
+    }),
+)
+```
+
+A reference has no path items, so `CallbackPostHandler` does not fire for one and
+no operations are visited beneath it. Resolve the reference and walk what it
+points at if you need the target's contents, or parse with `ResolveRefs` enabled,
+which replaces a resolvable reference with what it points at before the walker
+ever sees it.
 
 ### WalkContext
 
@@ -843,6 +889,10 @@ References are tracked in:
 | `link` | Link references |
 | `example` | Example references |
 | `securityScheme` | Security scheme references |
+| `callback` | Callback references |
+
+A `callbacks` entry written as a Reference Object arrives here rather than at
+`CallbackHandler`. See [Callbacks Arrive Two Ways](#callbacks-arrive-two-ways).
 
 ### Use Cases
 

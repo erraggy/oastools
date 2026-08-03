@@ -745,3 +745,65 @@ func ExampleWithOAS2DocumentPostHandler() {
 	// Swagger 2.0: Legacy API
 	// Schemas: 2, Operations: 2
 }
+
+// ExampleWalk_callbacks shows why accounting for every callback in a document
+// takes two handlers.
+//
+// A `callbacks` entry is either a Callback Object or a Reference Object. The two
+// arrive on different Go fields (see parser.Callback), so CallbackHandler sees
+// only the first kind and the second reaches RefHandler as RefNodeCallback.
+// Registering just one handler silently misses half the document.
+func ExampleWalk_callbacks() {
+	inline := parser.Callback{
+		"{$request.query.callbackUrl}": &parser.PathItem{Post: &parser.Operation{}},
+	}
+	shared := parser.Callback{
+		"http://notifications.example.com": &parser.PathItem{Post: &parser.Operation{}},
+	}
+
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Info:    &parser.Info{Title: "Pet Store API", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": &parser.PathItem{
+				Post: &parser.Operation{
+					OperationID: "createPet",
+					// callbacks:
+					//   onPetCreated: { '{$request.query.callbackUrl}': ... }
+					Callbacks: map[string]*parser.Callback{"onPetCreated": &inline},
+					//   onPetShipped: { $ref: '#/components/callbacks/shipped' }
+					CallbackRefs: map[string]*parser.Reference{
+						"onPetShipped": {Ref: "#/components/callbacks/shipped"},
+					},
+				},
+			},
+		},
+		Components: &parser.Components{
+			Callbacks:    map[string]*parser.Callback{"shipped": &shared},
+			CallbackRefs: map[string]*parser.Reference{"delivered": {Ref: "#/components/callbacks/shipped"}},
+		},
+	}
+
+	result := &parser.ParseResult{Document: doc, OASVersion: parser.OASVersion303}
+
+	_ = walker.Walk(result,
+		walker.WithCallbackHandler(func(wc *walker.WalkContext, callback parser.Callback) walker.Action {
+			for expression := range callback {
+				fmt.Printf("callback object at %s: %s\n", wc.JSONPath, expression)
+			}
+			return walker.Continue
+		}),
+		walker.WithRefHandler(func(wc *walker.WalkContext, ref *walker.RefInfo) walker.Action {
+			if ref.NodeType == walker.RefNodeCallback {
+				fmt.Printf("callback reference at %s: %s\n", ref.SourcePath, ref.Ref)
+			}
+			return walker.Continue
+		}),
+	)
+
+	// Output:
+	// callback object at $.paths['/pets'].post.callbacks['onPetCreated']: {$request.query.callbackUrl}
+	// callback reference at $.paths['/pets'].post.callbacks['onPetShipped']: #/components/callbacks/shipped
+	// callback object at $.components.callbacks['shipped']: http://notifications.example.com
+	// callback reference at $.components.callbacks['delivered']: #/components/callbacks/shipped
+}

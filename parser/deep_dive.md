@@ -93,6 +93,55 @@ is decoded before the document version is known to it. Rejecting the form that i
 wrong for the version is the validator's job, and re-spelling it for a target
 version is the converter's.
 
+### Callback References
+
+A `callbacks` entry is either a [Callback Object](https://spec.openapis.org/oas/v3.2.0.html#callback-object)
+or a [Reference Object](https://spec.openapis.org/oas/v3.2.0.html#reference-object).
+Both positions that hold one are typed `Map[string, Callback Object | Reference Object]`:
+[Operation](https://spec.openapis.org/oas/v3.2.0.html#operation-callbacks) and
+[Components](https://spec.openapis.org/oas/v3.2.0.html#components-callbacks).
+The [JSON Schema](https://spec.openapis.org/oas/3.2/schema/2025-09-17) tells the
+two apart by the presence of a `$ref` key (`callbacks-or-reference` is
+`if: {required: [$ref]}, then: reference, else: callbacks`), and declares nine
+such unions in all.
+
+Eight of the nine are objects with fixed field names, so each is modeled here as a
+struct with a `Ref` field. The Callback Object is the exception: it is an open map
+keyed by user-authored runtime expressions, so `Callback` is a map type, and a map
+type has no field to hold `$ref`.
+
+The reference form therefore lands on a parallel field, on both `Operation` and
+`Components`:
+
+```go
+op.Callbacks     // map[string]*Callback:  the Callback Object form
+op.CallbackRefs  // map[string]*Reference: the Reference Object form
+```
+
+```yaml
+callbacks:
+  onPetCreated:                                      # → Callbacks
+    '{$request.query.callbackUrl}': { post: ... }
+  onPetShipped:                                      # → CallbackRefs
+    $ref: '#/components/callbacks/shipped'
+```
+
+A name appears in one map or the other, never both. Marshaling merges them back
+into the single `callbacks` object, so a document round trips with the reference
+verbatim; a value assembled in Go that puts one name in both maps is a marshaling
+error rather than a silent choice between the forms.
+
+**Reading only `Callbacks` misses the referenced ones.** Anything counting
+callbacks, or collecting the components a document depends on, has to read both.
+The `walker` package inherits the split: it reports the reference form to its ref
+handler as a `callback` node type rather than to its callback handler, so a
+traversal registering only the callback handler has the same gap. See that
+package's deep dive for the handler pairing.
+
+Enabling `ResolveRefs` replaces a resolvable callback reference with what it
+points at, the way it does for every other reference form, and `CallbackRefs` is
+then left holding only the references that could not be resolved.
+
 ### Reference Resolution
 
 External `$ref` values are resolved when `ResolveRefs` is enabled:
@@ -194,6 +243,45 @@ if pathItem.Query != nil {
 ## JSON Schema 2020-12 Support
 
 The parser supports all JSON Schema Draft 2020-12 keywords used in OAS 3.1+:
+
+### Boolean Schemas
+
+A schema may be written as a bare boolean rather than an object. `true` accepts
+every instance and `false` accepts none, and both are legal anywhere a Schema
+Object is expected:
+
+```yaml
+components:
+  schemas:
+    Anything: true
+    Nothing: false
+    Unconstrained: {}       # an object schema with no keywords, NOT `true`
+```
+
+`Schema` is a struct, so the boolean is recorded on a field of its own and read
+back through a method rather than by comparing against a value:
+
+```go
+value, isBool := doc.Components.Schemas["Anything"].IsBool()
+// value == true, isBool == true
+
+value, isBool = doc.Components.Schemas["Unconstrained"].IsBool()
+// value == false, isBool == false
+```
+
+The two returns are independent, and conflating them is the mistake to avoid:
+`(false, false)` is an ordinary object schema, while `(false, true)` is the
+boolean schema `false`, which accepts nothing. Construct one with
+`NewBoolSchema(true)`.
+
+An empty object and `true` are different schemas, and marshaling reproduces the
+form it was given so a round trip does not silently swap one for the other. Every
+other field is meaningless alongside the boolean form and is dropped when it is
+set, since a boolean schema has no keywords by definition.
+
+The form is valid only for OAS 3.1+, which adopt the 2020-12 dialect. The parser
+accepts it at any version, because a Schema Object is decoded before the document
+version is known to it; the validator rejects it for 3.0 and 2.0.
 
 ### Content Keywords
 
