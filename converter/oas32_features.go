@@ -304,25 +304,32 @@ func (c *Converter) detectOAS32MediaTypeFeatures(mt *parser.MediaType, prefix st
 		c.detectOAS32SchemaFeatures(mt.ItemSchema, prefix+".itemSchema", report, make(map[*parser.Schema]bool))
 	}
 	for name, enc := range mt.Encoding {
-		detectOAS32EncodingFeatures(enc, prefix+".encoding."+name, report, 0)
+		detectOAS32EncodingFeatures(enc, prefix+".encoding."+name, report, nil, 0)
 	}
-	detectOAS32EncodingFeatures(mt.ItemEncoding, prefix+".itemEncoding", report, 0)
+	detectOAS32EncodingFeatures(mt.ItemEncoding, prefix+".itemEncoding", report, nil, 0)
 	for i, enc := range mt.PrefixEncoding {
-		detectOAS32EncodingFeatures(enc, prefix+".prefixEncoding["+strconv.Itoa(i)+"]", report, 0)
+		detectOAS32EncodingFeatures(enc, prefix+".prefixEncoding["+strconv.Itoa(i)+"]", report, nil, 0)
 	}
 }
 
-// maxEncodingNestingDepth bounds the recursive Encoding walk 3.2 introduced.
+// maxEncodingNestingDepth bounds the recursive Encoding walk 3.2 introduced, as a
+// fail-safe behind the visited set.
 // https://spec.openapis.org/oas/v3.2.0.html#encoding-object
 //
-// A parsed document cannot build a cyclic Encoding graph, but the bound keeps a
-// hand-assembled one from recursing without end.
+// A parsed document can build neither a cyclic Encoding graph nor a chain this
+// long, but Convert takes the caller's document.
 const maxEncodingNestingDepth = 100
 
 // detectOAS32EncodingFeatures reports the nesting fields 3.2 added to Encoding.
 // https://spec.openapis.org/oas/v3.2.0.html#encoding-object
-func detectOAS32EncodingFeatures(enc *parser.Encoding, prefix string, report oas32Reporter, depth int) {
-	if enc == nil || depth > maxEncodingNestingDepth {
+//
+// visited is what makes a cyclic graph terminate. The depth bound alone does not
+// contain one: nested encodings that lead back to their parent branch, so the
+// walk goes exponential in depth long before the bound is reached. It stays nil
+// until an encoding actually nests, so a document without nesting allocates
+// nothing.
+func detectOAS32EncodingFeatures(enc *parser.Encoding, prefix string, report oas32Reporter, visited map[*parser.Encoding]bool, depth int) {
+	if enc == nil || depth > maxEncodingNestingDepth || visited[enc] {
 		return
 	}
 	if len(enc.Encoding) > 0 {
@@ -335,12 +342,23 @@ func detectOAS32EncodingFeatures(enc *parser.Encoding, prefix string, report oas
 		report(prefix, "prefixEncoding")
 	}
 
-	for name, nested := range enc.Encoding {
-		detectOAS32EncodingFeatures(nested, prefix+".encoding."+name, report, depth+1)
+	// Nothing below to reach, so nothing can repeat: an encoding that does not
+	// nest allocates no visited set. The validator's three Encoding walks make
+	// the same test before allocating theirs.
+	if len(enc.Encoding) == 0 && enc.ItemEncoding == nil && len(enc.PrefixEncoding) == 0 {
+		return
 	}
-	detectOAS32EncodingFeatures(enc.ItemEncoding, prefix+".itemEncoding", report, depth+1)
+	if visited == nil {
+		visited = make(map[*parser.Encoding]bool)
+	}
+	visited[enc] = true
+
+	for name, nested := range enc.Encoding {
+		detectOAS32EncodingFeatures(nested, prefix+".encoding."+name, report, visited, depth+1)
+	}
+	detectOAS32EncodingFeatures(enc.ItemEncoding, prefix+".itemEncoding", report, visited, depth+1)
 	for i, nested := range enc.PrefixEncoding {
-		detectOAS32EncodingFeatures(nested, prefix+".prefixEncoding["+strconv.Itoa(i)+"]", report, depth+1)
+		detectOAS32EncodingFeatures(nested, prefix+".prefixEncoding["+strconv.Itoa(i)+"]", report, visited, depth+1)
 	}
 }
 

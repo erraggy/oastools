@@ -98,7 +98,7 @@ func (v *Validator) traversePathItem(
 	visited map[*parser.PathItem]bool,
 	depth int,
 ) {
-	if item == nil || !oas3TraversalApplies(version) {
+	if item == nil || !oas3TraversalApplies(version) || depth > maxCallbackNestingDepth {
 		return
 	}
 
@@ -154,6 +154,16 @@ func (v *Validator) traversePathItem(
 			}
 		}
 
+		if len(op.Callbacks) > 0 {
+			// Recording this path item before descending is what keeps a callback
+			// leading back to it from walking it a second time. visited is a local,
+			// so assigning it here also shares one map across the operations below:
+			// each would otherwise build its own and none would see the others.
+			if visited == nil {
+				visited = make(map[*parser.PathItem]bool)
+			}
+			visited[item] = true
+		}
 		v.visitCallbacks(op.Callbacks, opPath, version, result, visited, depth)
 	}
 }
@@ -176,7 +186,7 @@ func (v *Validator) visitCallbacks(
 	visited map[*parser.PathItem]bool,
 	depth int,
 ) {
-	if len(callbacks) == 0 || depth >= maxCallbackNestingDepth {
+	if len(callbacks) == 0 {
 		return
 	}
 	for name, cb := range callbacks {
@@ -308,6 +318,20 @@ func encodingNeedsVisit(enc *parser.Encoding) bool {
 		enc.PrefixEncoding != nil)
 }
 
+// encodingNests reports whether an Encoding Object holds another, which is the
+// only way any Encoding walk can reach the same object twice. Narrower than
+// [encodingNeedsVisit], which also counts headers: those are leaves.
+//
+// Every Encoding walk consults this before allocating its visited set, so a
+// document whose encodings do not nest allocates nothing. The three fields it
+// tests are 3.2 additions, which is why a document carrying them at an earlier
+// version is what [oas32Gate.encoding] exists to report.
+func encodingNests(enc *parser.Encoding) bool {
+	return enc != nil && (len(enc.Encoding) > 0 ||
+		enc.ItemEncoding != nil ||
+		len(enc.PrefixEncoding) > 0)
+}
+
 func (v *Validator) visitResponseExamples(resp *parser.Response, prefix string, result *ValidationResult) {
 	if !responseNeedsVisit(resp) {
 		return
@@ -348,21 +372,35 @@ func (v *Validator) visitMediaTypeExamples(mt *parser.MediaType, prefix string, 
 	// Encoding Objects carry Headers, which carry Examples, including through the
 	// nested encodings 3.2 added.
 	for name, enc := range mt.Encoding {
-		v.visitEncodingExamples(enc, prefix+".encoding."+name, result, 0)
+		v.visitEncodingExamples(enc, prefix+".encoding."+name, result, nil, 0)
 	}
-	v.visitEncodingExamples(mt.ItemEncoding, prefix+".itemEncoding", result, 0)
+	v.visitEncodingExamples(mt.ItemEncoding, prefix+".itemEncoding", result, nil, 0)
 	for i, enc := range mt.PrefixEncoding {
-		v.visitEncodingExamples(enc, prefix+".prefixEncoding["+strconv.Itoa(i)+"]", result, 0)
+		v.visitEncodingExamples(enc, prefix+".prefixEncoding["+strconv.Itoa(i)+"]", result, nil, 0)
 	}
 }
 
-// maxEncodingNestingDepth bounds the recursive Encoding traversal 3.2 introduced.
-// A parsed document cannot build a cyclic Encoding graph, but the bound keeps a
-// hand-assembled one from recursing without end.
+// maxEncodingNestingDepth bounds the recursive Encoding traversal 3.2 introduced,
+// as a fail-safe behind the visited set each walk carries. A parsed document can
+// build neither a cycle nor a chain this long, but ValidateParsed takes the
+// caller's.
 const maxEncodingNestingDepth = 100
 
-func (v *Validator) visitEncodingExamples(enc *parser.Encoding, prefix string, result *ValidationResult, depth int) {
-	if !encodingNeedsVisit(enc) || depth > maxEncodingNestingDepth {
+// visitEncodingExamples reaches the Examples an Encoding Object's headers carry,
+// through the nesting 3.2 added.
+//
+// visited is what makes this terminate, for the reason [Validator.visitCallbacks]
+// gives: nested encodings that lead back to their parent branch, so the walk goes
+// exponential in depth long before the bound is reached. It stays nil until an
+// encoding actually nests.
+func (v *Validator) visitEncodingExamples(
+	enc *parser.Encoding,
+	prefix string,
+	result *ValidationResult,
+	visited map[*parser.Encoding]bool,
+	depth int,
+) {
+	if !encodingNeedsVisit(enc) || depth > maxEncodingNestingDepth || visited[enc] {
 		return
 	}
 	v.reportExclusions(encodingExclusions, []fieldPresence{
@@ -374,11 +412,23 @@ func (v *Validator) visitEncodingExamples(enc *parser.Encoding, prefix string, r
 	for name, header := range enc.Headers {
 		v.visitHeaderExamples(header, prefix+".headers."+name, result)
 	}
-	for name, nested := range enc.Encoding {
-		v.visitEncodingExamples(nested, prefix+".encoding."+name, result, depth+1)
+
+	// Nothing below to reach, so nothing can repeat. Reading a nil map is legal,
+	// so the guard above needs no map and only the write here does: an encoding
+	// holding nothing but headers allocates nothing.
+	if !encodingNests(enc) {
+		return
 	}
-	v.visitEncodingExamples(enc.ItemEncoding, prefix+".itemEncoding", result, depth+1)
+	if visited == nil {
+		visited = make(map[*parser.Encoding]bool)
+	}
+	visited[enc] = true
+
+	for name, nested := range enc.Encoding {
+		v.visitEncodingExamples(nested, prefix+".encoding."+name, result, visited, depth+1)
+	}
+	v.visitEncodingExamples(enc.ItemEncoding, prefix+".itemEncoding", result, visited, depth+1)
 	for i, nested := range enc.PrefixEncoding {
-		v.visitEncodingExamples(nested, prefix+".prefixEncoding["+strconv.Itoa(i)+"]", result, depth+1)
+		v.visitEncodingExamples(nested, prefix+".prefixEncoding["+strconv.Itoa(i)+"]", result, visited, depth+1)
 	}
 }
