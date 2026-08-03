@@ -152,6 +152,16 @@ func TestCallbackRefsUnderResolveRefs(t *testing.T) {
 				require.NotNil(t, inlined, "the resolved callback was dropped")
 				assert.Contains(t, *inlined, "http://example.com?id={$request.body#/id}",
 					"the reference was not replaced by what it pointed at")
+
+				// The other carrier: components.callbacks.alias is a reference to
+				// a sibling component, and resolves the same way.
+				require.NotNil(t, doc.Components)
+				assert.Empty(t, doc.Components.CallbackRefs,
+					"a resolved component reference should not remain a reference")
+				alias := doc.Components.Callbacks["alias"]
+				require.NotNil(t, alias, "the resolved component callback was dropped")
+				assert.Contains(t, *alias, "http://example.com?id={$request.body#/id}",
+					"the component reference was not replaced by what it pointed at")
 			})
 		}
 	})
@@ -281,6 +291,10 @@ paths:
       callbacks:
         referenced:
           $ref: '#/components/callbacks/missing'
+components:
+  callbacks:
+    alias:
+      $ref: '#/components/callbacks/missing'
 `,
 	"json": `{
   "openapi": "3.2.0",
@@ -292,7 +306,8 @@ paths:
         "callbacks": {"referenced": {"$ref": "#/components/callbacks/missing"}}
       }
     }
-  }
+  },
+  "components": {"callbacks": {"alias": {"$ref": "#/components/callbacks/missing"}}}
 }`,
 }
 
@@ -335,6 +350,14 @@ func TestCallbackObjectPresenceSurvivesDecoding(t *testing.T) {
 						"the document carried a callbacks key, so Callbacks must not be nil")
 					assert.Empty(t, op.Callbacks, "no entry was a Callback Object")
 					assert.Len(t, op.CallbackRefs, tc.wantRefs)
+
+					// The same rule on the other carrier, which has its own decode
+					// path entries and so proves nothing by the operation passing.
+					require.NotNil(t, doc.Components)
+					assert.NotNil(t, doc.Components.Callbacks,
+						"components carried a callbacks key, so Callbacks must not be nil")
+					assert.Empty(t, doc.Components.Callbacks, "no entry was a Callback Object")
+					assert.Len(t, doc.Components.CallbackRefs, tc.wantRefs)
 				})
 			}
 		}
@@ -355,6 +378,8 @@ paths:
         '200':
           description: ok
       callbacks: {}
+components:
+  callbacks: {}
 `,
 	"json": `{
   "openapi": "3.2.0",
@@ -366,7 +391,8 @@ paths:
         "callbacks": {}
       }
     }
-  }
+  },
+  "components": {"callbacks": {}}
 }`,
 }
 

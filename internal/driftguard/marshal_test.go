@@ -145,13 +145,19 @@ func runMarshalGuard(t *testing.T, withExtension bool, message string) {
 				// A merged field is asserted to arrive under the key it merges into.
 				// Checked before the json:"-" branch below, which would otherwise
 				// pass it on the strength of its own name being absent.
-				if mergedInto, merged := marshalMerges[typeName][f.name]; merged {
-					require.Contains(t, decoded, mergedInto,
+				if mergeKey, isMerged := marshalMerges[typeName][f.name]; isMerged {
+					require.Contains(t, decoded, mergeKey,
 						"%s.%s merges into %q, but that key was not emitted at all",
-						typeName, f.name, mergedInto)
-					assert.Contains(t, string(decoded[mergedInto]), markerKey,
+						typeName, f.name, mergeKey)
+
+					// Decoded rather than substring-matched, for the same reason as
+					// the check below: the marker can occur inside a nested value,
+					// and it is the merged field's own key that has to be there.
+					var target map[string]json.RawMessage
+					require.NoError(t, json.Unmarshal(decoded[mergeKey], &target))
+					assert.Contains(t, target, markerKey,
 						"%s.%s is set but its content never reached %q; the merge is missing "+
-							"from this marshal path", typeName, f.name, mergedInto)
+							"from this marshal path", typeName, f.name, mergeKey)
 					return
 				}
 
