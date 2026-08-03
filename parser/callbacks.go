@@ -51,6 +51,23 @@ const yamlKeyCallbacks = "callbacks"
 // to rule the field out before decoding anything.
 var jsonCallbacksKey = []byte(`"` + yamlKeyCallbacks + `"`)
 
+// jsonUnicodeEscape is the second needle, because JSON lets a member name spell
+// any character as \uXXXX. These two byte sequences are the same member name:
+//
+//	"callbacks"       22 63 61 6c 6c 62 61 63 6b 73 22
+//	"\u0063allbacks"  22 5c 75 30 30 36 33 61 6c 6c 62 61 63 6b 73 22
+//
+// jsonCallbacksKey matches the first and not the second. Any letter of the word
+// can be escaped that way, and more than one can, so there is no shorter piece
+// of it that is safe to search for instead.
+//
+// Looking for \u works, rather than resolving escapes here, because \uXXXX is
+// the only JSON escape that can stand for a letter. The other eight, \" \\ \/
+// \b \f \n \r and \t, each mean one fixed punctuation or control character, and
+// a backslash before anything else is not valid JSON. So when the member is
+// present and its literal bytes are not, these two are.
+var jsonUnicodeEscape = []byte(`\u`)
+
 // UnmarshalYAML implements custom YAML unmarshaling for Operation.
 //
 // The reference-form entries are lifted out of the `callbacks` mapping before
@@ -219,14 +236,18 @@ func marshalYAMLWithCallbackRefs[T any](alias *T, callbacks map[string]*Callback
 // split, so only a document that actually uses the form pays for the extra
 // decode and re-encode.
 func splitJSONCallbackRefs(data []byte) ([]byte, map[string]*Reference, error) {
-	// Scanned for the key before anything is decoded. Decoding the object to
-	// discover it has no `callbacks` member would make every operation in every
-	// document pay for a field most of them do not carry, and the scan is a
-	// substring search over bytes already in hand.
+	// Ruling the field out by scanning beats decoding the object only to find it
+	// absent, which is what every operation in a document would otherwise pay
+	// for.
 	//
-	// A hit inside a description or a nested object only costs the decode below,
-	// which is the correct answer for that input anyway.
-	if !bytes.Contains(data, jsonCallbacksKey) {
+	// Two searches rather than one pass over the bytes: each bytes.Contains is
+	// vectorized, and the second needle begins with a byte most documents never
+	// contain, so it adds almost nothing to the first. A hand-written loop
+	// answering both questions at once measured several times slower.
+	//
+	// Either match only costs the decode below, which is the right answer for
+	// that input anyway.
+	if !bytes.Contains(data, jsonCallbacksKey) && !bytes.Contains(data, jsonUnicodeEscape) {
 		return data, nil, nil
 	}
 

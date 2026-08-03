@@ -467,3 +467,52 @@ func TestCallbackRefsAffectEquality(t *testing.T) {
 		assert.True(t, equalComponents(left, left.DeepCopy()))
 	})
 }
+
+// escapedCallbacksKeySpec spells the `callbacks` member with a \uXXXX escape,
+// which JSON permits and encoding/json resolves to the same name. The literal
+// key never appears in the source, so a byte scan for it cannot see the field.
+//
+// The escape is built rather than written inline: an editor or a shell that
+// resolves it turns this into an ordinary fixture that proves nothing.
+func escapedCallbacksKeySpec(entry string) string {
+	const escapedKey = `"\u0063allbacks"`
+	return `{"openapi":"3.0.3","info":{"title":"T","version":"1.0.0"},
+"paths":{"/t":{"post":{"responses":{"200":{"description":"ok"}},` +
+		escapedKey + `:{` + entry + `}}}}}`
+}
+
+// TestCallbackRefsSurviveAnEscapedKey covers the member name a scan for the
+// literal `"callbacks"` cannot match. Both forms have to behave as they would
+// with the plain spelling.
+func TestCallbackRefsSurviveAnEscapedKey(t *testing.T) {
+	require.NotContains(t, escapedCallbacksKeySpec(""), `"callbacks"`,
+		"the fixture lost its escape, so it no longer tests anything")
+
+	t.Run("reference form", func(t *testing.T) {
+		spec := escapedCallbacksKeySpec(`"referenced":{"$ref":"#/components/callbacks/shared"}`)
+		result, err := New().ParseBytes([]byte(spec))
+		require.NoError(t, err, "an escaped callbacks key failed to parse")
+		doc, ok := result.OAS3Document()
+		require.True(t, ok)
+
+		op := doc.Paths["/t"].Post
+		require.NotNil(t, op)
+		require.Contains(t, op.CallbackRefs, "referenced",
+			"the reference was not classified under an escaped key")
+		assert.Equal(t, "#/components/callbacks/shared", op.CallbackRefs["referenced"].Ref)
+	})
+
+	t.Run("object form", func(t *testing.T) {
+		spec := escapedCallbacksKeySpec(
+			`"inline":{"{$request.query.url}":{"post":{"responses":{"200":{"description":"ok"}}}}}`)
+		result, err := New().ParseBytes([]byte(spec))
+		require.NoError(t, err)
+		doc, ok := result.OAS3Document()
+		require.True(t, ok)
+
+		op := doc.Paths["/t"].Post
+		require.NotNil(t, op)
+		assert.Contains(t, op.Callbacks, "inline")
+		assert.Empty(t, op.CallbackRefs)
+	})
+}
