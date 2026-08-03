@@ -36,7 +36,7 @@ func (s *Schema) UnmarshalYAML(node *yaml.Node) error {
 
 	// Promotion reads the mapping's keys, so the wrappers have to come off
 	// first. A nil result only means there is nothing to look inside.
-	node = unwrapSchemaNode(node)
+	node = unwrapYAMLNode(node)
 
 	var err error
 	if s.Items, err = promoteYAMLSchemaOrBool(s.Items, node, "items"); err != nil {
@@ -76,7 +76,7 @@ func promoteYAMLSchemaOrBool(v any, parent *yaml.Node, key string) (any, error) 
 		return v, nil
 	}
 
-	node := unwrapSchemaNode(childValueNode(parent, key))
+	node := unwrapYAMLNode(childValueNode(parent, key))
 
 	switch {
 	case node == nil:
@@ -106,25 +106,6 @@ func promoteYAMLSchemaOrBool(v any, parent *yaml.Node, key string) (any, error) 
 	}
 }
 
-// childValueNode returns the value node stored under key in a mapping node, or
-// nil when the mapping has no such key.
-func childValueNode(node *yaml.Node, key string) *yaml.Node {
-	if node == nil || node.Kind != yaml.MappingNode {
-		return nil
-	}
-	for i := 0; i+1 < len(node.Content); i += 2 {
-		if node.Content[i].Value == key {
-			return node.Content[i+1]
-		}
-	}
-	return nil
-}
-
-// unwrapSchemaNode strips the wrappers that stand between a node and the
-// mapping it represents: a DocumentNode when the Schema is the root of the
-// decoded document — yaml.Unmarshal hands an Unmarshaler the document node
-// rather than its content — and an AliasNode when the schema was written as
-// `*anchor`. Returns nil when no node is left to unwrap.
 // boolSchemaNode reports whether a node is the bare-boolean schema form, and
 // its value. Anchors are followed first so `schema: *alwaysValid` is classified
 // by what it points at rather than by the alias node.
@@ -132,7 +113,7 @@ func childValueNode(node *yaml.Node, key string) *yaml.Node {
 // Only a genuine `!!bool` counts. A quoted "true" is a string scalar and is not
 // a boolean schema, so tag is checked rather than the raw value.
 func boolSchemaNode(node *yaml.Node) (bool, bool) {
-	node = unwrapSchemaNode(node)
+	node = unwrapYAMLNode(node)
 	if node == nil || node.Kind != yaml.ScalarNode || node.Tag != "!!bool" {
 		return false, false
 	}
@@ -141,23 +122,6 @@ func boolSchemaNode(node *yaml.Node) (bool, bool) {
 		return false, false
 	}
 	return b, true
-}
-
-func unwrapSchemaNode(node *yaml.Node) *yaml.Node {
-	for node != nil {
-		switch node.Kind {
-		case yaml.DocumentNode:
-			if len(node.Content) != 1 {
-				return node
-			}
-			node = node.Content[0]
-		case yaml.AliasNode:
-			node = node.Alias
-		default:
-			return node
-		}
-	}
-	return nil
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling for Discriminator.

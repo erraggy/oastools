@@ -97,6 +97,15 @@ func (in *Components) DeepCopyInto(out *Components) {
 
 	out.Callbacks = deepCopyCallbacks(in.Callbacks)
 
+	if in.CallbackRefs != nil {
+		out.CallbackRefs = make(map[string]*Reference, len(in.CallbackRefs))
+		for k, v := range in.CallbackRefs {
+			if v != nil {
+				out.CallbackRefs[k] = v.DeepCopy()
+			}
+		}
+	}
+
 	if in.PathItems != nil {
 		out.PathItems = make(map[string]*PathItem, len(in.PathItems))
 		for k, v := range in.PathItems {
@@ -765,6 +774,15 @@ func (in *Operation) DeepCopyInto(out *Operation) {
 	}
 
 	out.Callbacks = deepCopyCallbacks(in.Callbacks)
+
+	if in.CallbackRefs != nil {
+		out.CallbackRefs = make(map[string]*Reference, len(in.CallbackRefs))
+		for k, v := range in.CallbackRefs {
+			if v != nil {
+				out.CallbackRefs[k] = v.DeepCopy()
+			}
+		}
+	}
 
 	out.Security = deepCopySecurityRequirements(in.Security)
 

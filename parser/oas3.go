@@ -39,6 +39,9 @@ type Components struct {
 	SecuritySchemes map[string]*SecurityScheme `yaml:"securitySchemes,omitempty" json:"securitySchemes,omitempty"`
 	Links           map[string]*Link           `yaml:"links,omitempty" json:"links,omitempty"`
 	Callbacks       map[string]*Callback       `yaml:"callbacks,omitempty" json:"callbacks,omitempty"`
+	// CallbackRefs holds the `callbacks` entries written as Reference Objects.
+	// See [Callback] for why they are carried apart from Callbacks.
+	CallbackRefs map[string]*Reference `yaml:"-" json:"-"`
 
 	// OAS 3.1+ additions
 	PathItems map[string]*PathItem `yaml:"pathItems,omitempty" json:"pathItems,omitempty"` // OAS 3.1+

@@ -236,8 +236,8 @@ func (c *Converter) convertOAS3OperationToOAS2(src *parser.Operation, doc *parse
 		}
 	}
 
-	// Check for callbacks (OAS 3.x only)
-	if len(src.Callbacks) > 0 {
+	// Check for callbacks (OAS 3.x only), in both the forms an entry may take
+	if len(src.Callbacks) > 0 || len(src.CallbackRefs) > 0 {
 		c.addIssue(result, opPath, "Operation contains callbacks which are not supported in OAS 2.0", SeverityCritical)
 	}
 

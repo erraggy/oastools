@@ -274,6 +274,36 @@ func decodePaths(m map[string]any) Paths {
 	return result
 }
 
+// decodeCallbackMap decodes a `callbacks` object into the two fields that carry
+// it, classifying each entry by the presence of a `$ref` key the way the YAML
+// and JSON paths do. See [Callback].
+func decodeCallbackMap(m map[string]any) (map[string]*Callback, map[string]*Reference) {
+	// Allocated whether or not an entry ends up in it, because reaching here
+	// means the document carried a `callbacks` key and an empty map is how the
+	// other two decode paths report that. Returning nil for an object holding
+	// only references, or holding nothing, would make this path the odd one out
+	// and would leave a caller unable to tell either from an absent key.
+	callbacks := make(map[string]*Callback, len(m))
+	var refs map[string]*Reference
+	for k, v := range m {
+		vm, ok := v.(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, isRef := vm[jsonKeyRef]; isRef {
+			ref := new(Reference)
+			ref.decodeFromMap(vm)
+			if refs == nil {
+				refs = make(map[string]*Reference)
+			}
+			refs[k] = ref
+			continue
+		}
+		callbacks[k] = decodeCallback(vm)
+	}
+	return callbacks, refs
+}
+
 // decodeCallback decodes a map[string]any into a Callback value.
 func decodeCallback(m map[string]any) *Callback {
 	if m == nil {

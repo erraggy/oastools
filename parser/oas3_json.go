@@ -75,10 +75,17 @@ func (d *OAS3Document) UnmarshalJSON(data []byte) error {
 // into the top-level JSON object, as Go's encoding/json doesn't support
 // inline maps like yaml:",inline".
 func (c *Components) MarshalJSON() ([]byte, error) {
-	// Fast path: no Extra fields, use standard marshaling
-	if len(c.Extra) == 0 {
+	// Fast path: no Extra fields, use standard marshaling. CallbackRefs is
+	// excluded because the struct tags cannot merge it back into the callbacks
+	// object; see [Callback].
+	if len(c.Extra) == 0 && len(c.CallbackRefs) == 0 {
 		type Alias Components
 		return marshalToJSON((*Alias)(c))
+	}
+
+	callbacks, err := mergedCallbacks(c.Callbacks, c.CallbackRefs)
+	if err != nil {
+		return nil, err
 	}
 
 	// Build map directly to avoid double-marshal pattern
@@ -109,8 +116,8 @@ func (c *Components) MarshalJSON() ([]byte, error) {
 	if len(c.Links) > 0 {
 		m["links"] = c.Links
 	}
-	if len(c.Callbacks) > 0 {
-		m["callbacks"] = c.Callbacks
+	if len(callbacks) > 0 {
+		m["callbacks"] = callbacks
 	}
 	if len(c.MediaTypes) > 0 {
 		m["mediaTypes"] = c.MediaTypes
@@ -129,9 +136,10 @@ func (c *Components) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (c *Components) UnmarshalJSON(data []byte) error {
 	type Alias Components
-	if err := json.Unmarshal(data, (*Alias)(c)); err != nil {
+	refs, extra, err := unmarshalJSONWithCallbackRefs(data, (*Alias)(c))
+	if err != nil {
 		return err
 	}
-	c.Extra = jsonhelpers.ExtractExtensions(data)
+	c.CallbackRefs, c.Extra = refs, extra
 	return nil
 }

@@ -102,6 +102,7 @@ func (x *Schema) decodeFromMap(m map[string]any)        {}
 func (x *PathItem) decodeFromMap(m map[string]any)      {}
 func (x *Response) decodeFromMap(m map[string]any)      {}
 func (x *Discriminator) decodeFromMap(m map[string]any) {}
+func (x *Reference) decodeFromMap(m map[string]any)     {}
 `)
 
 	// Load the parser package using go/types
@@ -437,9 +438,13 @@ func classifyField(structName, fieldName string, t types.Type) (strategy, elemTy
 		if ptr, ok := valType.(*types.Pointer); ok {
 			if named, ok := ptr.Elem().(*types.Named); ok {
 				name := named.Obj().Name()
-				// map[string]*Callback is special (Callback is map type, not struct)
+				// map[string]*Callback is special (Callback is map type, not struct).
+				// ElemType carries the companion field's prefix here rather than a
+				// map element type: the template emits x.<ElemType>Refs, which has
+				// to match the CallbackRefs field declared beside Callbacks on both
+				// Operation and Components.
 				if name == "Callback" {
-					return "callbacks_map", ""
+					return "callbacks_map", name
 				}
 				if oasStructTypes[name] {
 					return "oas_map", name
@@ -562,12 +567,7 @@ func (x *{{.Name}}) decodeFromMap(m map[string]any) {
 	}
 {{- else if eq .Strategy "callbacks_map"}}
 	if sub, ok := m["{{.JSONKey}}"].(map[string]any); ok {
-		x.{{.FieldName}} = make(map[string]*Callback, len(sub))
-		for k, v := range sub {
-			if vm, ok := v.(map[string]any); ok {
-				x.{{.FieldName}}[k] = decodeCallback(vm)
-			}
-		}
+		x.{{.FieldName}}, x.{{.ElemType}}Refs = decodeCallbackMap(sub)
 	}
 {{- else if eq .Strategy "security_reqs"}}
 	if arr, ok := m["{{.JSONKey}}"].([]any); ok {

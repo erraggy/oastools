@@ -35,15 +35,18 @@ type PathItem struct {
 
 // Operation describes a single API operation on a path
 type Operation struct {
-	Tags         []string              `yaml:"tags,omitempty" json:"tags,omitempty"`
-	Summary      string                `yaml:"summary,omitempty" json:"summary,omitempty"`
-	Description  string                `yaml:"description,omitempty" json:"description,omitempty"`
-	ExternalDocs *ExternalDocs         `yaml:"externalDocs,omitempty" json:"externalDocs,omitempty"`
-	OperationID  string                `yaml:"operationId,omitempty" json:"operationId,omitempty"`
-	Parameters   []*Parameter          `yaml:"parameters,omitempty" json:"parameters,omitempty"`
-	RequestBody  *RequestBody          `yaml:"requestBody,omitempty" json:"requestBody,omitempty"` // OAS 3.0+
-	Responses    *Responses            `yaml:"responses" json:"responses"`
-	Callbacks    map[string]*Callback  `yaml:"callbacks,omitempty" json:"callbacks,omitempty"` // OAS 3.0+
+	Tags         []string             `yaml:"tags,omitempty" json:"tags,omitempty"`
+	Summary      string               `yaml:"summary,omitempty" json:"summary,omitempty"`
+	Description  string               `yaml:"description,omitempty" json:"description,omitempty"`
+	ExternalDocs *ExternalDocs        `yaml:"externalDocs,omitempty" json:"externalDocs,omitempty"`
+	OperationID  string               `yaml:"operationId,omitempty" json:"operationId,omitempty"`
+	Parameters   []*Parameter         `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	RequestBody  *RequestBody         `yaml:"requestBody,omitempty" json:"requestBody,omitempty"` // OAS 3.0+
+	Responses    *Responses           `yaml:"responses" json:"responses"`
+	Callbacks    map[string]*Callback `yaml:"callbacks,omitempty" json:"callbacks,omitempty"` // OAS 3.0+
+	// CallbackRefs holds the `callbacks` entries written as Reference Objects.
+	// See [Callback] for why they are carried apart from Callbacks.
+	CallbackRefs map[string]*Reference `yaml:"-" json:"-"` // OAS 3.0+
 	Deprecated   bool                  `yaml:"deprecated,omitempty" json:"deprecated,omitempty"`
 	Security     []SecurityRequirement `yaml:"security,omitempty" json:"security,omitempty"`
 	Servers      []*Server             `yaml:"servers,omitempty" json:"servers,omitempty"` // OAS 3.0+
@@ -127,9 +130,6 @@ type Response struct {
 	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
-
-// Callback is a map of expressions to path items (OAS 3.0+)
-type Callback map[string]*PathItem
 
 // Link represents a possible design-time link for a response (OAS 3.0+)
 type Link struct {

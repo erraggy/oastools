@@ -1,6 +1,4 @@
-package parser
-
-// This file contains equality methods for OAS2Document and OAS3Document.
+// document_equals.go holds equality methods for OAS2Document and OAS3Document.
 // These methods enable semantic comparison of OpenAPI specifications at
 // the document level.
 //
@@ -17,6 +15,8 @@ package parser
 // - paths_equals.go: Path, Operation, Response, Callback, Link, MediaType helpers
 // - parameters_equals.go: Parameter, Header, RequestBody, Items helpers
 // - security_equals.go: SecurityRequirement, SecurityScheme, OAuth helpers
+
+package parser
 
 // Equals compares two OAS3Documents for structural equality.
 // Returns true if both documents have identical content.
@@ -215,6 +215,9 @@ func equalComponents(a, b *Components) bool {
 
 	// Callback maps
 	if !equalCallbackMap(a.Callbacks, b.Callbacks) {
+		return false
+	}
+	if !equalReferenceMap(a.CallbackRefs, b.CallbackRefs) {
 		return false
 	}
 

@@ -268,9 +268,16 @@ func (c *RefCollector) collectComponentsRefs(comp *parser.Components, version pa
 		c.collectLinkRefs(link, fmt.Sprintf("components.links.%s", name))
 	}
 
-	// Callbacks
+	// Callbacks, in both the forms an entry may take: the Callback Object holds
+	// path items whose refs are collected below, the Reference Object form is
+	// itself a reference. See parser.Callback.
 	for name, callback := range comp.Callbacks {
 		c.collectCallbackRefs(callback, fmt.Sprintf("components.callbacks.%s", name), version)
+	}
+	for name, ref := range comp.CallbackRefs {
+		if ref != nil && ref.Ref != "" {
+			c.addRef(ref.Ref, fmt.Sprintf("components.callbacks.%s", name), RefTypeCallback)
+		}
 	}
 
 	// Examples
@@ -332,9 +339,14 @@ func (c *RefCollector) collectOperationRefs(op *parser.Operation, path string, v
 		c.collectResponsesRefs(op.Responses, fmt.Sprintf("%s.responses", path), version)
 	}
 
-	// Collect from callbacks (OAS 3.x)
+	// Collect from callbacks (OAS 3.x), in both the forms an entry may take
 	for name, callback := range op.Callbacks {
 		c.collectCallbackRefs(callback, fmt.Sprintf("%s.callbacks.%s", path, name), version)
+	}
+	for name, ref := range op.CallbackRefs {
+		if ref != nil && ref.Ref != "" {
+			c.addRef(ref.Ref, fmt.Sprintf("%s.callbacks.%s", path, name), RefTypeCallback)
+		}
 	}
 }
 

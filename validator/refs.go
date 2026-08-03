@@ -87,6 +87,7 @@ func buildOAS3ValidRefs(doc *parser.OAS3Document) map[string]bool {
 		len(doc.Components.SecuritySchemes) +
 		len(doc.Components.Links) +
 		len(doc.Components.Callbacks) +
+		len(doc.Components.CallbackRefs) +
 		len(doc.Components.PathItems)
 	validRefs := make(map[string]bool, capacity)
 
@@ -130,8 +131,13 @@ func buildOAS3ValidRefs(doc *parser.OAS3Document) map[string]bool {
 		validRefs[pathutil.LinkRef(name)] = true
 	}
 
-	// Add callbacks
+	// Add callbacks, in both the forms a callbacks entry may take: a component
+	// written as a Reference Object is still a component something else may
+	// reference. See parser.Callback.
 	for name := range doc.Components.Callbacks {
+		validRefs[pathutil.CallbackRef(name)] = true
+	}
+	for name := range doc.Components.CallbackRefs {
 		validRefs[pathutil.CallbackRef(name)] = true
 	}
 
@@ -447,6 +453,15 @@ func (v *Validator) validateOAS3Refs(doc *parser.OAS3Document, result *Validatio
 			}
 		}
 
+		// Validate callbacks written as Reference Objects. The Callback Object
+		// form holds path items rather than a $ref, and its contents are reached
+		// through the schema traversal instead. See parser.Callback.
+		for name, ref := range doc.Components.CallbackRefs {
+			if ref != nil {
+				v.validateRef(ref.Ref, "components.callbacks."+name, validRefs, result, baseURL)
+			}
+		}
+
 		// Validate headers
 		for name, header := range doc.Components.Headers {
 			if header != nil {
@@ -526,6 +541,13 @@ func (v *Validator) validatePathItemOperationRefs(pathItem *parser.PathItem, pat
 		// Validate request body
 		if op.RequestBody != nil {
 			v.validateRequestBodyRef(op.RequestBody, opPath+".requestBody", validRefs, result, baseURL)
+		}
+
+		// Validate callbacks written as Reference Objects
+		for name, ref := range op.CallbackRefs {
+			if ref != nil {
+				v.validateRef(ref.Ref, opPath+".callbacks."+name, validRefs, result, baseURL)
+			}
 		}
 
 		// Validate operation responses
