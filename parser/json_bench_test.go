@@ -255,3 +255,28 @@ func BenchmarkUnmarshalInfo(b *testing.B) {
 		})
 	}
 }
+
+// benchOperationJSON is one operation with no callbacks: the shape a document is
+// full of, and the one that must not pay for the callback split.
+var benchOperationJSON = []byte(`{
+  "operationId": "listPets",
+  "summary": "List all pets",
+  "tags": ["pets"],
+  "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer"}}],
+  "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"type": "array"}}}}}
+}`)
+
+// BenchmarkUnmarshalOperationWithoutCallbacks guards the cost of splitting the
+// reference-form callbacks out of a JSON object (see parser.Callback). The split
+// has to decode the object to find the entries, so it is ruled out by a byte
+// scan first; without that, every operation in every document pays for a field
+// most of them do not carry. Watch allocs/op: it was 86 before the split existed.
+func BenchmarkUnmarshalOperationWithoutCallbacks(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		var op Operation
+		if err := json.Unmarshal(benchOperationJSON, &op); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

@@ -16,6 +16,7 @@
 package parser
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -45,6 +46,10 @@ import (
 type Callback map[string]*PathItem
 
 const yamlKeyCallbacks = "callbacks"
+
+// jsonCallbacksKey is the `callbacks` member as it appears in JSON source, used
+// to rule the field out before decoding anything.
+var jsonCallbacksKey = []byte(`"` + yamlKeyCallbacks + `"`)
 
 // UnmarshalYAML implements custom YAML unmarshaling for Operation.
 //
@@ -214,6 +219,17 @@ func marshalYAMLWithCallbackRefs[T any](alias *T, callbacks map[string]*Callback
 // split, so only a document that actually uses the form pays for the extra
 // decode and re-encode.
 func splitJSONCallbackRefs(data []byte) ([]byte, map[string]*Reference, error) {
+	// Scanned for the key before anything is decoded. Decoding the object to
+	// discover it has no `callbacks` member would make every operation in every
+	// document pay for a field most of them do not carry, and the scan is a
+	// substring search over bytes already in hand.
+	//
+	// A hit inside a description or a nested object only costs the decode below,
+	// which is the correct answer for that input anyway.
+	if !bytes.Contains(data, jsonCallbacksKey) {
+		return data, nil, nil
+	}
+
 	// A shape this cannot split is left alone rather than reported: the caller's
 	// decode runs next and names the field the value belongs to, which is a
 	// better error than anything available here.
