@@ -162,6 +162,7 @@ var typeConfigs = []TypeConfig{
 			{Name: "SecuritySchemes", Type: "map[string]*SecurityScheme", CopyMethod: "map", KeyType: "string", ElemType: "*SecurityScheme"},
 			{Name: "Links", Type: "map[string]*Link", CopyMethod: "map", KeyType: "string", ElemType: "*Link"},
 			{Name: "Callbacks", Type: "map[string]*Callback", CopyMethod: "helper", Helper: "deepCopyCallbacks"},
+			{Name: "CallbackRefs", Type: "map[string]*Reference", CopyMethod: "map", KeyType: "string", ElemType: "*Reference"},
 			{Name: "PathItems", Type: "map[string]*PathItem", CopyMethod: "map", KeyType: "string", ElemType: "*PathItem"},
 			{Name: "MediaTypes", Type: "map[string]*MediaType", CopyMethod: "map", KeyType: "string", ElemType: "*MediaType"}, // OAS 3.2+
 			{Name: "Extra", Type: "map[string]any", CopyMethod: "helper", Helper: "deepCopyExtensions"},
@@ -267,6 +268,7 @@ var typeConfigs = []TypeConfig{
 			{Name: "RequestBody", Type: "*RequestBody", CopyMethod: "pointer"},
 			{Name: "Responses", Type: "*Responses", CopyMethod: "pointer"},
 			{Name: "Callbacks", Type: "map[string]*Callback", CopyMethod: "helper", Helper: "deepCopyCallbacks"},
+			{Name: "CallbackRefs", Type: "map[string]*Reference", CopyMethod: "map", KeyType: "string", ElemType: "*Reference"},
 			{Name: "Security", Type: "[]SecurityRequirement", CopyMethod: "helper", Helper: "deepCopySecurityRequirements"},
 			{Name: "Servers", Type: "[]*Server", CopyMethod: "slice", ElemType: "*Server"},
 			{Name: "Consumes", Type: "[]string", CopyMethod: "slice", ElemType: "string"},

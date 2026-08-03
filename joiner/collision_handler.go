@@ -71,6 +71,13 @@ const (
 	// CollisionTypeLink indicates a link collision in components.links.
 	CollisionTypeLink CollisionType = "link"
 	// CollisionTypeCallback indicates a callback collision in components.callbacks.
+	//
+	// LeftValue and RightValue carry either *parser.Callback or *parser.Reference
+	// for this type, because a callbacks entry may be written in either form and
+	// both live under the same section (see parser.Callback). A handler that
+	// type-asserts to one of them must accept the other. A name arriving in one
+	// form where the other document holds the other is not reported here at all:
+	// see Joiner.mergeAllCallbacks.
 	CollisionTypeCallback CollisionType = "callback"
 )
 

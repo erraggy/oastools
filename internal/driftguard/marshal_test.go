@@ -42,6 +42,21 @@ var marshalExclusions = map[string]map[string]string{
 	},
 }
 
+// marshalMerges lists fields that carry no JSON key of their own because their
+// content belongs to another field's, naming the key it has to land under.
+//
+// Without an entry here such a field is tagged json:"-" and the guard would
+// assert it is not emitted, which is true of its name and says nothing about its
+// content. A field that must appear somewhere is worth more than a field that
+// must not appear under one spelling.
+var marshalMerges = map[string]map[string]string{
+	// The specification has one `callbacks` field whose values are each a
+	// Callback Object or a Reference Object. Two Go maps carry it, and both
+	// marshal paths merge them back. See parser.Callback.
+	"Operation":  {"CallbackRefs": "callbacks"},
+	"Components": {"CallbackRefs": "callbacks"},
+}
+
 // marshalSubjects pairs each type carrying a hand-built MarshalJSON with a fresh
 // value and its field list. A guard cannot reflect over a package, so this list
 // is the one thing a new type has to be added to.
@@ -126,6 +141,25 @@ func runMarshalGuard(t *testing.T, withExtension bool, message string) {
 				// nested value too, and a guard that passes falsely is worse than none.
 				var decoded map[string]json.RawMessage
 				require.NoError(t, json.Unmarshal(encoded, &decoded))
+
+				// A merged field is asserted to arrive under the key it merges into.
+				// Checked before the json:"-" branch below, which would otherwise
+				// pass it on the strength of its own name being absent.
+				if mergeKey, isMerged := marshalMerges[typeName][f.name]; isMerged {
+					require.Contains(t, decoded, mergeKey,
+						"%s.%s merges into %q, but that key was not emitted at all",
+						typeName, f.name, mergeKey)
+
+					// Decoded rather than substring-matched, for the same reason as
+					// the check below: the marker can occur inside a nested value,
+					// and it is the merged field's own key that has to be there.
+					var target map[string]json.RawMessage
+					require.NoError(t, json.Unmarshal(decoded[mergeKey], &target))
+					assert.Contains(t, target, markerKey,
+						"%s.%s is set but its content never reached %q; the merge is missing "+
+							"from this marshal path", typeName, f.name, mergeKey)
+					return
+				}
 
 				if f.jsonKey == "" {
 					// Tagged json:"-", so no spelling of the name should appear as a key.

@@ -14,6 +14,7 @@ const (
 	RefNodeExample        RefNodeType = "example"
 	RefNodePathItem       RefNodeType = "pathItem"
 	RefNodeSecurityScheme RefNodeType = "securityScheme"
+	RefNodeCallback       RefNodeType = "callback"
 )
 
 // RefInfo contains information about a $ref encountered during traversal.

@@ -29,7 +29,10 @@ func (v *Validator) validateOAS3ComponentNames(components *parser.Components, re
 	checkComponentNames(v, components.Headers, "headers", result, baseURL)
 	checkComponentNames(v, components.SecuritySchemes, "securitySchemes", result, baseURL)
 	checkComponentNames(v, components.Links, "links", result, baseURL)
+	// Both forms a callbacks entry may take are keyed the same way, and the
+	// charset rule is about the key. See parser.Callback.
 	checkComponentNames(v, components.Callbacks, "callbacks", result, baseURL)
+	checkComponentNames(v, components.CallbackRefs, "callbacks", result, baseURL)
 	checkComponentNames(v, components.PathItems, "pathItems", result, baseURL)
 	checkComponentNames(v, components.MediaTypes, "mediaTypes", result, baseURL)
 }

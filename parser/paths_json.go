@@ -60,9 +60,16 @@ func (o *Operation) MarshalJSON() ([]byte, error) {
 	// Fast path: no Extra fields and nil security, use standard marshaling.
 	// Security is excluded from the fast path because a non-nil empty slice
 	// must serialize as [] (disable inherited security), not be omitted.
-	if len(o.Extra) == 0 && o.Security == nil {
+	// CallbackRefs is excluded because the struct tags cannot merge it back
+	// into the callbacks object; see [Callback].
+	if len(o.Extra) == 0 && o.Security == nil && len(o.CallbackRefs) == 0 {
 		type Alias Operation
 		return marshalToJSON((*Alias)(o))
+	}
+
+	callbacks, err := mergedCallbacks(o.Callbacks, o.CallbackRefs)
+	if err != nil {
+		return nil, err
 	}
 
 	// Build map with known fields
@@ -76,7 +83,7 @@ func (o *Operation) MarshalJSON() ([]byte, error) {
 	jsonhelpers.SetIfNotEmpty(m, "operationId", o.OperationID)
 	jsonhelpers.SetIfSliceNotEmpty(m, "parameters", o.Parameters)
 	jsonhelpers.SetIfNotNil(m, "requestBody", o.RequestBody)
-	jsonhelpers.SetIfMapNotEmpty(m, "callbacks", o.Callbacks)
+	jsonhelpers.SetIfMapNotEmpty(m, "callbacks", callbacks)
 	jsonhelpers.SetIfTrue(m, "deprecated", o.Deprecated)
 	jsonhelpers.SetIfSliceNotNil(m, "security", o.Security)
 	jsonhelpers.SetIfSliceNotEmpty(m, "servers", o.Servers)
@@ -92,10 +99,11 @@ func (o *Operation) MarshalJSON() ([]byte, error) {
 // This captures unknown fields (specification extensions like x-*) in the Extra map.
 func (o *Operation) UnmarshalJSON(data []byte) error {
 	type Alias Operation
-	if err := json.Unmarshal(data, (*Alias)(o)); err != nil {
+	refs, extra, err := unmarshalJSONWithCallbackRefs(data, (*Alias)(o))
+	if err != nil {
 		return err
 	}
-	o.Extra = jsonhelpers.ExtractExtensions(data)
+	o.CallbackRefs, o.Extra = refs, extra
 	return nil
 }
 

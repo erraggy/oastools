@@ -1,3 +1,11 @@
+// paths_equals.go holds equality comparison functions for path-related OpenAPI types.
+//
+// Includes: Paths, PathItem, Operation, Response, Callback, Link, MediaType,
+// Example, and Encoding types.
+//
+// See also:
+// - paths.go: Type definitions for these structures
+
 package parser
 
 import (
@@ -6,14 +14,6 @@ import (
 
 	"github.com/erraggy/oastools/internal/equalutil"
 )
-
-// This file contains equality comparison functions for path-related OpenAPI types.
-//
-// Includes: Paths, PathItem, Operation, Response, Callback, Link, MediaType,
-// Example, and Encoding types.
-//
-// See also:
-// - paths.go: Type definitions for these structures
 
 // =============================================================================
 // Path type helpers
@@ -171,6 +171,9 @@ func equalOperation(a, b *Operation) bool {
 	if !equalCallbackMap(a.Callbacks, b.Callbacks) {
 		return false
 	}
+	if !equalReferenceMap(a.CallbackRefs, b.CallbackRefs) {
+		return false
+	}
 
 	// Extensions
 	if !equalMapStringAny(a.Extra, b.Extra) {
@@ -283,6 +286,26 @@ func equalCallback(a, b *Callback) bool {
 // Nil and empty maps are considered equal.
 func equalCallbackMap(a, b map[string]*Callback) bool {
 	return maps.EqualFunc(a, b, equalCallback)
+}
+
+// equalReference compares two *Reference for equality.
+func equalReference(a, b *Reference) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Ref == b.Ref &&
+		a.Summary == b.Summary &&
+		a.Description == b.Description &&
+		equalMapStringAny(a.Extra, b.Extra)
+}
+
+// equalReferenceMap compares two map[string]*Reference maps for equality.
+// Nil and empty maps are considered equal.
+func equalReferenceMap(a, b map[string]*Reference) bool {
+	return maps.EqualFunc(a, b, equalReference)
 }
 
 // =============================================================================

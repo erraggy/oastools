@@ -404,6 +404,7 @@ func isComponentsEmpty(comp *parser.Components) bool {
 		len(comp.SecuritySchemes) == 0 &&
 		len(comp.Links) == 0 &&
 		len(comp.Callbacks) == 0 &&
+		len(comp.CallbackRefs) == 0 &&
 		len(comp.PathItems) == 0 &&
 		len(comp.Extra) == 0
 }

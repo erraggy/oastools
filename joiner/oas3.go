@@ -56,6 +56,7 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 	joined.Components.SecuritySchemes = make(map[string]*parser.SecurityScheme)
 	joined.Components.Links = make(map[string]*parser.Link)
 	joined.Components.Callbacks = make(map[string]*parser.Callback)
+	joined.Components.CallbackRefs = make(map[string]*parser.Reference)
 	joined.Components.PathItems = make(map[string]*parser.PathItem)
 
 	// Merge all documents
@@ -253,7 +254,7 @@ func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx docu
 	if err := j.mergeLinks(target.Links, source.Links, componentStrategy, ctx, result); err != nil {
 		return err
 	}
-	if err := j.mergeCallbacks(target.Callbacks, source.Callbacks, componentStrategy, ctx, result); err != nil {
+	if err := j.mergeAllCallbacks(target, source, componentStrategy, ctx, result); err != nil {
 		return err
 	}
 	if err := j.mergePathItems(target.PathItems, source.PathItems, componentStrategy, ctx, result); err != nil {
@@ -469,7 +470,52 @@ func (j *Joiner) mergeLinks(target, source map[string]*parser.Link, strategy Col
 	return mergeMap(j, target, source, "components.links", CollisionTypeLink, strategy, ctx, result)
 }
 
+// mergeAllCallbacks merges the components.callbacks section, which two Go maps
+// carry between them: see parser.Callback.
+//
+// They share one namespace, so the same name in different forms is a collision.
+// mergeMap only compares like with like, so the check below covers the pairing
+// it misses. Left through, the joined document would hold that name in both
+// maps, which cannot be written.
+//
+// That check fails the join outright, without consulting the collision handler
+// or the configured CollisionStrategy, unlike every same-form collision. There is
+// no resolution to offer: keeping either side, renaming, or deduplicating all
+// leave a name whose form depends on which document won, and the result is a
+// document rather than a component the caller chose. Same-form collisions still
+// route through the handler in mergeCallbacks and mergeCallbackRefs below.
+func (j *Joiner) mergeAllCallbacks(target, source *parser.Components, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
+	// The clash may be between the two documents or inside the incoming one:
+	// decoding cannot produce a name in both maps, but a document assembled in
+	// Go can, and merging it would carry the clash into the result.
+	for name := range source.CallbackRefs {
+		_, inSource := source.Callbacks[name]
+		_, inTarget := target.Callbacks[name]
+		if inSource || inTarget {
+			return errCallbackFormCollision(name)
+		}
+	}
+	for name := range source.Callbacks {
+		if _, ok := target.CallbackRefs[name]; ok {
+			return errCallbackFormCollision(name)
+		}
+	}
+	if err := j.mergeCallbacks(target.Callbacks, source.Callbacks, strategy, ctx, result); err != nil {
+		return err
+	}
+	return j.mergeCallbackRefs(target.CallbackRefs, source.CallbackRefs, strategy, ctx, result)
+}
+
+func errCallbackFormCollision(name string) error {
+	return fmt.Errorf("joiner: components.callbacks.%s is a Callback Object in one document "+
+		"and a Reference Object in another: the two forms cannot be merged", name)
+}
+
 func (j *Joiner) mergeCallbacks(target, source map[string]*parser.Callback, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
+	return mergeMap(j, target, source, "components.callbacks", CollisionTypeCallback, strategy, ctx, result)
+}
+
+func (j *Joiner) mergeCallbackRefs(target, source map[string]*parser.Reference, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
 	return mergeMap(j, target, source, "components.callbacks", CollisionTypeCallback, strategy, ctx, result)
 }
 

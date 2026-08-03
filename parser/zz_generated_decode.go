@@ -88,12 +88,7 @@ func (x *Components) decodeFromMap(m map[string]any) {
 		}
 	}
 	if sub, ok := m["callbacks"].(map[string]any); ok {
-		x.Callbacks = make(map[string]*Callback, len(sub))
-		for k, v := range sub {
-			if vm, ok := v.(map[string]any); ok {
-				x.Callbacks[k] = decodeCallback(vm)
-			}
-		}
+		x.Callbacks, x.CallbackRefs = decodeCallbackMap(sub)
 	}
 	if sub, ok := m["pathItems"].(map[string]any); ok {
 		x.PathItems = make(map[string]*PathItem, len(sub))
@@ -540,12 +535,7 @@ func (x *Operation) decodeFromMap(m map[string]any) {
 		x.Responses.decodeFromMap(sub)
 	}
 	if sub, ok := m["callbacks"].(map[string]any); ok {
-		x.Callbacks = make(map[string]*Callback, len(sub))
-		for k, v := range sub {
-			if vm, ok := v.(map[string]any); ok {
-				x.Callbacks[k] = decodeCallback(vm)
-			}
-		}
+		x.Callbacks, x.CallbackRefs = decodeCallbackMap(sub)
 	}
 	x.Deprecated, _ = m["deprecated"].(bool)
 	if arr, ok := m["security"].([]any); ok {

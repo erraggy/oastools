@@ -368,6 +368,9 @@ func (w *Walker) walkOAS3Operation(op *parser.Operation, basePath string, state 
 			}
 		}
 	}
+	if w.walkCallbackRefs(op.CallbackRefs, basePath, state) == Stop {
+		return nil
+	}
 
 	// Call post-visit handler after children (but before popParent)
 	if w.onOperationPost != nil && !w.stopped {
@@ -757,9 +760,6 @@ func (w *Walker) walkComponentLinks(components *parser.Components, basePath stri
 }
 
 func (w *Walker) walkComponentCallbacks(components *parser.Components, basePath string, state *walkState) error {
-	if components.Callbacks == nil {
-		return nil
-	}
 	for _, name := range maputil.SortedKeys(components.Callbacks) {
 		if w.stopped {
 			return nil
@@ -770,7 +770,32 @@ func (w *Walker) walkComponentCallbacks(components *parser.Components, basePath 
 			}
 		}
 	}
+	// The Action matters only where something follows it, as in an operation,
+	// whose post-visit handler must not run after a Stop. Nothing follows here,
+	// and w.stopped carries the Stop to the sibling component walkers.
+	_ = w.walkCallbackRefs(components.CallbackRefs, basePath, state)
 	return nil
+}
+
+// walkCallbackRefs reports the callbacks written as Reference Objects, which
+// hold a $ref and nothing to walk into. They reach [RefHandler] rather than
+// [CallbackHandler]: a reference is not a Callback Object, and a handler
+// expecting a map of runtime expressions has no use for one. See
+// [parser.Callback].
+func (w *Walker) walkCallbackRefs(refs map[string]*parser.Reference, basePath string, state *walkState) Action {
+	for _, name := range maputil.SortedKeys(refs) {
+		if w.stopped {
+			return Stop
+		}
+		ref := refs[name]
+		if ref == nil {
+			continue
+		}
+		if w.handleRef(ref.Ref, basePath+".callbacks['"+name+"']", RefNodeCallback, state) == Stop {
+			return Stop
+		}
+	}
+	return Continue
 }
 
 func (w *Walker) walkComponentExamples(components *parser.Components, basePath string, state *walkState) error {
