@@ -12,11 +12,12 @@ import (
 func Example() {
 	// Convert an OAS 2.0 specification to OAS 3.0.3
 	result, err := converter.ConvertWithOptions(
-		converter.WithFilePath("testdata/petstore-2.0.yaml"),
+		converter.WithFilePath("../testdata/petstore-2.0.yaml"),
 		converter.WithTargetVersion("3.0.3"),
 	)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("conversion failed:", err)
+		return
 	}
 
 	// Check for critical issues
@@ -28,14 +29,25 @@ func Example() {
 	fmt.Printf("Successfully converted from %s to %s\n", result.SourceVersion, result.TargetVersion)
 	fmt.Printf("Issues: %d info, %d warnings, %d critical\n",
 		result.InfoCount, result.WarningCount, result.CriticalCount)
+
+	// Output:
+	// Successfully converted from 2.0 to 3.0.3
+	// Issues: 0 info, 0 warnings, 0 critical
 }
 
 // Example_handleConversionIssues demonstrates processing conversion issues
 func Example_handleConversionIssues() {
-	result, _ := converter.ConvertWithOptions(
+	result, err := converter.ConvertWithOptions(
 		converter.WithFilePath("openapi.yaml"),
 		converter.WithTargetVersion("2.0"),
 	)
+	// Check the error before reading the result. ConvertWithOptions returns a
+	// nil result alongside it, so skipping this check dereferences nil on any
+	// failure, a missing file included.
+	if err != nil {
+		fmt.Println("conversion failed:", err)
+		return
+	}
 
 	// Categorize issues by severity
 	for _, issue := range result.Issues {
@@ -142,14 +154,15 @@ func Example_complexConversion() {
 	// Convert a complex OAS 2.0 document with strict mode disabled
 	// to allow for lossy conversions (e.g., allowEmptyValue is dropped)
 	result, err := converter.ConvertWithOptions(
-		converter.WithFilePath("testdata/petstore-2.0.yaml"),
+		converter.WithFilePath("../testdata/petstore-2.0.yaml"),
 		converter.WithTargetVersion("3.0.3"),
 		converter.WithStrictMode(false), // Allow lossy conversions
 		converter.WithIncludeInfo(true), // Include informational messages
 	)
 
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("conversion failed:", err)
+		return
 	}
 
 	// Review conversion issues to understand the changes
@@ -169,4 +182,12 @@ func Example_complexConversion() {
 	if !result.HasCriticalIssues() {
 		fmt.Println("\nConversion completed successfully")
 	}
+
+	// Output:
+	// Conversion from 2.0 to 3.0.3:
+	// - Critical issues: 0
+	// - Warnings: 0
+	// - Info messages: 0
+	//
+	// Conversion completed successfully
 }
