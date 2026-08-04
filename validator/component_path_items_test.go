@@ -20,11 +20,10 @@ func validationWarnings(t *testing.T, spec string) []string {
 }
 
 // warningsWithStrict is validationWarnings with StrictMode selectable, because
-// the response-status-code arm of validateResponseStatusCodes is only reachable
-// as a warning: the parser's own decoder rejects a malformed status code as a
-// construct error before any document carrying one reaches the validator, so the
-// strict-mode non-standard-code and missing-2xx warnings are what prove the
-// responses check runs at all for a given call site.
+// the specs below key their responses by well-formed status codes. The error arm
+// of validateResponseStatusCodes therefore never fires for them, and strict
+// mode's non-standard-code and missing-2xx warnings are what prove the responses
+// check runs at all for a given call site.
 func warningsWithStrict(t *testing.T, spec string, strict bool) []string {
 	t.Helper()
 
@@ -171,10 +170,10 @@ components:
 }
 
 // TestComponentPathItemsResponsesAreValidated covers the responses half of #392
-// separately, because validateResponseStatusCodes only ever reports warnings for
-// a document that parses: a malformed code is rejected by the parser's decoder
-// first. Strict mode's non-standard-code and missing-2xx warnings are therefore
-// the observable proof that the check reaches these operations.
+// separately, because this spec keys its responses by well-formed status codes,
+// so the error arm of validateResponseStatusCodes never fires. Strict mode's
+// non-standard-code and missing-2xx warnings are therefore the observable proof
+// that the check reaches these operations.
 func TestComponentPathItemsResponsesAreValidated(t *testing.T) {
 	spec := `
 openapi: 3.1.0

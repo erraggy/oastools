@@ -893,3 +893,177 @@ func TestConvertOAS3ToOAS2_NestedSchemaFeatureDetection(t *testing.T) {
 	assert.True(t, found,
 		"Should detect writeOnly in nested property User.properties.password")
 }
+
+// TestOAS2ResponseKey pins the mapping a wildcard range takes on its way to OAS
+// 2.0, which admits one property per HTTP status code and so cannot spell a
+// range. The collision case is what makes the result order-independent: map
+// iteration is random, so the decision has to read the source map rather than
+// whatever the destination happens to hold when the range is reached.
+func TestOAS2ResponseKey(t *testing.T) {
+	tests := []struct {
+		name        string
+		code        string
+		codes       map[string]*parser.Response
+		wantKey     string
+		wantCarried bool
+	}{
+		{
+			name:        "numeric code is carried as written",
+			code:        "404",
+			codes:       map[string]*parser.Response{"404": {}},
+			wantKey:     "404",
+			wantCarried: true,
+		},
+		{
+			name:        "2XX becomes 200",
+			code:        "2XX",
+			codes:       map[string]*parser.Response{"2XX": {}},
+			wantKey:     "200",
+			wantCarried: true,
+		},
+		{
+			name:        "5XX becomes 500",
+			code:        "5XX",
+			codes:       map[string]*parser.Response{"5XX": {}},
+			wantKey:     "500",
+			wantCarried: true,
+		},
+		{
+			name:        "1XX becomes 100",
+			code:        "1XX",
+			codes:       map[string]*parser.Response{"1XX": {}},
+			wantKey:     "100",
+			wantCarried: true,
+		},
+		{
+			name:        "2XX is dropped when 200 is already declared",
+			code:        "2XX",
+			codes:       map[string]*parser.Response{"200": {}, "2XX": {}},
+			wantCarried: false,
+		},
+		{
+			name:        "2XX survives a 201 that does not collide with it",
+			code:        "2XX",
+			codes:       map[string]*parser.Response{"201": {}, "2XX": {}},
+			wantKey:     "200",
+			wantCarried: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key, carried := oas2ResponseKey(tt.code, tt.codes)
+			assert.Equal(t, tt.wantCarried, carried)
+			if tt.wantCarried {
+				assert.Equal(t, tt.wantKey, key)
+			}
+		})
+	}
+}
+
+// TestDownconvertWildcardRangesProduceValidOAS2 is the end-to-end assertion the
+// unit table above cannot make: the converted document must be one OAS 2.0
+// accepts. Carrying "2XX" across as written produced a document oastools itself
+// rejects while reporting the conversion successful.
+func TestDownconvertWildcardRangesProduceValidOAS2(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.0.4",
+		OASVersion: parser.OASVersion304,
+		Info:       &parser.Info{Title: "Test API", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": {
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"2XX": {Description: "ranged success"},
+							"5XX": {Description: "ranged failure"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	c := New()
+	result, err := c.ConvertParsed(parser.ParseResult{
+		Document:   doc,
+		Version:    "3.0.4",
+		OASVersion: parser.OASVersion304,
+		Data:       make(map[string]any),
+		SourcePath: "test.yaml",
+	}, "2.0")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	converted, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok, "converting to 2.0 must produce an OAS2Document")
+
+	codes := converted.Paths["/pets"].Get.Responses.Codes
+	assert.Contains(t, codes, "200", "2XX carries across as the first code it covers")
+	assert.Contains(t, codes, "500", "5XX carries across as the first code it covers")
+	assert.NotContains(t, codes, "2XX", "OAS 2.0 cannot spell a wildcard range")
+	assert.NotContains(t, codes, "5XX", "OAS 2.0 cannot spell a wildcard range")
+
+	// The response itself must survive the rename, or the conversion has
+	// dropped what the document described.
+	require.NotNil(t, codes["200"])
+	assert.Equal(t, "ranged success", codes["200"].Description)
+
+	messages := make([]string, 0, len(result.Issues))
+	for _, issue := range result.Issues {
+		messages = append(messages, issue.Message)
+	}
+	joined := strings.Join(messages, "\n")
+	assert.Contains(t, joined, "Wildcard response range '2XX' is not supported in OAS 2.0")
+	assert.Contains(t, joined, "Wildcard response range '5XX' is not supported in OAS 2.0")
+}
+
+// TestDownconvertWildcardRangeYieldsToASpecificCode covers the collision: the
+// document declares both the range and the code the range would become, and the
+// specific one describes the same response more precisely.
+func TestDownconvertWildcardRangeYieldsToASpecificCode(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.0.4",
+		OASVersion: parser.OASVersion304,
+		Info:       &parser.Info{Title: "Test API", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/pets": {
+				Get: &parser.Operation{
+					OperationID: "listPets",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {Description: "the specific one"},
+							"2XX": {Description: "the range"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	c := New()
+	result, err := c.ConvertParsed(parser.ParseResult{
+		Document:   doc,
+		Version:    "3.0.4",
+		OASVersion: parser.OASVersion304,
+		Data:       make(map[string]any),
+		SourcePath: "test.yaml",
+	}, "2.0")
+	require.NoError(t, err)
+
+	converted, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok)
+
+	codes := converted.Paths["/pets"].Get.Responses.Codes
+	require.NotNil(t, codes["200"])
+	assert.Equal(t, "the specific one", codes["200"].Description,
+		"the declared code wins over the range that would overwrite it")
+	assert.Len(t, codes, 1)
+
+	messages := make([]string, 0, len(result.Issues))
+	for _, issue := range result.Issues {
+		messages = append(messages, issue.Message+" "+issue.Context)
+	}
+	assert.Contains(t, strings.Join(messages, "\n"), "more specific, so the range was dropped")
+}

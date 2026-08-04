@@ -6,109 +6,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIsValidResponsesKey(t *testing.T) {
-	tests := []struct {
-		name     string
-		code     string
-		expected bool
-	}{
-		// Valid: "default" keyword
-		{"default keyword", "default", true},
-
-		// Valid: Extension fields (x-)
-		{"extension x-custom", "x-custom", true},
-		{"extension x-200", "x-200", true},
-		{"extension x-", "x-", true},
-
-		// Valid: Wildcard patterns (1XX-5XX)
-		{"wildcard 1XX", "1XX", true},
-		{"wildcard 2XX", "2XX", true},
-		{"wildcard 3XX", "3XX", true},
-		{"wildcard 4XX", "4XX", true},
-		{"wildcard 5XX", "5XX", true},
-
-		// Invalid: Wildcards outside 1-5 range
-		{"invalid wildcard 0XX", "0XX", false},
-		{"invalid wildcard 6XX", "6XX", false},
-		{"invalid wildcard 7XX", "7XX", false},
-		{"invalid wildcard 9XX", "9XX", false},
-
-		// Invalid: Partial wildcards
-		{"partial wildcard 2X", "2X", false},
-		{"partial wildcard 20X", "20X", false},
-		{"partial wildcard X2X", "X2X", false},
-		{"partial wildcard XX2", "XX2", false},
-
-		// Valid: Numeric codes in valid range (100-599)
-		{"valid 100", "100", true},
-		{"valid 200", "200", true},
-		{"valid 201", "201", true},
-		{"valid 204", "204", true},
-		{"valid 301", "301", true},
-		{"valid 400", "400", true},
-		{"valid 404", "404", true},
-		{"valid 418", "418", true}, // I'm a teapot
-		{"valid 500", "500", true},
-		{"valid 503", "503", true},
-		{"valid 599", "599", true},
-
-		// Invalid: Numeric codes outside valid range
-		{"invalid 099", "099", false}, // Below MinStatusCode
-		{"invalid 600", "600", false}, // Above MaxStatusCode
-		{"invalid 999", "999", false},
-		{"invalid 000", "000", false},
-
-		// Invalid: Too short or too long
-		{"too short 99", "99", false},
-		{"too short 1", "1", false},
-		{"too long 1000", "1000", false},
-		{"too long 20000", "20000", false},
-
-		// Invalid: Empty and whitespace
-		{"empty string", "", false},
-		{"whitespace", "   ", false},
-		{"space in code", "2 00", false},
-
-		// Invalid: Non-numeric characters
-		{"alphabetic abc", "abc", false},
-		{"alphanumeric 2a0", "2a0", false},
-		{"alphanumeric a00", "a00", false},
-		{"alphanumeric 00a", "00a", false},
-
-		// Invalid: Special characters
-		{"special char @00", "@00", false},
-		{"special char 2-0", "2-0", false},
-		{"special char 20!", "20!", false},
-
-		// Edge cases: Boundary values
-		{"boundary 100", "100", true},  // MinStatusCode
-		{"boundary 599", "599", true},  // MaxStatusCode
-		{"boundary 99", "99", false},   // Just below min
-		{"boundary 600", "600", false}, // Just above max
-
-		// Edge cases: Extensions that might look like codes
-		{"not extension x", "x", false},       // Too short
-		{"not extension x200", "x200", false}, // Wrong format (4 chars but not wildcard)
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := IsValidResponsesKey(tt.code)
-			assert.Equal(t, tt.expected, result, "IsValidResponsesKey(%q) = %v, want %v", tt.code, result, tt.expected)
-		})
-	}
-}
-
-// TestIsStatusCode pins the narrow predicate against the broad one. The two
-// disagree on exactly the keys a Responses Object admits without their being
-// status codes, and a caller ranging Responses.Codes needs the narrow answer.
+// TestIsStatusCode pins the predicate a caller ranging Responses.Codes needs.
+// The Responses Object admits "default" and specification extensions as well,
+// and neither of those is a status code.
 func TestIsStatusCode(t *testing.T) {
 	tests := []struct {
 		name     string
 		code     string
 		expected bool
 	}{
-		// The keys that separate this predicate from IsValidResponsesKey.
+		// Responses Object keys that are not status codes.
 		{"default is not a status code", "default", false},
 		{"extension x-custom is not a status code", "x-custom", false},
 		{"extension x-200 is not a status code", "x-200", false},
@@ -141,6 +48,116 @@ func TestIsStatusCode(t *testing.T) {
 			assert.Equal(t, tt.expected, got,
 				"IsStatusCode(%q) = %v, want %v", tt.code, got, tt.expected)
 		})
+	}
+}
+
+// TestIsWildcardStatusCode pins the form OAS 3.0 introduced and OAS 2.0 does not
+// define. A caller that knows the document version uses it to reject "2XX" in a
+// 2.0 document, so the lowercase and partial cases matter: the specification
+// says the wildcard is the uppercase X.
+func TestIsWildcardStatusCode(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected bool
+	}{
+		{"wildcard 1XX", "1XX", true},
+		{"wildcard 2XX", "2XX", true},
+		{"wildcard 5XX", "5XX", true},
+
+		// Boundaries of the leading digit.
+		{"wildcard 0XX below range", "0XX", false},
+		{"wildcard 6XX above range", "6XX", false},
+
+		// The wildcard is uppercase, per the specification.
+		{"lowercase 2xx", "2xx", false},
+		{"mixed 2Xx", "2Xx", false},
+
+		// Shape.
+		{"numeric 200 is not a range", "200", false},
+		{"partial 2X", "2X", false},
+		{"partial 20X", "20X", false},
+		{"reversed XX2", "XX2", false},
+		{"all wildcards XXX", "XXX", false},
+		{"default", "default", false},
+		{"empty string", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsWildcardStatusCode(tt.code)
+			assert.Equal(t, tt.expected, got,
+				"IsWildcardStatusCode(%q) = %v, want %v", tt.code, got, tt.expected)
+		})
+	}
+}
+
+// TestIsNumericStatusCode pins the form every OAS version defines, which is what
+// a caller falls back to when the version does not admit a wildcard range.
+func TestIsNumericStatusCode(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected bool
+	}{
+		{"numeric 100 lower boundary", "100", true},
+		{"numeric 200", "200", true},
+		{"numeric 599 upper boundary", "599", true},
+		{"numeric 099 below range", "099", false},
+		{"numeric 600 above range", "600", false},
+		{"numeric 999", "999", false},
+
+		{"wildcard 2XX is not numeric", "2XX", false},
+		{"empty string", "", false},
+		{"too short", "99", false},
+		{"too long", "1000", false},
+		{"alphabetic", "abc", false},
+		{"mixed 2a0", "2a0", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsNumericStatusCode(tt.code)
+			assert.Equal(t, tt.expected, got,
+				"IsNumericStatusCode(%q) = %v, want %v", tt.code, got, tt.expected)
+		})
+	}
+}
+
+// TestStatusCodeFormsPartitionIsStatusCode holds the two narrow predicates to
+// the property their callers depend on: every key [IsStatusCode] accepts is
+// either a numeric code or a wildcard range and never both, and neither narrow
+// predicate accepts a key [IsStatusCode] rejects.
+//
+// A version-scoped caller rejects wildcard ranges and keeps numeric codes. An
+// overlap would therefore reject a numeric code that OAS 2.0 defines, and a gap
+// would let a key through with no diagnostic at all. Exhaustive over every
+// three-byte string, which is the only length either predicate can accept.
+func TestStatusCodeFormsPartitionIsStatusCode(t *testing.T) {
+	buf := make([]byte, StatusCodeLength)
+	for a := range 256 {
+		for b := range 256 {
+			for c := range 256 {
+				buf[0], buf[1], buf[2] = byte(a), byte(b), byte(c)
+				code := string(buf)
+				numeric := IsNumericStatusCode(code)
+				wildcard := IsWildcardStatusCode(code)
+				if numeric && wildcard {
+					t.Fatalf("%q is both a numeric code and a wildcard range", code)
+				}
+				if got := IsStatusCode(code); got != (numeric || wildcard) {
+					t.Fatalf("IsStatusCode(%q) = %v, but numeric = %v and wildcard = %v",
+						code, got, numeric, wildcard)
+				}
+			}
+		}
+	}
+
+	// No other length can be accepted, so the union holds there trivially.
+	for _, code := range []string{"", "2", "20", "2000", "2XXX", "default", "x-note"} {
+		if IsNumericStatusCode(code) || IsWildcardStatusCode(code) || IsStatusCode(code) {
+			t.Fatalf("%q was accepted by a status code predicate", code)
+		}
 	}
 }
 

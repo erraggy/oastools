@@ -1374,7 +1374,45 @@ func TestServerBinder_OAS2_HeaderParams(t *testing.T) {
 	assert.Contains(t, content, `result.HeaderParams["X-Page-Size"]`)
 }
 
-// OAS 2.0 spec with wildcard responses (2XX, 4XX, 5XX)
+// OAS 3.0 spec with wildcard responses (2XX, 4XX, 5XX). OAS 3.0 introduced the
+// wildcard range, so it is the earliest version that can carry one.
+const testWildcardResponsesOAS3Spec = `openapi: 3.0.4
+info:
+  title: Wildcard Responses API
+  version: "1.0.0"
+paths:
+  /resources:
+    get:
+      operationId: listResources
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+        '2XX':
+          description: Other success
+          content:
+            application/json:
+              schema:
+                type: object
+        '4XX':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                type: object
+        '5XX':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+// OAS 2.0 spec with wildcard responses (2XX, 4XX, 5XX), which 2.0 does not
+// define. Used only by TestServerResponses_OAS2_WildcardCodesAreRefused.
 const testWildcardResponsesOAS2Spec = `swagger: "2.0"
 info:
   title: Wildcard Responses API
@@ -1403,10 +1441,10 @@ paths:
             type: object
 `
 
-func TestServerResponses_OAS2_WildcardCodes(t *testing.T) {
+func TestServerResponses_OAS3_WildcardCodes(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "api.json")
-	err := os.WriteFile(tmpFile, []byte(testWildcardResponsesOAS2Spec), 0600)
+	err := os.WriteFile(tmpFile, []byte(testWildcardResponsesOAS3Spec), 0600)
 	require.NoError(t, err)
 
 	result, err := GenerateWithOptions(
@@ -1418,14 +1456,40 @@ func TestServerResponses_OAS2_WildcardCodes(t *testing.T) {
 	require.NoError(t, err)
 
 	respFile := result.GetFile("server_responses.go")
-	require.NotNil(t, respFile, "server_responses.go not generated for OAS 2.0")
+	require.NotNil(t, respFile, "server_responses.go not generated")
 	content := string(respFile.Content)
 
-	// Check that wildcard response codes are handled
-	// Note: The implementation may convert 2XX/4XX/5XX to StatusDefault or skip them
-	// This test validates the generator doesn't crash on wildcard codes
 	assert.Contains(t, content, "type ListResourcesResponse struct")
 	assert.Contains(t, content, "func (ListResourcesResponse) Status200(")
+
+	// Each wildcard range gets its own constructor, so the numeric code above
+	// cannot be what satisfies these.
+	assert.Contains(t, content, "func (ListResourcesResponse) Status2XX(")
+	assert.Contains(t, content, "func (ListResourcesResponse) Status4XX(")
+	assert.Contains(t, content, "func (ListResourcesResponse) Status5XX(")
+}
+
+// TestServerResponses_OAS2_WildcardCodesAreRefused covers #467 from the
+// generator's side. Wildcard ranges were introduced in OAS 3.0, so a 2.0
+// document carrying one reports a parse error, and the generator declines a
+// document with parse errors rather than generating from it.
+//
+// The wildcard code generation itself is covered by the OAS 3.0 case above,
+// which is the earliest version that can reach it with a valid document.
+func TestServerResponses_OAS2_WildcardCodesAreRefused(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "api.json")
+	err := os.WriteFile(tmpFile, []byte(testWildcardResponsesOAS2Spec), 0600)
+	require.NoError(t, err)
+
+	_, err = GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("api"),
+		WithServer(true),
+		WithServerResponses(true),
+	)
+	require.Error(t, err, "a 2.0 document keyed by wildcard ranges must not generate")
+	assert.Contains(t, err.Error(), "parse error")
 }
 
 func TestGetOAS2ParamSchemaType(t *testing.T) {
