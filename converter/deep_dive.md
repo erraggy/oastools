@@ -30,9 +30,12 @@ The converter performs best-effort conversion with detailed issue tracking. Feat
 
 **Supported conversions:**
 
-- OAS 2.0 (Swagger) -> OAS 3.0.x / 3.1.x
-- OAS 3.0.x / 3.1.x -> OAS 2.0 (Swagger)
-- OAS 3.0.x <-> OAS 3.1.x
+- OAS 2.0 (Swagger) -> OAS 3.0.x / 3.1.x / 3.2.x
+- OAS 3.0.x / 3.1.x / 3.2.x -> OAS 2.0 (Swagger)
+- OAS 3.0.x <-> OAS 3.1.x <-> OAS 3.2.x
+
+A conversion within OAS 3.x can lose information, which is easy to overlook
+because both ends are "OAS 3". See [OAS 3.2 -> OAS 3.0 / 3.1](#oas-32---oas-30--31).
 
 [Back to top](#top)
 
@@ -519,6 +522,37 @@ schemes:
 | `example` | `examples` (preferred) | Can use either |
 | N/A | `webhooks` | Now available |
 | `exclusiveMinimum: true` | `exclusiveMinimum: <value>` | JSON Schema alignment |
+
+### OAS 3.2 -> OAS 3.0 / 3.1
+
+Whenever the target is below 3.2, every OAS 3.2 fixed field the source uses is
+reported:
+
+```text
+'<field>' is OAS 3.2+ only and has no equivalent in OAS <target>
+```
+
+| OAS 3.2 | Below 3.2 | Notes |
+|---------|-----------|-------|
+| `querystring` (Path Item) | No equivalent | Preserved, reported |
+| `additionalOperations` (Path Item) | No equivalent | Preserved, reported |
+| `summary` (Response) | No equivalent | Preserved, reported |
+| `itemSchema`, `itemEncoding`, `prefixEncoding` (Media Type) | No equivalent | Preserved, reported |
+| `dataValue`, `serializedValue` (Example) | No equivalent | Preserved, reported |
+| `parent`, `kind` (Tag) | No equivalent | Preserved, reported |
+| `name` (Server) | No equivalent | Preserved, reported |
+| `deviceAuthorization` (OAuth Flows) | No equivalent | Preserved, reported |
+| `xml.nodeType`, `discriminator.defaultMapping` (Schema) | No equivalent | Preserved, reported |
+
+**The field is preserved rather than dropped**, so the output is not a valid
+document for the version it now declares. That is deliberate: silently
+discarding a field the author wrote is worse than returning something that needs
+a decision, and the report names what to decide about. Validate the result
+against the target version before shipping it.
+
+[Back to top](#top)
+
+---
 
 ### OAS 3.1 -> OAS 3.0
 

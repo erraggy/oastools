@@ -35,6 +35,26 @@
 // and REST best practices (trailing slashes generate warnings when IncludeWarnings
 // is enabled). See the examples in example_test.go for more usage patterns.
 //
+// Schema validation reaches every position a Schema Object can occupy, including
+// schemas in responses, parameters, headers, encoding headers and callbacks, not
+// only those under components.
+//
+// # Version-Specific Fields
+//
+// A field is reported when the document's declared version does not define it.
+// A document declaring 3.0.x or 3.1.x that uses an OAS 3.2 fixed field gets an
+// error, naming the field and the version that introduced it. The gate covers
+// the 3.2 additions across Path Item, Operation, Response, Media Type, Encoding,
+// Example, Tag, Server, Security Scheme and the Schema Object's dialect fields.
+//
+// This is deliberately an error rather than a warning: the document declares a
+// version whose consumers have no way to interpret the field, so the two
+// statements in it contradict each other.
+//
+// Some rules also stop applying as versions advance, and those are gated the
+// same way. An Operation without a responses field is an error at 3.0.x and
+// permitted from 3.1, because 3.1 removed the requirement.
+//
 // # Validation Output
 //
 // ValidationResult contains:

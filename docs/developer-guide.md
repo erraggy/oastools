@@ -236,6 +236,31 @@ if doc, ok := result.OAS3Document(); ok {
         for method := range pathItem.AdditionalOperations {
             fmt.Printf("Custom %s at %s\n", method, path)
         }
+
+        // The whole query string described as one parameter, which 3.2 adds
+        // as a parameter location rather than a field
+        for _, param := range pathItem.Parameters {
+            if param.In == parser.ParamInQueryString {
+                fmt.Printf("querystring parameter at %s\n", path)
+            }
+        }
+    }
+
+    // Tag hierarchy and kind
+    for _, tag := range doc.Tags {
+        if tag.Parent != "" {
+            fmt.Printf("Tag %s is nested under %s\n", tag.Name, tag.Parent)
+        }
+        if tag.Kind != "" {
+            fmt.Printf("Tag %s is a %s\n", tag.Name, tag.Kind)
+        }
+    }
+
+    // Named servers
+    for _, server := range doc.Servers {
+        if server.Name != "" {
+            fmt.Printf("Server %s at %s\n", server.Name, server.URL)
+        }
     }
 
     // JSON Schema 2020-12 keywords (polymorphic types)
@@ -715,15 +740,16 @@ j.WriteResult(result, "merged.yaml")
 **Custom Collision Strategies:**
 
 ```go
-// Different strategies for different component types
-config := joiner.JoinerConfig{
-    DefaultStrategy:   joiner.StrategyFailOnCollision,
-    PathStrategy:      joiner.StrategyFailOnPaths,      // Fail on path collisions
-    SchemaStrategy:    joiner.StrategyAcceptLeft,       // Keep first schema
-    ComponentStrategy: joiner.StrategyAcceptRight,      // Keep last component
-    DeduplicateTags:   true,
-    MergeArrays:       true,
-}
+// Different strategies for different component types.
+// Always start from DefaultConfig: a bare JoinerConfig{} leaves required
+// fields at their zero values, which joiner/doc.go calls out explicitly.
+config := joiner.DefaultConfig()
+config.DefaultStrategy = joiner.StrategyFailOnCollision
+config.PathStrategy = joiner.StrategyFailOnPaths      // Fail on path collisions
+config.SchemaStrategy = joiner.StrategyAcceptLeft     // Keep first schema
+config.ComponentStrategy = joiner.StrategyAcceptRight // Keep last component
+config.DeduplicateTags = true
+config.MergeArrays = true
 
 result, err := joiner.JoinWithOptions(
     joiner.WithFilePaths("base.yaml", "ext.yaml"),
@@ -779,13 +805,12 @@ Semantic deduplication identifies structurally identical schemas across document
 
 ```go
 // Enable semantic deduplication to consolidate identical schemas
-config := joiner.JoinerConfig{
-    DefaultStrategy:       joiner.StrategyAcceptLeft,
-    SemanticDeduplication: true,   // Enable schema deduplication
-    EquivalenceMode:       "deep", // Use deep structural comparison
-    DeduplicateTags:       true,
-    MergeArrays:           true,
-}
+config := joiner.DefaultConfig()
+config.DefaultStrategy = joiner.StrategyAcceptLeft
+config.SemanticDeduplication = true   // Enable schema deduplication
+config.EquivalenceMode = "deep"       // Use deep structural comparison
+config.DeduplicateTags = true
+config.MergeArrays = true
 
 j := joiner.New(config)
 result, err := j.Join([]string{"api1.yaml", "api2.yaml", "api3.yaml"})

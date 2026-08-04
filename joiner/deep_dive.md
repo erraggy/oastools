@@ -1374,6 +1374,26 @@ func main() {
 }
 ```
 
+### What Deep Comparison Reads
+
+Deep comparison reads every field of `parser.Schema`. Before v1.59.0 it read 38
+of 65, so schemas differing only in an unread field compared equal and were
+merged. The fields it could not see included:
+
+| Invisible field | What two schemas could differ in and still merge |
+|-----------------|--------------------------------------------------|
+| `nullable`, and the OAS 3.1 type arrays expressing the same thing | Whether null was an accepted value |
+| `discriminator` | Which property selects the variant of a union |
+| The OAS 2.0 array serialization fields, `collectionFormat` among them | How an array is encoded on the wire |
+
+Two schemas differing only in one of those are kept apart now, by both
+`StrategyDeduplicateEquivalent` and `SemanticDeduplication`.
+
+**If a join that used to consolidate two schemas stops doing so, this is why.**
+The result is larger, and the schemas it keeps apart were never interchangeable:
+merging them changed what the document said about nullability, union
+discrimination, or array encoding.
+
 ### Preserving Documentation During Deduplication
 
 Since v1.53.2, semantic equivalence is **strict by default**: two schemas that

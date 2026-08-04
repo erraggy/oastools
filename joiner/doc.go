@@ -97,6 +97,22 @@
 //
 // See the examples in example_test.go for more configuration patterns.
 //
+// # What "Equivalent" Compares
+//
+// Deep comparison reads every field of parser.Schema. It once read 38 of 65,
+// which made schemas differing only in an unread field look equivalent, so
+// StrategyDeduplicateEquivalent merged them and SemanticDeduplication collapsed
+// them. The fields that were invisible include:
+//
+//   - nullable, and the 3.1 type arrays that express the same thing
+//   - discriminator, so two unions differing in which property selects the
+//     variant compared equal
+//   - the OAS 2.0 array serialization fields, collectionFormat among them
+//
+// Two schemas differing only in those are kept apart now. If a join that used
+// to collapse two schemas into one stops doing so, this is why, and the schemas
+// were never interchangeable.
+//
 // # Operation-Aware Renaming
 //
 // When renaming schemas to resolve collisions, you can enable operation context

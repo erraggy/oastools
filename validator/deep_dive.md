@@ -524,6 +524,30 @@ Paths receive thorough structural and semantic validation.
 - No consecutive slashes (`//`)
 - Trailing slash warnings (best practice)
 
+**Version-Specific Fields:**
+
+A field is reported when the document's declared version does not define it. A
+document declaring 3.0.x or 3.1.x that uses an OAS 3.2 fixed field gets an
+**error**, naming the field and the version that introduced it:
+
+```text
+'querystring' is an OAS 3.2 field and this document declares 3.0.3
+```
+
+The gate covers the 3.2 additions across Path Item, Operation, Response, Media
+Type, Encoding, Example, Tag, Server, Security Scheme, and the Schema Object's
+dialect fields (`xml.nodeType`, `discriminator.defaultMapping`).
+
+An error rather than a warning is deliberate. The document declares a version
+whose consumers have no way to interpret the field, so its two statements
+contradict each other, and a tool downstream would be entitled to reject it.
+
+The same gating runs in the other direction, for rules a later version relaxed.
+An Operation with no `responses` is an error at 3.0.x and permitted from 3.1,
+which removed the requirement. Enforcing a constraint no version states is the
+same class of defect as missing one, and both are gated per version rather than
+applied everywhere.
+
 **Path Parameter Consistency:**
 
 - Every `{param}` in the path template must have a corresponding parameter definition with `in: path`
@@ -618,7 +642,10 @@ Parameters are checked for correct structure and usage.
 
 ### Schema/Definition Validation
 
-Component schemas undergo structural validation.
+Structural validation reaches every position a Schema Object can occupy: schemas
+under `components`, and equally those in responses, parameters, headers, encoding
+headers and callbacks. A schema is a Schema Object wherever it appears, so the
+same rules apply in each place.
 
 **Checked Items:**
 

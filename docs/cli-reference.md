@@ -494,7 +494,8 @@ oastools convert [flags] <file|url|->
 | OAS 2.0 | OAS 3.1.x | Full support |
 | OAS 2.0 | OAS 3.2.x | Full support |
 | OAS 3.x | OAS 2.0 | Some features cannot be converted |
-| OAS 3.x | OAS 3.y | Version updates supported |
+| OAS 3.x | OAS 3.y (higher) | Version updates supported |
+| OAS 3.2.x | OAS 3.0.x / 3.1.x | Lossy: each 3.2 field in use is reported and preserved, so the result is not valid for the target until you act on it |
 
 ### Examples
 

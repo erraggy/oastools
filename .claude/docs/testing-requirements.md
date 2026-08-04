@@ -29,6 +29,14 @@ go tool cover -func=cover.out | tail -1
 
 Test all branches including nil checks and error paths—they count against patch coverage.
 
+**`make test` measures coverage differently from the command above.** It passes
+`-coverpkg=./...`, which credits a test to whichever package it exercises rather
+than only the one it lives in. So an integration test in `validator` that drives
+`parser` raises `parser`'s number, and a package's own figure can move without
+its own tests changing. Use `make test` when comparing against what CI reports,
+and the per-package command above when you want to know what one package's tests
+cover on their own.
+
 ## Known Test Stability Issues
 
 **TestCircularReferenceDetection** (`parser/resolver_test.go`): If this test hangs, check `parser/resolver.go` for:

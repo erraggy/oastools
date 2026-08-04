@@ -29,8 +29,9 @@ make test-coverage # Generate and view HTML coverage report
 ```bash
 make fmt      # Format all Go code
 make vet      # Run go vet
-make lint     # Run golangci-lint
-make lint-md  # Lint markdown files (markdownlint-cli2)
+make lint         # Run golangci-lint
+make lint-install # Install the golangci-lint version the Makefile pins
+make lint-md      # Lint markdown files (markdownlint-cli2)
 ```
 
 ## Maintenance

@@ -39,6 +39,24 @@
 // (collectionFormat, allowEmptyValue) may not map perfectly to OAS 3.x. See the
 // examples in example_test.go for handling issues.
 //
+// # Downgrading Between 3.x Versions Is Also Lossy
+//
+// A conversion within OAS 3.x can lose information too, which is easy to miss
+// because both ends are "OAS 3". Whenever the target is below 3.2, the converter
+// reports each OAS 3.2 fixed field the source uses:
+//
+//	'<field>' is OAS 3.2+ only and has no equivalent in OAS <target>
+//
+// So a 3.2 to 3.0.3 conversion is not the trivially safe operation it looks
+// like. The field is preserved in the output rather than dropped, which means
+// the result is not a valid document for the version it now declares. That is
+// the deliberate choice: silently discarding a field the author wrote is worse
+// than handing back something that needs a decision, and the warning names what
+// to decide about.
+//
+// Validate the result against the target version before shipping it. The
+// section below shows the pattern.
+//
 // # Converting with the Validator Package
 //
 // Always validate converted documents for the target version:
