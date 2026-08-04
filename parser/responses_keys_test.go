@@ -258,8 +258,9 @@ paths:
 // in one entry. decodeFromMap classifies the key before it looks at the value,
 // so the reportable fault is not lost to the unreportable one.
 //
-// Reachable only under ResolveRefs: the YAML and JSON decoders reject the key
-// outright, before its value matters.
+// Reachable only under ResolveRefs, but because of the value rather than the
+// key: the YAML and JSON decoders keep an unusable key, and then fail to decode
+// a non-object into a Response, so neither can deliver this pair.
 func TestResponsesInvalidKeyWithNonObjectValueIsStillReported(t *testing.T) {
 	const specYAML = `openapi: 3.0.3
 info:

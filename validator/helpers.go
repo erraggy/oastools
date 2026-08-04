@@ -124,8 +124,11 @@ func (v *Validator) validateResponseStatusCodes(responses *parser.Responses, pat
 			continue
 		}
 
-		if v.StrictMode && !httputil.IsStandardStatusCode(code) {
-			// In strict mode, warn about non-standard status codes
+		// In strict mode, warn about non-standard status codes. The question is
+		// whether the code is one the HTTP RFCs register, which only a numeric
+		// code can be: a wildcard range names a class of codes, so the registry
+		// has nothing to say about it and a permitted range is not irregular.
+		if v.StrictMode && httputil.IsNumericStatusCode(code) && !httputil.IsStandardStatusCode(code) {
 			v.addWarning(result, path+".responses."+code,
 				fmt.Sprintf("Non-standard HTTP status code: %s (not defined in HTTP RFCs)", code),
 				withSpecRef(fmt.Sprintf("%s#responses-object", baseURL)),

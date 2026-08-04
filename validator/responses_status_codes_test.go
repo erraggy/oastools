@@ -86,10 +86,10 @@ paths:
 	assert.NotContains(t, warnings, "Non-standard HTTP status code")
 }
 
-// TestInvalidStatusCodeInCodesIsReported pins the format check itself. Reaching
-// it takes a Responses object holding a key no decoder would have accepted,
-// which is why the value is built here rather than parsed: the YAML and JSON
-// decoders reject such a key outright.
+// TestInvalidStatusCodeInCodesIsReported pins the format check itself. The
+// value is built here rather than parsed so the check can be exercised on its
+// own, without the parser reporting the same key first.
+// TestMalformedCodeFromAParsedDocument covers it arriving through the parser.
 func TestInvalidStatusCodeInCodesIsReported(t *testing.T) {
 	doc := &parser.OAS3Document{
 		OpenAPI:    "3.1.0",
@@ -243,8 +243,9 @@ func TestExtensionKeyInCodesIsReportedAsInvalid(t *testing.T) {
 // put one in front of the validator, and this asserts it arrives that way
 // rather than only when a test builds the value by hand.
 //
-// ResolveRefs selects that decode path. The YAML and JSON decoders reject the
-// key outright, so neither can deliver this input.
+// ResolveRefs selects decodeFromMap, which is the path under test here. The
+// YAML and JSON decoders keep the key too, so the input is not exclusive to
+// this path; pinning one of the three is what makes the assertion specific.
 func TestMalformedCodeFromAParsedDocument(t *testing.T) {
 	const spec = `
 openapi: 3.1.0
@@ -489,4 +490,94 @@ func TestWildcardRangeInOAS2DoesNotSatisfyTheSuccessCheck(t *testing.T) {
 		"a key 2.0 does not define cannot stand in for a 2XX response")
 	assert.NotContains(t, joined, "Non-standard HTTP status code: 2XX",
 		"the key is already reported as an error, so saying it twice helps nobody")
+}
+
+// TestPermittedWildcardRangeDrawsNoNonStandardWarning covers strict mode's
+// non-standard-code warning, which asks whether a code is one the HTTP RFCs
+// register. Only a numeric code can be: a wildcard range names a class of codes,
+// so the registry has nothing to say about it and a range the version permits is
+// not irregular. Microsoft Graph keys every operation this way, so warning on it
+// buries the findings that matter.
+func TestPermittedWildcardRangeDrawsNoNonStandardWarning(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.0.4",
+		OASVersion: parser.OASVersion304,
+		Info:       &parser.Info{Title: "T", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/a": {
+				Get: &parser.Operation{
+					OperationID: "a",
+					Summary:     "keyed by ranges",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"2XX": {Description: "ranged success"},
+							"5XX": {Description: "ranged failure"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	v := New()
+	v.IncludeWarnings = true
+	v.StrictMode = true
+	result, err := v.ValidateParsed(parser.ParseResult{
+		Document:   doc,
+		Version:    "3.0.4",
+		OASVersion: parser.OASVersion304,
+	})
+	require.NoError(t, err)
+
+	warnings := make([]string, 0, len(result.Warnings))
+	for _, w := range result.Warnings {
+		warnings = append(warnings, w.Message)
+	}
+	joined := strings.Join(warnings, "\n")
+
+	assert.NotContains(t, joined, "Non-standard HTTP status code: 2XX")
+	assert.NotContains(t, joined, "Non-standard HTTP status code: 5XX")
+
+	// 2XX is a success response, so the missing-success warning must not fire
+	// either: the range covers every code the check is looking for.
+	assert.NotContains(t, joined, "Operation should define at least one successful response")
+}
+
+// TestNonStandardNumericCodeStillWarns is the counterpart. Without it, a change
+// that deleted the non-standard-code warning outright would pass the test above.
+func TestNonStandardNumericCodeStillWarns(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.0.4",
+		OASVersion: parser.OASVersion304,
+		Info:       &parser.Info{Title: "T", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/a": {
+				Get: &parser.Operation{
+					OperationID: "a",
+					Summary:     "keyed by an unregistered code",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"299": {Description: "valid format, not a registered code"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	v := New()
+	v.IncludeWarnings = true
+	v.StrictMode = true
+	result, err := v.ValidateParsed(parser.ParseResult{
+		Document:   doc,
+		Version:    "3.0.4",
+		OASVersion: parser.OASVersion304,
+	})
+	require.NoError(t, err)
+
+	warnings := make([]string, 0, len(result.Warnings))
+	for _, w := range result.Warnings {
+		warnings = append(warnings, w.Message)
+	}
+	assert.Contains(t, strings.Join(warnings, "\n"), "Non-standard HTTP status code: 299")
 }
