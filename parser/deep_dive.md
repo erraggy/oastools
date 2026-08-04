@@ -411,6 +411,17 @@ if len(result.Errors) > 0 {
 fmt.Printf("Parsed %s v%s\n", result.Version, result.OASVersion)
 ```
 
+Check both, because they answer different questions. A returned `err` means the
+input could not be decoded: malformed YAML or JSON, an unsupported version, a
+value of the wrong type for its field. A document that decodes but breaks a rule
+of the specification comes back with the problem in `result.Errors`, and an
+invalid response status code is one of those. Treating a nil `err` as "this
+document is valid" misses every structural fault.
+
+`result.Errors` is filled by structure validation, which
+`WithValidateStructure(false)` turns off. Disable it and these findings go with
+it; the `validator` package reports them independently.
+
 ### HTTP Reference Resolution
 
 See also: [HTTP refs example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-ParseWithHTTPRefs), [Parse from URL example](https://pkg.go.dev/github.com/erraggy/oastools/parser#example-package-ParseFromURL) on pkg.go.dev
@@ -488,7 +499,7 @@ fmt.Println(doc.Info.Title) // Original title
 | `OASVersion` | `OASVersion` | Parsed version constant |
 | `SourceFormat` | `SourceFormat` | Detected format (JSON or YAML) |
 | `SourcePath` | `string` | Original file path |
-| `Errors` | `[]error` | Parse errors |
+| `Errors` | `[]error` | Structural faults found in a document that decoded; decode failures come back as the returned error instead |
 | `Warnings` | `[]string` | Non-fatal warnings |
 
 [Back to top](#top)

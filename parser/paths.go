@@ -75,8 +75,15 @@ type Responses struct {
 	Extra map[string]any `yaml:"-" json:"-"`
 }
 
-// UnmarshalYAML implements custom unmarshaling for Responses to validate status codes during parsing.
-// This prevents invalid fields from being captured in the Codes map and provides clearer error messages.
+// UnmarshalYAML implements custom unmarshaling for Responses. It sorts the
+// mapping's keys into Default, Extra and Codes: `default` to its own field, a
+// specification extension (e.g. "x-custom") to Extra, and everything else to
+// Codes.
+//
+// A key that is no legal status code is not rejected here. It lands in Codes and
+// validateStructure reports it, so that a document's verdict does not depend on
+// which decoder read it. It returns an error only when a value cannot be decoded
+// into the type its key calls for.
 func (r *Responses) UnmarshalYAML(unmarshal func(any) error) error {
 	// First unmarshal into a raw map to inspect all fields
 	var raw map[string]any
@@ -111,10 +118,11 @@ func (r *Responses) UnmarshalYAML(unmarshal func(any) error) error {
 			}
 			r.Extra[key] = value
 		} else {
-			// Everything else must be a status code or a wildcard range.
-			if !httputil.IsStatusCode(key) {
-				return fmt.Errorf("invalid status code '%s' in responses: must be a valid HTTP status code (e.g., \"200\", \"404\"), wildcard pattern (e.g., \"2XX\"), or extension field (e.g., \"x-custom\")", key)
-			}
+			// Everything else is a status code, and a key that is not one is
+			// kept rather than rejected here: validateStructure reports it, the
+			// way it does for a document decoded from a map. Rejecting at this
+			// depth is what made the same document pass or fail depending on
+			// which decoder ran (#449).
 			valueBytes, err := yamlMarshalValue(value)
 			if err != nil {
 				return fmt.Errorf("failed to marshal response for status code %s: %w", key, err)

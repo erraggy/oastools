@@ -383,8 +383,11 @@ func TestExtraFieldConflicts(t *testing.T) {
 	assert.Equal(t, "value", result["x-safe"])
 }
 
+// TestInvalidStatusCodeInJSON asserts that the decoder keeps a key that is no
+// legal status code rather than rejecting the document. Keeping it is what lets
+// validateStructure report it, and what makes every decode path agree on the
+// verdict for one document (#449).
 func TestInvalidStatusCodeInJSON(t *testing.T) {
-	// Test that invalid status codes in JSON cause unmarshal errors
 	invalidJSON := `{
 		"200": {"description": "OK"},
 		"999": {"description": "Invalid"},
@@ -392,48 +395,71 @@ func TestInvalidStatusCodeInJSON(t *testing.T) {
 	}`
 
 	var responses Responses
-	err := json.Unmarshal([]byte(invalidJSON), &responses)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid status code")
+	require.NoError(t, json.Unmarshal([]byte(invalidJSON), &responses))
+
+	// The offending key survives with its value, so nothing is lost silently.
+	require.Contains(t, responses.Codes, "999")
+	assert.Equal(t, "Invalid", responses.Codes["999"].Description)
+
+	// And the well-formed entries are unaffected.
+	assert.Contains(t, responses.Codes, "200")
+	assert.NotNil(t, responses.Default)
 }
 
+// TestInvalidStatusCodePatternInJSON covers the shapes a response key can take
+// that are not status codes. Each is kept in Codes for validateStructure to
+// report, rather than failing the decode.
+//
+// The names are asserted to reach Codes specifically, since an extension goes
+// to Extra instead and "custom" is here precisely because it lacks the `x-`
+// prefix that would send it there.
 func TestInvalidStatusCodePatternInJSON(t *testing.T) {
-	// Test various invalid status code patterns
 	testCases := []struct {
 		name string
 		json string
+		key  string
 	}{
 		{
 			name: "Too low status code",
 			json: `{"99": {"description": "Too low"}}`,
+			key:  "99",
 		},
 		{
 			name: "Too high status code",
 			json: `{"600": {"description": "Too high"}}`,
+			key:  "600",
 		},
 		{
 			name: "Invalid wildcard",
 			json: `{"6XX": {"description": "Invalid wildcard"}}`,
+			key:  "6XX",
 		},
 		{
 			name: "All wildcards",
 			json: `{"XXX": {"description": "All wildcards"}}`,
+			key:  "XXX",
 		},
 		{
 			name: "Non-numeric",
 			json: `{"abc": {"description": "Non-numeric"}}`,
+			key:  "abc",
 		},
 		{
 			name: "Extension without x- prefix",
 			json: `{"custom": {"description": "Invalid extension"}}`,
+			key:  "custom",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			var responses Responses
-			err := json.Unmarshal([]byte(tc.json), &responses)
-			assert.Error(t, err)
+			require.NoError(t, json.Unmarshal([]byte(tc.json), &responses))
+
+			assert.Contains(t, responses.Codes, tc.key,
+				"a key that is no status code is kept for validateStructure to report")
+			assert.NotContains(t, responses.Extra, tc.key,
+				"and it is not an extension either")
 		})
 	}
 }
