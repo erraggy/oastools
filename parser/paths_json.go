@@ -331,7 +331,10 @@ func (r *Responses) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	// Reset both maps, so decoding into a reused value reflects this document
+	// alone rather than merging with whatever it held before.
 	r.Codes = make(map[string]*Response)
+	r.Extra = nil
 
 	for key, value := range m {
 		if key == jsonKeyDefault {

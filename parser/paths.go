@@ -84,8 +84,10 @@ func (r *Responses) UnmarshalYAML(unmarshal func(any) error) error {
 		return err
 	}
 
-	// Initialize the Codes map
+	// Reset both maps, so decoding into a reused value reflects this document
+	// alone rather than merging with whatever it held before.
 	r.Codes = make(map[string]*Response)
+	r.Extra = nil
 
 	// Process each field
 	for key, value := range raw {
@@ -127,6 +129,23 @@ func (r *Responses) UnmarshalYAML(unmarshal func(any) error) error {
 	return nil
 }
 
+// defaultValue resolves the `default` key, which the Default field holds for
+// any parsed document and which a caller-assembled one may also place in Codes
+// or Extra. Codes wins, then Default, then Extra, which is the order
+// [Responses.MarshalJSON] produces by construction.
+//
+// No decode path can produce a clash: all three route `default` to the field.
+func (r *Responses) defaultValue() (any, bool) {
+	if resp, ok := r.Codes[jsonKeyDefault]; ok {
+		return resp, true
+	}
+	if r.Default != nil {
+		return r.Default, true
+	}
+	value, ok := r.Extra[jsonKeyDefault]
+	return value, ok
+}
+
 // MarshalYAML implements custom YAML marshaling for Responses, merging Default,
 // Codes and Extra back into the single object the specification describes.
 //
@@ -150,22 +169,29 @@ func (r *Responses) MarshalYAML() (any, error) {
 		return nil
 	}
 
-	if r.Default != nil {
-		if err := appendPair(jsonKeyDefault, r.Default); err != nil {
+	// `default` has a field of its own and can also be held as a map entry by
+	// a caller-assembled document. Resolve it to one value, with the same
+	// precedence [Responses.MarshalJSON] applies, and emit it once: a mapping
+	// carrying the key twice does not parse back.
+	if value, ok := r.defaultValue(); ok {
+		if err := appendPair(jsonKeyDefault, value); err != nil {
 			return nil, err
 		}
 	}
 
 	keys := make([]string, 0, len(r.Codes)+len(r.Extra))
 	for code := range r.Codes {
-		keys = append(keys, code)
+		if code != jsonKeyDefault {
+			keys = append(keys, code)
+		}
 	}
 	for key := range r.Extra {
 		// A caller-assembled document can hold one key in both maps. Codes
 		// wins, and emitting the key once keeps the output a valid mapping.
-		if _, dup := r.Codes[key]; !dup {
-			keys = append(keys, key)
+		if _, dup := r.Codes[key]; dup || key == jsonKeyDefault {
+			continue
 		}
+		keys = append(keys, key)
 	}
 	slices.Sort(keys)
 

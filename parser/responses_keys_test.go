@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -218,20 +220,128 @@ paths:
 	doc, ok := res.Document.(*OAS3Document)
 	require.True(t, ok)
 
-	out, err := yaml.Marshal(doc)
-	require.NoError(t, err)
+	assertRoundTripped := func(t *testing.T, r *Responses) {
+		t.Helper()
+		require.NotNil(t, r.Default)
+		assert.Equal(t, "fallback", r.Default.Description)
+		require.Contains(t, r.Codes, "200")
+		assert.Contains(t, r.Extra, "x-object-ext")
+		assert.Contains(t, r.Extra, "x-scalar-ext")
+		assert.NotContains(t, r.Codes, "x-object-ext")
+		assert.NotContains(t, r.Codes, "x-scalar-ext")
+	}
 
-	reparsed, err := New().ParseBytes(out)
-	require.NoError(t, err)
+	t.Run("yaml", func(t *testing.T) {
+		out, err := yaml.Marshal(doc)
+		require.NoError(t, err)
 
-	r := responsesOf(t, reparsed)
-	require.NotNil(t, r.Default)
-	assert.Equal(t, "fallback", r.Default.Description)
-	require.Contains(t, r.Codes, "200")
-	assert.Contains(t, r.Extra, "x-object-ext")
-	assert.Contains(t, r.Extra, "x-scalar-ext")
-	assert.NotContains(t, r.Codes, "x-object-ext")
-	assert.NotContains(t, r.Codes, "x-scalar-ext")
+		reparsed, err := New().ParseBytes(out)
+		require.NoError(t, err)
+		assertRoundTripped(t, responsesOf(t, reparsed))
+	})
+
+	// The two marshalers are separate implementations, so a merge present in
+	// one says nothing about the other.
+	t.Run("json", func(t *testing.T) {
+		out, err := json.Marshal(doc)
+		require.NoError(t, err)
+
+		reparsed, err := New().ParseBytes(out)
+		require.NoError(t, err)
+		assertRoundTripped(t, responsesOf(t, reparsed))
+	})
+}
+
+// TestResponsesMarshalResolvesDefaultOnce covers a caller-assembled document
+// holding `default` both in its own field and as a map entry. Emitting it twice
+// produces a mapping that does not parse back, so the key is resolved to one
+// value, and both marshalers resolve it the same way.
+func TestResponsesMarshalResolvesDefaultOnce(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *Responses
+		want string
+	}{
+		{
+			name: "Codes wins over the Default field",
+			in: &Responses{
+				Default: &Response{Description: "from Default"},
+				Codes:   map[string]*Response{"default": {Description: "from Codes"}},
+			},
+			want: "from Codes",
+		},
+		{
+			name: "the Default field wins over Extra",
+			in: &Responses{
+				Default: &Response{Description: "from Default"},
+				Extra:   map[string]any{"default": map[string]any{"description": "from Extra"}},
+			},
+			want: "from Default",
+		},
+		{
+			name: "Extra supplies it when nothing else does",
+			in: &Responses{
+				Extra: map[string]any{"default": map[string]any{"description": "from Extra"}},
+			},
+			want: "from Extra",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := yaml.Marshal(tt.in)
+			require.NoError(t, err)
+			assert.Equal(t, 1, strings.Count(string(out), "default:"),
+				"want exactly one default key; got:\n%s", out)
+			assert.Contains(t, string(out), tt.want)
+
+			// The duplicate this guards against is only visible on the way
+			// back in: a repeated mapping key is a decode error.
+			var back Responses
+			require.NoError(t, yaml.Unmarshal(out, &back), "emitted YAML must parse back")
+
+			encoded, err := tt.in.MarshalJSON()
+			require.NoError(t, err)
+			var decoded map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(encoded, &decoded))
+			require.Contains(t, decoded, "default")
+			assert.Contains(t, string(decoded["default"]), tt.want,
+				"both marshalers must resolve `default` the same way")
+		})
+	}
+}
+
+// TestResponsesDecodeIntoReusedValueResets covers decoding a second document
+// into a value that already holds one. Both maps describe the document just
+// decoded, so neither may carry an entry forward from the previous one.
+func TestResponsesDecodeIntoReusedValueResets(t *testing.T) {
+	const withExtension = `
+"200": {description: OK}
+x-note: carried over?
+`
+	const withoutExtension = `
+"200": {description: OK}
+`
+
+	t.Run("yaml", func(t *testing.T) {
+		var r Responses
+		require.NoError(t, yaml.Unmarshal([]byte(withExtension), &r))
+		require.Contains(t, r.Extra, "x-note")
+
+		require.NoError(t, yaml.Unmarshal([]byte(withoutExtension), &r))
+		assert.NotContains(t, r.Extra, "x-note",
+			"the second document declares no extension, so none may survive")
+	})
+
+	t.Run("json", func(t *testing.T) {
+		var r Responses
+		require.NoError(t, json.Unmarshal([]byte(`{"200":{"description":"OK"},"x-note":"carried over?"}`), &r))
+		require.Contains(t, r.Extra, "x-note")
+
+		require.NoError(t, json.Unmarshal([]byte(`{"200":{"description":"OK"}}`), &r))
+		assert.NotContains(t, r.Extra, "x-note",
+			"the second document declares no extension, so none may survive")
+	})
 }
 
 // TestResponsesMarshalYAMLKeyOrder pins the emitted key order: `default` first,

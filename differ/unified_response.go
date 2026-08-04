@@ -242,8 +242,12 @@ func (d *Differ) diffResponsesUnified(source, target *parser.Responses, path str
 	case source.Default != nil && target.Default != nil:
 		d.diffResponseUnified(source.Default, target.Default, path+"[default]", result)
 	case source.Default != nil:
+		// Removing the default takes the documented behavior of every code not
+		// listed individually with it, including the success case when no 2XX
+		// is declared, so it is graded like a removed success code. The
+		// severity applies in ModeBreaking; addChange discards it otherwise.
 		d.addChange(result, path+"[default]", ChangeTypeRemoved, CategoryResponse,
-			SeverityWarning, source.Default, nil, "default response removed")
+			SeverityError, source.Default, nil, "default response removed")
 	case target.Default != nil:
 		d.addChange(result, path+"[default]", ChangeTypeAdded, CategoryResponse,
 			SeverityInfo, nil, target.Default, "default response added")

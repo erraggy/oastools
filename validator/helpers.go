@@ -83,7 +83,13 @@ func (v *Validator) validateResponseStatusCodes(responses *parser.Responses, pat
 				withSpecRef(fmt.Sprintf("%s#responses-object", baseURL)),
 				withValue(code),
 			)
-		} else if v.StrictMode && !httputil.IsStandardStatusCode(code) {
+			// A key already reported as malformed says nothing about which
+			// responses the operation defines, so it cannot answer the success
+			// question below either.
+			continue
+		}
+
+		if v.StrictMode && !httputil.IsStandardStatusCode(code) {
 			// In strict mode, warn about non-standard status codes
 			v.addWarning(result, path+".responses."+code,
 				fmt.Sprintf("Non-standard HTTP status code: %s (not defined in HTTP RFCs)", code),

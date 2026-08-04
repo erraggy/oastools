@@ -129,6 +129,64 @@ func TestInvalidStatusCodeInCodesIsReported(t *testing.T) {
 	assert.NotContains(t, joined, "Invalid HTTP status code: 200")
 }
 
+// TestMalformedCodeDoesNotSatisfyTheSuccessCheck covers a key that is not a
+// status code but begins with a 2, which is how the success check recognises
+// one. A key already reported as malformed must not also be accepted as the
+// operation's success response, or reporting it would suppress a second,
+// unrelated diagnostic.
+//
+// decodeFromMap keeps such a key rather than discarding it, so this reaches the
+// validator from a parsed document and not only from an assembled one.
+func TestMalformedCodeDoesNotSatisfyTheSuccessCheck(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Info:       &parser.Info{Title: "T", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/a": {
+				Get: &parser.Operation{
+					OperationID: "a",
+					Summary:     "only a malformed code",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"2foo": {Description: "not a status code"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	v := New()
+	v.IncludeWarnings = true
+	v.StrictMode = true
+	result, err := v.ValidateParsed(parser.ParseResult{
+		Document:   doc,
+		Version:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+	})
+	require.NoError(t, err)
+
+	errs := make([]string, 0, len(result.Errors))
+	for _, e := range result.Errors {
+		errs = append(errs, e.Message)
+	}
+	warnings := make([]string, 0, len(result.Warnings))
+	for _, w := range result.Warnings {
+		warnings = append(warnings, w.Message)
+	}
+
+	assert.Contains(t, strings.Join(errs, "\n"), "Invalid HTTP status code: 2foo")
+	assert.Contains(t, strings.Join(warnings, "\n"),
+		"Operation should define at least one successful response",
+		"a malformed key cannot stand in for a 2XX response")
+
+	// The non-standard-code warning is for keys that are status codes but not
+	// registered ones. A malformed key is already reported as an error, so
+	// saying it twice in two different vocabularies helps nobody.
+	assert.NotContains(t, strings.Join(warnings, "\n"), "Non-standard HTTP status code: 2foo")
+}
+
 // TestExtensionKeyInCodesIsReportedAsInvalid pins which question the validator
 // asks of a Responses.Codes key. Codes holds status codes, so an extension
 // sitting there is a defect in whatever assembled it and must be reported,

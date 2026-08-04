@@ -27,31 +27,51 @@ func TestDiffResponsesUnifiedObservesDefault(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		source     *parser.Responses
-		target     *parser.Responses
-		wantPath   string
-		wantType   ChangeType
-		wantNoDiff bool
+		name         string
+		source       *parser.Responses
+		target       *parser.Responses
+		mode         DiffMode
+		wantPath     string
+		wantType     ChangeType
+		wantSeverity *Severity
+		wantNoDiff   bool
 	}{
 		{
-			name:     "default removed",
+			// Graded like a removed success code: the default covers every
+			// code not listed individually, so losing it can leave the
+			// operation with no documented success response at all.
+			name:         "default removed is breaking",
+			source:       withDefault("fallback"),
+			target:       withoutDefault(),
+			mode:         ModeBreaking,
+			wantPath:     "test[default]",
+			wantType:     ChangeTypeRemoved,
+			wantSeverity: SeverityPtr(SeverityError),
+		},
+		{
+			// Still reported outside breaking mode, where severity is not
+			// graded at all: addChange zeroes it for every change.
+			name:     "default removed outside breaking mode",
 			source:   withDefault("fallback"),
 			target:   withoutDefault(),
+			mode:     ModeSimple,
 			wantPath: "test[default]",
 			wantType: ChangeTypeRemoved,
 		},
 		{
-			name:     "default added",
-			source:   withoutDefault(),
-			target:   withDefault("fallback"),
-			wantPath: "test[default]",
-			wantType: ChangeTypeAdded,
+			name:         "default added",
+			source:       withoutDefault(),
+			target:       withDefault("fallback"),
+			mode:         ModeBreaking,
+			wantPath:     "test[default]",
+			wantType:     ChangeTypeAdded,
+			wantSeverity: SeverityPtr(SeverityInfo),
 		},
 		{
 			name:     "default description changed",
 			source:   withDefault("fallback"),
 			target:   withDefault("something else"),
+			mode:     ModeBreaking,
 			wantPath: "test[default].description",
 			wantType: ChangeTypeModified,
 		},
@@ -59,6 +79,7 @@ func TestDiffResponsesUnifiedObservesDefault(t *testing.T) {
 			name:       "default unchanged",
 			source:     withDefault("fallback"),
 			target:     withDefault("fallback"),
+			mode:       ModeBreaking,
 			wantNoDiff: true,
 		},
 	}
@@ -66,7 +87,7 @@ func TestDiffResponsesUnifiedObservesDefault(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := New()
-			d.Mode = ModeBreaking
+			d.Mode = tt.mode
 			result := &DiffResult{}
 
 			d.diffResponsesUnified(tt.source, tt.target, "test", result)
@@ -76,15 +97,20 @@ func TestDiffResponsesUnifiedObservesDefault(t *testing.T) {
 				return
 			}
 
-			paths := make([]string, 0, len(result.Changes))
-			found := false
-			for _, c := range result.Changes {
-				paths = append(paths, string(c.Type)+" "+c.Path)
+			seen := make([]string, 0, len(result.Changes))
+			var match *Change
+			for i, c := range result.Changes {
+				seen = append(seen, string(c.Type)+" "+c.Path)
 				if c.Path == tt.wantPath && c.Type == tt.wantType {
-					found = true
+					match = &result.Changes[i]
 				}
 			}
-			assert.True(t, found, "want a %s change at %q; got %v", tt.wantType, tt.wantPath, paths)
+			require.NotNil(t, match, "want a %s change at %q; got %v", tt.wantType, tt.wantPath, seen)
+
+			if tt.wantSeverity != nil {
+				assert.Equal(t, *tt.wantSeverity, match.Severity,
+					"severity of %s at %q", tt.wantType, tt.wantPath)
+			}
 		})
 	}
 }
