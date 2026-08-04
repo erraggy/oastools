@@ -3,8 +3,31 @@ package converter
 import (
 	"fmt"
 
+	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/parser"
 )
+
+// oas2ResponseKey maps a Responses Object key from an OAS 3.x document to the
+// key an OAS 2.0 document may use for it.
+//
+// Wildcard ranges were introduced in OAS 3.0, and the 2.0 Responses Object
+// admits one property per HTTP status code, so a range cannot be carried across
+// as written. It becomes the first code it covers, "2XX" to "200", which is how
+// the generator already reads a range.
+//
+// The second result is false when the range must be dropped instead, because
+// codes already declares the code it would become. That entry is the more
+// specific of the two and describes the same response, so it wins.
+func oas2ResponseKey(code string, codes map[string]*parser.Response) (string, bool) {
+	if !httputil.IsWildcardStatusCode(code) {
+		return code, true
+	}
+	base := string(code[0]) + "00"
+	if _, taken := codes[base]; taken {
+		return "", false
+	}
+	return base, true
+}
 
 // convertOAS3ToOAS2 converts an OAS 3.x document to OAS 2.0
 func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *ConversionResult) error {
@@ -227,8 +250,23 @@ func (c *Converter) convertOAS3OperationToOAS2(src *parser.Operation, doc *parse
 		}
 
 		for code, response := range src.Responses.Codes {
-			convertedResponse, produces := c.convertOAS3ResponseToOAS2(response, result, fmt.Sprintf("%s.responses.%s", opPath, code))
-			dst.Responses.Codes[code] = convertedResponse
+			codePath := fmt.Sprintf("%s.responses.%s", opPath, code)
+
+			targetCode, carried := oas2ResponseKey(code, src.Responses.Codes)
+			if !carried {
+				c.addIssueWithContext(result, codePath,
+					fmt.Sprintf("Wildcard response range '%s' is not supported in OAS 2.0", code),
+					fmt.Sprintf("The operation also declares '%s00', which is more specific, so the range was dropped", string(code[0])))
+				continue
+			}
+			if targetCode != code {
+				c.addIssueWithContext(result, codePath,
+					fmt.Sprintf("Wildcard response range '%s' is not supported in OAS 2.0", code),
+					fmt.Sprintf("Converted to '%s', the first code the range covers", targetCode))
+			}
+
+			convertedResponse, produces := c.convertOAS3ResponseToOAS2(response, result, codePath)
+			dst.Responses.Codes[targetCode] = convertedResponse
 			if len(produces) > 0 {
 				dst.Produces = mergeStringArrays(dst.Produces, produces)
 				doc.Produces = mergeStringArrays(doc.Produces, produces)
