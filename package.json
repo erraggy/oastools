@@ -1,0 +1,8 @@
+{
+  "name": "oastools-docs",
+  "private": true,
+  "scripts": {
+    "build:sourcey": "npx --yes sourcey@3.6.5 build -o .sourcey-dist",
+    "generate:llms": "npm run build:sourcey && node scripts/publish-sourcey-indexes.mjs"
+  }
+}

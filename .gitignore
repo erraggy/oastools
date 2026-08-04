@@ -73,9 +73,13 @@ testdata/corpus/*.yml
 # Generated Documentation
 site/
 .tmp/
+.sourcey-dist/
+node_modules/
 docs/LICENSE.md
 docs/CONTRIBUTORS.md
 docs/benchmarks.md
+docs/llms.txt
+docs/llms-full.txt
 docs/packages/
 docs/examples/
 
