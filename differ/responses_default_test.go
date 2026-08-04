@@ -1,6 +1,7 @@
 package differ
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -119,27 +120,68 @@ func TestDiffResponsesUnifiedObservesDefault(t *testing.T) {
 // Object itself. They are held apart from the status codes, so the Codes loops
 // do not see them either.
 func TestDiffResponsesUnifiedObservesExtensions(t *testing.T) {
-	source := &parser.Responses{
-		Codes: map[string]*parser.Response{"200": {Description: "OK"}},
-		Extra: map[string]any{"x-note": "one"},
-	}
-	target := &parser.Responses{
-		Codes: map[string]*parser.Response{"200": {Description: "OK"}},
-		Extra: map[string]any{"x-note": "two"},
-	}
-
-	d := New()
-	d.Mode = ModeBreaking
-	result := &DiffResult{}
-
-	d.diffResponsesUnified(source, target, "test", result)
-
-	require.NotEmpty(t, result.Changes, "a changed extension value is a change")
-	found := false
-	for _, c := range result.Changes {
-		if c.Type == ChangeTypeModified {
-			found = true
+	withExtra := func(extra map[string]any) *parser.Responses {
+		return &parser.Responses{
+			Codes: map[string]*parser.Response{"200": {Description: "OK"}},
+			Extra: extra,
 		}
 	}
-	assert.True(t, found, "want the extension reported as modified; got %+v", result.Changes)
+
+	tests := []struct {
+		name       string
+		source     *parser.Responses
+		target     *parser.Responses
+		wantType   ChangeType
+		wantNoDiff bool
+	}{
+		{
+			name:     "extension value modified",
+			source:   withExtra(map[string]any{"x-note": "one"}),
+			target:   withExtra(map[string]any{"x-note": "two"}),
+			wantType: ChangeTypeModified,
+		},
+		{
+			name:     "extension added",
+			source:   withExtra(nil),
+			target:   withExtra(map[string]any{"x-note": "one"}),
+			wantType: ChangeTypeAdded,
+		},
+		{
+			name:     "extension removed",
+			source:   withExtra(map[string]any{"x-note": "one"}),
+			target:   withExtra(nil),
+			wantType: ChangeTypeRemoved,
+		},
+		{
+			name:       "extension unchanged",
+			source:     withExtra(map[string]any{"x-note": "one"}),
+			target:     withExtra(map[string]any{"x-note": "one"}),
+			wantNoDiff: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := New()
+			d.Mode = ModeBreaking
+			result := &DiffResult{}
+
+			d.diffResponsesUnified(tt.source, tt.target, "test", result)
+
+			if tt.wantNoDiff {
+				assert.Empty(t, result.Changes)
+				return
+			}
+
+			seen := make([]string, 0, len(result.Changes))
+			found := false
+			for _, c := range result.Changes {
+				seen = append(seen, string(c.Type)+" "+c.Path)
+				if c.Type == tt.wantType && strings.Contains(c.Path, "x-note") {
+					found = true
+				}
+			}
+			assert.True(t, found, "want a %s change naming x-note; got %v", tt.wantType, seen)
+		})
+	}
 }

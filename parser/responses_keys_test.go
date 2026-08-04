@@ -225,8 +225,16 @@ paths:
 		require.NotNil(t, r.Default)
 		assert.Equal(t, "fallback", r.Default.Description)
 		require.Contains(t, r.Codes, "200")
-		assert.Contains(t, r.Extra, "x-object-ext")
-		assert.Contains(t, r.Extra, "x-scalar-ext")
+		assert.Equal(t, "OK", r.Codes["200"].Description)
+
+		// The values are asserted, not just the keys: an extension that
+		// survives under the right name with the wrong content has still
+		// been lost, and a key-only check cannot tell the difference.
+		require.Contains(t, r.Extra, "x-object-ext")
+		assert.Equal(t, map[string]any{"description": "an extension"}, r.Extra["x-object-ext"])
+		require.Contains(t, r.Extra, "x-scalar-ext")
+		assert.EqualValues(t, 100, r.Extra["x-scalar-ext"])
+
 		assert.NotContains(t, r.Codes, "x-object-ext")
 		assert.NotContains(t, r.Codes, "x-scalar-ext")
 	}
@@ -312,35 +320,57 @@ func TestResponsesMarshalResolvesDefaultOnce(t *testing.T) {
 }
 
 // TestResponsesDecodeIntoReusedValueResets covers decoding a second document
-// into a value that already holds one. Both maps describe the document just
-// decoded, so neither may carry an entry forward from the previous one.
+// into a value that already holds one. Every field describes the document just
+// decoded, so none may carry anything forward from the previous one: not an
+// extension, not a status code, and not the default response.
 func TestResponsesDecodeIntoReusedValueResets(t *testing.T) {
-	const withExtension = `
+	const populatedYAML = `
 "200": {description: OK}
+"404": {description: Not Found}
+default: {description: fallback}
 x-note: carried over?
 `
-	const withoutExtension = `
+	const sparseYAML = `
 "200": {description: OK}
 `
+
+	const populatedJSON = `{
+  "200": {"description": "OK"},
+  "404": {"description": "Not Found"},
+  "default": {"description": "fallback"},
+  "x-note": "carried over?"
+}`
+	const sparseJSON = `{"200": {"description": "OK"}}`
+
+	assertOnlySparse := func(t *testing.T, r *Responses) {
+		t.Helper()
+		assert.NotContains(t, r.Extra, "x-note",
+			"the second document declares no extension, so none may survive")
+		assert.NotContains(t, r.Codes, "404",
+			"the second document declares no 404, so none may survive")
+		assert.Nil(t, r.Default,
+			"the second document declares no default, so none may survive")
+		assert.Contains(t, r.Codes, "200")
+	}
 
 	t.Run("yaml", func(t *testing.T) {
 		var r Responses
-		require.NoError(t, yaml.Unmarshal([]byte(withExtension), &r))
+		require.NoError(t, yaml.Unmarshal([]byte(populatedYAML), &r))
 		require.Contains(t, r.Extra, "x-note")
+		require.NotNil(t, r.Default)
 
-		require.NoError(t, yaml.Unmarshal([]byte(withoutExtension), &r))
-		assert.NotContains(t, r.Extra, "x-note",
-			"the second document declares no extension, so none may survive")
+		require.NoError(t, yaml.Unmarshal([]byte(sparseYAML), &r))
+		assertOnlySparse(t, &r)
 	})
 
 	t.Run("json", func(t *testing.T) {
 		var r Responses
-		require.NoError(t, json.Unmarshal([]byte(`{"200":{"description":"OK"},"x-note":"carried over?"}`), &r))
+		require.NoError(t, json.Unmarshal([]byte(populatedJSON), &r))
 		require.Contains(t, r.Extra, "x-note")
+		require.NotNil(t, r.Default)
 
-		require.NoError(t, json.Unmarshal([]byte(`{"200":{"description":"OK"}}`), &r))
-		assert.NotContains(t, r.Extra, "x-note",
-			"the second document declares no extension, so none may survive")
+		require.NoError(t, json.Unmarshal([]byte(sparseJSON), &r))
+		assertOnlySparse(t, &r)
 	})
 }
 

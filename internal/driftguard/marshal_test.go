@@ -58,6 +58,13 @@ var marshalMerges = map[string]map[string]string{
 
 	// The Responses Object has no wrapping key of its own: its status codes are
 	// members of the object itself, beside `default`. See parser.Responses.
+	//
+	// Extra carries no entry because fieldsOf excludes it for every type, so
+	// one here would never be reached. Expressing it would take more than a
+	// registration: the fast-path control marshals through struct tags, which
+	// emit no Extra content at all, so the same assertion cannot hold on both
+	// paths. parser.TestResponsesRoundTripPreservesExtensions covers the merge
+	// for this type in the meantime.
 	"Responses": {"Codes": mergeIntoEnclosingObject},
 }
 

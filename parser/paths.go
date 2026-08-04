@@ -84,10 +84,11 @@ func (r *Responses) UnmarshalYAML(unmarshal func(any) error) error {
 		return err
 	}
 
-	// Reset both maps, so decoding into a reused value reflects this document
+	// Reset every field, so decoding into a reused value reflects this document
 	// alone rather than merging with whatever it held before.
 	r.Codes = make(map[string]*Response)
 	r.Extra = nil
+	r.Default = nil
 
 	// Process each field
 	for key, value := range raw {

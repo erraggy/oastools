@@ -254,8 +254,9 @@ paths:
 //
 // The third decode path, decodeFromMap, is not reachable from here: it runs
 // only under ResolveRefs, has no error channel, and keeps the key so the
-// structure validator reports it instead. TestResponsesKeyClassification covers
-// that route and the channel it reports through.
+// structure validator reports it instead.
+// TestResponsesInvalidStatusCodeIsReportedOnEveryDecodePath covers that route
+// and the channel it reports through.
 func TestOperationResponsesStatusCodesStillChecked(t *testing.T) {
 	const want = "invalid status code '999'"
 
