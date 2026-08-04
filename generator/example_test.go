@@ -12,12 +12,13 @@ import (
 func Example() {
 	// Generate types and client from an OAS 3.0 specification
 	result, err := generator.GenerateWithOptions(
-		generator.WithFilePath("testdata/petstore-3.0.yaml"),
+		generator.WithFilePath("../testdata/petstore-3.0.yaml"),
 		generator.WithPackageName("petstore"),
 		generator.WithClient(true),
 	)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("generation failed:", err)
+		return
 	}
 
 	// Check for critical issues
@@ -30,6 +31,11 @@ func Example() {
 	fmt.Printf("Types: %d, Operations: %d\n", result.GeneratedTypes, result.GeneratedOperations)
 	fmt.Printf("Issues: %d info, %d warnings, %d critical\n",
 		result.InfoCount, result.WarningCount, result.CriticalCount)
+
+	// Output:
+	// Successfully generated 4 files
+	// Types: 4, Operations: 3
+	// Issues: 0 info, 0 warnings, 0 critical
 }
 
 // Example_typesOnly demonstrates generating only type definitions
@@ -60,9 +66,10 @@ func Example_clientAndServer() {
 	g.UsePointers = true
 	g.IncludeValidation = true
 
-	result, err := g.Generate("testdata/petstore-3.0.yaml")
+	result, err := g.Generate("../testdata/petstore-3.0.yaml")
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("generation failed:", err)
+		return
 	}
 
 	fmt.Printf("Generated %d files:\n", len(result.Files))
@@ -75,6 +82,9 @@ func Example_clientAndServer() {
 		log.Fatal(err)
 	}
 	fmt.Println("Files written to ./generated/petstore")
+
+	// No Output: this example writes files, so running it as a test would
+	// leave a generated tree behind. It is compiled but not executed.
 }
 
 // Example_handleIssues demonstrates processing generation issues
@@ -120,7 +130,8 @@ func Example_withParsedDocument() {
 		generator.WithClient(true),
 	)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("generation failed:", err)
+		return
 	}
 
 	fmt.Printf("Generated %d files from pre-parsed document\n", len(result.Files))
@@ -139,7 +150,8 @@ func Example_withSecurityHelpers() {
 		generator.WithSecurity(true), // Enabled by default with client
 	)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("generation failed:", err)
+		return
 	}
 
 	// Check for security_helpers.go in generated files
@@ -165,7 +177,8 @@ func Example_withOAuth2Flows() {
 		generator.WithOAuth2Flows(true),
 	)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("generation failed:", err)
+		return
 	}
 
 	// OAuth2 files are generated for each OAuth2 security scheme
@@ -196,7 +209,8 @@ func Example_withFileSplitting() {
 		generator.WithSplitByTag(true),          // Group by operation tags
 	)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("generation failed:", err)
+		return
 	}
 
 	// Files are split by tag: client_users.go, client_orders.go, etc.
@@ -216,7 +230,8 @@ func Example_withServerExtensions() {
 		generator.WithServerAll(), // Enable all server extensions at once
 	)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("generation failed:", err)
+		return
 	}
 
 	// WithServerAll() enables:
@@ -254,7 +269,8 @@ func Example_withServerRouter() {
 		generator.WithServerResponses(true),  // Include typed response writers
 	)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("generation failed:", err)
+		return
 	}
 
 	// The generated server_router.go provides:
@@ -291,7 +307,8 @@ func Example_withChiRouter() {
 		generator.WithServerResponses(true),
 	)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("generation failed:", err)
+		return
 	}
 
 	// The chi router provides:
@@ -329,7 +346,8 @@ func Example_withServerStubs() {
 		generator.WithServerStubs(true),
 	)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("generation failed:", err)
+		return
 	}
 
 	// The generated server_stubs.go provides:

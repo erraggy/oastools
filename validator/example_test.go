@@ -12,29 +12,42 @@ import (
 // ExampleValidator_Validate demonstrates basic validation of an OpenAPI specification
 func ExampleValidator_Validate() {
 	v := validator.New()
-	testFile := filepath.Join("testdata", "petstore-3.0.yaml")
+	testFile := filepath.Join("..", "testdata", "petstore-3.0.yaml")
 	result, err := v.Validate(testFile)
 	if err != nil {
-		log.Fatalf("Validation failed: %v", err)
+		fmt.Println("validation failed:", err)
+		return
 	}
 	fmt.Printf("Valid: %v\n", result.Valid)
 	fmt.Printf("Version: %s\n", result.Version)
 	fmt.Printf("Errors: %d\n", result.ErrorCount)
 	fmt.Printf("Warnings: %d\n", result.WarningCount)
+
+	// Output:
+	// Valid: true
+	// Version: 3.0.3
+	// Errors: 0
+	// Warnings: 0
 }
 
 // ExampleValidator_Validate_strictMode demonstrates validation with strict mode enabled
 func ExampleValidator_Validate_strictMode() {
 	v := validator.New()
 	v.StrictMode = true
-	testFile := filepath.Join("testdata", "petstore-3.0.yaml")
+	testFile := filepath.Join("..", "testdata", "petstore-3.0.yaml")
 	result, err := v.Validate(testFile)
 	if err != nil {
-		log.Fatalf("Validation failed: %v", err)
+		fmt.Println("validation failed:", err)
+		return
 	}
 	fmt.Printf("Valid: %v\n", result.Valid)
 	fmt.Printf("Errors: %d\n", result.ErrorCount)
 	fmt.Printf("Warnings: %d\n", result.WarningCount)
+
+	// Output:
+	// Valid: true
+	// Errors: 0
+	// Warnings: 0
 }
 
 // Example_customValidation demonstrates how to use the validator with
@@ -46,10 +59,11 @@ func Example_customValidation() {
 	v.StrictMode = true      // Enforce strict validation rules
 
 	// Validate an OpenAPI specification
-	testFile := filepath.Join("testdata", "petstore-3.0.yaml")
+	testFile := filepath.Join("..", "testdata", "petstore-3.0.yaml")
 	result, err := v.Validate(testFile)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("validation failed:", err)
+		return
 	}
 
 	// Separate errors from warnings by severity
@@ -81,6 +95,17 @@ func Example_customValidation() {
 
 	// StrictMode treats warnings as errors for result.Valid
 	// IncludeWarnings populates result.Errors with warning-level issues
+
+	// The fixture is clean, so the severity switch above prints nothing. Its
+	// shape is what the example is for; asserting output for a document with
+	// several issues is not possible while their order varies between runs
+	// (#425).
+
+	// Output:
+	// Validation complete:
+	// - Valid: true
+	// - Errors: 0
+	// - Warnings: 0
 }
 
 // Example_toParseResult demonstrates using ToParseResult for package chaining.
@@ -88,23 +113,31 @@ func Example_customValidation() {
 func Example_toParseResult() {
 	// Validate a specification
 	v := validator.New()
-	testFile := filepath.Join("testdata", "petstore-3.0.yaml")
+	testFile := filepath.Join("..", "testdata", "petstore-3.0.yaml")
 	result, err := v.Validate(testFile)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("validation failed:", err)
+		return
 	}
 
 	fmt.Printf("Valid: %v\n", result.Valid)
 
 	// Convert to ParseResult for use with other packages
 	parseResult := result.ToParseResult()
-	fmt.Printf("SourcePath: %s\n", parseResult.SourcePath)
+	// ToSlash so the path reads the same on every OS, which matters because
+	// this example asserts its output.
+	fmt.Printf("SourcePath: %s\n", filepath.ToSlash(parseResult.SourcePath))
 	fmt.Printf("Version: %s\n", parseResult.Version)
 
 	// The ParseResult can now be passed to fixer, converter, joiner, etc.
 	// For example:
 	//   fixResult, _ := fixer.FixWithOptions(fixer.WithParsed(*parseResult))
 	//   convertResult, _ := converter.ConvertWithOptions(converter.WithParsed(*parseResult), ...)
+
+	// Output:
+	// Valid: true
+	// SourcePath: ../testdata/petstore-3.0.yaml
+	// Version: 3.0.3
 }
 
 // ExampleValidator_ValidateStructure demonstrates controlling parser

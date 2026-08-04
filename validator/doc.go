@@ -35,6 +35,30 @@
 // and REST best practices (trailing slashes generate warnings when IncludeWarnings
 // is enabled). See the examples in example_test.go for more usage patterns.
 //
+// Schema validation reaches every position a Schema Object can occupy, not only
+// those under components: request bodies, responses, parameters, headers,
+// encoding headers, a media type's itemSchema, and anything inside a callback.
+// That list is illustrative rather than exhaustive, and deliberately so, since
+// the rule is positional independence: a Schema Object is validated wherever it
+// appears.
+//
+// # Version-Specific Fields
+//
+// A field is reported when the document's declared version does not define it.
+// A document declaring 3.0.x or 3.1.x that uses an OAS 3.2 fixed field gets an
+// error, naming the field and the version that introduced it. The gate covers
+// the 3.2 additions across Path Item, Operation, Response, Media Type, Encoding,
+// Example, Tag, Server and Security Scheme, plus the XML and Discriminator
+// Objects nested in a Schema (xml.nodeType, discriminator.defaultMapping).
+//
+// This is deliberately an error rather than a warning: the document declares a
+// version whose consumers have no way to interpret the field, so the two
+// statements in it contradict each other.
+//
+// Some rules also stop applying as versions advance, and those are gated the
+// same way. An Operation without a responses field is an error at OAS 2.0 and
+// 3.0.x, and permitted from 3.1, because 3.1 removed the requirement.
+//
 // # Validation Output
 //
 // ValidationResult contains:
