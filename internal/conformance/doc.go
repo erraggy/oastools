@@ -5,8 +5,13 @@
 // the version branches, plus the six archived 3.0 documents on main. It is
 // vendored at an exact commit rather than fetched, because the schemas version
 // independently of the specification and OAI publishes no endpoint naming the
-// current one. testdata/conformance/sources.txt records what is pinned, and
-// scripts/conformance-vendor.sh is what materializes it.
+// current one. testdata/conformance/sources.txt records what is pinned, along
+// with each version's fixture counts and a digest over their names and
+// contents, and scripts/conformance-vendor.sh is what materializes it.
+//
+// The digest is what makes the guard exact. 3.2 and 3.3 publish the same 37
+// pass fixture names and all 37 differ in content, so counts and names alone
+// cannot tell one version's fixtures from the other's.
 //
 // What the suite is an oracle for matters when reading a result. The fixtures
 // assert validity against the published JSON Schema, not against the prose, and

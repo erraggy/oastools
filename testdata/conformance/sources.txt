@@ -12,11 +12,17 @@
 # repository: https://github.com/OAI/OpenAPI-Specification
 # license:    Apache-2.0
 #
-# Fixtures live on the version branches; main carries only the archived 3.0 and
-# 2.0 material. 2.0 publishes no fixtures at all and none are authored here.
+# Fixtures live on the version branches; main carries no tests/schema/{pass,fail}
+# tree, only the archived 3.0 documents. 2.0 publishes no fixtures at all and
+# none are authored here.
 #
-# Fields: version ref commit subpath pass fail
-3.0 main 5423da4b0c16a563a7226663018fcd9294be279d _archive_/schemas/v3.0 6 0
-3.1 v3.1-dev 10bb2949c386c88e9a9c1d22b3998d20a8c7ef49 tests/schema 35 11
-3.2 v3.2-dev 70e1e8876d8e2d166696d3f3c642daad85643d9e tests/schema 37 29
-3.3 v3.3-dev f12826523a8fafea73ce133e43401a0d6fef6f4f tests/schema 37 32
+# The digest covers every fixture's name and content for that version, in a
+# byte-stable order. Counts cannot see a fixture edited in place, nor one
+# version's fixtures vendored into another's directory: 3.2 and 3.3 publish the
+# same 37 pass fixture names, and all 37 differ in content.
+#
+# Fields: version ref commit subpath pass fail digest
+3.0 main 5423da4b0c16a563a7226663018fcd9294be279d _archive_/schemas/v3.0 6 0 d1fe82bdd6909d31a6c5f501559ab5a88b9dc9b590adf63fe4054e55bc028fa8
+3.1 v3.1-dev 10bb2949c386c88e9a9c1d22b3998d20a8c7ef49 tests/schema 35 11 fec899a455f8e27a3f0d0f67def33612fb6701df0fb92a55d60abecf3f55ff94
+3.2 v3.2-dev 70e1e8876d8e2d166696d3f3c642daad85643d9e tests/schema 37 29 2975536589fb18e886418b9840f5bc25b10ce411c604af0f3dabf05e98040299
+3.3 v3.3-dev f12826523a8fafea73ce133e43401a0d6fef6f4f tests/schema 37 32 d1a860310479bbe12bb7ff4c3a40be5b26ff7e4b2fe00dfef57ee159375c3c15

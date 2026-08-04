@@ -7,9 +7,11 @@ upstream branch moved.
 
 - **Source**: <https://github.com/OAI/OpenAPI-Specification>
 - **License**: Apache-2.0, the upstream project's own
-- **Pins**: [sources.txt](sources.txt), one record per version
-- **Refresh**: `make conformance-vendor` re-materializes the tree at those pins;
-  `make conformance-update` moves the pins to each branch's current head
+- **Pins**: [sources.txt](sources.txt), one record per version, carrying the
+  commit, the fixture counts and a digest over every fixture's name and content
+- **Refresh**: `make conformance-vendor` re-materializes the tree at those pins
+  and fails if the result does not match them; `make conformance-update` moves
+  the pins to each branch's current head
 
 ```
 3.0/pass/    3.1/pass/  3.1/fail/    3.2/pass/  3.2/fail/    3.3/pass/  3.3/fail/
@@ -42,15 +44,18 @@ rejection".
 ## Where the fixtures come from
 
 3.1, 3.2 and 3.3 publish `tests/schema/{pass,fail}` on their version branches.
-`main` carries no such tree; its only fixtures are the six archived 3.0 documents
-under `_archive_/schemas/v3.0/pass`, which are vendored here because they exist.
+`main` has a `tests/schema` directory but no `pass` or `fail` beneath it; its
+only fixtures are the six archived 3.0 documents under
+`_archive_/schemas/v3.0/pass`, which are vendored here because they exist.
 
 2.0 publishes no fixtures at all, and none are authored here: a hand-written
 suite would measure this project's reading of the specification rather than OAI's.
 
-Only `.yaml` documents are vendored. Upstream keeps its own JavaScript harness
-beside the fixtures, and 3.3 keeps `minimal-objects.yaml`, a table of object
-stubs rather than an OpenAPI document.
+Only the `pass` and `fail` directories are vendored, so upstream's own JavaScript
+harness and 3.3's `minimal-objects.yaml` (a table of object stubs rather than an
+OpenAPI document) are left behind by directory scope. Nothing else in those two
+directories is filtered out today; the vendor script restricts itself to `.yaml`
+so that a future upstream reshuffle cannot quietly widen what lands here.
 
 ## Known upstream defect
 
