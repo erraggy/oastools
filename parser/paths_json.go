@@ -2,7 +2,6 @@ package parser
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/parser/internal/jsonhelpers"
@@ -320,11 +319,15 @@ func (r *Responses) MarshalJSON() ([]byte, error) {
 	return marshalToJSON(m)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Responses.
-// This captures status code fields in the Codes map and validates that each
-// status code is either a valid HTTP status code (e.g., "200", "404"), a
-// wildcard pattern (e.g., "2XX"), or a specification extension (e.g., "x-custom").
-// Returns an error if an invalid status code is encountered.
+// UnmarshalJSON implements custom JSON unmarshaling for Responses. It sorts the
+// object's keys into Default, Extra and Codes: `default` to its own field, a
+// specification extension (e.g. "x-custom") to Extra, and everything else to
+// Codes.
+//
+// A key that is no legal status code is not rejected here. It lands in Codes and
+// validateStructure reports it, so that a document's verdict does not depend on
+// which decoder read it. It returns an error only when a value cannot be decoded
+// into the type its key calls for.
 func (r *Responses) UnmarshalJSON(data []byte) error {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -356,10 +359,11 @@ func (r *Responses) UnmarshalJSON(data []byte) error {
 			}
 			r.Extra[key] = ext
 		} else {
-			// Everything else must be a status code or a wildcard range.
-			if !httputil.IsStatusCode(key) {
-				return fmt.Errorf("invalid status code '%s' in responses: must be a valid HTTP status code (e.g., \"200\", \"404\"), wildcard pattern (e.g., \"2XX\"), or extension field (e.g., \"x-custom\")", key)
-			}
+			// Everything else is a status code, and a key that is not one is
+			// kept rather than rejected here: validateStructure reports it, the
+			// way it does for a document decoded from a map. Rejecting at this
+			// depth is what made the same document pass or fail depending on
+			// which decoder ran (#449).
 			var resp Response
 			if err := json.Unmarshal(value, &resp); err != nil {
 				return err

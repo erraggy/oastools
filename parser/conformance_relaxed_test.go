@@ -247,16 +247,16 @@ paths:
 // must not stop an invalid status code being reported when `responses` *is*
 // present.
 //
-// Note that the check which fires here is the decoder's, not the structure
-// validator's. paths.go (YAML) and paths_json.go (JSON) both reject an invalid
-// status code outright, so a Responses object is never built and the structure
-// validator's loop over Responses.Codes never sees one by this route.
+// The check that fires is the structure validator's, for every decode path
+// alike: each one keeps a key that is no legal status code, and
+// validateStructure reports it into ParseResult.Errors.
 //
-// The third decode path, decodeFromMap, is not reachable from here: it runs
-// only under ResolveRefs, cannot return an error, and keeps the key so the
-// structure validator reports it instead.
-// TestResponsesInvalidStatusCodeIsReportedOnEveryDecodePath covers that route
-// and how it reports.
+// Asserting where the diagnostic arrives, and not only its message, is
+// deliberate. Moving it back out of ParseResult.Errors would change
+// ParseBytes's contract, and this test should fail if that happens so the move
+// is a decision rather than a side effect.
+// TestResponsesInvalidStatusCodeIsReportedOnEveryDecodePath covers all three
+// decoders against the same input.
 func TestOperationResponsesStatusCodesStillChecked(t *testing.T) {
 	const want = "invalid status code '999'"
 
@@ -302,20 +302,11 @@ paths:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Pinned to how this is actually reported today: the
-			// decoder rejects an invalid status code, so ParseBytes returns a
-			// hard error and never reaches structure validation.
-			//
-			// Asserting where the diagnostic arrives, and not just its message,
-			// is deliberate. If
-			// a change moves this diagnostic into the collected result.Errors
-			// instead, that is a change to ParseBytes's external contract —
-			// callers today can rely on a non-nil error for this input — and
-			// the test should fail so the move is a decision rather than a
-			// side effect.
-			_, err := New().ParseBytes([]byte(tt.spec))
-			require.Error(t, err, "want a hard ParseBytes error containing %q", want)
-			assert.Contains(t, err.Error(), want)
+			res, err := New().ParseBytes([]byte(tt.spec))
+			require.NoError(t, err, "the document decodes; the status code is a structural fault")
+			require.NotNil(t, res)
+			assert.True(t, hasErrorContaining(res.Errors, want),
+				"want a collected error containing %q; got %v", want, res.Errors)
 		})
 	}
 }

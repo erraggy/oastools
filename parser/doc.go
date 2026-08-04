@@ -44,6 +44,30 @@
 // access to the base directory and subdirectories. Reference resolution caches
 // up to 100 documents by default to prevent memory exhaustion.
 //
+// # Where a problem is reported
+//
+// A returned error means no document was produced: the input could not be read
+// (a missing file, a failed fetch, a size limit) or could not be decoded
+// (malformed YAML or JSON, an unsupported version, a value of the wrong type
+// for its field). A document that decodes but breaks a rule of the
+// specification is returned, with the problem in ParseResult.Errors:
+//
+//	result, err := p.Parse("api.yaml")
+//	if err != nil {
+//		// the bytes could not be read as an OAS document
+//	}
+//	if len(result.Errors) > 0 {
+//		// the document was read and something in it is wrong
+//	}
+//
+// Check both. Treating a nil error as "this document is valid" misses every
+// structural fault, and an invalid response status code is one of them.
+//
+// ParseResult.Errors is populated by structure validation, which
+// WithValidateStructure(false) turns off. A caller that disables it and wants
+// these findings should run the validator package, which reports them
+// independently.
+//
 // HTTP/HTTPS $ref resolution is available via WithResolveHTTPRefs (opt-in for
 // security). Use WithInsecureSkipVerify for self-signed certificates. HTTP
 // responses are cached, size-limited, and protected against circular references.

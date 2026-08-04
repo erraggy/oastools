@@ -115,15 +115,15 @@ paths:
 	}
 }
 
-// TestResponsesInvalidStatusCodeIsReportedOnEveryDecodePath asserts that no
-// decode path accepts an invalid status code in silence.
+// TestResponsesInvalidStatusCodeIsReportedOnEveryDecodePath asserts that all
+// three decoders agree about an invalid status code: each keeps the key, and
+// validateStructure reports it into ParseResult.Errors.
 //
-// Where the diagnostic arrives differs by path, and that difference is
-// deliberate. The YAML and JSON decoders can fail the parse, so they do:
-// ParseBytes returns a non-nil error and no document. decodeFromMap cannot
-// return an error, so it keeps the key and the structure validator reports it
-// in ParseResult.Errors. Dropping the key there would lose the response and
-// report nothing at all.
+// Agreement is the point (#449). While the YAML and JSON decoders failed the
+// parse and decodeFromMap did not, one document had two verdicts depending on
+// which decoder read it, which is a property of the caller rather than of the
+// document. The table below runs the same two documents through every path,
+// so a decoder that starts rejecting again fails here.
 func TestResponsesInvalidStatusCodeIsReportedOnEveryDecodePath(t *testing.T) {
 	const specYAML = `openapi: 3.0.3
 info:
@@ -158,30 +158,25 @@ paths:
 
 	const want = "invalid status code '999'"
 
-	t.Run("yaml decoder fails the parse", func(t *testing.T) {
-		_, err := New().ParseBytes([]byte(specYAML))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), want)
-	})
-
-	t.Run("json decoder fails the parse", func(t *testing.T) {
-		_, err := New().ParseBytes([]byte(specJSON))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), want)
-	})
-
 	for _, tt := range []struct {
-		name string
-		spec string
+		name        string
+		spec        string
+		resolveRefs bool
 	}{
 		{name: "yaml", spec: specYAML},
 		{name: "json", spec: specJSON},
+		// ResolveRefs selects decodeFromMap over the format decoders.
+		{name: "yaml via decodeFromMap", spec: specYAML, resolveRefs: true},
+		{name: "json via decodeFromMap", spec: specJSON, resolveRefs: true},
 	} {
-		t.Run("decodeFromMap reports and keeps: "+tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			p := New()
-			p.ResolveRefs = true
+			p.ResolveRefs = tt.resolveRefs
 			res, err := p.ParseBytes([]byte(tt.spec))
-			require.NoError(t, err, "this path collects the error rather than failing the parse")
+
+			// The document decodes: an unusable status code is a structural
+			// fault, not a reason to refuse the bytes.
+			require.NoError(t, err)
 			assert.True(t, hasErrorContaining(res.Errors, want),
 				"want a collected error containing %q; got %v", want, res.Errors)
 
@@ -192,6 +187,70 @@ paths:
 			assert.Equal(t, "not a status code", r.Codes["999"].Description)
 		})
 	}
+}
+
+// TestParseBytesDoesNotFailOnAStructuralFault pins the contract change #449's
+// last criterion required, at the level a caller sees it.
+//
+// ParseBytes returns a non-nil error when the bytes cannot be decoded, not when
+// the decoded document breaks a rule. A caller that treated any invalid document
+// as a parse failure must read ParseResult.Errors instead.
+func TestParseBytesDoesNotFailOnAStructuralFault(t *testing.T) {
+	const spec = `openapi: 3.0.3
+info:
+  title: T
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "999":
+          description: not a status code
+`
+
+	res, err := New().ParseBytes([]byte(spec))
+	require.NoError(t, err, "a structural fault is reported, not returned")
+	require.NotNil(t, res.Document, "and the document is still handed back")
+	assert.NotEmpty(t, res.Errors)
+
+	// The counterpart: bytes that are not YAML at all still fail outright, so
+	// this is a narrowing of what the error channel carries rather than its
+	// removal.
+	_, err = New().ParseBytes([]byte("openapi: 3.0.3\n\tinfo: broken"))
+	assert.Error(t, err, "malformed input must still fail the parse")
+}
+
+// TestStructureValidationOffReportsNothingAtParseTime documents the one place
+// this reports nothing: a caller that turns off structure validation gets no
+// parse-time diagnostic, because that is what the flag switches off.
+//
+// What it asserts here is that the key survives anyway, which is what leaves
+// something for the validator to find. That the validator does find it is
+// asserted by validator.TestValidatorReportsStatusCodeWhenStructureValidationIsOff,
+// since validator imports parser and this package cannot import it back.
+func TestStructureValidationOffReportsNothingAtParseTime(t *testing.T) {
+	const spec = `openapi: 3.0.3
+info:
+  title: T
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "999":
+          description: not a status code
+`
+
+	p := New()
+	p.ValidateStructure = false
+	res, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+	assert.Empty(t, res.Errors, "structure validation is off, so nothing reports here")
+
+	// The key is still present, which is what lets the validator find it.
+	assert.Contains(t, responsesOf(t, res).Codes, "999")
 }
 
 // TestResponsesInvalidKeyWithNonObjectValueIsStillReported covers an invalid

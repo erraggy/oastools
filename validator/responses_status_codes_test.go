@@ -288,3 +288,47 @@ paths:
 	assert.Contains(t, strings.Join(warnings, "\n"),
 		"Operation should define at least one successful response")
 }
+
+// TestValidatorReportsStatusCodeWhenStructureValidationIsOff completes the
+// chain the parser package cannot assert on its own, since validator imports
+// parser and not the other way round.
+//
+// WithValidateStructure(false) turns off the parse-time report of an invalid
+// status code, which is what that flag is for. This asserts the finding is not
+// lost with it: the key stays in Responses.Codes and the validator names it
+// independently of how the document was parsed.
+func TestValidatorReportsStatusCodeWhenStructureValidationIsOff(t *testing.T) {
+	const spec = `
+openapi: 3.0.3
+info: {title: T, version: "1.0.0"}
+paths:
+  /a:
+    get:
+      operationId: a
+      summary: carries an unusable status code
+      responses:
+        "999": {description: not a status code}
+`
+
+	p := parser.New()
+	p.ValidateStructure = false
+	parsed, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+	require.Empty(t, parsed.Errors, "structure validation is off, so the parser reports nothing")
+
+	doc, ok := parsed.Document.(*parser.OAS3Document)
+	require.True(t, ok)
+	require.Contains(t, doc.Paths["/a"].Get.Responses.Codes, "999",
+		"the decoder must keep the key, or there is nothing left to report")
+
+	v := New()
+	result, err := v.ValidateParsed(*parsed)
+	require.NoError(t, err)
+
+	messages := make([]string, 0, len(result.Errors))
+	for _, e := range result.Errors {
+		messages = append(messages, e.Path+": "+e.Message)
+	}
+	assert.Contains(t, strings.Join(messages, "\n"), "Invalid HTTP status code: 999")
+	assert.False(t, result.Valid, "a document with an unusable status code is not valid")
+}
