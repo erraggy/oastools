@@ -438,6 +438,11 @@ func TestWildcardRangeIsAcceptedInOAS3(t *testing.T) {
 		messages = append(messages, e.Message)
 	}
 	assert.NotContains(t, strings.Join(messages, "\n"), "Invalid HTTP status code: 2XX")
+
+	// Asserting the whole verdict as well, so that reporting the range under
+	// some other message would fail here too.
+	assert.Empty(t, result.Errors)
+	assert.True(t, result.Valid, "a 3.0 document may key its responses by a wildcard range")
 }
 
 // TestWildcardRangeInOAS2DoesNotSatisfyTheSuccessCheck applies the rule the
