@@ -118,11 +118,12 @@ paths:
 // TestResponsesInvalidStatusCodeIsReportedOnEveryDecodePath asserts that no
 // decode path accepts an invalid status code in silence.
 //
-// The channel differs by path and that difference is deliberate: the YAML and
-// JSON decoders can fail the parse, so they do, and callers can rely on a
-// non-nil error. decodeFromMap has no error return, so it keeps the key and
-// the structure validator reports it. Dropping the key there would lose the
-// response and report nothing at all.
+// Where the diagnostic arrives differs by path, and that difference is
+// deliberate. The YAML and JSON decoders can fail the parse, so they do:
+// ParseBytes returns a non-nil error and no document. decodeFromMap cannot
+// return an error, so it keeps the key and the structure validator reports it
+// in ParseResult.Errors. Dropping the key there would lose the response and
+// report nothing at all.
 func TestResponsesInvalidStatusCodeIsReportedOnEveryDecodePath(t *testing.T) {
 	const specYAML = `openapi: 3.0.3
 info:

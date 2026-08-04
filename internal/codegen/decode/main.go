@@ -595,7 +595,7 @@ func (x *Responses) decodeFromMap(m map[string]any) {
 			continue
 		}
 		// A key that is not a status code is kept, not discarded. This method
-		// has no error channel, so validateStructure is what reports it, and
+		// cannot return an error, so validateStructure is what reports it, and
 		// discarding the key here would take the response with it.
 		resp := new(Response)
 		resp.decodeFromMap(sub)

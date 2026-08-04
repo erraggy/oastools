@@ -253,10 +253,10 @@ paths:
 // validator's loop over Responses.Codes never sees one by this route.
 //
 // The third decode path, decodeFromMap, is not reachable from here: it runs
-// only under ResolveRefs, has no error channel, and keeps the key so the
+// only under ResolveRefs, cannot return an error, and keeps the key so the
 // structure validator reports it instead.
 // TestResponsesInvalidStatusCodeIsReportedOnEveryDecodePath covers that route
-// and the channel it reports through.
+// and how it reports.
 func TestOperationResponsesStatusCodesStillChecked(t *testing.T) {
 	const want = "invalid status code '999'"
 
@@ -302,11 +302,12 @@ paths:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Pinned to the channel that actually carries this today: the
+			// Pinned to how this is actually reported today: the
 			// decoder rejects an invalid status code, so ParseBytes returns a
 			// hard error and never reaches structure validation.
 			//
-			// Asserting the channel and not just the message is deliberate. If
+			// Asserting where the diagnostic arrives, and not just its message,
+			// is deliberate. If
 			// a change moves this diagnostic into the collected result.Errors
 			// instead, that is a change to ParseBytes's external contract —
 			// callers today can rely on a non-nil error for this input — and
