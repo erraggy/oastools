@@ -131,9 +131,9 @@ func (r *Responses) UnmarshalYAML(unmarshal func(any) error) error {
 // Codes and Extra back into the single object the specification describes.
 //
 // Key order is fixed rather than left to map iteration: `default` first, then
-// the status codes and extensions together in sorted order. That reproduces
-// what the `,inline` tag on Codes emitted before Extra existed, so a document
-// that round-trips through the parser serializes byte-identically.
+// the status codes and extensions together in sorted order. A result that
+// varies between runs of the same binary makes any diff of the output useless
+// (#425).
 func (r *Responses) MarshalYAML() (any, error) {
 	out := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
 
