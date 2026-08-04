@@ -221,13 +221,15 @@ paths:
 	assert.Error(t, err, "malformed input must still fail the parse")
 }
 
-// TestStructureValidationOffLeavesTheStatusCodeToTheValidator documents the one
-// place this reports nothing: a caller that turns off structure validation gets
-// no parse-time diagnostic, because that is what the flag switches off.
+// TestStructureValidationOffReportsNothingAtParseTime documents the one place
+// this reports nothing: a caller that turns off structure validation gets no
+// parse-time diagnostic, because that is what the flag switches off.
 //
-// The validator still reports it, independently of the flag, so the check is
-// only lost by a caller who also never validates.
-func TestStructureValidationOffLeavesTheStatusCodeToTheValidator(t *testing.T) {
+// What it asserts here is that the key survives anyway, which is what leaves
+// something for the validator to find. That the validator does find it is
+// asserted by validator.TestValidatorReportsStatusCodeWhenStructureValidationIsOff,
+// since validator imports parser and this package cannot import it back.
+func TestStructureValidationOffReportsNothingAtParseTime(t *testing.T) {
 	const spec = `openapi: 3.0.3
 info:
   title: T
