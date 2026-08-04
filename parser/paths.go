@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"slices"
 
 	"go.yaml.in/yaml/v4"
 
@@ -61,7 +62,17 @@ type Operation struct {
 // Responses is a container for the expected responses of an operation
 type Responses struct {
 	Default *Response            `yaml:"default,omitempty" json:"default,omitempty"`
-	Codes   map[string]*Response `yaml:",inline" json:"-"` // Handled by custom marshaler
+	Codes   map[string]*Response `yaml:"-" json:"-"` // Handled by custom marshaler
+	// Extra captures specification extensions (fields starting with "x-").
+	// The Responses Object admits them like any other OAS object, and they are
+	// not status codes, so they are held apart from Codes: a caller ranging
+	// Codes is asking about status codes and must not be handed an extension.
+	//
+	// Both marshalers merge Default, Codes and Extra back into the single
+	// object the specification describes. Codes cannot carry the `,inline`
+	// tag alongside this field because the YAML library permits only one
+	// inline map per struct.
+	Extra map[string]any `yaml:"-" json:"-"`
 }
 
 // UnmarshalYAML implements custom unmarshaling for Responses to validate status codes during parsing.
@@ -89,9 +100,16 @@ func (r *Responses) UnmarshalYAML(unmarshal func(any) error) error {
 				return fmt.Errorf("failed to unmarshal default response: %w", err)
 			}
 			r.Default = &defaultResp
+		} else if httputil.IsExtensionKey(key) {
+			// A specification extension, which the Responses Object admits.
+			// It is not a status code, so it does not belong in Codes.
+			if r.Extra == nil {
+				r.Extra = make(map[string]any)
+			}
+			r.Extra[key] = value
 		} else {
-			// All other fields should be valid status codes or extension fields
-			if !httputil.ValidateStatusCode(key) {
+			// Everything else must be a status code or a wildcard range.
+			if !httputil.IsStatusCode(key) {
 				return fmt.Errorf("invalid status code '%s' in responses: must be a valid HTTP status code (e.g., \"200\", \"404\"), wildcard pattern (e.g., \"2XX\"), or extension field (e.g., \"x-custom\")", key)
 			}
 			valueBytes, err := yamlMarshalValue(value)
@@ -107,6 +125,63 @@ func (r *Responses) UnmarshalYAML(unmarshal func(any) error) error {
 	}
 
 	return nil
+}
+
+// MarshalYAML implements custom YAML marshaling for Responses, merging Default,
+// Codes and Extra back into the single object the specification describes.
+//
+// Key order is fixed rather than left to map iteration: `default` first, then
+// the status codes and extensions together in sorted order. That reproduces
+// what the `,inline` tag on Codes emitted before Extra existed, so a document
+// that round-trips through the parser serializes byte-identically.
+func (r *Responses) MarshalYAML() (any, error) {
+	out := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+
+	appendPair := func(key string, value any) error {
+		keyNode := &yaml.Node{}
+		if err := keyNode.Encode(key); err != nil {
+			return fmt.Errorf("failed to encode responses key %s: %w", key, err)
+		}
+		valueNode := &yaml.Node{}
+		if err := valueNode.Encode(value); err != nil {
+			return fmt.Errorf("failed to encode response for key %s: %w", key, err)
+		}
+		out.Content = append(out.Content, keyNode, valueNode)
+		return nil
+	}
+
+	if r.Default != nil {
+		if err := appendPair(jsonKeyDefault, r.Default); err != nil {
+			return nil, err
+		}
+	}
+
+	keys := make([]string, 0, len(r.Codes)+len(r.Extra))
+	for code := range r.Codes {
+		keys = append(keys, code)
+	}
+	for key := range r.Extra {
+		// A caller-assembled document can hold one key in both maps. Codes
+		// wins, and emitting the key once keeps the output a valid mapping.
+		if _, dup := r.Codes[key]; !dup {
+			keys = append(keys, key)
+		}
+	}
+	slices.Sort(keys)
+
+	for _, key := range keys {
+		var value any
+		if resp, ok := r.Codes[key]; ok {
+			value = resp
+		} else {
+			value = r.Extra[key]
+		}
+		if err := appendPair(key, value); err != nil {
+			return nil, err
+		}
+	}
+
+	return out, nil
 }
 
 // Response describes a single response from an API Operation.

@@ -958,18 +958,25 @@ func (x *XML) decodeFromMap(m map[string]any) {
 
 func (x *Responses) decodeFromMap(m map[string]any) {
 	x.Codes = make(map[string]*Response)
+	x.Extra = extractExtensionsFromMap(m)
 	for key, value := range m {
+		if isExtensionKey(key) {
+			continue
+		}
 		sub, ok := value.(map[string]any)
 		if !ok {
 			continue
 		}
-		if key == "default" {
+		if key == httputil.ResponsesKeyDefault {
 			x.Default = new(Response)
 			x.Default.decodeFromMap(sub)
-		} else if httputil.ValidateStatusCode(key) {
-			resp := new(Response)
-			resp.decodeFromMap(sub)
-			x.Codes[key] = resp
+			continue
 		}
+		// A key that is not a status code is kept, not discarded. This method
+		// has no error channel, so validateStructure is what reports it, and
+		// discarding the key here would take the response with it.
+		resp := new(Response)
+		resp.decodeFromMap(sub)
+		x.Codes[key] = resp
 	}
 }

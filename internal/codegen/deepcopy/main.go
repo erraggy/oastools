@@ -353,6 +353,7 @@ var typeConfigs = []TypeConfig{
 		Fields: []FieldConfig{
 			{Name: "Default", Type: "*Response", CopyMethod: "pointer"},
 			{Name: "Codes", Type: "map[string]*Response", CopyMethod: "map", KeyType: "string", ElemType: "*Response"},
+			{Name: "Extra", Type: "map[string]any", CopyMethod: "helper", Helper: "deepCopyExtensions"},
 		},
 	},
 	{

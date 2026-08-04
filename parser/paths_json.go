@@ -309,6 +309,14 @@ func (r *Responses) MarshalJSON() ([]byte, error) {
 		m[code] = response
 	}
 
+	// Specification extensions belong in the same object. Codes wins a clash,
+	// which only a caller-assembled document can produce.
+	for key, value := range r.Extra {
+		if _, dup := m[key]; !dup {
+			m[key] = value
+		}
+	}
+
 	return marshalToJSON(m)
 }
 
@@ -332,9 +340,20 @@ func (r *Responses) UnmarshalJSON(data []byte) error {
 				return err
 			}
 			r.Default = &defaultResp
+		} else if httputil.IsExtensionKey(key) {
+			// A specification extension, which the Responses Object admits.
+			// It is not a status code, so it does not belong in Codes.
+			var ext any
+			if err := json.Unmarshal(value, &ext); err != nil {
+				return err
+			}
+			if r.Extra == nil {
+				r.Extra = make(map[string]any)
+			}
+			r.Extra[key] = ext
 		} else {
-			// Validate status code - must be valid HTTP status code or extension field
-			if !httputil.ValidateStatusCode(key) {
+			// Everything else must be a status code or a wildcard range.
+			if !httputil.IsStatusCode(key) {
 				return fmt.Errorf("invalid status code '%s' in responses: must be a valid HTTP status code (e.g., \"200\", \"404\"), wildcard pattern (e.g., \"2XX\"), or extension field (e.g., \"x-custom\")", key)
 			}
 			var resp Response

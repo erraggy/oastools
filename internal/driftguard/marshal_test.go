@@ -55,7 +55,17 @@ var marshalMerges = map[string]map[string]string{
 	// marshal paths merge them back. See parser.Callback.
 	"Operation":  {"CallbackRefs": "callbacks"},
 	"Components": {"CallbackRefs": "callbacks"},
+
+	// The Responses Object has no wrapping key of its own: its status codes are
+	// members of the object itself, beside `default`. See parser.Responses.
+	"Responses": {"Codes": mergeIntoEnclosingObject},
 }
+
+// mergeIntoEnclosingObject marks a field whose content is emitted as members of
+// the object being marshaled rather than under a key of its own.
+//
+// It is not a legal JSON member name, so it cannot collide with a real key.
+const mergeIntoEnclosingObject = "."
 
 // marshalSubjects pairs each type carrying a hand-built MarshalJSON with a fresh
 // value and its field list. A guard cannot reflect over a package, so this list
@@ -68,6 +78,7 @@ func marshalSubjects() map[string]func() (any, []field) {
 		"PathItem":       func() (any, []field) { return &parser.PathItem{}, fieldsOf[parser.PathItem]() },
 		"Operation":      func() (any, []field) { return &parser.Operation{}, fieldsOf[parser.Operation]() },
 		"Response":       func() (any, []field) { return &parser.Response{}, fieldsOf[parser.Response]() },
+		"Responses":      func() (any, []field) { return &parser.Responses{}, fieldsOf[parser.Responses]() },
 		"MediaType":      func() (any, []field) { return &parser.MediaType{}, fieldsOf[parser.MediaType]() },
 		"Example":        func() (any, []field) { return &parser.Example{}, fieldsOf[parser.Example]() },
 		"Encoding":       func() (any, []field) { return &parser.Encoding{}, fieldsOf[parser.Encoding]() },
@@ -146,6 +157,16 @@ func runMarshalGuard(t *testing.T, withExtension bool, message string) {
 				// Checked before the json:"-" branch below, which would otherwise
 				// pass it on the strength of its own name being absent.
 				if mergeKey, isMerged := marshalMerges[typeName][f.name]; isMerged {
+					// A field merging into the enclosing object has no wrapping
+					// key, so its members are asserted at this level directly.
+					if mergeKey == mergeIntoEnclosingObject {
+						assert.Contains(t, decoded, markerKey,
+							"%s.%s is set but its content never reached the enclosing "+
+								"object; the merge is missing from this marshal path",
+							typeName, f.name)
+						return
+					}
+
 					require.Contains(t, decoded, mergeKey,
 						"%s.%s merges into %q, but that key was not emitted at all",
 						typeName, f.name, mergeKey)

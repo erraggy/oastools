@@ -2,7 +2,8 @@ package parser
 
 import (
 	"math"
-	"strings"
+
+	"github.com/erraggy/oastools/internal/httputil"
 )
 
 // extractExtensionsFromMap collects x-* keys from a map into an extension map.
@@ -348,5 +349,5 @@ func decodeSecurityRequirements(arr []any) []SecurityRequirement {
 
 // isExtensionKey returns true if the key starts with "x-".
 func isExtensionKey(key string) bool {
-	return strings.HasPrefix(key, "x-")
+	return httputil.IsExtensionKey(key)
 }

@@ -57,21 +57,36 @@ var StandardHTTPStatusCodes = map[string]bool{
 	"506": true, "507": true, "508": true, "510": true, "511": true,
 }
 
-// ValidateStatusCode checks if a status code string is valid according to OpenAPI spec.
-// Valid values are:
-//   - "default" for default response
-//   - Extension fields starting with "x-"
+// ResponsesKeyDefault is the Responses Object key holding the default response.
+const ResponsesKeyDefault = "default"
+
+// ExtensionPrefix marks a specification extension field.
+const ExtensionPrefix = "x-"
+
+// IsExtensionKey reports whether key names a specification extension.
+func IsExtensionKey(key string) bool {
+	return strings.HasPrefix(key, ExtensionPrefix)
+}
+
+// IsValidResponsesKey reports whether key may appear in a Responses Object.
+// That is a broader question than [IsStatusCode]: the Responses Object also
+// admits "default" and specification extensions.
+//
+// Use this to accept or reject a key while decoding. Use [IsStatusCode] to ask
+// whether the key denotes a status code, which is what a caller ranging
+// Responses.Codes means.
+func IsValidResponsesKey(key string) bool {
+	return key == ResponsesKeyDefault || IsExtensionKey(key) || IsStatusCode(key)
+}
+
+// IsStatusCode reports whether code is an HTTP status code or a wildcard range:
 //   - Wildcard patterns: 1XX, 2XX, 3XX, 4XX, 5XX
 //   - Numeric codes: 100-599
-func ValidateStatusCode(code string) bool {
-	if code == "default" {
-		return true
-	}
-
-	if strings.HasPrefix(code, "x-") {
-		return true
-	}
-
+//
+// It is deliberately narrow. "default" and specification extensions are legal
+// Responses Object keys but are not status codes, so both return false here;
+// [IsValidResponsesKey] is the predicate that accepts them.
+func IsStatusCode(code string) bool {
 	if len(code) == StatusCodeLength {
 		// Check for wildcard patterns (e.g., "2XX", "4XX")
 		if code[1] == WildcardChar && code[2] == WildcardChar {

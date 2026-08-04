@@ -248,15 +248,14 @@ paths:
 // present.
 //
 // Note that the check which fires here is the decoder's, not the structure
-// validator's. Every decode path — paths.go (YAML), paths_json.go (JSON) and
-// the generated decodeFromMap — filters status codes before a Responses object
-// is built, so validateOAS3Operation's own loop over Responses.Codes can never
-// see an invalid one. That loop is unreachable, and predates this change.
+// validator's. paths.go (YAML) and paths_json.go (JSON) both reject an invalid
+// status code outright, so a Responses object is never built and the structure
+// validator's loop over Responses.Codes never sees one by this route.
 //
-// The two paths ParseBytes can reach are both covered below. The third,
-// decodeFromMap, is not reachable from here and does not agree with them — it
-// drops the offending key silently rather than erroring. That inconsistency and
-// the dead loop are tracked in issue #449, not fixed here.
+// The third decode path, decodeFromMap, is not reachable from here: it runs
+// only under ResolveRefs, has no error channel, and keeps the key so the
+// structure validator reports it instead. TestResponsesKeyClassification covers
+// that route and the channel it reports through.
 func TestOperationResponsesStatusCodesStillChecked(t *testing.T) {
 	const want = "invalid status code '999'"
 

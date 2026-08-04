@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestValidateStatusCode(t *testing.T) {
+func TestIsValidResponsesKey(t *testing.T) {
 	tests := []struct {
 		name     string
 		code     string
@@ -93,10 +93,64 @@ func TestValidateStatusCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ValidateStatusCode(tt.code)
-			assert.Equal(t, tt.expected, result, "ValidateStatusCode(%q) = %v, want %v", tt.code, result, tt.expected)
+			result := IsValidResponsesKey(tt.code)
+			assert.Equal(t, tt.expected, result, "IsValidResponsesKey(%q) = %v, want %v", tt.code, result, tt.expected)
 		})
 	}
+}
+
+// TestIsStatusCode pins the narrow predicate against the broad one. The two
+// disagree on exactly the keys a Responses Object admits without their being
+// status codes, and a caller ranging Responses.Codes needs the narrow answer.
+func TestIsStatusCode(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected bool
+	}{
+		// The keys that separate this predicate from IsValidResponsesKey.
+		{"default is not a status code", "default", false},
+		{"extension x-custom is not a status code", "x-custom", false},
+		{"extension x-200 is not a status code", "x-200", false},
+		{"extension x- is not a status code", "x-", false},
+
+		// Wildcard ranges.
+		{"wildcard 1XX", "1XX", true},
+		{"wildcard 5XX", "5XX", true},
+		{"wildcard 0XX", "0XX", false},
+		{"wildcard 6XX", "6XX", false},
+
+		// Numeric codes and their boundaries.
+		{"numeric 100", "100", true},
+		{"numeric 200", "200", true},
+		{"numeric 599", "599", true},
+		{"numeric 099", "099", false},
+		{"numeric 600", "600", false},
+		{"numeric 999", "999", false},
+
+		// Shape.
+		{"empty string", "", false},
+		{"too short", "99", false},
+		{"too long", "1000", false},
+		{"alphabetic", "abc", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsStatusCode(tt.code)
+			assert.Equal(t, tt.expected, got,
+				"IsStatusCode(%q) = %v, want %v", tt.code, got, tt.expected)
+		})
+	}
+}
+
+func TestIsExtensionKey(t *testing.T) {
+	assert.True(t, IsExtensionKey("x-custom"))
+	assert.True(t, IsExtensionKey("x-"))
+	assert.False(t, IsExtensionKey("default"))
+	assert.False(t, IsExtensionKey("200"))
+	assert.False(t, IsExtensionKey("x"))
+	assert.False(t, IsExtensionKey(""))
 }
 
 func TestIsStandardStatusCode(t *testing.T) {

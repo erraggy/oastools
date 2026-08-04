@@ -883,9 +883,12 @@ func (p *Parser) validateOAS2Operation(op *Operation, opPath string, operationID
 	if op.Responses == nil {
 		errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.responses': Operation must have a responses object", opPath))
 	} else {
-		// Validate status codes in responses
+		// Validate status codes in responses. Codes holds only status-code keys
+		// on the YAML and JSON decode paths, which reject anything else outright;
+		// this loop is what reports them on the decodeFromMap path, which has no
+		// error channel of its own.
 		for code := range op.Responses.Codes {
-			if !httputil.ValidateStatusCode(code) {
+			if !httputil.IsStatusCode(code) {
 				errors = append(errors, fmt.Errorf("oas 2.0: invalid status code '%s' in '%s.responses': must be a valid HTTP status code (e.g., \"200\", \"404\") or wildcard pattern (e.g., \"2XX\")", code, opPath))
 			}
 		}
@@ -1067,9 +1070,12 @@ func (p *Parser) validateOAS3Operation(op *Operation, opPath string, operationID
 			errors = append(errors, fmt.Errorf("oas %s: missing required field '%s.responses': Operation must have a responses object (https://spec.openapis.org/oas/v3.0.0.html#operation-object)", version, opPath))
 		}
 	} else {
-		// Validate status codes in responses
+		// Validate status codes in responses. Codes holds only status-code keys
+		// on the YAML and JSON decode paths, which reject anything else outright;
+		// this loop is what reports them on the decodeFromMap path, which has no
+		// error channel of its own.
 		for code := range op.Responses.Codes {
-			if !httputil.ValidateStatusCode(code) {
+			if !httputil.IsStatusCode(code) {
 				errors = append(errors, fmt.Errorf("oas %s: invalid status code '%s' in '%s.responses': must be a valid HTTP status code (e.g., \"200\", \"404\") or wildcard pattern (e.g., \"2XX\")", version, code, opPath))
 			}
 		}

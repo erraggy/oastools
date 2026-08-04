@@ -1,0 +1,323 @@
+package parser
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	yaml "go.yaml.in/yaml/v4"
+)
+
+// responsesOf returns the Responses object of GET /a, which every fixture in
+// this file declares.
+func responsesOf(t *testing.T, res *ParseResult) *Responses {
+	t.Helper()
+	doc, ok := res.Document.(*OAS3Document)
+	require.True(t, ok, "expected an OAS3Document, got %T", res.Document)
+	require.Contains(t, doc.Paths, "/a")
+	require.NotNil(t, doc.Paths["/a"].Get)
+	require.NotNil(t, doc.Paths["/a"].Get.Responses)
+	return doc.Paths["/a"].Get.Responses
+}
+
+// TestResponsesKeyClassification pins how each of the three decode paths sorts
+// the keys of a Responses Object into Default, Codes and Extra.
+//
+// All three are exercised because they are separate implementations: YAML in
+// paths.go, JSON in paths_json.go, and decodeFromMap in the generated decoder,
+// which runs only under ResolveRefs. Covering one would leave the other two
+// free to drift.
+func TestResponsesKeyClassification(t *testing.T) {
+	const specYAML = `openapi: 3.0.3
+info:
+  title: T
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        default:
+          description: fallback
+        "200":
+          description: OK
+        "4XX":
+          description: client error
+        x-object-ext:
+          description: an extension whose value is an object
+        x-scalar-ext: 100
+`
+
+	const specJSON = `{
+  "openapi": "3.0.3",
+  "info": {"title": "T", "version": "1.0.0"},
+  "paths": {
+    "/a": {
+      "get": {
+        "operationId": "a",
+        "responses": {
+          "default": {"description": "fallback"},
+          "200": {"description": "OK"},
+          "4XX": {"description": "client error"},
+          "x-object-ext": {"description": "an extension whose value is an object"},
+          "x-scalar-ext": 100
+        }
+      }
+    }
+  }
+}`
+
+	tests := []struct {
+		name        string
+		spec        string
+		resolveRefs bool
+	}{
+		{name: "yaml", spec: specYAML},
+		{name: "json", spec: specJSON},
+		// ResolveRefs routes the document through decodeFromMap instead of the
+		// format-specific decoders.
+		{name: "yaml via decodeFromMap", spec: specYAML, resolveRefs: true},
+		{name: "json via decodeFromMap", spec: specJSON, resolveRefs: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New()
+			p.ResolveRefs = tt.resolveRefs
+			res, err := p.ParseBytes([]byte(tt.spec))
+			require.NoError(t, err)
+			require.Empty(t, res.Errors)
+
+			r := responsesOf(t, res)
+
+			// The default response has its own field.
+			require.NotNil(t, r.Default)
+			assert.Equal(t, "fallback", r.Default.Description)
+			assert.NotContains(t, r.Codes, "default")
+
+			// Status codes and wildcard ranges are the only Codes entries.
+			assert.Len(t, r.Codes, 2)
+			require.Contains(t, r.Codes, "200")
+			require.Contains(t, r.Codes, "4XX")
+			assert.Equal(t, "OK", r.Codes["200"].Description)
+			assert.Equal(t, "client error", r.Codes["4XX"].Description)
+
+			// Extensions are held apart from the status codes, whatever the
+			// shape of their value. A scalar extension is as legal as an
+			// object one, and neither is a response.
+			assert.NotContains(t, r.Codes, "x-object-ext")
+			assert.NotContains(t, r.Codes, "x-scalar-ext")
+			assert.Contains(t, r.Extra, "x-object-ext")
+			assert.Contains(t, r.Extra, "x-scalar-ext")
+		})
+	}
+}
+
+// TestResponsesInvalidStatusCodeIsReportedOnEveryDecodePath asserts that no
+// decode path accepts an invalid status code in silence.
+//
+// The channel differs by path and that difference is deliberate: the YAML and
+// JSON decoders can fail the parse, so they do, and callers can rely on a
+// non-nil error. decodeFromMap has no error return, so it keeps the key and
+// the structure validator reports it. Dropping the key there would lose the
+// response and report nothing at all.
+func TestResponsesInvalidStatusCodeIsReportedOnEveryDecodePath(t *testing.T) {
+	const specYAML = `openapi: 3.0.3
+info:
+  title: T
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+        "999":
+          description: not a status code
+`
+
+	const specJSON = `{
+  "openapi": "3.0.3",
+  "info": {"title": "T", "version": "1.0.0"},
+  "paths": {
+    "/a": {
+      "get": {
+        "operationId": "a",
+        "responses": {
+          "200": {"description": "OK"},
+          "999": {"description": "not a status code"}
+        }
+      }
+    }
+  }
+}`
+
+	const want = "invalid status code '999'"
+
+	t.Run("yaml decoder fails the parse", func(t *testing.T) {
+		_, err := New().ParseBytes([]byte(specYAML))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), want)
+	})
+
+	t.Run("json decoder fails the parse", func(t *testing.T) {
+		_, err := New().ParseBytes([]byte(specJSON))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), want)
+	})
+
+	for _, tt := range []struct {
+		name string
+		spec string
+	}{
+		{name: "yaml", spec: specYAML},
+		{name: "json", spec: specJSON},
+	} {
+		t.Run("decodeFromMap reports and keeps: "+tt.name, func(t *testing.T) {
+			p := New()
+			p.ResolveRefs = true
+			res, err := p.ParseBytes([]byte(tt.spec))
+			require.NoError(t, err, "this path collects the error rather than failing the parse")
+			assert.True(t, hasErrorContaining(res.Errors, want),
+				"want a collected error containing %q; got %v", want, res.Errors)
+
+			// The response itself survives. Reporting the key while discarding
+			// its value would be a quieter form of the same data loss.
+			r := responsesOf(t, res)
+			require.Contains(t, r.Codes, "999")
+			assert.Equal(t, "not a status code", r.Codes["999"].Description)
+		})
+	}
+}
+
+// TestResponsesRoundTripPreservesExtensions asserts that splitting extensions
+// out of Codes does not lose them on the way back out, and that both marshalers
+// emit them in the one object the specification describes.
+func TestResponsesRoundTripPreservesExtensions(t *testing.T) {
+	const spec = `openapi: 3.0.3
+info:
+  title: T
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        default:
+          description: fallback
+        "200":
+          description: OK
+        x-object-ext:
+          description: an extension
+        x-scalar-ext: 100
+`
+
+	res, err := New().ParseBytes([]byte(spec))
+	require.NoError(t, err)
+	doc, ok := res.Document.(*OAS3Document)
+	require.True(t, ok)
+
+	out, err := yaml.Marshal(doc)
+	require.NoError(t, err)
+
+	reparsed, err := New().ParseBytes(out)
+	require.NoError(t, err)
+
+	r := responsesOf(t, reparsed)
+	require.NotNil(t, r.Default)
+	assert.Equal(t, "fallback", r.Default.Description)
+	require.Contains(t, r.Codes, "200")
+	assert.Contains(t, r.Extra, "x-object-ext")
+	assert.Contains(t, r.Extra, "x-scalar-ext")
+	assert.NotContains(t, r.Codes, "x-object-ext")
+	assert.NotContains(t, r.Codes, "x-scalar-ext")
+}
+
+// TestResponsesMarshalYAMLKeyOrder pins the emitted key order: `default` first,
+// then the status codes and extensions together in sorted order.
+//
+// The order is asserted rather than left to map iteration because a result that
+// varies between runs of the same binary makes any diff of validator or
+// converter output useless (#425).
+func TestResponsesMarshalYAMLKeyOrder(t *testing.T) {
+	r := &Responses{
+		Default: &Response{Description: "fallback"},
+		Codes: map[string]*Response{
+			"500": {Description: "server error"},
+			"200": {Description: "OK"},
+			"4XX": {Description: "client error"},
+		},
+		Extra: map[string]any{
+			"x-note":  "an extension",
+			"x-first": "another",
+		},
+	}
+
+	// Quoting is the YAML encoder's own: a key that would otherwise read as an
+	// integer is quoted, and 4XX cannot, so it is not.
+	const want = `default:
+    description: fallback
+"200":
+    description: OK
+4XX:
+    description: client error
+"500":
+    description: server error
+x-first: another
+x-note: an extension
+`
+
+	// Repeated to catch an ordering that depends on map iteration: a single
+	// run can agree with the expectation by luck.
+	for range 8 {
+		out, err := yaml.Marshal(r)
+		require.NoError(t, err)
+		assert.Equal(t, want, string(out))
+	}
+}
+
+// TestResponsesMarshalPrefersCodesOnAClash covers a document assembled in Go
+// rather than parsed: no decode path can put one key in both maps, so the
+// only way to reach this is to build it. The key must still be emitted once,
+// or the output is not a valid mapping.
+func TestResponsesMarshalPrefersCodesOnAClash(t *testing.T) {
+	r := &Responses{
+		Codes: map[string]*Response{"x-clash": {Description: "from codes"}},
+		Extra: map[string]any{"x-clash": "from extra"},
+	}
+
+	out, err := yaml.Marshal(r)
+	require.NoError(t, err)
+	assert.Equal(t, "x-clash:\n    description: from codes\n", string(out))
+
+	j, err := r.MarshalJSON()
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"x-clash":{"description":"from codes"}}`, string(j))
+}
+
+// TestResponsesEqualityObservesExtensions pins Extra as part of a Responses
+// value's identity. Two documents differing only in a response extension are
+// different documents, and a comparison that ignored Extra would report them
+// equal.
+func TestResponsesEqualityObservesExtensions(t *testing.T) {
+	base := func() *Responses {
+		return &Responses{
+			Default: &Response{Description: "fallback"},
+			Codes:   map[string]*Response{"200": {Description: "OK"}},
+			Extra:   map[string]any{"x-note": "one"},
+		}
+	}
+
+	assert.True(t, equalResponses(base(), base()), "identical values must compare equal")
+
+	differentValue := base()
+	differentValue.Extra["x-note"] = "two"
+	assert.False(t, equalResponses(base(), differentValue),
+		"an extension with a different value makes the objects different")
+
+	missingExtension := base()
+	missingExtension.Extra = nil
+	assert.False(t, equalResponses(base(), missingExtension),
+		"an absent extension makes the objects different")
+}
