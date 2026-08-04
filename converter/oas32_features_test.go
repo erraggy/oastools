@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -263,4 +264,76 @@ paths:
 			}
 		})
 	}
+}
+
+// cyclicEncoding returns an Encoding Object whose nested encodings all lead back
+// to it, so the graph is a cycle that branches `cycling` ways at every step.
+//
+// Hand-built because no parsed document can reach the same Encoding Object twice.
+// Encoding is not a referenceable component, and the two routes that could share
+// a pointer do not: `$ref` resolution and YAML aliases each produce a copy.
+// Convert takes the caller's document.
+func cyclicEncoding(cycling int) *parser.Encoding {
+	enc := &parser.Encoding{}
+	nested := make(map[string]*parser.Encoding, cycling)
+	for i := range cycling {
+		nested[string(rune('a'+i))] = enc
+	}
+	enc.Encoding = nested
+	return enc
+}
+
+// TestDetectOAS32EncodingFeaturesTerminatesOnACycle pins the visited set. The
+// depth bound alone does not contain a cycle whose encoding nests more than once,
+// because the walk branches and goes exponential in depth long before the bound
+// is reached; removing the set hangs this rather than failing it.
+//
+// The validator carries three more Encoding walks with the same shape, pinned by
+// TestEncodingWalksTerminateOnACycle. Nothing in the type system connects the
+// four.
+func TestDetectOAS32EncodingFeaturesTerminatesOnACycle(t *testing.T) {
+	for _, cycling := range []int{1, 2, 3} {
+		var reported []string
+		report := func(path, field string) {
+			reported = append(reported, path+": "+field)
+		}
+
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			detectOAS32EncodingFeatures(cyclicEncoding(cycling), "content.x", report, nil, 0)
+		}()
+		select {
+		case <-done:
+		case <-time.After(15 * time.Second):
+			t.Fatalf("fan-out %d: the walk did not terminate; the visited set is gone", cycling)
+		}
+
+		assert.Equal(t, []string{"content.x: encoding"}, reported,
+			"fan-out %d: the encoding should be reported once however many nested keys lead back to it", cycling)
+	}
+}
+
+// TestDetectOAS32EncodingFeaturesStopsAtTheDepthBound pins the bound, which the
+// visited set does not subsume: a chain of distinct encodings repeats nothing, so
+// only the counter stops it.
+func TestDetectOAS32EncodingFeaturesStopsAtTheDepthBound(t *testing.T) {
+	const links = maxEncodingNestingDepth + 150
+
+	head := &parser.Encoding{}
+	current := head
+	for range links - 1 {
+		next := &parser.Encoding{}
+		current.Encoding = map[string]*parser.Encoding{"next": next}
+		current = next
+	}
+
+	var reported int
+	report := func(string, string) { reported++ }
+	detectOAS32EncodingFeatures(head, "content.x", report, nil, 0)
+
+	// Every link but the last holds a nested encoding to report, and the head
+	// sits at depth 0, so the bound admits one more link than it names.
+	assert.Equal(t, maxEncodingNestingDepth+1, reported,
+		"the walk should stop at the nesting bound rather than following all %d links", links)
 }

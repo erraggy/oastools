@@ -86,9 +86,10 @@ func (p *gatePath) String() string {
 	return b.String()
 }
 
-// maxPathItemNestingDepth bounds the recursive Path Item traversal, which a
-// callback can close into a loop. Same reasoning as [maxEncodingNestingDepth]: a
-// parsed document cannot build one, but ValidateParsed takes the caller's.
+// maxPathItemNestingDepth bounds the recursive Path Item traversal, as a
+// fail-safe behind [oas32Gate.visited]. Same reasoning as
+// [maxEncodingNestingDepth]: a parsed document cannot build a chain this long,
+// but ValidateParsed takes the caller's.
 const maxPathItemNestingDepth = 100
 
 // oas32Gate carries the walk state, so it stays off every method signature.
@@ -97,6 +98,18 @@ type oas32Gate struct {
 	version parser.OASVersion
 	result  *ValidationResult
 	path    gatePath
+	// visited records the path items already walked, and is what makes a cyclic
+	// graph terminate: the depth bound alone does not contain one, because a path
+	// item whose operations lead back to it branches, so the walk goes
+	// exponential in depth long before the bound is reached. Same reasoning as
+	// [Validator.validatePathItemSchemas].
+	//
+	// Every path item is recorded, not only the ones a callback leads to.
+	// Recording lazily would leave the entry point of a cycle unrecorded until
+	// the cycle returned to it, so how often it reported would depend on which
+	// path the map order reached first. Measured at 2 allocations on the small
+	// benchmark fixture and 9 on the large one.
+	visited map[*parser.PathItem]bool
 	// depth counts nested path items, not path segments.
 	depth int
 }
@@ -243,9 +256,13 @@ func walkNamedIn[T any](g *oas32Gate, section string, items map[string]*T, visit
 }
 
 func (g *oas32Gate) pathItem(item *parser.PathItem) {
-	if item == nil || g.depth >= maxPathItemNestingDepth {
+	if item == nil || g.depth > maxPathItemNestingDepth || g.visited[item] {
 		return
 	}
+	if g.visited == nil {
+		g.visited = make(map[*parser.PathItem]bool)
+	}
+	g.visited[item] = true
 	g.depth++
 	defer func() { g.depth-- }()
 
@@ -384,40 +401,40 @@ func (g *oas32Gate) mediaType(mt *parser.MediaType) {
 	}
 
 	g.examples(mt.Examples)
-	g.encodings(mt.Encoding, 0)
+	g.encodings(mt.Encoding, nil, 0)
 
 	if mt.ItemEncoding != nil {
 		g.path.push("itemEncoding")
-		g.encoding(mt.ItemEncoding, 0)
+		g.encoding(mt.ItemEncoding, nil, 0)
 		g.path.pop()
 	}
 	for i, nested := range mt.PrefixEncoding {
 		g.path.pushIndex("prefixEncoding", i)
-		g.encoding(nested, 0)
+		g.encoding(nested, nil, 0)
 		g.path.pop()
 	}
 }
 
 // encodings walks a named encoding map, which Media Type and Encoding both hold.
-func (g *oas32Gate) encodings(encodings map[string]*parser.Encoding, depth int) {
+func (g *oas32Gate) encodings(encodings map[string]*parser.Encoding, visited map[*parser.Encoding]bool, depth int) {
 	if len(encodings) == 0 {
 		return
 	}
 	g.path.push("encoding")
 	for name, enc := range encodings {
 		g.path.push(name)
-		g.encoding(enc, depth)
+		g.encoding(enc, visited, depth)
 		g.path.pop()
 	}
 	g.path.pop()
 }
 
-// encoding recurses through the [Encoding Object] graph 3.2 introduced. depth
-// mirrors the bound on [Validator.visitEncodingExamples].
+// encoding recurses through the [Encoding Object] graph 3.2 introduced. visited
+// and depth mirror the guards on [Validator.visitEncodingExamples].
 //
 // [Encoding Object]: https://spec.openapis.org/oas/v3.2.0.html#encoding-object
-func (g *oas32Gate) encoding(enc *parser.Encoding, depth int) {
-	if enc == nil || depth > maxEncodingNestingDepth {
+func (g *oas32Gate) encoding(enc *parser.Encoding, visited map[*parser.Encoding]bool, depth int) {
+	if enc == nil || depth > maxEncodingNestingDepth || visited[enc] {
 		return
 	}
 	if len(enc.Encoding) > 0 {
@@ -432,16 +449,24 @@ func (g *oas32Gate) encoding(enc *parser.Encoding, depth int) {
 
 	g.walkHeaders(enc.Headers)
 
-	g.encodings(enc.Encoding, depth+1)
+	if !encodingNests(enc) {
+		return
+	}
+	if visited == nil {
+		visited = make(map[*parser.Encoding]bool)
+	}
+	visited[enc] = true
+
+	g.encodings(enc.Encoding, visited, depth+1)
 
 	if enc.ItemEncoding != nil {
 		g.path.push("itemEncoding")
-		g.encoding(enc.ItemEncoding, depth+1)
+		g.encoding(enc.ItemEncoding, visited, depth+1)
 		g.path.pop()
 	}
 	for i, nested := range enc.PrefixEncoding {
 		g.path.pushIndex("prefixEncoding", i)
-		g.encoding(nested, depth+1)
+		g.encoding(nested, visited, depth+1)
 		g.path.pop()
 	}
 }

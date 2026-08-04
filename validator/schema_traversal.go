@@ -158,29 +158,37 @@ func (v *Validator) validateMediaTypeSchemas(mt *parser.MediaType, path string, 
 	}
 
 	for name, enc := range mt.Encoding {
-		v.validateEncodingSchemas(enc, path+".encoding."+name, result, 0)
+		v.validateEncodingSchemas(enc, path+".encoding."+name, result, nil, 0)
 	}
-	v.validateEncodingSchemas(mt.ItemEncoding, path+".itemEncoding", result, 0)
+	v.validateEncodingSchemas(mt.ItemEncoding, path+".itemEncoding", result, nil, 0)
 	for i, enc := range mt.PrefixEncoding {
-		v.validateEncodingSchemas(enc, path+".prefixEncoding["+strconv.Itoa(i)+"]", result, 0)
+		v.validateEncodingSchemas(enc, path+".prefixEncoding["+strconv.Itoa(i)+"]", result, nil, 0)
 	}
 }
 
 // validateEncodingSchemas validates the schemas an Encoding Object's headers
-// carry, and recurses through the encoding nesting 3.2 added. depth mirrors the
-// bound on [Validator.visitEncodingExamples].
-func (v *Validator) validateEncodingSchemas(enc *parser.Encoding, path string, result *ValidationResult, depth int) {
-	if enc == nil || depth > maxEncodingNestingDepth {
+// carry, and recurses through the encoding nesting 3.2 added. visited and depth
+// mirror the guards on [Validator.visitEncodingExamples].
+func (v *Validator) validateEncodingSchemas(enc *parser.Encoding, path string, result *ValidationResult, visited map[*parser.Encoding]bool, depth int) {
+	if enc == nil || depth > maxEncodingNestingDepth || visited[enc] {
 		return
 	}
 	v.validateHeaderMapSchemas(enc.Headers, path, result)
 
-	for name, nested := range enc.Encoding {
-		v.validateEncodingSchemas(nested, path+".encoding."+name, result, depth+1)
+	if !encodingNests(enc) {
+		return
 	}
-	v.validateEncodingSchemas(enc.ItemEncoding, path+".itemEncoding", result, depth+1)
+	if visited == nil {
+		visited = make(map[*parser.Encoding]bool)
+	}
+	visited[enc] = true
+
+	for name, nested := range enc.Encoding {
+		v.validateEncodingSchemas(nested, path+".encoding."+name, result, visited, depth+1)
+	}
+	v.validateEncodingSchemas(enc.ItemEncoding, path+".itemEncoding", result, visited, depth+1)
 	for i, nested := range enc.PrefixEncoding {
-		v.validateEncodingSchemas(nested, path+".prefixEncoding["+strconv.Itoa(i)+"]", result, depth+1)
+		v.validateEncodingSchemas(nested, path+".prefixEncoding["+strconv.Itoa(i)+"]", result, visited, depth+1)
 	}
 }
 

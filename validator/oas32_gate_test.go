@@ -3,6 +3,7 @@ package validator
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -733,33 +734,106 @@ func TestOAS32FieldGate_ErrorOrderIsDeterministic(t *testing.T) {
 	assert.IsIncreasing(t, first, "sorted by path, so the order is predictable and not merely stable")
 }
 
-// TestOAS32FieldGate_BoundsCyclicPathItems covers the one graph the walk cannot
-// treat as a tree — a [Callback Object] holds path items whose operations hold
-// callbacks. Hand-built because a parsed document cannot close that loop, and
-// ValidateParsed takes the caller's; before the bound this exhausted the stack.
+// cyclicGateDoc returns a pre-3.2 document whose single path item cycles back to
+// itself through a callback on each of the named operations, carrying one 3.2
+// field so every visit has something to report.
 //
-// [Callback Object]: https://spec.openapis.org/oas/v3.2.0.html#callback-object
-func TestOAS32FieldGate_BoundsCyclicPathItems(t *testing.T) {
+// Hand-built because a parsed document cannot close that loop: both routes to a
+// shared pointer produce copies instead, so `$ref` resolution and YAML anchors
+// each yield a distinct Path Item. ValidateParsed takes the caller's document.
+func cyclicGateDoc(cycling int) *parser.OAS3Document {
 	item := &parser.PathItem{}
 	callback := parser.Callback{"loop": item}
-	item.Get = &parser.Operation{
-		Callbacks: map[string]*parser.Callback{"cycle": &callback},
+	cycle := map[string]*parser.Callback{"cycle": &callback}
+
+	setters := []func(*parser.Operation){
+		func(op *parser.Operation) { item.Get = op },
+		func(op *parser.Operation) { item.Post = op },
+		func(op *parser.Operation) { item.Put = op },
 	}
-	// A 3.2 field, so each pass round the loop has something to report and the
-	// bound is observable rather than merely survived.
+	for _, set := range setters[:cycling] {
+		set(&parser.Operation{Callbacks: cycle})
+	}
+	// A 3.2 field, so a visit is observable rather than merely survived.
 	item.Query = &parser.Operation{}
 
-	doc := &parser.OAS3Document{
+	return &parser.OAS3Document{
 		OpenAPI:    "3.0.3",
 		Info:       &parser.Info{Title: "T", Version: "1.0.0"},
 		Paths:      parser.Paths{"/a": item},
 		OASVersion: parser.OASVersion303,
 	}
+}
+
+// TestOAS32FieldGate_BoundsCyclicPathItems covers the one graph the walk cannot
+// treat as a tree: a [Callback Object] holds path items whose operations hold
+// callbacks.
+//
+// The visited set is what makes this terminate, and removing it hangs the second
+// case rather than slowing it. A depth bound alone does not contain a cycle whose
+// path item has more than one operation leading back to it, because the walk
+// branches and goes exponential in depth long before the bound is reached: two
+// such operations ran past 15 seconds without returning.
+//
+// [Callback Object]: https://spec.openapis.org/oas/v3.2.0.html#callback-object
+func TestOAS32FieldGate_BoundsCyclicPathItems(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		cycling int
+	}{
+		{"one operation cycles back, so the walk is a chain", 1},
+		{"two cycle back, so it branches", 2},
+		{"three cycle back", 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := cyclicGateDoc(tc.cycling)
+			result := &ValidationResult{}
+
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				New().validateOAS32FieldsNotYetIntroduced(doc, result)
+			}()
+			select {
+			case <-done:
+			case <-time.After(15 * time.Second):
+				t.Fatal("the gate walk did not terminate; the visited set is gone")
+			}
+
+			assert.Len(t, result.Errors, 1,
+				"the path item should be walked once however many operations lead back to it")
+		})
+	}
+}
+
+// TestOAS32FieldGate_BoundsAcyclicPathItemChain pins the depth bound, which the
+// visited set does not subsume: a chain of distinct path items repeats nothing,
+// so only the counter stops it. Removing the bound walks all 250 links.
+func TestOAS32FieldGate_BoundsAcyclicPathItemChain(t *testing.T) {
+	const links = maxPathItemNestingDepth + 150
+
+	head := &parser.PathItem{Query: &parser.Operation{}}
+	current := head
+	for range links - 1 {
+		next := &parser.PathItem{Query: &parser.Operation{}}
+		callback := parser.Callback{"next": next}
+		current.Get = &parser.Operation{
+			Callbacks: map[string]*parser.Callback{"chain": &callback},
+		}
+		current = next
+	}
+
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.0.3",
+		Info:       &parser.Info{Title: "T", Version: "1.0.0"},
+		Paths:      parser.Paths{"/a": head},
+		OASVersion: parser.OASVersion303,
+	}
 
 	result := &ValidationResult{}
-	require.NotPanics(t, func() {
-		New().validateOAS32FieldsNotYetIntroduced(doc, result)
-	})
-	assert.Len(t, result.Errors, maxPathItemNestingDepth,
-		"the walk should stop at the nesting bound, having reported once per level")
+	New().validateOAS32FieldsNotYetIntroduced(doc, result)
+
+	// The head sits at depth 0, so the bound admits one more link than it names.
+	assert.Len(t, result.Errors, maxPathItemNestingDepth+1,
+		"the walk should stop at the nesting bound, having reported once per link")
 }
