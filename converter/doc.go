@@ -61,10 +61,14 @@
 //
 // Always validate converted documents for the target version:
 //
-//	convResult, _ := converter.ConvertWithOptions(
+//	convResult, err := converter.ConvertWithOptions(
 //		converter.WithFilePath("swagger.yaml"),
 //		converter.WithTargetVersion("3.0.3"),
 //	)
+//	if err != nil {
+//		// convResult is nil here, so check before reading it
+//		return err
+//	}
 //	data, _ := yaml.Marshal(convResult.Document)
 //	tmpFile := "temp.yaml"
 //	os.WriteFile(tmpFile, data, 0600)

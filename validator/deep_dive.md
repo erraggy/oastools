@@ -499,6 +499,44 @@ func main() {
 
 The validator performs comprehensive checks across all document sections. Understanding what's validated helps you interpret results and know what to expect.
 
+### Version-Specific Field Gating
+
+A field is reported when the document's declared version does not define it. A
+document declaring 3.0.x or 3.1.x that uses an OAS 3.2 fixed field gets an
+**error**, naming the field and the version that introduced it:
+
+```text
+'querystring' is an OAS 3.2 field and this document declares 3.0.3
+```
+
+The gate covers the 3.2 additions across Path Item, Operation, Response, Media
+Type, Encoding, Example, Tag, Server and Security Scheme, plus the XML and
+Discriminator Objects nested in a Schema (`xml.nodeType`,
+`discriminator.defaultMapping`).
+
+Not every 3.2 addition is a field, and the ones that are not are reported by a
+different check. `in: "querystring"` is a new **parameter location**, so an
+earlier document using it is rejected by the parameter-location check rather
+than by this gate:
+
+```text
+"querystring" is not a valid parameter location (must be query, header, path, or cookie)
+```
+
+An error rather than a warning is deliberate. The document declares a version
+whose consumers have no way to interpret the field, so its two statements
+contradict each other, and a tool downstream would be entitled to reject it.
+
+The same gating runs in the other direction, for rules a later version relaxed.
+An Operation with no `responses` is an error at 3.0.x and permitted from 3.1,
+which removed the requirement. Enforcing a constraint no version states is the
+same class of defect as missing one, and both are gated per version rather than
+applied everywhere.
+
+[Back to top](#top)
+
+---
+
 ### Info Object Validation
 
 The validator checks that required fields are present and formats are correct.
@@ -523,30 +561,6 @@ Paths receive thorough structural and semantic validation.
 - No reserved characters in parameter names
 - No consecutive slashes (`//`)
 - Trailing slash warnings (best practice)
-
-**Version-Specific Fields:**
-
-A field is reported when the document's declared version does not define it. A
-document declaring 3.0.x or 3.1.x that uses an OAS 3.2 fixed field gets an
-**error**, naming the field and the version that introduced it:
-
-```text
-'querystring' is an OAS 3.2 field and this document declares 3.0.3
-```
-
-The gate covers the 3.2 additions across Path Item, Operation, Response, Media
-Type, Encoding, Example, Tag, Server, Security Scheme, and the Schema Object's
-dialect fields (`xml.nodeType`, `discriminator.defaultMapping`).
-
-An error rather than a warning is deliberate. The document declares a version
-whose consumers have no way to interpret the field, so its two statements
-contradict each other, and a tool downstream would be entitled to reject it.
-
-The same gating runs in the other direction, for rules a later version relaxed.
-An Operation with no `responses` is an error at 3.0.x and permitted from 3.1,
-which removed the requirement. Enforcing a constraint no version states is the
-same class of defect as missing one, and both are gated per version rather than
-applied everywhere.
 
 **Path Parameter Consistency:**
 
@@ -614,10 +628,9 @@ Each operation (GET, POST, PUT, etc.) is validated for completeness and correctn
 
 **Required Checks:**
 
-- `responses` object must be present, **at OAS 3.0.x and OAS 2.0 only**. OAS 3.1
+- `responses` object must be present, **at OAS 2.0 and OAS 3.0.x only**. OAS 3.1
   removed the requirement, so an operation without one is valid from 3.1 onward
-  and is not reported. See the Version-Specific Fields notes under Semantic
-  Validation above
+  and is not reported. See [Version-Specific Field Gating](#version-specific-field-gating)
 - At least one response code or `default` response, where `responses` is present
 - Each response must have a `description`
 
@@ -645,10 +658,13 @@ Parameters are checked for correct structure and usage.
 
 ### Schema/Definition Validation
 
-Structural validation reaches every position a Schema Object can occupy: schemas
-under `components`, and equally those in responses, parameters, headers, encoding
-headers and callbacks. A schema is a Schema Object wherever it appears, so the
-same rules apply in each place.
+Structural validation reaches every position a Schema Object can occupy, not only
+those under `components`: request bodies, responses, parameters, headers,
+encoding headers, a media type's `itemSchema`, and anything inside a callback.
+
+That list is illustrative rather than exhaustive, and deliberately so. The rule
+is positional independence: a Schema Object is a Schema Object wherever it
+appears, so the same checks apply in each place.
 
 **Checked Items:**
 

@@ -533,17 +533,26 @@ reported:
 '<field>' is OAS 3.2+ only and has no equivalent in OAS <target>
 ```
 
-| OAS 3.2 | Below 3.2 | Notes |
-|---------|-----------|-------|
-| `querystring` (Path Item) | No equivalent | Preserved, reported |
-| `additionalOperations` (Path Item) | No equivalent | Preserved, reported |
-| `summary` (Response) | No equivalent | Preserved, reported |
-| `itemSchema`, `itemEncoding`, `prefixEncoding` (Media Type) | No equivalent | Preserved, reported |
-| `dataValue`, `serializedValue` (Example) | No equivalent | Preserved, reported |
-| `parent`, `kind` (Tag) | No equivalent | Preserved, reported |
-| `name` (Server) | No equivalent | Preserved, reported |
-| `deviceAuthorization` (OAuth Flows) | No equivalent | Preserved, reported |
-| `xml.nodeType`, `discriminator.defaultMapping` (Schema) | No equivalent | Preserved, reported |
+| Object | OAS 3.2 field |
+|--------|---------------|
+| Document (root) | `$self` |
+| Components | `mediaTypes` |
+| Path Item | `query`, `additionalOperations` |
+| Parameter | `in: "querystring"` |
+| Response | `summary` |
+| Media Type | `itemSchema`, `itemEncoding`, `prefixEncoding` |
+| Encoding | `encoding`, `itemEncoding`, `prefixEncoding` |
+| Example | `dataValue`, `serializedValue` |
+| Tag | `summary`, `parent`, `kind` |
+| Server | `name` |
+| Link | `server.name` |
+| Security Scheme | `deprecated`, `oauth2MetadataUrl` |
+| OAuth Flows | `deviceAuthorization`, and `deviceAuthorizationUrl` within a flow |
+| XML Object (under a Schema) | `nodeType` |
+| Discriminator Object (under a Schema) | `defaultMapping` |
+
+Every one is preserved in the output and reported. `converter/oas32_features.go`
+is what defines this set, so check there if this table and the tool disagree.
 
 **The field is preserved rather than dropped**, so the output is not a valid
 document for the version it now declares. That is deliberate: silently

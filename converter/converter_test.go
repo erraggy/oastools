@@ -1462,3 +1462,30 @@ func TestConversionResult_ToParseResult(t *testing.T) {
 		assert.Nil(t, parseResult.Data)
 	})
 }
+
+// TestConvertWithOptionsReturnsNilResultOnFailure pins the contract the godoc
+// examples depend on: when ConvertWithOptions fails, the result is nil, so a
+// caller that ignores the error and reads the result dereferences nil.
+//
+// Example_handleConversionIssues did exactly that, for a filename it documents
+// as a placeholder, which made the panic certain rather than possible.
+func TestConvertWithOptionsReturnsNilResultOnFailure(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{name: "missing file", path: "../testdata/does-not-exist.yaml"},
+		{name: "the placeholder name the examples use", path: "openapi.yaml"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ConvertWithOptions(
+				WithFilePath(tt.path),
+				WithTargetVersion("3.0.3"),
+			)
+			require.Error(t, err)
+			assert.Nil(t, result, "a caller reading this without checking err panics")
+		})
+	}
+}
