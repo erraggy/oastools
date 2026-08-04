@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -60,8 +61,9 @@ func encodingChain(links int) *parser.Encoding {
 }
 
 // runsWithin fails the test if walk has not returned by limit. A walk that lost
-// its visited set does not fail an assertion, it stops returning.
-func runsWithin(t *testing.T, limit time.Duration, walk func()) {
+// its visited set does not fail an assertion, it stops returning, so the only
+// report is this one: what names the case that hung.
+func runsWithin(t *testing.T, limit time.Duration, what string, walk func()) {
 	t.Helper()
 	done := make(chan struct{})
 	go func() {
@@ -71,7 +73,7 @@ func runsWithin(t *testing.T, limit time.Duration, walk func()) {
 	select {
 	case <-done:
 	case <-time.After(limit):
-		t.Fatal("the walk did not terminate; the visited set is gone")
+		t.Fatalf("%s: the walk did not terminate; the visited set is gone", what)
 	}
 }
 
@@ -157,7 +159,8 @@ func TestEncodingWalksTerminateOnACycle(t *testing.T) {
 					Encoding: map[string]*parser.Encoding{"field": cyclicEncoding(cycling)},
 				}
 				var got int
-				runsWithin(t, 15*time.Second, func() { got = walk.run(mt) })
+				runsWithin(t, 15*time.Second, "fan-out "+strconv.Itoa(cycling),
+					func() { got = walk.run(mt) })
 				assert.Equal(t, walk.wantCycle, got,
 					"fan-out %d: the encoding should be walked once however many nested keys lead back to it", cycling)
 			}

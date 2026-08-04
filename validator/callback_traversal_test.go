@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -91,16 +92,8 @@ func TestCallbackWalksTerminateOnACycle(t *testing.T) {
 			for _, cycling := range []int{1, 2, 3} {
 				item := cyclicCallbackItem(cycling)
 				var got int
-				done := make(chan struct{})
-				go func() {
-					defer close(done)
-					got = walk(item)
-				}()
-				select {
-				case <-done:
-				case <-time.After(15 * time.Second):
-					t.Fatalf("fan-out %d: the walk did not terminate; the visited set is gone", cycling)
-				}
+				runsWithin(t, 15*time.Second, "fan-out "+strconv.Itoa(cycling),
+					func() { got = walk(item) })
 				assert.Equal(t, 1, got,
 					"fan-out %d: the path item should be walked once however many operations lead back to it", cycling)
 			}
