@@ -63,8 +63,41 @@ func (v *Validator) validateInfoObject(info *parser.Info, result *ValidationResu
 	}
 }
 
+// wildcardResponseRangesPermitted reports whether the document version defines
+// wildcard response ranges (1XX through 5XX) as Responses Object keys.
+//
+// OAS 3.0 introduced them. The 2.0 Responses Object admits one property per HTTP
+// status code and says nothing about ranges, so a 2.0 document writing "2XX"
+// names a key its own version does not define. An unrecognized version permits
+// them, matching the other version gates.
+func wildcardResponseRangesPermitted(version parser.OASVersion) bool {
+	return !version.IsValid() || version >= parser.OASVersion300
+}
+
+// statusCodeKeyProblem returns the diagnostic for a Responses Object key that is
+// no status code, or "" when the key is one. Pass the answer of
+// [wildcardResponseRangesPermitted] as allowWildcards.
+//
+// A numeric code is legal in every version, so only the wildcard range needs the
+// version, and it gets its own message: "2XX" is a key most tooling accepts, and
+// naming the version that introduced it says more than calling it malformed.
+func statusCodeKeyProblem(code string, allowWildcards bool) string {
+	switch {
+	case httputil.IsNumericStatusCode(code):
+		return ""
+	case httputil.IsWildcardStatusCode(code):
+		if allowWildcards {
+			return ""
+		}
+		return fmt.Sprintf("Invalid HTTP status code: %s (wildcard ranges were introduced in OAS 3.0; OAS 2.0 defines one property per HTTP status code)", code)
+	default:
+		return fmt.Sprintf("Invalid HTTP status code: %s", code)
+	}
+}
+
 // validateResponseStatusCodes validates HTTP status codes in an operation's responses.
-// This helper is shared by both OAS 2.0 and OAS 3.x operation validators.
+// This helper is shared by both OAS 2.0 and OAS 3.x operation validators, so it
+// reads the version off the Validator rather than taking it as an argument.
 func (v *Validator) validateResponseStatusCodes(responses *parser.Responses, path string, result *ValidationResult, baseURL string) {
 	if responses == nil {
 		return
@@ -75,11 +108,13 @@ func (v *Validator) validateResponseStatusCodes(responses *parser.Responses, pat
 	// rather than into Codes, so it is not observable from the loop.
 	hasSuccess := responses.Default != nil
 
+	allowWildcards := wildcardResponseRangesPermitted(v.oasVersion)
+
 	for code := range responses.Codes {
-		// Validate HTTP status code format
-		if !httputil.IsStatusCode(code) {
-			v.addError(result, path+".responses."+code,
-				fmt.Sprintf("Invalid HTTP status code: %s", code),
+		// Validate the HTTP status code format, which the document's version
+		// scopes: a numeric code is legal everywhere, a wildcard only from 3.0.
+		if problem := statusCodeKeyProblem(code, allowWildcards); problem != "" {
+			v.addError(result, path+".responses."+code, problem,
 				withSpecRef(fmt.Sprintf("%s#responses-object", baseURL)),
 				withValue(code),
 			)

@@ -883,14 +883,21 @@ func (p *Parser) validateOAS2Operation(op *Operation, opPath string, operationID
 	if op.Responses == nil {
 		errors = append(errors, fmt.Errorf("oas 2.0: missing required field '%s.responses': Operation must have a responses object", opPath))
 	} else {
-		// Validate status codes in responses. Codes holds only status-code keys
-		// on the YAML and JSON decode paths, which reject anything else outright;
-		// this loop is what reports them on the decodeFromMap path, which cannot
-		// return an error of its own.
+		// Validate status codes in responses. Every decode path keeps a key it
+		// cannot use rather than refusing the document (#449), so this loop is
+		// what reports one whichever decoder ran.
+		//
+		// Wildcard ranges are not among them: OAS 3.0 introduced those, and 2.0
+		// admits one property per HTTP status code (#467).
 		for code := range op.Responses.Codes {
-			if !httputil.IsStatusCode(code) {
-				errors = append(errors, fmt.Errorf("oas 2.0: invalid status code '%s' in '%s.responses': must be a valid HTTP status code (e.g., \"200\", \"404\") or wildcard pattern (e.g., \"2XX\")", code, opPath))
+			if httputil.IsNumericStatusCode(code) {
+				continue
 			}
+			if httputil.IsWildcardStatusCode(code) {
+				errors = append(errors, fmt.Errorf("oas 2.0: invalid status code '%s' in '%s.responses': wildcard ranges were introduced in OAS 3.0, and OAS 2.0 defines one property per HTTP status code (e.g., \"200\", \"404\")", code, opPath))
+				continue
+			}
+			errors = append(errors, fmt.Errorf("oas 2.0: invalid status code '%s' in '%s.responses': must be a valid HTTP status code (e.g., \"200\", \"404\")", code, opPath))
 		}
 	}
 
@@ -1070,10 +1077,10 @@ func (p *Parser) validateOAS3Operation(op *Operation, opPath string, operationID
 			errors = append(errors, fmt.Errorf("oas %s: missing required field '%s.responses': Operation must have a responses object (https://spec.openapis.org/oas/v3.0.0.html#operation-object)", version, opPath))
 		}
 	} else {
-		// Validate status codes in responses. Codes holds only status-code keys
-		// on the YAML and JSON decode paths, which reject anything else outright;
-		// this loop is what reports them on the decodeFromMap path, which cannot
-		// return an error of its own.
+		// Validate status codes in responses. Every decode path keeps a key it
+		// cannot use rather than refusing the document (#449), so this loop is
+		// what reports one whichever decoder ran. Every 3.x version defines the
+		// wildcard ranges, so both forms are accepted here.
 		for code := range op.Responses.Codes {
 			if !httputil.IsStatusCode(code) {
 				errors = append(errors, fmt.Errorf("oas %s: invalid status code '%s' in '%s.responses': must be a valid HTTP status code (e.g., \"200\", \"404\") or wildcard pattern (e.g., \"2XX\")", version, code, opPath))

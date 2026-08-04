@@ -332,3 +332,156 @@ paths:
 	assert.Contains(t, strings.Join(messages, "\n"), "Invalid HTTP status code: 999")
 	assert.False(t, result.Valid, "a document with an unusable status code is not valid")
 }
+
+// TestWildcardResponseRangesPermitted pins the version boundary the wildcard
+// range sits on. OAS 3.0 introduced it, so 2.0 is the only released version
+// that does not define it, and an unrecognized version permits it the way the
+// other version gates do.
+func TestWildcardResponseRangesPermitted(t *testing.T) {
+	tests := []struct {
+		name     string
+		version  parser.OASVersion
+		expected bool
+	}{
+		{"2.0 predates the wildcard range", parser.OASVersion20, false},
+		{"3.0.0 introduced it", parser.OASVersion300, true},
+		{"3.0.4", parser.OASVersion304, true},
+		{"3.1.0", parser.OASVersion310, true},
+		{"3.2.0", parser.OASVersion320, true},
+		{"an unrecognized version permits it", parser.Unknown, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, wildcardResponseRangesPermitted(tt.version))
+		})
+	}
+}
+
+// TestWildcardRangeIsReportedInOAS2 covers a 2.0 document keyed by a wildcard
+// range. The 2.0 Responses Object admits one property per HTTP status code and
+// describes no ranges, so "2XX" names a key its own version does not define
+// (#467). The numeric key beside it must stay unreported, or the check would be
+// rejecting the Responses Object rather than the range.
+func TestWildcardRangeIsReportedInOAS2(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "T", Version: "1.0.0"},
+		Paths: map[string]*parser.PathItem{
+			"/a": {
+				Get: &parser.Operation{
+					OperationID: "a",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {Description: "OK"},
+							"2XX": {Description: "a range 2.0 does not define"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(parser.ParseResult{
+		Document:   doc,
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+	})
+	require.NoError(t, err)
+
+	messages := make([]string, 0, len(result.Errors))
+	for _, e := range result.Errors {
+		messages = append(messages, e.Path+": "+e.Message)
+	}
+	joined := strings.Join(messages, "\n")
+
+	assert.Contains(t, joined, "Invalid HTTP status code: 2XX")
+	assert.Contains(t, joined, "wildcard ranges were introduced in OAS 3.0",
+		"the message must name the version that defines the key, since most tooling accepts it")
+	assert.NotContains(t, joined, "Invalid HTTP status code: 200",
+		"a numeric code is legal in every version")
+	assert.False(t, result.Valid)
+}
+
+// TestWildcardRangeIsAcceptedInOAS3 is the counterpart. Without it, a change
+// that rejected the wildcard range in every version would pass the test above.
+func TestWildcardRangeIsAcceptedInOAS3(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.0.4",
+		OASVersion: parser.OASVersion304,
+		Info:       &parser.Info{Title: "T", Version: "1.0.0"},
+		Paths: parser.Paths{
+			"/a": {
+				Get: &parser.Operation{
+					OperationID: "a",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"2XX": {Description: "a range 3.0 defines"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	v := New()
+	result, err := v.ValidateParsed(parser.ParseResult{
+		Document:   doc,
+		Version:    "3.0.4",
+		OASVersion: parser.OASVersion304,
+	})
+	require.NoError(t, err)
+
+	messages := make([]string, 0, len(result.Errors))
+	for _, e := range result.Errors {
+		messages = append(messages, e.Message)
+	}
+	assert.NotContains(t, strings.Join(messages, "\n"), "Invalid HTTP status code: 2XX")
+}
+
+// TestWildcardRangeInOAS2DoesNotSatisfyTheSuccessCheck applies the rule the
+// malformed-key case already establishes: a key reported as unusable cannot
+// also stand in as the operation's success response. "2XX" begins with a 2,
+// which is how the success check recognises one, so a version that does not
+// define the key must not count it either.
+func TestWildcardRangeInOAS2DoesNotSatisfyTheSuccessCheck(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "T", Version: "1.0.0"},
+		Paths: map[string]*parser.PathItem{
+			"/a": {
+				Get: &parser.Operation{
+					OperationID: "a",
+					Summary:     "only a range 2.0 does not define",
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"2XX": {Description: "a range 2.0 does not define"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	v := New()
+	v.IncludeWarnings = true
+	v.StrictMode = true
+	result, err := v.ValidateParsed(parser.ParseResult{
+		Document:   doc,
+		Version:    "2.0",
+		OASVersion: parser.OASVersion20,
+	})
+	require.NoError(t, err)
+
+	warnings := make([]string, 0, len(result.Warnings))
+	for _, w := range result.Warnings {
+		warnings = append(warnings, w.Message)
+	}
+	joined := strings.Join(warnings, "\n")
+
+	assert.Contains(t, joined, "Operation should define at least one successful response",
+		"a key 2.0 does not define cannot stand in for a 2XX response")
+	assert.NotContains(t, joined, "Non-standard HTTP status code: 2XX",
+		"the key is already reported as an error, so saying it twice helps nobody")
+}

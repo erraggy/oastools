@@ -336,7 +336,12 @@ func TestInvalidStatusCodes(t *testing.T) {
 		{"Valid 200", "200", "2.0", false},
 		{"Valid 404", "404", "3.0.0", false},
 		{"Valid 2XX wildcard", "2XX", "3.0.0", false},
-		{"Valid 5XX wildcard", "5XX", "2.0", false},
+		{"Valid 5XX wildcard", "5XX", "3.1.0", false},
+		// Wildcard ranges are an OAS 3.0 addition, so 2.0 does not define them
+		// (#467). This case flipping back to false would mean a 2.0 document had
+		// regained a key its own version never described.
+		{"Invalid 5XX wildcard in 2.0", "5XX", "2.0", true},
+		{"Invalid 2XX wildcard in 2.0", "2XX", "2.0", true},
 		{"Valid default", "default", "3.0.0", false},
 		{"Valid extension field x-custom", "x-custom", "3.0.0", false},
 		{"Valid extension field x-rate-limit", "x-rate-limit", "2.0", false},
