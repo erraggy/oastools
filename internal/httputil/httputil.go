@@ -67,24 +67,13 @@ func IsExtensionKey(key string) bool {
 	return strings.HasPrefix(key, ExtensionPrefix)
 }
 
-// IsValidResponsesKey reports whether key may appear in a Responses Object.
-// That is a broader question than [IsStatusCode]: the Responses Object also
-// admits "default" and specification extensions.
-//
-// Use this to accept or reject a key while decoding. Use [IsStatusCode] to ask
-// whether the key denotes a status code, which is what a caller ranging
-// Responses.Codes means.
-func IsValidResponsesKey(key string) bool {
-	return key == ResponsesKeyDefault || IsExtensionKey(key) || IsStatusCode(key)
-}
-
 // IsStatusCode reports whether code is an HTTP status code or a wildcard range:
 //   - Wildcard patterns: 1XX, 2XX, 3XX, 4XX, 5XX
 //   - Numeric codes: 100-599
 //
-// It is deliberately narrow. "default" and specification extensions are legal
-// Responses Object keys but are not status codes, so both return false here;
-// [IsValidResponsesKey] is the predicate that accepts them.
+// It is deliberately narrow, which is what a caller ranging Responses.Codes
+// needs. "default" and specification extensions are legal Responses Object keys
+// but are not status codes, so both return false here.
 //
 // It is also version-blind, and the two forms it accepts are not defined by the
 // same OAS versions. A caller that knows the document version wants
