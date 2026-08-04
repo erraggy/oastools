@@ -614,8 +614,11 @@ Each operation (GET, POST, PUT, etc.) is validated for completeness and correctn
 
 **Required Checks:**
 
-- `responses` object must be present
-- At least one response code or `default` response
+- `responses` object must be present, **at OAS 3.0.x and OAS 2.0 only**. OAS 3.1
+  removed the requirement, so an operation without one is valid from 3.1 onward
+  and is not reported. See the Version-Specific Fields notes under Semantic
+  Validation above
+- At least one response code or `default` response, where `responses` is present
 - Each response must have a `description`
 
 **Best Practice Warnings:**

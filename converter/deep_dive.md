@@ -35,7 +35,8 @@ The converter performs best-effort conversion with detailed issue tracking. Feat
 - OAS 3.0.x <-> OAS 3.1.x <-> OAS 3.2.x
 
 A conversion within OAS 3.x can lose information, which is easy to overlook
-because both ends are "OAS 3". See [OAS 3.2 -> OAS 3.0 / 3.1](#oas-32---oas-30--31).
+because both ends are "OAS 3". See the "OAS 3.2 -> OAS 3.0 / 3.1" section under
+Conversion Details.
 
 [Back to top](#top)
 

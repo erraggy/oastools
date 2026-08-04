@@ -120,8 +120,7 @@ func Example_withParsedDocument() {
 	// First, parse the document using the parser package
 	parsed, err := parser.ParseWithOptions(parser.WithFilePath("../testdata/petstore-3.0.yaml"))
 	if err != nil {
-		fmt.Println("generation failed:", err)
-		return
+		log.Fatal(err)
 	}
 
 	// Generate using the parsed result — avoids re-parsing

@@ -124,7 +124,9 @@ func Example_toParseResult() {
 
 	// Convert to ParseResult for use with other packages
 	parseResult := result.ToParseResult()
-	fmt.Printf("SourcePath: %s\n", parseResult.SourcePath)
+	// ToSlash so the path reads the same on every OS, which matters because
+	// this example asserts its output.
+	fmt.Printf("SourcePath: %s\n", filepath.ToSlash(parseResult.SourcePath))
 	fmt.Printf("Version: %s\n", parseResult.Version)
 
 	// The ParseResult can now be passed to fixer, converter, joiner, etc.
