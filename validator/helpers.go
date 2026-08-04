@@ -98,7 +98,7 @@ func (v *Validator) validateResponseStatusCodes(responses *parser.Responses, pat
 			)
 		}
 
-		if strings.HasPrefix(code, "2") {
+		if httputil.IsSuccessStatusCode(code) {
 			hasSuccess = true
 		}
 	}

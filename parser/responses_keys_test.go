@@ -323,9 +323,18 @@ paths:
 	assert.Nil(t, source.Default, "the second document declares no default")
 
 	// And directly, since the pooled case above depends on the parser not
-	// reusing the value at all.
+	// reusing the value at all. Every field is checked, not just Default: a
+	// reset that cleared one and not the others would still merge documents.
+	require.NotNil(t, target.Default, "precondition: the value holds a default")
+	target.Extra = map[string]any{"x-note": "carried over?"}
+	target.Codes["404"] = &Response{Description: "Not Found"}
+
 	target.decodeFromMap(map[string]any{"200": map[string]any{"description": "OK"}})
+
 	assert.Nil(t, target.Default, "decodeFromMap must clear a default it does not find")
+	assert.NotContains(t, target.Extra, "x-note", "and an extension it does not find")
+	assert.NotContains(t, target.Codes, "404", "and a status code it does not find")
+	assert.Contains(t, target.Codes, "200")
 }
 
 // TestResponsesDeepCopyIsolatesExtensions asserts that a copied Responses does

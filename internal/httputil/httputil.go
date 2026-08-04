@@ -110,6 +110,16 @@ func IsStatusCode(code string) bool {
 	return false
 }
 
+// IsSuccessStatusCode reports whether code denotes a successful response: a
+// numeric 2xx code, or the 2XX wildcard range.
+//
+// Only a status code can be a successful one, so anything [IsStatusCode]
+// rejects is rejected here too. That matters for a caller ranging
+// Responses.Codes, which may hold a key no decoder validated.
+func IsSuccessStatusCode(code string) bool {
+	return IsStatusCode(code) && code[0] == '2'
+}
+
 // IsStandardStatusCode checks if a status code is a well-defined standard HTTP code.
 // Returns true only for codes in StandardHTTPStatusCodes map.
 func IsStandardStatusCode(code string) bool {
