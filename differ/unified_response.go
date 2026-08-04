@@ -235,6 +235,23 @@ func (d *Differ) diffResponsesUnified(source, target *parser.Responses, path str
 		return
 	}
 
+	// Compare the default response, which covers every code not listed
+	// individually. It has its own field rather than a Codes entry, so the
+	// loops below cannot see it.
+	switch {
+	case source.Default != nil && target.Default != nil:
+		d.diffResponseUnified(source.Default, target.Default, path+"[default]", result)
+	case source.Default != nil:
+		d.addChange(result, path+"[default]", ChangeTypeRemoved, CategoryResponse,
+			SeverityWarning, source.Default, nil, "default response removed")
+	case target.Default != nil:
+		d.addChange(result, path+"[default]", ChangeTypeAdded, CategoryResponse,
+			SeverityInfo, nil, target.Default, "default response added")
+	}
+
+	// Compare Responses Object extensions
+	d.diffExtrasUnified(source.Extra, target.Extra, path, result)
+
 	// Compare individual response codes
 	for code, sourceResp := range source.Codes {
 		targetResp, exists := target.Codes[code]
