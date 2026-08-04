@@ -66,20 +66,30 @@ func (v *Validator) validateInfoObject(info *parser.Info, result *ValidationResu
 // validateResponseStatusCodes validates HTTP status codes in an operation's responses.
 // This helper is shared by both OAS 2.0 and OAS 3.x operation validators.
 func (v *Validator) validateResponseStatusCodes(responses *parser.Responses, path string, result *ValidationResult, baseURL string) {
-	if responses == nil || responses.Codes == nil {
+	if responses == nil {
 		return
 	}
 
-	hasSuccess := false
+	// A document declaring only `default` covers every code, so it satisfies
+	// the success check below. The decoders route that key to Responses.Default
+	// rather than into Codes, so it is not observable from the loop.
+	hasSuccess := responses.Default != nil
+
 	for code := range responses.Codes {
 		// Validate HTTP status code format
-		if !httputil.ValidateStatusCode(code) {
+		if !httputil.IsStatusCode(code) {
 			v.addError(result, path+".responses."+code,
 				fmt.Sprintf("Invalid HTTP status code: %s", code),
 				withSpecRef(fmt.Sprintf("%s#responses-object", baseURL)),
 				withValue(code),
 			)
-		} else if v.StrictMode && !httputil.IsStandardStatusCode(code) {
+			// A key already reported as malformed says nothing about which
+			// responses the operation defines, so it cannot answer the success
+			// question below either.
+			continue
+		}
+
+		if v.StrictMode && !httputil.IsStandardStatusCode(code) {
 			// In strict mode, warn about non-standard status codes
 			v.addWarning(result, path+".responses."+code,
 				fmt.Sprintf("Non-standard HTTP status code: %s (not defined in HTTP RFCs)", code),
@@ -88,7 +98,7 @@ func (v *Validator) validateResponseStatusCodes(responses *parser.Responses, pat
 			)
 		}
 
-		if strings.HasPrefix(code, "2") || code == "default" {
+		if httputil.IsSuccessStatusCode(code) {
 			hasSuccess = true
 		}
 	}

@@ -208,6 +208,12 @@ func equalResponses(a, b *Responses) bool {
 	if !equalResponseMap(a.Codes, b.Codes) {
 		return false
 	}
+
+	// Extensions
+	if !equalMapStringAny(a.Extra, b.Extra) {
+		return false
+	}
+
 	return true
 }
 

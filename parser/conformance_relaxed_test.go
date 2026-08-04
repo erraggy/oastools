@@ -248,15 +248,15 @@ paths:
 // present.
 //
 // Note that the check which fires here is the decoder's, not the structure
-// validator's. Every decode path — paths.go (YAML), paths_json.go (JSON) and
-// the generated decodeFromMap — filters status codes before a Responses object
-// is built, so validateOAS3Operation's own loop over Responses.Codes can never
-// see an invalid one. That loop is unreachable, and predates this change.
+// validator's. paths.go (YAML) and paths_json.go (JSON) both reject an invalid
+// status code outright, so a Responses object is never built and the structure
+// validator's loop over Responses.Codes never sees one by this route.
 //
-// The two paths ParseBytes can reach are both covered below. The third,
-// decodeFromMap, is not reachable from here and does not agree with them — it
-// drops the offending key silently rather than erroring. That inconsistency and
-// the dead loop are tracked in issue #449, not fixed here.
+// The third decode path, decodeFromMap, is not reachable from here: it runs
+// only under ResolveRefs, cannot return an error, and keeps the key so the
+// structure validator reports it instead.
+// TestResponsesInvalidStatusCodeIsReportedOnEveryDecodePath covers that route
+// and how it reports.
 func TestOperationResponsesStatusCodesStillChecked(t *testing.T) {
 	const want = "invalid status code '999'"
 
@@ -302,11 +302,12 @@ paths:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Pinned to the channel that actually carries this today: the
+			// Pinned to how this is actually reported today: the
 			// decoder rejects an invalid status code, so ParseBytes returns a
 			// hard error and never reaches structure validation.
 			//
-			// Asserting the channel and not just the message is deliberate. If
+			// Asserting where the diagnostic arrives, and not just its message,
+			// is deliberate. If
 			// a change moves this diagnostic into the collected result.Errors
 			// instead, that is a change to ParseBytes's external contract —
 			// callers today can rely on a non-nil error for this input — and

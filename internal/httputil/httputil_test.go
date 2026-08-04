@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestValidateStatusCode(t *testing.T) {
+func TestIsValidResponsesKey(t *testing.T) {
 	tests := []struct {
 		name     string
 		code     string
@@ -93,10 +93,64 @@ func TestValidateStatusCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ValidateStatusCode(tt.code)
-			assert.Equal(t, tt.expected, result, "ValidateStatusCode(%q) = %v, want %v", tt.code, result, tt.expected)
+			result := IsValidResponsesKey(tt.code)
+			assert.Equal(t, tt.expected, result, "IsValidResponsesKey(%q) = %v, want %v", tt.code, result, tt.expected)
 		})
 	}
+}
+
+// TestIsStatusCode pins the narrow predicate against the broad one. The two
+// disagree on exactly the keys a Responses Object admits without their being
+// status codes, and a caller ranging Responses.Codes needs the narrow answer.
+func TestIsStatusCode(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected bool
+	}{
+		// The keys that separate this predicate from IsValidResponsesKey.
+		{"default is not a status code", "default", false},
+		{"extension x-custom is not a status code", "x-custom", false},
+		{"extension x-200 is not a status code", "x-200", false},
+		{"extension x- is not a status code", "x-", false},
+
+		// Wildcard ranges.
+		{"wildcard 1XX", "1XX", true},
+		{"wildcard 5XX", "5XX", true},
+		{"wildcard 0XX", "0XX", false},
+		{"wildcard 6XX", "6XX", false},
+
+		// Numeric codes and their boundaries.
+		{"numeric 100", "100", true},
+		{"numeric 200", "200", true},
+		{"numeric 599", "599", true},
+		{"numeric 099", "099", false},
+		{"numeric 600", "600", false},
+		{"numeric 999", "999", false},
+
+		// Shape.
+		{"empty string", "", false},
+		{"too short", "99", false},
+		{"too long", "1000", false},
+		{"alphabetic", "abc", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsStatusCode(tt.code)
+			assert.Equal(t, tt.expected, got,
+				"IsStatusCode(%q) = %v, want %v", tt.code, got, tt.expected)
+		})
+	}
+}
+
+func TestIsExtensionKey(t *testing.T) {
+	assert.True(t, IsExtensionKey("x-custom"))
+	assert.True(t, IsExtensionKey("x-"))
+	assert.False(t, IsExtensionKey("default"))
+	assert.False(t, IsExtensionKey("200"))
+	assert.False(t, IsExtensionKey("x"))
+	assert.False(t, IsExtensionKey(""))
 }
 
 func TestIsStandardStatusCode(t *testing.T) {
@@ -286,4 +340,41 @@ func TestStandardHTTPStatusCodesCompleteness(t *testing.T) {
 	// Verify map has reasonable size (RFC 9110 defines ~60 codes)
 	assert.Greater(t, len(StandardHTTPStatusCodes), 40, "Should have at least 40 standard codes")
 	assert.Less(t, len(StandardHTTPStatusCodes), 100, "Should have fewer than 100 codes")
+}
+
+// TestIsSuccessStatusCode covers the narrower of the three questions: which
+// keys denote a successful response. A key that is not a status code cannot,
+// which matters because Responses.Codes may hold one.
+func TestIsSuccessStatusCode(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected bool
+	}{
+		{"wildcard 2XX", "2XX", true},
+		{"numeric 200", "200", true},
+		{"numeric 204", "204", true},
+		{"numeric 299", "299", true},
+
+		{"numeric 199", "199", false},
+		{"numeric 300", "300", false},
+		{"wildcard 3XX", "3XX", false},
+		{"wildcard 5XX", "5XX", false},
+
+		// Not status codes at all, so not successful ones either. The leading
+		// 2 is what a bare prefix check would accept.
+		{"malformed 2foo", "2foo", false},
+		{"malformed 2X", "2X", false},
+		{"extension x-2xx", "x-2xx", false},
+		{"default", "default", false},
+		{"empty string", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsSuccessStatusCode(tt.code)
+			assert.Equal(t, tt.expected, got,
+				"IsSuccessStatusCode(%q) = %v, want %v", tt.code, got, tt.expected)
+		})
+	}
 }

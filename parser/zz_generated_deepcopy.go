@@ -1101,6 +1101,8 @@ func (in *Responses) DeepCopyInto(out *Responses) {
 			}
 		}
 	}
+
+	out.Extra = deepCopyExtensions(in.Extra)
 }
 
 // DeepCopy creates a deep copy of Schema.

@@ -957,19 +957,37 @@ func (x *XML) decodeFromMap(m map[string]any) {
 }
 
 func (x *Responses) decodeFromMap(m map[string]any) {
+	// Every field describes this map alone, so decoding into a reused value
+	// carries nothing forward from the one it held before.
 	x.Codes = make(map[string]*Response)
+	x.Extra = extractExtensionsFromMap(m)
+	x.Default = nil
+
 	for key, value := range m {
-		sub, ok := value.(map[string]any)
-		if !ok {
+		if isExtensionKey(key) {
 			continue
 		}
-		if key == "default" {
-			x.Default = new(Response)
-			x.Default.decodeFromMap(sub)
-		} else if httputil.ValidateStatusCode(key) {
+		sub, isObject := value.(map[string]any)
+		switch {
+		case key == httputil.ResponsesKeyDefault:
+			if isObject {
+				x.Default = new(Response)
+				x.Default.decodeFromMap(sub)
+			}
+		case isObject:
+			// A key that is not a status code is kept, not discarded. This
+			// method cannot return an error, so validateStructure is what
+			// reports it, and discarding the key would take the response too.
 			resp := new(Response)
 			resp.decodeFromMap(sub)
 			x.Codes[key] = resp
+		case !httputil.IsStatusCode(key):
+			// The key is reportable even though its value is not a Response,
+			// so it is kept for validateStructure to name. A well-formed
+			// status code whose value is not an object is left out instead:
+			// nothing here validates the value, and inventing an empty
+			// Response would report a response the document does not declare.
+			x.Codes[key] = new(Response)
 		}
 	}
 }

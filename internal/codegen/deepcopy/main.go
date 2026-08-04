@@ -353,6 +353,7 @@ var typeConfigs = []TypeConfig{
 		Fields: []FieldConfig{
 			{Name: "Default", Type: "*Response", CopyMethod: "pointer"},
 			{Name: "Codes", Type: "map[string]*Response", CopyMethod: "map", KeyType: "string", ElemType: "*Response"},
+			{Name: "Extra", Type: "map[string]any", CopyMethod: "helper", Helper: "deepCopyExtensions"},
 		},
 	},
 	{
@@ -518,8 +519,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Write to file
+	// Write to file. go generate runs this with the working directory set to
+	// the directive's own, which is parser/, so the package directory is only
+	// below the working directory when the generator is run from the module
+	// root. The decode generator probes the same way.
 	outputPath := filepath.Join("parser", "zz_generated_deepcopy.go")
+	if _, err := os.Stat("parser"); os.IsNotExist(err) {
+		outputPath = "zz_generated_deepcopy.go"
+	}
 	if err := os.WriteFile(outputPath, formatted, 0644); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
 		os.Exit(1)

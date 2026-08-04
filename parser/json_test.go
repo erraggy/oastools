@@ -453,12 +453,17 @@ func TestValidExtensionFieldsInResponses(t *testing.T) {
 	// Verify standard codes are present
 	assert.NotNil(t, responses.Codes["200"])
 
-	// Verify extension fields are captured
-	assert.NotNil(t, responses.Codes["x-custom"])
-	assert.NotNil(t, responses.Codes["x-rate-limit"])
+	// Extensions are captured apart from the status codes. A caller ranging
+	// Codes is asking about status codes, so an extension appearing there
+	// would be reported as one.
+	assert.NotNil(t, responses.Extra["x-custom"])
+	assert.NotNil(t, responses.Extra["x-rate-limit"])
+	assert.NotContains(t, responses.Codes, "x-custom")
+	assert.NotContains(t, responses.Codes, "x-rate-limit")
 
 	// Verify default is present
 	assert.NotNil(t, responses.Default)
+	assert.NotContains(t, responses.Codes, "default")
 }
 
 func TestMarshalUnmarshalErrors(t *testing.T) {
