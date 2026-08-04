@@ -194,6 +194,140 @@ paths:
 	}
 }
 
+// TestResponsesInvalidKeyWithNonObjectValueIsStillReported covers an invalid
+// status code whose value is not a Response Object either, which is two faults
+// in one entry. decodeFromMap classifies the key before it looks at the value,
+// so the reportable fault is not lost to the unreportable one.
+//
+// Reachable only under ResolveRefs: the YAML and JSON decoders reject the key
+// outright, before its value matters.
+func TestResponsesInvalidKeyWithNonObjectValueIsStillReported(t *testing.T) {
+	const specYAML = `openapi: 3.0.3
+info:
+  title: T
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+        "999": 100
+`
+
+	const specJSON = `{
+  "openapi": "3.0.3",
+  "info": {"title": "T", "version": "1.0.0"},
+  "paths": {
+    "/a": {
+      "get": {
+        "operationId": "a",
+        "responses": {
+          "200": {"description": "OK"},
+          "999": 100
+        }
+      }
+    }
+  }
+}`
+
+	for _, tt := range []struct {
+		name string
+		spec string
+	}{
+		{name: "yaml", spec: specYAML},
+		{name: "json", spec: specJSON},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New()
+			p.ResolveRefs = true
+			res, err := p.ParseBytes([]byte(tt.spec))
+			require.NoError(t, err)
+
+			assert.True(t, hasErrorContaining(res.Errors, "invalid status code '999'"),
+				"a scalar value must not hide the invalid key; got %v", res.Errors)
+
+			r := responsesOf(t, res)
+			assert.Contains(t, r.Codes, "999")
+			assert.Contains(t, r.Codes, "200")
+		})
+	}
+}
+
+// TestResponsesWellFormedCodeWithNonObjectValueIsNotInvented is the counterpart:
+// a valid status code whose value is not an object is left out rather than
+// turned into an empty Response. Nothing here validates the value, so keeping
+// the key would report a response the document does not declare.
+func TestResponsesWellFormedCodeWithNonObjectValueIsNotInvented(t *testing.T) {
+	const spec = `openapi: 3.0.3
+info:
+  title: T
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+        "404": 100
+`
+
+	p := New()
+	p.ResolveRefs = true
+	res, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	r := responsesOf(t, res)
+	assert.Contains(t, r.Codes, "200")
+	assert.NotContains(t, r.Codes, "404")
+}
+
+// TestResponsesDecodeFromMapResetsDefault covers the third decode path for the
+// same reuse question the format decoders answer: a value that already holds a
+// default response must not keep it when the next map declares none.
+func TestResponsesDecodeFromMapResetsDefault(t *testing.T) {
+	const withDefault = `openapi: 3.0.3
+info: {title: T, version: "1.0.0"}
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        default: {description: fallback}
+        "200": {description: OK}
+`
+	const withoutDefault = `openapi: 3.0.3
+info: {title: T, version: "1.0.0"}
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200": {description: OK}
+`
+
+	p := New()
+	p.ResolveRefs = true
+
+	first, err := p.ParseBytes([]byte(withDefault))
+	require.NoError(t, err)
+	require.NotNil(t, responsesOf(t, first).Default)
+
+	// Reuse the same value, which is what a caller pooling documents does.
+	target := responsesOf(t, first)
+	second, err := p.ParseBytes([]byte(withoutDefault))
+	require.NoError(t, err)
+	source := responsesOf(t, second)
+	assert.Nil(t, source.Default, "the second document declares no default")
+
+	// And directly, since the pooled case above depends on the parser not
+	// reusing the value at all.
+	target.decodeFromMap(map[string]any{"200": map[string]any{"description": "OK"}})
+	assert.Nil(t, target.Default, "decodeFromMap must clear a default it does not find")
+}
+
 // TestResponsesRoundTripPreservesExtensions asserts that splitting extensions
 // out of Codes does not lose them on the way back out, and that both marshalers
 // emit them in the one object the specification describes.
