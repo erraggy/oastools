@@ -46,10 +46,11 @@
 //
 // # Where a problem is reported
 //
-// A returned error means the input could not be decoded: malformed YAML or
-// JSON, an unsupported version, a value of the wrong type for its field. A
-// document that decodes but breaks a rule of the specification is returned,
-// with the problem in ParseResult.Errors:
+// A returned error means no document was produced: the input could not be read
+// (a missing file, a failed fetch, a size limit) or could not be decoded
+// (malformed YAML or JSON, an unsupported version, a value of the wrong type
+// for its field). A document that decodes but breaks a rule of the
+// specification is returned, with the problem in ParseResult.Errors:
 //
 //	result, err := p.Parse("api.yaml")
 //	if err != nil {

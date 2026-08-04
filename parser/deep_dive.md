@@ -411,12 +411,13 @@ if len(result.Errors) > 0 {
 fmt.Printf("Parsed %s v%s\n", result.Version, result.OASVersion)
 ```
 
-Check both, because they answer different questions. A returned `err` means the
-input could not be decoded: malformed YAML or JSON, an unsupported version, a
-value of the wrong type for its field. A document that decodes but breaks a rule
-of the specification comes back with the problem in `result.Errors`, and an
-invalid response status code is one of those. Treating a nil `err` as "this
-document is valid" misses every structural fault.
+Check both, because they answer different questions. A returned `err` means no
+document was produced: the input could not be read (a missing file, a failed
+fetch, a size limit) or could not be decoded (malformed YAML or JSON, an
+unsupported version, a value of the wrong type for its field). A document that
+decodes but breaks a rule of the specification comes back with the problem in
+`result.Errors`, and an invalid response status code is one of those. Treating a
+nil `err` as "this document is valid" misses every structural fault.
 
 `result.Errors` is filled by structure validation, which
 `WithValidateStructure(false)` turns off. Disable it and these findings go with
@@ -499,7 +500,7 @@ fmt.Println(doc.Info.Title) // Original title
 | `OASVersion` | `OASVersion` | Parsed version constant |
 | `SourceFormat` | `SourceFormat` | Detected format (JSON or YAML) |
 | `SourcePath` | `string` | Original file path |
-| `Errors` | `[]error` | Structural faults found in a document that decoded; decode failures come back as the returned error instead |
+| `Errors` | `[]error` | Structural faults in a document that was produced; a document that could not be read or decoded comes back as the returned error instead |
 | `Warnings` | `[]string` | Non-fatal warnings |
 
 [Back to top](#top)
