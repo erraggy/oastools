@@ -59,19 +59,20 @@ var marshalMerges = map[string]map[string]string{
 	// The Responses Object has no wrapping key of its own: its status codes are
 	// members of the object itself, beside `default`. See parser.Responses.
 	//
-	// Extra carries no entry because fieldsOf excludes it for every type, so
-	// one here would never be reached. Expressing it would take more than a
-	// registration: the fast-path control marshals through struct tags, which
-	// emit no Extra content at all, so the same assertion cannot hold on both
-	// paths. parser.TestResponsesRoundTripPreservesExtensions covers the merge
-	// for this type in the meantime.
+	// Extra merges the same way but carries no entry, because fieldsOf never
+	// enumerates Extra for any type, so the case would not run and the entry
+	// would read as coverage while asserting nothing. Covering it means
+	// extending field enumeration, which is a change to the guard rather than
+	// to this registration. parser.TestResponsesRoundTripPreservesExtensions
+	// covers the merge for this type in the meantime.
 	"Responses": {"Codes": mergeIntoEnclosingObject},
 }
 
 // mergeIntoEnclosingObject marks a field whose content is emitted as members of
 // the object being marshaled rather than under a key of its own.
 //
-// It is not a legal JSON member name, so it cannot collide with a real key.
+// The value only has to differ from every key a subject can emit, and no OAS
+// field marshals under ".", so it cannot be mistaken for one.
 const mergeIntoEnclosingObject = "."
 
 // marshalSubjects pairs each type carrying a hand-built MarshalJSON with a fresh
