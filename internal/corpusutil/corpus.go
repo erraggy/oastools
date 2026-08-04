@@ -160,16 +160,20 @@ var Corpus = []SpecInfo{
 }
 
 // CorpusDir returns the absolute path to the corpus directory.
+//
+// It panics rather than falling back to a relative path. runtime.Caller does not
+// fail for depth 0 in any ordinary build, and "testdata/corpus" resolves against
+// the working directory, which for `go test` is the package directory rather
+// than the repository root: the fallback would find nothing and every corpus
+// test would skip itself as though the corpus had not been downloaded.
 func CorpusDir() string {
-	// Get the directory of this source file
 	_, thisFile, _, ok := runtime.Caller(0)
-	if ok {
-		// Go up from internal/corpusutil to project root
-		projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(thisFile)))
-		return filepath.Join(projectRoot, "testdata", "corpus")
+	if !ok {
+		panic("corpusutil: cannot resolve this file's location")
 	}
-	// Fallback to relative path
-	return filepath.Join("testdata", "corpus")
+	// Go up from internal/corpusutil to project root
+	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(thisFile)))
+	return filepath.Join(projectRoot, "testdata", "corpus")
 }
 
 // GetSpecs returns specs filtered by the includeLarge flag.

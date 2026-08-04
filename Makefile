@@ -515,6 +515,23 @@ bench-corpus:
 	@go test -tags=corpus -bench='BenchmarkCorpus' -benchmem -benchtime=$(BENCH_TIME) ./parser ./validator ./fixer ./differ
 
 # =============================================================================
+# Conformance Suite Targets
+# =============================================================================
+# Unlike the corpus, these fixtures are committed. They are vendored from the
+# OpenAPI Specification repository at an exact commit, so measuring conformance
+# needs no network and cannot drift under a branch that moved.
+
+## conformance-vendor: Re-materialize the vendored OAI suite at its pinned commits
+.PHONY: conformance-vendor
+conformance-vendor:
+	@./scripts/conformance-vendor.sh
+
+## conformance-update: Move the pins to each ref's current head, then re-vendor
+.PHONY: conformance-update
+conformance-update:
+	@./scripts/conformance-vendor.sh --update
+
+# =============================================================================
 # Documentation Targets
 # =============================================================================
 
