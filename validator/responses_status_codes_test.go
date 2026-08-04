@@ -135,8 +135,9 @@ func TestInvalidStatusCodeInCodesIsReported(t *testing.T) {
 // operation's success response, or reporting it would suppress a second,
 // unrelated diagnostic.
 //
-// decodeFromMap keeps such a key rather than discarding it, so this reaches the
-// validator from a parsed document and not only from an assembled one.
+// The value is assembled in Go so the check can be exercised on its own.
+// TestMalformedCodeFromAParsedDocument covers the same input arriving through
+// the parser, which is what makes the case reachable in practice.
 func TestMalformedCodeDoesNotSatisfyTheSuccessCheck(t *testing.T) {
 	doc := &parser.OAS3Document{
 		OpenAPI:    "3.1.0",
@@ -234,4 +235,56 @@ func TestExtensionKeyInCodesIsReportedAsInvalid(t *testing.T) {
 	assert.Contains(t, joined, "Invalid HTTP status code: x-note")
 	assert.Contains(t, joined, "Invalid HTTP status code: default")
 	assert.NotContains(t, joined, "Invalid HTTP status code: 200")
+}
+
+// TestMalformedCodeFromAParsedDocument is the parsed counterpart to
+// TestMalformedCodeDoesNotSatisfyTheSuccessCheck. decodeFromMap keeps a key
+// that is not a status code rather than discarding it, so a real document can
+// put one in front of the validator, and this asserts it arrives that way
+// rather than only when a test builds the value by hand.
+//
+// ResolveRefs selects that decode path. The YAML and JSON decoders reject the
+// key outright, so neither can deliver this input.
+func TestMalformedCodeFromAParsedDocument(t *testing.T) {
+	const spec = `
+openapi: 3.1.0
+info: {title: T, version: "1.0.0"}
+paths:
+  /a:
+    get:
+      operationId: a
+      summary: only a malformed code
+      responses:
+        "2foo": {description: not a status code}
+`
+
+	p := parser.New()
+	p.ResolveRefs = true
+	p.ValidateStructure = false
+	parsed, err := p.ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	doc, ok := parsed.Document.(*parser.OAS3Document)
+	require.True(t, ok)
+	require.Contains(t, doc.Paths["/a"].Get.Responses.Codes, "2foo",
+		"the decoder must keep the key, or the validator never sees it")
+
+	v := New()
+	v.IncludeWarnings = true
+	v.StrictMode = true
+	result, err := v.ValidateParsed(*parsed)
+	require.NoError(t, err)
+
+	errs := make([]string, 0, len(result.Errors))
+	for _, e := range result.Errors {
+		errs = append(errs, e.Message)
+	}
+	warnings := make([]string, 0, len(result.Warnings))
+	for _, w := range result.Warnings {
+		warnings = append(warnings, w.Message)
+	}
+
+	assert.Contains(t, strings.Join(errs, "\n"), "Invalid HTTP status code: 2foo")
+	assert.Contains(t, strings.Join(warnings, "\n"),
+		"Operation should define at least one successful response")
 }

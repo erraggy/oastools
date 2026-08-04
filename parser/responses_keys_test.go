@@ -328,6 +328,37 @@ paths:
 	assert.Nil(t, target.Default, "decodeFromMap must clear a default it does not find")
 }
 
+// TestResponsesDeepCopyIsolatesExtensions asserts that a copied Responses does
+// not share the inside of its extensions with the original. An extension value
+// is arbitrary JSON, so it can nest maps and slices, and a copy that duplicated
+// only the outer map would let a mutation reach across.
+func TestResponsesDeepCopyIsolatesExtensions(t *testing.T) {
+	original := &Responses{
+		Default: &Response{Description: "fallback"},
+		Codes:   map[string]*Response{"200": {Description: "OK"}},
+		Extra: map[string]any{
+			"x-nested": map[string]any{"inner": "before"},
+			"x-list":   []any{"first"},
+		},
+	}
+
+	copied := original.DeepCopy()
+	require.NotNil(t, copied)
+
+	nested, ok := copied.Extra["x-nested"].(map[string]any)
+	require.True(t, ok, "expected a nested map, got %T", copied.Extra["x-nested"])
+	nested["inner"] = "after"
+
+	list, ok := copied.Extra["x-list"].([]any)
+	require.True(t, ok, "expected a nested slice, got %T", copied.Extra["x-list"])
+	list[0] = "changed"
+
+	assert.Equal(t, map[string]any{"inner": "before"}, original.Extra["x-nested"],
+		"mutating the copy must not reach the original")
+	assert.Equal(t, []any{"first"}, original.Extra["x-list"],
+		"mutating the copy must not reach the original")
+}
+
 // TestResponsesRoundTripPreservesExtensions asserts that splitting extensions
 // out of Codes does not lose them on the way back out, and that both marshalers
 // emit them in the one object the specification describes.
