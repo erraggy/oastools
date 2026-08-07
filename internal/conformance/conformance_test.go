@@ -77,6 +77,17 @@ func TestParseSourcesRejects(t *testing.T) {
 	})
 }
 
+var (
+	ignoreFiles = map[string]bool{".DS_Store": true}
+)
+
+func shouldIgnore(entry os.DirEntry) bool {
+	if entry.Type().IsRegular() && ignoreFiles[entry.Name()] {
+		return true
+	}
+	return false
+}
+
 // TestVendoredTreeMatchesSources is the count half of the drift guard. A
 // deleted fixture makes a suite smaller rather than redder, so nothing else
 // would notice it.
@@ -142,6 +153,9 @@ func TestVendoredTreeHoldsOnlyFixtures(t *testing.T) {
 			require.NoError(t, err, "%s/%s: sources.txt records fixtures here", s.Version, kind)
 
 			for _, entry := range entries {
+				if shouldIgnore(entry) {
+					continue
+				}
 				name := filepath.Join(s.Version, string(kind), entry.Name())
 				// Regular rather than "not a directory": DirEntry reports the
 				// link itself, so a symlink is neither, and its size is the
@@ -169,6 +183,9 @@ func TestVendoredTreeHasNothingElse(t *testing.T) {
 	entries, err := os.ReadDir(Dir())
 	require.NoError(t, err)
 	for _, entry := range entries {
+		if shouldIgnore(entry) {
+			continue
+		}
 		assert.True(t, want[entry.Name()],
 			"%s is not recorded in sources.txt, so nothing else here checks it", entry.Name())
 	}
@@ -177,6 +194,9 @@ func TestVendoredTreeHasNothingElse(t *testing.T) {
 		sub, err := os.ReadDir(filepath.Join(Dir(), s.Version))
 		require.NoError(t, err)
 		for _, entry := range sub {
+			if shouldIgnore(entry) {
+				continue
+			}
 			assert.Contains(t, []string{"pass", "fail"}, entry.Name(),
 				"%s/%s: a version holds only pass and fail", s.Version, entry.Name())
 		}
