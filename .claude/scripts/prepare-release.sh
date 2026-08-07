@@ -284,11 +284,14 @@ AUTO_NOTES=$(gh api "repos/$REPO/releases/generate-notes" \
     --jq '.body')
 
 # Get linked issues
-LAST_TAG_DATE=$(git log -1 --format=%cI "$PREV_TAG")
+# Compare epoch seconds, not ISO8601 strings: git %cI keeps the committer's local
+# offset while the GitHub API returns UTC "Z" timestamps, so string comparison
+# sorts them incorrectly whenever the offset digits diverge from real order.
+LAST_TAG_EPOCH=$(git log -1 --format=%ct "$PREV_TAG")
 LINKED_ISSUES=$(gh pr list --state merged --base main --limit 50 \
     --json number,title,mergedAt,closingIssuesReferences | \
-    jq -r --arg since "$LAST_TAG_DATE" '
-        [.[] | select(.mergedAt > $since and (.closingIssuesReferences | length > 0))] |
+    jq -r --argjson since "$LAST_TAG_EPOCH" '
+        [.[] | select((.mergedAt | fromdateiso8601) > $since and (.closingIssuesReferences | length > 0))] |
         if length == 0 then "None"
         else .[] | "- #\(.closingIssuesReferences[0].number) - Fixed by PR #\(.number)"
         end')
