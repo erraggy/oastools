@@ -30,6 +30,22 @@ func collectPolymorphicSchemaRefs(refs *[]string, field any, prefix string, visi
 	}
 }
 
+// refHasEntryPointOrigin returns true when any of the following are true:
+//   - ref is not in poolRefs or its origins are empty
+//   - at least one origin is outside the schema pool
+func refHasEntryPointOrigin(poolPrefix string, poolRefs map[string][]string, ref string) bool {
+	origins, ok := poolRefs[ref]
+	if !ok || len(origins) == 0 {
+		return true
+	}
+	for _, origin := range origins {
+		if !strings.HasPrefix(origin, poolPrefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // buildReferencedSchemaSet builds the transitive closure of referenced schemas.
 // Starting from refs collected by RefCollector, it follows schema-to-schema references
 // to ensure schemas that are indirectly referenced are not pruned.
@@ -40,11 +56,17 @@ func buildReferencedSchemaSet(collector *RefCollector, schemas map[string]*parse
 	queue := make([]string, 0)
 
 	prefix := accessor.SchemaRefPrefix()
+	poolPrefix := schemaPathPrefix(accessor.GetVersion()) + "."
 
 	// 1. Get directly referenced schemas from collector. names is reused across
 	// refs so the candidate spellings cost no allocation after the first ref.
 	var names []string
 	for ref := range collector.RefsByType[RefTypeSchema] {
+		// exclude refs whose origins are all local to this schema pool
+		// see: Issue #474
+		if !refHasEntryPointOrigin(poolPrefix, collector.Refs, ref) {
+			continue
+		}
 		names = appendSchemaNames(names[:0], ref, prefix)
 		for _, name := range names {
 			if _, exists := schemas[name]; exists && !referenced[name] {
