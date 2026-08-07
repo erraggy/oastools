@@ -100,7 +100,7 @@ components:
 }
 
 func TestPruneOAS2_Issue_474_Regression(t *testing.T) {
-	// Issue #474 desribes this spec in its reproduction case
+	// Issue #474 describes this spec in its reproduction case
 	// This spec contains only a single _referenced_ schema (Pet),
 	// but it contains 2 additional schemas that only reference
 	// one another: Order<=>Customer
