@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mediaTypeComponentDoc builds an OAS 3.2 document with a components.mediaTypes
-// entry that references a schema, which is the shape #485 dropped.
+// mediaTypeComponentDoc builds an OAS 3.2 document whose components.mediaTypes
+// entries reference a schema, one named after its source and one shared.
 func mediaTypeComponentDoc(name string, extra bool) parser.ParseResult {
 	target := &parser.Schema{Type: "object", Properties: map[string]*parser.Schema{"id": {Type: "string"}}}
 	if extra {
@@ -25,7 +25,7 @@ func mediaTypeComponentDoc(name string, extra bool) parser.ParseResult {
 			Components: &parser.Components{
 				Schemas: map[string]*parser.Schema{"Target": target},
 				MediaTypes: map[string]*parser.MediaType{
-					// Named after its source so both survive the join.
+					// Named after its source, so both survive the join.
 					name + "Media": {
 						Schema:     ref(),
 						ItemSchema: ref(),
@@ -45,9 +45,8 @@ func mediaTypeComponentDoc(name string, extra bool) parser.ParseResult {
 	}
 }
 
-// TestMediaTypeComponentsAreMerged covers #485. mergeOAS3Components handled every
-// Components field except MediaTypes, so both documents' entries were discarded
-// with nothing reported.
+// TestMediaTypeComponentsAreMerged covers #485: components.mediaTypes reaches the
+// joined document, and a colliding entry goes through the component strategy.
 func TestMediaTypeComponentsAreMerged(t *testing.T) {
 	res, err := JoinWithOptions(
 		WithParsed(mediaTypeComponentDoc("a", false), mediaTypeComponentDoc("b", true)),
@@ -65,8 +64,8 @@ func TestMediaTypeComponentsAreMerged(t *testing.T) {
 	assert.Contains(t, d.Components.MediaTypes, "aMedia")
 	assert.Contains(t, d.Components.MediaTypes, "bMedia")
 
-	// The colliding one is resolved by the component strategy rather than
-	// vanishing, and accept-left keeps the left value.
+	// The colliding one is resolved by the component strategy, and accept-left
+	// keeps the left value.
 	require.Contains(t, d.Components.MediaTypes, "Shared")
 	assert.Equal(t, "a", d.Components.MediaTypes["Shared"].Example)
 }

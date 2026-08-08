@@ -37,9 +37,9 @@ func operationContextDoc(name, operationID string, extra bool) parser.ParseResul
 	}
 }
 
-// TestRenameLeftUsesOperationContext covers #482. The left side of a rename-left
-// collision was named with a nil reference graph, so an operation-aware template
-// fell back to its empty-field output while the right side got a full name.
+// TestRenameLeftUsesOperationContext covers #482: the schema moved aside by
+// rename-left is named from its own document's operation context, the same as
+// the schema renamed by rename-right.
 func TestRenameLeftUsesOperationContext(t *testing.T) {
 	res, err := JoinWithOptions(
 		WithParsed(
@@ -55,8 +55,7 @@ func TestRenameLeftUsesOperationContext(t *testing.T) {
 
 	d := res.Document.(*parser.OAS3Document)
 
-	// orders was moved aside, and its name comes from its own operation rather
-	// than from an empty context.
+	// orders was moved aside, and its name comes from its own operation.
 	assert.Contains(t, d.Components.Schemas, "ListOrdersResponse")
 	assert.NotContains(t, d.Components.Schemas, "Response_orders",
 		"the template fell back, so the left side had no operation context")

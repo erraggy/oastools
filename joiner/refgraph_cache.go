@@ -3,12 +3,8 @@ package joiner
 // refGraphs hands out a source document's reference graph by position, building
 // each at most once.
 //
-// A join can rename many schemas, and every rename that wants operation context
-// needs the graph of the document the schema came from. Building one per rename
-// would walk the same document repeatedly.
-//
-// A nil *refGraphs yields nil graphs, which is what the rename context falls
-// back to when WithOperationContext is off.
+// A nil *refGraphs yields nil graphs, which is what the rename context reads
+// when WithOperationContext is off.
 type refGraphs struct {
 	build func(docIndex int) *RefGraph
 	cache map[int]*RefGraph
