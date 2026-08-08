@@ -450,6 +450,84 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 	}
 }
 
+// TestRenameScopeCoversEveryContainerOAS2 is the OAS 2 counterpart: definitions,
+// top-level parameters, top-level responses and paths are the four containers
+// renameScope.applyOAS2 attributes and rewriteOAS2Document traverses.
+func TestRenameScopeCoversEveryContainerOAS2(t *testing.T) {
+	targetRef := func() *parser.Schema { return &parser.Schema{Ref: "#/definitions/Target"} }
+
+	doc := func(name string, extra bool) parser.ParseResult {
+		target := &parser.Schema{
+			Type:       "object",
+			Properties: map[string]*parser.Schema{"id": {Type: "string"}},
+		}
+		if extra {
+			target.Properties["note"] = &parser.Schema{Type: "string"}
+		}
+
+		return parser.ParseResult{
+			Document: &parser.OAS2Document{
+				Swagger: "2.0",
+				Info:    &parser.Info{Title: name, Version: "1.0.0"},
+				Paths: parser.Paths{
+					"/" + name: &parser.PathItem{Get: &parser.Operation{
+						Responses: &parser.Responses{Codes: map[string]*parser.Response{
+							"200": {Description: "ok", Schema: targetRef()},
+						}},
+					}},
+				},
+				Definitions: map[string]*parser.Schema{
+					"Target": target,
+					name + "Holder": {
+						Type:       "object",
+						Properties: map[string]*parser.Schema{"target": targetRef()},
+					},
+				},
+				Parameters: map[string]*parser.Parameter{
+					name + "Param": {Name: "body", In: "body", Schema: targetRef()},
+				},
+				Responses: map[string]*parser.Response{
+					name + "Resp": {Description: "ok", Schema: targetRef()},
+				},
+				OASVersion: parser.OASVersion20,
+			},
+			Version:      "2.0",
+			OASVersion:   parser.OASVersion20,
+			SourcePath:   name,
+			SourceFormat: "json",
+		}
+	}
+
+	res, err := JoinWithOptions(
+		WithParsed(doc("a", false), doc("b", true)),
+		WithSchemaStrategy(StrategyRenameRight),
+		WithEquivalenceMode("deep"),
+		WithRenameTemplate(`{{.Name}}.{{.Source}}`),
+	)
+	require.NoError(t, err)
+
+	d := res.Document.(*parser.OAS2Document)
+	require.Contains(t, d.Definitions, "Target.b", "b's Target should have been renamed")
+
+	refs := func(source string) map[string]string {
+		return map[string]string{
+			"definitions": d.Definitions[source+"Holder"].Properties["target"].Ref,
+			"parameters":  d.Parameters[source+"Param"].Schema.Ref,
+			"responses":   d.Responses[source+"Resp"].Schema.Ref,
+			"paths":       petResponseRef(t, d, "/"+source),
+		}
+	}
+
+	for container, ref := range refs("b") {
+		assert.Equal(t, "#/definitions/Target.b", ref,
+			"%s: b's reference was not rewritten, so renameScope does not attribute this container", container)
+	}
+	for container, ref := range refs("a") {
+		assert.Equal(t, "#/definitions/Target", ref,
+			"%s: a's reference was repointed at b's definition", container)
+	}
+}
+
 func oas3ResponseRefIn(t *testing.T, op *parser.Operation) string {
 	t.Helper()
 	require.NotNil(t, op)
@@ -497,8 +575,10 @@ func TestRenameScopeRewritesHandlerCustomValues(t *testing.T) {
 	d := res.Document.(*parser.OAS2Document)
 	require.Contains(t, d.Definitions, "Api_Pet")
 
-	custom := d.Definitions["Api_Pet"].Properties["category"].Ref
-	assert.NotEqual(t, "#/definitions/Category", custom,
+	// Both documents renamed Category, so the name is ambiguous for a value that
+	// belongs to neither: merge order breaks the tie and the later document wins.
+	assert.Equal(t, "#/definitions/Api_Category.b",
+		d.Definitions["Api_Pet"].Properties["category"].Ref,
 		"the handler's value was skipped by every pass, so its reference was never rewritten")
 	for _, ref := range definitionRefs(d) {
 		assert.Contains(t, d.Definitions, extractSchemaName(ref), "dangling reference %s", ref)
@@ -548,7 +628,7 @@ func TestRenameScopeRewritesHandlerCustomPathItem(t *testing.T) {
 
 	d := res.Document.(*parser.OAS2Document)
 	ref := petResponseRef(t, d, shared)
-	assert.NotEqual(t, "#/definitions/Pet", ref,
+	assert.Equal(t, "#/definitions/Api_Pet.b", ref,
 		"the handler's path item was skipped by every pass, so its reference was never rewritten")
 	assert.Contains(t, d.Definitions, extractSchemaName(ref), "dangling reference %s", ref)
 }
@@ -701,7 +781,13 @@ func TestRenameScopeRegisterLeft(t *testing.T) {
 
 		s.registerLeft(1, "Api_Pet", "Api_Pet.store")
 
-		assert.Equal(t, "Api_Pet.store", s.byDoc[0]["Pet"])
+		// Pet follows the schema to its new name. The direct Api_Pet entry is inert
+		// for this document, which spells Pet, but is recorded because a document
+		// that did reference Api_Pet would need it.
+		assert.Equal(t, map[string]string{
+			"Pet":     "Api_Pet.store",
+			"Api_Pet": "Api_Pet.store",
+		}, s.byDoc[0])
 	})
 
 	t.Run("leaves a document whose name already resolves elsewhere", func(t *testing.T) {

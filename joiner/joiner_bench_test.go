@@ -1,6 +1,7 @@
 package joiner
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -137,6 +138,90 @@ func BenchmarkJoinParsed(b *testing.B) {
 			}
 		}
 	})
+}
+
+// renameBenchSchemaCount is the number of schemas each renameBenchDoc defines.
+const renameBenchSchemaCount = 20
+
+// renameBenchDoc builds an OAS 3 document that shares every schema name with the
+// others this function returns, so joining them collides on all of them.
+//
+// The join fixtures in testdata define disjoint schema names (User, Post,
+// Comment), so joining them renames nothing regardless of strategy and never
+// reaches the rename path.
+func renameBenchDoc(name string, schemaCount int) parser.ParseResult {
+	schemas := make(map[string]*parser.Schema, schemaCount)
+	for i := range schemaCount {
+		schemas[fmt.Sprintf("Model%d", i)] = &parser.Schema{
+			Type: "object",
+			Properties: map[string]*parser.Schema{
+				"id": {Type: "string"},
+				// A reference to the next schema, so every rename has a reference to
+				// find and rewrite.
+				"next": {Ref: fmt.Sprintf("#/components/schemas/Model%d", (i+1)%schemaCount)},
+				// A property named after the document, so the schemas genuinely differ.
+				"from" + name: {Type: "string"},
+			},
+		}
+	}
+
+	return parser.ParseResult{
+		Document: &parser.OAS3Document{
+			OpenAPI: "3.0.3",
+			Info:    &parser.Info{Title: name, Version: "1.0.0"},
+			Paths: parser.Paths{
+				"/" + name: &parser.PathItem{Get: &parser.Operation{
+					Responses: &parser.Responses{Codes: map[string]*parser.Response{
+						"200": {
+							Description: "ok",
+							Content: map[string]*parser.MediaType{
+								"application/json": {Schema: &parser.Schema{Ref: "#/components/schemas/Model0"}},
+							},
+						},
+					}},
+				}},
+			},
+			Components: &parser.Components{Schemas: schemas},
+			OASVersion: parser.OASVersion303,
+		},
+		Version:      "3.0.3",
+		OASVersion:   parser.OASVersion303,
+		SourcePath:   name,
+		SourceFormat: parser.SourceFormatJSON,
+	}
+}
+
+// BenchmarkJoinRenames benchmarks joins that actually rename, which is the path
+// that records renames per source document and then rewrites references one
+// document at a time. The other JoinParsed benchmarks use accept-left over
+// documents with disjoint schema names, so they never reach it.
+func BenchmarkJoinRenames(b *testing.B) {
+	docs := make([]parser.ParseResult, 5)
+	for i := range docs {
+		docs[i] = renameBenchDoc(fmt.Sprintf("doc%d", i), renameBenchSchemaCount)
+	}
+
+	run := func(b *testing.B, strategy CollisionStrategy, count int) {
+		config := DefaultConfig()
+		config.PathStrategy = StrategyAcceptLeft
+		config.SchemaStrategy = strategy
+		config.RenameTemplate = "{{.Name}}.{{.Source}}"
+		j := New(config)
+
+		b.ReportAllocs()
+		for b.Loop() {
+			if _, err := j.JoinParsed(docs[:count]); err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
+		}
+	}
+
+	b.Run("RenameRightTwoDocs", func(b *testing.B) { run(b, StrategyRenameRight, 2) })
+	b.Run("RenameRightThreeDocs", func(b *testing.B) { run(b, StrategyRenameRight, 3) })
+	b.Run("RenameRightFiveDocs", func(b *testing.B) { run(b, StrategyRenameRight, 5) })
+	// rename-left also tracks which document contributed each merged schema, so it
+	// exercises the origin bookkeeping the other strategies skip.
+	b.Run("RenameLeftFiveDocs", func(b *testing.B) { run(b, StrategyRenameLeft, 5) })
 }
 
 // BenchmarkJoinStrategy benchmarks different merge strategies

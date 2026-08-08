@@ -111,16 +111,8 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 		// Apply results: replace definitions map with canonical schemas only
 		joined.Definitions = dedupeResult.CanonicalSchemas
 
-		// Rewrite aliases to their canonical name. Deduplication collapses
-		// definitions it found equivalent, so a reference to an alias means the
-		// canonical definition no matter which document wrote it: this rewrite is
-		// document-wide, unlike the collision renames above.
 		if len(dedupeResult.Aliases) > 0 {
-			rewriter := NewSchemaRewriter()
-			for alias, canonical := range dedupeResult.Aliases {
-				rewriter.RegisterRename(alias, canonical, joined.OASVersion)
-			}
-			if err := rewriter.RewriteDocument(joined); err != nil {
+			if err := rewriteDedupeAliases(joined, dedupeResult.Aliases, joined.OASVersion); err != nil {
 				return nil, fmt.Errorf("joiner: failed to rewrite references after semantic deduplication: %w", err)
 			}
 			result.AddWarning(NewSemanticDedupSummaryWarning(dedupeResult.RemovedCount, "definition"))

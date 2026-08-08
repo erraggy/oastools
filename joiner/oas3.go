@@ -225,16 +225,8 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 		// Apply results: replace schemas map with canonical schemas only
 		joined.Components.Schemas = dedupeResult.CanonicalSchemas
 
-		// Rewrite aliases to their canonical name. Deduplication collapses schemas
-		// it found equivalent, so a reference to an alias means the canonical
-		// schema no matter which document wrote it: this rewrite is document-wide,
-		// unlike the collision renames above.
 		if len(dedupeResult.Aliases) > 0 {
-			rewriter := NewSchemaRewriter()
-			for alias, canonical := range dedupeResult.Aliases {
-				rewriter.RegisterRename(alias, canonical, joined.OASVersion)
-			}
-			if err := rewriter.RewriteDocument(joined); err != nil {
+			if err := rewriteDedupeAliases(joined, dedupeResult.Aliases, joined.OASVersion); err != nil {
 				return nil, fmt.Errorf("joiner: failed to rewrite references after semantic deduplication: %w", err)
 			}
 			result.AddWarning(NewSemanticDedupSummaryWarning(dedupeResult.RemovedCount, "schema"))
@@ -398,7 +390,9 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				if leftPrefix != "" {
 					newName = j.generatePrefixedSchemaName(effectiveName, leftPrefix)
 				} else {
-					// Pass nil for graph since we don't have the original document's graph readily available
+					// No graph: operation-aware rename templates are not wired up for
+					// the left side, which would need that document's graph built here.
+					// See #482.
 					newName = j.generateRenamedSchemaName(effectiveName, leftOrigin.filePath, leftOrigin.docIndex, nil)
 				}
 

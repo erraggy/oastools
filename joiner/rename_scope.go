@@ -172,6 +172,10 @@ func (s *renameScope) rewrite(joined any, owner map[any]int) error {
 func (s *renameScope) rewriteUnowned(joined any, owner map[any]int) error {
 	merged := make(map[string]string)
 	for _, renames := range s.byDoc {
+		// Documents are visited in merge order, so when two of them renamed the
+		// same name to different targets the later one wins. The name is genuinely
+		// ambiguous for a value that belongs to no document, and merge order is the
+		// only ordering the join has to break the tie with.
 		maps.Copy(merged, renames)
 	}
 	rewriter := NewSchemaRewriter()
@@ -182,6 +186,20 @@ func (s *renameScope) rewriteUnowned(joined any, owner map[any]int) error {
 		_, known := owner[entry]
 		return !known
 	})
+	return rewriter.RewriteDocument(joined)
+}
+
+// rewriteDedupeAliases repoints every reference to a deduplicated name at the
+// canonical name that replaced it.
+//
+// Unlike a collision rename, this is document-wide: deduplication only
+// consolidates schemas it found equivalent, so a reference to an alias means the
+// canonical schema no matter which document wrote it.
+func rewriteDedupeAliases(joined any, aliases map[string]string, version parser.OASVersion) error {
+	rewriter := NewSchemaRewriter()
+	for alias, canonical := range aliases {
+		rewriter.RegisterRename(alias, canonical, version)
+	}
 	return rewriter.RewriteDocument(joined)
 }
 
