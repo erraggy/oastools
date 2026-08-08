@@ -210,10 +210,13 @@ func rewriteDedupeAliases(joined any, aliases map[string]string, version parser.
 // The first document to contribute a value keeps it. That only matters when the
 // caller passes the same parsed document twice, in which case the two positions
 // share every pointer and there is no contribution to tell apart.
-func claimEntries[T comparable](owner map[any]int, docIndex int, entries map[string]T) {
-	var zero T
+// The map value type is *T rather than a comparable T so that only pointer
+// entries can be attributed: ownership is pointer identity, and a container of
+// values would key the map on content and attribute two equal values to one
+// document.
+func claimEntries[T any](owner map[any]int, docIndex int, entries map[string]*T) {
 	for _, entry := range entries {
-		if entry == zero {
+		if entry == nil {
 			continue
 		}
 		if _, claimed := owner[entry]; !claimed {

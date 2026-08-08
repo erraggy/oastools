@@ -195,22 +195,29 @@ func renameBenchDoc(name string, schemaCount int) parser.ParseResult {
 // that records renames per source document and then rewrites references one
 // document at a time. The other JoinParsed benchmarks use accept-left over
 // documents with disjoint schema names, so they never reach it.
+// Fixtures are rebuilt every iteration because joining rewrites the references
+// of the documents it was handed (#480): reusing them would leave every
+// iteration after the first with references that no longer match any rename, so
+// the benchmark would measure a degraded fixture. The rebuild is outside the
+// timed section.
 func BenchmarkJoinRenames(b *testing.B) {
-	docs := make([]parser.ParseResult, 5)
-	for i := range docs {
-		docs[i] = renameBenchDoc(fmt.Sprintf("doc%d", i), renameBenchSchemaCount)
-	}
-
 	run := func(b *testing.B, strategy CollisionStrategy, count int) {
 		config := DefaultConfig()
 		config.PathStrategy = StrategyAcceptLeft
 		config.SchemaStrategy = strategy
 		config.RenameTemplate = "{{.Name}}.{{.Source}}"
 		j := New(config)
+		docs := make([]parser.ParseResult, count)
 
 		b.ReportAllocs()
 		for b.Loop() {
-			if _, err := j.JoinParsed(docs[:count]); err != nil {
+			b.StopTimer()
+			for i := range docs {
+				docs[i] = renameBenchDoc(fmt.Sprintf("doc%d", i), renameBenchSchemaCount)
+			}
+			b.StartTimer()
+
+			if _, err := j.JoinParsed(docs); err != nil {
 				b.Fatalf("Failed to join: %v", err)
 			}
 		}
