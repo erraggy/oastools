@@ -462,6 +462,97 @@ func oas3ResponseRefIn(t *testing.T, op *parser.Operation) string {
 	return media.Schema.Ref
 }
 
+// TestRenameScopeRewritesHandlerCustomValues covers the one kind of entry that
+// belongs to no source document: a collision handler returning ResolutionCustom
+// supplies a value the joiner never received from a document. Scoping renames by
+// contributing document must not skip it, or the handler's references keep
+// naming schemas the join no longer has.
+func TestRenameScopeRewritesHandlerCustomValues(t *testing.T) {
+	// A namespace prefix on both documents means every reference written in a
+	// source document needs rewriting, so a value that is skipped dangles.
+	handler := func(c CollisionContext) (CollisionResolution, error) {
+		if c.Type == CollisionTypeSchema && c.Name == "Api_Pet" {
+			return UseCustomValue(&parser.Schema{
+				Type: "object",
+				Properties: map[string]*parser.Schema{
+					"category": {Ref: "#/definitions/Category"},
+				},
+			}), nil
+		}
+		return ContinueWithStrategy(), nil
+	}
+
+	res, err := JoinWithOptions(
+		WithParsed(petstoreFamily("a", false), petstoreFamily("b", true)),
+		WithSchemaStrategy(StrategyRenameRight),
+		WithEquivalenceMode("deep"),
+		WithNamespacePrefix("a", "Api"),
+		WithNamespacePrefix("b", "Api"),
+		WithAlwaysApplyPrefix(true),
+		WithRenameTemplate(`{{.Name}}.{{.Source}}`),
+		WithCollisionHandler(handler),
+	)
+	require.NoError(t, err)
+
+	d := res.Document.(*parser.OAS2Document)
+	require.Contains(t, d.Definitions, "Api_Pet")
+
+	custom := d.Definitions["Api_Pet"].Properties["category"].Ref
+	assert.NotEqual(t, "#/definitions/Category", custom,
+		"the handler's value was skipped by every pass, so its reference was never rewritten")
+	for _, ref := range definitionRefs(d) {
+		assert.Contains(t, d.Definitions, extractSchemaName(ref), "dangling reference %s", ref)
+	}
+}
+
+// TestRenameScopeRewritesHandlerCustomPathItem is the same case for paths, the
+// other resolution that accepts a custom value.
+func TestRenameScopeRewritesHandlerCustomPathItem(t *testing.T) {
+	// Both documents publish the same path, so the handler can replace it.
+	const shared = "/shared/pet"
+	withSharedPath := func(name string, withDescription bool) parser.ParseResult {
+		res := petstoreFamily(name, withDescription)
+		doc := res.Document.(*parser.OAS2Document)
+		doc.Paths[shared] = &parser.PathItem{Get: &parser.Operation{
+			OperationID: "shared" + name,
+			Responses: &parser.Responses{Codes: map[string]*parser.Response{
+				"200": {Description: "ok", Schema: &parser.Schema{Ref: "#/definitions/Pet"}},
+			}},
+		}}
+		return res
+	}
+
+	handler := func(c CollisionContext) (CollisionResolution, error) {
+		if c.Type == CollisionTypePath && c.Name == shared {
+			return UseCustomValue(&parser.PathItem{Get: &parser.Operation{
+				OperationID: "sharedMerged",
+				Responses: &parser.Responses{Codes: map[string]*parser.Response{
+					"200": {Description: "ok", Schema: &parser.Schema{Ref: "#/definitions/Pet"}},
+				}},
+			}}), nil
+		}
+		return ContinueWithStrategy(), nil
+	}
+
+	res, err := JoinWithOptions(
+		WithParsed(withSharedPath("a", false), withSharedPath("b", true)),
+		WithSchemaStrategy(StrategyRenameRight),
+		WithEquivalenceMode("deep"),
+		WithNamespacePrefix("a", "Api"),
+		WithNamespacePrefix("b", "Api"),
+		WithAlwaysApplyPrefix(true),
+		WithRenameTemplate(`{{.Name}}.{{.Source}}`),
+		WithCollisionHandler(handler),
+	)
+	require.NoError(t, err)
+
+	d := res.Document.(*parser.OAS2Document)
+	ref := petResponseRef(t, d, shared)
+	assert.NotEqual(t, "#/definitions/Pet", ref,
+		"the handler's path item was skipped by every pass, so its reference was never rewritten")
+	assert.Contains(t, d.Definitions, extractSchemaName(ref), "dangling reference %s", ref)
+}
+
 // petVariant is a minimal document whose single definition carries one property
 // named after the document, so a schema can be traced back to its source.
 func petVariant(name string) parser.ParseResult {

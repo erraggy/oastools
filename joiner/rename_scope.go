@@ -1,6 +1,8 @@
 package joiner
 
 import (
+	"maps"
+
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -155,7 +157,32 @@ func (s *renameScope) rewrite(joined any, owner map[any]int) error {
 			return err
 		}
 	}
-	return nil
+	return s.rewriteUnowned(joined, owner)
+}
+
+// rewriteUnowned rewrites the top-level entries that came from no source document.
+//
+// A collision handler returning ResolutionCustom supplies a value the joiner
+// never received from a document (see applySchemaResolution and
+// applyPathResolution). It belongs to no document's namespace, so there is
+// nothing to scope its references to and every rename applies, which is the
+// document-wide treatment every entry had before renames became scoped. Skipping
+// these would leave a handler's references pointing at names the join no longer
+// has.
+func (s *renameScope) rewriteUnowned(joined any, owner map[any]int) error {
+	merged := make(map[string]string)
+	for _, renames := range s.byDoc {
+		maps.Copy(merged, renames)
+	}
+	rewriter := NewSchemaRewriter()
+	for oldName, newName := range merged {
+		rewriter.RegisterRename(oldName, newName, s.version)
+	}
+	rewriter.restrictTo(func(entry any) bool {
+		_, known := owner[entry]
+		return !known
+	})
+	return rewriter.RewriteDocument(joined)
 }
 
 // claimEntries records the source document that contributed each entry of a

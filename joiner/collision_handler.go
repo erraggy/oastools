@@ -238,6 +238,11 @@ func FailWithMessage(message string) CollisionResolution {
 }
 
 // UseCustomValue returns a resolution that uses a caller-provided merged value.
+//
+// Renames are otherwise scoped to the document that wrote the reference, but a
+// value built by the handler came from no document, so every rename in the join
+// applies to its references. A handler that wants one document's naming should
+// return that document's value (AcceptLeft or AcceptRight) rather than a copy.
 func UseCustomValue(value any) CollisionResolution {
 	return CollisionResolution{Action: ResolutionCustom, CustomValue: value}
 }
