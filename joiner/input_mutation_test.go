@@ -89,13 +89,17 @@ func TestJoinLeavesInputsUnchanged(t *testing.T) {
 	}
 
 	// sharingHandler returns a value built from the left document's own property
-	// schemas, so the custom value shares pointers with an input.
+	// schemas, so the custom value shares pointers with an input. sharingRan
+	// guards against the name drifting and the handler silently never firing,
+	// which would leave the case passing for the wrong reason.
+	sharingRan := false
 	sharingHandler := func(c CollisionContext) (CollisionResolution, error) {
 		if c.Type == CollisionTypeSchema && c.Name == "Api_Pet" {
 			left, ok := c.LeftValue.(*parser.Schema)
 			if !ok {
 				return ContinueWithStrategy(), nil
 			}
+			sharingRan = true
 			merged := &parser.Schema{Type: left.Type, Properties: map[string]*parser.Schema{}}
 			for name, prop := range left.Properties {
 				merged.Properties[name] = prop
@@ -175,6 +179,41 @@ func TestJoinLeavesInputsUnchanged(t *testing.T) {
 			opts: []Option{WithSchemaStrategy(StrategyAcceptLeft)},
 		},
 		{
+			name: "oas3 rename-left",
+			docs: func() []parser.ParseResult {
+				return []parser.ParseResult{petstoreFamilyOAS3("store", false), petstoreFamilyOAS3("clinic", true)}
+			},
+			opts: []Option{WithSchemaStrategy(StrategyRenameLeft), WithRenameTemplate(`{{.Name}}.{{.Source}}`)},
+		},
+		{
+			name: "oas3 namespace prefix",
+			docs: func() []parser.ParseResult {
+				return []parser.ParseResult{petstoreFamilyOAS3("store", false), petstoreFamilyOAS3("clinic", true)}
+			},
+			opts: []Option{
+				WithSchemaStrategy(StrategyRenameRight),
+				WithNamespacePrefix("store", "Api"), WithNamespacePrefix("clinic", "Api"),
+				WithAlwaysApplyPrefix(true), WithRenameTemplate(`{{.Name}}.{{.Source}}`),
+			},
+		},
+		{
+			name: "oas3 semantic deduplication",
+			docs: func() []parser.ParseResult {
+				return []parser.ParseResult{petstoreFamilyOAS3("store", false), petstoreFamilyOAS3("clinic", false)}
+			},
+			opts: []Option{
+				WithSchemaStrategy(StrategyRenameRight), WithSemanticDeduplication(true),
+				WithEquivalenceMode("deep"), WithRenameTemplate(`{{.Name}}.{{.Source}}`),
+			},
+		},
+		{
+			name: "oas3 every container",
+			docs: func() []parser.ParseResult {
+				return []parser.ParseResult{everyContainerOAS3("a", false), everyContainerOAS3("b", true)}
+			},
+			opts: []Option{WithSchemaStrategy(StrategyRenameRight), WithRenameTemplate(`{{.Name}}.{{.Source}}`)},
+		},
+		{
 			name: "oas3 rename-right",
 			docs: func() []parser.ParseResult {
 				return []parser.ParseResult{petstoreFamilyOAS3("store", false), petstoreFamilyOAS3("clinic", true)}
@@ -210,6 +249,9 @@ func TestJoinLeavesInputsUnchanged(t *testing.T) {
 				assert.Equal(t, beforeDoc[i], docs[i].Document,
 					"joining modified input %d (%s) outside its JSON form", i, docs[i].SourcePath)
 			}
+			if tt.name == "oas2 handler custom value sharing input schemas" {
+				assert.True(t, sharingRan, "the handler never fired, so nothing shared an input")
+			}
 		})
 	}
 }
@@ -239,4 +281,97 @@ func TestJoinDiscriminatorRewriteStillApplies(t *testing.T) {
 	assert.Equal(t, "#/components/schemas/Cat", original.OneOf[0].Ref)
 	assert.Equal(t, "#/components/schemas/Cat", original.Discriminator.Mapping["cat"])
 	assert.Equal(t, "#/components/schemas/Cat", original.Discriminator.DefaultMapping)
+}
+
+// everyContainerOAS3 populates the OAS 3 containers rewriteEntries copies that
+// the other fixtures leave empty: webhooks, components.pathItems,
+// components.callbacks and components.requestBodies, plus the media type fields
+// that reach a schema without going through MediaType.Schema.
+func everyContainerOAS3(name string, extra bool) parser.ParseResult {
+	target := &parser.Schema{Type: "object", Properties: map[string]*parser.Schema{"id": {Type: "string"}}}
+	if extra {
+		target.Properties["note"] = &parser.Schema{Type: "string"}
+	}
+	ref := func() *parser.Schema { return &parser.Schema{Ref: "#/components/schemas/Target"} }
+	content := func() map[string]*parser.MediaType {
+		return map[string]*parser.MediaType{
+			"application/jsonl": {
+				Schema:     ref(),
+				ItemSchema: ref(),
+				Encoding: map[string]*parser.Encoding{
+					"part": {Headers: map[string]*parser.Header{"X-Meta": {Schema: ref()}}},
+				},
+			},
+		}
+	}
+	op := func() *parser.Operation {
+		return &parser.Operation{Responses: &parser.Responses{Codes: map[string]*parser.Response{
+			"200": {Description: "ok", Content: content()},
+		}}}
+	}
+	callback := parser.Callback{"{$request.body#/url}": &parser.PathItem{Post: op()}}
+
+	return parser.ParseResult{
+		Document: &parser.OAS3Document{
+			OpenAPI:  "3.2.0",
+			Info:     &parser.Info{Title: name, Version: "1.0.0"},
+			Paths:    parser.Paths{"/" + name: &parser.PathItem{Get: op()}},
+			Webhooks: map[string]*parser.PathItem{name + "Hook": {Post: op()}},
+			Components: &parser.Components{
+				Schemas:       map[string]*parser.Schema{"Target": target},
+				RequestBodies: map[string]*parser.RequestBody{name + "Body": {Content: content()}},
+				Callbacks:     map[string]*parser.Callback{name + "CB": &callback},
+				PathItems:     map[string]*parser.PathItem{name + "PI": {Get: op()}},
+			},
+			OASVersion: parser.OASVersion320,
+		},
+		Version: "3.2.0", OASVersion: parser.OASVersion320,
+		SourcePath: name, SourceFormat: parser.SourceFormatJSON,
+	}
+}
+
+// TestRewriteMediaTypeReachesEveryRef covers the reference locations inside a
+// media type that are not MediaType.Schema: itemSchema (OAS 3.2+) and the
+// headers an encoding describes. A rename used to leave both pointing at the
+// name the other document now owns.
+func TestRewriteMediaTypeReachesEveryRef(t *testing.T) {
+	res, err := JoinWithOptions(
+		WithParsed(everyContainerOAS3("a", false), everyContainerOAS3("b", true)),
+		WithSchemaStrategy(StrategyRenameRight),
+		WithPathStrategy(StrategyAcceptLeft),
+		WithRenameTemplate(`{{.Name}}.{{.Source}}`),
+	)
+	require.NoError(t, err)
+
+	d := res.Document.(*parser.OAS3Document)
+	require.Contains(t, d.Components.Schemas, "Target.b")
+
+	refs := func(mt *parser.MediaType) []string {
+		require.NotNil(t, mt)
+		return []string{
+			mt.Schema.Ref,
+			mt.ItemSchema.Ref,
+			mt.Encoding["part"].Headers["X-Meta"].Schema.Ref,
+		}
+	}
+	jsonl := func(op *parser.Operation) *parser.MediaType {
+		return op.Responses.Codes["200"].Content["application/jsonl"]
+	}
+
+	for where, mt := range map[string]*parser.MediaType{
+		"paths":                    jsonl(d.Paths["/b"].Get),
+		"webhooks":                 jsonl(d.Webhooks["bHook"].Post),
+		"components.pathItems":     jsonl(d.Components.PathItems["bPI"].Get),
+		"components.callbacks":     jsonl((*d.Components.Callbacks["bCB"])["{$request.body#/url}"].Post),
+		"components.requestBodies": d.Components.RequestBodies["bBody"].Content["application/jsonl"],
+	} {
+		for _, ref := range refs(mt) {
+			assert.Equal(t, "#/components/schemas/Target.b", ref, "stale reference in %s", where)
+		}
+	}
+
+	// a's references still name the schema that kept the original name.
+	for _, ref := range refs(jsonl(d.Paths["/a"].Get)) {
+		assert.Equal(t, "#/components/schemas/Target", ref)
+	}
 }

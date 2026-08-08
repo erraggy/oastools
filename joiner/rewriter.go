@@ -390,8 +390,45 @@ func (r *SchemaRewriter) rewriteMediaType(mediaType *parser.MediaType) {
 	}
 
 	r.rewriteSchema(mediaType.Schema)
+	// itemSchema names a schema the same way schema does (OAS 3.2+).
+	r.rewriteSchema(mediaType.ItemSchema)
+
+	// Encoding reaches schemas through the headers it describes.
+	for _, encoding := range mediaType.Encoding {
+		r.rewriteEncoding(encoding)
+	}
+	r.rewriteEncoding(mediaType.ItemEncoding)
+	for _, encoding := range mediaType.PrefixEncoding {
+		r.rewriteEncoding(encoding)
+	}
 
 	// Examples intentionally not rewritten (don't contain schema references)
+}
+
+// rewriteEncoding rewrites references in an encoding: the headers it describes,
+// and the encodings nested under it (OAS 3.2+).
+func (r *SchemaRewriter) rewriteEncoding(encoding *parser.Encoding) {
+	if encoding == nil {
+		return
+	}
+
+	// Nested encodings can be cyclic in a document assembled in Go.
+	ptr := reflect.ValueOf(encoding).Pointer()
+	if r.visited[ptr] {
+		return
+	}
+	r.visited[ptr] = true
+
+	for _, header := range encoding.Headers {
+		r.rewriteHeader(header)
+	}
+	for _, nested := range encoding.Encoding {
+		r.rewriteEncoding(nested)
+	}
+	r.rewriteEncoding(encoding.ItemEncoding)
+	for _, prefix := range encoding.PrefixEncoding {
+		r.rewriteEncoding(prefix)
+	}
 }
 
 // rewriteHeader rewrites references in a header

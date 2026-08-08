@@ -864,13 +864,17 @@ func TestRenameScopeApplyWithoutRenames(t *testing.T) {
 	copied, err := nilScope.applyOAS2(&parser.OAS2Document{}, nil)
 	assert.NoError(t, err)
 	assert.Nil(t, copied, "nothing was copied, so nothing to hand on")
-	_, err = nilScope.applyOAS3(&parser.OAS3Document{}, nil)
+	copied, err = nilScope.applyOAS3(&parser.OAS3Document{}, nil)
 	assert.NoError(t, err)
+	assert.Nil(t, copied)
 
 	// A scope that recorded nothing skips the rewrite entirely.
 	empty := newRenameScope(2, parser.OASVersion20)
 	assert.True(t, empty.empty())
 	copied, err = empty.applyOAS2(&parser.OAS2Document{}, nil)
+	assert.NoError(t, err)
+	assert.Nil(t, copied)
+	copied, err = empty.applyOAS3(&parser.OAS3Document{}, nil)
 	assert.NoError(t, err)
 	assert.Nil(t, copied)
 }
