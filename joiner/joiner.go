@@ -192,46 +192,56 @@ type JoinResult struct {
 	firstFilePath string
 	// scope accumulates schema renames per source document for reference rewriting
 	scope *renameScope
-	// origins records which document contributed the schema under each name.
-	// Nil unless Joiner.tracksSchemaOrigins.
-	origins map[string]schemaOrigin
+	// origins records which document contributed the value under each name, per
+	// section.
+	origins map[originKey]schemaOrigin
 }
 
-// tracksSchemaOrigins reports whether the join needs to know which document
-// contributed each merged schema. Only rename-left and a collision handler read
-// it, so other strategies skip the bookkeeping.
-func (j *Joiner) tracksSchemaOrigins() bool {
-	return j.getEffectiveStrategy(j.config.SchemaStrategy) == StrategyRenameLeft ||
-		j.shouldInvokeHandler(CollisionTypeSchema)
+// The JSON path sections a merged value can live at, used as the origin key's
+// section and in the paths reported for a collision.
+const (
+	sectionDefinitions = "definitions"
+	sectionSchemas     = "components.schemas"
+	sectionPaths       = "paths"
+	sectionWebhooks    = "webhooks"
+)
+
+// originKey names a merged value. Sections share a namespace of names, so the
+// section is part of the key.
+type originKey struct {
+	section string
+	name    string
 }
 
-// schemaOrigin identifies the document that contributed a schema, so a rename
-// can name it after its own source (#479).
+// schemaOrigin identifies the document that contributed a merged value, so a
+// rename can name it after its own source (#479) and a collision can report it
+// (#490).
 type schemaOrigin struct {
 	filePath string
 	docIndex int
 }
 
-// recordOrigin notes which document contributed the schema now under name.
-// No-op when origins are not tracked.
-func (r *JoinResult) recordOrigin(name string, ctx documentContext) {
+// recordOrigin notes which document contributed the value now under name. The
+// map is created on demand, so a JoinResult built directly is usable.
+func (r *JoinResult) recordOrigin(section, name string, ctx documentContext) {
 	if r.origins == nil {
-		return
+		r.origins = make(map[originKey]schemaOrigin)
 	}
-	r.origins[name] = schemaOrigin{filePath: ctx.filePath, docIndex: ctx.docIndex}
+	r.origins[originKey{section, name}] = schemaOrigin{filePath: ctx.filePath, docIndex: ctx.docIndex}
 }
 
-// moveOrigin follows a schema's origin when the join stores it under a new name.
-func (r *JoinResult) moveOrigin(oldName, newName string) {
-	if origin, ok := r.origins[oldName]; ok {
-		r.origins[newName] = origin
+// moveOrigin follows a value's origin when the join stores it under a new name.
+func (r *JoinResult) moveOrigin(section, oldName, newName string) {
+	if origin, ok := r.origins[originKey{section, oldName}]; ok {
+		r.origins[originKey{section, newName}] = origin
 	}
 }
 
-// originOf returns the document that contributed the schema under name, falling
-// back to the first document.
-func (r *JoinResult) originOf(name string) schemaOrigin {
-	if origin, ok := r.origins[name]; ok {
+// originOf returns the document that contributed the value under name. It falls
+// back to the first document, which is the only contributor a two document join
+// can have on the left.
+func (r *JoinResult) originOf(section, name string) schemaOrigin {
+	if origin, ok := r.origins[originKey{section, name}]; ok {
 		return origin
 	}
 	return schemaOrigin{filePath: r.firstFilePath}

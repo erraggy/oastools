@@ -156,6 +156,10 @@ func (j *Joiner) mergePathsMap(
 		if _, exists := target[path]; exists {
 			result.CollisionCount++
 
+			// The left side is whichever document contributed the path now under
+			// this name, which is the first only until something replaces it (#490).
+			leftSource := result.originOf(sectionPaths, path).filePath
+
 			// Invoke collision handler if configured for paths
 			if j.shouldInvokeHandler(CollisionTypePath) {
 				jsonPath := fmt.Sprintf("$.paths['%s']", path)
@@ -163,8 +167,8 @@ func (j *Joiner) mergePathsMap(
 					Type:               CollisionTypePath,
 					Name:               path,
 					JSONPath:           jsonPath,
-					LeftSource:         result.firstFilePath,
-					LeftLocation:       j.getLocationPtr(result.firstFilePath, jsonPath),
+					LeftSource:         leftSource,
+					LeftLocation:       j.getLocationPtr(leftSource, jsonPath),
 					LeftValue:          target[path],
 					RightSource:        ctx.filePath,
 					RightLocation:      j.getLocationPtr(ctx.filePath, jsonPath),
@@ -196,19 +200,21 @@ func (j *Joiner) mergePathsMap(
 			}
 
 			// Apply configured strategy
-			if err := j.handleCollision(path, "paths", strategy, result.firstFilePath, ctx.filePath); err != nil {
+			if err := j.handleCollision(path, "paths", strategy, leftSource, ctx.filePath); err != nil {
 				return err
 			}
 			if j.shouldOverwrite(strategy) {
 				target[path] = pathItem
+				result.recordOrigin(sectionPaths, path, ctx)
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
-				result.AddWarning(NewPathCollisionWarning(path, "overwritten", result.firstFilePath, ctx.filePath, line, col))
+				result.AddWarning(NewPathCollisionWarning(path, "overwritten", leftSource, ctx.filePath, line, col))
 			} else {
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
-				result.AddWarning(NewPathCollisionWarning(path, "kept from first document", result.firstFilePath, ctx.filePath, line, col))
+				result.AddWarning(NewPathCollisionWarning(path, "kept existing value", leftSource, ctx.filePath, line, col))
 			}
 		} else {
 			target[path] = pathItem
+			result.recordOrigin(sectionPaths, path, ctx)
 		}
 	}
 	return nil
@@ -243,12 +249,13 @@ func (j *Joiner) applyPathResolution(
 		// Keep existing (left), discard incoming (right) - no action needed
 		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, resolutionKeptLeft)
 		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
-		result.AddWarning(NewPathCollisionWarning(collision.Name, "kept from first document", collision.LeftSource, ctx.filePath, line, col))
+		result.AddWarning(NewPathCollisionWarning(collision.Name, "kept existing value", collision.LeftSource, ctx.filePath, line, col))
 		return true, nil
 
 	case ResolutionAcceptRight:
 		// Replace with incoming (right)
 		target[collision.Name] = pathItem
+		result.recordOrigin(sectionPaths, collision.Name, ctx)
 		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, resolutionKeptRight)
 		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
 		result.AddWarning(NewPathCollisionWarning(collision.Name, "overwritten", collision.LeftSource, ctx.filePath, line, col))
@@ -262,7 +269,7 @@ func (j *Joiner) applyPathResolution(
 		// Keep left, discard right (treat as equivalent)
 		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, resolutionDeduplicated)
 		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
-		result.AddWarning(NewPathCollisionWarning(collision.Name, "deduplicated (kept from first document)", collision.LeftSource, ctx.filePath, line, col))
+		result.AddWarning(NewPathCollisionWarning(collision.Name, "deduplicated (kept existing value)", collision.LeftSource, ctx.filePath, line, col))
 		return true, nil
 
 	case ResolutionFail:
@@ -283,6 +290,7 @@ func (j *Joiner) applyPathResolution(
 			return true, fmt.Errorf("collision handler: CustomValue is %T, expected *parser.PathItem for path collisions", resolution.CustomValue)
 		}
 		target[collision.Name] = customPathItem
+		result.recordOrigin(sectionPaths, collision.Name, ctx)
 		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, "custom")
 		return true, nil
 
