@@ -71,15 +71,15 @@ func (r *SchemaRewriter) copyOnWrite(onCopy func(old, replacement any)) {
 // probe runs a rewrite with its changes suppressed and reports whether there
 // were any, so an entry is copied only when copying buys something.
 func (r *SchemaRewriter) probe(run func()) bool {
-	saved := r.visited
+	savedVisited, savedProbing, savedChanged := r.visited, r.probing, r.changed
 	r.visited = make(map[uintptr]bool)
 	r.probing, r.changed = true, false
 
 	run()
 
-	r.probing = false
-	r.visited = saved
-	return r.changed
+	changed := r.changed
+	r.visited, r.probing, r.changed = savedVisited, savedProbing, savedChanged
+	return changed
 }
 
 // mapped looks up a replacement and notes that the entry being rewritten has

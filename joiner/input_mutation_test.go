@@ -9,12 +9,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// snapshot renders a parsed document so it can be compared before and after a join.
+// snapshot renders a parsed document so a difference reads as a diff.
 func snapshot(t *testing.T, res parser.ParseResult) string {
 	t.Helper()
 	data, err := json.MarshalIndent(res.Document, "", "  ")
 	require.NoError(t, err)
 	return string(data)
+}
+
+// cloneDocument copies a document so it can be compared field by field. JSON
+// alone would miss anything the marshaller drops, such as json:"-" fields.
+func cloneDocument(t *testing.T, doc any) any {
+	t.Helper()
+	switch d := doc.(type) {
+	case *parser.OAS2Document:
+		return d.DeepCopy()
+	case *parser.OAS3Document:
+		return d.DeepCopy()
+	default:
+		t.Fatalf("unexpected document type %T", doc)
+		return nil
+	}
 }
 
 // discriminatedOAS3 builds a document whose Pet schema selects a variant through
@@ -73,6 +88,23 @@ func TestJoinLeavesInputsUnchanged(t *testing.T) {
 		return ContinueWithStrategy(), nil
 	}
 
+	// sharingHandler returns a value built from the left document's own property
+	// schemas, so the custom value shares pointers with an input.
+	sharingHandler := func(c CollisionContext) (CollisionResolution, error) {
+		if c.Type == CollisionTypeSchema && c.Name == "Api_Pet" {
+			left, ok := c.LeftValue.(*parser.Schema)
+			if !ok {
+				return ContinueWithStrategy(), nil
+			}
+			merged := &parser.Schema{Type: left.Type, Properties: map[string]*parser.Schema{}}
+			for name, prop := range left.Properties {
+				merged.Properties[name] = prop
+			}
+			return UseCustomValue(merged), nil
+		}
+		return ContinueWithStrategy(), nil
+	}
+
 	tests := []struct {
 		name string
 		docs func() []parser.ParseResult
@@ -124,6 +156,18 @@ func TestJoinLeavesInputsUnchanged(t *testing.T) {
 			},
 		},
 		{
+			name: "oas2 handler custom value sharing input schemas",
+			docs: func() []parser.ParseResult {
+				return []parser.ParseResult{petstoreFamily("store", false), petstoreFamily("clinic", true)}
+			},
+			opts: []Option{
+				WithSchemaStrategy(StrategyRenameRight),
+				WithNamespacePrefix("store", "Api"), WithNamespacePrefix("clinic", "Api"),
+				WithAlwaysApplyPrefix(true), WithRenameTemplate(`{{.Name}}.{{.Source}}`),
+				WithCollisionHandler(sharingHandler),
+			},
+		},
+		{
 			name: "oas2 accept-left renames nothing",
 			docs: func() []parser.ParseResult {
 				return []parser.ParseResult{petstoreFamily("store", false), petstoreFamily("clinic", true)}
@@ -149,9 +193,11 @@ func TestJoinLeavesInputsUnchanged(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			docs := tt.docs()
-			before := make([]string, len(docs))
+			beforeJSON := make([]string, len(docs))
+			beforeDoc := make([]any, len(docs))
 			for i := range docs {
-				before[i] = snapshot(t, docs[i])
+				beforeJSON[i] = snapshot(t, docs[i])
+				beforeDoc[i] = cloneDocument(t, docs[i].Document)
 			}
 
 			opts := append([]Option{WithParsed(docs...), WithPathStrategy(StrategyAcceptLeft)}, tt.opts...)
@@ -159,8 +205,10 @@ func TestJoinLeavesInputsUnchanged(t *testing.T) {
 			require.NoError(t, err)
 
 			for i := range docs {
-				assert.Equal(t, before[i], snapshot(t, docs[i]),
+				assert.Equal(t, beforeJSON[i], snapshot(t, docs[i]),
 					"joining modified input %d (%s)", i, docs[i].SourcePath)
+				assert.Equal(t, beforeDoc[i], docs[i].Document,
+					"joining modified input %d (%s) outside its JSON form", i, docs[i].SourcePath)
 			}
 		})
 	}
