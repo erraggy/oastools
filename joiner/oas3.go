@@ -81,6 +81,11 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 	joined.Components.PathItems = make(map[string]*parser.PathItem)
 	joined.Components.MediaTypes = make(map[string]*parser.MediaType)
 
+	graphs := newRefGraphs(j.config.OperationContext, func(docIndex int) *RefGraph {
+		src := sources[docIndex]
+		return buildRefGraphOAS3(src, src.OASVersion)
+	})
+
 	// Merge all documents
 	for i, doc := range docs {
 		oas3Doc := sources[i]
@@ -168,13 +173,7 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 		// Merge components
 		if oas3Doc.Components != nil {
-			// Build reference graph if operation context is enabled
-			var sourceGraph *RefGraph
-			if j.config.OperationContext {
-				sourceGraph = buildRefGraphOAS3(oas3Doc, oas3Doc.OASVersion)
-			}
-
-			if err := j.mergeOAS3Components(joined.Components, oas3Doc.Components, ctx, result, sourceGraph); err != nil {
+			if err := j.mergeOAS3Components(joined.Components, oas3Doc.Components, ctx, result, graphs); err != nil {
 				return nil, err
 			}
 		}
@@ -237,12 +236,12 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 }
 
 // mergeOAS3Components merges components from source into target
-func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx documentContext, result *JoinResult, sourceGraph *RefGraph) error {
+func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx documentContext, result *JoinResult, graphs *refGraphs) error {
 	schemaStrategy := j.getEffectiveStrategy(j.config.SchemaStrategy)
 	componentStrategy := j.getEffectiveStrategy(j.config.ComponentStrategy)
 
 	// Merge schemas with detailed warnings
-	if err := j.mergeSchemas(target.Schemas, source.Schemas, schemaStrategy, ctx, result, sourceGraph); err != nil {
+	if err := j.mergeSchemas(target.Schemas, source.Schemas, schemaStrategy, ctx, result, graphs); err != nil {
 		return err
 	}
 
@@ -282,7 +281,9 @@ func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx docu
 }
 
 // mergeSchemas is a specialized merger for schemas with detailed warnings
-func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy CollisionStrategy, ctx documentContext, result *JoinResult, sourceGraph *RefGraph) error {
+func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy CollisionStrategy, ctx documentContext, result *JoinResult, graphs *refGraphs) error {
+	sourceGraph := graphs.forDoc(ctx.docIndex)
+
 	// Get namespace prefix for this source (if configured)
 	sourcePrefix := j.getNamespacePrefix(ctx.filePath)
 
@@ -389,8 +390,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				if leftPrefix != "" {
 					newName = j.generatePrefixedSchemaName(effectiveName, leftPrefix)
 				} else {
-					// No graph: operation-aware templates are not wired up here (#482).
-					newName = j.generateRenamedSchemaName(effectiveName, leftOrigin.filePath, leftOrigin.docIndex, nil)
+					newName = j.generateRenamedSchemaName(effectiveName, leftOrigin.filePath, leftOrigin.docIndex, graphs.forDoc(leftOrigin.docIndex))
 				}
 				newName = uniqueSchemaName(target, newName)
 
