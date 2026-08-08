@@ -20,6 +20,9 @@ type SchemaRewriter struct {
 	// inside it changes. See copyOnWrite.
 	copying bool
 	onCopy  func(old, replacement any)
+	// owned holds the entries already copied, which no longer belong to any
+	// input and can be changed in place by a later pass.
+	owned map[any]bool
 	// probing suppresses the changes themselves, and changed records whether
 	// there were any. See probe.
 	probing bool
@@ -61,10 +64,12 @@ func (r *SchemaRewriter) skipEntry(entry any) bool {
 // left as they were (#480). Only entries that actually have a reference to
 // change are copied.
 //
-// onCopy, if given, receives the old and new pointer. Callers keying anything on
-// identity need it, since the copy is a different pointer.
-func (r *SchemaRewriter) copyOnWrite(onCopy func(old, replacement any)) {
+// owned is shared between the passes of one join so an entry is copied once
+// rather than once per pass. onCopy, if given, receives the old and new pointer,
+// which callers keying anything on identity need.
+func (r *SchemaRewriter) copyOnWrite(owned map[any]bool, onCopy func(old, replacement any)) {
 	r.copying = true
+	r.owned = owned
 	r.onCopy = onCopy
 }
 
@@ -103,12 +108,13 @@ func rewriteEntries[T any](r *SchemaRewriter, entries map[string]*T, fn func(*T)
 		if r.skipEntry(entry) {
 			continue
 		}
-		if r.copying {
+		if r.copying && !r.owned[entry] {
 			if !r.probe(func() { fn(entry) }) {
 				continue
 			}
 			replacement := clone(entry)
 			entries[name] = replacement
+			r.owned[replacement] = true
 			if r.onCopy != nil {
 				r.onCopy(entry, replacement)
 			}
