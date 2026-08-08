@@ -363,7 +363,7 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 
 		return parser.ParseResult{
 			Document: &parser.OAS3Document{
-				OpenAPI: "3.1.0",
+				OpenAPI: "3.2.0",
 				Info:    &parser.Info{Title: name, Version: "1.0.0"},
 				Paths: parser.Paths{
 					"/" + name: &parser.PathItem{Get: containerRef()},
@@ -401,10 +401,10 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 						name + "MT": {Schema: targetRef()},
 					},
 				},
-				OASVersion: parser.OASVersion310,
+				OASVersion: parser.OASVersion320,
 			},
-			Version:      "3.1.0",
-			OASVersion:   parser.OASVersion310,
+			Version:      "3.2.0",
+			OASVersion:   parser.OASVersion320,
 			SourcePath:   name,
 			SourceFormat: parser.SourceFormatJSON,
 		}
