@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"text/template"
 
 	"github.com/erraggy/oastools/internal/fileutil"
@@ -189,8 +190,51 @@ type JoinResult struct {
 	CollisionDetails *CollisionReport
 	// firstFilePath stores the path of the first document for error reporting
 	firstFilePath string
-	// rewriter accumulates schema renames for reference rewriting
-	rewriter *SchemaRewriter
+	// scope accumulates schema renames per source document for reference rewriting
+	scope *renameScope
+	// origins records which document contributed the schema under each name.
+	// Nil unless Joiner.tracksSchemaOrigins.
+	origins map[string]schemaOrigin
+}
+
+// tracksSchemaOrigins reports whether the join needs to know which document
+// contributed each merged schema. Only rename-left and a collision handler read
+// it, so other strategies skip the bookkeeping.
+func (j *Joiner) tracksSchemaOrigins() bool {
+	return j.getEffectiveStrategy(j.config.SchemaStrategy) == StrategyRenameLeft ||
+		j.shouldInvokeHandler(CollisionTypeSchema)
+}
+
+// schemaOrigin identifies the document that contributed a schema, so a rename
+// can name it after its own source (#479).
+type schemaOrigin struct {
+	filePath string
+	docIndex int
+}
+
+// recordOrigin notes which document contributed the schema now under name.
+// No-op when origins are not tracked.
+func (r *JoinResult) recordOrigin(name string, ctx documentContext) {
+	if r.origins == nil {
+		return
+	}
+	r.origins[name] = schemaOrigin{filePath: ctx.filePath, docIndex: ctx.docIndex}
+}
+
+// moveOrigin follows a schema's origin when the join stores it under a new name.
+func (r *JoinResult) moveOrigin(oldName, newName string) {
+	if origin, ok := r.origins[oldName]; ok {
+		r.origins[newName] = origin
+	}
+}
+
+// originOf returns the document that contributed the schema under name, falling
+// back to the first document.
+func (r *JoinResult) originOf(name string) schemaOrigin {
+	if origin, ok := r.origins[name]; ok {
+		return origin
+	}
+	return schemaOrigin{filePath: r.firstFilePath}
 }
 
 // AddWarning adds a structured warning and populates the legacy Warnings slice.
@@ -565,6 +609,23 @@ func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docI
 	}
 
 	return buf.String()
+}
+
+// uniqueSchemaName returns candidate, or the first free candidate_2,
+// candidate_3 and so on. A rename template can generate a name that is already
+// taken, and storing the schema there would drop the one under it (#483). The
+// rename warning reports the name that was used.
+func uniqueSchemaName(taken map[string]*parser.Schema, candidate string) string {
+	if _, exists := taken[candidate]; !exists {
+		return candidate
+	}
+	// One of the first len(taken)+2 names is free.
+	for n := 2; ; n++ {
+		name := candidate + "_" + strconv.Itoa(n)
+		if _, exists := taken[name]; !exists {
+			return name
+		}
+	}
 }
 
 // recordCollisionEvent records a collision event if reporting is enabled

@@ -134,7 +134,7 @@ func TestNewSchemaRenamedWarning(t *testing.T) {
 		{
 			name:         "kept original",
 			keptOriginal: true,
-			wantContains: "kept from first document",
+			wantContains: "incoming document takes the original name",
 		},
 		{
 			name:         "renamed source",
@@ -150,6 +150,7 @@ func TestNewSchemaRenamedWarning(t *testing.T) {
 			assert.Equal(t, WarnSchemaRenamed, w.Category)
 			assert.Equal(t, severity.SeverityInfo, w.Severity)
 			assert.Equal(t, tt.keptOriginal, w.Context["kept_original"])
+			assert.Contains(t, w.Message, tt.wantContains)
 		})
 	}
 }

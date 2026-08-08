@@ -206,6 +206,7 @@ func BenchmarkOperation(b *testing.B) {
         parser.WithValidateStructure(true),
     )
 
+    b.ReportAllocs()
     for b.Loop() {  // ✅ Modern Go 1.24+ pattern
         _, err := Operation(source)
         if err != nil {
@@ -215,10 +216,13 @@ func BenchmarkOperation(b *testing.B) {
 }
 ```
 
+**DO:**
+
+- Call `b.ReportAllocs()`. `b.Loop()` does not report allocations on its own.
+
 **DO NOT:**
 
 - Use `for i := 0; i < b.N; i++` (old pattern)
-- Call `b.ReportAllocs()` manually (handled by `b.Loop()`)
 - Call `b.ResetTimer()` for trivial setup
 
 ## Security

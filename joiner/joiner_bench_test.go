@@ -1,6 +1,7 @@
 package joiner
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -89,6 +90,16 @@ func BenchmarkJoinParsed(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to parse doc3: %v", err)
 	}
+	// FiveDocs needs five distinct documents: the same document at two positions
+	// is deep copied (#481), which is not what this measures.
+	doc4, err := parser.ParseWithOptions(parser.WithFilePath(joinBaseOAS3Path))
+	if err != nil {
+		b.Fatalf("Failed to parse doc4: %v", err)
+	}
+	doc5, err := parser.ParseWithOptions(parser.WithFilePath(joinExt1OAS3Path))
+	if err != nil {
+		b.Fatalf("Failed to parse doc5: %v", err)
+	}
 
 	config := DefaultConfig()
 	config.PathStrategy = StrategyAcceptLeft
@@ -118,12 +129,93 @@ func BenchmarkJoinParsed(b *testing.B) {
 	b.Run("FiveDocs", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			_, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2, *doc3, *doc1, *doc2})
+			_, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2, *doc3, *doc4, *doc5})
 			if err != nil {
 				b.Fatalf("Failed to join: %v", err)
 			}
 		}
 	})
+}
+
+// renameBenchSchemaCount is the number of schemas each renameBenchDoc defines.
+const renameBenchSchemaCount = 20
+
+// renameBenchDoc builds an OAS 3 document that shares every schema name with the
+// others this function returns, so joining them collides on all of them.
+func renameBenchDoc(name string, schemaCount int) parser.ParseResult {
+	schemas := make(map[string]*parser.Schema, schemaCount)
+	for i := range schemaCount {
+		schemas[fmt.Sprintf("Model%d", i)] = &parser.Schema{
+			Type: "object",
+			Properties: map[string]*parser.Schema{
+				"id": {Type: "string"},
+				// So every rename has a reference to find and rewrite.
+				"next": {Ref: fmt.Sprintf("#/components/schemas/Model%d", (i+1)%schemaCount)},
+				// A property named after the document, so the schemas genuinely differ.
+				"from" + name: {Type: "string"},
+			},
+		}
+	}
+
+	return parser.ParseResult{
+		Document: &parser.OAS3Document{
+			OpenAPI: "3.0.3",
+			Info:    &parser.Info{Title: name, Version: "1.0.0"},
+			Paths: parser.Paths{
+				"/" + name: &parser.PathItem{Get: &parser.Operation{
+					Responses: &parser.Responses{Codes: map[string]*parser.Response{
+						"200": {
+							Description: "ok",
+							Content: map[string]*parser.MediaType{
+								"application/json": {Schema: &parser.Schema{Ref: "#/components/schemas/Model0"}},
+							},
+						},
+					}},
+				}},
+			},
+			Components: &parser.Components{Schemas: schemas},
+			OASVersion: parser.OASVersion303,
+		},
+		Version:      "3.0.3",
+		OASVersion:   parser.OASVersion303,
+		SourcePath:   name,
+		SourceFormat: parser.SourceFormatJSON,
+	}
+}
+
+// BenchmarkJoinRenames benchmarks joins that rename. The other benchmarks use
+// accept-left over documents with disjoint schema names and never rename.
+//
+// Fixtures are rebuilt each iteration, outside the timed section, because
+// joining rewrites the references of the documents it was handed (#480).
+func BenchmarkJoinRenames(b *testing.B) {
+	run := func(b *testing.B, strategy CollisionStrategy, count int) {
+		config := DefaultConfig()
+		config.PathStrategy = StrategyAcceptLeft
+		config.SchemaStrategy = strategy
+		config.RenameTemplate = "{{.Name}}.{{.Source}}"
+		j := New(config)
+		docs := make([]parser.ParseResult, count)
+
+		b.ReportAllocs()
+		for b.Loop() {
+			b.StopTimer()
+			for i := range docs {
+				docs[i] = renameBenchDoc(fmt.Sprintf("doc%d", i), renameBenchSchemaCount)
+			}
+			b.StartTimer()
+
+			if _, err := j.JoinParsed(docs); err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
+		}
+	}
+
+	b.Run("RenameRightTwoDocs", func(b *testing.B) { run(b, StrategyRenameRight, 2) })
+	b.Run("RenameRightThreeDocs", func(b *testing.B) { run(b, StrategyRenameRight, 3) })
+	b.Run("RenameRightFiveDocs", func(b *testing.B) { run(b, StrategyRenameRight, 5) })
+	// rename-left also tracks which document contributed each merged schema.
+	b.Run("RenameLeftFiveDocs", func(b *testing.B) { run(b, StrategyRenameLeft, 5) })
 }
 
 // BenchmarkJoinStrategy benchmarks different merge strategies
