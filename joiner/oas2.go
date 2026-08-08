@@ -321,7 +321,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "overwritten", "definitions", leftSource, ctx.filePath, line, col))
 					j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, schemaStrategy, resolutionKeptRight, "")
 				} else {
-					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept from first document", "definitions", leftSource, ctx.filePath, line, col))
+					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept existing value", "definitions", leftSource, ctx.filePath, line, col))
 					j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, schemaStrategy, resolutionKeptLeft, "")
 				}
 			}

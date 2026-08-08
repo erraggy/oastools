@@ -210,7 +210,7 @@ func (j *Joiner) mergePathsMap(
 				result.AddWarning(NewPathCollisionWarning(path, "overwritten", leftSource, ctx.filePath, line, col))
 			} else {
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.paths['%s']", path))
-				result.AddWarning(NewPathCollisionWarning(path, "kept from first document", leftSource, ctx.filePath, line, col))
+				result.AddWarning(NewPathCollisionWarning(path, "kept existing value", leftSource, ctx.filePath, line, col))
 			}
 		} else {
 			target[path] = pathItem
@@ -249,7 +249,7 @@ func (j *Joiner) applyPathResolution(
 		// Keep existing (left), discard incoming (right) - no action needed
 		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, resolutionKeptLeft)
 		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
-		result.AddWarning(NewPathCollisionWarning(collision.Name, "kept from first document", collision.LeftSource, ctx.filePath, line, col))
+		result.AddWarning(NewPathCollisionWarning(collision.Name, "kept existing value", collision.LeftSource, ctx.filePath, line, col))
 		return true, nil
 
 	case ResolutionAcceptRight:
@@ -269,7 +269,7 @@ func (j *Joiner) applyPathResolution(
 		// Keep left, discard right (treat as equivalent)
 		j.recordCollisionEventWithPath(result, collision.Name, collision.JSONPath, collision.LeftSource, collision.RightSource, collision.ConfiguredStrategy, resolutionDeduplicated)
 		line, col := j.getLocation(ctx.filePath, collision.JSONPath)
-		result.AddWarning(NewPathCollisionWarning(collision.Name, "deduplicated (kept from first document)", collision.LeftSource, ctx.filePath, line, col))
+		result.AddWarning(NewPathCollisionWarning(collision.Name, "deduplicated (kept existing value)", collision.LeftSource, ctx.filePath, line, col))
 		return true, nil
 
 	case ResolutionFail:

@@ -1,6 +1,7 @@
 package joiner
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -252,4 +253,105 @@ func TestCollisionReportsContributingLeftSourceOAS2(t *testing.T) {
 			assert.Equal(t, source, got, "%s: LeftSource and LeftValue disagree", key)
 		}
 	}
+}
+
+// parseWithSourceMap parses a document with locations recorded, so a collision's
+// LeftLocation can be traced back to the document it came from. Each document
+// pads its Shared schema to a different line.
+func parseWithSourceMap(t *testing.T, name string, pad int) parser.ParseResult {
+	t.Helper()
+	var filler string
+	for i := range pad {
+		filler += fmt.Sprintf("    Pad%d%s:\n      type: string\n", i, name)
+	}
+	spec := fmt.Sprintf(`openapi: 3.0.3
+info:
+  title: %s
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+%s    Shared:
+      type: object
+      description: %s
+`, name, filler, name)
+
+	res, err := parser.ParseWithOptions(
+		parser.WithBytes([]byte(spec)),
+		parser.WithSourceMap(true),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, res.SourceMap, "the parse should record locations")
+	res.SourcePath = name
+	return *res
+}
+
+// TestCollisionReportsContributingLeftLocation covers the other half of the
+// context: the location has to come from the same document as the source, or a
+// caller following it lands in a file that no longer holds the value.
+func TestCollisionReportsContributingLeftLocation(t *testing.T) {
+	docs := []parser.ParseResult{
+		parseWithSourceMap(t, "a", 0),
+		parseWithSourceMap(t, "b", 2),
+		parseWithSourceMap(t, "c", 4),
+	}
+	const schemaPath = "$.components.schemas.Shared"
+	lineOf := map[string]int{}
+	maps := map[string]*parser.SourceMap{}
+	for _, d := range docs {
+		lineOf[d.SourcePath] = d.SourceMap.Get(schemaPath).Line
+		maps[d.SourcePath] = d.SourceMap
+	}
+	require.NotEqual(t, lineOf["a"], lineOf["b"], "the fixtures must differ in position")
+
+	j := New(JoinerConfig{
+		DefaultStrategy:   StrategyAcceptRight,
+		PathStrategy:      StrategyAcceptRight,
+		SchemaStrategy:    StrategyAcceptRight,
+		ComponentStrategy: StrategyAcceptRight,
+	})
+	j.SourceMaps = maps
+
+	seenLine := map[string]int{}
+	seenSource := map[string]string{}
+	j.collisionHandler = func(c CollisionContext) (CollisionResolution, error) {
+		if c.Type == CollisionTypeSchema && c.LeftLocation != nil {
+			seenLine[c.RightSource] = c.LeftLocation.Line
+			seenSource[c.RightSource] = c.LeftSource
+		}
+		return ContinueWithStrategy(), nil
+	}
+
+	_, err := j.JoinParsed(docs)
+	require.NoError(t, err)
+
+	assert.Equal(t, lineOf["a"], seenLine["b"], "b collided with a's value")
+	assert.Equal(t, lineOf["b"], seenLine["c"], "c collided with b's value")
+
+	// The location and the source name the same document.
+	assert.Equal(t, "a", seenSource["b"])
+	assert.Equal(t, "b", seenSource["c"])
+}
+
+// TestWebhookHandlerOverwriteRecordsSource covers the webhook path a handler
+// takes: accepting the right value has to move the contributor with it, or the
+// next collision names the document that was replaced.
+func TestWebhookHandlerOverwriteRecordsSource(t *testing.T) {
+	seen := map[string]string{}
+	_, err := JoinWithOptions(
+		WithParsed(threeDocOAS3("a"), threeDocOAS3("b"), threeDocOAS3("c")),
+		WithDefaultStrategy(StrategyAcceptLeft),
+		WithPathStrategy(StrategyAcceptLeft),
+		WithSchemaStrategy(StrategyAcceptLeft),
+		WithComponentStrategy(StrategyAcceptLeft),
+		// The handler, not the strategy, is what accepts the incoming webhook.
+		WithCollisionHandlerFor(func(c CollisionContext) (CollisionResolution, error) {
+			seen[c.RightSource] = c.LeftSource
+			return AcceptRight(), nil
+		}, CollisionTypeWebhook),
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, "a", seen["b"], "b collided with a")
+	assert.Equal(t, "b", seen["c"], "the handler accepted b, so c collides with b")
 }

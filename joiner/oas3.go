@@ -145,6 +145,7 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 						if handled {
 							if shouldOverwrite {
 								joined.Webhooks[name] = webhook
+								result.recordOrigin(sectionWebhooks, name, ctx)
 							}
 							continue // Resolution handled, skip strategy handling
 						}
@@ -163,7 +164,7 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 					result.AddWarning(NewWebhookCollisionWarning(name, "overwritten", leftSource, ctx.filePath, line, col))
 				} else {
 					line, col := j.getLocation(ctx.filePath, jsonPath)
-					result.AddWarning(NewWebhookCollisionWarning(name, "kept from first document", leftSource, ctx.filePath, line, col))
+					result.AddWarning(NewWebhookCollisionWarning(name, "kept existing value", leftSource, ctx.filePath, line, col))
 				}
 			} else {
 				joined.Webhooks[name] = webhook
@@ -451,7 +452,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 					j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, strategy, resolutionKeptRight, "")
 				} else {
 					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
-					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept from first document", "components.schemas", leftSource, ctx.filePath, line, col))
+					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept existing value", "components.schemas", leftSource, ctx.filePath, line, col))
 					j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, strategy, resolutionKeptLeft, "")
 				}
 			}
