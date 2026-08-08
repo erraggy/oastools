@@ -79,9 +79,9 @@ func (s *renameScope) empty() bool {
 //
 // Keep the claimed containers in step with rewriteOAS2Document: an unclaimed
 // entry counts as belonging to no document.
-func (s *renameScope) applyOAS2(joined *parser.OAS2Document, sources []*parser.OAS2Document) error {
+func (s *renameScope) applyOAS2(joined *parser.OAS2Document, sources []*parser.OAS2Document) (map[any]bool, error) {
 	if s.empty() {
-		return nil
+		return nil, nil
 	}
 	owner := make(map[any]int)
 	for docIndex, src := range sources {
@@ -98,9 +98,9 @@ func (s *renameScope) applyOAS2(joined *parser.OAS2Document, sources []*parser.O
 //
 // Keep the claimed containers in step with rewriteOAS3Document: an unclaimed
 // entry counts as belonging to no document.
-func (s *renameScope) applyOAS3(joined *parser.OAS3Document, sources []*parser.OAS3Document) error {
+func (s *renameScope) applyOAS3(joined *parser.OAS3Document, sources []*parser.OAS3Document) (map[any]bool, error) {
 	if s.empty() {
-		return nil
+		return nil, nil
 	}
 	owner := make(map[any]int)
 	for docIndex, src := range sources {
@@ -121,7 +121,8 @@ func (s *renameScope) applyOAS3(joined *parser.OAS3Document, sources []*parser.O
 
 // rewrite runs one pass per source document that recorded a rename, each
 // restricted to the entries that document contributed, then one for the rest.
-func (s *renameScope) rewrite(joined any, owner map[any]int) error {
+func (s *renameScope) rewrite(joined any, owner map[any]int) (map[any]bool, error) {
+	copied := make(map[any]bool)
 	for docIndex, renames := range s.byDoc {
 		if len(renames) == 0 {
 			continue
@@ -134,17 +135,18 @@ func (s *renameScope) rewrite(joined any, owner map[any]int) error {
 			contributor, known := owner[entry]
 			return known && contributor == docIndex
 		})
+		rewriter.copyOnWrite(copied, reown(owner))
 		if err := rewriter.RewriteDocument(joined); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return s.rewriteUnowned(joined, owner)
+	return copied, s.rewriteUnowned(joined, owner, copied)
 }
 
 // rewriteUnowned rewrites entries that came from no source document, which a
 // collision handler produces with ResolutionCustom. There is no document whose
 // namespace to read them in, so every rename applies.
-func (s *renameScope) rewriteUnowned(joined any, owner map[any]int) error {
+func (s *renameScope) rewriteUnowned(joined any, owner map[any]int, copied map[any]bool) error {
 	merged := make(map[string]string)
 	for _, renames := range s.byDoc {
 		// Merge order breaks the tie when two documents renamed the same name.
@@ -158,17 +160,29 @@ func (s *renameScope) rewriteUnowned(joined any, owner map[any]int) error {
 		_, known := owner[entry]
 		return !known
 	})
+	rewriter.copyOnWrite(copied, reown(owner))
 	return rewriter.RewriteDocument(joined)
+}
+
+// reown keeps the ownership map following an entry that copy-on-write replaced,
+// so a later pass still reads the copy as belonging to the same document.
+func reown(owner map[any]int) func(old, replacement any) {
+	return func(old, replacement any) {
+		if contributor, known := owner[old]; known {
+			owner[replacement] = contributor
+		}
+	}
 }
 
 // rewriteDedupeAliases repoints references from deduplicated names to canonical
 // ones. Document-wide, unlike a collision rename: the schemas were found
 // equivalent, so the reference means the same thing whoever wrote it.
-func rewriteDedupeAliases(joined any, aliases map[string]string, version parser.OASVersion) error {
+func rewriteDedupeAliases(joined any, aliases map[string]string, version parser.OASVersion, copied map[any]bool) error {
 	rewriter := NewSchemaRewriter()
 	for alias, canonical := range aliases {
 		rewriter.RegisterRename(alias, canonical, version)
 	}
+	rewriter.copyOnWrite(copied, nil)
 	return rewriter.RewriteDocument(joined)
 }
 

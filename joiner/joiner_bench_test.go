@@ -185,27 +185,22 @@ func renameBenchDoc(name string, schemaCount int) parser.ParseResult {
 
 // BenchmarkJoinRenames benchmarks joins that rename. The other benchmarks use
 // accept-left over documents with disjoint schema names and never rename.
-//
-// Fixtures are rebuilt each iteration, outside the timed section, because
-// joining rewrites the references of the documents it was handed (#480).
 func BenchmarkJoinRenames(b *testing.B) {
+	docs := make([]parser.ParseResult, 5)
+	for i := range docs {
+		docs[i] = renameBenchDoc(fmt.Sprintf("doc%d", i), renameBenchSchemaCount)
+	}
+
 	run := func(b *testing.B, strategy CollisionStrategy, count int) {
 		config := DefaultConfig()
 		config.PathStrategy = StrategyAcceptLeft
 		config.SchemaStrategy = strategy
 		config.RenameTemplate = "{{.Name}}.{{.Source}}"
 		j := New(config)
-		docs := make([]parser.ParseResult, count)
 
 		b.ReportAllocs()
 		for b.Loop() {
-			b.StopTimer()
-			for i := range docs {
-				docs[i] = renameBenchDoc(fmt.Sprintf("doc%d", i), renameBenchSchemaCount)
-			}
-			b.StartTimer()
-
-			if _, err := j.JoinParsed(docs); err != nil {
+			if _, err := j.JoinParsed(docs[:count]); err != nil {
 				b.Fatalf("Failed to join: %v", err)
 			}
 		}

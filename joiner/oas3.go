@@ -200,7 +200,8 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 	result.Document = joined
 
 	// Before deduplication, so comparison sees references in their final form.
-	if err := result.scope.applyOAS3(joined, sources); err != nil {
+	copied, err := result.scope.applyOAS3(joined, sources)
+	if err != nil {
 		return nil, fmt.Errorf("joiner: failed to rewrite references after schema renames: %w", err)
 	}
 
@@ -222,7 +223,7 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 		joined.Components.Schemas = dedupeResult.CanonicalSchemas
 
 		if len(dedupeResult.Aliases) > 0 {
-			if err := rewriteDedupeAliases(joined, dedupeResult.Aliases, joined.OASVersion); err != nil {
+			if err := rewriteDedupeAliases(joined, dedupeResult.Aliases, joined.OASVersion, copied); err != nil {
 				return nil, fmt.Errorf("joiner: failed to rewrite references after semantic deduplication: %w", err)
 			}
 			result.AddWarning(NewSemanticDedupSummaryWarning(dedupeResult.RemovedCount, "schema"))

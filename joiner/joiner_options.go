@@ -355,7 +355,9 @@ func WithFilePaths(paths ...string) Option {
 	}
 }
 
-// WithParsed specifies parsed ParseResults as input sources
+// WithParsed specifies parsed ParseResults as input sources.
+//
+// See Joiner.JoinParsed for what the join does and does not do to them.
 func WithParsed(docs ...parser.ParseResult) Option {
 	return func(cfg *joinConfig) error {
 		cfg.parsedDocs = append(cfg.parsedDocs, docs...)

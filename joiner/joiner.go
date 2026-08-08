@@ -280,6 +280,13 @@ type documentContext struct {
 	result   *parser.ParseResult
 }
 
+// JoinParsed joins already parsed documents.
+//
+// The documents are not modified. A schema whose references change is copied
+// before it is rewritten, which relies on the generated deep copy, so a document
+// assembled in Go whose pointer graph contains a cycle is not supported and
+// overflows the stack rather than returning an error (#488). Decoding cannot
+// produce such a graph, so this only concerns documents built programmatically.
 func (j *Joiner) JoinParsed(parsedDocs []parser.ParseResult) (*JoinResult, error) {
 	if len(parsedDocs) < 2 {
 		return nil, fmt.Errorf("joiner: at least 2 specification documents are required for joining, got %d", len(parsedDocs))
