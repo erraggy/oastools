@@ -79,6 +79,7 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 	joined.Components.Callbacks = make(map[string]*parser.Callback)
 	joined.Components.CallbackRefs = make(map[string]*parser.Reference)
 	joined.Components.PathItems = make(map[string]*parser.PathItem)
+	joined.Components.MediaTypes = make(map[string]*parser.MediaType)
 
 	// Merge all documents
 	for i, doc := range docs {
@@ -273,6 +274,9 @@ func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx docu
 	if err := j.mergePathItems(target.PathItems, source.PathItems, componentStrategy, ctx, result); err != nil {
 		return err
 	}
+	if err := j.mergeMediaTypes(target.MediaTypes, source.MediaTypes, componentStrategy, ctx, result); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -463,6 +467,13 @@ func (j *Joiner) mergeResponses(target, source map[string]*parser.Response, stra
 
 func (j *Joiner) mergeParameters(target, source map[string]*parser.Parameter, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
 	return mergeMap(j, target, source, "components.parameters", CollisionTypeParameter, strategy, ctx, result)
+}
+
+// mergeMediaTypes merges components.mediaTypes (OAS 3.2+). Its entries carry
+// schema references, so renameScope attributes them and the rewriter traverses
+// them alongside the other component maps.
+func (j *Joiner) mergeMediaTypes(target, source map[string]*parser.MediaType, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
+	return mergeMap(j, target, source, "components.mediaTypes", CollisionTypeMediaType, strategy, ctx, result)
 }
 
 func (j *Joiner) mergeExamples(target, source map[string]*parser.Example, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
