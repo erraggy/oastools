@@ -79,6 +79,8 @@ A rename only rewrites the references of documents that used the renamed name:
 
 Semantic deduplication rewrites every reference to a removed name, because the schemas were equivalent.
 
+Joining does not modify the documents it was given. The merged document holds the schemas and path items its inputs contributed, so anything whose references change is copied first. Entries that are not rewritten are still shared with the input they came from, which means the result is safe to read but should not be edited in place if the inputs are still in use.
+
 [↑ Back to top](#top)
 
 ## API Styles

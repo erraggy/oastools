@@ -15,6 +15,15 @@ type SchemaRewriter struct {
 	bareNameMap map[string]string // Bare name: "Old" → "New" (for discriminator shorthand)
 	visited     map[uintptr]bool  // Tracks visited nodes to prevent infinite loops
 	owns        func(entry any) bool
+
+	// copying makes a top-level entry be replaced by a deep copy before anything
+	// inside it changes. See copyOnWrite.
+	copying bool
+	onCopy  func(old, replacement any)
+	// probing suppresses the changes themselves, and changed records whether
+	// there were any. See probe.
+	probing bool
+	changed bool
 }
 
 // NewSchemaRewriter creates a new rewriter instance
@@ -47,16 +56,79 @@ func (r *SchemaRewriter) skipEntry(entry any) bool {
 	return r.owns != nil && !r.owns(entry)
 }
 
+// copyOnWrite makes the rewrite replace a top-level entry with a deep copy
+// before changing anything inside it, so the documents the joiner was handed are
+// left as they were (#480). Only entries that actually have a reference to
+// change are copied.
+//
+// onCopy, if given, receives the old and new pointer. Callers keying anything on
+// identity need it, since the copy is a different pointer.
+func (r *SchemaRewriter) copyOnWrite(onCopy func(old, replacement any)) {
+	r.copying = true
+	r.onCopy = onCopy
+}
+
+// probe runs a rewrite with its changes suppressed and reports whether there
+// were any, so an entry is copied only when copying buys something.
+func (r *SchemaRewriter) probe(run func()) bool {
+	saved := r.visited
+	r.visited = make(map[uintptr]bool)
+	r.probing, r.changed = true, false
+
+	run()
+
+	r.probing = false
+	r.visited = saved
+	return r.changed
+}
+
+// mapped looks up a replacement and notes that the entry being rewritten has
+// something to change, which is what probe reports.
+func (r *SchemaRewriter) mapped(names map[string]string, value string) (string, bool) {
+	replacement, ok := names[value]
+	if ok {
+		r.changed = true
+	}
+	return replacement, ok
+}
+
 // rewriteEntries applies fn to each in-scope entry of a top-level container.
 // Every such container goes through here, so a new one cannot miss the scope
-// check.
-func rewriteEntries[T any](r *SchemaRewriter, entries map[string]*T, fn func(*T)) {
-	for _, entry := range entries {
+// check or the copy.
+//
+// clone is the entry's deep copy, passed in because parser.Callback's is not
+// exported.
+func rewriteEntries[T any](r *SchemaRewriter, entries map[string]*T, fn func(*T), clone func(*T) *T) {
+	for name, entry := range entries {
 		if r.skipEntry(entry) {
 			continue
 		}
+		if r.copying {
+			if !r.probe(func() { fn(entry) }) {
+				continue
+			}
+			replacement := clone(entry)
+			entries[name] = replacement
+			if r.onCopy != nil {
+				r.onCopy(entry, replacement)
+			}
+			entry = replacement
+		}
 		fn(entry)
 	}
+}
+
+// cloneCallback deep copies a callback. parser.Callback is a map type and the
+// parser's deep copy for it is unexported, so it is rebuilt here.
+func cloneCallback(callback *parser.Callback) *parser.Callback {
+	if callback == nil {
+		return nil
+	}
+	out := make(parser.Callback, len(*callback))
+	for expression, item := range *callback {
+		out[expression] = item.DeepCopy()
+	}
+	return &out
 }
 
 // RewriteDocument traverses and rewrites all references in the document
@@ -86,31 +158,31 @@ func schemaRefPath(name string, version parser.OASVersion) string {
 func (r *SchemaRewriter) rewriteOAS3Document(doc *parser.OAS3Document) error {
 	// Rewrite references in components
 	if doc.Components != nil {
-		rewriteEntries(r, doc.Components.Schemas, r.rewriteSchema)
-		rewriteEntries(r, doc.Components.Parameters, r.rewriteParameter)
-		rewriteEntries(r, doc.Components.Responses, r.rewriteResponse)
-		rewriteEntries(r, doc.Components.RequestBodies, r.rewriteRequestBody)
-		rewriteEntries(r, doc.Components.Headers, r.rewriteHeader)
-		rewriteEntries(r, doc.Components.Callbacks, r.rewriteCallback)
+		rewriteEntries(r, doc.Components.Schemas, r.rewriteSchema, (*parser.Schema).DeepCopy)
+		rewriteEntries(r, doc.Components.Parameters, r.rewriteParameter, (*parser.Parameter).DeepCopy)
+		rewriteEntries(r, doc.Components.Responses, r.rewriteResponse, (*parser.Response).DeepCopy)
+		rewriteEntries(r, doc.Components.RequestBodies, r.rewriteRequestBody, (*parser.RequestBody).DeepCopy)
+		rewriteEntries(r, doc.Components.Headers, r.rewriteHeader, (*parser.Header).DeepCopy)
+		rewriteEntries(r, doc.Components.Callbacks, r.rewriteCallback, cloneCallback)
 		// Links - intentionally not rewritten (don't contain schema references)
-		rewriteEntries(r, doc.Components.PathItems, r.rewritePathItem)
+		rewriteEntries(r, doc.Components.PathItems, r.rewritePathItem, (*parser.PathItem).DeepCopy)
 	}
 
 	// Rewrite references in paths
-	rewriteEntries(r, doc.Paths, r.rewritePathItem)
+	rewriteEntries(r, doc.Paths, r.rewritePathItem, (*parser.PathItem).DeepCopy)
 
 	// Rewrite references in webhooks (OAS 3.1+)
-	rewriteEntries(r, doc.Webhooks, r.rewritePathItem)
+	rewriteEntries(r, doc.Webhooks, r.rewritePathItem, (*parser.PathItem).DeepCopy)
 
 	return nil
 }
 
 // rewriteOAS2Document rewrites all references in an OAS 2.0 document
 func (r *SchemaRewriter) rewriteOAS2Document(doc *parser.OAS2Document) error {
-	rewriteEntries(r, doc.Definitions, r.rewriteSchema)
-	rewriteEntries(r, doc.Parameters, r.rewriteParameter)
-	rewriteEntries(r, doc.Responses, r.rewriteResponse)
-	rewriteEntries(r, doc.Paths, r.rewritePathItem)
+	rewriteEntries(r, doc.Definitions, r.rewriteSchema, (*parser.Schema).DeepCopy)
+	rewriteEntries(r, doc.Parameters, r.rewriteParameter, (*parser.Parameter).DeepCopy)
+	rewriteEntries(r, doc.Responses, r.rewriteResponse, (*parser.Response).DeepCopy)
+	rewriteEntries(r, doc.Paths, r.rewritePathItem, (*parser.PathItem).DeepCopy)
 
 	return nil
 }
@@ -130,7 +202,7 @@ func (r *SchemaRewriter) rewriteSchema(schema *parser.Schema) {
 
 	// Rewrite $ref
 	if schema.Ref != "" {
-		if newRef, exists := r.refMap[schema.Ref]; exists {
+		if newRef, exists := r.mapped(r.refMap, schema.Ref); exists && !r.probing {
 			schema.Ref = newRef
 		}
 	}
@@ -208,20 +280,28 @@ func (r *SchemaRewriter) rewriteSchema(schema *parser.Schema) {
 	if schema.Discriminator != nil {
 		for key, value := range schema.Discriminator.Mapping {
 			// Handle full $ref paths first, then bare schema names if not matched
-			if newRef, exists := r.refMap[value]; exists {
-				schema.Discriminator.Mapping[key] = newRef
-			} else if newName, exists := r.bareNameMap[value]; exists {
-				schema.Discriminator.Mapping[key] = newName
+			if newRef, exists := r.mapped(r.refMap, value); exists {
+				if !r.probing {
+					schema.Discriminator.Mapping[key] = newRef
+				}
+			} else if newName, exists := r.mapped(r.bareNameMap, value); exists {
+				if !r.probing {
+					schema.Discriminator.Mapping[key] = newName
+				}
 			}
 		}
 		// defaultMapping (OAS 3.2+) names a schema in the same two spellings, so
 		// it is resolved the same way. A join that renames the fallback's target
 		// without rewriting this produces a dangling reference.
 		if value := schema.Discriminator.DefaultMapping; value != "" {
-			if newRef, exists := r.refMap[value]; exists {
-				schema.Discriminator.DefaultMapping = newRef
-			} else if newName, exists := r.bareNameMap[value]; exists {
-				schema.Discriminator.DefaultMapping = newName
+			if newRef, exists := r.mapped(r.refMap, value); exists {
+				if !r.probing {
+					schema.Discriminator.DefaultMapping = newRef
+				}
+			} else if newName, exists := r.mapped(r.bareNameMap, value); exists {
+				if !r.probing {
+					schema.Discriminator.DefaultMapping = newName
+				}
 			}
 		}
 	}

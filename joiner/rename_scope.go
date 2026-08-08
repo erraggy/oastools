@@ -134,6 +134,7 @@ func (s *renameScope) rewrite(joined any, owner map[any]int) error {
 			contributor, known := owner[entry]
 			return known && contributor == docIndex
 		})
+		rewriter.copyOnWrite(reown(owner))
 		if err := rewriter.RewriteDocument(joined); err != nil {
 			return err
 		}
@@ -158,7 +159,18 @@ func (s *renameScope) rewriteUnowned(joined any, owner map[any]int) error {
 		_, known := owner[entry]
 		return !known
 	})
+	rewriter.copyOnWrite(reown(owner))
 	return rewriter.RewriteDocument(joined)
+}
+
+// reown keeps the ownership map following an entry that copy-on-write replaced,
+// so a later pass still reads the copy as belonging to the same document.
+func reown(owner map[any]int) func(old, replacement any) {
+	return func(old, replacement any) {
+		if contributor, known := owner[old]; known {
+			owner[replacement] = contributor
+		}
+	}
 }
 
 // rewriteDedupeAliases repoints references from deduplicated names to canonical
@@ -169,6 +181,7 @@ func rewriteDedupeAliases(joined any, aliases map[string]string, version parser.
 	for alias, canonical := range aliases {
 		rewriter.RegisterRename(alias, canonical, version)
 	}
+	rewriter.copyOnWrite(nil)
 	return rewriter.RewriteDocument(joined)
 }
 
