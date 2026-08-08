@@ -206,6 +206,7 @@ func BenchmarkOperation(b *testing.B) {
         parser.WithValidateStructure(true),
     )
 
+    b.ReportAllocs()
     for b.Loop() {  // ✅ Modern Go 1.24+ pattern
         _, err := Operation(source)
         if err != nil {
