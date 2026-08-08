@@ -215,10 +215,13 @@ func BenchmarkOperation(b *testing.B) {
 }
 ```
 
+**DO:**
+
+- Call `b.ReportAllocs()`. `b.Loop()` does not report allocations on its own.
+
 **DO NOT:**
 
 - Use `for i := 0; i < b.N; i++` (old pattern)
-- Call `b.ReportAllocs()` manually (handled by `b.Loop()`)
 - Call `b.ResetTimer()` for trivial setup
 
 ## Security

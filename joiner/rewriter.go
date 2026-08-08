@@ -47,6 +47,18 @@ func (r *SchemaRewriter) skipEntry(entry any) bool {
 	return r.owns != nil && !r.owns(entry)
 }
 
+// rewriteEntries applies fn to each in-scope entry of a top-level container.
+// Every such container goes through here, so a new one cannot miss the scope
+// check.
+func rewriteEntries[T any](r *SchemaRewriter, entries map[string]*T, fn func(*T)) {
+	for _, entry := range entries {
+		if r.skipEntry(entry) {
+			continue
+		}
+		fn(entry)
+	}
+}
+
 // RewriteDocument traverses and rewrites all references in the document
 func (r *SchemaRewriter) RewriteDocument(doc any) error {
 	// Reset visited tracking for new traversal
@@ -74,110 +86,31 @@ func schemaRefPath(name string, version parser.OASVersion) string {
 func (r *SchemaRewriter) rewriteOAS3Document(doc *parser.OAS3Document) error {
 	// Rewrite references in components
 	if doc.Components != nil {
-		// Schemas
-		for _, schema := range doc.Components.Schemas {
-			if r.skipEntry(schema) {
-				continue
-			}
-			r.rewriteSchema(schema)
-		}
-		// Parameters
-		for _, param := range doc.Components.Parameters {
-			if r.skipEntry(param) {
-				continue
-			}
-			r.rewriteParameter(param)
-		}
-		// Responses
-		for _, resp := range doc.Components.Responses {
-			if r.skipEntry(resp) {
-				continue
-			}
-			r.rewriteResponse(resp)
-		}
-		// Request bodies
-		for _, reqBody := range doc.Components.RequestBodies {
-			if r.skipEntry(reqBody) {
-				continue
-			}
-			r.rewriteRequestBody(reqBody)
-		}
-		// Headers
-		for _, header := range doc.Components.Headers {
-			if r.skipEntry(header) {
-				continue
-			}
-			r.rewriteHeader(header)
-		}
-		// Callbacks
-		for _, callback := range doc.Components.Callbacks {
-			if r.skipEntry(callback) {
-				continue
-			}
-			r.rewriteCallback(callback)
-		}
+		rewriteEntries(r, doc.Components.Schemas, r.rewriteSchema)
+		rewriteEntries(r, doc.Components.Parameters, r.rewriteParameter)
+		rewriteEntries(r, doc.Components.Responses, r.rewriteResponse)
+		rewriteEntries(r, doc.Components.RequestBodies, r.rewriteRequestBody)
+		rewriteEntries(r, doc.Components.Headers, r.rewriteHeader)
+		rewriteEntries(r, doc.Components.Callbacks, r.rewriteCallback)
 		// Links - intentionally not rewritten (don't contain schema references)
-		// Path items
-		for _, pathItem := range doc.Components.PathItems {
-			if r.skipEntry(pathItem) {
-				continue
-			}
-			r.rewritePathItem(pathItem)
-		}
+		rewriteEntries(r, doc.Components.PathItems, r.rewritePathItem)
 	}
 
 	// Rewrite references in paths
-	for _, pathItem := range doc.Paths {
-		if r.skipEntry(pathItem) {
-			continue
-		}
-		r.rewritePathItem(pathItem)
-	}
+	rewriteEntries(r, doc.Paths, r.rewritePathItem)
 
 	// Rewrite references in webhooks (OAS 3.1+)
-	for _, webhook := range doc.Webhooks {
-		if r.skipEntry(webhook) {
-			continue
-		}
-		r.rewritePathItem(webhook)
-	}
+	rewriteEntries(r, doc.Webhooks, r.rewritePathItem)
 
 	return nil
 }
 
 // rewriteOAS2Document rewrites all references in an OAS 2.0 document
 func (r *SchemaRewriter) rewriteOAS2Document(doc *parser.OAS2Document) error {
-	// Rewrite references in definitions
-	for _, schema := range doc.Definitions {
-		if r.skipEntry(schema) {
-			continue
-		}
-		r.rewriteSchema(schema)
-	}
-
-	// Rewrite references in parameters
-	for _, param := range doc.Parameters {
-		if r.skipEntry(param) {
-			continue
-		}
-		r.rewriteParameter(param)
-	}
-
-	// Rewrite references in responses
-	for _, resp := range doc.Responses {
-		if r.skipEntry(resp) {
-			continue
-		}
-		r.rewriteResponse(resp)
-	}
-
-	// Rewrite references in paths
-	for _, pathItem := range doc.Paths {
-		if r.skipEntry(pathItem) {
-			continue
-		}
-		r.rewritePathItem(pathItem)
-	}
+	rewriteEntries(r, doc.Definitions, r.rewriteSchema)
+	rewriteEntries(r, doc.Parameters, r.rewriteParameter)
+	rewriteEntries(r, doc.Responses, r.rewriteResponse)
+	rewriteEntries(r, doc.Paths, r.rewritePathItem)
 
 	return nil
 }

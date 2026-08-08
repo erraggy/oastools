@@ -61,7 +61,7 @@ func petstoreFamily(name string, withDescription bool) parser.ParseResult {
 		Version:      "2.0",
 		OASVersion:   parser.OASVersion20,
 		SourcePath:   name,
-		SourceFormat: "json",
+		SourceFormat: parser.SourceFormatJSON,
 	}
 }
 
@@ -286,7 +286,7 @@ func petstoreFamilyOAS3(name string, withDescription bool) parser.ParseResult {
 		Version:      "3.0.3",
 		OASVersion:   parser.OASVersion303,
 		SourcePath:   name,
-		SourceFormat: "json",
+		SourceFormat: parser.SourceFormatJSON,
 	}
 }
 
@@ -403,7 +403,7 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 			Version:      "3.1.0",
 			OASVersion:   parser.OASVersion310,
 			SourcePath:   name,
-			SourceFormat: "json",
+			SourceFormat: parser.SourceFormatJSON,
 		}
 	}
 
@@ -488,7 +488,7 @@ func TestRenameScopeCoversEveryContainerOAS2(t *testing.T) {
 			Version:      "2.0",
 			OASVersion:   parser.OASVersion20,
 			SourcePath:   name,
-			SourceFormat: "json",
+			SourceFormat: parser.SourceFormatJSON,
 		}
 	}
 
@@ -648,7 +648,7 @@ func petVariant(name string) parser.ParseResult {
 		Version:      "2.0",
 		OASVersion:   parser.OASVersion20,
 		SourcePath:   name,
-		SourceFormat: "json",
+		SourceFormat: parser.SourceFormatJSON,
 	}
 }
 
