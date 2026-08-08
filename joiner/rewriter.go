@@ -68,6 +68,9 @@ func (r *SchemaRewriter) skipEntry(entry any) bool {
 // rather than once per pass. onCopy, if given, receives the old and new pointer,
 // which callers keying anything on identity need.
 func (r *SchemaRewriter) copyOnWrite(owned map[any]bool, onCopy func(old, replacement any)) {
+	if owned == nil {
+		owned = make(map[any]bool)
+	}
 	r.copying = true
 	r.owned = owned
 	r.onCopy = onCopy

@@ -182,9 +182,6 @@ func rewriteDedupeAliases(joined any, aliases map[string]string, version parser.
 	for alias, canonical := range aliases {
 		rewriter.RegisterRename(alias, canonical, version)
 	}
-	if copied == nil {
-		copied = make(map[any]bool)
-	}
 	rewriter.copyOnWrite(copied, nil)
 	return rewriter.RewriteDocument(joined)
 }

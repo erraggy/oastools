@@ -113,6 +113,9 @@ func TestJoinLeavesInputsUnchanged(t *testing.T) {
 		name string
 		docs func() []parser.ParseResult
 		opts []Option
+		// verify runs after the join, for a case that needs more than the
+		// inputs being unchanged.
+		verify func(t *testing.T)
 	}{
 		{
 			name: "oas2 rename-right",
@@ -169,6 +172,9 @@ func TestJoinLeavesInputsUnchanged(t *testing.T) {
 				WithNamespacePrefix("store", "Api"), WithNamespacePrefix("clinic", "Api"),
 				WithAlwaysApplyPrefix(true), WithRenameTemplate(`{{.Name}}.{{.Source}}`),
 				WithCollisionHandler(sharingHandler),
+			},
+			verify: func(t *testing.T) {
+				assert.True(t, sharingRan, "the handler never fired, so nothing shared an input")
 			},
 		},
 		{
@@ -249,8 +255,8 @@ func TestJoinLeavesInputsUnchanged(t *testing.T) {
 				assert.Equal(t, beforeDoc[i], docs[i].Document,
 					"joining modified input %d (%s) outside its JSON form", i, docs[i].SourcePath)
 			}
-			if tt.name == "oas2 handler custom value sharing input schemas" {
-				assert.True(t, sharingRan, "the handler never fired, so nothing shared an input")
+			if tt.verify != nil {
+				tt.verify(t)
 			}
 		})
 	}
