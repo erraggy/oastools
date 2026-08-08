@@ -397,6 +397,9 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 					PathItems: map[string]*parser.PathItem{
 						name + "PI": {Get: containerRef()},
 					},
+					MediaTypes: map[string]*parser.MediaType{
+						name + "MT": {Schema: targetRef()},
+					},
 				},
 				OASVersion: parser.OASVersion310,
 			},
@@ -430,6 +433,7 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 			"components.headers":       c.Headers[source+"Header"].Schema.Ref,
 			"components.callbacks":     oas3ResponseRefIn(t, callback["{$request.body#/url}"].Post),
 			"components.pathItems":     oas3ResponseRefIn(t, c.PathItems[source+"PI"].Get),
+			"components.mediaTypes":    c.MediaTypes[source+"MT"].Schema.Ref,
 			"paths":                    oas3ResponseRefIn(t, d.Paths["/"+source].Get),
 			"webhooks":                 oas3ResponseRefIn(t, d.Webhooks[source+"Hook"].Post),
 		}

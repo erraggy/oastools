@@ -70,6 +70,10 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 		OASVersion:          baseDoc.OASVersion,
 	}
 
+	graphs := newRefGraphs(j.config.OperationContext, func(docIndex int) *RefGraph {
+		return buildRefGraphOAS2(sources[docIndex])
+	})
+
 	// Merge all documents
 	for i, doc := range docs {
 		ctx := documentContext{
@@ -78,7 +82,7 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 			result:   &doc,
 		}
 
-		if err := j.mergeOAS2Document(joined, sources[i], ctx, result); err != nil {
+		if err := j.mergeOAS2Document(joined, sources[i], ctx, result, graphs); err != nil {
 			return nil, err
 		}
 	}
@@ -122,20 +126,14 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 }
 
 // mergeOAS2Document merges a single OAS2 document into the joined document
-func (j *Joiner) mergeOAS2Document(joined *parser.OAS2Document, oas2Doc *parser.OAS2Document, ctx documentContext, result *JoinResult) error {
+func (j *Joiner) mergeOAS2Document(joined *parser.OAS2Document, oas2Doc *parser.OAS2Document, ctx documentContext, result *JoinResult, graphs *refGraphs) error {
 	// Merge paths
 	if err := j.mergeOAS2Paths(joined, oas2Doc, ctx, result); err != nil {
 		return err
 	}
 
-	// Build reference graph if operation context is enabled
-	var sourceGraph *RefGraph
-	if j.config.OperationContext {
-		sourceGraph = buildRefGraphOAS2(oas2Doc)
-	}
-
 	// Merge definitions (schemas)
-	if err := j.mergeOAS2Definitions(joined, oas2Doc, ctx, result, sourceGraph); err != nil {
+	if err := j.mergeOAS2Definitions(joined, oas2Doc, ctx, result, graphs); err != nil {
 		return err
 	}
 
@@ -157,8 +155,9 @@ func (j *Joiner) mergeOAS2Paths(joined, source *parser.OAS2Document, ctx documen
 }
 
 // mergeOAS2Definitions merges definitions (schemas) from source document
-func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx documentContext, result *JoinResult, sourceGraph *RefGraph) error {
+func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx documentContext, result *JoinResult, graphs *refGraphs) error {
 	schemaStrategy := j.getEffectiveStrategy(j.config.SchemaStrategy)
+	sourceGraph := graphs.forDoc(ctx.docIndex)
 
 	// Get namespace prefix for this source (if configured)
 	sourcePrefix := j.getNamespacePrefix(ctx.filePath)
@@ -266,7 +265,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				if leftPrefix != "" {
 					newName = j.generatePrefixedSchemaName(effectiveName, leftPrefix)
 				} else {
-					newName = j.generateRenamedSchemaName(effectiveName, leftOrigin.filePath, leftOrigin.docIndex, nil)
+					newName = j.generateRenamedSchemaName(effectiveName, leftOrigin.filePath, leftOrigin.docIndex, graphs.forDoc(leftOrigin.docIndex))
 				}
 				newName = uniqueSchemaName(joined.Definitions, newName)
 

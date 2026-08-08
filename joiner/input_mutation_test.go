@@ -338,6 +338,7 @@ func everyContainerOAS3(name string, extra bool) parser.ParseResult {
 				RequestBodies: map[string]*parser.RequestBody{name + "Body": {Content: content()}},
 				Callbacks:     map[string]*parser.Callback{name + "CB": &callback},
 				PathItems:     map[string]*parser.PathItem{name + "PI": {Get: op()}},
+				MediaTypes:    map[string]*parser.MediaType{name + "MT": content()["application/jsonl"]},
 			},
 			OASVersion: parser.OASVersion320,
 		},
@@ -388,6 +389,7 @@ func TestRewriteMediaTypeReachesEveryRef(t *testing.T) {
 		"components.pathItems":     jsonl(d.Components.PathItems["bPI"].Get),
 		"components.callbacks":     jsonl((*d.Components.Callbacks["bCB"])["{$request.body#/url}"].Post),
 		"components.requestBodies": d.Components.RequestBodies["bBody"].Content["application/jsonl"],
+		"components.mediaTypes":    d.Components.MediaTypes["bMT"],
 	} {
 		for field, ref := range refs(mt) {
 			assert.Equal(t, "#/components/schemas/Target.b", ref, "stale reference in %s %s", where, field)
@@ -395,7 +397,12 @@ func TestRewriteMediaTypeReachesEveryRef(t *testing.T) {
 	}
 
 	// a's references still name the schema that kept the original name.
-	for field, ref := range refs(jsonl(d.Paths["/a"].Get)) {
-		assert.Equal(t, "#/components/schemas/Target", ref, "a's %s was repointed", field)
+	for where, mt := range map[string]*parser.MediaType{
+		"paths":                 jsonl(d.Paths["/a"].Get),
+		"components.mediaTypes": d.Components.MediaTypes["aMT"],
+	} {
+		for field, ref := range refs(mt) {
+			assert.Equal(t, "#/components/schemas/Target", ref, "a's %s %s was repointed", where, field)
+		}
 	}
 }

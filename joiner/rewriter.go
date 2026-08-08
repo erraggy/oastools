@@ -175,6 +175,9 @@ func (r *SchemaRewriter) rewriteOAS3Document(doc *parser.OAS3Document) error {
 		rewriteEntries(r, doc.Components.Callbacks, r.rewriteCallback, cloneCallback)
 		// Links - intentionally not rewritten (don't contain schema references)
 		rewriteEntries(r, doc.Components.PathItems, r.rewritePathItem, (*parser.PathItem).DeepCopy)
+		// mediaTypes is OAS 3.2+, and its entries reach schemas the same way any
+		// other media type does.
+		rewriteEntries(r, doc.Components.MediaTypes, r.rewriteMediaType, (*parser.MediaType).DeepCopy)
 	}
 
 	// Rewrite references in paths
