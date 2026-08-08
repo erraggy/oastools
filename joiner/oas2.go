@@ -17,18 +17,16 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 		return nil, fmt.Errorf("joiner: first document is not a valid OAS 2.0 document")
 	}
 
-	// Collect the typed documents up front: the reference rewriting after the
-	// merge needs to know which of them contributed each part of the join.
+	// The rewriting after the merge needs to know which document contributed what.
 	sources := make([]*parser.OAS2Document, len(docs))
 	for i, doc := range docs {
 		oas2Doc, ok := doc.OAS2Document()
 		if !ok || oas2Doc == nil {
 			return nil, fmt.Errorf("joiner: document at index %d (path: %s) is not a valid OAS 2.0 document", i, doc.SourcePath)
 		}
-		// A document handed in twice would share every definition with its other
-		// position, so a strategy that keeps both sides would store one schema
-		// under two names. Copy the repeat so the two positions are independent
-		// and each can be told apart by the rewriting below (#481).
+		// If already present, store a copy: the two positions would otherwise share
+		// every definition, and keeping both sides would store one schema under two
+		// names (#481).
 		if slices.Contains(sources[:i], oas2Doc) {
 			oas2Doc = oas2Doc.DeepCopy()
 		}
@@ -87,9 +85,7 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	result.Document = joined
 
-	// Rewrite each document's references using the renames recorded against that
-	// document. This runs before deduplication so that comparison sees references
-	// in their final form.
+	// Before deduplication, so comparison sees references in their final form.
 	if err := result.scope.applyOAS2(joined, sources); err != nil {
 		return nil, fmt.Errorf("joiner: failed to rewrite references after definition renames: %w", err)
 	}
@@ -187,8 +183,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 
 			// Invoke collision handler if configured for schemas
 			if j.shouldInvokeHandler(CollisionTypeSchema) {
-				// The left side belongs to whichever document contributed the
-				// definition now under this name, not necessarily the first (#479).
+				// The left side is whichever document contributed this definition (#479).
 				leftSource := result.originOf(effectiveName).filePath
 				collision := CollisionContext{
 					Type:               CollisionTypeSchema,
@@ -263,8 +258,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 
 			case StrategyRenameLeft:
 				// Rename the existing (left) definition and keep the new (right) definition under original name
-				// Name it after the document that contributed it, which is the first
-				// document only in a two document join (#479).
+				// Name it after the contributing document, not always the first (#479).
 				leftOrigin := result.originOf(effectiveName)
 				leftPrefix := j.getNamespacePrefix(leftOrigin.filePath)
 				var newName string
@@ -283,8 +277,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				joined.Definitions[effectiveName] = schema
 				result.recordOrigin(effectiveName, ctx)
 
-				// Register rename for reference rewriting. Only the documents merged
-				// before this one referenced the definition being moved.
+				// Only documents merged before this one referenced the moved definition.
 				result.scope.registerLeft(ctx.docIndex, effectiveName, newName)
 
 				line, col := j.getLocation(leftOrigin.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
@@ -309,8 +302,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 
 				// Keep existing definition under original name (no change needed)
 
-				// Register rename for reference rewriting. Only this document
-				// referenced the definition being renamed.
+				// Only this document referenced the renamed definition.
 				result.scope.registerRight(ctx.docIndex, name, newName)
 
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))

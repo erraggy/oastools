@@ -239,10 +239,9 @@ func FailWithMessage(message string) CollisionResolution {
 
 // UseCustomValue returns a resolution that uses a caller-provided merged value.
 //
-// Renames are otherwise scoped to the document that wrote the reference, but a
-// value built by the handler came from no document, so every rename in the join
-// applies to its references. A handler that wants one document's naming should
-// return that document's value (AcceptLeft or AcceptRight) rather than a copy.
+// Any $ref in the value is rewritten using every rename in the join, because the
+// value belongs to no one document. To get a single document's renames, return
+// its value with AcceptLeft or AcceptRight instead.
 func UseCustomValue(value any) CollisionResolution {
 	return CollisionResolution{Action: ResolutionCustom, CustomValue: value}
 }
@@ -260,9 +259,8 @@ type schemaResolutionParams struct {
 	target     map[string]*parser.Schema
 	result     *JoinResult
 	ctx        documentContext
-	// sourceName is the schema's name in its own document, which may differ from
-	// collision.Name when a namespace prefix has already been applied. Renames are
-	// recorded against it because that is what the document's references spell.
+	// sourceName is the schema's name in its own document, which differs from
+	// collision.Name once a namespace prefix is applied. Its references spell this.
 	sourceName  string
 	sourceGraph *RefGraph
 	label       string // "schema" for OAS3, "definition" for OAS2
@@ -305,7 +303,7 @@ func (j *Joiner) applySchemaResolution(p schemaResolutionParams) (bool, error) {
 		newName := uniqueSchemaName(p.target, j.generateRenamedSchemaName(p.collision.Name, p.ctx.filePath, p.ctx.docIndex, p.sourceGraph))
 		p.target[newName] = schema
 		p.result.recordOrigin(newName, p.ctx)
-		// Only the incoming document referenced the schema being renamed.
+		// Only the incoming document referenced the renamed schema.
 		p.result.scope.registerRight(p.ctx.docIndex, p.sourceName, newName)
 		line, col := j.getLocation(p.ctx.filePath, p.collision.JSONPath)
 		p.result.AddWarning(NewSchemaRenamedWarning(p.collision.Name, newName, p.label, p.ctx.filePath, line, col, false))

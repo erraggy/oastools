@@ -192,34 +192,28 @@ type JoinResult struct {
 	firstFilePath string
 	// scope accumulates schema renames per source document for reference rewriting
 	scope *renameScope
-	// origins records which document contributed the schema currently held under
-	// each name of the joined document. It stays nil unless the join can consult
-	// it: see Joiner.tracksSchemaOrigins.
+	// origins records which document contributed the schema under each name.
+	// Nil unless Joiner.tracksSchemaOrigins.
 	origins map[string]schemaOrigin
 }
 
 // tracksSchemaOrigins reports whether the join needs to know which document
-// contributed each merged schema.
-//
-// Only rename-left consults it, to name the schema it moves aside after that
-// schema's own document, and a collision handler, which is told the left side's
-// source. Every other path leaves the left side under its original name, so the
-// bookkeeping would go unread.
+// contributed each merged schema. Only rename-left and a collision handler read
+// it, so other strategies skip the bookkeeping.
 func (j *Joiner) tracksSchemaOrigins() bool {
 	return j.getEffectiveStrategy(j.config.SchemaStrategy) == StrategyRenameLeft ||
 		j.shouldInvokeHandler(CollisionTypeSchema)
 }
 
-// schemaOrigin identifies the document that contributed a schema, so that
-// renaming it can name it after its own source rather than after the first
-// document in the join (#479).
+// schemaOrigin identifies the document that contributed a schema, so a rename
+// can name it after its own source (#479).
 type schemaOrigin struct {
 	filePath string
 	docIndex int
 }
 
-// recordOrigin notes that a document contributed the schema now held under name.
-// It is a no-op when the join does not track origins.
+// recordOrigin notes which document contributed the schema now under name.
+// No-op when origins are not tracked.
 func (r *JoinResult) recordOrigin(name string, ctx documentContext) {
 	if r.origins == nil {
 		return
@@ -234,9 +228,8 @@ func (r *JoinResult) moveOrigin(oldName, newName string) {
 	}
 }
 
-// originOf returns the document that contributed the schema held under name. It
-// falls back to the first document, which is the only contributor a two document
-// join can have on the left.
+// originOf returns the document that contributed the schema under name, falling
+// back to the first document.
 func (r *JoinResult) originOf(name string) schemaOrigin {
 	if origin, ok := r.origins[name]; ok {
 		return origin
@@ -618,20 +611,15 @@ func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docI
 	return buf.String()
 }
 
-// uniqueSchemaName returns candidate when no schema is stored under it, and
-// otherwise the first of candidate_2, candidate_3 and so on that is free.
-//
-// A rename template can generate a name the documents already use, and can
-// generate the same name twice. Storing the schema anyway drops whatever was
-// there, which leaves a schema missing from the join with nothing said about it,
-// a worse outcome than a name the caller did not predict (#483). The rename
-// warning reports the name that was used, so the suffix is not silent.
+// uniqueSchemaName returns candidate, or the first free candidate_2,
+// candidate_3 and so on. A rename template can generate a name that is already
+// taken, and storing the schema there would drop the one under it (#483). The
+// rename warning reports the name that was used.
 func uniqueSchemaName(taken map[string]*parser.Schema, candidate string) string {
 	if _, exists := taken[candidate]; !exists {
 		return candidate
 	}
-	// Bounded by the number of schemas already stored: one of the first
-	// len(taken)+2 names is necessarily free.
+	// One of the first len(taken)+2 names is free.
 	for n := 2; ; n++ {
 		name := candidate + "_" + strconv.Itoa(n)
 		if _, exists := taken[name]; !exists {

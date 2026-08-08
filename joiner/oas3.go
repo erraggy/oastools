@@ -16,18 +16,16 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 		return nil, fmt.Errorf("joiner: first document is not a valid OAS 3.x document")
 	}
 
-	// Collect the typed documents up front: the reference rewriting after the
-	// merge needs to know which of them contributed each part of the join.
+	// The rewriting after the merge needs to know which document contributed what.
 	sources := make([]*parser.OAS3Document, len(docs))
 	for i, doc := range docs {
 		oas3Doc, ok := doc.OAS3Document()
 		if !ok || oas3Doc == nil {
 			return nil, fmt.Errorf("joiner: document at index %d (path: %s) is not a valid OAS 3.x document", i, doc.SourcePath)
 		}
-		// A document handed in twice would share every schema with its other
-		// position, so a strategy that keeps both sides would store one schema
-		// under two names. Copy the repeat so the two positions are independent
-		// and each can be told apart by the rewriting below (#481).
+		// If already present, store a copy: the two positions would otherwise share
+		// every schema, and keeping both sides would store one schema under two
+		// names (#481).
 		if slices.Contains(sources[:i], oas3Doc) {
 			oas3Doc = oas3Doc.DeepCopy()
 		}
@@ -201,9 +199,7 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	result.Document = joined
 
-	// Rewrite each document's references using the renames recorded against that
-	// document. This runs before deduplication so that comparison sees references
-	// in their final form.
+	// Before deduplication, so comparison sees references in their final form.
 	if err := result.scope.applyOAS3(joined, sources); err != nil {
 		return nil, fmt.Errorf("joiner: failed to rewrite references after schema renames: %w", err)
 	}
@@ -306,8 +302,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 
 			// Invoke collision handler if configured
 			if j.shouldInvokeHandler(CollisionTypeSchema) {
-				// The left side belongs to whichever document contributed the schema
-				// now under this name, not necessarily the first (#479).
+				// The left side is whichever document contributed this schema (#479).
 				leftSource := result.originOf(effectiveName).filePath
 				collision := CollisionContext{
 					Type:               CollisionTypeSchema,
@@ -382,17 +377,14 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 
 			case StrategyRenameLeft:
 				// Rename the existing (left) schema and keep the new (right) schema under original name
-				// Name it after the document that contributed it, which is the first
-				// document only in a two document join (#479).
+				// Name it after the contributing document, not always the first (#479).
 				leftOrigin := result.originOf(effectiveName)
 				leftPrefix := j.getNamespacePrefix(leftOrigin.filePath)
 				var newName string
 				if leftPrefix != "" {
 					newName = j.generatePrefixedSchemaName(effectiveName, leftPrefix)
 				} else {
-					// No graph: operation-aware rename templates are not wired up for
-					// the left side, which would need that document's graph built here.
-					// See #482.
+					// No graph: operation-aware templates are not wired up here (#482).
 					newName = j.generateRenamedSchemaName(effectiveName, leftOrigin.filePath, leftOrigin.docIndex, nil)
 				}
 				newName = uniqueSchemaName(target, newName)
@@ -405,8 +397,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				target[effectiveName] = schema
 				result.recordOrigin(effectiveName, ctx)
 
-				// Register rename for reference rewriting. Only the documents merged
-				// before this one referenced the schema being moved.
+				// Only documents merged before this one referenced the moved schema.
 				result.scope.registerLeft(ctx.docIndex, effectiveName, newName)
 
 				line, col := j.getLocation(leftOrigin.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
@@ -432,8 +423,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 
 				// Keep existing schema under original name (no change needed)
 
-				// Register rename for reference rewriting. Only this document
-				// referenced the schema being renamed.
+				// Only this document referenced the renamed schema.
 				result.scope.registerRight(ctx.docIndex, name, newName)
 
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))

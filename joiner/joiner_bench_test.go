@@ -90,11 +90,8 @@ func BenchmarkJoinParsed(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to parse doc3: %v", err)
 	}
-	// FiveDocs needs five distinct documents. Reusing doc1 and doc2 would hand the
-	// joiner the same document at two positions, which it deep copies so the two
-	// positions stay independent (#481), so the benchmark would be measuring that
-	// copy rather than a five document join. Parsing again gives distinct
-	// documents with the same content.
+	// FiveDocs needs five distinct documents: the same document at two positions
+	// is deep copied (#481), which is not what this measures.
 	doc4, err := parser.ParseWithOptions(parser.WithFilePath(joinBaseOAS3Path))
 	if err != nil {
 		b.Fatalf("Failed to parse doc4: %v", err)
@@ -145,10 +142,6 @@ const renameBenchSchemaCount = 20
 
 // renameBenchDoc builds an OAS 3 document that shares every schema name with the
 // others this function returns, so joining them collides on all of them.
-//
-// The join fixtures in testdata define disjoint schema names (User, Post,
-// Comment), so joining them renames nothing regardless of strategy and never
-// reaches the rename path.
 func renameBenchDoc(name string, schemaCount int) parser.ParseResult {
 	schemas := make(map[string]*parser.Schema, schemaCount)
 	for i := range schemaCount {
@@ -156,8 +149,7 @@ func renameBenchDoc(name string, schemaCount int) parser.ParseResult {
 			Type: "object",
 			Properties: map[string]*parser.Schema{
 				"id": {Type: "string"},
-				// A reference to the next schema, so every rename has a reference to
-				// find and rewrite.
+				// So every rename has a reference to find and rewrite.
 				"next": {Ref: fmt.Sprintf("#/components/schemas/Model%d", (i+1)%schemaCount)},
 				// A property named after the document, so the schemas genuinely differ.
 				"from" + name: {Type: "string"},
@@ -191,15 +183,11 @@ func renameBenchDoc(name string, schemaCount int) parser.ParseResult {
 	}
 }
 
-// BenchmarkJoinRenames benchmarks joins that actually rename, which is the path
-// that records renames per source document and then rewrites references one
-// document at a time. The other JoinParsed benchmarks use accept-left over
-// documents with disjoint schema names, so they never reach it.
-// Fixtures are rebuilt every iteration because joining rewrites the references
-// of the documents it was handed (#480): reusing them would leave every
-// iteration after the first with references that no longer match any rename, so
-// the benchmark would measure a degraded fixture. The rebuild is outside the
-// timed section.
+// BenchmarkJoinRenames benchmarks joins that rename. The other benchmarks use
+// accept-left over documents with disjoint schema names and never rename.
+//
+// Fixtures are rebuilt each iteration, outside the timed section, because
+// joining rewrites the references of the documents it was handed (#480).
 func BenchmarkJoinRenames(b *testing.B) {
 	run := func(b *testing.B, strategy CollisionStrategy, count int) {
 		config := DefaultConfig()
@@ -226,8 +214,7 @@ func BenchmarkJoinRenames(b *testing.B) {
 	b.Run("RenameRightTwoDocs", func(b *testing.B) { run(b, StrategyRenameRight, 2) })
 	b.Run("RenameRightThreeDocs", func(b *testing.B) { run(b, StrategyRenameRight, 3) })
 	b.Run("RenameRightFiveDocs", func(b *testing.B) { run(b, StrategyRenameRight, 5) })
-	// rename-left also tracks which document contributed each merged schema, so it
-	// exercises the origin bookkeeping the other strategies skip.
+	// rename-left also tracks which document contributed each merged schema.
 	b.Run("RenameLeftFiveDocs", func(b *testing.B) { run(b, StrategyRenameLeft, 5) })
 }
 

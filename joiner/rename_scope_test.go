@@ -9,10 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// petstoreFamily builds an OAS 2.0 document from the Petstore family: a Pet whose
-// category property is a $ref to Category, reached through one path. When
-// withDescription is set, Category gains a description property, which is a real
-// difference between two otherwise identical documents.
+// petstoreFamily builds an OAS 2.0 document with a Pet whose category property
+// refs Category, reached through one path. withDescription makes Category
+// genuinely differ between two documents.
 func petstoreFamily(name string, withDescription bool) parser.ParseResult {
 	category := &parser.Schema{
 		Type: "object",
@@ -79,8 +78,8 @@ func petResponseRef(t *testing.T, doc *parser.OAS2Document, path string) string 
 	return resp.Schema.Ref
 }
 
-// definitionRefs collects every $ref reachable from the fixture documents:
-// definition properties and path response schemas.
+// definitionRefs collects every $ref in the fixtures: definition properties and
+// path response schemas.
 func definitionRefs(doc *parser.OAS2Document) []string {
 	var refs []string
 	for _, schema := range doc.Definitions {
@@ -157,9 +156,8 @@ func TestRenameScopeRenameLeft(t *testing.T) {
 }
 
 // TestRenameScopeIncrementalJoin covers the first follow-on observation in #478:
-// a caller accumulating combined = join(combined, next) feeds the joined document
-// back in, so a reference left pointing at another document's alias would stop
-// the next byte-identical schema from comparing equal, and aliases would pile up.
+// a caller accumulating combined = join(combined, next) feeds the output back in,
+// where a reference left pointing at an alias made aliases pile up.
 func TestRenameScopeIncrementalJoin(t *testing.T) {
 	first, err := JoinWithOptions(
 		WithParsed(petstoreFamily("store", false), petstoreFamily("clinic", true)),
@@ -190,9 +188,8 @@ func TestRenameScopeIncrementalJoin(t *testing.T) {
 }
 
 // TestRenameScopeSemanticDeduplication covers the second follow-on observation in
-// #478: the collision pass and the deduplication pass used to share one rewriter
-// and could register opposing directions for the same name, sending a reference
-// back to an alias that deduplication had just removed.
+// #478: the collision and deduplication passes shared one rewriter and could
+// register opposing directions for the same name.
 func TestRenameScopeSemanticDeduplication(t *testing.T) {
 	res, err := JoinWithOptions(
 		WithParsed(petstoreFamily("store", false), petstoreFamily("clinic", false)),
@@ -216,8 +213,8 @@ func TestRenameScopeSemanticDeduplication(t *testing.T) {
 }
 
 // TestRenameScopeNamespacePrefixThenCollision checks that a schema renamed twice,
-// first by a namespace prefix and then by a collision, resolves in one step.
-// References in the source document spell the original name, not the prefixed one.
+// by a prefix then a collision, resolves in one step: its references spell the
+// original name, not the prefixed one.
 func TestRenameScopeNamespacePrefixThenCollision(t *testing.T) {
 	res, err := JoinWithOptions(
 		WithParsed(petstoreFamily("store", false), petstoreFamily("clinic", true)),
@@ -331,12 +328,10 @@ func oas3ResponseRef(t *testing.T, doc *parser.OAS3Document, path string) string
 }
 
 // TestRenameScopeCoversEveryContainer exercises every top-level container the
-// rewriter traverses. A container that renameScope forgets to attribute to a
-// source document belongs to no document, so its references are never rewritten
-// and the join emits a dangling reference. This fails loudly if the two lists
-// drift apart.
+// rewriter traverses, so a container renameScope forgets to attribute fails here
+// rather than silently taking every document's renames.
 func TestRenameScopeCoversEveryContainer(t *testing.T) {
-	// containerRef builds an operation whose 200 response references Target.
+	// containerRef builds an operation whose 200 response refs Target.
 	containerRef := func() *parser.Operation {
 		return &parser.Operation{
 			Responses: &parser.Responses{Codes: map[string]*parser.Response{
@@ -350,7 +345,7 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 		}
 	}
 
-	// doc names every component after its source so that only Target collides.
+	// Components are named after their source so only Target collides.
 	doc := func(name string, extra bool) parser.ParseResult {
 		target := &parser.Schema{
 			Type:       "object",
@@ -424,7 +419,7 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 	c := d.Components
 	require.Contains(t, c.Schemas, "Target.b", "b's Target should have been renamed")
 
-	// Every reference from each document, keyed by the container it lives in.
+	// Each document's references, keyed by the container they live in.
 	refs := func(source string) map[string]string {
 		callback := *c.Callbacks[source+"CB"]
 		return map[string]string{
@@ -450,9 +445,8 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 	}
 }
 
-// TestRenameScopeCoversEveryContainerOAS2 is the OAS 2 counterpart: definitions,
-// top-level parameters, top-level responses and paths are the four containers
-// renameScope.applyOAS2 attributes and rewriteOAS2Document traverses.
+// TestRenameScopeCoversEveryContainerOAS2 is the OAS 2 counterpart, covering the
+// four containers applyOAS2 attributes and rewriteOAS2Document traverses.
 func TestRenameScopeCoversEveryContainerOAS2(t *testing.T) {
 	targetRef := func() *parser.Schema { return &parser.Schema{Ref: "#/definitions/Target"} }
 
@@ -540,14 +534,12 @@ func oas3ResponseRefIn(t *testing.T, op *parser.Operation) string {
 	return media.Schema.Ref
 }
 
-// TestRenameScopeRewritesHandlerCustomValues covers the one kind of entry that
-// belongs to no source document: a collision handler returning ResolutionCustom
-// supplies a value the joiner never received from a document. Scoping renames by
-// contributing document must not skip it, or the handler's references keep
-// naming schemas the join no longer has.
+// TestRenameScopeRewritesHandlerCustomValues covers the one entry belonging to no
+// source document: a value from ResolutionCustom. Scoping must not skip it, or
+// its references keep naming schemas the join no longer has.
 func TestRenameScopeRewritesHandlerCustomValues(t *testing.T) {
-	// A namespace prefix on both documents means every reference written in a
-	// source document needs rewriting, so a value that is skipped dangles.
+	// Prefixing both documents means every reference needs rewriting, so a value
+	// that is skipped dangles.
 	handler := func(c CollisionContext) (CollisionResolution, error) {
 		if c.Type == CollisionTypeSchema && c.Name == "Api_Pet" {
 			return UseCustomValue(&parser.Schema{
@@ -575,8 +567,7 @@ func TestRenameScopeRewritesHandlerCustomValues(t *testing.T) {
 	d := res.Document.(*parser.OAS2Document)
 	require.Contains(t, d.Definitions, "Api_Pet")
 
-	// Both documents renamed Category, so the name is ambiguous for a value that
-	// belongs to neither: merge order breaks the tie and the later document wins.
+	// Both documents renamed Category, so merge order breaks the tie.
 	assert.Equal(t, "#/definitions/Api_Category.b",
 		d.Definitions["Api_Pet"].Properties["category"].Ref,
 		"the handler's value was skipped by every pass, so its reference was never rewritten")
@@ -633,8 +624,8 @@ func TestRenameScopeRewritesHandlerCustomPathItem(t *testing.T) {
 	assert.Contains(t, d.Definitions, extractSchemaName(ref), "dangling reference %s", ref)
 }
 
-// petVariant is a minimal document whose single definition carries one property
-// named after the document, so a schema can be traced back to its source.
+// petVariant is a minimal document whose one definition carries a property named
+// after the document, so a schema can be traced to its source.
 func petVariant(name string) parser.ParseResult {
 	return parser.ParseResult{
 		Document: &parser.OAS2Document{
@@ -662,8 +653,8 @@ func petVariant(name string) parser.ParseResult {
 }
 
 // TestRenameLeftNamesEachContributor covers #479: rename-left named the moved
-// schema after the first document every time, so the second rename in a three
-// document join generated a name that was already taken and overwrote it.
+// schema after the first document every time, so a three document join
+// generated the same name twice and lost a schema.
 func TestRenameLeftNamesEachContributor(t *testing.T) {
 	res, err := JoinWithOptions(
 		WithParsed(petVariant("a"), petVariant("b"), petVariant("c")),
@@ -712,8 +703,8 @@ func TestRenameLeftReportsContributingSource(t *testing.T) {
 	assert.Contains(t, res.Warnings, "definition 'Pet' from b renamed to 'Pet.b' (incoming document takes the original name)")
 }
 
-// TestJoinSameDocumentTwice covers #481: the two positions used to share every
-// pointer, so keeping both sides stored one schema under two names.
+// TestJoinSameDocumentTwice covers #481: the two positions shared every pointer,
+// so keeping both sides stored one schema under two names.
 func TestJoinSameDocumentTwice(t *testing.T) {
 	doc := petVariant("a")
 
@@ -768,7 +759,7 @@ func TestRenameTargetAlreadyTaken(t *testing.T) {
 }
 
 // TestRenameTemplateWithoutName covers the other way into #483: a template that
-// discards the schema name generates one name for every schema of a document.
+// discards the schema name generates one name for every schema.
 func TestRenameTemplateWithoutName(t *testing.T) {
 	res, err := JoinWithOptions(
 		WithParsed(petstoreFamily("store", false), petstoreFamily("clinic", true)),
@@ -847,9 +838,8 @@ func TestRenameScopeRegisterLeft(t *testing.T) {
 
 		s.registerLeft(1, "Api_Pet", "Api_Pet.store")
 
-		// Pet follows the schema to its new name. The direct Api_Pet entry is inert
-		// for this document, which spells Pet, but is recorded because a document
-		// that did reference Api_Pet would need it.
+		// Pet follows the schema. The Api_Pet entry is inert for this document,
+		// which spells Pet, but a document referencing Api_Pet would need it.
 		assert.Equal(t, map[string]string{
 			"Pet":     "Api_Pet.store",
 			"Api_Pet": "Api_Pet.store",

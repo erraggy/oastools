@@ -70,14 +70,14 @@ Beyond handling same-named collisions, the joiner can identify and consolidate s
 
 ### Reference Rewriting
 
-When schemas are renamed or deduplicated, `$ref` references are updated automatically, so the merged document keeps valid internal references without manual intervention.
+When schemas are renamed or deduplicated, `$ref` references are updated automatically.
 
-Renames are scoped to the documents they concern. A rename resolves a collision between two documents, and it only speaks for the documents that were written against the renamed name:
+A rename only rewrites the references of documents that used the renamed name:
 
-- Renaming an incoming schema (`StrategyRenameRight`, or a namespace prefix) rewrites that document's references. A document merged earlier keeps its references, because the schema it named is still in the document under its original name.
-- Renaming a schema already in the merged document (`StrategyRenameLeft`) rewrites the references of the documents merged before it, which are the ones that named the schema being moved. The incoming document keeps its references, because its schema takes over the original name.
+- `StrategyRenameRight` and namespace prefixes rewrite the incoming document. Earlier documents keep their references.
+- `StrategyRenameLeft` rewrites the earlier documents. The incoming document keeps its references, since its schema takes the original name.
 
-Semantic deduplication is the exception: it consolidates schemas it found equivalent, so every reference to a removed name is rewritten regardless of which document wrote it.
+Semantic deduplication rewrites every reference to a removed name, because the schemas were equivalent.
 
 [↑ Back to top](#top)
 
@@ -322,7 +322,7 @@ Collisions resolved: 1
   schema 'User' collision: right renamed to 'User_orders-api'
 ```
 
-A rename template can generate a name the documents already use, and a template that discards `{{.Name}}` generates one name for every schema of a source. The generated name is made unique with a `_2`, `_3` suffix rather than replacing whatever is stored under it, so a join never drops a schema. The rename warning reports the name that was used.
+If a generated name is already taken, a `_2`, `_3` suffix is added rather than replacing the schema under it. The rename warning reports the name that was used.
 
 [Back to top](#top)
 

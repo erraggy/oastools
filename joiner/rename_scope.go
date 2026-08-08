@@ -6,21 +6,13 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// renameScope records schema renames per source document.
-//
-// A rename resolves a collision between two documents, so it only speaks for
-// the documents that were written against the renamed name. Renaming an
-// incoming schema (rename-right, or a namespace prefix) concerns that document
-// alone; renaming a schema already in the joined document (rename-left)
-// concerns the documents merged before it. Applying every rename to the whole
-// merged document repoints references that were already correct: see #478.
+// renameScope records schema renames per source document, so a rename rewrites
+// only the references that arrived with the documents it concerns (#478).
 type renameScope struct {
 	// version selects the $ref spelling: "#/definitions/" or "#/components/schemas/".
 	version parser.OASVersion
-	// byDoc is indexed by source document position and maps a name as spelled
-	// in that document to the name it ends up under in the joined document.
-	// Entries stay nil until that document has a rename, which is the common
-	// case: most joins resolve no collision by renaming.
+	// byDoc maps, per source document position, a name as spelled in that
+	// document to the name it ends up under. Entries are nil until first use.
 	byDoc []map[string]string
 }
 
@@ -37,13 +29,10 @@ func (s *renameScope) renamesFor(docIndex int) map[string]string {
 	return s.byDoc[docIndex]
 }
 
-// registerRight records that a schema arriving with document docIndex was stored
-// under newName.
-//
-// sourceName is the name the schema carries in its own document, which is what
-// that document's references spell. Keying on it means a schema renamed twice
-// (a namespace prefix, then a collision) resolves to its final name in one step
-// instead of leaving a reference stranded at the intermediate name.
+// registerRight records that a schema from document docIndex was stored under
+// newName. sourceName is its name in that document, which is what that
+// document's references spell, so a prefix followed by a collision still
+// resolves in one step.
 func (s *renameScope) registerRight(docIndex int, sourceName, newName string) {
 	if s == nil || docIndex < 0 || docIndex >= len(s.byDoc) {
 		return
@@ -51,14 +40,10 @@ func (s *renameScope) registerRight(docIndex int, sourceName, newName string) {
 	s.renamesFor(docIndex)[sourceName] = newName
 }
 
-// registerLeft records that the schema already stored under oldName was moved to
-// newName to make room for a schema from document docIndex.
-//
-// Every document merged before docIndex spelled oldName meaning the schema being
-// moved, so each of them follows it. A document that already maps some name onto
-// oldName is redirected rather than given a second entry, and one that already
-// maps oldName somewhere else is not talking about the schema being moved and is
-// left alone.
+// registerLeft records that the schema under oldName moved to newName to make
+// room for one from document docIndex. Only earlier documents referenced it, so
+// only they follow: one already mapping a name onto oldName is redirected, and
+// one already mapping oldName elsewhere means a different schema.
 func (s *renameScope) registerLeft(docIndex int, oldName, newName string) {
 	if s == nil {
 		return
@@ -90,11 +75,10 @@ func (s *renameScope) empty() bool {
 }
 
 // applyOAS2 rewrites the joined document's references, one source document's
-// renames at a time. sources are the documents that were merged, in order.
+// renames at a time. sources are the merged documents, in order.
 //
-// The entries claimed here must cover everything SchemaRewriter traverses at the
-// top level, otherwise an unclaimed entry belongs to no document and is never
-// rewritten: keep this in step with rewriteOAS2Document.
+// Keep the claimed containers in step with rewriteOAS2Document: an unclaimed
+// entry counts as belonging to no document.
 func (s *renameScope) applyOAS2(joined *parser.OAS2Document, sources []*parser.OAS2Document) error {
 	if s.empty() {
 		return nil
@@ -110,11 +94,10 @@ func (s *renameScope) applyOAS2(joined *parser.OAS2Document, sources []*parser.O
 }
 
 // applyOAS3 rewrites the joined document's references, one source document's
-// renames at a time. sources are the documents that were merged, in order.
+// renames at a time. sources are the merged documents, in order.
 //
-// The entries claimed here must cover everything SchemaRewriter traverses at the
-// top level, otherwise an unclaimed entry belongs to no document and is never
-// rewritten: keep this in step with rewriteOAS3Document.
+// Keep the claimed containers in step with rewriteOAS3Document: an unclaimed
+// entry counts as belonging to no document.
 func (s *renameScope) applyOAS3(joined *parser.OAS3Document, sources []*parser.OAS3Document) error {
 	if s.empty() {
 		return nil
@@ -136,10 +119,8 @@ func (s *renameScope) applyOAS3(joined *parser.OAS3Document, sources []*parser.O
 	return s.rewrite(joined, owner)
 }
 
-// rewrite runs one restricted pass over the joined document per source document
-// that had a rename recorded. Each pass skips the top-level entries another
-// document contributed, so it descends into a subtree only when that subtree's
-// own document is being rewritten.
+// rewrite runs one pass per source document that recorded a rename, each
+// restricted to the entries that document contributed, then one for the rest.
 func (s *renameScope) rewrite(joined any, owner map[any]int) error {
 	for docIndex, renames := range s.byDoc {
 		if len(renames) == 0 {
@@ -160,22 +141,13 @@ func (s *renameScope) rewrite(joined any, owner map[any]int) error {
 	return s.rewriteUnowned(joined, owner)
 }
 
-// rewriteUnowned rewrites the top-level entries that came from no source document.
-//
-// A collision handler returning ResolutionCustom supplies a value the joiner
-// never received from a document (see applySchemaResolution and
-// applyPathResolution). It belongs to no document's namespace, so there is
-// nothing to scope its references to and every rename applies, which is the
-// document-wide treatment every entry had before renames became scoped. Skipping
-// these would leave a handler's references pointing at names the join no longer
-// has.
+// rewriteUnowned rewrites entries that came from no source document, which a
+// collision handler produces with ResolutionCustom. There is no document whose
+// namespace to read them in, so every rename applies.
 func (s *renameScope) rewriteUnowned(joined any, owner map[any]int) error {
 	merged := make(map[string]string)
 	for _, renames := range s.byDoc {
-		// Documents are visited in merge order, so when two of them renamed the
-		// same name to different targets the later one wins. The name is genuinely
-		// ambiguous for a value that belongs to no document, and merge order is the
-		// only ordering the join has to break the tie with.
+		// Merge order breaks the tie when two documents renamed the same name.
 		maps.Copy(merged, renames)
 	}
 	rewriter := NewSchemaRewriter()
@@ -189,12 +161,9 @@ func (s *renameScope) rewriteUnowned(joined any, owner map[any]int) error {
 	return rewriter.RewriteDocument(joined)
 }
 
-// rewriteDedupeAliases repoints every reference to a deduplicated name at the
-// canonical name that replaced it.
-//
-// Unlike a collision rename, this is document-wide: deduplication only
-// consolidates schemas it found equivalent, so a reference to an alias means the
-// canonical schema no matter which document wrote it.
+// rewriteDedupeAliases repoints references from deduplicated names to canonical
+// ones. Document-wide, unlike a collision rename: the schemas were found
+// equivalent, so the reference means the same thing whoever wrote it.
 func rewriteDedupeAliases(joined any, aliases map[string]string, version parser.OASVersion) error {
 	rewriter := NewSchemaRewriter()
 	for alias, canonical := range aliases {
@@ -203,17 +172,10 @@ func rewriteDedupeAliases(joined any, aliases map[string]string, version parser.
 	return rewriter.RewriteDocument(joined)
 }
 
-// claimEntries records the source document that contributed each entry of a
-// top-level container. The joiner merges by pointer, so the joined document
-// holds these very values and pointer identity is what links them back.
-//
-// The first document to contribute a value keeps it. That only matters when the
-// caller passes the same parsed document twice, in which case the two positions
-// share every pointer and there is no contribution to tell apart.
-// The map value type is *T rather than a comparable T so that only pointer
-// entries can be attributed: ownership is pointer identity, and a container of
-// values would key the map on content and attribute two equal values to one
-// document.
+// claimEntries records which document contributed each entry of a top-level
+// container. The joiner merges by pointer, so pointer identity links a joined
+// entry back to its document. First contributor wins. The *T value type keeps
+// non-pointer entries out, which would be matched on content instead.
 func claimEntries[T any](owner map[any]int, docIndex int, entries map[string]*T) {
 	for _, entry := range entries {
 		if entry == nil {

@@ -34,20 +34,15 @@ func (r *SchemaRewriter) RegisterRename(oldName, newName string, version parser.
 	r.bareNameMap[oldName] = newName
 }
 
-// restrictTo limits the rewrite to the top-level entries the predicate accepts,
-// leaving the rest of the document alone. A nil predicate rewrites everything.
-//
-// The joiner uses this to apply one source document's renames to the entries
-// that document contributed: a rename resolves a collision between two
-// documents and does not speak for the references that arrived with the others
-// (see renameScope and #478).
+// restrictTo limits the rewrite to the top-level entries the predicate accepts.
+// A nil predicate rewrites everything. Used to scope renames to the entries one
+// source document contributed (#478).
 func (r *SchemaRewriter) restrictTo(owns func(entry any) bool) {
 	r.owns = owns
 }
 
-// skipEntry reports whether a top-level entry falls outside the rewrite's scope.
-// It is consulted once per entry, so a subtree is descended into at most once
-// even when the same document is rewritten under several restrictions.
+// skipEntry reports whether a top-level entry is out of scope. Checked once per
+// entry, so a skipped subtree is never descended into.
 func (r *SchemaRewriter) skipEntry(entry any) bool {
 	return r.owns != nil && !r.owns(entry)
 }

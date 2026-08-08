@@ -148,10 +148,8 @@ func NewSchemaCollisionWarning(schemaName, resolution, section, firstFile, secon
 
 // NewSchemaRenamedWarning creates a warning when a schema is renamed.
 //
-// sourceFile names the document the renamed schema came from, which for
-// keptOriginal (rename-left) is the document already in the join rather than the
-// incoming one. Naming it matters once three or more documents are joined, where
-// each rename moves a different document's schema aside (#479).
+// sourceFile names the document the renamed schema came from. For keptOriginal
+// (rename-left) that is the document already in the join, not the incoming one.
 func NewSchemaRenamedWarning(originalName, newName, section, sourceFile string, line, col int, keptOriginal bool) *JoinWarning {
 	msg := fmt.Sprintf("%s '%s' from %s renamed to '%s'", section, originalName, sourceFile, newName)
 	if keptOriginal {
