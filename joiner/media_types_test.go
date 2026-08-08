@@ -33,8 +33,9 @@ func mediaTypeComponentDoc(name string, extra bool) parser.ParseResult {
 							"part": {Headers: map[string]*parser.Header{"X-Meta": {Schema: ref()}}},
 						},
 					},
-					// Named the same in both, so it collides.
-					"Shared": {Schema: ref()},
+					// Named the same in both, so it collides. Example carries the
+					// source name so a collision resolution is distinguishable.
+					"Shared": {Schema: ref(), Example: name},
 				},
 			},
 			OASVersion: parser.OASVersion320,
@@ -60,11 +61,44 @@ func TestMediaTypeComponentsAreMerged(t *testing.T) {
 	d := res.Document.(*parser.OAS3Document)
 	require.NotNil(t, d.Components)
 
-	// Both documents' own entries survive, and the colliding one is resolved by
-	// the component strategy rather than vanishing.
+	// Both documents' own entries survive.
 	assert.Contains(t, d.Components.MediaTypes, "aMedia")
 	assert.Contains(t, d.Components.MediaTypes, "bMedia")
-	assert.Contains(t, d.Components.MediaTypes, "Shared")
+
+	// The colliding one is resolved by the component strategy rather than
+	// vanishing, and accept-left keeps the left value.
+	require.Contains(t, d.Components.MediaTypes, "Shared")
+	assert.Equal(t, "a", d.Components.MediaTypes["Shared"].Example)
+}
+
+// TestMediaTypeCollisionIsReported checks that a media type collision reaches a
+// handler under its own type, the way every other component's does.
+func TestMediaTypeCollisionIsReported(t *testing.T) {
+	var seen []CollisionContext
+	_, err := JoinWithOptions(
+		WithParsed(mediaTypeComponentDoc("a", false), mediaTypeComponentDoc("b", true)),
+		WithSchemaStrategy(StrategyRenameRight),
+		WithPathStrategy(StrategyAcceptLeft),
+		WithComponentStrategy(StrategyAcceptLeft),
+		WithRenameTemplate(`{{.Name}}.{{.Source}}`),
+		WithCollisionHandler(func(c CollisionContext) (CollisionResolution, error) {
+			if c.Type == CollisionTypeMediaType {
+				seen = append(seen, c)
+			}
+			return ContinueWithStrategy(), nil
+		}),
+	)
+	require.NoError(t, err)
+
+	require.Len(t, seen, 1, "the colliding media type should be reported once")
+	assert.Equal(t, "Shared", seen[0].Name)
+	assert.Equal(t, "$.components.mediaTypes.Shared", seen[0].JSONPath)
+	left, ok := seen[0].LeftValue.(*parser.MediaType)
+	require.True(t, ok, "LeftValue is %T", seen[0].LeftValue)
+	assert.Equal(t, "a", left.Example)
+	right, ok := seen[0].RightValue.(*parser.MediaType)
+	require.True(t, ok, "RightValue is %T", seen[0].RightValue)
+	assert.Equal(t, "b", right.Example)
 }
 
 // TestMediaTypeComponentsAreRewritten checks the other half: a merged media type
