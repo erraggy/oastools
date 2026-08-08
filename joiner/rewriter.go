@@ -412,7 +412,10 @@ func (r *SchemaRewriter) rewriteEncoding(encoding *parser.Encoding) {
 		return
 	}
 
-	// Nested encodings can be cyclic in a document assembled in Go.
+	// Guard against a nested encoding reaching itself, which decoding cannot
+	// produce but a document assembled in Go can. Note this protects the
+	// traversal only: copy on write calls the generated deep copy first, and
+	// that is not cycle safe (#488).
 	ptr := reflect.ValueOf(encoding).Pointer()
 	if r.visited[ptr] {
 		return

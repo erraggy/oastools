@@ -293,14 +293,24 @@ func everyContainerOAS3(name string, extra bool) parser.ParseResult {
 		target.Properties["note"] = &parser.Schema{Type: "string"}
 	}
 	ref := func() *parser.Schema { return &parser.Schema{Ref: "#/components/schemas/Target"} }
+	header := func(name string) map[string]*parser.Header {
+		return map[string]*parser.Header{name: {Schema: ref()}}
+	}
 	content := func() map[string]*parser.MediaType {
 		return map[string]*parser.MediaType{
 			"application/jsonl": {
 				Schema:     ref(),
 				ItemSchema: ref(),
 				Encoding: map[string]*parser.Encoding{
-					"part": {Headers: map[string]*parser.Header{"X-Meta": {Schema: ref()}}},
+					"part": {
+						Headers:        header("X-Meta"),
+						Encoding:       map[string]*parser.Encoding{"nested": {Headers: header("X-Nested")}},
+						ItemEncoding:   &parser.Encoding{Headers: header("X-PartItem")},
+						PrefixEncoding: []*parser.Encoding{{Headers: header("X-PartPrefix")}},
+					},
 				},
+				ItemEncoding:   &parser.Encoding{Headers: header("X-Item")},
+				PrefixEncoding: []*parser.Encoding{{Headers: header("X-Prefix")}},
 			},
 		}
 	}
@@ -346,12 +356,20 @@ func TestRewriteMediaTypeReachesEveryRef(t *testing.T) {
 	d := res.Document.(*parser.OAS3Document)
 	require.Contains(t, d.Components.Schemas, "Target.b")
 
-	refs := func(mt *parser.MediaType) []string {
+	// Every way a media type reaches a schema without going through Schema.
+	refs := func(mt *parser.MediaType) map[string]string {
 		require.NotNil(t, mt)
-		return []string{
-			mt.Schema.Ref,
-			mt.ItemSchema.Ref,
-			mt.Encoding["part"].Headers["X-Meta"].Schema.Ref,
+		part := mt.Encoding["part"]
+		require.NotNil(t, part)
+		return map[string]string{
+			"schema":                          mt.Schema.Ref,
+			"itemSchema":                      mt.ItemSchema.Ref,
+			"encoding.headers":                part.Headers["X-Meta"].Schema.Ref,
+			"encoding.encoding.headers":       part.Encoding["nested"].Headers["X-Nested"].Schema.Ref,
+			"encoding.itemEncoding.headers":   part.ItemEncoding.Headers["X-PartItem"].Schema.Ref,
+			"encoding.prefixEncoding.headers": part.PrefixEncoding[0].Headers["X-PartPrefix"].Schema.Ref,
+			"itemEncoding.headers":            mt.ItemEncoding.Headers["X-Item"].Schema.Ref,
+			"prefixEncoding.headers":          mt.PrefixEncoding[0].Headers["X-Prefix"].Schema.Ref,
 		}
 	}
 	jsonl := func(op *parser.Operation) *parser.MediaType {
@@ -365,13 +383,13 @@ func TestRewriteMediaTypeReachesEveryRef(t *testing.T) {
 		"components.callbacks":     jsonl((*d.Components.Callbacks["bCB"])["{$request.body#/url}"].Post),
 		"components.requestBodies": d.Components.RequestBodies["bBody"].Content["application/jsonl"],
 	} {
-		for _, ref := range refs(mt) {
-			assert.Equal(t, "#/components/schemas/Target.b", ref, "stale reference in %s", where)
+		for field, ref := range refs(mt) {
+			assert.Equal(t, "#/components/schemas/Target.b", ref, "stale reference in %s %s", where, field)
 		}
 	}
 
 	// a's references still name the schema that kept the original name.
-	for _, ref := range refs(jsonl(d.Paths["/a"].Get)) {
-		assert.Equal(t, "#/components/schemas/Target", ref)
+	for field, ref := range refs(jsonl(d.Paths["/a"].Get)) {
+		assert.Equal(t, "#/components/schemas/Target", ref, "a's %s was repointed", field)
 	}
 }
