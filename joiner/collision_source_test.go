@@ -178,3 +178,78 @@ func TestCollisionSourceSectionsAreIndependent(t *testing.T) {
 	assert.Equal(t, "a", seen[string(CollisionTypeSchema)], "the schema came from a")
 	assert.Equal(t, "b", seen[string(CollisionTypeResponse)], "the response came from b")
 }
+
+// threeDocOAS2 is the OAS 2 counterpart, covering the definitions path, which
+// merges separately from the component maps, and the three sections OAS 2 puts
+// at the document root.
+func threeDocOAS2(name string) parser.ParseResult {
+	return parser.ParseResult{
+		Document: &parser.OAS2Document{
+			Swagger: "2.0",
+			Info:    &parser.Info{Title: name, Version: "1.0.0"},
+			Paths: parser.Paths{
+				"/shared": &parser.PathItem{Description: name, Get: &parser.Operation{OperationID: name}},
+			},
+			Definitions: map[string]*parser.Schema{"Shared": {Type: "object", Description: name}},
+			Parameters:  map[string]*parser.Parameter{"Shared": {Name: "q", In: "query", Description: name}},
+			Responses:   map[string]*parser.Response{"Shared": {Description: name}},
+			SecurityDefinitions: map[string]*parser.SecurityScheme{
+				"Shared": {Type: "apiKey", Name: name, In: "header"},
+			},
+			OASVersion: parser.OASVersion20,
+		},
+		Version: "2.0", OASVersion: parser.OASVersion20,
+		SourcePath: name, SourceFormat: parser.SourceFormatJSON,
+	}
+}
+
+// TestCollisionReportsContributingLeftSourceOAS2 is the OAS 2 counterpart of
+// TestCollisionReportsContributingLeftSource. Definitions merge through
+// mergeOAS2Definitions rather than mergeMap, so the path is separate.
+func TestCollisionReportsContributingLeftSourceOAS2(t *testing.T) {
+	seen := map[string]string{}
+	values := map[string]string{}
+	_, err := JoinWithOptions(
+		WithParsed(threeDocOAS2("a"), threeDocOAS2("b"), threeDocOAS2("c")),
+		WithDefaultStrategy(StrategyAcceptRight),
+		WithPathStrategy(StrategyAcceptRight),
+		WithSchemaStrategy(StrategyAcceptRight),
+		WithComponentStrategy(StrategyAcceptRight),
+		WithCollisionHandler(func(c CollisionContext) (CollisionResolution, error) {
+			key := string(c.Type) + "/" + c.RightSource
+			seen[key] = c.LeftSource
+			switch v := c.LeftValue.(type) {
+			case *parser.Schema:
+				values[key] = v.Description
+			case *parser.Parameter:
+				values[key] = v.Description
+			case *parser.Response:
+				values[key] = v.Description
+			case *parser.SecurityScheme:
+				values[key] = v.Name
+			case *parser.PathItem:
+				values[key] = v.Description
+			}
+			return ContinueWithStrategy(), nil
+		}),
+	)
+	require.NoError(t, err)
+
+	for _, section := range []string{
+		string(CollisionTypeSchema),
+		string(CollisionTypeParameter),
+		string(CollisionTypeResponse),
+		string(CollisionTypeSecurityScheme),
+		string(CollisionTypePath),
+	} {
+		assert.Equal(t, "a", seen[section+"/b"], "%s: b's collision", section)
+		assert.Equal(t, "b", seen[section+"/c"], "%s: c's collision", section)
+	}
+
+	// And the named source is the one whose value is on the left.
+	for key, source := range seen {
+		if got, ok := values[key]; ok {
+			assert.Equal(t, source, got, "%s: LeftSource and LeftValue disagree", key)
+		}
+	}
+}
