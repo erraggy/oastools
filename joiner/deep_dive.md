@@ -322,6 +322,8 @@ Collisions resolved: 1
   schema 'User' collision: right renamed to 'User_orders-api'
 ```
 
+A rename template can generate a name the documents already use, and a template that discards `{{.Name}}` generates one name for every schema of a source. The generated name is made unique with a `_2`, `_3` suffix rather than replacing whatever is stored under it, so a join never drops a schema. The rename warning reports the name that was used.
+
 [Back to top](#top)
 
 ## Operation-Aware Schema Renaming

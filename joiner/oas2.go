@@ -273,6 +273,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				} else {
 					newName = j.generateRenamedSchemaName(effectiveName, leftOrigin.filePath, leftOrigin.docIndex, nil)
 				}
+				newName = uniqueSchemaName(joined.Definitions, newName)
 
 				// Move existing definition to new name
 				joined.Definitions[newName] = joined.Definitions[effectiveName]
@@ -300,6 +301,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				} else {
 					newName = j.generateRenamedSchemaName(effectiveName, ctx.filePath, ctx.docIndex, sourceGraph)
 				}
+				newName = uniqueSchemaName(joined.Definitions, newName)
 
 				// Add new definition under renamed name
 				joined.Definitions[newName] = schema

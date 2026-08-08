@@ -302,7 +302,7 @@ func (j *Joiner) applySchemaResolution(p schemaResolutionParams) (bool, error) {
 
 	case ResolutionRename:
 		// Rename right schema/definition
-		newName := j.generateRenamedSchemaName(p.collision.Name, p.ctx.filePath, p.ctx.docIndex, p.sourceGraph)
+		newName := uniqueSchemaName(p.target, j.generateRenamedSchemaName(p.collision.Name, p.ctx.filePath, p.ctx.docIndex, p.sourceGraph))
 		p.target[newName] = schema
 		p.result.recordOrigin(newName, p.ctx)
 		// Only the incoming document referenced the schema being renamed.

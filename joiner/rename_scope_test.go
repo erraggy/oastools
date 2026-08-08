@@ -736,6 +736,72 @@ func TestJoinSameDocumentTwice(t *testing.T) {
 	assert.Empty(t, d.Definitions["Pet"].Description)
 }
 
+// TestRenameTargetAlreadyTaken covers #483: a generated name that the documents
+// already use must not overwrite the schema stored under it.
+func TestRenameTargetAlreadyTaken(t *testing.T) {
+	docA := petVariant("a")
+	// a already has a schema under the name the template will generate for b's Pet.
+	docA.Document.(*parser.OAS2Document).Definitions["Pet.b"] = &parser.Schema{
+		Type:       "object",
+		Properties: map[string]*parser.Schema{"preexisting": {Type: "string"}},
+	}
+
+	res, err := JoinWithOptions(
+		WithParsed(docA, petVariant("b")),
+		WithSchemaStrategy(StrategyRenameRight),
+		WithPathStrategy(StrategyAcceptLeft),
+		WithRenameTemplate(`{{.Name}}.{{.Source}}`),
+	)
+	require.NoError(t, err)
+
+	d := res.Document.(*parser.OAS2Document)
+
+	// Three definitions in, three out: a's Pet, a's own Pet.b, and b's renamed Pet.
+	assert.ElementsMatch(t, []string{"Pet", "Pet.b", "Pet.b_2"}, definitionNames(d))
+	assert.Contains(t, d.Definitions["Pet.b"].Properties, "preexisting",
+		"a's own Pet.b was overwritten by b's renamed Pet")
+	assert.Contains(t, d.Definitions["Pet.b_2"].Properties, "fromb")
+
+	// b's path names the schema under the name it actually ended up with.
+	assert.Equal(t, "#/definitions/Pet.b_2", petResponseRef(t, d, "/b"))
+	assert.Contains(t, res.Warnings, "definition 'Pet' from b renamed to 'Pet.b_2'")
+}
+
+// TestRenameTemplateWithoutName covers the other way into #483: a template that
+// discards the schema name generates one name for every schema of a document.
+func TestRenameTemplateWithoutName(t *testing.T) {
+	res, err := JoinWithOptions(
+		WithParsed(petstoreFamily("store", false), petstoreFamily("clinic", true)),
+		WithSchemaStrategy(StrategyRenameRight),
+		WithEquivalenceMode("deep"),
+		WithRenameTemplate(`{{.Source}}`),
+	)
+	require.NoError(t, err)
+
+	d := res.Document.(*parser.OAS2Document)
+
+	// clinic's two schemas both generated the name "clinic", so one is suffixed
+	// rather than dropped.
+	assert.ElementsMatch(t, []string{"Pet", "Category", "clinic", "clinic_2"}, definitionNames(d))
+	for _, ref := range definitionRefs(d) {
+		assert.Contains(t, d.Definitions, extractSchemaName(ref), "dangling reference %s", ref)
+	}
+}
+
+func TestUniqueSchemaName(t *testing.T) {
+	taken := map[string]*parser.Schema{
+		"Pet":     {},
+		"Pet_2":   {},
+		"Pet_3":   {},
+		"Unrelat": {},
+	}
+
+	assert.Equal(t, "Cat", uniqueSchemaName(taken, "Cat"), "a free name is returned unchanged")
+	assert.Equal(t, "Pet_4", uniqueSchemaName(taken, "Pet"), "the first free suffix is used")
+	assert.Equal(t, "Pet_2_2", uniqueSchemaName(taken, "Pet_2"), "suffixing is applied to the candidate as given")
+	assert.Equal(t, "Cat", uniqueSchemaName(map[string]*parser.Schema{}, "Cat"))
+}
+
 func definitionNames(doc *parser.OAS2Document) []string {
 	names := make([]string, 0, len(doc.Definitions))
 	for name := range doc.Definitions {

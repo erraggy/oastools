@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"text/template"
 
 	"github.com/erraggy/oastools/internal/fileutil"
@@ -615,6 +616,28 @@ func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docI
 	}
 
 	return buf.String()
+}
+
+// uniqueSchemaName returns candidate when no schema is stored under it, and
+// otherwise the first of candidate_2, candidate_3 and so on that is free.
+//
+// A rename template can generate a name the documents already use, and can
+// generate the same name twice. Storing the schema anyway drops whatever was
+// there, which leaves a schema missing from the join with nothing said about it,
+// a worse outcome than a name the caller did not predict (#483). The rename
+// warning reports the name that was used, so the suffix is not silent.
+func uniqueSchemaName(taken map[string]*parser.Schema, candidate string) string {
+	if _, exists := taken[candidate]; !exists {
+		return candidate
+	}
+	// Bounded by the number of schemas already stored: one of the first
+	// len(taken)+2 names is necessarily free.
+	for n := 2; ; n++ {
+		name := candidate + "_" + strconv.Itoa(n)
+		if _, exists := taken[name]; !exists {
+			return name
+		}
+	}
 }
 
 // recordCollisionEvent records a collision event if reporting is enabled

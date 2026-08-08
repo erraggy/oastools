@@ -395,6 +395,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 					// See #482.
 					newName = j.generateRenamedSchemaName(effectiveName, leftOrigin.filePath, leftOrigin.docIndex, nil)
 				}
+				newName = uniqueSchemaName(target, newName)
 
 				// Move existing schema to new name
 				target[newName] = target[effectiveName]
@@ -423,6 +424,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 					// Pass sourceGraph for operation-aware renaming of the right/new schema
 					newName = j.generateRenamedSchemaName(effectiveName, ctx.filePath, ctx.docIndex, sourceGraph)
 				}
+				newName = uniqueSchemaName(target, newName)
 
 				// Add new schema under renamed name
 				target[newName] = schema
