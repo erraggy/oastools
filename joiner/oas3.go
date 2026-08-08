@@ -40,9 +40,6 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 		firstFilePath: docs[0].SourcePath,
 		scope:         newRenameScope(len(docs), docs[0].OASVersion),
 	}
-	if j.tracksSchemaOrigins() {
-		result.origins = make(map[string]schemaOrigin)
-	}
 
 	// Initialize collision report if enabled
 	if j.config.CollisionReport {
@@ -107,6 +104,7 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 			if exists {
 				jsonPath := fmt.Sprintf("$.webhooks.%s", name)
 				result.CollisionCount++
+				leftSource := result.originOf(sectionWebhooks, name).filePath
 
 				// Invoke collision handler if registered and applicable
 				if j.collisionHandler != nil && j.shouldInvokeHandler(CollisionTypeWebhook) {
@@ -114,8 +112,8 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 						Type:               CollisionTypeWebhook,
 						Name:               name,
 						JSONPath:           jsonPath,
-						LeftSource:         result.firstFilePath,
-						LeftLocation:       j.getLocationPtr(result.firstFilePath, jsonPath),
+						LeftSource:         leftSource,
+						LeftLocation:       j.getLocationPtr(leftSource, jsonPath),
 						LeftValue:          existingWebhook,
 						RightSource:        ctx.filePath,
 						RightLocation:      j.getLocationPtr(ctx.filePath, jsonPath),
@@ -155,19 +153,21 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 				}
 
 				// Default strategy handling (or fallback from handler)
-				if err := j.handleCollision(name, "webhooks", pathStrategy, result.firstFilePath, ctx.filePath); err != nil {
+				if err := j.handleCollision(name, "webhooks", pathStrategy, leftSource, ctx.filePath); err != nil {
 					return nil, err
 				}
 				if j.shouldOverwrite(pathStrategy) {
 					joined.Webhooks[name] = webhook
+					result.recordOrigin(sectionWebhooks, name, ctx)
 					line, col := j.getLocation(ctx.filePath, jsonPath)
-					result.AddWarning(NewWebhookCollisionWarning(name, "overwritten", result.firstFilePath, ctx.filePath, line, col))
+					result.AddWarning(NewWebhookCollisionWarning(name, "overwritten", leftSource, ctx.filePath, line, col))
 				} else {
 					line, col := j.getLocation(ctx.filePath, jsonPath)
-					result.AddWarning(NewWebhookCollisionWarning(name, "kept from first document", result.firstFilePath, ctx.filePath, line, col))
+					result.AddWarning(NewWebhookCollisionWarning(name, "kept from first document", leftSource, ctx.filePath, line, col))
 				}
 			} else {
 				joined.Webhooks[name] = webhook
+				result.recordOrigin(sectionWebhooks, name, ctx)
 			}
 		}
 
@@ -306,10 +306,12 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 			// Handle collision based on strategy
 			result.CollisionCount++
 
+			// The left side is whichever document contributed the schema now under
+			// this name, which is the first only until something replaces it.
+			leftSource := result.originOf(sectionSchemas, effectiveName).filePath
+
 			// Invoke collision handler if configured
 			if j.shouldInvokeHandler(CollisionTypeSchema) {
-				// The left side is whichever document contributed this schema (#479).
-				leftSource := result.originOf(effectiveName).filePath
 				collision := CollisionContext{
 					Type:               CollisionTypeSchema,
 					Name:               effectiveName,
@@ -343,6 +345,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 						result:      result,
 						ctx:         ctx,
 						sourceName:  name,
+						section:     sectionSchemas,
 						sourceGraph: sourceGraph,
 						label:       "schema",
 					})
@@ -373,7 +376,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 						// Schemas are equivalent, keep existing and skip
 						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
 						result.AddWarning(NewSchemaDedupWarning(effectiveName, "schema", ctx.filePath, line, col))
-						j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, resolutionDeduplicated, "")
+						j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, strategy, resolutionDeduplicated, "")
 						continue
 					}
 					// Not equivalent, fall back to default strategy or fail
@@ -384,7 +387,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 			case StrategyRenameLeft:
 				// Rename the existing (left) schema and keep the new (right) schema under original name
 				// Name it after the contributing document, not always the first (#479).
-				leftOrigin := result.originOf(effectiveName)
+				leftOrigin := result.originOf(sectionSchemas, effectiveName)
 				leftPrefix := j.getNamespacePrefix(leftOrigin.filePath)
 				var newName string
 				if leftPrefix != "" {
@@ -396,11 +399,11 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 
 				// Move existing schema to new name
 				target[newName] = target[effectiveName]
-				result.moveOrigin(effectiveName, newName)
+				result.moveOrigin(sectionSchemas, effectiveName, newName)
 
 				// Add new schema under original name
 				target[effectiveName] = schema
-				result.recordOrigin(effectiveName, ctx)
+				result.recordOrigin(sectionSchemas, effectiveName, ctx)
 
 				// Only documents merged before this one referenced the moved schema.
 				result.scope.registerLeft(ctx.docIndex, effectiveName, newName)
@@ -424,7 +427,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 
 				// Add new schema under renamed name
 				target[newName] = schema
-				result.recordOrigin(newName, ctx)
+				result.recordOrigin(sectionSchemas, newName, ctx)
 
 				// Keep existing schema under original name (no change needed)
 
@@ -433,28 +436,28 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
 				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "schema", ctx.filePath, line, col, false))
-				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, resolutionRenamed, newName)
+				j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, strategy, resolutionRenamed, newName)
 
 			default:
 				// Handle existing strategies (accept-left, accept-right, fail, fail-on-paths)
-				if err := j.handleCollision(effectiveName, "components.schemas", strategy, result.firstFilePath, ctx.filePath); err != nil {
+				if err := j.handleCollision(effectiveName, "components.schemas", strategy, leftSource, ctx.filePath); err != nil {
 					return err
 				}
 				if j.shouldOverwrite(strategy) {
 					target[effectiveName] = schema
-					result.recordOrigin(effectiveName, ctx)
+					result.recordOrigin(sectionSchemas, effectiveName, ctx)
 					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
-					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "overwritten", "components.schemas", result.firstFilePath, ctx.filePath, line, col))
-					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, resolutionKeptRight, "")
+					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "overwritten", "components.schemas", leftSource, ctx.filePath, line, col))
+					j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, strategy, resolutionKeptRight, "")
 				} else {
 					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
-					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept from first document", "components.schemas", result.firstFilePath, ctx.filePath, line, col))
-					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, strategy, resolutionKeptLeft, "")
+					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept from first document", "components.schemas", leftSource, ctx.filePath, line, col))
+					j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, strategy, resolutionKeptLeft, "")
 				}
 			}
 		} else {
 			target[effectiveName] = schema
-			result.recordOrigin(effectiveName, ctx)
+			result.recordOrigin(sectionSchemas, effectiveName, ctx)
 		}
 	}
 	return nil
@@ -559,14 +562,18 @@ func mergeMap[T any](j *Joiner, target, source map[string]T, section string, col
 			jsonPath := fmt.Sprintf("$.%s.%s", section, name)
 			result.CollisionCount++
 
+			// The left side is whichever document contributed the value now under
+			// this name, which is the first only until something replaces it (#490).
+			leftSource := result.originOf(section, name).filePath
+
 			// Invoke collision handler if registered and applicable
 			if j.collisionHandler != nil && j.shouldInvokeHandler(collisionType) {
 				collision := CollisionContext{
 					Type:               collisionType,
 					Name:               name,
 					JSONPath:           jsonPath,
-					LeftSource:         result.firstFilePath,
-					LeftLocation:       j.getLocationPtr(result.firstFilePath, jsonPath),
+					LeftSource:         leftSource,
+					LeftLocation:       j.getLocationPtr(leftSource, jsonPath),
 					LeftValue:          existing,
 					RightSource:        ctx.filePath,
 					RightLocation:      j.getLocationPtr(ctx.filePath, jsonPath),
@@ -598,6 +605,7 @@ func mergeMap[T any](j *Joiner, target, source map[string]T, section string, col
 					if handled {
 						if shouldOverwrite {
 							target[name] = item
+							result.recordOrigin(section, name, ctx)
 						}
 						continue // Resolution handled, skip strategy handling
 					}
@@ -606,14 +614,16 @@ func mergeMap[T any](j *Joiner, target, source map[string]T, section string, col
 			}
 
 			// Default strategy handling (or fallback from handler)
-			if err := j.handleCollision(name, section, strategy, result.firstFilePath, ctx.filePath); err != nil {
+			if err := j.handleCollision(name, section, strategy, leftSource, ctx.filePath); err != nil {
 				return err
 			}
 			if j.shouldOverwrite(strategy) {
 				target[name] = item
+				result.recordOrigin(section, name, ctx)
 			}
 		} else {
 			target[name] = item
+			result.recordOrigin(section, name, ctx)
 		}
 	}
 	return nil

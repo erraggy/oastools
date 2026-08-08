@@ -41,9 +41,6 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 		firstFilePath: docs[0].SourcePath,
 		scope:         newRenameScope(len(docs), docs[0].OASVersion),
 	}
-	if j.tracksSchemaOrigins() {
-		result.origins = make(map[string]schemaOrigin)
-	}
 
 	// Initialize collision report if enabled
 	if j.config.CollisionReport {
@@ -181,10 +178,12 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 			// Handle collision based on strategy
 			result.CollisionCount++
 
+			// The left side is whichever document contributed the definition now under
+			// this name, which is the first only until something replaces it.
+			leftSource := result.originOf(sectionDefinitions, effectiveName).filePath
+
 			// Invoke collision handler if configured for schemas
 			if j.shouldInvokeHandler(CollisionTypeSchema) {
-				// The left side is whichever document contributed this definition (#479).
-				leftSource := result.originOf(effectiveName).filePath
 				collision := CollisionContext{
 					Type:               CollisionTypeSchema,
 					Name:               effectiveName,
@@ -218,6 +217,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 						result:      result,
 						ctx:         ctx,
 						sourceName:  name,
+						section:     sectionDefinitions,
 						sourceGraph: sourceGraph,
 						label:       "definition",
 					})
@@ -248,7 +248,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 						// Schemas are equivalent, keep existing and skip
 						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
 						result.AddWarning(NewSchemaDedupWarning(effectiveName, "definition", ctx.filePath, line, col))
-						j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, resolutionDeduplicated, "")
+						j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, schemaStrategy, resolutionDeduplicated, "")
 						continue
 					}
 					// Not equivalent, fall back to fail
@@ -259,7 +259,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 			case StrategyRenameLeft:
 				// Rename the existing (left) definition and keep the new (right) definition under original name
 				// Name it after the contributing document, not always the first (#479).
-				leftOrigin := result.originOf(effectiveName)
+				leftOrigin := result.originOf(sectionDefinitions, effectiveName)
 				leftPrefix := j.getNamespacePrefix(leftOrigin.filePath)
 				var newName string
 				if leftPrefix != "" {
@@ -271,11 +271,11 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 
 				// Move existing definition to new name
 				joined.Definitions[newName] = joined.Definitions[effectiveName]
-				result.moveOrigin(effectiveName, newName)
+				result.moveOrigin(sectionDefinitions, effectiveName, newName)
 
 				// Add new definition under original name
 				joined.Definitions[effectiveName] = schema
-				result.recordOrigin(effectiveName, ctx)
+				result.recordOrigin(sectionDefinitions, effectiveName, ctx)
 
 				// Only documents merged before this one referenced the moved definition.
 				result.scope.registerLeft(ctx.docIndex, effectiveName, newName)
@@ -298,7 +298,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 
 				// Add new definition under renamed name
 				joined.Definitions[newName] = schema
-				result.recordOrigin(newName, ctx)
+				result.recordOrigin(sectionDefinitions, newName, ctx)
 
 				// Keep existing definition under original name (no change needed)
 
@@ -307,27 +307,27 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
 				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "definition", ctx.filePath, line, col, false))
-				j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, resolutionRenamed, newName)
+				j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, schemaStrategy, resolutionRenamed, newName)
 
 			default:
 				// Handle existing strategies
-				if err := j.handleCollision(effectiveName, "definitions", schemaStrategy, result.firstFilePath, ctx.filePath); err != nil {
+				if err := j.handleCollision(effectiveName, "definitions", schemaStrategy, leftSource, ctx.filePath); err != nil {
 					return err
 				}
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
 				if j.shouldOverwrite(schemaStrategy) {
 					joined.Definitions[effectiveName] = schema
-					result.recordOrigin(effectiveName, ctx)
-					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "overwritten", "definitions", result.firstFilePath, ctx.filePath, line, col))
-					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, resolutionKeptRight, "")
+					result.recordOrigin(sectionDefinitions, effectiveName, ctx)
+					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "overwritten", "definitions", leftSource, ctx.filePath, line, col))
+					j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, schemaStrategy, resolutionKeptRight, "")
 				} else {
-					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept from first document", "definitions", result.firstFilePath, ctx.filePath, line, col))
-					j.recordCollisionEvent(result, effectiveName, result.firstFilePath, ctx.filePath, schemaStrategy, resolutionKeptLeft, "")
+					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept from first document", "definitions", leftSource, ctx.filePath, line, col))
+					j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, schemaStrategy, resolutionKeptLeft, "")
 				}
 			}
 		} else {
 			joined.Definitions[effectiveName] = schema
-			result.recordOrigin(effectiveName, ctx)
+			result.recordOrigin(sectionDefinitions, effectiveName, ctx)
 		}
 	}
 	return nil

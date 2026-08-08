@@ -134,7 +134,8 @@ type CollisionContext struct {
 	// JSONPath is the full path (e.g., "$.components.schemas.User").
 	JSONPath string
 
-	// LeftSource is the source file/identifier for left document.
+	// LeftSource is the source file/identifier of the document that contributed
+	// LeftValue, which is the first document only until something replaces it.
 	LeftSource string
 	// LeftLocation is the line/column in left document (nil if unknown).
 	LeftLocation *SourceLocation
@@ -266,6 +267,7 @@ type schemaResolutionParams struct {
 	sourceName  string
 	sourceGraph *RefGraph
 	label       string // "schema" for OAS3, "definition" for OAS2
+	section     string // the JSON path section the target map lives at
 }
 
 // applySchemaResolution applies a CollisionResolution to a schema/definition collision.
@@ -296,7 +298,7 @@ func (j *Joiner) applySchemaResolution(p schemaResolutionParams) (bool, error) {
 	case ResolutionAcceptRight:
 		// Replace with incoming (right)
 		p.target[p.collision.Name] = schema
-		p.result.recordOrigin(p.collision.Name, p.ctx)
+		p.result.recordOrigin(p.section, p.collision.Name, p.ctx)
 		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, resolutionKeptRight, "")
 		return true, nil
 
@@ -304,7 +306,7 @@ func (j *Joiner) applySchemaResolution(p schemaResolutionParams) (bool, error) {
 		// Rename right schema/definition
 		newName := uniqueSchemaName(p.target, j.generateRenamedSchemaName(p.collision.Name, p.ctx.filePath, p.ctx.docIndex, p.sourceGraph))
 		p.target[newName] = schema
-		p.result.recordOrigin(newName, p.ctx)
+		p.result.recordOrigin(p.section, newName, p.ctx)
 		// Only the incoming document referenced the renamed schema.
 		p.result.scope.registerRight(p.ctx.docIndex, p.sourceName, newName)
 		line, col := j.getLocation(p.ctx.filePath, p.collision.JSONPath)
@@ -336,7 +338,7 @@ func (j *Joiner) applySchemaResolution(p schemaResolutionParams) (bool, error) {
 			return true, fmt.Errorf("collision handler: CustomValue is %T, expected *parser.Schema for %s collisions", p.resolution.CustomValue, p.label)
 		}
 		p.target[p.collision.Name] = customSchema
-		p.result.recordOrigin(p.collision.Name, p.ctx)
+		p.result.recordOrigin(p.section, p.collision.Name, p.ctx)
 		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "custom", "")
 		return true, nil
 
