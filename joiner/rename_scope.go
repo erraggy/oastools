@@ -112,6 +112,7 @@ func (s *renameScope) applyOAS3(joined *parser.OAS3Document, sources []*parser.O
 			claimEntries(owner, docIndex, src.Components.Headers)
 			claimEntries(owner, docIndex, src.Components.Callbacks)
 			claimEntries(owner, docIndex, src.Components.PathItems)
+			claimEntries(owner, docIndex, src.Components.MediaTypes)
 		}
 		claimEntries(owner, docIndex, src.Paths)
 		claimEntries(owner, docIndex, src.Webhooks)

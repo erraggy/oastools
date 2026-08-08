@@ -79,6 +79,12 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 	joined.Components.Callbacks = make(map[string]*parser.Callback)
 	joined.Components.CallbackRefs = make(map[string]*parser.Reference)
 	joined.Components.PathItems = make(map[string]*parser.PathItem)
+	joined.Components.MediaTypes = make(map[string]*parser.MediaType)
+
+	graphs := newRefGraphs(j.config.OperationContext, func(docIndex int) *RefGraph {
+		src := sources[docIndex]
+		return buildRefGraphOAS3(src, src.OASVersion)
+	})
 
 	// Merge all documents
 	for i, doc := range docs {
@@ -167,13 +173,7 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 		// Merge components
 		if oas3Doc.Components != nil {
-			// Build reference graph if operation context is enabled
-			var sourceGraph *RefGraph
-			if j.config.OperationContext {
-				sourceGraph = buildRefGraphOAS3(oas3Doc, oas3Doc.OASVersion)
-			}
-
-			if err := j.mergeOAS3Components(joined.Components, oas3Doc.Components, ctx, result, sourceGraph); err != nil {
+			if err := j.mergeOAS3Components(joined.Components, oas3Doc.Components, ctx, result, graphs); err != nil {
 				return nil, err
 			}
 		}
@@ -236,12 +236,12 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 }
 
 // mergeOAS3Components merges components from source into target
-func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx documentContext, result *JoinResult, sourceGraph *RefGraph) error {
+func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx documentContext, result *JoinResult, graphs *refGraphs) error {
 	schemaStrategy := j.getEffectiveStrategy(j.config.SchemaStrategy)
 	componentStrategy := j.getEffectiveStrategy(j.config.ComponentStrategy)
 
 	// Merge schemas with detailed warnings
-	if err := j.mergeSchemas(target.Schemas, source.Schemas, schemaStrategy, ctx, result, sourceGraph); err != nil {
+	if err := j.mergeSchemas(target.Schemas, source.Schemas, schemaStrategy, ctx, result, graphs); err != nil {
 		return err
 	}
 
@@ -273,12 +273,17 @@ func (j *Joiner) mergeOAS3Components(target, source *parser.Components, ctx docu
 	if err := j.mergePathItems(target.PathItems, source.PathItems, componentStrategy, ctx, result); err != nil {
 		return err
 	}
+	if err := j.mergeMediaTypes(target.MediaTypes, source.MediaTypes, componentStrategy, ctx, result); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 // mergeSchemas is a specialized merger for schemas with detailed warnings
-func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy CollisionStrategy, ctx documentContext, result *JoinResult, sourceGraph *RefGraph) error {
+func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy CollisionStrategy, ctx documentContext, result *JoinResult, graphs *refGraphs) error {
+	sourceGraph := graphs.forDoc(ctx.docIndex)
+
 	// Get namespace prefix for this source (if configured)
 	sourcePrefix := j.getNamespacePrefix(ctx.filePath)
 
@@ -385,8 +390,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				if leftPrefix != "" {
 					newName = j.generatePrefixedSchemaName(effectiveName, leftPrefix)
 				} else {
-					// No graph: operation-aware templates are not wired up here (#482).
-					newName = j.generateRenamedSchemaName(effectiveName, leftOrigin.filePath, leftOrigin.docIndex, nil)
+					newName = j.generateRenamedSchemaName(effectiveName, leftOrigin.filePath, leftOrigin.docIndex, graphs.forDoc(leftOrigin.docIndex))
 				}
 				newName = uniqueSchemaName(target, newName)
 
@@ -463,6 +467,13 @@ func (j *Joiner) mergeResponses(target, source map[string]*parser.Response, stra
 
 func (j *Joiner) mergeParameters(target, source map[string]*parser.Parameter, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
 	return mergeMap(j, target, source, "components.parameters", CollisionTypeParameter, strategy, ctx, result)
+}
+
+// mergeMediaTypes merges components.mediaTypes (OAS 3.2+). Its entries carry
+// schema references, so renameScope attributes them and the rewriter traverses
+// them alongside the other component maps.
+func (j *Joiner) mergeMediaTypes(target, source map[string]*parser.MediaType, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {
+	return mergeMap(j, target, source, "components.mediaTypes", CollisionTypeMediaType, strategy, ctx, result)
 }
 
 func (j *Joiner) mergeExamples(target, source map[string]*parser.Example, strategy CollisionStrategy, ctx documentContext, result *JoinResult) error {

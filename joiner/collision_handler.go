@@ -79,6 +79,8 @@ const (
 	// form where the other document holds the other is not reported here at all:
 	// see Joiner.mergeAllCallbacks.
 	CollisionTypeCallback CollisionType = "callback"
+	// CollisionTypeMediaType indicates a media type collision in components.mediaTypes (OAS 3.2+).
+	CollisionTypeMediaType CollisionType = "mediaType"
 )
 
 // ResolutionAction specifies what the joiner should do after a collision.

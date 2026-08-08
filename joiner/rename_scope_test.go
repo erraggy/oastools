@@ -363,7 +363,7 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 
 		return parser.ParseResult{
 			Document: &parser.OAS3Document{
-				OpenAPI: "3.1.0",
+				OpenAPI: "3.2.0",
 				Info:    &parser.Info{Title: name, Version: "1.0.0"},
 				Paths: parser.Paths{
 					"/" + name: &parser.PathItem{Get: containerRef()},
@@ -397,11 +397,14 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 					PathItems: map[string]*parser.PathItem{
 						name + "PI": {Get: containerRef()},
 					},
+					MediaTypes: map[string]*parser.MediaType{
+						name + "MT": {Schema: targetRef()},
+					},
 				},
-				OASVersion: parser.OASVersion310,
+				OASVersion: parser.OASVersion320,
 			},
-			Version:      "3.1.0",
-			OASVersion:   parser.OASVersion310,
+			Version:      "3.2.0",
+			OASVersion:   parser.OASVersion320,
 			SourcePath:   name,
 			SourceFormat: parser.SourceFormatJSON,
 		}
@@ -430,6 +433,7 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 			"components.headers":       c.Headers[source+"Header"].Schema.Ref,
 			"components.callbacks":     oas3ResponseRefIn(t, callback["{$request.body#/url}"].Post),
 			"components.pathItems":     oas3ResponseRefIn(t, c.PathItems[source+"PI"].Get),
+			"components.mediaTypes":    c.MediaTypes[source+"MT"].Schema.Ref,
 			"paths":                    oas3ResponseRefIn(t, d.Paths["/"+source].Get),
 			"webhooks":                 oas3ResponseRefIn(t, d.Webhooks[source+"Hook"].Post),
 		}
