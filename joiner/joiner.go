@@ -189,8 +189,58 @@ type JoinResult struct {
 	CollisionDetails *CollisionReport
 	// firstFilePath stores the path of the first document for error reporting
 	firstFilePath string
-	// rewriter accumulates schema renames for reference rewriting
-	rewriter *SchemaRewriter
+	// scope accumulates schema renames per source document for reference rewriting
+	scope *renameScope
+	// origins records which document contributed the schema currently held under
+	// each name of the joined document. It stays nil unless the join can consult
+	// it: see Joiner.tracksSchemaOrigins.
+	origins map[string]schemaOrigin
+}
+
+// tracksSchemaOrigins reports whether the join needs to know which document
+// contributed each merged schema.
+//
+// Only rename-left consults it, to name the schema it moves aside after that
+// schema's own document, and a collision handler, which is told the left side's
+// source. Every other path leaves the left side under its original name, so the
+// bookkeeping would go unread.
+func (j *Joiner) tracksSchemaOrigins() bool {
+	return j.getEffectiveStrategy(j.config.SchemaStrategy) == StrategyRenameLeft ||
+		j.shouldInvokeHandler(CollisionTypeSchema)
+}
+
+// schemaOrigin identifies the document that contributed a schema, so that
+// renaming it can name it after its own source rather than after the first
+// document in the join (#479).
+type schemaOrigin struct {
+	filePath string
+	docIndex int
+}
+
+// recordOrigin notes that a document contributed the schema now held under name.
+// It is a no-op when the join does not track origins.
+func (r *JoinResult) recordOrigin(name string, ctx documentContext) {
+	if r.origins == nil {
+		return
+	}
+	r.origins[name] = schemaOrigin{filePath: ctx.filePath, docIndex: ctx.docIndex}
+}
+
+// moveOrigin follows a schema's origin when the join stores it under a new name.
+func (r *JoinResult) moveOrigin(oldName, newName string) {
+	if origin, ok := r.origins[oldName]; ok {
+		r.origins[newName] = origin
+	}
+}
+
+// originOf returns the document that contributed the schema held under name. It
+// falls back to the first document, which is the only contributor a two document
+// join can have on the left.
+func (r *JoinResult) originOf(name string) schemaOrigin {
+	if origin, ok := r.origins[name]; ok {
+		return origin
+	}
+	return schemaOrigin{filePath: r.firstFilePath}
 }
 
 // AddWarning adds a structured warning and populates the legacy Warnings slice.

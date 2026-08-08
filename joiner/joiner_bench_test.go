@@ -89,6 +89,19 @@ func BenchmarkJoinParsed(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to parse doc3: %v", err)
 	}
+	// FiveDocs needs five distinct documents. Reusing doc1 and doc2 would hand the
+	// joiner the same document at two positions, which it deep copies so the two
+	// positions stay independent (#481), so the benchmark would be measuring that
+	// copy rather than a five document join. Parsing again gives distinct
+	// documents with the same content.
+	doc4, err := parser.ParseWithOptions(parser.WithFilePath(joinBaseOAS3Path))
+	if err != nil {
+		b.Fatalf("Failed to parse doc4: %v", err)
+	}
+	doc5, err := parser.ParseWithOptions(parser.WithFilePath(joinExt1OAS3Path))
+	if err != nil {
+		b.Fatalf("Failed to parse doc5: %v", err)
+	}
 
 	config := DefaultConfig()
 	config.PathStrategy = StrategyAcceptLeft
@@ -118,7 +131,7 @@ func BenchmarkJoinParsed(b *testing.B) {
 	b.Run("FiveDocs", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			_, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2, *doc3, *doc1, *doc2})
+			_, err := j.JoinParsed([]parser.ParseResult{*doc1, *doc2, *doc3, *doc4, *doc5})
 			if err != nil {
 				b.Fatalf("Failed to join: %v", err)
 			}

@@ -134,7 +134,7 @@ func TestNewSchemaRenamedWarning(t *testing.T) {
 		{
 			name:         "kept original",
 			keptOriginal: true,
-			wantContains: "kept from first document",
+			wantContains: "incoming document takes the original name",
 		},
 		{
 			name:         "renamed source",

@@ -250,11 +250,15 @@ func UseCustomValueWithMessage(value any, message string) CollisionResolution {
 // schemaResolutionParams contains parameters for applySchemaResolution.
 // This allows sharing the resolution logic between OAS2 definitions and OAS3 schemas.
 type schemaResolutionParams struct {
-	collision   CollisionContext
-	resolution  CollisionResolution
-	target      map[string]*parser.Schema
-	result      *JoinResult
-	ctx         documentContext
+	collision  CollisionContext
+	resolution CollisionResolution
+	target     map[string]*parser.Schema
+	result     *JoinResult
+	ctx        documentContext
+	// sourceName is the schema's name in its own document, which may differ from
+	// collision.Name when a namespace prefix has already been applied. Renames are
+	// recorded against it because that is what the document's references spell.
+	sourceName  string
 	sourceGraph *RefGraph
 	label       string // "schema" for OAS3, "definition" for OAS2
 }
@@ -287,6 +291,7 @@ func (j *Joiner) applySchemaResolution(p schemaResolutionParams) (bool, error) {
 	case ResolutionAcceptRight:
 		// Replace with incoming (right)
 		p.target[p.collision.Name] = schema
+		p.result.recordOrigin(p.collision.Name, p.ctx)
 		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, resolutionKeptRight, "")
 		return true, nil
 
@@ -294,10 +299,9 @@ func (j *Joiner) applySchemaResolution(p schemaResolutionParams) (bool, error) {
 		// Rename right schema/definition
 		newName := j.generateRenamedSchemaName(p.collision.Name, p.ctx.filePath, p.ctx.docIndex, p.sourceGraph)
 		p.target[newName] = schema
-		if p.result.rewriter == nil {
-			p.result.rewriter = NewSchemaRewriter()
-		}
-		p.result.rewriter.RegisterRename(p.collision.Name, newName, p.result.OASVersion)
+		p.result.recordOrigin(newName, p.ctx)
+		// Only the incoming document referenced the schema being renamed.
+		p.result.scope.registerRight(p.ctx.docIndex, p.sourceName, newName)
 		line, col := j.getLocation(p.ctx.filePath, p.collision.JSONPath)
 		p.result.AddWarning(NewSchemaRenamedWarning(p.collision.Name, newName, p.label, p.ctx.filePath, line, col, false))
 		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, resolutionRenamed, newName)
@@ -327,6 +331,7 @@ func (j *Joiner) applySchemaResolution(p schemaResolutionParams) (bool, error) {
 			return true, fmt.Errorf("collision handler: CustomValue is %T, expected *parser.Schema for %s collisions", p.resolution.CustomValue, p.label)
 		}
 		p.target[p.collision.Name] = customSchema
+		p.result.recordOrigin(p.collision.Name, p.ctx)
 		j.recordCollisionEvent(p.result, p.collision.Name, p.collision.LeftSource, p.collision.RightSource, p.collision.ConfiguredStrategy, "custom", "")
 		return true, nil
 

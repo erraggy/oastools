@@ -14,6 +14,7 @@ type SchemaRewriter struct {
 	refMap      map[string]string // Full ref path: "#/components/schemas/Old" → "#/components/schemas/New"
 	bareNameMap map[string]string // Bare name: "Old" → "New" (for discriminator shorthand)
 	visited     map[uintptr]bool  // Tracks visited nodes to prevent infinite loops
+	owns        func(entry any) bool
 }
 
 // NewSchemaRewriter creates a new rewriter instance
@@ -31,6 +32,24 @@ func (r *SchemaRewriter) RegisterRename(oldName, newName string, version parser.
 	newRef := schemaRefPath(newName, version)
 	r.refMap[oldRef] = newRef
 	r.bareNameMap[oldName] = newName
+}
+
+// restrictTo limits the rewrite to the top-level entries the predicate accepts,
+// leaving the rest of the document alone. A nil predicate rewrites everything.
+//
+// The joiner uses this to apply one source document's renames to the entries
+// that document contributed: a rename resolves a collision between two
+// documents and does not speak for the references that arrived with the others
+// (see renameScope and #478).
+func (r *SchemaRewriter) restrictTo(owns func(entry any) bool) {
+	r.owns = owns
+}
+
+// skipEntry reports whether a top-level entry falls outside the rewrite's scope.
+// It is consulted once per entry, so a subtree is descended into at most once
+// even when the same document is rewritten under several restrictions.
+func (r *SchemaRewriter) skipEntry(entry any) bool {
+	return r.owns != nil && !r.owns(entry)
 }
 
 // RewriteDocument traverses and rewrites all references in the document
@@ -62,42 +81,69 @@ func (r *SchemaRewriter) rewriteOAS3Document(doc *parser.OAS3Document) error {
 	if doc.Components != nil {
 		// Schemas
 		for _, schema := range doc.Components.Schemas {
+			if r.skipEntry(schema) {
+				continue
+			}
 			r.rewriteSchema(schema)
 		}
 		// Parameters
 		for _, param := range doc.Components.Parameters {
+			if r.skipEntry(param) {
+				continue
+			}
 			r.rewriteParameter(param)
 		}
 		// Responses
 		for _, resp := range doc.Components.Responses {
+			if r.skipEntry(resp) {
+				continue
+			}
 			r.rewriteResponse(resp)
 		}
 		// Request bodies
 		for _, reqBody := range doc.Components.RequestBodies {
+			if r.skipEntry(reqBody) {
+				continue
+			}
 			r.rewriteRequestBody(reqBody)
 		}
 		// Headers
 		for _, header := range doc.Components.Headers {
+			if r.skipEntry(header) {
+				continue
+			}
 			r.rewriteHeader(header)
 		}
 		// Callbacks
 		for _, callback := range doc.Components.Callbacks {
+			if r.skipEntry(callback) {
+				continue
+			}
 			r.rewriteCallback(callback)
 		}
 		// Links - intentionally not rewritten (don't contain schema references)
 		// Path items
 		for _, pathItem := range doc.Components.PathItems {
+			if r.skipEntry(pathItem) {
+				continue
+			}
 			r.rewritePathItem(pathItem)
 		}
 	}
 
 	// Rewrite references in paths
 	for _, pathItem := range doc.Paths {
+		if r.skipEntry(pathItem) {
+			continue
+		}
 		r.rewritePathItem(pathItem)
 	}
 
 	// Rewrite references in webhooks (OAS 3.1+)
 	for _, webhook := range doc.Webhooks {
+		if r.skipEntry(webhook) {
+			continue
+		}
 		r.rewritePathItem(webhook)
 	}
 
@@ -108,21 +154,33 @@ func (r *SchemaRewriter) rewriteOAS3Document(doc *parser.OAS3Document) error {
 func (r *SchemaRewriter) rewriteOAS2Document(doc *parser.OAS2Document) error {
 	// Rewrite references in definitions
 	for _, schema := range doc.Definitions {
+		if r.skipEntry(schema) {
+			continue
+		}
 		r.rewriteSchema(schema)
 	}
 
 	// Rewrite references in parameters
 	for _, param := range doc.Parameters {
+		if r.skipEntry(param) {
+			continue
+		}
 		r.rewriteParameter(param)
 	}
 
 	// Rewrite references in responses
 	for _, resp := range doc.Responses {
+		if r.skipEntry(resp) {
+			continue
+		}
 		r.rewriteResponse(resp)
 	}
 
 	// Rewrite references in paths
 	for _, pathItem := range doc.Paths {
+		if r.skipEntry(pathItem) {
+			continue
+		}
 		r.rewritePathItem(pathItem)
 	}
 
