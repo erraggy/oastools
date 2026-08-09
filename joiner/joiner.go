@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"text/template"
 
 	"github.com/erraggy/oastools/internal/fileutil"
@@ -148,7 +149,22 @@ type Joiner struct {
 	// collisionHandlerTypes specifies which collision types invoke the handler.
 	// Empty map means all types.
 	collisionHandlerTypes map[CollisionType]bool
+	// renameTemplate is RenameTemplate parsed, and renameTemplateErr whatever
+	// parsing it produced. Both are set on first use: the template is fixed for
+	// the life of a Joiner, and parsing it once per rename made that parse the
+	// largest single cost of a join that renames at all.
+	//
+	// Guarded by a sync.Once rather than a plain flag. A Joiner is documented as
+	// unsafe for concurrent use and this does not change that, but every other
+	// field is read-only once New returns, so two joins on one Joiner used to
+	// race over nothing. These are the only fields a join writes.
+	renameTemplateOnce sync.Once
+	renameTemplate     *template.Template
+	renameTemplateErr  error
 }
+
+// defaultRenameTemplate names a renamed schema after its source document.
+const defaultRenameTemplate = "{{.Name}}_{{.Source}}"
 
 // New creates a new Joiner instance with the provided configuration
 func New(config JoinerConfig) *Joiner {
@@ -599,29 +615,37 @@ func (j *Joiner) shouldOverwrite(strategy CollisionStrategy) bool {
 	return strategy == StrategyAcceptRight
 }
 
+// parsedRenameTemplate returns the configured rename template, parsing it on
+// first use and reusing that result for every later rename.
+func (j *Joiner) parsedRenameTemplate() (*template.Template, error) {
+	j.renameTemplateOnce.Do(func() {
+		tmplStr := j.config.RenameTemplate
+		if tmplStr == "" {
+			tmplStr = defaultRenameTemplate
+		}
+		j.renameTemplate, j.renameTemplateErr = template.New("rename").Funcs(renameFuncs()).Parse(tmplStr)
+	})
+	return j.renameTemplate, j.renameTemplateErr
+}
+
 // generateRenamedSchemaName generates a new name for a renamed schema based on the template
 func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docIndex int, graph *RefGraph) string {
 	// Build the rename context (handles both basic and operation-aware modes)
 	ctx := buildRenameContext(originalName, sourcePath, docIndex, graph, j.config.PrimaryOperationPolicy)
 
-	// Use template if configured
-	tmplStr := j.config.RenameTemplate
-	if tmplStr == "" {
-		tmplStr = "{{.Name}}_{{.Source}}"
-	}
-
-	// Parse template with extended function map
-	tmpl, err := template.New("rename").Funcs(renameFuncs()).Parse(tmplStr)
+	tmpl, err := j.parsedRenameTemplate()
 	if err != nil {
 		// Fall back to default pattern on template parse error
-		joinerLogger.Warn("joiner: template parse error", "schema", originalName, "template", tmplStr, "error", err)
+		joinerLogger.Warn("joiner: template parse error",
+			"schema", originalName, "template", j.config.RenameTemplate, "error", err)
 		return fmt.Sprintf("%s_%s", originalName, ctx.Source)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, ctx); err != nil {
 		// Fall back to default pattern on template execution error
-		joinerLogger.Warn("joiner: template execution error", "schema", originalName, "template", tmplStr, "error", err)
+		joinerLogger.Warn("joiner: template execution error",
+			"schema", originalName, "template", j.config.RenameTemplate, "error", err)
 		return fmt.Sprintf("%s_%s", originalName, ctx.Source)
 	}
 
