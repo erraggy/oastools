@@ -125,6 +125,18 @@ func deepCopyExtensions(v map[string]any) map[string]any {
 	return cp
 }
 
+// CloneExtensions deep copies an Extra map, the field every OAS object uses to
+// carry specification extensions and any other field the struct does not name.
+// A nil map clones to nil, so an object with no extensions stays empty rather
+// than gaining one.
+//
+// Callers that build a target object field by field need this: assigning the
+// source map directly would leave both objects sharing it, and a later write to
+// one would be visible through the other.
+func CloneExtensions(v map[string]any) map[string]any {
+	return deepCopyExtensions(v)
+}
+
 // deepCopyPaths deep copies a Paths map (map[string]*PathItem).
 func deepCopyPaths(v Paths) Paths {
 	if v == nil {

@@ -43,6 +43,7 @@ func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *Co
 		Info:       src.Info,
 		Paths:      make(map[string]*parser.PathItem),
 		Tags:       src.Tags,
+		Extra:      parser.CloneExtensions(src.Extra),
 	}
 
 	// Convert servers to host/basePath/schemes
@@ -180,6 +181,7 @@ func (c *Converter) convertOAS3PathItemToOAS2(src *parser.PathItem, doc *parser.
 		Summary:     src.Summary,
 		Description: src.Description,
 		Parameters:  c.convertParametersToOAS2(src.Parameters, result, fmt.Sprintf("%s.parameters", pathPrefix)),
+		Extra:       parser.CloneExtensions(src.Extra),
 	}
 
 	// Convert each standard operation using the shared helper
@@ -219,6 +221,7 @@ func (c *Converter) convertOAS3OperationToOAS2(src *parser.Operation, doc *parse
 		Parameters:   c.convertParametersToOAS2(src.Parameters, result, fmt.Sprintf("%s.parameters", opPath)),
 		Deprecated:   src.Deprecated,
 		Security:     src.Security,
+		Extra:        parser.CloneExtensions(src.Extra),
 	}
 
 	// Convert requestBody to body parameter and consumes
@@ -238,6 +241,7 @@ func (c *Converter) convertOAS3OperationToOAS2(src *parser.Operation, doc *parse
 	if src.Responses != nil {
 		dst.Responses = &parser.Responses{
 			Codes: make(map[string]*parser.Response),
+			Extra: parser.CloneExtensions(src.Responses.Extra),
 		}
 
 		if src.Responses.Default != nil {
@@ -314,6 +318,7 @@ func (c *Converter) convertOAS3RequestBodyToOAS2(requestBody *parser.RequestBody
 		In:          "body",
 		Description: requestBody.Description,
 		Required:    requestBody.Required,
+		Extra:       parser.CloneExtensions(requestBody.Extra),
 	}
 
 	if firstContent != nil && firstContent.Schema != nil {
@@ -345,6 +350,7 @@ func (c *Converter) convertSecuritySchemes(src *parser.OAS3Document, dst *parser
 			Description: scheme.Description,
 			Name:        scheme.Name,
 			In:          scheme.In,
+			Extra:       parser.CloneExtensions(scheme.Extra),
 		}
 
 		// Convert HTTP to basic
