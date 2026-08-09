@@ -1448,9 +1448,10 @@ func TestValidStrategies(t *testing.T) {
 	assert.Contains(t, strategies, string(StrategyRenameLeft))
 	assert.Contains(t, strategies, string(StrategyRenameRight))
 	assert.Contains(t, strategies, string(StrategyDeduplicateEquivalent))
+	assert.Contains(t, strategies, string(StrategyDeduplicateOrRename))
 
-	// Should have exactly 7 strategies
-	assert.Equal(t, 7, len(strategies))
+	// Should have exactly 8 strategies
+	assert.Equal(t, 8, len(strategies))
 }
 
 // TestIsValidStrategy tests the IsValidStrategy helper function
@@ -1466,6 +1467,7 @@ func TestIsValidStrategy(t *testing.T) {
 		{"rename-left", true},
 		{"rename-right", true},
 		{"deduplicate", true},
+		{"deduplicate-or-rename", true},
 		{"invalid", false},
 		{"", false},
 		{"AcceptLeft", false}, // Case sensitive

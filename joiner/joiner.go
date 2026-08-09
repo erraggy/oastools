@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"text/template"
 
 	"github.com/erraggy/oastools/internal/fileutil"
@@ -37,6 +38,14 @@ const (
 	StrategyRenameRight CollisionStrategy = "rename-right"
 	// StrategyDeduplicateEquivalent uses semantic comparison to deduplicate structurally identical schemas
 	StrategyDeduplicateEquivalent CollisionStrategy = "deduplicate"
+	// StrategyDeduplicateOrRename renames the incoming schema, then drops the
+	// rename again for every colliding schema that turns out to be
+	// interchangeable. A collision never fails the join, and a schema is only
+	// renamed when it genuinely differs.
+	//
+	// Unlike StrategyDeduplicateEquivalent the verdict is not reached at the
+	// collision. See collapseDeferredRenames for what runs instead, and when.
+	StrategyDeduplicateOrRename CollisionStrategy = "deduplicate-or-rename"
 )
 
 // ValidStrategies returns all valid collision strategy strings
@@ -49,6 +58,7 @@ func ValidStrategies() []string {
 		string(StrategyRenameLeft),
 		string(StrategyRenameRight),
 		string(StrategyDeduplicateEquivalent),
+		string(StrategyDeduplicateOrRename),
 	}
 }
 
@@ -56,7 +66,7 @@ func ValidStrategies() []string {
 func IsValidStrategy(strategy string) bool {
 	switch CollisionStrategy(strategy) {
 	case StrategyAcceptLeft, StrategyAcceptRight, StrategyFailOnCollision, StrategyFailOnPaths,
-		StrategyRenameLeft, StrategyRenameRight, StrategyDeduplicateEquivalent:
+		StrategyRenameLeft, StrategyRenameRight, StrategyDeduplicateEquivalent, StrategyDeduplicateOrRename:
 		return true
 	default:
 		return false
@@ -148,6 +158,26 @@ type Joiner struct {
 	// collisionHandlerTypes specifies which collision types invoke the handler.
 	// Empty map means all types.
 	collisionHandlerTypes map[CollisionType]bool
+	// renameTemplate is RenameTemplate parsed, and renameTemplateErr whatever
+	// parsing it produced. Both are set on first use, by parsedRenameTemplate.
+	//
+	// A sync.Once rather than a plain flag: a Joiner is documented as unsafe for
+	// concurrent use and this does not change that, but every other field is
+	// read-only once New returns, so two joins on one Joiner used to race over
+	// nothing. These are the only fields a join writes.
+	renameTemplateOnce sync.Once
+	renameTemplate     *template.Template
+	renameTemplateErr  error
+}
+
+// defaultRenameTemplate names a renamed schema after its source document.
+const defaultRenameTemplate = "{{.Name}}_{{.Source}}"
+
+// fallbackRenamedName is what a rename falls back to when the configured
+// template cannot be used. It is defaultRenameTemplate written out in Go, so
+// the two have to keep saying the same thing.
+func fallbackRenamedName(originalName, source string) string {
+	return originalName + "_" + source
 }
 
 // New creates a new Joiner instance with the provided configuration
@@ -195,6 +225,26 @@ type JoinResult struct {
 	// origins records which document contributed the value under each name, per
 	// section.
 	origins map[originKey]schemaOrigin
+	// deferred holds the collisions StrategyDeduplicateOrRename resolved by
+	// renaming, until the collapse decides which of those renames survive.
+	deferred []deferredRename
+}
+
+// deferredRename is one collision StrategyDeduplicateOrRename renamed its way
+// out of, carrying what reportDeferredRenames needs once the outcome is known.
+type deferredRename struct {
+	// name is the name that collided, which the left side keeps. newName is
+	// where the incoming schema was stored.
+	name    string
+	newName string
+	// label is the word warnings use for one entry of the section this
+	// collision was in: "schema" or "definition".
+	label string
+
+	leftSource  string
+	rightSource string
+	line        int
+	column      int
 }
 
 // The JSON path sections a merged value can live at, used as the origin key's
@@ -599,33 +649,57 @@ func (j *Joiner) shouldOverwrite(strategy CollisionStrategy) bool {
 	return strategy == StrategyAcceptRight
 }
 
+// parsedRenameTemplate returns the configured rename template, parsing it on
+// first use and reusing that result for every later rename.
+func (j *Joiner) parsedRenameTemplate() (*template.Template, error) {
+	// The template is fixed for the life of a Joiner. Parsing it per rename made
+	// that parse the largest single cost of any join that renames at all: see
+	// BenchmarkJoinDeduplicateOrRename.
+	j.renameTemplateOnce.Do(func() {
+		tmplStr := j.config.RenameTemplate
+		if tmplStr == "" {
+			tmplStr = defaultRenameTemplate
+		}
+		j.renameTemplate, j.renameTemplateErr = template.New("rename").Funcs(renameFuncs()).Parse(tmplStr)
+	})
+	return j.renameTemplate, j.renameTemplateErr
+}
+
 // generateRenamedSchemaName generates a new name for a renamed schema based on the template
 func (j *Joiner) generateRenamedSchemaName(originalName, sourcePath string, docIndex int, graph *RefGraph) string {
 	// Build the rename context (handles both basic and operation-aware modes)
 	ctx := buildRenameContext(originalName, sourcePath, docIndex, graph, j.config.PrimaryOperationPolicy)
 
-	// Use template if configured
-	tmplStr := j.config.RenameTemplate
-	if tmplStr == "" {
-		tmplStr = "{{.Name}}_{{.Source}}"
-	}
-
-	// Parse template with extended function map
-	tmpl, err := template.New("rename").Funcs(renameFuncs()).Parse(tmplStr)
+	tmpl, err := j.parsedRenameTemplate()
 	if err != nil {
 		// Fall back to default pattern on template parse error
-		joinerLogger.Warn("joiner: template parse error", "schema", originalName, "template", tmplStr, "error", err)
-		return fmt.Sprintf("%s_%s", originalName, ctx.Source)
+		joinerLogger.Warn("joiner: template parse error",
+			"schema", originalName, "template", j.config.RenameTemplate, "error", err)
+		return fallbackRenamedName(originalName, ctx.Source)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, ctx); err != nil {
 		// Fall back to default pattern on template execution error
-		joinerLogger.Warn("joiner: template execution error", "schema", originalName, "template", tmplStr, "error", err)
-		return fmt.Sprintf("%s_%s", originalName, ctx.Source)
+		joinerLogger.Warn("joiner: template execution error",
+			"schema", originalName, "template", j.config.RenameTemplate, "error", err)
+		return fallbackRenamedName(originalName, ctx.Source)
 	}
 
 	return buf.String()
+}
+
+// renamedRightName is the name an incoming schema is stored under when the
+// schema already in the join keeps the one they collided on.
+func (j *Joiner) renamedRightName(sourceName, effectiveName, sourcePrefix string, ctx documentContext, graph *RefGraph) string {
+	// A namespace prefix for the incoming document wins over the template,
+	// unless it has already been applied to every schema from that document: the
+	// collision is then between two prefixed names, which the prefix cannot
+	// separate and the template can.
+	if sourcePrefix != "" && !j.config.AlwaysApplyPrefix {
+		return j.generatePrefixedSchemaName(sourceName, sourcePrefix)
+	}
+	return j.generateRenamedSchemaName(effectiveName, ctx.filePath, ctx.docIndex, graph)
 }
 
 // uniqueSchemaName returns candidate, or the first free candidate_2,

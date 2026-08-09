@@ -625,11 +625,12 @@ oastools join [flags] <file1> <file2> [file3...]
 | `fail-on-paths` | Fail only on path collisions, allow schema collisions |
 | `rename-left` | Rename left schema, keep right under original name |
 | `rename-right` | Rename right schema, keep left under original name |
-| `dedup-equivalent` | Merge structurally identical schemas |
+| `deduplicate` | Merge structurally identical schemas, fail on any colliding pair that differs. Needs `--equivalence-mode shallow` or `deep`: under the default `none` every collision fails, identical or not |
+| `deduplicate-or-rename` | Merge schemas that are interchangeable, rename the rest; never fails on a collision |
 
 ### Schema Renaming
 
-When using `rename-left` or `rename-right` strategies, schemas are renamed using Go templates. The `--rename-template` flag controls the naming pattern.
+When using `rename-left`, `rename-right` or `deduplicate-or-rename` strategies, schemas are renamed using Go templates. The `--rename-template` flag controls the naming pattern.
 
 #### Basic Template Variables
 

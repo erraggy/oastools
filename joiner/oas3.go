@@ -200,8 +200,17 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	result.Document = joined
 
+	// The renames are all known and none is applied yet, which is the one point
+	// at which a schema headed for a collapse can be dropped rather than
+	// rewritten and copied (#487).
+	var owner map[any]int
+	if !result.scope.empty() {
+		owner = ownersOAS3(sources)
+		j.collapseDeferredRenames(joined.Components.Schemas, owner, result)
+	}
+
 	// Before deduplication, so comparison sees references in their final form.
-	copied, err := result.scope.applyOAS3(joined, sources)
+	copied, err := result.scope.applyOAS3(joined, owner)
 	if err != nil {
 		return nil, fmt.Errorf("joiner: failed to rewrite references after schema renames: %w", err)
 	}
@@ -375,7 +384,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 					eqResult := CompareSchemasWithOptions(target[effectiveName], schema, j.buildCompareOptions(mode))
 					if eqResult.Equivalent {
 						// Schemas are equivalent, keep existing and skip
-						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
+						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", name))
 						result.AddWarning(NewSchemaDedupWarning(effectiveName, "schema", ctx.filePath, line, col))
 						j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, strategy, resolutionDeduplicated, "")
 						continue
@@ -413,18 +422,35 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "schema", leftOrigin.filePath, line, col, true))
 				j.recordCollisionEvent(result, effectiveName, leftOrigin.filePath, ctx.filePath, strategy, resolutionRenamed, newName)
 
+			case StrategyDeduplicateOrRename:
+				// Rename now, decide later. Whether these two schemas are
+				// interchangeable depends on where their references resolve, and
+				// documents still to be merged can move those targets, so the
+				// verdict cannot be reached here (#487).
+				newName := uniqueSchemaName(target, j.renamedRightName(name, effectiveName, sourcePrefix, ctx, sourceGraph))
+
+				target[newName] = schema
+				result.recordOrigin(sectionSchemas, newName, ctx)
+				result.scope.registerRight(ctx.docIndex, name, newName)
+
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", name))
+				// No warning and no collision event here. Either would be
+				// wrong for every rename collapseDeferredRenames withdraws, so
+				// both wait until it has decided.
+				result.deferred = append(result.deferred, deferredRename{
+					name:        effectiveName,
+					newName:     newName,
+					label:       "schema",
+					leftSource:  leftSource,
+					rightSource: ctx.filePath,
+					line:        line,
+					column:      col,
+				})
+
 			case StrategyRenameRight:
 				// Rename the new (right) schema and keep existing (left) schema under original name
-				// Use namespace prefix if available, otherwise use template
-				var newName string
-				if sourcePrefix != "" && !j.config.AlwaysApplyPrefix {
-					// Source has prefix but AlwaysApplyPrefix is false - apply prefix now on collision
-					newName = j.generatePrefixedSchemaName(name, sourcePrefix)
-				} else {
-					// Pass sourceGraph for operation-aware renaming of the right/new schema
-					newName = j.generateRenamedSchemaName(effectiveName, ctx.filePath, ctx.docIndex, sourceGraph)
-				}
-				newName = uniqueSchemaName(target, newName)
+				// sourceGraph gives the template operation-aware context for the right/new schema
+				newName := uniqueSchemaName(target, j.renamedRightName(name, effectiveName, sourcePrefix, ctx, sourceGraph))
 
 				// Add new schema under renamed name
 				target[newName] = schema
@@ -435,7 +461,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				// Only this document referenced the renamed schema.
 				result.scope.registerRight(ctx.docIndex, name, newName)
 
-				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", name))
 				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "schema", ctx.filePath, line, col, false))
 				j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, strategy, resolutionRenamed, newName)
 
@@ -447,11 +473,11 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				if j.shouldOverwrite(strategy) {
 					target[effectiveName] = schema
 					result.recordOrigin(sectionSchemas, effectiveName, ctx)
-					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
+					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", name))
 					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "overwritten", "components.schemas", leftSource, ctx.filePath, line, col))
 					j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, strategy, resolutionKeptRight, "")
 				} else {
-					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", effectiveName))
+					line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.components.schemas.%s", name))
 					result.AddWarning(NewSchemaCollisionWarning(effectiveName, "kept existing value", "components.schemas", leftSource, ctx.filePath, line, col))
 					j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, strategy, resolutionKeptLeft, "")
 				}

@@ -2,11 +2,14 @@ package mcpserver
 
 import (
 	"log/slog"
+	"maps"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/erraggy/oastools/joiner"
 )
 
 // serverConfig holds all configurable MCP server defaults.
@@ -104,23 +107,21 @@ func envInt64(key string, fallback int64) int64 {
 	return n
 }
 
-// validJoinStrategies is the set of recognised collision strategy values.
-// Must stay in sync with joiner.CollisionStrategy constants.
-var validJoinStrategies = map[string]bool{
-	"accept-left": true, "accept-right": true,
-	"fail": true, "fail-on-paths": true,
-	"rename-left": true, "rename-right": true,
-	"deduplicate": true,
-}
+// validJoinStrategies is the set of recognised collision strategy values,
+// read from the joiner rather than restated, so a strategy added there is
+// accepted here without a second edit.
+var validJoinStrategies = func() map[string]bool {
+	strategies := make(map[string]bool, len(joiner.ValidStrategies()))
+	for _, strategy := range joiner.ValidStrategies() {
+		strategies[strategy] = true
+	}
+	return strategies
+}()
 
 // validJoinStrategyList is a sorted, comma-separated list of valid strategy
 // values for use in error messages.
 var validJoinStrategyList = func() string {
-	keys := make([]string, 0, len(validJoinStrategies))
-	for k := range validJoinStrategies {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(validJoinStrategies))
 	return strings.Join(keys, ", ")
 }()
 

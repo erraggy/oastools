@@ -450,7 +450,7 @@ func TestRenameScopeCoversEveryContainer(t *testing.T) {
 }
 
 // TestRenameScopeCoversEveryContainerOAS2 is the OAS 2 counterpart, covering the
-// four containers applyOAS2 attributes and rewriteOAS2Document traverses.
+// four containers ownersOAS2 attributes and rewriteOAS2Document traverses.
 func TestRenameScopeCoversEveryContainerOAS2(t *testing.T) {
 	targetRef := func() *parser.Schema { return &parser.Schema{Ref: "#/definitions/Target"} }
 

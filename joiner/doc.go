@@ -31,7 +31,7 @@
 // Join files using functional options:
 //
 //	result, err := joiner.JoinWithOptions(
-//		joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+//		joiner.WithFilePaths("base.yaml", "ext.yaml"),
 //		joiner.WithPathStrategy(joiner.StrategyAcceptLeft),
 //	)
 //	if err != nil {
@@ -44,7 +44,7 @@
 //	config := joiner.DefaultConfig()
 //	config.PathStrategy = joiner.StrategyAcceptLeft
 //	result, err := joiner.JoinWithOptions(
-//		joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+//		joiner.WithFilePaths("base.yaml", "ext.yaml"),
 //		joiner.WithConfig(config),
 //	)
 //
@@ -66,6 +66,7 @@
 //   - StrategyRenameLeft: Rename left schema, keep right under original name
 //   - StrategyRenameRight: Rename right schema, keep left under original name
 //   - StrategyDeduplicateEquivalent: Merge structurally identical schemas
+//   - StrategyDeduplicateOrRename: Merge interchangeable schemas, rename the rest
 //
 // Set strategies globally (DefaultStrategy) or per component type (PathStrategy,
 // SchemaStrategy, ComponentStrategy). The rename and deduplicate strategies provide
@@ -80,7 +81,7 @@
 //	config.SchemaStrategy = joiner.StrategyRenameRight
 //	config.RenameTemplate = "{{.Name}}_{{.Source}}"
 //	result, err := joiner.JoinWithOptions(
-//		joiner.WithFilePaths([]string{"users-api.yaml", "billing-api.yaml"}),
+//		joiner.WithFilePaths("users-api.yaml", "billing-api.yaml"),
 //		joiner.WithConfig(config),
 //	)
 //
@@ -91,9 +92,27 @@
 //	config.SchemaStrategy = joiner.StrategyDeduplicateEquivalent
 //	config.EquivalenceMode = "deep"
 //	result, err := joiner.JoinWithOptions(
-//		joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+//		joiner.WithFilePaths("base.yaml", "ext.yaml"),
 //		joiner.WithConfig(config),
 //	)
+//
+// The deduplicate-or-rename strategy is for joining many documents that mostly
+// agree. A collision never fails, and a schema is only renamed when it
+// genuinely differs, so documents that agree keep the one name they all wrote:
+//
+//	config := joiner.DefaultConfig()
+//	config.SchemaStrategy = joiner.StrategyDeduplicateOrRename
+//	result, err := joiner.JoinWithOptions(
+//		joiner.WithFilePaths(servicePaths...),
+//		joiner.WithConfig(config),
+//	)
+//
+// It decides once, after every document's renames are known and before any of
+// them is applied, comparing each side through its own document's pending
+// renames. That reaches what StrategyRenameRight followed by
+// SemanticDeduplication reaches, without renaming and rewriting twice. Schemas
+// that only become interchangeable once the schemas they reference have been
+// merged need SemanticDeduplication enabled as well; see the package deep dive.
 //
 // See the examples in example_test.go for more configuration patterns.
 //
@@ -122,7 +141,7 @@
 // Enable via option:
 //
 //	result, err := joiner.JoinWithOptions(
-//	    joiner.WithFilePaths([]string{"users-api.yaml", "billing-api.yaml"}),
+//	    joiner.WithFilePaths("users-api.yaml", "billing-api.yaml"),
 //	    joiner.WithSchemaStrategy(joiner.StrategyRenameRight),
 //	    joiner.WithRenameTemplate("{{.Name}}_{{.OperationID}}"),
 //	    joiner.WithOperationContext(true),
@@ -218,7 +237,7 @@
 // Register a handler via option:
 //
 //	result, err := joiner.JoinWithOptions(
-//	    joiner.WithFilePaths([]string{"users-api.yaml", "billing-api.yaml"}),
+//	    joiner.WithFilePaths("users-api.yaml", "billing-api.yaml"),
 //	    joiner.WithCollisionHandler(func(c joiner.CollisionContext) (joiner.CollisionResolution, error) {
 //	        fmt.Printf("Collision: %s %q\n", c.Type, c.Name)
 //	        return joiner.ContinueWithStrategy(), nil  // Defer to configured strategy
@@ -228,7 +247,7 @@
 // Or handle only specific collision types:
 //
 //	result, err := joiner.JoinWithOptions(
-//	    joiner.WithFilePaths([]string{"users-api.yaml", "billing-api.yaml"}),
+//	    joiner.WithFilePaths("users-api.yaml", "billing-api.yaml"),
 //	    joiner.WithCollisionHandlerFor(joiner.CollisionTypeSchema, func(c joiner.CollisionContext) (joiner.CollisionResolution, error) {
 //	        if c.Name == "Error" {
 //	            return joiner.AcceptLeft(), nil  // Always keep left Error schema
@@ -286,7 +305,7 @@
 // Apply overlays during the join process for pre-processing inputs or post-processing results:
 //
 //	result, err := joiner.JoinWithOptions(
-//	    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+//	    joiner.WithFilePaths("base.yaml", "ext.yaml"),
 //	    joiner.WithPreJoinOverlayFile("normalize.yaml"),   // Applied to each input
 //	    joiner.WithPostJoinOverlayFile("enhance.yaml"),    // Applied to merged result
 //	)
@@ -303,7 +322,7 @@
 // Enable via option:
 //
 //	result, err := joiner.JoinWithOptions(
-//	    joiner.WithFilePaths([]string{"users-api.yaml", "orders-api.yaml"}),
+//	    joiner.WithFilePaths("users-api.yaml", "orders-api.yaml"),
 //	    joiner.WithSemanticDeduplication(true),
 //	)
 //
@@ -388,7 +407,7 @@
 // Access structured warnings from the result:
 //
 //	result, _ := joiner.JoinWithOptions(
-//	    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+//	    joiner.WithFilePaths("base.yaml", "ext.yaml"),
 //	)
 //	for _, w := range result.StructuredWarnings {
 //	    fmt.Printf("[%s] %s\n", w.Category, w.Message)
@@ -456,7 +475,7 @@
 //
 //	// Join documents
 //	joinResult, _ := joiner.JoinWithOptions(
-//	    joiner.WithFilePaths([]string{"users-api.yaml", "orders-api.yaml"}),
+//	    joiner.WithFilePaths("users-api.yaml", "orders-api.yaml"),
 //	)
 //
 //	// Validate the joined result

@@ -388,7 +388,7 @@ result, _ := validator.ValidateWithOptions(
 
 // Join
 result, _ := joiner.JoinWithOptions(
-    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+    joiner.WithFilePaths("base.yaml", "ext.yaml"),
     joiner.WithConfig(joiner.DefaultConfig()),
 )
 
