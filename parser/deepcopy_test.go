@@ -563,3 +563,88 @@ func TestCallbackDeepCopy(t *testing.T) {
 	callback["{$request.body#/callbackUrl}"].Post.Summary = "Modified"
 	assert.Equal(t, "Callback notification", cp["{$request.body#/callbackUrl}"].Post.Summary)
 }
+
+// TestDeepCopyExtensionsIsDeep covers the copy the converter relies on when it
+// builds a target object field by field. A shallow copy would leave the two
+// documents sharing the nested values, so a write through one would be visible
+// in the other.
+func TestDeepCopyExtensionsIsDeep(t *testing.T) {
+	src := map[string]any{
+		"x-scalar": "original",
+		"x-nested": map[string]any{
+			"inner": "original",
+			"deep":  map[string]any{"leaf": "original"},
+		},
+		"x-list": []any{"original", map[string]any{"leaf": "original"}},
+	}
+
+	clone := DeepCopyExtensions(src)
+	require.Equal(t, src, clone, "the clone should start out equal")
+
+	clone["x-scalar"] = "rewritten"
+	clone["x-nested"].(map[string]any)["inner"] = "rewritten"
+	clone["x-nested"].(map[string]any)["deep"].(map[string]any)["leaf"] = "rewritten"
+	clone["x-list"].([]any)[0] = "rewritten"
+	clone["x-list"].([]any)[1].(map[string]any)["leaf"] = "rewritten"
+
+	assert.Equal(t, "original", src["x-scalar"])
+	assert.Equal(t, "original", src["x-nested"].(map[string]any)["inner"])
+	assert.Equal(t, "original", src["x-nested"].(map[string]any)["deep"].(map[string]any)["leaf"])
+	assert.Equal(t, "original", src["x-list"].([]any)[0])
+	assert.Equal(t, "original", src["x-list"].([]any)[1].(map[string]any)["leaf"])
+}
+
+// TestDeepCopyExtensionsEmptyCases keeps a nil map cloning to nil. An object with
+// no extensions must not gain an empty map, which would serialize differently
+// from the document it came from.
+func TestDeepCopyExtensionsEmptyCases(t *testing.T) {
+	assert.Nil(t, DeepCopyExtensions(nil))
+
+	empty := DeepCopyExtensions(map[string]any{})
+	assert.NotNil(t, empty)
+	assert.Empty(t, empty)
+}
+
+// TestDeepCopySecurityRequirementsIsDeep covers the other clone the converter
+// relies on. A SecurityRequirement is a map of scope slices, so both levels
+// have to come away independent.
+func TestDeepCopySecurityRequirementsIsDeep(t *testing.T) {
+	src := []SecurityRequirement{
+		{"oauth": {"read", "write"}},
+		{"apiKey": {}},
+	}
+
+	clone := DeepCopySecurityRequirements(src)
+	require.Equal(t, src, clone, "the clone should start out equal")
+
+	clone[0]["oauth"][0] = "rewritten"
+	clone[0]["added"] = []string{"rewritten"}
+
+	assert.Equal(t, "read", src[0]["oauth"][0], "scope slices must be independent")
+	assert.NotContains(t, src[0], "added", "the requirement maps must be independent")
+}
+
+// TestDeepCopySecurityRequirementsEmptyCases keeps nil cloning to nil, so a
+// document with no security section does not gain an empty one.
+func TestDeepCopySecurityRequirementsEmptyCases(t *testing.T) {
+	assert.Nil(t, DeepCopySecurityRequirements(nil))
+
+	empty := DeepCopySecurityRequirements([]SecurityRequirement{})
+	assert.NotNil(t, empty)
+	assert.Empty(t, empty)
+}
+
+// TestDeepCopySecurityRequirementsKeepsNilScopes covers a requirement whose
+// scopes are nil, which YAML produces for a bare "oauth:" key. Dropping the key
+// would remove the scheme from the requirement, which is a different document.
+func TestDeepCopySecurityRequirementsKeepsNilScopes(t *testing.T) {
+	src := []SecurityRequirement{{"oauth": nil, "apiKey": {"read"}}}
+
+	clone := DeepCopySecurityRequirements(src)
+
+	require.Len(t, clone, 1)
+	require.Contains(t, clone[0], "oauth", "a nil-scope key must survive the copy")
+	assert.Nil(t, clone[0]["oauth"], "and stay nil rather than becoming empty")
+	assert.Equal(t, []string{"read"}, clone[0]["apiKey"])
+	assert.Equal(t, src, clone)
+}

@@ -149,7 +149,9 @@ func SetupFixFlags() (*flag.FlagSet, *FixFlags) {
 		Writef(fs.Output(), "  - Output preserves the original format (JSON or YAML)\n")
 		Writef(fs.Output(), "\nExit Codes:\n")
 		Writef(fs.Output(), "  0    Fixes applied successfully (or no fixes needed)\n")
-		Writef(fs.Output(), "  1    Failed to parse or fix the specification\n")
+		Writef(fs.Output(), "  1    Failed to parse or fix the specification, or the\n")
+		Writef(fs.Output(), "       document still has errors no fix covers. The fixed\n")
+		Writef(fs.Output(), "       document is still written in the latter case.\n")
 	}
 
 	return fs, flags
@@ -322,20 +324,39 @@ func HandleFix(args []string) error {
 			Writef(os.Stderr, "\n")
 		}
 
-		// Print summary
-		if result.HasFixes() {
-			if flags.DryRun {
-				Writef(os.Stderr, "⚡ Would apply %d fix(es) (dry-run mode)\n", result.FixCount)
-			} else {
-				Writef(os.Stderr, "✓ Applied %d fix(es)\n", result.FixCount)
+		// Report the problems no fix covers. Naming them is the point: without
+		// them the summary below reads as a clean bill of health for a document
+		// validate rejects and convert refuses.
+		if result.HasParseErrors() {
+			Writef(os.Stderr, "Errors Not Fixed (%d):\n", len(result.ParseErrors))
+			for _, parseErr := range result.ParseErrors {
+				Writef(os.Stderr, "  ✗ %s\n", parseErr)
 			}
-		} else {
+			Writef(os.Stderr, "\n")
+		}
+
+		// Print summary
+		switch {
+		case flags.DryRun && result.HasFixes():
+			Writef(os.Stderr, "⚡ Would apply %d fix(es) (dry-run mode)\n", result.FixCount)
+		case result.HasFixes():
+			Writef(os.Stderr, "✓ Applied %d fix(es)\n", result.FixCount)
+		case result.HasParseErrors():
+			Writef(os.Stderr, "⚠ No fixes available for the %d remaining error(s)\n", len(result.ParseErrors))
+		default:
 			Writef(os.Stderr, "✓ No fixes needed - specification is already valid\n")
+		}
+
+		if result.HasParseErrors() {
+			Writef(os.Stderr, "\nRun 'oastools validate' for detail on the errors above.\n")
 		}
 	}
 
 	// In dry-run mode, don't output the document
 	if flags.DryRun {
+		if result.HasParseErrors() {
+			os.Exit(1)
+		}
 		return nil
 	}
 
@@ -362,6 +383,14 @@ func HandleFix(args []string) error {
 		if _, err = os.Stdout.Write(data); err != nil {
 			return fmt.Errorf("writing fixed document to stdout: %w", err)
 		}
+	}
+
+	// The fixed document is written either way: fixing what it can is useful
+	// even on a document with problems no fix covers. The exit code is what
+	// stops those problems being read as success, and it matches the refusal
+	// convert and joiner already give the same document.
+	if result.HasParseErrors() {
+		os.Exit(1)
 	}
 
 	return nil

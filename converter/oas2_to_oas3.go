@@ -18,10 +18,11 @@ func (c *Converter) convertOAS2ToOAS3(parseResult parser.ParseResult, targetVers
 	dst := &parser.OAS3Document{
 		OpenAPI:    result.TargetVersion,
 		OASVersion: targetVersion,
-		Info:       src.Info,
+		Info:       src.Info.DeepCopy(),
 		Servers:    c.convertServers(src, result),
 		Paths:      make(map[string]*parser.PathItem),
-		Tags:       src.Tags,
+		Tags:       deepCopyTags(src.Tags),
+		Extra:      parser.DeepCopyExtensions(src.Extra),
 	}
 
 	// Convert components
@@ -65,12 +66,12 @@ func (c *Converter) convertOAS2ToOAS3(parseResult parser.ParseResult, targetVers
 
 	// Handle external docs
 	if src.ExternalDocs != nil {
-		dst.ExternalDocs = src.ExternalDocs
+		dst.ExternalDocs = src.ExternalDocs.DeepCopy()
 	}
 
 	// Global security is compatible
 	if len(src.Security) > 0 {
-		dst.Security = src.Security
+		dst.Security = parser.DeepCopySecurityRequirements(src.Security)
 	}
 
 	// Rewrite all $ref paths from OAS 2.0 to OAS 3.x format
@@ -132,6 +133,7 @@ func (c *Converter) convertOAS2PathItemToOAS3(src *parser.PathItem, doc *parser.
 		Summary:     src.Summary,
 		Description: src.Description,
 		Parameters:  c.convertParameters(src.Parameters, result, fmt.Sprintf("%s.parameters", pathPrefix)),
+		Extra:       parser.DeepCopyExtensions(src.Extra),
 	}
 
 	// Convert each standard operation using the shared helper
@@ -154,14 +156,15 @@ func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parse
 		}
 	}
 	dst := &parser.Operation{
-		Tags:         src.Tags,
+		Tags:         deepCopyStrings(src.Tags),
 		Summary:      src.Summary,
 		Description:  src.Description,
-		ExternalDocs: src.ExternalDocs,
+		ExternalDocs: src.ExternalDocs.DeepCopy(),
 		OperationID:  src.OperationID,
 		Parameters:   c.convertParameters(nonBodyParams, result, fmt.Sprintf("%s.parameters", opPath)),
 		Deprecated:   src.Deprecated,
-		Security:     src.Security,
+		Security:     parser.DeepCopySecurityRequirements(src.Security),
+		Extra:        parser.DeepCopyExtensions(src.Extra),
 	}
 
 	// Convert responses
@@ -169,6 +172,7 @@ func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parse
 		dst.Responses = &parser.Responses{
 			Default: c.convertOAS2ResponseToOAS3Old(src.Responses.Default, c.getProduces(src, doc), result.TargetOASVersion, result, opPath+".responses.default"),
 			Codes:   make(map[string]*parser.Response),
+			Extra:   parser.DeepCopyExtensions(src.Responses.Extra),
 		}
 
 		for code, response := range src.Responses.Codes {
@@ -230,6 +234,7 @@ func (c *Converter) convertOAS2RequestBody(src *parser.Operation, doc *parser.OA
 		Description: bodyParam.Description,
 		Required:    bodyParam.Required,
 		Content:     make(map[string]*parser.MediaType),
+		Extra:       parser.DeepCopyExtensions(bodyParam.Extra),
 	}
 
 	// Get consumes media types
@@ -329,6 +334,9 @@ func (c *Converter) convertOAS2FormDataToRequestBody(src *parser.Operation, doc 
 		if param.Description != "" {
 			propSchema.Description = param.Description
 		}
+		// The property schema is where this parameter ends up, so it is the only
+		// place its extensions can go.
+		propSchema.Extra = parser.DeepCopyExtensions(param.Extra)
 		schema.Properties[param.Name] = propSchema
 		if param.Required {
 			required = append(required, param.Name)
@@ -428,6 +436,7 @@ func (c *Converter) convertSecurityDefinitions(src *parser.OAS2Document, dst *pa
 			Description: secDef.Description,
 			Name:        secDef.Name,
 			In:          secDef.In,
+			Extra:       parser.DeepCopyExtensions(secDef.Extra),
 		}
 
 		// Convert OAuth2 flows
@@ -438,23 +447,23 @@ func (c *Converter) convertSecurityDefinitions(src *parser.OAS2Document, dst *pa
 			case oauthFlowImplicit:
 				scheme.Flows.Implicit = &parser.OAuthFlow{
 					AuthorizationURL: secDef.AuthorizationURL,
-					Scopes:           secDef.Scopes,
+					Scopes:           deepCopyScopes(secDef.Scopes),
 				}
 			case oauthFlowPassword:
 				scheme.Flows.Password = &parser.OAuthFlow{
 					TokenURL: secDef.TokenURL,
-					Scopes:   secDef.Scopes,
+					Scopes:   deepCopyScopes(secDef.Scopes),
 				}
 			case oas2FlowApplication:
 				scheme.Flows.ClientCredentials = &parser.OAuthFlow{
 					TokenURL: secDef.TokenURL,
-					Scopes:   secDef.Scopes,
+					Scopes:   deepCopyScopes(secDef.Scopes),
 				}
 			case oas2FlowAccessCode:
 				scheme.Flows.AuthorizationCode = &parser.OAuthFlow{
 					AuthorizationURL: secDef.AuthorizationURL,
 					TokenURL:         secDef.TokenURL,
-					Scopes:           secDef.Scopes,
+					Scopes:           deepCopyScopes(secDef.Scopes),
 				}
 			default:
 				c.addIssueWithContext(result, path,

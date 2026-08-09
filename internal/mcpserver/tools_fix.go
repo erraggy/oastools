@@ -32,13 +32,22 @@ type fixApplied struct {
 	Description string `json:"description"`
 }
 
+// maxReportedFixErrors caps the errors echoed back. The count is always exact;
+// only the messages are trimmed, since a large document can carry a great many
+// and this tool's output is already the largest the server produces.
+const maxReportedFixErrors = 20
+
 type fixOutput struct {
-	FixCount  int          `json:"fix_count"`
-	Returned  int          `json:"returned"`
-	Fixes     []fixApplied `json:"fixes,omitempty"`
-	Version   string       `json:"version"`
-	WrittenTo string       `json:"written_to,omitempty"`
-	Document  string       `json:"document,omitempty"`
+	FixCount int          `json:"fix_count"`
+	Returned int          `json:"returned"`
+	Fixes    []fixApplied `json:"fixes,omitempty"`
+	// ErrorCount is how many errors the source document had that no fix covers.
+	ErrorCount int `json:"error_count"`
+	// Errors holds up to maxReportedFixErrors of those messages.
+	Errors    []string `json:"errors,omitempty"`
+	Version   string   `json:"version"`
+	WrittenTo string   `json:"written_to,omitempty"`
+	Document  string   `json:"document,omitempty"`
 }
 
 func handleFix(_ context.Context, _ *mcp.CallToolRequest, input fixInput) (*mcp.CallToolResult, fixOutput, error) {
@@ -53,8 +62,16 @@ func handleFix(_ context.Context, _ *mcp.CallToolRequest, input fixInput) (*mcp.
 	}
 
 	output := fixOutput{
-		FixCount: result.FixCount,
-		Version:  result.SourceVersion,
+		FixCount:   result.FixCount,
+		Version:    result.SourceVersion,
+		ErrorCount: len(result.ParseErrors),
+	}
+
+	for _, parseErr := range result.ParseErrors {
+		if len(output.Errors) == maxReportedFixErrors {
+			break
+		}
+		output.Errors = append(output.Errors, parseErr.Error())
 	}
 
 	output.Fixes = makeSlice[fixApplied](len(result.Fixes))

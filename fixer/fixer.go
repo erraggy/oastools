@@ -90,6 +90,12 @@ type FixResult struct {
 	Success bool
 	// Stats contains statistical information about the document
 	Stats parser.DocumentStats
+	// ParseErrors are the errors the parser reported for the source document.
+	// The fixer addresses none of them: they describe the document it was
+	// handed, not the one it produced. They are recorded so a caller can tell
+	// a document that fixing left in good shape from one that still has
+	// problems no fix covers.
+	ParseErrors []error
 }
 
 // HasFixes returns true if any fixes were applied
@@ -97,12 +103,22 @@ func (r *FixResult) HasFixes() bool {
 	return r.FixCount > 0
 }
 
+// HasParseErrors reports whether the source document had parse errors. A
+// caller that treats fixing as a gate should fail on this: converter and
+// joiner both refuse such a document outright.
+func (r *FixResult) HasParseErrors() bool {
+	return len(r.ParseErrors) > 0
+}
+
 // ToParseResult converts the FixResult to a ParseResult for use with
 // other packages like validator, converter, joiner, and differ.
 // The returned ParseResult has Document populated but Data is nil
 // (consumers use Document, not Data).
-// Errors and Warnings are empty slices since fixes are informational,
-// not validation errors.
+//
+// Errors carries ParseErrors through, so a document with problems no fix
+// covers reaches those packages as the document it is. Without that, passing a
+// FixResult to converter.ConvertParsed would convert a document the same
+// converter refuses when given the file.
 func (r *FixResult) ToParseResult() *parser.ParseResult {
 	sourcePath := r.SourcePath
 	if sourcePath == "" {
@@ -112,13 +128,15 @@ func (r *FixResult) ToParseResult() *parser.ParseResult {
 	if r.Document == nil {
 		warnings = append(warnings, "fixer: ToParseResult: Document is nil, downstream operations may fail")
 	}
+	errs := make([]error, 0, len(r.ParseErrors))
+	errs = append(errs, r.ParseErrors...)
 	return &parser.ParseResult{
 		SourcePath:   sourcePath,
 		SourceFormat: r.SourceFormat,
 		Version:      r.SourceVersion,
 		OASVersion:   r.SourceOASVersion,
 		Document:     r.Document,
-		Errors:       make([]error, 0),
+		Errors:       errs,
 		Warnings:     warnings,
 		Stats:        r.Stats,
 	}
@@ -437,6 +455,11 @@ func (f *Fixer) Fix(specPath string) (*FixResult, error) {
 // The fixer operates on the parsed document structure and does not require
 // a valid specification - it will attempt to fix issues even if validation
 // errors exist (since that's often the reason for using the fixer).
+//
+// Those errors are recorded in FixResult.ParseErrors rather than refused, so
+// fixing still helps a document that has problems no fix covers. A caller
+// using the fixer as a gate should consult HasParseErrors, since the returned
+// document can still be one validator rejects and converter will not accept.
 func (f *Fixer) FixParsed(parseResult parser.ParseResult) (*FixResult, error) {
 	result := &FixResult{
 		SourceVersion:    parseResult.Version,
@@ -446,6 +469,7 @@ func (f *Fixer) FixParsed(parseResult parser.ParseResult) (*FixResult, error) {
 		Stats:            parseResult.Stats,
 		Fixes:            make([]Fix, 0),
 		Success:          true,
+		ParseErrors:      parseResult.Errors,
 	}
 
 	// Only fail if the document couldn't be parsed at all

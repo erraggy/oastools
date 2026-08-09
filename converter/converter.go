@@ -399,20 +399,23 @@ func (c *Converter) Convert(specPath string, targetVersion string) (*ConversionR
 		return nil, fmt.Errorf("converter: failed to parse specification: %w", err)
 	}
 
-	// Check for parse errors
-	if len(parseResult.Errors) > 0 {
-		return nil, fmt.Errorf("converter: source document has %d parse error(s), cannot convert", len(parseResult.Errors))
-	}
-
 	return c.ConvertParsed(*parseResult, targetVersion)
 }
 
-// ConvertParsed converts an already-parsed OpenAPI specification to a target version
+// ConvertParsed converts an already-parsed OpenAPI specification to a target version.
+//
+// A document the parser reported errors for is refused, since converting it
+// would describe a source the converter could not read in full. Every entry
+// point reaches this check, including Convert.
 func (c *Converter) ConvertParsed(parseResult parser.ParseResult, targetVersionStr string) (*ConversionResult, error) {
 	// Parse target version
 	targetVersion, ok := parser.ParseVersion(targetVersionStr)
 	if !ok {
 		return nil, fmt.Errorf("converter: invalid target version: %s", targetVersionStr)
+	}
+
+	if len(parseResult.Errors) > 0 {
+		return nil, fmt.Errorf("converter: source document has %d parse error(s), cannot convert", len(parseResult.Errors))
 	}
 
 	// Initialize result

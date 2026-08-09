@@ -125,6 +125,24 @@ func deepCopyExtensions(v map[string]any) map[string]any {
 	return cp
 }
 
+// DeepCopyExtensions deep copies an Extra map, the field every OAS object uses
+// to carry specification extensions and any other field the struct does not
+// name. A nil map copies to nil, so an object with no extensions does not gain
+// an empty one.
+//
+// Use it when building an object field by field from an existing one: assigning
+// the map directly leaves both objects sharing it.
+func DeepCopyExtensions(v map[string]any) map[string]any {
+	return deepCopyExtensions(v)
+}
+
+// DeepCopySecurityRequirements deep copies a slice of SecurityRequirement, both
+// the requirement maps and the scope slices inside them. A nil slice copies to
+// nil.
+func DeepCopySecurityRequirements(v []SecurityRequirement) []SecurityRequirement {
+	return deepCopySecurityRequirements(v)
+}
+
 // deepCopyPaths deep copies a Paths map (map[string]*PathItem).
 func deepCopyPaths(v Paths) Paths {
 	if v == nil {
@@ -149,11 +167,16 @@ func deepCopySecurityRequirements(v []SecurityRequirement) []SecurityRequirement
 		if req != nil {
 			cp[i] = make(SecurityRequirement, len(req))
 			for k, scopes := range req {
-				if scopes != nil {
-					cpScopes := make([]string, len(scopes))
-					copy(cpScopes, scopes)
-					cp[i][k] = cpScopes
+				// Every key is assigned, including one whose scopes are nil.
+				// Skipping it would drop the scheme from the requirement, which
+				// is a different document, not a smaller copy of the same one.
+				if scopes == nil {
+					cp[i][k] = nil
+					continue
 				}
+				cpScopes := make([]string, len(scopes))
+				copy(cpScopes, scopes)
+				cp[i][k] = cpScopes
 			}
 		}
 	}

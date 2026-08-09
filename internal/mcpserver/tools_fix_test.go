@@ -2,8 +2,10 @@ package mcpserver
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/fixer"
@@ -362,4 +364,91 @@ paths:
 		assert.Equal(t, 0, output.Returned)
 		assert.Nil(t, output.Fixes)
 	})
+}
+
+// specWithUnfixableError has a problem no fix covers: an OAS 3.0 operation must
+// have a responses object.
+const specWithUnfixableError = `openapi: "3.0.0"
+info:
+  title: Unfixable
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+`
+
+// TestFixTool_ReportsErrorsNoFixCovers covers the MCP half of #470. A caller
+// reading fix_count alone would take zero fixes on this document as nothing to
+// do, when validate rejects it and convert refuses it.
+func TestFixTool_ReportsErrorsNoFixCovers(t *testing.T) {
+	input := fixInput{
+		Spec: specInput{Content: specWithUnfixableError},
+	}
+	_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, output.FixCount, "no fix covers a missing responses object")
+	assert.Positive(t, output.ErrorCount, "but the document is not in good shape")
+	require.NotEmpty(t, output.Errors)
+	assert.Contains(t, output.Errors[0], "responses")
+}
+
+// TestFixTool_CleanSpecReportsNoErrors is the half that must not regress.
+func TestFixTool_CleanSpecReportsNoErrors(t *testing.T) {
+	clean := `openapi: "3.0.0"
+info:
+  title: Clean API
+  version: "1.0.0"
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        "200":
+          description: OK
+`
+	input := fixInput{
+		Spec: specInput{Content: clean},
+	}
+	_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, output.ErrorCount)
+	assert.Empty(t, output.Errors)
+}
+
+// TestFixTool_CapsReportedErrors covers maxReportedFixErrors. The count stays
+// exact so a caller can tell how much was withheld; only the messages are
+// trimmed, since this tool already produces the server's largest output.
+func TestFixTool_CapsReportedErrors(t *testing.T) {
+	var sb strings.Builder
+	sb.WriteString("openapi: \"3.0.0\"\ninfo:\n  title: Many\n  version: \"1.0.0\"\npaths:\n")
+	const operations = maxReportedFixErrors + 10
+	for i := range operations {
+		fmt.Fprintf(&sb, "  /p%d:\n    get:\n      operationId: op%d\n", i, i)
+	}
+
+	input := fixInput{Spec: specInput{Content: sb.String()}}
+	_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+
+	assert.Equal(t, operations, output.ErrorCount, "the count must not be trimmed")
+	assert.Len(t, output.Errors, maxReportedFixErrors, "the messages must be")
+}
+
+// TestFixTool_ReturnsDocumentDespiteErrors keeps the document flowing for a
+// spec with problems no fix covers. ToParseResult now carries those errors, and
+// marshaling must not start refusing because of them.
+func TestFixTool_ReturnsDocumentDespiteErrors(t *testing.T) {
+	input := fixInput{
+		Spec:            specInput{Content: specWithUnfixableError},
+		IncludeDocument: true,
+	}
+	_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+
+	assert.Positive(t, output.ErrorCount)
+	assert.NotEmpty(t, output.Document, "the fixed document is still returned")
+	assert.Contains(t, output.Document, "operationId: a")
 }
