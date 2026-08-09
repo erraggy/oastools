@@ -90,11 +90,24 @@ type FixResult struct {
 	Success bool
 	// Stats contains statistical information about the document
 	Stats parser.DocumentStats
+	// ParseErrors are the errors the parser reported for the source document.
+	// The fixer addresses none of them: they describe the document it was
+	// handed, not the one it produced. They are recorded so a caller can tell
+	// a document that fixing left in good shape from one that still has
+	// problems no fix covers.
+	ParseErrors []error
 }
 
 // HasFixes returns true if any fixes were applied
 func (r *FixResult) HasFixes() bool {
 	return r.FixCount > 0
+}
+
+// HasParseErrors reports whether the source document had parse errors. A
+// caller that treats fixing as a gate should fail on this: converter and
+// joiner both refuse such a document outright.
+func (r *FixResult) HasParseErrors() bool {
+	return len(r.ParseErrors) > 0
 }
 
 // ToParseResult converts the FixResult to a ParseResult for use with
@@ -437,6 +450,11 @@ func (f *Fixer) Fix(specPath string) (*FixResult, error) {
 // The fixer operates on the parsed document structure and does not require
 // a valid specification - it will attempt to fix issues even if validation
 // errors exist (since that's often the reason for using the fixer).
+//
+// Those errors are recorded in FixResult.ParseErrors rather than refused, so
+// fixing still helps a document that has problems no fix covers. A caller
+// using the fixer as a gate should consult HasParseErrors, since the returned
+// document can still be one validator rejects and converter will not accept.
 func (f *Fixer) FixParsed(parseResult parser.ParseResult) (*FixResult, error) {
 	result := &FixResult{
 		SourceVersion:    parseResult.Version,
@@ -446,6 +464,7 @@ func (f *Fixer) FixParsed(parseResult parser.ParseResult) (*FixResult, error) {
 		Stats:            parseResult.Stats,
 		Fixes:            make([]Fix, 0),
 		Success:          true,
+		ParseErrors:      parseResult.Errors,
 	}
 
 	// Only fail if the document couldn't be parsed at all

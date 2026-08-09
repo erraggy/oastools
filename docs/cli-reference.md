@@ -355,8 +355,17 @@ Fixes Applied (3):
 
 | Code | Meaning |
 |------|---------|
-| 0 | Fix completed successfully |
-| 1 | Fix failed (parse error or invalid input) |
+| 0 | Fix completed successfully, and the document has no errors left |
+| 1 | Fix failed (parse error or invalid input), or the document still has errors no fix covers |
+
+`fix` applies what it can to a document with other problems, since that is
+usually why the document is being fixed at all. It lists those problems under
+"Errors Not Fixed", still writes the fixed document, and exits 1 so the result
+is not read as a clean bill of health. `validate` rejects and `convert` refuses
+the same documents.
+
+`parse` and the `walk` commands do not do this: they report on whatever
+document they are given, including a broken one, which is what they are for.
 
 ---
 
