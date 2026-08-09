@@ -363,3 +363,55 @@ paths:
 		assert.Nil(t, output.Fixes)
 	})
 }
+
+// specWithUnfixableError has a problem no fix covers: an OAS 3.0 operation must
+// have a responses object.
+const specWithUnfixableError = `openapi: "3.0.0"
+info:
+  title: Unfixable
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+`
+
+// TestFixTool_ReportsErrorsNoFixCovers covers the MCP half of #470. A caller
+// reading fix_count alone would take zero fixes on this document as nothing to
+// do, when validate rejects it and convert refuses it.
+func TestFixTool_ReportsErrorsNoFixCovers(t *testing.T) {
+	input := fixInput{
+		Spec: specInput{Content: specWithUnfixableError},
+	}
+	_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, output.FixCount, "no fix covers a missing responses object")
+	assert.Positive(t, output.ErrorCount, "but the document is not in good shape")
+	require.NotEmpty(t, output.Errors)
+	assert.Contains(t, output.Errors[0], "responses")
+}
+
+// TestFixTool_CleanSpecReportsNoErrors is the half that must not regress.
+func TestFixTool_CleanSpecReportsNoErrors(t *testing.T) {
+	clean := `openapi: "3.0.0"
+info:
+  title: Clean API
+  version: "1.0.0"
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        "200":
+          description: OK
+`
+	input := fixInput{
+		Spec: specInput{Content: clean},
+	}
+	_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, output.ErrorCount)
+	assert.Empty(t, output.Errors)
+}
