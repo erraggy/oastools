@@ -405,10 +405,8 @@ func (c *Converter) Convert(specPath string, targetVersion string) (*ConversionR
 // ConvertParsed converts an already-parsed OpenAPI specification to a target version.
 //
 // A document the parser reported errors for is refused, since converting it
-// would describe a source the converter could not read in full. The check lives
-// here rather than in Convert so it covers every entry point: the same document
-// used to be refused from a file and accepted from stdin, which reach the
-// converter by different routes.
+// would describe a source the converter could not read in full. Every entry
+// point reaches this check, including Convert.
 func (c *Converter) ConvertParsed(parseResult parser.ParseResult, targetVersionStr string) (*ConversionResult, error) {
 	// Parse target version
 	targetVersion, ok := parser.ParseVersion(targetVersionStr)

@@ -45,7 +45,7 @@ func (c *Converter) convertOAS2ParameterToOAS3(param *parser.Parameter, result *
 		Required:        param.Required,
 		Deprecated:      param.Deprecated,
 		AllowEmptyValue: param.AllowEmptyValue,
-		Extra:           parser.CloneExtensions(param.Extra),
+		Extra:           parser.DeepCopyExtensions(param.Extra),
 	}
 
 	// Handle schema
@@ -140,7 +140,7 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 		In:          param.In,
 		Description: param.Description,
 		Required:    param.Required,
-		Extra:       parser.CloneExtensions(param.Extra),
+		Extra:       parser.DeepCopyExtensions(param.Extra),
 	}
 
 	// Convert schema to type/format
@@ -237,8 +237,8 @@ func (c *Converter) convertOAS2ResponseToOAS3Old(response *parser.Response, prod
 
 	converted := &parser.Response{
 		Description: response.Description,
-		Headers:     cloneHeaders(response.Headers),
-		Extra:       parser.CloneExtensions(response.Extra),
+		Headers:     deepCopyHeaders(response.Headers),
+		Extra:       parser.DeepCopyExtensions(response.Extra),
 	}
 
 	// Convert schema to content
@@ -271,7 +271,7 @@ func (c *Converter) convertOAS3ResponseToOAS2(response *parser.Response, result 
 
 	converted := &parser.Response{
 		Description: response.Description,
-		Extra:       parser.CloneExtensions(response.Extra),
+		Extra:       parser.DeepCopyExtensions(response.Extra),
 	}
 
 	if len(response.Headers) > 0 {

@@ -77,7 +77,7 @@ func registerAllTools(server *mcp.Server) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "fix",
-		Description: "Automatically fix common issues in an OpenAPI Specification document. Fix types: generic schema names, duplicate operationIds, missing path parameters, path parameters missing required: true, unused schemas/empty paths (prune), missing $ref targets (stub). Use dry_run=true to preview fixes before applying. Use output to write to a file instead of returning inline.",
+		Description: "Automatically fix common issues in an OpenAPI Specification document. Fix types: generic schema names, duplicate operationIds, missing path parameters, path parameters missing required: true, unused schemas/empty paths (prune), missing $ref targets (stub). Use dry_run=true to preview fixes before applying. Use output to write to a file instead of returning inline. Check error_count as well as fix_count: it reports problems no fix covers, so a zero fix_count alongside a non-zero error_count means the document still needs work rather than that it was already in good shape.",
 	}, handleFix)
 
 	mcp.AddTool(server, &mcp.Tool{

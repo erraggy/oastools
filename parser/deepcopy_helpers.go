@@ -125,22 +125,21 @@ func deepCopyExtensions(v map[string]any) map[string]any {
 	return cp
 }
 
-// CloneExtensions deep copies an Extra map, the field every OAS object uses to
-// carry specification extensions and any other field the struct does not name.
-// A nil map clones to nil, so an object with no extensions stays empty rather
-// than gaining one.
+// DeepCopyExtensions deep copies an Extra map, the field every OAS object uses
+// to carry specification extensions and any other field the struct does not
+// name. A nil map copies to nil, so an object with no extensions does not gain
+// an empty one.
 //
-// Callers that build a target object field by field need this: assigning the
-// source map directly would leave both objects sharing it, and a later write to
-// one would be visible through the other.
-func CloneExtensions(v map[string]any) map[string]any {
+// Use it when building an object field by field from an existing one: assigning
+// the map directly leaves both objects sharing it.
+func DeepCopyExtensions(v map[string]any) map[string]any {
 	return deepCopyExtensions(v)
 }
 
-// CloneSecurityRequirements deep copies a slice of SecurityRequirement. Each
-// requirement is a map, so a caller building a new document from an existing
-// one needs this for the same reason it needs CloneExtensions.
-func CloneSecurityRequirements(v []SecurityRequirement) []SecurityRequirement {
+// DeepCopySecurityRequirements deep copies a slice of SecurityRequirement, both
+// the requirement maps and the scope slices inside them. A nil slice copies to
+// nil.
+func DeepCopySecurityRequirements(v []SecurityRequirement) []SecurityRequirement {
 	return deepCopySecurityRequirements(v)
 }
 

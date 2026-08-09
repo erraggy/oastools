@@ -313,9 +313,3 @@ func TestDowngradeDoesNotShareStateWithSource(t *testing.T) {
 	assert.Equal(t, "info", src.Info.Extra["x-info-ext"], "info extensions")
 	assert.Equal(t, "T", src.Info.Title, "info title")
 }
-
-// TestCloneExtensionsNilStaysNil keeps an object with no extensions from gaining
-// an empty map, which would serialize differently from the source.
-func TestCloneExtensionsNilStaysNil(t *testing.T) {
-	assert.Nil(t, parser.CloneExtensions(nil))
-}

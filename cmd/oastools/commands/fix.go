@@ -342,7 +342,7 @@ func HandleFix(args []string) error {
 		case result.HasFixes():
 			Writef(os.Stderr, "✓ Applied %d fix(es)\n", result.FixCount)
 		case result.HasParseErrors():
-			Writef(os.Stderr, "⚠ No fixes needed - no fix covers the %d remaining error(s)\n", len(result.ParseErrors))
+			Writef(os.Stderr, "⚠ No fixes available for the %d remaining error(s)\n", len(result.ParseErrors))
 		default:
 			Writef(os.Stderr, "✓ No fixes needed - specification is already valid\n")
 		}

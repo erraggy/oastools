@@ -564,11 +564,11 @@ func TestCallbackDeepCopy(t *testing.T) {
 	assert.Equal(t, "Callback notification", cp["{$request.body#/callbackUrl}"].Post.Summary)
 }
 
-// TestCloneExtensionsIsDeep covers the copy the converter relies on when it
+// TestDeepCopyExtensionsIsDeep covers the copy the converter relies on when it
 // builds a target object field by field. A shallow copy would leave the two
 // documents sharing the nested values, so a write through one would be visible
 // in the other.
-func TestCloneExtensionsIsDeep(t *testing.T) {
+func TestDeepCopyExtensionsIsDeep(t *testing.T) {
 	src := map[string]any{
 		"x-scalar": "original",
 		"x-nested": map[string]any{
@@ -578,7 +578,7 @@ func TestCloneExtensionsIsDeep(t *testing.T) {
 		"x-list": []any{"original", map[string]any{"leaf": "original"}},
 	}
 
-	clone := CloneExtensions(src)
+	clone := DeepCopyExtensions(src)
 	require.Equal(t, src, clone, "the clone should start out equal")
 
 	clone["x-scalar"] = "rewritten"
@@ -594,27 +594,27 @@ func TestCloneExtensionsIsDeep(t *testing.T) {
 	assert.Equal(t, "original", src["x-list"].([]any)[1].(map[string]any)["leaf"])
 }
 
-// TestCloneExtensionsEmptyCases keeps a nil map cloning to nil. An object with
+// TestDeepCopyExtensionsEmptyCases keeps a nil map cloning to nil. An object with
 // no extensions must not gain an empty map, which would serialize differently
 // from the document it came from.
-func TestCloneExtensionsEmptyCases(t *testing.T) {
-	assert.Nil(t, CloneExtensions(nil))
+func TestDeepCopyExtensionsEmptyCases(t *testing.T) {
+	assert.Nil(t, DeepCopyExtensions(nil))
 
-	empty := CloneExtensions(map[string]any{})
+	empty := DeepCopyExtensions(map[string]any{})
 	assert.NotNil(t, empty)
 	assert.Empty(t, empty)
 }
 
-// TestCloneSecurityRequirementsIsDeep covers the other clone the converter
+// TestDeepCopySecurityRequirementsIsDeep covers the other clone the converter
 // relies on. A SecurityRequirement is a map of scope slices, so both levels
 // have to come away independent.
-func TestCloneSecurityRequirementsIsDeep(t *testing.T) {
+func TestDeepCopySecurityRequirementsIsDeep(t *testing.T) {
 	src := []SecurityRequirement{
 		{"oauth": {"read", "write"}},
 		{"apiKey": {}},
 	}
 
-	clone := CloneSecurityRequirements(src)
+	clone := DeepCopySecurityRequirements(src)
 	require.Equal(t, src, clone, "the clone should start out equal")
 
 	clone[0]["oauth"][0] = "rewritten"
@@ -624,12 +624,12 @@ func TestCloneSecurityRequirementsIsDeep(t *testing.T) {
 	assert.NotContains(t, src[0], "added", "the requirement maps must be independent")
 }
 
-// TestCloneSecurityRequirementsEmptyCases keeps nil cloning to nil, so a
+// TestDeepCopySecurityRequirementsEmptyCases keeps nil cloning to nil, so a
 // document with no security section does not gain an empty one.
-func TestCloneSecurityRequirementsEmptyCases(t *testing.T) {
-	assert.Nil(t, CloneSecurityRequirements(nil))
+func TestDeepCopySecurityRequirementsEmptyCases(t *testing.T) {
+	assert.Nil(t, DeepCopySecurityRequirements(nil))
 
-	empty := CloneSecurityRequirements([]SecurityRequirement{})
+	empty := DeepCopySecurityRequirements([]SecurityRequirement{})
 	assert.NotNil(t, empty)
 	assert.Empty(t, empty)
 }

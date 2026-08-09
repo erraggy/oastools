@@ -21,8 +21,8 @@ func (c *Converter) convertOAS2ToOAS3(parseResult parser.ParseResult, targetVers
 		Info:       src.Info.DeepCopy(),
 		Servers:    c.convertServers(src, result),
 		Paths:      make(map[string]*parser.PathItem),
-		Tags:       cloneTags(src.Tags),
-		Extra:      parser.CloneExtensions(src.Extra),
+		Tags:       deepCopyTags(src.Tags),
+		Extra:      parser.DeepCopyExtensions(src.Extra),
 	}
 
 	// Convert components
@@ -71,7 +71,7 @@ func (c *Converter) convertOAS2ToOAS3(parseResult parser.ParseResult, targetVers
 
 	// Global security is compatible
 	if len(src.Security) > 0 {
-		dst.Security = parser.CloneSecurityRequirements(src.Security)
+		dst.Security = parser.DeepCopySecurityRequirements(src.Security)
 	}
 
 	// Rewrite all $ref paths from OAS 2.0 to OAS 3.x format
@@ -133,7 +133,7 @@ func (c *Converter) convertOAS2PathItemToOAS3(src *parser.PathItem, doc *parser.
 		Summary:     src.Summary,
 		Description: src.Description,
 		Parameters:  c.convertParameters(src.Parameters, result, fmt.Sprintf("%s.parameters", pathPrefix)),
-		Extra:       parser.CloneExtensions(src.Extra),
+		Extra:       parser.DeepCopyExtensions(src.Extra),
 	}
 
 	// Convert each standard operation using the shared helper
@@ -156,15 +156,15 @@ func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parse
 		}
 	}
 	dst := &parser.Operation{
-		Tags:         cloneStrings(src.Tags),
+		Tags:         deepCopyStrings(src.Tags),
 		Summary:      src.Summary,
 		Description:  src.Description,
 		ExternalDocs: src.ExternalDocs.DeepCopy(),
 		OperationID:  src.OperationID,
 		Parameters:   c.convertParameters(nonBodyParams, result, fmt.Sprintf("%s.parameters", opPath)),
 		Deprecated:   src.Deprecated,
-		Security:     parser.CloneSecurityRequirements(src.Security),
-		Extra:        parser.CloneExtensions(src.Extra),
+		Security:     parser.DeepCopySecurityRequirements(src.Security),
+		Extra:        parser.DeepCopyExtensions(src.Extra),
 	}
 
 	// Convert responses
@@ -172,7 +172,7 @@ func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parse
 		dst.Responses = &parser.Responses{
 			Default: c.convertOAS2ResponseToOAS3Old(src.Responses.Default, c.getProduces(src, doc), result.TargetOASVersion, result, opPath+".responses.default"),
 			Codes:   make(map[string]*parser.Response),
-			Extra:   parser.CloneExtensions(src.Responses.Extra),
+			Extra:   parser.DeepCopyExtensions(src.Responses.Extra),
 		}
 
 		for code, response := range src.Responses.Codes {
@@ -234,7 +234,7 @@ func (c *Converter) convertOAS2RequestBody(src *parser.Operation, doc *parser.OA
 		Description: bodyParam.Description,
 		Required:    bodyParam.Required,
 		Content:     make(map[string]*parser.MediaType),
-		Extra:       parser.CloneExtensions(bodyParam.Extra),
+		Extra:       parser.DeepCopyExtensions(bodyParam.Extra),
 	}
 
 	// Get consumes media types
@@ -336,7 +336,7 @@ func (c *Converter) convertOAS2FormDataToRequestBody(src *parser.Operation, doc 
 		}
 		// The property schema is where this parameter ends up, so it is the only
 		// place its extensions can go.
-		propSchema.Extra = parser.CloneExtensions(param.Extra)
+		propSchema.Extra = parser.DeepCopyExtensions(param.Extra)
 		schema.Properties[param.Name] = propSchema
 		if param.Required {
 			required = append(required, param.Name)
@@ -436,7 +436,7 @@ func (c *Converter) convertSecurityDefinitions(src *parser.OAS2Document, dst *pa
 			Description: secDef.Description,
 			Name:        secDef.Name,
 			In:          secDef.In,
-			Extra:       parser.CloneExtensions(secDef.Extra),
+			Extra:       parser.DeepCopyExtensions(secDef.Extra),
 		}
 
 		// Convert OAuth2 flows

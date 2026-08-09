@@ -42,8 +42,8 @@ func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *Co
 		OASVersion: parser.OASVersion20,
 		Info:       src.Info.DeepCopy(),
 		Paths:      make(map[string]*parser.PathItem),
-		Tags:       cloneTags(src.Tags),
-		Extra:      parser.CloneExtensions(src.Extra),
+		Tags:       deepCopyTags(src.Tags),
+		Extra:      parser.DeepCopyExtensions(src.Extra),
 	}
 
 	// Convert servers to host/basePath/schemes
@@ -114,7 +114,7 @@ func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *Co
 
 	// Global security is compatible
 	if len(src.Security) > 0 {
-		dst.Security = parser.CloneSecurityRequirements(src.Security)
+		dst.Security = parser.DeepCopySecurityRequirements(src.Security)
 	}
 
 	// Report the 3.2 fixed fields against the source document, whose objects still
@@ -181,7 +181,7 @@ func (c *Converter) convertOAS3PathItemToOAS2(src *parser.PathItem, doc *parser.
 		Summary:     src.Summary,
 		Description: src.Description,
 		Parameters:  c.convertParametersToOAS2(src.Parameters, result, fmt.Sprintf("%s.parameters", pathPrefix)),
-		Extra:       parser.CloneExtensions(src.Extra),
+		Extra:       parser.DeepCopyExtensions(src.Extra),
 	}
 
 	// Convert each standard operation using the shared helper
@@ -213,15 +213,15 @@ func (c *Converter) convertOAS3PathItemToOAS2(src *parser.PathItem, doc *parser.
 // convertOAS3OperationToOAS2 converts an OAS 3.x operation to OAS 2.0
 func (c *Converter) convertOAS3OperationToOAS2(src *parser.Operation, doc *parser.OAS2Document, result *ConversionResult, opPath string) *parser.Operation {
 	dst := &parser.Operation{
-		Tags:         cloneStrings(src.Tags),
+		Tags:         deepCopyStrings(src.Tags),
 		Summary:      src.Summary,
 		Description:  src.Description,
 		ExternalDocs: src.ExternalDocs.DeepCopy(),
 		OperationID:  src.OperationID,
 		Parameters:   c.convertParametersToOAS2(src.Parameters, result, fmt.Sprintf("%s.parameters", opPath)),
 		Deprecated:   src.Deprecated,
-		Security:     parser.CloneSecurityRequirements(src.Security),
-		Extra:        parser.CloneExtensions(src.Extra),
+		Security:     parser.DeepCopySecurityRequirements(src.Security),
+		Extra:        parser.DeepCopyExtensions(src.Extra),
 	}
 
 	// Convert requestBody to body parameter and consumes
@@ -241,7 +241,7 @@ func (c *Converter) convertOAS3OperationToOAS2(src *parser.Operation, doc *parse
 	if src.Responses != nil {
 		dst.Responses = &parser.Responses{
 			Codes: make(map[string]*parser.Response),
-			Extra: parser.CloneExtensions(src.Responses.Extra),
+			Extra: parser.DeepCopyExtensions(src.Responses.Extra),
 		}
 
 		if src.Responses.Default != nil {
@@ -318,7 +318,7 @@ func (c *Converter) convertOAS3RequestBodyToOAS2(requestBody *parser.RequestBody
 		In:          "body",
 		Description: requestBody.Description,
 		Required:    requestBody.Required,
-		Extra:       parser.CloneExtensions(requestBody.Extra),
+		Extra:       parser.DeepCopyExtensions(requestBody.Extra),
 	}
 
 	if firstContent != nil && firstContent.Schema != nil {
@@ -350,7 +350,7 @@ func (c *Converter) convertSecuritySchemes(src *parser.OAS3Document, dst *parser
 			Description: scheme.Description,
 			Name:        scheme.Name,
 			In:          scheme.In,
-			Extra:       parser.CloneExtensions(scheme.Extra),
+			Extra:       parser.DeepCopyExtensions(scheme.Extra),
 		}
 
 		// Convert HTTP to basic

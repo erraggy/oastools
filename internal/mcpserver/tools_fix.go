@@ -41,9 +41,7 @@ type fixOutput struct {
 	FixCount int          `json:"fix_count"`
 	Returned int          `json:"returned"`
 	Fixes    []fixApplied `json:"fixes,omitempty"`
-	// ErrorCount is how many errors the source document had that no fix
-	// covers. A zero fix_count with a non-zero error_count means the document
-	// still needs work, not that it was already in good shape.
+	// ErrorCount is how many errors the source document had that no fix covers.
 	ErrorCount int `json:"error_count"`
 	// Errors holds up to maxReportedFixErrors of those messages.
 	Errors    []string `json:"errors,omitempty"`
