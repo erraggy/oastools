@@ -633,3 +633,17 @@ func TestDeepCopySecurityRequirementsEmptyCases(t *testing.T) {
 	assert.NotNil(t, empty)
 	assert.Empty(t, empty)
 }
+
+// TestDeepCopySecurityRequirementsKeepsNilScopes covers a requirement whose
+// scopes are nil, which YAML produces for a bare "oauth:" key. Dropping the key
+// would remove the scheme from the requirement, which is a different document.
+func TestDeepCopySecurityRequirementsKeepsNilScopes(t *testing.T) {
+	src := []SecurityRequirement{{"oauth": nil, "apiKey": {"read"}}}
+
+	clone := DeepCopySecurityRequirements(src)
+
+	require.Contains(t, clone[0], "oauth", "a nil-scope key must survive the copy")
+	assert.Nil(t, clone[0]["oauth"], "and stay nil rather than becoming empty")
+	assert.Equal(t, []string{"read"}, clone[0]["apiKey"])
+	assert.Equal(t, src, clone)
+}

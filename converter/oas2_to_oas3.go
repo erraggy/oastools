@@ -447,23 +447,23 @@ func (c *Converter) convertSecurityDefinitions(src *parser.OAS2Document, dst *pa
 			case oauthFlowImplicit:
 				scheme.Flows.Implicit = &parser.OAuthFlow{
 					AuthorizationURL: secDef.AuthorizationURL,
-					Scopes:           secDef.Scopes,
+					Scopes:           deepCopyScopes(secDef.Scopes),
 				}
 			case oauthFlowPassword:
 				scheme.Flows.Password = &parser.OAuthFlow{
 					TokenURL: secDef.TokenURL,
-					Scopes:   secDef.Scopes,
+					Scopes:   deepCopyScopes(secDef.Scopes),
 				}
 			case oas2FlowApplication:
 				scheme.Flows.ClientCredentials = &parser.OAuthFlow{
 					TokenURL: secDef.TokenURL,
-					Scopes:   secDef.Scopes,
+					Scopes:   deepCopyScopes(secDef.Scopes),
 				}
 			case oas2FlowAccessCode:
 				scheme.Flows.AuthorizationCode = &parser.OAuthFlow{
 					AuthorizationURL: secDef.AuthorizationURL,
 					TokenURL:         secDef.TokenURL,
-					Scopes:           secDef.Scopes,
+					Scopes:           deepCopyScopes(secDef.Scopes),
 				}
 			default:
 				c.addIssueWithContext(result, path,

@@ -167,11 +167,16 @@ func deepCopySecurityRequirements(v []SecurityRequirement) []SecurityRequirement
 		if req != nil {
 			cp[i] = make(SecurityRequirement, len(req))
 			for k, scopes := range req {
-				if scopes != nil {
-					cpScopes := make([]string, len(scopes))
-					copy(cpScopes, scopes)
-					cp[i][k] = cpScopes
+				// Every key is assigned, including one whose scopes are nil.
+				// Skipping it would drop the scheme from the requirement, which
+				// is a different document, not a smaller copy of the same one.
+				if scopes == nil {
+					cp[i][k] = nil
+					continue
 				}
+				cpScopes := make([]string, len(scopes))
+				copy(cpScopes, scopes)
+				cp[i][k] = cpScopes
 			}
 		}
 	}

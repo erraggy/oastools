@@ -313,3 +313,113 @@ func TestDowngradeDoesNotShareStateWithSource(t *testing.T) {
 	assert.Equal(t, "info", src.Info.Extra["x-info-ext"], "info extensions")
 	assert.Equal(t, "T", src.Info.Title, "info title")
 }
+
+// oauthSpecOAS2 and oauthSpecOAS3 carry OAuth scopes, the one remaining map a
+// conversion used to hand straight to the converted document.
+const oauthSpecOAS2 = `swagger: "2.0"
+info:
+  title: T
+  version: "1.0.0"
+securityDefinitions:
+  oauth:
+    type: oauth2
+    flow: accessCode
+    authorizationUrl: https://example.com/auth
+    tokenUrl: https://example.com/token
+    scopes:
+      read: Read access
+      write: Write access
+paths: {}
+`
+
+const oauthSpecOAS3 = `openapi: 3.0.3
+info:
+  title: T
+  version: "1.0.0"
+components:
+  securitySchemes:
+    oauth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://example.com/auth
+          tokenUrl: https://example.com/token
+          scopes:
+            read: Read access
+            write: Write access
+paths: {}
+`
+
+// TestUpgradeDoesNotShareOAuthScopes covers the scope map on the way up.
+func TestUpgradeDoesNotShareOAuthScopes(t *testing.T) {
+	path := writeSpec(t, "oauth2.yaml", oauthSpecOAS2)
+
+	parsed, err := parser.ParseWithOptions(parser.WithFilePath(path))
+	require.NoError(t, err)
+	src, ok := parsed.OAS2Document()
+	require.True(t, ok)
+
+	result, err := New().ConvertParsed(*parsed, "3.0.3")
+	require.NoError(t, err)
+	doc, ok := result.Document.(*parser.OAS3Document)
+	require.True(t, ok)
+
+	flow := doc.Components.SecuritySchemes["oauth"].Flows.AuthorizationCode
+	require.NotNil(t, flow)
+	require.Equal(t, "Read access", flow.Scopes["read"])
+
+	flow.Scopes["read"] = "rewritten"
+	flow.Scopes["added"] = "rewritten"
+
+	srcScopes := src.SecurityDefinitions["oauth"].Scopes
+	assert.Equal(t, "Read access", srcScopes["read"], "source scopes must be untouched")
+	assert.NotContains(t, srcScopes, "added")
+}
+
+// TestDowngradeDoesNotShareOAuthScopes covers the scope map on the way down,
+// where the flow's scopes become the security definition's.
+func TestDowngradeDoesNotShareOAuthScopes(t *testing.T) {
+	path := writeSpec(t, "oauth3.yaml", oauthSpecOAS3)
+
+	parsed, err := parser.ParseWithOptions(parser.WithFilePath(path))
+	require.NoError(t, err)
+	src, ok := parsed.OAS3Document()
+	require.True(t, ok)
+
+	result, err := New().ConvertParsed(*parsed, "2.0")
+	require.NoError(t, err)
+	doc, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok)
+
+	scopes := doc.SecurityDefinitions["oauth"].Scopes
+	require.Equal(t, "Read access", scopes["read"])
+
+	scopes["read"] = "rewritten"
+	scopes["added"] = "rewritten"
+
+	srcScopes := src.Components.SecuritySchemes["oauth"].Flows.AuthorizationCode.Scopes
+	assert.Equal(t, "Read access", srcScopes["read"], "source scopes must be untouched")
+	assert.NotContains(t, srcScopes, "added")
+}
+
+// TestConvertWithOptionsRefusesParsedWithErrors covers the WithParsed route
+// specifically. It reaches the refusal through ConvertWithOptions rather than
+// ConvertParsed, which is a different entry point into the same check.
+func TestConvertWithOptionsRefusesParsedWithErrors(t *testing.T) {
+	const missingResponses = `openapi: 3.0.3
+info:
+  title: T
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+`
+	parsed, err := parser.ParseWithOptions(parser.WithBytes([]byte(missingResponses)))
+	require.NoError(t, err)
+	require.NotEmpty(t, parsed.Errors)
+
+	_, err = ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("3.1.0"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse error")
+}

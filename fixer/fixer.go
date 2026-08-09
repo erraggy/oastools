@@ -114,8 +114,11 @@ func (r *FixResult) HasParseErrors() bool {
 // other packages like validator, converter, joiner, and differ.
 // The returned ParseResult has Document populated but Data is nil
 // (consumers use Document, not Data).
-// Errors and Warnings are empty slices since fixes are informational,
-// not validation errors.
+//
+// Errors carries ParseErrors through, so a document with problems no fix
+// covers reaches those packages as the document it is. Without that, passing a
+// FixResult to converter.ConvertParsed would convert a document the same
+// converter refuses when given the file.
 func (r *FixResult) ToParseResult() *parser.ParseResult {
 	sourcePath := r.SourcePath
 	if sourcePath == "" {
@@ -125,13 +128,15 @@ func (r *FixResult) ToParseResult() *parser.ParseResult {
 	if r.Document == nil {
 		warnings = append(warnings, "fixer: ToParseResult: Document is nil, downstream operations may fail")
 	}
+	errs := make([]error, 0, len(r.ParseErrors))
+	errs = append(errs, r.ParseErrors...)
 	return &parser.ParseResult{
 		SourcePath:   sourcePath,
 		SourceFormat: r.SourceFormat,
 		Version:      r.SourceVersion,
 		OASVersion:   r.SourceOASVersion,
 		Document:     r.Document,
-		Errors:       make([]error, 0),
+		Errors:       errs,
 		Warnings:     warnings,
 		Stats:        r.Stats,
 	}

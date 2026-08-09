@@ -170,3 +170,22 @@ func TestFixParseErrorsMatchConverterRefusal(t *testing.T) {
 		})
 	}
 }
+
+// TestToParseResultCarriesParseErrors closes the route around the converter's
+// refusal. Handing a FixResult to converter.ConvertParsed must not convert a
+// document the same converter refuses when given the file.
+func TestToParseResultCarriesParseErrors(t *testing.T) {
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(missingResponsesSpec)))
+	require.NoError(t, err)
+
+	result, err := New().FixParsed(*parseResult)
+	require.NoError(t, err)
+	require.True(t, result.HasParseErrors())
+
+	converted := result.ToParseResult()
+	assert.Len(t, converted.Errors, len(result.ParseErrors))
+
+	_, convErr := converter.New().ConvertParsed(*converted, "3.1.0")
+	require.Error(t, convErr, "the fixed document still has the errors no fix covered")
+	assert.Contains(t, convErr.Error(), "parse error")
+}

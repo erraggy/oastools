@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"maps"
 	"slices"
 
 	"github.com/erraggy/oastools/parser"
@@ -41,4 +42,10 @@ func deepCopyStrings(v []string) []string {
 		return nil
 	}
 	return slices.Clone(v)
+}
+
+// deepCopyScopes copies an OAuth flow's scope map. The values are strings, so
+// cloning the map is the whole copy. A nil map copies to nil.
+func deepCopyScopes(v map[string]string) map[string]string {
+	return maps.Clone(v)
 }

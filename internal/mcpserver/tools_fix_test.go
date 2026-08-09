@@ -436,3 +436,19 @@ func TestFixTool_CapsReportedErrors(t *testing.T) {
 	assert.Equal(t, operations, output.ErrorCount, "the count must not be trimmed")
 	assert.Len(t, output.Errors, maxReportedFixErrors, "the messages must be")
 }
+
+// TestFixTool_ReturnsDocumentDespiteErrors keeps the document flowing for a
+// spec with problems no fix covers. ToParseResult now carries those errors, and
+// marshaling must not start refusing because of them.
+func TestFixTool_ReturnsDocumentDespiteErrors(t *testing.T) {
+	input := fixInput{
+		Spec:            specInput{Content: specWithUnfixableError},
+		IncludeDocument: true,
+	}
+	_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+
+	assert.Positive(t, output.ErrorCount)
+	assert.NotEmpty(t, output.Document, "the fixed document is still returned")
+	assert.Contains(t, output.Document, "operationId: a")
+}

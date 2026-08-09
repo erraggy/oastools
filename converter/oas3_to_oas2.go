@@ -373,26 +373,26 @@ func (c *Converter) convertSecuritySchemes(src *parser.OAS3Document, dst *parser
 				flowCount++
 				secDef.Flow = oauthFlowImplicit
 				secDef.AuthorizationURL = scheme.Flows.Implicit.AuthorizationURL
-				secDef.Scopes = scheme.Flows.Implicit.Scopes
+				secDef.Scopes = deepCopyScopes(scheme.Flows.Implicit.Scopes)
 			}
 			if scheme.Flows.Password != nil {
 				flowCount++
 				secDef.Flow = oauthFlowPassword
 				secDef.TokenURL = scheme.Flows.Password.TokenURL
-				secDef.Scopes = scheme.Flows.Password.Scopes
+				secDef.Scopes = deepCopyScopes(scheme.Flows.Password.Scopes)
 			}
 			if scheme.Flows.ClientCredentials != nil {
 				flowCount++
 				secDef.Flow = oas2FlowApplication
 				secDef.TokenURL = scheme.Flows.ClientCredentials.TokenURL
-				secDef.Scopes = scheme.Flows.ClientCredentials.Scopes
+				secDef.Scopes = deepCopyScopes(scheme.Flows.ClientCredentials.Scopes)
 			}
 			if scheme.Flows.AuthorizationCode != nil {
 				flowCount++
 				secDef.Flow = oas2FlowAccessCode
 				secDef.AuthorizationURL = scheme.Flows.AuthorizationCode.AuthorizationURL
 				secDef.TokenURL = scheme.Flows.AuthorizationCode.TokenURL
-				secDef.Scopes = scheme.Flows.AuthorizationCode.Scopes
+				secDef.Scopes = deepCopyScopes(scheme.Flows.AuthorizationCode.Scopes)
 			}
 
 			if flowCount > 1 {
