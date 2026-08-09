@@ -274,8 +274,15 @@ Auto-fix common issues in an OAS document.
 | `version` | string | OAS version |
 | `fix_count` | number | Number of fixes applied |
 | `fixes` | array | Fix details (type, path, description) |
+| `returned` | number | Number of fixes in `fixes` after pagination |
+| `error_count` | number | Errors in the document that no fix covers (always exact) |
+| `errors` | array | Up to 20 of those error messages |
 | `written_to` | string | File path where the fixed document was written |
 | `document` | string | Fixed document (when `include_document` is true) |
+
+Read `error_count` alongside `fix_count`: a zero `fix_count` with a non-zero
+`error_count` means the document still needs work, not that it was already in
+good shape.
 
 ---
 

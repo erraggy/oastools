@@ -39,6 +39,30 @@
 // (collectionFormat, allowEmptyValue) may not map perfectly to OAS 3.x. See the
 // examples in example_test.go for handling issues.
 //
+// # What the Converted Document Carries
+//
+// Specification extensions are preserved on every object the converter rebuilds:
+// the root document, Info, Path Item, Operation, Responses, Response, Parameter,
+// Security Scheme and Schema. Where an object changes shape across versions the
+// extensions follow it, so an OAS 2.0 body parameter's extensions land on the
+// OAS 3.x requestBody, and a formData parameter's on the property schema it
+// becomes. A discriminator converted to the OAS 2.0 string form is the exception:
+// that form is a bare string with nowhere to hold them, and the drop is reported.
+//
+// The objects the converter rebuilds are copies, not the source's. Info, tags,
+// externalDocs, security, response headers and OAuth scope maps are all copied,
+// so writing to any of those in the result never reaches the parsed input.
+// Schema validation values carried across unchanged (Default, Enum and the
+// numeric bounds) are still the source's own, so treat them as read-only.
+//
+// # Parse Errors Are Refused
+//
+// [Converter.ConvertParsed] returns an error for a [parser.ParseResult] that
+// carries parse errors, and every entry point reaches that check, including
+// [Converter.Convert] and the WithParsed option. Passing a fixer result through
+// can therefore fail, since ToParseResult carries those errors: consult
+// HasParseErrors on the fix result first.
+//
 // # Downgrading Between 3.x Versions Is Also Lossy
 //
 // A conversion within OAS 3.x can lose information too, which is easy to miss

@@ -126,6 +126,39 @@ func Example_convertParsed() {
 	// Success: true
 }
 
+// Example_convertParsedWithParseErrors demonstrates the refusal of a source
+// document the parser reported errors for. Converting it would describe a
+// source the converter could not read in full, so every entry point refuses it,
+// including a ParseResult handed over from another package.
+func Example_convertParsedWithParseErrors() {
+	// An OAS 3.0 operation must have a responses object; this one has none
+	spec := `
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /a:
+    get:
+      operationId: getA
+`
+	parsed, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Parse errors: %d\n", len(parsed.Errors))
+
+	_, err = converter.ConvertWithOptions(
+		converter.WithParsed(*parsed),
+		converter.WithTargetVersion("3.1.0"),
+	)
+	fmt.Println("Convert:", err)
+	// Output:
+	// Parse errors: 1
+	// Convert: converter: source document has 1 parse error(s), cannot convert
+}
+
 // Example_upgradeOAS3 demonstrates upgrading from OAS 3.0 to OAS 3.1.
 // This is useful for modernizing specifications to take advantage of newer
 // features like webhooks, JSON Schema compatibility, and type arrays.

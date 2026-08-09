@@ -648,3 +648,43 @@ func TestDeepCopySecurityRequirementsKeepsNilScopes(t *testing.T) {
 	assert.Equal(t, []string{"read"}, clone[0]["apiKey"])
 	assert.Equal(t, src, clone)
 }
+
+// TestDeepCopyKeepsNilValuedKeys covers the map copies that used to skip a key
+// whose value was nil. An empty path item is a present path, so dropping the key
+// makes the copy a different document rather than a smaller one. The same shape
+// applies to callbacks and dependentRequired.
+func TestDeepCopyKeepsNilValuedKeys(t *testing.T) {
+	t.Run("paths", func(t *testing.T) {
+		doc := &OAS3Document{
+			OpenAPI: "3.0.3",
+			Info:    &Info{Title: "T", Version: "1.0.0"},
+			Paths:   Paths{"/empty": nil, "/full": {Summary: "s"}},
+		}
+
+		clone := doc.DeepCopy()
+
+		require.Contains(t, clone.Paths, "/empty", "an empty path item is still a path")
+		assert.Nil(t, clone.Paths["/empty"])
+		require.Contains(t, clone.Paths, "/full")
+		assert.Equal(t, "s", clone.Paths["/full"].Summary)
+	})
+
+	t.Run("dependentRequired", func(t *testing.T) {
+		schema := &Schema{DependentRequired: map[string][]string{"a": nil, "b": {"c"}}}
+
+		clone := schema.DeepCopy()
+
+		require.Contains(t, clone.DependentRequired, "a")
+		assert.Nil(t, clone.DependentRequired["a"])
+		assert.Equal(t, []string{"c"}, clone.DependentRequired["b"])
+	})
+
+	t.Run("callbacks", func(t *testing.T) {
+		op := &Operation{Callbacks: map[string]*Callback{"onEvent": nil}}
+
+		clone := op.DeepCopy()
+
+		require.Contains(t, clone.Callbacks, "onEvent")
+		assert.Nil(t, clone.Callbacks["onEvent"])
+	})
+}

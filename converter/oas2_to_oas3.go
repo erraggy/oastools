@@ -386,6 +386,7 @@ func convertOAS2ItemsToSchema(c *Converter, items *parser.Items, result *Convers
 		MinItems:    items.MinItems,
 		UniqueItems: items.UniqueItems,
 		MultipleOf:  items.MultipleOf,
+		Extra:       parser.DeepCopyExtensions(items.Extra),
 	}
 	if items.ExclusiveMaximum {
 		if c.isOAS31OrLater(result.TargetOASVersion) {

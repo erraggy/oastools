@@ -150,9 +150,10 @@ func deepCopyPaths(v Paths) Paths {
 	}
 	cp := make(Paths, len(v))
 	for k, item := range v {
-		if item != nil {
-			cp[k] = item.DeepCopy()
-		}
+		// Every key is assigned, including one whose value is nil. An empty
+		// path item is a present path, so skipping it would drop the path from
+		// the document rather than copy it.
+		cp[k] = item.DeepCopy()
 	}
 	return cp
 }
@@ -225,11 +226,14 @@ func deepCopyDependentRequired(v map[string][]string) map[string][]string {
 	}
 	cp := make(map[string][]string, len(v))
 	for k, val := range v {
-		if val != nil {
-			cpVal := make([]string, len(val))
-			copy(cpVal, val)
-			cp[k] = cpVal
+		// Every key is assigned, so a nil value stays a present key.
+		if val == nil {
+			cp[k] = nil
+			continue
 		}
+		cpVal := make([]string, len(val))
+		copy(cpVal, val)
+		cp[k] = cpVal
 	}
 	return cp
 }
@@ -254,10 +258,13 @@ func deepCopyCallbacks(v map[string]*Callback) map[string]*Callback {
 	}
 	cp := make(map[string]*Callback, len(v))
 	for k, callback := range v {
-		if callback != nil {
-			cpCallback := deepCopyCallback(*callback)
-			cp[k] = &cpCallback
+		// Every key is assigned, so a nil value stays a present key.
+		if callback == nil {
+			cp[k] = nil
+			continue
 		}
+		cpCallback := deepCopyCallback(*callback)
+		cp[k] = &cpCallback
 	}
 	return cp
 }
@@ -269,9 +276,8 @@ func deepCopyCallback(v Callback) Callback {
 	}
 	cp := make(Callback, len(v))
 	for k, item := range v {
-		if item != nil {
-			cp[k] = item.DeepCopy()
-		}
+		// Every key is assigned, so a nil value stays a present key.
+		cp[k] = item.DeepCopy()
 	}
 	return cp
 }

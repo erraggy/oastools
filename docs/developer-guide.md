@@ -748,6 +748,9 @@ config.DefaultStrategy = joiner.StrategyFailOnCollision
 config.PathStrategy = joiner.StrategyFailOnPaths      // Fail on path collisions
 config.SchemaStrategy = joiner.StrategyAcceptLeft     // Keep first schema
 config.ComponentStrategy = joiner.StrategyAcceptRight // Keep last component
+// Or, for joining many documents that mostly agree: merge schemas that are
+// interchangeable and rename the rest, never failing on a collision.
+// config.SchemaStrategy = joiner.StrategyDeduplicateOrRename
 config.DeduplicateTags = true
 config.MergeArrays = true
 
@@ -1865,13 +1868,19 @@ if err != nil {
 v := validator.New()
 valResult, _ := v.ValidateParsed(*fixResult.ToParseResult())
 
+// ToParseResult() carries through any errors no fix covers, and the converter
+// and joiner both refuse such a document. Check before chaining into either.
+if fixResult.HasParseErrors() {
+    log.Fatalf("%d error(s) no fix covers", len(fixResult.ParseErrors))
+}
+
 // Or chain to converter
 c := converter.New()
-convResult, _ := c.ConvertParsed(*fixResult.ToParseResult(), "3.1.0")
+convResult, err := c.ConvertParsed(*fixResult.ToParseResult(), "3.1.0")
 
 // Or chain to joiner with other specs
 j := joiner.New(joiner.DefaultConfig())
-joinResult, _ := j.JoinParsed([]parser.ParseResult{
+joinResult, err := j.JoinParsed([]parser.ParseResult{
     *fixResult.ToParseResult(),
     otherSpec,
 })

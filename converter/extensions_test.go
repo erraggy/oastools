@@ -435,3 +435,52 @@ paths:
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parse error")
 }
+
+// oas2ItemsWithExtensions covers the last position the #463 sweep missed: an
+// OAS 2.0 Items object maps one for one onto an OAS 3.x Schema, so there is
+// somewhere for its extensions to go.
+const oas2ItemsWithExtensions = `swagger: "2.0"
+info:
+  title: T
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      parameters:
+        - name: q
+          in: query
+          type: array
+          items:
+            type: string
+            x-items-ext: items
+      responses:
+        "200":
+          description: OK
+`
+
+// TestOAS2ItemsExtensionsSurviveConversion covers Items.Extra, which the rest of
+// the sweep reached but this construction site did not.
+func TestOAS2ItemsExtensionsSurviveConversion(t *testing.T) {
+	path := writeSpec(t, "oas2-items.yaml", oas2ItemsWithExtensions)
+
+	result, err := New().Convert(path, "3.0.3")
+	require.NoError(t, err)
+	require.True(t, result.Success)
+
+	doc, ok := result.Document.(*parser.OAS3Document)
+	require.True(t, ok)
+
+	pathItem := doc.Paths["/a"]
+	require.NotNil(t, pathItem)
+	require.NotNil(t, pathItem.Get)
+	require.Len(t, pathItem.Get.Parameters, 1)
+
+	schema := pathItem.Get.Parameters[0].Schema
+	require.NotNil(t, schema)
+
+	items, ok := schema.Items.(*parser.Schema)
+	require.True(t, ok, "a parsed items is always promoted to *parser.Schema")
+	assert.Equal(t, "items", items.Extra["x-items-ext"])
+	assert.Equal(t, "string", schemautil.GetPrimaryType(items))
+}

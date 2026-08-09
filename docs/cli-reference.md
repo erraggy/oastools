@@ -351,6 +351,21 @@ Fixes Applied (3):
 ✓ Fixed: 3 issue(s) corrected
 ```
 
+When the document has problems no fix covers, they are listed on their own and
+the command exits 1, having still written the fixed document:
+
+```text
+Fixes Applied (1):
+  - [missing-path-parameter] paths./a/{id}.get.parameters: Added missing path parameter 'id' (type: string)
+
+Errors Not Fixed (1):
+  ✗ oas 3.0.3: missing required field 'paths./b.get.responses': Operation must have a responses object
+
+✓ Applied 1 fix(es)
+
+Run 'oastools validate' for detail on the errors above.
+```
+
 ### Exit Codes
 
 | Code | Meaning |

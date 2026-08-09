@@ -196,7 +196,7 @@
 //
 //	// Or convert to a different version
 //	c := converter.New()
-//	convResult, _ := c.ConvertParsed(*fixResult.ToParseResult(), "3.1.0")
+//	convResult, err := c.ConvertParsed(*fixResult.ToParseResult(), "3.1.0")
 //
 //	// Or diff against another document
 //	diffResult, _ := differ.DiffWithOptions(
@@ -205,8 +205,18 @@
 //	)
 //
 // The returned [parser.ParseResult] uses the source version (the version of the
-// fixed document). Errors and Warnings are empty slices since fixes are
-// informational, not validation errors.
+// fixed document). Errors carries [FixResult.ParseErrors] through, so a document
+// with problems no fix covers reaches these packages as the document it is.
+// Warnings is empty unless Document is nil.
+//
+// That makes the conversion above a reachable failure rather than a theoretical
+// one: [converter.Converter.ConvertParsed] refuses such a document, and joiner
+// refuses it too. Check [FixResult.HasParseErrors] first when using the fixer as
+// a gate:
+//
+//	if fixResult.HasParseErrors() {
+//	    return fmt.Errorf("fixer: %d error(s) no fix covers", len(fixResult.ParseErrors))
+//	}
 //
 // # Related Packages
 //
