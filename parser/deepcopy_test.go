@@ -604,3 +604,32 @@ func TestCloneExtensionsEmptyCases(t *testing.T) {
 	assert.NotNil(t, empty)
 	assert.Empty(t, empty)
 }
+
+// TestCloneSecurityRequirementsIsDeep covers the other clone the converter
+// relies on. A SecurityRequirement is a map of scope slices, so both levels
+// have to come away independent.
+func TestCloneSecurityRequirementsIsDeep(t *testing.T) {
+	src := []SecurityRequirement{
+		{"oauth": {"read", "write"}},
+		{"apiKey": {}},
+	}
+
+	clone := CloneSecurityRequirements(src)
+	require.Equal(t, src, clone, "the clone should start out equal")
+
+	clone[0]["oauth"][0] = "rewritten"
+	clone[0]["added"] = []string{"rewritten"}
+
+	assert.Equal(t, "read", src[0]["oauth"][0], "scope slices must be independent")
+	assert.NotContains(t, src[0], "added", "the requirement maps must be independent")
+}
+
+// TestCloneSecurityRequirementsEmptyCases keeps nil cloning to nil, so a
+// document with no security section does not gain an empty one.
+func TestCloneSecurityRequirementsEmptyCases(t *testing.T) {
+	assert.Nil(t, CloneSecurityRequirements(nil))
+
+	empty := CloneSecurityRequirements([]SecurityRequirement{})
+	assert.NotNil(t, empty)
+	assert.Empty(t, empty)
+}
