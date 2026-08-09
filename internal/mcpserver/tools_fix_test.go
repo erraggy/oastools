@@ -2,8 +2,10 @@ package mcpserver
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/fixer"
@@ -414,4 +416,23 @@ paths:
 
 	assert.Equal(t, 0, output.ErrorCount)
 	assert.Empty(t, output.Errors)
+}
+
+// TestFixTool_CapsReportedErrors covers maxReportedFixErrors. The count stays
+// exact so a caller can tell how much was withheld; only the messages are
+// trimmed, since this tool already produces the server's largest output.
+func TestFixTool_CapsReportedErrors(t *testing.T) {
+	var sb strings.Builder
+	sb.WriteString("openapi: \"3.0.0\"\ninfo:\n  title: Many\n  version: \"1.0.0\"\npaths:\n")
+	const operations = maxReportedFixErrors + 10
+	for i := range operations {
+		fmt.Fprintf(&sb, "  /p%d:\n    get:\n      operationId: op%d\n", i, i)
+	}
+
+	input := fixInput{Spec: specInput{Content: sb.String()}}
+	_, output, err := handleFix(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+
+	assert.Equal(t, operations, output.ErrorCount, "the count must not be trimmed")
+	assert.Len(t, output.Errors, maxReportedFixErrors, "the messages must be")
 }

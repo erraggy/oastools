@@ -3,6 +3,7 @@ package fixer
 import (
 	"testing"
 
+	"github.com/erraggy/oastools/converter"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -101,9 +102,10 @@ func TestFixReportsNoParseErrorsForCleanDocument(t *testing.T) {
 	assert.Empty(t, result.ParseErrors)
 }
 
-// TestFixParseErrorsMatchConverterRefusal ties the two packages together. The
-// converter refuses exactly the documents the fixer now reports on, which is the
-// agreement #470 asked for.
+// TestFixParseErrorsMatchConverterRefusal ties the two packages together: the
+// fixer reports on exactly the documents the converter refuses, which is the
+// agreement #470 asked for. Both sides are exercised for real, since asserting
+// the fixer against the same field it was populated from would prove nothing.
 func TestFixParseErrorsMatchConverterRefusal(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -119,11 +121,16 @@ func TestFixParseErrorsMatchConverterRefusal(t *testing.T) {
 
 			result, err := New().FixParsed(*parseResult)
 			require.NoError(t, err)
+			assert.Equal(t, tc.wantRefusal, result.HasParseErrors(), "fixer")
 
-			assert.Equal(t, tc.wantRefusal, result.HasParseErrors(),
-				"fixer should report on exactly the documents converter refuses")
-			assert.Equal(t, tc.wantRefusal, len(parseResult.Errors) > 0,
-				"and converter's refusal is driven by the same field")
+			_, convErr := converter.New().ConvertParsed(*parseResult, "3.1.0")
+			if tc.wantRefusal {
+				require.Error(t, convErr, "converter should refuse this document")
+				assert.Contains(t, convErr.Error(), "parse error",
+					"and refuse it over the same errors the fixer reports")
+			} else {
+				assert.NoError(t, convErr, "converter should accept this document")
+			}
 		})
 	}
 }

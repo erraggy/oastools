@@ -563,3 +563,44 @@ func TestCallbackDeepCopy(t *testing.T) {
 	callback["{$request.body#/callbackUrl}"].Post.Summary = "Modified"
 	assert.Equal(t, "Callback notification", cp["{$request.body#/callbackUrl}"].Post.Summary)
 }
+
+// TestCloneExtensionsIsDeep covers the copy the converter relies on when it
+// builds a target object field by field. A shallow copy would leave the two
+// documents sharing the nested values, so a write through one would be visible
+// in the other.
+func TestCloneExtensionsIsDeep(t *testing.T) {
+	src := map[string]any{
+		"x-scalar": "original",
+		"x-nested": map[string]any{
+			"inner": "original",
+			"deep":  map[string]any{"leaf": "original"},
+		},
+		"x-list": []any{"original", map[string]any{"leaf": "original"}},
+	}
+
+	clone := CloneExtensions(src)
+	require.Equal(t, src, clone, "the clone should start out equal")
+
+	clone["x-scalar"] = "rewritten"
+	clone["x-nested"].(map[string]any)["inner"] = "rewritten"
+	clone["x-nested"].(map[string]any)["deep"].(map[string]any)["leaf"] = "rewritten"
+	clone["x-list"].([]any)[0] = "rewritten"
+	clone["x-list"].([]any)[1].(map[string]any)["leaf"] = "rewritten"
+
+	assert.Equal(t, "original", src["x-scalar"])
+	assert.Equal(t, "original", src["x-nested"].(map[string]any)["inner"])
+	assert.Equal(t, "original", src["x-nested"].(map[string]any)["deep"].(map[string]any)["leaf"])
+	assert.Equal(t, "original", src["x-list"].([]any)[0])
+	assert.Equal(t, "original", src["x-list"].([]any)[1].(map[string]any)["leaf"])
+}
+
+// TestCloneExtensionsEmptyCases keeps a nil map cloning to nil. An object with
+// no extensions must not gain an empty map, which would serialize differently
+// from the document it came from.
+func TestCloneExtensionsEmptyCases(t *testing.T) {
+	assert.Nil(t, CloneExtensions(nil))
+
+	empty := CloneExtensions(map[string]any{})
+	assert.NotNil(t, empty)
+	assert.Empty(t, empty)
+}

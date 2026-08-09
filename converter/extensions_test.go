@@ -142,6 +142,70 @@ func TestOAS2ToOAS3PreservesExtensions(t *testing.T) {
 	assert.Equal(t, "response", resp.Extra["x-response-ext"], "response")
 }
 
+// oas2FormDataWithExtensions exercises the other position with no same-named
+// counterpart: formData parameters collapse into a single request body schema,
+// one property each, so the property schema is the only place a parameter's
+// extensions can land.
+const oas2FormDataWithExtensions = `swagger: "2.0"
+info:
+  title: T
+  version: "1.0.0"
+consumes:
+  - application/x-www-form-urlencoded
+paths:
+  /upload:
+    post:
+      operationId: upload
+      parameters:
+        - name: label
+          in: formData
+          type: string
+          required: true
+          x-label-ext: label
+        - name: size
+          in: formData
+          type: integer
+          x-size-ext: size
+      responses:
+        "200":
+          description: OK
+`
+
+// TestOAS2FormDataExtensionsFollowTheProperty covers the formData half of the
+// conversion. Nothing in OAS 3.x corresponds to a formData parameter, so the
+// extensions travel with the object into the shape it becomes.
+func TestOAS2FormDataExtensionsFollowTheProperty(t *testing.T) {
+	path := writeSpec(t, "oas2-formdata.yaml", oas2FormDataWithExtensions)
+
+	result, err := New().Convert(path, "3.0.3")
+	require.NoError(t, err)
+	require.True(t, result.Success)
+
+	doc, ok := result.Document.(*parser.OAS3Document)
+	require.True(t, ok)
+
+	op := doc.Paths["/upload"].Post
+	require.NotNil(t, op)
+	require.NotNil(t, op.RequestBody)
+
+	media := op.RequestBody.Content["application/x-www-form-urlencoded"]
+	require.NotNil(t, media, "formData converts to a urlencoded body")
+	require.NotNil(t, media.Schema)
+
+	label := media.Schema.Properties["label"]
+	require.NotNil(t, label)
+	assert.Equal(t, "label", label.Extra["x-label-ext"])
+
+	size := media.Schema.Properties["size"]
+	require.NotNil(t, size)
+	assert.Equal(t, "size", size.Extra["x-size-ext"])
+
+	// The property schema keeps its own meaning too: the extension rides along
+	// with the converted type, it does not replace it.
+	assert.Equal(t, "string", label.Type)
+	assert.Equal(t, "integer", size.Type)
+}
+
 // TestOAS3ToOAS2PreservesExtensions covers #463 downgrading.
 func TestOAS3ToOAS2PreservesExtensions(t *testing.T) {
 	path := writeSpec(t, "oas3.yaml", oas3WithExtensions)
