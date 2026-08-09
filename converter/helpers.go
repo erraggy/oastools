@@ -237,7 +237,7 @@ func (c *Converter) convertOAS2ResponseToOAS3Old(response *parser.Response, prod
 
 	converted := &parser.Response{
 		Description: response.Description,
-		Headers:     response.Headers,
+		Headers:     cloneHeaders(response.Headers),
 		Extra:       parser.CloneExtensions(response.Extra),
 	}
 

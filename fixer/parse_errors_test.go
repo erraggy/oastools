@@ -88,6 +88,42 @@ func TestFixRecordsParseErrorsAlongsideFixes(t *testing.T) {
 	assert.True(t, result.HasParseErrors(), "the missing responses object is not")
 }
 
+// fixableOnlySpec has the missing path parameter and nothing else, so fixing it
+// leaves a document with no errors.
+const fixableOnlySpec = `openapi: 3.0.3
+info:
+  title: T
+  version: "1.0.0"
+paths:
+  /a/{id}:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+`
+
+// TestFixAppliesFixesWithoutParseErrors is the case that separates the two
+// signals. Applying a fix must not imply errors remain, or every fixed document
+// would exit non-zero.
+func TestFixAppliesFixesWithoutParseErrors(t *testing.T) {
+	parseResult, err := parser.ParseWithOptions(parser.WithBytes([]byte(fixableOnlySpec)))
+	require.NoError(t, err)
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeMissingPathParameter}
+
+	result, err := f.FixParsed(*parseResult)
+	require.NoError(t, err)
+
+	assert.True(t, result.HasFixes(), "the missing path parameter is fixable")
+	assert.False(t, result.HasParseErrors(), "and nothing else is wrong with it")
+
+	// The converter is the check that matters: it accepts what fixing produced.
+	_, convErr := converter.New().ConvertParsed(*result.ToParseResult(), "3.1.0")
+	assert.NoError(t, convErr)
+}
+
 // TestFixReportsNoParseErrorsForCleanDocument is the half that must not regress:
 // a good document still exits 0.
 func TestFixReportsNoParseErrorsForCleanDocument(t *testing.T) {

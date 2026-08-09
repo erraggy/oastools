@@ -137,6 +137,13 @@ func CloneExtensions(v map[string]any) map[string]any {
 	return deepCopyExtensions(v)
 }
 
+// CloneSecurityRequirements deep copies a slice of SecurityRequirement. Each
+// requirement is a map, so a caller building a new document from an existing
+// one needs this for the same reason it needs CloneExtensions.
+func CloneSecurityRequirements(v []SecurityRequirement) []SecurityRequirement {
+	return deepCopySecurityRequirements(v)
+}
+
 // deepCopyPaths deep copies a Paths map (map[string]*PathItem).
 func deepCopyPaths(v Paths) Paths {
 	if v == nil {

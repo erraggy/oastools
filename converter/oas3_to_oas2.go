@@ -40,9 +40,9 @@ func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *Co
 	dst := &parser.OAS2Document{
 		Swagger:    "2.0",
 		OASVersion: parser.OASVersion20,
-		Info:       src.Info,
+		Info:       src.Info.DeepCopy(),
 		Paths:      make(map[string]*parser.PathItem),
-		Tags:       src.Tags,
+		Tags:       cloneTags(src.Tags),
 		Extra:      parser.CloneExtensions(src.Extra),
 	}
 
@@ -109,12 +109,12 @@ func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *Co
 
 	// Handle external docs
 	if src.ExternalDocs != nil {
-		dst.ExternalDocs = src.ExternalDocs
+		dst.ExternalDocs = src.ExternalDocs.DeepCopy()
 	}
 
 	// Global security is compatible
 	if len(src.Security) > 0 {
-		dst.Security = src.Security
+		dst.Security = parser.CloneSecurityRequirements(src.Security)
 	}
 
 	// Report the 3.2 fixed fields against the source document, whose objects still
@@ -213,14 +213,14 @@ func (c *Converter) convertOAS3PathItemToOAS2(src *parser.PathItem, doc *parser.
 // convertOAS3OperationToOAS2 converts an OAS 3.x operation to OAS 2.0
 func (c *Converter) convertOAS3OperationToOAS2(src *parser.Operation, doc *parser.OAS2Document, result *ConversionResult, opPath string) *parser.Operation {
 	dst := &parser.Operation{
-		Tags:         src.Tags,
+		Tags:         cloneStrings(src.Tags),
 		Summary:      src.Summary,
 		Description:  src.Description,
-		ExternalDocs: src.ExternalDocs,
+		ExternalDocs: src.ExternalDocs.DeepCopy(),
 		OperationID:  src.OperationID,
 		Parameters:   c.convertParametersToOAS2(src.Parameters, result, fmt.Sprintf("%s.parameters", opPath)),
 		Deprecated:   src.Deprecated,
-		Security:     src.Security,
+		Security:     parser.CloneSecurityRequirements(src.Security),
 		Extra:        parser.CloneExtensions(src.Extra),
 	}
 

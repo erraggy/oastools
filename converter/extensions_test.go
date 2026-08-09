@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -202,8 +203,8 @@ func TestOAS2FormDataExtensionsFollowTheProperty(t *testing.T) {
 
 	// The property schema keeps its own meaning too: the extension rides along
 	// with the converted type, it does not replace it.
-	assert.Equal(t, "string", label.Type)
-	assert.Equal(t, "integer", size.Type)
+	assert.Equal(t, "string", schemautil.GetPrimaryType(label))
+	assert.Equal(t, "integer", schemautil.GetPrimaryType(size))
 }
 
 // TestOAS3ToOAS2PreservesExtensions covers #463 downgrading.
@@ -255,26 +256,62 @@ func TestOAS3ToOAS2PreservesExtensions(t *testing.T) {
 	assert.Equal(t, "response", resp.Extra["x-response-ext"], "response")
 }
 
-// TestConversionDoesNotShareExtensionMaps guards the copy itself. Assigning the
-// source map instead of cloning it would leave both documents pointing at one
-// map, so a write to the converted document would reach back into the source.
-func TestConversionDoesNotShareExtensionMaps(t *testing.T) {
+// TestUpgradeDoesNotShareStateWithSource guards the copies. Assigning a source
+// field straight across leaves both documents holding one object, so a write to
+// the converted document reaches back into the caller's source. Info was the
+// worst of these: it was passed through whole, so this covers the title as well
+// as the extensions.
+func TestUpgradeDoesNotShareStateWithSource(t *testing.T) {
 	path := writeSpec(t, "oas2.yaml", oas2WithExtensions)
 
-	c := New()
 	parsed, err := parser.ParseWithOptions(parser.WithFilePath(path))
 	require.NoError(t, err)
 	src, ok := parsed.OAS2Document()
 	require.True(t, ok)
 
-	result, err := c.ConvertParsed(*parsed, "3.0.3")
+	result, err := New().ConvertParsed(*parsed, "3.0.3")
 	require.NoError(t, err)
 	doc, ok := result.Document.(*parser.OAS3Document)
 	require.True(t, ok)
 
 	doc.Extra["x-root-ext"] = "rewritten"
-	assert.Equal(t, "root", src.Extra["x-root-ext"],
-		"writing to the converted document must not reach the source")
+	assert.Equal(t, "root", src.Extra["x-root-ext"], "root extensions")
+
+	require.NotSame(t, src.Info, doc.Info, "Info must not be the same object")
+	doc.Info.Extra["x-info-ext"] = "rewritten"
+	doc.Info.Title = "rewritten"
+	assert.Equal(t, "info", src.Info.Extra["x-info-ext"], "info extensions")
+	assert.Equal(t, "T", src.Info.Title, "info title")
+
+	op := doc.Paths["/a"].Get
+	require.NotNil(t, op)
+	op.Extra["x-op-ext"] = "rewritten"
+	assert.Equal(t, "op", src.Paths["/a"].Get.Extra["x-op-ext"], "operation extensions")
+}
+
+// TestDowngradeDoesNotShareStateWithSource is the same guard in the other
+// direction, which rebuilds its target through different functions.
+func TestDowngradeDoesNotShareStateWithSource(t *testing.T) {
+	path := writeSpec(t, "oas3.yaml", oas3WithExtensions)
+
+	parsed, err := parser.ParseWithOptions(parser.WithFilePath(path))
+	require.NoError(t, err)
+	src, ok := parsed.OAS3Document()
+	require.True(t, ok)
+
+	result, err := New().ConvertParsed(*parsed, "2.0")
+	require.NoError(t, err)
+	doc, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok)
+
+	doc.Extra["x-root-ext"] = "rewritten"
+	assert.Equal(t, "root", src.Extra["x-root-ext"], "root extensions")
+
+	require.NotSame(t, src.Info, doc.Info, "Info must not be the same object")
+	doc.Info.Extra["x-info-ext"] = "rewritten"
+	doc.Info.Title = "rewritten"
+	assert.Equal(t, "info", src.Info.Extra["x-info-ext"], "info extensions")
+	assert.Equal(t, "T", src.Info.Title, "info title")
 }
 
 // TestCloneExtensionsNilStaysNil keeps an object with no extensions from gaining

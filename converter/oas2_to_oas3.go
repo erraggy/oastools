@@ -18,10 +18,10 @@ func (c *Converter) convertOAS2ToOAS3(parseResult parser.ParseResult, targetVers
 	dst := &parser.OAS3Document{
 		OpenAPI:    result.TargetVersion,
 		OASVersion: targetVersion,
-		Info:       src.Info,
+		Info:       src.Info.DeepCopy(),
 		Servers:    c.convertServers(src, result),
 		Paths:      make(map[string]*parser.PathItem),
-		Tags:       src.Tags,
+		Tags:       cloneTags(src.Tags),
 		Extra:      parser.CloneExtensions(src.Extra),
 	}
 
@@ -66,12 +66,12 @@ func (c *Converter) convertOAS2ToOAS3(parseResult parser.ParseResult, targetVers
 
 	// Handle external docs
 	if src.ExternalDocs != nil {
-		dst.ExternalDocs = src.ExternalDocs
+		dst.ExternalDocs = src.ExternalDocs.DeepCopy()
 	}
 
 	// Global security is compatible
 	if len(src.Security) > 0 {
-		dst.Security = src.Security
+		dst.Security = parser.CloneSecurityRequirements(src.Security)
 	}
 
 	// Rewrite all $ref paths from OAS 2.0 to OAS 3.x format
@@ -156,14 +156,14 @@ func (c *Converter) convertOAS2OperationToOAS3(src *parser.Operation, doc *parse
 		}
 	}
 	dst := &parser.Operation{
-		Tags:         src.Tags,
+		Tags:         cloneStrings(src.Tags),
 		Summary:      src.Summary,
 		Description:  src.Description,
-		ExternalDocs: src.ExternalDocs,
+		ExternalDocs: src.ExternalDocs.DeepCopy(),
 		OperationID:  src.OperationID,
 		Parameters:   c.convertParameters(nonBodyParams, result, fmt.Sprintf("%s.parameters", opPath)),
 		Deprecated:   src.Deprecated,
-		Security:     src.Security,
+		Security:     parser.CloneSecurityRequirements(src.Security),
 		Extra:        parser.CloneExtensions(src.Extra),
 	}
 
