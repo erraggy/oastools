@@ -364,16 +364,21 @@ func TestUpgradeDoesNotShareOAuthScopes(t *testing.T) {
 	doc, ok := result.Document.(*parser.OAS3Document)
 	require.True(t, ok)
 
-	flow := doc.Components.SecuritySchemes["oauth"].Flows.AuthorizationCode
+	require.NotNil(t, doc.Components)
+	scheme := doc.Components.SecuritySchemes["oauth"]
+	require.NotNil(t, scheme)
+	require.NotNil(t, scheme.Flows)
+	flow := scheme.Flows.AuthorizationCode
 	require.NotNil(t, flow)
 	require.Equal(t, "Read access", flow.Scopes["read"])
 
 	flow.Scopes["read"] = "rewritten"
 	flow.Scopes["added"] = "rewritten"
 
-	srcScopes := src.SecurityDefinitions["oauth"].Scopes
-	assert.Equal(t, "Read access", srcScopes["read"], "source scopes must be untouched")
-	assert.NotContains(t, srcScopes, "added")
+	srcDef := src.SecurityDefinitions["oauth"]
+	require.NotNil(t, srcDef)
+	assert.Equal(t, "Read access", srcDef.Scopes["read"], "source scopes must be untouched")
+	assert.NotContains(t, srcDef.Scopes, "added")
 }
 
 // TestDowngradeDoesNotShareOAuthScopes covers the scope map on the way down,
@@ -391,15 +396,22 @@ func TestDowngradeDoesNotShareOAuthScopes(t *testing.T) {
 	doc, ok := result.Document.(*parser.OAS2Document)
 	require.True(t, ok)
 
-	scopes := doc.SecurityDefinitions["oauth"].Scopes
+	secDef := doc.SecurityDefinitions["oauth"]
+	require.NotNil(t, secDef)
+	scopes := secDef.Scopes
 	require.Equal(t, "Read access", scopes["read"])
 
 	scopes["read"] = "rewritten"
 	scopes["added"] = "rewritten"
 
-	srcScopes := src.Components.SecuritySchemes["oauth"].Flows.AuthorizationCode.Scopes
-	assert.Equal(t, "Read access", srcScopes["read"], "source scopes must be untouched")
-	assert.NotContains(t, srcScopes, "added")
+	require.NotNil(t, src.Components)
+	srcScheme := src.Components.SecuritySchemes["oauth"]
+	require.NotNil(t, srcScheme)
+	require.NotNil(t, srcScheme.Flows)
+	srcFlow := srcScheme.Flows.AuthorizationCode
+	require.NotNil(t, srcFlow)
+	assert.Equal(t, "Read access", srcFlow.Scopes["read"], "source scopes must be untouched")
+	assert.NotContains(t, srcFlow.Scopes, "added")
 }
 
 // TestConvertWithOptionsRefusesParsedWithErrors covers the WithParsed route

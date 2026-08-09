@@ -642,6 +642,7 @@ func TestDeepCopySecurityRequirementsKeepsNilScopes(t *testing.T) {
 
 	clone := DeepCopySecurityRequirements(src)
 
+	require.Len(t, clone, 1)
 	require.Contains(t, clone[0], "oauth", "a nil-scope key must survive the copy")
 	assert.Nil(t, clone[0]["oauth"], "and stay nil rather than becoming empty")
 	assert.Equal(t, []string{"read"}, clone[0]["apiKey"])
