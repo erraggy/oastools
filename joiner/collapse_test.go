@@ -366,6 +366,10 @@ func TestDeduplicateOrRename_DiscriminatorMappingIsRenameAware(t *testing.T) {
 				Discriminator: &parser.Discriminator{
 					PropertyName: "kind",
 					Mapping:      map[string]string{"dog": "#/components/schemas/Dog"},
+					// defaultMapping names a schema the same way a mapping value
+					// does, and the rewriter rewrites both, so both have to be
+					// read through the view.
+					DefaultMapping: "#/components/schemas/Dog",
 				},
 			},
 			"Dog": object(dogProperty),
@@ -382,6 +386,38 @@ func TestDeduplicateOrRename_DiscriminatorMappingIsRenameAware(t *testing.T) {
 	assert.ElementsMatch(t, []string{"Animal", "Dog", "Animal_v1", "Dog_v1"}, slices.Collect(maps.Keys(schemas)),
 		"the Dogs differ, so the Animals that discriminate to them differ too")
 	assert.Equal(t, "#/components/schemas/Dog_v1", schemas["Animal_v1"].Discriminator.Mapping["dog"])
+	assert.Equal(t, "#/components/schemas/Dog_v1", schemas["Animal_v1"].Discriminator.DefaultMapping)
+}
+
+// TestDeduplicateOrRename_DefaultMappingAloneDecides isolates defaultMapping in
+// the comparison.
+//
+// Above it rides along with a mapping and a oneOf that name Dog too, so the
+// Animals would be told apart even if defaultMapping were compared as written.
+// Here it is the only thing that names Dog, so reading it through the view is
+// the whole verdict: without that, two Animals selecting different subschemas
+// would collapse into one.
+func TestDeduplicateOrRename_DefaultMappingAloneDecides(t *testing.T) {
+	build := func(path, dogProperty string) *parser.OAS3Document {
+		return flatDoc(path, map[string]*parser.Schema{
+			"Animal": {
+				Type:       "object",
+				Properties: map[string]*parser.Schema{"kind": {Type: "string"}},
+				Discriminator: &parser.Discriminator{
+					PropertyName:   "kind",
+					DefaultMapping: "#/components/schemas/Dog",
+				},
+			},
+			"Dog": object(dogProperty),
+		})
+	}
+
+	assert.Equal(t, []string{"Animal", "Animal_v1", "Dog", "Dog_v1"},
+		schemaNames(t, dedupeOrRenameConfig(), []parser.ParseResult{
+			parsedAs(build("/one", "bark"), "one.yaml"),
+			parsedAs(build("/two", "woof"), "two.yaml"),
+		}),
+		"the Dogs differ, so the Animals that fall back to them differ too")
 }
 
 // TestDeduplicateOrRename_OAS2 covers the definitions section, which runs the
