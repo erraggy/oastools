@@ -279,8 +279,10 @@ Configure with `WithGenericNaming()` or `WithGenericNamingConfig()`.
 | `Document` | `any` | Fixed document |
 | `Fixes` | `[]Fix` | Applied fixes with details |
 | `FixCount` | `int` | Total fixes applied |
+| `ParseErrors` | `[]error` | Errors in the source document that no fix covers |
+| `HasParseErrors()` | `bool` | Whether any such errors remain |
 | `SourceFormat` | `SourceFormat` | Preserved format |
-| `ToParseResult()` | `*parser.ParseResult` | Converts result for package chaining |
+| `ToParseResult()` | `*parser.ParseResult` | Converts result for package chaining, carrying `ParseErrors` through |
 
 [Back to top](#top)
 
@@ -305,10 +307,20 @@ v := validator.New()
 valResult, _ := v.ValidateParsed(*fixResult.ToParseResult())
 fmt.Printf("Valid: %v\n", valResult.Valid)
 
-// Or chain to converter
+// Or chain to converter, which refuses a document whose problems no fix covers
+if fixResult.HasParseErrors() {
+    log.Fatalf("%d error(s) no fix covers", len(fixResult.ParseErrors))
+}
 c := converter.New()
-convResult, _ := c.ConvertParsed(*fixResult.ToParseResult(), "3.1.0")
+convResult, err := c.ConvertParsed(*fixResult.ToParseResult(), "3.1.0")
+if err != nil {
+    log.Fatal(err)
+}
 ```
+
+`ToParseResult()` carries `ParseErrors` through, so the converter and joiner both
+refuse a document that still has problems no fix covers. Check
+`HasParseErrors()` before chaining if you are using the fixer as a gate.
 
 This enables workflows like: `parse → fix → validate → convert → join`
 

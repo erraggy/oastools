@@ -147,6 +147,39 @@ func Example_deepCopy() {
 	// Copy title: Modified Petstore API
 }
 
+// ExampleDeepCopyExtensions demonstrates copying the Extra map when building an
+// object field by field from an existing one. Assigning the map directly leaves
+// both objects sharing it, so a later edit to one shows up in the other.
+func ExampleDeepCopyExtensions() {
+	original := &parser.Schema{
+		Type: "object",
+		Extra: map[string]any{
+			"x-owner": "platform-team",
+		},
+	}
+
+	derived := &parser.Schema{
+		Type:  original.Type,
+		Extra: parser.DeepCopyExtensions(original.Extra),
+	}
+	derived.Extra["x-owner"] = "billing-team"
+
+	// The plain fields are carried across as themselves: only the map needs
+	// copying, because only the map would be shared
+	fmt.Printf("Derived type: %v\n", derived.Type)
+	fmt.Printf("Original owner: %v\n", original.Extra["x-owner"])
+	fmt.Printf("Derived owner: %v\n", derived.Extra["x-owner"])
+
+	// A nil map copies to nil, so an object with no extensions does not gain
+	// an empty one
+	fmt.Printf("Nil stays nil: %v\n", parser.DeepCopyExtensions(nil) == nil)
+	// Output:
+	// Derived type: object
+	// Original owner: platform-team
+	// Derived owner: billing-team
+	// Nil stays nil: true
+}
+
 // Example_documentAccessor demonstrates using the DocumentAccessor interface
 // for version-agnostic access to OpenAPI documents. This allows writing code
 // that works identically for both OAS 2.0 and OAS 3.x without type switches.

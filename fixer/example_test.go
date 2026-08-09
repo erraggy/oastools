@@ -270,6 +270,55 @@ paths:
 	// No fixes needed
 }
 
+// ExampleFixResult_HasParseErrors demonstrates telling a document that fixing
+// left in good shape from one that still has problems no fix covers. Applying a
+// fix is not evidence the document came out clean: here /a/{id} declares no
+// parameter for its path template, which the fixer adds, while /b is missing the
+// responses object nothing fixes.
+func ExampleFixResult_HasParseErrors() {
+	spec := `
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /a/{id}:
+    get:
+      operationId: getA
+      responses:
+        '200':
+          description: Success
+  /b:
+    get:
+      operationId: getB
+`
+	p := parser.New()
+	parseResult, err := p.ParseBytes([]byte(spec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := fixer.FixWithOptions(fixer.WithParsed(*parseResult))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// The two signals are independent: fixes applied, errors remaining.
+	fmt.Printf("Applied %d fix(es)\n", result.FixCount)
+	fmt.Printf("Problems no fix covers: %d\n", len(result.ParseErrors))
+
+	// ToParseResult carries those errors through, so packages that refuse a
+	// document with parse errors still refuse it after fixing.
+	if result.HasParseErrors() {
+		fmt.Println("Not safe to convert")
+	}
+
+	// Output:
+	// Applied 1 fix(es)
+	// Problems no fix covers: 1
+	// Not safe to convert
+}
+
 // ExampleFixWithOptions_genericNaming demonstrates fixing schemas with invalid names
 // like generic type parameters (e.g., Response[User]).
 func ExampleFixWithOptions_genericNaming() {

@@ -464,6 +464,19 @@ docCopy.Info.Title = "Modified API"
 fmt.Println(doc.Info.Title) // Original title
 ```
 
+### Copying Individual Fields
+
+`DeepCopy()` copies a whole object. When building an object field by field from
+an existing one, two fields need an explicit copy, since assigning them directly
+leaves both objects sharing the same map or slice:
+
+```go
+target.Extra = parser.DeepCopyExtensions(source.Extra)
+target.Security = parser.DeepCopySecurityRequirements(source.Security)
+```
+
+Both copy nil to nil, so an object with no extensions does not gain an empty map.
+
 [Back to top](#top)
 
 ---
