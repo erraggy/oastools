@@ -86,8 +86,17 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	result.Document = joined
 
+	// The renames are all known and none is applied yet, which is the one point
+	// at which a definition headed for a collapse can be dropped rather than
+	// rewritten and copied (#487).
+	var owner map[any]int
+	if !result.scope.empty() {
+		owner = ownersOAS2(sources)
+		j.collapseDeferredRenames(joined.Definitions, owner, result)
+	}
+
 	// Before deduplication, so comparison sees references in their final form.
-	copied, err := result.scope.applyOAS2(joined, sources)
+	copied, err := result.scope.applyOAS2(joined, owner)
 	if err != nil {
 		return nil, fmt.Errorf("joiner: failed to rewrite references after definition renames: %w", err)
 	}
@@ -246,7 +255,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 					eqResult := CompareSchemasWithOptions(joined.Definitions[effectiveName], schema, j.buildCompareOptions(mode))
 					if eqResult.Equivalent {
 						// Schemas are equivalent, keep existing and skip
-						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
+						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", name))
 						result.AddWarning(NewSchemaDedupWarning(effectiveName, "definition", ctx.filePath, line, col))
 						j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, schemaStrategy, resolutionDeduplicated, "")
 						continue
@@ -284,17 +293,36 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "definition", leftOrigin.filePath, line, col, true))
 				j.recordCollisionEvent(result, effectiveName, leftOrigin.filePath, ctx.filePath, schemaStrategy, resolutionRenamed, newName)
 
+			case StrategyDeduplicateOrRename:
+				// Rename now, decide later. Whether these two definitions are
+				// interchangeable depends on where their references resolve, and
+				// documents still to be merged can move those targets, so the
+				// verdict cannot be reached here (#487).
+				newName := uniqueSchemaName(joined.Definitions,
+					j.renamedRightName(name, effectiveName, sourcePrefix, ctx, sourceGraph))
+
+				joined.Definitions[newName] = schema
+				result.recordOrigin(sectionDefinitions, newName, ctx)
+				result.scope.registerRight(ctx.docIndex, name, newName)
+
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", name))
+				// No warning and no collision event here. Either would be
+				// wrong for every rename collapseDeferredRenames withdraws, so
+				// both wait until it has decided.
+				result.deferred = append(result.deferred, deferredRename{
+					name:        effectiveName,
+					newName:     newName,
+					label:       "definition",
+					leftSource:  leftSource,
+					rightSource: ctx.filePath,
+					line:        line,
+					column:      col,
+				})
+
 			case StrategyRenameRight:
 				// Rename the new (right) definition and keep existing (left) definition under original name
-				// Use namespace prefix if available, otherwise use template
-				var newName string
-				if sourcePrefix != "" && !j.config.AlwaysApplyPrefix {
-					// Source has prefix but AlwaysApplyPrefix is false - apply prefix now on collision
-					newName = j.generatePrefixedSchemaName(name, sourcePrefix)
-				} else {
-					newName = j.generateRenamedSchemaName(effectiveName, ctx.filePath, ctx.docIndex, sourceGraph)
-				}
-				newName = uniqueSchemaName(joined.Definitions, newName)
+				newName := uniqueSchemaName(joined.Definitions,
+					j.renamedRightName(name, effectiveName, sourcePrefix, ctx, sourceGraph))
 
 				// Add new definition under renamed name
 				joined.Definitions[newName] = schema
@@ -305,7 +333,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				// Only this document referenced the renamed definition.
 				result.scope.registerRight(ctx.docIndex, name, newName)
 
-				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", name))
 				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "definition", ctx.filePath, line, col, false))
 				j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, schemaStrategy, resolutionRenamed, newName)
 
@@ -314,7 +342,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				if err := j.handleCollision(effectiveName, "definitions", schemaStrategy, leftSource, ctx.filePath); err != nil {
 					return err
 				}
-				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
+				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", name))
 				if j.shouldOverwrite(schemaStrategy) {
 					joined.Definitions[effectiveName] = schema
 					result.recordOrigin(sectionDefinitions, effectiveName, ctx)

@@ -38,7 +38,7 @@ The joiner supports OAS 2.0 documents merging with other 2.0 documents, and all 
 
 ### Collision Handling
 
-When merging multiple documents, name collisions are inevitable—two documents might define different schemas with the same name, or contain overlapping paths. The joiner provides seven collision strategies to handle these situations:
+When merging multiple documents, name collisions are inevitable—two documents might define different schemas with the same name, or contain overlapping paths. The joiner provides eight collision strategies to handle these situations:
 
 | Strategy | Behavior |
 |----------|----------|
@@ -48,7 +48,8 @@ When merging multiple documents, name collisions are inevitable—two documents 
 | `StrategyFailOnPaths` | Fail only on path collisions, allow schema merging |
 | `StrategyRenameLeft` | Rename left schema, keep right under original name |
 | `StrategyRenameRight` | Rename right schema, keep left under original name |
-| `StrategyDeduplicateEquivalent` | Merge structurally identical schemas |
+| `StrategyDeduplicateEquivalent` | Merge structurally identical schemas, fail on any colliding pair that differs. Needs `EquivalenceMode` set to `shallow` or `deep`: under the default `none` every collision fails, identical or not |
+| `StrategyDeduplicateOrRename` | Merge schemas that are interchangeable, rename the rest; never fails |
 
 Strategies can be set globally or per-component type (paths, schemas, other components), giving fine-grained control over merge behavior.
 
@@ -67,6 +68,48 @@ See [Custom Collision Handlers](#custom-collision-handlers) for complete documen
 ### Semantic Deduplication
 
 Beyond handling same-named collisions, the joiner can identify and consolidate schemas that are structurally identical but have different names. When your Users API and Orders API both define equivalent `Address` and `Location` schemas, semantic deduplication recognizes they're identical and consolidates them.
+
+### Deduplicate or Rename
+
+`StrategyDeduplicateOrRename` is for joining many documents that mostly agree: a fleet of services that each vendor the same shared schemas, with occasional local divergence.
+
+```go
+config := joiner.DefaultConfig()
+config.SchemaStrategy = joiner.StrategyDeduplicateOrRename
+```
+
+A collision never fails the join, and a schema is only renamed when it genuinely differs. Schemas that agree keep the single name every document wrote.
+
+**Why the decision is not taken at the collision.** Two schemas can be byte identical and still not be interchangeable, because equivalence depends on where their references resolve:
+
+```text
+# store.yaml                          # clinic.yaml
+Pet:                                  Pet:
+  properties:                           properties:
+    category:                             category:
+      $ref: '#/components/schemas/Category'   $ref: '#/components/schemas/Category'
+Category:                             Category:
+  properties: {id, name}                properties: {id, name, description}
+```
+
+The two `Pet` schemas compare equal: both literally say `#/components/schemas/Category`. The divergence is one level down. Merging them at the collision, before `Category` is renamed for clinic, tells clinic's callers that `Pet.category` has no `description` when it does. The join succeeds, every reference resolves, the output validates, and only the meaning is wrong.
+
+So the decision runs later, at the one point where every document's renames are known and none of them has been applied yet. Each side of a comparison is read through its own document's pending renames, so two schemas are equivalent exactly when they would still be equivalent in the rewritten document. `Category` and `Category_clinic` differ, so the two `Pet` schemas differ too, and both survive.
+
+**Which name survives.** A name no rename generated beats one that a rename produced, so `Common` survives rather than an alias like `Api_Common` that happens to sort first. Names that are equally original are ordered alphabetically.
+
+**One decision, not a fixed point.** A schema is compared once. When a group of schemas collapses, the schemas that *reference* them were already compared, while their references still pointed apart:
+
+| Configuration | Result for four agreeing documents |
+|---------------|-------------------------------------|
+| `rename-right` | `Category`, `Category_v1..v3`, `Pet`, `Pet_v1..v3` |
+| `rename-right` + `SemanticDeduplication` | `Category`, `Pet`, `Pet_v1..v3` |
+| `deduplicate-or-rename` | `Category`, `Pet`, `Pet_v1..v3` |
+| `deduplicate-or-rename` + `SemanticDeduplication` | `Category`, `Pet` |
+
+One pass reaches what `rename-right` followed by semantic deduplication reaches, without renaming and rewriting twice to get there. Enable `SemanticDeduplication` as well to go further: withdrawing the `Category` renames leaves the `Pet` schemas identical in the rewritten document, which is exactly what that second pass reads.
+
+A schema that references itself is subject to the same limit, and so is a cycle of schemas that reference each other.
 
 ### Reference Rewriting
 

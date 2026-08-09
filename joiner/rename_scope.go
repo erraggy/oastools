@@ -61,6 +61,104 @@ func (s *renameScope) registerLeft(docIndex int, oldName, newName string) {
 	}
 }
 
+// redirect points whatever mapped onto from at to, because the schema under
+// from was collapsed into the one under to.
+func (s *renameScope) redirect(docIndex int, from, to string) {
+	if s == nil || docIndex < 0 || docIndex >= len(s.byDoc) || from == to {
+		return
+	}
+	// uniqueSchemaName gives every rename a target no other entry holds, so at
+	// most one source name maps onto from, and the first match ends the search.
+	for source, destination := range s.byDoc[docIndex] {
+		if destination != from {
+			continue
+		}
+		if source == to {
+			// The document's own spelling survived the collapse. Dropping the
+			// entry is what makes the saving: with nothing left to rewrite, the
+			// rewrite skips this document and copies none of its schemas.
+			delete(s.byDoc[docIndex], source)
+		} else {
+			s.byDoc[docIndex][source] = to
+		}
+		return
+	}
+	// No rename produced from, so the document spells it as it stands and needs
+	// a new entry to follow the collapse.
+	s.renamesFor(docIndex)[from] = to
+}
+
+// generatedNames returns the names that exist only because a rename produced
+// them, which is what tells a generated alias apart from a name a document
+// wrote when a collapse has to choose between them (#487).
+func (s *renameScope) generatedNames() map[string]bool {
+	if s == nil {
+		return nil
+	}
+	// Every rename target qualifies: uniqueSchemaName picks a name no other
+	// entry holds, so no document can have spelled it.
+	generated := make(map[string]bool)
+	for _, renames := range s.byDoc {
+		for _, destination := range renames {
+			generated[destination] = true
+		}
+	}
+	return generated
+}
+
+// view returns the reference view for one source document: how the names that
+// document spells read once its renames are applied. It is nil when the
+// document has no renames, which refView treats as the identity.
+func (s *renameScope) view(docIndex int) *refView {
+	if s == nil || docIndex < 0 || docIndex >= len(s.byDoc) {
+		return nil
+	}
+	return newRefView(s.byDoc[docIndex], s.version)
+}
+
+// mergedView returns the view for entries no source document contributed,
+// matching how rewriteUnowned rewrites them.
+func (s *renameScope) mergedView() *refView {
+	if s == nil {
+		return nil
+	}
+	return newRefView(s.mergedRenames(), s.version)
+}
+
+// mergedRenames returns every document's renames in one map, merge order
+// breaking the tie when two documents renamed the same name.
+//
+// Entries no document contributed have no namespace of their own to be read in,
+// so every rename applies to them. mergedView and rewriteUnowned both read this
+// so the comparison and the rewrite cannot disagree about which.
+func (s *renameScope) mergedRenames() map[string]string {
+	merged := make(map[string]string)
+	for _, renames := range s.byDoc {
+		maps.Copy(merged, renames)
+	}
+	return merged
+}
+
+// newRefView builds the view for one set of renames.
+func newRefView(renames map[string]string, version parser.OASVersion) *refView {
+	if len(renames) == 0 {
+		return nil
+	}
+	view := &refView{
+		refs: make(map[string]string, len(renames)),
+		// Cloned, not shared. The collapse redirects renames once it has
+		// finished comparing, and a view that followed those edits would judge
+		// later groups against a mapping earlier groups never saw.
+		names: maps.Clone(renames),
+	}
+	// Both spellings, so a $ref and a discriminator entry naming the same schema
+	// resolve through the same view.
+	for oldName, newName := range renames {
+		view.refs[schemaRefPath(oldName, version)] = schemaRefPath(newName, version)
+	}
+	return view
+}
+
 // empty reports whether no document has a rename recorded.
 func (s *renameScope) empty() bool {
 	if s == nil {
@@ -79,10 +177,18 @@ func (s *renameScope) empty() bool {
 //
 // Keep the claimed containers in step with rewriteOAS2Document: an unclaimed
 // entry counts as belonging to no document.
-func (s *renameScope) applyOAS2(joined *parser.OAS2Document, sources []*parser.OAS2Document) (map[any]bool, error) {
+func (s *renameScope) applyOAS2(joined *parser.OAS2Document, owner map[any]int) (map[any]bool, error) {
 	if s.empty() {
 		return nil, nil
 	}
+	return s.rewrite(joined, owner)
+}
+
+// ownersOAS2 records which document contributed each top-level entry.
+//
+// Keep the claimed containers in step with rewriteOAS2Document: an unclaimed
+// entry counts as belonging to no document.
+func ownersOAS2(sources []*parser.OAS2Document) map[any]int {
 	owner := make(map[any]int)
 	for docIndex, src := range sources {
 		claimEntries(owner, docIndex, src.Definitions)
@@ -90,7 +196,7 @@ func (s *renameScope) applyOAS2(joined *parser.OAS2Document, sources []*parser.O
 		claimEntries(owner, docIndex, src.Responses)
 		claimEntries(owner, docIndex, src.Paths)
 	}
-	return s.rewrite(joined, owner)
+	return owner
 }
 
 // applyOAS3 rewrites the joined document's references, one source document's
@@ -98,10 +204,18 @@ func (s *renameScope) applyOAS2(joined *parser.OAS2Document, sources []*parser.O
 //
 // Keep the claimed containers in step with rewriteOAS3Document: an unclaimed
 // entry counts as belonging to no document.
-func (s *renameScope) applyOAS3(joined *parser.OAS3Document, sources []*parser.OAS3Document) (map[any]bool, error) {
+func (s *renameScope) applyOAS3(joined *parser.OAS3Document, owner map[any]int) (map[any]bool, error) {
 	if s.empty() {
 		return nil, nil
 	}
+	return s.rewrite(joined, owner)
+}
+
+// ownersOAS3 records which document contributed each top-level entry.
+//
+// Keep the claimed containers in step with rewriteOAS3Document: an unclaimed
+// entry counts as belonging to no document.
+func ownersOAS3(sources []*parser.OAS3Document) map[any]int {
 	owner := make(map[any]int)
 	for docIndex, src := range sources {
 		if src.Components != nil {
@@ -117,7 +231,7 @@ func (s *renameScope) applyOAS3(joined *parser.OAS3Document, sources []*parser.O
 		claimEntries(owner, docIndex, src.Paths)
 		claimEntries(owner, docIndex, src.Webhooks)
 	}
-	return s.rewrite(joined, owner)
+	return owner
 }
 
 // rewrite runs one pass per source document that recorded a rename, each
@@ -148,13 +262,8 @@ func (s *renameScope) rewrite(joined any, owner map[any]int) (map[any]bool, erro
 // collision handler produces with ResolutionCustom. There is no document whose
 // namespace to read them in, so every rename applies.
 func (s *renameScope) rewriteUnowned(joined any, owner map[any]int, copied map[any]bool) error {
-	merged := make(map[string]string)
-	for _, renames := range s.byDoc {
-		// Merge order breaks the tie when two documents renamed the same name.
-		maps.Copy(merged, renames)
-	}
 	rewriter := NewSchemaRewriter()
-	for oldName, newName := range merged {
+	for oldName, newName := range s.mergedRenames() {
 		rewriter.RegisterRename(oldName, newName, s.version)
 	}
 	rewriter.restrictTo(func(entry any) bool {

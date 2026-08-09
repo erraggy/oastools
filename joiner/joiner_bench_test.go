@@ -213,6 +213,105 @@ func BenchmarkJoinRenames(b *testing.B) {
 	b.Run("RenameLeftFiveDocs", func(b *testing.B) { run(b, StrategyRenameLeft, 5) })
 }
 
+// dedupeBenchSchemaCount is how many schemas every document in
+// BenchmarkJoinDeduplicateOrRename spells identically.
+const dedupeBenchSchemaCount = 5
+
+// dedupeBenchDoc builds one of many documents that mostly agree: the same
+// schemas under the same names, referenced from a path of its own. When
+// diverge is set, one of those schemas carries an extra property, which is the
+// one collision in the whole join that a rename has to survive.
+//
+// The schemas reference nothing, so the collapse settles every one of them in
+// its single pass and the two configurations under test produce the same
+// document. See collapseDeferredRenames for what a reference between them
+// would cost.
+func dedupeBenchDoc(name string, diverge bool) parser.ParseResult {
+	schemas := make(map[string]*parser.Schema, dedupeBenchSchemaCount)
+	for i := range dedupeBenchSchemaCount {
+		properties := map[string]*parser.Schema{
+			"id":   {Type: "string"},
+			"name": {Type: "string"},
+		}
+		if diverge && i == 0 {
+			properties["only"+name] = &parser.Schema{Type: "string"}
+		}
+		schemas[fmt.Sprintf("Shared%d", i)] = &parser.Schema{Type: "object", Properties: properties}
+	}
+
+	return parser.ParseResult{
+		Document: &parser.OAS3Document{
+			OpenAPI: "3.0.3",
+			Info:    &parser.Info{Title: name, Version: "1.0.0"},
+			Paths: parser.Paths{
+				"/" + name: &parser.PathItem{Get: &parser.Operation{
+					Responses: &parser.Responses{Codes: map[string]*parser.Response{
+						"200": {
+							Description: "ok",
+							Content: map[string]*parser.MediaType{
+								"application/json": {Schema: &parser.Schema{Ref: "#/components/schemas/Shared0"}},
+							},
+						},
+					}},
+				}},
+			},
+			Components: &parser.Components{Schemas: schemas},
+			OASVersion: parser.OASVersion303,
+		},
+		Version:      "3.0.3",
+		OASVersion:   parser.OASVersion303,
+		SourcePath:   name,
+		SourceFormat: parser.SourceFormatJSON,
+	}
+}
+
+// BenchmarkJoinDeduplicateOrRename compares the configurations available for
+// joining many documents that mostly agree (#487).
+//
+// RenameRightThenDedup is what the strategy replaces: it renames a shared
+// schema once per document, rewrites every reference to those names, collapses
+// the aliases back and rewrites again. DeduplicateOrRename decides once,
+// between the point where every rename is known and the point where any of
+// them is applied, so the schemas headed for a collapse are dropped rather
+// than copied. Both produce the same document.
+func BenchmarkJoinDeduplicateOrRename(b *testing.B) {
+	docs := make([]parser.ParseResult, 100)
+	for i := range docs {
+		// Diverging at 9 puts the one collision a rename has to survive inside
+		// both the 10 and the 100 document slice.
+		docs[i] = dedupeBenchDoc(fmt.Sprintf("doc%d", i), i == 9)
+	}
+
+	run := func(b *testing.B, config JoinerConfig, count int) {
+		config.PathStrategy = StrategyAcceptLeft
+		config.RenameTemplate = "{{.Name}}.{{.Source}}"
+		j := New(config)
+
+		b.ReportAllocs()
+		for b.Loop() {
+			if _, err := j.JoinParsed(docs[:count]); err != nil {
+				b.Fatalf("Failed to join: %v", err)
+			}
+		}
+	}
+
+	renameThenDedup := DefaultConfig()
+	renameThenDedup.SchemaStrategy = StrategyRenameRight
+	renameThenDedup.SemanticDeduplication = true
+
+	decideOnce := DefaultConfig()
+	decideOnce.SchemaStrategy = StrategyDeduplicateOrRename
+
+	for _, count := range []int{10, 100} {
+		b.Run(fmt.Sprintf("RenameRightThenDedup/%dDocs", count), func(b *testing.B) {
+			run(b, renameThenDedup, count)
+		})
+		b.Run(fmt.Sprintf("DeduplicateOrRename/%dDocs", count), func(b *testing.B) {
+			run(b, decideOnce, count)
+		})
+	}
+}
+
 // BenchmarkJoinStrategy benchmarks different merge strategies
 func BenchmarkJoinStrategy(b *testing.B) {
 	b.Run("AcceptLeft", func(b *testing.B) {

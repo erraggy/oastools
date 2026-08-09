@@ -208,7 +208,7 @@ result, err := joiner.Join([]string{"base.yaml", "ext.yaml"}, config)
 
 ```go
 result, err := joiner.JoinWithOptions(
-    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+    joiner.WithFilePaths("base.yaml", "ext.yaml"),
     joiner.WithConfig(joiner.DefaultConfig()),
 )
 ```
@@ -227,7 +227,7 @@ result, err := joiner.Join([]string{"base.yaml", "ext.yaml"}, config)
 
 ```go
 result, err := joiner.JoinWithOptions(
-    joiner.WithFilePaths([]string{"base.yaml", "ext.yaml"}),
+    joiner.WithFilePaths("base.yaml", "ext.yaml"),
     joiner.WithPathStrategy(joiner.StrategyAcceptLeft),
 )
 ```
