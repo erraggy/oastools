@@ -86,6 +86,10 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	result.Document = joined
 
+	// Taken before the collapse, which redirects a rename onto the name it kept:
+	// a set taken afterwards would report that name as generated (#498).
+	result.generated = result.scope.generatedNames()
+
 	// The renames are all known and none is applied yet, which is the one point
 	// at which a definition headed for a collapse can be dropped rather than
 	// rewritten and copied (#487).
@@ -109,6 +113,7 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 			return res.Equivalent
 		}
 		config := schemautil.DefaultDeduplicationConfig()
+		config.Outranks = outranksGenerated(result.generated)
 		deduper := schemautil.NewSchemaDeduplicator(config, compare)
 		dedupeResult, err := deduper.Deduplicate(joined.Definitions)
 		if err != nil {

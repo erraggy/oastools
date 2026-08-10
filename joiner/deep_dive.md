@@ -96,7 +96,7 @@ The two `Pet` schemas compare equal: both literally say `#/components/schemas/Ca
 
 So the decision runs later, at the one point where every document's renames are known and none of them has been applied yet. Each side of a comparison is read through its own document's pending renames, so two schemas are equivalent exactly when they would still be equivalent in the rewritten document. `Category` and `Category_clinic` differ, so the two `Pet` schemas differ too, and both survive.
 
-**Which name survives.** A name no rename generated beats one that a rename produced, so `Common` survives rather than an alias like `Api_Common` that happens to sort first. Names that are equally original are ordered alphabetically.
+**Which name survives.** A name no rename generated beats one that a rename produced, so `Common` survives rather than an alias like `Api_Common` that happens to sort first. Names that are equally original are ordered alphabetically. Semantic deduplication ranks names the same way, so a group it settles keeps the name the documents wrote rather than one the join synthesized, whatever the rename template makes those two sort like (#498).
 
 **One decision, not a fixed point.** A schema is compared once. When a group of schemas collapses, the schemas that *reference* them were already compared, while their references still pointed apart:
 
@@ -1303,7 +1303,8 @@ func main() {
     }
     
     // If Address, ShippingAddress, and BillingAddress are structurally identical,
-    // they'll be consolidated to "Address" (alphabetically first)
+    // they'll be consolidated to "Address": no rename generated any of the three,
+    // so the alphabetically first one wins
     // All references are rewritten automatically
     
     fmt.Printf("Schema count after deduplication: %d\n", result.Stats.SchemaCount)

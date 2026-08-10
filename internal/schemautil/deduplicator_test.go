@@ -267,3 +267,71 @@ func TestDeduplicationResult_EquivalenceGroups(t *testing.T) {
 	// First should be canonical (Address, alphabetically first)
 	assert.Equal(t, "Address", group[0])
 }
+
+func TestSchemaDeduplicator_Outranks(t *testing.T) {
+	schemas := map[string]*parser.Schema{
+		"Address":  {Type: "object"},
+		"Location": {Type: "object"},
+		"Place":    {Type: "object"},
+	}
+
+	tests := []struct {
+		name      string
+		outranks  OutranksFunc
+		canonical string
+		aliases   []string
+	}{
+		{
+			name:      "nil keeps the alphabetical tiebreak",
+			outranks:  nil,
+			canonical: "Address",
+			aliases:   []string{"Location", "Place"},
+		},
+		{
+			// The joiner's case: a name a rename generated loses to one a
+			// document wrote, whatever the two sort like.
+			name: "generated name loses to a declared one",
+			outranks: func(name, candidate string) bool {
+				generated := map[string]bool{"Address": true}
+				if generated[name] != generated[candidate] {
+					return !generated[name]
+				}
+				return name < candidate
+			},
+			canonical: "Location",
+			aliases:   []string{"Address", "Place"},
+		},
+		{
+			name: "every name outranking the last still settles on one",
+			outranks: func(name, candidate string) bool {
+				return name > candidate
+			},
+			canonical: "Place",
+			aliases:   []string{"Address", "Location"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := DefaultDeduplicationConfig()
+			config.Outranks = tt.outranks
+			deduper := NewSchemaDeduplicator(config, alwaysEqual)
+
+			result, err := deduper.Deduplicate(schemas)
+			require.NoError(t, err)
+
+			require.Len(t, result.CanonicalSchemas, 1)
+			assert.Contains(t, result.CanonicalSchemas, tt.canonical)
+			assert.Equal(t, len(tt.aliases), result.RemovedCount)
+			for _, alias := range tt.aliases {
+				assert.Equal(t, tt.canonical, result.CanonicalName(alias))
+			}
+
+			// The canonical name leads its group whether or not it sorts first.
+			group := result.EquivalenceGroups[tt.canonical]
+			require.Len(t, group, len(schemas))
+			assert.Equal(t, tt.canonical, group[0])
+			assert.Equal(t, tt.aliases, group[1:], "the rest stay sorted")
+		})
+	}
+}
