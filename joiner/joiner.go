@@ -228,6 +228,11 @@ type JoinResult struct {
 	// deferred holds the collisions StrategyDeduplicateOrRename resolved by
 	// renaming, until the collapse decides which of those renames survive.
 	deferred []deferredRename
+	// generated is the set of names that exist only because a rename produced
+	// them, taken before the collapse runs. Both the collapse and semantic
+	// deduplication rank names by it, so the two cannot disagree about which
+	// name a document actually wrote (#498).
+	generated map[string]bool
 }
 
 // deferredRename is one collision StrategyDeduplicateOrRename renamed its way

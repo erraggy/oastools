@@ -36,7 +36,8 @@ func NewSchemaDeduplicator(config DeduplicationConfig, compare CompareFunc) *Sch
 // The algorithm:
 //  1. Group schemas by structural hash (O(N))
 //  2. Verify equivalence within each group using deep comparison
-//  3. Select canonical name (alphabetically first) for each equivalence group
+//  3. Select canonical name for each equivalence group, by
+//     DeduplicationConfig.Outranks or alphabetically when it is nil
 //  4. Build alias mapping and return only canonical schemas
 func (d *SchemaDeduplicator) Deduplicate(schemas map[string]*parser.Schema) (*DeduplicationResult, error) {
 	if len(schemas) < 2 {
@@ -139,23 +140,55 @@ func (d *SchemaDeduplicator) buildResult(
 	}
 
 	for _, group := range equivalenceGroups {
-		// Sort names alphabetically to select canonical name deterministically
+		// Sort names alphabetically so the canonical name does not depend on the
+		// order the schemas were hashed in
 		sort.Strings(group)
-		canonical := group[0]
+		canonical := d.canonicalName(group)
 
 		// Store canonical schema
 		result.CanonicalSchemas[canonical] = schemas[canonical]
-		result.EquivalenceGroups[canonical] = group
+		result.EquivalenceGroups[canonical] = canonicalFirst(group, canonical)
 
 		// Record aliases (all names except canonical)
-		for i := 1; i < len(group); i++ {
-			alias := group[i]
+		for _, alias := range group {
+			if alias == canonical {
+				continue
+			}
 			result.Aliases[alias] = canonical
 			result.RemovedCount++
 		}
 	}
 
 	return result
+}
+
+// canonicalName picks the name an equivalence group keeps. group must be
+// sorted, so the alphabetically first name is what an absent Outranks yields.
+func (d *SchemaDeduplicator) canonicalName(group []string) string {
+	canonical := group[0]
+	if d.config.Outranks == nil {
+		return canonical
+	}
+	for _, name := range group[1:] {
+		if d.config.Outranks(name, canonical) {
+			canonical = name
+		}
+	}
+	return canonical
+}
+
+// canonicalFirst returns group with canonical moved to the front, which is
+// where DeduplicationResult.EquivalenceGroups reports it. The rest stay in
+// order, so the result is the sorted group whenever canonical is already first.
+func canonicalFirst(group []string, canonical string) []string {
+	ordered := make([]string, 0, len(group))
+	ordered = append(ordered, canonical)
+	for _, name := range group {
+		if name != canonical {
+			ordered = append(ordered, name)
+		}
+	}
+	return ordered
 }
 
 // CanonicalName returns the canonical name for a schema name.

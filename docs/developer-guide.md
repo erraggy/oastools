@@ -823,7 +823,8 @@ if err != nil {
 
 // Semantic deduplication consolidates identical schemas:
 // - Schemas with identical structure are detected via FNV-1a hashing
-// - The alphabetically-first name becomes the canonical schema
+// - A name a document declared beats one a collision rename generated
+// - Among equally declared names, the alphabetically-first one is canonical
 // - All $ref references are automatically rewritten
 // - Warnings indicate how many duplicates were consolidated
 ```

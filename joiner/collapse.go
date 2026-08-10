@@ -34,7 +34,7 @@ func (j *Joiner) collapseEquivalent(schemas map[string]*parser.Schema, owner map
 	// owner is the map the rewrite reads entries through, so every schema is
 	// compared under the renames that will actually be applied to it.
 	views := newViewIndex(result.scope, owner, schemas)
-	generated := result.scope.generatedNames()
+	generated := result.generated
 	// Always deep, whatever EquivalenceMode says. A shallow comparison reads
 	// neither $ref nor nested properties, so it cannot decide whether two
 	// schemas are interchangeable. EquivalenceDocs still applies.
@@ -265,6 +265,19 @@ func canonicalName(class []string, generated map[string]bool) string {
 		}
 	}
 	return canonical
+}
+
+// outranksGenerated adapts outranks for schemautil.SchemaDeduplicator, so
+// semantic deduplication settles a group of equivalent names the way a collapse
+// would rather than by sorting alone (#498). It returns nil when no name was
+// generated, leaving the deduplicator's own alphabetical tiebreak in place.
+func outranksGenerated(generated map[string]bool) schemautil.OutranksFunc {
+	if len(generated) == 0 {
+		return nil
+	}
+	return func(name, candidate string) bool {
+		return outranks(name, candidate, generated)
+	}
 }
 
 // outranks reports whether name should survive a collapse in place of canonical.
