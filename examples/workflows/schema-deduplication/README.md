@@ -115,7 +115,7 @@ This is a **post-merge optimization** that finds schemas with **different names*
 
 1. After merging, scans all schemas
 2. Groups schemas by structural equivalence
-3. Selects canonical name (alphabetically first)
+3. Selects canonical name (one the documents declared, in preference to one a collision rename generated; alphabetically first among equals)
 4. Removes duplicates and rewrites all `$ref` pointers
 
 ```go
