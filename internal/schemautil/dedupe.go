@@ -6,6 +6,9 @@ import "github.com/erraggy/oastools/parser"
 // equivalence group in place of candidate. It breaks ties the caller knows more
 // about than the deduplicator does: the deduplicator sees only names and
 // schemas, so a caller that synthesized some of those names has to say so.
+//
+// It must be irreflexive and transitive. One that is not still yields a member
+// of the group rather than misbehaving, but which member is then arbitrary.
 type OutranksFunc func(name, candidate string) bool
 
 // DeduplicationConfig configures semantic schema deduplication behavior.
