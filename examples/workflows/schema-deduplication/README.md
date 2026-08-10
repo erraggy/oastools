@@ -115,12 +115,14 @@ This is a **post-merge optimization** that finds schemas with **different names*
 
 1. After merging, scans all schemas
 2. Groups schemas by structural equivalence
-3. Selects canonical name (alphabetically first)
+3. Selects canonical name (the first one alphabetically)
 4. Removes duplicates and rewrites all `$ref` pointers
 
 ```go
 config.SemanticDeduplication = true
 ```
+
+One exception to step 3: if a collision rename has already invented a name such as `Api_Address`, the `Address` your documents declared wins even though `Api_Address` sorts first. See [Which Name Survives](../../../packages/joiner/#which-name-survives).
 
 ### Equivalence Modes
 

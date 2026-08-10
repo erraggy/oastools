@@ -3,8 +3,10 @@ package joiner_test
 import (
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
@@ -98,7 +100,10 @@ func Example_semanticDeduplication() {
 
 	// Semantic deduplication identifies structurally equivalent schemas
 	// across documents and consolidates them, reducing duplication in the
-	// merged output. The alphabetically-first name becomes canonical.
+	// merged output. No rename runs here, so the consolidated schema keeps
+	// the alphabetically first of the equivalent names. See
+	// Example_deduplicationCanonicalName for what happens when a rename has
+	// invented a name to choose between.
 	fmt.Printf("Joined successfully\n")
 	fmt.Printf("Version: %s\n", result.Version)
 	// Output:
@@ -144,6 +149,93 @@ func Example_equivalenceDocs() {
 	// Output:
 	// Joined successfully
 	// Version: 3.0.3
+}
+
+// Example_deduplicationCanonicalName demonstrates which name an equivalence
+// group keeps when a collision rename and semantic deduplication both run.
+// A rename produces an alias such as "Api_Category"; semantic deduplication
+// then finds that alias equivalent to the "Category" both documents declared
+// and keeps the declared name, whatever the two sort like.
+func Example_deduplicationCanonicalName() {
+	catalogSpec := []byte(`openapi: "3.0.0"
+info:
+  title: Catalog API
+  version: "1.0"
+paths:
+  /catalog/categories:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+components:
+  schemas:
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+`)
+
+	storeSpec := []byte(`openapi: "3.0.0"
+info:
+  title: Store API
+  version: "1.0"
+paths:
+  /store/categories:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+components:
+  schemas:
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+`)
+
+	catalog, err := parser.ParseWithOptions(parser.WithBytes(catalogSpec))
+	if err != nil {
+		log.Fatal(err)
+	}
+	store, err := parser.ParseWithOptions(parser.WithBytes(storeSpec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := joiner.JoinWithOptions(
+		joiner.WithParsed(*catalog, *store),
+		joiner.WithSchemaStrategy(joiner.StrategyRenameRight),
+		// Every alias this template produces sorts before the name it came
+		// from, so alphabetical order alone would pick the alias.
+		joiner.WithRenameTemplate("Api_{{.Name}}"),
+		joiner.WithSemanticDeduplication(true),
+		joiner.WithEquivalenceMode("deep"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	doc := result.Document.(*parser.OAS3Document)
+	names := slices.Sorted(maps.Keys(doc.Components.Schemas))
+
+	// "Api_Category" is gone: the name both documents wrote survives.
+	fmt.Printf("Schemas: %v\n", names)
+	// Output:
+	// Schemas: [Category]
 }
 
 // Example_operationContext demonstrates operation-aware schema renaming.
