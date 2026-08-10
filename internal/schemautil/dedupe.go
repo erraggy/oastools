@@ -2,13 +2,17 @@ package schemautil
 
 import "github.com/erraggy/oastools/parser"
 
-// OutranksFunc reports whether name should be the canonical name of an
-// equivalence group in place of candidate. It breaks ties the caller knows more
-// about than the deduplicator does: the deduplicator sees only names and
-// schemas, so a caller that synthesized some of those names has to say so.
+// OutranksFunc reports whether name is a better canonical name than candidate.
+// Deduplicate calls it to pick which name a group of equivalent schemas keeps.
 //
-// It must be irreflexive and transitive. One that is not still yields a member
-// of the group rather than misbehaving, but which member is then arbitrary.
+// It exists because the deduplicator sees nothing but names and schemas. A
+// caller that made some of those names up, as joiner does when a collision
+// forces a rename, is the only one that can say so.
+//
+// Write it like a "less than": never say a name outranks itself, and if a
+// outranks b and b outranks c, then a should outrank c. A function that breaks
+// those rules still returns one of the group's names, just not a predictable
+// one.
 type OutranksFunc func(name, candidate string) bool
 
 // DeduplicationConfig configures semantic schema deduplication behavior.

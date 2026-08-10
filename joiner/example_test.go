@@ -100,9 +100,10 @@ func Example_semanticDeduplication() {
 
 	// Semantic deduplication identifies structurally equivalent schemas
 	// across documents and consolidates them, reducing duplication in the
-	// merged output. A name a document declared beats one a collision rename
-	// generated; among equally declared names, the alphabetically-first one
-	// becomes canonical.
+	// merged output. No rename runs here, so the consolidated schema keeps
+	// the alphabetically first of the equivalent names. See
+	// Example_deduplicationCanonicalName for what happens when a rename has
+	// invented a name to choose between.
 	fmt.Printf("Joined successfully\n")
 	fmt.Printf("Version: %s\n", result.Version)
 	// Output:

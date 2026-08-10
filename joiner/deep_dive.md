@@ -69,6 +69,8 @@ See [Custom Collision Handlers](#custom-collision-handlers) for complete documen
 
 Beyond handling same-named collisions, the joiner can identify and consolidate schemas that are structurally identical but have different names. When your Users API and Orders API both define equivalent `Address` and `Location` schemas, semantic deduplication recognizes they're identical and consolidates them.
 
+See [Which Name Survives](#which-name-survives) for which of the equivalent names the consolidated schema keeps.
+
 ### Deduplicate or Rename
 
 `StrategyDeduplicateOrRename` is for joining many documents that mostly agree: a fleet of services that each vendor the same shared schemas, with occasional local divergence.
@@ -96,7 +98,7 @@ The two `Pet` schemas compare equal: both literally say `#/components/schemas/Ca
 
 So the decision runs later, at the one point where every document's renames are known and none of them has been applied yet. Each side of a comparison is read through its own document's pending renames, so two schemas are equivalent exactly when they would still be equivalent in the rewritten document. `Category` and `Category_clinic` differ, so the two `Pet` schemas differ too, and both survive.
 
-**Which name survives.** A name no rename generated beats one that a rename produced, so `Common` survives rather than an alias like `Api_Common` that happens to sort first. Names that are equally original are ordered alphabetically. Semantic deduplication ranks names the same way, so a group it settles keeps the name the documents wrote rather than one the join synthesized, whatever the rename template makes those two sort like (#498).
+When a group of equivalent schemas collapses into one, see [Which Name Survives](#which-name-survives) for which of their names it keeps.
 
 **One decision, not a fixed point.** A schema is compared once. When a group of schemas collapses, the schemas that *reference* them were already compared, while their references still pointed apart:
 
@@ -110,6 +112,20 @@ So the decision runs later, at the one point where every document's renames are 
 One pass reaches what `rename-right` followed by semantic deduplication reaches, without renaming and rewriting twice to get there. Enable `SemanticDeduplication` as well to go further: withdrawing the `Category` renames leaves the `Pet` schemas identical in the rewritten document, which is exactly what that second pass reads.
 
 A schema that references itself is subject to the same limit, and so is a cycle of schemas that reference each other.
+
+### Which Name Survives
+
+Two things consolidate equivalent schemas, and both have to choose one name out of several to keep:
+
+- `StrategyDeduplicateOrRename`, which withdraws the renames it turns out not to need
+- `SemanticDeduplication`, which runs afterwards and consolidates schemas that never collided
+
+Both choose the same way, by these two rules in order:
+
+1. **A name a document wrote beats a name the join invented.** When documents collide on `Common`, the joiner stores the second one under a new name from your rename template, say `Api_Common`. If the two turn out to be equivalent after all, `Common` is what survives. Nothing ever declared `Api_Common`, so keeping it would put a name in your output that none of your inputs use.
+2. **Otherwise, whichever sorts first alphabetically.** This applies when every candidate is a name some document wrote, which is the usual case for `SemanticDeduplication`: `Address`, `ShippingAddress` and `BillingAddress` consolidate to `Address`.
+
+Rule 1 matters because rule 2 alone gives an answer that depends on your rename template. `Api_Common` sorts before `Common`, `Common.api` sorts after it, and neither ordering has anything to do with which name your API actually uses. Rule 1 settles it the same way whatever the template (#498).
 
 ### Reference Rewriting
 
@@ -1303,8 +1319,7 @@ func main() {
     }
     
     // If Address, ShippingAddress, and BillingAddress are structurally identical,
-    // they'll be consolidated to "Address": no rename generated any of the three,
-    // so the alphabetically first one wins
+    // they'll be consolidated to "Address", the first alphabetically
     // All references are rewritten automatically
     
     fmt.Printf("Schema count after deduplication: %d\n", result.Stats.SchemaCount)

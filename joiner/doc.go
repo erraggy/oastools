@@ -334,10 +334,10 @@
 //	result, _ := j.Join([]string{"api1.yaml", "api2.yaml"})
 //
 // When schemas from different documents are structurally equivalent (same type, properties,
-// constraints), they are consolidated into a single canonical schema. A name the documents
-// declared beats one a collision rename generated; among equally declared names the
-// alphabetically first wins. All $ref references throughout the merged document are
-// automatically rewritten.
+// constraints), they are consolidated into a single canonical schema, keeping a name your
+// documents declared over one a collision rename invented. All $ref references throughout
+// the merged document are automatically rewritten. See the "Which Name Survives" section of
+// joiner/deep_dive.md for the full rule.
 //
 // Empty schemas (those with no structural constraints like type, properties, format, or
 // validation rules) are automatically excluded from deduplication. Empty schemas serve
