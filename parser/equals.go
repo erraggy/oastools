@@ -83,7 +83,7 @@ func equalSchemaType(a, b any) bool {
 	}
 }
 
-// equalSchemaOrBool handles fields that can be *Schema, []*Schema or bool:
+// equalSchemaOrBool handles fields that can be *Schema or bool:
 // - Schema.Items (OAS 3.1+: bool for additionalItems semantics)
 // - Schema.AdditionalProperties
 // - Schema.AdditionalItems
@@ -110,18 +110,6 @@ func equalSchemaOrBool(a, b any) bool {
 			return false
 		}
 		return ta.Equals(tb)
-	case []*Schema:
-		// The tuple form, which OAS 2.0 allows.
-		tb, ok := b.([]*Schema)
-		if !ok || len(ta) != len(tb) {
-			return false
-		}
-		for i := range ta {
-			if !ta[i].Equals(tb[i]) {
-				return false
-			}
-		}
-		return true
 	default:
 		// Unknown type, fall back to reflect.DeepEqual
 		return reflect.DeepEqual(a, b)
