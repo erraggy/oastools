@@ -41,6 +41,13 @@ definitions:
 // side: OAS 2.0 spells the pool "#/definitions", OAS 3.x spells it
 // "#/components/schemas", and a $ref the rewrite never visits keeps the old
 // prefix and points at nothing in the converted document.
+//
+// The assertion is about the $ref only. Where that $ref sits in the converted
+// document is a separate question this test deliberately does not settle: OAS
+// 3.0 says of items "Value MUST be an object and not an array", so the tuple
+// reaching the output at all is its own defect, tracked apart from #502.
+// Reading the elements by index here records current behavior so the ref can be
+// checked, not that the shape is right.
 func TestTupleItemsRefIsRewrittenOnUpconversion(t *testing.T) {
 	parseResult, err := parser.New().ParseBytes([]byte(tupleItemsOAS2Spec))
 	require.NoError(t, err)
@@ -57,10 +64,33 @@ func TestTupleItemsRefIsRewrittenOnUpconversion(t *testing.T) {
 	tuple := doc.Components.Schemas["PetTuple"]
 	require.NotNil(t, tuple)
 
-	items, ok := tuple.Items.([]*parser.Schema)
-	require.True(t, ok, "the tuple form should survive conversion, got %T", tuple.Items)
-	require.Len(t, items, 2)
+	refs := collectRefsUnderItems(t, tuple)
+	assert.Contains(t, refs, "#/components/schemas/PetDetails",
+		"a $ref reachable through items kept the OAS 2.0 prefix and now points at nothing")
+	assert.NotContains(t, refs, "#/definitions/PetDetails")
+}
 
-	assert.Equal(t, "#/components/schemas/PetDetails", items[1].Ref,
-		"a $ref in a tuple element kept the OAS 2.0 prefix and now points at nothing")
+// collectRefsUnderItems gathers the $ref values reachable through a schema's
+// items, whichever shape the field holds. Written shape-agnostically so it keeps
+// checking the reference once the tuple's own conversion is settled.
+func collectRefsUnderItems(t *testing.T, schema *parser.Schema) []string {
+	t.Helper()
+
+	var refs []string
+	switch items := schema.Items.(type) {
+	case *parser.Schema:
+		refs = append(refs, items.Ref)
+	case []*parser.Schema:
+		for _, s := range items {
+			refs = append(refs, s.Ref)
+		}
+	default:
+		t.Fatalf("items held no schema to check, got %T", schema.Items)
+	}
+
+	for _, s := range schema.PrefixItems {
+		refs = append(refs, s.Ref)
+	}
+
+	return refs
 }

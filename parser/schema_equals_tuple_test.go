@@ -80,3 +80,24 @@ func TestSchemaEquals_TupleItemsUsesSchemaEquality(t *testing.T) {
 	assert.True(t, withStringForm(true).Equals(withStringForm(false)),
 		"tuple elements were compared without Schema equality semantics")
 }
+
+// TestSchemaEquals_TupleItemsBoolForm covers a bare boolean schema sitting in a
+// tuple element. A tuple element is always a *Schema, so `items: [true]` arrives
+// as a schema carrying BoolForm rather than as a raw bool, and equality has to
+// read it as the boolean schema it is.
+func TestSchemaEquals_TupleItemsBoolForm(t *testing.T) {
+	boolSchema := func(v bool) *Schema {
+		s := NewBoolSchema(v)
+		return s
+	}
+	tuple := func(items ...*Schema) *Schema {
+		return &Schema{Type: "array", Items: items}
+	}
+
+	assert.True(t, tuple(boolSchema(true)).Equals(tuple(boolSchema(true))),
+		"two tuples holding the same boolean schema were reported different")
+	assert.False(t, tuple(boolSchema(true)).Equals(tuple(boolSchema(false))),
+		"true and false accept opposite things and are not the same schema")
+	assert.False(t, tuple(boolSchema(true)).Equals(tuple(&Schema{Type: "string"})),
+		"a boolean schema and a typed schema are not the same")
+}

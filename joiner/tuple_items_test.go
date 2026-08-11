@@ -61,7 +61,9 @@ func TestTupleItemsAreComparedElementwise(t *testing.T) {
 			EquivalenceModeDeep,
 		)
 		require.False(t, result.Equivalent, "tuples differing in an element were reported the same")
-		assert.NotEmpty(t, result.Differences)
+		require.NotEmpty(t, result.Differences)
+		assert.Contains(t, result.Differences[0].Path, "items.[1]",
+			"the difference should name the element it is in, the way allOf.[0] does")
 	})
 
 	t.Run("tuples of differing length are not equivalent", func(t *testing.T) {
