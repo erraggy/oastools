@@ -1,5 +1,5 @@
 // prune_tuple_items_test.go covers pruning against the OAS 2.0 tuple form of
-// `items`, where the field holds a list of schemas rather than one schema.
+// `items`.
 package fixer
 
 import (
@@ -74,8 +74,8 @@ func TestPruneKeepsSchemaReferencedFromTupleItems(t *testing.T) {
 	assert.Equal(t, []string{"definitions.Orphan"}, pruned)
 }
 
-// TestCollectSchemaRefs_TupleItems covers ref collection directly for each shape
-// a tuple can take, including elements the traversal must not choke on.
+// TestCollectSchemaRefs_TupleItems covers ref collection for each shape a tuple
+// can take.
 func TestCollectSchemaRefs_TupleItems(t *testing.T) {
 	t.Run("ref in a tuple element is collected", func(t *testing.T) {
 		schema := &parser.Schema{
@@ -124,9 +124,8 @@ func TestCollectSchemaRefs_TupleItems(t *testing.T) {
 	})
 }
 
-// TestRewriteSchemaRefs_TupleItems covers the rename path: a $ref held in a
-// tuple element has to move with the schema it points at, or the rename leaves
-// it dangling.
+// TestRewriteSchemaRefs_TupleItems covers the rename path: a $ref in a tuple
+// element has to move with the schema it points at, or it is left dangling.
 func TestRewriteSchemaRefs_TupleItems(t *testing.T) {
 	schema := &parser.Schema{
 		Type: "array",

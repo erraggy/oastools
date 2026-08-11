@@ -1,5 +1,5 @@
 // tuple_items_refs_test.go covers reference validation against the OAS 2.0 tuple
-// form of `items`, where the field holds a list of schemas rather than one.
+// form of `items`.
 package validator
 
 import (
@@ -50,8 +50,7 @@ func TestDanglingRefInTupleItemsIsReported(t *testing.T) {
 }
 
 // TestResolvedRefInTupleItemsIsAccepted is the other half: the same position
-// with a target that exists must stay valid, so the new traversal does not
-// turn a good document into errors.
+// with a target that exists must stay valid.
 func TestResolvedRefInTupleItemsIsAccepted(t *testing.T) {
 	result := validateSpec(t, resolvedTupleRefSpec)
 

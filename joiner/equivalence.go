@@ -1446,8 +1446,8 @@ func compareSchemaOrBool(field string, left, right any, path *comparePath, st *c
 		return
 	}
 
-	// Both tuples (the OAS 2.0 list form). Position is part of the meaning, so
-	// they compare element by element, as the composition keywords do.
+	// The tuple form, which OAS 2.0 allows. Position matters, so it compares
+	// element by element as the composition keywords do.
 	leftTuple, leftIsTuple := left.([]*parser.Schema)
 	rightTuple, rightIsTuple := right.([]*parser.Schema)
 	if leftIsTuple && rightIsTuple {

@@ -349,12 +349,12 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 		}
 	}
 
-	// AdditionalProperties (can be *Schema, bool, or map[string]any (which may contain a $ref key))
+	// AdditionalProperties
 	if err := w.walkSchemaOrBool(schema.AdditionalProperties, basePath+".additionalProperties", depth, state); err != nil {
 		return err
 	}
 
-	// UnevaluatedProperties (can be *Schema, bool, or map[string]any (which may contain a $ref key))
+	// UnevaluatedProperties
 	if err := w.walkSchemaOrBool(schema.UnevaluatedProperties, basePath+".unevaluatedProperties", depth, state); err != nil {
 		return err
 	}
@@ -381,10 +381,8 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 	return nil
 }
 
-// walkSchemaOrBool walks a schema-or-bool field, which holds a schema, a list of
-// them (the OAS 2.0 tuple form), a bool, or a raw map that decoding left untyped.
-// The tuple elements are addressed as "<field>[i]" so each stays distinguishable
-// from the single-schema form.
+// walkSchemaOrBool walks a schema-or-bool field, plus the raw map form that
+// [schemautil.SchemaOrBoolSchemas] does not cover.
 func (w *Walker) walkSchemaOrBool(field any, basePath string, depth int, state *walkState) error {
 	for i, s := range schemautil.SchemaOrBoolSchemas(field) {
 		if w.stopped {
@@ -406,12 +404,12 @@ func (w *Walker) walkSchemaOrBool(field any, basePath string, depth int, state *
 
 // walkSchemaArrayKeywords walks array-related schema keywords.
 func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string, depth int, state *walkState) error {
-	// Items (can be *Schema, bool, or map[string]any (which may contain a $ref key))
+	// Items
 	if err := w.walkSchemaOrBool(schema.Items, basePath+".items", depth, state); err != nil {
 		return err
 	}
 
-	// AdditionalItems (can be *Schema, bool, or map[string]any (which may contain a $ref key))
+	// AdditionalItems
 	if err := w.walkSchemaOrBool(schema.AdditionalItems, basePath+".additionalItems", depth, state); err != nil {
 		return err
 	}
@@ -428,7 +426,7 @@ func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string,
 		}
 	}
 
-	// UnevaluatedItems (can be *Schema, bool, or map[string]any (which may contain a $ref key))
+	// UnevaluatedItems
 	if err := w.walkSchemaOrBool(schema.UnevaluatedItems, basePath+".unevaluatedItems", depth, state); err != nil {
 		return err
 	}

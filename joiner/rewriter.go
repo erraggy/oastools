@@ -230,12 +230,12 @@ func (r *SchemaRewriter) rewriteSchema(schema *parser.Schema) {
 		r.rewriteSchema(prop)
 	}
 
-	// Rewrite additionalProperties (a schema, a list of them, or a bool)
+	// Rewrite additionalProperties
 	for _, addPropSchema := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
 		r.rewriteSchema(addPropSchema)
 	}
 
-	// Rewrite items (a schema, a list of them, or a bool)
+	// Rewrite items
 	for _, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
 		r.rewriteSchema(itemsSchema)
 	}
@@ -245,7 +245,7 @@ func (r *SchemaRewriter) rewriteSchema(schema *parser.Schema) {
 		r.rewriteSchema(item)
 	}
 
-	// Rewrite additionalItems (a schema, a list of them, or a bool)
+	// Rewrite additionalItems
 	for _, addItemsSchema := range schemautil.SchemaOrBoolSchemas(schema.AdditionalItems) {
 		r.rewriteSchema(addItemsSchema)
 	}

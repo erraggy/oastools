@@ -653,7 +653,7 @@ func rewriteSchemaRefsRecursive(schema *parser.Schema, renames map[string]string
 		rewriteSchemaRefsRecursive(propSchema, renames, visited)
 	}
 
-	// Schema-or-bool fields (a schema, a list of them, or a bool)
+	// Schema-or-bool fields
 	for _, field := range []any{
 		schema.AdditionalProperties,
 		schema.Items,

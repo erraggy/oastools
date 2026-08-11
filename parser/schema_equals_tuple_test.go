@@ -1,5 +1,5 @@
 // schema_equals_tuple_test.go covers Schema equality against the OAS 2.0 tuple
-// form of `items`, where the field holds a list of schemas rather than one.
+// form of `items`.
 package parser
 
 import (
@@ -62,10 +62,8 @@ func TestSchemaEquals_TupleItems(t *testing.T) {
 }
 
 // TestSchemaEquals_TupleItemsUsesSchemaEquality covers why the tuple arm exists
-// rather than falling through to reflect.DeepEqual: elements have to get Schema
-// equality, which ignores the fields Schema.Equals deliberately ignores.
-// Discriminator.StringForm is spelling rather than meaning, so two tuples
-// differing only in it are the same schema.
+// rather than falling through to reflect.DeepEqual. Discriminator.StringForm is
+// spelling rather than meaning, so two tuples differing only in it are equal.
 func TestSchemaEquals_TupleItemsUsesSchemaEquality(t *testing.T) {
 	withStringForm := func(stringForm bool) *Schema {
 		return &Schema{
@@ -81,10 +79,9 @@ func TestSchemaEquals_TupleItemsUsesSchemaEquality(t *testing.T) {
 		"tuple elements were compared without Schema equality semantics")
 }
 
-// TestSchemaEquals_TupleItemsBoolForm covers a bare boolean schema sitting in a
-// tuple element. A tuple element is always a *Schema, so `items: [true]` arrives
-// as a schema carrying BoolForm rather than as a raw bool, and equality has to
-// read it as the boolean schema it is.
+// TestSchemaEquals_TupleItemsBoolForm covers a bare boolean schema in a tuple
+// element: `items: [true]` arrives as a *Schema carrying BoolForm, never as a
+// raw bool.
 func TestSchemaEquals_TupleItemsBoolForm(t *testing.T) {
 	boolSchema := func(v bool) *Schema {
 		s := NewBoolSchema(v)

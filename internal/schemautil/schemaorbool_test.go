@@ -95,8 +95,7 @@ func TestIndexSuffix(t *testing.T) {
 }
 
 // TestHashDistinguishesTupleElements covers the structural hasher, which buckets
-// candidates before anything compares them. A tuple that contributes nothing to
-// the hash puts schemas differing only inside `items` in one bucket.
+// candidates before anything compares them.
 func TestHashDistinguishesTupleElements(t *testing.T) {
 	tuple := func(items ...*parser.Schema) *parser.Schema {
 		return &parser.Schema{Type: "array", Items: items}

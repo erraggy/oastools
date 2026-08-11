@@ -1,5 +1,4 @@
-// tuple_items_test.go covers conversion of the OAS 2.0 tuple form of `items`,
-// where the field holds a list of schemas rather than one.
+// tuple_items_test.go covers conversion of the OAS 2.0 tuple form of `items`.
 package converter
 
 import (
@@ -42,12 +41,9 @@ definitions:
 // "#/components/schemas", and a $ref the rewrite never visits keeps the old
 // prefix and points at nothing in the converted document.
 //
-// The assertion is about the $ref only. Where that $ref sits in the converted
-// document is a separate question this test deliberately does not settle: OAS
-// 3.0 says of items "Value MUST be an object and not an array", so the tuple
-// reaching the output at all is its own defect, tracked apart from #502.
-// Reading the elements by index here records current behavior so the ref can be
-// checked, not that the shape is right.
+// It asserts the $ref only. That the tuple reaches OAS 3 output at all is a
+// separate defect, since OAS 3.0 says of items "Value MUST be an object and not
+// an array".
 func TestTupleItemsRefIsRewrittenOnUpconversion(t *testing.T) {
 	parseResult, err := parser.New().ParseBytes([]byte(tupleItemsOAS2Spec))
 	require.NoError(t, err)
@@ -71,8 +67,8 @@ func TestTupleItemsRefIsRewrittenOnUpconversion(t *testing.T) {
 }
 
 // collectRefsUnderItems gathers the $ref values reachable through a schema's
-// items, whichever shape the field holds. Written shape-agnostically so it keeps
-// checking the reference once the tuple's own conversion is settled.
+// items, whichever shape the field holds, so it keeps checking the reference
+// once the tuple's own conversion is settled.
 func collectRefsUnderItems(t *testing.T, schema *parser.Schema) []string {
 	t.Helper()
 

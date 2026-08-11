@@ -348,8 +348,8 @@ func (h *SchemaHasher) hashSchemaOrBool(hasher hash.Hash64, v any) {
 	case *parser.Schema:
 		h.hashSchema(hasher, val)
 	case []*parser.Schema:
-		// OAS 2.0 tuple form. Position is part of the meaning, so the index is
-		// written too: without it [A, B] and [B, A] would land in one bucket.
+		// The tuple form, which OAS 2.0 allows. The index is hashed too, so
+		// [A, B] and [B, A] do not collide.
 		h.writeString(hasher, "tuple:")
 		for i, s := range val {
 			h.writeString(hasher, strconv.Itoa(i)+":")

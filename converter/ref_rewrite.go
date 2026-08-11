@@ -91,7 +91,7 @@ func walkSchemas(schema *parser.Schema, visit func(*parser.Schema)) {
 		walkSchemas(propSchema, visit)
 	}
 
-	// Schema-or-bool fields: a schema, a list of them (OAS 2.0 tuple form), or a bool.
+	// Schema-or-bool fields
 	for _, addProps := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
 		walkSchemas(addProps, visit)
 	}

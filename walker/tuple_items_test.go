@@ -1,5 +1,4 @@
-// tuple_items_test.go covers walking the OAS 2.0 tuple form of `items`, where
-// the field holds a list of schemas rather than one.
+// tuple_items_test.go covers walking the OAS 2.0 tuple form of `items`.
 package walker
 
 import (

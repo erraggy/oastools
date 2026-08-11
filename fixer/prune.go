@@ -14,10 +14,8 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// collectPolymorphicSchemaRefs handles collecting refs from polymorphic schema fields
-// that can be *parser.Schema, []*parser.Schema, bool, or map[string]any. This helper
-// reduces duplication in collectSchemaRefsRecursive for AdditionalProperties, Items,
-// AdditionalItems, UnevaluatedProperties, and UnevaluatedItems.
+// collectPolymorphicSchemaRefs collects refs from a schema-or-bool field, plus the
+// raw map form that [schemautil.SchemaOrBoolSchemas] does not cover.
 func collectPolymorphicSchemaRefs(refs *[]string, field any, prefix string, visited map[*parser.Schema]bool) {
 	if field == nil {
 		return

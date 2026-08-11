@@ -280,7 +280,7 @@ func walkSchemaFeatures(c *Converter, schema *parser.Schema, result *ConversionR
 		walkSchemaFeatures(c, propSchema, result, fmt.Sprintf("%s.patternProperties.%s", path, pattern), visited)
 	}
 
-	// Schema-or-bool fields: a schema, a list of them (OAS 2.0 tuple form), or a bool.
+	// Schema-or-bool fields
 	for i, addProps := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
 		walkSchemaFeatures(c, addProps, result, fmt.Sprintf("%s.additionalProperties%s", path, schemautil.IndexSuffix(i)), visited)
 	}

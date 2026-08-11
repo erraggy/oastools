@@ -499,8 +499,8 @@ func (c *RefCollector) collectCallbackRefs(callback *parser.Callback, path strin
 	}
 }
 
-// collectSchemaOrBoolRefs collects references from a schema-or-bool field, which
-// holds a schema, a list of them, a bool, or a raw map that decoding left untyped.
+// collectSchemaOrBoolRefs collects references from a schema-or-bool field, plus the
+// raw map form that [schemautil.SchemaOrBoolSchemas] does not cover.
 func (c *RefCollector) collectSchemaOrBoolRefs(field any, path string) {
 	if field == nil {
 		return

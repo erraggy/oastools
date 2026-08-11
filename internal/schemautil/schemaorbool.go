@@ -8,8 +8,7 @@ import (
 )
 
 // SingleForm is the index [SchemaOrBoolSchemas] yields for a field holding one
-// schema rather than a list, so callers building JSON paths can tell
-// `items` from `items[0]`.
+// schema rather than a list. See [IndexSuffix].
 const SingleForm = -1
 
 // SchemaOrBoolSchemas iterates the schemas held by a schema-or-bool field:
@@ -25,7 +24,7 @@ const SingleForm = -1
 //
 // A traversal that omits the tuple form cannot see a $ref held in it (#502).
 //
-// Nil elements are skipped, so callers need no nil check of their own.
+// Elements that are nil are skipped, so callers need no nil check of their own.
 func SchemaOrBoolSchemas(field any) iter.Seq2[int, *parser.Schema] {
 	return func(yield func(int, *parser.Schema) bool) {
 		switch v := field.(type) {
@@ -47,8 +46,8 @@ func SchemaOrBoolSchemas(field any) iter.Seq2[int, *parser.Schema] {
 }
 
 // IndexSuffix renders the JSON path suffix for an index from
-// [SchemaOrBoolSchemas]: empty for the single-schema form, "[i]" for a tuple
-// element. Appending it to the field path keeps both forms addressable.
+// [SchemaOrBoolSchemas]. Appended to a field path it gives "items" for the
+// single-schema form and "items[0]", "items[1]" for tuple elements.
 func IndexSuffix(i int) string {
 	if i == SingleForm {
 		return ""

@@ -357,12 +357,12 @@ func (g *RefGraph) recordSchemaRefs(schemaName string, schema *parser.Schema, lo
 		}
 	}
 
-	// Check items (a schema, a list of them, or a bool)
+	// Check items
 	for i, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
 		g.recordSchemaRefs(schemaName, itemsSchema, joinLocation(location, "items"+schemautil.IndexSuffix(i)))
 	}
 
-	// Check additionalProperties (a schema, a list of them, or a bool)
+	// Check additionalProperties
 	for i, addProps := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
 		g.recordSchemaRefs(schemaName, addProps, joinLocation(location, "additionalProperties"+schemautil.IndexSuffix(i)))
 	}
@@ -401,7 +401,7 @@ func (g *RefGraph) recordSchemaRefs(schemaName string, schema *parser.Schema, lo
 		}
 	}
 
-	// Check additionalItems (a schema, a list of them, or a bool)
+	// Check additionalItems
 	for i, addItems := range schemautil.SchemaOrBoolSchemas(schema.AdditionalItems) {
 		g.recordSchemaRefs(schemaName, addItems, joinLocation(location, "additionalItems"+schemautil.IndexSuffix(i)))
 	}
@@ -446,12 +446,12 @@ func (g *RefGraph) recordSchemaRefs(schemaName string, schema *parser.Schema, lo
 		}
 	}
 
-	// Check unevaluatedProperties (a schema, a list of them, or a bool)
+	// Check unevaluatedProperties
 	for i, unevProps := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedProperties) {
 		g.recordSchemaRefs(schemaName, unevProps, joinLocation(location, "unevaluatedProperties"+schemautil.IndexSuffix(i)))
 	}
 
-	// Check unevaluatedItems (a schema, a list of them, or a bool)
+	// Check unevaluatedItems
 	for i, unevItems := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedItems) {
 		g.recordSchemaRefs(schemaName, unevItems, joinLocation(location, "unevaluatedItems"+schemautil.IndexSuffix(i)))
 	}

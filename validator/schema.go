@@ -297,12 +297,12 @@ func (v *Validator) validateNestedSchemas(schema *parser.Schema, path string, re
 		v.validateSchemaWithVisited(propSchema, path+".properties."+propName, result, visited, nextDepth)
 	}
 
-	// Validate additionalProperties (can be *Schema, []*Schema, or bool)
+	// Validate additionalProperties
 	for i, addProps := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
 		v.validateSchemaWithVisited(addProps, path+".additionalProperties"+schemautil.IndexSuffix(i), result, visited, nextDepth)
 	}
 
-	// Validate items (can be *Schema, []*Schema, or bool)
+	// Validate items
 	for i, items := range schemautil.SchemaOrBoolSchemas(schema.Items) {
 		v.validateSchemaWithVisited(items, path+".items"+schemautil.IndexSuffix(i), result, visited, nextDepth)
 	}

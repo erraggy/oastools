@@ -1,5 +1,4 @@
-// tuple_items_test.go covers joining against the OAS 2.0 tuple form of `items`,
-// where the field holds a list of schemas rather than one.
+// tuple_items_test.go covers joining against the OAS 2.0 tuple form of `items`.
 package joiner
 
 import (
@@ -34,8 +33,7 @@ func TestTupleItemsRefFollowsARename(t *testing.T) {
 
 // TestTupleItemsAreComparedElementwise covers schema equivalence, which decides
 // whether two same-named schemas collide or are the same schema twice. Tuples
-// were reported as a type mismatch and never actually compared, so two
-// identical ones could not be recognized as identical.
+// were reported as a type mismatch and never compared.
 func TestTupleItemsAreComparedElementwise(t *testing.T) {
 	tuple := func(second *parser.Schema) *parser.Schema {
 		return &parser.Schema{

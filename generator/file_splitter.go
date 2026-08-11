@@ -650,7 +650,7 @@ func (fs *FileSplitter) collectSchemaRefs(schema *parser.Schema, usedTypes map[s
 		}
 	}
 
-	// Array items (a schema, a list of them, or a bool)
+	// Array items
 	for _, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
 		fs.collectSchemaRefs(itemsSchema, usedTypes)
 	}
@@ -671,7 +671,7 @@ func (fs *FileSplitter) collectSchemaRefs(schema *parser.Schema, usedTypes map[s
 		fs.collectSchemaRefs(s, usedTypes)
 	}
 
-	// AdditionalProperties (a schema, a list of them, or a bool)
+	// AdditionalProperties
 	for _, additionalSchema := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
 		fs.collectSchemaRefs(additionalSchema, usedTypes)
 	}
