@@ -643,6 +643,55 @@ func TestEqualSchemaOrBool(t *testing.T) {
 			b:    schema1,
 			want: false,
 		},
+		// Tuple form, which OAS 2.0 allows
+		{
+			name: "equal tuples",
+			a:    []*Schema{schema1, schema3},
+			b:    []*Schema{schema1, schema3},
+			want: true,
+		},
+		{
+			name: "tuples differing in an element",
+			a:    []*Schema{schema1, schema1},
+			b:    []*Schema{schema1, schema3},
+			want: false,
+		},
+		{
+			name: "tuple order matters",
+			a:    []*Schema{schema1, schema3},
+			b:    []*Schema{schema3, schema1},
+			want: false,
+		},
+		{
+			name: "tuples of differing length",
+			a:    []*Schema{schema1},
+			b:    []*Schema{schema1, schema3},
+			want: false,
+		},
+		{
+			name: "empty tuples",
+			a:    []*Schema{},
+			b:    []*Schema{},
+			want: true,
+		},
+		{
+			name: "tuple with nil elements",
+			a:    []*Schema{nil, schema1},
+			b:    []*Schema{nil, schema1},
+			want: true,
+		},
+		{
+			name: "tuple vs *Schema - type mismatch",
+			a:    []*Schema{schema1},
+			b:    schema1,
+			want: false,
+		},
+		{
+			name: "tuple vs bool - type mismatch",
+			a:    []*Schema{schema1},
+			b:    true,
+			want: false,
+		},
 		// reflect.DeepEqual fallback tests for unknown types
 		{
 			name: "unknown type - same struct values via reflect.DeepEqual",

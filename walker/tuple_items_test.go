@@ -63,3 +63,45 @@ func TestTupleItemsRefsReachTheRefHandler(t *testing.T) {
 	assert.Contains(t, paths[0], "items[1]",
 		"a tuple element should be addressed by position, not as the field itself")
 }
+
+// TestSchemaOrBoolFieldsReachTheRefHandler covers every field walkSchemaOrBool
+// serves, in both the single and tuple shapes. A ref that does not reach
+// [RefHandler] is one nothing collecting references accounts for.
+func TestSchemaOrBoolFieldsReachTheRefHandler(t *testing.T) {
+	result := &parser.ParseResult{
+		Document: &parser.OAS3Document{
+			OpenAPI: "3.1.0",
+			Info:    &parser.Info{Title: "t", Version: "1.0.0"},
+			Components: &parser.Components{
+				Schemas: map[string]*parser.Schema{
+					"Holder": {
+						Items:                 []*parser.Schema{{Ref: "#/components/schemas/A"}},
+						AdditionalItems:       &parser.Schema{Ref: "#/components/schemas/B"},
+						AdditionalProperties:  []*parser.Schema{{Ref: "#/components/schemas/C"}},
+						UnevaluatedItems:      &parser.Schema{Ref: "#/components/schemas/D"},
+						UnevaluatedProperties: []*parser.Schema{{Ref: "#/components/schemas/E"}},
+					},
+				},
+			},
+		},
+	}
+
+	seen := map[string]string{}
+	err := Walk(result, WithRefHandler(func(wc *WalkContext, ref *RefInfo) Action {
+		seen[ref.Ref] = ref.SourcePath
+		return Continue
+	}))
+	require.NoError(t, err)
+
+	for ref, wantPathFragment := range map[string]string{
+		"#/components/schemas/A": "items[0]",
+		"#/components/schemas/B": "additionalItems",
+		"#/components/schemas/C": "additionalProperties[0]",
+		"#/components/schemas/D": "unevaluatedItems",
+		"#/components/schemas/E": "unevaluatedProperties[0]",
+	} {
+		path, ok := seen[ref]
+		require.True(t, ok, "%s never reached the ref handler", ref)
+		assert.Contains(t, path, wantPathFragment)
+	}
+}

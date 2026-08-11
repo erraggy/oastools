@@ -112,3 +112,51 @@ func TestTupleItemsRefsAreRecordedForAdditionalItems(t *testing.T) {
 	require.Len(t, g.schemaRefs["Extra"], 1)
 	assert.Equal(t, "additionalItems[0]", g.schemaRefs["Extra"][0].RefLocation)
 }
+
+// TestNewlyTraversedFieldsAreRecordedInTheRefGraph covers the positions the ref
+// graph gained alongside the tuple form. A ref the graph misses makes a
+// referenced schema look unreferenced.
+func TestNewlyTraversedFieldsAreRecordedInTheRefGraph(t *testing.T) {
+	g := newRefGraph()
+	g.recordSchemaRefs("Holder", &parser.Schema{
+		AdditionalProperties:  []*parser.Schema{{Ref: "#/definitions/AddProps"}},
+		AdditionalItems:       []*parser.Schema{{Ref: "#/definitions/AddItems"}},
+		UnevaluatedProperties: &parser.Schema{Ref: "#/definitions/UnevProps"},
+		UnevaluatedItems:      []*parser.Schema{{Ref: "#/definitions/UnevItems"}},
+	}, "")
+
+	for name, wantLocation := range map[string]string{
+		"AddProps":  "additionalProperties[0]",
+		"AddItems":  "additionalItems[0]",
+		"UnevProps": "unevaluatedProperties",
+		"UnevItems": "unevaluatedItems[0]",
+	} {
+		refs := g.schemaRefs[name]
+		require.Len(t, refs, 1, "%s was not recorded", name)
+		assert.Equal(t, wantLocation, refs[0].RefLocation)
+		assert.Equal(t, "Holder", refs[0].FromSchema)
+	}
+}
+
+// TestNewlyTraversedFieldsFollowARename covers the same positions in the
+// rewriter. A $ref it does not reach is left naming a schema that is gone.
+func TestNewlyTraversedFieldsFollowARename(t *testing.T) {
+	schema := &parser.Schema{
+		AdditionalProperties:  []*parser.Schema{{Ref: "#/definitions/Old"}},
+		AdditionalItems:       []*parser.Schema{{Ref: "#/definitions/Old"}},
+		UnevaluatedProperties: &parser.Schema{Ref: "#/definitions/Old"},
+		UnevaluatedItems:      []*parser.Schema{{Ref: "#/definitions/Old"}},
+		ContentSchema:         &parser.Schema{Ref: "#/definitions/Old"},
+	}
+
+	r := NewSchemaRewriter()
+	r.RegisterRename("Old", "New", parser.OASVersion20)
+	r.rewriteSchema(schema)
+
+	const want = "#/definitions/New"
+	assert.Equal(t, want, schema.AdditionalProperties.([]*parser.Schema)[0].Ref, "additionalProperties")
+	assert.Equal(t, want, schema.AdditionalItems.([]*parser.Schema)[0].Ref, "additionalItems")
+	assert.Equal(t, want, schema.UnevaluatedProperties.(*parser.Schema).Ref, "unevaluatedProperties")
+	assert.Equal(t, want, schema.UnevaluatedItems.([]*parser.Schema)[0].Ref, "unevaluatedItems")
+	assert.Equal(t, want, schema.ContentSchema.Ref, "contentSchema")
+}

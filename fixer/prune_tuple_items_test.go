@@ -143,3 +143,29 @@ func TestRewriteSchemaRefs_TupleItems(t *testing.T) {
 	assert.Equal(t, "#/definitions/PetDetails", items[1].Ref,
 		"a $ref in a tuple element was left pointing at the old name")
 }
+
+// TestRewriteSchemaRefs_ContentSchema covers the contentSchema position the
+// rename rewrite gained. A $ref it does not reach is left naming a schema that
+// no longer exists.
+func TestRewriteSchemaRefs_ContentSchema(t *testing.T) {
+	schema := &parser.Schema{
+		Type:          "string",
+		ContentSchema: &parser.Schema{Ref: "#/definitions/Old"},
+	}
+
+	rewriteSchemaRefs(schema, map[string]string{"#/definitions/Old": "#/definitions/New"})
+
+	assert.Equal(t, "#/definitions/New", schema.ContentSchema.Ref,
+		"a $ref in contentSchema was left pointing at the old name")
+}
+
+// TestCollectSchemaOrBoolRefs_RawMapForm covers the shape decoding can leave
+// untyped, which SchemaOrBoolSchemas does not yield and the collector handles
+// separately.
+func TestCollectSchemaOrBoolRefs_RawMapForm(t *testing.T) {
+	c := NewRefCollector()
+	c.collectSchemaOrBoolRefs(map[string]any{"$ref": "#/components/schemas/FromMap"}, "schema.items")
+
+	assert.True(t, c.IsSchemaReferenced("FromMap", parser.OASVersion303),
+		"a $ref in the raw map form of a schema-or-bool field was not collected")
+}

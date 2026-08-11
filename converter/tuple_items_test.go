@@ -2,6 +2,7 @@
 package converter
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -89,4 +90,148 @@ func collectRefsUnderItems(t *testing.T, schema *parser.Schema) []string {
 	}
 
 	return refs
+}
+
+// TestSchemaOrBoolFieldsAreConvertedForOAS31 covers the fields the OAS 3.1
+// exclusiveMinimum/exclusiveMaximum conversion gained alongside the tuple form.
+// OAS 2.0 spells those keywords as booleans paired with minimum/maximum, 3.1 as
+// numbers, so a field the conversion skips keeps the old spelling and is invalid
+// in the converted document.
+func TestSchemaOrBoolFieldsAreConvertedForOAS31(t *testing.T) {
+	const spec = `
+swagger: "2.0"
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+definitions:
+  Holder:
+    type: array
+    items:
+      - type: number
+        minimum: 5
+        exclusiveMinimum: true
+    additionalItems:
+      type: number
+      minimum: 5
+      exclusiveMinimum: true
+    additionalProperties:
+      type: number
+      minimum: 5
+      exclusiveMinimum: true
+    unevaluatedItems:
+      type: number
+      minimum: 5
+      exclusiveMinimum: true
+    unevaluatedProperties:
+      type: number
+      minimum: 5
+      exclusiveMinimum: true
+`
+	parsed, err := parser.New().ParseBytes([]byte(spec))
+	require.NoError(t, err)
+	parseResult := *parsed
+
+	result, err := ConvertWithOptions(WithParsed(parseResult), WithTargetVersion("3.1.0"))
+	require.NoError(t, err)
+
+	doc, ok := result.Document.(*parser.OAS3Document)
+	require.True(t, ok)
+	converted := doc.Components.Schemas["Holder"]
+
+	check := func(name string, field any) {
+		t.Helper()
+		var s *parser.Schema
+		switch v := field.(type) {
+		case *parser.Schema:
+			s = v
+		case []*parser.Schema:
+			require.NotEmpty(t, v, name)
+			s = v[0]
+		default:
+			t.Fatalf("%s held no schema, got %T", name, field)
+		}
+		assert.Equal(t, 5.0, s.ExclusiveMinimum,
+			"%s kept the OAS 3.0 boolean spelling instead of the 3.1 numeric one", name)
+		assert.Nil(t, s.Minimum, "%s should have moved minimum into exclusiveMinimum", name)
+	}
+
+	check("items", converted.Items)
+	check("additionalItems", converted.AdditionalItems)
+	check("additionalProperties", converted.AdditionalProperties)
+	check("unevaluatedItems", converted.UnevaluatedItems)
+	check("unevaluatedProperties", converted.UnevaluatedProperties)
+}
+
+// TestSchemaOrBoolFieldsAreWalkedOnDowngrade covers the fields the feature walk
+// gained alongside the tuple form. The walk reports OAS 3.x features that cannot
+// be expressed in OAS 2.0, so a field it skips downgrades silently.
+func TestSchemaOrBoolFieldsAreWalkedOnDowngrade(t *testing.T) {
+	const spec = `
+openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Holder:
+      type: array
+      additionalItems:
+        type: object
+        deprecated: true
+      unevaluatedItems:
+        type: object
+        deprecated: true
+      unevaluatedProperties:
+        type: object
+        deprecated: true
+`
+	parsed, err := parser.New().ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("2.0"))
+	require.NoError(t, err)
+
+	paths := make([]string, 0, len(result.Issues))
+	for _, issue := range result.Issues {
+		paths = append(paths, issue.Path)
+	}
+	joined := strings.Join(paths, "\n")
+
+	for _, field := range []string{"additionalItems", "unevaluatedItems", "unevaluatedProperties"} {
+		assert.Contains(t, joined, "."+field,
+			"the deprecated schema under %s was not reached; issue paths:\n%s", field, joined)
+	}
+}
+
+// TestCheckSchemaNullableReachesTupleAdditionalProperties covers the tuple form
+// in the nullable check, which reports the OAS 3.1 deprecation of 'nullable'.
+func TestCheckSchemaNullableReachesTupleAdditionalProperties(t *testing.T) {
+	const spec = `
+openapi: 3.0.3
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Holder:
+      type: object
+      additionalProperties:
+        - type: string
+          nullable: true
+`
+	parsed, err := parser.New().ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("3.1.0"))
+	require.NoError(t, err)
+
+	paths := make([]string, 0, len(result.Issues))
+	for _, issue := range result.Issues {
+		paths = append(paths, issue.Path)
+	}
+	assert.Contains(t, strings.Join(paths, "\n"), "additionalProperties[0]",
+		"the nullable schema in a tuple additionalProperties element was not reached")
 }

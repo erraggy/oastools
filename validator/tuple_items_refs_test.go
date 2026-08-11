@@ -56,3 +56,60 @@ func TestResolvedRefInTupleItemsIsAccepted(t *testing.T) {
 
 	assert.True(t, result.Valid, "a resolvable $ref in a tuple element was rejected: %v", result.Errors)
 }
+
+const danglingRefsInNewlyTraversedFields = `
+openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Holder:
+      type: array
+      additionalItems:
+        $ref: "#/components/schemas/MissingAddItems"
+      unevaluatedItems:
+        $ref: "#/components/schemas/MissingUnevItems"
+      unevaluatedProperties:
+        $ref: "#/components/schemas/MissingUnevProps"
+      contentSchema:
+        $ref: "#/components/schemas/MissingContent"
+`
+
+// TestDanglingRefsInNewlyTraversedFieldsAreReported covers the positions ref
+// validation gained alongside the tuple form. Each one is a $ref that resolved
+// to nothing while validation reported the document clean.
+func TestDanglingRefsInNewlyTraversedFieldsAreReported(t *testing.T) {
+	result := validateSpec(t, danglingRefsInNewlyTraversedFields)
+
+	assert.False(t, result.Valid)
+	for _, name := range []string{
+		"MissingAddItems", "MissingUnevItems", "MissingUnevProps", "MissingContent",
+	} {
+		assert.True(t, resultHasMessage(result, name),
+			"%s: unresolvable $ref not reported; errors: %v", name, result.Errors)
+	}
+}
+
+// TestTupleRefsInAdditionalItemsAreReported covers the tuple form in the one
+// other array field an OAS 2.0 document can put it in.
+func TestTupleRefsInAdditionalItemsAreReported(t *testing.T) {
+	const spec = `
+swagger: "2.0"
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+definitions:
+  Holder:
+    type: array
+    additionalItems:
+      - $ref: "#/definitions/Missing"
+`
+	result := validateSpec(t, spec)
+
+	assert.False(t, result.Valid)
+	assert.True(t, resultHasMessage(result, "Missing"),
+		"a $ref in a tuple additionalItems element was not reported; errors: %v", result.Errors)
+}
