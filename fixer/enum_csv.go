@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -226,12 +227,12 @@ func (f *Fixer) fixSchemaCSVEnums(schema *parser.Schema, path string, result *Fi
 		f.fixSchemaCSVEnums(propSchema, fmt.Sprintf("%s.properties.%s", path, propName), result)
 	}
 
-	if itemsSchema, ok := schema.Items.(*parser.Schema); ok && itemsSchema != nil {
-		f.fixSchemaCSVEnums(itemsSchema, path+".items", result)
+	for i, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
+		f.fixSchemaCSVEnums(itemsSchema, path+".items"+schemautil.IndexSuffix(i), result)
 	}
 
-	if addPropsSchema, ok := schema.AdditionalProperties.(*parser.Schema); ok && addPropsSchema != nil {
-		f.fixSchemaCSVEnums(addPropsSchema, path+".additionalProperties", result)
+	for i, addPropsSchema := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
+		f.fixSchemaCSVEnums(addPropsSchema, path+".additionalProperties"+schemautil.IndexSuffix(i), result)
 	}
 
 	for i, allOf := range schema.AllOf {

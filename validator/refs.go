@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/internal/pathutil"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -176,17 +177,13 @@ func (v *Validator) validateSchemaRefs(schema *parser.Schema, path string, valid
 	}
 
 	// Additional properties
-	if schema.AdditionalProperties != nil {
-		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-			v.validateSchemaRefs(addProps, path+".additionalProperties", validRefs, result, baseURL)
-		}
+	for i, addProps := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
+		v.validateSchemaRefs(addProps, path+".additionalProperties"+schemautil.IndexSuffix(i), validRefs, result, baseURL)
 	}
 
 	// Items
-	if schema.Items != nil {
-		if items, ok := schema.Items.(*parser.Schema); ok {
-			v.validateSchemaRefs(items, path+".items", validRefs, result, baseURL)
-		}
+	for i, items := range schemautil.SchemaOrBoolSchemas(schema.Items) {
+		v.validateSchemaRefs(items, path+".items"+schemautil.IndexSuffix(i), validRefs, result, baseURL)
 	}
 
 	// AllOf, AnyOf, OneOf
@@ -214,10 +211,8 @@ func (v *Validator) validateSchemaRefs(schema *parser.Schema, path string, valid
 	}
 
 	// Additional items
-	if schema.AdditionalItems != nil {
-		if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
-			v.validateSchemaRefs(addItems, path+".additionalItems", validRefs, result, baseURL)
-		}
+	for i, addItems := range schemautil.SchemaOrBoolSchemas(schema.AdditionalItems) {
+		v.validateSchemaRefs(addItems, path+".additionalItems"+schemautil.IndexSuffix(i), validRefs, result, baseURL)
 	}
 
 	// Prefix items (JSON Schema Draft 2020-12)
@@ -259,6 +254,17 @@ func (v *Validator) validateSchemaRefs(schema *parser.Schema, path string, valid
 		if defSchema != nil {
 			v.validateSchemaRefs(defSchema, path+".$defs."+name, validRefs, result, baseURL)
 		}
+	}
+
+	// Unevaluated keywords and contentSchema (JSON Schema Draft 2020-12)
+	for i, unevalProps := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedProperties) {
+		v.validateSchemaRefs(unevalProps, path+".unevaluatedProperties"+schemautil.IndexSuffix(i), validRefs, result, baseURL)
+	}
+	for i, unevalItems := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedItems) {
+		v.validateSchemaRefs(unevalItems, path+".unevaluatedItems"+schemautil.IndexSuffix(i), validRefs, result, baseURL)
+	}
+	if schema.ContentSchema != nil {
+		v.validateSchemaRefs(schema.ContentSchema, path+".contentSchema", validRefs, result, baseURL)
 	}
 }
 

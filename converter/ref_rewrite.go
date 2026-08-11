@@ -7,6 +7,7 @@ package converter
 import (
 	"strings"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -90,13 +91,12 @@ func walkSchemas(schema *parser.Schema, visit func(*parser.Schema)) {
 		walkSchemas(propSchema, visit)
 	}
 
-	// Handle polymorphic fields with type assertion.
-	// These can be bool (OAS 3.1+) or *Schema - only *Schema needs traversal.
-	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
+	// Schema-or-bool fields: a schema, a list of them (OAS 2.0 tuple form), or a bool.
+	for _, addProps := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
 		walkSchemas(addProps, visit)
 	}
 
-	if items, ok := schema.Items.(*parser.Schema); ok {
+	for _, items := range schemautil.SchemaOrBoolSchemas(schema.Items) {
 		walkSchemas(items, visit)
 	}
 
@@ -116,7 +116,7 @@ func walkSchemas(schema *parser.Schema, visit func(*parser.Schema)) {
 	walkSchemas(schema.Not, visit)
 
 	// Array-related keywords
-	if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
+	for _, addItems := range schemautil.SchemaOrBoolSchemas(schema.AdditionalItems) {
 		walkSchemas(addItems, visit)
 	}
 
@@ -133,12 +133,12 @@ func walkSchemas(schema *parser.Schema, visit func(*parser.Schema)) {
 		walkSchemas(depSchema, visit)
 	}
 
-	// JSON Schema 2020-12 unevaluated keywords (can be bool or *Schema)
-	if unevalProps, ok := schema.UnevaluatedProperties.(*parser.Schema); ok {
+	// JSON Schema 2020-12 unevaluated keywords
+	for _, unevalProps := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedProperties) {
 		walkSchemas(unevalProps, visit)
 	}
 
-	if unevalItems, ok := schema.UnevaluatedItems.(*parser.Schema); ok {
+	for _, unevalItems := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedItems) {
 		walkSchemas(unevalItems, visit)
 	}
 

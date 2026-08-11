@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -296,18 +297,14 @@ func (v *Validator) validateNestedSchemas(schema *parser.Schema, path string, re
 		v.validateSchemaWithVisited(propSchema, path+".properties."+propName, result, visited, nextDepth)
 	}
 
-	// Validate additionalProperties (can be *Schema or bool)
-	if schema.AdditionalProperties != nil {
-		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-			v.validateSchemaWithVisited(addProps, path+".additionalProperties", result, visited, nextDepth)
-		}
+	// Validate additionalProperties (can be *Schema, []*Schema, or bool)
+	for i, addProps := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
+		v.validateSchemaWithVisited(addProps, path+".additionalProperties"+schemautil.IndexSuffix(i), result, visited, nextDepth)
 	}
 
-	// Validate items (can be *Schema or bool)
-	if schema.Items != nil {
-		if items, ok := schema.Items.(*parser.Schema); ok {
-			v.validateSchemaWithVisited(items, path+".items", result, visited, nextDepth)
-		}
+	// Validate items (can be *Schema, []*Schema, or bool)
+	for i, items := range schemautil.SchemaOrBoolSchemas(schema.Items) {
+		v.validateSchemaWithVisited(items, path+".items"+schemautil.IndexSuffix(i), result, visited, nextDepth)
 	}
 
 	// Validate allOf

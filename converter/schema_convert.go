@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -132,11 +133,11 @@ func fixSchemaExclusiveMinMaxForOAS31(c *Converter, schema *parser.Schema, resul
 	for pattern, s := range schema.PatternProperties {
 		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.patternProperties.%s", path, pattern), visited)
 	}
-	if s, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".additionalProperties", visited)
+	for i, s := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".additionalProperties"+schemautil.IndexSuffix(i), visited)
 	}
-	if s, ok := schema.Items.(*parser.Schema); ok {
-		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".items", visited)
+	for i, s := range schemautil.SchemaOrBoolSchemas(schema.Items) {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".items"+schemautil.IndexSuffix(i), visited)
 	}
 	for i, s := range schema.AllOf {
 		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.allOf[%d]", path, i), visited)
@@ -148,8 +149,8 @@ func fixSchemaExclusiveMinMaxForOAS31(c *Converter, schema *parser.Schema, resul
 		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.oneOf[%d]", path, i), visited)
 	}
 	fixSchemaExclusiveMinMaxForOAS31(c, schema.Not, result, path+".not", visited)
-	if s, ok := schema.AdditionalItems.(*parser.Schema); ok {
-		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".additionalItems", visited)
+	for i, s := range schemautil.SchemaOrBoolSchemas(schema.AdditionalItems) {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".additionalItems"+schemautil.IndexSuffix(i), visited)
 	}
 	for i, s := range schema.PrefixItems {
 		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.prefixItems[%d]", path, i), visited)
@@ -159,11 +160,11 @@ func fixSchemaExclusiveMinMaxForOAS31(c *Converter, schema *parser.Schema, resul
 	for name, s := range schema.DependentSchemas {
 		fixSchemaExclusiveMinMaxForOAS31(c, s, result, fmt.Sprintf("%s.dependentSchemas.%s", path, name), visited)
 	}
-	if s, ok := schema.UnevaluatedProperties.(*parser.Schema); ok {
-		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".unevaluatedProperties", visited)
+	for i, s := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedProperties) {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".unevaluatedProperties"+schemautil.IndexSuffix(i), visited)
 	}
-	if s, ok := schema.UnevaluatedItems.(*parser.Schema); ok {
-		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".unevaluatedItems", visited)
+	for i, s := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedItems) {
+		fixSchemaExclusiveMinMaxForOAS31(c, s, result, path+".unevaluatedItems"+schemautil.IndexSuffix(i), visited)
 	}
 	fixSchemaExclusiveMinMaxForOAS31(c, schema.ContentSchema, result, path+".contentSchema", visited)
 	fixSchemaExclusiveMinMaxForOAS31(c, schema.If, result, path+".if", visited)
@@ -279,14 +280,13 @@ func walkSchemaFeatures(c *Converter, schema *parser.Schema, result *ConversionR
 		walkSchemaFeatures(c, propSchema, result, fmt.Sprintf("%s.patternProperties.%s", path, pattern), visited)
 	}
 
-	// Handle polymorphic fields with type assertion.
-	// These can be bool (OAS 3.1+) or *Schema — only *Schema needs traversal.
-	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-		walkSchemaFeatures(c, addProps, result, fmt.Sprintf("%s.additionalProperties", path), visited)
+	// Schema-or-bool fields: a schema, a list of them (OAS 2.0 tuple form), or a bool.
+	for i, addProps := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
+		walkSchemaFeatures(c, addProps, result, fmt.Sprintf("%s.additionalProperties%s", path, schemautil.IndexSuffix(i)), visited)
 	}
 
-	if items, ok := schema.Items.(*parser.Schema); ok {
-		walkSchemaFeatures(c, items, result, fmt.Sprintf("%s.items", path), visited)
+	for i, items := range schemautil.SchemaOrBoolSchemas(schema.Items) {
+		walkSchemaFeatures(c, items, result, fmt.Sprintf("%s.items%s", path, schemautil.IndexSuffix(i)), visited)
 	}
 
 	// Composition keywords
@@ -305,8 +305,8 @@ func walkSchemaFeatures(c *Converter, schema *parser.Schema, result *ConversionR
 	walkSchemaFeatures(c, schema.Not, result, fmt.Sprintf("%s.not", path), visited)
 
 	// Array-related keywords
-	if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
-		walkSchemaFeatures(c, addItems, result, fmt.Sprintf("%s.additionalItems", path), visited)
+	for i, addItems := range schemautil.SchemaOrBoolSchemas(schema.AdditionalItems) {
+		walkSchemaFeatures(c, addItems, result, fmt.Sprintf("%s.additionalItems%s", path, schemautil.IndexSuffix(i)), visited)
 	}
 
 	for i, prefixItem := range schema.PrefixItems {
@@ -322,13 +322,13 @@ func walkSchemaFeatures(c *Converter, schema *parser.Schema, result *ConversionR
 		walkSchemaFeatures(c, depSchema, result, fmt.Sprintf("%s.dependentSchemas.%s", path, name), visited)
 	}
 
-	// JSON Schema 2020-12 unevaluated keywords (can be bool or *Schema)
-	if unevalProps, ok := schema.UnevaluatedProperties.(*parser.Schema); ok {
-		walkSchemaFeatures(c, unevalProps, result, fmt.Sprintf("%s.unevaluatedProperties", path), visited)
+	// JSON Schema 2020-12 unevaluated keywords
+	for i, unevalProps := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedProperties) {
+		walkSchemaFeatures(c, unevalProps, result, fmt.Sprintf("%s.unevaluatedProperties%s", path, schemautil.IndexSuffix(i)), visited)
 	}
 
-	if unevalItems, ok := schema.UnevaluatedItems.(*parser.Schema); ok {
-		walkSchemaFeatures(c, unevalItems, result, fmt.Sprintf("%s.unevaluatedItems", path), visited)
+	for i, unevalItems := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedItems) {
+		walkSchemaFeatures(c, unevalItems, result, fmt.Sprintf("%s.unevaluatedItems%s", path, schemautil.IndexSuffix(i)), visited)
 	}
 
 	// JSON Schema 2020-12 content keywords

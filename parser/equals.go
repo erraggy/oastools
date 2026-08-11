@@ -110,6 +110,20 @@ func equalSchemaOrBool(a, b any) bool {
 			return false
 		}
 		return ta.Equals(tb)
+	case []*Schema:
+		// OAS 2.0 tuple form. Compared element by element rather than by
+		// reflect.DeepEqual so the elements get Schema equality, which ignores
+		// the fields Schema.Equals deliberately ignores.
+		tb, ok := b.([]*Schema)
+		if !ok || len(ta) != len(tb) {
+			return false
+		}
+		for i := range ta {
+			if !ta[i].Equals(tb[i]) {
+				return false
+			}
+		}
+		return true
 	default:
 		// Unknown type, fall back to reflect.DeepEqual
 		return reflect.DeepEqual(a, b)

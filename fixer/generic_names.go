@@ -14,6 +14,7 @@ import (
 
 	"github.com/erraggy/oastools/internal/naming"
 	"github.com/erraggy/oastools/internal/pathutil"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -652,24 +653,16 @@ func rewriteSchemaRefsRecursive(schema *parser.Schema, renames map[string]string
 		rewriteSchemaRefsRecursive(propSchema, renames, visited)
 	}
 
-	// AdditionalProperties (can be *Schema or bool)
-	if schema.AdditionalProperties != nil {
-		if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-			rewriteSchemaRefsRecursive(addProps, renames, visited)
-		}
-	}
-
-	// Items (can be *Schema or bool in OAS 3.1+)
-	if schema.Items != nil {
-		if items, ok := schema.Items.(*parser.Schema); ok {
-			rewriteSchemaRefsRecursive(items, renames, visited)
-		}
-	}
-
-	// AdditionalItems (can be *Schema or bool)
-	if schema.AdditionalItems != nil {
-		if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok {
-			rewriteSchemaRefsRecursive(addItems, renames, visited)
+	// Schema-or-bool fields (a schema, a list of them, or a bool)
+	for _, field := range []any{
+		schema.AdditionalProperties,
+		schema.Items,
+		schema.AdditionalItems,
+		schema.UnevaluatedProperties,
+		schema.UnevaluatedItems,
+	} {
+		for _, s := range schemautil.SchemaOrBoolSchemas(field) {
+			rewriteSchemaRefsRecursive(s, renames, visited)
 		}
 	}
 
@@ -715,6 +708,11 @@ func rewriteSchemaRefsRecursive(schema *parser.Schema, renames map[string]string
 	// $defs (OAS 3.1+)
 	for _, defSchema := range schema.Defs {
 		rewriteSchemaRefsRecursive(defSchema, renames, visited)
+	}
+
+	// JSON Schema 2020-12 content keywords
+	if schema.ContentSchema != nil {
+		rewriteSchemaRefsRecursive(schema.ContentSchema, renames, visited)
 	}
 
 	// Pattern properties

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/erraggy/oastools/internal/maputil"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -349,35 +350,13 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 	}
 
 	// AdditionalProperties (can be *Schema, bool, or map[string]any (which may contain a $ref key))
-	switch addProps := schema.AdditionalProperties.(type) {
-	case *parser.Schema:
-		if err := w.walkSchema(addProps, basePath+".additionalProperties", depth+1, state); err != nil {
-			return err
-		}
-	case map[string]any:
-		if w.trackMapRefs {
-			if ref, ok := addProps["$ref"].(string); ok && ref != "" {
-				if w.handleRef(ref, basePath+".additionalProperties", RefNodeSchema, state) == Stop {
-					return nil
-				}
-			}
-		}
+	if err := w.walkSchemaOrBool(schema.AdditionalProperties, basePath+".additionalProperties", depth, state); err != nil {
+		return err
 	}
 
 	// UnevaluatedProperties (can be *Schema, bool, or map[string]any (which may contain a $ref key))
-	switch uProps := schema.UnevaluatedProperties.(type) {
-	case *parser.Schema:
-		if err := w.walkSchema(uProps, basePath+".unevaluatedProperties", depth+1, state); err != nil {
-			return err
-		}
-	case map[string]any:
-		if w.trackMapRefs {
-			if ref, ok := uProps["$ref"].(string); ok && ref != "" {
-				if w.handleRef(ref, basePath+".unevaluatedProperties", RefNodeSchema, state) == Stop {
-					return nil
-				}
-			}
-		}
+	if err := w.walkSchemaOrBool(schema.UnevaluatedProperties, basePath+".unevaluatedProperties", depth, state); err != nil {
+		return err
 	}
 
 	// PropertyNames
@@ -402,38 +381,39 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 	return nil
 }
 
-// walkSchemaArrayKeywords walks array-related schema keywords.
-func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string, depth int, state *walkState) error {
-	// Items (can be *Schema, bool, or map[string]any (which may contain a $ref key))
-	switch items := schema.Items.(type) {
-	case *parser.Schema:
-		if err := w.walkSchema(items, basePath+".items", depth+1, state); err != nil {
-			return err
+// walkSchemaOrBool walks a schema-or-bool field, which holds a schema, a list of
+// them (the OAS 2.0 tuple form), a bool, or a raw map that decoding left untyped.
+// The tuple elements are addressed as "<field>[i]" so each stays distinguishable
+// from the single-schema form.
+func (w *Walker) walkSchemaOrBool(field any, basePath string, depth int, state *walkState) error {
+	for i, s := range schemautil.SchemaOrBoolSchemas(field) {
+		if w.stopped {
+			return nil
 		}
-	case map[string]any:
-		if w.trackMapRefs {
-			if ref, ok := items["$ref"].(string); ok && ref != "" {
-				if w.handleRef(ref, basePath+".items", RefNodeSchema, state) == Stop {
-					return nil
-				}
-			}
+		if err := w.walkSchema(s, basePath+schemautil.IndexSuffix(i), depth+1, state); err != nil {
+			return err
 		}
 	}
 
+	if m, ok := field.(map[string]any); ok && w.trackMapRefs {
+		if ref, ok := m["$ref"].(string); ok && ref != "" {
+			w.handleRef(ref, basePath, RefNodeSchema, state)
+		}
+	}
+
+	return nil
+}
+
+// walkSchemaArrayKeywords walks array-related schema keywords.
+func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string, depth int, state *walkState) error {
+	// Items (can be *Schema, bool, or map[string]any (which may contain a $ref key))
+	if err := w.walkSchemaOrBool(schema.Items, basePath+".items", depth, state); err != nil {
+		return err
+	}
+
 	// AdditionalItems (can be *Schema, bool, or map[string]any (which may contain a $ref key))
-	switch addItems := schema.AdditionalItems.(type) {
-	case *parser.Schema:
-		if err := w.walkSchema(addItems, basePath+".additionalItems", depth+1, state); err != nil {
-			return err
-		}
-	case map[string]any:
-		if w.trackMapRefs {
-			if ref, ok := addItems["$ref"].(string); ok && ref != "" {
-				if w.handleRef(ref, basePath+".additionalItems", RefNodeSchema, state) == Stop {
-					return nil
-				}
-			}
-		}
+	if err := w.walkSchemaOrBool(schema.AdditionalItems, basePath+".additionalItems", depth, state); err != nil {
+		return err
 	}
 
 	// PrefixItems (OAS 3.1+)
@@ -449,19 +429,8 @@ func (w *Walker) walkSchemaArrayKeywords(schema *parser.Schema, basePath string,
 	}
 
 	// UnevaluatedItems (can be *Schema, bool, or map[string]any (which may contain a $ref key))
-	switch uItems := schema.UnevaluatedItems.(type) {
-	case *parser.Schema:
-		if err := w.walkSchema(uItems, basePath+".unevaluatedItems", depth+1, state); err != nil {
-			return err
-		}
-	case map[string]any:
-		if w.trackMapRefs {
-			if ref, ok := uItems["$ref"].(string); ok && ref != "" {
-				if w.handleRef(ref, basePath+".unevaluatedItems", RefNodeSchema, state) == Stop {
-					return nil
-				}
-			}
-		}
+	if err := w.walkSchemaOrBool(schema.UnevaluatedItems, basePath+".unevaluatedItems", depth, state); err != nil {
+		return err
 	}
 
 	// Contains

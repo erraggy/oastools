@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/internal/pathutil"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -498,6 +499,20 @@ func (c *RefCollector) collectCallbackRefs(callback *parser.Callback, path strin
 	}
 }
 
+// collectSchemaOrBoolRefs collects references from a schema-or-bool field, which
+// holds a schema, a list of them, a bool, or a raw map that decoding left untyped.
+func (c *RefCollector) collectSchemaOrBoolRefs(field any, path string) {
+	if field == nil {
+		return
+	}
+	for i, s := range schemautil.SchemaOrBoolSchemas(field) {
+		c.collectSchemaRefs(s, path+schemautil.IndexSuffix(i))
+	}
+	if m, ok := field.(map[string]any); ok {
+		c.collectRefsFromMap(m, path)
+	}
+}
+
 // collectSchemaRefs recursively collects references from a schema.
 func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 	if schema == nil {
@@ -521,78 +536,12 @@ func (c *RefCollector) collectSchemaRefs(schema *parser.Schema, path string) {
 		c.collectSchemaRefs(propSchema, fmt.Sprintf("%s.properties.%s", path, propName))
 	}
 
-	// AdditionalProperties (can be *Schema, map[string]any, or bool)
-	if schema.AdditionalProperties != nil {
-		switch v := schema.AdditionalProperties.(type) {
-		case *parser.Schema:
-			c.collectSchemaRefs(v, fmt.Sprintf("%s.additionalProperties", path))
-		case map[string]any:
-			// Fallback: extract refs from raw map (polymorphic field may remain as map)
-			c.collectRefsFromMap(v, fmt.Sprintf("%s.additionalProperties", path))
-		case bool:
-			// Boolean additionalProperties has no refs to collect
-		default:
-			// Unexpected type - should not happen with valid OAS documents
-		}
-	}
-
-	// Items (can be *Schema, map[string]any, or bool in OAS 3.1+)
-	if schema.Items != nil {
-		switch v := schema.Items.(type) {
-		case *parser.Schema:
-			c.collectSchemaRefs(v, fmt.Sprintf("%s.items", path))
-		case map[string]any:
-			// Fallback: extract refs from raw map (polymorphic field may remain as map)
-			c.collectRefsFromMap(v, fmt.Sprintf("%s.items", path))
-		case bool:
-			// Boolean items has no refs to collect
-		default:
-			// Unexpected type - should not happen with valid OAS documents
-		}
-	}
-
-	// AdditionalItems (can be *Schema, map[string]any, or bool)
-	if schema.AdditionalItems != nil {
-		switch v := schema.AdditionalItems.(type) {
-		case *parser.Schema:
-			c.collectSchemaRefs(v, fmt.Sprintf("%s.additionalItems", path))
-		case map[string]any:
-			// Fallback: extract refs from raw map (polymorphic field may remain as map)
-			c.collectRefsFromMap(v, fmt.Sprintf("%s.additionalItems", path))
-		case bool:
-			// Boolean additionalItems has no refs to collect
-		default:
-			// Unexpected type - should not happen with valid OAS documents
-		}
-	}
-
-	// UnevaluatedProperties (JSON Schema Draft 2020-12: *Schema, map[string]any, or bool)
-	if schema.UnevaluatedProperties != nil {
-		switch v := schema.UnevaluatedProperties.(type) {
-		case *parser.Schema:
-			c.collectSchemaRefs(v, fmt.Sprintf("%s.unevaluatedProperties", path))
-		case map[string]any:
-			c.collectRefsFromMap(v, fmt.Sprintf("%s.unevaluatedProperties", path))
-		case bool:
-			// Boolean unevaluatedProperties has no refs to collect
-		default:
-			// Unexpected type - should not happen with valid OAS documents
-		}
-	}
-
-	// UnevaluatedItems (JSON Schema Draft 2020-12: *Schema, map[string]any, or bool)
-	if schema.UnevaluatedItems != nil {
-		switch v := schema.UnevaluatedItems.(type) {
-		case *parser.Schema:
-			c.collectSchemaRefs(v, fmt.Sprintf("%s.unevaluatedItems", path))
-		case map[string]any:
-			c.collectRefsFromMap(v, fmt.Sprintf("%s.unevaluatedItems", path))
-		case bool:
-			// Boolean unevaluatedItems has no refs to collect
-		default:
-			// Unexpected type - should not happen with valid OAS documents
-		}
-	}
+	// Schema-or-bool fields
+	c.collectSchemaOrBoolRefs(schema.AdditionalProperties, fmt.Sprintf("%s.additionalProperties", path))
+	c.collectSchemaOrBoolRefs(schema.Items, fmt.Sprintf("%s.items", path))
+	c.collectSchemaOrBoolRefs(schema.AdditionalItems, fmt.Sprintf("%s.additionalItems", path))
+	c.collectSchemaOrBoolRefs(schema.UnevaluatedProperties, fmt.Sprintf("%s.unevaluatedProperties", path))
+	c.collectSchemaOrBoolRefs(schema.UnevaluatedItems, fmt.Sprintf("%s.unevaluatedItems", path))
 
 	// ContentSchema (JSON Schema Draft 2020-12)
 	if schema.ContentSchema != nil {

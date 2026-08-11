@@ -5,6 +5,7 @@ import (
 
 	"github.com/erraggy/oastools/internal/issues"
 	"github.com/erraggy/oastools/internal/pathutil"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -286,13 +287,13 @@ func (rt *refTracker) trackSchemaRefs(schema *parser.Schema, opRef operationRef,
 	}
 
 	// Track nested schemas
-	if items, ok := schema.Items.(*parser.Schema); ok && items != nil {
+	for _, items := range schemautil.SchemaOrBoolSchemas(schema.Items) {
 		rt.trackSchemaRefs(items, opRef, components, visited)
 	}
 	for _, prop := range schema.Properties {
 		rt.trackSchemaRefs(prop, opRef, components, visited)
 	}
-	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok && addProps != nil {
+	for _, addProps := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
 		rt.trackSchemaRefs(addProps, opRef, components, visited)
 	}
 	for _, s := range schema.AllOf {
@@ -334,13 +335,13 @@ func (rt *refTracker) trackSchemaRefsOAS2(schema *parser.Schema, opRef operation
 	}
 
 	// Track nested schemas
-	if items, ok := schema.Items.(*parser.Schema); ok && items != nil {
+	for _, items := range schemautil.SchemaOrBoolSchemas(schema.Items) {
 		rt.trackSchemaRefsOAS2(items, opRef, definitions, visited)
 	}
 	for _, prop := range schema.Properties {
 		rt.trackSchemaRefsOAS2(prop, opRef, definitions, visited)
 	}
-	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok && addProps != nil {
+	for _, addProps := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
 		rt.trackSchemaRefsOAS2(addProps, opRef, definitions, visited)
 	}
 	for _, s := range schema.AllOf {
