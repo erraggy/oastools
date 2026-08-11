@@ -70,3 +70,45 @@ func TestTupleItemsAreComparedElementwise(t *testing.T) {
 		assert.False(t, result.Equivalent)
 	})
 }
+
+// TestTupleItemsRefsAreRecordedInTheRefGraph covers the graph the joiner builds
+// to answer which schema points at which. A tuple element missing from it makes
+// a referenced schema look unreferenced, the same way #502 did in the fixer.
+func TestTupleItemsRefsAreRecordedInTheRefGraph(t *testing.T) {
+	g := newRefGraph()
+	g.recordSchemaRefs("PetTuple", &parser.Schema{
+		Type: "array",
+		Items: []*parser.Schema{
+			{Ref: "#/definitions/First"},
+			{Type: "string"},
+			{Ref: "#/definitions/Third"},
+		},
+	}, "")
+
+	locationsFor := func(name string) []string {
+		out := make([]string, 0, len(g.schemaRefs[name]))
+		for _, ref := range g.schemaRefs[name] {
+			assert.Equal(t, "PetTuple", ref.FromSchema)
+			out = append(out, ref.RefLocation)
+		}
+		return out
+	}
+
+	assert.Equal(t, []string{"items[0]"}, locationsFor("First"),
+		"a $ref in the first tuple element was not recorded at its position")
+	assert.Equal(t, []string{"items[2]"}, locationsFor("Third"),
+		"a $ref in a later tuple element was not recorded at its position")
+}
+
+// TestTupleItemsRefsAreRecordedForAdditionalItems covers the other schema-or-bool
+// field the tuple form reaches through in an OAS 2.0 document.
+func TestTupleItemsRefsAreRecordedForAdditionalItems(t *testing.T) {
+	g := newRefGraph()
+	g.recordSchemaRefs("PetTuple", &parser.Schema{
+		Type:            "array",
+		AdditionalItems: []*parser.Schema{{Ref: "#/definitions/Extra"}},
+	}, "")
+
+	require.Len(t, g.schemaRefs["Extra"], 1)
+	assert.Equal(t, "additionalItems[0]", g.schemaRefs["Extra"][0].RefLocation)
+}
