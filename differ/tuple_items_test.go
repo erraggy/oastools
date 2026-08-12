@@ -209,6 +209,29 @@ func TestDiffSchemaTupleForm(t *testing.T) {
 			wantChangeCount: 1,
 			wantMessagePart: "unevaluatedItems changed from tuple of schemas to boolean",
 		},
+		// A nil element cannot come from parsing: promoteSchemaOrBool drops
+		// entries that do not promote to *Schema. These pin the behavior for
+		// documents built in code, where a nil element is reachable.
+		{
+			name:            "items tuple element became nil",
+			set:             setItems,
+			source:          []*parser.Schema{{Type: "string"}, {Type: "integer"}},
+			target:          []*parser.Schema{{Type: "string"}, nil},
+			wantPath:        "test.schema.items[1]",
+			wantType:        ChangeTypeRemoved,
+			wantSeverity:    SeverityError,
+			wantChangeCount: 1,
+		},
+		{
+			name:            "items tuple element was nil",
+			set:             setItems,
+			source:          []*parser.Schema{{Type: "string"}, nil},
+			target:          []*parser.Schema{{Type: "string"}, {Type: "integer"}},
+			wantPath:        "test.schema.items[1]",
+			wantType:        ChangeTypeAdded,
+			wantSeverity:    SeverityInfo,
+			wantChangeCount: 1,
+		},
 	}
 
 	modes := []struct {
