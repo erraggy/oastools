@@ -376,3 +376,58 @@ definitions:
 	assert.Equal(t, ChangeTypeModified, change.Type)
 	assert.Equal(t, SeverityError, change.Severity)
 }
+
+// TestDiffSchemaTupleNilElementEndToEnd proves a nil tuple element reaches the
+// differ from a parsed document: YAML decodes `- null` to a nil *Schema. The
+// JSON path drops the element instead, which is #510.
+func TestDiffSchemaTupleNilElementEndToEnd(t *testing.T) {
+	sourceSpec := `swagger: "2.0"
+info:
+  title: Tuple API
+  version: 1.0.0
+paths: {}
+definitions:
+  A:
+    type: array
+    items:
+      - type: string
+      - type: integer
+`
+
+	targetSpec := `swagger: "2.0"
+info:
+  title: Tuple API
+  version: 1.0.0
+paths: {}
+definitions:
+  A:
+    type: array
+    items:
+      - type: string
+      - null
+`
+
+	source, err := parser.ParseWithOptions(parser.WithReader(strings.NewReader(sourceSpec)))
+	require.NoError(t, err)
+	target, err := parser.ParseWithOptions(parser.WithReader(strings.NewReader(targetSpec)))
+	require.NoError(t, err)
+
+	targetDoc, ok := target.Document.(*parser.OAS2Document)
+	require.True(t, ok, "expected an OAS 2.0 document")
+	elems, isTuple := targetDoc.Definitions["A"].Items.([]*parser.Schema)
+	require.True(t, isTuple, "expected the tuple form to decode to []*parser.Schema, got %T",
+		targetDoc.Definitions["A"].Items)
+	require.Len(t, elems, 2, "expected the null element to be kept, so indices stay aligned")
+	require.Nil(t, elems[1], "expected the null element to decode to a nil schema")
+
+	result, err := DiffWithOptions(
+		WithSourceParsed(*source),
+		WithTargetParsed(*target),
+		WithMode(ModeBreaking),
+	)
+	require.NoError(t, err)
+
+	change := findChange(t, result, "document.definitions.A.items[1]")
+	assert.Equal(t, ChangeTypeRemoved, change.Type)
+	assert.Equal(t, SeverityError, change.Severity)
+}
