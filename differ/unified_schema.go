@@ -3,6 +3,7 @@ package differ
 import (
 	"fmt"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -85,6 +86,7 @@ func (d *Differ) diffSchemaRecursiveUnified(source, target *parser.Schema, path 
 	d.diffSchemaPropertiesUnified(source.Properties, target.Properties, source.Required, target.Required, path, visited, result)
 	d.diffSchemaItemsUnified(source.Items, target.Items, path, visited, result)
 	d.diffSchemaAdditionalPropertiesUnified(source.AdditionalProperties, target.AdditionalProperties, path, visited, result)
+	d.diffSchemaAdditionalItemsUnified(source.AdditionalItems, target.AdditionalItems, path, visited, result)
 
 	// Compare composition fields
 	d.diffSchemaAllOfUnified(source.AllOf, target.AllOf, path, visited, result)
@@ -418,64 +420,101 @@ func (d *Differ) diffSchemaPropertiesUnified(source, target map[string]*parser.S
 	}
 }
 
+// diffSchemaTupleUnified compares two OAS 2.0 tuple-form values element by
+// element, using the same severities as [Differ.diffSchemaPrefixItemsUnified]:
+// prefixItems is the JSON Schema 2020-12 spelling of the same construct, so an
+// identical edit must report identically under either name.
+//
+// This walks the slices by index rather than with
+// [schemautil.SchemaOrBoolSchemas]. That helper skips nil elements, which suits
+// a single-document traversal and breaks a paired one: a tuple position is
+// meaningful, and a nil on one side alone would shift every later index. Nil
+// elements are reachable, since YAML decodes `- null` to one (#510).
+func (d *Differ) diffSchemaTupleUnified(source, target []*parser.Schema, fieldPath, fieldName string, visited *schemaVisited, result *DiffResult) {
+	maxLen := max(len(source), len(target))
+
+	for i := range maxLen {
+		itemPath := fieldPath + schemautil.IndexSuffix(i)
+		switch {
+		case i >= len(source):
+			d.addChange(result, itemPath, ChangeTypeAdded, CategorySchema,
+				SeverityInfo, nil, target[i], fmt.Sprintf("%s tuple element added", fieldName))
+		case i >= len(target):
+			d.addChange(result, itemPath, ChangeTypeRemoved, CategorySchema,
+				SeverityWarning, source[i], nil, fmt.Sprintf("%s tuple element removed", fieldName))
+		default:
+			d.diffSchemaRecursiveUnified(source[i], target[i], itemPath, visited, result)
+		}
+	}
+}
+
+// shapeChangeMessage describes a schema-or-bool field changing shape, naming
+// both shapes in OAS terms rather than in Go type names.
+func shapeChangeMessage(fieldName string, sourceKind, targetKind schemaOrBoolKind) string {
+	return fmt.Sprintf("%s changed from %s to %s", fieldName,
+		schemaOrBoolShapeName(sourceKind), schemaOrBoolShapeName(targetKind))
+}
+
 // diffSchemaItemsUnified compares schema Items field
 func (d *Differ) diffSchemaItemsUnified(source, target any, path string, visited *schemaVisited, result *DiffResult) {
-	sourceType := getSchemaItemsType(source)
-	targetType := getSchemaItemsType(target)
+	sourceType := getSchemaOrBoolKind(source)
+	targetType := getSchemaOrBoolKind(target)
 	itemsPath := path + ".items"
 
 	// Handle unknown types
-	if sourceType == schemaItemsTypeUnknown && targetType == schemaItemsTypeUnknown {
+	if sourceType == schemaOrBoolUnknown && targetType == schemaOrBoolUnknown {
 		return
 	}
-	if sourceType == schemaItemsTypeUnknown {
+	if sourceType == schemaOrBoolUnknown {
 		d.addChange(result, itemsPath, ChangeTypeModified, CategorySchema,
-			SeverityWarning, source, nil, fmt.Sprintf("items has unexpected type in source: %T", source))
+			SeverityWarning, source, nil, "items holds an unrecognized value in source")
 		return
 	}
-	if targetType == schemaItemsTypeUnknown {
+	if targetType == schemaOrBoolUnknown {
 		d.addChange(result, itemsPath, ChangeTypeModified, CategorySchema,
-			SeverityWarning, nil, target, fmt.Sprintf("items has unexpected type in target: %T", target))
+			SeverityWarning, nil, target, "items holds an unrecognized value in target")
 		return
 	}
 
 	// Both nil
-	if sourceType == schemaItemsTypeNil && targetType == schemaItemsTypeNil {
+	if sourceType == schemaOrBoolNil && targetType == schemaOrBoolNil {
 		return
 	}
 
 	// Items added
-	if sourceType == schemaItemsTypeNil && targetType != schemaItemsTypeNil {
+	if sourceType == schemaOrBoolNil && targetType != schemaOrBoolNil {
 		d.addChange(result, itemsPath, ChangeTypeAdded, CategorySchema,
 			SeverityWarning, nil, target, "items schema added")
 		return
 	}
 
 	// Items removed
-	if sourceType != schemaItemsTypeNil && targetType == schemaItemsTypeNil {
+	if sourceType != schemaOrBoolNil && targetType == schemaOrBoolNil {
 		d.addChange(result, itemsPath, ChangeTypeRemoved, CategorySchema,
 			SeverityError, source, nil, "items schema removed")
 		return
 	}
 
-	// Type changed
+	// Shape changed
 	if sourceType != targetType {
 		severity := SeverityError
-		if sourceType == schemaItemsTypeBool && targetType == schemaItemsTypeSchema {
+		if sourceType == schemaOrBoolBool && targetType == schemaOrBoolSchema {
 			severity = SeverityWarning
 		}
 		d.addChange(result, itemsPath, ChangeTypeModified, CategorySchema,
-			severity, source, target, "items type changed")
+			severity, source, target, shapeChangeMessage("items", sourceType, targetType))
 		return
 	}
 
-	// Both same type - compare
+	// Both same shape - compare
 	switch sourceType {
-	case schemaItemsTypeSchema:
+	case schemaOrBoolSchema:
 		sourceSchema := source.(*parser.Schema)
 		targetSchema := target.(*parser.Schema)
 		d.diffSchemaRecursiveUnified(sourceSchema, targetSchema, itemsPath, visited, result)
-	case schemaItemsTypeBool:
+	case schemaOrBoolTuple:
+		d.diffSchemaTupleUnified(source.([]*parser.Schema), target.([]*parser.Schema), itemsPath, "items", visited, result)
+	case schemaOrBoolBool:
 		sourceBool := source.(bool)
 		targetBool := target.(bool)
 		if sourceBool != targetBool {
@@ -486,73 +525,87 @@ func (d *Differ) diffSchemaItemsUnified(source, target any, path string, visited
 			d.addChange(result, itemsPath, ChangeTypeModified, CategorySchema,
 				severity, sourceBool, targetBool, fmt.Sprintf("items changed from %v to %v", sourceBool, targetBool))
 		}
-	case schemaItemsTypeNil, schemaItemsTypeUnknown:
+	case schemaOrBoolNil, schemaOrBoolUnknown:
 		// Already handled above before the switch
 	}
 }
 
 // diffSchemaAdditionalPropertiesUnified compares additionalProperties field
 func (d *Differ) diffSchemaAdditionalPropertiesUnified(source, target any, path string, visited *schemaVisited, result *DiffResult) {
-	sourceType := getSchemaAdditionalPropsType(source)
-	targetType := getSchemaAdditionalPropsType(target)
-	addPropsPath := path + ".additionalProperties"
+	d.diffSchemaAdditionalUnified(source, target, path, "additionalProperties", visited, result)
+}
+
+// diffSchemaAdditionalItemsUnified compares the additionalItems field, which
+// carries the same severity policy as additionalProperties.
+func (d *Differ) diffSchemaAdditionalItemsUnified(source, target any, path string, visited *schemaVisited, result *DiffResult) {
+	d.diffSchemaAdditionalUnified(source, target, path, "additionalItems", visited, result)
+}
+
+// diffSchemaAdditionalUnified compares an additionalProperties or
+// additionalItems field, named by fieldName.
+func (d *Differ) diffSchemaAdditionalUnified(source, target any, path, fieldName string, visited *schemaVisited, result *DiffResult) {
+	sourceType := getSchemaOrBoolKind(source)
+	targetType := getSchemaOrBoolKind(target)
+	addPropsPath := path + "." + fieldName
 
 	// Handle unknown types
-	if sourceType == schemaAdditionalPropsTypeUnknown && targetType == schemaAdditionalPropsTypeUnknown {
+	if sourceType == schemaOrBoolUnknown && targetType == schemaOrBoolUnknown {
 		return
 	}
-	if sourceType == schemaAdditionalPropsTypeUnknown {
+	if sourceType == schemaOrBoolUnknown {
 		d.addChange(result, addPropsPath, ChangeTypeModified, CategorySchema,
-			SeverityWarning, source, nil, fmt.Sprintf("additionalProperties has unexpected type in source: %T", source))
+			SeverityWarning, source, nil, fmt.Sprintf("%s holds an unrecognized value in source", fieldName))
 		return
 	}
-	if targetType == schemaAdditionalPropsTypeUnknown {
+	if targetType == schemaOrBoolUnknown {
 		d.addChange(result, addPropsPath, ChangeTypeModified, CategorySchema,
-			SeverityWarning, nil, target, fmt.Sprintf("additionalProperties has unexpected type in target: %T", target))
+			SeverityWarning, nil, target, fmt.Sprintf("%s holds an unrecognized value in target", fieldName))
 		return
 	}
 
 	// Both nil
-	if sourceType == schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
+	if sourceType == schemaOrBoolNil && targetType == schemaOrBoolNil {
 		return
 	}
 
-	// additionalProperties added
-	if sourceType == schemaAdditionalPropsTypeNil && targetType != schemaAdditionalPropsTypeNil {
+	// Constraint added
+	if sourceType == schemaOrBoolNil && targetType != schemaOrBoolNil {
 		severity := SeverityInfo
-		if d.Mode == ModeBreaking && targetType == schemaAdditionalPropsTypeBool && !target.(bool) {
+		if d.Mode == ModeBreaking && targetType == schemaOrBoolBool && !target.(bool) {
 			severity = SeverityError
 		}
 		d.addChange(result, addPropsPath, ChangeTypeAdded, CategorySchema,
-			severity, nil, target, "additionalProperties constraint added")
+			severity, nil, target, fmt.Sprintf("%s constraint added", fieldName))
 		return
 	}
 
-	// additionalProperties removed
-	if sourceType != schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
+	// Constraint removed
+	if sourceType != schemaOrBoolNil && targetType == schemaOrBoolNil {
 		severity := SeverityWarning
-		if d.Mode == ModeBreaking && sourceType == schemaAdditionalPropsTypeBool && !source.(bool) {
+		if d.Mode == ModeBreaking && sourceType == schemaOrBoolBool && !source.(bool) {
 			severity = SeverityInfo
 		}
 		d.addChange(result, addPropsPath, ChangeTypeRemoved, CategorySchema,
-			severity, source, nil, "additionalProperties constraint removed")
+			severity, source, nil, fmt.Sprintf("%s constraint removed", fieldName))
 		return
 	}
 
-	// Type changed
+	// Shape changed
 	if sourceType != targetType {
 		d.addChange(result, addPropsPath, ChangeTypeModified, CategorySchema,
-			SeverityWarning, source, target, "additionalProperties type changed")
+			SeverityWarning, source, target, shapeChangeMessage(fieldName, sourceType, targetType))
 		return
 	}
 
-	// Both same type - compare
+	// Both same shape - compare
 	switch sourceType {
-	case schemaAdditionalPropsTypeSchema:
+	case schemaOrBoolSchema:
 		sourceSchema := source.(*parser.Schema)
 		targetSchema := target.(*parser.Schema)
 		d.diffSchemaRecursiveUnified(sourceSchema, targetSchema, addPropsPath, visited, result)
-	case schemaAdditionalPropsTypeBool:
+	case schemaOrBoolTuple:
+		d.diffSchemaTupleUnified(source.([]*parser.Schema), target.([]*parser.Schema), addPropsPath, fieldName, visited, result)
+	case schemaOrBoolBool:
 		sourceBool := source.(bool)
 		targetBool := target.(bool)
 		if sourceBool != targetBool {
@@ -561,9 +614,9 @@ func (d *Differ) diffSchemaAdditionalPropertiesUnified(source, target any, path 
 				severity = SeverityError
 			}
 			d.addChange(result, addPropsPath, ChangeTypeModified, CategorySchema,
-				severity, sourceBool, targetBool, fmt.Sprintf("additionalProperties changed from %v to %v", sourceBool, targetBool))
+				severity, sourceBool, targetBool, fmt.Sprintf("%s changed from %v to %v", fieldName, sourceBool, targetBool))
 		}
-	case schemaAdditionalPropsTypeNil, schemaAdditionalPropsTypeUnknown:
+	case schemaOrBoolNil, schemaOrBoolUnknown:
 		// Already handled above before the switch
 	}
 }

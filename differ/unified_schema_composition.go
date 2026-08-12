@@ -163,138 +163,84 @@ func (d *Differ) diffSchemaConditionalUnified(sourceIf, sourceThen, sourceElse, 
 
 // diffSchemaUnevaluatedPropertiesUnified compares unevaluatedProperties (JSON Schema 2020-12)
 func (d *Differ) diffSchemaUnevaluatedPropertiesUnified(source, target any, path string, visited *schemaVisited, result *DiffResult) {
-	sourceType := getSchemaAdditionalPropsType(source)
-	targetType := getSchemaAdditionalPropsType(target)
-	fieldPath := path + ".unevaluatedProperties"
-
-	// Handle unknown types
-	if sourceType == schemaAdditionalPropsTypeUnknown && targetType == schemaAdditionalPropsTypeUnknown {
-		return
-	}
-	if sourceType == schemaAdditionalPropsTypeUnknown {
-		d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
-			SeverityWarning, source, nil, fmt.Sprintf("unevaluatedProperties has unexpected type in source: %T", source))
-		return
-	}
-	if targetType == schemaAdditionalPropsTypeUnknown {
-		d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
-			SeverityWarning, nil, target, fmt.Sprintf("unevaluatedProperties has unexpected type in target: %T", target))
-		return
-	}
-
-	// Both nil - no change
-	if sourceType == schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
-		return
-	}
-
-	// Added
-	if sourceType == schemaAdditionalPropsTypeNil && targetType != schemaAdditionalPropsTypeNil {
-		severity := SeverityInfo
-		if d.Mode == ModeBreaking && targetType == schemaAdditionalPropsTypeBool && !target.(bool) {
-			severity = SeverityError
-		}
-		d.addChange(result, fieldPath, ChangeTypeAdded, CategorySchema,
-			severity, nil, target, "unevaluatedProperties constraint added")
-		return
-	}
-
-	// Removed
-	if sourceType != schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
-		d.addChange(result, fieldPath, ChangeTypeRemoved, CategorySchema,
-			SeverityWarning, source, nil, "unevaluatedProperties constraint removed")
-		return
-	}
-
-	// Type changed
-	if sourceType != targetType {
-		d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
-			SeverityWarning, source, target, "unevaluatedProperties type changed")
-		return
-	}
-
-	// Both same type - compare
-	switch sourceType {
-	case schemaAdditionalPropsTypeSchema:
-		d.diffSchemaRecursiveUnified(source.(*parser.Schema), target.(*parser.Schema), fieldPath, visited, result)
-	case schemaAdditionalPropsTypeBool:
-		if source.(bool) != target.(bool) {
-			severity := SeverityInfo
-			if d.Mode == ModeBreaking && source.(bool) && !target.(bool) {
-				severity = SeverityError
-			}
-			d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
-				severity, source, target, fmt.Sprintf("unevaluatedProperties changed from %v to %v", source, target))
-		}
-	case schemaAdditionalPropsTypeNil, schemaAdditionalPropsTypeUnknown:
-		// Already handled above
-	}
+	d.diffSchemaUnevaluatedUnified(source, target, path, "unevaluatedProperties", visited, result)
 }
 
 // diffSchemaUnevaluatedItemsUnified compares unevaluatedItems (JSON Schema 2020-12)
 func (d *Differ) diffSchemaUnevaluatedItemsUnified(source, target any, path string, visited *schemaVisited, result *DiffResult) {
-	sourceType := getSchemaAdditionalPropsType(source)
-	targetType := getSchemaAdditionalPropsType(target)
-	fieldPath := path + ".unevaluatedItems"
+	d.diffSchemaUnevaluatedUnified(source, target, path, "unevaluatedItems", visited, result)
+}
+
+// diffSchemaUnevaluatedUnified compares the unevaluatedProperties or
+// unevaluatedItems field named by fieldName. Both carry one severity policy,
+// which differs from additionalProperties in the removed branch: that field
+// downgrades to SeverityInfo when the source is false, and these do not.
+func (d *Differ) diffSchemaUnevaluatedUnified(source, target any, path, fieldName string, visited *schemaVisited, result *DiffResult) {
+	sourceType := getSchemaOrBoolKind(source)
+	targetType := getSchemaOrBoolKind(target)
+	fieldPath := path + "." + fieldName
 
 	// Handle unknown types
-	if sourceType == schemaAdditionalPropsTypeUnknown && targetType == schemaAdditionalPropsTypeUnknown {
+	if sourceType == schemaOrBoolUnknown && targetType == schemaOrBoolUnknown {
 		return
 	}
-	if sourceType == schemaAdditionalPropsTypeUnknown {
+	if sourceType == schemaOrBoolUnknown {
 		d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
-			SeverityWarning, source, nil, fmt.Sprintf("unevaluatedItems has unexpected type in source: %T", source))
+			SeverityWarning, source, nil, fmt.Sprintf("%s holds an unrecognized value in source", fieldName))
 		return
 	}
-	if targetType == schemaAdditionalPropsTypeUnknown {
+	if targetType == schemaOrBoolUnknown {
 		d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
-			SeverityWarning, nil, target, fmt.Sprintf("unevaluatedItems has unexpected type in target: %T", target))
+			SeverityWarning, nil, target, fmt.Sprintf("%s holds an unrecognized value in target", fieldName))
 		return
 	}
 
 	// Both nil - no change
-	if sourceType == schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
+	if sourceType == schemaOrBoolNil && targetType == schemaOrBoolNil {
 		return
 	}
 
 	// Added
-	if sourceType == schemaAdditionalPropsTypeNil && targetType != schemaAdditionalPropsTypeNil {
+	if sourceType == schemaOrBoolNil && targetType != schemaOrBoolNil {
 		severity := SeverityInfo
-		if d.Mode == ModeBreaking && targetType == schemaAdditionalPropsTypeBool && !target.(bool) {
+		if d.Mode == ModeBreaking && targetType == schemaOrBoolBool && !target.(bool) {
 			severity = SeverityError
 		}
 		d.addChange(result, fieldPath, ChangeTypeAdded, CategorySchema,
-			severity, nil, target, "unevaluatedItems constraint added")
+			severity, nil, target, fmt.Sprintf("%s constraint added", fieldName))
 		return
 	}
 
 	// Removed
-	if sourceType != schemaAdditionalPropsTypeNil && targetType == schemaAdditionalPropsTypeNil {
+	if sourceType != schemaOrBoolNil && targetType == schemaOrBoolNil {
 		d.addChange(result, fieldPath, ChangeTypeRemoved, CategorySchema,
-			SeverityWarning, source, nil, "unevaluatedItems constraint removed")
+			SeverityWarning, source, nil, fmt.Sprintf("%s constraint removed", fieldName))
 		return
 	}
 
-	// Type changed
+	// Shape changed
 	if sourceType != targetType {
 		d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
-			SeverityWarning, source, target, "unevaluatedItems type changed")
+			SeverityWarning, source, target, shapeChangeMessage(fieldName, sourceType, targetType))
 		return
 	}
 
-	// Both same type - compare
+	// Both same shape - compare
 	switch sourceType {
-	case schemaAdditionalPropsTypeSchema:
+	case schemaOrBoolSchema:
 		d.diffSchemaRecursiveUnified(source.(*parser.Schema), target.(*parser.Schema), fieldPath, visited, result)
-	case schemaAdditionalPropsTypeBool:
+	case schemaOrBoolTuple:
+		d.diffSchemaTupleUnified(source.([]*parser.Schema), target.([]*parser.Schema), fieldPath, fieldName, visited, result)
+	case schemaOrBoolBool:
 		if source.(bool) != target.(bool) {
 			severity := SeverityInfo
 			if d.Mode == ModeBreaking && source.(bool) && !target.(bool) {
 				severity = SeverityError
 			}
 			d.addChange(result, fieldPath, ChangeTypeModified, CategorySchema,
-				severity, source, target, fmt.Sprintf("unevaluatedItems changed from %v to %v", source, target))
+				severity, source, target, fmt.Sprintf("%s changed from %v to %v", fieldName, source, target))
 		}
-	case schemaAdditionalPropsTypeNil, schemaAdditionalPropsTypeUnknown:
+	case schemaOrBoolNil, schemaOrBoolUnknown:
 		// Already handled above
 	}
 }

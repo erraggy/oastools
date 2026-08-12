@@ -44,53 +44,49 @@ func (v *schemaVisited) leave(source, target *parser.Schema) {
 	delete(v.visited, pair)
 }
 
-// schemaItemsType represents the possible types for the Items field
-type schemaItemsType int
+// schemaOrBoolKind names the shape held by a schema-or-bool field: Items,
+// AdditionalProperties, AdditionalItems, UnevaluatedItems or
+// UnevaluatedProperties. Those fields are typed any and every decode path
+// yields a *parser.Schema, a []*parser.Schema (the OAS 2.0 tuple form) or a
+// bool (#502).
+type schemaOrBoolKind int
 
 const (
-	schemaItemsTypeNil schemaItemsType = iota
-	schemaItemsTypeSchema
-	schemaItemsTypeBool
-	schemaItemsTypeUnknown
+	schemaOrBoolNil schemaOrBoolKind = iota
+	schemaOrBoolSchema
+	schemaOrBoolTuple
+	schemaOrBoolBool
+	schemaOrBoolUnknown
 )
 
-// getSchemaItemsType determines the type of a schema Items field value
-func getSchemaItemsType(items any) schemaItemsType {
-	if items == nil {
-		return schemaItemsTypeNil
+// getSchemaOrBoolKind classifies the value held by a schema-or-bool field.
+func getSchemaOrBoolKind(value any) schemaOrBoolKind {
+	if value == nil {
+		return schemaOrBoolNil
 	}
-	switch items.(type) {
+	switch value.(type) {
 	case *parser.Schema:
-		return schemaItemsTypeSchema
+		return schemaOrBoolSchema
+	case []*parser.Schema:
+		return schemaOrBoolTuple
 	case bool:
-		return schemaItemsTypeBool
+		return schemaOrBoolBool
 	default:
-		return schemaItemsTypeUnknown
+		return schemaOrBoolUnknown
 	}
 }
 
-// schemaAdditionalPropsType represents the possible types for AdditionalProperties/AdditionalItems
-type schemaAdditionalPropsType int
-
-const (
-	schemaAdditionalPropsTypeNil schemaAdditionalPropsType = iota
-	schemaAdditionalPropsTypeSchema
-	schemaAdditionalPropsTypeBool
-	schemaAdditionalPropsTypeUnknown
-)
-
-// getSchemaAdditionalPropsType determines the type of AdditionalProperties or AdditionalItems
-func getSchemaAdditionalPropsType(additionalProps any) schemaAdditionalPropsType {
-	if additionalProps == nil {
-		return schemaAdditionalPropsTypeNil
-	}
-	switch additionalProps.(type) {
-	case *parser.Schema:
-		return schemaAdditionalPropsTypeSchema
-	case bool:
-		return schemaAdditionalPropsTypeBool
+// schemaOrBoolShapeName renders a kind in OAS terms for change messages.
+func schemaOrBoolShapeName(kind schemaOrBoolKind) string {
+	switch kind {
+	case schemaOrBoolSchema:
+		return "schema"
+	case schemaOrBoolTuple:
+		return "tuple of schemas"
+	case schemaOrBoolBool:
+		return "boolean"
 	default:
-		return schemaAdditionalPropsTypeUnknown
+		return "unrecognized value"
 	}
 }
 
