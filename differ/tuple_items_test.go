@@ -209,9 +209,9 @@ func TestDiffSchemaTupleForm(t *testing.T) {
 			wantChangeCount: 1,
 			wantMessagePart: "unevaluatedItems changed from tuple of schemas to boolean",
 		},
-		// A nil element cannot come from parsing: promoteSchemaOrBool drops
-		// entries that do not promote to *Schema. These pin the behavior for
-		// documents built in code, where a nil element is reachable.
+		// A YAML `items: [null]` decodes to a nil element, so these shapes
+		// reach the differ from a parsed document as well as from one built
+		// in code. The JSON path drops the element instead (#510).
 		{
 			name:            "items tuple element became nil",
 			set:             setItems,
