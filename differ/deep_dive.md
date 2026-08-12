@@ -490,6 +490,28 @@ The differ performs comprehensive schema comparison including:
 
 **OAS-specific Fields:** nullable, readOnly, writeOnly, deprecated
 
+### Tuple-Form items and additionalItems
+
+`items`, `additionalItems`, `additionalProperties`, `unevaluatedItems` and `unevaluatedProperties`
+each hold either a single schema, a boolean, or (in OAS 2.0) a list of schemas: the tuple form,
+which JSON Schema 2020-12 later renamed to `prefixItems`.
+
+Two tuples are compared element by element, and the reported path carries the index:
+
+```
+document.definitions.A.items[0].type   schema type changed
+document.definitions.A.items[1]        items tuple element removed
+```
+
+Element severities match `prefixItems`, so the same edit reports the same way under either
+spelling: an element present only in the target is INFO, an element present only in the source is
+WARNING, and elements present in both are compared recursively.
+
+When a field changes shape (tuple to single schema, tuple to boolean, and so on) the change is
+reported once at the field path, naming both shapes rather than element by element.
+
+`additionalItems` is compared with the same severity policy as `additionalProperties`.
+
 ### Smart Severity Assignment for Schema Changes
 
 The differ uses intelligent severity assignment for constraint changes:

@@ -204,6 +204,24 @@ func TestDiffSchemaItemsTypeChange(t *testing.T) {
 			targetItems:   nil,
 			expectChanges: true,
 		},
+		{
+			name:          "Items: tuple to tuple (same)",
+			sourceItems:   []*parser.Schema{{Type: "string"}},
+			targetItems:   []*parser.Schema{{Type: "string"}},
+			expectChanges: false,
+		},
+		{
+			name:          "Items: tuple to tuple (different element)",
+			sourceItems:   []*parser.Schema{{Type: "string"}},
+			targetItems:   []*parser.Schema{{Type: "number"}},
+			expectChanges: true,
+		},
+		{
+			name:          "Items: tuple to Schema",
+			sourceItems:   []*parser.Schema{{Type: "string"}},
+			targetItems:   &parser.Schema{Type: "string"},
+			expectChanges: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -621,6 +639,18 @@ func TestDiffSchemaItemsSimpleMode(t *testing.T) {
 			name:          "Items bool to Schema",
 			sourceItems:   false,
 			targetItems:   &parser.Schema{Type: "string"},
+			expectChanges: true,
+		},
+		{
+			name:          "Items tuple element change",
+			sourceItems:   []*parser.Schema{{Type: "string"}, {Type: "integer"}},
+			targetItems:   []*parser.Schema{{Type: "string"}, {Type: "number"}},
+			expectChanges: true,
+		},
+		{
+			name:          "Items tuple length change",
+			sourceItems:   []*parser.Schema{{Type: "string"}, {Type: "integer"}},
+			targetItems:   []*parser.Schema{{Type: "string"}},
 			expectChanges: true,
 		},
 	}
