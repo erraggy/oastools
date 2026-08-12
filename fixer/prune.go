@@ -180,7 +180,7 @@ func collectSchemaRefsRecursive(refs *[]string, schema *parser.Schema, prefix st
 		collectSchemaRefsRecursive(refs, propSchema, prefix, visited)
 	}
 
-	// Polymorphic fields (can be *Schema, bool, or map[string]any)
+	// Schema-or-bool fields
 	collectPolymorphicSchemaRefs(refs, schema.AdditionalProperties, prefix, visited)
 	collectPolymorphicSchemaRefs(refs, schema.Items, prefix, visited)
 	collectPolymorphicSchemaRefs(refs, schema.AdditionalItems, prefix, visited)
@@ -207,7 +207,7 @@ func collectSchemaRefsRecursive(refs *[]string, schema *parser.Schema, prefix st
 		collectSchemaRefsRecursive(refs, depSchema, prefix, visited)
 	}
 
-	// JSON Schema 2020-12 unevaluated keywords (polymorphic: *Schema or bool)
+	// JSON Schema 2020-12 unevaluated keywords, also schema-or-bool
 	collectPolymorphicSchemaRefs(refs, schema.UnevaluatedProperties, prefix, visited)
 	collectPolymorphicSchemaRefs(refs, schema.UnevaluatedItems, prefix, visited)
 

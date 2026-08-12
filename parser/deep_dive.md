@@ -307,11 +307,13 @@ For strict validation of object and array schemas:
 
 | Keyword | Type | Description |
 |---------|------|-------------|
-| `unevaluatedProperties` | `any` | `*Schema` or `bool` for uncovered properties |
-| `unevaluatedItems` | `any` | `*Schema` or `bool` for uncovered array items |
+| `unevaluatedProperties` | `any` | `*Schema`, `[]*Schema` (OAS 2.0 tuple form), or `bool` for uncovered properties |
+| `unevaluatedItems` | `any` | `*Schema`, `[]*Schema` (OAS 2.0 tuple form), or `bool` for uncovered array items |
 
-Every decode path promotes these to `*Schema`, so a parsed document never leaves
-a raw `map[string]any` here — only a hand-constructed one can. Two cases suffice:
+Every decode path promotes these to `*Schema` or, for the OAS 2.0 tuple form,
+`[]*Schema`, so a parsed document never leaves a raw `map[string]any` here (only
+a hand-constructed one can). Never type-assert to `*parser.Schema` alone: that
+drops the tuple form. Three cases cover a parsed document:
 
 ```go
 schema := doc.Components.Schemas["StrictObject"]
@@ -319,8 +321,13 @@ switch v := schema.UnevaluatedProperties.(type) {
 case *parser.Schema:
     // Typed schema
     fmt.Printf("Unevaluated properties must match: %s\n", v.Ref)
+case []*parser.Schema:
+    // OAS 2.0 tuple form: one schema per position
+    for i, s := range v {
+        fmt.Printf("unevaluatedProperties[%d] must match: %s\n", i, s.Ref)
+    }
 case bool:
-    // Boolean value - false disallows, true allows any
+    // Boolean value: false disallows, true allows any
     fmt.Printf("Unevaluated properties allowed: %v\n", v)
 default:
     // nil or unexpected type
