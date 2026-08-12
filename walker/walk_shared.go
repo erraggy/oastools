@@ -384,6 +384,13 @@ func (w *Walker) walkSchemaProperties(schema *parser.Schema, basePath string, de
 // walkSchemaOrBool walks a schema-or-bool field, plus the raw map form that
 // [schemautil.SchemaOrBoolSchemas] does not cover.
 func (w *Walker) walkSchemaOrBool(field any, basePath string, depth int, state *walkState) error {
+	// Checked on entry as well as per element: the caller walks several of these
+	// fields in a row, so a handler that stopped during an earlier one must not
+	// be reached again through the next.
+	if w.stopped {
+		return nil
+	}
+
 	for i, s := range schemautil.SchemaOrBoolSchemas(field) {
 		if w.stopped {
 			return nil
@@ -395,7 +402,9 @@ func (w *Walker) walkSchemaOrBool(field any, basePath string, depth int, state *
 
 	if m, ok := field.(map[string]any); ok && w.trackMapRefs {
 		if ref, ok := m["$ref"].(string); ok && ref != "" {
-			w.handleRef(ref, basePath, RefNodeSchema, state)
+			if w.handleRef(ref, basePath, RefNodeSchema, state) == Stop {
+				return nil
+			}
 		}
 	}
 

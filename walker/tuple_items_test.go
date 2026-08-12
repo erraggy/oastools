@@ -105,3 +105,43 @@ func TestSchemaOrBoolFieldsReachTheRefHandler(t *testing.T) {
 		assert.Contains(t, path, wantPathFragment)
 	}
 }
+
+// TestWalkSchemaOrBoolHonorsStop covers the Stop action across the several
+// schema-or-bool fields the caller walks in a row. A handler that stops during
+// one field must not be reached again through the next.
+func TestWalkSchemaOrBoolHonorsStop(t *testing.T) {
+	rawRef := func(name string) map[string]any {
+		return map[string]any{"$ref": "#/components/schemas/" + name}
+	}
+
+	result := &parser.ParseResult{
+		Document: &parser.OAS3Document{
+			OpenAPI: "3.1.0",
+			Info:    &parser.Info{Title: "t", Version: "1.0.0"},
+			Components: &parser.Components{
+				Schemas: map[string]*parser.Schema{
+					"Holder": {
+						Items:                 rawRef("A"),
+						AdditionalItems:       rawRef("B"),
+						AdditionalProperties:  rawRef("C"),
+						UnevaluatedItems:      rawRef("D"),
+						UnevaluatedProperties: rawRef("E"),
+					},
+				},
+			},
+		},
+	}
+
+	var seen []string
+	err := Walk(result,
+		WithMapRefTracking(),
+		WithRefHandler(func(wc *WalkContext, ref *RefInfo) Action {
+			seen = append(seen, ref.Ref)
+			return Stop
+		}),
+	)
+	require.NoError(t, err)
+
+	assert.Len(t, seen, 1,
+		"the handler stopped on the first ref but kept being called: %v", seen)
+}

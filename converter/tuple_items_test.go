@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -74,14 +75,12 @@ func collectRefsUnderItems(t *testing.T, schema *parser.Schema) []string {
 	t.Helper()
 
 	var refs []string
-	switch items := schema.Items.(type) {
-	case *parser.Schema:
-		refs = append(refs, items.Ref)
-	case []*parser.Schema:
-		for _, s := range items {
-			refs = append(refs, s.Ref)
-		}
-	default:
+	found := false
+	for _, s := range schemautil.SchemaOrBoolSchemas(schema.Items) {
+		found = true
+		refs = append(refs, s.Ref)
+	}
+	if !found {
 		t.Fatalf("items held no schema to check, got %T", schema.Items)
 	}
 
