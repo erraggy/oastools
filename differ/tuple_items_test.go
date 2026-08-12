@@ -243,6 +243,9 @@ func TestDiffSchemaTupleForm(t *testing.T) {
 
 				wantSeverity := tt.wantSeverity
 				if mode.mode == ModeSimple {
+					// ModeSimple leaves Severity unset. That zero value is
+					// SeverityError, so this asserts the field was not filled
+					// in, not that the change is an error.
 					wantSeverity = 0
 				}
 				assert.Equal(t, wantSeverity, change.Severity)

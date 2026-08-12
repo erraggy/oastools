@@ -493,8 +493,12 @@ The differ performs comprehensive schema comparison including:
 ### Tuple-Form items and additionalItems
 
 `items`, `additionalItems`, `additionalProperties`, `unevaluatedItems` and `unevaluatedProperties`
-each hold either a single schema, a boolean, or (in OAS 2.0) a list of schemas: the tuple form,
-which JSON Schema 2020-12 later renamed to `prefixItems`.
+each hold either a single schema, a boolean, or a list of schemas: the tuple form, which JSON
+Schema 2020-12 later renamed to `prefixItems`.
+
+Only `items` and `additionalItems` legally hold a tuple, and only in OAS 2.0. The parser promotes
+a list on all five fields, so a malformed document can produce the shape anywhere, and the differ
+compares it wherever it appears rather than reporting the document unrecognizable.
 
 Two tuples are compared element by element, and the reported path carries the index:
 

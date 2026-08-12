@@ -85,8 +85,6 @@ func schemaOrBoolShapeName(kind schemaOrBoolKind) string {
 		return "tuple of schemas"
 	case schemaOrBoolBool:
 		return "boolean"
-	case schemaOrBoolNil, schemaOrBoolUnknown:
-		return "unrecognized value"
 	default:
 		return "unrecognized value"
 	}
