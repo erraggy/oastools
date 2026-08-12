@@ -31,10 +31,10 @@ type Schema struct {
 	Pattern   string `yaml:"pattern,omitempty" json:"pattern,omitempty"`
 
 	// Array validation
-	Items            any       `yaml:"items,omitempty" json:"items,omitempty"`                       // *Schema or bool (OAS 3.1+)
+	Items            any       `yaml:"items,omitempty" json:"items,omitempty"`                       // *Schema, []*Schema (OAS 2.0 tuple form), or bool (OAS 3.1+)
 	PrefixItems      []*Schema `yaml:"prefixItems,omitempty" json:"prefixItems,omitempty"`           // JSON Schema Draft 2020-12
-	AdditionalItems  any       `yaml:"additionalItems,omitempty" json:"additionalItems,omitempty"`   // *Schema or bool
-	UnevaluatedItems any       `yaml:"unevaluatedItems,omitempty" json:"unevaluatedItems,omitempty"` // JSON Schema Draft 2020-12: *Schema or bool
+	AdditionalItems  any       `yaml:"additionalItems,omitempty" json:"additionalItems,omitempty"`   // *Schema, []*Schema (OAS 2.0 tuple form), or bool
+	UnevaluatedItems any       `yaml:"unevaluatedItems,omitempty" json:"unevaluatedItems,omitempty"` // JSON Schema Draft 2020-12: *Schema, []*Schema (OAS 2.0 tuple form), or bool
 	MaxItems         *int      `yaml:"maxItems,omitempty" json:"maxItems,omitempty"`
 	MinItems         *int      `yaml:"minItems,omitempty" json:"minItems,omitempty"`
 	UniqueItems      bool      `yaml:"uniqueItems,omitempty" json:"uniqueItems,omitempty"`
@@ -45,8 +45,8 @@ type Schema struct {
 	// Object validation
 	Properties            map[string]*Schema  `yaml:"properties,omitempty" json:"properties,omitempty"`
 	PatternProperties     map[string]*Schema  `yaml:"patternProperties,omitempty" json:"patternProperties,omitempty"`
-	AdditionalProperties  any                 `yaml:"additionalProperties,omitempty" json:"additionalProperties,omitempty"`   // *Schema or bool
-	UnevaluatedProperties any                 `yaml:"unevaluatedProperties,omitempty" json:"unevaluatedProperties,omitempty"` // JSON Schema Draft 2020-12: *Schema or bool
+	AdditionalProperties  any                 `yaml:"additionalProperties,omitempty" json:"additionalProperties,omitempty"`   // *Schema, []*Schema (OAS 2.0 tuple form), or bool
+	UnevaluatedProperties any                 `yaml:"unevaluatedProperties,omitempty" json:"unevaluatedProperties,omitempty"` // JSON Schema Draft 2020-12: *Schema, []*Schema (OAS 2.0 tuple form), or bool
 	Required              []string            `yaml:"required,omitempty" json:"required,omitempty"`
 	PropertyNames         *Schema             `yaml:"propertyNames,omitempty" json:"propertyNames,omitempty"` // JSON Schema Draft 2020-12
 	MaxProperties         *int                `yaml:"maxProperties,omitempty" json:"maxProperties,omitempty"`

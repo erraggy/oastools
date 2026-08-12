@@ -269,6 +269,9 @@ if doc, ok := result.OAS3Document(); ok {
             switch v := schema.UnevaluatedProperties.(type) {
             case *parser.Schema:
                 fmt.Println("Unevaluated props must match schema")
+            case []*parser.Schema:
+                // OAS 2.0 tuple form: one schema per position
+                fmt.Printf("Unevaluated props tuple of %d schemas\n", len(v))
             case bool:
                 fmt.Printf("Unevaluated props allowed: %v\n", v)
             }
