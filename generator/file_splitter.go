@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -649,11 +650,9 @@ func (fs *FileSplitter) collectSchemaRefs(schema *parser.Schema, usedTypes map[s
 		}
 	}
 
-	// Array items (can be *Schema or bool in OAS 3.1+)
-	if schema.Items != nil {
-		if itemsSchema, ok := schema.Items.(*parser.Schema); ok {
-			fs.collectSchemaRefs(itemsSchema, usedTypes)
-		}
+	// Array items
+	for _, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
+		fs.collectSchemaRefs(itemsSchema, usedTypes)
 	}
 
 	// Object properties
@@ -672,11 +671,9 @@ func (fs *FileSplitter) collectSchemaRefs(schema *parser.Schema, usedTypes map[s
 		fs.collectSchemaRefs(s, usedTypes)
 	}
 
-	// AdditionalProperties (can be *Schema or bool)
-	if schema.AdditionalProperties != nil {
-		if additionalSchema, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-			fs.collectSchemaRefs(additionalSchema, usedTypes)
-		}
+	// AdditionalProperties
+	for _, additionalSchema := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
+		fs.collectSchemaRefs(additionalSchema, usedTypes)
 	}
 }
 

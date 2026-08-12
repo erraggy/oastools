@@ -434,6 +434,18 @@ func equalSchemaOrBoolWithVisited(a, b any, visited map[schemaPair]bool) bool {
 			return false
 		}
 		return ta.equalsWithVisited(tb, visited)
+	case []*Schema:
+		// The tuple form, which OAS 2.0 allows.
+		tb, ok := b.([]*Schema)
+		if !ok || len(ta) != len(tb) {
+			return false
+		}
+		for i := range ta {
+			if !ta[i].equalsWithVisited(tb[i], visited) {
+				return false
+			}
+		}
+		return true
 	default:
 		// Unknown type, fall back to reflect.DeepEqual
 		return equalSchemaOrBool(a, b)

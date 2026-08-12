@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/internal/pathutil"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -229,18 +230,14 @@ func (r *SchemaRewriter) rewriteSchema(schema *parser.Schema) {
 		r.rewriteSchema(prop)
 	}
 
-	// Rewrite additionalProperties (can be bool or Schema)
-	if schema.AdditionalProperties != nil {
-		if addPropSchema, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-			r.rewriteSchema(addPropSchema)
-		}
+	// Rewrite additionalProperties
+	for _, addPropSchema := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
+		r.rewriteSchema(addPropSchema)
 	}
 
-	// Rewrite items (can be bool or Schema)
-	if schema.Items != nil {
-		if itemsSchema, ok := schema.Items.(*parser.Schema); ok {
-			r.rewriteSchema(itemsSchema)
-		}
+	// Rewrite items
+	for _, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
+		r.rewriteSchema(itemsSchema)
 	}
 
 	// Rewrite prefixItems (OAS 3.1+)
@@ -248,11 +245,9 @@ func (r *SchemaRewriter) rewriteSchema(schema *parser.Schema) {
 		r.rewriteSchema(item)
 	}
 
-	// Rewrite additionalItems (can be bool or Schema)
-	if schema.AdditionalItems != nil {
-		if addItemsSchema, ok := schema.AdditionalItems.(*parser.Schema); ok {
-			r.rewriteSchema(addItemsSchema)
-		}
+	// Rewrite additionalItems
+	for _, addItemsSchema := range schemautil.SchemaOrBoolSchemas(schema.AdditionalItems) {
+		r.rewriteSchema(addItemsSchema)
 	}
 
 	// Rewrite contains (OAS 3.1+)
@@ -287,6 +282,15 @@ func (r *SchemaRewriter) rewriteSchema(schema *parser.Schema) {
 	r.rewriteSchema(schema.If)
 	r.rewriteSchema(schema.Then)
 	r.rewriteSchema(schema.Else)
+
+	// Rewrite unevaluated keywords and contentSchema (OAS 3.1+)
+	for _, unevProps := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedProperties) {
+		r.rewriteSchema(unevProps)
+	}
+	for _, unevItems := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedItems) {
+		r.rewriteSchema(unevItems)
+	}
+	r.rewriteSchema(schema.ContentSchema)
 
 	// Rewrite discriminator mappings
 	if schema.Discriminator != nil {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/erraggy/oastools/internal/issues"
 	"github.com/erraggy/oastools/internal/options"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/internal/severity"
 	"github.com/erraggy/oastools/overlay"
 	"github.com/erraggy/oastools/parser"
@@ -638,18 +639,14 @@ func (c *Converter) checkSchemaNullable(schema *parser.Schema, path string, resu
 	}
 
 	// Check nested schemas
-	if schema.Items != nil {
-		if itemsSchema, ok := schema.Items.(*parser.Schema); ok {
-			c.checkSchemaNullable(itemsSchema, path+".items", result)
-		}
+	for i, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
+		c.checkSchemaNullable(itemsSchema, path+".items"+schemautil.IndexSuffix(i), result)
 	}
 	for propName, propSchema := range schema.Properties {
 		c.checkSchemaNullable(propSchema, fmt.Sprintf("%s.properties.%s", path, propName), result)
 	}
-	if schema.AdditionalProperties != nil {
-		if additionalSchema, ok := schema.AdditionalProperties.(*parser.Schema); ok {
-			c.checkSchemaNullable(additionalSchema, path+".additionalProperties", result)
-		}
+	for i, additionalSchema := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
+		c.checkSchemaNullable(additionalSchema, path+".additionalProperties"+schemautil.IndexSuffix(i), result)
 	}
 	for i, allOf := range schema.AllOf {
 		c.checkSchemaNullable(allOf, fmt.Sprintf("%s.allOf[%d]", path, i), result)

@@ -1399,46 +1399,7 @@ func getPropertyNames(properties map[string]*parser.Schema) []string {
 }
 
 func compareItemsSchemas(left, right any, path *comparePath, st *compareState) {
-	// Both nil
-	if left == nil && right == nil {
-		return
-	}
-	// One nil
-	if left == nil || right == nil {
-		path.push("items")
-		st.result.Differences = append(st.result.Differences, SchemaDifference{
-			Path:        path.String(),
-			LeftValue:   left != nil,
-			RightValue:  right != nil,
-			Description: "items presence mismatch",
-		})
-		path.pop()
-		return
-	}
-
-	if compareBoolOperands("items", left, right, path, st.result) {
-		return
-	}
-
-	// Both schemas
-	leftSchema, leftIsSchema := left.(*parser.Schema)
-	rightSchema, rightIsSchema := right.(*parser.Schema)
-	if leftIsSchema && rightIsSchema {
-		path.push("items")
-		compareDeep(leftSchema, rightSchema, path, st)
-		path.pop()
-		return
-	}
-
-	// Type mismatch
-	path.push("items")
-	st.result.Differences = append(st.result.Differences, SchemaDifference{
-		Path:        path.String(),
-		LeftValue:   fmt.Sprintf("%T", left),
-		RightValue:  fmt.Sprintf("%T", right),
-		Description: "items type mismatch",
-	})
-	path.pop()
+	compareSchemaOrBool("items", left, right, path, st)
 }
 
 func compareAdditionalPropertiesSchemas(left, right any, path *comparePath, st *compareState) {
@@ -1481,6 +1442,17 @@ func compareSchemaOrBool(field string, left, right any, path *comparePath, st *c
 		// compareDeep catches it and records at this path.
 		path.push(field)
 		compareDeep(leftSchema, rightSchema, path, st)
+		path.pop()
+		return
+	}
+
+	// The tuple form, which OAS 2.0 allows. Position matters, so it compares
+	// element by element as the composition keywords do.
+	leftTuple, leftIsTuple := left.([]*parser.Schema)
+	rightTuple, rightIsTuple := right.([]*parser.Schema)
+	if leftIsTuple && rightIsTuple {
+		path.push(field)
+		compareSchemaArrays(leftTuple, rightTuple, path, st)
 		path.pop()
 		return
 	}

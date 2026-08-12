@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/internal/httputil"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -356,14 +357,14 @@ func (g *RefGraph) recordSchemaRefs(schemaName string, schema *parser.Schema, lo
 		}
 	}
 
-	// Check items (can be *Schema or bool in OAS 3.1+)
-	if itemsSchema, ok := schema.Items.(*parser.Schema); ok && itemsSchema != nil {
-		g.recordSchemaRefs(schemaName, itemsSchema, joinLocation(location, "items"))
+	// Check items
+	for i, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
+		g.recordSchemaRefs(schemaName, itemsSchema, joinLocation(location, "items"+schemautil.IndexSuffix(i)))
 	}
 
-	// Check additionalProperties (can be *Schema or bool)
-	if addProps, ok := schema.AdditionalProperties.(*parser.Schema); ok && addProps != nil {
-		g.recordSchemaRefs(schemaName, addProps, joinLocation(location, "additionalProperties"))
+	// Check additionalProperties
+	for i, addProps := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
+		g.recordSchemaRefs(schemaName, addProps, joinLocation(location, "additionalProperties"+schemautil.IndexSuffix(i)))
 	}
 
 	// Check composition keywords
@@ -400,9 +401,9 @@ func (g *RefGraph) recordSchemaRefs(schemaName string, schema *parser.Schema, lo
 		}
 	}
 
-	// Check additionalItems (can be *Schema or bool)
-	if addItems, ok := schema.AdditionalItems.(*parser.Schema); ok && addItems != nil {
-		g.recordSchemaRefs(schemaName, addItems, joinLocation(location, "additionalItems"))
+	// Check additionalItems
+	for i, addItems := range schemautil.SchemaOrBoolSchemas(schema.AdditionalItems) {
+		g.recordSchemaRefs(schemaName, addItems, joinLocation(location, "additionalItems"+schemautil.IndexSuffix(i)))
 	}
 
 	// Check contains
@@ -445,14 +446,14 @@ func (g *RefGraph) recordSchemaRefs(schemaName string, schema *parser.Schema, lo
 		}
 	}
 
-	// Check unevaluatedProperties (can be *Schema or bool)
-	if unevProps, ok := schema.UnevaluatedProperties.(*parser.Schema); ok && unevProps != nil {
-		g.recordSchemaRefs(schemaName, unevProps, joinLocation(location, "unevaluatedProperties"))
+	// Check unevaluatedProperties
+	for i, unevProps := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedProperties) {
+		g.recordSchemaRefs(schemaName, unevProps, joinLocation(location, "unevaluatedProperties"+schemautil.IndexSuffix(i)))
 	}
 
-	// Check unevaluatedItems (can be *Schema or bool)
-	if unevItems, ok := schema.UnevaluatedItems.(*parser.Schema); ok && unevItems != nil {
-		g.recordSchemaRefs(schemaName, unevItems, joinLocation(location, "unevaluatedItems"))
+	// Check unevaluatedItems
+	for i, unevItems := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedItems) {
+		g.recordSchemaRefs(schemaName, unevItems, joinLocation(location, "unevaluatedItems"+schemautil.IndexSuffix(i)))
 	}
 }
 

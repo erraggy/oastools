@@ -347,6 +347,14 @@ func (h *SchemaHasher) hashSchemaOrBool(hasher hash.Hash64, v any) {
 	switch val := v.(type) {
 	case *parser.Schema:
 		h.hashSchema(hasher, val)
+	case []*parser.Schema:
+		// The tuple form, which OAS 2.0 allows. The index is hashed too, so
+		// [A, B] and [B, A] do not collide.
+		h.writeString(hasher, "tuple:")
+		for i, s := range val {
+			h.writeString(hasher, strconv.Itoa(i)+":")
+			h.hashSchema(hasher, s)
+		}
 	case bool:
 		// Same encoding hashSchema uses for Schema.BoolForm. A boolean schema
 		// has two representations — a raw bool here, a *Schema with BoolForm
