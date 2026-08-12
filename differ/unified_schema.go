@@ -424,6 +424,12 @@ func (d *Differ) diffSchemaPropertiesUnified(source, target map[string]*parser.S
 // element, using the same severities as [Differ.diffSchemaPrefixItemsUnified]:
 // prefixItems is the JSON Schema 2020-12 spelling of the same construct, so an
 // identical edit must report identically under either name.
+//
+// This walks the slices by index rather than with
+// [schemautil.SchemaOrBoolSchemas]. That helper skips nil elements, which suits
+// a single-document traversal and breaks a paired one: a tuple position is
+// meaningful, and a nil on one side alone would shift every later index. Nil
+// elements are reachable, since YAML decodes `- null` to one (#510).
 func (d *Differ) diffSchemaTupleUnified(source, target []*parser.Schema, fieldPath, fieldName string, visited *schemaVisited, result *DiffResult) {
 	maxLen := max(len(source), len(target))
 
