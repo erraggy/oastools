@@ -331,7 +331,9 @@ definitions:
 			target:      "3.0.3",
 			wantWarning: true,
 			assert: func(t *testing.T, s *parser.Schema) {
-				assert.Nil(t, s.Items, "an unconstrained array accepts everything the tuple accepted")
+				empty, ok := s.Items.(*parser.Schema)
+				require.True(t, ok, "OAS 3.0 requires items when type is array, got %T", s.Items)
+				assert.Equal(t, &parser.Schema{}, empty, "the empty schema accepts everything the tuple accepted")
 				assert.Empty(t, s.PrefixItems, "prefixItems is not valid in OAS 3.0 either")
 			},
 		},
@@ -354,7 +356,9 @@ definitions:
 				// draft 4 lets anything follow a tuple when additionalItems is
 				// absent, so `items: {type: number}` would forbid arrays the
 				// source allows.
-				assert.Nil(t, s.Items)
+				empty, ok := s.Items.(*parser.Schema)
+				require.True(t, ok)
+				assert.Equal(t, &parser.Schema{}, empty)
 			},
 		},
 		{
@@ -365,7 +369,9 @@ definitions:
 			assert: func(t *testing.T, s *parser.Schema) {
 				// OAS 3.0 has no bare-boolean schema form, so collapsing here
 				// would trade an invalid tuple for an invalid items.
-				assert.Nil(t, s.Items)
+				empty, ok := s.Items.(*parser.Schema)
+				require.True(t, ok)
+				assert.Equal(t, &parser.Schema{}, empty)
 			},
 		},
 	}
@@ -417,7 +423,7 @@ definitions:
 `
 	parsed, err := parser.New().ParseBytes([]byte(spec))
 	require.NoError(t, err)
-	original := parsed.Document.(*parser.OAS2Document).Definitions["Row"]
+	original := parsed.Document.(*parser.OAS2Document).Definitions["Row"].DeepCopy()
 
 	up, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("3.1.0"))
 	require.NoError(t, err)
@@ -434,4 +440,71 @@ definitions:
 	returned := down.Document.(*parser.OAS2Document).Definitions["Row"]
 	assert.True(t, original.Equals(returned),
 		"a tuple both versions can express must survive 2.0 to 3.1 and back")
+}
+
+// TestBoolTuplePositionDownconversion covers a bool at a tuple POSITION going to
+// OAS 2.0. Draft 4 has no boolean schema form, so a bool cannot stay where it
+// is: `true` and the empty schema both accept anything, so that one converts,
+// while `false` accepts nothing and draft 4 cannot say so without `not`, which
+// OAS 2.0 does not have.
+//
+// A bool in `items` is a different matter and stays a bool, because it lands in
+// `additionalItems`, where draft 4 does accept one.
+func TestBoolTuplePositionDownconversion(t *testing.T) {
+	const spec = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Permissive:
+      type: array
+      prefixItems:
+        - true
+        - type: string
+      items: false
+    Restrictive:
+      type: array
+      prefixItems:
+        - false
+        - type: string
+`
+	parsed, err := parser.New().ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("2.0"))
+	require.NoError(t, err)
+
+	doc, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok)
+
+	tupleOf := func(name string) []*parser.Schema {
+		t.Helper()
+		tuple, ok := doc.Definitions[name].Items.([]*parser.Schema)
+		require.True(t, ok, "%s: expected the tuple form, got %T", name, doc.Definitions[name].Items)
+		return tuple
+	}
+
+	permissive := tupleOf("Permissive")
+	require.Len(t, permissive, 2)
+	assert.Equal(t, &parser.Schema{}, permissive[0], "`true` says what the empty schema says")
+	_, isBool := permissive[0].IsBool()
+	assert.False(t, isBool, "a boolean schema is not valid in an OAS 2.0 document")
+	assert.Equal(t, false, doc.Definitions["Permissive"].AdditionalItems,
+		"a bool is legal in draft 4 additionalItems, so items keeps its value there")
+
+	restrictive := tupleOf("Restrictive")
+	require.Len(t, restrictive, 2)
+	assert.Equal(t, &parser.Schema{}, restrictive[0])
+
+	var reported int
+	for _, issue := range result.Issues {
+		if strings.Contains(issue.Message, "boolean schema 'false' at a tuple position") {
+			reported++
+			assert.Equal(t, SeverityWarning, issue.Severity)
+		}
+	}
+	assert.Equal(t, 1, reported,
+		"only `false` loses meaning, so only `false` is reported")
 }

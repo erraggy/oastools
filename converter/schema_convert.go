@@ -81,7 +81,11 @@ func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult
 			return
 		}
 
-		s.Items = nil
+		// The empty schema, not a missing one: OAS 3.0 says "items MUST be
+		// present if type is 'array'", so removing the keyword would trade a
+		// forbidden tuple for a missing required field. An empty schema accepts
+		// everything, which is what is left once the positions are gone.
+		s.Items = &parser.Schema{}
 		s.AdditionalItems = nil
 		c.addIssueWithContext(result, path,
 			fmt.Sprintf("Schema uses a %d element tuple in 'items', which OAS 3.0 forbids; positional element schemas dropped", len(tuple)),
@@ -296,21 +300,41 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 	discriminatorToStringForm(c, converted, result, path)
 
 	// Demote prefixItems to the OAS 2.0 tuple spelling of items
-	prefixItemsToTuple(converted)
+	prefixItemsToTuple(c, converted, result, path)
 
 	return converted
 }
 
 // prefixItemsToTuple rewrites the 2020-12 tuple spelling into the draft 4 one
-// OAS 2.0 uses. It is the inverse of tupleToPrefixItems and loses nothing:
-// `prefixItems` becomes the array form of `items`, and `items`, which in
-// 2020-12 constrains whatever follows the listed positions, becomes
-// `additionalItems`, which is draft 4's name for that role.
-func prefixItemsToTuple(schema *parser.Schema) {
+// OAS 2.0 uses: `prefixItems` becomes the array form of `items`, and `items`,
+// which in 2020-12 constrains whatever follows the listed positions, becomes
+// `additionalItems`, which is draft 4's name for that role. A bool is left
+// alone there, since draft 4 accepts one in `additionalItems`.
+//
+// A bool in a POSITION is another matter, because draft 4 has no boolean schema
+// form: every member of the items array must be an object. `true` accepts
+// anything, which the empty schema also does, so it converts. `false` accepts
+// nothing, and draft 4 cannot say that without `not`, which OAS 2.0 does not
+// have, so the position becomes the empty schema and the loss is reported.
+func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
 	walkSchemas(schema, func(s *parser.Schema) {
 		if len(s.PrefixItems) == 0 {
 			return
 		}
+
+		for i, elem := range s.PrefixItems {
+			b, isBool := elem.IsBool()
+			if !isBool {
+				continue
+			}
+			s.PrefixItems[i] = &parser.Schema{}
+			if !b {
+				c.addIssueWithContext(result, fmt.Sprintf("%s.prefixItems[%d]", path, i),
+					"Schema uses the boolean schema 'false' at a tuple position, which OAS 2.0 cannot express; position now accepts any value",
+					"OAS 2.0 follows JSON Schema draft 4, which has no boolean schema form and no 'not' keyword to build one from. Constrain the position with an explicit schema, or keep the document at OAS 3.1 or later")
+			}
+		}
+
 		s.AdditionalItems = s.Items
 		s.Items = s.PrefixItems
 		s.PrefixItems = nil
