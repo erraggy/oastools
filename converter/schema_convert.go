@@ -30,9 +30,139 @@ func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion
 	// For OAS 3.1+, convert boolean exclusiveMaximum/exclusiveMinimum to numeric form
 	if c.isOAS31OrLater(targetVersion) {
 		fixSchemaExclusiveMinMaxForOAS31(c, converted, result, path, make(map[*parser.Schema]bool))
+		tupleToPrefixItems(c, converted, result, path)
+	} else {
+		tupleForOAS30(c, converted, result, path)
 	}
 
 	return converted
+}
+
+// tupleToPrefixItems rewrites the OAS 2.0 tuple spelling of `items` into the one
+// OAS 3.1 and later use. Both versions can express a tuple, so nothing is lost
+// and nothing is reported: 2.0 takes `items` from JSON Schema draft 4, where an
+// array of schemas constrains each position, and 3.1 inherits 2020-12, where
+// `prefixItems` holds those positions and `items` constrains whatever follows
+// them.
+//
+// draft 4 gives that trailing role to `additionalItems`, so it moves to `items`.
+// Absent stays absent, which in both dialects means anything may follow.
+func tupleToPrefixItems(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
+	walkSchemas(schema, func(s *parser.Schema) {
+		tuple, ok := s.Items.([]*parser.Schema)
+		if !ok {
+			// draft 4 ignores additionalItems unless items is an array, so
+			// dropping it here says exactly what the source said, and no OAS 3.x
+			// version has the keyword to carry it anyway.
+			//
+			// Silent even when it holds an array, which is reported below in the
+			// tuple case. The difference is not the value but whether the field
+			// was doing anything: beside a single-schema items it constrains
+			// nothing, so there is no loss to announce.
+			s.AdditionalItems = nil
+			return
+		}
+		s.PrefixItems = tuple
+
+		// additionalItems takes a schema or a bool in draft 4, never an array,
+		// so a source holding one is malformed. It cannot move to `items`, which
+		// 2020-12 also requires to be a schema, and carrying it across would put
+		// an array back in the field this conversion exists to clear.
+		if rest, isTuple := s.AdditionalItems.([]*parser.Schema); isTuple {
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Schema holds a %d element array in 'additionalItems', which no version accepts there; dropped", len(rest)),
+				"JSON Schema draft 4 takes a schema or a boolean in 'additionalItems', and 2020-12 requires 'items' to be a schema, so there is nothing to convert this into. Describe what follows the tuple with a single schema")
+			s.Items = nil
+		} else {
+			s.Items = s.AdditionalItems
+		}
+		s.AdditionalItems = nil
+	})
+}
+
+// tupleForOAS30 removes tuple-form `items`, which OAS 3.0 forbids: "Value MUST
+// be an object and not an array". 3.0 has no positional array validation at all,
+// so unless the tuple collapses (see uniformTupleElement) the positions cannot
+// come across and the loss is reported.
+//
+// What is left behind is weaker than the source rather than different from it:
+// an array whose elements are unconstrained accepts everything the tuple
+// accepted. minItems and maxItems are untouched, so the length constraints
+// survive even when the positions do not.
+func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
+	walkSchemas(schema, func(s *parser.Schema) {
+		tuple, ok := s.Items.([]*parser.Schema)
+		if !ok {
+			// Ignored by draft 4 without an array items, and not a field OAS 3.0
+			// has: see tupleToPrefixItems.
+			s.AdditionalItems = nil
+			return
+		}
+
+		if uniform, ok := uniformTupleElement(s, tuple); ok {
+			s.Items = uniform
+			s.AdditionalItems = nil
+			return
+		}
+
+		// The empty schema, not a missing one: OAS 3.0 says "items MUST be
+		// present if type is 'array'", so removing the keyword would trade a
+		// forbidden tuple for a missing required field. An empty schema accepts
+		// everything, which is what is left once the positions are gone.
+		s.Items = &parser.Schema{}
+		s.AdditionalItems = nil
+		c.addIssueWithContext(result, path,
+			fmt.Sprintf("Schema uses a %d element tuple in 'items', which OAS 3.0 forbids; positional element schemas dropped", len(tuple)),
+			"OAS 3.0 requires 'items' to be a single schema, so it cannot say what belongs at each position. Convert to OAS 3.1 or later to keep the tuple as 'prefixItems', or describe the array with one schema that admits every position")
+	})
+}
+
+// uniformTupleElement reports the single schema a tuple is equivalent to, when
+// it has one. A tuple whose positions all carry the same schema says no more
+// than that schema applied to every element, PROVIDED nothing longer than the
+// tuple can slip past with a different shape.
+//
+// Three ways that is guaranteed: maxItems stops the array at or before the last
+// tuple position, additionalItems forbids anything after it, or additionalItems
+// repeats the same schema.
+//
+// A bare-boolean element is refused even when uniform, because OAS 3.0 has no
+// boolean schema form and collapsing to one would trade an invalid tuple for an
+// invalid `items`.
+func uniformTupleElement(s *parser.Schema, tuple []*parser.Schema) (*parser.Schema, bool) {
+	if len(tuple) == 0 {
+		return nil, false
+	}
+
+	first := tuple[0]
+	if first == nil {
+		return nil, false
+	}
+	if _, isBool := first.IsBool(); isBool {
+		return nil, false
+	}
+	for _, elem := range tuple[1:] {
+		if !first.Equals(elem) {
+			return nil, false
+		}
+	}
+
+	switch {
+	case s.MaxItems != nil && *s.MaxItems <= len(tuple):
+		return first, true
+	case s.AdditionalItems == nil:
+		// draft 4 lets anything follow the tuple, so a single schema would say
+		// more than the source did.
+		return nil, false
+	default:
+		if b, ok := s.AdditionalItems.(bool); ok && !b {
+			return first, true
+		}
+		if rest, ok := s.AdditionalItems.(*parser.Schema); ok && first.Equals(rest) {
+			return first, true
+		}
+		return nil, false
+	}
 }
 
 // discriminatorToObjectForm clears StringForm on every discriminator in the
@@ -193,7 +323,59 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 	// Demote the OAS 3.x discriminator object to the OAS 2.0 bare-string form
 	discriminatorToStringForm(c, converted, result, path)
 
+	// Demote prefixItems to the OAS 2.0 tuple spelling of items
+	prefixItemsToTuple(c, converted, result, path)
+
 	return converted
+}
+
+// prefixItemsToTuple rewrites the 2020-12 tuple spelling into the draft 4 one
+// OAS 2.0 uses: `prefixItems` becomes the array form of `items`, and `items`,
+// which in 2020-12 constrains whatever follows the listed positions, becomes
+// `additionalItems`, which is draft 4's name for that role. A bool is left
+// alone there, since draft 4 accepts one in `additionalItems`.
+//
+// A bool in a POSITION is another matter, because draft 4 has no boolean schema
+// form: every member of the items array must be an object. `true` accepts
+// anything, which the empty schema also does, so it converts. `false` accepts
+// nothing, and draft 4 cannot say that without `not`, which OAS 2.0 does not
+// have, so the position becomes the empty schema and the loss is reported.
+func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
+	walkSchemas(schema, func(s *parser.Schema) {
+		if len(s.PrefixItems) == 0 {
+			// An array left in items is not touched here. OAS 2.0 spells a tuple
+			// exactly that way, so it needs no conversion and loses nothing. The
+			// array is only unconvertible when prefixItems already holds the
+			// positions, which is the case handled below.
+			return
+		}
+
+		for i, elem := range s.PrefixItems {
+			b, isBool := elem.IsBool()
+			if !isBool {
+				continue
+			}
+			s.PrefixItems[i] = &parser.Schema{}
+			if !b {
+				c.addIssueWithContext(result, fmt.Sprintf("%s.prefixItems[%d]", path, i),
+					"Schema uses the boolean schema 'false' at a tuple position, which OAS 2.0 cannot express; position now accepts any value",
+					"OAS 2.0 follows JSON Schema draft 4, which has no boolean schema form and no 'not' keyword to build one from. Constrain the position with an explicit schema, or keep the document at OAS 3.1 or later")
+			}
+		}
+
+		// 2020-12 requires items to be a schema, so an array there is malformed,
+		// and draft 4 would not accept one in additionalItems either.
+		if rest, isTuple := s.Items.([]*parser.Schema); isTuple {
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Schema holds a %d element array in 'items' beside 'prefixItems', which no version accepts there; dropped", len(rest)),
+				"JSON Schema 2020-12 uses 'items' for what follows the listed positions and requires it to be a schema. Describe the trailing elements with a single schema, or list them in 'prefixItems'")
+			s.AdditionalItems = nil
+		} else {
+			s.AdditionalItems = s.Items
+		}
+		s.Items = s.PrefixItems
+		s.PrefixItems = nil
+	})
 }
 
 // detectOAS3SchemaFeatures checks a single schema for OAS 3.x-only features
@@ -231,11 +413,9 @@ func detectOAS3SchemaFeatures(c *Converter, schema *parser.Schema, result *Conve
 			"Conditional schema composition has no OAS 2.0 equivalent")
 	}
 
-	// Check for prefixItems (JSON Schema 2020-12, OAS 3.1+)
-	if len(schema.PrefixItems) > 0 {
-		c.addIssueWithContext(result, path, "Schema uses 'prefixItems' which is OAS 3.1+ (JSON Schema 2020-12)",
-			"Tuple validation via 'prefixItems' has no OAS 2.0 equivalent")
-	}
+	// prefixItems is deliberately absent from this list. OAS 2.0 takes items from
+	// JSON Schema draft 4, whose array form says the same thing, so the tuple
+	// converts rather than being lost: see prefixItemsToTuple.
 
 	// Check for contains (JSON Schema 2020-12, OAS 3.1+)
 	if schema.Contains != nil {
