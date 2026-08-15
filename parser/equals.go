@@ -97,13 +97,16 @@ func equalSchemaOrBool(a, b any) bool {
 		return false
 	}
 
+	// The bare-boolean form first, across both spellings: see boolSchemaValue.
+	if av, ok := boolSchemaValue(a); ok {
+		bv, ok := boolSchemaValue(b)
+		return ok && av == bv
+	}
+	if _, ok := boolSchemaValue(b); ok {
+		return false
+	}
+
 	switch ta := a.(type) {
-	case bool:
-		tb, ok := b.(bool)
-		if !ok {
-			return false
-		}
-		return ta == tb
 	case *Schema:
 		tb, ok := b.(*Schema)
 		if !ok {

@@ -134,6 +134,25 @@ func NewBoolSchema(v bool) *Schema {
 	return &Schema{BoolForm: &v}
 }
 
+// boolSchemaValue reports the boolean a schema-or-bool field carries, in either
+// spelling: a bare `bool`, or a *Schema with BoolForm set.
+//
+// Both spellings occur in parsed documents and neither is a mistake. A scalar
+// `items: true` decodes to a bare bool, while the same value inside an OAS 2.0
+// tuple decodes to a *Schema, because []*Schema cannot hold a bool. They mean
+// the same schema, so the structural hasher in internal/schemautil writes one
+// encoding for both, and equality has to agree with it: a bucket whose members
+// hash alike but compare unlike never merges (#504).
+func boolSchemaValue(v any) (value bool, ok bool) {
+	switch t := v.(type) {
+	case bool:
+		return t, true
+	case *Schema:
+		return t.IsBool()
+	}
+	return false, false
+}
+
 // Discriminator represents a discriminator for polymorphism.
 //
 // The two OAS dialects spell this differently. In OAS 2.0 the Schema Object's

@@ -101,3 +101,44 @@ func TestHashBoolSchemaValuesDiffer(t *testing.T) {
 		})
 	}
 }
+
+// TestHashAndEqualsAgreeOnBoolSpellings asserts the joint invariant rather than
+// either half of it: things that hash alike must compare alike. Testing the
+// hasher alone cannot see a break, because the two spellings can share a bucket
+// that the comparison then splits, which is deduplication that never merges
+// (#504).
+func TestHashAndEqualsAgreeOnBoolSpellings(t *testing.T) {
+	arr := func(items any) *parser.Schema {
+		return &parser.Schema{Type: "array", Items: items}
+	}
+
+	tests := []struct {
+		name  string
+		left  *parser.Schema
+		right *parser.Schema
+		same  bool
+	}{
+		{"bare true and BoolForm true", arr(true), arr(parser.NewBoolSchema(true)), true},
+		{"bare false and BoolForm false", arr(false), arr(parser.NewBoolSchema(false)), true},
+		{"bare true and BoolForm false", arr(true), arr(parser.NewBoolSchema(false)), false},
+		{"bare true and an object schema", arr(true), arr(&parser.Schema{Type: "string"}), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := NewSchemaHasher()
+			hashesAgree := h.Hash(tt.left) == h.Hash(tt.right)
+			equal := tt.left.Equals(tt.right)
+
+			assert.Equal(t, tt.same, equal, "Equals")
+			assert.Equal(t, tt.same, hashesAgree, "Hash")
+
+			// The contract itself, stated once: a shared bucket that the
+			// comparison rejects is the failure mode deduplication cannot see.
+			if hashesAgree {
+				assert.True(t, equal,
+					"hash equal implies compare equal, or deduplication buckets what it will not merge")
+			}
+		})
+	}
+}

@@ -98,3 +98,35 @@ func TestSchemaEquals_TupleItemsBoolForm(t *testing.T) {
 	assert.False(t, tuple(boolSchema(true)).Equals(tuple(&Schema{Type: "string"})),
 		"a boolean schema and a typed schema are not the same")
 }
+
+// TestSchemaEquals_BoolSpellingsAgree pins the two spellings of a boolean
+// schema to one meaning. A scalar `items: true` decodes to a bare bool while
+// the same value inside a tuple decodes to a *Schema, because []*Schema cannot
+// hold a bool, so both spellings occur in parsed documents. The structural
+// hasher in internal/schemautil writes one encoding for both; equality has to
+// match it or a hash bucket holds members its comparison rejects (#504).
+func TestSchemaEquals_BoolSpellingsAgree(t *testing.T) {
+	arr := func(items any) *Schema {
+		return &Schema{Type: "array", Items: items}
+	}
+
+	t.Run("the spellings compare equal, in both directions", func(t *testing.T) {
+		assert.True(t, arr(true).Equals(arr(NewBoolSchema(true))))
+		assert.True(t, arr(NewBoolSchema(true)).Equals(arr(true)))
+		assert.True(t, arr(false).Equals(arr(NewBoolSchema(false))))
+		assert.True(t, arr(NewBoolSchema(false)).Equals(arr(false)))
+	})
+
+	// The counterpart. Without it, this file would pass just as well if every
+	// schema-or-bool comparison returned true.
+	t.Run("and the value still decides", func(t *testing.T) {
+		assert.False(t, arr(true).Equals(arr(NewBoolSchema(false))),
+			"true and false accept opposite things")
+		assert.False(t, arr(NewBoolSchema(true)).Equals(arr(false)))
+		assert.False(t, arr(true).Equals(arr(&Schema{Type: "string"})),
+			"a boolean schema is not an object schema in either spelling")
+		assert.False(t, arr(&Schema{Type: "string"}).Equals(arr(true)))
+		assert.False(t, arr(true).Equals(arr(nil)),
+			"an absent field is not the schema `true`")
+	})
+}

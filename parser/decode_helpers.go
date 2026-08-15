@@ -227,13 +227,25 @@ func decodeSchemaOrBool(v any) any {
 		s.decodeFromMap(val)
 		return s
 	case []any:
-		// OAS 2.0 tuple validation: items can be an array of schemas
-		schemas := make([]*Schema, 0, len(val))
-		for _, elem := range val {
-			if m, ok := elem.(map[string]any); ok {
+		// OAS 2.0 tuple validation: items can be an array of schemas.
+		//
+		// The slice is allocated at full length and written by index, not
+		// appended to, so an element this path cannot represent leaves a nil
+		// at its own index instead of shifting the rest down. The tuple form
+		// is positional: a shift renumbers every later element and silently
+		// changes what the document says (#510).
+		//
+		// A bool becomes the *Schema spelling because []*Schema cannot hold a
+		// bare bool.
+		schemas := make([]*Schema, len(val))
+		for i, elem := range val {
+			switch e := elem.(type) {
+			case map[string]any:
 				s := new(Schema)
-				s.decodeFromMap(m)
-				schemas = append(schemas, s)
+				s.decodeFromMap(e)
+				schemas[i] = s
+			case bool:
+				schemas[i] = NewBoolSchema(e)
 			}
 		}
 		return schemas
