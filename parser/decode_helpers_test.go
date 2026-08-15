@@ -322,7 +322,12 @@ func TestDecodeSchemaOrBool_ArrayOfSchemas(t *testing.T) {
 }
 
 func TestDecodeSchemaOrBool_ArrayWithNonMapElements(t *testing.T) {
-	// Non-map elements in the array should be skipped
+	// Elements this path cannot represent keep their slot as a nil element.
+	// This test asserted that they were skipped, which is the behavior #510
+	// reports: the tuple form is positional, so dropping element 1 moves
+	// element 3 to index 1 and the document means something else. The nil is
+	// not a good answer either, but it is the one that leaves every other
+	// element where the document put it.
 	input := []any{
 		map[string]any{"type": "string"},
 		"not-a-map",
@@ -332,9 +337,38 @@ func TestDecodeSchemaOrBool_ArrayWithNonMapElements(t *testing.T) {
 	result := decodeSchemaOrBool(input)
 	schemas, ok := result.([]*Schema)
 	require.True(t, ok, "Expected []*Schema, got %T", result)
-	require.Len(t, schemas, 2, "Non-map elements should be skipped")
+	require.Len(t, schemas, 4, "every element holds its index")
 	assert.Equal(t, "string", schemas[0].Type)
-	assert.Equal(t, "boolean", schemas[1].Type)
+	assert.Nil(t, schemas[1])
+	assert.Nil(t, schemas[2])
+	assert.Equal(t, "boolean", schemas[3].Type)
+}
+
+func TestDecodeSchemaOrBool_ArrayWithBoolAndNullElements(t *testing.T) {
+	// A bool element becomes the *Schema spelling, because []*Schema cannot
+	// hold a bare bool. An explicit null stays a nil element. Both match what
+	// the YAML path has always produced (#510).
+	input := []any{
+		map[string]any{"type": "string"},
+		true,
+		nil,
+		false,
+	}
+	result := decodeSchemaOrBool(input)
+	schemas, ok := result.([]*Schema)
+	require.True(t, ok, "Expected []*Schema, got %T", result)
+	require.Len(t, schemas, 4)
+	assert.Equal(t, "string", schemas[0].Type)
+
+	v, isBool := schemas[1].IsBool()
+	assert.True(t, isBool, "element 1 is the bare-boolean form")
+	assert.True(t, v)
+
+	assert.Nil(t, schemas[2], "an explicit null holds its slot")
+
+	v, isBool = schemas[3].IsBool()
+	assert.True(t, isBool, "element 3 is the bare-boolean form")
+	assert.False(t, v, "false is a schema that accepts nothing, not an absent element")
 }
 
 func TestDecodeSchemaOrBool_EmptyArray(t *testing.T) {

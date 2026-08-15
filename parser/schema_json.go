@@ -158,15 +158,23 @@ func promoteSchemaOrBool(v any) (any, error) {
 		}
 		return s, nil
 	case []any:
-		// OAS 2.0 tuple validation: items can be an array of schemas.
-		schemas := make([]*Schema, 0, len(val))
-		for _, elem := range val {
+		// OAS 2.0 tuple validation: items can be an array of schemas. The form
+		// is positional, so every element holds its index: dropping one
+		// renumbers the rest and silently changes what the document says
+		// (#510). A bool becomes the *Schema spelling because []*Schema cannot
+		// hold a bare bool; an explicit null, and anything this path cannot
+		// represent, keeps its slot as a nil element.
+		schemas := make([]*Schema, len(val))
+		for i, elem := range val {
 			promoted, err := promoteSchemaOrBool(elem)
 			if err != nil {
 				return nil, err
 			}
-			if s, ok := promoted.(*Schema); ok {
-				schemas = append(schemas, s)
+			switch p := promoted.(type) {
+			case *Schema:
+				schemas[i] = p
+			case bool:
+				schemas[i] = NewBoolSchema(p)
 			}
 		}
 		return schemas, nil
