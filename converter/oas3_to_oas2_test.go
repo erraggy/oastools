@@ -640,14 +640,6 @@ func TestConvertOAS3ToOAS2_SchemaFeatureDetection(t *testing.T) {
 			expectedKeyword: "if",
 		},
 		{
-			name: "prefixItems in component schema",
-			schema: &parser.Schema{
-				Type:        "array",
-				PrefixItems: []*parser.Schema{{Type: "string"}, {Type: "integer"}},
-			},
-			expectedKeyword: "prefixItems",
-		},
-		{
 			name: "contains in component schema",
 			schema: &parser.Schema{
 				Type:     "array",

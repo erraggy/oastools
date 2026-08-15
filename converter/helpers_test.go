@@ -341,7 +341,7 @@ func TestConvertOAS3SchemaToOAS2_AdditionalFeatures(t *testing.T) {
 		assert.Equal(t, 1, elseCount, "Expected exactly 1 issue for 'else'")
 	})
 
-	t.Run("prefixItems detected", func(t *testing.T) {
+	t.Run("prefixItems converts to the OAS 2.0 tuple and reports nothing", func(t *testing.T) {
 		c := New()
 		result := &ConversionResult{Issues: []ConversionIssue{}}
 		schema := &parser.Schema{
@@ -350,12 +350,26 @@ func TestConvertOAS3SchemaToOAS2_AdditionalFeatures(t *testing.T) {
 				{Type: "string"},
 				{Type: "integer"},
 			},
+			Items: &parser.Schema{Type: "boolean"},
 		}
 
-		c.convertOAS3SchemaToOAS2(schema, result, "test.prefixItems")
+		converted := c.convertOAS3SchemaToOAS2(schema, result, "test.prefixItems")
 
-		require.NotEmpty(t, result.Issues, "Expected issue for prefixItems")
-		assertHasIssueContaining(t, result.Issues, "prefixItems")
+		// OAS 2.0 takes items from JSON Schema draft 4, whose array form says
+		// what prefixItems says, so this is a conversion and not a loss.
+		assert.Empty(t, result.Issues, "a tuple OAS 2.0 can express is not a conversion issue")
+
+		tuple, ok := converted.Items.([]*parser.Schema)
+		require.True(t, ok, "expected the tuple form, got %T", converted.Items)
+		require.Len(t, tuple, 2)
+		assert.Equal(t, "string", tuple[0].Type)
+		assert.Equal(t, "integer", tuple[1].Type)
+		assert.Empty(t, converted.PrefixItems, "prefixItems has no meaning in OAS 2.0")
+
+		rest, ok := converted.AdditionalItems.(*parser.Schema)
+		require.True(t, ok, "expected items to become additionalItems, got %T", converted.AdditionalItems)
+		assert.Equal(t, "boolean", rest.Type,
+			"2020-12 items constrains what follows the tuple, which draft 4 calls additionalItems")
 	})
 
 	t.Run("contains detected", func(t *testing.T) {
