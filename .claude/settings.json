@@ -6,11 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/format-go.sh \"${file_path}\""
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/format-go.sh\" \"${file_path}\""
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/vet-go.sh \"${file_path}\""
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/vet-go.sh\" \"${file_path}\""
           }
         ]
       }
@@ -21,11 +21,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-branch.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check-branch.sh\""
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/block-release-create.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-release-create.sh\""
           }
         ]
       }
