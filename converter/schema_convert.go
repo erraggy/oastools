@@ -150,6 +150,14 @@ func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult
 		}
 
 		if uniform, ok := uniformTupleElement(s, tuple); ok {
+			// Nothing is reported here, including an array in additionalItems,
+			// which the branch below does report. The rule is the same in both:
+			// report a malformed value only where it was doing something. A
+			// collapse by maxItems means no element past the tuple can exist, so
+			// additionalItems constrains nothing whatever it holds, and the other
+			// two collapses only happen when it is absent, false, or the same
+			// schema as the positions. Inert in every case.
+			//
 			// `additionalItems: false` capped the array at the tuple's length, and
 			// collapsing keeps only the element schema. Without the cap the output
 			// accepts any number of them, so it moves to maxItems, which OAS 3.0

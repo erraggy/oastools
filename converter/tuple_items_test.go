@@ -631,7 +631,7 @@ func assertReports(t *testing.T, result *ConversionResult, field string) {
 	var matched int
 	for _, issue := range result.Issues {
 		if issue.Severity == SeverityWarning && strings.Contains(issue.Message, "which no OAS version accepts there") &&
-			strings.Contains(issue.Message, field) {
+			strings.Contains(issue.Message, "'"+field+"'") {
 			matched++
 		}
 	}
