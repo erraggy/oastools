@@ -508,3 +508,49 @@ components:
 	assert.Equal(t, 1, reported,
 		"only `false` loses meaning, so only `false` is reported")
 }
+
+// TestAdditionalItemsDoesNotSurviveConversion covers the branch the tuple cases
+// do not reach: a schema whose items is a single schema rather than a tuple.
+// draft 4 ignores additionalItems unless items is an array, so the field says
+// nothing there, and no OAS 3.x version has the keyword to carry it: it appears
+// nowhere in the 3.0.4 or 3.1.1 specifications.
+func TestAdditionalItemsDoesNotSurviveConversion(t *testing.T) {
+	const spec = `swagger: "2.0"
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+definitions:
+  ObjectItems:
+    type: array
+    items:
+      type: string
+    additionalItems: false
+  NoItems:
+    type: object
+    additionalItems:
+      type: string
+`
+	for _, target := range []string{"3.0.3", "3.1.0", "3.2.0"} {
+		t.Run(target, func(t *testing.T) {
+			parsed, err := parser.New().ParseBytes([]byte(spec))
+			require.NoError(t, err)
+
+			result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion(target))
+			require.NoError(t, err)
+
+			doc, ok := result.Document.(*parser.OAS3Document)
+			require.True(t, ok)
+
+			objectItems := doc.Components.Schemas["ObjectItems"]
+			assert.Nil(t, objectItems.AdditionalItems,
+				"additionalItems has no meaning beside a single-schema items and no spelling in OAS 3.x")
+			single, ok := objectItems.Items.(*parser.Schema)
+			require.True(t, ok, "the single-schema items is untouched, got %T", objectItems.Items)
+			assert.Equal(t, "string", single.Type)
+
+			assert.Nil(t, doc.Components.Schemas["NoItems"].AdditionalItems,
+				"a schema with no items at all cannot carry additionalItems either")
+		})
+	}
+}

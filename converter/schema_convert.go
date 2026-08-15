@@ -51,6 +51,10 @@ func tupleToPrefixItems(schema *parser.Schema) {
 	walkSchemas(schema, func(s *parser.Schema) {
 		tuple, ok := s.Items.([]*parser.Schema)
 		if !ok {
+			// draft 4 ignores additionalItems unless items is an array, so
+			// dropping it here says exactly what the source said, and no OAS 3.x
+			// version has the keyword to carry it anyway.
+			s.AdditionalItems = nil
 			return
 		}
 		s.PrefixItems = tuple
@@ -72,6 +76,9 @@ func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult
 	walkSchemas(schema, func(s *parser.Schema) {
 		tuple, ok := s.Items.([]*parser.Schema)
 		if !ok {
+			// Ignored by draft 4 without an array items, and not a field OAS 3.0
+			// has: see tupleToPrefixItems.
+			s.AdditionalItems = nil
 			return
 		}
 
