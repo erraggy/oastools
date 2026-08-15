@@ -12,6 +12,17 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// The schema-or-bool field names, spelled once. parser models each of these as
+// *Schema, []*Schema or bool, and the conversions name them in diagnostics, so
+// the string appears in several places and has to agree in all of them.
+const (
+	fieldItems                 = "items"
+	fieldAdditionalItems       = "additionalItems"
+	fieldAdditionalProperties  = "additionalProperties"
+	fieldUnevaluatedItems      = "unevaluatedItems"
+	fieldUnevaluatedProperties = "unevaluatedProperties"
+)
+
 // convertOAS2SchemaToOAS3 converts an OAS 2.0 schema to OAS 3.x format
 func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion parser.OASVersion, result *ConversionResult, path string) *parser.Schema {
 	if schema == nil {
@@ -27,6 +38,8 @@ func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion
 	// Promote the OAS 2.0 bare-string discriminator to the OAS 3.x object form
 	discriminatorToObjectForm(converted)
 
+	dropArrayValuedSchemaOrBool(c, converted, result, path)
+
 	// For OAS 3.1+, convert boolean exclusiveMaximum/exclusiveMinimum to numeric form
 	if c.isOAS31OrLater(targetVersion) {
 		fixSchemaExclusiveMinMaxForOAS31(c, converted, result, path, make(map[*parser.Schema]bool))
@@ -36,6 +49,43 @@ func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion
 	}
 
 	return converted
+}
+
+// dropArrayValuedSchemaOrBool clears the schema-or-bool fields that no dialect
+// lets hold an array, reporting each one.
+//
+// Two of the five are handled elsewhere and are not touched here. `items` takes
+// an array in OAS 2.0, where it spells a tuple, and 3.1 moves those positions to
+// prefixItems: see tupleToPrefixItems and tupleForOAS30. `additionalItems` is
+// cleared by those same functions, which know whether a tuple beside it makes it
+// live. The three that remain take a schema or a boolean in draft 4 and in
+// 2020-12 alike, so an array says nothing in the source and would say nothing in
+// the output. The parser
+// still decodes one, because these fields are `any` and it is permissive, which
+// is how such values reach a conversion at all.
+func dropArrayValuedSchemaOrBool(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
+	walkSchemas(schema, func(s *parser.Schema) {
+		drop := func(field string, value any) (any, bool) {
+			arr, ok := value.([]*parser.Schema)
+			if !ok {
+				return value, false
+			}
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Schema holds a %d element array in '%s', which no OAS version accepts there; dropped", len(arr), field),
+				fmt.Sprintf("'%s' takes a schema or a boolean in every JSON Schema dialect the OAS versions use. Describe the constraint with a single schema", field))
+			return nil, true
+		}
+
+		if v, dropped := drop(fieldAdditionalProperties, s.AdditionalProperties); dropped {
+			s.AdditionalProperties = v
+		}
+		if v, dropped := drop(fieldUnevaluatedItems, s.UnevaluatedItems); dropped {
+			s.UnevaluatedItems = v
+		}
+		if v, dropped := drop(fieldUnevaluatedProperties, s.UnevaluatedProperties); dropped {
+			s.UnevaluatedProperties = v
+		}
+	})
 }
 
 // tupleToPrefixItems rewrites the OAS 2.0 tuple spelling of `items` into the one
@@ -70,7 +120,7 @@ func tupleToPrefixItems(c *Converter, schema *parser.Schema, result *ConversionR
 		// an array back in the field this conversion exists to clear.
 		if rest, isTuple := s.AdditionalItems.([]*parser.Schema); isTuple {
 			c.addIssueWithContext(result, path,
-				fmt.Sprintf("Schema holds a %d element array in 'additionalItems', which no version accepts there; dropped", len(rest)),
+				fmt.Sprintf("Schema holds a %d element array in 'additionalItems', which no OAS version accepts there; dropped", len(rest)),
 				"JSON Schema draft 4 takes a schema or a boolean in 'additionalItems', and 2020-12 requires 'items' to be a schema, so there is nothing to convert this into. Describe what follows the tuple with a single schema")
 			s.Items = nil
 		} else {
@@ -100,9 +150,43 @@ func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult
 		}
 
 		if uniform, ok := uniformTupleElement(s, tuple); ok {
+			// Nothing is reported here, including an array in additionalItems,
+			// which the branch below does report. The rule is the same in both:
+			// report a malformed value only where it was doing something. A
+			// collapse by maxItems means no element past the tuple can exist, so
+			// additionalItems constrains nothing whatever it holds, and the other
+			// two collapses only happen when it is absent, false, or the same
+			// schema as the positions. Inert in every case.
+			//
+			// `additionalItems: false` capped the array at the tuple's length, and
+			// collapsing keeps only the element schema. Without the cap the output
+			// accepts any number of them, so it moves to maxItems, which OAS 3.0
+			// does have. The other two collapse justifications need nothing: a
+			// maxItems bound is already present, and an additionalItems equal to
+			// the positions was never a bound at all.
+			if b, isBool := s.AdditionalItems.(bool); isBool && !b && s.MaxItems == nil {
+				bound := len(tuple)
+				s.MaxItems = &bound
+			}
 			s.Items = uniform
 			s.AdditionalItems = nil
 			return
+		}
+
+		// additionalItems is live here, because a tuple sits beside it, and OAS
+		// 3.0 has neither the tuple nor the keyword. Dropping it is a second
+		// loss and is reported as one: the tuple message above speaks only for
+		// the positions.
+		if rest, isArray := s.AdditionalItems.([]*parser.Schema); isArray {
+			// Malformed as well as unconvertible, and said so, matching how
+			// tupleToPrefixItems reports the same value.
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Schema holds a %d element array in '%s', which no OAS version accepts there; dropped", len(rest), fieldAdditionalItems),
+				"JSON Schema draft 4 takes a schema or a boolean in 'additionalItems', and OAS 3.0 has no such keyword at all. Describe what follows the tuple with a single schema, at OAS 3.1 or later where it becomes 'items' beside 'prefixItems'")
+		} else if s.AdditionalItems != nil {
+			c.addIssueWithContext(result, path,
+				"Schema uses 'additionalItems', which OAS 3.0 does not define; dropped along with the tuple it qualified",
+				"draft 4 uses 'additionalItems' to constrain the elements past a tuple. OAS 3.0 has no tuple to qualify and no such keyword, so the constraint cannot come across. Convert to OAS 3.1 or later, where it becomes 'items' beside 'prefixItems'")
 		}
 
 		// The empty schema, not a missing one: OAS 3.0 says "items MUST be
@@ -323,6 +407,8 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 	// Demote the OAS 3.x discriminator object to the OAS 2.0 bare-string form
 	discriminatorToStringForm(c, converted, result, path)
 
+	dropArrayValuedSchemaOrBool(c, converted, result, path)
+
 	// Demote prefixItems to the OAS 2.0 tuple spelling of items
 	prefixItemsToTuple(c, converted, result, path)
 
@@ -347,6 +433,20 @@ func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionR
 			// exactly that way, so it needs no conversion and loses nothing. The
 			// array is only unconvertible when prefixItems already holds the
 			// positions, which is the case handled below.
+			//
+			// An array in additionalItems is another matter: draft 4 takes a
+			// schema or a boolean there, so it is invalid in the OAS 2.0 output
+			// whatever the source meant by it. Reported only when a tuple in
+			// items makes the field live, which matches how the other direction
+			// treats the same value.
+			if rest, isArray := s.AdditionalItems.([]*parser.Schema); isArray {
+				if _, live := s.Items.([]*parser.Schema); live {
+					c.addIssueWithContext(result, path,
+						fmt.Sprintf("Schema holds a %d element array in '%s', which no OAS version accepts there; dropped", len(rest), fieldAdditionalItems),
+						"JSON Schema draft 4 takes a schema or a boolean in 'additionalItems'. Describe what follows the tuple with a single schema")
+				}
+				s.AdditionalItems = nil
+			}
 			return
 		}
 
@@ -363,13 +463,29 @@ func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionR
 			}
 		}
 
+		// additionalItems is about to be replaced by items, which is 2020-12's
+		// field for the same role. An array already sitting there is malformed
+		// in every dialect, so it is reported rather than quietly overwritten.
+		if discarded, isArray := s.AdditionalItems.([]*parser.Schema); isArray {
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Schema holds a %d element array in '%s', which no OAS version accepts there; dropped", len(discarded), fieldAdditionalItems),
+				"JSON Schema 2020-12 has no 'additionalItems' and constrains the elements past a tuple with 'items', while draft 4 takes a schema or a boolean there. An array is neither")
+		}
+
 		// 2020-12 requires items to be a schema, so an array there is malformed,
 		// and draft 4 would not accept one in additionalItems either.
 		if rest, isTuple := s.Items.([]*parser.Schema); isTuple {
 			c.addIssueWithContext(result, path,
-				fmt.Sprintf("Schema holds a %d element array in 'items' beside 'prefixItems', which no version accepts there; dropped", len(rest)),
+				fmt.Sprintf("Schema holds a %d element array in 'items' beside 'prefixItems', which no OAS version accepts there; dropped", len(rest)),
 				"JSON Schema 2020-12 uses 'items' for what follows the listed positions and requires it to be a schema. Describe the trailing elements with a single schema, or list them in 'prefixItems'")
-			s.AdditionalItems = nil
+
+			// Only the array reported just above is cleared. Anything else in
+			// additionalItems stays: the output spells a draft 4 tuple in items,
+			// which makes that field the live trailing constraint rather than the
+			// inert one it was beside 2020-12's prefixItems.
+			if _, wasArray := s.AdditionalItems.([]*parser.Schema); wasArray {
+				s.AdditionalItems = nil
+			}
 		} else {
 			s.AdditionalItems = s.Items
 		}

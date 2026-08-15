@@ -462,11 +462,11 @@ func (c *Converter) detectOAS32SchemaFeatures(
 	// Schema-or-bool fields decode to *Schema, []*Schema, or bool; only the first
 	// two need walking.
 	for field, value := range map[string]any{
-		"additionalProperties":  schema.AdditionalProperties,
-		"items":                 schema.Items,
-		"additionalItems":       schema.AdditionalItems,
-		"unevaluatedProperties": schema.UnevaluatedProperties,
-		"unevaluatedItems":      schema.UnevaluatedItems,
+		fieldAdditionalProperties:  schema.AdditionalProperties,
+		fieldItems:                 schema.Items,
+		fieldAdditionalItems:       schema.AdditionalItems,
+		fieldUnevaluatedProperties: schema.UnevaluatedProperties,
+		fieldUnevaluatedItems:      schema.UnevaluatedItems,
 	} {
 		switch v := value.(type) {
 		case *parser.Schema:
