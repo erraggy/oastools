@@ -445,6 +445,15 @@ func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionR
 			}
 		}
 
+		// additionalItems is about to be replaced by items, which is 2020-12's
+		// field for the same role. An array already sitting there is malformed
+		// in every dialect, so it is reported rather than quietly overwritten.
+		if discarded, isArray := s.AdditionalItems.([]*parser.Schema); isArray {
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Schema holds a %d element array in '%s', which no version accepts there; dropped", len(discarded), fieldAdditionalItems),
+				"JSON Schema 2020-12 has no 'additionalItems' and constrains the elements past a tuple with 'items', while draft 4 takes a schema or a boolean there. An array is neither")
+		}
+
 		// 2020-12 requires items to be a schema, so an array there is malformed,
 		// and draft 4 would not accept one in additionalItems either.
 		if rest, isTuple := s.Items.([]*parser.Schema); isTuple {

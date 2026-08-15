@@ -287,6 +287,15 @@ components:
       additionalItems:
         - type: integer
         - type: boolean
+    BothPresent:
+      type: array
+      prefixItems:
+        - type: string
+      items:
+        type: number
+      additionalItems:
+        - type: integer
+        - type: boolean
     Nested:
       type: object
       properties:
@@ -325,7 +334,10 @@ func TestDownconvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 		// no prefixItems, so the conversion takes its early return: the array in
 		// items becomes the OAS 2.0 tuple and the one in additionalItems, which
 		// draft 4 never accepts, is dropped and reported
-		clearedField{"components.schemas.BareAdditionalItems", "additionalItems"})
+		clearedField{"components.schemas.BareAdditionalItems", "additionalItems"},
+		// prefixItems present, so items becomes additionalItems: the array
+		// already sitting there is discarded and must not go quietly
+		clearedField{"components.schemas.BothPresent", "additionalItems"})
 
 	tupleSchema := doc.Definitions["Tuple"]
 	require.NotNil(t, tupleSchema, "the Tuple definition should survive conversion")
