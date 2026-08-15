@@ -130,7 +130,16 @@ func assertNoIllegalArrays(t *testing.T, name string, root *parser.Schema, targe
 
 // clearedField names one place a fixture leaves a malformed value: the issue
 // path it is reported under, and the field within it.
-type clearedField struct{ path, field string }
+//
+// kind is a fragment of the message, because a field name alone does not say
+// which report fired. Two different diagnostics can name `additionalItems` at
+// one path, and matching only the name lets either stand in for the other, so a
+// branch can be removed with the guard still green.
+type clearedField struct{ path, field, kind string }
+
+// arrayKind is the fragment shared by every malformed-array diagnostic. It is
+// what separates them from the other reports that name the same fields.
+const arrayKind = "no OAS version accepts there"
 
 // assertClearedFieldsReported fails unless each named occurrence produced
 // exactly one warning. Asserting the output is clean is not enough on its own,
@@ -142,6 +151,16 @@ type clearedField struct{ path, field string }
 // counted field names would accept a conversion that reported the first and
 // dropped the second without a word. Exactly one, rather than at least one, so
 // a doubled report fails too.
+//
+// The path is matched exactly, or as a prefix ending at a dot, rather than as a
+// substring: `components.schemas.Nested` is a substring of
+// `components.schemas.NestedDeep`, so a loose match would count another
+// component's report as this one's.
+//
+// One limit worth knowing. Reports carry the path of the schema the walk
+// started from, so two cleared values under one component are indistinguishable
+// here and would read as a doubled report. Threading a path per subschema is
+// #521; until then, keep one cleared value per component in these fixtures.
 func assertClearedFieldsReported(t *testing.T, result *ConversionResult, want ...clearedField) {
 	t.Helper()
 
@@ -150,8 +169,9 @@ func assertClearedFieldsReported(t *testing.T, result *ConversionResult, want ..
 		var found int
 		for _, issue := range result.Issues {
 			if issue.Severity == SeverityWarning &&
-				strings.Contains(issue.Path, w.path) &&
-				strings.Contains(issue.Message, "'"+w.field+"'") {
+				(issue.Path == w.path || strings.HasPrefix(issue.Path, w.path+".")) &&
+				strings.Contains(issue.Message, "'"+w.field+"'") &&
+				strings.Contains(issue.Message, w.kind) {
 				found++
 			}
 		}
@@ -198,15 +218,15 @@ func TestConvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 			// Every malformed field the fixture plants must be reported, not
 			// merely removed.
 			assertClearedFieldsReported(t, result,
-				clearedField{"components.schemas.ArrayInAdditionalProperties", "additionalProperties"},
-				clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedItems"},
-				clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedProperties"},
-				clearedField{"components.schemas.Nested", "additionalProperties"},
-				clearedField{"components.schemas.TupleWithTrailing", "additionalItems"},
+				clearedField{"components.schemas.ArrayInAdditionalProperties", "additionalProperties", arrayKind},
+				clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedItems", arrayKind},
+				clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedProperties", arrayKind},
+				clearedField{"components.schemas.Nested", "additionalProperties", arrayKind},
+				clearedField{"components.schemas.TupleWithTrailing", "additionalItems", arrayKind},
 				// the two inline schemas, which reach the conversion by their own
 				// call sites and report under paths of their own
-				clearedField{"requestBody", "additionalProperties"},
-				clearedField{"paths./things.post.responses.200.schema", "unevaluatedProperties"})
+				clearedField{"requestBody", "additionalProperties", arrayKind},
+				clearedField{"paths./things.post.responses.200.schema", "unevaluatedProperties", arrayKind})
 
 			// The counterpart: the guard must not pass by dropping everything.
 			// The legal tuple has to arrive, spelled the way the target spells it.
@@ -325,19 +345,19 @@ func TestDownconvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 	// The counterpart: the guard must not pass by dropping everything. The
 	// legal tuple has to arrive.
 	assertClearedFieldsReported(t, result,
-		clearedField{"components.schemas.ArrayInAdditionalProperties", "additionalProperties"},
-		clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedItems"},
-		clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedProperties"},
-		clearedField{"components.schemas.Nested", "additionalProperties"},
-		clearedField{"paths./things.post.requestBody.content.application/json.schema", "additionalProperties"},
-		clearedField{"paths./things.post.responses.200.content.application/json.schema", "unevaluatedProperties"},
+		clearedField{"components.schemas.ArrayInAdditionalProperties", "additionalProperties", arrayKind},
+		clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedItems", arrayKind},
+		clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedProperties", arrayKind},
+		clearedField{"components.schemas.Nested", "additionalProperties", arrayKind},
+		clearedField{"paths./things.post.requestBody.content.application/json.schema", "additionalProperties", arrayKind},
+		clearedField{"paths./things.post.responses.200.content.application/json.schema", "unevaluatedProperties", arrayKind},
 		// no prefixItems, so the conversion takes its early return: the array in
 		// items becomes the OAS 2.0 tuple and the one in additionalItems, which
 		// draft 4 never accepts, is dropped and reported
-		clearedField{"components.schemas.BareAdditionalItems", "additionalItems"},
+		clearedField{"components.schemas.BareAdditionalItems", "additionalItems", arrayKind},
 		// prefixItems present, so items becomes additionalItems: the array
 		// already sitting there is discarded and must not go quietly
-		clearedField{"components.schemas.BothPresent", "additionalItems"})
+		clearedField{"components.schemas.BothPresent", "additionalItems", arrayKind})
 
 	tupleSchema := doc.Definitions["Tuple"]
 	require.NotNil(t, tupleSchema, "the Tuple definition should survive conversion")

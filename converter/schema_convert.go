@@ -120,7 +120,7 @@ func tupleToPrefixItems(c *Converter, schema *parser.Schema, result *ConversionR
 		// an array back in the field this conversion exists to clear.
 		if rest, isTuple := s.AdditionalItems.([]*parser.Schema); isTuple {
 			c.addIssueWithContext(result, path,
-				fmt.Sprintf("Schema holds a %d element array in 'additionalItems', which no version accepts there; dropped", len(rest)),
+				fmt.Sprintf("Schema holds a %d element array in 'additionalItems', which no OAS version accepts there; dropped", len(rest)),
 				"JSON Schema draft 4 takes a schema or a boolean in 'additionalItems', and 2020-12 requires 'items' to be a schema, so there is nothing to convert this into. Describe what follows the tuple with a single schema")
 			s.Items = nil
 		} else {
@@ -150,6 +150,16 @@ func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult
 		}
 
 		if uniform, ok := uniformTupleElement(s, tuple); ok {
+			// `additionalItems: false` capped the array at the tuple's length, and
+			// collapsing keeps only the element schema. Without the cap the output
+			// accepts any number of them, so it moves to maxItems, which OAS 3.0
+			// does have. The other two collapse justifications need nothing: a
+			// maxItems bound is already present, and an additionalItems equal to
+			// the positions was never a bound at all.
+			if b, isBool := s.AdditionalItems.(bool); isBool && !b && s.MaxItems == nil {
+				bound := len(tuple)
+				s.MaxItems = &bound
+			}
 			s.Items = uniform
 			s.AdditionalItems = nil
 			return
@@ -163,7 +173,7 @@ func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult
 			// Malformed as well as unconvertible, and said so, matching how
 			// tupleToPrefixItems reports the same value.
 			c.addIssueWithContext(result, path,
-				fmt.Sprintf("Schema holds a %d element array in '%s', which no version accepts there; dropped", len(rest), fieldAdditionalItems),
+				fmt.Sprintf("Schema holds a %d element array in '%s', which no OAS version accepts there; dropped", len(rest), fieldAdditionalItems),
 				"JSON Schema draft 4 takes a schema or a boolean in 'additionalItems', and OAS 3.0 has no such keyword at all. Describe what follows the tuple with a single schema, at OAS 3.1 or later where it becomes 'items' beside 'prefixItems'")
 		} else if s.AdditionalItems != nil {
 			c.addIssueWithContext(result, path,
@@ -424,7 +434,7 @@ func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionR
 			if rest, isArray := s.AdditionalItems.([]*parser.Schema); isArray {
 				if _, live := s.Items.([]*parser.Schema); live {
 					c.addIssueWithContext(result, path,
-						fmt.Sprintf("Schema holds a %d element array in '%s', which no version accepts there; dropped", len(rest), fieldAdditionalItems),
+						fmt.Sprintf("Schema holds a %d element array in '%s', which no OAS version accepts there; dropped", len(rest), fieldAdditionalItems),
 						"JSON Schema draft 4 takes a schema or a boolean in 'additionalItems'. Describe what follows the tuple with a single schema")
 				}
 				s.AdditionalItems = nil
@@ -450,7 +460,7 @@ func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionR
 		// in every dialect, so it is reported rather than quietly overwritten.
 		if discarded, isArray := s.AdditionalItems.([]*parser.Schema); isArray {
 			c.addIssueWithContext(result, path,
-				fmt.Sprintf("Schema holds a %d element array in '%s', which no version accepts there; dropped", len(discarded), fieldAdditionalItems),
+				fmt.Sprintf("Schema holds a %d element array in '%s', which no OAS version accepts there; dropped", len(discarded), fieldAdditionalItems),
 				"JSON Schema 2020-12 has no 'additionalItems' and constrains the elements past a tuple with 'items', while draft 4 takes a schema or a boolean there. An array is neither")
 		}
 
@@ -458,9 +468,16 @@ func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionR
 		// and draft 4 would not accept one in additionalItems either.
 		if rest, isTuple := s.Items.([]*parser.Schema); isTuple {
 			c.addIssueWithContext(result, path,
-				fmt.Sprintf("Schema holds a %d element array in 'items' beside 'prefixItems', which no version accepts there; dropped", len(rest)),
+				fmt.Sprintf("Schema holds a %d element array in 'items' beside 'prefixItems', which no OAS version accepts there; dropped", len(rest)),
 				"JSON Schema 2020-12 uses 'items' for what follows the listed positions and requires it to be a schema. Describe the trailing elements with a single schema, or list them in 'prefixItems'")
-			s.AdditionalItems = nil
+
+			// Only the array reported just above is cleared. Anything else in
+			// additionalItems stays: the output spells a draft 4 tuple in items,
+			// which makes that field the live trailing constraint rather than the
+			// inert one it was beside 2020-12's prefixItems.
+			if _, wasArray := s.AdditionalItems.([]*parser.Schema); wasArray {
+				s.AdditionalItems = nil
+			}
 		} else {
 			s.AdditionalItems = s.Items
 		}

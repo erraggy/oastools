@@ -630,7 +630,7 @@ func assertReports(t *testing.T, result *ConversionResult, field string) {
 
 	var matched int
 	for _, issue := range result.Issues {
-		if issue.Severity == SeverityWarning && strings.Contains(issue.Message, "which no version accepts there") &&
+		if issue.Severity == SeverityWarning && strings.Contains(issue.Message, "which no OAS version accepts there") &&
 			strings.Contains(issue.Message, field) {
 			matched++
 		}
@@ -712,4 +712,97 @@ components:
 		assert.Equal(t, "boolean", tuple[1].Type)
 		assert.Nil(t, schema.AdditionalItems)
 	})
+}
+
+// TestUniformCollapseKeepsTheLengthBound covers what a collapse must carry
+// besides the element schema. `additionalItems: false` caps a draft 4 tuple at
+// its own length, and collapsing to a single `items` keeps only what each
+// element must look like, so without the cap the output accepts any number of
+// them.
+func TestUniformCollapseKeepsTheLengthBound(t *testing.T) {
+	const spec = `swagger: "2.0"
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+definitions:
+  Capped:
+    type: array
+    items:
+      - type: string
+      - type: string
+    additionalItems: false
+  AlreadyBounded:
+    type: array
+    maxItems: 2
+    items:
+      - type: string
+      - type: string
+  Unbounded:
+    type: array
+    items:
+      - type: string
+      - type: string
+    additionalItems:
+      type: string
+`
+	parsed, err := parser.New().ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("3.0.3"))
+	require.NoError(t, err)
+	schemas := result.Document.(*parser.OAS3Document).Components.Schemas
+
+	capped := schemas["Capped"]
+	require.NotNil(t, capped.MaxItems, "additionalItems: false capped the array; the cap has to survive")
+	assert.Equal(t, 2, *capped.MaxItems)
+
+	// The other two justifications need no cap: one is already bounded, and an
+	// additionalItems equal to the positions never bounded anything.
+	require.NotNil(t, schemas["AlreadyBounded"].MaxItems)
+	assert.Equal(t, 2, *schemas["AlreadyBounded"].MaxItems, "an existing bound is not rewritten")
+	assert.Nil(t, schemas["Unbounded"].MaxItems, "a repeated element schema is not a length bound")
+
+	for _, name := range []string{"Capped", "AlreadyBounded", "Unbounded"} {
+		single, ok := schemas[name].Items.(*parser.Schema)
+		require.True(t, ok, "%s should have collapsed, got %T", name, schemas[name].Items)
+		assert.Equal(t, "string", single.Type)
+	}
+}
+
+// TestMalformedItemsDoesNotTakeAdditionalItemsWithIt covers the field beside the
+// one being reported. Converting to OAS 2.0 spells the positions as a draft 4
+// tuple in `items`, which makes `additionalItems` the live trailing constraint,
+// so it has to survive the removal of an unrelated malformed value.
+func TestMalformedItemsDoesNotTakeAdditionalItemsWithIt(t *testing.T) {
+	const spec = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Row:
+      type: array
+      prefixItems:
+        - type: string
+      items:
+        - type: number
+      additionalItems:
+        type: integer
+`
+	parsed, err := parser.New().ParseBytes([]byte(spec))
+	require.NoError(t, err)
+
+	result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("2.0"))
+	require.NoError(t, err)
+
+	row := result.Document.(*parser.OAS2Document).Definitions["Row"]
+	tuple, ok := row.Items.([]*parser.Schema)
+	require.True(t, ok, "the prefixItems positions become the tuple, got %T", row.Items)
+	require.Len(t, tuple, 1)
+
+	rest, ok := row.AdditionalItems.(*parser.Schema)
+	require.True(t, ok, "additionalItems is live beside a draft 4 tuple and must survive, got %T", row.AdditionalItems)
+	assert.Equal(t, "integer", rest.Type)
 }
