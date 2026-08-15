@@ -27,6 +27,8 @@ func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion
 	// Promote the OAS 2.0 bare-string discriminator to the OAS 3.x object form
 	discriminatorToObjectForm(converted)
 
+	dropArrayValuedSchemaOrBool(c, converted, result, path)
+
 	// For OAS 3.1+, convert boolean exclusiveMaximum/exclusiveMinimum to numeric form
 	if c.isOAS31OrLater(targetVersion) {
 		fixSchemaExclusiveMinMaxForOAS31(c, converted, result, path, make(map[*parser.Schema]bool))
@@ -36,6 +38,40 @@ func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion
 	}
 
 	return converted
+}
+
+// dropArrayValuedSchemaOrBool clears the schema-or-bool fields that no dialect
+// lets hold an array, reporting each one.
+//
+// `items` is the sole exception and is handled elsewhere: OAS 2.0 spells a tuple
+// as an array there, and 3.1 moves those positions to prefixItems. The other
+// four take a schema or a boolean in draft 4 and in 2020-12 alike, so an array
+// says nothing in the source and would say nothing in the output. The parser
+// still decodes one, because these fields are `any` and it is permissive, which
+// is how such values reach a conversion at all.
+func dropArrayValuedSchemaOrBool(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
+	walkSchemas(schema, func(s *parser.Schema) {
+		drop := func(field string, value any) (any, bool) {
+			arr, ok := value.([]*parser.Schema)
+			if !ok {
+				return value, false
+			}
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Schema holds a %d element array in '%s', which no OAS version accepts there; dropped", len(arr), field),
+				fmt.Sprintf("'%s' takes a schema or a boolean in every JSON Schema dialect the OAS versions use. Describe the constraint with a single schema", field))
+			return nil, true
+		}
+
+		if v, dropped := drop("additionalProperties", s.AdditionalProperties); dropped {
+			s.AdditionalProperties = v
+		}
+		if v, dropped := drop("unevaluatedItems", s.UnevaluatedItems); dropped {
+			s.UnevaluatedItems = v
+		}
+		if v, dropped := drop("unevaluatedProperties", s.UnevaluatedProperties); dropped {
+			s.UnevaluatedProperties = v
+		}
+	})
 }
 
 // tupleToPrefixItems rewrites the OAS 2.0 tuple spelling of `items` into the one
@@ -322,6 +358,8 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 
 	// Demote the OAS 3.x discriminator object to the OAS 2.0 bare-string form
 	discriminatorToStringForm(c, converted, result, path)
+
+	dropArrayValuedSchemaOrBool(c, converted, result, path)
 
 	// Demote prefixItems to the OAS 2.0 tuple spelling of items
 	prefixItemsToTuple(c, converted, result, path)
