@@ -144,6 +144,16 @@ func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult
 			return
 		}
 
+		// additionalItems is live here, because a tuple sits beside it, and OAS
+		// 3.0 has neither the tuple nor the keyword. Dropping it is a second
+		// loss and is reported as one: the tuple message above speaks only for
+		// the positions.
+		if s.AdditionalItems != nil {
+			c.addIssueWithContext(result, path,
+				"Schema uses 'additionalItems', which OAS 3.0 does not define; dropped along with the tuple it qualified",
+				"draft 4 uses 'additionalItems' to constrain the elements past a tuple. OAS 3.0 has no tuple to qualify and no such keyword, so the constraint cannot come across. Convert to OAS 3.1 or later, where it becomes 'items' beside 'prefixItems'")
+		}
+
 		// The empty schema, not a missing one: OAS 3.0 says "items MUST be
 		// present if type is 'array'", so removing the keyword would trade a
 		// forbidden tuple for a missing required field. An empty schema accepts

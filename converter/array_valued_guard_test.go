@@ -7,6 +7,7 @@ package converter
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -127,6 +128,26 @@ func assertNoIllegalArrays(t *testing.T, name string, root *parser.Schema, targe
 	})
 }
 
+// assertClearedFieldsReported fails unless every field the fixture leaves
+// malformed produced a warning. Asserting the output is clean is not enough on
+// its own: a conversion that dropped the value and said nothing would satisfy
+// that, and silent loss is the failure this package keeps producing.
+func assertClearedFieldsReported(t *testing.T, result *ConversionResult, fields ...string) {
+	t.Helper()
+
+	for _, field := range fields {
+		var found bool
+		for _, issue := range result.Issues {
+			if issue.Severity == SeverityWarning && strings.Contains(issue.Message, "'"+field+"'") {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found,
+			"clearing %s was not reported; issues were %+v", field, result.Issues)
+	}
+}
+
 func TestConvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 	for _, target := range []struct {
 		spec string
@@ -156,6 +177,11 @@ func TestConvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 			for name, schema := range inlineSchemasOAS3(t, doc) {
 				assertNoIllegalArrays(t, name, schema, target.enum)
 			}
+
+			// Every malformed field the fixture plants must be reported, not
+			// merely removed.
+			assertClearedFieldsReported(t, result,
+				"additionalProperties", "unevaluatedItems", "unevaluatedProperties", "additionalItems")
 
 			// The counterpart: the guard must not pass by dropping everything.
 			// The legal tuple has to arrive, spelled the way the target spells it.
@@ -257,6 +283,9 @@ func TestDownconvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 
 	// The counterpart: the guard must not pass by dropping everything. The
 	// legal tuple has to arrive.
+	assertClearedFieldsReported(t, result,
+		"additionalProperties", "unevaluatedItems", "unevaluatedProperties")
+
 	tupleSchema := doc.Definitions["Tuple"]
 	require.NotNil(t, tupleSchema, "the Tuple definition should survive conversion")
 	tuple, ok := tupleSchema.Items.([]*parser.Schema)
