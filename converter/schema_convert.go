@@ -159,7 +159,13 @@ func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult
 		// 3.0 has neither the tuple nor the keyword. Dropping it is a second
 		// loss and is reported as one: the tuple message above speaks only for
 		// the positions.
-		if s.AdditionalItems != nil {
+		if rest, isArray := s.AdditionalItems.([]*parser.Schema); isArray {
+			// Malformed as well as unconvertible, and said so, matching how
+			// tupleToPrefixItems reports the same value.
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Schema holds a %d element array in '%s', which no version accepts there; dropped", len(rest), fieldAdditionalItems),
+				"JSON Schema draft 4 takes a schema or a boolean in 'additionalItems', and OAS 3.0 has no such keyword at all. Describe what follows the tuple with a single schema, at OAS 3.1 or later where it becomes 'items' beside 'prefixItems'")
+		} else if s.AdditionalItems != nil {
 			c.addIssueWithContext(result, path,
 				"Schema uses 'additionalItems', which OAS 3.0 does not define; dropped along with the tuple it qualified",
 				"draft 4 uses 'additionalItems' to constrain the elements past a tuple. OAS 3.0 has no tuple to qualify and no such keyword, so the constraint cannot come across. Convert to OAS 3.1 or later, where it becomes 'items' beside 'prefixItems'")
@@ -409,6 +415,20 @@ func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionR
 			// exactly that way, so it needs no conversion and loses nothing. The
 			// array is only unconvertible when prefixItems already holds the
 			// positions, which is the case handled below.
+			//
+			// An array in additionalItems is another matter: draft 4 takes a
+			// schema or a boolean there, so it is invalid in the OAS 2.0 output
+			// whatever the source meant by it. Reported only when a tuple in
+			// items makes the field live, which matches how the other direction
+			// treats the same value.
+			if rest, isArray := s.AdditionalItems.([]*parser.Schema); isArray {
+				if _, live := s.Items.([]*parser.Schema); live {
+					c.addIssueWithContext(result, path,
+						fmt.Sprintf("Schema holds a %d element array in '%s', which no version accepts there; dropped", len(rest), fieldAdditionalItems),
+						"JSON Schema draft 4 takes a schema or a boolean in 'additionalItems'. Describe what follows the tuple with a single schema")
+				}
+				s.AdditionalItems = nil
+			}
 			return
 		}
 

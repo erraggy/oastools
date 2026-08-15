@@ -145,6 +145,7 @@ type clearedField struct{ path, field string }
 func assertClearedFieldsReported(t *testing.T, result *ConversionResult, want ...clearedField) {
 	t.Helper()
 
+	var missed bool
 	for _, w := range want {
 		var found int
 		for _, issue := range result.Issues {
@@ -154,8 +155,13 @@ func assertClearedFieldsReported(t *testing.T, result *ConversionResult, want ..
 				found++
 			}
 		}
-		assert.Equal(t, 1, found,
-			"expected exactly one warning for %s at %s; issues were %+v", w.field, w.path, result.Issues)
+		if !assert.Equal(t, 1, found, "expected exactly one warning for %s at %s", w.field, w.path) {
+			missed = true
+		}
+	}
+	if missed {
+		// Once, rather than repeated into every failing assertion.
+		t.Logf("conversion issues were: %+v", result.Issues)
 	}
 }
 
@@ -274,6 +280,13 @@ components:
         - type: string
       unevaluatedItems:
         - type: integer
+    BareAdditionalItems:
+      type: array
+      items:
+        - type: string
+      additionalItems:
+        - type: integer
+        - type: boolean
     Nested:
       type: object
       properties:
@@ -308,7 +321,11 @@ func TestDownconvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 		clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedProperties"},
 		clearedField{"components.schemas.Nested", "additionalProperties"},
 		clearedField{"paths./things.post.requestBody.content.application/json.schema", "additionalProperties"},
-		clearedField{"paths./things.post.responses.200.content.application/json.schema", "unevaluatedProperties"})
+		clearedField{"paths./things.post.responses.200.content.application/json.schema", "unevaluatedProperties"},
+		// no prefixItems, so the conversion takes its early return: the array in
+		// items becomes the OAS 2.0 tuple and the one in additionalItems, which
+		// draft 4 never accepts, is dropped and reported
+		clearedField{"components.schemas.BareAdditionalItems", "additionalItems"})
 
 	tupleSchema := doc.Definitions["Tuple"]
 	require.NotNil(t, tupleSchema, "the Tuple definition should survive conversion")
