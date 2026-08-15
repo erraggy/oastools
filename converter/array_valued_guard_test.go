@@ -84,11 +84,11 @@ definitions:
 // field this guard does not watch.
 func schemaOrBoolFields(s *parser.Schema) map[string]any {
 	return map[string]any{
-		"items":                 s.Items,
-		"additionalItems":       s.AdditionalItems,
-		"additionalProperties":  s.AdditionalProperties,
-		"unevaluatedItems":      s.UnevaluatedItems,
-		"unevaluatedProperties": s.UnevaluatedProperties,
+		fieldItems:                 s.Items,
+		fieldAdditionalItems:       s.AdditionalItems,
+		fieldAdditionalProperties:  s.AdditionalProperties,
+		fieldUnevaluatedItems:      s.UnevaluatedItems,
+		fieldUnevaluatedProperties: s.UnevaluatedProperties,
 	}
 }
 
@@ -115,7 +115,7 @@ func assertNoIllegalArrays(t *testing.T, name string, root *parser.Schema, targe
 			if !isArray {
 				continue
 			}
-			legal := field == "items" && target == parser.OASVersion20
+			legal := field == fieldItems && target == parser.OASVersion20
 			assert.True(t, legal,
 				"%s: %s holds a %d element array, which OAS %s does not accept there",
 				name, field, len(arr), target)

@@ -12,6 +12,17 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// The schema-or-bool field names, spelled once. parser models each of these as
+// *Schema, []*Schema or bool, and the conversions name them in diagnostics, so
+// the string appears in several places and has to agree in all of them.
+const (
+	fieldItems                 = "items"
+	fieldAdditionalItems       = "additionalItems"
+	fieldAdditionalProperties  = "additionalProperties"
+	fieldUnevaluatedItems      = "unevaluatedItems"
+	fieldUnevaluatedProperties = "unevaluatedProperties"
+)
+
 // convertOAS2SchemaToOAS3 converts an OAS 2.0 schema to OAS 3.x format
 func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion parser.OASVersion, result *ConversionResult, path string) *parser.Schema {
 	if schema == nil {
@@ -65,13 +76,13 @@ func dropArrayValuedSchemaOrBool(c *Converter, schema *parser.Schema, result *Co
 			return nil, true
 		}
 
-		if v, dropped := drop("additionalProperties", s.AdditionalProperties); dropped {
+		if v, dropped := drop(fieldAdditionalProperties, s.AdditionalProperties); dropped {
 			s.AdditionalProperties = v
 		}
-		if v, dropped := drop("unevaluatedItems", s.UnevaluatedItems); dropped {
+		if v, dropped := drop(fieldUnevaluatedItems, s.UnevaluatedItems); dropped {
 			s.UnevaluatedItems = v
 		}
-		if v, dropped := drop("unevaluatedProperties", s.UnevaluatedProperties); dropped {
+		if v, dropped := drop(fieldUnevaluatedProperties, s.UnevaluatedProperties); dropped {
 			s.UnevaluatedProperties = v
 		}
 	})
