@@ -6,7 +6,6 @@
 package converter
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -81,65 +80,40 @@ func schemaOrBoolFields(s *parser.Schema) map[string]any {
 	}
 }
 
-// assertNoIllegalArrays walks every schema reachable from one and fails for each
-// schema-or-bool field holding an array where the target version forbids one.
-// OAS 2.0 spells a tuple as an array in `items`, and that is the only position
-// any version allows: 3.0 forbids arrays there outright, and 3.1 and later put
-// the positions in prefixItems, which is a typed slice rather than one of these
-// fields.
-func assertNoIllegalArrays(t *testing.T, name string, s *parser.Schema, target parser.OASVersion, seen map[*parser.Schema]bool) {
+// assertNoIllegalArrays fails for each schema-or-bool field holding an array
+// where the target version forbids one. OAS 2.0 spells a tuple as an array in
+// `items`, and that is the only position any version allows: 3.0 forbids arrays
+// there outright, and 3.1 and later put the positions in prefixItems, which is
+// a typed slice rather than one of these fields.
+//
+// It walks with walkSchemas, the same traversal the conversions use, rather
+// than a second one written for the test. A guard that visits fewer positions
+// than the code it guards is the defect it exists to catch, and the first
+// version of this function had exactly that gap: it never reached Contains,
+// PropertyNames, DependentSchemas, If, Then, Else, ContentSchema or Defs.
+//
+// The trade is that a report names the component rather than the field inside
+// it. Locating it is #521's subject; detecting it is this function's.
+func assertNoIllegalArrays(t *testing.T, name string, root *parser.Schema, target parser.OASVersion) {
 	t.Helper()
-	if s == nil || seen[s] {
-		return
-	}
-	seen[s] = true
 
-	for field, value := range schemaOrBoolFields(s) {
-		arr, isArray := value.([]*parser.Schema)
-		if !isArray {
-			continue
-		}
-		legal := field == "items" && target == parser.OASVersion20
-		assert.True(t, legal,
-			"%s: %s holds a %d element array, which OAS %s does not accept there",
-			name, field, len(arr), target)
-	}
-
-	if target < parser.OASVersion310 && len(s.PrefixItems) > 0 {
-		assert.Fail(t, "prefixItems before OAS 3.1",
-			"%s: prefixItems is a JSON Schema 2020-12 keyword and has no place in OAS %s", name, target)
-	}
-
-	for k, v := range s.Properties {
-		assertNoIllegalArrays(t, name+".properties."+k, v, target, seen)
-	}
-	for k, v := range s.PatternProperties {
-		assertNoIllegalArrays(t, name+".patternProperties."+k, v, target, seen)
-	}
-	for i, v := range s.AllOf {
-		assertNoIllegalArrays(t, fmt.Sprintf("%s.allOf[%d]", name, i), v, target, seen)
-	}
-	for i, v := range s.AnyOf {
-		assertNoIllegalArrays(t, fmt.Sprintf("%s.anyOf[%d]", name, i), v, target, seen)
-	}
-	for i, v := range s.OneOf {
-		assertNoIllegalArrays(t, fmt.Sprintf("%s.oneOf[%d]", name, i), v, target, seen)
-	}
-	for i, v := range s.PrefixItems {
-		assertNoIllegalArrays(t, fmt.Sprintf("%s.prefixItems[%d]", name, i), v, target, seen)
-	}
-	assertNoIllegalArrays(t, name+".not", s.Not, target, seen)
-
-	for field, value := range schemaOrBoolFields(s) {
-		switch v := value.(type) {
-		case *parser.Schema:
-			assertNoIllegalArrays(t, name+"."+field, v, target, seen)
-		case []*parser.Schema:
-			for i, elem := range v {
-				assertNoIllegalArrays(t, fmt.Sprintf("%s.%s[%d]", name, field, i), elem, target, seen)
+	walkSchemas(root, func(s *parser.Schema) {
+		for field, value := range schemaOrBoolFields(s) {
+			arr, isArray := value.([]*parser.Schema)
+			if !isArray {
+				continue
 			}
+			legal := field == "items" && target == parser.OASVersion20
+			assert.True(t, legal,
+				"%s: %s holds a %d element array, which OAS %s does not accept there",
+				name, field, len(arr), target)
 		}
-	}
+
+		if target < parser.OASVersion310 && len(s.PrefixItems) > 0 {
+			assert.Fail(t, "prefixItems before OAS 3.1",
+				"%s: prefixItems is a JSON Schema 2020-12 keyword and has no place in OAS %s", name, target)
+		}
+	})
 }
 
 func TestConvertedOutputHoldsNoIllegalArrays(t *testing.T) {
@@ -162,17 +136,27 @@ func TestConvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 			require.True(t, ok)
 			require.NotNil(t, doc.Components)
 
-			seen := make(map[*parser.Schema]bool)
 			for name, schema := range doc.Components.Schemas {
-				assertNoIllegalArrays(t, "components.schemas."+name, schema, target.enum, seen)
+				assertNoIllegalArrays(t, "components.schemas."+name, schema, target.enum)
+			}
+
+			// The counterpart: the guard must not pass by dropping everything.
+			// The legal tuple has to arrive, spelled the way the target spells it.
+			tuple := doc.Components.Schemas["Tuple"]
+			require.NotNil(t, tuple, "the Tuple definition should survive conversion")
+			if target.enum >= parser.OASVersion310 {
+				assert.Len(t, tuple.PrefixItems, 2, "3.1 and later hold the positions in prefixItems")
+			} else {
+				assert.NotNil(t, tuple.Items, "OAS 3.0 keeps items present, even when the positions go")
 			}
 		})
 	}
 }
 
-// arrayValuedSourceOAS31 is the same shape from the other side. `items` holds an
-// array here too, which 2020-12 does not allow, and OAS 2.0 does: the guard
-// therefore expects it to survive as a tuple while the rest are dropped.
+// arrayValuedSourceOAS31 is the same shape from the other side. The positions
+// live in prefixItems, which is how 2020-12 spells a tuple, so the guard expects
+// them to arrive as an OAS 2.0 array-form items while the malformed arrays in
+// the other fields are dropped.
 const arrayValuedSourceOAS31 = `openapi: 3.1.0
 info:
   title: rakes
@@ -215,14 +199,15 @@ func TestDownconvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 	doc, ok := result.Document.(*parser.OAS2Document)
 	require.True(t, ok)
 
-	seen := make(map[*parser.Schema]bool)
 	for name, schema := range doc.Definitions {
-		assertNoIllegalArrays(t, "definitions."+name, schema, parser.OASVersion20, seen)
+		assertNoIllegalArrays(t, "definitions."+name, schema, parser.OASVersion20)
 	}
 
 	// The counterpart: the guard must not pass by dropping everything. The
 	// legal tuple has to arrive.
-	tuple, ok := doc.Definitions["Tuple"].Items.([]*parser.Schema)
-	require.True(t, ok, "the prefixItems tuple should convert, got %T", doc.Definitions["Tuple"].Items)
+	tupleSchema := doc.Definitions["Tuple"]
+	require.NotNil(t, tupleSchema, "the Tuple definition should survive conversion")
+	tuple, ok := tupleSchema.Items.([]*parser.Schema)
+	require.True(t, ok, "the prefixItems tuple should convert, got %T", tupleSchema.Items)
 	assert.Len(t, tuple, 2)
 }

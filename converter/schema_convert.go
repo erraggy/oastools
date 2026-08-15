@@ -43,10 +43,13 @@ func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion
 // dropArrayValuedSchemaOrBool clears the schema-or-bool fields that no dialect
 // lets hold an array, reporting each one.
 //
-// `items` is the sole exception and is handled elsewhere: OAS 2.0 spells a tuple
-// as an array there, and 3.1 moves those positions to prefixItems. The other
-// four take a schema or a boolean in draft 4 and in 2020-12 alike, so an array
-// says nothing in the source and would say nothing in the output. The parser
+// Two of the five are handled elsewhere and are not touched here. `items` takes
+// an array in OAS 2.0, where it spells a tuple, and 3.1 moves those positions to
+// prefixItems: see tupleToPrefixItems and tupleForOAS30. `additionalItems` is
+// cleared by those same functions, which know whether a tuple beside it makes it
+// live. The three that remain take a schema or a boolean in draft 4 and in
+// 2020-12 alike, so an array says nothing in the source and would say nothing in
+// the output. The parser
 // still decodes one, because these fields are `any` and it is permissive, which
 // is how such values reach a conversion at all.
 func dropArrayValuedSchemaOrBool(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
