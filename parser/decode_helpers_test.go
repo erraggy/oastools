@@ -322,12 +322,10 @@ func TestDecodeSchemaOrBool_ArrayOfSchemas(t *testing.T) {
 }
 
 func TestDecodeSchemaOrBool_ArrayWithNonMapElements(t *testing.T) {
-	// Elements this path cannot represent keep their slot as a nil element.
-	// This test asserted that they were skipped, which is the behavior #510
-	// reports: the tuple form is positional, so dropping element 1 moves
-	// element 3 to index 1 and the document means something else. The nil is
-	// not a good answer either, but it is the one that leaves every other
-	// element where the document put it.
+	// An element decodeSchemaOrBool cannot turn into a schema still occupies
+	// its index, so the string and the number below produce nil at 1 and 2
+	// rather than a shorter slice, and the last schema stays at index 3.
+	// See #510 for why a shorter slice would be the wrong answer.
 	input := []any{
 		map[string]any{"type": "string"},
 		"not-a-map",
@@ -345,9 +343,9 @@ func TestDecodeSchemaOrBool_ArrayWithNonMapElements(t *testing.T) {
 }
 
 func TestDecodeSchemaOrBool_ArrayWithBoolAndNullElements(t *testing.T) {
-	// A bool element becomes the *Schema spelling, because []*Schema cannot
-	// hold a bare bool. An explicit null stays a nil element. Both match what
-	// the YAML path has always produced (#510).
+	// The three legal element forms: a schema, a bool, and an explicit null.
+	// The bool arrives as a *Schema carrying BoolForm, since []*Schema cannot
+	// hold a bare bool, and the null arrives as a nil element.
 	input := []any{
 		map[string]any{"type": "string"},
 		true,

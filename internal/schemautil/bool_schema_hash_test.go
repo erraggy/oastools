@@ -103,10 +103,10 @@ func TestHashBoolSchemaValuesDiffer(t *testing.T) {
 }
 
 // TestHashAndEqualsAgreeOnBoolSpellings asserts the joint invariant rather than
-// either half of it: things that hash alike must compare alike. The hasher was
-// taught the two spellings first, which left the contract broken in the other
-// direction, with both spellings sharing a bucket that the comparison then
-// split (#504). A test on the hasher alone cannot see that.
+// either half of it: things that hash alike must compare alike. Testing the
+// hasher alone cannot see a break, because the two spellings can share a bucket
+// that the comparison then splits, which is deduplication that never merges
+// (#504).
 func TestHashAndEqualsAgreeOnBoolSpellings(t *testing.T) {
 	arr := func(items any) *parser.Schema {
 		return &parser.Schema{Type: "array", Items: items}

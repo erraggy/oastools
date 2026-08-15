@@ -158,12 +158,16 @@ func promoteSchemaOrBool(v any) (any, error) {
 		}
 		return s, nil
 	case []any:
-		// OAS 2.0 tuple validation: items can be an array of schemas. The form
-		// is positional, so every element holds its index: dropping one
-		// renumbers the rest and silently changes what the document says
-		// (#510). A bool becomes the *Schema spelling because []*Schema cannot
-		// hold a bare bool; an explicit null, and anything this path cannot
-		// represent, keeps its slot as a nil element.
+		// OAS 2.0 tuple validation: items can be an array of schemas.
+		//
+		// The slice is allocated at full length and written by index, not
+		// appended to, so an element this path cannot represent leaves a nil
+		// at its own index instead of shifting the rest down. The tuple form
+		// is positional: a shift renumbers every later element and silently
+		// changes what the document says (#510).
+		//
+		// A bool becomes the *Schema spelling because []*Schema cannot hold a
+		// bare bool.
 		schemas := make([]*Schema, len(val))
 		for i, elem := range val {
 			promoted, err := promoteSchemaOrBool(elem)
