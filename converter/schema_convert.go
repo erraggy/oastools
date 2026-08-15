@@ -54,6 +54,11 @@ func tupleToPrefixItems(c *Converter, schema *parser.Schema, result *ConversionR
 			// draft 4 ignores additionalItems unless items is an array, so
 			// dropping it here says exactly what the source said, and no OAS 3.x
 			// version has the keyword to carry it anyway.
+			//
+			// Silent even when it holds an array, which is reported below in the
+			// tuple case. The difference is not the value but whether the field
+			// was doing anything: beside a single-schema items it constrains
+			// nothing, so there is no loss to announce.
 			s.AdditionalItems = nil
 			return
 		}
@@ -338,6 +343,10 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
 	walkSchemas(schema, func(s *parser.Schema) {
 		if len(s.PrefixItems) == 0 {
+			// An array left in items is not touched here. OAS 2.0 spells a tuple
+			// exactly that way, so it needs no conversion and loses nothing. The
+			// array is only unconvertible when prefixItems already holds the
+			// positions, which is the case handled below.
 			return
 		}
 

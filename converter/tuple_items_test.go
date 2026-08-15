@@ -637,3 +637,79 @@ func assertReports(t *testing.T, result *ConversionResult, field string) {
 	}
 	assert.Equal(t, 1, matched, "expected exactly one warning naming %q; issues: %+v", field, result.Issues)
 }
+
+// TestEarlyReturnShapesAreDeliberate pins the two shapes that reach a
+// conversion's early return, because both look like oversights and neither is.
+// The rule they follow is the one the reporting cases follow: put each thing
+// where the target can hold it, and report only what has nowhere to go.
+func TestEarlyReturnShapesAreDeliberate(t *testing.T) {
+	t.Run("an inert additionalItems is dropped without a report", func(t *testing.T) {
+		// draft 4 ignores additionalItems unless items is an array, so beside a
+		// single-schema items it constrains nothing. Dropping it loses nothing,
+		// even when it holds an array, so there is no loss to announce. Contrast
+		// TestArrayValuedSchemaOrBoolIsNotCarriedAcross, where the same value is
+		// reported because a tuple beside it makes the field live.
+		const spec = `swagger: "2.0"
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+definitions:
+  A:
+    type: array
+    items:
+      type: string
+    additionalItems:
+      - type: integer
+      - type: boolean
+`
+		parsed, err := parser.New().ParseBytes([]byte(spec))
+		require.NoError(t, err)
+
+		result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("3.1.0"))
+		require.NoError(t, err)
+
+		schema := result.Document.(*parser.OAS3Document).Components.Schemas["A"]
+		assert.Nil(t, schema.AdditionalItems)
+		single, ok := schema.Items.(*parser.Schema)
+		require.True(t, ok, "the single-schema items is untouched, got %T", schema.Items)
+		assert.Equal(t, "string", single.Type)
+
+		for _, issue := range result.Issues {
+			assert.NotContains(t, issue.Message, "additionalItems",
+				"dropping a field that constrained nothing is not a conversion issue")
+		}
+	})
+
+	t.Run("an array items with no prefixItems converts rather than dropping", func(t *testing.T) {
+		// OAS 2.0 spells a tuple exactly this way, so the array has somewhere to
+		// go and the conversion keeps it. Dropping it would discard the only
+		// thing the source said.
+		const spec = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    B:
+      type: array
+      items:
+        - type: integer
+        - type: boolean
+`
+		parsed, err := parser.New().ParseBytes([]byte(spec))
+		require.NoError(t, err)
+
+		result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("2.0"))
+		require.NoError(t, err)
+
+		schema := result.Document.(*parser.OAS2Document).Definitions["B"]
+		tuple, ok := schema.Items.([]*parser.Schema)
+		require.True(t, ok, "expected the tuple to survive, got %T", schema.Items)
+		require.Len(t, tuple, 2)
+		assert.Equal(t, "integer", tuple[0].Type)
+		assert.Equal(t, "boolean", tuple[1].Type)
+		assert.Nil(t, schema.AdditionalItems)
+	})
+}
