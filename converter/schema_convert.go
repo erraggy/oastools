@@ -30,7 +30,7 @@ func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion
 	// For OAS 3.1+, convert boolean exclusiveMaximum/exclusiveMinimum to numeric form
 	if c.isOAS31OrLater(targetVersion) {
 		fixSchemaExclusiveMinMaxForOAS31(c, converted, result, path, make(map[*parser.Schema]bool))
-		tupleToPrefixItems(converted)
+		tupleToPrefixItems(c, converted, result, path)
 	} else {
 		tupleForOAS30(c, converted, result, path)
 	}
@@ -47,7 +47,7 @@ func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion
 //
 // draft 4 gives that trailing role to `additionalItems`, so it moves to `items`.
 // Absent stays absent, which in both dialects means anything may follow.
-func tupleToPrefixItems(schema *parser.Schema) {
+func tupleToPrefixItems(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
 	walkSchemas(schema, func(s *parser.Schema) {
 		tuple, ok := s.Items.([]*parser.Schema)
 		if !ok {
@@ -58,7 +58,19 @@ func tupleToPrefixItems(schema *parser.Schema) {
 			return
 		}
 		s.PrefixItems = tuple
-		s.Items = s.AdditionalItems
+
+		// additionalItems takes a schema or a bool in draft 4, never an array,
+		// so a source holding one is malformed. It cannot move to `items`, which
+		// 2020-12 also requires to be a schema, and carrying it across would put
+		// an array back in the field this conversion exists to clear.
+		if rest, isTuple := s.AdditionalItems.([]*parser.Schema); isTuple {
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Schema holds a %d element array in 'additionalItems', which no version accepts there; dropped", len(rest)),
+				"JSON Schema draft 4 takes a schema or a boolean in 'additionalItems', and 2020-12 requires 'items' to be a schema, so there is nothing to convert this into. Describe what follows the tuple with a single schema")
+			s.Items = nil
+		} else {
+			s.Items = s.AdditionalItems
+		}
 		s.AdditionalItems = nil
 	})
 }
@@ -342,7 +354,16 @@ func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionR
 			}
 		}
 
-		s.AdditionalItems = s.Items
+		// 2020-12 requires items to be a schema, so an array there is malformed,
+		// and draft 4 would not accept one in additionalItems either.
+		if rest, isTuple := s.Items.([]*parser.Schema); isTuple {
+			c.addIssueWithContext(result, path,
+				fmt.Sprintf("Schema holds a %d element array in 'items' beside 'prefixItems', which no version accepts there; dropped", len(rest)),
+				"JSON Schema 2020-12 uses 'items' for what follows the listed positions and requires it to be a schema. Describe the trailing elements with a single schema, or list them in 'prefixItems'")
+			s.AdditionalItems = nil
+		} else {
+			s.AdditionalItems = s.Items
+		}
 		s.Items = s.PrefixItems
 		s.PrefixItems = nil
 	})

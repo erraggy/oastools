@@ -554,3 +554,86 @@ definitions:
 		})
 	}
 }
+
+// TestArrayValuedSchemaOrBoolIsNotCarriedAcross covers a source that is
+// malformed but parseable: an array in a field that takes a schema or a bool.
+// draft 4 takes neither an array in `additionalItems`, nor does 2020-12 take
+// one in `items`, so neither can be moved into the other's slot. Carrying one
+// across would put an array back into exactly the field this conversion exists
+// to clear.
+func TestArrayValuedSchemaOrBoolIsNotCarriedAcross(t *testing.T) {
+	t.Run("2.0 additionalItems array does not become 3.1 items", func(t *testing.T) {
+		const spec = `swagger: "2.0"
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+definitions:
+  Weird:
+    type: array
+    items:
+      - type: string
+    additionalItems:
+      - type: integer
+      - type: boolean
+`
+		parsed, err := parser.New().ParseBytes([]byte(spec))
+		require.NoError(t, err)
+
+		result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("3.1.0"))
+		require.NoError(t, err)
+
+		schema := result.Document.(*parser.OAS3Document).Components.Schemas["Weird"]
+		require.Len(t, schema.PrefixItems, 1, "the legal tuple still converts")
+		assert.Nil(t, schema.Items, "an array cannot be 2020-12 items")
+		assert.Nil(t, schema.AdditionalItems, "and the keyword does not survive into OAS 3.x")
+
+		assertReports(t, result, "additionalItems")
+	})
+
+	t.Run("3.1 items array does not become 2.0 additionalItems", func(t *testing.T) {
+		const spec = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    Weird:
+      type: array
+      prefixItems:
+        - type: string
+      items:
+        - type: integer
+        - type: boolean
+`
+		parsed, err := parser.New().ParseBytes([]byte(spec))
+		require.NoError(t, err)
+
+		result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("2.0"))
+		require.NoError(t, err)
+
+		schema := result.Document.(*parser.OAS2Document).Definitions["Weird"]
+		tuple, ok := schema.Items.([]*parser.Schema)
+		require.True(t, ok, "the legal tuple still converts, got %T", schema.Items)
+		require.Len(t, tuple, 1)
+		assert.Nil(t, schema.AdditionalItems, "an array cannot be draft 4 additionalItems")
+
+		assertReports(t, result, "items")
+	})
+}
+
+// assertReports fails unless exactly one warning names the field, so a silent
+// drop and a doubled report are both caught.
+func assertReports(t *testing.T, result *ConversionResult, field string) {
+	t.Helper()
+
+	var matched int
+	for _, issue := range result.Issues {
+		if issue.Severity == SeverityWarning && strings.Contains(issue.Message, "which no version accepts there") &&
+			strings.Contains(issue.Message, field) {
+			matched++
+		}
+	}
+	assert.Equal(t, 1, matched, "expected exactly one warning naming %q; issues: %+v", field, result.Issues)
+}
