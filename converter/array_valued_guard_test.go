@@ -128,23 +128,34 @@ func assertNoIllegalArrays(t *testing.T, name string, root *parser.Schema, targe
 	})
 }
 
-// assertClearedFieldsReported fails unless every field the fixture leaves
-// malformed produced a warning. Asserting the output is clean is not enough on
-// its own: a conversion that dropped the value and said nothing would satisfy
-// that, and silent loss is the failure this package keeps producing.
-func assertClearedFieldsReported(t *testing.T, result *ConversionResult, fields ...string) {
+// clearedField names one place a fixture leaves a malformed value: the issue
+// path it is reported under, and the field within it.
+type clearedField struct{ path, field string }
+
+// assertClearedFieldsReported fails unless each named occurrence produced
+// exactly one warning. Asserting the output is clean is not enough on its own,
+// because a conversion that dropped the value silently would satisfy that, and
+// silent loss is the failure this package keeps producing.
+//
+// Occurrences are matched by path as well as field. The fixtures plant the same
+// field in a component schema and in an inline one, so a check that only
+// counted field names would accept a conversion that reported the first and
+// dropped the second without a word. Exactly one, rather than at least one, so
+// a doubled report fails too.
+func assertClearedFieldsReported(t *testing.T, result *ConversionResult, want ...clearedField) {
 	t.Helper()
 
-	for _, field := range fields {
-		var found bool
+	for _, w := range want {
+		var found int
 		for _, issue := range result.Issues {
-			if issue.Severity == SeverityWarning && strings.Contains(issue.Message, "'"+field+"'") {
-				found = true
-				break
+			if issue.Severity == SeverityWarning &&
+				strings.Contains(issue.Path, w.path) &&
+				strings.Contains(issue.Message, "'"+w.field+"'") {
+				found++
 			}
 		}
-		assert.True(t, found,
-			"clearing %s was not reported; issues were %+v", field, result.Issues)
+		assert.Equal(t, 1, found,
+			"expected exactly one warning for %s at %s; issues were %+v", w.field, w.path, result.Issues)
 	}
 }
 
@@ -181,7 +192,15 @@ func TestConvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 			// Every malformed field the fixture plants must be reported, not
 			// merely removed.
 			assertClearedFieldsReported(t, result,
-				"additionalProperties", "unevaluatedItems", "unevaluatedProperties", "additionalItems")
+				clearedField{"components.schemas.ArrayInAdditionalProperties", "additionalProperties"},
+				clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedItems"},
+				clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedProperties"},
+				clearedField{"components.schemas.Nested", "additionalProperties"},
+				clearedField{"components.schemas.TupleWithTrailing", "additionalItems"},
+				// the two inline schemas, which reach the conversion by their own
+				// call sites and report under paths of their own
+				clearedField{"requestBody", "additionalProperties"},
+				clearedField{"paths./things.post.responses.200.schema", "unevaluatedProperties"})
 
 			// The counterpart: the guard must not pass by dropping everything.
 			// The legal tuple has to arrive, spelled the way the target spells it.
@@ -284,7 +303,12 @@ func TestDownconvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 	// The counterpart: the guard must not pass by dropping everything. The
 	// legal tuple has to arrive.
 	assertClearedFieldsReported(t, result,
-		"additionalProperties", "unevaluatedItems", "unevaluatedProperties")
+		clearedField{"components.schemas.ArrayInAdditionalProperties", "additionalProperties"},
+		clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedItems"},
+		clearedField{"components.schemas.ArrayInUnevaluated", "unevaluatedProperties"},
+		clearedField{"components.schemas.Nested", "additionalProperties"},
+		clearedField{"paths./things.post.requestBody.content.application/json.schema", "additionalProperties"},
+		clearedField{"paths./things.post.responses.200.content.application/json.schema", "unevaluatedProperties"})
 
 	tupleSchema := doc.Definitions["Tuple"]
 	require.NotNil(t, tupleSchema, "the Tuple definition should survive conversion")
