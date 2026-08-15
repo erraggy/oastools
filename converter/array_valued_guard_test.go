@@ -6,6 +6,7 @@
 package converter
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -22,13 +23,23 @@ info:
   version: "1.0.0"
 paths:
   /things:
-    get:
-      operationId: listThings
+    post:
+      operationId: addThing
+      parameters:
+        - name: body
+          in: body
+          schema:
+            type: object
+            additionalProperties:
+              - type: string
+              - type: integer
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/Nested"
+            type: object
+            unevaluatedProperties:
+              - type: string
 definitions:
   Tuple:
     type: array
@@ -140,6 +151,12 @@ func TestConvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 				assertNoIllegalArrays(t, "components.schemas."+name, schema, target.enum)
 			}
 
+			// Inline schemas reach the conversion through their own call sites,
+			// so component roots alone would not prove they were cleaned.
+			for name, schema := range inlineSchemasOAS3(t, doc) {
+				assertNoIllegalArrays(t, name, schema, target.enum)
+			}
+
 			// The counterpart: the guard must not pass by dropping everything.
 			// The legal tuple has to arrive, spelled the way the target spells it.
 			tuple := doc.Components.Schemas["Tuple"]
@@ -148,6 +165,18 @@ func TestConvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 				assert.Len(t, tuple.PrefixItems, 2, "3.1 and later hold the positions in prefixItems")
 			} else {
 				assert.NotNil(t, tuple.Items, "OAS 3.0 keeps items present, even when the positions go")
+			}
+
+			// The interaction this change has to preserve: legal tuple positions
+			// beside a malformed additionalItems. Removing the one must not take
+			// the other with it.
+			trailing := doc.Components.Schemas["TupleWithTrailing"]
+			require.NotNil(t, trailing)
+			assert.Nil(t, trailing.AdditionalItems, "the malformed array goes")
+			if target.enum >= parser.OASVersion310 {
+				assert.Len(t, trailing.PrefixItems, 1, "and the tuple position stays")
+			} else {
+				assert.NotNil(t, trailing.Items, "and items stays present for OAS 3.0")
 			}
 		})
 	}
@@ -161,7 +190,27 @@ const arrayValuedSourceOAS31 = `openapi: 3.1.0
 info:
   title: rakes
   version: "1.0.0"
-paths: {}
+paths:
+  /things:
+    post:
+      operationId: addThing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                - type: string
+                - type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                unevaluatedProperties:
+                  - type: string
 components:
   schemas:
     Tuple:
@@ -202,6 +251,9 @@ func TestDownconvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 	for name, schema := range doc.Definitions {
 		assertNoIllegalArrays(t, "definitions."+name, schema, parser.OASVersion20)
 	}
+	for name, schema := range inlineSchemasOAS2(t, doc) {
+		assertNoIllegalArrays(t, name, schema, parser.OASVersion20)
+	}
 
 	// The counterpart: the guard must not pass by dropping everything. The
 	// legal tuple has to arrive.
@@ -210,4 +262,64 @@ func TestDownconvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 	tuple, ok := tupleSchema.Items.([]*parser.Schema)
 	require.True(t, ok, "the prefixItems tuple should convert, got %T", tupleSchema.Items)
 	assert.Len(t, tuple, 2)
+}
+
+// inlineSchemasOAS3 gathers the schemas that live in operations rather than in
+// components, which reach the conversion through their own call sites.
+func inlineSchemasOAS3(t *testing.T, doc *parser.OAS3Document) map[string]*parser.Schema {
+	t.Helper()
+
+	found := make(map[string]*parser.Schema)
+	for path, item := range doc.Paths {
+		op := item.Post
+		if op == nil {
+			continue
+		}
+		if op.RequestBody != nil {
+			for mt, media := range op.RequestBody.Content {
+				if media.Schema != nil {
+					found[path+".post.requestBody."+mt] = media.Schema
+				}
+			}
+		}
+		if op.Responses != nil {
+			for code, resp := range op.Responses.Codes {
+				for mt, media := range resp.Content {
+					if media.Schema != nil {
+						found[path+".post.responses."+code+"."+mt] = media.Schema
+					}
+				}
+			}
+		}
+	}
+	require.NotEmpty(t, found, "the fixture should carry inline schemas; it does not, so this guard proves nothing")
+	return found
+}
+
+// inlineSchemasOAS2 is the same for an OAS 2.0 document, where a body parameter
+// and a response each carry a schema directly.
+func inlineSchemasOAS2(t *testing.T, doc *parser.OAS2Document) map[string]*parser.Schema {
+	t.Helper()
+
+	found := make(map[string]*parser.Schema)
+	for path, item := range doc.Paths {
+		op := item.Post
+		if op == nil {
+			continue
+		}
+		for i, param := range op.Parameters {
+			if param.Schema != nil {
+				found[fmt.Sprintf("%s.post.parameters[%d].schema", path, i)] = param.Schema
+			}
+		}
+		if op.Responses != nil {
+			for code, resp := range op.Responses.Codes {
+				if resp.Schema != nil {
+					found[path+".post.responses."+code+".schema"] = resp.Schema
+				}
+			}
+		}
+	}
+	require.NotEmpty(t, found, "the fixture should carry inline schemas; it does not, so this guard proves nothing")
+	return found
 }
