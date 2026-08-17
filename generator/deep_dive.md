@@ -331,6 +331,47 @@ The generator automatically creates authentication helpers based on your securit
 | OAuth2 | `With{Name}OAuth2Token(token string)` |
 | OpenID Connect | `With{Name}Token(token string)` |
 
+### Tuple Form Arrays (OAS 2.0)
+
+OAS 2.0 follows JSON Schema draft 4, where `items` may hold an array of schemas: one per array position, rather than one for every element.
+
+```yaml
+definitions:
+  Pair:
+    type: array
+    items:
+      - $ref: "#/definitions/FirstType"
+      - type: integer
+    additionalItems:
+      type: string
+```
+
+Go has no tuple type, so this generates a struct that marshals as the JSON array its schema describes:
+
+```go
+type Pair struct {
+    Item0 *FirstType
+    Item1 *int64
+    Rest  []string // the positions past the end of the tuple
+}
+
+func (t Pair) MarshalJSON() ([]byte, error)
+func (t *Pair) UnmarshalJSON(data []byte) error
+```
+
+| Schema | Generated |
+|--------|-----------|
+| Tuple position | `Item<N>`, always nilable, since an array shorter than the tuple is valid |
+| A `null` position | `any`, because the position is unconstrained |
+| `additionalItems` as a schema | `Rest []T` |
+| `additionalItems` absent or `true` | `Rest []any` |
+| `additionalItems: false` | no `Rest` field; decoding a longer array returns an error |
+| `items: []` | no positions, so a plain `[]any` |
+
+`MarshalJSON` writes positions up to the last one that is set, so a shorter array round-trips unchanged while a gap in the middle is preserved as `null`.
+
+OAS 3.x forbids an array-valued `items`, so a tuple there still generates as `[]any`.
+
 ### File Splitting for Large APIs
 
 See also: [File splitting example](https://pkg.go.dev/github.com/erraggy/oastools/generator#example-package-WithFileSplitting) on pkg.go.dev

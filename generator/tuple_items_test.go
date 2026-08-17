@@ -31,24 +31,41 @@ func TestFileSplitterCollectsTypesUsedFromTupleElements(t *testing.T) {
 		"a type used only from a tuple additionalProperties element was left out")
 }
 
-// TestGeneratedTypesForTupleItems pins what a tuple maps to in generated code.
-// Go has no tuple type, so an array whose items is a tuple becomes []any, and
-// every type its elements reference is generated, including one reachable only
-// from a later element (#507).
-func TestGeneratedTypesForTupleItems(t *testing.T) {
-	spec := `swagger: "2.0"
+// generateTupleTypes runs generation over spec and returns the content of
+// types.go, failing the test if generation reports any issue. An issue here
+// would mean the generated Go source did not parse, since the generator formats
+// every file it writes.
+func generateTupleTypes(t *testing.T, spec string) string {
+	t.Helper()
+
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "tuple.yaml")
+	require.NoError(t, os.WriteFile(tmpFile, []byte(spec), 0600))
+
+	result, err := GenerateWithOptions(
+		WithFilePath(tmpFile),
+		WithPackageName("tuple"),
+	)
+	require.NoError(t, err)
+	require.Empty(t, result.Issues, "generation reported issues")
+
+	typesFile := result.GetFile("types.go")
+	require.NotNil(t, typesFile, "types.go not generated")
+	return string(typesFile.Content)
+}
+
+// TestGeneratedTypeForTuple covers the struct generated for a tuple: one field
+// per position, a Rest field for the positions past the end, and the JSON
+// methods that keep the type marshaling as the array its schema describes.
+//
+// Positions are optional because draft 4 accepts an array shorter than the
+// tuple, so the fields can hold nil.
+func TestGeneratedTypeForTuple(t *testing.T) {
+	content := generateTupleTypes(t, `swagger: "2.0"
 info:
   title: Tuple
   version: "1.0.0"
-paths:
-  /pairs:
-    get:
-      operationId: getPairs
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: "#/definitions/PairList"
+paths: {}
 definitions:
   PairList:
     type: array
@@ -65,25 +82,127 @@ definitions:
     properties:
       b:
         type: string
-`
-	tmpDir := t.TempDir()
-	tmpFile := filepath.Join(tmpDir, "tuple.yaml")
-	require.NoError(t, os.WriteFile(tmpFile, []byte(spec), 0600))
+`)
 
-	result, err := GenerateWithOptions(
-		WithFilePath(tmpFile),
-		WithPackageName("tuple"),
-	)
-	require.NoError(t, err)
+	assert.Contains(t, content, "type PairList struct {")
+	assert.Contains(t, content, "Item0 *FirstType")
+	assert.Contains(t, content, "Item1 *SecondType")
+	assert.Contains(t, content, "Rest  []any")
 
-	typesFile := result.GetFile("types.go")
-	require.NotNil(t, typesFile, "types.go not generated")
-	content := string(typesFile.Content)
+	assert.Contains(t, content, "func (t PairList) MarshalJSON() ([]byte, error)")
+	assert.Contains(t, content, "func (t *PairList) UnmarshalJSON(data []byte) error")
 
-	assert.Contains(t, content, "type PairList []any",
-		"a tuple should generate as []any, since Go has no tuple type")
-	assert.Contains(t, content, "type FirstType struct",
-		"a type referenced by the first tuple element should be generated")
-	assert.Contains(t, content, "type SecondType struct",
-		"a type referenced by a later tuple element should be generated")
+	// The methods need both imports, and the generated file must declare them.
+	assert.Contains(t, content, `"encoding/json"`)
+	assert.Contains(t, content, `"fmt"`)
+
+	// A type reachable only from a later position is still generated.
+	assert.Contains(t, content, "type FirstType struct")
+	assert.Contains(t, content, "type SecondType struct")
+}
+
+// TestGeneratedTypeForTupleAdditionalItems covers what additionalItems does to
+// the generated struct: false forbids the positions past the end so no field
+// holds them, and a schema types the field that does.
+func TestGeneratedTypeForTupleAdditionalItems(t *testing.T) {
+	content := generateTupleTypes(t, `swagger: "2.0"
+info:
+  title: Tuple
+  version: "1.0.0"
+paths: {}
+definitions:
+  Closed:
+    type: array
+    items:
+      - type: string
+      - type: integer
+    additionalItems: false
+  TypedRest:
+    type: array
+    items:
+      - type: string
+    additionalItems:
+      type: integer
+  OpenRest:
+    type: array
+    items:
+      - type: string
+    additionalItems: true
+`)
+
+	// additionalItems false: no Rest field, and decoding a longer array fails
+	// rather than dropping the elements that do not fit.
+	assert.Contains(t, content, "type Closed struct {\n\tItem0 *string\n\tItem1 *int64\n}",
+		"a closed tuple should have no Rest field")
+	assert.Contains(t, content, "additionalItems is false so at most 2 are allowed")
+
+	// A schema valued additionalItems types the Rest field.
+	assert.Contains(t, content, "Rest  []int64")
+
+	// additionalItems true names no schema, so those positions hold anything.
+	assert.Contains(t, content, "type OpenRest struct {")
+}
+
+// TestGeneratedTypeForTupleElementForms covers the element forms a tuple can
+// hold: a nil element leaves its position unconstrained, and an empty tuple
+// names no position at all so the schema stays a plain slice.
+func TestGeneratedTypeForTupleElementForms(t *testing.T) {
+	content := generateTupleTypes(t, `swagger: "2.0"
+info:
+  title: Tuple
+  version: "1.0.0"
+paths: {}
+definitions:
+  Unconstrained:
+    type: array
+    items:
+      - type: string
+      - null
+  Empty:
+    type: array
+    items: []
+`)
+
+	// A nil element constrains nothing, so the position holds any value.
+	assert.Contains(t, content, "type Unconstrained struct {")
+	assert.Contains(t, content, "Item1 any")
+
+	// An empty tuple names no position, so it is not a struct.
+	assert.Contains(t, content, "type Empty []any")
+}
+
+// TestGeneratedTupleMarshalShape covers the shape of the generated MarshalJSON.
+// Positions are written up to the last one that is set, so a single position
+// needs no switch and several positions need one case each, longest first.
+func TestGeneratedTupleMarshalShape(t *testing.T) {
+	content := generateTupleTypes(t, `swagger: "2.0"
+info:
+  title: Tuple
+  version: "1.0.0"
+paths: {}
+definitions:
+  One:
+    type: array
+    items:
+      - type: string
+  Three:
+    type: array
+    items:
+      - type: string
+      - type: integer
+      - type: boolean
+`)
+
+	// One position: an if, since a switch with a single case draws a lint
+	// warning in the generated code.
+	assert.Contains(t, content, "\tif t.Item0 != nil {\n\t\titems = append(items, t.Item0)\n\t}")
+
+	// Three positions: the whole switch is asserted as one block, because the
+	// order is the point. Ascending cases would match t.Item0 first and write
+	// an array that stops there even when a later position is set.
+	assert.Contains(t, content, "\tswitch {\n"+
+		"\tcase t.Item2 != nil:\n\t\titems = append(items, t.Item0, t.Item1, t.Item2)\n"+
+		"\tcase t.Item1 != nil:\n\t\titems = append(items, t.Item0, t.Item1)\n"+
+		"\tcase t.Item0 != nil:\n\t\titems = append(items, t.Item0)\n"+
+		"\t}\n")
 }
