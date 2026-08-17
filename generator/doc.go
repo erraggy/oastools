@@ -212,7 +212,9 @@
 //   - integer → int64 (int32 for format: int32)
 //   - number → float64 (float32 for format: float)
 //   - boolean → bool
-//   - array → []T
+//   - array → []T, except the OAS 2.0 tuple form of items, which types each
+//     position separately and generates a struct with one field per position
+//     plus JSON methods that keep it an array on the wire
 //   - object → struct or map[string]T
 //
 // Optional fields use pointers, and nullable fields in OAS 3.1+ are handled

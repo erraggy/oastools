@@ -715,7 +715,28 @@ The validator includes a minimal JSON Schema implementation that validates reque
 
 - `minItems`, `maxItems`
 - `uniqueItems`
-- `items` (schema for array elements)
+- `items` (schema for array elements, or the OAS 2.0 tuple form: one schema per position)
+- `additionalItems` (constrains the positions past the end of a tuple)
+
+An OAS 2.0 `items` may hold an array of schemas, which types each array position
+separately rather than every element the same way:
+
+```yaml
+definitions:
+  Pair:
+    type: array
+    items:
+      - type: string
+      - type: integer
+    additionalItems: false
+```
+
+Each position is checked against the schema at its own index, and the error path
+names the position, so a mistyped second element reports `body[1]`. An array
+shorter than the tuple is valid, since draft 4 requires no position to be
+present. Positions past the end of the tuple are governed by `additionalItems`:
+a schema checks them, `false` caps the array at the tuple's length, and absent
+or `true` leaves them unconstrained.
 
 **Object Constraints:**
 
