@@ -369,7 +369,7 @@ func (t *Pair) UnmarshalJSON(data []byte) error
 | `items: []` with `additionalItems` as a schema | `[]T`, since no position is named |
 | `items: []` otherwise | `[]any` |
 
-`MarshalJSON` writes positions up to the last one that is set, so a shorter array round-trips unchanged while a gap in the middle is preserved as `null`.
+`MarshalJSON` writes the positions that carry something, so a shorter array round-trips unchanged, while a gap before a set position is written as `null`. Decoding records how many positions the array held, so a position that was present and `null` is written back rather than dropped as absent. A value built in Go carries no such count and writes positions up to the last one that is set.
 
 > **`additionalItems` and `items: []` are draft 4, not OAS 2.0.** The published [Swagger 2.0 JSON Schema](https://github.com/OAI/OpenAPI-Specification/blob/main/_archive_/schemas/v2.0/schema.json) does not list `additionalItems` among a Schema Object's properties and sets `additionalProperties: false`, and it requires the tuple form of `items` to hold at least one schema. The parser accepts both, so the generator handles them rather than producing broken output, but a document using either is not valid OAS 2.0.
 

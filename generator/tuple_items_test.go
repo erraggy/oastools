@@ -132,7 +132,9 @@ definitions:
 
 	// additionalItems false: no Rest field, and decoding a longer array fails
 	// rather than dropping the elements that do not fit.
-	assert.Contains(t, content, "type Closed struct {\n\tItem0 *string\n\tItem1 *int64\n}",
+	// The positions run straight into itemCount, so no Rest field sits between
+	// them.
+	assert.Contains(t, content, "type Closed struct {\n\tItem0 *string\n\tItem1 *int64\n\n\t// itemCount",
 		"a closed tuple should have no Rest field")
 	assert.Contains(t, content, "additionalItems is false so at most 2 are allowed")
 
@@ -180,9 +182,10 @@ definitions:
 	assert.Contains(t, content, "type EmptyTyped []int64")
 }
 
-// TestGeneratedTupleMarshalShape covers the shape of the generated MarshalJSON.
-// Positions are written up to the last one that is set, so a single position
-// needs no switch and several positions need one case each, longest first.
+// TestGeneratedTupleMarshalShape covers the shape of the generated MarshalJSON,
+// which decides how many positions are written. A single position needs no
+// switch, several need one case each longest first, and the count the decoded
+// array held is the floor so a position present as null is written back.
 func TestGeneratedTupleMarshalShape(t *testing.T) {
 	content := generateTupleTypes(t, `swagger: "2.0"
 info:
@@ -202,22 +205,30 @@ definitions:
       - type: boolean
 `)
 
+	// The decoded count is the floor, so a trailing null survives a round trip
+	// instead of being written back as an absent position.
+	assert.Contains(t, content, "\tn := t.itemCount\n")
+	assert.Contains(t, content, "\tt.itemCount = len(raw)\n\tif t.itemCount > 3 {\n\t\tt.itemCount = 3\n\t}")
+
 	// One position: an if, since a switch with a single case draws a lint
 	// warning in the generated code.
-	assert.Contains(t, content, "\tif t.Item0 != nil {\n\t\titems = append(items, t.Item0)\n\t}")
+	assert.Contains(t, content, "\tif t.Item0 != nil && n < 1 {\n\t\tn = 1\n\t}")
 
-	// Rest values sit after the tuple, so an unset position before them is
-	// padded. Without this a set position, an unset one and a non-empty Rest
-	// write the Rest values into the unset position, and decoding the result
-	// puts them in the wrong field.
-	assert.Contains(t, content, "\tif len(t.Rest) > 0 {\n\t\tfor len(items) < 1 {\n\t\t\titems = append(items, nil)\n\t\t}\n\t}")
+	// Rest values sit after the tuple, so every position is written before
+	// them. Otherwise a set position, an unset one and a non-empty Rest put the
+	// Rest values into the unset position.
+	assert.Contains(t, content, "\tif len(t.Rest) > 0 && n < 1 {\n\t\tn = 1\n\t}")
 
 	// Three positions: the whole switch is asserted as one block, because the
 	// order is the point. Ascending cases would match t.Item0 first and write
 	// an array that stops there even when a later position is set.
 	assert.Contains(t, content, "\tswitch {\n"+
-		"\tcase t.Item2 != nil:\n\t\titems = append(items, t.Item0, t.Item1, t.Item2)\n"+
-		"\tcase t.Item1 != nil:\n\t\titems = append(items, t.Item0, t.Item1)\n"+
-		"\tcase t.Item0 != nil:\n\t\titems = append(items, t.Item0)\n"+
+		"\tcase t.Item2 != nil:\n\t\tif n < 3 {\n\t\t\tn = 3\n\t\t}\n"+
+		"\tcase t.Item1 != nil:\n\t\tif n < 2 {\n\t\t\tn = 2\n\t\t}\n"+
+		"\tcase t.Item0 != nil:\n\t\tif n < 1 {\n\t\t\tn = 1\n\t\t}\n"+
 		"\t}\n")
+
+	// The positions are written as one slice cut to n, so the count and the
+	// order stay in one place.
+	assert.Contains(t, content, "items = append(items, []any{t.Item0, t.Item1, t.Item2}[:n]...)")
 }

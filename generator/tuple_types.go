@@ -108,6 +108,12 @@ func writeTupleType(buf *bytes.Buffer, typeName string, tuple []*parser.Schema, 
 	if hasRest {
 		fmt.Fprintf(buf, "\tRest []%s // the positions past the end of the tuple\n", restType)
 	}
+	buf.WriteString("\n")
+	buf.WriteString("\t// itemCount is how many positions the decoded array held. It keeps a\n")
+	buf.WriteString("\t// position that was present and null from being written back as absent.\n")
+	buf.WriteString("\t// A value built in Go leaves it zero and writes positions up to the last\n")
+	buf.WriteString("\t// one that is set.\n")
+	buf.WriteString("\titemCount int\n")
 	buf.WriteString("}\n\n")
 
 	writeTupleMarshalJSON(buf, typeName, tuple, hasRest)
@@ -118,44 +124,54 @@ func writeTupleType(buf *bytes.Buffer, typeName string, tuple []*parser.Schema, 
 // writeTupleMarshalJSON writes the MarshalJSON method for a tuple type.
 func writeTupleMarshalJSON(buf *bytes.Buffer, typeName string, tuple []*parser.Schema, hasRest bool) {
 	fmt.Fprintf(buf, "// MarshalJSON encodes %s as the JSON array its schema describes.\n", typeName)
-	buf.WriteString("// Positions are written up to the last one that is set, since a shorter array\n")
-	buf.WriteString("// is valid but a gap in the middle is not.\n")
+	buf.WriteString("// A shorter array is valid, so only the positions that carry something are\n")
+	buf.WriteString("// written, but a gap in the middle is not, so an unset position before one\n")
+	buf.WriteString("// that is set is written as null.\n")
 	fmt.Fprintf(buf, "func (t %s) MarshalJSON() ([]byte, error) {\n", typeName)
-	fmt.Fprintf(buf, "\titems := make([]any, 0, %d", len(tuple))
-	if hasRest {
-		buf.WriteString("+len(t.Rest)")
-	}
-	buf.WriteString(")\n")
+
+	buf.WriteString("\t// n is how many positions to write: the count the decoded array held, or\n")
+	buf.WriteString("\t// the last position that is set, whichever reaches further.\n")
+	buf.WriteString("\tn := t.itemCount\n")
 
 	// A single position needs no switch, which linters flag when it has one
 	// case, so the two arities are written differently.
 	if len(tuple) == 1 {
-		fmt.Fprintf(buf, "\tif t.%s != nil {\n", tupleFieldName(0))
-		fmt.Fprintf(buf, "\t\titems = append(items, t.%s)\n", tupleFieldName(0))
+		fmt.Fprintf(buf, "\tif t.%s != nil && n < 1 {\n", tupleFieldName(0))
+		buf.WriteString("\t\tn = 1\n")
 		buf.WriteString("\t}\n")
 	} else {
 		buf.WriteString("\tswitch {\n")
 		for i := len(tuple) - 1; i >= 0; i-- {
-			names := make([]string, 0, i+1)
-			for j := 0; j <= i; j++ {
-				names = append(names, "t."+tupleFieldName(j))
-			}
 			fmt.Fprintf(buf, "\tcase t.%s != nil:\n", tupleFieldName(i))
-			fmt.Fprintf(buf, "\t\titems = append(items, %s)\n", strings.Join(names, ", "))
+			fmt.Fprintf(buf, "\t\tif n < %d {\n", i+1)
+			fmt.Fprintf(buf, "\t\t\tn = %d\n", i+1)
+			buf.WriteString("\t\t}\n")
 		}
 		buf.WriteString("\t}\n")
 	}
 
 	if hasRest {
 		// Rest holds the positions after the tuple, so every tuple position has
-		// to be present before they are written. Without the padding, a set
-		// position followed by an unset one and a non-empty Rest would write the
-		// Rest values into the unset position.
-		fmt.Fprintf(buf, "\tif len(t.Rest) > 0 {\n")
-		fmt.Fprintf(buf, "\t\tfor len(items) < %d {\n", len(tuple))
-		buf.WriteString("\t\t\titems = append(items, nil)\n")
-		buf.WriteString("\t\t}\n")
+		// to be written before them. Otherwise a set position followed by an
+		// unset one and a non-empty Rest writes the Rest values into the unset
+		// position.
+		fmt.Fprintf(buf, "\tif len(t.Rest) > 0 && n < %d {\n", len(tuple))
+		fmt.Fprintf(buf, "\t\tn = %d\n", len(tuple))
 		buf.WriteString("\t}\n")
+	}
+
+	names := make([]string, 0, len(tuple))
+	for i := range tuple {
+		names = append(names, "t."+tupleFieldName(i))
+	}
+	fmt.Fprintf(buf, "\titems := make([]any, 0, %d", len(tuple))
+	if hasRest {
+		buf.WriteString("+len(t.Rest)")
+	}
+	buf.WriteString(")\n")
+	fmt.Fprintf(buf, "\titems = append(items, []any{%s}[:n]...)\n", strings.Join(names, ", "))
+
+	if hasRest {
 		buf.WriteString("\tfor _, v := range t.Rest {\n")
 		buf.WriteString("\t\titems = append(items, v)\n")
 		buf.WriteString("\t}\n")
@@ -175,6 +191,13 @@ func writeTupleUnmarshalJSON(buf *bytes.Buffer, typeName string, tuple []*parser
 	buf.WriteString("\t\treturn err\n")
 	buf.WriteString("\t}\n")
 	fmt.Fprintf(buf, "\t*t = %s{}\n", typeName)
+
+	// Record how many positions were present, so one holding null is written
+	// back rather than dropped as absent.
+	buf.WriteString("\tt.itemCount = len(raw)\n")
+	fmt.Fprintf(buf, "\tif t.itemCount > %d {\n", len(tuple))
+	fmt.Fprintf(buf, "\t\tt.itemCount = %d\n", len(tuple))
+	buf.WriteString("\t}\n")
 
 	for i := range tuple {
 		fmt.Fprintf(buf, "\tif len(raw) > %d {\n", i)
