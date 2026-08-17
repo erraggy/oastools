@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/internal/stringutil"
 	"github.com/erraggy/oastools/parser"
 )
@@ -310,7 +311,7 @@ func (v *SchemaValidator) validateArray(arr []any, schema *parser.Schema, path s
 	// schema form is applied per position by the loop above, and both forms are
 	// meaningless without a tuple, since the single-schema form already
 	// constrains every element.
-	if tuple := tupleItemSchemas(schema); tuple != nil && len(arr) > len(tuple) {
+	if tuple, ok := schemautil.SchemaTuple(schema.Items); ok && len(arr) > len(tuple) {
 		if allowed, ok := schema.AdditionalItems.(bool); ok && !allowed {
 			errors = append(errors, ValidationError{
 				Path:     path,

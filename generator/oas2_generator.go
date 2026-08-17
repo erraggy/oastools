@@ -9,6 +9,7 @@ import (
 	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/internal/pathutil"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -282,7 +283,7 @@ func (cg *oas2CodeGenerator) generateSchemaType(name string, schema *parser.Sche
 	case "array":
 		// The tuple form types each position separately, so it generates a
 		// struct that marshals as a JSON array rather than a slice.
-		if tuple := tupleItemSchemas(schema); tuple != nil {
+		if tuple, ok := structTupleSchemas(schema); ok {
 			writeTupleType(&buf, typeName, tuple, schema, cg.schemaToGoType)
 			break
 		}
@@ -290,7 +291,7 @@ func (cg *oas2CodeGenerator) generateSchemaType(name string, schema *parser.Sche
 		itemType := cg.getArrayItemType(schema)
 		// An empty tuple names no position, so additionalItems governs every
 		// element rather than only the ones past the end.
-		if isEmptyTuple(schema) {
+		if tuple, isTuple := schemautil.SchemaTuple(schema.Items); isTuple && len(tuple) == 0 {
 			if restType, ok := tupleRestType(schema, cg.schemaToGoType); ok {
 				itemType = restType
 			}

@@ -8,42 +8,33 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
-// tupleItemSchemas returns the tuple form of an array schema's items, one schema
-// per position. It returns nil for the single-schema and boolean forms, and for
-// an empty tuple, which names no position and so generates as a plain slice.
+// structTupleSchemas returns the tuple positions that generate a struct, and
+// whether one is generated at all.
 //
-// The slice is returned rather than iterated with schemautil.SchemaOrBoolSchemas
-// because a generated field name carries the position, and a nil element means
-// the position is unconstrained rather than absent.
-func tupleItemSchemas(schema *parser.Schema) []*parser.Schema {
-	if schema == nil {
-		return nil
-	}
-	tuple, _ := schema.Items.([]*parser.Schema)
-	if len(tuple) == 0 {
-		return nil
-	}
-	return tuple
-}
-
-// isEmptyTuple reports whether items holds a tuple with no positions in it.
-// The OAS 2.0 schema requires at least one, so this is a document the parser
+// schemautil.SchemaTuple owns what the tuple form is; this decides what to do
+// with it. An empty tuple is the tuple form but names no position, so there is
+// nothing to give a field to and it generates as a plain slice instead. The OAS
+// 2.0 schema requires at least one position, so that is a document the parser
 // tolerates rather than one the version allows.
-func isEmptyTuple(schema *parser.Schema) bool {
+func structTupleSchemas(schema *parser.Schema) ([]*parser.Schema, bool) {
 	if schema == nil {
-		return false
+		return nil, false
 	}
-	tuple, ok := schema.Items.([]*parser.Schema)
-	return ok && len(tuple) == 0
+	tuple, ok := schemautil.SchemaTuple(schema.Items)
+	if !ok || len(tuple) == 0 {
+		return nil, false
+	}
+	return tuple, true
 }
 
 // addTupleImports records the imports the generated tuple methods need. Every
 // tuple type marshals through encoding/json and wraps decode errors with fmt.
 func addTupleImports(schema *parser.Schema, imports map[string]bool) {
-	if tupleItemSchemas(schema) == nil {
+	if _, ok := structTupleSchemas(schema); !ok {
 		return
 	}
 	imports["encoding/json"] = true

@@ -400,6 +400,28 @@ func TestSchemaValidator_ValidateArrayTuple(t *testing.T) {
 			schema: &parser.Schema{Type: "array", Items: []*parser.Schema{}},
 		},
 		{
+			// An empty tuple is still the tuple form: it names no position, so
+			// additionalItems governs every element and false admits none.
+			name: "an empty tuple with additionalItems false admits only an empty array",
+			data: []any{"hello"},
+			schema: &parser.Schema{
+				Type:            "array",
+				Items:           []*parser.Schema{},
+				AdditionalItems: false,
+			},
+			wantPaths: []string{"path"},
+		},
+		{
+			name: "an empty tuple with a schema valued additionalItems checks every element",
+			data: []any{"hello", 42},
+			schema: &parser.Schema{
+				Type:            "array",
+				Items:           []*parser.Schema{},
+				AdditionalItems: &parser.Schema{Type: "string"},
+			},
+			wantPaths: []string{"path[1]"},
+		},
+		{
 			name:   "additionalItems false caps the array at the tuple length",
 			data:   []any{"hello", 42, "extra"},
 			schema: &parser.Schema{Type: "array", Items: stringThenInteger.Items, AdditionalItems: false},

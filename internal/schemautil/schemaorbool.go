@@ -54,3 +54,21 @@ func IndexSuffix(i int) string {
 	}
 	return "[" + strconv.Itoa(i) + "]"
 }
+
+// SchemaTuple returns the OAS 2.0 tuple form held by a schema-or-bool field,
+// one schema per position, and whether the field holds that form at all.
+//
+// An empty tuple is still the tuple form. Draft 4 gives it a meaning: it names
+// no position, so additionalItems governs every element and additionalItems
+// false admits only an empty array. Callers must therefore tell it apart from a
+// field holding a single schema or a bool, which is what the second return
+// value is for. Testing the slice's length cannot do that.
+//
+// The slice is returned rather than iterated as [SchemaOrBoolSchemas] does,
+// because a caller mapping an array position to the schema constraining it
+// needs indexed access, and a nil element means that position is unconstrained
+// rather than absent.
+func SchemaTuple(field any) ([]*parser.Schema, bool) {
+	tuple, ok := field.([]*parser.Schema)
+	return tuple, ok
+}

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -527,7 +528,7 @@ func isObjectSchema(schema *parser.Schema) bool {
 
 // getItemsSchema returns the single-schema form of an array schema's items,
 // which constrains every element. It returns nil for the OAS 2.0 tuple form and
-// for the boolean form; see [tupleItemSchemas] and [itemSchemaAt].
+// for the boolean form; see [schemautil.SchemaTuple] and [itemSchemaAt].
 func getItemsSchema(schema *parser.Schema) *parser.Schema {
 	if schema == nil {
 		return nil
@@ -538,27 +539,14 @@ func getItemsSchema(schema *parser.Schema) *parser.Schema {
 	return nil
 }
 
-// tupleItemSchemas returns the OAS 2.0 tuple form of an array schema's items,
-// where each element constrains the array position at its own index. It returns
-// nil for the single-schema and boolean forms.
-//
-// The slice is returned rather than iterated with schemautil.SchemaOrBoolSchemas
-// because callers here need random access by position: given an array element at
-// index i they must find the schema at that same index, and a nil element means
-// the position is unconstrained rather than absent.
-func tupleItemSchemas(schema *parser.Schema) []*parser.Schema {
-	if schema == nil {
-		return nil
-	}
-	tuple, _ := schema.Items.([]*parser.Schema)
-	return tuple
-}
-
 // itemSchemaAt returns the schema constraining the array element at index i, or
 // nil when that position is unconstrained. Positions past the end of a tuple are
 // constrained by additionalItems.
 func itemSchemaAt(schema *parser.Schema, i int) *parser.Schema {
-	if tuple := tupleItemSchemas(schema); tuple != nil {
+	if schema == nil {
+		return nil
+	}
+	if tuple, ok := schemautil.SchemaTuple(schema.Items); ok {
 		if i < len(tuple) {
 			return tuple[i]
 		}
