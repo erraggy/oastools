@@ -141,6 +141,14 @@ func TestSchemaTuple(t *testing.T) {
 			wantOK: true,
 		},
 		{
+			// A nil slice of the tuple type is the tuple form too, since the
+			// dynamic type is what identifies it. A schema built in Go can hold
+			// one, where a decoded document holds an empty slice instead.
+			name:   "a typed nil slice is the tuple form",
+			field:  []*parser.Schema(nil),
+			wantOK: true,
+		},
+		{
 			name:      "a nil element keeps its position",
 			field:     []*parser.Schema{first, nil, {Type: "integer"}},
 			wantOK:    true,
