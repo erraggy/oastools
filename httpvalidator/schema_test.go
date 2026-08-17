@@ -325,6 +325,139 @@ func TestSchemaValidator_ValidateArray(t *testing.T) {
 	}
 }
 
+// TestSchemaValidator_ValidateArrayTuple covers the OAS 2.0 tuple form of items,
+// where the schema at each index constrains the array element at that position.
+// The error paths are asserted rather than just the error count, because a walk
+// that loses a position still reports the right number of errors (#506).
+func TestSchemaValidator_ValidateArrayTuple(t *testing.T) {
+	v := NewSchemaValidator()
+
+	stringThenInteger := &parser.Schema{
+		Type: "array",
+		Items: []*parser.Schema{
+			{Type: "string"},
+			{Type: "integer"},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		data      []any
+		schema    *parser.Schema
+		wantPaths []string
+	}{
+		{
+			name:   "every position matches its schema",
+			data:   []any{"hello", 42},
+			schema: stringThenInteger,
+		},
+		{
+			name:      "second position holds the wrong type",
+			data:      []any{"hello", "not-an-integer"},
+			schema:    stringThenInteger,
+			wantPaths: []string{"path[1]"},
+		},
+		{
+			name:      "first position holds the wrong type",
+			data:      []any{42, 7},
+			schema:    stringThenInteger,
+			wantPaths: []string{"path[0]"},
+		},
+		{
+			name:      "both positions hold the wrong type",
+			data:      []any{1, "two"},
+			schema:    stringThenInteger,
+			wantPaths: []string{"path[0]", "path[1]"},
+		},
+		{
+			name:   "positions past the end of the tuple are unconstrained",
+			data:   []any{"hello", 42, true, "anything"},
+			schema: stringThenInteger,
+		},
+		{
+			name:   "fewer elements than the tuple has schemas",
+			data:   []any{"hello"},
+			schema: stringThenInteger,
+		},
+		{
+			// A nil element is what YAML yields for "- null". It leaves its own
+			// position unconstrained and the positions after it unchanged.
+			name: "a nil element leaves later positions where they are",
+			data: []any{"hello", true, "not-an-integer"},
+			schema: &parser.Schema{
+				Type: "array",
+				Items: []*parser.Schema{
+					{Type: "string"},
+					nil,
+					{Type: "integer"},
+				},
+			},
+			wantPaths: []string{"path[2]"},
+		},
+		{
+			name:   "an empty tuple constrains nothing",
+			data:   []any{"hello", 42},
+			schema: &parser.Schema{Type: "array", Items: []*parser.Schema{}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := v.Validate(tt.data, tt.schema, "path")
+
+			paths := make([]string, 0, len(errors))
+			for _, e := range errors {
+				paths = append(paths, e.Path)
+			}
+			assert.Equal(t, tt.wantPaths, nonEmpty(paths), "errors: %v", errors)
+		})
+	}
+}
+
+// TestSchemaValidator_ValidateArrayTupleFromYAML pins the tuple form as the
+// parser actually produces it, so the Go literals used by the table above are
+// not the only shape under test.
+func TestSchemaValidator_ValidateArrayTupleFromYAML(t *testing.T) {
+	spec := []byte(`swagger: "2.0"
+info:
+  title: Tuple
+  version: "1.0.0"
+paths: {}
+definitions:
+  Pair:
+    type: array
+    items:
+      - type: string
+      - type: integer
+`)
+
+	result, err := parser.ParseWithOptions(parser.WithBytes(spec))
+	require.NoError(t, err)
+	doc, ok := result.OAS2Document()
+	require.True(t, ok, "expected an OAS 2.0 document")
+
+	schema := doc.Definitions["Pair"]
+	require.IsType(t, []*parser.Schema{}, schema.Items, "items should decode to the tuple form")
+
+	v := NewSchemaValidator()
+
+	errors := v.Validate([]any{"hello", 42}, schema, "body")
+	assert.Empty(t, errors, "a matching tuple should validate")
+
+	errors = v.Validate([]any{"hello", "not-an-integer"}, schema, "body")
+	require.Len(t, errors, 1)
+	assert.Equal(t, "body[1]", errors[0].Path)
+}
+
+// nonEmpty normalizes an empty slice to nil so a table case can leave its
+// expectation unset.
+func nonEmpty(paths []string) []string {
+	if len(paths) == 0 {
+		return nil
+	}
+	return paths
+}
+
 func TestSchemaValidator_ValidateObject(t *testing.T) {
 	v := NewSchemaValidator()
 

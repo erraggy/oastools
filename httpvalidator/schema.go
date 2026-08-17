@@ -294,8 +294,18 @@ func (v *SchemaValidator) validateArray(arr []any, schema *parser.Schema, path s
 		})
 	}
 
-	// items schema
-	if itemSchema := getItemsSchema(schema); itemSchema != nil {
+	// items schema: the OAS 2.0 tuple form constrains each position by the
+	// schema at its own index and leaves positions past the end of the tuple
+	// unconstrained, while the single-schema form constrains every element.
+	if tuple := tupleItemSchemas(schema); tuple != nil {
+		for i, item := range arr {
+			if i >= len(tuple) || tuple[i] == nil {
+				continue
+			}
+			itemPath := fmt.Sprintf("%s[%d]", path, i)
+			errors = append(errors, v.Validate(item, tuple[i], itemPath)...)
+		}
+	} else if itemSchema := getItemsSchema(schema); itemSchema != nil {
 		for i, item := range arr {
 			itemPath := fmt.Sprintf("%s[%d]", path, i)
 			errors = append(errors, v.Validate(item, itemSchema, itemPath)...)

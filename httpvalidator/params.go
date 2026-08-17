@@ -180,7 +180,7 @@ func (d *ParamDeserializer) deserializeSimple(value string, schema *parser.Schem
 	if isArraySchema(schema) {
 		// Split by comma
 		parts := strings.Split(value, ",")
-		return d.coerceArray(parts, getItemsSchema(schema))
+		return d.coerceArray(parts, schema)
 	}
 
 	if isObjectSchema(schema) {
@@ -237,7 +237,7 @@ func (d *ParamDeserializer) deserializeLabel(value string, schema *parser.Schema
 			// explode=false: .a,b,c
 			parts = strings.Split(value, ",")
 		}
-		return d.coerceArray(parts, getItemsSchema(schema))
+		return d.coerceArray(parts, schema)
 	}
 
 	if isObjectSchema(schema) {
@@ -320,14 +320,14 @@ func (d *ParamDeserializer) deserializeMatrixArray(value, paramName string, sche
 				values = append(values, part[len(prefix):])
 			}
 		}
-		return d.coerceArray(values, getItemsSchema(schema))
+		return d.coerceArray(values, schema)
 	}
 
 	// explode=false: ;id=3,4,5
 	prefix := paramName + "="
 	if strings.HasPrefix(value, prefix) {
 		parts := strings.Split(value[len(prefix):], ",")
-		return d.coerceArray(parts, getItemsSchema(schema))
+		return d.coerceArray(parts, schema)
 	}
 	return nil
 }
@@ -377,14 +377,14 @@ func (d *ParamDeserializer) deserializeForm(values []string, schema *parser.Sche
 	if isArraySchema(schema) {
 		if explode {
 			// explode=true: multiple values (id=3&id=4&id=5)
-			return d.coerceArray(values, getItemsSchema(schema))
+			return d.coerceArray(values, schema)
 		}
 		// explode=false: comma-separated in single value (id=3,4,5)
 		if len(values) == 1 {
 			parts := strings.Split(values[0], ",")
-			return d.coerceArray(parts, getItemsSchema(schema))
+			return d.coerceArray(parts, schema)
 		}
-		return d.coerceArray(values, getItemsSchema(schema))
+		return d.coerceArray(values, schema)
 	}
 
 	if isObjectSchema(schema) {
@@ -423,7 +423,7 @@ func (d *ParamDeserializer) deserializeDelimited(values []string, delimiter stri
 	parts := strings.Split(joined, delimiter)
 
 	if isArraySchema(schema) {
-		return d.coerceArray(parts, getItemsSchema(schema))
+		return d.coerceArray(parts, schema)
 	}
 
 	if len(parts) == 1 {
@@ -462,10 +462,13 @@ func (d *ParamDeserializer) coerceValue(value string, schema *parser.Schema) any
 }
 
 // coerceArray converts string values to a slice of appropriately typed values.
-func (d *ParamDeserializer) coerceArray(values []string, itemSchema *parser.Schema) []any {
+// schema is the array schema: each value is coerced with the schema constraining
+// its own position, so a tuple coerces "1" to a number only where the tuple says
+// that position is numeric.
+func (d *ParamDeserializer) coerceArray(values []string, schema *parser.Schema) []any {
 	result := make([]any, len(values))
 	for i, v := range values {
-		result[i] = d.coerceValue(v, itemSchema)
+		result[i] = d.coerceValue(v, itemSchemaAt(schema, i))
 	}
 	return result
 }
@@ -522,8 +525,9 @@ func isObjectSchema(schema *parser.Schema) bool {
 	return getSchemaType(schema) == "object"
 }
 
-// getItemsSchema returns the items schema for an array schema.
-// Schema.Items is `any` in OAS 3.1+ (can be *Schema or bool).
+// getItemsSchema returns the single-schema form of an array schema's items,
+// which constrains every element. It returns nil for the OAS 2.0 tuple form and
+// for the boolean form; see [tupleItemSchemas] and [itemSchemaAt].
 func getItemsSchema(schema *parser.Schema) *parser.Schema {
 	if schema == nil {
 		return nil
@@ -532,4 +536,33 @@ func getItemsSchema(schema *parser.Schema) *parser.Schema {
 		return items
 	}
 	return nil
+}
+
+// tupleItemSchemas returns the OAS 2.0 tuple form of an array schema's items,
+// where each element constrains the array position at its own index. It returns
+// nil for the single-schema and boolean forms.
+//
+// The slice is returned rather than iterated with schemautil.SchemaOrBoolSchemas
+// because callers here need random access by position: given an array element at
+// index i they must find the schema at that same index, and a nil element means
+// the position is unconstrained rather than absent.
+func tupleItemSchemas(schema *parser.Schema) []*parser.Schema {
+	if schema == nil {
+		return nil
+	}
+	tuple, _ := schema.Items.([]*parser.Schema)
+	return tuple
+}
+
+// itemSchemaAt returns the schema constraining the array element at index i, or
+// nil when that position is unconstrained. Positions past the end of a tuple are
+// unconstrained.
+func itemSchemaAt(schema *parser.Schema, i int) *parser.Schema {
+	if tuple := tupleItemSchemas(schema); tuple != nil {
+		if i < len(tuple) {
+			return tuple[i]
+		}
+		return nil
+	}
+	return getItemsSchema(schema)
 }
