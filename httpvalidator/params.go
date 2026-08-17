@@ -556,13 +556,26 @@ func tupleItemSchemas(schema *parser.Schema) []*parser.Schema {
 
 // itemSchemaAt returns the schema constraining the array element at index i, or
 // nil when that position is unconstrained. Positions past the end of a tuple are
-// unconstrained.
+// constrained by additionalItems.
 func itemSchemaAt(schema *parser.Schema, i int) *parser.Schema {
 	if tuple := tupleItemSchemas(schema); tuple != nil {
 		if i < len(tuple) {
 			return tuple[i]
 		}
-		return nil
+		return additionalItemsSchema(schema)
 	}
 	return getItemsSchema(schema)
+}
+
+// additionalItemsSchema returns the schema constraining the positions past the
+// end of a tuple. It returns nil when additionalItems is absent, boolean, or an
+// array, none of which name a schema for those positions.
+func additionalItemsSchema(schema *parser.Schema) *parser.Schema {
+	if schema == nil {
+		return nil
+	}
+	if additional, ok := schema.AdditionalItems.(*parser.Schema); ok {
+		return additional
+	}
+	return nil
 }

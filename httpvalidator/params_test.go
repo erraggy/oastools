@@ -918,6 +918,16 @@ func TestCoerceArrayTupleItems(t *testing.T) {
 	})
 
 	// The first "42" stays a string because that position is typed string, and
-	// the trailing "42" stays a string because the tuple does not reach it.
+	// the trailing "42" stays a string because the tuple does not reach it and
+	// no additionalItems schema covers it.
 	assert.Equal(t, []any{"42", int64(42), true, "42"}, result)
+
+	// additionalItems covers the positions past the end of the tuple.
+	schema.AdditionalItems = &parser.Schema{Type: "integer"}
+	result = d.DeserializePathParam("42,42,true,42", &parser.Parameter{
+		Name:   "tuple",
+		In:     "path",
+		Schema: schema,
+	})
+	assert.Equal(t, []any{"42", int64(42), true, int64(42)}, result)
 }

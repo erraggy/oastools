@@ -399,6 +399,65 @@ func TestSchemaValidator_ValidateArrayTuple(t *testing.T) {
 			data:   []any{"hello", 42},
 			schema: &parser.Schema{Type: "array", Items: []*parser.Schema{}},
 		},
+		{
+			name:   "additionalItems false caps the array at the tuple length",
+			data:   []any{"hello", 42, "extra"},
+			schema: &parser.Schema{Type: "array", Items: stringThenInteger.Items, AdditionalItems: false},
+			// The cap is reported against the array, not against an element.
+			wantPaths: []string{"path"},
+		},
+		{
+			name:   "additionalItems false allows an array the tuple covers",
+			data:   []any{"hello", 42},
+			schema: &parser.Schema{Type: "array", Items: stringThenInteger.Items, AdditionalItems: false},
+		},
+		{
+			name:   "additionalItems true leaves later positions unconstrained",
+			data:   []any{"hello", 42, "extra"},
+			schema: &parser.Schema{Type: "array", Items: stringThenInteger.Items, AdditionalItems: true},
+		},
+		{
+			name: "additionalItems schema constrains later positions",
+			data: []any{"hello", 42, "not-a-boolean"},
+			schema: &parser.Schema{
+				Type:            "array",
+				Items:           stringThenInteger.Items,
+				AdditionalItems: &parser.Schema{Type: "boolean"},
+			},
+			wantPaths: []string{"path[2]"},
+		},
+		{
+			name: "additionalItems schema accepts a matching later position",
+			data: []any{"hello", 42, true},
+			schema: &parser.Schema{
+				Type:            "array",
+				Items:           stringThenInteger.Items,
+				AdditionalItems: &parser.Schema{Type: "boolean"},
+			},
+		},
+		{
+			// An array is not a legal value for additionalItems in any dialect,
+			// but every decode path can produce one, so it must not constrain
+			// anything rather than being read as the schema form.
+			name: "an array valued additionalItems constrains nothing",
+			data: []any{"hello", 42, "extra"},
+			schema: &parser.Schema{
+				Type:            "array",
+				Items:           stringThenInteger.Items,
+				AdditionalItems: []*parser.Schema{{Type: "boolean"}},
+			},
+		},
+		{
+			// additionalItems has no meaning without a tuple: the single-schema
+			// form already constrains every element.
+			name: "additionalItems false is inert for the single schema form",
+			data: []any{"a", "b", "c"},
+			schema: &parser.Schema{
+				Type:            "array",
+				Items:           &parser.Schema{Type: "string"},
+				AdditionalItems: false,
+			},
+		},
 	}
 
 	for _, tt := range tests {
