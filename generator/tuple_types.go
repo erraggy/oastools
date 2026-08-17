@@ -29,6 +29,17 @@ func tupleItemSchemas(schema *parser.Schema) []*parser.Schema {
 	return tuple
 }
 
+// isEmptyTuple reports whether items holds a tuple with no positions in it.
+// The OAS 2.0 schema requires at least one, so this is a document the parser
+// tolerates rather than one the version allows.
+func isEmptyTuple(schema *parser.Schema) bool {
+	if schema == nil {
+		return false
+	}
+	tuple, ok := schema.Items.([]*parser.Schema)
+	return ok && len(tuple) == 0
+}
+
 // addTupleImports records the imports the generated tuple methods need. Every
 // tuple type marshals through encoding/json and wraps decode errors with fmt.
 func addTupleImports(schema *parser.Schema, imports map[string]bool) {
@@ -136,6 +147,15 @@ func writeTupleMarshalJSON(buf *bytes.Buffer, typeName string, tuple []*parser.S
 	}
 
 	if hasRest {
+		// Rest holds the positions after the tuple, so every tuple position has
+		// to be present before they are written. Without the padding, a set
+		// position followed by an unset one and a non-empty Rest would write the
+		// Rest values into the unset position.
+		fmt.Fprintf(buf, "\tif len(t.Rest) > 0 {\n")
+		fmt.Fprintf(buf, "\t\tfor len(items) < %d {\n", len(tuple))
+		buf.WriteString("\t\t\titems = append(items, nil)\n")
+		buf.WriteString("\t\t}\n")
+		buf.WriteString("\t}\n")
 		buf.WriteString("\tfor _, v := range t.Rest {\n")
 		buf.WriteString("\t\titems = append(items, v)\n")
 		buf.WriteString("\t}\n")

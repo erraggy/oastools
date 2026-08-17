@@ -288,6 +288,13 @@ func (cg *oas2CodeGenerator) generateSchemaType(name string, schema *parser.Sche
 		}
 		// Generate type alias for array
 		itemType := cg.getArrayItemType(schema)
+		// An empty tuple names no position, so additionalItems governs every
+		// element rather than only the ones past the end.
+		if isEmptyTuple(schema) {
+			if restType, ok := tupleRestType(schema, cg.schemaToGoType); ok {
+				itemType = restType
+			}
+		}
 		fmt.Fprintf(&buf, "type %s []%s\n", typeName, itemType)
 
 	case "string":

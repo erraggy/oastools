@@ -333,7 +333,7 @@ The generator automatically creates authentication helpers based on your securit
 
 ### Tuple Form Arrays (OAS 2.0)
 
-OAS 2.0 follows JSON Schema draft 4, where `items` may hold an array of schemas: one per array position, rather than one for every element.
+OAS 2.0 Schema Objects are a subset of JSON Schema draft 4, and draft 4 lets `items` hold an array of schemas: one per array position, rather than one for every element. The tuple form is part of the 2.0 subset, and it is the only OAS version that allows it. OAS 3.0 requires `items` to be an object, and OAS 3.1 spells a tuple as `prefixItems`.
 
 ```yaml
 definitions:
@@ -366,11 +366,14 @@ func (t *Pair) UnmarshalJSON(data []byte) error
 | `additionalItems` as a schema | `Rest []T` |
 | `additionalItems` absent or `true` | `Rest []any` |
 | `additionalItems: false` | no `Rest` field; decoding a longer array returns an error |
-| `items: []` | no positions, so a plain `[]any` |
+| `items: []` with `additionalItems` as a schema | `[]T`, since no position is named |
+| `items: []` otherwise | `[]any` |
 
 `MarshalJSON` writes positions up to the last one that is set, so a shorter array round-trips unchanged while a gap in the middle is preserved as `null`.
 
-OAS 3.x forbids an array-valued `items`, so a tuple there still generates as `[]any`.
+> **`additionalItems` and `items: []` are draft 4, not OAS 2.0.** The published [Swagger 2.0 JSON Schema](https://github.com/OAI/OpenAPI-Specification/blob/main/_archive_/schemas/v2.0/schema.json) does not list `additionalItems` among a Schema Object's properties and sets `additionalProperties: false`, and it requires the tuple form of `items` to hold at least one schema. The parser accepts both, so the generator handles them rather than producing broken output, but a document using either is not valid OAS 2.0.
+
+OAS 3.0 forbids an array-valued `items`, so a tuple there still generates as `[]any`. OAS 3.1 spells a tuple as `prefixItems`, which the generator does not yet read.
 
 ### File Splitting for Large APIs
 

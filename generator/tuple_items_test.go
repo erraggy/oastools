@@ -161,6 +161,11 @@ definitions:
   Empty:
     type: array
     items: []
+  EmptyTyped:
+    type: array
+    items: []
+    additionalItems:
+      type: integer
 `)
 
 	// A nil element constrains nothing, so the position holds any value.
@@ -169,6 +174,10 @@ definitions:
 
 	// An empty tuple names no position, so it is not a struct.
 	assert.Contains(t, content, "type Empty []any")
+
+	// With no position named, additionalItems governs every element rather than
+	// only the ones past the end.
+	assert.Contains(t, content, "type EmptyTyped []int64")
 }
 
 // TestGeneratedTupleMarshalShape covers the shape of the generated MarshalJSON.
@@ -196,6 +205,12 @@ definitions:
 	// One position: an if, since a switch with a single case draws a lint
 	// warning in the generated code.
 	assert.Contains(t, content, "\tif t.Item0 != nil {\n\t\titems = append(items, t.Item0)\n\t}")
+
+	// Rest values sit after the tuple, so an unset position before them is
+	// padded. Without this a set position, an unset one and a non-empty Rest
+	// write the Rest values into the unset position, and decoding the result
+	// puts them in the wrong field.
+	assert.Contains(t, content, "\tif len(t.Rest) > 0 {\n\t\tfor len(items) < 1 {\n\t\t\titems = append(items, nil)\n\t\t}\n\t}")
 
 	// Three positions: the whole switch is asserted as one block, because the
 	// order is the point. Ascending cases would match t.Item0 first and write
