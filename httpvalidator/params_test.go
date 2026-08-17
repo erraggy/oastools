@@ -895,3 +895,39 @@ func TestFormObjectExplodeMultipleValues(t *testing.T) {
 	expected := []string{"a", "b"}
 	assert.Equal(t, expected, result)
 }
+
+// TestCoerceArrayTupleItems covers the OAS 2.0 tuple form of items in parameter
+// deserialization: each value is coerced with the schema at its own position,
+// and positions past the end of the tuple stay as strings (#506).
+func TestCoerceArrayTupleItems(t *testing.T) {
+	d := NewParamDeserializer()
+
+	schema := &parser.Schema{
+		Type: "array",
+		Items: []*parser.Schema{
+			{Type: "string"},
+			{Type: "integer"},
+			{Type: "boolean"},
+		},
+	}
+
+	result := d.DeserializePathParam("42,42,true,42", &parser.Parameter{
+		Name:   "tuple",
+		In:     "path",
+		Schema: schema,
+	})
+
+	// The first "42" stays a string because that position is typed string, and
+	// the trailing "42" stays a string because the tuple does not reach it and
+	// no additionalItems schema covers it.
+	assert.Equal(t, []any{"42", int64(42), true, "42"}, result)
+
+	// additionalItems covers the positions past the end of the tuple.
+	schema.AdditionalItems = &parser.Schema{Type: "integer"}
+	result = d.DeserializePathParam("42,42,true,42", &parser.Parameter{
+		Name:   "tuple",
+		In:     "path",
+		Schema: schema,
+	})
+	assert.Equal(t, []any{"42", int64(42), true, int64(42)}, result)
+}

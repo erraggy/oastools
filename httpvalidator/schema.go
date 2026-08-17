@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/internal/stringutil"
 	"github.com/erraggy/oastools/parser"
 )
@@ -294,11 +295,29 @@ func (v *SchemaValidator) validateArray(arr []any, schema *parser.Schema, path s
 		})
 	}
 
-	// items schema
-	if itemSchema := getItemsSchema(schema); itemSchema != nil {
-		for i, item := range arr {
-			itemPath := fmt.Sprintf("%s[%d]", path, i)
-			errors = append(errors, v.Validate(item, itemSchema, itemPath)...)
+	// items schema: the single-schema form constrains every element, while the
+	// OAS 2.0 tuple form constrains each position by the schema at its own
+	// index and hands the positions past its end to additionalItems.
+	for i, item := range arr {
+		itemSchema := itemSchemaAt(schema, i)
+		if itemSchema == nil {
+			continue
+		}
+		itemPath := fmt.Sprintf("%s[%d]", path, i)
+		errors = append(errors, v.Validate(item, itemSchema, itemPath)...)
+	}
+
+	// additionalItems: false caps the array at the length of the tuple. The
+	// schema form is applied per position by the loop above, and both forms are
+	// meaningless without a tuple, since the single-schema form already
+	// constrains every element.
+	if tuple, ok := schemautil.SchemaTuple(schema.Items); ok && len(arr) > len(tuple) {
+		if allowed, ok := schema.AdditionalItems.(bool); ok && !allowed {
+			errors = append(errors, ValidationError{
+				Path:     path,
+				Message:  fmt.Sprintf("array has %d items, additionalItems is false so the maximum is %d", len(arr), len(tuple)),
+				Severity: SeverityError,
+			})
 		}
 	}
 

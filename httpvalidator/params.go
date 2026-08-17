@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -180,7 +181,7 @@ func (d *ParamDeserializer) deserializeSimple(value string, schema *parser.Schem
 	if isArraySchema(schema) {
 		// Split by comma
 		parts := strings.Split(value, ",")
-		return d.coerceArray(parts, getItemsSchema(schema))
+		return d.coerceArray(parts, schema)
 	}
 
 	if isObjectSchema(schema) {
@@ -237,7 +238,7 @@ func (d *ParamDeserializer) deserializeLabel(value string, schema *parser.Schema
 			// explode=false: .a,b,c
 			parts = strings.Split(value, ",")
 		}
-		return d.coerceArray(parts, getItemsSchema(schema))
+		return d.coerceArray(parts, schema)
 	}
 
 	if isObjectSchema(schema) {
@@ -320,14 +321,14 @@ func (d *ParamDeserializer) deserializeMatrixArray(value, paramName string, sche
 				values = append(values, part[len(prefix):])
 			}
 		}
-		return d.coerceArray(values, getItemsSchema(schema))
+		return d.coerceArray(values, schema)
 	}
 
 	// explode=false: ;id=3,4,5
 	prefix := paramName + "="
 	if strings.HasPrefix(value, prefix) {
 		parts := strings.Split(value[len(prefix):], ",")
-		return d.coerceArray(parts, getItemsSchema(schema))
+		return d.coerceArray(parts, schema)
 	}
 	return nil
 }
@@ -377,14 +378,14 @@ func (d *ParamDeserializer) deserializeForm(values []string, schema *parser.Sche
 	if isArraySchema(schema) {
 		if explode {
 			// explode=true: multiple values (id=3&id=4&id=5)
-			return d.coerceArray(values, getItemsSchema(schema))
+			return d.coerceArray(values, schema)
 		}
 		// explode=false: comma-separated in single value (id=3,4,5)
 		if len(values) == 1 {
 			parts := strings.Split(values[0], ",")
-			return d.coerceArray(parts, getItemsSchema(schema))
+			return d.coerceArray(parts, schema)
 		}
-		return d.coerceArray(values, getItemsSchema(schema))
+		return d.coerceArray(values, schema)
 	}
 
 	if isObjectSchema(schema) {
@@ -423,7 +424,7 @@ func (d *ParamDeserializer) deserializeDelimited(values []string, delimiter stri
 	parts := strings.Split(joined, delimiter)
 
 	if isArraySchema(schema) {
-		return d.coerceArray(parts, getItemsSchema(schema))
+		return d.coerceArray(parts, schema)
 	}
 
 	if len(parts) == 1 {
@@ -462,10 +463,13 @@ func (d *ParamDeserializer) coerceValue(value string, schema *parser.Schema) any
 }
 
 // coerceArray converts string values to a slice of appropriately typed values.
-func (d *ParamDeserializer) coerceArray(values []string, itemSchema *parser.Schema) []any {
+// schema is the array schema: each value is coerced with the schema constraining
+// its own position, so a tuple coerces "1" to a number only where the tuple says
+// that position is numeric.
+func (d *ParamDeserializer) coerceArray(values []string, schema *parser.Schema) []any {
 	result := make([]any, len(values))
 	for i, v := range values {
-		result[i] = d.coerceValue(v, itemSchema)
+		result[i] = d.coerceValue(v, itemSchemaAt(schema, i))
 	}
 	return result
 }
@@ -522,14 +526,44 @@ func isObjectSchema(schema *parser.Schema) bool {
 	return getSchemaType(schema) == "object"
 }
 
-// getItemsSchema returns the items schema for an array schema.
-// Schema.Items is `any` in OAS 3.1+ (can be *Schema or bool).
+// getItemsSchema returns the single-schema form of an array schema's items,
+// which constrains every element. It returns nil for the OAS 2.0 tuple form and
+// for the boolean form; see [schemautil.SchemaTuple] and [itemSchemaAt].
 func getItemsSchema(schema *parser.Schema) *parser.Schema {
 	if schema == nil {
 		return nil
 	}
 	if items, ok := schema.Items.(*parser.Schema); ok {
 		return items
+	}
+	return nil
+}
+
+// itemSchemaAt returns the schema constraining the array element at index i, or
+// nil when that position is unconstrained. Positions past the end of a tuple are
+// constrained by additionalItems.
+func itemSchemaAt(schema *parser.Schema, i int) *parser.Schema {
+	if schema == nil {
+		return nil
+	}
+	if tuple, ok := schemautil.SchemaTuple(schema.Items); ok {
+		if i < len(tuple) {
+			return tuple[i]
+		}
+		return additionalItemsSchema(schema)
+	}
+	return getItemsSchema(schema)
+}
+
+// additionalItemsSchema returns the schema constraining the positions past the
+// end of a tuple. It returns nil when additionalItems is absent, boolean, or an
+// array, none of which name a schema for those positions.
+func additionalItemsSchema(schema *parser.Schema) *parser.Schema {
+	if schema == nil {
+		return nil
+	}
+	if additional, ok := schema.AdditionalItems.(*parser.Schema); ok {
+		return additional
 	}
 	return nil
 }

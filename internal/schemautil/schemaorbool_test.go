@@ -5,6 +5,7 @@ import (
 
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSchemaOrBoolSchemas(t *testing.T) {
@@ -113,4 +114,75 @@ func TestHashDistinguishesTupleElements(t *testing.T) {
 		"tuples of different length hashed the same")
 	assert.Equal(t, h.Hash(tuple(str(), ref("PetDetails"))), h.Hash(tuple(str(), ref("PetDetails"))),
 		"two equal tuples hashed differently")
+}
+
+// TestSchemaTuple covers the accessor that tells the OAS 2.0 tuple form apart
+// from the other shapes a schema-or-bool field can hold. The empty tuple is the
+// case with one meaning and two plausible readings: it is the tuple form, and it
+// names no position, so the ok result carries what the length cannot.
+func TestSchemaTuple(t *testing.T) {
+	first := &parser.Schema{Type: "string"}
+
+	tests := []struct {
+		name      string
+		field     any
+		wantOK    bool
+		wantCount int
+	}{
+		{
+			name:      "tuple with positions",
+			field:     []*parser.Schema{first, {Type: "integer"}},
+			wantOK:    true,
+			wantCount: 2,
+		},
+		{
+			name:   "empty tuple is still the tuple form",
+			field:  []*parser.Schema{},
+			wantOK: true,
+		},
+		{
+			// A nil slice of the tuple type is the tuple form too, since the
+			// dynamic type is what identifies it. A schema built in Go can hold
+			// one, where a decoded document holds an empty slice instead.
+			name:   "a typed nil slice is the tuple form",
+			field:  []*parser.Schema(nil),
+			wantOK: true,
+		},
+		{
+			name:      "a nil element keeps its position",
+			field:     []*parser.Schema{first, nil, {Type: "integer"}},
+			wantOK:    true,
+			wantCount: 3,
+		},
+		{
+			name:   "single schema form",
+			field:  first,
+			wantOK: false,
+		},
+		{
+			name:   "boolean form",
+			field:  true,
+			wantOK: false,
+		},
+		{
+			name:   "absent",
+			field:  nil,
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tuple, ok := SchemaTuple(tt.field)
+			assert.Equal(t, tt.wantOK, ok)
+			assert.Len(t, tuple, tt.wantCount)
+		})
+	}
+
+	// The positions come back indexed, nil elements included, which is what
+	// separates this from SchemaOrBoolSchemas.
+	tuple, ok := SchemaTuple([]*parser.Schema{first, nil})
+	require.True(t, ok)
+	assert.Same(t, first, tuple[0])
+	assert.Nil(t, tuple[1])
 }

@@ -331,6 +331,50 @@ The generator automatically creates authentication helpers based on your securit
 | OAuth2 | `With{Name}OAuth2Token(token string)` |
 | OpenID Connect | `With{Name}Token(token string)` |
 
+### Tuple Form Arrays (OAS 2.0)
+
+OAS 2.0 Schema Objects are a subset of JSON Schema draft 4, and draft 4 lets `items` hold an array of schemas: one per array position, rather than one for every element. The tuple form is part of the 2.0 subset, and it is the only OAS version that allows it. OAS 3.0 requires `items` to be an object, and OAS 3.1 spells a tuple as `prefixItems`.
+
+```yaml
+definitions:
+  Pair:
+    type: array
+    items:
+      - $ref: "#/definitions/FirstType"
+      - type: integer
+    additionalItems:
+      type: string
+```
+
+Go has no tuple type, so this generates a struct that marshals as the JSON array its schema describes:
+
+```go
+type Pair struct {
+    Item0 *FirstType
+    Item1 *int64
+    Rest  []string // the positions past the end of the tuple
+}
+
+func (t Pair) MarshalJSON() ([]byte, error)
+func (t *Pair) UnmarshalJSON(data []byte) error
+```
+
+| Schema | Generated |
+|--------|-----------|
+| Tuple position | `Item<N>`, always nilable, since an array shorter than the tuple is valid |
+| A `null` position | `any`, because the position is unconstrained |
+| `additionalItems` as a schema | `Rest []T` |
+| `additionalItems` absent or `true` | `Rest []any` |
+| `additionalItems: false` | no `Rest` field; decoding a longer array returns an error |
+| `items: []` with `additionalItems` as a schema | `[]T`, since no position is named |
+| `items: []` otherwise | `[]any` |
+
+`MarshalJSON` writes the positions that carry something, so a shorter array round-trips unchanged, while a gap before a set position is written as `null`. Decoding records how many positions the array held, so a position that was present and `null` is written back rather than dropped as absent. A value built in Go carries no such count and writes positions up to the last one that is set.
+
+> **`additionalItems` and `items: []` are draft 4, not OAS 2.0.** The published [Swagger 2.0 JSON Schema](https://github.com/OAI/OpenAPI-Specification/blob/main/_archive_/schemas/v2.0/schema.json) does not list `additionalItems` among a Schema Object's properties and sets `additionalProperties: false`, and it requires the tuple form of `items` to hold at least one schema. The parser accepts both, so the generator handles them rather than producing broken output, but a document using either is not valid OAS 2.0.
+
+OAS 3.0 forbids an array-valued `items`, so a tuple there still generates as `[]any`. OAS 3.1 spells a tuple as `prefixItems`, which the generator does not yet read.
+
 ### File Splitting for Large APIs
 
 See also: [File splitting example](https://pkg.go.dev/github.com/erraggy/oastools/generator#example-package-WithFileSplitting) on pkg.go.dev

@@ -9,6 +9,7 @@ import (
 	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/internal/pathutil"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -105,8 +106,8 @@ func (cg *oas2CodeGenerator) generateSingleTypes() error {
 	for _, entry := range schemas {
 		if needsTimeImport(entry.schema) {
 			imports["time"] = true
-			break
 		}
+		addTupleImports(entry.schema, imports)
 	}
 
 	// Write imports
@@ -206,12 +207,18 @@ func (cg *oas2CodeGenerator) generateOAS2TypesFile(fileName, comment string, all
 		if needsTimeImport(entry.schema) {
 			imports["time"] = true
 		}
+		addTupleImports(entry.schema, imports)
 	}
 
-	// Write imports
+	// Write imports, sorted so the generated file does not depend on map order.
 	if len(imports) > 0 {
 		buf.WriteString("import (\n")
+		importList := make([]string, 0, len(imports))
 		for imp := range imports {
+			importList = append(importList, imp)
+		}
+		sort.Strings(importList)
+		for _, imp := range importList {
 			fmt.Fprintf(&buf, "\t%q\n", imp)
 		}
 		buf.WriteString(")\n\n")
@@ -274,8 +281,21 @@ func (cg *oas2CodeGenerator) generateSchemaType(name string, schema *parser.Sche
 		buf.WriteString("}\n")
 
 	case "array":
+		// The tuple form types each position separately, so it generates a
+		// struct that marshals as a JSON array rather than a slice.
+		if tuple, ok := structTupleSchemas(schema); ok {
+			writeTupleType(&buf, typeName, tuple, schema, cg.schemaToGoType)
+			break
+		}
 		// Generate type alias for array
 		itemType := cg.getArrayItemType(schema)
+		// An empty tuple names no position, so additionalItems governs every
+		// element rather than only the ones past the end.
+		if tuple, isTuple := schemautil.SchemaTuple(schema.Items); isTuple && len(tuple) == 0 {
+			if restType, ok := tupleRestType(schema, cg.schemaToGoType); ok {
+				itemType = restType
+			}
+		}
 		fmt.Fprintf(&buf, "type %s []%s\n", typeName, itemType)
 
 	case "string":
