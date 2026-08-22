@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/erraggy/oastools/internal/httputil"
+	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -783,8 +784,12 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 
 		// OAS 2.0: Convert response content to direct schema
 		if b.version == parser.OASVersion20 && len(resp.Content) > 0 {
-			// Extract the first media type's schema and example (OAS 2.0 doesn't support multiple content types)
-			for contentType, mediaType := range resp.Content {
+			// OAS 2.0 has one schema per response, so the preferred media type
+			// is the one kept, and its name is the example key.
+			ordered := schemautil.SortedContentTypes(resp.Content)
+			if len(ordered) > 0 {
+				contentType := ordered[0]
+				mediaType := resp.Content[contentType]
 				if mediaType.Schema != nil {
 					resp.Schema = mediaType.Schema
 				}
@@ -794,7 +799,6 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 						contentType: mediaType.Example,
 					}
 				}
-				break // Only use first content type for OAS 2.0
 			}
 			// Clear content for OAS 2.0
 			resp.Content = nil
