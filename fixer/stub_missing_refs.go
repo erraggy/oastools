@@ -7,9 +7,9 @@ package fixer
 import (
 	"fmt"
 	"log/slog"
-	"sort"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
 )
@@ -66,11 +66,7 @@ func (f *Fixer) stubMissingRefsOAS2(doc *parser.OAS2Document, result *FixResult)
 
 	// Check schema refs and stub missing ones
 	// Sort refs for deterministic output order
-	schemaRefs := make([]string, 0, len(collector.RefsByType[RefTypeSchema]))
-	for ref := range collector.RefsByType[RefTypeSchema] {
-		schemaRefs = append(schemaRefs, ref)
-	}
-	sort.Strings(schemaRefs)
+	schemaRefs := maputil.SortedKeys(collector.RefsByType[RefTypeSchema])
 	for _, ref := range schemaRefs {
 		if !isLocalRef(ref) {
 			continue
@@ -87,11 +83,7 @@ func (f *Fixer) stubMissingRefsOAS2(doc *parser.OAS2Document, result *FixResult)
 
 	// Check response refs and stub missing ones
 	// Sort refs for deterministic output order
-	responseRefs := make([]string, 0, len(collector.RefsByType[RefTypeResponse]))
-	for ref := range collector.RefsByType[RefTypeResponse] {
-		responseRefs = append(responseRefs, ref)
-	}
-	sort.Strings(responseRefs)
+	responseRefs := maputil.SortedKeys(collector.RefsByType[RefTypeResponse])
 	for _, ref := range responseRefs {
 		if !isLocalRef(ref) {
 			continue
@@ -183,11 +175,7 @@ func (f *Fixer) stubMissingRefsOAS3(doc *parser.OAS3Document, result *FixResult)
 
 	// Check schema refs and stub missing ones
 	// Sort refs for deterministic output order
-	schemaRefs := make([]string, 0, len(collector.RefsByType[RefTypeSchema]))
-	for ref := range collector.RefsByType[RefTypeSchema] {
-		schemaRefs = append(schemaRefs, ref)
-	}
-	sort.Strings(schemaRefs)
+	schemaRefs := maputil.SortedKeys(collector.RefsByType[RefTypeSchema])
 	for _, ref := range schemaRefs {
 		if !isLocalRef(ref) {
 			continue
@@ -204,11 +192,7 @@ func (f *Fixer) stubMissingRefsOAS3(doc *parser.OAS3Document, result *FixResult)
 
 	// Check response refs and stub missing ones
 	// Sort refs for deterministic output order
-	responseRefs := make([]string, 0, len(collector.RefsByType[RefTypeResponse]))
-	for ref := range collector.RefsByType[RefTypeResponse] {
-		responseRefs = append(responseRefs, ref)
-	}
-	sort.Strings(responseRefs)
+	responseRefs := maputil.SortedKeys(collector.RefsByType[RefTypeResponse])
 	for _, ref := range responseRefs {
 		if !isLocalRef(ref) {
 			continue

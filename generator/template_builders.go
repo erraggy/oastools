@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -47,11 +48,7 @@ func (cg *oas3CodeGenerator) buildHeaderData() HeaderData {
 	}
 
 	// Convert to sorted slice
-	importList := make([]string, 0, len(imports))
-	for imp := range imports {
-		importList = append(importList, imp)
-	}
-	sort.Strings(importList)
+	importList := maputil.SortedKeys(imports)
 
 	return HeaderData{
 		PackageName: cg.result.PackageName,
@@ -136,11 +133,7 @@ func (cg *oas3CodeGenerator) buildStructTypeDefinition(typeName, originalName st
 
 	// Build fields from properties
 	if schema.Properties != nil {
-		propNames := make([]string, 0, len(schema.Properties))
-		for propName := range schema.Properties {
-			propNames = append(propNames, propName)
-		}
-		sort.Strings(propNames)
+		propNames := maputil.SortedKeys(schema.Properties)
 
 		// Track used field names to avoid duplicates (e.g., @id and id both become Id)
 		usedFieldNames := make(map[string]int)
@@ -405,11 +398,7 @@ func (cg *oas3CodeGenerator) buildAllOfTypeDefinition(typeName string, schema *p
 			allOfData.EmbeddedTypes = append(allOfData.EmbeddedTypes, refType)
 		} else if subSchema.Properties != nil {
 			// Inline properties
-			propNames := make([]string, 0, len(subSchema.Properties))
-			for propName := range subSchema.Properties {
-				propNames = append(propNames, propName)
-			}
-			sort.Strings(propNames)
+			propNames := maputil.SortedKeys(subSchema.Properties)
 
 			for _, propName := range propNames {
 				propSchema := subSchema.Properties[propName]

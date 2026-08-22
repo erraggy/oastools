@@ -6,8 +6,8 @@ package fixer
 
 import (
 	"fmt"
-	"sort"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/internal/paramutil"
 	"github.com/erraggy/oastools/parser"
 )
@@ -40,11 +40,7 @@ func (f *Fixer) fixPathParamsRequiredInDefinitions(defs map[string]*parser.Param
 		return
 	}
 
-	names := make([]string, 0, len(defs))
-	for name := range defs {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := maputil.SortedKeys(defs)
 
 	for _, name := range names {
 		param := defs[name]
@@ -62,11 +58,7 @@ func (f *Fixer) fixPathParamsRequiredInPaths(paths parser.Paths, version parser.
 		return
 	}
 
-	pathPatterns := make([]string, 0, len(paths))
-	for pathPattern := range paths {
-		pathPatterns = append(pathPatterns, pathPattern)
-	}
-	sort.Strings(pathPatterns)
+	pathPatterns := maputil.SortedKeys(paths)
 
 	for _, pathPattern := range pathPatterns {
 		pathItem := paths[pathPattern]
@@ -81,11 +73,7 @@ func (f *Fixer) fixPathParamsRequiredInPaths(paths parser.Paths, version parser.
 		f.setPathParamsRequired(pathItem.Parameters, prefix, result)
 
 		operations := parser.GetOperations(pathItem, version)
-		methods := make([]string, 0, len(operations))
-		for method := range operations {
-			methods = append(methods, method)
-		}
-		sort.Strings(methods)
+		methods := maputil.SortedKeys(operations)
 
 		for _, method := range methods {
 			op := operations[method]

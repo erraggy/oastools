@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -94,11 +95,7 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 	// Properties (sorted by key for deterministic hashing)
 	if len(schema.Properties) > 0 {
 		h.writeString(hasher, "properties:")
-		keys := make([]string, 0, len(schema.Properties))
-		for k := range schema.Properties {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+		keys := maputil.SortedKeys(schema.Properties)
 		for _, k := range keys {
 			h.writeString(hasher, k)
 			h.hashSchema(hasher, schema.Properties[k])
@@ -108,11 +105,7 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 	// PatternProperties (sorted by key)
 	if len(schema.PatternProperties) > 0 {
 		h.writeString(hasher, "patternProperties:")
-		keys := make([]string, 0, len(schema.PatternProperties))
-		for k := range schema.PatternProperties {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+		keys := maputil.SortedKeys(schema.PatternProperties)
 		for _, k := range keys {
 			h.writeString(hasher, k)
 			h.hashSchema(hasher, schema.PatternProperties[k])
@@ -195,11 +188,7 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 		h.writeString(hasher, "discriminator:")
 		h.writeLabeled(hasher, "propertyName", schema.Discriminator.PropertyName)
 		if len(schema.Discriminator.Mapping) > 0 {
-			keys := make([]string, 0, len(schema.Discriminator.Mapping))
-			for k := range schema.Discriminator.Mapping {
-				keys = append(keys, k)
-			}
-			sort.Strings(keys)
+			keys := maputil.SortedKeys(schema.Discriminator.Mapping)
 			for _, k := range keys {
 				h.writeLabeled(hasher, "map", k)
 				h.writeLabeled(hasher, "to", schema.Discriminator.Mapping[k])
@@ -268,11 +257,7 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 	// DependentRequired
 	if len(schema.DependentRequired) > 0 {
 		h.writeString(hasher, "dependentRequired:")
-		keys := make([]string, 0, len(schema.DependentRequired))
-		for k := range schema.DependentRequired {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+		keys := maputil.SortedKeys(schema.DependentRequired)
 		for _, k := range keys {
 			h.writeLabeled(hasher, "k", k)
 			deps := make([]string, len(schema.DependentRequired[k]))
@@ -287,11 +272,7 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 	// DependentSchemas
 	if len(schema.DependentSchemas) > 0 {
 		h.writeString(hasher, "dependentSchemas:")
-		keys := make([]string, 0, len(schema.DependentSchemas))
-		for k := range schema.DependentSchemas {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+		keys := maputil.SortedKeys(schema.DependentSchemas)
 		for _, k := range keys {
 			h.writeString(hasher, k)
 			h.hashSchema(hasher, schema.DependentSchemas[k])
@@ -301,11 +282,7 @@ func (h *SchemaHasher) hashSchema(hasher hash.Hash64, schema *parser.Schema) {
 	// Defs
 	if len(schema.Defs) > 0 {
 		h.writeString(hasher, "$defs:")
-		keys := make([]string, 0, len(schema.Defs))
-		for k := range schema.Defs {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+		keys := maputil.SortedKeys(schema.Defs)
 		for _, k := range keys {
 			h.writeString(hasher, k)
 			h.hashSchema(hasher, schema.Defs[k])
@@ -396,11 +373,7 @@ func (h *SchemaHasher) hashIdentity(hasher hash.Hash64, schema *parser.Schema) {
 		return
 	}
 	h.writeString(hasher, "$vocabulary:")
-	keys := make([]string, 0, len(schema.Vocabulary))
-	for k := range schema.Vocabulary {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := maputil.SortedKeys(schema.Vocabulary)
 	for _, k := range keys {
 		h.writeLabeled(hasher, "k", k)
 		h.writeLabeled(hasher, "v", strconv.FormatBool(schema.Vocabulary[k]))

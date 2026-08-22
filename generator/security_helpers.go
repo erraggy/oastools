@@ -3,10 +3,10 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 	"unicode"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -49,11 +49,7 @@ import (
 	buf.WriteString("// These ClientOption functions configure authentication for API requests.\n\n")
 
 	// Sort scheme names for deterministic output
-	schemeNames := make([]string, 0, len(schemes))
-	for name := range schemes {
-		schemeNames = append(schemeNames, name)
-	}
-	sort.Strings(schemeNames)
+	schemeNames := maputil.SortedKeys(schemes)
 
 	for _, name := range schemeNames {
 		scheme := schemes[name]
@@ -402,11 +398,7 @@ func GetSecuritySchemeInfo(schemes map[string]*parser.SecurityScheme) []Security
 	result := make([]SecuritySchemeInfo, 0, len(schemes))
 
 	// Sort scheme names for deterministic output
-	schemeNames := make([]string, 0, len(schemes))
-	for name := range schemes {
-		schemeNames = append(schemeNames, name)
-	}
-	sort.Strings(schemeNames)
+	schemeNames := maputil.SortedKeys(schemes)
 
 	for _, name := range schemeNames {
 		scheme := schemes[name]

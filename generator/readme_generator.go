@@ -3,9 +3,10 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
+
+	"github.com/erraggy/oastools/internal/maputil"
 )
 
 // Security scheme type constants for readme generation
@@ -473,11 +474,7 @@ func ExtractSecuritySchemeSummaries(schemes map[string]*SecurityScheme) []Securi
 	result := make([]SecuritySchemeSummary, 0, len(schemes))
 
 	// Sort for deterministic output
-	names := make([]string, 0, len(schemes))
-	for name := range schemes {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := maputil.SortedKeys(schemes)
 
 	for _, name := range names {
 		scheme := schemes[name]

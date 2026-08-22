@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -86,11 +87,7 @@ func (f *Fixer) fixDuplicateOperationIdsUnified(
 	assigned := make(map[string]bool)
 
 	// Sort keys for deterministic output
-	sortedKeys := make([]string, 0, len(allPathItems))
-	for key := range allPathItems {
-		sortedKeys = append(sortedKeys, key)
-	}
-	slices.Sort(sortedKeys)
+	sortedKeys := maputil.SortedKeys(allPathItems)
 
 	// First pass: collect all existing operationIds
 	for _, key := range sortedKeys {
@@ -256,11 +253,7 @@ func initOperationIdTracking(
 	assigned = make(map[string]bool)
 
 	// Sort keys for deterministic output
-	sortedKeys = make([]string, 0, len(pathItems))
-	for key := range pathItems {
-		sortedKeys = append(sortedKeys, key)
-	}
-	slices.Sort(sortedKeys)
+	sortedKeys = maputil.SortedKeys(pathItems)
 
 	// First pass: collect all existing operationIds into the assigned map
 	for _, key := range sortedKeys {

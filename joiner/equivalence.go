@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/internal/equalutil"
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -1390,11 +1391,7 @@ func equalPropertyNames(left, right map[string]*parser.Schema) bool {
 }
 
 func getPropertyNames(properties map[string]*parser.Schema) []string {
-	names := make([]string, 0, len(properties))
-	for name := range properties {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := maputil.SortedKeys(properties)
 	return names
 }
 

@@ -157,11 +157,7 @@ func (cg *oas3CodeGenerator) buildTypesFileDataForSchemas(schemas []schemaEntry,
 		}
 	}
 
-	importList := make([]string, 0, len(imports))
-	for imp := range imports {
-		importList = append(importList, imp)
-	}
-	sort.Strings(importList)
+	importList := maputil.SortedKeys(imports)
 
 	data.Header = HeaderData{
 		PackageName: cg.result.PackageName,

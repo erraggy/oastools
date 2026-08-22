@@ -5,8 +5,8 @@ package fixer
 import (
 	"fmt"
 	"log/slog"
-	"sort"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/internal/paramutil"
 	"github.com/erraggy/oastools/parser"
 )
@@ -49,11 +49,7 @@ func (f *Fixer) fixMissingPathParameters(paths map[string]*parser.PathItem, vers
 	}
 
 	// Sort path patterns for deterministic order
-	pathPatterns := make([]string, 0, len(paths))
-	for pathPattern := range paths {
-		pathPatterns = append(pathPatterns, pathPattern)
-	}
-	sort.Strings(pathPatterns)
+	pathPatterns := maputil.SortedKeys(paths)
 
 	for _, pathPattern := range pathPatterns {
 		pathItem := paths[pathPattern]
@@ -65,11 +61,7 @@ func (f *Fixer) fixMissingPathParameters(paths map[string]*parser.PathItem, vers
 		operations := parser.GetOperations(pathItem, version)
 
 		// Sort methods for deterministic order
-		methods := make([]string, 0, len(operations))
-		for method := range operations {
-			methods = append(methods, method)
-		}
-		sort.Strings(methods)
+		methods := maputil.SortedKeys(operations)
 
 		for _, method := range methods {
 			op := operations[method]
