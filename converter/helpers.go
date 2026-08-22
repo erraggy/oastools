@@ -252,7 +252,7 @@ func (c *Converter) convertOAS3ResponseToOAS2(response *parser.Response, result 
 
 		if len(response.Content) > 1 {
 			c.addIssueWithContext(result, path,
-				fmt.Sprintf("Response has multiple media types (%d), keeping the schema from '%s'", len(response.Content), selected),
+				multipleMediaTypeMessage("Response", len(response.Content), selected),
 				"An OAS 2.0 response has a single schema. The other media types are listed in 'produces', but only one schema comes across")
 		}
 
@@ -355,4 +355,14 @@ func sortedMediaTypes(content map[string]*parser.MediaType) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// multipleMediaTypeMessage reports which media type's schema survived, or that
+// none was on offer, since a content map may carry several entries and no
+// schema between them.
+func multipleMediaTypeMessage(subject string, count int, selected string) string {
+	if selected == "" {
+		return fmt.Sprintf("%s has multiple media types (%d) and none carries a schema", subject, count)
+	}
+	return fmt.Sprintf("%s has multiple media types (%d), keeping the schema from '%s'", subject, count, selected)
 }

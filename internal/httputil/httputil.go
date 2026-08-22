@@ -177,13 +177,14 @@ const (
 //
 // Parameters are ignored, so application/json; charset=utf-8 ranks as JSON. A
 // media type that does not parse is ranked last rather than rejected, since the
-// caller is choosing between what a document actually offers.
+// caller is choosing between what a document actually offers, and a name ending
+// in +json is not a JSON media type if it is not a media type at all.
 func MediaTypeRank(mediaType string) int {
-	essence := mediaType
-	if parsed, _, err := mime.ParseMediaType(mediaType); err == nil {
-		essence = parsed
+	parsed, _, err := mime.ParseMediaType(mediaType)
+	if err != nil {
+		return MediaTypeRankOther
 	}
-	essence = strings.ToLower(strings.TrimSpace(essence))
+	essence := strings.ToLower(strings.TrimSpace(parsed))
 
 	switch {
 	case essence == MediaTypeJSON:

@@ -15,10 +15,19 @@ func TestMediaTypeRank(t *testing.T) {
 		{"application/geo+json", MediaTypeRankJSONSuffix},
 		{"application/xml", MediaTypeRankOther},
 		{"text/plain", MediaTypeRankOther},
-		// A media type that does not parse is ranked, not rejected: the caller
-		// is choosing between what a document actually offers.
+		// A media type that does not parse is ranked last, not rejected: the
+		// caller is choosing between what a document actually offers. The
+		// suffix is not consulted for one of these, or a name ending in +json
+		// that is not a media type at all would outrank application/xml.
 		{"not a media type", MediaTypeRankOther},
+		{"not a media type+json", MediaTypeRankOther},
+		{"///+json", MediaTypeRankOther},
 		{"", MediaTypeRankOther},
+		// A bare token parses, both for mime.ParseMediaType and for this
+		// package's own IsValidMediaType, so it is a media type as far as
+		// anything here is concerned and its suffix counts. Ranking it lower
+		// would put a second notion of validity in a package that has one.
+		{"garbage+json", MediaTypeRankJSONSuffix},
 	} {
 		if got := MediaTypeRank(tc.mediaType); got != tc.want {
 			t.Errorf("MediaTypeRank(%q) = %d, want %d", tc.mediaType, got, tc.want)

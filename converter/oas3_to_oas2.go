@@ -298,7 +298,7 @@ func (c *Converter) convertOAS3RequestBodyToOAS2(requestBody *parser.RequestBody
 	// Warn about multiple media types
 	if len(requestBody.Content) > 1 {
 		c.addIssueWithContext(result, fmt.Sprintf("%s.requestBody", opPath),
-			fmt.Sprintf("RequestBody has multiple media types (%d), keeping the schema from '%s'", len(requestBody.Content), firstMediaType),
+			multipleMediaTypeMessage("RequestBody", len(requestBody.Content), firstMediaType),
 			"An OAS 2.0 body parameter has a single schema. The other media types are listed in 'consumes', but only one schema comes across")
 	}
 
@@ -314,6 +314,15 @@ func (c *Converter) convertOAS3RequestBodyToOAS2(requestBody *parser.RequestBody
 	if firstContent != nil {
 		schemaPath := fmt.Sprintf("%s.requestBody.content.%s.schema", opPath, firstMediaType)
 		bodyParam.Schema = c.convertOAS3SchemaToOAS2(firstContent.Schema, result, schemaPath)
+	}
+	if bodyParam.Schema == nil {
+		// A Swagger 2.0 body parameter requires 'schema', so one has to be
+		// written even when the request body offered none. The empty schema
+		// admits any value, which is what an unconstrained body means.
+		c.addIssueWithContext(result, fmt.Sprintf("%s.requestBody", opPath),
+			"RequestBody has no schema, which an OAS 2.0 body parameter requires; recorded as the empty schema",
+			"A Swagger 2.0 body parameter must carry 'schema'. Describe the body in the request body's content to keep the constraint")
+		bodyParam.Schema = &parser.Schema{}
 	}
 
 	return bodyParam, consumes

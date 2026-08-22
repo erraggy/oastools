@@ -178,3 +178,56 @@ func bodySchemaTitle(t *testing.T, doc *parser.OAS2Document) string {
 	t.Fatal("no body parameter schema")
 	return ""
 }
+
+// TestContentWithNoSchemaAnywhere covers a content map with several entries and
+// no schema between them. A Swagger 2.0 body parameter requires 'schema', so one
+// has to be written even though the source offered none, while a response
+// requires only a description and needs no such fallback.
+func TestContentWithNoSchemaAnywhere(t *testing.T) {
+	const source = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    post:
+      operationId: a
+      requestBody:
+        content:
+          application/xml: {}
+          text/plain: {}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/xml: {}
+            text/plain: {}
+`
+
+	result, doc := convertMulti(t, source)
+
+	op := doc.Paths["/a"].Post
+	require.NotNil(t, op)
+
+	var body *parser.Parameter
+	for _, p := range op.Parameters {
+		if p.In == "body" {
+			body = p
+		}
+	}
+	require.NotNil(t, body)
+	require.NotNil(t, body.Schema, "a Swagger 2.0 body parameter requires 'schema'")
+
+	// A response is allowed to carry none, so nothing is invented there.
+	assert.Nil(t, op.Responses.Codes["200"].Schema)
+
+	var messages string
+	for _, issue := range result.Issues {
+		messages += issue.Message + "\n"
+	}
+	// The count message has to read sensibly when nothing was selected, rather
+	// than naming an empty media type.
+	assert.Contains(t, messages, "none carries a schema")
+	assert.NotContains(t, messages, "from ''", "the message should not quote an empty media type")
+	assert.Contains(t, messages, "recorded as the empty schema")
+}
