@@ -139,10 +139,9 @@ func tupleToPrefixItems(c *Converter, schema *parser.Schema, result *ConversionR
 // an array whose elements are unconstrained accepts everything the tuple
 // accepted. minItems and maxItems are untouched, so the length constraints
 // survive even when the positions do not.
-// tupleSource names the keywords the SOURCE document used for a tuple and for
-// the constraint on the elements past it. A diagnostic has to quote what the
-// author wrote, and by the time tupleForOAS30 runs the value may have been moved
-// into the draft 4 spelling by prefixItemsToTuple.
+// tupleSource names the keywords the source document used for a tuple and for
+// the constraint on the elements past it, so a diagnostic quotes what the author
+// wrote rather than the draft 4 spelling prefixItemsToTuple may have produced.
 type tupleSource struct {
 	tuple           string
 	trailing        string
@@ -455,10 +454,9 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 // anything, which the empty schema also does, so it converts. `false` accepts
 // nothing, and draft 4 cannot say that without `not`, which OAS 2.0 does not
 // have, so the position becomes the empty schema and the loss is reported.
-// tupleTarget names the version a tuple is being rewritten for, and states why
-// that version cannot hold a boolean schema at a position. The two need separate
-// wording: OAS 2.0 has neither a boolean schema form nor 'not' to build one
-// from, while OAS 3.0 defines 'not' and lacks only the boolean form.
+// tupleTarget names the version a tuple is being rewritten for, and why that
+// version cannot hold a boolean schema at a position. OAS 2.0 has neither a
+// boolean schema form nor 'not'; OAS 3.0 has 'not' and lacks only the form.
 type tupleTarget struct {
 	name   string
 	noBool string

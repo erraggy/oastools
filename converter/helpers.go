@@ -93,9 +93,8 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 			// The one position OAS 2.0 describes with a Schema Object.
 			converted.Schema = schema
 		} else if schema != nil {
-			// Everywhere else OAS 2.0 spells the value with a type declaration
-			// and defines no 'schema' field, so the schema is read into that
-			// declaration rather than carried alongside it.
+			// Elsewhere OAS 2.0 defines no 'schema' field, so it is read into
+			// the type declaration rather than carried alongside it.
 			c.oas2TypedValueFromSchema(schema, "Parameter", result, path).applyToParameter(converted)
 		}
 	}
@@ -126,13 +125,9 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 	return converted
 }
 
-// inferTypeFromSchema walks allOf/oneOf/anyOf to find a concrete type.
-//
-// A branch whose type OAS 2.0 can name in a type declaration is preferred over
-// an earlier one it cannot, because the alternatives of a composite are
-// interchangeable to the schema and only one of them can survive the demotion.
-// Taking the first regardless picks 'object' out of `anyOf: [object, integer]`
-// and loses a type that would have come across intact.
+// inferTypeFromSchema walks allOf/oneOf/anyOf to find a concrete type. A branch
+// OAS 2.0 can name wins over an earlier one it cannot, since the alternatives
+// are interchangeable and only one survives the demotion.
 func inferTypeFromSchema(schema *parser.Schema) string {
 	if schema == nil {
 		return ""

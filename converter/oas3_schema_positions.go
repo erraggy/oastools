@@ -1,10 +1,6 @@
 // oas3_schema_positions.go visits every position an OAS 3.x document can hold a
-// Schema Object.
-//
-// A conversion between two OAS 3.x versions rewrites schemas in place, so this
-// walk only has to reach each one: there is nothing to assign back. The
-// positions are listed here rather than at each call site, so that adding one
-// reaches every caller.
+// Schema Object. Schemas are rewritten in place, so the walk only has to reach
+// each one.
 
 package converter
 
@@ -17,11 +13,9 @@ import (
 // schemaVisitor receives each Schema Object with the path that locates it.
 type schemaVisitor func(schema *parser.Schema, path string)
 
-// forEachOAS3Schema visits every Schema Object in an OAS 3.x document.
-//
-// Only the outermost schema at each position is visited. The passes recurse into
-// subschemas themselves, through walkSchemas, so descending here as well would
-// convert a nested schema more than once.
+// forEachOAS3Schema visits the outermost Schema Object at every position in an
+// OAS 3.x document. Subschemas are left to the passes, which walk them
+// themselves.
 func forEachOAS3Schema(doc *parser.OAS3Document, visit schemaVisitor) {
 	if doc == nil {
 		return
@@ -167,8 +161,8 @@ func forEachMediaTypeSchema(media *parser.MediaType, path string, visit schemaVi
 }
 
 // forEachEncodingSchema reaches the Header Objects an Encoding carries. The
-// visited set and depth bound match detectOAS32EncodingFeatures: Convert takes
-// the caller's document, which a parse did not have to build.
+// visited set and depth bound match detectOAS32EncodingFeatures, because Convert
+// takes the caller's document rather than a parsed one.
 func forEachEncodingSchema(enc *parser.Encoding, path string, visit schemaVisitor, visited map[*parser.Encoding]bool, depth int) {
 	if enc == nil || depth > maxEncodingNestingDepth || visited[enc] {
 		return
@@ -178,8 +172,7 @@ func forEachEncodingSchema(enc *parser.Encoding, path string, visit schemaVisito
 		forEachHeaderSchema(header, fmt.Sprintf("%s.headers.%s", path, name), visit)
 	}
 
-	// Nothing below to reach, so nothing can repeat: an encoding that does not
-	// nest allocates no visited set, matching detectOAS32EncodingFeatures.
+	// An encoding that does not nest cannot repeat, so it allocates no visited set.
 	if len(enc.Encoding) == 0 && enc.ItemEncoding == nil && len(enc.PrefixEncoding) == 0 {
 		return
 	}

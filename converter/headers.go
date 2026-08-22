@@ -1,9 +1,8 @@
 // headers.go converts Header Objects between the OAS 2.0 and OAS 3.x spellings.
 //
-// parser.Header is a union of both dialects. Schema, Style, Explode and Content
-// are OAS 3.0+; Type, Format, Items and CollectionFormat are OAS 2.0. Each
-// direction must therefore clear the fields it does not own, not only translate
-// the ones it does.
+// parser.Header is a union of both dialects: Schema, Style, Explode and Content
+// are OAS 3.0+, Type, Format, Items and CollectionFormat are OAS 2.0. Each
+// direction clears the fields it does not own.
 
 package converter
 
@@ -16,8 +15,7 @@ import (
 )
 
 // oas2PrimitiveTypes are the type values a Swagger 2.0 Header Object, Items
-// Object and non-body parameter accept. Those positions take a type declaration
-// rather than a Schema Object, and none of them can name an object or a null.
+// Object and non-body parameter accept.
 var oas2PrimitiveTypes = map[string]bool{
 	"string":  true,
 	"number":  true,
@@ -27,9 +25,7 @@ var oas2PrimitiveTypes = map[string]bool{
 }
 
 // oas2PrimitiveType reports the type OAS 2.0 can name in a position that takes a
-// type declaration. A type outside the permitted set has no spelling there, so
-// it is reported and the position falls back to the one type that admits any
-// scalar rendering of the value.
+// type declaration, reporting and falling back to string for any other.
 func (c *Converter) oas2PrimitiveType(t, subject string, result *ConversionResult, path string) string {
 	if t == "" || oas2PrimitiveTypes[t] {
 		return t
@@ -40,14 +36,12 @@ func (c *Converter) oas2PrimitiveType(t, subject string, result *ConversionResul
 	return "string"
 }
 
-// componentHeadersPrefix is the only $ref target an OAS 3.x Header Object can
-// name, and the one OAS 2.0 has no section for.
+// componentHeadersPrefix is the only $ref target an OAS 3.x Header Object can name.
 const componentHeadersPrefix = "#/components/headers/"
 
 // oas2TypedValue is the OAS 2.0 "typed value" field set that a Parameter, a
-// Header and an Items Object all spell identically, and that OAS 3.x replaces
-// with a Schema Object. Collected into one shape so the promotion is written
-// once for the three of them.
+// Header and an Items Object spell identically, and OAS 3.x replaces with a
+// Schema Object.
 type oas2TypedValue struct {
 	Type             string
 	Format           string
@@ -91,14 +85,10 @@ func oas2TypedValueOfParameter(p *parser.Parameter) oas2TypedValue {
 }
 
 // oas2TypedValueToSchema builds the OAS 3.x Schema Object that an OAS 2.0 typed
-// value describes.
+// value describes. subject names the object in diagnostics.
 //
-// subject names the object in diagnostics ("Parameter", "Header", "Items"), the
-// only respect in which the callers differ. The exclusive bound handling keys on
-// the target: OAS 3.1 moved exclusiveMaximum and exclusiveMinimum from a boolean
-// qualifying maximum/minimum to a number standing on its own, so a true with no
-// bound beside it has nothing to become and is reported rather than dropped
-// silently.
+// OAS 3.1 spells an exclusive bound as a number rather than a flag on
+// maximum/minimum, so a true with no bound beside it has nothing to become.
 func (c *Converter) oas2TypedValueToSchema(v oas2TypedValue, subject string, result *ConversionResult, path string) *parser.Schema {
 	s := &parser.Schema{
 		Type:        v.Type,
@@ -152,9 +142,8 @@ func (c *Converter) oas2TypedValueToSchema(v oas2TypedValue, subject string, res
 	return s
 }
 
-// reportCollectionFormat notes a collectionFormat OAS 3.x cannot spell. csv is
-// the OAS 2.0 default and maps onto the OAS 3.x defaults, so it costs nothing
-// and is not reported.
+// reportCollectionFormat notes a collectionFormat OAS 3.x cannot spell. csv maps
+// onto the OAS 3.x defaults and is not reported.
 func reportCollectionFormat(c *Converter, format, subject string, result *ConversionResult, path string) {
 	if format == "" || format == "csv" {
 		return
@@ -191,10 +180,8 @@ func (c *Converter) convertOAS2HeaderToOAS3(header *parser.Header, result *Conve
 
 // convertOAS3HeaderToOAS2 demotes an OAS 3.x header's Schema Object to the type
 // declaration OAS 2.0 uses, and reports the OAS 3.x-only fields that have no
-// OAS 2.0 spelling.
-//
-// The schema is run through the OAS 2.0 schema conversion before anything is
-// read off it, so the per-schema passes report against this position.
+// OAS 2.0 spelling. The schema goes through the OAS 2.0 schema conversion before
+// anything is read off it.
 func (c *Converter) convertOAS3HeaderToOAS2(header *parser.Header, result *ConversionResult, path string) *parser.Header {
 	if header == nil {
 		return nil
@@ -205,10 +192,8 @@ func (c *Converter) convertOAS3HeaderToOAS2(header *parser.Header, result *Conve
 		Extra:       parser.DeepCopyExtensions(header.Extra),
 	}
 
-	// The Swagger 2.0 Header Object lists no `$ref` member and forbids the
-	// unlisted, so a reference cannot come across whatever it points at. A
-	// component reference has already been inlined by the caller when it could
-	// be; anything still carrying one could not be.
+	// The Swagger 2.0 Header Object lists no $ref member and forbids the unlisted.
+	// A reference still present here is one the caller could not inline.
 	if header.Ref != "" {
 		advice := "A Swagger 2.0 Header Object takes no '$ref'. Define the header inline"
 		if strings.HasPrefix(header.Ref, componentHeadersPrefix) {
@@ -253,10 +238,7 @@ func (c *Converter) convertOAS3HeaderToOAS2(header *parser.Header, result *Conve
 	}
 
 	// 'type' is required on an OAS 2.0 Header Object, and several paths reach
-	// here without one: a header described by 'content', which OAS 2.0 cannot
-	// spell at all, a schema whose type it cannot name, and a header carrying
-	// neither. One fallback rather than one per path, so no future branch can
-	// emit a header without it.
+	// here without one. Applied once so no branch can skip it.
 	if converted.Type == "" {
 		converted.Type = "string"
 	}
@@ -265,11 +247,8 @@ func (c *Converter) convertOAS3HeaderToOAS2(header *parser.Header, result *Conve
 }
 
 // oas2ExclusiveBound splits an OAS 3.1 numeric exclusive bound back into the
-// draft 4 pair OAS 2.0 uses: a boolean flag beside maximum or minimum.
-//
-// A boolean is already the draft 4 spelling and passes through with the bound it
-// qualified. A number replaces that bound, since draft 4 states the value in
-// maximum/minimum and uses the flag only to make it exclusive.
+// draft 4 pair OAS 2.0 uses: a boolean flag beside maximum or minimum. A bool is
+// already that spelling and passes through with the bound it qualified.
 func oas2ExclusiveBound(v any, bound *float64) (bool, *float64) {
 	if b, isBool := v.(bool); isBool {
 		return b, bound
@@ -280,15 +259,12 @@ func oas2ExclusiveBound(v any, bound *float64) (bool, *float64) {
 	return false, bound
 }
 
-// oas2ItemsFromSchema builds the Items Object OAS 2.0 uses for an array header
+// oas2ItemsFromSchema builds the Items Object OAS 2.0 uses for an array value
 // from the schema of its elements. Only the keywords an Items Object defines
-// come across; anything else the element schema carries has no OAS 2.0 spelling
-// in this position.
+// come across.
 //
-// An Items Object describes every element with one schema, so a tuple cannot
-// come across: the first position is kept and the rest are reported. A tuple
-// reaches here as the draft 4 array form, which convertOAS3SchemaToOAS2 has
-// already rewritten 2020-12's prefixItems into.
+// An Items Object describes every element with one schema, so a tuple keeps only
+// its first position.
 func (c *Converter) oas2ItemsFromSchema(schema *parser.Schema, subject string, result *ConversionResult, path string) *parser.Items {
 	var elem *parser.Schema
 	count := 0
