@@ -9,10 +9,15 @@ package converter
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
+
+// componentHeadersPrefix is the only $ref target an OAS 3.x Header Object can
+// name, and the one OAS 2.0 has no section for.
+const componentHeadersPrefix = "#/components/headers/"
 
 // oas2TypedValue is the OAS 2.0 "typed value" field set that a Parameter, a
 // Header and an Items Object all spell identically, and that OAS 3.x replaces
@@ -46,6 +51,17 @@ func oas2TypedValueOfHeader(h *parser.Header) oas2TypedValue {
 		MaxLength: h.MaxLength, MinLength: h.MinLength, Pattern: h.Pattern,
 		MaxItems: h.MaxItems, MinItems: h.MinItems, UniqueItems: h.UniqueItems,
 		MultipleOf: h.MultipleOf, Items: h.Items, CollectionFormat: h.CollectionFormat,
+	}
+}
+
+func oas2TypedValueOfParameter(p *parser.Parameter) oas2TypedValue {
+	return oas2TypedValue{
+		Type: p.Type, Format: p.Format, Default: p.Default, Enum: p.Enum,
+		Maximum: p.Maximum, ExclusiveMaximum: p.ExclusiveMaximum,
+		Minimum: p.Minimum, ExclusiveMinimum: p.ExclusiveMinimum,
+		MaxLength: p.MaxLength, MinLength: p.MinLength, Pattern: p.Pattern,
+		MaxItems: p.MaxItems, MinItems: p.MinItems, UniqueItems: p.UniqueItems,
+		MultipleOf: p.MultipleOf, Items: p.Items, CollectionFormat: p.CollectionFormat,
 	}
 }
 
@@ -168,7 +184,7 @@ func (c *Converter) convertOAS3HeaderToOAS2(header *parser.Header, result *Conve
 	if header.Schema != nil {
 		schema := c.convertOAS3SchemaToOAS2(header.Schema, result, path+".schema")
 		if schema != nil {
-			c.oas2TypedValueFromSchema(schema, result, path).applyToHeader(converted)
+			c.oas2TypedValueFromSchema(schema, "Header", result, path).applyToHeader(converted)
 			if converted.Type == "" {
 				c.addIssueWithContext(result, path,
 					"Header schema has no type OAS 2.0 can name; defaulted to 'string'",
@@ -209,17 +225,13 @@ func (c *Converter) convertOAS3HeaderToOAS2(header *parser.Header, result *Conve
 // qualified. A number replaces that bound, since draft 4 states the value in
 // maximum/minimum and uses the flag only to make it exclusive.
 func oas2ExclusiveBound(v any, bound *float64) (bool, *float64) {
-	switch e := v.(type) {
-	case bool:
-		return e, bound
-	case float64:
-		return true, &e
-	case int:
-		f := float64(e)
-		return true, &f
-	default:
-		return false, bound
+	if b, isBool := v.(bool); isBool {
+		return b, bound
 	}
+	if e, ok := numericBound(v); ok {
+		return true, &e
+	}
+	return false, bound
 }
 
 // oas2ItemsFromSchema builds the Items Object OAS 2.0 uses for an array header
@@ -231,7 +243,7 @@ func oas2ExclusiveBound(v any, bound *float64) (bool, *float64) {
 // come across: the first position is kept and the rest are reported. A tuple
 // reaches here as the draft 4 array form, which convertOAS3SchemaToOAS2 has
 // already rewritten 2020-12's prefixItems into.
-func (c *Converter) oas2ItemsFromSchema(schema *parser.Schema, result *ConversionResult, path string) *parser.Items {
+func (c *Converter) oas2ItemsFromSchema(schema *parser.Schema, subject string, result *ConversionResult, path string) *parser.Items {
 	var elem *parser.Schema
 	count := 0
 	for _, s := range schemautil.SchemaOrBoolSchemas(schema.Items) {
@@ -242,8 +254,8 @@ func (c *Converter) oas2ItemsFromSchema(schema *parser.Schema, result *Conversio
 	}
 	if count > 1 {
 		c.addIssueWithContext(result, path,
-			fmt.Sprintf("Header describes a %d element tuple, which an OAS 2.0 Header Object cannot express; only the first position is kept", count),
-			"An OAS 2.0 'items' declaration applies one schema to every element. Describe the header with a single element schema, or keep the document at OAS 3.1 or later")
+			fmt.Sprintf("%s describes a %d element tuple, which OAS 2.0 cannot express here; only the first position is kept", subject, count),
+			"An OAS 2.0 'items' declaration applies one schema to every element. Describe the value with a single element schema, or keep the document at OAS 3.1 or later")
 	}
 	if elem == nil {
 		return nil
@@ -267,7 +279,7 @@ func (c *Converter) oas2ItemsFromSchema(schema *parser.Schema, result *Conversio
 	items.ExclusiveMaximum, items.Maximum = oas2ExclusiveBound(elem.ExclusiveMaximum, items.Maximum)
 	items.ExclusiveMinimum, items.Minimum = oas2ExclusiveBound(elem.ExclusiveMinimum, items.Minimum)
 	if items.Type == "array" {
-		items.Items = c.oas2ItemsFromSchema(elem, result, path+".items")
+		items.Items = c.oas2ItemsFromSchema(elem, subject, result, path+".items")
 	}
 	return items
 }
@@ -296,12 +308,27 @@ func (c *Converter) convertHeadersToOAS2(headers map[string]*parser.Header, resu
 	for name, header := range headers {
 		headerPath := fmt.Sprintf("%s.headers.%s", path, name)
 		source := header
+		inlined := false
 		if header != nil && header.Ref != "" && c.sourceHeaders != nil {
 			if resolved := c.resolveHeaderRef(header.Ref, result, headerPath); resolved != nil {
 				source = resolved
+				inlined = true
 			}
 		}
-		converted[name] = c.convertOAS3HeaderToOAS2(source, result, headerPath)
+		out := c.convertOAS3HeaderToOAS2(source, result, headerPath)
+		if !inlined && out != nil && strings.HasPrefix(out.Ref, componentHeadersPrefix) {
+			// OAS 2.0 has no components.headers, so this reference names a
+			// place the output document does not have. Carrying it through
+			// would emit a document validate rejects.
+			c.addIssueWithContext(result, headerPath,
+				fmt.Sprintf("Header references %s, which OAS 2.0 cannot express; reference dropped", out.Ref),
+				"OAS 2.0 has no components.headers section. Define the header inline, or add the missing component so it can be inlined")
+			out.Ref = ""
+			if out.Type == "" {
+				out.Type = "string"
+			}
+		}
+		converted[name] = out
 	}
 	return converted
 }
@@ -310,7 +337,7 @@ func (c *Converter) convertHeadersToOAS2(headers map[string]*parser.Header, resu
 // describes. It is the inverse of oas2TypedValueToSchema, and serves the
 // positions OAS 2.0 spells with a type rather than a schema: Header Objects, and
 // parameters outside the body.
-func (c *Converter) oas2TypedValueFromSchema(schema *parser.Schema, result *ConversionResult, path string) oas2TypedValue {
+func (c *Converter) oas2TypedValueFromSchema(schema *parser.Schema, subject string, result *ConversionResult, path string) oas2TypedValue {
 	v := oas2TypedValue{
 		Type:        schemautil.GetPrimaryType(schema),
 		Format:      schema.Format,
@@ -329,7 +356,7 @@ func (c *Converter) oas2TypedValueFromSchema(schema *parser.Schema, result *Conv
 	v.ExclusiveMaximum, v.Maximum = oas2ExclusiveBound(schema.ExclusiveMaximum, v.Maximum)
 	v.ExclusiveMinimum, v.Minimum = oas2ExclusiveBound(schema.ExclusiveMinimum, v.Minimum)
 	if v.Type == "array" {
-		v.Items = c.oas2ItemsFromSchema(schema, result, path)
+		v.Items = c.oas2ItemsFromSchema(schema, subject, result, path)
 	}
 	return v
 }

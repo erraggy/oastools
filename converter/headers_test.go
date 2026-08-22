@@ -217,3 +217,97 @@ func assertIssueMentioning(t *testing.T, result *ConversionResult, substr string
 	}
 	t.Fatalf("no conversion issue mentions %q; got %d issues", substr, len(result.Issues))
 }
+
+// TestUnresolvableComponentHeaderRefIsDropped covers a header naming a component
+// that cannot be inlined. OAS 2.0 has no components.headers, so carrying the
+// reference through emits a document that cannot resolve it.
+func TestUnresolvableComponentHeaderRefIsDropped(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		source string
+	}{
+		{
+			// No components.headers at all, so resolution is never attempted.
+			name: "no components headers",
+			source: `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-H:
+              $ref: '#/components/headers/Missing'
+`,
+		},
+		{
+			// The section exists but does not hold the name.
+			name: "name not present",
+			source: `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-H:
+              $ref: '#/components/headers/Missing'
+components:
+  headers:
+    Other:
+      schema: {type: string}
+`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result, headers := convertHeaderFixture(t, tc.source, "2.0")
+
+			h := headers["X-H"]
+			require.NotNil(t, h)
+			assert.Empty(t, h.Ref, "OAS 2.0 has no components.headers for this reference to name")
+			assert.Equal(t, "string", h.Type, "an OAS 2.0 Header Object requires a type")
+			assertIssueMentioning(t, result, "reference dropped")
+		})
+	}
+}
+
+// TestResolvableComponentHeaderRefIsStillInlined is the counterpart: dropping
+// must not reach a reference that resolves.
+func TestResolvableComponentHeaderRefIsStillInlined(t *testing.T) {
+	const source = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-H:
+              $ref: '#/components/headers/Shared'
+components:
+  headers:
+    Shared:
+      schema: {type: integer}
+`
+
+	_, headers := convertHeaderFixture(t, source, "2.0")
+
+	h := headers["X-H"]
+	require.NotNil(t, h)
+	assert.Empty(t, h.Ref)
+	assert.Equal(t, "integer", h.Type, "the component's own type should be inlined, not a default")
+}

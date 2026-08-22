@@ -47,7 +47,9 @@ func (c *Converter) applyOAS3SchemaPasses(schema *parser.Schema, targetVersion p
 // array into, and leaves items holding a single schema in every branch.
 func prefixItemsForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
 	prefixItemsToTuple(c, schema, result, path, oas30Spelling)
-	tupleForOAS30(c, schema, result, path)
+	// The source spelled the tuple with prefixItems, so the diagnostics name
+	// that rather than the draft 4 form the pass above just produced.
+	tupleForOAS30(c, schema, result, path, prefixItemsTuple)
 }
 
 // fixSchemaExclusiveMinMaxForOAS30 rewrites the 2020-12 numeric exclusive bounds

@@ -354,3 +354,73 @@ func TestExclusiveBoundConversionAcceptsTheSameValues(t *testing.T) {
 		})
 	}
 }
+
+// TestTupleDiagnosticsNameTheSourceSpelling pins that a diagnostic quotes the
+// keywords the author wrote. A 3.1 document spells a tuple with prefixItems and
+// constrains the rest with items; an OAS 2.0 one uses the draft 4 pair. Both
+// reach tupleForOAS30, the second by way of prefixItemsToTuple, so without the
+// source spelling the 3.1 case is told about a keyword it never used.
+func TestTupleDiagnosticsNameTheSourceSpelling(t *testing.T) {
+	const from31 = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+components:
+  schemas:
+    Tup:
+      type: array
+      prefixItems:
+        - type: string
+        - type: integer
+      items:
+        type: boolean
+`
+
+	parsed, err := parser.New().ParseBytes([]byte(from31))
+	require.NoError(t, err)
+	result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("3.0.3"))
+	require.NoError(t, err)
+
+	var messages string
+	for _, issue := range result.Issues {
+		messages += issue.Message + "\n"
+	}
+	assert.Contains(t, messages, "'prefixItems'", "the tuple was written as prefixItems")
+	assert.NotContains(t, messages, "additionalItems", "the source never used additionalItems")
+
+	// The counterpart: a draft 4 source must still be told about the keywords it
+	// did use, so the fix cannot be to stop naming additionalItems at all.
+	const from20 = `swagger: "2.0"
+info:
+  title: t
+  version: "1.0.0"
+paths: {}
+definitions:
+  Tup:
+    type: array
+    items:
+      - type: string
+      - type: integer
+    additionalItems:
+      type: boolean
+`
+
+	parsed2, err := parser.New().ParseBytes([]byte(from20))
+	require.NoError(t, err)
+	result2, err := ConvertWithOptions(WithParsed(*parsed2), WithTargetVersion("3.0.3"))
+	require.NoError(t, err)
+
+	var messages2 string
+	for _, issue := range result2.Issues {
+		messages2 += issue.Message + "\n"
+	}
+	assert.Contains(t, messages2, "additionalItems")
+	assert.NotContains(t, messages2, "'prefixItems'")
+}

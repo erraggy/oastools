@@ -52,65 +52,7 @@ func (c *Converter) convertOAS2ParameterToOAS3(param *parser.Parameter, result *
 	if param.Schema != nil {
 		converted.Schema = c.convertOAS2SchemaToOAS3(param.Schema, result.TargetOASVersion, result, path+".schema")
 	} else if param.Type != "" {
-		// Convert type/format to schema, transferring all OAS 2.0 validation keywords
-		converted.Schema = &parser.Schema{
-			Type:        param.Type,
-			Format:      param.Format,
-			Default:     param.Default,
-			Enum:        param.Enum,
-			Maximum:     param.Maximum,
-			Minimum:     param.Minimum,
-			MaxLength:   param.MaxLength,
-			MinLength:   param.MinLength,
-			Pattern:     param.Pattern,
-			MaxItems:    param.MaxItems,
-			MinItems:    param.MinItems,
-			UniqueItems: param.UniqueItems,
-			MultipleOf:  param.MultipleOf,
-		}
-		if param.ExclusiveMaximum {
-			if c.isOAS31OrLater(result.TargetOASVersion) {
-				if param.Maximum != nil {
-					converted.Schema.ExclusiveMaximum = *param.Maximum
-					converted.Schema.Maximum = nil
-				} else {
-					c.addIssueWithContext(result, path,
-						"Parameter has 'exclusiveMaximum: true' but no 'maximum' value; constraint dropped in OAS 3.1 conversion",
-						"Add a 'maximum' value to preserve this exclusive boundary in OAS 3.1")
-				}
-			} else {
-				converted.Schema.ExclusiveMaximum = true
-			}
-		}
-		if param.ExclusiveMinimum {
-			if c.isOAS31OrLater(result.TargetOASVersion) {
-				if param.Minimum != nil {
-					converted.Schema.ExclusiveMinimum = *param.Minimum
-					converted.Schema.Minimum = nil
-				} else {
-					c.addIssueWithContext(result, path,
-						"Parameter has 'exclusiveMinimum: true' but no 'minimum' value; constraint dropped in OAS 3.1 conversion",
-						"Add a 'minimum' value to preserve this exclusive boundary in OAS 3.1")
-				}
-			} else {
-				converted.Schema.ExclusiveMinimum = true
-			}
-		}
-		if param.Items != nil {
-			converted.Schema.Items = convertOAS2ItemsToSchema(c, param.Items, result, path+".items")
-			if param.Items.CollectionFormat != "" && param.Items.CollectionFormat != "csv" {
-				c.addIssueWithContext(result, path,
-					fmt.Sprintf("Parameter items uses collectionFormat '%s'", param.Items.CollectionFormat),
-					"OAS 3.x uses 'style' and 'explode' instead; 'csv' format maps to style=form")
-			}
-		}
-
-		// Handle collection format
-		if param.CollectionFormat != "" && param.CollectionFormat != "csv" {
-			c.addIssueWithContext(result, path,
-				fmt.Sprintf("Parameter uses collectionFormat '%s'", param.CollectionFormat),
-				"OAS 3.x uses 'style' and 'explode' instead; 'csv' format maps to style=form")
-		}
+		converted.Schema = c.oas2TypedValueToSchema(oas2TypedValueOfParameter(param), "Parameter", result, path)
 	}
 
 	// AllowEmptyValue was removed in OAS 3.0
@@ -154,7 +96,7 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 			// Everywhere else OAS 2.0 spells the value with a type declaration
 			// and defines no 'schema' field, so the schema is read into that
 			// declaration rather than carried alongside it.
-			c.oas2TypedValueFromSchema(schema, result, path).applyToParameter(converted)
+			c.oas2TypedValueFromSchema(schema, "Parameter", result, path).applyToParameter(converted)
 		}
 	}
 
@@ -209,14 +151,13 @@ func inferTypeFromSchema(schema *parser.Schema) string {
 
 // resolveHeaderRef resolves a #/components/headers/* ref by inlining the definition.
 func (c *Converter) resolveHeaderRef(ref string, result *ConversionResult, path string) *parser.Header {
-	const prefix = "#/components/headers/"
-	if !strings.HasPrefix(ref, prefix) {
+	if !strings.HasPrefix(ref, componentHeadersPrefix) {
 		return nil
 	}
 	if c.sourceHeaders == nil {
 		return nil
 	}
-	name := ref[len(prefix):]
+	name := ref[len(componentHeadersPrefix):]
 	header, ok := c.sourceHeaders[name]
 	if !ok {
 		c.addIssueWithContext(result, path,

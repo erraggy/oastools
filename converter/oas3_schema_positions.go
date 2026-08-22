@@ -173,14 +173,21 @@ func forEachEncodingSchema(enc *parser.Encoding, path string, visit schemaVisito
 	if enc == nil || depth > maxEncodingNestingDepth || visited[enc] {
 		return
 	}
+
+	for name, header := range enc.Headers {
+		forEachHeaderSchema(header, fmt.Sprintf("%s.headers.%s", path, name), visit)
+	}
+
+	// Nothing below to reach, so nothing can repeat: an encoding that does not
+	// nest allocates no visited set, matching detectOAS32EncodingFeatures.
+	if len(enc.Encoding) == 0 && enc.ItemEncoding == nil && len(enc.PrefixEncoding) == 0 {
+		return
+	}
 	if visited == nil {
 		visited = make(map[*parser.Encoding]bool)
 	}
 	visited[enc] = true
 
-	for name, header := range enc.Headers {
-		forEachHeaderSchema(header, fmt.Sprintf("%s.headers.%s", path, name), visit)
-	}
 	for name, nested := range enc.Encoding {
 		forEachEncodingSchema(nested, fmt.Sprintf("%s.encoding.%s", path, name), visit, visited, depth+1)
 	}
