@@ -69,7 +69,7 @@ func convertHeaderFixture(t *testing.T, source, target string) (*ConversionResul
 	case *parser.OAS3Document:
 		headers = doc.Paths["/a"].Get.Responses.Codes["200"].Headers
 	default:
-		t.Fatalf("unexpected document type %T", result.Document)
+		require.Failf(t, "unexpected document type", "%T", result.Document)
 	}
 	require.NotEmpty(t, headers, "the fixture should carry response headers; it does not, so this test proves nothing")
 	return result, headers
@@ -219,7 +219,8 @@ func assertIssueMentioning(t *testing.T, result *ConversionResult, substr string
 			return
 		}
 	}
-	t.Fatalf("no conversion issue mentions %q; got %d issues", substr, len(result.Issues))
+	require.Failf(t, "no conversion issue mentions the expected text",
+		"looked for %q across %d issues", substr, len(result.Issues))
 }
 
 // TestUnresolvedHeaderRefIsDropped covers a header whose reference cannot be
