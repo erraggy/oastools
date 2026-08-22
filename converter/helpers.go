@@ -237,7 +237,7 @@ func (c *Converter) convertOAS2ResponseToOAS3Old(response *parser.Response, prod
 
 	converted := &parser.Response{
 		Description: response.Description,
-		Headers:     deepCopyHeaders(response.Headers),
+		Headers:     c.convertHeadersToOAS3(response.Headers, result, path),
 		Extra:       parser.DeepCopyExtensions(response.Extra),
 	}
 
@@ -275,21 +275,7 @@ func (c *Converter) convertOAS3ResponseToOAS2(response *parser.Response, result 
 	}
 
 	if len(response.Headers) > 0 {
-		converted.Headers = make(map[string]*parser.Header, len(response.Headers))
-		for name, header := range response.Headers {
-			if header != nil && header.Ref != "" && c.sourceHeaders != nil {
-				resolved := c.resolveHeaderRef(header.Ref, result, path)
-				if resolved != nil {
-					converted.Headers[name] = resolved
-					continue
-				}
-			}
-			if header != nil {
-				converted.Headers[name] = header.DeepCopy()
-			} else {
-				converted.Headers[name] = nil
-			}
-		}
+		converted.Headers = c.convertHeadersToOAS2(response.Headers, result, path)
 	}
 
 	var produces []string
