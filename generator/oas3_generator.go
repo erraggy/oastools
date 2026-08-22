@@ -563,7 +563,8 @@ func (cg *oas3CodeGenerator) getRequestBodyType(rb *parser.RequestBody) string {
 		return "any"
 	}
 	// Look for JSON content type
-	for contentType, mediaType := range rb.Content {
+	for _, contentType := range schemautil.SortedContentTypes(rb.Content) {
+		mediaType := rb.Content[contentType]
 		if strings.Contains(contentType, "json") && mediaType != nil && mediaType.Schema != nil {
 			return cg.schemaToGoType(mediaType.Schema, true)
 		}
@@ -576,23 +577,25 @@ func (cg *oas3CodeGenerator) getRequestBodyContentType(rb *parser.RequestBody) s
 	if rb == nil || rb.Content == nil {
 		return "application/json"
 	}
+	ordered := schemautil.SortedContentTypes(rb.Content)
 	// Prefer JSON content types
-	for contentType := range rb.Content {
+	for _, contentType := range ordered {
 		if strings.Contains(contentType, "json") {
 			return contentType
 		}
 	}
-	// Fall back to first available content type
-	for contentType := range rb.Content {
-		return contentType
+	// Fall back to the first available content type
+	if len(ordered) > 0 {
+		return ordered[0]
 	}
-	return "application/json"
+	return httputil.MediaTypeJSON
 }
 
 // findJSONSchemaType searches a content map for a JSON schema and returns its Go type.
 // Returns the type string and true if found, or empty string and false if not found.
 func (cg *oas3CodeGenerator) findJSONSchemaType(content map[string]*parser.MediaType) (string, bool) {
-	for contentType, mediaType := range content {
+	for _, contentType := range schemautil.SortedContentTypes(content) {
+		mediaType := content[contentType]
 		if strings.Contains(contentType, "json") && mediaType != nil && mediaType.Schema != nil {
 			goType := cg.schemaToGoType(mediaType.Schema, true)
 			if !strings.HasPrefix(goType, "*") && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map") {
@@ -1119,12 +1122,13 @@ func (cg *oas3CodeGenerator) buildStatusCodeData(code string, resp *parser.Respo
 
 	// OAS 3.x: Determine body type from response content map
 	if resp.Content != nil {
-		for contentType, mediaType := range resp.Content {
+		for _, contentType := range schemautil.SortedContentTypes(resp.Content) {
+			mediaType := resp.Content[contentType]
 			if mediaType != nil && mediaType.Schema != nil {
 				statusData.HasBody = true
 				statusData.ContentType = contentType
 				statusData.BodyType = cg.schemaToGoType(mediaType.Schema, true)
-				break // Use first content type
+				break
 			}
 		}
 	}
