@@ -531,3 +531,58 @@ definitions:
 	assert.Contains(t, messages2, "additionalItems")
 	assert.NotContains(t, messages2, "'prefixItems'")
 }
+
+// TestExclusiveBoundAcceptsEveryDecodedKind pins the Go kinds the decode paths
+// actually produce for an exclusive bound. The YAML path yields uint64 for a
+// value above math.MaxInt64 and int for a small one, while the JSON path yields
+// float64, so a conversion keyed on float64 alone drops bounds silently.
+func TestExclusiveBoundAcceptsEveryDecodedKind(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value any
+	}{
+		{"int", 3},
+		{"int64", int64(3)},
+		{"uint", uint(3)},
+		{"uint64, above math.MaxInt64", uint64(18446744073709551615)},
+		{"float64", 3.0},
+		{"float32", float32(3)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			schema := &parser.Schema{Type: "integer", ExclusiveMinimum: tc.value}
+			fixSchemaExclusiveMinMaxForOAS30(schema)
+
+			assert.Equal(t, true, schema.ExclusiveMinimum, "the bound should become draft 4's boolean")
+			require.NotNil(t, schema.Minimum, "the value should move into minimum rather than being dropped")
+		})
+	}
+}
+
+// TestExclusiveBoundFromYAMLIsNotDropped is the same property through the parser,
+// so the test cannot pass on a kind the decode paths never produce.
+func TestExclusiveBoundFromYAMLIsNotDropped(t *testing.T) {
+	const source = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+components:
+  schemas:
+    Big:
+      type: integer
+      exclusiveMinimum: 18446744073709551615
+`
+
+	_, doc := convertOAS3(t, source, "3.0.3")
+
+	big := doc.Components.Schemas["Big"]
+	require.NotNil(t, big)
+	assert.Equal(t, true, big.ExclusiveMinimum)
+	require.NotNil(t, big.Minimum, "the bound was dropped, so OAS 3.0 output lost the constraint")
+}

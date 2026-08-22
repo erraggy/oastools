@@ -75,6 +75,11 @@ func numericBound(v any) (float64, bool) {
 		return float64(n), true
 	case int64:
 		return float64(n), true
+	case uint:
+		return float64(n), true
+	case uint64:
+		// The YAML path yields this for a bound above math.MaxInt64.
+		return float64(n), true
 	default:
 		return 0, false
 	}

@@ -1229,3 +1229,24 @@ paths:
 	}
 	assert.Contains(t, messages, "cannot name here", "the direct object type is a loss and has to be reported")
 }
+
+// TestInferTypeFromNestedComposite covers a type that only a nested composite
+// names, and the cycle guard that recursion needs, since Convert takes the
+// caller's document rather than a parsed one.
+func TestInferTypeFromNestedComposite(t *testing.T) {
+	nested := &parser.Schema{
+		AnyOf: []*parser.Schema{
+			{AllOf: []*parser.Schema{{Type: "integer"}}},
+		},
+	}
+	assert.Equal(t, "integer", inferTypeFromSchema(nested))
+
+	cyclic := &parser.Schema{}
+	cyclic.AllOf = []*parser.Schema{cyclic}
+	assert.Empty(t, inferTypeFromSchema(cyclic), "a cyclic composite should terminate and name nothing")
+
+	mutual := &parser.Schema{}
+	other := &parser.Schema{AllOf: []*parser.Schema{mutual}}
+	mutual.AllOf = []*parser.Schema{other}
+	assert.Empty(t, inferTypeFromSchema(mutual), "a mutual cycle should terminate too")
+}

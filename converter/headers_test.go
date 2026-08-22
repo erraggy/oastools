@@ -392,3 +392,54 @@ paths:
 		})
 	}
 }
+
+// TestArrayHeaderAlwaysCarriesAnItemsObject covers the two shapes that produced
+// an Items Object OAS 2.0 rejects: an array with no element schema at all, and
+// one whose element names no type.
+func TestArrayHeaderAlwaysCarriesAnItemsObject(t *testing.T) {
+	const source = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-NoItems:
+              schema:
+                type: array
+            X-Untyped:
+              schema:
+                type: array
+                items: {description: no type here}
+            X-Nested:
+              schema:
+                type: array
+                items:
+                  type: array
+`
+
+	result, headers := convertHeaderFixture(t, source, "2.0")
+
+	for _, name := range []string{"X-NoItems", "X-Untyped", "X-Nested"} {
+		h := headers[name]
+		require.NotNil(t, h, name)
+		assert.Equal(t, "array", h.Type, name)
+		require.NotNil(t, h.Items, "%s: OAS 2.0 requires 'items' beside type array", name)
+		assert.NotEmpty(t, h.Items.Type, "%s: an Items Object with an empty type is not legal", name)
+	}
+
+	// The nested array's own element has no type either, so the fallback has to
+	// reach through the recursion rather than only the outermost level.
+	nested := headers["X-Nested"]
+	require.NotNil(t, nested.Items.Items)
+	assert.NotEmpty(t, nested.Items.Items.Type)
+
+	// Each fallback is a loss and is reported rather than applied quietly.
+	assertIssueMentioning(t, result, "no element schema")
+	assertIssueMentioning(t, result, "no type OAS 2.0 can name")
+}

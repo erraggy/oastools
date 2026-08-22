@@ -280,7 +280,12 @@ func (c *Converter) oas2ItemsFromSchema(schema *parser.Schema, subject string, r
 			"An OAS 2.0 'items' declaration applies one schema to every element. Describe the value with a single element schema, or keep the document at OAS 3.1 or later")
 	}
 	if elem == nil {
-		return nil
+		// OAS 2.0 requires 'items' beside `type: array`, so an array with no
+		// element schema still needs one to describe.
+		c.addIssueWithContext(result, path,
+			fmt.Sprintf("%s is an array with no element schema; OAS 2.0 requires 'items', recorded as 'string'", subject),
+			"An OAS 2.0 'items' declaration describes every element. Give the array an element schema with an explicit primitive type")
+		return &parser.Items{Type: "string"}
 	}
 
 	items := &parser.Items{
@@ -300,6 +305,14 @@ func (c *Converter) oas2ItemsFromSchema(schema *parser.Schema, subject string, r
 	}
 	items.ExclusiveMaximum, items.Maximum = oas2ExclusiveBound(elem.ExclusiveMaximum, items.Maximum)
 	items.ExclusiveMinimum, items.Minimum = oas2ExclusiveBound(elem.ExclusiveMinimum, items.Minimum)
+	if items.Type == "" {
+		// A $ref-only or untyped element names no type, and an Items Object
+		// with an empty one is not a legal OAS 2.0 document.
+		c.addIssueWithContext(result, path,
+			fmt.Sprintf("%s has an element schema with no type OAS 2.0 can name; recorded as 'string'", subject),
+			"An OAS 2.0 'items' declaration requires a primitive type. Give the element schema an explicit type")
+		items.Type = "string"
+	}
 	if items.Type == "array" {
 		items.Items = c.oas2ItemsFromSchema(elem, subject, result, path+".items")
 	}

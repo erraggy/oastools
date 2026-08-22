@@ -17,6 +17,7 @@ import (
 // the string appears in several places and has to agree in all of them.
 const (
 	fieldItems                 = "items"
+	fieldPrefixItems           = "prefixItems"
 	fieldAdditionalItems       = "additionalItems"
 	fieldAdditionalProperties  = "additionalProperties"
 	fieldUnevaluatedItems      = "unevaluatedItems"
@@ -159,7 +160,7 @@ var (
 		malformedAdvice: "JSON Schema draft 4 takes a schema or a boolean in 'additionalItems', and OAS 3.0 has no such keyword at all. Describe what follows the tuple with a single schema, at OAS 3.1 or later where it becomes 'items' beside 'prefixItems'",
 	}
 	prefixItemsTuple = tupleSource{
-		tuple:           "prefixItems",
+		tuple:           fieldPrefixItems,
 		trailing:        fieldItems,
 		tupleAdvice:     "OAS 3.0 requires 'items' to be a single schema and has no 'prefixItems', so it cannot say what belongs at each position. Describe the array with one schema that admits every position, or keep the document at OAS 3.1 or later",
 		trailingAdvice:  "JSON Schema 2020-12 constrains the elements past 'prefixItems' with 'items'. OAS 3.0 has no tuple for it to qualify, so the constraint cannot come across. Describe the array with one schema that admits every position",

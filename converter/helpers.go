@@ -129,7 +129,14 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 // OAS 2.0 can name wins over an earlier one it cannot, since the alternatives
 // are interchangeable and only one survives the demotion.
 func inferTypeFromSchema(schema *parser.Schema) string {
-	if schema == nil {
+	return inferTypeFromSchemaVisited(schema, nil)
+}
+
+// inferTypeFromSchemaVisited carries the set that makes a cyclic composite
+// terminate. Convert takes the caller's document, which a parse did not have to
+// build. The set stays nil until a branch actually nests.
+func inferTypeFromSchemaVisited(schema *parser.Schema, visited map[*parser.Schema]bool) string {
+	if schema == nil || visited[schema] {
 		return ""
 	}
 
@@ -137,6 +144,13 @@ func inferTypeFromSchema(schema *parser.Schema) string {
 	for _, branch := range [][]*parser.Schema{schema.AllOf, schema.OneOf, schema.AnyOf} {
 		for _, sub := range branch {
 			t := schemautil.GetPrimaryType(sub)
+			if t == "" {
+				if visited == nil {
+					visited = make(map[*parser.Schema]bool)
+				}
+				visited[schema] = true
+				t = inferTypeFromSchemaVisited(sub, visited)
+			}
 			if t == "" {
 				continue
 			}
