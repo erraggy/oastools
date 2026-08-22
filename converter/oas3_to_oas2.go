@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/erraggy/oastools/internal/httputil"
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -292,7 +293,7 @@ func (c *Converter) convertOAS3RequestBodyToOAS2(requestBody *parser.RequestBody
 		return nil, nil
 	}
 
-	consumes := sortedMediaTypes(requestBody.Content)
+	consumes := maputil.SortedKeys(requestBody.Content)
 	firstMediaType, firstContent := selectContentSchema(requestBody.Content)
 
 	// Warn about multiple media types

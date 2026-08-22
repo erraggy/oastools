@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/internal/httputil"
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
@@ -247,7 +248,7 @@ func (c *Converter) convertOAS3ResponseToOAS2(response *parser.Response, result 
 
 	// Convert content to schema
 	if len(response.Content) > 0 {
-		produces = append(produces, sortedMediaTypes(response.Content)...)
+		produces = append(produces, maputil.SortedKeys(response.Content)...)
 		selected, media := selectContentSchema(response.Content)
 
 		if len(response.Content) > 1 {
@@ -344,17 +345,6 @@ func selectContentSchema(content map[string]*parser.MediaType) (string, *parser.
 		}
 	}
 	return name, chosen
-}
-
-// sortedMediaTypes returns a content map's keys in a stable order, for the
-// produces and consumes arrays OAS 2.0 builds from them.
-func sortedMediaTypes(content map[string]*parser.MediaType) []string {
-	names := make([]string, 0, len(content))
-	for mt := range content {
-		names = append(names, mt)
-	}
-	sort.Strings(names)
-	return names
 }
 
 // multipleMediaTypeIssue reports which media type's schema survived, or that
