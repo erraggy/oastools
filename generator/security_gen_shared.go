@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -75,11 +75,7 @@ func collectScopesFromFlows(oas2Scopes map[string]string, flows *parser.OAuthFlo
 		addScopesFromFlow(scopeSet, flows.AuthorizationCode)
 	}
 
-	scopes := make([]string, 0, len(scopeSet))
-	for scope := range scopeSet {
-		scopes = append(scopes, scope)
-	}
-	sort.Strings(scopes)
+	scopes := maputil.SortedKeys(scopeSet)
 	return scopes
 }
 
@@ -397,11 +393,7 @@ func buildSecuritySchemeSummariesOAS2(schemes map[string]*parser.SecurityScheme)
 	}
 
 	// Sort scheme names for deterministic output
-	names := make([]string, 0, len(schemes))
-	for name := range schemes {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := maputil.SortedKeys(schemes)
 
 	summaries := make([]SecuritySchemeSummary, 0, len(names))
 	for _, name := range names {
@@ -439,11 +431,7 @@ func buildSecuritySchemeSummariesOAS3(schemes map[string]*parser.SecurityScheme)
 	}
 
 	// Sort scheme names for deterministic output
-	names := make([]string, 0, len(schemes))
-	for name := range schemes {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := maputil.SortedKeys(schemes)
 
 	summaries := make([]SecuritySchemeSummary, 0, len(names))
 	for _, name := range names {
@@ -625,11 +613,7 @@ func buildStatusCodesShared(op *parser.Operation, buildData statusCodeDataBuilde
 	}
 
 	// Get sorted status codes from Codes map
-	statusKeys := make([]string, 0, len(op.Responses.Codes))
-	for code := range op.Responses.Codes {
-		statusKeys = append(statusKeys, code)
-	}
-	sort.Strings(statusKeys)
+	statusKeys := maputil.SortedKeys(op.Responses.Codes)
 
 	for _, code := range statusKeys {
 		resp := op.Responses.Codes[code]

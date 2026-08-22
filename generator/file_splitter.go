@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
@@ -252,11 +253,7 @@ func (fs *FileSplitter) groupOperations(operations []*OperationInfo) map[string]
 // This is shared between OAS 2.0 and OAS 3.x analysis.
 func (fs *FileSplitter) buildFileGroupsFromGroups(groups map[string][]*OperationInfo, typeUsage map[string]*typeUsageInfo, plan *SplitPlan) {
 	// Build file groups
-	sortedGroupNames := make([]string, 0, len(groups))
-	for name := range groups {
-		sortedGroupNames = append(sortedGroupNames, name)
-	}
-	sort.Strings(sortedGroupNames)
+	sortedGroupNames := maputil.SortedKeys(groups)
 
 	// Track method names across all groups to avoid duplicates.
 	// When two operations from different tags normalize to the same method name,
@@ -750,11 +747,7 @@ func (fs *FileSplitter) getSchemaNames(doc *parser.OAS3Document) []string {
 		return nil
 	}
 
-	names := make([]string, 0, len(doc.Components.Schemas))
-	for name := range doc.Components.Schemas {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := maputil.SortedKeys(doc.Components.Schemas)
 	return names
 }
 
@@ -764,11 +757,7 @@ func (fs *FileSplitter) getOAS2SchemaNames(doc *parser.OAS2Document) []string {
 		return nil
 	}
 
-	names := make([]string, 0, len(doc.Definitions))
-	for name := range doc.Definitions {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := maputil.SortedKeys(doc.Definitions)
 	return names
 }
 

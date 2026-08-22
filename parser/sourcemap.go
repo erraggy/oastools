@@ -2,9 +2,9 @@ package parser
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -128,11 +128,7 @@ func (sm *SourceMap) Paths() []string {
 	if sm == nil {
 		return nil
 	}
-	paths := make([]string, 0, len(sm.locations))
-	for path := range sm.locations {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
+	paths := maputil.SortedKeys(sm.locations)
 	return paths
 }
 

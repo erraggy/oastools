@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/internal/paramutil"
 	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/parser"
@@ -146,11 +147,7 @@ func (f *Fixer) pruneSchemas(
 	referenced := buildReferencedSchemaSet(collector, schemas, accessor)
 
 	// Sort schema names for deterministic output
-	schemaNames := make([]string, 0, len(schemas))
-	for name := range schemas {
-		schemaNames = append(schemaNames, name)
-	}
-	sort.Strings(schemaNames)
+	schemaNames := maputil.SortedKeys(schemas)
 
 	// Remove unreferenced schemas
 	pathPrefix := schemaPathPrefix(accessor.GetVersion())

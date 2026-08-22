@@ -7,11 +7,11 @@ import (
 	"maps"
 	"mime"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/erraggy/oastools/httpvalidator"
+	"github.com/erraggy/oastools/internal/maputil"
 )
 
 // dispatcher handles routing validated requests to handlers.
@@ -155,11 +155,7 @@ func (d *dispatcher) buildRequest(r *http.Request, route operationRoute) *Reques
 
 // allowedMethods returns a sorted list of allowed methods for a path.
 func (d *dispatcher) allowedMethods(methods map[string]operationRoute) []string {
-	result := make([]string, 0, len(methods))
-	for method := range methods {
-		result = append(result, method)
-	}
-	slices.Sort(result)
+	result := maputil.SortedKeys(methods)
 	return result
 }
 

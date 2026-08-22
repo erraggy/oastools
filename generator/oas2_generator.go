@@ -113,11 +113,7 @@ func (cg *oas2CodeGenerator) generateSingleTypes() error {
 	// Write imports
 	if len(imports) > 0 {
 		buf.WriteString("import (\n")
-		importList := make([]string, 0, len(imports))
-		for imp := range imports {
-			importList = append(importList, imp)
-		}
-		sort.Strings(importList)
+		importList := maputil.SortedKeys(imports)
 		for _, imp := range importList {
 			fmt.Fprintf(&buf, "\t%q\n", imp)
 		}
@@ -213,11 +209,7 @@ func (cg *oas2CodeGenerator) generateOAS2TypesFile(fileName, comment string, all
 	// Write imports, sorted so the generated file does not depend on map order.
 	if len(imports) > 0 {
 		buf.WriteString("import (\n")
-		importList := make([]string, 0, len(imports))
-		for imp := range imports {
-			importList = append(importList, imp)
-		}
-		sort.Strings(importList)
+		importList := maputil.SortedKeys(imports)
 		for _, imp := range importList {
 			fmt.Fprintf(&buf, "\t%q\n", imp)
 		}
@@ -361,11 +353,7 @@ func (cg *oas2CodeGenerator) generateAllOfType(typeName string, schema *parser.S
 // writeStructFields writes struct fields for properties in sorted order.
 // includeDescription controls whether to emit field description comments.
 func (cg *oas2CodeGenerator) writeStructFields(buf *bytes.Buffer, schema *parser.Schema, typeName string, includeDescription bool) {
-	propNames := make([]string, 0, len(schema.Properties))
-	for propName := range schema.Properties {
-		propNames = append(propNames, propName)
-	}
-	sort.Strings(propNames)
+	propNames := maputil.SortedKeys(schema.Properties)
 
 	for _, propName := range propNames {
 		propSchema := schema.Properties[propName]

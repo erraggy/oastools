@@ -3,9 +3,9 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -131,11 +131,7 @@ package %s
 	buf.WriteString("func init() {\n")
 
 	// Sort operation IDs for deterministic output
-	opIDs := make([]string, 0, len(groupOpSecurity))
-	for opID := range groupOpSecurity {
-		opIDs = append(opIDs, opID)
-	}
-	sort.Strings(opIDs)
+	opIDs := maputil.SortedKeys(groupOpSecurity)
 
 	for _, opID := range opIDs {
 		reqs := groupOpSecurity[opID]
@@ -181,11 +177,7 @@ var OperationSecurity = map[string][]SecurityRequirement{
 `)
 
 	// Sort operation IDs for deterministic output
-	opIDs := make([]string, 0, len(opSecurity))
-	for opID := range opSecurity {
-		opIDs = append(opIDs, opID)
-	}
-	sort.Strings(opIDs)
+	opIDs := maputil.SortedKeys(opSecurity)
 
 	for _, opID := range opIDs {
 		reqs := opSecurity[opID]
