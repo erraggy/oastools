@@ -292,24 +292,14 @@ func (c *Converter) convertOAS3RequestBodyToOAS2(requestBody *parser.RequestBody
 		return nil, nil
 	}
 
-	consumes := make([]string, 0, len(requestBody.Content))
-	var firstMediaType string
-	var firstContent *parser.MediaType
-
-	// Collect all media types
-	for mediaType, content := range requestBody.Content {
-		consumes = append(consumes, mediaType)
-		if firstMediaType == "" {
-			firstMediaType = mediaType
-			firstContent = content
-		}
-	}
+	consumes := sortedMediaTypes(requestBody.Content)
+	firstMediaType, firstContent := selectContentSchema(requestBody.Content)
 
 	// Warn about multiple media types
 	if len(requestBody.Content) > 1 {
-		c.addIssueWithContext(result, fmt.Sprintf("%s.requestBody", opPath),
-			fmt.Sprintf("RequestBody has multiple media types (%d), using first (%s)", len(requestBody.Content), firstMediaType),
-			"OAS 2.0 body parameters have a single schema; use 'consumes' array to specify multiple content types")
+		message, context := multipleMediaTypeIssue("RequestBody", len(requestBody.Content), firstMediaType,
+			"consumes", "the body parameter falls back to the empty schema")
+		c.addIssueWithContext(result, fmt.Sprintf("%s.requestBody", opPath), message, context)
 	}
 
 	// Create body parameter
@@ -321,9 +311,18 @@ func (c *Converter) convertOAS3RequestBodyToOAS2(requestBody *parser.RequestBody
 		Extra:       parser.DeepCopyExtensions(requestBody.Extra),
 	}
 
-	if firstContent != nil && firstContent.Schema != nil {
+	if firstContent != nil {
 		schemaPath := fmt.Sprintf("%s.requestBody.content.%s.schema", opPath, firstMediaType)
 		bodyParam.Schema = c.convertOAS3SchemaToOAS2(firstContent.Schema, result, schemaPath)
+	}
+	if bodyParam.Schema == nil {
+		// A Swagger 2.0 body parameter requires 'schema', so one has to be
+		// written even when the request body offered none. The empty schema
+		// admits any value, which is what an unconstrained body means.
+		c.addIssueWithContext(result, fmt.Sprintf("%s.requestBody", opPath),
+			"RequestBody has no schema, which an OAS 2.0 body parameter requires; recorded as the empty schema",
+			"A Swagger 2.0 body parameter must carry 'schema'. Describe the body in the request body's content to keep the constraint")
+		bodyParam.Schema = &parser.Schema{}
 	}
 
 	return bodyParam, consumes

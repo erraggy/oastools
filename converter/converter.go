@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/erraggy/oastools/internal/httputil"
 	"github.com/erraggy/oastools/internal/issues"
 	"github.com/erraggy/oastools/internal/options"
 	"github.com/erraggy/oastools/internal/schemautil"
@@ -27,7 +28,7 @@ const (
 )
 
 const (
-	mediaTypeJSON      = "application/json"
+	mediaTypeJSON      = httputil.MediaTypeJSON
 	schemeHTTPS        = "https"
 	paramInFormData    = "formData"
 	securityTypeOAuth2 = "oauth2"

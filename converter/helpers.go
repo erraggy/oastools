@@ -2,6 +2,7 @@ package converter
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/erraggy/oastools/internal/httputil"
@@ -14,7 +15,11 @@ func getDefaultMediaType() string {
 	return mediaTypeJSON
 }
 
-// mergeStringArrays merges multiple string arrays, removing duplicates
+// mergeStringArrays merges multiple string arrays, removing duplicates.
+//
+// The result is sorted. Every caller builds a produces or consumes list from
+// content maps reached through a map range, so insertion order carries Go's map
+// randomization into the converted document (#531).
 func mergeStringArrays(arrays ...[]string) []string {
 	seen := make(map[string]bool)
 	result := make([]string, 0)
@@ -28,6 +33,7 @@ func mergeStringArrays(arrays ...[]string) []string {
 		}
 	}
 
+	sort.Strings(result)
 	return result
 }
 
@@ -241,26 +247,17 @@ func (c *Converter) convertOAS3ResponseToOAS2(response *parser.Response, result 
 
 	// Convert content to schema
 	if len(response.Content) > 0 {
-		// Take the first media type's schema
-		var firstMediaType string
-		var firstContent *parser.MediaType
-
-		for mt, content := range response.Content {
-			if firstMediaType == "" {
-				firstMediaType = mt
-				firstContent = content
-			}
-			produces = append(produces, mt)
-		}
+		produces = append(produces, sortedMediaTypes(response.Content)...)
+		selected, media := selectContentSchema(response.Content)
 
 		if len(response.Content) > 1 {
-			c.addIssueWithContext(result, path,
-				fmt.Sprintf("Response has multiple media types (%d), using first (%s)", len(response.Content), firstMediaType),
-				"OAS 2.0 responses have a single schema; use 'produces' array to specify multiple content types")
+			message, context := multipleMediaTypeIssue("Response", len(response.Content), selected,
+				"produces", "an OAS 2.0 response may carry none")
+			c.addIssueWithContext(result, path, message, context)
 		}
 
-		if firstContent != nil && firstContent.Schema != nil {
-			converted.Schema = c.convertOAS3SchemaToOAS2(firstContent.Schema, result, fmt.Sprintf("%s.content.%s.schema", path, firstMediaType))
+		if media != nil {
+			converted.Schema = c.convertOAS3SchemaToOAS2(media.Schema, result, fmt.Sprintf("%s.content.%s.schema", path, selected))
 		}
 	}
 
@@ -326,4 +323,52 @@ func (c *Converter) convertParameterSlice(params []*parser.Parameter, result *Co
 	}
 
 	return converted
+}
+
+// selectContentSchema picks the media type an OAS 2.0 target should keep from a
+// content map, which admits one schema where OAS 3.x admits many.
+//
+// A media type carrying no schema is skipped: it cannot describe the body, and
+// selecting it loses the schema a sibling was offering. Among the rest the
+// choice is by rank and then by name, so it does not depend on map iteration
+// order.
+func selectContentSchema(content map[string]*parser.MediaType) (string, *parser.MediaType) {
+	var name string
+	var chosen *parser.MediaType
+	for mt, media := range content {
+		if media == nil || media.Schema == nil {
+			continue
+		}
+		if chosen == nil || httputil.PreferredMediaType(mt, name) == mt {
+			name, chosen = mt, media
+		}
+	}
+	return name, chosen
+}
+
+// sortedMediaTypes returns a content map's keys in a stable order, for the
+// produces and consumes arrays OAS 2.0 builds from them.
+func sortedMediaTypes(content map[string]*parser.MediaType) []string {
+	names := make([]string, 0, len(content))
+	for mt := range content {
+		names = append(names, mt)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// multipleMediaTypeIssue reports which media type's schema survived, or that
+// none was on offer, since a content map may carry several entries and no
+// schema between them. The context follows the message: saying one schema came
+// across is wrong when none did.
+//
+// listedIn names the OAS 2.0 array the other media types still reach, and
+// noneKept describes what the target is left holding.
+func multipleMediaTypeIssue(subject string, count int, selected, listedIn, noneKept string) (message, context string) {
+	if selected == "" {
+		return fmt.Sprintf("%s has multiple media types (%d) and none carries a schema", subject, count),
+			fmt.Sprintf("No source schema was kept. The media types are listed in '%s', and %s", listedIn, noneKept)
+	}
+	return fmt.Sprintf("%s has multiple media types (%d), keeping the schema from '%s'", subject, count, selected),
+		fmt.Sprintf("An OAS 2.0 %s has a single schema. The other media types are listed in '%s', but only one schema comes across", strings.ToLower(subject), listedIn)
 }

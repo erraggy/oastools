@@ -154,3 +154,62 @@ func IsValidMediaType(mediaType string) bool {
 	_, _, err := mime.ParseMediaType(mediaType)
 	return err == nil
 }
+
+// MediaTypeJSON is the media type a Schema Object describes directly, and the
+// default this codebase falls back to.
+const MediaTypeJSON = "application/json"
+
+// Media type ranks, lowest first, for a target that admits only one media type
+// where the source offered several.
+const (
+	// MediaTypeRankJSON is application/json itself.
+	MediaTypeRankJSON = iota
+	// MediaTypeRankJSONSuffix is a JSON structured syntax suffix, such as
+	// application/problem+json or application/ld+json.
+	MediaTypeRankJSONSuffix
+	// MediaTypeRankOther is everything else.
+	MediaTypeRankOther
+)
+
+// MediaTypeRank orders media types by how faithfully one Schema Object
+// describes them. JSON wins because a Schema Object describes JSON, and because
+// every other part of this codebase already defaults to it.
+//
+// Parameters are ignored, so application/json; charset=utf-8 ranks as JSON. A
+// media type that does not parse is ranked last rather than rejected, since the
+// caller is choosing between what a document actually offers, and a name ending
+// in +json is not a JSON media type if it is not a media type at all.
+func MediaTypeRank(mediaType string) int {
+	parsed, _, err := mime.ParseMediaType(mediaType)
+	if err != nil {
+		return MediaTypeRankOther
+	}
+	essence := strings.ToLower(strings.TrimSpace(parsed))
+
+	switch {
+	case essence == MediaTypeJSON:
+		return MediaTypeRankJSON
+	case strings.HasSuffix(essence, "+json"):
+		return MediaTypeRankJSONSuffix
+	default:
+		return MediaTypeRankOther
+	}
+}
+
+// PreferredMediaType reports which of two media types a single-schema target
+// should keep. Rank decides it, and the name breaks a tie so the choice does not
+// depend on map iteration order.
+func PreferredMediaType(a, b string) string {
+	ra, rb := MediaTypeRank(a), MediaTypeRank(b)
+	switch {
+	case ra != rb:
+		if ra < rb {
+			return a
+		}
+		return b
+	case a <= b:
+		return a
+	default:
+		return b
+	}
+}
