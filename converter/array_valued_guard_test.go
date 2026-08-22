@@ -276,6 +276,12 @@ paths:
       responses:
         "200":
           description: OK
+          headers:
+            X-Rake:
+              schema:
+                type: object
+                unevaluatedItems:
+                  - type: integer
           content:
             application/json:
               schema:
@@ -351,6 +357,8 @@ func TestDownconvertedOutputHoldsNoIllegalArrays(t *testing.T) {
 		clearedField{"components.schemas.Nested", "additionalProperties", arrayKind},
 		clearedField{"paths./things.post.requestBody.content.application/json.schema", "additionalProperties", arrayKind},
 		clearedField{"paths./things.post.responses.200.content.application/json.schema", "unevaluatedProperties", arrayKind},
+		// A Header Object's schema.
+		clearedField{"paths./things.post.responses.200.headers.X-Rake", "unevaluatedItems", arrayKind},
 		// no prefixItems, so the conversion takes its early return: the array in
 		// items becomes the OAS 2.0 tuple and the one in additionalItems, which
 		// draft 4 never accepts, is dropped and reported
@@ -389,6 +397,16 @@ func inlineSchemasOAS3(t *testing.T, doc *parser.OAS3Document) map[string]*parse
 				for mt, media := range resp.Content {
 					if media.Schema != nil {
 						found[path+".post.responses."+code+"."+mt] = media.Schema
+					}
+					if media.ItemSchema != nil {
+						found[path+".post.responses."+code+"."+mt+".itemSchema"] = media.ItemSchema
+					}
+				}
+				// A Header Object carries a Schema Object. A guard that does
+				// not visit a position cannot report one.
+				for name, header := range resp.Headers {
+					if header != nil && header.Schema != nil {
+						found[path+".post.responses."+code+".headers."+name] = header.Schema
 					}
 				}
 			}

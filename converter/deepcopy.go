@@ -23,18 +23,6 @@ func deepCopyTags(tags []*parser.Tag) []*parser.Tag {
 	return cp
 }
 
-// deepCopyHeaders deep copies a response's header map.
-func deepCopyHeaders(headers map[string]*parser.Header) map[string]*parser.Header {
-	if headers == nil {
-		return nil
-	}
-	cp := make(map[string]*parser.Header, len(headers))
-	for name, header := range headers {
-		cp[name] = header.DeepCopy()
-	}
-	return cp
-}
-
 // deepCopyStrings copies a plain string slice, so appending to the converted
 // document's slice cannot reallocate over the source's backing array.
 func deepCopyStrings(v []string) []string {

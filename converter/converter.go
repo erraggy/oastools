@@ -539,6 +539,12 @@ func (c *Converter) convertOAS3ToOAS3(parseResult parser.ParseResult, targetVers
 		c.detectOAS32Features(converted, result)
 	}
 
+	// Last: the detections above read the document as the caller wrote it, and a
+	// pass that clears a field would take the value out from under them.
+	forEachOAS3Schema(converted, func(schema *parser.Schema, path string) {
+		c.applyOAS3SchemaPasses(schema, targetVersion, result, path)
+	})
+
 	return nil
 }
 

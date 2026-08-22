@@ -52,65 +52,7 @@ func (c *Converter) convertOAS2ParameterToOAS3(param *parser.Parameter, result *
 	if param.Schema != nil {
 		converted.Schema = c.convertOAS2SchemaToOAS3(param.Schema, result.TargetOASVersion, result, path+".schema")
 	} else if param.Type != "" {
-		// Convert type/format to schema, transferring all OAS 2.0 validation keywords
-		converted.Schema = &parser.Schema{
-			Type:        param.Type,
-			Format:      param.Format,
-			Default:     param.Default,
-			Enum:        param.Enum,
-			Maximum:     param.Maximum,
-			Minimum:     param.Minimum,
-			MaxLength:   param.MaxLength,
-			MinLength:   param.MinLength,
-			Pattern:     param.Pattern,
-			MaxItems:    param.MaxItems,
-			MinItems:    param.MinItems,
-			UniqueItems: param.UniqueItems,
-			MultipleOf:  param.MultipleOf,
-		}
-		if param.ExclusiveMaximum {
-			if c.isOAS31OrLater(result.TargetOASVersion) {
-				if param.Maximum != nil {
-					converted.Schema.ExclusiveMaximum = *param.Maximum
-					converted.Schema.Maximum = nil
-				} else {
-					c.addIssueWithContext(result, path,
-						"Parameter has 'exclusiveMaximum: true' but no 'maximum' value; constraint dropped in OAS 3.1 conversion",
-						"Add a 'maximum' value to preserve this exclusive boundary in OAS 3.1")
-				}
-			} else {
-				converted.Schema.ExclusiveMaximum = true
-			}
-		}
-		if param.ExclusiveMinimum {
-			if c.isOAS31OrLater(result.TargetOASVersion) {
-				if param.Minimum != nil {
-					converted.Schema.ExclusiveMinimum = *param.Minimum
-					converted.Schema.Minimum = nil
-				} else {
-					c.addIssueWithContext(result, path,
-						"Parameter has 'exclusiveMinimum: true' but no 'minimum' value; constraint dropped in OAS 3.1 conversion",
-						"Add a 'minimum' value to preserve this exclusive boundary in OAS 3.1")
-				}
-			} else {
-				converted.Schema.ExclusiveMinimum = true
-			}
-		}
-		if param.Items != nil {
-			converted.Schema.Items = convertOAS2ItemsToSchema(c, param.Items, result, path+".items")
-			if param.Items.CollectionFormat != "" && param.Items.CollectionFormat != "csv" {
-				c.addIssueWithContext(result, path,
-					fmt.Sprintf("Parameter items uses collectionFormat '%s'", param.Items.CollectionFormat),
-					"OAS 3.x uses 'style' and 'explode' instead; 'csv' format maps to style=form")
-			}
-		}
-
-		// Handle collection format
-		if param.CollectionFormat != "" && param.CollectionFormat != "csv" {
-			c.addIssueWithContext(result, path,
-				fmt.Sprintf("Parameter uses collectionFormat '%s'", param.CollectionFormat),
-				"OAS 3.x uses 'style' and 'explode' instead; 'csv' format maps to style=form")
-		}
+		converted.Schema = c.oas2TypedValueToSchema(oas2TypedValueOfParameter(param), "Parameter", result, path)
 	}
 
 	// AllowEmptyValue was removed in OAS 3.0
@@ -146,21 +88,22 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 	// Convert schema to type/format
 	if param.Schema != nil {
 		schema := c.convertOAS3SchemaToOAS2(param.Schema, result, fmt.Sprintf("%s.schema", path))
-		converted.Schema = schema
 
-		// Extract type and format for non-body parameters
-		if param.In != "body" && schema != nil {
-			// Type can be string or []string (OAS 3.1+), extract primary type
-			converted.Type = schemautil.GetPrimaryType(schema)
-			converted.Format = schema.Format
+		if param.In == "body" {
+			// The one position OAS 2.0 describes with a Schema Object.
+			converted.Schema = schema
+		} else if schema != nil {
+			// Elsewhere OAS 2.0 defines no 'schema' field, so it is read into
+			// the type declaration rather than carried alongside it.
+			c.oas2TypedValueFromSchema(schema, "Parameter", result, path).applyToParameter(converted)
 		}
 	}
 
 	// Fallback: infer type from composite schemas
 	if converted.Type == "" && param.In != "body" {
-		inferred := inferTypeFromSchema(converted.Schema)
+		inferred := inferTypeFromSchema(param.Schema)
 		if inferred != "" {
-			converted.Type = inferred
+			converted.Type = c.oas2PrimitiveType(inferred, "Parameter", result, path)
 			c.addIssueWithContext(result, path,
 				fmt.Sprintf("Inferred type '%s' from composite schema", inferred),
 				"OAS 2.0 requires explicit type for non-body parameters")
@@ -182,39 +125,55 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 	return converted
 }
 
-// inferTypeFromSchema walks allOf/oneOf/anyOf to find a concrete type.
+// inferTypeFromSchema walks allOf/oneOf/anyOf to find a concrete type. A branch
+// OAS 2.0 can name wins over an earlier one it cannot, since the alternatives
+// are interchangeable and only one survives the demotion.
 func inferTypeFromSchema(schema *parser.Schema) string {
-	if schema == nil {
+	return inferTypeFromSchemaVisited(schema, nil)
+}
+
+// inferTypeFromSchemaVisited carries the set that makes a cyclic composite
+// terminate. Convert takes the caller's document, which a parse did not have to
+// build. The set stays nil until a branch actually nests.
+func inferTypeFromSchemaVisited(schema *parser.Schema, visited map[*parser.Schema]bool) string {
+	if schema == nil || visited[schema] {
 		return ""
 	}
-	for _, sub := range schema.AllOf {
-		if t := schemautil.GetPrimaryType(sub); t != "" {
-			return t
+
+	var fallback string
+	for _, branch := range [][]*parser.Schema{schema.AllOf, schema.OneOf, schema.AnyOf} {
+		for _, sub := range branch {
+			t := schemautil.GetPrimaryType(sub)
+			if t == "" {
+				if visited == nil {
+					visited = make(map[*parser.Schema]bool)
+				}
+				visited[schema] = true
+				t = inferTypeFromSchemaVisited(sub, visited)
+			}
+			if t == "" {
+				continue
+			}
+			if oas2PrimitiveTypes[t] {
+				return t
+			}
+			if fallback == "" {
+				fallback = t
+			}
 		}
 	}
-	for _, sub := range schema.OneOf {
-		if t := schemautil.GetPrimaryType(sub); t != "" {
-			return t
-		}
-	}
-	for _, sub := range schema.AnyOf {
-		if t := schemautil.GetPrimaryType(sub); t != "" {
-			return t
-		}
-	}
-	return ""
+	return fallback
 }
 
 // resolveHeaderRef resolves a #/components/headers/* ref by inlining the definition.
 func (c *Converter) resolveHeaderRef(ref string, result *ConversionResult, path string) *parser.Header {
-	const prefix = "#/components/headers/"
-	if !strings.HasPrefix(ref, prefix) {
+	if !strings.HasPrefix(ref, componentHeadersPrefix) {
 		return nil
 	}
 	if c.sourceHeaders == nil {
 		return nil
 	}
-	name := ref[len(prefix):]
+	name := ref[len(componentHeadersPrefix):]
 	header, ok := c.sourceHeaders[name]
 	if !ok {
 		c.addIssueWithContext(result, path,
@@ -237,7 +196,7 @@ func (c *Converter) convertOAS2ResponseToOAS3Old(response *parser.Response, prod
 
 	converted := &parser.Response{
 		Description: response.Description,
-		Headers:     deepCopyHeaders(response.Headers),
+		Headers:     c.convertHeadersToOAS3(response.Headers, result, path),
 		Extra:       parser.DeepCopyExtensions(response.Extra),
 	}
 
@@ -275,21 +234,7 @@ func (c *Converter) convertOAS3ResponseToOAS2(response *parser.Response, result 
 	}
 
 	if len(response.Headers) > 0 {
-		converted.Headers = make(map[string]*parser.Header, len(response.Headers))
-		for name, header := range response.Headers {
-			if header != nil && header.Ref != "" && c.sourceHeaders != nil {
-				resolved := c.resolveHeaderRef(header.Ref, result, path)
-				if resolved != nil {
-					converted.Headers[name] = resolved
-					continue
-				}
-			}
-			if header != nil {
-				converted.Headers[name] = header.DeepCopy()
-			} else {
-				converted.Headers[name] = nil
-			}
-		}
+		converted.Headers = c.convertHeadersToOAS2(response.Headers, result, path)
 	}
 
 	var produces []string

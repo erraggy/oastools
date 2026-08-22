@@ -17,10 +17,13 @@ import (
 // the string appears in several places and has to agree in all of them.
 const (
 	fieldItems                 = "items"
+	fieldPrefixItems           = "prefixItems"
 	fieldAdditionalItems       = "additionalItems"
 	fieldAdditionalProperties  = "additionalProperties"
 	fieldUnevaluatedItems      = "unevaluatedItems"
 	fieldUnevaluatedProperties = "unevaluatedProperties"
+	fieldExclusiveMaximum      = "exclusiveMaximum"
+	fieldExclusiveMinimum      = "exclusiveMinimum"
 )
 
 // convertOAS2SchemaToOAS3 converts an OAS 2.0 schema to OAS 3.x format
@@ -45,7 +48,7 @@ func (c *Converter) convertOAS2SchemaToOAS3(schema *parser.Schema, targetVersion
 		fixSchemaExclusiveMinMaxForOAS31(c, converted, result, path, make(map[*parser.Schema]bool))
 		tupleToPrefixItems(c, converted, result, path)
 	} else {
-		tupleForOAS30(c, converted, result, path)
+		tupleForOAS30(c, converted, result, path, draft4Tuple)
 	}
 
 	return converted
@@ -139,7 +142,35 @@ func tupleToPrefixItems(c *Converter, schema *parser.Schema, result *ConversionR
 // an array whose elements are unconstrained accepts everything the tuple
 // accepted. minItems and maxItems are untouched, so the length constraints
 // survive even when the positions do not.
-func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
+// tupleSource names the keywords the source document used for a tuple and for
+// the constraint on the elements past it, so a diagnostic quotes what the author
+// wrote rather than the draft 4 spelling prefixItemsToTuple may have produced.
+type tupleSource struct {
+	tuple           string
+	trailing        string
+	tupleAdvice     string
+	trailingAdvice  string
+	malformedAdvice string
+}
+
+var (
+	draft4Tuple = tupleSource{
+		tuple:           fieldItems,
+		trailing:        fieldAdditionalItems,
+		tupleAdvice:     "OAS 3.0 requires 'items' to be a single schema, so it cannot say what belongs at each position. Convert to OAS 3.1 or later to keep the tuple as 'prefixItems', or describe the array with one schema that admits every position",
+		trailingAdvice:  "draft 4 uses 'additionalItems' to constrain the elements past a tuple. OAS 3.0 has no tuple to qualify and no such keyword, so the constraint cannot come across. Convert to OAS 3.1 or later, where it becomes 'items' beside 'prefixItems'",
+		malformedAdvice: "JSON Schema draft 4 takes a schema or a boolean in 'additionalItems', and OAS 3.0 has no such keyword at all. Describe what follows the tuple with a single schema, at OAS 3.1 or later where it becomes 'items' beside 'prefixItems'",
+	}
+	prefixItemsTuple = tupleSource{
+		tuple:           fieldPrefixItems,
+		trailing:        fieldItems,
+		tupleAdvice:     "OAS 3.0 requires 'items' to be a single schema and has no 'prefixItems', so it cannot say what belongs at each position. Describe the array with one schema that admits every position, or keep the document at OAS 3.1 or later",
+		trailingAdvice:  "JSON Schema 2020-12 constrains the elements past 'prefixItems' with 'items'. OAS 3.0 has no tuple for it to qualify, so the constraint cannot come across. Describe the array with one schema that admits every position",
+		malformedAdvice: "JSON Schema 2020-12 requires 'items' to be a schema. Describe what follows the listed positions with a single schema",
+	}
+)
+
+func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult, path string, src tupleSource) {
 	walkSchemas(schema, func(s *parser.Schema) {
 		tuple, ok := s.Items.([]*parser.Schema)
 		if !ok {
@@ -181,12 +212,12 @@ func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult
 			// Malformed as well as unconvertible, and said so, matching how
 			// tupleToPrefixItems reports the same value.
 			c.addIssueWithContext(result, path,
-				fmt.Sprintf("Schema holds a %d element array in '%s', which no OAS version accepts there; dropped", len(rest), fieldAdditionalItems),
-				"JSON Schema draft 4 takes a schema or a boolean in 'additionalItems', and OAS 3.0 has no such keyword at all. Describe what follows the tuple with a single schema, at OAS 3.1 or later where it becomes 'items' beside 'prefixItems'")
+				fmt.Sprintf("Schema holds a %d element array in '%s', which no OAS version accepts there; dropped", len(rest), src.trailing),
+				src.malformedAdvice)
 		} else if s.AdditionalItems != nil {
 			c.addIssueWithContext(result, path,
-				"Schema uses 'additionalItems', which OAS 3.0 does not define; dropped along with the tuple it qualified",
-				"draft 4 uses 'additionalItems' to constrain the elements past a tuple. OAS 3.0 has no tuple to qualify and no such keyword, so the constraint cannot come across. Convert to OAS 3.1 or later, where it becomes 'items' beside 'prefixItems'")
+				fmt.Sprintf("Schema uses '%s' to constrain the elements past a tuple, which OAS 3.0 cannot express; dropped along with the tuple it qualified", src.trailing),
+				src.trailingAdvice)
 		}
 
 		// The empty schema, not a missing one: OAS 3.0 says "items MUST be
@@ -196,8 +227,8 @@ func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult
 		s.Items = &parser.Schema{}
 		s.AdditionalItems = nil
 		c.addIssueWithContext(result, path,
-			fmt.Sprintf("Schema uses a %d element tuple in 'items', which OAS 3.0 forbids; positional element schemas dropped", len(tuple)),
-			"OAS 3.0 requires 'items' to be a single schema, so it cannot say what belongs at each position. Convert to OAS 3.1 or later to keep the tuple as 'prefixItems', or describe the array with one schema that admits every position")
+			fmt.Sprintf("Schema uses a %d element tuple in '%s', which OAS 3.0 forbids; positional element schemas dropped", len(tuple), src.tuple),
+			src.tupleAdvice)
 	})
 }
 
@@ -410,7 +441,7 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 	dropArrayValuedSchemaOrBool(c, converted, result, path)
 
 	// Demote prefixItems to the OAS 2.0 tuple spelling of items
-	prefixItemsToTuple(c, converted, result, path)
+	prefixItemsToTuple(c, converted, result, path, oas20Spelling)
 
 	return converted
 }
@@ -426,7 +457,26 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 // anything, which the empty schema also does, so it converts. `false` accepts
 // nothing, and draft 4 cannot say that without `not`, which OAS 2.0 does not
 // have, so the position becomes the empty schema and the loss is reported.
-func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
+// tupleTarget names the version a tuple is being rewritten for, and why that
+// version cannot hold a boolean schema at a position. OAS 2.0 has neither a
+// boolean schema form nor 'not'; OAS 3.0 has 'not' and lacks only the form.
+type tupleTarget struct {
+	name   string
+	noBool string
+}
+
+var (
+	oas20Spelling = tupleTarget{
+		name:   "OAS 2.0",
+		noBool: "OAS 2.0 follows JSON Schema draft 4, which has no boolean schema form and no 'not' keyword to build one from.",
+	}
+	oas30Spelling = tupleTarget{
+		name:   "OAS 3.0",
+		noBool: "The OAS 3.0 Schema Object has no boolean schema form, so a position spelled 'false' has no OAS 3.0 equivalent.",
+	}
+)
+
+func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionResult, path string, target tupleTarget) {
 	walkSchemas(schema, func(s *parser.Schema) {
 		if len(s.PrefixItems) == 0 {
 			// An array left in items is not touched here. OAS 2.0 spells a tuple
@@ -458,8 +508,8 @@ func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionR
 			s.PrefixItems[i] = &parser.Schema{}
 			if !b {
 				c.addIssueWithContext(result, fmt.Sprintf("%s.prefixItems[%d]", path, i),
-					"Schema uses the boolean schema 'false' at a tuple position, which OAS 2.0 cannot express; position now accepts any value",
-					"OAS 2.0 follows JSON Schema draft 4, which has no boolean schema form and no 'not' keyword to build one from. Constrain the position with an explicit schema, or keep the document at OAS 3.1 or later")
+					fmt.Sprintf("Schema uses the boolean schema 'false' at a tuple position, which %s cannot express; position now accepts any value", target.name),
+					target.noBool+" Constrain the position with an explicit schema, or keep the document at OAS 3.1 or later")
 			}
 		}
 
