@@ -168,25 +168,7 @@ func (c *Converter) convertOAS3HeaderToOAS2(header *parser.Header, result *Conve
 	if header.Schema != nil {
 		schema := c.convertOAS3SchemaToOAS2(header.Schema, result, path+".schema")
 		if schema != nil {
-			converted.Type = schemautil.GetPrimaryType(schema)
-			converted.Format = schema.Format
-			converted.Default = schema.Default
-			converted.Enum = schema.Enum
-			converted.Maximum = schema.Maximum
-			converted.Minimum = schema.Minimum
-			converted.MaxLength = schema.MaxLength
-			converted.MinLength = schema.MinLength
-			converted.Pattern = schema.Pattern
-			converted.MaxItems = schema.MaxItems
-			converted.MinItems = schema.MinItems
-			converted.UniqueItems = schema.UniqueItems
-			converted.MultipleOf = schema.MultipleOf
-			converted.ExclusiveMaximum, converted.Maximum = oas2ExclusiveBound(schema.ExclusiveMaximum, converted.Maximum)
-			converted.ExclusiveMinimum, converted.Minimum = oas2ExclusiveBound(schema.ExclusiveMinimum, converted.Minimum)
-
-			if converted.Type == "array" {
-				converted.Items = c.oas2ItemsFromSchema(schema, result, path)
-			}
+			c.oas2TypedValueFromSchema(schema, result, path).applyToHeader(converted)
 			if converted.Type == "" {
 				c.addIssueWithContext(result, path,
 					"Header schema has no type OAS 2.0 can name; defaulted to 'string'",
@@ -322,4 +304,50 @@ func (c *Converter) convertHeadersToOAS2(headers map[string]*parser.Header, resu
 		converted[name] = c.convertOAS3HeaderToOAS2(source, result, headerPath)
 	}
 	return converted
+}
+
+// oas2TypedValueFromSchema reads the OAS 2.0 type declaration a Schema Object
+// describes. It is the inverse of oas2TypedValueToSchema, and serves the
+// positions OAS 2.0 spells with a type rather than a schema: Header Objects, and
+// parameters outside the body.
+func (c *Converter) oas2TypedValueFromSchema(schema *parser.Schema, result *ConversionResult, path string) oas2TypedValue {
+	v := oas2TypedValue{
+		Type:        schemautil.GetPrimaryType(schema),
+		Format:      schema.Format,
+		Default:     schema.Default,
+		Enum:        schema.Enum,
+		Maximum:     schema.Maximum,
+		Minimum:     schema.Minimum,
+		MaxLength:   schema.MaxLength,
+		MinLength:   schema.MinLength,
+		Pattern:     schema.Pattern,
+		MaxItems:    schema.MaxItems,
+		MinItems:    schema.MinItems,
+		UniqueItems: schema.UniqueItems,
+		MultipleOf:  schema.MultipleOf,
+	}
+	v.ExclusiveMaximum, v.Maximum = oas2ExclusiveBound(schema.ExclusiveMaximum, v.Maximum)
+	v.ExclusiveMinimum, v.Minimum = oas2ExclusiveBound(schema.ExclusiveMinimum, v.Minimum)
+	if v.Type == "array" {
+		v.Items = c.oas2ItemsFromSchema(schema, result, path)
+	}
+	return v
+}
+
+func (v oas2TypedValue) applyToHeader(h *parser.Header) {
+	h.Type, h.Format, h.Default, h.Enum = v.Type, v.Format, v.Default, v.Enum
+	h.Maximum, h.ExclusiveMaximum = v.Maximum, v.ExclusiveMaximum
+	h.Minimum, h.ExclusiveMinimum = v.Minimum, v.ExclusiveMinimum
+	h.MaxLength, h.MinLength, h.Pattern = v.MaxLength, v.MinLength, v.Pattern
+	h.MaxItems, h.MinItems, h.UniqueItems = v.MaxItems, v.MinItems, v.UniqueItems
+	h.MultipleOf, h.Items = v.MultipleOf, v.Items
+}
+
+func (v oas2TypedValue) applyToParameter(p *parser.Parameter) {
+	p.Type, p.Format, p.Default, p.Enum = v.Type, v.Format, v.Default, v.Enum
+	p.Maximum, p.ExclusiveMaximum = v.Maximum, v.ExclusiveMaximum
+	p.Minimum, p.ExclusiveMinimum = v.Minimum, v.ExclusiveMinimum
+	p.MaxLength, p.MinLength, p.Pattern = v.MaxLength, v.MinLength, v.Pattern
+	p.MaxItems, p.MinItems, p.UniqueItems = v.MaxItems, v.MinItems, v.UniqueItems
+	p.MultipleOf, p.Items = v.MultipleOf, v.Items
 }

@@ -146,19 +146,21 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 	// Convert schema to type/format
 	if param.Schema != nil {
 		schema := c.convertOAS3SchemaToOAS2(param.Schema, result, fmt.Sprintf("%s.schema", path))
-		converted.Schema = schema
 
-		// Extract type and format for non-body parameters
-		if param.In != "body" && schema != nil {
-			// Type can be string or []string (OAS 3.1+), extract primary type
-			converted.Type = schemautil.GetPrimaryType(schema)
-			converted.Format = schema.Format
+		if param.In == "body" {
+			// The one position OAS 2.0 describes with a Schema Object.
+			converted.Schema = schema
+		} else if schema != nil {
+			// Everywhere else OAS 2.0 spells the value with a type declaration
+			// and defines no 'schema' field, so the schema is read into that
+			// declaration rather than carried alongside it.
+			c.oas2TypedValueFromSchema(schema, result, path).applyToParameter(converted)
 		}
 	}
 
 	// Fallback: infer type from composite schemas
 	if converted.Type == "" && param.In != "body" {
-		inferred := inferTypeFromSchema(converted.Schema)
+		inferred := inferTypeFromSchema(param.Schema)
 		if inferred != "" {
 			converted.Type = inferred
 			c.addIssueWithContext(result, path,

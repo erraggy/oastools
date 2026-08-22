@@ -1059,3 +1059,108 @@ func TestDownconvertWildcardRangeYieldsToASpecificCode(t *testing.T) {
 	}
 	assert.Contains(t, strings.Join(messages, "\n"), "more specific, so the range was dropped")
 }
+
+// TestNonBodyParameterDemotesToTypeDeclaration pins that a parameter outside the
+// body carries an OAS 2.0 type declaration and no Schema Object. Swagger 2.0
+// defines 'schema' only for `in: body`, and the validation keywords are lost
+// with it if the schema is carried alongside instead of read into the parameter.
+func TestNonBodyParameterDemotesToTypeDeclaration(t *testing.T) {
+	const source = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+            maxLength: 5
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              maxLength: 3
+      responses:
+        "200":
+          description: OK
+`
+
+	parsed, err := parser.New().ParseBytes([]byte(source))
+	require.NoError(t, err)
+
+	result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("2.0"))
+	require.NoError(t, err)
+
+	doc, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok)
+
+	params := doc.Paths["/a"].Get.Parameters
+	require.Len(t, params, 2)
+
+	byName := make(map[string]*parser.Parameter, len(params))
+	for _, p := range params {
+		byName[p.Name] = p
+	}
+
+	scalar := byName["q"]
+	require.NotNil(t, scalar)
+	assert.Nil(t, scalar.Schema, "Swagger 2.0 defines 'schema' only for a body parameter")
+	assert.Equal(t, "string", scalar.Type)
+	require.NotNil(t, scalar.MaxLength, "the validation keywords move onto the parameter")
+	assert.Equal(t, 5, *scalar.MaxLength)
+
+	array := byName["tags"]
+	require.NotNil(t, array)
+	assert.Nil(t, array.Schema)
+	assert.Equal(t, "array", array.Type)
+	require.NotNil(t, array.Items, "an array parameter needs an OAS 2.0 Items Object")
+	assert.Equal(t, "string", array.Items.Type)
+	require.NotNil(t, array.Items.MaxLength)
+	assert.Equal(t, 3, *array.Items.MaxLength)
+}
+
+// TestBodyParameterKeepsItsSchema is the counterpart: the demotion must not
+// reach the one position OAS 2.0 does describe with a Schema Object.
+func TestBodyParameterKeepsItsSchema(t *testing.T) {
+	const source = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    post:
+      operationId: a
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                n: {type: string}
+      responses:
+        "200":
+          description: OK
+`
+
+	parsed, err := parser.New().ParseBytes([]byte(source))
+	require.NoError(t, err)
+
+	result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("2.0"))
+	require.NoError(t, err)
+
+	doc, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok)
+
+	params := doc.Paths["/a"].Post.Parameters
+	require.Len(t, params, 1)
+	assert.Equal(t, "body", params[0].In)
+	require.NotNil(t, params[0].Schema, "a body parameter is described by a Schema Object")
+	assert.Equal(t, "object", params[0].Schema.Type)
+	assert.Empty(t, params[0].Type, "a body parameter has no type declaration")
+}

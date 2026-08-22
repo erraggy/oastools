@@ -256,3 +256,101 @@ components:
 		assert.Nil(t, schema.AdditionalProperties, "the %s position was not reached by the conversion", name)
 	}
 }
+
+// TestExclusiveBoundConversionAcceptsTheSameValues proves the claim the
+// conversion rests on: 2020-12 states an inclusive and an exclusive bound as two
+// independent keywords, draft 4 has one number and a flag, and the rewrite is
+// exact for every combination rather than merely close.
+//
+// It compares the two dialects by what they ACCEPT. For each pair of bounds it
+// evaluates the 2020-12 reading of the source and the draft 4 reading of the
+// converted schema over a range of values, and requires them to agree
+// everywhere. A conversion that lost a constraint would accept a value the
+// source rejected, and one that invented a constraint would reject a value the
+// source accepted.
+func TestExclusiveBoundConversionAcceptsTheSameValues(t *testing.T) {
+	ptr := func(f float64) *float64 { return &f }
+
+	for _, tc := range []struct {
+		name    string
+		maximum *float64
+		excl    any
+		minimum *float64
+		exclMin any
+	}{
+		{name: "exclusive alone", excl: 5.0},
+		{name: "inclusive alone", maximum: ptr(5)},
+		{name: "exclusive tighter", maximum: ptr(10), excl: 5.0},
+		{name: "inclusive tighter", maximum: ptr(3), excl: 8.0},
+		{name: "bounds equal", maximum: ptr(4), excl: 4.0},
+		{name: "min exclusive alone", exclMin: 5.0},
+		{name: "min exclusive tighter", minimum: ptr(1), exclMin: 5.0},
+		{name: "min inclusive tighter", minimum: ptr(7), exclMin: 2.0},
+		{name: "min bounds equal", minimum: ptr(4), exclMin: 4.0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			schema := &parser.Schema{
+				Type:             "number",
+				Maximum:          tc.maximum,
+				ExclusiveMaximum: tc.excl,
+				Minimum:          tc.minimum,
+				ExclusiveMinimum: tc.exclMin,
+			}
+			// The 2020-12 reading, taken before the schema is rewritten.
+			source := func(x float64) bool {
+				if tc.maximum != nil && x > *tc.maximum {
+					return false
+				}
+				if e, ok := tc.excl.(float64); ok && x >= e {
+					return false
+				}
+				if tc.minimum != nil && x < *tc.minimum {
+					return false
+				}
+				if e, ok := tc.exclMin.(float64); ok && x <= e {
+					return false
+				}
+				return true
+			}
+
+			fixSchemaExclusiveMinMaxForOAS30(schema)
+
+			// The draft 4 reading of the result, where the flag qualifies the
+			// bound beside it rather than standing on its own.
+			converted := func(x float64) bool {
+				if schema.Maximum != nil {
+					if excl, _ := schema.ExclusiveMaximum.(bool); excl {
+						if x >= *schema.Maximum {
+							return false
+						}
+					} else if x > *schema.Maximum {
+						return false
+					}
+				}
+				if schema.Minimum != nil {
+					if excl, _ := schema.ExclusiveMinimum.(bool); excl {
+						if x <= *schema.Minimum {
+							return false
+						}
+					} else if x < *schema.Minimum {
+						return false
+					}
+				}
+				return true
+			}
+
+			// Quarter steps, so a boundary is landed on exactly and straddled.
+			for step := -40; step <= 40; step++ {
+				x := float64(step) / 4
+				assert.Equal(t, source(x), converted(x), "the two dialects disagree at x=%v", x)
+			}
+
+			// A numeric exclusive bound must not survive: 2020-12 spells it as a
+			// number and draft 4 only as a bool.
+			_, numericMax := schema.ExclusiveMaximum.(float64)
+			_, numericMin := schema.ExclusiveMinimum.(float64)
+			assert.False(t, numericMax, "a numeric exclusiveMaximum is not draft 4")
+			assert.False(t, numericMin, "a numeric exclusiveMinimum is not draft 4")
+		})
+	}
+}
