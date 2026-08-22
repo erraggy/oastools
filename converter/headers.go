@@ -1,9 +1,9 @@
 // headers.go converts Header Objects between the OAS 2.0 and OAS 3.x spellings.
 //
 // parser.Header is a union of both dialects. Schema, Style, Explode and Content
-// are OAS 3.0+; Type, Format, Items and CollectionFormat are OAS 2.0. A header
-// copied across unchanged therefore carries the source version's fields into the
-// target document, and its schema reaches none of the per-schema passes (#525).
+// are OAS 3.0+; Type, Format, Items and CollectionFormat are OAS 2.0. Each
+// direction must therefore clear the fields it does not own, not only translate
+// the ones it does.
 
 package converter
 
@@ -16,12 +16,8 @@ import (
 
 // oas2TypedValue is the OAS 2.0 "typed value" field set that a Parameter, a
 // Header and an Items Object all spell identically, and that OAS 3.x replaces
-// with a Schema Object.
-//
-// Collected into one shape so the promotion is written once. Two copies of it
-// already existed, in convertOAS2ParameterToOAS3 and convertOAS2ItemsToSchema,
-// and the third was missing rather than divergent, which is the same defect a
-// step earlier.
+// with a Schema Object. Collected into one shape so the promotion is written
+// once for the three of them.
 type oas2TypedValue struct {
 	Type             string
 	Format           string
@@ -143,8 +139,7 @@ func (c *Converter) convertOAS2HeaderToOAS3(header *parser.Header, result *Conve
 
 	switch {
 	case header.Schema != nil:
-		// Already the OAS 3.x spelling. It still needs the per-schema passes,
-		// which is the half of #525 the issue title names.
+		// Already the OAS 3.x spelling, and still subject to the per-schema passes.
 		converted.Schema = c.convertOAS2SchemaToOAS3(header.Schema, result.TargetOASVersion, result, path+".schema")
 	case header.Type != "":
 		converted.Schema = c.oas2TypedValueToSchema(oas2TypedValueOfHeader(header), "Header", result, path)
@@ -158,8 +153,7 @@ func (c *Converter) convertOAS2HeaderToOAS3(header *parser.Header, result *Conve
 // OAS 2.0 spelling.
 //
 // The schema is run through the OAS 2.0 schema conversion before anything is
-// read off it, so the per-schema passes report against this position rather than
-// being skipped: that is #525.
+// read off it, so the per-schema passes report against this position.
 func (c *Converter) convertOAS3HeaderToOAS2(header *parser.Header, result *ConversionResult, path string) *parser.Header {
 	if header == nil {
 		return nil
@@ -252,9 +246,9 @@ func oas2ExclusiveBound(v any, bound *float64) (bool, *float64) {
 // in this position.
 //
 // An Items Object describes every element with one schema, so a tuple cannot
-// come across: the first position is kept and the rest are reported. The tuple
-// arrives here because convertOAS3SchemaToOAS2 has already rewritten 2020-12's
-// prefixItems into the draft 4 array form.
+// come across: the first position is kept and the rest are reported. A tuple
+// reaches here as the draft 4 array form, which convertOAS3SchemaToOAS2 has
+// already rewritten 2020-12's prefixItems into.
 func (c *Converter) oas2ItemsFromSchema(schema *parser.Schema, result *ConversionResult, path string) *parser.Items {
 	var elem *parser.Schema
 	count := 0
@@ -311,7 +305,7 @@ func (c *Converter) convertHeadersToOAS3(headers map[string]*parser.Header, resu
 
 // convertHeadersToOAS2 converts a response's header map into the OAS 2.0
 // spelling. A header naming a component is inlined first, because OAS 2.0 has no
-// components.headers to point at, and the inlined value still needs converting.
+// components.headers to point at.
 func (c *Converter) convertHeadersToOAS2(headers map[string]*parser.Header, result *ConversionResult, path string) map[string]*parser.Header {
 	if headers == nil {
 		return nil

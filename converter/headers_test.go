@@ -93,9 +93,9 @@ func TestOAS3HeaderDemotesToOAS2Spelling(t *testing.T) {
 	assert.Equal(t, 4, *arr.Items.MaxLength)
 }
 
-// TestOAS3HeaderSchemaReachesTheSchemaPasses is the defect #525 records: the
-// per-schema passes never ran on a header, so an array in a schema-or-bool field
-// travelled into the converted document unreported.
+// TestOAS3HeaderSchemaReachesTheSchemaPasses pins that a header's schema goes
+// through the per-schema passes, so an array in a schema-or-bool field is
+// cleared and reported rather than carried across.
 func TestOAS3HeaderSchemaReachesTheSchemaPasses(t *testing.T) {
 	result, headers := convertHeaderFixture(t, headerSourceOAS31, "2.0")
 
