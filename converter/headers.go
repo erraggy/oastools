@@ -176,9 +176,22 @@ func (c *Converter) convertOAS3HeaderToOAS2(header *parser.Header, result *Conve
 	}
 
 	converted := &parser.Header{
-		Ref:         header.Ref,
 		Description: header.Description,
 		Extra:       parser.DeepCopyExtensions(header.Extra),
+	}
+
+	// The Swagger 2.0 Header Object lists no `$ref` member and forbids the
+	// unlisted, so a reference cannot come across whatever it points at. A
+	// component reference has already been inlined by the caller when it could
+	// be; anything still carrying one could not be.
+	if header.Ref != "" {
+		advice := "A Swagger 2.0 Header Object takes no '$ref'. Define the header inline"
+		if strings.HasPrefix(header.Ref, componentHeadersPrefix) {
+			advice = "OAS 2.0 has no components.headers section. Define the header inline, or add the missing component so it can be inlined"
+		}
+		c.addIssueWithContext(result, path,
+			fmt.Sprintf("Header references %s, which an OAS 2.0 Header Object cannot carry; reference dropped", header.Ref),
+			advice)
 	}
 
 	if header.Schema != nil {
@@ -316,24 +329,12 @@ func (c *Converter) convertHeadersToOAS2(headers map[string]*parser.Header, resu
 	for name, header := range headers {
 		headerPath := fmt.Sprintf("%s.headers.%s", path, name)
 		source := header
-		inlined := false
 		if header != nil && header.Ref != "" && c.sourceHeaders != nil {
 			if resolved := c.resolveHeaderRef(header.Ref, result, headerPath); resolved != nil {
 				source = resolved
-				inlined = true
 			}
 		}
-		out := c.convertOAS3HeaderToOAS2(source, result, headerPath)
-		if !inlined && out != nil && strings.HasPrefix(out.Ref, componentHeadersPrefix) {
-			// OAS 2.0 has no components.headers, so this reference names a
-			// place the output document does not have. Carrying it through
-			// would emit a document validate rejects.
-			c.addIssueWithContext(result, headerPath,
-				fmt.Sprintf("Header references %s, which OAS 2.0 cannot express; reference dropped", out.Ref),
-				"OAS 2.0 has no components.headers section. Define the header inline, or add the missing component so it can be inlined")
-			out.Ref = ""
-		}
-		converted[name] = out
+		converted[name] = c.convertOAS3HeaderToOAS2(source, result, headerPath)
 	}
 	return converted
 }

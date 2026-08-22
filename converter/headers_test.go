@@ -218,10 +218,10 @@ func assertIssueMentioning(t *testing.T, result *ConversionResult, substr string
 	t.Fatalf("no conversion issue mentions %q; got %d issues", substr, len(result.Issues))
 }
 
-// TestUnresolvableComponentHeaderRefIsDropped covers a header naming a component
-// that cannot be inlined. OAS 2.0 has no components.headers, so carrying the
-// reference through emits a document that cannot resolve it.
-func TestUnresolvableComponentHeaderRefIsDropped(t *testing.T) {
+// TestUnresolvedHeaderRefIsDropped covers a header whose reference cannot be
+// inlined. The Swagger 2.0 Header Object lists no $ref member and forbids the
+// unlisted, so no reference can come across whatever it points at.
+func TestUnresolvedHeaderRefIsDropped(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		source string
@@ -243,6 +243,27 @@ paths:
           headers:
             X-H:
               $ref: '#/components/headers/Missing'
+`,
+		},
+		{
+			// Not a component reference at all. A Swagger 2.0 Header Object
+			// lists no $ref member and forbids the unlisted, so this cannot
+			// come across either.
+			name: "external reference",
+			source: `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-H:
+              $ref: 'other.yaml#/components/headers/Shared'
 `,
 		},
 		{
