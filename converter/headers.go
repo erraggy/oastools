@@ -249,11 +249,12 @@ func (c *Converter) convertOAS3HeaderToOAS2(header *parser.Header, result *Conve
 // oas2ExclusiveBound splits an OAS 3.1 numeric exclusive bound back into the
 // draft 4 pair OAS 2.0 uses: a boolean flag beside maximum or minimum. A bool is
 // already that spelling and passes through with the bound it qualified.
-func oas2ExclusiveBound(v any, bound *float64) (bool, *float64) {
+func (c *Converter) oas2ExclusiveBound(v any, bound *float64, field string, result *ConversionResult, path string) (bool, *float64) {
 	if b, isBool := v.(bool); isBool {
 		return b, bound
 	}
-	if e, ok := numericBound(v); ok {
+	if e, ok, exact := numericBound(v); ok {
+		c.reportInexactBound(exact, field, v, e, result, path)
 		return true, &e
 	}
 	return false, bound
@@ -303,8 +304,8 @@ func (c *Converter) oas2ItemsFromSchema(schema *parser.Schema, subject string, r
 		UniqueItems: elem.UniqueItems,
 		MultipleOf:  elem.MultipleOf,
 	}
-	items.ExclusiveMaximum, items.Maximum = oas2ExclusiveBound(elem.ExclusiveMaximum, items.Maximum)
-	items.ExclusiveMinimum, items.Minimum = oas2ExclusiveBound(elem.ExclusiveMinimum, items.Minimum)
+	items.ExclusiveMaximum, items.Maximum = c.oas2ExclusiveBound(elem.ExclusiveMaximum, items.Maximum, fieldExclusiveMaximum, result, path)
+	items.ExclusiveMinimum, items.Minimum = c.oas2ExclusiveBound(elem.ExclusiveMinimum, items.Minimum, fieldExclusiveMinimum, result, path)
 	if items.Type == "" {
 		// A $ref-only or untyped element names no type, and an Items Object
 		// with an empty one is not a legal OAS 2.0 document.
@@ -373,8 +374,8 @@ func (c *Converter) oas2TypedValueFromSchema(schema *parser.Schema, subject stri
 		UniqueItems: schema.UniqueItems,
 		MultipleOf:  schema.MultipleOf,
 	}
-	v.ExclusiveMaximum, v.Maximum = oas2ExclusiveBound(schema.ExclusiveMaximum, v.Maximum)
-	v.ExclusiveMinimum, v.Minimum = oas2ExclusiveBound(schema.ExclusiveMinimum, v.Minimum)
+	v.ExclusiveMaximum, v.Maximum = c.oas2ExclusiveBound(schema.ExclusiveMaximum, v.Maximum, fieldExclusiveMaximum, result, path)
+	v.ExclusiveMinimum, v.Minimum = c.oas2ExclusiveBound(schema.ExclusiveMinimum, v.Minimum, fieldExclusiveMinimum, result, path)
 	if v.Type == "array" {
 		v.Items = c.oas2ItemsFromSchema(schema, subject, result, path)
 	}

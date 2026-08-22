@@ -420,7 +420,8 @@ func TestExclusiveBoundConversionAcceptsTheSameValues(t *testing.T) {
 				return true
 			}
 
-			fixSchemaExclusiveMinMaxForOAS30(schema)
+			c := &Converter{}
+			c.fixSchemaExclusiveMinMaxForOAS30(schema, nil, "")
 
 			// The draft 4 reading of the result, where the flag qualifies the
 			// bound beside it rather than standing on its own.
@@ -550,7 +551,8 @@ func TestExclusiveBoundAcceptsEveryDecodedKind(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			schema := &parser.Schema{Type: "integer", ExclusiveMinimum: tc.value}
-			fixSchemaExclusiveMinMaxForOAS30(schema)
+			c := &Converter{}
+			c.fixSchemaExclusiveMinMaxForOAS30(schema, nil, "")
 
 			assert.Equal(t, true, schema.ExclusiveMinimum, "the bound should become draft 4's boolean")
 			require.NotNil(t, schema.Minimum, "the value should move into minimum rather than being dropped")
@@ -585,4 +587,61 @@ components:
 	require.NotNil(t, big)
 	assert.Equal(t, true, big.ExclusiveMinimum)
 	require.NotNil(t, big.Minimum, "the bound was dropped, so OAS 3.0 output lost the constraint")
+}
+
+// TestInexactExclusiveBoundIsReported covers a bound the target's number model
+// cannot hold. float64(math.MaxUint64) is one greater than math.MaxUint64, so
+// the converted schema states a different boundary from the source and the
+// difference has to be reported rather than rounded away.
+func TestInexactExclusiveBoundIsReported(t *testing.T) {
+	const source = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+components:
+  schemas:
+    Huge:
+      type: integer
+      exclusiveMinimum: 18446744073709551615
+    Representable:
+      type: integer
+      exclusiveMinimum: 1152921504606846976
+`
+
+	parsed, err := parser.New().ParseBytes([]byte(source))
+	require.NoError(t, err)
+	result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("3.0.3"))
+	require.NoError(t, err)
+
+	doc, ok := result.Document.(*parser.OAS3Document)
+	require.True(t, ok)
+
+	// The bound still comes across, because leaving a numeric one behind would
+	// emit a keyword OAS 3.0 does not define.
+	huge := doc.Components.Schemas["Huge"]
+	require.NotNil(t, huge)
+	require.NotNil(t, huge.Minimum)
+	assert.Equal(t, true, huge.ExclusiveMinimum)
+
+	var messages string
+	for _, issue := range result.Issues {
+		messages += issue.Message + "\n"
+	}
+	assert.Contains(t, messages, "cannot hold exactly")
+	// The message has to name the bound the author wrote, not the boolean the
+	// conversion has just put in its place.
+	assert.Contains(t, messages, "18446744073709551615", "the report should quote the source bound")
+	assert.Contains(t, messages, "18446744073709551616", "and the bound actually recorded")
+
+	// The counterpart: 2^60 is above 2^53 and float64 holds it exactly, so a
+	// check written as "large means lossy" would report it and should not.
+	assert.NotContains(t, messages, "1152921504606846976",
+		"a bound the model holds exactly must not be reported as a loss")
 }

@@ -22,6 +22,8 @@ const (
 	fieldAdditionalProperties  = "additionalProperties"
 	fieldUnevaluatedItems      = "unevaluatedItems"
 	fieldUnevaluatedProperties = "unevaluatedProperties"
+	fieldExclusiveMaximum      = "exclusiveMaximum"
+	fieldExclusiveMinimum      = "exclusiveMinimum"
 )
 
 // convertOAS2SchemaToOAS3 converts an OAS 2.0 schema to OAS 3.x format
