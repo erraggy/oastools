@@ -410,7 +410,7 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 	dropArrayValuedSchemaOrBool(c, converted, result, path)
 
 	// Demote prefixItems to the OAS 2.0 tuple spelling of items
-	prefixItemsToTuple(c, converted, result, path)
+	prefixItemsToTuple(c, converted, result, path, oas20Spelling)
 
 	return converted
 }
@@ -426,7 +426,27 @@ func (c *Converter) convertOAS3SchemaToOAS2(schema *parser.Schema, result *Conve
 // anything, which the empty schema also does, so it converts. `false` accepts
 // nothing, and draft 4 cannot say that without `not`, which OAS 2.0 does not
 // have, so the position becomes the empty schema and the loss is reported.
-func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionResult, path string) {
+// tupleTarget names the version a tuple is being rewritten for, and states why
+// that version cannot hold a boolean schema at a position. The two need separate
+// wording: OAS 2.0 has neither a boolean schema form nor 'not' to build one
+// from, while OAS 3.0 defines 'not' and lacks only the boolean form.
+type tupleTarget struct {
+	name   string
+	noBool string
+}
+
+var (
+	oas20Spelling = tupleTarget{
+		name:   "OAS 2.0",
+		noBool: "OAS 2.0 follows JSON Schema draft 4, which has no boolean schema form and no 'not' keyword to build one from.",
+	}
+	oas30Spelling = tupleTarget{
+		name:   "OAS 3.0",
+		noBool: "The OAS 3.0 Schema Object has no boolean schema form, so a position spelled 'false' has no OAS 3.0 equivalent.",
+	}
+)
+
+func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionResult, path string, target tupleTarget) {
 	walkSchemas(schema, func(s *parser.Schema) {
 		if len(s.PrefixItems) == 0 {
 			// An array left in items is not touched here. OAS 2.0 spells a tuple
@@ -458,8 +478,8 @@ func prefixItemsToTuple(c *Converter, schema *parser.Schema, result *ConversionR
 			s.PrefixItems[i] = &parser.Schema{}
 			if !b {
 				c.addIssueWithContext(result, fmt.Sprintf("%s.prefixItems[%d]", path, i),
-					"Schema uses the boolean schema 'false' at a tuple position, which OAS 2.0 cannot express; position now accepts any value",
-					"OAS 2.0 follows JSON Schema draft 4, which has no boolean schema form and no 'not' keyword to build one from. Constrain the position with an explicit schema, or keep the document at OAS 3.1 or later")
+					fmt.Sprintf("Schema uses the boolean schema 'false' at a tuple position, which %s cannot express; position now accepts any value", target.name),
+					target.noBool+" Constrain the position with an explicit schema, or keep the document at OAS 3.1 or later")
 			}
 		}
 

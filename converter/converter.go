@@ -539,6 +539,14 @@ func (c *Converter) convertOAS3ToOAS3(parseResult parser.ParseResult, targetVers
 		c.detectOAS32Features(converted, result)
 	}
 
+	// Run the per-schema passes last, because the two detections above read the
+	// document as the caller wrote it. A pass that clears an array-valued field
+	// would otherwise take the value out from under them, and
+	// checkNullableDeprecation reports on exactly such a position.
+	forEachOAS3Schema(converted, func(schema *parser.Schema, path string) {
+		c.applyOAS3SchemaPasses(schema, targetVersion, result, path)
+	})
+
 	return nil
 }
 
